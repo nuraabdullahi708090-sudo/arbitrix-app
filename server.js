@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'mySecret123';
 
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
