@@ -534,98 +534,109 @@ function showSignupForm() {
         document.getElementById('authSuccess').classList.remove('show');
     } catch(e) { console.error('showSignupForm failed:', e); }
 }
-
-function handleSignup() {
+async function handleSignup() {
     console.log('✅ SIGNUP BUTTON CLICKED');
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirm = document.getElementById('signupConfirm').value;
+    const referral = document.getElementById('signupReferral').value.trim().toUpperCase();
+
+    if (!name || !email || !password || !confirm) {
+        showAuthError('Please fill all fields');
+        return;
+    }
+    if (password.length < 6) {
+        showAuthError('Password must be at least 6 characters');
+        return;
+    }
+    if (password !== confirm) {
+        showAuthError('Passwords do not match');
+        return;
+    }
+
     try {
-        var name = document.getElementById('signupName').value.trim();
-        var phone = document.getElementById('signupPhone').value.trim();
-        var email = document.getElementById('signupEmail').value.trim();
-        var referral = document.getElementById('signupReferral').value.trim().toUpperCase();
-        var pw = document.getElementById('signupPassword').value;
-        var cpw = document.getElementById('signupConfirm').value;
-        
-        if (!name || !email || !pw || !cpw) { 
-            showAuthError(t('auth.errors.fillAll')); 
-            return; 
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password, referralCode: referral })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            showAuthError(error.error || 'Signup failed');
+            return;
         }
-        if (pw.length < 6) { 
-            showAuthError(t('auth.errors.passwordLength')); 
-            return; 
-        }
-        if (pw !== cpw) { 
-            showAuthError(t('auth.errors.passwordMatch')); 
-            return; 
-        }
-        
-        var user = { 
-            name: name, 
-            email: email, 
-            phone: phone || '',
-            referralCode: referral || '',
-            password: pw, 
-            createdAt: new Date().toISOString() 
-        };
-        localStorage.setItem('arbi_user', JSON.stringify(user));
-        showAuthSuccess(t('auth.success.created'));
-        
-        if (referral) {
-            console.log('📢 Referral code used:', referral);
-            setTimeout(function() {
-                showToast('🎉 Referral code applied!', 'success', 2000);
-            }, 500);
-        }
-        
-        setTimeout(function() {
+
+        const data = await response.json();
+        localStorage.setItem('jwt_token', data.token);
+        localStorage.setItem('arbi_user', JSON.stringify(data.user));
+
+        showAuthSuccess('Account created successfully!');
+
+        setTimeout(() => {
             document.getElementById('authPage').style.display = 'none';
             document.getElementById('landingPage').style.display = 'block';
-            document.getElementById('displayName').textContent = name;
-            document.getElementById('userName').textContent = name;
-            var greeting = document.getElementById('landingUserGreeting');
+            document.getElementById('displayName').textContent = data.user.name;
+            document.getElementById('userName').textContent = data.user.name;
+            const greeting = document.getElementById('landingUserGreeting');
             if (greeting) {
                 greeting.style.display = 'inline-block';
-                document.getElementById('landingUserName').textContent = name;
+                document.getElementById('landingUserName').textContent = data.user.name;
             }
         }, 800);
     } catch (e) {
-        console.error('Signup error:', e);
-        showAuthError('Error: ' + e.message);
+        showAuthError('Network error. Please try again.');
+        console.error(e);
     }
 }
+}
 
-function handleLogin() {
+async function handleLogin() {
     console.log('✅ LOGIN BUTTON CLICKED');
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) {
+        showAuthError('Please fill all fields');
+        return;
+    }
+
     try {
-        var email = document.getElementById('loginEmail').value.trim();
-        var pw = document.getElementById('loginPassword').value;
-        
-        if (!email || !pw) { showAuthError(t('auth.errors.fillAll')); return; }
-        
-        var saved = localStorage.getItem('arbi_user');
-        if (!saved) { showAuthError(t('auth.errors.noAccount')); return; }
-        
-        var user = JSON.parse(saved);
-        if (user.email !== email || user.password !== pw) { showAuthError(t('auth.errors.invalidCredentials')); return; }
-        
-        showAuthSuccess(t('auth.success.welcome') + ', ' + user.name + '!');
-        
-        setTimeout(function() {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            showAuthError(error.error || 'Invalid email or password');
+            return;
+        }
+
+        const data = await response.json();
+        localStorage.setItem('jwt_token', data.token);
+        localStorage.setItem('arbi_user', JSON.stringify(data.user));
+
+        showAuthSuccess('Welcome back, ' + data.user.name + '!');
+
+        setTimeout(() => {
             document.getElementById('authPage').style.display = 'none';
             document.getElementById('landingPage').style.display = 'block';
-            document.getElementById('displayName').textContent = user.name;
-            document.getElementById('userName').textContent = user.name;
-            var greeting = document.getElementById('landingUserGreeting');
+            document.getElementById('displayName').textContent = data.user.name;
+            document.getElementById('userName').textContent = data.user.name;
+            const greeting = document.getElementById('landingUserGreeting');
             if (greeting) {
                 greeting.style.display = 'inline-block';
-                document.getElementById('landingUserName').textContent = user.name;
+                document.getElementById('landingUserName').textContent = data.user.name;
             }
         }, 800);
     } catch (e) {
-        console.error('Login error:', e);
-        showAuthError('Error: ' + e.message);
+        showAuthError('Network error. Please try again.');
+        console.error(e);
     }
 }
-
 function goToApp() {
     console.log('✅ DASHBOARD BUTTON CLICKED');
     try {
