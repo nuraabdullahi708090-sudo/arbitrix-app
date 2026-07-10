@@ -774,7 +774,10 @@ console.log('🔐 Auth script loaded successfully');
         <a class="sidebar-link" id="twofaLink"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
         <a class="sidebar-link" id="profileLink"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
         <a class="sidebar-link" id="pwaInstallSidebarLink"><i class="fas fa-download"></i> <span data-i18n="sidebar.install">Install App</span> <span style="margin-left:auto;background:var(--green);color:#fff;font-size:8px;padding:2px 6px;border-radius:8px;font-weight:700;" data-i18n="common.new">NEW</span></a>
-        <a class="sidebar-link" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span data-i18n="sidebar.logout">Logout</span></a>
+    <a class="sidebar-link" id="adminPanelLink" onclick="showAdminPanel()">
+    <i class="fas fa-user-shield"></i> <span>Admin Panel</span>
+</a>    
+<a class="sidebar-link" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span data-i18n="sidebar.logout">Logout</span></a>
         <div class="sidebar-status">
             <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#5A6A8A;"><span class="dot online"></span> <span data-i18n="sidebar.liveSync">Live Sync</span> <span id="pwaStatusDot" style="margin-left:auto;font-size:9px;color:var(--text-muted);">Web</span></div>
             <span class="status-badge demo" id="accountStatusBadge" data-i18n="status.demo">Demo Account</span>
@@ -1010,6 +1013,52 @@ console.log('🔐 Auth script loaded successfully');
         </div>
 
         <!-- ============ PROMO BANNER REMOVED ============ -->
+<!-- ============ ADMIN DASHBOARD ============ -->
+<div id="adminDashboard" style="display:none; margin-top:20px;">
+    <h2 style="color:var(--gold); font-size:20px; margin-bottom:16px;">📊 Admin Dashboard</h2>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid" style="margin-bottom:16px;" id="adminStatsGrid">
+        <div class="card"><div class="card-body"><div class="stat-label">👥 Total Users</div><div class="stat-value" id="adminTotalUsers">0</div></div></div>
+        <div class="card"><div class="card-body"><div class="stat-label">💰 Total Deposits</div><div class="stat-value gold" id="adminTotalDeposits">$0</div></div></div>
+        <div class="card"><div class="card-body"><div class="stat-label">🏦 Total Withdrawals</div><div class="stat-value gold" id="adminTotalWithdrawals">$0</div></div></div>
+        <div class="card"><div class="card-body"><div class="stat-label">📊 Volume</div><div class="stat-value green" id="adminTotalVolume">$0</div></div></div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="icon-bg gold"><i class="fas fa-users"></i></span> Users</div>
+        <div class="card-body" style="padding:0; overflow-x:auto;">
+            <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                <thead><tr style="background:#141C2E;"><th style="padding:10px; text-align:left;">ID</th><th style="padding:10px; text-align:left;">Name</th><th style="padding:10px; text-align:left;">Email</th><th style="padding:10px; text-align:left;">Demo</th><th style="padding:10px; text-align:left;">Live</th><th style="padding:10px; text-align:left;">Bonus</th></tr></thead>
+                <tbody id="adminUsersTableBody"><tr><td colspan="6" style="text-align:center; padding:20px; color:#5A6A8A;">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Deposits Table -->
+    <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="icon-bg green"><i class="fas fa-circle-down"></i></span> Deposits</div>
+        <div class="card-body" style="padding:0; overflow-x:auto;">
+            <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                <thead><tr style="background:#141C2E;"><th style="padding:10px; text-align:left;">User</th><th style="padding:10px; text-align:left;">Amount</th><th style="padding:10px; text-align:left;">Network</th><th style="padding:10px; text-align:left;">Status</th><th style="padding:10px; text-align:left;">Actions</th></tr></thead>
+                <tbody id="adminDepositsTableBody"><tr><td colspan="5" style="text-align:center; padding:20px; color:#5A6A8A;">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Withdrawals Table -->
+    <div class="card">
+        <div class="card-header"><span class="icon-bg red"><i class="fas fa-circle-up"></i></span> Withdrawals</div>
+        <div class="card-body" style="padding:0; overflow-x:auto;">
+            <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                <thead><tr style="background:#141C2E;"><th style="padding:10px; text-align:left;">User</th><th style="padding:10px; text-align:left;">Amount</th><th style="padding:10px; text-align:left;">Address</th><th style="padding:10px; text-align:left;">Status</th><th style="padding:10px; text-align:left;">Actions</th></tr></thead>
+                <tbody id="adminWithdrawalsTableBody"><tr><td colspan="5" style="text-align:center; padding:20px; color:#5A6A8A;">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- ============ END ADMIN DASHBOARD ============ -->
 
         <!-- TRANSACTION LOG -->
         <div class="card" style="margin-bottom:16px;" id="history">
@@ -3324,6 +3373,146 @@ if(savedUser) {
 }
 
 console.log('🚀 All scripts loaded successfully');
+// ========== ADMIN DASHBOARD FUNCTIONS ==========
+let adminDataLoaded = false;
+
+function showAdminPanel() {
+    const dashboard = document.getElementById('adminDashboard');
+    if (dashboard.style.display === 'block') {
+        dashboard.style.display = 'none';
+        return;
+    }
+    dashboard.style.display = 'block';
+    if (!adminDataLoaded) {
+        loadAdminData();
+        adminDataLoaded = true;
+    }
+}
+
+async function loadAdminData() {
+    try {
+        const statsRes = await fetch('/api/admin/stats');
+        if (statsRes.ok) {
+            const stats = await statsRes.json();
+            document.getElementById('adminTotalUsers').textContent = stats.totalUsers || 0;
+            document.getElementById('adminTotalDeposits').textContent = '$' + (stats.totalDeposits || 0).toFixed(2);
+            document.getElementById('adminTotalWithdrawals').textContent = '$' + (stats.totalWithdrawals || 0).toFixed(2);
+            document.getElementById('adminTotalVolume').textContent = '$' + (stats.totalVolume || 0).toFixed(2);
+        }
+
+        const usersRes = await fetch('/api/admin/users');
+        if (usersRes.ok) {
+            const users = await usersRes.json();
+            const tbody = document.getElementById('adminUsersTableBody');
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#5A6A8A;">No users</td></tr>';
+            } else {
+                tbody.innerHTML = users.map(u => `
+                    <tr>
+                        <td style="padding:8px 10px;">${u.id}</td>
+                        <td style="padding:8px 10px;">${u.name}</td>
+                        <td style="padding:8px 10px;">${u.email}</td>
+                        <td style="padding:8px 10px;">$${(u.demo_balance || 0).toFixed(2)}</td>
+                        <td style="padding:8px 10px;">$${(u.live_balance || 0).toFixed(2)}</td>
+                        <td style="padding:8px 10px;">$${(u.bonus_balance || 0).toFixed(2)}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        const depositsRes = await fetch('/api/admin/deposits');
+        if (depositsRes.ok) {
+            const deposits = await depositsRes.json();
+            const tbody = document.getElementById('adminDepositsTableBody');
+            if (deposits.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#5A6A8A;">No deposits</td></tr>';
+            } else {
+                tbody.innerHTML = deposits.map(d => `
+                    <tr>
+                        <td style="padding:8px 10px;">${d.user_name || '—'}</td>
+                        <td style="padding:8px 10px;">$${(d.amount || 0).toFixed(2)}</td>
+                        <td style="padding:8px 10px;">${d.network || '—'}</td>
+                        <td style="padding:8px 10px;"><span class="badge-status ${d.status}">${d.status}</span></td>
+                        <td style="padding:8px 10px;">
+                            ${d.status === 'pending' ? `<button class="btn btn-green btn-sm" onclick="confirmDeposit(${d.id})">Confirm</button>` : '—'}
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        const withdrawalsRes = await fetch('/api/admin/withdrawals');
+        if (withdrawalsRes.ok) {
+            const withdrawals = await withdrawalsRes.json();
+            const tbody = document.getElementById('adminWithdrawalsTableBody');
+            if (withdrawals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#5A6A8A;">No withdrawals</td></tr>';
+            } else {
+                tbody.innerHTML = withdrawals.map(w => `
+                    <tr>
+                        <td style="padding:8px 10px;">${w.user_name || '—'}</td>
+                        <td style="padding:8px 10px;">$${(w.amount || 0).toFixed(2)}</td>
+                        <td style="padding:8px 10px;" class="font-mono" style="font-size:10px;">${w.address || '—'}</td>
+                        <td style="padding:8px 10px;"><span class="badge-status ${w.status}">${w.status}</span></td>
+                        <td style="padding:8px 10px;">
+                            ${w.status === 'pending' ? `
+                                <button class="btn btn-green btn-sm" onclick="approveWithdrawal(${w.id})">Approve</button>
+                                <button class="btn btn-red btn-sm" onclick="rejectWithdrawal(${w.id})">Reject</button>
+                            ` : '—'}
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+    } catch (e) {
+        console.error('Admin load error:', e);
+        document.getElementById('adminDashboard').style.display = 'none';
+        showToast('Admin access required. Please log in as admin.', 'error');
+    }
+}
+
+async function confirmDeposit(id) {
+    if (!confirm('Confirm this deposit?')) return;
+    try {
+        const res = await fetch('/api/admin/deposits/' + id + '/confirm', { method: 'PUT' });
+        if (res.ok) {
+            showToast('✅ Deposit confirmed', 'success');
+            adminDataLoaded = false;
+            loadAdminData();
+        } else {
+            showToast('❌ Error confirming deposit', 'error');
+        }
+    } catch (e) { showToast('❌ Network error', 'error'); }
+}
+
+async function approveWithdrawal(id) {
+    if (!confirm('Approve this withdrawal?')) return;
+    try {
+        const res = await fetch('/api/admin/withdrawals/' + id + '/approve', { method: 'PUT' });
+        if (res.ok) {
+            showToast('✅ Withdrawal approved', 'success');
+            adminDataLoaded = false;
+            loadAdminData();
+        } else {
+            showToast('❌ Error approving withdrawal', 'error');
+        }
+    } catch (e) { showToast('❌ Network error', 'error'); }
+}
+
+async function rejectWithdrawal(id) {
+    if (!confirm('Reject this withdrawal?')) return;
+    try {
+        const res = await fetch('/api/admin/withdrawals/' + id + '/reject', { method: 'PUT' });
+        if (res.ok) {
+            showToast('❌ Withdrawal rejected', 'error');
+            adminDataLoaded = false;
+            loadAdminData();
+        } else {
+            showToast('❌ Error rejecting withdrawal', 'error');
+        }
+    } catch (e) { showToast('❌ Network error', 'error'); }
+}
+// ========== END ADMIN FUNCTIONS ==========
 </script>
 
 </body>
