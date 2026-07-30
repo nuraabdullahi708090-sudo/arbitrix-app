@@ -16,7 +16,14 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(cors());
+// CORS configuration - allow all origins for flexibility
+// In production, you may want to restrict this to specific domains
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true, // Allow credentials (cookies, authorization headers)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -372,6 +379,27 @@ app.get('/admin', (req, res) => {
 // Fallback – uses app.use, which does NOT cause the PathError
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Error handling middleware - MUST be defined after all routes
+// This prevents Express from rendering "[object Object]" as HTML
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err.message || err);
+  
+  // Determine status code
+  const statusCode = err.statusCode || err.status || 500;
+  
+  // Build error response
+  const errorResponse = {
+    error: err.message || 'Internal server error'
+  };
+  
+  // Include stack trace in development only
+  if (process.env.NODE_ENV !== 'production' && err.stack) {
+    errorResponse.stack = err.stack.split('\n').slice(0, 3).join('\n');
+  }
+  
+  res.status(statusCode).json(errorResponse);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
