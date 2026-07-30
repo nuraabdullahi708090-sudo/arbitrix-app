@@ -376,6 +376,45 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Diagnostic endpoint to check Supabase connection (MUST be before fallback)
+app.get('/api/diagnostic', async (req, res) => {
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    supabaseUrl: supabaseUrl,
+    supabaseProjectRef: supabaseUrl.replace('https://', '').split('.')[0],
+    supabaseUrlReachable: false,
+    supabaseQueryTest: null
+  };
+  
+  // Test Supabase query
+  try {
+    const { data, error, details, hint, message } = await supabase.from('users').select('id').limit(1);
+    diagnostics.supabaseUrlReachable = true;
+    if (error) {
+      diagnostics.supabaseQueryTest = { 
+        success: false, 
+        error: message || error.message || 'Unknown error',
+        details: details || null,
+        hint: hint || null
+      };
+    } else {
+      diagnostics.supabaseQueryTest = { success: true, data };
+    }
+  } catch (e) {
+    diagnostics.supabaseUrlReachable = false;
+    console.error('Supabase connection error:', e.message);
+    console.error('Error cause:', e.cause);
+    diagnostics.supabaseQueryTest = { 
+      success: false, 
+      error: e.message,
+      cause: e.cause ? (e.cause.message || e.cause.code || String(e.cause)) : null
+    };
+  }
+  
+  res.json(diagnostics);
+});
+
 // Fallback – uses app.use, which does NOT cause the PathError
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -386,17 +425,37 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('Server Error:', err.message || err);
   
+  // Log detailed error information for debugging
+  if (err.cause) {
+    console.error('Error cause:', err.cause.message || err.cause);
+    console.error('Error cause details:', JSON.stringify(err.cause));
+  }
+  
   // Determine status code
   const statusCode = err.statusCode || err.status || 500;
   
   // Build error response
+  let errorMessage = err.message || 'Internal server error';
+  
+  // Handle "fetch failed" errors with more detail
+  if (errorMessage === 'fetch failed' || errorMessage === 'TypeError: fetch failed') {
+    if (err.cause) {
+      errorMessage = `Supabase connection failed: ${err.cause.message || err.cause.code || 'Network error'}`;
+    } else {
+      errorMessage = 'Supabase connection failed: Unable to reach the database server';
+    }
+  }
+  
   const errorResponse = {
-    error: err.message || 'Internal server error'
+    error: errorMessage
   };
   
   // Include stack trace in development only
   if (process.env.NODE_ENV !== 'production' && err.stack) {
     errorResponse.stack = err.stack.split('\n').slice(0, 3).join('\n');
+    if (err.cause) {
+      errorResponse.cause = err.cause.message || String(err.cause);
+    }
   }
   
   res.status(statusCode).json(errorResponse);
