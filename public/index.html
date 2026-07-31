@@ -585,6 +585,8 @@ async function handleSignup() {
                 greeting.style.display = 'inline-block';
                 document.getElementById('landingUserName').textContent = data.user.name;
             }
+            // Check if user is admin
+            checkAdminAccess();
         }, 800);
     } catch (e) {
         showAuthError('Network error. Please try again.');
@@ -631,6 +633,8 @@ async function handleLogin() {
                 greeting.style.display = 'inline-block';
                 document.getElementById('landingUserName').textContent = data.user.name;
             }
+            // Check if user is admin
+            checkAdminAccess();
         }, 800);
     } catch (e) {
         showAuthError('Network error. Please try again.');
@@ -782,6 +786,7 @@ console.log('🔐 Auth script loaded successfully');
         <a class="sidebar-link" id="withdrawSidebarLink"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></a>
         <a class="sidebar-link" data-section="history"><i class="fas fa-clock-rotate-left"></i> <span data-i18n="sidebar.history">Transaction Log</span></a>
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
+        <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:#F0B90B;"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
         <div style="height:1px;background:#1E2A3F;margin:8px 20px;"></div>
         <a class="sidebar-link" id="twofaLink"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
         <a class="sidebar-link" id="profileLink"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
@@ -1077,6 +1082,97 @@ console.log('🔐 Auth script loaded successfully');
 
 
         <div class="two-col-grid" style="margin-bottom:16px;">
+            <!-- ADMIN PANEL -->
+            <div class="card hidden" id="adminPanel">
+                <div class="card-header"><span class="icon-bg gold"><i class="fas fa-user-shield"></i></span> <span data-i18n="admin.title">Admin Panel</span></div>
+                <div class="card-body">
+                    <!-- Admin Stats -->
+                    <div class="stats-grid" style="margin-bottom:16px;">
+                        <div class="card">
+                            <div class="card-header"><span class="icon-bg blue"><i class="fas fa-users"></i></span> Total Users</div>
+                            <div class="card-body"><div class="stat-value" id="adminTotalUsers">-</div></div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><span class="icon-bg green"><i class="fas fa-arrow-down"></i></span> Total Deposits</div>
+                            <div class="card-body"><div class="stat-value" id="adminTotalDeposits">-</div></div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><span class="icon-bg red"><i class="fas fa-arrow-up"></i></span> Total Withdrawals</div>
+                            <div class="card-body"><div class="stat-value" id="adminTotalWithdrawals">-</div></div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> Active Bots</div>
+                            <div class="card-body"><div class="stat-value" id="adminActiveBots">-</div></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="mode-tabs" style="margin-bottom:12px;">
+                        <button type="button" class="mode-tab active" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
+                    </div>
+                    
+                    <!-- Users Tab -->
+                    <div id="adminTabContentUsers">
+                        <div style="max-height:300px;overflow-y:auto;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                    <tr style="border-bottom:1px solid #1E2A3F;">
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Name</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Email</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Referral Code</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Demo Balance</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Live Balance</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Bonus</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminUsersTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Deposits Tab -->
+                    <div id="adminTabContentDeposits" class="hidden">
+                        <div style="max-height:300px;overflow-y:auto;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                    <tr style="border-bottom:1px solid #1E2A3F;">
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">ID</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Amount</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Network</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Date</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminDepositsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Withdrawals Tab -->
+                    <div id="adminTabContentWithdrawals" class="hidden">
+                        <div style="max-height:300px;overflow-y:auto;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                    <tr style="border-bottom:1px solid #1E2A3F;">
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">ID</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Amount</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Address</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Date</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminWithdrawalsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REFERRAL SECTION -->
             <div class="card" id="referral">
                 <div class="card-header"><span class="icon-bg gold"><i class="fas fa-gift"></i></span> <span data-i18n="referral.title">Referral Program</span></div>
                 <div class="card-body">
@@ -3313,7 +3409,237 @@ function initApp() {
     
     window.addEventListener('resize', function() { if(APP.chartInstance) APP.chartInstance.resize(); });
     
+    // Check if user is admin and show admin panel
+    checkAdminAccess();
+    
     console.log('✅ App initialized successfully');
+}
+
+// ============ ADMIN PANEL FUNCTIONS ============
+function checkAdminAccess() {
+    const savedUser = localStorage.getItem('arbi_user');
+    if (savedUser) {
+        try {
+            const user = JSON.parse(savedUser);
+            const adminLink = document.getElementById('adminSidebarLink');
+            if (adminLink && user.isAdmin) {
+                adminLink.classList.remove('hidden');
+                adminLink.classList.add('sidebar-link');
+            }
+        } catch(e) {}
+    }
+}
+
+function navigateToAdmin() {
+    // Hide all sections
+    document.querySelectorAll('.card[id], .wallet-section[id], .two-col-grid[id]').forEach(function(el) {
+        el.style.display = 'none';
+    });
+    
+    // Show admin panel
+    const adminPanel = document.getElementById('adminPanel');
+    if (adminPanel) {
+        adminPanel.classList.remove('hidden');
+        adminPanel.style.display = 'block';
+    }
+    
+    // Update sidebar active state
+    document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
+    const adminLink = document.getElementById('adminSidebarLink');
+    if (adminLink) adminLink.classList.add('active');
+    
+    // Load admin data
+    loadAdminData();
+}
+
+function showAdminTab(tab) {
+    // Update tab buttons
+    document.querySelectorAll('.mode-tab').forEach(function(btn) { btn.classList.remove('active'); });
+    const tabBtn = document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (tabBtn) tabBtn.classList.add('active');
+    
+    // Show/hide content
+    document.getElementById('adminTabContentUsers').classList.add('hidden');
+    document.getElementById('adminTabContentDeposits').classList.add('hidden');
+    document.getElementById('adminTabContentWithdrawals').classList.add('hidden');
+    const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (content) content.classList.remove('hidden');
+}
+
+async function loadAdminData() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        // Load stats
+        const statsRes = await fetch('/api/admin/stats', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (statsRes.ok) {
+            const stats = await statsRes.json();
+            document.getElementById('adminTotalUsers').textContent = stats.totalUsers || 0;
+            document.getElementById('adminTotalDeposits').textContent = '$' + (stats.totalDeposits || 0).toFixed(2);
+            document.getElementById('adminTotalWithdrawals').textContent = '$' + (stats.totalWithdrawals || 0).toFixed(2);
+            document.getElementById('adminActiveBots').textContent = stats.activeBots || 0;
+        }
+        
+        // Load users
+        const usersRes = await fetch('/api/admin/users', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (usersRes.ok) {
+            const users = await usersRes.json();
+            renderAdminUsers(users);
+        }
+        
+        // Load deposits
+        const depositsRes = await fetch('/api/admin/deposits', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (depositsRes.ok) {
+            const deposits = await depositsRes.json();
+            renderAdminDeposits(deposits);
+        }
+        
+        // Load withdrawals
+        const withdrawalsRes = await fetch('/api/admin/withdrawals', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (withdrawalsRes.ok) {
+            const withdrawals = await withdrawalsRes.json();
+            renderAdminWithdrawals(withdrawals);
+        }
+    } catch(e) {
+        console.error('Admin load error:', e);
+    }
+}
+
+function renderAdminUsers(users) {
+    const tbody = document.getElementById('adminUsersTable');
+    if (!tbody) return;
+    
+    if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">No users found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = users.map(function(u) {
+        return '<tr style="border-bottom:1px solid #1E2A3F;">' +
+            '<td style="padding:8px;">' + (u.name || 'N/A') + '</td>' +
+            '<td style="padding:8px;">' + u.email + '</td>' +
+            '<td style="padding:8px;font-family:monospace;">' + u.referral_code + '</td>' +
+            '<td style="padding:8px;">$' + (u.demo_balance || 0).toFixed(2) + '</td>' +
+            '<td style="padding:8px;">$' + (u.live_balance || 0).toFixed(2) + '</td>' +
+            '<td style="padding:8px;">$' + (u.bonus_balance || 0).toFixed(2) + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+function renderAdminDeposits(deposits) {
+    const tbody = document.getElementById('adminDepositsTable');
+    if (!tbody) return;
+    
+    if (!deposits || deposits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">No deposits found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = deposits.map(function(d) {
+        const statusColor = d.status === 'confirmed' ? 'color:#10B981;' : (d.status === 'pending' ? 'color:#F59E0B;' : 'color:#EF4444;');
+        const actionBtn = d.status === 'pending' ? 
+            '<button type="button" class="btn btn-success btn-sm" onclick="confirmDeposit(' + d.id + ')">Confirm</button>' : 
+            '<span style="' + statusColor + '">' + d.status + '</span>';
+        
+        return '<tr style="border-bottom:1px solid #1E2A3F;">' +
+            '<td style="padding:8px;">' + d.id + '</td>' +
+            '<td style="padding:8px;">$' + (d.amount || 0).toFixed(2) + '</td>' +
+            '<td style="padding:8px;">' + (d.network || 'N/A') + '</td>' +
+            '<td style="padding:8px;' + statusColor + '">' + d.status + '</td>' +
+            '<td style="padding:8px;">' + new Date(d.created_at).toLocaleDateString() + '</td>' +
+            '<td style="padding:8px;">' + actionBtn + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+function renderAdminWithdrawals(withdrawals) {
+    const tbody = document.getElementById('adminWithdrawalsTable');
+    if (!tbody) return;
+    
+    if (!withdrawals || withdrawals.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">No withdrawals found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = withdrawals.map(function(w) {
+        const statusColor = w.status === 'approved' ? 'color:#10B981;' : (w.status === 'pending' ? 'color:#F59E0B;' : 'color:#EF4444;');
+        const actionBtns = w.status === 'pending' ? 
+            '<button type="button" class="btn btn-success btn-sm" onclick="approveWithdrawal(' + w.id + ')" style="margin-right:4px;">Approve</button>' +
+            '<button type="button" class="btn btn-danger btn-sm" onclick="rejectWithdrawal(' + w.id + ')">Reject</button>' : 
+            '<span style="' + statusColor + '">' + w.status + '</span>';
+        
+        return '<tr style="border-bottom:1px solid #1E2A3F;">' +
+            '<td style="padding:8px;">' + w.id + '</td>' +
+            '<td style="padding:8px;">$' + (w.amount || 0).toFixed(2) + '</td>' +
+            '<td style="padding:8px;font-family:monospace;font-size:9px;max-width:100px;overflow:hidden;text-overflow:ellipsis;">' + (w.address || 'N/A') + '</td>' +
+            '<td style="padding:8px;' + statusColor + '">' + w.status + '</td>' +
+            '<td style="padding:8px;">' + new Date(w.created_at).toLocaleDateString() + '</td>' +
+            '<td style="padding:8px;">' + actionBtns + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+async function confirmDeposit(depositId) {
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/deposits/' + depositId + '/confirm', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            showToast('Deposit confirmed!', 'success');
+            loadAdminData();
+        } else {
+            showToast('Failed to confirm deposit', 'error');
+        }
+    } catch(e) {
+        showToast('Error confirming deposit', 'error');
+    }
+}
+
+async function approveWithdrawal(withdrawalId) {
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/withdrawals/' + withdrawalId + '/approve', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            showToast('Withdrawal approved!', 'success');
+            loadAdminData();
+        } else {
+            showToast('Failed to approve withdrawal', 'error');
+        }
+    } catch(e) {
+        showToast('Error approving withdrawal', 'error');
+    }
+}
+
+async function rejectWithdrawal(withdrawalId) {
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/withdrawals/' + withdrawalId + '/reject', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            showToast('Withdrawal rejected', 'info');
+            loadAdminData();
+        } else {
+            showToast('Failed to reject withdrawal', 'error');
+        }
+    } catch(e) {
+        showToast('Error rejecting withdrawal', 'error');
+    }
 }
 
 // ============ STARTUP ============
