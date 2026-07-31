@@ -3336,6 +3336,15 @@ function initApp() {
         });
     });
     
+    // Admin sidebar link handler
+    const adminSidebarLink = document.getElementById('adminSidebarLink');
+    if (adminSidebarLink) {
+        adminSidebarLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            navigateToAdmin(e);
+        });
+    }
+    
     const installLink = getEl('pwaInstallSidebarLink');
     if(installLink) {
         installLink.addEventListener('click', function(e) {
@@ -3430,11 +3439,25 @@ function checkAdminAccess() {
     }
 }
 
-function navigateToAdmin() {
-    // Hide all sections
-    document.querySelectorAll('.card[id], .wallet-section[id], .two-col-grid[id]').forEach(function(el) {
-        el.style.display = 'none';
-    });
+function navigateToAdmin(e) {
+    if (e) e.preventDefault();
+    
+    // Close mobile sidebar if open
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('open');
+    
+    // Hide all main content sections using scrollIntoView pattern
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) {
+        // Hide all cards and wallet sections within main content
+        mainContent.querySelectorAll('.card, .wallet-section').forEach(function(el) {
+            if (el.id !== 'adminPanel') {
+                el.style.display = 'none';
+            }
+        });
+    }
     
     // Show admin panel
     const adminPanel = document.getElementById('adminPanel');
@@ -3446,7 +3469,12 @@ function navigateToAdmin() {
     // Update sidebar active state
     document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
     const adminLink = document.getElementById('adminSidebarLink');
-    if (adminLink) adminLink.classList.add('active');
+    if (adminLink) {
+        adminLink.classList.add('active');
+    }
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     
     // Load admin data
     loadAdminData();
