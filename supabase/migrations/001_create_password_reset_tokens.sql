@@ -23,12 +23,17 @@ CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
     token_hash TEXT NOT NULL,
     
     -- Token expiration timestamp
+    -- NOTE: Expiration is enforced at the APPLICATION LEVEL, not via constraint
+    -- Why: Using NOW() in CHECK constraints is problematic for production:
+    --   - Volatile functions in constraints can cause replication issues
+    --   - Partial indexes with NOW() become stale over time
+    --   - The application already calculates Date.now() + RESET_TOKEN_EXPIRY correctly
     expires_at TIMESTAMPTZ NOT NULL,
     
     -- Whether the token has been used
     used BOOLEAN NOT NULL DEFAULT FALSE,
     
-    -- Creation timestamp
+    -- Creation timestamp (used for cleanup instead of expires_at)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Track which IP requested the reset (for security auditing)
@@ -39,25 +44,18 @@ CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
 -- 2. ADD CONSTRAINTS
 -- ============================================
 
--- Ensure expires_at is in the future when inserting
--- This prevents accidentally creating already-expired tokens
-ALTER TABLE public.password_reset_tokens
-    ADD CONSTRAINT password_reset_tokens_expires_at_future
-    CHECK (expires_at > NOW())
-    NOT VALID;
-
--- Ensure used cannot be set back to FALSE once TRUE
--- A token can only be used once for security
-ALTER TABLE public.password_reset_tokens
-    ADD CONSTRAINT password_reset_tokens_used_immutable
-    CHECK (used = FALSE OR (used = TRUE AND expires_at > NOW()))
-    NOT VALID;
-
 -- Validate email format (basic check)
 -- More strict validation can be done at application level
 ALTER TABLE public.password_reset_tokens
     ADD CONSTRAINT password_reset_tokens_email_format
     CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+    NOT VALID;
+
+-- Ensure expires_at is NOT NULL and is a valid timestamp
+-- This is a basic sanity check, not a time validation
+ALTER TABLE public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_expires_at_not_null
+    CHECK (expires_at IS NOT NULL)
     NOT VALID;
 
 -- ============================================
@@ -74,17 +72,20 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_email
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token_hash
     ON public.password_reset_tokens(token_hash);
 
--- Expiration index: Find expired tokens for cleanup
+-- Unused tokens index: Find unused tokens for cleanup
 -- Used when: cleaning up old tokens via scheduled job
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at
+-- NOTE: We only index unused tokens to reduce index size
+-- The expires_at check is done in the query, not the index
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_unused
     ON public.password_reset_tokens(expires_at)
     WHERE used = FALSE;
 
--- Composite index: Find unexpired, unused tokens for a specific email
+-- Composite index: Find unused tokens for a specific email
 -- Used when: checking if user already has a pending reset request
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_email_active
+-- NOTE: No time filter in partial index - expires_at check is in the query
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_email_unused
     ON public.password_reset_tokens(email, expires_at)
-    WHERE used = FALSE AND expires_at > NOW();
+    WHERE used = FALSE;
 
 -- ============================================
 -- 4. ENABLE ROW LEVEL SECURITY (RLS)
