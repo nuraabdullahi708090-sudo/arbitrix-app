@@ -389,6 +389,7 @@
         
         /* Forgot Password Modal */
         .modal-overlay {
+            pointer-events: none;
             position: fixed;
             top: 0;
             left: 0;
@@ -406,6 +407,7 @@
             padding: var(--space-4);
         }
         .modal-overlay.active {
+            pointer-events: auto;
             opacity: 1;
             visibility: visible;
         }
@@ -1526,49 +1528,39 @@ function checkPasswordStrength() {
 let forgotPasswordModal = null;
 
 function showForgotPassword(e) {
-    console.log('showForgotPassword called');
     e.preventDefault();
-    document.getElementById('forgotTest').textContent = '[CALLED!]';
-    document.getElementById('forgotTest').style.color = 'green';
-    document.getElementById('forgotTest').style.background = 'yellow';
-    
-    // Create modal if it doesn't exist
+
+    // Initialize modal reference if not already done
     if (!forgotPasswordModal) {
-        console.log('Creating modal...');
         createForgotPasswordModal();
-        console.log('Modal created, forgotPasswordModal:', forgotPasswordModal);
-    } else {
-        console.log('Modal already exists');
     }
-    
+
     // Reset modal state
     const formState = document.getElementById('forgotFormState');
     const successState = document.getElementById('forgotSuccessState');
-    console.log('formState:', formState, 'successState:', successState);
-    
+
     if (formState) formState.classList.remove('hidden');
     if (successState) successState.classList.add('hidden');
-    
+
     const emailInput = document.getElementById('forgotEmailInput');
     if (emailInput) emailInput.value = '';
-    
+
     const errorEl = document.getElementById('forgotError');
     if (errorEl) errorEl.classList.add('hidden');
-    
+
     const submitBtn = document.getElementById('forgotSubmitBtn');
     if (submitBtn) {
         submitBtn.classList.remove('loading');
         submitBtn.disabled = false;
     }
-    
+
     // Show modal
-    console.log('Adding active class, forgotPasswordModal:', forgotPasswordModal);
     if (forgotPasswordModal) {
         forgotPasswordModal.classList.add('active');
         document.body.style.overflow = 'hidden';
-        console.log('Modal should be visible now');
     }
 }
+
 
 function closeForgotPasswordModal() {
     if (forgotPasswordModal) {
