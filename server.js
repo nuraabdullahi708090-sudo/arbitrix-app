@@ -19,6 +19,109 @@ const EMAIL_CONFIG = {
   from: process.env.EMAIL_FROM || 'Arbitrix AI <noreply@arbitrix.ai>'
 };
 
+// Rate limiting configuration
+// Limits explain:
+// - IP rate limit: 5 requests per 15 minutes per IP
+//   Prevents distributed attacks from the same source
+// - Email rate limit: 3 requests per hour per email
+//   Prevents targeting a specific user from multiple IPs
+//   A legitimate user won't need more than 3 resets in an hour
+const RATE_LIMIT_CONFIG = {
+  ip: {
+    maxRequests: parseInt(process.env.RATE_LIMIT_IP_MAX) || 5,
+    windowMs: (parseInt(process.env.RATE_LIMIT_IP_WINDOW) || 15) * 60 * 1000 // 15 minutes
+  },
+  email: {
+    maxRequests: parseInt(process.env.RATE_LIMIT_EMAIL_MAX) || 3,
+    windowMs: (parseInt(process.env.RATE_LIMIT_EMAIL_WINDOW) || 60) * 60 * 1000 // 1 hour
+  }
+};
+
+// In-memory rate limit store
+// In production, use Redis for distributed rate limiting
+const rateLimitStore = {
+  ip: new Map(),
+  email: new Map()
+};
+
+// Cleanup old entries periodically (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  
+  // Clean IP store
+  for (const [key, data] of rateLimitStore.ip.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
+      rateLimitStore.ip.delete(key);
+    }
+  }
+  
+  // Clean email store
+  for (const [key, data] of rateLimitStore.email.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
+      rateLimitStore.email.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+/**
+ * Check rate limit for forgot password endpoint
+ * @param {string} ip - Client IP address
+ * @param {string} email - Email address being reset
+ * @returns {object} - { allowed: boolean, remaining: number, resetIn: number }
+ */
+function checkForgotPasswordRateLimit(ip, email) {
+  const now = Date.now();
+  
+  // Check IP rate limit
+  let ipData = rateLimitStore.ip.get(ip);
+  if (!ipData || now - ipData.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
+    // Start new window
+    ipData = { count: 0, windowStart: now };
+    rateLimitStore.ip.set(ip, ipData);
+  }
+  
+  if (ipData.count >= RATE_LIMIT_CONFIG.ip.maxRequests) {
+    const resetIn = Math.ceil((ipData.windowStart + RATE_LIMIT_CONFIG.ip.windowMs - now) / 1000);
+    return {
+      allowed: false,
+      type: 'ip',
+      remaining: 0,
+      resetIn: resetIn
+    };
+  }
+  
+  // Check email rate limit
+  let emailData = rateLimitStore.email.get(email);
+  if (!emailData || now - emailData.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
+    // Start new window
+    emailData = { count: 0, windowStart: now };
+    rateLimitStore.email.set(email, emailData);
+  }
+  
+  if (emailData.count >= RATE_LIMIT_CONFIG.email.maxRequests) {
+    const resetIn = Math.ceil((emailData.windowStart + RATE_LIMIT_CONFIG.email.windowMs - now) / 1000);
+    return {
+      allowed: false,
+      type: 'email',
+      remaining: 0,
+      resetIn: resetIn
+    };
+  }
+  
+  // Increment counts
+  ipData.count++;
+  emailData.count++;
+  
+  return {
+    allowed: true,
+    remaining: Math.min(
+      RATE_LIMIT_CONFIG.ip.maxRequests - ipData.count,
+      RATE_LIMIT_CONFIG.email.maxRequests - emailData.count
+    ),
+    resetIn: 0
+  };
+}
+
 // Create Resend client
 let resendClient = null;
 
@@ -511,25 +614,45 @@ app.post('/api/auth/login', async (req, res) => {
  * POST /api/auth/forgot-password
  * Request a password reset token
  * 
- * Security: Does NOT reveal whether an account exists with that email
- * to prevent email enumeration attacks.
+ * Security: 
+ * - Rate limited to prevent abuse (5 requests/IP/15min, 3 requests/email/hour)
+ * - Does NOT reveal whether an account exists with that email
+ *   to prevent email enumeration attacks.
  */
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   
-  // Get client IP for security auditing
+  // Get client IP for rate limiting and security auditing
   const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
     || req.socket?.remoteAddress 
-    || null;
+    || 'unknown';
   
   // Validate email format
   if (!email || !email.includes('@')) {
     return res.status(400).json({ error: 'Valid email address is required' });
   }
   
+  // Normalize email for consistent rate limiting
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // Check rate limit BEFORE any database operations
+  const rateLimitResult = checkForgotPasswordRateLimit(clientIP, normalizedEmail);
+  
+  if (!rateLimitResult.allowed) {
+    // Log rate limit hit for monitoring (but don't reveal which limit was hit)
+    console.log(`⚠️ Rate limit exceeded for IP: ${clientIP}, Email: ${normalizedEmail}`);
+    
+    // Return generic message - don't reveal which limit was hit
+    // This prevents attackers from knowing if they've hit the IP or email limit
+    return res.status(429).json({
+      success: false,
+      message: 'Too many password reset attempts. Please try again later.'
+    });
+  }
+  
   try {
     // Check if user exists (but don't reveal this information)
-    const user = await getUserByEmail(email);
+    const user = await getUserByEmail(normalizedEmail);
     
     if (user) {
       // Generate a cryptographically secure token
@@ -541,14 +664,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       await supabase
         .from('password_reset_tokens')
         .update({ used: true })
-        .eq('email', email)
+        .eq('email', normalizedEmail)
         .eq('used', false);
       
       // Store the hashed token with expiration and IP for auditing
       const { error: insertError } = await supabase
         .from('password_reset_tokens')
         .insert({
-          email: email,
+          email: normalizedEmail,
           token_hash: tokenHash,
           expires_at: expiresAt,
           used: false,
@@ -560,7 +683,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         // Don't reveal the error to the user
       } else {
         // Send the reset email
-        await sendResetEmail(email, resetToken);
+        await sendResetEmail(normalizedEmail, resetToken);
       }
     }
     
