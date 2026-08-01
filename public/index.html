@@ -1526,24 +1526,48 @@ function checkPasswordStrength() {
 let forgotPasswordModal = null;
 
 function showForgotPassword(e) {
+    console.log('showForgotPassword called');
     e.preventDefault();
+    document.getElementById('forgotTest').textContent = '[CALLED!]';
+    document.getElementById('forgotTest').style.color = 'green';
+    document.getElementById('forgotTest').style.background = 'yellow';
     
     // Create modal if it doesn't exist
     if (!forgotPasswordModal) {
+        console.log('Creating modal...');
         createForgotPasswordModal();
+        console.log('Modal created, forgotPasswordModal:', forgotPasswordModal);
+    } else {
+        console.log('Modal already exists');
     }
     
     // Reset modal state
-    document.getElementById('forgotFormState').classList.remove('hidden');
-    document.getElementById('forgotSuccessState').classList.add('hidden');
-    document.getElementById('forgotEmailInput').value = '';
-    document.getElementById('forgotError').classList.add('hidden');
-    document.getElementById('forgotSubmitBtn').classList.remove('loading');
-    document.getElementById('forgotSubmitBtn').disabled = false;
+    const formState = document.getElementById('forgotFormState');
+    const successState = document.getElementById('forgotSuccessState');
+    console.log('formState:', formState, 'successState:', successState);
+    
+    if (formState) formState.classList.remove('hidden');
+    if (successState) successState.classList.add('hidden');
+    
+    const emailInput = document.getElementById('forgotEmailInput');
+    if (emailInput) emailInput.value = '';
+    
+    const errorEl = document.getElementById('forgotError');
+    if (errorEl) errorEl.classList.add('hidden');
+    
+    const submitBtn = document.getElementById('forgotSubmitBtn');
+    if (submitBtn) {
+        submitBtn.classList.remove('loading');
+        submitBtn.disabled = false;
+    }
     
     // Show modal
-    forgotPasswordModal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    console.log('Adding active class, forgotPasswordModal:', forgotPasswordModal);
+    if (forgotPasswordModal) {
+        forgotPasswordModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        console.log('Modal should be visible now');
+    }
 }
 
 function closeForgotPasswordModal() {
@@ -1554,6 +1578,11 @@ function closeForgotPasswordModal() {
 }
 
 function createForgotPasswordModal() {
+    // Skip dynamic creation - modal is now static in HTML
+    forgotPasswordModal = document.getElementById('forgotPasswordModal');
+    return;
+    
+    /* REMOVED - modal is now static in HTML
     const modalHTML = `
     <div class="modal-overlay" id="forgotPasswordModal">
         <div class="modal-content">
@@ -2040,7 +2069,7 @@ console.log('🔐 Auth script loaded successfully');
                                 <span class="checkbox-custom"><i class="fas fa-check"></i></span>
                                 <span>Remember me</span>
                             </label>
-                            <a href="#" class="forgot-link" onclick="showForgotPassword(event)">Forgot Password?</a>
+                            <a href="#" class="forgot-link" onclick="showForgotPassword(event); return false;">Forgot Password?</a>
                         </div>
                         
                         <button type="button" id="loginSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handleLogin()">
@@ -2149,6 +2178,74 @@ console.log('🔐 Auth script loaded successfully');
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Forgot Password Modal - Static Version -->
+<div class="modal-overlay" id="forgotPasswordModal">
+    <div class="modal-content">
+        <!-- Request Form State -->
+        <div id="forgotFormState">
+            <div class="modal-header">
+                <h3><i class="fas fa-key" style="color: var(--gold); margin-right: 8px;"></i>Reset Password</h3>
+                <button type="button" class="modal-close" onclick="closeForgotPasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p class="modal-description">
+                Enter your email address and we'll send you a link to reset your password.
+            </p>
+
+            <div class="alert error hidden" id="forgotError" style="margin-bottom: 16px;">
+                <i class="fas fa-circle-exclamation"></i>
+                <span id="forgotErrorText"></span>
+            </div>
+
+            <form onsubmit="handleForgotPassword(event)">
+                <div class="form-group">
+                    <label for="forgotEmailInput">Email Address</label>
+                    <div class="input-wrapper">
+                        <input
+                            type="email"
+                            id="forgotEmailInput"
+                            class="input-field"
+                            placeholder="Enter your email"
+                            autocomplete="email"
+                            required
+                        >
+                        <i class="fas fa-envelope input-icon" style="right: 14px; left: auto; transform: none;"></i>
+                    </div>
+                </div>
+
+                <button type="submit" id="forgotSubmitBtn" class="btn btn-primary btn-block" style="margin-top: 8px;">
+                    <i class="fas fa-paper-plane"></i> Send Reset Link
+                </button>
+            </form>
+        </div>
+
+        <!-- Success State -->
+        <div id="forgotSuccessState" class="hidden">
+            <div class="modal-success">
+                <div class="modal-success-icon">
+                    <i class="fas fa-check"></i>
+                </div>
+                <h3>Check Your Email</h3>
+                <p>
+                    If an account with that email exists, we've sent a password reset link to your inbox.
+                    Please check your email and follow the instructions.
+                </p>
+                <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
+                    Didn't receive the email? Check your spam folder or try again.
+                </p>
+            </div>
+            <button type="button" class="btn btn-primary btn-block" onclick="closeForgotPasswordModal()">
+                Got it
+            </button>
+        </div>
+
+        <a href="#" class="modal-back-link" onclick="closeForgotPasswordModal()">
+            Back to Sign In
+        </a>
     </div>
 </div>
 
