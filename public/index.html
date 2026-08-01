@@ -1554,8 +1554,9 @@ function showForgotPassword(e) {
         submitBtn.disabled = false;
     }
 
-    // Show modal
+    // Show modal - use style.display for immediate visibility
     if (forgotPasswordModal) {
+        forgotPasswordModal.style.display = 'flex';
         forgotPasswordModal.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
@@ -1565,6 +1566,12 @@ function showForgotPassword(e) {
 function closeForgotPasswordModal() {
     if (forgotPasswordModal) {
         forgotPasswordModal.classList.remove('active');
+        // Use setTimeout to allow CSS transition to complete before hiding
+        setTimeout(function() {
+            if (!forgotPasswordModal.classList.contains('active')) {
+                forgotPasswordModal.style.display = 'none';
+            }
+        }, 300);
         document.body.style.overflow = '';
     }
 }
@@ -2084,7 +2091,7 @@ console.log('🔐 Auth script loaded successfully');
 </div>
 
 <!-- Forgot Password Modal - Static Version -->
-<div class="modal-overlay" id="forgotPasswordModal">
+<div class="modal-overlay" id="forgotPasswordModal" style="display: none;">
     <div class="modal-content">
         <!-- Request Form State -->
         <div id="forgotFormState">
