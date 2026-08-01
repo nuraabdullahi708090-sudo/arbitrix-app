@@ -517,6 +517,11 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   
+  // Get client IP for security auditing
+  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+    || req.socket?.remoteAddress 
+    || null;
+  
   // Validate email format
   if (!email || !email.includes('@')) {
     return res.status(400).json({ error: 'Valid email address is required' });
@@ -539,14 +544,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         .eq('email', email)
         .eq('used', false);
       
-      // Store the hashed token with expiration
+      // Store the hashed token with expiration and IP for auditing
       const { error: insertError } = await supabase
         .from('password_reset_tokens')
         .insert({
           email: email,
           token_hash: tokenHash,
           expires_at: expiresAt,
-          used: false
+          used: false,
+          ip_address: clientIP
         });
       
       if (insertError) {
