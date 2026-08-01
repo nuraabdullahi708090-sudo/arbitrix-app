@@ -4,6 +4,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -11,6 +12,125 @@ const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
 const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
+
+// Email configuration (use environment variables in production)
+const EMAIL_CONFIG = {
+  apiKey: process.env.RESEND_API_KEY || '',
+  from: process.env.EMAIL_FROM || 'Arbitrix AI <noreply@arbitrix.ai>'
+};
+
+// Rate limiting configuration
+// Limits explain:
+// - IP rate limit: 5 requests per 15 minutes per IP
+//   Prevents distributed attacks from the same source
+// - Email rate limit: 3 requests per hour per email
+//   Prevents targeting a specific user from multiple IPs
+//   A legitimate user won't need more than 3 resets in an hour
+const RATE_LIMIT_CONFIG = {
+  ip: {
+    maxRequests: parseInt(process.env.RATE_LIMIT_IP_MAX) || 5,
+    windowMs: (parseInt(process.env.RATE_LIMIT_IP_WINDOW) || 15) * 60 * 1000 // 15 minutes
+  },
+  email: {
+    maxRequests: parseInt(process.env.RATE_LIMIT_EMAIL_MAX) || 3,
+    windowMs: (parseInt(process.env.RATE_LIMIT_EMAIL_WINDOW) || 60) * 60 * 1000 // 1 hour
+  }
+};
+
+// In-memory rate limit store
+// In production, use Redis for distributed rate limiting
+const rateLimitStore = {
+  ip: new Map(),
+  email: new Map()
+};
+
+// Cleanup old entries periodically (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  
+  // Clean IP store
+  for (const [key, data] of rateLimitStore.ip.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
+      rateLimitStore.ip.delete(key);
+    }
+  }
+  
+  // Clean email store
+  for (const [key, data] of rateLimitStore.email.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
+      rateLimitStore.email.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+/**
+ * Check rate limit for forgot password endpoint
+ * @param {string} ip - Client IP address
+ * @param {string} email - Email address being reset
+ * @returns {object} - { allowed: boolean, remaining: number, resetIn: number }
+ */
+function checkForgotPasswordRateLimit(ip, email) {
+  const now = Date.now();
+  
+  // Check IP rate limit
+  let ipData = rateLimitStore.ip.get(ip);
+  if (!ipData || now - ipData.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
+    // Start new window
+    ipData = { count: 0, windowStart: now };
+    rateLimitStore.ip.set(ip, ipData);
+  }
+  
+  if (ipData.count >= RATE_LIMIT_CONFIG.ip.maxRequests) {
+    const resetIn = Math.ceil((ipData.windowStart + RATE_LIMIT_CONFIG.ip.windowMs - now) / 1000);
+    return {
+      allowed: false,
+      type: 'ip',
+      remaining: 0,
+      resetIn: resetIn
+    };
+  }
+  
+  // Check email rate limit
+  let emailData = rateLimitStore.email.get(email);
+  if (!emailData || now - emailData.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
+    // Start new window
+    emailData = { count: 0, windowStart: now };
+    rateLimitStore.email.set(email, emailData);
+  }
+  
+  if (emailData.count >= RATE_LIMIT_CONFIG.email.maxRequests) {
+    const resetIn = Math.ceil((emailData.windowStart + RATE_LIMIT_CONFIG.email.windowMs - now) / 1000);
+    return {
+      allowed: false,
+      type: 'email',
+      remaining: 0,
+      resetIn: resetIn
+    };
+  }
+  
+  // Increment counts
+  ipData.count++;
+  emailData.count++;
+  
+  return {
+    allowed: true,
+    remaining: Math.min(
+      RATE_LIMIT_CONFIG.ip.maxRequests - ipData.count,
+      RATE_LIMIT_CONFIG.email.maxRequests - emailData.count
+    ),
+    resetIn: 0
+  };
+}
+
+// Create Resend client
+let resendClient = null;
+
+function getResendClient() {
+  if (!resendClient && EMAIL_CONFIG.apiKey) {
+    resendClient = new Resend(EMAIL_CONFIG.apiKey);
+  }
+  return resendClient;
+}
 
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
 const supabaseUrl = 'https://gabqgewycepcyyzqkvvt.supabase.co';
@@ -166,12 +286,12 @@ async function createResetTokensTable() {
 
 // Setup endpoint to create tables (for development)
 app.post('/api/setup/reset-tokens-table', async (req, res) => {
-  const { error } = await supabase.rpc('create_password_reset_tokens_table');
-  if (error) {
-    // Try alternative approach
-    res.json({
+  // Use Supabase REST API to create table with service role permissions
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey) {
+    res.status(500).json({
       success: false,
-      message: 'Please create the table manually using the SQL migration file.',
+      message: 'SUPABASE_SERVICE_KEY environment variable not set',
       sql: `CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email TEXT NOT NULL,
@@ -181,34 +301,260 @@ app.post('/api/setup/reset-tokens-table', async (req, res) => {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );`
     });
-  } else {
-    res.json({ success: true, message: 'Table created successfully' });
+    return;
   }
+  
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/create_password_reset_tokens_table`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`
+      }
+    });
+    
+    if (response.ok) {
+      res.json({ success: true, message: 'Table created successfully' });
+    } else {
+      const errorText = await response.text();
+      res.status(response.status).json({
+        success: false,
+        message: 'Failed to create table. Create it manually in Supabase dashboard.',
+        sql: `CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          email TEXT NOT NULL,
+          token_hash TEXT NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );`,
+        error: errorText
+      });
+    }
+  } catch (e) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating table: ' + e.message,
+      sql: `CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );`
+    });
+  }
+});
+
+// Debug endpoint to create table using direct SQL (bypasses RLS)
+app.post('/api/debug/create-table', async (req, res) => {
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'SUPABASE_SERVICE_KEY not configured. Create table manually in Supabase dashboard.'
+    });
+    return;
+  }
+  
+  try {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_email ON public.password_reset_tokens(email);
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token_hash ON public.password_reset_tokens(token_hash);
+    `;
+    
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/exec_sql`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`
+      },
+      body: JSON.stringify({ query: sql })
+    });
+    
+    if (response.ok) {
+      res.json({ success: true, message: 'Table created successfully' });
+    } else {
+      res.status(response.status).json({ 
+        success: false, 
+        message: 'Failed to create table. Please create manually in Supabase dashboard.',
+        sql: `CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          email TEXT NOT NULL,
+          token_hash TEXT NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );`
+      });
+    }
+  } catch (e) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error: ' + e.message,
+      note: 'Create table manually in Supabase dashboard SQL Editor'
+    });
+  }
+});
+
+// Test endpoint to verify email sending works (without database)
+app.post('/api/test/send-test-email', async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+  
+  const testToken = 'test-token-' + Date.now();
+  const sent = await sendResetEmail(email, testToken);
+  
+  res.json({ 
+    success: sent,
+    message: sent ? 'Email function executed (check server logs)' : 'Failed to send email',
+    note: 'Configure RESEND_API_KEY in .env for real email delivery'
+  });
 });
 
 /**
  * Send password reset email
- * In production, integrate with an email service (SendGrid, AWS SES, etc.)
- * For now, logs to console with the reset link
+ * Uses Resend SDK to send actual emails via REST API
+ * Falls back to console logging if API key is not configured
  */
 async function sendResetEmail(email, token) {
   const resetLink = `${BASE_URL}/reset-password.html?token=${token}&email=${encodeURIComponent(email)}`;
+  const resend = getResendClient();
   
-  // In production, replace this with actual email sending logic
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('📧 PASSWORD RESET EMAIL');
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log(`To: ${email}`);
-  console.log(`Subject: Password Reset Request - Arbitrix AI`);
-  console.log(`Reset Link: ${resetLink}`);
-  console.log(`Token (for debugging): ${token}`);
-  console.log(`Expires in: 1 hour`);
-  console.log('═══════════════════════════════════════════════════════════');
+  // If no API key configured, log to console (development mode)
+  if (!resend) {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📧 PASSWORD RESET EMAIL (Development Mode - No API Key Configured)');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`To: ${email}`);
+    console.log(`Subject: Password Reset Request - Arbitrix AI`);
+    console.log(`Reset Link: ${resetLink}`);
+    console.log(`Token (for debugging): ${token}`);
+    console.log(`Expires in: 1 hour`);
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('To enable real emails, configure RESEND_API_KEY in environment variables');
+    console.log('═══════════════════════════════════════════════════════════');
+    return true;
+  }
   
-  // Simulate email sending delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return true;
+  // Send actual email using Resend SDK
+  try {
+    const { data, error } = await resend.emails.send({
+      from: EMAIL_CONFIG.from,
+      to: email,
+      subject: 'Password Reset Request - Arbitrix AI',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset - Arbitrix AI</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+            <tr>
+              <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
+                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+                <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="background-color: #ffffff; padding: 40px 30px;">
+                <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px;">Password Reset Request</h2>
+                <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                  You requested a password reset for your Arbitrix AI account. Click the button below to reset your password:
+                </p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="text-align: center; padding: 30px 0;">
+                      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%); color: #0d1117; text-decoration: none; font-weight: 600; font-size: 16px; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);">
+                        Reset Password
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 20px 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+                  Or copy and paste this link into your browser:
+                </p>
+                <p style="margin: 0; word-break: break-all; font-size: 13px;">
+                  <a href="${resetLink}" style="color: #2563eb;">${resetLink}</a>
+                </p>
+                <div style="margin-top: 30px; padding: 20px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                  <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+                    <strong>⚠️ Security Notice:</strong><br>
+                    This link will expire in <strong>1 hour</strong>.<br>
+                    If you didn't request this password reset, please ignore this email.
+                  </p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; color: #6b7280; font-size: 12px;">
+                  This is an automated message from Arbitrix AI.<br>
+                  Please do not reply to this email.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+      text: `Password Reset Request - Arbitrix AI
+
+You requested a password reset for your Arbitrix AI account.
+
+Click the link below to reset your password:
+${resetLink}
+
+This link will expire in 1 hour.
+
+If you didn't request this password reset, please ignore this email.
+
+---
+This is an automated message from Arbitrix AI.`
+    });
+    
+    if (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('❌ FAILED TO SEND PASSWORD RESET EMAIL');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error(`To: ${email}`);
+      console.error(`Error: ${error.message}`);
+      console.error('═══════════════════════════════════════════════════════════');
+      return false;
+    }
+    
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📧 PASSWORD RESET EMAIL SENT SUCCESSFULLY');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`To: ${email}`);
+    console.log(`Email ID: ${data?.id}`);
+    console.log('═══════════════════════════════════════════════════════════');
+    return true;
+  } catch (err) {
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('❌ FAILED TO SEND PASSWORD RESET EMAIL');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error(`To: ${email}`);
+    console.error(`Error: ${err.message}`);
+    console.error('═══════════════════════════════════════════════════════════');
+    return false;
+  }
 }
 
 // ---------- AUTH MIDDLEWARE ----------
@@ -268,20 +614,45 @@ app.post('/api/auth/login', async (req, res) => {
  * POST /api/auth/forgot-password
  * Request a password reset token
  * 
- * Security: Does NOT reveal whether an account exists with that email
- * to prevent email enumeration attacks.
+ * Security: 
+ * - Rate limited to prevent abuse (5 requests/IP/15min, 3 requests/email/hour)
+ * - Does NOT reveal whether an account exists with that email
+ *   to prevent email enumeration attacks.
  */
 app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
+  
+  // Get client IP for rate limiting and security auditing
+  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+    || req.socket?.remoteAddress 
+    || 'unknown';
   
   // Validate email format
   if (!email || !email.includes('@')) {
     return res.status(400).json({ error: 'Valid email address is required' });
   }
   
+  // Normalize email for consistent rate limiting
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // Check rate limit BEFORE any database operations
+  const rateLimitResult = checkForgotPasswordRateLimit(clientIP, normalizedEmail);
+  
+  if (!rateLimitResult.allowed) {
+    // Log rate limit hit for monitoring (but don't reveal which limit was hit)
+    console.log(`⚠️ Rate limit exceeded for IP: ${clientIP}, Email: ${normalizedEmail}`);
+    
+    // Return generic message - don't reveal which limit was hit
+    // This prevents attackers from knowing if they've hit the IP or email limit
+    return res.status(429).json({
+      success: false,
+      message: 'Too many password reset attempts. Please try again later.'
+    });
+  }
+  
   try {
     // Check if user exists (but don't reveal this information)
-    const user = await getUserByEmail(email);
+    const user = await getUserByEmail(normalizedEmail);
     
     if (user) {
       // Generate a cryptographically secure token
@@ -293,17 +664,18 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       await supabase
         .from('password_reset_tokens')
         .update({ used: true })
-        .eq('email', email)
+        .eq('email', normalizedEmail)
         .eq('used', false);
       
-      // Store the hashed token with expiration
+      // Store the hashed token with expiration and IP for auditing
       const { error: insertError } = await supabase
         .from('password_reset_tokens')
         .insert({
-          email: email,
+          email: normalizedEmail,
           token_hash: tokenHash,
           expires_at: expiresAt,
-          used: false
+          used: false,
+          ip_address: clientIP
         });
       
       if (insertError) {
@@ -311,7 +683,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         // Don't reveal the error to the user
       } else {
         // Send the reset email
-        await sendResetEmail(email, resetToken);
+        await sendResetEmail(normalizedEmail, resetToken);
       }
     }
     
