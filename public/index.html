@@ -387,6 +387,118 @@
             }
         }
         
+        /* Forgot Password Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            padding: var(--space-4);
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            width: 100%;
+            max-width: 400px;
+            transform: scale(0.95) translateY(10px);
+            transition: transform 0.3s ease;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1) translateY(0);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-4);
+        }
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+        }
+        .modal-close:hover {
+            background: var(--border-color);
+            color: white;
+        }
+        .modal-description {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: var(--space-4);
+        }
+        .modal-success {
+            text-align: center;
+            padding: var(--space-4) 0;
+        }
+        .modal-success-icon {
+            width: 64px;
+            height: 64px;
+            background: rgba(0, 192, 118, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto var(--space-4);
+        }
+        .modal-success-icon i {
+            font-size: 28px;
+            color: var(--green);
+        }
+        .modal-success h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: var(--space-2);
+        }
+        .modal-success p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .modal-back-link {
+            display: block;
+            text-align: center;
+            margin-top: var(--space-4);
+            color: var(--gold);
+            font-size: 14px;
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+        .modal-back-link:hover {
+            color: var(--gold-hover);
+        }
+        
         /* Tabs */
         .auth-tabs {
             display: flex;
@@ -1410,10 +1522,170 @@ function checkPasswordStrength() {
     else if (score >= 4) strengthText.className = 'strength-text strong';
 }
 
-// Show forgot password (placeholder - would need backend implementation)
+// Forgot Password Modal Functions
+let forgotPasswordModal = null;
+
 function showForgotPassword(e) {
     e.preventDefault();
-    showAuthError('Password reset functionality coming soon. Please contact support.', 'login');
+    
+    // Create modal if it doesn't exist
+    if (!forgotPasswordModal) {
+        createForgotPasswordModal();
+    }
+    
+    // Reset modal state
+    document.getElementById('forgotFormState').classList.remove('hidden');
+    document.getElementById('forgotSuccessState').classList.add('hidden');
+    document.getElementById('forgotEmailInput').value = '';
+    document.getElementById('forgotError').classList.add('hidden');
+    document.getElementById('forgotSubmitBtn').classList.remove('loading');
+    document.getElementById('forgotSubmitBtn').disabled = false;
+    
+    // Show modal
+    forgotPasswordModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeForgotPasswordModal() {
+    if (forgotPasswordModal) {
+        forgotPasswordModal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function createForgotPasswordModal() {
+    const modalHTML = `
+    <div class="modal-overlay" id="forgotPasswordModal">
+        <div class="modal-content">
+            <!-- Request Form State -->
+            <div id="forgotFormState">
+                <div class="modal-header">
+                    <h3><i class="fas fa-key" style="color: var(--gold); margin-right: 8px;"></i>Reset Password</h3>
+                    <button type="button" class="modal-close" onclick="closeForgotPasswordModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p class="modal-description">
+                    Enter your email address and we'll send you a link to reset your password.
+                </p>
+                
+                <div class="alert error hidden" id="forgotError" style="margin-bottom: 16px;">
+                    <i class="fas fa-circle-exclamation"></i>
+                    <span id="forgotErrorText"></span>
+                </div>
+                
+                <form onsubmit="handleForgotPassword(event)">
+                    <div class="form-group">
+                        <label for="forgotEmailInput">Email Address</label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="email" 
+                                id="forgotEmailInput" 
+                                class="input-field" 
+                                placeholder="Enter your email"
+                                autocomplete="email"
+                                required
+                            >
+                            <i class="fas fa-envelope input-icon" style="right: 14px; left: auto; transform: none;"></i>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" id="forgotSubmitBtn" class="btn btn-primary btn-block" style="margin-top: 8px;">
+                        <i class="fas fa-paper-plane"></i> Send Reset Link
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Success State -->
+            <div id="forgotSuccessState" class="hidden">
+                <div class="modal-success">
+                    <div class="modal-success-icon">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h3>Check Your Email</h3>
+                    <p>
+                        If an account with that email exists, we've sent a password reset link to your inbox. 
+                        Please check your email and follow the instructions.
+                    </p>
+                    <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
+                        Didn't receive the email? Check your spam folder or try again.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-primary btn-block" onclick="closeForgotPasswordModal()">
+                    Got it
+                </button>
+            </div>
+            
+            <a href="#" class="modal-back-link" onclick="closeForgotPasswordModal()">
+                Back to Sign In
+            </a>
+        </div>
+    </div>
+    `;
+    
+    // Add modal to body
+    const temp = document.createElement('div');
+    temp.innerHTML = modalHTML;
+    document.body.appendChild(temp.firstElementChild);
+    
+    forgotPasswordModal = document.getElementById('forgotPasswordModal');
+    
+    // Close modal on overlay click
+    forgotPasswordModal.addEventListener('click', (e) => {
+        if (e.target === forgotPasswordModal) {
+            closeForgotPasswordModal();
+        }
+    });
+    
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && forgotPasswordModal.classList.contains('active')) {
+            closeForgotPasswordModal();
+        }
+    });
+}
+
+async function handleForgotPassword(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('forgotEmailInput').value.trim();
+    const btn = document.getElementById('forgotSubmitBtn');
+    const errorEl = document.getElementById('forgotError');
+    const errorText = document.getElementById('forgotErrorText');
+    
+    // Validate email
+    if (!email || !email.includes('@')) {
+        errorText.textContent = 'Please enter a valid email address';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    
+    // Show loading
+    btn.classList.add('loading');
+    btn.disabled = true;
+    errorEl.classList.add('hidden');
+    
+    try {
+        const response = await fetch('/api/auth/forgot-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        
+        // Always show success state to prevent email enumeration
+        // The server returns success even if email doesn't exist
+        document.getElementById('forgotFormState').classList.add('hidden');
+        document.getElementById('forgotSuccessState').classList.remove('hidden');
+        
+    } catch (error) {
+        // Still show success to prevent email enumeration
+        document.getElementById('forgotFormState').classList.add('hidden');
+        document.getElementById('forgotSuccessState').classList.remove('hidden');
+    }
 }
 
 function setButtonLoading(btn, loading) {

@@ -3,11 +3,14 @@ const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
+const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
 const supabaseUrl = 'https://gabqgewycepcyyzqkvvt.supabase.co';
@@ -61,6 +64,153 @@ async function addTransaction(userId, type, amount, detail) {
   await supabase.from('transactions').insert({ user_id: userId, type, amount, detail: detail || '' });
 }
 
+// ---------- PASSWORD RESET HELPERS ----------
+
+/**
+ * Generate a cryptographically secure random token
+ * @returns {string} A secure random token
+ */
+function generateResetToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Hash a reset token for storage (never store plain tokens)
+ * @param {string} token - The plain token
+ * @returns {string} The hashed token
+ */
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Ensure the password_reset_tokens table exists
+ */
+async function ensureResetTokensTable() {
+  try {
+    // Try to insert a test record to check if table exists
+    const testEmail = 'test-' + Date.now() + '@placeholder.com';
+    const testToken = hashToken('test');
+    const testExpiry = new Date(Date.now() - 1000).toISOString();
+    
+    const { error } = await supabase
+      .from('password_reset_tokens')
+      .insert({ 
+        email: testEmail, 
+        token_hash: testToken, 
+        expires_at: testExpiry, 
+        used: true 
+      });
+    
+    if (error && error.code === '42P01') {
+      // Table doesn't exist, create it
+      console.log('Creating password_reset_tokens table...');
+      await createResetTokensTable();
+      return true;
+    } else if (!error) {
+      // Clean up test record
+      await supabase.from('password_reset_tokens')
+        .delete()
+        .eq('email', testEmail);
+    }
+    return true;
+  } catch (e) {
+    console.log('⚠️ Could not verify password_reset_tokens table:', e.message);
+    return false;
+  }
+}
+
+/**
+ * Create the password_reset_tokens table using raw SQL
+ */
+async function createResetTokensTable() {
+  try {
+    // Use raw SQL to create the table
+    // Note: This requires the service_role key with elevated permissions
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_email 
+        ON public.password_reset_tokens(email);
+      
+      CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token_hash 
+        ON public.password_reset_tokens(token_hash);
+    `;
+    
+    // Try to execute via a workaround - insert a record with specific structure
+    // This won't work with Supabase REST API, so we'll use a workaround
+    
+    // Alternative: Check if we can use the pg_catalog
+    const { error } = await supabase.rpc('exec', { sql: createTableSQL });
+    
+    if (error) {
+      console.log('Could not create table via RPC. Please create manually:');
+      console.log('See migrations/001_create_password_reset_tokens.sql');
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.log('Table creation failed:', e.message);
+    console.log('Please create the table manually using:');
+    console.log('migrations/001_create_password_reset_tokens.sql');
+    return false;
+  }
+}
+
+// Setup endpoint to create tables (for development)
+app.post('/api/setup/reset-tokens-table', async (req, res) => {
+  const { error } = await supabase.rpc('create_password_reset_tokens_table');
+  if (error) {
+    // Try alternative approach
+    res.json({
+      success: false,
+      message: 'Please create the table manually using the SQL migration file.',
+      sql: `CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );`
+    });
+  } else {
+    res.json({ success: true, message: 'Table created successfully' });
+  }
+});
+
+/**
+ * Send password reset email
+ * In production, integrate with an email service (SendGrid, AWS SES, etc.)
+ * For now, logs to console with the reset link
+ */
+async function sendResetEmail(email, token) {
+  const resetLink = `${BASE_URL}/reset-password.html?token=${token}&email=${encodeURIComponent(email)}`;
+  
+  // In production, replace this with actual email sending logic
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('📧 PASSWORD RESET EMAIL');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log(`To: ${email}`);
+  console.log(`Subject: Password Reset Request - Arbitrix AI`);
+  console.log(`Reset Link: ${resetLink}`);
+  console.log(`Token (for debugging): ${token}`);
+  console.log(`Expires in: 1 hour`);
+  console.log('═══════════════════════════════════════════════════════════');
+  
+  // Simulate email sending delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  return true;
+}
+
 // ---------- AUTH MIDDLEWARE ----------
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
@@ -111,6 +261,220 @@ app.post('/api/auth/login', async (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
   const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1 } });
+});
+
+// ---------- FORGOT PASSWORD ----------
+/**
+ * POST /api/auth/forgot-password
+ * Request a password reset token
+ * 
+ * Security: Does NOT reveal whether an account exists with that email
+ * to prevent email enumeration attacks.
+ */
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  
+  // Validate email format
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ error: 'Valid email address is required' });
+  }
+  
+  try {
+    // Check if user exists (but don't reveal this information)
+    const user = await getUserByEmail(email);
+    
+    if (user) {
+      // Generate a cryptographically secure token
+      const resetToken = generateResetToken();
+      const tokenHash = hashToken(resetToken);
+      const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
+      
+      // Invalidate any existing reset tokens for this email
+      await supabase
+        .from('password_reset_tokens')
+        .update({ used: true })
+        .eq('email', email)
+        .eq('used', false);
+      
+      // Store the hashed token with expiration
+      const { error: insertError } = await supabase
+        .from('password_reset_tokens')
+        .insert({
+          email: email,
+          token_hash: tokenHash,
+          expires_at: expiresAt,
+          used: false
+        });
+      
+      if (insertError) {
+        console.error('Failed to insert reset token:', insertError);
+        // Don't reveal the error to the user
+      } else {
+        // Send the reset email
+        await sendResetEmail(email, resetToken);
+      }
+    }
+    
+    // Always return success, even if email doesn't exist
+    // This prevents email enumeration attacks
+    res.json({ 
+      success: true, 
+      message: 'If an account with that email exists, we have sent a password reset link.'
+    });
+    
+  } catch (e) {
+    console.error('Forgot password error:', e.message);
+    // Always return success to prevent email enumeration
+    res.json({ 
+      success: true, 
+      message: 'If an account with that email exists, we have sent a password reset link.'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Reset password using a valid token
+ */
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { email, token, newPassword } = req.body;
+  
+  // Validate all required fields
+  if (!email || !token || !newPassword) {
+    return res.status(400).json({ 
+      error: 'Email, token, and new password are required' 
+    });
+  }
+  
+  // Validate password strength
+  if (newPassword.length < 6) {
+    return res.status(400).json({ 
+      error: 'Password must be at least 6 characters' 
+    });
+  }
+  
+  try {
+    // Hash the provided token to compare with stored hash
+    const tokenHash = hashToken(token);
+    
+    // Find the reset token record
+    const { data: resetRecord, error: findError } = await supabase
+      .from('password_reset_tokens')
+      .select('*')
+      .eq('email', email)
+      .eq('token_hash', tokenHash)
+      .eq('used', false)
+      .single();
+    
+    if (findError || !resetRecord) {
+      return res.status(400).json({ 
+        error: 'Invalid or expired reset token. Please request a new password reset.' 
+      });
+    }
+    
+    // Check if token is expired
+    const expiresAt = new Date(resetRecord.expires_at);
+    if (expiresAt < new Date()) {
+      return res.status(400).json({ 
+        error: 'This reset link has expired. Please request a new password reset.' 
+      });
+    }
+    
+    // Get the user to update password
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(400).json({ 
+        error: 'Invalid reset token. Please request a new password reset.' 
+      });
+    }
+    
+    // Hash the new password
+    const newPasswordHash = bcrypt.hashSync(newPassword, 10);
+    
+    // Update the user's password
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password_hash: newPasswordHash })
+      .eq('id', user.id);
+    
+    if (updateError) {
+      console.error('Failed to update password:', updateError);
+      return res.status(500).json({ 
+        error: 'Failed to update password. Please try again.' 
+      });
+    }
+    
+    // Mark the token as used (single use)
+    await supabase
+      .from('password_reset_tokens')
+      .update({ used: true })
+      .eq('id', resetRecord.id);
+    
+    console.log(`✅ Password reset successful for user: ${email}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Your password has been reset successfully. You can now login with your new password.' 
+    });
+    
+  } catch (e) {
+    console.error('Reset password error:', e.message);
+    res.status(500).json({ 
+      error: 'An error occurred while resetting your password. Please try again.' 
+    });
+  }
+});
+
+/**
+ * GET /api/auth/verify-reset-token
+ * Verify if a reset token is valid (for frontend validation)
+ */
+app.get('/api/auth/verify-reset-token', async (req, res) => {
+  const { email, token } = req.query;
+  
+  if (!email || !token) {
+    return res.status(400).json({ 
+      valid: false, 
+      error: 'Email and token are required' 
+    });
+  }
+  
+  try {
+    const tokenHash = hashToken(token);
+    
+    const { data: resetRecord, error } = await supabase
+      .from('password_reset_tokens')
+      .select('*')
+      .eq('email', email)
+      .eq('token_hash', tokenHash)
+      .eq('used', false)
+      .single();
+    
+    if (error || !resetRecord) {
+      return res.json({ 
+        valid: false, 
+        error: 'Invalid reset token' 
+      });
+    }
+    
+    // Check expiration
+    const expiresAt = new Date(resetRecord.expires_at);
+    if (expiresAt < new Date()) {
+      return res.json({ 
+        valid: false, 
+        error: 'This reset link has expired' 
+      });
+    }
+    
+    res.json({ valid: true });
+    
+  } catch (e) {
+    console.error('Verify token error:', e.message);
+    res.json({ 
+      valid: false, 
+      error: 'An error occurred' 
+    });
+  }
 });
 
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
