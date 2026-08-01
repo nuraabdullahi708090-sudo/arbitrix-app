@@ -4,7 +4,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -15,32 +15,18 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 
 // Email configuration (use environment variables in production)
 const EMAIL_CONFIG = {
-  host: process.env.SMTP_HOST || 'smtp.resend.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
-  },
+  apiKey: process.env.RESEND_API_KEY || '',
   from: process.env.EMAIL_FROM || 'Arbitrix AI <noreply@arbitrix.ai>'
 };
 
-// Create email transporter
-let emailTransporter = null;
+// Create Resend client
+let resendClient = null;
 
-function getEmailTransporter() {
-  if (!emailTransporter && EMAIL_CONFIG.auth.user && EMAIL_CONFIG.auth.pass) {
-    emailTransporter = nodemailer.createTransport({
-      host: EMAIL_CONFIG.host,
-      port: EMAIL_CONFIG.port,
-      secure: EMAIL_CONFIG.secure,
-      auth: {
-        user: EMAIL_CONFIG.auth.user,
-        pass: EMAIL_CONFIG.auth.pass
-      }
-    });
+function getResendClient() {
+  if (!resendClient && EMAIL_CONFIG.apiKey) {
+    resendClient = new Resend(EMAIL_CONFIG.apiKey);
   }
-  return emailTransporter;
+  return resendClient;
 }
 
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
@@ -332,23 +318,23 @@ app.post('/api/test/send-test-email', async (req, res) => {
   res.json({ 
     success: sent,
     message: sent ? 'Email function executed (check server logs)' : 'Failed to send email',
-    note: 'Configure SMTP credentials in .env for real email delivery'
+    note: 'Configure RESEND_API_KEY in .env for real email delivery'
   });
 });
 
 /**
  * Send password reset email
- * Uses nodemailer to send actual emails via SMTP
- * Falls back to console logging if email is not configured
+ * Uses Resend SDK to send actual emails via REST API
+ * Falls back to console logging if API key is not configured
  */
 async function sendResetEmail(email, token) {
   const resetLink = `${BASE_URL}/reset-password.html?token=${token}&email=${encodeURIComponent(email)}`;
-  const transporter = getEmailTransporter();
+  const resend = getResendClient();
   
-  // If no email credentials configured, log to console (development mode)
-  if (!transporter) {
+  // If no API key configured, log to console (development mode)
+  if (!resend) {
     console.log('═══════════════════════════════════════════════════════════');
-    console.log('📧 PASSWORD RESET EMAIL (Development Mode - No Email Configured)');
+    console.log('📧 PASSWORD RESET EMAIL (Development Mode - No API Key Configured)');
     console.log('═══════════════════════════════════════════════════════════');
     console.log(`To: ${email}`);
     console.log(`Subject: Password Reset Request - Arbitrix AI`);
@@ -356,77 +342,76 @@ async function sendResetEmail(email, token) {
     console.log(`Token (for debugging): ${token}`);
     console.log(`Expires in: 1 hour`);
     console.log('═══════════════════════════════════════════════════════════');
-    console.log('To enable real emails, configure SMTP credentials in environment variables:');
-    console.log('  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM');
+    console.log('To enable real emails, configure RESEND_API_KEY in environment variables');
     console.log('═══════════════════════════════════════════════════════════');
     return true;
   }
   
-  // Send actual email
-  const mailOptions = {
-    from: EMAIL_CONFIG.from,
-    to: email,
-    subject: 'Password Reset Request - Arbitrix AI',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset - Arbitrix AI</title>
-      </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-          <tr>
-            <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
-              <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #ffffff; padding: 40px 30px;">
-              <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px;">Password Reset Request</h2>
-              <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                You requested a password reset for your Arbitrix AI account. Click the button below to reset your password:
-              </p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="text-align: center; padding: 30px 0;">
-                    <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%); color: #0d1117; text-decoration: none; font-weight: 600; font-size: 16px; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);">
-                      Reset Password
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin: 20px 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
-                Or copy and paste this link into your browser:
-              </p>
-              <p style="margin: 0; word-break: break-all; font-size: 13px;">
-                <a href="${resetLink}" style="color: #2563eb;">${resetLink}</a>
-              </p>
-              <div style="margin-top: 30px; padding: 20px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
-                  <strong>⚠️ Security Notice:</strong><br>
-                  This link will expire in <strong>1 hour</strong>.<br>
-                  If you didn't request this password reset, please ignore this email.
+  // Send actual email using Resend SDK
+  try {
+    const { data, error } = await resend.emails.send({
+      from: EMAIL_CONFIG.from,
+      to: email,
+      subject: 'Password Reset Request - Arbitrix AI',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset - Arbitrix AI</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+            <tr>
+              <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
+                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+                <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="background-color: #ffffff; padding: 40px 30px;">
+                <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px;">Password Reset Request</h2>
+                <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                  You requested a password reset for your Arbitrix AI account. Click the button below to reset your password:
                 </p>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0; color: #6b7280; font-size: 12px;">
-                This is an automated message from Arbitrix AI.<br>
-                Please do not reply to this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
-    `,
-    text: `
-Password Reset Request - Arbitrix AI
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="text-align: center; padding: 30px 0;">
+                      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%); color: #0d1117; text-decoration: none; font-weight: 600; font-size: 16px; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);">
+                        Reset Password
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 20px 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+                  Or copy and paste this link into your browser:
+                </p>
+                <p style="margin: 0; word-break: break-all; font-size: 13px;">
+                  <a href="${resetLink}" style="color: #2563eb;">${resetLink}</a>
+                </p>
+                <div style="margin-top: 30px; padding: 20px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                  <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+                    <strong>⚠️ Security Notice:</strong><br>
+                    This link will expire in <strong>1 hour</strong>.<br>
+                    If you didn't request this password reset, please ignore this email.
+                  </p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; color: #6b7280; font-size: 12px;">
+                  This is an automated message from Arbitrix AI.<br>
+                  Please do not reply to this email.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+      text: `Password Reset Request - Arbitrix AI
 
 You requested a password reset for your Arbitrix AI account.
 
@@ -438,26 +423,32 @@ This link will expire in 1 hour.
 If you didn't request this password reset, please ignore this email.
 
 ---
-This is an automated message from Arbitrix AI.
-    `
-  };
-  
-  try {
-    const info = await transporter.sendMail(mailOptions);
+This is an automated message from Arbitrix AI.`
+    });
+    
+    if (error) {
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('❌ FAILED TO SEND PASSWORD RESET EMAIL');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error(`To: ${email}`);
+      console.error(`Error: ${error.message}`);
+      console.error('═══════════════════════════════════════════════════════════');
+      return false;
+    }
+    
     console.log('═══════════════════════════════════════════════════════════');
     console.log('📧 PASSWORD RESET EMAIL SENT SUCCESSFULLY');
     console.log('═══════════════════════════════════════════════════════════');
     console.log(`To: ${email}`);
-    console.log(`Message ID: ${info.messageId}`);
-    console.log(`Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
+    console.log(`Email ID: ${data?.id}`);
     console.log('═══════════════════════════════════════════════════════════');
     return true;
-  } catch (error) {
+  } catch (err) {
     console.error('═══════════════════════════════════════════════════════════');
     console.error('❌ FAILED TO SEND PASSWORD RESET EMAIL');
     console.error('═══════════════════════════════════════════════════════════');
     console.error(`To: ${email}`);
-    console.error(`Error: ${error.message}`);
+    console.error(`Error: ${err.message}`);
     console.error('═══════════════════════════════════════════════════════════');
     return false;
   }
