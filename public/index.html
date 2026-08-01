@@ -543,6 +543,9 @@
             cursor: pointer;
             padding: 4px;
             transition: color var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .password-toggle:hover {
             color: var(--text-secondary);
@@ -550,10 +553,21 @@
         .password-toggle i {
             font-size: 16px;
         }
-        .input-field[type="password"] ~ .password-toggle i.fa-eye,
+        /* Password type shows eye icon to reveal */
+        .input-field[type="password"] ~ .password-toggle i.fa-eye { display: inline; }
         .input-field[type="password"] ~ .password-toggle i.fa-eye-slash { display: none; }
-        .input-field[type="text"] ~ .password-toggle i.fa-eye-slash,
-        .input-field:not([type="password"]) ~ .password-toggle { display: none; }
+        /* Text type shows eye-slash icon to hide */
+        .input-field[type="text"] ~ .password-toggle i.fa-eye { display: none; }
+        .input-field[type="text"] ~ .password-toggle i.fa-eye-slash { display: inline; }
+        /* Add right padding to inputs with toggle button */
+        .input-field[type="password"] ~ .password-toggle,
+        .input-field[type="text"] ~ .password-toggle {
+            right: 12px;
+        }
+        /* Adjust input padding when toggle is present */
+        .input-wrapper:has(.password-toggle) .input-field {
+            padding-right: 44px;
+        }
         
         /* Password Strength */
         .password-strength {
@@ -1295,15 +1309,21 @@ function showSignupForm() {
     } catch(e) { console.error('showSignupForm failed:', e); }
 }
 
-// Toggle password visibility
+// Toggle password/field visibility
 function togglePassword(inputId) {
     var input = document.getElementById(inputId);
     if (!input) return;
     
     if (input.type === 'password') {
         input.type = 'text';
-    } else {
-        input.type = 'password';
+    } else if (input.type === 'text') {
+        // For non-password text fields (like wallet address), toggle between text and password
+        if (input.dataset.encrypted === 'true') {
+            input.type = 'password';
+        } else {
+            // Default behavior for text fields - toggle visibility for privacy
+            input.type = input.type === 'text' ? 'password' : 'text';
+        }
     }
 }
 
@@ -2350,7 +2370,17 @@ console.log('🔐 Auth script loaded successfully');
         <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
         <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $700 | Requires 1 trade completed | 24-72h processing</span></div>
         <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
-        <div class="form-group"><label data-i18n="withdraw.address">Wallet Address</label><input type="text" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address"></div>
+        <div class="form-group">
+            <label data-i18n="withdraw.address">Wallet Address</label>
+            <div class="input-wrapper">
+                <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-encrypted="true">
+                <i class="fas fa-wallet input-icon"></i>
+                <button type="button" class="password-toggle" onclick="togglePassword('withdrawAddressInput')" aria-label="Toggle visibility">
+                    <i class="fas fa-eye"></i>
+                    <i class="fas fa-eye-slash"></i>
+                </button>
+            </div>
+        </div>
         <button type="button" onclick="submitWithdraw()" class="btn btn-danger btn-block" data-i18n="withdraw.submit">Withdraw</button>
         <div style="margin-top:12px;border-top:1px solid #1E2A3F;padding-top:8px;">
             <div style="display:flex;justify-content:space-between;font-size:9px;color:#5A6A8A;"><span data-i18n="withdraw.recent">Recent</span><span id="withdrawHistoryCount">0</span></div>
