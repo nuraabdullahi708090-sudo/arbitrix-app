@@ -546,23 +546,29 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 24px;
+            height: 24px;
         }
         .password-toggle:hover {
             color: var(--text-secondary);
         }
         .password-toggle i {
             font-size: 16px;
+            line-height: 1;
         }
-        /* Password type shows eye icon to reveal */
-        .input-field[type="password"] ~ .password-toggle i.fa-eye { display: inline; }
-        .input-field[type="password"] ~ .password-toggle i.fa-eye-slash { display: none; }
-        /* Text type shows eye-slash icon to hide */
-        .input-field[type="text"] ~ .password-toggle i.fa-eye { display: none; }
-        .input-field[type="text"] ~ .password-toggle i.fa-eye-slash { display: inline; }
-        /* Add right padding to inputs with toggle button */
-        .input-field[type="password"] ~ .password-toggle,
-        .input-field[type="text"] ~ .password-toggle {
-            right: 12px;
+        /* Default: show fa-eye (password hidden), hide fa-eye-slash */
+        .password-toggle i.fa-eye { 
+            display: inline; 
+        }
+        .password-toggle i.fa-eye-slash { 
+            display: none; 
+        }
+        /* When toggle has 'active' class: show fa-eye-slash, hide fa-eye */
+        .password-toggle.active i.fa-eye { 
+            display: none; 
+        }
+        .password-toggle.active i.fa-eye-slash { 
+            display: inline; 
         }
         /* Adjust input padding when toggle is present */
         .input-wrapper:has(.password-toggle) .input-field {
@@ -1312,18 +1318,30 @@ function showSignupForm() {
 // Toggle password/field visibility
 function togglePassword(inputId) {
     var input = document.getElementById(inputId);
-    if (!input) return;
+    if (!input) {
+        console.error('Input not found:', inputId);
+        return;
+    }
     
+    // Find the associated toggle button
+    var wrapper = input.closest('.input-wrapper');
+    if (!wrapper) {
+        console.error('Input wrapper not found');
+        return;
+    }
+    var toggleBtn = wrapper.querySelector('.password-toggle');
+    if (!toggleBtn) {
+        console.error('Toggle button not found');
+        return;
+    }
+    
+    // Toggle between password and text
     if (input.type === 'password') {
         input.type = 'text';
-    } else if (input.type === 'text') {
-        // For non-password text fields (like wallet address), toggle between text and password
-        if (input.dataset.encrypted === 'true') {
-            input.type = 'password';
-        } else {
-            // Default behavior for text fields - toggle visibility for privacy
-            input.type = input.type === 'text' ? 'password' : 'text';
-        }
+        toggleBtn.classList.add('active');
+    } else {
+        input.type = 'password';
+        toggleBtn.classList.remove('active');
     }
 }
 
