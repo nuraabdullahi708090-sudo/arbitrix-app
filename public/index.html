@@ -1356,6 +1356,738 @@
         
         .withdraw-btn-disabled { opacity: 0.5; cursor: not-allowed; }
         .withdraw-btn-disabled:hover { transform: none !important; }
+        /* ============================================
+           LANDING PAGE REDESIGN - Premium Fintech Style
+           ============================================ */
+
+        /* Base Container */
+        .landing-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navigation */
+        .landing-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(7, 11, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .landing-nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 72px;
+        }
+        .landing-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: 800;
+            font-size: 22px;
+            letter-spacing: -0.5px;
+        }
+        .landing-logo i {
+            color: var(--gold);
+            font-size: 24px;
+        }
+        .landing-logo span span {
+            color: var(--gold);
+        }
+        .landing-nav-links {
+            display: flex;
+            gap: 32px;
+        }
+        .landing-nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .landing-nav-links a:hover {
+            color: white;
+        }
+        .landing-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .landing-cta-btn {
+            padding: 10px 20px !important;
+            font-size: 14px !important;
+            border-radius: 10px !important;
+        }
+        .landing-mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+        }
+        .landing-mobile-menu {
+            display: none;
+            flex-direction: column;
+            padding: 16px 24px;
+            background: rgba(7, 11, 20, 0.98);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .landing-mobile-menu.active {
+            display: flex;
+        }
+        .landing-mobile-menu a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 12px 0;
+            font-size: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Hero Section */
+        .landing-hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 120px 0 80px;
+            overflow: hidden;
+        }
+        .landing-hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(240, 185, 11, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .landing-hero-content {
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        .landing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(240, 185, 11, 0.08);
+            border: 1px solid rgba(240, 185, 11, 0.2);
+            border-radius: 100px;
+            padding: 8px 16px;
+            margin-bottom: 32px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .landing-badge-dot {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .landing-hero-title {
+            font-size: clamp(40px, 8vw, 72px);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            color: white;
+        }
+        .landing-gradient-text {
+            background: linear-gradient(135deg, #F0B90B 0%, #FFD700 50%, #F0B90B 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .landing-hero-subtitle {
+            font-size: clamp(16px, 2.5vw, 20px);
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .landing-hero-cta {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 48px;
+        }
+        .landing-hero-btn {
+            padding: 18px 40px !important;
+            font-size: 16px !important;
+            border-radius: 14px !important;
+        }
+        .landing-hero-btn-secondary {
+            padding: 18px 32px !important;
+            font-size: 16px !important;
+            border-radius: 14px !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        .landing-hero-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+        }
+        .landing-hero-trust {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            flex-wrap: wrap;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .landing-hero-trust span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .landing-hero-trust i {
+            color: var(--gold);
+        }
+
+        /* Stats Section */
+        .landing-stats {
+            padding: 60px 0;
+            background: rgba(240, 185, 11, 0.02);
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .landing-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+        .landing-stat-card {
+            text-align: center;
+            padding: 24px;
+        }
+        .landing-stat-value {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+        .landing-stat-label {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Trust Section */
+        .landing-trust {
+            padding: 80px 0;
+        }
+        .landing-trust-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+        }
+        .landing-trust-item {
+            display: flex;
+            gap: 16px;
+            padding: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        .landing-trust-item:hover {
+            border-color: rgba(240, 185, 11, 0.3);
+            transform: translateY(-2px);
+        }
+        .landing-trust-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gold-dim);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold);
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .landing-trust-text h4 {
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+        .landing-trust-text p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Features Section */
+        .landing-features {
+            padding: 100px 0;
+        }
+        .landing-section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+        .landing-section-tag {
+            display: inline-block;
+            background: var(--gold-dim);
+            color: var(--gold);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 6px 16px;
+            border-radius: 100px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+        .landing-section-title {
+            font-size: clamp(28px, 5vw, 42px);
+            font-weight: 800;
+            color: white;
+            margin-bottom: 16px;
+        }
+        .landing-section-subtitle {
+            font-size: 16px;
+            color: var(--text-muted);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .landing-features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .landing-feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.3s ease;
+        }
+        .landing-feature-card:hover {
+            border-color: rgba(240, 185, 11, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .landing-feature-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--gold-dim);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold);
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .landing-feature-card h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 12px;
+        }
+        .landing-feature-card > p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .landing-feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .landing-feature-list li {
+            font-size: 13px;
+            color: var(--text-muted);
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .landing-feature-list li i {
+            color: var(--green);
+            font-size: 12px;
+        }
+
+        /* How It Works Section */
+        .landing-how-it-works {
+            padding: 100px 0;
+            background: rgba(240, 185, 11, 0.02);
+        }
+        .landing-steps {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .landing-step {
+            flex: 1;
+            text-align: center;
+            padding: 0 20px;
+        }
+        .landing-step-number {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--gold), #D4A000);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: #070B14;
+            margin: 0 auto 20px;
+        }
+        .landing-step-content h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 8px;
+        }
+        .landing-step-content p {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .landing-step-connector {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(240, 185, 11, 0.3), rgba(240, 185, 11, 0.6), rgba(240, 185, 11, 0.3));
+            margin-top: 32px;
+            flex-shrink: 0;
+        }
+
+        /* Testimonials Section */
+        .landing-testimonials {
+            padding: 100px 0;
+        }
+        .landing-testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .landing-testimonial-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.3s ease;
+        }
+        .landing-testimonial-card:hover {
+            border-color: rgba(240, 185, 11, 0.3);
+        }
+        .landing-testimonial-stars {
+            color: var(--gold);
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: flex;
+            gap: 4px;
+        }
+        .landing-testimonial-text {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+        .landing-testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .landing-testimonial-avatar {
+            width: 44px;
+            height: 44px;
+            background: var(--gold-dim);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold);
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .landing-testimonial-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+        .landing-testimonial-role {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* FAQ Section */
+        .landing-faq {
+            padding: 100px 0;
+            background: rgba(240, 185, 11, 0.02);
+        }
+        .landing-faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .landing-faq-item {
+            margin-bottom: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+        .landing-faq-item.active {
+            border-color: rgba(240, 185, 11, 0.3);
+        }
+        .landing-faq-question {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .landing-faq-question:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .landing-faq-question i {
+            color: var(--gold);
+            transition: transform 0.3s;
+            font-size: 12px;
+        }
+        .landing-faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .landing-faq-answer p {
+            padding: 0 24px 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Final CTA Section */
+        .landing-cta {
+            padding: 100px 0;
+        }
+        .landing-cta-content {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, rgba(240, 185, 11, 0.1), rgba(240, 185, 11, 0.05));
+            border: 1px solid rgba(240, 185, 11, 0.2);
+            border-radius: 24px;
+            padding: 60px 40px;
+        }
+        .landing-cta-content h2 {
+            font-size: 32px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 12px;
+        }
+        .landing-cta-content > p {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+        .landing-cta-final-btn {
+            padding: 18px 48px !important;
+            font-size: 16px !important;
+            border-radius: 14px !important;
+        }
+        .landing-cta-note {
+            display: block;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 16px;
+        }
+
+        /* Footer */
+        .landing-footer {
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            padding: 60px 0 30px;
+        }
+        .landing-footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+        .landing-footer-brand p {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin: 16px 0 24px;
+            max-width: 280px;
+        }
+        .landing-footer-social {
+            display: flex;
+            gap: 12px;
+        }
+        .landing-footer-social a {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .landing-footer-social a:hover {
+            background: var(--gold-dim);
+            color: var(--gold);
+        }
+        .landing-footer-links h4 {
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .landing-footer-links a {
+            display: block;
+            font-size: 14px;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 6px 0;
+            transition: color 0.2s;
+        }
+        .landing-footer-links a:hover {
+            color: var(--gold);
+        }
+        .landing-footer-bottom {
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .landing-footer-bottom p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .landing-footer-disclaimer {
+            font-style: italic;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .landing-trust-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .landing-features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .landing-testimonials-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .landing-footer-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .landing-nav-links {
+                display: none;
+            }
+            .landing-nav-actions {
+                display: none;
+            }
+            .landing-mobile-menu-btn {
+                display: block;
+            }
+            .landing-stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .landing-trust-grid {
+                grid-template-columns: 1fr;
+            }
+            .landing-features-grid {
+                grid-template-columns: 1fr;
+            }
+            .landing-steps {
+                flex-direction: column;
+                gap: 32px;
+            }
+            .landing-step-connector {
+                width: 2px;
+                height: 32px;
+                margin: 0 auto;
+                background: linear-gradient(180deg, rgba(240, 185, 11, 0.3), rgba(240, 185, 11, 0.6), rgba(240, 185, 11, 0.3));
+            }
+            .landing-testimonials-grid {
+                grid-template-columns: 1fr;
+            }
+            .landing-footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+            .landing-footer-bottom {
+                flex-direction: column;
+                text-align: center;
+            }
+            .landing-cta-content {
+                padding: 40px 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .landing-hero {
+                padding: 100px 0 60px;
+            }
+            .landing-hero-cta {
+                flex-direction: column;
+                align-items: center;
+            }
+            .landing-hero-btn,
+            .landing-hero-btn-secondary {
+                width: 100%;
+                max-width: 280px;
+            }
+            .landing-hero-trust {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .landing-stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .landing-stat-card {
+                padding: 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1809,83 +2541,472 @@ console.log('🔐 Auth script loaded successfully');
 <!-- ==================== NEW LANDING PAGE ==================== -->
 <div id="landingPage" style="display:none; min-height:100vh; background: var(--bg-primary);">
     <!-- Fixed Navigation -->
-    <header style="position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(7,11,20,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #1E2A3F;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;max-width:1200px;margin:0 auto;">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <i class="fas fa-arrows-spin" style="color:#F0B90B;font-size:24px;"></i>
-                <span style="color:white;font-weight:800;font-size:22px;letter-spacing:-0.5px;">Arbi<span style="color:#F0B90B;">trix</span> AI</span>
+    <nav class="landing-nav">
+        <div class="landing-nav-container">
+            <a href="/" class="landing-logo">
+                <i class="fas fa-arrows-spin"></i>
+                <span>Arbi<span>trix</span> AI</span>
+            </a>
+            <div class="landing-nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#security">Security</a>
+                <a href="#faq">FAQ</a>
             </div>
-            <div style="display:flex;align-items:center;gap:16px;">
-                <span style="color:#8896B5;font-size:13px;display:none;" id="landingUserGreeting">Welcome back, <span id="landingUserName" style="color:white;font-weight:600;">Trader</span></span>
-                <button type="button" onclick="goToApp()" class="btn btn-primary" style="padding:10px 24px;font-size:14px;border-radius:40px;box-shadow:0 4px 16px rgba(240,185,11,0.3);">
-                    <i class="fas fa-rocket"></i> Launch App
+            <div class="landing-nav-actions">
+                <span style="display:none;" id="landingUserGreeting">Welcome, <span id="landingUserName" style="color:var(--gold);font-weight:600;">Trader</span></span>
+                <button type="button" onclick="goToApp()" class="btn btn-primary landing-cta-btn">
+                    Launch App <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
+            <button class="landing-mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">
+                <i class="fas fa-bars"></i>
+            </button>
         </div>
-    </header>
+        <div class="landing-mobile-menu" id="landingMobileMenu">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#security">Security</a>
+            <a href="#faq">FAQ</a>
+            <button type="button" onclick="goToApp()" class="btn btn-primary" style="width:100%;margin-top:8px;">Launch App</button>
+        </div>
+    </nav>
 
     <!-- Hero Section -->
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:100px 24px 60px;text-align:center;max-width:1100px;margin:0 auto;">
-        <!-- Trust Badge -->
-        <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.15);border-radius:100px;padding:6px 16px 6px 6px;margin-bottom:30px;">
-            <span style="background:#F0B90B;color:#070B14;font-size:10px;font-weight:800;padding:4px 10px;border-radius:40px;">🔥 HOT</span>
-            <span style="font-size:11px;color:#8896B5;">Trusted by <strong style="color:white;">500+</strong> active traders</span>
-            <span style="color:#F0B90B;font-size:12px;">★ 4.9/5</span>
-        </div>
-
-        <!-- Headline -->
-        <h1 style="font-size:clamp(38px,7vw,64px);font-weight:900;line-height:1.1;margin-bottom:16px;color:white;">
-            Trade Smarter with<br>
-            <span style="background:linear-gradient(135deg,#F0B90B,#FCD535,#F0B90B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
-                AI-Powered Arbitrage
-            </span>
-        </h1>
-        <p style="font-size:clamp(16px,2vw,20px);color:#8896B5;max-width:650px;margin-bottom:32px;line-height:1.6;">
-            Our intelligent bot scans <strong style="color:white;">crypto, forex, stocks, and commodities</strong> 24/7 to find and execute profitable arbitrage opportunities automatically.
-        </p>
-
-        <!-- CTA -->
-        <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-bottom:48px;">
-            <button type="button" onclick="goToApp()" class="btn btn-primary" style="padding:16px 40px;font-size:16px;border-radius:50px;background:linear-gradient(135deg,#F0B90B,#D4A000);box-shadow:0 8px 32px rgba(240,185,11,0.35);min-height:56px;">
-                <i class="fas fa-bolt"></i> Get Started Free
-            </button>
-            <button type="button" onclick="document.getElementById('landingFeatures').scrollIntoView({behavior:'smooth'})" class="btn btn-secondary" style="padding:16px 32px;border-radius:50px;font-size:16px;min-height:56px;background:rgba(255,255,255,0.04);">
-                <i class="fas fa-play-circle"></i> See How It Works
-            </button>
-        </div>
-
-        <!-- Stats Bar -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;width:100%;max-width:600px;padding:20px 0;border-top:1px solid #1E2A3F;border-bottom:1px solid #1E2A3F;margin-bottom:48px;">
-            <div><div style="font-size:22px;font-weight:800;color:#F0B90B;">$2.4M+</div><div style="font-size:11px;color:#5A6A8A;">Volume Traded</div></div>
-            <div><div style="font-size:22px;font-weight:800;color:#F0B90B;">12K+</div><div style="font-size:11px;color:#5A6A8A;">Trades Executed</div></div>
-            <div><div style="font-size:22px;font-weight:800;color:#F0B90B;">98%</div><div style="font-size:11px;color:#5A6A8A;">Uptime</div></div>
-        </div>
-
-        <!-- Feature Grid -->
-        <div id="landingFeatures" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:24px;width:100%;margin-top:16px;">
-            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:24px;text-align:left;transition:0.3s;">
-                <div style="background:var(--gold-dim);width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#F0B90B;font-size:20px;margin-bottom:12px;"><i class="fas fa-robot"></i></div>
-                <h3 style="font-size:16px;font-weight:700;color:white;margin-bottom:6px;">24/7 AI Scanning</h3>
-                <p style="font-size:12px;color:#8896B5;line-height:1.5;">Detects price discrepancies across 50+ exchanges in real-time.</p>
-            </div>
-            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:24px;text-align:left;transition:0.3s;">
-                <div style="background:var(--gold-dim);width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#F0B90B;font-size:20px;margin-bottom:12px;"><i class="fas fa-layer-group"></i></div>
-                <h3 style="font-size:16px;font-weight:700;color:white;margin-bottom:6px;">Multi-Asset Support</h3>
-                <p style="font-size:12px;color:#8896B5;line-height:1.5;">Trade Crypto, Forex, Stocks, and Commodities from one dashboard.</p>
-            </div>
-            <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:24px;text-align:left;transition:0.3s;">
-                <div style="background:var(--gold-dim);width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#F0B90B;font-size:20px;margin-bottom:12px;"><i class="fas fa-shield-halved"></i></div>
-                <h3 style="font-size:16px;font-weight:700;color:white;margin-bottom:6px;">Secure & Transparent</h3>
-                <p style="font-size:12px;color:#8896B5;line-height:1.5;">Non-custodial architecture with real-time balance tracking.</p>
+    <section class="landing-hero">
+        <div class="landing-hero-bg"></div>
+        <div class="landing-container">
+            <div class="landing-hero-content">
+                <div class="landing-badge">
+                    <span class="landing-badge-dot"></span>
+                    <span>Now with AI-Powered Smart Arbitrage</span>
+                </div>
+                <h1 class="landing-hero-title">
+                    Trade Smarter with<br>
+                    <span class="landing-gradient-text">AI-Powered Arbitrage</span>
+                </h1>
+                <p class="landing-hero-subtitle">
+                    Let our intelligent bot scan crypto, forex, stocks, and commodities 24/7 
+                    to find and execute profitable arbitrage opportunities automatically.
+                </p>
+                <div class="landing-hero-cta">
+                    <button type="button" onclick="goToApp()" class="btn btn-primary landing-hero-btn">
+                        <i class="fas fa-rocket"></i> Get Started Free
+                    </button>
+                    <button type="button" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'})" class="btn btn-secondary landing-hero-btn-secondary">
+                        <i class="fas fa-play-circle"></i> See How It Works
+                    </button>
+                </div>
+                <div class="landing-hero-trust">
+                    <span><i class="fas fa-shield-halved"></i> 256-bit Encryption</span>
+                    <span><i class="fas fa-clock"></i> 15-30min Withdrawals</span>
+                    <span><i class="fas fa-users"></i> 150K+ Users</span>
+                </div>
             </div>
         </div>
+    </section>
 
-        <!-- Footer note -->
-        <p style="font-size:11px;color:#5A6A8A;margin-top:40px;">
-            <i class="fas fa-lock" style="margin-right:6px;"></i> Secure connection • No hidden fees • Free demo account included
-        </p>
-    </div>
+    <!-- Stats Section -->
+    <section class="landing-stats">
+        <div class="landing-container">
+            <div class="landing-stats-grid">
+                <div class="landing-stat-card">
+                    <div class="landing-stat-value">$2.5B+</div>
+                    <div class="landing-stat-label">Total Volume Traded</div>
+                </div>
+                <div class="landing-stat-card">
+                    <div class="landing-stat-value">150K+</div>
+                    <div class="landing-stat-label">Active Traders</div>
+                </div>
+                <div class="landing-stat-card">
+                    <div class="landing-stat-value">99.9%</div>
+                    <div class="landing-stat-label">Platform Uptime</div>
+                </div>
+                <div class="landing-stat-card">
+                    <div class="landing-stat-value">50+</div>
+                    <div class="landing-stat-label">Countries Supported</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Section -->
+    <section class="landing-trust" id="security">
+        <div class="landing-container">
+            <div class="landing-trust-grid">
+                <div class="landing-trust-item">
+                    <div class="landing-trust-icon"><i class="fas fa-lock"></i></div>
+                    <div class="landing-trust-text">
+                        <h4>Bank-Level Security</h4>
+                        <p>256-bit SSL encryption and cold storage protection</p>
+                    </div>
+                </div>
+                <div class="landing-trust-item">
+                    <div class="landing-trust-icon"><i class="fas fa-shield-halved"></i></div>
+                    <div class="landing-trust-text">
+                        <h4>Non-Custodial</h4>
+                        <p>You control your funds at all times</p>
+                    </div>
+                </div>
+                <div class="landing-trust-item">
+                    <div class="landing-trust-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="landing-trust-text">
+                        <h4>Fast Withdrawals</h4>
+                        <p>15-30 minute processing time</p>
+                    </div>
+                </div>
+                <div class="landing-trust-item">
+                    <div class="landing-trust-icon"><i class="fas fa-globe"></i></div>
+                    <div class="landing-trust-text">
+                        <h4>Global Access</h4>
+                        <p>Trade from anywhere in the world</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="landing-features" id="features">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag">Features</span>
+                <h2 class="landing-section-title">Everything You Need to Trade Smarter</h2>
+                <p class="landing-section-subtitle">Powerful tools designed for both beginners and professional traders</p>
+            </div>
+            <div class="landing-features-grid">
+                <div class="landing-feature-card">
+                    <div class="landing-feature-icon"><i class="fas fa-robot"></i></div>
+                    <h3>AI Trading Engine</h3>
+                    <p>Our advanced AI continuously scans 50+ exchanges for arbitrage opportunities, executing trades automatically 24/7.</p>
+                    <ul class="landing-feature-list">
+                        <li><i class="fas fa-check"></i> Real-time market scanning</li>
+                        <li><i class="fas fa-check"></i> Automated trade execution</li>
+                        <li><i class="fas fa-check"></i> Smart risk management</li>
+                    </ul>
+                </div>
+                <div class="landing-feature-card">
+                    <div class="landing-feature-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>Multi-Asset Trading</h3>
+                    <p>Trade across multiple asset classes from a single unified dashboard with seamless portfolio management.</p>
+                    <ul class="landing-feature-list">
+                        <li><i class="fas fa-check"></i> Crypto & DeFi tokens</li>
+                        <li><i class="fas fa-check"></i> Forex pairs</li>
+                        <li><i class="fas fa-check"></i> Stocks & Commodities</li>
+                    </ul>
+                </div>
+                <div class="landing-feature-card">
+                    <div class="landing-feature-icon"><i class="fas fa-shield-halved"></i></div>
+                    <h3>Risk Management</h3>
+                    <p>Built-in safeguards protect your capital with stop-loss, take-profit, and position sizing controls.</p>
+                    <ul class="landing-feature-list">
+                        <li><i class="fas fa-check"></i> Configurable stop-loss</li>
+                        <li><i class="fas fa-check"></i> Daily loss limits</li>
+                        <li><i class="fas fa-check"></i> Portfolio diversification</li>
+                    </ul>
+                </div>
+                <div class="landing-feature-card">
+                    <div class="landing-feature-icon"><i class="fas fa-wallet"></i></div>
+                    <h3>Secure Wallet</h3>
+                    <p>Non-custodial wallet system with real-time balance tracking and multi-chain support.</p>
+                    <ul class="landing-feature-list">
+                        <li><i class="fas fa-check"></i> Full fund control</li>
+                        <li><i class="fas fa-check"></i> Multi-network support</li>
+                        <li><i class="fas fa-check"></i> Instant deposits</li>
+                    </ul>
+                </div>
+                <div class="landing-feature-card">
+                    <div class="landing-feature-icon"><i class="fas fa-gift"></i></div>
+                    <h3>Referral Rewards</h3>
+                    <p>Earn $10 for each friend who joins. No limits on how much you can earn through referrals.</p>
+                    <ul class="landing-feature-list">
+                        <li><i class="fas fa-check"></i> $10 per referral</li>
+                        <li><i class="fas fa-check"></i> Instant bonuses</li>
+                        <li><i class="fas fa-check"></i> Lifetime commissions</li>
+                    </ul>
+                </div>
+                <div class="landing-feature-card">
+                    <div class="landing-feature-icon"><i class="fas fa-mobile-alt"></i></div>
+                    <h3>Multi-Device Support</h3>
+                    <p>Access your dashboard from any device. Desktop, tablet, or mobile — your portfolio follows you.</p>
+                    <ul class="landing-feature-list">
+                        <li><i class="fas fa-check"></i> Responsive design</li>
+                        <li><i class="fas fa-check"></i> PWA support</li>
+                        <li><i class="fas fa-check"></i> Offline mode</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="landing-how-it-works" id="how-it-works">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag">Process</span>
+                <h2 class="landing-section-title">Start Trading in 4 Simple Steps</h2>
+                <p class="landing-section-subtitle">Get up and running in minutes, not hours</p>
+            </div>
+            <div class="landing-steps">
+                <div class="landing-step">
+                    <div class="landing-step-number">01</div>
+                    <div class="landing-step-content">
+                        <h3>Create Your Account</h3>
+                        <p>Sign up in seconds with just your email. No complicated verification required to start.</p>
+                    </div>
+                </div>
+                <div class="landing-step-connector"></div>
+                <div class="landing-step">
+                    <div class="landing-step-number">02</div>
+                    <div class="landing-step-content">
+                        <h3>Deposit Funds</h3>
+                        <p>Deposit USDT using TRC20 network (recommended for lowest fees). Your funds arrive instantly.</p>
+                    </div>
+                </div>
+                <div class="landing-step-connector"></div>
+                <div class="landing-step">
+                    <div class="landing-step-number">03</div>
+                    <div class="landing-step-content">
+                        <h3>Activate AI Bot</h3>
+                        <p>Enable the arbitrage bot with one click. Our AI starts scanning and executing trades automatically.</p>
+                    </div>
+                </div>
+                <div class="landing-step-connector"></div>
+                <div class="landing-step">
+                    <div class="landing-step-number">04</div>
+                    <div class="landing-step-content">
+                        <h3>Monitor & Withdraw</h3>
+                        <p>Track your performance in real-time. Withdraw profits anytime with 15-30 minute processing.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="landing-testimonials">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag">Testimonials</span>
+                <h2 class="landing-section-title">Trusted by Traders Worldwide</h2>
+                <p class="landing-section-subtitle">Join thousands of satisfied users</p>
+            </div>
+            <div class="landing-testimonials-grid">
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <p class="landing-testimonial-text">"The AI bot has transformed my trading strategy. It's incredibly easy to use and the results speak for themselves. Up 23% in my first month!"</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar">MJ</div>
+                        <div>
+                            <div class="landing-testimonial-name">Michael J.</div>
+                            <div class="landing-testimonial-role">Professional Trader</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <p class="landing-testimonial-text">"Finally, a platform that actually delivers on its promises. The multi-asset support is fantastic, and the withdrawals are lightning fast. Highly recommend!"</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar">SC</div>
+                        <div>
+                            <div class="landing-testimonial-name">Sarah C.</div>
+                            <div class="landing-testimonial-role">Crypto Investor</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <p class="landing-testimonial-text">"As someone new to trading, I was nervous at first. But the demo mode and intuitive interface made it easy. Now I'm earning consistently."</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar">DK</div>
+                        <div>
+                            <div class="landing-testimonial-name">David K.</div>
+                            <div class="landing-testimonial-role">Beginner Trader</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="landing-faq" id="faq">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag">FAQ</span>
+                <h2 class="landing-section-title">Frequently Asked Questions</h2>
+                <p class="landing-section-subtitle">Everything you need to know about Arbitrix AI</p>
+            </div>
+            <div class="landing-faq-list">
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span>How do I make my first deposit?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer">
+                        <p>Switch to LIVE mode, click "Deposit" in the sidebar, enter your desired amount, choose TRC20 network (recommended for lowest fees), click "Get Payment Address", and send USDT to the displayed address. Your deposit will be auto-detected and credited instantly.</p>
+                    </div>
+                </div>
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span>How long do withdrawals take?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer">
+                        <p>Withdrawals are processed within 15-30 minutes after approval. To withdraw: switch to LIVE mode, make a deposit first, complete at least 1 trade, then click "Withdraw" in the sidebar.</p>
+                    </div>
+                </div>
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span>Is my money safe and secure?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer">
+                        <p>Yes. We use 256-bit SSL encryption, non-custodial wallet architecture (you control your funds), and cold storage for large holdings. Your assets are protected by industry-leading security measures.</p>
+                    </div>
+                </div>
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span>How does the AI trading bot work?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer">
+                        <p>Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.</p>
+                    </div>
+                </div>
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span>How do referral rewards work?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer">
+                        <p>Earn $10 for each friend who signs up through your referral link. Your bonuses accumulate in the Bonus Wallet. Once you have at least $50 in bonus and 1 referral, you can withdraw to your Live Wallet.</p>
+                    </div>
+                </div>
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span>Is account verification required?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer">
+                        <p>Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA Section -->
+    <section class="landing-cta">
+        <div class="landing-container">
+            <div class="landing-cta-content">
+                <h2>Ready to Start Trading?</h2>
+                <p>Join 150,000+ traders already using Arbitrix AI to grow their wealth</p>
+                <button type="button" onclick="goToApp()" class="btn btn-primary landing-cta-final-btn">
+                    <i class="fas fa-rocket"></i> Create Free Account
+                </button>
+                <span class="landing-cta-note">No credit card required • Free demo included</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="landing-footer">
+        <div class="landing-container">
+            <div class="landing-footer-grid">
+                <div class="landing-footer-brand">
+                    <a href="/" class="landing-logo">
+                        <i class="fas fa-arrows-spin"></i>
+                        <span>Arbi<span>trix</span> AI</span>
+                    </a>
+                    <p>The intelligent arbitrage trading platform for the modern investor.</p>
+                    <div class="landing-footer-social">
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="#" aria-label="Telegram"><i class="fab fa-telegram"></i></a>
+                        <a href="#" aria-label="Discord"><i class="fab fa-discord"></i></a>
+                        <a href="#" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+                    </div>
+                </div>
+                <div class="landing-footer-links">
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="#security">Security</a>
+                    <a href="#faq">FAQ</a>
+                    <a href="#how-it-works">How It Works</a>
+                </div>
+                <div class="landing-footer-links">
+                    <h4>Legal</h4>
+                    <a href="/privacy-policy.html" target="_blank">Privacy Policy</a>
+                    <a href="/terms-of-service.html" target="_blank">Terms of Service</a>
+                </div>
+                <div class="landing-footer-links">
+                    <h4>Contact</h4>
+                    <a href="mailto:support@arbitrix.ai">support@arbitrix.ai</a>
+                    <a href="https://arbitrix.ai">arbitrix.ai</a>
+                </div>
+            </div>
+            <div class="landing-footer-bottom">
+                <p>© 2026 Arbitrix AI. All rights reserved.</p>
+                <p class="landing-footer-disclaimer">Trading involves risk. Past performance is not indicative of future results.</p>
+            </div>
+        </div>
+    </footer>
 </div>
+
+<script>
+// Mobile menu toggle
+function toggleMobileMenu() {
+    const menu = document.getElementById('landingMobileMenu');
+    menu.classList.toggle('active');
+}
+
+// FAQ toggle
+function toggleFaq(btn) {
+    const item = btn.parentElement;
+    const answer = item.querySelector('.landing-faq-answer');
+    const icon = btn.querySelector('i');
+    
+    // Close other open items
+    document.querySelectorAll('.landing-faq-item.active').forEach(otherItem => {
+        if (otherItem !== item) {
+            otherItem.classList.remove('active');
+            otherItem.querySelector('.landing-faq-answer').style.maxHeight = '0';
+            otherItem.querySelector('.landing-faq-question i').classList.remove('fa-chevron-up');
+            otherItem.querySelector('.landing-faq-question i').classList.add('fa-chevron-down');
+        }
+    });
+    
+    item.classList.toggle('active');
+    if (item.classList.contains('active')) {
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        answer.style.maxHeight = '0';
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    }
+}
+</script>
+
 
 <!-- PREMIUM AUTH PAGE -->
 <div id="authPage" class="auth-page" style="display:flex;">
