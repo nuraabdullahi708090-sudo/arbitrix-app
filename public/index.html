@@ -2687,7 +2687,7 @@ console.log('🔐 Auth script loaded successfully');
         <h3><i class="fas fa-circle-up" style="color:#EF4444;"></i> <span data-i18n="withdraw.title">Withdraw Funds</span></h3>
         <p style="color:#5A6A8A;font-size:13px;" data-i18n="withdraw.subtitle">Transfer to your wallet</p>
         <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
-        <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $700 | Requires 1 trade completed | 24-72h processing</span></div>
+        <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
         <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
         <div class="form-group">
             <label data-i18n="withdraw.address">Wallet Address</label>
@@ -3098,7 +3098,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Withdraw Funds',
         'withdraw.subtitle': 'Transfer to your wallet',
         'withdraw.available': 'Available',
-        'withdraw.info': 'Min withdrawal: $700 | Requires 1 trade completed | 24-72h processing',
+        'withdraw.info': 'Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing',
         'withdraw.amount': 'Amount (USD)',
         'withdraw.address': 'Wallet Address',
         'withdraw.submit': 'Withdraw',
@@ -3110,9 +3110,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': 'Minimum withdrawal is ${{min}}. Current: ${{current}}',
         'withdraw.enterAddress': 'Please enter a wallet address',
         'withdraw.insufficient': 'Insufficient balance',
-        'withdraw.success': '✅ ${{amount}} withdrawal submitted! Processing in 24-72h.',
+        'withdraw.success': '✅ ${{amount}} withdrawal submitted! Processing in 15-30min.',
         'withdraw.submitted': 'Withdrawal Submitted',
-        'withdraw.processing': '${{amount}} will be processed within 24-72 hours',
+        'withdraw.processing': '${{amount}} will be processed within 15-30 minutes',
         'profile.title': 'Profile',
         'profile.name': 'Display Name',
         'profile.email': 'Email',
@@ -4628,7 +4628,7 @@ function sendSupportMessage() {
             const lower = msg.toLowerCase();
             if(lower.includes('bot') || lower.includes('start')) reply = '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach $' + APP.MTA + ' MTA first, 3) Click \'Start Bot\' button.';
             else if(lower.includes('deposit')) reply = "💰 To deposit: Switch to LIVE mode, click 'Deposit' in the sidebar, enter the amount, choose your network (TRC20 recommended), click 'Get Payment Address', and send USDT to the displayed address. We'll auto-detect it.";
-            else if(lower.includes('withdraw')) reply = "🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click 'Withdraw' in the sidebar. Processing takes 24-72 hours.";
+            else if(lower.includes('withdraw')) reply = "🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click 'Withdraw' in the sidebar. Processing takes 15-30 minutes.";
             else if(lower.includes('bonus') || lower.includes('referral')) reply = "🎁 Refer friends to earn $10 bonus each! Your bonus accumulates in the Bonus Wallet. Withdraw to Live Wallet once you have at least $50 in bonus and at least 1 referral.";
             else if(lower.includes('sound') || lower.includes('mute') || lower.includes('volume')) reply = "🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.";
             else if(lower.includes('language') || lower.includes('translate')) reply = "🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.";
