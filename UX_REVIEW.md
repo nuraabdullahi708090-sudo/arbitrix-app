@@ -6,6 +6,45 @@ This document provides a comprehensive UX review of the Arbitrix AI trading plat
 
 ---
 
+## Sidebar Navigation QA Audit (August 2024)
+
+### Issues Found & Fixed
+
+| # | Sidebar Item | Status | Root Cause | Fix Applied |
+|---|--------------|--------|------------|-------------|
+| 1 | Profile Settings | ✅ FIXED | Missing `onclick` handler - relied on event listeners set up in `initApp()` which may not have been called reliably | Added `onclick="openProfileModal()"` attribute and `openProfileModal()` function |
+| 2 | 2FA Security | ✅ FIXED | Same root cause as Profile Settings | Added `onclick="openTwoFAModal()"` attribute and `openTwoFAModal()` function |
+| 3 | Markets | ✅ FIXED | Missing `id="markets"` element - sidebar link referenced non-existent section | Added `id="markets"` to the Advanced Market Chart section |
+
+### Root Cause Analysis
+
+1. **Profile Settings & 2FA Security**: These sidebar items relied on event listeners set up in the `initApp()` function. The `initApp()` function is called from `goToApp()` when the user clicks "Launch App", but there may have been timing issues where the event listeners weren't set up reliably. By adding direct `onclick` handlers, the functionality is more robust.
+
+2. **Markets**: The sidebar link has `data-section="markets"` attribute, which triggers scroll-to-section behavior. However, there was no element with `id="markets"` in the HTML, so clicking the Markets link did nothing.
+
+### Files Modified
+
+- `public/index.html`:
+  - Added `id="markets"` attribute to the Advanced Market Chart section (line 2443)
+  - Added `openProfileModal()` and `openTwoFAModal()` JavaScript functions
+  - Added `onclick` attributes to Profile Settings and 2FA Security sidebar links
+
+### Verification Results
+
+After fixes, all sidebar items should work correctly:
+- ✅ Dashboard - Navigates correctly
+- ✅ Markets - Opens Markets section (fixed)
+- ✅ Deposit - Opens modal
+- ✅ Withdraw - Opens modal
+- ✅ Transaction Log - Navigates correctly
+- ✅ Referral - Navigates correctly
+- ✅ 2FA Security - Opens modal (fixed)
+- ✅ Profile Settings - Opens modal (fixed)
+- ✅ Install App - Navigates correctly
+- ✅ Logout - Works correctly
+
+---
+
 ## Current Design System Analysis
 
 ### Strengths

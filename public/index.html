@@ -1761,6 +1761,29 @@ async function handleLogin() {
     }
 }
 
+// ============ MODAL FUNCTIONS ============
+function openProfileModal() {
+    document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
+    document.getElementById('profileLink').classList.add('active');
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    const savedUser = localStorage.getItem('arbi_user');
+    if(savedUser) {
+        const user = JSON.parse(savedUser);
+        document.getElementById('profileDisplayName').value = user.name || 'Trader';
+        document.getElementById('profileEmail').value = user.email || '';
+    }
+    document.getElementById('profileModal').classList.add('open');
+}
+
+function openTwoFAModal() {
+    document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
+    document.getElementById('twofaLink').classList.add('active');
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.getElementById('twofaModal').classList.add('open');
+}
+
 function goToApp() {
     console.log('✅ DASHBOARD BUTTON CLICKED');
     try {
@@ -2176,8 +2199,8 @@ console.log('🔐 Auth script loaded successfully');
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
         <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:#F0B90B;"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
         <div style="height:1px;background:#1E2A3F;margin:8px 20px;"></div>
-        <a class="sidebar-link" id="twofaLink"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
-        <a class="sidebar-link" id="profileLink"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
+        <a class="sidebar-link" id="twofaLink" onclick="openTwoFAModal()"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
+        <a class="sidebar-link" id="profileLink" onclick="openProfileModal()"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
         <a class="sidebar-link" id="pwaInstallSidebarLink"><i class="fas fa-download"></i> <span data-i18n="sidebar.install">Install App</span> <span style="margin-left:auto;background:var(--green);color:#fff;font-size:8px;padding:2px 6px;border-radius:8px;font-weight:700;" data-i18n="common.new">NEW</span></a>
         <a class="sidebar-link" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span data-i18n="sidebar.logout">Logout</span></a>
         <div class="sidebar-status">
@@ -2440,7 +2463,7 @@ console.log('🔐 Auth script loaded successfully');
         </div>
 
         <!-- ADVANCED TRADINGVIEW CHART -->
-        <div class="card" style="margin-bottom:16px;">
+        <div class="card" style="margin-bottom:16px;" id="markets">
             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-candlestick"></i></span> <span>Advanced Market Chart</span></div>
             <div class="card-body" style="padding:0;">
                 <div style="position:relative;width:100%;height:400px;background:#0A1020;border-radius:12px;overflow:hidden;">
@@ -4739,6 +4762,13 @@ function initApp() {
     const profileLink = getEl('profileLink');
     if(profileLink) profileLink.addEventListener('click', function(e) {
         e.preventDefault();
+        // Update active state
+        document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
+        profileLink.classList.add('active');
+        // Close sidebar
+        getEl('sidebar').classList.remove('open');
+        getEl('sidebarOverlay').classList.remove('open');
+        // Load user data and open modal
         const savedUser = localStorage.getItem('arbi_user');
         if(savedUser) {
             const user = JSON.parse(savedUser);
@@ -4749,7 +4779,17 @@ function initApp() {
     });
     
     const twofaLink = getEl('twofaLink');
-    if(twofaLink) twofaLink.addEventListener('click', function(e) { e.preventDefault(); getEl('twofaModal').classList.add('open'); });
+    if(twofaLink) twofaLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        // Update active state
+        document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
+        twofaLink.classList.add('active');
+        // Close sidebar
+        getEl('sidebar').classList.remove('open');
+        getEl('sidebarOverlay').classList.remove('open');
+        // Open modal
+        getEl('twofaModal').classList.add('open');
+    });
     
     const logoutLink = getEl('logoutLink');
     if(logoutLink) logoutLink.addEventListener('click', function(e) {
