@@ -3876,17 +3876,27 @@ function toggleFaq(btn) {
     </div>
 </div>
 
-<!-- ==================== DEPOSIT MODAL (UPDATED) ==================== -->
+<!-- ==================== DEPOSIT MODAL (ENHANCED) ==================== -->
 <div class="deposit-modal" id="depositModal">
   <div class="deposit-modal-content">
     <button type="button" onclick="closeDepositModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
     <h3><i class="fas fa-circle-down" style="color:#10B981;"></i> <span data-i18n="deposit.title">Deposit Funds</span></h3>
     <p style="color:#5A6A8A;font-size:13px;" data-i18n="deposit.subtitle">Secure crypto deposit — funds credited automatically</p>
 
+    <!-- Currency Selection -->
+    <div style="margin:12px 0;">
+      <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.currency">Cryptocurrency</label>
+      <div class="deposit-network-select">
+        <div class="net-option active" data-currency="USDT" data-network="TRC20">USDT</div>
+        <div class="net-option" data-currency="BTC" data-network="BTC">BTC</div>
+        <div class="net-option" data-currency="ETH" data-network="ETH">ETH</div>
+      </div>
+    </div>
+
     <!-- Network Selection -->
     <div style="margin:12px 0;">
       <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.network">Network</label>
-      <div class="deposit-network-select">
+      <div class="deposit-network-select" id="networkOptions">
         <div class="net-option active" data-network="TRC20">TRC20</div>
         <div class="net-option" data-network="ERC20">ERC20</div>
         <div class="net-option" data-network="BEP20">BEP20</div>
@@ -3896,41 +3906,105 @@ function toggleFaq(btn) {
     <!-- Deposit Amount Input -->
     <div style="margin:12px 0;">
       <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.amount">Amount (USD)</label>
-      <input type="number" id="liveDepositAmount" placeholder="50.00" class="input-field" style="font-size:18px;" value="50">
-    </div>
-
-    <!-- Address & Amount Display -->
-    <div class="deposit-address-box" style="opacity:0.6;">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:#5A6A8A;margin-bottom:4px;">
-        <span data-i18n="deposit.walletAddress">WALLET ADDRESS</span>
-        <span>EXPIRES IN <strong id="depositTimer" style="color:var(--gold);">60:00</strong></span>
+      <div style="position:relative;">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8896B5;font-size:18px;">$</span>
+        <input type="number" id="liveDepositAmount" placeholder="50.00" class="input-field" style="font-size:18px;padding-left:30px;" value="50">
       </div>
-      <div class="address" id="liveWalletAddress">Generating address...</div>
-      <button type="button" id="copyLiveAddressBtn" class="copy-address-btn"><i class="fas fa-copy"></i> <span data-i18n="deposit.copyAddress">Copy Address</span></button>
-      <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:8px;">
-        <span><span data-i18n="deposit.amount">Send Exact Amount</span>: <span id="liveDepositDisplayAmount">0.00</span> USDT</span>
-        <span>≈ $<span id="liveDepositDisplayUSD">0.00</span></span>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" class="quick-amount-btn" onclick="setDepositAmount(25)">$25</button>
+        <button type="button" class="quick-amount-btn" onclick="setDepositAmount(50)">$50</button>
+        <button type="button" class="quick-amount-btn" onclick="setDepositAmount(100)">$100</button>
+        <button type="button" class="quick-amount-btn" onclick="setDepositAmount(500)">$500</button>
       </div>
     </div>
 
-    <!-- Status Message -->
-    <div id="depositStatusText" style="font-size:12px;color:var(--text-secondary);margin-top:12px;text-align:center;background:rgba(240,185,11,0.05);padding:10px;border-radius:8px;">
-      ⏳ Enter amount and click "Get Payment Address"
+    <!-- QR Code and Address Section -->
+    <div id="depositPaymentSection" class="deposit-address-box" style="opacity:0.6;transition:opacity 0.3s;">
+      <!-- QR Code -->
+      <div id="qrCodeContainer" style="text-align:center;margin-bottom:16px;display:none;">
+        <div id="qrCodeImage" style="width:150px;height:150px;margin:0 auto;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <i class="fas fa-qrcode" style="font-size:80px;color:#0F1629;"></i>
+        </div>
+        <div style="font-size:9px;color:#8896B5;margin-top:8px;">Scan QR code to pay</div>
+      </div>
+      
+      <!-- Expiry Timer -->
+      <div id="depositTimerSection" style="display:none;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#5A6A8A;margin-bottom:8px;">
+          <span data-i18n="deposit.walletAddress">WALLET ADDRESS</span>
+          <span style="display:flex;align-items:center;gap:4px;">
+            <i class="fas fa-clock" style="color:#FBBF24;"></i>
+            <span>Expires in <strong id="depositTimer" style="color:#FBBF24;">60:00</strong></span>
+          </span>
+        </div>
+      </div>
+      
+      <!-- Wallet Address -->
+      <div style="margin-bottom:12px;">
+        <div id="liveWalletAddress" style="font-family:monospace;font-size:11px;word-break:break-all;color:#F0B90B;margin:8px 0;font-weight:600;min-height:20px;">
+          Select currency & amount, then click "Get Payment Address"
+        </div>
+      </div>
+      
+      <!-- Copy Buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button type="button" id="copyAddressBtn" class="copy-address-btn" onclick="copyWalletAddress()" style="flex:1;" disabled>
+          <i class="fas fa-copy"></i> Copy Address
+        </button>
+        <button type="button" id="copyAmountBtn" class="copy-address-btn" onclick="copyDepositAmount()" style="flex:1;" disabled>
+          <i class="fas fa-coins"></i> Copy Amount
+        </button>
+      </div>
+      
+      <!-- Amount Display -->
+      <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Send Exactly</div>
+        <div style="font-size:20px;font-weight:700;color:#10B981;"><span id="liveDepositDisplayAmount">0.00</span> <span id="depositCurrencyDisplay">USDT</span></div>
+        <div style="font-size:11px;color:#8896B5;margin-top:4px;">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
+      </div>
+    </div>
+
+    <!-- Status Notifications -->
+    <div id="depositStatusContainer" style="margin-top:12px;">
+      <div id="depositStatusText" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;text-align:center;background:rgba(240,185,11,0.05);padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <i class="fas fa-info-circle"></i>
+        <span>Select currency & enter amount to continue</span>
+      </div>
+      
+      <!-- Progress Indicator -->
+      <div id="depositProgress" style="display:none;">
+        <div style="background:#1E2A3F;border-radius:4px;height:4px;overflow:hidden;">
+          <div id="depositProgressBar" style="background:linear-gradient(90deg, #10B981, #34D399);height:100%;width:0%;transition:width 0.3s ease;"></div>
+        </div>
+        <div id="depositProgressText" style="font-size:10px;color:#8896B5;margin-top:4px;text-align:center;">Waiting for payment...</div>
+      </div>
     </div>
 
     <!-- Action Buttons -->
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button type="button" id="getAddressBtn" class="btn btn-primary" style="flex:2;" onclick="requestDepositAddress()">
-        <i class="fas fa-qrcode"></i> Get Payment Address
+        <i class="fas fa-qrcode"></i> Generate Payment
       </button>
-      <button type="button" id="forceCheckBtn" class="btn btn-secondary" style="flex:1;" onclick="forceCheckPayment()" disabled>
-        <i class="fas fa-sync-alt"></i> Force Check
+      <button type="button" id="cancelInvoiceBtn" class="btn btn-secondary" style="flex:1;display:none;" onclick="cancelCurrentInvoice()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+    </div>
+    
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button type="button" id="forceCheckBtn" class="btn btn-outline" style="flex:1;" onclick="forceCheckPayment()" disabled>
+        <i class="fas fa-sync-alt"></i> Check Payment
+      </button>
+      <button type="button" id="newInvoiceBtn" class="btn btn-outline" style="flex:1;display:none;" onclick="requestDepositAddress()">
+        <i class="fas fa-plus"></i> New Invoice
       </button>
     </div>
 
     <!-- Deposit History -->
     <div class="deposit-history">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:#5A6A8A;margin-bottom:4px;"><span data-i18n="deposit.history">History</span><span id="depositHistoryCount">0</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#5A6A8A;margin-bottom:4px;">
+        <span data-i18n="deposit.history">Recent Deposits</span>
+        <span id="depositHistoryCount" style="background:#1E2A3F;padding:2px 8px;border-radius:10px;">0</span>
+      </div>
       <div id="depositHistoryList" style="font-size:10px;text-align:center;" data-i18n="deposit.noDeposits">No deposits yet</div>
     </div>
   </div>
@@ -5814,55 +5888,162 @@ let paymentPollingInterval = null;
 let countdownInterval = null;
 let currentInvoiceId = null;
 
+// ==================== ENHANCED DEPOSIT SYSTEM ====================
+
+// Current active currency and network
+let currentCurrency = 'USDT';
+let currentNetwork = 'TRC20';
+
 async function requestDepositAddress() {
   const amountUSD = parseFloat(document.getElementById('liveDepositAmount').value);
   if (!amountUSD || amountUSD < 10) {
+    updateDepositStatus('error', 'Minimum deposit is $10');
     showToast('Minimum deposit is $10', 'error');
     return;
   }
 
-  const activeNet = document.querySelector('.deposit-network-select .net-option.active');
-  const network = activeNet ? activeNet.dataset.network : 'TRC20';
+  // Get selected currency and network
+  const currencyOptions = document.querySelectorAll('[data-currency]');
+  const selectedCurrency = Array.from(currencyOptions).find(el => el.classList.contains('active'));
+  currentCurrency = selectedCurrency ? selectedCurrency.dataset.currency : 'USDT';
+  
+  const networkOptions = document.querySelectorAll('#networkOptions .net-option');
+  const selectedNetwork = Array.from(networkOptions).find(el => el.classList.contains('active'));
+  currentNetwork = selectedNetwork ? selectedNetwork.dataset.network : 'TRC20';
 
   const btn = document.getElementById('getAddressBtn');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
 
+  // Update UI to loading state
+  updateDepositStatus('loading', 'Generating payment address...');
+  showProgressBar(true, 'Connecting to payment network...');
+
   try {
-    const response = await fetch('/api/deposit/request', {
+    // Try new payment service first
+    const response = await fetch('/api/payment/create-invoice', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token')
       },
-      body: JSON.stringify({ amount: amountUSD, currency: 'USDT', network })
+      body: JSON.stringify({ 
+        amount: amountUSD, 
+        currency: currentCurrency, 
+        network: currentNetwork 
+      })
     });
 
-    if (!response.ok) throw new Error('Failed to generate address');
-    const invoice = await response.json();
+    let invoice;
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        invoice = data.invoice;
+      } else {
+        throw new Error(data.error || 'Failed to generate address');
+      }
+    } else {
+      // Fallback to old endpoint
+      const fallbackResponse = await fetch('/api/deposit/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token')
+        },
+        body: JSON.stringify({ amount: amountUSD, currency: currentCurrency, network: currentNetwork })
+      });
+      
+      if (!fallbackResponse.ok) throw new Error('Failed to generate address');
+      invoice = await fallbackResponse.json();
+    }
 
+    // Update UI with invoice details
     document.getElementById('liveWalletAddress').textContent = invoice.address;
-    document.getElementById('liveDepositDisplayAmount').textContent = invoice.cryptoAmount;
-    document.getElementById('liveDepositDisplayUSD').textContent = invoice.usdValue;
+    document.getElementById('liveDepositDisplayAmount').textContent = invoice.cryptoAmount || invoice.amountCrypto || amountUSD.toFixed(2);
+    document.getElementById('liveDepositDisplayUSD').textContent = invoice.usdValue || invoice.amountUsd || amountUSD;
+    document.getElementById('depositCurrencyDisplay').textContent = invoice.currency || currentCurrency;
 
     currentInvoiceId = invoice.id;
 
+    // Show payment section UI
+    document.getElementById('depositPaymentSection').style.opacity = '1';
+    document.getElementById('qrCodeContainer').style.display = 'block';
+    document.getElementById('depositTimerSection').style.display = 'block';
+    document.getElementById('copyAddressBtn').disabled = false;
+    document.getElementById('copyAmountBtn').disabled = false;
+    
+    // Generate QR code
+    if (invoice.qrCodeUrl) {
+      document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="QR Code" style="width:120px;height:120px;">`;
+    } else {
+      // Generate QR code URL
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(invoice.address)}`;
+      document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="QR Code" style="width:120px;height:120px;">`;
+    }
+
+    // Start timer and polling
     startDepositTimer(invoice.expiresAt);
     startPollingForPayment(invoice.id);
 
-    document.getElementById('depositStatusText').innerHTML = '⏳ Monitoring for payment — will confirm automatically the moment it\'s detected.';
-    document.getElementById('forceCheckBtn').disabled = false;
-
+    // Update status
+    updateDepositStatus('waiting', 'Send the exact amount to the address above. Your deposit will be credited automatically.');
+    showProgressBar(true, 'Waiting for payment...');
+    
+    // Update buttons
     btn.style.display = 'none';
-    document.querySelector('.deposit-address-box').style.opacity = '1';
+    document.getElementById('cancelInvoiceBtn').style.display = 'block';
+    document.getElementById('forceCheckBtn').disabled = false;
+    document.getElementById('newInvoiceBtn').style.display = 'none';
 
     showToast('Payment address generated! Send the exact amount.', 'success');
 
   } catch (error) {
     console.error('Deposit request error:', error);
+    updateDepositStatus('error', 'Error generating address. Please try again.');
+    showProgressBar(false);
     showToast('Error generating address. Please try again.', 'error');
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-qrcode"></i> Get Payment Address';
+    btn.innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
+  }
+}
+
+function updateDepositStatus(type, message) {
+  const statusEl = document.getElementById('depositStatusText');
+  if (!statusEl) return;
+  
+  const icons = {
+    info: 'fa-info-circle',
+    loading: 'fa-spinner fa-spin',
+    waiting: 'fa-clock',
+    success: 'fa-check-circle',
+    error: 'fa-exclamation-circle',
+    expired: 'fa-times-circle'
+  };
+  
+  const colors = {
+    info: '#8896B5',
+    loading: '#3B82F6',
+    waiting: '#FBBF24',
+    success: '#10B981',
+    error: '#EF4444',
+    expired: '#EF4444'
+  };
+  
+  statusEl.innerHTML = `<i class="fas ${icons[type] || icons.info}" style="color:${colors[type] || colors.info};"></i> <span style="color:${colors[type] || colors.info};">${message}</span>`;
+  statusEl.style.background = type === 'error' ? 'rgba(239,68,68,0.1)' : 
+                               type === 'success' ? 'rgba(16,185,129,0.1)' : 
+                               'rgba(240,185,11,0.05)';
+}
+
+function showProgressBar(show, message) {
+  const progressEl = document.getElementById('depositProgress');
+  const progressText = document.getElementById('depositProgressText');
+  
+  if (progressEl) {
+    progressEl.style.display = show ? 'block' : 'none';
+    if (show && message) {
+      progressText.textContent = message;
+    }
   }
 }
 
@@ -5878,15 +6059,27 @@ function startDepositTimer(expiresAt) {
     const timerEl = document.getElementById('depositTimer');
     if (timerEl) timerEl.textContent = `${minutes}:${seconds}`;
     
+    // Change color when time is running low
+    if (timerEl && diff < 300) { // Less than 5 minutes
+      timerEl.style.color = '#EF4444';
+    }
+    
     if (diff <= 0) {
       clearInterval(countdownInterval);
       clearInterval(paymentPollingInterval);
-      document.getElementById('depositStatusText').innerHTML = '⏰ Invoice expired. Please request a new deposit.';
-      document.getElementById('liveWalletAddress').textContent = 'EXPIRED';
+      
+      // Invoice expired
+      updateDepositStatus('expired', 'Invoice expired. Please generate a new one.');
+      showProgressBar(false);
+      
+      document.getElementById('cancelInvoiceBtn').style.display = 'none';
       document.getElementById('forceCheckBtn').disabled = true;
       document.getElementById('getAddressBtn').style.display = 'flex';
       document.getElementById('getAddressBtn').disabled = false;
-      document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Get Payment Address';
+      document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
+      document.getElementById('newInvoiceBtn').style.display = 'block';
+      
+      showToast('Invoice expired. Please generate a new one.', 'warning');
     }
   };
   
@@ -5899,54 +6092,84 @@ function startPollingForPayment(invoiceId) {
 
   paymentPollingInterval = setInterval(async () => {
     try {
-      const response = await fetch(`/api/deposit/status/${invoiceId}`, {
+      // Try new payment service first
+      let response = await fetch(`/api/payment/invoice/${invoiceId}`, {
         headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token') }
       });
-      const result = await response.json();
+      
+      let result;
+      if (response.ok) {
+        const data = await response.json();
+        result = data.invoice;
+      } else {
+        // Fallback to old endpoint
+        response = await fetch(`/api/deposit/status/${invoiceId}`, {
+          headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token') }
+        });
+        result = await response.json();
+      }
 
       if (result.status === 'confirmed') {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
-        document.getElementById('depositStatusText').innerHTML = '✅ Payment detected! Crediting your account...';
         
-        APP.liveData.balance = result.newBalance;
+        // Payment confirmed!
+        updateDepositStatus('success', '🎉 Payment confirmed! Crediting your account...');
+        showProgressBar(true, 'Payment confirmed! Crediting funds...');
+        
+        // Animate progress bar
+        const progressBar = document.getElementById('depositProgressBar');
+        if (progressBar) {
+          progressBar.style.width = '100%';
+        }
+        
+        // Update app data
+        const creditedAmount = result.amountUsd || result.creditedAmount || 0;
+        APP.liveData.balance = result.newBalance || (APP.liveData.balance + creditedAmount);
         APP.liveData.hasRealDeposit = true;
         
         // Record in Transaction Log
         APP.liveData.history = APP.liveData.history || [];
         APP.liveData.history.unshift({
           type: 'Deposit',
-          detail: 'USDT (' + (result.network || 'TRC20') + ')',
-          amount: result.creditedAmount,
+          detail: `${currentCurrency} (${currentNetwork})`,
+          amount: creditedAmount,
           time: new Date().toLocaleTimeString(),
           timestamp: Date.now()
         });
         
         APP.depositHistory.unshift({
-          amount: result.creditedAmount,
-          network: result.network || 'TRC20',
+          amount: creditedAmount,
+          network: currentNetwork,
+          currency: currentCurrency,
           status: 'Confirmed',
           time: new Date().toLocaleTimeString()
         });
         
         updateUI();
-        showToast(`✅ $${result.creditedAmount} deposited successfully!`, 'success');
-        Sound.deposit();
+        showToast(`$${creditedAmount.toFixed(2)} deposited successfully!`, 'success');
         
+        if (typeof Sound !== 'undefined' && Sound.deposit) {
+          Sound.deposit();
+        }
+        
+        // Close modal after delay
         setTimeout(() => {
           closeDepositModal();
           resetDepositModal();
-        }, 2000);
+        }, 3000);
       }
 
       if (result.status === 'expired') {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
-        document.getElementById('depositStatusText').innerHTML = '⏰ Invoice expired.';
+        updateDepositStatus('expired', 'Invoice expired.');
+        showProgressBar(false);
+        
+        document.getElementById('cancelInvoiceBtn').style.display = 'none';
         document.getElementById('forceCheckBtn').disabled = true;
         document.getElementById('getAddressBtn').style.display = 'flex';
-        document.getElementById('getAddressBtn').disabled = false;
-        document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Get Payment Address';
+        document.getElementById('newInvoiceBtn').style.display = 'block';
       }
 
     } catch (error) {
@@ -5961,24 +6184,115 @@ function forceCheckPayment() {
     return;
   }
   clearInterval(paymentPollingInterval);
+  
+  updateDepositStatus('loading', 'Checking payment status...');
+  showProgressBar(true, 'Checking blockchain...');
+  
   startPollingForPayment(currentInvoiceId);
-  document.getElementById('depositStatusText').innerHTML = '⏳ Checking now...';
+}
+
+async function cancelCurrentInvoice() {
+  if (!currentInvoiceId) {
+    showToast('No active invoice to cancel.', 'info');
+    return;
+  }
+  
+  if (!confirm('Are you sure you want to cancel this invoice?')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/payment/cancel/${currentInvoiceId}`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token') }
+    });
+    
+    if (response.ok) {
+      showToast('Invoice cancelled.', 'success');
+      clearInterval(countdownInterval);
+      clearInterval(paymentPollingInterval);
+      resetDepositModal();
+    } else {
+      showToast('Failed to cancel invoice.', 'error');
+    }
+  } catch (error) {
+    console.error('Cancel invoice error:', error);
+    showToast('Error cancelling invoice.', 'error');
+  }
+}
+
+function copyWalletAddress() {
+  const address = document.getElementById('liveWalletAddress').textContent;
+  if (address && address !== 'Select currency & amount, then click "Get Payment Address"') {
+    navigator.clipboard.writeText(address).then(() => {
+      showToast('Address copied to clipboard!', 'success');
+    }).catch(() => {
+      showToast('Failed to copy address.', 'error');
+    });
+  }
+}
+
+function copyDepositAmount() {
+  const amount = document.getElementById('liveDepositDisplayAmount').textContent;
+  if (amount && amount !== '0.00') {
+    navigator.clipboard.writeText(amount).then(() => {
+      showToast('Amount copied to clipboard!', 'success');
+    }).catch(() => {
+      showToast('Failed to copy amount.', 'error');
+    });
+  }
+}
+
+function setDepositAmount(amount) {
+  document.getElementById('liveDepositAmount').value = amount;
+  // Trigger any input listeners
+  document.getElementById('liveDepositAmount').dispatchEvent(new Event('input'));
 }
 
 function resetDepositModal() {
   clearInterval(countdownInterval);
   clearInterval(paymentPollingInterval);
   currentInvoiceId = null;
-  document.getElementById('liveWalletAddress').textContent = 'Generating address...';
+  currentCurrency = 'USDT';
+  currentNetwork = 'TRC20';
+  
+  // Reset wallet address display
+  document.getElementById('liveWalletAddress').textContent = 'Select currency & amount, then click "Get Payment Address"';
   document.getElementById('liveDepositDisplayAmount').textContent = '0.00';
   document.getElementById('liveDepositDisplayUSD').textContent = '0.00';
+  document.getElementById('depositCurrencyDisplay').textContent = 'USDT';
   document.getElementById('depositTimer').textContent = '60:00';
-  document.getElementById('depositStatusText').innerHTML = '⏳ Enter amount and click "Get Payment Address"';
+  document.getElementById('depositTimer').style.color = '#FBBF24';
+  
+  // Reset status
+  updateDepositStatus('info', 'Select currency & enter amount to continue');
+  showProgressBar(false);
+  
+  // Reset buttons
   document.getElementById('forceCheckBtn').disabled = true;
   document.getElementById('getAddressBtn').style.display = 'flex';
   document.getElementById('getAddressBtn').disabled = false;
-  document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Get Payment Address';
-  document.querySelector('.deposit-address-box').style.opacity = '0.6';
+  document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
+  document.getElementById('cancelInvoiceBtn').style.display = 'none';
+  document.getElementById('newInvoiceBtn').style.display = 'none';
+  document.getElementById('copyAddressBtn').disabled = true;
+  document.getElementById('copyAmountBtn').disabled = true;
+  
+  // Reset QR code
+  document.getElementById('qrCodeContainer').style.display = 'none';
+  document.getElementById('depositTimerSection').style.display = 'none';
+  document.getElementById('qrCodeImage').innerHTML = '<i class="fas fa-qrcode" style="font-size:80px;color:#0F1629;"></i>';
+  
+  // Reset payment section
+  document.getElementById('depositPaymentSection').style.opacity = '0.6';
+  
+  // Reset currency/network selections
+  document.querySelectorAll('[data-currency]').forEach(el => {
+    el.classList.toggle('active', el.dataset.currency === 'USDT');
+  });
+  document.querySelectorAll('#networkOptions .net-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.network === 'TRC20');
+  });
 }
 
 function closeDepositModal() {
@@ -5994,6 +6308,59 @@ function openDepositModal() {
   resetDepositModal();
   document.getElementById('depositModal').classList.add('open');
   document.getElementById('liveDepositAmount').focus();
+}
+
+// Initialize currency selection listeners
+document.addEventListener('DOMContentLoaded', function() {
+  // Currency option click handlers
+  document.querySelectorAll('[data-currency]').forEach(option => {
+    option.addEventListener('click', function() {
+      document.querySelectorAll('[data-currency]').forEach(el => el.classList.remove('active'));
+      this.classList.add('active');
+      
+      const currency = this.dataset.currency;
+      currentCurrency = currency;
+      document.getElementById('depositCurrencyDisplay').textContent = currency;
+      
+      // Update available networks based on currency
+      updateNetworkOptions(currency);
+    });
+  });
+  
+  // Network option click handlers
+  document.querySelectorAll('#networkOptions .net-option').forEach(option => {
+    option.addEventListener('click', function() {
+      document.querySelectorAll('#networkOptions .net-option').forEach(el => el.classList.remove('active'));
+      this.classList.add('active');
+      currentNetwork = this.dataset.network;
+    });
+  });
+});
+
+function updateNetworkOptions(currency) {
+  const networkContainer = document.getElementById('networkOptions');
+  const networkOptions = networkContainer.querySelectorAll('.net-option');
+  
+  // Hide network options for BTC (single network)
+  if (currency === 'BTC') {
+    networkOptions.forEach(opt => {
+      if (opt.dataset.network === 'BTC') {
+        opt.classList.add('active');
+      } else {
+        opt.classList.remove('active');
+        opt.style.display = 'none';
+      }
+    });
+  } else {
+    networkOptions.forEach(opt => {
+      opt.style.display = '';
+      if (currency === 'ETH' && opt.dataset.network !== 'ETH' && opt.dataset.network !== 'ERC20') {
+        opt.style.display = 'none';
+      } else if (opt.dataset.network === 'ERC20') {
+        opt.classList.add('active');
+      }
+    });
+  }
 }
 // ==================== END DEPOSIT SYSTEM ====================
 
@@ -6798,7 +7165,7 @@ async function loadAdminData() {
             renderAdminUsers(users);
         }
         
-        // Load deposits
+        // Load deposits (both old and new format)
         const depositsRes = await fetch('/api/admin/deposits', {
             headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -6815,9 +7182,272 @@ async function loadAdminData() {
             const withdrawals = await withdrawalsRes.json();
             renderAdminWithdrawals(withdrawals);
         }
+        
+        // Load payment statistics
+        loadPaymentStats(token);
+        
+        // Load payment invoices if payment tab is visible
+        if (document.getElementById('adminTabContentPayments') && 
+            !document.getElementById('adminTabContentPayments').classList.contains('hidden')) {
+            loadPaymentInvoices(token);
+        }
     } catch(e) {
         console.error('Admin load error:', e);
     }
+}
+
+// ==================== NEW PAYMENT SYSTEM ====================
+
+async function loadPaymentStats(token) {
+    try {
+        const res = await fetch('/api/admin/payments/stats', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                // Update payment stats in UI if element exists
+                const statsEl = document.getElementById('paymentStatsSummary');
+                if (statsEl) {
+                    statsEl.innerHTML = `
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+                            <div style="background:rgba(16,185,129,0.1);padding:12px;border-radius:8px;text-align:center;">
+                                <div style="font-size:18px;font-weight:700;color:#10B981;">$${(data.stats.totalDepositedUsd || 0).toFixed(2)}</div>
+                                <div style="font-size:10px;color:#8896B5;">Total Deposited</div>
+                            </div>
+                            <div style="background:rgba(59,130,246,0.1);padding:12px;border-radius:8px;text-align:center;">
+                                <div style="font-size:18px;font-weight:700;color:#3B82F6;">${data.stats.confirmedCount || 0}</div>
+                                <div style="font-size:10px;color:#8896B5;">Confirmed</div>
+                            </div>
+                            <div style="background:rgba(251,191,36,0.1);padding:12px;border-radius:8px;text-align:center;">
+                                <div style="font-size:18px;font-weight:700;color:#FBBF24;">${data.stats.pendingCount || 0}</div>
+                                <div style="font-size:10px;color:#8896B5;">Pending</div>
+                            </div>
+                            <div style="background:rgba(239,68,68,0.1);padding:12px;border-radius:8px;text-align:center;">
+                                <div style="font-size:18px;font-weight:700;color:#EF4444;">${data.stats.webhookStats?.failed || 0}</div>
+                                <div style="font-size:10px;color:#8896B5;">Failed Webhooks</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error loading payment stats:', e);
+    }
+}
+
+async function loadPaymentInvoices(token, filters = {}) {
+    try {
+        const params = new URLSearchParams({
+            limit: 100,
+            ...filters
+        });
+        
+        const res = await fetch('/api/admin/payments/invoices?' + params.toString(), {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                renderPaymentInvoices(data.invoices);
+            }
+        }
+    } catch (e) {
+        console.error('Error loading payment invoices:', e);
+    }
+}
+
+function renderPaymentInvoices(invoices) {
+    const container = document.getElementById('paymentInvoicesList');
+    if (!container) return;
+    
+    if (!invoices || invoices.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;">No payment invoices found</div>';
+        return;
+    }
+    
+    container.innerHTML = invoices.map(inv => {
+        const statusColors = {
+            confirmed: '#10B981',
+            pending: '#FBBF24',
+            expired: '#EF4444',
+            cancelled: '#6B7A99',
+            failed: '#EF4444',
+            partial: '#F59E0B'
+        };
+        const statusColor = statusColors[inv.status] || '#8896B5';
+        
+        return `
+            <div style="background:#141C2E;border:1px solid #1E2A3F;border-radius:12px;padding:16px;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:#E8EDF5;font-family:monospace;">${inv.invoiceId}</div>
+                        <div style="font-size:10px;color:#8896B5;margin-top:4px;">${inv.userEmail || 'N/A'}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:16px;font-weight:700;color:#10B981;">$${(inv.amountUsd || 0).toFixed(2)}</div>
+                        <div style="font-size:10px;color:#8896B5;">${inv.currency} ${inv.network}</div>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="background:${statusColor}20;color:${statusColor};padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;">
+                            ${inv.status.toUpperCase()}
+                        </span>
+                        <span style="font-size:10px;color:#8896B5;">via ${inv.provider || 'unknown'}</span>
+                    </div>
+                    <div style="font-size:10px;color:#8896B5;">${new Date(inv.createdAt).toLocaleString()}</div>
+                </div>
+                ${inv.walletAddress ? `
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #1E2A3F;">
+                        <div style="font-size:9px;color:#8896B5;margin-bottom:4px;">Wallet Address</div>
+                        <div style="font-family:monospace;font-size:10px;color:#F0B90B;word-break:break-all;">${inv.walletAddress}</div>
+                    </div>
+                ` : ''}
+                ${inv.status === 'pending' ? `
+                    <div style="margin-top:12px;display:flex;gap:8px;">
+                        <button type="button" onclick="adminConfirmPayment('${inv.invoiceId}')" 
+                            style="flex:1;background:#10B981;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+                            <i class="fas fa-check"></i> Confirm
+                        </button>
+                        <button type="button" onclick="adminViewInvoice('${inv.invoiceId}')" 
+                            style="background:#1E2A3F;color:#F0B90B;border:none;padding:8px 12px;border-radius:6px;font-size:11px;cursor:pointer;">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+async function adminConfirmPayment(invoiceId) {
+    const token = localStorage.getItem('jwt_token');
+    if (!confirm('Are you sure you want to manually confirm this payment?')) return;
+    
+    try {
+        const res = await fetch('/api/admin/payments/' + invoiceId + '/confirm', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                showToast('Payment confirmed successfully!', 'success');
+                loadPaymentInvoices(token);
+            } else {
+                showToast(data.error || 'Failed to confirm payment', 'error');
+            }
+        } else {
+            showToast('Failed to confirm payment', 'error');
+        }
+    } catch (e) {
+        showToast('Error confirming payment', 'error');
+    }
+}
+
+async function adminViewInvoice(invoiceId) {
+    const token = localStorage.getItem('jwt_token');
+    // Show invoice details in a modal
+    console.log('View invoice:', invoiceId);
+    showToast('Invoice details coming soon', 'info');
+}
+
+async function loadWebhookLogs(token) {
+    try {
+        const res = await fetch('/api/admin/payments/webhook-logs?limit=50', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                renderWebhookLogs(data.logs);
+            }
+        }
+    } catch (e) {
+        console.error('Error loading webhook logs:', e);
+    }
+}
+
+function renderWebhookLogs(logs) {
+    const container = document.getElementById('webhookLogsList');
+    if (!container) return;
+    
+    if (!logs || logs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;">No webhook logs found</div>';
+        return;
+    }
+    
+    const statusColors = {
+        processed: '#10B981',
+        failed: '#EF4444',
+        duplicate: '#FBBF24',
+        processing: '#3B82F6'
+    };
+    
+    container.innerHTML = logs.map(log => {
+        const statusColor = statusColors[log.status] || '#8896B5';
+        const eventType = log.event_type || 'unknown';
+        const payload = log.payload ? JSON.stringify(log.payload).substring(0, 100) + '...' : 'N/A';
+        
+        return `
+            <div style="background:#141C2E;border:1px solid #1E2A3F;border-radius:8px;padding:12px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="background:${statusColor}20;color:${statusColor};padding:3px 6px;border-radius:4px;font-size:9px;font-weight:600;">
+                            ${log.status.toUpperCase()}
+                        </span>
+                        <span style="font-size:11px;color:#E8EDF5;">${log.provider}</span>
+                        <span style="font-size:10px;color:#8896B5;">${eventType}</span>
+                    </div>
+                    <div style="font-size:9px;color:#8896B5;">${new Date(log.received_at).toLocaleString()}</div>
+                </div>
+                <div style="font-size:9px;color:#8896B5;font-family:monospace;word-break:break-all;">${payload}</div>
+                ${log.status === 'failed' ? `
+                    <div style="margin-top:8px;">
+                        <button type="button" onclick="retryWebhook('${log.id}')" 
+                            style="background:#3B82F6;color:#fff;border:none;padding:6px 10px;border-radius:4px;font-size:10px;cursor:pointer;">
+                            <i class="fas fa-redo"></i> Retry
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+async function retryWebhook(logId) {
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/payments/webhook/' + logId + '/retry', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+                showToast('Webhook retried successfully!', 'success');
+                loadWebhookLogs(token);
+            } else {
+                showToast(data.error || 'Failed to retry webhook', 'error');
+            }
+        }
+    } catch (e) {
+        showToast('Error retrying webhook', 'error');
+    }
+}
+
+function exportPayments() {
+    window.location.href = '/api/admin/payments/export';
 }
 
 function renderAdminUsers(users) {

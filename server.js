@@ -7,6 +7,10 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
 
+// Payment Service Layer
+const { paymentService, PaymentService } = require('./services/PaymentService');
+const { nowPaymentsProvider } = require('./services/providers/nowpayments');
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
@@ -138,6 +142,28 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // ------------------------------------------------------------
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ============================================
+// PAYMENT SERVICE INITIALIZATION
+// ============================================
+// Register payment providers and set up webhook secrets
+
+// Register NOWPayments provider
+paymentService.registerProvider('nowpayments', nowPaymentsProvider);
+
+// Set webhook secrets for providers
+paymentService.setWebhookSecret('nowpayments', process.env.NOWPAYMENTS_IPN_SECRET || 'your-webhook-secret');
+
+// Initialize provider with config if available
+if (process.env.NOWPAYMENTS_API_KEY) {
+    nowPaymentsProvider.initialize({
+        apiKey: process.env.NOWPAYMENTS_API_KEY,
+        ipnSecret: process.env.NOWPAYMENTS_IPN_SECRET,
+        sandbox: process.env.NOWPAYMENTS_SANDBOX === 'true'
+    });
+}
+
+console.log('[Server] Payment Service initialized');
 
 // CORS configuration - allow all origins for flexibility
 // In production, you may want to restrict this to specific domains
@@ -1335,6 +1361,743 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
     network: deposit.network,
     referralActivated
   });
+});
+
+// ---------- NEW PAYMENT SERVICE ENDPOINTS ----------
+
+// Rate limiting for payment endpoints (simple in-memory implementation)
+// In production, use Redis for distributed rate limiting
+const paymentRateLimitStore = new Map();
+const PAYMENT_RATE_LIMIT = {
+  maxRequests: 10,      // Max 10 requests
+  windowMs: 60 * 1000  // Per minute
+};
+
+function checkPaymentRateLimit(ip) {
+  const now = Date.now();
+  let record = paymentRateLimitStore.get(ip);
+  
+  if (!record || now - record.windowStart > PAYMENT_RATE_LIMIT.windowMs) {
+    record = { count: 0, windowStart: now };
+    paymentRateLimitStore.set(ip, record);
+  }
+  
+  record.count++;
+  
+  if (record.count > PAYMENT_RATE_LIMIT.maxRequests) {
+    const retryAfter = Math.ceil((PAYMENT_RATE_LIMIT.windowMs - (now - record.windowStart)) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  return { allowed: true, remaining: PAYMENT_RATE_LIMIT.maxRequests - record.count };
+}
+
+/**
+ * Create a new payment invoice using PaymentService
+ * SECURITY: Rate limited, authenticated, input validated
+ */
+app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
+  // Rate limiting
+  const ip = req.ip || req.connection.remoteAddress;
+  const rateLimit = checkPaymentRateLimit(ip);
+  
+  if (!rateLimit.allowed) {
+    return res.status(429).json({ 
+      success: false, 
+      error: 'Too many requests',
+      retryAfter: rateLimit.retryAfter
+    });
+  }
+  
+  try {
+    // SECURITY: Strict input validation
+    const { amount, currency, network } = req.body;
+    
+    if (!amount || typeof amount !== 'number' || amount < 10) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid amount: minimum deposit is $10' 
+      });
+    }
+    
+    // Sanitize and validate currency/network
+    const sanitizedCurrency = String(currency || 'USDT').toUpperCase().trim();
+    const sanitizedNetwork = String(network || 'TRC20').toUpperCase().trim();
+    
+    if (!['USDT', 'BTC', 'ETH'].includes(sanitizedCurrency)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Unsupported currency' 
+      });
+    }
+    
+    if (!['TRC20', 'ERC20', 'BEP20', 'BTC', 'ETH'].includes(sanitizedNetwork)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Unsupported network' 
+      });
+    }
+    
+    const userId = req.user.id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+
+    const invoice = await paymentService.createInvoice({
+      userId,
+      amount,
+      currency: sanitizedCurrency,
+      network: sanitizedNetwork,
+      ipAddress
+    });
+
+    // SECURITY: Don't expose internal IDs to client
+    res.json({
+      success: true,
+      invoice: {
+        id: invoice.id,
+        address: invoice.address,
+        amountCrypto: invoice.amountCrypto,
+        amountUsd: invoice.amountUsd,
+        currency: invoice.currency,
+        network: invoice.network,
+        expiresAt: invoice.expiresAt,
+        status: invoice.status
+      }
+    });
+  } catch (error) {
+    console.error('[API] Create invoice error:', error.message);
+    res.status(400).json({ 
+      success: false, 
+      error: 'Failed to create invoice' 
+    });
+  }
+});
+
+/**
+ * Get payment invoice status using PaymentService
+ * SECURITY: User can only access their own invoices
+ */
+app.get('/api/payment/invoice/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    // SECURITY: Validate invoice ID format
+    const { invoiceId } = req.params;
+    if (!invoiceId || typeof invoiceId !== 'string' || invoiceId.length > 100) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid invoice ID' 
+      });
+    }
+    
+    const userId = req.user.id;
+
+    const status = await paymentService.getInvoiceStatus(invoiceId, userId);
+
+    res.json({
+      success: true,
+      invoice: status
+    });
+  } catch (error) {
+    console.error('[API] Get invoice status error:', error.message);
+    res.status(404).json({ 
+      success: false, 
+      error: 'Invoice not found' 
+    });
+  }
+});
+
+/**
+ * Cancel a pending invoice
+ */
+app.post('/api/payment/cancel/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const userId = req.user.id;
+
+    const result = await paymentService.cancelInvoice(invoiceId, userId);
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Cancel invoice error:', error);
+    res.status(400).json({ 
+      success: false, 
+      error: error.message || 'Failed to cancel invoice' 
+    });
+  }
+});
+
+/**
+ * Get supported payment currencies/networks
+ */
+app.get('/api/payment/supported-currencies', async (req, res) => {
+  try {
+    const currencies = await paymentService.getSupportedCurrencies();
+
+    res.json({
+      success: true,
+      currencies
+    });
+  } catch (error) {
+    console.error('[API] Get supported currencies error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get supported currencies' 
+    });
+  }
+});
+
+/**
+ * Manual payment check (fallback)
+ */
+app.post('/api/payment/check/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const userId = req.user.id;
+
+    const result = await paymentService.checkAndConfirmPayment(invoiceId, userId);
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Check payment error:', error);
+    res.status(400).json({ 
+      success: false, 
+      error: error.message || 'Failed to check payment' 
+    });
+  }
+});
+
+/**
+ * Get user's payment history
+ */
+app.get('/api/payment/history', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const { data: invoices, error } = await supabase
+      .from('payment_invoices')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      invoices
+    });
+  } catch (error) {
+    console.error('[API] Get payment history error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get payment history' 
+    });
+  }
+});
+
+/**
+ * Get payment service health status
+ */
+app.get('/api/payment/health', async (req, res) => {
+  try {
+    const providerHealth = await paymentService.getActiveProvider().healthCheck();
+    
+    res.json({
+      success: true,
+      provider: providerHealth,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Payment service unhealthy',
+      details: error.message
+    });
+  }
+});
+
+// ---------- WEBHOOK ENDPOINTS ----------
+
+/**
+ * NOWPayments Webhook Handler
+ * Handles payment confirmations and status updates
+ * 
+ * Security features:
+ * - Signature verification (HMAC-SHA256)
+ * - Idempotency via unique key tracking
+ * - Replay attack protection
+ * - Input validation
+ */
+app.post('/api/webhook/nowpayments', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-signature'];
+    const payload = JSON.parse(req.body);
+    
+    console.log('[Webhook] NOWPayments received:', JSON.stringify(payload).substring(0, 200));
+
+    // Process webhook through PaymentService
+    const result = await paymentService.processWebhook(
+      payload, 
+      signature, 
+      'nowpayments'
+    );
+
+    // Log the webhook source IP
+    const sourceIp = req.ip || req.connection.remoteAddress;
+    console.log(`[Webhook] Source IP: ${sourceIp}`);
+
+    res.json({
+      success: true,
+      message: 'Webhook processed',
+      result
+    });
+  } catch (error) {
+    console.error('[Webhook] NOWPayments error:', error);
+    
+    // Return 200 even on error to prevent retries for non-retryable errors
+    // Log the error but don't fail the webhook
+    if (error.message.includes('Invalid webhook signature')) {
+      res.status(401).json({ 
+        success: false, 
+        error: 'Invalid signature' 
+      });
+    } else {
+      res.status(200).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  }
+});
+
+/**
+ * Generic webhook endpoint for future providers
+ */
+app.post('/api/webhook/:provider', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const { provider } = req.params;
+    const signature = req.headers['x-signature'] || req.headers['x-signature-256'];
+    const payload = JSON.parse(req.body);
+
+    console.log(`[Webhook] ${provider} received`);
+
+    const result = await paymentService.processWebhook(
+      payload,
+      signature,
+      provider
+    );
+
+    res.json({
+      success: true,
+      message: 'Webhook processed',
+      result
+    });
+  } catch (error) {
+    console.error(`[Webhook] ${req.params.provider} error:`, error);
+    res.status(200).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// ---------- ADMIN PAYMENT ENDPOINTS ----------
+
+/**
+ * Admin: Get all invoices with filtering
+ */
+app.get('/api/admin/payments/invoices', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { 
+      status, 
+      userId, 
+      provider,
+      startDate, 
+      endDate, 
+      search,
+      limit = 100, 
+      offset = 0 
+    } = req.query;
+
+    let query = supabase
+      .from('payment_invoices')
+      .select('*, users(name, email)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    if (provider) {
+      query = query.eq('provider', provider);
+    }
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate);
+    }
+    if (search) {
+      query = query.or(`invoice_id.ilike.%${search}%,wallet_address.ilike.%${search}%,provider_invoice_id.ilike.%${search}%`);
+    }
+
+    const { data: invoices, error, count } = await query;
+
+    if (error) throw error;
+
+    // Format response
+    const formattedInvoices = invoices.map(inv => ({
+      id: inv.id,
+      invoiceId: inv.invoice_id,
+      userId: inv.user_id,
+      userName: inv.users?.name,
+      userEmail: inv.users?.email,
+      amountUsd: inv.amount_usd,
+      amountCrypto: inv.amount_crypto,
+      currency: inv.currency,
+      network: inv.network,
+      walletAddress: inv.wallet_address,
+      provider: inv.provider,
+      status: inv.status,
+      transactionHash: inv.transaction_hash,
+      createdAt: inv.created_at,
+      confirmedAt: inv.confirmed_at,
+      expiresAt: inv.expires_at
+    }));
+
+    res.json({
+      success: true,
+      invoices: formattedInvoices,
+      total: count,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('[Admin] Get invoices error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get invoices' 
+    });
+  }
+});
+
+/**
+ * Admin: Get webhook logs
+ */
+app.get('/api/admin/payments/webhook-logs', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { provider, status, limit = 100, offset = 0 } = req.query;
+
+    let query = supabase
+      .from('webhook_logs')
+      .select('*', { count: 'exact' })
+      .order('received_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    if (provider) {
+      query = query.eq('provider', provider);
+    }
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data: logs, error, count } = await query;
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      logs,
+      total: count
+    });
+  } catch (error) {
+    console.error('[Admin] Get webhook logs error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get webhook logs' 
+    });
+  }
+});
+
+/**
+ * Admin: Retry a failed webhook
+ */
+app.post('/api/admin/payments/webhook/:id/retry', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the webhook log
+    const { data: webhook, error: findError } = await supabase
+      .from('webhook_logs')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (findError || !webhook) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Webhook not found' 
+      });
+    }
+
+    if (webhook.status !== 'failed') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Can only retry failed webhooks' 
+      });
+    }
+
+    // Update status to processing
+    await supabase
+      .from('webhook_logs')
+      .update({ status: 'processing' })
+      .eq('id', id);
+
+    // Reprocess the webhook
+    const result = await paymentService.processWebhook(
+      webhook.payload,
+      null, // No signature for retry
+      webhook.provider
+    );
+
+    res.json({
+      success: true,
+      message: 'Webhook reprocessed',
+      result
+    });
+  } catch (error) {
+    console.error('[Admin] Retry webhook error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to retry webhook' 
+    });
+  }
+});
+
+/**
+ * Admin: Export invoices to CSV
+ */
+app.get('/api/admin/payments/export', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { startDate, endDate, status } = req.query;
+
+    let query = supabase
+      .from('payment_invoices')
+      .select('*, users(name, email, referral_code)')
+      .order('created_at', { ascending: false });
+
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate);
+    }
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data: invoices, error } = await query;
+
+    if (error) throw error;
+
+    // Generate CSV
+    const csvHeader = 'ID,Invoice ID,User ID,User Name,User Email,Amount USD,Amount Crypto,Currency,Network,Wallet Address,Provider,Status,Transaction Hash,Created At,Confirmed At\n';
+    
+    const csvRows = invoices.map(inv => [
+      inv.id,
+      inv.invoice_id,
+      inv.user_id,
+      inv.users?.name || '',
+      inv.users?.email || '',
+      inv.amount_usd,
+      inv.amount_crypto || '',
+      inv.currency,
+      inv.network,
+      inv.wallet_address || '',
+      inv.provider,
+      inv.status,
+      inv.transaction_hash || '',
+      inv.created_at,
+      inv.confirmed_at || ''
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+    const csv = csvHeader + csvRows;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="payments_${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(csv);
+  } catch (error) {
+    console.error('[Admin] Export error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to export payments' 
+    });
+  }
+});
+
+/**
+ * Admin: Get payment statistics
+ */
+app.get('/api/admin/payments/stats', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let invoiceQuery = supabase
+      .from('payment_invoices')
+      .select('amount_usd, status, currency');
+
+    let webhookQuery = supabase
+      .from('webhook_logs')
+      .select('status, provider');
+
+    if (startDate) {
+      invoiceQuery = invoiceQuery.gte('created_at', startDate);
+      webhookQuery = webhookQuery.gte('received_at', startDate);
+    }
+    if (endDate) {
+      invoiceQuery = invoiceQuery.lte('created_at', endDate);
+      webhookQuery = webhookQuery.lte('received_at', endDate);
+    }
+
+    const [invoices, webhooks] = await Promise.all([
+      invoiceQuery,
+      webhookQuery
+    ]);
+
+    // Calculate stats
+    const confirmed = invoices.data.filter(i => i.status === 'confirmed');
+    const pending = invoices.data.filter(i => i.status === 'pending');
+    const expired = invoices.data.filter(i => i.status === 'expired');
+
+    const stats = {
+      totalInvoices: invoices.count || invoices.data.length,
+      confirmedCount: confirmed.length,
+      pendingCount: pending.length,
+      expiredCount: expired.length,
+      totalDepositedUsd: confirmed.reduce((sum, i) => sum + parseFloat(i.amount_usd || 0), 0),
+      averageDepositUsd: confirmed.length > 0 
+        ? confirmed.reduce((sum, i) => sum + parseFloat(i.amount_usd || 0), 0) / confirmed.length 
+        : 0,
+      currencyBreakdown: confirmed.reduce((acc, i) => {
+        acc[i.currency] = (acc[i.currency] || 0) + parseFloat(i.amount_usd || 0);
+        return acc;
+      }, {}),
+      webhookStats: {
+        total: webhooks.count || webhooks.data.length,
+        processed: webhooks.data.filter(w => w.status === 'processed').length,
+        failed: webhooks.data.filter(w => w.status === 'failed').length,
+        duplicate: webhooks.data.filter(w => w.status === 'duplicate').length
+      }
+    };
+
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('[Admin] Get stats error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get statistics' 
+    });
+  }
+});
+
+/**
+ * Admin: Manual payment confirmation (for deposits via old table)
+ */
+app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const { transactionHash } = req.body;
+
+    // Try new payment_invoices table first
+    let { data: invoice, error } = await supabase
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .single();
+
+    // Fall back to old deposits table
+    if (error || !invoice) {
+      const { data: oldDeposit, error: oldError } = await supabase
+        .from('deposits')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .single();
+
+      if (oldError || !oldDeposit) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Invoice not found' 
+        });
+      }
+
+      // Process old deposit confirmation
+      if (oldDeposit.status !== 'pending') {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Already ${oldDeposit.status}` 
+        });
+      }
+
+      // Confirm the deposit
+      const isFirst = await isFirstConfirmedDeposit(oldDeposit.user_id);
+
+      await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', oldDeposit.id);
+      await updateWallet(oldDeposit.user_id, 'live_balance', oldDeposit.amount);
+      await addTransaction(oldDeposit.user_id, 'Deposit', oldDeposit.amount, 'USDT (' + oldDeposit.network + ')');
+
+      if (isFirst) {
+        await activateReferralOnQualification(oldDeposit.user_id, 'first_deposit', {
+          amount: oldDeposit.amount,
+          network: oldDeposit.network
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Old deposit confirmed',
+        amount: oldDeposit.amount
+      });
+    }
+
+    // Confirm new payment invoice
+    if (invoice.status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Already ${invoice.status}` 
+      });
+    }
+
+    // Use atomic function for confirmation
+    const result = await paymentService.confirmPaymentFallback(
+      invoice.id,
+      invoice.user_id,
+      invoice.amount_usd,
+      transactionHash || `admin_${req.user.id}_${Date.now()}`
+    );
+
+    res.json({
+      success: true,
+      message: 'Payment confirmed',
+      result
+    });
+  } catch (error) {
+    console.error('[Admin] Confirm payment error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to confirm payment' 
+    });
+  }
 });
 
 // ---------- Withdraw ----------
