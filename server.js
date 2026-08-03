@@ -14,6 +14,12 @@ const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 // KYC Verification Service
 const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
 
+// TOTP 2FA Service (RFC 6238 compliant)
+const TOTPService = require('./services/TOTPService');
+
+// Encryption key for TOTP secrets (in production, use secure key management)
+const TOTP_ENCRYPTION_KEY = process.env.TOTP_ENCRYPTION_KEY || 'default-kyc-encryption-key-change-in-prod';
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
@@ -3079,12 +3085,739 @@ app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
   res.json({ invited, earned, bonusAdded: 10 });
 });
 
-// ---------- 2FA mock ----------
-app.post('/api/2fa/enable', authMiddleware, (req, res) => res.json({ success: true }));
-app.post('/api/2fa/verify', authMiddleware, (req, res) => {
-  const { code } = req.body;
-  if (!code || code.length < 6) return res.status(400).json({ error: 'Invalid code' });
-  res.json({ success: true });
+// ============================================================
+// TOTP 2FA ENDPOINTS (RFC 6238 Compliant)
+// ============================================================
+
+// Helper: Get user email by ID
+async function getUserEmail(userId) {
+    const { data } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+    return data?.email;
+}
+
+// Helper: Check if user has 2FA enabled
+async function hasUser2FAEnabled(userId) {
+    const { data } = await supabase
+        .from('twofa_profiles')
+        .select('id, is_enabled, is_verified')
+        .eq('user_id', userId)
+        .eq('is_enabled', true)
+        .single();
+    return !!data;
+}
+
+// GET /api/2fa/status - Get user's 2FA status
+app.get('/api/2fa/status', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const { data, error } = await supabase
+            .from('twofa_profiles')
+            .select('is_enabled, is_verified, enabled_at, last_verified_at, backup_codes_remaining')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+        
+        res.json({
+            enabled: data?.is_enabled || false,
+            verified: data?.is_verified || false,
+            enabledAt: data?.enabled_at || null,
+            lastVerifiedAt: data?.last_verified_at || null,
+            backupCodesRemaining: data?.backup_codes_remaining || 0
+        });
+    } catch (error) {
+        console.error('2FA status error:', error);
+        res.status(500).json({ error: 'Failed to get 2FA status' });
+    }
+});
+
+// POST /api/2fa/setup - Initiate 2FA setup, generate secret and QR code
+app.post('/api/2fa/setup', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const userEmail = await getUserEmail(userId);
+        
+        if (!userEmail) {
+            return res.status(400).json({ error: 'User email not found' });
+        }
+        
+        // Check if 2FA is already enabled
+        if (await hasUser2FAEnabled(userId)) {
+            return res.status(400).json({ error: '2FA is already enabled' });
+        }
+        
+        // Generate new TOTP secret
+        const secretBuffer = TOTPService.generateSecret();
+        const secretBase32 = TOTPService.base32Encode(secretBuffer);
+        
+        // Encrypt secret for storage
+        const encryptedSecret = TOTPService.encryptSecret(secretBuffer, TOTP_ENCRYPTION_KEY);
+        
+        // Generate recovery codes
+        const recoveryCodes = TOTPService.generateRecoveryCodes();
+        const hashedCodes = recoveryCodes.map(code => TOTPService.hashRecoveryCode(code));
+        
+        // Create or update 2FA profile
+        const { data, error } = await supabase
+            .from('twofa_profiles')
+            .upsert({
+                user_id: userId,
+                encrypted_secret: encryptedSecret,
+                is_enabled: false,
+                is_verified: false,
+                backup_codes_hash: JSON.stringify(hashedCodes),
+                backup_codes_remaining: TOTPService.CONFIG.RECOVERY_CODES_COUNT
+            }, { onConflict: 'user_id' })
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('2FA setup error:', error);
+            return res.status(500).json({ error: 'Failed to setup 2FA' });
+        }
+        
+        // Generate QR code URI
+        const otpAuthURI = TOTPService.generateOTPAuthURI(secretBase32, userEmail);
+        
+        res.json({
+            success: true,
+            secret: secretBase32, // Return plain secret for manual entry
+            qrCode: otpAuthURI,
+            recoveryCodes: recoveryCodes // Only returned during setup
+        });
+    } catch (error) {
+        console.error('2FA setup error:', error);
+        res.status(500).json({ error: 'Failed to setup 2FA' });
+    }
+});
+
+// POST /api/2fa/verify-setup - Verify setup with a code
+app.post('/api/2fa/verify-setup', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { code } = req.body;
+        
+        if (!code || !/^\d{6}$/.test(code)) {
+            return res.status(400).json({ error: 'Invalid code format' });
+        }
+        
+        // Get the 2FA profile
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile) {
+            return res.status(400).json({ error: '2FA not setup' });
+        }
+        
+        if (profile.is_verified) {
+            return res.status(400).json({ error: 'Already verified' });
+        }
+        
+        // Decrypt secret
+        let secret;
+        try {
+            const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
+            secret = TOTPService.base32Encode(secretBuffer);
+        } catch (e) {
+            console.error('Secret decryption error:', e);
+            return res.status(500).json({ error: 'Failed to decrypt secret' });
+        }
+        
+        // Verify the code
+        if (!TOTPService.verifyTOTP(code, secret)) {
+            return res.status(400).json({ error: 'Invalid code' });
+        }
+        
+        // Update profile to verified
+        const { error: updateError } = await supabase
+            .from('twofa_profiles')
+            .update({
+                is_verified: true,
+                setup_completed_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+        
+        if (updateError) {
+            console.error('2FA verify error:', updateError);
+            return res.status(500).json({ error: 'Failed to verify' });
+        }
+        
+        // Log the verification
+        await supabase.from('twofa_attempts').insert({
+            user_id: userId,
+            code_hash: crypto.createHash('sha256').update(code).digest('hex'),
+            success: true,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent')
+        });
+        
+        res.json({
+            success: true,
+            message: '2FA setup verified successfully'
+        });
+    } catch (error) {
+        console.error('2FA verify setup error:', error);
+        res.status(500).json({ error: 'Failed to verify 2FA' });
+    }
+});
+
+// POST /api/2fa/enable - Enable 2FA after verification
+app.post('/api/2fa/enable', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Check if verified
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile) {
+            return res.status(400).json({ error: '2FA not setup' });
+        }
+        
+        if (!profile.is_verified) {
+            return res.status(400).json({ error: 'Please verify with a code first' });
+        }
+        
+        if (profile.is_enabled) {
+            return res.status(400).json({ error: '2FA is already enabled' });
+        }
+        
+        // Enable 2FA
+        const { error: updateError } = await supabase
+            .from('twofa_profiles')
+            .update({
+                is_enabled: true,
+                enabled_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+        
+        if (updateError) {
+            console.error('2FA enable error:', updateError);
+            return res.status(500).json({ error: 'Failed to enable 2FA' });
+        }
+        
+        // Log admin action if this is admin enabling for user
+        if (req.body.userId && req.user.is_admin) {
+            await supabase.from('audit_logs').insert({
+                action: '2fa_enabled',
+                target_type: 'user',
+                target_id: req.body.userId,
+                user_id: req.body.userId,
+                performed_by: userId,
+                ip_address: req.ip,
+                details: 'Admin enabled 2FA for user'
+            });
+        }
+        
+        res.json({ success: true, message: '2FA enabled successfully' });
+    } catch (error) {
+        console.error('2FA enable error:', error);
+        res.status(500).json({ error: 'Failed to enable 2FA' });
+    }
+});
+
+// POST /api/2fa/disable - Disable 2FA (requires current code or recovery code)
+app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { code, recoveryCode } = req.body;
+        
+        // Get profile
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile) {
+            return res.status(400).json({ error: '2FA not configured' });
+        }
+        
+        if (!profile.is_enabled) {
+            return res.status(400).json({ error: '2FA is not enabled' });
+        }
+        
+        let isValid = false;
+        
+        // Verify with TOTP code
+        if (code) {
+            const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
+            const secret = TOTPService.base32Encode(secretBuffer);
+            isValid = TOTPService.verifyTOTP(code, secret);
+        }
+        // Verify with recovery code
+        else if (recoveryCode) {
+            const hashedInput = TOTPService.hashRecoveryCode(recoveryCode);
+            const storedHashes = JSON.parse(profile.backup_codes_hash || '[]');
+            
+            isValid = storedHashes.includes(hashedInput);
+            
+            if (isValid) {
+                // Remove used recovery code
+                const newHashes = storedHashes.filter(h => h !== hashedInput);
+                await supabase
+                    .from('twofa_profiles')
+                    .update({
+                        backup_codes_hash: JSON.stringify(newHashes),
+                        backup_codes_remaining: newHashes.length
+                    })
+                    .eq('user_id', userId);
+            }
+        }
+        
+        if (!isValid) {
+            return res.status(400).json({ error: 'Invalid code' });
+        }
+        
+        // Disable 2FA
+        const { error: updateError } = await supabase
+            .from('twofa_profiles')
+            .update({
+                is_enabled: false,
+                is_verified: false,
+                encrypted_secret: null,
+                backup_codes_hash: null,
+                backup_codes_remaining: 0
+            })
+            .eq('user_id', userId);
+        
+        if (updateError) {
+            console.error('2FA disable error:', updateError);
+            return res.status(500).json({ error: 'Failed to disable 2FA' });
+        }
+        
+        // Log the action
+        await supabase.from('audit_logs').insert({
+            action: '2fa_disabled',
+            target_type: 'user',
+            target_id: userId,
+            user_id: userId,
+            performed_by: userId,
+            ip_address: req.ip,
+            details: 'User disabled 2FA'
+        });
+        
+        res.json({ success: true, message: '2FA disabled successfully' });
+    } catch (error) {
+        console.error('2FA disable error:', error);
+        res.status(500).json({ error: 'Failed to disable 2FA' });
+    }
+});
+
+// POST /api/2fa/regenerate-recovery - Regenerate recovery codes
+app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { code } = req.body;
+        
+        // Get profile
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile) {
+            return res.status(400).json({ error: '2FA not configured' });
+        }
+        
+        if (!profile.is_enabled) {
+            return res.status(400).json({ error: '2FA is not enabled' });
+        }
+        
+        // Verify with current TOTP code
+        const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
+        const secret = TOTPService.base32Encode(secretBuffer);
+        
+        if (!TOTPService.verifyTOTP(code, secret)) {
+            return res.status(400).json({ error: 'Invalid code' });
+        }
+        
+        // Generate new recovery codes
+        const newCodes = TOTPService.generateRecoveryCodes();
+        const hashedCodes = newCodes.map(c => TOTPService.hashRecoveryCode(c));
+        
+        await supabase
+            .from('twofa_profiles')
+            .update({
+                backup_codes_hash: JSON.stringify(hashedCodes),
+                backup_codes_remaining: TOTPService.CONFIG.RECOVERY_CODES_COUNT
+            })
+            .eq('user_id', userId);
+        
+        res.json({
+            success: true,
+            recoveryCodes: newCodes
+        });
+    } catch (error) {
+        console.error('2FA regenerate recovery error:', error);
+        res.status(500).json({ error: 'Failed to regenerate recovery codes' });
+    }
+});
+
+// POST /api/2fa/verify - Verify code during login
+app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { code, recoveryCode } = req.body;
+        
+        // Check rate limit
+        const rateLimit = TOTPService.checkRateLimit(userId);
+        if (!rateLimit.allowed) {
+            return res.status(429).json({ 
+                error: 'Too many attempts',
+                retryAfter: rateLimit.retryAfter
+            });
+        }
+        
+        // Get profile
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile || !profile.is_enabled) {
+            return res.status(400).json({ error: '2FA not enabled' });
+        }
+        
+        // Check for replay attack
+        const codeHash = crypto.createHash('sha256').update(code || recoveryCode).digest('hex');
+        const { data: existingAttempt } = await supabase
+            .from('twofa_attempts')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('code_hash', codeHash)
+            .eq('success', true)
+            .gte('used_at', new Date(Date.now() - 90000).toISOString()) // Within last 1.5 periods
+            .single();
+        
+        if (existingAttempt) {
+            return res.status(400).json({ error: 'Code already used (replay attack prevention)' });
+        }
+        
+        let isValid = false;
+        let usedRecoveryCode = false;
+        
+        // Verify with TOTP code
+        if (code) {
+            const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
+            const secret = TOTPService.base32Encode(secretBuffer);
+            isValid = TOTPService.verifyTOTP(code, secret);
+        }
+        // Verify with recovery code
+        else if (recoveryCode) {
+            if (profile.backup_codes_remaining <= 0) {
+                return res.status(400).json({ error: 'No recovery codes remaining' });
+            }
+            
+            const hashedInput = TOTPService.hashRecoveryCode(recoveryCode);
+            const storedHashes = JSON.parse(profile.backup_codes_hash || '[]');
+            
+            isValid = storedHashes.includes(hashedInput);
+            usedRecoveryCode = isValid;
+            
+            if (isValid) {
+                // Remove used recovery code
+                const newHashes = storedHashes.filter(h => h !== hashedInput);
+                await supabase
+                    .from('twofa_profiles')
+                    .update({
+                        backup_codes_hash: JSON.stringify(newHashes),
+                        backup_codes_remaining: newHashes.length
+                    })
+                    .eq('user_id', userId);
+            }
+        }
+        
+        // Log attempt
+        await supabase.from('twofa_attempts').insert({
+            user_id: userId,
+            code_hash: codeHash,
+            success: isValid,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent')
+        });
+        
+        if (!isValid) {
+            TOTPService.checkRateLimit(userId); // Increment attempt count
+            return res.status(400).json({ error: 'Invalid code' });
+        }
+        
+        // Clear rate limit on success
+        TOTPService.clearRateLimit(userId);
+        
+        // Update last verified
+        await supabase
+            .from('twofa_profiles')
+            .update({ last_verified_at: new Date().toISOString() })
+            .eq('user_id', userId);
+        
+        res.json({ 
+            success: true,
+            usedRecoveryCode
+        });
+    } catch (error) {
+        console.error('2FA verify error:', error);
+        res.status(500).json({ error: 'Failed to verify' });
+    }
+});
+
+// POST /api/2fa/login-initiate - First step of 2FA login (returns if 2FA required)
+app.post('/api/2fa/login-initiate', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password required' });
+        }
+        
+        // Verify credentials
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+        
+        if (error || !user) {
+            // Use same error to prevent email enumeration
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        const passwordValid = await bcrypt.compare(password, user.password_hash);
+        if (!passwordValid) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        // Check if 2FA is enabled
+        const has2FA = await hasUser2FAEnabled(user.id);
+        
+        if (!has2FA) {
+            // No 2FA, return token directly
+            const token = jwt.sign(
+                { id: user.id, email: user.email, is_admin: !!user.is_admin },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+            
+            return res.json({
+                success: true,
+                requires2FA: false,
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    referral_code: user.referral_code,
+                    is_admin: !!user.is_admin,
+                    is_verified: !!user.is_verified
+                }
+            });
+        }
+        
+        // 2FA required - return partial token for step 2
+        const partialToken = jwt.sign(
+            { 
+                id: user.id, 
+                email: user.email, 
+                is_admin: !!user.is_admin,
+                _2fa_pending: true
+            },
+            JWT_SECRET,
+            { expiresIn: '5m' }
+        );
+        
+        res.json({
+            success: true,
+            requires2FA: true,
+            partialToken
+        });
+    } catch (error) {
+        console.error('2FA login initiate error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// POST /api/2fa/login-verify - Second step of 2FA login
+app.post('/api/2fa/login-verify', async (req, res) => {
+    try {
+        const { partialToken, code, recoveryCode } = req.body;
+        
+        if (!partialToken) {
+            return res.status(400).json({ error: 'Missing partial token' });
+        }
+        
+        // Verify partial token
+        let decoded;
+        try {
+            decoded = jwt.verify(partialToken, JWT_SECRET);
+        } catch (e) {
+            return res.status(401).json({ error: 'Session expired, please login again' });
+        }
+        
+        if (!decoded._2fa_pending) {
+            return res.status(401).json({ error: 'Invalid session' });
+        }
+        
+        const userId = decoded.id;
+        
+        // Check rate limit
+        const rateLimit = TOTPService.checkRateLimit(`login:${userId}`);
+        if (!rateLimit.allowed) {
+            return res.status(429).json({ 
+                error: 'Too many attempts',
+                retryAfter: rateLimit.retryAfter
+            });
+        }
+        
+        // Get profile
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile || !profile.is_enabled) {
+            return res.status(400).json({ error: '2FA not enabled' });
+        }
+        
+        // Check for replay
+        const codeHash = crypto.createHash('sha256').update(code || recoveryCode).digest('hex');
+        const { data: existingAttempt } = await supabase
+            .from('twofa_attempts')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('code_hash', codeHash)
+            .eq('success', true)
+            .gte('used_at', new Date(Date.now() - 90000).toISOString())
+            .single();
+        
+        if (existingAttempt) {
+            return res.status(400).json({ error: 'Code already used' });
+        }
+        
+        let isValid = false;
+        let usedRecoveryCode = false;
+        
+        if (code) {
+            const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
+            const secret = TOTPService.base32Encode(secretBuffer);
+            isValid = TOTPService.verifyTOTP(code, secret);
+        } else if (recoveryCode) {
+            if (profile.backup_codes_remaining <= 0) {
+                return res.status(400).json({ error: 'No recovery codes remaining' });
+            }
+            
+            const hashedInput = TOTPService.hashRecoveryCode(recoveryCode);
+            const storedHashes = JSON.parse(profile.backup_codes_hash || '[]');
+            
+            isValid = storedHashes.includes(hashedInput);
+            usedRecoveryCode = isValid;
+            
+            if (isValid) {
+                const newHashes = storedHashes.filter(h => h !== hashedInput);
+                await supabase
+                    .from('twofa_profiles')
+                    .update({
+                        backup_codes_hash: JSON.stringify(newHashes),
+                        backup_codes_remaining: newHashes.length
+                    })
+                    .eq('user_id', userId);
+            }
+        }
+        
+        // Log attempt
+        await supabase.from('twofa_attempts').insert({
+            user_id: userId,
+            code_hash: codeHash,
+            success: isValid,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent')
+        });
+        
+        if (!isValid) {
+            TOTPService.checkRateLimit(`login:${userId}`);
+            return res.status(400).json({ error: 'Invalid code' });
+        }
+        
+        // Clear rate limit
+        TOTPService.clearRateLimit(`login:${userId}`);
+        
+        // Generate full token
+        const token = jwt.sign(
+            { id: userId, email: decoded.email, is_admin: decoded.is_admin },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        // Update last verified
+        await supabase
+            .from('twofa_profiles')
+            .update({ last_verified_at: new Date().toISOString() })
+            .eq('user_id', userId);
+        
+        // Get user data
+        const { data: user } = await supabase
+            .from('users')
+            .select('id, name, email, referral_code, is_admin, is_verified')
+            .eq('id', userId)
+            .single();
+        
+        res.json({
+            success: true,
+            token,
+            user: user ? {
+                ...user,
+                is_admin: !!user.is_admin,
+                is_verified: !!user.is_verified
+            } : null
+        });
+    } catch (error) {
+        console.error('2FA login verify error:', error);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
+// Admin: Get user's 2FA status (without secrets)
+app.get('/api/admin/2fa/:userId', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        const { data, error } = await supabase
+            .from('twofa_profiles')
+            .select('is_enabled, is_verified, enabled_at, last_verified_at, backup_codes_remaining, created_at')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+        
+        res.json({
+            enabled: data?.is_enabled || false,
+            verified: data?.is_verified || false,
+            enabledAt: data?.enabled_at || null,
+            lastVerifiedAt: data?.last_verified_at || null,
+            backupCodesRemaining: data?.backup_codes_remaining || 0,
+            createdAt: data?.created_at || null
+        });
+    } catch (error) {
+        console.error('Admin 2FA error:', error);
+        res.status(500).json({ error: 'Failed to get 2FA status' });
+    }
 });
 
 // ---------- ADMIN ----------
