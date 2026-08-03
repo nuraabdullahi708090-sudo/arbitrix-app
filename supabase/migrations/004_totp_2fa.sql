@@ -4,14 +4,16 @@
 -- This migration adds support for RFC 6238 compliant
 -- Time-based One-Time Password (TOTP) authentication
 -- Compatible with Google Authenticator, Microsoft Authenticator, Authy
+--
+-- SCHEMA NOTE: Uses BIGINT for user_id to match existing users(id) column type
 -- ============================================
 
 -- ============================================
 -- 1. TWO-FACTOR AUTHENTICATION PROFILES TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.twofa_profiles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     encrypted_secret TEXT, -- AES-256-GCM encrypted TOTP secret
     is_enabled BOOLEAN NOT NULL DEFAULT false,
     is_verified BOOLEAN NOT NULL DEFAULT false, -- Has user verified a code during setup
@@ -34,8 +36,8 @@ CREATE INDEX IF NOT EXISTS idx_twofa_profiles_enabled ON public.twofa_profiles(i
 -- 2. 2FA VERIFICATION ATTEMPTS (for replay protection)
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.twofa_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     code_hash TEXT NOT NULL, -- SHA256 hash of the code used
     used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ip_address INET,
@@ -70,28 +72,30 @@ ALTER TABLE public.twofa_attempts ENABLE ROW LEVEL SECURITY;
 -- ============================================
 -- 4. RLS POLICIES FOR twofa_profiles
 -- ============================================
+-- NOTE: auth.uid() returns UUID but users.id is BIGINT
+-- Cast auth.uid() to BIGINT using (auth.uid())::bigint
 
 -- Users can view their own 2FA profile (but NOT the secret)
 CREATE POLICY "Users can view own 2FA profile"
     ON public.twofa_profiles
     FOR SELECT
     TO authenticated
-    USING (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id);
 
 -- Users can create their own 2FA profile
 CREATE POLICY "Users can create own 2FA profile"
     ON public.twofa_profiles
     FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK ((auth.uid())::bigint = user_id);
 
 -- Users can update their own 2FA profile (but NOT the secret directly)
 CREATE POLICY "Users can update own 2FA profile"
     ON public.twofa_profiles
     FOR UPDATE
     TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id)
+    WITH CHECK ((auth.uid())::bigint = user_id);
 
 -- Admins can view 2FA status (but NOT secrets)
 CREATE POLICY "Admins can view 2FA profiles"
@@ -101,7 +105,7 @@ CREATE POLICY "Admins can view 2FA profiles"
     USING (
         EXISTS (
             SELECT 1 FROM public.users 
-            WHERE id = auth.uid() AND is_admin = true
+            WHERE id = (auth.uid())::bigint AND is_admin = true
         )
     );
 
@@ -113,7 +117,7 @@ CREATE POLICY "Admins can update 2FA profiles"
     USING (
         EXISTS (
             SELECT 1 FROM public.users 
-            WHERE id = auth.uid() AND is_admin = true
+            WHERE id = (auth.uid())::bigint AND is_admin = true
         )
     );
 
@@ -126,14 +130,14 @@ CREATE POLICY "Users can view own 2FA attempts"
     ON public.twofa_attempts
     FOR SELECT
     TO authenticated
-    USING (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id);
 
 -- Users can insert their own attempts
 CREATE POLICY "Users can insert own 2FA attempts"
     ON public.twofa_attempts
     FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK ((auth.uid())::bigint = user_id);
 
 -- System/service role can manage attempts (for cleanup)
 CREATE POLICY "Service role can manage 2FA attempts"

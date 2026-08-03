@@ -9,6 +9,8 @@
 -- - Admin review history for accountability
 -- - Proper indexes, constraints, and RLS policies
 -- - Signed URL security for document access
+--
+-- SCHEMA NOTE: Uses BIGINT for user_id to match existing users(id) column type
 -- ============================================
 
 -- ============================================
@@ -27,10 +29,10 @@
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.verification_profiles (
     -- Primary key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     
-    -- User reference (one-to-one relationship)
-    user_id UUID NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE CASCADE,
+    -- User reference (one-to-one relationship) - BIGINT to match users(id)
+    user_id BIGINT NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE CASCADE,
     
     -- Personal Information
     full_legal_name TEXT NOT NULL,
@@ -56,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.verification_profiles (
     
     -- Rejection details
     rejection_reason TEXT,
-    reviewed_by UUID REFERENCES public.users(id),
+    reviewed_by BIGINT REFERENCES public.users(id),
     
     -- Current version for optimistic locking
     version INTEGER NOT NULL DEFAULT 1
@@ -67,13 +69,13 @@ CREATE TABLE IF NOT EXISTS public.verification_profiles (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.verification_documents (
     -- Primary key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     
-    -- Reference to verification profile
-    verification_id UUID NOT NULL REFERENCES public.verification_profiles(id) ON DELETE CASCADE,
+    -- Reference to verification profile - BIGINT to match verification_profiles(id)
+    verification_id BIGINT NOT NULL REFERENCES public.verification_profiles(id) ON DELETE CASCADE,
     
-    -- Reference to user (for quick access and RLS)
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    -- Reference to user (for quick access and RLS) - BIGINT to match users(id)
+    user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     
     -- Document Type
     -- Types: national_id, passport, drivers_license, selfie_with_id
@@ -115,13 +117,13 @@ CREATE TABLE IF NOT EXISTS public.verification_documents (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.verification_history (
     -- Primary key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     
-    -- Reference to verification profile
-    verification_id UUID NOT NULL REFERENCES public.verification_profiles(id) ON DELETE CASCADE,
+    -- Reference to verification profile - BIGINT to match verification_profiles(id)
+    verification_id BIGINT NOT NULL REFERENCES public.verification_profiles(id) ON DELETE CASCADE,
     
-    -- Reference to user
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    -- Reference to user - BIGINT to match users(id)
+    user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     
     -- Previous status (for tracking changes)
     previous_status TEXT,
@@ -145,16 +147,16 @@ CREATE TABLE IF NOT EXISTS public.verification_history (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.admin_review_history (
     -- Primary key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     
-    -- Reference to verification profile
-    verification_id UUID NOT NULL REFERENCES public.verification_profiles(id) ON DELETE CASCADE,
+    -- Reference to verification profile - BIGINT to match verification_profiles(id)
+    verification_id BIGINT NOT NULL REFERENCES public.verification_profiles(id) ON DELETE CASCADE,
     
-    -- Reference to user being reviewed
-    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    -- Reference to user being reviewed - BIGINT to match users(id)
+    user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     
-    -- Admin who performed the review
-    admin_id UUID NOT NULL REFERENCES public.users(id),
+    -- Admin who performed the review - BIGINT to match users(id)
+    admin_id BIGINT NOT NULL REFERENCES public.users(id),
     
     -- Action taken
     -- Actions: approved, rejected, requested_resubmission, viewed
@@ -246,20 +248,22 @@ ALTER TABLE public.admin_review_history ENABLE ROW LEVEL SECURITY;
 -- ============================================
 -- 10. RLS POLICIES FOR verification_profiles
 -- ============================================
+-- NOTE: auth.uid() returns UUID but users.id is BIGINT
+-- Cast auth.uid() to BIGINT using (auth.uid())::bigint
 
 -- Users can view their own verification profile
 CREATE POLICY "Users can view own verification profile"
     ON public.verification_profiles
     FOR SELECT
     TO authenticated
-    USING (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id);
 
 -- Users can insert their own verification profile
 CREATE POLICY "Users can insert own verification profile"
     ON public.verification_profiles
     FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK ((auth.uid())::bigint = user_id);
 
 -- Users can update their own verification profile (only when not under review)
 CREATE POLICY "Users can update own verification profile"
@@ -267,11 +271,11 @@ CREATE POLICY "Users can update own verification profile"
     FOR UPDATE
     TO authenticated
     USING (
-        auth.uid() = user_id 
+        (auth.uid())::bigint = user_id 
         AND status IN ('not_started', 'rejected', 'resubmission_required')
     )
     WITH CHECK (
-        auth.uid() = user_id 
+        (auth.uid())::bigint = user_id 
         AND status IN ('not_started', 'rejected', 'resubmission_required')
     );
 
@@ -283,7 +287,7 @@ CREATE POLICY "Admins can view all verification profiles"
     USING (
         EXISTS (
             SELECT 1 FROM users 
-            WHERE id = auth.uid() 
+            WHERE id = (auth.uid())::bigint 
             AND is_admin = true
         )
     );
@@ -296,7 +300,7 @@ CREATE POLICY "Admins can update verification profiles"
     USING (
         EXISTS (
             SELECT 1 FROM users 
-            WHERE id = auth.uid() 
+            WHERE id = (auth.uid())::bigint 
             AND is_admin = true
         )
     );
@@ -310,21 +314,21 @@ CREATE POLICY "Users can view own documents"
     ON public.verification_documents
     FOR SELECT
     TO authenticated
-    USING (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id);
 
 -- Users can insert their own documents
 CREATE POLICY "Users can insert own documents"
     ON public.verification_documents
     FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK ((auth.uid())::bigint = user_id);
 
 -- Users can update their own documents (to replace)
 CREATE POLICY "Users can update own documents"
     ON public.verification_documents
     FOR UPDATE
     TO authenticated
-    USING (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id);
 
 -- Admins can view all documents
 CREATE POLICY "Admins can view all documents"
@@ -334,7 +338,7 @@ CREATE POLICY "Admins can view all documents"
     USING (
         EXISTS (
             SELECT 1 FROM users 
-            WHERE id = auth.uid() 
+            WHERE id = (auth.uid())::bigint 
             AND is_admin = true
         )
     );
@@ -348,14 +352,14 @@ CREATE POLICY "Users can view own verification history"
     ON public.verification_history
     FOR SELECT
     TO authenticated
-    USING (auth.uid() = user_id);
+    USING ((auth.uid())::bigint = user_id);
 
 -- System can insert verification history
 CREATE POLICY "System can insert verification history"
     ON public.verification_history
     FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK ((auth.uid())::bigint = user_id);
 
 -- Admins can view all verification history
 CREATE POLICY "Admins can view all verification history"
@@ -365,7 +369,7 @@ CREATE POLICY "Admins can view all verification history"
     USING (
         EXISTS (
             SELECT 1 FROM users 
-            WHERE id = auth.uid() 
+            WHERE id = (auth.uid())::bigint 
             AND is_admin = true
         )
     );
@@ -379,7 +383,7 @@ CREATE POLICY "Admins can view own review history"
     ON public.admin_review_history
     FOR SELECT
     TO authenticated
-    USING (auth.uid() = admin_id);
+    USING ((auth.uid())::bigint = admin_id);
 
 -- Admins can view all review history
 CREATE POLICY "Admins can view all review history"
@@ -389,7 +393,7 @@ CREATE POLICY "Admins can view all review history"
     USING (
         EXISTS (
             SELECT 1 FROM users 
-            WHERE id = auth.uid() 
+            WHERE id = (auth.uid())::bigint 
             AND is_admin = true
         )
     );
@@ -399,7 +403,7 @@ CREATE POLICY "Admins can insert review history"
     ON public.admin_review_history
     FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() = admin_id);
+    WITH CHECK ((auth.uid())::bigint = admin_id);
 
 -- ============================================
 -- 14. CREATE TRIGGER FOR updated_at
@@ -481,6 +485,8 @@ COMMENT ON COLUMN public.verification_documents.is_active IS
 -- - The storage system is separate from regular database tables
 -- - Bucket creation and storage policies require elevated permissions
 --
+-- NOTE: Since users.id is BIGINT, folder names use BIGINT format (e.g., "14/")
+--
 -- If running via 'supabase db push', ensure your local config has
 -- the SERVICE_KEY environment variable set for service role access.
 
@@ -502,12 +508,14 @@ DROP POLICY IF EXISTS "Admins can access KYC documents" ON storage.objects;
 DROP POLICY IF EXISTS "Service role can manage KYC documents" ON storage.objects;
 
 -- Storage policy: Users can only upload documents to their own folder (userId/filename)
+-- Folder format: "user_id/document.ext" (e.g., "14/passport.jpg")
+-- auth.uid() is cast to text for comparison with folder name
 CREATE POLICY "Users can upload own KYC documents"
     ON storage.objects FOR INSERT
     TO authenticated
     WITH CHECK (
         bucket_id = 'kyc-documents' 
-        AND auth.uid()::text = (storage.foldername(name))[1]
+        AND (auth.uid())::text = (storage.foldername(name))[1]
     );
 
 -- Storage policy: Users can only update/delete their own documents
@@ -516,11 +524,11 @@ CREATE POLICY "Users can update own KYC documents"
     TO authenticated
     USING (
         bucket_id = 'kyc-documents' 
-        AND auth.uid()::text = (storage.foldername(name))[1]
+        AND (auth.uid())::text = (storage.foldername(name))[1]
     )
     WITH CHECK (
         bucket_id = 'kyc-documents' 
-        AND auth.uid()::text = (storage.foldername(name))[1]
+        AND (auth.uid())::text = (storage.foldername(name))[1]
     );
 
 -- Storage policy: Admins can view all documents in the bucket
@@ -531,7 +539,7 @@ CREATE POLICY "Admins can access KYC documents"
         bucket_id = 'kyc-documents' 
         AND EXISTS (
             SELECT 1 FROM public.users 
-            WHERE id = auth.uid() AND is_admin = true
+            WHERE id = (auth.uid())::bigint AND is_admin = true
         )
     );
 
