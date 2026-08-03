@@ -139,6 +139,34 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ============================================
+// PAYMENT SERVICE INITIALIZATION
+// ============================================
+
+const PaymentService = require('./services/payment/PaymentService');
+
+// Payment service configuration
+const PAYMENT_CONFIG = {
+  activeProvider: process.env.PAYMENT_PROVIDER || 'demo',
+  addresses: {
+    TRC20: process.env.PAYMENT_ADDRESS_TRC20 || 'TDQ2Ymmejp2MXxawBdbYkxqjZ7tTkMyMJR',
+    ERC20: process.env.PAYMENT_ADDRESS_ERC20 || '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+    BEP20: process.env.PAYMENT_ADDRESS_BEP20 || '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
+  }
+};
+
+// Initialize payment service as singleton
+let paymentService = null;
+
+function getPaymentService() {
+  if (!paymentService) {
+    paymentService = new PaymentService(supabase, PAYMENT_CONFIG);
+  }
+  return paymentService;
+}
+
+// ============================================
+
 // CORS configuration - allow all origins for flexibility
 // In production, you may want to restrict this to specific domains
 app.use(cors({
@@ -1285,57 +1313,430 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   res.json({ user, wallet });
 });
 
-// ---------- Deposit ----------
-app.post('/api/deposit/request', authMiddleware, async (req, res) => {
-  const { amount, network } = req.body;
-  if (!amount || amount < 10) return res.status(400).json({ error: 'Min $10' });
-  const userId = req.user.id;
-  const net = network || 'TRC20';
-  const invoiceId = 'inv_' + Date.now() + '_' + userId;
-  const addresses = { TRC20: 'TDQ2Ymmejp2MXxawBdbYkxqjZ7tTkMyMJR', ERC20: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', BEP20: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e' };
-  const address = addresses[net] || addresses.TRC20;
-  await supabase.from('deposits').insert({ user_id: userId, amount, network: net, address, invoice_id: invoiceId, status: 'pending' });
-  res.json({ id: invoiceId, address, cryptoAmount: (amount/1.0018).toFixed(6), usdValue: amount, expiresAt: new Date(Date.now()+3600000).toISOString(), network: net });
+// ============================================
+// PAYMENT / DEPOSIT ENDPOINTS
+// ============================================
+
+/**
+ * Get supported payment networks
+ */
+app.get('/api/payment/networks', async (req, res) => {
+  try {
+    const paymentService = getPaymentService();
+    const networks = paymentService.getSupportedNetworks();
+    res.json({
+      success: true,
+      networks: networks.map(network => ({
+        code: network,
+        name: getNetworkName(network),
+        icon: getNetworkIcon(network)
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting networks:', error);
+    res.status(500).json({ error: 'Failed to get payment networks' });
+  }
 });
 
-app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
-  const { invoiceId } = req.params;
-  const { data: deposit, error } = await supabase.from('deposits').select('*').eq('invoice_id', invoiceId).eq('user_id', req.user.id).single();
-  if (error || !deposit) return res.status(404).json({ error: 'Invoice not found' });
-  const elapsed = Date.now() - new Date(deposit.created_at).getTime();
-  
-  let referralActivated = null;
-  
-  if (elapsed > 15000 && deposit.status === 'pending') {
-    // Check if this is the user's first deposit (for referral qualification)
-    const isFirst = await isFirstConfirmedDeposit(req.user.id);
-    
-    await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
-    await updateWallet(req.user.id, 'live_balance', deposit.amount);
-    await addTransaction(req.user.id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
-    deposit.status = 'confirmed';
-    
-    // Activate referral with deposit info (amount for minimum check)
-    if (isFirst) {
-      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
-        amount: deposit.amount,
-        network: deposit.network
+/**
+ * Create a new deposit/invoice
+ */
+app.post('/api/deposit/request', authMiddleware, async (req, res) => {
+  try {
+    const { amount, network } = req.body;
+    const userId = req.user.id;
+
+    // Validate amount
+    if (!amount || isNaN(amount) || parseFloat(amount) < 10) {
+      return res.status(400).json({ 
+        error: 'Minimum deposit is $10',
+        code: 'INVALID_AMOUNT'
       });
     }
+
+    const paymentService = getPaymentService();
+    
+    // Create deposit using PaymentService
+    const result = await paymentService.createDeposit(userId, parseFloat(amount), network || 'TRC20');
+
+    // Log the creation event
+    await logPaymentEvent(result.depositId, 'created', null, 'pending');
+
+    res.json({
+      success: true,
+      depositId: result.depositId,
+      invoiceId: result.invoiceId,
+      orderId: result.orderId,
+      paymentAddress: result.paymentAddress,
+      cryptoAmount: result.cryptoAmount,
+      amount: result.amount,
+      network: result.network,
+      expiresAt: result.expiresAt,
+      qrCodeUrl: result.qrCodeUrl,
+      status: 'pending'
+    });
+
+  } catch (error) {
+    console.error('Error creating deposit:', error);
+    res.status(400).json({ 
+      error: error.message || 'Failed to create deposit',
+      code: 'DEPOSIT_ERROR'
+    });
   }
-  if (elapsed > 3600000 && deposit.status === 'pending') {
-    await supabase.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
-    deposit.status = 'expired';
-  }
-  const wallet = await getWallet(req.user.id);
-  res.json({ 
-    status: deposit.status, 
-    newBalance: wallet.live_balance, 
-    creditedAmount: deposit.status==='confirmed' ? deposit.amount : 0, 
-    network: deposit.network,
-    referralActivated
-  });
 });
+
+/**
+ * Get deposit status
+ */
+app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const paymentService = getPaymentService();
+    
+    const result = await paymentService.getDepositStatus(invoiceId, req.user.id);
+
+    if (!result.success) {
+      return res.status(404).json({ 
+        error: result.error || 'Invoice not found',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    // Get wallet balance
+    const wallet = await getWallet(req.user.id);
+
+    // Check if we need to auto-confirm (demo mode)
+    let referralActivated = null;
+    if (result.status === 'pending') {
+      const deposit = await paymentService.getDeposit(result.depositId);
+      if (deposit.data) {
+        // Check elapsed time (demo: 15 seconds for testing)
+        const elapsed = Date.now() - new Date(deposit.data.created_at).getTime();
+        const autoConfirmTime = process.env.NODE_ENV === 'production' ? 3600000 : 15000; // 1 hour prod, 15 sec demo
+        
+        if (elapsed > autoConfirmTime) {
+          // Auto-confirm the deposit
+          const confirmResult = await paymentService.processPaymentConfirmation(invoiceId);
+          
+          if (confirmResult.success) {
+            result.status = 'confirmed';
+            
+            // Check for referral qualification
+            const isFirst = await isFirstConfirmedDeposit(req.user.id);
+            if (isFirst) {
+              referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
+                amount: result.amount,
+                network: result.network
+              });
+            }
+            
+            // Log the confirmation
+            await logPaymentEvent(result.depositId, 'pending', 'confirmed');
+          }
+        }
+      }
+    }
+
+    // Refresh wallet
+    const updatedWallet = await getWallet(req.user.id);
+
+    res.json({
+      success: true,
+      status: result.status,
+      depositId: result.depositId,
+      invoiceId: result.invoiceId,
+      amount: result.amount,
+      network: result.network,
+      newBalance: updatedWallet.live_balance,
+      creditedAmount: result.status === 'confirmed' ? result.amount : 0,
+      confirmedAt: result.confirmedAt,
+      expiresAt: result.expiresAt,
+      referralActivated
+    });
+
+  } catch (error) {
+    console.error('Error getting deposit status:', error);
+    res.status(500).json({ 
+      error: 'Failed to get deposit status',
+      code: 'STATUS_ERROR'
+    });
+  }
+});
+
+/**
+ * Get user's deposit history
+ */
+app.get('/api/deposits', authMiddleware, async (req, res) => {
+  try {
+    const paymentService = getPaymentService();
+    const { data, error } = await paymentService.getUserDeposits(req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to fetch deposits' });
+    }
+
+    res.json({
+      success: true,
+      deposits: data.map(d => ({
+        id: d.id,
+        invoiceId: d.invoice_id,
+        orderId: d.order_id,
+        amount: d.amount,
+        cryptoAmount: d.crypto_amount,
+        network: d.network,
+        status: d.status,
+        address: d.address,
+        createdAt: d.created_at,
+        confirmedAt: d.confirmed_at,
+        expiresAt: d.expires_at
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error getting deposits:', error);
+    res.status(500).json({ error: 'Failed to fetch deposits' });
+  }
+});
+
+/**
+ * Get user's deposit statistics
+ */
+app.get('/api/deposits/stats', authMiddleware, async (req, res) => {
+  try {
+    const paymentService = getPaymentService();
+    const result = await paymentService.getDepositStats(req.user.id);
+
+    if (!result.success) {
+      return res.status(500).json({ error: 'Failed to get statistics' });
+    }
+
+    res.json({
+      success: true,
+      stats: result.stats
+    });
+
+  } catch (error) {
+    console.error('Error getting deposit stats:', error);
+    res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
+// ============================================
+// WEBHOOK ENDPOINTS
+// ============================================
+
+/**
+ * Generic webhook endpoint (for payment providers)
+ * Note: In production, implement provider-specific webhook endpoints
+ */
+app.post('/api/webhook/payment', async (req, res) => {
+  try {
+    const headers = req.headers;
+    const payload = req.body;
+    
+    // Extract provider from header or body
+    const provider = headers['x-provider'] || payload.provider || 'demo';
+
+    // Log the webhook
+    const webhookLogId = await logWebhook(provider, payload, headers);
+
+    // Get payment service
+    const paymentService = getPaymentService();
+
+    // Process the webhook
+    const result = await paymentService.processWebhook(payload, headers, provider);
+
+    // Update webhook log with result
+    await updateWebhookLog(webhookLogId, true, result);
+
+    // Return success
+    res.json({ 
+      success: true, 
+      processed: true,
+      result 
+    });
+
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    
+    // Log the error
+    await logWebhookError(payload?.invoiceId, error.message);
+
+    // Return error (but 200 to prevent retries for known issues)
+    res.status(200).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * Demo webhook endpoint for testing
+ * Simulates payment confirmation
+ */
+app.post('/api/webhook/demo/simulate', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.body;
+    
+    if (!invoiceId) {
+      return res.status(400).json({ error: 'Invoice ID required' });
+    }
+
+    const paymentService = getPaymentService();
+    const provider = paymentService.getProvider();
+    
+    // Simulate payment received
+    const result = await provider.simulatePaymentReceived(invoiceId);
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    // Process the confirmation
+    const confirmation = await paymentService.processPaymentConfirmation(invoiceId);
+
+    // Log the webhook simulation
+    await logWebhook('demo', { invoiceId, simulated: true }, {});
+    await logPaymentEvent(confirmation.depositId, 'pending', 'confirmed');
+
+    res.json({
+      success: true,
+      confirmation
+    });
+
+  } catch (error) {
+    console.error('Demo webhook simulation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+function getNetworkName(code) {
+  const names = {
+    TRC20: 'Tron (TRC20)',
+    ERC20: 'Ethereum (ERC20)',
+    BEP20: 'BNB Smart Chain (BEP20)'
+  };
+  return names[code] || code;
+}
+
+function getNetworkIcon(code) {
+  const icons = {
+    TRC20: '💎',
+    ERC20: '🔷',
+    BEP20: '🔶'
+  };
+  return icons[code] || '💰';
+}
+
+/**
+ * Log payment event to audit table
+ */
+async function logPaymentEvent(depositId, previousStatus, newStatus, eventType = null) {
+  try {
+    await supabase
+      .from('payment_audit_log')
+      .insert({
+        deposit_id: depositId,
+        event_type: eventType || newStatus,
+        previous_status: previousStatus,
+        new_status: newStatus,
+        created_at: new Date().toISOString()
+      });
+  } catch (error) {
+    console.error('Error logging payment event:', error);
+  }
+}
+
+/**
+ * Log webhook received
+ */
+async function logWebhook(provider, payload, headers) {
+  try {
+    const { data } = await supabase
+      .from('webhook_logs')
+      .insert({
+        provider,
+        event_type: payload.eventType || payload.status || 'unknown',
+        headers: {
+          'user-agent': headers['user-agent'],
+          'x-forwarded-for': headers['x-forwarded-for']
+        },
+        payload: sanitizePayload(payload),
+        processed: false,
+        received_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+    
+    return data?.id;
+  } catch (error) {
+    console.error('Error logging webhook:', error);
+    return null;
+  }
+}
+
+/**
+ * Update webhook log after processing
+ */
+async function updateWebhookLog(logId, processed, result) {
+  if (!logId) return;
+  
+  try {
+    await supabase
+      .from('webhook_logs')
+      .update({
+        processed,
+        processing_result: result,
+        processed_at: new Date().toISOString()
+      })
+      .eq('id', logId);
+  } catch (error) {
+    console.error('Error updating webhook log:', error);
+  }
+}
+
+/**
+ * Log webhook error
+ */
+async function logWebhookError(invoiceId, errorMessage) {
+  try {
+    await supabase
+      .from('webhook_logs')
+      .update({
+        processed: false,
+        error_message: errorMessage
+      })
+      .eq('invoice_id', invoiceId)
+      .eq('processed', false)
+      .order('received_at', { ascending: false })
+      .limit(1);
+  } catch (error) {
+    console.error('Error logging webhook error:', error);
+  }
+}
+
+/**
+ * Sanitize payload to remove sensitive data
+ */
+function sanitizePayload(payload) {
+  if (!payload) return null;
+  
+  // Create a copy to avoid mutating the original
+  const sanitized = { ...payload };
+  
+  // Remove sensitive fields if present
+  delete sanitized.password;
+  delete sanitized.apiKey;
+  delete sanitized.apiSecret;
+  delete sanitized.webhookSecret;
+  delete sanitized.privateKey;
+  
+  return sanitized;
+}
 
 // ---------- Withdraw ----------
 app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
@@ -1810,10 +2211,86 @@ app.post('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('deposits').select('*, users(name)').order('created_at', { ascending: false }).limit(100);
-  if (error) throw error;
-  const deposits = data.map(d => ({ ...d, user_name: d.users ? d.users.name : null, users: undefined }));
-  res.json(deposits);
+  const { status, network, userId, limit = 100, offset = 0 } = req.query;
+  
+  try {
+    const paymentService = getPaymentService();
+    const result = await paymentService.getAllDeposits({
+      status,
+      network,
+      userId,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+    
+    if (result.error) {
+      throw result.error;
+    }
+    
+    const deposits = result.data.map(d => ({
+      ...d,
+      user_name: d.users ? d.users.name : null,
+      user_email: d.users ? d.users.email : null,
+      users: undefined
+    }));
+    
+    res.json({
+      deposits,
+      total: result.total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Admin deposits error:', error);
+    res.status(500).json({ error: 'Failed to fetch deposits' });
+  }
+});
+
+app.get('/api/admin/deposits/stats', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const paymentService = getPaymentService();
+    const result = await paymentService.getDepositStats();
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    res.json({
+      success: true,
+      stats: result.stats
+    });
+  } catch (error) {
+    console.error('Admin deposit stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch deposit statistics' });
+  }
+});
+
+app.get('/api/admin/deposits/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: deposit, error } = await supabase
+      .from('deposits')
+      .select('*, users(name, email)')
+      .eq('id', id)
+      .single();
+    
+    if (error || !deposit) {
+      return res.status(404).json({ error: 'Deposit not found' });
+    }
+    
+    res.json({
+      success: true,
+      deposit: {
+        ...deposit,
+        user_name: deposit.users?.name,
+        user_email: deposit.users?.email,
+        users: undefined
+      }
+    });
+  } catch (error) {
+    console.error('Admin deposit detail error:', error);
+    res.status(500).json({ error: 'Failed to fetch deposit' });
+  }
 });
 
 app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, async (req, res) => {
@@ -1825,9 +2302,17 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   // Check if this is the user's first deposit (for referral qualification)
   const isFirst = await isFirstConfirmedDeposit(deposit.user_id);
   
-  await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', id);
+  // Use PaymentService to confirm
+  const paymentService = getPaymentService();
+  await paymentService.updateDepositStatus(id, 'confirmed', {
+    confirmed_at: new Date().toISOString()
+  });
+  
   await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
   await addTransaction(deposit.user_id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
+  
+  // Log the admin confirmation
+  await logPaymentEvent(id, 'pending', 'confirmed');
   
   // Activate referral with deposit info (amount for minimum check)
   let referralActivated = null;
@@ -1839,6 +2324,115 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   }
   
   res.json({ success: true, referralActivated });
+});
+
+app.put('/api/admin/deposits/:id/cancel', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { data: deposit, error } = await supabase.from('deposits').select('*').eq('id', id).single();
+  if (error || !deposit) return res.status(404).json({ error: 'Deposit not found' });
+  if (deposit.status !== 'pending') return res.status(400).json({ error: 'Can only cancel pending deposits' });
+  
+  // Use PaymentService to cancel
+  const paymentService = getPaymentService();
+  await paymentService.updateDepositStatus(id, 'cancelled');
+  
+  // Log the admin cancellation
+  await logPaymentEvent(id, 'pending', 'cancelled');
+  
+  res.json({ success: true, message: 'Deposit cancelled' });
+});
+
+app.post('/api/admin/deposits/:id/retry', authMiddleware, adminMiddleware, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const paymentService = getPaymentService();
+    const result = await paymentService.retryDeposit(id);
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    
+    // Log the retry
+    await logPaymentEvent(id, 'pending', 'confirmed');
+    
+    res.json({
+      success: true,
+      message: 'Deposit confirmed',
+      result
+    });
+  } catch (error) {
+    console.error('Admin retry deposit error:', error);
+    res.status(500).json({ error: 'Failed to retry deposit' });
+  }
+});
+
+// Admin: Get webhook logs
+app.get('/api/admin/webhooks', authMiddleware, adminMiddleware, async (req, res) => {
+  const { provider, processed, limit = 50, offset = 0 } = req.query;
+  
+  try {
+    let query = supabase
+      .from('webhook_logs')
+      .select('*', { count: 'exact' })
+      .order('received_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    
+    if (provider) {
+      query = query.eq('provider', provider);
+    }
+    if (processed !== undefined) {
+      query = query.eq('processed', processed === 'true');
+    }
+    
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    res.json({
+      webhooks: data,
+      total: count,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Admin webhooks error:', error);
+    res.status(500).json({ error: 'Failed to fetch webhook logs' });
+  }
+});
+
+// Admin: Get payment audit log
+app.get('/api/admin/payments/audit', authMiddleware, adminMiddleware, async (req, res) => {
+  const { depositId, eventType, limit = 50, offset = 0 } = req.query;
+  
+  try {
+    let query = supabase
+      .from('payment_audit_log')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    
+    if (depositId) {
+      query = query.eq('deposit_id', depositId);
+    }
+    if (eventType) {
+      query = query.eq('event_type', eventType);
+    }
+    
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    res.json({
+      auditLog: data,
+      total: count,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Admin payment audit error:', error);
+    res.status(500).json({ error: 'Failed to fetch payment audit log' });
+  }
 });
 
 app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, res) => {

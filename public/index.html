@@ -3901,12 +3901,21 @@ function toggleFaq(btn) {
 
     <!-- Address & Amount Display -->
     <div class="deposit-address-box" style="opacity:0.6;">
+      <!-- QR Code Section -->
+      <div id="qrCodeSection" style="display:none;text-align:center;margin-bottom:12px;">
+        <img id="qrCodeImage" src="" alt="Payment QR Code" style="width:120px;height:120px;border-radius:8px;background:#fff;">
+        <div style="font-size:10px;color:#5A6A8A;margin-top:6px;">Scan QR code to pay</div>
+      </div>
+      
       <div style="display:flex;justify-content:space-between;font-size:10px;color:#5A6A8A;margin-bottom:4px;">
         <span data-i18n="deposit.walletAddress">WALLET ADDRESS</span>
         <span>EXPIRES IN <strong id="depositTimer" style="color:var(--gold);">60:00</strong></span>
       </div>
       <div class="address" id="liveWalletAddress">Generating address...</div>
-      <button type="button" id="copyLiveAddressBtn" class="copy-address-btn"><i class="fas fa-copy"></i> <span data-i18n="deposit.copyAddress">Copy Address</span></button>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button type="button" id="copyLiveAddressBtn" class="copy-address-btn" style="flex:1;"><i class="fas fa-copy"></i> <span data-i18n="deposit.copyAddress">Copy Address</span></button>
+        <button type="button" id="copyAmountBtn" class="copy-address-btn" style="flex:1;background:rgba(16,185,129,0.1);color:#10B981;"><i class="fas fa-coins"></i> <span>Copy Amount</span></button>
+      </div>
       <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:8px;">
         <span><span data-i18n="deposit.amount">Send Exact Amount</span>: <span id="liveDepositDisplayAmount">0.00</span> USDT</span>
         <span>≈ $<span id="liveDepositDisplayUSD">0.00</span></span>
@@ -5835,20 +5844,31 @@ async function requestDepositAddress() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token')
       },
-      body: JSON.stringify({ amount: amountUSD, currency: 'USDT', network })
+      body: JSON.stringify({ amount: amountUSD, network })
     });
 
-    if (!response.ok) throw new Error('Failed to generate address');
-    const invoice = await response.json();
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to generate address');
+    }
 
-    document.getElementById('liveWalletAddress').textContent = invoice.address;
+    const invoice = data;
+
+    document.getElementById('liveWalletAddress').textContent = invoice.paymentAddress;
     document.getElementById('liveDepositDisplayAmount').textContent = invoice.cryptoAmount;
-    document.getElementById('liveDepositDisplayUSD').textContent = invoice.usdValue;
+    document.getElementById('liveDepositDisplayUSD').textContent = invoice.amount;
 
-    currentInvoiceId = invoice.id;
+    // Show QR code if available
+    if (invoice.qrCodeUrl) {
+      document.getElementById('qrCodeImage').src = invoice.qrCodeUrl;
+      document.getElementById('qrCodeSection').style.display = 'block';
+    }
+
+    currentInvoiceId = invoice.invoiceId;
 
     startDepositTimer(invoice.expiresAt);
-    startPollingForPayment(invoice.id);
+    startPollingForPayment(invoice.invoiceId);
 
     document.getElementById('depositStatusText').innerHTML = '⏳ Monitoring for payment — will confirm automatically the moment it\'s detected.';
     document.getElementById('forceCheckBtn').disabled = false;
@@ -5860,7 +5880,7 @@ async function requestDepositAddress() {
 
   } catch (error) {
     console.error('Deposit request error:', error);
-    showToast('Error generating address. Please try again.', 'error');
+    showToast('Error: ' + (error.message || 'Failed to generate address'), 'error');
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-qrcode"></i> Get Payment Address';
   }
@@ -6318,7 +6338,14 @@ function initApp() {
     const copyLiveAddressBtn = getEl('copyLiveAddressBtn');
     if(copyLiveAddressBtn) copyLiveAddressBtn.addEventListener('click', function() {
         navigator.clipboard.writeText(getEl('liveWalletAddress').textContent);
-        showToast(t('common.addressCopied'),'success');
+        showToast('Address copied to clipboard','success');
+    });
+    
+    const copyAmountBtn = getEl('copyAmountBtn');
+    if(copyAmountBtn) copyAmountBtn.addEventListener('click', function() {
+        const amount = getEl('liveDepositDisplayAmount').textContent;
+        navigator.clipboard.writeText(amount);
+        showToast('Amount copied to clipboard','success');
     });
     
     document.querySelectorAll('.deposit-network-select .net-option').forEach(function(opt) {
