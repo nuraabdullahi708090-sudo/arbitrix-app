@@ -387,7 +387,7 @@
             }
         }
         
-        /* Forgot Password Modal */
+        /* Modal Overlay */
         .modal-overlay {
             pointer-events: none;
             position: fixed;
@@ -406,7 +406,8 @@
             transition: all 0.3s ease;
             padding: var(--space-4);
         }
-        .modal-overlay.active {
+        .modal-overlay.active,
+        .modal-overlay.open {
             pointer-events: auto;
             opacity: 1;
             visibility: visible;
@@ -422,7 +423,8 @@
             transition: transform 0.3s ease;
             box-shadow: var(--shadow-lg);
         }
-        .modal-overlay.active .modal-content {
+        .modal-overlay.active .modal-content,
+        .modal-overlay.open .modal-content {
             transform: scale(1) translateY(0);
         }
         .modal-header {
@@ -2555,6 +2557,312 @@ function openTwoFAModal() {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('open');
     document.getElementById('twofaModal').classList.add('open');
+    load2FAStatus();
+}
+
+function closeTwoFAModal() {
+    document.getElementById('twofaModal').classList.remove('open');
+}
+
+// ============ TOTP 2FA FUNCTIONS ============
+
+let twofaSetupData = null;
+
+async function load2FAStatus() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/2fa/status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load 2FA status');
+        
+        const data = await response.json();
+        
+        // Hide all views
+        document.getElementById('twofaStatusView').style.display = 'none';
+        document.getElementById('twofaSetupView1').style.display = 'none';
+        document.getElementById('twofaSetupView2').style.display = 'none';
+        document.getElementById('twofaRecoveryView').style.display = 'none';
+        document.getElementById('twofaDisableView').style.display = 'none';
+        
+        if (data.enabled) {
+            // Show status view
+            document.getElementById('twofaStatusView').style.display = 'block';
+            document.getElementById('twofaEnabledDate').textContent = data.enabledAt ? new Date(data.enabledAt).toLocaleDateString() : '-';
+            document.getElementById('twofaBackupCodesCount').textContent = data.backupCodesRemaining + ' remaining';
+        } else {
+            // Show setup view 1
+            document.getElementById('twofaSetupView1').style.display = 'block';
+            initiate2FASetup();
+        }
+    } catch (error) {
+        console.error('Load 2FA status error:', error);
+        showToast('Failed to load 2FA status', 'error');
+    }
+}
+
+async function initiate2FASetup() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    document.getElementById('twofaQRPlaceholder').innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>';
+    document.getElementById('twofaManualKey').textContent = 'Generating...';
+    
+    try {
+        const response = await fetch('/api/2fa/setup', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to setup 2FA');
+        }
+        
+        twofaSetupData = data;
+        
+        // Display QR code (convert otpauth URI to QR code)
+        const qrCodeImg = document.getElementById('twofaQRCode');
+        qrCodeImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(data.qrCode);
+        qrCodeImg.style.display = 'block';
+        document.getElementById('twofaQRPlaceholder').style.display = 'none';
+        
+        // Display manual key
+        document.getElementById('twofaManualKey').textContent = data.secret;
+        
+        // Show recovery codes
+        const recoveryList = document.getElementById('twofaRecoveryCodesList');
+        recoveryList.innerHTML = data.recoveryCodes.join('<br>');
+        
+        // Switch to verify view
+        document.getElementById('twofaSetupView1').style.display = 'none';
+        document.getElementById('twofaSetupView2').style.display = 'block';
+        
+        // Clear code inputs
+        clear2FACodeInputs();
+        
+    } catch (error) {
+        console.error('2FA setup error:', error);
+        showToast(error.message, 'error');
+        document.getElementById('twofaSetupView1').style.display = 'block';
+        document.getElementById('twofaSetupView2').style.display = 'none';
+    }
+}
+
+function handle2FACodeInput(input, index) {
+    // Only allow digits
+    input.value = input.value.replace(/[^0-9]/g, '');
+    
+    // Auto-advance to next input
+    if (input.value && index < 5) {
+        const inputs = document.querySelectorAll('#twofaCodeGroup .code-input');
+        inputs[index + 1].focus();
+    }
+    
+    // Auto-submit when all filled
+    const code = get2FACode();
+    if (code.length === 6) {
+        verify2FASetup();
+    }
+}
+
+function get2FACode() {
+    const inputs = document.querySelectorAll('#twofaCodeGroup .code-input');
+    return Array.from(inputs).map(i => i.value).join('');
+}
+
+function clear2FACodeInputs() {
+    const inputs = document.querySelectorAll('#twofaCodeGroup .code-input');
+    inputs.forEach(i => i.value = '');
+    inputs[0].focus();
+}
+
+async function verify2FASetup() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token || !twofaSetupData) return;
+    
+    const code = get2FACode();
+    if (code.length !== 6) {
+        show2FAVerifyError('Please enter the 6-digit code');
+        return;
+    }
+    
+    const btn = document.getElementById('twofaVerifyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    
+    try {
+        const response = await fetch('/api/2fa/verify-setup', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Verification failed');
+        }
+        
+        // Enable 2FA
+        const enableResponse = await fetch('/api/2fa/enable', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!enableResponse.ok) {
+            const enableData = await enableResponse.json();
+            throw new Error(enableData.error || 'Failed to enable 2FA');
+        }
+        
+        // Show recovery codes
+        document.getElementById('twofaSetupView2').style.display = 'none';
+        document.getElementById('twofaRecoveryView').style.display = 'block';
+        
+        showToast('2FA enabled successfully!', 'success');
+        
+    } catch (error) {
+        console.error('2FA verify error:', error);
+        show2FAVerifyError(error.message);
+        clear2FACodeInputs();
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enable';
+    }
+}
+
+function show2FAVerifyError(message) {
+    const errorEl = document.getElementById('twofaVerifyError');
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
+}
+
+function confirmRecoveryCodesSaved() {
+    twofaSetupData = null;
+    closeTwoFAModal();
+    showToast('Two-Factor Authentication is now enabled!', 'success');
+}
+
+async function regenerateRecoveryCodes() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    const btn = document.getElementById('regenerateCodesBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+    
+    try {
+        // First verify with a code
+        const code = prompt('Enter your authenticator code to regenerate recovery codes:');
+        if (!code) return;
+        
+        const response = await fetch('/api/2fa/regenerate-recovery', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to regenerate codes');
+        }
+        
+        // Show new codes
+        const recoveryList = document.getElementById('twofaRecoveryCodesList');
+        recoveryList.innerHTML = data.recoveryCodes.join('<br>');
+        
+        document.getElementById('twofaStatusView').style.display = 'none';
+        document.getElementById('twofaRecoveryView').style.display = 'block';
+        
+        showToast('New recovery codes generated!', 'success');
+        
+    } catch (error) {
+        console.error('Regenerate codes error:', error);
+        showToast(error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-key"></i> New Codes';
+    }
+}
+
+function showDisable2FAForm() {
+    document.getElementById('twofaDisableCode').value = '';
+    document.getElementById('twofaDisableRecovery').value = '';
+    document.getElementById('twofaDisableError').style.display = 'none';
+    document.getElementById('twofaStatusView').style.display = 'none';
+    document.getElementById('twofaDisableView').style.display = 'block';
+}
+
+function cancelDisable2FA() {
+    document.getElementById('twofaStatusView').style.display = 'block';
+    document.getElementById('twofaDisableView').style.display = 'none';
+}
+
+async function disable2FA() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    const code = document.getElementById('twofaDisableCode').value;
+    const recoveryCode = document.getElementById('twofaDisableRecovery').value;
+    
+    if (!code && !recoveryCode) {
+        show2FADisableError('Please enter a code');
+        return;
+    }
+    
+    const btn = document.getElementById('twofaDisableBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Disabling...';
+    
+    try {
+        const response = await fetch('/api/2fa/disable', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code, recoveryCode })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to disable 2FA');
+        }
+        
+        closeTwoFAModal();
+        showToast('2FA has been disabled', 'info');
+        
+    } catch (error) {
+        console.error('Disable 2FA error:', error);
+        show2FADisableError(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-ban"></i> Disable';
+    }
+}
+
+function show2FADisableError(message) {
+    const errorEl = document.getElementById('twofaDisableError');
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
 }
 
 function goToApp() {
@@ -4610,18 +4918,130 @@ function toggleFaq(btn) {
 
 <!-- 2FA MODAL -->
 <div class="modal-overlay" id="twofaModal">
-    <div class="modal-content">
-        <button type="button" onclick="document.getElementById('twofaModal').classList.remove('open')" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
-        <div class="modal-header"><h3><i class="fas fa-shield-halved" style="color:#F0B90B;"></i> <span data-i18n="2fa.title">2FA Security</span></h3></div>
-        <div id="twofaStep1" class="twofa-setup-step active">
-            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;" data-i18n="2fa.scan">Scan this QR code with Google Authenticator.</p>
-            <div style="text-align:center;padding:12px;background:white;border-radius:12px;display:inline-block;margin:0 auto;display:block;width:fit-content;margin-left:auto;margin-right:auto;"><i class="fas fa-qrcode" style="font-size:80px;color:#000;"></i></div>
-            <div class="form-group" style="margin-top:12px;"><label data-i18n="2fa.enterCode">Enter 6-digit code</label><div class="code-input-group"><input type="text" maxlength="1" class="code-input" inputmode="numeric"><input type="text" maxlength="1" class="code-input" inputmode="numeric"><input type="text" maxlength="1" class="code-input" inputmode="numeric"><input type="text" maxlength="1" class="code-input" inputmode="numeric"><input type="text" maxlength="1" class="code-input" inputmode="numeric"><input type="text" maxlength="1" class="code-input" inputmode="numeric"></div></div>
-            <div class="modal-actions"><button type="button" onclick="document.getElementById('twofaModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button><button type="button" onclick="enable2FA()" class="btn btn-primary" data-i18n="2fa.enable">Enable</button></div>
+    <div class="modal-content" style="max-width:480px;">
+        <button type="button" onclick="closeTwoFAModal()" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div class="modal-header"><h3><i class="fas fa-shield-halved" style="color:#F0B90B;"></i> <span data-i18n="2fa.title">Two-Factor Authentication</span></h3></div>
+        
+        <!-- 2FA Status Display (shown when 2FA is enabled) -->
+        <div id="twofaStatusView" style="display:none;">
+            <div style="text-align:center;padding:20px 0;">
+                <div id="twofaStatusIcon" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;background:rgba(16,185,129,0.2);">
+                    <i class="fas fa-shield-check" style="font-size:28px;color:#10B981;"></i>
+                </div>
+                <h4 style="margin:0 0 4px 0;color:#fff;" id="twofaStatusTitle">2FA Enabled</h4>
+                <p style="font-size:12px;color:#8896B5;margin:0 0 16px 0;" id="twofaStatusDesc">Your account is protected with authenticator app</p>
+                
+                <div style="background:#0F1629;border-radius:8px;padding:12px;margin-bottom:16px;text-align:left;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+                        <span style="color:#8896B5;">Status</span>
+                        <span style="color:#10B981;font-weight:600;" id="twofaEnabledStatus">Enabled</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+                        <span style="color:#8896B5;">Enabled On</span>
+                        <span style="color:#fff;" id="twofaEnabledDate">-</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;">
+                        <span style="color:#8896B5;">Backup Codes</span>
+                        <span style="color:#F0B90B;" id="twofaBackupCodesCount">10 remaining</span>
+                    </div>
+                </div>
+                
+                <div style="display:flex;gap:8px;">
+                    <button type="button" onclick="regenerateRecoveryCodes()" class="btn btn-secondary" style="flex:1;" id="regenerateCodesBtn"><i class="fas fa-key"></i> New Codes</button>
+                    <button type="button" onclick="showDisable2FAForm()" class="btn btn-danger" style="flex:1;"><i class="fas fa-ban"></i> Disable 2FA</button>
+                </div>
+            </div>
         </div>
-        <div id="twofaStep2" class="twofa-setup-step">
-            <div style="text-align:center;padding:20px;"><i class="fas fa-check-circle" style="font-size:40px;color:#10B981;"></i><h4 style="margin-top:8px;" data-i18n="2fa.enabled">2FA Enabled!</h4><p style="font-size:12px;color:var(--text-muted);margin-top:4px;" data-i18n="2fa.secure">Your account is now more secure.</p></div>
-            <button type="button" onclick="document.getElementById('twofaModal').classList.remove('open')" class="btn btn-primary btn-block" data-i18n="2fa.done">Done</button>
+        
+        <!-- Setup Step 1: Show QR Code -->
+        <div id="twofaSetupView1">
+            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Scan this QR code with your authenticator app (Google Authenticator, Microsoft Authenticator, Authy, etc.)</p>
+            
+            <div style="text-align:center;margin-bottom:16px;">
+                <div style="background:#fff;padding:16px;border-radius:12px;display:inline-block;">
+                    <img id="twofaQRCode" src="" alt="QR Code" style="width:180px;height:180px;display:none;">
+                    <div id="twofaQRPlaceholder" style="width:180px;height:180px;display:flex;align-items:center;justify-content:center;">
+                        <i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background:#0F1629;border-radius:8px;padding:12px;margin-bottom:16px;">
+                <div style="font-size:11px;color:#8896B5;margin-bottom:4px;">Manual Setup Key</div>
+                <div style="font-family:monospace;font-size:16px;color:#F0B90B;word-break:break-all;" id="twofaManualKey">Loading...</div>
+            </div>
+            
+            <p style="font-size:11px;color:#8896B5;text-align:center;margin-bottom:16px;">
+                <i class="fas fa-info-circle"></i> Enter this key manually if QR code doesn't work
+            </p>
+            
+            <button type="button" onclick="initiate2FASetup()" class="btn btn-primary btn-block"><i class="fas fa-sync-alt"></i> Generate New QR Code</button>
+        </div>
+        
+        <!-- Setup Step 2: Verify Code -->
+        <div id="twofaSetupView2" style="display:none;">
+            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Enter the 6-digit code from your authenticator app to verify setup:</p>
+            
+            <div class="form-group">
+                <label>Verification Code</label>
+                <div class="code-input-group" id="twofaCodeGroup">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="0" oninput="handle2FACodeInput(this, 0)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="1" oninput="handle2FACodeInput(this, 1)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="2" oninput="handle2FACodeInput(this, 2)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="3" oninput="handle2FACodeInput(this, 3)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="4" oninput="handle2FACodeInput(this, 4)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="5" oninput="handle2FACodeInput(this, 5)">
+                </div>
+            </div>
+            
+            <div id="twofaVerifyError" style="color:#EF4444;font-size:12px;margin-bottom:12px;display:none;"></div>
+            
+            <button type="button" onclick="verify2FASetup()" class="btn btn-primary btn-block" id="twofaVerifyBtn"><i class="fas fa-check"></i> Verify & Enable</button>
+        </div>
+        
+        <!-- Recovery Codes Display -->
+        <div id="twofaRecoveryView" style="display:none;">
+            <div style="text-align:center;margin-bottom:16px;">
+                <i class="fas fa-key" style="font-size:48px;color:#F0B90B;"></i>
+                <h4 style="margin:12px 0 8px 0;color:#fff;">Save Your Recovery Codes</h4>
+                <p style="font-size:12px;color:#EF4444;margin:0 0 16px 0;">⚠️ Store these codes safely! Each can only be used once.</p>
+            </div>
+            
+            <div style="background:#0F1629;border-radius:8px;padding:16px;margin-bottom:16px;">
+                <div id="twofaRecoveryCodesList" style="font-family:monospace;font-size:14px;color:#10B981;word-break:break-all;line-height:1.8;"></div>
+            </div>
+            
+            <button type="button" onclick="confirmRecoveryCodesSaved()" class="btn btn-primary btn-block"><i class="fas fa-check"></i> I've Saved My Codes</button>
+        </div>
+        
+        <!-- Disable 2FA Form -->
+        <div id="twofaDisableView" style="display:none;">
+            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Enter your authenticator code or a recovery code to disable 2FA:</p>
+            
+            <div class="form-group">
+                <label>Authenticator Code</label>
+                <input type="text" id="twofaDisableCode" class="input-field" placeholder="6-digit code" maxlength="6" inputmode="numeric">
+            </div>
+            
+            <div style="text-align:center;margin:12px 0;">
+                <span style="color:#8896B5;font-size:11px;">OR</span>
+            </div>
+            
+            <div class="form-group">
+                <label>Recovery Code</label>
+                <input type="text" id="twofaDisableRecovery" class="input-field" placeholder="XXXXX-XXXXX">
+            </div>
+            
+            <div id="twofaDisableError" style="color:#EF4444;font-size:12px;margin-bottom:12px;display:none;"></div>
+            
+            <div style="display:flex;gap:8px;">
+                <button type="button" onclick="cancelDisable2FA()" class="btn btn-secondary" style="flex:1;">Cancel</button>
+                <button type="button" onclick="disable2FA()" class="btn btn-danger" style="flex:1;" id="twofaDisableBtn"><i class="fas fa-ban"></i> Disable</button>
+            </div>
+        </div>
+        
+        <div class="modal-actions" id="twofaModalActions">
+            <button type="button" onclick="closeTwoFAModal()" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button>
         </div>
     </div>
 </div>
@@ -7460,18 +7880,6 @@ function saveProfile() {
         }
         document.getElementById('profileModal').classList.remove('open');
         showToast(t('profile.saved'),'success');
-    } catch(e) {}
-}
-
-function enable2FA() {
-    try {
-        const inputs = document.querySelectorAll('.code-input');
-        let code = '';
-        inputs.forEach(function(inp) { code += inp.value; });
-        if(code.length < 6) { showToast(t('2fa.enterFullCode'),'error'); return; }
-        document.getElementById('twofaStep1').classList.remove('active');
-        document.getElementById('twofaStep2').classList.add('active');
-        showToast(t('2fa.success'),'success');
     } catch(e) {}
 }
 
