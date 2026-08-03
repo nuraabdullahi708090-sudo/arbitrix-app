@@ -150,19 +150,7 @@ CREATE POLICY svc_kyc_manage ON storage.objects FOR ALL TO service_role
     USING (bucket_id = 'kyc-documents') WITH CHECK (bucket_id = 'kyc-documents');
 
 -- ============================================
--- 6. CONFIG
--- ============================================
-
-INSERT INTO public.payment_config (key, value, value_type, description, category, is_sensitive) VALUES
-    ('kyc.enabled', 'true', 'boolean', 'Enable/disable KYC verification requirement', 'security', false),
-    ('kyc.require_for_withdrawal', 'true', 'boolean', 'Require KYC approval before first withdrawal', 'security', false),
-    ('kyc.min_document_count', '2', 'number', 'Minimum number of documents required', 'security', false),
-    ('kyc.max_file_size_mb', '10', 'number', 'Maximum document file size in MB', 'security', false),
-    ('kyc.allowed_formats', '["image/jpeg", "image/png", "image/webp"]', 'json', 'Allowed document MIME types', 'security', false)
-ON CONFLICT (key) DO NOTHING;
-
--- ============================================
--- 7. VERIFY
+-- 6. VERIFY
 -- ============================================
 
 DO $$
