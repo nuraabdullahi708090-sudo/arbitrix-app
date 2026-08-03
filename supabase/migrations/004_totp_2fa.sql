@@ -53,8 +53,11 @@ CREATE INDEX IF NOT EXISTS idx_twofa_attempts_used_at ON public.twofa_attempts(u
 -- ============================================
 -- 4. DISABLE RLS (Required for BIGINT compatibility)
 -- ============================================
--- RLS must be explicitly disabled because Supabase Auth uses UUIDs but users.id is BIGINT.
--- PostgreSQL cannot cast UUID to BIGINT in RLS policies.
+-- RLS MUST be explicitly disabled because:
+-- 1. Supabase Auth uses UUIDs but users.id is BIGINT
+-- 2. PostgreSQL cannot cast UUID to BIGINT in RLS policies
+-- 3. RLS is ENABLED by default on all new tables in Supabase
+--
 -- Authorization is handled by application code via JWT tokens and authMiddleware.
 ALTER TABLE public.twofa_profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.twofa_attempts DISABLE ROW LEVEL SECURITY;

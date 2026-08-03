@@ -7,6 +7,19 @@
 -- - RLS IS DISABLED (authorization via application code)
 -- - This is required because Supabase Auth uses UUIDs but users.id is BIGINT
 -- ============================================
+--
+-- IMPORTANT: RLS MUST be explicitly disabled because:
+-- 1. Supabase Auth uses UUIDs but users.id is BIGINT
+-- 2. PostgreSQL cannot cast UUID to BIGINT in RLS policies
+-- 3. RLS is ENABLED by default on all new tables in Supabase
+-- ============================================
+
+-- ============================================
+-- 0. DISABLE RLS (Required for BIGINT compatibility)
+-- ============================================
+ALTER TABLE public.payment_invoices DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.webhook_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_config DISABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- 1. CREATE PAYMENT_INVOICES TABLE
@@ -92,14 +105,7 @@ CREATE INDEX idx_wl_received_at ON public.webhook_logs(received_at DESC);
 CREATE INDEX idx_wl_related_invoice ON public.webhook_logs(related_invoice_id) WHERE related_invoice_id IS NOT NULL;
 
 -- ============================================
--- 6. NOTE: RLS IS DISABLED
--- ============================================
--- RLS is DISABLED because Supabase Auth uses UUIDs but users.id is BIGINT.
--- PostgreSQL cannot cast UUID to BIGINT.
--- Authorization is handled by application code via JWT tokens and authMiddleware.
-
--- ============================================
--- 7. CREATE ATOMIC PAYMENT FUNCTION
+-- 6. CREATE ATOMIC PAYMENT FUNCTION
 -- ============================================
 CREATE OR REPLACE FUNCTION public.confirm_payment_with_credit(
     p_invoice_id BIGINT,
@@ -224,7 +230,7 @@ END;
 $$;
 
 -- ============================================
--- 8. CREATE WEBHOOK CLEANUP FUNCTION
+-- 7. CREATE WEBHOOK CLEANUP FUNCTION
 -- ============================================
 CREATE OR REPLACE FUNCTION public.cleanup_old_webhook_logs()
 RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -238,7 +244,7 @@ END;
 $$;
 
 -- ============================================
--- 9. CREATE EXPIRED INVOICE CHECK FUNCTION
+-- 8. CREATE EXPIRED INVOICE CHECK FUNCTION
 -- ============================================
 CREATE OR REPLACE FUNCTION public.mark_expired_invoices()
 RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -254,7 +260,7 @@ END;
 $$;
 
 -- ============================================
--- 10. INSERT DEFAULT CONFIG
+-- 9. INSERT DEFAULT CONFIG
 -- ============================================
 INSERT INTO public.payment_config (key, value, value_type, description, category, is_sensitive) VALUES
     ('payment.provider', 'nowpayments', 'string', 'Active payment provider', 'provider', false),
@@ -269,7 +275,7 @@ INSERT INTO public.payment_config (key, value, value_type, description, category
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================
--- 11. VERIFY
+-- 10. VERIFY
 -- ============================================
 DO $$
 BEGIN

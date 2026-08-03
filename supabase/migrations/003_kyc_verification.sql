@@ -2,7 +2,13 @@
 -- KYC Verification System Migration v2.0
 -- ============================================
 -- Uses BIGINT for user_id to match existing users(id)
--- RLS DISABLED - authorization via application code
+-- RLS IS DISABLED - authorization via application code (JWT)
+-- ============================================
+--
+-- IMPORTANT: RLS MUST be explicitly disabled because:
+-- 1. Supabase Auth uses UUIDs but users.id is BIGINT
+-- 2. PostgreSQL cannot cast UUID to BIGINT in RLS policies
+-- 3. RLS is ENABLED by default on all new tables in Supabase
 -- ============================================
 
 -- ============================================
