@@ -163,6 +163,105 @@ async function getUserByEmail(email) {
   return data;
 }
 
+// ---------- REFERRAL CODE HELPERS ----------
+
+/**
+ * Generate a cryptographically secure referral code
+ * Format: ARBI-{6 random alphanumeric characters}
+ * Uses crypto.randomBytes for secure randomness
+ * @returns {string} A unique referral code
+ */
+function generateSecureReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded confusing chars: 0, O, I, 1
+  const randomBytes = crypto.randomBytes(6);
+  let code = 'ARBI-';
+  for (let i = 0; i < 6; i++) {
+    code += chars[randomBytes[i] % chars.length];
+  }
+  return code;
+}
+
+/**
+ * Generate a unique referral code with collision retry
+ * Guarantees uniqueness by checking database and retrying if collision occurs
+ * @returns {Promise<string>} A unique referral code
+ */
+async function generateUniqueReferralCode() {
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const code = generateSecureReferralCode();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('referral_code', code)
+      .single();
+    
+    if (error && error.code === 'PGRST116') {
+      // No match found - code is unique
+      return code;
+    }
+    if (error) {
+      throw error;
+    }
+    // Code already exists, try again (rare)
+  }
+  // Fallback: append timestamp suffix if all attempts fail (extremely rare)
+  const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
+  return `ARBI-${timestamp}`;
+}
+
+/**
+ * Validate referral code format
+ * @param {string} code - The referral code to validate
+ * @returns {boolean} True if format is valid
+ */
+function isValidReferralCodeFormat(code) {
+  if (!code || typeof code !== 'string') return false;
+  // Format: ARBI-{6 alphanumeric chars}
+  const pattern = /^ARBI-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
+  return pattern.test(code.toUpperCase());
+}
+
+/**
+ * Assign a unique referral code to users who don't have one
+ * This ensures all existing users get a proper unique code
+ */
+async function assignReferralCodesToExistingUsers() {
+  try {
+    // Find users without a valid referral code
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, referral_code')
+      .or('referral_code.is.null,referral_code.eq.');
+    
+    if (error) {
+      console.log('Error finding users without referral codes:', error.message);
+      return;
+    }
+    
+    // Filter out users with valid codes
+    const usersNeedingCode = (users || []).filter(u => !u.referral_code || !isValidReferralCodeFormat(u.referral_code));
+    
+    for (const user of usersNeedingCode) {
+      const newCode = await generateUniqueReferralCode();
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ referral_code: newCode })
+        .eq('id', user.id);
+      
+      if (updateError) {
+        console.log(`Failed to assign referral code to user ${user.id}:`, updateError.message);
+      }
+    }
+    
+    if (usersNeedingCode.length > 0) {
+      console.log(`✅ Assigned unique referral codes to ${usersNeedingCode.length} users`);
+    }
+  } catch (e) {
+    console.log('Referral code assignment error:', e.message);
+  }
+}
+
 async function getWallet(userId) {
   let { data, error } = await supabase.from('wallets').select('*').eq('user_id', userId).single();
   if (error && error.code === 'PGRST116') {
@@ -182,6 +281,119 @@ async function updateWallet(userId, field, amount) {
 
 async function addTransaction(userId, type, amount, detail) {
   await supabase.from('transactions').insert({ user_id: userId, type, amount, detail: detail || '' });
+}
+
+// ---------- REFERRAL ACTIVATION HELPERS ----------
+
+/**
+ * Activate a pending referral when the referred user completes a qualifying action
+ * This is called when a user makes their first successful deposit
+ * 
+ * Referral Lifecycle:
+ * 1. PENDING - User registers with referral code, no bonus yet
+ * 2. ACTIVE - Referred user completes first deposit, bonus awarded to referrer
+ * 
+ * @param {string} userId - The user who completed the qualifying action (referred user)
+ * @param {string} qualificationType - The type of action that qualified (e.g., 'first_deposit')
+ * @returns {Promise<object>} - Result of activation attempt
+ */
+async function activateReferralOnQualification(userId, qualificationType = 'first_deposit') {
+  const REFERRAL_BONUS = 10;
+  
+  try {
+    // Find pending referral for this user
+    const { data: referral, error: findError } = await supabase
+      .from('referrals')
+      .select(`
+        id,
+        referrer_id,
+        referred_id,
+        status,
+        bonus_earned,
+        referrer:users!referrer_id(id, email, name)
+      `)
+      .eq('referred_id', userId)
+      .eq('status', 'pending')
+      .single();
+    
+    if (findError && findError.code !== 'PGRST116') {
+      console.log('Error finding pending referral:', findError.message);
+      return { success: false, reason: 'database_error' };
+    }
+    
+    if (!referral) {
+      // No pending referral found - user wasn't referred or already activated
+      return { success: false, reason: 'no_pending_referral' };
+    }
+    
+    // Double-check: ensure bonus hasn't been awarded yet (abuse prevention)
+    if (referral.bonus_earned > 0) {
+      console.log('Referral already has bonus awarded, ignoring duplicate activation attempt');
+      return { success: false, reason: 'already_activated' };
+    }
+    
+    // Get referrer details
+    const referrer = referral.referrer;
+    
+    // Activate the referral
+    const { error: updateError } = await supabase
+      .from('referrals')
+      .update({
+        status: 'active',
+        bonus_earned: REFERRAL_BONUS,
+        qualified_at: new Date().toISOString(),
+        qualification_type: qualificationType
+      })
+      .eq('id', referral.id);
+    
+    if (updateError) {
+      console.log('Error activating referral:', updateError.message);
+      return { success: false, reason: 'activation_failed' };
+    }
+    
+    // Award bonus to referrer
+    await updateWallet(referrer.id, 'bonus_balance', REFERRAL_BONUS);
+    await addTransaction(
+      referrer.id, 
+      'Referral Bonus', 
+      REFERRAL_BONUS, 
+      `Referral bonus for ${referral.referred_id} (${qualificationType})`
+    );
+    
+    console.log(`✅ Referral activated: Referrer ${referrer.email} earned $${REFERRAL_BONUS} bonus`);
+    
+    return {
+      success: true,
+      referrerId: referrer.id,
+      referrerName: referrer.name,
+      bonusAmount: REFERRAL_BONUS
+    };
+    
+  } catch (e) {
+    console.log('Referral activation error:', e.message);
+    return { success: false, reason: 'exception' };
+  }
+}
+
+/**
+ * Check if a user has made their first deposit (for referral qualification)
+ * This prevents duplicate bonus awards
+ * @param {string} userId - The user to check
+ * @returns {Promise<boolean>} - True if this is their first confirmed deposit
+ */
+async function isFirstConfirmedDeposit(userId) {
+  const { count, error } = await supabase
+    .from('deposits')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'confirmed');
+  
+  if (error) {
+    console.log('Error checking deposit count:', error.message);
+    return false;
+  }
+  
+  return count === 0;
 }
 
 // ---------- PASSWORD RESET HELPERS ----------
@@ -582,19 +794,75 @@ app.post('/api/auth/register', async (req, res) => {
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password min 6 chars' });
   if (await getUserByEmail(email)) return res.status(400).json({ error: 'Email already registered' });
+  
   const hash = bcrypt.hashSync(password, 10);
-  let refCode = 'ARBI-'; for (let i=0; i<6; i++) refCode += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random()*36)];
-  const { data: user, error } = await supabase.from('users').insert({ name, email, password_hash: hash, referral_code: refCode, is_admin: 0 }).select('id, name, email, referral_code, is_admin').single();
+  
+  // Generate unique, cryptographically secure referral code
+  const userReferralCode = await generateUniqueReferralCode();
+  
+  const { data: user, error } = await supabase.from('users').insert({ 
+    name, 
+    email, 
+    password_hash: hash, 
+    referral_code: userReferralCode, 
+    is_admin: 0 
+  }).select('id, name, email, referral_code, is_admin').single();
+  
   if (error) throw error;
   await getWallet(user.id);
+  
+  // Process referral if provided
+  // Referral lifecycle: pending -> active (after first deposit)
   if (referralCode) {
-    const { data: referrer } = await supabase.from('users').select('id').eq('referral_code', referralCode).single();
-    if (referrer) {
-      await supabase.from('referrals').insert({ referrer_id: referrer.id, referred_id: user.id, bonus_earned: 10 });
-      await updateWallet(referrer.id, 'bonus_balance', 10);
-      await addTransaction(referrer.id, 'Referral Bonus', 10, 'Referral for ' + email);
+    const normalizedRefCode = referralCode.trim().toUpperCase();
+    
+    // Validate referral code format
+    if (!isValidReferralCodeFormat(normalizedRefCode)) {
+      // Invalid format - silently ignore (don't reveal whether code exists)
+      console.log('Invalid referral code format:', normalizedRefCode);
+    } else if (normalizedRefCode === userReferralCode) {
+      // Self-referral prevention
+      console.log('Self-referral attempt blocked for user:', email);
+    } else {
+      // Look up the referrer
+      const { data: referrer } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('referral_code', normalizedRefCode)
+        .single();
+      
+      if (referrer) {
+        // Check for duplicate referral relationship (regardless of status)
+        const { data: existingReferral } = await supabase
+          .from('referrals')
+          .select('id, status')
+          .eq('referrer_id', referrer.id)
+          .eq('referred_id', user.id)
+          .single();
+        
+        if (!existingReferral) {
+          // Create PENDING referral relationship (no bonus yet)
+          // Bonus will be awarded when referred user makes their first deposit
+          await supabase.from('referrals').insert({ 
+            referrer_id: referrer.id, 
+            referred_id: user.id, 
+            bonus_earned: 0,
+            status: 'pending',
+            qualified_at: null,
+            qualification_type: null
+          });
+          console.log(`Referral pending: ${referrer.email} -> ${email} (awaiting first deposit)`);
+        } else if (existingReferral.status === 'pending') {
+          // Already has pending referral, no action needed
+          console.log('Pending referral already exists');
+        } else {
+          // Already activated, ignore
+          console.log('Referral already activated');
+        }
+      }
     }
   }
+  
   const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user });
 });
@@ -873,18 +1141,35 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
   const { data: deposit, error } = await supabase.from('deposits').select('*').eq('invoice_id', invoiceId).eq('user_id', req.user.id).single();
   if (error || !deposit) return res.status(404).json({ error: 'Invoice not found' });
   const elapsed = Date.now() - new Date(deposit.created_at).getTime();
+  
+  let referralActivated = null;
+  
   if (elapsed > 15000 && deposit.status === 'pending') {
+    // Check if this is the user's first deposit (for referral qualification)
+    const isFirst = await isFirstConfirmedDeposit(req.user.id);
+    
     await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
     await updateWallet(req.user.id, 'live_balance', deposit.amount);
     await addTransaction(req.user.id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
     deposit.status = 'confirmed';
+    
+    // Activate referral if this is the first deposit
+    if (isFirst) {
+      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit');
+    }
   }
   if (elapsed > 3600000 && deposit.status === 'pending') {
     await supabase.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
     deposit.status = 'expired';
   }
   const wallet = await getWallet(req.user.id);
-  res.json({ status: deposit.status, newBalance: wallet.live_balance, creditedAmount: deposit.status==='confirmed' ? deposit.amount : 0, network: deposit.network });
+  res.json({ 
+    status: deposit.status, 
+    newBalance: wallet.live_balance, 
+    creditedAmount: deposit.status==='confirmed' ? deposit.amount : 0, 
+    network: deposit.network,
+    referralActivated
+  });
 });
 
 // ---------- Withdraw ----------
@@ -941,10 +1226,105 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
 // ---------- Referral ----------
 app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  const { count: invited } = await supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_id', userId);
-  const { data: earnedData } = await supabase.from('referrals').select('bonus_earned').eq('referrer_id', userId);
-  const earned = earnedData.reduce((s, r) => s + r.bonus_earned, 0);
-  res.json({ invited: invited || 0, earned });
+  
+  // Get all referrals made by this user
+  const { data: referrals, error } = await supabase
+    .from('referrals')
+    .select('bonus_earned, status')
+    .eq('referrer_id', userId);
+  
+  if (error) throw error;
+  
+  // Calculate stats
+  const totalReferrals = referrals ? referrals.length : 0;
+  const totalEarned = referrals.reduce((sum, r) => sum + (r.bonus_earned || 0), 0);
+  const activeReferrals = referrals.filter(r => r.status === 'active').length;
+  const pendingReferrals = referrals.filter(r => r.status === 'pending').length;
+  
+  res.json({ 
+    totalReferrals, 
+    activeReferrals,
+    pendingReferrals,
+    earned: totalEarned 
+  });
+});
+
+// Get detailed referral stats (including referral list)
+app.get('/api/referral/detailed', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  
+  // Get all referrals made by this user
+  const { data: referrals, error } = await supabase
+    .from('referrals')
+    .select(`
+      id,
+      bonus_earned,
+      status,
+      created_at,
+      qualified_at,
+      qualification_type,
+      referred:users!referred_id(id, name, email, created_at)
+    `)
+    .eq('referrer_id', userId)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  
+  // Calculate stats
+  const totalReferrals = referrals ? referrals.length : 0;
+  const totalEarned = referrals.reduce((sum, r) => sum + (r.bonus_earned || 0), 0);
+  const activeReferrals = referrals.filter(r => r.status === 'active').length;
+  const pendingReferrals = referrals.filter(r => r.status === 'pending').length;
+  
+  // Get user's own referral code
+  const { data: user } = await supabase
+    .from('users')
+    .select('referral_code')
+    .eq('id', userId)
+    .single();
+  
+  res.json({
+    referralCode: user?.referral_code || null,
+    totalReferrals,
+    activeReferrals,
+    pendingReferrals,
+    totalEarned,
+    referrals: referrals.map(r => ({
+      id: r.id,
+      bonusEarned: r.bonus_earned,
+      status: r.status,
+      registeredAt: r.created_at,
+      qualifiedAt: r.qualified_at,
+      qualificationType: r.qualification_type,
+      referredUser: r.referred ? {
+        id: r.referred.id,
+        name: r.referred.name,
+        email: r.referred.email ? r.referred.email.replace(/(.{2}).*(@.*)/, '$1***$2') : null, // Partially mask email
+        joinedAt: r.referred.created_at
+      } : null
+    }))
+  });
+});
+
+// Validate a referral code (public endpoint)
+app.get('/api/referral/validate/:code', async (req, res) => {
+  const code = req.params.code?.trim().toUpperCase();
+  
+  if (!code || !isValidReferralCodeFormat(code)) {
+    return res.json({ valid: false, message: 'Invalid referral code format' });
+  }
+  
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('referral_code', code)
+    .single();
+  
+  if (error && error.code === 'PGRST116') {
+    return res.json({ valid: false, message: 'Referral code not found' });
+  }
+  
+  res.json({ valid: true, message: 'Valid referral code' });
 });
 
 app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
@@ -1008,8 +1388,8 @@ app.post('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
   if (await getUserByEmail(email)) return res.status(400).json({ error: 'Email exists' });
   const hash = bcrypt.hashSync(password, 10);
-  let refCode = 'ARBI-'; for (let i=0; i<6; i++) refCode += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random()*36)];
-  const { data: user, error } = await supabase.from('users').insert({ name, email, password_hash: hash, referral_code: refCode, is_admin: 0 }).select().single();
+  const userReferralCode = await generateUniqueReferralCode();
+  const { data: user, error } = await supabase.from('users').insert({ name, email, password_hash: hash, referral_code: userReferralCode, is_admin: 0 }).select().single();
   if (error) throw error;
   await supabase.from('wallets').insert({ user_id: user.id, demo_balance: demo_balance || 1000, live_balance: 50, bonus_balance: 0 });
   res.json({ success: true, user });
@@ -1027,10 +1407,21 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   const { data: deposit, error } = await supabase.from('deposits').select('*').eq('id', id).single();
   if (error || !deposit) return res.status(404).json({ error: 'Deposit not found' });
   if (deposit.status !== 'pending') return res.status(400).json({ error: 'Already ' + deposit.status });
+  
+  // Check if this is the user's first deposit (for referral qualification)
+  const isFirst = await isFirstConfirmedDeposit(deposit.user_id);
+  
   await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', id);
   await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
   await addTransaction(deposit.user_id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
-  res.json({ success: true });
+  
+  // Activate referral if this is the first deposit
+  let referralActivated = null;
+  if (isFirst) {
+    referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit');
+  }
+  
+  res.json({ success: true, referralActivated });
 });
 
 app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, res) => {
@@ -1068,11 +1459,205 @@ app.get('/api/admin/transactions', authMiddleware, adminMiddleware, async (req, 
   res.json(txs);
 });
 
+// Admin: Get all referrals with search and filtering
 app.get('/api/admin/referrals', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('referrals').select('*, referrer:users!referrer_id(name), referred:users!referred_id(name)').order('created_at', { ascending: false }).limit(100);
+  const { search, status, limit = 100, offset = 0 } = req.query;
+  
+  let query = supabase
+    .from('referrals')
+    .select(`
+      id,
+      bonus_earned,
+      status,
+      created_at,
+      referrer:users!referrer_id(id, name, email, referral_code),
+      referred:users!referred_id(id, name, email, referral_code)
+    `, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+  
+  // Filter by status if provided
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+  
+  const { data, error, count } = await query;
+  
   if (error) throw error;
-  const refs = data.map(r => ({ ...r, referrer_name: r.referrer ? r.referrer.name : null, referred_name: r.referred ? r.referred.name : null, referrer: undefined, referred: undefined }));
-  res.json(refs);
+  
+  // Map response to flatten nested objects
+  const refs = data.map(r => ({
+    id: r.id,
+    bonusEarned: r.bonus_earned,
+    status: r.status,
+    createdAt: r.created_at,
+    referrerId: r.referrer?.id,
+    referrerName: r.referrer?.name,
+    referrerEmail: r.referrer?.email,
+    referrerCode: r.referrer?.referral_code,
+    referredId: r.referred?.id,
+    referredName: r.referred?.name,
+    referredEmail: r.referred?.email,
+    referredCode: r.referred?.referral_code
+  }));
+  
+  // Apply search filter in memory (for more complex search patterns)
+  let filteredRefs = refs;
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filteredRefs = refs.filter(r => 
+      (r.referrerName && r.referrerName.toLowerCase().includes(searchLower)) ||
+      (r.referrerEmail && r.referrerEmail.toLowerCase().includes(searchLower)) ||
+      (r.referrerCode && r.referrerCode.toLowerCase().includes(searchLower)) ||
+      (r.referredName && r.referredName.toLowerCase().includes(searchLower)) ||
+      (r.referredEmail && r.referredEmail.toLowerCase().includes(searchLower)) ||
+      (r.referredCode && r.referredCode.toLowerCase().includes(searchLower))
+    );
+  }
+  
+  res.json({ referrals: filteredRefs, total: count || refs.length });
+});
+
+// Admin: Get top referrers
+app.get('/api/admin/referrals/top', authMiddleware, adminMiddleware, async (req, res) => {
+  const { limit = 10 } = req.query;
+  
+  // Get referral counts per user
+  const { data, error } = await supabase
+    .from('referrals')
+    .select('referrer_id, bonus_earned')
+    .eq('status', 'active');
+  
+  if (error) throw error;
+  
+  // Aggregate stats by referrer
+  const referrerStats = {};
+  data.forEach(r => {
+    if (!referrerStats[r.referrer_id]) {
+      referrerStats[r.referrer_id] = { count: 0, totalEarned: 0 };
+    }
+    referrerStats[r.referrer_id].count++;
+    referrerStats[r.referrer_id].totalEarned += r.bonus_earned || 0;
+  });
+  
+  // Get user details for top referrers
+  const referrerIds = Object.keys(referrerStats)
+    .sort((a, b) => referrerStats[b].count - referrerStats[a].count)
+    .slice(0, parseInt(limit));
+  
+  if (referrerIds.length === 0) {
+    return res.json({ topReferrers: [] });
+  }
+  
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, name, email, referral_code, created_at')
+    .in('id', referrerIds);
+  
+  const topReferrers = referrerIds.map(id => {
+    const user = users.find(u => u.id === id);
+    return {
+      userId: id,
+      name: user?.name,
+      email: user?.email,
+      referralCode: user?.referral_code,
+      referralCount: referrerStats[id].count,
+      totalEarned: referrerStats[id].totalEarned,
+      joinedAt: user?.created_at
+    };
+  });
+  
+  res.json({ topReferrers });
+});
+
+// Admin: Export referrals (CSV format)
+app.get('/api/admin/referrals/export', authMiddleware, adminMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from('referrals')
+    .select(`
+      id,
+      bonus_earned,
+      status,
+      created_at,
+      referrer:users!referrer_id(name, email, referral_code),
+      referred:users!referred_id(name, email, referral_code)
+    `)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  
+  // Generate CSV header
+  const csvHeader = 'ID,Referrer Name,Referrer Email,Referrer Code,Referred Name,Referred Email,Referred Code,Bonus Earned,Status,Created At\n';
+  
+  // Generate CSV rows
+  const csvRows = data.map(r => {
+    return [
+      r.id,
+      r.referrer?.name || '',
+      r.referrer?.email || '',
+      r.referrer?.referral_code || '',
+      r.referred?.name || '',
+      r.referred?.email || '',
+      r.referred?.referral_code || '',
+      r.bonus_earned || 0,
+      r.status || '',
+      r.created_at || ''
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+  }).join('\n');
+  
+  const csv = csvHeader + csvRows;
+  
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="referrals_${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send(csv);
+});
+
+// Admin: Detect suspicious referral activity
+app.get('/api/admin/referrals/suspicious', authMiddleware, adminMiddleware, async (req, res) => {
+  // Look for suspicious patterns:
+  // 1. Same IP used for multiple referrals
+  // 2. Rapid-fire referrals (same referrer getting multiple referrals in short time)
+  // 3. Self-referrals (should be blocked but check anyway)
+  
+  const { data: recentReferrals, error } = await supabase
+    .from('referrals')
+    .select(`
+      id,
+      referrer_id,
+      referred_id,
+      created_at,
+      referrer:users!referrer_id(id, email, name)
+    `)
+    .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  
+  const suspicious = [];
+  
+  // Pattern 1: Same referrer getting multiple referrals quickly
+  const referrerCounts = {};
+  recentReferrals.forEach(r => {
+    if (!referrerCounts[r.referrer_id]) {
+      referrerCounts[r.referrer_id] = [];
+    }
+    referrerCounts[r.referrer_id].push(r);
+  });
+  
+  Object.entries(referrerCounts).forEach(([referrerId, referrals]) => {
+    if (referrals.length > 5) {
+      suspicious.push({
+        type: 'rapid_referrals',
+        referrerId,
+        referrerName: referrals[0].referrer?.name,
+        referrerEmail: referrals[0].referrer?.email,
+        count: referrals.length,
+        details: 'More than 5 referrals in 24 hours'
+      });
+    }
+  });
+  
+  res.json({ suspicious, totalChecked: recentReferrals.length });
 });
 
 // ---------- SEED ADMIN ----------
@@ -1101,6 +1686,12 @@ app.get('/api/admin/referrals', authMiddleware, adminMiddleware, async (req, res
   } catch (e) {
     console.log('Admin check:', e.message);
   }
+})();
+
+// Start server and assign referral codes to existing users
+(async function startServer() {
+  // Assign referral codes to existing users without valid codes
+  await assignReferralCodesToExistingUsers();
 })();
 
 // ---------- SERVE FRONTEND (FIXED – NO * WILDCARD) ----------
@@ -1149,6 +1740,17 @@ app.get('/api/diagnostic', async (req, res) => {
   }
   
   res.json(diagnostics);
+});
+
+// Referral link route handler
+// Redirects /ref/ARBI-XXXXX to /?ref=ARBI-XXXXX
+app.get('/ref/:code', (req, res) => {
+  const code = req.params.code;
+  if (code && isValidReferralCodeFormat(code)) {
+    res.redirect(`/?ref=${code}`);
+  } else {
+    res.redirect('/');
+  }
 });
 
 // Fallback – uses app.use, which does NOT cause the PathError
