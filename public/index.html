@@ -2567,6 +2567,8 @@ function closeTwoFAModal() {
 // ============ TOTP 2FA FUNCTIONS ============
 
 let twofaSetupData = null;
+let is2FASetupInProgress = false; // Prevent concurrent API calls
+let currentSetupRequestId = 0; // Track the current request to discard stale responses
 
 async function load2FAStatus() {
     const token = localStorage.getItem('jwt_token');
@@ -2608,6 +2610,22 @@ async function initiate2FASetup() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
     
+    // Prevent concurrent API calls
+    if (is2FASetupInProgress) {
+        return;
+    }
+    is2FASetupInProgress = true;
+    
+    // Increment request ID for this call - stale responses will be discarded
+    const requestId = ++currentSetupRequestId;
+    
+    // Disable the button during API call
+    const btn = document.getElementById('generateQRCodeBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+    }
+    
     document.getElementById('twofaQRPlaceholder').innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>';
     document.getElementById('twofaManualKey').textContent = 'Generating...';
     
@@ -2622,8 +2640,18 @@ async function initiate2FASetup() {
         
         const data = await response.json();
         
+        // Discard stale response - if this request ID is not current, another request was made
+        if (requestId !== currentSetupRequestId) {
+            return;
+        }
+        
         if (!response.ok) {
             throw new Error(data.error || 'Failed to setup 2FA');
+        }
+        
+        // Discard stale response - double-check after error-throwing code
+        if (requestId !== currentSetupRequestId) {
+            return;
         }
         
         twofaSetupData = data;
@@ -2649,10 +2677,23 @@ async function initiate2FASetup() {
         clear2FACodeInputs();
         
     } catch (error) {
+        // Discard stale response on error as well
+        if (requestId !== currentSetupRequestId) {
+            return;
+        }
+        
         console.error('2FA setup error:', error);
         showToast(error.message, 'error');
         document.getElementById('twofaSetupView1').style.display = 'block';
         document.getElementById('twofaSetupView2').style.display = 'none';
+        // Re-enable button on error
+        const btn = document.getElementById('generateQRCodeBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generate New QR Code';
+        }
+    } finally {
+        is2FASetupInProgress = false;
     }
 }
 
@@ -4975,7 +5016,7 @@ function toggleFaq(btn) {
                 <i class="fas fa-info-circle"></i> Enter this key manually if QR code doesn't work
             </p>
             
-            <button type="button" onclick="initiate2FASetup()" class="btn btn-primary btn-block"><i class="fas fa-sync-alt"></i> Generate New QR Code</button>
+            <button type="button" onclick="initiate2FASetup()" class="btn btn-primary btn-block" id="generateQRCodeBtn"><i class="fas fa-sync-alt"></i> Generate New QR Code</button>
         </div>
         
         <!-- Setup Step 2: Verify Code -->
