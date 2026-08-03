@@ -1421,11 +1421,12 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
   try {
     // SECURITY: Strict input validation
     const { amount, currency, network } = req.body;
+    const MIN_DEPOSIT_AMOUNT = 50;
     
-    if (!amount || typeof amount !== 'number' || amount < 10) {
+    if (!amount || typeof amount !== 'number' || amount < MIN_DEPOSIT_AMOUNT) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Invalid amount: minimum deposit is $10' 
+        error: `Invalid amount: minimum deposit is $${MIN_DEPOSIT_AMOUNT}` 
       });
     }
     
