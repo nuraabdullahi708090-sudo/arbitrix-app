@@ -951,6 +951,9 @@
         .mode-tabs{background:var(--bg-input);border-radius:40px;padding:3px;display:inline-flex;border:1px solid var(--border-color);}
         .mode-tab{padding:6px 14px;border-radius:32px;cursor:pointer;font-weight:600;transition:all 0.25s;font-size:11px;color:var(--text-muted);}
         .mode-tab.active{background:var(--gold);color:#070B14;}
+        .ref-sub-tab{padding:8px 16px;cursor:pointer;font-weight:600;transition:all 0.2s;font-size:12px;color:var(--text-muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;}
+        .ref-sub-tab:hover{color:var(--gold);}
+        .ref-sub-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
 
         .wallet-tab{padding:8px 14px;border-radius:20px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;background:var(--bg-input);color:var(--text-muted);border:1px solid transparent;min-height:36px;}
         .wallet-tab.active{background:var(--gold);color:#070B14;}
@@ -3661,7 +3664,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab active" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
-                        <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral Config</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral</button>
                     </div>
                     
                     <!-- Users Tab -->
@@ -3721,16 +3724,73 @@ function toggleFaq(btn) {
                         </div>
                     </div>
                     
-                    <!-- Referral Config Tab -->
+                    <!-- Referral Tab -->
                     <div id="adminTabContentReferrals" class="hidden">
-                        <div style="margin-bottom:16px;padding:12px;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.2);border-radius:8px;">
-                            <p style="font-size:11px;color:#8896B5;margin:0;">Configure the referral program settings. Changes take effect immediately.</p>
+                        <!-- Referral Sub-tabs -->
+                        <div style="margin-bottom:12px;border-bottom:1px solid #1E2A3F;display:flex;gap:0;">
+                            <button type="button" class="ref-sub-tab active" onclick="showReferralSubTab('config')" id="refSubTabConfig">Configuration</button>
+                            <button type="button" class="ref-sub-tab" onclick="showReferralSubTab('history')" id="refSubTabHistory">Audit History</button>
                         </div>
                         
-                        <!-- Referral Config Form -->
-                        <div id="referralConfigForm" style="max-height:400px;overflow-y:auto;">
-                            <!-- Config items will be loaded dynamically -->
-                            <div style="text-align:center;padding:20px;color:#8896B5;">Loading...</div>
+                        <!-- Referral Configuration Sub-tab -->
+                        <div id="referralSubTabConfig">
+                            <div style="margin-bottom:16px;padding:12px;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.2);border-radius:8px;">
+                                <p style="font-size:11px;color:#8896B5;margin:0;">Configure the referral program settings. Changes take effect immediately.</p>
+                            </div>
+                            <div id="referralConfigForm" style="max-height:400px;overflow-y:auto;">
+                                <div style="text-align:center;padding:20px;color:#8896B5;">Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Referral Audit History Sub-tab -->
+                        <div id="referralSubTabHistory" class="hidden">
+                            <div style="margin-bottom:16px;padding:12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;">
+                                <p style="font-size:11px;color:#8896B5;margin:0;">Complete history of all referral configuration changes. Most recent changes shown first.</p>
+                            </div>
+                            
+                            <!-- Audit Log Controls -->
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <label style="font-size:11px;color:#8896B5;">Sort:</label>
+                                    <select id="auditSortOrder" onchange="loadReferralAuditHistory()" style="padding:4px 8px;background:#141C2E;border:1px solid #1E2A3F;border-radius:4px;color:#fff;font-size:11px;">
+                                        <option value="desc">Newest First</option>
+                                        <option value="asc">Oldest First</option>
+                                    </select>
+                                </div>
+                                <button type="button" onclick="loadReferralAuditHistory()" style="background:#1E2A3F;color:#F0B90B;border:none;padding:6px 12px;border-radius:4px;font-size:11px;cursor:pointer;">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                            
+                            <!-- Audit Log Table -->
+                            <div id="referralAuditHistory" style="max-height:400px;overflow-y:auto;">
+                                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                    <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                        <tr style="border-bottom:1px solid #1E2A3F;">
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Date & Time</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Administrator</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Setting</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Old Value</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">New Value</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">IP Address</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="referralAuditTable">
+                                        <tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Audit Pagination -->
+                            <div id="auditPagination" style="display:none;margin-top:12px;padding:8px;background:#141C2E;border-radius:8px;text-align:center;">
+                                <span id="auditPaginationInfo" style="font-size:11px;color:#8896B5;"></span>
+                            </div>
+                            
+                            <!-- Empty State -->
+                            <div id="auditEmptyState" class="hidden" style="text-align:center;padding:40px;color:#8896B5;">
+                                <i class="fas fa-history" style="font-size:32px;margin-bottom:12px;opacity:0.5;"></i>
+                                <p style="font-size:12px;">No configuration changes recorded yet.</p>
+                            </div>
                         </div>
                     </div>
                     </div>
@@ -6571,21 +6631,145 @@ async function updateReferralConfig(key, value) {
             body: JSON.stringify({ value: String(value) })
         });
         
+        const data = await response.json();
+        
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to update');
+            throw new Error(data.error || data.message || 'Failed to update configuration');
         }
         
         showToast('Configuration saved successfully', 'success');
         
         // Reload config to show updated values
         loadReferralConfig();
+        
+        // Reload audit history to show the new change
+        loadReferralAuditHistory();
     } catch (e) {
         showToast('Error: ' + e.message, 'error');
         // Reload to reset the input
         loadReferralConfig();
         console.log('Error updating referral config:', e);
     }
+}
+
+// ============ REFERRAL SUB-TABS ============
+function showReferralSubTab(tab) {
+    // Update sub-tab buttons
+    document.querySelectorAll('.ref-sub-tab').forEach(function(btn) { btn.classList.remove('active'); });
+    const tabBtn = document.getElementById('refSubTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (tabBtn) tabBtn.classList.add('active');
+    
+    // Show/hide content
+    document.getElementById('referralSubTabConfig').classList.add('hidden');
+    document.getElementById('referralSubTabHistory').classList.add('hidden');
+    
+    const content = document.getElementById('referralSubTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (content) content.classList.remove('hidden');
+    
+    // Load audit history when tab is shown
+    if (tab === 'history') {
+        loadReferralAuditHistory();
+    }
+}
+
+// ============ REFERRAL AUDIT HISTORY ============
+async function loadReferralAuditHistory() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    const table = document.getElementById('referralAuditTable');
+    const pagination = document.getElementById('auditPagination');
+    const emptyState = document.getElementById('auditEmptyState');
+    const sortOrder = document.getElementById('auditSortOrder')?.value || 'desc';
+    
+    if (!table) return;
+    
+    // Show loading state
+    table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>';
+    
+    try {
+        const response = await fetch('/api/referral/config/audit?sort=' + sortOrder, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load audit history');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.auditLog || data.auditLog.length === 0) {
+            table.innerHTML = '';
+            pagination.style.display = 'none';
+            emptyState.classList.remove('hidden');
+            return;
+        }
+        
+        emptyState.classList.add('hidden');
+        pagination.style.display = 'block';
+        
+        // Render audit log
+        table.innerHTML = data.auditLog.map(entry => {
+            const date = new Date(entry.changed_at);
+            const formattedDate = date.toLocaleString();
+            const configKeyLabel = formatConfigKey(entry.config_key);
+            const oldValueDisplay = formatConfigValue(entry.config_key, entry.old_value);
+            const newValueDisplay = formatConfigValue(entry.config_key, entry.new_value);
+            const ipDisplay = entry.ip_address || 'N/A';
+            
+            return `
+                <tr style="border-bottom:1px solid #1E2A3F;">
+                    <td style="padding:8px;color:#fff;">${formattedDate}</td>
+                    <td style="padding:8px;color:#8896B5;">${escapeHtml(entry.admin_email)}</td>
+                    <td style="padding:8px;color:#F0B90B;font-weight:600;">${configKeyLabel}</td>
+                    <td style="padding:8px;color:#ff6b6b;text-decoration:line-through;">${oldValueDisplay}</td>
+                    <td style="padding:8px;color:#10B981;font-weight:600;">${newValueDisplay}</td>
+                    <td style="padding:8px;color:#8896B5;font-family:monospace;font-size:10px;">${escapeHtml(ipDisplay)}</td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Update pagination info
+        document.getElementById('auditPaginationInfo').textContent = 
+            `Showing ${data.auditLog.length} of ${data.pagination.total} changes`;
+        
+    } catch (e) {
+        table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#ff4444;">Error loading audit history</td></tr>';
+        console.log('Error loading audit history:', e);
+    }
+}
+
+function formatConfigKey(key) {
+    const labels = {
+        'rewards_enabled': 'Rewards Enabled',
+        'minimum_qualifying_deposit': 'Min Deposit',
+        'referral_reward_amount': 'Reward Amount',
+        'first_deposit_required': 'First Deposit Required',
+        'max_rewards_per_user': 'Max Rewards Per User'
+    };
+    return labels[key] || key;
+}
+
+function formatConfigValue(key, value) {
+    if (value === null || value === undefined || value === '') {
+        return '<em style="opacity:0.5;">(none)</em>';
+    }
+    
+    if (key === 'rewards_enabled' || key === 'first_deposit_required') {
+        return value === 'true' ? '✅ Enabled' : '❌ Disabled';
+    }
+    
+    if (key === 'minimum_qualifying_deposit' || key === 'referral_reward_amount') {
+        return '$' + value;
+    }
+    
+    return value;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 async function loadAdminData() {

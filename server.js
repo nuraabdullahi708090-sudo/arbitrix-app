@@ -1388,13 +1388,46 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   res.json(data);
 });
 
-// ---------- Referral ----------
-// Get referral configuration (public endpoint)
+// ---------- Referral Configuration ----------
+// Configuration validation rules
+const CONFIG_VALIDATION = {
+  rewards_enabled: {
+    type: 'boolean',
+    validValues: ['true', 'false'],
+    description: 'Enable or disable referral rewards system-wide'
+  },
+  minimum_qualifying_deposit: {
+    type: 'number',
+    min: 0,
+    max: 10000,
+    description: 'Minimum deposit amount required for referral qualification (USD)'
+  },
+  referral_reward_amount: {
+    type: 'number',
+    min: 0,
+    max: 1000,
+    description: 'Amount awarded to referrer when referral qualifies (USD)'
+  },
+  first_deposit_required: {
+    type: 'boolean',
+    validValues: ['true', 'false'],
+    description: 'Whether referral requires first deposit to qualify'
+  },
+  max_rewards_per_user: {
+    type: 'number',
+    min: 0,
+    max: 10000,
+    description: 'Maximum rewards per user (0 = unlimited)'
+  }
+};
+
+// Get referral configuration (public endpoint - minimum info only)
 app.get('/api/referral/config', async (req, res) => {
   try {
     const config = await getReferralConfigAll();
     
-    // Return only public config values (not all internal details)
+    // Return only public config values needed by frontend
+    // No internal details, descriptions, or metadata exposed
     res.json({
       rewardsEnabled: config.rewards_enabled?.value === 'true',
       minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || '50'),
@@ -1403,7 +1436,8 @@ app.get('/api/referral/config', async (req, res) => {
       maxRewardsPerUser: parseConfigValue(config.max_rewards_per_user?.value || '0')
     });
   } catch (e) {
-    // Return defaults on error
+    console.error('Error fetching referral config:', e.message);
+    // Return defaults on error - do NOT expose internal error details
     res.json({
       rewardsEnabled: true,
       minimumDeposit: 50,
@@ -1418,46 +1452,182 @@ app.get('/api/referral/config', async (req, res) => {
 app.get('/api/referral/config/admin', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const config = await getReferralConfigAll();
-    res.json(config);
+    res.json({
+      config,
+      validationRules: CONFIG_VALIDATION
+    });
   } catch (e) {
-    res.status(500).json({ error: 'Failed to fetch configuration' });
+    console.error('Admin config fetch error:', e.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch configuration',
+      code: 'CONFIG_FETCH_ERROR'
+    });
   }
 });
 
-// Update referral configuration (admin only)
+// Get referral configuration audit history (admin only)
+app.get('/api/referral/config/audit', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, sort = 'desc' } = req.query;
+    
+    // Validate pagination params
+    const safeLimit = Math.min(parseInt(limit) || 50, 100);
+    const safeOffset = Math.max(parseInt(offset) || 0, 0);
+    const safeSort = sort === 'asc' ? 'asc' : 'desc';
+    
+    const { data, error, count } = await supabase
+      .from('referral_config_audit_log')
+      .select('id, admin_id, admin_email, config_key, old_value, new_value, ip_address, changed_at, reason', { 
+        count: 'exact' 
+      })
+      .order('changed_at', { ascending: safeSort === 'asc' })
+      .range(safeOffset, safeOffset + safeLimit - 1);
+    
+    if (error) {
+      console.error('Audit log fetch error:', error.message);
+      throw error;
+    }
+    
+    res.json({
+      auditLog: data,
+      pagination: {
+        total: count || 0,
+        limit: safeLimit,
+        offset: safeOffset,
+        hasMore: (count || 0) > (safeOffset + safeLimit)
+      }
+    });
+  } catch (e) {
+    console.error('Audit log error:', e.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch audit history',
+      code: 'AUDIT_FETCH_ERROR'
+    });
+  }
+});
+
+// Update referral configuration (admin only) with audit logging
 app.put('/api/referral/config/:key', authMiddleware, adminMiddleware, async (req, res) => {
   const { key } = req.params;
-  const { value } = req.body;
+  const { value, reason } = req.body;
   
-  // Validate key
-  const validKeys = ['rewards_enabled', 'minimum_qualifying_deposit', 'referral_reward_amount', 'first_deposit_required', 'max_rewards_per_user'];
-  if (!validKeys.includes(key)) {
-    return res.status(400).json({ error: 'Invalid configuration key' });
+  // Validate key exists
+  if (!key || typeof key !== 'string') {
+    return res.status(400).json({ 
+      error: 'Configuration key is required',
+      code: 'MISSING_KEY'
+    });
   }
   
-  // Validate value based on key
-  if (key === 'rewards_enabled' || key === 'first_deposit_required') {
-    if (value !== 'true' && value !== 'false') {
-      return res.status(400).json({ error: 'Value must be true or false' });
+  // Validate value is provided
+  if (value === undefined || value === null) {
+    return res.status(400).json({ 
+      error: 'Configuration value is required',
+      code: 'MISSING_VALUE'
+    });
+  }
+  
+  // Validate key is in allowed list
+  if (!CONFIG_VALIDATION[key]) {
+    return res.status(400).json({ 
+      error: 'Invalid configuration key: ' + key,
+      code: 'INVALID_KEY',
+      validKeys: Object.keys(CONFIG_VALIDATION)
+    });
+  }
+  
+  const validation = CONFIG_VALIDATION[key];
+  const stringValue = String(value).trim();
+  
+  // Validate based on type
+  if (validation.type === 'boolean') {
+    if (!validation.validValues.includes(stringValue)) {
+      return res.status(400).json({ 
+        error: 'Invalid value for ' + key + '. Must be true or false.',
+        code: 'INVALID_BOOLEAN',
+        currentValue: stringValue,
+        allowedValues: validation.validValues
+      });
+    }
+  } else if (validation.type === 'number') {
+    const numValue = parseFloat(stringValue);
+    if (isNaN(numValue)) {
+      return res.status(400).json({ 
+        error: 'Invalid value for ' + key + '. Must be a number.',
+        code: 'INVALID_NUMBER',
+        currentValue: stringValue
+      });
+    }
+    if (numValue < validation.min || numValue > validation.max) {
+      return res.status(400).json({ 
+        error: 'Value for ' + key + ' must be between ' + validation.min + ' and ' + validation.max,
+        code: 'VALUE_OUT_OF_RANGE',
+        currentValue: numValue,
+        minValue: validation.min,
+        maxValue: validation.max
+      });
     }
   }
   
-  if (key === 'minimum_qualifying_deposit' || key === 'referral_reward_amount' || key === 'max_rewards_per_user') {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < 0) {
-      return res.status(400).json({ error: 'Value must be a non-negative number' });
+  // Get current value for audit log
+  const currentConfig = await getReferralConfig(key, null);
+  const oldValue = currentConfig;
+  
+  // Check if value actually changed
+  if (oldValue === stringValue) {
+    return res.status(400).json({ 
+      error: 'Configuration value is unchanged',
+      code: 'NO_CHANGE',
+      currentValue: oldValue
+    });
+  }
+  
+  // Update the configuration
+  const success = await setReferralConfig(key, stringValue);
+  
+  if (!success) {
+    console.error('Failed to update config:', key);
+    return res.status(500).json({ 
+      error: 'Failed to update configuration',
+      code: 'UPDATE_FAILED'
+    });
+  }
+  
+  // Log the change to audit trail
+  try {
+    const adminId = req.user.id;
+    const adminEmail = req.user.email;
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
+    const userAgent = req.headers['user-agent'] || null;
+    
+    await supabase.rpc('log_referral_config_change', {
+      p_admin_id: adminId,
+      p_admin_email: adminEmail,
+      p_config_key: key,
+      p_old_value: oldValue,
+      p_new_value: stringValue,
+      p_ip_address: ipAddress,
+      p_user_agent: userAgent,
+      p_reason: reason || null
+    });
+    
+    console.log(`[AUDIT] Referral config updated by ${adminEmail}: ${key} = ${stringValue} (was: ${oldValue})`);
+  } catch (auditError) {
+    // Audit logging failure should not fail the main operation
+    console.error('Audit logging failed:', auditError.message);
+  }
+  
+  // Return success response
+  const updatedConfig = await getReferralConfigAll();
+  res.json({ 
+    success: true, 
+    config: updatedConfig,
+    changes: {
+      key,
+      oldValue,
+      newValue: stringValue
     }
-  }
-  
-  const success = await setReferralConfig(key, value);
-  
-  if (success) {
-    const updatedConfig = await getReferralConfigAll();
-    console.log(`Referral config updated: ${key} = ${value}`);
-    res.json({ success: true, config: updatedConfig });
-  } else {
-    res.status(500).json({ error: 'Failed to update configuration' });
-  }
+  });
 });
 
 app.get('/api/referral/stats', authMiddleware, async (req, res) => {
