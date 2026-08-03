@@ -951,6 +951,9 @@
         .mode-tabs{background:var(--bg-input);border-radius:40px;padding:3px;display:inline-flex;border:1px solid var(--border-color);}
         .mode-tab{padding:6px 14px;border-radius:32px;cursor:pointer;font-weight:600;transition:all 0.25s;font-size:11px;color:var(--text-muted);}
         .mode-tab.active{background:var(--gold);color:#070B14;}
+        .ref-sub-tab{padding:8px 16px;cursor:pointer;font-weight:600;transition:all 0.2s;font-size:12px;color:var(--text-muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;}
+        .ref-sub-tab:hover{color:var(--gold);}
+        .ref-sub-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
 
         .wallet-tab{padding:8px 14px;border-radius:20px;cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;background:var(--bg-input);color:var(--text-muted);border:1px solid transparent;min-height:36px;}
         .wallet-tab.active{background:var(--gold);color:#070B14;}
@@ -2158,6 +2161,8 @@ function showSignupForm() {
         document.getElementById('signupTab').classList.add('active');
         document.getElementById('loginTab').classList.remove('active');
         clearAuthMessages();
+        // Auto-populate referral code from URL
+        populateReferralFromURL();
     } catch(e) { console.error('showSignupForm failed:', e); }
 }
 
@@ -2416,6 +2421,11 @@ async function handleSignup() {
         const data = await response.json();
         localStorage.setItem('jwt_token', data.token);
         localStorage.setItem('arbi_user', JSON.stringify(data.user));
+        
+        // Update APP state with user's new referral code
+        if (data.user.referralCode) {
+            APP.referralCode = data.user.referralCode;
+        }
 
         showAuthSuccess('Account created successfully! Redirecting...', 'signup');
         setButtonLoading(btn, false);
@@ -2431,6 +2441,11 @@ async function handleSignup() {
                 document.getElementById('landingUserName').textContent = data.user.name;
             }
             checkAdminAccess();
+            updateReferralDisplay();
+            // Show success message about referral if user was referred
+            if (referral) {
+                showToast('🎉 Welcome! Your friend will earn a referral bonus.', 'success', 5000);
+            }
         }, 1000);
     } catch (e) {
         showAuthError('Network error. Please try again.', 'signup');
@@ -2470,6 +2485,11 @@ async function handleLogin() {
         const data = await response.json();
         localStorage.setItem('jwt_token', data.token);
         localStorage.setItem('arbi_user', JSON.stringify(data.user));
+        
+        // Update APP state with user's referral code
+        if (data.user.referralCode) {
+            APP.referralCode = data.user.referralCode;
+        }
 
         showAuthSuccess('Welcome back! Redirecting...', 'login');
         setButtonLoading(btn, false);
@@ -2485,6 +2505,7 @@ async function handleLogin() {
                 document.getElementById('landingUserName').textContent = data.user.name;
             }
             checkAdminAccess();
+            updateReferralDisplay();
         }, 1000);
     } catch (e) {
         showAuthError('Network error. Please try again.', 'login');
@@ -3643,6 +3664,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab active" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral</button>
                     </div>
                     
                     <!-- Users Tab -->
@@ -3701,6 +3723,77 @@ function toggleFaq(btn) {
                             </table>
                         </div>
                     </div>
+                    
+                    <!-- Referral Tab -->
+                    <div id="adminTabContentReferrals" class="hidden">
+                        <!-- Referral Sub-tabs -->
+                        <div style="margin-bottom:12px;border-bottom:1px solid #1E2A3F;display:flex;gap:0;">
+                            <button type="button" class="ref-sub-tab active" onclick="showReferralSubTab('config')" id="refSubTabConfig">Configuration</button>
+                            <button type="button" class="ref-sub-tab" onclick="showReferralSubTab('history')" id="refSubTabHistory">Audit History</button>
+                        </div>
+                        
+                        <!-- Referral Configuration Sub-tab -->
+                        <div id="referralSubTabConfig">
+                            <div style="margin-bottom:16px;padding:12px;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.2);border-radius:8px;">
+                                <p style="font-size:11px;color:#8896B5;margin:0;">Configure the referral program settings. Changes take effect immediately.</p>
+                            </div>
+                            <div id="referralConfigForm" style="max-height:400px;overflow-y:auto;">
+                                <div style="text-align:center;padding:20px;color:#8896B5;">Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Referral Audit History Sub-tab -->
+                        <div id="referralSubTabHistory" class="hidden">
+                            <div style="margin-bottom:16px;padding:12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;">
+                                <p style="font-size:11px;color:#8896B5;margin:0;">Complete history of all referral configuration changes. Most recent changes shown first.</p>
+                            </div>
+                            
+                            <!-- Audit Log Controls -->
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <label style="font-size:11px;color:#8896B5;">Sort:</label>
+                                    <select id="auditSortOrder" onchange="loadReferralAuditHistory()" style="padding:4px 8px;background:#141C2E;border:1px solid #1E2A3F;border-radius:4px;color:#fff;font-size:11px;">
+                                        <option value="desc">Newest First</option>
+                                        <option value="asc">Oldest First</option>
+                                    </select>
+                                </div>
+                                <button type="button" onclick="loadReferralAuditHistory()" style="background:#1E2A3F;color:#F0B90B;border:none;padding:6px 12px;border-radius:4px;font-size:11px;cursor:pointer;">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                            
+                            <!-- Audit Log Table -->
+                            <div id="referralAuditHistory" style="max-height:400px;overflow-y:auto;">
+                                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                    <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                        <tr style="border-bottom:1px solid #1E2A3F;">
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Date & Time</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Administrator</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Setting</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">Old Value</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">New Value</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;">IP Address</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="referralAuditTable">
+                                        <tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Audit Pagination -->
+                            <div id="auditPagination" style="display:none;margin-top:12px;padding:8px;background:#141C2E;border-radius:8px;text-align:center;">
+                                <span id="auditPaginationInfo" style="font-size:11px;color:#8896B5;"></span>
+                            </div>
+                            
+                            <!-- Empty State -->
+                            <div id="auditEmptyState" class="hidden" style="text-align:center;padding:40px;color:#8896B5;">
+                                <i class="fas fa-history" style="font-size:32px;margin-bottom:12px;opacity:0.5;"></i>
+                                <p style="font-size:12px;">No configuration changes recorded yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
                 </div>
             </div>
 
@@ -3708,32 +3801,74 @@ function toggleFaq(btn) {
             <div class="card" id="referral">
                 <div class="card-header"><span class="icon-bg gold"><i class="fas fa-gift"></i></span> <span data-i18n="referral.title">Referral Program</span></div>
                 <div class="card-body">
-                    <div style="background:linear-gradient(145deg,#0F1629,#1A2540);border:1px solid rgba(240,185,11,0.12);border-radius:16px;padding:16px;text-align:center;">
-                        <h4 style="font-size:14px;font-weight:700;" data-i18n="referral.invite">Invite Friends, Earn $10</h4>
-                        <p style="font-size:10px;color:#8896B5;" data-i18n="referral.subtitle">Share your link. Earn $10 when a friend makes their first deposit.</p>
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0;">
-                            <div style="background:#141C2E;border-radius:8px;padding:8px;">
-                                <div style="font-size:18px;font-weight:800;color:#F0B90B;" id="refTotalInvited">0</div>
-                                <div style="font-size:9px;" data-i18n="referral.totalReferrals">Total Referrals</div>
+                    <div style="background:linear-gradient(145deg,#0F1629,#1A2540);border:1px solid rgba(240,185,11,0.12);border-radius:16px;padding:16px;">
+                        <h4 style="font-size:14px;font-weight:700;text-align:center;" data-i18n="referral.invite">Invite Friends, Earn <span id="refRewardAmount">$10</span></h4>
+                        <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;">Share your link. Earn when friends deposit!</p>
+                        
+                        <!-- Stats Grid -->
+                        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:16px;">
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
+                                <div style="font-size:18px;font-weight:800;color:#10B981;" id="refActiveCount">0</div>
+                                <div style="font-size:9px;color:#8896B5;">Active</div>
                             </div>
-                            <div style="background:#141C2E;border-radius:8px;padding:8px;">
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
+                                <div style="font-size:18px;font-weight:800;color:#F0B90B;" id="refPendingCount">0</div>
+                                <div style="font-size:9px;color:#8896B5;">Pending</div>
+                            </div>
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:18px;font-weight:800;color:#F0B90B;" id="refTotalEarned">$0.00</div>
-                                <div style="font-size:9px;" data-i18n="referral.totalEarned">Total Earned</div>
-                            </div>
-                            <div style="background:#141C2E;border-radius:8px;padding:8px;">
-                                <div style="font-size:18px;font-weight:800;color:#F0B90B;">$10.00</div>
-                                <div style="font-size:9px;" data-i18n="referral.perReferral">Per Referral</div>
+                                <div style="font-size:9px;color:#8896B5;">Earned</div>
                             </div>
                         </div>
-                        <div style="background:#141C2E;border:1px dashed #F0B90B;border-radius:10px;padding:12px;margin:12px 0;display:flex;align-items:center;justify-content:center;gap:12px;font-family:monospace;font-size:18px;font-weight:700;color:#F0B90B;flex-wrap:wrap;">
-                            <span id="referralCodeDisplay" style="word-break:break-all;">ARBI-7X9K2</span>
-                            <button type="button" id="copyReferralBtn" class="copy-btn" style="background:#F0B90B;color:#070B14;border:none;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" data-i18n="common.copy">Copy</button>
+                        
+                        <!-- My Referral Code Section -->
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:6px;text-transform:uppercase;">My Referral Code</div>
+                            <div style="background:#141C2E;border:1px dashed #F0B90B;border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                <span id="referralCodeDisplay" style="font-family:monospace;font-size:16px;font-weight:700;color:#F0B90B;word-break:break-all;">Loading...</span>
+                                <button type="button" id="copyReferralBtn" class="copy-btn" style="background:#F0B90B;color:#070B14;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Code">
+                                    <i class="fas fa-copy"></i> <span data-i18n="common.copy">Copy</span>
+                                </button>
+                            </div>
                         </div>
-                        <div style="background:#141C2E;border:1px solid #1E2A3F;border-radius:10px;padding:8px 12px;word-break:break-all;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
-                            <span id="referralLinkDisplay" style="font-size:11px;flex:1;">https://arbitrix.ai/ref/ARBI-7X9K2</span>
-                            <button type="button" id="copyReferralLinkBtn" class="copy-btn" style="background:#F0B90B;color:#070B14;border:none;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" data-i18n="common.copy">Copy</button>
+                        
+                        <!-- Referral Link Section -->
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:6px;text-transform:uppercase;">Referral Link</div>
+                            <div style="background:#141C2E;border:1px solid #1E2A3F;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                <span id="referralLinkDisplay" style="font-size:10px;color:#8896B5;flex:1;word-break:break-all;overflow:hidden;text-overflow:ellipsis;">Loading...</span>
+                                <button type="button" id="copyReferralLinkBtn" class="copy-btn" style="background:#1E2A3F;color:#F0B90B;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Link">
+                                    <i class="fas fa-link"></i> <span data-i18n="common.copy">Copy</span>
+                                </button>
+                            </div>
                         </div>
-
+                        
+                        <!-- Share Buttons -->
+                        <div style="display:flex;gap:8px;margin-bottom:12px;">
+                            <button type="button" id="shareReferralBtn" style="flex:1;background:#1DA1F2;color:#fff;border:none;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                <i class="fab fa-twitter"></i> Share on X
+                            </button>
+                            <button type="button" id="nativeShareBtn" style="flex:1;background:#10B981;color:#fff;border:none;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                <i class="fas fa-share-alt"></i> More Options
+                            </button>
+                        </div>
+                        
+                        <!-- Referral Lifecycle Info -->
+                        <div style="font-size:9px;color:#5A6A8A;text-align:left;padding:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;margin-bottom:8px;">
+                            <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> How it works:</div>
+                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">1.</span> Friend registers with your code → <span style="color:#F0B90B;">Pending</span></div>
+                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> Friend deposits ≥<span id="refMinDeposit">$50</span> → <span style="color:#10B981;">Active</span></div>
+                            <div><span style="color:#8896B5;">3.</span> You earn <strong style="color:#F0B90B;">$<span id="refRewardAmount2">10</span> bonus</strong> → Bonus Wallet</div>
+                        </div>
+                        
+                        <!-- Pending Referrals List -->
+                        <div id="pendingReferralsSection" style="display:none;">
+                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:8px;">Pending Referrals (Awaiting First Deposit)</div>
+                            <div id="pendingReferralsList" style="max-height:120px;overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
                     </div>
                 </div>
             </div>
@@ -4677,7 +4812,12 @@ function loadData() {
         const bonus = localStorage.getItem('arbi_bonus'); if(bonus) APP.bonusData = Object.assign({bestTrade:0,worstTrade:0,streak:0,maxStreak:0,tradeAmounts:[]}, JSON.parse(bonus));
         const dh = localStorage.getItem('depositHistory'); if(dh) APP.depositHistory = JSON.parse(dh);
         const wh = localStorage.getItem('withdrawHistory'); if(wh) APP.withdrawHistory = JSON.parse(wh);
-        const rs = localStorage.getItem('referralStats'); if(rs) APP.referralStats = JSON.parse(rs);
+        const rs = localStorage.getItem('referralStats'); if(rs) APP.referralStats = Object.assign({
+            activeReferrals: 0,
+            pendingReferrals: 0,
+            earned: 0,
+            pendingReferralsList: []
+        }, JSON.parse(rs));
         const cd = localStorage.getItem('arbi_chart'); if(cd) APP.chartData = JSON.parse(cd);
         const ub = localStorage.getItem('arbi_badges'); if(ub) APP.unlockedBadges = JSON.parse(ub);
         const cm = localStorage.getItem('arbi_celebrated'); if(cm) APP.celebratedMilestones = Object.assign(APP.celebratedMilestones, JSON.parse(cm));
@@ -4698,6 +4838,51 @@ function saveData() {
     } catch(e) {}
 }
 
+/**
+ * Fetch referral stats from the API and update local state
+ * Call this when user visits referral section or after deposit
+ */
+async function fetchReferralStats() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/referral/detailed', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Update APP state with new format
+            APP.referralStats = {
+                activeReferrals: data.activeReferrals || 0,
+                pendingReferrals: data.pendingReferrals || 0,
+                earned: data.totalEarned || 0,
+                referralCode: data.referralCode,
+                pendingReferralsList: (data.referrals || [])
+                    .filter(r => r.status === 'pending')
+                    .map(r => ({
+                        id: r.id,
+                        name: r.referredUser?.name || 'New User',
+                        email: r.referredUser?.email,
+                        joinedAt: r.referredUser?.joinedAt
+                    }))
+            };
+            
+            // Also update the main referral code if available
+            if (data.referralCode) {
+                APP.referralCode = data.referralCode;
+            }
+            
+            saveData();
+            updateReferralDisplay();
+        }
+    } catch (e) {
+        console.log('Error fetching referral stats:', e);
+    }
+}
+
 function getCurrentData() {
     if(APP.currentWallet === 'live') return APP.liveData;
     if(APP.currentWallet === 'bonus') return APP.bonusData;
@@ -4712,56 +4897,211 @@ function getRecentHistory(history, minutes) {
     return history.filter(function(entry) { return entry.timestamp >= cutoff; });
 }
 
+// ============ REFERRAL CODE URL HANDLING ============
+/**
+ * Parse referral code from URL parameters
+ * Supports: ?ref=ARBI-XXXXX, ?referral=ARBI-XXXXX, /ref/ARBI-XXXXX
+ * @returns {string|null} The referral code or null if not found
+ */
+function getReferralCodeFromURL() {
+    // Try different URL parameter formats
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Check ?ref= format
+    let refCode = urlParams.get('ref');
+    if (refCode) return refCode.trim().toUpperCase();
+    
+    // Check ?referral= format
+    refCode = urlParams.get('referral');
+    if (refCode) return refCode.trim().toUpperCase();
+    
+    // Check /ref/ path format (e.g., /ref/ARBI-XXXXX)
+    const pathMatch = window.location.pathname.match(/\/ref\/([A-Za-z0-9\-]+)/i);
+    if (pathMatch) return pathMatch[1].trim().toUpperCase();
+    
+    return null;
+}
+
+/**
+ * Validate referral code format
+ * @param {string} code - The referral code to validate
+ * @returns {boolean} True if format is valid
+ */
+function isValidReferralCodeFormat(code) {
+    if (!code || typeof code !== 'string') return false;
+    // Format: ARBI-{6 alphanumeric chars (excluding confusing chars: 0, O, I, 1)}
+    const pattern = /^ARBI-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
+    return pattern.test(code.toUpperCase());
+}
+
+/**
+ * Auto-populate referral code field from URL when signup form is shown
+ */
+function populateReferralFromURL() {
+    const referralCode = getReferralCodeFromURL();
+    if (referralCode && isValidReferralCodeFormat(referralCode)) {
+        const referralInput = document.getElementById('signupReferral');
+        if (referralInput && !referralInput.value) {
+            referralInput.value = referralCode;
+            // Visual feedback
+            referralInput.style.borderColor = '#10B981';
+            setTimeout(() => {
+                referralInput.style.borderColor = '';
+            }, 2000);
+        }
+    }
+}
+
 // ============ REFERRAL SYSTEM ============
-function simulateReferral() {
-    APP.referralStats.invited = (APP.referralStats.invited || 0) + 1;
-    const bonusEarned = 10;
-    APP.referralStats.earned = (APP.referralStats.earned || 0) + bonusEarned;
-    APP.bonusData.balance = (APP.bonusData.balance || 0) + bonusEarned;
-    APP.bonusData.history = APP.bonusData.history || [];
-    APP.bonusData.history.unshift({
-        type: 'Referral Bonus',
-        detail: 'Friend joined and deposited',
-        amount: bonusEarned,
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now()
-    });
-    const data = getCurrentData();
-    data.history = data.history || [];
-    data.history.unshift({
-        type: 'Referral Bonus',
-        detail: '+$10 bonus earned',
-        amount: bonusEarned,
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now()
-    });
-    saveData();
-    updateUI();
-    updateReferralDisplay();
-    updateBonusWalletUI();
-    showToast('🎉 <strong>' + t('referral.earned') + '</strong><br><span style="font-size:10px;opacity:0.9;">' + t('referral.simulated') + '</span>', 'success', 4000);
-    try { Sound.referralEarn(); } catch(e) {}
-    try { Confetti.celebrateReferral(); } catch(e) {}
-    Notifications.add('success', t('referral.earned'), '+$10 bonus added to Bonus Wallet', 'fa-gift');
+
+/**
+ * Simulate a referral for testing purposes
+ * Calls the server-side simulate endpoint
+ */
+async function simulateReferral() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/referral/simulate', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const bonusEarned = data.bonusAdded || 10;
+            
+            APP.referralStats.activeReferrals = (APP.referralStats.activeReferrals || 0) + 1;
+            APP.referralStats.earned = (APP.referralStats.earned || 0) + bonusEarned;
+            
+            APP.bonusData.balance = (APP.bonusData.balance || 0) + bonusEarned;
+            APP.bonusData.history = APP.bonusData.history || [];
+            APP.bonusData.history.unshift({
+                type: 'Referral Bonus',
+                detail: 'Simulated referral bonus',
+                amount: bonusEarned,
+                time: new Date().toLocaleTimeString(),
+                timestamp: Date.now()
+            });
+            
+            const data_wallet = getCurrentData();
+            data_wallet.history = data_wallet.history || [];
+            data_wallet.history.unshift({
+                type: 'Referral Bonus',
+                detail: '+$10 bonus earned (simulated)',
+                amount: bonusEarned,
+                time: new Date().toLocaleTimeString(),
+                timestamp: Date.now()
+            });
+            
+            saveData();
+            updateUI();
+            updateReferralDisplay();
+            updateBonusWalletUI();
+            showToast('🎉 <strong>Simulated referral!</strong><br><span style="font-size:10px;opacity:0.9;">+$' + bonusEarned + ' bonus added to Bonus Wallet</span>', 'success', 4000);
+            try { Sound.referralEarn(); } catch(e) {}
+            try { Confetti.celebrateReferral(); } catch(e) {}
+            Notifications.add('success', 'Referral Simulated', '+$' + bonusEarned + ' bonus added to Bonus Wallet', 'fa-gift');
+        }
+    } catch (e) {
+        console.log('Error simulating referral:', e);
+        showToast('Error simulating referral', 'error');
+    }
 }
 
 function resetReferrals() {
-    if (confirm(t('referral.resetConfirm'))) {
-        APP.referralStats.invited = 0;
-        APP.referralStats.earned = 0;
+    if (confirm('Reset all referral stats? This cannot be undone.')) {
+        APP.referralStats = {
+            activeReferrals: 0,
+            pendingReferrals: 0,
+            earned: 0,
+            pendingReferralsList: []
+        };
         APP.bonusData.balance = 0;
         APP.bonusData.history = [];
         saveData();
         updateUI();
         updateReferralDisplay();
         updateBonusWalletUI();
-        showToast(t('referral.resetDone'), 'info');
+        showToast('Referral stats reset', 'info');
     }
 }
 
 function updateReferralDisplay() {
-    getEl('refTotalInvited').textContent = APP.referralStats.invited || 0;
-    getEl('refTotalEarned').textContent = formatCurrency(APP.referralStats.earned || 0);
+    // Update stats from local storage or API
+    const activeCount = getEl('refActiveCount');
+    const pendingCount = getEl('refPendingCount');
+    
+    if (activeCount) activeCount.textContent = APP.referralStats.activeReferrals || 0;
+    if (pendingCount) pendingCount.textContent = APP.referralStats.pendingReferrals || 0;
+    
+    const earnedDisplay = getEl('refTotalEarned');
+    if (earnedDisplay) earnedDisplay.textContent = formatCurrency(APP.referralStats.earned || 0);
+    
+    // Update referral code and link displays
+    const codeDisplay = getEl('referralCodeDisplay');
+    const linkDisplay = getEl('referralLinkDisplay');
+    
+    if (APP.referralCode && codeDisplay) {
+        codeDisplay.textContent = APP.referralCode;
+    }
+    
+    if (linkDisplay) {
+        linkDisplay.textContent = getReferralLink();
+    }
+    
+    // Update dynamic config values (if available from API)
+    const config = APP.referralStats.config || {};
+    const rewardAmount = config.rewardAmount || 10;
+    const minDeposit = config.minimumDeposit || 50;
+    
+    const rewardDisplay = getEl('refRewardAmount');
+    if (rewardDisplay) rewardDisplay.textContent = '$' + rewardAmount;
+    
+    const rewardDisplay2 = getEl('refRewardAmount2');
+    if (rewardDisplay2) rewardDisplay2.textContent = rewardAmount;
+    
+    const minDepositDisplay = getEl('refMinDeposit');
+    if (minDepositDisplay) minDepositDisplay.textContent = '$' + minDeposit;
+    
+    // Update pending referrals list if available
+    updatePendingReferralsList();
+}
+
+function updatePendingReferralsList() {
+    const section = getEl('pendingReferralsSection');
+    const list = getEl('pendingReferralsList');
+    
+    if (!section || !list) return;
+    
+    const pending = APP.referralStats.pendingReferralsList || [];
+    
+    if (pending.length > 0) {
+        section.style.display = 'block';
+        list.innerHTML = pending.map(r => `
+            <div style="background:#141C2E;border-radius:6px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-size:11px;color:#fff;">${r.name || 'User'}</div>
+                    <div style="font-size:9px;color:#8896B5;">${r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : 'Recently'}</div>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.1);padding:2px 6px;border-radius:4px;">⏳ Awaiting deposit</span>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+/**
+ * Get the full referral link for the current user
+ * @returns {string} The full referral URL
+ */
+function getReferralLink() {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/signup?ref=${APP.referralCode || 'ARBI-XXXXXX'}`;
 }
 
 function updateBonusWalletUI() {
@@ -5776,7 +6116,19 @@ function initApp() {
     const btn = document.getElementById('viewMoreTxBtn');
     if (btn) btn.dataset.expanded = 'false';
     
+    // Initialize referral code from saved user
+    const savedUser = localStorage.getItem('arbi_user');
+    if (savedUser) {
+        try {
+            const user = JSON.parse(savedUser);
+            if (user.referralCode) {
+                APP.referralCode = user.referralCode;
+            }
+        } catch (e) {}
+    }
+    
     updateUI();
+    updateReferralDisplay();
     updateStatus(false);
     initTicker();
     tickerInterval = setInterval(refreshTicker, 30000);
@@ -5785,6 +6137,9 @@ function initApp() {
     Notifications.add('info', t('notifications.welcome'), t('notifications.welcomeDesc'), 'fa-info-circle');
     
     Sound.updateUI();
+    
+    // Fetch referral stats from API on load
+    fetchReferralStats();
     
     const botToggle = getEl('botToggle');
     if(botToggle) botToggle.addEventListener('change', toggleBot);
@@ -6001,8 +6356,45 @@ function initApp() {
     
     const copyReferralLinkBtn = getEl('copyReferralLinkBtn');
     if(copyReferralLinkBtn) copyReferralLinkBtn.addEventListener('click', function() {
-        navigator.clipboard.writeText('https://arbitrix.ai/ref/' + APP.referralCode);
+        navigator.clipboard.writeText(getReferralLink());
         showToast(t('common.linkCopied'),'success');
+    });
+    
+    // Share referral on Twitter/X
+    const shareReferralBtn = getEl('shareReferralBtn');
+    if(shareReferralBtn) shareReferralBtn.addEventListener('click', function() {
+        const referralLink = getReferralLink();
+        const shareText = encodeURIComponent('Join Arbitrix AI and get started with $10 bonus! Use my referral link:');
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(referralLink)}`;
+        window.open(twitterUrl, '_blank', 'width=600,height=400');
+    });
+    
+    // Native share functionality (mobile)
+    const nativeShareBtn = getEl('nativeShareBtn');
+    if(nativeShareBtn) nativeShareBtn.addEventListener('click', async function() {
+        const referralLink = getReferralLink();
+        
+        // Check if native sharing is supported
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Join Arbitrix AI',
+                    text: 'Join Arbitrix AI and get started with $10 bonus!',
+                    url: referralLink
+                });
+            } catch (err) {
+                // User cancelled or error
+                if (err.name !== 'AbortError') {
+                    // Fallback to copying
+                    navigator.clipboard.writeText(referralLink);
+                    showToast('Link copied to clipboard!', 'success');
+                }
+            }
+        } else {
+            // Fallback to copying
+            navigator.clipboard.writeText(referralLink);
+            showToast('Link copied to clipboard!', 'success');
+        }
     });
     
     document.querySelectorAll('#marketFilters .network-btn').forEach(function(btn) {
@@ -6092,8 +6484,292 @@ function showAdminTab(tab) {
     document.getElementById('adminTabContentUsers').classList.add('hidden');
     document.getElementById('adminTabContentDeposits').classList.add('hidden');
     document.getElementById('adminTabContentWithdrawals').classList.add('hidden');
+    document.getElementById('adminTabContentReferrals').classList.add('hidden');
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
+    
+    // Load referral config when tab is shown
+    if (tab === 'referrals') {
+        loadReferralConfig();
+    }
+}
+
+// ============ REFERRAL CONFIG FUNCTIONS ============
+async function loadReferralConfig() {
+    const token = localStorage.getItem('jwt_token');
+    const container = document.getElementById('referralConfigForm');
+    if (!container || !token) return;
+    
+    try {
+        const response = await fetch('/api/referral/config/admin', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load config');
+        
+        const config = await response.json();
+        renderReferralConfig(config);
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#ff4444;">Error loading configuration</div>';
+        console.log('Error loading referral config:', e);
+    }
+}
+
+function renderReferralConfig(config) {
+    const container = document.getElementById('referralConfigForm');
+    if (!container) return;
+    
+    const configItems = [
+        {
+            key: 'rewards_enabled',
+            label: 'Enable Referral Rewards',
+            type: 'toggle',
+            description: 'Turn on/off the entire referral rewards system',
+            parseValue: (v) => v === 'true'
+        },
+        {
+            key: 'referral_reward_amount',
+            label: 'Reward Amount',
+            type: 'number',
+            description: 'Amount awarded to referrer when a referral qualifies (USD)',
+            parseValue: (v) => parseFloat(v),
+            min: 0,
+            step: 1
+        },
+        {
+            key: 'minimum_qualifying_deposit',
+            label: 'Minimum Deposit',
+            type: 'number',
+            description: 'Minimum deposit amount required for referral qualification (USD)',
+            parseValue: (v) => parseFloat(v),
+            min: 0,
+            step: 1
+        },
+        {
+            key: 'first_deposit_required',
+            label: 'Require First Deposit',
+            type: 'toggle',
+            description: 'Whether referral requires the referred user to make a deposit',
+            parseValue: (v) => v === 'true'
+        },
+        {
+            key: 'max_rewards_per_user',
+            label: 'Max Rewards Per User',
+            type: 'number',
+            description: 'Maximum rewards a user can earn (0 = unlimited)',
+            parseValue: (v) => parseInt(v),
+            min: 0,
+            step: 1
+        }
+    ];
+    
+    container.innerHTML = configItems.map(item => {
+        const value = config[item.key]?.value || (item.type === 'toggle' ? 'true' : '0');
+        const description = config[item.key]?.description || item.description;
+        const updatedAt = config[item.key]?.updatedAt;
+        
+        if (item.type === 'toggle') {
+            const isEnabled = value === 'true';
+            return `
+                <div style="background:#141C2E;border-radius:8px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="font-size:13px;font-weight:600;color:#fff;">${item.label}</div>
+                        <label class="switch" style="position:relative;display:inline-block;width:50px;height:26px;">
+                            <input type="checkbox" id="config_${item.key}" ${isEnabled ? 'checked' : ''} 
+                                   onchange="updateReferralConfig('${item.key}', this.checked ? 'true' : 'false')">
+                            <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${isEnabled ? '#10B981' : '#374151'};transition:.3s;border-radius:26px;">
+                                <span style="position:absolute;content:'';height:20px;width:20px;left:${isEnabled ? '26px' : '3px'};bottom:3px;background-color:white;transition:.3s;border-radius:50%;"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div style="font-size:10px;color:#8896B5;">${description}</div>
+                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">Last updated: ${new Date(updatedAt).toLocaleString()}</div>` : ''}
+                </div>
+            `;
+        } else {
+            return `
+                <div style="background:#141C2E;border-radius:8px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="font-size:13px;font-weight:600;color:#fff;">${item.label}</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="color:#8896B5;">$</span>
+                            <input type="number" id="config_${item.key}" value="${value}" 
+                                   min="${item.min || 0}" step="${item.step || 1}"
+                                   style="width:80px;padding:6px 10px;background:#1E2A3F;border:1px solid #374151;border-radius:6px;color:#F0B90B;font-size:13px;text-align:right;"
+                                   onchange="updateReferralConfig('${item.key}', this.value)">
+                        </div>
+                    </div>
+                    <div style="font-size:10px;color:#8896B5;">${description}</div>
+                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">Last updated: ${new Date(updatedAt).toLocaleString()}</div>` : ''}
+                </div>
+            `;
+        }
+    }).join('');
+    
+    // Add CSS for toggle switch if not already present
+    if (!document.getElementById('toggleSwitchStyle')) {
+        const style = document.createElement('style');
+        style.id = 'toggleSwitchStyle';
+        style.textContent = `
+            .switch input { opacity: 0; width: 0; height: 0; }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+async function updateReferralConfig(key, value) {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch(`/api/referral/config/${key}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ value: String(value) })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || data.message || 'Failed to update configuration');
+        }
+        
+        showToast('Configuration saved successfully', 'success');
+        
+        // Reload config to show updated values
+        loadReferralConfig();
+        
+        // Reload audit history to show the new change
+        loadReferralAuditHistory();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+        // Reload to reset the input
+        loadReferralConfig();
+        console.log('Error updating referral config:', e);
+    }
+}
+
+// ============ REFERRAL SUB-TABS ============
+function showReferralSubTab(tab) {
+    // Update sub-tab buttons
+    document.querySelectorAll('.ref-sub-tab').forEach(function(btn) { btn.classList.remove('active'); });
+    const tabBtn = document.getElementById('refSubTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (tabBtn) tabBtn.classList.add('active');
+    
+    // Show/hide content
+    document.getElementById('referralSubTabConfig').classList.add('hidden');
+    document.getElementById('referralSubTabHistory').classList.add('hidden');
+    
+    const content = document.getElementById('referralSubTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (content) content.classList.remove('hidden');
+    
+    // Load audit history when tab is shown
+    if (tab === 'history') {
+        loadReferralAuditHistory();
+    }
+}
+
+// ============ REFERRAL AUDIT HISTORY ============
+async function loadReferralAuditHistory() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    const table = document.getElementById('referralAuditTable');
+    const pagination = document.getElementById('auditPagination');
+    const emptyState = document.getElementById('auditEmptyState');
+    const sortOrder = document.getElementById('auditSortOrder')?.value || 'desc';
+    
+    if (!table) return;
+    
+    // Show loading state
+    table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>';
+    
+    try {
+        const response = await fetch('/api/referral/config/audit?sort=' + sortOrder, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load audit history');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.auditLog || data.auditLog.length === 0) {
+            table.innerHTML = '';
+            pagination.style.display = 'none';
+            emptyState.classList.remove('hidden');
+            return;
+        }
+        
+        emptyState.classList.add('hidden');
+        pagination.style.display = 'block';
+        
+        // Render audit log
+        table.innerHTML = data.auditLog.map(entry => {
+            const date = new Date(entry.changed_at);
+            const formattedDate = date.toLocaleString();
+            const configKeyLabel = formatConfigKey(entry.config_key);
+            const oldValueDisplay = formatConfigValue(entry.config_key, entry.old_value);
+            const newValueDisplay = formatConfigValue(entry.config_key, entry.new_value);
+            const ipDisplay = entry.ip_address || 'N/A';
+            
+            return `
+                <tr style="border-bottom:1px solid #1E2A3F;">
+                    <td style="padding:8px;color:#fff;">${formattedDate}</td>
+                    <td style="padding:8px;color:#8896B5;">${escapeHtml(entry.admin_email)}</td>
+                    <td style="padding:8px;color:#F0B90B;font-weight:600;">${configKeyLabel}</td>
+                    <td style="padding:8px;color:#ff6b6b;text-decoration:line-through;">${oldValueDisplay}</td>
+                    <td style="padding:8px;color:#10B981;font-weight:600;">${newValueDisplay}</td>
+                    <td style="padding:8px;color:#8896B5;font-family:monospace;font-size:10px;">${escapeHtml(ipDisplay)}</td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Update pagination info
+        document.getElementById('auditPaginationInfo').textContent = 
+            `Showing ${data.auditLog.length} of ${data.pagination.total} changes`;
+        
+    } catch (e) {
+        table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#ff4444;">Error loading audit history</td></tr>';
+        console.log('Error loading audit history:', e);
+    }
+}
+
+function formatConfigKey(key) {
+    const labels = {
+        'rewards_enabled': 'Rewards Enabled',
+        'minimum_qualifying_deposit': 'Min Deposit',
+        'referral_reward_amount': 'Reward Amount',
+        'first_deposit_required': 'First Deposit Required',
+        'max_rewards_per_user': 'Max Rewards Per User'
+    };
+    return labels[key] || key;
+}
+
+function formatConfigValue(key, value) {
+    if (value === null || value === undefined || value === '') {
+        return '<em style="opacity:0.5;">(none)</em>';
+    }
+    
+    if (key === 'rewards_enabled' || key === 'first_deposit_required') {
+        return value === 'true' ? '✅ Enabled' : '❌ Disabled';
+    }
+    
+    if (key === 'minimum_qualifying_deposit' || key === 'referral_reward_amount') {
+        return '$' + value;
+    }
+    
+    return value;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 async function loadAdminData() {
