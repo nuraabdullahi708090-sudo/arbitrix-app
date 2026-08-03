@@ -995,10 +995,30 @@
         .deposit-modal.open{display:flex;}
         .deposit-modal-content{background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border:1px solid var(--border-color);max-width:500px;width:100%;max-height:92vh;overflow-y:auto;padding:24px 20px;box-shadow:0 24px 64px rgba(0,0,0,0.9);position:relative;animation:modal-slide-up 0.3s ease;}
         .deposit-modal-content h3{font-size:var(--text-lg);font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
-        .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:flex-end;justify-content:center;padding:0;}
-        @keyframes modal-slide-up{from{transform:translateY(100%);}to{transform:translateY(0);}}
-        .modal-overlay.open{display:flex;opacity:1;visibility:visible;pointer-events:auto;}
-        .modal-content{background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border-color);max-width:440px;width:100%;max-height:92vh;overflow-y:auto;padding:24px 20px;position:relative;}
+        
+        /* Upload Area */
+        .upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;border:2px dashed var(--border-color);border-radius:12px;cursor:pointer;transition:all 0.2s ease;background:rgba(240,185,11,0.02);}
+        .upload-area:hover{border-color:var(--gold);background:rgba(240,185,11,0.05);}
+        .upload-area.dragover{border-color:var(--gold);background:rgba(240,185,11,0.1);}
+        .upload-area.uploading{opacity:0.6;pointer-events:none;}
+        
+        /* Verification Status */
+        .verification-status-pending{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#F59E0B;}
+        .verification-status-approved{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#10B981;}
+        .verification-status-rejected{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#EF4444;}
+        .verification-status-resubmission{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#3B82F6;}
+        
+        /* Checklist Items */
+        .checklist-item{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);border-radius:8px;font-size:12px;}
+        .checklist-item.completed{color:var(--green);}
+        .checklist-item.pending{color:#F59E0B;}
+        .checklist-item.empty{color:#6B7A99;}
+        
+        /* Document Preview */
+        .document-preview-container{position:relative;}
+        .document-upload-progress{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;border-radius:8px;}
+        .progress-bar{width:80%;height:4px;background:var(--border-color);border-radius:2px;overflow:hidden;}
+        .progress-bar-fill{height:100%;background:var(--gold);transition:width 0.3s ease;}
         .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
         .modal-header h3{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;}
         .modal-actions{display:flex;gap:8px;margin-top:16px;}
@@ -3337,6 +3357,7 @@ function toggleFaq(btn) {
         <a class="sidebar-link" data-section="markets"><i class="fas fa-chart-line"></i> <span data-i18n="sidebar.markets">Markets</span></a>
         <a class="sidebar-link" id="depositSidebarLink"><i class="fas fa-circle-down"></i> <span data-i18n="sidebar.deposit">Deposit</span></a>
         <a class="sidebar-link" id="withdrawSidebarLink"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></a>
+        <a class="sidebar-link" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
         <a class="sidebar-link" data-section="history"><i class="fas fa-clock-rotate-left"></i> <span data-i18n="sidebar.history">Transaction Log</span></a>
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
         <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:#F0B90B;"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
@@ -3665,6 +3686,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc">KYC</button>
                     </div>
                     
                     <!-- Users Tab -->
@@ -3791,6 +3813,63 @@ function toggleFaq(btn) {
                                 <i class="fas fa-history" style="font-size:32px;margin-bottom:12px;opacity:0.5;"></i>
                                 <p style="font-size:12px;">No configuration changes recorded yet.</p>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- KYC Verification Tab -->
+                    <div id="adminTabContentKyc" class="hidden">
+                        <!-- KYC Stats -->
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
+                                <div style="font-size:20px;font-weight:800;color:#F59E0B;" id="kycPendingCount">0</div>
+                                <div style="font-size:10px;color:#8896B5;">Pending</div>
+                            </div>
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
+                                <div style="font-size:20px;font-weight:800;color:#10B981;" id="kycApprovedCount">0</div>
+                                <div style="font-size:10px;color:#8896B5;">Approved</div>
+                            </div>
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
+                                <div style="font-size:20px;font-weight:800;color:#EF4444;" id="kycRejectedCount">0</div>
+                                <div style="font-size:10px;color:#8896B5;">Rejected</div>
+                            </div>
+                            <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
+                                <div style="font-size:20px;font-weight:800;color:#3B82F6;" id="kycResubmissionCount">0</div>
+                                <div style="font-size:10px;color:#8896B5;">Resubmission</div>
+                            </div>
+                        </div>
+                        
+                        <!-- KYC Filters -->
+                        <div style="display:flex;gap:8px;margin-bottom:12px;">
+                            <input type="text" id="kycSearchInput" placeholder="Search by name or email..." class="input-field" style="flex:1;" onkeyup="if(event.key==='Enter')loadKYCVerifications()">
+                            <select id="kycStatusFilter" class="input-field" style="width:150px;" onchange="loadKYCVerifications()">
+                                <option value="">All Status</option>
+                                <option value="pending_review">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="resubmission_required">Resubmission</option>
+                                <option value="not_started">Not Started</option>
+                            </select>
+                            <button type="button" onclick="loadKYCVerifications()" class="btn btn-primary btn-sm"><i class="fas fa-search"></i></button>
+                        </div>
+                        
+                        <!-- KYC List -->
+                        <div id="kycVerificationList" style="max-height:400px;overflow-y:auto;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                    <tr style="border-bottom:1px solid #1E2A3F;">
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">User</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Name</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Country</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Docs</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Submitted</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kycTableBody">
+                                    <tr><td colspan="7" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                     </div>
@@ -4016,24 +4095,259 @@ function toggleFaq(btn) {
         <button type="button" onclick="closeWithdrawModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
         <h3><i class="fas fa-circle-up" style="color:#EF4444;"></i> <span data-i18n="withdraw.title">Withdraw Funds</span></h3>
         <p style="color:#5A6A8A;font-size:13px;" data-i18n="withdraw.subtitle">Transfer to your wallet</p>
-        <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
-        <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
-        <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
-        <div class="form-group">
-            <label data-i18n="withdraw.address">Wallet Address</label>
-            <div class="input-wrapper">
-                <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-encrypted="true">
-                <i class="fas fa-wallet input-icon"></i>
-                <button type="button" class="password-toggle" onclick="togglePassword('withdrawAddressInput')" aria-label="Toggle visibility">
-                    <i class="fas fa-eye"></i>
-                    <i class="fas fa-eye-slash"></i>
-                </button>
+        
+        <!-- Withdrawal Form (shown when KYC is verified) -->
+        <div id="withdrawForm">
+            <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
+            <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
+            <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
+            <div class="form-group">
+                <label data-i18n="withdraw.address">Wallet Address</label>
+                <div class="input-wrapper">
+                    <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-encrypted="true">
+                    <i class="fas fa-wallet input-icon"></i>
+                    <button type="button" class="password-toggle" onclick="togglePassword('withdrawAddressInput')" aria-label="Toggle visibility">
+                        <i class="fas fa-eye"></i>
+                        <i class="fas fa-eye-slash"></i>
+                    </button>
+                </div>
+            </div>
+            <button type="button" onclick="submitWithdraw()" class="btn btn-danger btn-block" data-i18n="withdraw.submit">Withdraw</button>
+            <div style="margin-top:12px;border-top:1px solid #1E2A3F;padding-top:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:#5A6A8A;"><span data-i18n="withdraw.recent">Recent</span><span id="withdrawHistoryCount">0</span></div>
+                <div id="withdrawHistoryList" style="font-size:10px;text-align:center;" data-i18n="withdraw.noWithdrawals">No withdrawals yet</div>
             </div>
         </div>
-        <button type="button" onclick="submitWithdraw()" class="btn btn-danger btn-block" data-i18n="withdraw.submit">Withdraw</button>
-        <div style="margin-top:12px;border-top:1px solid #1E2A3F;padding-top:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:9px;color:#5A6A8A;"><span data-i18n="withdraw.recent">Recent</span><span id="withdrawHistoryCount">0</span></div>
-            <div id="withdrawHistoryList" style="font-size:10px;text-align:center;" data-i18n="withdraw.noWithdrawals">No withdrawals yet</div>
+        
+        <!-- KYC Verification Required Screen (shown when KYC is not verified) -->
+        <div id="withdrawKycRequired" style="display:none;">
+            <div style="text-align:center;padding:20px 0;">
+                <div style="width:80px;height:80px;background:rgba(240,185,11,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                    <i class="fas fa-user-check" style="font-size:36px;color:#F0B90B;"></i>
+                </div>
+                <h4 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;">Identity Verification Required</h4>
+                <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;">
+                    To protect your funds, we require identity verification before your first withdrawal. This is a standard security measure.
+                </p>
+                
+                <!-- Verification Progress -->
+                <div id="withdrawKycProgress" style="background:#141C2E;border-radius:10px;padding:16px;margin-bottom:20px;text-align:left;">
+                    <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Verification Progress</div>
+                    <div id="withdrawKycProgressBar" style="height:6px;background:#1E2A3F;border-radius:3px;overflow:hidden;margin-bottom:12px;">
+                        <div id="withdrawKycProgressFill" style="height:100%;background:linear-gradient(90deg,#F0B90B,#FCD535);width:25%;transition:width 0.3s ease;"></div>
+                    </div>
+                    <div id="withdrawKycProgressText" style="font-size:11px;color:#8896B5;">25% Complete</div>
+                </div>
+                
+                <button type="button" onclick="closeWithdrawModal();openVerificationModal();" class="btn btn-primary btn-block" style="margin-bottom:12px;">
+                    <i class="fas fa-shield-halved"></i> Start Verification
+                </button>
+                <p style="font-size:10px;color:#6B7A99;">
+                    <i class="fas fa-lock"></i> Your documents are encrypted and secure
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERIFICATION CENTER MODAL -->
+<div class="deposit-modal" id="verificationModal">
+    <div class="deposit-modal-content" style="max-width:560px;">
+        <button type="button" onclick="closeVerificationModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
+        <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> <span>Identity Verification</span></h3>
+        <p style="color:#5A6A8A;font-size:13px;margin-bottom:16px;">Complete verification to enable withdrawals</p>
+        
+        <!-- Status Banner -->
+        <div id="verificationStatusBanner" style="display:none;padding:12px;border-radius:10px;margin-bottom:16px;text-align:center;"></div>
+        
+        <!-- Progress Checklist -->
+        <div id="verificationChecklist" style="margin-bottom:16px;">
+            <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Progress</div>
+            <div id="verificationChecklistItems" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+        
+        <!-- Tab Navigation -->
+        <div class="mode-tabs" style="margin-bottom:12px;">
+            <button type="button" class="mode-tab active" onclick="showVerificationTab('personal')" id="verificationTabPersonal">Personal Info</button>
+            <button type="button" class="mode-tab" onclick="showVerificationTab('documents')" id="verificationTabDocuments">Documents</button>
+            <button type="button" class="mode-tab" onclick="showVerificationTab('review')" id="verificationTabReview">Review</button>
+        </div>
+        
+        <!-- Personal Information Tab -->
+        <div id="verificationContentPersonal">
+            <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;">
+                <i class="fas fa-shield-halved" style="color:#3B82F6;"></i> Your information is encrypted and secure
+            </div>
+            <div class="form-group">
+                <label>Full Legal Name</label>
+                <input type="text" id="kycFullName" class="input-field" placeholder="As shown on your ID">
+            </div>
+            <div class="form-group">
+                <label>Date of Birth</label>
+                <input type="date" id="kycDateOfBirth" class="input-field">
+            </div>
+            <div class="form-group">
+                <label>Country</label>
+                <select id="kycCountry" class="input-field">
+                    <option value="">Select country</option>
+                    <option value="US">United States</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="CA">Canada</option>
+                    <option value="AU">Australia</option>
+                    <option value="DE">Germany</option>
+                    <option value="FR">France</option>
+                    <option value="ES">Spain</option>
+                    <option value="IT">Italy</option>
+                    <option value="NL">Netherlands</option>
+                    <option value="BR">Brazil</option>
+                    <option value="MX">Mexico</option>
+                    <option value="JP">Japan</option>
+                    <option value="KR">South Korea</option>
+                    <option value="CN">China</option>
+                    <option value="IN">India</option>
+                    <option value="SG">Singapore</option>
+                    <option value="AE">United Arab Emirates</option>
+                    <option value="SA">Saudi Arabia</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Residential Address</label>
+                <textarea id="kycAddress" class="input-field" rows="2" placeholder="Full street address, city, postal code"></textarea>
+            </div>
+            <button type="button" onclick="savePersonalInfo()" class="btn btn-primary btn-block">Save & Continue</button>
+        </div>
+        
+        <!-- Documents Tab -->
+        <div id="verificationContentDocuments" style="display:none;">
+            <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;">
+                <i class="fas fa-info-circle" style="color:#F59E0B;"></i> Allowed formats: JPG, PNG, WebP (max 10MB each)
+            </div>
+            
+            <!-- Document Upload Sections -->
+            <div id="documentUploads">
+                <!-- Identity Document -->
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:8px;">Identity Document <span style="color:#EF4444;">*</span></div>
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <select id="identityDocType" class="input-field" style="flex:1;">
+                            <option value="passport">Passport</option>
+                            <option value="national_id_front">National ID (Front)</option>
+                            <option value="drivers_license_front">Driver's License (Front)</option>
+                        </select>
+                    </div>
+                    <div id="identityDocPreview" style="display:none;margin-bottom:8px;">
+                        <img id="identityDocImage" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;background:#0a0f1a;">
+                        <button type="button" onclick="removeDocument('identity')" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;"><i class="fas fa-trash"></i> Remove</button>
+                    </div>
+                    <label class="upload-area" id="identityUploadArea">
+                        <input type="file" id="identityDocInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleDocumentUpload(this, 'identity')">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:24px;color:#F0B90B;margin-bottom:8px;"></i>
+                        <div style="font-size:11px;color:#8896B5;">Click to upload</div>
+                    </label>
+                </div>
+                
+                <!-- Selfie with ID -->
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:8px;">Selfie with ID <span style="color:#EF4444;">*</span></div>
+                    <div style="font-size:10px;color:#6B7A99;margin-bottom:8px;">Take a selfie holding your uploaded ID document</div>
+                    <div id="selfieDocPreview" style="display:none;margin-bottom:8px;">
+                        <img id="selfieDocImage" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;background:#0a0f1a;">
+                        <button type="button" onclick="removeDocument('selfie')" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;"><i class="fas fa-trash"></i> Remove</button>
+                    </div>
+                    <label class="upload-area" id="selfieUploadArea">
+                        <input type="file" id="selfieDocInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleDocumentUpload(this, 'selfie')">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:24px;color:#F0B90B;margin-bottom:8px;"></i>
+                        <div style="font-size:11px;color:#8896B5;">Click to upload</div>
+                    </label>
+                </div>
+            </div>
+            
+            <button type="button" onclick="submitVerification()" class="btn btn-primary btn-block">Submit for Review</button>
+        </div>
+        
+        <!-- Review Tab -->
+        <div id="verificationContentReview" style="display:none;">
+            <div id="verificationSummary"></div>
+            <div id="verificationHistorySection" style="margin-top:16px;">
+                <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">History</div>
+                <div id="verificationHistoryList" style="max-height:150px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Viewer Modal -->
+<div class="modal-overlay" id="imageViewerModal">
+    <div class="modal-content" style="max-width:90vw;max-height:90vh;padding:0;overflow:hidden;">
+        <button type="button" onclick="closeImageViewer()" class="modal-close" aria-label="Close" style="position:absolute;top:10px;right:10px;z-index:10;"><i class="fas fa-times"></i></button>
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#000;">
+            <img id="viewerImage" style="max-width:100%;max-height:85vh;object-fit:contain;">
+        </div>
+        <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;">
+            <button type="button" onclick="zoomImage(-0.1)" class="btn btn-secondary btn-sm"><i class="fas fa-search-minus"></i></button>
+            <button type="button" onclick="zoomImage(0.1)" class="btn btn-secondary btn-sm"><i class="fas fa-search-plus"></i></button>
+            <button type="button" onclick="resetZoom()" class="btn btn-secondary btn-sm"><i class="fas fa-sync"></i></button>
+        </div>
+    </div>
+</div>
+
+<!-- KYC Admin Review Modal -->
+<div class="modal-overlay" id="kycReviewModal">
+    <div class="modal-content" style="max-width:600px;">
+        <button type="button" onclick="closeKYCReviewModal()" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div class="modal-header">
+            <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> KYC Review</h3>
+        </div>
+        
+        <!-- Personal Information -->
+        <div style="margin-bottom:16px;">
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Personal Information</div>
+            <div style="background:#141C2E;border-radius:8px;padding:12px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
+                    <div><span style="color:#8896B5;">Name:</span> <span id="kycReviewName">-</span></div>
+                    <div><span style="color:#8896B5;">Email:</span> <span id="kycReviewEmail">-</span></div>
+                    <div><span style="color:#8896B5;">DOB:</span> <span id="kycReviewDOB">-</span></div>
+                    <div><span style="color:#8896B5;">Country:</span> <span id="kycReviewCountry">-</span></div>
+                </div>
+                <div style="margin-top:8px;font-size:11px;"><span style="color:#8896B5;">Address:</span> <span id="kycReviewAddress">-</span></div>
+                <div style="margin-top:8px;"><span style="color:#8896B5;">Status:</span> <span id="kycReviewStatus" style="font-weight:600;">-</span></div>
+            </div>
+        </div>
+        
+        <!-- Documents -->
+        <div style="margin-bottom:16px;">
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Documents</div>
+            <div id="kycReviewDocuments"></div>
+        </div>
+        
+        <!-- History -->
+        <div style="margin-bottom:16px;">
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">History</div>
+            <div id="kycReviewHistory" style="max-height:120px;overflow-y:auto;"></div>
+        </div>
+        
+        <!-- Rejection Reason -->
+        <div id="kycRejectionReason" style="display:none;margin-bottom:16px;">
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Reason</div>
+            <textarea id="kycRejectionInput" class="input-field" rows="2" placeholder="Enter reason for rejection or resubmission request"></textarea>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div id="kycActionButtons" style="display:none;gap:8px;">
+            <button type="button" onclick="approveKYC()" class="btn btn-success" style="flex:1;"><i class="fas fa-check"></i> Approve</button>
+            <button type="button" onclick="requestResubmission()" class="btn btn-secondary" style="flex:1;"><i class="fas fa-redo"></i> Request Resubmission</button>
+            <button type="button" onclick="rejectKYC()" class="btn btn-danger" style="flex:1;"><i class="fas fa-times"></i> Reject</button>
+        </div>
+    </div>
+</div>
+
+<!-- KYC Document Viewer Modal -->
+<div class="modal-overlay" id="kycDocViewerModal">
+    <div class="modal-content" style="max-width:90vw;max-height:90vh;padding:0;overflow:hidden;">
+        <button type="button" onclick="closeKYCDocViewer()" class="modal-close" aria-label="Close" style="position:absolute;top:10px;right:10px;z-index:10;background:#0F1629;"><i class="fas fa-times"></i></button>
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#000;">
+            <img id="kycDocViewerImage" style="max-width:100%;max-height:85vh;object-fit:contain;">
         </div>
     </div>
 </div>
@@ -6365,11 +6679,54 @@ function updateNetworkOptions(currency) {
 // ==================== END DEPOSIT SYSTEM ====================
 
 // ============ WITHDRAW ============
-function openWithdrawModal() {
+async function openWithdrawModal() {
     if(APP.mode === 'demo') { showToast(t('withdraw.switchToLive'),'info'); return; }
     if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
     if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
     if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
+    
+    // Check KYC verification status
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const kycRes = await fetch('/api/kyc/can-withdraw', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (kycRes.ok) {
+            const kycData = await kycRes.json();
+            
+            if (kycData.canWithdraw) {
+                // KYC verified - show withdrawal form
+                getEl('withdrawForm').style.display = 'block';
+                getEl('withdrawKycRequired').style.display = 'none';
+            } else {
+                // KYC not verified - show professional verification prompt
+                getEl('withdrawForm').style.display = 'none';
+                getEl('withdrawKycRequired').style.display = 'block';
+                
+                // Get verification level for progress display
+                const statusRes = await fetch('/api/kyc/status', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    if (statusData.levels) {
+                        getEl('withdrawKycProgressFill').style.width = statusData.levels.progress + '%';
+                        getEl('withdrawKycProgressText').textContent = statusData.levels.progress + '% Complete';
+                    }
+                }
+            }
+        } else {
+            // Default to showing form if KYC check fails
+            getEl('withdrawForm').style.display = 'block';
+            getEl('withdrawKycRequired').style.display = 'none';
+        }
+    } catch (e) {
+        // Default to showing form on error
+        getEl('withdrawForm').style.display = 'block';
+        getEl('withdrawKycRequired').style.display = 'none';
+    }
+    
     getEl('withdrawModal').classList.add('open');
     getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
 }
@@ -6382,18 +6739,492 @@ function submitWithdraw() {
     if(!address) { showToast(t('withdraw.enterAddress'),'error'); return; }
     if(!amount || amount < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL}),'error'); return; }
     if(amount > APP.liveData.balance) { showToast(t('withdraw.insufficient'),'error'); return; }
-    APP.liveData.balance -= amount;
-    APP.withdrawHistory.unshift({amount:amount, address:address.slice(0,6)+'...', status:'Processing', time:new Date().toLocaleTimeString()});
-    APP.liveData.history = APP.liveData.history || [];
-    APP.liveData.history.unshift({type:'Withdraw', detail:'To ' + address.slice(0,6) + '...', amount:-amount, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
-    getEl('withdrawAddressInput').value = '';
-    getEl('withdrawAmountInput').value = '';
-    updateUI();
-    updateChart();
-    closeWithdrawModal();
-    showToast(t('withdraw.success', {amount: amount.toFixed(2)}),'success');
-    Notifications.add('info', t('withdraw.submitted'), t('withdraw.processing', {amount: amount.toFixed(2)}), 'fa-circle-up');
+    
+    // Submit withdrawal request
+    submitWithdrawAPI(address, amount);
 }
+
+async function submitWithdrawAPI(address, amount) {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/withdraw/request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                address: address,
+                amount: amount
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            APP.liveData.balance -= amount;
+            APP.withdrawHistory.unshift({amount:amount, address:address.slice(0,6)+'...', status:'Processing', time:new Date().toLocaleTimeString()});
+            APP.liveData.history = APP.liveData.history || [];
+            APP.liveData.history.unshift({type:'Withdraw', detail:'To ' + address.slice(0,6) + '...', amount:-amount, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
+            getEl('withdrawAddressInput').value = '';
+            getEl('withdrawAmountInput').value = '';
+            updateUI();
+            updateChart();
+            closeWithdrawModal();
+            showToast(t('withdraw.success', {amount: amount.toFixed(2)}),'success');
+            Notifications.add('info', t('withdraw.submitted'), t('withdraw.processing', {amount: amount.toFixed(2)}), 'fa-circle-up');
+        } else {
+            // Check if KYC verification is required
+            if (data.verificationRequired) {
+                // Show professional KYC prompt instead of just an error
+                getEl('withdrawForm').style.display = 'none';
+                getEl('withdrawKycRequired').style.display = 'block';
+                
+                // Update progress
+                getEl('withdrawKycProgressFill').style.width = '25%';
+                getEl('withdrawKycProgressText').textContent = '25% Complete - Identity Required';
+            } else {
+                showToast(data.error || 'Withdrawal failed', 'error');
+            }
+        }
+    } catch (e) {
+        showToast('Withdrawal failed', 'error');
+    }
+}
+
+// ============ VERIFICATION CENTER ============
+let KYC_DATA = {
+    profile: null,
+    documents: [],
+    completion: null,
+    history: [],
+    identityDocId: null,
+    selfieDocId: null
+};
+
+function openVerificationModal() {
+    document.getElementById('verificationModal').classList.add('open');
+    loadVerificationStatus();
+}
+
+function closeVerificationModal() {
+    document.getElementById('verificationModal').classList.remove('open');
+}
+
+async function loadVerificationStatus() {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/kyc/status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            KYC_DATA = {
+                profile: data.profile,
+                documents: data.documents || [],
+                completion: data.completion,
+                history: data.history || [],
+                levels: data.levels || null,
+                identityDocId: null,
+                selfieDocId: null
+            };
+            populateVerificationUI();
+        }
+    } catch (e) {
+        console.error('Failed to load verification status:', e);
+    }
+}
+
+function populateVerificationUI() {
+    const statusBanner = document.getElementById('verificationStatusBanner');
+    const checklistItems = document.getElementById('verificationChecklistItems');
+    const profile = KYC_DATA.profile;
+    const docs = KYC_DATA.documents;
+    const completion = KYC_DATA.completion;
+    const levels = KYC_DATA.levels;
+    
+    // Status banner
+    if (profile) {
+        const statusClass = profile.status === 'approved' ? 'verification-status-approved' :
+                           profile.status === 'pending_review' ? 'verification-status-pending' :
+                           profile.status === 'rejected' ? 'verification-status-rejected' :
+                           'verification-status-resubmission';
+        const statusIcon = profile.status === 'approved' ? 'fa-check-circle' :
+                          profile.status === 'pending_review' ? 'fa-clock' :
+                          profile.status === 'rejected' ? 'fa-times-circle' :
+                          'fa-exclamation-circle';
+        const statusText = profile.status === 'approved' ? 'Verified' :
+                          profile.status === 'pending_review' ? 'Pending Review' :
+                          profile.status === 'rejected' ? 'Rejected' :
+                          profile.status === 'resubmission_required' ? 'Resubmission Required' : 'Not Started';
+        
+        statusBanner.style.display = 'block';
+        statusBanner.className = statusClass;
+        statusBanner.innerHTML = '<i class="fas ' + statusIcon + '"></i> ' + statusText;
+        
+        if (profile.status === 'rejected' && profile.rejectionReason) {
+            statusBanner.innerHTML += '<br><small style="margin-top:4px;display:block;">' + profile.rejectionReason + '</small>';
+        }
+    } else {
+        statusBanner.style.display = 'block';
+        statusBanner.className = 'verification-status-resubmission';
+        statusBanner.innerHTML = '<i class="fas fa-exclamation-circle"></i> Verification Required';
+    }
+    
+    // Checklist - Using Verification Levels
+    checklistItems.innerHTML = '';
+    
+    const levelsConfig = [
+        { 
+            name: 'Email Verified', 
+            completed: true, // Users are email verified by default
+            icon: 'fa-envelope-check',
+            color: '#10B981'
+        },
+        { 
+            name: 'Identity Submitted', 
+            completed: profile && profile.status !== 'not_started',
+            icon: 'fa-file-upload',
+            color: '#F59E0B',
+            subtext: completion && !completion.complete ? 'Upload documents' : null
+        },
+        { 
+            name: 'Identity Verified', 
+            completed: profile && profile.status === 'approved',
+            icon: 'fa-user-check',
+            color: '#3B82F6'
+        },
+        { 
+            name: 'Withdrawal Enabled', 
+            completed: profile && profile.status === 'approved',
+            icon: 'fa-wallet',
+            color: '#10B981'
+        }
+    ];
+    
+    // Show progress based on current level
+    let currentLevelIndex = 0;
+    if (levels) {
+        currentLevelIndex = levels.progress >= 100 ? 4 : 
+                           levels.progress >= 75 ? 2 : 
+                           levels.progress >= 50 ? 2 : 
+                           levels.progress >= 25 ? 1 : 0;
+    }
+    
+    levelsConfig.forEach((level, index) => {
+        const isCurrentOrPast = index <= currentLevelIndex;
+        const cls = level.completed ? 'completed' : (isCurrentOrPast ? 'pending' : 'empty');
+        const icon = level.completed ? 'fa-check-circle' : (isCurrentOrPast ? 'fa-circle' : 'fa-circle');
+        checklistItems.innerHTML += `
+            <div class="checklist-item ${cls}" style="border-left: 3px solid ${level.color};">
+                <i class="fas ${icon}" style="color: ${level.color};"></i> 
+                <span>${level.name}</span>
+                ${level.subtext ? '<small style="color:#8896B5;margin-left:auto;">' + level.subtext + '</small>' : ''}
+            </div>
+        `;
+    });
+    
+    // Populate personal info fields
+    if (profile) {
+        document.getElementById('kycFullName').value = profile.fullLegalName || '';
+        document.getElementById('kycDateOfBirth').value = profile.dateOfBirth || '';
+        document.getElementById('kycCountry').value = profile.country || '';
+        document.getElementById('kycAddress').value = profile.residentialAddress || '';
+    }
+    
+    // Populate document previews
+    const identityDoc = docs.find(d => ['passport', 'national_id_front', 'drivers_license_front'].includes(d.type));
+    const selfieDoc = docs.find(d => d.type === 'selfie_with_id');
+    
+    if (identityDoc) {
+        KYC_DATA.identityDocId = identityDoc.id;
+        document.getElementById('identityDocPreview').style.display = 'block';
+        document.getElementById('identityUploadArea').style.display = 'none';
+        document.getElementById('identityDocImage').src = '/api/kyc/document/' + identityDoc.id;
+        document.getElementById('identityDocType').value = identityDoc.type;
+    }
+    
+    if (selfieDoc) {
+        KYC_DATA.selfieDocId = selfieDoc.id;
+        document.getElementById('selfieDocPreview').style.display = 'block';
+        document.getElementById('selfieUploadArea').style.display = 'none';
+        document.getElementById('selfieDocImage').src = '/api/kyc/document/' + selfieDoc.id;
+    }
+    
+    // Update review tab
+    updateVerificationReview();
+    
+    // Enable/disable tabs based on status
+    const tabs = ['personal', 'documents', 'review'];
+    const canEdit = !profile || ['not_started', 'rejected', 'resubmission_required'].includes(profile.status);
+    
+    document.getElementById('verificationTabDocuments').disabled = !hasPersonalInfo;
+    document.getElementById('verificationTabReview').disabled = !profile;
+    
+    // Auto-select appropriate tab
+    if (isApproved) {
+        showVerificationTab('review');
+    } else if (isSubmitted) {
+        showVerificationTab('review');
+    } else if (hasPersonalInfo && (hasIdentityDoc || hasSelfieDoc)) {
+        showVerificationTab('documents');
+    } else {
+        showVerificationTab('personal');
+    }
+}
+
+function showVerificationTab(tab) {
+    ['personal', 'documents', 'review'].forEach(t => {
+        document.getElementById('verificationTab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.remove('active');
+        document.getElementById('verificationContent' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = 'none';
+    });
+    document.getElementById('verificationTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    document.getElementById('verificationContent' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+}
+
+async function savePersonalInfo() {
+    const fullName = document.getElementById('kycFullName').value.trim();
+    const dob = document.getElementById('kycDateOfBirth').value;
+    const country = document.getElementById('kycCountry').value;
+    const address = document.getElementById('kycAddress').value.trim();
+    
+    if (!fullName || fullName.length < 2) {
+        showToast('Please enter your full legal name', 'error');
+        return;
+    }
+    if (!dob) {
+        showToast('Please enter your date of birth', 'error');
+        return;
+    }
+    if (!country) {
+        showToast('Please select your country', 'error');
+        return;
+    }
+    if (!address || address.length < 5) {
+        showToast('Please enter your full residential address', 'error');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/kyc/personal-info', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                fullLegalName: fullName,
+                dateOfBirth: dob,
+                country: country,
+                residentialAddress: address
+            })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Personal information saved', 'success');
+            await loadVerificationStatus();
+            showVerificationTab('documents');
+        } else {
+            showToast(data.error || 'Failed to save', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to save personal info', 'error');
+    }
+}
+
+async function handleDocumentUpload(input, type) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // Validate file
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showToast('File too large. Maximum size is 10MB', 'error');
+        input.value = '';
+        return;
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('Invalid file type. Allowed: JPG, PNG, WebP', 'error');
+        input.value = '';
+        return;
+    }
+    
+    const uploadArea = document.getElementById(type + 'UploadArea');
+    uploadArea.classList.add('uploading');
+    
+    try {
+        // Read file as base64
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64 = e.target.result.split(',')[1];
+            
+            const documentType = type === 'identity' ? 
+                document.getElementById('identityDocType').value : 
+                'selfie_with_id';
+            
+            const token = localStorage.getItem('jwt_token');
+            const res = await fetch('/api/kyc/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    documentType: documentType,
+                    fileData: base64,
+                    fileName: file.name,
+                    mimeType: file.type
+                })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Document uploaded successfully', 'success');
+                await loadVerificationStatus();
+            } else {
+                showToast(data.error || 'Upload failed', 'error');
+            }
+            uploadArea.classList.remove('uploading');
+            input.value = '';
+        };
+        reader.readAsDataURL(file);
+    } catch (e) {
+        showToast('Upload failed', 'error');
+        uploadArea.classList.remove('uploading');
+        input.value = '';
+    }
+}
+
+async function removeDocument(type) {
+    const docId = type === 'identity' ? KYC_DATA.identityDocId : KYC_DATA.selfieDocId;
+    if (!docId) return;
+    
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/kyc/document/' + docId, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            showToast('Document removed', 'success');
+            await loadVerificationStatus();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to remove', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to remove document', 'error');
+    }
+}
+
+async function submitVerification() {
+    const completion = KYC_DATA.completion;
+    
+    if (!completion || !completion.complete) {
+        let missing = [];
+        if (!completion?.hasIdentity) missing.push('identity document');
+        if (!completion?.hasSelfie) missing.push('selfie with ID');
+        showToast('Please upload: ' + missing.join(', '), 'error');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/kyc/submit', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Verification submitted for review', 'success');
+            await loadVerificationStatus();
+            showVerificationTab('review');
+        } else {
+            showToast(data.error || 'Submission failed', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to submit verification', 'error');
+    }
+}
+
+function updateVerificationReview() {
+    const summary = document.getElementById('verificationSummary');
+    const historyList = document.getElementById('verificationHistoryList');
+    const historySection = document.getElementById('verificationHistorySection');
+    const profile = KYC_DATA.profile;
+    const docs = KYC_DATA.documents;
+    const history = KYC_DATA.history;
+    
+    // Summary
+    let html = '<div style="background:var(--bg-input);border-radius:10px;padding:16px;">';
+    html += '<div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:12px;">Verification Summary</div>';
+    
+    if (profile) {
+        html += '<div style="display:grid;gap:8px;font-size:11px;">';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Name</span><span>' + (profile.fullLegalName || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Date of Birth</span><span>' + (profile.dateOfBirth || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Country</span><span>' + (profile.country || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Documents</span><span>' + docs.length + '</span></div>';
+        html += '</div>';
+    } else {
+        html += '<div style="text-align:center;color:#6B7A99;padding:20px;">No verification data</div>';
+    }
+    
+    html += '</div>';
+    summary.innerHTML = html;
+    
+    // History
+    if (history && history.length > 0) {
+        historySection.style.display = 'block';
+        historyList.innerHTML = history.map(h => {
+            const date = new Date(h.createdAt).toLocaleDateString() + ' ' + new Date(h.createdAt).toLocaleTimeString();
+            return '<div style="padding:8px;background:var(--bg-input);border-radius:6px;margin-bottom:4px;font-size:10px;">' +
+                   '<div style="display:flex;justify-content:space-between;"><span>' + (h.previousStatus || 'new') + ' → ' + h.newStatus + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
+                   (h.rejectionReason ? '<div style="color:#EF4444;margin-top:4px;">' + h.rejectionReason + '</div>' : '') +
+                   '</div>';
+        }).join('');
+    } else {
+        historySection.style.display = 'none';
+    }
+}
+
+// Image Viewer
+let imageZoom = 1;
+
+function openImageViewer(src) {
+    document.getElementById('viewerImage').src = src;
+    document.getElementById('imageViewerModal').classList.add('open');
+    imageZoom = 1;
+    document.getElementById('viewerImage').style.transform = 'scale(1)';
+}
+
+function closeImageViewer() {
+    document.getElementById('imageViewerModal').classList.remove('open');
+}
+
+function zoomImage(delta) {
+    imageZoom = Math.max(0.5, Math.min(3, imageZoom + delta));
+    document.getElementById('viewerImage').style.transform = 'scale(' + imageZoom + ')';
+}
+
+function resetZoom() {
+    imageZoom = 1;
+    document.getElementById('viewerImage').style.transform = 'scale(1)';
+}
+
+// Close modal on backdrop click
+document.getElementById('verificationModal').addEventListener('click', function(e) {
+    if (e.target === this) closeVerificationModal();
+});
+document.getElementById('imageViewerModal').addEventListener('click', function(e) {
+    if (e.target === this) closeImageViewer();
+});
 
 // ============ OTHER ============
 function filterMarket(filter) {
@@ -6601,6 +7432,9 @@ function initApp() {
     
     const withdrawSidebarLink = getEl('withdrawSidebarLink');
     if(withdrawSidebarLink) withdrawSidebarLink.addEventListener('click', function(e) { e.preventDefault(); openWithdrawModal(); });
+    
+    const verificationSidebarLink = getEl('verificationSidebarLink');
+    if(verificationSidebarLink) verificationSidebarLink.addEventListener('click', function(e) { e.preventDefault(); openVerificationModal(); });
     
     const profileLink = getEl('profileLink');
     if(profileLink) profileLink.addEventListener('click', function(e) {
@@ -6852,8 +7686,14 @@ function showAdminTab(tab) {
     document.getElementById('adminTabContentDeposits').classList.add('hidden');
     document.getElementById('adminTabContentWithdrawals').classList.add('hidden');
     document.getElementById('adminTabContentReferrals').classList.add('hidden');
+    document.getElementById('adminTabContentKyc').classList.add('hidden');
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
+    
+    // Load KYC data if tab is KYC
+    if (tab === 'kyc') {
+        loadKYCVerifications();
+    }
     
     // Load referral config when tab is shown
     if (tab === 'referrals') {
@@ -7138,6 +7978,294 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// ============ KYC ADMIN FUNCTIONS ============
+async function loadKYCVerifications() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        // Load stats
+        const statsRes = await fetch('/api/admin/kyc/stats', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (statsRes.ok) {
+            const stats = await statsRes.json();
+            document.getElementById('kycPendingCount').textContent = stats.pending || 0;
+            document.getElementById('kycApprovedCount').textContent = stats.approved || 0;
+            document.getElementById('kycRejectedCount').textContent = stats.rejected || 0;
+            document.getElementById('kycResubmissionCount').textContent = stats.resubmissionRequired || 0;
+        }
+        
+        // Load verifications
+        const search = document.getElementById('kycSearchInput').value;
+        const status = document.getElementById('kycStatusFilter').value;
+        
+        let url = '/api/admin/kyc/verifications?limit=100';
+        if (search) url += '&search=' + encodeURIComponent(search);
+        if (status) url += '&status=' + encodeURIComponent(status);
+        
+        const res = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            const verifications = await res.json();
+            renderKYCVerifications(verifications);
+        }
+    } catch (e) {
+        console.error('Failed to load KYC verifications:', e);
+    }
+}
+
+function renderKYCVerifications(verifications) {
+    const tbody = document.getElementById('kycTableBody');
+    
+    if (!verifications || verifications.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#8896B5;">No verifications found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = verifications.map(function(v) {
+        const statusClass = v.status === 'approved' ? 'color:#10B981;' :
+                          v.status === 'pending_review' ? 'color:#F59E0B;' :
+                          v.status === 'rejected' ? 'color:#EF4444;' :
+                          'color:#3B82F6;';
+        const statusText = v.status === 'approved' ? 'Approved' :
+                          v.status === 'pending_review' ? 'Pending' :
+                          v.status === 'rejected' ? 'Rejected' :
+                          v.status === 'resubmission_required' ? 'Resubmission' : 'Not Started';
+        const submittedDate = v.submittedAt ? new Date(v.submittedAt).toLocaleDateString() : '-';
+        const actionBtns = v.status === 'pending_review' ?
+            '<button type="button" class="btn btn-success btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')" style="margin-right:4px;">Review</button>' :
+            '<button type="button" class="btn btn-secondary btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')">View</button>';
+        
+        return '<tr style="border-bottom:1px solid #1E2A3F;">' +
+            '<td style="padding:8px;">' + escapeHtml(v.userEmail || v.userName || 'Unknown') + '</td>' +
+            '<td style="padding:8px;">' + escapeHtml(v.fullLegalName || '-') + '</td>' +
+            '<td style="padding:8px;">' + escapeHtml(v.country || '-') + '</td>' +
+            '<td style="padding:8px;">' + (v.documentCount || 0) + '</td>' +
+            '<td style="padding:8px;' + statusClass + '">' + statusText + '</td>' +
+            '<td style="padding:8px;">' + submittedDate + '</td>' +
+            '<td style="padding:8px;">' + actionBtns + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+// KYC Review Modal
+let currentKYCReview = null;
+
+function openKYCReviewModal(verificationId) {
+    currentKYCReview = verificationId;
+    loadKYCDetails(verificationId);
+    document.getElementById('kycReviewModal').classList.add('open');
+}
+
+function closeKYCReviewModal() {
+    document.getElementById('kycReviewModal').classList.remove('open');
+    currentKYCReview = null;
+}
+
+async function loadKYCDetails(verificationId) {
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/kyc/verification/' + verificationId, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            renderKYCDetails(data);
+        }
+    } catch (e) {
+        showToast('Failed to load details', 'error');
+    }
+}
+
+function renderKYCDetails(data) {
+    // Personal Info
+    document.getElementById('kycReviewName').textContent = data.fullLegalName || '-';
+    document.getElementById('kycReviewEmail').textContent = data.userEmail || '-';
+    document.getElementById('kycReviewDOB').textContent = data.dateOfBirth || '-';
+    document.getElementById('kycReviewCountry').textContent = data.country || '-';
+    document.getElementById('kycReviewAddress').textContent = data.residentialAddress || '-';
+    
+    // Status
+    const statusEl = document.getElementById('kycReviewStatus');
+    statusEl.textContent = data.status === 'approved' ? 'Approved' :
+                          data.status === 'pending_review' ? 'Pending Review' :
+                          data.status === 'rejected' ? 'Rejected' :
+                          data.status === 'resubmission_required' ? 'Resubmission Required' : 'Not Started';
+    
+    // Documents
+    const docsList = document.getElementById('kycReviewDocuments');
+    if (data.documents && data.documents.length > 0) {
+        docsList.innerHTML = data.documents.map(function(d) {
+            return '<div style="padding:8px;background:#141C2E;border-radius:6px;margin-bottom:8px;">' +
+                   '<div style="font-size:11px;font-weight:600;color:#E8EDF5;margin-bottom:4px;">' + d.type + '</div>' +
+                   '<div style="font-size:10px;color:#8896B5;margin-bottom:8px;">' + d.originalFilename + ' (' + (d.fileSize / 1024).toFixed(1) + ' KB)</div>' +
+                   '<button type="button" class="btn btn-secondary btn-sm" onclick="viewKYCDocument(\'' + d.id + '\')"><i class="fas fa-eye"></i> View</button>' +
+                   '</div>';
+        }).join('');
+    } else {
+        docsList.innerHTML = '<div style="padding:12px;text-align:center;color:#8896B5;">No documents uploaded</div>';
+    }
+    
+    // History
+    const historyList = document.getElementById('kycReviewHistory');
+    if (data.history && data.history.length > 0) {
+        historyList.innerHTML = data.history.map(function(h) {
+            const date = new Date(h.createdAt).toLocaleDateString() + ' ' + new Date(h.createdAt).toLocaleTimeString();
+            return '<div style="padding:8px;background:#141C2E;border-radius:6px;margin-bottom:4px;font-size:10px;">' +
+                   '<div style="display:flex;justify-content:space-between;"><span>' + (h.previousStatus || 'new') + ' → ' + h.newStatus + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
+                   (h.rejectionReason ? '<div style="color:#EF4444;margin-top:4px;">' + h.rejectionReason + '</div>' : '') +
+                   '</div>';
+        }).join('');
+    } else {
+        historyList.innerHTML = '<div style="padding:12px;text-align:center;color:#8896B5;">No history</div>';
+    }
+    
+    // Show/hide action buttons based on status
+    const isPending = data.status === 'pending_review';
+    document.getElementById('kycActionButtons').style.display = isPending ? 'flex' : 'none';
+    document.getElementById('kycRejectionReason').style.display = isPending ? 'block' : 'none';
+}
+
+function viewKYCDocument(documentId) {
+    const token = localStorage.getItem('jwt_token');
+    fetch('/api/admin/kyc/document/' + documentId, {
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+        // SECURITY: Use signed URL instead of base64 for secure document viewing
+        if (data.signedUrl) {
+            const img = document.getElementById('kycDocViewerImage');
+            img.src = data.signedUrl;
+            img.onload = function() {
+                // Add expiry warning if needed
+                const expirySeconds = data.signedUrlExpiresIn || 300;
+                console.log('[KYC] Document loaded via signed URL (expires in ' + expirySeconds + 's)');
+            };
+            img.onerror = function() {
+                showToast('Failed to load document image', 'error');
+            };
+            document.getElementById('kycDocViewerModal').classList.add('open');
+        } else {
+            showToast('Document not available', 'error');
+        }
+    })
+    .catch(e => showToast('Failed to load document', 'error'));
+}
+
+function closeKYCDocViewer() {
+    document.getElementById('kycDocViewerModal').classList.remove('open');
+}
+
+async function approveKYC() {
+    if (!currentKYCReview) return;
+    
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/kyc/verification/' + currentKYCReview + '/approve', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (res.ok) {
+            showToast('Verification approved', 'success');
+            closeKYCReviewModal();
+            loadKYCVerifications();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to approve', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to approve', 'error');
+    }
+}
+
+async function rejectKYC() {
+    if (!currentKYCReview) return;
+    
+    const reason = document.getElementById('kycRejectionInput').value.trim();
+    if (!reason) {
+        showToast('Please enter a rejection reason', 'error');
+        return;
+    }
+    
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/kyc/verification/' + currentKYCReview + '/reject', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ reason: reason })
+        });
+        
+        if (res.ok) {
+            showToast('Verification rejected', 'success');
+            closeKYCReviewModal();
+            loadKYCVerifications();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to reject', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to reject', 'error');
+    }
+}
+
+async function requestResubmission() {
+    if (!currentKYCReview) return;
+    
+    const reason = document.getElementById('kycRejectionInput').value.trim();
+    if (!reason) {
+        showToast('Please enter a reason for resubmission', 'error');
+        return;
+    }
+    
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const res = await fetch('/api/admin/kyc/verification/' + currentKYCReview + '/resubmission', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ reason: reason })
+        });
+        
+        if (res.ok) {
+            showToast('Resubmission requested', 'success');
+            closeKYCReviewModal();
+            loadKYCVerifications();
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'Failed to request resubmission', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to request resubmission', 'error');
+    }
+}
+
+// Add modal event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const reviewModal = document.getElementById('kycReviewModal');
+    const docViewer = document.getElementById('kycDocViewerModal');
+    if (reviewModal) {
+        reviewModal.addEventListener('click', function(e) {
+            if (e.target === reviewModal) closeKYCReviewModal();
+        });
+    }
+    if (docViewer) {
+        docViewer.addEventListener('click', function(e) {
+            if (e.target === docViewer) closeKYCDocViewer();
+        });
+    }
+});
 
 async function loadAdminData() {
     const token = localStorage.getItem('jwt_token');

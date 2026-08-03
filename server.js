@@ -11,6 +11,9 @@ const { createClient } = require('@supabase/supabase-js');
 const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 
+// KYC Verification Service
+const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
@@ -164,6 +167,12 @@ if (process.env.NOWPAYMENTS_API_KEY) {
 }
 
 console.log('[Server] Payment Service initialized');
+
+// ============================================
+// KYC SERVICE INITIALIZATION
+// ============================================
+const kycService = new KYCService(supabase, supabase.storage);
+console.log('[Server] KYC Service initialized with Supabase Storage');
 
 // CORS configuration - allow all origins for flexibility
 // In production, you may want to restrict this to specific domains
@@ -2104,12 +2113,27 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
 app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   const { amount, address } = req.body;
   const userId = req.user.id;
+  
+  // PRESERVED: All existing withdrawal business logic
   const wallet = await getWallet(userId);
   if (!amount || amount < 700) return res.status(400).json({ error: 'Min $700' });
   if (amount > wallet.live_balance) return res.status(400).json({ error: 'Insufficient balance' });
   if (!address || address.length < 10) return res.status(400).json({ error: 'Valid address required' });
   const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
   if (count < 1) return res.status(400).json({ error: 'Complete at least 1 trade first' });
+  
+  // NEW: Identity Verification requirement (KYC)
+  const verificationStatus = await kycService.getVerificationStatus(userId);
+  if (verificationStatus !== VERIFICATION_STATUS.APPROVED) {
+    return res.status(400).json({ 
+      error: 'Identity verification required',
+      verificationRequired: true,
+      status: verificationStatus,
+      redirectTo: '/#/verification'
+    });
+  }
+  
+  // All existing withdrawal logic continues unchanged
   await updateWallet(userId, 'live_balance', -amount);
   await addTransaction(userId, 'Withdraw', -amount, 'To ' + address.slice(0,6) + '...');
   const { data, error } = await supabase.from('withdrawals').insert({ user_id: userId, amount, address, status: 'pending' }).select().single();
@@ -2121,6 +2145,545 @@ app.get('/api/withdraw/history', authMiddleware, async (req, res) => {
   const { data, error } = await supabase.from('withdrawals').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(20);
   if (error) throw error;
   res.json(data);
+});
+
+// ---------- KYC Verification ----------
+// Get user's verification status with levels
+app.get('/api/kyc/status', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const profile = await kycService.getVerificationProfile(userId);
+    const documents = await kycService.getUserDocuments(userId);
+    const completion = await kycService.checkDocumentCompletion(userId);
+    const history = await kycService.getVerificationHistory(userId);
+    const level = await kycService.getVerificationLevel(userId);
+    
+    res.json({
+      profile: profile ? {
+        id: profile.id,
+        fullLegalName: profile.full_legal_name,
+        dateOfBirth: profile.date_of_birth,
+        country: profile.country,
+        residentialAddress: profile.residential_address,
+        status: profile.status,
+        submittedAt: profile.submitted_at,
+        reviewedAt: profile.reviewed_at,
+        rejectionReason: profile.rejection_reason,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at
+      } : null,
+      documents: documents.map(d => ({
+        id: d.id,
+        type: d.document_type,
+        originalFilename: d.original_filename,
+        fileSize: d.file_size,
+        mimeType: d.mime_type,
+        uploadedAt: d.upload_completed_at,
+        createdAt: d.created_at
+      })),
+      completion,
+      history: history.map(h => ({
+        id: h.id,
+        previousStatus: h.previous_status,
+        newStatus: h.new_status,
+        changeSummary: h.change_summary,
+        rejectionReason: h.rejection_reason,
+        createdAt: h.created_at
+      })),
+      // Verification levels for progress display
+      levels: {
+        current: level.current,
+        next: level.next,
+        progress: level.progress,
+        status: level.status,
+        message: level.message || null
+      }
+    });
+  } catch (error) {
+    console.error('[KYC] Status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save/update personal information
+app.post('/api/kyc/personal-info', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { fullLegalName, dateOfBirth, country, residentialAddress } = req.body;
+    
+    // Validation
+    if (!fullLegalName || fullLegalName.length < 2) {
+      return res.status(400).json({ error: 'Full legal name is required (min 2 characters)' });
+    }
+    if (!dateOfBirth) {
+      return res.status(400).json({ error: 'Date of birth is required' });
+    }
+    if (!country) {
+      return res.status(400).json({ error: 'Country is required' });
+    }
+    if (!residentialAddress || residentialAddress.length < 5) {
+      return res.status(400).json({ error: 'Residential address is required (min 5 characters)' });
+    }
+    
+    // Check age (must be 18+)
+    const dob = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    if (age < 18) {
+      return res.status(400).json({ error: 'You must be at least 18 years old to verify' });
+    }
+    
+    const profile = await kycService.upsertVerificationProfile(userId, {
+      fullLegalName,
+      dateOfBirth,
+      country,
+      residentialAddress
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Personal information saved',
+      status: profile.status
+    });
+  } catch (error) {
+    console.error('[KYC] Personal info error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload document
+app.post('/api/kyc/upload', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Parse multipart form data manually (or use multer in production)
+    const contentType = req.headers['content-type'] || '';
+    
+    // For now, accept base64 encoded files in JSON format
+    const { documentType, fileData, fileName, mimeType } = req.body;
+    
+    if (!documentType || !fileData || !fileName || !mimeType) {
+      return res.status(400).json({ error: 'Missing required fields: documentType, fileData, fileName, mimeType' });
+    }
+    
+    // Validate document type
+    const validTypes = ['national_id_front', 'national_id_back', 'passport', 'drivers_license_front', 'drivers_license_back', 'selfie_with_id'];
+    if (!validTypes.includes(documentType)) {
+      return res.status(400).json({ error: 'Invalid document type' });
+    }
+    
+    // Decode base64 file
+    let buffer;
+    try {
+      buffer = Buffer.from(fileData, 'base64');
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid file data encoding' });
+    }
+    
+    const file = {
+      originalname: fileName,
+      mimetype: mimeType,
+      buffer: buffer
+    };
+    
+    const document = await kycService.uploadDocument(userId, documentType, file);
+    
+    res.json({
+      success: true,
+      message: 'Document uploaded successfully',
+      document: {
+        id: document.id,
+        type: document.document_type,
+        originalFilename: document.original_filename,
+        fileSize: document.file_size
+      }
+    });
+  } catch (error) {
+    console.error('[KYC] Upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete document
+app.delete('/api/kyc/document/:documentId', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { documentId } = req.params;
+    
+    await kycService.deleteDocument(userId, documentId);
+    
+    res.json({ success: true, message: 'Document deleted' });
+  } catch (error) {
+    console.error('[KYC] Delete document error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Submit for review
+app.post('/api/kyc/submit', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const profile = await kycService.submitForReview(userId);
+    
+    // Send notification email
+    const user = await getUser(userId);
+    if (user && getResendClient()) {
+      try {
+        await getResendClient().emails.send({
+          from: EMAIL_CONFIG.from,
+          to: user.email,
+          subject: 'KYC Verification Submitted - Arbitrix AI',
+          html: `
+            <h2>Verification Submitted</h2>
+            <p>Dear ${user.name || 'User'},</p>
+            <p>Your identity verification has been submitted and is now pending review.</p>
+            <p>Our team will review your documents within 24-48 hours. You'll receive an email notification once the review is complete.</p>
+            <p>Best regards,<br>Arbitrix AI Team</p>
+          `
+        });
+      } catch (emailError) {
+        console.error('[KYC] Email error:', emailError);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Verification submitted for review',
+      status: profile.status
+    });
+  } catch (error) {
+    console.error('[KYC] Submit error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get document for viewing (returns base64)
+app.get('/api/kyc/document/:documentId', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { documentId } = req.params;
+    const isAdmin = req.user.is_admin;
+    
+    // SECURITY: Returns signed URL with expiration instead of direct file access
+    const document = await kycService.getDocument(userId, documentId, isAdmin);
+    
+    res.json({
+      id: document.id,
+      type: document.document_type,
+      originalFilename: document.original_filename,
+      mimeType: document.mime_type,
+      // Return signed URL instead of file buffer
+      signedUrl: document.signed_url,
+      signedUrlExpiresIn: document.signed_url_expires_in
+    });
+  } catch (error) {
+    console.error('[KYC] Get document error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Check if user can withdraw (combined check)
+app.get('/api/kyc/can-withdraw', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const status = await kycService.getVerificationStatus(userId);
+    const isVerified = status === VERIFICATION_STATUS.APPROVED;
+    
+    res.json({
+      canWithdraw: isVerified,
+      verificationStatus: status,
+      message: isVerified 
+        ? 'Identity verified' 
+        : status === 'pending_review' 
+          ? 'Verification pending review' 
+          : 'Identity verification required'
+    });
+  } catch (error) {
+    console.error('[KYC] Can withdraw error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------- Admin KYC Management ----------
+// Get KYC verification list
+app.get('/api/admin/kyc/verifications', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { status, search, limit = 50, offset = 0 } = req.query;
+    
+    const filters = {};
+    if (status) filters.status = status;
+    if (search) filters.search = search;
+    filters.limit = parseInt(limit);
+    filters.offset = parseInt(offset);
+    
+    const verifications = await kycService.searchVerifications(filters);
+    
+    // Get document counts for each verification
+    const enrichedVerifications = await Promise.all(verifications.map(async (v) => {
+      const docs = await kycService.getDocumentsByVerificationId(v.id);
+      return {
+        id: v.id,
+        userId: v.user_id,
+        userName: v.users?.name,
+        userEmail: v.users?.email,
+        fullLegalName: v.full_legal_name,
+        country: v.country,
+        status: v.status,
+        submittedAt: v.submitted_at,
+        createdAt: v.created_at,
+        updatedAt: v.updated_at,
+        documentCount: docs.length,
+        documents: docs.map(d => ({
+          id: d.id,
+          type: d.document_type,
+          originalFilename: d.original_filename,
+          fileSize: d.file_size
+        }))
+      };
+    }));
+    
+    res.json(enrichedVerifications);
+  } catch (error) {
+    console.error('[Admin KYC] List error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get KYC verification details
+app.get('/api/admin/kyc/verification/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const details = await kycService.getVerificationDetails(id);
+    
+    res.json({
+      id: details.id,
+      userId: details.user_id,
+      userName: details.users?.name,
+      userEmail: details.users?.email,
+      fullLegalName: details.full_legal_name,
+      dateOfBirth: details.date_of_birth,
+      country: details.country,
+      residentialAddress: details.residential_address,
+      status: details.status,
+      submittedAt: details.submitted_at,
+      reviewedAt: details.reviewed_at,
+      rejectionReason: details.rejection_reason,
+      documents: details.documents.map(d => ({
+        id: d.id,
+        type: d.document_type,
+        originalFilename: d.original_filename,
+        fileSize: d.file_size,
+        mimeType: d.mime_type
+      })),
+      history: details.history.map(h => ({
+        id: h.id,
+        previousStatus: h.previous_status,
+        newStatus: h.new_status,
+        changeSummary: h.change_summary,
+        rejectionReason: h.rejection_reason,
+        createdAt: h.created_at
+      }))
+    });
+  } catch (error) {
+    console.error('[Admin KYC] Details error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get document for admin (returns signed URL)
+app.get('/api/admin/kyc/document/:documentId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const adminId = req.user.id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    
+    // SECURITY: Log admin access for audit trail
+    await kycService.logDocumentAccess(adminId, documentId, ipAddress, userAgent);
+    
+    // Get document with signed URL (admin bypass)
+    const document = await kycService.getDocument(null, documentId, true);
+    
+    res.json({
+      id: document.id,
+      type: document.document_type,
+      originalFilename: document.original_filename,
+      mimeType: document.mime_type,
+      // Return signed URL instead of file buffer
+      signedUrl: document.signed_url,
+      signedUrlExpiresIn: document.signed_url_expires_in
+    });
+  } catch (error) {
+    console.error('[Admin KYC] Get document error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve verification
+app.post('/api/admin/kyc/verification/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    
+    const result = await kycService.adminReview(adminId, id, 'approved', '', ipAddress, userAgent);
+    
+    // Send notification email
+    const details = await kycService.getVerificationDetails(id);
+    const user = await getUser(details.user_id);
+    if (user && getResendClient()) {
+      try {
+        await getResendClient().emails.send({
+          from: EMAIL_CONFIG.from,
+          to: user.email,
+          subject: 'KYC Verification Approved - Arbitrix AI',
+          html: `
+            <h2>Verification Approved</h2>
+            <p>Dear ${user.name || 'User'},</p>
+            <p>Great news! Your identity verification has been approved.</p>
+            <p>You can now proceed with your withdrawals and access all platform features.</p>
+            <p>Thank you for completing the verification process.</p>
+            <p>Best regards,<br>Arbitrix AI Team</p>
+          `
+        });
+      } catch (emailError) {
+        console.error('[Admin KYC] Email error:', emailError);
+      }
+    }
+    
+    res.json({ success: true, message: 'Verification approved', status: result.status });
+  } catch (error) {
+    console.error('[Admin KYC] Approve error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reject verification
+app.post('/api/admin/kyc/verification/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user.id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    
+    if (!reason || reason.trim().length === 0) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+    
+    const result = await kycService.adminReview(adminId, id, 'rejected', reason, ipAddress, userAgent);
+    
+    // Send notification email
+    const details = await kycService.getVerificationDetails(id);
+    const user = await getUser(details.user_id);
+    if (user && getResendClient()) {
+      try {
+        await getResendClient().emails.send({
+          from: EMAIL_CONFIG.from,
+          to: user.email,
+          subject: 'KYC Verification Rejected - Arbitrix AI',
+          html: `
+            <h2>Verification Rejected</h2>
+            <p>Dear ${user.name || 'User'},</p>
+            <p>Unfortunately, your identity verification has been rejected.</p>
+            <p><strong>Reason:</strong> ${reason}</p>
+            <p>You can resubmit your verification with corrected documents. Please ensure:</p>
+            <ul>
+              <li>Documents are clear and readable</li>
+              <li>All information matches your submitted details</li>
+              <li>Selfie clearly shows your face holding the ID</li>
+            </ul>
+            <p>Best regards,<br>Arbitrix AI Team</p>
+          `
+        });
+      } catch (emailError) {
+        console.error('[Admin KYC] Email error:', emailError);
+      }
+    }
+    
+    res.json({ success: true, message: 'Verification rejected', status: result.status });
+  } catch (error) {
+    console.error('[Admin KYC] Reject error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Request resubmission
+app.post('/api/admin/kyc/verification/:id/resubmission', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user.id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    
+    if (!reason || reason.trim().length === 0) {
+      return res.status(400).json({ error: 'Reason for resubmission is required' });
+    }
+    
+    const result = await kycService.adminReview(adminId, id, 'requested_resubmission', reason, ipAddress, userAgent);
+    
+    // Send notification email
+    const details = await kycService.getVerificationDetails(id);
+    const user = await getUser(details.user_id);
+    if (user && getResendClient()) {
+      try {
+        await getResendClient().emails.send({
+          from: EMAIL_CONFIG.from,
+          to: user.email,
+          subject: 'KYC Resubmission Required - Arbitrix AI',
+          html: `
+            <h2>Additional Information Required</h2>
+            <p>Dear ${user.name || 'User'},</p>
+            <p>We need additional information to complete your identity verification.</p>
+            <p><strong>Details:</strong> ${reason}</p>
+            <p>Please log in to the Verification Center to submit the requested documents.</p>
+            <p>Best regards,<br>Arbitrix AI Team</p>
+          `
+        });
+      } catch (emailError) {
+        console.error('[Admin KYC] Email error:', emailError);
+      }
+    }
+    
+    res.json({ success: true, message: 'Resubmission requested', status: result.status });
+  } catch (error) {
+    console.error('[Admin KYC] Resubmission error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get KYC statistics
+app.get('/api/admin/kyc/stats', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const stats = await kycService.getAdminStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('[Admin KYC] Stats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get KYC configuration
+app.get('/api/kyc/config', async (req, res) => {
+  res.json({
+    maxFileSizeMB: 10,
+    allowedFormats: ['image/jpeg', 'image/png', 'image/webp'],
+    documentTypes: {
+      national_id_front: { label: 'National ID (Front)', required: true, category: 'identity' },
+      national_id_back: { label: 'National ID (Back)', required: false, category: 'identity' },
+      passport: { label: 'Passport', required: true, category: 'identity' },
+      drivers_license_front: { label: "Driver's License (Front)", required: true, category: 'identity' },
+      drivers_license_back: { label: "Driver's License (Back)", required: false, category: 'identity' },
+      selfie_with_id: { label: 'Selfie with ID', required: true, category: 'selfie' }
+    }
+  });
 });
 
 // ---------- Bot ----------
