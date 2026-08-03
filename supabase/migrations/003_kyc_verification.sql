@@ -1,13 +1,25 @@
 -- ============================================
--- KYC Verification System Migration
+-- KYC Verification System Migration v2.0
 -- Arbitrix AI - Identity Verification Tables
 -- ============================================
 -- This migration creates the complete KYC verification system with:
 -- - Verification profiles for user personal information
--- - Document storage for identity documents
+-- - Document storage references for Supabase Storage
 -- - Verification history for audit trail
 -- - Admin review history for accountability
 -- - Proper indexes, constraints, and RLS policies
+-- - Signed URL security for document access
+-- ============================================
+
+-- ============================================
+-- 0. CREATE SUPABASE STORAGE BUCKET (requires service role)
+-- NOTE: Run this manually in Supabase Dashboard or via service role
+-- ============================================
+-- The bucket will be created with the following settings:
+-- - Name: kyc-documents
+-- - Public: false (private, requires authentication)
+-- - File size limit: 10MB
+-- - Allowed MIME types: image/jpeg, image/png, image/webp
 -- ============================================
 
 -- ============================================
@@ -77,9 +89,9 @@ CREATE TABLE IF NOT EXISTS public.verification_documents (
     -- File information
     original_filename TEXT NOT NULL,
     stored_filename TEXT NOT NULL,
-    file_path TEXT NOT NULL,
+    storage_path TEXT, -- Supabase Storage path (userId/filename)
     file_size INTEGER NOT NULL CHECK (file_size > 0 AND file_size <= 10485760), -- Max 10MB
-    mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp', 'application/pdf')),
+    mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
     
     -- File hash for integrity verification
     file_hash TEXT NOT NULL,
@@ -92,7 +104,8 @@ CREATE TABLE IF NOT EXISTS public.verification_documents (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    -- Is this document currently active (vs replaced)
+    -- Is this document currently active (vs replaced/deleted)
+    -- SECURITY: Soft delete ensures documents cannot be recovered by normal means
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     replaced_at TIMESTAMPTZ
 );
@@ -451,6 +464,49 @@ COMMENT ON COLUMN public.verification_documents.file_hash IS
 
 COMMENT ON COLUMN public.verification_documents.file_size IS
     'File size in bytes, maximum 10MB enforced';
+
+COMMENT ON COLUMN public.verification_documents.storage_path IS
+    'Supabase Storage path for document (userId/filename)';
+
+COMMENT ON COLUMN public.verification_documents.is_active IS
+    'Soft delete flag - documents cannot be recovered by normal means when inactive';
+
+-- ============================================
+-- 16b. SUPABASE STORAGE BUCKET SETUP
+-- ============================================
+-- NOTE: This requires service_role privileges
+-- Run the following in Supabase Dashboard > Storage or via service client:
+
+-- Create bucket (run manually or via service client):
+-- INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+-- VALUES (
+--     'kyc-documents',
+--     'kyc-documents',
+--     false,  -- Private bucket - requires authentication
+--     10485760,  -- 10MB limit
+--     ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
+-- );
+
+-- Storage policies (run after bucket creation):
+-- Allow authenticated users to upload their own documents
+-- CREATE POLICY "Users can upload own documents"
+--     ON storage.objects FOR INSERT
+--     TO authenticated
+--     WITH CHECK (bucket_id = 'kyc-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Allow authenticated users to update/delete their own documents
+-- CREATE POLICY "Users can update own documents"
+--     ON storage.objects FOR UPDATE
+--     TO authenticated
+--     USING (bucket_id = 'kyc-documents' AND auth.uid()::text = (storage.foldername(name))[1])
+--     WITH CHECK (bucket_id = 'kyc-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Allow admins full access to documents
+-- CREATE POLICY "Admins can access all documents"
+--     ON storage.objects FOR ALL
+--     TO authenticated
+--     USING (bucket_id = 'kyc-documents' AND 
+--            EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND is_admin = true));
 
 -- ============================================
 -- 17. INSERT DEFAULT CONFIG FOR KYC

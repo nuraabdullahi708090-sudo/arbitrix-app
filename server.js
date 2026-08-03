@@ -12,7 +12,7 @@ const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 
 // KYC Verification Service
-const { KYCService, VERIFICATION_STATUS } = require('./services/KYCService');
+const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -171,8 +171,8 @@ console.log('[Server] Payment Service initialized');
 // ============================================
 // KYC SERVICE INITIALIZATION
 // ============================================
-const kycService = new KYCService(supabase);
-console.log('[Server] KYC Service initialized');
+const kycService = new KYCService(supabase, supabase.storage);
+console.log('[Server] KYC Service initialized with Supabase Storage');
 
 // CORS configuration - allow all origins for flexibility
 // In production, you may want to restrict this to specific domains
@@ -2148,7 +2148,7 @@ app.get('/api/withdraw/history', authMiddleware, async (req, res) => {
 });
 
 // ---------- KYC Verification ----------
-// Get user's verification status
+// Get user's verification status with levels
 app.get('/api/kyc/status', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2156,6 +2156,7 @@ app.get('/api/kyc/status', authMiddleware, async (req, res) => {
     const documents = await kycService.getUserDocuments(userId);
     const completion = await kycService.checkDocumentCompletion(userId);
     const history = await kycService.getVerificationHistory(userId);
+    const level = await kycService.getVerificationLevel(userId);
     
     res.json({
       profile: profile ? {
@@ -2188,7 +2189,15 @@ app.get('/api/kyc/status', authMiddleware, async (req, res) => {
         changeSummary: h.change_summary,
         rejectionReason: h.rejection_reason,
         createdAt: h.created_at
-      }))
+      })),
+      // Verification levels for progress display
+      levels: {
+        current: level.current,
+        next: level.next,
+        progress: level.progress,
+        status: level.status,
+        message: level.message || null
+      }
     });
   } catch (error) {
     console.error('[KYC] Status error:', error);
@@ -2360,6 +2369,7 @@ app.get('/api/kyc/document/:documentId', authMiddleware, async (req, res) => {
     const { documentId } = req.params;
     const isAdmin = req.user.is_admin;
     
+    // SECURITY: Returns signed URL with expiration instead of direct file access
     const document = await kycService.getDocument(userId, documentId, isAdmin);
     
     res.json({
@@ -2367,7 +2377,9 @@ app.get('/api/kyc/document/:documentId', authMiddleware, async (req, res) => {
       type: document.document_type,
       originalFilename: document.original_filename,
       mimeType: document.mime_type,
-      fileData: document.file_buffer
+      // Return signed URL instead of file buffer
+      signedUrl: document.signed_url,
+      signedUrlExpiresIn: document.signed_url_expires_in
     });
   } catch (error) {
     console.error('[KYC] Get document error:', error);
@@ -2483,7 +2495,7 @@ app.get('/api/admin/kyc/verification/:id', authMiddleware, adminMiddleware, asyn
   }
 });
 
-// Get document for admin (returns base64)
+// Get document for admin (returns signed URL)
 app.get('/api/admin/kyc/document/:documentId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { documentId } = req.params;
@@ -2491,10 +2503,10 @@ app.get('/api/admin/kyc/document/:documentId', authMiddleware, adminMiddleware, 
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
     
-    // Log admin access
+    // SECURITY: Log admin access for audit trail
     await kycService.logDocumentAccess(adminId, documentId, ipAddress, userAgent);
     
-    // Get document (admin bypass)
+    // Get document with signed URL (admin bypass)
     const document = await kycService.getDocument(null, documentId, true);
     
     res.json({
@@ -2502,7 +2514,9 @@ app.get('/api/admin/kyc/document/:documentId', authMiddleware, adminMiddleware, 
       type: document.document_type,
       originalFilename: document.original_filename,
       mimeType: document.mime_type,
-      fileData: document.file_buffer
+      // Return signed URL instead of file buffer
+      signedUrl: document.signed_url,
+      signedUrlExpiresIn: document.signed_url_expires_in
     });
   } catch (error) {
     console.error('[Admin KYC] Get document error:', error);

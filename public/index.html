@@ -4095,24 +4095,57 @@ function toggleFaq(btn) {
         <button type="button" onclick="closeWithdrawModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
         <h3><i class="fas fa-circle-up" style="color:#EF4444;"></i> <span data-i18n="withdraw.title">Withdraw Funds</span></h3>
         <p style="color:#5A6A8A;font-size:13px;" data-i18n="withdraw.subtitle">Transfer to your wallet</p>
-        <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
-        <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
-        <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
-        <div class="form-group">
-            <label data-i18n="withdraw.address">Wallet Address</label>
-            <div class="input-wrapper">
-                <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-encrypted="true">
-                <i class="fas fa-wallet input-icon"></i>
-                <button type="button" class="password-toggle" onclick="togglePassword('withdrawAddressInput')" aria-label="Toggle visibility">
-                    <i class="fas fa-eye"></i>
-                    <i class="fas fa-eye-slash"></i>
-                </button>
+        
+        <!-- Withdrawal Form (shown when KYC is verified) -->
+        <div id="withdrawForm">
+            <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
+            <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
+            <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
+            <div class="form-group">
+                <label data-i18n="withdraw.address">Wallet Address</label>
+                <div class="input-wrapper">
+                    <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-encrypted="true">
+                    <i class="fas fa-wallet input-icon"></i>
+                    <button type="button" class="password-toggle" onclick="togglePassword('withdrawAddressInput')" aria-label="Toggle visibility">
+                        <i class="fas fa-eye"></i>
+                        <i class="fas fa-eye-slash"></i>
+                    </button>
+                </div>
+            </div>
+            <button type="button" onclick="submitWithdraw()" class="btn btn-danger btn-block" data-i18n="withdraw.submit">Withdraw</button>
+            <div style="margin-top:12px;border-top:1px solid #1E2A3F;padding-top:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:#5A6A8A;"><span data-i18n="withdraw.recent">Recent</span><span id="withdrawHistoryCount">0</span></div>
+                <div id="withdrawHistoryList" style="font-size:10px;text-align:center;" data-i18n="withdraw.noWithdrawals">No withdrawals yet</div>
             </div>
         </div>
-        <button type="button" onclick="submitWithdraw()" class="btn btn-danger btn-block" data-i18n="withdraw.submit">Withdraw</button>
-        <div style="margin-top:12px;border-top:1px solid #1E2A3F;padding-top:8px;">
-            <div style="display:flex;justify-content:space-between;font-size:9px;color:#5A6A8A;"><span data-i18n="withdraw.recent">Recent</span><span id="withdrawHistoryCount">0</span></div>
-            <div id="withdrawHistoryList" style="font-size:10px;text-align:center;" data-i18n="withdraw.noWithdrawals">No withdrawals yet</div>
+        
+        <!-- KYC Verification Required Screen (shown when KYC is not verified) -->
+        <div id="withdrawKycRequired" style="display:none;">
+            <div style="text-align:center;padding:20px 0;">
+                <div style="width:80px;height:80px;background:rgba(240,185,11,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                    <i class="fas fa-user-check" style="font-size:36px;color:#F0B90B;"></i>
+                </div>
+                <h4 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;">Identity Verification Required</h4>
+                <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;">
+                    To protect your funds, we require identity verification before your first withdrawal. This is a standard security measure.
+                </p>
+                
+                <!-- Verification Progress -->
+                <div id="withdrawKycProgress" style="background:#141C2E;border-radius:10px;padding:16px;margin-bottom:20px;text-align:left;">
+                    <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Verification Progress</div>
+                    <div id="withdrawKycProgressBar" style="height:6px;background:#1E2A3F;border-radius:3px;overflow:hidden;margin-bottom:12px;">
+                        <div id="withdrawKycProgressFill" style="height:100%;background:linear-gradient(90deg,#F0B90B,#FCD535);width:25%;transition:width 0.3s ease;"></div>
+                    </div>
+                    <div id="withdrawKycProgressText" style="font-size:11px;color:#8896B5;">25% Complete</div>
+                </div>
+                
+                <button type="button" onclick="closeWithdrawModal();openVerificationModal();" class="btn btn-primary btn-block" style="margin-bottom:12px;">
+                    <i class="fas fa-shield-halved"></i> Start Verification
+                </button>
+                <p style="font-size:10px;color:#6B7A99;">
+                    <i class="fas fa-lock"></i> Your documents are encrypted and secure
+                </p>
+            </div>
         </div>
     </div>
 </div>
@@ -6646,11 +6679,54 @@ function updateNetworkOptions(currency) {
 // ==================== END DEPOSIT SYSTEM ====================
 
 // ============ WITHDRAW ============
-function openWithdrawModal() {
+async function openWithdrawModal() {
     if(APP.mode === 'demo') { showToast(t('withdraw.switchToLive'),'info'); return; }
     if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
     if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
     if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
+    
+    // Check KYC verification status
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const kycRes = await fetch('/api/kyc/can-withdraw', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (kycRes.ok) {
+            const kycData = await kycRes.json();
+            
+            if (kycData.canWithdraw) {
+                // KYC verified - show withdrawal form
+                getEl('withdrawForm').style.display = 'block';
+                getEl('withdrawKycRequired').style.display = 'none';
+            } else {
+                // KYC not verified - show professional verification prompt
+                getEl('withdrawForm').style.display = 'none';
+                getEl('withdrawKycRequired').style.display = 'block';
+                
+                // Get verification level for progress display
+                const statusRes = await fetch('/api/kyc/status', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    if (statusData.levels) {
+                        getEl('withdrawKycProgressFill').style.width = statusData.levels.progress + '%';
+                        getEl('withdrawKycProgressText').textContent = statusData.levels.progress + '% Complete';
+                    }
+                }
+            }
+        } else {
+            // Default to showing form if KYC check fails
+            getEl('withdrawForm').style.display = 'block';
+            getEl('withdrawKycRequired').style.display = 'none';
+        }
+    } catch (e) {
+        // Default to showing form on error
+        getEl('withdrawForm').style.display = 'block';
+        getEl('withdrawKycRequired').style.display = 'none';
+    }
+    
     getEl('withdrawModal').classList.add('open');
     getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
 }
@@ -6664,7 +6740,7 @@ function submitWithdraw() {
     if(!amount || amount < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL}),'error'); return; }
     if(amount > APP.liveData.balance) { showToast(t('withdraw.insufficient'),'error'); return; }
     
-    // Check KYC verification before submitting
+    // Submit withdrawal request
     submitWithdrawAPI(address, amount);
 }
 
@@ -6700,11 +6776,13 @@ async function submitWithdrawAPI(address, amount) {
         } else {
             // Check if KYC verification is required
             if (data.verificationRequired) {
-                showToast('Identity verification required to withdraw', 'error');
-                setTimeout(() => {
-                    closeWithdrawModal();
-                    openVerificationModal();
-                }, 1500);
+                // Show professional KYC prompt instead of just an error
+                getEl('withdrawForm').style.display = 'none';
+                getEl('withdrawKycRequired').style.display = 'block';
+                
+                // Update progress
+                getEl('withdrawKycProgressFill').style.width = '25%';
+                getEl('withdrawKycProgressText').textContent = '25% Complete - Identity Required';
             } else {
                 showToast(data.error || 'Withdrawal failed', 'error');
             }
@@ -6746,6 +6824,7 @@ async function loadVerificationStatus() {
                 documents: data.documents || [],
                 completion: data.completion,
                 history: data.history || [],
+                levels: data.levels || null,
                 identityDocId: null,
                 selfieDocId: null
             };
@@ -6762,6 +6841,7 @@ function populateVerificationUI() {
     const profile = KYC_DATA.profile;
     const docs = KYC_DATA.documents;
     const completion = KYC_DATA.completion;
+    const levels = KYC_DATA.levels;
     
     // Status banner
     if (profile) {
@@ -6791,26 +6871,57 @@ function populateVerificationUI() {
         statusBanner.innerHTML = '<i class="fas fa-exclamation-circle"></i> Verification Required';
     }
     
-    // Checklist
-    const hasPersonalInfo = profile && profile.fullLegalName && profile.dateOfBirth && profile.country && profile.residentialAddress;
-    const hasIdentityDoc = docs.some(d => ['passport', 'national_id_front', 'drivers_license_front'].includes(d.type));
-    const hasSelfieDoc = docs.some(d => d.type === 'selfie_with_id');
-    const isSubmitted = profile && profile.status === 'pending_review';
-    const isApproved = profile && profile.status === 'approved';
-    
+    // Checklist - Using Verification Levels
     checklistItems.innerHTML = '';
     
-    const items = [
-        { label: 'Personal Information', completed: hasPersonalInfo },
-        { label: 'Identity Document', completed: hasIdentityDoc },
-        { label: 'Selfie with ID', completed: hasSelfieDoc },
-        { label: 'Submitted for Review', completed: isSubmitted || isApproved }
+    const levelsConfig = [
+        { 
+            name: 'Email Verified', 
+            completed: true, // Users are email verified by default
+            icon: 'fa-envelope-check',
+            color: '#10B981'
+        },
+        { 
+            name: 'Identity Submitted', 
+            completed: profile && profile.status !== 'not_started',
+            icon: 'fa-file-upload',
+            color: '#F59E0B',
+            subtext: completion && !completion.complete ? 'Upload documents' : null
+        },
+        { 
+            name: 'Identity Verified', 
+            completed: profile && profile.status === 'approved',
+            icon: 'fa-user-check',
+            color: '#3B82F6'
+        },
+        { 
+            name: 'Withdrawal Enabled', 
+            completed: profile && profile.status === 'approved',
+            icon: 'fa-wallet',
+            color: '#10B981'
+        }
     ];
     
-    items.forEach(item => {
-        const cls = item.completed ? 'completed' : (hasPersonalInfo || hasIdentityDoc || hasSelfieDoc ? 'pending' : 'empty');
-        const icon = item.completed ? 'fa-check-circle' : 'fa-circle';
-        checklistItems.innerHTML += '<div class="checklist-item ' + cls + '"><i class="fas ' + icon + '"></i> ' + item.label + '</div>';
+    // Show progress based on current level
+    let currentLevelIndex = 0;
+    if (levels) {
+        currentLevelIndex = levels.progress >= 100 ? 4 : 
+                           levels.progress >= 75 ? 2 : 
+                           levels.progress >= 50 ? 2 : 
+                           levels.progress >= 25 ? 1 : 0;
+    }
+    
+    levelsConfig.forEach((level, index) => {
+        const isCurrentOrPast = index <= currentLevelIndex;
+        const cls = level.completed ? 'completed' : (isCurrentOrPast ? 'pending' : 'empty');
+        const icon = level.completed ? 'fa-check-circle' : (isCurrentOrPast ? 'fa-circle' : 'fa-circle');
+        checklistItems.innerHTML += `
+            <div class="checklist-item ${cls}" style="border-left: 3px solid ${level.color};">
+                <i class="fas ${icon}" style="color: ${level.color};"></i> 
+                <span>${level.name}</span>
+                ${level.subtext ? '<small style="color:#8896B5;margin-left:auto;">' + level.subtext + '</small>' : ''}
+            </div>
+        `;
     });
     
     // Populate personal info fields
@@ -8027,10 +8138,21 @@ function viewKYCDocument(documentId) {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.fileData) {
+        // SECURITY: Use signed URL instead of base64 for secure document viewing
+        if (data.signedUrl) {
             const img = document.getElementById('kycDocViewerImage');
-            img.src = 'data:' + data.mimeType + ';base64,' + data.fileData;
+            img.src = data.signedUrl;
+            img.onload = function() {
+                // Add expiry warning if needed
+                const expirySeconds = data.signedUrlExpiresIn || 300;
+                console.log('[KYC] Document loaded via signed URL (expires in ' + expirySeconds + 's)');
+            };
+            img.onerror = function() {
+                showToast('Failed to load document image', 'error');
+            };
             document.getElementById('kycDocViewerModal').classList.add('open');
+        } else {
+            showToast('Document not available', 'error');
         }
     })
     .catch(e => showToast('Failed to load document', 'error'));

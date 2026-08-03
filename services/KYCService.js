@@ -8,26 +8,27 @@
  * - File type validation (MIME type + magic bytes)
  * - File size limits (10MB max)
  * - SHA256 file hashing for integrity
- * - Secure file storage with randomized names
+ * - Supabase Storage for secure document storage
+ * - Signed URLs with expiration for document access
  * - Access control via RLS policies
  * - Audit logging for all admin actions
  * 
  * @author Arbitrix AI
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 const crypto = require('crypto');
 const path = require('path');
-const fs = require('fs');
 
 // Configuration
 const CONFIG = {
-    UPLOAD_DIR: process.env.KYC_UPLOAD_DIR || './uploads/kyc',
+    STORAGE_BUCKET: 'kyc-documents',
     MAX_FILE_SIZE: parseInt(process.env.KYC_MAX_FILE_SIZE) || 10 * 1024 * 1024, // 10MB
     ALLOWED_MIME_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
     ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.webp'],
     REQUIRED_DOCUMENTS: ['national_id', 'passport', 'drivers_license'], // At least one required
-    MIN_DOCUMENT_COUNT: 2, // Front + selfie minimum
+    MIN_DOCUMENT_COUNT: 2, // Identity doc + selfie minimum
+    SIGNED_URL_EXPIRY_SECONDS: 300, // 5 minutes for document viewing
     DOCUMENT_TYPES: {
         national_id_front: { label: 'National ID (Front)', required: true, category: 'identity' },
         national_id_back: { label: 'National ID (Back)', required: false, category: 'identity' },
@@ -47,6 +48,38 @@ const VERIFICATION_STATUS = {
     RESUBMISSION_REQUIRED: 'resubmission_required'
 };
 
+// Verification levels (for progress display)
+const VERIFICATION_LEVELS = {
+    EMAIL_VERIFIED: {
+        level: 1,
+        name: 'Email Verified',
+        description: 'Your email has been verified',
+        icon: 'fa-envelope-check',
+        color: '#10B981'
+    },
+    IDENTITY_SUBMITTED: {
+        level: 2,
+        name: 'Identity Submitted',
+        description: 'Identity documents submitted for review',
+        icon: 'fa-file-upload',
+        color: '#F59E0B'
+    },
+    IDENTITY_VERIFIED: {
+        level: 3,
+        name: 'Identity Verified',
+        description: 'Your identity has been verified',
+        icon: 'fa-user-check',
+        color: '#3B82F6'
+    },
+    WITHDRAWAL_ENABLED: {
+        level: 4,
+        name: 'Withdrawal Enabled',
+        description: 'You can now withdraw funds',
+        icon: 'fa-wallet',
+        color: '#10B981'
+    }
+};
+
 // Admin review actions
 const REVIEW_ACTIONS = {
     APPROVED: 'approved',
@@ -60,27 +93,90 @@ const REVIEW_ACTIONS = {
  * KYC Service - Main class for verification operations
  */
 class KYCService {
-    constructor(supabase) {
+    constructor(supabase, storageClient = null) {
         this.supabase = supabase;
+        this.storage = storageClient;
         this.config = CONFIG;
         this.statuses = VERIFICATION_STATUS;
         this.actions = REVIEW_ACTIONS;
+        this.levels = VERIFICATION_LEVELS;
         
-        // Ensure upload directory exists
-        this.ensureUploadDir();
+        console.log('[KYCService] Initialized with Supabase Storage support');
     }
 
     /**
-     * Ensure the upload directory exists
+     * Initialize Supabase Storage client
+     * Must be called after Supabase is initialized
      */
-    ensureUploadDir() {
-        try {
-            if (!fs.existsSync(this.config.UPLOAD_DIR)) {
-                fs.mkdirSync(this.config.UPLOAD_DIR, { recursive: true });
-                console.log(`[KYCService] Created upload directory: ${this.config.UPLOAD_DIR}`);
-            }
-        } catch (error) {
-            console.error('[KYCService] Failed to create upload directory:', error.message);
+    async initializeStorage() {
+        if (!this.storage && this.supabase) {
+            // Use Supabase storage if available
+            this.storage = this.supabase.storage;
+        }
+    }
+
+    /**
+     * Get verification level based on current status
+     * @param {string} userId - User ID
+     * @returns {Promise<object>}
+     */
+    async getVerificationLevel(userId) {
+        const profile = await this.getVerificationProfile(userId);
+        
+        if (!profile) {
+            return {
+                current: VERIFICATION_LEVELS.EMAIL_VERIFIED,
+                next: VERIFICATION_LEVELS.IDENTITY_SUBMITTED,
+                progress: 25,
+                status: 'not_started'
+            };
+        }
+
+        switch (profile.status) {
+            case VERIFICATION_STATUS.NOT_STARTED:
+                return {
+                    current: VERIFICATION_LEVELS.EMAIL_VERIFIED,
+                    next: VERIFICATION_LEVELS.IDENTITY_SUBMITTED,
+                    progress: 25,
+                    status: profile.status
+                };
+            case VERIFICATION_STATUS.PENDING_REVIEW:
+                return {
+                    current: VERIFICATION_LEVELS.IDENTITY_SUBMITTED,
+                    next: VERIFICATION_LEVELS.IDENTITY_VERIFIED,
+                    progress: 75,
+                    status: profile.status
+                };
+            case VERIFICATION_STATUS.RESUBMISSION_REQUIRED:
+                return {
+                    current: VERIFICATION_LEVELS.IDENTITY_SUBMITTED,
+                    next: VERIFICATION_LEVELS.IDENTITY_VERIFIED,
+                    progress: 50,
+                    status: profile.status,
+                    message: 'Please update your documents'
+                };
+            case VERIFICATION_STATUS.REJECTED:
+                return {
+                    current: VERIFICATION_LEVELS.IDENTITY_SUBMITTED,
+                    next: VERIFICATION_LEVELS.IDENTITY_VERIFIED,
+                    progress: 50,
+                    status: profile.status,
+                    message: 'Please resubmit your documents'
+                };
+            case VERIFICATION_STATUS.APPROVED:
+                return {
+                    current: VERIFICATION_LEVELS.WITHDRAWAL_ENABLED,
+                    next: null,
+                    progress: 100,
+                    status: profile.status
+                };
+            default:
+                return {
+                    current: VERIFICATION_LEVELS.EMAIL_VERIFIED,
+                    next: VERIFICATION_LEVELS.IDENTITY_SUBMITTED,
+                    progress: 25,
+                    status: 'unknown'
+                };
         }
     }
 
@@ -281,10 +377,10 @@ class KYCService {
     }
 
     /**
-     * Upload a verification document
+     * Upload a verification document to Supabase Storage
      * @param {string} userId - User ID
      * @param {string} documentType - Type of document
-     * @param {object} file - File object
+     * @param {object} file - File object with buffer, mimetype, originalname
      * @returns {Promise<object>}
      */
     async uploadDocument(userId, documentType, file) {
@@ -311,29 +407,56 @@ class KYCService {
         }
 
         // Mark existing same-type documents as inactive
-        await this.supabase
-            .from('verification_documents')
-            .update({ 
-                is_active: false, 
-                replaced_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId)
-            .eq('document_type', documentType)
-            .eq('is_active', true);
-
-        // Generate secure filename and save
-        const secureFilename = this.generateSecureFilename(file.originalname);
-        const filePath = path.join(this.config.UPLOAD_DIR, secureFilename);
+        const existingDocs = await this.getUserDocuments(userId);
+        const existingSameType = existingDocs.filter(d => d.document_type === documentType);
         
-        try {
-            fs.writeFileSync(filePath, file.buffer);
-        } catch (writeError) {
-            console.error('[KYCService] File write error:', writeError);
-            throw new Error('Failed to save document');
+        for (const doc of existingSameType) {
+            // Delete from storage
+            if (this.storage && doc.storage_path) {
+                try {
+                    await this.storage.from(CONFIG.STORAGE_BUCKET).remove([doc.storage_path]);
+                } catch (e) {
+                    console.error('[KYCService] Failed to delete old storage file:', e);
+                }
+            }
+            // Mark as inactive in database
+            await this.supabase
+                .from('verification_documents')
+                .update({ 
+                    is_active: false, 
+                    replaced_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', doc.id);
         }
 
-        // Insert document record
+        // Generate secure storage path
+        const secureFilename = this.generateSecureFilename(file.originalname);
+        const storagePath = `${userId}/${secureFilename}`;
+        
+        // Upload to Supabase Storage
+        if (this.storage) {
+            try {
+                const { data: uploadData, error: uploadError } = await this.storage
+                    .from(CONFIG.STORAGE_BUCKET)
+                    .upload(storagePath, file.buffer, {
+                        contentType: file.mimetype,
+                        upsert: false
+                    });
+
+                if (uploadError) {
+                    console.error('[KYCService] Storage upload error:', uploadError);
+                    throw new Error('Failed to upload document to storage');
+                }
+            } catch (storageError) {
+                console.error('[KYCService] Storage error:', storageError);
+                throw new Error('Failed to save document securely');
+            }
+        } else {
+            console.warn('[KYCService] Supabase Storage not configured, document not persisted');
+        }
+
+        // Insert document record (with storage path, not local path)
         const { data, error } = await this.supabase
             .from('verification_documents')
             .insert({
@@ -342,7 +465,7 @@ class KYCService {
                 document_type: documentType,
                 original_filename: file.originalname,
                 stored_filename: secureFilename,
-                file_path: filePath,
+                storage_path: storagePath, // New field for Supabase Storage
                 file_size: file.buffer.length,
                 mime_type: file.mimetype,
                 file_hash: validation.hash,
@@ -353,11 +476,13 @@ class KYCService {
             .single();
 
         if (error) {
-            // Clean up file on database error
-            try {
-                fs.unlinkSync(filePath);
-            } catch (cleanupError) {
-                console.error('[KYCService] Cleanup error:', cleanupError);
+            // Clean up storage on database error
+            if (this.storage && storagePath) {
+                try {
+                    await this.storage.from(CONFIG.STORAGE_BUCKET).remove([storagePath]);
+                } catch (cleanupError) {
+                    console.error('[KYCService] Cleanup error:', cleanupError);
+                }
             }
             throw error;
         }
@@ -366,13 +491,13 @@ class KYCService {
     }
 
     /**
-     * Delete a document
+     * Delete a document (soft delete - marks as inactive)
      * @param {string} userId - User ID
      * @param {string} documentId - Document ID
      * @returns {Promise<boolean>}
      */
     async deleteDocument(userId, documentId) {
-        // Get the document
+        // Get the document with access control
         const { data: doc, error: fetchError } = await this.supabase
             .from('verification_documents')
             .select('*')
@@ -386,11 +511,21 @@ class KYCService {
 
         // Check if profile is under review
         const profile = await this.getVerificationProfile(userId);
-        if (profile.status === VERIFICATION_STATUS.PENDING_REVIEW) {
+        if (profile && profile.status === VERIFICATION_STATUS.PENDING_REVIEW) {
             throw new Error('Cannot delete documents while verification is under review');
         }
 
-        // Mark as inactive
+        // Delete from Supabase Storage
+        if (this.storage && doc.storage_path) {
+            try {
+                await this.storage.from(CONFIG.STORAGE_BUCKET).remove([doc.storage_path]);
+            } catch (storageError) {
+                console.error('[KYCService] Storage deletion error:', storageError);
+                // Continue with soft delete even if storage deletion fails
+            }
+        }
+
+        // Mark as inactive (soft delete - document cannot be recovered by normal means)
         const { error } = await this.supabase
             .from('verification_documents')
             .update({ 
@@ -401,52 +536,65 @@ class KYCService {
             .eq('id', documentId);
 
         if (error) throw error;
-
-        // Delete physical file
-        try {
-            if (fs.existsSync(doc.file_path)) {
-                fs.unlinkSync(doc.file_path);
-            }
-        } catch (cleanupError) {
-            console.error('[KYCService] File cleanup error:', cleanupError);
-        }
-
         return true;
     }
 
     /**
-     * Get document by ID (with access control)
-     * @param {string} userId - Requesting user ID
+     * Get document by ID with signed URL
+     * SECURITY: Returns signed URL with expiration instead of direct file access
+     * @param {string} userId - Requesting user ID (for access control)
      * @param {string} documentId - Document ID
      * @param {boolean} isAdmin - Whether requester is admin
      * @returns {Promise<object>}
      */
     async getDocument(userId, documentId, isAdmin = false) {
+        // Access control: Non-admins can only access their own documents
         let query = this.supabase
             .from('verification_documents')
             .select('*')
             .eq('id', documentId);
 
         if (!isAdmin) {
+            if (!userId) {
+                throw new Error('User ID required for document access');
+            }
             query = query.eq('user_id', userId);
         }
 
         const { data, error } = await query.single();
         if (error) throw error;
+        
+        // SECURITY: Check if document is active (not deleted)
+        if (!data.is_active) {
+            throw new Error('Document not found or has been removed');
+        }
 
-        // Read file and return with data
-        let fileBuffer = null;
-        try {
-            if (fs.existsSync(data.file_path)) {
-                fileBuffer = fs.readFileSync(data.file_path);
+        // Generate signed URL for secure document access
+        let signedUrl = null;
+        
+        if (this.storage && data.storage_path) {
+            try {
+                // Generate signed URL with expiration (5 minutes by default)
+                const { data: urlData, error: urlError } = await this.storage
+                    .from(CONFIG.STORAGE_BUCKET)
+                    .createSignedUrl(data.storage_path, CONFIG.SIGNED_URL_EXPIRY_SECONDS);
+                
+                if (urlError) {
+                    console.error('[KYCService] Signed URL error:', urlError);
+                    throw new Error('Failed to generate secure document URL');
+                }
+                
+                signedUrl = urlData.signedUrl;
+            } catch (storageError) {
+                console.error('[KYCService] Storage access error:', storageError);
+                throw new Error('Failed to retrieve document');
             }
-        } catch (readError) {
-            console.error('[KYCService] File read error:', readError);
         }
 
         return {
             ...data,
-            file_buffer: fileBuffer ? fileBuffer.toString('base64') : null
+            signed_url: signedUrl,
+            signed_url_expires_in: CONFIG.SIGNED_URL_EXPIRY_SECONDS
         };
     }
 
@@ -816,6 +964,7 @@ class KYCService {
 module.exports = {
     KYCService,
     VERIFICATION_STATUS,
+    VERIFICATION_LEVELS,
     REVIEW_ACTIONS,
     CONFIG
 };
