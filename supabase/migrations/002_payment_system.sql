@@ -105,8 +105,7 @@ CREATE OR REPLACE FUNCTION public.confirm_payment_with_credit(
     p_invoice_id BIGINT,
     p_user_id BIGINT,
     p_amount_usd DECIMAL,
-    p_transaction_hash TEXT,
-    p_is_first_deposit OUT BOOLEAN
+    p_transaction_hash TEXT
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -120,8 +119,8 @@ DECLARE
     v_deposit_count INTEGER;
     v_referral_reward DECIMAL := 0;
     v_referrer_id BIGINT;
+    v_is_first_deposit BOOLEAN := FALSE;
 BEGIN
-    p_is_first_deposit := FALSE;
     
     IF p_transaction_hash IS NOT NULL THEN
         SELECT EXISTS(
@@ -154,7 +153,7 @@ BEGIN
     AND status = 'confirmed';
     
     IF v_deposit_count = 0 THEN
-        p_is_first_deposit := TRUE;
+        v_is_first_deposit := TRUE;
     END IF;
 
     SELECT * INTO v_wallet
@@ -186,7 +185,7 @@ BEGIN
     INSERT INTO transactions (user_id, type, amount, detail, created_at)
     VALUES (p_user_id, 'Deposit', p_amount_usd, 'Payment confirmed - ' || COALESCE(p_transaction_hash, 'Internal'), NOW());
 
-    IF p_is_first_deposit THEN
+    IF v_is_first_deposit THEN
         BEGIN
             SELECT referrer_id INTO v_referrer_id
             FROM referrals
@@ -215,7 +214,7 @@ BEGIN
         'amount_usd', p_amount_usd,
         'new_balance', v_new_balance,
         'credited', true,
-        'is_first_deposit', p_is_first_deposit,
+        'is_first_deposit', v_is_first_deposit,
         'referral_bonus', v_referral_reward
     );
 EXCEPTION
