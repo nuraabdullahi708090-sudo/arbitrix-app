@@ -474,39 +474,97 @@ COMMENT ON COLUMN public.verification_documents.is_active IS
 -- ============================================
 -- 16b. SUPABASE STORAGE BUCKET SETUP
 -- ============================================
--- NOTE: This requires service_role privileges
--- Run the following in Supabase Dashboard > Storage or via service client:
+-- This section creates the KYC documents storage bucket and policies.
+-- 
+-- REQUIREMENTS:
+-- - Must be run with service_role privileges (Supabase admin)
+-- - The storage system is separate from regular database tables
+-- - Bucket creation and storage policies require elevated permissions
+--
+-- If running via 'supabase db push', ensure your local config has
+-- the SERVICE_KEY environment variable set for service role access.
 
--- Create bucket (run manually or via service client):
--- INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
--- VALUES (
---     'kyc-documents',
---     'kyc-documents',
---     false,  -- Private bucket - requires authentication
---     10485760,  -- 10MB limit
---     ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
--- );
+-- Create KYC documents bucket (idempotent - won't fail if exists)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'kyc-documents',
+    'kyc-documents',
+    false,  -- PRIVATE: requires authentication
+    10485760,  -- 10MB limit
+    ARRAY['image/jpeg', 'image/png', 'image/webp']::text[]
+)
+ON CONFLICT (id) DO NOTHING;
 
--- Storage policies (run after bucket creation):
--- Allow authenticated users to upload their own documents
--- CREATE POLICY "Users can upload own documents"
---     ON storage.objects FOR INSERT
---     TO authenticated
---     WITH CHECK (bucket_id = 'kyc-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+-- Drop existing storage policies if they exist (for clean recreation)
+DROP POLICY IF EXISTS "Users can upload own KYC documents" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update own KYC documents" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can access KYC documents" ON storage.objects;
+DROP POLICY IF EXISTS "Service role can manage KYC documents" ON storage.objects;
 
--- Allow authenticated users to update/delete their own documents
--- CREATE POLICY "Users can update own documents"
---     ON storage.objects FOR UPDATE
---     TO authenticated
---     USING (bucket_id = 'kyc-documents' AND auth.uid()::text = (storage.foldername(name))[1])
---     WITH CHECK (bucket_id = 'kyc-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+-- Storage policy: Users can only upload documents to their own folder (userId/filename)
+CREATE POLICY "Users can upload own KYC documents"
+    ON storage.objects FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        bucket_id = 'kyc-documents' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
 
--- Allow admins full access to documents
--- CREATE POLICY "Admins can access all documents"
---     ON storage.objects FOR ALL
---     TO authenticated
---     USING (bucket_id = 'kyc-documents' AND 
---            EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND is_admin = true));
+-- Storage policy: Users can only update/delete their own documents
+CREATE POLICY "Users can update own KYC documents"
+    ON storage.objects FOR UPDATE
+    TO authenticated
+    USING (
+        bucket_id = 'kyc-documents' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    )
+    WITH CHECK (
+        bucket_id = 'kyc-documents' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
+
+-- Storage policy: Admins can view all documents in the bucket
+CREATE POLICY "Admins can access KYC documents"
+    ON storage.objects FOR SELECT
+    TO authenticated
+    USING (
+        bucket_id = 'kyc-documents' 
+        AND EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE id = auth.uid() AND is_admin = true
+        )
+    );
+
+-- Storage policy: Service role has full access (for backend operations)
+CREATE POLICY "Service role can manage KYC documents"
+    ON storage.objects FOR ALL
+    TO service_role
+    USING (bucket_id = 'kyc-documents')
+    WITH CHECK (bucket_id = 'kyc-documents');
+
+-- Verify storage setup
+DO $$
+BEGIN
+    -- Check if bucket was created/updated
+    IF EXISTS (
+        SELECT 1 FROM storage.buckets WHERE id = 'kyc-documents'
+    ) THEN
+        RAISE NOTICE '✓ KYC storage bucket created/verified successfully';
+    ELSE
+        RAISE WARNING '⚠ KYC storage bucket not found - may require manual creation';
+    END IF;
+    
+    -- Count policies
+    IF EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE policyname = 'Users can upload own KYC documents'
+        AND tablename = 'objects'
+    ) THEN
+        RAISE NOTICE '✓ Storage policies created successfully';
+    ELSE
+        RAISE WARNING '⚠ Storage policies not created - check permissions';
+    END IF;
+END $$;
 
 -- ============================================
 -- 17. INSERT DEFAULT CONFIG FOR KYC
