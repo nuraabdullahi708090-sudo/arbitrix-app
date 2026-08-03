@@ -286,21 +286,167 @@ async function addTransaction(userId, type, amount, detail) {
 // ---------- REFERRAL ACTIVATION HELPERS ----------
 
 /**
+ * Get referral configuration value by key
+ * @param {string} key - Configuration key
+ * @param {*} defaultValue - Default value if key not found
+ * @returns {Promise<*>} Configuration value or default
+ */
+async function getReferralConfig(key, defaultValue = null) {
+  try {
+    const { data, error } = await supabase
+      .from('referral_config')
+      .select('config_value')
+      .eq('config_key', key)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.log('Error fetching referral config:', error.message);
+      return defaultValue;
+    }
+    
+    return data ? data.config_value : defaultValue;
+  } catch (e) {
+    console.log('Referral config error:', e.message);
+    return defaultValue;
+  }
+}
+
+/**
+ * Get all referral configuration as an object
+ * @returns {Promise<object>} Configuration object
+ */
+async function getReferralConfigAll() {
+  try {
+    const { data, error } = await supabase
+      .from('referral_config')
+      .select('config_key, config_value, description, updated_at');
+    
+    if (error) {
+      console.log('Error fetching referral config:', error.message);
+      return getDefaultReferralConfig();
+    }
+    
+    // Convert array to object
+    const config = {};
+    data.forEach(row => {
+      config[row.config_key] = {
+        value: row.config_value,
+        description: row.description,
+        updatedAt: row.updated_at
+      };
+    });
+    
+    return config;
+  } catch (e) {
+    console.log('Referral config error:', e.message);
+    return getDefaultReferralConfig();
+  }
+}
+
+/**
+ * Get default referral configuration
+ * @returns {object} Default configuration values
+ */
+function getDefaultReferralConfig() {
+  return {
+    rewards_enabled: { value: 'true', description: 'Enable or disable referral rewards system-wide' },
+    minimum_qualifying_deposit: { value: '50', description: 'Minimum deposit amount required (USD)' },
+    referral_reward_amount: { value: '10', description: 'Amount awarded to referrer (USD)' },
+    first_deposit_required: { value: 'true', description: 'Whether referral requires first deposit to qualify' },
+    max_rewards_per_user: { value: '0', description: 'Maximum rewards per user (0 = unlimited)' }
+  };
+}
+
+/**
+ * Update referral configuration
+ * @param {string} key - Configuration key
+ * @param {string} value - New value
+ * @returns {Promise<boolean>} Success status
+ */
+async function setReferralConfig(key, value) {
+  try {
+    const { data, error } = await supabase.rpc('update_referral_config', {
+      p_key: key,
+      p_value: String(value)
+    });
+    
+    if (error) {
+      // Fallback to direct update
+      const { error: updateError } = await supabase
+        .from('referral_config')
+        .update({ config_value: String(value), updated_at: new Date().toISOString() })
+        .eq('config_key', key);
+      
+      if (updateError) {
+        console.log('Error updating referral config:', updateError.message);
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (e) {
+    console.log('Set referral config error:', e.message);
+    return false;
+  }
+}
+
+/**
+ * Parse configuration value to appropriate type
+ * @param {string} value - String value from config
+ * @returns {*} Parsed value
+ */
+function parseConfigValue(value) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (!isNaN(value) && value !== '') return Number(value);
+  return value;
+}
+
+/**
  * Activate a pending referral when the referred user completes a qualifying action
  * This is called when a user makes their first successful deposit
  * 
  * Referral Lifecycle:
  * 1. PENDING - User registers with referral code, no bonus yet
- * 2. ACTIVE - Referred user completes first deposit, bonus awarded to referrer
+ * 2. ACTIVE - Referred user completes qualification, bonus awarded to referrer
  * 
  * @param {string} userId - The user who completed the qualifying action (referred user)
  * @param {string} qualificationType - The type of action that qualified (e.g., 'first_deposit')
+ * @param {object} depositInfo - Information about the deposit (amount, etc.)
  * @returns {Promise<object>} - Result of activation attempt
  */
-async function activateReferralOnQualification(userId, qualificationType = 'first_deposit') {
-  const REFERRAL_BONUS = 10;
-  
+async function activateReferralOnQualification(userId, qualificationType = 'first_deposit', depositInfo = {}) {
   try {
+    // Get referral configuration
+    const config = {
+      rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
+      rewardAmount: parseConfigValue(await getReferralConfig('referral_reward_amount', '10')),
+      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', '50')),
+      firstDepositRequired: parseConfigValue(await getReferralConfig('first_deposit_required', 'true')),
+      maxRewardsPerUser: parseConfigValue(await getReferralConfig('max_rewards_per_user', '0'))
+    };
+    
+    // Check if rewards are enabled
+    if (!config.rewardsEnabled) {
+      console.log('Referral rewards are disabled');
+      return { success: false, reason: 'rewards_disabled' };
+    }
+    
+    // Check if first deposit is required and if this is the first deposit
+    if (config.firstDepositRequired) {
+      const isFirst = await isFirstConfirmedDeposit(userId);
+      if (!isFirst) {
+        console.log('Not the first deposit, skipping referral activation');
+        return { success: false, reason: 'not_first_deposit' };
+      }
+    }
+    
+    // Check minimum deposit requirement
+    if (depositInfo.amount && depositInfo.amount < config.minDeposit) {
+      console.log(`Deposit amount ${depositInfo.amount} is below minimum ${config.minDeposit}`);
+      return { success: false, reason: 'below_minimum_deposit', minimumRequired: config.minDeposit };
+    }
+    
     // Find pending referral for this user
     const { data: referral, error: findError } = await supabase
       .from('referrals')
@@ -332,15 +478,30 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
       return { success: false, reason: 'already_activated' };
     }
     
+    // Check max rewards per user
+    if (config.maxRewardsPerUser > 0) {
+      const { count } = await supabase
+        .from('referrals')
+        .select('*', { count: 'exact', head: true })
+        .eq('referrer_id', referral.referrer_id)
+        .eq('status', 'active');
+      
+      if (count >= config.maxRewardsPerUser) {
+        console.log(`Referrer has reached maximum rewards limit: ${config.maxRewardsPerUser}`);
+        return { success: false, reason: 'max_rewards_reached', maxRewards: config.maxRewardsPerUser };
+      }
+    }
+    
     // Get referrer details
     const referrer = referral.referrer;
+    const rewardAmount = config.rewardAmount;
     
     // Activate the referral
     const { error: updateError } = await supabase
       .from('referrals')
       .update({
         status: 'active',
-        bonus_earned: REFERRAL_BONUS,
+        bonus_earned: rewardAmount,
         qualified_at: new Date().toISOString(),
         qualification_type: qualificationType
       })
@@ -352,21 +513,22 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     }
     
     // Award bonus to referrer
-    await updateWallet(referrer.id, 'bonus_balance', REFERRAL_BONUS);
+    await updateWallet(referrer.id, 'bonus_balance', rewardAmount);
     await addTransaction(
       referrer.id, 
       'Referral Bonus', 
-      REFERRAL_BONUS, 
+      rewardAmount, 
       `Referral bonus for ${referral.referred_id} (${qualificationType})`
     );
     
-    console.log(`✅ Referral activated: Referrer ${referrer.email} earned $${REFERRAL_BONUS} bonus`);
+    console.log(`✅ Referral activated: Referrer ${referrer.email} earned $${rewardAmount} bonus`);
     
     return {
       success: true,
       referrerId: referrer.id,
       referrerName: referrer.name,
-      bonusAmount: REFERRAL_BONUS
+      bonusAmount: rewardAmount,
+      config: config
     };
     
   } catch (e) {
@@ -1153,9 +1315,12 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
     await addTransaction(req.user.id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
     deposit.status = 'confirmed';
     
-    // Activate referral if this is the first deposit
+    // Activate referral with deposit info (amount for minimum check)
     if (isFirst) {
-      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit');
+      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
+        amount: deposit.amount,
+        network: deposit.network
+      });
     }
   }
   if (elapsed > 3600000 && deposit.status === 'pending') {
@@ -1224,6 +1389,77 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
 });
 
 // ---------- Referral ----------
+// Get referral configuration (public endpoint)
+app.get('/api/referral/config', async (req, res) => {
+  try {
+    const config = await getReferralConfigAll();
+    
+    // Return only public config values (not all internal details)
+    res.json({
+      rewardsEnabled: config.rewards_enabled?.value === 'true',
+      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || '50'),
+      rewardAmount: parseConfigValue(config.referral_reward_amount?.value || '10'),
+      firstDepositRequired: config.first_deposit_required?.value === 'true',
+      maxRewardsPerUser: parseConfigValue(config.max_rewards_per_user?.value || '0')
+    });
+  } catch (e) {
+    // Return defaults on error
+    res.json({
+      rewardsEnabled: true,
+      minimumDeposit: 50,
+      rewardAmount: 10,
+      firstDepositRequired: true,
+      maxRewardsPerUser: 0
+    });
+  }
+});
+
+// Get detailed referral configuration (admin only)
+app.get('/api/referral/config/admin', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const config = await getReferralConfigAll();
+    res.json(config);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch configuration' });
+  }
+});
+
+// Update referral configuration (admin only)
+app.put('/api/referral/config/:key', authMiddleware, adminMiddleware, async (req, res) => {
+  const { key } = req.params;
+  const { value } = req.body;
+  
+  // Validate key
+  const validKeys = ['rewards_enabled', 'minimum_qualifying_deposit', 'referral_reward_amount', 'first_deposit_required', 'max_rewards_per_user'];
+  if (!validKeys.includes(key)) {
+    return res.status(400).json({ error: 'Invalid configuration key' });
+  }
+  
+  // Validate value based on key
+  if (key === 'rewards_enabled' || key === 'first_deposit_required') {
+    if (value !== 'true' && value !== 'false') {
+      return res.status(400).json({ error: 'Value must be true or false' });
+    }
+  }
+  
+  if (key === 'minimum_qualifying_deposit' || key === 'referral_reward_amount' || key === 'max_rewards_per_user') {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0) {
+      return res.status(400).json({ error: 'Value must be a non-negative number' });
+    }
+  }
+  
+  const success = await setReferralConfig(key, value);
+  
+  if (success) {
+    const updatedConfig = await getReferralConfigAll();
+    console.log(`Referral config updated: ${key} = ${value}`);
+    res.json({ success: true, config: updatedConfig });
+  } else {
+    res.status(500).json({ error: 'Failed to update configuration' });
+  }
+});
+
 app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const userId = req.user.id;
   
@@ -1241,11 +1477,19 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const activeReferrals = referrals.filter(r => r.status === 'active').length;
   const pendingReferrals = referrals.filter(r => r.status === 'pending').length;
   
+  // Get config for display
+  const config = {
+    rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
+    rewardAmount: parseConfigValue(await getReferralConfig('referral_reward_amount', '10')),
+    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', '50'))
+  };
+  
   res.json({ 
     totalReferrals, 
     activeReferrals,
     pendingReferrals,
-    earned: totalEarned 
+    earned: totalEarned,
+    config
   });
 });
 
@@ -1415,10 +1659,13 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
   await addTransaction(deposit.user_id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
   
-  // Activate referral if this is the first deposit
+  // Activate referral with deposit info (amount for minimum check)
   let referralActivated = null;
   if (isFirst) {
-    referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit');
+    referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit', {
+      amount: deposit.amount,
+      network: deposit.network
+    });
   }
   
   res.json({ success: true, referralActivated });

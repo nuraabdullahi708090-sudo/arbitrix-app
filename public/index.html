@@ -3661,6 +3661,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab active" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral Config</button>
                     </div>
                     
                     <!-- Users Tab -->
@@ -3719,6 +3720,20 @@ function toggleFaq(btn) {
                             </table>
                         </div>
                     </div>
+                    
+                    <!-- Referral Config Tab -->
+                    <div id="adminTabContentReferrals" class="hidden">
+                        <div style="margin-bottom:16px;padding:12px;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.2);border-radius:8px;">
+                            <p style="font-size:11px;color:#8896B5;margin:0;">Configure the referral program settings. Changes take effect immediately.</p>
+                        </div>
+                        
+                        <!-- Referral Config Form -->
+                        <div id="referralConfigForm" style="max-height:400px;overflow-y:auto;">
+                            <!-- Config items will be loaded dynamically -->
+                            <div style="text-align:center;padding:20px;color:#8896B5;">Loading...</div>
+                        </div>
+                    </div>
+                    </div>
                 </div>
             </div>
 
@@ -3727,8 +3742,8 @@ function toggleFaq(btn) {
                 <div class="card-header"><span class="icon-bg gold"><i class="fas fa-gift"></i></span> <span data-i18n="referral.title">Referral Program</span></div>
                 <div class="card-body">
                     <div style="background:linear-gradient(145deg,#0F1629,#1A2540);border:1px solid rgba(240,185,11,0.12);border-radius:16px;padding:16px;">
-                        <h4 style="font-size:14px;font-weight:700;text-align:center;" data-i18n="referral.invite">Invite Friends, Earn $10</h4>
-                        <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;">Share your link. Earn $10 when a friend deposits!</p>
+                        <h4 style="font-size:14px;font-weight:700;text-align:center;" data-i18n="referral.invite">Invite Friends, Earn <span id="refRewardAmount">$10</span></h4>
+                        <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;">Share your link. Earn when friends deposit!</p>
                         
                         <!-- Stats Grid -->
                         <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:16px;">
@@ -3782,8 +3797,8 @@ function toggleFaq(btn) {
                         <div style="font-size:9px;color:#5A6A8A;text-align:left;padding:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;margin-bottom:8px;">
                             <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> How it works:</div>
                             <div style="margin-bottom:4px;"><span style="color:#8896B5;">1.</span> Friend registers with your code → <span style="color:#F0B90B;">Pending</span></div>
-                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> Friend makes first deposit → <span style="color:#10B981;">Active</span></div>
-                            <div><span style="color:#8896B5;">3.</span> You earn <strong style="color:#F0B90B;">$10 bonus</strong> → Bonus Wallet</div>
+                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> Friend deposits ≥<span id="refMinDeposit">$50</span> → <span style="color:#10B981;">Active</span></div>
+                            <div><span style="color:#8896B5;">3.</span> You earn <strong style="color:#F0B90B;">$<span id="refRewardAmount2">10</span> bonus</strong> → Bonus Wallet</div>
                         </div>
                         
                         <!-- Pending Referrals List -->
@@ -4975,6 +4990,20 @@ function updateReferralDisplay() {
     if (linkDisplay) {
         linkDisplay.textContent = getReferralLink();
     }
+    
+    // Update dynamic config values (if available from API)
+    const config = APP.referralStats.config || {};
+    const rewardAmount = config.rewardAmount || 10;
+    const minDeposit = config.minimumDeposit || 50;
+    
+    const rewardDisplay = getEl('refRewardAmount');
+    if (rewardDisplay) rewardDisplay.textContent = '$' + rewardAmount;
+    
+    const rewardDisplay2 = getEl('refRewardAmount2');
+    if (rewardDisplay2) rewardDisplay2.textContent = rewardAmount;
+    
+    const minDepositDisplay = getEl('refMinDeposit');
+    if (minDepositDisplay) minDepositDisplay.textContent = '$' + minDeposit;
     
     // Update pending referrals list if available
     updatePendingReferralsList();
@@ -6395,8 +6424,168 @@ function showAdminTab(tab) {
     document.getElementById('adminTabContentUsers').classList.add('hidden');
     document.getElementById('adminTabContentDeposits').classList.add('hidden');
     document.getElementById('adminTabContentWithdrawals').classList.add('hidden');
+    document.getElementById('adminTabContentReferrals').classList.add('hidden');
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
+    
+    // Load referral config when tab is shown
+    if (tab === 'referrals') {
+        loadReferralConfig();
+    }
+}
+
+// ============ REFERRAL CONFIG FUNCTIONS ============
+async function loadReferralConfig() {
+    const token = localStorage.getItem('jwt_token');
+    const container = document.getElementById('referralConfigForm');
+    if (!container || !token) return;
+    
+    try {
+        const response = await fetch('/api/referral/config/admin', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load config');
+        
+        const config = await response.json();
+        renderReferralConfig(config);
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#ff4444;">Error loading configuration</div>';
+        console.log('Error loading referral config:', e);
+    }
+}
+
+function renderReferralConfig(config) {
+    const container = document.getElementById('referralConfigForm');
+    if (!container) return;
+    
+    const configItems = [
+        {
+            key: 'rewards_enabled',
+            label: 'Enable Referral Rewards',
+            type: 'toggle',
+            description: 'Turn on/off the entire referral rewards system',
+            parseValue: (v) => v === 'true'
+        },
+        {
+            key: 'referral_reward_amount',
+            label: 'Reward Amount',
+            type: 'number',
+            description: 'Amount awarded to referrer when a referral qualifies (USD)',
+            parseValue: (v) => parseFloat(v),
+            min: 0,
+            step: 1
+        },
+        {
+            key: 'minimum_qualifying_deposit',
+            label: 'Minimum Deposit',
+            type: 'number',
+            description: 'Minimum deposit amount required for referral qualification (USD)',
+            parseValue: (v) => parseFloat(v),
+            min: 0,
+            step: 1
+        },
+        {
+            key: 'first_deposit_required',
+            label: 'Require First Deposit',
+            type: 'toggle',
+            description: 'Whether referral requires the referred user to make a deposit',
+            parseValue: (v) => v === 'true'
+        },
+        {
+            key: 'max_rewards_per_user',
+            label: 'Max Rewards Per User',
+            type: 'number',
+            description: 'Maximum rewards a user can earn (0 = unlimited)',
+            parseValue: (v) => parseInt(v),
+            min: 0,
+            step: 1
+        }
+    ];
+    
+    container.innerHTML = configItems.map(item => {
+        const value = config[item.key]?.value || (item.type === 'toggle' ? 'true' : '0');
+        const description = config[item.key]?.description || item.description;
+        const updatedAt = config[item.key]?.updatedAt;
+        
+        if (item.type === 'toggle') {
+            const isEnabled = value === 'true';
+            return `
+                <div style="background:#141C2E;border-radius:8px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="font-size:13px;font-weight:600;color:#fff;">${item.label}</div>
+                        <label class="switch" style="position:relative;display:inline-block;width:50px;height:26px;">
+                            <input type="checkbox" id="config_${item.key}" ${isEnabled ? 'checked' : ''} 
+                                   onchange="updateReferralConfig('${item.key}', this.checked ? 'true' : 'false')">
+                            <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${isEnabled ? '#10B981' : '#374151'};transition:.3s;border-radius:26px;">
+                                <span style="position:absolute;content:'';height:20px;width:20px;left:${isEnabled ? '26px' : '3px'};bottom:3px;background-color:white;transition:.3s;border-radius:50%;"></span>
+                            </span>
+                        </label>
+                    </div>
+                    <div style="font-size:10px;color:#8896B5;">${description}</div>
+                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">Last updated: ${new Date(updatedAt).toLocaleString()}</div>` : ''}
+                </div>
+            `;
+        } else {
+            return `
+                <div style="background:#141C2E;border-radius:8px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="font-size:13px;font-weight:600;color:#fff;">${item.label}</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="color:#8896B5;">$</span>
+                            <input type="number" id="config_${item.key}" value="${value}" 
+                                   min="${item.min || 0}" step="${item.step || 1}"
+                                   style="width:80px;padding:6px 10px;background:#1E2A3F;border:1px solid #374151;border-radius:6px;color:#F0B90B;font-size:13px;text-align:right;"
+                                   onchange="updateReferralConfig('${item.key}', this.value)">
+                        </div>
+                    </div>
+                    <div style="font-size:10px;color:#8896B5;">${description}</div>
+                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">Last updated: ${new Date(updatedAt).toLocaleString()}</div>` : ''}
+                </div>
+            `;
+        }
+    }).join('');
+    
+    // Add CSS for toggle switch if not already present
+    if (!document.getElementById('toggleSwitchStyle')) {
+        const style = document.createElement('style');
+        style.id = 'toggleSwitchStyle';
+        style.textContent = `
+            .switch input { opacity: 0; width: 0; height: 0; }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+async function updateReferralConfig(key, value) {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch(`/api/referral/config/${key}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ value: String(value) })
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to update');
+        }
+        
+        showToast('Configuration saved successfully', 'success');
+        
+        // Reload config to show updated values
+        loadReferralConfig();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+        // Reload to reset the input
+        loadReferralConfig();
+        console.log('Error updating referral config:', e);
+    }
 }
 
 async function loadAdminData() {
