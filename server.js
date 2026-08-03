@@ -3404,6 +3404,822 @@ app.get('/api/admin/referrals/suspicious', authMiddleware, adminMiddleware, asyn
   res.json({ suspicious, totalChecked: recentReferrals.length });
 });
 
+// ============================================================
+// ADMIN OPERATIONS DASHBOARD API
+// ============================================================
+
+// Admin: Executive Dashboard - Comprehensive statistics
+app.get('/api/admin/dashboard/executive', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const now = new Date();
+    const todayStart = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+    const weekStart = new Date(now.setDate(now.getDate() - 7)).toISOString();
+    
+    // User Stats
+    const { count: totalUsers } = await supabase.from('users').select('*', { count: 'exact', head: true });
+    const { count: newUsersToday } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', todayStart);
+    const { count: newUsersWeek } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', weekStart);
+    
+    // KYC Stats
+    const { count: verifiedUsers } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved');
+    const { count: pendingKyc } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending_review');
+    const { count: kycApprovedToday } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved').gte('updated_at', todayStart);
+    const { count: kycRejectedToday } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'rejected').gte('updated_at', todayStart);
+    
+    // Financial Stats
+    const { data: depositsData } = await supabase.from('deposits').select('amount, status, created_at');
+    const totalDeposits = depositsData.filter(d => d.status === 'confirmed').reduce((s, d) => s + d.amount, 0);
+    const depositsToday = depositsData.filter(d => d.status === 'confirmed' && new Date(d.created_at) >= new Date(todayStart)).reduce((s, d) => s + d.amount, 0);
+    
+    const { data: withdrawalsData } = await supabase.from('withdrawals').select('amount, status, created_at');
+    const totalWithdrawals = withdrawalsData.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0);
+    const { count: pendingWithdrawals } = await supabase.from('withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+    
+    // Referral Stats
+    const { data: referralsData } = await supabase.from('referrals').select('bonus_earned, status');
+    const totalReferralRewards = referralsData.filter(r => r.status === 'active').reduce((s, r) => s + (r.bonus_earned || 0), 0);
+    
+    // Wallet Stats
+    const { data: wallets } = await supabase.from('wallets').select('live_balance, bonus_balance');
+    const totalBalances = wallets.reduce((s, w) => s + (w.live_balance || 0) + (w.bonus_balance || 0), 0);
+    
+    // Payment Stats
+    const { data: invoicesData } = await supabase.from('payment_invoices').select('status, created_at');
+    const successfulPayments = invoicesData.filter(i => i.status === 'paid').length;
+    const failedPayments = invoicesData.filter(i => i.status === 'failed').length;
+    const pendingInvoices = invoicesData.filter(i => i.status === 'pending' || i.status === 'expired').length;
+    const webhookFailures = invoicesData.filter(i => i.status === 'webhook_failed').length;
+    const totalInvoices = invoicesData.length;
+    const paymentSuccessRate = totalInvoices > 0 ? ((successfulPayments / totalInvoices) * 100).toFixed(1) : 0;
+    
+    // Active Bots
+    const { count: activeBots } = await supabase.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
+    
+    res.json({
+      users: {
+        total: totalUsers || 0,
+        newToday: newUsersToday || 0,
+        newWeek: newUsersWeek || 0,
+        verified: verifiedUsers || 0,
+        pendingKyc: pendingKyc || 0
+      },
+      financial: {
+        totalDeposits,
+        depositsToday,
+        totalWithdrawals,
+        pendingWithdrawals: pendingWithdrawals || 0,
+        totalReferralRewards,
+        totalBalances
+      },
+      payments: {
+        successful: successfulPayments,
+        failed: failedPayments,
+        pending: pendingInvoices,
+        webhookFailures: webhookFailures || 0,
+        successRate: parseFloat(paymentSuccessRate)
+      },
+      kyc: {
+        pending: pendingKyc || 0,
+        approvedToday: kycApprovedToday || 0,
+        rejectedToday: kycRejectedToday || 0
+      },
+      bots: {
+        active: activeBots || 0
+      }
+    });
+  } catch (error) {
+    console.error('Executive dashboard error:', error);
+    res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+});
+
+// Admin: Activity Timeline - Live feed of platform events
+app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { limit = 50, type } = req.query;
+    const activities = [];
+    
+    // Get recent registrations
+    if (!type || type === 'all' || type === 'registration') {
+      const { data: newUsers } = await supabase
+        .from('users')
+        .select('id, name, email, created_at')
+        .order('created_at', { ascending: false })
+        .limit(parseInt(limit) / 4);
+      
+      newUsers?.forEach(u => {
+        activities.push({
+          type: 'registration',
+          title: 'New User Registered',
+          description: `${u.name || u.email} joined the platform`,
+          timestamp: u.created_at,
+          userId: u.id,
+          icon: 'user-plus',
+          color: '#10B981'
+        });
+      });
+    }
+    
+    // Get recent deposits
+    if (!type || type === 'all' || type === 'deposit') {
+      const { data: deposits } = await supabase
+        .from('deposits')
+        .select('id, amount, status, created_at, users(name, email)')
+        .order('created_at', { ascending: false })
+        .limit(parseInt(limit) / 4);
+      
+      deposits?.forEach(d => {
+        if (d.status === 'confirmed') {
+          activities.push({
+            type: 'deposit',
+            title: 'Deposit Confirmed',
+            description: `$${d.amount.toFixed(2)} deposited by ${d.users?.name || 'User'}`,
+            timestamp: d.created_at,
+            userId: d.user_id,
+            amount: d.amount,
+            icon: 'arrow-down',
+            color: '#10B981'
+          });
+        }
+      });
+    }
+    
+    // Get recent withdrawals
+    if (!type || type === 'all' || type === 'withdrawal') {
+      const { data: withdrawals } = await supabase
+        .from('withdrawals')
+        .select('id, amount, status, created_at, users(name, email)')
+        .order('created_at', { ascending: false })
+        .limit(parseInt(limit) / 4);
+      
+      withdrawals?.forEach(w => {
+        if (w.status === 'approved') {
+          activities.push({
+            type: 'withdrawal',
+            title: 'Withdrawal Approved',
+            description: `$${w.amount.toFixed(2)} withdrawn by ${w.users?.name || 'User'}`,
+            timestamp: w.created_at,
+            userId: w.user_id,
+            amount: w.amount,
+            icon: 'arrow-up',
+            color: '#EF4444'
+          });
+        }
+      });
+    }
+    
+    // Get recent KYC submissions
+    if (!type || type === 'all' || type === 'kyc') {
+      const { data: kycSubmissions } = await supabase
+        .from('verification_profiles')
+        .select('user_id, status, created_at, updated_at, users(name, email)')
+        .in('status', ['pending_review', 'approved', 'rejected'])
+        .order('updated_at', { ascending: false })
+        .limit(parseInt(limit) / 8);
+      
+      kycSubmissions?.forEach(k => {
+        const statusLabels = {
+          pending_review: { title: 'KYC Submitted', icon: 'file-upload', color: '#F59E0B' },
+          approved: { title: 'KYC Approved', icon: 'check-circle', color: '#10B981' },
+          rejected: { title: 'KYC Rejected', icon: 'times-circle', color: '#EF4444' }
+        };
+        const config = statusLabels[k.status];
+        activities.push({
+          type: 'kyc',
+          title: config.title,
+          description: `Identity verification ${k.status.replace('_', ' ')} for ${k.users?.name || 'User'}`,
+          timestamp: k.updated_at,
+          userId: k.user_id,
+          icon: config.icon,
+          color: config.color
+        });
+      });
+    }
+    
+    // Get recent referral activations
+    if (!type || type === 'all' || type === 'referral') {
+      const { data: referrals } = await supabase
+        .from('referrals')
+        .select('id, status, bonus_earned, activated_at, referred:users!referred_id(name, email)')
+        .eq('status', 'active')
+        .order('activated_at', { ascending: false })
+        .limit(parseInt(limit) / 8);
+      
+      referrals?.forEach(r => {
+        if (r.bonus_earned > 0) {
+          activities.push({
+            type: 'referral',
+            title: 'Referral Reward',
+            description: `$${r.bonus_earned.toFixed(2)} earned from referral`,
+            timestamp: r.activated_at,
+            amount: r.bonus_earned,
+            icon: 'gift',
+            color: '#F0B90B'
+          });
+        }
+      });
+    }
+    
+    // Sort all activities by timestamp
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    res.json({
+      activities: activities.slice(0, parseInt(limit)),
+      total: activities.length
+    });
+  } catch (error) {
+    console.error('Activity timeline error:', error);
+    res.status(500).json({ error: 'Failed to load activity' });
+  }
+});
+
+// Admin: System Health Check
+app.get('/api/admin/dashboard/health', authMiddleware, adminMiddleware, async (req, res) => {
+  const startTime = Date.now();
+  const health = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks: {}
+  };
+  
+  // Database Check
+  try {
+    const dbStart = Date.now();
+    const { error: dbError } = await supabase.from('users').select('id').limit(1);
+    health.checks.database = {
+      status: dbError ? 'unhealthy' : 'healthy',
+      latency: Date.now() - dbStart,
+      error: dbError?.message || null
+    };
+  } catch (e) {
+    health.checks.database = { status: 'unhealthy', error: e.message };
+  }
+  
+  // Supabase Storage Check
+  try {
+    const storageStart = Date.now();
+    const { data: buckets, error: storageError } = await supabase.storage.listBuckets();
+    health.checks.storage = {
+      status: storageError ? 'degraded' : 'healthy',
+      latency: Date.now() - storageStart,
+      bucketCount: buckets?.length || 0,
+      error: storageError?.message || null
+    };
+  } catch (e) {
+    health.checks.storage = { status: 'unhealthy', error: e.message };
+  }
+  
+  // Email Service Check (simulated based on recent failures)
+  try {
+    const { data: failedEmails } = await supabase
+      .from('audit_logs')
+      .select('id')
+      .eq('action', 'email_failed')
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString());
+    
+    health.checks.email = {
+      status: (failedEmails?.length || 0) > 10 ? 'degraded' : 'healthy',
+      failedInLastHour: failedEmails?.length || 0
+    };
+  } catch (e) {
+    health.checks.email = { status: 'unknown', error: e.message };
+  }
+  
+  // Payment Provider Check
+  try {
+    const { data: failedPayments } = await supabase
+      .from('payment_invoices')
+      .select('id')
+      .eq('status', 'failed')
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString());
+    
+    health.checks.paymentProvider = {
+      status: (failedPayments?.length || 0) > 20 ? 'degraded' : 'healthy',
+      failedInLastHour: failedPayments?.length || 0
+    };
+  } catch (e) {
+    health.checks.paymentProvider = { status: 'unknown', error: e.message };
+  }
+  
+  // API Latency
+  health.checks.api = {
+    status: 'healthy',
+    latency: Date.now() - startTime
+  };
+  
+  // Failed Jobs Check (from audit logs)
+  try {
+    const { data: failedJobs } = await supabase
+      .from('audit_logs')
+      .select('id')
+      .eq('action', 'job_failed')
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString());
+    
+    health.checks.failedJobs = {
+      status: (failedJobs?.length || 0) > 5 ? 'degraded' : 'healthy',
+      failedInLastHour: failedJobs?.length || 0
+    };
+  } catch (e) {
+    health.checks.failedJobs = { status: 'unknown', error: e.message };
+  }
+  
+  // Determine overall health
+  const unhealthyChecks = Object.values(health.checks).filter(c => c.status === 'unhealthy').length;
+  const degradedChecks = Object.values(health.checks).filter(c => c.status === 'degraded').length;
+  
+  if (unhealthyChecks > 0) health.status = 'unhealthy';
+  else if (degradedChecks > 0) health.status = 'degraded';
+  
+  res.json(health);
+});
+
+// Admin: Alerts
+app.get('/api/admin/dashboard/alerts', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const alerts = [];
+    
+    // Check for failed payments
+    const { data: failedPayments } = await supabase
+      .from('payment_invoices')
+      .select('id, status, created_at')
+      .eq('status', 'failed')
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString());
+    
+    if (failedPayments?.length > 0) {
+      alerts.push({
+        id: 'failed_payments',
+        severity: 'warning',
+        title: 'Failed Payments',
+        message: `${failedPayments.length} payment(s) failed in the last hour`,
+        count: failedPayments.length,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Check for large withdrawals pending
+    const { data: largeWithdrawals } = await supabase
+      .from('withdrawals')
+      .select('id, amount, created_at')
+      .eq('status', 'pending')
+      .gte('amount', 1000);
+    
+    if (largeWithdrawals?.length > 0) {
+      alerts.push({
+        id: 'large_withdrawals',
+        severity: 'warning',
+        title: 'Large Pending Withdrawals',
+        message: `${largeWithdrawals.length} withdrawal(s) over $1,000 pending approval`,
+        count: largeWithdrawals.length,
+        total: largeWithdrawals.reduce((s, w) => s + w.amount, 0),
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Check for pending KYC reviews
+    const { count: pendingKyc } = await supabase
+      .from('verification_profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending_review')
+      .gte('created_at', new Date(Date.now() - 86400000).toISOString());
+    
+    if (pendingKyc > 5) {
+      alerts.push({
+        id: 'kyc_backlog',
+        severity: 'info',
+        title: 'KYC Review Backlog',
+        message: `${pendingKyc} identity verification(s) pending review`,
+        count: pendingKyc,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Check for suspicious referral activity
+    const { data: recentReferrals } = await supabase
+      .from('referrals')
+      .select('referrer_id, created_at')
+      .gte('created_at', new Date(Date.now() - 86400000).toISOString());
+    
+    const referrerCounts = {};
+    recentReferrals?.forEach(r => {
+      referrerCounts[r.referrer_id] = (referrerCounts[r.referrer_id] || 0) + 1;
+    });
+    
+    const suspiciousReferrers = Object.entries(referrerCounts).filter(([_, count]) => count > 5);
+    if (suspiciousReferrers.length > 0) {
+      alerts.push({
+        id: 'suspicious_referrals',
+        severity: 'warning',
+        title: 'Suspicious Referral Activity',
+        message: `${suspiciousReferrers.length} user(s) with rapid referral activity`,
+        count: suspiciousReferrers.length,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Check for webhook failures
+    const { data: webhookFailures } = await supabase
+      .from('payment_invoices')
+      .select('id')
+      .eq('status', 'webhook_failed')
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString());
+    
+    if (webhookFailures?.length > 0) {
+      alerts.push({
+        id: 'webhook_failures',
+        severity: 'error',
+        title: 'Webhook Failures',
+        message: `${webhookFailures.length} webhook(s) failed in the last hour`,
+        count: webhookFailures.length,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    res.json({
+      alerts,
+      total: alerts.length,
+      critical: alerts.filter(a => a.severity === 'error').length,
+      warnings: alerts.filter(a => a.severity === 'warning').length,
+      info: alerts.filter(a => a.severity === 'info').length
+    });
+  } catch (error) {
+    console.error('Alerts error:', error);
+    res.status(500).json({ error: 'Failed to load alerts' });
+  }
+});
+
+// Admin: Audit Logs
+app.get('/api/admin/dashboard/audit-logs', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { 
+      limit = 100, 
+      offset = 0, 
+      action, 
+      userId, 
+      startDate, 
+      endDate 
+    } = req.query;
+    
+    let query = supabase
+      .from('audit_logs')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    
+    if (action) {
+      query = query.eq('action', action);
+    }
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate);
+    }
+    
+    const { data: logs, count } = await query;
+    
+    // Get admin user names
+    const adminIds = [...new Set(logs?.map(l => l.performed_by).filter(Boolean) || [])];
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .in('id', adminIds);
+    
+    const adminMap = {};
+    admins?.forEach(a => { adminMap[a.id] = a; });
+    
+    const enrichedLogs = logs?.map(log => ({
+      ...log,
+      performedByName: adminMap[log.performed_by]?.name || 'System',
+      performedByEmail: adminMap[log.performed_by]?.email || 'system'
+    })) || [];
+    
+    res.json({
+      logs: enrichedLogs,
+      total: count || 0,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Audit logs error:', error);
+    res.status(500).json({ error: 'Failed to load audit logs' });
+  }
+});
+
+// Admin: Enhanced User Search
+app.get('/api/admin/users/search', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { q, field, limit = 20 } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+    
+    let query = supabase
+      .from('users')
+      .select(`
+        id, name, email, referral_code, is_admin, is_verified, created_at,
+        wallets(demo_balance, live_balance, bonus_balance),
+        verification_profiles(status)
+      `);
+    
+    // Search by specific field or all fields
+    if (field === 'email') {
+      query = query.ilike('email', `%${q}%`);
+    } else if (field === 'name') {
+      query = query.ilike('name', `%${q}%`);
+    } else if (field === 'referral_code') {
+      query = query.eq('referral_code', q.toUpperCase());
+    } else if (field === 'id') {
+      query = query.eq('id', q);
+    } else {
+      // Search across multiple fields
+      query = query.or(`email.ilike.%${q}%,name.ilike.%${q}%,referral_code.ilike.%${q}%`);
+    }
+    
+    const { data: users, error } = await query.limit(parseInt(limit));
+    
+    if (error) throw error;
+    
+    const enrichedUsers = users?.map(u => ({
+      ...u,
+      demo_balance: u.wallets?.demo_balance || 0,
+      live_balance: u.wallets?.live_balance || 0,
+      bonus_balance: u.wallets?.bonus_balance || 0,
+      kyc_status: u.verification_profiles?.status || 'not_started',
+      wallets: undefined,
+      verification_profiles: undefined
+    })) || [];
+    
+    res.json({
+      users: enrichedUsers,
+      total: enrichedUsers.length
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
+// Admin: Export Reports (CSV)
+app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { type = 'users', format = 'csv' } = req.query;
+    
+    if (format !== 'csv') {
+      return res.status(400).json({ error: 'Only CSV format supported' });
+    }
+    
+    let data, filename, headers;
+    
+    switch (type) {
+      case 'users':
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name, email, referral_code, is_admin, is_verified, created_at, wallets(demo_balance, live_balance, bonus_balance)');
+        
+        data = users?.map(u => ({
+          ID: u.id,
+          Name: u.name,
+          Email: u.email,
+          'Referral Code': u.referral_code,
+          'Is Admin': u.is_admin ? 'Yes' : 'No',
+          'Verified': u.is_verified ? 'Yes' : 'No',
+          'Demo Balance': u.wallets?.demo_balance || 0,
+          'Live Balance': u.wallets?.live_balance || 0,
+          'Bonus Balance': u.wallets?.bonus_balance || 0,
+          'Created At': u.created_at
+        })) || [];
+        filename = 'users_export.csv';
+        headers = ['ID', 'Name', 'Email', 'Referral Code', 'Is Admin', 'Verified', 'Demo Balance', 'Live Balance', 'Bonus Balance', 'Created At'];
+        break;
+        
+      case 'deposits':
+        const { data: deposits } = await supabase
+          .from('deposits')
+          .select('*, users(name, email)');
+        
+        data = deposits?.map(d => ({
+          ID: d.id,
+          'User ID': d.user_id,
+          'User Name': d.users?.name,
+          'User Email': d.users?.email,
+          Amount: d.amount,
+          Currency: d.currency || 'USDT',
+          Network: d.network,
+          Status: d.status,
+          'TX Hash': d.tx_hash || '',
+          'Created At': d.created_at
+        })) || [];
+        filename = 'deposits_export.csv';
+        headers = ['ID', 'User ID', 'User Name', 'User Email', 'Amount', 'Currency', 'Network', 'Status', 'TX Hash', 'Created At'];
+        break;
+        
+      case 'withdrawals':
+        const { data: withdrawals } = await supabase
+          .from('withdrawals')
+          .select('*, users(name, email)');
+        
+        data = withdrawals?.map(w => ({
+          ID: w.id,
+          'User ID': w.user_id,
+          'User Name': w.users?.name,
+          'User Email': w.users?.email,
+          Amount: w.amount,
+          Currency: w.currency || 'USDT',
+          Network: w.network,
+          Address: w.address,
+          Status: w.status,
+          'Created At': w.created_at,
+          'Processed At': w.processed_at || ''
+        })) || [];
+        filename = 'withdrawals_export.csv';
+        headers = ['ID', 'User ID', 'User Name', 'User Email', 'Amount', 'Currency', 'Network', 'Address', 'Status', 'Created At', 'Processed At'];
+        break;
+        
+      case 'referrals':
+        const { data: referrals } = await supabase
+          .from('referrals')
+          .select('*, referrer:users!referrer_id(name, email), referred:users!referred_id(name, email)');
+        
+        data = referrals?.map(r => ({
+          ID: r.id,
+          'Referrer Name': r.referrer?.name,
+          'Referrer Email': r.referrer?.email,
+          'Referred Name': r.referred?.name,
+          'Referred Email': r.referred?.email,
+          Status: r.status,
+          'Bonus Earned': r.bonus_earned || 0,
+          'Activated At': r.activated_at || '',
+          'Created At': r.created_at
+        })) || [];
+        filename = 'referrals_export.csv';
+        headers = ['ID', 'Referrer Name', 'Referrer Email', 'Referred Name', 'Referred Email', 'Status', 'Bonus Earned', 'Activated At', 'Created At'];
+        break;
+        
+      case 'kyc':
+        const { data: kyc } = await supabase
+          .from('verification_profiles')
+          .select('*, users(name, email)');
+        
+        data = kyc?.map(k => ({
+          ID: k.id,
+          'User ID': k.user_id,
+          'User Name': k.users?.name,
+          'User Email': k.users?.email,
+          'Full Name': k.fullLegalName,
+          'Date of Birth': k.dateOfBirth,
+          Country: k.country,
+          Status: k.status,
+          'Submitted At': k.submitted_at || '',
+          'Reviewed At': k.reviewed_at || '',
+          'Created At': k.created_at
+        })) || [];
+        filename = 'kyc_export.csv';
+        headers = ['ID', 'User ID', 'User Name', 'User Email', 'Full Name', 'Date of Birth', 'Country', 'Status', 'Submitted At', 'Reviewed At', 'Created At'];
+        break;
+        
+      case 'audit':
+        const { data: audit } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10000);
+        
+        data = audit?.map(a => ({
+          ID: a.id,
+          Action: a.action,
+          'Target Type': a.target_type || '',
+          'Target ID': a.target_id || '',
+          'User ID': a.user_id || '',
+          'Performed By': a.performed_by || 'System',
+          'IP Address': a.ip_address || '',
+          Details: a.details || '',
+          'Created At': a.created_at
+        })) || [];
+        filename = 'audit_logs_export.csv';
+        headers = ['ID', 'Action', 'Target Type', 'Target ID', 'User ID', 'Performed By', 'IP Address', 'Details', 'Created At'];
+        break;
+        
+      default:
+        return res.status(400).json({ error: 'Invalid export type' });
+    }
+    
+    // Generate CSV
+    const csvRows = [headers.join(',')];
+    data.forEach(row => {
+      const values = headers.map(h => {
+        const val = row[h] ?? '';
+        // Escape quotes and wrap in quotes if contains comma
+        const strVal = String(val).replace(/"/g, '""');
+        return strVal.includes(',') ? `"${strVal}"` : strVal;
+      });
+      csvRows.push(values.join(','));
+    });
+    
+    const csv = csvRows.join('\n');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Failed to export data' });
+  }
+});
+
+// Admin: User detailed profile
+app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get user basic info
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (userError) return res.status(404).json({ error: 'User not found' });
+    
+    // Get wallet
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', id)
+      .single();
+    
+    // Get KYC profile
+    const { data: kyc } = await supabase
+      .from('verification_profiles')
+      .select('*')
+      .eq('user_id', id)
+      .single();
+    
+    // Get documents count
+    const { count: docsCount } = await supabase
+      .from('verification_documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', id);
+    
+    // Get deposit history
+    const { data: deposits } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    // Get withdrawal history
+    const { data: withdrawals } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    // Get transactions
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    // Get referrals (as referrer)
+    const { data: referralsAsReferrer } = await supabase
+      .from('referrals')
+      .select('*, referred:users!referred_id(name, email)')
+      .eq('referrer_id', id)
+      .limit(10);
+    
+    // Get referred by
+    const { data: referredBy } = await supabase
+      .from('referrals')
+      .select('*, referrer:users!referrer_id(name, email)')
+      .eq('referred_id', id)
+      .single();
+    
+    res.json({
+      user,
+      wallet: wallet || { demo_balance: 0, live_balance: 0, bonus_balance: 0 },
+      kyc,
+      documentsCount: docsCount || 0,
+      recentDeposits: deposits || [],
+      recentWithdrawals: withdrawals || [],
+      recentTransactions: transactions || [],
+      referralsAsReferrer: referralsAsReferrer || [],
+      referredBy: referredBy || null
+    });
+  } catch (error) {
+    console.error('User profile error:', error);
+    res.status(500).json({ error: 'Failed to load user profile' });
+  }
+});
+
 // ---------- SEED ADMIN ----------
 (async function seedAdmin() {
   try {
