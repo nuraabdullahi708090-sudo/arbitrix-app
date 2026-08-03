@@ -3682,15 +3682,222 @@ function toggleFaq(btn) {
                     
                     <!-- Tab Navigation -->
                     <div class="mode-tabs" style="margin-bottom:12px;">
-                        <button type="button" class="mode-tab active" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
+                        <button type="button" class="mode-tab active" onclick="showAdminTab('operations')" id="adminTabOperations">Operations</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc">KYC</button>
                     </div>
                     
+                    <!-- Operations Dashboard Tab -->
+                    <div id="adminTabContentOperations">
+                        <!-- Sub-tabs for Operations -->
+                        <div class="sub-tabs" style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #1E2A3F;padding-bottom:8px;">
+                            <button type="button" class="ops-sub-tab active" onclick="showOpsSubTab('overview')" id="opsSubTabOverview" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#F0B90B;font-size:12px;cursor:pointer;">Overview</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('activity')" id="opsSubTabActivity" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Activity</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('health')" id="opsSubTabHealth" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Health</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('alerts')" id="opsSubTabAlerts" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Alerts</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('audit')" id="opsSubTabAudit" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Audit</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('reports')" id="opsSubTabReports" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Reports</button>
+                        </div>
+                        
+                        <!-- Overview Sub-tab -->
+                        <div id="opsSubTabContentOverview">
+                            <!-- Stats Cards -->
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+                                <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                        <div style="width:32px;height:32px;background:rgba(16,185,129,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-users" style="color:#10B981;"></i></div>
+                                        <span style="font-size:11px;color:#8896B5;">Total Users</span>
+                                    </div>
+                                    <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalUsers">-</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsNewUsersToday" style="color:#10B981;">0</span> today • <span id="opsNewUsersWeek" style="color:#F0B90B;">0</span> this week</div>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                        <div style="width:32px;height:32px;background:rgba(59,130,246,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-arrow-down" style="color:#3B82F6;"></i></div>
+                                        <span style="font-size:11px;color:#8896B5;">Total Deposits</span>
+                                    </div>
+                                    <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalDeposits">-</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsDepositsToday" style="color:#10B981;">$0</span> today</div>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                        <div style="width:32px;height:32px;background:rgba(239,68,68,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-arrow-up" style="color:#EF4444;"></i></div>
+                                        <span style="font-size:11px;color:#8896B5;">Total Withdrawals</span>
+                                    </div>
+                                    <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalWithdrawals">-</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsPendingWithdrawals" style="color:#F59E0B;">0</span> pending</div>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                        <div style="width:32px;height:32px;background:rgba(245,158,11,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-shield" style="color:#F59E0B;"></i></div>
+                                        <span style="font-size:11px;color:#8896B5;">KYC Pending</span>
+                                    </div>
+                                    <div style="font-size:24px;font-weight:800;color:#fff;" id="opsPendingKyc">-</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsVerifiedUsers" style="color:#10B981;">0</span> verified</div>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                        <div style="width:32px;height:32px;background:rgba(168,85,247,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-credit-card" style="color:#A855F7;"></i></div>
+                                        <span style="font-size:11px;color:#8896B5;">Payments</span>
+                                    </div>
+                                    <div style="font-size:24px;font-weight:800;color:#fff;" id="opsPaymentSuccess">-%</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsSuccessfulPayments" style="color:#10B981;">0</span> success • <span id="opsFailedPayments" style="color:#EF4444;">0</span> failed</div>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                        <div style="width:32px;height:32px;background:rgba(240,185,11,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-gift" style="color:#F0B90B;"></i></div>
+                                        <span style="font-size:11px;color:#8896B5;">Referral Rewards</span>
+                                    </div>
+                                    <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalRewards">-</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;">Total distributed</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Actions -->
+                            <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+                                <button onclick="refreshOperationsDashboard()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#F0B90B;font-size:12px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                                <button onclick="loadActivityTimeline()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-stream"></i> View Activity</button>
+                                <button onclick="loadSystemHealth()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-heartbeat"></i> Check Health</button>
+                            </div>
+                            
+                            <!-- Recent Activity Preview -->
+                            <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                                    <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Recent Activity</h4>
+                                    <button onclick="showOpsSubTab('activity')" style="background:transparent;border:none;color:#F0B90B;font-size:11px;cursor:pointer;">View All</button>
+                                </div>
+                                <div id="opsActivityPreview" style="max-height:200px;overflow-y:auto;">
+                                    <div style="text-align:center;padding:20px;color:#8896B5;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Activity Sub-tab -->
+                        <div id="opsSubTabContentActivity" class="hidden">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Activity Timeline</h4>
+                                <select id="activityFilter" onchange="loadActivityTimeline()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;">
+                                    <option value="all">All Events</option>
+                                    <option value="registration">Registrations</option>
+                                    <option value="deposit">Deposits</option>
+                                    <option value="withdrawal">Withdrawals</option>
+                                    <option value="kyc">KYC</option>
+                                    <option value="referral">Referrals</option>
+                                </select>
+                            </div>
+                            <div id="opsActivityTimeline" style="max-height:500px;overflow-y:auto;">
+                                <div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Health Sub-tab -->
+                        <div id="opsSubTabContentHealth" class="hidden">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">System Health</h4>
+                                <button onclick="loadSystemHealth()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            </div>
+                            <div id="opsHealthStatus" style="margin-bottom:16px;"></div>
+                            <div id="opsHealthChecks" style="display:grid;gap:12px;"></div>
+                        </div>
+                        
+                        <!-- Alerts Sub-tab -->
+                        <div id="opsSubTabContentAlerts" class="hidden">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Alerts</h4>
+                                <button onclick="loadAlerts()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            </div>
+                            <div id="opsAlertsSummary" style="display:flex;gap:12px;margin-bottom:16px;"></div>
+                            <div id="opsAlertsList" style="display:grid;gap:12px;"></div>
+                        </div>
+                        
+                        <!-- Audit Sub-tab -->
+                        <div id="opsSubTabContentAudit" class="hidden">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Audit Logs</h4>
+                                <button onclick="loadAuditLogs()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            </div>
+                            <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                                <select id="auditActionFilter" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;">
+                                    <option value="">All Actions</option>
+                                    <option value="login">Login</option>
+                                    <option value="logout">Logout</option>
+                                    <option value="deposit">Deposit</option>
+                                    <option value="withdrawal">Withdrawal</option>
+                                    <option value="kyc_approved">KYC Approved</option>
+                                    <option value="kyc_rejected">KYC Rejected</option>
+                                    <option value="config_change">Config Change</option>
+                                </select>
+                                <input type="date" id="auditStartDate" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;" placeholder="Start Date">
+                                <input type="date" id="auditEndDate" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;" placeholder="End Date">
+                            </div>
+                            <div id="opsAuditLogs" style="max-height:500px;overflow-y:auto;"></div>
+                        </div>
+                        
+                        <!-- Reports Sub-tab -->
+                        <div id="opsSubTabContentReports" class="hidden">
+                            <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0 0 16px 0;">Export Reports</h4>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+                                <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
+                                    <i class="fas fa-users" style="font-size:32px;color:#3B82F6;margin-bottom:12px;"></i>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Users Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export all user data including balances and KYC status</p>
+                                    <button onclick="exportReport('users')" style="background:#3B82F6;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
+                                    <i class="fas fa-arrow-down" style="font-size:32px;color:#10B981;margin-bottom:12px;"></i>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Deposits Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export all deposit transactions with status</p>
+                                    <button onclick="exportReport('deposits')" style="background:#10B981;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
+                                    <i class="fas fa-arrow-up" style="font-size:32px;color:#EF4444;margin-bottom:12px;"></i>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Withdrawals Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export all withdrawal transactions</p>
+                                    <button onclick="exportReport('withdrawals')" style="background:#EF4444;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
+                                    <i class="fas fa-gift" style="font-size:32px;color:#F0B90B;margin-bottom:12px;"></i>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Referrals Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export referral data and bonuses</p>
+                                    <button onclick="exportReport('referrals')" style="background:#F0B90B;border:none;border-radius:6px;padding:8px 16px;color:#000;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
+                                    <i class="fas fa-file-shield" style="font-size:32px;color:#F59E0B;margin-bottom:12px;"></i>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">KYC Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export KYC verification data</p>
+                                    <button onclick="exportReport('kyc')" style="background:#F59E0B;border:none;border-radius:6px;padding:8px 16px;color:#000;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                </div>
+                                <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
+                                    <i class="fas fa-history" style="font-size:32px;color:#A855F7;margin-bottom:12px;"></i>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Audit Logs</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export complete audit trail</p>
+                                    <button onclick="exportReport('audit')" style="background:#A855F7;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Users Tab -->
                     <div id="adminTabContentUsers">
+                        <!-- Enhanced User Search -->
+                        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:200px;">
+                                <input type="text" id="adminUserSearch" placeholder="Search by name, email, referral code, or ID..." 
+                                    onkeyup="handleUserSearch(event)" style="width:100%;padding:10px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:8px;color:#fff;font-size:12px;">
+                            </div>
+                            <select id="adminUserSearchField" style="padding:10px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:8px;color:#fff;font-size:12px;">
+                                <option value="">All Fields</option>
+                                <option value="name">Name</option>
+                                <option value="email">Email</option>
+                                <option value="referral_code">Referral Code</option>
+                                <option value="id">User ID</option>
+                            </select>
+                            <button onclick="searchAdminUsers()" style="background:#F0B90B;border:none;border-radius:8px;padding:10px 16px;color:#000;font-size:12px;font-weight:600;cursor:pointer;"><i class="fas fa-search"></i> Search</button>
+                            <button onclick="resetUserSearch()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-times"></i> Reset</button>
+                        </div>
                         <div style="max-height:300px;overflow-y:auto;">
                             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                 <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
@@ -3701,6 +3908,7 @@ function toggleFaq(btn) {
                                         <th style="padding:8px;text-align:left;color:#8896B5;">Demo Balance</th>
                                         <th style="padding:8px;text-align:left;color:#8896B5;">Live Balance</th>
                                         <th style="padding:8px;text-align:left;color:#8896B5;">Bonus</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminUsersTable"></tbody>
@@ -7683,6 +7891,7 @@ function showAdminTab(tab) {
     if (tabBtn) tabBtn.classList.add('active');
     
     // Show/hide content
+    document.getElementById('adminTabContentOperations').classList.add('hidden');
     document.getElementById('adminTabContentUsers').classList.add('hidden');
     document.getElementById('adminTabContentDeposits').classList.add('hidden');
     document.getElementById('adminTabContentWithdrawals').classList.add('hidden');
@@ -7700,6 +7909,480 @@ function showAdminTab(tab) {
     if (tab === 'referrals') {
         loadReferralConfig();
     }
+    
+    // Load Operations Dashboard
+    if (tab === 'operations') {
+        refreshOperationsDashboard();
+    }
+}
+
+// ============ OPERATIONS DASHBOARD FUNCTIONS ============
+
+// Show operations sub-tab
+function showOpsSubTab(subTab) {
+    // Update sub-tab buttons
+    document.querySelectorAll('.ops-sub-tab').forEach(function(btn) { 
+        btn.classList.remove('active');
+        btn.style.color = '#8896B5';
+    });
+    const activeBtn = document.getElementById('opsSubTab' + subTab.charAt(0).toUpperCase() + subTab.slice(1));
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.color = '#F0B90B';
+    }
+    
+    // Show/hide content
+    document.getElementById('opsSubTabContentOverview').classList.add('hidden');
+    document.getElementById('opsSubTabContentActivity').classList.add('hidden');
+    document.getElementById('opsSubTabContentHealth').classList.add('hidden');
+    document.getElementById('opsSubTabContentAlerts').classList.add('hidden');
+    document.getElementById('opsSubTabContentAudit').classList.add('hidden');
+    document.getElementById('opsSubTabContentReports').classList.add('hidden');
+    
+    const content = document.getElementById('opsSubTabContent' + subTab.charAt(0).toUpperCase() + subTab.slice(1));
+    if (content) content.classList.remove('hidden');
+    
+    // Load data for sub-tab
+    switch(subTab) {
+        case 'overview':
+            loadExecutiveDashboard();
+            loadActivityPreview();
+            break;
+        case 'activity':
+            loadActivityTimeline();
+            break;
+        case 'health':
+            loadSystemHealth();
+            break;
+        case 'alerts':
+            loadAlerts();
+            break;
+        case 'audit':
+            loadAuditLogs();
+            break;
+    }
+}
+
+// Load executive dashboard stats
+async function loadExecutiveDashboard() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/admin/dashboard/executive', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load dashboard');
+        
+        const data = await response.json();
+        
+        // Update user stats
+        document.getElementById('opsTotalUsers').textContent = formatNumber(data.users?.total || 0);
+        document.getElementById('opsNewUsersToday').textContent = formatNumber(data.users?.newToday || 0) + ' today';
+        document.getElementById('opsNewUsersWeek').textContent = formatNumber(data.users?.newWeek || 0) + ' week';
+        
+        // Update deposit stats
+        document.getElementById('opsTotalDeposits').textContent = '$' + formatNumber(data.financial?.totalDeposits || 0);
+        document.getElementById('opsDepositsToday').textContent = '$' + formatNumber(data.financial?.depositsToday || 0);
+        
+        // Update withdrawal stats
+        document.getElementById('opsTotalWithdrawals').textContent = '$' + formatNumber(data.financial?.totalWithdrawals || 0);
+        document.getElementById('opsPendingWithdrawals').textContent = (data.financial?.pendingWithdrawals || 0) + ' pending';
+        
+        // Update KYC stats
+        document.getElementById('opsPendingKyc').textContent = formatNumber(data.kyc?.pending || 0);
+        document.getElementById('opsVerifiedUsers').textContent = formatNumber(data.users?.verified || 0) + ' verified';
+        
+        // Update payment stats
+        document.getElementById('opsPaymentSuccess').textContent = (data.payments?.successRate || 0) + '%';
+        document.getElementById('opsSuccessfulPayments').textContent = formatNumber(data.payments?.successful || 0);
+        document.getElementById('opsFailedPayments').textContent = formatNumber(data.payments?.failed || 0);
+        
+        // Update referral stats
+        document.getElementById('opsTotalRewards').textContent = '$' + formatNumber(data.financial?.totalReferralRewards || 0);
+        
+    } catch (error) {
+        console.error('Failed to load executive dashboard:', error);
+    }
+}
+
+// Refresh all operations dashboard data
+async function refreshOperationsDashboard() {
+    await loadExecutiveDashboard();
+    await loadActivityPreview();
+    await loadAlertsSummary();
+}
+
+// Load activity preview for overview
+async function loadActivityPreview() {
+    const token = localStorage.getItem('jwt_token');
+    const container = document.getElementById('opsActivityPreview');
+    if (!container || !token) return;
+    
+    try {
+        const response = await fetch('/api/admin/dashboard/activity?limit=10', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load activity');
+        
+        const data = await response.json();
+        
+        if (!data.activities || data.activities.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#8896B5;">No recent activity</div>';
+            return;
+        }
+        
+        container.innerHTML = data.activities.map(activity => {
+            const timeAgo = getTimeAgo(activity.timestamp);
+            return `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #1E2A3F;">
+                    <div style="width:32px;height:32px;background:${activity.color}20;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                        <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:12px;"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:12px;color:#fff;">${activity.title}</div>
+                        <div style="font-size:10px;color:#8896B5;">${activity.description}</div>
+                    </div>
+                    <div style="font-size:10px;color:#8896B5;">${timeAgo}</div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Failed to load activity preview:', error);
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">Failed to load activity</div>';
+    }
+}
+
+// Load full activity timeline
+async function loadActivityTimeline() {
+    const token = localStorage.getItem('jwt_token');
+    const container = document.getElementById('opsActivityTimeline');
+    const filter = document.getElementById('activityFilter')?.value || 'all';
+    if (!container || !token) return;
+    
+    try {
+        const response = await fetch(`/api/admin/dashboard/activity?limit=50&type=${filter}`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load activity');
+        
+        const data = await response.json();
+        
+        if (!data.activities || data.activities.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:12px;"></i><p>No activity found</p></div>';
+            return;
+        }
+        
+        container.innerHTML = data.activities.map(activity => {
+            const timeAgo = getTimeAgo(activity.timestamp);
+            const formattedTime = new Date(activity.timestamp).toLocaleString();
+            return `
+                <div style="display:flex;gap:16px;padding:16px;background:#141C2E;border-radius:12px;margin-bottom:8px;border:1px solid #1E2A3F;">
+                    <div style="width:40px;height:40px;background:${activity.color}20;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:16px;"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px;">
+                            <span style="font-size:13px;font-weight:600;color:#fff;">${activity.title}</span>
+                            <span style="font-size:10px;color:#8896B5;" title="${formattedTime}">${timeAgo}</span>
+                        </div>
+                        <div style="font-size:12px;color:#8896B5;">${activity.description}</div>
+                        ${activity.amount ? `<div style="font-size:14px;font-weight:700;color:${activity.color};margin-top:4px;">$${activity.amount.toFixed(2)}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Failed to load activity timeline:', error);
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">Failed to load activity</div>';
+    }
+}
+
+// Load system health
+async function loadSystemHealth() {
+    const token = localStorage.getItem('jwt_token');
+    const statusContainer = document.getElementById('opsHealthStatus');
+    const checksContainer = document.getElementById('opsHealthChecks');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/admin/dashboard/health', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load health');
+        
+        const data = await response.json();
+        
+        // Update status badge
+        const statusColors = { healthy: '#10B981', degraded: '#F59E0B', unhealthy: '#EF4444' };
+        const statusColor = statusColors[data.status] || '#8896B5';
+        const uptime = formatUptime(data.uptime);
+        
+        if (statusContainer) {
+            statusContainer.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:#141C2E;border-radius:12px;border:1px solid #1E2A3F;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:48px;height:48px;background:${statusColor}20;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-heartbeat" style="color:${statusColor};font-size:20px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:18px;font-weight:700;color:${statusColor};text-transform:capitalize;">${data.status}</div>
+                            <div style="font-size:11px;color:#8896B5;">Last checked: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:24px;font-weight:800;color:#fff;">${uptime}</div>
+                        <div style="font-size:11px;color:#8896B5;">Server Uptime</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update checks
+        if (checksContainer) {
+            const checks = data.checks || {};
+            checksContainer.innerHTML = Object.entries(checks).map(([name, check]) => {
+                const checkColors = { healthy: '#10B981', degraded: '#F59E0B', unhealthy: '#EF4444', unknown: '#8896B5' };
+                const color = checkColors[check.status] || '#8896B5';
+                const displayName = name.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                const latency = check.latency ? ` • ${check.latency}ms` : '';
+                
+                let details = '';
+                if (check.failedInLastHour !== undefined) details = ` • ${check.failedInLastHour} failed (1h)`;
+                if (check.bucketCount !== undefined) details = ` • ${check.bucketCount} buckets`;
+                if (check.error) details = ` • ${check.error}`;
+                
+                return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:8px;height:8px;background:${color};border-radius:50%;"></div>
+                            <span style="font-size:13px;color:#fff;">${displayName}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:11px;color:#8896B5;">${check.status}${latency}${details}</span>
+                            <i class="fas fa-circle" style="color:${color};font-size:6px;"></i>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Failed to load system health:', error);
+        if (statusContainer) {
+            statusContainer.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;">Failed to load health status</div>';
+        }
+    }
+}
+
+// Load alerts
+async function loadAlerts() {
+    const token = localStorage.getItem('jwt_token');
+    const summaryContainer = document.getElementById('opsAlertsSummary');
+    const listContainer = document.getElementById('opsAlertsList');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/admin/dashboard/alerts', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load alerts');
+        
+        const data = await response.json();
+        
+        // Update summary
+        if (summaryContainer) {
+            summaryContainer.innerHTML = `
+                <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
+                    <div style="font-size:20px;font-weight:800;color:#EF4444;">${data.critical || 0}</div>
+                    <div style="font-size:10px;color:#8896B5;">Critical</div>
+                </div>
+                <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
+                    <div style="font-size:20px;font-weight:800;color:#F59E0B;">${data.warnings || 0}</div>
+                    <div style="font-size:10px;color:#8896B5;">Warnings</div>
+                </div>
+                <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
+                    <div style="font-size:20px;font-weight:800;color:#3B82F6;">${data.info || 0}</div>
+                    <div style="font-size:10px;color:#8896B5;">Info</div>
+                </div>
+            `;
+        }
+        
+        // Update list
+        if (listContainer) {
+            if (!data.alerts || data.alerts.length === 0) {
+                listContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#10B981;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:12px;"></i><p>No alerts - everything looks good!</p></div>';
+                return;
+            }
+            
+            listContainer.innerHTML = data.alerts.map(alert => {
+                const severityColors = { error: '#EF4444', warning: '#F59E0B', info: '#3B82F6' };
+                const color = severityColors[alert.severity] || '#8896B5';
+                const timeAgo = getTimeAgo(alert.timestamp);
+                
+                return `
+                    <div style="padding:16px;background:#141C2E;border-radius:12px;border:1px solid #1E2A3F;border-left:4px solid ${color};">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <i class="fas fa-exclamation-circle" style="color:${color};"></i>
+                                <span style="font-size:13px;font-weight:600;color:#fff;">${alert.title}</span>
+                            </div>
+                            <span style="font-size:10px;color:#8896B5;">${timeAgo}</span>
+                        </div>
+                        <div style="font-size:12px;color:#8896B5;margin-bottom:8px;">${alert.message}</div>
+                        ${alert.count ? `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:4px;font-size:10px;font-weight:600;">${alert.count} ${alert.severity === 'error' ? 'errors' : 'items'}</span>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Failed to load alerts:', error);
+    }
+}
+
+// Load alerts summary for overview
+async function loadAlertsSummary() {
+    // This is called from refresh to update alert indicators if needed
+    // For now, alerts are loaded when the alerts tab is opened
+}
+
+// Load audit logs
+async function loadAuditLogs() {
+    const token = localStorage.getItem('jwt_token');
+    const container = document.getElementById('opsAuditLogs');
+    const actionFilter = document.getElementById('auditActionFilter')?.value || '';
+    const startDate = document.getElementById('auditStartDate')?.value || '';
+    const endDate = document.getElementById('auditEndDate')?.value || '';
+    if (!token || !container) return;
+    
+    try {
+        let url = '/api/admin/dashboard/audit-logs?limit=100';
+        if (actionFilter) url += `&action=${actionFilter}`;
+        if (startDate) url += `&startDate=${startDate}`;
+        if (endDate) url += `&endDate=${endDate}`;
+        
+        const response = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load audit logs');
+        
+        const data = await response.json();
+        
+        if (!data.logs || data.logs.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-history" style="font-size:32px;margin-bottom:12px;"></i><p>No audit logs found</p></div>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                    <tr style="border-bottom:1px solid #1E2A3F;">
+                        <th style="padding:8px;text-align:left;color:#8896B5;">Timestamp</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">Action</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">Performed By</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">Details</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.logs.map(log => `
+                        <tr style="border-bottom:1px solid #1E2A3F;">
+                            <td style="padding:8px;color:#8896B5;">${new Date(log.created_at).toLocaleString()}</td>
+                            <td style="padding:8px;"><span style="padding:2px 6px;background:#1E2A3F;border-radius:4px;color:#F0B90B;">${log.action}</span></td>
+                            <td style="padding:8px;color:#fff;">${log.performedByName || 'System'}</td>
+                            <td style="padding:8px;color:#8896B5;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${log.details || '-'}</td>
+                            <td style="padding:8px;color:#8896B5;">${log.ip_address || '-'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <div style="padding:12px;text-align:center;color:#8896B5;font-size:11px;border-top:1px solid #1E2A3F;">
+                Showing ${data.logs.length} of ${data.total} total logs
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Failed to load audit logs:', error);
+        if (container) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">Failed to load audit logs</div>';
+        }
+    }
+}
+
+// Export report
+function exportReport(type) {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) {
+        showToast('Please login first', 'error');
+        return;
+    }
+    
+    showToast('Preparing export...', 'info');
+    
+    const link = document.createElement('a');
+    link.href = `/api/admin/reports/export?type=${type}&format=csv`;
+    link.download = `${type}_export.csv`;
+    link.headers = { 'Authorization': `Bearer ${token}` };
+    
+    fetch(link.href, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Export failed');
+        return response.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `${type}_export.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast('Export completed!', 'success');
+    })
+    .catch(error => {
+        console.error('Export failed:', error);
+        showToast('Export failed', 'error');
+    });
+}
+
+// Helper functions
+function formatNumber(num) {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num?.toString() || '0';
+}
+
+function getTimeAgo(timestamp) {
+    const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + 'm ago';
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + 'h ago';
+    const days = Math.floor(hours / 24);
+    if (days < 7) return days + 'd ago';
+    return new Date(timestamp).toLocaleDateString();
+}
+
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
 }
 
 // ============ REFERRAL CONFIG FUNCTIONS ============
@@ -8579,16 +9262,72 @@ function exportPayments() {
     window.location.href = '/api/admin/payments/export';
 }
 
+// Enhanced user search functions
+function handleUserSearch(event) {
+    if (event.key === 'Enter') {
+        searchAdminUsers();
+    }
+}
+
+async function searchAdminUsers() {
+    const token = localStorage.getItem('jwt_token');
+    const searchInput = document.getElementById('adminUserSearch');
+    const searchField = document.getElementById('adminUserSearchField');
+    
+    if (!token || !searchInput) return;
+    
+    const query = searchInput.value.trim();
+    const field = searchField?.value || '';
+    
+    if (!query) {
+        resetUserSearch();
+        return;
+    }
+    
+    try {
+        let url = `/api/admin/users/search?q=${encodeURIComponent(query)}`;
+        if (field) url += `&field=${field}`;
+        
+        const response = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (!response.ok) throw new Error('Search failed');
+        
+        const data = await response.json();
+        renderAdminUsers(data.users || []);
+        
+    } catch (error) {
+        console.error('User search failed:', error);
+        showToast('Search failed', 'error');
+    }
+}
+
+function resetUserSearch() {
+    const searchInput = document.getElementById('adminUserSearch');
+    const searchField = document.getElementById('adminUserSearchField');
+    
+    if (searchInput) searchInput.value = '';
+    if (searchField) searchField.value = '';
+    
+    loadAdminUsers();
+}
+
 function renderAdminUsers(users) {
     const tbody = document.getElementById('adminUsersTable');
     if (!tbody) return;
     
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">No users found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#5A6A8A;">No users found</td></tr>';
         return;
     }
     
     tbody.innerHTML = users.map(function(u) {
+        const kycStatus = u.kyc_status || 'not_started';
+        const kycBadge = kycStatus === 'approved' ? 
+            '<span style="padding:2px 6px;background:#10B98120;color:#10B981;border-radius:4px;font-size:9px;">Verified</span>' :
+            '<span style="padding:2px 6px;background:#F59E0B20;color:#F59E0B;border-radius:4px;font-size:9px;">Pending</span>';
+        
         return '<tr style="border-bottom:1px solid #1E2A3F;">' +
             '<td style="padding:8px;">' + (u.name || 'N/A') + '</td>' +
             '<td style="padding:8px;">' + u.email + '</td>' +
@@ -8596,6 +9335,7 @@ function renderAdminUsers(users) {
             '<td style="padding:8px;">$' + (u.demo_balance || 0).toFixed(2) + '</td>' +
             '<td style="padding:8px;">$' + (u.live_balance || 0).toFixed(2) + '</td>' +
             '<td style="padding:8px;">$' + (u.bonus_balance || 0).toFixed(2) + '</td>' +
+            '<td style="padding:8px;">' + kycBadge + '</td>' +
         '</tr>';
     }).join('');
 }
