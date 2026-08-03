@@ -6,7 +6,18 @@
 -- ============================================
 
 -- ============================================
--- 1. CREATE TABLES
+-- 1. DISABLE RLS (Required for BIGINT compatibility)
+-- ============================================
+-- RLS must be explicitly disabled because Supabase Auth uses UUIDs but users.id is BIGINT.
+-- PostgreSQL cannot cast UUID to BIGINT in RLS policies.
+-- Authorization is handled by application code via JWT tokens and authMiddleware.
+ALTER TABLE public.verification_profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.verification_documents DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.verification_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_review_history DISABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- 2. CREATE TABLES
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.verification_profiles (
@@ -78,7 +89,7 @@ CREATE TABLE IF NOT EXISTS public.admin_review_history (
 );
 
 -- ============================================
--- 2. CREATE INDEXES
+-- 3. CREATE INDEXES
 -- ============================================
 
 CREATE INDEX idx_vp_user_id ON public.verification_profiles(user_id);
