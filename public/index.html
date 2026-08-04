@@ -2552,11 +2552,13 @@ function openProfileModal() {
 }
 
 function openTwoFAModal() {
+    console.log('[2FA MODAL] openTwoFAModal() called');
     document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
     document.getElementById('twofaLink').classList.add('active');
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('open');
     document.getElementById('twofaModal').classList.add('open');
+    console.log('[2FA MODAL] Modal opened, calling load2FAStatus()');
     load2FAStatus();
 }
 
@@ -2763,7 +2765,9 @@ function handle2FACodeInput(input, index) {
     
     // Auto-submit when all filled
     const code = get2FACode();
+    console.log('[2FA INPUT] Code entered, length:', code.length);
     if (code.length === 6) {
+        console.log('[2FA INPUT] Code complete, triggering verify2FASetup()');
         verify2FASetup();
     }
 }
@@ -2781,9 +2785,14 @@ function clear2FACodeInputs() {
 
 async function verify2FASetup() {
     const token = localStorage.getItem('jwt_token');
-    if (!token || !twofaSetupData) return;
+    if (!token || !twofaSetupData) {
+        console.log('[2FA VERIFY] ERROR: Missing token or setup data', { hasToken: !!token, hasSetupData: !!twofaSetupData });
+        return;
+    }
     
     const code = get2FACode();
+    console.log('[2FA VERIFY] Starting verification with code:', code.substring(0, 3) + '***');
+    
     if (code.length !== 6) {
         show2FAVerifyError('Please enter the 6-digit code');
         return;
@@ -2794,6 +2803,7 @@ async function verify2FASetup() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
     
     try {
+        console.log('[2FA VERIFY] Step 1: Calling /api/2fa/verify-setup...');
         const response = await fetch('/api/2fa/verify-setup', {
             method: 'POST',
             headers: { 
@@ -2804,11 +2814,13 @@ async function verify2FASetup() {
         });
         
         const data = await response.json();
+        console.log('[2FA VERIFY] verify-setup response:', { status: response.status, ok: response.ok, data: data });
         
         if (!response.ok) {
             throw new Error(data.error || 'Verification failed');
         }
         
+        console.log('[2FA VERIFY] Step 2: Calling /api/2fa/enable...');
         // Enable 2FA
         const enableResponse = await fetch('/api/2fa/enable', {
             method: 'POST',
@@ -2818,20 +2830,29 @@ async function verify2FASetup() {
             }
         });
         
+        const enableData = await enableResponse.json();
+        console.log('[2FA VERIFY] enable response:', { status: enableResponse.status, ok: enableResponse.ok, data: enableData });
+        
         if (!enableResponse.ok) {
-            const enableData = await enableResponse.json();
             throw new Error(enableData.error || 'Failed to enable 2FA');
         }
         
         // Show recovery codes - this is correct after successful verification
         log2FAViewTransition('twofaSetupView2', 'twofaRecoveryView', 'Verification successful - showing recovery codes');
+        
+        // Populate recovery codes in the recovery view
+        if (twofaSetupData && twofaSetupData.recoveryCodes) {
+            document.getElementById('twofaRecoveryCodesList').innerHTML = twofaSetupData.recoveryCodes.join('<br>');
+        }
+        
         document.getElementById('twofaSetupView2').style.display = 'none';
         document.getElementById('twofaRecoveryView').style.display = 'block';
         
         showToast('2FA enabled successfully!', 'success');
         
     } catch (error) {
-        console.error('2FA verify error:', error);
+        console.error('[2FA VERIFY] ERROR:', error);
+        console.log('[2FA VERIFY] Stack:', error.stack);
         show2FAVerifyError(error.message);
         clear2FACodeInputs();
     } finally {
