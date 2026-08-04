@@ -2562,21 +2562,24 @@ async function handle2FALoginSubmit() {
     
     const code = get2FALoginCode();
     
+    console.log('[LOGIN 2FA] Submitting code, length:', code.length);
+    
     if (code.length !== 6) {
-        showAuthError('Please enter the 6-digit code', 'login');
+        showAuthError('Please enter the 6-digit code', 'twofaLogin');
         setButtonLoading(btn, false);
         return;
     }
     
     if (!pendingLoginPartialToken) {
-        showAuthError('Session expired. Please login again.', 'login');
+        console.log('[LOGIN 2FA] ERROR: No pending partial token');
+        showAuthError('Session expired. Please login again.', 'twofaLogin');
         hide2FALoginForm();
         setButtonLoading(btn, false);
         return;
     }
     
     try {
-        console.log('[LOGIN 2FA] Verifying code...');
+        console.log('[LOGIN 2FA] Sending verification request...');
         const response = await fetch('/api/2fa/login-verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2588,24 +2591,43 @@ async function handle2FALoginSubmit() {
         
         const data = await response.json();
         
-        if (!response.ok) {
-            showAuthError(data.error || 'Invalid code', 'login');
+        console.log('[LOGIN 2FA] Response received:', {
+            status: response.status,
+            ok: response.ok,
+            hasData: !!data,
+            hasToken: !!data?.token,
+            hasUser: !!data?.user,
+            hasSuccess: !!data?.success,
+            dataKeys: data ? Object.keys(data) : [],
+            data: data
+        });
+        
+        // Check if verification was successful
+        // We check both HTTP status AND data.success for robustness
+        const isSuccess = response.ok && data.success;
+        
+        if (!isSuccess) {
+            console.log('[LOGIN 2FA] Verification failed:', data.error || 'Unknown error');
+            showAuthError(data.error || 'Invalid code', 'twofaLogin');
             setButtonLoading(btn, false);
             return;
         }
         
-        console.log('[LOGIN 2FA] Verification successful - completing login');
+        console.log('[LOGIN 2FA] Verification SUCCESS - data.token exists:', !!data.token, ', data.user exists:', !!data.user);
+        
         // Use token directly from login-verify response
         if (data.token && data.user) {
+            console.log('[LOGIN 2FA] Calling hide2FALoginForm and completeLogin');
             hide2FALoginForm();
             completeLogin(data.token, data.user);
         } else {
-            showAuthError('Login failed. Please try again.', 'login');
+            console.log('[LOGIN 2FA] Missing token or user in response');
+            showAuthError('Login failed. Please try again.', 'twofaLogin');
             hide2FALoginForm();
         }
     } catch (e) {
-        showAuthError('Network error. Please try again.', 'login');
-        console.error(e);
+        console.error('[LOGIN 2FA] Exception:', e);
+        showAuthError('Network error. Please try again.', 'twofaLogin');
     }
     
     setButtonLoading(btn, false);
