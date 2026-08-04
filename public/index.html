@@ -2476,8 +2476,12 @@ async function handleSignup() {
     }
 }
 
+// Store partial token and credentials for 2FA login
+let pendingLoginPartialToken = null;
+let pendingLoginCredentials = null;
+
 async function handleLogin() {
-    console.log('✅ LOGIN BUTTON CLICKED');
+    console.log('[LOGIN] Login button clicked');
     var btn = document.getElementById('loginSubmitBtn');
     setButtonLoading(btn, true);
     
@@ -2491,49 +2495,165 @@ async function handleLogin() {
     }
 
     try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch('/api/2fa/login-initiate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-            const error = await response.json();
-            showAuthError(error.error || 'Invalid email or password', 'login');
+            showAuthError(data.error || 'Invalid email or password', 'login');
             setButtonLoading(btn, false);
             return;
         }
 
-        const data = await response.json();
-        localStorage.setItem('jwt_token', data.token);
-        localStorage.setItem('arbi_user', JSON.stringify(data.user));
-        
-        // Update APP state with user's referral code
-        if (data.user.referralCode) {
-            APP.referralCode = data.user.referralCode;
+        // Check if 2FA is required
+        if (data.requires2FA) {
+            console.log('[LOGIN] 2FA required - storing partial token');
+            pendingLoginPartialToken = data.partialToken;
+            pendingLoginCredentials = { email, password };
+            show2FALoginForm();
+            setButtonLoading(btn, false);
+            return;
         }
 
-        showAuthSuccess('Welcome back! Redirecting...', 'login');
+        // No 2FA - complete login directly
+        console.log('[LOGIN] No 2FA - completing login');
+        completeLogin(data.token, data.user);
         setButtonLoading(btn, false);
-
-        setTimeout(() => {
-            document.getElementById('authPage').style.display = 'none';
-            document.getElementById('landingPage').style.display = 'block';
-            document.getElementById('displayName').textContent = data.user.name;
-            document.getElementById('userName').textContent = data.user.name;
-            const greeting = document.getElementById('landingUserGreeting');
-            if (greeting) {
-                greeting.style.display = 'inline-block';
-                document.getElementById('landingUserName').textContent = data.user.name;
-            }
-            checkAdminAccess();
-            updateReferralDisplay();
-        }, 1000);
     } catch (e) {
         showAuthError('Network error. Please try again.', 'login');
         setButtonLoading(btn, false);
         console.error(e);
     }
+}
+
+function show2FALoginForm() {
+    const loginForm = document.getElementById('loginForm');
+    const twofaLoginSection = document.getElementById('twofaLoginSection');
+    
+    if (loginForm) loginForm.style.display = 'none';
+    if (twofaLoginSection) {
+        twofaLoginSection.style.display = 'block';
+        const firstInput = twofaLoginSection.querySelector('.code-input');
+        if (firstInput) firstInput.focus();
+    }
+}
+
+function hide2FALoginForm() {
+    const loginForm = document.getElementById('loginForm');
+    const twofaLoginSection = document.getElementById('twofaLoginSection');
+    
+    if (loginForm) loginForm.style.display = 'block';
+    if (twofaLoginSection) {
+        twofaLoginSection.style.display = 'none';
+        const inputs = twofaLoginSection.querySelectorAll('.code-input');
+        inputs.forEach(i => i.value = '');
+    }
+    pendingLoginPartialToken = null;
+    pendingLoginCredentials = null;
+}
+
+async function handle2FALoginSubmit() {
+    const btn = document.getElementById('twofaLoginSubmitBtn');
+    setButtonLoading(btn, true);
+    
+    const code = get2FALoginCode();
+    
+    if (code.length !== 6) {
+        showAuthError('Please enter the 6-digit code', 'login');
+        setButtonLoading(btn, false);
+        return;
+    }
+    
+    if (!pendingLoginPartialToken) {
+        showAuthError('Session expired. Please login again.', 'login');
+        hide2FALoginForm();
+        setButtonLoading(btn, false);
+        return;
+    }
+    
+    try {
+        console.log('[LOGIN 2FA] Verifying code...');
+        const response = await fetch('/api/2fa/login-verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                partialToken: pendingLoginPartialToken,
+                code: code
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            showAuthError(data.error || 'Invalid code', 'login');
+            setButtonLoading(btn, false);
+            return;
+        }
+        
+        console.log('[LOGIN 2FA] Verification successful - completing login');
+        // Use token directly from login-verify response
+        if (data.token && data.user) {
+            hide2FALoginForm();
+            completeLogin(data.token, data.user);
+        } else {
+            showAuthError('Login failed. Please try again.', 'login');
+            hide2FALoginForm();
+        }
+    } catch (e) {
+        showAuthError('Network error. Please try again.', 'login');
+        console.error(e);
+    }
+    
+    setButtonLoading(btn, false);
+}
+
+function get2FALoginCode() {
+    const inputs = document.querySelectorAll('#twofaLoginCodeGroup .code-input');
+    return Array.from(inputs).map(i => i.value).join('');
+}
+
+function handle2FALoginCodeInput(input, index) {
+    input.value = input.value.replace(/[^0-9]/g, '');
+    
+    if (input.value && index < 5) {
+        const inputs = document.querySelectorAll('#twofaLoginCodeGroup .code-input');
+        inputs[index + 1].focus();
+    }
+    
+    const code = get2FALoginCode();
+    if (code.length === 6) {
+        handle2FALoginSubmit();
+    }
+}
+
+function completeLogin(token, user) {
+    console.log('[LOGIN] Completing login for user:', user.email);
+    localStorage.setItem('jwt_token', token);
+    localStorage.setItem('arbi_user', JSON.stringify(user));
+    
+    if (user.referralCode) {
+        APP.referralCode = user.referralCode;
+    }
+
+    showAuthSuccess('Welcome back! Redirecting...', 'login');
+
+    setTimeout(() => {
+        document.getElementById('authPage').style.display = 'none';
+        document.getElementById('landingPage').style.display = 'block';
+        document.getElementById('displayName').textContent = user.name;
+        document.getElementById('userName').textContent = user.name;
+        const greeting = document.getElementById('landingUserGreeting');
+        if (greeting) {
+            greeting.style.display = 'inline-block';
+            document.getElementById('landingUserName').textContent = user.name;
+        }
+        checkAdminAccess();
+        updateReferralDisplay();
+    }, 1000);
 }
 
 // ============ MODAL FUNCTIONS ============
@@ -3602,6 +3722,40 @@ function toggleFaq(btn) {
                         
                         <div class="auth-switch">
                             Don't have an account? <a onclick="showSignupForm()" data-i18n="auth.createAccount">Create Account</a>
+                        </div>
+                    </div>
+                    
+                    <!-- 2FA Login Verification -->
+                    <div id="twofaLoginSection" style="display:none;">
+                        <div class="auth-header">
+                            <i class="fas fa-shield-halved" style="font-size:48px;color:#F0B90B;margin-bottom:16px;"></i>
+                            <h2>Two-Factor Authentication</h2>
+                            <p>Enter the 6-digit code from your authenticator app</p>
+                        </div>
+                        
+                        <div id="twofaLoginError" class="auth-alert error">
+                            <i class="fas fa-circle-exclamation"></i>
+                            <span></span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Verification Code</label>
+                            <div class="code-input-group" id="twofaLoginCodeGroup">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="0" oninput="handle2FALoginCodeInput(this, 0)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="1" oninput="handle2FALoginCodeInput(this, 1)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="2" oninput="handle2FALoginCodeInput(this, 2)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="3" oninput="handle2FALoginCodeInput(this, 3)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="4" oninput="handle2FALoginCodeInput(this, 4)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="5" oninput="handle2FALoginCodeInput(this, 5)">
+                            </div>
+                        </div>
+                        
+                        <button type="button" id="twofaLoginSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handle2FALoginSubmit()">
+                            <i class="fas fa-check"></i> Verify & Sign In
+                        </button>
+                        
+                        <div class="auth-switch">
+                            <a onclick="hide2FALoginForm()" data-i18n="auth.backToLogin">Back to Login</a>
                         </div>
                     </div>
                     
