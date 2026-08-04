@@ -2561,6 +2561,7 @@ function openTwoFAModal() {
 }
 
 function closeTwoFAModal() {
+    log2FAViewTransition('current_view', 'modal_closed', 'Modal closed');
     document.getElementById('twofaModal').classList.remove('open');
 }
 
@@ -2570,9 +2571,21 @@ let twofaSetupData = null;
 let is2FASetupInProgress = false; // Prevent concurrent API calls
 let currentSetupRequestId = 0; // Track the current request to discard stale responses
 
+// Debug logging for view transitions
+function log2FAViewTransition(fromView, toView, reason) {
+    console.log('[2FA VIEW TRANSITION]', {
+        from: fromView,
+        to: toView,
+        reason: reason,
+        timestamp: new Date().toISOString()
+    });
+}
+
 async function load2FAStatus() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
+    
+    log2FAViewTransition('N/A', 'checking', 'load2FAStatus() called');
     
     try {
         const response = await fetch('/api/2fa/status', {
@@ -2582,6 +2595,7 @@ async function load2FAStatus() {
         if (!response.ok) throw new Error('Failed to load 2FA status');
         
         const data = await response.json();
+        log2FAViewTransition('checking', 'determining', 'API response: enabled=' + data.enabled);
         
         // Hide all views
         document.getElementById('twofaStatusView').style.display = 'none';
@@ -2595,9 +2609,11 @@ async function load2FAStatus() {
             document.getElementById('twofaStatusView').style.display = 'block';
             document.getElementById('twofaEnabledDate').textContent = data.enabledAt ? new Date(data.enabledAt).toLocaleDateString() : '-';
             document.getElementById('twofaBackupCodesCount').textContent = data.backupCodesRemaining + ' remaining';
+            log2FAViewTransition('determining', 'twofaStatusView', '2FA is enabled');
         } else {
             // Show setup view 1
             document.getElementById('twofaSetupView1').style.display = 'block';
+            log2FAViewTransition('determining', 'twofaSetupView1', '2FA is not enabled - showing setup');
             initiate2FASetup();
         }
     } catch (error) {
@@ -2610,8 +2626,11 @@ async function initiate2FASetup() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
     
+    log2FAViewTransition('twofaSetupView1', 'twofaSetupView1', 'initiate2FASetup() started - generating QR');
+    
     // Prevent concurrent API calls
     if (is2FASetupInProgress) {
+        log2FAViewTransition('twofaSetupView1', 'twofaSetupView1', 'initiate2FASetup() blocked - already in progress');
         return;
     }
     is2FASetupInProgress = true;
@@ -2642,6 +2661,7 @@ async function initiate2FASetup() {
         
         // Discard stale response - if this request ID is not current, another request was made
         if (requestId !== currentSetupRequestId) {
+            log2FAViewTransition('twofaSetupView1', 'discarded', 'Stale response discarded (requestId mismatch)');
             return;
         }
         
@@ -2651,6 +2671,7 @@ async function initiate2FASetup() {
         
         // Discard stale response - double-check after error-throwing code
         if (requestId !== currentSetupRequestId) {
+            log2FAViewTransition('twofaSetupView1', 'discarded', 'Stale response discarded after ok check');
             return;
         }
         
@@ -2665,35 +2686,68 @@ async function initiate2FASetup() {
         // Display manual key
         document.getElementById('twofaManualKey').textContent = data.secret;
         
-        // Show recovery codes
-        const recoveryList = document.getElementById('twofaRecoveryCodesList');
+        // Show recovery codes in the setup view
+        const recoveryList = document.getElementById('twofaSetupRecoveryCodesList');
         recoveryList.innerHTML = data.recoveryCodes.join('<br>');
+        document.getElementById('twofaSetupRecoverySection').style.display = 'block';
         
-        // Switch to verify view
-        document.getElementById('twofaSetupView1').style.display = 'none';
-        document.getElementById('twofaSetupView2').style.display = 'block';
+        // Show the "Continue to Verification" button
+        const continueBtn = document.getElementById('continueToVerifyBtn');
+        if (continueBtn) {
+            continueBtn.style.display = 'block';
+        }
         
-        // Clear code inputs
-        clear2FACodeInputs();
+        // Re-enable the generate button (user can regenerate if needed)
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generate New QR Code';
+        }
+        
+        log2FAViewTransition('twofaSetupView1', 'twofaSetupView1', 'QR and recovery codes generated - STAYING on setup view');
+        
+        // NOTE: We do NOT automatically switch views here anymore
+        // User must click "Continue to Verification" to proceed
         
     } catch (error) {
         // Discard stale response on error as well
         if (requestId !== currentSetupRequestId) {
+            log2FAViewTransition('twofaSetupView1', 'discarded', 'Stale response discarded on error');
             return;
         }
         
         console.error('2FA setup error:', error);
         showToast(error.message, 'error');
-        document.getElementById('twofaSetupView1').style.display = 'block';
-        document.getElementById('twofaSetupView2').style.display = 'none';
         // Re-enable button on error
         const btn = document.getElementById('generateQRCodeBtn');
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generate New QR Code';
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generate QR Code';
         }
     } finally {
         is2FASetupInProgress = false;
+    }
+}
+
+// User-initiated transition to verification view
+function goTo2FAVerification() {
+    if (!twofaSetupData) {
+        showToast('Please generate a QR code first', 'error');
+        return;
+    }
+    
+    log2FAViewTransition('twofaSetupView1', 'twofaSetupView2', 'User clicked "Continue to Verification"');
+    
+    // Switch to verify view
+    document.getElementById('twofaSetupView1').style.display = 'none';
+    document.getElementById('twofaSetupView2').style.display = 'block';
+    
+    // Clear code inputs
+    clear2FACodeInputs();
+    
+    // Focus the first input
+    const firstInput = document.querySelector('#twofaCodeGroup .code-input');
+    if (firstInput) {
+        firstInput.focus();
     }
 }
 
@@ -2769,7 +2823,8 @@ async function verify2FASetup() {
             throw new Error(enableData.error || 'Failed to enable 2FA');
         }
         
-        // Show recovery codes
+        // Show recovery codes - this is correct after successful verification
+        log2FAViewTransition('twofaSetupView2', 'twofaRecoveryView', 'Verification successful - showing recovery codes');
         document.getElementById('twofaSetupView2').style.display = 'none';
         document.getElementById('twofaRecoveryView').style.display = 'block';
         
@@ -2792,6 +2847,7 @@ function show2FAVerifyError(message) {
 }
 
 function confirmRecoveryCodesSaved() {
+    log2FAViewTransition('twofaRecoveryView', 'modal_closed', 'User confirmed recovery codes saved');
     twofaSetupData = null;
     closeTwoFAModal();
     showToast('Two-Factor Authentication is now enabled!', 'success');
@@ -2829,6 +2885,7 @@ async function regenerateRecoveryCodes() {
         const recoveryList = document.getElementById('twofaRecoveryCodesList');
         recoveryList.innerHTML = data.recoveryCodes.join('<br>');
         
+        log2FAViewTransition('twofaStatusView', 'twofaRecoveryView', 'Recovery codes regenerated');
         document.getElementById('twofaStatusView').style.display = 'none';
         document.getElementById('twofaRecoveryView').style.display = 'block';
         
@@ -2844,6 +2901,7 @@ async function regenerateRecoveryCodes() {
 }
 
 function showDisable2FAForm() {
+    log2FAViewTransition('twofaStatusView', 'twofaDisableView', 'User clicked Disable 2FA');
     document.getElementById('twofaDisableCode').value = '';
     document.getElementById('twofaDisableRecovery').value = '';
     document.getElementById('twofaDisableError').style.display = 'none';
@@ -2852,6 +2910,7 @@ function showDisable2FAForm() {
 }
 
 function cancelDisable2FA() {
+    log2FAViewTransition('twofaDisableView', 'twofaStatusView', 'User clicked Cancel');
     document.getElementById('twofaStatusView').style.display = 'block';
     document.getElementById('twofaDisableView').style.display = 'none';
 }
@@ -2888,6 +2947,7 @@ async function disable2FA() {
             throw new Error(data.error || 'Failed to disable 2FA');
         }
         
+        log2FAViewTransition('twofaDisableView', 'modal_closed', '2FA disabled successfully');
         closeTwoFAModal();
         showToast('2FA has been disabled', 'info');
         
@@ -4994,7 +5054,7 @@ function toggleFaq(btn) {
             </div>
         </div>
         
-        <!-- Setup Step 1: Show QR Code -->
+        <!-- Setup Step 1: Show QR Code and Recovery Codes -->
         <div id="twofaSetupView1">
             <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Scan this QR code with your authenticator app (Google Authenticator, Microsoft Authenticator, Authy, etc.)</p>
             
@@ -5016,7 +5076,19 @@ function toggleFaq(btn) {
                 <i class="fas fa-info-circle"></i> Enter this key manually if QR code doesn't work
             </p>
             
-            <button type="button" onclick="initiate2FASetup()" class="btn btn-primary btn-block" id="generateQRCodeBtn"><i class="fas fa-sync-alt"></i> Generate New QR Code</button>
+            <!-- Recovery Codes Display -->
+            <div id="twofaSetupRecoverySection" style="display:none;">
+                <div style="background:#0F1629;border-radius:8px;padding:12px;margin-bottom:16px;">
+                    <div style="font-size:11px;color:#F0B90B;margin-bottom:8px;"><i class="fas fa-key"></i> Your Recovery Codes (save these safely!)</div>
+                    <div id="twofaSetupRecoveryCodesList" style="font-family:monospace;font-size:12px;color:#10B981;word-break:break-all;line-height:1.6;"></div>
+                </div>
+                <p style="font-size:10px;color:#EF4444;margin-bottom:16px;text-align:center;">
+                    ⚠️ Each recovery code can only be used once. Store them securely!
+                </p>
+            </div>
+            
+            <button type="button" onclick="initiate2FASetup()" class="btn btn-primary btn-block" id="generateQRCodeBtn"><i class="fas fa-sync-alt"></i> Generate QR Code</button>
+            <button type="button" onclick="goTo2FAVerification()" class="btn btn-primary btn-block" id="continueToVerifyBtn" style="display:none;margin-top:12px;"><i class="fas fa-arrow-right"></i> Continue to Verification</button>
         </div>
         
         <!-- Setup Step 2: Verify Code -->
