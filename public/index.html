@@ -2633,18 +2633,7 @@ async function handle2FALoginSubmit() {
         console.log('[LOGIN 2FA] Response status:', response.status);
         console.log('[LOGIN 2FA] Response ok:', response.ok);
         console.log('[LOGIN 2FA] Full response data:', JSON.stringify(data));
-        
-        // Check if verification was successful
-        const isSuccess = response.ok && data.success;
         console.log('[LOGIN 2FA] isSuccess (response.ok && data.success):', isSuccess);
-        
-        if (!isSuccess) {
-            console.log('[LOGIN 2FA] ========== STEP: Verification FAILED ==========');
-            console.log('[LOGIN 2FA] Error:', data.error || 'Unknown error');
-            showAuthError(data.error || 'Invalid code', 'twofaLogin');
-            setButtonLoading(btn, false);
-            return;
-        }
         
         console.log('[LOGIN 2FA] ========== STEP: Verification SUCCESS ==========');
         console.log('[LOGIN 2FA] data.token exists:', !!data.token);
