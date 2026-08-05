@@ -2481,7 +2481,15 @@ let pendingLoginPartialToken = null;
 let pendingLoginCredentials = null;
 
 async function handleLogin() {
-    console.log('[LOGIN] Login button clicked');
+    console.log('[HANDLE_LOGIN] ========== Login button clicked ==========');
+    console.log('[HANDLE_LOGIN] Current localStorage state:');
+    console.log('[HANDLE_LOGIN]   jwt_token exists:', !!localStorage.getItem('jwt_token'));
+    console.log('[HANDLE_LOGIN]   arbi_user exists:', !!localStorage.getItem('arbi_user'));
+    console.log('[HANDLE_LOGIN]   pendingLoginPartialToken:', !!pendingLoginPartialToken);
+    console.log('[HANDLE_LOGIN] Current display state:');
+    console.log('[HANDLE_LOGIN]   authPage display:', document.getElementById('authPage')?.style.display);
+    console.log('[HANDLE_LOGIN]   landingPage display:', document.getElementById('landingPage')?.style.display);
+    
     var btn = document.getElementById('loginSubmitBtn');
     setButtonLoading(btn, true);
     
@@ -2489,12 +2497,16 @@ async function handleLogin() {
     const password = document.getElementById('loginPassword').value;
 
     if (!email || !password) {
+        console.log('[HANDLE_LOGIN] Missing email or password');
         showAuthError('Please fill in all fields', 'login');
         setButtonLoading(btn, false);
         return;
     }
 
     try {
+        console.log('[HANDLE_LOGIN] Sending login request to /api/2fa/login-initiate');
+        console.log('[HANDLE_LOGIN] Email:', email);
+        
         const response = await fetch('/api/2fa/login-initiate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2502,8 +2514,11 @@ async function handleLogin() {
         });
 
         const data = await response.json();
+        console.log('[HANDLE_LOGIN] Response status:', response.status);
+        console.log('[HANDLE_LOGIN] Response data:', JSON.stringify(data));
 
         if (!response.ok) {
+            console.log('[HANDLE_LOGIN] Login failed:', data.error);
             showAuthError(data.error || 'Invalid email or password', 'login');
             setButtonLoading(btn, false);
             return;
@@ -2511,7 +2526,7 @@ async function handleLogin() {
 
         // Check if 2FA is required
         if (data.requires2FA) {
-            console.log('[LOGIN] 2FA required - storing partial token');
+            console.log('[HANDLE_LOGIN] 2FA required - storing partial token');
             pendingLoginPartialToken = data.partialToken;
             pendingLoginCredentials = { email, password };
             show2FALoginForm();
@@ -2520,10 +2535,11 @@ async function handleLogin() {
         }
 
         // No 2FA - complete login directly
-        console.log('[LOGIN] No 2FA - completing login');
+        console.log('[HANDLE_LOGIN] No 2FA - completing login');
         completeLogin(data.token, data.user);
         setButtonLoading(btn, false);
     } catch (e) {
+        console.error('[HANDLE_LOGIN] Exception:', e.message);
         showAuthError('Network error. Please try again.', 'login');
         setButtonLoading(btn, false);
         console.error(e);
@@ -2613,26 +2629,66 @@ async function handle2FALoginSubmit() {
             return;
         }
         
-        console.log('[LOGIN 2FA] Verification SUCCESS - data.token exists:', !!data.token, ', data.user exists:', !!data.user);
+        console.log('[LOGIN 2FA] ========== STEP: Response received ==========');
+        console.log('[LOGIN 2FA] Response status:', response.status);
+        console.log('[LOGIN 2FA] Response ok:', response.ok);
+        console.log('[LOGIN 2FA] Full response data:', JSON.stringify(data));
+        
+        // Check if verification was successful
+        const isSuccess = response.ok && data.success;
+        console.log('[LOGIN 2FA] isSuccess (response.ok && data.success):', isSuccess);
+        
+        if (!isSuccess) {
+            console.log('[LOGIN 2FA] ========== STEP: Verification FAILED ==========');
+            console.log('[LOGIN 2FA] Error:', data.error || 'Unknown error');
+            showAuthError(data.error || 'Invalid code', 'twofaLogin');
+            setButtonLoading(btn, false);
+            return;
+        }
+        
+        console.log('[LOGIN 2FA] ========== STEP: Verification SUCCESS ==========');
+        console.log('[LOGIN 2FA] data.token exists:', !!data.token);
+        console.log('[LOGIN 2FA] data.user exists:', !!data.user);
+        console.log('[LOGIN 2FA] data.user.email:', data.user?.email);
+        console.log('[LOGIN 2FA] data.user.name:', data.user?.name);
         
         // Use token directly from login-verify response
         if (data.token && data.user) {
-            console.log('[LOGIN 2FA] Success - calling completeLogin() with is2FAFlow=true');
+            console.log('[LOGIN 2FA] ========== STEP: Processing success ==========');
             
             // Clear pending state
+            console.log('[LOGIN 2FA] Clearing pendingLoginPartialToken');
             pendingLoginPartialToken = null;
+            console.log('[LOGIN 2FA] Clearing pendingLoginCredentials');
             pendingLoginCredentials = null;
+            
+            console.log('[LOGIN 2FA] ========== STEP: Calling completeLogin() ==========');
+            console.log('[LOGIN 2FA] Calling completeLogin with is2FAFlow=true');
+            console.log('[LOGIN 2FA] Token length:', data.token?.length);
+            console.log('[LOGIN 2FA] User object:', JSON.stringify(data.user));
             
             // Call completeLogin with is2FAFlow=true to transition immediately without delay
             completeLogin(data.token, data.user, true);
             
+            console.log('[LOGIN 2FA] ========== STEP: completeLogin() returned ==========');
+            console.log('[LOGIN 2FA] After completeLogin - checking localStorage');
+            console.log('[LOGIN 2FA] jwt_token in localStorage:', !!localStorage.getItem('jwt_token'));
+            console.log('[LOGIN 2FA] arbi_user in localStorage:', !!localStorage.getItem('arbi_user'));
+            console.log('[LOGIN 2FA] authPage display:', document.getElementById('authPage')?.style.display);
+            console.log('[LOGIN 2FA] landingPage display:', document.getElementById('landingPage')?.style.display);
+            console.log('[LOGIN 2FA] loginForm display:', document.getElementById('loginForm')?.style.display);
+            console.log('[LOGIN 2FA] twofaLoginSection display:', document.getElementById('twofaLoginSection')?.style.display);
+            
         } else {
+            console.log('[LOGIN 2FA] ========== STEP: Missing token or user ==========');
             console.log('[LOGIN 2FA] Missing token or user in response');
             showAuthError('Login failed. Please try again.', 'twofaLogin');
             hide2FALoginForm();
         }
     } catch (e) {
-        console.error('[LOGIN 2FA] Exception:', e);
+        console.error('[LOGIN 2FA] ========== STEP: EXCEPTION ==========');
+        console.error('[LOGIN 2FA] Exception message:', e.message);
+        console.error('[LOGIN 2FA] Exception stack:', e.stack);
         showAuthError('Network error. Please try again.', 'twofaLogin');
     }
     
@@ -2659,9 +2715,24 @@ function handle2FALoginCodeInput(input, index) {
 }
 
 function completeLogin(token, user, is2FAFlow) {
-    console.log('[LOGIN] Completing login for user:', user.email, 'is2FAFlow:', is2FAFlow);
+    console.log('[COMPLETE_LOGIN] ========== ENTERED completeLogin() ==========');
+    console.log('[COMPLETE_LOGIN] is2FAFlow:', is2FAFlow);
+    console.log('[COMPLETE_LOGIN] user.email:', user.email);
+    console.log('[COMPLETE_LOGIN] user.name:', user.name);
+    console.log('[COMPLETE_LOGIN] token present:', !!token);
+    console.log('[COMPLETE_LOGIN] token length:', token?.length);
+    
+    console.log('[COMPLETE_LOGIN] Setting localStorage jwt_token...');
     localStorage.setItem('jwt_token', token);
+    console.log('[COMPLETE_LOGIN] jwt_token set successfully');
+    
+    console.log('[COMPLETE_LOGIN] Setting localStorage arbi_user...');
     localStorage.setItem('arbi_user', JSON.stringify(user));
+    console.log('[COMPLETE_LOGIN] arbi_user set successfully');
+    
+    console.log('[COMPLETE_LOGIN] Verifying localStorage:');
+    console.log('[COMPLETE_LOGIN]   jwt_token:', localStorage.getItem('jwt_token')?.substring(0, 20) + '...');
+    console.log('[COMPLETE_LOGIN]   arbi_user:', localStorage.getItem('arbi_user')?.substring(0, 50) + '...');
     
     if (user.referralCode) {
         APP.referralCode = user.referralCode;
@@ -2670,24 +2741,47 @@ function completeLogin(token, user, is2FAFlow) {
     // For 2FA flow, transition immediately without showing success message on login form
     // (the login form is hidden during 2FA, so success message would be invisible anyway)
     if (is2FAFlow) {
-        console.log('[LOGIN] 2FA flow - transitioning immediately');
+        console.log('[COMPLETE_LOGIN] ========== 2FA FLOW - TRANSITIONING IMMEDIATELY ==========');
         
-        // Hide auth page and 2FA section
+        console.log('[COMPLETE_LOGIN] Getting DOM elements...');
         const authPage = document.getElementById('authPage');
         const twofaLoginSection = document.getElementById('twofaLoginSection');
+        const landingPage = document.getElementById('landingPage');
+        
+        console.log('[COMPLETE_LOGIN] authPage element:', !!authPage);
+        console.log('[COMPLETE_LOGIN] twofaLoginSection element:', !!twofaLoginSection);
+        console.log('[COMPLETE_LOGIN] landingPage element:', !!landingPage);
+        
+        console.log('[COMPLETE_LOGIN] CURRENT display states BEFORE transition:');
+        console.log('[COMPLETE_LOGIN]   authPage.style.display:', authPage?.style.display);
+        console.log('[COMPLETE_LOGIN]   twofaLoginSection.style.display:', twofaLoginSection?.style.display);
+        console.log('[COMPLETE_LOGIN]   landingPage.style.display:', landingPage?.style.display);
+        
+        console.log('[COMPLETE_LOGIN] Setting authPage display = none...');
         if (authPage) authPage.style.display = 'none';
+        console.log('[COMPLETE_LOGIN] authPage display now:', authPage?.style.display);
+        
+        console.log('[COMPLETE_LOGIN] Setting twofaLoginSection display = none...');
         if (twofaLoginSection) twofaLoginSection.style.display = 'none';
         
-        // Show landing page
-        const landingPage = document.getElementById('landingPage');
+        console.log('[COMPLETE_LOGIN] Setting landingPage display = block...');
         if (landingPage) landingPage.style.display = 'block';
         
+        console.log('[COMPLETE_LOGIN] display states AFTER transition:');
+        console.log('[COMPLETE_LOGIN]   authPage.style.display:', authPage?.style.display);
+        console.log('[COMPLETE_LOGIN]   twofaLoginSection.style.display:', twofaLoginSection?.style.display);
+        console.log('[COMPLETE_LOGIN]   landingPage.style.display:', landingPage?.style.display);
+        
         // Update user display
+        console.log('[COMPLETE_LOGIN] Updating display names...');
         const displayNameEl = document.getElementById('displayName');
         const userNameEl = document.getElementById('userName');
         if (displayNameEl) displayNameEl.textContent = user.name || 'Trader';
         if (userNameEl) userNameEl.textContent = user.name || 'Trader';
+        console.log('[COMPLETE_LOGIN] displayNameEl text:', displayNameEl?.textContent);
+        console.log('[COMPLETE_LOGIN] userNameEl text:', userNameEl?.textContent);
         
+        console.log('[COMPLETE_LOGIN] Showing greeting...');
         const greeting = document.getElementById('landingUserGreeting');
         if (greeting) {
             greeting.style.display = 'inline-block';
@@ -2695,13 +2789,69 @@ function completeLogin(token, user, is2FAFlow) {
             if (landingUserNameEl) landingUserNameEl.textContent = user.name || 'Trader';
         }
         
-        checkAdminAccess();
-        updateReferralDisplay();
+        console.log('[COMPLETE_LOGIN] Calling checkAdminAccess()...');
+        try {
+            checkAdminAccess();
+            console.log('[COMPLETE_LOGIN] checkAdminAccess() completed');
+        } catch(e) {
+            console.error('[COMPLETE_LOGIN] checkAdminAccess() ERROR:', e.message);
+        }
+        
+        console.log('[COMPLETE_LOGIN] Calling updateReferralDisplay()...');
+        try {
+            updateReferralDisplay();
+            console.log('[COMPLETE_LOGIN] updateReferralDisplay() completed');
+        } catch(e) {
+            console.error('[COMPLETE_LOGIN] updateReferralDisplay() ERROR:', e.message);
+        }
+        
+        console.log('[COMPLETE_LOGIN] ========== 2FA FLOW COMPLETE ==========');
+        console.log('[COMPLETE_LOGIN] FINAL STATE:');
+        console.log('[COMPLETE_LOGIN]   authPage display:', document.getElementById('authPage')?.style.display);
+        console.log('[COMPLETE_LOGIN]   landingPage display:', document.getElementById('landingPage')?.style.display);
+        console.log('[COMPLETE_LOGIN]   loginForm display:', document.getElementById('loginForm')?.style.display);
+        console.log('[COMPLETE_LOGIN]   twofaLoginSection display:', document.getElementById('twofaLoginSection')?.style.display);
+        
+        // Set up MutationObserver to detect any subsequent DOM changes
+        console.log('[COMPLETE_LOGIN] Setting up MutationObserver to watch for DOM changes...');
+        if (typeof MutationObserver !== 'undefined') {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                        const target = mutation.target;
+                        if (target.id === 'authPage' || target.id === 'landingPage' || target.id === 'loginForm' || target.id === 'twofaLoginSection') {
+                            console.log('[MUTATION_OBSERVER] Style changed on', target.id, 'to', target.style.display);
+                        }
+                    }
+                });
+            });
+            
+            const authPageEl = document.getElementById('authPage');
+            const landingPageEl = document.getElementById('landingPage');
+            
+            if (authPageEl) {
+                observer.observe(authPageEl, { attributes: true });
+            }
+            if (landingPageEl) {
+                observer.observe(landingPageEl, { attributes: true });
+            }
+            
+            // Stop observing after 5 seconds
+            setTimeout(function() {
+                observer.disconnect();
+                console.log('[MUTATION_OBSERVER] Stopped observing after 5 seconds');
+            }, 5000);
+        }
+        
     } else {
         // Normal login flow - show success message and redirect after delay
+        console.log('[COMPLETE_LOGIN] ========== NORMAL FLOW - DELAYED TRANSITION ==========');
+        console.log('[COMPLETE_LOGIN] Showing success message...');
         showAuthSuccess('Welcome back! Redirecting...', 'login');
 
+        console.log('[COMPLETE_LOGIN] Setting 1-second timeout for transition...');
         setTimeout(() => {
+            console.log('[COMPLETE_LOGIN] ========== TIMEOUT: Executing transition ==========');
             document.getElementById('authPage').style.display = 'none';
             document.getElementById('landingPage').style.display = 'block';
             document.getElementById('displayName').textContent = user.name;
@@ -2713,6 +2863,7 @@ function completeLogin(token, user, is2FAFlow) {
             }
             checkAdminAccess();
             updateReferralDisplay();
+            console.log('[COMPLETE_LOGIN] ========== TIMEOUT: Transition complete ==========');
         }, 1000);
     }
 }
