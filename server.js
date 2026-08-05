@@ -15,7 +15,19 @@ const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
 
 // TOTP 2FA Service (RFC 6238 compliant)
+// NOTE: TOTP is currently DISABLED in favor of Email 2FA
+// Set feature flag '2fa_type' to 'totp' in feature_flags table to re-enable
 const TOTPService = require('./services/TOTPService');
+
+// Email 2FA Service (Primary 2FA method)
+const Email2FAService = require('./services/Email2FAService');
+
+// Feature flag cache (refreshes every 5 minutes)
+let featureFlagCache = {
+    '2fa_type': 'email' // Default to email 2FA
+};
+let featureFlagCacheTime = 0;
+const FEATURE_FLAG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Encryption key for TOTP secrets (in production, use secure key management)
 const TOTP_ENCRYPTION_KEY = process.env.TOTP_ENCRYPTION_KEY || 'default-kyc-encryption-key-change-in-prod';
@@ -3086,7 +3098,7 @@ app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
 });
 
 // ============================================================
-// TOTP 2FA ENDPOINTS (RFC 6238 Compliant)
+// EMAIL 2FA & FEATURE FLAGS HELPERS
 // ============================================================
 
 // Helper: Get user email by ID
@@ -3099,7 +3111,7 @@ async function getUserEmail(userId) {
     return data?.email;
 }
 
-// Helper: Check if user has 2FA enabled
+// Helper: Check if user has 2FA enabled (TOTP - for backward compatibility)
 async function hasUser2FAEnabled(userId) {
     const { data } = await supabase
         .from('twofa_profiles')
@@ -3109,6 +3121,157 @@ async function hasUser2FAEnabled(userId) {
         .single();
     return !!data;
 }
+
+// Helper: Get feature flag value (with caching)
+async function getFeatureFlag(flagKey, defaultValue = null) {
+    const now = Date.now();
+    
+    // Check cache
+    if (featureFlagCache[flagKey] !== undefined && now - featureFlagCacheTime < FEATURE_FLAG_CACHE_TTL) {
+        return featureFlagCache[flagKey] ?? defaultValue;
+    }
+    
+    // Fetch from database
+    try {
+        const { data, error } = await supabase
+            .from('feature_flags')
+            .select('flag_value')
+            .eq('flag_key', flagKey)
+            .single();
+        
+        if (!error && data) {
+            featureFlagCache[flagKey] = data.flag_value;
+            featureFlagCacheTime = now;
+            return data.flag_value;
+        }
+    } catch (e) {
+        console.error('Error fetching feature flag:', e);
+    }
+    
+    return defaultValue;
+}
+
+// Helper: Get current 2FA type (email or totp)
+async function get2FAType() {
+    return await getFeatureFlag('2fa_type', 'email');
+}
+
+// Helper: Send email verification code for 2FA
+async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
+    // Generate code
+    const code = Email2FAService.generateCode();
+    const codeHash = Email2FAService.hashCode(code);
+    const expiresAt = new Date(Date.now() + Email2FAService.CONFIG.CODE_EXPIRY_MS).toISOString();
+    
+    // Invalidate any existing unused codes for this user and purpose
+    await supabase
+        .from('email_verification_codes')
+        .update({ used: true, used_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('purpose', purpose)
+        .eq('used', false);
+    
+    // Store new code
+    await supabase
+        .from('email_verification_codes')
+        .insert({
+            user_id: userId,
+            code_hash: codeHash,
+            purpose: purpose,
+            expires_at: expiresAt,
+            used: false
+        });
+    
+    // Get client info
+    const clientIP = req => {
+        return req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() 
+            || req?.socket?.remoteAddress 
+            || null;
+    };
+    
+    // Send email (we'll construct the sending inline since we need the code)
+    const resend = getResendClient();
+    
+    if (resend) {
+        try {
+            await resend.emails.send({
+                from: EMAIL_CONFIG.from,
+                to: email,
+                subject: 'Your Arbitrix AI Verification Code',
+                html: generateEmailVerificationTemplate(code)
+            });
+            console.log(`[EMAIL 2FA] Verification code sent to ${email}`);
+        } catch (e) {
+            console.error('[EMAIL 2FA] Failed to send email:', e);
+        }
+    } else {
+        // Development mode - log to console
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('📧 EMAIL 2FA VERIFICATION CODE (Development Mode)');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log(`To: ${email}`);
+        console.log(`Code: ${code}`);
+        console.log(`Expires in: 10 minutes`);
+        console.log('═══════════════════════════════════════════════════════════');
+    }
+    
+    return code; // Return plain code for development mode logging
+}
+
+// Helper: Generate email template for verification code
+function generateEmailVerificationTemplate(code) {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verification Code - Arbitrix AI</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+    <tr>
+      <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
+        <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+        <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="background-color: #ffffff; padding: 40px 30px;">
+        <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px; text-align: center;">Your Verification Code</h2>
+        <p style="margin: 0 0 30px; color: #4b5563; font-size: 16px; line-height: 1.6; text-align: center;">
+          Enter the following code to complete your login:
+        </p>
+        <div style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+          <span style="font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-size: 36px; font-weight: 700; color: #ffd700; letter-spacing: 8px;">${code}</span>
+        </div>
+        <div style="background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+            <strong>⚠️ Security Notice:</strong><br>
+            • This code expires in <strong>10 minutes</strong><br>
+            • If you didn't request this code, please ignore this email<br>
+            • Our team will never ask for this code
+          </p>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 20px 30px; text-align: center;">
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+          © ${new Date().getFullYear()} Arbitrix AI. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ============================================================
+// TOTP 2FA ENDPOINTS (RFC 6238 Compliant)
+// NOTE: These endpoints are kept for backward compatibility
+// but are disabled when 2fa_type feature flag is set to 'email'
+// ============================================================
 
 // GET /api/2fa/status - Get user's 2FA status
 app.get('/api/2fa/status', authMiddleware, async (req, res) => {
@@ -3576,7 +3739,8 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
     }
 });
 
-// POST /api/2fa/login-initiate - First step of 2FA login (returns if 2FA required)
+// POST /api/2fa/login-initiate - First step of 2FA login
+// Now uses Email 2FA by default (controlled by feature flag)
 app.post('/api/2fa/login-initiate', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -3602,48 +3766,89 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
-        // Check if 2FA is enabled
-        const has2FA = await hasUser2FAEnabled(user.id);
+        // Get current 2FA type
+        const twoFactorType = await get2FAType();
         
-        if (!has2FA) {
-            // No 2FA, return token directly
-            const token = jwt.sign(
-                { id: user.id, email: user.email, is_admin: !!user.is_admin },
+        // Check if TOTP 2FA is enabled (for TOTP mode)
+        const hasTOTP = await hasUser2FAEnabled(user.id);
+        
+        // Handle based on 2FA type
+        if (twoFactorType === 'totp' && hasTOTP) {
+            // TOTP mode - only require if user has TOTP enabled
+            const partialToken = jwt.sign(
+                { 
+                    id: user.id, 
+                    email: user.email, 
+                    is_admin: !!user.is_admin,
+                    _2fa_pending: true,
+                    _2fa_type: 'totp'
+                },
                 JWT_SECRET,
-                { expiresIn: '7d' }
+                { expiresIn: '5m' }
             );
             
             return res.json({
                 success: true,
-                requires2FA: false,
-                token,
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    referral_code: user.referral_code,
+                requires2FA: true,
+                partialToken,
+                twoFactorType: 'totp'
+            });
+        } else if (twoFactorType === 'email') {
+            // Email 2FA mode - always require for all users
+            // Check resend rate limit
+            const rateLimit = Email2FAService.checkResendRateLimit(`login:${user.id}`);
+            if (!rateLimit.allowed) {
+                return res.status(429).json({
+                    error: 'Please wait before requesting another code',
+                    retryAfter: rateLimit.remainingSeconds
+                });
+            }
+            
+            // Send verification code to email
+            await sendEmailVerificationCode(user.id, user.email, 'login_2fa');
+            
+            // Return partial token for email verification
+            const partialToken = jwt.sign(
+                { 
+                    id: user.id, 
+                    email: user.email, 
                     is_admin: !!user.is_admin,
-                    is_verified: !!user.is_verified
-                }
+                    _2fa_pending: true,
+                    _2fa_type: 'email'
+                },
+                JWT_SECRET,
+                { expiresIn: '5m' }
+            );
+            
+            return res.json({
+                success: true,
+                requires2FA: true,
+                partialToken,
+                twoFactorType: 'email',
+                emailMasked: maskEmail(user.email),
+                expiresIn: 10 * 60 // 10 minutes in seconds
             });
         }
         
-        // 2FA required - return partial token for step 2
-        const partialToken = jwt.sign(
-            { 
-                id: user.id, 
-                email: user.email, 
-                is_admin: !!user.is_admin,
-                _2fa_pending: true
-            },
+        // No 2FA required - return token directly
+        const token = jwt.sign(
+            { id: user.id, email: user.email, is_admin: !!user.is_admin },
             JWT_SECRET,
-            { expiresIn: '5m' }
+            { expiresIn: '7d' }
         );
         
-        res.json({
+        return res.json({
             success: true,
-            requires2FA: true,
-            partialToken
+            requires2FA: false,
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                referral_code: user.referral_code,
+                is_admin: !!user.is_admin,
+                is_verified: !!user.is_verified
+            }
         });
     } catch (error) {
         console.error('2FA login initiate error:', error);
@@ -3651,13 +3856,27 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
     }
 });
 
+// Helper: Mask email for display
+function maskEmail(email) {
+    const [local, domain] = email.split('@');
+    if (local.length <= 2) {
+        return `${local[0]}***@${domain}`;
+    }
+    return `${local[0]}${'*'.repeat(3)}@${domain}`;
+}
+
 // POST /api/2fa/login-verify - Second step of 2FA login
+// Handles both Email and TOTP codes based on _2fa_type in partialToken
 app.post('/api/2fa/login-verify', async (req, res) => {
     try {
-        const { partialToken, code, recoveryCode } = req.body;
+        const { partialToken, code } = req.body;
         
         if (!partialToken) {
             return res.status(400).json({ error: 'Missing partial token' });
+        }
+        
+        if (!code) {
+            return res.status(400).json({ error: 'Verification code required' });
         }
         
         // Verify partial token
@@ -3673,88 +3892,39 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         }
         
         const userId = decoded.id;
+        const twoFactorType = decoded._2fa_type || 'email';
         
-        // Check rate limit
-        const rateLimit = TOTPService.checkRateLimit(`login:${userId}`);
+        // Check verification rate limit (using Email2FAService for all types)
+        const rateLimit = Email2FAService.checkVerifyRateLimit(`login:${userId}`);
         if (!rateLimit.allowed) {
             return res.status(429).json({ 
-                error: 'Too many attempts',
-                retryAfter: rateLimit.retryAfter
+                error: 'Too many attempts. Please try again later.',
+                retryAfter: rateLimit.retryAfterSeconds,
+                remainingAttempts: 0
             });
         }
         
-        // Get profile
-        const { data: profile, error } = await supabase
-            .from('twofa_profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
-        
-        if (error || !profile || !profile.is_enabled) {
-            return res.status(400).json({ error: '2FA not enabled' });
-        }
-        
-        // Check for replay
-        const codeHash = crypto.createHash('sha256').update(code || recoveryCode).digest('hex');
-        const { data: existingAttempt } = await supabase
-            .from('twofa_attempts')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('code_hash', codeHash)
-            .eq('success', true)
-            .gte('used_at', new Date(Date.now() - 90000).toISOString())
-            .single();
-        
-        if (existingAttempt) {
-            return res.status(400).json({ error: 'Code already used' });
-        }
-        
         let isValid = false;
-        let usedRecoveryCode = false;
         
-        if (code) {
-            const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
-            const secret = TOTPService.base32Encode(secretBuffer);
-            isValid = TOTPService.verifyTOTP(code, secret);
-        } else if (recoveryCode) {
-            if (profile.backup_codes_remaining <= 0) {
-                return res.status(400).json({ error: 'No recovery codes remaining' });
-            }
-            
-            const hashedInput = TOTPService.hashRecoveryCode(recoveryCode);
-            const storedHashes = JSON.parse(profile.backup_codes_hash || '[]');
-            
-            isValid = storedHashes.includes(hashedInput);
-            usedRecoveryCode = isValid;
-            
-            if (isValid) {
-                const newHashes = storedHashes.filter(h => h !== hashedInput);
-                await supabase
-                    .from('twofa_profiles')
-                    .update({
-                        backup_codes_hash: JSON.stringify(newHashes),
-                        backup_codes_remaining: newHashes.length
-                    })
-                    .eq('user_id', userId);
-            }
+        if (twoFactorType === 'email') {
+            // Email 2FA verification
+            isValid = await verifyEmailCode(userId, code, 'login_2fa', req);
+        } else if (twoFactorType === 'totp') {
+            // TOTP 2FA verification
+            isValid = await verifyTOTPCode(userId, code, req);
         }
         
-        // Log attempt
-        await supabase.from('twofa_attempts').insert({
-            user_id: userId,
-            code_hash: codeHash,
-            success: isValid,
-            ip_address: req.ip,
-            user_agent: req.get('User-Agent')
-        });
+        // Clear rate limit on success
+        if (isValid) {
+            Email2FAService.clearVerifyAttempts(`login:${userId}`);
+        }
         
         if (!isValid) {
-            TOTPService.checkRateLimit(`login:${userId}`);
-            return res.status(400).json({ error: 'Invalid code' });
+            return res.status(400).json({ 
+                error: 'Invalid or expired code',
+                remainingAttempts: rateLimit.remainingAttempts
+            });
         }
-        
-        // Clear rate limit
-        TOTPService.clearRateLimit(`login:${userId}`);
         
         // Generate full token
         const token = jwt.sign(
@@ -3762,12 +3932,6 @@ app.post('/api/2fa/login-verify', async (req, res) => {
             JWT_SECRET,
             { expiresIn: '7d' }
         );
-        
-        // Update last verified
-        await supabase
-            .from('twofa_profiles')
-            .update({ last_verified_at: new Date().toISOString() })
-            .eq('user_id', userId);
         
         // Get user data
         const { data: user } = await supabase
@@ -3790,6 +3954,123 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         res.status(500).json({ error: 'Verification failed' });
     }
 });
+
+// Helper: Verify email code
+async function verifyEmailCode(userId, code, purpose, req) {
+    try {
+        // Validate code format
+        if (!code || !/^\d{6}$/.test(code)) {
+            return false;
+        }
+        
+        const codeHash = Email2FAService.hashCode(code);
+        
+        // Find valid code in database
+        const { data: storedCode } = await supabase
+            .from('email_verification_codes')
+            .select('id, code_hash, expires_at, used')
+            .eq('user_id', userId)
+            .eq('purpose', purpose)
+            .eq('used', false)
+            .single();
+        
+        if (!storedCode) {
+            // Log failed attempt
+            await logEmail2FAAttempt(userId, null, false, 'No code found', req);
+            return false;
+        }
+        
+        // Check expiry
+        if (new Date() > new Date(storedCode.expires_at)) {
+            await logEmail2FAAttempt(userId, null, false, 'Code expired', req);
+            return false;
+        }
+        
+        // Verify hash matches
+        if (storedCode.code_hash !== codeHash) {
+            await logEmail2FAAttempt(userId, null, false, 'Invalid code', req);
+            return false;
+        }
+        
+        // Mark code as used
+        await supabase
+            .from('email_verification_codes')
+            .update({ used: true, used_at: new Date().toISOString() })
+            .eq('id', storedCode.id);
+        
+        // Log successful attempt
+        await logEmail2FAAttempt(userId, null, true, null, req);
+        
+        return true;
+    } catch (error) {
+        console.error('Email code verification error:', error);
+        return false;
+    }
+}
+
+// Helper: Verify TOTP code
+async function verifyTOTPCode(userId, code, req) {
+    try {
+        // Get profile
+        const { data: profile, error } = await supabase
+            .from('twofa_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+        
+        if (error || !profile || !profile.is_enabled) {
+            return false;
+        }
+        
+        // Decrypt secret and verify
+        const secretBuffer = TOTPService.decryptSecret(profile.encrypted_secret, TOTP_ENCRYPTION_KEY);
+        const secret = TOTPService.base32Encode(secretBuffer);
+        const isValid = TOTPService.verifyTOTP(code, secret);
+        
+        // Log attempt
+        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+        await supabase.from('twofa_attempts').insert({
+            user_id: userId,
+            code_hash: codeHash,
+            success: isValid,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent')
+        });
+        
+        if (isValid) {
+            // Update last verified
+            await supabase
+                .from('twofa_profiles')
+                .update({ last_verified_at: new Date().toISOString() })
+                .eq('user_id', userId);
+        }
+        
+        return isValid;
+    } catch (error) {
+        console.error('TOTP verification error:', error);
+        return false;
+    }
+}
+
+// Helper: Log email 2FA verification attempt
+async function logEmail2FAAttempt(userId, email, success, failureReason, req) {
+    try {
+        const clientIP = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() 
+            || req?.socket?.remoteAddress 
+            || null;
+        
+        await supabase.from('email_2fa_attempts').insert({
+            user_id: userId,
+            email: email || 'unknown',
+            success: success,
+            failure_reason: failureReason,
+            ip_address: clientIP,
+            user_agent: req?.get('User-Agent')
+        });
+    } catch (e) {
+        console.error('Failed to log email 2FA attempt:', e);
+    }
+}
 
 // Admin: Get user's 2FA status (without secrets)
 app.get('/api/admin/2fa/:userId', authMiddleware, adminMiddleware, async (req, res) => {
