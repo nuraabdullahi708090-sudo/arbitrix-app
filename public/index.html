@@ -2479,6 +2479,9 @@ async function handleSignup() {
 // Store partial token and credentials for 2FA login
 let pendingLoginPartialToken = null;
 let pendingLoginCredentials = null;
+let pendingLoginTwoFactorType = 'email'; // 'email' or 'totp'
+let twofaCountdownInterval = null;
+let twofaResendCooldown = 0;
 
 async function handleLogin() {
     console.log('[HANDLE_LOGIN] ========== Login button clicked ==========');
@@ -2529,7 +2532,8 @@ async function handleLogin() {
             console.log('[HANDLE_LOGIN] 2FA required - storing partial token');
             pendingLoginPartialToken = data.partialToken;
             pendingLoginCredentials = { email, password };
-            show2FALoginForm();
+            pendingLoginTwoFactorType = data.twoFactorType || 'email';
+            show2FALoginForm(data);
             setButtonLoading(btn, false);
             return;
         }
@@ -2546,13 +2550,26 @@ async function handleLogin() {
     }
 }
 
-function show2FALoginForm() {
+function show2FALoginForm(data) {
     const loginForm = document.getElementById('loginForm');
     const twofaLoginSection = document.getElementById('twofaLoginSection');
     
     if (loginForm) loginForm.style.display = 'none';
     if (twofaLoginSection) {
         twofaLoginSection.style.display = 'block';
+        
+        // Update email hint if email info is available
+        if (data && data.emailMasked) {
+            const emailHint = document.getElementById('twofaEmailHint');
+            if (emailHint) {
+                emailHint.textContent = `Enter the 6-digit code sent to ${data.emailMasked}`;
+            }
+        }
+        
+        // Start countdown timer
+        start2FACountdown();
+        
+        // Focus on first input
         const firstInput = twofaLoginSection.querySelector('.code-input');
         if (firstInput) firstInput.focus();
     }
@@ -2570,6 +2587,127 @@ function hide2FALoginForm() {
     }
     pendingLoginPartialToken = null;
     pendingLoginCredentials = null;
+    pendingLoginTwoFactorType = 'email';
+    
+    // Clear countdown
+    stop2FACountdown();
+}
+
+function start2FACountdown() {
+    stop2FACountdown();
+    
+    let seconds = 10 * 60; // 10 minutes
+    const countdownEl = document.getElementById('twofaCountdown');
+    
+    twofaCountdownInterval = setInterval(() => {
+        seconds--;
+        if (seconds <= 0) {
+            stop2FACountdown();
+            if (countdownEl) countdownEl.textContent = 'Expired';
+            showAuthError('Code expired. Please request a new one.', 'twofaLogin');
+            return;
+        }
+        
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        if (countdownEl) countdownEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    }, 1000);
+}
+
+function stop2FACountdown() {
+    if (twofaCountdownInterval) {
+        clearInterval(twofaCountdownInterval);
+        twofaCountdownInterval = null;
+    }
+}
+
+async function resend2FACode() {
+    if (twofaResendCooldown > 0) return;
+    
+    const resendBtn = document.getElementById('twofaResendBtn');
+    const cooldownEl = document.getElementById('twofaResendCooldown');
+    
+    if (!pendingLoginCredentials) {
+        showAuthError('Session expired. Please login again.', 'twofaLogin');
+        hide2FALoginForm();
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/2fa/login-initiate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: pendingLoginCredentials.email,
+                password: pendingLoginCredentials.password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            if (data.retryAfter) {
+                startResendCooldown(data.retryAfter);
+                showAuthError(`Please wait ${data.retryAfter} seconds before requesting again.`, 'twofaLogin');
+            } else {
+                showAuthError(data.error || 'Failed to resend code', 'twofaLogin');
+            }
+            return;
+        }
+        
+        if (data.partialToken) {
+            pendingLoginPartialToken = data.partialToken;
+        }
+        
+        // Restart countdown
+        start2FACountdown();
+        
+        // Start resend cooldown
+        startResendCooldown(60);
+        
+        // Clear error and show success
+        hideAuthError('twofaLogin');
+        if (data.emailMasked) {
+            const emailHint = document.getElementById('twofaEmailHint');
+            if (emailHint) {
+                emailHint.textContent = `New code sent to ${data.emailMasked}`;
+            }
+        }
+        
+        // Clear code inputs
+        const inputs = document.querySelectorAll('#twofaLoginCodeGroup .code-input');
+        inputs.forEach(i => i.value = '');
+        
+        if (inputs[0]) inputs[0].focus();
+        
+    } catch (e) {
+        console.error('[RESEND 2FA] Error:', e);
+        showAuthError('Failed to resend code. Please try again.', 'twofaLogin');
+    }
+}
+
+function startResendCooldown(seconds) {
+    twofaResendCooldown = seconds;
+    
+    const resendBtn = document.getElementById('twofaResendBtn');
+    const cooldownEl = document.getElementById('twofaResendCooldown');
+    
+    if (resendBtn) resendBtn.style.display = 'none';
+    if (cooldownEl) {
+        cooldownEl.style.display = 'inline';
+        cooldownEl.textContent = `Resend in ${seconds}s`;
+    }
+    
+    const interval = setInterval(() => {
+        twofaResendCooldown--;
+        if (cooldownEl) cooldownEl.textContent = `Resend in ${twofaResendCooldown}s`;
+        
+        if (twofaResendCooldown <= 0) {
+            clearInterval(interval);
+            if (resendBtn) resendBtn.style.display = 'inline';
+            if (cooldownEl) cooldownEl.style.display = 'none';
+        }
+    }, 1000);
 }
 
 async function handle2FALoginSubmit() {
@@ -2619,27 +2757,29 @@ async function handle2FALoginSubmit() {
         });
         
         // Check if verification was successful
-        // We check both HTTP status AND data.success for robustness
         const isSuccess = response.ok && data.success;
         
         if (!isSuccess) {
             console.log('[LOGIN 2FA] Verification failed:', data.error || 'Unknown error');
-            showAuthError(data.error || 'Invalid code', 'twofaLogin');
+            
+            // Show remaining attempts if available
+            let errorMsg = data.error || 'Invalid code';
+            if (data.remainingAttempts !== undefined) {
+                errorMsg += ` (${data.remainingAttempts} attempts remaining)`;
+            }
+            showAuthError(errorMsg, 'twofaLogin');
             setButtonLoading(btn, false);
             return;
         }
-        
-        console.log('[LOGIN 2FA] ========== STEP: Response received ==========');
-        console.log('[LOGIN 2FA] Response status:', response.status);
-        console.log('[LOGIN 2FA] Response ok:', response.ok);
-        console.log('[LOGIN 2FA] Full response data:', JSON.stringify(data));
-        console.log('[LOGIN 2FA] isSuccess (response.ok && data.success):', isSuccess);
         
         console.log('[LOGIN 2FA] ========== STEP: Verification SUCCESS ==========');
         console.log('[LOGIN 2FA] data.token exists:', !!data.token);
         console.log('[LOGIN 2FA] data.user exists:', !!data.user);
         console.log('[LOGIN 2FA] data.user.email:', data.user?.email);
         console.log('[LOGIN 2FA] data.user.name:', data.user?.name);
+        
+        // Stop countdown on success
+        stop2FACountdown();
         
         // Use token directly from login-verify response
         if (data.token && data.user) {
@@ -3926,12 +4066,14 @@ function toggleFaq(btn) {
                         </div>
                     </div>
                     
-                    <!-- 2FA Login Verification -->
+                    <!-- 2FA Login Verification (Email-based) -->
                     <div id="twofaLoginSection" style="display:none;">
                         <div class="auth-header">
-                            <i class="fas fa-shield-halved" style="font-size:48px;color:#F0B90B;margin-bottom:16px;"></i>
-                            <h2>Two-Factor Authentication</h2>
-                            <p>Enter the 6-digit code from your authenticator app</p>
+                            <div style="width:72px;height:72px;background:linear-gradient(135deg, rgba(240,185,11,0.2) 0%, rgba(240,185,11,0.1) 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                                <i class="fas fa-envelope" style="font-size:32px;color:#F0B90B;"></i>
+                            </div>
+                            <h2>Email Verification</h2>
+                            <p id="twofaEmailHint">Enter the 6-digit code sent to your email</p>
                         </div>
                         
                         <div id="twofaLoginError" class="auth-alert error">
@@ -3951,9 +4093,23 @@ function toggleFaq(btn) {
                             </div>
                         </div>
                         
+                        <div id="twofaCodeExpiry" style="text-align:center;margin-bottom:16px;">
+                            <span style="font-size:11px;color:#8896B5;">
+                                <i class="fas fa-clock"></i> Code expires in <span id="twofaCountdown">10:00</span>
+                            </span>
+                        </div>
+                        
                         <button type="button" id="twofaLoginSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handle2FALoginSubmit()">
                             <i class="fas fa-check"></i> Verify & Sign In
                         </button>
+                        
+                        <div style="text-align:center;margin-top:16px;">
+                            <span style="font-size:11px;color:#6b7280;">
+                                Didn't receive the code? 
+                                <a onclick="resend2FACode()" id="twofaResendBtn" style="color:#F0B90B;cursor:pointer;">Resend</a>
+                                <span id="twofaResendCooldown" style="color:#6b7280;display:none;"></span>
+                            </span>
+                        </div>
                         
                         <div class="auth-switch">
                             <a onclick="hide2FALoginForm()" data-i18n="auth.backToLogin">Back to Login</a>
@@ -5399,75 +5555,96 @@ function toggleFaq(btn) {
         <button type="button" onclick="closeTwoFAModal()" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
         <div class="modal-header"><h3><i class="fas fa-shield-halved" style="color:#F0B90B;"></i> <span data-i18n="2fa.title">Two-Factor Authentication</span></h3></div>
         
-        <!-- 2FA Status Display (shown when 2FA is enabled) -->
+        <!-- 2FA Status Display (shown when 2FA is enabled - now shows Email 2FA info) -->
         <div id="twofaStatusView" style="display:none;">
             <div style="text-align:center;padding:20px 0;">
                 <div id="twofaStatusIcon" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;background:rgba(16,185,129,0.2);">
                     <i class="fas fa-shield-check" style="font-size:28px;color:#10B981;"></i>
                 </div>
-                <h4 style="margin:0 0 4px 0;color:#fff;" id="twofaStatusTitle">2FA Enabled</h4>
-                <p style="font-size:12px;color:#8896B5;margin:0 0 16px 0;" id="twofaStatusDesc">Your account is protected with authenticator app</p>
+                <h4 style="margin:0 0 4px 0;color:#fff;" id="twofaStatusTitle">Email 2FA Active</h4>
+                <p style="font-size:12px;color:#8896B5;margin:0 0 16px 0;" id="twofaStatusDesc">A verification code will be sent to your email during login</p>
                 
-                <div style="background:#0F1629;border-radius:8px;padding:12px;margin-bottom:16px;text-align:left;">
-                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
-                        <span style="color:#8896B5;">Status</span>
-                        <span style="color:#10B981;font-weight:600;" id="twofaEnabledStatus">Enabled</span>
+                <div style="background:#0F1629;border-radius:8px;padding:16px;margin-bottom:16px;text-align:left;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                        <div style="width:40px;height:40px;background:rgba(240,185,11,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-envelope" style="color:#F0B90B;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:#8896B5;">Verification Method</div>
+                            <div style="font-size:14px;color:#fff;font-weight:500;">Email Code</div>
+                        </div>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
-                        <span style="color:#8896B5;">Enabled On</span>
-                        <span style="color:#fff;" id="twofaEnabledDate">-</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;font-size:12px;">
-                        <span style="color:#8896B5;">Backup Codes</span>
-                        <span style="color:#F0B90B;" id="twofaBackupCodesCount">10 remaining</span>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:40px;height:40px;background:rgba(16,185,129,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-clock" style="color:#10B981;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:#8896B5;">Code Expiry</div>
+                            <div style="font-size:14px;color:#fff;font-weight:500;">10 minutes</div>
+                        </div>
                     </div>
                 </div>
                 
-                <div style="display:flex;gap:8px;">
-                    <button type="button" onclick="regenerateRecoveryCodes()" class="btn btn-secondary" style="flex:1;" id="regenerateCodesBtn"><i class="fas fa-key"></i> New Codes</button>
-                    <button type="button" onclick="showDisable2FAForm()" class="btn btn-danger" style="flex:1;"><i class="fas fa-ban"></i> Disable 2FA</button>
-                </div>
+                <p style="font-size:11px;color:#6b7280;margin:0;">
+                    <i class="fas fa-info-circle"></i> You don't need to set up anything. Just check your email during login.
+                </p>
             </div>
         </div>
         
-        <!-- Setup Step 1: Show QR Code and Recovery Codes -->
+        <!-- Setup View: Email 2FA Info (shown when 2FA is not enabled) -->
         <div id="twofaSetupView1">
-            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Scan this QR code with your authenticator app (Google Authenticator, Microsoft Authenticator, Authy, etc.)</p>
-            
-            <div style="text-align:center;margin-bottom:16px;">
-                <div style="background:#fff;padding:16px;border-radius:12px;display:inline-block;">
-                    <img id="twofaQRCode" src="" alt="QR Code" style="width:180px;height:180px;display:none;">
-                    <div id="twofaQRPlaceholder" style="width:180px;height:180px;display:flex;align-items:center;justify-content:center;">
-                        <i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>
-                    </div>
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="width:80px;height:80px;background:linear-gradient(135deg, rgba(240,185,11,0.2) 0%, rgba(240,185,11,0.1) 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <i class="fas fa-envelope" style="font-size:36px;color:#F0B90B;"></i>
                 </div>
-            </div>
-            
-            <div style="background:#0F1629;border-radius:8px;padding:12px;margin-bottom:16px;">
-                <div style="font-size:11px;color:#8896B5;margin-bottom:4px;">Manual Setup Key</div>
-                <div style="font-family:monospace;font-size:16px;color:#F0B90B;word-break:break-all;" id="twofaManualKey">Loading...</div>
-            </div>
-            
-            <p style="font-size:11px;color:#8896B5;text-align:center;margin-bottom:16px;">
-                <i class="fas fa-info-circle"></i> Enter this key manually if QR code doesn't work
-            </p>
-            
-            <!-- Recovery Codes Display -->
-            <div id="twofaSetupRecoverySection" style="display:none;">
-                <div style="background:#0F1629;border-radius:8px;padding:12px;margin-bottom:16px;">
-                    <div style="font-size:11px;color:#F0B90B;margin-bottom:8px;"><i class="fas fa-key"></i> Your Recovery Codes (save these safely!)</div>
-                    <div id="twofaSetupRecoveryCodesList" style="font-family:monospace;font-size:12px;color:#10B981;word-break:break-all;line-height:1.6;"></div>
-                </div>
-                <p style="font-size:10px;color:#EF4444;margin-bottom:16px;text-align:center;">
-                    ⚠️ Each recovery code can only be used once. Store them securely!
+                <h4 style="margin:0 0 8px 0;color:#fff;font-size:18px;">Email Verification</h4>
+                <p style="font-size:12px;color:#8896B5;margin:0;line-height:1.6;">
+                    Your account is protected with email-based two-factor authentication. During login, a 6-digit code will be sent to your registered email address.
                 </p>
             </div>
             
-            <button type="button" onclick="initiate2FASetup()" class="btn btn-primary btn-block" id="generateQRCodeBtn"><i class="fas fa-sync-alt"></i> Generate QR Code</button>
-            <button type="button" onclick="goTo2FAVerification()" class="btn btn-primary btn-block" id="continueToVerifyBtn" style="display:none;margin-top:12px;"><i class="fas fa-arrow-right"></i> Continue to Verification</button>
+            <div style="background:#0F1629;border-radius:8px;padding:16px;margin-bottom:16px;">
+                <div style="font-size:12px;color:#8896B5;margin-bottom:12px;font-weight:500;">How it works:</div>
+                <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+                    <div style="width:24px;height:24px;background:#1a2332;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <span style="font-size:12px;color:#F0B90B;font-weight:600;">1</span>
+                    </div>
+                    <div style="font-size:12px;color:#fff;">Enter your email and password</div>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+                    <div style="width:24px;height:24px;background:#1a2332;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <span style="font-size:12px;color:#F0B90B;font-weight:600;">2</span>
+                    </div>
+                    <div style="font-size:12px;color:#fff;">Check your email for a 6-digit code</div>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="width:24px;height:24px;background:#1a2332;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <span style="font-size:12px;color:#F0B90B;font-weight:600;">3</span>
+                    </div>
+                    <div style="font-size:12px;color:#fff;">Enter the code to complete login</div>
+                </div>
+            </div>
+            
+            <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <i class="fas fa-shield-check" style="color:#10B981;font-size:16px;"></i>
+                    <span style="font-size:12px;color:#10B981;font-weight:500;">Secure & Automatic</span>
+                </div>
+                <p style="font-size:11px;color:#8896B5;margin:8px 0 0 24px;">
+                    No authenticator app needed. Codes expire after 10 minutes and can only be used once.
+                </p>
+            </div>
+            
+            <!-- TOTP Setup UI - Hidden but kept for future re-enablement -->
+            <div id="twofaTOTPSetupSection" style="display:none;">
+                <hr style="border:none;border-top:1px solid #2a3441;margin:16px 0;">
+                <p style="font-size:11px;color:#6b7280;text-align:center;margin-bottom:12px;">
+                    <i class="fas fa-lock"></i> TOTP Setup (Disabled - Admin can re-enable)
+                </p>
+            </div>
         </div>
         
-        <!-- Setup Step 2: Verify Code -->
+        <!-- Setup Step 2: Verify Code (hidden for email 2FA) -->
         <div id="twofaSetupView2" style="display:none;">
             <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Enter the 6-digit code from your authenticator app to verify setup:</p>
             
@@ -5488,7 +5665,7 @@ function toggleFaq(btn) {
             <button type="button" onclick="verify2FASetup()" class="btn btn-primary btn-block" id="twofaVerifyBtn"><i class="fas fa-check"></i> Verify & Enable</button>
         </div>
         
-        <!-- Recovery Codes Display -->
+        <!-- Recovery Codes Display (hidden for email 2FA) -->
         <div id="twofaRecoveryView" style="display:none;">
             <div style="text-align:center;margin-bottom:16px;">
                 <i class="fas fa-key" style="font-size:48px;color:#F0B90B;"></i>
@@ -5503,34 +5680,14 @@ function toggleFaq(btn) {
             <button type="button" onclick="confirmRecoveryCodesSaved()" class="btn btn-primary btn-block"><i class="fas fa-check"></i> I've Saved My Codes</button>
         </div>
         
-        <!-- Disable 2FA Form -->
+        <!-- Disable 2FA Form (hidden for email 2FA - users can't disable) -->
         <div id="twofaDisableView" style="display:none;">
-            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Enter your authenticator code or a recovery code to disable 2FA:</p>
-            
-            <div class="form-group">
-                <label>Authenticator Code</label>
-                <input type="text" id="twofaDisableCode" class="input-field" placeholder="6-digit code" maxlength="6" inputmode="numeric">
-            </div>
-            
-            <div style="text-align:center;margin:12px 0;">
-                <span style="color:#8896B5;font-size:11px;">OR</span>
-            </div>
-            
-            <div class="form-group">
-                <label>Recovery Code</label>
-                <input type="text" id="twofaDisableRecovery" class="input-field" placeholder="XXXXX-XXXXX">
-            </div>
-            
-            <div id="twofaDisableError" style="color:#EF4444;font-size:12px;margin-bottom:12px;display:none;"></div>
-            
-            <div style="display:flex;gap:8px;">
-                <button type="button" onclick="cancelDisable2FA()" class="btn btn-secondary" style="flex:1;">Cancel</button>
-                <button type="button" onclick="disable2FA()" class="btn btn-danger" style="flex:1;" id="twofaDisableBtn"><i class="fas fa-ban"></i> Disable</button>
-            </div>
+            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Email 2FA cannot be disabled by users. Contact support if you need assistance.</p>
+            <button type="button" onclick="cancelDisable2FA()" class="btn btn-secondary btn-block">Close</button>
         </div>
         
         <div class="modal-actions" id="twofaModalActions">
-            <button type="button" onclick="closeTwoFAModal()" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button>
+            <button type="button" onclick="closeTwoFAModal()" class="btn btn-secondary" data-i18n="common.cancel">Close</button>
         </div>
     </div>
 </div>
