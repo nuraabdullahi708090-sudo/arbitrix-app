@@ -3795,8 +3795,8 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
             });
         } else if (twoFactorType === 'email') {
             // Email 2FA mode - always require for all users
-            // Check resend rate limit
-            const rateLimit = Email2FAService.checkResendRateLimit(`login:${user.id}`);
+            // Check resend rate limit (database-backed)
+            const rateLimit = await Email2FAService.checkResendRateLimit(supabase, `login:${user.id}`);
             if (!rateLimit.allowed) {
                 return res.status(429).json({
                     error: 'Please wait before requesting another code',
@@ -3894,8 +3894,8 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         const userId = decoded.id;
         const twoFactorType = decoded._2fa_type || 'email';
         
-        // Check verification rate limit (using Email2FAService for all types)
-        const rateLimit = Email2FAService.checkVerifyRateLimit(`login:${userId}`);
+        // Check verification rate limit (database-backed, using Email2FAService for all types)
+        const rateLimit = await Email2FAService.checkVerifyRateLimit(supabase, `login:${userId}`);
         if (!rateLimit.allowed) {
             return res.status(429).json({ 
                 error: 'Too many attempts. Please try again later.',
@@ -3912,11 +3912,6 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         } else if (twoFactorType === 'totp') {
             // TOTP 2FA verification
             isValid = await verifyTOTPCode(userId, code, req);
-        }
-        
-        // Clear rate limit on success
-        if (isValid) {
-            Email2FAService.clearVerifyAttempts(`login:${userId}`);
         }
         
         if (!isValid) {

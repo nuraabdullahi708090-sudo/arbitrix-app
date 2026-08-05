@@ -5,11 +5,15 @@
  * Features:
  * - Secure random 6-digit code generation
  * - SHA256 hashing for code storage
- * - Rate limiting (60 second cooldown on resend)
+ * - Database-backed rate limiting (survives restarts and multi-instance deployments)
  * - 10-minute code expiry
  * - One-time use codes
  * - Verification attempt logging
  * - Future TOTP compatibility via feature flag
+ * 
+ * Rate Limiting:
+ * - Resend cooldown: 60 seconds (tracked via email_2fa_attempts table)
+ * - Verification attempts: 5 failures per 5-minute rolling window
  */
 
 const crypto = require('crypto');
@@ -21,13 +25,6 @@ const CONFIG = {
     RESEND_COOLDOWN_MS: 60 * 1000, // 60 seconds
     MAX_VERIFY_ATTEMPTS: 5,
     VERIFY_RATE_LIMIT_WINDOW_MS: 5 * 60 * 1000 // 5 minutes
-};
-
-// In-memory rate limiting store (resets on server restart)
-// In production, use Redis for distributed rate limiting
-const rateLimitStore = {
-    resend: new Map(), // Track resend requests per user
-    verify: new Map()  // Track verification attempts per user
 };
 
 /**
@@ -54,103 +51,131 @@ function hashCode(code) {
 }
 
 /**
- * Check if resend is allowed for a user (rate limiting)
- * @param {string} identifier - User ID or session identifier
- * @returns {object} { allowed: boolean, remainingMs: number }
+ * Extract user ID from identifier string (e.g., "login:123" -> "123")
+ * @param {string} identifier - Format: "login:{userId}"
+ * @returns {string} The user ID portion
  */
-function checkResendRateLimit(identifier) {
-    const key = `resend:${identifier}`;
-    const now = Date.now();
+function extractUserId(identifier) {
+    const parts = identifier.split(':');
+    return parts.length > 1 ? parts[1] : identifier;
+}
+
+/**
+ * Check if resend is allowed for a user (database-backed rate limiting)
+ * 
+ * Queries the email_2fa_attempts table for the most recent attempt.
+ * Blocks if the last attempt was within RESEND_COOLDOWN_MS (60 seconds).
+ * 
+ * @param {object} supabase - Supabase client instance
+ * @param {string} identifier - Format: "login:{userId}"
+ * @returns {Promise<object>} { allowed: boolean, remainingSeconds: number }
+ */
+async function checkResendRateLimit(supabase, identifier) {
+    const userId = extractUserId(identifier);
+    const cooldownStart = new Date(Date.now() - CONFIG.RESEND_COOLDOWN_MS).toISOString();
     
-    const record = rateLimitStore.resend.get(key);
+    // Query for the most recent attempt within the cooldown window
+    const { data, error } = await supabase
+        .from('email_2fa_attempts')
+        .select('attempted_at')
+        .eq('user_id', userId)
+        .gte('attempted_at', cooldownStart)
+        .order('attempted_at', { ascending: false })
+        .limit(1);
     
-    if (!record || now - record.timestamp > CONFIG.RESEND_COOLDOWN_MS) {
-        rateLimitStore.resend.set(key, { timestamp: now });
-        return { allowed: true, remainingMs: 0 };
+    if (error) {
+        console.error('[Email2FAService] Error checking resend rate limit:', error);
+        // Fail open - allow the request if database is unavailable
+        return { allowed: true, remainingSeconds: 0 };
     }
     
-    const remainingMs = CONFIG.RESEND_COOLDOWN_MS - (now - record.timestamp);
-    return { 
-        allowed: false, 
-        remainingMs,
+    if (!data || data.length === 0) {
+        // No recent attempts - allow
+        return { allowed: true, remainingSeconds: 0 };
+    }
+    
+    // Calculate remaining cooldown time
+    const lastAttempt = new Date(data[0].attempted_at);
+    const elapsed = Date.now() - lastAttempt.getTime();
+    const remainingMs = CONFIG.RESEND_COOLDOWN_MS - elapsed;
+    
+    if (remainingMs <= 0) {
+        return { allowed: true, remainingSeconds: 0 };
+    }
+    
+    return {
+        allowed: false,
         remainingSeconds: Math.ceil(remainingMs / 1000)
     };
 }
 
 /**
- * Check if verification is allowed (rate limiting + attempt limit)
- * @param {string} identifier - User ID or session identifier
- * @returns {object} { allowed: boolean, remainingAttempts: number, retryAfterMs: number }
+ * Check if verification is allowed (database-backed rate limiting)
+ * 
+ * Queries the email_2fa_attempts table for failed attempts in the rolling window.
+ * Blocks if MAX_VERIFY_ATTEMPTS (5) failures occurred within VERIFY_RATE_LIMIT_WINDOW_MS (5 minutes).
+ * 
+ * @param {object} supabase - Supabase client instance
+ * @param {string} identifier - Format: "login:{userId}"
+ * @returns {Promise<object>} { allowed: boolean, remainingAttempts: number, retryAfterSeconds: number }
  */
-function checkVerifyRateLimit(identifier) {
-    const key = `verify:${identifier}`;
-    const now = Date.now();
+async function checkVerifyRateLimit(supabase, identifier) {
+    const userId = extractUserId(identifier);
+    const windowStart = new Date(Date.now() - CONFIG.VERIFY_RATE_LIMIT_WINDOW_MS).toISOString();
     
-    let record = rateLimitStore.verify.get(key);
+    // Count failed attempts in the current window
+    const { data, error } = await supabase
+        .from('email_2fa_attempts')
+        .select('id', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('success', false)
+        .gte('attempted_at', windowStart);
     
-    // Check if we need to reset the window
-    if (!record || now - record.windowStart > CONFIG.VERIFY_RATE_LIMIT_WINDOW_MS) {
-        rateLimitStore.verify.set(key, {
-            windowStart: now,
-            attempts: 1
-        });
+    if (error) {
+        console.error('[Email2FAService] Error checking verify rate limit:', error);
+        // Fail open - allow the request if database is unavailable
         return { 
             allowed: true, 
-            remainingAttempts: CONFIG.MAX_VERIFY_ATTEMPTS - 1,
-            retryAfterMs: 0
+            remainingAttempts: CONFIG.MAX_VERIFY_ATTEMPTS,
+            retryAfterSeconds: 0
         };
     }
     
-    // Check if max attempts reached
-    if (record.attempts >= CONFIG.MAX_VERIFY_ATTEMPTS) {
-        const retryAfterMs = CONFIG.VERIFY_RATE_LIMIT_WINDOW_MS - (now - record.windowStart);
-        return { 
-            allowed: false, 
+    const failedAttempts = data?.length || 0;
+    
+    if (failedAttempts >= CONFIG.MAX_VERIFY_ATTEMPTS) {
+        // Find when the oldest attempt in this window was
+        const { data: oldestAttempt } = await supabase
+            .from('email_2fa_attempts')
+            .select('attempted_at')
+            .eq('user_id', userId)
+            .eq('success', false)
+            .gte('attempted_at', windowStart)
+            .order('attempted_at', { ascending: true })
+            .limit(1);
+        
+        let retryAfterSeconds = Math.ceil(CONFIG.VERIFY_RATE_LIMIT_WINDOW_MS / 1000);
+        
+        if (oldestAttempt && oldestAttempt.length > 0) {
+            const oldestTime = new Date(oldestAttempt[0].attempted_at).getTime();
+            const windowEnd = oldestTime + CONFIG.VERIFY_RATE_LIMIT_WINDOW_MS;
+            const remainingMs = windowEnd - Date.now();
+            retryAfterSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+        }
+        
+        return {
+            allowed: false,
             remainingAttempts: 0,
-            retryAfterMs,
-            retryAfterSeconds: Math.ceil(retryAfterMs / 1000)
+            retryAfterSeconds
         };
     }
     
-    // Increment attempts
-    record.attempts++;
-    return { 
-        allowed: true, 
-        remainingAttempts: CONFIG.MAX_VERIFY_ATTEMPTS - record.attempts,
-        retryAfterMs: 0
+    return {
+        allowed: true,
+        remainingAttempts: CONFIG.MAX_VERIFY_ATTEMPTS - failedAttempts,
+        retryAfterSeconds: 0
     };
 }
-
-/**
- * Clear verification attempts for a user (after successful verification)
- * @param {string} identifier - User ID or session identifier
- */
-function clearVerifyAttempts(identifier) {
-    rateLimitStore.verify.delete(`verify:${identifier}`);
-}
-
-/**
- * Clean up expired rate limit records (call periodically)
- * Should be called by a scheduled cleanup in server.js
- */
-function cleanupRateLimits() {
-    const now = Date.now();
-    
-    for (const [key, record] of rateLimitStore.resend.entries()) {
-        if (now - record.timestamp > CONFIG.RESEND_COOLDOWN_MS * 2) {
-            rateLimitStore.resend.delete(key);
-        }
-    }
-    
-    for (const [key, record] of rateLimitStore.verify.entries()) {
-        if (now - record.windowStart > CONFIG.VERIFY_RATE_LIMIT_WINDOW_MS * 2) {
-            rateLimitStore.verify.delete(key);
-        }
-    }
-}
-
-// Start periodic cleanup (every 5 minutes)
-setInterval(cleanupRateLimits, 5 * 60 * 1000);
 
 /**
  * Get code expiry timestamp
@@ -177,8 +202,6 @@ module.exports = {
     hashCode,
     checkResendRateLimit,
     checkVerifyRateLimit,
-    clearVerifyAttempts,
     getCodeExpiry,
-    isCodeExpired,
-    cleanupRateLimits
+    isCodeExpired
 };

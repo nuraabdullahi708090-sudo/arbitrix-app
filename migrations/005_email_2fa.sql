@@ -51,6 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_email_verification_active ON public.email_verific
 CREATE INDEX IF NOT EXISTS idx_email_verification_expires ON public.email_verification_codes(expires_at) WHERE used = FALSE;
 CREATE INDEX IF NOT EXISTS idx_email_2fa_attempts_user ON public.email_2fa_attempts(user_id);
 CREATE INDEX IF NOT EXISTS idx_email_2fa_attempts_time ON public.email_2fa_attempts(attempted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_2fa_attempts_user_time ON public.email_2fa_attempts(user_id, attempted_at DESC);
 
 -- ============================================
 -- 4. DISABLE RLS (Required for BIGINT compatibility)
