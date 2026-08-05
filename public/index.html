@@ -2617,9 +2617,15 @@ async function handle2FALoginSubmit() {
         
         // Use token directly from login-verify response
         if (data.token && data.user) {
-            console.log('[LOGIN 2FA] Calling hide2FALoginForm and completeLogin');
-            hide2FALoginForm();
-            completeLogin(data.token, data.user);
+            console.log('[LOGIN 2FA] Success - calling completeLogin() with is2FAFlow=true');
+            
+            // Clear pending state
+            pendingLoginPartialToken = null;
+            pendingLoginCredentials = null;
+            
+            // Call completeLogin with is2FAFlow=true to transition immediately without delay
+            completeLogin(data.token, data.user, true);
+            
         } else {
             console.log('[LOGIN 2FA] Missing token or user in response');
             showAuthError('Login failed. Please try again.', 'twofaLogin');
@@ -2652,8 +2658,8 @@ function handle2FALoginCodeInput(input, index) {
     }
 }
 
-function completeLogin(token, user) {
-    console.log('[LOGIN] Completing login for user:', user.email);
+function completeLogin(token, user, is2FAFlow) {
+    console.log('[LOGIN] Completing login for user:', user.email, 'is2FAFlow:', is2FAFlow);
     localStorage.setItem('jwt_token', token);
     localStorage.setItem('arbi_user', JSON.stringify(user));
     
@@ -2661,21 +2667,54 @@ function completeLogin(token, user) {
         APP.referralCode = user.referralCode;
     }
 
-    showAuthSuccess('Welcome back! Redirecting...', 'login');
-
-    setTimeout(() => {
-        document.getElementById('authPage').style.display = 'none';
-        document.getElementById('landingPage').style.display = 'block';
-        document.getElementById('displayName').textContent = user.name;
-        document.getElementById('userName').textContent = user.name;
+    // For 2FA flow, transition immediately without showing success message on login form
+    // (the login form is hidden during 2FA, so success message would be invisible anyway)
+    if (is2FAFlow) {
+        console.log('[LOGIN] 2FA flow - transitioning immediately');
+        
+        // Hide auth page and 2FA section
+        const authPage = document.getElementById('authPage');
+        const twofaLoginSection = document.getElementById('twofaLoginSection');
+        if (authPage) authPage.style.display = 'none';
+        if (twofaLoginSection) twofaLoginSection.style.display = 'none';
+        
+        // Show landing page
+        const landingPage = document.getElementById('landingPage');
+        if (landingPage) landingPage.style.display = 'block';
+        
+        // Update user display
+        const displayNameEl = document.getElementById('displayName');
+        const userNameEl = document.getElementById('userName');
+        if (displayNameEl) displayNameEl.textContent = user.name || 'Trader';
+        if (userNameEl) userNameEl.textContent = user.name || 'Trader';
+        
         const greeting = document.getElementById('landingUserGreeting');
         if (greeting) {
             greeting.style.display = 'inline-block';
-            document.getElementById('landingUserName').textContent = user.name;
+            const landingUserNameEl = document.getElementById('landingUserName');
+            if (landingUserNameEl) landingUserNameEl.textContent = user.name || 'Trader';
         }
+        
         checkAdminAccess();
         updateReferralDisplay();
-    }, 1000);
+    } else {
+        // Normal login flow - show success message and redirect after delay
+        showAuthSuccess('Welcome back! Redirecting...', 'login');
+
+        setTimeout(() => {
+            document.getElementById('authPage').style.display = 'none';
+            document.getElementById('landingPage').style.display = 'block';
+            document.getElementById('displayName').textContent = user.name;
+            document.getElementById('userName').textContent = user.name;
+            const greeting = document.getElementById('landingUserGreeting');
+            if (greeting) {
+                greeting.style.display = 'inline-block';
+                document.getElementById('landingUserName').textContent = user.name;
+            }
+            checkAdminAccess();
+            updateReferralDisplay();
+        }, 1000);
+    }
 }
 
 // ============ MODAL FUNCTIONS ============
