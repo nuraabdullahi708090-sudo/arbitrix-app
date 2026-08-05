@@ -2,11 +2,28 @@
 -- KYC Verification System Migration v2.0
 -- ============================================
 -- Uses BIGINT for user_id to match existing users(id)
--- RLS DISABLED - authorization via application code
+-- RLS IS DISABLED - authorization via application code (JWT)
+-- ============================================
+--
+-- IMPORTANT: RLS MUST be explicitly disabled because:
+-- 1. Supabase Auth uses UUIDs but users.id is BIGINT
+-- 2. PostgreSQL cannot cast UUID to BIGINT in RLS policies
+-- 3. RLS is ENABLED by default on all new tables in Supabase
 -- ============================================
 
 -- ============================================
--- 1. CREATE TABLES
+-- 1. DISABLE RLS (Required for BIGINT compatibility)
+-- ============================================
+-- RLS must be explicitly disabled because Supabase Auth uses UUIDs but users.id is BIGINT.
+-- PostgreSQL cannot cast UUID to BIGINT in RLS policies.
+-- Authorization is handled by application code via JWT tokens and authMiddleware.
+ALTER TABLE public.verification_profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.verification_documents DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.verification_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_review_history DISABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- 2. CREATE TABLES
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS public.verification_profiles (
@@ -78,7 +95,7 @@ CREATE TABLE IF NOT EXISTS public.admin_review_history (
 );
 
 -- ============================================
--- 2. CREATE INDEXES
+-- 3. CREATE INDEXES
 -- ============================================
 
 CREATE INDEX idx_vp_user_id ON public.verification_profiles(user_id);
