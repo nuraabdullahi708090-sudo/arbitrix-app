@@ -2480,18 +2480,19 @@ async function handleSignup() {
 let pendingLoginPartialToken = null;
 let pendingLoginCredentials = null;
 let pendingLoginTwoFactorType = 'email'; // 'email' or 'totp'
+let is2FASubmitting = false; // Prevent duplicate submit attempts
 let twofaCountdownInterval = null;
 let twofaResendCooldown = 0;
 
 async function handleLogin() {
-    console.log('[HANDLE_LOGIN] ========== Login button clicked ==========');
-    console.log('[HANDLE_LOGIN] Current localStorage state:');
-    console.log('[HANDLE_LOGIN]   jwt_token exists:', !!localStorage.getItem('jwt_token'));
-    console.log('[HANDLE_LOGIN]   arbi_user exists:', !!localStorage.getItem('arbi_user'));
-    console.log('[HANDLE_LOGIN]   pendingLoginPartialToken:', !!pendingLoginPartialToken);
-    console.log('[HANDLE_LOGIN] Current display state:');
-    console.log('[HANDLE_LOGIN]   authPage display:', document.getElementById('authPage')?.style.display);
-    console.log('[HANDLE_LOGIN]   landingPage display:', document.getElementById('landingPage')?.style.display);
+    // CRITICAL: Log stack trace to identify caller
+    const err = new Error();
+    console.log('[HANDLE_LOGIN] ========== LOGIN BUTTON CLICKED ==========');
+    console.log('[HANDLE_LOGIN] STACK TRACE:');
+    console.log(err.stack);
+    console.log('[HANDLE_LOGIN] Calling ENDPOINT: /api/2fa/login-initiate');
+    console.log('[HANDLE_LOGIN] jwt_token exists:', !!localStorage.getItem('jwt_token'));
+    console.log('[HANDLE_LOGIN] pendingLoginPartialToken:', !!pendingLoginPartialToken);
     
     var btn = document.getElementById('loginSubmitBtn');
     setButtonLoading(btn, true);
@@ -2521,7 +2522,7 @@ async function handleLogin() {
         console.log('[HANDLE_LOGIN] Response data:', JSON.stringify(data));
 
         if (!response.ok) {
-            console.log('[HANDLE_LOGIN] Login failed:', data.error);
+            console.log('[HANDLE_LOGIN] Login FAILED:', data.error);
             showAuthError(data.error || 'Invalid email or password', 'login');
             setButtonLoading(btn, false);
             return;
@@ -2622,16 +2623,32 @@ function stop2FACountdown() {
 }
 
 async function resend2FACode() {
-    if (twofaResendCooldown > 0) return;
+    if (twofaResendCooldown > 0) {
+        // CRITICAL: Log stack trace to identify caller
+        const err = new Error();
+        console.log('[RESEND 2FA] Blocked - cooldown active:', twofaResendCooldown, 'seconds remaining');
+        console.log('[RESEND 2FA] STACK TRACE (how did we get here despite cooldown?):');
+        console.log(err.stack);
+        return;
+    }
     
     const resendBtn = document.getElementById('twofaResendBtn');
     const cooldownEl = document.getElementById('twofaResendCooldown');
     
     if (!pendingLoginCredentials) {
+        console.log('[RESEND 2FA] No pending credentials - session expired');
         showAuthError('Session expired. Please login again.', 'twofaLogin');
         hide2FALoginForm();
         return;
     }
+    
+    // CRITICAL: Log stack trace to identify caller
+    const err = new Error();
+    console.log('[RESEND 2FA] ========== RESEND REQUESTED ==========');
+    console.log('[RESEND 2FA] STACK TRACE:');
+    console.log(err.stack);
+    console.log('[RESEND 2FA] Calling ENDPOINT: /api/2fa/login-initiate');
+    console.log('[RESEND 2FA] Email:', pendingLoginCredentials.email);
     
     try {
         const response = await fetch('/api/2fa/login-initiate', {
@@ -2645,7 +2662,10 @@ async function resend2FACode() {
         
         const data = await response.json();
         
+        console.log('[RESEND 2FA] Response status:', response.status, 'ok:', response.ok);
+        
         if (!response.ok) {
+            console.log('[RESEND 2FA] Request FAILED:', data.error || 'Unknown error');
             if (data.retryAfter) {
                 startResendCooldown(data.retryAfter);
                 showAuthError(`Please wait ${data.retryAfter} seconds before requesting again.`, 'twofaLogin');
@@ -2654,6 +2674,8 @@ async function resend2FACode() {
             }
             return;
         }
+        
+        console.log('[RESEND 2FA] Success - new code sent');
         
         if (data.partialToken) {
             pendingLoginPartialToken = data.partialToken;
@@ -2711,15 +2733,36 @@ function startResendCooldown(seconds) {
 }
 
 async function handle2FALoginSubmit() {
+    // Prevent duplicate submissions
+    if (is2FASubmitting) {
+        // CRITICAL: Log stack trace to identify what triggered this
+        const err = new Error();
+        console.log('[LOGIN 2FA] SUBMIT BLOCKED - already submitting');
+        console.log('[LOGIN 2FA] STACK TRACE (how did we get here?):');
+        console.log(err.stack);
+        return;
+    }
+    
+    // CRITICAL: Log stack trace to identify caller
+    const err = new Error();
+    console.log('[LOGIN 2FA] ========== SUBMIT STARTED ==========');
+    console.log('[LOGIN 2FA] STACK TRACE:');
+    console.log(err.stack);
+    
     const btn = document.getElementById('twofaLoginSubmitBtn');
     setButtonLoading(btn, true);
+    is2FASubmitting = true;
     
     const code = get2FALoginCode();
     
-    console.log('[LOGIN 2FA] Submitting code, length:', code.length);
+    console.log('[LOGIN 2FA] Code length:', code.length);
+    console.log('[LOGIN 2FA] Calling ENDPOINT: /api/2fa/login-verify');
+    console.log('[LOGIN 2FA] pendingLoginPartialToken exists:', !!pendingLoginPartialToken);
     
     if (code.length !== 6) {
+        console.log('[LOGIN 2FA] INVALID CODE - not 6 digits');
         showAuthError('Please enter the 6-digit code', 'twofaLogin');
+        is2FASubmitting = false;
         setButtonLoading(btn, false);
         return;
     }
@@ -2728,12 +2771,13 @@ async function handle2FALoginSubmit() {
         console.log('[LOGIN 2FA] ERROR: No pending partial token');
         showAuthError('Session expired. Please login again.', 'twofaLogin');
         hide2FALoginForm();
+        is2FASubmitting = false;
         setButtonLoading(btn, false);
         return;
     }
     
     try {
-        console.log('[LOGIN 2FA] Sending verification request...');
+        console.log('[LOGIN 2FA] Sending verification request to /api/2fa/login-verify...');
         const response = await fetch('/api/2fa/login-verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2752,15 +2796,16 @@ async function handle2FALoginSubmit() {
             hasToken: !!data?.token,
             hasUser: !!data?.user,
             hasSuccess: !!data?.success,
+            error: data?.error,
             dataKeys: data ? Object.keys(data) : [],
-            data: data
+            fullResponse: data
         });
         
         // Check if verification was successful
         const isSuccess = response.ok && data.success;
         
         if (!isSuccess) {
-            console.log('[LOGIN 2FA] Verification failed:', data.error || 'Unknown error');
+            console.log('[LOGIN 2FA] Verification FAILED:', data.error || 'Unknown error');
             
             // Show remaining attempts if available
             let errorMsg = data.error || 'Invalid code';
@@ -2768,11 +2813,12 @@ async function handle2FALoginSubmit() {
                 errorMsg += ` (${data.remainingAttempts} attempts remaining)`;
             }
             showAuthError(errorMsg, 'twofaLogin');
+            is2FASubmitting = false;
             setButtonLoading(btn, false);
             return;
         }
         
-        console.log('[LOGIN 2FA] ========== STEP: Verification SUCCESS ==========');
+        console.log('[LOGIN 2FA] ========== Verification SUCCESS ==========');
         console.log('[LOGIN 2FA] data.token exists:', !!data.token);
         console.log('[LOGIN 2FA] data.user exists:', !!data.user);
         console.log('[LOGIN 2FA] data.user.email:', data.user?.email);
@@ -2783,7 +2829,7 @@ async function handle2FALoginSubmit() {
         
         // Use token directly from login-verify response
         if (data.token && data.user) {
-            console.log('[LOGIN 2FA] ========== STEP: Processing success ==========');
+            console.log('[LOGIN 2FA] ========== Processing success ==========');
             
             // Clear pending state
             console.log('[LOGIN 2FA] Clearing pendingLoginPartialToken');
@@ -2791,37 +2837,32 @@ async function handle2FALoginSubmit() {
             console.log('[LOGIN 2FA] Clearing pendingLoginCredentials');
             pendingLoginCredentials = null;
             
-            console.log('[LOGIN 2FA] ========== STEP: Calling completeLogin() ==========');
-            console.log('[LOGIN 2FA] Calling completeLogin with is2FAFlow=true');
+            console.log('[LOGIN 2FA] ========== Calling completeLogin() ==========');
             console.log('[LOGIN 2FA] Token length:', data.token?.length);
             console.log('[LOGIN 2FA] User object:', JSON.stringify(data.user));
             
             // Call completeLogin with is2FAFlow=true to transition immediately without delay
             completeLogin(data.token, data.user, true);
             
-            console.log('[LOGIN 2FA] ========== STEP: completeLogin() returned ==========');
-            console.log('[LOGIN 2FA] After completeLogin - checking localStorage');
+            console.log('[LOGIN 2FA] ========== completeLogin() returned ==========');
             console.log('[LOGIN 2FA] jwt_token in localStorage:', !!localStorage.getItem('jwt_token'));
             console.log('[LOGIN 2FA] arbi_user in localStorage:', !!localStorage.getItem('arbi_user'));
-            console.log('[LOGIN 2FA] authPage display:', document.getElementById('authPage')?.style.display);
-            console.log('[LOGIN 2FA] landingPage display:', document.getElementById('landingPage')?.style.display);
-            console.log('[LOGIN 2FA] loginForm display:', document.getElementById('loginForm')?.style.display);
-            console.log('[LOGIN 2FA] twofaLoginSection display:', document.getElementById('twofaLoginSection')?.style.display);
             
         } else {
-            console.log('[LOGIN 2FA] ========== STEP: Missing token or user ==========');
-            console.log('[LOGIN 2FA] Missing token or user in response');
+            console.log('[LOGIN 2FA] ========== Missing token or user ==========');
             showAuthError('Login failed. Please try again.', 'twofaLogin');
             hide2FALoginForm();
         }
     } catch (e) {
-        console.error('[LOGIN 2FA] ========== STEP: EXCEPTION ==========');
+        console.error('[LOGIN 2FA] ========== EXCEPTION ==========');
         console.error('[LOGIN 2FA] Exception message:', e.message);
         console.error('[LOGIN 2FA] Exception stack:', e.stack);
         showAuthError('Network error. Please try again.', 'twofaLogin');
+    } finally {
+        // Always reset the flag
+        is2FASubmitting = false;
+        setButtonLoading(btn, false);
     }
-    
-    setButtonLoading(btn, false);
 }
 
 function get2FALoginCode() {
@@ -2838,7 +2879,10 @@ function handle2FALoginCodeInput(input, index) {
     }
     
     const code = get2FALoginCode();
+    console.log('[2FA INPUT] Digit entered at index:', index, '| Current code length:', code.length);
+    
     if (code.length === 6) {
+        console.log('[2FA INPUT] Code complete - auto-submitting...');
         handle2FALoginSubmit();
     }
 }
@@ -6228,48 +6272,20 @@ console.log('🌍 i18n system loaded. Current language:', currentLang);
 </script>
 
 <script>
-// ============ MOCK BACKEND (REMOVE IN PRODUCTION) ============
-const originalFetch = window.fetch;
-window.fetch = function(url, options) {
-  if (url === '/api/deposit/request' && options && options.method === 'POST') {
-    try {
-      const body = JSON.parse(options.body);
-      const mockInvoice = {
-        id: 'inv_' + Date.now(),
-        address: 'TDQ2Ymmejp2MXxawBdbYkxqjZ7tTkMyMJR',
-        cryptoAmount: (body.amount / 1.0018).toFixed(6),
-        usdValue: body.amount,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-        network: body.network || 'TRC20'
-      };
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockInvoice)
-      });
-    } catch(e) {
-      return Promise.reject(e);
-    }
-  }
-  
-  if (url && url.startsWith('/api/deposit/status/')) {
-    const invoiceId = url.split('/').pop();
-    const createdTime = parseInt(invoiceId.split('_')[1]) || 0;
-    const elapsed = Date.now() - createdTime;
-    const isConfirmed = elapsed > 15000;
-    const balance = APP.liveData ? APP.liveData.balance : 0;
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({
-        status: isConfirmed ? 'confirmed' : 'pending',
-        newBalance: balance + 50,
-        creditedAmount: 50,
-        network: 'TRC20'
-      })
-    });
-  }
-  
-  return originalFetch(url, options);
-};
+// ============ DEBUG: Fetch interceptor to trace ALL requests ============
+(function() {
+    const realFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // CRITICAL: Log ALL fetch calls with stack trace
+        const err = new Error();
+        console.log('[FETCH INTERCEPTOR] ========== NEW REQUEST ==========');
+        console.log('[FETCH INTERCEPTOR] URL:', url);
+        console.log('[FETCH INTERCEPTOR] Method:', options?.method || 'GET');
+        console.log('[FETCH INTERCEPTOR] STACK TRACE:');
+        console.log(err.stack);
+        return realFetch(url, options);
+    };
+})();
 // ============================================================
 
 // ============ MAIN APP LOGIC ============
