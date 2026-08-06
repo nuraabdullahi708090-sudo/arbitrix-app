@@ -2485,7 +2485,11 @@ let twofaCountdownInterval = null;
 let twofaResendCooldown = 0;
 
 async function handleLogin() {
+    // CRITICAL: Log stack trace to identify caller
+    const err = new Error();
     console.log('[HANDLE_LOGIN] ========== LOGIN BUTTON CLICKED ==========');
+    console.log('[HANDLE_LOGIN] STACK TRACE:');
+    console.log(err.stack);
     console.log('[HANDLE_LOGIN] Calling ENDPOINT: /api/2fa/login-initiate');
     console.log('[HANDLE_LOGIN] jwt_token exists:', !!localStorage.getItem('jwt_token'));
     console.log('[HANDLE_LOGIN] pendingLoginPartialToken:', !!pendingLoginPartialToken);
@@ -2620,7 +2624,11 @@ function stop2FACountdown() {
 
 async function resend2FACode() {
     if (twofaResendCooldown > 0) {
+        // CRITICAL: Log stack trace to identify caller
+        const err = new Error();
         console.log('[RESEND 2FA] Blocked - cooldown active:', twofaResendCooldown, 'seconds remaining');
+        console.log('[RESEND 2FA] STACK TRACE (how did we get here despite cooldown?):');
+        console.log(err.stack);
         return;
     }
     
@@ -2634,7 +2642,11 @@ async function resend2FACode() {
         return;
     }
     
+    // CRITICAL: Log stack trace to identify caller
+    const err = new Error();
     console.log('[RESEND 2FA] ========== RESEND REQUESTED ==========');
+    console.log('[RESEND 2FA] STACK TRACE:');
+    console.log(err.stack);
     console.log('[RESEND 2FA] Calling ENDPOINT: /api/2fa/login-initiate');
     console.log('[RESEND 2FA] Email:', pendingLoginCredentials.email);
     
@@ -2723,9 +2735,19 @@ function startResendCooldown(seconds) {
 async function handle2FALoginSubmit() {
     // Prevent duplicate submissions
     if (is2FASubmitting) {
+        // CRITICAL: Log stack trace to identify what triggered this
+        const err = new Error();
         console.log('[LOGIN 2FA] SUBMIT BLOCKED - already submitting');
+        console.log('[LOGIN 2FA] STACK TRACE (how did we get here?):');
+        console.log(err.stack);
         return;
     }
+    
+    // CRITICAL: Log stack trace to identify caller
+    const err = new Error();
+    console.log('[LOGIN 2FA] ========== SUBMIT STARTED ==========');
+    console.log('[LOGIN 2FA] STACK TRACE:');
+    console.log(err.stack);
     
     const btn = document.getElementById('twofaLoginSubmitBtn');
     setButtonLoading(btn, true);
@@ -2733,7 +2755,6 @@ async function handle2FALoginSubmit() {
     
     const code = get2FALoginCode();
     
-    console.log('[LOGIN 2FA] ========== SUBMIT STARTED ==========');
     console.log('[LOGIN 2FA] Code length:', code.length);
     console.log('[LOGIN 2FA] Calling ENDPOINT: /api/2fa/login-verify');
     console.log('[LOGIN 2FA] pendingLoginPartialToken exists:', !!pendingLoginPartialToken);
@@ -6251,48 +6272,20 @@ console.log('🌍 i18n system loaded. Current language:', currentLang);
 </script>
 
 <script>
-// ============ MOCK BACKEND (REMOVE IN PRODUCTION) ============
-const originalFetch = window.fetch;
-window.fetch = function(url, options) {
-  if (url === '/api/deposit/request' && options && options.method === 'POST') {
-    try {
-      const body = JSON.parse(options.body);
-      const mockInvoice = {
-        id: 'inv_' + Date.now(),
-        address: 'TDQ2Ymmejp2MXxawBdbYkxqjZ7tTkMyMJR',
-        cryptoAmount: (body.amount / 1.0018).toFixed(6),
-        usdValue: body.amount,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-        network: body.network || 'TRC20'
-      };
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockInvoice)
-      });
-    } catch(e) {
-      return Promise.reject(e);
-    }
-  }
-  
-  if (url && url.startsWith('/api/deposit/status/')) {
-    const invoiceId = url.split('/').pop();
-    const createdTime = parseInt(invoiceId.split('_')[1]) || 0;
-    const elapsed = Date.now() - createdTime;
-    const isConfirmed = elapsed > 15000;
-    const balance = APP.liveData ? APP.liveData.balance : 0;
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({
-        status: isConfirmed ? 'confirmed' : 'pending',
-        newBalance: balance + 50,
-        creditedAmount: 50,
-        network: 'TRC20'
-      })
-    });
-  }
-  
-  return originalFetch(url, options);
-};
+// ============ DEBUG: Fetch interceptor to trace ALL requests ============
+(function() {
+    const realFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // CRITICAL: Log ALL fetch calls with stack trace
+        const err = new Error();
+        console.log('[FETCH INTERCEPTOR] ========== NEW REQUEST ==========');
+        console.log('[FETCH INTERCEPTOR] URL:', url);
+        console.log('[FETCH INTERCEPTOR] Method:', options?.method || 'GET');
+        console.log('[FETCH INTERCEPTOR] STACK TRACE:');
+        console.log(err.stack);
+        return realFetch(url, options);
+    };
+})();
 // ============================================================
 
 // ============ MAIN APP LOGIC ============
