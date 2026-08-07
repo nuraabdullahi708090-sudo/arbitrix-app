@@ -36,7 +36,8 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
 const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
-const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
+// Use production URL in production, localhost otherwise
+const BASE_URL = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://arbitrix.pro' : 'http://localhost:8080');
 
 // Email configuration (use environment variables in production)
 const EMAIL_CONFIG = {
