@@ -7853,6 +7853,9 @@ function showPaymentoGatewayUI(invoice, amountUSD) {
   document.getElementById('depositCurrencyDisplay').textContent = 'USDT';
   document.getElementById('liveDepositDisplayUSD').textContent = amountUSD.toFixed(2);
   
+  // Show important warning
+  showPaymentWarning();
+  
   // Show progress and status
   updateDepositStatus('waiting', 'Complete payment on Paymento gateway. Your deposit will be credited automatically.');
   showProgressBar(true, 'Waiting for payment confirmation...');
@@ -7892,6 +7895,54 @@ function showPaymentoGatewayUI(invoice, amountUSD) {
   window.currentGatewayUrl = invoice.gatewayUrl;
   
   showToast('Payment gateway ready! Click "Pay with Paymento" to continue.', 'success');
+}
+
+// Show payment warning
+function showPaymentWarning() {
+  const warningId = 'paymentWarningBox';
+  let warningEl = document.getElementById(warningId);
+  
+  if (warningEl) {
+    warningEl.style.display = 'block';
+    return;
+  }
+  
+  // Create warning element
+  warningEl = document.createElement('div');
+  warningEl.id = warningId;
+  warningEl.style.cssText = `
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 12px 0;
+  `;
+  
+  warningEl.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:10px;">
+      <i class="fas fa-exclamation-triangle" style="color:#FBBF24;font-size:16px;margin-top:2px;"></i>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:#FBBF24;margin-bottom:6px;">Important</div>
+        <ul style="font-size:10px;color:#8896B5;margin:0;padding-left:16px;line-height:1.6;">
+          <li>Send only <strong style="color:#10B981;">USDT</strong> on the <strong style="color:#10B981;">TRON (TRC20)</strong> network</li>
+          <li>Sending any other asset or network may result in loss of funds</li>
+          <li>Your balance will be credited automatically after blockchain confirmation</li>
+        </ul>
+      </div>
+    </div>
+  `;
+  
+  // Insert after the supported coins info
+  const supportedInfo = document.getElementById('supportedCoinsInfo');
+  if (supportedInfo) {
+    supportedInfo.parentNode.insertBefore(warningEl, supportedInfo.nextSibling);
+  } else {
+    // Fallback: insert after the currency selection
+    const depositModalContent = document.querySelector('.deposit-modal-content');
+    if (depositModalContent) {
+      depositModalContent.insertBefore(warningEl, depositModalContent.children[3]);
+    }
+  }
 }
 
 async function cancelCurrentInvoice() {
@@ -7995,6 +8046,10 @@ function resetDepositModal() {
   
   // Reset payment section
   document.getElementById('depositPaymentSection').style.opacity = '0.6';
+  
+  // Hide payment warning
+  const warningEl = document.getElementById('paymentWarningBox');
+  if (warningEl) warningEl.style.display = 'none';
   
   // Clear gateway URL
   window.currentGatewayUrl = null;
