@@ -8758,6 +8758,18 @@ function initApp() {
             getEl('landingPage').style.display = 'none';
             getEl('authPage').style.display = 'flex';
             showSignupForm();
+            // Clear authentication and user-specific data from localStorage
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('arbi_user');
+            localStorage.removeItem('arbi_demo');
+            localStorage.removeItem('arbi_live');
+            localStorage.removeItem('arbi_bonus');
+            localStorage.removeItem('depositHistory');
+            localStorage.removeItem('withdrawHistory');
+            localStorage.removeItem('referralStats');
+            localStorage.removeItem('arbi_chart');
+            localStorage.removeItem('arbi_badges');
+            localStorage.removeItem('arbi_celebrated');
         }
     });
     
