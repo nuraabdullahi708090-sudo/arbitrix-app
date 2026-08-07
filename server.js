@@ -5291,7 +5291,9 @@ app.get('/api/diagnostic', async (req, res) => {
     supabaseUrl: supabaseUrl,
     supabaseProjectRef: supabaseUrl.replace('https://', '').split('.')[0],
     supabaseUrlReachable: false,
-    supabaseQueryTest: null
+    supabaseQueryTest: null,
+    serviceRoleKeyConfigured: !!process.env.SUPABASE_SERVICE_KEY,
+    passwordResetTokensTest: null
   };
   
   // Test Supabase query
@@ -5316,6 +5318,54 @@ app.get('/api/diagnostic', async (req, res) => {
       success: false, 
       error: e.message,
       cause: e.cause ? (e.cause.message || e.cause.code || String(e.cause)) : null
+    };
+  }
+  
+  // Test password_reset_tokens table with service role
+  try {
+    const testEmail = 'diagnostic-test-' + Date.now() + '@test.com';
+    const testHash = crypto.createHash('sha256').update('test-token-' + Date.now()).digest('hex');
+    
+    // Try INSERT
+    const insertResult = await supabaseAdmin.from('password_reset_tokens').insert({
+      email: testEmail,
+      token_hash: testHash,
+      expires_at: new Date(Date.now() + 3600000).toISOString(),
+      used: false
+    });
+    
+    if (insertResult.error) {
+      diagnostics.passwordResetTokensTest = {
+        success: false,
+        insertSuccess: false,
+        insertError: insertResult.error.message,
+        insertCode: insertResult.error.code
+      };
+    } else {
+      // Try SELECT to verify
+      const selectResult = await supabaseAdmin.from('password_reset_tokens')
+        .select('*')
+        .eq('token_hash', testHash)
+        .single();
+      
+      // Clean up
+      await supabaseAdmin.from('password_reset_tokens').delete().eq('email', testEmail);
+      
+      diagnostics.passwordResetTokensTest = {
+        success: !!selectResult.data,
+        insertSuccess: !insertResult.error,
+        insertData: insertResult.data,
+        selectSuccess: !!selectResult.data,
+        foundRecord: selectResult.data ? {
+          email: selectResult.data.email,
+          expires_at: selectResult.data.expires_at
+        } : null
+      };
+    }
+  } catch (e) {
+    diagnostics.passwordResetTokensTest = {
+      success: false,
+      error: e.message
     };
   }
   
