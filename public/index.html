@@ -5155,25 +5155,39 @@ function toggleFaq(btn) {
     <h3><i class="fas fa-circle-down" style="color:#10B981;"></i> <span data-i18n="deposit.title">Deposit Funds</span></h3>
     <p style="color:#5A6A8A;font-size:13px;" data-i18n="deposit.subtitle">Secure crypto deposit — funds credited automatically</p>
 
-    <!-- Currency Selection -->
-    <div style="margin:12px 0;">
-      <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.currency">Cryptocurrency</label>
-      <div class="deposit-network-select">
+    <!-- Supported Currencies & Networks -->
+    <div id="supportedCoinsInfo" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <i class="fas fa-shield-alt" style="color:#10B981;font-size:14px;"></i>
+        <span style="font-size:12px;font-weight:600;color:#10B981;">Currently Supported</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8896B5;">
+        <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#10B981;font-weight:600;">USDT</span>
+        <span>on</span>
+        <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#10B981;font-weight:600;">TRON (TRC20)</span>
+      </div>
+      <div style="font-size:10px;color:#5A6A8A;margin-top:8px;">Lowest fees • Fastest confirmation</div>
+    </div>
+
+    <!-- Currency Selection (Future: Load from API) -->
+    <div style="margin:12px 0;display:none;">
+      <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Cryptocurrency</label>
+      <div class="deposit-network-select" id="currencyOptions">
         <div class="net-option active" data-currency="USDT" data-network="TRC20">USDT</div>
-        <div class="net-option" data-currency="BTC" data-network="BTC">BTC</div>
-        <div class="net-option" data-currency="ETH" data-network="ETH">ETH</div>
       </div>
     </div>
 
-    <!-- Network Selection -->
-    <div style="margin:12px 0;">
-      <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.network">Network</label>
+    <!-- Network Selection (Future: Load from API) -->
+    <div style="margin:12px 0;display:none;">
+      <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Network</label>
       <div class="deposit-network-select" id="networkOptions">
         <div class="net-option active" data-network="TRC20">TRC20</div>
-        <div class="net-option" data-network="ERC20">ERC20</div>
-        <div class="net-option" data-network="BEP20">BEP20</div>
       </div>
     </div>
+
+    <!-- Hidden inputs for API compatibility -->
+    <input type="hidden" id="depositCurrency" value="USDT">
+    <input type="hidden" id="depositNetwork" value="TRC20">
 
     <!-- Deposit Amount Input -->
     <div style="margin:12px 0;">
@@ -7515,14 +7529,10 @@ async function requestDepositAddress() {
     return;
   }
 
-  // Get selected currency and network
-  const currencyOptions = document.querySelectorAll('[data-currency]');
-  const selectedCurrency = Array.from(currencyOptions).find(el => el.classList.contains('active'));
-  currentCurrency = selectedCurrency ? selectedCurrency.dataset.currency : 'USDT';
-  
-  const networkOptions = document.querySelectorAll('#networkOptions .net-option');
-  const selectedNetwork = Array.from(networkOptions).find(el => el.classList.contains('active'));
-  currentNetwork = selectedNetwork ? selectedNetwork.dataset.network : 'TRC20';
+  // Use supported currency and network (currently hardcoded for Paymento)
+  // Future: Load from /api/payment/config endpoint
+  currentCurrency = 'USDT';
+  currentNetwork = 'TRC20';
 
   const btn = document.getElementById('getAddressBtn');
   btn.disabled = true;
@@ -7570,13 +7580,20 @@ async function requestDepositAddress() {
       invoice = await fallbackResponse.json();
     }
 
-    // Update UI with invoice details
-    document.getElementById('liveWalletAddress').textContent = invoice.address;
+    currentInvoiceId = invoice.id;
+
+    // Check if Paymento gateway redirect
+    if (invoice.redirectToGateway && invoice.gatewayUrl) {
+      // Paymento: Show gateway redirect UI
+      showPaymentoGatewayUI(invoice, amountUSD);
+      return;
+    }
+
+    // Update UI with invoice details (NOWPayments-style)
+    document.getElementById('liveWalletAddress').textContent = invoice.address || invoice.walletAddress;
     document.getElementById('liveDepositDisplayAmount').textContent = invoice.cryptoAmount || invoice.amountCrypto || amountUSD.toFixed(2);
     document.getElementById('liveDepositDisplayUSD').textContent = invoice.usdValue || invoice.amountUsd || amountUSD;
     document.getElementById('depositCurrencyDisplay').textContent = invoice.currency || currentCurrency;
-
-    currentInvoiceId = invoice.id;
 
     // Show payment section UI
     document.getElementById('depositPaymentSection').style.opacity = '1';
@@ -7586,11 +7603,11 @@ async function requestDepositAddress() {
     document.getElementById('copyAmountBtn').disabled = false;
     
     // Generate QR code
+    const address = invoice.address || invoice.walletAddress;
     if (invoice.qrCodeUrl) {
       document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="QR Code" style="width:120px;height:120px;">`;
-    } else {
-      // Generate QR code URL
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(invoice.address)}`;
+    } else if (address) {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(address)}`;
       document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="QR Code" style="width:120px;height:120px;">`;
     }
 
@@ -7804,6 +7821,79 @@ function forceCheckPayment() {
   startPollingForPayment(currentInvoiceId);
 }
 
+// Paymento Gateway UI
+function showPaymentoGatewayUI(invoice, amountUSD) {
+  const paymentSection = document.getElementById('depositPaymentSection');
+  const qrContainer = document.getElementById('qrCodeContainer');
+  const timerSection = document.getElementById('depositTimerSection');
+  const addressEl = document.getElementById('liveWalletAddress');
+  const btn = document.getElementById('getAddressBtn');
+  
+  // Show the payment section
+  paymentSection.style.opacity = '1';
+  qrContainer.style.display = 'block';
+  timerSection.style.display = 'none';
+  
+  // Show gateway QR code
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(invoice.gatewayUrl)}`;
+  document.getElementById('qrCodeImage').innerHTML = `
+    <img src="${qrUrl}" alt="Payment Gateway QR" style="width:120px;height:120px;border-radius:8px;">
+  `;
+  
+  // Show gateway URL
+  addressEl.innerHTML = `
+    <div style="font-size:10px;color:#8896B5;margin-bottom:8px;">Scan QR code or click button below to pay</div>
+    <div style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;background:rgba(240,185,11,0.1);padding:8px;border-radius:6px;">
+      ${invoice.gatewayUrl.substring(0, 60)}...
+    </div>
+  `;
+  
+  // Update amount display
+  document.getElementById('liveDepositDisplayAmount').textContent = amountUSD.toFixed(2);
+  document.getElementById('depositCurrencyDisplay').textContent = 'USDT';
+  document.getElementById('liveDepositDisplayUSD').textContent = amountUSD.toFixed(2);
+  
+  // Show progress and status
+  updateDepositStatus('waiting', 'Complete payment on Paymento gateway. Your deposit will be credited automatically.');
+  showProgressBar(true, 'Waiting for payment confirmation...');
+  
+  // Hide copy buttons for gateway mode
+  document.getElementById('copyAddressBtn').style.display = 'none';
+  document.getElementById('copyAmountBtn').style.display = 'none';
+  
+  // Update buttons
+  btn.style.display = 'none';
+  
+  // Add "Pay Now" button to open gateway
+  let payNowBtn = document.getElementById('payNowBtn');
+  if (!payNowBtn) {
+    payNowBtn = document.createElement('button');
+    payNowBtn.id = 'payNowBtn';
+    payNowBtn.className = 'btn btn-primary';
+    payNowBtn.style.cssText = 'flex:2;background:#10B981;border-color:#10B981;';
+    btn.parentNode.insertBefore(payNowBtn, btn);
+  }
+  payNowBtn.style.display = 'block';
+  payNowBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> Pay with Paymento';
+  payNowBtn.onclick = () => {
+    window.open(invoice.gatewayUrl, '_blank');
+  };
+  
+  // Show cancel button
+  document.getElementById('cancelInvoiceBtn').style.display = 'block';
+  document.getElementById('cancelInvoiceBtn').style.flex = '1';
+  document.getElementById('cancelInvoiceBtn').style.width = 'auto';
+  
+  // Show "New Invoice" button (hidden for now, shows after payment)
+  document.getElementById('newInvoiceBtn').style.display = 'none';
+  document.getElementById('forceCheckBtn').disabled = false;
+  
+  // Store gateway URL for reference
+  window.currentGatewayUrl = invoice.gatewayUrl;
+  
+  showToast('Payment gateway ready! Click "Pay with Paymento" to continue.', 'success');
+}
+
 async function cancelCurrentInvoice() {
   if (!currentInvoiceId) {
     showToast('No active invoice to cancel.', 'info');
@@ -7887,9 +7977,16 @@ function resetDepositModal() {
   document.getElementById('getAddressBtn').disabled = false;
   document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
   document.getElementById('cancelInvoiceBtn').style.display = 'none';
+  document.getElementById('cancelInvoiceBtn').style.flex = '';
   document.getElementById('newInvoiceBtn').style.display = 'none';
   document.getElementById('copyAddressBtn').disabled = true;
+  document.getElementById('copyAddressBtn').style.display = 'flex';
   document.getElementById('copyAmountBtn').disabled = true;
+  document.getElementById('copyAmountBtn').style.display = 'flex';
+  
+  // Remove Pay Now button if exists
+  const payNowBtn = document.getElementById('payNowBtn');
+  if (payNowBtn) payNowBtn.remove();
   
   // Reset QR code
   document.getElementById('qrCodeContainer').style.display = 'none';
@@ -7899,13 +7996,8 @@ function resetDepositModal() {
   // Reset payment section
   document.getElementById('depositPaymentSection').style.opacity = '0.6';
   
-  // Reset currency/network selections
-  document.querySelectorAll('[data-currency]').forEach(el => {
-    el.classList.toggle('active', el.dataset.currency === 'USDT');
-  });
-  document.querySelectorAll('#networkOptions .net-option').forEach(el => {
-    el.classList.toggle('active', el.dataset.network === 'TRC20');
-  });
+  // Clear gateway URL
+  window.currentGatewayUrl = null;
 }
 
 function closeDepositModal() {
