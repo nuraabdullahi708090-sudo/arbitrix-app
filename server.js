@@ -3847,7 +3847,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
                 email: user.email,
                 referral_code: user.referral_code,
                 is_admin: !!user.is_admin,
-                is_verified: !!user.is_verified
+                is_verified: false // KYC verification not implemented yet
             }
         });
     } catch (error) {
@@ -3928,10 +3928,10 @@ app.post('/api/2fa/login-verify', async (req, res) => {
             { expiresIn: '7d' }
         );
         
-        // Get user data
+        // Get user data (is_verified removed - column doesn't exist in users table)
         const { data: user } = await supabase
             .from('users')
-            .select('id, name, email, referral_code, is_admin, is_verified')
+            .select('id, name, email, referral_code, is_admin')
             .eq('id', userId)
             .single();
         
@@ -3939,9 +3939,12 @@ app.post('/api/2fa/login-verify', async (req, res) => {
             success: true,
             token,
             user: user ? {
-                ...user,
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                referral_code: user.referral_code,
                 is_admin: !!user.is_admin,
-                is_verified: !!user.is_verified
+                is_verified: false // KYC verification not implemented yet
             } : null
         });
     } catch (error) {
@@ -4930,7 +4933,7 @@ app.get('/api/admin/users/search', authMiddleware, adminMiddleware, async (req, 
     let query = supabase
       .from('users')
       .select(`
-        id, name, email, referral_code, is_admin, is_verified, created_at,
+        id, name, email, referral_code, is_admin, created_at,
         wallets(demo_balance, live_balance, bonus_balance),
         verification_profiles(status)
       `);
@@ -4959,6 +4962,7 @@ app.get('/api/admin/users/search', authMiddleware, adminMiddleware, async (req, 
       live_balance: u.wallets?.live_balance || 0,
       bonus_balance: u.wallets?.bonus_balance || 0,
       kyc_status: u.verification_profiles?.status || 'not_started',
+      is_verified: false, // KYC verification status from verification_profiles table
       wallets: undefined,
       verification_profiles: undefined
     })) || [];
@@ -4988,7 +4992,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
       case 'users':
         const { data: users } = await supabase
           .from('users')
-          .select('id, name, email, referral_code, is_admin, is_verified, created_at, wallets(demo_balance, live_balance, bonus_balance)');
+          .select('id, name, email, referral_code, is_admin, created_at, wallets(demo_balance, live_balance, bonus_balance)');
         
         data = users?.map(u => ({
           ID: u.id,
@@ -4996,14 +5000,13 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
           Email: u.email,
           'Referral Code': u.referral_code,
           'Is Admin': u.is_admin ? 'Yes' : 'No',
-          'Verified': u.is_verified ? 'Yes' : 'No',
           'Demo Balance': u.wallets?.demo_balance || 0,
           'Live Balance': u.wallets?.live_balance || 0,
           'Bonus Balance': u.wallets?.bonus_balance || 0,
           'Created At': u.created_at
         })) || [];
         filename = 'users_export.csv';
-        headers = ['ID', 'Name', 'Email', 'Referral Code', 'Is Admin', 'Verified', 'Demo Balance', 'Live Balance', 'Bonus Balance', 'Created At'];
+        headers = ['ID', 'Name', 'Email', 'Referral Code', 'Is Admin', 'Demo Balance', 'Live Balance', 'Bonus Balance', 'Created At'];
         break;
         
       case 'deposits':
