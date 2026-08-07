@@ -34,7 +34,7 @@ const TOTP_ENCRYPTION_KEY = process.env.TOTP_ENCRYPTION_KEY || 'default-kyc-encr
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const JWT_SECRET = 'mySecret123';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-in-production';
 const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
 // Base URL for password reset links and other absolute URLs
 // Production: Set BASE_URL=https://arbitrix.pro in environment
@@ -199,11 +199,16 @@ console.log('[Server] Payment Service initialized');
 const kycService = new KYCService(supabase, supabase.storage);
 console.log('[Server] KYC Service initialized with Supabase Storage');
 
-// CORS configuration - allow all origins for flexibility
-// In production, you may want to restrict this to specific domains
+// CORS configuration - restrict origins in production
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+  : process.env.NODE_ENV === 'production' 
+    ? ['https://arbitrix.pro'] // Default production origin
+    : true; // Allow all in development
+
 app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true, // Allow credentials (cookies, authorization headers)
+  origin: allowedOrigins,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
