@@ -171,6 +171,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Separate client with service role for RLS-protected operations
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+// Warn if service key is not set
+if (!process.env.SUPABASE_SERVICE_KEY) {
+  console.warn('⚠️ WARNING: SUPABASE_SERVICE_KEY not set. Password reset and some admin features may not work correctly.');
+  console.warn('   Set SUPABASE_SERVICE_KEY in environment for full functionality.');
+}
+
 // ============================================
 // PAYMENT SERVICE INITIALIZATION
 // ============================================
@@ -5384,7 +5390,20 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json(errorResponse);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-  console.log(`📊 Admin panel at http://0.0.0.0:${PORT}/admin`);
+// Initialize database tables
+async function initializeDatabase() {
+  console.log('🔧 Initializing database tables...');
+  await ensureResetTokensTable();
+  console.log('✅ Database tables initialized');
+}
+
+// Start server after initialization
+initializeDatabase().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+    console.log(`📊 Admin panel at http://0.0.0.0:${PORT}/admin`);
+  });
+}).catch(err => {
+  console.error('❌ Failed to initialize database:', err);
+  process.exit(1);
 });

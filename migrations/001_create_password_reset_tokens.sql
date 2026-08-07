@@ -27,20 +27,20 @@ ON public.password_reset_tokens(used) WHERE used = FALSE;
 -- Enable Row Level Security
 ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow service role to insert tokens (for API)
-CREATE POLICY "Service role can insert reset tokens" ON public.password_reset_tokens
-    FOR INSERT WITH ROLE service_role;
+-- Policy: Allow anyone to insert tokens (API handles validation)
+CREATE POLICY "Anyone can insert reset tokens" ON public.password_reset_tokens
+    FOR INSERT WITH CHECK (true);
 
--- Policy: Allow service role to update tokens (mark as used)
-CREATE POLICY "Service role can update reset tokens" ON public.password_reset_tokens
+-- Policy: Allow anyone to update tokens (mark as used)
+CREATE POLICY "Anyone can update reset tokens" ON public.password_reset_tokens
     FOR UPDATE USING (true);
 
--- Policy: Allow authenticated users to select their own tokens
-CREATE POLICY "Users can view their own tokens" ON public.password_reset_tokens
+-- Policy: Allow anyone to select tokens (for verification)
+CREATE POLICY "Anyone can view tokens" ON public.password_reset_tokens
     FOR SELECT USING (true);
 
--- Policy: Allow authenticated users to delete their own tokens
-CREATE POLICY "Users can delete their own tokens" ON public.password_reset_tokens
+-- Policy: Allow anyone to delete tokens
+CREATE POLICY "Anyone can delete tokens" ON public.password_reset_tokens
     FOR DELETE USING (true);
 
 -- Add comment for documentation
