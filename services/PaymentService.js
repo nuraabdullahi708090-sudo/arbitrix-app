@@ -15,9 +15,11 @@
  * - SUPABASE_SERVICE_KEY: Supabase service role key (for admin operations)
  * - NOWPAYMENTS_API_KEY: NOWPayments API key
  * - NOWPAYMENTS_IPN_SECRET: NOWPayments webhook secret
+ * - PAYMENTO_API_KEY: Paymento API key
+ * - PAYMENTO_SECRET_KEY: Paymento webhook secret
  * 
  * @author Arbitrix AI
- * @version 1.0.0
+ * @version 1.1.0 (Added Paymento support)
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -162,7 +164,7 @@ class PaymentService {
         // Validate inputs
         if (!userId) throw new Error('User ID is required');
         if (!amount || amount < CONFIG.MIN_DEPOSIT_USD) {
-            throw new Error(`Minimum deposit is $${CONFIG.MIN_DEPOSIT_USD}`);
+            throw new Error(`Minimum deposit is ${CONFIG.MIN_DEPOSIT_USD}`);
         }
         if (!CONFIG.SUPPORTED_CURRENCIES.includes(currency)) {
             throw new Error(`Unsupported currency: ${currency}`);
@@ -181,8 +183,12 @@ class PaymentService {
         }
 
         try {
+            // Get provider
+            const provider = this.getActiveProvider();
+            const isPaymento = this.activeProviderName === 'paymento';
+
             // Create invoice in database first (for tracking)
-            const { data: dbInvoice, error: dbError } = await supabase
+            const { data: dbInvoice, error: dbInvoiceError } = await supabase
                 .from('payment_invoices')
                 .insert({
                     invoice_id: invoiceId,
@@ -198,41 +204,82 @@ class PaymentService {
                 .select()
                 .single();
 
-            if (dbError) throw dbError;
+            if (dbInvoiceError) throw dbInvoiceError;
 
-            // Get wallet address from provider
-            const provider = this.getActiveProvider();
-            const walletAddress = await provider.getWalletAddress({
-                currency,
-                network,
-                invoiceId
-            });
+            let result;
 
-            // Calculate crypto amount (mock conversion rate)
-            const cryptoAmount = await this.calculateCryptoAmount(amount, currency, network);
+            if (isPaymento) {
+                // Paymento: Create payment request and get token
+                const paymentoResult = await provider.createInvoice({
+                    userId,
+                    amount,
+                    currency,
+                    network,
+                    orderId: invoiceId,
+                    ipAddress
+                });
 
-            // Update invoice with wallet address
-            await supabase
-                .from('payment_invoices')
-                .update({ 
-                    wallet_address: walletAddress.address,
-                    amount_crypto: cryptoAmount,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', dbInvoice.id);
+                // Update invoice with Paymento-specific fields
+                await supabase
+                    .from('payment_invoices')
+                    .update({ 
+                        paymento_token: paymentoResult.token,
+                        gateway_url: paymentoResult.gatewayUrl,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', dbInvoice.id);
 
-            const result = {
-                id: invoiceId,
-                dbId: dbInvoice.id,
-                address: walletAddress.address,
-                currency: currency,
-                network: network,
-                amountCrypto: parseFloat(cryptoAmount),
-                amountUsd: amount,
-                expiresAt: new Date(Date.now() + CONFIG.INVOICE_EXPIRY_MS).toISOString(),
-                status: 'pending',
-                qrCodeUrl: this.generateQRCodeUrl(walletAddress.address, cryptoAmount, currency)
-            };
+                result = {
+                    id: invoiceId,
+                    dbId: dbInvoice.id,
+                    provider: 'paymento',
+                    token: paymentoResult.token,
+                    gatewayUrl: paymentoResult.gatewayUrl,
+                    currency: currency,
+                    network: network,
+                    amountUsd: amount,
+                    expiresAt: new Date(Date.now() + CONFIG.INVOICE_EXPIRY_MS).toISOString(),
+                    status: 'pending'
+                };
+
+                console.log(`[PaymentService] Paymento invoice created: ${invoiceId}, token: ${paymentoResult.token.substring(0, 8)}...`);
+
+            } else {
+                // NOWPayments: Get wallet address
+                const walletAddress = await provider.getWalletAddress({
+                    currency,
+                    network,
+                    invoiceId
+                });
+
+                // Calculate crypto amount (mock conversion rate)
+                const cryptoAmount = await this.calculateCryptoAmount(amount, currency, network);
+
+                // Update invoice with wallet address
+                await supabase
+                    .from('payment_invoices')
+                    .update({ 
+                        wallet_address: walletAddress.address,
+                        amount_crypto: cryptoAmount,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', dbInvoice.id);
+
+                result = {
+                    id: invoiceId,
+                    dbId: dbInvoice.id,
+                    address: walletAddress.address,
+                    currency: currency,
+                    network: network,
+                    amountCrypto: parseFloat(cryptoAmount),
+                    amountUsd: amount,
+                    expiresAt: new Date(Date.now() + CONFIG.INVOICE_EXPIRY_MS).toISOString(),
+                    status: 'pending',
+                    qrCodeUrl: this.generateQRCodeUrl(walletAddress.address, cryptoAmount, currency)
+                };
+
+                console.log(`[PaymentService] Invoice created: ${invoiceId} for user ${userId}`);
+            }
 
             // Store in idempotency cache
             this.idempotencyKeys.set(idempotencyKey, result);
@@ -242,7 +289,6 @@ class PaymentService {
                 this.idempotencyKeys.delete(idempotencyKey);
             }, CONFIG.INVOICE_EXPIRY_MS);
 
-            console.log(`[PaymentService] Invoice created: ${invoiceId} for user ${userId}`);
             return result;
 
         } catch (error) {
