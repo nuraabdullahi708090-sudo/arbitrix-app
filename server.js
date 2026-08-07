@@ -1979,7 +1979,7 @@ app.get('/api/paymento/status/:token', authMiddleware, async (req, res) => {
     }
 
     // Verify the user owns this invoice
-    if (invoice.user_id !== req.userId) {
+    if (invoice.user_id !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
