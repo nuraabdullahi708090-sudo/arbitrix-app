@@ -163,9 +163,13 @@ function getResendClient() {
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
 const supabaseUrl = 'https://gabqgewycepcyyzqkvvt.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhYnFnZXd5Y2VwY3l5enFrdnZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3Mjk2ODAsImV4cCI6MjA5ODMwNTY4MH0.xTEZ2-5S9I1deTEJ0xWYk-_diSveYQSYFWHuvod7HWs';
+// Service role key bypasses RLS - needed for password_reset_tokens table
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || supabaseKey;
 // ------------------------------------------------------------
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+// Separate client with service role for RLS-protected operations
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================
 // PAYMENT SERVICE INITIALIZATION
@@ -638,12 +642,12 @@ function hashToken(token) {
  */
 async function ensureResetTokensTable() {
   try {
-    // Try to insert a test record to check if table exists
+    // Try to insert a test record to check if table exists (use admin client for RLS)
     const testEmail = 'test-' + Date.now() + '@placeholder.com';
     const testToken = hashToken('test');
     const testExpiry = new Date(Date.now() - 1000).toISOString();
     
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('password_reset_tokens')
       .insert({ 
         email: testEmail, 
@@ -659,7 +663,7 @@ async function ensureResetTokensTable() {
       return true;
     } else if (!error) {
       // Clean up test record
-      await supabase.from('password_reset_tokens')
+      await supabaseAdmin.from('password_reset_tokens')
         .delete()
         .eq('email', testEmail);
     }
@@ -1146,15 +1150,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       const tokenHash = hashToken(resetToken);
       const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
       
-      // Invalidate any existing reset tokens for this email
-      await supabase
+      // Invalidate any existing reset tokens for this email (use admin client for RLS)
+      await supabaseAdmin
         .from('password_reset_tokens')
         .update({ used: true })
         .eq('email', normalizedEmail)
         .eq('used', false);
       
-      // Store the hashed token with expiration and IP for auditing
-      const { error: insertError } = await supabase
+      // Store the hashed token with expiration and IP for auditing (use admin client for RLS)
+      const { error: insertError } = await supabaseAdmin
         .from('password_reset_tokens')
         .insert({
           email: normalizedEmail,
@@ -1215,8 +1219,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
     // Hash the provided token to compare with stored hash
     const tokenHash = hashToken(token);
     
-    // Find the reset token record
-    const { data: resetRecord, error: findError } = await supabase
+    // Find the reset token record (use admin client for RLS)
+    const { data: resetRecord, error: findError } = await supabaseAdmin
       .from('password_reset_tokens')
       .select('*')
       .eq('email', email)
@@ -1262,8 +1266,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
       });
     }
     
-    // Mark the token as used (single use)
-    await supabase
+    // Mark the token as used (single use) (use admin client for RLS)
+    await supabaseAdmin
       .from('password_reset_tokens')
       .update({ used: true })
       .eq('id', resetRecord.id);
@@ -1300,7 +1304,8 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
   try {
     const tokenHash = hashToken(token);
     
-    const { data: resetRecord, error } = await supabase
+    // Use admin client for RLS-protected table
+    const { data: resetRecord, error } = await supabaseAdmin
       .from('password_reset_tokens')
       .select('*')
       .eq('email', email)
