@@ -10,6 +10,7 @@ const { createClient } = require('@supabase/supabase-js');
 // Payment Service Layer
 const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
+const { paymentoProvider, PAYMENTO_STATUS } = require('./services/providers/paymento');
 
 // KYC Verification Service
 const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
@@ -179,16 +180,33 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 // Register NOWPayments provider
 paymentService.registerProvider('nowpayments', nowPaymentsProvider);
 
+// Register Paymento provider
+paymentService.registerProvider('paymento', paymentoProvider);
+
 // Set webhook secrets for providers
 paymentService.setWebhookSecret('nowpayments', process.env.NOWPAYMENTS_IPN_SECRET || 'your-webhook-secret');
+paymentService.setWebhookSecret('paymento', process.env.PAYMENTO_SECRET_KEY || '');
 
-// Initialize provider with config if available
+// Initialize providers with config if available
 if (process.env.NOWPAYMENTS_API_KEY) {
     nowPaymentsProvider.initialize({
         apiKey: process.env.NOWPAYMENTS_API_KEY,
         ipnSecret: process.env.NOWPAYMENTS_IPN_SECRET,
         sandbox: process.env.NOWPAYMENTS_SANDBOX === 'true'
     });
+}
+
+if (process.env.PAYMENTO_API_KEY && process.env.PAYMENTO_SECRET_KEY) {
+    paymentoProvider.initialize({
+        apiKey: process.env.PAYMENTO_API_KEY,
+        secretKey: process.env.PAYMENTO_SECRET_KEY,
+        sandbox: process.env.PAYMENTO_SANDBOX === 'true',
+        returnUrl: `${BASE_URL}/api/paymento/return`,
+        ipnUrl: `${BASE_URL}/api/webhook/paymento`
+    });
+    console.log('[Server] Paymento provider initialized');
+} else {
+    console.log('[Server] Paymento provider not initialized (missing API_KEY or SECRET_KEY)');
 }
 
 console.log('[Server] Payment Service initialized');
@@ -1490,19 +1508,34 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
       ipAddress
     });
 
+    // Build response based on provider type
+    const invoiceResponse = {
+      id: invoice.id,
+      amountUsd: invoice.amountUsd,
+      currency: invoice.currency,
+      network: invoice.network,
+      expiresAt: invoice.expiresAt,
+      status: invoice.status
+    };
+
+    // Add provider-specific fields
+    if (invoice.provider === 'paymento') {
+      // Paymento: Return gateway URL for redirection
+      invoiceResponse.provider = 'paymento';
+      invoiceResponse.gatewayUrl = invoice.gatewayUrl;
+      invoiceResponse.token = invoice.token;
+      invoiceResponse.redirectToGateway = true;
+    } else {
+      // NOWPayments: Return wallet address
+      invoiceResponse.address = invoice.address;
+      invoiceResponse.amountCrypto = invoice.amountCrypto;
+      invoiceResponse.qrCodeUrl = invoice.qrCodeUrl;
+    }
+
     // SECURITY: Don't expose internal IDs to client
     res.json({
       success: true,
-      invoice: {
-        id: invoice.id,
-        address: invoice.address,
-        amountCrypto: invoice.amountCrypto,
-        amountUsd: invoice.amountUsd,
-        currency: invoice.currency,
-        network: invoice.network,
-        expiresAt: invoice.expiresAt,
-        status: invoice.status
-      }
+      invoice: invoiceResponse
     });
   } catch (error) {
     console.error('[API] Create invoice error:', error.message);
@@ -1744,6 +1777,224 @@ app.post('/api/webhook/:provider', express.raw({ type: 'application/json' }), as
       success: false, 
       error: error.message 
     });
+  }
+});
+
+// ============================================
+// PAYMENTO WEBHOOK ENDPOINTS
+// ============================================
+
+/**
+ * Paymento IPN (Instant Payment Notification) Webhook Endpoint
+ * 
+ * SECURITY REQUIREMENTS:
+ * 1. Verify HMAC-SHA256 signature from X-HMAC-SHA256-SIGNATURE header
+ * 2. Verify payment with Paymento Verify API before crediting
+ * 3. Only credit on status 7 (Paid) - never on status 3 (WaitingToConfirm)
+ * 4. Prevent duplicate credits using idempotency checks
+ * 5. Return 200 to acknowledge receipt (prevents retries)
+ */
+app.post('/api/webhook/paymento', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sourceIp = req.ip || req.connection.remoteAddress;
+  console.log(`[Paymento Webhook] Received from IP: ${sourceIp}`);
+
+  try {
+    // Get raw body for HMAC verification
+    const rawBody = req.body;
+    const signature = req.headers['x-hmac-sha256-signature'];
+
+    if (!signature) {
+      console.error('[Paymento Webhook] CRITICAL: Missing HMAC signature header');
+      return res.status(401).json({ error: 'Missing signature' });
+    }
+
+    // Verify HMAC signature using raw body bytes
+    const isValidSignature = await paymentoProvider.verifyWebhook(rawBody, signature);
+    
+    if (!isValidSignature) {
+      console.error('[Paymento Webhook] CRITICAL: Invalid HMAC signature - possible spoofed callback!');
+      console.error('[Paymento Webhook] Received signature:', signature);
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    console.log('[Paymento Webhook] HMAC signature verified');
+
+    // Parse payload AFTER verification
+    const payload = JSON.parse(rawBody);
+    console.log('[Paymento Webhook] Payload:', JSON.stringify(payload));
+
+    // Parse payment data
+    const paymentData = paymentoProvider.parsePaymentData(payload);
+    const { token, orderId, status, statusCode, providerPaymentId } = paymentData;
+
+    console.log(`[Paymento Webhook] Token: ${token?.substring(0, 8) || 'N/A'}..., Order: ${orderId}, Status: ${statusCode} (${status})`);
+
+    // Find the invoice in our database
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', orderId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      console.error(`[Paymento Webhook] Invoice not found: ${orderId}`);
+      // Return 200 to prevent retries for unknown invoices
+      return res.status(200).json({ error: 'Invoice not found' });
+    }
+
+    // Check if already credited (idempotency)
+    if (invoice.credited) {
+      console.log(`[Paymento Webhook] Invoice ${orderId} already credited, skipping`);
+      return res.status(200).json({ success: true, message: 'Already processed' });
+    }
+
+    // Check if status is Paid (7) - this is the ONLY status we credit on
+    if (statusCode !== PAYMENTO_STATUS.PAID) {
+      console.log(`[Paymento Webhook] Invoice ${orderId} not in Paid status (${statusCode}), updating status only`);
+
+      // Update status but don't credit
+      await supabaseAdmin
+        .from('payment_invoices')
+        .update({
+          status: status,
+          provider_status_code: statusCode,
+          provider_payment_id: providerPaymentId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', invoice.id);
+
+      return res.status(200).json({ success: true, message: `Status updated to ${status}` });
+    }
+
+    // CRITICAL: Verify with Paymento API before crediting
+    console.log(`[Paymento Webhook] Verifying payment with Paymento API...`);
+    const verifyResult = await paymentoProvider.getInvoiceStatus(token);
+
+    if (!verifyResult.success) {
+      console.error(`[Paymento Webhook] Payment verification failed for ${orderId}`);
+      return res.status(200).json({ error: 'Verification failed' });
+    }
+
+    // Double-check verified status is Paid (7)
+    if (verifyResult.statusCode !== PAYMENTO_STATUS.PAID) {
+      console.error(`[Paymento Webhook] Verified status is ${verifyResult.statusCode}, not Paid (7)`);
+      return res.status(200).json({ error: 'Verification mismatch' });
+    }
+
+    console.log(`[Paymento Webhook] Payment verified! Crediting user ${invoice.user_id}...`);
+
+    // Credit user balance using atomic function
+    const creditResult = await supabaseAdmin.rpc('paymento_credit_user_safe', {
+      p_invoice_id: invoice.id,
+      p_user_id: invoice.user_id,
+      p_amount_usd: invoice.amount_usd,
+      p_provider_payment_id: providerPaymentId,
+      p_provider_status_code: statusCode
+    });
+
+    if (creditResult.error) {
+      console.error('[Paymento Webhook] Credit failed:', creditResult.error.message);
+      return res.status(200).json({ error: 'Credit failed' });
+    }
+
+    const creditData = creditResult.data;
+
+    if (creditData.duplicate) {
+      console.log(`[Paymento Webhook] Duplicate payment detected for ${orderId}`);
+      return res.status(200).json({ success: true, message: 'Duplicate payment' });
+    }
+
+    console.log(`[Paymento Webhook] SUCCESS! User ${invoice.user_id} credited $${invoice.amount_usd}`);
+    console.log(`[Paymento Webhook] New balance: $${creditData.new_balance}, First deposit: ${creditData.is_first_deposit}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment processed',
+      credited: true,
+      newBalance: creditData.new_balance,
+      isFirstDeposit: creditData.is_first_deposit
+    });
+
+  } catch (error) {
+    console.error('[Paymento Webhook] Error:', error);
+    // Return 200 to prevent Paymento from retrying
+    // Log the error for investigation
+    res.status(200).json({ error: 'Processing error' });
+  }
+});
+
+/**
+ * Paymento Return URL Handler
+ * 
+ * This is where the user is redirected after completing or canceling payment.
+ * IMPORTANT: This is advisory only - do NOT fulfill orders based on this.
+ * Order fulfillment is handled exclusively by the webhook/IPN endpoint.
+ */
+app.get('/api/paymento/return', async (req, res) => {
+  const { token, OrderId, OrderStatus } = req.query;
+  
+  console.log(`[Paymento Return] Token: ${token?.substring(0, 8) || 'N/A'}..., Status: ${OrderStatus}`);
+
+  // Redirect to frontend with status
+  // The frontend will poll the status or wait for webhook confirmation
+  if (OrderStatus == 7) {
+    // Payment completed
+    res.redirect(`${BASE_URL}/?payment=success&order=${OrderId}`);
+  } else if (OrderStatus == 5) {
+    // User canceled
+    res.redirect(`${BASE_URL}/?payment=cancelled&order=${OrderId}`);
+  } else if (OrderStatus == 4) {
+    // Timeout
+    res.redirect(`${BASE_URL}/?payment=timeout&order=${OrderId}`);
+  } else {
+    // Other status - redirect to deposits page
+    res.redirect(`${BASE_URL}/deposits?order=${OrderId}`);
+  }
+});
+
+/**
+ * Check Paymento payment status (for frontend polling)
+ * SECURITY: Requires authentication - only user can check their own invoice
+ */
+app.get('/api/paymento/status/:token', authMiddleware, async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Verify with Paymento API
+    const verifyResult = await paymentoProvider.getInvoiceStatus(token);
+
+    if (!verifyResult.success) {
+      return res.status(400).json({ error: 'Could not verify payment' });
+    }
+
+    // Find our invoice
+    const { data: invoice, error: invoiceError } = await supabase
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', verifyResult.orderId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Verify the user owns this invoice
+    if (invoice.user_id !== req.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    res.json({
+      success: true,
+      status: verifyResult.status,
+      statusCode: verifyResult.statusCode,
+      credited: invoice.credited,
+      amountUsd: invoice.amount_usd,
+      orderId: verifyResult.orderId
+    });
+
+  } catch (error) {
+    console.error('[Paymento Status] Error:', error);
+    res.status(500).json({ error: 'Status check failed' });
   }
 });
 
