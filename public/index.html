@@ -5258,18 +5258,21 @@ function toggleFaq(btn) {
         <div id="qrCodeImage" style="width:160px;height:160px;margin:0 auto;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
           <i class="fas fa-qrcode" style="font-size:80px;color:#0F1629;"></i>
         </div>
-        <div style="font-size:10px;color:#8896B5;margin-top:10px;">Scan to pay with Paymento</div>
+        <div style="font-size:10px;color:#8896B5;margin-top:10px;">Scan QR code to pay</div>
       </div>
 
-      <!-- Gateway Button -->
-      <button type="button" id="payWithPaymentoBtn" class="btn" style="width:100%;background:#10B981;border:#10B981;color:#fff;padding:14px;font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;margin:12px 0;" onclick="openPaymentoGateway()">
-        <i class="fas fa-external-link-alt"></i> Pay with Paymento
-      </button>
+      <!-- Payment URL (Gateway Link) -->
+      <div id="walletAddressContainer" style="background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:14px;margin:12px 0;">
+        <div style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Payment Link</div>
+        <div id="liveWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">
+          Loading...
+        </div>
+      </div>
 
       <!-- Copy Buttons -->
       <div style="display:flex;gap:8px;margin:12px 0;">
         <button type="button" id="copyAddressBtn" class="copy-address-btn" onclick="copyWalletAddress()" style="flex:1;background:#F0B90B;color:#070B14;border:none;padding:12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-          <i class="fas fa-copy"></i> Copy Link
+          <i class="fas fa-copy"></i> Copy Address
         </button>
         <button type="button" id="copyAmountBtn" class="copy-address-btn" onclick="copyDepositAmount()" style="flex:1;background:#F0B90B;color:#070B14;border:none;padding:12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
           <i class="fas fa-coins"></i> Copy Amount
@@ -7657,13 +7660,27 @@ function showPaymentSection(invoice, amountUSD) {
   updatePaymentProgress('created');
   updateCurrentStatus('Waiting for payment...', '#F0B90B');
   
-  // Generate QR code for Paymento gateway
+  // Generate QR code and set wallet address
   if (invoice.gatewayUrl) {
+    // Paymento gateway flow
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(invoice.gatewayUrl)}`;
     document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="Payment QR" style="width:150px;height:150px;">`;
+    document.getElementById('liveWalletAddress').textContent = invoice.gatewayUrl;
     window.currentGatewayUrl = invoice.gatewayUrl;
   } else if (invoice.qrCodeUrl) {
     document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="QR Code" style="width:150px;height:150px;">`;
+    // Fallback: show wallet address for direct deposits
+    if (invoice.address || invoice.walletAddress) {
+      document.getElementById('liveWalletAddress').textContent = invoice.address || invoice.walletAddress;
+    }
+  } else {
+    // Direct wallet address (e.g., NOWPayments)
+    const address = invoice.address || invoice.walletAddress;
+    if (address) {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`;
+      document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="Payment QR" style="width:150px;height:150px;">`;
+      document.getElementById('liveWalletAddress').textContent = address;
+    }
   }
   
   // Start timer
@@ -7674,7 +7691,7 @@ function showPaymentSection(invoice, amountUSD) {
   // Start polling
   startPollingForPayment(currentInvoiceId);
   
-  showToast('Payment ready! Click "Pay with Paymento" to continue.', 'success');
+  showToast('Payment ready! Scan QR code or copy address.', 'success');
 }
 
 // Update payment progress steps
@@ -7731,14 +7748,6 @@ function updateCurrentStatus(message, color = '#F0B90B') {
   if (statusEl) {
     statusEl.textContent = message;
     statusEl.style.color = color;
-  }
-}
-
-// Open Paymento gateway
-function openPaymentoGateway() {
-  if (window.currentGatewayUrl) {
-    window.open(window.currentGatewayUrl, '_blank');
-    updateCurrentStatus('Complete payment in Paymento...', '#F0B90B');
   }
 }
 
