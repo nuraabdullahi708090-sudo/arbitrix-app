@@ -8758,6 +8758,9 @@ function initApp() {
             getEl('landingPage').style.display = 'none';
             getEl('authPage').style.display = 'flex';
             showSignupForm();
+            // Clear authentication data from localStorage
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('arbi_user');
         }
     });
     
