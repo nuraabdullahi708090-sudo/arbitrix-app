@@ -36,6 +36,9 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = 'mySecret123';
 const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
+// Base URL for password reset links and other absolute URLs
+// Production: Set BASE_URL=https://arbitrix.pro in environment
+// Development: Defaults to localhost:8080
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 
 // Email configuration (use environment variables in production)
@@ -160,9 +163,13 @@ function getResendClient() {
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
 const supabaseUrl = 'https://gabqgewycepcyyzqkvvt.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhYnFnZXd5Y2VwY3l5enFrdnZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3Mjk2ODAsImV4cCI6MjA5ODMwNTY4MH0.xTEZ2-5S9I1deTEJ0xWYk-_diSveYQSYFWHuvod7HWs';
+// Service role key bypasses RLS - needed for password_reset_tokens table
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || supabaseKey;
 // ------------------------------------------------------------
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+// Separate client with service role for RLS-protected operations
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================
 // PAYMENT SERVICE INITIALIZATION
@@ -635,12 +642,12 @@ function hashToken(token) {
  */
 async function ensureResetTokensTable() {
   try {
-    // Try to insert a test record to check if table exists
+    // Try to insert a test record to check if table exists (use admin client for RLS)
     const testEmail = 'test-' + Date.now() + '@placeholder.com';
     const testToken = hashToken('test');
     const testExpiry = new Date(Date.now() - 1000).toISOString();
     
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('password_reset_tokens')
       .insert({ 
         email: testEmail, 
@@ -656,7 +663,7 @@ async function ensureResetTokensTable() {
       return true;
     } else if (!error) {
       // Clean up test record
-      await supabase.from('password_reset_tokens')
+      await supabaseAdmin.from('password_reset_tokens')
         .delete()
         .eq('email', testEmail);
     }
@@ -1143,15 +1150,28 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       const tokenHash = hashToken(resetToken);
       const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
       
-      // Invalidate any existing reset tokens for this email
-      await supabase
+      // [TRACE] Password reset token generation
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[TRACE] PASSWORD RESET TOKEN GENERATED');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('Email:', normalizedEmail);
+      console.log('Plaintext Token:', resetToken);
+      console.log('Token Hash (SHA-256):', tokenHash);
+      console.log('Expires At:', expiresAt);
+      console.log('Base URL:', BASE_URL);
+      console.log('Reset Link:', `${BASE_URL}/reset-password.html?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`);
+      console.log('═══════════════════════════════════════════════════════════');
+      
+      // Invalidate any existing reset tokens for this email (use admin client for RLS)
+      const updateResult = await supabaseAdmin
         .from('password_reset_tokens')
         .update({ used: true })
         .eq('email', normalizedEmail)
         .eq('used', false);
+      console.log('[TRACE] Invalidate existing tokens:', updateResult.error ? 'ERROR: ' + updateResult.error.message : 'SUCCESS');
       
-      // Store the hashed token with expiration and IP for auditing
-      const { error: insertError } = await supabase
+      // Store the hashed token with expiration and IP for auditing (use admin client for RLS)
+      const { error: insertError, data: insertData } = await supabaseAdmin
         .from('password_reset_tokens')
         .insert({
           email: normalizedEmail,
@@ -1161,10 +1181,26 @@ app.post('/api/auth/forgot-password', async (req, res) => {
           ip_address: clientIP
         });
       
+      // [TRACE] INSERT result
+      console.log('[TRACE] INSERT password_reset_tokens:');
+      console.log('  Error:', insertError ? insertError.message : 'NONE');
+      console.log('  Data:', insertData);
+      console.log('  Status: 201 Created = row exists?', !insertError);
+      
       if (insertError) {
         console.error('Failed to insert reset token:', insertError);
         // Don't reveal the error to the user
       } else {
+        // Verify the row was actually inserted
+        const verifyResult = await supabaseAdmin
+          .from('password_reset_tokens')
+          .select('id, email, token_hash, expires_at, used')
+          .eq('token_hash', tokenHash)
+          .single();
+        console.log('[TRACE] VERIFY INSERT - Query token_hash:', tokenHash);
+        console.log('[TRACE] VERIFY INSERT - Found row?', !!verifyResult.data);
+        console.log('[TRACE] VERIFY INSERT - Row data:', verifyResult.data);
+        
         // Send the reset email
         await sendResetEmail(normalizedEmail, resetToken);
       }
@@ -1194,6 +1230,15 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   const { email, token, newPassword } = req.body;
   
+  // [TRACE] Reset password request received
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('[TRACE] RESET PASSWORD REQUEST');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('Email received:', email);
+  console.log('Token received:', token);
+  console.log('Token length:', token ? token.length : 0);
+  console.log('═══════════════════════════════════════════════════════════');
+  
   // Validate all required fields
   if (!email || !token || !newPassword) {
     return res.status(400).json({ 
@@ -1212,16 +1257,29 @@ app.post('/api/auth/reset-password', async (req, res) => {
     // Hash the provided token to compare with stored hash
     const tokenHash = hashToken(token);
     
-    // Find the reset token record
-    const { data: resetRecord, error: findError } = await supabase
+    console.log('[TRACE] Token hash computed:', tokenHash);
+    
+    // Find the reset token record (use admin client for RLS)
+    console.log('[TRACE] Querying password_reset_tokens with:');
+    console.log('  email =', email);
+    console.log('  token_hash =', tokenHash);
+    console.log('  used = false');
+    
+    const { data: resetRecord, error: findError, status, statusText } = await supabaseAdmin
       .from('password_reset_tokens')
-      .select('*')
+      .select('id, email, token_hash, expires_at, used')
       .eq('email', email)
       .eq('token_hash', tokenHash)
       .eq('used', false)
       .single();
     
+    console.log('[TRACE] Query result:');
+    console.log('  error:', findError ? findError.message : 'NONE');
+    console.log('  data:', resetRecord);
+    console.log('  status:', status);
+    
     if (findError || !resetRecord) {
+      console.log('[TRACE] Token NOT FOUND - returning error');
       return res.status(400).json({ 
         error: 'Invalid or expired reset token. Please request a new password reset.' 
       });
@@ -1229,6 +1287,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
     
     // Check if token is expired
     const expiresAt = new Date(resetRecord.expires_at);
+    console.log('[TRACE] Token found!');
+    console.log('  expires_at:', expiresAt);
+    console.log('  now:', new Date());
+    console.log('  isExpired:', expiresAt < new Date());
+    
     if (expiresAt < new Date()) {
       return res.status(400).json({ 
         error: 'This reset link has expired. Please request a new password reset.' 
@@ -1259,8 +1322,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
       });
     }
     
-    // Mark the token as used (single use)
-    await supabase
+    // Mark the token as used (single use) (use admin client for RLS)
+    await supabaseAdmin
       .from('password_reset_tokens')
       .update({ used: true })
       .eq('id', resetRecord.id);
@@ -1287,6 +1350,15 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/auth/verify-reset-token', async (req, res) => {
   const { email, token } = req.query;
   
+  // [TRACE] Verify token request received
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('[TRACE] VERIFY RESET TOKEN REQUEST');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('Email received:', email);
+  console.log('Token received:', token);
+  console.log('Token length:', token ? token.length : 0);
+  console.log('═══════════════════════════════════════════════════════════');
+  
   if (!email || !token) {
     return res.status(400).json({ 
       valid: false, 
@@ -1297,15 +1369,30 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
   try {
     const tokenHash = hashToken(token);
     
-    const { data: resetRecord, error } = await supabase
+    console.log('[TRACE] Token hash computed:', tokenHash);
+    
+    // Use admin client for RLS-protected table
+    console.log('[TRACE] Querying password_reset_tokens with:');
+    console.log('  email =', email);
+    console.log('  token_hash =', tokenHash);
+    console.log('  used = false');
+    
+    const { data: resetRecord, error, status, statusText } = await supabaseAdmin
       .from('password_reset_tokens')
-      .select('*')
+      .select('id, email, token_hash, expires_at, used, ip_address')
       .eq('email', email)
       .eq('token_hash', tokenHash)
       .eq('used', false)
       .single();
     
+    console.log('[TRACE] Query result:');
+    console.log('  error:', error ? error.message : 'NONE');
+    console.log('  data:', resetRecord);
+    console.log('  status:', status);
+    console.log('  statusText:', statusText);
+    
     if (error || !resetRecord) {
+      console.log('[TRACE] Token NOT FOUND - returning invalid');
       return res.json({ 
         valid: false, 
         error: 'Invalid reset token' 
@@ -1314,13 +1401,20 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
     
     // Check expiration
     const expiresAt = new Date(resetRecord.expires_at);
+    console.log('[TRACE] Token found!');
+    console.log('  expires_at:', expiresAt);
+    console.log('  now:', new Date());
+    console.log('  isExpired:', expiresAt < new Date());
+    
     if (expiresAt < new Date()) {
+      console.log('[TRACE] Token EXPIRED - returning invalid');
       return res.json({ 
         valid: false, 
         error: 'This reset link has expired' 
       });
     }
     
+    console.log('[TRACE] Token VALID - returning success');
     res.json({ valid: true });
     
   } catch (e) {
@@ -5283,7 +5377,9 @@ app.get('/api/diagnostic', async (req, res) => {
     supabaseUrl: supabaseUrl,
     supabaseProjectRef: supabaseUrl.replace('https://', '').split('.')[0],
     supabaseUrlReachable: false,
-    supabaseQueryTest: null
+    supabaseQueryTest: null,
+    serviceRoleKeyConfigured: !!process.env.SUPABASE_SERVICE_KEY,
+    passwordResetTokensTest: null
   };
   
   // Test Supabase query
@@ -5308,6 +5404,54 @@ app.get('/api/diagnostic', async (req, res) => {
       success: false, 
       error: e.message,
       cause: e.cause ? (e.cause.message || e.cause.code || String(e.cause)) : null
+    };
+  }
+  
+  // Test password_reset_tokens table with service role
+  try {
+    const testEmail = 'diagnostic-test-' + Date.now() + '@test.com';
+    const testHash = crypto.createHash('sha256').update('test-token-' + Date.now()).digest('hex');
+    
+    // Try INSERT
+    const insertResult = await supabaseAdmin.from('password_reset_tokens').insert({
+      email: testEmail,
+      token_hash: testHash,
+      expires_at: new Date(Date.now() + 3600000).toISOString(),
+      used: false
+    });
+    
+    if (insertResult.error) {
+      diagnostics.passwordResetTokensTest = {
+        success: false,
+        insertSuccess: false,
+        insertError: insertResult.error.message,
+        insertCode: insertResult.error.code
+      };
+    } else {
+      // Try SELECT to verify
+      const selectResult = await supabaseAdmin.from('password_reset_tokens')
+        .select('*')
+        .eq('token_hash', testHash)
+        .single();
+      
+      // Clean up
+      await supabaseAdmin.from('password_reset_tokens').delete().eq('email', testEmail);
+      
+      diagnostics.passwordResetTokensTest = {
+        success: !!selectResult.data,
+        insertSuccess: !insertResult.error,
+        insertData: insertResult.data,
+        selectSuccess: !!selectResult.data,
+        foundRecord: selectResult.data ? {
+          email: selectResult.data.email,
+          expires_at: selectResult.data.expires_at
+        } : null
+      };
+    }
+  } catch (e) {
+    diagnostics.passwordResetTokensTest = {
+      success: false,
+      error: e.message
     };
   }
   
