@@ -1,4 +1,13 @@
 {
+  "name": "arbitrix-app",
+  "version": "1.0.0",
+  "description": "Arbitrix AI - Multi-Asset Arbitrage Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
+    "prod": "NODE_ENV=production node server.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
     "bcryptjs": "^3.0.3",
