@@ -48,3 +48,21 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - Do NOT remove/break Paymento until q8qpay passes E2E testing.
 - Reuse the existing atomic crediting mechanism; do not build a second one.
 - No docs files committed unless explicitly requested.
+
+## Deposit UI (public/index.html)
+- The q8qpay white-label deposit flow is rendered entirely client-side in
+  `public/index.html` via `showPaymentSection()` (q8qpay branch ~line 7676),
+  `startPollingForPayment()`, `updatePaymentProgress()`, `updateCurrentStatus()`,
+  `startDepositTimer()`, and `resetDepositModal()`.
+- The 4-stage progress indicator steps are `created → detected → confirming →
+  credited` (data-step attrs). `updatePaymentProgress(step)` colors circles,
+  labels, and `.step-desc` descriptions for each stage.
+- Status text strings are passed to `updateCurrentStatus(message, color)`.
+  Display wording may be polished freely, but the underlying status values
+  (`confirmed`/`credited`, `confirming`/`pending`, `detected`, `expired`) and
+  polling logic MUST stay unchanged.
+- Exact amount = `invoice.amountUsdtExact`; payout address =
+  `invoice.payoutAddress`. QR encodes `tron:<addr>?amount=<exact>&token=USDT
+  &network=TRC20`. Do NOT hard-code amounts — keep them dynamic.
+- A UI-only polish pass was done (2026-08): headings/labels/status wording
+  refined; no payment logic, API, webhook, crediting, or provider code touched.

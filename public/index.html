@@ -5195,8 +5195,8 @@ function toggleFaq(btn) {
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <i class="fas fa-exclamation-triangle" style="color:#EF4444;font-size:18px;margin-top:2px;"></i>
           <div style="font-size:11px;color:#8896B5;line-height:1.6;">
-            <strong style="color:#EF4444;">Send ONLY USDT</strong> on the <strong style="color:#EF4444;">TRON (TRC20)</strong> network.<br>
-            Deposits sent using ERC20, BEP20, BTC, ETH, or any other network will <strong style="color:#EF4444;">NOT</strong> be credited automatically.
+            <strong style="color:#EF4444;">Send USDT only</strong> on the <strong style="color:#EF4444;">TRON (TRC20)</strong> network.<br>
+            Sending USDT through another network may result in loss of funds and may not be credited automatically.
           </div>
         </div>
       </div>
@@ -5218,39 +5218,44 @@ function toggleFaq(btn) {
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-file-invoice" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;color:#8896B5;text-transform:uppercase;">Created</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Created</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Payment request created</div>
           </div>
           <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
           <div class="progress-step" data-step="detected" style="flex:1;text-align:center;position:relative;z-index:1;">
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-search" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;color:#8896B5;text-transform:uppercase;">Detected</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Detected</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Payment received</div>
           </div>
           <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
           <div class="progress-step" data-step="confirming" style="flex:1;text-align:center;position:relative;z-index:1;">
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-hourglass-half" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;color:#8896B5;text-transform:uppercase;">Confirming</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Confirming</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Confirming on TRON</div>
           </div>
           <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
           <div class="progress-step" data-step="credited" style="flex:1;text-align:center;position:relative;z-index:1;">
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-check" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;color:#8896B5;text-transform:uppercase;">Credited</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Credited</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Balance credited</div>
           </div>
         </div>
       </div>
 
       <!-- Amount Display -->
       <div style="background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05));border:2px solid rgba(16,185,129,0.3);border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-        <div style="font-size:10px;color:#8896B5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Send Exactly</div>
+        <div style="font-size:10px;color:#8896B5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Payment Amount</div>
         <div style="font-size:32px;font-weight:700;color:#10B981;margin-bottom:4px;">
           <span id="liveDepositDisplayAmount">0.00</span> <span style="font-size:20px;">USDT</span>
         </div>
         <div style="font-size:14px;color:#8896B5;">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
+        <div id="exactAmountInstruction" style="font-size:11px;color:#8896B5;margin-top:10px;line-height:1.5;">Send exactly <strong id="exactAmountValue" style="color:#10B981;">0.00</strong> USDT on the TRON (TRC20) network.</div>
       </div>
 
       <!-- Network Badge (shown for q8qpay white-label deposits) -->
@@ -5265,12 +5270,12 @@ function toggleFaq(btn) {
         <div id="qrCodeImage" style="width:160px;height:160px;margin:0 auto;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
           <i class="fas fa-qrcode" style="font-size:80px;color:#0F1629;"></i>
         </div>
-        <div style="font-size:10px;color:#8896B5;margin-top:10px;">Scan QR code to pay</div>
+        <div style="font-size:10px;color:#8896B5;margin-top:10px;">Scan to pay with your crypto wallet</div>
       </div>
 
-      <!-- Payment URL (Gateway Link) -->
+      <!-- Payment Address -->
       <div id="walletAddressContainer" style="background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:14px;margin:12px 0;">
-        <div style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Payment Link</div>
+        <div style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Payment Address</div>
         <div id="liveWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">
           Loading...
         </div>
@@ -5343,7 +5348,7 @@ function toggleFaq(btn) {
           <i class="fas fa-times"></i> Cancel
         </button>
         <button type="button" id="forceCheckBtn" class="btn btn-outline" style="flex:1;display:none;" onclick="forceCheckPayment()">
-          <i class="fas fa-sync-alt"></i> Check Status
+          <i class="fas fa-sync-alt"></i> Refresh Status
         </button>
         <button type="button" id="newInvoiceBtn" class="btn btn-outline" style="flex:1;display:none;" onclick="requestDepositAddress()">
           <i class="fas fa-plus"></i> New Invoice
@@ -7689,9 +7694,13 @@ function showPaymentSection(invoice, amountUSD) {
     document.getElementById('liveDepositDisplayAmount').textContent = Number(exactAmount).toFixed(4);
     document.getElementById('liveDepositDisplayUSD').textContent = Number(exactAmount).toFixed(2);
 
-    // Update the "Payment Link" label to reflect a deposit address, not a link
+    // Keep the "Send exactly N USDT" instruction in sync with the exact amount
+    const exactAmountEl = document.getElementById('exactAmountValue');
+    if (exactAmountEl) exactAmountEl.textContent = Number(exactAmount).toFixed(2);
+
+    // Update the "Payment Address" label to reflect a deposit address
     const addrLabel = document.querySelector('#walletAddressContainer > div');
-    if (addrLabel) addrLabel.textContent = 'USDT (TRC20) Deposit Address';
+    if (addrLabel) addrLabel.textContent = 'Payment Address';
 
     // Make the network banner explicit
     const netBadge = document.getElementById('q8qpayNetworkBadge');
@@ -7745,6 +7754,7 @@ function updatePaymentProgress(step) {
     const stepIdx = steps.indexOf(stepName);
     const circle = el.querySelector('.step-circle');
     const label = el.querySelector('.step-label');
+    const desc = el.querySelector('.step-desc');
     
     if (stepIdx < stepIndex) {
       // Completed
@@ -7752,18 +7762,21 @@ function updatePaymentProgress(step) {
       circle.style.borderColor = '#10B981';
       circle.innerHTML = '<i class="fas fa-check" style="font-size:11px;color:#fff;"></i>';
       label.style.color = '#10B981';
+      if (desc) desc.style.color = '#10B981';
     } else if (stepIdx === stepIndex) {
       // Current
       circle.style.background = '#F0B90B';
       circle.style.borderColor = '#F0B90B';
       circle.innerHTML = '<i class="' + getStepIcon(stepName) + '" style="font-size:11px;color:#070B14;"></i>';
       label.style.color = '#F0B90B';
+      if (desc) desc.style.color = '#F0B90B';
     } else {
       // Pending
       circle.style.background = 'var(--bg-input)';
       circle.style.borderColor = 'var(--border-color)';
       circle.innerHTML = '<i class="' + getStepIcon(stepName) + '" style="font-size:11px;color:#8896B5;"></i>';
       label.style.color = '#8896B5';
+      if (desc) desc.style.color = '#5A6A8A';
     }
   });
   
@@ -7921,7 +7934,7 @@ function startPollingForPayment(invoiceId) {
         
         // Update progress to credited
         updatePaymentProgress('credited');
-        updateCurrentStatus('Deposit Credited!', '#10B981');
+        updateCurrentStatus('Payment confirmed. Your balance has been credited.', '#10B981');
         
         // Get credited amount
         const creditedAmount = result.amountUsd || result.creditedAmount || 0;
@@ -7962,11 +7975,11 @@ function startPollingForPayment(invoiceId) {
       } else if (result.status === 'confirming' || result.status === 'pending') {
         // Update progress to confirming
         updatePaymentProgress('confirming');
-        updateCurrentStatus('Waiting for blockchain confirmation...', '#F0B90B');
+        updateCurrentStatus('Payment detected. Waiting for blockchain confirmation...', '#F0B90B');
       } else if (result.status === 'detected' || result.credited) {
         // Update progress to detected
         updatePaymentProgress('detected');
-        updateCurrentStatus('Payment detected! Waiting for confirmation...', '#F0B90B');
+        updateCurrentStatus('Payment detected. Waiting for confirmation...', '#F0B90B');
       } else if (result.status === 'expired') {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
@@ -8071,6 +8084,8 @@ function resetDepositModal() {
   // Reset amount display
   document.getElementById('liveDepositDisplayAmount').textContent = '0.00';
   document.getElementById('liveDepositDisplayUSD').textContent = '0.00';
+  const exactAmountEl = document.getElementById('exactAmountValue');
+  if (exactAmountEl) exactAmountEl.textContent = '0.00';
   document.getElementById('depositTimer').textContent = '60:00';
   
   // Reset QR code
@@ -8095,7 +8110,7 @@ function resetDepositModal() {
   const q8qBadge = document.getElementById('q8qpayNetworkBadge');
   if (q8qBadge) q8qBadge.style.display = 'none';
   const addrLabel = document.querySelector('#walletAddressContainer > div');
-  if (addrLabel) addrLabel.textContent = 'Payment Link';
+  if (addrLabel) addrLabel.textContent = 'Payment Address';
 }
 
 function closeDepositModal() {
