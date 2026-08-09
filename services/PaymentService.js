@@ -71,8 +71,12 @@ class PaymentService {
         this.processedWebhooks = new Map(); // In-memory for single instance
         this.idempotencyKeys = new Map(); // In-memory for single instance
         
-        // Initialize active provider from environment
-        this.activeProviderName = process.env.PAYMENT_PROVIDER || 'nowpayments';
+        // Initialize active provider from environment.
+        // Normalize (trim + lowercase) so hosting-platform values like "q8qpay ",
+        // "Q8QPay", or "q8qpay\n" still match the registered lowercase provider names.
+        // Registered names (nowpayments, paymento, q8qpay) are all lowercase, so this
+        // preserves existing behavior while making env-var configuration robust.
+        this.activeProviderName = (process.env.PAYMENT_PROVIDER || 'nowpayments').trim().toLowerCase();
         
         console.log(`[PaymentService] Initialized with provider: ${this.activeProviderName}`);
         
@@ -186,6 +190,7 @@ class PaymentService {
             // Get provider
             const provider = this.getActiveProvider();
             const isPaymento = this.activeProviderName === 'paymento';
+            const isQ8qpay = this.activeProviderName === 'q8qpay';
 
             // Create invoice in database first (for tracking)
             const { data: dbInvoice, error: dbInvoiceError } = await supabase
@@ -243,6 +248,61 @@ class PaymentService {
                 };
 
                 console.log(`[PaymentService] Paymento invoice created: ${invoiceId}, token: ${paymentoResult.token.substring(0, 8)}...`);
+
+            } else if (isQ8qpay) {
+                // Q8QPay: white-label invoice. Customer pays USDT (TRC20) directly
+                // to the returned payoutAddress. No redirect to q8qpay hosted checkout.
+                const q8qpayResult = await provider.createInvoice({
+                    userId,
+                    amount,
+                    currency,
+                    network,
+                    orderId: invoiceId,
+                    ipAddress,
+                    // Use the server's public BASE_URL for the per-invoice webhook.
+                    // (provider falls back to Q8QPAY_CALLBACK_URL if omitted)
+                    callbackUrl: process.env.Q8QPAY_CALLBACK_URL
+                });
+
+                // Persist the q8qpay invoice UUID, payout address, exact crypto
+                // amount and q8qpay expiry for audit/reconciliation and polling.
+                await supabase
+                    .from('payment_invoices')
+                    .update({
+                        provider_invoice_ref: q8qpayResult.providerInvoiceId,
+                        wallet_address: q8qpayResult.payoutAddress,
+                        amount_crypto: q8qpayResult.amountUsdtExact,
+                        provider_tx_hash: null,
+                        expires_at: q8qpayResult.expiresAt,
+                        metadata: q8qpayResult.metadata,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', dbInvoice.id);
+
+                result = {
+                    id: invoiceId,
+                    dbId: dbInvoice.id,
+                    provider: 'q8qpay',
+                    providerInvoiceId: q8qpayResult.providerInvoiceId,
+                    address: q8qpayResult.payoutAddress,        // customer TRC20 destination
+                    payoutAddress: q8qpayResult.payoutAddress,
+                    amountCrypto: parseFloat(q8qpayResult.amountUsdtExact),
+                    amountUsdtExact: q8qpayResult.amountUsdtExact,
+                    amountUsd: amount,
+                    currency: 'USDT',
+                    network: 'TRC20',
+                    networkLabel: q8qpayResult.networkLabel,
+                    expiresAt: q8qpayResult.expiresAt,
+                    qrData: q8qpayResult.qrData,
+                    status: 'pending',
+                    qrCodeUrl: this.generateQRCodeUrl(
+                        q8qpayResult.payoutAddress,
+                        q8qpayResult.amountUsdtExact,
+                        'USDT'
+                    )
+                };
+
+                console.log(`[PaymentService] Q8QPay invoice created: ${invoiceId} (q8q: ${q8qpayResult.providerInvoiceId})`);
 
             } else {
                 // NOWPayments: Get wallet address
@@ -329,12 +389,17 @@ class PaymentService {
             status: invoice.status,
             amountUsd: invoice.amount_usd,
             amountCrypto: invoice.amount_crypto,
+            amountUsdtExact: invoice.amount_crypto, // q8qpay exact amount stored here
             currency: invoice.currency,
             network: invoice.network,
             walletAddress: invoice.wallet_address,
+            payoutAddress: invoice.wallet_address, // q8qpay TRC20 destination
+            providerInvoiceId: invoice.provider_invoice_ref, // q8qpay UUID
+            provider: invoice.provider,
             expiresAt: invoice.expires_at,
             confirmedAt: invoice.confirmed_at,
-            creditedAt: invoice.credited_at
+            creditedAt: invoice.credited_at,
+            credited: invoice.credited
         };
     }
 

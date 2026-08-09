@@ -5253,6 +5253,13 @@ function toggleFaq(btn) {
         <div style="font-size:14px;color:#8896B5;">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
       </div>
 
+      <!-- Network Badge (shown for q8qpay white-label deposits) -->
+      <div id="q8qpayNetworkBadge" style="display:none;align-items:center;justify-content:center;gap:8px;margin:12px 0;font-size:12px;">
+        <span style="background:rgba(16,185,129,0.15);padding:4px 10px;border-radius:6px;color:#10B981;font-weight:600;">USDT</span>
+        <span style="color:#8896B5;">on</span>
+        <span style="background:rgba(240,185,11,0.15);padding:4px 10px;border-radius:6px;color:#F0B90B;font-weight:600;">TRON (TRC20)</span>
+      </div>
+
       <!-- QR Code -->
       <div id="qrCodeContainer" style="text-align:center;margin:16px 0;">
         <div id="qrCodeImage" style="width:160px;height:160px;margin:0 auto;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
@@ -7661,7 +7668,40 @@ function showPaymentSection(invoice, amountUSD) {
   updateCurrentStatus('Waiting for payment...', '#F0B90B');
   
   // Generate QR code and set wallet address
-  if (invoice.gatewayUrl) {
+  if (invoice.provider === 'q8qpay') {
+    // Q8QPay white-label flow: display the TRC20 payout address + exact amount.
+    // No TronLink / WalletConnect / hosted q8qpay checkout redirect.
+    const address = invoice.payoutAddress || invoice.address;
+    const exactAmount = invoice.amountUsdtExact || invoice.amountCrypto || amountUSD.toFixed(4);
+
+    // QR encodes the TRC20 payment URI so mobile wallets can scan-to-pay
+    const qrData = invoice.qrData ||
+      `tron:${address}?amount=${exactAmount}&token=USDT&network=TRC20`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="USDT TRC20 Payment QR" style="width:150px;height:150px;">`;
+
+    // Show the customer's TRC20 destination address
+    document.getElementById('liveWalletAddress').textContent = address;
+    window.currentGatewayUrl = null;
+    window.currentPaymentAddress = address;
+
+    // Exact USDT amount to send (q8qpay uses exact-match confirmation)
+    document.getElementById('liveDepositDisplayAmount').textContent = Number(exactAmount).toFixed(4);
+    document.getElementById('liveDepositDisplayUSD').textContent = Number(exactAmount).toFixed(2);
+
+    // Update the "Payment Link" label to reflect a deposit address, not a link
+    const addrLabel = document.querySelector('#walletAddressContainer > div');
+    if (addrLabel) addrLabel.textContent = 'USDT (TRC20) Deposit Address';
+
+    // Make the network banner explicit
+    const netBadge = document.getElementById('q8qpayNetworkBadge');
+    if (netBadge) netBadge.style.display = 'flex';
+
+    // Use q8qpay's real expiry for the countdown
+    if (invoice.expiresAt) {
+      invoice._expiresAt = invoice.expiresAt;
+    }
+  } else if (invoice.gatewayUrl) {
     // Paymento gateway flow
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(invoice.gatewayUrl)}`;
     document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="Payment QR" style="width:150px;height:150px;">`;
@@ -7682,10 +7722,11 @@ function showPaymentSection(invoice, amountUSD) {
       document.getElementById('liveWalletAddress').textContent = address;
     }
   }
-  
-  // Start timer
-  if (invoice.expiresAt) {
-    startDepositTimer(invoice.expiresAt);
+
+  // Start timer (q8qpay provides its own expiresAt; otherwise fall back to default)
+  const expiresAt = invoice._expiresAt || invoice.expiresAt;
+  if (expiresAt) {
+    startDepositTimer(expiresAt);
   }
   
   // Start polling
@@ -8048,6 +8089,13 @@ function resetDepositModal() {
   
   // Clear gateway URL
   window.currentGatewayUrl = null;
+  window.currentPaymentAddress = null;
+
+  // Reset q8qpay-specific UI elements
+  const q8qBadge = document.getElementById('q8qpayNetworkBadge');
+  if (q8qBadge) q8qBadge.style.display = 'none';
+  const addrLabel = document.querySelector('#walletAddressContainer > div');
+  if (addrLabel) addrLabel.textContent = 'Payment Link';
 }
 
 function closeDepositModal() {

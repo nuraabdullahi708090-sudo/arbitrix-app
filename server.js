@@ -11,6 +11,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 const { paymentoProvider, PAYMENTO_STATUS } = require('./services/providers/paymento');
+const { q8qpayProvider, Q8QPAY_STATUS } = require('./services/providers/q8qpay');
 
 // KYC Verification Service
 const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
@@ -183,9 +184,13 @@ paymentService.registerProvider('nowpayments', nowPaymentsProvider);
 // Register Paymento provider
 paymentService.registerProvider('paymento', paymentoProvider);
 
+// Register Q8QPay provider (white-label USDT TRC20; additive, does not affect Paymento)
+paymentService.registerProvider('q8qpay', q8qpayProvider);
+
 // Set webhook secrets for providers
 paymentService.setWebhookSecret('nowpayments', process.env.NOWPAYMENTS_IPN_SECRET || 'your-webhook-secret');
 paymentService.setWebhookSecret('paymento', process.env.PAYMENTO_SECRET_KEY || '');
+paymentService.setWebhookSecret('q8qpay', process.env.Q8QPAY_WEBHOOK_SECRET || '');
 
 // Initialize providers with config if available
 if (process.env.NOWPAYMENTS_API_KEY) {
@@ -209,6 +214,20 @@ if (process.env.PAYMENTO_API_KEY && process.env.PAYMENTO_SECRET_KEY) {
     console.log('[Server] Paymento provider not initialized (missing API_KEY or SECRET_KEY)');
 }
 
+// Initialize Q8QPay provider if configured (additive; only active when PAYMENT_PROVIDER=q8qpay)
+if (process.env.Q8QPAY_API_KEY) {
+    q8qpayProvider.initialize({
+        apiKey: process.env.Q8QPAY_API_KEY,
+        webhookSecret: process.env.Q8QPAY_WEBHOOK_SECRET,
+        sandbox: process.env.Q8QPAY_SANDBOX === 'true',
+        returnUrl: process.env.Q8QPAY_RETURN_URL,
+        callbackUrl: process.env.Q8QPAY_CALLBACK_URL || `${BASE_URL}/api/webhook/q8qpay`
+    });
+    console.log(`[Server] Q8QPay provider initialized (${process.env.Q8QPAY_SANDBOX === 'true' ? 'sandbox' : 'production'})`);
+} else {
+    console.log('[Server] Q8QPay provider not initialized (missing Q8QPAY_API_KEY)');
+}
+
 console.log('[Server] Payment Service initialized');
 
 // ============================================
@@ -230,7 +249,16 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(express.json());
+
+// Parse JSON bodies for all routes. The `verify` hook stashes the RAW body bytes
+// on req.rawBody so webhook routes (q8qpay) can compute HMAC-SHA256 signatures
+// over the exact bytes received. This is additive: req.body behaves exactly as
+// before; existing routes (including Paymento) are unaffected.
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- HELPERS ----------
@@ -1525,6 +1553,19 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
       invoiceResponse.gatewayUrl = invoice.gatewayUrl;
       invoiceResponse.token = invoice.token;
       invoiceResponse.redirectToGateway = true;
+    } else if (invoice.provider === 'q8qpay') {
+      // Q8QPay: white-label. Return the TRC20 payout address + exact amount.
+      // The frontend renders its own UI (QR, copy, countdown). No redirect.
+      invoiceResponse.provider = 'q8qpay';
+      invoiceResponse.address = invoice.address;             // customer TRC20 destination
+      invoiceResponse.payoutAddress = invoice.payoutAddress;
+      invoiceResponse.amountCrypto = invoice.amountCrypto;
+      invoiceResponse.amountUsdtExact = invoice.amountUsdtExact;
+      invoiceResponse.networkLabel = invoice.networkLabel || 'Tron (TRC20)';
+      invoiceResponse.qrCodeUrl = invoice.qrCodeUrl;
+      invoiceResponse.qrData = invoice.qrData;
+      invoiceResponse.providerInvoiceId = invoice.providerInvoiceId;
+      invoiceResponse.redirectToGateway = false;
     } else {
       // NOWPayments: Return wallet address
       invoiceResponse.address = invoice.address;
@@ -1751,10 +1792,21 @@ app.post('/api/webhook/nowpayments', express.raw({ type: 'application/json' }), 
 
 /**
  * Generic webhook endpoint for future providers
+ *
+ * NOTE: Dedicated routes for 'q8qpay' are registered below and MUST take
+ * precedence (q8qpay uses a different signature header + dedicated verification).
+ * We call next() for q8qpay so it falls through to its dedicated handler.
+ * Paymento and other providers continue to be handled here (unchanged).
  */
-app.post('/api/webhook/:provider', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/api/webhook/:provider', express.raw({ type: 'application/json' }), async (req, res, next) => {
   try {
     const { provider } = req.params;
+
+    // Let the dedicated q8qpay route handle q8qpay webhooks
+    if (provider === 'q8qpay') {
+      return next();
+    }
+
     const signature = req.headers['x-signature'] || req.headers['x-signature-256'];
     const payload = JSON.parse(req.body);
 
@@ -1920,6 +1972,308 @@ app.post('/api/webhook/paymento', express.raw({ type: 'application/json' }), asy
     // Return 200 to prevent Paymento from retrying
     // Log the error for investigation
     res.status(200).json({ error: 'Processing error' });
+  }
+});
+
+// ============================================
+// Q8QPay WEBHOOK + STATUS ENDPOINTS
+// ============================================
+
+/**
+ * Q8QPay Webhook Endpoint
+ *
+ * SECURITY REQUIREMENTS:
+ * 1. Verify HMAC-SHA256 signature from X-Webhook-Signature header (raw body)
+ * 2. Re-verify the invoice via GET /api/v1/invoices/:id before crediting
+ * 3. Only credit on status === 'confirmed' (never on pending/expired/cancelled)
+ * 4. Validate invoice reference, asset (USDT_TRC20), exact amount, and tx hash
+ * 5. Idempotent: the shared atomic credit_payment_safe() prevents double-credit
+ * 6. Return 200 within 30s to acknowledge receipt (q8qpay retries on non-2xx)
+ */
+app.post('/api/webhook/q8qpay', async (req, res) => {
+  const sourceIp = req.ip || req.connection.remoteAddress;
+  console.log(`[Q8QPay Webhook] Received from IP: ${sourceIp}`);
+
+  try {
+    // req.rawBody is captured by the global express.json() verify hook (raw bytes).
+    // req.body is the parsed object.
+    const rawBody = req.rawBody;
+    const signature = req.headers['x-webhook-signature'];
+
+    if (!signature) {
+      console.error('[Q8QPay Webhook] CRITICAL: Missing X-Webhook-Signature header');
+      return res.status(401).json({ error: 'Missing signature' });
+    }
+
+    // Verify HMAC-SHA256 signature over the raw body bytes
+    const isValidSignature = await q8qpayProvider.verifyWebhook(rawBody, signature);
+    if (!isValidSignature) {
+      console.error('[Q8QPay Webhook] CRITICAL: Invalid HMAC signature - possible spoofed callback!');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    console.log('[Q8QPay Webhook] HMAC signature verified');
+
+    // Use the already-parsed body (parsed by express.json from the same raw bytes)
+    const payload = req.body || JSON.parse(rawBody);
+    console.log('[Q8QPay Webhook] Payload:', JSON.stringify(payload));
+
+    const paymentData = q8qpayProvider.parsePaymentData(payload);
+    const {
+      invoiceId,             // our Arbitrix reference (invoice_reference)
+      providerInvoiceId,     // q8qpay UUID
+      walletAddress,
+      amount,
+      transactionHash,
+      status,
+      assetCode,
+      type
+    } = paymentData;
+
+    console.log(`[Q8QPay Webhook] Ref: ${invoiceId}, Q8QId: ${providerInvoiceId}, Status: ${status}, Type: ${type}`);
+
+    // Find our invoice by the Arbitrix reference we passed as `reference`
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      console.error(`[Q8QPay Webhook] Invoice not found for reference: ${invoiceId}`);
+      // Return 200 to stop retries for unknown invoices
+      return res.status(200).json({ error: 'Invoice not found' });
+    }
+
+    // Idempotency: already credited -> ack and stop
+    if (invoice.credited) {
+      console.log(`[Q8QPay Webhook] Invoice ${invoiceId} already credited, skipping`);
+      return res.status(200).json({ success: true, message: 'Already processed' });
+    }
+
+    // Non-confirmed statuses: update DB status only, do NOT credit
+    if (status !== Q8QPAY_STATUS.CONFIRMED) {
+      console.log(`[Q8QPay Webhook] Invoice ${invoiceId} status ${status} - updating status only (no credit)`);
+      await supabaseAdmin
+        .from('payment_invoices')
+        .update({
+          status: status === 'expired' ? 'expired' : (status === 'cancelled' ? 'cancelled' : invoice.status),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', invoice.id);
+      return res.status(200).json({ success: true, message: `Status updated to ${status}` });
+    }
+
+    // CRITICAL: server-side re-verification via q8qpay API before crediting
+    console.log(`[Q8QPay Webhook] Re-verifying invoice ${providerInvoiceId} with q8qpay API...`);
+    const verifyResult = await q8qpayProvider.getInvoiceStatus(providerInvoiceId);
+
+    if (!verifyResult || verifyResult.status !== Q8QPAY_STATUS.CONFIRMED) {
+      console.error(`[Q8QPay Webhook] Re-verification: status is ${verifyResult?.status}, not confirmed`);
+      return res.status(200).json({ error: 'Verification mismatch' });
+    }
+
+    // === Validate invoice reference, asset, amount, and transaction info ===
+
+    // 1. Reference must match (the q8qpay UUID we stored == the one in the webhook/verify)
+    if (invoice.provider_invoice_ref && invoice.provider_invoice_ref !== verifyResult.providerInvoiceId) {
+      console.error(`[Q8QPay Webhook] Invoice ref mismatch: db=${invoice.provider_invoice_ref} vs q8q=${verifyResult.providerInvoiceId}`);
+      return res.status(200).json({ error: 'Reference mismatch' });
+    }
+
+    // 2. Asset must be USDT_TRC20
+    if (verifyResult.assetCode !== 'USDT_TRC20') {
+      console.error(`[Q8QPay Webhook] Asset mismatch: ${verifyResult.assetCode} (expected USDT_TRC20)`);
+      return res.status(200).json({ error: 'Asset mismatch' });
+    }
+
+    // 3. Amount must match exactly (q8qpay uses exact-match; compare to stored amount_usd)
+    const expectedAmount = Number(Number(invoice.amount_usd).toFixed(4));
+    const paidAmount = Number(Number(verifyResult.amountUsdtExact).toFixed(4));
+    if (paidAmount !== expectedAmount) {
+      console.error(`[Q8QPay Webhook] Amount mismatch: expected ${expectedAmount}, paid ${paidAmount}`);
+      return res.status(200).json({ error: 'Amount mismatch' });
+    }
+
+    // 4. Payout address must match the one we displayed to the customer
+    if (invoice.wallet_address && verifyResult.payoutAddress &&
+        invoice.wallet_address !== verifyResult.payoutAddress) {
+      console.error(`[Q8QPay Webhook] Payout address mismatch`);
+      return res.status(200).json({ error: 'Address mismatch' });
+    }
+
+    // 5. Transaction hash must be present (blockchain tx info)
+    const txHash = transactionHash || verifyResult.tx_hash;
+    if (!txHash) {
+      console.error(`[Q8QPay Webhook] No transaction hash provided for confirmed payment`);
+      return res.status(200).json({ error: 'Missing transaction hash' });
+    }
+
+    console.log(`[Q8QPay Webhook] All checks passed. Crediting user ${invoice.user_id} $${invoice.amount_usd} (tx: ${txHash.substring(0, 16)}...)`);
+
+    // Store audit fields (tx hash, q8q invoice id) BEFORE crediting so they are
+    // preserved even if a concurrent webhook wins the credit race.
+    await supabaseAdmin
+      .from('payment_invoices')
+      .update({
+        provider_tx_hash: txHash,
+        provider_invoice_ref: providerInvoiceId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', invoice.id);
+
+    // Credit atomically via the SHARED secure function (same mechanism as Paymento)
+    const creditResult = await supabaseAdmin.rpc('credit_payment_safe', {
+      p_invoice_id: invoice.id,
+      p_user_id: invoice.user_id,
+      p_amount_usd: invoice.amount_usd,
+      p_transaction_hash: txHash,
+      p_provider_invoice_id: providerInvoiceId,
+      p_provider_name: 'q8qpay'
+    });
+
+    if (creditResult.error) {
+      console.error('[Q8QPay Webhook] Credit failed:', creditResult.error.message);
+      return res.status(200).json({ error: 'Credit failed' });
+    }
+
+    const creditData = creditResult.data;
+    if (creditData.duplicate) {
+      console.log(`[Q8QPay Webhook] Duplicate payment detected for ${invoiceId} - no double credit`);
+      return res.status(200).json({ success: true, message: 'Duplicate payment (not re-credited)' });
+    }
+
+    if (!creditData.success) {
+      console.error(`[Q8QPay Webhook] Credit function returned error: ${creditData.error}`);
+      return res.status(200).json({ error: 'Credit failed' });
+    }
+
+    console.log(`[Q8QPay Webhook] SUCCESS! User ${invoice.user_id} credited $${invoice.amount_usd}`);
+    console.log(`[Q8QPay Webhook] New balance: $${creditData.new_balance}, First deposit: ${creditData.is_first_deposit}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment processed',
+      credited: true,
+      newBalance: creditData.new_balance,
+      isFirstDeposit: creditData.is_first_deposit
+    });
+
+  } catch (error) {
+    console.error('[Q8QPay Webhook] Error:', error);
+    // Return 200 to prevent q8qpay from retrying; log for investigation
+    res.status(200).json({ error: 'Processing error' });
+  }
+});
+
+/**
+ * Q8QPay invoice status (for frontend polling / manual check).
+ * Re-verifies with q8qpay API and mirrors the local DB status.
+ */
+app.get('/api/q8qpay/status/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    if (!invoiceId || typeof invoiceId !== 'string' || invoiceId.length > 100) {
+      return res.status(400).json({ success: false, error: 'Invalid invoice ID' });
+    }
+
+    const userId = req.user.id;
+
+    // Get our invoice (authorization: user can only see their own)
+    const { data: invoice, error } = await supabaseAdmin
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // Local DB status is source of truth for credited/confirmed (set by webhook)
+    let remoteStatus = invoice.status;
+    if (invoice.provider_invoice_ref && invoice.status === 'pending') {
+      try {
+        const v = await q8qpayProvider.getInvoiceStatus(invoice.provider_invoice_ref);
+        remoteStatus = v.status;
+        // Reflect non-terminal remote status locally (do NOT credit here)
+        if (remoteStatus && remoteStatus !== invoice.status &&
+            ['expired', 'cancelled'].includes(remoteStatus)) {
+          await supabaseAdmin
+            .from('payment_invoices')
+            .update({ status: remoteStatus, updated_at: new Date().toISOString() })
+            .eq('id', invoice.id);
+        }
+      } catch (e) {
+        console.warn('[Q8QPay Status] remote lookup failed:', e.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      invoice: {
+        id: invoice.invoice_id,
+        providerInvoiceId: invoice.provider_invoice_ref,
+        status: invoice.credited ? 'confirmed' : remoteStatus,
+        amountUsd: invoice.amount_usd,
+        amountUsdtExact: invoice.amount_crypto,
+        currency: invoice.currency,
+        network: invoice.network,
+        payoutAddress: invoice.wallet_address,
+        expiresAt: invoice.expires_at,
+        credited: invoice.credited,
+        confirmedAt: invoice.confirmed_at
+      }
+    });
+  } catch (error) {
+    console.error('[Q8QPay Status] Error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get status' });
+  }
+});
+
+/**
+ * Cancel a pending Q8QPay invoice (calls q8qpay cancel API + updates DB).
+ */
+app.post('/api/q8qpay/cancel/:invoiceId', authMiddleware, async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const userId = req.user.id;
+
+    const { data: invoice, error } = await supabaseAdmin
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    if (invoice.status !== 'pending') {
+      return res.status(400).json({ success: false, error: `Cannot cancel invoice with status: ${invoice.status}` });
+    }
+
+    // Best-effort remote cancel
+    if (invoice.provider_invoice_ref) {
+      try {
+        await q8qpayProvider.cancelInvoice(invoice.provider_invoice_ref);
+      } catch (e) {
+        console.warn('[Q8QPay Cancel] remote cancel failed:', e.message);
+      }
+    }
+
+    await supabaseAdmin
+      .from('payment_invoices')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', invoice.id);
+
+    console.log(`[Q8QPay Cancel] Invoice cancelled: ${invoiceId}`);
+    res.json({ success: true, invoiceId });
+  } catch (error) {
+    console.error('[Q8QPay Cancel] Error:', error);
+    res.status(400).json({ success: false, error: 'Failed to cancel invoice' });
   }
 });
 
