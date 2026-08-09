@@ -66,3 +66,60 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   &network=TRC20`. Do NOT hard-code amounts — keep them dynamic.
 - A UI-only polish pass was done (2026-08): headings/labels/status wording
   refined; no payment logic, API, webhook, crediting, or provider code touched.
+
+- Status mapping fix (2026-08): q8qpay only emits `pending | confirmed |
+  expired | cancelled` (NO `detected`/`confirming` intermediate). A fresh
+  unpaid invoice is `pending`. The frontend polling in
+  `startPollingForPayment()` must map `pending` → "Waiting for payment..." +
+  progress `created` (only Created active), NOT to `confirming`/"Payment
+  detected". `detected`/`confirming` branches are kept only for providers that
+  actually report those states. `cancelled` is also handled (q8qpay has it).
+
+- Amount consistency fix (2026-08): the customer-facing amount (display, copy,
+  QR, instruction) is derived from the user's entered USD amount
+  (`amountUSD.toFixed(2)`), NOT from q8qpay's `amountUsdtExact`. q8qpay may
+  return an `amountUsdtExact` that differs from the requested `amountUsdt`
+  (e.g. 50.0020 vs 50.00) when the q8qpay merchant account applies a fee. The
+  webhook amount verification (server.js, compares `invoice.amount_usd` to
+  `verifyResult.amountUsdtExact`) will REJECT crediting if those differ — that
+  is payment-verification logic and was intentionally NOT modified here. If
+  q8qpay adds a fee, disable it in the q8qpay dashboard so `amountUsdtExact`
+  echoes the requested amount; otherwise crediting will not succeed.
+
+- q8qpay amountUsdtExact variance investigation (2026-08): our code sends a
+  FIXED `amountUsdt: Number(Number(amount).toFixed(4))` (e.g. 50) and applies
+  NO fee/markup/rate/randomization (the mock `calculateCryptoAmount` rate
+  USDT.TRC20=1.0001 is only used by the NOWPayments branch, never q8qpay).
+  q8qpay nonetheless returns a varying `amountUsdtExact` per invoice
+  (50.0020, 50.0037, 50.0051, 50.0045, 51.0015). Per q8qpay docs,
+  `amountUsdtExact` should ECHO the requested `amountUsdt` (150 -> 150.0000)
+  and is "the exact amount to pay" (strict exact-match: a customer off by
+  0.0001 USDT will not match). q8qpay's documented fee model is a flat 0.5%
+  deducted from the merchant PREPAID BALANCE on confirmation — NOT added to
+  the customer amount — and network/gas fees are paid by the customer on-chain,
+  separate from `amountUsdtExact`. The observed deltas (0.0020-0.0051, plus an
+  outlier +1.0015) do NOT equal 0.5% of 50 (0.25) and vary per invoice, so they
+  are NOT the documented merchant fee. q8qpay's create-invoice response has NO
+  documented fee/adjustment/required-amount field (only `amountUsdtExact`,
+  `amount_fiat`, `fiat_currency` in the webhook). The variance is therefore
+  undocumented q8qpay-side behavior (likely sandbox/test-mode invoice
+  adjustment or account-specific configuration). Root cause must be confirmed
+  with q8qpay support/dashboard before any change to amount validation or
+  crediting. Until then, do NOT change webhook amount verification or crediting.
+
+- q8qpay amountUsdtExact "first echoes, then varies" pattern (2026-08): user
+  reports first 50 USDT invoice -> 50.0000, subsequent -> 50.00xx. Our code is
+  provably stateless w.r.t. the amount: `createInvoice` sends a FIXED
+  `amountUsdt: Number(Number(amount).toFixed(4))` and reads NO prior invoice,
+  count, reference, timestamp, wallet, or DB state before the q8qpay call
+  (idempotency key = `${userId}_${uniqueInvoiceId}`, so never a cache hit; no
+  walletId sent -> q8qpay default wallet). So restart/cancel/count cannot
+  affect the amount via our code. Leading hypothesis: q8qpay ADDRESS-REUSE
+  DISAMBIGUATION — when multiple active invoices share one payoutAddress,
+  q8qpay perturbs amountUsdtExact by a few micro-USDT so each invoice has a
+  unique (address, amount) pair (common non-custodial gateway pattern). The
+  first invoice on a fresh/unused address can use the exact 50.0000; subsequent
+  active invoices get +0.00xx. Confirm by running `/tmp/trace_q8qpay.js`
+  (direct q8qpay calls, no DB) and checking whether payoutAddress is REUSED
+  across the 5 invoices while amounts vary. If addresses differ but amounts
+  still vary, it's sandbox/account config instead.

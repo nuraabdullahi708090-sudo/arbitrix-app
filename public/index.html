@@ -7677,7 +7677,15 @@ function showPaymentSection(invoice, amountUSD) {
     // Q8QPay white-label flow: display the TRC20 payout address + exact amount.
     // No TronLink / WalletConnect / hosted q8qpay checkout redirect.
     const address = invoice.payoutAddress || invoice.address;
-    const exactAmount = invoice.amountUsdtExact || invoice.amountCrypto || amountUSD.toFixed(4);
+
+    // Canonical amount the customer must send. This is the exact USD/USDT
+    // amount the user entered and that we sent to q8qpay (amountUsdt). USDT
+    // trades 1:1 with USD, so the send amount == the entered amount. We use
+    // a single source of truth here so the displayed amount, copy-amount,
+    // QR payment amount, and instruction are always identical.
+    // (Do NOT use q8qpay's amountUsdtExact for display if it differs — that
+    //  would desync the UI from the amount we told q8qpay to charge.)
+    const exactAmount = Number(amountUSD).toFixed(2);
 
     // QR encodes the TRC20 payment URI so mobile wallets can scan-to-pay
     const qrData = invoice.qrData ||
@@ -7690,13 +7698,13 @@ function showPaymentSection(invoice, amountUSD) {
     window.currentGatewayUrl = null;
     window.currentPaymentAddress = address;
 
-    // Exact USDT amount to send (q8qpay uses exact-match confirmation)
-    document.getElementById('liveDepositDisplayAmount').textContent = Number(exactAmount).toFixed(4);
-    document.getElementById('liveDepositDisplayUSD').textContent = Number(exactAmount).toFixed(2);
+    // Display the exact USDT amount to send (consistent across display, copy, QR, instruction)
+    document.getElementById('liveDepositDisplayAmount').textContent = exactAmount;
+    document.getElementById('liveDepositDisplayUSD').textContent = exactAmount;
 
     // Keep the "Send exactly N USDT" instruction in sync with the exact amount
     const exactAmountEl = document.getElementById('exactAmountValue');
-    if (exactAmountEl) exactAmountEl.textContent = Number(exactAmount).toFixed(2);
+    if (exactAmountEl) exactAmountEl.textContent = exactAmount;
 
     // Update the "Payment Address" label to reflect a deposit address
     const addrLabel = document.querySelector('#walletAddressContainer > div');
@@ -7928,7 +7936,7 @@ function startPollingForPayment(invoiceId) {
       }
 
       // Update progress based on status
-      if (result.status === 'confirmed' || result.status === 'credited') {
+      if (result.status === 'confirmed' || result.status === 'credited' || result.credited === true) {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
         
@@ -7972,18 +7980,26 @@ function startPollingForPayment(invoiceId) {
             Sound.deposit();
           }
         }, 1000);
-      } else if (result.status === 'confirming' || result.status === 'pending') {
-        // Update progress to confirming
+      } else if (result.status === 'confirming') {
+        // Provider explicitly reports payment is being confirmed on-chain.
+        // (q8qpay does not emit this state, but keep it for providers that do.)
         updatePaymentProgress('confirming');
         updateCurrentStatus('Payment detected. Waiting for blockchain confirmation...', '#F0B90B');
-      } else if (result.status === 'detected' || result.credited) {
-        // Update progress to detected
+      } else if (result.status === 'detected') {
+        // Provider explicitly reports a payment has been detected.
         updatePaymentProgress('detected');
         updateCurrentStatus('Payment detected. Waiting for confirmation...', '#F0B90B');
-      } else if (result.status === 'expired') {
+      } else if (result.status === 'pending') {
+        // Invoice created but no payment received yet. q8qpay invoices sit in
+        // `pending` until the exact USDT hits the TRC20 address, so a fresh
+        // unpaid invoice must read as "waiting for payment", NOT "detected".
+        // Keep the progress on the Created step only (do NOT mark Detected active).
+        updatePaymentProgress('created');
+        updateCurrentStatus('Waiting for payment...', '#F0B90B');
+      } else if (result.status === 'expired' || result.status === 'cancelled') {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
-        updateCurrentStatus('Invoice expired', '#EF4444');
+        updateCurrentStatus(result.status === 'cancelled' ? 'Invoice cancelled' : 'Invoice expired', '#EF4444');
         document.getElementById('cancelInvoiceBtn').style.display = 'none';
         document.getElementById('forceCheckBtn').style.display = 'none';
         document.getElementById('newInvoiceBtn').style.display = 'block';
