@@ -2087,8 +2087,18 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
       return res.status(200).json({ error: 'Asset mismatch' });
     }
 
-    // 3. Amount must match exactly (q8qpay uses exact-match; compare to stored amount_usd)
-    const expectedAmount = Number(Number(invoice.amount_usd).toFixed(4));
+    // 3. Amount must match exactly. Q8QPay may adjust amountUsdtExact upward
+    //    when the requested amount is already pending on the same wallet
+    //    (address-reuse disambiguation, NOT a fee). The customer must pay
+    //    amountUsdtExact exactly, so we compare the confirmed q8qpay amount
+    //    against the authoritative amount_crypto we stored at invoice creation
+    //    (== q8qpay amountUsdtExact), NOT amount_usd (the user's requested USD,
+    //    which is what gets credited to the Arbitrix balance).
+    if (invoice.amount_crypto == null) {
+      console.error(`[Q8QPay Webhook] Missing amount_crypto on invoice ${invoiceId} - cannot verify paid amount (fail-closed)`);
+      return res.status(200).json({ error: 'Missing stored amount' });
+    }
+    const expectedAmount = Number(Number(invoice.amount_crypto).toFixed(4));
     const paidAmount = Number(Number(verifyResult.amountUsdtExact).toFixed(4));
     if (paidAmount !== expectedAmount) {
       console.error(`[Q8QPay Webhook] Amount mismatch: expected ${expectedAmount}, paid ${paidAmount}`);
