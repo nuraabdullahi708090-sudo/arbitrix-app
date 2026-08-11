@@ -7678,14 +7678,12 @@ function showPaymentSection(invoice, amountUSD) {
     // No TronLink / WalletConnect / hosted q8qpay checkout redirect.
     const address = invoice.payoutAddress || invoice.address;
 
-    // Canonical amount the customer must send. This is the exact USD/USDT
-    // amount the user entered and that we sent to q8qpay (amountUsdt). USDT
-    // trades 1:1 with USD, so the send amount == the entered amount. We use
-    // a single source of truth here so the displayed amount, copy-amount,
-    // QR payment amount, and instruction are always identical.
-    // (Do NOT use q8qpay's amountUsdtExact for display if it differs — that
-    //  would desync the UI from the amount we told q8qpay to charge.)
-    const exactAmount = Number(amountUSD).toFixed(2);
+    // Q8QPay may adjust amountUsdtExact upward when the requested amount is
+    // already pending on the same wallet (address-reuse disambiguation, NOT a
+    // fee). The customer must pay amountUsdtExact exactly, so display/copy/QR
+    // all use it with 4 decimals, NOT the user's entered USD amount. amount_usd
+    // (the entered USD) is still what gets credited to the Arbitrix balance.
+    const exactAmount = Number(invoice.amountUsdtExact).toFixed(4);
 
     // QR encodes the TRC20 payment URI so mobile wallets can scan-to-pay
     const qrData = invoice.qrData ||
