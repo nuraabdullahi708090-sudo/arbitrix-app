@@ -2112,8 +2112,27 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
       return res.status(200).json({ error: 'Address mismatch' });
     }
 
-    // 5. Transaction hash must be present (blockchain tx info)
-    const txHash = transactionHash || verifyResult.tx_hash;
+    // 5. Transaction hash (audit + cross-invoice idempotency key).
+    //    Q8QPay sandbox webhooks omit tx_hash (there is no real on-chain tx, and
+    //    Q8QPay does not deliver its synthetic sandbox_tx_ hash in the webhook
+    //    payload). A legitimately confirmed sandbox invoice (HMAC + reference +
+    //    asset + exact amount_crypto + payout address all passed) must not be
+    //    blocked solely for lack of a hash.
+    //
+    //    FALLBACK IS TEST-ONLY: it fires ONLY when ALL of these hold:
+    //      (a) Q8QPAY_SANDBOX === 'true' (our own config explicitly enables sandbox), AND
+    //      (b) the configured API key is a test_ key, AND
+    //      (c) Q8QPay's own re-verification flags the invoice as a test invoice.
+    //    verifyResult.isTest is NOT trusted alone — it is only a corroborating
+    //    signal gated by our local sandbox/test-key config. In production (live
+    //    key, sandbox=false) the hard requirement below is fully unchanged: a
+    //    hashless live confirmed webhook is still rejected.
+    const isSandboxConfigured =
+      q8qpayProvider.isSandbox === true &&
+      String(q8qpayProvider.apiKey || '').startsWith('test_');
+    const isTestInvoice = verifyResult && verifyResult.isTest === true;
+    const txHash = transactionHash || verifyResult.tx_hash ||
+      (isSandboxConfigured && isTestInvoice ? `q8qpay_sandbox_${providerInvoiceId}` : null);
     if (!txHash) {
       console.error(`[Q8QPay Webhook] No transaction hash provided for confirmed payment`);
       return res.status(200).json({ error: 'Missing transaction hash' });

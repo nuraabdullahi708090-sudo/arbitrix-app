@@ -250,6 +250,7 @@ class Q8QPayProvider extends ProviderInterface {
                 assetCode: data.assetCode,
                 payoutAddress: data.payoutAddress,
                 amountUsdtExact: data.amountUsdtExact,
+                tx_hash: data.tx_hash || data.txHash,
                 expiresAt: data.expiresAt,
                 createdAt: data.createdAt,
                 isTest: data.isTest === true
@@ -349,7 +350,7 @@ class Q8QPayProvider extends ProviderInterface {
             currency: 'USDT',
             network: 'TRC20',
             assetCode: payload.asset_code,
-            transactionHash: payload.tx_hash,
+            transactionHash: payload.tx_hash || payload.txHash,
             status: payload.status,
             paidAt: payload.paid_at,
             type: payload.type,
