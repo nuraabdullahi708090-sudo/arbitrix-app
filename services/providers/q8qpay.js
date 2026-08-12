@@ -307,6 +307,51 @@ class Q8QPayProvider extends ProviderInterface {
     }
 
     /**
+     * Resolve the blockchain transaction hash for a CONFIRMED q8qpay payment.
+     *
+     * Sources, in priority order:
+     *   1. webhookTxHash  - hash parsed from the webhook payload
+     *                       (parsePaymentData: payload.tx_hash || payload.txHash)
+     *   2. verifyTxHash   - hash from q8qpay server-side re-verification
+     *                       (getInvoiceStatus: data.tx_hash || data.txHash)
+     *   3. SANDBOX-ONLY deterministic fallback `q8qpay_sandbox_<providerInvoiceId>`
+     *
+     * SECURITY (production safety of the fallback):
+     *   The fallback (#3) fires ONLY when ALL of the following hold:
+     *     (a) Q8QPAY_SANDBOX === 'true' (our own config explicitly enables sandbox), AND
+     *     (b) the configured API key is a `test_` key (q8qpay only issues test_ keys
+     *         for sandbox; a test_ key can never confirm a real on-chain payment), AND
+     *     (c) q8qpay's own re-verification flags the invoice as a test invoice.
+     *   A `live_` API key can never satisfy (b), so a fake/test hash can NEVER be
+     *   produced for a production (live) payment. A hashless live confirmed webhook
+     *   returns `null` here and MUST be rejected by the caller.
+     *
+     * The returned hash (real or sandbox) flows through credit_payment_safe's
+     * UNIQUE(transaction_hash) idempotency check, so duplicate webhooks are deduped.
+     *
+     * @param {object} opts
+     * @param {string} [opts.webhookTxHash]  - tx hash from the webhook payload
+     * @param {string} [opts.verifyTxHash]   - tx hash from q8qpay re-verification
+     * @param {boolean} [opts.verifyIsTest]  - whether q8qpay flagged the invoice as test
+     * @param {string} [opts.providerInvoiceId] - q8qpay invoice UUID (for sandbox fallback)
+     * @returns {string|null} Resolved tx hash, or null if none available (caller rejects)
+     */
+    resolveTransactionHash({ webhookTxHash, verifyTxHash, verifyIsTest, providerInvoiceId } = {}) {
+        if (webhookTxHash) return webhookTxHash;
+        if (verifyTxHash) return verifyTxHash;
+
+        const sandboxConfigured =
+            this.isSandbox === true &&
+            String(this.apiKey || '').startsWith('test_');
+
+        if (sandboxConfigured && verifyIsTest === true && providerInvoiceId) {
+            return `q8qpay_sandbox_${providerInvoiceId}`;
+        }
+
+        return null;
+    }
+
+    /**
      * Parse webhook event type from payload.
      * q8qpay sends `status` (confirmed/expired/cancelled) and `type`
      * (e.g. invoice.confirmed). We key off `status` for reliability.

@@ -2113,26 +2113,24 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
     }
 
     // 5. Transaction hash (audit + cross-invoice idempotency key).
-    //    Q8QPay sandbox webhooks omit tx_hash (there is no real on-chain tx, and
-    //    Q8QPay does not deliver its synthetic sandbox_tx_ hash in the webhook
-    //    payload). A legitimately confirmed sandbox invoice (HMAC + reference +
-    //    asset + exact amount_crypto + payout address all passed) must not be
-    //    blocked solely for lack of a hash.
+    //    Resolved via the provider helper (see Q8QPayProvider.resolveTransactionHash)
+    //    so the security invariant — a fake/test hash can NEVER be produced for a
+    //    live payment — lives in one auditable, unit-tested place.
     //
-    //    FALLBACK IS TEST-ONLY: it fires ONLY when ALL of these hold:
-    //      (a) Q8QPAY_SANDBOX === 'true' (our own config explicitly enables sandbox), AND
-    //      (b) the configured API key is a test_ key, AND
-    //      (c) Q8QPay's own re-verification flags the invoice as a test invoice.
-    //    verifyResult.isTest is NOT trusted alone — it is only a corroborating
-    //    signal gated by our local sandbox/test-key config. In production (live
-    //    key, sandbox=false) the hard requirement below is fully unchanged: a
-    //    hashless live confirmed webhook is still rejected.
-    const isSandboxConfigured =
-      q8qpayProvider.isSandbox === true &&
-      String(q8qpayProvider.apiKey || '').startsWith('test_');
-    const isTestInvoice = verifyResult && verifyResult.isTest === true;
-    const txHash = transactionHash || verifyResult.tx_hash ||
-      (isSandboxConfigured && isTestInvoice ? `q8qpay_sandbox_${providerInvoiceId}` : null);
+    //    Sources, in priority order:
+    //      (1) tx hash from the webhook payload (payload.tx_hash || payload.txHash)
+    //      (2) tx hash from q8qpay server-side re-verification (data.tx_hash || data.txHash)
+    //      (3) SANDBOX-ONLY fallback `q8qpay_sandbox_<providerInvoiceId>`, fired ONLY
+    //          when Q8QPAY_SANDBOX==='true' AND the API key is a `test_` key AND q8qpay
+    //          re-verification flags the invoice as a test invoice. A `live_` key can
+    //          never satisfy the test_ condition, so a hashless live confirmed webhook
+    //          resolves to null and is rejected below.
+    const txHash = q8qpayProvider.resolveTransactionHash({
+      webhookTxHash: transactionHash,
+      verifyTxHash: verifyResult.tx_hash,
+      verifyIsTest: verifyResult && verifyResult.isTest === true,
+      providerInvoiceId
+    });
     if (!txHash) {
       console.error(`[Q8QPay Webhook] No transaction hash provided for confirmed payment`);
       return res.status(200).json({ error: 'Missing transaction hash' });
