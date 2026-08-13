@@ -2874,17 +2874,70 @@ function get2FALoginCode() {
     return Array.from(inputs).map(i => i.value).join('');
 }
 
-function handle2FALoginCodeInput(input, index) {
-    input.value = input.value.replace(/[^0-9]/g, '');
-    
-    if (input.value && index < 5) {
-        const inputs = document.querySelectorAll('#twofaLoginCodeGroup .code-input');
-        inputs[index + 1].focus();
+// ============ OTP INPUT HANDLING (shared) ============
+// Handles single-digit typing, multi-digit paste, browser OTP autofill, IME
+// composition, and Backspace across the six boxes. Each box holds at most one
+// digit; extra digits arriving in one event are DISTRIBUTED to subsequent
+// boxes. The submitted value is always exactly six numeric digits (the backend
+// /^\d{6}$/ check is unchanged). groupId is the container selector id.
+function otpDistribute(groupId, input, index) {
+    const inputs = Array.from(document.querySelectorAll('#' + groupId + ' .code-input'));
+    // Pull ALL digits out of the current box (handles paste/autofill/IME that
+    // bypass maxlength=1 and dump several digits into one field).
+    const digits = (input.value || '').replace(/[^0-9]/g, '').split('');
+    // Clear current box first, then re-fill from `index` with the digits.
+    inputs.forEach(function(inp, i) { if (i >= index) inp.value = ''; });
+    let focusIdx = index;
+    for (let k = 0; k < digits.length && (index + k) < inputs.length; k++) {
+        inputs[index + k].value = digits[k];
+        focusIdx = index + k;
     }
-    
-    const code = get2FALoginCode();
+    // Focus the next empty box (or the last filled one).
+    const nextEmpty = inputs.findIndex((inp, i) => i > focusIdx && !inp.value);
+    inputs[nextEmpty === -1 ? Math.min(focusIdx + 1, inputs.length - 1) : nextEmpty].focus();
+    return inputs.map(i => i.value).join('');
+}
+
+function otpHandleKeyDown(e, groupId, index) {
+    const inputs = Array.from(document.querySelectorAll('#' + groupId + ' .code-input'));
+    if (e.key === 'Backspace') {
+        if (inputs[index].value) {
+            // Clear current box, stay put.
+            inputs[index].value = '';
+            e.preventDefault();
+        } else if (index > 0) {
+            // Empty box: step back and clear previous.
+            inputs[index - 1].value = '';
+            inputs[index - 1].focus();
+            e.preventDefault();
+        }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+        inputs[index - 1].focus();
+        e.preventDefault();
+    } else if (e.key === 'ArrowRight' && index < inputs.length - 1) {
+        inputs[index + 1].focus();
+        e.preventDefault();
+    }
+}
+
+function otpHandlePaste(e, groupId, index) {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+    const digits = text.replace(/[^0-9]/g, '').split('');
+    const inputs = Array.from(document.querySelectorAll('#' + groupId + ' .code-input'));
+    inputs.forEach(function(inp, i) { if (i >= index) inp.value = ''; });
+    let focusIdx = index;
+    for (let k = 0; k < digits.length && (index + k) < inputs.length; k++) {
+        inputs[index + k].value = digits[k];
+        focusIdx = index + k;
+    }
+    const nextEmpty = inputs.findIndex((inp, i) => i > focusIdx && !inp.value);
+    inputs[nextEmpty === -1 ? Math.min(focusIdx + 1, inputs.length - 1) : nextEmpty].focus();
+}
+
+function handle2FALoginCodeInput(input, index) {
+    const code = otpDistribute('twofaLoginCodeGroup', input, index);
     console.log('[2FA INPUT] Digit entered at index:', index, '| Current code length:', code.length);
-    
     if (code.length === 6) {
         console.log('[2FA INPUT] Code complete - auto-submitting...');
         handle2FALoginSubmit();
@@ -3263,17 +3316,9 @@ function goTo2FAVerification() {
 }
 
 function handle2FACodeInput(input, index) {
-    // Only allow digits
-    input.value = input.value.replace(/[^0-9]/g, '');
-    
-    // Auto-advance to next input
-    if (input.value && index < 5) {
-        const inputs = document.querySelectorAll('#twofaCodeGroup .code-input');
-        inputs[index + 1].focus();
-    }
-    
-    // Auto-submit when all filled
-    const code = get2FACode();
+    // Auto-advance + distribute handled by otpDistribute (single-digit typing,
+    // multi-digit paste, browser autofill, IME all collapse to 1 digit per box).
+    const code = otpDistribute('twofaCodeGroup', input, index);
     console.log('[2FA INPUT] Code entered, length:', code.length);
     if (code.length === 6) {
         console.log('[2FA INPUT] Code complete, triggering verify2FASetup()');
@@ -4132,12 +4177,12 @@ function toggleFaq(btn) {
                         <div class="form-group">
                             <label>Verification Code</label>
                             <div class="code-input-group" id="twofaLoginCodeGroup">
-                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="0" oninput="handle2FALoginCodeInput(this, 0)">
-                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="1" oninput="handle2FALoginCodeInput(this, 1)">
-                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="2" oninput="handle2FALoginCodeInput(this, 2)">
-                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="3" oninput="handle2FALoginCodeInput(this, 3)">
-                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="4" oninput="handle2FALoginCodeInput(this, 4)">
-                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="5" oninput="handle2FALoginCodeInput(this, 5)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="0" oninput="handle2FALoginCodeInput(this, 0)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',0)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',0)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="1" oninput="handle2FALoginCodeInput(this, 1)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',1)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',1)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="2" oninput="handle2FALoginCodeInput(this, 2)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',2)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',2)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="3" oninput="handle2FALoginCodeInput(this, 3)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',3)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',3)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="4" oninput="handle2FALoginCodeInput(this, 4)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',4)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',4)">
+                                <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="5" oninput="handle2FALoginCodeInput(this, 5)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',5)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',5)">
                             </div>
                         </div>
                         
@@ -5784,12 +5829,12 @@ function toggleFaq(btn) {
             <div class="form-group">
                 <label>Verification Code</label>
                 <div class="code-input-group" id="twofaCodeGroup">
-                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="0" oninput="handle2FACodeInput(this, 0)">
-                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="1" oninput="handle2FACodeInput(this, 1)">
-                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="2" oninput="handle2FACodeInput(this, 2)">
-                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="3" oninput="handle2FACodeInput(this, 3)">
-                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="4" oninput="handle2FACodeInput(this, 4)">
-                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" data-index="5" oninput="handle2FACodeInput(this, 5)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="0" oninput="handle2FACodeInput(this, 0)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',0)" onpaste="otpHandlePaste(event,'twofaCodeGroup',0)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="1" oninput="handle2FACodeInput(this, 1)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',1)" onpaste="otpHandlePaste(event,'twofaCodeGroup',1)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="2" oninput="handle2FACodeInput(this, 2)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',2)" onpaste="otpHandlePaste(event,'twofaCodeGroup',2)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="3" oninput="handle2FACodeInput(this, 3)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',3)" onpaste="otpHandlePaste(event,'twofaCodeGroup',3)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="4" oninput="handle2FACodeInput(this, 4)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',4)" onpaste="otpHandlePaste(event,'twofaCodeGroup',4)">
+                    <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="5" oninput="handle2FACodeInput(this, 5)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',5)" onpaste="otpHandlePaste(event,'twofaCodeGroup',5)">
                 </div>
             </div>
             
@@ -9276,16 +9321,13 @@ function initApp() {
         });
     });
     
-    document.querySelectorAll('.code-input').forEach(function(inp, idx, arr) {
-        inp.addEventListener('input', function() {
-            this.value = this.value.replace(/[^0-9]/g, '');
-            if(this.value && idx < arr.length - 1) arr[idx + 1].focus();
-        });
-        inp.addEventListener('keydown', function(e) {
-            if(e.key === 'Backspace' && !this.value && idx > 0) arr[idx - 1].focus();
-        });
-    });
-    
+    // Note: OTP (.code-input) input/paste/keydown handling is done by the
+    // shared otpDistribute/otpHandlePaste/otpHandleKeyDown helpers wired via
+    // inline oninput/onpaste/onkeydown on each box (see handle2FALoginCodeInput
+    // / handle2FACodeInput). Do NOT attach a duplicate 'input' listener here —
+    // it would re-introduce the "multiple digits in one box" bug and double
+    // fire auto-advance.
+
     document.querySelectorAll('.quick-reply-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             getEl('supportInput').value = this.dataset.msg;
