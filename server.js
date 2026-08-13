@@ -4475,10 +4475,10 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         if (twoFactorType === 'totp' && hasTOTP) {
             // TOTP mode - only require if user has TOTP enabled
             const partialToken = jwt.sign(
-                { 
-                    id: user.id, 
-                    email: user.email, 
-                    is_admin: !!user.is_admin,
+                {
+                    id: user.id,
+                    email: user.email,
+                    isAdmin: user.is_admin===1,
                     _2fa_pending: true,
                     _2fa_type: 'totp'
                 },
@@ -4508,10 +4508,10 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
             
             // Return partial token for email verification
             const partialToken = jwt.sign(
-                { 
-                    id: user.id, 
-                    email: user.email, 
-                    is_admin: !!user.is_admin,
+                {
+                    id: user.id,
+                    email: user.email,
+                    isAdmin: user.is_admin===1,
                     _2fa_pending: true,
                     _2fa_type: 'email'
                 },
@@ -4531,11 +4531,11 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         
         // No 2FA required - return token directly
         const token = jwt.sign(
-            { id: user.id, email: user.email, is_admin: !!user.is_admin },
+            { id: user.id, email: user.email, isAdmin: user.is_admin===1 },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
-        
+
         return res.json({
             success: true,
             requires2FA: false,
@@ -4544,7 +4544,8 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                referral_code: user.referral_code,
+                referralCode: user.referral_code,
+                isAdmin: user.is_admin===1,
                 is_admin: !!user.is_admin,
                 is_verified: false // KYC verification not implemented yet
             }
@@ -4620,20 +4621,22 @@ app.post('/api/2fa/login-verify', async (req, res) => {
             });
         }
         
-        // Generate full token
+        // Generate full token (isAdmin camelCase matches /api/auth/login so
+        // adminMiddleware (req.user.isAdmin) and frontend checkAdminAccess work
+        // for the 2FA login path too).
         const token = jwt.sign(
-            { id: userId, email: decoded.email, is_admin: decoded.is_admin },
+            { id: userId, email: decoded.email, isAdmin: !!decoded.isAdmin },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
-        
+
         // Get user data (is_verified removed - column doesn't exist in users table)
         const { data: user } = await supabase
             .from('users')
             .select('id, name, email, referral_code, is_admin')
             .eq('id', userId)
             .single();
-        
+
         res.json({
             success: true,
             token,
@@ -4641,7 +4644,8 @@ app.post('/api/2fa/login-verify', async (req, res) => {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                referral_code: user.referral_code,
+                referralCode: user.referral_code,
+                isAdmin: user.is_admin===1,
                 is_admin: !!user.is_admin,
                 is_verified: false // KYC verification not implemented yet
             } : null
