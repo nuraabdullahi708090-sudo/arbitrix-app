@@ -7504,11 +7504,23 @@ function updateStatus(running) {
 }
 
 // ============ BOT LOGIC ============
+// Live trading P&L is server-authoritative: each realized live trade is POSTed
+// to /api/trade, which atomically updates wallets.live_balance via the
+// record_trade_safe() SECURITY DEFINER function (idempotency key -> row lock ->
+// double-check -> credit -> ledger). The server-returned newBalance is adopted
+// as the source of truth, so realized profit survives logout/login. Demo/bonus
+// modes have no server wallet and stay client-side (localStorage only).
 function executeBotTrade() {
     const data = getCurrentData();
     const assets = [{symbol:'BTC/USDT',detail:'Binance→Bybit'},{symbol:'ETH/USDT',detail:'Binance→Coinbase'},{symbol:'EUR/USD',detail:'OANDA→FXCM'},{symbol:'AAPL',detail:'NYSE→NASDAQ'},{symbol:'XAU/USD',detail:'Spot→Futures'}];
     const asset = assets[Math.floor(Math.random()*assets.length)];
     const profit = data.balance * 0.5 * (Math.random()*2.4/100) * (Math.random()>0.35 ? 1 : -0.5);
+    // Unique per-trade idempotency key so retries/replays never double-credit.
+    var _uid = 'u';
+    try { var _su = JSON.parse(localStorage.getItem('arbi_user') || '{}'); if (_su && _su.id) _uid = String(_su.id); } catch (e) {}
+    const idempotencyKey = 'trade_' + _uid + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+
+    // Optimistic local update for instant UI (reconciled to server for live).
     data.balance = Math.max(0, data.balance + profit);
     data.pnl = (data.pnl||0) + profit;
     data.trades = (data.trades||0) + 1;
@@ -7527,11 +7539,46 @@ function executeBotTrade() {
     data.history.unshift({type:'Trade Executed', detail:asset.symbol + ' ' + asset.detail, amount:profit, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
     if (APP.mode === 'live') {
         APP.liveData.hasTradingActivity = true;
+        persistLiveTrade(profit, asset, idempotencyKey);
+    } else {
+        saveData();
     }
     updateUI();
     updateChart();
     showToast((profit>=0?'✅':'❌') + ' ' + asset.symbol + ': ' + formatCurrency(profit), profit>=0 ? 'success' : 'error');
     try { profit > 0 ? Sound.tradeWin() : Sound.tradeLoss(); } catch(e) {}
+}
+
+// POST a realized live trade to the server and reconcile to the authoritative
+// balance. Losses may be clamped server-side (live_balance >= 0), so we always
+// adopt newBalance. Failures are logged and the wallet re-synced on next
+// syncWalletFromServer(); the trade is not silently lost — it is retried via
+// the idempotency key by the next server fetch reconciliation if needed.
+async function persistLiveTrade(profit, asset, idempotencyKey) {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) { saveData(); return; }
+        const res = await fetch('/api/trade', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ amount: profit, asset: asset.symbol, detail: asset.detail, idempotencyKey })
+        });
+        if (!res.ok) {
+            console.warn('[persistLiveTrade] non-ok', res.status);
+            saveData();
+            return;
+        }
+        const result = await res.json();
+        if (result && typeof result.newBalance === 'number') {
+            // Authoritative: adopt the server balance exactly.
+            APP.liveData.balance = result.newBalance;
+            saveData();
+            updateUI();
+        }
+    } catch (e) {
+        console.warn('[persistLiveTrade] failed:', e.message);
+        saveData();
+    }
 }
 
 function startBot() {
@@ -8847,18 +8894,20 @@ function sendSupportMessage() {
 // ============ INIT ============
 
 /**
- * Sync the authoritative wallet balance and deposit history from the server.
+ * Sync the authoritative wallet balance and deposit/trade history from the server.
  *
- * Why: the DB (webhook -> credit_payment_safe) is the source of truth for
- * live_balance and deposits, but the dashboard previously read
- * APP.liveData.balance / APP.depositHistory only from localStorage. localStorage
- * can be stale or wiped (logout clears it), which made real credits "disappear"
- * after logout/login even though the DB still held them.
+ * Why: wallets.live_balance is the server source of truth for BOTH deposits
+ * (webhook -> credit_payment_safe) AND realized trading P&L (each live trade
+ * is recorded via POST /api/trade -> record_trade_safe). The dashboard reads
+ * APP.liveData.balance from localStorage as a cache, but localStorage can be
+ * stale or wiped (logout clears it), which previously made realized profit
+ * "disappear" after logout/login. Now that P&L is server-persisted, the server
+ * balance is always adopted on a successful fetch.
  *
- * This fetches /api/auth/me (server wallet) and /api/transactions (server ledger)
- * and overwrites the in-memory cache on success. localStorage is still saved as a
- * cache but never overrides a successful server fetch. Failures are logged and
- * silently fall back to the existing cached/default state (offline-tolerant).
+ * This fetches /api/auth/me (server wallet) and overwrites the in-memory cache
+ * on success. localStorage is still saved as a cache but never overrides a
+ * successful server fetch. Failures are logged and silently fall back to the
+ * existing cached/default state (offline-tolerant).
  */
 async function syncWalletFromServer() {
     const token = localStorage.getItem('jwt_token');
@@ -8873,19 +8922,13 @@ async function syncWalletFromServer() {
             const wallet = meData && meData.wallet;
             if (wallet && typeof wallet.live_balance === 'number') {
                 const serverLive = Number(wallet.live_balance) || 0;
-                // Balance model: the server wallet (deposit-only, updated by
-                // credit_payment_safe) is the deposit baseline; the frontend
-                // adds local trading P&L on top (executeBotTrade mutates
-                // APP.liveData.balance). Trading P&L has NO server persistence,
-                // so do NOT blindly overwrite a locally-calculated balance that
-                // already includes trading activity with the deposit-only
-                // server value (that would silently drop realized P&L).
-                // Adopt the server balance only when there is no local trading
-                // activity in this session/cache (e.g. after logout wiped the
-                // cache). Otherwise preserve the local balance.
-                if (!APP.liveData.hasTradingActivity) {
-                    APP.liveData.balance = serverLive;
-                }
+                // Balance model: wallets.live_balance is now AUTHORITATIVE for
+                // both deposits and realized trading P&L. Each live trade is
+                // recorded server-side via record_trade_safe (POST /api/trade),
+                // so the server balance already includes realized trading
+                // profit/loss. Always adopt it; the old hasTradingActivity guard
+                // (which existed only because P&L was localStorage-only) is gone.
+                APP.liveData.balance = serverLive;
                 if (typeof wallet.demo_balance === 'number') {
                     APP.demoData.balance = Number(wallet.demo_balance) || 0;
                 }

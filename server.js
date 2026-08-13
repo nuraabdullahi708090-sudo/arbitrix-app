@@ -3371,6 +3371,60 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
   res.json({ isRunning: data ? data.is_running===1 : false, mode: data ? data.mode : 'demo', startedAt: data ? data.started_at : null });
 });
 
+// ---------- Trade (server-authoritative realized P&L) ----------
+// Records a realized trade atomically via the record_trade_safe() SECURITY
+// DEFINER function (idempotency key -> FOR UPDATE wallet lock -> double-check
+// -> live_balance += amount (clamped at 0) -> trades ledger + transactions
+// row of type='Trade Executed'). The returned newBalance is the authoritative
+// balance; clients reconcile to it. Mirrors the credit_payment_safe pattern
+// used for deposits. Demo/bonus modes stay client-side (no server wallet).
+app.post('/api/trade', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { amount, asset, detail, idempotencyKey } = req.body;
+
+    if (typeof amount !== 'number' || !isFinite(amount) || amount === 0) {
+      return res.status(400).json({ error: 'Invalid trade amount' });
+    }
+    // Bound the magnitude: a single trade cannot move the balance by more than
+    // the current balance (protects against absurd client-supplied losses).
+    const wallet = await getWallet(userId);
+    const currentBalance = Number(wallet.live_balance) || 0;
+    if (Math.abs(amount) > Math.max(currentBalance, 1)) {
+      return res.status(400).json({ error: 'Trade amount exceeds balance' });
+    }
+    // 2-dp precision to match DECIMAL(18,2).
+    const amount2dp = Math.round(amount * 100) / 100;
+    const key = (idempotencyKey && String(idempotencyKey).trim()) ||
+      `trade_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    const { data, error } = await supabaseAdmin.rpc('record_trade_safe', {
+      p_user_id: userId,
+      p_amount: amount2dp,
+      p_idempotency_key: key,
+      p_mode: 'live',
+      p_asset: asset || null,
+      p_detail: detail || null,
+    });
+    if (error) throw error;
+
+    const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from record_trade_safe' };
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'Trade recording failed' });
+    }
+    res.json({
+      success: true,
+      duplicate: !!result.duplicate,
+      tradeId: result.trade_id,
+      appliedAmount: Number(result.applied_amount),
+      newBalance: Number(result.new_balance),
+    });
+  } catch (err) {
+    console.error('[POST /api/trade]', err);
+    res.status(500).json({ error: 'Server error recording trade' });
+  }
+});
+
 // ---------- Transactions ----------
 app.get('/api/transactions', authMiddleware, async (req, res) => {
   const { data, error } = await supabase.from('transactions').select('id, type, amount, detail, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
