@@ -8872,7 +8872,20 @@ async function syncWalletFromServer() {
             const meData = await meRes.json();
             const wallet = meData && meData.wallet;
             if (wallet && typeof wallet.live_balance === 'number') {
-                APP.liveData.balance = Number(wallet.live_balance) || 0;
+                const serverLive = Number(wallet.live_balance) || 0;
+                // Balance model: the server wallet (deposit-only, updated by
+                // credit_payment_safe) is the deposit baseline; the frontend
+                // adds local trading P&L on top (executeBotTrade mutates
+                // APP.liveData.balance). Trading P&L has NO server persistence,
+                // so do NOT blindly overwrite a locally-calculated balance that
+                // already includes trading activity with the deposit-only
+                // server value (that would silently drop realized P&L).
+                // Adopt the server balance only when there is no local trading
+                // activity in this session/cache (e.g. after logout wiped the
+                // cache). Otherwise preserve the local balance.
+                if (!APP.liveData.hasTradingActivity) {
+                    APP.liveData.balance = serverLive;
+                }
                 if (typeof wallet.demo_balance === 'number') {
                     APP.demoData.balance = Number(wallet.demo_balance) || 0;
                 }
@@ -8882,7 +8895,7 @@ async function syncWalletFromServer() {
                 // A non-default live balance or any server history implies a
                 // real funded account; keep hasRealDeposit conservative (truthy
                 // once the server reports a balance above the 50 default).
-                if (APP.liveData.balance > 50) {
+                if (serverLive > 50) {
                     APP.liveData.hasRealDeposit = true;
                 }
                 saveData();
@@ -8904,22 +8917,54 @@ async function syncWalletFromServer() {
         if (txRes.ok) {
             const txs = await txRes.json();
             if (Array.isArray(txs)) {
-                // Rebuild deposit history from the server ledger (Deposit rows).
-                const deposits = txs
-                    .filter(tx => tx && tx.type === 'Deposit')
-                    .map(tx => ({
+                const depositTxs = txs.filter(tx => tx && tx.type === 'Deposit');
+
+                // 1) Deposit-modal "Recent Deposits" list (APP.depositHistory).
+                APP.depositHistory = depositTxs.map(tx => ({
+                    amount: Number(tx.amount) || 0,
+                    network: 'TRC20',
+                    currency: 'USDT',
+                    status: 'Confirmed',
+                    time: tx.created_at ? new Date(tx.created_at).toLocaleString() : new Date().toLocaleString()
+                }));
+
+                // 2) Dashboard Transaction Log (APP.liveData.history), which is
+                // what updateTransactionLog() renders. Each entry must match the
+                // existing in-memory format {type, detail, amount, time, timestamp}
+                // and include a numeric `timestamp` (ms) so getRecentHistory()'s
+                // 30-min window filter works. Dedup against existing entries by the
+                // server transaction id (stored as _serverId) and by timestamp so a
+                // re-sync never duplicates a deposit that was already logged.
+                APP.liveData.history = APP.liveData.history || [];
+                const existingIds = new Set(
+                    APP.liveData.history.map(h => h && h._serverId).filter(Boolean)
+                );
+                const existingTimestamps = APP.liveData.history
+                    .filter(h => h && h.type === 'Deposit')
+                    .map(h => h.timestamp);
+                // Server returns newest-first (created_at desc). Preserve that
+                // order by prepending in reverse so the newest ends up on top.
+                for (let i = depositTxs.length - 1; i >= 0; i--) {
+                    const tx = depositTxs[i];
+                    const ts = tx.created_at ? new Date(tx.created_at).getTime() : Date.now();
+                    const dupById = tx.id != null && existingIds.has(tx.id);
+                    const dupByTs = existingTimestamps.some(t => t === ts);
+                    if (dupById || dupByTs) continue;
+                    APP.liveData.history.unshift({
+                        type: 'Deposit',
+                        detail: tx.detail || 'Deposit',
                         amount: Number(tx.amount) || 0,
-                        network: 'TRC20',
-                        currency: 'USDT',
-                        status: 'Confirmed',
-                        time: tx.created_at ? new Date(tx.created_at).toLocaleString() : new Date().toLocaleString()
-                    }));
-                if (deposits.length) {
-                    APP.depositHistory = deposits;
-                    APP.liveData.hasRealDeposit = true;
-                    saveData();
-                    if (typeof updateUI === 'function') updateUI();
+                        time: tx.created_at ? new Date(tx.created_at).toLocaleTimeString() : new Date().toLocaleTimeString(),
+                        timestamp: ts,
+                        _serverId: tx.id != null ? tx.id : undefined
+                    });
                 }
+
+                if (depositTxs.length) {
+                    APP.liveData.hasRealDeposit = true;
+                }
+                saveData();
+                if (typeof updateUI === 'function') updateUI();
             }
         }
     } catch (e) {
