@@ -7944,30 +7944,70 @@ function startPollingForPayment(invoiceId) {
         
         // Get credited amount
         const creditedAmount = result.amountUsd || result.creditedAmount || 0;
-        const newBalance = result.newBalance || (APP.liveData.balance + creditedAmount);
+        // Authoritative balance comes from the server (the webhook already
+        // credited the DB via credit_payment_safe). Compute a fallback only for
+        // the display/success toast; never add the amount on top of an already-
+        // credited server balance (which would double-credit the frontend).
+        let newBalance = (typeof APP.liveData.balance === 'number') ? APP.liveData.balance : 0;
+        let serverSynced = false;
+        try {
+          const token = localStorage.getItem('jwt_token');
+          if (token) {
+            const meRes = await fetch('/api/auth/me', {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              if (meData && meData.wallet && typeof meData.wallet.live_balance === 'number') {
+                newBalance = Number(meData.wallet.live_balance) || 0;
+                serverSynced = true;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[payment-confirm] server balance re-sync failed:', e.message);
+        }
+        if (!serverSynced) {
+          // Offline or fetch failed: fall back to optimistic local bump, but
+          // guard against double-applying if this invoice was already counted.
+          const alreadyCounted = (APP.depositHistory || []).some(d =>
+            Math.abs((d.amount || 0) - creditedAmount) < 0.0001);
+          if (!alreadyCounted) {
+            newBalance = (APP.liveData.balance || 0) + creditedAmount;
+          }
+        }
         
         // Update app data
         APP.liveData.balance = newBalance;
         APP.liveData.hasRealDeposit = true;
         
-        // Record in Transaction Log
+        // Record in Transaction Log only if not already present (idempotent)
         APP.liveData.history = APP.liveData.history || [];
-        APP.liveData.history.unshift({
-          type: 'Deposit',
-          detail: `${currentCurrency} (${currentNetwork})`,
-          amount: creditedAmount,
-          time: new Date().toLocaleTimeString(),
-          timestamp: Date.now()
-        });
+        const histExists = APP.liveData.history.some(h =>
+          h && h.type === 'Deposit' && Math.abs((h.amount || 0) - creditedAmount) < 0.0001);
+        if (!histExists) {
+          APP.liveData.history.unshift({
+            type: 'Deposit',
+            detail: `${currentCurrency} (${currentNetwork})`,
+            amount: creditedAmount,
+            time: new Date().toLocaleTimeString(),
+            timestamp: Date.now()
+          });
+        }
         
-        APP.depositHistory.unshift({
-          amount: creditedAmount,
-          network: currentNetwork,
-          currency: currentCurrency,
-          status: 'Confirmed',
-          time: new Date().toLocaleTimeString()
-        });
+        const depExists = (APP.depositHistory || []).some(d =>
+          Math.abs((d.amount || 0) - creditedAmount) < 0.0001);
+        if (!depExists) {
+          APP.depositHistory.unshift({
+            amount: creditedAmount,
+            network: currentNetwork,
+            currency: currentCurrency,
+            status: 'Confirmed',
+            time: new Date().toLocaleTimeString()
+          });
+        }
         
+        saveData();
         updateUI();
         
         // Show success after a brief delay
@@ -8805,6 +8845,88 @@ function sendSupportMessage() {
 }
 
 // ============ INIT ============
+
+/**
+ * Sync the authoritative wallet balance and deposit history from the server.
+ *
+ * Why: the DB (webhook -> credit_payment_safe) is the source of truth for
+ * live_balance and deposits, but the dashboard previously read
+ * APP.liveData.balance / APP.depositHistory only from localStorage. localStorage
+ * can be stale or wiped (logout clears it), which made real credits "disappear"
+ * after logout/login even though the DB still held them.
+ *
+ * This fetches /api/auth/me (server wallet) and /api/transactions (server ledger)
+ * and overwrites the in-memory cache on success. localStorage is still saved as a
+ * cache but never overrides a successful server fetch. Failures are logged and
+ * silently fall back to the existing cached/default state (offline-tolerant).
+ */
+async function syncWalletFromServer() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+
+    try {
+        const meRes = await fetch('/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (meRes.ok) {
+            const meData = await meRes.json();
+            const wallet = meData && meData.wallet;
+            if (wallet && typeof wallet.live_balance === 'number') {
+                APP.liveData.balance = Number(wallet.live_balance) || 0;
+                if (typeof wallet.demo_balance === 'number') {
+                    APP.demoData.balance = Number(wallet.demo_balance) || 0;
+                }
+                if (typeof wallet.bonus_balance === 'number') {
+                    APP.bonusData.balance = Number(wallet.bonus_balance) || 0;
+                }
+                // A non-default live balance or any server history implies a
+                // real funded account; keep hasRealDeposit conservative (truthy
+                // once the server reports a balance above the 50 default).
+                if (APP.liveData.balance > 50) {
+                    APP.liveData.hasRealDeposit = true;
+                }
+                saveData();
+                updateUI();
+            }
+        } else if (meRes.status === 401) {
+            // Token invalid/expired: leave cached state alone; auth will be
+            // re-challenged elsewhere. Do not wipe data on a transient 401.
+            console.warn('[syncWalletFromServer] /api/auth/me returned 401; keeping cached state');
+        }
+    } catch (e) {
+        console.warn('[syncWalletFromServer] wallet sync failed:', e.message);
+    }
+
+    try {
+        const txRes = await fetch('/api/transactions', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (txRes.ok) {
+            const txs = await txRes.json();
+            if (Array.isArray(txs)) {
+                // Rebuild deposit history from the server ledger (Deposit rows).
+                const deposits = txs
+                    .filter(tx => tx && tx.type === 'Deposit')
+                    .map(tx => ({
+                        amount: Number(tx.amount) || 0,
+                        network: 'TRC20',
+                        currency: 'USDT',
+                        status: 'Confirmed',
+                        time: tx.created_at ? new Date(tx.created_at).toLocaleString() : new Date().toLocaleString()
+                    }));
+                if (deposits.length) {
+                    APP.depositHistory = deposits;
+                    APP.liveData.hasRealDeposit = true;
+                    saveData();
+                    if (typeof updateUI === 'function') updateUI();
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[syncWalletFromServer] transactions sync failed:', e.message);
+    }
+}
+
 function initApp() {
     if(appReady) return;
     appReady = true;
@@ -8844,6 +8966,12 @@ function initApp() {
     
     // Fetch referral stats from API on load
     fetchReferralStats();
+
+    // Sync authoritative wallet balance + deposit history from the server so
+    // the dashboard reflects what the DB actually holds (not the localStorage
+    // cache, which can be stale or wiped on logout). localStorage stays as a
+    // quick cache but is never allowed to override a successful server fetch.
+    syncWalletFromServer();
     
     const botToggle = getEl('botToggle');
     if(botToggle) botToggle.addEventListener('change', toggleBot);
@@ -8997,6 +9125,19 @@ function initApp() {
             localStorage.removeItem('arbi_chart');
             localStorage.removeItem('arbi_badges');
             localStorage.removeItem('arbi_celebrated');
+
+            // Reset the one-shot app-init guard so the next login re-runs
+            // initApp() and re-syncs the wallet/history from the server.
+            appReady = false;
+
+            // Reset in-memory live wallet state so a stale balance from the
+            // previous session is never shown before the server re-sync runs.
+            if (APP.liveData) {
+                APP.liveData.balance = 0;
+                APP.liveData.hasRealDeposit = false;
+                APP.liveData.history = [];
+            }
+            APP.depositHistory = [];
         }
     });
     
