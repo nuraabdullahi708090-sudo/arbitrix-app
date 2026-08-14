@@ -3171,8 +3171,15 @@ async function load2FAStatus() {
         if (data.enabled) {
             // Show status view
             document.getElementById('twofaStatusView').style.display = 'block';
-            document.getElementById('twofaEnabledDate').textContent = data.enabledAt ? new Date(data.enabledAt).toLocaleDateString() : '-';
-            document.getElementById('twofaBackupCodesCount').textContent = data.backupCodesRemaining + ' remaining';
+            // twofaEnabledDate / twofaBackupCodesCount are not present in the
+            // current status-view markup (no element with those ids exists).
+            // Null-guard so a missing element never throws into the catch block
+            // (which would otherwise surface "Failed to load 2FA status" despite
+            // a 200 response). Do not fabricate UI; just no-op when absent.
+            const enabledDateEl = document.getElementById('twofaEnabledDate');
+            if (enabledDateEl) enabledDateEl.textContent = data.enabledAt ? new Date(data.enabledAt).toLocaleDateString() : '-';
+            const backupCodesEl = document.getElementById('twofaBackupCodesCount');
+            if (backupCodesEl) backupCodesEl.textContent = data.backupCodesRemaining + ' remaining';
             log2FAViewTransition('determining', 'twofaStatusView', '2FA is enabled');
         } else {
             // Show setup view 1
