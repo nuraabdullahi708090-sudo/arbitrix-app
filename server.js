@@ -669,6 +669,52 @@ async function isFirstConfirmedDeposit(userId) {
   return count === 0;
 }
 
+/**
+ * Authoritative "is this a funded account" check: true iff the user has at
+ * least one confirmed deposit. Used to initialize the dashboard in LIVE mode
+ * for real funded accounts (not merely balance > 50, which is unreliable).
+ * Uses the service-role client to bypass any RLS.
+ */
+async function hasConfirmedDeposit(userId) {
+  const { count, error } = await supabaseAdmin
+    .from('deposits')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'confirmed');
+  if (error) {
+    console.log('[hasConfirmedDeposit] error:', error.message);
+    return false;
+  }
+  return (count || 0) > 0;
+}
+
+/**
+ * Sum of realized trading P&L actually persisted via record_trade_safe() for
+ * the current UTC day. Reads the append-only `trades` ledger (signed amounts),
+ * so this can NEVER include deposits, withdrawals, referral bonuses, or other
+ * transaction types, and can never report a profit that was not persisted
+ * server-side. Returns a Number (USD).
+ */
+async function getTodayRealizedPnl(userId) {
+  const startOfDayUtc = new Date();
+  startOfDayUtc.setUTCHours(0, 0, 0, 0);
+  const endOfDayUtc = new Date(startOfDayUtc);
+  endOfDayUtc.setUTCDate(startOfDayUtc.getUTCDate() + 1);
+  const { data, error } = await supabaseAdmin
+    .from('trades')
+    .select('amount')
+    .eq('user_id', userId)
+    .gte('created_at', startOfDayUtc.toISOString())
+    .lt('created_at', endOfDayUtc.toISOString());
+  if (error) {
+    console.log('[getTodayRealizedPnl] error:', error.message);
+    return 0;
+  }
+  if (!Array.isArray(data) || !data.length) return 0;
+  return data.reduce((sum, row) => sum + (Number(row && row.amount) || 0), 0);
+}
+
+
 // ---------- PASSWORD RESET HELPERS ----------
 
 /**
@@ -1394,7 +1440,22 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
   const user = await getUser(req.user.id);
   const wallet = await getWallet(user.id);
-  res.json({ user, wallet });
+  // Authoritative signals computed from server state (not localStorage):
+  //  - hasRealDeposit: at least one confirmed deposit -> funds the LIVE wallet
+  //    and is used to initialize the dashboard in LIVE mode for funded accounts.
+  //  - todayRealizedPnl: signed sum of trades persisted via record_trade_safe()
+  //    for the current UTC day. Authoritative source for "Today's P&L" so the
+  //    figure can never show a profit that was not recorded server-side.
+  const [funded, todayPnl] = await Promise.all([
+    hasConfirmedDeposit(user.id).catch(() => false),
+    getTodayRealizedPnl(user.id).catch(() => 0),
+  ]);
+  res.json({
+    user,
+    wallet,
+    hasRealDeposit: !!funded,
+    todayRealizedPnl: Number(todayPnl) || 0,
+  });
 });
 
 // ---------- Deposit ----------
@@ -3412,12 +3473,17 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error || 'Trade recording failed' });
     }
+    // Re-read today's realized P&L from the ledger after the (idempotent) write
+    // so the client can reconcile "Today's P&L" to the exact server-persisted
+    // total. record_trade_safe() itself is unchanged; this is a read-only sum.
+    const todayRealizedPnl = await getTodayRealizedPnl(userId).catch(() => 0);
     res.json({
       success: true,
       duplicate: !!result.duplicate,
       tradeId: result.trade_id,
       appliedAmount: Number(result.applied_amount),
       newBalance: Number(result.new_balance),
+      todayRealizedPnl: Number(todayRealizedPnl) || 0,
     });
   } catch (err) {
     console.error('[POST /api/trade]', err);

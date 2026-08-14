@@ -7565,6 +7565,14 @@ function executeBotTrade() {
     try { var _su = JSON.parse(localStorage.getItem('arbi_user') || '{}'); if (_su && _su.id) _uid = String(_su.id); } catch (e) {}
     const idempotencyKey = 'trade_' + _uid + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
 
+    // Capture the pre-trade authoritative figures so persistLiveTrade can roll
+    // back the optimistic update if the server does NOT persist the trade (e.g.
+    // /api/trade returns non-ok or throws). This guarantees a failed trade can
+    // never leave Today's P&L (pnl) or Available Balance showing a profit that
+    // was never recorded server-side.
+    const preBalance = data.balance;
+    const prePnl = data.pnl || 0;
+
     // Optimistic local update for instant UI (reconciled to server for live).
     data.balance = Math.max(0, data.balance + profit);
     data.pnl = (data.pnl||0) + profit;
@@ -7584,7 +7592,7 @@ function executeBotTrade() {
     data.history.unshift({type:'Trade Executed', detail:asset.symbol + ' ' + asset.detail, amount:profit, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
     if (APP.mode === 'live') {
         APP.liveData.hasTradingActivity = true;
-        persistLiveTrade(profit, asset, idempotencyKey);
+        persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePnl);
     } else {
         saveData();
     }
@@ -7595,34 +7603,52 @@ function executeBotTrade() {
 }
 
 // POST a realized live trade to the server and reconcile to the authoritative
-// balance. Losses may be clamped server-side (live_balance >= 0), so we always
-// adopt newBalance. Failures are logged and the wallet re-synced on next
-// syncWalletFromServer(); the trade is not silently lost — it is retried via
-// the idempotency key by the next server fetch reconciliation if needed.
-async function persistLiveTrade(profit, asset, idempotencyKey) {
+// balance AND Today's P&L. Losses may be clamped server-side (live_balance >=
+// 0), so we always adopt newBalance. On success we also adopt the server's
+// todayRealizedPnl (signed sum of persisted trades for today) so Today's P&L
+// never shows a profit that was not recorded server-side. On failure we roll
+// back the optimistic balance/pnl update using the pre-trade snapshots passed
+// in from executeBotTrade, so a failed /api/trade cannot inflate P&L/balance.
+async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePnl) {
+    const rollback = function () {
+        APP.liveData.balance = preBalance;
+        APP.liveData.pnl = prePnl;
+        saveData();
+        updateUI();
+    };
     try {
         const token = localStorage.getItem('jwt_token');
-        if (!token) { saveData(); return; }
+        if (!token) { rollback(); return; }
         const res = await fetch('/api/trade', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({ amount: profit, asset: asset.symbol, detail: asset.detail, idempotencyKey })
         });
         if (!res.ok) {
+            // Trade was NOT persisted: revert the optimistic figures so P&L and
+            // Available Balance do not include this profit/loss.
             console.warn('[persistLiveTrade] non-ok', res.status);
-            saveData();
+            rollback();
             return;
         }
         const result = await res.json();
         if (result && typeof result.newBalance === 'number') {
             // Authoritative: adopt the server balance exactly.
             APP.liveData.balance = result.newBalance;
+            // Authoritative Today's P&L from the trade ledger (signed sum of
+            // persisted trades for today). Replaces the optimistic accumulator
+            // so it can never outrun what the server actually recorded.
+            if (typeof result.todayRealizedPnl === 'number' && isFinite(result.todayRealizedPnl)) {
+                APP.liveData.pnl = Number(result.todayRealizedPnl) || 0;
+            }
             saveData();
             updateUI();
+        } else {
+            rollback();
         }
     } catch (e) {
         console.warn('[persistLiveTrade] failed:', e.message);
-        saveData();
+        rollback();
     }
 }
 
@@ -8956,7 +8982,10 @@ function sendSupportMessage() {
  */
 async function syncWalletFromServer() {
     const token = localStorage.getItem('jwt_token');
-    if (!token) return;
+    if (!token) return { ok: false, funded: false };
+
+    let fundedFromServer = false;
+    let serverSynced = false;
 
     try {
         const meRes = await fetch('/api/auth/me', {
@@ -8967,7 +8996,7 @@ async function syncWalletFromServer() {
             const wallet = meData && meData.wallet;
             if (wallet && typeof wallet.live_balance === 'number') {
                 const serverLive = Number(wallet.live_balance) || 0;
-                // Balance model: wallets.live_balance is now AUTHORITATIVE for
+                // Balance model: wallets.live_balance is AUTHORITATIVE for
                 // both deposits and realized trading P&L. Each live trade is
                 // recorded server-side via record_trade_safe (POST /api/trade),
                 // so the server balance already includes realized trading
@@ -8980,12 +9009,28 @@ async function syncWalletFromServer() {
                 if (typeof wallet.bonus_balance === 'number') {
                     APP.bonusData.balance = Number(wallet.bonus_balance) || 0;
                 }
-                // A non-default live balance or any server history implies a
-                // real funded account; keep hasRealDeposit conservative (truthy
-                // once the server reports a balance above the 50 default).
-                if (serverLive > 50) {
+                // Authoritative funded flag: the server reports a confirmed
+                // deposit (see hasConfirmedDeposit). This replaces the old
+                // balance > 50 heuristic, which was unreliable for mode init.
+                if (typeof meData.hasRealDeposit === 'boolean') {
+                    APP.liveData.hasRealDeposit = meData.hasRealDeposit;
+                    fundedFromServer = meData.hasRealDeposit;
+                } else if (serverLive > 50) {
+                    // Fallback only if the server omitted the field.
                     APP.liveData.hasRealDeposit = true;
+                    fundedFromServer = true;
                 }
+                // Server-authoritative "Today's P&L": the signed sum of trades
+                // actually persisted via record_trade_safe() for the current UTC
+                // day. This REPLACES the localStorage pnl accumulator as the
+                // source of truth, so Today's P&L can never show a profit that
+                // was not recorded server-side, and never includes deposits,
+                // withdrawals, or referral bonuses. Demo/bonus wallets have no
+                // server ledger and keep their client-side pnl untouched.
+                if (typeof meData.todayRealizedPnl === 'number' && isFinite(meData.todayRealizedPnl)) {
+                    APP.liveData.pnl = Number(meData.todayRealizedPnl) || 0;
+                }
+                serverSynced = true;
                 saveData();
                 updateUI();
             }
@@ -9048,8 +9093,12 @@ async function syncWalletFromServer() {
                     });
                 }
 
+                // A confirmed deposit in the transaction log also implies a
+                // funded account (secondary signal; the authoritative flag above
+                // comes from hasConfirmedDeposit via /api/auth/me).
                 if (depositTxs.length) {
                     APP.liveData.hasRealDeposit = true;
+                    if (!fundedFromServer) fundedFromServer = true;
                 }
                 saveData();
                 if (typeof updateUI === 'function') updateUI();
@@ -9058,9 +9107,11 @@ async function syncWalletFromServer() {
     } catch (e) {
         console.warn('[syncWalletFromServer] transactions sync failed:', e.message);
     }
+
+    return { ok: serverSynced, funded: fundedFromServer };
 }
 
-function initApp() {
+async function initApp() {
     if(appReady) return;
     appReady = true;
     console.log('✅ App initializing...');
@@ -9086,7 +9137,6 @@ function initApp() {
         } catch (e) {}
     }
     
-    updateUI();
     updateReferralDisplay();
     updateStatus(false);
     initTicker();
@@ -9094,9 +9144,9 @@ function initApp() {
     initChart();
     setTimeout(showInstallPrompt, 3000);
     Notifications.add('info', t('notifications.welcome'), t('notifications.welcomeDesc'), 'fa-info-circle');
-    
+
     Sound.updateUI();
-    
+
     // Fetch referral stats from API on load
     fetchReferralStats();
 
@@ -9104,8 +9154,34 @@ function initApp() {
     // the dashboard reflects what the DB actually holds (not the localStorage
     // cache, which can be stale or wiped on logout). localStorage stays as a
     // quick cache but is never allowed to override a successful server fetch.
-    syncWalletFromServer();
-    
+    //
+    // We AWAIT this before the first meaningful updateUI() so a freshly logged
+    // in user does not see Equity/Available Balance as $0 while /api/auth/me is
+    // still loading. If the request fails we keep the cached/default state as a
+    // sensible fallback (offline-tolerant). The sync also returns the server's
+    // authoritative "funded" flag, used below to pick the initial mode.
+    let syncResult = { ok: false, funded: false };
+    try {
+        syncResult = await syncWalletFromServer();
+    } catch (e) {
+        console.warn('[initApp] syncWalletFromServer threw:', e.message);
+    }
+
+    // Live/demo mode initialization: for an authenticated user with a REAL
+    // funded account (authoritative: a confirmed deposit exists, reported by
+    // the server - NOT the old balance > 50 heuristic and NOT a stale localStorage
+    // flag), start the dashboard in LIVE mode. Genuinely unfunded/new accounts
+    // stay in DEMO. The user can still switch modes via the DEMO/LIVE tabs.
+    // Only auto-switch once, at init, so a user who deliberately picks DEMO is
+    // not yanked back during the same session.
+    if (syncResult.funded && APP.mode === 'demo') {
+        setMode('live');
+    } else {
+        // setMode() already calls updateUI(); otherwise render the authoritative
+        // state that syncWalletFromServer just populated.
+        updateUI();
+    }
+
     const botToggle = getEl('botToggle');
     if(botToggle) botToggle.addEventListener('change', toggleBot);
     const botToggleLive = getEl('botToggleLive');
@@ -9267,10 +9343,16 @@ function initApp() {
             // previous session is never shown before the server re-sync runs.
             if (APP.liveData) {
                 APP.liveData.balance = 0;
+                APP.liveData.pnl = 0;
                 APP.liveData.hasRealDeposit = false;
+                APP.liveData.hasTradingActivity = false;
                 APP.liveData.history = [];
             }
             APP.depositHistory = [];
+            // Reset mode to the safe default; the next initApp() re-evaluates
+            // the authoritative server "funded" flag to pick LIVE vs DEMO.
+            APP.mode = 'demo';
+            APP.currentWallet = 'demo';
         }
     });
     

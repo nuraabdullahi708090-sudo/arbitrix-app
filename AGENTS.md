@@ -123,3 +123,41 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   (direct q8qpay calls, no DB) and checking whether payoutAddress is REUSED
   across the 5 invoices while amounts vary. If addresses differ but amounts
   still vary, it's sandbox/account config instead.
+
+## Balance/Equity + Today's P&L synchronization (2026-08 fix)
+- Problem: fresh login showed Equity/Available = $0 (initApp rendered before
+  the async `/api/auth/me` sync resolved); Today's P&L came from a localStorage
+  accumulator (`arbi_live.pnl`) that could outrun the server (showing profits
+  never persisted); APP.mode defaulted to 'demo' even for funded live accounts.
+- Fix (frontend-only; no DB/payment/record_trade_safe changes):
+  - `initApp()` is now `async` and `await`s `syncWalletFromServer()` BEFORE the
+    first meaningful `updateUI()`, so login renders authoritative state (cached
+    localStorage is only a fallback if the server request fails).
+  - `syncWalletFromServer()` now adopts `meData.todayRealizedPnl` into
+    `APP.liveData.pnl` (server-authoritative) and returns `{ ok, funded }`.
+  - `persistLiveTrade(profit, asset, key, preBalance, prePnl)`: on success
+    adopts `result.newBalance` AND `result.todayRealizedPnl` (REPLACE, not add
+    — no double-count); on failure/non-ok/throw it rolls back the optimistic
+    balance+pnl to the pre-trade snapshots captured in `executeBotTrade`, so a
+    failed `/api/trade` can never leave Today's P&L showing an unpersisted profit.
+  - Mode init: after sync, `if (syncResult.funded && APP.mode==='demo')
+    setMode('live')` — funded = authoritative confirmed deposit (NOT balance>50,
+    NOT stale localStorage). Unfunded stays DEMO. Logout resets `APP.mode`,
+    `currentWallet`, `pnl`, `hasTradingActivity` to defaults.
+- Server additions (read-only; record_trade_safe untouched):
+  - `hasConfirmedDeposit(userId)`: count of `deposits` status='confirmed' > 0.
+  - `getTodayRealizedPnl(userId)`: signed sum of `trades.amount` for the current
+    UTC day, window `[startOfTodayUtc, startOfNextDayUtc)`. Trades-only by
+    construction (never deposits/withdrawals/referrals). Uses `supabaseAdmin`.
+  - `/api/auth/me` now also returns `{ hasRealDeposit, todayRealizedPnl }`.
+  - `/api/trade` response now also includes `todayRealizedPnl` (re-read after the
+    idempotent write) so the client reconciles P&L without an extra round trip.
+- State variables: `#totalEquity` & `#balanceValue` = `data.balance` (live =
+  server `wallets.live_balance`); `#pnlValue` = `data.pnl` (live = server
+  `todayRealizedPnl`). Demo/bonus wallets have no server ledger; their `pnl`
+  stays client-side/localStorage (unchanged).
+- "Today" is UTC-day. No user timezone is stored; server `trades.created_at` is
+  TIMESTAMPTZ. If local-day semantics are later required, store a TZ per user.
+- Tests: `tests/trades_pnl.test.js` pins the sum/window/funded/rollback
+  contracts. `npm test` = 48/48.
+
