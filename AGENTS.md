@@ -457,3 +457,95 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   the landing-page work).
 
+## Localization Phase 2B-2A — Frontend Error Mapping + Reset-Password i18n (2026-08, public/index.html + public/reset-password.html only)
+- LOWEST-RISK slice from the completed read-only Phase 2B-2 backend audit.
+  Frontend-only; server.js, DB/schema/migrations, auth/2FA, wallet, trading,
+  referral, payment, withdraw, PWA, API behavior, and stored status values
+  UNTOUCHED. No backend error strings were modified — only how the frontend
+  DISPLAYS them.
+- `translateBackendMessage(message, fallbackKey)` helper (index.html, after
+  `t()` ~line 10378): exact-match map (`BACKEND_MESSAGE_MAP`) of known
+  user-facing English backend error sentences → translation keys. Unknown /
+  dynamic / provider-specific messages are returned VERBATIM (English) so
+  nothing machine-consumed is ever altered. Empty/falsy message →
+  `t(fallbackKey)`. A small `BACKEND_DYNAMIC_MESSAGE_RULES` set handles
+  parameterized sentences (e.g. `Already <status>` → `admin.alreadyStatus`
+  with `{{status}}`).
+- Wired into ~20 frontend error-display sites (auth login, 2FA
+  resend/verify/setup/enable/regenerate/disable throws, deposit generate-
+  address throw, withdraw toast, KYC save/upload/remove/submit toasts, admin
+  KYC approve/reject/resubmission toasts, admin payment confirm, admin webhook
+  retry, admin config update throw). Pattern at each site:
+  `throw new Error(translateBackendMessage(data.error, '<fallbackKey>'))` or
+  `showToast(translateBackendMessage(data.error, '<fallbackKey>'), ...)`.
+- Dictionaries: 652 → 705 keys/locale (53 NEW keys; EN values for the 652
+  pre-existing keys byte-identical — 0 changed). All 6 locales (en, es, pt, fr,
+  ar, zh) have identical key sets, 0 empty, 0 duplicate keys (re-checked after
+  scripted insertion per the Phase-2B-1 lesson), 0 `{{placeholder}}` parity
+  issues (`{{status}}` in `admin.alreadyStatus`). New key groups:
+  `auth.errors.emailExists/validEmailRequired`, `reset.*` (fieldsRequired/
+  emailTokenRequired/invalidOrExpired/expired/invalid/updateFailed/errorOccurred),
+  `2fa.*` (alreadyEnabled/notEnabled/notSetup/notConfigured/verifyFirst/
+  alreadyVerified/invalidCodeFormat/emailNotFound/tooManyAttempts/noRecoveryCodes/
+  codeAlreadyUsed/pleaseWait/invalidSession/missingPartialToken/codeRequired/
+  invalidOrExpiredCode/setupFailed/verifyFailed/enableFailed/regenerateFailed/
+  disableFailed), `deposit.*` (min10/invoiceNotFound/createInvoiceFailed/notFound),
+  `withdraw.*` (min700/validAddressRequired/identityRequired/notFound),
+  `trade.*` (mtaNotReached/invalidAmount/exceedsBalance), `kyc.*`
+  (legalNameRequired/dobRequired/countryRequired/addressRequired/minAge/
+  invalidDocumentType/invalidFileEncoding/missingUploadFields/
+  rejectionReasonRequired/resubmissionReasonRequired), `admin.config.updateFailed`,
+  `admin.alreadyStatus` ({{status}}).
+- CRITICAL safety property: strings the frontend/tests/server compare on or that
+  are persisted/machine-consumed were NOT added to BACKEND_MESSAGE_MAP. Verified
+  NOT mapped (pass through verbatim): q8qpay webhook internals
+  (`Already processed`, `Verification mismatch`, `Duplicate payment (not re-
+  credited)`, `Missing signature`, `Invalid signature`, etc. — these are
+  q8qpay.webhook.test.js-asserted AND res.json status values), provider API
+  passthroughs, and any `data.error` from un-audited endpoints. The map only
+  contains display-only user-facing sentences confirmed to have NO exact-string
+  consumer in the repo (grep-verified: no `error ===`, no `data.error.includes`,
+  no status-value usage for any mapped sentence).
+- `public/reset-password.html`: added a SELF-CONTAINED i18n system (does NOT
+  import from index.html — it's a separate page loaded outside the app shell).
+  Mirrors the main app: `TRANSLATIONS` (44 keys × 6 locales), `t(key)`,
+  `translateBackendMessage(msg, fallbackKey)` with its own `BACKEND_MESSAGE_MAP`
+  (reset/auth subset: `Email and token are required`, `Invalid reset token`,
+  `This reset link has expired`, `An error occurred`, `Email, token, and new
+  password are required`, `Password must be at least 6 characters`, the reset-
+  password endpoint sentences), `detectBrowserLanguage()` (navigator.languages
+  → language → prefix match against `['es','pt','fr','ar','zh','en']`, else en),
+  `applyTranslations()` (data-i18n → innerHTML, data-i18n-placeholder →
+  placeholder, sets `document.documentElement.lang`/`dir`, `document.title`),
+  RTL for `ar` (`dir='rtl'` + Arabic font stack). Reuses the shared
+  `localStorage['arbi_lang']` key so a user's language choice carries over
+  from the main app; detection runs only when `arbi_lang` is absent (never
+  overwrites a manual override). All static HTML wired with `data-i18n` /
+  `data-i18n-placeholder`; all dynamic JS strings (strength labels, validation
+  messages, verify/reset error text, invalid-state message) routed through
+  `t()` / `translateBackendMessage()`. Backend `data.error` from
+  /api/auth/verify-reset-token and /api/auth/reset-password is mapped, not
+  shown raw.
+- Architecture note (from Phase 2B-2 audit, NOT implemented): the preferred
+  long-term fix is stable machine-readable `errorCode` codes in server
+  responses with frontend translation, instead of exact-matching English
+  sentences. `translateBackendMessage` is the safe bridge: it localizes known
+  display sentences today without touching server.js, and can be retired
+  piece-by-piece as endpoints gain `errorCode`. Do NOT add `errorCode` in this
+  phase.
+- Verification: `node --check`-equivalent (vm.Script) on all 5 index.html
+  inline `<script>` blocks + 1 reset-password block = OK.
+  index.html: 705 keys/locale × 6, 53 new vs 652 base, 0 problems, 0 dups, EN
+  baseline 652 values unchanged. reset-password.html: 44 keys/locale × 6, 0
+  problems, 0 dups. Isolated functional tests (`/tmp/test_i18n.js`,
+  `/tmp/test_reset_i18n.js`, temp, removed): known errors translate per locale;
+  unknown/webhook/provider strings pass through verbatim; empty→fallback;
+  dynamic `Already <status>` rule; EN fallback for unsupported locale; static
+  `t()` keys resolve across all locales; unknown key returns the key. ALL PASS.
+  `npm test` = 36 pass / 1 fail (the single fail is the pre-existing
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
+  identical to baseline; no regression).
+- NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
+  prior phases).
+
+
