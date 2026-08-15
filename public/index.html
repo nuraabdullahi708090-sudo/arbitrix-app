@@ -2482,7 +2482,7 @@ async function handleSignup() {
             updateReferralDisplay();
             // Show success message about referral if user was referred
             if (referral) {
-                showToast('🎉 Welcome! Your friend will earn a referral bonus.', 'success', 5000);
+                showToast(t('referral.welcomeReferred'), 'success', 5000);
             }
         }, 1000);
     } catch (e) {
@@ -3197,7 +3197,7 @@ async function load2FAStatus() {
         }
     } catch (error) {
         console.error('Load 2FA status error:', error);
-        showToast('Failed to load 2FA status', 'error');
+        showToast(t('2fa.loadStatusFailed'), 'error');
     }
 }
 
@@ -3310,7 +3310,7 @@ async function initiate2FASetup() {
 // User-initiated transition to verification view
 function goTo2FAVerification() {
     if (!twofaSetupData) {
-        showToast('Please generate a QR code first', 'error');
+        showToast(t('2fa.generateQRFirst'), 'error');
         return;
     }
     
@@ -3440,7 +3440,7 @@ function confirmRecoveryCodesSaved() {
     log2FAViewTransition('twofaRecoveryView', 'modal_closed', 'User confirmed recovery codes saved');
     twofaSetupData = null;
     closeTwoFAModal();
-    showToast('Two-Factor Authentication is now enabled!', 'success');
+    showToast(t('2fa.nowEnabled'), 'success');
 }
 
 async function regenerateRecoveryCodes() {
@@ -3479,7 +3479,7 @@ async function regenerateRecoveryCodes() {
         document.getElementById('twofaStatusView').style.display = 'none';
         document.getElementById('twofaRecoveryView').style.display = 'block';
         
-        showToast('New recovery codes generated!', 'success');
+        showToast(t('2fa.newCodesGenerated'), 'success');
         
     } catch (error) {
         console.error('Regenerate codes error:', error);
@@ -6508,7 +6508,226 @@ const TRANSLATIONS = {
         'admin.title': 'Admin Panel',
         'auth.backToLogin': 'Back to Login',
         'sidebar.admin': 'Admin Panel',
-        'sidebar.verification': 'Verification'
+        'sidebar.verification': 'Verification',
+        'deposit.status.waiting': 'Waiting for payment...',
+        'deposit.status.confirmed': 'Payment confirmed. Your balance has been credited.',
+        'deposit.status.detectedConfirming': 'Payment detected. Waiting for blockchain confirmation...',
+        'deposit.status.detected': 'Payment detected. Waiting for confirmation...',
+        'deposit.status.cancelled': 'Invoice cancelled',
+        'deposit.status.expired': 'Invoice expired',
+        'deposit.paymentReady': 'Payment ready! Scan QR code or copy address.',
+        'deposit.invoiceExpiredToast': 'Invoice expired. Please generate a new one.',
+        'deposit.invoiceCancelled': 'Invoice cancelled.',
+        'deposit.noActiveInvoice': 'No active invoice to cancel.',
+        'deposit.noActiveDeposit': 'No active deposit request.',
+        'deposit.cancelFailed': 'Failed to cancel invoice.',
+        'deposit.cancelError': 'Error cancelling invoice.',
+        'deposit.copyAddressSuccess': 'Address copied to clipboard!',
+        'deposit.copyAmountSuccess': 'Amount copied to clipboard!',
+        'deposit.copyAddressFailed': 'Failed to copy address.',
+        'deposit.copyAmountFailed': 'Failed to copy amount.',
+        'deposit.generateError': 'Error generating payment. Please try again.',
+        'deposit.deposited': '${{amount}} deposited successfully!',
+        'deposit.minDepositToast': 'Minimum deposit is ${{min}}',
+        'deposit.cancelConfirm': 'Are you sure you want to cancel this invoice?',
+        'deposit.btn.generating': 'Generating...',
+        'deposit.btn.generatePayment': 'Generate Payment',
+        'deposit.checkingStatus': 'Checking payment status...',
+        'deposit.checkingBlockchain': 'Checking blockchain...',
+        'kyc.legalName': 'Please enter your full legal name',
+        'kyc.dob': 'Please enter your date of birth',
+        'kyc.country': 'Please select your country',
+        'kyc.address': 'Please enter your full residential address',
+        'kyc.personalSaved': 'Personal information saved',
+        'kyc.saveFailed': 'Failed to save personal info',
+        'kyc.fileTooLarge': 'File too large. Maximum size is 10MB',
+        'kyc.invalidFileType': 'Invalid file type. Allowed: JPG, PNG, WebP',
+        'kyc.docUploaded': 'Document uploaded successfully',
+        'kyc.uploadFailed': 'Upload failed',
+        'kyc.docRemoved': 'Document removed',
+        'kyc.removeFailed': 'Failed to remove document',
+        'kyc.missingDocs': 'Please upload: {{missing}}',
+        'kyc.missingIdentity': 'identity document',
+        'kyc.missingSelfie': 'selfie with ID',
+        'kyc.submitted': 'Verification submitted for review',
+        'kyc.submitFailed': 'Failed to submit verification',
+        'kyc.status.verified': 'Verified',
+        'kyc.status.pendingReview': 'Pending Review',
+        'kyc.status.rejected': 'Rejected',
+        'kyc.status.resubmission': 'Resubmission Required',
+        'kyc.status.notStarted': 'Not Started',
+        'kyc.status.required': 'Verification Required',
+        'kyc.status.new': 'new',
+        'kyc.level.emailVerified': 'Email Verified',
+        'kyc.level.identitySubmitted': 'Identity Submitted',
+        'kyc.level.identityVerified': 'Identity Verified',
+        'kyc.level.withdrawalEnabled': 'Withdrawal Enabled',
+        'kyc.level.uploadDocuments': 'Upload documents',
+        'kyc.summary.title': 'Verification Summary',
+        'kyc.summary.name': 'Name',
+        'kyc.summary.dob': 'Date of Birth',
+        'kyc.summary.country': 'Country',
+        'kyc.summary.documents': 'Documents',
+        'kyc.noData': 'No verification data',
+        'kyc.noDocuments': 'No documents uploaded',
+        'kyc.noHistory': 'No history',
+        'support.reply.default': 'Thanks for your message! Our team will get back to you shortly.',
+        'support.reply.bot': '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach ${{mta}} MTA first, 3) Click \'Start Bot\' button.',
+        'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, choose your network (TRC20 recommended), click \'Get Payment Address\', and send USDT to the displayed address. We\'ll auto-detect it.',
+        'support.reply.withdraw': '🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click \'Withdraw\' in the sidebar. Processing takes 15-30 minutes.',
+        'support.reply.bonus': '🎁 Refer friends to earn $10 bonus each! Your bonus accumulates in the Bonus Wallet. Withdraw to Live Wallet once you have at least $50 in bonus and at least 1 referral.',
+        'support.reply.sound': '🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.',
+        'support.reply.language': '🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.',
+        'support.reply.hello': '👋 Hello! Welcome to Arbitrix AI support. How can I assist you today?',
+        'ticker.earned': '<span class="ticker-user">{{user}}</span> earned <span class="ticker-amount green">+${{amount}}</span> on {{asset}}',
+        'ticker.deposited': '<span class="ticker-user">{{user}}</span> deposited <span class="ticker-amount gold">${{amount}}</span>',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> referred a friend and earned <span class="ticker-amount gold">$10</span> bonus!',
+        'ticker.arbitrage': 'Arbitrage detected: <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
+        'ticker.newTrader': 'New trader from <span class="ticker-amount gold">{{country}}</span> joined Arbitrix AI',
+        'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> unlocked <span class="ticker-amount gold">{{badge}}</span></span>',
+        'referral.welcomeReferred': '🎉 Welcome! Your friend will earn a referral bonus.',
+        'referral.simulatedToast': '🎉 <strong>Simulated referral!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bonus added to Bonus Wallet</span>',
+        'referral.simulatedTitle': 'Referral Simulated',
+        'referral.simulatedDesc': '+${{amount}} bonus added to Bonus Wallet',
+        'referral.simulateError': 'Error simulating referral',
+        'referral.codeLoading': 'Referral code is loading, please try again shortly',
+        'bonus.withdrawnTitle': 'Bonus Withdrawn',
+        'share.linkCopied': 'Link copied to clipboard!',
+        '2fa.resendIn': 'Resend in {{seconds}}s',
+        '2fa.waitSeconds': 'Please wait {{seconds}} seconds before requesting again.',
+        '2fa.resendFailed': 'Failed to resend code. Please try again.',
+        '2fa.sessionExpired': 'Session expired. Please login again.',
+        '2fa.newCodeSent': 'New code sent to {{email}}',
+        '2fa.codeSentTo': 'Enter the 6-digit code sent to {{email}}',
+        '2fa.codeExpired': 'Code expired. Please request a new one.',
+        '2fa.expired': 'Expired',
+        '2fa.invalidCode': 'Invalid code',
+        '2fa.attemptsRemaining': '({{n}} attempts remaining)',
+        '2fa.generateQRFirst': 'Please generate a QR code first',
+        '2fa.newCodesGenerated': 'New recovery codes generated!',
+        '2fa.disabled': '2FA has been disabled',
+        '2fa.nowEnabled': 'Two-Factor Authentication is now enabled!',
+        '2fa.loadStatusFailed': 'Failed to load 2FA status',
+        '2fa.codesRemaining': '{{count}} remaining',
+        '2fa.regeneratePrompt': 'Enter your authenticator code to regenerate recovery codes:',
+        '2fa.btn.generating': 'Generating...',
+        '2fa.btn.generateNew': 'Generate New QR Code',
+        '2fa.btn.generate': 'Generate QR Code',
+        '2fa.btn.verifying': 'Verifying...',
+        '2fa.btn.verifyEnable': 'Verify & Enable',
+        '2fa.btn.disabling': 'Disabling...',
+        '2fa.btn.disable': 'Disable',
+        '2fa.btn.newCodes': 'New Codes',
+        'common.justNow': 'Just now',
+        'withdraw.failed': 'Withdrawal failed',
+        'deposit.confirmedSuccess': 'Deposit confirmed!',
+        'deposit.confirmFailed': 'Failed to confirm deposit',
+        'deposit.confirmError': 'Error confirming deposit',
+        'admin.loginRequired': 'Please login first',
+        'admin.export.preparing': 'Preparing export...',
+        'admin.export.completed': 'Export completed!',
+        'admin.export.failed': 'Export failed',
+        'admin.doc.loadImageFailed': 'Failed to load document image',
+        'admin.doc.notAvailable': 'Document not available',
+        'admin.doc.loadFailed': 'Failed to load document',
+        'admin.invoice.detailsComingSoon': 'Invoice details coming soon',
+        'admin.webhook.retrySuccess': 'Webhook retried successfully!',
+        'admin.webhook.retryFailed': 'Error retrying webhook',
+        'admin.searchFailed': 'Search failed',
+        'referral.configSaved': 'Configuration saved successfully',
+        'referral.configError': 'Error: {{error}}',
+        'milestone.winsSuffix': '{{n}} wins',
+        'admin.empty.noActivity': 'No activity found',
+        'admin.empty.loadHealthFailed': 'Failed to load health status',
+        'admin.empty.loadActivityFailed': 'Failed to load activity',
+        'admin.empty.noVerifications': 'No verifications found',
+        'admin.health.lastChecked': 'Last checked: {{time}}',
+        'admin.health.serverUptime': 'Server Uptime',
+        'admin.confirmPayment': 'Are you sure you want to manually confirm this payment?',
+        'admin.payment.confirmed': 'Payment confirmed successfully!',
+        'admin.payment.confirmFailed': 'Failed to confirm payment',
+        'admin.payment.confirmError': 'Error confirming payment',
+        'admin.withdraw.approved': 'Withdrawal approved!',
+        'admin.withdraw.approveFailed': 'Failed to approve withdrawal',
+        'admin.withdraw.approveError': 'Error approving withdrawal',
+        'admin.withdraw.rejected': 'Withdrawal rejected',
+        'admin.withdraw.rejectFailed': 'Failed to reject withdrawal',
+        'admin.withdraw.rejectError': 'Error rejecting withdrawal',
+        'admin.kyc.approved': 'Verification approved',
+        'admin.kyc.approveFailed': 'Failed to approve',
+        'admin.kyc.rejected': 'Verification rejected',
+        'admin.kyc.rejectFailed': 'Failed to reject',
+        'admin.kyc.reasonRequired': 'Please enter a rejection reason',
+        'admin.kyc.resubmissionReasonRequired': 'Please enter a reason for resubmission',
+        'admin.kyc.resubmissionRequested': 'Resubmission requested',
+        'admin.kyc.resubmissionFailed': 'Failed to request resubmission',
+        'admin.kyc.loadDetailsFailed': 'Failed to load details',
+        'uptime.hoursMinutes': '{{hours}}h {{minutes}}m',
+        'uptime.minutes': '{{minutes}}m',
+        'common.you': 'You',
+        'tx.type.deposit': 'Deposit',
+        'tx.type.withdraw': 'Withdraw',
+        'tx.type.tradeExecuted': 'Trade Executed',
+        'tx.type.bot': 'Bot',
+        'tx.type.reset': 'Reset',
+        'tx.type.bonusWithdrawal': 'Bonus Withdrawal',
+        'tx.type.referralBonus': 'Referral Bonus',
+        'tx.type.withdrawalToLive': 'Withdrawal to Live',
+        'tx.detail.demoFunds': 'Demo Funds',
+        'tx.detail.allFundsRemoved': 'All funds removed',
+        'tx.detail.fromBonusWallet': 'From Bonus Wallet',
+        'tx.detail.bonusToLive': 'Bonus withdrawn to Live Wallet',
+        'tx.detail.botStarted': 'Started',
+        'tx.detail.botPaused': 'Paused',
+        'common.minutesAgo': '{{n}}m ago',
+        'common.hoursAgo': '{{n}}h ago',
+        'common.daysAgo': '{{n}}d ago',
+        'uptime.daysHours': '{{days}}d {{hours}}h',
+        'admin.toast.paymentConfirmed': 'Payment confirmed successfully!',
+        'admin.toast.paymentConfirmFailed': 'Failed to confirm payment',
+        'admin.toast.paymentConfirmError': 'Error confirming payment',
+        'admin.toast.invoiceComingSoon': 'Invoice details coming soon',
+        'admin.toast.webhookRetried': 'Webhook retried successfully!',
+        'admin.toast.webhookRetryFailed': 'Failed to retry webhook',
+        'admin.toast.webhookRetryError': 'Error retrying webhook',
+        'admin.toast.searchFailed': 'Search failed',
+        'admin.toast.depositConfirmed': 'Deposit confirmed!',
+        'admin.toast.depositConfirmFailed': 'Failed to confirm deposit',
+        'admin.toast.depositConfirmError': 'Error confirming deposit',
+        'admin.toast.withdrawalApproved': 'Withdrawal approved!',
+        'admin.toast.withdrawalApproveFailed': 'Failed to approve withdrawal',
+        'admin.toast.withdrawalApproveError': 'Error approving withdrawal',
+        'admin.toast.withdrawalRejected': 'Withdrawal rejected',
+        'admin.toast.withdrawalRejectFailed': 'Failed to reject withdrawal',
+        'admin.toast.withdrawalRejectError': 'Error rejecting withdrawal',
+        'admin.toast.verificationApproved': 'Verification approved',
+        'admin.toast.verificationApproveFailed': 'Failed to approve',
+        'admin.toast.verificationRejected': 'Verification rejected',
+        'admin.toast.verificationRejectFailed': 'Failed to reject',
+        'admin.toast.resubmissionRequested': 'Resubmission requested',
+        'admin.toast.resubmissionFailed': 'Failed to request resubmission',
+        'admin.toast.rejectionReason': 'Please enter a rejection reason',
+        'admin.toast.resubmissionReason': 'Please enter a reason for resubmission',
+        'admin.toast.loadDetailsFailed': 'Failed to load details',
+        'admin.toast.docLoadFailed': 'Failed to load document image',
+        'admin.toast.docNotAvailable': 'Document not available',
+        'admin.toast.docLoadError': 'Failed to load document',
+        'admin.toast.loginRequired': 'Please login first',
+        'admin.toast.exportPreparing': 'Preparing export...',
+        'admin.toast.exportCompleted': 'Export completed!',
+        'admin.toast.exportFailed': 'Export failed',
+        'admin.toast.configSaved': 'Configuration saved successfully',
+        'admin.toast.configError': 'Error: {{message}}',
+        'admin.empty.noActivityFound': 'No activity found',
+        'admin.empty.noAlerts': 'No alerts - everything looks good!',
+        'admin.empty.noWebhookLogs': 'No webhook logs found',
+        'admin.status.critical': 'Critical',
+        'admin.status.warnings': 'Warnings',
+        'admin.status.info': 'Info',
+        'admin.approve': 'Approve',
+        'admin.reject': 'Reject',
+        'admin.view': 'View',
+        'admin.retry': 'Retry',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -6944,6 +7163,225 @@ const TRANSLATIONS = {
         'auth.backToLogin': 'Volver al inicio de sesión',
         'sidebar.admin': 'Panel de administración',
         'sidebar.verification': 'Verificación',
+        'deposit.status.waiting': 'Esperando el pago...',
+        'deposit.status.confirmed': 'Pago confirmado. Tu saldo ha sido acreditado.',
+        'deposit.status.detectedConfirming': 'Pago detectado. Esperando confirmación en la blockchain...',
+        'deposit.status.detected': 'Pago detectado. Esperando confirmación...',
+        'deposit.status.cancelled': 'Factura cancelada',
+        'deposit.status.expired': 'Factura expirada',
+        'deposit.paymentReady': '¡Pago listo! Escanea el código QR o copia la dirección.',
+        'deposit.invoiceExpiredToast': 'La factura ha expirado. Por favor, genera una nueva.',
+        'deposit.invoiceCancelled': 'Factura cancelada.',
+        'deposit.noActiveInvoice': 'No hay factura activa para cancelar.',
+        'deposit.noActiveDeposit': 'No hay solicitud de depósito activa.',
+        'deposit.cancelFailed': 'Error al cancelar la factura.',
+        'deposit.cancelError': 'Error al cancelar la factura.',
+        'deposit.copyAddressSuccess': '¡Dirección copiada al portapapeles!',
+        'deposit.copyAmountSuccess': '¡Monto copiado al portapapeles!',
+        'deposit.copyAddressFailed': 'Error al copiar la dirección.',
+        'deposit.copyAmountFailed': 'Error al copiar el monto.',
+        'deposit.generateError': 'Error al generar el pago. Inténtalo de nuevo.',
+        'deposit.deposited': '¡${{amount}} depositados con éxito!',
+        'deposit.minDepositToast': 'El depósito mínimo es ${{min}}',
+        'deposit.cancelConfirm': '¿Estás seguro de que deseas cancelar esta factura?',
+        'deposit.btn.generating': 'Generando...',
+        'deposit.btn.generatePayment': 'Generar pago',
+        'deposit.checkingStatus': 'Comprobando el estado del pago...',
+        'deposit.checkingBlockchain': 'Comprobando la blockchain...',
+        'kyc.legalName': 'Por favor, ingresa tu nombre legal completo',
+        'kyc.dob': 'Por favor, ingresa tu fecha de nacimiento',
+        'kyc.country': 'Por favor, selecciona tu país',
+        'kyc.address': 'Por favor, ingresa tu dirección residencial completa',
+        'kyc.personalSaved': 'Información personal guardada',
+        'kyc.saveFailed': 'Error al guardar la información personal',
+        'kyc.fileTooLarge': 'Archivo demasiado grande. El tamaño máximo es 10MB',
+        'kyc.invalidFileType': 'Tipo de archivo no válido. Permitidos: JPG, PNG, WebP',
+        'kyc.docUploaded': 'Documento subido con éxito',
+        'kyc.uploadFailed': 'Error al subir',
+        'kyc.docRemoved': 'Documento eliminado',
+        'kyc.removeFailed': 'Error al eliminar el documento',
+        'kyc.missingDocs': 'Por favor, sube: {{missing}}',
+        'kyc.missingIdentity': 'documento de identidad',
+        'kyc.missingSelfie': 'selfie con ID',
+        'kyc.submitted': 'Verificación enviada para revisión',
+        'kyc.submitFailed': 'Error al enviar la verificación',
+        'kyc.status.verified': 'Verificado',
+        'kyc.status.pendingReview': 'Revisión pendiente',
+        'kyc.status.rejected': 'Rechazado',
+        'kyc.status.resubmission': 'Reenvío requerido',
+        'kyc.status.notStarted': 'No iniciado',
+        'kyc.status.required': 'Verificación requerida',
+        'kyc.status.new': 'nuevo',
+        'kyc.level.emailVerified': 'Correo verificado',
+        'kyc.level.identitySubmitted': 'Identidad enviada',
+        'kyc.level.identityVerified': 'Identidad verificada',
+        'kyc.level.withdrawalEnabled': 'Retiro habilitado',
+        'kyc.level.uploadDocuments': 'Subir documentos',
+        'kyc.summary.title': 'Resumen de verificación',
+        'kyc.summary.name': 'Nombre',
+        'kyc.summary.dob': 'Fecha de nacimiento',
+        'kyc.summary.country': 'País',
+        'kyc.summary.documents': 'Documentos',
+        'kyc.noData': 'Sin datos de verificación',
+        'kyc.noDocuments': 'No se han subido documentos',
+        'kyc.noHistory': 'Sin historial',
+        'support.reply.default': '¡Gracias por tu mensaje! Nuestro equipo se pondrá en contacto contigo pronto.',
+        'support.reply.bot': '🤖 Para iniciar el bot: 1) Cambia a modo DEMO o LIVE, 2) En modo LIVE, alcanza ${{mta}} MTA primero, 3) Haz clic en el botón \'Start Bot\'.',
+        'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto, elige tu red (TRC20 recomendado), haz clic en \'Get Payment Address\' y envía USDT a la dirección mostrada. Lo detectaremos automáticamente.',
+        'support.reply.withdraw': '🏦 Para retirar: 1) Cambia a modo LIVE, 2) Haz un depósito, 3) Completa al menos 1 operación, 4) Haz clic en \'Withdraw\' en la barra lateral. El procesamiento toma 15-30 minutos.',
+        'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar $10 de bono cada uno! Tu bono se acumula en la Billetera de Bonos. Retírala a la Billetera Live cuando tengas al menos $50 en bonos y al menos 1 referido.',
+        'support.reply.sound': '🔊 Puedes controlar los sonidos haciendo clic en el ícono de altavoz en el encabezado, o ajustar el volumen en Configuración de perfil.',
+        'support.reply.language': '🌍 Puedes cambiar el idioma haciendo clic en el ícono 🌐 del globo en el encabezado, o en Configuración de perfil.',
+        'support.reply.hello': '👋 ¡Hola! Bienvenido al soporte de Arbitrix AI. ¿Cómo puedo ayudarte hoy?',
+        'ticker.earned': '<span class="ticker-user">{{user}}</span> ganó <span class="ticker-amount green">+${{amount}}</span> en {{asset}}',
+        'ticker.deposited': '<span class="ticker-user">{{user}}</span> depositó <span class="ticker-amount gold">${{amount}}</span>',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> refirió a un amigo y ganó <span class="ticker-amount gold">$10</span> de bono!',
+        'ticker.arbitrage': 'Arbitraje detectado: <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
+        'ticker.newTrader': 'Nuevo trader de <span class="ticker-amount gold">{{country}}</span> se unió a Arbitrix AI',
+        'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> desbloqueó <span class="ticker-amount gold">{{badge}}</span></span>',
+        'referral.welcomeReferred': '🎉 ¡Bienvenido! Tu amigo ganará un bono de referido.',
+        'referral.simulatedToast': '🎉 <strong>¡Referido simulado!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bono agregado a la Billetera de Bonos</span>',
+        'referral.simulatedTitle': 'Referido simulado',
+        'referral.simulatedDesc': '+${{amount}} bono agregado a la Billetera de Bonos',
+        'referral.simulateError': 'Error al simular referido',
+        'referral.codeLoading': 'El código de referido se está cargando, inténtalo de nuevo en un momento',
+        'bonus.withdrawnTitle': 'Bono retirado',
+        'share.linkCopied': '¡Enlace copiado al portapapeles!',
+        '2fa.resendIn': 'Reenviar en {{seconds}}s',
+        '2fa.waitSeconds': 'Por favor, espera {{seconds}} segundos antes de solicitar de nuevo.',
+        '2fa.resendFailed': 'Error al reenviar el código. Inténtalo de nuevo.',
+        '2fa.sessionExpired': 'Sesión expirada. Por favor, inicia sesión de nuevo.',
+        '2fa.newCodeSent': 'Nuevo código enviado a {{email}}',
+        '2fa.codeSentTo': 'Ingresa el código de 6 dígitos enviado a {{email}}',
+        '2fa.codeExpired': 'Código expirado. Por favor, solicita uno nuevo.',
+        '2fa.expired': 'Expirado',
+        '2fa.invalidCode': 'Código no válido',
+        '2fa.attemptsRemaining': '({{n}} intentos restantes)',
+        '2fa.generateQRFirst': 'Por favor, genera un código QR primero',
+        '2fa.newCodesGenerated': '¡Nuevos códigos de recuperación generados!',
+        '2fa.disabled': '2FA ha sido deshabilitado',
+        '2fa.nowEnabled': '¡La autenticación de dos factores ya está habilitada!',
+        '2fa.loadStatusFailed': 'Error al cargar el estado de 2FA',
+        '2fa.codesRemaining': '{{count}} restantes',
+        '2fa.regeneratePrompt': 'Ingresa tu código de autenticador para regenerar los códigos de recuperación:',
+        '2fa.btn.generating': 'Generando...',
+        '2fa.btn.generateNew': 'Generar nuevo código QR',
+        '2fa.btn.generate': 'Generar código QR',
+        '2fa.btn.verifying': 'Verificando...',
+        '2fa.btn.verifyEnable': 'Verificar y habilitar',
+        '2fa.btn.disabling': 'Deshabilitando...',
+        '2fa.btn.disable': 'Deshabilitar',
+        '2fa.btn.newCodes': 'Nuevos códigos',
+        'common.justNow': 'Justo ahora',
+        'withdraw.failed': 'Retiro fallido',
+        'deposit.confirmedSuccess': '¡Depósito confirmado!',
+        'deposit.confirmFailed': 'Error al confirmar el depósito',
+        'deposit.confirmError': 'Error al confirmar el depósito',
+        'admin.loginRequired': 'Por favor, inicia sesión primero',
+        'admin.export.preparing': 'Preparando exportación...',
+        'admin.export.completed': '¡Exportación completada!',
+        'admin.export.failed': 'Error en la exportación',
+        'admin.doc.loadImageFailed': 'Error al cargar la imagen del documento',
+        'admin.doc.notAvailable': 'Documento no disponible',
+        'admin.doc.loadFailed': 'Error al cargar el documento',
+        'admin.invoice.detailsComingSoon': 'Próximamente detalles de la factura',
+        'admin.webhook.retrySuccess': '¡Webhook reintentado con éxito!',
+        'admin.webhook.retryFailed': 'Error al reintentar el webhook',
+        'admin.searchFailed': 'Error en la búsqueda',
+        'referral.configSaved': 'Configuración guardada con éxito',
+        'referral.configError': 'Error: {{error}}',
+        'milestone.winsSuffix': '{{n}} victorias',
+        'admin.empty.noActivity': 'Sin actividad',
+        'admin.empty.loadHealthFailed': 'Error al cargar el estado de salud',
+        'admin.empty.loadActivityFailed': 'Error al cargar la actividad',
+        'admin.empty.noVerifications': 'Sin verificaciones',
+        'admin.health.lastChecked': 'Última comprobación: {{time}}',
+        'admin.health.serverUptime': 'Tiempo de actividad del servidor',
+        'admin.confirmPayment': '¿Estás seguro de que quieres confirmar manualmente este pago?',
+        'admin.payment.confirmed': '¡Pago confirmado con éxito!',
+        'admin.payment.confirmFailed': 'Error al confirmar el pago',
+        'admin.payment.confirmError': 'Error al confirmar el pago',
+        'admin.withdraw.approved': '¡Retiro aprobado!',
+        'admin.withdraw.approveFailed': 'Error al aprobar el retiro',
+        'admin.withdraw.approveError': 'Error al aprobar el retiro',
+        'admin.withdraw.rejected': 'Retiro rechazado',
+        'admin.withdraw.rejectFailed': 'Error al rechazar el retiro',
+        'admin.withdraw.rejectError': 'Error al rechazar el retiro',
+        'admin.kyc.approved': 'Verificación aprobada',
+        'admin.kyc.approveFailed': 'Error al aprobar',
+        'admin.kyc.rejected': 'Verificación rechazada',
+        'admin.kyc.rejectFailed': 'Error al rechazar',
+        'admin.kyc.reasonRequired': 'Por favor, introduce un motivo de rechazo',
+        'admin.kyc.resubmissionReasonRequired': 'Por favor, introduce un motivo para el reenvío',
+        'admin.kyc.resubmissionRequested': 'Reenvío solicitado',
+        'admin.kyc.resubmissionFailed': 'Error al solicitar el reenvío',
+        'admin.kyc.loadDetailsFailed': 'Error al cargar los detalles',
+        'uptime.hoursMinutes': '{{hours}}h {{minutes}}m',
+        'uptime.minutes': '{{minutes}}m',
+        'common.you': 'Tú',
+        'tx.type.deposit': 'Depósito',
+        'tx.type.withdraw': 'Retirar',
+        'tx.type.tradeExecuted': 'Operación ejecutada',
+        'tx.type.bot': 'Bot',
+        'tx.type.reset': 'Restablecer',
+        'tx.type.bonusWithdrawal': 'Retiro de bono',
+        'tx.type.referralBonus': 'Bono de referencia',
+        'tx.type.withdrawalToLive': 'Retiro a Live',
+        'tx.detail.demoFunds': 'Fondos de demostración',
+        'tx.detail.allFundsRemoved': 'Todos los fondos eliminados',
+        'tx.detail.fromBonusWallet': 'Desde la Bonus Wallet',
+        'tx.detail.bonusToLive': 'Bono retirado a la Live Wallet',
+        'tx.detail.botStarted': 'Iniciado',
+        'tx.detail.botPaused': 'Pausado',
+        'common.minutesAgo': 'hace {{n}}m',
+        'common.hoursAgo': 'hace {{n}}h',
+        'common.daysAgo': 'hace {{n}}d',
+        'uptime.daysHours': '{{days}}d {{hours}}h',
+        'admin.toast.paymentConfirmed': '¡Pago confirmado con éxito!',
+        'admin.toast.paymentConfirmFailed': 'Error al confirmar el pago',
+        'admin.toast.paymentConfirmError': 'Error al confirmar el pago',
+        'admin.toast.invoiceComingSoon': 'Detalles de la factura próximamente',
+        'admin.toast.webhookRetried': '¡Webhook reintentado con éxito!',
+        'admin.toast.webhookRetryFailed': 'Error al reintentar el webhook',
+        'admin.toast.webhookRetryError': 'Error al reintentar el webhook',
+        'admin.toast.searchFailed': 'Error en la búsqueda',
+        'admin.toast.depositConfirmed': '¡Depósito confirmado!',
+        'admin.toast.depositConfirmFailed': 'Error al confirmar el depósito',
+        'admin.toast.depositConfirmError': 'Error al confirmar el depósito',
+        'admin.toast.withdrawalApproved': '¡Retiro aprobado!',
+        'admin.toast.withdrawalApproveFailed': 'Error al aprobar el retiro',
+        'admin.toast.withdrawalApproveError': 'Error al aprobar el retiro',
+        'admin.toast.withdrawalRejected': 'Retiro rechazado',
+        'admin.toast.withdrawalRejectFailed': 'Error al rechazar el retiro',
+        'admin.toast.withdrawalRejectError': 'Error al rechazar el retiro',
+        'admin.toast.verificationApproved': 'Verificación aprobada',
+        'admin.toast.verificationApproveFailed': 'Error al aprobar',
+        'admin.toast.verificationRejected': 'Verificación rechazada',
+        'admin.toast.verificationRejectFailed': 'Error al rechazar',
+        'admin.toast.resubmissionRequested': 'Reenvío solicitado',
+        'admin.toast.resubmissionFailed': 'Error al solicitar el reenvío',
+        'admin.toast.rejectionReason': 'Por favor, ingresa un motivo de rechazo',
+        'admin.toast.resubmissionReason': 'Por favor, ingresa un motivo para el reenvío',
+        'admin.toast.loadDetailsFailed': 'Error al cargar los detalles',
+        'admin.toast.docLoadFailed': 'Error al cargar la imagen del documento',
+        'admin.toast.docNotAvailable': 'Documento no disponible',
+        'admin.toast.docLoadError': 'Error al cargar el documento',
+        'admin.toast.loginRequired': 'Por favor, inicia sesión primero',
+        'admin.toast.exportPreparing': 'Preparando exportación...',
+        'admin.toast.exportCompleted': '¡Exportación completada!',
+        'admin.toast.exportFailed': 'Error en la exportación',
+        'admin.toast.configSaved': 'Configuración guardada con éxito',
+        'admin.toast.configError': 'Error: {{message}}',
+        'admin.empty.noActivityFound': 'No se encontró actividad',
+        'admin.empty.noAlerts': 'Sin alertas - ¡todo se ve bien!',
+        'admin.empty.noWebhookLogs': 'No se encontraron registros de webhook',
+        'admin.status.critical': 'Crítico',
+        'admin.status.warnings': 'Advertencias',
+        'admin.status.info': 'Información',
+        'admin.approve': 'Aprobar',
+        'admin.reject': 'Rechazar',
+        'admin.view': 'Ver',
+        'admin.retry': 'Reintentar',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -7379,6 +7817,225 @@ const TRANSLATIONS = {
         'auth.backToLogin': 'Voltar ao login',
         'sidebar.admin': 'Painel administrativo',
         'sidebar.verification': 'Verificação',
+        'deposit.status.waiting': 'Aguardando o pagamento...',
+        'deposit.status.confirmed': 'Pagamento confirmado. Seu saldo foi creditado.',
+        'deposit.status.detectedConfirming': 'Pagamento detectado. Aguardando confirmação na blockchain...',
+        'deposit.status.detected': 'Pagamento detectado. Aguardando confirmação...',
+        'deposit.status.cancelled': 'Fatura cancelada',
+        'deposit.status.expired': 'Fatura expirada',
+        'deposit.paymentReady': 'Pagamento pronto! Escaneie o QR code ou copie o endereço.',
+        'deposit.invoiceExpiredToast': 'A fatura expirou. Por favor, gere uma nova.',
+        'deposit.invoiceCancelled': 'Fatura cancelada.',
+        'deposit.noActiveInvoice': 'Não há fatura ativa para cancelar.',
+        'deposit.noActiveDeposit': 'Não há solicitação de depósito ativa.',
+        'deposit.cancelFailed': 'Falha ao cancelar a fatura.',
+        'deposit.cancelError': 'Erro ao cancelar a fatura.',
+        'deposit.copyAddressSuccess': 'Endereço copiado para a área de transferência!',
+        'deposit.copyAmountSuccess': 'Valor copiado para a área de transferência!',
+        'deposit.copyAddressFailed': 'Falha ao copiar o endereço.',
+        'deposit.copyAmountFailed': 'Falha ao copiar o valor.',
+        'deposit.generateError': 'Erro ao gerar o pagamento. Tente novamente.',
+        'deposit.deposited': '${{amount}} depositados com sucesso!',
+        'deposit.minDepositToast': 'O depósito mínimo é ${{min}}',
+        'deposit.cancelConfirm': 'Tem certeza de que deseja cancelar esta fatura?',
+        'deposit.btn.generating': 'Gerando...',
+        'deposit.btn.generatePayment': 'Gerar pagamento',
+        'deposit.checkingStatus': 'Verificando o status do pagamento...',
+        'deposit.checkingBlockchain': 'Verificando a blockchain...',
+        'kyc.legalName': 'Por favor, insira seu nome legal completo',
+        'kyc.dob': 'Por favor, insira sua data de nascimento',
+        'kyc.country': 'Por favor, selecione seu país',
+        'kyc.address': 'Por favor, insira seu endereço residencial completo',
+        'kyc.personalSaved': 'Informações pessoais salvas',
+        'kyc.saveFailed': 'Falha ao salvar as informações pessoais',
+        'kyc.fileTooLarge': 'Arquivo muito grande. O tamanho máximo é 10MB',
+        'kyc.invalidFileType': 'Tipo de arquivo inválido. Permitidos: JPG, PNG, WebP',
+        'kyc.docUploaded': 'Documento enviado com sucesso',
+        'kyc.uploadFailed': 'Falha no envio',
+        'kyc.docRemoved': 'Documento removido',
+        'kyc.removeFailed': 'Falha ao remover o documento',
+        'kyc.missingDocs': 'Por favor, envie: {{missing}}',
+        'kyc.missingIdentity': 'documento de identidade',
+        'kyc.missingSelfie': 'selfie com documento',
+        'kyc.submitted': 'Verificação enviada para análise',
+        'kyc.submitFailed': 'Falha ao enviar a verificação',
+        'kyc.status.verified': 'Verificado',
+        'kyc.status.pendingReview': 'Em análise',
+        'kyc.status.rejected': 'Rejeitado',
+        'kyc.status.resubmission': 'Reenvio necessário',
+        'kyc.status.notStarted': 'Não iniciado',
+        'kyc.status.required': 'Verificação necessária',
+        'kyc.status.new': 'novo',
+        'kyc.level.emailVerified': 'E-mail verificado',
+        'kyc.level.identitySubmitted': 'Identidade enviada',
+        'kyc.level.identityVerified': 'Identidade verificada',
+        'kyc.level.withdrawalEnabled': 'Saque habilitado',
+        'kyc.level.uploadDocuments': 'Enviar documentos',
+        'kyc.summary.title': 'Resumo da verificação',
+        'kyc.summary.name': 'Nome',
+        'kyc.summary.dob': 'Data de nascimento',
+        'kyc.summary.country': 'País',
+        'kyc.summary.documents': 'Documentos',
+        'kyc.noData': 'Sem dados de verificação',
+        'kyc.noDocuments': 'Nenhum documento enviado',
+        'kyc.noHistory': 'Sem histórico',
+        'support.reply.default': 'Obrigado pela sua mensagem! Nossa equipe entrará em contato em breve.',
+        'support.reply.bot': '🤖 Para iniciar o bot: 1) Mude para o modo DEMO ou LIVE, 2) No modo LIVE, alcance ${{mta}} MTA primeiro, 3) Clique no botão \'Start Bot\'.',
+        'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor, escolha sua rede (TRC20 recomendado), clique em \'Get Payment Address\' e envie USDT para o endereço exibido. Detectaremos automaticamente.',
+        'support.reply.withdraw': '🏦 Para sacar: 1) Mude para o modo LIVE, 2) Faça um depósito, 3) Complete pelo menos 1 operação, 4) Clique em \'Withdraw\' na barra lateral. O processamento leva 15-30 minutos.',
+        'support.reply.bonus': '🎁 Indique amigos para ganhar $10 de bônus cada! Seu bônus acumula na Carteira de Bônus. Saque para a Carteira Live quando tiver pelo menos $50 em bônus e pelo menos 1 indicação.',
+        'support.reply.sound': '🔊 Você pode controlar os sons clicando no ícone de alto-falante no cabeçalho, ou ajustar o volume nas Configurações de perfil.',
+        'support.reply.language': '🌍 Você pode alterar o idioma clicando no ícone 🌐 de globo no cabeçalho, ou nas Configurações de perfil.',
+        'support.reply.hello': '👋 Olá! Bem-vindo ao suporte do Arbitrix AI. Como posso ajudar hoje?',
+        'ticker.earned': '<span class="ticker-user">{{user}}</span> ganhou <span class="ticker-amount green">+${{amount}}</span> em {{asset}}',
+        'ticker.deposited': '<span class="ticker-user">{{user}}</span> depositou <span class="ticker-amount gold">${{amount}}</span>',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> indicou um amigo e ganhou <span class="ticker-amount gold">$10</span> de bônus!',
+        'ticker.arbitrage': 'Arbitragem detectada: <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
+        'ticker.newTrader': 'Novo trader de <span class="ticker-amount gold">{{country}}</span> entrou no Arbitrix AI',
+        'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> desbloqueou <span class="ticker-amount gold">{{badge}}</span></span>',
+        'referral.welcomeReferred': '🎉 Bem-vindo! Seu amigo ganhará um bônus de indicação.',
+        'referral.simulatedToast': '🎉 <strong>Indicação simulada!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bônus adicionado à Carteira de Bônus</span>',
+        'referral.simulatedTitle': 'Indicação simulada',
+        'referral.simulatedDesc': '+${{amount}} bônus adicionado à Carteira de Bônus',
+        'referral.simulateError': 'Erro ao simular indicação',
+        'referral.codeLoading': 'O código de indicação está carregando, tente novamente em breve',
+        'bonus.withdrawnTitle': 'Bônus sacado',
+        'share.linkCopied': 'Link copiado para a área de transferência!',
+        '2fa.resendIn': 'Reenviar em {{seconds}}s',
+        '2fa.waitSeconds': 'Por favor, aguarde {{seconds}} segundos antes de solicitar novamente.',
+        '2fa.resendFailed': 'Falha ao reenviar o código. Tente novamente.',
+        '2fa.sessionExpired': 'Sessão expirada. Por favor, entre novamente.',
+        '2fa.newCodeSent': 'Novo código enviado para {{email}}',
+        '2fa.codeSentTo': 'Insira o código de 6 dígitos enviado para {{email}}',
+        '2fa.codeExpired': 'Código expirado. Por favor, solicite um novo.',
+        '2fa.expired': 'Expirado',
+        '2fa.invalidCode': 'Código inválido',
+        '2fa.attemptsRemaining': '({{n}} tentativas restantes)',
+        '2fa.generateQRFirst': 'Por favor, gere um QR code primeiro',
+        '2fa.newCodesGenerated': 'Novos códigos de recuperação gerados!',
+        '2fa.disabled': '2FA foi desativado',
+        '2fa.nowEnabled': 'A autenticação de dois fatores já está ativada!',
+        '2fa.loadStatusFailed': 'Falha ao carregar o status do 2FA',
+        '2fa.codesRemaining': '{{count}} restantes',
+        '2fa.regeneratePrompt': 'Insira seu código do autenticador para regenerar os códigos de recuperação:',
+        '2fa.btn.generating': 'Gerando...',
+        '2fa.btn.generateNew': 'Gerar novo QR code',
+        '2fa.btn.generate': 'Gerar QR code',
+        '2fa.btn.verifying': 'Verificando...',
+        '2fa.btn.verifyEnable': 'Verificar e ativar',
+        '2fa.btn.disabling': 'Desativando...',
+        '2fa.btn.disable': 'Desativar',
+        '2fa.btn.newCodes': 'Novos códigos',
+        'common.justNow': 'Agora mesmo',
+        'withdraw.failed': 'Saque falhou',
+        'deposit.confirmedSuccess': 'Depósito confirmado!',
+        'deposit.confirmFailed': 'Falha ao confirmar depósito',
+        'deposit.confirmError': 'Erro ao confirmar depósito',
+        'admin.loginRequired': 'Por favor, faça login primeiro',
+        'admin.export.preparing': 'Preparando exportação...',
+        'admin.export.completed': 'Exportação concluída!',
+        'admin.export.failed': 'Falha na exportação',
+        'admin.doc.loadImageFailed': 'Falha ao carregar imagem do documento',
+        'admin.doc.notAvailable': 'Documento indisponível',
+        'admin.doc.loadFailed': 'Falha ao carregar documento',
+        'admin.invoice.detailsComingSoon': 'Detalhes da fatura em breve',
+        'admin.webhook.retrySuccess': 'Webhook reenviado com sucesso!',
+        'admin.webhook.retryFailed': 'Erro ao reenviar webhook',
+        'admin.searchFailed': 'Falha na busca',
+        'referral.configSaved': 'Configuração salva com sucesso',
+        'referral.configError': 'Erro: {{error}}',
+        'milestone.winsSuffix': '{{n}} vitórias',
+        'admin.empty.noActivity': 'Sem atividade',
+        'admin.empty.loadHealthFailed': 'Falha ao carregar status de saúde',
+        'admin.empty.loadActivityFailed': 'Falha ao carregar atividade',
+        'admin.empty.noVerifications': 'Sem verificações',
+        'admin.health.lastChecked': 'Última verificação: {{time}}',
+        'admin.health.serverUptime': 'Tempo de atividade do servidor',
+        'admin.confirmPayment': 'Tem certeza de que deseja confirmar manualmente este pagamento?',
+        'admin.payment.confirmed': 'Pagamento confirmado com sucesso!',
+        'admin.payment.confirmFailed': 'Falha ao confirmar pagamento',
+        'admin.payment.confirmError': 'Erro ao confirmar pagamento',
+        'admin.withdraw.approved': 'Saque aprovado!',
+        'admin.withdraw.approveFailed': 'Falha ao aprovar saque',
+        'admin.withdraw.approveError': 'Erro ao aprovar saque',
+        'admin.withdraw.rejected': 'Saque rejeitado',
+        'admin.withdraw.rejectFailed': 'Falha ao rejeitar saque',
+        'admin.withdraw.rejectError': 'Erro ao rejeitar saque',
+        'admin.kyc.approved': 'Verificação aprovada',
+        'admin.kyc.approveFailed': 'Falha ao aprovar',
+        'admin.kyc.rejected': 'Verificação rejeitada',
+        'admin.kyc.rejectFailed': 'Falha ao rejeitar',
+        'admin.kyc.reasonRequired': 'Por favor, insira um motivo de rejeição',
+        'admin.kyc.resubmissionReasonRequired': 'Por favor, insira um motivo para o reenvio',
+        'admin.kyc.resubmissionRequested': 'Reenvio solicitado',
+        'admin.kyc.resubmissionFailed': 'Falha ao solicitar reenvio',
+        'admin.kyc.loadDetailsFailed': 'Falha ao carregar detalhes',
+        'uptime.hoursMinutes': '{{hours}}h {{minutes}}m',
+        'uptime.minutes': '{{minutes}}m',
+        'common.you': 'Você',
+        'tx.type.deposit': 'Depósito',
+        'tx.type.withdraw': 'Sacar',
+        'tx.type.tradeExecuted': 'Operação executada',
+        'tx.type.bot': 'Bot',
+        'tx.type.reset': 'Redefinir',
+        'tx.type.bonusWithdrawal': 'Saque de bônus',
+        'tx.type.referralBonus': 'Bônus de indicação',
+        'tx.type.withdrawalToLive': 'Saque para Live',
+        'tx.detail.demoFunds': 'Fundos de demonstração',
+        'tx.detail.allFundsRemoved': 'Todos os fundos removidos',
+        'tx.detail.fromBonusWallet': 'Da Bonus Wallet',
+        'tx.detail.bonusToLive': 'Bônus sacado para a Live Wallet',
+        'tx.detail.botStarted': 'Iniciado',
+        'tx.detail.botPaused': 'Pausado',
+        'common.minutesAgo': 'há {{n}}min',
+        'common.hoursAgo': 'há {{n}}h',
+        'common.daysAgo': 'há {{n}}d',
+        'uptime.daysHours': '{{days}}d {{hours}}h',
+        'admin.toast.paymentConfirmed': 'Pagamento confirmado com sucesso!',
+        'admin.toast.paymentConfirmFailed': 'Falha ao confirmar o pagamento',
+        'admin.toast.paymentConfirmError': 'Erro ao confirmar o pagamento',
+        'admin.toast.invoiceComingSoon': 'Detalhes da fatura em breve',
+        'admin.toast.webhookRetried': 'Webhook reenviado com sucesso!',
+        'admin.toast.webhookRetryFailed': 'Falha ao reenviar o webhook',
+        'admin.toast.webhookRetryError': 'Erro ao reenviar o webhook',
+        'admin.toast.searchFailed': 'Falha na busca',
+        'admin.toast.depositConfirmed': 'Depósito confirmado!',
+        'admin.toast.depositConfirmFailed': 'Falha ao confirmar o depósito',
+        'admin.toast.depositConfirmError': 'Erro ao confirmar o depósito',
+        'admin.toast.withdrawalApproved': 'Saque aprovado!',
+        'admin.toast.withdrawalApproveFailed': 'Falha ao aprovar o saque',
+        'admin.toast.withdrawalApproveError': 'Erro ao aprovar o saque',
+        'admin.toast.withdrawalRejected': 'Saque rejeitado',
+        'admin.toast.withdrawalRejectFailed': 'Falha ao rejeitar o saque',
+        'admin.toast.withdrawalRejectError': 'Erro ao rejeitar o saque',
+        'admin.toast.verificationApproved': 'Verificação aprovada',
+        'admin.toast.verificationApproveFailed': 'Falha ao aprovar',
+        'admin.toast.verificationRejected': 'Verificação rejeitada',
+        'admin.toast.verificationRejectFailed': 'Falha ao rejeitar',
+        'admin.toast.resubmissionRequested': 'Reenvio solicitado',
+        'admin.toast.resubmissionFailed': 'Falha ao solicitar o reenvio',
+        'admin.toast.rejectionReason': 'Por favor, insira um motivo de rejeição',
+        'admin.toast.resubmissionReason': 'Por favor, insira um motivo para o reenvio',
+        'admin.toast.loadDetailsFailed': 'Falha ao carregar os detalhes',
+        'admin.toast.docLoadFailed': 'Falha ao carregar a imagem do documento',
+        'admin.toast.docNotAvailable': 'Documento não disponível',
+        'admin.toast.docLoadError': 'Erro ao carregar o documento',
+        'admin.toast.loginRequired': 'Por favor, entre primeiro',
+        'admin.toast.exportPreparing': 'Preparando exportação...',
+        'admin.toast.exportCompleted': 'Exportação concluída!',
+        'admin.toast.exportFailed': 'Falha na exportação',
+        'admin.toast.configSaved': 'Configuração salva com sucesso',
+        'admin.toast.configError': 'Erro: {{message}}',
+        'admin.empty.noActivityFound': 'Nenhuma atividade encontrada',
+        'admin.empty.noAlerts': 'Sem alertas - tudo certo!',
+        'admin.empty.noWebhookLogs': 'Nenhum log de webhook encontrado',
+        'admin.status.critical': 'Crítico',
+        'admin.status.warnings': 'Avisos',
+        'admin.status.info': 'Informações',
+        'admin.approve': 'Aprovar',
+        'admin.reject': 'Rejeitar',
+        'admin.view': 'Ver',
+        'admin.retry': 'Reenviar',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -7814,6 +8471,225 @@ const TRANSLATIONS = {
         'auth.backToLogin': 'Retour à la connexion',
         'sidebar.admin': 'Panneau d’administration',
         'sidebar.verification': 'Vérification',
+        'deposit.status.waiting': 'En attente de paiement...',
+        'deposit.status.confirmed': 'Paiement confirmé. Votre solde a été crédité.',
+        'deposit.status.detectedConfirming': 'Paiement détecté. En attente de confirmation sur la blockchain...',
+        'deposit.status.detected': 'Paiement détecté. En attente de confirmation...',
+        'deposit.status.cancelled': 'Facture annulée',
+        'deposit.status.expired': 'Facture expirée',
+        'deposit.paymentReady': 'Paiement prêt ! Scannez le QR code ou copiez l\'adresse.',
+        'deposit.invoiceExpiredToast': 'La facture a expiré. Veuillez en générer une nouvelle.',
+        'deposit.invoiceCancelled': 'Facture annulée.',
+        'deposit.noActiveInvoice': 'Aucune facture active à annuler.',
+        'deposit.noActiveDeposit': 'Aucune demande de dépôt active.',
+        'deposit.cancelFailed': 'Échec de l\'annulation de la facture.',
+        'deposit.cancelError': 'Erreur lors de l\'annulation de la facture.',
+        'deposit.copyAddressSuccess': 'Adresse copiée dans le presse-papiers !',
+        'deposit.copyAmountSuccess': 'Montant copié dans le presse-papiers !',
+        'deposit.copyAddressFailed': 'Échec de la copie de l\'adresse.',
+        'deposit.copyAmountFailed': 'Échec de la copie du montant.',
+        'deposit.generateError': 'Erreur lors de la génération du paiement. Veuillez réessayer.',
+        'deposit.deposited': '${{amount}} déposés avec succès !',
+        'deposit.minDepositToast': 'Le dépôt minimum est de ${{min}}',
+        'deposit.cancelConfirm': 'Êtes-vous sûr de vouloir annuler cette facture ?',
+        'deposit.btn.generating': 'Génération...',
+        'deposit.btn.generatePayment': 'Générer le paiement',
+        'deposit.checkingStatus': 'Vérification du statut du paiement...',
+        'deposit.checkingBlockchain': 'Vérification de la blockchain...',
+        'kyc.legalName': 'Veuillez saisir votre nom légal complet',
+        'kyc.dob': 'Veuillez saisir votre date de naissance',
+        'kyc.country': 'Veuillez sélectionner votre pays',
+        'kyc.address': 'Veuillez saisir votre adresse résidentielle complète',
+        'kyc.personalSaved': 'Informations personnelles enregistrées',
+        'kyc.saveFailed': 'Échec de l\'enregistrement des informations personnelles',
+        'kyc.fileTooLarge': 'Fichier trop volumineux. La taille maximum est de 10MB',
+        'kyc.invalidFileType': 'Type de fichier non valide. Autorisés : JPG, PNG, WebP',
+        'kyc.docUploaded': 'Document téléversé avec succès',
+        'kyc.uploadFailed': 'Échec du téléversement',
+        'kyc.docRemoved': 'Document supprimé',
+        'kyc.removeFailed': 'Échec de la suppression du document',
+        'kyc.missingDocs': 'Veuillez téléverser : {{missing}}',
+        'kyc.missingIdentity': 'document d\'identité',
+        'kyc.missingSelfie': 'selfie avec pièce d\'identité',
+        'kyc.submitted': 'Vérification soumise pour examen',
+        'kyc.submitFailed': 'Échec de l\'envoi de la vérification',
+        'kyc.status.verified': 'Vérifié',
+        'kyc.status.pendingReview': 'En attente de vérification',
+        'kyc.status.rejected': 'Rejeté',
+        'kyc.status.resubmission': 'Renvoi requis',
+        'kyc.status.notStarted': 'Non commencé',
+        'kyc.status.required': 'Vérification requise',
+        'kyc.status.new': 'nouveau',
+        'kyc.level.emailVerified': 'E-mail vérifié',
+        'kyc.level.identitySubmitted': 'Identité soumise',
+        'kyc.level.identityVerified': 'Identité vérifiée',
+        'kyc.level.withdrawalEnabled': 'Retrait activé',
+        'kyc.level.uploadDocuments': 'Téléverser des documents',
+        'kyc.summary.title': 'Résumé de la vérification',
+        'kyc.summary.name': 'Nom',
+        'kyc.summary.dob': 'Date de naissance',
+        'kyc.summary.country': 'Pays',
+        'kyc.summary.documents': 'Documents',
+        'kyc.noData': 'Aucune donnée de vérification',
+        'kyc.noDocuments': 'Aucun document téléversé',
+        'kyc.noHistory': 'Aucun historique',
+        'support.reply.default': 'Merci pour votre message ! Notre équipe vous répondra sous peu.',
+        'support.reply.bot': '🤖 Pour démarrer le bot : 1) Passez en mode DEMO ou LIVE, 2) En mode LIVE, atteignez ${{mta}} MTA d\'abord, 3) Cliquez sur le bouton \'Start Bot\'.',
+        'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, choisissez votre réseau (TRC20 recommandé), cliquez sur \'Get Payment Address\' et envoyez des USDT à l\'adresse affichée. Nous le détecterons automatiquement.',
+        'support.reply.withdraw': '🏦 Pour retirer : 1) Passez en mode LIVE, 2) Effectuez un dépôt, 3) Effectuez au moins 1 trade, 4) Cliquez sur \'Withdraw\' dans la barre latérale. Le traitement prend 15-30 minutes.',
+        'support.reply.bonus': '🎁 Parrainez des amis pour gagner $10 de bonus chacun ! Vos bonus s\'accumulent dans le Portefeuille Bonus. Retirez vers le Portefeuille Live lorsque vous avez au moins $50 de bonus et au moins 1 filleul.',
+        'support.reply.sound': '🔊 Vous pouvez contrôler les sons en cliquant sur l\'icône haut-parleur dans l\'en-tête, ou ajuster le volume dans les Paramètres du profil.',
+        'support.reply.language': '🌍 Vous pouvez changer la langue en cliquant sur l\'icône 🌐 de globe dans l\'en-tête, ou dans les Paramètres du profil.',
+        'support.reply.hello': '👋 Bonjour ! Bienvenue sur le support d\'Arbitrix AI. Comment puis-je vous aider aujourd\'hui ?',
+        'ticker.earned': '<span class="ticker-user">{{user}}</span> a gagné <span class="ticker-amount green">+${{amount}}</span> sur {{asset}}',
+        'ticker.deposited': '<span class="ticker-user">{{user}}</span> a déposé <span class="ticker-amount gold">${{amount}}</span>',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> a parrainé un ami et gagné <span class="ticker-amount gold">$10</span> de bonus !',
+        'ticker.arbitrage': 'Arbitrage détecté : <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
+        'ticker.newTrader': 'Nouveau trader de <span class="ticker-amount gold">{{country}}</span> a rejoint Arbitrix AI',
+        'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> a débloqué <span class="ticker-amount gold">{{badge}}</span></span>',
+        'referral.welcomeReferred': '🎉 Bienvenue ! Votre ami gagnera un bonus de parrainage.',
+        'referral.simulatedToast': '🎉 <strong>Parrainage simulé !</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bonus ajouté au Portefeuille Bonus</span>',
+        'referral.simulatedTitle': 'Parrainage simulé',
+        'referral.simulatedDesc': '+${{amount}} bonus ajouté au Portefeuille Bonus',
+        'referral.simulateError': 'Erreur lors de la simulation du parrainage',
+        'referral.codeLoading': 'Le code de parrainage est en cours de chargement, veuillez réessayer dans un instant',
+        'bonus.withdrawnTitle': 'Bonus retiré',
+        'share.linkCopied': 'Lien copié dans le presse-papiers !',
+        '2fa.resendIn': 'Renvoyer dans {{seconds}}s',
+        '2fa.waitSeconds': 'Veuillez attendre {{seconds}} secondes avant de redemander.',
+        '2fa.resendFailed': 'Échec du renvoi du code. Veuillez réessayer.',
+        '2fa.sessionExpired': 'Session expirée. Veuillez vous reconnecter.',
+        '2fa.newCodeSent': 'Nouveau code envoyé à {{email}}',
+        '2fa.codeSentTo': 'Saisissez le code à 6 chiffres envoyé à {{email}}',
+        '2fa.codeExpired': 'Code expiré. Veuillez en demander un nouveau.',
+        '2fa.expired': 'Expiré',
+        '2fa.invalidCode': 'Code non valide',
+        '2fa.attemptsRemaining': '({{n}} tentatives restantes)',
+        '2fa.generateQRFirst': 'Veuillez d\'abord générer un QR code',
+        '2fa.newCodesGenerated': 'Nouveaux codes de récupération générés !',
+        '2fa.disabled': '2FA a été désactivé',
+        '2fa.nowEnabled': 'L\'authentification à deux facteurs est maintenant activée !',
+        '2fa.loadStatusFailed': 'Échec du chargement du statut 2FA',
+        '2fa.codesRemaining': '{{count}} restants',
+        '2fa.regeneratePrompt': 'Saisissez votre code d\'authentificateur pour régénérer les codes de récupération :',
+        '2fa.btn.generating': 'Génération...',
+        '2fa.btn.generateNew': 'Générer un nouveau QR code',
+        '2fa.btn.generate': 'Générer un QR code',
+        '2fa.btn.verifying': 'Vérification...',
+        '2fa.btn.verifyEnable': 'Vérifier et activer',
+        '2fa.btn.disabling': 'Désactivation...',
+        '2fa.btn.disable': 'Désactiver',
+        '2fa.btn.newCodes': 'Nouveaux codes',
+        'common.justNow': 'À l\'instant',
+        'withdraw.failed': 'Retrait échoué',
+        'deposit.confirmedSuccess': 'Dépôt confirmé !',
+        'deposit.confirmFailed': 'Échec de la confirmation du dépôt',
+        'deposit.confirmError': 'Erreur lors de la confirmation du dépôt',
+        'admin.loginRequired': "Veuillez vous connecter d'abord",
+        'admin.export.preparing': "Préparation de l'export...",
+        'admin.export.completed': 'Export terminé !',
+        'admin.export.failed': "Échec de l'export",
+        'admin.doc.loadImageFailed': "Échec du chargement de l'image du document",
+        'admin.doc.notAvailable': 'Document indisponible',
+        'admin.doc.loadFailed': 'Échec du chargement du document',
+        'admin.invoice.detailsComingSoon': 'Détails de la facture bientôt disponibles',
+        'admin.webhook.retrySuccess': 'Webhook relancé avec succès !',
+        'admin.webhook.retryFailed': 'Erreur lors du renvoi du webhook',
+        'admin.searchFailed': 'Échec de la recherche',
+        'referral.configSaved': 'Configuration enregistrée avec succès',
+        'referral.configError': 'Erreur : {{error}}',
+        'milestone.winsSuffix': '{{n}} victoires',
+        'admin.empty.noActivity': 'Aucune activité',
+        'admin.empty.loadHealthFailed': "Échec du chargement de l'état de santé",
+        'admin.empty.loadActivityFailed': "Échec du chargement de l'activité",
+        'admin.empty.noVerifications': 'Aucune vérification',
+        'admin.health.lastChecked': 'Dernière vérification : {{time}}',
+        'admin.health.serverUptime': 'Disponibilité du serveur',
+        'admin.confirmPayment': 'Êtes-vous sûr de vouloir confirmer manuellement ce paiement ?',
+        'admin.payment.confirmed': 'Paiement confirmé avec succès !',
+        'admin.payment.confirmFailed': 'Échec de la confirmation du paiement',
+        'admin.payment.confirmError': 'Erreur lors de la confirmation du paiement',
+        'admin.withdraw.approved': 'Retrait approuvé !',
+        'admin.withdraw.approveFailed': "Échec de l'approbation du retrait",
+        'admin.withdraw.approveError': "Erreur lors de l'approbation du retrait",
+        'admin.withdraw.rejected': 'Retrait rejeté',
+        'admin.withdraw.rejectFailed': 'Échec du rejet du retrait',
+        'admin.withdraw.rejectError': 'Erreur lors du rejet du retrait',
+        'admin.kyc.approved': 'Vérification approuvée',
+        'admin.kyc.approveFailed': "Échec de l'approbation",
+        'admin.kyc.rejected': 'Vérification rejetée',
+        'admin.kyc.rejectFailed': 'Échec du rejet',
+        'admin.kyc.reasonRequired': 'Veuillez saisir un motif de rejet',
+        'admin.kyc.resubmissionReasonRequired': 'Veuillez saisir un motif de renvoi',
+        'admin.kyc.resubmissionRequested': 'Renvoi demandé',
+        'admin.kyc.resubmissionFailed': 'Échec de la demande de renvoi',
+        'admin.kyc.loadDetailsFailed': 'Échec du chargement des détails',
+        'uptime.hoursMinutes': '{{hours}}h {{minutes}}m',
+        'uptime.minutes': '{{minutes}}m',
+        'common.you': 'Vous',
+        'tx.type.deposit': 'Dépôt',
+        'tx.type.withdraw': 'Retirer',
+        'tx.type.tradeExecuted': 'Trade exécuté',
+        'tx.type.bot': 'Bot',
+        'tx.type.reset': 'Réinitialiser',
+        'tx.type.bonusWithdrawal': 'Retrait de bonus',
+        'tx.type.referralBonus': 'Bonus de parrainage',
+        'tx.type.withdrawalToLive': 'Retrait vers Live',
+        'tx.detail.demoFunds': 'Fonds de démo',
+        'tx.detail.allFundsRemoved': 'Tous les fonds supprimés',
+        'tx.detail.fromBonusWallet': 'Depuis le Bonus Wallet',
+        'tx.detail.bonusToLive': 'Bonus retiré vers le Live Wallet',
+        'tx.detail.botStarted': 'Démarré',
+        'tx.detail.botPaused': 'En pause',
+        'common.minutesAgo': 'il y a {{n}} min',
+        'common.hoursAgo': 'il y a {{n}} h',
+        'common.daysAgo': 'il y a {{n}} j',
+        'uptime.daysHours': '{{days}}j {{hours}}h',
+        'admin.toast.paymentConfirmed': 'Paiement confirmé avec succès !',
+        'admin.toast.paymentConfirmFailed': 'Échec de la confirmation du paiement',
+        'admin.toast.paymentConfirmError': 'Erreur lors de la confirmation du paiement',
+        'admin.toast.invoiceComingSoon': 'Détails de la facture bientôt disponibles',
+        'admin.toast.webhookRetried': 'Webhook renvoyé avec succès !',
+        'admin.toast.webhookRetryFailed': 'Échec du renvoi du webhook',
+        'admin.toast.webhookRetryError': 'Erreur lors du renvoi du webhook',
+        'admin.toast.searchFailed': 'Échec de la recherche',
+        'admin.toast.depositConfirmed': 'Dépôt confirmé !',
+        'admin.toast.depositConfirmFailed': 'Échec de la confirmation du dépôt',
+        'admin.toast.depositConfirmError': 'Erreur lors de la confirmation du dépôt',
+        'admin.toast.withdrawalApproved': 'Retrait approuvé !',
+        'admin.toast.withdrawalApproveFailed': 'Échec de l\'approbation du retrait',
+        'admin.toast.withdrawalApproveError': 'Erreur lors de l\'approbation du retrait',
+        'admin.toast.withdrawalRejected': 'Retrait rejeté',
+        'admin.toast.withdrawalRejectFailed': 'Échec du rejet du retrait',
+        'admin.toast.withdrawalRejectError': 'Erreur lors du rejet du retrait',
+        'admin.toast.verificationApproved': 'Vérification approuvée',
+        'admin.toast.verificationApproveFailed': 'Échec de l\'approbation',
+        'admin.toast.verificationRejected': 'Vérification rejetée',
+        'admin.toast.verificationRejectFailed': 'Échec du rejet',
+        'admin.toast.resubmissionRequested': 'Renvoi demandé',
+        'admin.toast.resubmissionFailed': 'Échec de la demande de renvoi',
+        'admin.toast.rejectionReason': 'Veuillez saisir un motif de rejet',
+        'admin.toast.resubmissionReason': 'Veuillez saisir un motif pour le renvoi',
+        'admin.toast.loadDetailsFailed': 'Échec du chargement des détails',
+        'admin.toast.docLoadFailed': 'Échec du chargement de l\'image du document',
+        'admin.toast.docNotAvailable': 'Document non disponible',
+        'admin.toast.docLoadError': 'Erreur lors du chargement du document',
+        'admin.toast.loginRequired': 'Veuillez d\'abord vous connecter',
+        'admin.toast.exportPreparing': 'Préparation de l\'export...',
+        'admin.toast.exportCompleted': 'Export terminé !',
+        'admin.toast.exportFailed': 'Échec de l\'export',
+        'admin.toast.configSaved': 'Configuration enregistrée avec succès',
+        'admin.toast.configError': 'Erreur : {{message}}',
+        'admin.empty.noActivityFound': 'Aucune activité trouvée',
+        'admin.empty.noAlerts': 'Aucune alerte - tout va bien !',
+        'admin.empty.noWebhookLogs': 'Aucun journal de webhook trouvé',
+        'admin.status.critical': 'Critique',
+        'admin.status.warnings': 'Avertissements',
+        'admin.status.info': 'Infos',
+        'admin.approve': 'Approuver',
+        'admin.reject': 'Rejeter',
+        'admin.view': 'Voir',
+        'admin.retry': 'Renvoyer',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -8249,6 +9125,225 @@ const TRANSLATIONS = {
         'auth.backToLogin': 'العودة إلى تسجيل الدخول',
         'sidebar.admin': 'لوحة الإدارة',
         'sidebar.verification': 'التحقق',
+        'deposit.status.waiting': 'في انتظار الدفع...',
+        'deposit.status.confirmed': 'تم تأكيد الدفع. تم إضافة المبلغ إلى رصيدك.',
+        'deposit.status.detectedConfirming': 'تم اكتشاف الدفع. في انتظار التأكيد على البلوكتشين...',
+        'deposit.status.detected': 'تم اكتشاف الدفع. في انتظار التأكيد...',
+        'deposit.status.cancelled': 'تم إلغاء الفاتورة',
+        'deposit.status.expired': 'انتهت صلاحية الفاتورة',
+        'deposit.paymentReady': 'الدفع جاهز! امسح رمز QR أو انسخ العنوان.',
+        'deposit.invoiceExpiredToast': 'انتهت صلاحية الفاتورة. يرجى إنشاء فاتورة جديدة.',
+        'deposit.invoiceCancelled': 'تم إلغاء الفاتورة.',
+        'deposit.noActiveInvoice': 'لا توجد فاتورة نشطة لإلغائها.',
+        'deposit.noActiveDeposit': 'لا توجد طلبات إيداع نشطة.',
+        'deposit.cancelFailed': 'فشل إلغاء الفاتورة.',
+        'deposit.cancelError': 'خطأ في إلغاء الفاتورة.',
+        'deposit.copyAddressSuccess': 'تم نسخ العنوان إلى الحافظة!',
+        'deposit.copyAmountSuccess': 'تم نسخ المبلغ إلى الحافظة!',
+        'deposit.copyAddressFailed': 'فشل نسخ العنوان.',
+        'deposit.copyAmountFailed': 'فشل نسخ المبلغ.',
+        'deposit.generateError': 'خطأ في إنشاء الدفع. حاول مرة أخرى.',
+        'deposit.deposited': 'تم إيداع ${{amount}} بنجاح!',
+        'deposit.minDepositToast': 'الحد الأدنى للإيداع هو ${{min}}',
+        'deposit.cancelConfirm': 'هل أنت متأكد أنك تريد إلغاء هذه الفاتورة؟',
+        'deposit.btn.generating': 'جارٍ الإنشاء...',
+        'deposit.btn.generatePayment': 'إنشاء الدفع',
+        'deposit.checkingStatus': 'جارٍ فحص حالة الدفع...',
+        'deposit.checkingBlockchain': 'جارٍ فحص البلوكتشين...',
+        'kyc.legalName': 'يرجى إدخال اسمك القانوني الكامل',
+        'kyc.dob': 'يرجى إدخال تاريخ ميلادك',
+        'kyc.country': 'يرجى اختيار بلدك',
+        'kyc.address': 'يرجى إدخال عنوان سكنك الكامل',
+        'kyc.personalSaved': 'تم حفظ المعلومات الشخصية',
+        'kyc.saveFailed': 'فشل حفظ المعلومات الشخصية',
+        'kyc.fileTooLarge': 'الملف كبير جدًا. الحد الأقصى للحجم هو 10MB',
+        'kyc.invalidFileType': 'نوع الملف غير صالح. المسموح: JPG، PNG، WebP',
+        'kyc.docUploaded': 'تم رفع المستند بنجاح',
+        'kyc.uploadFailed': 'فشل الرفع',
+        'kyc.docRemoved': 'تمت إزالة المستند',
+        'kyc.removeFailed': 'فشل إزالة المستند',
+        'kyc.missingDocs': 'يرجى رفع: {{missing}}',
+        'kyc.missingIdentity': 'وثيقة إثبات الهوية',
+        'kyc.missingSelfie': 'صورة شخصية مع الهوية',
+        'kyc.submitted': 'تم إرسال التحقق للمراجعة',
+        'kyc.submitFailed': 'فشل إرسال التحقق',
+        'kyc.status.verified': 'تم التحقق',
+        'kyc.status.pendingReview': 'قيد المراجعة',
+        'kyc.status.rejected': 'مرفوض',
+        'kyc.status.resubmission': 'مطلوب إعادة الإرسال',
+        'kyc.status.notStarted': 'لم يبدأ',
+        'kyc.status.required': 'التحقق مطلوب',
+        'kyc.status.new': 'جديد',
+        'kyc.level.emailVerified': 'تم التحقق من البريد',
+        'kyc.level.identitySubmitted': 'تم إرسال الهوية',
+        'kyc.level.identityVerified': 'تم التحقق من الهوية',
+        'kyc.level.withdrawalEnabled': 'تم تفعيل السحب',
+        'kyc.level.uploadDocuments': 'رفع المستندات',
+        'kyc.summary.title': 'ملخص التحقق',
+        'kyc.summary.name': 'الاسم',
+        'kyc.summary.dob': 'تاريخ الميلاد',
+        'kyc.summary.country': 'البلد',
+        'kyc.summary.documents': 'المستندات',
+        'kyc.noData': 'لا توجد بيانات تحقق',
+        'kyc.noDocuments': 'لم يتم رفع أي مستندات',
+        'kyc.noHistory': 'لا يوجد سجل',
+        'support.reply.default': 'شكرًا لرسالتك! سيتواصل معك فريقنا قريبًا.',
+        'support.reply.bot': '🤖 لبدء البوت: 1) بدّل إلى وضع DEMO أو LIVE، 2) في وضع LIVE، اصل إلى ${{mta}} MTA أولًا، 3) انقر على زر \'Start Bot\'.',
+        'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، اختر شبكتك (TRC20 موصى بها)، انقر على \'Get Payment Address\' وأرسل USDT إلى العنوان المعروض. سنكتشف ذلك تلقائيًا.',
+        'support.reply.withdraw': '🏦 للسحب: 1) بدّل إلى وضع LIVE، 2) قم بإيداع، 3) أكمل عملية واحدة على الأقل، 4) انقر على \'Withdraw\' في الشريط الجانبي. تستغرق المعالجة 15-30 دقيقة.',
+        'support.reply.bonus': '🎁 ادعُ أصدقاءك لتكسب $10 مكافأة لكل واحد! تتراكم مكافآتك في محفظة المكافآت. اسحبها إلى محفظة Live عندما يكون لديك 50$ على الأقل من المكافآت وإحالة واحدة على الأقل.',
+        'support.reply.sound': '🔊 يمكنك التحكم بالأصوات بالنقر على أيقونة السماعة في الترويسة، أو ضبط مستوى الصوت في إعدادات الملف الشخصي.',
+        'support.reply.language': '🌍 يمكنك تغيير اللغة بالنقر على أيقونة 🌐 الكرة الأرضية في الترويسة، أو في إعدادات الملف الشخصي.',
+        'support.reply.hello': '👋 مرحبًا! أهلًا بك في دعم Arbitrix AI. كيف يمكنني مساعدتك اليوم؟',
+        'ticker.earned': '<span class="ticker-user">{{user}}</span> ربح <span class="ticker-amount green">+${{amount}}</span> على {{asset}}',
+        'ticker.deposited': '<span class="ticker-user">{{user}}</span> أودع <span class="ticker-amount gold">${{amount}}</span>',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> دعى صديقًا وكسب <span class="ticker-amount gold">$10</span> مكافأة!',
+        'ticker.arbitrage': 'تم اكتشاف مراجحة: <span class="ticker-amount gold">{{asset}}</span> فروق <span class="ticker-amount green">+{{spread}}%</span>',
+        'ticker.newTrader': 'متداول جديد من <span class="ticker-amount gold">{{country}}</span> انضم إلى Arbitrix AI',
+        'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> فتح <span class="ticker-amount gold">{{badge}}</span></span>',
+        'referral.welcomeReferred': '🎉 أهلًا بك! سيربح صديقك مكافأة إحالة.',
+        'referral.simulatedToast': '🎉 <strong>تمت محاكاة الإحالة!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} مكافأة أُضيفت إلى محفظة المكافآت</span>',
+        'referral.simulatedTitle': 'تمت محاكاة الإحالة',
+        'referral.simulatedDesc': '+${{amount}} مكافأة أُضيفت إلى محفظة المكافآت',
+        'referral.simulateError': 'خطأ في محاكاة الإحالة',
+        'referral.codeLoading': 'رمز الإحالة قيد التحميل، حاول مرة أخرى بعد قليل',
+        'bonus.withdrawnTitle': 'تم سحب المكافأة',
+        'share.linkCopied': 'تم نسخ الرابط إلى الحافظة!',
+        '2fa.resendIn': 'إعادة الإرسال خلال {{seconds}}ث',
+        '2fa.waitSeconds': 'يرجى الانتظار {{seconds}} ثانية قبل الطلب مرة أخرى.',
+        '2fa.resendFailed': 'فشل إعادة إرسال الرمز. حاول مرة أخرى.',
+        '2fa.sessionExpired': 'انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.',
+        '2fa.newCodeSent': 'تم إرسال رمز جديد إلى {{email}}',
+        '2fa.codeSentTo': 'أدخل الرمز المكوّن من 6 أرقام المرسل إلى {{email}}',
+        '2fa.codeExpired': 'انتهت صلاحية الرمز. يرجى طلب رمز جديد.',
+        '2fa.expired': 'منتهي',
+        '2fa.invalidCode': 'رمز غير صالح',
+        '2fa.attemptsRemaining': '({{n}} محاولات متبقية)',
+        '2fa.generateQRFirst': 'يرجى إنشاء رمز QR أولًا',
+        '2fa.newCodesGenerated': 'تم إنشاء رموز استرداد جديدة!',
+        '2fa.disabled': 'تم تعطيل 2FA',
+        '2fa.nowEnabled': 'تم تفعيل المصادقة الثنائية!',
+        '2fa.loadStatusFailed': 'فشل تحميل حالة 2FA',
+        '2fa.codesRemaining': 'متبقٍ {{count}}',
+        '2fa.regeneratePrompt': 'أدخل رمز المصادقة لإعادة إنشاء رموز الاسترداد:',
+        '2fa.btn.generating': 'جارٍ الإنشاء...',
+        '2fa.btn.generateNew': 'إنشاء رمز QR جديد',
+        '2fa.btn.generate': 'إنشاء رمز QR',
+        '2fa.btn.verifying': 'جارٍ التحقق...',
+        '2fa.btn.verifyEnable': 'تحقق وفعّل',
+        '2fa.btn.disabling': 'جارٍ التعطيل...',
+        '2fa.btn.disable': 'تعطيل',
+        '2fa.btn.newCodes': 'رموز جديدة',
+        'common.justNow': 'الآن',
+        'withdraw.failed': 'فشل السحب',
+        'deposit.confirmedSuccess': 'تم تأكيد الإيداع!',
+        'deposit.confirmFailed': 'فشل تأكيد الإيداع',
+        'deposit.confirmError': 'خطأ في تأكيد الإيداع',
+        'admin.loginRequired': 'الرجاء تسجيل الدخول أولاً',
+        'admin.export.preparing': 'جارٍ تحضير التصدير...',
+        'admin.export.completed': 'اكتمل التصدير!',
+        'admin.export.failed': 'فشل التصدير',
+        'admin.doc.loadImageFailed': 'فشل تحميل صورة المستند',
+        'admin.doc.notAvailable': 'المستند غير متاح',
+        'admin.doc.loadFailed': 'فشل تحميل المستند',
+        'admin.invoice.detailsComingSoon': 'تفاصيل الفاتورة قريبًا',
+        'admin.webhook.retrySuccess': 'تمت إعادة محاولة الـ webhook بنجاح!',
+        'admin.webhook.retryFailed': 'خطأ في إعادة محاولة الـ webhook',
+        'admin.searchFailed': 'فشل البحث',
+        'referral.configSaved': 'تم حفظ التكوين بنجاح',
+        'referral.configError': 'خطأ: {{error}}',
+        'milestone.winsSuffix': '{{n}} فوز',
+        'admin.empty.noActivity': 'لا يوجد نشاط',
+        'admin.empty.loadHealthFailed': 'فشل تحميل حالة الصحة',
+        'admin.empty.loadActivityFailed': 'فشل تحميل النشاط',
+        'admin.empty.noVerifications': 'لا توجد تحقققات',
+        'admin.health.lastChecked': 'آخر فحص: {{time}}',
+        'admin.health.serverUptime': 'وقت تشغيل الخادم',
+        'admin.confirmPayment': 'هل أنت متأكد أنك تريد تأكيد هذا الدفع يدويًا؟',
+        'admin.payment.confirmed': 'تم تأكيد الدفع بنجاح!',
+        'admin.payment.confirmFailed': 'فشل تأكيد الدفع',
+        'admin.payment.confirmError': 'خطأ في تأكيد الدفع',
+        'admin.withdraw.approved': 'تمت الموافقة على السحب!',
+        'admin.withdraw.approveFailed': 'فشل الموافقة على السحب',
+        'admin.withdraw.approveError': 'خطأ في الموافقة على السحب',
+        'admin.withdraw.rejected': 'تم رفض السحب',
+        'admin.withdraw.rejectFailed': 'فشل رفض السحب',
+        'admin.withdraw.rejectError': 'خطأ في رفض السحب',
+        'admin.kyc.approved': 'تمت الموافقة على التحقق',
+        'admin.kyc.approveFailed': 'فشل الموافقة',
+        'admin.kyc.rejected': 'تم رفض التحقق',
+        'admin.kyc.rejectFailed': 'فشل الرفض',
+        'admin.kyc.reasonRequired': 'الرجاء إدخال سبب الرفض',
+        'admin.kyc.resubmissionReasonRequired': 'الرجاء إدخال سبب لإعادة الإرسال',
+        'admin.kyc.resubmissionRequested': 'تم طلب إعادة الإرسال',
+        'admin.kyc.resubmissionFailed': 'فشل طلب إعادة الإرسال',
+        'admin.kyc.loadDetailsFailed': 'فشل تحميل التفاصيل',
+        'uptime.hoursMinutes': '{{hours}}س {{minutes}}د',
+        'uptime.minutes': '{{minutes}}د',
+        'common.you': 'أنت',
+        'tx.type.deposit': 'إيداع',
+        'tx.type.withdraw': 'سحب',
+        'tx.type.tradeExecuted': 'تم تنفيذ العملية',
+        'tx.type.bot': 'بوت',
+        'tx.type.reset': 'إعادة تعيين',
+        'tx.type.bonusWithdrawal': 'سحب المكافأة',
+        'tx.type.referralBonus': 'مكافأة الإحالة',
+        'tx.type.withdrawalToLive': 'سحب إلى LIVE',
+        'tx.detail.demoFunds': 'أموال تجريبية',
+        'tx.detail.allFundsRemoved': 'تمت إزالة كل الأموال',
+        'tx.detail.fromBonusWallet': 'من محفظة المكافآت',
+        'tx.detail.bonusToLive': 'تم سحب المكافأة إلى محفظة LIVE',
+        'tx.detail.botStarted': 'بدأ',
+        'tx.detail.botPaused': 'متوقف مؤقتًا',
+        'common.minutesAgo': 'منذ {{n}} د',
+        'common.hoursAgo': 'منذ {{n}} س',
+        'common.daysAgo': 'منذ {{n}} ي',
+        'uptime.daysHours': '{{days}}ي {{hours}}س',
+        'admin.toast.paymentConfirmed': 'تم تأكيد الدفع بنجاح!',
+        'admin.toast.paymentConfirmFailed': 'فشل تأكيد الدفع',
+        'admin.toast.paymentConfirmError': 'خطأ في تأكيد الدفع',
+        'admin.toast.invoiceComingSoon': 'تفاصيل الفاتورة قريبًا',
+        'admin.toast.webhookRetried': 'تمت إعادة محاولة الويبهوك بنجاح!',
+        'admin.toast.webhookRetryFailed': 'فشل إعادة محاولة الويبهوك',
+        'admin.toast.webhookRetryError': 'خطأ في إعادة محاولة الويبهوك',
+        'admin.toast.searchFailed': 'فشل البحث',
+        'admin.toast.depositConfirmed': 'تم تأكيد الإيداع!',
+        'admin.toast.depositConfirmFailed': 'فشل تأكيد الإيداع',
+        'admin.toast.depositConfirmError': 'خطأ في تأكيد الإيداع',
+        'admin.toast.withdrawalApproved': 'تمت الموافقة على السحب!',
+        'admin.toast.withdrawalApproveFailed': 'فشل الموافقة على السحب',
+        'admin.toast.withdrawalApproveError': 'خطأ في الموافقة على السحب',
+        'admin.toast.withdrawalRejected': 'تم رفض السحب',
+        'admin.toast.withdrawalRejectFailed': 'فشل رفض السحب',
+        'admin.toast.withdrawalRejectError': 'خطأ في رفض السحب',
+        'admin.toast.verificationApproved': 'تمت الموافقة على التحقق',
+        'admin.toast.verificationApproveFailed': 'فشل الموافقة',
+        'admin.toast.verificationRejected': 'تم رفض التحقق',
+        'admin.toast.verificationRejectFailed': 'فشل الرفض',
+        'admin.toast.resubmissionRequested': 'تم طلب إعادة الإرسال',
+        'admin.toast.resubmissionFailed': 'فشل طلب إعادة الإرسال',
+        'admin.toast.rejectionReason': 'يرجى إدخال سبب الرفض',
+        'admin.toast.resubmissionReason': 'يرجى إدخال سبب لإعادة الإرسال',
+        'admin.toast.loadDetailsFailed': 'فشل تحميل التفاصيل',
+        'admin.toast.docLoadFailed': 'فشل تحميل صورة المستند',
+        'admin.toast.docNotAvailable': 'المستند غير متاح',
+        'admin.toast.docLoadError': 'خطأ في تحميل المستند',
+        'admin.toast.loginRequired': 'يرجى تسجيل الدخول أولًا',
+        'admin.toast.exportPreparing': 'جارٍ تجهيز التصدير...',
+        'admin.toast.exportCompleted': 'اكتمل التصدير!',
+        'admin.toast.exportFailed': 'فشل التصدير',
+        'admin.toast.configSaved': 'تم حفظ التكوين بنجاح',
+        'admin.toast.configError': 'خطأ: {{message}}',
+        'admin.empty.noActivityFound': 'لم يتم العثور على نشاط',
+        'admin.empty.noAlerts': 'لا توجد تنبيهات - كل شيء يبدو جيدًا!',
+        'admin.empty.noWebhookLogs': 'لم يتم العثور على سجلات الويبهوك',
+        'admin.status.critical': 'حرج',
+        'admin.status.warnings': 'تحذيرات',
+        'admin.status.info': 'معلومات',
+        'admin.approve': 'موافقة',
+        'admin.reject': 'رفض',
+        'admin.view': 'عرض',
+        'admin.retry': 'إعادة المحاولة',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -8684,6 +9779,225 @@ const TRANSLATIONS = {
         'auth.backToLogin': '返回登录',
         'sidebar.admin': '管理面板',
         'sidebar.verification': '身份验证',
+        'deposit.status.waiting': '等待付款中...',
+        'deposit.status.confirmed': '付款已确认。您的余额已到账。',
+        'deposit.status.detectedConfirming': '已检测到付款。正在等待区块链确认...',
+        'deposit.status.detected': '已检测到付款。等待确认中...',
+        'deposit.status.cancelled': '发票已取消',
+        'deposit.status.expired': '发票已过期',
+        'deposit.paymentReady': '付款已就绪！请扫描二维码或复制地址。',
+        'deposit.invoiceExpiredToast': '发票已过期。请重新生成一个。',
+        'deposit.invoiceCancelled': '发票已取消。',
+        'deposit.noActiveInvoice': '没有可取消的活动发票。',
+        'deposit.noActiveDeposit': '没有活动的存款请求。',
+        'deposit.cancelFailed': '取消发票失败。',
+        'deposit.cancelError': '取消发票时出错。',
+        'deposit.copyAddressSuccess': '地址已复制到剪贴板！',
+        'deposit.copyAmountSuccess': '金额已复制到剪贴板！',
+        'deposit.copyAddressFailed': '复制地址失败。',
+        'deposit.copyAmountFailed': '复制金额失败。',
+        'deposit.generateError': '生成付款时出错。请重试。',
+        'deposit.deposited': '${{amount}} 存款成功！',
+        'deposit.minDepositToast': '最低存款为 ${{min}}',
+        'deposit.cancelConfirm': '您确定要取消此发票吗？',
+        'deposit.btn.generating': '生成中...',
+        'deposit.btn.generatePayment': '生成付款',
+        'deposit.checkingStatus': '正在检查付款状态...',
+        'deposit.checkingBlockchain': '正在检查区块链...',
+        'kyc.legalName': '请输入您的法定全名',
+        'kyc.dob': '请输入您的出生日期',
+        'kyc.country': '请选择您的国家',
+        'kyc.address': '请输入您的完整居住地址',
+        'kyc.personalSaved': '个人信息已保存',
+        'kyc.saveFailed': '保存个人信息失败',
+        'kyc.fileTooLarge': '文件过大。最大尺寸为 10MB',
+        'kyc.invalidFileType': '文件类型无效。允许：JPG、PNG、WebP',
+        'kyc.docUploaded': '文档上传成功',
+        'kyc.uploadFailed': '上传失败',
+        'kyc.docRemoved': '文档已删除',
+        'kyc.removeFailed': '删除文档失败',
+        'kyc.missingDocs': '请上传：{{missing}}',
+        'kyc.missingIdentity': '身份证件',
+        'kyc.missingSelfie': '持证件自拍',
+        'kyc.submitted': '验证已提交审核',
+        'kyc.submitFailed': '提交验证失败',
+        'kyc.status.verified': '已验证',
+        'kyc.status.pendingReview': '待审核',
+        'kyc.status.rejected': '已拒绝',
+        'kyc.status.resubmission': '需要重新提交',
+        'kyc.status.notStarted': '未开始',
+        'kyc.status.required': '需要验证',
+        'kyc.status.new': '新建',
+        'kyc.level.emailVerified': '邮箱已验证',
+        'kyc.level.identitySubmitted': '身份已提交',
+        'kyc.level.identityVerified': '身份已验证',
+        'kyc.level.withdrawalEnabled': '已启用提现',
+        'kyc.level.uploadDocuments': '上传文档',
+        'kyc.summary.title': '验证摘要',
+        'kyc.summary.name': '姓名',
+        'kyc.summary.dob': '出生日期',
+        'kyc.summary.country': '国家',
+        'kyc.summary.documents': '文档',
+        'kyc.noData': '无验证数据',
+        'kyc.noDocuments': '未上传文档',
+        'kyc.noHistory': '无历史记录',
+        'support.reply.default': '感谢您的留言！我们的团队将尽快与您联系。',
+        'support.reply.bot': '🤖 启动机器人：1) 切换到 DEMO 或 LIVE 模式，2) 在 LIVE 模式下，先达到 ${{mta}} MTA，3) 点击 \'Start Bot\' 按钮。',
+        'support.reply.deposit': '💰 存款：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，选择您的网络（推荐 TRC20），点击 \'Get Payment Address\'，然后将 USDT 发送到显示的地址。我们会自动检测。',
+        'support.reply.withdraw': '🏦 提现：1) 切换到 LIVE 模式，2) 进行存款，3) 至少完成 1 笔交易，4) 点击侧边栏的 \'Withdraw\'。处理时间为 15-30 分钟。',
+        'support.reply.bonus': '🎁 邀请好友，每人可获得 $10 奖励！您的奖励会累积在奖励钱包中。当您拥有至少 $50 奖励和至少 1 个推荐时，即可提现到 Live 钱包。',
+        'support.reply.sound': '🔊 您可以点击页眉中的扬声器图标来控制声音，或在个人资料设置中调节音量。',
+        'support.reply.language': '🌍 您可以点击页眉中的 🌐 地球图标更改语言，或在个人资料设置中更改。',
+        'support.reply.hello': '👋 您好！欢迎来到 Arbitrix AI 支持。今天我能为您做些什么？',
+        'ticker.earned': '<span class="ticker-user">{{user}}</span> 在 {{asset}} 赚取 <span class="ticker-amount green">+${{amount}}</span>',
+        'ticker.deposited': '<span class="ticker-user">{{user}}</span> 存入 <span class="ticker-amount gold">${{amount}}</span>',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> 推荐了一位好友并获得 <span class="ticker-amount gold">$10</span> 奖励！',
+        'ticker.arbitrage': '检测到套利：<span class="ticker-amount gold">{{asset}}</span> 价差 <span class="ticker-amount green">+{{spread}}%</span>',
+        'ticker.newTrader': '来自 <span class="ticker-amount gold">{{country}}</span> 的新交易者加入了 Arbitrix AI',
+        'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> 解锁了 <span class="ticker-amount gold">{{badge}}</span></span>',
+        'referral.welcomeReferred': '🎉 欢迎！您的朋友将获得推荐奖励。',
+        'referral.simulatedToast': '🎉 <strong>模拟推荐成功！</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} 奖励已添加到奖励钱包</span>',
+        'referral.simulatedTitle': '模拟推荐',
+        'referral.simulatedDesc': '+${{amount}} 奖励已添加到奖励钱包',
+        'referral.simulateError': '模拟推荐时出错',
+        'referral.codeLoading': '推荐码正在加载，请稍后重试',
+        'bonus.withdrawnTitle': '奖励已提现',
+        'share.linkCopied': '链接已复制到剪贴板！',
+        '2fa.resendIn': '{{seconds}}秒后可重新发送',
+        '2fa.waitSeconds': '请等待 {{seconds}} 秒后再重新请求。',
+        '2fa.resendFailed': '重新发送验证码失败。请重试。',
+        '2fa.sessionExpired': '会话已过期。请重新登录。',
+        '2fa.newCodeSent': '新验证码已发送至 {{email}}',
+        '2fa.codeSentTo': '请输入发送至 {{email}} 的 6 位验证码',
+        '2fa.codeExpired': '验证码已过期。请重新获取。',
+        '2fa.expired': '已过期',
+        '2fa.invalidCode': '验证码无效',
+        '2fa.attemptsRemaining': '（剩余 {{n}} 次尝试）',
+        '2fa.generateQRFirst': '请先生成二维码',
+        '2fa.newCodesGenerated': '已生成新的恢复码！',
+        '2fa.disabled': '已禁用 2FA',
+        '2fa.nowEnabled': '双因素认证现已启用！',
+        '2fa.loadStatusFailed': '加载 2FA 状态失败',
+        '2fa.codesRemaining': '剩余 {{count}} 个',
+        '2fa.regeneratePrompt': '请输入您的验证器代码以重新生成恢复码：',
+        '2fa.btn.generating': '生成中...',
+        '2fa.btn.generateNew': '生成新二维码',
+        '2fa.btn.generate': '生成二维码',
+        '2fa.btn.verifying': '验证中...',
+        '2fa.btn.verifyEnable': '验证并启用',
+        '2fa.btn.disabling': '禁用中...',
+        '2fa.btn.disable': '禁用',
+        '2fa.btn.newCodes': '新恢复码',
+        'common.justNow': '刚刚',
+        'withdraw.failed': '提现失败',
+        'deposit.confirmedSuccess': '充值已确认！',
+        'deposit.confirmFailed': '确认充值失败',
+        'deposit.confirmError': '确认充值时出错',
+        'admin.loginRequired': '请先登录',
+        'admin.export.preparing': '正在准备导出...',
+        'admin.export.completed': '导出完成！',
+        'admin.export.failed': '导出失败',
+        'admin.doc.loadImageFailed': '加载文档图像失败',
+        'admin.doc.notAvailable': '文档不可用',
+        'admin.doc.loadFailed': '加载文档失败',
+        'admin.invoice.detailsComingSoon': '发票详情即将推出',
+        'admin.webhook.retrySuccess': 'Webhook 重试成功！',
+        'admin.webhook.retryFailed': '重试 Webhook 时出错',
+        'admin.searchFailed': '搜索失败',
+        'referral.configSaved': '配置保存成功',
+        'referral.configError': '错误：{{error}}',
+        'milestone.winsSuffix': '{{n}} 次胜利',
+        'admin.empty.noActivity': '未找到活动',
+        'admin.empty.loadHealthFailed': '加载健康状态失败',
+        'admin.empty.loadActivityFailed': '加载活动失败',
+        'admin.empty.noVerifications': '未找到验证',
+        'admin.health.lastChecked': '上次检查：{{time}}',
+        'admin.health.serverUptime': '服务器运行时间',
+        'admin.confirmPayment': '您确定要手动确认此付款吗？',
+        'admin.payment.confirmed': '付款确认成功！',
+        'admin.payment.confirmFailed': '确认付款失败',
+        'admin.payment.confirmError': '确认付款时出错',
+        'admin.withdraw.approved': '提现已批准！',
+        'admin.withdraw.approveFailed': '批准提现失败',
+        'admin.withdraw.approveError': '批准提现时出错',
+        'admin.withdraw.rejected': '提现已拒绝',
+        'admin.withdraw.rejectFailed': '拒绝提现失败',
+        'admin.withdraw.rejectError': '拒绝提现时出错',
+        'admin.kyc.approved': '验证已批准',
+        'admin.kyc.approveFailed': '批准失败',
+        'admin.kyc.rejected': '验证已拒绝',
+        'admin.kyc.rejectFailed': '拒绝失败',
+        'admin.kyc.reasonRequired': '请输入拒绝原因',
+        'admin.kyc.resubmissionReasonRequired': '请输入重新提交的原因',
+        'admin.kyc.resubmissionRequested': '已请求重新提交',
+        'admin.kyc.resubmissionFailed': '请求重新提交失败',
+        'admin.kyc.loadDetailsFailed': '加载详情失败',
+        'uptime.hoursMinutes': '{{hours}}小时 {{minutes}}分',
+        'uptime.minutes': '{{minutes}}分',
+        'common.you': '你',
+        'tx.type.deposit': '充值',
+        'tx.type.withdraw': '提现',
+        'tx.type.tradeExecuted': '交易已执行',
+        'tx.type.bot': '机器人',
+        'tx.type.reset': '重置',
+        'tx.type.bonusWithdrawal': '奖励提现',
+        'tx.type.referralBonus': '推荐奖励',
+        'tx.type.withdrawalToLive': '提现到 Live',
+        'tx.detail.demoFunds': '模拟资金',
+        'tx.detail.allFundsRemoved': '所有资金已移除',
+        'tx.detail.fromBonusWallet': '来自 Bonus Wallet',
+        'tx.detail.bonusToLive': '奖励已提现到 Live Wallet',
+        'tx.detail.botStarted': '已启动',
+        'tx.detail.botPaused': '已暂停',
+        'common.minutesAgo': '{{n}}分钟前',
+        'common.hoursAgo': '{{n}}小时前',
+        'common.daysAgo': '{{n}}天前',
+        'uptime.daysHours': '{{days}}天 {{hours}}小时',
+        'admin.toast.paymentConfirmed': '付款确认成功！',
+        'admin.toast.paymentConfirmFailed': '确认付款失败',
+        'admin.toast.paymentConfirmError': '确认付款时出错',
+        'admin.toast.invoiceComingSoon': '发票详情即将推出',
+        'admin.toast.webhookRetried': 'Webhook 重试成功！',
+        'admin.toast.webhookRetryFailed': '重试 Webhook 失败',
+        'admin.toast.webhookRetryError': '重试 Webhook 时出错',
+        'admin.toast.searchFailed': '搜索失败',
+        'admin.toast.depositConfirmed': '存款已确认！',
+        'admin.toast.depositConfirmFailed': '确认存款失败',
+        'admin.toast.depositConfirmError': '确认存款时出错',
+        'admin.toast.withdrawalApproved': '提现已批准！',
+        'admin.toast.withdrawalApproveFailed': '批准提现失败',
+        'admin.toast.withdrawalApproveError': '批准提现时出错',
+        'admin.toast.withdrawalRejected': '提现已拒绝',
+        'admin.toast.withdrawalRejectFailed': '拒绝提现失败',
+        'admin.toast.withdrawalRejectError': '拒绝提现时出错',
+        'admin.toast.verificationApproved': '验证已批准',
+        'admin.toast.verificationApproveFailed': '批准失败',
+        'admin.toast.verificationRejected': '验证已拒绝',
+        'admin.toast.verificationRejectFailed': '拒绝失败',
+        'admin.toast.resubmissionRequested': '已请求重新提交',
+        'admin.toast.resubmissionFailed': '请求重新提交失败',
+        'admin.toast.rejectionReason': '请输入拒绝原因',
+        'admin.toast.resubmissionReason': '请输入重新提交的原因',
+        'admin.toast.loadDetailsFailed': '加载详情失败',
+        'admin.toast.docLoadFailed': '加载文档图片失败',
+        'admin.toast.docNotAvailable': '文档不可用',
+        'admin.toast.docLoadError': '加载文档时出错',
+        'admin.toast.loginRequired': '请先登录',
+        'admin.toast.exportPreparing': '正在准备导出...',
+        'admin.toast.exportCompleted': '导出完成！',
+        'admin.toast.exportFailed': '导出失败',
+        'admin.toast.configSaved': '配置保存成功',
+        'admin.toast.configError': '错误：{{message}}',
+        'admin.empty.noActivityFound': '未找到活动',
+        'admin.empty.noAlerts': '无警报 - 一切正常！',
+        'admin.empty.noWebhookLogs': '未找到 Webhook 日志',
+        'admin.status.critical': '严重',
+        'admin.status.warnings': '警告',
+        'admin.status.info': '信息',
+        'admin.approve': '批准',
+        'admin.reject': '拒绝',
+        'admin.view': '查看',
+        'admin.retry': '重试',
     }
 };
 // Copy translations for other languages
@@ -8924,7 +10238,7 @@ function showInstallPrompt() {
                 const modal = document.getElementById('iosInstallModal');
                 if(modal) modal.classList.add('open');
                 try { localStorage.setItem('ios_install_shown', 'true'); } catch(e) {}
-            }, 3000);
+    }, 3000);
         }
         return;
     }
@@ -8980,7 +10294,7 @@ const Notifications = {
     clearAll() { this.list = []; this.unread = 0; this.save(); this.updateUI(); },
     setupUI() { this.updateUI(); },
     updateUI() { const dot = document.getElementById('notificationUnreadDot'); if(dot) { if(this.unread > 0) dot.classList.remove('hidden'); else dot.classList.add('hidden'); } const listEl = document.getElementById('notificationList'); if(!listEl) return; if(this.list.length === 0) { listEl.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>' + t('notifications.empty') + '</p></div>'; return; } listEl.innerHTML = this.list.slice(0, 20).map(function(n) { const timeStr = Notifications.formatTime(n.time); const unreadClass = n.read ? '' : 'unread'; return '<div class="notification-item ' + unreadClass + '" onclick="Notifications.markAsRead(' + n.id + ')"><div class="notification-icon ' + n.type + '"><i class="fas ' + n.icon + '"></i></div><div class="notification-content"><div class="notification-title">' + escapeHtml(n.title) + '</div><div class="notification-desc">' + escapeHtml(n.desc) + '</div><div class="notification-time">' + timeStr + '</div></div></div>'; }).join(''); },
-    formatTime(timestamp) { const now = Date.now(); const diff = now - timestamp; const seconds = Math.floor(diff / 1000); const minutes = Math.floor(seconds / 60); const hours = Math.floor(minutes / 60); const days = Math.floor(hours / 24); if(seconds < 60) return 'Just now'; if(minutes < 60) return minutes + 'm ago'; if(hours < 24) return hours + 'h ago'; if(days < 7) return days + 'd ago'; return new Date(timestamp).toLocaleDateString(); }
+    formatTime(timestamp) { const now = Date.now(); const diff = now - timestamp; const seconds = Math.floor(diff / 1000); const minutes = Math.floor(seconds / 60); const hours = Math.floor(minutes / 60); const days = Math.floor(hours / 24); if(seconds < 60) return t('common.justNow'); if(minutes < 60) return t('common.minutesAgo', {n: minutes}); if(hours < 24) return t('common.hoursAgo', {n: hours}); if(days < 7) return t('common.daysAgo', {n: days}); return new Date(timestamp).toLocaleDateString(); }
 };
 try { Notifications.init(); } catch(e) {}
 
@@ -9291,19 +10605,19 @@ async function simulateReferral() {
             updateUI();
             updateReferralDisplay();
             updateBonusWalletUI();
-            showToast('🎉 <strong>Simulated referral!</strong><br><span style="font-size:10px;opacity:0.9;">+$' + bonusEarned + ' bonus added to Bonus Wallet</span>', 'success', 4000);
+            showToast(t('referral.simulatedToast', {amount: bonusEarned}), 'success', 4000);
             try { Sound.referralEarn(); } catch(e) {}
             try { Confetti.celebrateReferral(); } catch(e) {}
-            Notifications.add('success', 'Referral Simulated', '+$' + bonusEarned + ' bonus added to Bonus Wallet', 'fa-gift');
+            Notifications.add('success', t('referral.simulatedTitle'), t('referral.simulatedDesc', {amount: bonusEarned}), 'fa-gift');
         }
     } catch (e) {
         console.log('Error simulating referral:', e);
-        showToast('Error simulating referral', 'error');
+        showToast(t('referral.simulateError'), 'error');
     }
 }
 
 function resetReferrals() {
-    if (confirm('Reset all referral stats? This cannot be undone.')) {
+    if (confirm(t('referral.resetConfirm'))) {
         APP.referralStats = {
             activeReferrals: 0,
             pendingReferrals: 0,
@@ -9316,7 +10630,7 @@ function resetReferrals() {
         updateUI();
         updateReferralDisplay();
         updateBonusWalletUI();
-        showToast('Referral stats reset', 'info');
+        showToast(t('referral.resetDone'), 'info');
     }
 }
 
@@ -9462,10 +10776,42 @@ function withdrawBonusToLive() {
     showToast(t('bonus.withdrawSuccess', {amount: formatCurrency(amount)}), 'success', 4000);
     try { Sound.bonusWithdraw(); } catch(e) {}
     try { Confetti.cannon('medium'); } catch(e) {}
-    Notifications.add('success', 'Bonus Withdrawn', t('bonus.withdrawHistory', {amount: formatCurrency(amount)}), 'fa-arrow-right');
+    Notifications.add('success', t('bonus.withdrawnTitle'), t('bonus.withdrawHistory', {amount: formatCurrency(amount)}), 'fa-arrow-right');
 }
 
 // ============ TRANSACTION LOG ============
+// Raw stored transaction type/detail values -> i18n keys. RENDER-ONLY mapping:
+// stored values are NEVER modified, dedup'd, filtered, or compared differently.
+// Unknown values fall back to the original English string verbatim.
+const TX_TYPE_LABELS = {
+    'Deposit': 'tx.type.deposit',
+    'Withdraw': 'tx.type.withdraw',
+    'Trade Executed': 'tx.type.tradeExecuted',
+    'Bot': 'tx.type.bot',
+    'Reset': 'tx.type.reset',
+    'Bonus Withdrawal': 'tx.type.bonusWithdrawal',
+    'Referral Bonus': 'tx.type.referralBonus',
+    'Withdrawal to Live': 'tx.type.withdrawalToLive'
+};
+const TX_DETAIL_LABELS = {
+    'Demo Funds': 'tx.detail.demoFunds',
+    'All funds removed': 'tx.detail.allFundsRemoved',
+    'From Bonus Wallet': 'tx.detail.fromBonusWallet',
+    'Bonus withdrawn to Live Wallet': 'tx.detail.bonusToLive',
+    'Started': 'tx.detail.botStarted',
+    'Paused': 'tx.detail.botPaused'
+};
+function txTypeLabel(rawType) {
+    if (!rawType) return '';
+    const key = TX_TYPE_LABELS[rawType];
+    return key ? t(key) : rawType;
+}
+function txDetailLabel(rawDetail) {
+    if (!rawDetail) return '';
+    const key = TX_DETAIL_LABELS[rawDetail];
+    return key ? t(key) : rawDetail;
+}
+
 function toggleTransactionView() {
     APP.txViewExpanded = !APP.txViewExpanded;
     const btn = document.getElementById('viewMoreTxBtn');
@@ -9497,8 +10843,8 @@ function updateTransactionLog() {
         
         html += '<div class="tx-entry">' +
                 '<div style="min-width:0;flex:1;">' +
-                    '<div class="tx-type">' + entry.type + '</div>' +
-                    '<div class="tx-detail">' + (entry.detail||'') + '</div>' +
+                    '<div class="tx-type">' + txTypeLabel(entry.type) + '</div>' +
+                    '<div class="tx-detail">' + txDetailLabel(entry.detail) + '</div>' +
                 '</div>' +
                 '<div style="text-align:right;flex-shrink:0;">' +
                     '<div class="tx-amount ' + amountClass + '">' + prefix + formatCurrency(Math.abs(entry.amount)) + '</div>' +
@@ -9524,11 +10870,11 @@ function updateTransactionLog() {
 const TICKER_NAMES = ['Alex','Maria','James','Sophia','David','Emma','Michael','Olivia','Daniel','Ava','Robert','Isabella','William','Mia','Joseph','Charlotte','Thomas','Amelia','Christopher','Harper','Lucas','Evelyn','Henry','Abigail','Kenji','Yuki','Hans','Priya','Ahmed','Liu','Carlos','Fatima'];
 const TICKER_ASSETS = [{symbol:'BTC/USDT'},{symbol:'ETH/USDT'},{symbol:'EUR/USD'},{symbol:'AAPL'},{symbol:'XAU/USD'},{symbol:'SOL/USDT'},{symbol:'GBP/JPY'},{symbol:'TSLA'}];
 const TICKER_TEMPLATES = [
-    {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];const a=TICKER_ASSETS[Math.floor(Math.random()*TICKER_ASSETS.length)];const p=(Math.random()*180+5).toFixed(2);const m=n.charAt(0)+'***'+n.charAt(n.length-1);return{icon:'💰',html:'<span class="ticker-user">'+m+'</span> earned <span class="ticker-amount green">+$'+p+'</span> on '+a.symbol};}},
-    {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];const amts=[50,100,250,500,1000,2500,5000];const a=amts[Math.floor(Math.random()*amts.length)];return{icon:'💵',html:'<span class="ticker-user">'+n.charAt(0)+'***</span> deposited <span class="ticker-amount gold">$'+a.toLocaleString()+'</span>'};}},
-    {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];return{icon:'🎉',html:'<span class="ticker-user">'+n.charAt(0)+'***</span> referred a friend and earned <span class="ticker-amount gold">$10</span> bonus!'};}},
-    {generate:function(){const a=TICKER_ASSETS[Math.floor(Math.random()*TICKER_ASSETS.length)];const s=(Math.random()*0.8+0.05).toFixed(3);return{icon:'⚡',html:'Arbitrage detected: <span class="ticker-amount gold">'+a.symbol+'</span> spread <span class="ticker-amount green">+'+s+'%</span>'};}},
-    {generate:function(){const cs=['US','UK','DE','JP','BR','IN','NG','CA','AU','FR'];const c=cs[Math.floor(Math.random()*cs.length)];return{icon:'🎉',html:'New trader from <span class="ticker-amount gold">'+c+'</span> joined Arbitrix AI'};}}
+    {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];const a=TICKER_ASSETS[Math.floor(Math.random()*TICKER_ASSETS.length)];const p=(Math.random()*180+5).toFixed(2);const m=n.charAt(0)+'***'+n.charAt(n.length-1);return{icon:'💰',html:t('ticker.earned',{user:m,amount:p,asset:a.symbol})};}},
+    {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];const amts=[50,100,250,500,1000,2500,5000];const a=amts[Math.floor(Math.random()*amts.length)];return{icon:'💵',html:t('ticker.deposited',{user:n.charAt(0)+'***',amount:a.toLocaleString()})};}},
+    {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];return{icon:'🎉',html:t('ticker.referred',{user:n.charAt(0)+'***'})};}},
+    {generate:function(){const a=TICKER_ASSETS[Math.floor(Math.random()*TICKER_ASSETS.length)];const s=(Math.random()*0.8+0.05).toFixed(3);return{icon:'⚡',html:t('ticker.arbitrage',{asset:a.symbol,spread:s})};}},
+    {generate:function(){const cs=['US','UK','DE','JP','BR','IN','NG','CA','AU','FR'];const c=cs[Math.floor(Math.random()*cs.length)];return{icon:'🎉',html:t('ticker.newTrader',{country:c})};}}
 ];
 
 function generateTickerItems(count) {
@@ -9560,7 +10906,7 @@ function addBadgeToTicker(badge) {
     const content = getEl('tickerContent');
     if(!content) return;
     const badgeName = getBadgeName(badge);
-    const badgeItem = '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">You</span> unlocked <span class="ticker-amount gold">'+badge.icon+' '+badgeName+'</span></span>';
+    const badgeItem = t('ticker.badgeUnlocked', {user: t('common.you'), badge: badge.icon + ' ' + badgeName});
     content.innerHTML = badgeItem + '<span class="ticker-separator">•</span>' + content.innerHTML;
 }
 
@@ -9910,7 +11256,7 @@ function checkStreakMilestones() {
         showToast('🔥 <strong>' + t('milestone.streak5') + '</strong>', 'success', 4000);
         try { Confetti.celebrateStreak(5); } catch(e) {}
         try { Sound.streak(); } catch(e) {}
-        Notifications.add('success', t('milestone.streak5'), maxStreak + ' wins', 'fa-fire');
+        Notifications.add('success', t('milestone.streak5'), t('milestone.winsSuffix', {n: maxStreak}), 'fa-fire');
     }
     if(maxStreak >= 10 && !APP.celebratedMilestones.streak_10) {
         APP.celebratedMilestones.streak_10 = true;
@@ -9918,7 +11264,7 @@ function checkStreakMilestones() {
         showToast('⚡ <strong>' + t('milestone.streak10') + '</strong>', 'badge', 5000);
         try { Confetti.celebrateStreak(10); } catch(e) {}
         try { Sound.streak(); } catch(e) {}
-        Notifications.add('success', t('milestone.streak10'), maxStreak + ' wins', 'fa-bolt');
+        Notifications.add('success', t('milestone.streak10'), t('milestone.winsSuffix', {n: maxStreak}), 'fa-bolt');
     }
 }
 
@@ -10273,7 +11619,7 @@ async function requestDepositAddress() {
   const amountUSD = parseFloat(document.getElementById('liveDepositAmount').value);
   const MIN_DEPOSIT_AMOUNT = 50;
   if (!amountUSD || amountUSD < MIN_DEPOSIT_AMOUNT) {
-    showToast(`Minimum deposit is $${MIN_DEPOSIT_AMOUNT}`, 'error');
+    showToast(t('deposit.minDepositToast', {min: MIN_DEPOSIT_AMOUNT}), 'error');
     return;
   }
 
@@ -10283,7 +11629,7 @@ async function requestDepositAddress() {
 
   const btn = document.getElementById('getAddressBtn');
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('deposit.btn.generating');
 
   try {
     // Call API to create invoice
@@ -10319,9 +11665,9 @@ async function requestDepositAddress() {
 
   } catch (error) {
     console.error('Deposit request error:', error);
-    showToast('Error generating payment. Please try again.', 'error');
+    showToast(t('deposit.generateError'), 'error');
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
+    btn.innerHTML = '<i class="fas fa-qrcode"></i> ' + t('deposit.btn.generatePayment');
   }
 }
 
@@ -10344,7 +11690,7 @@ function showPaymentSection(invoice, amountUSD) {
   
   // Set progress to "Created"
   updatePaymentProgress('created');
-  updateCurrentStatus('Waiting for payment...', '#F0B90B');
+  updateCurrentStatus(t('deposit.status.waiting'), '#F0B90B');
   
   // Generate QR code and set wallet address
   if (invoice.provider === 'q8qpay') {
@@ -10421,7 +11767,7 @@ function showPaymentSection(invoice, amountUSD) {
   // Start polling
   startPollingForPayment(currentInvoiceId);
   
-  showToast('Payment ready! Scan QR code or copy address.', 'success');
+  showToast(t('deposit.paymentReady'), 'success');
 }
 
 // Update payment progress steps
@@ -10567,17 +11913,17 @@ function startDepositTimer(expiresAt) {
       clearInterval(paymentPollingInterval);
       
       // Invoice expired
-      updateDepositStatus('expired', 'Invoice expired. Please generate a new one.');
+      updateDepositStatus('expired', t('deposit.invoiceExpiredToast'));
       showProgressBar(false);
       
       document.getElementById('cancelInvoiceBtn').style.display = 'none';
       document.getElementById('forceCheckBtn').disabled = true;
       document.getElementById('getAddressBtn').style.display = 'flex';
       document.getElementById('getAddressBtn').disabled = false;
-      document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
+      document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> ' + t('deposit.btn.generatePayment');
       document.getElementById('newInvoiceBtn').style.display = 'block';
       
-      showToast('Invoice expired. Please generate a new one.', 'warning');
+      showToast(t('deposit.invoiceExpiredToast'), 'warning');
     }
   };
   
@@ -10614,7 +11960,7 @@ function startPollingForPayment(invoiceId) {
         
         // Update progress to credited
         updatePaymentProgress('credited');
-        updateCurrentStatus('Payment confirmed. Your balance has been credited.', '#10B981');
+        updateCurrentStatus(t('deposit.status.confirmed'), '#10B981');
         
         // Get credited amount
         const creditedAmount = result.amountUsd || result.creditedAmount || 0;
@@ -10699,7 +12045,7 @@ function startPollingForPayment(invoiceId) {
         // Show success after a brief delay
         setTimeout(() => {
           showSuccessSection(creditedAmount, invoiceId, newBalance);
-          showToast(`$${creditedAmount.toFixed(2)} deposited successfully!`, 'success');
+          showToast(t('deposit.deposited', {amount: creditedAmount.toFixed(2)}), 'success');
           if (typeof Sound !== 'undefined' && Sound.deposit) {
             Sound.deposit();
           }
@@ -10708,22 +12054,22 @@ function startPollingForPayment(invoiceId) {
         // Provider explicitly reports payment is being confirmed on-chain.
         // (q8qpay does not emit this state, but keep it for providers that do.)
         updatePaymentProgress('confirming');
-        updateCurrentStatus('Payment detected. Waiting for blockchain confirmation...', '#F0B90B');
+        updateCurrentStatus(t('deposit.status.detectedConfirming'), '#F0B90B');
       } else if (result.status === 'detected') {
         // Provider explicitly reports a payment has been detected.
         updatePaymentProgress('detected');
-        updateCurrentStatus('Payment detected. Waiting for confirmation...', '#F0B90B');
+        updateCurrentStatus(t('deposit.status.detected'), '#F0B90B');
       } else if (result.status === 'pending') {
         // Invoice created but no payment received yet. q8qpay invoices sit in
         // `pending` until the exact USDT hits the TRC20 address, so a fresh
         // unpaid invoice must read as "waiting for payment", NOT "detected".
         // Keep the progress on the Created step only (do NOT mark Detected active).
         updatePaymentProgress('created');
-        updateCurrentStatus('Waiting for payment...', '#F0B90B');
+        updateCurrentStatus(t('deposit.status.waiting'), '#F0B90B');
       } else if (result.status === 'expired' || result.status === 'cancelled') {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
-        updateCurrentStatus(result.status === 'cancelled' ? 'Invoice cancelled' : 'Invoice expired', '#EF4444');
+        updateCurrentStatus(result.status === 'cancelled' ? t('deposit.status.cancelled') : t('deposit.status.expired'), '#EF4444');
         document.getElementById('cancelInvoiceBtn').style.display = 'none';
         document.getElementById('forceCheckBtn').style.display = 'none';
         document.getElementById('newInvoiceBtn').style.display = 'block';
@@ -10737,44 +12083,44 @@ function startPollingForPayment(invoiceId) {
 
 function forceCheckPayment() {
   if (!currentInvoiceId) {
-    showToast('No active deposit request.', 'info');
+    showToast(t('deposit.noActiveDeposit'), 'info');
     return;
   }
   clearInterval(paymentPollingInterval);
   
-  updateDepositStatus('loading', 'Checking payment status...');
-  showProgressBar(true, 'Checking blockchain...');
+  updateDepositStatus('loading', t('deposit.checkingStatus'));
+  showProgressBar(true, t('deposit.checkingBlockchain'));
   
   startPollingForPayment(currentInvoiceId);
 }
 
 async function cancelCurrentInvoice() {
   if (!currentInvoiceId) {
-    showToast('No active invoice to cancel.', 'info');
+    showToast(t('deposit.noActiveInvoice'), 'info');
     return;
   }
-  
-  if (!confirm('Are you sure you want to cancel this invoice?')) {
+
+  if (!confirm(t('deposit.cancelConfirm'))) {
     return;
   }
-  
+
   try {
     const response = await fetch(`/api/payment/cancel/${currentInvoiceId}`, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token') }
     });
-    
+
     if (response.ok) {
-      showToast('Invoice cancelled.', 'success');
+      showToast(t('deposit.invoiceCancelled'), 'success');
       clearInterval(countdownInterval);
       clearInterval(paymentPollingInterval);
       resetDepositModal();
     } else {
-      showToast('Failed to cancel invoice.', 'error');
+      showToast(t('deposit.cancelFailed'), 'error');
     }
   } catch (error) {
     console.error('Cancel invoice error:', error);
-    showToast('Error cancelling invoice.', 'error');
+    showToast(t('deposit.cancelError'), 'error');
   }
 }
 
@@ -10782,9 +12128,9 @@ function copyWalletAddress() {
   const address = document.getElementById('liveWalletAddress').textContent;
   if (address && address !== 'Select currency & amount, then click "Get Payment Address"') {
     navigator.clipboard.writeText(address).then(() => {
-      showToast('Address copied to clipboard!', 'success');
+      showToast(t('deposit.copyAddressSuccess'), 'success');
     }).catch(() => {
-      showToast('Failed to copy address.', 'error');
+      showToast(t('deposit.copyAddressFailed'), 'error');
     });
   }
 }
@@ -10793,9 +12139,9 @@ function copyDepositAmount() {
   const amount = document.getElementById('liveDepositDisplayAmount').textContent;
   if (amount && amount !== '0.00') {
     navigator.clipboard.writeText(amount).then(() => {
-      showToast('Amount copied to clipboard!', 'success');
+      showToast(t('deposit.copyAmountSuccess'), 'success');
     }).catch(() => {
-      showToast('Failed to copy amount.', 'error');
+      showToast(t('deposit.copyAmountFailed'), 'error');
     });
   }
 }
@@ -10834,13 +12180,13 @@ function resetDepositModal() {
   // Reset buttons
   document.getElementById('getAddressBtn').style.display = 'block';
   document.getElementById('getAddressBtn').disabled = false;
-  document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> Generate Payment';
+  document.getElementById('getAddressBtn').innerHTML = '<i class="fas fa-qrcode"></i> ' + t('deposit.btn.generatePayment');
   document.getElementById('cancelInvoiceBtn').style.display = 'none';
   document.getElementById('forceCheckBtn').style.display = 'none';
   document.getElementById('newInvoiceBtn').style.display = 'none';
   
   // Reset status
-  updateCurrentStatus('Waiting for payment...', '#F0B90B');
+  updateCurrentStatus(t('deposit.status.waiting'), '#F0B90B');
   
   // Clear gateway URL
   window.currentGatewayUrl = null;
@@ -11028,11 +12374,11 @@ async function submitWithdrawAPI(address, amount) {
                 getEl('withdrawKycProgressFill').style.width = '25%';
                 getEl('withdrawKycProgressText').textContent = '25% Complete - Identity Required';
             } else {
-                showToast(data.error || 'Withdrawal failed', 'error');
+                showToast(data.error || t('withdraw.failed'), 'error');
             }
         }
     } catch (e) {
-        showToast('Withdrawal failed', 'error');
+        showToast(t('withdraw.failed'), 'error');
     }
 }
 
@@ -11097,49 +12443,49 @@ function populateVerificationUI() {
                           profile.status === 'pending_review' ? 'fa-clock' :
                           profile.status === 'rejected' ? 'fa-times-circle' :
                           'fa-exclamation-circle';
-        const statusText = profile.status === 'approved' ? 'Verified' :
-                          profile.status === 'pending_review' ? 'Pending Review' :
-                          profile.status === 'rejected' ? 'Rejected' :
-                          profile.status === 'resubmission_required' ? 'Resubmission Required' : 'Not Started';
-        
+        const statusText = profile.status === 'approved' ? t('kyc.status.verified') :
+                          profile.status === 'pending_review' ? t('kyc.status.pendingReview') :
+                          profile.status === 'rejected' ? t('kyc.status.rejected') :
+                          profile.status === 'resubmission_required' ? t('kyc.status.resubmission') : t('kyc.status.notStarted');
+
         statusBanner.style.display = 'block';
         statusBanner.className = statusClass;
         statusBanner.innerHTML = '<i class="fas ' + statusIcon + '"></i> ' + statusText;
-        
+
         if (profile.status === 'rejected' && profile.rejectionReason) {
             statusBanner.innerHTML += '<br><small style="margin-top:4px;display:block;">' + profile.rejectionReason + '</small>';
         }
     } else {
         statusBanner.style.display = 'block';
         statusBanner.className = 'verification-status-resubmission';
-        statusBanner.innerHTML = '<i class="fas fa-exclamation-circle"></i> Verification Required';
+        statusBanner.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + t('kyc.status.required');
     }
-    
+
     // Checklist - Using Verification Levels
     checklistItems.innerHTML = '';
-    
+
     const levelsConfig = [
-        { 
-            name: 'Email Verified', 
+        {
+            name: t('kyc.level.emailVerified'),
             completed: true, // Users are email verified by default
             icon: 'fa-envelope-check',
             color: '#10B981'
         },
-        { 
-            name: 'Identity Submitted', 
+        {
+            name: t('kyc.level.identitySubmitted'),
             completed: profile && profile.status !== 'not_started',
             icon: 'fa-file-upload',
             color: '#F59E0B',
-            subtext: completion && !completion.complete ? 'Upload documents' : null
+            subtext: completion && !completion.complete ? t('kyc.level.uploadDocuments') : null
         },
-        { 
-            name: 'Identity Verified', 
+        {
+            name: t('kyc.level.identityVerified'),
             completed: profile && profile.status === 'approved',
             icon: 'fa-user-check',
             color: '#3B82F6'
         },
-        { 
-            name: 'Withdrawal Enabled', 
+        {
+            name: t('kyc.level.withdrawalEnabled'),
             completed: profile && profile.status === 'approved',
             icon: 'fa-wallet',
             color: '#10B981'
@@ -11233,19 +12579,19 @@ async function savePersonalInfo() {
     const address = document.getElementById('kycAddress').value.trim();
     
     if (!fullName || fullName.length < 2) {
-        showToast('Please enter your full legal name', 'error');
+        showToast(t('kyc.legalName'), 'error');
         return;
     }
     if (!dob) {
-        showToast('Please enter your date of birth', 'error');
+        showToast(t('kyc.dob'), 'error');
         return;
     }
     if (!country) {
-        showToast('Please select your country', 'error');
+        showToast(t('kyc.country'), 'error');
         return;
     }
     if (!address || address.length < 5) {
-        showToast('Please enter your full residential address', 'error');
+        showToast(t('kyc.address'), 'error');
         return;
     }
     
@@ -11267,14 +12613,14 @@ async function savePersonalInfo() {
         
         const data = await res.json();
         if (res.ok) {
-            showToast('Personal information saved', 'success');
+            showToast(t('kyc.personalSaved'), 'success');
             await loadVerificationStatus();
             showVerificationTab('documents');
         } else {
             showToast(data.error || 'Failed to save', 'error');
         }
     } catch (e) {
-        showToast('Failed to save personal info', 'error');
+        showToast(t('kyc.saveFailed'), 'error');
     }
 }
 
@@ -11285,14 +12631,14 @@ async function handleDocumentUpload(input, type) {
     // Validate file
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-        showToast('File too large. Maximum size is 10MB', 'error');
+        showToast(t('kyc.fileTooLarge'), 'error');
         input.value = '';
         return;
     }
-    
+
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-        showToast('Invalid file type. Allowed: JPG, PNG, WebP', 'error');
+        showToast(t('kyc.invalidFileType'), 'error');
         input.value = '';
         return;
     }
@@ -11327,7 +12673,7 @@ async function handleDocumentUpload(input, type) {
             
             const data = await res.json();
             if (res.ok) {
-                showToast('Document uploaded successfully', 'success');
+                showToast(t('kyc.docUploaded'), 'success');
                 await loadVerificationStatus();
             } else {
                 showToast(data.error || 'Upload failed', 'error');
@@ -11337,7 +12683,7 @@ async function handleDocumentUpload(input, type) {
         };
         reader.readAsDataURL(file);
     } catch (e) {
-        showToast('Upload failed', 'error');
+        showToast(t('kyc.uploadFailed'), 'error');
         uploadArea.classList.remove('uploading');
         input.value = '';
     }
@@ -11355,14 +12701,14 @@ async function removeDocument(type) {
         });
         
         if (res.ok) {
-            showToast('Document removed', 'success');
+            showToast(t('kyc.docRemoved'), 'success');
             await loadVerificationStatus();
         } else {
             const data = await res.json();
             showToast(data.error || 'Failed to remove', 'error');
         }
     } catch (e) {
-        showToast('Failed to remove document', 'error');
+        showToast(t('kyc.removeFailed'), 'error');
     }
 }
 
@@ -11371,9 +12717,9 @@ async function submitVerification() {
     
     if (!completion || !completion.complete) {
         let missing = [];
-        if (!completion?.hasIdentity) missing.push('identity document');
-        if (!completion?.hasSelfie) missing.push('selfie with ID');
-        showToast('Please upload: ' + missing.join(', '), 'error');
+        if (!completion?.hasIdentity) missing.push(t('kyc.missingIdentity'));
+        if (!completion?.hasSelfie) missing.push(t('kyc.missingSelfie'));
+        showToast(t('kyc.missingDocs', {missing: missing.join(', ')}), 'error');
         return;
     }
     
@@ -11386,14 +12732,14 @@ async function submitVerification() {
         
         const data = await res.json();
         if (res.ok) {
-            showToast('Verification submitted for review', 'success');
+            showToast(t('kyc.submitted'), 'success');
             await loadVerificationStatus();
             showVerificationTab('review');
         } else {
             showToast(data.error || 'Submission failed', 'error');
         }
     } catch (e) {
-        showToast('Failed to submit verification', 'error');
+        showToast(t('kyc.submitFailed'), 'error');
     }
 }
 
@@ -11407,29 +12753,29 @@ function updateVerificationReview() {
     
     // Summary
     let html = '<div style="background:var(--bg-input);border-radius:10px;padding:16px;">';
-    html += '<div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:12px;">Verification Summary</div>';
-    
+    html += '<div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:12px;">' + t('kyc.summary.title') + '</div>';
+
     if (profile) {
         html += '<div style="display:grid;gap:8px;font-size:11px;">';
-        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Name</span><span>' + (profile.fullLegalName || '-') + '</span></div>';
-        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Date of Birth</span><span>' + (profile.dateOfBirth || '-') + '</span></div>';
-        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Country</span><span>' + (profile.country || '-') + '</span></div>';
-        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">Documents</span><span>' + docs.length + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">' + t('kyc.summary.name') + '</span><span>' + (profile.fullLegalName || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">' + t('kyc.summary.dob') + '</span><span>' + (profile.dateOfBirth || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">' + t('kyc.summary.country') + '</span><span>' + (profile.country || '-') + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;"><span style="color:#8896B5;">' + t('kyc.summary.documents') + '</span><span>' + docs.length + '</span></div>';
         html += '</div>';
     } else {
-        html += '<div style="text-align:center;color:#6B7A99;padding:20px;">No verification data</div>';
+        html += '<div style="text-align:center;color:#6B7A99;padding:20px;">' + t('kyc.noData') + '</div>';
     }
-    
+
     html += '</div>';
     summary.innerHTML = html;
-    
+
     // History
     if (history && history.length > 0) {
         historySection.style.display = 'block';
         historyList.innerHTML = history.map(h => {
             const date = new Date(h.createdAt).toLocaleDateString() + ' ' + new Date(h.createdAt).toLocaleTimeString();
             return '<div style="padding:8px;background:var(--bg-input);border-radius:6px;margin-bottom:4px;font-size:10px;">' +
-                   '<div style="display:flex;justify-content:space-between;"><span>' + (h.previousStatus || 'new') + ' → ' + h.newStatus + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
+                   '<div style="display:flex;justify-content:space-between;"><span>' + (h.previousStatus || t('kyc.status.new')) + ' → ' + h.newStatus + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
                    (h.rejectionReason ? '<div style="color:#EF4444;margin-top:4px;">' + h.rejectionReason + '</div>' : '') +
                    '</div>';
         }).join('');
@@ -11515,15 +12861,15 @@ function sendSupportMessage() {
         getEl('supportInput').value = '';
         chat.scrollTop = chat.scrollHeight;
         setTimeout(function() {
-            let reply = "Thanks for your message! Our team will get back to you shortly.";
+            let reply = t('support.reply.default');
             const lower = msg.toLowerCase();
-            if(lower.includes('bot') || lower.includes('start')) reply = '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach $' + APP.MTA + ' MTA first, 3) Click \'Start Bot\' button.';
-            else if(lower.includes('deposit')) reply = "💰 To deposit: Switch to LIVE mode, click 'Deposit' in the sidebar, enter the amount, choose your network (TRC20 recommended), click 'Get Payment Address', and send USDT to the displayed address. We'll auto-detect it.";
-            else if(lower.includes('withdraw')) reply = "🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click 'Withdraw' in the sidebar. Processing takes 15-30 minutes.";
-            else if(lower.includes('bonus') || lower.includes('referral')) reply = "🎁 Refer friends to earn $10 bonus each! Your bonus accumulates in the Bonus Wallet. Withdraw to Live Wallet once you have at least $50 in bonus and at least 1 referral.";
-            else if(lower.includes('sound') || lower.includes('mute') || lower.includes('volume')) reply = "🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.";
-            else if(lower.includes('language') || lower.includes('translate')) reply = "🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.";
-            else if(lower.includes('hello') || lower.includes('hi')) reply = "👋 Hello! Welcome to Arbitrix AI support. How can I assist you today?";
+            if(lower.includes('bot') || lower.includes('start')) reply = t('support.reply.bot', {mta: APP.MTA});
+            else if(lower.includes('deposit')) reply = t('support.reply.deposit');
+            else if(lower.includes('withdraw')) reply = t('support.reply.withdraw');
+            else if(lower.includes('bonus') || lower.includes('referral')) reply = t('support.reply.bonus');
+            else if(lower.includes('sound') || lower.includes('mute') || lower.includes('volume')) reply = t('support.reply.sound');
+            else if(lower.includes('language') || lower.includes('translate')) reply = t('support.reply.language');
+            else if(lower.includes('hello') || lower.includes('hi')) reply = t('support.reply.hello');
             chat.innerHTML += '<div class="chat-message agent"><div class="msg-bubble">' + reply + '</div></div>';
             chat.scrollTop = chat.scrollHeight;
         }, 800);
@@ -12055,7 +13401,7 @@ async function initApp() {
     const copyReferralBtn = getEl('copyReferralBtn');
     if(copyReferralBtn) copyReferralBtn.addEventListener('click', function() {
         if (!APP.referralCode) {
-            showToast('Referral code is loading, please try again shortly', 'info');
+            showToast(t('referral.codeLoading'), 'info');
             return;
         }
         navigator.clipboard.writeText(APP.referralCode);
@@ -12095,13 +13441,13 @@ async function initApp() {
                 if (err.name !== 'AbortError') {
                     // Fallback to copying
                     navigator.clipboard.writeText(referralLink);
-                    showToast('Link copied to clipboard!', 'success');
+                    showToast(t('share.linkCopied'), 'success');
                 }
             }
         } else {
             // Fallback to copying
             navigator.clipboard.writeText(referralLink);
-            showToast('Link copied to clipboard!', 'success');
+            showToast(t('share.linkCopied'), 'success');
         }
     });
     
@@ -12377,7 +13723,7 @@ async function loadActivityTimeline() {
         const data = await response.json();
         
         if (!data.activities || data.activities.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:12px;"></i><p>No activity found</p></div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noActivity') + '</p></div>';
             return;
         }
         
@@ -12403,7 +13749,7 @@ async function loadActivityTimeline() {
         
     } catch (error) {
         console.error('Failed to load activity timeline:', error);
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">Failed to load activity</div>';
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">' + t('admin.empty.loadActivityFailed') + '</div>';
     }
 }
 
@@ -12437,12 +13783,12 @@ async function loadSystemHealth() {
                         </div>
                         <div>
                             <div style="font-size:18px;font-weight:700;color:${statusColor};text-transform:capitalize;">${data.status}</div>
-                            <div style="font-size:11px;color:#8896B5;">Last checked: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+                            <div style="font-size:11px;color:#8896B5;">${t('admin.health.lastChecked', {time: new Date(data.timestamp).toLocaleTimeString()})}</div>
                         </div>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:24px;font-weight:800;color:#fff;">${uptime}</div>
-                        <div style="font-size:11px;color:#8896B5;">Server Uptime</div>
+                        <div style="font-size:11px;color:#8896B5;">${t('admin.health.serverUptime')}</div>
                     </div>
                 </div>
             `;
@@ -12480,7 +13826,7 @@ async function loadSystemHealth() {
     } catch (error) {
         console.error('Failed to load system health:', error);
         if (statusContainer) {
-            statusContainer.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;">Failed to load health status</div>';
+            statusContainer.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;">' + t('admin.empty.loadHealthFailed') + '</div>';
         }
     }
 }
@@ -12626,11 +13972,11 @@ async function loadAuditLogs() {
 function exportReport(type) {
     const token = localStorage.getItem('jwt_token');
     if (!token) {
-        showToast('Please login first', 'error');
+        showToast(t('admin.loginRequired'), 'error');
         return;
     }
     
-    showToast('Preparing export...', 'info');
+    showToast(t('admin.export.preparing'), 'info');
     
     const link = document.createElement('a');
     link.href = `/api/admin/reports/export?type=${type}&format=csv`;
@@ -12653,11 +13999,11 @@ function exportReport(type) {
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
-        showToast('Export completed!', 'success');
+        showToast(t('admin.export.completed'), 'success');
     })
     .catch(error => {
         console.error('Export failed:', error);
-        showToast('Export failed', 'error');
+        showToast(t('admin.export.failed'), 'error');
     });
 }
 
@@ -12670,13 +14016,13 @@ function formatNumber(num) {
 
 function getTimeAgo(timestamp) {
     const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
-    if (seconds < 60) return 'Just now';
+    if (seconds < 60) return t('common.justNow');
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return minutes + 'm ago';
+    if (minutes < 60) return t('common.minutesAgo', {n: minutes});
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return hours + 'h ago';
+    if (hours < 24) return t('common.hoursAgo', {n: hours});
     const days = Math.floor(hours / 24);
-    if (days < 7) return days + 'd ago';
+    if (days < 7) return t('common.daysAgo', {n: days});
     return new Date(timestamp).toLocaleDateString();
 }
 
@@ -12684,9 +14030,9 @@ function formatUptime(seconds) {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    if (days > 0) return t('uptime.daysHours', {days: days, hours: hours});
+    if (hours > 0) return t('uptime.hoursMinutes', {hours: hours, minutes: minutes});
+    return t('uptime.minutes', {minutes: minutes});
 }
 
 // ============ REFERRAL CONFIG FUNCTIONS ============
@@ -12832,15 +14178,15 @@ async function updateReferralConfig(key, value) {
             throw new Error(data.error || data.message || 'Failed to update configuration');
         }
         
-        showToast('Configuration saved successfully', 'success');
-        
+        showToast(t('referral.configSaved'), 'success');
+
         // Reload config to show updated values
         loadReferralConfig();
-        
+
         // Reload audit history to show the new change
         loadReferralAuditHistory();
     } catch (e) {
-        showToast('Error: ' + e.message, 'error');
+        showToast(t('referral.configError', {error: e.message}), 'error');
         // Reload to reset the input
         loadReferralConfig();
         console.log('Error updating referral config:', e);
@@ -13010,7 +14356,7 @@ function renderKYCVerifications(verifications) {
     const tbody = document.getElementById('kycTableBody');
     
     if (!verifications || verifications.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#8896B5;">No verifications found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#8896B5;">' + t('admin.empty.noVerifications') + '</td></tr>';
         return;
     }
     
@@ -13019,10 +14365,10 @@ function renderKYCVerifications(verifications) {
                           v.status === 'pending_review' ? 'color:#F59E0B;' :
                           v.status === 'rejected' ? 'color:#EF4444;' :
                           'color:#3B82F6;';
-        const statusText = v.status === 'approved' ? 'Approved' :
-                          v.status === 'pending_review' ? 'Pending' :
-                          v.status === 'rejected' ? 'Rejected' :
-                          v.status === 'resubmission_required' ? 'Resubmission' : 'Not Started';
+        const statusText = v.status === 'approved' ? t('kyc.status.verified') :
+                          v.status === 'pending_review' ? t('kyc.status.pendingReview') :
+                          v.status === 'rejected' ? t('kyc.status.rejected') :
+                          v.status === 'resubmission_required' ? t('kyc.status.resubmission') : t('kyc.status.notStarted');
         const submittedDate = v.submittedAt ? new Date(v.submittedAt).toLocaleDateString() : '-';
         const actionBtns = v.status === 'pending_review' ?
             '<button type="button" class="btn btn-success btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')" style="margin-right:4px;">Review</button>' :
@@ -13066,7 +14412,7 @@ async function loadKYCDetails(verificationId) {
             renderKYCDetails(data);
         }
     } catch (e) {
-        showToast('Failed to load details', 'error');
+        showToast(t('admin.kyc.loadDetailsFailed'), 'error');
     }
 }
 
@@ -13080,10 +14426,10 @@ function renderKYCDetails(data) {
     
     // Status
     const statusEl = document.getElementById('kycReviewStatus');
-    statusEl.textContent = data.status === 'approved' ? 'Approved' :
-                          data.status === 'pending_review' ? 'Pending Review' :
-                          data.status === 'rejected' ? 'Rejected' :
-                          data.status === 'resubmission_required' ? 'Resubmission Required' : 'Not Started';
+    statusEl.textContent = data.status === 'approved' ? t('kyc.status.verified') :
+                          data.status === 'pending_review' ? t('kyc.status.pendingReview') :
+                          data.status === 'rejected' ? t('kyc.status.rejected') :
+                          data.status === 'resubmission_required' ? t('kyc.status.resubmission') : t('kyc.status.notStarted');
     
     // Documents
     const docsList = document.getElementById('kycReviewDocuments');
@@ -13096,7 +14442,7 @@ function renderKYCDetails(data) {
                    '</div>';
         }).join('');
     } else {
-        docsList.innerHTML = '<div style="padding:12px;text-align:center;color:#8896B5;">No documents uploaded</div>';
+        docsList.innerHTML = '<div style="padding:12px;text-align:center;color:#8896B5;">' + t('kyc.noDocuments') + '</div>';
     }
     
     // History
@@ -13110,7 +14456,7 @@ function renderKYCDetails(data) {
                    '</div>';
         }).join('');
     } else {
-        historyList.innerHTML = '<div style="padding:12px;text-align:center;color:#8896B5;">No history</div>';
+        historyList.innerHTML = '<div style="padding:12px;text-align:center;color:#8896B5;">' + t('kyc.noHistory') + '</div>';
     }
     
     // Show/hide action buttons based on status
@@ -13136,14 +14482,14 @@ function viewKYCDocument(documentId) {
                 console.log('[KYC] Document loaded via signed URL (expires in ' + expirySeconds + 's)');
             };
             img.onerror = function() {
-                showToast('Failed to load document image', 'error');
+                showToast(t('admin.doc.loadImageFailed'), 'error');
             };
             document.getElementById('kycDocViewerModal').classList.add('open');
         } else {
-            showToast('Document not available', 'error');
+            showToast(t('admin.doc.notAvailable'), 'error');
         }
     })
-    .catch(e => showToast('Failed to load document', 'error'));
+    .catch(e => showToast(t('admin.doc.loadFailed'), 'error'));
 }
 
 function closeKYCDocViewer() {
@@ -13161,27 +14507,27 @@ async function approveKYC() {
         });
         
         if (res.ok) {
-            showToast('Verification approved', 'success');
+            showToast(t('admin.kyc.approved'), 'success');
             closeKYCReviewModal();
             loadKYCVerifications();
         } else {
             const data = await res.json();
-            showToast(data.error || 'Failed to approve', 'error');
+            showToast(data.error || t('admin.kyc.approveFailed'), 'error');
         }
     } catch (e) {
-        showToast('Failed to approve', 'error');
+        showToast(t('admin.kyc.approveFailed'), 'error');
     }
 }
 
 async function rejectKYC() {
     if (!currentKYCReview) return;
-    
+
     const reason = document.getElementById('kycRejectionInput').value.trim();
     if (!reason) {
-        showToast('Please enter a rejection reason', 'error');
+        showToast(t('admin.kyc.reasonRequired'), 'error');
         return;
     }
-    
+
     const token = localStorage.getItem('jwt_token');
     try {
         const res = await fetch('/api/admin/kyc/verification/' + currentKYCReview + '/reject', {
@@ -13192,17 +14538,17 @@ async function rejectKYC() {
             },
             body: JSON.stringify({ reason: reason })
         });
-        
+
         if (res.ok) {
-            showToast('Verification rejected', 'success');
+            showToast(t('admin.kyc.rejected'), 'success');
             closeKYCReviewModal();
             loadKYCVerifications();
         } else {
             const data = await res.json();
-            showToast(data.error || 'Failed to reject', 'error');
+            showToast(data.error || t('admin.kyc.rejectFailed'), 'error');
         }
     } catch (e) {
-        showToast('Failed to reject', 'error');
+        showToast(t('admin.kyc.rejectFailed'), 'error');
     }
 }
 
@@ -13211,10 +14557,10 @@ async function requestResubmission() {
     
     const reason = document.getElementById('kycRejectionInput').value.trim();
     if (!reason) {
-        showToast('Please enter a reason for resubmission', 'error');
+        showToast(t('admin.kyc.resubmissionReasonRequired'), 'error');
         return;
     }
-    
+
     const token = localStorage.getItem('jwt_token');
     try {
         const res = await fetch('/api/admin/kyc/verification/' + currentKYCReview + '/resubmission', {
@@ -13225,17 +14571,17 @@ async function requestResubmission() {
             },
             body: JSON.stringify({ reason: reason })
         });
-        
+
         if (res.ok) {
-            showToast('Resubmission requested', 'success');
+            showToast(t('admin.kyc.resubmissionRequested'), 'success');
             closeKYCReviewModal();
             loadKYCVerifications();
         } else {
             const data = await res.json();
-            showToast(data.error || 'Failed to request resubmission', 'error');
+            showToast(data.error || t('admin.kyc.resubmissionFailed'), 'error');
         }
     } catch (e) {
-        showToast('Failed to request resubmission', 'error');
+        showToast(t('admin.kyc.resubmissionFailed'), 'error');
     }
 }
 
@@ -13441,8 +14787,8 @@ function renderPaymentInvoices(invoices) {
 
 async function adminConfirmPayment(invoiceId) {
     const token = localStorage.getItem('jwt_token');
-    if (!confirm('Are you sure you want to manually confirm this payment?')) return;
-    
+    if (!confirm(t('admin.confirmPayment'))) return;
+
     try {
         const res = await fetch('/api/admin/payments/' + invoiceId + '/confirm', {
             method: 'POST',
@@ -13452,20 +14798,20 @@ async function adminConfirmPayment(invoiceId) {
             },
             body: JSON.stringify({})
         });
-        
+
         if (res.ok) {
             const data = await res.json();
             if (data.success) {
-                showToast('Payment confirmed successfully!', 'success');
+                showToast(t('admin.payment.confirmed'), 'success');
                 loadPaymentInvoices(token);
             } else {
-                showToast(data.error || 'Failed to confirm payment', 'error');
+                showToast(data.error || t('admin.payment.confirmFailed'), 'error');
             }
         } else {
-            showToast('Failed to confirm payment', 'error');
+            showToast(t('admin.payment.confirmFailed'), 'error');
         }
     } catch (e) {
-        showToast('Error confirming payment', 'error');
+        showToast(t('admin.payment.confirmError'), 'error');
     }
 }
 
@@ -13473,7 +14819,7 @@ async function adminViewInvoice(invoiceId) {
     const token = localStorage.getItem('jwt_token');
     // Show invoice details in a modal
     console.log('View invoice:', invoiceId);
-    showToast('Invoice details coming soon', 'info');
+    showToast(t('admin.invoice.detailsComingSoon'), 'info');
 }
 
 async function loadWebhookLogs(token) {
@@ -13551,14 +14897,14 @@ async function retryWebhook(logId) {
         if (res.ok) {
             const data = await res.json();
             if (data.success) {
-                showToast('Webhook retried successfully!', 'success');
+                showToast(t('admin.webhook.retrySuccess'), 'success');
                 loadWebhookLogs(token);
             } else {
                 showToast(data.error || 'Failed to retry webhook', 'error');
             }
         }
     } catch (e) {
-        showToast('Error retrying webhook', 'error');
+        showToast(t('admin.webhook.retryFailed'), 'error');
     }
 }
 
@@ -13603,7 +14949,7 @@ async function searchAdminUsers() {
         
     } catch (error) {
         console.error('User search failed:', error);
-        showToast('Search failed', 'error');
+        showToast(t('admin.searchFailed'), 'error');
     }
 }
 
@@ -13705,13 +15051,13 @@ async function confirmDeposit(depositId) {
             headers: { 'Authorization': 'Bearer ' + token }
         });
         if (res.ok) {
-            showToast('Deposit confirmed!', 'success');
+            showToast(t('deposit.confirmedSuccess'), 'success');
             loadAdminData();
         } else {
-            showToast('Failed to confirm deposit', 'error');
+            showToast(t('deposit.confirmFailed'), 'error');
         }
     } catch(e) {
-        showToast('Error confirming deposit', 'error');
+        showToast(t('deposit.confirmError'), 'error');
     }
 }
 
@@ -13723,13 +15069,13 @@ async function approveWithdrawal(withdrawalId) {
             headers: { 'Authorization': 'Bearer ' + token }
         });
         if (res.ok) {
-            showToast('Withdrawal approved!', 'success');
+            showToast(t('admin.withdraw.approved'), 'success');
             loadAdminData();
         } else {
-            showToast('Failed to approve withdrawal', 'error');
+            showToast(t('admin.withdraw.approveFailed'), 'error');
         }
     } catch(e) {
-        showToast('Error approving withdrawal', 'error');
+        showToast(t('admin.withdraw.approveError'), 'error');
     }
 }
 
@@ -13741,13 +15087,13 @@ async function rejectWithdrawal(withdrawalId) {
             headers: { 'Authorization': 'Bearer ' + token }
         });
         if (res.ok) {
-            showToast('Withdrawal rejected', 'info');
+            showToast(t('admin.withdraw.rejected'), 'info');
             loadAdminData();
         } else {
-            showToast('Failed to reject withdrawal', 'error');
+            showToast(t('admin.withdraw.rejectFailed'), 'error');
         }
     } catch(e) {
-        showToast('Error rejecting withdrawal', 'error');
+        showToast(t('admin.withdraw.rejectError'), 'error');
     }
 }
 

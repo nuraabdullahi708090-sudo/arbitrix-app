@@ -349,3 +349,111 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   label value, countdown timer text) is runtime/data-driven and out of scope
   for this static-HTML phase.
 
+## Localization Phase 2B-1 — Dynamic Frontend Localization (2026-08, public/index.html only)
+- Converted hardcoded DYNAMIC display strings to `t()` calls across all inline
+  JS. Frontend-only: NO changes to server.js, DB/schema/migrations, auth, 2FA,
+  wallet calc/persistence, trading calc/execution, referral qualification/bonus,
+  payment/deposit/withdraw logic, API request/response structures, or status
+  VALUES (pending/confirmed/expired/cancelled/approved/pending_review/rejected/
+  resubmission_required).
+- Dictionaries: 613 -> 652 keys/locale (219 new vs the 433 Phase-2A base). EN
+  values for pre-existing keys unchanged; only NEW keys added. All 6 locales
+  have identical key sets, 0 empty, 0 {{placeholder}} parity, 0 HTML-tag/attr
+  parity issues.
+- DUPLICATE-KEY FIX: a prior session's batch + this session's batch both
+  inserted the same keys, creating 82 duplicate keys/locale. Removed 492 dup
+  lines (82/locale x 6), keeping FIRST occurrence. The re.findall-based verifier
+  silently overwrites dups in its parsed dict (masks them); detect with a
+  Counter on raw keys. ALWAYS re-check for dups after scripted insertions.
+- Tier 1 done: all 127 showToast() bare-string literals converted (0 remain);
+  all 5 native confirm() use t() (referral.resetConfirm, deposit.cancelConfirm,
+  demo.confirmRemove, logout.confirm, admin.confirmPayment); updateCurrentStatus()
+  display strings (prior session); KYC validation/status labels (kyc.*:
+  legalName/dob/country/address, personalSaved, fileTooLarge, invalidFileType,
+  docUploaded/docRemoved, missingDocs/{{missing}}, missingIdentity/missingSelfie,
+  submitted, status.* verified/pendingReview/rejected/resubmission/notStarted/
+  required/new, level.*, summary.*, noData/noDocuments/noHistory); admin
+  action-result toasts + empty states (admin.kyc.approve/reject/resubmission +
+  loadDetailsFailed, admin.withdraw.approve/reject + errors, admin.payment.
+  confirm*, admin.confirmPayment, admin.empty.noVerifications/loadActivityFailed/
+  loadHealthFailed/noActivity, admin.health.lastChecked/serverUptime,
+  admin.loginRequired, admin.export.*, admin.doc.*, admin.invoice.*,
+  admin.webhook.retry*, admin.searchFailed); support-chat replies (support.reply.
+  *: default/bot/deposit/withdraw/bonus/sound/language/hello — keyword MATCHING
+  left in English intentionally); ticker template prose (ticker.earned/deposited/
+  referred/arbitrage/newTrader/badgeUnlocked as COMPLETE SENTENCES preserving
+  `<span class="ticker-user">`/`<span class="ticker-amount green|gold">` markup
+  + {{user}}/{{amount}}/{{asset}}/{{spread}}/{{country}}/{{badge}} placeholders).
+- Tier 2 done: interpolated toasts (referral.simulatedToast/Desc {{amount}},
+  support.reply.bot {{mta}}, milestone.winsSuffix {{n}}, referral.configError
+  {{error}}, kyc.missingDocs {{missing}}, admin.health.lastChecked {{time}},
+  uptime.hoursMinutes {{hours}}/{{minutes}}, uptime.minutes {{minutes}}); 2FA
+  (2fa.loadStatusFailed, generateQRFirst, nowEnabled, newCodesGenerated;
+  attempts/cooldown reuse existing 2fa.attemptsRemaining/resendIn/waitSeconds);
+  deposit/payment dynamic (deposit.confirmedSuccess/confirmFailed/confirmError,
+  withdraw.failed); bonus/referral dynamic (bonus.withdrawnTitle,
+  bonus.withdrawHistory {{amount}}, referral.simulated*/resetConfirm/resetDone/
+  welcomeReferred/codeLoading/configSaved/configError); notification
+  descriptions (all Notifications.add calls use t() for title+desc; milestone
+  profit/streak); formatTime/getTimeAgo (common.justNow/minutesAgo/hoursAgo/
+  daysAgo, already present).
+- Tier 3 done: TRANSACTION/HISTORY RENDER-ONLY mapping. Added TX_TYPE_LABELS +
+  TX_DETAIL_LABELS maps and txTypeLabel(rawType)/txDetailLabel(rawDetail)
+  helpers near `// ============ TRANSACTION LOG ============` (~line 10554).
+  Applied at the SINGLE render site in updateTransactionLog() (.tx-type/
+  .tx-detail divs). Rules:
+    * TRANSLATE AT RENDER TIME ONLY. Stored type/detail values NEVER modified —
+      every history.unshift({type:'...',detail:'...'}) still writes the original
+      English raw values (Deposit/Withdraw/Trade Executed/Bot/Reset/Bonus
+      Withdrawal/Referral Bonus/Withdrawal to Live + Demo Funds/All funds
+      removed/From Bonus Wallet/Bonus withdrawn to Live Wallet/Started/Paused).
+    * All comparison/dedup/filter logic UNCHANGED: h.type === 'Deposit' (3
+      sites: deposit-credited dedup ~12409, depositTxs filter ~13378,
+      bonus-withdraw dedup ~13401) still compare RAW values, NOT translated.
+    * Unknown type/detail -> falls back to original English VERBATIM (dynamic/
+      compound details like asset.symbol+' '+asset.detail, 'To '+address.
+      slice(0,6)+'...', '+$10 bonus earned (simulated)' display unchanged).
+      Empty/undefined -> ''.
+  Admin KYC review modal renderKYCDetails() history list (server-supplied
+  h.previousStatus/h.newStatus/d.type) left as raw server values (backend data
+  passthrough — deferred); only its static empty-state labels (kyc.noDocuments/
+  noHistory) + loadDetailsFailed toast translated.
+- Reuse-first: reused existing keys wherever a value already existed
+  (2fa.loadStatusFailed/generateQRFirst/nowEnabled/newCodesGenerated,
+  common.justNow/minutesAgo/hoursAgo/daysAgo/you, deposit.cancelConfirm,
+  referral.simulatedTitle/Desc, bonus.withdrawnTitle/withdrawHistory,
+  milestone.*, withdraw.submitted/processing, notifications.welcome*,
+  badge.unlocked/allUnlocked, demo.confirmRemove, logout.confirm). Only
+  genuinely-new keys added.
+- HTML-bearing messages: <strong>/<br>/<span> markup preserved across all
+  locales (referral.simulatedToast keeps <strong>...</strong><br><span>;
+  ticker.* keep <span class="ticker-user|ticker-amount green|gold">). 0
+  tag-parity + 0 class-attr-parity issues.
+- Arabic RTL ticker intact: html[dir="rtl"] .ticker-amount{unicode-bidi:isolate;
+  direction:ltr;} (line 150), .ticker-user/.ticker-amount classes (1137-1140),
+  dir = currentLang==='ar'?'rtl':'ltr' (10044). Ticker keys are complete
+  sentences (not word-by-word), preserving bidi isolation.
+- Console/debug messages (192 console.* calls) and backend data.error/
+  error.message passthroughs (e.g. showToast(data.error || t('...'))) UNTOUCHED
+  — deferred to the later backend-error localization phase.
+- Verification: node --check on all 5 inline <script> blocks = OK. verify_i18n.py
+  = 652 keys/locale x 6, 219 new vs 433 base, 0 problems. Full parity check =
+  identical key sets, 0 empty, 0 placeholder-parity, 0 HTML/attr-parity.
+  Isolated sandbox test (temp, removed) for TX_TYPE_LABELS mapping +
+  {{placeholder}} interpolation = ALL PASS (known type->localized label per
+  locale, unknown->verbatim fallback, empty->'', placeholder interpolation, EN
+  fallback for unknown locale, ticker markup preserved). Stored transaction
+  type/detail values verified UNCHANGED at every history.unshift site;
+  === 'Deposit' comparison logic verified UNCHANGED. npm test = 36 pass / 1
+  fail (the single fail is the pre-existing tests/q8qpay.webhook.test.js
+  `Cannot find module 'express'` env failure — identical to baseline; no
+  regression).
+- DEFERRED to Phase 2B-2 (NOT done here): remaining ~handful of admin-view
+  hardcoded strings (badge lock tooltips, KYC list row labels built from server
+  data, admin activity-timeline activity.title/activity.description ~13470-13488
+  which come from the server data.activities — backend passthroughs), and the
+  full backend-error localization pass (server.js data.error strings, email
+  templates, privacy/terms/legal pages, reset-password.html).
+- NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
+  the landing-page work).
+
