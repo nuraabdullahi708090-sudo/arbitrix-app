@@ -125,7 +125,7 @@
         html[dir="rtl"] .sidebar.open{transform:translateX(0);}
         html[dir="rtl"] .sidebar-link{border-left:none;border-right:3px solid transparent;}
         html[dir="rtl"] .sidebar-link.active{border-right-color:var(--gold);}
-        html[dir="rtl"] .main-content{margin-left:0;margin-right:220px;}
+        html[dir="rtl"] .main-content{margin-left:0;}
         html[dir="rtl"] .mobile-menu-btn{left:auto;right:12px;}
         html[dir="rtl"] .input-icon i{left:auto;right:14px;}
         html[dir="rtl"] .input-icon input{padding-left:14px;padding-right:40px;}
@@ -141,6 +141,15 @@
         html[dir="rtl"] .trading-stat-item .stat-trend{right:auto;left:8px;}
         html[dir="rtl"] .ticker-label{padding-right:0;padding-left:10px;border-right:none;border-left:1px solid rgba(240,185,11,0.2);}
         html[dir="rtl"] .language-dropdown{right:auto;left:0;}
+        html[dir="rtl"] .stat-value,
+        html[dir="rtl"] .trading-stat-item .stat-main,
+        html[dir="rtl"] .mta-current,
+        html[dir="rtl"] .mta-target,
+        html[dir="rtl"] .ticker-amount{unicode-bidi:isolate;direction:ltr;}
+        html[dir="rtl"] .toggle-switch input:checked + .toggle-slider:before{transform:translateX(-20px);}
+        html[dir="rtl"] .tx-view-more-btn i{margin-right:0;margin-left:6px;}
+        html[dir="rtl"] .deposit-amount-prefix{left:auto;right:14px;}
+        html[dir="rtl"] #liveDepositAmount{padding-left:14px;padding-right:36px;}
         
         @media(min-width:640px){html[dir="rtl"] .main-content{margin-right:220px;}}
         @media(min-width:1024px){html[dir="rtl"] .main-content{margin-right:240px;}}
@@ -1146,6 +1155,7 @@
 
         .trading-stats-card{background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border-color);margin-bottom:16px;overflow:hidden;}
         .trading-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px 16px;}
+        .stats-grid > *, .trading-stats-grid > *{min-width:0;}
         .trading-stat-item{background:var(--bg-input);border:1px solid var(--border-color);border-radius:12px;padding:12px 10px;text-align:center;transition:all 0.25s;position:relative;overflow:hidden;}
         .trading-stat-item:hover{border-color:rgba(240,185,11,0.3);transform:translateY(-1px);}
         .trading-stat-item .stat-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:14px;}
@@ -1188,7 +1198,7 @@
         .mta-milestone .milestone-dot{width:6px;height:6px;border-radius:50%;background:var(--border-color);}
         .mta-milestone.reached .milestone-dot{background:var(--gold);box-shadow:0 0 6px var(--gold);}
         .mta-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:1;}
-        .mta-message{font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex:1;min-width:200px;}
+        .mta-message{font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex:1;min-width:0;}
         .mta-message i{color:var(--gold);}
         .mta-cta{background:var(--gold);color:#070B14;border:none;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;min-height:36px;flex-shrink:0;}
         .mta-cta:hover{background:#FCD535;transform:translateY(-1px);}
@@ -5247,7 +5257,7 @@ function toggleFaq(btn) {
       <div style="margin:16px 0;">
         <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Amount (USD)</label>
         <div style="position:relative;margin-top:8px;">
-          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8896B5;font-size:18px;">$</span>
+          <span class="deposit-amount-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8896B5;font-size:18px;">$</span>
           <input type="number" id="liveDepositAmount" placeholder="50.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="50">
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
