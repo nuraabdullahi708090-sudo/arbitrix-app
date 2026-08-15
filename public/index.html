@@ -148,6 +148,7 @@
         html[dir="rtl"] .mta-current,
         html[dir="rtl"] .mta-target,
         html[dir="rtl"] .ticker-amount{unicode-bidi:isolate;direction:ltr;}
+        html[dir="rtl"] .toggle-slider:before{left:auto;right:2px;}
         html[dir="rtl"] .toggle-switch input:checked + .toggle-slider:before{transform:translateX(-20px);}
         html[dir="rtl"] .tx-view-more-btn i{margin-right:0;margin-left:6px;}
         html[dir="rtl"] .deposit-amount-prefix{left:auto;right:14px;}
@@ -5156,30 +5157,30 @@ function toggleFaq(btn) {
                 <div class="card-body">
                     <div style="background:linear-gradient(145deg,#0F1629,#1A2540);border:1px solid rgba(240,185,11,0.12);border-radius:16px;padding:16px;">
                         <h4 style="font-size:14px;font-weight:700;text-align:center;" data-i18n="referral.invite">Invite Friends, Earn <span id="refRewardAmount">$10</span></h4>
-                        <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;">Share your link. Earn when friends deposit!</p>
+                        <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;" data-i18n="referral.shareEarn">Share your link. Earn when friends deposit!</p>
                         
                         <!-- Stats Grid -->
                         <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:16px;">
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:18px;font-weight:800;color:#10B981;" id="refActiveCount">0</div>
-                                <div style="font-size:9px;color:#8896B5;">Active</div>
+                                <div style="font-size:9px;color:#8896B5;" data-i18n="referral.active">Active</div>
                             </div>
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:18px;font-weight:800;color:#F0B90B;" id="refPendingCount">0</div>
-                                <div style="font-size:9px;color:#8896B5;">Pending</div>
+                                <div style="font-size:9px;color:#8896B5;" data-i18n="referral.pending">Pending</div>
                             </div>
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:18px;font-weight:800;color:#F0B90B;" id="refTotalEarned">$0.00</div>
-                                <div style="font-size:9px;color:#8896B5;">Earned</div>
+                                <div style="font-size:9px;color:#8896B5;" data-i18n="referral.earnedLabel">Earned</div>
                             </div>
                         </div>
                         
                         <!-- My Referral Code Section -->
                         <div style="margin-bottom:12px;">
-                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:6px;text-transform:uppercase;">My Referral Code</div>
+                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:6px;text-transform:uppercase;" data-i18n="referral.myCode">My Referral Code</div>
                             <div style="background:#141C2E;border:1px dashed #F0B90B;border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                                 <span id="referralCodeDisplay" style="font-family:monospace;font-size:16px;font-weight:700;color:#F0B90B;word-break:break-all;">Loading...</span>
-                                <button type="button" id="copyReferralBtn" class="copy-btn" style="background:#F0B90B;color:#070B14;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Code">
+                                <button type="button" id="copyReferralBtn" class="copy-btn" style="background:#F0B90B;color:#070B14;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Code" data-i18n-title="referral.copyCode">
                                     <i class="fas fa-copy"></i> <span data-i18n="common.copy">Copy</span>
                                 </button>
                             </div>
@@ -5187,10 +5188,10 @@ function toggleFaq(btn) {
                         
                         <!-- Referral Link Section -->
                         <div style="margin-bottom:12px;">
-                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:6px;text-transform:uppercase;">Referral Link</div>
+                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:6px;text-transform:uppercase;" data-i18n="referral.linkLabel">Referral Link</div>
                             <div style="background:#141C2E;border:1px solid #1E2A3F;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                                 <span id="referralLinkDisplay" style="font-size:10px;color:#8896B5;flex:1;word-break:break-all;overflow:hidden;text-overflow:ellipsis;">Loading...</span>
-                                <button type="button" id="copyReferralLinkBtn" class="copy-btn" style="background:#1E2A3F;color:#F0B90B;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Link">
+                                <button type="button" id="copyReferralLinkBtn" class="copy-btn" style="background:#1E2A3F;color:#F0B90B;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Link" data-i18n-title="referral.copyLink">
                                     <i class="fas fa-link"></i> <span data-i18n="common.copy">Copy</span>
                                 </button>
                             </div>
@@ -5199,24 +5200,24 @@ function toggleFaq(btn) {
                         <!-- Share Buttons -->
                         <div style="display:flex;gap:8px;margin-bottom:12px;">
                             <button type="button" id="shareReferralBtn" style="flex:1;background:#1DA1F2;color:#fff;border:none;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                                <i class="fab fa-twitter"></i> Share on X
+                                <i class="fab fa-twitter"></i> <span data-i18n="referral.shareOnX">Share on X</span>
                             </button>
                             <button type="button" id="nativeShareBtn" style="flex:1;background:#10B981;color:#fff;border:none;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                                <i class="fas fa-share-alt"></i> More Options
+                                <i class="fas fa-share-alt"></i> <span data-i18n="referral.moreOptions">More Options</span>
                             </button>
                         </div>
                         
                         <!-- Referral Lifecycle Info -->
                         <div style="font-size:9px;color:#5A6A8A;text-align:left;padding:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;margin-bottom:8px;">
-                            <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> How it works:</div>
-                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">1.</span> Friend registers with your code → <span style="color:#F0B90B;">Pending</span></div>
-                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> Friend deposits ≥<span id="refMinDeposit">$50</span> → <span style="color:#10B981;">Active</span></div>
-                            <div><span style="color:#8896B5;">3.</span> You earn <strong style="color:#F0B90B;">$<span id="refRewardAmount2">10</span> bonus</strong> → Bonus Wallet</div>
+                            <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> <span data-i18n="referral.howItWorks">How it works:</span></div>
+                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">1.</span> <span data-i18n="referral.step1Text">Friend registers with your code</span> → <span style="color:#F0B90B;" data-i18n="referral.pending">Pending</span></div>
+                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> <span data-i18n="referral.step2Text">Friend deposits ≥</span><span id="refMinDeposit">$50</span> → <span style="color:#10B981;" data-i18n="referral.active">Active</span></div>
+                            <div><span style="color:#8896B5;">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#F0B90B;">$<span id="refRewardAmount2">10</span> <span data-i18n="referral.bonusWord">bonus</span></strong> → <span data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
                         </div>
                         
                         <!-- Pending Referrals List -->
                         <div id="pendingReferralsSection" style="display:none;">
-                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:8px;">Pending Referrals (Awaiting First Deposit)</div>
+                            <div style="font-size:10px;font-weight:600;color:#8896B5;margin-bottom:8px;" data-i18n="referral.pendingAwaiting">Pending Referrals (Awaiting First Deposit)</div>
                             <div id="pendingReferralsList" style="max-height:120px;overflow-y:auto;"></div>
                         </div>
                     </div>
@@ -5243,18 +5244,18 @@ function toggleFaq(btn) {
       <div id="supportedCoinsInfo" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin:16px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <i class="fas fa-shield-alt" style="color:#10B981;font-size:14px;"></i>
-          <span style="font-size:12px;font-weight:600;color:#10B981;">Currently Supported</span>
+          <span style="font-size:12px;font-weight:600;color:#10B981;" data-i18n="deposit.currentlySupported">Currently Supported</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8896B5;">
           <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#10B981;font-weight:600;">USDT</span>
-          <span>on</span>
+          <span data-i18n="deposit.on">on</span>
           <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#10B981;font-weight:600;">TRON (TRC20)</span>
         </div>
       </div>
 
       <!-- Deposit Amount Input -->
       <div style="margin:16px 0;">
-        <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Amount (USD)</label>
+        <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="withdraw.amount">Amount (USD)</label>
         <div style="position:relative;margin-top:8px;">
           <span class="deposit-amount-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8896B5;font-size:18px;">$</span>
           <input type="number" id="liveDepositAmount" placeholder="50.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="50">
@@ -5272,14 +5273,14 @@ function toggleFaq(btn) {
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <i class="fas fa-exclamation-triangle" style="color:#EF4444;font-size:18px;margin-top:2px;"></i>
           <div style="font-size:11px;color:#8896B5;line-height:1.6;">
-            <strong style="color:#EF4444;">Send USDT only</strong> on the <strong style="color:#EF4444;">TRON (TRC20)</strong> network.<br>
-            Sending USDT through another network may result in loss of funds and may not be credited automatically.
+            <strong style="color:#EF4444;" data-i18n="deposit.sendUsdtOnly">Send USDT only</strong> <span data-i18n="deposit.onThe">on the</span> <strong style="color:#EF4444;">TRON (TRC20)</strong> <span data-i18n="deposit.networkSuffix">network.</span><br>
+            <span data-i18n="deposit.safetyWarningBody">Sending USDT through another network may result in loss of funds and may not be credited automatically.</span>
           </div>
         </div>
       </div>
 
       <!-- Initial Instructions -->
-      <div id="initialInstructions" style="text-align:center;padding:16px;color:#8896B5;font-size:12px;line-height:1.6;">
+      <div id="initialInstructions" style="text-align:center;padding:16px;color:#8896B5;font-size:12px;line-height:1.6;" data-i18n="deposit.initialInstructions">
         Enter your deposit amount and click 'Generate Payment' to receive your unique USDT (TRC20) payment address.
       </div>
     </div>
@@ -5295,50 +5296,50 @@ function toggleFaq(btn) {
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-file-invoice" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Created</div>
-            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Payment request created</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;" data-i18n="deposit.step.created">Created</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.created">Payment request created</div>
           </div>
           <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
           <div class="progress-step" data-step="detected" style="flex:1;text-align:center;position:relative;z-index:1;">
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-search" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Detected</div>
-            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Payment received</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;" data-i18n="deposit.step.detected">Detected</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.detected">Payment received</div>
           </div>
           <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
           <div class="progress-step" data-step="confirming" style="flex:1;text-align:center;position:relative;z-index:1;">
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-hourglass-half" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Confirming</div>
-            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Confirming on TRON</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;" data-i18n="deposit.step.confirming">Confirming</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.confirming">Confirming on TRON</div>
           </div>
           <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
           <div class="progress-step" data-step="credited" style="flex:1;text-align:center;position:relative;z-index:1;">
             <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
               <i class="fas fa-check" style="font-size:11px;color:#8896B5;"></i>
             </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;">Credited</div>
-            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;">Balance credited</div>
+            <div class="step-label" style="font-size:9px;font-weight:600;color:#8896B5;text-transform:uppercase;" data-i18n="deposit.step.credited">Credited</div>
+            <div class="step-desc" style="font-size:8px;color:#5A6A8A;margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.credited">Balance credited</div>
           </div>
         </div>
       </div>
 
       <!-- Amount Display -->
       <div style="background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05));border:2px solid rgba(16,185,129,0.3);border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-        <div style="font-size:10px;color:#8896B5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Payment Amount</div>
+        <div style="font-size:10px;color:#8896B5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;" data-i18n="deposit.paymentAmount">Payment Amount</div>
         <div style="font-size:32px;font-weight:700;color:#10B981;margin-bottom:4px;">
           <span id="liveDepositDisplayAmount">0.00</span> <span style="font-size:20px;">USDT</span>
         </div>
         <div style="font-size:14px;color:#8896B5;">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
-        <div id="exactAmountInstruction" style="font-size:11px;color:#8896B5;margin-top:10px;line-height:1.5;">Send exactly <strong id="exactAmountValue" style="color:#10B981;">0.00</strong> USDT on the TRON (TRC20) network.</div>
+        <div id="exactAmountInstruction" style="font-size:11px;color:#8896B5;margin-top:10px;line-height:1.5;"><span data-i18n="deposit.sendExactlyPrefix">Send exactly</span> <strong id="exactAmountValue" style="color:#10B981;">0.00</strong> <span data-i18n="deposit.sendExactlySuffix">USDT on the TRON (TRC20) network.</span></div>
       </div>
 
       <!-- Network Badge (shown for q8qpay white-label deposits) -->
       <div id="q8qpayNetworkBadge" style="display:none;align-items:center;justify-content:center;gap:8px;margin:12px 0;font-size:12px;">
         <span style="background:rgba(16,185,129,0.15);padding:4px 10px;border-radius:6px;color:#10B981;font-weight:600;">USDT</span>
-        <span style="color:#8896B5;">on</span>
+        <span style="color:#8896B5;" data-i18n="deposit.on">on</span>
         <span style="background:rgba(240,185,11,0.15);padding:4px 10px;border-radius:6px;color:#F0B90B;font-weight:600;">TRON (TRC20)</span>
       </div>
 
@@ -5347,12 +5348,12 @@ function toggleFaq(btn) {
         <div id="qrCodeImage" style="width:160px;height:160px;margin:0 auto;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
           <i class="fas fa-qrcode" style="font-size:80px;color:#0F1629;"></i>
         </div>
-        <div style="font-size:10px;color:#8896B5;margin-top:10px;">Scan to pay with your crypto wallet</div>
+        <div style="font-size:10px;color:#8896B5;margin-top:10px;" data-i18n="deposit.scanToPay">Scan to pay with your crypto wallet</div>
       </div>
 
       <!-- Payment Address -->
       <div id="walletAddressContainer" style="background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:14px;margin:12px 0;">
-        <div style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Payment Address</div>
+        <div id="paymentAddressLabel" style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="deposit.paymentAddressLabel">Payment Address</div>
         <div id="liveWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">
           Loading...
         </div>
@@ -5361,22 +5362,22 @@ function toggleFaq(btn) {
       <!-- Copy Buttons -->
       <div style="display:flex;gap:8px;margin:12px 0;">
         <button type="button" id="copyAddressBtn" class="copy-address-btn" onclick="copyWalletAddress()" style="flex:1;background:#F0B90B;color:#070B14;border:none;padding:12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-          <i class="fas fa-copy"></i> Copy Address
+          <i class="fas fa-copy"></i> <span data-i18n="deposit.copyAddress">Copy Address</span>
         </button>
         <button type="button" id="copyAmountBtn" class="copy-address-btn" onclick="copyDepositAmount()" style="flex:1;background:#F0B90B;color:#070B14;border:none;padding:12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-          <i class="fas fa-coins"></i> Copy Amount
+          <i class="fas fa-coins"></i> <span data-i18n="deposit.copyAmount">Copy Amount</span>
         </button>
       </div>
 
       <!-- Expiry Timer -->
       <div id="depositTimerSection" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:12px;margin:12px 0;display:flex;align-items:center;justify-content:center;gap:8px;">
         <i class="fas fa-clock" style="color:#FBBF24;"></i>
-        <span style="font-size:12px;color:#FBBF24;">Expires in <strong id="depositTimer" style="font-size:16px;">60:00</strong></span>
+        <span style="font-size:12px;color:#FBBF24;"><span data-i18n="deposit.expiresIn">Expires in</span> <strong id="depositTimer" style="font-size:16px;">60:00</strong></span>
       </div>
 
       <!-- Current Status -->
       <div id="currentStatusBox" style="background:var(--bg-input);border-radius:8px;padding:14px;margin:12px 0;text-align:center;">
-        <div style="font-size:11px;color:#8896B5;margin-bottom:4px;">Current Status</div>
+        <div style="font-size:11px;color:#8896B5;margin-bottom:4px;" data-i18n="deposit.currentStatus">Current Status</div>
         <div id="depositStatusText" style="font-size:13px;font-weight:600;color:#F0B90B;">Waiting for payment...</div>
       </div>
     </div>
@@ -5388,47 +5389,47 @@ function toggleFaq(btn) {
       <div style="width:80px;height:80px;background:rgba(16,185,129,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:20px auto;">
         <i class="fas fa-check-circle" style="font-size:48px;color:#10B981;"></i>
       </div>
-      <h3 style="font-size:18px;font-weight:700;color:#10B981;margin-bottom:8px;">Deposit Successful!</h3>
-      <p style="font-size:13px;color:#8896B5;margin-bottom:20px;">Your deposit has been confirmed and credited</p>
+      <h3 style="font-size:18px;font-weight:700;color:#10B981;margin-bottom:8px;" data-i18n="deposit.successTitle">Deposit Successful!</h3>
+      <p style="font-size:13px;color:#8896B5;margin-bottom:20px;" data-i18n="deposit.successSubtitle">Your deposit has been confirmed and credited</p>
       
       <div style="background:var(--bg-input);border-radius:12px;padding:20px;margin:16px 0;text-align:left;">
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);">
-          <span style="font-size:11px;color:#8896B5;">Amount Credited</span>
+          <span style="font-size:11px;color:#8896B5;" data-i18n="deposit.amountCredited">Amount Credited</span>
           <span id="successAmount" style="font-size:14px;font-weight:700;color:#10B981;">$0.00 USDT</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);">
-          <span style="font-size:11px;color:#8896B5;">Transaction Ref</span>
+          <span style="font-size:11px;color:#8896B5;" data-i18n="deposit.transactionRef">Transaction Ref</span>
           <span id="successTxRef" style="font-size:11px;color:#F0B90B;font-family:monospace;">---</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);">
-          <span style="font-size:11px;color:#8896B5;">Time Received</span>
+          <span style="font-size:11px;color:#8896B5;" data-i18n="deposit.timeReceived">Time Received</span>
           <span id="successTime" style="font-size:11px;color:#8896B5;">---</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:8px 0;">
-          <span style="font-size:11px;color:#8896B5;">New Balance</span>
+          <span style="font-size:11px;color:#8896B5;" data-i18n="deposit.newBalance">New Balance</span>
           <span id="successBalance" style="font-size:14px;font-weight:700;color:#F0B90B;">$0.00</span>
         </div>
       </div>
 
       <button type="button" onclick="closeDepositModal()" style="width:100%;background:#10B981;border:#10B981;color:#fff;padding:14px;font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;margin-top:8px;">
-        <i class="fas fa-home"></i> Return to Dashboard
+        <i class="fas fa-home"></i> <span data-i18n="deposit.returnDashboard">Return to Dashboard</span>
       </button>
     </div>
 
     <!-- Action Buttons -->
     <div id="depositActionButtons" style="margin-top:16px;">
       <button type="button" id="getAddressBtn" class="btn btn-primary" style="width:100%;padding:14px;font-size:14px;font-weight:600;" onclick="requestDepositAddress()">
-        <i class="fas fa-qrcode"></i> Generate Payment
+        <i class="fas fa-qrcode"></i> <span data-i18n="deposit.btn.generatePayment">Generate Payment</span>
       </button>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button type="button" id="cancelInvoiceBtn" class="btn btn-secondary" style="flex:1;display:none;" onclick="cancelCurrentInvoice()">
-          <i class="fas fa-times"></i> Cancel
+          <i class="fas fa-times"></i> <span data-i18n="common.cancel">Cancel</span>
         </button>
         <button type="button" id="forceCheckBtn" class="btn btn-outline" style="flex:1;display:none;" onclick="forceCheckPayment()">
-          <i class="fas fa-sync-alt"></i> Refresh Status
+          <i class="fas fa-sync-alt"></i> <span data-i18n="deposit.refreshStatus">Refresh Status</span>
         </button>
         <button type="button" id="newInvoiceBtn" class="btn btn-outline" style="flex:1;display:none;" onclick="requestDepositAddress()">
-          <i class="fas fa-plus"></i> New Invoice
+          <i class="fas fa-plus"></i> <span data-i18n="deposit.newInvoice">New Invoice</span>
         </button>
       </div>
     </div>
@@ -5436,10 +5437,10 @@ function toggleFaq(btn) {
     <!-- Deposit History -->
     <div class="deposit-history" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);">
       <div style="display:flex;justify-content:space-between;font-size:10px;color:#5A6A8A;margin-bottom:8px;">
-        <span>Recent Deposits</span>
+        <span data-i18n="deposit.recentDeposits">Recent Deposits</span>
         <span id="depositHistoryCount" style="background:#1E2A3F;padding:2px 8px;border-radius:10px;">0</span>
       </div>
-      <div id="depositHistoryList" style="font-size:10px;text-align:center;color:#8896B5;">No deposits yet</div>
+      <div id="depositHistoryList" style="font-size:10px;text-align:center;color:#8896B5;" data-i18n="deposit.noDeposits">No deposits yet</div>
     </div>
 
     <!-- Hidden inputs -->
@@ -5463,7 +5464,7 @@ function toggleFaq(btn) {
             <div class="form-group">
                 <label data-i18n="withdraw.address">Wallet Address</label>
                 <div class="input-wrapper">
-                    <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-encrypted="true">
+                    <input type="password" id="withdrawAddressInput" class="input-field" placeholder="Enter your wallet address" data-i18n-placeholder="withdraw.addressPlaceholder" data-encrypted="true">
                     <i class="fas fa-wallet input-icon"></i>
                     <button type="button" class="password-toggle" onclick="togglePassword('withdrawAddressInput')" aria-label="Toggle visibility">
                         <i class="fas fa-eye"></i>
@@ -5484,14 +5485,14 @@ function toggleFaq(btn) {
                 <div style="width:80px;height:80px;background:rgba(240,185,11,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
                     <i class="fas fa-user-check" style="font-size:36px;color:#F0B90B;"></i>
                 </div>
-                <h4 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;">Identity Verification Required</h4>
-                <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;">
+                <h4 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="withdraw.kycRequiredTitle">Identity Verification Required</h4>
+                <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;" data-i18n="withdraw.kycRequiredBody">
                     To protect your funds, we require identity verification before your first withdrawal. This is a standard security measure.
                 </p>
                 
                 <!-- Verification Progress -->
                 <div id="withdrawKycProgress" style="background:#141C2E;border-radius:10px;padding:16px;margin-bottom:20px;text-align:left;">
-                    <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Verification Progress</div>
+                    <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;" data-i18n="withdraw.verificationProgress">Verification Progress</div>
                     <div id="withdrawKycProgressBar" style="height:6px;background:#1E2A3F;border-radius:3px;overflow:hidden;margin-bottom:12px;">
                         <div id="withdrawKycProgressFill" style="height:100%;background:linear-gradient(90deg,#F0B90B,#FCD535);width:25%;transition:width 0.3s ease;"></div>
                     </div>
@@ -5499,10 +5500,10 @@ function toggleFaq(btn) {
                 </div>
                 
                 <button type="button" onclick="closeWithdrawModal();openVerificationModal();" class="btn btn-primary btn-block" style="margin-bottom:12px;">
-                    <i class="fas fa-shield-halved"></i> Start Verification
+                    <i class="fas fa-shield-halved"></i> <span data-i18n="withdraw.startVerification">Start Verification</span>
                 </button>
                 <p style="font-size:10px;color:#6B7A99;">
-                    <i class="fas fa-lock"></i> Your documents are encrypted and secure
+                    <i class="fas fa-lock"></i> <span data-i18n="withdraw.docsEncrypted">Your documents are encrypted and secure</span>
                 </p>
             </div>
         </div>
@@ -5513,42 +5514,42 @@ function toggleFaq(btn) {
 <div class="deposit-modal" id="verificationModal">
     <div class="deposit-modal-content" style="max-width:560px;">
         <button type="button" onclick="closeVerificationModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
-        <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> <span>Identity Verification</span></h3>
-        <p style="color:#5A6A8A;font-size:13px;margin-bottom:16px;">Complete verification to enable withdrawals</p>
+        <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> <span data-i18n="kyc.modalTitle">Identity Verification</span></h3>
+        <p style="color:#5A6A8A;font-size:13px;margin-bottom:16px;" data-i18n="kyc.modalSubtitle">Complete verification to enable withdrawals</p>
         
         <!-- Status Banner -->
         <div id="verificationStatusBanner" style="display:none;padding:12px;border-radius:10px;margin-bottom:16px;text-align:center;"></div>
         
         <!-- Progress Checklist -->
         <div id="verificationChecklist" style="margin-bottom:16px;">
-            <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Progress</div>
+            <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="kyc.progress">Progress</div>
             <div id="verificationChecklistItems" style="display:flex;flex-direction:column;gap:6px;"></div>
         </div>
         
         <!-- Tab Navigation -->
         <div class="mode-tabs" style="margin-bottom:12px;">
-            <button type="button" class="mode-tab active" onclick="showVerificationTab('personal')" id="verificationTabPersonal">Personal Info</button>
-            <button type="button" class="mode-tab" onclick="showVerificationTab('documents')" id="verificationTabDocuments">Documents</button>
-            <button type="button" class="mode-tab" onclick="showVerificationTab('review')" id="verificationTabReview">Review</button>
+            <button type="button" class="mode-tab active" onclick="showVerificationTab('personal')" id="verificationTabPersonal" data-i18n="kyc.tab.personal">Personal Info</button>
+            <button type="button" class="mode-tab" onclick="showVerificationTab('documents')" id="verificationTabDocuments" data-i18n="kyc.tab.documents">Documents</button>
+            <button type="button" class="mode-tab" onclick="showVerificationTab('review')" id="verificationTabReview" data-i18n="kyc.tab.review">Review</button>
         </div>
         
         <!-- Personal Information Tab -->
         <div id="verificationContentPersonal">
             <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;">
-                <i class="fas fa-shield-halved" style="color:#3B82F6;"></i> Your information is encrypted and secure
+                <i class="fas fa-shield-halved" style="color:#3B82F6;"></i> <span data-i18n="kyc.infoEncrypted">Your information is encrypted and secure</span>
             </div>
             <div class="form-group">
-                <label>Full Legal Name</label>
-                <input type="text" id="kycFullName" class="input-field" placeholder="As shown on your ID">
+                <label data-i18n="kyc.legalNameLabel">Full Legal Name</label>
+                <input type="text" id="kycFullName" class="input-field" placeholder="As shown on your ID" data-i18n-placeholder="kyc.legalNamePlaceholder">
             </div>
             <div class="form-group">
-                <label>Date of Birth</label>
+                <label data-i18n="kyc.dobLabel">Date of Birth</label>
                 <input type="date" id="kycDateOfBirth" class="input-field">
             </div>
             <div class="form-group">
-                <label>Country</label>
+                <label data-i18n="kyc.countryLabel">Country</label>
                 <select id="kycCountry" class="input-field">
-                    <option value="">Select country</option>
+                    <option value="" data-i18n="kyc.selectCountry">Select country</option>
                     <option value="US">United States</option>
                     <option value="GB">United Kingdom</option>
                     <option value="CA">Canada</option>
@@ -5571,65 +5572,65 @@ function toggleFaq(btn) {
                 </select>
             </div>
             <div class="form-group">
-                <label>Residential Address</label>
-                <textarea id="kycAddress" class="input-field" rows="2" placeholder="Full street address, city, postal code"></textarea>
+                <label data-i18n="kyc.addressLabel">Residential Address</label>
+                <textarea id="kycAddress" class="input-field" rows="2" placeholder="Full street address, city, postal code" data-i18n-placeholder="kyc.addressPlaceholder"></textarea>
             </div>
-            <button type="button" onclick="savePersonalInfo()" class="btn btn-primary btn-block">Save & Continue</button>
+            <button type="button" onclick="savePersonalInfo()" class="btn btn-primary btn-block" data-i18n="kyc.saveContinue">Save & Continue</button>
         </div>
         
         <!-- Documents Tab -->
         <div id="verificationContentDocuments" style="display:none;">
             <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:11px;">
-                <i class="fas fa-info-circle" style="color:#F59E0B;"></i> Allowed formats: JPG, PNG, WebP (max 10MB each)
+                <i class="fas fa-info-circle" style="color:#F59E0B;"></i> <span data-i18n="kyc.allowedFormats">Allowed formats: JPG, PNG, WebP (max 10MB each)</span>
             </div>
             
             <!-- Document Upload Sections -->
             <div id="documentUploads">
                 <!-- Identity Document -->
                 <div style="margin-bottom:16px;">
-                    <div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:8px;">Identity Document <span style="color:#EF4444;">*</span></div>
+                    <div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:8px;"><span data-i18n="kyc.identityDocument">Identity Document</span> <span style="color:#EF4444;">*</span></div>
                     <div style="display:flex;gap:8px;margin-bottom:8px;">
                         <select id="identityDocType" class="input-field" style="flex:1;">
-                            <option value="passport">Passport</option>
-                            <option value="national_id_front">National ID (Front)</option>
-                            <option value="drivers_license_front">Driver's License (Front)</option>
+                            <option value="passport" data-i18n="kyc.docType.passport">Passport</option>
+                            <option value="national_id_front" data-i18n="kyc.docType.nationalId">National ID (Front)</option>
+                            <option value="drivers_license_front" data-i18n="kyc.docType.driversLicense">Driver's License (Front)</option>
                         </select>
                     </div>
                     <div id="identityDocPreview" style="display:none;margin-bottom:8px;">
                         <img id="identityDocImage" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;background:#0a0f1a;">
-                        <button type="button" onclick="removeDocument('identity')" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;"><i class="fas fa-trash"></i> Remove</button>
+                        <button type="button" onclick="removeDocument('identity')" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;"><i class="fas fa-trash"></i> <span data-i18n="kyc.remove">Remove</span></button>
                     </div>
                     <label class="upload-area" id="identityUploadArea">
                         <input type="file" id="identityDocInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleDocumentUpload(this, 'identity')">
                         <i class="fas fa-cloud-upload-alt" style="font-size:24px;color:#F0B90B;margin-bottom:8px;"></i>
-                        <div style="font-size:11px;color:#8896B5;">Click to upload</div>
+                        <div style="font-size:11px;color:#8896B5;" data-i18n="kyc.clickToUpload">Click to upload</div>
                     </label>
                 </div>
                 
                 <!-- Selfie with ID -->
                 <div style="margin-bottom:16px;">
-                    <div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:8px;">Selfie with ID <span style="color:#EF4444;">*</span></div>
-                    <div style="font-size:10px;color:#6B7A99;margin-bottom:8px;">Take a selfie holding your uploaded ID document</div>
+                    <div style="font-size:12px;font-weight:600;color:#E8EDF5;margin-bottom:8px;"><span data-i18n="kyc.selfieWithId">Selfie with ID</span> <span style="color:#EF4444;">*</span></div>
+                    <div style="font-size:10px;color:#6B7A99;margin-bottom:8px;" data-i18n="kyc.selfieInstruction">Take a selfie holding your uploaded ID document</div>
                     <div id="selfieDocPreview" style="display:none;margin-bottom:8px;">
                         <img id="selfieDocImage" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;background:#0a0f1a;">
-                        <button type="button" onclick="removeDocument('selfie')" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;"><i class="fas fa-trash"></i> Remove</button>
+                        <button type="button" onclick="removeDocument('selfie')" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;"><i class="fas fa-trash"></i> <span data-i18n="kyc.remove">Remove</span></button>
                     </div>
                     <label class="upload-area" id="selfieUploadArea">
                         <input type="file" id="selfieDocInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleDocumentUpload(this, 'selfie')">
                         <i class="fas fa-cloud-upload-alt" style="font-size:24px;color:#F0B90B;margin-bottom:8px;"></i>
-                        <div style="font-size:11px;color:#8896B5;">Click to upload</div>
+                        <div style="font-size:11px;color:#8896B5;" data-i18n="kyc.clickToUpload">Click to upload</div>
                     </label>
                 </div>
             </div>
             
-            <button type="button" onclick="submitVerification()" class="btn btn-primary btn-block">Submit for Review</button>
+            <button type="button" onclick="submitVerification()" class="btn btn-primary btn-block" data-i18n="kyc.submitForReview">Submit for Review</button>
         </div>
         
         <!-- Review Tab -->
         <div id="verificationContentReview" style="display:none;">
             <div id="verificationSummary"></div>
             <div id="verificationHistorySection" style="margin-top:16px;">
-                <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">History</div>
+                <div style="font-size:11px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="kyc.history">History</div>
                 <div id="verificationHistoryList" style="max-height:150px;overflow-y:auto;"></div>
             </div>
         </div>
@@ -6841,6 +6842,90 @@ const TRANSLATIONS = {
         'admin.empty.noWithdrawals': 'No withdrawals found',
         'admin.confirm': 'Confirm',
         'common.na': 'N/A',
+        'common.loading': 'Loading...',
+        'withdraw.addressPlaceholder': 'Enter your wallet address',
+        'deposit.currentlySupported': 'Currently Supported',
+        'deposit.on': 'on',
+        'deposit.onThe': 'on the',
+        'deposit.networkSuffix': 'network.',
+        'deposit.sendUsdtOnly': 'Send USDT only',
+        'deposit.safetyWarningBody': 'Sending USDT through another network may result in loss of funds and may not be credited automatically.',
+        'deposit.initialInstructions': 'Enter your deposit amount and click \'Generate Payment\' to receive your unique USDT (TRC20) payment address.',
+        'deposit.paymentAmount': 'Payment Amount',
+        'deposit.sendExactlyPrefix': 'Send exactly',
+        'deposit.sendExactlySuffix': 'USDT on the TRON (TRC20) network.',
+        'deposit.scanToPay': 'Scan to pay with your crypto wallet',
+        'deposit.paymentAddressLabel': 'Payment Address',
+        'deposit.copyAmount': 'Copy Amount',
+        'deposit.expiresIn': 'Expires in',
+        'deposit.currentStatus': 'Current Status',
+        'deposit.successTitle': 'Deposit Successful!',
+        'deposit.successSubtitle': 'Your deposit has been confirmed and credited',
+        'deposit.amountCredited': 'Amount Credited',
+        'deposit.transactionRef': 'Transaction Ref',
+        'deposit.timeReceived': 'Time Received',
+        'deposit.newBalance': 'New Balance',
+        'deposit.returnDashboard': 'Return to Dashboard',
+        'deposit.recentDeposits': 'Recent Deposits',
+        'deposit.newInvoice': 'New Invoice',
+        'deposit.step.created': 'Created',
+        'deposit.step.detected': 'Detected',
+        'deposit.step.confirming': 'Confirming',
+        'deposit.step.credited': 'Credited',
+        'deposit.step.desc.created': 'Payment request created',
+        'deposit.step.desc.detected': 'Payment received',
+        'deposit.step.desc.confirming': 'Confirming on TRON',
+        'deposit.step.desc.credited': 'Balance credited',
+        'withdraw.kycRequiredTitle': 'Identity Verification Required',
+        'withdraw.kycRequiredBody': 'To protect your funds, we require identity verification before your first withdrawal. This is a standard security measure.',
+        'withdraw.verificationProgress': 'Verification Progress',
+        'withdraw.percentComplete': '{{percent}}% Complete',
+        'withdraw.startVerification': 'Start Verification',
+        'withdraw.docsEncrypted': 'Your documents are encrypted and secure',
+        'kyc.modalTitle': 'Identity Verification',
+        'kyc.modalSubtitle': 'Complete verification to enable withdrawals',
+        'kyc.progress': 'Progress',
+        'kyc.tab.personal': 'Personal Info',
+        'kyc.tab.documents': 'Documents',
+        'kyc.tab.review': 'Review',
+        'kyc.infoEncrypted': 'Your information is encrypted and secure',
+        'kyc.legalNameLabel': 'Full Legal Name',
+        'kyc.legalNamePlaceholder': 'As shown on your ID',
+        'kyc.dobLabel': 'Date of Birth',
+        'kyc.countryLabel': 'Country',
+        'kyc.selectCountry': 'Select country',
+        'kyc.addressLabel': 'Residential Address',
+        'kyc.addressPlaceholder': 'Full street address, city, postal code',
+        'kyc.saveContinue': 'Save & Continue',
+        'kyc.allowedFormats': 'Allowed formats: JPG, PNG, WebP (max 10MB each)',
+        'kyc.identityDocument': 'Identity Document',
+        'kyc.docType.passport': 'Passport',
+        'kyc.docType.nationalId': 'National ID (Front)',
+        'kyc.docType.driversLicense': 'Driver\'s License (Front)',
+        'kyc.remove': 'Remove',
+        'kyc.clickToUpload': 'Click to upload',
+        'kyc.selfieWithId': 'Selfie with ID',
+        'kyc.selfieInstruction': 'Take a selfie holding your uploaded ID document',
+        'kyc.submitForReview': 'Submit for Review',
+        'kyc.history': 'History',
+        'referral.shareEarn': 'Share your link. Earn when friends deposit!',
+        'referral.active': 'Active',
+        'referral.myCode': 'My Referral Code',
+        'referral.linkLabel': 'Referral Link',
+        'referral.shareOnX': 'Share on X',
+        'referral.moreOptions': 'More Options',
+        'referral.howItWorks': 'How it works:',
+        'referral.step1Text': 'Friend registers with your code',
+        'referral.step2Text': 'Friend deposits ≥',
+        'referral.step3Text': 'You earn',
+        'referral.bonusWord': 'bonus',
+        'referral.bonusWallet': 'Bonus Wallet',
+        'referral.pendingAwaiting': 'Pending Referrals (Awaiting First Deposit)',
+        'referral.copyCode': 'Copy Code',
+        'referral.copyLink': 'Copy Link',
+        'referral.pending': 'Pending',
+        'referral.earnedLabel': 'Earned',
+        'deposit.refreshStatus': 'Refresh Status',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -7608,6 +7693,90 @@ const TRANSLATIONS = {
         'admin.empty.noWithdrawals': 'No se encontraron retiros',
         'admin.confirm': 'Confirmar',
         'common.na': 'N/D',
+        'common.loading': 'Cargando...',
+        'withdraw.addressPlaceholder': 'Ingresa la dirección de tu billetera',
+        'deposit.currentlySupported': 'Compatible actualmente',
+        'deposit.on': 'en',
+        'deposit.onThe': 'en la',
+        'deposit.networkSuffix': 'red.',
+        'deposit.sendUsdtOnly': 'Envía solo USDT',
+        'deposit.safetyWarningBody': 'Enviar USDT a través de otra red puede provocar la pérdida de fondos y puede no acreditarse automáticamente.',
+        'deposit.initialInstructions': 'Ingresa el monto del depósito y haz clic en \'Generar pago\' para recibir tu dirección de pago USDT (TRC20) única.',
+        'deposit.paymentAmount': 'Monto del pago',
+        'deposit.sendExactlyPrefix': 'Envía exactamente',
+        'deposit.sendExactlySuffix': 'USDT en la red TRON (TRC20).',
+        'deposit.scanToPay': 'Escanea para pagar con tu billetera cripto',
+        'deposit.paymentAddressLabel': 'Dirección de pago',
+        'deposit.copyAmount': 'Copiar monto',
+        'deposit.expiresIn': 'Expira en',
+        'deposit.currentStatus': 'Estado actual',
+        'deposit.successTitle': '¡Depósito exitoso!',
+        'deposit.successSubtitle': 'Tu depósito ha sido confirmado y acreditado',
+        'deposit.amountCredited': 'Monto acreditado',
+        'deposit.transactionRef': 'Ref. de transacción',
+        'deposit.timeReceived': 'Hora de recepción',
+        'deposit.newBalance': 'Nuevo saldo',
+        'deposit.returnDashboard': 'Volver al panel',
+        'deposit.recentDeposits': 'Depósitos recientes',
+        'deposit.newInvoice': 'Nueva factura',
+        'deposit.step.created': 'Creada',
+        'deposit.step.detected': 'Detectado',
+        'deposit.step.confirming': 'Confirmando',
+        'deposit.step.credited': 'Acreditado',
+        'deposit.step.desc.created': 'Solicitud de pago creada',
+        'deposit.step.desc.detected': 'Pago recibido',
+        'deposit.step.desc.confirming': 'Confirmando en TRON',
+        'deposit.step.desc.credited': 'Saldo acreditado',
+        'withdraw.kycRequiredTitle': 'Verificación de identidad requerida',
+        'withdraw.kycRequiredBody': 'Para proteger tus fondos, requerimos verificación de identidad antes de tu primer retiro. Esta es una medida de seguridad estándar.',
+        'withdraw.verificationProgress': 'Progreso de verificación',
+        'withdraw.percentComplete': '{{percent}}% completado',
+        'withdraw.startVerification': 'Iniciar verificación',
+        'withdraw.docsEncrypted': 'Tus documentos están cifrados y seguros',
+        'kyc.modalTitle': 'Verificación de identidad',
+        'kyc.modalSubtitle': 'Completa la verificación para habilitar retiros',
+        'kyc.progress': 'Progreso',
+        'kyc.tab.personal': 'Información personal',
+        'kyc.tab.documents': 'Documentos',
+        'kyc.tab.review': 'Revisión',
+        'kyc.infoEncrypted': 'Tu información está cifrada y segura',
+        'kyc.legalNameLabel': 'Nombre legal completo',
+        'kyc.legalNamePlaceholder': 'Como aparece en tu identificación',
+        'kyc.dobLabel': 'Fecha de nacimiento',
+        'kyc.countryLabel': 'País',
+        'kyc.selectCountry': 'Selecciona país',
+        'kyc.addressLabel': 'Dirección de residencia',
+        'kyc.addressPlaceholder': 'Dirección completa, ciudad, código postal',
+        'kyc.saveContinue': 'Guardar y continuar',
+        'kyc.allowedFormats': 'Formatos permitidos: JPG, PNG, WebP (máx. 10MB cada uno)',
+        'kyc.identityDocument': 'Documento de identidad',
+        'kyc.docType.passport': 'Pasaporte',
+        'kyc.docType.nationalId': 'Cédula de identidad (anverso)',
+        'kyc.docType.driversLicense': 'Licencia de conducir (anverso)',
+        'kyc.remove': 'Eliminar',
+        'kyc.clickToUpload': 'Haz clic para subir',
+        'kyc.selfieWithId': 'Selfie con identificación',
+        'kyc.selfieInstruction': 'Toma una selfie sosteniendo tu documento de identidad subido',
+        'kyc.submitForReview': 'Enviar para revisión',
+        'kyc.history': 'Historial',
+        'referral.shareEarn': '¡Comparte tu enlace. Gana cuando tus amigos depositen!',
+        'referral.active': 'Activos',
+        'referral.myCode': 'Mi código de referido',
+        'referral.linkLabel': 'Enlace de referido',
+        'referral.shareOnX': 'Compartir en X',
+        'referral.moreOptions': 'Más opciones',
+        'referral.howItWorks': 'Cómo funciona:',
+        'referral.step1Text': 'Tu amigo se registra con tu código',
+        'referral.step2Text': 'Tu amigo deposita ≥',
+        'referral.step3Text': 'Ganas',
+        'referral.bonusWord': 'bono',
+        'referral.bonusWallet': 'Billetera de bonos',
+        'referral.pendingAwaiting': 'Referidos pendientes (esperando primer depósito)',
+        'referral.copyCode': 'Copiar código',
+        'referral.copyLink': 'Copiar enlace',
+        'referral.pending': 'Pendientes',
+        'referral.earnedLabel': 'Ganado',
+        'deposit.refreshStatus': 'Actualizar estado',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -8375,6 +8544,90 @@ const TRANSLATIONS = {
         'admin.empty.noWithdrawals': 'Nenhum saque encontrado',
         'admin.confirm': 'Confirmar',
         'common.na': 'N/D',
+        'common.loading': 'Carregando...',
+        'withdraw.addressPlaceholder': 'Insira o endereço da sua carteira',
+        'deposit.currentlySupported': 'Atualmente suportado',
+        'deposit.on': 'em',
+        'deposit.onThe': 'na',
+        'deposit.networkSuffix': 'rede.',
+        'deposit.sendUsdtOnly': 'Envie apenas USDT',
+        'deposit.safetyWarningBody': 'Enviar USDT por outra rede pode resultar em perda de fundos e pode não ser creditado automaticamente.',
+        'deposit.initialInstructions': 'Insira o valor do depósito e clique em \'Gerar pagamento\' para receber seu endereço de pagamento USDT (TRC20) exclusivo.',
+        'deposit.paymentAmount': 'Valor do pagamento',
+        'deposit.sendExactlyPrefix': 'Envie exatamente',
+        'deposit.sendExactlySuffix': 'USDT na rede TRON (TRC20).',
+        'deposit.scanToPay': 'Escaneie para pagar com sua carteira cripto',
+        'deposit.paymentAddressLabel': 'Endereço de pagamento',
+        'deposit.copyAmount': 'Copiar valor',
+        'deposit.expiresIn': 'Expira em',
+        'deposit.currentStatus': 'Status atual',
+        'deposit.successTitle': 'Depósito bem-sucedido!',
+        'deposit.successSubtitle': 'Seu depósito foi confirmado e creditado',
+        'deposit.amountCredited': 'Valor creditado',
+        'deposit.transactionRef': 'Ref. da transação',
+        'deposit.timeReceived': 'Hora do recebimento',
+        'deposit.newBalance': 'Novo saldo',
+        'deposit.returnDashboard': 'Voltar ao painel',
+        'deposit.recentDeposits': 'Depósitos recentes',
+        'deposit.newInvoice': 'Nova fatura',
+        'deposit.step.created': 'Criada',
+        'deposit.step.detected': 'Detectado',
+        'deposit.step.confirming': 'Confirmando',
+        'deposit.step.credited': 'Creditado',
+        'deposit.step.desc.created': 'Solicitação de pagamento criada',
+        'deposit.step.desc.detected': 'Pagamento recebido',
+        'deposit.step.desc.confirming': 'Confirmando na TRON',
+        'deposit.step.desc.credited': 'Saldo creditado',
+        'withdraw.kycRequiredTitle': 'Verificação de identidade necessária',
+        'withdraw.kycRequiredBody': 'Para proteger seus fundos, exigimos verificação de identidade antes do seu primeiro saque. Esta é uma medida de segurança padrão.',
+        'withdraw.verificationProgress': 'Progresso da verificação',
+        'withdraw.percentComplete': '{{percent}}% concluído',
+        'withdraw.startVerification': 'Iniciar verificação',
+        'withdraw.docsEncrypted': 'Seus documentos estão criptografados e seguros',
+        'kyc.modalTitle': 'Verificação de identidade',
+        'kyc.modalSubtitle': 'Conclua a verificação para habilitar saques',
+        'kyc.progress': 'Progresso',
+        'kyc.tab.personal': 'Informações pessoais',
+        'kyc.tab.documents': 'Documentos',
+        'kyc.tab.review': 'Revisão',
+        'kyc.infoEncrypted': 'Suas informações estão criptografadas e seguras',
+        'kyc.legalNameLabel': 'Nome legal completo',
+        'kyc.legalNamePlaceholder': 'Como aparece em sua identificação',
+        'kyc.dobLabel': 'Data de nascimento',
+        'kyc.countryLabel': 'País',
+        'kyc.selectCountry': 'Selecione o país',
+        'kyc.addressLabel': 'Endereço residencial',
+        'kyc.addressPlaceholder': 'Endereço completo, cidade, código postal',
+        'kyc.saveContinue': 'Salvar e continuar',
+        'kyc.allowedFormats': 'Formatos permitidos: JPG, PNG, WebP (máx. 10MB cada)',
+        'kyc.identityDocument': 'Documento de identidade',
+        'kyc.docType.passport': 'Passaporte',
+        'kyc.docType.nationalId': 'Identidade nacional (frente)',
+        'kyc.docType.driversLicense': 'Carteira de motorista (frente)',
+        'kyc.remove': 'Remover',
+        'kyc.clickToUpload': 'Clique para enviar',
+        'kyc.selfieWithId': 'Selfie com documento',
+        'kyc.selfieInstruction': 'Tire uma selfie segurando seu documento de identidade enviado',
+        'kyc.submitForReview': 'Enviar para revisão',
+        'kyc.history': 'Histórico',
+        'referral.shareEarn': 'Compartilhe seu link. Ganhe quando amigos depositarem!',
+        'referral.active': 'Ativos',
+        'referral.myCode': 'Meu código de indicação',
+        'referral.linkLabel': 'Link de indicação',
+        'referral.shareOnX': 'Compartilhar no X',
+        'referral.moreOptions': 'Mais opções',
+        'referral.howItWorks': 'Como funciona:',
+        'referral.step1Text': 'Amigo se cadastra com seu código',
+        'referral.step2Text': 'Amigo deposita ≥',
+        'referral.step3Text': 'Você ganha',
+        'referral.bonusWord': 'bônus',
+        'referral.bonusWallet': 'Carteira de bônus',
+        'referral.pendingAwaiting': 'Indicações pendentes (aguardando primeiro depósito)',
+        'referral.copyCode': 'Copiar código',
+        'referral.copyLink': 'Copiar link',
+        'referral.pending': 'Pendentes',
+        'referral.earnedLabel': 'Ganhos',
+        'deposit.refreshStatus': 'Atualizar status',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -9142,6 +9395,90 @@ const TRANSLATIONS = {
         'admin.empty.noWithdrawals': 'Aucun retrait trouvé',
         'admin.confirm': 'Confirmer',
         'common.na': 'N/A',
+        'common.loading': 'Chargement...',
+        'withdraw.addressPlaceholder': 'Saisissez l\'adresse de votre portefeuille',
+        'deposit.currentlySupported': 'Actuellement pris en charge',
+        'deposit.on': 'sur',
+        'deposit.onThe': 'sur le',
+        'deposit.networkSuffix': 'réseau.',
+        'deposit.sendUsdtOnly': 'Envoyez uniquement de l\'USDT',
+        'deposit.safetyWarningBody': 'Envoyer de l\'USDT via un autre réseau peut entraîner une perte de fonds et ne pas être crédité automatiquement.',
+        'deposit.initialInstructions': 'Saisissez le montant du dépôt et cliquez sur « Générer le paiement » pour recevoir votre adresse de paiement USDT (TRC20) unique.',
+        'deposit.paymentAmount': 'Montant du paiement',
+        'deposit.sendExactlyPrefix': 'Envoyez exactement',
+        'deposit.sendExactlySuffix': 'USDT sur le réseau TRON (TRC20).',
+        'deposit.scanToPay': 'Scannez pour payer avec votre portefeuille crypto',
+        'deposit.paymentAddressLabel': 'Adresse de paiement',
+        'deposit.copyAmount': 'Copier le montant',
+        'deposit.expiresIn': 'Expire dans',
+        'deposit.currentStatus': 'Statut actuel',
+        'deposit.successTitle': 'Dépôt réussi !',
+        'deposit.successSubtitle': 'Votre dépôt a été confirmé et crédité',
+        'deposit.amountCredited': 'Montant crédité',
+        'deposit.transactionRef': 'Réf. transaction',
+        'deposit.timeReceived': 'Heure de réception',
+        'deposit.newBalance': 'Nouveau solde',
+        'deposit.returnDashboard': 'Retour au tableau de bord',
+        'deposit.recentDeposits': 'Dépôts récents',
+        'deposit.newInvoice': 'Nouvelle facture',
+        'deposit.step.created': 'Créée',
+        'deposit.step.detected': 'Détecté',
+        'deposit.step.confirming': 'Confirmation',
+        'deposit.step.credited': 'Crédité',
+        'deposit.step.desc.created': 'Demande de paiement créée',
+        'deposit.step.desc.detected': 'Paiement reçu',
+        'deposit.step.desc.confirming': 'Confirmation sur TRON',
+        'deposit.step.desc.credited': 'Solde crédité',
+        'withdraw.kycRequiredTitle': 'Vérification d\'identité requise',
+        'withdraw.kycRequiredBody': 'Pour protéger vos fonds, nous exigeons une vérification d\'identité avant votre premier retrait. Il s\'agit d\'une mesure de sécurité standard.',
+        'withdraw.verificationProgress': 'Progression de la vérification',
+        'withdraw.percentComplete': '{{percent}}% terminé',
+        'withdraw.startVerification': 'Commencer la vérification',
+        'withdraw.docsEncrypted': 'Vos documents sont chiffrés et sécurisés',
+        'kyc.modalTitle': 'Vérification d\'identité',
+        'kyc.modalSubtitle': 'Complétez la vérification pour activer les retraits',
+        'kyc.progress': 'Progression',
+        'kyc.tab.personal': 'Informations personnelles',
+        'kyc.tab.documents': 'Documents',
+        'kyc.tab.review': 'Vérification',
+        'kyc.infoEncrypted': 'Vos informations sont chiffrées et sécurisées',
+        'kyc.legalNameLabel': 'Nom légal complet',
+        'kyc.legalNamePlaceholder': 'Tel qu\'indiqué sur votre pièce d\'identité',
+        'kyc.dobLabel': 'Date de naissance',
+        'kyc.countryLabel': 'Pays',
+        'kyc.selectCountry': 'Sélectionnez le pays',
+        'kyc.addressLabel': 'Adresse de résidence',
+        'kyc.addressPlaceholder': 'Adresse complète, ville, code postal',
+        'kyc.saveContinue': 'Enregistrer et continuer',
+        'kyc.allowedFormats': 'Formats autorisés : JPG, PNG, WebP (10 Mo max chacun)',
+        'kyc.identityDocument': 'Pièce d\'identité',
+        'kyc.docType.passport': 'Passeport',
+        'kyc.docType.nationalId': 'Carte d\'identité (recto)',
+        'kyc.docType.driversLicense': 'Permis de conduire (recto)',
+        'kyc.remove': 'Supprimer',
+        'kyc.clickToUpload': 'Cliquez pour téléverser',
+        'kyc.selfieWithId': 'Selfie avec pièce d\'identité',
+        'kyc.selfieInstruction': 'Prenez un selfie en tenant votre pièce d\'identité téléversée',
+        'kyc.submitForReview': 'Soumettre pour vérification',
+        'kyc.history': 'Historique',
+        'referral.shareEarn': 'Partagez votre lien. Gagnez quand vos amis déposent !',
+        'referral.active': 'Actifs',
+        'referral.myCode': 'Mon code de parrainage',
+        'referral.linkLabel': 'Lien de parrainage',
+        'referral.shareOnX': 'Partager sur X',
+        'referral.moreOptions': 'Plus d\'options',
+        'referral.howItWorks': 'Comment ça marche :',
+        'referral.step1Text': 'Un ami s\'inscrit avec votre code',
+        'referral.step2Text': 'L\'ami dépose ≥',
+        'referral.step3Text': 'Vous gagnez',
+        'referral.bonusWord': 'bonus',
+        'referral.bonusWallet': 'Portefeuille bonus',
+        'referral.pendingAwaiting': 'Parrainages en attente (en attente du premier dépôt)',
+        'referral.copyCode': 'Copier le code',
+        'referral.copyLink': 'Copier le lien',
+        'referral.pending': 'En attente',
+        'referral.earnedLabel': 'Gagné',
+        'deposit.refreshStatus': 'Actualiser le statut',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -9909,6 +10246,90 @@ const TRANSLATIONS = {
         'admin.empty.noWithdrawals': 'لم يتم العثور على سحوبات',
         'admin.confirm': 'تأكيد',
         'common.na': 'غير متاح',
+        'common.loading': 'جارٍ التحميل...',
+        'withdraw.addressPlaceholder': 'أدخل عنوان محفظتك',
+        'deposit.currentlySupported': 'مدعوم حاليًا',
+        'deposit.on': 'على',
+        'deposit.onThe': 'على شبكة',
+        'deposit.networkSuffix': 'الشبكة.',
+        'deposit.sendUsdtOnly': 'أرسل USDT فقط',
+        'deposit.safetyWarningBody': 'قد يؤدي إرسال USDT عبر شبكة أخرى إلى فقدان الأموال وقد لا يُضاف إلى رصيدك تلقائيًا.',
+        'deposit.initialInstructions': 'أدخل مبلغ الإيداع واضغط على "إنشاء دفعة" لاستلام عنوان دفع USDT (TRC20) فريد خاص بك.',
+        'deposit.paymentAmount': 'مبلغ الدفع',
+        'deposit.sendExactlyPrefix': 'أرسل بالضبط',
+        'deposit.sendExactlySuffix': 'USDT على شبكة TRON (TRC20).',
+        'deposit.scanToPay': 'امسح للدفع باستخدام محفظتك للعملات المشفرة',
+        'deposit.paymentAddressLabel': 'عنوان الدفع',
+        'deposit.copyAmount': 'نسخ المبلغ',
+        'deposit.expiresIn': 'ينتهي خلال',
+        'deposit.currentStatus': 'الحالة الحالية',
+        'deposit.successTitle': 'تم الإيداع بنجاح!',
+        'deposit.successSubtitle': 'تم تأكيد إيداعك وإضافته إلى رصيدك',
+        'deposit.amountCredited': 'المبلغ المضاف',
+        'deposit.transactionRef': 'مرجع المعاملة',
+        'deposit.timeReceived': 'وقت الاستلام',
+        'deposit.newBalance': 'الرصيد الجديد',
+        'deposit.returnDashboard': 'العودة إلى لوحة التحكم',
+        'deposit.recentDeposits': 'الإيداعات الأخيرة',
+        'deposit.newInvoice': 'فاتورة جديدة',
+        'deposit.step.created': 'تم الإنشاء',
+        'deposit.step.detected': 'تم الاكتشاف',
+        'deposit.step.confirming': 'جارٍ التأكيد',
+        'deposit.step.credited': 'تم الإضافة',
+        'deposit.step.desc.created': 'تم إنشاء طلب الدفع',
+        'deposit.step.desc.detected': 'تم استلام الدفع',
+        'deposit.step.desc.confirming': 'جارٍ التأكيد على TRON',
+        'deposit.step.desc.credited': 'تم إضافة الرصيد',
+        'withdraw.kycRequiredTitle': 'التحقق من الهوية مطلوب',
+        'withdraw.kycRequiredBody': 'لحماية أموالك، نطلب التحقق من الهوية قبل أول عملية سحب لك. هذا إجراء أمني قياسي.',
+        'withdraw.verificationProgress': 'تقدم التحقق',
+        'withdraw.percentComplete': 'اكتمل {{percent}}%',
+        'withdraw.startVerification': 'بدء التحقق',
+        'withdraw.docsEncrypted': 'مستنداتك مشفرة وآمنة',
+        'kyc.modalTitle': 'التحقق من الهوية',
+        'kyc.modalSubtitle': 'أكمل التحقق لتمكين السحب',
+        'kyc.progress': 'التقدم',
+        'kyc.tab.personal': 'المعلومات الشخصية',
+        'kyc.tab.documents': 'المستندات',
+        'kyc.tab.review': 'المراجعة',
+        'kyc.infoEncrypted': 'معلوماتك مشفرة وآمنة',
+        'kyc.legalNameLabel': 'الاسم القانوني الكامل',
+        'kyc.legalNamePlaceholder': 'كما هو موضح في هويتك',
+        'kyc.dobLabel': 'تاريخ الميلاد',
+        'kyc.countryLabel': 'الدولة',
+        'kyc.selectCountry': 'اختر الدولة',
+        'kyc.addressLabel': 'عنوان السكن',
+        'kyc.addressPlaceholder': 'العنوان الكامل، المدينة، الرمز البريدي',
+        'kyc.saveContinue': 'حفظ ومتابعة',
+        'kyc.allowedFormats': 'الصيغ المسموح بها: JPG، PNG، WebP (حد أقصى 10 ميجابايت لكل ملف)',
+        'kyc.identityDocument': 'وثيقة الهوية',
+        'kyc.docType.passport': 'جواز السفر',
+        'kyc.docType.nationalId': 'بطاقة الهوية الوطنية (الوجه الأمامي)',
+        'kyc.docType.driversLicense': 'رخصة القيادة (الوجه الأمامي)',
+        'kyc.remove': 'إزالة',
+        'kyc.clickToUpload': 'اضغط للرفع',
+        'kyc.selfieWithId': 'صورة شخصية مع الهوية',
+        'kyc.selfieInstruction': 'التقط صورة شخصية وأنت تحمل وثيقة هويتك المرفوعة',
+        'kyc.submitForReview': 'إرسال للمراجعة',
+        'kyc.history': 'السجل',
+        'referral.shareEarn': 'شارك رابطك. اربح عندما يقوم أصدقاؤك بالإيداع!',
+        'referral.active': 'نشط',
+        'referral.myCode': 'رمز الإحالة الخاص بي',
+        'referral.linkLabel': 'رابط الإحالة',
+        'referral.shareOnX': 'مشاركة على X',
+        'referral.moreOptions': 'المزيد من الخيارات',
+        'referral.howItWorks': 'كيف يعمل:',
+        'referral.step1Text': 'يسجل صديقك باستخدام رمزك',
+        'referral.step2Text': 'يقوم الصديق بإيداع ≥',
+        'referral.step3Text': 'تكتسب',
+        'referral.bonusWord': 'مكافأة',
+        'referral.bonusWallet': 'محفظة المكافآت',
+        'referral.pendingAwaiting': 'الإحالات المعلقة (في انتظار أول إيداع)',
+        'referral.copyCode': 'نسخ الرمز',
+        'referral.copyLink': 'نسخ الرابط',
+        'referral.pending': 'قيد الانتظار',
+        'referral.earnedLabel': 'المكتسب',
+        'deposit.refreshStatus': 'تحديث الحالة',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -10676,6 +11097,90 @@ const TRANSLATIONS = {
         'admin.empty.noWithdrawals': '未找到提现',
         'admin.confirm': '确认',
         'common.na': '不适用',
+        'common.loading': '加载中...',
+        'withdraw.addressPlaceholder': '输入您的钱包地址',
+        'deposit.currentlySupported': '当前支持',
+        'deposit.on': '在',
+        'deposit.onThe': '在',
+        'deposit.networkSuffix': '网络。',
+        'deposit.sendUsdtOnly': '仅发送 USDT',
+        'deposit.safetyWarningBody': '通过其他网络发送 USDT 可能导致资金丢失，且可能无法自动到账。',
+        'deposit.initialInstructions': '输入您的存款金额并点击“生成付款”以获取您专属的 USDT (TRC20) 付款地址。',
+        'deposit.paymentAmount': '付款金额',
+        'deposit.sendExactlyPrefix': '精确发送',
+        'deposit.sendExactlySuffix': 'USDT，通过 TRON (TRC20) 网络。',
+        'deposit.scanToPay': '扫码使用您的加密钱包付款',
+        'deposit.paymentAddressLabel': '付款地址',
+        'deposit.copyAmount': '复制金额',
+        'deposit.expiresIn': '剩余有效期',
+        'deposit.currentStatus': '当前状态',
+        'deposit.successTitle': '存款成功！',
+        'deposit.successSubtitle': '您的存款已确认并到账',
+        'deposit.amountCredited': '已到账金额',
+        'deposit.transactionRef': '交易参考号',
+        'deposit.timeReceived': '到账时间',
+        'deposit.newBalance': '新余额',
+        'deposit.returnDashboard': '返回仪表板',
+        'deposit.recentDeposits': '近期存款',
+        'deposit.newInvoice': '新建发票',
+        'deposit.step.created': '已创建',
+        'deposit.step.detected': '已检测',
+        'deposit.step.confirming': '确认中',
+        'deposit.step.credited': '已到账',
+        'deposit.step.desc.created': '已创建付款请求',
+        'deposit.step.desc.detected': '已收到付款',
+        'deposit.step.desc.confirming': '在 TRON 上确认中',
+        'deposit.step.desc.credited': '余额已到账',
+        'withdraw.kycRequiredTitle': '需要身份验证',
+        'withdraw.kycRequiredBody': '为保护您的资金，我们要求在首次提款前进行身份验证。这是标准的安全措施。',
+        'withdraw.verificationProgress': '验证进度',
+        'withdraw.percentComplete': '已完成 {{percent}}%',
+        'withdraw.startVerification': '开始验证',
+        'withdraw.docsEncrypted': '您的文件已加密且安全',
+        'kyc.modalTitle': '身份验证',
+        'kyc.modalSubtitle': '完成验证以启用提款',
+        'kyc.progress': '进度',
+        'kyc.tab.personal': '个人信息',
+        'kyc.tab.documents': '文件',
+        'kyc.tab.review': '审核',
+        'kyc.infoEncrypted': '您的信息已加密且安全',
+        'kyc.legalNameLabel': '法定全名',
+        'kyc.legalNamePlaceholder': '与证件一致',
+        'kyc.dobLabel': '出生日期',
+        'kyc.countryLabel': '国家',
+        'kyc.selectCountry': '选择国家',
+        'kyc.addressLabel': '居住地址',
+        'kyc.addressPlaceholder': '完整街道地址、城市、邮政编码',
+        'kyc.saveContinue': '保存并继续',
+        'kyc.allowedFormats': '允许格式：JPG、PNG、WebP（每个最大 10MB）',
+        'kyc.identityDocument': '身份证明文件',
+        'kyc.docType.passport': '护照',
+        'kyc.docType.nationalId': '国民身份证（正面）',
+        'kyc.docType.driversLicense': '驾驶证（正面）',
+        'kyc.remove': '移除',
+        'kyc.clickToUpload': '点击上传',
+        'kyc.selfieWithId': '持证件自拍',
+        'kyc.selfieInstruction': '请手持已上传的证件拍摄自拍',
+        'kyc.submitForReview': '提交审核',
+        'kyc.history': '历史记录',
+        'referral.shareEarn': '分享您的链接，好友存款即可赚取奖励！',
+        'referral.active': '活跃',
+        'referral.myCode': '我的推荐码',
+        'referral.linkLabel': '推荐链接',
+        'referral.shareOnX': '分享到 X',
+        'referral.moreOptions': '更多选项',
+        'referral.howItWorks': '运作方式：',
+        'referral.step1Text': '好友使用您的码注册',
+        'referral.step2Text': '好友存款 ≥',
+        'referral.step3Text': '您赚取',
+        'referral.bonusWord': '奖励',
+        'referral.bonusWallet': '奖励钱包',
+        'referral.pendingAwaiting': '待处理推荐（等待首次存款）',
+        'referral.copyCode': '复制码',
+        'referral.copyLink': '复制链接',
+        'referral.pending': '待处理',
+        'referral.earnedLabel': '已赚取',
+        'deposit.refreshStatus': '刷新状态',
     }
 };
 // Copy translations for other languages
@@ -10711,7 +11216,7 @@ function t(key, vars) {
     try {
         let text = TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key] || key;
         if (vars) {
-            Object.keys(vars).forEach(function(k) { text = text.replace('{{' + k + '}}', vars[k]); });
+            Object.keys(vars).forEach(function(k) { text = text.split('{{' + k + '}}').join(vars[k]); });
         }
         return text;
     } catch(e) { return key; }
@@ -10843,6 +11348,11 @@ function applyTranslations() {
             const key = el.getAttribute('data-i18n-placeholder');
             const translation = t(key);
             if (translation && translation !== key) el.placeholder = translation;
+        });
+        document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+            const key = el.getAttribute('data-i18n-title');
+            const translation = t(key);
+            if (translation && translation !== key) el.title = translation;
         });
         document.querySelectorAll('.language-option').forEach(function(opt) {
             opt.classList.toggle('active', opt.dataset.lang === currentLang);
@@ -12644,8 +13154,8 @@ function showPaymentSection(invoice, amountUSD) {
     if (exactAmountEl) exactAmountEl.textContent = exactAmount;
 
     // Update the "Payment Address" label to reflect a deposit address
-    const addrLabel = document.querySelector('#walletAddressContainer > div');
-    if (addrLabel) addrLabel.textContent = 'Payment Address';
+    const addrLabel = document.getElementById('paymentAddressLabel');
+    if (addrLabel) addrLabel.textContent = t('deposit.paymentAddressLabel');
 
     // Make the network banner explicit
     const netBadge = document.getElementById('q8qpayNetworkBadge');
@@ -13114,8 +13624,8 @@ function resetDepositModal() {
   // Reset q8qpay-specific UI elements
   const q8qBadge = document.getElementById('q8qpayNetworkBadge');
   if (q8qBadge) q8qBadge.style.display = 'none';
-  const addrLabel = document.querySelector('#walletAddressContainer > div');
-  if (addrLabel) addrLabel.textContent = 'Payment Address';
+  const addrLabel = document.getElementById('paymentAddressLabel');
+  if (addrLabel) addrLabel.textContent = t('deposit.paymentAddressLabel');
 }
 
 function closeDepositModal() {
@@ -13221,7 +13731,7 @@ async function openWithdrawModal() {
                     const statusData = await statusRes.json();
                     if (statusData.levels) {
                         getEl('withdrawKycProgressFill').style.width = statusData.levels.progress + '%';
-                        getEl('withdrawKycProgressText').textContent = statusData.levels.progress + '% Complete';
+                        getEl('withdrawKycProgressText').textContent = t('withdraw.percentComplete', {percent: statusData.levels.progress});
                     }
                 }
             }
