@@ -6324,7 +6324,11 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $50 to enable withdrawals',
         'live.withdrawStatus.mtaNotReached': '📈 Need to reach $143 MTA and complete at least 1 trade to withdraw',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
-        'live.withdrawStatus.ready': '✅ Ready to withdraw (min $700)'
+        'live.withdrawStatus.ready': '✅ Ready to withdraw (min $700)',
+        'admin.title': 'Admin Panel',
+        'auth.backToLogin': 'Back to Login',
+        'sidebar.admin': 'Admin Panel',
+        'sidebar.verification': 'Verification'
     },
     es: {}, fr: {}, ar: {}, zh: {}, pt: {}
 };
@@ -6336,7 +6340,27 @@ const TRANSLATIONS = {
     });
 });
 
-let currentLang = localStorage.getItem('arbi_lang') || 'en';
+// Detect the user's preferred language from the browser ONLY when no manual
+// choice has been persisted. An existing 'arbi_lang' is always honored so the
+// manual language selector remains the user's override. Falls back to English.
+function detectBrowserLanguage() {
+    const supported = ['es', 'pt', 'fr', 'ar', 'zh', 'en'];
+    const candidates = [];
+    if (navigator.languages && navigator.languages.length) {
+        for (let i = 0; i < navigator.languages.length; i++) candidates.push(navigator.languages[i]);
+    }
+    if (navigator.language) candidates.push(navigator.language);
+    for (let i = 0; i < candidates.length; i++) {
+        const prefix = String(candidates[i]).toLowerCase().split('-')[0];
+        if (supported.indexOf(prefix) !== -1) return prefix;
+    }
+    return 'en';
+}
+let currentLang = localStorage.getItem('arbi_lang');
+if (!currentLang) {
+    currentLang = detectBrowserLanguage();
+    localStorage.setItem('arbi_lang', currentLang);
+}
 function t(key, vars) {
     try {
         let text = TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key] || key;
