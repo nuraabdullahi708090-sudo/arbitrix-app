@@ -663,3 +663,100 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   regression).
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   prior phases).
+
+## Localization Phase 3E — Admin Static + Dynamic Localization (2026-08, public/index.html only)
+- Frontend-only admin UI localization (the implementation slice following the
+  Phase 3D read-only audit). NO changes to server.js, DB/schema/migrations,
+  auth/2FA, wallet, trading, referral qualification/bonus, payment/deposit/
+  withdraw logic, webhook behavior, API request/response shapes, or stored
+  status/action/enum values. No commit/push/deploy.
+- Dictionaries: 847 -> 972 keys/locale (125 NEW keys; EN values for the 847
+  pre-existing keys byte-identical - 0 changed). All 6 locales (en, es, pt, fr,
+  ar, zh) have identical key sets, 0 empty, 0 duplicate keys (re-checked after
+  scripted insertion per the Phase-2B-1 lesson), 0 `{{placeholder}}` parity
+  issues, 0 HTML-tag/attr parity issues. 477 data-i18n refs, all defined.
+- New key groups (125): `admin.tab.*` (operations/users/deposits/withdrawals/
+  referral/kyc), `admin.stat.*` (totalUsers/totalDeposits/totalWithdrawals/
+  activeBots), `admin.ops.*` (overview/activity/health/alerts/audit/reports),
+  `admin.refresh/viewActivity/checkHealth/recentActivity/viewAll/activityTimeline/
+  systemHealth/auditLogsTitle`, `admin.today/thisWeek/usersThisWeek/pendingCount/
+  verifiedCount/successCount/failedCount/percentSuffix`, `admin.health.status.*`
+  (healthy/degraded/unhealthy/unknown), `admin.health.failed1h/buckets/
+  lastChecked`, `admin.referral.cfg.*` (rewardsEnabled/rewardAmount/minDeposit/
+  requireFirstDeposit/maxRewards + matching `*Desc`), `admin.referral.configTab/
+  auditHistoryTab/configHelp/auditHelp/lastUpdated/none/enabled/disabled/showing/
+  col.*` (dateTime/administrator/setting/oldValue/newValue/ipAddress),
+  `admin.export.reportsTitle`, `admin.report.*` (users/deposits/withdrawals/
+  referrals/kyc/audit + `*Desc`), `admin.downloadCsv`, `admin.field.*`
+  (all/name/email/referralCode/userId), `admin.search/reset/sort/sort.newest/
+  sort.oldest`, `admin.col.*` (demoBalance/liveBalance/bonus/actions/id/amount/
+  network/status/date/action/address/user/country/docs/submitted), `admin.empty.*`
+  (noConfigChanges/loadConfigFailed/loadReferralAuditFailed/noUsers), `admin.status.*`
+  (pending/approved/rejected/resubmission - reuses where possible),
+  `admin.kyc.*` (allStatus/searchPlaceholder/reviewTitle/personalInfo/dob/review/
+  docSize/reason/reasonPlaceholder/requestResubmission), `admin.approve/reject/
+  unknownUser/view`. Many reused existing keys (admin.confirm/approve/reject,
+  common.na/loading, status.pending, admin.empty.* from 3B, audit.* from 3B).
+- Render-only pattern reused from Phase 3B/2B-1: stable raw enum/value -> i18n key
+  map, translated ONLY at render time. Raw stored values NEVER modified and NEVER
+  used differently for filtering/comparisons/dedup/authorization. Unknown enum ->
+  raw verbatim fallback.
+- New mapping helpers + status maps (raw enum keys -> i18n keys, comparisons
+  remain RAW):
+  - `healthStatusLabel(status)`: maps health status (healthy/degraded/unhealthy/
+    unknown) -> `admin.health.status.*`. Empty -> ''. Unknown -> raw.
+  - `DEPOSIT_STATUS_LABELS`/`WITHDRAWAL_STATUS_LABELS`/`KYC_STATUS_LABELS` +
+    `depositStatusLabel()`/`withdrawalStatusLabel()`/`kycStatusLabel()`: map raw
+    stored status values (confirmed/pending/expired/cancelled and
+    approved/pending/rejected and not_started/pending_review/approved/rejected/
+    resubmission_required) -> existing `admin.status.*`/`status.pending`/
+    `kyc.status.*` keys (REUSE). All `=== 'confirmed'`/`=== 'pending'` etc.
+    comparisons stay on the RAW value; only the rendered badge text localized.
+  - `REFERRAL_CONFIG_LABELS` shared map + `referralConfigLabel()`/
+    `referralConfigDesc()`: map raw config keys (rewards_enabled/
+    referral_reward_amount/minimum_qualifying_deposit/first_deposit_required/
+    max_rewards_per_user) -> `admin.referral.cfg.*`. Unknown key -> raw verbatim.
+    `renderReferralConfig` and `formatConfigKey` consolidated to use this shared
+    map (removes per-call duplication). `formatConfigValue` localizes
+    Enabled/Disabled/none via `admin.referral.enabled/disabled/none`.
+- Dynamic JS strings wired to `t()` across ~10 admin functions: `loadSystemHealth`
+  (status labels, last-checked, buckets), `loadReferralConfig` (error + last-updated
+  + none), `loadReferralAuditHistory` (loading/showing/error/ip-display), `renderAdminUsers`
+  (empty/noKYC/N/A + `escapeHtml` on user-provided fields), `renderKYCVerifications`
+  (status badges/Review/View/Unknown), `renderKYCDetails` (doc size KB/View button),
+  `renderReferralConfig` (labels/descs/values), reports section headers + download,
+  users/deposits/withdrawals/KYC table headers + search/filter controls.
+- Admin dropdown `<option>` labels localized via `data-i18n`; `value` attributes
+  kept RAW (sent to server as `?type=`/`?action=`/`?status=`). API filter
+  parameters, DB values, status/action enums, IDs, usernames/emails, free-form
+  admin/user-entered text, and webhook/provider messages NOT translated
+  (deferred/passthrough), per the Phase 3D audit classification.
+- CRITICAL BUG FIXED (the "stray };" lesson): the scripted key-insertion placed
+  the 125 new ZH keys at line ~12063 INSIDE the fetch-interceptor IIFE in block 5
+  (between `return realFetch(url, options);` and the `};` that closes
+  `window.fetch = function(...)`), instead of inside the `zh:` dictionary in
+  block 4. This caused `SyntaxError: Unexpected token ':'` in block 5. Fix:
+  (1) moved the 125 zh keys into the zh dict (before its closing `    }`);
+  (2) RESTORED the `    };` + `})();` that close the `window.fetch` override and
+  its IIFE - these were the lines the buggy inserter had wedged the keys between,
+  and must remain. After fix the fetch interceptor is byte-identical to baseline
+  (`return realFetch(url, options);` / `    };` / `})();`).
+  LESSON: when relocating a misplaced key block that was inserted between two
+  structural lines, do NOT delete the structural closing brace - only delete the
+  key lines themselves. Always re-run `node --check` on every script block after
+  scripted edits, and brace-match the fetch interceptor (it is a common
+  insertion-target because it sits at the block-5 head).
+- Verification: `node --check`-equivalent (vm.Script) on all 8 inline `<script>`
+  blocks = OK. Robust i18n verify (vm-eval of the real TRANSLATIONS object):
+  972 keys/locale x 6, identical key sets, 0 empty, 0 dups (raw Counter recheck),
+  0 placeholder-parity, 0 HTML/attr-parity, 477 data-i18n refs all defined.
+  Isolated sandbox test of all mapping helpers (healthStatusLabel,
+  referralConfigLabel/Desc, formatConfigValue, depositStatusLabel/
+  withdrawalStatusLabel/kycStatusLabel) across en/es/pt/fr/ar/zh = ALL PASS
+  (known enum -> localized per locale; unknown -> raw verbatim; empty -> '';
+  `{{n}}` interpolation; EN fallback). `npm test` = 36 pass / 1 fail (the single
+  fail is the pre-existing `tests/q8qpay.webhook.test.js` `Cannot find module
+  'express'` env failure - identical to baseline; no regression).
+- NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
+  prior phases).
+
