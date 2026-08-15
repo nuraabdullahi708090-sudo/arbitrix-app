@@ -2539,7 +2539,7 @@ async function handleLogin() {
 
         if (!response.ok) {
             console.log('[HANDLE_LOGIN] Login FAILED:', data.error);
-            showAuthError(data.error || 'Invalid email or password', 'login');
+            showAuthError(translateBackendMessage(data.error, 'auth.errors.invalidCredentials'), 'login');
             setButtonLoading(btn, false);
             return;
         }
@@ -2684,9 +2684,9 @@ async function resend2FACode() {
             console.log('[RESEND 2FA] Request FAILED:', data.error || 'Unknown error');
             if (data.retryAfter) {
                 startResendCooldown(data.retryAfter);
-                showAuthError(`Please wait ${data.retryAfter} seconds before requesting again.`, 'twofaLogin');
+                showAuthError(t('2fa.waitSeconds', {seconds: data.retryAfter}), 'twofaLogin');
             } else {
-                showAuthError(data.error || 'Failed to resend code', 'twofaLogin');
+                showAuthError(translateBackendMessage(data.error, '2fa.resendFailed'), 'twofaLogin');
             }
             return;
         }
@@ -2824,9 +2824,9 @@ async function handle2FALoginSubmit() {
             console.log('[LOGIN 2FA] Verification FAILED:', data.error || 'Unknown error');
             
             // Show remaining attempts if available
-            let errorMsg = data.error || 'Invalid code';
+            let errorMsg = translateBackendMessage(data.error, '2fa.invalidCode');
             if (data.remainingAttempts !== undefined) {
-                errorMsg += ` (${data.remainingAttempts} attempts remaining)`;
+                errorMsg += ' ' + t('2fa.attemptsRemaining', {n: data.remainingAttempts});
             }
             showAuthError(errorMsg, 'twofaLogin');
             is2FASubmitting = false;
@@ -3245,7 +3245,7 @@ async function initiate2FASetup() {
         }
         
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to setup 2FA');
+            throw new Error(translateBackendMessage(data.error, '2fa.setupFailed'));
         }
         
         // Discard stale response - double-check after error-throwing code
@@ -3386,7 +3386,7 @@ async function verify2FASetup() {
         console.log('[2FA VERIFY] verify-setup response:', { status: response.status, ok: response.ok, data: data });
         
         if (!response.ok) {
-            throw new Error(data.error || 'Verification failed');
+            throw new Error(translateBackendMessage(data.error, '2fa.verifyFailed'));
         }
         
         console.log('[2FA VERIFY] Step 2: Calling /api/2fa/enable...');
@@ -3403,7 +3403,7 @@ async function verify2FASetup() {
         console.log('[2FA VERIFY] enable response:', { status: enableResponse.status, ok: enableResponse.ok, data: enableData });
         
         if (!enableResponse.ok) {
-            throw new Error(enableData.error || 'Failed to enable 2FA');
+            throw new Error(translateBackendMessage(enableData.error, '2fa.enableFailed'));
         }
         
         // Show recovery codes - this is correct after successful verification
@@ -3468,7 +3468,7 @@ async function regenerateRecoveryCodes() {
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to regenerate codes');
+            throw new Error(translateBackendMessage(data.error, '2fa.regenerateFailed'));
         }
         
         // Show new codes
@@ -3534,7 +3534,7 @@ async function disable2FA() {
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to disable 2FA');
+            throw new Error(translateBackendMessage(data.error, '2fa.disableFailed'));
         }
         
         log2FAViewTransition('twofaDisableView', 'modal_closed', '2FA disabled successfully');
@@ -6728,6 +6728,60 @@ const TRANSLATIONS = {
         'admin.reject': 'Reject',
         'admin.view': 'View',
         'admin.retry': 'Retry',
+        // ---- Phase 2B-2A: backend error/message localization keys ----
+        'auth.errors.emailExists': 'An account with this email already exists',
+        'auth.errors.validEmailRequired': 'A valid email address is required',
+        'reset.fieldsRequired': 'Email, token, and new password are required',
+        'reset.emailTokenRequired': 'Email and token are required',
+        'reset.invalidOrExpired': 'Invalid or expired reset token. Please request a new password reset.',
+        'reset.expired': 'This reset link has expired. Please request a new password reset.',
+        'reset.invalid': 'Invalid reset token. Please request a new password reset.',
+        'reset.updateFailed': 'Failed to update password. Please try again.',
+        'reset.errorOccurred': 'An error occurred while resetting your password. Please try again.',
+        '2fa.alreadyEnabled': '2FA is already enabled',
+        '2fa.notEnabled': '2FA is not enabled',
+        '2fa.notSetup': '2FA is not set up',
+        '2fa.notConfigured': '2FA is not configured',
+        '2fa.verifyFirst': 'Please verify with a code first',
+        '2fa.alreadyVerified': 'Already verified',
+        '2fa.invalidCodeFormat': 'Invalid code format',
+        '2fa.emailNotFound': 'User email not found',
+        '2fa.tooManyAttempts': 'Too many attempts. Please try again later.',
+        '2fa.noRecoveryCodes': 'No recovery codes remaining',
+        '2fa.codeAlreadyUsed': 'Code already used (replay attack prevention)',
+        '2fa.pleaseWait': 'Please wait before requesting another code',
+        '2fa.invalidSession': 'Invalid session',
+        '2fa.missingPartialToken': 'Missing partial token',
+        '2fa.codeRequired': 'Verification code required',
+        '2fa.invalidOrExpiredCode': 'Invalid or expired code',
+        '2fa.setupFailed': 'Failed to set up 2FA',
+        '2fa.verifyFailed': 'Verification failed',
+        '2fa.enableFailed': 'Failed to enable 2FA',
+        '2fa.regenerateFailed': 'Failed to regenerate codes',
+        '2fa.disableFailed': 'Failed to disable 2FA',
+        'deposit.min10': 'Minimum deposit is $10',
+        'deposit.invoiceNotFound': 'Invoice not found',
+        'deposit.createInvoiceFailed': 'Failed to create invoice',
+        'deposit.notFound': 'Deposit not found',
+        'withdraw.min700': 'Minimum withdrawal is $700',
+        'withdraw.validAddressRequired': 'A valid wallet address is required',
+        'withdraw.identityRequired': 'Identity verification required',
+        'withdraw.notFound': 'Withdrawal not found',
+        'trade.mtaNotReached': 'Minimum trading amount not reached',
+        'trade.invalidAmount': 'Invalid trade amount',
+        'trade.exceedsBalance': 'Trade amount exceeds balance',
+        'kyc.legalNameRequired': 'Full legal name is required (min 2 characters)',
+        'kyc.dobRequired': 'Date of birth is required',
+        'kyc.countryRequired': 'Country is required',
+        'kyc.addressRequired': 'Residential address is required (min 5 characters)',
+        'kyc.minAge': 'You must be at least 18 years old to verify',
+        'kyc.invalidDocumentType': 'Invalid document type',
+        'kyc.invalidFileEncoding': 'Invalid file data encoding',
+        'kyc.missingUploadFields': 'Missing required fields: documentType, fileData, fileName, mimeType',
+        'kyc.rejectionReasonRequired': 'Rejection reason is required',
+        'kyc.resubmissionReasonRequired': 'Reason for resubmission is required',
+        'admin.alreadyStatus': 'Already {{status}}',
+        'admin.config.updateFailed': 'Failed to update configuration',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -7382,6 +7436,60 @@ const TRANSLATIONS = {
         'admin.reject': 'Rechazar',
         'admin.view': 'Ver',
         'admin.retry': 'Reintentar',
+        // ---- Phase 2B-2A: backend error/message localization keys ----
+        'auth.errors.emailExists': 'Ya existe una cuenta con este correo electrónico',
+        'auth.errors.validEmailRequired': 'Se requiere un correo electrónico válido',
+        'reset.fieldsRequired': 'Se requieren correo, token y nueva contraseña',
+        'reset.emailTokenRequired': 'Se requieren correo y token',
+        'reset.invalidOrExpired': 'Token de restablecimiento inválido o expirado. Solicite uno nuevo.',
+        'reset.expired': 'Este enlace de restablecimiento ha expirado. Solicite uno nuevo.',
+        'reset.invalid': 'Token de restablecimiento inválido. Solicite uno nuevo.',
+        'reset.updateFailed': 'No se pudo actualizar la contraseña. Inténtelo de nuevo.',
+        'reset.errorOccurred': 'Ocurrió un error al restablecer la contraseña. Inténtelo de nuevo.',
+        '2fa.alreadyEnabled': '2FA ya está activado',
+        '2fa.notEnabled': '2FA no está activado',
+        '2fa.notSetup': '2FA no está configurado',
+        '2fa.notConfigured': '2FA no está configurado',
+        '2fa.verifyFirst': 'Por favor, verifique con un código primero',
+        '2fa.alreadyVerified': 'Ya verificado',
+        '2fa.invalidCodeFormat': 'Formato de código inválido',
+        '2fa.emailNotFound': 'Correo de usuario no encontrado',
+        '2fa.tooManyAttempts': 'Demasiados intentos. Inténtelo de nuevo más tarde.',
+        '2fa.noRecoveryCodes': 'No quedan códigos de recuperación',
+        '2fa.codeAlreadyUsed': 'Código ya utilizado (prevención de replay)',
+        '2fa.pleaseWait': 'Espere antes de solicitar otro código',
+        '2fa.invalidSession': 'Sesión inválida',
+        '2fa.missingPartialToken': 'Falta el token parcial',
+        '2fa.codeRequired': 'Se requiere código de verificación',
+        '2fa.invalidOrExpiredCode': 'Código inválido o expirado',
+        '2fa.setupFailed': 'No se pudo configurar 2FA',
+        '2fa.verifyFailed': 'Verificación fallida',
+        '2fa.enableFailed': 'No se pudo activar 2FA',
+        '2fa.regenerateFailed': 'No se pudieron regenerar los códigos',
+        '2fa.disableFailed': 'No se pudo desactivar 2FA',
+        'deposit.min10': 'El depósito mínimo es $10',
+        'deposit.invoiceNotFound': 'Factura no encontrada',
+        'deposit.createInvoiceFailed': 'No se pudo crear la factura',
+        'deposit.notFound': 'Depósito no encontrado',
+        'withdraw.min700': 'El retiro mínimo es $700',
+        'withdraw.validAddressRequired': 'Se requiere una dirección de billetera válida',
+        'withdraw.identityRequired': 'Se requiere verificación de identidad',
+        'withdraw.notFound': 'Retiro no encontrado',
+        'trade.mtaNotReached': 'Monto mínimo de operación no alcanzado',
+        'trade.invalidAmount': 'Monto de operación inválido',
+        'trade.exceedsBalance': 'El monto excede el saldo',
+        'kyc.legalNameRequired': 'Se requiere nombre legal completo (mín. 2 caracteres)',
+        'kyc.dobRequired': 'Se requiere fecha de nacimiento',
+        'kyc.countryRequired': 'Se requiere país',
+        'kyc.addressRequired': 'Se requiere dirección residencial (mín. 5 caracteres)',
+        'kyc.minAge': 'Debe tener al menos 18 años para verificarse',
+        'kyc.invalidDocumentType': 'Tipo de documento inválido',
+        'kyc.invalidFileEncoding': 'Codificación de archivo inválida',
+        'kyc.missingUploadFields': 'Faltan campos obligatorios: documentType, fileData, fileName, mimeType',
+        'kyc.rejectionReasonRequired': 'Se requiere motivo de rechazo',
+        'kyc.resubmissionReasonRequired': 'Se requiere motivo para reenvío',
+        'admin.alreadyStatus': 'Ya {{status}}',
+        'admin.config.updateFailed': 'No se pudo actualizar la configuración',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -8036,6 +8144,60 @@ const TRANSLATIONS = {
         'admin.reject': 'Rejeitar',
         'admin.view': 'Ver',
         'admin.retry': 'Reenviar',
+        // ---- Phase 2B-2A: backend error/message localization keys ----
+        'auth.errors.emailExists': 'Já existe uma conta com este e-mail',
+        'auth.errors.validEmailRequired': 'É necessário um e-mail válido',
+        'reset.fieldsRequired': 'São necessários e-mail, token e nova senha',
+        'reset.emailTokenRequired': 'São necessários e-mail e token',
+        'reset.invalidOrExpired': 'Token de redefinição inválido ou expirado. Solicite um novo.',
+        'reset.expired': 'Este link de redefinição expirou. Solicite um novo.',
+        'reset.invalid': 'Token de redefinição inválido. Solicite um novo.',
+        'reset.updateFailed': 'Falha ao atualizar a senha. Tente novamente.',
+        'reset.errorOccurred': 'Ocorreu um erro ao redefinir a senha. Tente novamente.',
+        '2fa.alreadyEnabled': '2FA já está ativado',
+        '2fa.notEnabled': '2FA não está ativado',
+        '2fa.notSetup': '2FA não está configurado',
+        '2fa.notConfigured': '2FA não está configurado',
+        '2fa.verifyFirst': 'Verifique com um código primeiro',
+        '2fa.alreadyVerified': 'Já verificado',
+        '2fa.invalidCodeFormat': 'Formato de código inválido',
+        '2fa.emailNotFound': 'E-mail do usuário não encontrado',
+        '2fa.tooManyAttempts': 'Muitas tentativas. Tente novamente mais tarde.',
+        '2fa.noRecoveryCodes': 'Não há códigos de recuperação restantes',
+        '2fa.codeAlreadyUsed': 'Código já utilizado (prevenção de replay)',
+        '2fa.pleaseWait': 'Aguarde antes de solicitar outro código',
+        '2fa.invalidSession': 'Sessão inválida',
+        '2fa.missingPartialToken': 'Token parcial ausente',
+        '2fa.codeRequired': 'Código de verificação necessário',
+        '2fa.invalidOrExpiredCode': 'Código inválido ou expirado',
+        '2fa.setupFailed': 'Falha ao configurar 2FA',
+        '2fa.verifyFailed': 'Verificação falhou',
+        '2fa.enableFailed': 'Falha ao ativar 2FA',
+        '2fa.regenerateFailed': 'Falha ao regenerar códigos',
+        '2fa.disableFailed': 'Falha ao desativar 2FA',
+        'deposit.min10': 'O depósito mínimo é $10',
+        'deposit.invoiceNotFound': 'Fatura não encontrada',
+        'deposit.createInvoiceFailed': 'Falha ao criar fatura',
+        'deposit.notFound': 'Depósito não encontrado',
+        'withdraw.min700': 'O saque mínimo é $700',
+        'withdraw.validAddressRequired': 'É necessário um endereço de carteira válido',
+        'withdraw.identityRequired': 'Verificação de identidade necessária',
+        'withdraw.notFound': 'Saque não encontrado',
+        'trade.mtaNotReached': 'Valor mínimo de operação não atingido',
+        'trade.invalidAmount': 'Valor de operação inválido',
+        'trade.exceedsBalance': 'O valor excede o saldo',
+        'kyc.legalNameRequired': 'Nome legal completo é necessário (mín. 2 caracteres)',
+        'kyc.dobRequired': 'Data de nascimento é necessária',
+        'kyc.countryRequired': 'País é necessário',
+        'kyc.addressRequired': 'Endereço residencial é necessário (mín. 5 caracteres)',
+        'kyc.minAge': 'Você deve ter pelo menos 18 anos para verificar',
+        'kyc.invalidDocumentType': 'Tipo de documento inválido',
+        'kyc.invalidFileEncoding': 'Codificação de arquivo inválida',
+        'kyc.missingUploadFields': 'Campos obrigatórios ausentes: documentType, fileData, fileName, mimeType',
+        'kyc.rejectionReasonRequired': 'Motivo de rejeição é necessário',
+        'kyc.resubmissionReasonRequired': 'Motivo para reenvio é necessário',
+        'admin.alreadyStatus': 'Já {{status}}',
+        'admin.config.updateFailed': 'Falha ao atualizar configuração',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -8690,6 +8852,60 @@ const TRANSLATIONS = {
         'admin.reject': 'Rejeter',
         'admin.view': 'Voir',
         'admin.retry': 'Renvoyer',
+        // ---- Phase 2B-2A: backend error/message localization keys ----
+        'auth.errors.emailExists': 'Un compte avec cet e-mail existe déjà',
+        'auth.errors.validEmailRequired': 'Une adresse e-mail valide est requise',
+        'reset.fieldsRequired': 'E-mail, jeton et nouveau mot de passe requis',
+        'reset.emailTokenRequired': 'E-mail et jeton requis',
+        'reset.invalidOrExpired': 'Jeton de réinitialisation invalide ou expiré. Veuillez en demander un nouveau.',
+        'reset.expired': 'Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.',
+        'reset.invalid': 'Jeton de réinitialisation invalide. Veuillez en demander un nouveau.',
+        'reset.updateFailed': 'Échec de la mise à jour du mot de passe. Veuillez réessayer.',
+        'reset.errorOccurred': "Une erreur s'est produite lors de la réinitialisation. Veuillez réessayer.",
+        '2fa.alreadyEnabled': '2FA est déjà activé',
+        '2fa.notEnabled': '2FA n’est pas activé',
+        '2fa.notSetup': '2FA n’est pas configuré',
+        '2fa.notConfigured': '2FA n’est pas configuré',
+        '2fa.verifyFirst': 'Veuillez d’abord vérifier avec un code',
+        '2fa.alreadyVerified': 'Déjà vérifié',
+        '2fa.invalidCodeFormat': 'Format de code invalide',
+        '2fa.emailNotFound': 'E-mail utilisateur introuvable',
+        '2fa.tooManyAttempts': 'Trop de tentatives. Veuillez réessayer plus tard.',
+        '2fa.noRecoveryCodes': 'Aucun code de récupération restant',
+        '2fa.codeAlreadyUsed': 'Code déjà utilisé (prévention de rejeu)',
+        '2fa.pleaseWait': 'Veuillez patienter avant de demander un autre code',
+        '2fa.invalidSession': 'Session invalide',
+        '2fa.missingPartialToken': 'Jeton partiel manquant',
+        '2fa.codeRequired': 'Code de vérification requis',
+        '2fa.invalidOrExpiredCode': 'Code invalide ou expiré',
+        '2fa.setupFailed': 'Échec de la configuration de 2FA',
+        '2fa.verifyFailed': 'Échec de la vérification',
+        '2fa.enableFailed': 'Échec de l’activation de 2FA',
+        '2fa.regenerateFailed': 'Échec de la régénération des codes',
+        '2fa.disableFailed': 'Échec de la désactivation de 2FA',
+        'deposit.min10': 'Le dépôt minimum est de $10',
+        'deposit.invoiceNotFound': 'Facture introuvable',
+        'deposit.createInvoiceFailed': 'Échec de la création de la facture',
+        'deposit.notFound': 'Dépôt introuvable',
+        'withdraw.min700': 'Le retrait minimum est de $700',
+        'withdraw.validAddressRequired': 'Une adresse de portefeuille valide est requise',
+        'withdraw.identityRequired': 'Vérification d’identité requise',
+        'withdraw.notFound': 'Retrait introuvable',
+        'trade.mtaNotReached': 'Montant minimum de transaction non atteint',
+        'trade.invalidAmount': 'Montant de transaction invalide',
+        'trade.exceedsBalance': 'Le montant dépasse le solde',
+        'kyc.legalNameRequired': 'Nom légal complet requis (min. 2 caractères)',
+        'kyc.dobRequired': 'Date de naissance requise',
+        'kyc.countryRequired': 'Pays requis',
+        'kyc.addressRequired': 'Adresse résidentielle requise (min. 5 caractères)',
+        'kyc.minAge': 'Vous devez avoir au moins 18 ans pour vérifier',
+        'kyc.invalidDocumentType': 'Type de document invalide',
+        'kyc.invalidFileEncoding': 'Encodage de fichier invalide',
+        'kyc.missingUploadFields': 'Champs requis manquants : documentType, fileData, fileName, mimeType',
+        'kyc.rejectionReasonRequired': 'Motif de rejet requis',
+        'kyc.resubmissionReasonRequired': 'Motif de renvoi requis',
+        'admin.alreadyStatus': 'Déjà {{status}}',
+        'admin.config.updateFailed': 'Échec de la mise à jour de la configuration',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -9344,6 +9560,60 @@ const TRANSLATIONS = {
         'admin.reject': 'رفض',
         'admin.view': 'عرض',
         'admin.retry': 'إعادة المحاولة',
+        // ---- Phase 2B-2A: backend error/message localization keys ----
+        'auth.errors.emailExists': 'يوجد حساب بهذا البريد الإلكتروني بالفعل',
+        'auth.errors.validEmailRequired': 'يرجى إدخال بريد إلكتروني صالح',
+        'reset.fieldsRequired': 'البريد والرمز وكلمة المرور الجديدة مطلوبة',
+        'reset.emailTokenRequired': 'البريد والرمز مطلوبان',
+        'reset.invalidOrExpired': 'رمز إعادة التعيين غير صالح أو منتهي. يرجى طلب واحد جديد.',
+        'reset.expired': 'انتهت صلاحية رابط إعادة التعيين. يرجى طلب واحد جديد.',
+        'reset.invalid': 'رمز إعادة التعيين غير صالح. يرجى طلب واحد جديد.',
+        'reset.updateFailed': 'فشل تحديث كلمة المرور. يرجى المحاولة مرة أخرى.',
+        'reset.errorOccurred': 'حدث خطأ أثناء إعادة تعيين كلمة المرور. يرجى المحاولة مرة أخرى.',
+        '2fa.alreadyEnabled': 'المصادقة الثنائية مفعّلة بالفعل',
+        '2fa.notEnabled': 'المصادقة الثنائية غير مفعّلة',
+        '2fa.notSetup': 'لم يتم إعداد المصادقة الثنائية',
+        '2fa.notConfigured': 'المصادقة الثنائية غير مُهيأة',
+        '2fa.verifyFirst': 'يرجى التحقق برمز أولاً',
+        '2fa.alreadyVerified': 'تم التحقق بالفعل',
+        '2fa.invalidCodeFormat': 'تنسيق الرمز غير صالح',
+        '2fa.emailNotFound': 'بريد المستخدم غير موجود',
+        '2fa.tooManyAttempts': 'محاولات كثيرة جدًا. يرجى المحاولة لاحقًا.',
+        '2fa.noRecoveryCodes': 'لا توجد رموز استعادة متبقية',
+        '2fa.codeAlreadyUsed': 'تم استخدام الرمز بالفعل (منع إعادة التشغيل)',
+        '2fa.pleaseWait': 'يرجى الانتظار قبل طلب رمز آخر',
+        '2fa.invalidSession': 'جلسة غير صالحة',
+        '2fa.missingPartialToken': 'الرمز الجزئي مفقود',
+        '2fa.codeRequired': 'رمز التحقق مطلوب',
+        '2fa.invalidOrExpiredCode': 'الرمز غير صالح أو منتهي',
+        '2fa.setupFailed': 'فشل إعداد المصادقة الثنائية',
+        '2fa.verifyFailed': 'فشل التحقق',
+        '2fa.enableFailed': 'فشل تفعيل المصادقة الثنائية',
+        '2fa.regenerateFailed': 'فشل إعادة إنشاء الرموز',
+        '2fa.disableFailed': 'فشل تعطيل المصادقة الثنائية',
+        'deposit.min10': 'الحد الأدنى للإيداع هو $10',
+        'deposit.invoiceNotFound': 'الفاتورة غير موجودة',
+        'deposit.createInvoiceFailed': 'فشل إنشاء الفاتورة',
+        'deposit.notFound': 'الإيداع غير موجود',
+        'withdraw.min700': 'الحد الأدنى للسحب هو $700',
+        'withdraw.validAddressRequired': 'يرجى إدخال عنوان محفظة صالح',
+        'withdraw.identityRequired': 'التحقق من الهوية مطلوب',
+        'withdraw.notFound': 'السحب غير موجود',
+        'trade.mtaNotReached': 'الحد الأدنى لمبلغ التداول غير مُحقق',
+        'trade.invalidAmount': 'مبلغ التداول غير صالح',
+        'trade.exceedsBalance': 'المبلغ يتجاوز الرصيد',
+        'kyc.legalNameRequired': 'الاسم القانوني الكامل مطلوب (٢ حرف على الأقل)',
+        'kyc.dobRequired': 'تاريخ الميلاد مطلوب',
+        'kyc.countryRequired': 'الدولة مطلوبة',
+        'kyc.addressRequired': 'عنوان السكن مطلوب (٥ أحرف على الأقل)',
+        'kyc.minAge': 'يجب أن يكون عمرك ١٨ عامًا على الأقل للتحقق',
+        'kyc.invalidDocumentType': 'نوع المستند غير صالح',
+        'kyc.invalidFileEncoding': 'ترميز الملف غير صالح',
+        'kyc.missingUploadFields': 'حقول مطلوبة مفقودة: documentType, fileData, fileName, mimeType',
+        'kyc.rejectionReasonRequired': 'سبب الرفض مطلوب',
+        'kyc.resubmissionReasonRequired': 'سبب إعادة الإرسال مطلوب',
+        'admin.alreadyStatus': '{{status}} بالفعل',
+        'admin.config.updateFailed': 'فشل تحديث الإعدادات',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -9998,6 +10268,60 @@ const TRANSLATIONS = {
         'admin.reject': '拒绝',
         'admin.view': '查看',
         'admin.retry': '重试',
+        // ---- Phase 2B-2A: backend error/message localization keys ----
+        'auth.errors.emailExists': '该邮箱已存在账户',
+        'auth.errors.validEmailRequired': '需要有效的邮箱地址',
+        'reset.fieldsRequired': '需要邮箱、令牌和新密码',
+        'reset.emailTokenRequired': '需要邮箱和令牌',
+        'reset.invalidOrExpired': '重置令牌无效或已过期。请重新申请。',
+        'reset.expired': '此重置链接已过期。请重新申请。',
+        'reset.invalid': '重置令牌无效。请重新申请。',
+        'reset.updateFailed': '更新密码失败。请重试。',
+        'reset.errorOccurred': '重置密码时发生错误。请重试。',
+        '2fa.alreadyEnabled': '两步验证已启用',
+        '2fa.notEnabled': '两步验证未启用',
+        '2fa.notSetup': '两步验证未设置',
+        '2fa.notConfigured': '两步验证未配置',
+        '2fa.verifyFirst': '请先使用验证码验证',
+        '2fa.alreadyVerified': '已验证',
+        '2fa.invalidCodeFormat': '验证码格式无效',
+        '2fa.emailNotFound': '未找到用户邮箱',
+        '2fa.tooManyAttempts': '尝试次数过多。请稍后再试。',
+        '2fa.noRecoveryCodes': '没有剩余的恢复码',
+        '2fa.codeAlreadyUsed': '验证码已使用（防止重放）',
+        '2fa.pleaseWait': '请等待后再请求新的验证码',
+        '2fa.invalidSession': '会话无效',
+        '2fa.missingPartialToken': '缺少部分令牌',
+        '2fa.codeRequired': '需要验证码',
+        '2fa.invalidOrExpiredCode': '验证码无效或已过期',
+        '2fa.setupFailed': '设置两步验证失败',
+        '2fa.verifyFailed': '验证失败',
+        '2fa.enableFailed': '启用两步验证失败',
+        '2fa.regenerateFailed': '重新生成恢复码失败',
+        '2fa.disableFailed': '禁用两步验证失败',
+        'deposit.min10': '最低存款为 $10',
+        'deposit.invoiceNotFound': '未找到发票',
+        'deposit.createInvoiceFailed': '创建发票失败',
+        'deposit.notFound': '未找到存款',
+        'withdraw.min700': '最低提现为 $700',
+        'withdraw.validAddressRequired': '需要有效的钱包地址',
+        'withdraw.identityRequired': '需要身份验证',
+        'withdraw.notFound': '未找到提现',
+        'trade.mtaNotReached': '未达到最低交易金额',
+        'trade.invalidAmount': '交易金额无效',
+        'trade.exceedsBalance': '交易金额超过余额',
+        'kyc.legalNameRequired': '需要完整法定姓名（至少 2 个字符）',
+        'kyc.dobRequired': '需要出生日期',
+        'kyc.countryRequired': '需要国家/地区',
+        'kyc.addressRequired': '需要居住地址（至少 5 个字符）',
+        'kyc.minAge': '您必须年满 18 岁才能验证',
+        'kyc.invalidDocumentType': '文档类型无效',
+        'kyc.invalidFileEncoding': '文件数据编码无效',
+        'kyc.missingUploadFields': '缺少必填字段：documentType, fileData, fileName, mimeType',
+        'kyc.rejectionReasonRequired': '需要拒绝原因',
+        'kyc.resubmissionReasonRequired': '需要重新提交原因',
+        'admin.alreadyStatus': '已 {{status}}',
+        'admin.config.updateFailed': '更新配置失败',
     }
 };
 // Copy translations for other languages
@@ -10037,6 +10361,120 @@ function t(key, vars) {
         }
         return text;
     } catch(e) { return key; }
+}
+
+// ============ BACKEND ERROR MESSAGE LOCALIZATION ============
+// Phase 2B-2A: maps known, user-facing English error/success sentences authored
+// by server.js to translation keys. The server's actual `data.error` / `data.message`
+// value is NEVER altered or sent differently — this is a display-only mapping done
+// in the browser at render time. Behavior:
+//   - Exact-match only against a curated whitelist of safe user-facing strings.
+//     No broad substring matching, so unrelated/dynamic messages are untouched.
+//   - Unknown, dynamic, developer-internal, or webhook/provider messages fall
+//     through and are returned verbatim (English) — never translated blindly.
+//   - Webhook / provider (q8qpay, NOWPayments, Paymento) responses are NOT in the
+//     map and are never handled here.
+// To map a new backend string: add an EXACT -> key entry to BACKEND_MESSAGE_MAP.
+// If the backend string contains a variable, prefer adding a dedicated render-time
+// t() call at the call site instead of a pattern here.
+const BACKEND_MESSAGE_MAP = {
+    // ---- Auth / signup / login ----
+    'All fields required': 'auth.errors.fillAll',
+    'Email and password required': 'auth.errors.fillAll',
+    'Password min 6 chars': 'auth.errors.passwordLength',
+    'Password must be at least 6 characters': 'auth.errors.passwordLength',
+    'Email already registered': 'auth.errors.emailExists',
+    'Email exists': 'auth.errors.emailExists',
+    'Invalid credentials': 'auth.errors.invalidCredentials',
+    'Valid email is required': 'auth.errors.validEmailRequired',
+    'Valid email address is required': 'auth.errors.validEmailRequired',
+    // ---- Password reset ----
+    'Email, token, and new password are required': 'reset.fieldsRequired',
+    'Email and token are required': 'reset.emailTokenRequired',
+    'Invalid or expired reset token. Please request a new password reset.': 'reset.invalidOrExpired',
+    'This reset link has expired. Please request a new password reset.': 'reset.expired',
+    'Invalid reset token. Please request a new password reset.': 'reset.invalid',
+    'Failed to update password. Please try again.': 'reset.updateFailed',
+    'An error occurred while resetting your password. Please try again.': 'reset.errorOccurred',
+    'Invalid reset token': 'reset.invalid',
+    'This reset link has expired': 'reset.expired',
+    'An error occurred': 'reset.errorOccurred',
+    // ---- 2FA (user-facing setup / verify / login) ----
+    '2FA is already enabled': '2fa.alreadyEnabled',
+    '2FA is not enabled': '2fa.notEnabled',
+    '2FA not setup': '2fa.notSetup',
+    '2FA not configured': '2fa.notConfigured',
+    'Please verify with a code first': '2fa.verifyFirst',
+    'Already verified': '2fa.alreadyVerified',
+    'Invalid code': '2fa.invalidCode',
+    'Invalid code format': '2fa.invalidCodeFormat',
+    'User email not found': '2fa.emailNotFound',
+    'Too many attempts': '2fa.tooManyAttempts',
+    'Too many attempts. Please try again later.': '2fa.tooManyAttempts',
+    'No recovery codes remaining': '2fa.noRecoveryCodes',
+    'Code already used (replay attack prevention)': '2fa.codeAlreadyUsed',
+    'Please wait before requesting another code': '2fa.pleaseWait',
+    'Session expired, please login again': '2fa.sessionExpired',
+    'Invalid session': '2fa.invalidSession',
+    'Missing partial token': '2fa.missingPartialToken',
+    'Verification code required': '2fa.codeRequired',
+    'Invalid or expired code': '2fa.invalidOrExpiredCode',
+    'Email and password required': 'auth.errors.fillAll',
+    // ---- Deposit / payment (user-facing) ----
+    'Min $10': 'deposit.min10',
+    'Invoice not found': 'deposit.invoiceNotFound',
+    'Failed to create invoice': 'deposit.createInvoiceFailed',
+    // ---- Withdrawal (user-facing) ----
+    'Min $700': 'withdraw.min700',
+    'Insufficient balance': 'withdraw.insufficient',
+    'Valid address required': 'withdraw.validAddressRequired',
+    'Complete at least 1 trade first': 'withdraw.needTrade',
+    'Identity verification required': 'withdraw.identityRequired',
+    'Withdrawal not found': 'withdraw.notFound',
+    'Deposit not found': 'deposit.notFound',
+    // ---- Trade (user-facing) ----
+    'MTA not reached': 'trade.mtaNotReached',
+    'Invalid trade amount': 'trade.invalidAmount',
+    'Trade amount exceeds balance': 'trade.exceedsBalance',
+    // ---- KYC (user-facing validation / submit) ----
+    'Full legal name is required (min 2 characters)': 'kyc.legalNameRequired',
+    'Date of birth is required': 'kyc.dobRequired',
+    'Country is required': 'kyc.countryRequired',
+    'Residential address is required (min 5 characters)': 'kyc.addressRequired',
+    'You must be at least 18 years old to verify': 'kyc.minAge',
+    'Invalid document type': 'kyc.invalidDocumentType',
+    'Invalid file data encoding': 'kyc.invalidFileEncoding',
+    'Missing required fields: documentType, fileData, fileName, mimeType': 'kyc.missingUploadFields',
+    'Rejection reason is required': 'kyc.rejectionReasonRequired',
+    'Reason for resubmission is required': 'kyc.resubmissionReasonRequired'
+};
+
+// Curated dynamic (variable-bearing) backend messages. Each entry is a scoped
+// regex anchored to the exact static prefix/suffix the server emits, so it can
+// only match the intended message family. Kept intentionally small.
+const BACKEND_DYNAMIC_MESSAGE_RULES = [
+    // admin confirm deposit/withdraw: 'Already ' + status  (status is a DB enum)
+    { re: /^Already (pending|confirmed|approved|rejected|expired|cancelled)$/, key: 'admin.alreadyStatus', vars: function(m) { return { status: m[1] }; } }
+];
+
+// Translate a backend-authored message for display. Returns the localized text
+// for known safe messages, or the original message verbatim when unknown/dynamic/
+// internal. `fallbackKey` (optional) is used when the message is empty/undefined.
+function translateBackendMessage(message, fallbackKey) {
+    if (!message) return fallbackKey ? t(fallbackKey) : '';
+    const msg = String(message);
+    // 1. Exact whitelist match (preferred — never over-matches).
+    if (Object.prototype.hasOwnProperty.call(BACKEND_MESSAGE_MAP, msg)) {
+        return t(BACKEND_MESSAGE_MAP[msg]);
+    }
+    // 2. Curated dynamic rules (scoped regex only).
+    for (let i = 0; i < BACKEND_DYNAMIC_MESSAGE_RULES.length; i++) {
+        const rule = BACKEND_DYNAMIC_MESSAGE_RULES[i];
+        const m = msg.match(rule.re);
+        if (m) return t(rule.key, rule.vars(m));
+    }
+    // 3. Unknown / dynamic / internal / webhook / provider: preserve verbatim.
+    return msg;
 }
 function applyTranslations() {
     try {
@@ -11652,10 +12090,10 @@ async function requestDepositAddress() {
       if (data.success) {
         invoice = data.invoice;
       } else {
-        throw new Error(data.error || 'Failed to generate address');
+        throw new Error(translateBackendMessage(data.error, 'deposit.generateError'));
       }
     } else {
-      throw new Error('Failed to create invoice');
+      throw new Error(t('deposit.createInvoiceFailed'));
     }
 
     currentInvoiceId = invoice.id;
@@ -12374,7 +12812,7 @@ async function submitWithdrawAPI(address, amount) {
                 getEl('withdrawKycProgressFill').style.width = '25%';
                 getEl('withdrawKycProgressText').textContent = '25% Complete - Identity Required';
             } else {
-                showToast(data.error || t('withdraw.failed'), 'error');
+                showToast(translateBackendMessage(data.error, 'withdraw.failed'), 'error');
             }
         }
     } catch (e) {
@@ -12617,7 +13055,7 @@ async function savePersonalInfo() {
             await loadVerificationStatus();
             showVerificationTab('documents');
         } else {
-            showToast(data.error || 'Failed to save', 'error');
+            showToast(translateBackendMessage(data.error, 'kyc.saveFailed'), 'error');
         }
     } catch (e) {
         showToast(t('kyc.saveFailed'), 'error');
@@ -12676,7 +13114,7 @@ async function handleDocumentUpload(input, type) {
                 showToast(t('kyc.docUploaded'), 'success');
                 await loadVerificationStatus();
             } else {
-                showToast(data.error || 'Upload failed', 'error');
+                showToast(translateBackendMessage(data.error, 'kyc.uploadFailed'), 'error');
             }
             uploadArea.classList.remove('uploading');
             input.value = '';
@@ -12705,7 +13143,7 @@ async function removeDocument(type) {
             await loadVerificationStatus();
         } else {
             const data = await res.json();
-            showToast(data.error || 'Failed to remove', 'error');
+            showToast(translateBackendMessage(data.error, 'kyc.removeFailed'), 'error');
         }
     } catch (e) {
         showToast(t('kyc.removeFailed'), 'error');
@@ -12736,7 +13174,7 @@ async function submitVerification() {
             await loadVerificationStatus();
             showVerificationTab('review');
         } else {
-            showToast(data.error || 'Submission failed', 'error');
+            showToast(translateBackendMessage(data.error, 'kyc.submitFailed'), 'error');
         }
     } catch (e) {
         showToast(t('kyc.submitFailed'), 'error');
@@ -14175,7 +14613,7 @@ async function updateReferralConfig(key, value) {
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || data.message || 'Failed to update configuration');
+            throw new Error(translateBackendMessage(data.error || data.message, 'admin.config.updateFailed'));
         }
         
         showToast(t('referral.configSaved'), 'success');
@@ -14512,7 +14950,7 @@ async function approveKYC() {
             loadKYCVerifications();
         } else {
             const data = await res.json();
-            showToast(data.error || t('admin.kyc.approveFailed'), 'error');
+            showToast(translateBackendMessage(data.error, 'admin.kyc.approveFailed'), 'error');
         }
     } catch (e) {
         showToast(t('admin.kyc.approveFailed'), 'error');
@@ -14545,7 +14983,7 @@ async function rejectKYC() {
             loadKYCVerifications();
         } else {
             const data = await res.json();
-            showToast(data.error || t('admin.kyc.rejectFailed'), 'error');
+            showToast(translateBackendMessage(data.error, 'admin.kyc.rejectFailed'), 'error');
         }
     } catch (e) {
         showToast(t('admin.kyc.rejectFailed'), 'error');
@@ -14578,7 +15016,7 @@ async function requestResubmission() {
             loadKYCVerifications();
         } else {
             const data = await res.json();
-            showToast(data.error || t('admin.kyc.resubmissionFailed'), 'error');
+            showToast(translateBackendMessage(data.error, 'admin.kyc.resubmissionFailed'), 'error');
         }
     } catch (e) {
         showToast(t('admin.kyc.resubmissionFailed'), 'error');
@@ -14805,7 +15243,7 @@ async function adminConfirmPayment(invoiceId) {
                 showToast(t('admin.payment.confirmed'), 'success');
                 loadPaymentInvoices(token);
             } else {
-                showToast(data.error || t('admin.payment.confirmFailed'), 'error');
+                showToast(translateBackendMessage(data.error, 'admin.payment.confirmFailed'), 'error');
             }
         } else {
             showToast(t('admin.payment.confirmFailed'), 'error');
@@ -14900,7 +15338,7 @@ async function retryWebhook(logId) {
                 showToast(t('admin.webhook.retrySuccess'), 'success');
                 loadWebhookLogs(token);
             } else {
-                showToast(data.error || 'Failed to retry webhook', 'error');
+                showToast(translateBackendMessage(data.error, 'admin.webhook.retryFailed'), 'error');
             }
         }
     } catch (e) {
