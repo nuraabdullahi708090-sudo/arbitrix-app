@@ -4730,43 +4730,43 @@ function toggleFaq(btn) {
                     <!-- Admin Stats -->
                     <div class="stats-grid" style="margin-bottom:16px;">
                         <div class="card">
-                            <div class="card-header"><span class="icon-bg blue"><i class="fas fa-users"></i></span> Total Users</div>
+                            <div class="card-header"><span class="icon-bg blue"><i class="fas fa-users"></i></span> <span data-i18n="admin.stat.totalUsers">Total Users</span></div>
                             <div class="card-body"><div class="stat-value" id="adminTotalUsers">-</div></div>
                         </div>
                         <div class="card">
-                            <div class="card-header"><span class="icon-bg green"><i class="fas fa-arrow-down"></i></span> Total Deposits</div>
+                            <div class="card-header"><span class="icon-bg green"><i class="fas fa-arrow-down"></i></span> <span data-i18n="admin.stat.totalDeposits">Total Deposits</span></div>
                             <div class="card-body"><div class="stat-value" id="adminTotalDeposits">-</div></div>
                         </div>
                         <div class="card">
-                            <div class="card-header"><span class="icon-bg red"><i class="fas fa-arrow-up"></i></span> Total Withdrawals</div>
+                            <div class="card-header"><span class="icon-bg red"><i class="fas fa-arrow-up"></i></span> <span data-i18n="admin.stat.totalWithdrawals">Total Withdrawals</span></div>
                             <div class="card-body"><div class="stat-value" id="adminTotalWithdrawals">-</div></div>
                         </div>
                         <div class="card">
-                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> Active Bots</div>
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> <span data-i18n="admin.stat.activeBots">Active Bots</span></div>
                             <div class="card-body"><div class="stat-value" id="adminActiveBots">-</div></div>
                         </div>
                     </div>
                     
                     <!-- Tab Navigation -->
                     <div class="mode-tabs" style="margin-bottom:12px;">
-                        <button type="button" class="mode-tab active" onclick="showAdminTab('operations')" id="adminTabOperations">Operations</button>
-                        <button type="button" class="mode-tab" onclick="showAdminTab('users')" id="adminTabUsers">Users</button>
-                        <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits">Deposits</button>
-                        <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals">Withdrawals</button>
-                        <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals">Referral</button>
-                        <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc">KYC</button>
+                        <button type="button" class="mode-tab active" onclick="showAdminTab('operations')" id="adminTabOperations" data-i18n="admin.tab.operations">Operations</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('users')" id="adminTabUsers" data-i18n="admin.tab.users">Users</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits" data-i18n="admin.tab.deposits">Deposits</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals" data-i18n="admin.tab.withdrawals">Withdrawals</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals" data-i18n="admin.tab.referral">Referral</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc" data-i18n="admin.tab.kyc">KYC</button>
                     </div>
                     
                     <!-- Operations Dashboard Tab -->
                     <div id="adminTabContentOperations">
                         <!-- Sub-tabs for Operations -->
                         <div class="sub-tabs" style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #1E2A3F;padding-bottom:8px;">
-                            <button type="button" class="ops-sub-tab active" onclick="showOpsSubTab('overview')" id="opsSubTabOverview" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#F0B90B;font-size:12px;cursor:pointer;">Overview</button>
-                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('activity')" id="opsSubTabActivity" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Activity</button>
-                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('health')" id="opsSubTabHealth" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Health</button>
-                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('alerts')" id="opsSubTabAlerts" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Alerts</button>
-                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('audit')" id="opsSubTabAudit" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Audit</button>
-                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('reports')" id="opsSubTabReports" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;">Reports</button>
+                            <button type="button" class="ops-sub-tab active" onclick="showOpsSubTab('overview')" id="opsSubTabOverview" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#F0B90B;font-size:12px;cursor:pointer;" data-i18n="admin.ops.overview">Overview</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('activity')" id="opsSubTabActivity" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;" data-i18n="admin.ops.activity">Activity</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('health')" id="opsSubTabHealth" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;" data-i18n="admin.ops.health">Health</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('alerts')" id="opsSubTabAlerts" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;" data-i18n="admin.ops.alerts">Alerts</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('audit')" id="opsSubTabAudit" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;" data-i18n="admin.ops.audit">Audit</button>
+                            <button type="button" class="ops-sub-tab" onclick="showOpsSubTab('reports')" id="opsSubTabReports" style="background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;padding:8px 16px;color:#8896B5;font-size:12px;cursor:pointer;" data-i18n="admin.ops.reports">Reports</button>
                         </div>
                         
                         <!-- Overview Sub-tab -->
@@ -4776,68 +4776,68 @@ function toggleFaq(btn) {
                                 <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                         <div style="width:32px;height:32px;background:rgba(16,185,129,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-users" style="color:#10B981;"></i></div>
-                                        <span style="font-size:11px;color:#8896B5;">Total Users</span>
+                                        <span style="font-size:11px;color:#8896B5;" data-i18n="admin.stat.totalUsers">Total Users</span>
                                     </div>
                                     <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalUsers">-</div>
-                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsNewUsersToday" style="color:#10B981;">0</span> today • <span id="opsNewUsersWeek" style="color:#F0B90B;">0</span> this week</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsNewUsersToday" style="color:#10B981;">0 today</span> • <span id="opsNewUsersWeek" style="color:#F0B90B;">0 this week</span></div>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                         <div style="width:32px;height:32px;background:rgba(59,130,246,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-arrow-down" style="color:#3B82F6;"></i></div>
-                                        <span style="font-size:11px;color:#8896B5;">Total Deposits</span>
+                                        <span style="font-size:11px;color:#8896B5;" data-i18n="admin.stat.totalDeposits">Total Deposits</span>
                                     </div>
                                     <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalDeposits">-</div>
-                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsDepositsToday" style="color:#10B981;">$0</span> today</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsDepositsToday" style="color:#10B981;">$0 today</span></div>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                         <div style="width:32px;height:32px;background:rgba(239,68,68,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-arrow-up" style="color:#EF4444;"></i></div>
-                                        <span style="font-size:11px;color:#8896B5;">Total Withdrawals</span>
+                                        <span style="font-size:11px;color:#8896B5;" data-i18n="admin.stat.totalWithdrawals">Total Withdrawals</span>
                                     </div>
                                     <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalWithdrawals">-</div>
-                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsPendingWithdrawals" style="color:#F59E0B;">0</span> pending</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsPendingWithdrawals" style="color:#F59E0B;">0 pending</span></div>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                         <div style="width:32px;height:32px;background:rgba(245,158,11,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-file-shield" style="color:#F59E0B;"></i></div>
-                                        <span style="font-size:11px;color:#8896B5;">KYC Pending</span>
+                                        <span style="font-size:11px;color:#8896B5;" data-i18n="admin.kycPending">KYC Pending</span>
                                     </div>
                                     <div style="font-size:24px;font-weight:800;color:#fff;" id="opsPendingKyc">-</div>
-                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsVerifiedUsers" style="color:#10B981;">0</span> verified</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsVerifiedUsers" style="color:#10B981;">0 verified</span></div>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                         <div style="width:32px;height:32px;background:rgba(168,85,247,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-credit-card" style="color:#A855F7;"></i></div>
-                                        <span style="font-size:11px;color:#8896B5;">Payments</span>
+                                        <span style="font-size:11px;color:#8896B5;" data-i18n="admin.payments">Payments</span>
                                     </div>
                                     <div style="font-size:24px;font-weight:800;color:#fff;" id="opsPaymentSuccess">-%</div>
-                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsSuccessfulPayments" style="color:#10B981;">0</span> success • <span id="opsFailedPayments" style="color:#EF4444;">0</span> failed</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;"><span id="opsSuccessfulPayments" style="color:#10B981;">0 success</span> • <span id="opsFailedPayments" style="color:#EF4444;">0 failed</span></div>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                         <div style="width:32px;height:32px;background:rgba(240,185,11,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-gift" style="color:#F0B90B;"></i></div>
-                                        <span style="font-size:11px;color:#8896B5;">Referral Rewards</span>
+                                        <span style="font-size:11px;color:#8896B5;" data-i18n="admin.referralRewards">Referral Rewards</span>
                                     </div>
                                     <div style="font-size:24px;font-weight:800;color:#fff;" id="opsTotalRewards">-</div>
-                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;">Total distributed</div>
+                                    <div style="font-size:10px;color:#8896B5;margin-top:4px;" data-i18n="admin.totalDistributed">Total distributed</div>
                                 </div>
                             </div>
                             
                             <!-- Quick Actions -->
                             <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-                                <button onclick="refreshOperationsDashboard()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#F0B90B;font-size:12px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
-                                <button onclick="loadActivityTimeline()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-stream"></i> View Activity</button>
-                                <button onclick="loadSystemHealth()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-heartbeat"></i> Check Health</button>
+                                <button onclick="refreshOperationsDashboard()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#F0B90B;font-size:12px;cursor:pointer;"><i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span></button>
+                                <button onclick="loadActivityTimeline()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-stream"></i> <span data-i18n="admin.viewActivity">View Activity</span></button>
+                                <button onclick="loadSystemHealth()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-heartbeat"></i> <span data-i18n="admin.checkHealth">Check Health</span></button>
                             </div>
                             
                             <!-- Recent Activity Preview -->
                             <div style="background:#141C2E;border-radius:12px;padding:16px;border:1px solid #1E2A3F;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                                    <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Recent Activity</h4>
-                                    <button onclick="showOpsSubTab('activity')" style="background:transparent;border:none;color:#F0B90B;font-size:11px;cursor:pointer;">View All</button>
+                                    <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;" data-i18n="admin.recentActivity">Recent Activity</h4>
+                                    <button onclick="showOpsSubTab('activity')" style="background:transparent;border:none;color:#F0B90B;font-size:11px;cursor:pointer;" data-i18n="admin.viewAll">View All</button>
                                 </div>
                                 <div id="opsActivityPreview" style="max-height:200px;overflow-y:auto;">
-                                    <div style="text-align:center;padding:20px;color:#8896B5;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                                    <div style="text-align:center;padding:20px;color:#8896B5;"><i class="fas fa-spinner fa-spin"></i> <span data-i18n="common.loading">Loading...</span></div>
                                 </div>
                             </div>
                         </div>
@@ -4845,7 +4845,7 @@ function toggleFaq(btn) {
                         <!-- Activity Sub-tab -->
                         <div id="opsSubTabContentActivity" class="hidden">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Activity Timeline</h4>
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;" data-i18n="admin.activityTimeline">Activity Timeline</h4>
                                 <select id="activityFilter" onchange="loadActivityTimeline()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;">
                                     <option value="all" data-i18n="activity.filter.all">All Events</option>
                                     <option value="registration" data-i18n="activity.filter.registration">Registrations</option>
@@ -4856,35 +4856,35 @@ function toggleFaq(btn) {
                                 </select>
                             </div>
                             <div id="opsActivityTimeline" style="max-height:500px;overflow-y:auto;">
-                                <div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                                <div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-spinner fa-spin"></i> <span data-i18n="common.loading">Loading...</span></div>
                             </div>
                         </div>
-                        
+
                         <!-- Health Sub-tab -->
                         <div id="opsSubTabContentHealth" class="hidden">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">System Health</h4>
-                                <button onclick="loadSystemHealth()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;" data-i18n="admin.systemHealth">System Health</h4>
+                                <button onclick="loadSystemHealth()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span></button>
                             </div>
                             <div id="opsHealthStatus" style="margin-bottom:16px;"></div>
                             <div id="opsHealthChecks" style="display:grid;gap:12px;"></div>
                         </div>
-                        
+
                         <!-- Alerts Sub-tab -->
                         <div id="opsSubTabContentAlerts" class="hidden">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Alerts</h4>
-                                <button onclick="loadAlerts()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;" data-i18n="admin.ops.alerts">Alerts</h4>
+                                <button onclick="loadAlerts()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span></button>
                             </div>
                             <div id="opsAlertsSummary" style="display:flex;gap:12px;margin-bottom:16px;"></div>
                             <div id="opsAlertsList" style="display:grid;gap:12px;"></div>
                         </div>
-                        
+
                         <!-- Audit Sub-tab -->
                         <div id="opsSubTabContentAudit" class="hidden">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Audit Logs</h4>
-                                <button onclick="loadAuditLogs()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                                <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;" data-i18n="admin.auditLogsTitle">Audit Logs</h4>
+                                <button onclick="loadAuditLogs()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:6px;padding:6px 12px;color:#F0B90B;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span></button>
                             </div>
                             <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
                                 <select id="auditActionFilter" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;">
@@ -4905,43 +4905,43 @@ function toggleFaq(btn) {
                         
                         <!-- Reports Sub-tab -->
                         <div id="opsSubTabContentReports" class="hidden">
-                            <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0 0 16px 0;">Export Reports</h4>
+                            <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0 0 16px 0;" data-i18n="admin.export.reportsTitle">Export Reports</h4>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
                                 <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
                                     <i class="fas fa-users" style="font-size:32px;color:#3B82F6;margin-bottom:12px;"></i>
-                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Users Report</h5>
-                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export all user data including balances and KYC status</p>
-                                    <button onclick="exportReport('users')" style="background:#3B82F6;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;" data-i18n="admin.report.users">Users Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="admin.report.usersDesc">Export all user data including balances and KYC status</p>
+                                    <button onclick="exportReport('users')" style="background:#3B82F6;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> <span data-i18n="admin.downloadCsv">Download CSV</span></button>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
                                     <i class="fas fa-arrow-down" style="font-size:32px;color:#10B981;margin-bottom:12px;"></i>
-                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Deposits Report</h5>
-                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export all deposit transactions with status</p>
-                                    <button onclick="exportReport('deposits')" style="background:#10B981;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;" data-i18n="admin.report.deposits">Deposits Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="admin.report.depositsDesc">Export all deposit transactions with status</p>
+                                    <button onclick="exportReport('deposits')" style="background:#10B981;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> <span data-i18n="admin.downloadCsv">Download CSV</span></button>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
                                     <i class="fas fa-arrow-up" style="font-size:32px;color:#EF4444;margin-bottom:12px;"></i>
-                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Withdrawals Report</h5>
-                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export all withdrawal transactions</p>
-                                    <button onclick="exportReport('withdrawals')" style="background:#EF4444;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;" data-i18n="admin.report.withdrawals">Withdrawals Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="admin.report.withdrawalsDesc">Export all withdrawal transactions</p>
+                                    <button onclick="exportReport('withdrawals')" style="background:#EF4444;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> <span data-i18n="admin.downloadCsv">Download CSV</span></button>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
                                     <i class="fas fa-gift" style="font-size:32px;color:#F0B90B;margin-bottom:12px;"></i>
-                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Referrals Report</h5>
-                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export referral data and bonuses</p>
-                                    <button onclick="exportReport('referrals')" style="background:#F0B90B;border:none;border-radius:6px;padding:8px 16px;color:#000;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;" data-i18n="admin.report.referrals">Referrals Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="admin.report.referralsDesc">Export referral data and bonuses</p>
+                                    <button onclick="exportReport('referrals')" style="background:#F0B90B;border:none;border-radius:6px;padding:8px 16px;color:#000;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> <span data-i18n="admin.downloadCsv">Download CSV</span></button>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
                                     <i class="fas fa-file-shield" style="font-size:32px;color:#F59E0B;margin-bottom:12px;"></i>
-                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">KYC Report</h5>
-                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export KYC verification data</p>
-                                    <button onclick="exportReport('kyc')" style="background:#F59E0B;border:none;border-radius:6px;padding:8px 16px;color:#000;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;" data-i18n="admin.report.kyc">KYC Report</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="admin.report.kycDesc">Export KYC verification data</p>
+                                    <button onclick="exportReport('kyc')" style="background:#F59E0B;border:none;border-radius:6px;padding:8px 16px;color:#000;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> <span data-i18n="admin.downloadCsv">Download CSV</span></button>
                                 </div>
                                 <div style="background:#141C2E;border-radius:12px;padding:20px;border:1px solid #1E2A3F;text-align:center;">
                                     <i class="fas fa-history" style="font-size:32px;color:#A855F7;margin-bottom:12px;"></i>
-                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;">Audit Logs</h5>
-                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;">Export complete audit trail</p>
-                                    <button onclick="exportReport('audit')" style="background:#A855F7;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> Download CSV</button>
+                                    <h5 style="font-size:13px;font-weight:600;color:#fff;margin:0 0 8px 0;" data-i18n="admin.report.audit">Audit Logs</h5>
+                                    <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="admin.report.auditDesc">Export complete audit trail</p>
+                                    <button onclick="exportReport('audit')" style="background:#A855F7;border:none;border-radius:6px;padding:8px 16px;color:#fff;font-size:11px;cursor:pointer;"><i class="fas fa-download"></i> <span data-i18n="admin.downloadCsv">Download CSV</span></button>
                                 </div>
                             </div>
                         </div>
@@ -4952,30 +4952,30 @@ function toggleFaq(btn) {
                         <!-- Enhanced User Search -->
                         <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
                             <div style="flex:1;min-width:200px;">
-                                <input type="text" id="adminUserSearch" placeholder="Search by name, email, referral code, or ID..." 
+                                <input type="text" id="adminUserSearch" placeholder="Search by name, email, referral code, or ID..." data-i18n-placeholder="admin.users.searchPlaceholder"
                                     onkeyup="handleUserSearch(event)" style="width:100%;padding:10px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:8px;color:#fff;font-size:12px;">
                             </div>
                             <select id="adminUserSearchField" style="padding:10px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:8px;color:#fff;font-size:12px;">
-                                <option value="">All Fields</option>
-                                <option value="name">Name</option>
-                                <option value="email">Email</option>
-                                <option value="referral_code">Referral Code</option>
-                                <option value="id">User ID</option>
+                                <option value="" data-i18n="admin.field.all">All Fields</option>
+                                <option value="name" data-i18n="admin.field.name">Name</option>
+                                <option value="email" data-i18n="admin.field.email">Email</option>
+                                <option value="referral_code" data-i18n="admin.field.referralCode">Referral Code</option>
+                                <option value="id" data-i18n="admin.field.userId">User ID</option>
                             </select>
-                            <button onclick="searchAdminUsers()" style="background:#F0B90B;border:none;border-radius:8px;padding:10px 16px;color:#000;font-size:12px;font-weight:600;cursor:pointer;"><i class="fas fa-search"></i> Search</button>
-                            <button onclick="resetUserSearch()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-times"></i> Reset</button>
+                            <button onclick="searchAdminUsers()" style="background:#F0B90B;border:none;border-radius:8px;padding:10px 16px;color:#000;font-size:12px;font-weight:600;cursor:pointer;"><i class="fas fa-search"></i> <span data-i18n="admin.search">Search</span></button>
+                            <button onclick="resetUserSearch()" style="background:#1E2A3F;border:1px solid #1E2A3F;border-radius:8px;padding:10px 16px;color:#8896B5;font-size:12px;cursor:pointer;"><i class="fas fa-times"></i> <span data-i18n="admin.reset">Reset</span></button>
                         </div>
                         <div style="max-height:300px;overflow-y:auto;">
                             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                 <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
                                     <tr style="border-bottom:1px solid #1E2A3F;">
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Name</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Email</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Referral Code</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Demo Balance</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Live Balance</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Bonus</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Actions</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.field.name">Name</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.field.email">Email</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.field.referralCode">Referral Code</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.demoBalance">Demo Balance</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.liveBalance">Live Balance</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.bonus">Bonus</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.actions">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminUsersTable"></tbody>
@@ -4989,31 +4989,31 @@ function toggleFaq(btn) {
                             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                 <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
                                     <tr style="border-bottom:1px solid #1E2A3F;">
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">ID</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Amount</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Network</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Status</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Date</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Action</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.id">ID</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.amount">Amount</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.network">Network</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.status">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.date">Date</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.action">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminDepositsTable"></tbody>
                             </table>
                         </div>
                     </div>
-                    
+
                     <!-- Withdrawals Tab -->
                     <div id="adminTabContentWithdrawals" class="hidden">
                         <div style="max-height:300px;overflow-y:auto;">
                             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                 <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
                                     <tr style="border-bottom:1px solid #1E2A3F;">
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">ID</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Amount</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Address</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Status</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Date</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Action</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.id">ID</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.amount">Amount</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.address">Address</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.status">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.date">Date</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.action">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="adminWithdrawalsTable"></tbody>
@@ -5025,68 +5025,68 @@ function toggleFaq(btn) {
                     <div id="adminTabContentReferrals" class="hidden">
                         <!-- Referral Sub-tabs -->
                         <div style="margin-bottom:12px;border-bottom:1px solid #1E2A3F;display:flex;gap:0;">
-                            <button type="button" class="ref-sub-tab active" onclick="showReferralSubTab('config')" id="refSubTabConfig">Configuration</button>
-                            <button type="button" class="ref-sub-tab" onclick="showReferralSubTab('history')" id="refSubTabHistory">Audit History</button>
+                            <button type="button" class="ref-sub-tab active" onclick="showReferralSubTab('config')" id="refSubTabConfig" data-i18n="admin.referral.configTab">Configuration</button>
+                            <button type="button" class="ref-sub-tab" onclick="showReferralSubTab('history')" id="refSubTabHistory" data-i18n="admin.referral.auditHistoryTab">Audit History</button>
                         </div>
-                        
+
                         <!-- Referral Configuration Sub-tab -->
                         <div id="referralSubTabConfig">
                             <div style="margin-bottom:16px;padding:12px;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.2);border-radius:8px;">
-                                <p style="font-size:11px;color:#8896B5;margin:0;">Configure the referral program settings. Changes take effect immediately.</p>
+                                <p style="font-size:11px;color:#8896B5;margin:0;" data-i18n="admin.referral.configHelp">Configure the referral program settings. Changes take effect immediately.</p>
                             </div>
                             <div id="referralConfigForm" style="max-height:400px;overflow-y:auto;">
-                                <div style="text-align:center;padding:20px;color:#8896B5;">Loading...</div>
+                                <div style="text-align:center;padding:20px;color:#8896B5;" data-i18n="common.loading">Loading...</div>
                             </div>
                         </div>
-                        
+
                         <!-- Referral Audit History Sub-tab -->
                         <div id="referralSubTabHistory" class="hidden">
                             <div style="margin-bottom:16px;padding:12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;">
-                                <p style="font-size:11px;color:#8896B5;margin:0;">Complete history of all referral configuration changes. Most recent changes shown first.</p>
+                                <p style="font-size:11px;color:#8896B5;margin:0;" data-i18n="admin.referral.auditHelp">Complete history of all referral configuration changes. Most recent changes shown first.</p>
                             </div>
-                            
+
                             <!-- Audit Log Controls -->
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                                 <div style="display:flex;gap:8px;align-items:center;">
-                                    <label style="font-size:11px;color:#8896B5;">Sort:</label>
+                                    <label style="font-size:11px;color:#8896B5;" data-i18n="admin.sort">Sort:</label>
                                     <select id="auditSortOrder" onchange="loadReferralAuditHistory()" style="padding:4px 8px;background:#141C2E;border:1px solid #1E2A3F;border-radius:4px;color:#fff;font-size:11px;">
-                                        <option value="desc">Newest First</option>
-                                        <option value="asc">Oldest First</option>
+                                        <option value="desc" data-i18n="admin.sort.newest">Newest First</option>
+                                        <option value="asc" data-i18n="admin.sort.oldest">Oldest First</option>
                                     </select>
                                 </div>
                                 <button type="button" onclick="loadReferralAuditHistory()" style="background:#1E2A3F;color:#F0B90B;border:none;padding:6px 12px;border-radius:4px;font-size:11px;cursor:pointer;">
-                                    <i class="fas fa-sync-alt"></i> Refresh
+                                    <i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span>
                                 </button>
                             </div>
-                            
+
                             <!-- Audit Log Table -->
                             <div id="referralAuditHistory" style="max-height:400px;overflow-y:auto;">
                                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                     <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
                                         <tr style="border-bottom:1px solid #1E2A3F;">
-                                            <th style="padding:8px;text-align:left;color:#8896B5;">Date & Time</th>
-                                            <th style="padding:8px;text-align:left;color:#8896B5;">Administrator</th>
-                                            <th style="padding:8px;text-align:left;color:#8896B5;">Setting</th>
-                                            <th style="padding:8px;text-align:left;color:#8896B5;">Old Value</th>
-                                            <th style="padding:8px;text-align:left;color:#8896B5;">New Value</th>
-                                            <th style="padding:8px;text-align:left;color:#8896B5;">IP Address</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.referral.col.dateTime">Date & Time</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.referral.col.administrator">Administrator</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.referral.col.setting">Setting</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.referral.col.oldValue">Old Value</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.referral.col.newValue">New Value</th>
+                                            <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.referral.col.ipAddress">IP Address</th>
                                         </tr>
                                     </thead>
                                     <tbody id="referralAuditTable">
-                                        <tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>
+                                        <tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;" data-i18n="common.loading">Loading...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
-                            
+
                             <!-- Audit Pagination -->
                             <div id="auditPagination" style="display:none;margin-top:12px;padding:8px;background:#141C2E;border-radius:8px;text-align:center;">
                                 <span id="auditPaginationInfo" style="font-size:11px;color:#8896B5;"></span>
                             </div>
-                            
+
                             <!-- Empty State -->
                             <div id="auditEmptyState" class="hidden" style="text-align:center;padding:40px;color:#8896B5;">
                                 <i class="fas fa-history" style="font-size:32px;margin-bottom:12px;opacity:0.5;"></i>
-                                <p style="font-size:12px;">No configuration changes recorded yet.</p>
+                                <p style="font-size:12px;" data-i18n="admin.empty.noConfigChanges">No configuration changes recorded yet.</p>
                             </div>
                         </div>
                     </div>
@@ -5097,52 +5097,52 @@ function toggleFaq(btn) {
                         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:20px;font-weight:800;color:#F59E0B;" id="kycPendingCount">0</div>
-                                <div style="font-size:10px;color:#8896B5;">Pending</div>
+                                <div style="font-size:10px;color:#8896B5;" data-i18n="admin.status.pending">Pending</div>
                             </div>
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:20px;font-weight:800;color:#10B981;" id="kycApprovedCount">0</div>
-                                <div style="font-size:10px;color:#8896B5;">Approved</div>
+                                <div style="font-size:10px;color:#8896B5;" data-i18n="admin.status.approved">Approved</div>
                             </div>
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:20px;font-weight:800;color:#EF4444;" id="kycRejectedCount">0</div>
-                                <div style="font-size:10px;color:#8896B5;">Rejected</div>
+                                <div style="font-size:10px;color:#8896B5;" data-i18n="admin.status.rejected">Rejected</div>
                             </div>
                             <div style="background:#141C2E;border-radius:8px;padding:12px;text-align:center;">
                                 <div style="font-size:20px;font-weight:800;color:#3B82F6;" id="kycResubmissionCount">0</div>
-                                <div style="font-size:10px;color:#8896B5;">Resubmission</div>
+                                <div style="font-size:10px;color:#8896B5;" data-i18n="admin.status.resubmission">Resubmission</div>
                             </div>
                         </div>
-                        
+
                         <!-- KYC Filters -->
                         <div style="display:flex;gap:8px;margin-bottom:12px;">
-                            <input type="text" id="kycSearchInput" placeholder="Search by name or email..." class="input-field" style="flex:1;" onkeyup="if(event.key==='Enter')loadKYCVerifications()">
+                            <input type="text" id="kycSearchInput" placeholder="Search by name or email..." data-i18n-placeholder="admin.kyc.searchPlaceholder" class="input-field" style="flex:1;" onkeyup="if(event.key==='Enter')loadKYCVerifications()">
                             <select id="kycStatusFilter" class="input-field" style="width:150px;" onchange="loadKYCVerifications()">
-                                <option value="">All Status</option>
-                                <option value="pending_review">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="rejected">Rejected</option>
-                                <option value="resubmission_required">Resubmission</option>
-                                <option value="not_started">Not Started</option>
+                                <option value="" data-i18n="admin.kyc.allStatus">All Status</option>
+                                <option value="pending_review" data-i18n="admin.status.pending">Pending</option>
+                                <option value="approved" data-i18n="admin.status.approved">Approved</option>
+                                <option value="rejected" data-i18n="admin.status.rejected">Rejected</option>
+                                <option value="resubmission_required" data-i18n="admin.status.resubmission">Resubmission</option>
+                                <option value="not_started" data-i18n="kyc.status.notStarted">Not Started</option>
                             </select>
                             <button type="button" onclick="loadKYCVerifications()" class="btn btn-primary btn-sm"><i class="fas fa-search"></i></button>
                         </div>
-                        
+
                         <!-- KYC List -->
                         <div id="kycVerificationList" style="max-height:400px;overflow-y:auto;">
                             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                 <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
                                     <tr style="border-bottom:1px solid #1E2A3F;">
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">User</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Name</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Country</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Docs</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Status</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Submitted</th>
-                                        <th style="padding:8px;text-align:left;color:#8896B5;">Actions</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.user">User</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.field.name">Name</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.country">Country</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.docs">Docs</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.status">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.submitted">Submitted</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.actions">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="kycTableBody">
-                                    <tr><td colspan="7" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>
+                                    <tr><td colspan="7" style="padding:20px;text-align:center;color:#8896B5;" data-i18n="common.loading">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -5657,47 +5657,47 @@ function toggleFaq(btn) {
     <div class="modal-content" style="max-width:600px;">
         <button type="button" onclick="closeKYCReviewModal()" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
         <div class="modal-header">
-            <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> KYC Review</h3>
+            <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> <span data-i18n="admin.kyc.reviewTitle">KYC Review</span></h3>
         </div>
-        
+
         <!-- Personal Information -->
         <div style="margin-bottom:16px;">
-            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Personal Information</div>
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="admin.kyc.personalInfo">Personal Information</div>
             <div style="background:#141C2E;border-radius:8px;padding:12px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;">
-                    <div><span style="color:#8896B5;">Name:</span> <span id="kycReviewName">-</span></div>
-                    <div><span style="color:#8896B5;">Email:</span> <span id="kycReviewEmail">-</span></div>
-                    <div><span style="color:#8896B5;">DOB:</span> <span id="kycReviewDOB">-</span></div>
-                    <div><span style="color:#8896B5;">Country:</span> <span id="kycReviewCountry">-</span></div>
+                    <div><span style="color:#8896B5;" data-i18n="admin.field.name">Name:</span> <span id="kycReviewName">-</span></div>
+                    <div><span style="color:#8896B5;" data-i18n="admin.field.email">Email:</span> <span id="kycReviewEmail">-</span></div>
+                    <div><span style="color:#8896B5;" data-i18n="admin.kyc.dob">DOB:</span> <span id="kycReviewDOB">-</span></div>
+                    <div><span style="color:#8896B5;" data-i18n="admin.col.country">Country:</span> <span id="kycReviewCountry">-</span></div>
                 </div>
-                <div style="margin-top:8px;font-size:11px;"><span style="color:#8896B5;">Address:</span> <span id="kycReviewAddress">-</span></div>
-                <div style="margin-top:8px;"><span style="color:#8896B5;">Status:</span> <span id="kycReviewStatus" style="font-weight:600;">-</span></div>
+                <div style="margin-top:8px;font-size:11px;"><span style="color:#8896B5;" data-i18n="admin.col.address">Address:</span> <span id="kycReviewAddress">-</span></div>
+                <div style="margin-top:8px;"><span style="color:#8896B5;" data-i18n="admin.col.status">Status:</span> <span id="kycReviewStatus" style="font-weight:600;">-</span></div>
             </div>
         </div>
-        
+
         <!-- Documents -->
         <div style="margin-bottom:16px;">
-            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Documents</div>
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="kyc.tab.documents">Documents</div>
             <div id="kycReviewDocuments"></div>
         </div>
-        
+
         <!-- History -->
         <div style="margin-bottom:16px;">
-            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">History</div>
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="kyc.history">History</div>
             <div id="kycReviewHistory" style="max-height:120px;overflow-y:auto;"></div>
         </div>
-        
+
         <!-- Rejection Reason -->
         <div id="kycRejectionReason" style="display:none;margin-bottom:16px;">
-            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Reason</div>
-            <textarea id="kycRejectionInput" class="input-field" rows="2" placeholder="Enter reason for rejection or resubmission request"></textarea>
+            <div style="font-size:12px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="admin.kyc.reason">Reason</div>
+            <textarea id="kycRejectionInput" class="input-field" rows="2" data-i18n-placeholder="admin.kyc.reasonPlaceholder" placeholder="Enter reason for rejection or resubmission request"></textarea>
         </div>
-        
+
         <!-- Action Buttons -->
         <div id="kycActionButtons" style="display:none;gap:8px;">
-            <button type="button" onclick="approveKYC()" class="btn btn-success" style="flex:1;"><i class="fas fa-check"></i> Approve</button>
-            <button type="button" onclick="requestResubmission()" class="btn btn-secondary" style="flex:1;"><i class="fas fa-redo"></i> Request Resubmission</button>
-            <button type="button" onclick="rejectKYC()" class="btn btn-danger" style="flex:1;"><i class="fas fa-times"></i> Reject</button>
+            <button type="button" onclick="approveKYC()" class="btn btn-success" style="flex:1;"><i class="fas fa-check"></i> <span data-i18n="admin.approve">Approve</span></button>
+            <button type="button" onclick="requestResubmission()" class="btn btn-secondary" style="flex:1;"><i class="fas fa-redo"></i> <span data-i18n="admin.kyc.requestResubmission">Request Resubmission</span></button>
+            <button type="button" onclick="rejectKYC()" class="btn btn-danger" style="flex:1;"><i class="fas fa-times"></i> <span data-i18n="admin.reject">Reject</span></button>
         </div>
     </div>
 </div>
@@ -6926,6 +6926,131 @@ const TRANSLATIONS = {
         'referral.pending': 'Pending',
         'referral.earnedLabel': 'Earned',
         'deposit.refreshStatus': 'Refresh Status',
+        'admin.tab.operations': 'Operations',
+        'admin.tab.users': 'Users',
+        'admin.tab.deposits': 'Deposits',
+        'admin.tab.withdrawals': 'Withdrawals',
+        'admin.tab.referral': 'Referral',
+        'admin.tab.kyc': 'KYC',
+        'admin.stat.totalUsers': 'Total Users',
+        'admin.stat.totalDeposits': 'Total Deposits',
+        'admin.stat.totalWithdrawals': 'Total Withdrawals',
+        'admin.stat.activeBots': 'Active Bots',
+        'admin.ops.overview': 'Overview',
+        'admin.ops.activity': 'Activity',
+        'admin.ops.health': 'Health',
+        'admin.ops.alerts': 'Alerts',
+        'admin.ops.audit': 'Audit',
+        'admin.ops.reports': 'Reports',
+        'admin.refresh': 'Refresh',
+        'admin.viewActivity': 'View Activity',
+        'admin.checkHealth': 'Check Health',
+        'admin.recentActivity': 'Recent Activity',
+        'admin.viewAll': 'View All',
+        'admin.activityTimeline': 'Activity Timeline',
+        'admin.systemHealth': 'System Health',
+        'admin.auditLogsTitle': 'Audit Logs',
+        'admin.today': 'today',
+        'admin.thisWeek': 'this week',
+        'admin.usersToday': '{{n}} today',
+        'admin.usersThisWeek': '{{n}} this week',
+        'admin.pendingCount': '{{n}} pending',
+        'admin.verifiedCount': '{{n}} verified',
+        'admin.successCount': '{{n}} success',
+        'admin.failedCount': '{{n}} failed',
+        'admin.percentSuffix': '{{n}}%',
+        'admin.kycPending': 'KYC Pending',
+        'admin.payments': 'Payments',
+        'admin.referralRewards': 'Referral Rewards',
+        'admin.totalDistributed': 'Total distributed',
+        'admin.col.id': 'ID',
+        'admin.col.amount': 'Amount',
+        'admin.col.network': 'Network',
+        'admin.col.status': 'Status',
+        'admin.col.date': 'Date',
+        'admin.col.action': 'Action',
+        'admin.col.address': 'Address',
+        'admin.col.user': 'User',
+        'admin.col.country': 'Country',
+        'admin.col.docs': 'Docs',
+        'admin.col.submitted': 'Submitted',
+        'admin.col.actions': 'Actions',
+        'admin.col.demoBalance': 'Demo Balance',
+        'admin.col.liveBalance': 'Live Balance',
+        'admin.col.bonus': 'Bonus',
+        'admin.users.searchPlaceholder': 'Search by name, email, referral code, or ID...',
+        'admin.field.all': 'All Fields',
+        'admin.field.name': 'Name',
+        'admin.field.email': 'Email',
+        'admin.field.referralCode': 'Referral Code',
+        'admin.field.userId': 'User ID',
+        'admin.search': 'Search',
+        'admin.reset': 'Reset',
+        'admin.kyc.searchPlaceholder': 'Search by name or email...',
+        'admin.kyc.allStatus': 'All Status',
+        'admin.status.pending': 'Pending',
+        'admin.status.resubmission': 'Resubmission',
+        'admin.kyc.review': 'Review',
+        'admin.kyc.reviewTitle': 'KYC Review',
+        'admin.kyc.personalInfo': 'Personal Information',
+        'admin.kyc.dob': 'DOB:',
+        'admin.kyc.reason': 'Reason',
+        'admin.kyc.reasonPlaceholder': 'Enter reason for rejection or resubmission request',
+        'admin.kyc.requestResubmission': 'Request Resubmission',
+        'admin.kyc.docSize': '({{size}} KB)',
+        'admin.unknownUser': 'Unknown',
+        'admin.empty.noUsers': 'No users found',
+        'admin.empty.loadConfigFailed': 'Error loading configuration',
+        'admin.empty.loadReferralAuditFailed': 'Error loading audit history',
+        'admin.empty.noConfigChanges': 'No configuration changes recorded yet.',
+        'admin.export.reportsTitle': 'Export Reports',
+        'admin.report.users': 'Users Report',
+        'admin.report.usersDesc': 'Export all user data including balances and KYC status',
+        'admin.report.deposits': 'Deposits Report',
+        'admin.report.depositsDesc': 'Export all deposit transactions with status',
+        'admin.report.withdrawals': 'Withdrawals Report',
+        'admin.report.withdrawalsDesc': 'Export all withdrawal transactions',
+        'admin.report.referrals': 'Referrals Report',
+        'admin.report.referralsDesc': 'Export referral data and bonuses',
+        'admin.report.kyc': 'KYC Report',
+        'admin.report.kycDesc': 'Export KYC verification data',
+        'admin.report.audit': 'Audit Logs',
+        'admin.report.auditDesc': 'Export complete audit trail',
+        'admin.downloadCsv': 'Download CSV',
+        'admin.sort': 'Sort:',
+        'admin.sort.newest': 'Newest First',
+        'admin.sort.oldest': 'Oldest First',
+        'admin.referral.configTab': 'Configuration',
+        'admin.referral.auditHistoryTab': 'Audit History',
+        'admin.referral.configHelp': 'Configure the referral program settings. Changes take effect immediately.',
+        'admin.referral.auditHelp': 'Complete history of all referral configuration changes. Most recent changes shown first.',
+        'admin.referral.col.dateTime': 'Date & Time',
+        'admin.referral.col.administrator': 'Administrator',
+        'admin.referral.col.setting': 'Setting',
+        'admin.referral.col.oldValue': 'Old Value',
+        'admin.referral.col.newValue': 'New Value',
+        'admin.referral.col.ipAddress': 'IP Address',
+        'admin.referral.lastUpdated': 'Last updated: {{time}}',
+        'admin.referral.showing': 'Showing {{shown}} of {{total}} changes',
+        'admin.referral.none': '(none)',
+        'admin.referral.enabled': 'Enabled',
+        'admin.referral.disabled': 'Disabled',
+        'admin.referral.cfg.rewardsEnabled': 'Enable Referral Rewards',
+        'admin.referral.cfg.rewardsEnabledDesc': 'Turn on/off the entire referral rewards system',
+        'admin.referral.cfg.rewardAmount': 'Reward Amount',
+        'admin.referral.cfg.rewardAmountDesc': 'Amount awarded to referrer when a referral qualifies (USD)',
+        'admin.referral.cfg.minDeposit': 'Minimum Deposit',
+        'admin.referral.cfg.minDepositDesc': 'Minimum deposit amount required for referral qualification (USD)',
+        'admin.referral.cfg.requireFirstDeposit': 'Require First Deposit',
+        'admin.referral.cfg.requireFirstDepositDesc': 'Whether referral requires the referred user to make a deposit',
+        'admin.referral.cfg.maxRewards': 'Max Rewards Per User',
+        'admin.referral.cfg.maxRewardsDesc': 'Maximum rewards a user can earn (0 = unlimited)',
+        'admin.health.status.healthy': 'Healthy',
+        'admin.health.status.degraded': 'Degraded',
+        'admin.health.status.unhealthy': 'Unhealthy',
+        'admin.health.status.unknown': 'Unknown',
+        'admin.health.failed1h': '{{n}} failed (1h)',
+        'admin.health.buckets': '{{n}} buckets',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -7777,6 +7902,131 @@ const TRANSLATIONS = {
         'referral.pending': 'Pendientes',
         'referral.earnedLabel': 'Ganado',
         'deposit.refreshStatus': 'Actualizar estado',
+        'admin.tab.operations': 'Operaciones',
+        'admin.tab.users': 'Usuarios',
+        'admin.tab.deposits': 'Depósitos',
+        'admin.tab.withdrawals': 'Retiros',
+        'admin.tab.referral': 'Referidos',
+        'admin.tab.kyc': 'KYC',
+        'admin.stat.totalUsers': 'Usuarios totales',
+        'admin.stat.totalDeposits': 'Depósitos totales',
+        'admin.stat.totalWithdrawals': 'Retiros totales',
+        'admin.stat.activeBots': 'Bots activos',
+        'admin.ops.overview': 'Resumen',
+        'admin.ops.activity': 'Actividad',
+        'admin.ops.health': 'Salud',
+        'admin.ops.alerts': 'Alertas',
+        'admin.ops.audit': 'Auditoría',
+        'admin.ops.reports': 'Informes',
+        'admin.refresh': 'Actualizar',
+        'admin.viewActivity': 'Ver actividad',
+        'admin.checkHealth': 'Comprobar salud',
+        'admin.recentActivity': 'Actividad reciente',
+        'admin.viewAll': 'Ver todo',
+        'admin.activityTimeline': 'Cronología de actividad',
+        'admin.systemHealth': 'Salud del sistema',
+        'admin.auditLogsTitle': 'Registros de auditoría',
+        'admin.today': 'hoy',
+        'admin.thisWeek': 'esta semana',
+        'admin.usersToday': '{{n}} hoy',
+        'admin.usersThisWeek': '{{n}} esta semana',
+        'admin.pendingCount': '{{n}} pendientes',
+        'admin.verifiedCount': '{{n}} verificados',
+        'admin.successCount': '{{n}} con éxito',
+        'admin.failedCount': '{{n}} fallidos',
+        'admin.percentSuffix': '{{n}}%',
+        'admin.kycPending': 'KYC pendiente',
+        'admin.payments': 'Pagos',
+        'admin.referralRewards': 'Recompensas por referidos',
+        'admin.totalDistributed': 'Total distribuido',
+        'admin.col.id': 'ID',
+        'admin.col.amount': 'Importe',
+        'admin.col.network': 'Red',
+        'admin.col.status': 'Estado',
+        'admin.col.date': 'Fecha',
+        'admin.col.action': 'Acción',
+        'admin.col.address': 'Dirección',
+        'admin.col.user': 'Usuario',
+        'admin.col.country': 'País',
+        'admin.col.docs': 'Docs',
+        'admin.col.submitted': 'Enviado',
+        'admin.col.actions': 'Acciones',
+        'admin.col.demoBalance': 'Saldo demo',
+        'admin.col.liveBalance': 'Saldo real',
+        'admin.col.bonus': 'Bono',
+        'admin.users.searchPlaceholder': 'Buscar por nombre, correo, código de referido o ID...',
+        'admin.field.all': 'Todos los campos',
+        'admin.field.name': 'Nombre',
+        'admin.field.email': 'Correo',
+        'admin.field.referralCode': 'Código de referido',
+        'admin.field.userId': 'ID de usuario',
+        'admin.search': 'Buscar',
+        'admin.reset': 'Restablecer',
+        'admin.kyc.searchPlaceholder': 'Buscar por nombre o correo...',
+        'admin.kyc.allStatus': 'Todos los estados',
+        'admin.status.pending': 'Pendiente',
+        'admin.status.resubmission': 'Reenvío',
+        'admin.kyc.review': 'Revisar',
+        'admin.kyc.reviewTitle': 'Revisión de KYC',
+        'admin.kyc.personalInfo': 'Información personal',
+        'admin.kyc.dob': 'Fecha de nac.:',
+        'admin.kyc.reason': 'Motivo',
+        'admin.kyc.reasonPlaceholder': 'Indica el motivo del rechazo o solicitud de reenvío',
+        'admin.kyc.requestResubmission': 'Solicitar reenvío',
+        'admin.kyc.docSize': '({{size}} KB)',
+        'admin.unknownUser': 'Desconocido',
+        'admin.empty.noUsers': 'No se encontraron usuarios',
+        'admin.empty.loadConfigFailed': 'Error al cargar la configuración',
+        'admin.empty.loadReferralAuditFailed': 'Error al cargar el historial de auditoría',
+        'admin.empty.noConfigChanges': 'Aún no se han registrado cambios de configuración.',
+        'admin.export.reportsTitle': 'Exportar informes',
+        'admin.report.users': 'Informe de usuarios',
+        'admin.report.usersDesc': 'Exporta todos los datos de usuario incluyendo saldos y estado KYC',
+        'admin.report.deposits': 'Informe de depósitos',
+        'admin.report.depositsDesc': 'Exporta todas las transacciones de depósito con estado',
+        'admin.report.withdrawals': 'Informe de retiros',
+        'admin.report.withdrawalsDesc': 'Exporta todas las transacciones de retiro',
+        'admin.report.referrals': 'Informe de referidos',
+        'admin.report.referralsDesc': 'Exporta datos y bonos de referidos',
+        'admin.report.kyc': 'Informe KYC',
+        'admin.report.kycDesc': 'Exporta datos de verificación KYC',
+        'admin.report.audit': 'Registros de auditoría',
+        'admin.report.auditDesc': 'Exporta la traza de auditoría completa',
+        'admin.downloadCsv': 'Descargar CSV',
+        'admin.sort': 'Ordenar:',
+        'admin.sort.newest': 'Más recientes primero',
+        'admin.sort.oldest': 'Más antiguos primero',
+        'admin.referral.configTab': 'Configuración',
+        'admin.referral.auditHistoryTab': 'Historial de auditoría',
+        'admin.referral.configHelp': 'Configura los ajustes del programa de referidos. Los cambios surten efecto inmediatamente.',
+        'admin.referral.auditHelp': 'Historial completo de todos los cambios de configuración de referidos. Se muestran primero los más recientes.',
+        'admin.referral.col.dateTime': 'Fecha y hora',
+        'admin.referral.col.administrator': 'Administrador',
+        'admin.referral.col.setting': 'Ajuste',
+        'admin.referral.col.oldValue': 'Valor anterior',
+        'admin.referral.col.newValue': 'Valor nuevo',
+        'admin.referral.col.ipAddress': 'Dirección IP',
+        'admin.referral.lastUpdated': 'Última actualización: {{time}}',
+        'admin.referral.showing': 'Mostrando {{shown}} de {{total}} cambios',
+        'admin.referral.none': '(ninguno)',
+        'admin.referral.enabled': 'Activado',
+        'admin.referral.disabled': 'Desactivado',
+        'admin.referral.cfg.rewardsEnabled': 'Activar recompensas por referidos',
+        'admin.referral.cfg.rewardsEnabledDesc': 'Activa/desactiva todo el sistema de recompensas por referidos',
+        'admin.referral.cfg.rewardAmount': 'Importe de recompensa',
+        'admin.referral.cfg.rewardAmountDesc': 'Importe otorgado al referidor cuando un referido califica (USD)',
+        'admin.referral.cfg.minDeposit': 'Depósito mínimo',
+        'admin.referral.cfg.minDepositDesc': 'Depósito mínimo requerido para la calificación del referido (USD)',
+        'admin.referral.cfg.requireFirstDeposit': 'Requerir primer depósito',
+        'admin.referral.cfg.requireFirstDepositDesc': 'Si el referido requiere que el usuario referido haga un depósito',
+        'admin.referral.cfg.maxRewards': 'Máx. recompensas por usuario',
+        'admin.referral.cfg.maxRewardsDesc': 'Recompensas máximas que un usuario puede ganar (0 = ilimitado)',
+        'admin.health.status.healthy': 'Saludable',
+        'admin.health.status.degraded': 'Degradado',
+        'admin.health.status.unhealthy': 'No saludable',
+        'admin.health.status.unknown': 'Desconocido',
+        'admin.health.failed1h': '{{n}} fallidos (1h)',
+        'admin.health.buckets': '{{n}} cubos',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -8628,6 +8878,131 @@ const TRANSLATIONS = {
         'referral.pending': 'Pendentes',
         'referral.earnedLabel': 'Ganhos',
         'deposit.refreshStatus': 'Atualizar status',
+        'admin.tab.operations': 'Operações',
+        'admin.tab.users': 'Usuários',
+        'admin.tab.deposits': 'Depósitos',
+        'admin.tab.withdrawals': 'Saques',
+        'admin.tab.referral': 'Indicações',
+        'admin.tab.kyc': 'KYC',
+        'admin.stat.totalUsers': 'Usuários totais',
+        'admin.stat.totalDeposits': 'Depósitos totais',
+        'admin.stat.totalWithdrawals': 'Saques totais',
+        'admin.stat.activeBots': 'Bots ativos',
+        'admin.ops.overview': 'Visão geral',
+        'admin.ops.activity': 'Atividade',
+        'admin.ops.health': 'Saúde',
+        'admin.ops.alerts': 'Alertas',
+        'admin.ops.audit': 'Auditoria',
+        'admin.ops.reports': 'Relatórios',
+        'admin.refresh': 'Atualizar',
+        'admin.viewActivity': 'Ver atividade',
+        'admin.checkHealth': 'Verificar saúde',
+        'admin.recentActivity': 'Atividade recente',
+        'admin.viewAll': 'Ver tudo',
+        'admin.activityTimeline': 'Linha do tempo de atividade',
+        'admin.systemHealth': 'Saúde do sistema',
+        'admin.auditLogsTitle': 'Registros de auditoria',
+        'admin.today': 'hoje',
+        'admin.thisWeek': 'esta semana',
+        'admin.usersToday': '{{n}} hoje',
+        'admin.usersThisWeek': '{{n}} esta semana',
+        'admin.pendingCount': '{{n}} pendentes',
+        'admin.verifiedCount': '{{n}} verificados',
+        'admin.successCount': '{{n}} com sucesso',
+        'admin.failedCount': '{{n}} falhas',
+        'admin.percentSuffix': '{{n}}%',
+        'admin.kycPending': 'KYC pendente',
+        'admin.payments': 'Pagamentos',
+        'admin.referralRewards': 'Recompensas por indicação',
+        'admin.totalDistributed': 'Total distribuído',
+        'admin.col.id': 'ID',
+        'admin.col.amount': 'Valor',
+        'admin.col.network': 'Rede',
+        'admin.col.status': 'Status',
+        'admin.col.date': 'Data',
+        'admin.col.action': 'Ação',
+        'admin.col.address': 'Endereço',
+        'admin.col.user': 'Usuário',
+        'admin.col.country': 'País',
+        'admin.col.docs': 'Docs',
+        'admin.col.submitted': 'Enviado',
+        'admin.col.actions': 'Ações',
+        'admin.col.demoBalance': 'Saldo demo',
+        'admin.col.liveBalance': 'Saldo real',
+        'admin.col.bonus': 'Bônus',
+        'admin.users.searchPlaceholder': 'Buscar por nome, e-mail, código de indicação ou ID...',
+        'admin.field.all': 'Todos os campos',
+        'admin.field.name': 'Nome',
+        'admin.field.email': 'E-mail',
+        'admin.field.referralCode': 'Código de indicação',
+        'admin.field.userId': 'ID do usuário',
+        'admin.search': 'Buscar',
+        'admin.reset': 'Redefinir',
+        'admin.kyc.searchPlaceholder': 'Buscar por nome ou e-mail...',
+        'admin.kyc.allStatus': 'Todos os status',
+        'admin.status.pending': 'Pendente',
+        'admin.status.resubmission': 'Reenvio',
+        'admin.kyc.review': 'Revisar',
+        'admin.kyc.reviewTitle': 'Revisão de KYC',
+        'admin.kyc.personalInfo': 'Informações pessoais',
+        'admin.kyc.dob': 'Nascimento:',
+        'admin.kyc.reason': 'Motivo',
+        'admin.kyc.reasonPlaceholder': 'Informe o motivo da rejeição ou solicitação de reenvio',
+        'admin.kyc.requestResubmission': 'Solicitar reenvio',
+        'admin.kyc.docSize': '({{size}} KB)',
+        'admin.unknownUser': 'Desconhecido',
+        'admin.empty.noUsers': 'Nenhum usuário encontrado',
+        'admin.empty.loadConfigFailed': 'Erro ao carregar a configuração',
+        'admin.empty.loadReferralAuditFailed': 'Erro ao carregar o histórico de auditoria',
+        'admin.empty.noConfigChanges': 'Nenhuma alteração de configuração registrada ainda.',
+        'admin.export.reportsTitle': 'Exportar relatórios',
+        'admin.report.users': 'Relatório de usuários',
+        'admin.report.usersDesc': 'Exporta todos os dados de usuário incluindo saldos e status KYC',
+        'admin.report.deposits': 'Relatório de depósitos',
+        'admin.report.depositsDesc': 'Exporta todas as transações de depósito com status',
+        'admin.report.withdrawals': 'Relatório de saques',
+        'admin.report.withdrawalsDesc': 'Exporta todas as transações de saque',
+        'admin.report.referrals': 'Relatório de indicações',
+        'admin.report.referralsDesc': 'Exporta dados e bônus de indicações',
+        'admin.report.kyc': 'Relatório KYC',
+        'admin.report.kycDesc': 'Exporta dados de verificação KYC',
+        'admin.report.audit': 'Registros de auditoria',
+        'admin.report.auditDesc': 'Exporta a trilha de auditoria completa',
+        'admin.downloadCsv': 'Baixar CSV',
+        'admin.sort': 'Ordenar:',
+        'admin.sort.newest': 'Mais recentes primeiro',
+        'admin.sort.oldest': 'Mais antigos primeiro',
+        'admin.referral.configTab': 'Configuração',
+        'admin.referral.auditHistoryTab': 'Histórico de auditoria',
+        'admin.referral.configHelp': 'Configure os ajustes do programa de indicações. As alterações entram em vigor imediatamente.',
+        'admin.referral.auditHelp': 'Histórico completo de todas as alterações de configuração de indicações. As mais recentes são exibidas primeiro.',
+        'admin.referral.col.dateTime': 'Data e hora',
+        'admin.referral.col.administrator': 'Administrador',
+        'admin.referral.col.setting': 'Ajuste',
+        'admin.referral.col.oldValue': 'Valor anterior',
+        'admin.referral.col.newValue': 'Valor novo',
+        'admin.referral.col.ipAddress': 'Endereço IP',
+        'admin.referral.lastUpdated': 'Última atualização: {{time}}',
+        'admin.referral.showing': 'Mostrando {{shown}} de {{total}} alterações',
+        'admin.referral.none': '(nenhum)',
+        'admin.referral.enabled': 'Ativado',
+        'admin.referral.disabled': 'Desativado',
+        'admin.referral.cfg.rewardsEnabled': 'Ativar recompensas por indicação',
+        'admin.referral.cfg.rewardsEnabledDesc': 'Ativa/desativa todo o sistema de recompensas por indicação',
+        'admin.referral.cfg.rewardAmount': 'Valor da recompensa',
+        'admin.referral.cfg.rewardAmountDesc': 'Valor concedido ao indicante quando uma indicação se qualifica (USD)',
+        'admin.referral.cfg.minDeposit': 'Depósito mínimo',
+        'admin.referral.cfg.minDepositDesc': 'Depósito mínimo necessário para qualificação da indicação (USD)',
+        'admin.referral.cfg.requireFirstDeposit': 'Exigir primeiro depósito',
+        'admin.referral.cfg.requireFirstDepositDesc': 'Se a indicação exige que o usuário indicado faça um depósito',
+        'admin.referral.cfg.maxRewards': 'Máx. de recompensas por usuário',
+        'admin.referral.cfg.maxRewardsDesc': 'Recompensas máximas que um usuário pode ganhar (0 = ilimitado)',
+        'admin.health.status.healthy': 'Saudável',
+        'admin.health.status.degraded': 'Degradado',
+        'admin.health.status.unhealthy': 'Não saudável',
+        'admin.health.status.unknown': 'Desconhecido',
+        'admin.health.failed1h': '{{n}} falhas (1h)',
+        'admin.health.buckets': '{{n}} buckets',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -9479,6 +9854,131 @@ const TRANSLATIONS = {
         'referral.pending': 'En attente',
         'referral.earnedLabel': 'Gagné',
         'deposit.refreshStatus': 'Actualiser le statut',
+        'admin.tab.operations': 'Opérations',
+        'admin.tab.users': 'Utilisateurs',
+        'admin.tab.deposits': 'Dépôts',
+        'admin.tab.withdrawals': 'Retraits',
+        'admin.tab.referral': 'Parrainage',
+        'admin.tab.kyc': 'KYC',
+        'admin.stat.totalUsers': 'Utilisateurs totaux',
+        'admin.stat.totalDeposits': 'Dépôts totaux',
+        'admin.stat.totalWithdrawals': 'Retraits totaux',
+        'admin.stat.activeBots': 'Bots actifs',
+        'admin.ops.overview': 'Aperçu',
+        'admin.ops.activity': 'Activité',
+        'admin.ops.health': 'Santé',
+        'admin.ops.alerts': 'Alertes',
+        'admin.ops.audit': 'Audit',
+        'admin.ops.reports': 'Rapports',
+        'admin.refresh': 'Actualiser',
+        'admin.viewActivity': 'Voir l\'activité',
+        'admin.checkHealth': 'Vérifier la santé',
+        'admin.recentActivity': 'Activité récente',
+        'admin.viewAll': 'Tout voir',
+        'admin.activityTimeline': 'Chronologie d\'activité',
+        'admin.systemHealth': 'Santé du système',
+        'admin.auditLogsTitle': 'Journaux d\'audit',
+        'admin.today': 'aujourd\'hui',
+        'admin.thisWeek': 'cette semaine',
+        'admin.usersToday': '{{n}} aujourd\'hui',
+        'admin.usersThisWeek': '{{n}} cette semaine',
+        'admin.pendingCount': '{{n}} en attente',
+        'admin.verifiedCount': '{{n}} vérifiés',
+        'admin.successCount': '{{n}} réussis',
+        'admin.failedCount': '{{n}} échoués',
+        'admin.percentSuffix': '{{n}} %',
+        'admin.kycPending': 'KYC en attente',
+        'admin.payments': 'Paiements',
+        'admin.referralRewards': 'Récompenses de parrainage',
+        'admin.totalDistributed': 'Total distribué',
+        'admin.col.id': 'ID',
+        'admin.col.amount': 'Montant',
+        'admin.col.network': 'Réseau',
+        'admin.col.status': 'Statut',
+        'admin.col.date': 'Date',
+        'admin.col.action': 'Action',
+        'admin.col.address': 'Adresse',
+        'admin.col.user': 'Utilisateur',
+        'admin.col.country': 'Pays',
+        'admin.col.docs': 'Docs',
+        'admin.col.submitted': 'Soumis',
+        'admin.col.actions': 'Actions',
+        'admin.col.demoBalance': 'Solde démo',
+        'admin.col.liveBalance': 'Solde réel',
+        'admin.col.bonus': 'Bonus',
+        'admin.users.searchPlaceholder': 'Rechercher par nom, e-mail, code de parrainage ou ID...',
+        'admin.field.all': 'Tous les champs',
+        'admin.field.name': 'Nom',
+        'admin.field.email': 'E-mail',
+        'admin.field.referralCode': 'Code de parrainage',
+        'admin.field.userId': 'ID utilisateur',
+        'admin.search': 'Rechercher',
+        'admin.reset': 'Réinitialiser',
+        'admin.kyc.searchPlaceholder': 'Rechercher par nom ou e-mail...',
+        'admin.kyc.allStatus': 'Tous les statuts',
+        'admin.status.pending': 'En attente',
+        'admin.status.resubmission': 'Renvoi',
+        'admin.kyc.review': 'Examiner',
+        'admin.kyc.reviewTitle': 'Examen KYC',
+        'admin.kyc.personalInfo': 'Informations personnelles',
+        'admin.kyc.dob': 'Naissance :',
+        'admin.kyc.reason': 'Motif',
+        'admin.kyc.reasonPlaceholder': 'Indiquez le motif du rejet ou de la demande de renvoi',
+        'admin.kyc.requestResubmission': 'Demander un renvoi',
+        'admin.kyc.docSize': '({{size}} Ko)',
+        'admin.unknownUser': 'Inconnu',
+        'admin.empty.noUsers': 'Aucun utilisateur trouvé',
+        'admin.empty.loadConfigFailed': 'Erreur lors du chargement de la configuration',
+        'admin.empty.loadReferralAuditFailed': 'Erreur lors du chargement de l\'historique d\'audit',
+        'admin.empty.noConfigChanges': 'Aucun changement de configuration enregistré pour le moment.',
+        'admin.export.reportsTitle': 'Exporter les rapports',
+        'admin.report.users': 'Rapport utilisateurs',
+        'admin.report.usersDesc': 'Exporte toutes les données utilisateur y compris soldes et statut KYC',
+        'admin.report.deposits': 'Rapport des dépôts',
+        'admin.report.depositsDesc': 'Exporte toutes les transactions de dépôt avec statut',
+        'admin.report.withdrawals': 'Rapport des retraits',
+        'admin.report.withdrawalsDesc': 'Exporte toutes les transactions de retrait',
+        'admin.report.referrals': 'Rapport de parrainage',
+        'admin.report.referralsDesc': 'Exporte les données et bonus de parrainage',
+        'admin.report.kyc': 'Rapport KYC',
+        'admin.report.kycDesc': 'Exporte les données de vérification KYC',
+        'admin.report.audit': 'Journaux d\'audit',
+        'admin.report.auditDesc': 'Exporte la piste d\'audit complète',
+        'admin.downloadCsv': 'Télécharger CSV',
+        'admin.sort': 'Trier :',
+        'admin.sort.newest': 'Plus récents d\'abord',
+        'admin.sort.oldest': 'Plus anciens d\'abord',
+        'admin.referral.configTab': 'Configuration',
+        'admin.referral.auditHistoryTab': 'Historique d\'audit',
+        'admin.referral.configHelp': 'Configurez les paramètres du programme de parrainage. Les changements prennent effet immédiatement.',
+        'admin.referral.auditHelp': 'Historique complet de tous les changements de configuration de parrainage. Les plus récents s\'affichent en premier.',
+        'admin.referral.col.dateTime': 'Date et heure',
+        'admin.referral.col.administrator': 'Administrateur',
+        'admin.referral.col.setting': 'Paramètre',
+        'admin.referral.col.oldValue': 'Ancienne valeur',
+        'admin.referral.col.newValue': 'Nouvelle valeur',
+        'admin.referral.col.ipAddress': 'Adresse IP',
+        'admin.referral.lastUpdated': 'Dernière mise à jour : {{time}}',
+        'admin.referral.showing': 'Affichage de {{shown}} sur {{total}} changements',
+        'admin.referral.none': '(aucun)',
+        'admin.referral.enabled': 'Activé',
+        'admin.referral.disabled': 'Désactivé',
+        'admin.referral.cfg.rewardsEnabled': 'Activer les récompenses de parrainage',
+        'admin.referral.cfg.rewardsEnabledDesc': 'Active/désactive tout le système de récompenses de parrainage',
+        'admin.referral.cfg.rewardAmount': 'Montant de la récompense',
+        'admin.referral.cfg.rewardAmountDesc': 'Montant accordé au parrain lorsqu\'un filleul se qualifie (USD)',
+        'admin.referral.cfg.minDeposit': 'Dépôt minimum',
+        'admin.referral.cfg.minDepositDesc': 'Dépôt minimum requis pour la qualification du parrainage (USD)',
+        'admin.referral.cfg.requireFirstDeposit': 'Exiger un premier dépôt',
+        'admin.referral.cfg.requireFirstDepositDesc': 'Si le parrainage exige que l\'utilisateur parrainé effectue un dépôt',
+        'admin.referral.cfg.maxRewards': 'Récompenses max. par utilisateur',
+        'admin.referral.cfg.maxRewardsDesc': 'Récompenses maximales qu\'un utilisateur peut gagner (0 = illimité)',
+        'admin.health.status.healthy': 'Sain',
+        'admin.health.status.degraded': 'Dégradé',
+        'admin.health.status.unhealthy': 'Non sain',
+        'admin.health.status.unknown': 'Inconnu',
+        'admin.health.failed1h': '{{n}} échecs (1h)',
+        'admin.health.buckets': '{{n}} seaux',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -10330,6 +10830,131 @@ const TRANSLATIONS = {
         'referral.pending': 'قيد الانتظار',
         'referral.earnedLabel': 'المكتسب',
         'deposit.refreshStatus': 'تحديث الحالة',
+        'admin.tab.operations': 'العمليات',
+        'admin.tab.users': 'المستخدمون',
+        'admin.tab.deposits': 'الإيداعات',
+        'admin.tab.withdrawals': 'السحوبات',
+        'admin.tab.referral': 'الإحالات',
+        'admin.tab.kyc': 'KYC',
+        'admin.stat.totalUsers': 'إجمالي المستخدمين',
+        'admin.stat.totalDeposits': 'إجمالي الإيداعات',
+        'admin.stat.totalWithdrawals': 'إجمالي السحوبات',
+        'admin.stat.activeBots': 'البوتات النشطة',
+        'admin.ops.overview': 'نظرة عامة',
+        'admin.ops.activity': 'النشاط',
+        'admin.ops.health': 'الصحة',
+        'admin.ops.alerts': 'التنبيهات',
+        'admin.ops.audit': 'التدقيق',
+        'admin.ops.reports': 'التقارير',
+        'admin.refresh': 'تحديث',
+        'admin.viewActivity': 'عرض النشاط',
+        'admin.checkHealth': 'فحص الصحة',
+        'admin.recentActivity': 'النشاط الأخير',
+        'admin.viewAll': 'عرض الكل',
+        'admin.activityTimeline': 'الجدول الزمني للنشاط',
+        'admin.systemHealth': 'صحة النظام',
+        'admin.auditLogsTitle': 'سجلات التدقيق',
+        'admin.today': 'اليوم',
+        'admin.thisWeek': 'هذا الأسبوع',
+        'admin.usersToday': '{{n}} اليوم',
+        'admin.usersThisWeek': '{{n}} هذا الأسبوع',
+        'admin.pendingCount': '{{n}} قيد الانتظار',
+        'admin.verifiedCount': '{{n}} تم التحقق',
+        'admin.successCount': '{{n}} ناجحة',
+        'admin.failedCount': '{{n}} فاشلة',
+        'admin.percentSuffix': '{{n}}%',
+        'admin.kycPending': 'KYC قيد الانتظار',
+        'admin.payments': 'المدفوعات',
+        'admin.referralRewards': 'مكافآت الإحالات',
+        'admin.totalDistributed': 'إجمالي الموزع',
+        'admin.col.id': 'المعرّف',
+        'admin.col.amount': 'المبلغ',
+        'admin.col.network': 'الشبكة',
+        'admin.col.status': 'الحالة',
+        'admin.col.date': 'التاريخ',
+        'admin.col.action': 'إجراء',
+        'admin.col.address': 'العنوان',
+        'admin.col.user': 'المستخدم',
+        'admin.col.country': 'الدولة',
+        'admin.col.docs': 'المستندات',
+        'admin.col.submitted': 'تم الإرسال',
+        'admin.col.actions': 'إجراءات',
+        'admin.col.demoBalance': 'رصيد تجريبي',
+        'admin.col.liveBalance': 'رصيد حقيقي',
+        'admin.col.bonus': 'المكافأة',
+        'admin.users.searchPlaceholder': 'ابحث بالاسم أو البريد أو رمز الإحالة أو المعرّف...',
+        'admin.field.all': 'كل الحقول',
+        'admin.field.name': 'الاسم',
+        'admin.field.email': 'البريد',
+        'admin.field.referralCode': 'رمز الإحالة',
+        'admin.field.userId': 'معرّف المستخدم',
+        'admin.search': 'بحث',
+        'admin.reset': 'إعادة تعيين',
+        'admin.kyc.searchPlaceholder': 'ابحث بالاسم أو البريد...',
+        'admin.kyc.allStatus': 'كل الحالات',
+        'admin.status.pending': 'قيد الانتظار',
+        'admin.status.resubmission': 'إعادة الإرسال',
+        'admin.kyc.review': 'مراجعة',
+        'admin.kyc.reviewTitle': 'مراجعة KYC',
+        'admin.kyc.personalInfo': 'المعلومات الشخصية',
+        'admin.kyc.dob': 'تاريخ الميلاد:',
+        'admin.kyc.reason': 'السبب',
+        'admin.kyc.reasonPlaceholder': 'أدخل سبب الرفض أو طلب إعادة الإرسال',
+        'admin.kyc.requestResubmission': 'طلب إعادة الإرسال',
+        'admin.kyc.docSize': '({{size}} ك.ب)',
+        'admin.unknownUser': 'غير معروف',
+        'admin.empty.noUsers': 'لم يتم العثور على مستخدمين',
+        'admin.empty.loadConfigFailed': 'خطأ في تحميل التكوين',
+        'admin.empty.loadReferralAuditFailed': 'خطأ في تحميل سجل التدقيق',
+        'admin.empty.noConfigChanges': 'لا توجد تغييرات تكوين مسجلة بعد.',
+        'admin.export.reportsTitle': 'تصدير التقارير',
+        'admin.report.users': 'تقرير المستخدمين',
+        'admin.report.usersDesc': 'تصدير جميع بيانات المستخدم بما في ذلك الأرصدة وحالة KYC',
+        'admin.report.deposits': 'تقرير الإيداعات',
+        'admin.report.depositsDesc': 'تصدير جميع معاملات الإيداع مع الحالة',
+        'admin.report.withdrawals': 'تقرير السحوبات',
+        'admin.report.withdrawalsDesc': 'تصدير جميع معاملات السحب',
+        'admin.report.referrals': 'تقرير الإحالات',
+        'admin.report.referralsDesc': 'تصدير بيانات ومكافآت الإحالات',
+        'admin.report.kyc': 'تقرير KYC',
+        'admin.report.kycDesc': 'تصدير بيانات التحقق من KYC',
+        'admin.report.audit': 'سجلات التدقيق',
+        'admin.report.auditDesc': 'تصدير مسار التدقيق الكامل',
+        'admin.downloadCsv': 'تنزيل CSV',
+        'admin.sort': 'ترتيب:',
+        'admin.sort.newest': 'الأحدث أولاً',
+        'admin.sort.oldest': 'الأقدم أولاً',
+        'admin.referral.configTab': 'التكوين',
+        'admin.referral.auditHistoryTab': 'سجل التدقيق',
+        'admin.referral.configHelp': 'اضبط إعدادات برنامج الإحالات. تسري التغييرات فورًا.',
+        'admin.referral.auditHelp': 'سجل كامل لجميع تغييرات تكوين الإحالات. تظهر الأحدث أولاً.',
+        'admin.referral.col.dateTime': 'التاريخ والوقت',
+        'admin.referral.col.administrator': 'المسؤول',
+        'admin.referral.col.setting': 'الإعداد',
+        'admin.referral.col.oldValue': 'القيمة القديمة',
+        'admin.referral.col.newValue': 'القيمة الجديدة',
+        'admin.referral.col.ipAddress': 'عنوان IP',
+        'admin.referral.lastUpdated': 'آخر تحديث: {{time}}',
+        'admin.referral.showing': 'عرض {{shown}} من {{total}} تغييرات',
+        'admin.referral.none': '(لا شيء)',
+        'admin.referral.enabled': 'مفعّل',
+        'admin.referral.disabled': 'معطّل',
+        'admin.referral.cfg.rewardsEnabled': 'تفعيل مكافآت الإحالات',
+        'admin.referral.cfg.rewardsEnabledDesc': 'تشغيل/إيقاف نظام مكافآت الإحالات بالكامل',
+        'admin.referral.cfg.rewardAmount': 'مبلغ المكافأة',
+        'admin.referral.cfg.rewardAmountDesc': 'المبلغ الممنوح للمحيل عند تأهل الإحالة (USD)',
+        'admin.referral.cfg.minDeposit': 'الحد الأدنى للإيداع',
+        'admin.referral.cfg.minDepositDesc': 'الحد الأدنى للإيداع المطلوب لتأهل الإحالة (USD)',
+        'admin.referral.cfg.requireFirstDeposit': 'اشتراط أول إيداع',
+        'admin.referral.cfg.requireFirstDepositDesc': 'ما إذا كانت الإحالة تتطلب من المستخدم المحال إجراء إيداع',
+        'admin.referral.cfg.maxRewards': 'الحد الأقصى للمكافآت لكل مستخدم',
+        'admin.referral.cfg.maxRewardsDesc': 'الحد الأقصى للمكافآت التي يمكن للمستخدم كسبها (0 = غير محدود)',
+        'admin.health.status.healthy': 'سليم',
+        'admin.health.status.degraded': 'متدهور',
+        'admin.health.status.unhealthy': 'غير سليم',
+        'admin.health.status.unknown': 'غير معروف',
+        'admin.health.failed1h': '{{n}} فاشلة (1س)',
+        'admin.health.buckets': '{{n}} دلاء',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -11181,6 +11806,131 @@ const TRANSLATIONS = {
         'referral.pending': '待处理',
         'referral.earnedLabel': '已赚取',
         'deposit.refreshStatus': '刷新状态',
+        'admin.tab.operations': '运营',
+        'admin.tab.users': '用户',
+        'admin.tab.deposits': '存款',
+        'admin.tab.withdrawals': '提现',
+        'admin.tab.referral': '推荐',
+        'admin.tab.kyc': 'KYC',
+        'admin.stat.totalUsers': '用户总数',
+        'admin.stat.totalDeposits': '存款总额',
+        'admin.stat.totalWithdrawals': '提现总额',
+        'admin.stat.activeBots': '活跃机器人',
+        'admin.ops.overview': '概览',
+        'admin.ops.activity': '活动',
+        'admin.ops.health': '健康',
+        'admin.ops.alerts': '告警',
+        'admin.ops.audit': '审计',
+        'admin.ops.reports': '报表',
+        'admin.refresh': '刷新',
+        'admin.viewActivity': '查看活动',
+        'admin.checkHealth': '检查健康',
+        'admin.recentActivity': '近期活动',
+        'admin.viewAll': '查看全部',
+        'admin.activityTimeline': '活动时间线',
+        'admin.systemHealth': '系统健康',
+        'admin.auditLogsTitle': '审计日志',
+        'admin.today': '今天',
+        'admin.thisWeek': '本周',
+        'admin.usersToday': '{{n}} 今天',
+        'admin.usersThisWeek': '{{n}} 本周',
+        'admin.pendingCount': '{{n}} 待处理',
+        'admin.verifiedCount': '{{n}} 已验证',
+        'admin.successCount': '{{n}} 成功',
+        'admin.failedCount': '{{n}} 失败',
+        'admin.percentSuffix': '{{n}}%',
+        'admin.kycPending': '待处理 KYC',
+        'admin.payments': '支付',
+        'admin.referralRewards': '推荐奖励',
+        'admin.totalDistributed': '已发放总额',
+        'admin.col.id': 'ID',
+        'admin.col.amount': '金额',
+        'admin.col.network': '网络',
+        'admin.col.status': '状态',
+        'admin.col.date': '日期',
+        'admin.col.action': '操作',
+        'admin.col.address': '地址',
+        'admin.col.user': '用户',
+        'admin.col.country': '国家',
+        'admin.col.docs': '文档',
+        'admin.col.submitted': '提交时间',
+        'admin.col.actions': '操作',
+        'admin.col.demoBalance': '模拟余额',
+        'admin.col.liveBalance': '实盘余额',
+        'admin.col.bonus': '奖金',
+        'admin.users.searchPlaceholder': '按姓名、邮箱、推荐码或 ID 搜索...',
+        'admin.field.all': '全部字段',
+        'admin.field.name': '姓名',
+        'admin.field.email': '邮箱',
+        'admin.field.referralCode': '推荐码',
+        'admin.field.userId': '用户 ID',
+        'admin.search': '搜索',
+        'admin.reset': '重置',
+        'admin.kyc.searchPlaceholder': '按姓名或邮箱搜索...',
+        'admin.kyc.allStatus': '全部状态',
+        'admin.status.pending': '待处理',
+        'admin.status.resubmission': '重新提交',
+        'admin.kyc.review': '审核',
+        'admin.kyc.reviewTitle': 'KYC 审核',
+        'admin.kyc.personalInfo': '个人信息',
+        'admin.kyc.dob': '出生日期：',
+        'admin.kyc.reason': '原因',
+        'admin.kyc.reasonPlaceholder': '输入拒绝或要求重新提交的原因',
+        'admin.kyc.requestResubmission': '要求重新提交',
+        'admin.kyc.docSize': '({{size}} KB)',
+        'admin.unknownUser': '未知',
+        'admin.empty.noUsers': '未找到用户',
+        'admin.empty.loadConfigFailed': '加载配置出错',
+        'admin.empty.loadReferralAuditFailed': '加载审计历史出错',
+        'admin.empty.noConfigChanges': '尚未记录任何配置更改。',
+        'admin.export.reportsTitle': '导出报表',
+        'admin.report.users': '用户报表',
+        'admin.report.usersDesc': '导出所有用户数据，包括余额和 KYC 状态',
+        'admin.report.deposits': '存款报表',
+        'admin.report.depositsDesc': '导出所有存款交易及其状态',
+        'admin.report.withdrawals': '提现报表',
+        'admin.report.withdrawalsDesc': '导出所有提现交易',
+        'admin.report.referrals': '推荐报表',
+        'admin.report.referralsDesc': '导出推荐数据和奖金',
+        'admin.report.kyc': 'KYC 报表',
+        'admin.report.kycDesc': '导出 KYC 验证数据',
+        'admin.report.audit': '审计日志',
+        'admin.report.auditDesc': '导出完整审计轨迹',
+        'admin.downloadCsv': '下载 CSV',
+        'admin.sort': '排序：',
+        'admin.sort.newest': '最新优先',
+        'admin.sort.oldest': '最旧优先',
+        'admin.referral.configTab': '配置',
+        'admin.referral.auditHistoryTab': '审计历史',
+        'admin.referral.configHelp': '配置推荐计划设置。更改立即生效。',
+        'admin.referral.auditHelp': '所有推荐配置更改的完整历史。最新更改优先显示。',
+        'admin.referral.col.dateTime': '日期与时间',
+        'admin.referral.col.administrator': '管理员',
+        'admin.referral.col.setting': '设置项',
+        'admin.referral.col.oldValue': '旧值',
+        'admin.referral.col.newValue': '新值',
+        'admin.referral.col.ipAddress': 'IP 地址',
+        'admin.referral.lastUpdated': '最后更新：{{time}}',
+        'admin.referral.showing': '显示 {{total}} 项更改中的 {{shown}} 项',
+        'admin.referral.none': '(无)',
+        'admin.referral.enabled': '已启用',
+        'admin.referral.disabled': '已禁用',
+        'admin.referral.cfg.rewardsEnabled': '启用推荐奖励',
+        'admin.referral.cfg.rewardsEnabledDesc': '开启/关闭整个推荐奖励系统',
+        'admin.referral.cfg.rewardAmount': '奖励金额',
+        'admin.referral.cfg.rewardAmountDesc': '推荐合格时授予推荐人的金额（USD）',
+        'admin.referral.cfg.minDeposit': '最低存款',
+        'admin.referral.cfg.minDepositDesc': '推荐合格所需的最低存款金额（USD）',
+        'admin.referral.cfg.requireFirstDeposit': '要求首次存款',
+        'admin.referral.cfg.requireFirstDepositDesc': '推荐是否要求被推荐用户进行存款',
+        'admin.referral.cfg.maxRewards': '每用户最大奖励',
+        'admin.referral.cfg.maxRewardsDesc': '用户可获得的最大奖励（0 = 无限制）',
+        'admin.health.status.healthy': '健康',
+        'admin.health.status.degraded': '降级',
+        'admin.health.status.unhealthy': '不健康',
+        'admin.health.status.unknown': '未知',
+        'admin.health.failed1h': '{{n}} 失败 (1小时)',
+        'admin.health.buckets': '{{n}} 个存储桶',
     }
 };
 // Copy translations for other languages
@@ -12238,6 +12988,22 @@ const KYC_STATUS_LABELS = {
 function kycStatusLabel(rawStatus) {
     if (!rawStatus) return t('kyc.status.new');
     const key = KYC_STATUS_LABELS[rawStatus];
+    return key ? t(key) : rawStatus;
+}
+
+// System health status (admin dashboard /api/admin/dashboard/health -> data.status
+// and each check.status). Render-only: maps the raw healthy/degraded/unhealthy/unknown
+// enum to a localized label for DISPLAY ONLY. All statusColors/checkColors comparisons
+// and any status-based logic stay on the RAW enum value. Unknown -> raw verbatim.
+const HEALTH_STATUS_LABELS = {
+    'healthy': 'admin.health.status.healthy',
+    'degraded': 'admin.health.status.degraded',
+    'unhealthy': 'admin.health.status.unhealthy',
+    'unknown': 'admin.health.status.unknown'
+};
+function healthStatusLabel(rawStatus) {
+    if (!rawStatus) return '';
+    const key = HEALTH_STATUS_LABELS[rawStatus];
     return key ? t(key) : rawStatus;
 }
 
@@ -15058,25 +15824,25 @@ async function loadExecutiveDashboard() {
         
         // Update user stats
         document.getElementById('opsTotalUsers').textContent = formatNumber(data.users?.total || 0);
-        document.getElementById('opsNewUsersToday').textContent = formatNumber(data.users?.newToday || 0) + ' today';
-        document.getElementById('opsNewUsersWeek').textContent = formatNumber(data.users?.newWeek || 0) + ' week';
+        document.getElementById('opsNewUsersToday').textContent = t('admin.usersToday', {n: formatNumber(data.users?.newToday || 0)});
+        document.getElementById('opsNewUsersWeek').textContent = t('admin.usersThisWeek', {n: formatNumber(data.users?.newWeek || 0)});
         
         // Update deposit stats
         document.getElementById('opsTotalDeposits').textContent = '$' + formatNumber(data.financial?.totalDeposits || 0);
-        document.getElementById('opsDepositsToday').textContent = '$' + formatNumber(data.financial?.depositsToday || 0);
+        document.getElementById('opsDepositsToday').textContent = '$' + formatNumber(data.financial?.depositsToday || 0) + ' ' + t('admin.today');
         
         // Update withdrawal stats
         document.getElementById('opsTotalWithdrawals').textContent = '$' + formatNumber(data.financial?.totalWithdrawals || 0);
-        document.getElementById('opsPendingWithdrawals').textContent = (data.financial?.pendingWithdrawals || 0) + ' pending';
+        document.getElementById('opsPendingWithdrawals').textContent = t('admin.pendingCount', {n: data.financial?.pendingWithdrawals || 0});
         
         // Update KYC stats
         document.getElementById('opsPendingKyc').textContent = formatNumber(data.kyc?.pending || 0);
-        document.getElementById('opsVerifiedUsers').textContent = formatNumber(data.users?.verified || 0) + ' verified';
+        document.getElementById('opsVerifiedUsers').textContent = t('admin.verifiedCount', {n: formatNumber(data.users?.verified || 0)});
         
         // Update payment stats
-        document.getElementById('opsPaymentSuccess').textContent = (data.payments?.successRate || 0) + '%';
-        document.getElementById('opsSuccessfulPayments').textContent = formatNumber(data.payments?.successful || 0);
-        document.getElementById('opsFailedPayments').textContent = formatNumber(data.payments?.failed || 0);
+        document.getElementById('opsPaymentSuccess').textContent = t('admin.percentSuffix', {n: data.payments?.successRate || 0});
+        document.getElementById('opsSuccessfulPayments').textContent = t('admin.successCount', {n: formatNumber(data.payments?.successful || 0)});
+        document.getElementById('opsFailedPayments').textContent = t('admin.failedCount', {n: formatNumber(data.payments?.failed || 0)});
         
         // Update referral stats
         document.getElementById('opsTotalRewards').textContent = '$' + formatNumber(data.financial?.totalReferralRewards || 0);
@@ -15211,7 +15977,7 @@ async function loadSystemHealth() {
                             <i class="fas fa-heartbeat" style="color:${statusColor};font-size:20px;"></i>
                         </div>
                         <div>
-                            <div style="font-size:18px;font-weight:700;color:${statusColor};text-transform:capitalize;">${data.status}</div>
+                            <div style="font-size:18px;font-weight:700;color:${statusColor};">${healthStatusLabel(data.status)}</div>
                             <div style="font-size:11px;color:#8896B5;">${t('admin.health.lastChecked', {time: new Date(data.timestamp).toLocaleTimeString()})}</div>
                         </div>
                     </div>
@@ -15222,7 +15988,7 @@ async function loadSystemHealth() {
                 </div>
             `;
         }
-        
+
         // Update checks
         if (checksContainer) {
             const checks = data.checks || {};
@@ -15231,12 +15997,12 @@ async function loadSystemHealth() {
                 const color = checkColors[check.status] || '#8896B5';
                 const displayName = name.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
                 const latency = check.latency ? ` • ${check.latency}ms` : '';
-                
+
                 let details = '';
-                if (check.failedInLastHour !== undefined) details = ` • ${check.failedInLastHour} failed (1h)`;
-                if (check.bucketCount !== undefined) details = ` • ${check.bucketCount} buckets`;
+                if (check.failedInLastHour !== undefined) details = ` • ${t('admin.health.failed1h', {n: check.failedInLastHour})}`;
+                if (check.bucketCount !== undefined) details = ` • ${t('admin.health.buckets', {n: check.bucketCount})}`;
                 if (check.error) details = ` • ${check.error}`;
-                
+
                 return `
                     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;">
                         <div style="display:flex;align-items:center;gap:10px;">
@@ -15244,7 +16010,7 @@ async function loadSystemHealth() {
                             <span style="font-size:13px;color:#fff;">${displayName}</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="font-size:11px;color:#8896B5;">${check.status}${latency}${details}</span>
+                            <span style="font-size:11px;color:#8896B5;">${healthStatusLabel(check.status)}${latency}${details}</span>
                             <i class="fas fa-circle" style="color:${color};font-size:6px;"></i>
                         </div>
                     </div>
@@ -15480,72 +16246,60 @@ async function loadReferralConfig() {
         const config = await response.json();
         renderReferralConfig(config);
     } catch (e) {
-        container.innerHTML = '<div style="text-align:center;padding:20px;color:#ff4444;">Error loading configuration</div>';
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#ff4444;">' + t('admin.empty.loadConfigFailed') + '</div>';
         console.log('Error loading referral config:', e);
     }
+}
+
+// Shared referral-config label map keyed by the RAW configuration key (the DB/API
+// identifier). Used by BOTH renderReferralConfig (form labels) and formatConfigKey
+// (audit-history labels) so the two views never drift. The raw keys themselves are
+// NEVER modified — only the displayed label/description is localized. Unknown keys
+// fall back to the raw key verbatim (formatConfigKey) / empty (description).
+const REFERRAL_CONFIG_LABELS = {
+    'rewards_enabled': { label: 'admin.referral.cfg.rewardsEnabled', desc: 'admin.referral.cfg.rewardsEnabledDesc' },
+    'referral_reward_amount': { label: 'admin.referral.cfg.rewardAmount', desc: 'admin.referral.cfg.rewardAmountDesc' },
+    'minimum_qualifying_deposit': { label: 'admin.referral.cfg.minDeposit', desc: 'admin.referral.cfg.minDepositDesc' },
+    'first_deposit_required': { label: 'admin.referral.cfg.requireFirstDeposit', desc: 'admin.referral.cfg.requireFirstDepositDesc' },
+    'max_rewards_per_user': { label: 'admin.referral.cfg.maxRewards', desc: 'admin.referral.cfg.maxRewardsDesc' }
+};
+function referralConfigLabel(rawKey) {
+    if (!rawKey) return '';
+    const entry = REFERRAL_CONFIG_LABELS[rawKey];
+    return entry ? t(entry.label) : rawKey;
+}
+function referralConfigDesc(rawKey) {
+    if (!rawKey) return '';
+    const entry = REFERRAL_CONFIG_LABELS[rawKey];
+    return entry ? t(entry.desc) : '';
 }
 
 function renderReferralConfig(config) {
     const container = document.getElementById('referralConfigForm');
     if (!container) return;
-    
+
     const configItems = [
-        {
-            key: 'rewards_enabled',
-            label: 'Enable Referral Rewards',
-            type: 'toggle',
-            description: 'Turn on/off the entire referral rewards system',
-            parseValue: (v) => v === 'true'
-        },
-        {
-            key: 'referral_reward_amount',
-            label: 'Reward Amount',
-            type: 'number',
-            description: 'Amount awarded to referrer when a referral qualifies (USD)',
-            parseValue: (v) => parseFloat(v),
-            min: 0,
-            step: 1
-        },
-        {
-            key: 'minimum_qualifying_deposit',
-            label: 'Minimum Deposit',
-            type: 'number',
-            description: 'Minimum deposit amount required for referral qualification (USD)',
-            parseValue: (v) => parseFloat(v),
-            min: 0,
-            step: 1
-        },
-        {
-            key: 'first_deposit_required',
-            label: 'Require First Deposit',
-            type: 'toggle',
-            description: 'Whether referral requires the referred user to make a deposit',
-            parseValue: (v) => v === 'true'
-        },
-        {
-            key: 'max_rewards_per_user',
-            label: 'Max Rewards Per User',
-            type: 'number',
-            description: 'Maximum rewards a user can earn (0 = unlimited)',
-            parseValue: (v) => parseInt(v),
-            min: 0,
-            step: 1
-        }
+        { key: 'rewards_enabled', type: 'toggle', parseValue: (v) => v === 'true' },
+        { key: 'referral_reward_amount', type: 'number', parseValue: (v) => parseFloat(v), min: 0, step: 1 },
+        { key: 'minimum_qualifying_deposit', type: 'number', parseValue: (v) => parseFloat(v), min: 0, step: 1 },
+        { key: 'first_deposit_required', type: 'toggle', parseValue: (v) => v === 'true' },
+        { key: 'max_rewards_per_user', type: 'number', parseValue: (v) => parseInt(v), min: 0, step: 1 }
     ];
-    
+
     container.innerHTML = configItems.map(item => {
         const value = config[item.key]?.value || (item.type === 'toggle' ? 'true' : '0');
-        const description = config[item.key]?.description || item.description;
+        const description = config[item.key]?.description || referralConfigDesc(item.key);
         const updatedAt = config[item.key]?.updatedAt;
-        
+        const label = referralConfigLabel(item.key);
+
         if (item.type === 'toggle') {
             const isEnabled = value === 'true';
             return `
                 <div style="background:#141C2E;border-radius:8px;padding:16px;margin-bottom:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <div style="font-size:13px;font-weight:600;color:#fff;">${item.label}</div>
+                        <div style="font-size:13px;font-weight:600;color:#fff;">${label}</div>
                         <label class="switch" style="position:relative;display:inline-block;width:50px;height:26px;">
-                            <input type="checkbox" id="config_${item.key}" ${isEnabled ? 'checked' : ''} 
+                            <input type="checkbox" id="config_${item.key}" ${isEnabled ? 'checked' : ''}
                                    onchange="updateReferralConfig('${item.key}', this.checked ? 'true' : 'false')">
                             <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${isEnabled ? '#10B981' : '#374151'};transition:.3s;border-radius:26px;">
                                 <span style="position:absolute;content:'';height:20px;width:20px;left:${isEnabled ? '26px' : '3px'};bottom:3px;background-color:white;transition:.3s;border-radius:50%;"></span>
@@ -15553,29 +16307,29 @@ function renderReferralConfig(config) {
                         </label>
                     </div>
                     <div style="font-size:10px;color:#8896B5;">${description}</div>
-                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">Last updated: ${new Date(updatedAt).toLocaleString()}</div>` : ''}
+                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">${t('admin.referral.lastUpdated', {time: new Date(updatedAt).toLocaleString()})}</div>` : ''}
                 </div>
             `;
         } else {
             return `
                 <div style="background:#141C2E;border-radius:8px;padding:16px;margin-bottom:12px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <div style="font-size:13px;font-weight:600;color:#fff;">${item.label}</div>
+                        <div style="font-size:13px;font-weight:600;color:#fff;">${label}</div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="color:#8896B5;">$</span>
-                            <input type="number" id="config_${item.key}" value="${value}" 
+                            <input type="number" id="config_${item.key}" value="${value}"
                                    min="${item.min || 0}" step="${item.step || 1}"
                                    style="width:80px;padding:6px 10px;background:#1E2A3F;border:1px solid #374151;border-radius:6px;color:#F0B90B;font-size:13px;text-align:right;"
                                    onchange="updateReferralConfig('${item.key}', this.value)">
                         </div>
                     </div>
                     <div style="font-size:10px;color:#8896B5;">${description}</div>
-                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">Last updated: ${new Date(updatedAt).toLocaleString()}</div>` : ''}
+                    ${updatedAt ? `<div style="font-size:9px;color:#5A6A8A;margin-top:6px;">${t('admin.referral.lastUpdated', {time: new Date(updatedAt).toLocaleString()})}</div>` : ''}
                 </div>
             `;
         }
     }).join('');
-    
+
     // Add CSS for toggle switch if not already present
     if (!document.getElementById('toggleSwitchStyle')) {
         const style = document.createElement('style');
@@ -15655,29 +16409,29 @@ async function loadReferralAuditHistory() {
     if (!table) return;
     
     // Show loading state
-    table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">Loading...</td></tr>';
-    
+    table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">' + t('common.loading') + '</td></tr>';
+
     try {
         const response = await fetch('/api/referral/config/audit?sort=' + sortOrder, {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to load audit history');
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.auditLog || data.auditLog.length === 0) {
             table.innerHTML = '';
             pagination.style.display = 'none';
             emptyState.classList.remove('hidden');
             return;
         }
-        
+
         emptyState.classList.add('hidden');
         pagination.style.display = 'block';
-        
+
         // Render audit log
         table.innerHTML = data.auditLog.map(entry => {
             const date = new Date(entry.changed_at);
@@ -15685,8 +16439,8 @@ async function loadReferralAuditHistory() {
             const configKeyLabel = formatConfigKey(entry.config_key);
             const oldValueDisplay = formatConfigValue(entry.config_key, entry.old_value);
             const newValueDisplay = formatConfigValue(entry.config_key, entry.new_value);
-            const ipDisplay = entry.ip_address || 'N/A';
-            
+            const ipDisplay = entry.ip_address || t('common.na');
+
             return `
                 <tr style="border-bottom:1px solid #1E2A3F;">
                     <td style="padding:8px;color:#fff;">${formattedDate}</td>
@@ -15698,41 +16452,37 @@ async function loadReferralAuditHistory() {
                 </tr>
             `;
         }).join('');
-        
+
         // Update pagination info
-        document.getElementById('auditPaginationInfo').textContent = 
-            `Showing ${data.auditLog.length} of ${data.pagination.total} changes`;
-        
+        document.getElementById('auditPaginationInfo').textContent =
+            t('admin.referral.showing', { shown: data.auditLog.length, total: data.pagination.total });
+
     } catch (e) {
-        table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#ff4444;">Error loading audit history</td></tr>';
+        table.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#ff4444;">' + t('admin.empty.loadReferralAuditFailed') + '</td></tr>';
         console.log('Error loading audit history:', e);
     }
 }
 
 function formatConfigKey(key) {
-    const labels = {
-        'rewards_enabled': 'Rewards Enabled',
-        'minimum_qualifying_deposit': 'Min Deposit',
-        'referral_reward_amount': 'Reward Amount',
-        'first_deposit_required': 'First Deposit Required',
-        'max_rewards_per_user': 'Max Rewards Per User'
-    };
-    return labels[key] || key;
+    // Reuses the shared REFERRAL_CONFIG_LABELS map (same source as the config
+    // form labels) so the audit-history "Setting" column never drifts from the
+    // form. Raw key is the fallback for unknown keys (never modified).
+    return referralConfigLabel(key);
 }
 
 function formatConfigValue(key, value) {
     if (value === null || value === undefined || value === '') {
-        return '<em style="opacity:0.5;">(none)</em>';
+        return '<em style="opacity:0.5;">' + t('admin.referral.none') + '</em>';
     }
-    
+
     if (key === 'rewards_enabled' || key === 'first_deposit_required') {
-        return value === 'true' ? '✅ Enabled' : '❌ Disabled';
+        return value === 'true' ? '✅ ' + t('admin.referral.enabled') : '❌ ' + t('admin.referral.disabled');
     }
-    
+
     if (key === 'minimum_qualifying_deposit' || key === 'referral_reward_amount') {
         return '$' + value;
     }
-    
+
     return value;
 }
 
@@ -15800,11 +16550,11 @@ function renderKYCVerifications(verifications) {
                           v.status === 'resubmission_required' ? t('kyc.status.resubmission') : t('kyc.status.notStarted');
         const submittedDate = v.submittedAt ? new Date(v.submittedAt).toLocaleDateString() : '-';
         const actionBtns = v.status === 'pending_review' ?
-            '<button type="button" class="btn btn-success btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')" style="margin-right:4px;">Review</button>' :
-            '<button type="button" class="btn btn-secondary btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')">View</button>';
-        
+            '<button type="button" class="btn btn-success btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')" style="margin-right:4px;">' + t('admin.kyc.review') + '</button>' :
+            '<button type="button" class="btn btn-secondary btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')">' + t('admin.view') + '</button>';
+
         return '<tr style="border-bottom:1px solid #1E2A3F;">' +
-            '<td style="padding:8px;">' + escapeHtml(v.userEmail || v.userName || 'Unknown') + '</td>' +
+            '<td style="padding:8px;">' + escapeHtml(v.userEmail || v.userName || t('admin.unknownUser')) + '</td>' +
             '<td style="padding:8px;">' + escapeHtml(v.fullLegalName || '-') + '</td>' +
             '<td style="padding:8px;">' + escapeHtml(v.country || '-') + '</td>' +
             '<td style="padding:8px;">' + (v.documentCount || 0) + '</td>' +
@@ -15865,9 +16615,9 @@ function renderKYCDetails(data) {
     if (data.documents && data.documents.length > 0) {
         docsList.innerHTML = data.documents.map(function(d) {
             return '<div style="padding:8px;background:#141C2E;border-radius:6px;margin-bottom:8px;">' +
-                   '<div style="font-size:11px;font-weight:600;color:#E8EDF5;margin-bottom:4px;">' + d.type + '</div>' +
-                   '<div style="font-size:10px;color:#8896B5;margin-bottom:8px;">' + d.originalFilename + ' (' + (d.fileSize / 1024).toFixed(1) + ' KB)</div>' +
-                   '<button type="button" class="btn btn-secondary btn-sm" onclick="viewKYCDocument(\'' + d.id + '\')"><i class="fas fa-eye"></i> View</button>' +
+                   '<div style="font-size:11px;font-weight:600;color:#E8EDF5;margin-bottom:4px;">' + escapeHtml(d.type) + '</div>' +
+                   '<div style="font-size:10px;color:#8896B5;margin-bottom:8px;">' + escapeHtml(d.originalFilename) + ' ' + t('admin.kyc.docSize', {size: (d.fileSize / 1024).toFixed(1)}) + '</div>' +
+                   '<button type="button" class="btn btn-secondary btn-sm" onclick="viewKYCDocument(\'' + d.id + '\')"><i class="fas fa-eye"></i> ' + t('admin.view') + '</button>' +
                    '</div>';
         }).join('');
     } else {
@@ -16397,20 +17147,20 @@ function renderAdminUsers(users) {
     if (!tbody) return;
     
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#5A6A8A;">No users found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#5A6A8A;">' + t('admin.empty.noUsers') + '</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = users.map(function(u) {
         const kycStatus = u.kyc_status || 'not_started';
-        const kycBadge = kycStatus === 'approved' ? 
-            '<span style="padding:2px 6px;background:#10B98120;color:#10B981;border-radius:4px;font-size:9px;">Verified</span>' :
-            '<span style="padding:2px 6px;background:#F59E0B20;color:#F59E0B;border-radius:4px;font-size:9px;">Pending</span>';
-        
+        const kycBadge = kycStatus === 'approved' ?
+            '<span style="padding:2px 6px;background:#10B98120;color:#10B981;border-radius:4px;font-size:9px;">' + t('kyc.status.verified') + '</span>' :
+            '<span style="padding:2px 6px;background:#F59E0B20;color:#F59E0B;border-radius:4px;font-size:9px;">' + t('admin.status.pending') + '</span>';
+
         return '<tr style="border-bottom:1px solid #1E2A3F;">' +
-            '<td style="padding:8px;">' + (u.name || 'N/A') + '</td>' +
-            '<td style="padding:8px;">' + u.email + '</td>' +
-            '<td style="padding:8px;font-family:monospace;">' + u.referral_code + '</td>' +
+            '<td style="padding:8px;">' + escapeHtml(u.name || t('common.na')) + '</td>' +
+            '<td style="padding:8px;">' + escapeHtml(u.email) + '</td>' +
+            '<td style="padding:8px;font-family:monospace;">' + escapeHtml(u.referral_code) + '</td>' +
             '<td style="padding:8px;">$' + (u.demo_balance || 0).toFixed(2) + '</td>' +
             '<td style="padding:8px;">$' + (u.live_balance || 0).toFixed(2) + '</td>' +
             '<td style="padding:8px;">$' + (u.bonus_balance || 0).toFixed(2) + '</td>' +
