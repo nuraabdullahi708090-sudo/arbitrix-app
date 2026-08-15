@@ -7116,7 +7116,11 @@ function initChart() {
     gradient.addColorStop(1, 'rgba(240, 185, 11, 0)');
     const wallet = APP.currentWallet === 'live' ? 'live' : 'demo';
     if(!APP.chartData[wallet].values.length) {
-        const startBal = wallet === 'live' ? 50 : 1000;
+        // Seed an empty chart with the ACTUAL current balance (authoritative
+        // server balance for live, demo balance otherwise) rather than a
+        // hardcoded $50, so the chart's starting/current value matches Total
+        // Equity from the first paint.
+        const startBal = wallet === 'live' ? (Number(APP.liveData.balance) || 0) : (Number(APP.demoData.balance) || 1000);
         APP.chartData[wallet].labels = [new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})];
         APP.chartData[wallet].values = [startBal];
     }
@@ -7150,19 +7154,41 @@ function updateChart() {
     if(!APP.chartInstance) return;
     const wallet = APP.currentWallet === 'live' ? 'live' : 'demo';
     const data = getCurrentData();
-    const now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    APP.chartData[wallet].labels.push(now);
-    APP.chartData[wallet].values.push(data.balance);
-    if(APP.chartData[wallet].labels.length > 100) {
-        APP.chartData[wallet].labels.shift();
-        APP.chartData[wallet].values.shift();
-    }
+    appendChartPoint(wallet, data.balance);
     const filtered = filterChartData(APP.chartData[wallet]);
     APP.chartInstance.data.labels = filtered.labels;
     APP.chartInstance.data.datasets[0].data = filtered.values;
     APP.chartInstance.update('none');
     updateChartStats();
     saveData();
+}
+
+// Append a single equity sample for `wallet` at `value`, with idempotency:
+// if the most recent point already holds the same balance, we only update that
+// point's label/value in place instead of pushing a duplicate. This keeps
+// refresh/login re-syncs and repeated updateUI()-free financial events from
+// stacking identical points, while a genuine balance change always records a new
+// point. The current/latest chart value therefore always agrees with the live
+// Total Equity / Available Balance rendered by updateUI().
+function appendChartPoint(wallet, value) {
+    wallet = (wallet === 'live') ? 'live' : 'demo';
+    if(!APP.chartData[wallet]) APP.chartData[wallet] = { labels: [], values: [] };
+    const bucket = APP.chartData[wallet];
+    const now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const lastVal = bucket.values.length ? bucket.values[bucket.values.length - 1] : null;
+    if (lastVal !== null && Math.abs(Number(lastVal) - Number(value)) < 0.0001) {
+        // Same balance as the last recorded point: refresh its label rather than
+        // creating an artificial duplicate historical point.
+        bucket.labels[bucket.labels.length - 1] = now;
+        bucket.values[bucket.values.length - 1] = Number(value);
+    } else {
+        bucket.labels.push(now);
+        bucket.values.push(Number(value));
+    }
+    if(bucket.labels.length > 100) {
+        bucket.labels.shift();
+        bucket.values.shift();
+    }
 }
 
 function filterChartData(data) {
@@ -7204,7 +7230,9 @@ function setChartPeriod(period) {
 
 function resetChartForWallet(wallet) {
     if(!APP.chartData[wallet] || !APP.chartData[wallet].values.length) {
-        const startBal = wallet === 'live' ? 50 : 1000;
+        // Seed with the ACTUAL current balance, not a hardcoded $50, so an empty
+        // live chart starts at the authoritative server balance.
+        const startBal = wallet === 'live' ? (Number(APP.liveData.balance) || 0) : (Number(APP.demoData.balance) || 1000);
         APP.chartData[wallet] = { labels: [new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})], values: [startBal] };
     }
 }
@@ -7219,6 +7247,37 @@ function switchChartWallet() {
         APP.chartInstance.update();
     }
     updateChartStats();
+}
+
+// Anchor the LIVE equity chart to APP.liveData.balance after an authoritative
+// server sync (login/refresh). Idempotent and seed-correcting:
+//  - If the live bucket holds 0 or 1 point, that point is a pre-sync seed
+//    (stale/0/default) and is REPLACED with a single point at the real server
+//    balance, so a fresh login never shows a bogus $0 "Starting" value.
+//  - If the bucket already holds real persisted history (2+ points, e.g. a
+//    refresh keeping localStorage arbi_chart), we only append/refresh the latest
+//    point so repeated refreshes do not stack duplicate points.
+// Also repaints the chart instance when the live wallet is displayed, so the
+// chart's "Current" agrees with Total Equity / Available Balance.
+function anchorLiveChartToServerBalance() {
+    const serverLive = Number(APP.liveData.balance);
+    if (!isFinite(serverLive)) return;
+    if (!APP.chartData.live) APP.chartData.live = { labels: [], values: [] };
+    const now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    if (APP.chartData.live.values.length <= 1) {
+        // Replace the pre-sync seed with the authoritative balance.
+        APP.chartData.live = { labels: [now], values: [serverLive] };
+    } else {
+        appendChartPoint('live', serverLive);
+    }
+    if (APP.chartInstance && APP.currentWallet === 'live') {
+        const filtered = filterChartData(APP.chartData.live);
+        APP.chartInstance.data.labels = filtered.labels;
+        APP.chartInstance.data.datasets[0].data = filtered.values;
+        APP.chartInstance.update('none');
+        updateChartStats();
+    }
+    saveData();
 }
 
 // ============ TRADING STATS ============
@@ -7628,6 +7687,18 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
         APP.liveData.pnl = prePnl;
         saveData();
         updateUI();
+        // A failed/rolled-back live trade must not leave the chart's latest
+        // point stuck at the optimistic (unpersisted) balance. Re-anchor the
+        // live chart to the rolled-back balance so "Current" agrees with Total
+        // Equity. Idempotent: refreshes the last point if it already matches.
+        appendChartPoint('live', APP.liveData.balance);
+        if (APP.chartInstance && APP.currentWallet === 'live') {
+            const filtered = filterChartData(APP.chartData.live);
+            APP.chartInstance.data.labels = filtered.labels;
+            APP.chartInstance.data.datasets[0].data = filtered.values;
+            APP.chartInstance.update('none');
+            updateChartStats();
+        }
     };
     try {
         const token = localStorage.getItem('jwt_token');
@@ -7656,6 +7727,19 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
             }
             saveData();
             updateUI();
+            // The authoritative balance may differ from the optimistic value
+            // pushed in executeBotTrade (e.g. loss clamped at 0). Record the
+            // reconciled live balance as a new chart point (idempotent: if it
+            // matches the last point it refreshes rather than duplicates) and
+            // repaint the chart so "Current" agrees with Total Equity.
+            appendChartPoint('live', APP.liveData.balance);
+            if (APP.chartInstance && APP.currentWallet === 'live') {
+                const filtered = filterChartData(APP.chartData.live);
+                APP.chartInstance.data.labels = filtered.labels;
+                APP.chartInstance.data.datasets[0].data = filtered.values;
+                APP.chartInstance.update('none');
+                updateChartStats();
+            }
         } else {
             rollback();
         }
@@ -8140,6 +8224,18 @@ function startPollingForPayment(invoiceId) {
         
         saveData();
         updateUI();
+        // Record a new equity point now that the live balance changed due to a
+        // confirmed deposit (uses the idempotent append so a re-confirmed invoice
+        // never duplicates a point). If the user is viewing the live wallet this
+        // also repaints the chart so "Current" matches Total Equity.
+        appendChartPoint('live', APP.liveData.balance);
+        if (APP.chartInstance && APP.currentWallet === 'live') {
+            const filtered = filterChartData(APP.chartData.live);
+            APP.chartInstance.data.labels = filtered.labels;
+            APP.chartInstance.data.datasets[0].data = filtered.values;
+            APP.chartInstance.update('none');
+            updateChartStats();
+        }
         
         // Show success after a brief delay
         setTimeout(() => {
@@ -9207,6 +9303,15 @@ async function initApp() {
         if (syncLoader) syncLoader.style.display = 'none';
     }
 
+    // Anchor the live equity chart to the authoritative server balance that
+    // syncWalletFromServer just wrote into APP.liveData.balance. This runs once
+    // per init (login/refresh) so a funded live account's chart starts/continues
+    // from the real balance instead of a stale localStorage point or the old
+    // hardcoded $50. It is idempotent: if the latest point already equals the
+    // server balance no new point is created, so repeated refreshes do not stack
+    // duplicate points.
+    anchorLiveChartToServerBalance();
+
     // Live/demo mode initialization: for an authenticated user with a REAL
     // funded account (authoritative: a confirmed deposit exists, reported by
     // the server - NOT the old balance > 50 heuristic and NOT a stale localStorage
@@ -9393,6 +9498,12 @@ async function initApp() {
             // the authoritative server "funded" flag to pick LIVE vs DEMO.
             APP.mode = 'demo';
             APP.currentWallet = 'demo';
+            // Reset the in-memory equity chart history so a previous user's
+            // curve cannot leak into the next logged-in user's session.
+            // localStorage['arbi_chart'] is already removed above; this clears
+            // the live in-memory APP.chartData that loadData() would otherwise
+            // reuse (loadData only overwrites it when arbi_chart exists).
+            APP.chartData = { demo: { labels: [], values: [] }, live: { labels: [], values: [] } };
         }
     });
     
