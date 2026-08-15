@@ -1484,8 +1484,12 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
 });
 
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
-  const user = await getUser(req.user.id);
-  const wallet = await getWallet(user.id);
+  // getUser and getWallet are independent (both keyed by the same user id),
+  // so run them concurrently to cut this endpoint's latency by one DB round trip.
+  const [user, wallet] = await Promise.all([
+    getUser(req.user.id),
+    getWallet(req.user.id),
+  ]);
   // Authoritative signals computed from server state (not localStorage):
   //  - hasRealDeposit: at least one confirmed deposit -> funds the LIVE wallet
   //    and is used to initialize the dashboard in LIVE mode for funded accounts.
