@@ -316,20 +316,31 @@ async function generateUniqueReferralCode() {
     }
     // Code already exists, try again (rare)
   }
-  // Fallback: append timestamp suffix if all attempts fail (extremely rare)
-  const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
-  return `ARBI-${timestamp}`;
+  // Fallback: build a 6-char code from the SAME allowed alphabet as the
+  // normal generator (so it always conforms to isValidReferralCodeFormat),
+  // salted with a timestamp to break persistent collisions.
+  const allowed = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const seed = Date.now();
+  const rb = crypto.randomBytes(6);
+  let suffix = '';
+  for (let i = 0; i < 6; i++) {
+    suffix += allowed[(rb[i] ^ ((seed >> (i * 5)) & 0x1f)) % allowed.length];
+  }
+  return `ARBI-${suffix}`;
 }
 
 /**
  * Validate referral code format
+ * Bounded shape: ARBI- prefix + 4-8 alphanumeric chars. Accepts the normal
+ * 6-char codes plus legitimate legacy/seed codes (e.g. ARBI-ADMIN). Actual
+ * validity is determined by the DB lookup, self-referral check, and duplicate
+ * check — this gate only rejects clearly malformed input.
  * @param {string} code - The referral code to validate
  * @returns {boolean} True if format is valid
  */
 function isValidReferralCodeFormat(code) {
   if (!code || typeof code !== 'string') return false;
-  // Format: ARBI-{6 alphanumeric chars}
-  const pattern = /^ARBI-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
+  const pattern = /^ARBI-[A-Z0-9]{4,8}$/;
   return pattern.test(code.toUpperCase());
 }
 
@@ -1218,7 +1229,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
   
   const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1 } });
 });
 
 // Login

@@ -6568,7 +6568,7 @@ const APP = {
     liveData: { balance: 50, pnl: 0, trades: 0, wins: 0, history: [], hasRealDeposit: false, hasTradingActivity: false, bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     bonusData: { balance: 0, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     MIN_DEPOSIT: 50, MTA: 143, MIN_WITHDRAWAL: 700, BONUS_MIN_WITHDRAW: 50,
-    referralCode: 'ARBI-7X9K2',
+    referralCode: null,
     depositHistory: [], withdrawHistory: [],
     referralStats: { invited: 0, earned: 0 },
     currentWallet: 'demo',
@@ -6760,13 +6760,14 @@ function getReferralCodeFromURL() {
 
 /**
  * Validate referral code format
+ * Mirrors the backend: ARBI- prefix + 4-8 alphanumeric chars. Used only to
+ * decide whether to auto-populate the signup field from a URL param.
  * @param {string} code - The referral code to validate
  * @returns {boolean} True if format is valid
  */
 function isValidReferralCodeFormat(code) {
     if (!code || typeof code !== 'string') return false;
-    // Format: ARBI-{6 alphanumeric chars (excluding confusing chars: 0, O, I, 1)}
-    const pattern = /^ARBI-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
+    const pattern = /^ARBI-[A-Z0-9]{4,8}$/;
     return pattern.test(code.toUpperCase());
 }
 
@@ -9455,6 +9456,10 @@ async function initApp() {
     
     const copyReferralBtn = getEl('copyReferralBtn');
     if(copyReferralBtn) copyReferralBtn.addEventListener('click', function() {
+        if (!APP.referralCode) {
+            showToast('Referral code is loading, please try again shortly', 'info');
+            return;
+        }
         navigator.clipboard.writeText(APP.referralCode);
         showToast(t('common.codeCopied'),'success');
     });
