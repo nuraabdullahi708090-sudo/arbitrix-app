@@ -3074,27 +3074,23 @@ function completeLogin(token, user, is2FAFlow) {
         }
         
     } else {
-        // Normal login flow - show success message and redirect after delay
-        console.log('[COMPLETE_LOGIN] ========== NORMAL FLOW - DELAYED TRANSITION ==========');
-        console.log('[COMPLETE_LOGIN] Showing success message...');
+        // Normal login flow - transition immediately (no artificial delay)
+        console.log('[COMPLETE_LOGIN] ========== NORMAL FLOW - IMMEDIATE TRANSITION ==========');
         showAuthSuccess('Welcome back! Redirecting...', 'login');
 
-        console.log('[COMPLETE_LOGIN] Setting 1-second timeout for transition...');
-        setTimeout(() => {
-            console.log('[COMPLETE_LOGIN] ========== TIMEOUT: Executing transition ==========');
-            document.getElementById('authPage').style.display = 'none';
-            document.getElementById('landingPage').style.display = 'block';
-            document.getElementById('displayName').textContent = user.name;
-            document.getElementById('userName').textContent = user.name;
-            const greeting = document.getElementById('landingUserGreeting');
-            if (greeting) {
-                greeting.style.display = 'inline-block';
-                document.getElementById('landingUserName').textContent = user.name;
-            }
-            checkAdminAccess();
-            updateReferralDisplay();
-            console.log('[COMPLETE_LOGIN] ========== TIMEOUT: Transition complete ==========');
-        }, 1000);
+        console.log('[COMPLETE_LOGIN] Executing transition...');
+        document.getElementById('authPage').style.display = 'none';
+        document.getElementById('landingPage').style.display = 'block';
+        document.getElementById('displayName').textContent = user.name;
+        document.getElementById('userName').textContent = user.name;
+        const greeting = document.getElementById('landingUserGreeting');
+        if (greeting) {
+            greeting.style.display = 'inline-block';
+            document.getElementById('landingUserName').textContent = user.name;
+        }
+        checkAdminAccess();
+        updateReferralDisplay();
+        console.log('[COMPLETE_LOGIN] ========== Transition complete ==========');
     }
 }
 
@@ -9004,10 +9000,19 @@ async function syncWalletFromServer() {
     let fundedFromServer = false;
     let serverSynced = false;
 
+    // Fire /api/auth/me and /api/transactions concurrently: they are independent
+    // (both keyed only by the JWT), so running them in parallel cuts the loader
+    // wait to ~max(t1,t2) instead of t1+t2. Each result is handled in its own
+    // try/catch below so a failure of one never aborts the other (a 401 on
+    // /api/auth/me keeps cached state; a transactions error is logged separately).
+    const [meOutcome, txOutcome] = await Promise.allSettled([
+        fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch('/api/transactions', { headers: { 'Authorization': 'Bearer ' + token } }),
+    ]);
+
     try {
-        const meRes = await fetch('/api/auth/me', {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
+        if (meOutcome.status === 'fulfilled') {
+            const meRes = meOutcome.value;
         if (meRes.ok) {
             const meData = await meRes.json();
             const wallet = meData && meData.wallet;
@@ -9056,14 +9061,14 @@ async function syncWalletFromServer() {
             // re-challenged elsewhere. Do not wipe data on a transient 401.
             console.warn('[syncWalletFromServer] /api/auth/me returned 401; keeping cached state');
         }
+        }
     } catch (e) {
         console.warn('[syncWalletFromServer] wallet sync failed:', e.message);
     }
 
     try {
-        const txRes = await fetch('/api/transactions', {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
+        if (txOutcome.status === 'fulfilled') {
+            const txRes = txOutcome.value;
         if (txRes.ok) {
             const txs = await txRes.json();
             if (Array.isArray(txs)) {
@@ -9120,6 +9125,7 @@ async function syncWalletFromServer() {
                 saveData();
                 if (typeof updateUI === 'function') updateUI();
             }
+        }
         }
     } catch (e) {
         console.warn('[syncWalletFromServer] transactions sync failed:', e.message);
