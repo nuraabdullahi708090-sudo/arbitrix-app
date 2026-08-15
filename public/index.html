@@ -3588,15 +3588,15 @@ console.log('🔐 Auth script loaded successfully');
                 <span>Arbi<span>trix</span> AI</span>
             </a>
             <div class="landing-nav-links">
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#security">Security</a>
-                <a href="#faq">FAQ</a>
+                <a href="#features" data-i18n="landing.nav.features">Features</a>
+                <a href="#how-it-works" data-i18n="landing.nav.howItWorks">How It Works</a>
+                <a href="#security" data-i18n="landing.nav.security">Security</a>
+                <a href="#faq" data-i18n="landing.nav.faq">FAQ</a>
             </div>
             <div class="landing-nav-actions">
                 <span style="display:none;" id="landingUserGreeting">Welcome, <span id="landingUserName" style="color:var(--gold);font-weight:600;">Trader</span></span>
                 <button type="button" onclick="goToApp()" class="btn btn-primary landing-cta-btn">
-                    Launch App <i class="fas fa-arrow-right"></i>
+                    <span data-i18n="landing.launchApp">Launch App</span> <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
             <button class="landing-mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">
@@ -3604,11 +3604,11 @@ console.log('🔐 Auth script loaded successfully');
             </button>
         </div>
         <div class="landing-mobile-menu" id="landingMobileMenu">
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How It Works</a>
-            <a href="#security">Security</a>
-            <a href="#faq">FAQ</a>
-            <button type="button" onclick="goToApp()" class="btn btn-primary" style="width:100%;margin-top:8px;">Launch App</button>
+            <a href="#features" data-i18n="landing.nav.features">Features</a>
+            <a href="#how-it-works" data-i18n="landing.nav.howItWorks">How It Works</a>
+            <a href="#security" data-i18n="landing.nav.security">Security</a>
+            <a href="#faq" data-i18n="landing.nav.faq">FAQ</a>
+            <button type="button" onclick="goToApp()" class="btn btn-primary" style="width:100%;margin-top:8px;"><span data-i18n="landing.launchApp">Launch App</span></button>
         </div>
     </nav>
 
@@ -3619,28 +3619,28 @@ console.log('🔐 Auth script loaded successfully');
             <div class="landing-hero-content">
                 <div class="landing-badge">
                     <span class="landing-badge-dot"></span>
-                    <span>Now with AI-Powered Smart Arbitrage</span>
+                    <span data-i18n="landing.hero.badge">Now with AI-Powered Smart Arbitrage</span>
                 </div>
-                <h1 class="landing-hero-title">
+                <h1 class="landing-hero-title" data-i18n="landing.hero.title">
                     Trade Smarter with<br>
                     <span class="landing-gradient-text">AI-Powered Arbitrage</span>
                 </h1>
-                <p class="landing-hero-subtitle">
+                <p class="landing-hero-subtitle" data-i18n="landing.hero.subtitle">
                     Let our intelligent bot scan crypto, forex, stocks, and commodities 24/7 
                     to find and execute profitable arbitrage opportunities automatically.
                 </p>
                 <div class="landing-hero-cta">
                     <button type="button" onclick="goToApp()" class="btn btn-primary landing-hero-btn">
-                        <i class="fas fa-rocket"></i> Get Started Free
+                        <i class="fas fa-rocket"></i> <span data-i18n="landing.hero.ctaPrimary">Get Started Free</span>
                     </button>
                     <button type="button" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'})" class="btn btn-secondary landing-hero-btn-secondary">
-                        <i class="fas fa-play-circle"></i> See How It Works
+                        <i class="fas fa-play-circle"></i> <span data-i18n="landing.hero.ctaSecondary">See How It Works</span>
                     </button>
                 </div>
                 <div class="landing-hero-trust">
-                    <span><i class="fas fa-shield-halved"></i> 256-bit Encryption</span>
-                    <span><i class="fas fa-clock"></i> 15-30min Withdrawals</span>
-                    <span><i class="fas fa-users"></i> 150K+ Users</span>
+                    <span><i class="fas fa-shield-halved"></i> <span data-i18n="landing.hero.trust.encryption">256-bit Encryption</span></span>
+                    <span><i class="fas fa-clock"></i> <span data-i18n="landing.hero.trust.withdrawals">15-30min Withdrawals</span></span>
+                    <span><i class="fas fa-users"></i> <span data-i18n="landing.hero.trust.users">150K+ Users</span></span>
                 </div>
             </div>
         </div>
@@ -3652,19 +3652,19 @@ console.log('🔐 Auth script loaded successfully');
             <div class="landing-stats-grid">
                 <div class="landing-stat-card">
                     <div class="landing-stat-value">$2.5B+</div>
-                    <div class="landing-stat-label">Total Volume Traded</div>
+                    <div class="landing-stat-label" data-i18n="landing.stats.volumeTraded">Total Volume Traded</div>
                 </div>
                 <div class="landing-stat-card">
                     <div class="landing-stat-value">150K+</div>
-                    <div class="landing-stat-label">Active Traders</div>
+                    <div class="landing-stat-label" data-i18n="landing.stats.activeTraders">Active Traders</div>
                 </div>
                 <div class="landing-stat-card">
                     <div class="landing-stat-value">99.9%</div>
-                    <div class="landing-stat-label">Platform Uptime</div>
+                    <div class="landing-stat-label" data-i18n="landing.stats.uptime">Platform Uptime</div>
                 </div>
                 <div class="landing-stat-card">
                     <div class="landing-stat-value">50+</div>
-                    <div class="landing-stat-label">Countries Supported</div>
+                    <div class="landing-stat-label" data-i18n="landing.stats.countries">Countries Supported</div>
                 </div>
             </div>
         </div>
@@ -3677,29 +3677,29 @@ console.log('🔐 Auth script loaded successfully');
                 <div class="landing-trust-item">
                     <div class="landing-trust-icon"><i class="fas fa-lock"></i></div>
                     <div class="landing-trust-text">
-                        <h4>Bank-Level Security</h4>
-                        <p>256-bit SSL encryption and cold storage protection</p>
+                        <h4 data-i18n="landing.trust.security.title">Bank-Level Security</h4>
+                        <p data-i18n="landing.trust.security.desc">256-bit SSL encryption and cold storage protection</p>
                     </div>
                 </div>
                 <div class="landing-trust-item">
                     <div class="landing-trust-icon"><i class="fas fa-shield-halved"></i></div>
                     <div class="landing-trust-text">
-                        <h4>Non-Custodial</h4>
-                        <p>You control your funds at all times</p>
+                        <h4 data-i18n="landing.trust.nonCustodial.title">Non-Custodial</h4>
+                        <p data-i18n="landing.trust.nonCustodial.desc">You control your funds at all times</p>
                     </div>
                 </div>
                 <div class="landing-trust-item">
                     <div class="landing-trust-icon"><i class="fas fa-bolt"></i></div>
                     <div class="landing-trust-text">
-                        <h4>Fast Withdrawals</h4>
-                        <p>15-30 minute processing time</p>
+                        <h4 data-i18n="landing.trust.withdrawals.title">Fast Withdrawals</h4>
+                        <p data-i18n="landing.trust.withdrawals.desc">15-30 minute processing time</p>
                     </div>
                 </div>
                 <div class="landing-trust-item">
                     <div class="landing-trust-icon"><i class="fas fa-globe"></i></div>
                     <div class="landing-trust-text">
-                        <h4>Global Access</h4>
-                        <p>Trade from anywhere in the world</p>
+                        <h4 data-i18n="landing.trust.global.title">Global Access</h4>
+                        <p data-i18n="landing.trust.global.desc">Trade from anywhere in the world</p>
                     </div>
                 </div>
             </div>
@@ -3710,69 +3710,69 @@ console.log('🔐 Auth script loaded successfully');
     <section class="landing-features" id="features">
         <div class="landing-container">
             <div class="landing-section-header">
-                <span class="landing-section-tag">Features</span>
-                <h2 class="landing-section-title">Everything You Need to Trade Smarter</h2>
-                <p class="landing-section-subtitle">Powerful tools designed for both beginners and professional traders</p>
+                <span class="landing-section-tag" data-i18n="landing.features.tag">Features</span>
+                <h2 class="landing-section-title" data-i18n="landing.features.title">Everything You Need to Trade Smarter</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.features.subtitle">Powerful tools designed for both beginners and professional traders</p>
             </div>
             <div class="landing-features-grid">
                 <div class="landing-feature-card">
                     <div class="landing-feature-icon"><i class="fas fa-robot"></i></div>
-                    <h3>AI Trading Engine</h3>
-                    <p>Our advanced AI continuously scans 50+ exchanges for arbitrage opportunities, executing trades automatically 24/7.</p>
+                    <h3 data-i18n="landing.features.ai.title">AI Trading Engine</h3>
+                    <p data-i18n="landing.features.ai.desc">Our advanced AI continuously scans 50+ exchanges for arbitrage opportunities, executing trades automatically 24/7.</p>
                     <ul class="landing-feature-list">
-                        <li><i class="fas fa-check"></i> Real-time market scanning</li>
-                        <li><i class="fas fa-check"></i> Automated trade execution</li>
-                        <li><i class="fas fa-check"></i> Smart risk management</li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.ai.list1">Real-time market scanning</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.ai.list2">Automated trade execution</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.ai.list3">Smart risk management</span></li>
                     </ul>
                 </div>
                 <div class="landing-feature-card">
                     <div class="landing-feature-icon"><i class="fas fa-chart-line"></i></div>
-                    <h3>Multi-Asset Trading</h3>
-                    <p>Trade across multiple asset classes from a single unified dashboard with seamless portfolio management.</p>
+                    <h3 data-i18n="landing.features.multiAsset.title">Multi-Asset Trading</h3>
+                    <p data-i18n="landing.features.multiAsset.desc">Trade across multiple asset classes from a single unified dashboard with seamless portfolio management.</p>
                     <ul class="landing-feature-list">
-                        <li><i class="fas fa-check"></i> Crypto & DeFi tokens</li>
-                        <li><i class="fas fa-check"></i> Forex pairs</li>
-                        <li><i class="fas fa-check"></i> Stocks & Commodities</li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.multiAsset.list1">Crypto & DeFi tokens</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.multiAsset.list2">Forex pairs</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.multiAsset.list3">Stocks & Commodities</span></li>
                     </ul>
                 </div>
                 <div class="landing-feature-card">
                     <div class="landing-feature-icon"><i class="fas fa-shield-halved"></i></div>
-                    <h3>Risk Management</h3>
-                    <p>Built-in safeguards protect your capital with stop-loss, take-profit, and position sizing controls.</p>
+                    <h3 data-i18n="landing.features.risk.title">Risk Management</h3>
+                    <p data-i18n="landing.features.risk.desc">Built-in safeguards protect your capital with stop-loss, take-profit, and position sizing controls.</p>
                     <ul class="landing-feature-list">
-                        <li><i class="fas fa-check"></i> Configurable stop-loss</li>
-                        <li><i class="fas fa-check"></i> Daily loss limits</li>
-                        <li><i class="fas fa-check"></i> Portfolio diversification</li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.risk.list1">Configurable stop-loss</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.risk.list2">Daily loss limits</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.risk.list3">Portfolio diversification</span></li>
                     </ul>
                 </div>
                 <div class="landing-feature-card">
                     <div class="landing-feature-icon"><i class="fas fa-wallet"></i></div>
-                    <h3>Secure Wallet</h3>
-                    <p>Non-custodial wallet system with real-time balance tracking and multi-chain support.</p>
+                    <h3 data-i18n="landing.features.wallet.title">Secure Wallet</h3>
+                    <p data-i18n="landing.features.wallet.desc">Non-custodial wallet system with real-time balance tracking and multi-chain support.</p>
                     <ul class="landing-feature-list">
-                        <li><i class="fas fa-check"></i> Full fund control</li>
-                        <li><i class="fas fa-check"></i> Multi-network support</li>
-                        <li><i class="fas fa-check"></i> Instant deposits</li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.wallet.list1">Full fund control</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.wallet.list2">Multi-network support</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.wallet.list3">Instant deposits</span></li>
                     </ul>
                 </div>
                 <div class="landing-feature-card">
                     <div class="landing-feature-icon"><i class="fas fa-gift"></i></div>
-                    <h3>Referral Rewards</h3>
-                    <p>Earn $10 for each friend who joins. No limits on how much you can earn through referrals.</p>
+                    <h3 data-i18n="landing.features.referral.title">Referral Rewards</h3>
+                    <p data-i18n="landing.features.referral.desc">Earn $10 for each friend who joins. No limits on how much you can earn through referrals.</p>
                     <ul class="landing-feature-list">
-                        <li><i class="fas fa-check"></i> $10 per referral</li>
-                        <li><i class="fas fa-check"></i> Instant bonuses</li>
-                        <li><i class="fas fa-check"></i> Lifetime commissions</li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.referral.list1">$10 per referral</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.referral.list2">Instant bonuses</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.referral.list3">Lifetime commissions</span></li>
                     </ul>
                 </div>
                 <div class="landing-feature-card">
                     <div class="landing-feature-icon"><i class="fas fa-mobile-alt"></i></div>
-                    <h3>Multi-Device Support</h3>
-                    <p>Access your dashboard from any device. Desktop, tablet, or mobile — your portfolio follows you.</p>
+                    <h3 data-i18n="landing.features.multiDevice.title">Multi-Device Support</h3>
+                    <p data-i18n="landing.features.multiDevice.desc">Access your dashboard from any device. Desktop, tablet, or mobile — your portfolio follows you.</p>
                     <ul class="landing-feature-list">
-                        <li><i class="fas fa-check"></i> Responsive design</li>
-                        <li><i class="fas fa-check"></i> PWA support</li>
-                        <li><i class="fas fa-check"></i> Offline mode</li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.multiDevice.list1">Responsive design</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.multiDevice.list2">PWA support</span></li>
+                        <li><i class="fas fa-check"></i> <span data-i18n="landing.features.multiDevice.list3">Offline mode</span></li>
                     </ul>
                 </div>
             </div>
@@ -3783,40 +3783,40 @@ console.log('🔐 Auth script loaded successfully');
     <section class="landing-how-it-works" id="how-it-works">
         <div class="landing-container">
             <div class="landing-section-header">
-                <span class="landing-section-tag">Process</span>
-                <h2 class="landing-section-title">Start Trading in 4 Simple Steps</h2>
-                <p class="landing-section-subtitle">Get up and running in minutes, not hours</p>
+                <span class="landing-section-tag" data-i18n="landing.howItWorks.tag">Process</span>
+                <h2 class="landing-section-title" data-i18n="landing.howItWorks.title">Start Trading in 4 Simple Steps</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.howItWorks.subtitle">Get up and running in minutes, not hours</p>
             </div>
             <div class="landing-steps">
                 <div class="landing-step">
                     <div class="landing-step-number">01</div>
                     <div class="landing-step-content">
-                        <h3>Create Your Account</h3>
-                        <p>Sign up in seconds with just your email. No complicated verification required to start.</p>
+                        <h3 data-i18n="landing.howItWorks.step1.title">Create Your Account</h3>
+                        <p data-i18n="landing.howItWorks.step1.desc">Sign up in seconds with just your email. No complicated verification required to start.</p>
                     </div>
                 </div>
                 <div class="landing-step-connector"></div>
                 <div class="landing-step">
                     <div class="landing-step-number">02</div>
                     <div class="landing-step-content">
-                        <h3>Deposit Funds</h3>
-                        <p>Deposit USDT using TRC20 network (recommended for lowest fees). Your funds arrive instantly.</p>
+                        <h3 data-i18n="landing.howItWorks.step2.title">Deposit Funds</h3>
+                        <p data-i18n="landing.howItWorks.step2.desc">Deposit USDT using TRC20 network (recommended for lowest fees). Your funds arrive instantly.</p>
                     </div>
                 </div>
                 <div class="landing-step-connector"></div>
                 <div class="landing-step">
                     <div class="landing-step-number">03</div>
                     <div class="landing-step-content">
-                        <h3>Activate AI Bot</h3>
-                        <p>Enable the arbitrage bot with one click. Our AI starts scanning and executing trades automatically.</p>
+                        <h3 data-i18n="landing.howItWorks.step3.title">Activate AI Bot</h3>
+                        <p data-i18n="landing.howItWorks.step3.desc">Enable the arbitrage bot with one click. Our AI starts scanning and executing trades automatically.</p>
                     </div>
                 </div>
                 <div class="landing-step-connector"></div>
                 <div class="landing-step">
                     <div class="landing-step-number">04</div>
                     <div class="landing-step-content">
-                        <h3>Monitor & Withdraw</h3>
-                        <p>Track your performance in real-time. Withdraw profits anytime with 15-30 minute processing.</p>
+                        <h3 data-i18n="landing.howItWorks.step4.title">Monitor & Withdraw</h3>
+                        <p data-i18n="landing.howItWorks.step4.desc">Track your performance in real-time. Withdraw profits anytime with 15-30 minute processing.</p>
                     </div>
                 </div>
             </div>
@@ -3827,9 +3827,9 @@ console.log('🔐 Auth script loaded successfully');
     <section class="landing-testimonials">
         <div class="landing-container">
             <div class="landing-section-header">
-                <span class="landing-section-tag">Testimonials</span>
-                <h2 class="landing-section-title">Trusted by Traders Worldwide</h2>
-                <p class="landing-section-subtitle">Join thousands of satisfied users</p>
+                <span class="landing-section-tag" data-i18n="landing.testimonials.tag">Testimonials</span>
+                <h2 class="landing-section-title" data-i18n="landing.testimonials.title">Trusted by Traders Worldwide</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.testimonials.subtitle">Join thousands of satisfied users</p>
             </div>
             <div class="landing-testimonials-grid">
                 <div class="landing-testimonial-card">
@@ -3840,12 +3840,12 @@ console.log('🔐 Auth script loaded successfully');
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
                     </div>
-                    <p class="landing-testimonial-text">"The AI bot has transformed my trading strategy. It's incredibly easy to use and the results speak for themselves. Up 23% in my first month!"</p>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.1.text">"The AI bot has transformed my trading strategy. It's incredibly easy to use and the results speak for themselves. Up 23% in my first month!"</p>
                     <div class="landing-testimonial-author">
                         <div class="landing-testimonial-avatar">MJ</div>
                         <div>
-                            <div class="landing-testimonial-name">Michael J.</div>
-                            <div class="landing-testimonial-role">Professional Trader</div>
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.1.name">Michael J.</div>
+                            <div class="landing-testimonial-role" data-i18n="landing.testimonials.1.role">Professional Trader</div>
                         </div>
                     </div>
                 </div>
@@ -3857,12 +3857,12 @@ console.log('🔐 Auth script loaded successfully');
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
                     </div>
-                    <p class="landing-testimonial-text">"Finally, a platform that actually delivers on its promises. The multi-asset support is fantastic, and the withdrawals are lightning fast. Highly recommend!"</p>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.2.text">"Finally, a platform that actually delivers on its promises. The multi-asset support is fantastic, and the withdrawals are lightning fast. Highly recommend!"</p>
                     <div class="landing-testimonial-author">
                         <div class="landing-testimonial-avatar">SC</div>
                         <div>
-                            <div class="landing-testimonial-name">Sarah C.</div>
-                            <div class="landing-testimonial-role">Crypto Investor</div>
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.2.name">Sarah C.</div>
+                            <div class="landing-testimonial-role" data-i18n="landing.testimonials.2.role">Crypto Investor</div>
                         </div>
                     </div>
                 </div>
@@ -3874,12 +3874,12 @@ console.log('🔐 Auth script loaded successfully');
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
                     </div>
-                    <p class="landing-testimonial-text">"As someone new to trading, I was nervous at first. But the demo mode and intuitive interface made it easy. Now I'm earning consistently."</p>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.3.text">"As someone new to trading, I was nervous at first. But the demo mode and intuitive interface made it easy. Now I'm earning consistently."</p>
                     <div class="landing-testimonial-author">
                         <div class="landing-testimonial-avatar">DK</div>
                         <div>
-                            <div class="landing-testimonial-name">David K.</div>
-                            <div class="landing-testimonial-role">Beginner Trader</div>
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.3.name">David K.</div>
+                            <div class="landing-testimonial-role" data-i18n="landing.testimonials.3.role">Beginner Trader</div>
                         </div>
                     </div>
                 </div>
@@ -3891,63 +3891,63 @@ console.log('🔐 Auth script loaded successfully');
     <section class="landing-faq" id="faq">
         <div class="landing-container">
             <div class="landing-section-header">
-                <span class="landing-section-tag">FAQ</span>
-                <h2 class="landing-section-title">Frequently Asked Questions</h2>
-                <p class="landing-section-subtitle">Everything you need to know about Arbitrix AI</p>
+                <span class="landing-section-tag" data-i18n="landing.faq.tag">FAQ</span>
+                <h2 class="landing-section-title" data-i18n="landing.faq.title">Frequently Asked Questions</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.faq.subtitle">Everything you need to know about Arbitrix AI</p>
             </div>
             <div class="landing-faq-list">
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
-                        <span>How do I make my first deposit?</span>
+                        <span data-i18n="landing.faq.1.q">How do I make my first deposit?</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer">
-                        <p>Switch to LIVE mode, click "Deposit" in the sidebar, enter your desired amount, choose TRC20 network (recommended for lowest fees), click "Get Payment Address", and send USDT to the displayed address. Your deposit will be auto-detected and credited instantly.</p>
+                        <p data-i18n="landing.faq.1.a">Switch to LIVE mode, click "Deposit" in the sidebar, enter your desired amount, choose TRC20 network (recommended for lowest fees), click "Get Payment Address", and send USDT to the displayed address. Your deposit will be auto-detected and credited instantly.</p>
                     </div>
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
-                        <span>How long do withdrawals take?</span>
+                        <span data-i18n="landing.faq.2.q">How long do withdrawals take?</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer">
-                        <p>Withdrawals are processed within 15-30 minutes after approval. To withdraw: switch to LIVE mode, make a deposit first, complete at least 1 trade, then click "Withdraw" in the sidebar.</p>
+                        <p data-i18n="landing.faq.2.a">Withdrawals are processed within 15-30 minutes after approval. To withdraw: switch to LIVE mode, make a deposit first, complete at least 1 trade, then click "Withdraw" in the sidebar.</p>
                     </div>
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
-                        <span>Is my money safe and secure?</span>
+                        <span data-i18n="landing.faq.3.q">Is my money safe and secure?</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer">
-                        <p>Yes. We use 256-bit SSL encryption, non-custodial wallet architecture (you control your funds), and cold storage for large holdings. Your assets are protected by industry-leading security measures.</p>
+                        <p data-i18n="landing.faq.3.a">Yes. We use 256-bit SSL encryption, non-custodial wallet architecture (you control your funds), and cold storage for large holdings. Your assets are protected by industry-leading security measures.</p>
                     </div>
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
-                        <span>How does the AI trading bot work?</span>
+                        <span data-i18n="landing.faq.4.q">How does the AI trading bot work?</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer">
-                        <p>Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.</p>
+                        <p data-i18n="landing.faq.4.a">Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.</p>
                     </div>
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
-                        <span>How do referral rewards work?</span>
+                        <span data-i18n="landing.faq.5.q">How do referral rewards work?</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer">
-                        <p>Earn $10 for each friend who signs up through your referral link. Your bonuses accumulate in the Bonus Wallet. Once you have at least $50 in bonus and 1 referral, you can withdraw to your Live Wallet.</p>
+                        <p data-i18n="landing.faq.5.a">Earn $10 for each friend who signs up through your referral link. Your bonuses accumulate in the Bonus Wallet. Once you have at least $50 in bonus and 1 referral, you can withdraw to your Live Wallet.</p>
                     </div>
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
-                        <span>Is account verification required?</span>
+                        <span data-i18n="landing.faq.6.q">Is account verification required?</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer">
-                        <p>Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.</p>
+                        <p data-i18n="landing.faq.6.a">Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.</p>
                     </div>
                 </div>
             </div>
@@ -3958,12 +3958,12 @@ console.log('🔐 Auth script loaded successfully');
     <section class="landing-cta">
         <div class="landing-container">
             <div class="landing-cta-content">
-                <h2>Ready to Start Trading?</h2>
-                <p>Join 150,000+ traders already using Arbitrix AI to grow their wealth</p>
+                <h2 data-i18n="landing.cta.title">Ready to Start Trading?</h2>
+                <p data-i18n="landing.cta.subtitle">Join 150,000+ traders already using Arbitrix AI to grow their wealth</p>
                 <button type="button" onclick="goToApp()" class="btn btn-primary landing-cta-final-btn">
-                    <i class="fas fa-rocket"></i> Create Free Account
+                    <i class="fas fa-rocket"></i> <span data-i18n="landing.cta.button">Create Free Account</span>
                 </button>
-                <span class="landing-cta-note">No credit card required • Free demo included</span>
+                <span class="landing-cta-note" data-i18n="landing.cta.note">No credit card required • Free demo included</span>
             </div>
         </div>
     </section>
@@ -3977,7 +3977,7 @@ console.log('🔐 Auth script loaded successfully');
                         <i class="fas fa-arrows-spin"></i>
                         <span>Arbi<span>trix</span> AI</span>
                     </a>
-                    <p>The intelligent arbitrage trading platform for the modern investor.</p>
+                    <p data-i18n="landing.footer.tagline">The intelligent arbitrage trading platform for the modern investor.</p>
                     <div class="landing-footer-social">
                         <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
                         <a href="#" aria-label="Telegram"><i class="fab fa-telegram"></i></a>
@@ -3986,26 +3986,26 @@ console.log('🔐 Auth script loaded successfully');
                     </div>
                 </div>
                 <div class="landing-footer-links">
-                    <h4>Product</h4>
-                    <a href="#features">Features</a>
-                    <a href="#security">Security</a>
-                    <a href="#faq">FAQ</a>
-                    <a href="#how-it-works">How It Works</a>
+                    <h4 data-i18n="landing.footer.product">Product</h4>
+                    <a href="#features" data-i18n="landing.nav.features">Features</a>
+                    <a href="#security" data-i18n="landing.nav.security">Security</a>
+                    <a href="#faq" data-i18n="landing.nav.faq">FAQ</a>
+                    <a href="#how-it-works" data-i18n="landing.nav.howItWorks">How It Works</a>
                 </div>
                 <div class="landing-footer-links">
-                    <h4>Legal</h4>
-                    <a href="/privacy-policy.html" target="_blank">Privacy Policy</a>
-                    <a href="/terms-of-service.html" target="_blank">Terms of Service</a>
+                    <h4 data-i18n="landing.footer.legal">Legal</h4>
+                    <a href="/privacy-policy.html" target="_blank" data-i18n="landing.footer.privacy">Privacy Policy</a>
+                    <a href="/terms-of-service.html" target="_blank" data-i18n="landing.footer.terms">Terms of Service</a>
                 </div>
                 <div class="landing-footer-links">
-                    <h4>Contact</h4>
+                    <h4 data-i18n="landing.footer.contact">Contact</h4>
                     <a href="mailto:support@arbitrix.ai">support@arbitrix.ai</a>
                     <a href="https://arbitrix.ai">arbitrix.ai</a>
                 </div>
             </div>
             <div class="landing-footer-bottom">
-                <p>© 2026 Arbitrix AI. All rights reserved.</p>
-                <p class="landing-footer-disclaimer">Trading involves risk. Past performance is not indicative of future results.</p>
+                <p data-i18n="landing.footer.copyright">© 2026 Arbitrix AI. All rights reserved.</p>
+                <p class="landing-footer-disclaimer" data-i18n="landing.footer.disclaimer">Trading involves risk. Past performance is not indicative of future results.</p>
             </div>
         </div>
     </footer>
@@ -4059,29 +4059,29 @@ function toggleFaq(btn) {
                     <i class="fas fa-arrows-spin"></i>
                     <span>Arbi<em>trix</em> AI</span>
                 </div>
-                <h2 class="auth-brand-title">Trade smarter with intelligent arbitrage</h2>
-                <p class="auth-brand-subtitle">Join thousands of traders leveraging our AI-powered platform for seamless multi-asset arbitrage opportunities across global exchanges.</p>
+                <h2 class="auth-brand-title" data-i18n="auth.brand.title">Trade smarter with intelligent arbitrage</h2>
+                <p class="auth-brand-subtitle" data-i18n="auth.brand.subtitle">Join thousands of traders leveraging our AI-powered platform for seamless multi-asset arbitrage opportunities across global exchanges.</p>
                 
                 <div class="auth-features">
                     <div class="auth-feature">
                         <div class="auth-feature-icon"><i class="fas fa-shield-halved"></i></div>
                         <div class="auth-feature-text">
-                            <h4>Bank-Level Security</h4>
-                            <p>Your assets are protected with industry-leading encryption and cold storage</p>
+                            <h4 data-i18n="auth.brand.security.title">Bank-Level Security</h4>
+                            <p data-i18n="auth.brand.security.desc">Your assets are protected with industry-leading encryption and cold storage</p>
                         </div>
                     </div>
                     <div class="auth-feature">
                         <div class="auth-feature-icon"><i class="fas fa-bolt"></i></div>
                         <div class="auth-feature-text">
-                            <h4>Lightning Fast Execution</h4>
-                            <p>Execute trades in milliseconds with our optimized AI algorithms</p>
+                            <h4 data-i18n="auth.brand.execution.title">Lightning Fast Execution</h4>
+                            <p data-i18n="auth.brand.execution.desc">Execute trades in milliseconds with our optimized AI algorithms</p>
                         </div>
                     </div>
                     <div class="auth-feature">
                         <div class="auth-feature-icon"><i class="fas fa-chart-line"></i></div>
                         <div class="auth-feature-text">
-                            <h4>Real-Time Analytics</h4>
-                            <p>Monitor your portfolio performance with advanced tracking tools</p>
+                            <h4 data-i18n="auth.brand.analytics.title">Real-Time Analytics</h4>
+                            <p data-i18n="auth.brand.analytics.desc">Monitor your portfolio performance with advanced tracking tools</p>
                         </div>
                     </div>
                 </div>
@@ -4089,15 +4089,15 @@ function toggleFaq(btn) {
                 <div class="auth-stats">
                     <div class="auth-stat">
                         <div class="auth-stat-value">$2.5B+</div>
-                        <div class="auth-stat-label">Volume Traded</div>
+                        <div class="auth-stat-label" data-i18n="auth.brand.volumeTraded">Volume Traded</div>
                     </div>
                     <div class="auth-stat">
                         <div class="auth-stat-value">150K+</div>
-                        <div class="auth-stat-label">Active Users</div>
+                        <div class="auth-stat-label" data-i18n="auth.brand.activeUsers">Active Users</div>
                     </div>
                     <div class="auth-stat">
                         <div class="auth-stat-value">99.9%</div>
-                        <div class="auth-stat-label">Uptime</div>
+                        <div class="auth-stat-label" data-i18n="auth.brand.uptime">Uptime</div>
                     </div>
                 </div>
             </div>
@@ -4116,15 +4116,15 @@ function toggleFaq(btn) {
                 <div class="auth-card">
                     <!-- Tabs -->
                     <div class="auth-tabs">
-                        <button type="button" class="auth-tab active" id="loginTab" onclick="showLoginForm()">Sign In</button>
-                        <button type="button" class="auth-tab" id="signupTab" onclick="showSignupForm()">Create Account</button>
+                        <button type="button" class="auth-tab active" id="loginTab" onclick="showLoginForm()" data-i18n="auth.tab.signin">Sign In</button>
+                        <button type="button" class="auth-tab" id="signupTab" onclick="showSignupForm()" data-i18n="auth.tab.signup">Create Account</button>
                     </div>
                     
                     <!-- Login Form -->
                     <div id="loginForm">
                         <div class="auth-header">
-                            <h2>Welcome Back</h2>
-                            <p>Sign in to access your trading dashboard</p>
+                            <h2 data-i18n="auth.login.title">Welcome Back</h2>
+                            <p data-i18n="auth.login.subtitle">Sign in to access your trading dashboard</p>
                         </div>
                         
                         <div id="loginError" class="auth-alert error">
@@ -4137,17 +4137,17 @@ function toggleFaq(btn) {
                         </div>
                         
                         <div class="form-group">
-                            <label for="loginEmail">Email Address</label>
+                            <label for="loginEmail" data-i18n="auth.login.emailLabel">Email Address</label>
                             <div class="input-wrapper">
-                                <input type="email" id="loginEmail" class="input-field" placeholder="you@example.com" autocomplete="email">
+                                <input type="email" id="loginEmail" class="input-field" placeholder="you@example.com" data-i18n-placeholder="auth.login.emailPlaceholder" autocomplete="email">
                                 <i class="fas fa-envelope input-icon"></i>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="loginPassword">Password</label>
+                            <label for="loginPassword" data-i18n="auth.login.passwordLabel">Password</label>
                             <div class="input-wrapper">
-                                <input type="password" id="loginPassword" class="input-field" placeholder="Enter your password" autocomplete="current-password">
+                                <input type="password" id="loginPassword" class="input-field" placeholder="Enter your password" data-i18n-placeholder="auth.login.passwordPlaceholder" autocomplete="current-password">
                                 <i class="fas fa-lock input-icon"></i>
                                 <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')" aria-label="Toggle password visibility">
                                     <i class="fas fa-eye"></i>
@@ -4160,17 +4160,17 @@ function toggleFaq(btn) {
                             <label class="remember-me">
                                 <input type="checkbox" id="rememberMe">
                                 <span class="checkbox-custom"><i class="fas fa-check"></i></span>
-                                <span>Remember me</span>
+                                <span data-i18n="auth.login.rememberMe">Remember me</span>
                             </label>
-                            <a href="#" class="forgot-link" onclick="showForgotPassword(event); return false;">Forgot Password?</a>
+                            <a href="#" class="forgot-link" onclick="showForgotPassword(event); return false;" data-i18n="auth.login.forgotPassword">Forgot Password?</a>
                         </div>
                         
                         <button type="button" id="loginSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handleLogin()">
-                            <i class="fas fa-sign-in-alt"></i> Sign In
+                            <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.login.submit">Sign In</span>
                         </button>
                         
                         <div class="auth-switch">
-                            Don't have an account? <a onclick="showSignupForm()" data-i18n="auth.createAccount">Create Account</a>
+                            <span data-i18n="auth.switch.noAccount">Don't have an account?</span> <a onclick="showSignupForm()" data-i18n="auth.createAccount">Create Account</a>
                         </div>
                     </div>
                     
@@ -4180,8 +4180,8 @@ function toggleFaq(btn) {
                             <div style="width:72px;height:72px;background:linear-gradient(135deg, rgba(240,185,11,0.2) 0%, rgba(240,185,11,0.1) 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
                                 <i class="fas fa-envelope" style="font-size:32px;color:#F0B90B;"></i>
                             </div>
-                            <h2>Email Verification</h2>
-                            <p id="twofaEmailHint">Enter the 6-digit code sent to your email</p>
+                            <h2 data-i18n="auth.2fa.title">Email Verification</h2>
+                            <p id="twofaEmailHint" data-i18n="auth.2fa.hint">Enter the 6-digit code sent to your email</p>
                         </div>
                         
                         <div id="twofaLoginError" class="auth-alert error">
@@ -4190,7 +4190,7 @@ function toggleFaq(btn) {
                         </div>
                         
                         <div class="form-group">
-                            <label>Verification Code</label>
+                            <label data-i18n="auth.2fa.codeLabel">Verification Code</label>
                             <div class="code-input-group" id="twofaLoginCodeGroup">
                                 <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="0" oninput="handle2FALoginCodeInput(this, 0)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',0)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',0)">
                                 <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="1" oninput="handle2FALoginCodeInput(this, 1)" onkeydown="otpHandleKeyDown(event,'twofaLoginCodeGroup',1)" onpaste="otpHandlePaste(event,'twofaLoginCodeGroup',1)">
@@ -4202,21 +4202,19 @@ function toggleFaq(btn) {
                         </div>
                         
                         <div id="twofaCodeExpiry" style="text-align:center;margin-bottom:16px;">
-                            <span style="font-size:11px;color:#8896B5;">
+                            <span style="font-size:11px;color:#8896B5;" data-i18n="auth.2fa.codeExpiry" data-i18n-vars='{"time":"10:00"}'>
                                 <i class="fas fa-clock"></i> Code expires in <span id="twofaCountdown">10:00</span>
                             </span>
                         </div>
                         
                         <button type="button" id="twofaLoginSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handle2FALoginSubmit()">
-                            <i class="fas fa-check"></i> Verify & Sign In
+                            <i class="fas fa-check"></i> <span data-i18n="auth.2fa.submit">Verify & Sign In</span>
                         </button>
                         
                         <div style="text-align:center;margin-top:16px;">
-                            <span style="font-size:11px;color:#6b7280;">
-                                Didn't receive the code? 
-                                <a onclick="resend2FACode()" id="twofaResendBtn" style="color:#F0B90B;cursor:pointer;">Resend</a>
-                                <span id="twofaResendCooldown" style="color:#6b7280;display:none;"></span>
-                            </span>
+                            <span style="font-size:11px;color:#6b7280;" data-i18n="auth.2fa.resendPrefix">Didn't receive the code?</span> 
+                            <a onclick="resend2FACode()" id="twofaResendBtn" style="color:#F0B90B;cursor:pointer;" data-i18n="auth.2fa.resend">Resend</a>
+                            <span id="twofaResendCooldown" style="color:#6b7280;display:none;"></span>
                         </div>
                         
                         <div class="auth-switch">
@@ -4227,8 +4225,8 @@ function toggleFaq(btn) {
                     <!-- Signup Form -->
                     <div id="signupForm" style="display:none;">
                         <div class="auth-header">
-                            <h2>Create Account</h2>
-                            <p>Start your trading journey today</p>
+                            <h2 data-i18n="auth.signup.title">Create Account</h2>
+                            <p data-i18n="auth.signup.subtitle">Start your trading journey today</p>
                         </div>
                         
                         <div id="signupError" class="auth-alert error">
@@ -4241,25 +4239,25 @@ function toggleFaq(btn) {
                         </div>
                         
                         <div class="form-group">
-                            <label for="signupName">Full Name</label>
+                            <label for="signupName" data-i18n="auth.signup.nameLabel">Full Name</label>
                             <div class="input-wrapper">
-                                <input type="text" id="signupName" class="input-field" placeholder="John Doe" autocomplete="name">
+                                <input type="text" id="signupName" class="input-field" placeholder="John Doe" data-i18n-placeholder="auth.signup.namePlaceholder" autocomplete="name">
                                 <i class="fas fa-user input-icon"></i>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="signupEmail">Email Address</label>
+                            <label for="signupEmail" data-i18n="auth.login.emailLabel">Email Address</label>
                             <div class="input-wrapper">
-                                <input type="email" id="signupEmail" class="input-field" placeholder="you@example.com" autocomplete="email">
+                                <input type="email" id="signupEmail" class="input-field" placeholder="you@example.com" data-i18n-placeholder="auth.login.emailPlaceholder" autocomplete="email">
                                 <i class="fas fa-envelope input-icon"></i>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="signupPassword">Password</label>
+                            <label for="signupPassword" data-i18n="auth.login.passwordLabel">Password</label>
                             <div class="input-wrapper">
-                                <input type="password" id="signupPassword" class="input-field" placeholder="Create a strong password" autocomplete="new-password" oninput="checkPasswordStrength()">
+                                <input type="password" id="signupPassword" class="input-field" placeholder="Create a strong password" data-i18n-placeholder="auth.signup.passwordPlaceholder" autocomplete="new-password" oninput="checkPasswordStrength()">
                                 <i class="fas fa-lock input-icon"></i>
                                 <button type="button" class="password-toggle" onclick="togglePassword('signupPassword')" aria-label="Toggle password visibility">
                                     <i class="fas fa-eye"></i>
@@ -4274,16 +4272,16 @@ function toggleFaq(btn) {
                                     <div class="strength-bar" id="strengthBar4"></div>
                                 </div>
                                 <div class="strength-text">
-                                    <span>Password strength</span>
+                                    <span data-i18n="auth.signup.passwordStrength">Password strength</span>
                                     <span id="strengthLabel">-</span>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="signupConfirm">Confirm Password</label>
+                            <label for="signupConfirm" data-i18n="auth.signup.confirmLabel">Confirm Password</label>
                             <div class="input-wrapper">
-                                <input type="password" id="signupConfirm" class="input-field" placeholder="Confirm your password" autocomplete="new-password">
+                                <input type="password" id="signupConfirm" class="input-field" placeholder="Confirm your password" data-i18n-placeholder="auth.signup.confirmPlaceholder" autocomplete="new-password">
                                 <i class="fas fa-lock input-icon"></i>
                                 <button type="button" class="password-toggle" onclick="togglePassword('signupConfirm')" aria-label="Toggle password visibility">
                                     <i class="fas fa-eye"></i>
@@ -4293,7 +4291,7 @@ function toggleFaq(btn) {
                         </div>
                         
                         <div class="form-group">
-                            <label for="signupReferral">Referral Code <span style="color:var(--text-muted);font-weight:400;">(Optional)</span></label>
+                            <label for="signupReferral" data-i18n="auth.signup.referralLabel">Referral Code <span style="color:var(--text-muted);font-weight:400;" data-i18n="auth.signup.referralOptional">(Optional)</span></label>
                             <div class="input-wrapper">
                                 <input type="text" id="signupReferral" class="input-field" placeholder="ARBI-XXXX" style="text-transform:uppercase;">
                                 <i class="fas fa-gift input-icon"></i>
@@ -4301,22 +4299,20 @@ function toggleFaq(btn) {
                         </div>
                         
                         <button type="button" id="signupSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handleSignup()">
-                            <i class="fas fa-user-plus"></i> Create Account
+                            <i class="fas fa-user-plus"></i> <span data-i18n="auth.signup.submit">Create Account</span>
                         </button>
                         
-                        <div class="auth-terms">
-                            By creating an account, you agree to our <a href="/terms-of-service.html" target="_blank">Terms of Service</a> and <a href="/privacy-policy.html" target="_blank">Privacy Policy</a>
-                        </div>
+                        <div class="auth-terms" data-i18n="auth.signup.terms">By creating an account, you agree to our <a href="/terms-of-service.html" target="_blank">Terms of Service</a> and <a href="/privacy-policy.html" target="_blank">Privacy Policy</a></div>
                         
                         <div class="auth-switch">
-                            Already have an account? <a onclick="showLoginForm()" data-i18n="auth.signIn">Sign In</a>
+                            <span data-i18n="auth.switch.hasAccount">Already have an account?</span> <a onclick="showLoginForm()" data-i18n="auth.signIn">Sign In</a>
                         </div>
                     </div>
                     
                     <!-- Security Badge -->
                     <div class="security-badge">
                         <i class="fas fa-shield-halved"></i>
-                        <span>Secured with 256-bit SSL encryption</span>
+                        <span data-i18n="auth.securityBadge">Secured with 256-bit SSL encryption</span>
                     </div>
                 </div>
             </div>
@@ -4330,12 +4326,12 @@ function toggleFaq(btn) {
         <!-- Request Form State -->
         <div id="forgotFormState">
             <div class="modal-header">
-                <h3><i class="fas fa-key" style="color: var(--gold); margin-right: 8px;"></i>Reset Password</h3>
+                <h3><i class="fas fa-key" style="color: var(--gold); margin-right: 8px;"></i><span data-i18n="forgot.title">Reset Password</span></h3>
                 <button type="button" class="modal-close" onclick="closeForgotPasswordModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <p class="modal-description">
+            <p class="modal-description" data-i18n="forgot.description">
                 Enter your email address and we'll send you a link to reset your password.
             </p>
 
@@ -4346,13 +4342,14 @@ function toggleFaq(btn) {
 
             <form onsubmit="handleForgotPassword(event)">
                 <div class="form-group">
-                    <label for="forgotEmailInput">Email Address</label>
+                    <label for="forgotEmailInput" data-i18n="forgot.emailLabel">Email Address</label>
                     <div class="input-wrapper">
                         <input
                             type="email"
                             id="forgotEmailInput"
                             class="input-field"
                             placeholder="Enter your email"
+                            data-i18n-placeholder="forgot.emailPlaceholder"
                             autocomplete="email"
                             required
                         >
@@ -4361,7 +4358,7 @@ function toggleFaq(btn) {
                 </div>
 
                 <button type="submit" id="forgotSubmitBtn" class="btn btn-primary btn-block" style="margin-top: 8px;">
-                    <i class="fas fa-paper-plane"></i> Send Reset Link
+                    <i class="fas fa-paper-plane"></i> <span data-i18n="forgot.submit">Send Reset Link</span>
                 </button>
             </form>
         </div>
@@ -4372,21 +4369,21 @@ function toggleFaq(btn) {
                 <div class="modal-success-icon">
                     <i class="fas fa-check"></i>
                 </div>
-                <h3>Check Your Email</h3>
-                <p>
+                <h3 data-i18n="forgot.success.title">Check Your Email</h3>
+                <p data-i18n="forgot.success.body">
                     If an account with that email exists, we've sent a password reset link to your inbox.
                     Please check your email and follow the instructions.
                 </p>
-                <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
+                <p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);" data-i18n="forgot.success.hint">
                     Didn't receive the email? Check your spam folder or try again.
                 </p>
             </div>
             <button type="button" class="btn btn-primary btn-block" onclick="closeForgotPasswordModal()">
-                Got it
+                <span data-i18n="forgot.gotIt">Got it</span>
             </button>
         </div>
 
-        <a href="#" class="modal-back-link" onclick="closeForgotPasswordModal()">
+        <a href="#" class="modal-back-link" onclick="closeForgotPasswordModal()" data-i18n="forgot.backToSignIn">
             Back to Sign In
         </a>
     </div>
@@ -4401,7 +4398,7 @@ function toggleFaq(btn) {
          (success OR offline-fallback). Frontend-only; no backend/DB/auth change. -->
     <div id="walletSyncLoader" style="position:fixed;inset:0;background:rgba(7,11,20,0.9);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;">
         <i class="fas fa-circle-notch fa-spin" style="font-size:34px;color:#F0B90B;"></i>
-        <div style="color:#fff;font-size:14px;font-weight:500;">Loading wallet&hellip;</div>
+        <div style="color:#fff;font-size:14px;font-weight:500;" data-i18n="walletSync.loading">Loading wallet&hellip;</div>
         <!-- Watchdog recovery prompt: shown only if the initial wallet sync is
              still pending after 8s (e.g. a stalled/hung network fetch). It is
              kept hidden during normal loading and is cleared/cancelled in the
@@ -4409,9 +4406,9 @@ function toggleFaq(btn) {
              button reloads the page (location.reload()) to re-run the sync.
              Frontend-only recovery UX; no backend/auth/wallet-logic change. -->
         <div id="walletSyncSlowPrompt" style="display:none;flex-direction:column;align-items:center;gap:10px;margin-top:8px;max-width:280px;text-align:center;">
-            <div style="color:#F0B90B;font-size:13px;font-weight:600;">Taking longer than expected</div>
-            <div style="color:#B8C2D9;font-size:12px;line-height:1.4;">Your wallet is taking longer than usual to load. This can happen on a slow or unstable connection.</div>
-            <button type="button" id="walletSyncRefreshBtn" style="margin-top:4px;background:#F0B90B;color:#070B14;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">Refresh Account</button>
+            <div style="color:#F0B90B;font-size:13px;font-weight:600;" data-i18n="walletSync.slowTitle">Taking longer than expected</div>
+            <div style="color:#B8C2D9;font-size:12px;line-height:1.4;" data-i18n="walletSync.slowBody">Your wallet is taking longer than usual to load. This can happen on a slow or unstable connection.</div>
+            <button type="button" id="walletSyncRefreshBtn" style="margin-top:4px;background:#F0B90B;color:#070B14;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;" data-i18n="walletSync.refresh">Refresh Account</button>
         </div>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -6101,6 +6098,177 @@ const TRANSLATIONS = {
         'landing.hero3': 'Trading',
         'landing.subtitle': 'Intelligent arbitrage bot scanning crypto, forex, stocks, and commodities in real time.',
         'landing.goToDashboard': 'Go to Dashboard',
+        'landing.nav.features': 'Features',
+        'landing.nav.howItWorks': 'How It Works',
+        'landing.nav.security': 'Security',
+        'landing.nav.faq': 'FAQ',
+        'landing.userGreeting': 'Welcome, {{name}}',
+        'landing.launchApp': 'Launch App',
+        'landing.hero.badge': 'Now with AI-Powered Smart Arbitrage',
+        'landing.hero.title': 'Trade Smarter with<br><span class="landing-gradient-text">AI-Powered Arbitrage</span>',
+        'landing.hero.subtitle': 'Let our intelligent bot scan crypto, forex, stocks, and commodities 24/7 to find and execute profitable arbitrage opportunities automatically.',
+        'landing.hero.ctaPrimary': 'Get Started Free',
+        'landing.hero.ctaSecondary': 'See How It Works',
+        'landing.hero.trust.encryption': '256-bit Encryption',
+        'landing.hero.trust.withdrawals': '15-30min Withdrawals',
+        'landing.hero.trust.users': '150K+ Users',
+        'landing.stats.volumeTraded': 'Total Volume Traded',
+        'landing.stats.activeTraders': 'Active Traders',
+        'landing.stats.uptime': 'Platform Uptime',
+        'landing.stats.countries': 'Countries Supported',
+        'landing.trust.security.title': 'Bank-Level Security',
+        'landing.trust.security.desc': '256-bit SSL encryption and cold storage protection',
+        'landing.trust.nonCustodial.title': 'Non-Custodial',
+        'landing.trust.nonCustodial.desc': 'You control your funds at all times',
+        'landing.trust.withdrawals.title': 'Fast Withdrawals',
+        'landing.trust.withdrawals.desc': '15-30 minute processing time',
+        'landing.trust.global.title': 'Global Access',
+        'landing.trust.global.desc': 'Trade from anywhere in the world',
+        'landing.features.tag': 'Features',
+        'landing.features.title': 'Everything You Need to Trade Smarter',
+        'landing.features.subtitle': 'Powerful tools designed for both beginners and professional traders',
+        'landing.features.ai.title': 'AI Trading Engine',
+        'landing.features.ai.desc': 'Our advanced AI continuously scans 50+ exchanges for arbitrage opportunities, executing trades automatically 24/7.',
+        'landing.features.ai.list1': 'Real-time market scanning',
+        'landing.features.ai.list2': 'Automated trade execution',
+        'landing.features.ai.list3': 'Smart risk management',
+        'landing.features.multiAsset.title': 'Multi-Asset Trading',
+        'landing.features.multiAsset.desc': 'Trade across multiple asset classes from a single unified dashboard with seamless portfolio management.',
+        'landing.features.multiAsset.list1': 'Crypto & DeFi tokens',
+        'landing.features.multiAsset.list2': 'Forex pairs',
+        'landing.features.multiAsset.list3': 'Stocks & Commodities',
+        'landing.features.risk.title': 'Risk Management',
+        'landing.features.risk.desc': 'Built-in safeguards protect your capital with stop-loss, take-profit, and position sizing controls.',
+        'landing.features.risk.list1': 'Configurable stop-loss',
+        'landing.features.risk.list2': 'Daily loss limits',
+        'landing.features.risk.list3': 'Portfolio diversification',
+        'landing.features.wallet.title': 'Secure Wallet',
+        'landing.features.wallet.desc': 'Non-custodial wallet system with real-time balance tracking and multi-chain support.',
+        'landing.features.wallet.list1': 'Full fund control',
+        'landing.features.wallet.list2': 'Multi-network support',
+        'landing.features.wallet.list3': 'Instant deposits',
+        'landing.features.referral.title': 'Referral Rewards',
+        'landing.features.referral.desc': 'Earn $10 for each friend who joins. No limits on how much you can earn through referrals.',
+        'landing.features.referral.list1': '$10 per referral',
+        'landing.features.referral.list2': 'Instant bonuses',
+        'landing.features.referral.list3': 'Lifetime commissions',
+        'landing.features.multiDevice.title': 'Multi-Device Support',
+        'landing.features.multiDevice.desc': 'Access your dashboard from any device. Desktop, tablet, or mobile — your portfolio follows you.',
+        'landing.features.multiDevice.list1': 'Responsive design',
+        'landing.features.multiDevice.list2': 'PWA support',
+        'landing.features.multiDevice.list3': 'Offline mode',
+        'landing.howItWorks.tag': 'Process',
+        'landing.howItWorks.title': 'Start Trading in 4 Simple Steps',
+        'landing.howItWorks.subtitle': 'Get up and running in minutes, not hours',
+        'landing.howItWorks.step1.title': 'Create Your Account',
+        'landing.howItWorks.step1.desc': 'Sign up in seconds with just your email. No complicated verification required to start.',
+        'landing.howItWorks.step2.title': 'Deposit Funds',
+        'landing.howItWorks.step2.desc': 'Deposit USDT using TRC20 network (recommended for lowest fees). Your funds arrive instantly.',
+        'landing.howItWorks.step3.title': 'Activate AI Bot',
+        'landing.howItWorks.step3.desc': 'Enable the arbitrage bot with one click. Our AI starts scanning and executing trades automatically.',
+        'landing.howItWorks.step4.title': 'Monitor & Withdraw',
+        'landing.howItWorks.step4.desc': 'Track your performance in real-time. Withdraw profits anytime with 15-30 minute processing.',
+        'landing.testimonials.tag': 'Testimonials',
+        'landing.testimonials.title': 'Trusted by Traders Worldwide',
+        'landing.testimonials.subtitle': 'Join thousands of satisfied users',
+        'landing.testimonials.1.text': '"The AI bot has transformed my trading strategy. It\'s incredibly easy to use and the results speak for themselves. Up 23% in my first month!"',
+        'landing.testimonials.1.name': 'Michael J.',
+        'landing.testimonials.1.role': 'Professional Trader',
+        'landing.testimonials.2.text': '"Finally, a platform that actually delivers on its promises. The multi-asset support is fantastic, and the withdrawals are lightning fast. Highly recommend!"',
+        'landing.testimonials.2.name': 'Sarah C.',
+        'landing.testimonials.2.role': 'Crypto Investor',
+        'landing.testimonials.3.text': '"As someone new to trading, I was nervous at first. But the demo mode and intuitive interface made it easy. Now I\'m earning consistently."',
+        'landing.testimonials.3.name': 'David K.',
+        'landing.testimonials.3.role': 'Beginner Trader',
+        'landing.faq.tag': 'FAQ',
+        'landing.faq.title': 'Frequently Asked Questions',
+        'landing.faq.subtitle': 'Everything you need to know about Arbitrix AI',
+        'landing.faq.1.q': 'How do I make my first deposit?',
+        'landing.faq.1.a': 'Switch to LIVE mode, click "Deposit" in the sidebar, enter your desired amount, choose TRC20 network (recommended for lowest fees), click "Get Payment Address", and send USDT to the displayed address. Your deposit will be auto-detected and credited instantly.',
+        'landing.faq.2.q': 'How long do withdrawals take?',
+        'landing.faq.2.a': 'Withdrawals are processed within 15-30 minutes after approval. To withdraw: switch to LIVE mode, make a deposit first, complete at least 1 trade, then click "Withdraw" in the sidebar.',
+        'landing.faq.3.q': 'Is my money safe and secure?',
+        'landing.faq.3.a': 'Yes. We use 256-bit SSL encryption, non-custodial wallet architecture (you control your funds), and cold storage for large holdings. Your assets are protected by industry-leading security measures.',
+        'landing.faq.4.q': 'How does the AI trading bot work?',
+        'landing.faq.4.a': 'Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.',
+        'landing.faq.5.q': 'How do referral rewards work?',
+        'landing.faq.5.a': 'Earn $10 for each friend who signs up through your referral link. Your bonuses accumulate in the Bonus Wallet. Once you have at least $50 in bonus and 1 referral, you can withdraw to your Live Wallet.',
+        'landing.faq.6.q': 'Is account verification required?',
+        'landing.faq.6.a': 'Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.',
+        'landing.cta.title': 'Ready to Start Trading?',
+        'landing.cta.subtitle': 'Join 150,000+ traders already using Arbitrix AI to grow their wealth',
+        'landing.cta.button': 'Create Free Account',
+        'landing.cta.note': 'No credit card required • Free demo included',
+        'landing.footer.tagline': 'The intelligent arbitrage trading platform for the modern investor.',
+        'landing.footer.product': 'Product',
+        'landing.footer.legal': 'Legal',
+        'landing.footer.contact': 'Contact',
+        'landing.footer.privacy': 'Privacy Policy',
+        'landing.footer.terms': 'Terms of Service',
+        'landing.footer.copyright': '© 2026 Arbitrix AI. All rights reserved.',
+        'landing.footer.disclaimer': 'Trading involves risk. Past performance is not indicative of future results.',
+        'auth.brand.title': 'Trade smarter with intelligent arbitrage',
+        'auth.brand.subtitle': 'Join thousands of traders leveraging our AI-powered platform for seamless multi-asset arbitrage opportunities across global exchanges.',
+        'auth.brand.security.title': 'Bank-Level Security',
+        'auth.brand.security.desc': 'Your assets are protected with industry-leading encryption and cold storage',
+        'auth.brand.execution.title': 'Lightning Fast Execution',
+        'auth.brand.execution.desc': 'Execute trades in milliseconds with our optimized AI algorithms',
+        'auth.brand.analytics.title': 'Real-Time Analytics',
+        'auth.brand.analytics.desc': 'Monitor your portfolio performance with advanced tracking tools',
+        'auth.brand.volumeTraded': 'Volume Traded',
+        'auth.brand.activeUsers': 'Active Users',
+        'auth.brand.uptime': 'Uptime',
+        'auth.tab.signin': 'Sign In',
+        'auth.tab.signup': 'Create Account',
+        'auth.login.title': 'Welcome Back',
+        'auth.login.subtitle': 'Sign in to access your trading dashboard',
+        'auth.login.emailLabel': 'Email Address',
+        'auth.login.emailPlaceholder': 'you@example.com',
+        'auth.login.passwordLabel': 'Password',
+        'auth.login.passwordPlaceholder': 'Enter your password',
+        'auth.login.rememberMe': 'Remember me',
+        'auth.login.forgotPassword': 'Forgot Password?',
+        'auth.login.submit': 'Sign In',
+        'auth.signup.title': 'Create Account',
+        'auth.signup.subtitle': 'Start your trading journey today',
+        'auth.signup.nameLabel': 'Full Name',
+        'auth.signup.namePlaceholder': 'John Doe',
+        'auth.signup.emailLabel': 'Email Address',
+        'auth.signup.emailPlaceholder': 'you@example.com',
+        'auth.signup.passwordLabel': 'Password',
+        'auth.signup.passwordPlaceholder': 'Create a strong password',
+        'auth.signup.passwordStrength': 'Password strength',
+        'auth.signup.confirmLabel': 'Confirm Password',
+        'auth.signup.confirmPlaceholder': 'Confirm your password',
+        'auth.signup.referralLabel': 'Referral Code',
+        'auth.signup.referralOptional': '(Optional)',
+        'auth.signup.referralPlaceholder': 'ARBI-XXXX',
+        'auth.signup.submit': 'Create Account',
+        'auth.signup.terms': 'By creating an account, you agree to our <a href="/terms-of-service.html" target="_blank">Terms of Service</a> and <a href="/privacy-policy.html" target="_blank">Privacy Policy</a>',
+        'auth.switch.noAccount': "Don't have an account?",
+        'auth.switch.hasAccount': 'Already have an account?',
+        'auth.securityBadge': 'Secured with 256-bit SSL encryption',
+        'auth.2fa.title': 'Email Verification',
+        'auth.2fa.hint': 'Enter the 6-digit code sent to your email',
+        'auth.2fa.codeLabel': 'Verification Code',
+        'auth.2fa.codeExpiry': 'Code expires in {{time}}',
+        'auth.2fa.submit': 'Verify & Sign In',
+        'auth.2fa.resendPrefix': "Didn't receive the code?",
+        'auth.2fa.resend': 'Resend',
+        'forgot.title': 'Reset Password',
+        'forgot.description': "Enter your email address and we'll send you a link to reset your password.",
+        'forgot.emailLabel': 'Email Address',
+        'forgot.emailPlaceholder': 'Enter your email',
+        'forgot.submit': 'Send Reset Link',
+        'forgot.success.title': 'Check Your Email',
+        'forgot.success.body': "If an account with that email exists, we've sent a password reset link to your inbox. Please check your email and follow the instructions.",
+        'forgot.success.hint': "Didn't receive the email? Check your spam folder or try again.",
+        'forgot.gotIt': 'Got it',
+        'forgot.backToSignIn': 'Back to Sign In',
+        'walletSync.loading': 'Loading wallet…',
+        'walletSync.slowTitle': 'Taking longer than expected',
+        'walletSync.slowBody': 'Your wallet is taking longer than usual to load. This can happen on a slow or unstable connection.',
+        'walletSync.refresh': 'Refresh Account',
         'sidebar.tagline': 'Multi-Asset Arbitrage',
         'sidebar.dashboard': 'Dashboard',
         'sidebar.markets': 'Markets',
@@ -6365,6 +6533,177 @@ const TRANSLATIONS = {
         'landing.hero3': 'Trading',
         'landing.subtitle': 'Bot de arbitraje inteligente que escanea cripto, divisas, acciones y materias primas en tiempo real.',
         'landing.goToDashboard': 'Ir al panel',
+        'landing.nav.features': 'Características',
+        'landing.nav.howItWorks': 'Cómo funciona',
+        'landing.nav.security': 'Seguridad',
+        'landing.nav.faq': 'Preguntas frecuentes',
+        'landing.userGreeting': 'Bienvenido, {{name}}',
+        'landing.launchApp': 'Iniciar App',
+        'landing.hero.badge': 'Ahora con arbitraje inteligente con IA',
+        'landing.hero.title': 'Opere de forma más inteligente con<br><span class="landing-gradient-text">arbitraje con IA</span>',
+        'landing.hero.subtitle': 'Deje que nuestro bot inteligente escanee cripto, divisas, acciones y materias primas 24/7 para encontrar y ejecutar oportunidades de arbitraje rentables automáticamente.',
+        'landing.hero.ctaPrimary': 'Comenzar gratis',
+        'landing.hero.ctaSecondary': 'Ver cómo funciona',
+        'landing.hero.trust.encryption': 'Cifrado 256-bit',
+        'landing.hero.trust.withdrawals': 'Retiros en 15-30 min',
+        'landing.hero.trust.users': '150K+ usuarios',
+        'landing.stats.volumeTraded': 'Volumen total operado',
+        'landing.stats.activeTraders': 'Traders activos',
+        'landing.stats.uptime': 'Tiempo de actividad de la plataforma',
+        'landing.stats.countries': 'Países admitidos',
+        'landing.trust.security.title': 'Seguridad de nivel bancario',
+        'landing.trust.security.desc': 'Cifrado SSL 256-bit y protección de almacenamiento en frío',
+        'landing.trust.nonCustodial.title': 'Sin custodia',
+        'landing.trust.nonCustodial.desc': 'Usted controla sus fondos en todo momento',
+        'landing.trust.withdrawals.title': 'Retiros rápidos',
+        'landing.trust.withdrawals.desc': 'Tiempo de procesamiento de 15-30 minutos',
+        'landing.trust.global.title': 'Acceso global',
+        'landing.trust.global.desc': 'Opere desde cualquier parte del mundo',
+        'landing.features.tag': 'Características',
+        'landing.features.title': 'Todo lo que necesita para operar de forma más inteligente',
+        'landing.features.subtitle': 'Herramientas potentes diseñadas tanto para principiantes como para traders profesionales',
+        'landing.features.ai.title': 'Motor de trading con IA',
+        'landing.features.ai.desc': 'Nuestra IA avanzada escanea continuamente 50+ exchanges en busca de oportunidades de arbitraje, ejecutando operaciones automáticamente 24/7.',
+        'landing.features.ai.list1': 'Escaneo del mercado en tiempo real',
+        'landing.features.ai.list2': 'Ejecución automática de operaciones',
+        'landing.features.ai.list3': 'Gestión inteligente de riesgos',
+        'landing.features.multiAsset.title': 'Trading multiactivo',
+        'landing.features.multiAsset.desc': 'Opere en múltiples clases de activos desde un único panel unificado con gestión fluida de la cartera.',
+        'landing.features.multiAsset.list1': 'Cripto y tokens DeFi',
+        'landing.features.multiAsset.list2': 'Pares de divisas',
+        'landing.features.multiAsset.list3': 'Acciones y materias primas',
+        'landing.features.risk.title': 'Gestión de riesgos',
+        'landing.features.risk.desc': 'Salvaguardas integradas protegen su capital con controles de stop-loss, take-profit y dimensionamiento de posiciones.',
+        'landing.features.risk.list1': 'stop-loss configurable',
+        'landing.features.risk.list2': 'Límites de pérdida diaria',
+        'landing.features.risk.list3': 'Diversificación de cartera',
+        'landing.features.wallet.title': 'Billetera segura',
+        'landing.features.wallet.desc': 'Sistema de billetera sin custodia con seguimiento de saldo en tiempo real y soporte multichain.',
+        'landing.features.wallet.list1': 'Control total de los fondos',
+        'landing.features.wallet.list2': 'Soporte multired',
+        'landing.features.wallet.list3': 'Depósitos instantáneos',
+        'landing.features.referral.title': 'Recompensas por referidos',
+        'landing.features.referral.desc': 'Gane $10 por cada amigo que se una. Sin límites en cuánto puede ganar mediante referidos.',
+        'landing.features.referral.list1': '$10 por referido',
+        'landing.features.referral.list2': 'Bonos instantáneos',
+        'landing.features.referral.list3': 'Comisiones de por vida',
+        'landing.features.multiDevice.title': 'Soporte multidispositivo',
+        'landing.features.multiDevice.desc': 'Acceda a su panel desde cualquier dispositivo. Escritorio, tablet o móvil: su cartera le sigue a todas partes.',
+        'landing.features.multiDevice.list1': 'Diseño adaptable',
+        'landing.features.multiDevice.list2': 'Soporte PWA',
+        'landing.features.multiDevice.list3': 'Modo sin conexión',
+        'landing.howItWorks.tag': 'Proceso',
+        'landing.howItWorks.title': 'Comience a operar en 4 pasos sencillos',
+        'landing.howItWorks.subtitle': 'Empiece a funcionar en minutos, no en horas',
+        'landing.howItWorks.step1.title': 'Cree su cuenta',
+        'landing.howItWorks.step1.desc': 'Regístrese en segundos con solo su correo electrónico. No se requiere verificación complicada para empezar.',
+        'landing.howItWorks.step2.title': 'Deposite fondos',
+        'landing.howItWorks.step2.desc': 'Deposite USDT usando la red TRC20 (recomendada por las comisiones más bajas). Sus fondos llegan al instante.',
+        'landing.howItWorks.step3.title': 'Active el bot de IA',
+        'landing.howItWorks.step3.desc': 'Active el bot de arbitraje con un clic. Nuestra IA comienza a escanear y ejecutar operaciones automáticamente.',
+        'landing.howItWorks.step4.title': 'Monitorice y retire',
+        'landing.howItWorks.step4.desc': 'Siga su rendimiento en tiempo real. Retire sus ganancias en cualquier momento con un procesamiento de 15-30 minutos.',
+        'landing.testimonials.tag': 'Testimonios',
+        'landing.testimonials.title': 'La confianza de traders de todo el mundo',
+        'landing.testimonials.subtitle': 'Únase a miles de usuarios satisfechos',
+        'landing.testimonials.1.text': '"El bot de IA ha transformado mi estrategia de trading. Es increíblemente fácil de usar y los resultados hablan por sí solos. ¡Subí un 23% en mi primer mes!"',
+        'landing.testimonials.1.name': 'Michael J.',
+        'landing.testimonials.1.role': 'Trader profesional',
+        'landing.testimonials.2.text': '"Por fin, una plataforma que cumple sus promesas. El soporte multiactivo es fantástico y los retiros son ultrarrápidos. ¡Muy recomendable!"',
+        'landing.testimonials.2.name': 'Sarah C.',
+        'landing.testimonials.2.role': 'Inversora de cripto',
+        'landing.testimonials.3.text': '"Como alguien nuevo en el trading, al principio estaba nervioso. Pero el modo demo y la interfaz intuitiva lo hicieron fácil. Ahora gano de forma constante."',
+        'landing.testimonials.3.name': 'David K.',
+        'landing.testimonials.3.role': 'Trader principiante',
+        'landing.faq.tag': 'Preguntas frecuentes',
+        'landing.faq.title': 'Preguntas frecuentes',
+        'landing.faq.subtitle': 'Todo lo que necesita saber sobre Arbitrix AI',
+        'landing.faq.1.q': '¿Cómo hago mi primer depósito?',
+        'landing.faq.1.a': 'Cambie al modo LIVE, haga clic en "Depósito" en la barra lateral, ingrese el monto deseado, elija la red TRC20 (recomendada por las comisiones más bajas), haga clic en "Obtener dirección de pago" y envíe USDT a la dirección mostrada. Su depósito se detectará automáticamente y se acreditará al instante.',
+        'landing.faq.2.q': '¿Cuánto tardan los retiros?',
+        'landing.faq.2.a': 'Los retiros se procesan en un plazo de 15-30 minutos tras su aprobación. Para retirar: cambie al modo LIVE, haga un depósito primero, complete al menos 1 operación y luego haga clic en "Retirar" en la barra lateral.',
+        'landing.faq.3.q': '¿Mi dinero está seguro?',
+        'landing.faq.3.a': 'Sí. Usamos cifrado SSL 256-bit, arquitectura de billetera sin custodia (usted controla sus fondos) y almacenamiento en frío para grandes saldos. Sus activos están protegidos por medidas de seguridad líderes en la industria.',
+        'landing.faq.4.q': '¿Cómo funciona el bot de trading con IA?',
+        'landing.faq.4.a': 'Nuestra IA monitorea continuamente las diferencias de precio en 50+ exchanges. Cuando detecta una oportunidad de arbitraje (discrepancia de precio), ejecuta operaciones automáticamente para obtener ganancias de la diferencia. Puede iniciar/detener el bot en cualquier momento.',
+        'landing.faq.5.q': '¿Cómo funcionan las recompensas por referidos?',
+        'landing.faq.5.a': 'Gane $10 por cada amigo que se registre mediante su enlace de referido. Sus bonos se acumulan en la Billetera de bonos. Una vez que tenga al menos $50 en bonos y 1 referido, puede retirar a su Billetera LIVE.',
+        'landing.faq.6.q': '¿Se requiere verificación de cuenta?',
+        'landing.faq.6.a': 'La creación básica de cuenta requiere solo un correo y una contraseña. La verificación KYC puede ser necesaria para límites de retiro más altos o funciones específicas para cumplir con los requisitos regulatorios.',
+        'landing.cta.title': '¿Listo para empezar a operar?',
+        'landing.cta.subtitle': 'Únase a 150,000+ traders que ya usan Arbitrix AI para hacer crecer su patrimonio',
+        'landing.cta.button': 'Crear cuenta gratis',
+        'landing.cta.note': 'No se requiere tarjeta de crédito • Demo gratis incluida',
+        'landing.footer.tagline': 'La plataforma de arbitraje inteligente para el inversor moderno.',
+        'landing.footer.product': 'Producto',
+        'landing.footer.legal': 'Legal',
+        'landing.footer.contact': 'Contacto',
+        'landing.footer.privacy': 'Política de privacidad',
+        'landing.footer.terms': 'Términos del servicio',
+        'landing.footer.copyright': '© 2026 Arbitrix AI. Todos los derechos reservados.',
+        'landing.footer.disclaimer': 'Operar implica riesgos. El rendimiento pasado no es indicativo de resultados futuros.',
+        'auth.brand.title': 'Opere de forma más inteligente con arbitraje inteligente',
+        'auth.brand.subtitle': 'Únase a miles de traders que aprovechan nuestra plataforma con IA para oportunidades de arbitraje multiactivo fluidas en exchanges globales.',
+        'auth.brand.security.title': 'Seguridad de nivel bancario',
+        'auth.brand.security.desc': 'Sus activos están protegidos con cifrado líder en la industria y almacenamiento en frío',
+        'auth.brand.execution.title': 'Ejecución ultrarrápida',
+        'auth.brand.execution.desc': 'Ejecute operaciones en milisegundos con nuestros algoritmos de IA optimizados',
+        'auth.brand.analytics.title': 'Analíticas en tiempo real',
+        'auth.brand.analytics.desc': 'Monitoree el rendimiento de su cartera con herramientas de seguimiento avanzadas',
+        'auth.brand.volumeTraded': 'Volumen operado',
+        'auth.brand.activeUsers': 'Usuarios activos',
+        'auth.brand.uptime': 'Tiempo de actividad',
+        'auth.tab.signin': 'Iniciar sesión',
+        'auth.tab.signup': 'Crear cuenta',
+        'auth.login.title': 'Bienvenido de nuevo',
+        'auth.login.subtitle': 'Inicie sesión para acceder a su panel de trading',
+        'auth.login.emailLabel': 'Correo electrónico',
+        'auth.login.emailPlaceholder': 'usted@ejemplo.com',
+        'auth.login.passwordLabel': 'Contraseña',
+        'auth.login.passwordPlaceholder': 'Ingrese su contraseña',
+        'auth.login.rememberMe': 'Recordarme',
+        'auth.login.forgotPassword': '¿Olvidó su contraseña?',
+        'auth.login.submit': 'Iniciar sesión',
+        'auth.signup.title': 'Crear cuenta',
+        'auth.signup.subtitle': 'Comience su viaje de trading hoy',
+        'auth.signup.nameLabel': 'Nombre completo',
+        'auth.signup.namePlaceholder': 'Juan Pérez',
+        'auth.signup.emailLabel': 'Correo electrónico',
+        'auth.signup.emailPlaceholder': 'usted@ejemplo.com',
+        'auth.signup.passwordLabel': 'Contraseña',
+        'auth.signup.passwordPlaceholder': 'Cree una contraseña segura',
+        'auth.signup.passwordStrength': 'Seguridad de la contraseña',
+        'auth.signup.confirmLabel': 'Confirmar contraseña',
+        'auth.signup.confirmPlaceholder': 'Confirme su contraseña',
+        'auth.signup.referralLabel': 'Código de referido',
+        'auth.signup.referralOptional': '(Opcional)',
+        'auth.signup.referralPlaceholder': 'ARBI-XXXX',
+        'auth.signup.submit': 'Crear cuenta',
+        'auth.signup.terms': 'Al crear una cuenta, acepta nuestros <a href="/terms-of-service.html" target="_blank">Términos del servicio</a> y la <a href="/privacy-policy.html" target="_blank">Política de privacidad</a>',
+        'auth.switch.noAccount': '¿No tiene una cuenta?',
+        'auth.switch.hasAccount': '¿Ya tiene una cuenta?',
+        'auth.securityBadge': 'Protegido con cifrado SSL 256-bit',
+        'auth.2fa.title': 'Verificación por correo',
+        'auth.2fa.hint': 'Ingrese el código de 6 dígitos enviado a su correo',
+        'auth.2fa.codeLabel': 'Código de verificación',
+        'auth.2fa.codeExpiry': 'El código expira en {{time}}',
+        'auth.2fa.submit': 'Verificar e iniciar sesión',
+        'auth.2fa.resendPrefix': '¿No recibió el código?',
+        'auth.2fa.resend': 'Reenviar',
+        'forgot.title': 'Restablecer contraseña',
+        'forgot.description': 'Ingrese su correo electrónico y le enviaremos un enlace para restablecer su contraseña.',
+        'forgot.emailLabel': 'Correo electrónico',
+        'forgot.emailPlaceholder': 'Ingrese su correo',
+        'forgot.submit': 'Enviar enlace de restablecimiento',
+        'forgot.success.title': 'Revise su correo',
+        'forgot.success.body': 'Si existe una cuenta con ese correo, le hemos enviado un enlace para restablecer la contraseña a su bandeja de entrada. Revise su correo y siga las instrucciones.',
+        'forgot.success.hint': '¿No recibió el correo? Revise su carpeta de spam o inténtelo de nuevo.',
+        'forgot.gotIt': 'Entendido',
+        'forgot.backToSignIn': 'Volver a iniciar sesión',
+        'walletSync.loading': 'Cargando billetera…',
+        'walletSync.slowTitle': 'Tardando más de lo esperado',
+        'walletSync.slowBody': 'Su billetera está tardando más de lo habitual en cargar. Esto puede ocurrir con una conexión lenta o inestable.',
+        'walletSync.refresh': 'Actualizar cuenta',
         'sidebar.tagline': 'Arbitraje Multi-Activo',
         'sidebar.dashboard': 'Panel',
         'sidebar.markets': 'Mercados',
@@ -6629,6 +6968,177 @@ const TRANSLATIONS = {
         'landing.hero3': 'Trading',
         'landing.subtitle': 'Bot de arbitragem inteligente que analisa cripto, forex, ações e commodities em tempo real.',
         'landing.goToDashboard': 'Ir para o painel',
+        'landing.nav.features': 'Recursos',
+        'landing.nav.howItWorks': 'Como funciona',
+        'landing.nav.security': 'Segurança',
+        'landing.nav.faq': 'Perguntas frequentes',
+        'landing.userGreeting': 'Bem-vindo, {{name}}',
+        'landing.launchApp': 'Iniciar App',
+        'landing.hero.badge': 'Agora com arbitragem inteligente com IA',
+        'landing.hero.title': 'Opere de forma mais inteligente com<br><span class="landing-gradient-text">arbitragem com IA</span>',
+        'landing.hero.subtitle': 'Deixe nosso bot inteligente analisar cripto, forex, ações e commodities 24/7 para encontrar e executar oportunidades de arbitragem lucrativas automaticamente.',
+        'landing.hero.ctaPrimary': 'Começar de graça',
+        'landing.hero.ctaSecondary': 'Veja como funciona',
+        'landing.hero.trust.encryption': 'Criptografia 256-bit',
+        'landing.hero.trust.withdrawals': 'Saques em 15-30 min',
+        'landing.hero.trust.users': '150K+ usuários',
+        'landing.stats.volumeTraded': 'Volume total operado',
+        'landing.stats.activeTraders': 'Traders ativos',
+        'landing.stats.uptime': 'Tempo de atividade da plataforma',
+        'landing.stats.countries': 'Países com suporte',
+        'landing.trust.security.title': 'Segurança de nível bancário',
+        'landing.trust.security.desc': 'Criptografia SSL 256-bit e proteção em armazenamento frio',
+        'landing.trust.nonCustodial.title': 'Sem custódia',
+        'landing.trust.nonCustodial.desc': 'Você controla seus fundos o tempo todo',
+        'landing.trust.withdrawals.title': 'Saques rápidos',
+        'landing.trust.withdrawals.desc': 'Tempo de processamento de 15-30 minutos',
+        'landing.trust.global.title': 'Acesso global',
+        'landing.trust.global.desc': 'Opere de qualquer lugar do mundo',
+        'landing.features.tag': 'Recursos',
+        'landing.features.title': 'Tudo o que você precisa para operar de forma mais inteligente',
+        'landing.features.subtitle': 'Ferramentas poderosas projetadas tanto para iniciantes quanto para traders profissionais',
+        'landing.features.ai.title': 'Motor de trading com IA',
+        'landing.features.ai.desc': 'Nossa IA avançada analisa continuamente 50+ exchanges em busca de oportunidades de arbitragem, executando operações automaticamente 24/7.',
+        'landing.features.ai.list1': 'Varredura de mercado em tempo real',
+        'landing.features.ai.list2': 'Execução automática de operações',
+        'landing.features.ai.list3': 'Gestão inteligente de riscos',
+        'landing.features.multiAsset.title': 'Trading multiativo',
+        'landing.features.multiAsset.desc': 'Opere em várias classes de ativos a partir de um único painel unificado com gestão fluida da carteira.',
+        'landing.features.multiAsset.list1': 'Cripto e tokens DeFi',
+        'landing.features.multiAsset.list2': 'Pares de forex',
+        'landing.features.multiAsset.list3': 'Ações e commodities',
+        'landing.features.risk.title': 'Gestão de riscos',
+        'landing.features.risk.desc': 'Salvaguardas integradas protegem seu capital com controles de stop-loss, take-profit e dimensionamento de posições.',
+        'landing.features.risk.list1': 'stop-loss configurável',
+        'landing.features.risk.list2': 'Limites de perda diária',
+        'landing.features.risk.list3': 'Diversificação de carteira',
+        'landing.features.wallet.title': 'Carteira segura',
+        'landing.features.wallet.desc': 'Sistema de carteira sem custódia com monitoramento de saldo em tempo real e suporte multichain.',
+        'landing.features.wallet.list1': 'Controle total dos fundos',
+        'landing.features.wallet.list2': 'Suporte multi-rede',
+        'landing.features.wallet.list3': 'Depósitos instantâneos',
+        'landing.features.referral.title': 'Recompensas por indicação',
+        'landing.features.referral.desc': 'Ganhe $10 por cada amigo que entrar. Sem limites de quanto você pode ganhar com indicações.',
+        'landing.features.referral.list1': '$10 por indicação',
+        'landing.features.referral.list2': 'Bônus instantâneos',
+        'landing.features.referral.list3': 'Comissões vitalícias',
+        'landing.features.multiDevice.title': 'Suporte multidispositivo',
+        'landing.features.multiDevice.desc': 'Acesse seu painel de qualquer dispositivo. Desktop, tablet ou celular — sua carteira o acompanha.',
+        'landing.features.multiDevice.list1': 'Design responsivo',
+        'landing.features.multiDevice.list2': 'Suporte PWA',
+        'landing.features.multiDevice.list3': 'Modo offline',
+        'landing.howItWorks.tag': 'Processo',
+        'landing.howItWorks.title': 'Comece a operar em 4 etapas simples',
+        'landing.howItWorks.subtitle': 'Comece a usar em minutos, não em horas',
+        'landing.howItWorks.step1.title': 'Crie sua conta',
+        'landing.howItWorks.step1.desc': 'Cadastre-se em segundos com apenas seu e-mail. Nenhuma verificação complicada é necessária para começar.',
+        'landing.howItWorks.step2.title': 'Deposite fundos',
+        'landing.howItWorks.step2.desc': 'Deposite USDT usando a rede TRC20 (recomendada pelas menores taxas). Seus fundos chegam instantaneamente.',
+        'landing.howItWorks.step3.title': 'Ative o bot de IA',
+        'landing.howItWorks.step3.desc': 'Ative o bot de arbitragem com um clique. Nossa IA começa a analisar e executar operações automaticamente.',
+        'landing.howItWorks.step4.title': 'Monitore e saque',
+        'landing.howItWorks.step4.desc': 'Acompanhe seu desempenho em tempo real. Saque seus lucros a qualquer momento com processamento de 15-30 minutos.',
+        'landing.testimonials.tag': 'Depoimentos',
+        'landing.testimonials.title': 'A confiança de traders do mundo todo',
+        'landing.testimonials.subtitle': 'Junte-se a milhares de usuários satisfeitos',
+        'landing.testimonials.1.text': '"O bot de IA transformou minha estratégia de trading. É incrivelmente fácil de usar e os resultados falam por si. Subi 23% no meu primeiro mês!"',
+        'landing.testimonials.1.name': 'Michael J.',
+        'landing.testimonials.1.role': 'Trader profissional',
+        'landing.testimonials.2.text': '"Finalmente, uma plataforma que cumpre o que promete. O suporte multiativo é fantástico e os saques são ultrarrápidos. Recomendo!"',
+        'landing.testimonials.2.name': 'Sarah C.',
+        'landing.testimonials.2.role': 'Investidora de cripto',
+        'landing.testimonials.3.text': '"Como alguém novo no trading, fiquei nervoso no começo. Mas o modo demo e a interface intuitiva facilitaram tudo. Agora ganho de forma constante."',
+        'landing.testimonials.3.name': 'David K.',
+        'landing.testimonials.3.role': 'Trader iniciante',
+        'landing.faq.tag': 'Perguntas frequentes',
+        'landing.faq.title': 'Perguntas frequentes',
+        'landing.faq.subtitle': 'Tudo o que você precisa saber sobre a Arbitrix AI',
+        'landing.faq.1.q': 'Como faço meu primeiro depósito?',
+        'landing.faq.1.a': 'Mude para o modo LIVE, clique em "Depositar" na barra lateral, insira o valor desejado, escolha a rede TRC20 (recomendada pelas menores taxas), clique em "Obter endereço de pagamento" e envie USDT para o endereço exibido. Seu depósito será detectado automaticamente e creditado instantaneamente.',
+        'landing.faq.2.q': 'Quanto tempo levam os saques?',
+        'landing.faq.2.a': 'Os saques são processados em até 15-30 minutos após a aprovação. Para sacar: mude para o modo LIVE, faça um depósito primeiro, conclua pelo menos 1 operação e clique em "Sacar" na barra lateral.',
+        'landing.faq.3.q': 'Meu dinheiro está seguro?',
+        'landing.faq.3.a': 'Sim. Usamos criptografia SSL 256-bit, arquitetura de carteira sem custódia (você controla seus fundos) e armazenamento frio para grandes saldos. Seus ativos são protegidos por medidas de segurança líderes do setor.',
+        'landing.faq.4.q': 'Como funciona o bot de trading com IA?',
+        'landing.faq.4.a': 'Nossa IA monitora continuamente as diferenças de preço em 50+ exchanges. Quando detecta uma oportunidade de arbitragem (discrepância de preço), executa operações automaticamente para lucrar com a diferença. Você pode iniciar/parar o bot a qualquer momento.',
+        'landing.faq.5.q': 'Como funcionam as recompensas por indicação?',
+        'landing.faq.5.a': 'Ganhe $10 por cada amigo que se cadastrar pelo seu link de indicação. Seus bônus se acumulam na Carteira de Bônus. Quando tiver pelo menos $50 em bônus e 1 indicação, você pode sacar para sua Carteira LIVE.',
+        'landing.faq.6.q': 'É necessária verificação de conta?',
+        'landing.faq.6.a': 'A criação básica de conta requer apenas um e-mail e uma senha. A verificação KYC pode ser necessária para limites de saque mais altos ou recursos específicos para cumprir requisitos regulatórios.',
+        'landing.cta.title': 'Pronto para começar a operar?',
+        'landing.cta.subtitle': 'Junte-se a 150,000+ traders que já usam a Arbitrix AI para fazer crescer seu patrimônio',
+        'landing.cta.button': 'Criar conta gratuita',
+        'landing.cta.note': 'Sem cartão de crédito • Demo gratuito incluído',
+        'landing.footer.tagline': 'A plataforma de arbitragem inteligente para o investidor moderno.',
+        'landing.footer.product': 'Produto',
+        'landing.footer.legal': 'Legal',
+        'landing.footer.contact': 'Contato',
+        'landing.footer.privacy': 'Política de privacidade',
+        'landing.footer.terms': 'Termos de serviço',
+        'landing.footer.copyright': '© 2026 Arbitrix AI. Todos os direitos reservados.',
+        'landing.footer.disclaimer': 'Operar envolve riscos. O desempenho passado não é indicativo de resultados futuros.',
+        'auth.brand.title': 'Opere de forma mais inteligente com arbitragem inteligente',
+        'auth.brand.subtitle': 'Junte-se a milhares de traders que aproveitam nossa plataforma com IA para oportunidades de arbitragem multiativo fluidas em exchanges globais.',
+        'auth.brand.security.title': 'Segurança de nível bancário',
+        'auth.brand.security.desc': 'Seus ativos são protegidos com criptografia líder do setor e armazenamento frio',
+        'auth.brand.execution.title': 'Execução ultrarrápida',
+        'auth.brand.execution.desc': 'Execute operações em milissegundos com nossos algoritmos de IA otimizados',
+        'auth.brand.analytics.title': 'Analíticas em tempo real',
+        'auth.brand.analytics.desc': 'Monitore o desempenho da sua carteira com ferramentas avançadas de acompanhamento',
+        'auth.brand.volumeTraded': 'Volume operado',
+        'auth.brand.activeUsers': 'Usuários ativos',
+        'auth.brand.uptime': 'Tempo de atividade',
+        'auth.tab.signin': 'Entrar',
+        'auth.tab.signup': 'Criar conta',
+        'auth.login.title': 'Bem-vindo de volta',
+        'auth.login.subtitle': 'Entre para acessar seu painel de trading',
+        'auth.login.emailLabel': 'Endereço de e-mail',
+        'auth.login.emailPlaceholder': 'voce@exemplo.com',
+        'auth.login.passwordLabel': 'Senha',
+        'auth.login.passwordPlaceholder': 'Digite sua senha',
+        'auth.login.rememberMe': 'Lembrar de mim',
+        'auth.login.forgotPassword': 'Esqueceu a senha?',
+        'auth.login.submit': 'Entrar',
+        'auth.signup.title': 'Criar conta',
+        'auth.signup.subtitle': 'Comece sua jornada de trading hoje',
+        'auth.signup.nameLabel': 'Nome completo',
+        'auth.signup.namePlaceholder': 'João da Silva',
+        'auth.signup.emailLabel': 'Endereço de e-mail',
+        'auth.signup.emailPlaceholder': 'voce@exemplo.com',
+        'auth.signup.passwordLabel': 'Senha',
+        'auth.signup.passwordPlaceholder': 'Crie uma senha forte',
+        'auth.signup.passwordStrength': 'Força da senha',
+        'auth.signup.confirmLabel': 'Confirmar senha',
+        'auth.signup.confirmPlaceholder': 'Confirme sua senha',
+        'auth.signup.referralLabel': 'Código de indicação',
+        'auth.signup.referralOptional': '(Opcional)',
+        'auth.signup.referralPlaceholder': 'ARBI-XXXX',
+        'auth.signup.submit': 'Criar conta',
+        'auth.signup.terms': 'Ao criar uma conta, você concorda com nossos <a href="/terms-of-service.html" target="_blank">Termos de serviço</a> e a <a href="/privacy-policy.html" target="_blank">Política de privacidade</a>',
+        'auth.switch.noAccount': 'Não tem uma conta?',
+        'auth.switch.hasAccount': 'Já tem uma conta?',
+        'auth.securityBadge': 'Protegido com criptografia SSL 256-bit',
+        'auth.2fa.title': 'Verificação por e-mail',
+        'auth.2fa.hint': 'Digite o código de 6 dígitos enviado ao seu e-mail',
+        'auth.2fa.codeLabel': 'Código de verificação',
+        'auth.2fa.codeExpiry': 'O código expira em {{time}}',
+        'auth.2fa.submit': 'Verificar e entrar',
+        'auth.2fa.resendPrefix': 'Não recebeu o código?',
+        'auth.2fa.resend': 'Reenviar',
+        'forgot.title': 'Redefinir senha',
+        'forgot.description': 'Digite seu endereço de e-mail e enviaremos um link para redefinir sua senha.',
+        'forgot.emailLabel': 'Endereço de e-mail',
+        'forgot.emailPlaceholder': 'Digite seu e-mail',
+        'forgot.submit': 'Enviar link de redefinição',
+        'forgot.success.title': 'Verifique seu e-mail',
+        'forgot.success.body': 'Se existir uma conta com esse e-mail, enviamos um link de redefinição de senha para sua caixa de entrada. Verifique seu e-mail e siga as instruções.',
+        'forgot.success.hint': 'Não recebeu o e-mail? Verifique a pasta de spam ou tente novamente.',
+        'forgot.gotIt': 'Entendi',
+        'forgot.backToSignIn': 'Voltar para entrar',
+        'walletSync.loading': 'Carregando carteira…',
+        'walletSync.slowTitle': 'Demorando mais que o esperado',
+        'walletSync.slowBody': 'Sua carteira está demorando mais que o normal para carregar. Isso pode acontecer em uma conexão lenta ou instável.',
+        'walletSync.refresh': 'Atualizar conta',
         'sidebar.tagline': 'Arbitragem Multi-Ativo',
         'sidebar.dashboard': 'Painel',
         'sidebar.markets': 'Mercados',
@@ -6893,6 +7403,177 @@ const TRANSLATIONS = {
         'landing.hero3': 'Trading',
         'landing.subtitle': 'Bot d’arbitrage intelligent analysant la crypto, le forex, les actions et les matières premières en temps réel.',
         'landing.goToDashboard': 'Aller au tableau de bord',
+        'landing.nav.features': 'Fonctionnalités',
+        'landing.nav.howItWorks': 'Comment ça marche',
+        'landing.nav.security': 'Sécurité',
+        'landing.nav.faq': 'FAQ',
+        'landing.userGreeting': 'Bienvenue, {{name}}',
+        'landing.launchApp': 'Lancer l’app',
+        'landing.hero.badge': 'Désormais avec arbitrage intelligent par IA',
+        'landing.hero.title': 'Tradez plus intelligemment avec<br><span class="landing-gradient-text">l’arbitrage par IA</span>',
+        'landing.hero.subtitle': 'Laissez notre bot intelligent analyser la crypto, le forex, les actions et les matières premières 24/7 pour trouver et exécuter automatiquement des opportunités d’arbitrage rentables.',
+        'landing.hero.ctaPrimary': 'Commencer gratuitement',
+        'landing.hero.ctaSecondary': 'Voir comment ça marche',
+        'landing.hero.trust.encryption': 'Chiffrement 256-bit',
+        'landing.hero.trust.withdrawals': 'Retraits en 15-30 min',
+        'landing.hero.trust.users': '150K+ utilisateurs',
+        'landing.stats.volumeTraded': 'Volume total échangé',
+        'landing.stats.activeTraders': 'Traders actifs',
+        'landing.stats.uptime': 'Disponibilité de la plateforme',
+        'landing.stats.countries': 'Pays pris en charge',
+        'landing.trust.security.title': 'Sécurité de niveau bancaire',
+        'landing.trust.security.desc': 'Chiffrement SSL 256-bit et protection par stockage à froid',
+        'landing.trust.nonCustodial.title': 'Non-custodial',
+        'landing.trust.nonCustodial.desc': 'Vous gardez le contrôle de vos fonds à tout moment',
+        'landing.trust.withdrawals.title': 'Retraits rapides',
+        'landing.trust.withdrawals.desc': 'Délai de traitement de 15-30 minutes',
+        'landing.trust.global.title': 'Accès mondial',
+        'landing.trust.global.desc': 'Tradez depuis n’importe où dans le monde',
+        'landing.features.tag': 'Fonctionnalités',
+        'landing.features.title': 'Tout ce dont vous avez besoin pour trader plus intelligemment',
+        'landing.features.subtitle': 'Des outils puissants conçus aussi bien pour les débutants que pour les traders professionnels',
+        'landing.features.ai.title': 'Moteur de trading par IA',
+        'landing.features.ai.desc': 'Notre IA avancée analyse en continu 50+ exchanges à la recherche d’opportunités d’arbitrage et exécute les trades automatiquement 24/7.',
+        'landing.features.ai.list1': 'Analyse du marché en temps réel',
+        'landing.features.ai.list2': 'Exécution automatique des trades',
+        'landing.features.ai.list3': 'Gestion intelligente des risques',
+        'landing.features.multiAsset.title': 'Trading multi-actifs',
+        'landing.features.multiAsset.desc': 'Tradez sur plusieurs classes d’actifs depuis un seul tableau de bord unifié avec une gestion fluide du portefeuille.',
+        'landing.features.multiAsset.list1': 'Crypto et tokens DeFi',
+        'landing.features.multiAsset.list2': 'Paires forex',
+        'landing.features.multiAsset.list3': 'Actions et matières premières',
+        'landing.features.risk.title': 'Gestion des risques',
+        'landing.features.risk.desc': 'Des protections intégrées sécurisent votre capital avec des contrôles de stop-loss, take-profit et de dimensionnement des positions.',
+        'landing.features.risk.list1': 'stop-loss configurable',
+        'landing.features.risk.list2': 'Limites de perte quotidiennes',
+        'landing.features.risk.list3': 'Diversification du portefeuille',
+        'landing.features.wallet.title': 'Portefeuille sécurisé',
+        'landing.features.wallet.desc': 'Système de portefeuille non-custodial avec suivi du solde en temps réel et support multichain.',
+        'landing.features.wallet.list1': 'Contrôle total des fonds',
+        'landing.features.wallet.list2': 'Support multi-réseaux',
+        'landing.features.wallet.list3': 'Dépôts instantanés',
+        'landing.features.referral.title': 'Récompenses de parrainage',
+        'landing.features.referral.desc': 'Gagnez $10 pour chaque ami qui rejoint. Sans limite sur ce que vous pouvez gagner grâce aux parrainages.',
+        'landing.features.referral.list1': '$10 par parrainage',
+        'landing.features.referral.list2': 'Bonus instantanés',
+        'landing.features.referral.list3': 'Commissions à vie',
+        'landing.features.multiDevice.title': 'Support multi-appareils',
+        'landing.features.multiDevice.desc': 'Accédez à votre tableau de bord depuis n’importe quel appareil. Ordinateur, tablette ou mobile — votre portefeuille vous suit partout.',
+        'landing.features.multiDevice.list1': 'Design responsive',
+        'landing.features.multiDevice.list2': 'Support PWA',
+        'landing.features.multiDevice.list3': 'Mode hors ligne',
+        'landing.howItWorks.tag': 'Processus',
+        'landing.howItWorks.title': 'Commencez à trader en 4 étapes simples',
+        'landing.howItWorks.subtitle': 'Opérationnel en quelques minutes, pas en quelques heures',
+        'landing.howItWorks.step1.title': 'Créez votre compte',
+        'landing.howItWorks.step1.desc': 'Inscrivez-vous en quelques secondes avec simplement votre e-mail. Aucune vérification compliquée n’est requise pour commencer.',
+        'landing.howItWorks.step2.title': 'Déposez des fonds',
+        'landing.howItWorks.step2.desc': 'Déposez des USDT via le réseau TRC20 (recommandé pour les frais les plus bas). Vos fonds arrivent instantanément.',
+        'landing.howItWorks.step3.title': 'Activez le bot IA',
+        'landing.howItWorks.step3.desc': 'Activez le bot d’arbitrage en un clic. Notre IA commence à analyser et à exécuter les trades automatiquement.',
+        'landing.howItWorks.step4.title': 'Suivez et retirez',
+        'landing.howItWorks.step4.desc': 'Suivez vos performances en temps réel. Retirez vos gains à tout moment avec un traitement de 15-30 minutes.',
+        'landing.testimonials.tag': 'Témoignages',
+        'landing.testimonials.title': 'La confiance des traders du monde entier',
+        'landing.testimonials.subtitle': 'Rejoignez des milliers d’utilisateurs satisfaits',
+        'landing.testimonials.1.text': '"Le bot IA a transformé ma stratégie de trading. Il est incroyablement facile à utiliser et les résultats parlent d’eux-mêmes. 23% dès mon premier mois !"',
+        'landing.testimonials.1.name': 'Michael J.',
+        'landing.testimonials.1.role': 'Trader professionnel',
+        'landing.testimonials.2.text': '"Enfin une plateforme qui tient ses promesses. Le support multi-actifs est fantastique et les retraits sont ultra-rapides. Je recommande vivement !"',
+        'landing.testimonials.2.name': 'Sarah C.',
+        'landing.testimonials.2.role': 'Investisseuse crypto',
+        'landing.testimonials.3.text': '"En tant que débutant en trading, j’étais nerveux au début. Mais le mode démo et l’interface intuitive ont rendu les choses faciles. Maintenant je gagne régulièrement."',
+        'landing.testimonials.3.name': 'David K.',
+        'landing.testimonials.3.role': 'Trader débutant',
+        'landing.faq.tag': 'FAQ',
+        'landing.faq.title': 'Questions fréquentes',
+        'landing.faq.subtitle': 'Tout ce que vous devez savoir sur Arbitrix AI',
+        'landing.faq.1.q': 'Comment effectuer mon premier dépôt ?',
+        'landing.faq.1.a': 'Passez en mode LIVE, cliquez sur « Dépôt » dans la barre latérale, saisissez le montant souhaité, choisissez le réseau TRC20 (recommandé pour les frais les plus bas), cliquez sur « Obtenir l’adresse de paiement » et envoyez des USDT à l’adresse affichée. Votre dépôt sera détecté et crédité automatiquement et instantanément.',
+        'landing.faq.2.q': 'Combien de temps prennent les retraits ?',
+        'landing.faq.2.a': 'Les retraits sont traités sous 15-30 minutes après approbation. Pour retirer : passez en mode LIVE, effectuez d’abord un dépôt, réalisez au moins 1 trade, puis cliquez sur « Retirer » dans la barre latérale.',
+        'landing.faq.3.q': 'Mon argent est-il en sécurité ?',
+        'landing.faq.3.a': 'Oui. Nous utilisons un chiffrement SSL 256-bit, une architecture de portefeuille non-custodial (vous contrôlez vos fonds) et un stockage à froid pour les gros avoirs. Vos actifs sont protégés par des mesures de sécurité leaders du marché.',
+        'landing.faq.4.q': 'Comment fonctionne le bot de trading IA ?',
+        'landing.faq.4.a': 'Notre IA surveille en continu les écarts de prix sur 50+ exchanges. Lorsqu’elle détecte une opportunité d’arbitrage (écart de prix), elle exécute automatiquement des trades pour profiter de la différence. Vous pouvez démarrer/arrêter le bot à tout moment.',
+        'landing.faq.5.q': 'Comment fonctionnent les récompenses de parrainage ?',
+        'landing.faq.5.a': 'Gagnez $10 pour chaque ami qui s’inscrit via votre lien de parrainage. Vos bonus s’accumulent dans le Portefeuille Bonus. Une fois que vous avez au moins $50 de bonus et 1 parrainage, vous pouvez les retirer vers votre Portefeuille LIVE.',
+        'landing.faq.6.q': 'La vérification du compte est-elle obligatoire ?',
+        'landing.faq.6.a': 'La création de base d’un compte ne nécessite qu’un e-mail et un mot de passe. La vérification KYC peut être requise pour des limites de retrait plus élevées ou certaines fonctionnalités afin de respecter les exigences réglementaires.',
+        'landing.cta.title': 'Prêt à commencer à trader ?',
+        'landing.cta.subtitle': 'Rejoignez 150,000+ traders qui utilisent déjà Arbitrix AI pour faire fructifier leur patrimoine',
+        'landing.cta.button': 'Créer un compte gratuit',
+        'landing.cta.note': 'Aucune carte de crédit requise • Démo gratuite incluse',
+        'landing.footer.tagline': 'La plateforme de trading d’arbitrage intelligent pour l’investisseur moderne.',
+        'landing.footer.product': 'Produit',
+        'landing.footer.legal': 'Légal',
+        'landing.footer.contact': 'Contact',
+        'landing.footer.privacy': 'Politique de confidentialité',
+        'landing.footer.terms': 'Conditions d’utilisation',
+        'landing.footer.copyright': '© 2026 Arbitrix AI. Tous droits réservés.',
+        'landing.footer.disclaimer': 'Trader comporte des risques. Les performances passées ne préjugent pas des résultats futurs.',
+        'auth.brand.title': 'Tradez plus intelligemment avec l’arbitrage intelligent',
+        'auth.brand.subtitle': 'Rejoignez des milliers de traders qui tirent parti de notre plateforme propulsée par l’IA pour des opportunités d’arbitrage multi-actifs fluides sur les exchanges mondiaux.',
+        'auth.brand.security.title': 'Sécurité de niveau bancaire',
+        'auth.brand.security.desc': 'Vos actifs sont protégés par un chiffrement leader du marché et un stockage à froid',
+        'auth.brand.execution.title': 'Exécution ultra-rapide',
+        'auth.brand.execution.desc': 'Exécutez des trades en millisecondes grâce à nos algorithmes IA optimisés',
+        'auth.brand.analytics.title': 'Analyses en temps réel',
+        'auth.brand.analytics.desc': 'Suivez les performances de votre portefeuille avec des outils de suivi avancés',
+        'auth.brand.volumeTraded': 'Volume échangé',
+        'auth.brand.activeUsers': 'Utilisateurs actifs',
+        'auth.brand.uptime': 'Disponibilité',
+        'auth.tab.signin': 'Se connecter',
+        'auth.tab.signup': 'Créer un compte',
+        'auth.login.title': 'Bon retour',
+        'auth.login.subtitle': 'Connectez-vous pour accéder à votre tableau de bord de trading',
+        'auth.login.emailLabel': 'Adresse e-mail',
+        'auth.login.emailPlaceholder': 'vous@exemple.com',
+        'auth.login.passwordLabel': 'Mot de passe',
+        'auth.login.passwordPlaceholder': 'Saisissez votre mot de passe',
+        'auth.login.rememberMe': 'Se souvenir de moi',
+        'auth.login.forgotPassword': 'Mot de passe oublié ?',
+        'auth.login.submit': 'Se connecter',
+        'auth.signup.title': 'Créer un compte',
+        'auth.signup.subtitle': 'Commencez votre parcours de trading dès aujourd’hui',
+        'auth.signup.nameLabel': 'Nom complet',
+        'auth.signup.namePlaceholder': 'Jean Dupont',
+        'auth.signup.emailLabel': 'Adresse e-mail',
+        'auth.signup.emailPlaceholder': 'vous@exemple.com',
+        'auth.signup.passwordLabel': 'Mot de passe',
+        'auth.signup.passwordPlaceholder': 'Créez un mot de passe fort',
+        'auth.signup.passwordStrength': 'Robustesse du mot de passe',
+        'auth.signup.confirmLabel': 'Confirmer le mot de passe',
+        'auth.signup.confirmPlaceholder': 'Confirmez votre mot de passe',
+        'auth.signup.referralLabel': 'Code de parrainage',
+        'auth.signup.referralOptional': '(Facultatif)',
+        'auth.signup.referralPlaceholder': 'ARBI-XXXX',
+        'auth.signup.submit': 'Créer un compte',
+        'auth.signup.terms': 'En créant un compte, vous acceptez nos <a href="/terms-of-service.html" target="_blank">Conditions d’utilisation</a> et notre <a href="/privacy-policy.html" target="_blank">Politique de confidentialité</a>',
+        'auth.switch.noAccount': 'Vous n’avez pas de compte ?',
+        'auth.switch.hasAccount': 'Vous avez déjà un compte ?',
+        'auth.securityBadge': 'Sécurisé par un chiffrement SSL 256-bit',
+        'auth.2fa.title': 'Vérification par e-mail',
+        'auth.2fa.hint': 'Saisissez le code à 6 chiffres envoyé à votre e-mail',
+        'auth.2fa.codeLabel': 'Code de vérification',
+        'auth.2fa.codeExpiry': 'Le code expire dans {{time}}',
+        'auth.2fa.submit': 'Vérifier et se connecter',
+        'auth.2fa.resendPrefix': 'Vous n’avez pas reçu le code ?',
+        'auth.2fa.resend': 'Renvoyer',
+        'forgot.title': 'Réinitialiser le mot de passe',
+        'forgot.description': 'Saisissez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
+        'forgot.emailLabel': 'Adresse e-mail',
+        'forgot.emailPlaceholder': 'Saisissez votre e-mail',
+        'forgot.submit': 'Envoyer le lien de réinitialisation',
+        'forgot.success.title': 'Vérifiez votre e-mail',
+        'forgot.success.body': 'Si un compte existe avec cet e-mail, nous avons envoyé un lien de réinitialisation de mot de passe à votre boîte de réception. Vérifiez votre e-mail et suivez les instructions.',
+        'forgot.success.hint': 'Vous n’avez pas reçu l’e-mail ? Vérifiez votre dossier spam ou réessayez.',
+        'forgot.gotIt': 'J’ai compris',
+        'forgot.backToSignIn': 'Retour à la connexion',
+        'walletSync.loading': 'Chargement du portefeuille…',
+        'walletSync.slowTitle': 'Cela prend plus de temps que prévu',
+        'walletSync.slowBody': 'Votre portefeuille met plus de temps que d’habitude à charger. Cela peut arriver avec une connexion lente ou instable.',
+        'walletSync.refresh': 'Actualiser le compte',
         'sidebar.tagline': 'Arbitrage Multi-Actifs',
         'sidebar.dashboard': 'Tableau de bord',
         'sidebar.markets': 'Marchés',
@@ -7157,6 +7838,177 @@ const TRANSLATIONS = {
         'landing.hero3': 'التداول',
         'landing.subtitle': 'روبوت مراجحة ذكي يفحص العملات الرقمية والفوركس والأسهم والسلع في الوقت الفعلي.',
         'landing.goToDashboard': 'الانتقال إلى لوحة التحكم',
+        'landing.nav.features': 'المميزات',
+        'landing.nav.howItWorks': 'كيف يعمل',
+        'landing.nav.security': 'الأمان',
+        'landing.nav.faq': 'الأسئلة الشائعة',
+        'landing.userGreeting': 'مرحبًا، {{name}}',
+        'landing.launchApp': 'تشغيل التطبيق',
+        'landing.hero.badge': 'الآن مع المراجحة الذكية المدعومة بالذكاء الاصطناعي',
+        'landing.hero.title': 'تداول بذكاء أكبر مع<br><span class="landing-gradient-text">المراجحة بالذكاء الاصطناعي</span>',
+        'landing.hero.subtitle': 'دع روبوتنا الذكي يفحص العملات الرقمية والفوركس والأسهم والسلع على مدار 24/7 للعثور على فرص مراجحة مربحة وتنفيذها تلقائيًا.',
+        'landing.hero.ctaPrimary': 'ابدأ مجانًا',
+        'landing.hero.ctaSecondary': 'شاهد كيف يعمل',
+        'landing.hero.trust.encryption': 'تشفير 256-bit',
+        'landing.hero.trust.withdrawals': 'سحب خلال 15-30 دقيقة',
+        'landing.hero.trust.users': '150K+ مستخدم',
+        'landing.stats.volumeTraded': 'إجمالي حجم التداول',
+        'landing.stats.activeTraders': 'المتداولون النشطون',
+        'landing.stats.uptime': 'وقت تشغيل المنصة',
+        'landing.stats.countries': 'الدول المدعومة',
+        'landing.trust.security.title': 'أمان بمستوى البنوك',
+        'landing.trust.security.desc': 'تشفير SSL 256-bit وحماية بالتخزين البارد',
+        'landing.trust.nonCustodial.title': 'غير أمين',
+        'landing.trust.nonCustodial.desc': 'أنت تتحكم في أموالك في جميع الأوقات',
+        'landing.trust.withdrawals.title': 'سحب سريع',
+        'landing.trust.withdrawals.desc': 'وقت معالجة من 15 إلى 30 دقيقة',
+        'landing.trust.global.title': 'وصول عالمي',
+        'landing.trust.global.desc': 'تداول من أي مكان في العالم',
+        'landing.features.tag': 'المميزات',
+        'landing.features.title': 'كل ما تحتاجه للتداول بذكاء أكبر',
+        'landing.features.subtitle': 'أدوات قوية مصممة للمبتدئين والمتداولين المحترفين على حد سواء',
+        'landing.features.ai.title': 'محرك تداول بالذكاء الاصطناعي',
+        'landing.features.ai.desc': 'يستمر ذكاؤنا الاصطناعي المتقدم في فحص 50+ منصة تداول للبحث عن فرص المراجحة، وينفذ الصفقات تلقائيًا 24/7.',
+        'landing.features.ai.list1': 'فحص السوق في الوقت الفعلي',
+        'landing.features.ai.list2': 'تنفيذ تلقائي للصفقات',
+        'landing.features.ai.list3': 'إدارة مخاطر ذكية',
+        'landing.features.multiAsset.title': 'تداول متعدد الأصول',
+        'landing.features.multiAsset.desc': 'تداول عبر فئات أصول متعددة من لوحة تحكم موحدة واحدة مع إدارة سلسة للمحفظة.',
+        'landing.features.multiAsset.list1': 'العملات الرقمية ورموز DeFi',
+        'landing.features.multiAsset.list2': 'أزواج الفوركس',
+        'landing.features.multiAsset.list3': 'الأسهم والسلع',
+        'landing.features.risk.title': 'إدارة المخاطر',
+        'landing.features.risk.desc': 'ضمانات مدمجة تحمي رأس مالك مع ضوابط stop-loss وtake-profit وتحديد حجم المركز.',
+        'landing.features.risk.list1': 'stop-loss قابل للضبط',
+        'landing.features.risk.list2': 'حدود خسارة يومية',
+        'landing.features.risk.list3': 'تنويع المحفظة',
+        'landing.features.wallet.title': 'محفظة آمنة',
+        'landing.features.wallet.desc': 'نظام محفظة غير أمين مع تتبع الرصيد في الوقت الفعلي ودعم متعدد السلاسل.',
+        'landing.features.wallet.list1': 'تحكم كامل في الأموال',
+        'landing.features.wallet.list2': 'دعم متعدد الشبكات',
+        'landing.features.wallet.list3': 'إيداع فوري',
+        'landing.features.referral.title': 'مكافآت الإحالة',
+        'landing.features.referral.desc': 'اكسب $10 مقابل كل صديق ينضم. لا توجد حدود لمقدار ما يمكنك كسبه من الإحالات.',
+        'landing.features.referral.list1': '$10 لكل إحالة',
+        'landing.features.referral.list2': 'مكافآت فورية',
+        'landing.features.referral.list3': 'عمولات مدى الحياة',
+        'landing.features.multiDevice.title': 'دعم متعدد الأجهزة',
+        'landing.features.multiDevice.desc': 'الوصول إلى لوحة التحكم من أي جهاز. سطح المكتب أو الجهاز اللوحي أو الجوال — محفظتك ترافقك أينما كنت.',
+        'landing.features.multiDevice.list1': 'تصميم متجاوب',
+        'landing.features.multiDevice.list2': 'دعم PWA',
+        'landing.features.multiDevice.list3': 'وضع عدم الاتصال',
+        'landing.howItWorks.tag': 'العملية',
+        'landing.howItWorks.title': 'ابدأ التداول في 4 خطوات بسيطة',
+        'landing.howItWorks.subtitle': 'انطلق خلال دقائق، لا ساعات',
+        'landing.howItWorks.step1.title': 'أنشئ حسابك',
+        'landing.howItWorks.step1.desc': 'سجّل في ثوانٍ ببريدك الإلكتروني فقط. لا حاجة إلى تحقق معقد للبدء.',
+        'landing.howItWorks.step2.title': 'إيداع الأموال',
+        'landing.howItWorks.step2.desc': 'أودع USDT باستخدام شبكة TRC20 (موصى بها لأقل الرسوم). تصل أموالك فورًا.',
+        'landing.howItWorks.step3.title': 'تفعيل روبوت الذكاء الاصطناعي',
+        'landing.howItWorks.step3.desc': 'فعّل روبوت المراجحة بنقرة واحدة. يبدأ ذكاؤنا الاصطناعي في الفحص وتنفيذ الصفقات تلقائيًا.',
+        'landing.howItWorks.step4.title': 'المتابعة والسحب',
+        'landing.howItWorks.step4.desc': 'تابع أداءك في الوقت الفعلي. اسحب أرباحك في أي وقت مع معالجة خلال 15-30 دقيقة.',
+        'landing.testimonials.tag': 'آراء العملاء',
+        'landing.testimonials.title': 'موثوق من المتداولين حول العالم',
+        'landing.testimonials.subtitle': 'انضم إلى آلاف المستخدمين الراضين',
+        'landing.testimonials.1.text': '"حوّل روبوت الذكاء الاصطناعي استراتيجية التداول الخاصة بي. سهل الاستخدام بشكل لا يصدق والنتائج تتحدث عن نفسها. ارتفعت أرباحي 23% في الشهر الأول!"',
+        'landing.testimonials.1.name': 'Michael J.',
+        'landing.testimonials.1.role': 'متداول محترف',
+        'landing.testimonials.2.text': '"أخيرًا، منصة تفي بوعودها فعليًا. دعم الأصول المتعددة رائع، والسحب سريع للغاية. أنصح به بشدة!"',
+        'landing.testimonials.2.name': 'Sarah C.',
+        'landing.testimonials.2.role': 'مستثمرة في العملات الرقمية',
+        'landing.testimonials.3.text': '"بصفتي شخصًا جديدًا في التداول، كنت متوترًا في البداية. لكن الوضع التجريبي والواجهة البديهية جعلت الأمر سهلاً. الآن أحقق أرباحًا بشكل ثابت."',
+        'landing.testimonials.3.name': 'David K.',
+        'landing.testimonials.3.role': 'متداول مبتدئ',
+        'landing.faq.tag': 'الأسئلة الشائعة',
+        'landing.faq.title': 'الأسئلة الشائعة',
+        'landing.faq.subtitle': 'كل ما تحتاج معرفته عن Arbitrix AI',
+        'landing.faq.1.q': 'كيف أقوم بأول إيداع لي؟',
+        'landing.faq.1.a': 'بدّل إلى وضع LIVE، انقر على "إيداع" في الشريط الجانبي، أدخل المبلغ المطلوب، اختر شبكة TRC20 (موصى بها لأقل الرسوم)، انقر على "الحصول على عنوان الدفع"، وأرسل USDT إلى العنوان المعروض. سيتم اكتشاف إيداعك تلقائيًا وإضافته فورًا.',
+        'landing.faq.2.q': 'كم تستغرق عمليات السحب؟',
+        'landing.faq.2.a': 'تتم معالجة عمليات السحب خلال 15-30 دقيقة بعد الموافقة. للسحب: بدّل إلى وضع LIVE، قم بإيداع أولًا، أكمل صفقة واحدة على الأقل، ثم انقر على "سحب" في الشريط الجانبي.',
+        'landing.faq.3.q': 'هل أموالي آمنة ومحمية؟',
+        'landing.faq.3.a': 'نعم. نستخدم تشفير SSL 256-bit، وبنية محفظة غير أمينة (أنت تتحكم في أموالك)، وتخزينًا باردًا للكميات الكبيرة. أصولك محمية بأحدث إجراءات الأمان في المجال.',
+        'landing.faq.4.q': 'كيف يعمل روبوت التداول بالذكاء الاصطناعي؟',
+        'landing.faq.4.a': 'يراقب ذكاؤنا الاصطناعي باستمرار فروق الأسعار عبر 50+ منصة. عندما يكتشف فرصة مراجحة (تباين في السعر)، ينفذ الصفقات تلقائيًا لتحقيق ربح من الفرق. يمكنك بدء/إيقاف الروبوت في أي وقت.',
+        'landing.faq.5.q': 'كيف تعمل مكافآت الإحالة؟',
+        'landing.faq.5.a': 'اكسب $10 عن كل صديق يسجّل عبر رابط الإحالة الخاص بك. تتراكم مكافآتك في محفظة المكافآت. بمجرد أن يكون لديك $50 على الأقل من المكافآت وإحالة واحدة، يمكنك السحب إلى محفظة LIVE.',
+        'landing.faq.6.q': 'هل التحقق من الحساب مطلوب؟',
+        'landing.faq.6.a': 'يتطلب إنشاء حساب أساسي بريدًا إلكترونيًا وكلمة مرور فقط. قد يلزم التحقق KYC لحدود سحب أعلى أو ميزات محددة للامتثال للمتطلبات التنظيمية.',
+        'landing.cta.title': 'هل أنت مستعد لبدء التداول؟',
+        'landing.cta.subtitle': 'انضم إلى 150,000+ متداول يستخدمون بالفعل Arbitrix AI لتنمية ثروتهم',
+        'landing.cta.button': 'أنشئ حسابًا مجانيًا',
+        'landing.cta.note': 'لا حاجة لبطاقة ائتمان • يتضمن عرضًا تجريبيًا مجانيًا',
+        'landing.footer.tagline': 'منصة المراجحة الذكية للتداول للمستثمر الحديث.',
+        'landing.footer.product': 'المنتج',
+        'landing.footer.legal': 'قانوني',
+        'landing.footer.contact': 'تواصل',
+        'landing.footer.privacy': 'سياسة الخصوصية',
+        'landing.footer.terms': 'شروط الخدمة',
+        'landing.footer.copyright': '© 2026 Arbitrix AI. جميع الحقوق محفوظة.',
+        'landing.footer.disclaimer': 'ينطوي التداول على مخاطر. الأداء السابق ليس مؤشرًا على النتائج المستقبلية.',
+        'auth.brand.title': 'تداول بذكاء أكبر مع المراجحة الذكية',
+        'auth.brand.subtitle': 'انضم إلى آلاف المتداولين الذين يستفيدون من منصتنا المدعومة بالذكاء الاصطناعي لفرص مراجحة متعددة الأصول سلسة عبر المنصات العالمية.',
+        'auth.brand.security.title': 'أمان بمستوى البنوك',
+        'auth.brand.security.desc': 'أصولك محمية بتشفير رائد في المجال وتخزين بارد',
+        'auth.brand.execution.title': 'تنفيذ سريع للغاية',
+        'auth.brand.execution.desc': 'نفّذ الصفقات بالملي ثانية بفضل خوارزميات الذكاء الاصطناعي المحسّنة لدينا',
+        'auth.brand.analytics.title': 'تحليلات في الوقت الفعلي',
+        'auth.brand.analytics.desc': 'راقب أداء محفظتك بأدوات تتبع متقدمة',
+        'auth.brand.volumeTraded': 'حجم التداول',
+        'auth.brand.activeUsers': 'المستخدمون النشطون',
+        'auth.brand.uptime': 'وقت التشغيل',
+        'auth.tab.signin': 'تسجيل الدخول',
+        'auth.tab.signup': 'إنشاء حساب',
+        'auth.login.title': 'مرحبًا بعودتك',
+        'auth.login.subtitle': 'سجّل الدخول للوصول إلى لوحة تحكم التداول',
+        'auth.login.emailLabel': 'البريد الإلكتروني',
+        'auth.login.emailPlaceholder': 'you@example.com',
+        'auth.login.passwordLabel': 'كلمة المرور',
+        'auth.login.passwordPlaceholder': 'أدخل كلمة المرور',
+        'auth.login.rememberMe': 'تذكّرني',
+        'auth.login.forgotPassword': 'نسيت كلمة المرور؟',
+        'auth.login.submit': 'تسجيل الدخول',
+        'auth.signup.title': 'إنشاء حساب',
+        'auth.signup.subtitle': 'ابدأ رحلة التداول اليوم',
+        'auth.signup.nameLabel': 'الاسم الكامل',
+        'auth.signup.namePlaceholder': 'محمد علي',
+        'auth.signup.emailLabel': 'البريد الإلكتروني',
+        'auth.signup.emailPlaceholder': 'you@example.com',
+        'auth.signup.passwordLabel': 'كلمة المرور',
+        'auth.signup.passwordPlaceholder': 'أنشئ كلمة مرور قوية',
+        'auth.signup.passwordStrength': 'قوة كلمة المرور',
+        'auth.signup.confirmLabel': 'تأكيد كلمة المرور',
+        'auth.signup.confirmPlaceholder': 'أكّد كلمة المرور',
+        'auth.signup.referralLabel': 'رمز الإحالة',
+        'auth.signup.referralOptional': '(اختياري)',
+        'auth.signup.referralPlaceholder': 'ARBI-XXXX',
+        'auth.signup.submit': 'إنشاء حساب',
+        'auth.signup.terms': 'بإنشاء حساب، فإنك توافق على <a href="/terms-of-service.html" target="_blank">شروط الخدمة</a> و<a href="/privacy-policy.html" target="_blank">سياسة الخصوصية</a>',
+        'auth.switch.noAccount': 'ليس لديك حساب؟',
+        'auth.switch.hasAccount': 'لديك حساب بالفعل؟',
+        'auth.securityBadge': 'محمي بتشفير SSL 256-bit',
+        'auth.2fa.title': 'التحقق بالبريد الإلكتروني',
+        'auth.2fa.hint': 'أدخل الرمز المكوّن من 6 أرقام المرسل إلى بريدك الإلكتروني',
+        'auth.2fa.codeLabel': 'رمز التحقق',
+        'auth.2fa.codeExpiry': 'تنتهي صلاحية الرمز خلال {{time}}',
+        'auth.2fa.submit': 'تحقق وتسجيل الدخول',
+        'auth.2fa.resendPrefix': 'لم تستلم الرمز؟',
+        'auth.2fa.resend': 'إعادة إرسال',
+        'forgot.title': 'إعادة تعيين كلمة المرور',
+        'forgot.description': 'أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور.',
+        'forgot.emailLabel': 'البريد الإلكتروني',
+        'forgot.emailPlaceholder': 'أدخل بريدك الإلكتروني',
+        'forgot.submit': 'إرسال رابط إعادة التعيين',
+        'forgot.success.title': 'تحقق من بريدك الإلكتروني',
+        'forgot.success.body': 'إذا كان هناك حساب بهذا البريد الإلكتروني، فقد أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك الوارد. يرجى التحقق من بريدك الإلكتروني واتباع التعليمات.',
+        'forgot.success.hint': 'لم تستلم البريد الإلكتروني؟ تحقق من مجلد الرسائل غير المرغوب فيها أو حاول مرة أخرى.',
+        'forgot.gotIt': 'حسنًا',
+        'forgot.backToSignIn': 'العودة إلى تسجيل الدخول',
+        'walletSync.loading': 'جارٍ تحميل المحفظة…',
+        'walletSync.slowTitle': 'الأمر يستغرق وقتًا أطول من المتوقع',
+        'walletSync.slowBody': 'يستغرق تحميل محفظتك وقتًا أطول من المعتاد. قد يحدث ذلك عند وجود اتصال بطيء أو غير مستقر.',
+        'walletSync.refresh': 'تحديث الحساب',
         'sidebar.tagline': 'مراجحة متعددة الأصول',
         'sidebar.dashboard': 'لوحة التحكم',
         'sidebar.markets': 'الأسواق',
@@ -7421,6 +8273,177 @@ const TRANSLATIONS = {
         'landing.hero3': '交易',
         'landing.subtitle': '智能套利机器人，实时扫描加密货币、外汇、股票和大宗商品。',
         'landing.goToDashboard': '前往仪表盘',
+        'landing.nav.features': '功能',
+        'landing.nav.howItWorks': '工作原理',
+        'landing.nav.security': '安全',
+        'landing.nav.faq': '常见问题',
+        'landing.userGreeting': '欢迎，{{name}}',
+        'landing.launchApp': '启动应用',
+        'landing.hero.badge': '现在配备 AI 驱动的智能套利',
+        'landing.hero.title': '用<br><span class="landing-gradient-text">AI 驱动套利</span>更聪明地交易',
+        'landing.hero.subtitle': '让我们的智能机器人 24/7 扫描加密货币、外汇、股票和大宗商品，自动发现并执行盈利的套利机会。',
+        'landing.hero.ctaPrimary': '免费开始',
+        'landing.hero.ctaSecondary': '查看工作原理',
+        'landing.hero.trust.encryption': '256-bit 加密',
+        'landing.hero.trust.withdrawals': '15-30 分钟提现',
+        'landing.hero.trust.users': '150K+ 用户',
+        'landing.stats.volumeTraded': '总交易量',
+        'landing.stats.activeTraders': '活跃交易者',
+        'landing.stats.uptime': '平台正常运行时间',
+        'landing.stats.countries': '支持的国家/地区',
+        'landing.trust.security.title': '银行级安全',
+        'landing.trust.security.desc': '256-bit SSL 加密与冷存储保护',
+        'landing.trust.nonCustodial.title': '非托管',
+        'landing.trust.nonCustodial.desc': '您始终掌控自己的资金',
+        'landing.trust.withdrawals.title': '快速提现',
+        'landing.trust.withdrawals.desc': '15-30 分钟处理时间',
+        'landing.trust.global.title': '全球访问',
+        'landing.trust.global.desc': '在世界任何地方交易',
+        'landing.features.tag': '功能',
+        'landing.features.title': '更聪明地交易所需的一切',
+        'landing.features.subtitle': '为初学者和专业交易者打造的强大工具',
+        'landing.features.ai.title': 'AI 交易引擎',
+        'landing.features.ai.desc': '我们的先进 AI 持续扫描 50+ 家交易所寻找套利机会，24/7 自动执行交易。',
+        'landing.features.ai.list1': '实时市场扫描',
+        'landing.features.ai.list2': '自动执行交易',
+        'landing.features.ai.list3': '智能风险管理',
+        'landing.features.multiAsset.title': '多资产交易',
+        'landing.features.multiAsset.desc': '从单一统一仪表盘跨多种资产类别交易，实现无缝的投组合管理。',
+        'landing.features.multiAsset.list1': '加密货币与 DeFi 代币',
+        'landing.features.multiAsset.list2': '外汇货币对',
+        'landing.features.multiAsset.list3': '股票与大宗商品',
+        'landing.features.risk.title': '风险管理',
+        'landing.features.risk.desc': '内置保护机制通过 stop-loss、take-profit 和仓位规模控制保护您的资金。',
+        'landing.features.risk.list1': '可配置 stop-loss',
+        'landing.features.risk.list2': '每日亏损限额',
+        'landing.features.risk.list3': '投资组合分散',
+        'landing.features.wallet.title': '安全钱包',
+        'landing.features.wallet.desc': '非托管钱包系统，支持实时余额跟踪和多链支持。',
+        'landing.features.wallet.list1': '资金完全掌控',
+        'landing.features.wallet.list2': '多网络支持',
+        'landing.features.wallet.list3': '即时充值',
+        'landing.features.referral.title': '推荐奖励',
+        'landing.features.referral.desc': '每邀请一位好友加入即可赚取 $10。通过推荐可获得的收益无上限。',
+        'landing.features.referral.list1': '每次推荐 $10',
+        'landing.features.referral.list2': '即时奖励',
+        'landing.features.referral.list3': '终身佣金',
+        'landing.features.multiDevice.title': '多设备支持',
+        'landing.features.multiDevice.desc': '从任何设备访问您的仪表盘。桌面、平板或手机 — 您的投资组合随您而行。',
+        'landing.features.multiDevice.list1': '响应式设计',
+        'landing.features.multiDevice.list2': 'PWA 支持',
+        'landing.features.multiDevice.list3': '离线模式',
+        'landing.howItWorks.tag': '流程',
+        'landing.howItWorks.title': '4 个简单步骤开始交易',
+        'landing.howItWorks.subtitle': '几分钟即可上手，而非数小时',
+        'landing.howItWorks.step1.title': '创建您的账户',
+        'landing.howItWorks.step1.desc': '只需邮箱即可在几秒内注册。无需复杂验证即可开始。',
+        'landing.howItWorks.step2.title': '存入资金',
+        'landing.howItWorks.step2.desc': '使用 TRC20 网络存入 USDT（手续费最低，推荐）。资金即时到账。',
+        'landing.howItWorks.step3.title': '激活 AI 机器人',
+        'landing.howItWorks.step3.desc': '一键启用套利机器人。我们的 AI 会自动开始扫描并执行交易。',
+        'landing.howItWorks.step4.title': '监控与提现',
+        'landing.howItWorks.step4.desc': '实时跟踪您的表现。随时提现利润，处理时间 15-30 分钟。',
+        'landing.testimonials.tag': '用户评价',
+        'landing.testimonials.title': '受全球交易者信赖',
+        'landing.testimonials.subtitle': '加入数以千计的满意用户',
+        'landing.testimonials.1.text': '"AI 机器人改变了我的交易策略。它非常易用，效果不言而喻。第一个月我的收益就达到了 23%！"',
+        'landing.testimonials.1.name': 'Michael J.',
+        'landing.testimonials.1.role': '专业交易者',
+        'landing.testimonials.2.text': '"终于有一款真正兑现承诺的平台了。多资产支持非常棒，提现闪电般快速。强烈推荐！"',
+        'landing.testimonials.2.name': 'Sarah C.',
+        'landing.testimonials.2.role': '加密投资者',
+        'landing.testimonials.3.text': '"作为交易新手，我一开始很紧张。但模拟模式和直观的界面让一切变得简单。现在我持续盈利。"',
+        'landing.testimonials.3.name': 'David K.',
+        'landing.testimonials.3.role': '初学交易者',
+        'landing.faq.tag': '常见问题',
+        'landing.faq.title': '常见问题',
+        'landing.faq.subtitle': '您想了解的关于 Arbitrix AI 的一切',
+        'landing.faq.1.q': '如何进行我的首次充值？',
+        'landing.faq.1.a': '切换到 LIVE 模式，点击侧边栏中的“充值”，输入您想要的金额，选择 TRC20 网络（手续费最低，推荐），点击“获取付款地址”，然后向显示的地址发送 USDT。您的充值将被自动检测并即时到账。',
+        'landing.faq.2.q': '提现需要多长时间？',
+        'landing.faq.2.a': '提现会在审批后 15-30 分钟内处理。如需提现：切换到 LIVE 模式，先进行一次充值，完成至少 1 笔交易，然后点击侧边栏中的“提现”。',
+        'landing.faq.3.q': '我的资金安全吗？',
+        'landing.faq.3.a': '是的。我们使用 256-bit SSL 加密、非托管钱包架构（您掌控自己的资金）以及针对大额资产的冷存储。您的资产受到业内领先的安全措施保护。',
+        'landing.faq.4.q': 'AI 交易机器人如何工作？',
+        'landing.faq.4.a': '我们的 AI 持续监控 50+ 家交易所的价格差异。当它发现套利机会（价格差异）时，会自动执行交易以从差价中获利。您可以随时启动/停止机器人。',
+        'landing.faq.5.q': '推荐奖励如何运作？',
+        'landing.faq.5.a': '每位通过您的推荐链接注册的好友可为您赚取 $10。您的奖励会累积到奖励钱包中。当您拥有至少 $50 奖励和 1 位推荐后，即可提现到您的 LIVE 钱包。',
+        'landing.faq.6.q': '需要账户验证吗？',
+        'landing.faq.6.a': '创建基础账户仅需邮箱和密码。为遵守监管要求，可能需要 KYC 验证以获得更高的提现额度或使用特定功能。',
+        'landing.cta.title': '准备好开始交易了吗？',
+        'landing.cta.subtitle': '加入 150,000+ 名已在通过 Arbitrix AI 增长财富的交易者',
+        'landing.cta.button': '创建免费账户',
+        'landing.cta.note': '无需信用卡 • 包含免费模拟',
+        'landing.footer.tagline': '面向现代投资者的智能套利交易平台。',
+        'landing.footer.product': '产品',
+        'landing.footer.legal': '法律',
+        'landing.footer.contact': '联系',
+        'landing.footer.privacy': '隐私政策',
+        'landing.footer.terms': '服务条款',
+        'landing.footer.copyright': '© 2026 Arbitrix AI. 保留所有权利。',
+        'landing.footer.disclaimer': '交易存在风险。过往表现不代表未来结果。',
+        'auth.brand.title': '用智能套利更聪明地交易',
+        'auth.brand.subtitle': '加入数以千计的交易者，借助我们 AI 驱动的平台，在全球交易所实现无缝的多资产套利机会。',
+        'auth.brand.security.title': '银行级安全',
+        'auth.brand.security.desc': '您的资产受到业内领先的加密和冷存储保护',
+        'auth.brand.execution.title': '闪电般的执行速度',
+        'auth.brand.execution.desc': '借助我们优化的 AI 算法在毫秒内执行交易',
+        'auth.brand.analytics.title': '实时分析',
+        'auth.brand.analytics.desc': '使用先进的跟踪工具监控您的投资组合表现',
+        'auth.brand.volumeTraded': '交易量',
+        'auth.brand.activeUsers': '活跃用户',
+        'auth.brand.uptime': '正常运行时间',
+        'auth.tab.signin': '登录',
+        'auth.tab.signup': '创建账户',
+        'auth.login.title': '欢迎回来',
+        'auth.login.subtitle': '登录以访问您的交易仪表盘',
+        'auth.login.emailLabel': '电子邮箱',
+        'auth.login.emailPlaceholder': 'you@example.com',
+        'auth.login.passwordLabel': '密码',
+        'auth.login.passwordPlaceholder': '输入您的密码',
+        'auth.login.rememberMe': '记住我',
+        'auth.login.forgotPassword': '忘记密码？',
+        'auth.login.submit': '登录',
+        'auth.signup.title': '创建账户',
+        'auth.signup.subtitle': '今天就开启您的交易之旅',
+        'auth.signup.nameLabel': '全名',
+        'auth.signup.namePlaceholder': '张三',
+        'auth.signup.emailLabel': '电子邮箱',
+        'auth.signup.emailPlaceholder': 'you@example.com',
+        'auth.signup.passwordLabel': '密码',
+        'auth.signup.passwordPlaceholder': '创建一个强密码',
+        'auth.signup.passwordStrength': '密码强度',
+        'auth.signup.confirmLabel': '确认密码',
+        'auth.signup.confirmPlaceholder': '确认您的密码',
+        'auth.signup.referralLabel': '推荐码',
+        'auth.signup.referralOptional': '（可选）',
+        'auth.signup.referralPlaceholder': 'ARBI-XXXX',
+        'auth.signup.submit': '创建账户',
+        'auth.signup.terms': '创建账户即表示您同意我们的<a href="/terms-of-service.html" target="_blank">服务条款</a>和<a href="/privacy-policy.html" target="_blank">隐私政策</a>',
+        'auth.switch.noAccount': '没有账户？',
+        'auth.switch.hasAccount': '已经有账户？',
+        'auth.securityBadge': '受 256-bit SSL 加密保护',
+        'auth.2fa.title': '邮箱验证',
+        'auth.2fa.hint': '输入发送到您邮箱的 6 位验证码',
+        'auth.2fa.codeLabel': '验证码',
+        'auth.2fa.codeExpiry': '验证码将在 {{time}} 后过期',
+        'auth.2fa.submit': '验证并登录',
+        'auth.2fa.resendPrefix': '没有收到验证码？',
+        'auth.2fa.resend': '重新发送',
+        'forgot.title': '重置密码',
+        'forgot.description': '输入您的电子邮箱，我们将向您发送一个重置密码的链接。',
+        'forgot.emailLabel': '电子邮箱',
+        'forgot.emailPlaceholder': '输入您的邮箱',
+        'forgot.submit': '发送重置链接',
+        'forgot.success.title': '请查看您的邮箱',
+        'forgot.success.body': '如果存在使用该邮箱的账户，我们已向您的收件箱发送了一封密码重置链接。请查看您的邮箱并按照说明操作。',
+        'forgot.success.hint': '没有收到邮件？请检查垃圾邮件文件夹或重试。',
+        'forgot.gotIt': '知道了',
+        'forgot.backToSignIn': '返回登录',
+        'walletSync.loading': '正在加载钱包…',
+        'walletSync.slowTitle': '耗时比预期更长',
+        'walletSync.slowBody': '您的钱包加载时间比平时长。这可能在网络缓慢或不稳定时发生。',
+        'walletSync.refresh': '刷新账户',
         'sidebar.tagline': '多资产套利',
         'sidebar.dashboard': '仪表盘',
         'sidebar.markets': '市场',
