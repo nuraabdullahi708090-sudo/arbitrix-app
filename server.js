@@ -1143,34 +1143,69 @@ app.post('/api/auth/register', async (req, res) => {
       // Self-referral prevention
       console.log('Self-referral attempt blocked for user:', email);
     } else {
-      // Look up the referrer
-      const { data: referrer } = await supabase
+      // Look up the referrer (admin client: bypasses RLS, service-role read)
+      const { data: referrer, error: referrerError } = await supabaseAdmin
         .from('users')
         .select('id, email')
         .eq('referral_code', normalizedRefCode)
         .single();
-      
+
+      if (referrerError) {
+        // PGRST116 = no matching row (code not found); not a hard failure.
+        // Multi-row (also surfaced as PGRST116 under .single()) is logged but non-fatal.
+        if (referrerError.code !== 'PGRST116') {
+          console.error('Referral referrer lookup error:', {
+            code: referrerError.code,
+            message: referrerError.message,
+            details: referrerError.details,
+            hint: referrerError.hint
+          });
+        }
+      }
+
       if (referrer) {
         // Check for duplicate referral relationship (regardless of status)
-        const { data: existingReferral } = await supabase
+        const { data: existingReferral, error: existingError } = await supabaseAdmin
           .from('referrals')
           .select('id, status')
           .eq('referrer_id', referrer.id)
           .eq('referred_id', user.id)
           .single();
-        
+
+        if (existingError && existingError.code !== 'PGRST116') {
+          console.error('Referral duplicate-check error:', {
+            code: existingError.code,
+            message: existingError.message,
+            details: existingError.details,
+            hint: existingError.hint
+          });
+        }
+
         if (!existingReferral) {
           // Create PENDING referral relationship (no bonus yet)
           // Bonus will be awarded when referred user makes their first deposit
-          await supabase.from('referrals').insert({ 
-            referrer_id: referrer.id, 
-            referred_id: user.id, 
+          const { error: insertError } = await supabaseAdmin.from('referrals').insert({
+            referrer_id: referrer.id,
+            referred_id: user.id,
             bonus_earned: 0,
             status: 'pending',
             qualified_at: null,
             qualification_type: null
           });
-          console.log(`Referral pending: ${referrer.email} -> ${email} (awaiting first deposit)`);
+
+          if (insertError) {
+            // Do NOT fail registration over an optional referral insert.
+            // Log a safe diagnostic (Supabase error code/message/details/hint only;
+            // never credentials, JWTs, service keys, or user secrets).
+            console.error('Referral INSERT failed:', {
+              code: insertError.code,
+              message: insertError.message,
+              details: insertError.details,
+              hint: insertError.hint
+            });
+          } else {
+            console.log(`Referral pending: ${referrer.email} -> ${email} (awaiting first deposit)`);
+          }
         } else if (existingReferral.status === 'pending') {
           // Already has pending referral, no action needed
           console.log('Pending referral already exists');
