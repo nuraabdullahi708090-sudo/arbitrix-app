@@ -288,3 +288,64 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   pre-existing `q8qpay.webhook.test.js` `Cannot find module 'express'` env
   failure; no regression).
 
+## Localization Phase 2A-Landing (2026-08, frontend-only in public/index.html)
+- Wires the static landing + auth HTML to the existing i18n system using
+  `data-i18n` / `data-i18n-placeholder` attributes. No JS logic, no backend,
+  no DB, no PWA/auth/wallet/trading/referral/payment changes.
+- Dictionary grew to 433 keys/locale (171 new landing/auth keys added per
+  locale over the 262 Phase-2A base). EN dictionary values are byte-identical
+  to the prior 262-key baseline (verified: 0 changed old keys); only new keys
+  were added. The 6 stale `landing.*` keys from earlier were replaced/repurposed.
+- HTML wired sections (all under `data-i18n`): landing nav (features/how-it-
+  works/security/faq + Launch App, incl. mobile-menu duplicates), hero (badge,
+  title `<br><span>`, subtitle, 2 CTA buttons, 3 trust badges), stats (4 labels;
+  numeric values $2.5B+/150K+/99.9%/50+ left as static text), trust (4 items
+  title+desc), 6 feature cards (title+desc+3 list items each), how-it-works
+  (header + 4 steps title+desc), testimonials (header + 3 cards text/name/role),
+  FAQ (header + 6 Q&A pairs), final CTA (title/subtitle/button/note), footer
+  (tagline + 3 column headings + link rows + copyright + disclaimer). Auth
+  brand panel (title/subtitle/3 features/3 stat labels), auth tabs, login form
+  (header/labels/placeholders/remember-me/forgot link/submit/switch),
+  2FA section (title/hint/codeLabel/codeExpiry `{{time}}`/submit/resendPrefix/
+  resend/back), signup form (header/labels/placeholders/passwordStrength/
+  referralLabel+referralOptional/submit/terms HTML/switch), security badge,
+  forgot-password modal (title/description/emailLabel/emailPlaceholder/submit/
+  success.title/body/hint/gotIt/backToSignIn), wallet-sync loader (loading/
+  slowTitle/slowBody/refresh).
+- Key reuse: reused pre-existing Phase-2A dict keys where a value already
+  existed rather than creating duplicates — e.g. `auth.brand.security.title`,
+  `auth.brand.execution.title`, `auth.brand.analytics.title`,
+  `auth.brand.volumeTraded/activeUsers/uptime`, `auth.2fa.resendPrefix`,
+  `forgot.success.title/body/hint`, `auth.login.emailLabel/passwordLabel`
+  (shared by login + signup forms). 283 distinct data-i18n keys referenced by
+  HTML, all present in all 6 locales (0 missing/empty).
+- Preserved EXACTLY across all locales (validated token parity per locale
+  vs EN for each token): financial/marketing figures `$2.5B+`, `150K+`, `$10`,
+  `$50`, `23%`, `99.9%`, `50+`, `150,000+`, `15-30`, `24/7`; technical/proper
+  terms `256-bit`, `SSL`, `TRC20`, `USDT`, `DeFi`, `PWA`, `stop-loss`,
+  `Arbitrix AI`, `KYC`, `LIVE`, `Bonus/Live Wallet`. NOTE: localized forms
+  were normalized to use the literal EN token (e.g. FR "Chiffrement 256-bit"
+  not "256 bits", FR "24/7" not "24h/24 et 7j/7", AR "$10"/"$50" not
+  "10 دولارات"/"50 دولارًا", ES/PT/FR/AR/ZH "stop-loss" lowercase, ZH
+  "256-bit SSL" not "256 位 SSL") so the exact token survives translation.
+- HTML-markup keys preserved markup across all locales: `landing.hero.title`
+  (`<br><span class="landing-gradient-text">…</span>`), `auth.signup.terms`
+  and the Phase-1 `ios.step1-4` (`<a>`, `<strong>`), all with 0 tag-parity
+  issues. Placeholder parity (`{{time}}` in `auth.2fa.codeExpiry`,
+  `{{amount}}/{{min}}/{{needed}}/{{network}}/{{current}}/{{balance}}`) = 0 issues.
+- Verification: `node --check`-equivalent parse on all 5 inline `<script>`
+  blocks = OK. Standalone extracted-TRANSLATIONS render check across all 6
+  locales: 433 keys/locale, identical key sets, 0 empty, 0 placeholder issues,
+  0 HTML-tag issues, 0 token-parity issues, EN dictionary unchanged (all 262
+  prior values preserved). `npm test` = 36 pass / 1 fail (the single fail is
+  the pre-existing `tests/q8qpay.webhook.test.js` `Cannot find module
+  'express'` env failure — identical on the unmodified baseline; no regression).
+- DELIBERATELY LEFT FOR PHASE 2B (not translated, still hardcoded English):
+  ~101 `showToast()` literals, 6 `updateCurrentStatus()` deposit-status
+  display strings (underlying `pending`/`confirmed`/`expired`/`cancelled`
+  status VALUES + polling/crediting logic untouched), ~7 support-bot reply
+  templates, and backend `data.error` passthroughs in auth handlers. Dynamic
+  JS-set text (e.g. `landingUserName` greeting, OTP input, password-strength
+  label value, countdown timer text) is runtime/data-driven and out of scope
+  for this static-HTML phase.
+
