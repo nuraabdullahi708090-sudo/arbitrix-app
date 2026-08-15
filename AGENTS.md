@@ -222,3 +222,33 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   (deps not installed in this env) — IDENTICAL on the unmodified baseline,
   so no regression introduced by this frontend-only change.
 
+## Localization Phase 1 (2026-08, frontend-only in public/index.html)
+- A hand-rolled i18n system already existed: `TRANSLATIONS` dict (~262 EN keys
+  after this phase) at `public/index.html:~6068`, `t(key, vars)` with
+  `{{var}}` interpolation + EN fallback, `applyTranslations()`/`setLanguage()`,
+  a header globe dropdown + Profile language row (en/es/fr/ar/zh/pt), and
+  RTL/font CSS scaffolding for `ar`/`zh`. Non-EN locales are still English
+  placeholders (auto-filled from EN) — NOT translated in Phase 1.
+- Phase 1 added automatic browser-language detection. `detectBrowserLanguage()`
+  (~line 6346) inspects `navigator.languages` first, then `navigator.language`,
+  matches by lowercased language prefix against
+  `['es','pt','fr','ar','zh','en']`, else falls back to `en`. It runs ONLY when
+  `localStorage['arbi_lang']` is absent; the detected lang is persisted via the
+  existing `arbi_lang` mechanism. An existing `arbi_lang` is NEVER overwritten
+  by detection, so the manual selector stays the user's override.
+- Fixed 4 EN keys that were referenced by `data-i18n` but missing from the dict:
+  `admin.title`, `auth.backToLogin`, `sidebar.admin`, `sidebar.verification`.
+- `t()` fallback behavior unchanged: `TRANSLATIONS[currentLang]?.[key] ||
+  TRANSLATIONS.en[key] || key`. RTL for `ar` unchanged
+  (`document.documentElement.dir = currentLang==='ar'?'rtl':'ltr'`).
+- The duplicate early fallback `t()` at `~line 2128` (`window.t = window.t || …`)
+  was investigated and LEFT UNTOUCHED. No `t()` call executes before the main
+  i18n block loads at load time (the only pre-6068 `t()` reference is inside a
+  class method body `SoundManager.toggleMute` at ~line 6038, invoked only at
+  runtime after `TRANSLATIONS`/`t()` exist). Removal is very likely safe but
+  not provably risk-free across all inline event handlers, so per the smallest-
+  change rule it was not removed.
+- No DB/server/auth/wallet/trading/referral/payment/2FA/PWA/migration changes.
+  `npm test` = 36 pass / 1 fail (same pre-existing `q8qpay.webhook.test.js`
+  `Cannot find module 'express'` env failure; no regression).
+
