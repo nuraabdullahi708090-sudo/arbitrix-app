@@ -4846,12 +4846,12 @@ function toggleFaq(btn) {
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                                 <h4 style="font-size:14px;font-weight:600;color:#fff;margin:0;">Activity Timeline</h4>
                                 <select id="activityFilter" onchange="loadActivityTimeline()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;">
-                                    <option value="all">All Events</option>
-                                    <option value="registration">Registrations</option>
-                                    <option value="deposit">Deposits</option>
-                                    <option value="withdrawal">Withdrawals</option>
-                                    <option value="kyc">KYC</option>
-                                    <option value="referral">Referrals</option>
+                                    <option value="all" data-i18n="activity.filter.all">All Events</option>
+                                    <option value="registration" data-i18n="activity.filter.registration">Registrations</option>
+                                    <option value="deposit" data-i18n="activity.filter.deposit">Deposits</option>
+                                    <option value="withdrawal" data-i18n="activity.filter.withdrawal">Withdrawals</option>
+                                    <option value="kyc" data-i18n="activity.filter.kyc">KYC</option>
+                                    <option value="referral" data-i18n="activity.filter.referral">Referrals</option>
                                 </select>
                             </div>
                             <div id="opsActivityTimeline" style="max-height:500px;overflow-y:auto;">
@@ -4887,17 +4887,17 @@ function toggleFaq(btn) {
                             </div>
                             <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
                                 <select id="auditActionFilter" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;">
-                                    <option value="">All Actions</option>
-                                    <option value="login">Login</option>
-                                    <option value="logout">Logout</option>
-                                    <option value="deposit">Deposit</option>
-                                    <option value="withdrawal">Withdrawal</option>
-                                    <option value="kyc_approved">KYC Approved</option>
-                                    <option value="kyc_rejected">KYC Rejected</option>
-                                    <option value="config_change">Config Change</option>
+                                    <option value="" data-i18n="audit.action.all">All Actions</option>
+                                    <option value="login" data-i18n="audit.action.login">Login</option>
+                                    <option value="logout" data-i18n="audit.action.logout">Logout</option>
+                                    <option value="deposit" data-i18n="audit.action.deposit">Deposit</option>
+                                    <option value="withdrawal" data-i18n="audit.action.withdrawal">Withdrawal</option>
+                                    <option value="kyc_approved" data-i18n="audit.action.kycApproved">KYC Approved</option>
+                                    <option value="kyc_rejected" data-i18n="audit.action.kycRejected">KYC Rejected</option>
+                                    <option value="config_change" data-i18n="audit.action.configChange">Config Change</option>
                                 </select>
-                                <input type="date" id="auditStartDate" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;" placeholder="Start Date">
-                                <input type="date" id="auditEndDate" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;" placeholder="End Date">
+                                <input type="date" id="auditStartDate" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;" data-i18n-placeholder="audit.date.start" placeholder="Start Date">
+                                <input type="date" id="auditEndDate" onchange="loadAuditLogs()" style="padding:6px 12px;background:#141C2E;border:1px solid #1E2A3F;border-radius:6px;color:#fff;font-size:12px;" data-i18n-placeholder="audit.date.end" placeholder="End Date">
                             </div>
                             <div id="opsAuditLogs" style="max-height:500px;overflow-y:auto;"></div>
                         </div>
@@ -6782,6 +6782,65 @@ const TRANSLATIONS = {
         'kyc.resubmissionReasonRequired': 'Reason for resubmission is required',
         'admin.alreadyStatus': 'Already {{status}}',
         'admin.config.updateFailed': 'Failed to update configuration',
+        // ---- Phase 3B: activity/alerts/audit render-time localization keys ----
+        'activity.title.newUserRegistered': 'New User Registered',
+        'activity.title.depositConfirmed': 'Deposit Confirmed',
+        'activity.title.withdrawalApproved': 'Withdrawal Approved',
+        'activity.title.kycSubmitted': 'KYC Submitted',
+        'activity.title.kycApproved': 'KYC Approved',
+        'activity.title.kycRejected': 'KYC Rejected',
+        'activity.title.referralReward': 'Referral Reward',
+        'activity.filter.all': 'All Events',
+        'activity.filter.registration': 'Registrations',
+        'activity.filter.deposit': 'Deposits',
+        'activity.filter.withdrawal': 'Withdrawals',
+        'activity.filter.kyc': 'KYC',
+        'activity.filter.referral': 'Referrals',
+        'alert.title.failedPayments': 'Failed Payments',
+        'alert.title.largeWithdrawals': 'Large Pending Withdrawals',
+        'alert.title.kycBacklog': 'KYC Review Backlog',
+        'alert.title.suspiciousReferrals': 'Suspicious Referral Activity',
+        'alert.title.webhookFailures': 'Webhook Failures',
+        'alert.message.failedPayments': '{{count}} payment(s) failed in the last hour',
+        'alert.message.largeWithdrawals': '{{count}} withdrawal(s) over $1,000 pending approval',
+        'alert.message.kycBacklog': '{{count}} identity verification(s) pending review',
+        'alert.message.suspiciousReferrals': '{{count}} user(s) with rapid referral activity',
+        'alert.message.webhookFailures': '{{count}} webhook(s) failed in the last hour',
+        'alert.count.errors': 'errors',
+        'alert.count.items': 'items',
+        'audit.action.all': 'All Actions',
+        'audit.action.login': 'Login',
+        'audit.action.logout': 'Logout',
+        'audit.action.deposit': 'Deposit',
+        'audit.action.withdrawal': 'Withdrawal',
+        'audit.action.kycApproved': 'KYC Approved',
+        'audit.action.kycRejected': 'KYC Rejected',
+        'audit.action.configChange': 'Config Change',
+        'audit.action.2faEnabled': '2FA Enabled',
+        'audit.action.2faDisabled': '2FA Disabled',
+        'audit.action.emailFailed': 'Email Failed',
+        'audit.action.jobFailed': 'Job Failed',
+        'audit.col.timestamp': 'Timestamp',
+        'audit.col.action': 'Action',
+        'audit.col.performedBy': 'Performed By',
+        'audit.col.details': 'Details',
+        'audit.col.ip': 'IP',
+        'audit.performedBySystem': 'System',
+        'audit.date.start': 'Start Date',
+        'audit.date.end': 'End Date',
+        'audit.showing': 'Showing {{shown}} of {{total}} total logs',
+        'admin.status.confirmed': 'Confirmed',
+        'admin.status.expired': 'Expired',
+        'admin.status.cancelled': 'Cancelled',
+        'admin.status.approved': 'Approved',
+        'admin.status.rejected': 'Rejected',
+        'admin.empty.noRecentActivity': 'No recent activity',
+        'admin.empty.noAuditLogs': 'No audit logs found',
+        'admin.empty.loadAuditLogsFailed': 'Failed to load audit logs',
+        'admin.empty.noDeposits': 'No deposits found',
+        'admin.empty.noWithdrawals': 'No withdrawals found',
+        'admin.confirm': 'Confirm',
+        'common.na': 'N/A',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -7490,6 +7549,65 @@ const TRANSLATIONS = {
         'kyc.resubmissionReasonRequired': 'Se requiere motivo para reenvío',
         'admin.alreadyStatus': 'Ya {{status}}',
         'admin.config.updateFailed': 'No se pudo actualizar la configuración',
+        // ---- Phase 3B: activity/alerts/audit render-time localization keys ----
+        'activity.title.newUserRegistered': 'Nuevo usuario registrado',
+        'activity.title.depositConfirmed': 'Depósito confirmado',
+        'activity.title.withdrawalApproved': 'Retiro aprobado',
+        'activity.title.kycSubmitted': 'KYC enviado',
+        'activity.title.kycApproved': 'KYC aprobado',
+        'activity.title.kycRejected': 'KYC rechazado',
+        'activity.title.referralReward': 'Recompensa por referido',
+        'activity.filter.all': 'Todos los eventos',
+        'activity.filter.registration': 'Registros',
+        'activity.filter.deposit': 'Depósitos',
+        'activity.filter.withdrawal': 'Retiros',
+        'activity.filter.kyc': 'KYC',
+        'activity.filter.referral': 'Referidos',
+        'alert.title.failedPayments': 'Pagos fallidos',
+        'alert.title.largeWithdrawals': 'Retiros grandes pendientes',
+        'alert.title.kycBacklog': 'Acumulación de revisión KYC',
+        'alert.title.suspiciousReferrals': 'Actividad sospechosa de referidos',
+        'alert.title.webhookFailures': 'Fallos de webhook',
+        'alert.message.failedPayments': '{{count}} pago(s) fallido(s) en la última hora',
+        'alert.message.largeWithdrawals': '{{count}} retiro(s) superior(es) a $1,000 pendiente(s) de aprobación',
+        'alert.message.kycBacklog': '{{count}} verificación(es) de identidad pendiente(s) de revisión',
+        'alert.message.suspiciousReferrals': '{{count}} usuario(s) con actividad rápida de referidos',
+        'alert.message.webhookFailures': '{{count}} webhook(s) fallido(s) en la última hora',
+        'alert.count.errors': 'errores',
+        'alert.count.items': 'elementos',
+        'audit.action.all': 'Todas las acciones',
+        'audit.action.login': 'Inicio de sesión',
+        'audit.action.logout': 'Cierre de sesión',
+        'audit.action.deposit': 'Depósito',
+        'audit.action.withdrawal': 'Retiro',
+        'audit.action.kycApproved': 'KYC aprobado',
+        'audit.action.kycRejected': 'KYC rechazado',
+        'audit.action.configChange': 'Cambio de configuración',
+        'audit.action.2faEnabled': '2FA activado',
+        'audit.action.2faDisabled': '2FA desactivado',
+        'audit.action.emailFailed': 'Correo fallido',
+        'audit.action.jobFailed': 'Tarea fallida',
+        'audit.col.timestamp': 'Marca de tiempo',
+        'audit.col.action': 'Acción',
+        'audit.col.performedBy': 'Realizado por',
+        'audit.col.details': 'Detalles',
+        'audit.col.ip': 'IP',
+        'audit.performedBySystem': 'Sistema',
+        'audit.date.start': 'Fecha de inicio',
+        'audit.date.end': 'Fecha de fin',
+        'audit.showing': 'Mostrando {{shown}} de {{total}} registros en total',
+        'admin.status.confirmed': 'Confirmado',
+        'admin.status.expired': 'Expirado',
+        'admin.status.cancelled': 'Cancelado',
+        'admin.status.approved': 'Aprobado',
+        'admin.status.rejected': 'Rechazado',
+        'admin.empty.noRecentActivity': 'Sin actividad reciente',
+        'admin.empty.noAuditLogs': 'No se encontraron registros de auditoría',
+        'admin.empty.loadAuditLogsFailed': 'Error al cargar los registros de auditoría',
+        'admin.empty.noDeposits': 'No se encontraron depósitos',
+        'admin.empty.noWithdrawals': 'No se encontraron retiros',
+        'admin.confirm': 'Confirmar',
+        'common.na': 'N/D',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -8198,6 +8316,65 @@ const TRANSLATIONS = {
         'kyc.resubmissionReasonRequired': 'Motivo para reenvio é necessário',
         'admin.alreadyStatus': 'Já {{status}}',
         'admin.config.updateFailed': 'Falha ao atualizar configuração',
+        // ---- Phase 3B: activity/alerts/audit render-time localization keys ----
+        'activity.title.newUserRegistered': 'Novo usuário registrado',
+        'activity.title.depositConfirmed': 'Depósito confirmado',
+        'activity.title.withdrawalApproved': 'Saque aprovado',
+        'activity.title.kycSubmitted': 'KYC enviado',
+        'activity.title.kycApproved': 'KYC aprovado',
+        'activity.title.kycRejected': 'KYC rejeitado',
+        'activity.title.referralReward': 'Recompensa de indicação',
+        'activity.filter.all': 'Todos os eventos',
+        'activity.filter.registration': 'Cadastros',
+        'activity.filter.deposit': 'Depósitos',
+        'activity.filter.withdrawal': 'Saques',
+        'activity.filter.kyc': 'KYC',
+        'activity.filter.referral': 'Indicações',
+        'alert.title.failedPayments': 'Pagamentos falhados',
+        'alert.title.largeWithdrawals': 'Saques grandes pendentes',
+        'alert.title.kycBacklog': 'Acúmulo de revisão KYC',
+        'alert.title.suspiciousReferrals': 'Atividade suspeita de indicações',
+        'alert.title.webhookFailures': 'Falhas de webhook',
+        'alert.message.failedPayments': '{{count}} pagamento(s) falhado(s) na última hora',
+        'alert.message.largeWithdrawals': '{{count}} saque(s) acima de $1,000 pendente(s) de aprovação',
+        'alert.message.kycBacklog': '{{count}} verificação(ões) de identidade pendente(s) de revisão',
+        'alert.message.suspiciousReferrals': '{{count}} usuário(s) com atividade rápida de indicações',
+        'alert.message.webhookFailures': '{{count}} webhook(s) falhado(s) na última hora',
+        'alert.count.errors': 'erros',
+        'alert.count.items': 'itens',
+        'audit.action.all': 'Todas as ações',
+        'audit.action.login': 'Login',
+        'audit.action.logout': 'Logout',
+        'audit.action.deposit': 'Depósito',
+        'audit.action.withdrawal': 'Saque',
+        'audit.action.kycApproved': 'KYC aprovado',
+        'audit.action.kycRejected': 'KYC rejeitado',
+        'audit.action.configChange': 'Alteração de configuração',
+        'audit.action.2faEnabled': '2FA ativado',
+        'audit.action.2faDisabled': '2FA desativado',
+        'audit.action.emailFailed': 'E-mail falhou',
+        'audit.action.jobFailed': 'Tarefa falhou',
+        'audit.col.timestamp': 'Data e hora',
+        'audit.col.action': 'Ação',
+        'audit.col.performedBy': 'Realizado por',
+        'audit.col.details': 'Detalhes',
+        'audit.col.ip': 'IP',
+        'audit.performedBySystem': 'Sistema',
+        'audit.date.start': 'Data de início',
+        'audit.date.end': 'Data de fim',
+        'audit.showing': 'Mostrando {{shown}} de {{total}} registros no total',
+        'admin.status.confirmed': 'Confirmado',
+        'admin.status.expired': 'Expirado',
+        'admin.status.cancelled': 'Cancelado',
+        'admin.status.approved': 'Aprovado',
+        'admin.status.rejected': 'Rejeitado',
+        'admin.empty.noRecentActivity': 'Sem atividade recente',
+        'admin.empty.noAuditLogs': 'Nenhum registro de auditoria encontrado',
+        'admin.empty.loadAuditLogsFailed': 'Falha ao carregar registros de auditoria',
+        'admin.empty.noDeposits': 'Nenhum depósito encontrado',
+        'admin.empty.noWithdrawals': 'Nenhum saque encontrado',
+        'admin.confirm': 'Confirmar',
+        'common.na': 'N/D',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -8906,6 +9083,65 @@ const TRANSLATIONS = {
         'kyc.resubmissionReasonRequired': 'Motif de renvoi requis',
         'admin.alreadyStatus': 'Déjà {{status}}',
         'admin.config.updateFailed': 'Échec de la mise à jour de la configuration',
+        // ---- Phase 3B: activity/alerts/audit render-time localization keys ----
+        'activity.title.newUserRegistered': 'Nouvel utilisateur inscrit',
+        'activity.title.depositConfirmed': 'Dépôt confirmé',
+        'activity.title.withdrawalApproved': 'Retrait approuvé',
+        'activity.title.kycSubmitted': 'KYC soumis',
+        'activity.title.kycApproved': 'KYC approuvé',
+        'activity.title.kycRejected': 'KYC rejeté',
+        'activity.title.referralReward': 'Récompense de parrainage',
+        'activity.filter.all': 'Tous les événements',
+        'activity.filter.registration': 'Inscriptions',
+        'activity.filter.deposit': 'Dépôts',
+        'activity.filter.withdrawal': 'Retraits',
+        'activity.filter.kyc': 'KYC',
+        'activity.filter.referral': 'Parrainages',
+        'alert.title.failedPayments': 'Paiements échoués',
+        'alert.title.largeWithdrawals': 'Retraits importants en attente',
+        'alert.title.kycBacklog': 'Retard de révision KYC',
+        'alert.title.suspiciousReferrals': 'Activité de parrainage suspecte',
+        'alert.title.webhookFailures': 'Échecs de webhook',
+        'alert.message.failedPayments': '{{count}} paiement(s) échoué(s) dans la dernière heure',
+        'alert.message.largeWithdrawals': '{{count}} retrait(s) supérieur(s) à 1 000 $ en attente d’approbation',
+        'alert.message.kycBacklog': '{{count}} vérification(s) d’identité en attente de révision',
+        'alert.message.suspiciousReferrals': '{{count}} utilisateur(s) avec une activité de parrainage rapide',
+        'alert.message.webhookFailures': '{{count}} webhook(s) échoué(s) dans la dernière heure',
+        'alert.count.errors': 'erreurs',
+        'alert.count.items': 'éléments',
+        'audit.action.all': 'Toutes les actions',
+        'audit.action.login': 'Connexion',
+        'audit.action.logout': 'Déconnexion',
+        'audit.action.deposit': 'Dépôt',
+        'audit.action.withdrawal': 'Retrait',
+        'audit.action.kycApproved': 'KYC approuvé',
+        'audit.action.kycRejected': 'KYC rejeté',
+        'audit.action.configChange': 'Modification de configuration',
+        'audit.action.2faEnabled': '2FA activé',
+        'audit.action.2faDisabled': '2FA désactivé',
+        'audit.action.emailFailed': 'Échec de l’e-mail',
+        'audit.action.jobFailed': 'Échec de la tâche',
+        'audit.col.timestamp': 'Horodatage',
+        'audit.col.action': 'Action',
+        'audit.col.performedBy': 'Effectué par',
+        'audit.col.details': 'Détails',
+        'audit.col.ip': 'IP',
+        'audit.performedBySystem': 'Système',
+        'audit.date.start': 'Date de début',
+        'audit.date.end': 'Date de fin',
+        'audit.showing': 'Affichage de {{shown}} sur {{total}} journaux au total',
+        'admin.status.confirmed': 'Confirmé',
+        'admin.status.expired': 'Expiré',
+        'admin.status.cancelled': 'Annulé',
+        'admin.status.approved': 'Approuvé',
+        'admin.status.rejected': 'Rejeté',
+        'admin.empty.noRecentActivity': 'Aucune activité récente',
+        'admin.empty.noAuditLogs': 'Aucun journal d’audit trouvé',
+        'admin.empty.loadAuditLogsFailed': 'Échec du chargement des journaux d’audit',
+        'admin.empty.noDeposits': 'Aucun dépôt trouvé',
+        'admin.empty.noWithdrawals': 'Aucun retrait trouvé',
+        'admin.confirm': 'Confirmer',
+        'common.na': 'N/A',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -9614,6 +9850,65 @@ const TRANSLATIONS = {
         'kyc.resubmissionReasonRequired': 'سبب إعادة الإرسال مطلوب',
         'admin.alreadyStatus': '{{status}} بالفعل',
         'admin.config.updateFailed': 'فشل تحديث الإعدادات',
+        // ---- Phase 3B: activity/alerts/audit render-time localization keys ----
+        'activity.title.newUserRegistered': 'مستخدم جديد مسجّل',
+        'activity.title.depositConfirmed': 'تم تأكيد الإيداع',
+        'activity.title.withdrawalApproved': 'تمت الموافقة على السحب',
+        'activity.title.kycSubmitted': 'تم إرسال التحقق',
+        'activity.title.kycApproved': 'تمت الموافقة على التحقق',
+        'activity.title.kycRejected': 'تم رفض التحقق',
+        'activity.title.referralReward': 'مكافأة الإحالة',
+        'activity.filter.all': 'كل الأحداث',
+        'activity.filter.registration': 'التسجيلات',
+        'activity.filter.deposit': 'الإيداعات',
+        'activity.filter.withdrawal': 'السحوبات',
+        'activity.filter.kyc': 'التحقق',
+        'activity.filter.referral': 'الإحالات',
+        'alert.title.failedPayments': 'مدفوعات فاشلة',
+        'alert.title.largeWithdrawals': 'سحوبات كبيرة قيد الانتظار',
+        'alert.title.kycBacklog': 'تراكم مراجعات التحقق',
+        'alert.title.suspiciousReferrals': 'نشاط إحالة مشبوه',
+        'alert.title.webhookFailures': 'فشل الويب هوك',
+        'alert.message.failedPayments': '{{count}} دفعة فاشلة في الساعة الأخيرة',
+        'alert.message.largeWithdrawals': '{{count}} سحب يتجاوز 1,000$ قيد انتظار الموافقة',
+        'alert.message.kycBacklog': '{{count}} تحقق هوية قيد المراجعة',
+        'alert.message.suspiciousReferrals': '{{count}} مستخدم بنشاط إحالة سريع',
+        'alert.message.webhookFailures': '{{count}} ويب هوك فاشل في الساعة الأخيرة',
+        'alert.count.errors': 'أخطاء',
+        'alert.count.items': 'عناصر',
+        'audit.action.all': 'كل الإجراءات',
+        'audit.action.login': 'تسجيل الدخول',
+        'audit.action.logout': 'تسجيل الخروج',
+        'audit.action.deposit': 'إيداع',
+        'audit.action.withdrawal': 'سحب',
+        'audit.action.kycApproved': 'تمت الموافقة على التحقق',
+        'audit.action.kycRejected': 'تم رفض التحقق',
+        'audit.action.configChange': 'تغيير الإعدادات',
+        'audit.action.2faEnabled': 'تفعيل 2FA',
+        'audit.action.2faDisabled': 'تعطيل 2FA',
+        'audit.action.emailFailed': 'فشل البريد',
+        'audit.action.jobFailed': 'فشل المهمة',
+        'audit.col.timestamp': 'الطابع الزمني',
+        'audit.col.action': 'الإجراء',
+        'audit.col.performedBy': 'بواسطة',
+        'audit.col.details': 'التفاصيل',
+        'audit.col.ip': 'IP',
+        'audit.performedBySystem': 'النظام',
+        'audit.date.start': 'تاريخ البدء',
+        'audit.date.end': 'تاريخ الانتهاء',
+        'audit.showing': 'عرض {{shown}} من إجمالي {{total}} سجل',
+        'admin.status.confirmed': 'مؤكد',
+        'admin.status.expired': 'منتهٍ',
+        'admin.status.cancelled': 'ملغى',
+        'admin.status.approved': 'موافق عليه',
+        'admin.status.rejected': 'مرفوض',
+        'admin.empty.noRecentActivity': 'لا يوجد نشاط حديث',
+        'admin.empty.noAuditLogs': 'لم يتم العثور على سجلات تدقيق',
+        'admin.empty.loadAuditLogsFailed': 'فشل تحميل سجلات التدقيق',
+        'admin.empty.noDeposits': 'لم يتم العثور على إيداعات',
+        'admin.empty.noWithdrawals': 'لم يتم العثور على سحوبات',
+        'admin.confirm': 'تأكيد',
+        'common.na': 'غير متاح',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -10322,6 +10617,65 @@ const TRANSLATIONS = {
         'kyc.resubmissionReasonRequired': '需要重新提交原因',
         'admin.alreadyStatus': '已 {{status}}',
         'admin.config.updateFailed': '更新配置失败',
+        // ---- Phase 3B: activity/alerts/audit render-time localization keys ----
+        'activity.title.newUserRegistered': '新用户注册',
+        'activity.title.depositConfirmed': '存款已确认',
+        'activity.title.withdrawalApproved': '提现已批准',
+        'activity.title.kycSubmitted': '已提交身份验证',
+        'activity.title.kycApproved': '身份验证已通过',
+        'activity.title.kycRejected': '身份验证已拒绝',
+        'activity.title.referralReward': '推荐奖励',
+        'activity.filter.all': '全部事件',
+        'activity.filter.registration': '注册',
+        'activity.filter.deposit': '存款',
+        'activity.filter.withdrawal': '提现',
+        'activity.filter.kyc': '身份验证',
+        'activity.filter.referral': '推荐',
+        'alert.title.failedPayments': '付款失败',
+        'alert.title.largeWithdrawals': '大额待处理提现',
+        'alert.title.kycBacklog': '身份验证审核积压',
+        'alert.title.suspiciousReferrals': '可疑推荐活动',
+        'alert.title.webhookFailures': 'Webhook 失败',
+        'alert.message.failedPayments': '过去一小时内 {{count}} 笔付款失败',
+        'alert.message.largeWithdrawals': '{{count}} 笔超过 $1,000 的提现待批准',
+        'alert.message.kycBacklog': '{{count}} 项身份验证待审核',
+        'alert.message.suspiciousReferrals': '{{count}} 位用户存在快速推荐活动',
+        'alert.message.webhookFailures': '过去一小时内 {{count}} 个 Webhook 失败',
+        'alert.count.errors': '个错误',
+        'alert.count.items': '项',
+        'audit.action.all': '全部操作',
+        'audit.action.login': '登录',
+        'audit.action.logout': '登出',
+        'audit.action.deposit': '存款',
+        'audit.action.withdrawal': '提现',
+        'audit.action.kycApproved': '身份验证已通过',
+        'audit.action.kycRejected': '身份验证已拒绝',
+        'audit.action.configChange': '配置变更',
+        'audit.action.2faEnabled': '已启用 2FA',
+        'audit.action.2faDisabled': '已禁用 2FA',
+        'audit.action.emailFailed': '邮件发送失败',
+        'audit.action.jobFailed': '任务失败',
+        'audit.col.timestamp': '时间',
+        'audit.col.action': '操作',
+        'audit.col.performedBy': '执行者',
+        'audit.col.details': '详情',
+        'audit.col.ip': 'IP',
+        'audit.performedBySystem': '系统',
+        'audit.date.start': '开始日期',
+        'audit.date.end': '结束日期',
+        'audit.showing': '共 {{total}} 条记录，显示 {{shown}} 条',
+        'admin.status.confirmed': '已确认',
+        'admin.status.expired': '已过期',
+        'admin.status.cancelled': '已取消',
+        'admin.status.approved': '已批准',
+        'admin.status.rejected': '已拒绝',
+        'admin.empty.noRecentActivity': '暂无近期活动',
+        'admin.empty.noAuditLogs': '未找到审计日志',
+        'admin.empty.loadAuditLogsFailed': '加载审计日志失败',
+        'admin.empty.noDeposits': '未找到存款',
+        'admin.empty.noWithdrawals': '未找到提现',
+        'admin.confirm': '确认',
+        'common.na': '不适用',
     }
 };
 // Copy translations for other languages
@@ -11248,6 +11602,133 @@ function txDetailLabel(rawDetail) {
     if (!rawDetail) return '';
     const key = TX_DETAIL_LABELS[rawDetail];
     return key ? t(key) : rawDetail;
+}
+
+// ============ ACTIVITY / ALERTS / AUDIT (render-only mapping) ============
+// Phase 3B: backend-generated activity/alert/audit text is localized ONLY at
+// render time by mapping a stable structured identifier (activity.title text,
+// alert.id enum, audit action code, raw status value) to an i18n key. The raw
+// backend value is NEVER modified and NEVER used differently for filtering,
+// comparisons, deduplication, or authorization. Unknown identifiers fall back
+// to the original backend string verbatim (no guessing).
+
+// Activity timeline titles. The backend builds `title` from a fixed set of
+// English strings keyed off the structured `type` (+ KYC status). Map the
+// English title text -> key (same exact-match pattern as TX_TYPE_LABELS).
+const ACTIVITY_TITLE_LABELS = {
+    'New User Registered': 'activity.title.newUserRegistered',
+    'Deposit Confirmed': 'activity.title.depositConfirmed',
+    'Withdrawal Approved': 'activity.title.withdrawalApproved',
+    'KYC Submitted': 'activity.title.kycSubmitted',
+    'KYC Approved': 'activity.title.kycApproved',
+    'KYC Rejected': 'activity.title.kycRejected',
+    'Referral Reward': 'activity.title.referralReward'
+};
+function activityTitleLabel(activity) {
+    const raw = activity && activity.title;
+    if (!raw) return '';
+    const key = ACTIVITY_TITLE_LABELS[raw];
+    return key ? t(key) : raw;
+}
+
+// Alerts. Both `title` and `message` are generated from a stable `id` enum.
+// `message` is templated with `alert.count` (a structured field), so it is
+// fully localizable via {{count}} interpolation.
+const ALERT_TITLE_LABELS = {
+    'failed_payments': 'alert.title.failedPayments',
+    'large_withdrawals': 'alert.title.largeWithdrawals',
+    'kyc_backlog': 'alert.title.kycBacklog',
+    'suspicious_referrals': 'alert.title.suspiciousReferrals',
+    'webhook_failures': 'alert.title.webhookFailures'
+};
+const ALERT_MESSAGE_LABELS = {
+    'failed_payments': 'alert.message.failedPayments',
+    'large_withdrawals': 'alert.message.largeWithdrawals',
+    'kyc_backlog': 'alert.message.kycBacklog',
+    'suspicious_referrals': 'alert.message.suspiciousReferrals',
+    'webhook_failures': 'alert.message.webhookFailures'
+};
+function alertTitleLabel(alert) {
+    const raw = alert && alert.id;
+    const key = ALERT_TITLE_LABELS[raw];
+    return key ? t(key) : (alert && alert.title ? alert.title : '');
+}
+function alertMessageLabel(alert) {
+    const raw = alert && alert.id;
+    const key = ALERT_MESSAGE_LABELS[raw];
+    if (!key) return alert && alert.message ? alert.message : '';
+    return t(key, { count: alert && alert.count != null ? alert.count : 0 });
+}
+// Alert count badge suffix ("errors" / "items") keyed off severity.
+function alertCountSuffixLabel(alert) {
+    if (!alert || !alert.severity) return '';
+    return alert.severity === 'error' ? t('alert.count.errors') : t('alert.count.items');
+}
+
+// Audit log action codes. `log.action` is also used as the server-side filter
+// value (the dropdown sends the RAW value as ?action=), so this mapping is
+// DISPLAY-ONLY — the dropdown option `value` attributes and all filtering stay
+// on the raw code. Unknown codes fall back to the raw code verbatim.
+const AUDIT_ACTION_LABELS = {
+    'login': 'audit.action.login',
+    'logout': 'audit.action.logout',
+    'deposit': 'audit.action.deposit',
+    'withdrawal': 'audit.action.withdrawal',
+    'kyc_approved': 'audit.action.kycApproved',
+    'kyc_rejected': 'audit.action.kycRejected',
+    'config_change': 'audit.action.configChange',
+    '2fa_enabled': 'audit.action.2faEnabled',
+    '2fa_disabled': 'audit.action.2faDisabled',
+    'email_failed': 'audit.action.emailFailed',
+    'job_failed': 'audit.action.jobFailed'
+};
+function auditActionLabel(rawAction) {
+    if (!rawAction) return '';
+    const key = AUDIT_ACTION_LABELS[rawAction];
+    return key ? t(key) : rawAction;
+}
+
+// Deposit / withdrawal status badges. Raw stored status values
+// (confirmed/pending/expired/approved/rejected/cancelled) are rendered via this
+// map; ALL comparisons (=== 'confirmed', === 'pending', etc.) stay on the raw
+// value. Unknown statuses fall back to the raw string verbatim.
+const DEPOSIT_STATUS_LABELS = {
+    'confirmed': 'admin.status.confirmed',
+    'pending': 'status.pending',
+    'expired': 'admin.status.expired',
+    'cancelled': 'admin.status.cancelled'
+};
+const WITHDRAWAL_STATUS_LABELS = {
+    'approved': 'admin.status.approved',
+    'pending': 'status.pending',
+    'rejected': 'admin.status.rejected'
+};
+function depositStatusLabel(rawStatus) {
+    if (!rawStatus) return '';
+    const key = DEPOSIT_STATUS_LABELS[rawStatus];
+    return key ? t(key) : rawStatus;
+}
+function withdrawalStatusLabel(rawStatus) {
+    if (!rawStatus) return '';
+    const key = WITHDRAWAL_STATUS_LABELS[rawStatus];
+    return key ? t(key) : rawStatus;
+}
+
+// KYC verification status (verification_profiles.status + verification_history
+// previous_status/new_status). Reuses the existing kyc.status.* keys. Unknown
+// statuses fall back to the raw string verbatim; the 'new' fallback reuses
+// kyc.status.new. DISPLAY-ONLY — status comparisons are unaffected.
+const KYC_STATUS_LABELS = {
+    'not_started': 'kyc.status.notStarted',
+    'pending_review': 'kyc.status.pendingReview',
+    'approved': 'kyc.status.verified',
+    'rejected': 'kyc.status.rejected',
+    'resubmission_required': 'kyc.status.resubmission'
+};
+function kycStatusLabel(rawStatus) {
+    if (!rawStatus) return t('kyc.status.new');
+    const key = KYC_STATUS_LABELS[rawStatus];
+    return key ? t(key) : rawStatus;
 }
 
 function toggleTransactionView() {
@@ -14118,7 +14599,7 @@ async function loadActivityPreview() {
         const data = await response.json();
         
         if (!data.activities || data.activities.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:20px;color:#8896B5;">No recent activity</div>';
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#8896B5;">' + t('admin.empty.noRecentActivity') + '</div>';
             return;
         }
         
@@ -14130,7 +14611,7 @@ async function loadActivityPreview() {
                         <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:12px;"></i>
                     </div>
                     <div style="flex:1;">
-                        <div style="font-size:12px;color:#fff;">${activity.title}</div>
+                        <div style="font-size:12px;color:#fff;">${activityTitleLabel(activity)}</div>
                         <div style="font-size:10px;color:#8896B5;">${activity.description}</div>
                     </div>
                     <div style="font-size:10px;color:#8896B5;">${timeAgo}</div>
@@ -14140,7 +14621,7 @@ async function loadActivityPreview() {
         
     } catch (error) {
         console.error('Failed to load activity preview:', error);
-        container.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">Failed to load activity</div>';
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">' + t('admin.empty.loadActivityFailed') + '</div>';
     }
 }
 
@@ -14175,7 +14656,7 @@ async function loadActivityTimeline() {
                     </div>
                     <div style="flex:1;">
                         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px;">
-                            <span style="font-size:13px;font-weight:600;color:#fff;">${activity.title}</span>
+                            <span style="font-size:13px;font-weight:600;color:#fff;">${activityTitleLabel(activity)}</span>
                             <span style="font-size:10px;color:#8896B5;" title="${formattedTime}">${timeAgo}</span>
                         </div>
                         <div style="font-size:12px;color:#8896B5;">${activity.description}</div>
@@ -14290,15 +14771,15 @@ async function loadAlerts() {
             summaryContainer.innerHTML = `
                 <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
                     <div style="font-size:20px;font-weight:800;color:#EF4444;">${data.critical || 0}</div>
-                    <div style="font-size:10px;color:#8896B5;">Critical</div>
+                    <div style="font-size:10px;color:#8896B5;">${t('admin.status.critical')}</div>
                 </div>
                 <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
                     <div style="font-size:20px;font-weight:800;color:#F59E0B;">${data.warnings || 0}</div>
-                    <div style="font-size:10px;color:#8896B5;">Warnings</div>
+                    <div style="font-size:10px;color:#8896B5;">${t('admin.status.warnings')}</div>
                 </div>
                 <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
                     <div style="font-size:20px;font-weight:800;color:#3B82F6;">${data.info || 0}</div>
-                    <div style="font-size:10px;color:#8896B5;">Info</div>
+                    <div style="font-size:10px;color:#8896B5;">${t('admin.status.info')}</div>
                 </div>
             `;
         }
@@ -14306,7 +14787,7 @@ async function loadAlerts() {
         // Update list
         if (listContainer) {
             if (!data.alerts || data.alerts.length === 0) {
-                listContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#10B981;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:12px;"></i><p>No alerts - everything looks good!</p></div>';
+                listContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#10B981;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noAlerts') + '</p></div>';
                 return;
             }
             
@@ -14320,12 +14801,12 @@ async function loadAlerts() {
                         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <i class="fas fa-exclamation-circle" style="color:${color};"></i>
-                                <span style="font-size:13px;font-weight:600;color:#fff;">${alert.title}</span>
+                                <span style="font-size:13px;font-weight:600;color:#fff;">${alertTitleLabel(alert)}</span>
                             </div>
                             <span style="font-size:10px;color:#8896B5;">${timeAgo}</span>
                         </div>
-                        <div style="font-size:12px;color:#8896B5;margin-bottom:8px;">${alert.message}</div>
-                        ${alert.count ? `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:4px;font-size:10px;font-weight:600;">${alert.count} ${alert.severity === 'error' ? 'errors' : 'items'}</span>` : ''}
+                        <div style="font-size:12px;color:#8896B5;margin-bottom:8px;">${alertMessageLabel(alert)}</div>
+                        ${alert.count ? `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:4px;font-size:10px;font-weight:600;">${alert.count} ${alertCountSuffixLabel(alert)}</span>` : ''}
                     </div>
                 `;
             }).join('');
@@ -14366,7 +14847,7 @@ async function loadAuditLogs() {
         const data = await response.json();
         
         if (!data.logs || data.logs.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-history" style="font-size:32px;margin-bottom:12px;"></i><p>No audit logs found</p></div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-history" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noAuditLogs') + '</p></div>';
             return;
         }
         
@@ -14374,19 +14855,19 @@ async function loadAuditLogs() {
             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                 <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
                     <tr style="border-bottom:1px solid #1E2A3F;">
-                        <th style="padding:8px;text-align:left;color:#8896B5;">Timestamp</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">Action</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">Performed By</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">Details</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">IP</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.timestamp')}</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.action')}</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.performedBy')}</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.details')}</th>
+                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.ip')}</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${data.logs.map(log => `
                         <tr style="border-bottom:1px solid #1E2A3F;">
                             <td style="padding:8px;color:#8896B5;">${new Date(log.created_at).toLocaleString()}</td>
-                            <td style="padding:8px;"><span style="padding:2px 6px;background:#1E2A3F;border-radius:4px;color:#F0B90B;">${log.action}</span></td>
-                            <td style="padding:8px;color:#fff;">${log.performedByName || 'System'}</td>
+                            <td style="padding:8px;"><span style="padding:2px 6px;background:#1E2A3F;border-radius:4px;color:#F0B90B;">${auditActionLabel(log.action)}</span></td>
+                            <td style="padding:8px;color:#fff;">${log.performedByName || t('audit.performedBySystem')}</td>
                             <td style="padding:8px;color:#8896B5;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${log.details || '-'}</td>
                             <td style="padding:8px;color:#8896B5;">${log.ip_address || '-'}</td>
                         </tr>
@@ -14394,14 +14875,14 @@ async function loadAuditLogs() {
                 </tbody>
             </table>
             <div style="padding:12px;text-align:center;color:#8896B5;font-size:11px;border-top:1px solid #1E2A3F;">
-                Showing ${data.logs.length} of ${data.total} total logs
+                ${t('audit.showing', { shown: data.logs.length, total: data.total })}
             </div>
         `;
         
     } catch (error) {
         console.error('Failed to load audit logs:', error);
         if (container) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">Failed to load audit logs</div>';
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">' + t('admin.empty.loadAuditLogsFailed') + '</div>';
         }
     }
 }
@@ -14889,7 +15370,7 @@ function renderKYCDetails(data) {
         historyList.innerHTML = data.history.map(function(h) {
             const date = new Date(h.createdAt).toLocaleDateString() + ' ' + new Date(h.createdAt).toLocaleTimeString();
             return '<div style="padding:8px;background:#141C2E;border-radius:6px;margin-bottom:4px;font-size:10px;">' +
-                   '<div style="display:flex;justify-content:space-between;"><span>' + (h.previousStatus || 'new') + ' → ' + h.newStatus + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
+                   '<div style="display:flex;justify-content:space-between;"><span>' + kycStatusLabel(h.previousStatus) + ' → ' + kycStatusLabel(h.newStatus) + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
                    (h.rejectionReason ? '<div style="color:#EF4444;margin-top:4px;">' + h.rejectionReason + '</div>' : '') +
                    '</div>';
         }).join('');
@@ -15433,21 +15914,21 @@ function renderAdminDeposits(deposits) {
     if (!tbody) return;
     
     if (!deposits || deposits.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">No deposits found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">' + t('admin.empty.noDeposits') + '</td></tr>';
         return;
     }
     
     tbody.innerHTML = deposits.map(function(d) {
         const statusColor = d.status === 'confirmed' ? 'color:#10B981;' : (d.status === 'pending' ? 'color:#F59E0B;' : 'color:#EF4444;');
         const actionBtn = d.status === 'pending' ? 
-            '<button type="button" class="btn btn-success btn-sm" onclick="confirmDeposit(' + d.id + ')">Confirm</button>' : 
-            '<span style="' + statusColor + '">' + d.status + '</span>';
+            '<button type="button" class="btn btn-success btn-sm" onclick="confirmDeposit(' + d.id + ')">' + t('admin.confirm') + '</button>' : 
+            '<span style="' + statusColor + '">' + depositStatusLabel(d.status) + '</span>';
         
         return '<tr style="border-bottom:1px solid #1E2A3F;">' +
             '<td style="padding:8px;">' + d.id + '</td>' +
             '<td style="padding:8px;">$' + (d.amount || 0).toFixed(2) + '</td>' +
-            '<td style="padding:8px;">' + (d.network || 'N/A') + '</td>' +
-            '<td style="padding:8px;' + statusColor + '">' + d.status + '</td>' +
+            '<td style="padding:8px;">' + (d.network || t('common.na')) + '</td>' +
+            '<td style="padding:8px;' + statusColor + '">' + depositStatusLabel(d.status) + '</td>' +
             '<td style="padding:8px;">' + new Date(d.created_at).toLocaleDateString() + '</td>' +
             '<td style="padding:8px;">' + actionBtn + '</td>' +
         '</tr>';
@@ -15459,22 +15940,22 @@ function renderAdminWithdrawals(withdrawals) {
     if (!tbody) return;
     
     if (!withdrawals || withdrawals.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">No withdrawals found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">' + t('admin.empty.noWithdrawals') + '</td></tr>';
         return;
     }
     
     tbody.innerHTML = withdrawals.map(function(w) {
         const statusColor = w.status === 'approved' ? 'color:#10B981;' : (w.status === 'pending' ? 'color:#F59E0B;' : 'color:#EF4444;');
         const actionBtns = w.status === 'pending' ? 
-            '<button type="button" class="btn btn-success btn-sm" onclick="approveWithdrawal(' + w.id + ')" style="margin-right:4px;">Approve</button>' +
-            '<button type="button" class="btn btn-danger btn-sm" onclick="rejectWithdrawal(' + w.id + ')">Reject</button>' : 
-            '<span style="' + statusColor + '">' + w.status + '</span>';
+            '<button type="button" class="btn btn-success btn-sm" onclick="approveWithdrawal(' + w.id + ')" style="margin-right:4px;">' + t('admin.approve') + '</button>' +
+            '<button type="button" class="btn btn-danger btn-sm" onclick="rejectWithdrawal(' + w.id + ')">' + t('admin.reject') + '</button>' : 
+            '<span style="' + statusColor + '">' + withdrawalStatusLabel(w.status) + '</span>';
         
         return '<tr style="border-bottom:1px solid #1E2A3F;">' +
             '<td style="padding:8px;">' + w.id + '</td>' +
             '<td style="padding:8px;">$' + (w.amount || 0).toFixed(2) + '</td>' +
-            '<td style="padding:8px;font-family:monospace;font-size:9px;max-width:100px;overflow:hidden;text-overflow:ellipsis;">' + (w.address || 'N/A') + '</td>' +
-            '<td style="padding:8px;' + statusColor + '">' + w.status + '</td>' +
+            '<td style="padding:8px;font-family:monospace;font-size:9px;max-width:100px;overflow:hidden;text-overflow:ellipsis;">' + (w.address || t('common.na')) + '</td>' +
+            '<td style="padding:8px;' + statusColor + '">' + withdrawalStatusLabel(w.status) + '</td>' +
             '<td style="padding:8px;">' + new Date(w.created_at).toLocaleDateString() + '</td>' +
             '<td style="padding:8px;">' + actionBtns + '</td>' +
         '</tr>';

@@ -549,3 +549,117 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   prior phases).
 
 
+
+## Localization Phase 3B — Activity/Alerts/Audit Render-Time Localization (2026-08, public/index.html only)
+- Frontend-only render-time localization of backend-generated activity/alert/audit
+  text in `public/index.html`. NO changes to server.js, DB/schema/migrations,
+  auth/2FA, wallet, trading, referral, payment/withdraw, webhook behavior, API
+  response shapes, or stored transaction/status values.
+- Follows the proven Phase-2B-1 `TX_TYPE_LABELS`/`txTypeLabel` render-only
+  pattern: a stable structured identifier (enum/code/raw-value) -> i18n key map,
+  translated ONLY at render time. The raw backend value is NEVER modified and
+  NEVER used differently for filtering, comparisons, deduplication, or
+  authorization. Unknown identifiers fall back to the original backend string
+  VERBATIM (no guessing/parsing).
+- New mapping helpers added right after `txDetailLabel()` (~line 11253):
+  - `ACTIVITY_TITLE_LABELS` + `activityTitleLabel(activity)`: maps the backend
+    English `activity.title` text (New User Registered / Deposit Confirmed /
+    Withdrawal Approved / KYC Submitted / KYC Approved / KYC Rejected / Referral
+    Reward) -> `activity.title.*` keys. Exact-match map; unknown title -> raw.
+  - `ALERT_TITLE_LABELS`/`ALERT_MESSAGE_LABELS` + `alertTitleLabel(alert)`/
+    `alertMessageLabel(alert)`: map the stable `alert.id` enum
+    (failed_payments/large_withdrawals/kyc_backlog/suspicious_referrals/
+    webhook_failures) -> `alert.title.*`/`alert.message.*` keys. `message` is
+    templated with the structured `alert.count` field via {{count}} (fully
+    localizable). Unknown id -> raw `alert.title`/`alert.message`.
+  - `alertCountSuffixLabel(alert)`: "errors"/"items" badge suffix keyed off
+    `alert.severity` (`alert.count.errors`/`alert.count.items`).
+  - `AUDIT_ACTION_LABELS` + `auditActionLabel(rawAction)`: maps `log.action`
+    codes (login/logout/deposit/withdrawal/kyc_approved/kyc_rejected/
+    config_change/2fa_enabled/2fa_disabled/email_failed/job_failed) ->
+    `audit.action.*` keys. DISPLAY-ONLY: `log.action` is ALSO the server-side
+    filter value (the `auditActionFilter` dropdown sends its RAW `value` attr as
+    `?action=`), so the dropdown `<option value>` attributes stay raw English
+    codes and only the visible label is localized via `data-i18n`. Unknown code
+    -> raw code verbatim.
+  - `DEPOSIT_STATUS_LABELS`/`WITHDRAWAL_STATUS_LABELS` + `depositStatusLabel()`/
+    `withdrawalStatusLabel()`: map raw stored status values
+    (confirmed/pending/expired/cancelled and approved/pending/rejected) ->
+    `admin.status.*`/`status.pending`. Reuses existing `status.pending`. All
+    comparisons (`d.status === 'confirmed'`, `w.status === 'pending'`, etc.) stay
+    on the RAW value; only the rendered badge text is localized. Unknown -> raw.
+  - `KYC_STATUS_LABELS` + `kycStatusLabel(rawStatus)`: maps
+    verification_profiles.status + verification_history previous/new status
+    (not_started/pending_review/approved/rejected/resubmission_required) ->
+    existing `kyc.status.*` keys (REUSE, no new keys). `null`/falsy ->
+    `kyc.status.new` (matches the prior `(h.previousStatus || 'new')` fallback).
+    Unknown -> raw verbatim. DISPLAY-ONLY; status comparisons unaffected.
+- Render sites wired (render-only; raw backend fields unchanged):
+  - `loadActivityPreview()` (~14248): empty state -> `admin.empty.noRecentActivity`;
+    error -> `admin.empty.loadActivityFailed`; title -> `activityTitleLabel(activity)`.
+    `activity.description` LEFT RAW VERBATIM (see DELIBERATELY DEFERRED below).
+  - `loadActivityTimeline()` (~14305): title -> `activityTitleLabel(activity)`;
+    empty/error already used `t()`. description left raw.
+  - `loadAlerts()` (~14416): summary labels Critical/Warnings/Info -> reuse
+    `admin.status.critical/warnings/info`; empty -> reuse `admin.empty.noAlerts`;
+    title -> `alertTitleLabel(alert)`; message -> `alertMessageLabel(alert)`;
+    count badge suffix -> `alertCountSuffixLabel(alert)`.
+  - `loadAuditLogs()` (~14495): empty -> `admin.empty.noAuditLogs`; error ->
+    `admin.empty.loadAuditLogsFailed`; table headers -> `audit.col.*`;
+    `log.action` -> `auditActionLabel(log.action)`; `performedByName` fallback
+    'System' -> `audit.performedBySystem`; footer "Showing X of Y" ->
+    `audit.showing` with {{shown}}/{{total}}. `log.details` LEFT RAW VERBATIM
+    (free-form DB text, no stable identifier).
+  - `renderAdminDeposits()`/`renderAdminWithdrawals()` (~15562/15588): status
+    badge -> `depositStatusLabel(d.status)`/`withdrawalStatusLabel(w.status)`;
+    buttons Confirm/Approve/Reject -> `admin.confirm`/`admin.approve`/
+    `admin.reject` (latter two REUSE existing); "N/A" -> `common.na`; empty
+    states -> `admin.empty.noDeposits`/`admin.empty.noWithdrawals`. Status
+    comparisons UNCHANGED (raw).
+  - `renderKYCDetails()` history (~15019): `(h.previousStatus || 'new') + ' -> '
+    + h.newStatus` -> `kycStatusLabel(h.previousStatus) + ' -> ' +
+    kycStatusLabel(h.newStatus)`. The arrow and `h.rejectionReason` (raw
+    user-entered text) left as-is.
+  - Dropdowns: `activityFilter` and `auditActionFilter` `<option>` labels
+    localized via `data-i18n` (`activity.filter.*`, `audit.action.*`); `value`
+    attributes kept RAW (sent to server as `?type=`/`?action=`). Audit date
+    inputs placeholders -> `audit.date.start`/`audit.date.end`.
+- Dictionaries: 705 -> 763 keys/locale (58 NEW keys; EN values for the 705
+  pre-existing keys byte-identical - 0 changed). All 6 locales (en, es, pt, fr,
+  ar, zh) identical key sets, 0 empty, 0 duplicate keys (re-checked after
+  scripted insertion per the Phase-2B-1 lesson), 0 `{{placeholder}}` parity
+  issues (`{{count}}` in 5 alert.message.* keys, `{{shown}}`/`{{total}}` in
+  audit.showing - all 6 locales match EN's placeholder set).
+- DELIBERATELY DEFERRED (left raw English, NOT translated - needs a future
+  backend/API phase, do NOT guess/parse in frontend):
+  - `activity.description`: backend bakes the USERNAME into the templated
+    description string (e.g. "$50.00 deposited by John",
+    "Identity verification pending_review for Jane") but the activity API
+    response does NOT expose the username as a structured field (only `userId`,
+    `amount`, `type`, `icon`, `color`). Faithfully interpolating the username is
+    impossible without parsing free-form English (forbidden). Kept raw verbatim.
+    Future fix: backend should expose `userName`/`userEmail` as a structured
+    field on each activity item so the description template can be localized
+    with {{name}}/{{amount}}. Until then titles are localized; descriptions stay
+    authoritative English.
+  - `log.details` (audit_logs.details): free-form English persisted in DB, no
+    stable identifier. Kept raw verbatim.
+  - `h.rejectionReason` (verification_history): user/admin-entered free text.
+    Kept raw verbatim (cannot be machine-translated).
+  - Executive dashboard dynamic suffixes ("today"/"this week"/"pending"/
+    "verified"/"%") in `loadExecutiveDashboard()` and the static stat-card
+    labels in HTML (~4780-4820): these are static-HTML / dynamic-label work,
+    NOT backend-generated activity text. Out of Phase 3B scope; belong to a
+    future static-HTML i18n pass.
+- Verification: `node --check`-equivalent (vm.Script) on all 8 inline `<script>`
+  blocks = OK. Dict parity = 763 keys/locale x 6, 58 new vs 705 base, 0 problems,
+  0 dups, 0 missing data-i18n refs (299 refs all defined). Isolated functional
+  test (temp, removed) of all 8 mapping helpers across en/es/pt/fr/ar/zh = 32/32
+  PASS (known id -> localized per locale; unknown -> raw verbatim; empty ->
+    fallback; {{count}}/{{shown}}/{{total}} interpolation; EN fallback for
+    unsupported locale; raw status comparisons preserved). `npm test` = 36 pass /
+  1 fail (the single fail is the pre-existing `tests/q8qpay.webhook.test.js`
+  `Cannot find module 'express'` env failure - identical to baseline; no
+  regression).
+- NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
+  prior phases).
