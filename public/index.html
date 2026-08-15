@@ -4390,6 +4390,17 @@ function toggleFaq(btn) {
     <div id="walletSyncLoader" style="position:fixed;inset:0;background:rgba(7,11,20,0.9);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;">
         <i class="fas fa-circle-notch fa-spin" style="font-size:34px;color:#F0B90B;"></i>
         <div style="color:#fff;font-size:14px;font-weight:500;">Loading wallet&hellip;</div>
+        <!-- Watchdog recovery prompt: shown only if the initial wallet sync is
+             still pending after 8s (e.g. a stalled/hung network fetch). It is
+             kept hidden during normal loading and is cleared/cancelled in the
+             finally{} of initApp() once syncWalletFromServer() resolves. The
+             button reloads the page (location.reload()) to re-run the sync.
+             Frontend-only recovery UX; no backend/auth/wallet-logic change. -->
+        <div id="walletSyncSlowPrompt" style="display:none;flex-direction:column;align-items:center;gap:10px;margin-top:8px;max-width:280px;text-align:center;">
+            <div style="color:#F0B90B;font-size:13px;font-weight:600;">Taking longer than expected</div>
+            <div style="color:#B8C2D9;font-size:12px;line-height:1.4;">Your wallet is taking longer than usual to load. This can happen on a slow or unstable connection.</div>
+            <button type="button" id="walletSyncRefreshBtn" style="margin-top:4px;background:#F0B90B;color:#070B14;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">Refresh Account</button>
+        </div>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu"><i class="fas fa-bars" style="color:white;font-size:18px;"></i></button>
@@ -9244,6 +9255,26 @@ async function initApp() {
     const syncLoader = document.getElementById('walletSyncLoader');
     if (syncLoader) syncLoader.style.display = 'flex';
 
+    // Wallet-loading watchdog (frontend-only recovery UX): if the initial
+    // syncWalletFromServer() is still pending after 8s — which only happens when
+    // a fetch() never settles (stalled/hung network, captive portal, device
+    // sleep mid-request) — surface a "Taking longer than expected" prompt with a
+    // Refresh Account button (location.reload()). Normal syncs that finish within
+    // 8s keep the existing spinner behavior; the timer is cancelled in finally{}
+    // below so the prompt can never appear after the loader has been dismissed.
+    // The watchdog re-checks the loader's visibility inside the callback so a
+    // late timer fire after dismissal is a no-op.
+    const walletSyncSlowPrompt = document.getElementById('walletSyncSlowPrompt');
+    const walletSyncRefreshBtn = document.getElementById('walletSyncRefreshBtn');
+    let walletSyncWatchdog = setTimeout(function () {
+        if (syncLoader && syncLoader.style.display !== 'none' && walletSyncSlowPrompt) {
+            walletSyncSlowPrompt.style.display = 'flex';
+        }
+    }, 8000);
+    if (walletSyncRefreshBtn) {
+        walletSyncRefreshBtn.onclick = function () { location.reload(); };
+    }
+
     loadData();
     resetChartForWallet('demo');
     resetChartForWallet('live');
@@ -9300,6 +9331,8 @@ async function initApp() {
         // or failed (offline fallback: cached/default state is rendered below).
         // The authoritative balance/P&L is painted by setMode()/updateUI() below
         // with the loader already gone, so the default $50 is never shown.
+        if (walletSyncWatchdog) { clearTimeout(walletSyncWatchdog); walletSyncWatchdog = null; }
+        if (walletSyncSlowPrompt) walletSyncSlowPrompt.style.display = 'none';
         if (syncLoader) syncLoader.style.display = 'none';
     }
 
