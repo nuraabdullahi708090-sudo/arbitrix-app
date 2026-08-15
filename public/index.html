@@ -2369,7 +2369,7 @@ async function handleForgotPassword(e) {
     
     // Validate email
     if (!email || !email.includes('@')) {
-        errorText.textContent = 'Please enter a valid email address';
+        errorText.textContent = t('auth.errors.validEmailRequired');
         errorEl.classList.remove('hidden');
         return;
     }
@@ -2408,7 +2408,7 @@ function setButtonLoading(btn, loading) {
         btn.classList.add('loading');
         btn.disabled = true;
         btn.dataset.originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('common.processing');
     } else {
         btn.classList.remove('loading');
         btn.disabled = false;
@@ -2621,8 +2621,8 @@ function start2FACountdown() {
         seconds--;
         if (seconds <= 0) {
             stop2FACountdown();
-            if (countdownEl) countdownEl.textContent = 'Expired';
-            showAuthError('Code expired. Please request a new one.', 'twofaLogin');
+            if (countdownEl) countdownEl.textContent = t('2fa.expired');
+            showAuthError(t('2fa.codeExpired'), 'twofaLogin');
             return;
         }
         
@@ -3019,8 +3019,8 @@ function completeLogin(token, user, is2FAFlow) {
         console.log('[COMPLETE_LOGIN] Updating display names...');
         const displayNameEl = document.getElementById('displayName');
         const userNameEl = document.getElementById('userName');
-        if (displayNameEl) displayNameEl.textContent = user.name || 'Trader';
-        if (userNameEl) userNameEl.textContent = user.name || 'Trader';
+        if (displayNameEl) displayNameEl.textContent = user.name || t('common.trader');
+        if (userNameEl) userNameEl.textContent = user.name || t('common.trader');
         console.log('[COMPLETE_LOGIN] displayNameEl text:', displayNameEl?.textContent);
         console.log('[COMPLETE_LOGIN] userNameEl text:', userNameEl?.textContent);
         
@@ -3029,7 +3029,7 @@ function completeLogin(token, user, is2FAFlow) {
         if (greeting) {
             greeting.style.display = 'inline-block';
             const landingUserNameEl = document.getElementById('landingUserName');
-            if (landingUserNameEl) landingUserNameEl.textContent = user.name || 'Trader';
+            if (landingUserNameEl) landingUserNameEl.textContent = user.name || t('common.trader');
         }
         
         console.log('[COMPLETE_LOGIN] Calling checkAdminAccess()...');
@@ -3186,9 +3186,9 @@ async function load2FAStatus() {
             // (which would otherwise surface "Failed to load 2FA status" despite
             // a 200 response). Do not fabricate UI; just no-op when absent.
             const enabledDateEl = document.getElementById('twofaEnabledDate');
-            if (enabledDateEl) enabledDateEl.textContent = data.enabledAt ? new Date(data.enabledAt).toLocaleDateString() : '-';
+            if (enabledDateEl) enabledDateEl.textContent = data.enabledAt ? new Date(data.enabledAt).toLocaleDateString(appLocale()) : '-';
             const backupCodesEl = document.getElementById('twofaBackupCodesCount');
-            if (backupCodesEl) backupCodesEl.textContent = data.backupCodesRemaining + ' remaining';
+            if (backupCodesEl) backupCodesEl.textContent = t('2fa.codesRemaining', { count: data.backupCodesRemaining });
             log2FAViewTransition('determining', 'twofaStatusView', '2FA is enabled');
         } else {
             // Show setup view 1
@@ -3222,11 +3222,11 @@ async function initiate2FASetup() {
     const btn = document.getElementById('generateQRCodeBtn');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('2fa.btn.generating');
     }
     
     document.getElementById('twofaQRPlaceholder').innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>';
-    document.getElementById('twofaManualKey').textContent = 'Generating...';
+    document.getElementById('twofaManualKey').textContent = t('2fa.btn.generating');
     
     try {
         const response = await fetch('/api/2fa/setup', {
@@ -3280,7 +3280,7 @@ async function initiate2FASetup() {
         // Re-enable the generate button (user can regenerate if needed)
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generate New QR Code';
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i> ' + t('2fa.btn.generateNew');
         }
         
         log2FAViewTransition('twofaSetupView1', 'twofaSetupView1', 'QR and recovery codes generated - STAYING on setup view');
@@ -3418,7 +3418,7 @@ async function verify2FASetup() {
         document.getElementById('twofaSetupView2').style.display = 'none';
         document.getElementById('twofaRecoveryView').style.display = 'block';
         
-        showToast('2FA enabled successfully!', 'success');
+        showToast(t('2fa.nowEnabled'), 'success');
         
     } catch (error) {
         console.error('[2FA VERIFY] ERROR:', error);
@@ -3427,7 +3427,7 @@ async function verify2FASetup() {
         clear2FACodeInputs();
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enable';
+        btn.innerHTML = '<i class="fas fa-check"></i> ' + t('2fa.btn.verifyEnable');
     }
 }
 
@@ -3450,7 +3450,7 @@ async function regenerateRecoveryCodes() {
     
     const btn = document.getElementById('regenerateCodesBtn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('2fa.btn.generating');
     
     try {
         // First verify with a code
@@ -3487,7 +3487,7 @@ async function regenerateRecoveryCodes() {
         showToast(error.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-key"></i> New Codes';
+        btn.innerHTML = '<i class="fas fa-key"></i> ' + t('2fa.btn.newCodes');
     }
 }
 
@@ -3520,7 +3520,7 @@ async function disable2FA() {
     
     const btn = document.getElementById('twofaDisableBtn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Disabling...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('2fa.btn.disabling');
     
     try {
         const response = await fetch('/api/2fa/disable', {
@@ -3540,7 +3540,7 @@ async function disable2FA() {
         
         log2FAViewTransition('twofaDisableView', 'modal_closed', '2FA disabled successfully');
         closeTwoFAModal();
-        showToast('2FA has been disabled', 'info');
+        showToast(t('2fa.disabled'), 'info');
         
     } catch (error) {
         console.error('Disable 2FA error:', error);
@@ -5568,7 +5568,7 @@ function toggleFaq(btn) {
                     <option value="SG">Singapore</option>
                     <option value="AE">United Arab Emirates</option>
                     <option value="SA">Saudi Arabia</option>
-                    <option value="OTHER">Other</option>
+                    <option value="OTHER" data-i18n="kyc.country.other">Other</option>
                 </select>
             </div>
             <div class="form-group">
@@ -5772,8 +5772,8 @@ function toggleFaq(btn) {
                 <div id="twofaStatusIcon" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;background:rgba(16,185,129,0.2);">
                     <i class="fas fa-shield-check" style="font-size:28px;color:#10B981;"></i>
                 </div>
-                <h4 style="margin:0 0 4px 0;color:#fff;" id="twofaStatusTitle">Email 2FA Active</h4>
-                <p style="font-size:12px;color:#8896B5;margin:0 0 16px 0;" id="twofaStatusDesc">A verification code will be sent to your email during login</p>
+                <h4 style="margin:0 0 4px 0;color:#fff;" id="twofaStatusTitle" data-i18n="2fa.statusTitle">Email 2FA Active</h4>
+                <p style="font-size:12px;color:#8896B5;margin:0 0 16px 0;" id="twofaStatusDesc" data-i18n="2fa.statusDesc">A verification code will be sent to your email during login</p>
                 
                 <div style="background:#0F1629;border-radius:8px;padding:16px;margin-bottom:16px;text-align:left;">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
@@ -5781,8 +5781,8 @@ function toggleFaq(btn) {
                             <i class="fas fa-envelope" style="color:#F0B90B;"></i>
                         </div>
                         <div>
-                            <div style="font-size:12px;color:#8896B5;">Verification Method</div>
-                            <div style="font-size:14px;color:#fff;font-weight:500;">Email Code</div>
+                            <div style="font-size:12px;color:#8896B5;" data-i18n="2fa.verificationMethod">Verification Method</div>
+                            <div style="font-size:14px;color:#fff;font-weight:500;" data-i18n="2fa.emailCode">Email Code</div>
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
@@ -5790,14 +5790,14 @@ function toggleFaq(btn) {
                             <i class="fas fa-clock" style="color:#10B981;"></i>
                         </div>
                         <div>
-                            <div style="font-size:12px;color:#8896B5;">Code Expiry</div>
-                            <div style="font-size:14px;color:#fff;font-weight:500;">10 minutes</div>
+                            <div style="font-size:12px;color:#8896B5;" data-i18n="2fa.codeExpiry">Code Expiry</div>
+                            <div style="font-size:14px;color:#fff;font-weight:500;" data-i18n="2fa.tenMinutes">10 minutes</div>
                         </div>
                     </div>
                 </div>
                 
                 <p style="font-size:11px;color:#6b7280;margin:0;">
-                    <i class="fas fa-info-circle"></i> You don't need to set up anything. Just check your email during login.
+                    <i class="fas fa-info-circle"></i> <span data-i18n="2fa.noSetupNeeded">You don't need to set up anything. Just check your email during login.</span>
                 </p>
             </div>
         </div>
@@ -5808,40 +5808,40 @@ function toggleFaq(btn) {
                 <div style="width:80px;height:80px;background:linear-gradient(135deg, rgba(240,185,11,0.2) 0%, rgba(240,185,11,0.1) 100%);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
                     <i class="fas fa-envelope" style="font-size:36px;color:#F0B90B;"></i>
                 </div>
-                <h4 style="margin:0 0 8px 0;color:#fff;font-size:18px;">Email Verification</h4>
-                <p style="font-size:12px;color:#8896B5;margin:0;line-height:1.6;">
+                <h4 style="margin:0 0 8px 0;color:#fff;font-size:18px;" data-i18n="2fa.emailVerification">Email Verification</h4>
+                <p style="font-size:12px;color:#8896B5;margin:0;line-height:1.6;" data-i18n="2fa.emailProtectionDesc">
                     Your account is protected with email-based two-factor authentication. During login, a 6-digit code will be sent to your registered email address.
                 </p>
             </div>
             
             <div style="background:#0F1629;border-radius:8px;padding:16px;margin-bottom:16px;">
-                <div style="font-size:12px;color:#8896B5;margin-bottom:12px;font-weight:500;">How it works:</div>
+                <div style="font-size:12px;color:#8896B5;margin-bottom:12px;font-weight:500;" data-i18n="2fa.howItWorks">How it works:</div>
                 <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
                     <div style="width:24px;height:24px;background:#1a2332;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <span style="font-size:12px;color:#F0B90B;font-weight:600;">1</span>
                     </div>
-                    <div style="font-size:12px;color:#fff;">Enter your email and password</div>
+                    <div style="font-size:12px;color:#fff;" data-i18n="2fa.step1">Enter your email and password</div>
                 </div>
                 <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
                     <div style="width:24px;height:24px;background:#1a2332;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <span style="font-size:12px;color:#F0B90B;font-weight:600;">2</span>
                     </div>
-                    <div style="font-size:12px;color:#fff;">Check your email for a 6-digit code</div>
+                    <div style="font-size:12px;color:#fff;" data-i18n="2fa.step2">Check your email for a 6-digit code</div>
                 </div>
                 <div style="display:flex;align-items:flex-start;gap:12px;">
                     <div style="width:24px;height:24px;background:#1a2332;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <span style="font-size:12px;color:#F0B90B;font-weight:600;">3</span>
                     </div>
-                    <div style="font-size:12px;color:#fff;">Enter the code to complete login</div>
+                    <div style="font-size:12px;color:#fff;" data-i18n="2fa.step3">Enter the code to complete login</div>
                 </div>
             </div>
             
             <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:16px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <i class="fas fa-shield-check" style="color:#10B981;font-size:16px;"></i>
-                    <span style="font-size:12px;color:#10B981;font-weight:500;">Secure & Automatic</span>
+                    <span style="font-size:12px;color:#10B981;font-weight:500;" data-i18n="2fa.secureAutomatic">Secure & Automatic</span>
                 </div>
-                <p style="font-size:11px;color:#8896B5;margin:8px 0 0 24px;">
+                <p style="font-size:11px;color:#8896B5;margin:8px 0 0 24px;" data-i18n="2fa.secureAutomaticDesc">
                     No authenticator app needed. Codes expire after 10 minutes and can only be used once.
                 </p>
             </div>
@@ -5850,17 +5850,17 @@ function toggleFaq(btn) {
             <div id="twofaTOTPSetupSection" style="display:none;">
                 <hr style="border:none;border-top:1px solid #2a3441;margin:16px 0;">
                 <p style="font-size:11px;color:#6b7280;text-align:center;margin-bottom:12px;">
-                    <i class="fas fa-lock"></i> TOTP Setup (Disabled - Admin can re-enable)
+                    <i class="fas fa-lock"></i> <span data-i18n="2fa.totpDisabled">TOTP Setup (Disabled - Admin can re-enable)</span>
                 </p>
             </div>
         </div>
         
         <!-- Setup Step 2: Verify Code (hidden for email 2FA) -->
         <div id="twofaSetupView2" style="display:none;">
-            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Enter the 6-digit code from your authenticator app to verify setup:</p>
+            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;" data-i18n="2fa.verifySetupPrompt">Enter the 6-digit code from your authenticator app to verify setup:</p>
             
             <div class="form-group">
-                <label>Verification Code</label>
+                <label data-i18n="2fa.verificationCode">Verification Code</label>
                 <div class="code-input-group" id="twofaCodeGroup">
                     <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="0" oninput="handle2FACodeInput(this, 0)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',0)" onpaste="otpHandlePaste(event,'twofaCodeGroup',0)">
                     <input type="text" maxlength="1" class="code-input" inputmode="numeric" autocomplete="one-time-code" data-index="1" oninput="handle2FACodeInput(this, 1)" onkeydown="otpHandleKeyDown(event,'twofaCodeGroup',1)" onpaste="otpHandlePaste(event,'twofaCodeGroup',1)">
@@ -5873,32 +5873,32 @@ function toggleFaq(btn) {
             
             <div id="twofaVerifyError" style="color:#EF4444;font-size:12px;margin-bottom:12px;display:none;"></div>
             
-            <button type="button" onclick="verify2FASetup()" class="btn btn-primary btn-block" id="twofaVerifyBtn"><i class="fas fa-check"></i> Verify & Enable</button>
+            <button type="button" onclick="verify2FASetup()" class="btn btn-primary btn-block" id="twofaVerifyBtn"><i class="fas fa-check"></i> <span data-i18n="2fa.btn.verifyEnable">Verify & Enable</span></button>
         </div>
         
         <!-- Recovery Codes Display (hidden for email 2FA) -->
         <div id="twofaRecoveryView" style="display:none;">
             <div style="text-align:center;margin-bottom:16px;">
                 <i class="fas fa-key" style="font-size:48px;color:#F0B90B;"></i>
-                <h4 style="margin:12px 0 8px 0;color:#fff;">Save Your Recovery Codes</h4>
-                <p style="font-size:12px;color:#EF4444;margin:0 0 16px 0;">⚠️ Store these codes safely! Each can only be used once.</p>
+                <h4 style="margin:12px 0 8px 0;color:#fff;" data-i18n="2fa.btnSaveCodes">Save Your Recovery Codes</h4>
+                <p style="font-size:12px;color:#EF4444;margin:0 0 16px 0;" data-i18n="2fa.storeCodesSafely">⚠️ Store these codes safely! Each can only be used once.</p>
             </div>
             
             <div style="background:#0F1629;border-radius:8px;padding:16px;margin-bottom:16px;">
                 <div id="twofaRecoveryCodesList" style="font-family:monospace;font-size:14px;color:#10B981;word-break:break-all;line-height:1.8;"></div>
             </div>
             
-            <button type="button" onclick="confirmRecoveryCodesSaved()" class="btn btn-primary btn-block"><i class="fas fa-check"></i> I've Saved My Codes</button>
+            <button type="button" onclick="confirmRecoveryCodesSaved()" class="btn btn-primary btn-block"><i class="fas fa-check"></i> <span data-i18n="2fa.btnSaveMyCodes">I've Saved My Codes</span></button>
         </div>
         
         <!-- Disable 2FA Form (hidden for email 2FA - users can't disable) -->
         <div id="twofaDisableView" style="display:none;">
-            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;">Email 2FA cannot be disabled by users. Contact support if you need assistance.</p>
-            <button type="button" onclick="cancelDisable2FA()" class="btn btn-secondary btn-block">Close</button>
+            <p style="font-size:12px;color:#8896B5;margin-bottom:16px;" data-i18n="2fa.cannotDisable">Email 2FA cannot be disabled by users. Contact support if you need assistance.</p>
+            <button type="button" onclick="cancelDisable2FA()" class="btn btn-secondary btn-block" data-i18n="common.close">Close</button>
         </div>
         
         <div class="modal-actions" id="twofaModalActions">
-            <button type="button" onclick="closeTwoFAModal()" class="btn btn-secondary" data-i18n="common.cancel">Close</button>
+            <button type="button" onclick="closeTwoFAModal()" class="btn btn-secondary" data-i18n="common.close">Close</button>
         </div>
     </div>
 </div>
@@ -6511,6 +6511,7 @@ const TRANSLATIONS = {
         'sidebar.admin': 'Admin Panel',
         'sidebar.verification': 'Verification',
         'deposit.status.waiting': 'Waiting for payment...',
+        'deposit.qrAlt': 'USDT TRC20 Payment QR',
         'deposit.status.confirmed': 'Payment confirmed. Your balance has been credited.',
         'deposit.status.detectedConfirming': 'Payment detected. Waiting for blockchain confirmation...',
         'deposit.status.detected': 'Payment detected. Waiting for confirmation...',
@@ -6619,6 +6620,35 @@ const TRANSLATIONS = {
         '2fa.btn.disabling': 'Disabling...',
         '2fa.btn.disable': 'Disable',
         '2fa.btn.newCodes': 'New Codes',
+        '2fa.statusTitle': 'Email 2FA Active',
+        '2fa.statusDesc': 'A verification code will be sent to your email during login',
+        '2fa.verificationMethod': 'Verification Method',
+        '2fa.emailCode': 'Email Code',
+        '2fa.codeExpiry': 'Code Expiry',
+        '2fa.tenMinutes': '10 minutes',
+        '2fa.noSetupNeeded': 'You don\'t need to set up anything. Just check your email during login.',
+        '2fa.emailVerification': 'Email Verification',
+        '2fa.emailProtectionDesc': 'Your account is protected with email-based two-factor authentication. During login, a 6-digit code will be sent to your registered email address.',
+        '2fa.howItWorks': 'How it works:',
+        '2fa.step1': 'Enter your email and password',
+        '2fa.step2': 'Check your email for a 6-digit code',
+        '2fa.step3': 'Enter the code to complete login',
+        '2fa.secureAutomatic': 'Secure & Automatic',
+        '2fa.secureAutomaticDesc': 'No authenticator app needed. Codes expire after 10 minutes and can only be used once.',
+        '2fa.totpDisabled': 'TOTP Setup (Disabled - Admin can re-enable)',
+        '2fa.verifySetupPrompt': 'Enter the 6-digit code from your authenticator app to verify setup:',
+        '2fa.verificationCode': 'Verification Code',
+        '2fa.btnSaveCodes': 'Save Your Recovery Codes',
+        '2fa.storeCodesSafely': '⚠️ Store these codes safely! Each can only be used once.',
+        '2fa.btnSaveMyCodes': 'I\'ve Saved My Codes',
+        '2fa.cannotDisable': 'Email 2FA cannot be disabled by users. Contact support if you need assistance.',
+        'common.processing': 'Processing...',
+        'common.close': 'Close',
+        'common.trader': 'Trader',
+        'common.user': 'User',
+        'bonus.availableToWithdraw': '✅ {{amount}} available to withdraw',
+        'kyc.country.other': 'Other',
+        'referral.awaitingDeposit': '⏳ Awaiting deposit',
         'common.justNow': 'Just now',
         'withdraw.failed': 'Withdrawal failed',
         'deposit.confirmedSuccess': 'Deposit confirmed!',
@@ -7487,6 +7517,7 @@ const TRANSLATIONS = {
         'sidebar.admin': 'Panel de administración',
         'sidebar.verification': 'Verificación',
         'deposit.status.waiting': 'Esperando el pago...',
+        'deposit.qrAlt': 'Código QR de pago USDT TRC20',
         'deposit.status.confirmed': 'Pago confirmado. Tu saldo ha sido acreditado.',
         'deposit.status.detectedConfirming': 'Pago detectado. Esperando confirmación en la blockchain...',
         'deposit.status.detected': 'Pago detectado. Esperando confirmación...',
@@ -7595,6 +7626,35 @@ const TRANSLATIONS = {
         '2fa.btn.disabling': 'Deshabilitando...',
         '2fa.btn.disable': 'Deshabilitar',
         '2fa.btn.newCodes': 'Nuevos códigos',
+        '2fa.statusTitle': '2FA por correo activo',
+        '2fa.statusDesc': 'Se enviará un código de verificación a tu correo durante el inicio de sesión',
+        '2fa.verificationMethod': 'Método de verificación',
+        '2fa.emailCode': 'Código por correo',
+        '2fa.codeExpiry': 'Expiración del código',
+        '2fa.tenMinutes': '10 minutos',
+        '2fa.noSetupNeeded': 'No necesitas configurar nada. Solo revisa tu correo durante el inicio de sesión.',
+        '2fa.emailVerification': 'Verificación por correo',
+        '2fa.emailProtectionDesc': 'Tu cuenta está protegida con autenticación de dos factores por correo. Durante el inicio de sesión, se enviará un código de 6 dígitos a tu correo registrado.',
+        '2fa.howItWorks': 'Cómo funciona:',
+        '2fa.step1': 'Ingresa tu correo y contraseña',
+        '2fa.step2': 'Revisa tu correo para un código de 6 dígitos',
+        '2fa.step3': 'Ingresa el código para completar el inicio de sesión',
+        '2fa.secureAutomatic': 'Seguro y automático',
+        '2fa.secureAutomaticDesc': 'No se necesita aplicación de autenticación. Los códigos expiran después de 10 minutos y solo se pueden usar una vez.',
+        '2fa.totpDisabled': 'Configuración TOTP (Deshabilitada - el admin puede reactivarla)',
+        '2fa.verifySetupPrompt': 'Ingresa el código de 6 dígitos de tu aplicación de autenticación para verificar la configuración:',
+        '2fa.verificationCode': 'Código de verificación',
+        '2fa.btnSaveCodes': 'Guarda tus códigos de recuperación',
+        '2fa.storeCodesSafely': '⚠️ ¡Guarda estos códigos de forma segura! Cada uno solo se puede usar una vez.',
+        '2fa.btnSaveMyCodes': 'He guardado mis códigos',
+        '2fa.cannotDisable': 'El 2FA por correo no puede ser deshabilitado por los usuarios. Contacta a soporte si necesitas ayuda.',
+        'common.processing': 'Procesando...',
+        'common.close': 'Cerrar',
+        'common.trader': 'Trader',
+        'common.user': 'Usuario',
+        'bonus.availableToWithdraw': '✅ {{amount}} disponible para retirar',
+        'kyc.country.other': 'Otro',
+        'referral.awaitingDeposit': '⏳ Esperando depósito',
         'common.justNow': 'Justo ahora',
         'withdraw.failed': 'Retiro fallido',
         'deposit.confirmedSuccess': '¡Depósito confirmado!',
@@ -8463,6 +8523,7 @@ const TRANSLATIONS = {
         'sidebar.admin': 'Painel administrativo',
         'sidebar.verification': 'Verificação',
         'deposit.status.waiting': 'Aguardando o pagamento...',
+        'deposit.qrAlt': 'QR de pagamento USDT TRC20',
         'deposit.status.confirmed': 'Pagamento confirmado. Seu saldo foi creditado.',
         'deposit.status.detectedConfirming': 'Pagamento detectado. Aguardando confirmação na blockchain...',
         'deposit.status.detected': 'Pagamento detectado. Aguardando confirmação...',
@@ -8571,6 +8632,35 @@ const TRANSLATIONS = {
         '2fa.btn.disabling': 'Desativando...',
         '2fa.btn.disable': 'Desativar',
         '2fa.btn.newCodes': 'Novos códigos',
+        '2fa.statusTitle': '2FA por e-mail ativo',
+        '2fa.statusDesc': 'Um código de verificação será enviado ao seu e-mail durante o login',
+        '2fa.verificationMethod': 'Método de verificação',
+        '2fa.emailCode': 'Código por e-mail',
+        '2fa.codeExpiry': 'Expiração do código',
+        '2fa.tenMinutes': '10 minutos',
+        '2fa.noSetupNeeded': 'Você não precisa configurar nada. Apenas verifique seu e-mail durante o login.',
+        '2fa.emailVerification': 'Verificação por e-mail',
+        '2fa.emailProtectionDesc': 'Sua conta está protegida com autenticação de dois fatores por e-mail. Durante o login, um código de 6 dígitos será enviado ao seu e-mail cadastrado.',
+        '2fa.howItWorks': 'Como funciona:',
+        '2fa.step1': 'Insira seu e-mail e senha',
+        '2fa.step2': 'Verifique seu e-mail para um código de 6 dígitos',
+        '2fa.step3': 'Insira o código para concluir o login',
+        '2fa.secureAutomatic': 'Seguro e automático',
+        '2fa.secureAutomaticDesc': 'Não é necessário aplicativo de autenticação. Os códigos expiram após 10 minutos e só podem ser usados uma vez.',
+        '2fa.totpDisabled': 'Configuração TOTP (Desativada - o admin pode reativar)',
+        '2fa.verifySetupPrompt': 'Insira o código de 6 dígitos do seu aplicativo de autenticação para verificar a configuração:',
+        '2fa.verificationCode': 'Código de verificação',
+        '2fa.btnSaveCodes': 'Salve seus códigos de recuperação',
+        '2fa.storeCodesSafely': '⚠️ Guarde esses códigos com segurança! Cada um só pode ser usado uma vez.',
+        '2fa.btnSaveMyCodes': 'Salvei meus códigos',
+        '2fa.cannotDisable': 'O 2FA por e-mail não pode ser desativado pelos usuários. Contate o suporte se precisar de ajuda.',
+        'common.processing': 'Processando...',
+        'common.close': 'Fechar',
+        'common.trader': 'Trader',
+        'common.user': 'Usuário',
+        'bonus.availableToWithdraw': '✅ {{amount}} disponível para saque',
+        'kyc.country.other': 'Outro',
+        'referral.awaitingDeposit': '⏳ Aguardando depósito',
         'common.justNow': 'Agora mesmo',
         'withdraw.failed': 'Saque falhou',
         'deposit.confirmedSuccess': 'Depósito confirmado!',
@@ -9439,6 +9529,7 @@ const TRANSLATIONS = {
         'sidebar.admin': 'Panneau d’administration',
         'sidebar.verification': 'Vérification',
         'deposit.status.waiting': 'En attente de paiement...',
+        'deposit.qrAlt': 'QR de paiement USDT TRC20',
         'deposit.status.confirmed': 'Paiement confirmé. Votre solde a été crédité.',
         'deposit.status.detectedConfirming': 'Paiement détecté. En attente de confirmation sur la blockchain...',
         'deposit.status.detected': 'Paiement détecté. En attente de confirmation...',
@@ -9547,6 +9638,35 @@ const TRANSLATIONS = {
         '2fa.btn.disabling': 'Désactivation...',
         '2fa.btn.disable': 'Désactiver',
         '2fa.btn.newCodes': 'Nouveaux codes',
+        '2fa.statusTitle': '2FA par e-mail actif',
+        '2fa.statusDesc': 'Un code de vérification sera envoyé à votre e-mail lors de la connexion',
+        '2fa.verificationMethod': 'Méthode de vérification',
+        '2fa.emailCode': 'Code par e-mail',
+        '2fa.codeExpiry': 'Expiration du code',
+        '2fa.tenMinutes': '10 minutes',
+        '2fa.noSetupNeeded': 'Vous n\'avez rien à configurer. Vérifiez simplement votre e-mail lors de la connexion.',
+        '2fa.emailVerification': 'Vérification par e-mail',
+        '2fa.emailProtectionDesc': 'Votre compte est protégé par une authentification à deux facteurs par e-mail. Lors de la connexion, un code à 6 chiffres sera envoyé à votre adresse e-mail enregistrée.',
+        '2fa.howItWorks': 'Comment ça marche :',
+        '2fa.step1': 'Saisissez votre e-mail et mot de passe',
+        '2fa.step2': 'Vérifiez votre e-mail pour un code à 6 chiffres',
+        '2fa.step3': 'Saisissez le code pour terminer la connexion',
+        '2fa.secureAutomatic': 'Sécurisé et automatique',
+        '2fa.secureAutomaticDesc': 'Aucune application d\'authentification nécessaire. Les codes expirent après 10 minutes et ne peuvent être utilisés qu\'une seule fois.',
+        '2fa.totpDisabled': 'Configuration TOTP (Désactivée - l\'administrateur peut réactiver)',
+        '2fa.verifySetupPrompt': 'Saisissez le code à 6 chiffres de votre application d\'authentification pour vérifier la configuration :',
+        '2fa.verificationCode': 'Code de vérification',
+        '2fa.btnSaveCodes': 'Enregistrez vos codes de récupération',
+        '2fa.storeCodesSafely': '⚠️ Conservez ces codes en sécurité ! Chacun ne peut être utilisé qu\'une seule fois.',
+        '2fa.btnSaveMyCodes': 'J\'ai enregistré mes codes',
+        '2fa.cannotDisable': 'Le 2FA par e-mail ne peut pas être désactivé par les utilisateurs. Contactez le support si vous avez besoin d\'aide.',
+        'common.processing': 'Traitement...',
+        'common.close': 'Fermer',
+        'common.trader': 'Trader',
+        'common.user': 'Utilisateur',
+        'bonus.availableToWithdraw': '✅ {{amount}} disponible pour le retrait',
+        'kyc.country.other': 'Autre',
+        'referral.awaitingDeposit': '⏳ En attente de dépôt',
         'common.justNow': 'À l\'instant',
         'withdraw.failed': 'Retrait échoué',
         'deposit.confirmedSuccess': 'Dépôt confirmé !',
@@ -10415,6 +10535,7 @@ const TRANSLATIONS = {
         'sidebar.admin': 'لوحة الإدارة',
         'sidebar.verification': 'التحقق',
         'deposit.status.waiting': 'في انتظار الدفع...',
+        'deposit.qrAlt': 'رمز QR للدفع USDT TRC20',
         'deposit.status.confirmed': 'تم تأكيد الدفع. تم إضافة المبلغ إلى رصيدك.',
         'deposit.status.detectedConfirming': 'تم اكتشاف الدفع. في انتظار التأكيد على البلوكتشين...',
         'deposit.status.detected': 'تم اكتشاف الدفع. في انتظار التأكيد...',
@@ -10523,6 +10644,35 @@ const TRANSLATIONS = {
         '2fa.btn.disabling': 'جارٍ التعطيل...',
         '2fa.btn.disable': 'تعطيل',
         '2fa.btn.newCodes': 'رموز جديدة',
+        '2fa.statusTitle': 'المصادقة الثنائية عبر البريد مفعّلة',
+        '2fa.statusDesc': 'سيتم إرسال رمز تحقق إلى بريدك الإلكتروني أثناء تسجيل الدخول',
+        '2fa.verificationMethod': 'طريقة التحقق',
+        '2fa.emailCode': 'رمز البريد الإلكتروني',
+        '2fa.codeExpiry': 'انتهاء صلاحية الرمز',
+        '2fa.tenMinutes': '10 دقائق',
+        '2fa.noSetupNeeded': 'لا تحتاج إلى إعداد أي شيء. فقط تحقق من بريدك الإلكتروني أثناء تسجيل الدخول.',
+        '2fa.emailVerification': 'التحقق عبر البريد الإلكتروني',
+        '2fa.emailProtectionDesc': 'حسابك محمي بمصادقة ثنائية عبر البريد الإلكتروني. أثناء تسجيل الدخول، سيتم إرسال رمز من 6 أرقام إلى بريدك الإلكتروني المسجل.',
+        '2fa.howItWorks': 'كيفية العمل:',
+        '2fa.step1': 'أدخل بريدك الإلكتروني وكلمة المرور',
+        '2fa.step2': 'تحقق من بريدك الإلكتروني للحصول على رمز من 6 أرقام',
+        '2fa.step3': 'أدخل الرمز لإكمال تسجيل الدخول',
+        '2fa.secureAutomatic': 'آمن وتلقائي',
+        '2fa.secureAutomaticDesc': 'لا حاجة إلى تطبيق مصادقة. تنتهي صلاحية الرموز بعد 10 دقائق ولا يمكن استخدامها إلا مرة واحدة.',
+        '2fa.totpDisabled': 'إعداد TOTP (معطّل - يمكن للمشرف إعادة تفعيله)',
+        '2fa.verifySetupPrompt': 'أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة الخاص بك للتحقق من الإعداد:',
+        '2fa.verificationCode': 'رمز التحقق',
+        '2fa.btnSaveCodes': 'احفظ رموز الاسترداد الخاصة بك',
+        '2fa.storeCodesSafely': '⚠️ احفظ هذه الرموز بأمان! لا يمكن استخدام كل منها إلا مرة واحدة.',
+        '2fa.btnSaveMyCodes': 'لقد حفظت رموزي',
+        '2fa.cannotDisable': 'لا يمكن تعطيل المصادقة الثنائية عبر البريد من قبل المستخدمين. تواصل مع الدعم إذا احتجت إلى مساعدة.',
+        'common.processing': 'جارٍ المعالجة...',
+        'common.close': 'إغلاق',
+        'common.trader': 'متداول',
+        'common.user': 'مستخدم',
+        'bonus.availableToWithdraw': '✅ {{amount}} متاح للسحب',
+        'kyc.country.other': 'أخرى',
+        'referral.awaitingDeposit': '⏳ في انتظار الإيداع',
         'common.justNow': 'الآن',
         'withdraw.failed': 'فشل السحب',
         'deposit.confirmedSuccess': 'تم تأكيد الإيداع!',
@@ -11391,6 +11541,7 @@ const TRANSLATIONS = {
         'sidebar.admin': '管理面板',
         'sidebar.verification': '身份验证',
         'deposit.status.waiting': '等待付款中...',
+        'deposit.qrAlt': 'USDT TRC20 支付二维码',
         'deposit.status.confirmed': '付款已确认。您的余额已到账。',
         'deposit.status.detectedConfirming': '已检测到付款。正在等待区块链确认...',
         'deposit.status.detected': '已检测到付款。等待确认中...',
@@ -11499,6 +11650,35 @@ const TRANSLATIONS = {
         '2fa.btn.disabling': '禁用中...',
         '2fa.btn.disable': '禁用',
         '2fa.btn.newCodes': '新恢复码',
+        '2fa.statusTitle': '邮箱 2FA 已启用',
+        '2fa.statusDesc': '登录时将向您的邮箱发送验证码',
+        '2fa.verificationMethod': '验证方式',
+        '2fa.emailCode': '邮箱验证码',
+        '2fa.codeExpiry': '验证码有效期',
+        '2fa.tenMinutes': '10 分钟',
+        '2fa.noSetupNeeded': '您无需进行任何设置。只需在登录时查看您的邮箱即可。',
+        '2fa.emailVerification': '邮箱验证',
+        '2fa.emailProtectionDesc': '您的账户受基于邮箱的双因素认证保护。登录时，将向您的注册邮箱发送一个 6 位验证码。',
+        '2fa.howItWorks': '工作原理：',
+        '2fa.step1': '输入您的邮箱和密码',
+        '2fa.step2': '查看您的邮箱获取 6 位验证码',
+        '2fa.step3': '输入验证码以完成登录',
+        '2fa.secureAutomatic': '安全且自动',
+        '2fa.secureAutomaticDesc': '无需身份验证器应用。验证码 10 分钟后过期，且只能使用一次。',
+        '2fa.totpDisabled': 'TOTP 设置（已禁用 - 管理员可重新启用）',
+        '2fa.verifySetupPrompt': '请输入身份验证器应用中的 6 位验证码以完成设置验证：',
+        '2fa.verificationCode': '验证码',
+        '2fa.btnSaveCodes': '保存您的恢复码',
+        '2fa.storeCodesSafely': '⚠️ 请妥善保存这些验证码！每个验证码只能使用一次。',
+        '2fa.btnSaveMyCodes': '我已保存我的验证码',
+        '2fa.cannotDisable': '用户无法禁用邮箱 2FA。如需帮助，请联系支持。',
+        'common.processing': '处理中...',
+        'common.close': '关闭',
+        'common.trader': '交易员',
+        'common.user': '用户',
+        'bonus.availableToWithdraw': '✅ {{amount}} 可提取',
+        'kyc.country.other': '其他',
+        'referral.awaitingDeposit': '⏳ 等待入金',
         'common.justNow': '刚刚',
         'withdraw.failed': '提现失败',
         'deposit.confirmedSuccess': '充值已确认！',
@@ -12154,6 +12334,11 @@ function setLanguage(lang) {
     currentLang = lang;
     localStorage.setItem('arbi_lang', lang);
     applyTranslations();
+    // Re-render already-loaded dynamic surfaces (admin tables, activity,
+    // alerts, audit, KYC, transaction log, ticker) from cached data so a
+    // language change takes effect immediately WITHOUT refetching. Pure:
+    // no API calls, no raw-value changes, no filter/pagination/modal reset.
+    rerenderDynamicSurfaces();
     const dropdown = document.getElementById('languageDropdown');
     if (dropdown) dropdown.classList.remove('open');
     const langNames = { en: 'English', es: 'Español', fr: 'Français', ar: 'العربية', zh: '中文', pt: 'Português' };
@@ -12346,7 +12531,7 @@ const Notifications = {
     clearAll() { this.list = []; this.unread = 0; this.save(); this.updateUI(); },
     setupUI() { this.updateUI(); },
     updateUI() { const dot = document.getElementById('notificationUnreadDot'); if(dot) { if(this.unread > 0) dot.classList.remove('hidden'); else dot.classList.add('hidden'); } const listEl = document.getElementById('notificationList'); if(!listEl) return; if(this.list.length === 0) { listEl.innerHTML = '<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>' + t('notifications.empty') + '</p></div>'; return; } listEl.innerHTML = this.list.slice(0, 20).map(function(n) { const timeStr = Notifications.formatTime(n.time); const unreadClass = n.read ? '' : 'unread'; return '<div class="notification-item ' + unreadClass + '" onclick="Notifications.markAsRead(' + n.id + ')"><div class="notification-icon ' + n.type + '"><i class="fas ' + n.icon + '"></i></div><div class="notification-content"><div class="notification-title">' + escapeHtml(n.title) + '</div><div class="notification-desc">' + escapeHtml(n.desc) + '</div><div class="notification-time">' + timeStr + '</div></div></div>'; }).join(''); },
-    formatTime(timestamp) { const now = Date.now(); const diff = now - timestamp; const seconds = Math.floor(diff / 1000); const minutes = Math.floor(seconds / 60); const hours = Math.floor(minutes / 60); const days = Math.floor(hours / 24); if(seconds < 60) return t('common.justNow'); if(minutes < 60) return t('common.minutesAgo', {n: minutes}); if(hours < 24) return t('common.hoursAgo', {n: hours}); if(days < 7) return t('common.daysAgo', {n: days}); return new Date(timestamp).toLocaleDateString(); }
+    formatTime(timestamp) { const now = Date.now(); const diff = now - timestamp; const seconds = Math.floor(diff / 1000); const minutes = Math.floor(seconds / 60); const hours = Math.floor(minutes / 60); const days = Math.floor(hours / 24); if(seconds < 60) return t('common.justNow'); if(minutes < 60) return t('common.minutesAgo', {n: minutes}); if(hours < 24) return t('common.hoursAgo', {n: hours}); if(days < 7) return t('common.daysAgo', {n: days}); return new Date(timestamp).toLocaleDateString(appLocale()); }
 };
 try { Notifications.init(); } catch(e) {}
 
@@ -12426,7 +12611,7 @@ const UI = {
             btn.classList.add('loading');
             btn.disabled = true;
             btn.dataset.originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="btn-text">' + (btn.dataset.loadingText || 'Loading...') + '</span>';
+            btn.innerHTML = '<span class="btn-text">' + (btn.dataset.loadingText || t('common.loading')) + '</span>';
         } else {
             btn.classList.remove('loading');
             btn.disabled = false;
@@ -12461,6 +12646,15 @@ const UI = {
 };
 
 function formatCurrency(amount) { return '$' + Number(amount||0).toFixed(2); }
+
+// Display-only locale tag for date/number formatting. Maps the active UI
+// language to a BCP-47 locale. Used ONLY for render-time DISPLAY formatting
+// (toLocaleString/toLocaleDateString) of server timestamps — never for stored
+// `time:` fields, API date parameters, timestamps, sorting, or comparisons.
+function appLocale() {
+    const map = { en: 'en-US', es: 'es', pt: 'pt-BR', fr: 'fr', ar: 'ar', zh: 'zh-CN' };
+    return map[currentLang] || 'en-US';
+}
 
 function loadData() {
     try {
@@ -12740,11 +12934,11 @@ function updatePendingReferralsList() {
         list.innerHTML = pending.map(r => `
             <div style="background:#141C2E;border-radius:6px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
                 <div>
-                    <div style="font-size:11px;color:#fff;">${r.name || 'User'}</div>
+                    <div style="font-size:11px;color:#fff;">${r.name || t('common.user')}</div>
                     <div style="font-size:9px;color:#8896B5;">${r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : 'Recently'}</div>
                 </div>
                 <div style="text-align:right;">
-                    <span style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.1);padding:2px 6px;border-radius:4px;">⏳ Awaiting deposit</span>
+                    <span style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.1);padding:2px 6px;border-radius:4px;">${t('referral.awaitingDeposit')}</span>
                 </div>
             </div>
         `).join('');
@@ -12782,7 +12976,7 @@ function updateBonusWalletUI() {
     } else if (balance >= APP.BONUS_MIN_WITHDRAW) {
         info.classList.add('hidden');
         btn.disabled = false;
-        status.textContent = '✅ ' + formatCurrency(balance) + ' available to withdraw';
+        status.textContent = t('bonus.availableToWithdraw', { amount: formatCurrency(balance) });
         status.style.color = '#10B981';
     } else {
         info.classList.add('hidden');
@@ -13491,9 +13685,9 @@ function updateLiveWithdrawStatus() {
     const infoText = document.getElementById('withdrawInfoText');
     if (infoText) {
         if (!hasDeposit) {
-            infoText.textContent = '💳 Please make a minimum deposit of $50 to enable withdrawals';
+            infoText.textContent = t('live.withdrawStatus.notDeposited');
         } else if (!reachedMTA || !hasTrade) {
-            infoText.textContent = '📈 Need to reach $143 MTA and complete at least 1 trade to withdraw';
+            infoText.textContent = t('live.withdrawStatus.mtaNotReached');
         } else {
             infoText.textContent = t('withdraw.info');
         }
@@ -13904,7 +14098,7 @@ function showPaymentSection(invoice, amountUSD) {
     const qrData = invoice.qrData ||
       `tron:${address}?amount=${exactAmount}&token=USDT&network=TRC20`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
-    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="USDT TRC20 Payment QR" style="width:150px;height:150px;">`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
 
     // Show the customer's TRC20 destination address
     document.getElementById('liveWalletAddress').textContent = address;
@@ -13934,11 +14128,11 @@ function showPaymentSection(invoice, amountUSD) {
   } else if (invoice.gatewayUrl) {
     // Paymento gateway flow
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(invoice.gatewayUrl)}`;
-    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="Payment QR" style="width:150px;height:150px;">`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
     document.getElementById('liveWalletAddress').textContent = invoice.gatewayUrl;
     window.currentGatewayUrl = invoice.gatewayUrl;
   } else if (invoice.qrCodeUrl) {
-    document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="QR Code" style="width:150px;height:150px;">`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
     // Fallback: show wallet address for direct deposits
     if (invoice.address || invoice.walletAddress) {
       document.getElementById('liveWalletAddress').textContent = invoice.address || invoice.walletAddress;
@@ -13948,7 +14142,7 @@ function showPaymentSection(invoice, amountUSD) {
     const address = invoice.address || invoice.walletAddress;
     if (address) {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`;
-      document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="Payment QR" style="width:150px;height:150px;">`;
+      document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
       document.getElementById('liveWalletAddress').textContent = address;
     }
   }
@@ -14567,7 +14761,7 @@ async function submitWithdrawAPI(address, amount) {
                 
                 // Update progress
                 getEl('withdrawKycProgressFill').style.width = '25%';
-                getEl('withdrawKycProgressText').textContent = '25% Complete - Identity Required';
+                getEl('withdrawKycProgressText').textContent = t('withdraw.percentComplete', { percent: 25 }) + ' - ' + t('withdraw.identityRequired');
             } else {
                 showToast(translateBackendMessage(data.error, 'withdraw.failed'), 'error');
             }
@@ -14968,7 +15162,7 @@ function updateVerificationReview() {
     if (history && history.length > 0) {
         historySection.style.display = 'block';
         historyList.innerHTML = history.map(h => {
-            const date = new Date(h.createdAt).toLocaleDateString() + ' ' + new Date(h.createdAt).toLocaleTimeString();
+            const date = new Date(h.createdAt).toLocaleDateString(appLocale()) + ' ' + new Date(h.createdAt).toLocaleTimeString(appLocale());
             return '<div style="padding:8px;background:var(--bg-input);border-radius:6px;margin-bottom:4px;font-size:10px;">' +
                    '<div style="display:flex;justify-content:space-between;"><span>' + (h.previousStatus || t('kyc.status.new')) + ' → ' + h.newStatus + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
                    (h.rejectionReason ? '<div style="color:#EF4444;margin-top:4px;">' + h.rejectionReason + '</div>' : '') +
@@ -15859,46 +16053,152 @@ async function refreshOperationsDashboard() {
     await loadAlertsSummary();
 }
 
+// ============ LANGUAGE-SWITCH RE-RENDER CACHE ============
+// Caches the last successfully-loaded datasets for admin/activity/alerts/audit/
+// KYC surfaces so that a language change can re-render them from existing data
+// WITHOUT refetching. Each render function below is pure (rebuilds innerHTML
+// from the cached array only) and guarded so it only runs when both the cached
+// data and its target container exist. Stored RAW values are never altered;
+// only display labels are re-translated at render time.
+const I18N_RERENDER_CACHE = {
+    activityPreview: null,
+    activityTimeline: null,
+    alerts: null,
+    auditLogs: null,
+    adminUsers: null,
+    adminDeposits: null,
+    adminWithdrawals: null,
+    kycVerifications: null
+};
+
+// Re-renders already-loaded dynamic surfaces after a language change.
+// Pure + guarded: no fetch, no filter/pagination/modal/form reset, no raw-value
+// changes, no duplicate rows (each render rebuilds its container innerHTML).
+function rerenderDynamicSurfaces() {
+    try {
+        // Dashboard transaction log (reads in-memory wallet history)
+        if (typeof updateTransactionLog === 'function') updateTransactionLog();
+
+        // Activity preview (overview)
+        if (I18N_RERENDER_CACHE.activityPreview !== null && typeof renderActivityPreview === 'function') {
+            renderActivityPreview(I18N_RERENDER_CACHE.activityPreview);
+        }
+
+        // Activity timeline
+        if (I18N_RERENDER_CACHE.activityTimeline !== null && typeof renderActivityTimeline === 'function') {
+            renderActivityTimeline(I18N_RERENDER_CACHE.activityTimeline);
+        }
+
+        // Alerts
+        if (I18N_RERENDER_CACHE.alerts !== null && typeof renderAlerts === 'function') {
+            renderAlerts(I18N_RERENDER_CACHE.alerts);
+        }
+
+        // Audit logs
+        if (I18N_RERENDER_CACHE.auditLogs !== null && typeof renderAuditLogs === 'function') {
+            renderAuditLogs(I18N_RERENDER_CACHE.auditLogs);
+        }
+
+        // Admin tables
+        if (I18N_RERENDER_CACHE.adminUsers !== null && typeof renderAdminUsers === 'function') {
+            renderAdminUsers(I18N_RERENDER_CACHE.adminUsers);
+        }
+        if (I18N_RERENDER_CACHE.adminDeposits !== null && typeof renderAdminDeposits === 'function') {
+            renderAdminDeposits(I18N_RERENDER_CACHE.adminDeposits);
+        }
+        if (I18N_RERENDER_CACHE.adminWithdrawals !== null && typeof renderAdminWithdrawals === 'function') {
+            renderAdminWithdrawals(I18N_RERENDER_CACHE.adminWithdrawals);
+        }
+
+        // KYC verifications list
+        if (I18N_RERENDER_CACHE.kycVerifications !== null && typeof renderKYCVerifications === 'function') {
+            renderKYCVerifications(I18N_RERENDER_CACHE.kycVerifications);
+        }
+
+        // Ticker (decorative; regenerates localized items, no real state)
+        if (typeof refreshTicker === 'function') refreshTicker();
+    } catch(e) { console.error('rerenderDynamicSurfaces error:', e); }
+}
+
+// Pure render: builds the ops activity preview from a cached activities array.
+// Called both after fetch (loadActivityPreview) and on language change
+// (rerenderDynamicSurfaces). Display-only: raw activity.description is left
+// verbatim; only the title/date are re-translated.
+function renderActivityPreview(activities) {
+    const container = document.getElementById('opsActivityPreview');
+    if (!container) return;
+    if (!activities || activities.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:#8896B5;">' + t('admin.empty.noRecentActivity') + '</div>';
+        return;
+    }
+    container.innerHTML = activities.map(activity => {
+        const timeAgo = getTimeAgo(activity.timestamp);
+        return `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #1E2A3F;">
+                <div style="width:32px;height:32px;background:${activity.color}20;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:12px;"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:12px;color:#fff;">${activityTitleLabel(activity)}</div>
+                    <div style="font-size:10px;color:#8896B5;">${activity.description}</div>
+                </div>
+                <div style="font-size:10px;color:#8896B5;">${timeAgo}</div>
+            </div>
+        `;
+    }).join('');
+}
+
 // Load activity preview for overview
 async function loadActivityPreview() {
     const token = localStorage.getItem('jwt_token');
     const container = document.getElementById('opsActivityPreview');
     if (!container || !token) return;
-    
+
     try {
         const response = await fetch('/api/admin/dashboard/activity?limit=10', {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
+
         if (!response.ok) throw new Error('Failed to load activity');
-        
+
         const data = await response.json();
-        
-        if (!data.activities || data.activities.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:20px;color:#8896B5;">' + t('admin.empty.noRecentActivity') + '</div>';
-            return;
-        }
-        
-        container.innerHTML = data.activities.map(activity => {
-            const timeAgo = getTimeAgo(activity.timestamp);
-            return `
-                <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #1E2A3F;">
-                    <div style="width:32px;height:32px;background:${activity.color}20;border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                        <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:12px;"></i>
-                    </div>
-                    <div style="flex:1;">
-                        <div style="font-size:12px;color:#fff;">${activityTitleLabel(activity)}</div>
-                        <div style="font-size:10px;color:#8896B5;">${activity.description}</div>
-                    </div>
-                    <div style="font-size:10px;color:#8896B5;">${timeAgo}</div>
-                </div>
-            `;
-        }).join('');
-        
+        I18N_RERENDER_CACHE.activityPreview = data.activities || [];
+        renderActivityPreview(I18N_RERENDER_CACHE.activityPreview);
+
     } catch (error) {
         console.error('Failed to load activity preview:', error);
-        container.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">' + t('admin.empty.loadActivityFailed') + '</div>';
+        I18N_RERENDER_CACHE.activityPreview = null;
+        if (container) container.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">' + t('admin.empty.loadActivityFailed') + '</div>';
     }
+}
+// Pure render: full activity timeline from a cached activities array.
+// Called after fetch (loadActivityTimeline) and on language change.
+function renderActivityTimeline(activities) {
+    const container = document.getElementById('opsActivityTimeline');
+    if (!container) return;
+    if (!activities || activities.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noActivity') + '</p></div>';
+        return;
+    }
+    container.innerHTML = activities.map(activity => {
+        const timeAgo = getTimeAgo(activity.timestamp);
+        const formattedTime = new Date(activity.timestamp).toLocaleString(appLocale());
+        return `
+            <div style="display:flex;gap:16px;padding:16px;background:#141C2E;border-radius:12px;margin-bottom:8px;border:1px solid #1E2A3F;">
+                <div style="width:40px;height:40px;background:${activity.color}20;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:16px;"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px;">
+                        <span style="font-size:13px;font-weight:600;color:#fff;">${activityTitleLabel(activity)}</span>
+                        <span style="font-size:10px;color:#8896B5;" title="${formattedTime}">${timeAgo}</span>
+                    </div>
+                    <div style="font-size:12px;color:#8896B5;">${activity.description}</div>
+                    ${activity.amount ? `<div style="font-size:14px;font-weight:700;color:${activity.color};margin-top:4px;">$${activity.amount.toFixed(2)}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Load full activity timeline
@@ -15907,47 +16207,24 @@ async function loadActivityTimeline() {
     const container = document.getElementById('opsActivityTimeline');
     const filter = document.getElementById('activityFilter')?.value || 'all';
     if (!container || !token) return;
-    
+
     try {
         const response = await fetch(`/api/admin/dashboard/activity?limit=50&type=${filter}`, {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
+
         if (!response.ok) throw new Error('Failed to load activity');
-        
+
         const data = await response.json();
-        
-        if (!data.activities || data.activities.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-inbox" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noActivity') + '</p></div>';
-            return;
-        }
-        
-        container.innerHTML = data.activities.map(activity => {
-            const timeAgo = getTimeAgo(activity.timestamp);
-            const formattedTime = new Date(activity.timestamp).toLocaleString();
-            return `
-                <div style="display:flex;gap:16px;padding:16px;background:#141C2E;border-radius:12px;margin-bottom:8px;border:1px solid #1E2A3F;">
-                    <div style="width:40px;height:40px;background:${activity.color}20;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i class="fas fa-${activity.icon}" style="color:${activity.color};font-size:16px;"></i>
-                    </div>
-                    <div style="flex:1;">
-                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px;">
-                            <span style="font-size:13px;font-weight:600;color:#fff;">${activityTitleLabel(activity)}</span>
-                            <span style="font-size:10px;color:#8896B5;" title="${formattedTime}">${timeAgo}</span>
-                        </div>
-                        <div style="font-size:12px;color:#8896B5;">${activity.description}</div>
-                        ${activity.amount ? `<div style="font-size:14px;font-weight:700;color:${activity.color};margin-top:4px;">$${activity.amount.toFixed(2)}</div>` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
+        I18N_RERENDER_CACHE.activityTimeline = data.activities || [];
+        renderActivityTimeline(I18N_RERENDER_CACHE.activityTimeline);
+
     } catch (error) {
         console.error('Failed to load activity timeline:', error);
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">' + t('admin.empty.loadActivityFailed') + '</div>';
+        I18N_RERENDER_CACHE.activityTimeline = null;
+        if (container) container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">' + t('admin.empty.loadActivityFailed') + '</div>';
     }
 }
-
 // Load system health
 async function loadSystemHealth() {
     const token = localStorage.getItem('jwt_token');
@@ -15978,7 +16255,7 @@ async function loadSystemHealth() {
                         </div>
                         <div>
                             <div style="font-size:18px;font-weight:700;color:${statusColor};">${healthStatusLabel(data.status)}</div>
-                            <div style="font-size:11px;color:#8896B5;">${t('admin.health.lastChecked', {time: new Date(data.timestamp).toLocaleTimeString()})}</div>
+                            <div style="font-size:11px;color:#8896B5;">${t('admin.health.lastChecked', {time: new Date(data.timestamp).toLocaleTimeString(appLocale())})}</div>
                         </div>
                     </div>
                     <div style="text-align:right;">
@@ -16026,77 +16303,124 @@ async function loadSystemHealth() {
     }
 }
 
+// Pure render: alerts summary + list from a cached alerts payload.
+// Called after fetch (loadAlerts) and on language change.
+function renderAlerts(data) {
+    if (!data) return;
+    const summaryContainer = document.getElementById('opsAlertsSummary');
+    const listContainer = document.getElementById('opsAlertsList');
+
+    // Update summary
+    if (summaryContainer) {
+        summaryContainer.innerHTML = `
+            <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#EF4444;">${data.critical || 0}</div>
+                <div style="font-size:10px;color:#8896B5;">${t('admin.status.critical')}</div>
+            </div>
+            <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#F59E0B;">${data.warnings || 0}</div>
+                <div style="font-size:10px;color:#8896B5;">${t('admin.status.warnings')}</div>
+            </div>
+            <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
+                <div style="font-size:20px;font-weight:800;color:#3B82F6;">${data.info || 0}</div>
+                <div style="font-size:10px;color:#8896B5;">${t('admin.status.info')}</div>
+            </div>
+        `;
+    }
+
+    // Update list
+    if (listContainer) {
+        if (!data.alerts || data.alerts.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#10B981;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noAlerts') + '</p></div>';
+            return;
+        }
+
+        listContainer.innerHTML = data.alerts.map(alert => {
+            const severityColors = { error: '#EF4444', warning: '#F59E0B', info: '#3B82F6' };
+            const color = severityColors[alert.severity] || '#8896B5';
+            const timeAgo = getTimeAgo(alert.timestamp);
+
+            return `
+                <div style="padding:16px;background:#141C2E;border-radius:12px;border:1px solid #1E2A3F;border-left:4px solid ${color};">
+                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-exclamation-circle" style="color:${color};"></i>
+                            <span style="font-size:13px;font-weight:600;color:#fff;">${alertTitleLabel(alert)}</span>
+                        </div>
+                        <span style="font-size:10px;color:#8896B5;">${timeAgo}</span>
+                    </div>
+                    <div style="font-size:12px;color:#8896B5;margin-bottom:8px;">${alertMessageLabel(alert)}</div>
+                    ${alert.count ? `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:4px;font-size:10px;font-weight:600;">${alert.count} ${alertCountSuffixLabel(alert)}</span>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+}
+
 // Load alerts
 async function loadAlerts() {
     const token = localStorage.getItem('jwt_token');
-    const summaryContainer = document.getElementById('opsAlertsSummary');
-    const listContainer = document.getElementById('opsAlertsList');
     if (!token) return;
-    
+
     try {
         const response = await fetch('/api/admin/dashboard/alerts', {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
+
         if (!response.ok) throw new Error('Failed to load alerts');
-        
+
         const data = await response.json();
-        
-        // Update summary
-        if (summaryContainer) {
-            summaryContainer.innerHTML = `
-                <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
-                    <div style="font-size:20px;font-weight:800;color:#EF4444;">${data.critical || 0}</div>
-                    <div style="font-size:10px;color:#8896B5;">${t('admin.status.critical')}</div>
-                </div>
-                <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
-                    <div style="font-size:20px;font-weight:800;color:#F59E0B;">${data.warnings || 0}</div>
-                    <div style="font-size:10px;color:#8896B5;">${t('admin.status.warnings')}</div>
-                </div>
-                <div style="flex:1;padding:12px 16px;background:#141C2E;border-radius:8px;border:1px solid #1E2A3F;text-align:center;">
-                    <div style="font-size:20px;font-weight:800;color:#3B82F6;">${data.info || 0}</div>
-                    <div style="font-size:10px;color:#8896B5;">${t('admin.status.info')}</div>
-                </div>
-            `;
-        }
-        
-        // Update list
-        if (listContainer) {
-            if (!data.alerts || data.alerts.length === 0) {
-                listContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#10B981;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noAlerts') + '</p></div>';
-                return;
-            }
-            
-            listContainer.innerHTML = data.alerts.map(alert => {
-                const severityColors = { error: '#EF4444', warning: '#F59E0B', info: '#3B82F6' };
-                const color = severityColors[alert.severity] || '#8896B5';
-                const timeAgo = getTimeAgo(alert.timestamp);
-                
-                return `
-                    <div style="padding:16px;background:#141C2E;border-radius:12px;border:1px solid #1E2A3F;border-left:4px solid ${color};">
-                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <i class="fas fa-exclamation-circle" style="color:${color};"></i>
-                                <span style="font-size:13px;font-weight:600;color:#fff;">${alertTitleLabel(alert)}</span>
-                            </div>
-                            <span style="font-size:10px;color:#8896B5;">${timeAgo}</span>
-                        </div>
-                        <div style="font-size:12px;color:#8896B5;margin-bottom:8px;">${alertMessageLabel(alert)}</div>
-                        ${alert.count ? `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:4px;font-size:10px;font-weight:600;">${alert.count} ${alertCountSuffixLabel(alert)}</span>` : ''}
-                    </div>
-                `;
-            }).join('');
-        }
-        
+        I18N_RERENDER_CACHE.alerts = data;
+        renderAlerts(data);
+
     } catch (error) {
         console.error('Failed to load alerts:', error);
+        I18N_RERENDER_CACHE.alerts = null;
     }
 }
-
 // Load alerts summary for overview
 async function loadAlertsSummary() {
     // This is called from refresh to update alert indicators if needed
     // For now, alerts are loaded when the alerts tab is opened
+}
+
+// Pure render: audit log table from a cached logs payload.
+// Called after fetch (loadAuditLogs) and on language change.
+function renderAuditLogs(data) {
+    const container = document.getElementById('opsAuditLogs');
+    if (!container) return;
+    if (!data || !data.logs || data.logs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-history" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noAuditLogs') + '</p></div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+            <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                <tr style="border-bottom:1px solid #1E2A3F;">
+                    <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.timestamp')}</th>
+                    <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.action')}</th>
+                    <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.performedBy')}</th>
+                    <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.details')}</th>
+                    <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.ip')}</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.logs.map(log => `
+                    <tr style="border-bottom:1px solid #1E2A3F;">
+                        <td style="padding:8px;color:#8896B5;">${new Date(log.created_at).toLocaleString(appLocale())}</td>
+                        <td style="padding:8px;"><span style="padding:2px 6px;background:#1E2A3F;border-radius:4px;color:#F0B90B;">${auditActionLabel(log.action)}</span></td>
+                        <td style="padding:8px;color:#fff;">${log.performedByName || t('audit.performedBySystem')}</td>
+                        <td style="padding:8px;color:#8896B5;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${log.details || '-'}</td>
+                        <td style="padding:8px;color:#8896B5;">${log.ip_address || '-'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <div style="padding:12px;text-align:center;color:#8896B5;font-size:11px;border-top:1px solid #1E2A3F;">
+            ${t('audit.showing', { shown: data.logs.length, total: data.total })}
+        </div>
+    `;
 }
 
 // Load audit logs
@@ -16107,62 +16431,31 @@ async function loadAuditLogs() {
     const startDate = document.getElementById('auditStartDate')?.value || '';
     const endDate = document.getElementById('auditEndDate')?.value || '';
     if (!token || !container) return;
-    
+
     try {
         let url = '/api/admin/dashboard/audit-logs?limit=100';
         if (actionFilter) url += `&action=${actionFilter}`;
         if (startDate) url += `&startDate=${startDate}`;
         if (endDate) url += `&endDate=${endDate}`;
-        
+
         const response = await fetch(url, {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
+
         if (!response.ok) throw new Error('Failed to load audit logs');
-        
+
         const data = await response.json();
-        
-        if (!data.logs || data.logs.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:40px;color:#8896B5;"><i class="fas fa-history" style="font-size:32px;margin-bottom:12px;"></i><p>' + t('admin.empty.noAuditLogs') + '</p></div>';
-            return;
-        }
-        
-        container.innerHTML = `
-            <table style="width:100%;font-size:11px;border-collapse:collapse;">
-                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
-                    <tr style="border-bottom:1px solid #1E2A3F;">
-                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.timestamp')}</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.action')}</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.performedBy')}</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.details')}</th>
-                        <th style="padding:8px;text-align:left;color:#8896B5;">${t('audit.col.ip')}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.logs.map(log => `
-                        <tr style="border-bottom:1px solid #1E2A3F;">
-                            <td style="padding:8px;color:#8896B5;">${new Date(log.created_at).toLocaleString()}</td>
-                            <td style="padding:8px;"><span style="padding:2px 6px;background:#1E2A3F;border-radius:4px;color:#F0B90B;">${auditActionLabel(log.action)}</span></td>
-                            <td style="padding:8px;color:#fff;">${log.performedByName || t('audit.performedBySystem')}</td>
-                            <td style="padding:8px;color:#8896B5;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${log.details || '-'}</td>
-                            <td style="padding:8px;color:#8896B5;">${log.ip_address || '-'}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            <div style="padding:12px;text-align:center;color:#8896B5;font-size:11px;border-top:1px solid #1E2A3F;">
-                ${t('audit.showing', { shown: data.logs.length, total: data.total })}
-            </div>
-        `;
-        
+        I18N_RERENDER_CACHE.auditLogs = data;
+        renderAuditLogs(data);
+
     } catch (error) {
         console.error('Failed to load audit logs:', error);
+        I18N_RERENDER_CACHE.auditLogs = null;
         if (container) {
             container.innerHTML = '<div style="text-align:center;padding:40px;color:#EF4444;">' + t('admin.empty.loadAuditLogsFailed') + '</div>';
         }
     }
 }
-
 // Export report
 function exportReport(type) {
     const token = localStorage.getItem('jwt_token');
@@ -16218,7 +16511,7 @@ function getTimeAgo(timestamp) {
     if (hours < 24) return t('common.hoursAgo', {n: hours});
     const days = Math.floor(hours / 24);
     if (days < 7) return t('common.daysAgo', {n: days});
-    return new Date(timestamp).toLocaleDateString();
+    return new Date(timestamp).toLocaleDateString(appLocale());
 }
 
 function formatUptime(seconds) {
@@ -16435,7 +16728,7 @@ async function loadReferralAuditHistory() {
         // Render audit log
         table.innerHTML = data.auditLog.map(entry => {
             const date = new Date(entry.changed_at);
-            const formattedDate = date.toLocaleString();
+            const formattedDate = date.toLocaleString(appLocale());
             const configKeyLabel = formatConfigKey(entry.config_key);
             const oldValueDisplay = formatConfigValue(entry.config_key, entry.old_value);
             const newValueDisplay = formatConfigValue(entry.config_key, entry.new_value);
@@ -16524,6 +16817,7 @@ async function loadKYCVerifications() {
         
         if (res.ok) {
             const verifications = await res.json();
+            I18N_RERENDER_CACHE.kycVerifications = verifications;
             renderKYCVerifications(verifications);
         }
     } catch (e) {
@@ -16548,7 +16842,7 @@ function renderKYCVerifications(verifications) {
                           v.status === 'pending_review' ? t('kyc.status.pendingReview') :
                           v.status === 'rejected' ? t('kyc.status.rejected') :
                           v.status === 'resubmission_required' ? t('kyc.status.resubmission') : t('kyc.status.notStarted');
-        const submittedDate = v.submittedAt ? new Date(v.submittedAt).toLocaleDateString() : '-';
+        const submittedDate = v.submittedAt ? new Date(v.submittedAt).toLocaleDateString(appLocale()) : '-';
         const actionBtns = v.status === 'pending_review' ?
             '<button type="button" class="btn btn-success btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')" style="margin-right:4px;">' + t('admin.kyc.review') + '</button>' :
             '<button type="button" class="btn btn-secondary btn-sm" onclick="openKYCReviewModal(\'' + v.id + '\')">' + t('admin.view') + '</button>';
@@ -16628,7 +16922,7 @@ function renderKYCDetails(data) {
     const historyList = document.getElementById('kycReviewHistory');
     if (data.history && data.history.length > 0) {
         historyList.innerHTML = data.history.map(function(h) {
-            const date = new Date(h.createdAt).toLocaleDateString() + ' ' + new Date(h.createdAt).toLocaleTimeString();
+            const date = new Date(h.createdAt).toLocaleDateString(appLocale()) + ' ' + new Date(h.createdAt).toLocaleTimeString(appLocale());
             return '<div style="padding:8px;background:#141C2E;border-radius:6px;margin-bottom:4px;font-size:10px;">' +
                    '<div style="display:flex;justify-content:space-between;"><span>' + kycStatusLabel(h.previousStatus) + ' → ' + kycStatusLabel(h.newStatus) + '</span><span style="color:#6B7A99;">' + date + '</span></div>' +
                    (h.rejectionReason ? '<div style="color:#EF4444;margin-top:4px;">' + h.rejectionReason + '</div>' : '') +
@@ -16803,6 +17097,7 @@ async function loadAdminData() {
         });
         if (usersRes.ok) {
             const users = await usersRes.json();
+            I18N_RERENDER_CACHE.adminUsers = users;
             renderAdminUsers(users);
         }
         
@@ -16812,6 +17107,7 @@ async function loadAdminData() {
         });
         if (depositsRes.ok) {
             const deposits = await depositsRes.json();
+            I18N_RERENDER_CACHE.adminDeposits = deposits;
             renderAdminDeposits(deposits);
         }
         
@@ -16821,6 +17117,7 @@ async function loadAdminData() {
         });
         if (withdrawalsRes.ok) {
             const withdrawals = await withdrawalsRes.json();
+            I18N_RERENDER_CACHE.adminWithdrawals = withdrawals;
             renderAdminWithdrawals(withdrawals);
         }
         
@@ -17124,6 +17421,7 @@ async function searchAdminUsers() {
         if (!response.ok) throw new Error('Search failed');
         
         const data = await response.json();
+        I18N_RERENDER_CACHE.adminUsers = data.users || [];
         renderAdminUsers(data.users || []);
         
     } catch (error) {
@@ -17189,7 +17487,7 @@ function renderAdminDeposits(deposits) {
             '<td style="padding:8px;">$' + (d.amount || 0).toFixed(2) + '</td>' +
             '<td style="padding:8px;">' + (d.network || t('common.na')) + '</td>' +
             '<td style="padding:8px;' + statusColor + '">' + depositStatusLabel(d.status) + '</td>' +
-            '<td style="padding:8px;">' + new Date(d.created_at).toLocaleDateString() + '</td>' +
+            '<td style="padding:8px;">' + new Date(d.created_at).toLocaleDateString(appLocale()) + '</td>' +
             '<td style="padding:8px;">' + actionBtn + '</td>' +
         '</tr>';
     }).join('');
@@ -17216,7 +17514,7 @@ function renderAdminWithdrawals(withdrawals) {
             '<td style="padding:8px;">$' + (w.amount || 0).toFixed(2) + '</td>' +
             '<td style="padding:8px;font-family:monospace;font-size:9px;max-width:100px;overflow:hidden;text-overflow:ellipsis;">' + (w.address || t('common.na')) + '</td>' +
             '<td style="padding:8px;' + statusColor + '">' + withdrawalStatusLabel(w.status) + '</td>' +
-            '<td style="padding:8px;">' + new Date(w.created_at).toLocaleDateString() + '</td>' +
+            '<td style="padding:8px;">' + new Date(w.created_at).toLocaleDateString(appLocale()) + '</td>' +
             '<td style="padding:8px;">' + actionBtns + '</td>' +
         '</tr>';
     }).join('');
@@ -17283,12 +17581,12 @@ if(savedUser) {
         const user = JSON.parse(savedUser);
         document.getElementById('authPage').style.display = 'none';
         document.getElementById('landingPage').style.display = 'block';
-        document.getElementById('displayName').textContent = user.name || 'Trader';
-        document.getElementById('userName').textContent = user.name || 'Trader';
+        document.getElementById('displayName').textContent = user.name || t('common.trader');
+        document.getElementById('userName').textContent = user.name || t('common.trader');
         var greeting = document.getElementById('landingUserGreeting');
         if (greeting) {
             greeting.style.display = 'inline-block';
-            document.getElementById('landingUserName').textContent = user.name || 'Trader';
+            document.getElementById('landingUserName').textContent = user.name || t('common.trader');
         }
     } catch(e) {
         localStorage.removeItem('arbi_user');

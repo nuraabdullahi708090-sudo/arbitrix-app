@@ -760,3 +760,116 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   prior phases).
 
+
+## Localization Phase 3F — 2FA panel + dead-key JS + language-switch re-render + date locale (2026-08, public/index.html only)
+- Frontend-only implementation slice following the read-only Phase 3F audit.
+  NO changes to server.js, DB/schema/migrations, auth/2FA LOGIC, wallet/trading/
+  referral/payment/withdraw logic, webhook behavior, API request/response shapes,
+  or stored status/enum/API/raw values. Only DISPLAY labels were translated.
+- Dictionary: 1001 -> 1002 keys/locale (30 NEW keys total: the 29 audit keys
+  + `deposit.qrAlt`). EN values for the 1001 pre-existing keys byte-identical -
+  0 changed. All 6 locales (en, es, pt, fr, ar, zh) identical key sets, 0 empty,
+  0 duplicate keys, 0 `{{placeholder}}` parity issues. NOTE: `referral.defaultUser`
+  was listed in the audit plan but is UNUSED (the referral "User" fallback uses
+  `common.user` instead), so it was intentionally NOT added.
+- 2FA settings panel (twofaStatusView + setup/recovery/disable views,
+  L5770-5902): wired ~22 previously-hardcoded English strings to `data-i18n`.
+  Strings inside icon-bearing buttons/paragraphs were wrapped in
+  `<span data-i18n=...>` so applyTranslations() (which sets innerHTML) only
+  replaces the text span and leaves the sibling `<i>` icon intact. Panel keys:
+  2fa.statusTitle/statusDesc/verificationMethod/emailCode/codeExpiry/tenMinutes/
+  noSetupNeeded/emailVerification/emailProtectionDesc/howItWorks/step1/step2/
+  step3/secureAutomatic/secureAutomaticDesc/totpDisabled/verifySetupPrompt/
+  verificationCode/btnSaveCodes/storeCodesSafely/btnSaveMyCodes/cannotDisable
+  + buttons reuse 2fa.btn.verifyEnable / common.close. FIXED a pre-existing
+  label mismatch: the 2FA modal Close button was data-i18n="common.cancel"
+  (showed "Cancel") -> corrected to data-i18n="common.close" ("Close").
+- Dead-key JS call sites rewired to t() (hardcoded English -> localized):
+  - 2FA setup/verify/disable button states: "Generating..." (2 sites) ->
+    2fa.btn.generating; "Generate New QR Code" -> 2fa.btn.generateNew;
+    "Verify & Enable" (restore) -> 2fa.btn.verifyEnable; "New Codes" (restore)
+    -> 2fa.btn.newCodes; "Disabling..." -> 2fa.btn.disabling.
+  - 2FA toasts/status: "2FA enabled successfully!" (2 sites) -> 2fa.nowEnabled;
+    "2FA has been disabled" -> 2fa.disabled; countdown "Expired" -> 2fa.expired;
+    "Code expired. Please request a new one." -> 2fa.codeExpired;
+    backup "N remaining" -> 2fa.codesRemaining {{count}}.
+  - setButtonLoading "Processing..." -> common.processing; generic button
+    loading fallback "Loading..." -> common.loading (kept btn.dataset.loadingText
+    override intact).
+  - Withdraw-status info text: "$50 to enable withdrawals" ->
+    live.withdrawStatus.notDeposited; "$143 MTA..." -> live.withdrawStatus.mtaNotReached;
+    "25% Complete - Identity Required" -> withdraw.percentComplete {{percent}} +
+    ' - ' + withdraw.identityRequired (display-only; raw status/progress logic
+    untouched).
+  - Bonus "available to withdraw" -> bonus.availableToWithdraw {{amount}}.
+  - Auth "Please enter a valid email address" -> auth.errors.validEmailRequired.
+  - Referral pending list: `${r.name || 'User'}` -> common.user;
+    "Awaiting deposit" -> referral.awaitingDeposit.
+  - Display-name "Trader" fallback: localized the 6 pure-DISPLAY textContent
+    fallbacks (displayName/userName/landingUserName) -> common.trader. The 2
+    `.value` INPUT prefill sites (profile load) and the saveProfile save path
+    (L15200) were LEFT as raw 'Trader' deliberately: that path PERSISTS the
+    fallback as user.name in localStorage, so localizing it would store a
+    locale-specific word as the user's name. Input default value="Trader"
+    (L5720) left raw (overwritten on profile load; no value-attribute i18n
+    mechanism).
+  - QR code `<img alt="...">` (4 sites) -> consolidated to t('deposit.qrAlt')
+    (screen-reader text).
+  - KYC country `<option value="OTHER">Other</option>` -> added
+    data-i18n="kyc.country.other" (value="OTHER" preserved; raw value sent to
+    server unchanged).
+- DATE LOCALE (display-only): added appLocale() helper near formatCurrency
+  mapping currentLang -> BCP-47 tag (en->en-US, es->es, pt->pt-BR, fr->fr,
+  ar->ar, zh->zh-CN). Applied to render-time DISPLAY date formatting ONLY:
+  activity timeline formattedTime, audit log created_at, KYC submittedAt,
+  2FA enabledAt, time-ago >7days fallback, getTimeAgo fallback, admin
+  deposits/withdrawals created_at, deposit-history + KYC-history createdAt,
+  health lastChecked. Used ONLY for toLocaleString/toLocaleDateString/
+  toLocaleTimeString DISPLAY of server timestamps. NOT applied to: stored
+  transaction time: fields (persisted in localStorage history), API date
+  parameters (?startDate/&endDate/&action sent raw), timestamps, sorting, or
+  comparisons. Number/currency formatting (formatCurrency, ticker amounts)
+  LEFT UNTOUCHED to avoid locale decimal/grouping confusion for financial
+  values.
+- LANGUAGE-SWITCH RE-RENDER (the core 3F feature): previously, render-time-
+  localized surfaces (admin tables, activity, alerts, audit, KYC list, ticker,
+  transaction log) stayed in the OLD language until a refresh/refetch. Added:
+  - I18N_RERENDER_CACHE module-scope object caching the last successfully-
+    loaded datasets (activityPreview/activityTimeline/alerts/auditLogs/
+    adminUsers/adminDeposits/adminWithdrawals/kycVerifications).
+  - rerenderDynamicSurfaces(): pure, guarded re-render. Calls
+    updateTransactionLog() (reads in-memory wallet history), then each pure
+    render fn with its cached data (only if cache non-null + fn exists + target
+    container exists), then refreshTicker(). NO fetch, NO filter/pagination/
+    modal/form reset, NO raw-value changes, NO duplicate rows (each render
+    rebuilds container innerHTML). Wrapped in try/catch.
+  - Refactored 4 inline-rendering load fns into pure render fns + cache writes:
+    renderActivityPreview(activities), renderActivityTimeline(activities),
+    renderAlerts(data), renderAuditLogs(data) (each extracted from its load*
+    fn; load* now does fetch -> cache = data -> render(data)). Admin render fns
+    (renderAdminUsers/Deposits/Withdrawals/renderKYCVerifications) already took
+    data; added cache writes at their 5 call sites.
+  - setLanguage() now calls rerenderDynamicSurfaces() after applyTranslations()
+    -> language change immediately re-translates all already-loaded dynamic
+    surfaces WITHOUT refetching (no extra API calls).
+  - Safety: caches are null until first successful load; on fetch error the
+    cache for that surface is reset to null so a stale partial isn't re-rendered.
+- CONSERVATIVE NON-CHANGES (deliberately left raw, documented per audit "if
+  risk, leave it"): "Loading..."/"Waiting for payment..." INITIAL text on
+  dynamically-populated elements (referralCodeDisplay, referralLinkDisplay,
+  depositStatusText, withdrawKycProgressText "25% Complete"). These are
+  transient pre-load flashes, immediately overwritten by JS, and adding
+  data-i18n to them would cause applyTranslations() to CLOBBER the real dynamic
+  content (e.g. the actual referral code) on every language switch. The static
+  admin "Loading..." rows DO keep data-i18n="common.loading" (they are replaced
+  wholesale by table render, never clobbered).
+- Verification: node --check on all 4 inline `<script>` blocks = OK. Dict
+  parity = 1002 keys/locale x 6, 0 missing, 0 empty, 0 dups, 0 placeholder
+  parity. Functional smoke test (real TRANSLATIONS + t() interpolation) =
+  all pass (new keys resolve/interpolate per locale; EN fallback for unknown
+  locale; unknown key returns key; FR "{{percent}}% termine" interpolates
+  correctly). Raw-value invariants verified intact: transaction type/detail
+  stored values + `=== 'Deposit'` comparisons unchanged; `<option value>`
+  attributes raw; API filter params raw. npm test = 48/48 pass (no regression).
+- Checkpoint commit created this session (frontend-only, public/index.html +
+  AGENTS.md) AFTER all verification passed. Not pushed/deployed.
