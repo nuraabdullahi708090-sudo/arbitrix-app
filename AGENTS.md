@@ -161,3 +161,64 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - Tests: `tests/trades_pnl.test.js` pins the sum/window/funded/rollback
   contracts. `npm test` = 48/48.
 
+## PWA install-prompt repeat bug (fixed 2026-08, frontend-only in public/index.html)
+- All PWA install logic is frontend-only in `public/index.html`:
+  - `PWA = { deferredPrompt, isStandalone, isIOS }` declared ~line 6457.
+  - `beforeinstallprompt` handler ~6510: if `pwaIsInstalled()` drop event +
+    return; else `e.preventDefault()` + stash `PWA.deferredPrompt` +
+    `showInstallPrompt()`.
+  - `pwaIsInstalled()` ~6467 (NEW): single source of truth. True if
+    `PWA.isStandalone` OR `localStorage('pwa_installed')` OR
+    `window.navigator.standalone===true`. iOS has no reliable in-tab API, so
+    iOS relies on standalone + recorded flag (best-effort, by design).
+  - `pwaCheckRelatedApps()` ~6477 (NEW): async best-effort
+    `navigator.getInstalledRelatedApps()` (Chromium-only) to detect
+    installed-but-in-browser-tab; sets `pwa_installed` flag on hit. Called at
+    startup (~6570); on resolve hides any prompt already showing + nulls
+    deferredPrompt.
+  - `appinstalled` listener ~6521 (NEW): on real install, nulls
+    `PWA.deferredPrompt`, sets `localStorage('pwa_installed','true')`, hides
+    banner + iOS modal. (Finally makes the previously-dead `pwa_installed`
+    check actually work.)
+  - `showInstallPrompt()` ~6530: re-checks `pwaIsInstalled()` immediately
+    before display; reads `pwa_dismissed`/`ios_install_shown` from
+    localStorage (was sessionStorage); each delayed show re-checks
+    `pwaIsInstalled()` inside its setTimeout.
+  - `dismissPWA()` ~6562: writes `localStorage('pwa_dismissed','true')`
+    (was sessionStorage). NOT auto-cleared when beforeinstallprompt fires.
+  - Install button handler ~9734: prompts, awaits `userChoice`; on
+    `outcome==='accepted'` sets `pwa_installed` as a defensive backup to the
+    appinstalled event (which some browsers fire unreliably).
+  - Sidebar Install link handler ~9634: gates on `pwaIsInstalled()` (was
+    `PWA.isStandalone`) so installed-in-tab users also see "already installed".
+  - `initApp()` still runs `setTimeout(showInstallPrompt, 3000)` ~9305 (kept;
+    now self-suppresses when installed/dismissed).
+- ROOT CAUSE that was fixed:
+  1. No `appinstalled` listener existed → successful install never set the
+     `pwa_installed` flag (read but never written = dead check). FIXED.
+  2. `PWA.isStandalone` only true from home-screen launch, false in a browser
+     tab even if installed → installed-in-tab users treated as not-installed.
+     FIXED via `pwaIsInstalled()` + `getInstalledRelatedApps()`.
+  3. `dismissPWA` used sessionStorage → dismissal cleared on tab close.
+     FIXED → localStorage (persists across browser restarts).
+- State semantics after fix:
+  - not installed & not dismissed → may show prompt (unchanged behavior).
+  - dismissed → stays dismissed (localStorage; not auto-cleared on
+    beforeinstallprompt).
+  - successfully installed → never show again (`appinstalled` + accepted
+    `userChoice` both set `pwa_installed`).
+  - opened from home screen → never show (`display-mode: standalone` /
+    `navigator.standalone`).
+- Manifest unchanged: runtime Blob URL (~6452), `display:'standalone'`,
+  SVG data-URI icons. Apple meta tags present (lines 7-9).
+- Service worker: `./sw.js` registered (~6491) but `public/sw.js` DOES NOT
+  EXIST → registration silently fails. NOT touched by this fix (missing SW
+  to be investigated separately; it does not cause the repeat prompt).
+- Logout (lines ~9560) does NOT touch pwa_* keys (by design: install state is
+  device-level, not per-login; should persist across logins).
+- Verification: `node --check` on all 5 inline `<script>` blocks = OK.
+  `npm test` = 36 pass / 1 fail, where the 1 fail is
+  `tests/q8qpay.webhook.test.js` failing with `Cannot find module 'express'`
+  (deps not installed in this env) — IDENTICAL on the unmodified baseline,
+  so no regression introduced by this frontend-only change.
+
