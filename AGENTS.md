@@ -252,3 +252,39 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   `npm test` = 36 pass / 1 fail (same pre-existing `q8qpay.webhook.test.js`
   `Cannot find module 'express'` env failure; no regression).
 
+## Localization Phase 2A (2026-08, frontend-only in public/index.html)
+- Replaced the placeholder line `es: {}, fr: {}, ar: {}, zh: {}, pt: {}` with
+  FULL dictionaries for all 5 locales (es, pt, fr, ar, zh) - 262 keys each,
+  covering the core user-facing UI: auth/login/signup, sidebar/nav, dashboard
+  stats (Total Equity, Available, Today's P&L), Live/Demo modes, bot/trading
+  controls, trade results, deposits, withdrawals, transactions, referral,
+  profile/account settings, 2FA, PWA/install, notifications, badges/milestones.
+- The EN dictionary was NOT changed (verified byte-identical, 0 changed keys).
+  EN remains the fallback; the Phase 1 `detectBrowserLanguage()` +
+  `arbi_lang` guard, the `['es',...]` copy-loop (fills any future-missing key
+  with EN), the `t()` fallback (`TRANSLATIONS[currentLang]?.[key] ||
+  TRANSLATIONS.en[key] || key`), and Arabic RTL
+  (`dir = currentLang==='ar'?'rtl':'ltr'`) are all unchanged.
+- All `{{var}}` placeholders (`{{amount}}`, `{{min}}`, `{{needed}}`,
+  `{{network}}`, `{{current}}`, `{{balance}}`) preserved per-key per-locale
+  (12 placeholder-bearing keys × 5 locales verified). HTML `<strong>` tags in
+  `ios.step1`–`ios.step4` preserved; `ios.step1` mirrors EN's pre-existing
+  `<strong>…</button>` typo on purpose (do NOT "fix" it inconsistently across
+  locales — that would change rendering parity; it is an EN-side bug to fix
+  separately if ever).
+- Untranslated terms kept as-is by design: MTA, USDT, TRC20, "Google
+  Authenticator", "Arbitrix AI", "DEMO"/"LIVE" badges, "P&L" label, $ amounts.
+- Backend error strings, email templates, privacy/terms/legal pages, and
+  reset-password.html NOT translated in this phase (frontend UI only).
+- NOT translated/dynamic-yet (still hardcoded English, future phase): ~101
+  `showToast()` literals, 6 `updateCurrentStatus()` deposit-status strings
+  (display wording only — underlying `pending`/`confirmed`/`expired`/
+  `cancelled` status VALUES + polling/crediting logic untouched), ~7 support
+  bot reply templates, and backend `data.error` passthroughs in auth.
+- Verification: `node --check` on all 4 inline `<script>` blocks = OK;
+  standalone functional check (real extracted TRANSLATIONS + t()) confirms
+  5 locales parse, resolve, interpolate, RTL for `ar`, EN fallback for
+  unknown keys, placeholder parity. `npm test` = 36 pass / 1 fail (same
+  pre-existing `q8qpay.webhook.test.js` `Cannot find module 'express'` env
+  failure; no regression).
+
