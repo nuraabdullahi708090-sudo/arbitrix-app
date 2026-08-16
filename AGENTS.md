@@ -873,3 +873,94 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   attributes raw; API filter params raw. npm test = 48/48 pass (no regression).
 - Checkpoint commit created this session (frontend-only, public/index.html +
   AGENTS.md) AFTER all verification passed. Not pushed/deployed.
+
+## Localization Phase 3H — Critical Multilingual UX Fixes (2026-08, public/index.html only)
+- Frontend-only fixes for the two confirmed CRIT issues from the Phase 3G audit.
+  NO changes to server.js, DB/schema/migrations, auth/2FA LOGIC, wallet/trading/
+  referral-business/payment/withdraw logic, webhook behavior, API shapes, or
+  stored status/enum/raw values. No new translation keys (1002/locale unchanged);
+  only 6 values of `referral.invite` edited (the $10 removed — see CRIT-2).
+- CRIT-1 — 2FA code-expiry countdown clobbering fix:
+  - ROOT CAUSE: the expiry `<span>` had `data-i18n="auth.2fa.codeExpiry"` and
+    wrapped the WHOLE line including the live `<span id="twofaCountdown">`.
+    `applyTranslations()` sets `el.innerHTML = t(key)` WITHOUT passing
+    `data-i18n-vars`, so the `{{time}}` placeholder was shown LITERALLY to the
+    user, AND the `#twofaCountdown` child was destroyed on every language
+    switch. Worse, `start2FACountdown()` captures `countdownEl` ONCE
+    (`const countdownEl = document.getElementById('twofaCountdown')`) into the
+    interval closure; recreating the element left the interval updating a
+    DETACHED node → the visible countdown froze at whatever HTML default
+    remained. So language switching during countdown broke it.
+  - FIX (smallest safe DOM/i18n change — preserves translations & element
+    identity): restructured the expiry line into THREE stable sibling spans:
+    `<span id="twofaCodeExpiryPrefix">` + `<span id="twofaCountdown">` +
+    `<span id="twofaCodeExpirySuffix">`, wrapped by
+    `<span id="twofaCodeExpiryWrap">` (NO data-i18n on the wrapper — removed
+    `data-i18n` AND the dead `data-i18n-vars` attribute, which applyTranslations
+    never read anyway). Added `update2FACodeExpiryLabels()` (called from
+    `updateDynamicTranslations()` → runs on every `applyTranslations()` incl.
+    `setLanguage()`): reads `t('auth.2fa.codeExpiry')` (still contains
+    `{{time}}`), splits on `{{time}}`, and sets ONLY the prefix/suffix spans'
+    `textContent`. `#twofaCountdown` is NEVER recreated → the interval's cached
+    reference stays valid → countdown keeps ticking across language switches.
+    No literal `{{time}}` is ever shown. Handles locales where the time sits in
+    the MIDDLE of the sentence (zh "验证码将在 {{time}} 后过期" → prefix
+    "验证码将在 " + countdown + suffix " 后过期"); en/es/pt/fr/ar have empty
+    suffix. The `auth.2fa.codeExpiry` translation VALUES were NOT changed
+    (0 edits) — the placeholder is consumed by the helper, never rendered raw.
+  - NOT touched: timer interval, expiration timestamp, OTP validation, API
+    calls, 2FA security logic, the numeric countdown value itself.
+- CRIT-2 — referral.invite reward-amount clobbering fix:
+  - ROOT CAUSE: `<h4 data-i18n="referral.invite">Invite Friends, Earn
+    <span id="refRewardAmount">$10</span></h4>`. `applyTranslations()` set the
+    h4's `innerHTML = t('referral.invite')` = "Invite Friends, Earn $10" (the
+    $10 was HARDCODED in the translation), destroying the `#refRewardAmount`
+    span. `updateReferralUI()` sets `#refRewardAmount.textContent = '$' +
+    rewardAmount` dynamically from `APP.referralStats.config.rewardAmount`
+    (line ~12912), so after a language switch the dynamic amount was gone and
+    the hardcoded $10 showed instead.
+  - FIX (safe span structure — the audit's preferred alternative to
+    interpolation): moved `data-i18n="referral.invite"` onto an inner
+    `<span>` wrapping ONLY the static prefix text, with `#refRewardAmount` as a
+    STABLE sibling span after it:
+    `<h4 ...><span data-i18n="referral.invite">Invite Friends, Earn</span>
+    <span id="refRewardAmount">$10</span></h4>`.
+    `applyTranslations()` now localizes only the prefix span; `#refRewardAmount`
+    is never recreated → its dynamic value survives language switches and keeps
+    receiving the real configured amount. Edited `referral.invite` values in
+    ALL 6 locales to remove the hardcoded `$10` (en/es/pt/fr/ar/zh all had $10
+    at the END, so prefix-only works for every locale; placeholder parity
+    unaffected — no {{amount}} placeholder used). The amount is NOT hardcoded
+    in any translation anymore. Referral config/business logic, reward calc,
+    and API data UNTOUCHED.
+- Medium issues (3 static-English leakage / 4 stale surfaces / 5 RTL): NOT
+  addressed in this phase. The full Phase 3G audit findings list was not
+  available, so per the smallest-change / no-scope-creep rule no speculative
+  medium fixes were made. A broad scan for the CRIT-2 clobbering class
+  (`data-i18n` element wrapping an id-bearing child) found ZERO other
+  instances — CRIT-2 was the only one. `referral.step3Text` was verified
+  ALREADY safe (its data-i18n wraps only "You earn"; `#refRewardAmount2` is a
+  separate sibling). The `I18N_RERENDER_CACHE`/`rerenderDynamicSurfaces()`
+  architecture (activity/alerts/audit/admin tables/KYC/ticker) is intact.
+- Verification: node --check-equivalent (vm.Script) on all 5 inline `<script>`
+  blocks = OK. Full i18n verify (vm-eval of real TRANSLATIONS): 1002
+  keys/locale × 6, identical key sets, 0 empty, 0 duplicate keys (raw Counter
+  recheck), 0 placeholder-parity issues, 0 HTML-tag/attr parity issues, 486
+  data-i18n refs all defined (was 486 before — the 2 CRIT edits net 0: CRIT-1
+  removed the wrapper's data-i18n, CRIT-2 moved data-i18n onto a child span).
+  Isolated functional test (real TRANSLATIONS + t() + the actual
+  update2FACodeExpiryLabels logic + simulated countdown interval closure):
+  27/27 PASS — countdown default/decrement, no literal {{time}} in any locale,
+  countdown element identity preserved across en→zh→ar→en switches (keeps
+  ticking, never frozen), zh suffix 后过期 present, ar RTL prefix present;
+  referral heading localized across all 6 locales, dynamic reward $15 survives
+  roundtrip en→es→fr→ar→zh→en, no duplicate/stale amount, no raw key shown.
+  Raw-value safety: transaction type/detail stored values, `=== 'Deposit'`
+  comparisons, status values, referral config keys, API filter params, payment
+  states, 2FA state/API logic all UNCHANGED. `npm test` = 36 pass / 1 fail
+  (the single fail is the pre-existing tests/q8qpay.webhook.test.js
+  `Cannot find module 'express'` env failure — identical to baseline; no
+  regression). NOTE: this env's baseline is 36/1 (express not installed), not
+  the 48/48 cited in earlier phases' AGENTS.md notes.
+- Checkpoint commit created this session (frontend-only, public/index.html +
+  AGENTS.md) AFTER all verification passed. NOT pushed. NOT deployed.
