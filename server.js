@@ -7,6 +7,9 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const { createClient } = require('@supabase/supabase-js');
 
+// Production configuration startup guard (pure, dependency-free)
+const { validateProductionConfig } = require('./productionGuard');
+
 // Payment Service Layer
 const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
@@ -48,6 +51,18 @@ const EMAIL_CONFIG = {
   apiKey: process.env.RESEND_API_KEY || '',
   from: process.env.EMAIL_FROM || 'Arbitrix AI <noreply@arbitrix.ai>'
 };
+
+// ---------- PRODUCTION STARTUP GUARD ----------
+// Fail fast (before any service init / port binding) if production is missing
+// required configuration or is using a known development default. Secret values
+// are NEVER printed — only which variable is missing/default. In non-production
+// environments this always passes, preserving existing local-dev fallbacks.
+const _prodConfig = validateProductionConfig(process.env);
+if (!_prodConfig.ok) {
+  console.error('🛑 Production configuration invalid. Refusing to start:');
+  _prodConfig.errors.forEach(function (msg) { console.error('  - ' + msg); });
+  process.exit(1);
+}
 
 // Rate limiting configuration
 // Limits explain:
