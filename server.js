@@ -2925,26 +2925,31 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
 app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   const { amount, address } = req.body;
   const userId = req.user.id;
-  
-  // PRESERVED: All existing withdrawal business logic
-  const wallet = await getWallet(userId);
-  if (!amount || amount < 700) return res.status(400).json({ error: 'Min $700' });
-  if (amount > wallet.live_balance) return res.status(400).json({ error: 'Insufficient balance' });
-  if (!address || address.length < 10) return res.status(400).json({ error: 'Valid address required' });
-  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
-  if (count < 1) return res.status(400).json({ error: 'Complete at least 1 trade first' });
-  
-  // NEW: Identity Verification requirement (KYC)
+
+  // Gate 1 — Identity Verification (KYC) MUST be satisfied BEFORE any other
+  // withdrawal eligibility check. An unapproved user receives the existing
+  // verificationRequired:true response regardless of the requested amount,
+  // balance, address, or trade history. This is an ordering change only; the
+  // existing $700 minimum, balance, trade-count, and address requirements
+  // below are unchanged in meaning and still enforced after KYC approval.
   const verificationStatus = await kycService.getVerificationStatus(userId);
   if (verificationStatus !== VERIFICATION_STATUS.APPROVED) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       error: 'Identity verification required',
       verificationRequired: true,
       status: verificationStatus,
       redirectTo: '/#/verification'
     });
   }
-  
+
+  // PRESERVED: All existing withdrawal business logic (unchanged order/meaning)
+  const wallet = await getWallet(userId);
+  if (!amount || amount < 700) return res.status(400).json({ error: 'Min $700' });
+  if (amount > wallet.live_balance) return res.status(400).json({ error: 'Insufficient balance' });
+  if (!address || address.length < 10) return res.status(400).json({ error: 'Valid address required' });
+  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
+  if (count < 1) return res.status(400).json({ error: 'Complete at least 1 trade first' });
+
   // All existing withdrawal logic continues unchanged
   await updateWallet(userId, 'live_balance', -amount);
   await addTransaction(userId, 'Withdraw', -amount, 'To ' + address.slice(0,6) + '...');

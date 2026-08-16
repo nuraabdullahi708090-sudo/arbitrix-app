@@ -1112,3 +1112,74 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   KYCService via the admin client) + the 4 exec queries; no anon/authenticated
   policy exists on any KYC table (only service_role); `|| supabaseKey` fallback
   removed. `npm test` results below. NOT committed/pushed/deployed.
+
+## Phase 7A — Verification & Withdrawal UX/Gating (2026-08, server.js + public/index.html + tests/withdraw_gating.test.js)
+- Three narrowly-scoped changes; an ORDERING change only on the backend, a
+  gate-reorder + a new demo info modal on the frontend. NO changes to deposits,
+  trading/bot logic, referral logic, payment/webhooks, 2FA, KYC storage/security
+  (KYCService.js + migration 010 untouched), admin review workflow, financial
+  calculations, withdrawal business constants (APP.MIN_WITHDRAWAL=700, APP.MTA=143,
+  server `amount < 700`), or API response shapes except reusing the existing
+  verification-required response verbatim. Raw KYC status values
+  (not_started/pending_review/approved/rejected/resubmission_required) are
+  referenced verbatim and never localized/mutated in API/DB/comparisons.
+- 1) Backend `/api/withdraw/request` (server.js:2925): MOVED the KYC check to be
+  Gate 1 (FIRST), before getWallet/min-$700/balance/address/trade-count. An
+  unapproved user now receives the existing
+  `{ error:'Identity verification required', verificationRequired:true,
+  status:<raw>, redirectTo:'/#/verification' }` (HTTP 400) response REGARDLESS
+  of the requested amount (below $700), balance, address, or trade history. The
+  existing $700/balance/address/trade requirements keep their exact meaning and
+  order and are still enforced after KYC approval. Exactly one
+  `getVerificationStatus(userId)` call remains (no duplicate). This is an
+  ordering change only — no requirement removed or weakened. Pinned by
+  tests/withdraw_gating.test.js (12 tests, pure-logic mirror of the gate order,
+  no express/server import).
+- 2) Frontend `openWithdrawModal()` (public/index.html): reordered the gates so
+  KYC is Gate 1 (after the unchanged demo-mode prerequisite). Flow: demo?→toast
+  switchToLive (unchanged); Gate 1 KYC via /api/kyc/can-withdraw — if
+  !canWithdraw show the EXISTING `#withdrawKycRequired` experience (progress +
+  "Start Verification" button) and return BEFORE any other gate; Gate 2 min-
+  withdrawal (balance < MIN_WITHDRAWAL); Gate 3 balance/deposit
+  (!hasRealDeposit); Gate 4 completed-trade (!hasTradingActivity || balance <
+  MTA, grouped as before); then show `#withdrawForm` (Gates 5 address + 6
+  submission unchanged in submitWithdraw/submitWithdrawAPI). The existing
+  fail-open behavior (show the form when the KYC status CHECK itself fails /
+  throws) is PRESERVED per Phase 5A §6 — the server hard-enforces KYC-first
+  regardless, so a frontend fail-open is still rejected on submit with
+  verificationRequired. No requirement removed/weakened; only KYC moved first
+  and min-withdrawal ordered before balance/trade per spec.
+- 3) Demo Verification info modal: `openVerificationModal()` now short-circuits
+  in demo mode — it opens a NEW lightweight `#verificationDemoInfoModal`
+  (reuses .deposit-modal/.btn classes; no new CSS) and RETURNS WITHOUT opening
+  the KYC form (`#verificationModal`) or calling loadVerificationStatus(). The
+  modal shows a localized "Verification Not Required" title + body explaining
+  deposit & trading do not require verification (only LIVE withdrawals do) + a
+  "Switch to LIVE Mode" button (calls switchToLiveFromDemoInfo → setMode('live'))
+  + a Close button (reuses common.close). Demo trading behavior is unchanged
+  (setMode is only invoked if the user clicks the button). The existing LIVE-mode
+  path (unverified LIVE user clicks "Start Verification" from the withdraw KYC
+  screen → openVerificationModal → APP.mode==='live' → real KYC form) is intact.
+- Localization: 3 NEW keys added to ALL 6 locales (en/es/pt/fr/ar/zh) after
+  `kyc.modalSubtitle` in each: `kyc.demoInfo.title`, `kyc.demoInfo.body`,
+  `kyc.demoInfo.switchToLive`. Dictionary grew 1012 → 1015 keys/locale; EN
+  values for pre-existing keys byte-identical (0 changed); identical key sets
+  across all 6 locales; 0 empty; 0 duplicate keys (raw Counter recheck); 0
+  placeholder parity issues. Arabic RTL preserved (modal uses data-i18n handled
+  by applyTranslations which sets `dir='rtl'` for ar; `text-align:center` is
+  bidi-safe; the switch button's data-i18n is on an inner <span> so the <i>
+  icon survives applyTranslations' innerHTML set — the Phase 3H clobber-safe
+  pattern). "LIVE" kept as a literal token per prior-phase convention.
+- Verification: `node --check server.js` = OK. `vm.Script` parse on all 5
+  non-empty inline <script> blocks = OK. Custom verifier (vm-eval of the real
+  TRANSLATIONS object): 1015 keys/locale × 6, identical key sets, 3 new keys
+  present + non-empty everywhere, 0 dups, modal+helpers present,
+  openVerificationModal gates on demo, backend KYC precedes min/balance/address/
+  trade (kyc@646 < min@1128), exactly 1 getVerificationStatus call,
+  verificationRequired:true preserved. `npm test` = 67 pass / 1 fail, where the
+  1 fail is the PRE-EXISTING `tests/q8qpay.webhook.test.js`
+  `Cannot find module 'express'` (deps not installed in this env — identical to
+  the 55/1 baseline; the +12 are the new passing withdraw_gating tests). No
+  regression.
+- NOT committed/pushed/deployed (checkpoint pending user review, as with prior
+  phases). Working tree: M public/index.html, M server.js, ?? tests/withdraw_gating.test.js.
