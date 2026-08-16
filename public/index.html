@@ -5514,8 +5514,8 @@ function toggleFaq(btn) {
 <div class="deposit-modal" id="verificationModal">
     <div class="deposit-modal-content" style="max-width:560px;">
         <button type="button" onclick="closeVerificationModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
-        <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> <span data-i18n="kyc.modalTitle">Identity Verification</span></h3>
-        <p style="color:#5A6A8A;font-size:13px;margin-bottom:16px;" data-i18n="kyc.modalSubtitle">Complete verification to enable withdrawals</p>
+        <h3><i class="fas fa-user-check" style="color:#F0B90B;"></i> <span id="kycModalTitle" data-i18n="kyc.modalTitle">Identity Verification</span></h3>
+        <p id="kycModalSubtitle" style="color:#5A6A8A;font-size:13px;margin-bottom:16px;" data-i18n="kyc.modalSubtitle">Complete verification to enable withdrawals</p>
         
         <!-- Status Banner -->
         <div id="verificationStatusBanner" style="display:none;padding:12px;border-radius:10px;margin-bottom:16px;text-align:center;"></div>
@@ -6398,7 +6398,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Withdraw Funds',
         'withdraw.subtitle': 'Transfer to your wallet',
         'withdraw.available': 'Available',
-        'withdraw.info': 'Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing',
+        'withdraw.info': 'Min withdrawal: $700 | Requires 1 trade completed | 15-30min processing',
         'withdraw.amount': 'Amount (USD)',
         'withdraw.address': 'Wallet Address',
         'withdraw.submit': 'Withdraw',
@@ -6560,6 +6560,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'Not Started',
         'kyc.status.required': 'Verification Required',
         'kyc.status.new': 'new',
+        'kyc.title.notStarted': 'Verification',
+        'kyc.title.pendingReview': 'Verification',
+        'kyc.title.approved': 'Verification ✓',
+        'kyc.title.rejected': 'Verification',
+        'kyc.title.resubmission': 'Verification',
+        'kyc.subtitle.notStarted': 'Not required for trading or deposits',
+        'kyc.subtitle.pendingReview': 'Under review',
+        'kyc.subtitle.approved': 'Verified — withdrawals enabled',
+        'kyc.subtitle.rejected': 'Verification rejected — action required',
+        'kyc.subtitle.resubmission': 'Update your information to resubmit',
         'kyc.level.emailVerified': 'Email Verified',
         'kyc.level.identitySubmitted': 'Identity Submitted',
         'kyc.level.identityVerified': 'Identity Verified',
@@ -6906,8 +6916,8 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Payment received',
         'deposit.step.desc.confirming': 'Confirming on TRON',
         'deposit.step.desc.credited': 'Balance credited',
-        'withdraw.kycRequiredTitle': 'Identity Verification Required',
-        'withdraw.kycRequiredBody': 'To protect your funds, we require identity verification before your first withdrawal. This is a standard security measure.',
+        'withdraw.kycRequiredTitle': 'Verification Required',
+        'withdraw.kycRequiredBody': 'Verify your account to withdraw.',
         'withdraw.verificationProgress': 'Verification Progress',
         'withdraw.percentComplete': '{{percent}}% Complete',
         'withdraw.startVerification': 'Start Verification',
@@ -7404,7 +7414,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Retirar fondos',
         'withdraw.subtitle': 'Transfiere a tu cartera',
         'withdraw.available': 'Disponible',
-        'withdraw.info': 'Retiro mín.: $50 | Requiere 1 operación completada | Procesamiento 15-30 min',
+        'withdraw.info': 'Retiro mín.: $700 | Requiere 1 operación completada | Procesamiento 15-30 min',
         'withdraw.amount': 'Monto (USD)',
         'withdraw.address': 'Dirección de la cartera',
         'withdraw.submit': 'Retirar',
@@ -7566,6 +7576,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'No iniciado',
         'kyc.status.required': 'Verificación requerida',
         'kyc.status.new': 'nuevo',
+        'kyc.title.notStarted': 'Verificación',
+        'kyc.title.pendingReview': 'Verificación',
+        'kyc.title.approved': 'Verificación ✓',
+        'kyc.title.rejected': 'Verificación',
+        'kyc.title.resubmission': 'Verificación',
+        'kyc.subtitle.notStarted': 'No requerida para operar ni depositar',
+        'kyc.subtitle.pendingReview': 'En revisión',
+        'kyc.subtitle.approved': 'Verificada — retiros habilitados',
+        'kyc.subtitle.rejected': 'Verificación rechazada — acción requerida',
+        'kyc.subtitle.resubmission': 'Actualiza tu información para reenviar',
         'kyc.level.emailVerified': 'Correo verificado',
         'kyc.level.identitySubmitted': 'Identidad enviada',
         'kyc.level.identityVerified': 'Identidad verificada',
@@ -7912,8 +7932,8 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Pago recibido',
         'deposit.step.desc.confirming': 'Confirmando en TRON',
         'deposit.step.desc.credited': 'Saldo acreditado',
-        'withdraw.kycRequiredTitle': 'Verificación de identidad requerida',
-        'withdraw.kycRequiredBody': 'Para proteger tus fondos, requerimos verificación de identidad antes de tu primer retiro. Esta es una medida de seguridad estándar.',
+        'withdraw.kycRequiredTitle': 'Verificación requerida',
+        'withdraw.kycRequiredBody': 'Verifica tu cuenta para retirar.',
         'withdraw.verificationProgress': 'Progreso de verificación',
         'withdraw.percentComplete': '{{percent}}% completado',
         'withdraw.startVerification': 'Iniciar verificación',
@@ -8410,7 +8430,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Sacar fundos',
         'withdraw.subtitle': 'Transfira para sua carteira',
         'withdraw.available': 'Disponível',
-        'withdraw.info': 'Saque mín.: $50 | Exige 1 operação concluída | Processamento 15-30 min',
+        'withdraw.info': 'Saque mín.: $700 | Exige 1 operação concluída | Processamento 15-30 min',
         'withdraw.amount': 'Valor (USD)',
         'withdraw.address': 'Endereço da carteira',
         'withdraw.submit': 'Sacar',
@@ -8572,6 +8592,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'Não iniciado',
         'kyc.status.required': 'Verificação necessária',
         'kyc.status.new': 'novo',
+        'kyc.title.notStarted': 'Verificação',
+        'kyc.title.pendingReview': 'Verificação',
+        'kyc.title.approved': 'Verificação ✓',
+        'kyc.title.rejected': 'Verificação',
+        'kyc.title.resubmission': 'Verificação',
+        'kyc.subtitle.notStarted': 'Não necessária para operar nem depositar',
+        'kyc.subtitle.pendingReview': 'Em revisão',
+        'kyc.subtitle.approved': 'Verificada — saques habilitados',
+        'kyc.subtitle.rejected': 'Verificação rejeitada — ação necessária',
+        'kyc.subtitle.resubmission': 'Atualize suas informações para reenviar',
         'kyc.level.emailVerified': 'E-mail verificado',
         'kyc.level.identitySubmitted': 'Identidade enviada',
         'kyc.level.identityVerified': 'Identidade verificada',
@@ -8918,8 +8948,8 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Pagamento recebido',
         'deposit.step.desc.confirming': 'Confirmando na TRON',
         'deposit.step.desc.credited': 'Saldo creditado',
-        'withdraw.kycRequiredTitle': 'Verificação de identidade necessária',
-        'withdraw.kycRequiredBody': 'Para proteger seus fundos, exigimos verificação de identidade antes do seu primeiro saque. Esta é uma medida de segurança padrão.',
+        'withdraw.kycRequiredTitle': 'Verificação necessária',
+        'withdraw.kycRequiredBody': 'Verifique sua conta para sacar.',
         'withdraw.verificationProgress': 'Progresso da verificação',
         'withdraw.percentComplete': '{{percent}}% concluído',
         'withdraw.startVerification': 'Iniciar verificação',
@@ -9416,7 +9446,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Retirer des fonds',
         'withdraw.subtitle': 'Transférez vers votre portefeuille',
         'withdraw.available': 'Disponible',
-        'withdraw.info': 'Retrait min. : $50 | 1 transaction requise | Traitement 15-30 min',
+        'withdraw.info': 'Retrait min. : $700 | 1 transaction requise | Traitement 15-30 min',
         'withdraw.amount': 'Montant (USD)',
         'withdraw.address': 'Adresse du portefeuille',
         'withdraw.submit': 'Retirer',
@@ -9578,6 +9608,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'Non commencé',
         'kyc.status.required': 'Vérification requise',
         'kyc.status.new': 'nouveau',
+        'kyc.title.notStarted': 'Vérification',
+        'kyc.title.pendingReview': 'Vérification',
+        'kyc.title.approved': 'Vérification ✓',
+        'kyc.title.rejected': 'Vérification',
+        'kyc.title.resubmission': 'Vérification',
+        'kyc.subtitle.notStarted': 'Non requise pour trader ou déposer',
+        'kyc.subtitle.pendingReview': 'En cours de révision',
+        'kyc.subtitle.approved': 'Vérifiée — retraits activés',
+        'kyc.subtitle.rejected': 'Vérification rejetée — action requise',
+        'kyc.subtitle.resubmission': 'Mettez à jour vos informations pour renvoyer',
         'kyc.level.emailVerified': 'E-mail vérifié',
         'kyc.level.identitySubmitted': 'Identité soumise',
         'kyc.level.identityVerified': 'Identité vérifiée',
@@ -9924,8 +9964,8 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Paiement reçu',
         'deposit.step.desc.confirming': 'Confirmation sur TRON',
         'deposit.step.desc.credited': 'Solde crédité',
-        'withdraw.kycRequiredTitle': 'Vérification d\'identité requise',
-        'withdraw.kycRequiredBody': 'Pour protéger vos fonds, nous exigeons une vérification d\'identité avant votre premier retrait. Il s\'agit d\'une mesure de sécurité standard.',
+        'withdraw.kycRequiredTitle': 'Vérification requise',
+        'withdraw.kycRequiredBody': 'Vérifiez votre compte pour retirer.',
         'withdraw.verificationProgress': 'Progression de la vérification',
         'withdraw.percentComplete': '{{percent}}% terminé',
         'withdraw.startVerification': 'Commencer la vérification',
@@ -10422,7 +10462,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'سحب الأموال',
         'withdraw.subtitle': 'حوّل إلى محفظتك',
         'withdraw.available': 'متاح',
-        'withdraw.info': 'الحد الأدنى للسحب: $50 | يتطلب إتمام صفقة واحدة | المعالجة 15-30 دقيقة',
+        'withdraw.info': 'الحد الأدنى للسحب: $700 | يتطلب إتمام صفقة واحدة | المعالجة 15-30 دقيقة',
         'withdraw.amount': 'المبلغ (USD)',
         'withdraw.address': 'عنوان المحفظة',
         'withdraw.submit': 'سحب',
@@ -10584,6 +10624,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'لم يبدأ',
         'kyc.status.required': 'التحقق مطلوب',
         'kyc.status.new': 'جديد',
+        'kyc.title.notStarted': 'التحقق',
+        'kyc.title.pendingReview': 'التحقق',
+        'kyc.title.approved': 'التحقق ✓',
+        'kyc.title.rejected': 'التحقق',
+        'kyc.title.resubmission': 'التحقق',
+        'kyc.subtitle.notStarted': 'غير مطلوب للتداول أو الإيداع',
+        'kyc.subtitle.pendingReview': 'قيد المراجعة',
+        'kyc.subtitle.approved': 'تم التحقق — السحب مفعّل',
+        'kyc.subtitle.rejected': 'تم رفض التحقق — إجراء مطلوب',
+        'kyc.subtitle.resubmission': 'حدّث معلوماتك لإعادة الإرسال',
         'kyc.level.emailVerified': 'تم التحقق من البريد',
         'kyc.level.identitySubmitted': 'تم إرسال الهوية',
         'kyc.level.identityVerified': 'تم التحقق من الهوية',
@@ -10930,8 +10980,8 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'تم استلام الدفع',
         'deposit.step.desc.confirming': 'جارٍ التأكيد على TRON',
         'deposit.step.desc.credited': 'تم إضافة الرصيد',
-        'withdraw.kycRequiredTitle': 'التحقق من الهوية مطلوب',
-        'withdraw.kycRequiredBody': 'لحماية أموالك، نطلب التحقق من الهوية قبل أول عملية سحب لك. هذا إجراء أمني قياسي.',
+        'withdraw.kycRequiredTitle': 'التحقق مطلوب',
+        'withdraw.kycRequiredBody': 'تحقق من حسابك للسحب.',
         'withdraw.verificationProgress': 'تقدم التحقق',
         'withdraw.percentComplete': 'اكتمل {{percent}}%',
         'withdraw.startVerification': 'بدء التحقق',
@@ -11428,7 +11478,7 @@ const TRANSLATIONS = {
         'withdraw.title': '提现',
         'withdraw.subtitle': '转账到您的钱包',
         'withdraw.available': '可用',
-        'withdraw.info': '最低提现：$50 | 需完成 1 笔交易 | 15-30 分钟处理',
+        'withdraw.info': '最低提现：$700 | 需完成 1 笔交易 | 15-30 分钟处理',
         'withdraw.amount': '金额（美元）',
         'withdraw.address': '钱包地址',
         'withdraw.submit': '提现',
@@ -11590,6 +11640,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': '未开始',
         'kyc.status.required': '需要验证',
         'kyc.status.new': '新建',
+        'kyc.title.notStarted': '身份验证',
+        'kyc.title.pendingReview': '身份验证',
+        'kyc.title.approved': '身份验证 ✓',
+        'kyc.title.rejected': '身份验证',
+        'kyc.title.resubmission': '身份验证',
+        'kyc.subtitle.notStarted': '交易或存款无需验证',
+        'kyc.subtitle.pendingReview': '审核中',
+        'kyc.subtitle.approved': '已验证 — 提现已启用',
+        'kyc.subtitle.rejected': '验证被拒 — 需要操作',
+        'kyc.subtitle.resubmission': '更新您的信息以重新提交',
         'kyc.level.emailVerified': '邮箱已验证',
         'kyc.level.identitySubmitted': '身份已提交',
         'kyc.level.identityVerified': '身份已验证',
@@ -11936,8 +11996,8 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': '已收到付款',
         'deposit.step.desc.confirming': '在 TRON 上确认中',
         'deposit.step.desc.credited': '余额已到账',
-        'withdraw.kycRequiredTitle': '需要身份验证',
-        'withdraw.kycRequiredBody': '为保护您的资金，我们要求在首次提款前进行身份验证。这是标准的安全措施。',
+        'withdraw.kycRequiredTitle': '需要验证',
+        'withdraw.kycRequiredBody': '验证您的账户以提现。',
         'withdraw.verificationProgress': '验证进度',
         'withdraw.percentComplete': '已完成 {{percent}}%',
         'withdraw.startVerification': '开始验证',
@@ -12321,6 +12381,8 @@ function update2FACodeExpiryLabels() {
 function updateDynamicTranslations() {
     try {
         update2FACodeExpiryLabels();
+        // Re-apply status-specific KYC modal header on language switch
+        updateVerificationModalHeader();
         const accountStatus = document.getElementById('accountStatus');
         if (accountStatus && typeof APP !== 'undefined') {
             if (APP.mode === 'demo') accountStatus.textContent = t('status.demoTrading');
@@ -14840,6 +14902,39 @@ async function loadVerificationStatus() {
     }
 }
 
+// Render-time KYC modal header localization. Maps the RAW verification status
+// (KYC_DATA.profile.status, or null -> not_started) to a title/subtitle key.
+// Display-only: reads the raw status, never modifies it; unknown status falls
+// back to the generic kyc.modalTitle/kyc.modalSubtitle defaults. Called from
+// populateVerificationUI (modal open) and updateDynamicTranslations (language
+// switch) so the header stays in sync with the current status + locale.
+const KYC_TITLE_KEY = {
+    not_started: 'kyc.title.notStarted',
+    pending_review: 'kyc.title.pendingReview',
+    approved: 'kyc.title.approved',
+    rejected: 'kyc.title.rejected',
+    resubmission_required: 'kyc.title.resubmission'
+};
+const KYC_SUBTITLE_KEY = {
+    not_started: 'kyc.subtitle.notStarted',
+    pending_review: 'kyc.subtitle.pendingReview',
+    approved: 'kyc.subtitle.approved',
+    rejected: 'kyc.subtitle.rejected',
+    resubmission_required: 'kyc.subtitle.resubmission'
+};
+function updateVerificationModalHeader() {
+    try {
+        const titleEl = document.getElementById('kycModalTitle');
+        const subtitleEl = document.getElementById('kycModalSubtitle');
+        if (!titleEl || !subtitleEl) return;
+        const rawStatus = (KYC_DATA && KYC_DATA.profile && KYC_DATA.profile.status) || 'not_started';
+        const titleKey = KYC_TITLE_KEY[rawStatus] || 'kyc.modalTitle';
+        const subtitleKey = KYC_SUBTITLE_KEY[rawStatus] || 'kyc.modalSubtitle';
+        titleEl.textContent = t(titleKey);
+        subtitleEl.textContent = t(subtitleKey);
+    } catch(e) { console.error('updateVerificationModalHeader error:', e); }
+}
+
 function populateVerificationUI() {
     const statusBanner = document.getElementById('verificationStatusBanner');
     const checklistItems = document.getElementById('verificationChecklistItems');
@@ -14875,6 +14970,9 @@ function populateVerificationUI() {
         statusBanner.className = 'verification-status-resubmission';
         statusBanner.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + t('kyc.status.required');
     }
+
+    // Status-specific modal title + supporting subtitle (render-time, raw status)
+    updateVerificationModalHeader();
 
     // Checklist - Using Verification Levels
     checklistItems.innerHTML = '';

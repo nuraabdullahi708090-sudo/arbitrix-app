@@ -964,3 +964,74 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   the 48/48 cited in earlier phases' AGENTS.md notes.
 - Checkpoint commit created this session (frontend-only, public/index.html +
   AGENTS.md) AFTER all verification passed. NOT pushed. NOT deployed.
+
+## Phase 5B — Verification UX State & Accurate Withdrawal Copy (2026-08, public/index.html only)
+- Follows the Phase 5A read-only audit. Frontend-only; NO changes to server.js,
+  DB/schema/migrations, auth/2FA, wallet, trading, referral, payment/deposit,
+  withdraw ELIGIBILITY logic, webhook behavior, API request/response shapes, or
+  raw KYC status values (not_started/pending_review/approved/rejected/
+  resubmission_required). Display copy + a render-time header mapper only.
+- Audit facts preserved in the UX (do NOT re-introduce a KYC "threshold"): KYC
+  is NOT required for demo/live trading or deposits; KYC IS required for EVERY
+  withdrawal (unconditional, first withdrawal onward); only `approved` allows
+  withdrawal; `rejected`/`resubmission_required` block but allow resubmission.
+- Verification modal header made status-dynamic (render-time, raw status):
+  - Added `id="kycModalTitle"` to the title `<span>` and `id="kycModalSubtitle"`
+    to the subtitle `<p>` (kept their data-i18n as the generic default/fallback
+    so applyTranslations() still sets a sane base before override).
+  - New helper `updateVerificationModalHeader()` (~line 14923): maps RAW
+    `KYC_DATA.profile.status` (null -> 'not_started') via `KYC_TITLE_KEY`/
+    `KYC_SUBTITLE_KEY` maps to `kyc.title.*`/`kyc.subtitle.*` keys; unknown
+    status falls back to `kyc.modalTitle`/`kyc.modalSubtitle`. Display-only:
+    READS raw status, never mutates it; no comparisons changed.
+  - Called from `populateVerificationUI()` (modal open, after the status banner)
+    AND from `updateDynamicTranslations()` (runs on every applyTranslations() /
+    setLanguage()) so the header re-renders on language switch without refetch.
+  - `KYC_TITLE_KEY`/`KYC_SUBTITLE_KEY` are module-scope `const`s (initialized at
+    parse; only read at runtime from updateDynamicTranslations -> safe despite
+    being declared after the caller, since the caller runs post-parse).
+- Implemented status states (title / supporting text):
+  - not_started (or no profile): "Verification" / "Not required for trading or deposits"
+  - pending_review: "Verification" / "Under review"
+  - approved: "Verification ✓" / "Verified — withdrawals enabled"
+  - rejected: "Verification" / "Verification rejected — action required"
+  - resubmission_required: "Verification" / "Update your information to resubmit"
+- Withdrawal-triggered KYC messaging (display copy only; the
+  `verificationRequired` flag, /api/kyc/can-withdraw, server gate, and the
+  openWithdrawModal fail-open behavior are UNCHANGED per Phase 5A §6):
+  - `withdraw.kycRequiredTitle`: "Identity Verification Required" -> "Verification Required"
+  - `withdraw.kycRequiredBody`: long body -> "Verify your account to withdraw."
+  - Updated in all 6 locales (faithful translations).
+- Withdrawal minimum display fix (display only; APP.MIN_WITHDRAWAL stays 700,
+  server.js `amount < 700` untouched):
+  - `withdraw.info`: "$50" -> "$700" in all 6 locales (only the amount token
+    changed; the rest of each locale's string preserved). Now consistent with
+    APP.MIN_WITHDRAWAL=700, server Min $700, and live.withdrawStatus.ready
+    "min $700". The $50 figure was an existing display defect.
+- Dictionaries: 1002 -> 1012 keys/locale (10 NEW keys: kyc.title.{notStarted,
+  pendingReview,approved,rejected,resubmission} + kyc.subtitle.{...same 5}).
+  EN values for the 1002 pre-existing keys byte-identical - 0 changed EXCEPT
+  the 2 withdraw.kycRequired* values + the 6 withdraw.info $50->$700 tokens
+  (intentional display-copy fixes). All 6 locales identical key sets, 0 empty,
+  0 duplicate keys (raw Counter recheck), 0 placeholder-parity issues, 0
+  HTML-tag/attr parity issues. 503 data-i18n refs all defined.
+- NOT changed (deliberately, per Phase 5A §6 - separate audit/decision):
+  frontend fail-open behavior of /api/kyc/can-withdraw; frontend MTA withdrawal
+  pre-check (openWithdrawModal still gates balance<APP.MTA); server withdrawal
+  requirements; KYC backend enforcement (server.js:2916); withdrawal amount
+  calcs; KYC submission/review logic. landing.faq.6.a ("may be required for
+  higher withdrawal limits") left untouched (separate copy decision).
+- Verification: node --check (vm.Script) on all 8 inline <script> blocks = OK.
+  Dict parity via node-eval of real TRANSLATIONS = 1012 keys/locale x 6, 0
+  problems across all checks. Isolated functional test of
+  updateVerificationModalHeader (7/7 PASS): each raw status -> correct
+  title/subtitle per locale; null profile -> not_started mapping; unknown
+  status -> generic fallback; raw status verified NOT mutated. Raw KYC status
+  comparisons in populateVerificationUI (`=== 'approved'` etc.) verified
+  unchanged. APP.MIN_WITHDRAWAL=700 verified. git status confirms ONLY
+  public/index.html modified (server.js/services/migrations/supabase untouched).
+  `npm test` = 55 pass / 1 fail (the single fail is the pre-existing
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure -
+  deps not installed in this env; identical to baseline; no regression).
+- NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
+  prior phases).
