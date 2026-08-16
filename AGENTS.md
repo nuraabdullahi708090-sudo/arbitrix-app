@@ -1035,3 +1035,80 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   deps not installed in this env; identical to baseline; no regression).
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   prior phases).
+
+## Phase 6D — KYC Security & Storage Repair (2026-08, server.js + new migration 010 + AGENTS.md + .env.example)
+- Goal: enable RLS on the four KYC tables, add least-privilege policies, remove
+  the silent production SUPABASE_SERVICE_KEY→anon fallback, route server-side
+  KYC Storage + DB ops through the service-role client, keep the kyc-documents
+  bucket private. NO changes to withdrawal logic, KYC status VALUES, KYC
+  frontend/modal behavior, trading, deposits, payments, referrals, 2FA,
+  localization, webhook logic, API response shapes, or admin workflow.
+  services/KYCService.js was NOT modified (the wiring change in server.js
+  suffices). productionGuard.js was NOT modified (already enforces
+  SUPABASE_SERVICE_KEY in production).
+- Auth context (drives the design): the app uses CUSTOM JWT auth (Express +
+  JWT_SECRET), NOT Supabase Auth. There is no auth.uid() and the Supabase
+  clients are shared singletons that never carry a per-request user JWT; also
+  users.id is BIGINT vs Supabase Auth UUID. So true auth.uid()-based "ownership"
+  RLS policies are NOT possible. The least-privilege model that works: ENABLE
+  RLS on the KYC tables and grant access ONLY to service_role (the server, via
+  supabaseAdmin, which bypasses RLS); anon/authenticated get NO policy → DENY
+  by default → KYC data is a hard lock against anon-key leakage. Ownership +
+  admin authorization continues to be enforced in app code (authMiddleware /
+  adminMiddleware + user_id-scoped queries), unchanged.
+- NEW migration supabase/migrations/010_kyc_rls_security.sql (idempotent,
+  additive):
+  - `ALTER TABLE … ENABLE ROW LEVEL SECURITY` on verification_profiles,
+    verification_documents, verification_history, admin_review_history.
+  - `DROP POLICY IF EXISTS` then `CREATE POLICY "kyc_*_service_all" FOR ALL
+    TO service_role USING (true) WITH CHECK (true)` on each of the 4 tables.
+    NO anon/authenticated policy is created (deny by default).
+  - Storage: reassert kyc-documents bucket `public=false`, 10MB limit,
+    image-only MIME (INSERT … ON CONFLICT DO UPDATE). Defensively DROP any
+    stray anon/authenticated storage policies (none existed). Re-create the
+    single `svc_kyc_manage` `service_role`-only policy. No anon storage policy.
+  - DO $$ verify block: asserts RLS enabled on all 4 tables and bucket
+    public=false; RAISES EXCEPTION otherwise.
+- server.js changes (3 KYC-scoped edits):
+  1. Removed the production silent fallback. Was:
+     `const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || supabaseKey;`
+     Now: read SUPABASE_SERVICE_KEY; if missing/empty AND NODE_ENV==='production'
+     → console.error + process.exit(1) (defense-in-depth on top of
+     productionGuard, which already enforces this). If missing AND non-production
+     → preserve the existing dev fallback to supabaseKey with a console.warn
+     (keeps local dev + the productionGuard test "dev: missing
+     SUPABASE_SERVICE_KEY does not break startup (fallback preserved)" green).
+     supabaseAdmin is then createClient(supabaseUrl, supabaseServiceKey).
+  2. KYCService wiring: `new KYCService(supabase, supabase.storage)` →
+     `new KYCService(supabaseAdmin, supabaseAdmin.storage)`. This routes ALL KYC
+     DB queries AND all Storage upload/createSignedUrl/remove through the
+     service-role client. KYCService.js constructor already accepts
+     (supabase, storageClient) and initializeStorage() derives from the passed
+     client, so NO KYCService code change was needed.
+  3. Executive-dashboard: the 4 verification_profiles count queries
+     (verifiedUsers/pendingKyc/kycApprovedToday/kycRejectedToday) switched from
+     `supabase` → `supabaseAdmin` so they survive RLS. The surrounding
+     users/deposits/withdrawals/referrals counts in the same handler STAY on the
+     anon `supabase` client (out of scope; they keep working via their existing
+     USING(true) anon policies).
+- DEV REQUIREMENT (by design, no escape hatch per user direction): with RLS now
+  denying the anon role on KYC tables, KYC DB/Storage operations require
+  SUPABASE_SERVICE_KEY (so supabaseAdmin is the service-role client). In dev
+  without a service key, supabaseAdmin falls back to anon and KYC ops will be
+  blocked by these RLS policies by design; set SUPABASE_SERVICE_KEY for local KYC
+  testing. Non-KYC admin ops are unaffected (their tables keep USING(true) anon
+  policies).
+- Preserved EXACTLY: stored KYC status values (not_started/pending_review/
+  approved/rejected/resubmission_required); withdrawal enforcement
+  (server.js /api/kyc/can-withdraw + the withdraw-route KYC gate at ~2935,
+  both call kycService.getVerificationStatus which now uses supabaseAdmin but
+  returns the same status); API response shapes; admin review workflow;
+  frontend modal behavior (public/index.html untouched).
+- Verification: `node --check server.js` = OK. SQL sanity: migration idempotent
+  (DROP IF EXISTS before CREATE), ENABLE RLS on 4 tables, bucket public=false,
+  no anon storage policy. Grep confirms: 0 remaining `supabase.from(
+  'verification_profiles'|'verification_documents'|'verification_history'|
+  'admin_review_history')` (anon) reads; all KYC DB now via supabaseAdmin (incl.
+  KYCService via the admin client) + the 4 exec queries; no anon/authenticated
+  policy exists on any KYC table (only service_role); `|| supabaseKey` fallback
+  removed. `npm test` results below. NOT committed/pushed/deployed.
