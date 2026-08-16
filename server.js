@@ -180,8 +180,25 @@ function getResendClient() {
 // ---------- REPLACE WITH YOUR SUPABASE CREDENTIALS ----------
 const supabaseUrl = 'https://gabqgewycepcyyzqkvvt.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhYnFnZXd5Y2VwY3l5enFrdnZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3Mjk2ODAsImV4cCI6MjA5ODMwNTY4MH0.xTEZ2-5S9I1deTEJ0xWYk-_diSveYQSYFWHuvod7HWs';
-// Service role key bypasses RLS - needed for password_reset_tokens table
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || supabaseKey;
+// Service role key bypasses RLS - needed for password_reset_tokens table and
+// for KYC operations once RLS is enabled on the KYC tables (migration 010).
+// PRODUCTION: SUPABASE_SERVICE_KEY is required; if it is missing we refuse to
+// start so the admin client never silently degrades to the anon key (which
+// would bypass none of the RLS policies and would expose KYC ops to failure).
+// NON-PRODUCTION: preserve the existing local-dev fallback to the anon key so
+// development keeps working without extra setup (productionGuard also allows
+// this). Note: with RLS enabled on KYC tables, KYC DB/Storage operations in dev
+// additionally require SUPABASE_SERVICE_KEY to function; non-KYC admin ops are
+// unaffected because their tables keep their USING(true) anon policies.
+let supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+if (!supabaseServiceKey || supabaseServiceKey.trim() === '') {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('🛑 SUPABASE_SERVICE_KEY is required in production. The admin Supabase client cannot fall back to the anon key in production (RLS-protected tables such as KYC would be inaccessible). Set SUPABASE_SERVICE_KEY and restart.');
+    process.exit(1);
+  }
+  console.warn('[Server] SUPABASE_SERVICE_KEY not set; falling back to anon key for local development. KYC operations require the service key once RLS is enabled.');
+  supabaseServiceKey = supabaseKey;
+}
 // ------------------------------------------------------------
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -248,8 +265,13 @@ console.log('[Server] Payment Service initialized');
 // ============================================
 // KYC SERVICE INITIALIZATION
 // ============================================
-const kycService = new KYCService(supabase, supabase.storage);
-console.log('[Server] KYC Service initialized with Supabase Storage');
+// KYC uses the service-role (admin) Supabase client for BOTH database and
+// Storage operations. The KYC tables have RLS enabled with service_role-only
+// policies (migration 010), so the anon client cannot read/write them. The
+// kyc-documents Storage bucket is private and service-role-only, so upload /
+// createSignedUrl / remove must also go through the admin client's storage.
+const kycService = new KYCService(supabaseAdmin, supabaseAdmin.storage);
+console.log('[Server] KYC Service initialized with Supabase Storage (service-role client)');
 
 // CORS configuration - restrict origins in production
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
@@ -5266,11 +5288,13 @@ app.get('/api/admin/dashboard/executive', authMiddleware, adminMiddleware, async
     const { count: newUsersToday } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', todayStart);
     const { count: newUsersWeek } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', weekStart);
     
-    // KYC Stats
-    const { count: verifiedUsers } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved');
-    const { count: pendingKyc } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending_review');
-    const { count: kycApprovedToday } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved').gte('updated_at', todayStart);
-    const { count: kycRejectedToday } = await supabase.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'rejected').gte('updated_at', todayStart);
+    // KYC Stats (use the service-role admin client: the KYC tables have RLS
+    // enabled with service_role-only policies, so the anon client cannot read
+    // them — migration 010 / Phase 6D.)
+    const { count: verifiedUsers } = await supabaseAdmin.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved');
+    const { count: pendingKyc } = await supabaseAdmin.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending_review');
+    const { count: kycApprovedToday } = await supabaseAdmin.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'approved').gte('updated_at', todayStart);
+    const { count: kycRejectedToday } = await supabaseAdmin.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'rejected').gte('updated_at', todayStart);
     
     // Financial Stats
     const { data: depositsData } = await supabase.from('deposits').select('amount, status, created_at');
