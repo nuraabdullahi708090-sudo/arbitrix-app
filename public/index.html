@@ -5649,7 +5649,7 @@ function toggleFaq(btn) {
         </div>
         <h3 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="kyc.demoInfo.title">Verification Not Required</h3>
         <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;" data-i18n="kyc.demoInfo.body">
-            Deposit and trading do not require identity verification. Verification is only required to withdraw funds from your LIVE account.
+            Deposit and trading do not require identity verification.
         </p>
         <button type="button" onclick="switchToLiveFromDemoInfo()" class="btn btn-primary btn-block" style="margin-bottom:10px;">
             <i class="fas fa-fire"></i> <span data-i18n="kyc.demoInfo.switchToLive">Switch to LIVE Mode</span>
@@ -6946,8 +6946,9 @@ const TRANSLATIONS = {
         'kyc.modalTitle': 'Identity Verification',
         'kyc.modalSubtitle': 'Complete verification to enable withdrawals',
         'kyc.demoInfo.title': 'Verification Not Required',
-        'kyc.demoInfo.body': 'Deposit and trading do not require identity verification. Verification is only required to withdraw funds from your LIVE account.',
+        'kyc.demoInfo.body': 'Deposit and trading do not require identity verification.',
         'kyc.demoInfo.switchToLive': 'Switch to LIVE Mode',
+        'kyc.demoInfo.needTrade': 'Make at least 1 trade before starting identity verification.',
         'kyc.progress': 'Progress',
         'kyc.tab.personal': 'Personal Info',
         'kyc.tab.documents': 'Documents',
@@ -7965,8 +7966,9 @@ const TRANSLATIONS = {
         'kyc.modalTitle': 'Verificación de identidad',
         'kyc.modalSubtitle': 'Completa la verificación para habilitar retiros',
         'kyc.demoInfo.title': 'Verificación no requerida',
-        'kyc.demoInfo.body': 'Depositar y operar no requieren verificación de identidad. La verificación solo se requiere para retirar fondos de tu cuenta LIVE.',
+        'kyc.demoInfo.body': 'Depositar y operar no requieren verificación de identidad.',
         'kyc.demoInfo.switchToLive': 'Cambiar a modo LIVE',
+        'kyc.demoInfo.needTrade': 'Realiza al menos 1 operación antes de iniciar la verificación de identidad.',
         'kyc.progress': 'Progreso',
         'kyc.tab.personal': 'Información personal',
         'kyc.tab.documents': 'Documentos',
@@ -8984,8 +8986,9 @@ const TRANSLATIONS = {
         'kyc.modalTitle': 'Verificação de identidade',
         'kyc.modalSubtitle': 'Conclua a verificação para habilitar saques',
         'kyc.demoInfo.title': 'Verificação não necessária',
-        'kyc.demoInfo.body': 'Depósitos e negociação não exigem verificação de identidade. A verificação só é necessária para sacar fundos da sua conta LIVE.',
+        'kyc.demoInfo.body': 'Depósitos e negociação não exigem verificação de identidade.',
         'kyc.demoInfo.switchToLive': 'Mudar para modo LIVE',
+        'kyc.demoInfo.needTrade': 'Faça pelo menos 1 operação antes de iniciar a verificação de identidade.',
         'kyc.progress': 'Progresso',
         'kyc.tab.personal': 'Informações pessoais',
         'kyc.tab.documents': 'Documentos',
@@ -10003,8 +10006,9 @@ const TRANSLATIONS = {
         'kyc.modalTitle': 'Vérification d\'identité',
         'kyc.modalSubtitle': 'Complétez la vérification pour activer les retraits',
         'kyc.demoInfo.title': 'Vérification non requise',
-        'kyc.demoInfo.body': 'Les dépôts et le trading ne nécessitent pas de vérification d\'identité. La vérification n\'est requise que pour retirer des fonds de votre compte LIVE.',
+        'kyc.demoInfo.body': 'Les dépôts et le trading ne nécessitent pas de vérification d\'identité.',
         'kyc.demoInfo.switchToLive': 'Passer en mode LIVE',
+        'kyc.demoInfo.needTrade': 'Effectuez au moins 1 transaction avant de commencer la vérification d\'identité.',
         'kyc.progress': 'Progression',
         'kyc.tab.personal': 'Informations personnelles',
         'kyc.tab.documents': 'Documents',
@@ -11022,8 +11026,9 @@ const TRANSLATIONS = {
         'kyc.modalTitle': 'التحقق من الهوية',
         'kyc.modalSubtitle': 'أكمل التحقق لتمكين السحب',
         'kyc.demoInfo.title': 'التحقق غير مطلوب',
-        'kyc.demoInfo.body': 'الإيداع والتداول لا يتطلبان التحقق من الهوية. التحقق مطلوب فقط لسحب الأموال من حسابك المباشر (LIVE).',
+        'kyc.demoInfo.body': 'الإيداع والتداول لا يتطلبان التحقق من الهوية.',
         'kyc.demoInfo.switchToLive': 'التبديل إلى الوضع المباشر',
+        'kyc.demoInfo.needTrade': 'أكمل صفقة واحدة على الأقل قبل بدء التحقق من الهوية.',
         'kyc.progress': 'التقدم',
         'kyc.tab.personal': 'المعلومات الشخصية',
         'kyc.tab.documents': 'المستندات',
@@ -12041,8 +12046,9 @@ const TRANSLATIONS = {
         'kyc.modalTitle': '身份验证',
         'kyc.modalSubtitle': '完成验证以启用提款',
         'kyc.demoInfo.title': '无需验证',
-        'kyc.demoInfo.body': '充值和交易不需要身份验证。仅在从您的 LIVE 账户提现时才需要验证。',
+        'kyc.demoInfo.body': '充值和交易不需要身份验证。',
         'kyc.demoInfo.switchToLive': '切换到 LIVE 模式',
+        'kyc.demoInfo.needTrade': '在开始身份验证前，请先完成至少 1 笔交易。',
         'kyc.progress': '进度',
         'kyc.tab.personal': '个人信息',
         'kyc.tab.documents': '文件',
@@ -14920,12 +14926,19 @@ let KYC_DATA = {
 
 function openVerificationModal() {
     // Demo mode: do NOT open the KYC form. Deposits and trading do not require
-    // verification (only LIVE withdrawals do). Show an informational message
-    // with an action to switch to LIVE mode instead. Demo trading behavior is
-    // unchanged.
+    // verification. Show an informational message with an action to switch to
+    // LIVE mode instead. Demo trading behavior is unchanged.
     if (APP.mode === 'demo') {
         const demoInfo = document.getElementById('verificationDemoInfoModal');
         if (demoInfo) { demoInfo.classList.add('open'); return; }
+    }
+    // LIVE mode: do not open the KYC form until the user has completed at least
+    // one trade. Prompt them to make a trade before verifying. (Verification
+    // stays optional for deposits/trading; the backend hard-enforces KYC-first
+    // on /api/withdraw/request regardless of this UX gate.)
+    if (APP.mode === 'live' && APP.liveData && !APP.liveData.hasTradingActivity) {
+        showToast(t('kyc.demoInfo.needTrade'), 'info');
+        return;
     }
     document.getElementById('verificationModal').classList.add('open');
     loadVerificationStatus();
