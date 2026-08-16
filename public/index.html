@@ -5637,6 +5637,27 @@ function toggleFaq(btn) {
     </div>
 </div>
 
+<!-- DEMO VERIFICATION INFO MODAL (shown when a Demo-mode user opens Verification) -->
+<!-- Frontend-only: does NOT open the KYC form and does not change Demo trading.
+     Explains that deposits and trading do not require verification (only LIVE
+     withdrawals do) and offers an action to switch to LIVE mode. -->
+<div class="deposit-modal" id="verificationDemoInfoModal">
+    <div class="deposit-modal-content" style="max-width:440px;text-align:center;">
+        <button type="button" onclick="closeVerificationDemoInfo()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div style="width:72px;height:72px;background:rgba(16,185,129,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fas fa-circle-check" style="font-size:32px;color:var(--green,#10B981);"></i>
+        </div>
+        <h3 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="kyc.demoInfo.title">Verification Not Required</h3>
+        <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;" data-i18n="kyc.demoInfo.body">
+            Deposit and trading do not require identity verification. Verification is only required to withdraw funds from your LIVE account.
+        </p>
+        <button type="button" onclick="switchToLiveFromDemoInfo()" class="btn btn-primary btn-block" style="margin-bottom:10px;">
+            <i class="fas fa-fire"></i> <span data-i18n="kyc.demoInfo.switchToLive">Switch to LIVE Mode</span>
+        </button>
+        <button type="button" onclick="closeVerificationDemoInfo()" class="btn btn-secondary btn-block" data-i18n="common.close">Close</button>
+    </div>
+</div>
+
 <!-- Image Viewer Modal -->
 <div class="modal-overlay" id="imageViewerModal">
     <div class="modal-content" style="max-width:90vw;max-height:90vh;padding:0;overflow:hidden;">
@@ -6924,6 +6945,9 @@ const TRANSLATIONS = {
         'withdraw.docsEncrypted': 'Your documents are encrypted and secure',
         'kyc.modalTitle': 'Identity Verification',
         'kyc.modalSubtitle': 'Complete verification to enable withdrawals',
+        'kyc.demoInfo.title': 'Verification Not Required',
+        'kyc.demoInfo.body': 'Deposit and trading do not require identity verification. Verification is only required to withdraw funds from your LIVE account.',
+        'kyc.demoInfo.switchToLive': 'Switch to LIVE Mode',
         'kyc.progress': 'Progress',
         'kyc.tab.personal': 'Personal Info',
         'kyc.tab.documents': 'Documents',
@@ -7940,6 +7964,9 @@ const TRANSLATIONS = {
         'withdraw.docsEncrypted': 'Tus documentos están cifrados y seguros',
         'kyc.modalTitle': 'Verificación de identidad',
         'kyc.modalSubtitle': 'Completa la verificación para habilitar retiros',
+        'kyc.demoInfo.title': 'Verificación no requerida',
+        'kyc.demoInfo.body': 'Depositar y operar no requieren verificación de identidad. La verificación solo se requiere para retirar fondos de tu cuenta LIVE.',
+        'kyc.demoInfo.switchToLive': 'Cambiar a modo LIVE',
         'kyc.progress': 'Progreso',
         'kyc.tab.personal': 'Información personal',
         'kyc.tab.documents': 'Documentos',
@@ -8956,6 +8983,9 @@ const TRANSLATIONS = {
         'withdraw.docsEncrypted': 'Seus documentos estão criptografados e seguros',
         'kyc.modalTitle': 'Verificação de identidade',
         'kyc.modalSubtitle': 'Conclua a verificação para habilitar saques',
+        'kyc.demoInfo.title': 'Verificação não necessária',
+        'kyc.demoInfo.body': 'Depósitos e negociação não exigem verificação de identidade. A verificação só é necessária para sacar fundos da sua conta LIVE.',
+        'kyc.demoInfo.switchToLive': 'Mudar para modo LIVE',
         'kyc.progress': 'Progresso',
         'kyc.tab.personal': 'Informações pessoais',
         'kyc.tab.documents': 'Documentos',
@@ -9972,6 +10002,9 @@ const TRANSLATIONS = {
         'withdraw.docsEncrypted': 'Vos documents sont chiffrés et sécurisés',
         'kyc.modalTitle': 'Vérification d\'identité',
         'kyc.modalSubtitle': 'Complétez la vérification pour activer les retraits',
+        'kyc.demoInfo.title': 'Vérification non requise',
+        'kyc.demoInfo.body': 'Les dépôts et le trading ne nécessitent pas de vérification d\'identité. La vérification n\'est requise que pour retirer des fonds de votre compte LIVE.',
+        'kyc.demoInfo.switchToLive': 'Passer en mode LIVE',
         'kyc.progress': 'Progression',
         'kyc.tab.personal': 'Informations personnelles',
         'kyc.tab.documents': 'Documents',
@@ -10988,6 +11021,9 @@ const TRANSLATIONS = {
         'withdraw.docsEncrypted': 'مستنداتك مشفرة وآمنة',
         'kyc.modalTitle': 'التحقق من الهوية',
         'kyc.modalSubtitle': 'أكمل التحقق لتمكين السحب',
+        'kyc.demoInfo.title': 'التحقق غير مطلوب',
+        'kyc.demoInfo.body': 'الإيداع والتداول لا يتطلبان التحقق من الهوية. التحقق مطلوب فقط لسحب الأموال من حسابك المباشر (LIVE).',
+        'kyc.demoInfo.switchToLive': 'التبديل إلى الوضع المباشر',
         'kyc.progress': 'التقدم',
         'kyc.tab.personal': 'المعلومات الشخصية',
         'kyc.tab.documents': 'المستندات',
@@ -12004,6 +12040,9 @@ const TRANSLATIONS = {
         'withdraw.docsEncrypted': '您的文件已加密且安全',
         'kyc.modalTitle': '身份验证',
         'kyc.modalSubtitle': '完成验证以启用提款',
+        'kyc.demoInfo.title': '无需验证',
+        'kyc.demoInfo.body': '充值和交易不需要身份验证。仅在从您的 LIVE 账户提现时才需要验证。',
+        'kyc.demoInfo.switchToLive': '切换到 LIVE 模式',
         'kyc.progress': '进度',
         'kyc.tab.personal': '个人信息',
         'kyc.tab.documents': '文件',
@@ -14748,29 +14787,27 @@ function updateNetworkOptions(currency) {
 // ============ WITHDRAW ============
 async function openWithdrawModal() {
     if(APP.mode === 'demo') { showToast(t('withdraw.switchToLive'),'info'); return; }
-    if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
-    if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
-    if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
-    
-    // Check KYC verification status
+
+    // Gate 1 — KYC must be approved BEFORE any other withdrawal eligibility
+    // check (minimum amount, balance, completed trade, address). An unapproved
+    // user sees the existing verification-required experience and can start
+    // verification. The existing fail-open behavior (show the form when the KYC
+    // status check itself fails) is preserved; the server hard-enforces KYC
+    // first regardless, so a fail-open here is still rejected on submit.
     try {
         const token = localStorage.getItem('jwt_token');
         const kycRes = await fetch('/api/kyc/can-withdraw', {
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
+
         if (kycRes.ok) {
             const kycData = await kycRes.json();
-            
-            if (kycData.canWithdraw) {
-                // KYC verified - show withdrawal form
-                getEl('withdrawForm').style.display = 'block';
-                getEl('withdrawKycRequired').style.display = 'none';
-            } else {
-                // KYC not verified - show professional verification prompt
+
+            if (!kycData.canWithdraw) {
+                // KYC not verified - show verification-required experience (Gate 1)
                 getEl('withdrawForm').style.display = 'none';
                 getEl('withdrawKycRequired').style.display = 'block';
-                
+
                 // Get verification level for progress display
                 const statusRes = await fetch('/api/kyc/status', {
                     headers: { 'Authorization': 'Bearer ' + token }
@@ -14782,18 +14819,30 @@ async function openWithdrawModal() {
                         getEl('withdrawKycProgressText').textContent = t('withdraw.percentComplete', {percent: statusData.levels.progress});
                     }
                 }
+
+                getEl('withdrawModal').classList.add('open');
+                getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
+                return;
             }
-        } else {
-            // Default to showing form if KYC check fails
-            getEl('withdrawForm').style.display = 'block';
-            getEl('withdrawKycRequired').style.display = 'none';
+            // KYC verified - fall through to the remaining gates below
         }
+        // else: KYC status check failed -> fail-open (existing behavior), continue
     } catch (e) {
-        // Default to showing form on error
-        getEl('withdrawForm').style.display = 'block';
-        getEl('withdrawKycRequired').style.display = 'none';
+        // Default to continuing on error (existing fail-open behavior)
     }
-    
+
+    // Gate 2 — minimum withdrawal amount
+    if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
+    // Gate 3 — existing balance / deposit requirement
+    if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
+    // Gate 4 — existing completed-trade requirement (incl. MTA)
+    if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
+
+    // KYC verified (or fail-open) - show withdrawal form (Gates 5 & 6: address
+    // validation + submission handled by submitWithdraw / submitWithdrawAPI)
+    getEl('withdrawForm').style.display = 'block';
+    getEl('withdrawKycRequired').style.display = 'none';
+
     getEl('withdrawModal').classList.add('open');
     getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
 }
@@ -14870,12 +14919,31 @@ let KYC_DATA = {
 };
 
 function openVerificationModal() {
+    // Demo mode: do NOT open the KYC form. Deposits and trading do not require
+    // verification (only LIVE withdrawals do). Show an informational message
+    // with an action to switch to LIVE mode instead. Demo trading behavior is
+    // unchanged.
+    if (APP.mode === 'demo') {
+        const demoInfo = document.getElementById('verificationDemoInfoModal');
+        if (demoInfo) { demoInfo.classList.add('open'); return; }
+    }
     document.getElementById('verificationModal').classList.add('open');
     loadVerificationStatus();
 }
 
 function closeVerificationModal() {
     document.getElementById('verificationModal').classList.remove('open');
+}
+
+// Demo Verification info modal helpers (frontend-only; no KYC/trading logic).
+function closeVerificationDemoInfo() {
+    const el = document.getElementById('verificationDemoInfoModal');
+    if (el) el.classList.remove('open');
+}
+
+function switchToLiveFromDemoInfo() {
+    closeVerificationDemoInfo();
+    setMode('live');
 }
 
 async function loadVerificationStatus() {
