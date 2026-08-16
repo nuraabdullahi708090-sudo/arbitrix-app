@@ -4203,8 +4203,8 @@ function toggleFaq(btn) {
                         </div>
                         
                         <div id="twofaCodeExpiry" style="text-align:center;margin-bottom:16px;">
-                            <span style="font-size:11px;color:#8896B5;" data-i18n="auth.2fa.codeExpiry" data-i18n-vars='{"time":"10:00"}'>
-                                <i class="fas fa-clock"></i> Code expires in <span id="twofaCountdown">10:00</span>
+                            <span id="twofaCodeExpiryWrap" style="font-size:11px;color:#8896B5;">
+                                <i class="fas fa-clock"></i> <span id="twofaCodeExpiryPrefix">Code expires in </span><span id="twofaCountdown">10:00</span><span id="twofaCodeExpirySuffix"></span>
                             </span>
                         </div>
                         
@@ -5156,7 +5156,7 @@ function toggleFaq(btn) {
                 <div class="card-header"><span class="icon-bg gold"><i class="fas fa-gift"></i></span> <span data-i18n="referral.title">Referral Program</span></div>
                 <div class="card-body">
                     <div style="background:linear-gradient(145deg,#0F1629,#1A2540);border:1px solid rgba(240,185,11,0.12);border-radius:16px;padding:16px;">
-                        <h4 style="font-size:14px;font-weight:700;text-align:center;" data-i18n="referral.invite">Invite Friends, Earn <span id="refRewardAmount">$10</span></h4>
+                        <h4 style="font-size:14px;font-weight:700;text-align:center;"><span data-i18n="referral.invite">Invite Friends, Earn</span> <span id="refRewardAmount">$10</span></h4>
                         <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;" data-i18n="referral.shareEarn">Share your link. Earn when friends deposit!</p>
                         
                         <!-- Stats Grid -->
@@ -6370,7 +6370,7 @@ const TRANSLATIONS = {
         'market.stocks': 'Stocks',
         'market.commodities': 'Commodities',
         'referral.title': 'Referral Program',
-        'referral.invite': 'Invite Friends, Earn $10',
+        'referral.invite': 'Invite Friends, Earn',
         'referral.subtitle': 'Share your link. Earn $10 when a friend makes their first deposit.',
         'referral.totalReferrals': 'Total Referrals',
         'referral.totalEarned': 'Total Earned',
@@ -7376,7 +7376,7 @@ const TRANSLATIONS = {
         'market.stocks': 'Acciones',
         'market.commodities': 'Materias primas',
         'referral.title': 'Programa de referidos',
-        'referral.invite': 'Invita amigos, gana $10',
+        'referral.invite': 'Invita amigos, gana',
         'referral.subtitle': 'Comparte tu enlace. Gana $10 cuando un amigo haga su primer depósito.',
         'referral.totalReferrals': 'Referidos totales',
         'referral.totalEarned': 'Total ganado',
@@ -8382,7 +8382,7 @@ const TRANSLATIONS = {
         'market.stocks': 'Ações',
         'market.commodities': 'Commodities',
         'referral.title': 'Programa de indicações',
-        'referral.invite': 'Convide amigos, ganhe $10',
+        'referral.invite': 'Convide amigos, ganhe',
         'referral.subtitle': 'Compartilhe seu link. Ganhe $10 quando um amigo fizer o primeiro depósito.',
         'referral.totalReferrals': 'Indicações totais',
         'referral.totalEarned': 'Total ganho',
@@ -9388,7 +9388,7 @@ const TRANSLATIONS = {
         'market.stocks': 'Actions',
         'market.commodities': 'Matières premières',
         'referral.title': 'Programme de parrainage',
-        'referral.invite': 'Invitez des amis, gagnez $10',
+        'referral.invite': 'Invitez des amis, gagnez',
         'referral.subtitle': 'Partagez votre lien. Gagnez $10 lorsqu’un ami effectue son premier dépôt.',
         'referral.totalReferrals': 'Parrainages totaux',
         'referral.totalEarned': 'Total gagné',
@@ -10394,7 +10394,7 @@ const TRANSLATIONS = {
         'market.stocks': 'أسهم',
         'market.commodities': 'سلع',
         'referral.title': 'برنامج الإحالة',
-        'referral.invite': 'ادعُ أصدقاءَك، واكسب $10',
+        'referral.invite': 'ادعُ أصدقاءَك، واكسب',
         'referral.subtitle': 'شارك رابطك. اربح $10 عندما يُجري صديق أول إيداع له.',
         'referral.totalReferrals': 'إجمالي الإحالات',
         'referral.totalEarned': 'إجمالي الأرباح',
@@ -11400,7 +11400,7 @@ const TRANSLATIONS = {
         'market.stocks': '股票',
         'market.commodities': '大宗商品',
         'referral.title': '推荐计划',
-        'referral.invite': '邀请好友，赚 $10',
+        'referral.invite': '邀请好友，赚',
         'referral.subtitle': '分享您的链接。好友首次入金即可赚取 $10。',
         'referral.totalReferrals': '推荐总数',
         'referral.totalEarned': '累计收益',
@@ -12293,8 +12293,34 @@ function applyTranslations() {
         updateDynamicTranslations();
     } catch(e) { console.error('applyTranslations error:', e); }
 }
+function update2FACodeExpiryLabels() {
+    // CRIT-1: render the localized "Code expires in {{time}}" label AROUND the
+    // live #twofaCountdown span WITHOUT recreating it. The countdown element is
+    // captured once by start2FACountdown()'s interval closure; recreating it on
+    // a language switch would leave the interval updating a detached node and
+    // freeze the visible countdown. Split the template on {{time}} and set the
+    // surrounding prefix/suffix spans' textContent only — #twofaCountdown stays
+    // a stable sibling. No literal {{time}} is ever shown. Handles locales where
+    // the time sits in the middle of the sentence (e.g. zh "验证码将在 {{time}} 后过期").
+    try {
+        const wrap = document.getElementById('twofaCodeExpiryWrap');
+        if (!wrap) return;
+        const tmpl = t('auth.2fa.codeExpiry');
+        const idx = tmpl.indexOf('{{time}}');
+        const prefixEl = document.getElementById('twofaCodeExpiryPrefix');
+        const suffixEl = document.getElementById('twofaCodeExpirySuffix');
+        if (idx === -1) {
+            if (prefixEl) prefixEl.textContent = tmpl;
+            if (suffixEl) suffixEl.textContent = '';
+        } else {
+            if (prefixEl) prefixEl.textContent = tmpl.slice(0, idx);
+            if (suffixEl) suffixEl.textContent = tmpl.slice(idx + '{{time}}'.length);
+        }
+    } catch(e) { console.error('update2FACodeExpiryLabels error:', e); }
+}
 function updateDynamicTranslations() {
     try {
+        update2FACodeExpiryLabels();
         const accountStatus = document.getElementById('accountStatus');
         if (accountStatus && typeof APP !== 'undefined') {
             if (APP.mode === 'demo') accountStatus.textContent = t('status.demoTrading');
