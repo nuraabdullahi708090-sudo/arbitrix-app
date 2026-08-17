@@ -516,6 +516,148 @@ function getDefaultReferralConfig() {
   };
 }
 
+// ---------- Arbitrix Pro Subscription ----------
+// The subscription is an INTERNAL server-side debit of the user's genuinely
+// available Live balance (wallets.live_balance). It is NOT a deposit/payment
+// method; the deposit/q8qpay/NOWPayments/Paymento/webhook/crediting systems
+// are untouched. Price is server-controlled (payment_config key
+// 'subscription.pro_price', default 7) and is NEVER trusted from the client.
+
+// Default Pro price (USD). Used only as a fallback if payment_config is unset.
+const SUBSCRIPTION_PRO_DEFAULT_PRICE = 7;
+
+/**
+ * Read the server-controlled Pro price (USD) from payment_config. The frontend
+ * never supplies the price; the server is the sole authority. Falls back to
+ * SUBSCRIPTION_PRO_DEFAULT_PRICE if the config row is missing/invalid.
+ * @returns {Promise<number>} Price as a Number.
+ */
+async function getSubscriptionPrice() {
+  try {
+    const { data, error } = await supabase
+      .from('payment_config')
+      .select('value')
+      .eq('key', 'subscription.pro_price')
+      .single();
+    if (error && error.code !== 'PGRST116') {
+      console.log('[getSubscriptionPrice] error:', error.message);
+      return SUBSCRIPTION_PRO_DEFAULT_PRICE;
+    }
+    if (data && data.value != null && data.value !== '') {
+      const n = Number(data.value);
+      if (isFinite(n) && n >= 0) return Math.round(n * 100) / 100;
+    }
+    return SUBSCRIPTION_PRO_DEFAULT_PRICE;
+  } catch (e) {
+    console.log('[getSubscriptionPrice] error:', e.message);
+    return SUBSCRIPTION_PRO_DEFAULT_PRICE;
+  }
+}
+
+/**
+ * Get the authenticated user's subscription row (or null). Read-only.
+ * @param {number} userId
+ * @returns {Promise<object|null>}
+ */
+async function getSubscription(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  if (error && error.code === 'PGRST116') return null;
+  if (error) {
+    console.log('[getSubscription] error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Compute a server-authoritative billing-period label + idempotency key for a
+ * billing attempt. The key is derived ONLY from the user id and the target
+ * billing month (UTC), so a user can never be charged twice for the same
+ * billing period regardless of retries / concurrency / scheduled re-runs. The
+ * client NEVER supplies this key.
+ * @param {number} userId
+ * @param {Date|string} anchorDate - the date the period starts/billed-from
+ * @returns {{periodLabel: string, idempotencyKey: string}}
+ */
+function subscriptionBillingKey(userId, anchorDate, billingKind = 'monthly') {
+  const d = anchorDate ? new Date(anchorDate) : new Date();
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const periodLabel = `${yyyy}-${mm}`;
+  // billingKind namespace keeps activation vs recurring distinct, though the
+  // period label already disambiguates monthly periods.
+  const idempotencyKey = `sub_${userId}_${billingKind}_${periodLabel}`;
+  return { periodLabel, idempotencyKey };
+}
+
+/**
+ * Attempt to bill a due subscription. Idempotent: if a charge for the target
+ * billing period already exists (UNIQUE idempotency_key), no second charge is
+ * made and the existing result is returned. The server decides whether the
+ * subscription is due; the client never controls billing.
+ *
+ * On insufficient available balance: charges $0, never creates debt / negative
+ * balance, and marks the subscription 'payment_due' (existing balance preserved).
+ *
+ * @param {number} userId
+ * @returns {Promise<object>} { price, result, subscription }
+ */
+async function processDueSubscription(userId) {
+  const price = await getSubscriptionPrice();
+  const sub = await getSubscription(userId);
+  if (!sub) return { price, subscription: null, result: { success: false, error: 'No subscription' } };
+
+  // Only 'active' or 'payment_due' subscriptions are eligible for recurring
+  // billing. 'inactive' (never activated) and 'cancelled' are never billed.
+  if (sub.status !== 'active' && sub.status !== 'payment_due') {
+    return { price, subscription: sub, result: { success: false, reason: 'not_billable', status: sub.status } };
+  }
+
+  // Determine if billing is due: next_billing_date must exist and be <= now.
+  // A 'payment_due' subscription whose next_billing_date is in the future (e.g.
+  // already billed this period but still due from a prior failed attempt) is
+  // NOT re-billed for the current period — its period key already exists.
+  const now = new Date();
+  let due = false;
+  let anchor = now;
+  if (sub.status === 'active') {
+    if (sub.next_billing_date && new Date(sub.next_billing_date) <= now) {
+      due = true;
+      anchor = new Date(sub.next_billing_date);
+    }
+  } else if (sub.status === 'payment_due') {
+    // Retry collection for the currently-due period if its key is not yet
+    // charged. The idempotency key guards against double-charging even if this
+    // runs many times.
+    due = true;
+    anchor = sub.next_billing_date ? new Date(sub.next_billing_date) : now;
+    if (anchor > now) anchor = now;
+  }
+
+  if (!due) {
+    return { price, subscription: sub, result: { success: false, reason: 'not_due', status: sub.status } };
+  }
+
+  const { periodLabel, idempotencyKey } = subscriptionBillingKey(userId, anchor, 'monthly');
+  const { data, error } = await supabaseAdmin.rpc('charge_subscription_safe', {
+    p_user_id: userId,
+    p_price: price,
+    p_idempotency_key: idempotencyKey,
+    p_period_label: periodLabel,
+    p_billing_kind: 'monthly',
+  });
+  if (error) throw error;
+  const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from charge_subscription_safe' };
+
+  // Re-read the (possibly updated) subscription state to return to the caller.
+  const updated = await getSubscription(userId);
+  return { price, subscription: updated, result };
+}
+
 /**
  * Update referral configuration
  * @param {string} key - Configuration key
@@ -3590,6 +3732,149 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   res.json(data);
 });
 
+// ---------- Arbitrix Pro Subscription ----------
+// All subscription endpoints derive the user id from the authenticated request
+// (authMiddleware sets req.user from the verified JWT). The client NEVER
+// supplies userId, price, balance, billing date, or subscription status. The
+// subscription is an internal debit of wallets.live_balance only; deposit /
+// payment / webhook / withdrawal / KYC / 2FA / trading / referral logic is
+// untouched. Subscription status is NOT a withdrawal gate (Phase 7A gates are
+// unchanged).
+
+// GET /api/subscription — current subscription state + server price. Also
+// performs an idempotent due-billing check server-side so a due subscription
+// is collected (or marked payment_due) when the user views the panel. The
+// response is read-only from the client's perspective.
+app.get('/api/subscription', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const price = await getSubscriptionPrice();
+
+    // Idempotent due-billing (server decides; client never triggers a charge).
+    // If billing is not due this is a no-op; if due it charges once or marks
+    // payment_due. Any error here is non-fatal to reading status.
+    await processDueSubscription(userId).catch((e) => {
+      console.log('[GET /api/subscription] billing check error:', e.message);
+    });
+
+    const sub = await getSubscription(userId);
+    res.json({
+      plan: sub ? sub.plan : 'pro',
+      price: Number(price),
+      status: sub ? sub.status : 'inactive',
+      startedAt: sub ? sub.started_at : null,
+      nextBillingDate: sub ? sub.next_billing_date : null,
+      lastBillingDate: sub ? sub.last_billing_date : null,
+      lastChargeAmount: sub && sub.last_charge_amount != null ? Number(sub.last_charge_amount) : null,
+    });
+  } catch (err) {
+    console.error('[GET /api/subscription]', err);
+    res.status(500).json({ error: 'Server error fetching subscription' });
+  }
+});
+
+// POST /api/subscription/activate — explicit user action to start Pro. Does NOT
+// auto-charge on registration. The user understands $7/month is deducted from
+// available Live balance. Server computes price + idempotency key; client
+// supplies nothing authoritative. On sufficient balance the first month is
+// charged immediately and the subscription becomes 'active'; on insufficient
+// balance the subscription is created as 'payment_due' with $0 charged (no debt,
+// no negative balance, existing funds preserved). Any body the client sends
+// (e.g. a fake price) is ignored.
+app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const price = await getSubscriptionPrice();
+
+    // Ensure a subscription row exists for this user (idempotent upsert). If one
+    // already exists and is active/cancelled, honor that state below.
+    let sub = await getSubscription(userId);
+    if (!sub) {
+      const { data: created, error: createErr } = await supabaseAdmin
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          plan: 'pro',
+          price,
+          status: 'inactive',
+        })
+        .select()
+        .single();
+      if (createErr) throw createErr;
+      sub = created;
+    }
+
+    if (sub.status === 'active') {
+      return res.json({
+        success: true,
+        duplicate: true,
+        message: 'Subscription already active',
+        price: Number(price),
+        status: 'active',
+        nextBillingDate: sub.next_billing_date,
+      });
+    }
+    if (sub.status === 'cancelled') {
+      // Re-activate: clear cancelled so billing can proceed.
+      await supabaseAdmin.from('subscriptions')
+        .update({ status: 'payment_due', updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+    }
+
+    // Charge the first month immediately (or mark payment_due). The idempotency
+    // key is derived from the current UTC month so activation is charged at most
+    // once per period even on duplicate/retried requests.
+    const { periodLabel, idempotencyKey } = subscriptionBillingKey(userId, new Date(), 'activate');
+    const { data, error } = await supabaseAdmin.rpc('charge_subscription_safe', {
+      p_user_id: userId,
+      p_price: price,
+      p_idempotency_key: idempotencyKey,
+      p_period_label: periodLabel,
+      p_billing_kind: 'activate',
+    });
+    if (error) throw error;
+    const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from charge_subscription_safe' };
+
+    const updated = await getSubscription(userId);
+    res.json({
+      success: !!result.success,
+      duplicate: !!result.duplicate,
+      reason: result.reason || null,
+      message: result.message || null,
+      price: Number(price),
+      charged: !!result.success && !result.duplicate ? Number(result.price) : 0,
+      newBalance: (result.new_balance != null) ? Number(result.new_balance) : null,
+      status: updated ? updated.status : (result.success ? 'active' : 'payment_due'),
+      nextBillingDate: updated ? updated.next_billing_date : null,
+    });
+  } catch (err) {
+    console.error('[POST /api/subscription/activate]', err);
+    res.status(500).json({ error: 'Server error activating subscription' });
+  }
+});
+
+// POST /api/subscription/cancel — user cancels Pro. No refund; status becomes
+// 'cancelled' and the user retains Pro until the already-paid period ends.
+// A cancelled subscription is never billed again until re-activated.
+app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const sub = await getSubscription(userId);
+    if (!sub) return res.status(404).json({ error: 'No subscription' });
+    if (sub.status === 'cancelled') {
+      return res.json({ success: true, duplicate: true, status: 'cancelled' });
+    }
+    const { error } = await supabaseAdmin.from('subscriptions')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+    if (error) throw error;
+    res.json({ success: true, status: 'cancelled', nextBillingDate: sub.next_billing_date });
+  } catch (err) {
+    console.error('[POST /api/subscription/cancel]', err);
+    res.status(500).json({ error: 'Server error cancelling subscription' });
+  }
+});
+
 // ---------- Referral Configuration ----------
 // Configuration validation rules
 const CONFIG_VALIDATION = {
@@ -4980,6 +5265,16 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
   if (error) throw error;
   const users = data.map(u => ({ ...u, demo_balance: u.wallets ? u.wallets.demo_balance : 0, live_balance: u.wallets ? u.wallets.live_balance : 0, bonus_balance: u.wallets ? u.wallets.bonus_balance : 0, wallets: undefined }));
   res.json(users);
+});
+
+// Admin subscription visibility (read-only). Lists each user's Arbitrix Pro
+// subscription state. No balance alteration is possible through this endpoint.
+app.get('/api/admin/subscriptions', authMiddleware, adminMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('subscriptions')
+    .select('id, user_id, plan, price, status, started_at, next_billing_date, last_billing_date, last_charge_amount, created_at, updated_at')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  res.json(data || []);
 });
 
 app.get('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
