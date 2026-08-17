@@ -3120,6 +3120,138 @@ function openProfileModal() {
         document.getElementById('profileEmail').value = user.email || '';
     }
     document.getElementById('profileModal').classList.add('open');
+    loadSubscriptionStatus();
+}
+
+// ============ ARBITRIX PRO SUBSCRIPTION ============
+// The frontend NEVER sends price/balance/billing-date/status to the server. It
+// only reflects server state and sends activate/cancel. The server derives the
+// user id from the JWT, the price from payment_config, and the billing period
+// idempotency key from the current month. Display strings use the existing i18n
+// system (render-only). Raw subscription status values (active/payment_due/
+// inactive/cancelled) are mapped to localized labels here ONLY for display.
+const SUBSCRIPTION_STATUS_KEYS = {
+    'active': 'subscription.status.active',
+    'payment_due': 'subscription.status.paymentDue',
+    'inactive': 'subscription.status.inactive',
+    'cancelled': 'subscription.status.cancelled'
+};
+
+let _subscriptionState = null;
+
+async function loadSubscriptionStatus() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/subscription', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        _subscriptionState = data;
+        renderSubscriptionPanel(data);
+    } catch (e) {
+        console.warn('[loadSubscriptionStatus] failed:', e.message);
+    }
+}
+
+function renderSubscriptionPanel(data) {
+    if (!data) return;
+    const status = data.status || 'inactive';
+    const priceLabel = getEl('subscriptionPriceLabel');
+    if (priceLabel) priceLabel.textContent = '$' + (Number(data.price) || 7);
+    const badge = getEl('subscriptionStatusBadge');
+    const details = getEl('subscriptionDetails');
+    const actBtn = getEl('subscriptionActivateBtn');
+    const cancelBtn = getEl('subscriptionCancelBtn');
+    if (badge) {
+        const key = SUBSCRIPTION_STATUS_KEYS[status];
+        badge.textContent = key ? t(key) : status;
+        badge.className = 'status-badge ' + (status === 'active' ? 'funded' : (status === 'payment_due' ? 'pending' : 'demo'));
+        if (key) badge.setAttribute('data-i18n', key);
+    }
+    if (actBtn) actBtn.style.display = (status === 'active') ? 'none' : 'flex';
+    if (cancelBtn) cancelBtn.style.display = (status === 'active' || status === 'payment_due') ? 'flex' : 'none';
+    if (details) {
+        let html = '';
+        if (status === 'active') {
+            const next = data.nextBillingDate ? new Date(data.nextBillingDate).toLocaleDateString(appLocale(), { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+            html = '<span data-i18n="subscription.activeDesc">Your subscription is active.</span> ' +
+                   (next ? t('subscription.nextPayment', { date: next }) : '');
+        } else if (status === 'payment_due') {
+            html = '<strong style="color:#F0B90B;">' + t('subscription.dueTitle') + '</strong><br>' +
+                   '<span data-i18n="subscription.dueDesc">Add at least $7 to your available balance to continue Pro access.</span>';
+        } else if (status === 'cancelled') {
+            html = '<span data-i18n="subscription.cancelledDesc">Your subscription is cancelled. Reactivate anytime.</span>';
+        } else {
+            html = '<span data-i18n="subscription.inactiveDesc">Activate Pro to unlock premium features. Billed monthly from your available Live balance.</span>';
+        }
+        details.innerHTML = html;
+        // Re-apply translations for the freshly inserted data-i18n spans.
+        if (typeof applyTranslations === 'function') applyTranslations();
+    }
+}
+
+async function activateSubscription() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    const btn = getEl('subscriptionActivateBtn');
+    if (btn) UI.setButtonLoading('subscriptionActivateBtn', true);
+    try {
+        // No body sent: the server is the authority on price/billing. A forged
+        // body (e.g. a fake price) is ignored by the server.
+        const res = await fetch('/api/subscription/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(translateBackendMessage(data.error, 'subscription.activateFailed'), 'error');
+            return;
+        }
+        if (data.status === 'active') {
+            showToast(t('subscription.activated'), 'success');
+        } else if (data.status === 'payment_due') {
+            showToast(t('subscription.paymentDue'), 'warning');
+        } else {
+            showToast(t('subscription.activateFailed'), 'error');
+        }
+        _subscriptionState = Object.assign({}, _subscriptionState || {}, { status: data.status, nextBillingDate: data.nextBillingDate, price: data.price });
+        renderSubscriptionPanel(_subscriptionState);
+        // Reconcile the live balance if the server returned the authoritative balance.
+        if (typeof data.newBalance === 'number' && isFinite(data.newBalance) && APP.mode === 'live') {
+            APP.liveData.balance = data.newBalance;
+            saveData();
+            updateUI();
+        }
+    } catch (e) {
+        showToast(t('subscription.activateFailed'), 'error');
+    } finally {
+        if (btn) UI.setButtonLoading('subscriptionActivateBtn', false);
+    }
+}
+
+async function cancelSubscription() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/subscription/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(translateBackendMessage(data.error, 'subscription.cancelFailed'), 'error');
+            return;
+        }
+        showToast(t('subscription.cancelled'), 'success');
+        _subscriptionState = Object.assign({}, _subscriptionState || {}, { status: 'cancelled' });
+        renderSubscriptionPanel(_subscriptionState);
+    } catch (e) {
+        showToast(t('subscription.cancelFailed'), 'error');
+    }
 }
 
 function openTwoFAModal() {
@@ -4755,6 +4887,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab" onclick="showAdminTab('withdrawals')" id="adminTabWithdrawals" data-i18n="admin.tab.withdrawals">Withdrawals</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals" data-i18n="admin.tab.referral">Referral</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc" data-i18n="admin.tab.kyc">KYC</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('subscriptions')" id="adminTabSubscriptions" data-i18n="admin.tab.subscriptions">Subscriptions</button>
                     </div>
                     
                     <!-- Operations Dashboard Tab -->
@@ -5148,6 +5281,27 @@ function toggleFaq(btn) {
                         </div>
                     </div>
                     </div>
+                    <!-- Subscriptions Tab (read-only admin visibility) -->
+                    <div id="adminTabContentSubscriptions" class="hidden">
+                        <div style="max-height:400px;overflow-y:auto;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                <thead style="position:sticky;top:0;background:#0F1629;z-index:1;">
+                                    <tr style="border-bottom:1px solid #1E2A3F;">
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.user">User</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="subscription.plan">Subscription</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="subscription.price">Price</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="admin.col.status">Status</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="subscription.nextBilling">Next Billing</th>
+                                        <th style="padding:8px;text-align:left;color:#8896B5;" data-i18n="subscription.lastBilling">Last Billing</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminSubscriptionsTableBody">
+                                    <tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;" data-i18n="common.loading">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -5776,6 +5930,37 @@ function toggleFaq(btn) {
                 <i class="fas fa-play"></i> <span data-i18n="profile.testSound">Test Sound</span>
             </button>
         </div>
+        <!-- ARBITRIX PRO SUBSCRIPTION -->
+        <!-- Internal server-side debit of the available Live balance. No card /
+             payment form. The server is the sole authority on price, status, and
+             billing; the UI only reflects server state and sends activate/cancel. -->
+        <div class="subscription-panel" id="subscriptionPanel" style="background:#0F1629;border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:16px;margin-top:16px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <div style="width:40px;height:40px;background:linear-gradient(135deg,rgba(240,185,11,0.25),rgba(240,185,11,0.08));border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-crown" style="color:#F0B90B;font-size:18px;"></i>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:15px;font-weight:700;color:#fff;">Arbitrix Pro</div>
+                    <div style="font-size:12px;color:#8896B5;"><span id="subscriptionPriceLabel">$7</span> / <span data-i18n="subscription.month">month</span></div>
+                </div>
+                <span id="subscriptionStatusBadge" class="status-badge" style="font-size:11px;padding:4px 10px;" data-i18n="subscription.status.inactive">Inactive</span>
+            </div>
+
+            <div id="subscriptionDetails" style="font-size:13px;color:#8896B5;line-height:1.5;margin-bottom:12px;">
+                <span data-i18n="subscription.inactiveDesc">Activate Pro to unlock premium features. Billed monthly from your available Live balance.</span>
+            </div>
+
+            <div id="subscriptionActions" style="display:flex;gap:8px;">
+                <button type="button" class="btn btn-primary" id="subscriptionActivateBtn" onclick="activateSubscription()" style="flex:1;">
+                    <i class="fas fa-crown"></i> <span data-i18n="subscription.activate">Activate Pro</span>
+                </button>
+                <button type="button" class="btn btn-secondary" id="subscriptionCancelBtn" onclick="cancelSubscription()" style="flex:1;display:none;">
+                    <i class="fas fa-xmark"></i> <span data-i18n="subscription.cancel">Cancel</span>
+                </button>
+            </div>
+            <p style="font-size:10px;color:#6b7280;margin:10px 0 0 0;" data-i18n="subscription.disclaimer">The monthly fee is deducted from your available Live balance. No card required.</p>
+        </div>
+
         
         <div class="modal-actions"><button type="button" onclick="document.getElementById('profileModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button><button type="button" onclick="saveProfile()" class="btn btn-primary" data-i18n="common.save">Save</button></div>
     </div>
@@ -6735,10 +6920,36 @@ const TRANSLATIONS = {
         'tx.type.bonusWithdrawal': 'Bonus Withdrawal',
         'tx.type.referralBonus': 'Referral Bonus',
         'tx.type.withdrawalToLive': 'Withdrawal to Live',
+        'tx.type.subscription': 'Subscription',
         'tx.detail.demoFunds': 'Demo Funds',
         'tx.detail.allFundsRemoved': 'All funds removed',
         'tx.detail.fromBonusWallet': 'From Bonus Wallet',
         'tx.detail.bonusToLive': 'Bonus withdrawn to Live Wallet',
+        'subscription.month': 'month',
+        'subscription.activate': 'Activate Pro',
+        'subscription.cancel': 'Cancel',
+        'subscription.disclaimer': 'The monthly fee is deducted from your available Live balance. No card required.',
+        'subscription.inactiveDesc': 'Activate Pro to unlock premium features. Billed monthly from your available Live balance.',
+        'subscription.activeDesc': 'Your subscription is active.',
+        'subscription.nextPayment': 'Next payment: {{date}}',
+        'subscription.dueTitle': 'Your subscription is due.',
+        'subscription.dueDesc': 'Add at least $7 to your available balance to continue Pro access.',
+        'subscription.cancelledDesc': 'Your subscription is cancelled. Reactivate anytime.',
+        'subscription.status.active': 'Active',
+        'subscription.status.paymentDue': 'Payment Due',
+        'subscription.status.inactive': 'Inactive',
+        'subscription.status.cancelled': 'Cancelled',
+        'subscription.activated': 'Arbitrix Pro activated.',
+        'subscription.paymentDue': 'Insufficient available balance. Subscription marked Payment Due.',
+        'subscription.cancelled': 'Subscription cancelled.',
+        'subscription.activateFailed': 'Could not activate subscription.',
+        'subscription.cancelFailed': 'Could not cancel subscription.',
+        'subscription.plan': 'Subscription',
+        'subscription.price': 'Price',
+        'subscription.nextBilling': 'Next Billing',
+        'subscription.lastBilling': 'Last Billing',
+        'admin.tab.subscriptions': 'Subscriptions',
+        'admin.empty.noSubscriptions': 'No subscriptions found',
         'tx.detail.botStarted': 'Started',
         'tx.detail.botPaused': 'Paused',
         'common.minutesAgo': '{{n}}m ago',
@@ -7755,10 +7966,36 @@ const TRANSLATIONS = {
         'tx.type.bonusWithdrawal': 'Retiro de bono',
         'tx.type.referralBonus': 'Bono de referencia',
         'tx.type.withdrawalToLive': 'Retiro a Live',
+        'tx.type.subscription': 'Suscripción',
         'tx.detail.demoFunds': 'Fondos de demostración',
         'tx.detail.allFundsRemoved': 'Todos los fondos eliminados',
         'tx.detail.fromBonusWallet': 'Desde la Bonus Wallet',
         'tx.detail.bonusToLive': 'Bono retirado a la Live Wallet',
+        'subscription.month': 'mes',
+        'subscription.activate': 'Activar Pro',
+        'subscription.cancel': 'Cancelar',
+        'subscription.disclaimer': 'La cuota mensual se deduce de tu saldo Live disponible. No se requiere tarjeta.',
+        'subscription.inactiveDesc': 'Activa Pro para desbloquear funciones premium. Se factura mensualmente desde tu saldo Live disponible.',
+        'subscription.activeDesc': 'Tu suscripción está activa.',
+        'subscription.nextPayment': 'Próximo pago: {{date}}',
+        'subscription.dueTitle': 'Tu suscripción está vencida.',
+        'subscription.dueDesc': 'Añade al menos $7 a tu saldo disponible para continuar con el acceso Pro.',
+        'subscription.cancelledDesc': 'Tu suscripción está cancelada. Reactívala cuando quieras.',
+        'subscription.status.active': 'Activa',
+        'subscription.status.paymentDue': 'Pago vencido',
+        'subscription.status.inactive': 'Inactiva',
+        'subscription.status.cancelled': 'Cancelada',
+        'subscription.activated': 'Arbitrix Pro activada.',
+        'subscription.paymentDue': 'Saldo disponible insuficiente. Suscripción marcada como Pago vencido.',
+        'subscription.cancelled': 'Suscripción cancelada.',
+        'subscription.activateFailed': 'No se pudo activar la suscripción.',
+        'subscription.cancelFailed': 'No se pudo cancelar la suscripción.',
+        'subscription.plan': 'Suscripción',
+        'subscription.price': 'Precio',
+        'subscription.nextBilling': 'Próxima facturación',
+        'subscription.lastBilling': 'Última facturación',
+        'admin.tab.subscriptions': 'Suscripciones',
+        'admin.empty.noSubscriptions': 'No se encontraron suscripciones',
         'tx.detail.botStarted': 'Iniciado',
         'tx.detail.botPaused': 'Pausado',
         'common.minutesAgo': 'hace {{n}}m',
@@ -8775,10 +9012,36 @@ const TRANSLATIONS = {
         'tx.type.bonusWithdrawal': 'Saque de bônus',
         'tx.type.referralBonus': 'Bônus de indicação',
         'tx.type.withdrawalToLive': 'Saque para Live',
+        'tx.type.subscription': 'Assinatura',
         'tx.detail.demoFunds': 'Fundos de demonstração',
         'tx.detail.allFundsRemoved': 'Todos os fundos removidos',
         'tx.detail.fromBonusWallet': 'Da Bonus Wallet',
         'tx.detail.bonusToLive': 'Bônus sacado para a Live Wallet',
+        'subscription.month': 'mês',
+        'subscription.activate': 'Ativar Pro',
+        'subscription.cancel': 'Cancelar',
+        'subscription.disclaimer': 'A mensalidade é deduzida do seu saldo Live disponível. Não é necessário cartão.',
+        'subscription.inactiveDesc': 'Ative o Pro para desbloquear recursos premium. Cobrado mensalmente do seu saldo Live disponível.',
+        'subscription.activeDesc': 'Sua assinatura está ativa.',
+        'subscription.nextPayment': 'Próximo pagamento: {{date}}',
+        'subscription.dueTitle': 'Sua assinatura está vencida.',
+        'subscription.dueDesc': 'Adicione pelo menos $7 ao seu saldo disponível para continuar o acesso Pro.',
+        'subscription.cancelledDesc': 'Sua assinatura está cancelada. Reative quando quiser.',
+        'subscription.status.active': 'Ativa',
+        'subscription.status.paymentDue': 'Pagamento vencido',
+        'subscription.status.inactive': 'Inativa',
+        'subscription.status.cancelled': 'Cancelada',
+        'subscription.activated': 'Arbitrix Pro ativada.',
+        'subscription.paymentDue': 'Saldo disponível insuficiente. Assinatura marcada como Pagamento vencido.',
+        'subscription.cancelled': 'Assinatura cancelada.',
+        'subscription.activateFailed': 'Não foi possível ativar a assinatura.',
+        'subscription.cancelFailed': 'Não foi possível cancelar a assinatura.',
+        'subscription.plan': 'Assinatura',
+        'subscription.price': 'Preço',
+        'subscription.nextBilling': 'Próxima cobrança',
+        'subscription.lastBilling': 'Última cobrança',
+        'admin.tab.subscriptions': 'Assinaturas',
+        'admin.empty.noSubscriptions': 'Nenhuma assinatura encontrada',
         'tx.detail.botStarted': 'Iniciado',
         'tx.detail.botPaused': 'Pausado',
         'common.minutesAgo': 'há {{n}}min',
@@ -9795,10 +10058,36 @@ const TRANSLATIONS = {
         'tx.type.bonusWithdrawal': 'Retrait de bonus',
         'tx.type.referralBonus': 'Bonus de parrainage',
         'tx.type.withdrawalToLive': 'Retrait vers Live',
+        'tx.type.subscription': 'Abonnement',
         'tx.detail.demoFunds': 'Fonds de démo',
         'tx.detail.allFundsRemoved': 'Tous les fonds supprimés',
         'tx.detail.fromBonusWallet': 'Depuis le Bonus Wallet',
         'tx.detail.bonusToLive': 'Bonus retiré vers le Live Wallet',
+        'subscription.month': 'mois',
+        'subscription.activate': 'Activer Pro',
+        'subscription.cancel': 'Annuler',
+        'subscription.disclaimer': "Les frais mensuels sont déduits de votre solde Live disponible. Aucune carte requise.",
+        'subscription.inactiveDesc': "Activez Pro pour débloquer les fonctionnalités premium. Facturé mensuellement depuis votre solde Live disponible.",
+        'subscription.activeDesc': 'Votre abonnement est actif.',
+        'subscription.nextPayment': 'Prochain paiement : {{date}}',
+        'subscription.dueTitle': 'Votre abonnement est dû.',
+        'subscription.dueDesc': 'Ajoutez au moins $7 à votre solde disponible pour continuer l’accès Pro.',
+        'subscription.cancelledDesc': 'Votre abonnement est annulé. Réactivez-le à tout moment.',
+        'subscription.status.active': 'Actif',
+        'subscription.status.paymentDue': 'Paiement dû',
+        'subscription.status.inactive': 'Inactif',
+        'subscription.status.cancelled': 'Annulé',
+        'subscription.activated': 'Arbitrix Pro activé.',
+        'subscription.paymentDue': 'Solde disponible insuffisant. Abonnement marqué Paiement dû.',
+        'subscription.cancelled': 'Abonnement annulé.',
+        'subscription.activateFailed': "Impossible d'activer l'abonnement.",
+        'subscription.cancelFailed': "Impossible d'annuler l'abonnement.",
+        'subscription.plan': 'Abonnement',
+        'subscription.price': 'Prix',
+        'subscription.nextBilling': 'Prochaine facturation',
+        'subscription.lastBilling': 'Dernière facturation',
+        'admin.tab.subscriptions': 'Abonnements',
+        'admin.empty.noSubscriptions': 'Aucun abonnement trouvé',
         'tx.detail.botStarted': 'Démarré',
         'tx.detail.botPaused': 'En pause',
         'common.minutesAgo': 'il y a {{n}} min',
@@ -10815,10 +11104,36 @@ const TRANSLATIONS = {
         'tx.type.bonusWithdrawal': 'سحب المكافأة',
         'tx.type.referralBonus': 'مكافأة الإحالة',
         'tx.type.withdrawalToLive': 'سحب إلى LIVE',
+        'tx.type.subscription': 'اشتراك',
         'tx.detail.demoFunds': 'أموال تجريبية',
         'tx.detail.allFundsRemoved': 'تمت إزالة كل الأموال',
         'tx.detail.fromBonusWallet': 'من محفظة المكافآت',
         'tx.detail.bonusToLive': 'تم سحب المكافأة إلى محفظة LIVE',
+        'subscription.month': 'شهر',
+        'subscription.activate': 'تفعيل Pro',
+        'subscription.cancel': 'إلغاء',
+        'subscription.disclaimer': 'يُخصم الرسوم الشهرية من رصيدك المتاح في المحفظة المباشرة. لا حاجة لبطاقة.',
+        'subscription.inactiveDesc': 'فعّل Pro لفتح الميزات المميزة. يُحتسب شهريًا من رصيدك المتاح في المحفظة المباشرة.',
+        'subscription.activeDesc': 'اشتراكك نشط.',
+        'subscription.nextPayment': 'الدفع القادم: {{date}}',
+        'subscription.dueTitle': 'اشتراكك مستحق الدفع.',
+        'subscription.dueDesc': 'أضف ما لا يقل عن $7 إلى رصيدك المتاح لمواصلة الوصول إلى Pro.',
+        'subscription.cancelledDesc': 'تم إلغاء اشتراكك. يمكنك إعادة التفعيل في أي وقت.',
+        'subscription.status.active': 'نشط',
+        'subscription.status.paymentDue': 'دفعة مستحقة',
+        'subscription.status.inactive': 'غير نشط',
+        'subscription.status.cancelled': 'ملغى',
+        'subscription.activated': 'تم تفعيل Arbitrix Pro.',
+        'subscription.paymentDue': 'الرصيد المتاح غير كافٍ. تم وضع علامة دفعة مستحقة على الاشتراك.',
+        'subscription.cancelled': 'تم إلغاء الاشتراك.',
+        'subscription.activateFailed': 'تعذّر تفعيل الاشتراك.',
+        'subscription.cancelFailed': 'تعذّر إلغاء الاشتراك.',
+        'subscription.plan': 'الاشتراك',
+        'subscription.price': 'السعر',
+        'subscription.nextBilling': 'الفوترة القادمة',
+        'subscription.lastBilling': 'آخر فوترة',
+        'admin.tab.subscriptions': 'الاشتراكات',
+        'admin.empty.noSubscriptions': 'لم يتم العثور على اشتراكات',
         'tx.detail.botStarted': 'بدأ',
         'tx.detail.botPaused': 'متوقف مؤقتًا',
         'common.minutesAgo': 'منذ {{n}} د',
@@ -11835,10 +12150,36 @@ const TRANSLATIONS = {
         'tx.type.bonusWithdrawal': '奖励提现',
         'tx.type.referralBonus': '推荐奖励',
         'tx.type.withdrawalToLive': '提现到 Live',
+        'tx.type.subscription': '订阅',
         'tx.detail.demoFunds': '模拟资金',
         'tx.detail.allFundsRemoved': '所有资金已移除',
         'tx.detail.fromBonusWallet': '来自 Bonus Wallet',
         'tx.detail.bonusToLive': '奖励已提现到 Live Wallet',
+        'subscription.month': '月',
+        'subscription.activate': '激活 Pro',
+        'subscription.cancel': '取消',
+        'subscription.disclaimer': '月费从您的可用 Live 余额中扣除。无需银行卡。',
+        'subscription.inactiveDesc': '激活 Pro 以解锁高级功能。每月从您的可用 Live 余额中扣费。',
+        'subscription.activeDesc': '您的订阅已激活。',
+        'subscription.nextPayment': '下次付款：{{date}}',
+        'subscription.dueTitle': '您的订阅已到期。',
+        'subscription.dueDesc': '请向可用余额中充值至少 $7 以继续使用 Pro 访问权限。',
+        'subscription.cancelledDesc': '您的订阅已取消。可随时重新激活。',
+        'subscription.status.active': '已激活',
+        'subscription.status.paymentDue': '待付款',
+        'subscription.status.inactive': '未激活',
+        'subscription.status.cancelled': '已取消',
+        'subscription.activated': 'Arbitrix Pro 已激活。',
+        'subscription.paymentDue': '可用余额不足。订阅已标记为待付款。',
+        'subscription.cancelled': '订阅已取消。',
+        'subscription.activateFailed': '无法激活订阅。',
+        'subscription.cancelFailed': '无法取消订阅。',
+        'subscription.plan': '订阅',
+        'subscription.price': '价格',
+        'subscription.nextBilling': '下次扣费',
+        'subscription.lastBilling': '上次扣费',
+        'admin.tab.subscriptions': '订阅',
+        'admin.empty.noSubscriptions': '未找到订阅',
         'tx.detail.botStarted': '已启动',
         'tx.detail.botPaused': '已暂停',
         'common.minutesAgo': '{{n}}分钟前',
@@ -13170,7 +13511,8 @@ const TX_TYPE_LABELS = {
     'Reset': 'tx.type.reset',
     'Bonus Withdrawal': 'tx.type.bonusWithdrawal',
     'Referral Bonus': 'tx.type.referralBonus',
-    'Withdrawal to Live': 'tx.type.withdrawalToLive'
+    'Withdrawal to Live': 'tx.type.withdrawalToLive',
+    'Subscription': 'tx.type.subscription'
 };
 const TX_DETAIL_LABELS = {
     'Demo Funds': 'tx.detail.demoFunds',
@@ -16141,6 +16483,7 @@ function showAdminTab(tab) {
     document.getElementById('adminTabContentWithdrawals').classList.add('hidden');
     document.getElementById('adminTabContentReferrals').classList.add('hidden');
     document.getElementById('adminTabContentKyc').classList.add('hidden');
+    document.getElementById('adminTabContentSubscriptions').classList.add('hidden');
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
     
@@ -16152,6 +16495,11 @@ function showAdminTab(tab) {
     // Load referral config when tab is shown
     if (tab === 'referrals') {
         loadReferralConfig();
+    }
+    
+    // Load subscriptions when tab is shown (read-only admin visibility)
+    if (tab === 'subscriptions') {
+        loadAdminSubscriptions();
     }
     
     // Load Operations Dashboard
@@ -17721,6 +18069,61 @@ function renderAdminWithdrawals(withdrawals) {
             '<td style="padding:8px;' + statusColor + '">' + withdrawalStatusLabel(w.status) + '</td>' +
             '<td style="padding:8px;">' + new Date(w.created_at).toLocaleDateString(appLocale()) + '</td>' +
             '<td style="padding:8px;">' + actionBtns + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+// ============ ADMIN SUBSCRIPTIONS (read-only visibility) ============
+// Minimal admin view of each user's Arbitrix Pro subscription. Read-only: no
+// balance alteration is possible through this surface. Raw status values
+// (active/payment_due/inactive/cancelled) are mapped to localized labels for
+// display only, following the render-only pattern.
+const SUBSCRIPTION_ADMIN_STATUS_LABELS = {
+    'active': 'subscription.status.active',
+    'payment_due': 'subscription.status.paymentDue',
+    'inactive': 'subscription.status.inactive',
+    'cancelled': 'subscription.status.cancelled'
+};
+function subscriptionAdminStatusLabel(rawStatus) {
+    const key = SUBSCRIPTION_ADMIN_STATUS_LABELS[rawStatus];
+    return key ? t(key) : (rawStatus || '');
+}
+
+async function loadAdminSubscriptions() {
+    const tbody = document.getElementById('adminSubscriptionsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#8896B5;">' + t('common.loading') + '</td></tr>';
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/admin/subscriptions', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) { tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">' + t('admin.empty.noSubscriptions') + '</td></tr>'; return; }
+        const data = await res.json();
+        renderAdminSubscriptions(Array.isArray(data) ? data : []);
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">' + t('admin.empty.noSubscriptions') + '</td></tr>';
+    }
+}
+
+function renderAdminSubscriptions(subs) {
+    const tbody = document.getElementById('adminSubscriptionsTableBody');
+    if (!tbody) return;
+    if (!subs || subs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#5A6A8A;">' + t('admin.empty.noSubscriptions') + '</td></tr>';
+        return;
+    }
+    tbody.innerHTML = subs.map(function(s) {
+        const status = s.status || 'inactive';
+        const statusColor = status === 'active' ? 'color:#10B981;' : (status === 'payment_due' ? 'color:#F59E0B;' : 'color:#8896B5;');
+        const next = s.next_billing_date ? new Date(s.next_billing_date).toLocaleDateString(appLocale()) : t('common.na');
+        const last = s.last_billing_date ? new Date(s.last_billing_date).toLocaleDateString(appLocale()) : t('common.na');
+        return '<tr style="border-bottom:1px solid #1E2A3F;">' +
+            '<td style="padding:8px;">' + s.user_id + '</td>' +
+            '<td style="padding:8px;">Arbitrix Pro</td>' +
+            '<td style="padding:8px;">$' + (Number(s.price) || 0).toFixed(2) + '</td>' +
+            '<td style="padding:8px;' + statusColor + '">' + subscriptionAdminStatusLabel(status) + '</td>' +
+            '<td style="padding:8px;">' + next + '</td>' +
+            '<td style="padding:8px;">' + last + '</td>' +
         '</tr>';
     }).join('');
 }

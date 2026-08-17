@@ -1183,3 +1183,161 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   regression.
 - NOT committed/pushed/deployed (checkpoint pending user review, as with prior
   phases). Working tree: M public/index.html, M server.js, ?? tests/withdraw_gating.test.js.
+
+## Phase 8 — Arbitrix Pro Subscription ($7/month) (2026-08, server.js + public/index.html + .env.example + new migration 011 + tests/subscription.test.js + AGENTS.md)
+- A MINIMAL, self-contained internal subscription. The Pro subscription is a
+  $7/month INTERNAL SERVER-SIDE DEBIT of the user's genuinely available Live
+  balance (wallets.live_balance). It is NOT a payment method, NOT a deposit, and
+  NOT routed through any payment provider / webhook / invoice / crediting code.
+- SCOPE GUARDRAILS (verified untouched): NO changes to deposit request/invoice
+  creation, q8qpay, NOWPayments, Paymento, payment webhooks, credit_payment_safe,
+  deposit polling, deposit statuses, wallet-crediting logic, payment DB
+  structures, trading/bot logic (record_trade_safe), referral logic, KYC/storage
+  logic (migration 010 / KYCService), 2FA/auth, withdrawal eligibility/gating
+  (Phase 7A gates unchanged — subscription is NOT a withdrawal gate), existing
+  transaction status/type values (a NEW 'Subscription' type was ADDED; existing
+  type meanings unchanged), or existing API response shapes except the additive
+  new subscription endpoints. server.js diff is PURE-ADDITION (0 removed lines);
+  index.html diff removes exactly 1 line (the prior TX_TYPE_LABELS
+  'Withdrawal to Live' entry, rewritten to add a trailing comma + the new
+  'Subscription' entry — value preserved).
+- AVAILABLE-BALANCE MODEL (critical, from the migration doc): this app has NO
+  locked/committed/open-position funds — trades are REALIZED immediately via
+  record_trade_safe() (live_balance += signed P&L, clamped at 0). Therefore the
+  genuinely available balance IS wallets.live_balance. An atomic debit of
+  live_balance CANNOT consume committed funds (none exist). Demo balance
+  (wallets.demo_balance) and bonus balance (wallets.bonus_balance) are NEVER
+  touched by subscription billing (the charge function reads/UPDATEs only
+  live_balance; grep-verified + test #4/#4b/#15).
+- SUBSCRIPTION MODEL: one plan, "Arbitrix Pro", $7/month. Price is
+  SERVER-CONTROLLED: read from payment_config key `subscription.pro_price`
+  (default 7, seeded by migration 011; fallback const
+  SUBSCRIPTION_PRO_DEFAULT_PRICE=7 in server.js). NO multiple tiers, annual
+  plans, coupons, Stripe/PayPal/card, or crypto invoices. NO card/bank form.
+  Stored subscription fields: user_id (UNIQUE FK users), plan='pro', price,
+  status (active|payment_due|inactive|cancelled, CHECK-constrained),
+  started_at, next_billing_date, last_billing_date, last_charge_amount,
+  created_at, updated_at.
+- ATOMICITY / IDEMPOTENCY / DOUBLE-CHARGE PROTECTION (the core): implemented as a
+  Postgres SECURITY DEFINER plpgsql function `charge_subscription_safe(p_user_id,
+  p_price, p_idempotency_key, p_period_label, p_billing_kind)` that mirrors the
+  existing credit_payment_safe / record_trade_safe guarantees:
+    1. Input validation (user_id, idempotency_key, non-negative 2-dp price).
+    2. Idempotency check #1 (before lock): SELECT idempotency_key FROM
+       subscription_charges WHERE idempotency_key = p_idempotency_key. If present
+       -> return {success:true, duplicate:true, existing balance/price} (NO
+       second charge). subscription_charges.idempotency_key is UNIQUE.
+    3. SELECT ... FOR UPDATE on subscriptions (row lock).
+    4. SELECT ... FOR UPDATE on wallets (row lock).
+    5. Idempotency check #2 (AFTER lock): race-condition protection — a
+       concurrent tx could have inserted the same key between checks #1 and #2.
+       If present -> return duplicate, no second charge.
+    6. SUFFICIENT-BALANCE GATE: IF wallets.live_balance < price -> NO balance
+       mutation, NO debt, NO negative balance, mark subscriptions.status=
+       'payment_due', return {success:false, reason:'insufficient_balance',
+       status:'payment_due', available_balance, price}. (Tests #3/#8/#9.)
+    7. Atomic debit: v_new_balance := live_balance - price (provably >= 0);
+       UPDATE wallets SET live_balance = v_new_balance (ONLY live_balance).
+    8. INSERT subscription_charges (idempotency anchor, balance_after).
+    9. INSERT transactions (type='Subscription', amount=-price,
+       detail='Arbitrix Pro Subscription' [+ ' - ' period_label]).
+   10. UPDATE subscriptions SET status='active', last_billing_date=NOW(),
+       last_charge_amount=price, next_billing_date=NOW()+1 month, started_at=
+       COALESCE(started_at,NOW()).
+   11. EXCEPTION WHEN OTHERS -> return JSON error; no partial state.
+  Billing idempotency key is SERVER-DERIVED ONLY from (user_id, target UTC
+  month, billing_kind) via `subscriptionBillingKey()`:
+  `sub_<userId>_<kind>_<YYYY-MM>`. The client NEVER supplies this key or the
+  price. A user can therefore never be charged twice for the same billing
+  period regardless of double-clicks, retries, concurrency, refreshes, or
+  repeated scheduled billing. (Tests #5/#6/#7 + bonus billing-key test.)
+- BILLING DECISION (server-side, `processDueSubscription(userId)`): only
+  'active' or 'payment_due' subs are billable; 'inactive'/'cancelled' never
+  billed. 'active' is due when next_billing_date <= now (anchor = next_billing
+  date). 'payment_due' retries the due period (anchor = next_billing_date or
+  now), guarded by the idempotency key. The due check runs server-side on
+  GET /api/subscription (non-fatal if it errors) — the client never triggers a
+  charge. (Bonus isBillableDue test.)
+- INSUFFICIENT BALANCE: charges $0, never creates debt / negative balance,
+  never withdraws locked funds, never interferes with deposits/withdrawals/
+  trading; marks status='payment_due' and preserves every cent. An unpaid
+  subscription does NOT prevent access/withdrawal of eligible funds (withdrawal
+  gates unchanged). The UI shows a localized "Your subscription is due. Add at
+  least $7..." message (subscription.dueTitle/dueDesc).
+- API ENDPOINTS (all behind authMiddleware; admin also behind adminMiddleware;
+  userId always derived from req.user.id, NEVER from the client body):
+  - GET /api/subscription — server price + current state + idempotent due-billing
+    check. Read-only from the client's perspective.
+  - POST /api/subscription/activate — explicit user action to START Pro. Does
+    NOT auto-charge on registration. Sends NO authoritative body (an empty {}
+    body; any client-supplied price/userId is IGNORED). On sufficient balance the
+    first month is charged immediately and status->active; on insufficient
+    balance the sub is created/updated to 'payment_due' with $0 charged. A
+    'cancelled' sub is re-activatable. An 'active' sub returns {duplicate:true}.
+  - POST /api/subscription/cancel — user cancels; status->'cancelled'; no refund;
+    never billed again until re-activated. Retains Pro until the paid period ends.
+  - GET /api/admin/subscriptions — minimal read-only admin visibility
+    (user_id, plan, price, status, next/last billing date). NO balance alteration
+    is possible through this surface (it's a SELECT).
+- FRONTEND (public/index.html, frontend-only additive): a "Arbitrix Pro"
+  subscription panel inside the existing Profile modal (#subscriptionPanel),
+  shown via `loadSubscriptionStatus()` called from `openProfileModal()`. Shows
+  plan + server price ($7/month via #subscriptionPriceLabel populated from the
+  GET response, never client-hardcoded), a localized status badge
+  (#subscriptionStatusBadge via SUBSCRIPTION_STATUS_KEYS render-only map), a
+  dynamic details area (#subscriptionDetails: active->"Next payment: <date>",
+  payment_due->"Your subscription is due. Add at least $7...", cancelled->re-
+  activate copy, inactive->activate copy), and Activate/Cancel buttons that send
+  no authoritative body. The UI never claims $7 was paid unless the server
+  confirms it (toast subscription.activated only on status==='active').
+  `activateSubscription()` reconciles APP.liveData.balance from the server-
+  returned newBalance (live mode only). Admin: a new read-only "Subscriptions"
+  tab (adminTabSubscriptions) + loadAdminSubscriptions()/renderAdminSubscriptions
+  (raw status mapped to localized labels; no balance editing).
+  NEW transactions.type 'Subscription' added to TX_TYPE_LABELS ('Subscription' ->
+  'tx.type.subscription') following the existing render-only mapping pattern;
+  existing type entries/values unchanged (the 'Withdrawal to Live' line was
+  rewritten with a trailing comma + the new entry; its value is preserved).
+- LOCALIZATION: dictionaries grew 1015 -> 1042 keys/locale (27 NEW keys across
+  all 6 locales en/es/pt/fr/ar/zh). EN values for the 1015 pre-existing keys
+  byte-identical (0 changed). Identical key sets across all 6 locales, 0 empty,
+  0 duplicate keys (raw Counter recheck per the Phase-2B-1 lesson), 0
+  placeholder-parity issues ({{date}} in subscription.nextPayment). Arabic RTL
+  preserved (applyTranslations sets dir='rtl' for ar; subscription panel uses
+  data-i18n spans so icons survive innerHTML sets — the Phase 3H clobber-safe
+  pattern). New key groups: subscription.* (month/activate/cancel/disclaimer/
+  inactiveDesc/activeDesc/nextPayment{{date}}/dueTitle/dueDesc/cancelledDesc/
+  status.active/status.paymentDue/status.inactive/status.cancelled/activated/
+  paymentDue/cancelled/activateFailed/cancelFailed/plan/price/nextBilling/
+  lastBilling), admin.tab.subscriptions, admin.empty.noSubscriptions,
+  tx.type.subscription.
+- SECURITY: subscription endpoints use the existing authMiddleware (and
+  adminMiddleware for admin). The server derives userId from req.user.id (JWT);
+  the charge RPC always passes p_user_id=userId; the price is read from
+  payment_config; the idempotency key is server-derived. The client NEVER
+  supplies userId/price/balance/billing-date/status. supabaseAdmin (service-
+  role) is used for all user-facing subscription reads/writes + the charge RPC.
+  The admin listing uses the anon supabase client (RLS is DISABLED on the
+  subscription tables in migration 011 so the anon read works). No
+  service-role/Supabase secrets are exposed.
+- VERIFICATION:
+  - `node --check server.js` = OK. `vm.Script` parse on all 5 inline <script>
+    blocks = OK.
+  - i18n parity (vm-eval of real TRANSLATIONS): 1042 keys/locale x 6, identical
+    key sets, 0 empty, 0 dups (raw Counter), 0 placeholder-parity, all 27 new
+    subscription keys present + non-empty everywhere.
+  - `npm test` = 85 pass / 1 fail. The +18 over the 67 Phase-7A baseline are the
+    new tests/subscription.test.js (18/18 pass). The single fail is the
+    PRE-EXISTING tests/q8qpay.webhook.test.js `Cannot find module 'express'`
+    (node_modules NOT installed in this env — confirmed: no node_modules dir;
+    identical to the documented baseline; explicitly out of scope per the Phase
+    8 spec). No regression. withdraw_gating.test.js (12/12) + trades_pnl.test.js
+    still pass.
+  - server.js diff is PURE-ADDITION (0 removed lines). index.html removes
+    exactly 1 line (the rewritten TX_TYPE_LABELS entry). No deposit/payment/
+    withdrawal/trade/KYC/2FA/referral code modified.
+- NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
+  prior phases). Working tree: M .env.example, M public/index.html, M server.js,
+  ?? supabase/migrations/011_subscription_pro.sql, ?? tests/subscription.test.js.
+  HEAD unchanged at the Phase-7A merge commit 07d2ce1.
+
