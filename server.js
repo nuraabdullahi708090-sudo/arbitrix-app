@@ -1662,6 +1662,289 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
   }
 });
 
+// ---------- SECURE EMAIL CHANGE (Phase 8B) ----------
+// SECURITY MODEL:
+//  - Identity comes ONLY from the authenticated JWT (req.user.id). A client
+//    can NEVER supply another user's id to change that user's email (no IDOR).
+//  - The user's existing internal id is NEVER changed; only users.email is.
+//  - users.email is NOT updated until the verification code for the NEW email
+//    is successfully verified. Until then the OLD email keeps working for login.
+//  - The verification code is cryptographically random, time-limited
+//    (EMAIL_CHANGE_CONFIG.codeExpiryMs), single-use (used=true on success),
+//    and stored ONLY as a SHA256 hash (never plaintext, never returned, never
+//    logged). The plaintext is sent only to the NEW email via Resend.
+//  - A new request replaces any prior pending request for the same user.
+//  - Per-user rate limiting / cooldown on requests, and per-request attempt
+//    throttling on verification, prevent brute force / abuse.
+//  - Financial/KYC/trading/payment/subscription/2FA/referral systems are not
+//    touched — only users.email + the email_change_requests table are involved.
+const EMAIL_CHANGE_CONFIG = {
+  codeLength: 6,
+  codeExpiryMs: 10 * 60 * 1000,     // 10 minutes
+  resendCooldownMs: 60 * 1000,     // 60s between request attempts per user
+  maxVerifyAttempts: 5             // per pending request
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmailFormat(email) {
+  return typeof email === 'string' && EMAIL_RE.test(email.trim());
+}
+
+function hashEmailChangeCode(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
+
+// Cryptographically secure 6-digit code (same algorithm as Email2FAService).
+function generateEmailChangeCode() {
+  const randomBytes = crypto.randomBytes(EMAIL_CHANGE_CONFIG.codeLength);
+  let code = '';
+  for (let i = 0; i < EMAIL_CHANGE_CONFIG.codeLength; i++) {
+    code += randomBytes[i] % 10;
+  }
+  return code;
+}
+
+// Send the email-change verification code to the NEW email. The plaintext code
+// is NEVER logged (even in dev mode) and NEVER returned to the caller.
+async function sendEmailChangeCodeEmail(newEmail, code) {
+  const resend = getResendClient();
+  if (resend) {
+    try {
+      await resend.emails.send({
+        from: EMAIL_CONFIG.from,
+        to: newEmail,
+        subject: 'Confirm your new email - Arbitrix AI',
+        html: generateEmailChangeTemplate(code)
+      });
+    } catch (e) {
+      // Log only that sending failed (no code, no credentials).
+      console.error('[EMAIL CHANGE] Failed to send verification email:', e?.message || 'unknown error');
+    }
+    return;
+  }
+  // Dev mode (no API key): a code was "sent" but the plaintext is never logged
+  // to satisfy the no-code-disclosure requirement (unlike the 2FA dev log).
+  console.log('[EMAIL CHANGE] Verification email queued (dev mode, no API key). Code intentionally not logged.');
+}
+
+function generateEmailChangeTemplate(code) {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm your new email - Arbitrix AI</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f4f4f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;padding:40px 20px;">
+    <tr><td style="background:linear-gradient(135deg,#0d1117 0%,#1a2332 100%);border-radius:16px 16px 0 0;padding:40px 30px;text-align:center;">
+      <h1 style="margin:0;color:#ffd700;font-size:28px;font-weight:700;">Arbitrix AI</h1>
+      <p style="margin:8px 0 0;color:#8b949e;font-size:14px;">Multi-Asset Arbitrage Platform</p>
+    </td></tr>
+    <tr><td style="background-color:#ffffff;padding:40px 30px;">
+      <h2 style="margin:0 0 20px;color:#1f2937;font-size:24px;">Confirm Your New Email</h2>
+      <p style="margin:0 0 20px;color:#4b5563;font-size:16px;line-height:1.6;">You requested an email change for your Arbitrix AI account. Use the verification code below to confirm your new email address. This code expires in 10 minutes.</p>
+      <div style="text-align:center;margin:30px 0;">
+        <div style="display:inline-block;background:#0d1117;color:#ffd700;font-size:32px;font-weight:700;letter-spacing:8px;padding:16px 32px;border-radius:8px;">${code}</div>
+      </div>
+      <p style="margin:20px 0 0;color:#6b7280;font-size:14px;line-height:1.6;">If you did not request this change, you can safely ignore this email. Your account email will not change until you complete verification.</p>
+    </td></tr>
+    <tr><td style="background-color:#f9fafb;padding:24px 30px;border-radius:0 0 16px 16px;text-align:center;">
+      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; Arbitrix AI. All rights reserved.</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// POST /api/auth/email-change/request
+// Body: { newEmail }. Identity from JWT (req.user.id). Sends a verification
+// code to the NEW email. Does NOT change users.email. Never returns the code.
+app.post('/api/auth/email-change/request', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const newEmail = (req.body && req.body.newEmail) ? String(req.body.newEmail).trim().toLowerCase() : '';
+
+  if (!isValidEmailFormat(newEmail)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  // The new email must differ from the current one.
+  const currentUser = await getUser(userId);
+  if (!currentUser) return res.status(404).json({ error: 'User not found' });
+  if (newEmail === String(currentUser.email).toLowerCase()) {
+    return res.status(400).json({ error: 'New email must be different from your current email' });
+  }
+
+  // Per-user request cooldown (rate limiting). Fail closed on DB error for this
+  // auth-critical path.
+  const cooldownSince = new Date(Date.now() - EMAIL_CHANGE_CONFIG.resendCooldownMs).toISOString();
+  const { data: recent, error: rlError } = await supabaseAdmin
+    .from('email_change_requests')
+    .select('created_at')
+    .eq('user_id', userId)
+    .gte('created_at', cooldownSince)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (rlError) {
+    console.error('[EMAIL CHANGE] Rate-limit check failed:', rlError.code, rlError.message);
+    return res.status(500).json({ error: 'Could not process request' });
+  }
+  if (recent && recent.length > 0) {
+    const elapsed = Date.now() - new Date(recent[0].created_at).getTime();
+    const remainingMs = EMAIL_CHANGE_CONFIG.resendCooldownMs - elapsed;
+    if (remainingMs > 0) {
+      return res.status(429).json({ error: 'Too many requests. Please wait before requesting another email change.', retryAfterSeconds: Math.ceil(remainingMs / 1000) });
+    }
+  }
+
+  // Ensure the new email is not already associated with ANOTHER account.
+  // Enumeration note: this rejects with a clear message when the email is taken,
+  // matching the existing registration behavior (`Email already registered`).
+  // We do not reveal WHICH account owns it, only that the email is unavailable.
+  const existing = await getUserByEmail(newEmail);
+  if (existing && String(existing.id) !== String(userId)) {
+    return res.status(409).json({ error: 'This email is already associated with another account' });
+  }
+
+  // Replace any prior pending (unused) request for this user so only one
+  // pending verification is active at a time.
+  const { error: invErr } = await supabaseAdmin
+    .from('email_change_requests')
+    .delete()
+    .eq('user_id', userId)
+    .eq('used', false);
+  if (invErr) {
+    console.error('[EMAIL CHANGE] Could not invalidate prior pending request:', invErr.code, invErr.message);
+    return res.status(500).json({ error: 'Could not process request' });
+  }
+
+  // Generate, hash, and store a single-use, time-limited verification code.
+  const code = generateEmailChangeCode();
+  const codeHash = hashEmailChangeCode(code);
+  const expiresAt = new Date(Date.now() + EMAIL_CHANGE_CONFIG.codeExpiryMs).toISOString();
+  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+
+  const { error: insertErr } = await supabaseAdmin.from('email_change_requests').insert({
+    user_id: userId,
+    new_email: newEmail,
+    code_hash: codeHash,
+    expires_at: expiresAt,
+    used: false,
+    attempts: 0,
+    ip_address: clientIP,
+    user_agent: req.headers['user-agent'] || null
+  });
+  if (insertErr) {
+    console.error('[EMAIL CHANGE] Insert failed:', insertErr.code, insertErr.message);
+    return res.status(500).json({ error: 'Could not process request' });
+  }
+
+  // Send the code to the NEW email only. Never return/log the code.
+  await sendEmailChangeCodeEmail(newEmail, code);
+
+  return res.json({ message: 'A verification code has been sent to your new email address.' });
+});
+
+// GET /api/auth/email-change/status
+// Returns whether a pending (unused, unexpired) request exists for the user, so
+// the UI can reflect the pending-verification state. Never reveals the code.
+app.get('/api/auth/email-change/status', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const { data, error } = await supabaseAdmin
+    .from('email_change_requests')
+    .select('new_email, expires_at, attempts')
+    .eq('user_id', userId)
+    .eq('used', false)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) return res.status(500).json({ error: 'Could not check status' });
+  if (!data || data.length === 0) return res.json({ pending: false });
+  const row = data[0];
+  const expired = new Date(row.expires_at).getTime() <= Date.now();
+  if (expired) return res.json({ pending: false });
+  return res.json({ pending: true, newEmail: row.new_email, expiresAt: row.expires_at });
+});
+
+// POST /api/auth/email-change/verify
+// Body: { code }. Identity from JWT. On success updates users.email only
+// (never the id). Single-use, time-limited. Never returns the code.
+app.post('/api/auth/email-change/verify', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const code = req.body && req.body.code ? String(req.body.code).trim() : '';
+  if (!code) return res.status(400).json({ error: 'Verification code is required' });
+
+  // Find the user's most recent pending request.
+  const { data: rows, error } = await supabaseAdmin
+    .from('email_change_requests')
+    .select('id, new_email, code_hash, expires_at, used, attempts')
+    .eq('user_id', userId)
+    .eq('used', false)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) return res.status(500).json({ error: 'Could not verify' });
+  if (!rows || rows.length === 0) {
+    return res.status(400).json({ error: 'No pending email change request. Please request a new code.' });
+  }
+
+  const request = rows[0];
+
+  // Expired -> invalidate and reject.
+  if (new Date(request.expires_at).getTime() <= Date.now()) {
+    await supabaseAdmin.from('email_change_requests').update({ used: true, used_at: new Date().toISOString() }).eq('id', request.id);
+    return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
+  }
+
+  // Constant-time compare of the hashed code.
+  const providedHash = hashEmailChangeCode(code);
+  let match = false;
+  try {
+    const a = Buffer.from(providedHash, 'hex');
+    const b = Buffer.from(request.code_hash, 'hex');
+    if (a.length === b.length) match = crypto.timingSafeEqual(a, b);
+  } catch (e) {
+    match = false;
+  }
+
+  if (!match) {
+    const newAttempts = (request.attempts || 0) + 1;
+    if (newAttempts >= EMAIL_CHANGE_CONFIG.maxVerifyAttempts) {
+      // Too many failed attempts -> invalidate the pending request.
+      await supabaseAdmin.from('email_change_requests').update({ used: true, attempts: newAttempts, used_at: new Date().toISOString() }).eq('id', request.id);
+      return res.status(429).json({ error: 'Too many failed attempts. Please request a new code.' });
+    }
+    await supabaseAdmin.from('email_change_requests').update({ attempts: newAttempts }).eq('id', request.id);
+    return res.status(400).json({ error: 'Invalid verification code' });
+  }
+
+  // Code is correct. Mark single-use BEFORE mutating the user, so a replay
+  // can never update the email twice.
+  const { error: useErr } = await supabaseAdmin.from('email_change_requests').update({ used: true, used_at: new Date().toISOString() }).eq('id', request.id);
+  if (useErr) return res.status(500).json({ error: 'Could not complete verification' });
+
+  // Re-check uniqueness at verify time (race guard): if another account took
+  // the email between request and verify, do NOT change anything.
+  const existing = await getUserByEmail(request.new_email);
+  if (existing && String(existing.id) !== String(userId)) {
+    return res.status(409).json({ error: 'This email is already associated with another account' });
+  }
+
+  // Update ONLY users.email; the id (and everything else) is untouched.
+  const { data: updatedUser, error: updErr } = await supabaseAdmin
+    .from('users')
+    .update({ email: request.new_email })
+    .eq('id', userId)
+    .select('id, name, email, referral_code, is_admin, created_at')
+    .single();
+  if (updErr) {
+    console.error('[EMAIL CHANGE] users.email update failed:', updErr.code, updErr.message);
+    return res.status(500).json({ error: 'Could not update email' });
+  }
+
+  return res.json({ success: true, message: 'Email updated successfully', user: updatedUser });
+});
+
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
   // getUser and getWallet are independent (both keyed by the same user id),
   // so run them concurrently to cut this endpoint's latency by one DB round trip.
