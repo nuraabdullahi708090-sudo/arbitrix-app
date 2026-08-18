@@ -1,4 +1,4 @@
-# Arbitrix AI — Repository Notes
+# Arbitrix AI ŌĆö Repository Notes
 
 ## Stack
 - Node.js + Express 5 (`server.js`, single-file app ~2k lines).
@@ -6,17 +6,17 @@
 - Frontend is a single `public/index.html` (vanilla JS).
 
 ## Payments architecture
-- `services/PaymentService.js` — central service; providers implement
+- `services/PaymentService.js` ŌĆö central service; providers implement
   `services/providers/base/ProviderInterface.js` and register via
   `paymentService.registerProvider(name, instance)`.
 - Active provider = `process.env.PAYMENT_PROVIDER` (default `nowpayments`).
 - Providers: `nowpayments`, `paymento`, `q8qpay` (added; white-label USDT TRC20).
 - Atomic crediting is done in Postgres (SECURITY DEFINER funcs), NOT in JS:
-  - `paymento_credit_user_safe()` — Paymento-specific (untouched).
-  - `credit_payment_safe()` — shared/provider-agnostic (used by q8qpay).
-  Both use the same pattern: idempotency check → `FOR UPDATE` row lock →
-  double-check after lock → wallet credit → transaction record → referral bonus.
-- Migrations live in `supabase/migrations/` (001–008). 008 = q8qpay support.
+  - `paymento_credit_user_safe()` ŌĆö Paymento-specific (untouched).
+  - `credit_payment_safe()` ŌĆö shared/provider-agnostic (used by q8qpay).
+  Both use the same pattern: idempotency check ŌåÆ `FOR UPDATE` row lock ŌåÆ
+  double-check after lock ŌåÆ wallet credit ŌåÆ transaction record ŌåÆ referral bonus.
+- Migrations live in `supabase/migrations/` (001ŌĆō008). 008 = q8qpay support.
 
 ## Webhooks (IMPORTANT gotchas)
 - Global `app.use(express.json({ verify: ... }))` stashes raw bytes on
@@ -28,8 +28,8 @@
   handler. Paymento webhooks currently flow through the generic handler (do not
   change this until Paymento is removed).
 - q8qpay webhook: `POST /api/webhook/q8qpay`, signature in `X-Webhook-Signature`
-  (HMAC-SHA256 hex of raw body). Verify → re-check via q8qpay API → validate
-  asset/amount/address/tx → credit via `credit_payment_safe`.
+  (HMAC-SHA256 hex of raw body). Verify ŌåÆ re-check via q8qpay API ŌåÆ validate
+  asset/amount/address/tx ŌåÆ credit via `credit_payment_safe`.
 
 ## q8qpay specifics
 - API base: `https://q8qpay.com`, create invoice `POST /api/v1/invoices`.
@@ -54,7 +54,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   `public/index.html` via `showPaymentSection()` (q8qpay branch ~line 7676),
   `startPollingForPayment()`, `updatePaymentProgress()`, `updateCurrentStatus()`,
   `startDepositTimer()`, and `resetDepositModal()`.
-- The 4-stage progress indicator steps are `created → detected → confirming →
+- The 4-stage progress indicator steps are `created ŌåÆ detected ŌåÆ confirming ŌåÆ
   credited` (data-step attrs). `updatePaymentProgress(step)` colors circles,
   labels, and `.step-desc` descriptions for each stage.
 - Status text strings are passed to `updateCurrentStatus(message, color)`.
@@ -63,14 +63,14 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   polling logic MUST stay unchanged.
 - Exact amount = `invoice.amountUsdtExact`; payout address =
   `invoice.payoutAddress`. QR encodes `tron:<addr>?amount=<exact>&token=USDT
-  &network=TRC20`. Do NOT hard-code amounts — keep them dynamic.
+  &network=TRC20`. Do NOT hard-code amounts ŌĆö keep them dynamic.
 - A UI-only polish pass was done (2026-08): headings/labels/status wording
   refined; no payment logic, API, webhook, crediting, or provider code touched.
 
 - Status mapping fix (2026-08): q8qpay only emits `pending | confirmed |
   expired | cancelled` (NO `detected`/`confirming` intermediate). A fresh
   unpaid invoice is `pending`. The frontend polling in
-  `startPollingForPayment()` must map `pending` → "Waiting for payment..." +
+  `startPollingForPayment()` must map `pending` ŌåÆ "Waiting for payment..." +
   progress `created` (only Created active), NOT to `confirming`/"Payment
   detected". `detected`/`confirming` branches are kept only for providers that
   actually report those states. `cancelled` is also handled (q8qpay has it).
@@ -81,7 +81,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   return an `amountUsdtExact` that differs from the requested `amountUsdt`
   (e.g. 50.0020 vs 50.00) when the q8qpay merchant account applies a fee. The
   webhook amount verification (server.js, compares `invoice.amount_usd` to
-  `verifyResult.amountUsdtExact`) will REJECT crediting if those differ — that
+  `verifyResult.amountUsdtExact`) will REJECT crediting if those differ ŌĆö that
   is payment-verification logic and was intentionally NOT modified here. If
   q8qpay adds a fee, disable it in the q8qpay dashboard so `amountUsdtExact`
   echoes the requested amount; otherwise crediting will not succeed.
@@ -95,8 +95,8 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   `amountUsdtExact` should ECHO the requested `amountUsdt` (150 -> 150.0000)
   and is "the exact amount to pay" (strict exact-match: a customer off by
   0.0001 USDT will not match). q8qpay's documented fee model is a flat 0.5%
-  deducted from the merchant PREPAID BALANCE on confirmation — NOT added to
-  the customer amount — and network/gas fees are paid by the customer on-chain,
+  deducted from the merchant PREPAID BALANCE on confirmation ŌĆö NOT added to
+  the customer amount ŌĆö and network/gas fees are paid by the customer on-chain,
   separate from `amountUsdtExact`. The observed deltas (0.0020-0.0051, plus an
   outlier +1.0015) do NOT equal 0.5% of 50 (0.25) and vary per invoice, so they
   are NOT the documented merchant fee. q8qpay's create-invoice response has NO
@@ -115,7 +115,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   (idempotency key = `${userId}_${uniqueInvoiceId}`, so never a cache hit; no
   walletId sent -> q8qpay default wallet). So restart/cancel/count cannot
   affect the amount via our code. Leading hypothesis: q8qpay ADDRESS-REUSE
-  DISAMBIGUATION — when multiple active invoices share one payoutAddress,
+  DISAMBIGUATION ŌĆö when multiple active invoices share one payoutAddress,
   q8qpay perturbs amountUsdtExact by a few micro-USDT so each invoice has a
   unique (address, amount) pair (common non-custodial gateway pattern). The
   first invoice on a fresh/unused address can use the exact 50.0000; subsequent
@@ -137,11 +137,11 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
     `APP.liveData.pnl` (server-authoritative) and returns `{ ok, funded }`.
   - `persistLiveTrade(profit, asset, key, preBalance, prePnl)`: on success
     adopts `result.newBalance` AND `result.todayRealizedPnl` (REPLACE, not add
-    — no double-count); on failure/non-ok/throw it rolls back the optimistic
+    ŌĆö no double-count); on failure/non-ok/throw it rolls back the optimistic
     balance+pnl to the pre-trade snapshots captured in `executeBotTrade`, so a
     failed `/api/trade` can never leave Today's P&L showing an unpersisted profit.
   - Mode init: after sync, `if (syncResult.funded && APP.mode==='demo')
-    setMode('live')` — funded = authoritative confirmed deposit (NOT balance>50,
+    setMode('live')` ŌĆö funded = authoritative confirmed deposit (NOT balance>50,
     NOT stale localStorage). Unfunded stays DEMO. Logout resets `APP.mode`,
     `currentWallet`, `pnl`, `hasTradingActivity` to defaults.
 - Server additions (read-only; record_trade_safe untouched):
@@ -194,32 +194,32 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   - `initApp()` still runs `setTimeout(showInstallPrompt, 3000)` ~9305 (kept;
     now self-suppresses when installed/dismissed).
 - ROOT CAUSE that was fixed:
-  1. No `appinstalled` listener existed → successful install never set the
+  1. No `appinstalled` listener existed ŌåÆ successful install never set the
      `pwa_installed` flag (read but never written = dead check). FIXED.
   2. `PWA.isStandalone` only true from home-screen launch, false in a browser
-     tab even if installed → installed-in-tab users treated as not-installed.
+     tab even if installed ŌåÆ installed-in-tab users treated as not-installed.
      FIXED via `pwaIsInstalled()` + `getInstalledRelatedApps()`.
-  3. `dismissPWA` used sessionStorage → dismissal cleared on tab close.
-     FIXED → localStorage (persists across browser restarts).
+  3. `dismissPWA` used sessionStorage ŌåÆ dismissal cleared on tab close.
+     FIXED ŌåÆ localStorage (persists across browser restarts).
 - State semantics after fix:
-  - not installed & not dismissed → may show prompt (unchanged behavior).
-  - dismissed → stays dismissed (localStorage; not auto-cleared on
+  - not installed & not dismissed ŌåÆ may show prompt (unchanged behavior).
+  - dismissed ŌåÆ stays dismissed (localStorage; not auto-cleared on
     beforeinstallprompt).
-  - successfully installed → never show again (`appinstalled` + accepted
+  - successfully installed ŌåÆ never show again (`appinstalled` + accepted
     `userChoice` both set `pwa_installed`).
-  - opened from home screen → never show (`display-mode: standalone` /
+  - opened from home screen ŌåÆ never show (`display-mode: standalone` /
     `navigator.standalone`).
 - Manifest unchanged: runtime Blob URL (~6452), `display:'standalone'`,
   SVG data-URI icons. Apple meta tags present (lines 7-9).
 - Service worker: `./sw.js` registered (~6491) but `public/sw.js` DOES NOT
-  EXIST → registration silently fails. NOT touched by this fix (missing SW
+  EXIST ŌåÆ registration silently fails. NOT touched by this fix (missing SW
   to be investigated separately; it does not cause the repeat prompt).
 - Logout (lines ~9560) does NOT touch pwa_* keys (by design: install state is
   device-level, not per-login; should persist across logins).
 - Verification: `node --check` on all 5 inline `<script>` blocks = OK.
   `npm test` = 36 pass / 1 fail, where the 1 fail is
   `tests/q8qpay.webhook.test.js` failing with `Cannot find module 'express'`
-  (deps not installed in this env) — IDENTICAL on the unmodified baseline,
+  (deps not installed in this env) ŌĆö IDENTICAL on the unmodified baseline,
   so no regression introduced by this frontend-only change.
 
 ## Localization Phase 1 (2026-08, frontend-only in public/index.html)
@@ -228,7 +228,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   `{{var}}` interpolation + EN fallback, `applyTranslations()`/`setLanguage()`,
   a header globe dropdown + Profile language row (en/es/fr/ar/zh/pt), and
   RTL/font CSS scaffolding for `ar`/`zh`. Non-EN locales are still English
-  placeholders (auto-filled from EN) — NOT translated in Phase 1.
+  placeholders (auto-filled from EN) ŌĆö NOT translated in Phase 1.
 - Phase 1 added automatic browser-language detection. `detectBrowserLanguage()`
   (~line 6346) inspects `navigator.languages` first, then `navigator.language`,
   matches by lowercased language prefix against
@@ -241,7 +241,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - `t()` fallback behavior unchanged: `TRANSLATIONS[currentLang]?.[key] ||
   TRANSLATIONS.en[key] || key`. RTL for `ar` unchanged
   (`document.documentElement.dir = currentLang==='ar'?'rtl':'ltr'`).
-- The duplicate early fallback `t()` at `~line 2128` (`window.t = window.t || …`)
+- The duplicate early fallback `t()` at `~line 2128` (`window.t = window.t || ŌĆ”`)
   was investigated and LEFT UNTOUCHED. No `t()` call executes before the main
   i18n block loads at load time (the only pre-6068 `t()` reference is inside a
   class method body `SoundManager.toggleMute` at ~line 6038, invoked only at
@@ -267,10 +267,10 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   (`dir = currentLang==='ar'?'rtl':'ltr'`) are all unchanged.
 - All `{{var}}` placeholders (`{{amount}}`, `{{min}}`, `{{needed}}`,
   `{{network}}`, `{{current}}`, `{{balance}}`) preserved per-key per-locale
-  (12 placeholder-bearing keys × 5 locales verified). HTML `<strong>` tags in
-  `ios.step1`–`ios.step4` preserved; `ios.step1` mirrors EN's pre-existing
-  `<strong>…</button>` typo on purpose (do NOT "fix" it inconsistently across
-  locales — that would change rendering parity; it is an EN-side bug to fix
+  (12 placeholder-bearing keys ├Ś 5 locales verified). HTML `<strong>` tags in
+  `ios.step1`ŌĆō`ios.step4` preserved; `ios.step1` mirrors EN's pre-existing
+  `<strong>ŌĆ”</button>` typo on purpose (do NOT "fix" it inconsistently across
+  locales ŌĆö that would change rendering parity; it is an EN-side bug to fix
   separately if ever).
 - Untranslated terms kept as-is by design: MTA, USDT, TRC20, "Google
   Authenticator", "Arbitrix AI", "DEMO"/"LIVE" badges, "P&L" label, $ amounts.
@@ -278,7 +278,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   reset-password.html NOT translated in this phase (frontend UI only).
 - NOT translated/dynamic-yet (still hardcoded English, future phase): ~101
   `showToast()` literals, 6 `updateCurrentStatus()` deposit-status strings
-  (display wording only — underlying `pending`/`confirmed`/`expired`/
+  (display wording only ŌĆö underlying `pending`/`confirmed`/`expired`/
   `cancelled` status VALUES + polling/crediting logic untouched), ~7 support
   bot reply templates, and backend `data.error` passthroughs in auth.
 - Verification: `node --check` on all 4 inline `<script>` blocks = OK;
@@ -313,7 +313,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   success.title/body/hint/gotIt/backToSignIn), wallet-sync loader (loading/
   slowTitle/slowBody/refresh).
 - Key reuse: reused pre-existing Phase-2A dict keys where a value already
-  existed rather than creating duplicates — e.g. `auth.brand.security.title`,
+  existed rather than creating duplicates ŌĆö e.g. `auth.brand.security.title`,
   `auth.brand.execution.title`, `auth.brand.analytics.title`,
   `auth.brand.volumeTraded/activeUsers/uptime`, `auth.2fa.resendPrefix`,
   `forgot.success.title/body/hint`, `auth.login.emailLabel/passwordLabel`
@@ -326,10 +326,10 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   `Arbitrix AI`, `KYC`, `LIVE`, `Bonus/Live Wallet`. NOTE: localized forms
   were normalized to use the literal EN token (e.g. FR "Chiffrement 256-bit"
   not "256 bits", FR "24/7" not "24h/24 et 7j/7", AR "$10"/"$50" not
-  "10 دولارات"/"50 دولارًا", ES/PT/FR/AR/ZH "stop-loss" lowercase, ZH
-  "256-bit SSL" not "256 位 SSL") so the exact token survives translation.
+  "10 ž»┘ł┘äž¦ž▒ž¦ž¬"/"50 ž»┘ł┘äž¦ž▒┘ŗž¦", ES/PT/FR/AR/ZH "stop-loss" lowercase, ZH
+  "256-bit SSL" not "256 õĮŹ SSL") so the exact token survives translation.
 - HTML-markup keys preserved markup across all locales: `landing.hero.title`
-  (`<br><span class="landing-gradient-text">…</span>`), `auth.signup.terms`
+  (`<br><span class="landing-gradient-text">ŌĆ”</span>`), `auth.signup.terms`
   and the Phase-1 `ios.step1-4` (`<a>`, `<strong>`), all with 0 tag-parity
   issues. Placeholder parity (`{{time}}` in `auth.2fa.codeExpiry`,
   `{{amount}}/{{min}}/{{needed}}/{{network}}/{{current}}/{{balance}}`) = 0 issues.
@@ -339,7 +339,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   0 HTML-tag issues, 0 token-parity issues, EN dictionary unchanged (all 262
   prior values preserved). `npm test` = 36 pass / 1 fail (the single fail is
   the pre-existing `tests/q8qpay.webhook.test.js` `Cannot find module
-  'express'` env failure — identical on the unmodified baseline; no regression).
+  'express'` env failure ŌĆö identical on the unmodified baseline; no regression).
 - DELIBERATELY LEFT FOR PHASE 2B (not translated, still hardcoded English):
   ~101 `showToast()` literals, 6 `updateCurrentStatus()` deposit-status
   display strings (underlying `pending`/`confirmed`/`expired`/`cancelled`
@@ -349,7 +349,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   label value, countdown timer text) is runtime/data-driven and out of scope
   for this static-HTML phase.
 
-## Localization Phase 2B-1 — Dynamic Frontend Localization (2026-08, public/index.html only)
+## Localization Phase 2B-1 ŌĆö Dynamic Frontend Localization (2026-08, public/index.html only)
 - Converted hardcoded DYNAMIC display strings to `t()` calls across all inline
   JS. Frontend-only: NO changes to server.js, DB/schema/migrations, auth, 2FA,
   wallet calc/persistence, trading calc/execution, referral qualification/bonus,
@@ -379,7 +379,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   loadHealthFailed/noActivity, admin.health.lastChecked/serverUptime,
   admin.loginRequired, admin.export.*, admin.doc.*, admin.invoice.*,
   admin.webhook.retry*, admin.searchFailed); support-chat replies (support.reply.
-  *: default/bot/deposit/withdraw/bonus/sound/language/hello — keyword MATCHING
+  *: default/bot/deposit/withdraw/bonus/sound/language/hello ŌĆö keyword MATCHING
   left in English intentionally); ticker template prose (ticker.earned/deposited/
   referred/arbitrage/newTrader/badgeUnlocked as COMPLETE SENTENCES preserving
   `<span class="ticker-user">`/`<span class="ticker-amount green|gold">` markup
@@ -402,7 +402,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   helpers near `// ============ TRANSACTION LOG ============` (~line 10554).
   Applied at the SINGLE render site in updateTransactionLog() (.tx-type/
   .tx-detail divs). Rules:
-    * TRANSLATE AT RENDER TIME ONLY. Stored type/detail values NEVER modified —
+    * TRANSLATE AT RENDER TIME ONLY. Stored type/detail values NEVER modified ŌĆö
       every history.unshift({type:'...',detail:'...'}) still writes the original
       English raw values (Deposit/Withdraw/Trade Executed/Bot/Reset/Bonus
       Withdrawal/Referral Bonus/Withdrawal to Live + Demo Funds/All funds
@@ -416,7 +416,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
       Empty/undefined -> ''.
   Admin KYC review modal renderKYCDetails() history list (server-supplied
   h.previousStatus/h.newStatus/d.type) left as raw server values (backend data
-  passthrough — deferred); only its static empty-state labels (kyc.noDocuments/
+  passthrough ŌĆö deferred); only its static empty-state labels (kyc.noDocuments/
   noHistory) + loadDetailsFailed toast translated.
 - Reuse-first: reused existing keys wherever a value already existed
   (2fa.loadStatusFailed/generateQRFirst/nowEnabled/newCodesGenerated,
@@ -435,7 +435,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   sentences (not word-by-word), preserving bidi isolation.
 - Console/debug messages (192 console.* calls) and backend data.error/
   error.message passthroughs (e.g. showToast(data.error || t('...'))) UNTOUCHED
-  — deferred to the later backend-error localization phase.
+  ŌĆö deferred to the later backend-error localization phase.
 - Verification: node --check on all 5 inline <script> blocks = OK. verify_i18n.py
   = 652 keys/locale x 6, 219 new vs 433 base, 0 problems. Full parity check =
   identical key sets, 0 empty, 0 placeholder-parity, 0 HTML/attr-parity.
@@ -446,30 +446,30 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   type/detail values verified UNCHANGED at every history.unshift site;
   === 'Deposit' comparison logic verified UNCHANGED. npm test = 36 pass / 1
   fail (the single fail is the pre-existing tests/q8qpay.webhook.test.js
-  `Cannot find module 'express'` env failure — identical to baseline; no
+  `Cannot find module 'express'` env failure ŌĆö identical to baseline; no
   regression).
 - DEFERRED to Phase 2B-2 (NOT done here): remaining ~handful of admin-view
   hardcoded strings (badge lock tooltips, KYC list row labels built from server
   data, admin activity-timeline activity.title/activity.description ~13470-13488
-  which come from the server data.activities — backend passthroughs), and the
+  which come from the server data.activities ŌĆö backend passthroughs), and the
   full backend-error localization pass (server.js data.error strings, email
   templates, privacy/terms/legal pages, reset-password.html).
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   the landing-page work).
 
-## Localization Phase 2B-2A — Frontend Error Mapping + Reset-Password i18n (2026-08, public/index.html + public/reset-password.html only)
+## Localization Phase 2B-2A ŌĆö Frontend Error Mapping + Reset-Password i18n (2026-08, public/index.html + public/reset-password.html only)
 - LOWEST-RISK slice from the completed read-only Phase 2B-2 backend audit.
   Frontend-only; server.js, DB/schema/migrations, auth/2FA, wallet, trading,
   referral, payment, withdraw, PWA, API behavior, and stored status values
-  UNTOUCHED. No backend error strings were modified — only how the frontend
+  UNTOUCHED. No backend error strings were modified ŌĆö only how the frontend
   DISPLAYS them.
 - `translateBackendMessage(message, fallbackKey)` helper (index.html, after
   `t()` ~line 10378): exact-match map (`BACKEND_MESSAGE_MAP`) of known
-  user-facing English backend error sentences → translation keys. Unknown /
+  user-facing English backend error sentences ŌåÆ translation keys. Unknown /
   dynamic / provider-specific messages are returned VERBATIM (English) so
-  nothing machine-consumed is ever altered. Empty/falsy message →
+  nothing machine-consumed is ever altered. Empty/falsy message ŌåÆ
   `t(fallbackKey)`. A small `BACKEND_DYNAMIC_MESSAGE_RULES` set handles
-  parameterized sentences (e.g. `Already <status>` → `admin.alreadyStatus`
+  parameterized sentences (e.g. `Already <status>` ŌåÆ `admin.alreadyStatus`
   with `{{status}}`).
 - Wired into ~20 frontend error-display sites (auth login, 2FA
   resend/verify/setup/enable/regenerate/disable throws, deposit generate-
@@ -478,8 +478,8 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   retry, admin config update throw). Pattern at each site:
   `throw new Error(translateBackendMessage(data.error, '<fallbackKey>'))` or
   `showToast(translateBackendMessage(data.error, '<fallbackKey>'), ...)`.
-- Dictionaries: 652 → 705 keys/locale (53 NEW keys; EN values for the 652
-  pre-existing keys byte-identical — 0 changed). All 6 locales (en, es, pt, fr,
+- Dictionaries: 652 ŌåÆ 705 keys/locale (53 NEW keys; EN values for the 652
+  pre-existing keys byte-identical ŌĆö 0 changed). All 6 locales (en, es, pt, fr,
   ar, zh) have identical key sets, 0 empty, 0 duplicate keys (re-checked after
   scripted insertion per the Phase-2B-1 lesson), 0 `{{placeholder}}` parity
   issues (`{{status}}` in `admin.alreadyStatus`). New key groups:
@@ -500,22 +500,22 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   are persisted/machine-consumed were NOT added to BACKEND_MESSAGE_MAP. Verified
   NOT mapped (pass through verbatim): q8qpay webhook internals
   (`Already processed`, `Verification mismatch`, `Duplicate payment (not re-
-  credited)`, `Missing signature`, `Invalid signature`, etc. — these are
+  credited)`, `Missing signature`, `Invalid signature`, etc. ŌĆö these are
   q8qpay.webhook.test.js-asserted AND res.json status values), provider API
   passthroughs, and any `data.error` from un-audited endpoints. The map only
   contains display-only user-facing sentences confirmed to have NO exact-string
   consumer in the repo (grep-verified: no `error ===`, no `data.error.includes`,
   no status-value usage for any mapped sentence).
 - `public/reset-password.html`: added a SELF-CONTAINED i18n system (does NOT
-  import from index.html — it's a separate page loaded outside the app shell).
-  Mirrors the main app: `TRANSLATIONS` (44 keys × 6 locales), `t(key)`,
+  import from index.html ŌĆö it's a separate page loaded outside the app shell).
+  Mirrors the main app: `TRANSLATIONS` (44 keys ├Ś 6 locales), `t(key)`,
   `translateBackendMessage(msg, fallbackKey)` with its own `BACKEND_MESSAGE_MAP`
   (reset/auth subset: `Email and token are required`, `Invalid reset token`,
   `This reset link has expired`, `An error occurred`, `Email, token, and new
   password are required`, `Password must be at least 6 characters`, the reset-
   password endpoint sentences), `detectBrowserLanguage()` (navigator.languages
-  → language → prefix match against `['es','pt','fr','ar','zh','en']`, else en),
-  `applyTranslations()` (data-i18n → innerHTML, data-i18n-placeholder →
+  ŌåÆ language ŌåÆ prefix match against `['es','pt','fr','ar','zh','en']`, else en),
+  `applyTranslations()` (data-i18n ŌåÆ innerHTML, data-i18n-placeholder ŌåÆ
   placeholder, sets `document.documentElement.lang`/`dir`, `document.title`),
   RTL for `ar` (`dir='rtl'` + Arabic font stack). Reuses the shared
   `localStorage['arbi_lang']` key so a user's language choice carries over
@@ -535,22 +535,22 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   phase.
 - Verification: `node --check`-equivalent (vm.Script) on all 5 index.html
   inline `<script>` blocks + 1 reset-password block = OK.
-  index.html: 705 keys/locale × 6, 53 new vs 652 base, 0 problems, 0 dups, EN
-  baseline 652 values unchanged. reset-password.html: 44 keys/locale × 6, 0
+  index.html: 705 keys/locale ├Ś 6, 53 new vs 652 base, 0 problems, 0 dups, EN
+  baseline 652 values unchanged. reset-password.html: 44 keys/locale ├Ś 6, 0
   problems, 0 dups. Isolated functional tests (`/tmp/test_i18n.js`,
   `/tmp/test_reset_i18n.js`, temp, removed): known errors translate per locale;
-  unknown/webhook/provider strings pass through verbatim; empty→fallback;
+  unknown/webhook/provider strings pass through verbatim; emptyŌåÆfallback;
   dynamic `Already <status>` rule; EN fallback for unsupported locale; static
   `t()` keys resolve across all locales; unknown key returns the key. ALL PASS.
   `npm test` = 36 pass / 1 fail (the single fail is the pre-existing
-  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure ŌĆö
   identical to baseline; no regression).
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   prior phases).
 
 
 
-## Localization Phase 3B — Activity/Alerts/Audit Render-Time Localization (2026-08, public/index.html only)
+## Localization Phase 3B ŌĆö Activity/Alerts/Audit Render-Time Localization (2026-08, public/index.html only)
 - Frontend-only render-time localization of backend-generated activity/alert/audit
   text in `public/index.html`. NO changes to server.js, DB/schema/migrations,
   auth/2FA, wallet, trading, referral, payment/withdraw, webhook behavior, API
@@ -664,7 +664,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   prior phases).
 
-## Localization Phase 3E — Admin Static + Dynamic Localization (2026-08, public/index.html only)
+## Localization Phase 3E ŌĆö Admin Static + Dynamic Localization (2026-08, public/index.html only)
 - Frontend-only admin UI localization (the implementation slice following the
   Phase 3D read-only audit). NO changes to server.js, DB/schema/migrations,
   auth/2FA, wallet, trading, referral qualification/bonus, payment/deposit/
@@ -761,7 +761,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   prior phases).
 
 
-## Localization Phase 3F — 2FA panel + dead-key JS + language-switch re-render + date locale (2026-08, public/index.html only)
+## Localization Phase 3F ŌĆö 2FA panel + dead-key JS + language-switch re-render + date locale (2026-08, public/index.html only)
 - Frontend-only implementation slice following the read-only Phase 3F audit.
   NO changes to server.js, DB/schema/migrations, auth/2FA LOGIC, wallet/trading/
   referral/payment/withdraw logic, webhook behavior, API request/response shapes,
@@ -874,13 +874,13 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - Checkpoint commit created this session (frontend-only, public/index.html +
   AGENTS.md) AFTER all verification passed. Not pushed/deployed.
 
-## Localization Phase 3H — Critical Multilingual UX Fixes (2026-08, public/index.html only)
+## Localization Phase 3H ŌĆö Critical Multilingual UX Fixes (2026-08, public/index.html only)
 - Frontend-only fixes for the two confirmed CRIT issues from the Phase 3G audit.
   NO changes to server.js, DB/schema/migrations, auth/2FA LOGIC, wallet/trading/
   referral-business/payment/withdraw logic, webhook behavior, API shapes, or
   stored status/enum/raw values. No new translation keys (1002/locale unchanged);
-  only 6 values of `referral.invite` edited (the $10 removed — see CRIT-2).
-- CRIT-1 — 2FA code-expiry countdown clobbering fix:
+  only 6 values of `referral.invite` edited (the $10 removed ŌĆö see CRIT-2).
+- CRIT-1 ŌĆö 2FA code-expiry countdown clobbering fix:
   - ROOT CAUSE: the expiry `<span>` had `data-i18n="auth.2fa.codeExpiry"` and
     wrapped the WHOLE line including the live `<span id="twofaCountdown">`.
     `applyTranslations()` sets `el.innerHTML = t(key)` WITHOUT passing
@@ -889,28 +889,28 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
     switch. Worse, `start2FACountdown()` captures `countdownEl` ONCE
     (`const countdownEl = document.getElementById('twofaCountdown')`) into the
     interval closure; recreating the element left the interval updating a
-    DETACHED node → the visible countdown froze at whatever HTML default
+    DETACHED node ŌåÆ the visible countdown froze at whatever HTML default
     remained. So language switching during countdown broke it.
-  - FIX (smallest safe DOM/i18n change — preserves translations & element
+  - FIX (smallest safe DOM/i18n change ŌĆö preserves translations & element
     identity): restructured the expiry line into THREE stable sibling spans:
     `<span id="twofaCodeExpiryPrefix">` + `<span id="twofaCountdown">` +
     `<span id="twofaCodeExpirySuffix">`, wrapped by
-    `<span id="twofaCodeExpiryWrap">` (NO data-i18n on the wrapper — removed
+    `<span id="twofaCodeExpiryWrap">` (NO data-i18n on the wrapper ŌĆö removed
     `data-i18n` AND the dead `data-i18n-vars` attribute, which applyTranslations
     never read anyway). Added `update2FACodeExpiryLabels()` (called from
-    `updateDynamicTranslations()` → runs on every `applyTranslations()` incl.
+    `updateDynamicTranslations()` ŌåÆ runs on every `applyTranslations()` incl.
     `setLanguage()`): reads `t('auth.2fa.codeExpiry')` (still contains
     `{{time}}`), splits on `{{time}}`, and sets ONLY the prefix/suffix spans'
-    `textContent`. `#twofaCountdown` is NEVER recreated → the interval's cached
-    reference stays valid → countdown keeps ticking across language switches.
+    `textContent`. `#twofaCountdown` is NEVER recreated ŌåÆ the interval's cached
+    reference stays valid ŌåÆ countdown keeps ticking across language switches.
     No literal `{{time}}` is ever shown. Handles locales where the time sits in
-    the MIDDLE of the sentence (zh "验证码将在 {{time}} 后过期" → prefix
-    "验证码将在 " + countdown + suffix " 后过期"); en/es/pt/fr/ar have empty
+    the MIDDLE of the sentence (zh "ķ¬īĶ»üńĀüÕ░åÕ£© {{time}} ÕÉÄĶ┐ćµ£¤" ŌåÆ prefix
+    "ķ¬īĶ»üńĀüÕ░åÕ£© " + countdown + suffix " ÕÉÄĶ┐ćµ£¤"); en/es/pt/fr/ar have empty
     suffix. The `auth.2fa.codeExpiry` translation VALUES were NOT changed
-    (0 edits) — the placeholder is consumed by the helper, never rendered raw.
+    (0 edits) ŌĆö the placeholder is consumed by the helper, never rendered raw.
   - NOT touched: timer interval, expiration timestamp, OTP validation, API
     calls, 2FA security logic, the numeric countdown value itself.
-- CRIT-2 — referral.invite reward-amount clobbering fix:
+- CRIT-2 ŌĆö referral.invite reward-amount clobbering fix:
   - ROOT CAUSE: `<h4 data-i18n="referral.invite">Invite Friends, Earn
     <span id="refRewardAmount">$10</span></h4>`. `applyTranslations()` set the
     h4's `innerHTML = t('referral.invite')` = "Invite Friends, Earn $10" (the
@@ -919,18 +919,18 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
     rewardAmount` dynamically from `APP.referralStats.config.rewardAmount`
     (line ~12912), so after a language switch the dynamic amount was gone and
     the hardcoded $10 showed instead.
-  - FIX (safe span structure — the audit's preferred alternative to
+  - FIX (safe span structure ŌĆö the audit's preferred alternative to
     interpolation): moved `data-i18n="referral.invite"` onto an inner
     `<span>` wrapping ONLY the static prefix text, with `#refRewardAmount` as a
     STABLE sibling span after it:
     `<h4 ...><span data-i18n="referral.invite">Invite Friends, Earn</span>
     <span id="refRewardAmount">$10</span></h4>`.
     `applyTranslations()` now localizes only the prefix span; `#refRewardAmount`
-    is never recreated → its dynamic value survives language switches and keeps
+    is never recreated ŌåÆ its dynamic value survives language switches and keeps
     receiving the real configured amount. Edited `referral.invite` values in
     ALL 6 locales to remove the hardcoded `$10` (en/es/pt/fr/ar/zh all had $10
     at the END, so prefix-only works for every locale; placeholder parity
-    unaffected — no {{amount}} placeholder used). The amount is NOT hardcoded
+    unaffected ŌĆö no {{amount}} placeholder used). The amount is NOT hardcoded
     in any translation anymore. Referral config/business logic, reward calc,
     and API data UNTOUCHED.
 - Medium issues (3 static-English leakage / 4 stale surfaces / 5 RTL): NOT
@@ -938,34 +938,34 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   available, so per the smallest-change / no-scope-creep rule no speculative
   medium fixes were made. A broad scan for the CRIT-2 clobbering class
   (`data-i18n` element wrapping an id-bearing child) found ZERO other
-  instances — CRIT-2 was the only one. `referral.step3Text` was verified
+  instances ŌĆö CRIT-2 was the only one. `referral.step3Text` was verified
   ALREADY safe (its data-i18n wraps only "You earn"; `#refRewardAmount2` is a
   separate sibling). The `I18N_RERENDER_CACHE`/`rerenderDynamicSurfaces()`
   architecture (activity/alerts/audit/admin tables/KYC/ticker) is intact.
 - Verification: node --check-equivalent (vm.Script) on all 5 inline `<script>`
   blocks = OK. Full i18n verify (vm-eval of real TRANSLATIONS): 1002
-  keys/locale × 6, identical key sets, 0 empty, 0 duplicate keys (raw Counter
+  keys/locale ├Ś 6, identical key sets, 0 empty, 0 duplicate keys (raw Counter
   recheck), 0 placeholder-parity issues, 0 HTML-tag/attr parity issues, 486
-  data-i18n refs all defined (was 486 before — the 2 CRIT edits net 0: CRIT-1
+  data-i18n refs all defined (was 486 before ŌĆö the 2 CRIT edits net 0: CRIT-1
   removed the wrapper's data-i18n, CRIT-2 moved data-i18n onto a child span).
   Isolated functional test (real TRANSLATIONS + t() + the actual
   update2FACodeExpiryLabels logic + simulated countdown interval closure):
-  27/27 PASS — countdown default/decrement, no literal {{time}} in any locale,
-  countdown element identity preserved across en→zh→ar→en switches (keeps
-  ticking, never frozen), zh suffix 后过期 present, ar RTL prefix present;
+  27/27 PASS ŌĆö countdown default/decrement, no literal {{time}} in any locale,
+  countdown element identity preserved across enŌåÆzhŌåÆarŌåÆen switches (keeps
+  ticking, never frozen), zh suffix ÕÉÄĶ┐ćµ£¤ present, ar RTL prefix present;
   referral heading localized across all 6 locales, dynamic reward $15 survives
-  roundtrip en→es→fr→ar→zh→en, no duplicate/stale amount, no raw key shown.
+  roundtrip enŌåÆesŌåÆfrŌåÆarŌåÆzhŌåÆen, no duplicate/stale amount, no raw key shown.
   Raw-value safety: transaction type/detail stored values, `=== 'Deposit'`
   comparisons, status values, referral config keys, API filter params, payment
   states, 2FA state/API logic all UNCHANGED. `npm test` = 36 pass / 1 fail
   (the single fail is the pre-existing tests/q8qpay.webhook.test.js
-  `Cannot find module 'express'` env failure — identical to baseline; no
+  `Cannot find module 'express'` env failure ŌĆö identical to baseline; no
   regression). NOTE: this env's baseline is 36/1 (express not installed), not
   the 48/48 cited in earlier phases' AGENTS.md notes.
 - Checkpoint commit created this session (frontend-only, public/index.html +
   AGENTS.md) AFTER all verification passed. NOT pushed. NOT deployed.
 
-## Phase 5B — Verification UX State & Accurate Withdrawal Copy (2026-08, public/index.html only)
+## Phase 5B ŌĆö Verification UX State & Accurate Withdrawal Copy (2026-08, public/index.html only)
 - Follows the Phase 5A read-only audit. Frontend-only; NO changes to server.js,
   DB/schema/migrations, auth/2FA, wallet, trading, referral, payment/deposit,
   withdraw ELIGIBILITY logic, webhook behavior, API request/response shapes, or
@@ -993,12 +993,12 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - Implemented status states (title / supporting text):
   - not_started (or no profile): "Verification" / "Not required for trading or deposits"
   - pending_review: "Verification" / "Under review"
-  - approved: "Verification ✓" / "Verified — withdrawals enabled"
-  - rejected: "Verification" / "Verification rejected — action required"
+  - approved: "Verification Ō£ō" / "Verified ŌĆö withdrawals enabled"
+  - rejected: "Verification" / "Verification rejected ŌĆö action required"
   - resubmission_required: "Verification" / "Update your information to resubmit"
 - Withdrawal-triggered KYC messaging (display copy only; the
   `verificationRequired` flag, /api/kyc/can-withdraw, server gate, and the
-  openWithdrawModal fail-open behavior are UNCHANGED per Phase 5A §6):
+  openWithdrawModal fail-open behavior are UNCHANGED per Phase 5A ┬¦6):
   - `withdraw.kycRequiredTitle`: "Identity Verification Required" -> "Verification Required"
   - `withdraw.kycRequiredBody`: long body -> "Verify your account to withdraw."
   - Updated in all 6 locales (faithful translations).
@@ -1015,7 +1015,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   (intentional display-copy fixes). All 6 locales identical key sets, 0 empty,
   0 duplicate keys (raw Counter recheck), 0 placeholder-parity issues, 0
   HTML-tag/attr parity issues. 503 data-i18n refs all defined.
-- NOT changed (deliberately, per Phase 5A §6 - separate audit/decision):
+- NOT changed (deliberately, per Phase 5A ┬¦6 - separate audit/decision):
   frontend fail-open behavior of /api/kyc/can-withdraw; frontend MTA withdrawal
   pre-check (openWithdrawModal still gates balance<APP.MTA); server withdrawal
   requirements; KYC backend enforcement (server.js:2916); withdrawal amount
@@ -1036,9 +1036,9 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 - NOT committed/pushed/deployed (checkpoint pending user confirmation, as with
   prior phases).
 
-## Phase 6D — KYC Security & Storage Repair (2026-08, server.js + new migration 010 + AGENTS.md + .env.example)
+## Phase 6D ŌĆö KYC Security & Storage Repair (2026-08, server.js + new migration 010 + AGENTS.md + .env.example)
 - Goal: enable RLS on the four KYC tables, add least-privilege policies, remove
-  the silent production SUPABASE_SERVICE_KEY→anon fallback, route server-side
+  the silent production SUPABASE_SERVICE_KEYŌåÆanon fallback, route server-side
   KYC Storage + DB ops through the service-role client, keep the kyc-documents
   bucket private. NO changes to withdrawal logic, KYC status VALUES, KYC
   frontend/modal behavior, trading, deposits, payments, referrals, 2FA,
@@ -1052,19 +1052,19 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   users.id is BIGINT vs Supabase Auth UUID. So true auth.uid()-based "ownership"
   RLS policies are NOT possible. The least-privilege model that works: ENABLE
   RLS on the KYC tables and grant access ONLY to service_role (the server, via
-  supabaseAdmin, which bypasses RLS); anon/authenticated get NO policy → DENY
-  by default → KYC data is a hard lock against anon-key leakage. Ownership +
+  supabaseAdmin, which bypasses RLS); anon/authenticated get NO policy ŌåÆ DENY
+  by default ŌåÆ KYC data is a hard lock against anon-key leakage. Ownership +
   admin authorization continues to be enforced in app code (authMiddleware /
   adminMiddleware + user_id-scoped queries), unchanged.
 - NEW migration supabase/migrations/010_kyc_rls_security.sql (idempotent,
   additive):
-  - `ALTER TABLE … ENABLE ROW LEVEL SECURITY` on verification_profiles,
+  - `ALTER TABLE ŌĆ” ENABLE ROW LEVEL SECURITY` on verification_profiles,
     verification_documents, verification_history, admin_review_history.
   - `DROP POLICY IF EXISTS` then `CREATE POLICY "kyc_*_service_all" FOR ALL
     TO service_role USING (true) WITH CHECK (true)` on each of the 4 tables.
     NO anon/authenticated policy is created (deny by default).
   - Storage: reassert kyc-documents bucket `public=false`, 10MB limit,
-    image-only MIME (INSERT … ON CONFLICT DO UPDATE). Defensively DROP any
+    image-only MIME (INSERT ŌĆ” ON CONFLICT DO UPDATE). Defensively DROP any
     stray anon/authenticated storage policies (none existed). Re-create the
     single `svc_kyc_manage` `service_role`-only policy. No anon storage policy.
   - DO $$ verify block: asserts RLS enabled on all 4 tables and bucket
@@ -1073,13 +1073,13 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   1. Removed the production silent fallback. Was:
      `const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || supabaseKey;`
      Now: read SUPABASE_SERVICE_KEY; if missing/empty AND NODE_ENV==='production'
-     → console.error + process.exit(1) (defense-in-depth on top of
+     ŌåÆ console.error + process.exit(1) (defense-in-depth on top of
      productionGuard, which already enforces this). If missing AND non-production
-     → preserve the existing dev fallback to supabaseKey with a console.warn
+     ŌåÆ preserve the existing dev fallback to supabaseKey with a console.warn
      (keeps local dev + the productionGuard test "dev: missing
      SUPABASE_SERVICE_KEY does not break startup (fallback preserved)" green).
      supabaseAdmin is then createClient(supabaseUrl, supabaseServiceKey).
-  2. KYCService wiring: `new KYCService(supabase, supabase.storage)` →
+  2. KYCService wiring: `new KYCService(supabase, supabase.storage)` ŌåÆ
      `new KYCService(supabaseAdmin, supabaseAdmin.storage)`. This routes ALL KYC
      DB queries AND all Storage upload/createSignedUrl/remove through the
      service-role client. KYCService.js constructor already accepts
@@ -1087,7 +1087,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
      client, so NO KYCService code change was needed.
   3. Executive-dashboard: the 4 verification_profiles count queries
      (verifiedUsers/pendingKyc/kycApprovedToday/kycRejectedToday) switched from
-     `supabase` → `supabaseAdmin` so they survive RLS. The surrounding
+     `supabase` ŌåÆ `supabaseAdmin` so they survive RLS. The surrounding
      users/deposits/withdrawals/referrals counts in the same handler STAY on the
      anon `supabase` client (out of scope; they keep working via their existing
      USING(true) anon policies).
@@ -1113,7 +1113,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   policy exists on any KYC table (only service_role); `|| supabaseKey` fallback
   removed. `npm test` results below. NOT committed/pushed/deployed.
 
-## Phase 7A — Verification & Withdrawal UX/Gating (2026-08, server.js + public/index.html + tests/withdraw_gating.test.js)
+## Phase 7A ŌĆö Verification & Withdrawal UX/Gating (2026-08, server.js + public/index.html + tests/withdraw_gating.test.js)
 - Three narrowly-scoped changes; an ORDERING change only on the backend, a
   gate-reorder + a new demo info modal on the frontend. NO changes to deposits,
   trading/bot logic, referral logic, payment/webhooks, 2FA, KYC storage/security
@@ -1132,12 +1132,12 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   existing $700/balance/address/trade requirements keep their exact meaning and
   order and are still enforced after KYC approval. Exactly one
   `getVerificationStatus(userId)` call remains (no duplicate). This is an
-  ordering change only — no requirement removed or weakened. Pinned by
+  ordering change only ŌĆö no requirement removed or weakened. Pinned by
   tests/withdraw_gating.test.js (12 tests, pure-logic mirror of the gate order,
   no express/server import).
 - 2) Frontend `openWithdrawModal()` (public/index.html): reordered the gates so
-  KYC is Gate 1 (after the unchanged demo-mode prerequisite). Flow: demo?→toast
-  switchToLive (unchanged); Gate 1 KYC via /api/kyc/can-withdraw — if
+  KYC is Gate 1 (after the unchanged demo-mode prerequisite). Flow: demo?ŌåÆtoast
+  switchToLive (unchanged); Gate 1 KYC via /api/kyc/can-withdraw ŌĆö if
   !canWithdraw show the EXISTING `#withdrawKycRequired` experience (progress +
   "Start Verification" button) and return BEFORE any other gate; Gate 2 min-
   withdrawal (balance < MIN_WITHDRAWAL); Gate 3 balance/deposit
@@ -1145,46 +1145,46 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   MTA, grouped as before); then show `#withdrawForm` (Gates 5 address + 6
   submission unchanged in submitWithdraw/submitWithdrawAPI). The existing
   fail-open behavior (show the form when the KYC status CHECK itself fails /
-  throws) is PRESERVED per Phase 5A §6 — the server hard-enforces KYC-first
+  throws) is PRESERVED per Phase 5A ┬¦6 ŌĆö the server hard-enforces KYC-first
   regardless, so a frontend fail-open is still rejected on submit with
   verificationRequired. No requirement removed/weakened; only KYC moved first
   and min-withdrawal ordered before balance/trade per spec.
 - 3) Demo Verification info modal: `openVerificationModal()` now short-circuits
-  in demo mode — it opens a NEW lightweight `#verificationDemoInfoModal`
+  in demo mode ŌĆö it opens a NEW lightweight `#verificationDemoInfoModal`
   (reuses .deposit-modal/.btn classes; no new CSS) and RETURNS WITHOUT opening
   the KYC form (`#verificationModal`) or calling loadVerificationStatus(). The
   modal shows a localized "Verification Not Required" title + body explaining
   deposit & trading do not require verification (only LIVE withdrawals do) + a
-  "Switch to LIVE Mode" button (calls switchToLiveFromDemoInfo → setMode('live'))
+  "Switch to LIVE Mode" button (calls switchToLiveFromDemoInfo ŌåÆ setMode('live'))
   + a Close button (reuses common.close). Demo trading behavior is unchanged
   (setMode is only invoked if the user clicks the button). The existing LIVE-mode
   path (unverified LIVE user clicks "Start Verification" from the withdraw KYC
-  screen → openVerificationModal → APP.mode==='live' → real KYC form) is intact.
+  screen ŌåÆ openVerificationModal ŌåÆ APP.mode==='live' ŌåÆ real KYC form) is intact.
 - Localization: 3 NEW keys added to ALL 6 locales (en/es/pt/fr/ar/zh) after
   `kyc.modalSubtitle` in each: `kyc.demoInfo.title`, `kyc.demoInfo.body`,
-  `kyc.demoInfo.switchToLive`. Dictionary grew 1012 → 1015 keys/locale; EN
+  `kyc.demoInfo.switchToLive`. Dictionary grew 1012 ŌåÆ 1015 keys/locale; EN
   values for pre-existing keys byte-identical (0 changed); identical key sets
   across all 6 locales; 0 empty; 0 duplicate keys (raw Counter recheck); 0
   placeholder parity issues. Arabic RTL preserved (modal uses data-i18n handled
   by applyTranslations which sets `dir='rtl'` for ar; `text-align:center` is
   bidi-safe; the switch button's data-i18n is on an inner <span> so the <i>
-  icon survives applyTranslations' innerHTML set — the Phase 3H clobber-safe
+  icon survives applyTranslations' innerHTML set ŌĆö the Phase 3H clobber-safe
   pattern). "LIVE" kept as a literal token per prior-phase convention.
 - Verification: `node --check server.js` = OK. `vm.Script` parse on all 5
   non-empty inline <script> blocks = OK. Custom verifier (vm-eval of the real
-  TRANSLATIONS object): 1015 keys/locale × 6, identical key sets, 3 new keys
+  TRANSLATIONS object): 1015 keys/locale ├Ś 6, identical key sets, 3 new keys
   present + non-empty everywhere, 0 dups, modal+helpers present,
   openVerificationModal gates on demo, backend KYC precedes min/balance/address/
   trade (kyc@646 < min@1128), exactly 1 getVerificationStatus call,
   verificationRequired:true preserved. `npm test` = 67 pass / 1 fail, where the
   1 fail is the PRE-EXISTING `tests/q8qpay.webhook.test.js`
-  `Cannot find module 'express'` (deps not installed in this env — identical to
+  `Cannot find module 'express'` (deps not installed in this env ŌĆö identical to
   the 55/1 baseline; the +12 are the new passing withdraw_gating tests). No
   regression.
 - NOT committed/pushed/deployed (checkpoint pending user review, as with prior
   phases). Working tree: M public/index.html, M server.js, ?? tests/withdraw_gating.test.js.
 
-## Phase 8 � Arbitrix Pro Subscription ($7/month) (2026-08, server.js + public/index.html + .env.example + new migration 011 + tests/subscription.test.js + AGENTS.md)
+## Phase 8 Ś Arbitrix Pro Subscription ($7/month) (2026-08, server.js + public/index.html + .env.example + new migration 011 + tests/subscription.test.js + AGENTS.md)
 - A MINIMAL, self-contained internal subscription. The Pro subscription is a
   $7/month INTERNAL SERVER-SIDE DEBIT of the user's genuinely available Live
   balance (wallets.live_balance). It is NOT a payment method, NOT a deposit, and
@@ -1194,15 +1194,15 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   deposit polling, deposit statuses, wallet-crediting logic, payment DB
   structures, trading/bot logic (record_trade_safe), referral logic, KYC/storage
   logic (migration 010 / KYCService), 2FA/auth, withdrawal eligibility/gating
-  (Phase 7A gates unchanged � subscription is NOT a withdrawal gate), existing
+  (Phase 7A gates unchanged Ś subscription is NOT a withdrawal gate), existing
   transaction status/type values (a NEW 'Subscription' type was ADDED; existing
   type meanings unchanged), or existing API response shapes except the additive
   new subscription endpoints. server.js diff is PURE-ADDITION (0 removed lines);
   index.html diff removes exactly 1 line (the prior TX_TYPE_LABELS
   'Withdrawal to Live' entry, rewritten to add a trailing comma + the new
-  'Subscription' entry � value preserved).
+  'Subscription' entry Ś value preserved).
 - AVAILABLE-BALANCE MODEL (critical, from the migration doc): this app has NO
-  locked/committed/open-position funds � trades are REALIZED immediately via
+  locked/committed/open-position funds Ś trades are REALIZED immediately via
   record_trade_safe() (live_balance += signed P&L, clamped at 0). Therefore the
   genuinely available balance IS wallets.live_balance. An atomic debit of
   live_balance CANNOT consume committed funds (none exist). Demo balance
@@ -1229,7 +1229,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
        second charge). subscription_charges.idempotency_key is UNIQUE.
     3. SELECT ... FOR UPDATE on subscriptions (row lock).
     4. SELECT ... FOR UPDATE on wallets (row lock).
-    5. Idempotency check #2 (AFTER lock): race-condition protection � a
+    5. Idempotency check #2 (AFTER lock): race-condition protection Ś a
        concurrent tx could have inserted the same key between checks #1 and #2.
        If present -> return duplicate, no second charge.
     6. SUFFICIENT-BALANCE GATE: IF wallets.live_balance < price -> NO balance
@@ -1256,7 +1256,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   billed. 'active' is due when next_billing_date <= now (anchor = next_billing
   date). 'payment_due' retries the due period (anchor = next_billing_date or
   now), guarded by the idempotency key. The due check runs server-side on
-  GET /api/subscription (non-fatal if it errors) � the client never triggers a
+  GET /api/subscription (non-fatal if it errors) Ś the client never triggers a
   charge. (Bonus isBillableDue test.)
 - INSUFFICIENT BALANCE: charges $0, never creates debt / negative balance,
   never withdraws locked funds, never interferes with deposits/withdrawals/
@@ -1266,17 +1266,17 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   least $7..." message (subscription.dueTitle/dueDesc).
 - API ENDPOINTS (all behind authMiddleware; admin also behind adminMiddleware;
   userId always derived from req.user.id, NEVER from the client body):
-  - GET /api/subscription � server price + current state + idempotent due-billing
+  - GET /api/subscription Ś server price + current state + idempotent due-billing
     check. Read-only from the client's perspective.
-  - POST /api/subscription/activate � explicit user action to START Pro. Does
+  - POST /api/subscription/activate Ś explicit user action to START Pro. Does
     NOT auto-charge on registration. Sends NO authoritative body (an empty {}
     body; any client-supplied price/userId is IGNORED). On sufficient balance the
     first month is charged immediately and status->active; on insufficient
     balance the sub is created/updated to 'payment_due' with $0 charged. A
     'cancelled' sub is re-activatable. An 'active' sub returns {duplicate:true}.
-  - POST /api/subscription/cancel � user cancels; status->'cancelled'; no refund;
+  - POST /api/subscription/cancel Ś user cancels; status->'cancelled'; no refund;
     never billed again until re-activated. Retains Pro until the paid period ends.
-  - GET /api/admin/subscriptions � minimal read-only admin visibility
+  - GET /api/admin/subscriptions Ś minimal read-only admin visibility
     (user_id, plan, price, status, next/last billing date). NO balance alteration
     is possible through this surface (it's a SELECT).
 - FRONTEND (public/index.html, frontend-only additive): a "Arbitrix Pro"
@@ -1304,7 +1304,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   0 duplicate keys (raw Counter recheck per the Phase-2B-1 lesson), 0
   placeholder-parity issues ({{date}} in subscription.nextPayment). Arabic RTL
   preserved (applyTranslations sets dir='rtl' for ar; subscription panel uses
-  data-i18n spans so icons survive innerHTML sets � the Phase 3H clobber-safe
+  data-i18n spans so icons survive innerHTML sets Ś the Phase 3H clobber-safe
   pattern). New key groups: subscription.* (month/activate/cancel/disclaimer/
   inactiveDesc/activeDesc/nextPayment{{date}}/dueTitle/dueDesc/cancelledDesc/
   status.active/status.paymentDue/status.inactive/status.cancelled/activated/
@@ -1329,7 +1329,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   - `npm test` = 85 pass / 1 fail. The +18 over the 67 Phase-7A baseline are the
     new tests/subscription.test.js (18/18 pass). The single fail is the
     PRE-EXISTING tests/q8qpay.webhook.test.js `Cannot find module 'express'`
-    (node_modules NOT installed in this env � confirmed: no node_modules dir;
+    (node_modules NOT installed in this env Ś confirmed: no node_modules dir;
     identical to the documented baseline; explicitly out of scope per the Phase
     8 spec). No regression. withdraw_gating.test.js (12/12) + trades_pnl.test.js
     still pass.
@@ -1342,7 +1342,7 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   HEAD unchanged at the Phase-7A merge commit 07d2ce1.
 
 
-## Phase 8B — Secure Profile Email Change (USER_CONTEXT task)
+## Phase 8B ŌĆö Secure Profile Email Change (USER_CONTEXT task)
 GOAL: The Profile email field must NOT be directly editable/savable. Email
 changes go through a verification-based flow (reusing existing 2FA/password-reset
 patterns). Users cannot arbitrarily change their account email by editing the
@@ -1410,3 +1410,13 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   - NO fixed session limit (e.g. 2h) in code. Bot runs via setInterval(8s) while app open; stops on close/refresh. Did not state a duration.
   - Withdrawal 15-30 min processing time NOT found in code (withdrawals insert as status:pending). Stated per brief but flagged for confirmation.
   - Insufficient-balance subscription behavior documented as actual (no debt, retried next billing check) - verify against server.js subscription section (~line 519).
+
+## PHASE 8C — LANDING UX/MOBILE REFINEMENT (2026-08)
+- Content density reduced: concise hero ("Automated Arbitrage. Made Simple." + one-line subtitle + "Demo → Live → 14 Days → $7/month" trust line), visual vertical flow diagram (Market prices → Price discrepancy → Arbitrix identifies opportunity → Automated execution → Trade recorded), Demo vs Live comparison card, compact 14-day/pricing/withdrawal/security sections.
+- FAQ reduced from 24 → 9 high-value questions (q1..q9): What is Arbitrix / What is arbitrage / How does Demo Mode work (notes Demo uses same live market data as Live account, result matches, but Demo perf ≠ Live perf) / Does Demo use real money / How does Live Mode work / Do I need to subscribe before trading Live / How does the 14-day Live period work / How much is Arbitrix Pro / How do withdrawals work. Old q3..q26 keys removed.
+- Footer: 3 compact columns (Product/Legal/Contact) + copyright + risk disclaimer. Placeholder social links removed (none were configured).
+- Support FAB unchanged (48px circle, bottom-right; RTL → bottom-left). No layout regressions.
+- i18n: ALL 6 languages (en/es/pt/fr/ar/zh) rebuilt with identical section structure, 9-question FAQ, same pricing/14-day/risk disclosures. RTL confirmed for ar (dir=rtl). Early-duplicate hero.subtitle/footer.* keys (defined before the per-lang landing block) were also shortened so they don't override the new concise copy.
+- OVERFLOW FIX: grid items had default min-width:auto → long localized strings overflowed viewport at ~430px. Added `min-width:0` + `overflow-wrap:anywhere; word-break:break-word` to .landing-trust-grid/.landing-trust-item/.landing-trust-text, .landing-compare(+card), .landing-split-cards(+card), .landing-feature-grid-2>*, .landing-asset-grid(+card), .landing-capital-box, .landing-risk-disclosure, .landing-risk-box. Verified: no horizontal overflow at 320/360/375/390/412/430px x6 langs (puppeteer-core + /usr/bin/chromium).
+- TESTING: /tmp/overflow_test.js (mobile widths x6 langs), /tmp/rtl_test.js (ar RTL), /tmp/desktop_test.js (1280px content/FAQ check). node --check on extracted inline JS = OK.
+- NOTE: The 14-day introductory Live period is communicated per the Phase 8C brief. AGENTS.md previously flagged this as NOT implemented in code (subscription is explicit opt-in via activateSubscription). Confirm with user that 14-day-free-period behavior is intended/implemented before relying on this wording — content was added per explicit user instruction in this phase.
