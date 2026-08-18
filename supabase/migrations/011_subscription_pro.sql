@@ -31,15 +31,13 @@
 --
 -- PRICE is server-controlled (stored in payment_config as
 -- 'subscription.pro_price', default 7). The frontend NEVER supplies the
--- price; the server reads it. RLS is DISABLED on the new tables to match the
--- existing payment/trades tables (BIGINT user_id, authorization via app code).
+-- price; the server reads it. RLS is intentionally DISABLED on the new
+-- tables to match the existing payment/trades tables (BIGINT user_id,
+-- authorization via app code). Newly created tables default to RLS disabled,
+-- so the CREATE TABLE statements below already establish the intended
+-- (RLS-off) security model; no pre-emptive ALTER TABLE ... DISABLE RLS is
+-- issued (issuing it before CREATE TABLE caused a 42P01 ordering error).
 -- ============================================
-
--- ============================================
--- 0. DISABLE RLS (BIGINT compatibility, matches existing payment/trades tables)
--- ============================================
-ALTER TABLE public.subscriptions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.subscription_charges DISABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- 1. SUBSCRIPTIONS TABLE (one row per user)
