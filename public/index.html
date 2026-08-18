@@ -5893,7 +5893,14 @@ function toggleFaq(btn) {
         <button type="button" onclick="document.getElementById('profileModal').classList.remove('open')" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
         <div class="modal-header"><h3><i class="fas fa-user-gear" style="color:#F0B90B;"></i> <span data-i18n="profile.title">Profile</span></h3></div>
         <div class="form-group"><label data-i18n="profile.name">Display Name</label><input type="text" id="profileDisplayName" class="input-field" value="Trader"></div>
-        <div class="form-group"><label data-i18n="profile.email">Email</label><input type="email" id="profileEmail" class="input-field" value="trader@arbitrix.ai"></div>
+        <div class="form-group">
+            <label data-i18n="profile.email">Email</label>
+            <input type="email" id="profileEmail" class="input-field" value="trader@arbitrix.ai" readonly style="opacity:0.75;cursor:not-allowed;" aria-readonly="true">
+            <div id="emailChangePending" style="display:none;margin-top:8px;font-size:12px;color:var(--gold);background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.25);border-radius:8px;padding:8px 10px;line-height:1.4;"></div>
+            <button type="button" class="btn btn-secondary btn-block" id="changeEmailBtn" onclick="openChangeEmailModal()" style="margin-top:8px;">
+                <i class="fas fa-envelope-pen"></i> <span data-i18n="emailChange.changeButton">Change Email</span>
+            </button>
+        </div>
         
         <!-- LANGUAGE SELECTOR -->
         <div class="form-group">
@@ -5963,6 +5970,45 @@ function toggleFaq(btn) {
 
         
         <div class="modal-actions"><button type="button" onclick="document.getElementById('profileModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button><button type="button" onclick="saveProfile()" class="btn btn-primary" data-i18n="common.save">Save</button></div>
+    </div>
+</div>
+
+<!-- CHANGE EMAIL MODAL (Phase 8B) -->
+<div class="modal-overlay" id="changeEmailModal">
+    <div class="modal-content" style="max-width:440px;">
+        <button type="button" onclick="document.getElementById('changeEmailModal').classList.remove('open')" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div class="modal-header"><h3><i class="fas fa-envelope-pen" style="color:#F0B90B;"></i> <span data-i18n="emailChange.title">Change Email</span></h3></div>
+
+        <!-- Step 1: enter new email -->
+        <div id="changeEmailStep1">
+            <div class="form-group">
+                <label data-i18n="emailChange.currentEmail">Current email</label>
+                <input type="email" id="changeEmailCurrent" class="input-field" value="" readonly style="opacity:0.7;cursor:not-allowed;">
+            </div>
+            <div class="form-group">
+                <label data-i18n="emailChange.newEmail">New email</label>
+                <input type="email" id="changeEmailNew" class="input-field" placeholder="you@example.com" autocomplete="off">
+            </div>
+            <p style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin:4px 0 12px;" data-i18n="emailChange.requestHelp">A verification code will be sent to your new email. Your current email stays active until the new one is verified.</p>
+            <div class="modal-actions">
+                <button type="button" onclick="document.getElementById('changeEmailModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button>
+                <button type="button" onclick="requestEmailChange()" class="btn btn-primary" id="requestEmailChangeBtn"><i class="fas fa-paper-plane"></i> <span data-i18n="emailChange.sendCode">Send Code</span></button>
+            </div>
+        </div>
+
+        <!-- Step 2: enter verification code -->
+        <div id="changeEmailStep2" style="display:none;">
+            <div class="form-group">
+                <label data-i18n="emailChange.codeSentTo">Enter the 6-digit code sent to</label>
+                <div id="changeEmailTarget" style="font-weight:700;color:var(--gold);margin-bottom:8px;font-size:13px;word-break:break-all;"></div>
+                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="changeEmailCode" class="input-field" style="text-align:center;letter-spacing:6px;font-size:18px;" placeholder="000000" autocomplete="one-time-code">
+            </div>
+            <p style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin:4px 0 12px;" data-i18n="emailChange.verifyHelp">Your email will only change after you enter the correct code. Your user account and balances are not affected.</p>
+            <div class="modal-actions">
+                <button type="button" onclick="backToEmailStep1()" class="btn btn-secondary" data-i18n="common.back">Back</button>
+                <button type="button" onclick="verifyEmailChange()" class="btn btn-primary" id="verifyEmailChangeBtn"><i class="fas fa-check"></i> <span data-i18n="emailChange.verify">Verify</span></button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -6628,6 +6674,25 @@ const TRANSLATIONS = {
         'profile.volume': 'Volume',
         'profile.testSound': 'Test Sound',
         'profile.saved': '✅ Profile saved',
+        'emailChange.changeButton': 'Change Email',
+        'emailChange.title': 'Change Email',
+        'emailChange.currentEmail': 'Current email',
+        'emailChange.newEmail': 'New email',
+        'emailChange.requestHelp': 'A verification code will be sent to your new email. Your current email stays active until the new one is verified.',
+        'emailChange.sendCode': 'Send Code',
+        'emailChange.codeSentTo': 'Enter the 6-digit code sent to',
+        'emailChange.verifyHelp': 'Your email will only change after you enter the correct code. Your user account and balances are not affected.',
+        'emailChange.verify': 'Verify',
+        'emailChange.back': 'Back',
+        'emailChange.codeSent': '✅ Verification code sent to your new email.',
+        'emailChange.enterNewEmail': 'Please enter a new email address.',
+        'emailChange.enterCode': 'Please enter the 6-digit code.',
+        'emailChange.loginRequired': 'Please log in again.',
+        'emailChange.requestFailed': 'Could not request email change.',
+        'emailChange.verifyFailed': 'Verification failed.',
+        'emailChange.rateLimited': 'Too many requests. Please wait {{seconds}}s before trying again.',
+        'emailChange.success': '✅ Your email has been updated.',
+        'emailChange.pendingNotice': 'A change to {{email}} is pending verification.',
         '2fa.title': '2FA Security',
         '2fa.scan': 'Scan this QR code with Google Authenticator.',
         '2fa.enterCode': 'Enter 6-digit code',
@@ -6662,6 +6727,7 @@ const TRANSLATIONS = {
         'common.copy': 'Copy',
         'common.cancel': 'Cancel',
         'common.save': 'Save',
+        'common.back': 'Back',
         'common.of': 'of',
         'common.addressCopied': '✅ Address copied to clipboard',
         'common.codeCopied': '✅ Referral code copied!',
@@ -7674,6 +7740,25 @@ const TRANSLATIONS = {
         'profile.volume': 'Volumen',
         'profile.testSound': 'Probar sonido',
         'profile.saved': '✅ Perfil guardado',
+        'emailChange.changeButton': 'Cambiar correo',
+        'emailChange.title': 'Cambiar correo',
+        'emailChange.currentEmail': 'Correo actual',
+        'emailChange.newEmail': 'Nuevo correo',
+        'emailChange.requestHelp': 'Se enviará un código de verificación a tu nuevo correo. Tu correo actual seguirá activo hasta que el nuevo sea verificado.',
+        'emailChange.sendCode': 'Enviar código',
+        'emailChange.codeSentTo': 'Ingresa el código de 6 dígitos enviado a',
+        'emailChange.verifyHelp': 'Tu correo solo cambiará después de ingresar el código correcto. Tu cuenta de usuario y tus saldos no se ven afectados.',
+        'emailChange.verify': 'Verificar',
+        'emailChange.back': 'Atrás',
+        'emailChange.codeSent': '✅ Código de verificación enviado a tu nuevo correo.',
+        'emailChange.enterNewEmail': 'Por favor ingresa un nuevo correo.',
+        'emailChange.enterCode': 'Por favor ingresa el código de 6 dígitos.',
+        'emailChange.loginRequired': 'Por favor inicia sesión de nuevo.',
+        'emailChange.requestFailed': 'No se pudo solicitar el cambio de correo.',
+        'emailChange.verifyFailed': 'Verificación fallida.',
+        'emailChange.rateLimited': 'Demasiadas solicitudes. Espera {{seconds}}s antes de intentar de nuevo.',
+        'emailChange.success': '✅ Tu correo ha sido actualizado.',
+        'emailChange.pendingNotice': 'Un cambio a {{email}} está pendiente de verificación.',
         '2fa.title': 'Seguridad 2FA',
         '2fa.scan': 'Escanea este código QR con Google Authenticator.',
         '2fa.enterCode': 'Introduce el código de 6 dígitos',
@@ -7708,6 +7793,7 @@ const TRANSLATIONS = {
         'common.copy': 'Copiar',
         'common.cancel': 'Cancelar',
         'common.save': 'Guardar',
+        'common.back': 'Atrás',
         'common.of': 'de',
         'common.addressCopied': '✅ Dirección copiada al portapapeles',
         'common.codeCopied': '✅ ¡Código de referido copiado!',
@@ -8720,6 +8806,25 @@ const TRANSLATIONS = {
         'profile.volume': 'Volume',
         'profile.testSound': 'Testar som',
         'profile.saved': '✅ Perfil salvo',
+        'emailChange.changeButton': 'Alterar e-mail',
+        'emailChange.title': 'Alterar e-mail',
+        'emailChange.currentEmail': 'E-mail atual',
+        'emailChange.newEmail': 'Novo e-mail',
+        'emailChange.requestHelp': 'Um código de verificação será enviado ao seu novo e-mail. Seu e-mail atual permanece ativo até que o novo seja verificado.',
+        'emailChange.sendCode': 'Enviar código',
+        'emailChange.codeSentTo': 'Digite o código de 6 dígitos enviado para',
+        'emailChange.verifyHelp': 'Seu e-mail só mudará após você inserir o código correto. Sua conta de usuário e saldos não são afetados.',
+        'emailChange.verify': 'Verificar',
+        'emailChange.back': 'Voltar',
+        'emailChange.codeSent': '✅ Código de verificação enviado ao seu novo e-mail.',
+        'emailChange.enterNewEmail': 'Por favor, insira um novo e-mail.',
+        'emailChange.enterCode': 'Por favor, insira o código de 6 dígitos.',
+        'emailChange.loginRequired': 'Por favor, faça login novamente.',
+        'emailChange.requestFailed': 'Não foi possível solicitar a alteração de e-mail.',
+        'emailChange.verifyFailed': 'Verificação falhou.',
+        'emailChange.rateLimited': 'Muitas solicitações. Aguarde {{seconds}}s antes de tentar novamente.',
+        'emailChange.success': '✅ Seu e-mail foi atualizado.',
+        'emailChange.pendingNotice': 'Uma alteração para {{email}} está pendente de verificação.',
         '2fa.title': 'Segurança 2FA',
         '2fa.scan': 'Escaneie este código QR com o Google Authenticator.',
         '2fa.enterCode': 'Insira o código de 6 dígitos',
@@ -8754,6 +8859,7 @@ const TRANSLATIONS = {
         'common.copy': 'Copiar',
         'common.cancel': 'Cancelar',
         'common.save': 'Salvar',
+        'common.back': 'Voltar',
         'common.of': 'de',
         'common.addressCopied': '✅ Endereço copiado para a área de transferência',
         'common.codeCopied': '✅ Código de indicação copiado!',
@@ -9766,6 +9872,25 @@ const TRANSLATIONS = {
         'profile.volume': 'Volume',
         'profile.testSound': 'Tester le son',
         'profile.saved': '✅ Profil enregistré',
+        'emailChange.changeButton': 'Changer l\'e-mail',
+        'emailChange.title': 'Changer l\'e-mail',
+        'emailChange.currentEmail': 'E-mail actuel',
+        'emailChange.newEmail': 'Nouvel e-mail',
+        'emailChange.requestHelp': 'Un code de vérification sera envoyé à votre nouvel e-mail. Votre e-mail actuel reste actif jusqu\'à ce que le nouveau soit vérifié.',
+        'emailChange.sendCode': 'Envoyer le code',
+        'emailChange.codeSentTo': 'Saisissez le code à 6 chiffres envoyé à',
+        'emailChange.verifyHelp': 'Votre e-mail ne changera qu\'après avoir saisi le code correct. Votre compte utilisateur et vos soldes ne sont pas affectés.',
+        'emailChange.verify': 'Vérifier',
+        'emailChange.back': 'Retour',
+        'emailChange.codeSent': '✅ Code de vérification envoyé à votre nouvel e-mail.',
+        'emailChange.enterNewEmail': 'Veuillez saisir un nouvel e-mail.',
+        'emailChange.enterCode': 'Veuillez saisir le code à 6 chiffres.',
+        'emailChange.loginRequired': 'Veuillez vous reconnecter.',
+        'emailChange.requestFailed': 'Impossible de demander le changement d\'e-mail.',
+        'emailChange.verifyFailed': 'Échec de la vérification.',
+        'emailChange.rateLimited': 'Trop de demandes. Veuillez patienter {{seconds}}s avant de réessayer.',
+        'emailChange.success': '✅ Votre e-mail a été mis à jour.',
+        'emailChange.pendingNotice': 'Un changement vers {{email}} est en attente de vérification.',
         '2fa.title': 'Sécurité 2FA',
         '2fa.scan': 'Scannez ce code QR avec Google Authenticator.',
         '2fa.enterCode': 'Saisissez le code à 6 chiffres',
@@ -9800,6 +9925,7 @@ const TRANSLATIONS = {
         'common.copy': 'Copier',
         'common.cancel': 'Annuler',
         'common.save': 'Enregistrer',
+        'common.back': 'Retour',
         'common.of': 'sur',
         'common.addressCopied': '✅ Adresse copiée dans le presse-papiers',
         'common.codeCopied': '✅ Code de parrainage copié !',
@@ -10812,6 +10938,25 @@ const TRANSLATIONS = {
         'profile.volume': 'مستوى الصوت',
         'profile.testSound': 'تجربة الصوت',
         'profile.saved': '✅ تم حفظ الملف الشخصي',
+        'emailChange.changeButton': 'تغيير البريد الإلكتروني',
+        'emailChange.title': 'تغيير البريد الإلكتروني',
+        'emailChange.currentEmail': 'البريد الحالي',
+        'emailChange.newEmail': 'البريد الجديد',
+        'emailChange.requestHelp': 'سيتم إرسال رمز تحقق إلى بريدك الجديد. يبقى بريدك الحالي نشطًا حتى يتم التحقق من البريد الجديد.',
+        'emailChange.sendCode': 'إرسال الرمز',
+        'emailChange.codeSentTo': 'أدخل رمز التحقق المكوّن من 6 أرقام المرسل إلى',
+        'emailChange.verifyHelp': 'لن يتغير بريدك إلا بعد إدخال الرمز الصحيح. لا يتأثر حسابك أو أرصدتك.',
+        'emailChange.verify': 'تحقق',
+        'emailChange.back': 'رجوع',
+        'emailChange.codeSent': '✅ تم إرسال رمز التحقق إلى بريدك الجديد.',
+        'emailChange.enterNewEmail': 'يرجى إدخال بريد إلكتروني جديد.',
+        'emailChange.enterCode': 'يرجى إدخال رمز التحقق المكوّن من 6 أرقام.',
+        'emailChange.loginRequired': 'يرجى تسجيل الدخول مرة أخرى.',
+        'emailChange.requestFailed': 'تعذر طلب تغيير البريد الإلكتروني.',
+        'emailChange.verifyFailed': 'فشل التحقق.',
+        'emailChange.rateLimited': 'طلبات كثيرة جدًا. يرجى الانتظار {{seconds}} ثانية قبل المحاولة مرة أخرى.',
+        'emailChange.success': '✅ تم تحديث بريدك الإلكتروني.',
+        'emailChange.pendingNotice': 'تغيير إلى {{email}} قيد التحقق.',
         '2fa.title': 'أمان 2FA',
         '2fa.scan': 'امسح رمز QR هذا بتطبيق Google Authenticator.',
         '2fa.enterCode': 'أدخل الرمز المكوّن من 6 أرقام',
@@ -10846,6 +10991,7 @@ const TRANSLATIONS = {
         'common.copy': 'نسخ',
         'common.cancel': 'إلغاء',
         'common.save': 'حفظ',
+        'common.back': 'رجوع',
         'common.of': 'من',
         'common.addressCopied': '✅ تم نسخ العنوان إلى الحافظة',
         'common.codeCopied': '✅ تم نسخ رمز الإحالة!',
@@ -11858,6 +12004,25 @@ const TRANSLATIONS = {
         'profile.volume': '音量',
         'profile.testSound': '测试声音',
         'profile.saved': '✅ 个人资料已保存',
+        'emailChange.changeButton': '更改邮箱',
+        'emailChange.title': '更改邮箱',
+        'emailChange.currentEmail': '当前邮箱',
+        'emailChange.newEmail': '新邮箱',
+        'emailChange.requestHelp': '验证码将发送到您的新邮箱。在新邮箱验证之前，当前邮箱仍然有效。',
+        'emailChange.sendCode': '发送验证码',
+        'emailChange.codeSentTo': '请输入发送到以下地址的 6 位验证码',
+        'emailChange.verifyHelp': '只有在输入正确的验证码后，您的邮箱才会更改。您的账户和余额不受影响。',
+        'emailChange.verify': '验证',
+        'emailChange.back': '返回',
+        'emailChange.codeSent': '✅ 验证码已发送到您的新邮箱。',
+        'emailChange.enterNewEmail': '请输入新的邮箱地址。',
+        'emailChange.enterCode': '请输入 6 位验证码。',
+        'emailChange.loginRequired': '请重新登录。',
+        'emailChange.requestFailed': '无法请求更改邮箱。',
+        'emailChange.verifyFailed': '验证失败。',
+        'emailChange.rateLimited': '请求过于频繁，请等待 {{seconds}} 秒后再试。',
+        'emailChange.success': '✅ 您的邮箱已更新。',
+        'emailChange.pendingNotice': '对 {{email}} 的更改正在等待验证。',
         '2fa.title': '2FA 安全',
         '2fa.scan': '使用 Google Authenticator 扫描此二维码。',
         '2fa.enterCode': '输入 6 位验证码',
@@ -11892,6 +12057,7 @@ const TRANSLATIONS = {
         'common.copy': '复制',
         'common.cancel': '取消',
         'common.save': '保存',
+        'common.back': '返回',
         'common.of': '中',
         'common.addressCopied': '✅ 地址已复制到剪贴板',
         'common.codeCopied': '✅ 推荐码已复制！',
@@ -15765,19 +15931,162 @@ function filterMarket(filter) {
 function saveProfile() {
     try {
         const name = getEl('profileDisplayName').value.trim() || 'Trader';
-        const email = getEl('profileEmail').value.trim();
+        // NOTE: the email field is readonly (Phase 8B). The email is changed
+        // ONLY through the verified /api/auth/email-change flow, never by
+        // editing this field. Do not persist the email from this input.
         getEl('displayName').textContent = name;
         getEl('userName').textContent = name;
         const savedUser = localStorage.getItem('arbi_user');
         if(savedUser) {
             const user = JSON.parse(savedUser);
             user.name = name;
-            user.email = email;
+            // user.email is intentionally left untouched here.
             localStorage.setItem('arbi_user', JSON.stringify(user));
         }
         document.getElementById('profileModal').classList.remove('open');
         showToast(t('profile.saved'),'success');
     } catch(e) {}
+}
+
+// ============ SECURE EMAIL CHANGE (Phase 8B) ============
+// The frontend only ever calls the server endpoints. It can NEVER update
+// users.email directly; the server performs the final verification + update.
+// Identity is always the authenticated JWT (req.user.id). The verification
+// code is never requested by, returned to, or logged by the client.
+
+function openChangeEmailModal() {
+    try {
+        const savedUser = localStorage.getItem('arbi_user');
+        let currentEmail = '';
+        if (savedUser) currentEmail = JSON.parse(savedUser).email || '';
+        getEl('changeEmailCurrent').value = currentEmail;
+        getEl('changeEmailNew').value = '';
+        getEl('changeEmailCode').value = '';
+        getEl('changeEmailStep1').style.display = '';
+        getEl('changeEmailStep2').style.display = 'none';
+        getEl('changeEmailModal').classList.add('open');
+    } catch(e) {}
+}
+
+function backToEmailStep1() {
+    getEl('changeEmailStep1').style.display = '';
+    getEl('changeEmailStep2').style.display = 'none';
+}
+
+async function requestEmailChange() {
+    try {
+        const newEmail = getEl('changeEmailNew').value.trim();
+        const token = localStorage.getItem('jwt_token');
+        if (!token) { showToast(t('emailChange.loginRequired'), 'error'); return; }
+        if (!newEmail) { showToast(t('emailChange.enterNewEmail'), 'error'); return; }
+        const btn = getEl('requestEmailChangeBtn');
+        btn.disabled = true;
+        const res = await fetch('/api/auth/email-change/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ newEmail: newEmail })
+        });
+        const data = await res.json().catch(() => ({}));
+        btn.disabled = false;
+        if (res.status === 429) {
+            const secs = data.retryAfterSeconds || 60;
+            showToast(t('emailChange.rateLimited', { seconds: secs }), 'error');
+            return;
+        }
+        if (!res.ok) {
+            showToast(data.error || t('emailChange.requestFailed'), 'error');
+            return;
+        }
+        // Move to step 2; show the target email (already known to the user).
+        getEl('changeEmailTarget').textContent = newEmail;
+        getEl('changeEmailCode').value = '';
+        getEl('changeEmailStep1').style.display = 'none';
+        getEl('changeEmailStep2').style.display = '';
+        showToast(t('emailChange.codeSent'), 'success');
+        setTimeout(function(){ try { getEl('changeEmailCode').focus(); } catch(e){} }, 100);
+    } catch(e) { showToast(t('emailChange.requestFailed'), 'error'); }
+}
+
+async function verifyEmailChange() {
+    try {
+        const code = getEl('changeEmailCode').value.trim();
+        const token = localStorage.getItem('jwt_token');
+        if (!token) { showToast(t('emailChange.loginRequired'), 'error'); return; }
+        if (!code || code.length !== 6) { showToast(t('emailChange.enterCode'), 'error'); return; }
+        const btn = getEl('verifyEmailChangeBtn');
+        btn.disabled = true;
+        const res = await fetch('/api/auth/email-change/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ code: code })
+        });
+        const data = await res.json().catch(() => ({}));
+        btn.disabled = false;
+        if (!res.ok) {
+            showToast(data.error || t('emailChange.verifyFailed'), 'error');
+            return;
+        }
+        // Server confirmed the email update. Update the local cache + UI.
+        if (data.user && data.user.email) {
+            const savedUser = localStorage.getItem('arbi_user');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                user.email = data.user.email;
+                localStorage.setItem('arbi_user', JSON.stringify(user));
+            }
+            getEl('profileEmail').value = data.user.email;
+            getEl('changeEmailCurrent').value = data.user.email;
+        }
+        getEl('changeEmailModal').classList.remove('open');
+        showToast(t('emailChange.success'), 'success');
+        // Refresh pending status banner.
+        loadEmailChangeStatus();
+    } catch(e) { showToast(t('emailChange.verifyFailed'), 'error'); }
+}
+
+// Pull the authoritative email from /api/auth/me so the readonly Profile
+// email field reflects the server's truth (e.g. after a verified change from
+// another device) rather than a stale localStorage copy.
+async function refreshProfileEmailFromServer() {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) return;
+        const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        const email = data && data.user && data.user.email;
+        if (email) {
+            getEl('profileEmail').value = email;
+            const savedUser = localStorage.getItem('arbi_user');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                if (user.email !== email) {
+                    user.email = email;
+                    localStorage.setItem('arbi_user', JSON.stringify(user));
+                }
+            }
+        }
+    } catch(e) {}
+}
+
+// Show a pending-verification banner in the Profile modal when applicable.
+// Never reveals the code; only shows the pending target email + expiry.
+async function loadEmailChangeStatus() {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) { getEl('emailChangePending').style.display = 'none'; return; }
+        const res = await fetch('/api/auth/email-change/status', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) { getEl('emailChangePending').style.display = 'none'; return; }
+        const data = await res.json().catch(() => ({}));
+        const banner = getEl('emailChangePending');
+        if (data && data.pending) {
+            banner.style.display = '';
+            banner.innerHTML = '<i class="fas fa-clock" style="margin-right:6px;"></i>' +
+                t('emailChange.pendingNotice', { email: data.newEmail || '' });
+        } else {
+            banner.style.display = 'none';
+        }
+    } catch(e) { getEl('emailChangePending').style.display = 'none'; }
 }
 
 function toggleSupport() {
@@ -16204,6 +16513,10 @@ async function initApp() {
             getEl('profileEmail').value = user.email || '';
         }
         getEl('profileModal').classList.add('open');
+        // Refresh the email from the server (authoritative) and show any
+        // pending email-change verification banner.
+        refreshProfileEmailFromServer();
+        loadEmailChangeStatus();
     });
     
     const twofaLink = getEl('twofaLink');

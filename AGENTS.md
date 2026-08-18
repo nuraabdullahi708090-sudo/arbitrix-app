@@ -1341,3 +1341,58 @@ Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
   ?? supabase/migrations/011_subscription_pro.sql, ?? tests/subscription.test.js.
   HEAD unchanged at the Phase-7A merge commit 07d2ce1.
 
+
+## Phase 8B — Secure Profile Email Change (USER_CONTEXT task)
+GOAL: The Profile email field must NOT be directly editable/savable. Email
+changes go through a verification-based flow (reusing existing 2FA/password-reset
+patterns). Users cannot arbitrarily change their account email by editing the
+field.
+
+WHAT SHIPPED (smallest production-safe surface):
+- migration 012_email_change.sql (ADDITIVE, idempotent, RLS DISABLED):
+  table public.email_change_requests(id BIGINT PK, user_id BIGINT FK->users(id),
+  new_email TEXT, code_hash TEXT, expires_at TIMESTAMPTZ, used BOOL, attempts INT,
+  ip_address TEXT, user_agent TEXT, created_at, used_at). Indexes on user_id and
+  (user_id, used). No ALTER to any financial/KYC/auth table.
+- server.js: three routes (all behind authMiddleware, identity from req.user.id):
+  POST /api/auth/email-change/request, GET /api/auth/email-change/status,
+  POST /api/auth/email-change/verify. Helpers: EMAIL_CHANGE_CONFIG,
+  isValidEmailFormat, hashEmailChangeCode (SHA256), generateEmailChangeCode
+  (crypto.randomBytes), sendEmailChangeCodeEmail (Resend to NEW email only),
+  generateEmailChangeTemplate.
+- public/index.html: profileEmail input is now readonly; a "Change Email" button
+  opens a 2-step modal (enter new email -> enter 6-digit code). Added
+  openChangeEmailModal, requestEmailChange, verifyEmailChange, backToEmailStep1,
+  loadEmailChangeStatus, refreshProfileEmailFromServer. saveProfile() no longer
+  overwrites user.email from the readonly field. All 6 languages got
+  emailChange.* + common.back keys.
+
+SECURITY MODEL (pinned by tests/email_change.test.js):
+- Identity is JWT-only (req.user.id). No client-supplied userId anywhere -> no IDOR.
+- users.email updates ONLY in the verify handler, ONLY the email column, keyed by
+  JWT userId. The user's internal id never changes.
+- The old email keeps working for login until the new one is verified.
+- Code: cryptographically random 6-digit, stored ONLY as SHA256 hash, single-use
+  (used=true before mutating user), 10-min expiry, never returned/logged in
+  plaintext (dev-mode log explicitly avoids it).
+- Per-user request cooldown (60s), per-request attempt throttle (5 fails ->
+  invalidate). New request replaces prior pending request.
+- Uniqueness checked at BOTH request and verify time (race guard).
+- Financial/KYC/trading/payment/subscription/2FA/referral systems untouched.
+- supabaseAdmin (service-role) used for all email-change reads/writes.
+
+VERIFICATION:
+- node --check server.js = OK. Translations object evals cleanly; emailChange.*
+  + common.back present + non-empty in all 6 locales.
+- tests/email_change.test.js: 23/23 pass (contract grep + pure-JS logic mirror:
+  normal request, invalid format, duplicate-email rejection, IDOR guard, wrong
+  code, expired code, code reuse/replay, only-email-updated, id-unchanged,
+  old-email-still-logs-in, pending replacement, rate limiting, attempt lockout,
+  race guard, existing auth intact, financial paths byte-unchanged, UI readonly,
+  saveProfile no longer persists email, 6-lang parity).
+- npm test = 120/120 pass (was 97: +23 email_change). subscription 18/18,
+  withdraw_gating 12/12 unchanged. No regressions.
+
+NOT committed/pushed/deployed pending user confirmation. Working tree:
+M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
+?? tests/email_change.test.js.
