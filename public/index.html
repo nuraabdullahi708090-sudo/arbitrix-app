@@ -2212,6 +2212,45 @@
         .landing-steps-5 { flex-wrap:wrap; justify-content:center; }
         .landing-steps-5 .landing-step { flex:1 1 200px; min-width:200px; max-width:240px; }
 
+        /* Mobile 5-step: centered vertical stack with centered connector */
+        @media (max-width: 768px) {
+            .landing-steps-5 {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0;
+            }
+            .landing-steps-5 .landing-step {
+                flex: none;
+                width: 100%;
+                max-width: 320px;
+                text-align: center;
+                padding: 0;
+            }
+            .landing-steps-5 .landing-step-number {
+                margin: 0 auto 14px;
+            }
+            .landing-steps-5 .landing-step-content {
+                text-align: center;
+            }
+            .landing-steps-5 .landing-step-content h3 {
+                font-size: 20px;
+                margin-bottom: 8px;
+            }
+            .landing-steps-5 .landing-step-content p {
+                font-size: 16px;
+                line-height: 1.6;
+                margin: 0;
+            }
+            .landing-steps-5 .landing-step-connector {
+                width: 2px;
+                height: 32px;
+                margin: 14px auto;
+                background: linear-gradient(180deg, rgba(240, 185, 11, 0.3), rgba(240, 185, 11, 0.6), rgba(240, 185, 11, 0.3));
+                flex-shrink: 0;
+            }
+        }
+
         /* Feature grids */
         .landing-feature-grid-2 {
             display:grid; grid-template-columns:repeat(2,1fr); gap:12px; max-width:760px; margin:0 auto;
