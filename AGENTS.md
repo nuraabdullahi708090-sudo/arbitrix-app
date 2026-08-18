@@ -1396,3 +1396,17 @@ VERIFICATION:
 NOT committed/pushed/deployed pending user confirmation. Working tree:
 M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 ?? tests/email_change.test.js.
+
+
+## LANDING PAGE (public/index.html) - added 2026-08
+- First-time visitors see the auth page (#authPage, display:flex); marketing landing (#landingPage, display:none) shows post-login. goToApp() hides landing and shows mainApp.
+- Landing rewritten to accurate product truth: Automated Arbitrage. Made Simple. Sections: hero, What is Arbitrix, arbitrage explainer, 5-step How It Works, Demo Mode, Live Mode, one-click bot, bot-running/session, Live experience, 7USD/month pricing, supported markets, withdrawals, security, who-it's-for, FAQ (24 Q&A), risk disclosure, final CTA, footer.
+- Removed unverified marketing claims: fake stats (2.5B+/150K+/99.9%), Bank-Level Security, cold storage, non-custodial, 50+ exchanges, 256-bit SSL (softened to secure HTTPS connection). Auth brand panel + auth.securityBadge neutralized across all locales.
+- Analytics: trackLandingEvent(name,data) pushes to window.dataLayer (+console). No external calls unless window.ANALYTICS_ENDPOINT set. goToApp(source) emits hero_cta_click/demo_cta_click/signup_start for demo CTAs.
+- SEO: title/description/OG/twitter meta + inline SVG favicon and social image. canonical /.
+- i18n: single TRANSLATIONS object (en/es/pt/fr/ar/zh), RTL for ar. Verifier script at /tmp/verify_i18n.js (parses via vm sandbox). Now 1229 keys x6, full parity.
+- PRODUCT TRUTH GAPS (FLAGGED, do NOT assert until confirmed):
+  - NO 14-day free trial/introductory Live period exists in code. Subscription is explicit opt-in activation (activateSubscription); 7USD debited server-side from live_balance. Wording avoids claiming a free 14-day period.
+  - NO fixed session limit (e.g. 2h) in code. Bot runs via setInterval(8s) while app open; stops on close/refresh. Did not state a duration.
+  - Withdrawal 15-30 min processing time NOT found in code (withdrawals insert as status:pending). Stated per brief but flagged for confirmation.
+  - Insufficient-balance subscription behavior documented as actual (no debt, retried next billing check) - verify against server.js subscription section (~line 519).
