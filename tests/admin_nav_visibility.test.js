@@ -24,6 +24,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 
@@ -78,4 +79,67 @@ test('other mode-tabs pills are untouched by the fix', () => {
   const wrapped = pills.filter(t => /flex-wrap\s*:\s*wrap/.test(t));
   assert.strictEqual(wrapped.length, 1, 'only the admin pill may get flex-wrap:wrap');
   assert.ok(/adminTabOperations/.test(INDEX.slice(INDEX.indexOf(wrapped[0]), INDEX.indexOf(wrapped[0]) + 400)));
+});
+
+test('navigateToAdmin hides dashboard cards but never cards inside #adminPanel', () => {
+  // Extract and run the REAL navigateToAdmin() source against a minimal DOM stub.
+  const start = INDEX.indexOf('function navigateToAdmin(e) {');
+  const end = INDEX.indexOf('\nfunction showAdminTab');
+  assert.ok(start !== -1 && end > start, 'navigateToAdmin source not found');
+  const src = INDEX.slice(start, end);
+  assert.ok(src.includes("!el.closest('#adminPanel')"),
+    'hide loop must skip cards nested inside #adminPanel');
+
+  // Fake DOM: dashboard card + wallet section (outside admin), adminPanel,
+  // an admin stat card and a sandbox control card (inside admin).
+  const mkEl = (id, insideAdmin) => ({
+    id,
+    style: {},
+    classList: { remove() {}, add() {} },
+    closest: (sel) => (sel === '#adminPanel' && insideAdmin ? adminPanel : null),
+  });
+  const adminPanel = mkEl('adminPanel', true);
+  const dashboardCard = mkEl('dashboardStatsCard', false);
+  const walletSection = mkEl('walletSection1', false);
+  const adminStatCard = mkEl('', true);
+  const sandboxCard = mkEl('', true);
+  const mainContent = {
+    querySelectorAll: (sel) =>
+      sel === '.card, .wallet-section'
+        ? [dashboardCard, walletSection, adminPanel, adminStatCard, sandboxCard]
+        : [],
+  };
+  const document = {
+    getElementById: (id) =>
+      ({ mainContent, adminPanel, sidebar: mkEl('sidebar', false), sidebarOverlay: mkEl('sidebarOverlay', false) }[id] || null),
+    querySelectorAll: () => [],
+  };
+  const sandbox = {
+    document,
+    localStorage: { getItem: () => null },
+    window: { scrollTo() {} },
+    loadAdminData() {},
+    console,
+  };
+  vm.runInNewContext(src + '\nnavigateToAdmin();', sandbox);
+
+  // dashboard cards/sections outside #adminPanel are still hidden
+  assert.strictEqual(dashboardCard.style.display, 'none');
+  assert.strictEqual(walletSection.style.display, 'none');
+  // #adminPanel itself remains visible
+  assert.strictEqual(adminPanel.style.display, 'block');
+  // cards inside #adminPanel are NOT hidden (display untouched)
+  assert.strictEqual(adminStatCard.style.display, undefined);
+  assert.strictEqual(sandboxCard.style.display, undefined);
+});
+
+test('New Sandbox Account control lives inside a card nested in #adminPanel (was hidden by the bug)', () => {
+  const panelStart = INDEX.indexOf('id="adminTabContentSandbox"');
+  const panelEnd = INDEX.indexOf('id="sandboxControlLog"');
+  assert.ok(panelStart !== -1 && panelEnd > panelStart);
+  const sandboxBlock = INDEX.slice(panelStart, panelEnd);
+  assert.ok(/onclick="createSandboxAccount\(\)"/.test(sandboxBlock),
+    'New Sandbox Account button must exist in the sandbox tab');
+  assert.ok(/<div class="card"/.test(sandboxBlock),
+    'sandbox controls are .card elements nested inside #adminPanel');
 });
