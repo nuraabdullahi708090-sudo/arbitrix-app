@@ -18429,9 +18429,11 @@ function navigateToAdmin(e) {
     // Hide all main content sections using scrollIntoView pattern
     const mainContent = document.getElementById('mainContent');
     if (mainContent) {
-        // Hide all cards and wallet sections within main content
+        // Hide all cards and wallet sections within main content, but never
+        // cards nested inside the admin panel itself (its tabs/stat cards must
+        // stay visible)
         mainContent.querySelectorAll('.card, .wallet-section').forEach(function(el) {
-            if (el.id !== 'adminPanel') {
+            if (el.id !== 'adminPanel' && !el.closest('#adminPanel')) {
                 el.style.display = 'none';
             }
         });
