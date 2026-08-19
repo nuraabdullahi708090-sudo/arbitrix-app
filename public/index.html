@@ -5295,8 +5295,8 @@ function toggleFaq(btn) {
                         </div>
                     </div>
                     
-                    <!-- Tab Navigation -->
-                    <div class="mode-tabs" style="margin-bottom:12px;">
+                    <!-- Tab Navigation (flex-wrap keeps all tabs, incl. Sandbox, reachable when the card is narrow) -->
+                    <div class="mode-tabs" style="margin-bottom:12px;flex-wrap:wrap;gap:2px;">
                         <button type="button" class="mode-tab active" onclick="showAdminTab('operations')" id="adminTabOperations" data-i18n="admin.tab.operations">Operations</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('users')" id="adminTabUsers" data-i18n="admin.tab.users">Users</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('deposits')" id="adminTabDeposits" data-i18n="admin.tab.deposits">Deposits</button>
