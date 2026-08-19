@@ -6216,6 +6216,34 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
+        // MARKETING_SANDBOX accounts use generated fictional emails that can
+        // never receive a verification code. Skip the production email/TOTP
+        // 2FA step and return the normal authenticated session (identical
+        // shape to the no-2FA path below). users.environment is server-stored
+        // and immutable; the client can never supply or override it.
+        if (user.environment === ENV_MARKETING_SANDBOX) {
+            const token = jwt.sign(
+                { id: user.id, email: user.email, isAdmin: user.is_admin===1 },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            return res.json({
+                success: true,
+                requires2FA: false,
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    referralCode: user.referral_code,
+                    isAdmin: user.is_admin===1,
+                    is_admin: !!user.is_admin,
+                    is_verified: false // KYC verification not implemented yet
+                }
+            });
+        }
+        
         // Get current 2FA type
         const twoFactorType = await get2FAType();
         
