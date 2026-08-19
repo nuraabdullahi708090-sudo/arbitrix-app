@@ -678,14 +678,21 @@ async function handleSandboxInvoiceGet(req, res) {
   const userId = req.user.id;
   const deposit = await advanceSandboxDeposit(userId, req.params.invoiceId);
   if (!deposit) return res.status(404).json({ success: false, error: 'Invoice not found' });
+  const amountUsd = Number(deposit.amount);
   res.json({
     success: true,
     invoice: {
       id: deposit.invoice_id,
       status: deposit.status,
-      amount_usd: Number(deposit.amount),
+      // Mirror production PaymentService.getInvoiceStatus() field names: the
+      // deposit-confirmation UI reads invoice.amountUsd (camelCase). Without it
+      // the confirmation/history show $0 even though the wallet was credited.
+      amountUsd,
+      amount_usd: amountUsd,
+      currency: 'USDT',
       network: deposit.network,
       address: deposit.address,
+      credited: deposit.status === 'confirmed',
     },
   });
 }
