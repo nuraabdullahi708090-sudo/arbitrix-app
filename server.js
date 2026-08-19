@@ -299,14 +299,16 @@ app.use(express.json({
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- HELPERS ----------
+// `environment` is additive and read-only here; the MARKETING_SANDBOX
+// classification is enforced server-side via getUserEnvironment() branches.
 async function getUser(id) {
-  const { data, error } = await supabase.from('users').select('id, name, email, referral_code, is_admin, created_at').eq('id', id).single();
+  const { data, error } = await supabase.from('users').select('id, name, email, referral_code, is_admin, created_at, environment').eq('id', id).single();
   if (error) throw error;
   return data;
 }
 
 async function getUserByEmail(email) {
-  const { data, error } = await supabase.from('users').select('id, name, email, password_hash, referral_code, is_admin').eq('email', email).single();
+  const { data, error } = await supabase.from('users').select('id, name, email, password_hash, referral_code, is_admin, environment').eq('email', email).single();
   if (error && error.code !== 'PGRST116') throw error;
   return data;
 }
@@ -441,6 +443,553 @@ async function updateWallet(userId, field, amount) {
 async function addTransaction(userId, type, amount, detail) {
   await supabase.from('transactions').insert({ user_id: userId, type, amount, detail: detail || '' });
 }
+
+// ---------- MARKETING SANDBOX (environment classification + isolation) ----------
+// A MARKETING_SANDBOX account is a marketing/demo account whose ENTIRE financial
+// lifecycle is simulated. Isolation is enforced server-side and at the DB level
+// (migration 013): every financial route below branches on the account's
+// users.environment BEFORE touching production tables/RPCs, and DB backstop
+// triggers reject sandbox writes to production financial tables. The frontend
+// never has to be trusted for this.
+const ENV_PRODUCTION = 'PRODUCTION';
+const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
+
+// users.environment is immutable once set, so a short TTL cache is safe.
+const _environmentCache = new Map(); // userId -> { env, at }
+const ENV_CACHE_TTL_MS = 60 * 1000;
+
+async function getUserEnvironment(userId) {
+  const cached = _environmentCache.get(userId);
+  if (cached && (Date.now() - cached.at) < ENV_CACHE_TTL_MS) return cached.env;
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('environment')
+    .eq('id', userId)
+    .single();
+  if (error) return ENV_PRODUCTION; // fail closed toward production behavior
+  const env = data && data.environment === ENV_MARKETING_SANDBOX ? ENV_MARKETING_SANDBOX : ENV_PRODUCTION;
+  _environmentCache.set(userId, { env, at: Date.now() });
+  return env;
+}
+
+async function isMarketingSandboxUser(userId) {
+  return (await getUserEnvironment(userId)) === ENV_MARKETING_SANDBOX;
+}
+
+/**
+ * Branch helper used at the TOP of every financial route. If the caller is a
+ * MARKETING_SANDBOX account, runs the sandbox handler and returns true (the
+ * production path is never executed). Otherwise returns false and the existing
+ * production logic runs byte-for-byte unchanged.
+ */
+async function sandboxHandled(req, res, handler) {
+  if (await isMarketingSandboxUser(req.user.id)) {
+    await handler(req, res);
+    return true;
+  }
+  return false;
+}
+
+// Simulated wallet read (mirrors getWallet's auto-create). Returned in the
+// production wallet SHAPE ({live_balance: ...}) so read-only consumers (e.g.
+// /api/auth/me) work unchanged for sandbox accounts. Never touches `wallets`.
+async function getSandboxWallet(userId) {
+  let { data, error } = await supabaseAdmin
+    .from('sandbox_wallets')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  if (error && error.code === 'PGRST116') {
+    const { data: created, error: insertError } = await supabaseAdmin
+      .from('sandbox_wallets')
+      .insert({ user_id: userId })
+      .select()
+      .single();
+    if (insertError) throw insertError;
+    data = created;
+  } else if (error) {
+    throw error;
+  }
+  return {
+    user_id: userId,
+    demo_balance: 0,
+    live_balance: Number(data.balance) || 0,
+    bonus_balance: 0,
+    intro_day: data.intro_day,
+    badge_hidden: !!data.badge_hidden,
+    is_simulated: true,
+  };
+}
+
+// Simulated "Today's P&L": signed sum of sandbox_trades for the current UTC day
+// (mirrors getTodayRealizedPnl but on the simulated ledger).
+async function getSandboxTodayRealizedPnl(userId) {
+  const now = new Date();
+  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const startOfNextDay = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_trades')
+    .select('amount')
+    .eq('user_id', userId)
+    .gte('created_at', startOfToday.toISOString())
+    .lt('created_at', startOfNextDay.toISOString());
+  if (error) return 0;
+  return (data || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+}
+
+async function hasSandboxConfirmedDeposit(userId) {
+  const { count, error } = await supabaseAdmin
+    .from('sandbox_deposits')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'confirmed');
+  if (error) return false;
+  return (count || 0) > 0;
+}
+
+// Fictional sandbox deposit address (clearly not a real wallet; no funds can
+// ever be sent to it by accident — it is an invalid TRON address on purpose).
+const SANDBOX_DEPOSIT_ADDRESS = 'TSANDBOXDEMO000000000000000000000000';
+
+// Lazily confirm a pending simulated deposit after a short delay (mirrors the
+// legacy deposit auto-confirm UX; no blockchain/payment network involved).
+const SANDBOX_DEPOSIT_CONFIRM_MS = 8 * 1000;
+async function advanceSandboxDeposit(userId, invoiceId) {
+  const { data: deposit } = await supabaseAdmin
+    .from('sandbox_deposits')
+    .select('*')
+    .eq('invoice_id', invoiceId)
+    .eq('user_id', userId)
+    .single();
+  if (!deposit) return null;
+  const elapsed = Date.now() - new Date(deposit.created_at).getTime();
+  if (deposit.status === 'pending' && elapsed > SANDBOX_DEPOSIT_CONFIRM_MS) {
+    const { data: result } = await supabaseAdmin.rpc('sandbox_credit_deposit', {
+      p_user_id: userId,
+      p_invoice_id: invoiceId,
+    });
+    if (result && result.success) deposit.status = 'confirmed';
+  }
+  if (deposit.status === 'pending' && elapsed > 3600000) {
+    await supabaseAdmin.from('sandbox_deposits').update({ status: 'expired' }).eq('id', deposit.id);
+    deposit.status = 'expired';
+  }
+  return deposit;
+}
+
+// Lazily advance simulated withdrawals so the demo flow completes "within a
+// few minutes" without any real transfer: pending -> processing after ~20s,
+// -> completed after ~75s. Marketing controls can also set states explicitly.
+async function advanceSandboxWithdrawals(userId) {
+  const now = Date.now();
+  const { data: rows } = await supabaseAdmin
+    .from('sandbox_withdrawals')
+    .select('id, status, created_at')
+    .eq('user_id', userId)
+    .in('status', ['pending', 'processing']);
+  for (const row of rows || []) {
+    const elapsed = now - new Date(row.created_at).getTime();
+    if (row.status === 'pending' && elapsed > 20 * 1000) {
+      await supabaseAdmin.from('sandbox_withdrawals').update({ status: 'processing' }).eq('id', row.id);
+      row.status = 'processing';
+    }
+    if (row.status === 'processing' && elapsed > 75 * 1000) {
+      await supabaseAdmin.from('sandbox_withdrawals').update({ status: 'completed' }).eq('id', row.id);
+      row.status = 'completed';
+    }
+  }
+}
+
+// ---------- MARKETING SANDBOX ROUTE HANDLERS (simulated only) ----------
+
+async function handleSandboxDepositRequest(req, res) {
+  const { amount, network } = req.body;
+  const userId = req.user.id;
+  const amt = Number(amount);
+  if (!amt || amt < 10) return res.status(400).json({ error: 'Min $10' });
+  const net = network || 'TRC20';
+  const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
+  const { error } = await supabaseAdmin.from('sandbox_deposits').insert({
+    user_id: userId,
+    amount: Math.round(amt * 100) / 100,
+    network: net,
+    address: SANDBOX_DEPOSIT_ADDRESS,
+    invoice_id: invoiceId,
+    status: 'pending',
+  });
+  if (error) throw error;
+  res.json({
+    id: invoiceId,
+    address: SANDBOX_DEPOSIT_ADDRESS,
+    cryptoAmount: amt.toFixed(6),
+    usdValue: amt,
+    expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    network: net,
+  });
+}
+
+async function handleSandboxInvoiceCreate(req, res) {
+  const { amount, network } = req.body || {};
+  const userId = req.user.id;
+  const amt = Number(amount);
+  if (!amt || amt < 10) {
+    return res.status(400).json({ success: false, error: 'Min $10' });
+  }
+  const net = network || 'TRC20';
+  const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
+  const { error } = await supabaseAdmin.from('sandbox_deposits').insert({
+    user_id: userId,
+    amount: Math.round(amt * 100) / 100,
+    network: net,
+    address: SANDBOX_DEPOSIT_ADDRESS,
+    invoice_id: invoiceId,
+    status: 'pending',
+  });
+  if (error) throw error;
+  res.json({
+    success: true,
+    invoice: {
+      id: invoiceId,
+      address: SANDBOX_DEPOSIT_ADDRESS,
+      network: net,
+      amount_usd: amt,
+      usdValue: amt,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+  });
+}
+
+async function handleSandboxDepositStatus(req, res) {
+  const userId = req.user.id;
+  const deposit = await advanceSandboxDeposit(userId, req.params.invoiceId);
+  if (!deposit) return res.status(404).json({ error: 'Invoice not found' });
+  const wallet = await getSandboxWallet(userId);
+  res.json({
+    status: deposit.status,
+    newBalance: wallet.live_balance,
+    creditedAmount: deposit.status === 'confirmed' ? Number(deposit.amount) : 0,
+    network: deposit.network,
+    referralActivated: null,
+  });
+}
+
+async function handleSandboxInvoiceGet(req, res) {
+  const userId = req.user.id;
+  const deposit = await advanceSandboxDeposit(userId, req.params.invoiceId);
+  if (!deposit) return res.status(404).json({ success: false, error: 'Invoice not found' });
+  res.json({
+    success: true,
+    invoice: {
+      id: deposit.invoice_id,
+      status: deposit.status,
+      amount_usd: Number(deposit.amount),
+      network: deposit.network,
+      address: deposit.address,
+    },
+  });
+}
+
+async function handleSandboxInvoiceCancel(req, res) {
+  const userId = req.user.id;
+  await supabaseAdmin
+    .from('sandbox_deposits')
+    .update({ status: 'expired' })
+    .eq('invoice_id', req.params.invoiceId)
+    .eq('user_id', userId)
+    .eq('status', 'pending');
+  res.json({ success: true, status: 'expired' });
+}
+
+async function handleSandboxPaymentHistory(req, res) {
+  const { data } = await supabaseAdmin
+    .from('sandbox_deposits')
+    .select('invoice_id, amount, network, status, created_at')
+    .eq('user_id', req.user.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  res.json({
+    success: true,
+    payments: (data || []).map((d) => ({
+      id: d.invoice_id,
+      amount_usd: Number(d.amount),
+      currency: 'USDT',
+      network: d.network,
+      status: d.status,
+      created_at: d.created_at,
+    })),
+  });
+}
+
+async function handleSandboxTrade(req, res) {
+  try {
+    const userId = req.user.id;
+    const { amount, asset, detail, idempotencyKey } = req.body;
+    if (typeof amount !== 'number' || !isFinite(amount) || amount === 0) {
+      return res.status(400).json({ error: 'Invalid trade amount' });
+    }
+    const wallet = await getSandboxWallet(userId);
+    const currentBalance = Number(wallet.live_balance) || 0;
+    if (Math.abs(amount) > Math.max(currentBalance, 1)) {
+      return res.status(400).json({ error: 'Trade amount exceeds balance' });
+    }
+    const amount2dp = Math.round(amount * 100) / 100;
+    const key = (idempotencyKey && String(idempotencyKey).trim()) ||
+      `sbx_trade_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    const { data, error } = await supabaseAdmin.rpc('sandbox_record_trade', {
+      p_user_id: userId,
+      p_amount: amount2dp,
+      p_idempotency_key: key,
+      p_asset: asset || null,
+      p_detail: detail || null,
+    });
+    if (error) throw error;
+    const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from sandbox_record_trade' };
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'Trade recording failed' });
+    }
+    const todayRealizedPnl = await getSandboxTodayRealizedPnl(userId).catch(() => 0);
+    res.json({
+      success: true,
+      duplicate: !!result.duplicate,
+      tradeId: result.trade_id,
+      appliedAmount: Number(result.applied_amount),
+      newBalance: Number(result.new_balance),
+      todayRealizedPnl: Number(todayRealizedPnl) || 0,
+    });
+  } catch (err) {
+    console.error('[sandbox /api/trade]', err);
+    res.status(500).json({ error: 'Server error recording trade' });
+  }
+}
+
+async function handleSandboxTransactions(req, res) {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_transactions')
+    .select('id, type, amount, detail, created_at')
+    .eq('user_id', req.user.id)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  res.json(data);
+}
+
+async function handleSandboxBotStart(req, res) {
+  const userId = req.user.id;
+  const mode = 'live';
+  await supabaseAdmin.from('sandbox_bot_sessions').upsert(
+    { user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  );
+  res.json({ status: 'started', mode });
+}
+
+async function handleSandboxBotStop(req, res) {
+  await supabaseAdmin.from('sandbox_bot_sessions').update({ is_running: 0 }).eq('user_id', req.user.id);
+  res.json({ status: 'stopped' });
+}
+
+async function handleSandboxBotStatus(req, res) {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_bot_sessions')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .single();
+  if (error && error.code !== 'PGRST116') throw error;
+  res.json({
+    isRunning: data ? data.is_running === 1 : false,
+    mode: data ? data.mode : 'live',
+    startedAt: data ? data.started_at : null,
+  });
+}
+
+async function handleSandboxWithdrawRequest(req, res) {
+  const { amount, address } = req.body;
+  const userId = req.user.id;
+  const { data, error } = await supabaseAdmin.rpc('sandbox_request_withdrawal', {
+    p_user_id: userId,
+    p_amount: Number(amount),
+    p_address: address || '',
+  });
+  if (error) throw error;
+  const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response' };
+  if (!result.success) return res.status(400).json({ error: result.error || 'Withdrawal failed' });
+  res.json({
+    id: result.id,
+    amount: Number(result.amount),
+    address,
+    status: 'pending',
+    newBalance: Number(result.new_balance),
+    message: 'Withdrawal submitted.',
+  });
+}
+
+async function handleSandboxWithdrawHistory(req, res) {
+  const userId = req.user.id;
+  await advanceSandboxWithdrawals(userId);
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_withdrawals')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  res.json(data);
+}
+
+async function getSandboxSubscription(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  if (error && error.code === 'PGRST116') return null;
+  if (error) return null;
+  return data;
+}
+
+// Simulated due-billing: mirrors processDueSubscription's decision logic but
+// charges via sandbox_charge_subscription (sandbox tables only).
+async function processDueSandboxSubscription(userId) {
+  const price = await getSubscriptionPrice();
+  const sub = await getSandboxSubscription(userId);
+  if (!sub) return { price, subscription: null, result: { success: false, error: 'No subscription' } };
+  if (sub.status !== 'active' && sub.status !== 'payment_due') {
+    return { price, subscription: sub, result: { success: false, reason: 'not_billable', status: sub.status } };
+  }
+  const now = new Date();
+  let due = false;
+  let anchor = now;
+  if (sub.status === 'active') {
+    if (sub.next_billing_date && new Date(sub.next_billing_date) <= now) {
+      due = true;
+      anchor = new Date(sub.next_billing_date);
+    }
+  } else if (sub.status === 'payment_due') {
+    due = true;
+    anchor = sub.next_billing_date ? new Date(sub.next_billing_date) : now;
+    if (anchor > now) anchor = now;
+  }
+  if (!due) {
+    return { price, subscription: sub, result: { success: false, reason: 'not_due', status: sub.status } };
+  }
+  const { periodLabel, idempotencyKey } = subscriptionBillingKey(userId, anchor, 'monthly');
+  const { data, error } = await supabaseAdmin.rpc('sandbox_charge_subscription', {
+    p_user_id: userId,
+    p_price: price,
+    p_idempotency_key: idempotencyKey,
+    p_period_label: periodLabel,
+    p_billing_kind: 'monthly',
+  });
+  if (error) throw error;
+  const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from sandbox_charge_subscription' };
+  const updated = await getSandboxSubscription(userId);
+  return { price, subscription: updated, result };
+}
+
+async function handleSandboxSubscriptionGet(req, res) {
+  const userId = req.user.id;
+  const price = await getSubscriptionPrice();
+  await processDueSandboxSubscription(userId).catch((e) => {
+    console.log('[sandbox GET /api/subscription] billing check error:', e.message);
+  });
+  const sub = await getSandboxSubscription(userId);
+  const wallet = await getSandboxWallet(userId);
+  res.json({
+    plan: sub ? sub.plan : 'pro',
+    price: Number(price),
+    status: sub ? sub.status : 'inactive',
+    startedAt: sub ? sub.started_at : null,
+    nextBillingDate: sub ? sub.next_billing_date : null,
+    lastBillingDate: sub ? sub.last_billing_date : null,
+    lastChargeAmount: sub && sub.last_charge_amount != null ? Number(sub.last_charge_amount) : null,
+    introDay: wallet.intro_day,
+    introActive: wallet.intro_day <= 14,
+    simulated: true,
+  });
+}
+
+async function handleSandboxSubscriptionActivate(req, res) {
+  const userId = req.user.id;
+  const price = await getSubscriptionPrice();
+  let sub = await getSandboxSubscription(userId);
+  if (sub && sub.status === 'active') {
+    return res.json({
+      success: true,
+      duplicate: true,
+      message: 'Subscription already active',
+      price: Number(price),
+      status: 'active',
+      nextBillingDate: sub.next_billing_date,
+      simulated: true,
+    });
+  }
+  if (sub && sub.status === 'cancelled') {
+    await supabaseAdmin.from('sandbox_subscriptions')
+      .update({ status: 'payment_due', updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+  }
+  const { periodLabel, idempotencyKey } = subscriptionBillingKey(userId, new Date(), 'activate');
+  const { data, error } = await supabaseAdmin.rpc('sandbox_charge_subscription', {
+    p_user_id: userId,
+    p_price: price,
+    p_idempotency_key: idempotencyKey,
+    p_period_label: periodLabel,
+    p_billing_kind: 'activate',
+  });
+  if (error) throw error;
+  const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from sandbox_charge_subscription' };
+  const updated = await getSandboxSubscription(userId);
+  res.json({
+    success: !!result.success,
+    duplicate: !!result.duplicate,
+    reason: result.reason || null,
+    message: result.message || null,
+    price: Number(price),
+    charged: !!result.success && !result.duplicate ? Number(result.price) : 0,
+    newBalance: (result.new_balance != null) ? Number(result.new_balance) : null,
+    status: updated ? updated.status : (result.success ? 'active' : 'payment_due'),
+    nextBillingDate: updated ? updated.next_billing_date : null,
+    simulated: true,
+  });
+}
+
+async function handleSandboxSubscriptionCancel(req, res) {
+  const userId = req.user.id;
+  const sub = await getSandboxSubscription(userId);
+  if (!sub) return res.status(404).json({ error: 'No subscription' });
+  await supabaseAdmin.from('sandbox_subscriptions')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+  res.json({ success: true, status: 'cancelled', simulated: true });
+}
+
+// ---------- MARKETING SANDBOX: self-service + admin control helpers ----------
+
+// Self-service middleware: only MARKETING_SANDBOX accounts may call /api/sandbox/*.
+async function sandboxOnlyMiddleware(req, res, next) {
+  if (!(await isMarketingSandboxUser(req.user.id))) {
+    return res.status(403).json({ error: 'Marketing sandbox account required' });
+  }
+  next();
+}
+
+// Marketing-admin guard: the TARGET user must be a MARKETING_SANDBOX account
+// (checked server-side from the DB every time). Returns the target id or null
+// (after sending the error response).
+async function requireSandboxTargetUser(req, res) {
+  const targetId = parseInt(req.params.userId, 10);
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    res.status(400).json({ error: 'Invalid user id' });
+    return null;
+  }
+  if (!(await isMarketingSandboxUser(targetId))) {
+    res.status(403).json({ error: 'Target is not a MARKETING_SANDBOX account' });
+    return null;
+  }
+  return targetId;
+}
+
 
 // ---------- REFERRAL ACTIVATION HELPERS ----------
 
@@ -1408,7 +1957,9 @@ app.post('/api/auth/register', async (req, res) => {
   }
   
   const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1 } });
+  // Public registration always creates a PRODUCTION account. MARKETING_SANDBOX
+  // accounts can only be created via POST /api/admin/sandbox/accounts (admin).
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: ENV_PRODUCTION } });
 });
 
 // Login
@@ -1418,7 +1969,7 @@ app.post('/api/auth/login', async (req, res) => {
   const user = await getUserByEmail(email);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
   const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1 } });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: user.environment || ENV_PRODUCTION } });
 });
 
 // ---------- FORGOT PASSWORD ----------
@@ -1946,6 +2497,27 @@ app.post('/api/auth/email-change/verify', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX accounts read from the sandbox tables only; the wallet
+  // shape matches the production wallet so the frontend renders identically.
+  if (await isMarketingSandboxUser(req.user.id)) {
+    const [user, wallet] = await Promise.all([
+      getUser(req.user.id),
+      getSandboxWallet(req.user.id),
+    ]);
+    const [funded, todayPnl] = await Promise.all([
+      hasSandboxConfirmedDeposit(user.id).catch(() => false),
+      getSandboxTodayRealizedPnl(user.id).catch(() => 0),
+    ]);
+    return res.json({
+      user,
+      wallet,
+      hasRealDeposit: !!funded,
+      todayRealizedPnl: Number(todayPnl) || 0,
+      environment: ENV_MARKETING_SANDBOX,
+      introDay: wallet.intro_day,
+      badgeHidden: wallet.badge_hidden,
+    });
+  }
   // getUser and getWallet are independent (both keyed by the same user id),
   // so run them concurrently to cut this endpoint's latency by one DB round trip.
   const [user, wallet] = await Promise.all([
@@ -1967,11 +2539,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     wallet,
     hasRealDeposit: !!funded,
     todayRealizedPnl: Number(todayPnl) || 0,
+    environment: ENV_PRODUCTION,
   });
 });
 
 // ---------- Deposit ----------
 app.post('/api/deposit/request', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated deposit only (no real invoice/address write).
+  if (await sandboxHandled(req, res, handleSandboxDepositRequest)) return;
   const { amount, network } = req.body;
   if (!amount || amount < 10) return res.status(400).json({ error: 'Min $10' });
   const userId = req.user.id;
@@ -1984,6 +2559,8 @@ app.post('/api/deposit/request', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: reads/confirms simulated deposits only.
+  if (await sandboxHandled(req, res, handleSandboxDepositStatus)) return;
   const { invoiceId } = req.params;
   const { data: deposit, error } = await supabase.from('deposits').select('*').eq('invoice_id', invoiceId).eq('user_id', req.user.id).single();
   if (error || !deposit) return res.status(404).json({ error: 'Invoice not found' });
@@ -2056,6 +2633,9 @@ function checkPaymentRateLimit(ip) {
  * SECURITY: Rate limited, authenticated, input validated
  */
 app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated invoice only - never reaches PaymentService /
+  // any payment provider (nowpayments/paymento/q8qpay).
+  if (await sandboxHandled(req, res, handleSandboxInvoiceCreate)) return;
   // Rate limiting
   const ip = req.ip || req.connection.remoteAddress;
   const rateLimit = checkPaymentRateLimit(ip);
@@ -2165,6 +2745,8 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
  * SECURITY: User can only access their own invoices
  */
 app.get('/api/payment/invoice/:invoiceId', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated invoice status only.
+  if (await sandboxHandled(req, res, handleSandboxInvoiceGet)) return;
   try {
     // SECURITY: Validate invoice ID format
     const { invoiceId } = req.params;
@@ -2196,6 +2778,8 @@ app.get('/api/payment/invoice/:invoiceId', authMiddleware, async (req, res) => {
  * Cancel a pending invoice
  */
 app.post('/api/payment/cancel/:invoiceId', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: cancels a simulated invoice only.
+  if (await sandboxHandled(req, res, handleSandboxInvoiceCancel)) return;
   try {
     const { invoiceId } = req.params;
     const userId = req.user.id;
@@ -2239,6 +2823,12 @@ app.get('/api/payment/supported-currencies', async (req, res) => {
  * Manual payment check (fallback)
  */
 app.post('/api/payment/check/:invoiceId', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: advances/reads the simulated invoice only.
+  if (await sandboxHandled(req, res, async (req2, res2) => {
+    const deposit = await advanceSandboxDeposit(req2.user.id, req2.params.invoiceId);
+    if (!deposit) return res2.status(404).json({ success: false, error: 'Invoice not found' });
+    res2.json({ success: true, status: deposit.status, invoice: { id: deposit.invoice_id, status: deposit.status, amount_usd: Number(deposit.amount) } });
+  })) return;
   try {
     const { invoiceId } = req.params;
     const userId = req.user.id;
@@ -2262,6 +2852,8 @@ app.post('/api/payment/check/:invoiceId', authMiddleware, async (req, res) => {
  * Get user's payment history
  */
 app.get('/api/payment/history', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: reads simulated deposit history only.
+  if (await sandboxHandled(req, res, handleSandboxPaymentHistory)) return;
   try {
     const userId = req.user.id;
     const { limit = 50, offset = 0 } = req.query;
@@ -3348,6 +3940,9 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
 
 // ---------- Withdraw ----------
 app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated withdrawal only - never debits a real wallet,
+  // never enters the production withdrawals queue/table.
+  if (await sandboxHandled(req, res, handleSandboxWithdrawRequest)) return;
   const { amount, address } = req.body;
   const userId = req.user.id;
 
@@ -3384,6 +3979,8 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/withdraw/history', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: reads simulated withdrawals only.
+  if (await sandboxHandled(req, res, handleSandboxWithdrawHistory)) return;
   const { data, error } = await supabase.from('withdrawals').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(20);
   if (error) throw error;
   res.json(data);
@@ -3448,7 +4045,17 @@ app.get('/api/kyc/status', authMiddleware, async (req, res) => {
 });
 
 // Save/update personal information
+// Sandbox accounts must never create real KYC records (screen-recording safety).
+async function blockSandboxKyc(req, res) {
+  if (await isMarketingSandboxUser(req.user.id)) {
+    res.status(403).json({ error: 'Identity verification is not available for marketing sandbox accounts' });
+    return true;
+  }
+  return false;
+}
+
 app.post('/api/kyc/personal-info', authMiddleware, async (req, res) => {
+  if (await blockSandboxKyc(req, res)) return;
   try {
     const userId = req.user.id;
     const { fullLegalName, dateOfBirth, country, residentialAddress } = req.body;
@@ -3499,6 +4106,7 @@ app.post('/api/kyc/personal-info', authMiddleware, async (req, res) => {
 
 // Upload document
 app.post('/api/kyc/upload', authMiddleware, async (req, res) => {
+  if (await blockSandboxKyc(req, res)) return;
   try {
     const userId = req.user.id;
     
@@ -3552,6 +4160,7 @@ app.post('/api/kyc/upload', authMiddleware, async (req, res) => {
 
 // Delete document
 app.delete('/api/kyc/document/:documentId', authMiddleware, async (req, res) => {
+  if (await blockSandboxKyc(req, res)) return;
   try {
     const userId = req.user.id;
     const { documentId } = req.params;
@@ -3567,6 +4176,7 @@ app.delete('/api/kyc/document/:documentId', authMiddleware, async (req, res) => 
 
 // Submit for review
 app.post('/api/kyc/submit', authMiddleware, async (req, res) => {
+  if (await blockSandboxKyc(req, res)) return;
   try {
     const userId = req.user.id;
     
@@ -3633,6 +4243,14 @@ app.get('/api/kyc/document/:documentId', authMiddleware, async (req, res) => {
 app.get('/api/kyc/can-withdraw', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
+    // MARKETING_SANDBOX: withdrawals are simulated and skip KYC by design.
+    // The sandbox withdraw route enforces its own (balance-only) rules; this
+    // read-only capability check just lets the UI proceed for demos. It does
+    // NOT grant any production withdrawal capability (that path still branches
+    // to the simulated handler server-side).
+    if (await isMarketingSandboxUser(userId)) {
+      return res.json({ canWithdraw: true, verificationStatus: 'sandbox', message: 'Sandbox withdrawal (simulated)' });
+    }
     const status = await kycService.getVerificationStatus(userId);
     const isVerified = status === VERIFICATION_STATUS.APPROVED;
     
@@ -3930,6 +4548,8 @@ app.get('/api/kyc/config', async (req, res) => {
 
 // ---------- Bot ----------
 app.post('/api/bot/start', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated bot session only.
+  if (await sandboxHandled(req, res, handleSandboxBotStart)) return;
   const userId = req.user.id;
   const { mode } = req.body;
   const wallet = await getWallet(userId);
@@ -3939,11 +4559,15 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/bot/stop', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated bot session only.
+  if (await sandboxHandled(req, res, handleSandboxBotStop)) return;
   await supabase.from('bot_sessions').update({ is_running: 0 }).eq('user_id', req.user.id);
   res.json({ status: 'stopped' });
 });
 
 app.get('/api/bot/status', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated bot session only.
+  if (await sandboxHandled(req, res, handleSandboxBotStatus)) return;
   const { data, error } = await supabase.from('bot_sessions').select('*').eq('user_id', req.user.id).single();
   if (error && error.code !== 'PGRST116') throw error;
   res.json({ isRunning: data ? data.is_running===1 : false, mode: data ? data.mode : 'demo', startedAt: data ? data.started_at : null });
@@ -3957,6 +4581,9 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
 // balance; clients reconcile to it. Mirrors the credit_payment_safe pattern
 // used for deposits. Demo/bonus modes stay client-side (no server wallet).
 app.post('/api/trade', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated trade recording only (sandbox_record_trade;
+  // record_trade_safe and the production trades/wallets tables are untouched).
+  if (await sandboxHandled(req, res, handleSandboxTrade)) return;
   try {
     const userId = req.user.id;
     const { amount, asset, detail, idempotencyKey } = req.body;
@@ -4010,6 +4637,8 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
 
 // ---------- Transactions ----------
 app.get('/api/transactions', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: reads the simulated transaction log only.
+  if (await sandboxHandled(req, res, handleSandboxTransactions)) return;
   const { data, error } = await supabase.from('transactions').select('id, type, amount, detail, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
   res.json(data);
@@ -4029,6 +4658,8 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
 // is collected (or marked payment_due) when the user views the panel. The
 // response is read-only from the client's perspective.
 app.get('/api/subscription', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: reads/bills the simulated subscription only.
+  if (await sandboxHandled(req, res, handleSandboxSubscriptionGet)) return;
   try {
     const userId = req.user.id;
     const price = await getSubscriptionPrice();
@@ -4065,6 +4696,9 @@ app.get('/api/subscription', authMiddleware, async (req, res) => {
 // no negative balance, existing funds preserved). Any body the client sends
 // (e.g. a fake price) is ignored.
 app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: simulated $7 deduction only (sandbox_charge_subscription;
+  // charge_subscription_safe and the production wallet are never invoked).
+  if (await sandboxHandled(req, res, handleSandboxSubscriptionActivate)) return;
   try {
     const userId = req.user.id;
     const price = await getSubscriptionPrice();
@@ -4140,6 +4774,8 @@ app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
 // 'cancelled' and the user retains Pro until the already-paid period ends.
 // A cancelled subscription is never billed again until re-activated.
 app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: cancels the simulated subscription only.
+  if (await sandboxHandled(req, res, handleSandboxSubscriptionCancel)) return;
   try {
     const userId = req.user.id;
     const sub = await getSubscription(userId);
@@ -4155,6 +4791,395 @@ app.post('/api/subscription/cancel', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('[POST /api/subscription/cancel]', err);
     res.status(500).json({ error: 'Server error cancelling subscription' });
+  }
+});
+
+// ---------- MARKETING SANDBOX: self-service routes ----------
+// All routes require auth AND the caller being a MARKETING_SANDBOX account
+// (sandboxOnlyMiddleware re-checks users.environment server-side on every call).
+
+app.get('/api/sandbox/state', authMiddleware, sandboxOnlyMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const wallet = await getSandboxWallet(userId);
+    const sub = await getSandboxSubscription(userId);
+    const { data: bot } = await supabaseAdmin
+      .from('sandbox_bot_sessions')
+      .select('is_running, mode, started_at')
+      .eq('user_id', userId)
+      .single();
+    const todayRealizedPnl = await getSandboxTodayRealizedPnl(userId).catch(() => 0);
+    const price = await getSubscriptionPrice();
+    res.json({
+      environment: ENV_MARKETING_SANDBOX,
+      simulated: true,
+      balance: wallet.live_balance,
+      introDay: wallet.intro_day,
+      introActive: wallet.intro_day <= 14,
+      badgeHidden: wallet.badge_hidden,
+      todayRealizedPnl: Number(todayRealizedPnl) || 0,
+      bot: {
+        isRunning: bot ? bot.is_running === 1 : false,
+        mode: bot ? bot.mode : 'live',
+        startedAt: bot ? bot.started_at : null,
+      },
+      subscription: {
+        plan: sub ? sub.plan : 'pro',
+        price: Number(price),
+        status: sub ? sub.status : 'inactive',
+        nextBillingDate: sub ? sub.next_billing_date : null,
+        lastBillingDate: sub ? sub.last_billing_date : null,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /api/sandbox/state]', err);
+    res.status(500).json({ error: 'Server error fetching sandbox state' });
+  }
+});
+
+app.post('/api/sandbox/reset', authMiddleware, sandboxOnlyMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('sandbox_reset_account', { p_user_id: req.user.id });
+    if (error) throw error;
+    res.json({ success: true, result: data });
+  } catch (err) {
+    console.error('[POST /api/sandbox/reset]', err);
+    res.status(500).json({ error: 'Server error resetting sandbox account' });
+  }
+});
+
+app.post('/api/sandbox/balance', authMiddleware, sandboxOnlyMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('sandbox_set_balance', {
+      p_user_id: req.user.id,
+      p_amount: Number(req.body && req.body.amount),
+    });
+    if (error) throw error;
+    if (!data || !data.success) return res.status(400).json({ error: (data && data.error) || 'Invalid amount' });
+    res.json({ success: true, balance: Number(data.balance) });
+  } catch (err) {
+    console.error('[POST /api/sandbox/balance]', err);
+    res.status(500).json({ error: 'Server error setting simulated balance' });
+  }
+});
+
+app.post('/api/sandbox/intro-day', authMiddleware, sandboxOnlyMiddleware, async (req, res) => {
+  try {
+    const day = parseInt(req.body && req.body.day, 10);
+    if (!Number.isInteger(day) || day < 1 || day > 15) {
+      return res.status(400).json({ error: 'day must be an integer between 1 and 15' });
+    }
+    await supabaseAdmin.from('sandbox_wallets')
+      .update({ intro_day: day, updated_at: new Date().toISOString() })
+      .eq('user_id', req.user.id);
+    res.json({ success: true, introDay: day });
+  } catch (err) {
+    console.error('[POST /api/sandbox/intro-day]', err);
+    res.status(500).json({ error: 'Server error setting introductory day' });
+  }
+});
+
+app.post('/api/sandbox/badge', authMiddleware, sandboxOnlyMiddleware, async (req, res) => {
+  try {
+    const hidden = !!(req.body && req.body.hidden);
+    await supabaseAdmin.from('sandbox_wallets')
+      .update({ badge_hidden: hidden, updated_at: new Date().toISOString() })
+      .eq('user_id', req.user.id);
+    res.json({ success: true, badgeHidden: hidden });
+  } catch (err) {
+    console.error('[POST /api/sandbox/badge]', err);
+    res.status(500).json({ error: 'Server error updating badge' });
+  }
+});
+
+// ---------- MARKETING SANDBOX: marketing admin controls ----------
+// Every control: (1) requires auth + admin, and (2) verifies server-side that
+// the TARGET user's environment === MARKETING_SANDBOX (requireSandboxTargetUser).
+// If that check fails the request is rejected with an authorization error and
+// NOTHING is written. A sandbox account can never be converted to/from a
+// production account (DB immutability trigger), and these controls can only
+// touch sandbox_* tables.
+
+app.get('/api/admin/sandbox/accounts', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('id, name, email, created_at, environment, sandbox_wallets(balance, intro_day, badge_hidden)')
+      .eq('environment', ENV_MARKETING_SANDBOX)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ accounts: data || [] });
+  } catch (err) {
+    console.error('[GET /api/admin/sandbox/accounts]', err);
+    res.status(500).json({ error: 'Server error listing sandbox accounts' });
+  }
+});
+
+// Create a new dedicated MARKETING_SANDBOX account with a fictional identity.
+// environment is set ONCE here and is immutable (DB trigger). No production
+// wallet row is created - only the sandbox wallet.
+app.post('/api/admin/sandbox/accounts', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const name = (req.body && req.body.name) || 'Marketing Demo';
+    const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const email = ((req.body && req.body.email) || `marketing-demo+${stamp}@sandbox.arbitrix.invalid`).trim().toLowerCase();
+    const password = (req.body && req.body.password) || (crypto.randomBytes(9).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 12) + 'Sx1!');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+    const existing = await getUserByEmail(email);
+    if (existing) return res.status(400).json({ error: 'Email already registered' });
+
+    const hash = bcrypt.hashSync(password, 10);
+    const referralCode = await generateUniqueReferralCode();
+    const { data: user, error } = await supabaseAdmin.from('users').insert({
+      name,
+      email,
+      password_hash: hash,
+      referral_code: referralCode,
+      is_admin: 0,
+      environment: ENV_MARKETING_SANDBOX,
+    }).select('id, name, email, environment').single();
+    if (error) throw error;
+    // Simulated wallet only (NO production wallets row).
+    await supabaseAdmin.from('sandbox_wallets').insert({ user_id: user.id });
+    res.json({
+      success: true,
+      account: { id: user.id, name: user.name, email: user.email, environment: user.environment },
+      // One-time credential display for the marketing operator.
+      credentials: { email, password },
+    });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/accounts]', err);
+    res.status(500).json({ error: 'Server error creating sandbox account' });
+  }
+});
+
+app.post('/api/admin/sandbox/:userId/reset', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const { data, error } = await supabaseAdmin.rpc('sandbox_reset_account', { p_user_id: targetId });
+    if (error) throw error;
+    res.json({ success: true, result: data });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/reset]', err);
+    res.status(500).json({ error: 'Server error resetting sandbox account' });
+  }
+});
+
+app.post('/api/admin/sandbox/:userId/balance', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const { data, error } = await supabaseAdmin.rpc('sandbox_set_balance', {
+      p_user_id: targetId,
+      p_amount: Number(req.body && req.body.amount),
+    });
+    if (error) throw error;
+    if (!data || !data.success) return res.status(400).json({ error: (data && data.error) || 'Invalid amount' });
+    res.json({ success: true, balance: Number(data.balance) });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/balance]', err);
+    res.status(500).json({ error: 'Server error setting simulated balance' });
+  }
+});
+
+app.post('/api/admin/sandbox/:userId/intro-day', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const day = parseInt(req.body && req.body.day, 10);
+    if (!Number.isInteger(day) || day < 1 || day > 15) {
+      return res.status(400).json({ error: 'day must be an integer between 1 and 15' });
+    }
+    await supabaseAdmin.from('sandbox_wallets')
+      .update({ intro_day: day, updated_at: new Date().toISOString() })
+      .eq('user_id', targetId);
+    res.json({ success: true, introDay: day });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/intro-day]', err);
+    res.status(500).json({ error: 'Server error setting introductory day' });
+  }
+});
+
+app.post('/api/admin/sandbox/:userId/badge', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const hidden = !!(req.body && req.body.hidden);
+    await supabaseAdmin.from('sandbox_wallets')
+      .update({ badge_hidden: hidden, updated_at: new Date().toISOString() })
+      .eq('user_id', targetId);
+    res.json({ success: true, badgeHidden: hidden });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/badge]', err);
+    res.status(500).json({ error: 'Server error updating badge' });
+  }
+});
+
+// Controlled demonstration engine: generate N simulated trades with a target
+// P&L profile. ALL records go to sandbox_trades/sandbox_transactions with
+// is_simulated=true and unique idempotency keys - unmistakably demonstration
+// data, never production trading results.
+app.post('/api/admin/sandbox/:userId/trades', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const count = Math.min(Math.max(parseInt(req.body && req.body.count, 10) || 0, 0), 50);
+    if (count < 1) return res.status(400).json({ error: 'count must be between 1 and 50' });
+    // avgPnl: signed USD per trade (can be forced positive/negative for demos);
+    // jitter adds variance. asset is optional (randomized if omitted).
+    const avgPnl = Number(req.body && req.body.avgPnl);
+    const jitter = Math.max(Number(req.body && req.body.jitter) || 0, 0);
+    if (!isFinite(avgPnl)) return res.status(400).json({ error: 'avgPnl must be a number' });
+    const assets = req.body && req.body.asset
+      ? [{ symbol: String(req.body.asset).slice(0, 40), detail: 'Demo' }]
+      : [
+        { symbol: 'BTC/USDT', detail: 'Binance→Bybit' },
+        { symbol: 'ETH/USDT', detail: 'Binance→Coinbase' },
+        { symbol: 'SOL/USDT', detail: 'Kraken→OKX' },
+        { symbol: 'XRP/USDT', detail: 'Coinbase→Bitstamp' },
+      ];
+    const results = [];
+    for (let i = 0; i < count; i++) {
+      const variance = jitter > 0 ? (Math.random() * 2 - 1) * jitter : 0;
+      const amount = Math.round((avgPnl + variance) * 100) / 100;
+      if (amount === 0) continue;
+      const asset = assets[Math.floor(Math.random() * assets.length)];
+      const key = `sbx_demo_${targetId}_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 8)}`;
+      const { data, error } = await supabaseAdmin.rpc('sandbox_record_trade', {
+        p_user_id: targetId,
+        p_amount: amount,
+        p_idempotency_key: key,
+        p_asset: asset.symbol,
+        p_detail: asset.detail,
+      });
+      if (error) throw error;
+      results.push({ amount, newBalance: data && data.new_balance != null ? Number(data.new_balance) : null, success: !!(data && data.success) });
+    }
+    res.json({ success: true, generated: results.length, trades: results });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/trades]', err);
+    res.status(500).json({ error: 'Server error generating demonstration trades' });
+  }
+});
+
+app.post('/api/admin/sandbox/:userId/bot', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const action = req.body && req.body.action;
+    if (action !== 'start' && action !== 'stop') {
+      return res.status(400).json({ error: "action must be 'start' or 'stop'" });
+    }
+    if (action === 'start') {
+      await supabaseAdmin.from('sandbox_bot_sessions').upsert(
+        { user_id: targetId, is_running: 1, mode: 'live', started_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+    } else {
+      await supabaseAdmin.from('sandbox_bot_sessions').update({ is_running: 0 }).eq('user_id', targetId);
+    }
+    res.json({ success: true, isRunning: action === 'start' });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/bot]', err);
+    res.status(500).json({ error: 'Server error updating bot state' });
+  }
+});
+
+// List the latest simulated withdrawals for a sandbox account (admin visibility
+// for picking a demonstration target). Sandbox tables only.
+app.get('/api/admin/sandbox/:userId/withdrawals', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    await advanceSandboxWithdrawals(targetId);
+    const { data, error } = await supabaseAdmin
+      .from('sandbox_withdrawals')
+      .select('id, amount, address, status, created_at')
+      .eq('user_id', targetId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    res.json({ withdrawals: data || [] });
+  } catch (err) {
+    console.error('[GET /api/admin/sandbox/withdrawals]', err);
+    res.status(500).json({ error: 'Server error listing simulated withdrawals' });
+  }
+});
+
+app.post('/api/admin/sandbox/:userId/withdrawals/:withdrawalId/status', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const withdrawalId = parseInt(req.params.withdrawalId, 10);
+    const status = req.body && req.body.status;
+    const { data, error } = await supabaseAdmin.rpc('sandbox_set_withdrawal_status', {
+      p_user_id: targetId,
+      p_withdrawal_id: withdrawalId,
+      p_status: status,
+    });
+    if (error) throw error;
+    if (!data || !data.success) return res.status(400).json({ error: (data && data.error) || 'Invalid status' });
+    res.json({ success: true, status: data.status });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/withdrawals/status]', err);
+    res.status(500).json({ error: 'Server error setting withdrawal status' });
+  }
+});
+
+// Subscription demonstration controls (simulated only).
+app.post('/api/admin/sandbox/:userId/subscription/due', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const price = await getSubscriptionPrice();
+    const existing = await getSandboxSubscription(targetId);
+    if (existing) {
+      await supabaseAdmin.from('sandbox_subscriptions')
+        .update({ status: 'payment_due', updated_at: new Date().toISOString() })
+        .eq('user_id', targetId);
+    } else {
+      await supabaseAdmin.from('sandbox_subscriptions')
+        .insert({ user_id: targetId, plan: 'pro', price, status: 'payment_due' });
+    }
+    res.json({ success: true, status: 'payment_due' });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/subscription/due]', err);
+    res.status(500).json({ error: 'Server error marking subscription due' });
+  }
+});
+
+// Trigger a simulated $7 deduction for the current billing period (uses the
+// sandbox charge RPC; a real wallet can never be debited).
+app.post('/api/admin/sandbox/:userId/subscription/charge', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const price = await getSubscriptionPrice();
+    const { periodLabel, idempotencyKey } = subscriptionBillingKey(targetId, new Date(), 'demo');
+    const { data, error } = await supabaseAdmin.rpc('sandbox_charge_subscription', {
+      p_user_id: targetId,
+      p_price: price,
+      p_idempotency_key: idempotencyKey,
+      p_period_label: periodLabel,
+      p_billing_kind: 'demo',
+    });
+    if (error) throw error;
+    const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response' };
+    res.json({
+      success: !!result.success,
+      duplicate: !!result.duplicate,
+      reason: result.reason || null,
+      price: Number(price),
+      charged: !!result.success && !result.duplicate ? Number(result.price) : 0,
+      newBalance: result.new_balance != null ? Number(result.new_balance) : null,
+      status: result.status || null,
+    });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/subscription/charge]', err);
+    res.status(500).json({ error: 'Server error simulating subscription charge' });
   }
 });
 
