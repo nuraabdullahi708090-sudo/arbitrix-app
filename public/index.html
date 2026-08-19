@@ -3508,7 +3508,13 @@ async function loadSubscriptionStatus() {
         if (!res.ok) return;
         const data = await res.json();
         _subscriptionState = data;
+        // MARKETING_SANDBOX: adopt the simulated introductory-day state so the
+        // intro chip reflects the server's sandbox clock (display only).
+        if (data && data.simulated && typeof data.introDay === 'number') {
+            APP.sandboxIntroDay = data.introDay;
+        }
         renderSubscriptionPanel(data);
+        updateSandboxBadge();
     } catch (e) {
         console.warn('[loadSubscriptionStatus] failed:', e.message);
     }
@@ -4082,7 +4088,9 @@ function goToApp(source) {
 // subscription_started, subscription_charged, subscription_failed.
 function trackLandingEvent(name, data) {
     try {
-        var payload = { event: name, ts: Date.now(), data: data || {} };
+        // Environment classification so MARKETING_SANDBOX demonstrations never
+        // contaminate real customer analytics (section: analytics reuse).
+        var payload = { event: name, ts: Date.now(), environment: (typeof APP !== 'undefined' && APP.environment) ? APP.environment : 'PRODUCTION', data: data || {} };
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push(payload);
         if (window.console && console.log) console.log('[analytics]', name, payload.data);
@@ -4099,6 +4107,11 @@ console.log('🔐 Auth script loaded successfully');
 </script>
 
 <canvas id="confettiCanvas"></canvas>
+<!-- MARKETING DEMO indicator (display only; the backend users.environment
+     classification is authoritative and cannot be removed via the UI). Hidden
+     by default; shown only when the server reports MARKETING_SANDBOX and
+     badgeHidden is not set. -->
+<div id="sandboxBadge" style="display:none;position:fixed;top:12px;right:12px;z-index:9999;align-items:center;gap:6px;background:rgba(240,185,11,0.12);border:1px solid rgba(240,185,11,0.45);color:#F0B90B;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:5px 10px;border-radius:20px;pointer-events:none;"></div>
 <div class="offline-banner hidden" id="offlineBanner"><i class="fas fa-wifi"></i><span data-i18n="offline.message">You're offline • Using cached data</span></div>
 
 <!-- ==================== NEW LANDING PAGE ==================== -->
@@ -5291,6 +5304,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab" onclick="showAdminTab('referrals')" id="adminTabReferrals" data-i18n="admin.tab.referral">Referral</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc" data-i18n="admin.tab.kyc">KYC</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('subscriptions')" id="adminTabSubscriptions" data-i18n="admin.tab.subscriptions">Subscriptions</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('sandbox')" id="adminTabSandbox" data-i18n="admin.tab.sandbox">Sandbox</button>
                     </div>
                     
                     <!-- Operations Dashboard Tab -->
@@ -5703,6 +5717,106 @@ function toggleFaq(btn) {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    <!-- Marketing Sandbox Controls Tab -->
+                    <div id="adminTabContentSandbox" class="hidden">
+                        <p style="font-size:11px;color:#8896B5;margin:0 0 12px 0;" data-i18n="sandbox.admin.help">Marketing sandbox controls operate only on MARKETING_SANDBOX accounts. Everything here is simulated — no real funds, wallets, blockchains, exchanges, payments, subscriptions, or production queues are ever involved.</p>
+
+                        <!-- Account -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-user-astronaut"></i></span> <span data-i18n="sandbox.admin.account">Sandbox Account</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+                                    <select id="sandboxAccountSelect" style="flex:1;min-width:220px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;">
+                                        <option value="" data-i18n="sandbox.admin.selectAccount">Select account...</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary" onclick="loadSandboxAccounts()" data-i18n="admin.refresh">Refresh</button>
+                                    <button type="button" class="btn btn-primary" onclick="createSandboxAccount()" data-i18n="sandbox.admin.createAccount">New Sandbox Account</button>
+                                </div>
+                                <div id="sandboxAccountCredentials" style="display:none;font-size:12px;color:#93c5fd;background:#0F1629;border:1px solid #1E2A3F;border-radius:8px;padding:10px;"></div>
+                                <div id="sandboxAccountInfo" style="font-size:12px;color:#8896B5;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Balance -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-coins"></i></span> <span data-i18n="sandbox.admin.balanceTitle">Simulated Balance (zero value)</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSetBalance(0)">$0</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSetBalance(1000)">$1,000</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSetBalance(5000)">$5,000</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSetBalance(10000)">$10,000</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSetBalance(50000)">$50,000</button>
+                                </div>
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <input id="sandboxCustomBalance" type="number" min="0" step="0.01" placeholder="Custom amount" data-i18n-placeholder="sandbox.admin.customAmount" style="flex:1;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;">
+                                    <button type="button" class="btn btn-primary" onclick="sandboxSetBalance()" data-i18n="sandbox.admin.setBalance">Set Balance</button>
+                                    <button type="button" class="btn btn-danger" onclick="sandboxResetAccount()" data-i18n="sandbox.admin.reset">RESET MARKETING ACCOUNT</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trading demonstration -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> <span data-i18n="sandbox.admin.tradingTitle">Demonstration Trades & Bot</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                    <input id="sandboxTradeCount" type="number" min="1" max="50" value="5" style="width:90px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;">
+                                    <input id="sandboxTradeAvgPnl" type="number" step="0.01" value="12" style="width:130px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;" placeholder="Avg P/L" data-i18n-placeholder="sandbox.admin.avgPnl">
+                                    <input id="sandboxTradeJitter" type="number" step="0.01" value="20" style="width:120px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;" placeholder="Jitter" data-i18n-placeholder="sandbox.admin.jitter">
+                                    <input id="sandboxTradeAsset" type="text" placeholder="Asset (optional)" data-i18n-placeholder="sandbox.admin.assetOptional" style="flex:1;min-width:140px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;">
+                                    <button type="button" class="btn btn-primary" onclick="sandboxGenerateTrades()" data-i18n="sandbox.admin.generateTrades">Generate Trades</button>
+                                </div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxBotAction('start')" data-i18n="sandbox.admin.botStart">Start Bot</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxBotAction('stop')" data-i18n="sandbox.admin.botStop">Stop Bot (simulate session end)</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Subscription / intro -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-crown"></i></span> <span data-i18n="sandbox.admin.subscriptionTitle">Introductory Period & Subscription</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                    <select id="sandboxIntroDaySelect" style="padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;"></select>
+                                    <button type="button" class="btn btn-primary" onclick="sandboxSetIntroDay()" data-i18n="sandbox.admin.setIntroDay">Set Introductory Day</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSubDue()" data-i18n="sandbox.admin.triggerDue">Trigger Subscription Due</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxSubCharge()" data-i18n="sandbox.admin.triggerCharge">Simulate $7 Deduction</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Withdrawal demonstration -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-money-bill-transfer"></i></span> <span data-i18n="sandbox.admin.withdrawalTitle">Demonstration Withdrawal Status</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                    <input id="sandboxWithdrawalId" type="number" min="1" placeholder="Withdrawal ID" data-i18n-placeholder="sandbox.admin.withdrawalId" style="width:140px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;">
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxWithdrawalStatus('pending')" data-i18n="status.pending">Pending</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxWithdrawalStatus('processing')" data-i18n="sandbox.admin.processing">Processing</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxWithdrawalStatus('completed')" data-i18n="sandbox.admin.completed">Completed</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxWithdrawalStatus('rejected')" data-i18n="admin.status.rejected">Rejected</button>
+                                    <button type="button" class="btn btn-secondary" onclick="loadSandboxWithdrawals()" data-i18n="admin.refresh">Refresh</button>
+                                </div>
+                                <div id="sandboxWithdrawalsList" style="font-size:11px;color:#8896B5;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Recording indicator -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-video"></i></span> <span data-i18n="sandbox.admin.indicatorTitle">Recording Indicator</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxBadge(false)" data-i18n="sandbox.admin.showBadge">Show Marketing Demo Badge</button>
+                                    <button type="button" class="btn btn-secondary" onclick="sandboxBadge(true)" data-i18n="sandbox.admin.hideBadge">Hide Badge (clean recording)</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="sandboxControlLog" style="font-size:11px;color:#8896B5;max-height:160px;overflow-y:auto;border-top:1px solid #1E2A3F;padding-top:8px;"></div>
                     </div>
 
                 </div>
@@ -6354,6 +6468,7 @@ function toggleFaq(btn) {
                     <div style="font-size:12px;color:#8896B5;"><span id="subscriptionPriceLabel">$7</span> / <span data-i18n="subscription.month">month</span></div>
                 </div>
                 <span id="subscriptionStatusBadge" class="status-badge" style="font-size:11px;padding:4px 10px;" data-i18n="subscription.status.inactive">Inactive</span>
+                <span id="sandboxIntroChip" style="display:none;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:10px;background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.35);"></span>
             </div>
 
             <div id="subscriptionDetails" style="font-size:13px;color:#8896B5;line-height:1.5;margin-bottom:12px;">
@@ -7914,6 +8029,69 @@ const TRANSLATIONS = {
         'landing.faq.a9': 'You can withdraw to your own wallet address whenever eligible. Requests are typically processed within approximately 15–30 minutes, and applicable verification/security checks may apply.',
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'No card',
+
+        'sandbox.badge': 'MARKETING DEMO',
+        'sandbox.introDay': 'Intro Day {{day}} of 14',
+        'admin.tab.sandbox': 'Sandbox',
+        'sandbox.admin.help': 'Marketing sandbox controls operate only on MARKETING_SANDBOX accounts. Everything here is simulated — no real funds, wallets, blockchains, exchanges, payments, subscriptions, or production queues are ever involved.',
+        'sandbox.admin.account': 'Sandbox Account',
+        'sandbox.admin.selectAccount': 'Select account...',
+        'sandbox.admin.createAccount': 'New Sandbox Account',
+        'sandbox.admin.createdTitle': 'Sandbox account created',
+        'sandbox.admin.createdEmail': 'Email',
+        'sandbox.admin.createdPassword': 'Password',
+        'sandbox.admin.createdNote': 'Store these credentials now — they are shown only once.',
+        'sandbox.admin.createdLog': 'Created sandbox account: {{email}}',
+        'sandbox.admin.createFailed': 'Could not create sandbox account',
+        'sandbox.admin.accountCount': '{{count}} sandbox account(s)',
+        'sandbox.admin.loadFailed': 'Could not load sandbox accounts',
+        'sandbox.admin.balanceTitle': 'Simulated Balance (zero value)',
+        'sandbox.admin.customAmount': 'Custom amount',
+        'sandbox.admin.setBalance': 'Set Balance',
+        'sandbox.admin.reset': 'RESET MARKETING ACCOUNT',
+        'sandbox.admin.resetConfirm': 'Reset this marketing account to a clean state?',
+        'sandbox.admin.resetDone': 'Marketing account reset to clean state.',
+        'sandbox.admin.resetFailed': 'Reset failed',
+        'sandbox.admin.balanceSet': 'Simulated balance set to ${{amount}}',
+        'sandbox.admin.balanceFailed': 'Could not set balance',
+        'sandbox.admin.invalidAmount': 'Enter a valid amount',
+        'sandbox.admin.tradingTitle': 'Demonstration Trades & Bot',
+        'sandbox.admin.avgPnl': 'Avg P/L',
+        'sandbox.admin.jitter': 'Jitter',
+        'sandbox.admin.assetOptional': 'Asset (optional)',
+        'sandbox.admin.generateTrades': 'Generate Trades',
+        'sandbox.admin.tradesGenerated': 'Generated {{count}} simulated trades',
+        'sandbox.admin.tradesFailed': 'Could not generate trades',
+        'sandbox.admin.botStart': 'Start Bot',
+        'sandbox.admin.botStop': 'Stop Bot (simulate session end)',
+        'sandbox.admin.botStarted': 'Bot started',
+        'sandbox.admin.botStopped': 'Bot stopped',
+        'sandbox.admin.botFailed': 'Bot action failed',
+        'sandbox.admin.subscriptionTitle': 'Introductory Period & Subscription',
+        'sandbox.admin.setIntroDay': 'Set Introductory Day',
+        'sandbox.admin.triggerDue': 'Trigger Subscription Due',
+        'sandbox.admin.triggerCharge': 'Simulate $7 Deduction',
+        'sandbox.admin.introSet': 'Introductory day set to {{day}}',
+        'sandbox.admin.introFailed': 'Could not set introductory day',
+        'sandbox.admin.subDueDone': 'Subscription marked payment due',
+        'sandbox.admin.subFailed': 'Subscription action failed',
+        'sandbox.admin.subCharged': 'Simulated ${{amount}} deduction (balance ${{balance}})',
+        'sandbox.admin.subChargeSkipped': 'No charge applied ({{reason}})',
+        'sandbox.admin.withdrawalTitle': 'Demonstration Withdrawal Status',
+        'sandbox.admin.withdrawalId': 'Withdrawal ID',
+        'sandbox.admin.processing': 'Processing',
+        'sandbox.admin.completed': 'Completed',
+        'sandbox.admin.withdrawalSet': 'Withdrawal status set to {{status}}',
+        'sandbox.admin.withdrawalFailed': 'Could not set withdrawal status',
+        'sandbox.admin.indicatorTitle': 'Recording Indicator',
+        'sandbox.admin.showBadge': 'Show Marketing Demo Badge',
+        'sandbox.admin.hideBadge': 'Hide Badge (clean recording)',
+        'sandbox.admin.badgeHidden': 'Badge hidden for clean recording',
+        'sandbox.admin.badgeShown': 'Badge shown',
+        'sandbox.admin.badgeFailed': 'Could not update badge',
+        'sandbox.admin.dayOption': 'Day {{day}}',
+
+        'sandbox.admin.noWithdrawals': 'No simulated withdrawals yet',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -9099,6 +9277,69 @@ const TRANSLATIONS = {
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'Sin tarjeta',
+
+        'sandbox.badge': 'DEMO DE MARKETING',
+        'sandbox.introDay': 'Día de introducción {{day}} de 14',
+        'admin.tab.sandbox': 'Sandbox',
+        'sandbox.admin.help': 'Los controles del sandbox de marketing solo operan sobre cuentas MARKETING_SANDBOX. Todo aquí es simulado: nunca intervienen fondos reales, billeteras, blockchains, exchanges, pagos, suscripciones ni colas de producción.',
+        'sandbox.admin.account': 'Cuenta sandbox',
+        'sandbox.admin.selectAccount': 'Seleccionar cuenta...',
+        'sandbox.admin.createAccount': 'Nueva cuenta sandbox',
+        'sandbox.admin.createdTitle': 'Cuenta sandbox creada',
+        'sandbox.admin.createdEmail': 'Correo',
+        'sandbox.admin.createdPassword': 'Contraseña',
+        'sandbox.admin.createdNote': 'Guarda estas credenciales ahora: se muestran solo una vez.',
+        'sandbox.admin.createdLog': 'Cuenta sandbox creada: {{email}}',
+        'sandbox.admin.createFailed': 'No se pudo crear la cuenta sandbox',
+        'sandbox.admin.accountCount': '{{count}} cuenta(s) sandbox',
+        'sandbox.admin.loadFailed': 'No se pudieron cargar las cuentas sandbox',
+        'sandbox.admin.balanceTitle': 'Saldo simulado (sin valor)',
+        'sandbox.admin.customAmount': 'Monto personalizado',
+        'sandbox.admin.setBalance': 'Establecer saldo',
+        'sandbox.admin.reset': 'RESTABLECER CUENTA DE MARKETING',
+        'sandbox.admin.resetConfirm': '¿Restablecer esta cuenta de marketing a un estado limpio?',
+        'sandbox.admin.resetDone': 'Cuenta de marketing restablecida a un estado limpio.',
+        'sandbox.admin.resetFailed': 'Error al restablecer',
+        'sandbox.admin.balanceSet': 'Saldo simulado establecido en ${{amount}}',
+        'sandbox.admin.balanceFailed': 'No se pudo establecer el saldo',
+        'sandbox.admin.invalidAmount': 'Ingresa un monto válido',
+        'sandbox.admin.tradingTitle': 'Operaciones de demostración y bot',
+        'sandbox.admin.avgPnl': 'P/L promedio',
+        'sandbox.admin.jitter': 'Variación',
+        'sandbox.admin.assetOptional': 'Activo (opcional)',
+        'sandbox.admin.generateTrades': 'Generar operaciones',
+        'sandbox.admin.tradesGenerated': 'Se generaron {{count}} operaciones simuladas',
+        'sandbox.admin.tradesFailed': 'No se pudieron generar operaciones',
+        'sandbox.admin.botStart': 'Iniciar bot',
+        'sandbox.admin.botStop': 'Detener bot (simular fin de sesión)',
+        'sandbox.admin.botStarted': 'Bot iniciado',
+        'sandbox.admin.botStopped': 'Bot detenido',
+        'sandbox.admin.botFailed': 'Acción del bot fallida',
+        'sandbox.admin.subscriptionTitle': 'Periodo de introducción y suscripción',
+        'sandbox.admin.setIntroDay': 'Establecer día de introducción',
+        'sandbox.admin.triggerDue': 'Marcar suscripción pendiente',
+        'sandbox.admin.triggerCharge': 'Simular deducción de $7',
+        'sandbox.admin.introSet': 'Día de introducción establecido en {{day}}',
+        'sandbox.admin.introFailed': 'No se pudo establecer el día de introducción',
+        'sandbox.admin.subDueDone': 'Suscripción marcada como pendiente de pago',
+        'sandbox.admin.subFailed': 'Acción de suscripción fallida',
+        'sandbox.admin.subCharged': 'Deducción simulada de ${{amount}} (saldo ${{balance}})',
+        'sandbox.admin.subChargeSkipped': 'Sin cargo aplicado ({{reason}})',
+        'sandbox.admin.withdrawalTitle': 'Estado de retiro de demostración',
+        'sandbox.admin.withdrawalId': 'ID de retiro',
+        'sandbox.admin.processing': 'Procesando',
+        'sandbox.admin.completed': 'Completado',
+        'sandbox.admin.withdrawalSet': 'Estado de retiro establecido en {{status}}',
+        'sandbox.admin.withdrawalFailed': 'No se pudo establecer el estado del retiro',
+        'sandbox.admin.indicatorTitle': 'Indicador de grabación',
+        'sandbox.admin.showBadge': 'Mostrar insignia de demo de marketing',
+        'sandbox.admin.hideBadge': 'Ocultar insignia (grabación limpia)',
+        'sandbox.admin.badgeHidden': 'Insignia oculta para grabación limpia',
+        'sandbox.admin.badgeShown': 'Insignia visible',
+        'sandbox.admin.badgeFailed': 'No se pudo actualizar la insignia',
+        'sandbox.admin.dayOption': 'Día {{day}}',
+
+        'sandbox.admin.noWithdrawals': 'Aún no hay retiros simulados',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -10284,6 +10525,69 @@ const TRANSLATIONS = {
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'Sem cartão',
+
+        'sandbox.badge': 'DEMO DE MARKETING',
+        'sandbox.introDay': 'Dia introdutório {{day}} de 14',
+        'admin.tab.sandbox': 'Sandbox',
+        'sandbox.admin.help': 'Os controles do sandbox de marketing operam apenas em contas MARKETING_SANDBOX. Tudo aqui é simulado — nenhum fundo real, carteira, blockchain, exchange, pagamento, assinatura ou fila de produção está envolvido.',
+        'sandbox.admin.account': 'Conta sandbox',
+        'sandbox.admin.selectAccount': 'Selecionar conta...',
+        'sandbox.admin.createAccount': 'Nova conta sandbox',
+        'sandbox.admin.createdTitle': 'Conta sandbox criada',
+        'sandbox.admin.createdEmail': 'E-mail',
+        'sandbox.admin.createdPassword': 'Senha',
+        'sandbox.admin.createdNote': 'Guarde estas credenciais agora — elas são exibidas apenas uma vez.',
+        'sandbox.admin.createdLog': 'Conta sandbox criada: {{email}}',
+        'sandbox.admin.createFailed': 'Não foi possível criar a conta sandbox',
+        'sandbox.admin.accountCount': '{{count}} conta(s) sandbox',
+        'sandbox.admin.loadFailed': 'Não foi possível carregar as contas sandbox',
+        'sandbox.admin.balanceTitle': 'Saldo simulado (sem valor)',
+        'sandbox.admin.customAmount': 'Valor personalizado',
+        'sandbox.admin.setBalance': 'Definir saldo',
+        'sandbox.admin.reset': 'REDEFINIR CONTA DE MARKETING',
+        'sandbox.admin.resetConfirm': 'Redefinir esta conta de marketing para um estado limpo?',
+        'sandbox.admin.resetDone': 'Conta de marketing redefinida para um estado limpo.',
+        'sandbox.admin.resetFailed': 'Redefinição falhou',
+        'sandbox.admin.balanceSet': 'Saldo simulado definido para ${{amount}}',
+        'sandbox.admin.balanceFailed': 'Não foi possível definir o saldo',
+        'sandbox.admin.invalidAmount': 'Insira um valor válido',
+        'sandbox.admin.tradingTitle': 'Negociações de demonstração e bot',
+        'sandbox.admin.avgPnl': 'P/L médio',
+        'sandbox.admin.jitter': 'Variação',
+        'sandbox.admin.assetOptional': 'Ativo (opcional)',
+        'sandbox.admin.generateTrades': 'Gerar negociações',
+        'sandbox.admin.tradesGenerated': '{{count}} negociações simuladas geradas',
+        'sandbox.admin.tradesFailed': 'Não foi possível gerar negociações',
+        'sandbox.admin.botStart': 'Iniciar bot',
+        'sandbox.admin.botStop': 'Parar bot (simular fim de sessão)',
+        'sandbox.admin.botStarted': 'Bot iniciado',
+        'sandbox.admin.botStopped': 'Bot parado',
+        'sandbox.admin.botFailed': 'Ação do bot falhou',
+        'sandbox.admin.subscriptionTitle': 'Período introdutório e assinatura',
+        'sandbox.admin.setIntroDay': 'Definir dia introdutório',
+        'sandbox.admin.triggerDue': 'Marcar assinatura como devida',
+        'sandbox.admin.triggerCharge': 'Simular dedução de $7',
+        'sandbox.admin.introSet': 'Dia introdutório definido para {{day}}',
+        'sandbox.admin.introFailed': 'Não foi possível definir o dia introdutório',
+        'sandbox.admin.subDueDone': 'Assinatura marcada como pagamento devido',
+        'sandbox.admin.subFailed': 'Ação de assinatura falhou',
+        'sandbox.admin.subCharged': 'Dedução simulada de ${{amount}} (saldo ${{balance}})',
+        'sandbox.admin.subChargeSkipped': 'Nenhuma cobrança aplicada ({{reason}})',
+        'sandbox.admin.withdrawalTitle': 'Status de saque de demonstração',
+        'sandbox.admin.withdrawalId': 'ID do saque',
+        'sandbox.admin.processing': 'Processando',
+        'sandbox.admin.completed': 'Concluído',
+        'sandbox.admin.withdrawalSet': 'Status do saque definido para {{status}}',
+        'sandbox.admin.withdrawalFailed': 'Não foi possível definir o status do saque',
+        'sandbox.admin.indicatorTitle': 'Indicador de gravação',
+        'sandbox.admin.showBadge': 'Mostrar selo de demo de marketing',
+        'sandbox.admin.hideBadge': 'Ocultar selo (gravação limpa)',
+        'sandbox.admin.badgeHidden': 'Selo oculto para gravação limpa',
+        'sandbox.admin.badgeShown': 'Selo visível',
+        'sandbox.admin.badgeFailed': 'Não foi possível atualizar o selo',
+        'sandbox.admin.dayOption': 'Dia {{day}}',
+
+        'sandbox.admin.noWithdrawals': 'Ainda não há saques simulados',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -11469,6 +11773,69 @@ const TRANSLATIONS = {
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Démo',
         'auth.brand.noCard': 'Sans carte',
+
+        'sandbox.badge': 'DÉMO MARKETING',
+        'sandbox.introDay': 'Jour d’introduction {{day}} sur 14',
+        'admin.tab.sandbox': 'Sandbox',
+        'sandbox.admin.help': 'Les contrôles du sandbox marketing n’opèrent que sur des comptes MARKETING_SANDBOX. Tout est simulé ici — aucun fonds réel, portefeuille, blockchain, exchange, paiement, abonnement ou file de production n’est concerné.',
+        'sandbox.admin.account': 'Compte sandbox',
+        'sandbox.admin.selectAccount': 'Sélectionner un compte...',
+        'sandbox.admin.createAccount': 'Nouveau compte sandbox',
+        'sandbox.admin.createdTitle': 'Compte sandbox créé',
+        'sandbox.admin.createdEmail': 'E-mail',
+        'sandbox.admin.createdPassword': 'Mot de passe',
+        'sandbox.admin.createdNote': 'Conservez ces identifiants maintenant — ils ne sont affichés qu’une seule fois.',
+        'sandbox.admin.createdLog': 'Compte sandbox créé : {{email}}',
+        'sandbox.admin.createFailed': 'Impossible de créer le compte sandbox',
+        'sandbox.admin.accountCount': '{{count}} compte(s) sandbox',
+        'sandbox.admin.loadFailed': 'Impossible de charger les comptes sandbox',
+        'sandbox.admin.balanceTitle': 'Solde simulé (sans valeur)',
+        'sandbox.admin.customAmount': 'Montant personnalisé',
+        'sandbox.admin.setBalance': 'Définir le solde',
+        'sandbox.admin.reset': 'RÉINITIALISER LE COMPTE MARKETING',
+        'sandbox.admin.resetConfirm': 'Réinitialiser ce compte marketing à un état propre ?',
+        'sandbox.admin.resetDone': 'Compte marketing réinitialisé à un état propre.',
+        'sandbox.admin.resetFailed': 'Échec de la réinitialisation',
+        'sandbox.admin.balanceSet': 'Solde simulé défini à ${{amount}}',
+        'sandbox.admin.balanceFailed': 'Impossible de définir le solde',
+        'sandbox.admin.invalidAmount': 'Saisissez un montant valide',
+        'sandbox.admin.tradingTitle': 'Trades de démonstration et bot',
+        'sandbox.admin.avgPnl': 'P/L moyen',
+        'sandbox.admin.jitter': 'Variation',
+        'sandbox.admin.assetOptional': 'Actif (optionnel)',
+        'sandbox.admin.generateTrades': 'Générer des trades',
+        'sandbox.admin.tradesGenerated': '{{count}} trades simulés générés',
+        'sandbox.admin.tradesFailed': 'Impossible de générer des trades',
+        'sandbox.admin.botStart': 'Démarrer le bot',
+        'sandbox.admin.botStop': 'Arrêter le bot (simuler fin de session)',
+        'sandbox.admin.botStarted': 'Bot démarré',
+        'sandbox.admin.botStopped': 'Bot arrêté',
+        'sandbox.admin.botFailed': 'Action du bot échouée',
+        'sandbox.admin.subscriptionTitle': 'Période d’introduction et abonnement',
+        'sandbox.admin.setIntroDay': 'Définir le jour d’introduction',
+        'sandbox.admin.triggerDue': 'Marquer l’abonnement comme dû',
+        'sandbox.admin.triggerCharge': 'Simuler la déduction de $7',
+        'sandbox.admin.introSet': 'Jour d’introduction défini à {{day}}',
+        'sandbox.admin.introFailed': 'Impossible de définir le jour d’introduction',
+        'sandbox.admin.subDueDone': 'Abonnement marqué comme paiement dû',
+        'sandbox.admin.subFailed': 'Action d’abonnement échouée',
+        'sandbox.admin.subCharged': 'Déduction simulée de ${{amount}} (solde ${{balance}})',
+        'sandbox.admin.subChargeSkipped': 'Aucune charge appliquée ({{reason}})',
+        'sandbox.admin.withdrawalTitle': 'Statut de retrait de démonstration',
+        'sandbox.admin.withdrawalId': 'ID de retrait',
+        'sandbox.admin.processing': 'Traitement',
+        'sandbox.admin.completed': 'Terminé',
+        'sandbox.admin.withdrawalSet': 'Statut de retrait défini à {{status}}',
+        'sandbox.admin.withdrawalFailed': 'Impossible de définir le statut du retrait',
+        'sandbox.admin.indicatorTitle': 'Indicateur d’enregistrement',
+        'sandbox.admin.showBadge': 'Afficher le badge de démo marketing',
+        'sandbox.admin.hideBadge': 'Masquer le badge (enregistrement propre)',
+        'sandbox.admin.badgeHidden': 'Badge masqué pour enregistrement propre',
+        'sandbox.admin.badgeShown': 'Badge affiché',
+        'sandbox.admin.badgeFailed': 'Impossible de mettre à jour le badge',
+        'sandbox.admin.dayOption': 'Jour {{day}}',
+
+        'sandbox.admin.noWithdrawals': 'Aucun retrait simulé pour le moment',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -12654,6 +13021,69 @@ const TRANSLATIONS = {
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'تجريبي',
         'auth.brand.noCard': 'بدون بطاقة',
+
+        'sandbox.badge': 'عرض تسويقي',
+        'sandbox.introDay': 'اليوم التمهيدي {{day}} من 14',
+        'admin.tab.sandbox': 'البيئة التجريبية',
+        'sandbox.admin.help': 'تعمل أدوات التحكم في البيئة التجريبية التسويقية فقط على حسابات MARKETING_SANDBOX. كل شيء هنا محاكى — لا تُستخدم أموال حقيقية أو محافظ أو سلاسل كتل أو منصات تداول أو مدفوعات أو اشتراكات أو طوابير إنتاج إطلاقًا.',
+        'sandbox.admin.account': 'حساب تجريبي',
+        'sandbox.admin.selectAccount': 'اختر حسابًا...',
+        'sandbox.admin.createAccount': 'حساب تجريبي جديد',
+        'sandbox.admin.createdTitle': 'تم إنشاء الحساب التجريبي',
+        'sandbox.admin.createdEmail': 'البريد الإلكتروني',
+        'sandbox.admin.createdPassword': 'كلمة المرور',
+        'sandbox.admin.createdNote': 'احفظ هذه البيانات الآن — تُعرض مرة واحدة فقط.',
+        'sandbox.admin.createdLog': 'تم إنشاء حساب تجريبي: {{email}}',
+        'sandbox.admin.createFailed': 'تعذّر إنشاء الحساب التجريبي',
+        'sandbox.admin.accountCount': '{{count}} حساب/حسابات تجريبية',
+        'sandbox.admin.loadFailed': 'تعذّر تحميل الحسابات التجريبية',
+        'sandbox.admin.balanceTitle': 'رصيد محاكى (بلا قيمة)',
+        'sandbox.admin.customAmount': 'مبلغ مخصص',
+        'sandbox.admin.setBalance': 'تعيين الرصيد',
+        'sandbox.admin.reset': 'إعادة تعيين حساب التسويق',
+        'sandbox.admin.resetConfirm': 'إعادة تعيين حساب التسويق هذا إلى حالة نظيفة؟',
+        'sandbox.admin.resetDone': 'تمت إعادة تعيين حساب التسويق إلى حالة نظيفة.',
+        'sandbox.admin.resetFailed': 'فشلت إعادة التعيين',
+        'sandbox.admin.balanceSet': 'تم تعيين الرصيد المحاكى إلى ${{amount}}',
+        'sandbox.admin.balanceFailed': 'تعذّر تعيين الرصيد',
+        'sandbox.admin.invalidAmount': 'أدخل مبلغًا صالحًا',
+        'sandbox.admin.tradingTitle': 'صفقات توضيحية والبوت',
+        'sandbox.admin.avgPnl': 'متوسط الربح/الخسارة',
+        'sandbox.admin.jitter': 'تذبذب',
+        'sandbox.admin.assetOptional': 'الأصل (اختياري)',
+        'sandbox.admin.generateTrades': 'إنشاء صفقات',
+        'sandbox.admin.tradesGenerated': 'تم إنشاء {{count}} صفقة محاكاة',
+        'sandbox.admin.tradesFailed': 'تعذّر إنشاء الصفقات',
+        'sandbox.admin.botStart': 'تشغيل البوت',
+        'sandbox.admin.botStop': 'إيقاف البوت (محاكاة انتهاء الجلسة)',
+        'sandbox.admin.botStarted': 'تم تشغيل البوت',
+        'sandbox.admin.botStopped': 'تم إيقاف البوت',
+        'sandbox.admin.botFailed': 'فشل إجراء البوت',
+        'sandbox.admin.subscriptionTitle': 'الفترة التمهيدية والاشتراك',
+        'sandbox.admin.setIntroDay': 'تعيين اليوم التمهيدي',
+        'sandbox.admin.triggerDue': 'وضع الاشتراك كمستحق',
+        'sandbox.admin.triggerCharge': 'محاكاة خصم $7',
+        'sandbox.admin.introSet': 'تم تعيين اليوم التمهيدي إلى {{day}}',
+        'sandbox.admin.introFailed': 'تعذّر تعيين اليوم التمهيدي',
+        'sandbox.admin.subDueDone': 'تم وضع الاشتراك كدفعة مستحقة',
+        'sandbox.admin.subFailed': 'فشل إجراء الاشتراك',
+        'sandbox.admin.subCharged': 'خصم محاكى بقيمة ${{amount}} (الرصيد ${{balance}})',
+        'sandbox.admin.subChargeSkipped': 'لم يُطبَّق أي خصم ({{reason}})',
+        'sandbox.admin.withdrawalTitle': 'حالة السحب التوضيحي',
+        'sandbox.admin.withdrawalId': 'معرّف السحب',
+        'sandbox.admin.processing': 'قيد المعالجة',
+        'sandbox.admin.completed': 'مكتمل',
+        'sandbox.admin.withdrawalSet': 'تم تعيين حالة السحب إلى {{status}}',
+        'sandbox.admin.withdrawalFailed': 'تعذّر تعيين حالة السحب',
+        'sandbox.admin.indicatorTitle': 'مؤشر التسجيل',
+        'sandbox.admin.showBadge': 'إظهار شارة العرض التسويقي',
+        'sandbox.admin.hideBadge': 'إخفاء الشارة (تسجيل نظيف)',
+        'sandbox.admin.badgeHidden': 'تم إخفاء الشارة للتسجيل النظيف',
+        'sandbox.admin.badgeShown': 'الشارة ظاهرة',
+        'sandbox.admin.badgeFailed': 'تعذّر تحديث الشارة',
+        'sandbox.admin.dayOption': 'اليوم {{day}}',
+
+        'sandbox.admin.noWithdrawals': 'لا توجد عمليات سحب محاكاة بعد',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -13839,6 +14269,69 @@ const TRANSLATIONS = {
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': '演示',
         'auth.brand.noCard': '无需银行卡',
+
+        'sandbox.badge': '营销演示',
+        'sandbox.introDay': '体验期第 {{day}} 天（共 14 天）',
+        'admin.tab.sandbox': '沙盒',
+        'sandbox.admin.help': '营销沙盒控制台仅作用于 MARKETING_SANDBOX 账户。这里的一切都是模拟的——绝不涉及真实资金、真实钱包、区块链、交易所、支付、订阅或生产队列。',
+        'sandbox.admin.account': '沙盒账户',
+        'sandbox.admin.selectAccount': '选择账户…',
+        'sandbox.admin.createAccount': '新建沙盒账户',
+        'sandbox.admin.createdTitle': '沙盒账户已创建',
+        'sandbox.admin.createdEmail': '邮箱',
+        'sandbox.admin.createdPassword': '密码',
+        'sandbox.admin.createdNote': '请立即保存这些凭据——仅显示一次。',
+        'sandbox.admin.createdLog': '已创建沙盒账户：{{email}}',
+        'sandbox.admin.createFailed': '无法创建沙盒账户',
+        'sandbox.admin.accountCount': '{{count}} 个沙盒账户',
+        'sandbox.admin.loadFailed': '无法加载沙盒账户',
+        'sandbox.admin.balanceTitle': '模拟余额（无实际价值）',
+        'sandbox.admin.customAmount': '自定义金额',
+        'sandbox.admin.setBalance': '设置余额',
+        'sandbox.admin.reset': '重置营销账户',
+        'sandbox.admin.resetConfirm': '将此营销账户重置为干净状态？',
+        'sandbox.admin.resetDone': '营销账户已重置为干净状态。',
+        'sandbox.admin.resetFailed': '重置失败',
+        'sandbox.admin.balanceSet': '模拟余额已设置为 ${{amount}}',
+        'sandbox.admin.balanceFailed': '无法设置余额',
+        'sandbox.admin.invalidAmount': '请输入有效金额',
+        'sandbox.admin.tradingTitle': '演示交易与机器人',
+        'sandbox.admin.avgPnl': '平均盈亏',
+        'sandbox.admin.jitter': '波动幅度',
+        'sandbox.admin.assetOptional': '资产（可选）',
+        'sandbox.admin.generateTrades': '生成交易',
+        'sandbox.admin.tradesGenerated': '已生成 {{count}} 笔模拟交易',
+        'sandbox.admin.tradesFailed': '无法生成交易',
+        'sandbox.admin.botStart': '启动机器人',
+        'sandbox.admin.botStop': '停止机器人（模拟会话结束）',
+        'sandbox.admin.botStarted': '机器人已启动',
+        'sandbox.admin.botStopped': '机器人已停止',
+        'sandbox.admin.botFailed': '机器人操作失败',
+        'sandbox.admin.subscriptionTitle': '体验期与订阅',
+        'sandbox.admin.setIntroDay': '设置体验天数',
+        'sandbox.admin.triggerDue': '触发订阅到期',
+        'sandbox.admin.triggerCharge': '模拟 $7 扣费',
+        'sandbox.admin.introSet': '体验天数已设置为第 {{day}} 天',
+        'sandbox.admin.introFailed': '无法设置体验天数',
+        'sandbox.admin.subDueDone': '订阅已标记为待付款',
+        'sandbox.admin.subFailed': '订阅操作失败',
+        'sandbox.admin.subCharged': '已模拟扣除 ${{amount}}（余额 ${{balance}}）',
+        'sandbox.admin.subChargeSkipped': '未扣费（{{reason}}）',
+        'sandbox.admin.withdrawalTitle': '演示提现状态',
+        'sandbox.admin.withdrawalId': '提现 ID',
+        'sandbox.admin.processing': '处理中',
+        'sandbox.admin.completed': '已完成',
+        'sandbox.admin.withdrawalSet': '提现状态已设置为 {{status}}',
+        'sandbox.admin.withdrawalFailed': '无法设置提现状态',
+        'sandbox.admin.indicatorTitle': '录屏指示器',
+        'sandbox.admin.showBadge': '显示营销演示徽章',
+        'sandbox.admin.hideBadge': '隐藏徽章（干净录屏）',
+        'sandbox.admin.badgeHidden': '徽章已隐藏（便于录屏）',
+        'sandbox.admin.badgeShown': '徽章已显示',
+        'sandbox.admin.badgeFailed': '无法更新徽章',
+        'sandbox.admin.dayOption': '第 {{day}} 天',
+
+        'sandbox.admin.noWithdrawals': '暂无模拟提现',
     }
 };
 // Copy translations for other languages
@@ -14049,6 +14542,8 @@ function update2FACodeExpiryLabels() {
 function updateDynamicTranslations() {
     try {
         update2FACodeExpiryLabels();
+        // Re-render the marketing demo badge + intro chip on language switch
+        if (typeof updateSandboxBadge === 'function') updateSandboxBadge();
         // Re-apply status-specific KYC modal header on language switch
         updateVerificationModalHeader();
         const accountStatus = document.getElementById('accountStatus');
@@ -14326,6 +14821,9 @@ function getBadgeDesc(badge) { return t(badge.descKey); }
 // ============ APP STATE ============
 const APP = {
     mode: 'demo', botRunning: false, botInterval: null,
+    // MARKETING_SANDBOX classification (server-authoritative; adopted from
+    // /api/auth/me). Never editable client-side; only read/display state.
+    environment: 'PRODUCTION', sandboxIntroDay: 1, sandboxBadgeHidden: false,
     demoData: { balance: 1000, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     liveData: { balance: 50, pnl: 0, trades: 0, wins: 0, history: [], hasRealDeposit: false, hasTradingActivity: false, bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     bonusData: { balance: 0, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
@@ -15478,8 +15976,11 @@ function updateUI() {
     const botBtnLive = getEl('startStopBtnLive');
     const botMsg = getEl('botStatusMsg');
     const botMsgLive = getEl('botStatusMsgLive');
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     if(APP.mode === 'live') {
-        if(APP.liveData.balance < APP.MTA) {
+        // MARKETING_SANDBOX: the MTA gate is skipped (simulated balance; the
+        // server-side sandbox bot start has no MTA gate anyway).
+        if(APP.liveData.balance < APP.MTA && !isSandbox) {
             if(botBtnLive) { botBtnLive.disabled = true; }
             const needed = (APP.MTA - APP.liveData.balance).toFixed(2);
             if(botMsgLive) botMsgLive.textContent = t('bot.reachMTA', {needed: needed});
@@ -15499,6 +16000,7 @@ function updateUI() {
     }
     updateLiveWithdrawStatus();
     updateBonusWalletUI();
+    updateSandboxBadge();
     const demoSection = document.getElementById('demoWalletSection');
     const liveSection = document.getElementById('liveWalletSection');
     const bonusSection = document.getElementById('bonusWalletSection');
@@ -15555,6 +16057,31 @@ function switchChart(symbol) {
             });
         }
     } catch(e) { console.error('switchChart error:', e); }
+}
+
+// MARKETING DEMO indicator (frontend display only). The backend classification
+// (users.environment) is the authoritative one and can never be removed by
+// toggling this badge. The badge may be HIDDEN for clean recordings, but only
+// when the server-issued sandboxBadgeHidden flag is set.
+function updateSandboxBadge() {
+    const badge = getEl('sandboxBadge');
+    if (badge) {
+        if (APP.environment === 'MARKETING_SANDBOX' && !APP.sandboxBadgeHidden) {
+            badge.style.display = 'flex';
+            badge.innerHTML = '<i class="fas fa-flask"></i> <span data-i18n="sandbox.badge">' + t('sandbox.badge') + '</span>';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    const chip = getEl('sandboxIntroChip');
+    if (chip) {
+        if (APP.environment === 'MARKETING_SANDBOX') {
+            chip.style.display = 'inline-flex';
+            chip.textContent = t('sandbox.introDay', { day: APP.sandboxIntroDay });
+        } else {
+            chip.style.display = 'none';
+        }
+    }
 }
 
 function updateStatus(running) {
@@ -15701,7 +16228,10 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
 }
 
 function startBot() {
-    if(APP.mode === 'live' && APP.liveData.balance < APP.MTA) {
+    // MARKETING_SANDBOX: skip the MTA gate (simulated balance; server has no
+    // sandbox MTA gate). Server-side isolation is unaffected by this display
+    // shortcut.
+    if(APP.mode === 'live' && APP.liveData.balance < APP.MTA && APP.environment !== 'MARKETING_SANDBOX') {
         const needed = (APP.MTA - APP.liveData.balance).toFixed(2);
         showToast(t('bot.reachMTA', {needed: needed}),'error');
         return;
@@ -16461,12 +16991,19 @@ async function openWithdrawModal() {
         // Default to continuing on error (existing fail-open behavior)
     }
 
-    // Gate 2 — minimum withdrawal amount
-    if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
-    // Gate 3 — existing balance / deposit requirement
-    if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
-    // Gate 4 — existing completed-trade requirement (incl. MTA)
-    if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
+    // MARKETING_SANDBOX: skip the min-amount / deposit / trade-count gates
+    // (server-side sandbox withdrawal enforces balance-only rules; KYC already
+    // returns canWithdraw for sandbox accounts). Product isolation is never
+    // affected by these skipped UI gates.
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    if (!isSandbox) {
+        // Gate 2 — minimum withdrawal amount
+        if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
+        // Gate 3 — existing balance / deposit requirement
+        if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
+        // Gate 4 — existing completed-trade requirement (incl. MTA)
+        if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
+    }
 
     // KYC verified (or fail-open) - show withdrawal form (Gates 5 & 6: address
     // validation + submission handled by submitWithdraw / submitWithdrawAPI)
@@ -16482,8 +17019,12 @@ function closeWithdrawModal() { getEl('withdrawModal').classList.remove('open');
 function submitWithdraw() {
     const address = getEl('withdrawAddressInput').value.trim();
     const amount = parseFloat(getEl('withdrawAmountInput').value);
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     if(!address) { showToast(t('withdraw.enterAddress'),'error'); return; }
-    if(!amount || amount < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL}),'error'); return; }
+    // MARKETING_SANDBOX: no $700 minimum (easy demo withdrawals); the server
+    // sandbox route enforces amount > 0 and sufficient simulated balance.
+    if(!amount || (!isSandbox && amount < APP.MIN_WITHDRAWAL)) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL}),'error'); return; }
+    if(isSandbox && amount <= 0) { showToast(t('withdraw.enterAddress'),'error'); return; }
     if(amount > APP.liveData.balance) { showToast(t('withdraw.insufficient'),'error'); return; }
     
     // Submit withdrawal request
@@ -17277,6 +17818,24 @@ async function syncWalletFromServer() {
             const meRes = meOutcome.value;
         if (meRes.ok) {
             const meData = await meRes.json();
+            // MARKETING_SANDBOX adoption (server-authoritative classification).
+            // Only DISPLAY state is adopted here; all financial isolation is
+            // enforced server-side and in the DB, never by this flag.
+            if (meData && meData.environment === 'MARKETING_SANDBOX') {
+                APP.environment = 'MARKETING_SANDBOX';
+                APP.sandboxIntroDay = meData.introDay || 1;
+                APP.sandboxBadgeHidden = !!meData.badgeHidden;
+            } else {
+                APP.environment = 'PRODUCTION';
+                APP.sandboxBadgeHidden = false;
+            }
+            // Persist the classification on the cached user object so
+            // checkAdminAccess()/renderers can read it without another fetch.
+            try {
+                const cachedUser = JSON.parse(localStorage.getItem('arbi_user') || '{}');
+                cachedUser.environment = APP.environment;
+                localStorage.setItem('arbi_user', JSON.stringify(cachedUser));
+            } catch (e) {}
             const wallet = meData && meData.wallet;
             if (wallet && typeof wallet.live_balance === 'number') {
                 const serverLive = Number(wallet.live_balance) || 0;
@@ -17913,6 +18472,7 @@ function showAdminTab(tab) {
     document.getElementById('adminTabContentReferrals').classList.add('hidden');
     document.getElementById('adminTabContentKyc').classList.add('hidden');
     document.getElementById('adminTabContentSubscriptions').classList.add('hidden');
+    document.getElementById('adminTabContentSandbox').classList.add('hidden');
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
     
@@ -17929,6 +18489,11 @@ function showAdminTab(tab) {
     // Load subscriptions when tab is shown (read-only admin visibility)
     if (tab === 'subscriptions') {
         loadAdminSubscriptions();
+    }
+
+    // Load marketing sandbox accounts when tab is shown
+    if (tab === 'sandbox') {
+        loadSandboxAccounts();
     }
     
     // Load Operations Dashboard
@@ -19555,6 +20120,202 @@ function renderAdminSubscriptions(subs) {
             '<td style="padding:8px;">' + last + '</td>' +
         '</tr>';
     }).join('');
+}
+
+// ============ MARKETING SANDBOX ADMIN CONTROLS ============
+// Every control below calls /api/admin/sandbox/*, which re-verifies server-side
+// that the target account's environment === MARKETING_SANDBOX. These controls
+// can only ever touch sandbox_* tables; production is unreachable from here.
+function sandboxLog(msg, isError) {
+    const log = document.getElementById('sandboxControlLog');
+    if (!log) return;
+    const line = document.createElement('div');
+    line.style.color = isError ? '#EF4444' : '#10B981';
+    line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+    log.prepend(line);
+}
+
+async function sandboxAdminFetch(path, options) {
+    const token = localStorage.getItem('jwt_token');
+    const res = await fetch(path, Object.assign({
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+    }, options || {}));
+    const data = await res.json().catch(function() { return {}; });
+    return { ok: res.ok, status: res.status, data: data };
+}
+
+function getSelectedSandboxUserId() {
+    const sel = document.getElementById('sandboxAccountSelect');
+    const id = sel ? parseInt(sel.value, 10) : NaN;
+    if (!Number.isInteger(id) || id <= 0) {
+        showToast(t('sandbox.admin.selectAccount'), 'error');
+        return null;
+    }
+    return id;
+}
+
+async function loadSandboxAccounts() {
+    const sel = document.getElementById('sandboxAccountSelect');
+    if (!sel) return;
+    const out = await sandboxAdminFetch('/api/admin/sandbox/accounts');
+    if (!out.ok) { sandboxLog(t('sandbox.admin.loadFailed'), true); return; }
+    const accounts = (out.data && out.data.accounts) || [];
+    sel.innerHTML = '<option value="">' + t('sandbox.admin.selectAccount') + '</option>' +
+        accounts.map(function(a) {
+            const w = Array.isArray(a.sandbox_wallets) ? a.sandbox_wallets[0] : a.sandbox_wallets;
+            const bal = w && w.balance != null ? Number(w.balance) : 0;
+            const day = w && w.intro_day != null ? w.intro_day : 1;
+            return '<option value="' + a.id + '">' + (a.name || 'Sandbox') + ' — ' + a.email + ' ($' + bal.toFixed(2) + ', Day ' + day + ')</option>';
+        }).join('');
+    const info = document.getElementById('sandboxAccountInfo');
+    if (info) info.textContent = t('sandbox.admin.accountCount', { count: accounts.length });
+    // Populate the intro-day selector (1..15) once.
+    const daySel = document.getElementById('sandboxIntroDaySelect');
+    if (daySel && daySel.options.length === 0) {
+        for (let d = 1; d <= 15; d++) {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = t('sandbox.admin.dayOption', { day: d });
+            daySel.appendChild(opt);
+        }
+    }
+}
+
+async function createSandboxAccount() {
+    const out = await sandboxAdminFetch('/api/admin/sandbox/accounts', { method: 'POST', body: JSON.stringify({}) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.createFailed') + ': ' + (out.data.error || out.status), true); return; }
+    const creds = out.data.credentials || {};
+    const box = document.getElementById('sandboxAccountCredentials');
+    if (box) {
+        box.style.display = 'block';
+        box.innerHTML = '<strong>' + t('sandbox.admin.createdTitle') + '</strong><br>' +
+            t('sandbox.admin.createdEmail') + ': <code>' + creds.email + '</code><br>' +
+            t('sandbox.admin.createdPassword') + ': <code>' + creds.password + '</code><br>' +
+            '<span style="color:#8896B5;">' + t('sandbox.admin.createdNote') + '</span>';
+    }
+    sandboxLog(t('sandbox.admin.createdLog', { email: creds.email || '' }));
+    loadSandboxAccounts();
+}
+
+async function sandboxSetBalance(preset) {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    let amount = preset;
+    if (amount === undefined) {
+        amount = parseFloat(document.getElementById('sandboxCustomBalance').value);
+    }
+    if (!isFinite(amount) || amount < 0) { showToast(t('sandbox.admin.invalidAmount'), 'error'); return; }
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/balance', { method: 'POST', body: JSON.stringify({ amount: amount }) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.balanceFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(t('sandbox.admin.balanceSet', { amount: Number(out.data.balance).toFixed(2) }));
+    loadSandboxAccounts();
+}
+
+async function sandboxResetAccount() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    if (!confirm(t('sandbox.admin.resetConfirm'))) return;
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/reset', { method: 'POST', body: JSON.stringify({}) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.resetFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(t('sandbox.admin.resetDone'));
+    loadSandboxAccounts();
+}
+
+async function sandboxGenerateTrades() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const count = parseInt(document.getElementById('sandboxTradeCount').value, 10) || 0;
+    const avgPnl = parseFloat(document.getElementById('sandboxTradeAvgPnl').value);
+    const jitter = parseFloat(document.getElementById('sandboxTradeJitter').value) || 0;
+    const asset = document.getElementById('sandboxTradeAsset').value.trim();
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/trades', {
+        method: 'POST',
+        body: JSON.stringify({ count: count, avgPnl: avgPnl, jitter: jitter, asset: asset || undefined })
+    });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.tradesFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(t('sandbox.admin.tradesGenerated', { count: out.data.generated || 0 }));
+    loadSandboxAccounts();
+}
+
+async function sandboxBotAction(action) {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/bot', { method: 'POST', body: JSON.stringify({ action: action }) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.botFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(action === 'start' ? t('sandbox.admin.botStarted') : t('sandbox.admin.botStopped'));
+}
+
+async function sandboxSetIntroDay() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const day = parseInt(document.getElementById('sandboxIntroDaySelect').value, 10);
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/intro-day', { method: 'POST', body: JSON.stringify({ day: day }) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.introFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(t('sandbox.admin.introSet', { day: day }));
+    loadSandboxAccounts();
+}
+
+async function sandboxSubDue() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/subscription/due', { method: 'POST', body: JSON.stringify({}) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.subFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(t('sandbox.admin.subDueDone'));
+}
+
+async function sandboxSubCharge() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/subscription/charge', { method: 'POST', body: JSON.stringify({}) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.subFailed') + ': ' + (out.data.error || out.status), true); return; }
+    if (out.data.success) {
+        sandboxLog(t('sandbox.admin.subCharged', { amount: Number(out.data.charged).toFixed(2), balance: Number(out.data.newBalance).toFixed(2) }));
+    } else {
+        sandboxLog(t('sandbox.admin.subChargeSkipped', { reason: out.data.reason || 'duplicate' }));
+    }
+    loadSandboxAccounts();
+}
+
+async function sandboxWithdrawalStatus(status, explicitId) {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const wid = explicitId != null ? explicitId : parseInt(document.getElementById('sandboxWithdrawalId').value, 10);
+    if (!Number.isInteger(wid) || wid <= 0) { showToast(t('sandbox.admin.withdrawalId'), 'error'); return; }
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/withdrawals/' + wid + '/status', { method: 'POST', body: JSON.stringify({ status: status }) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.withdrawalFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(t('sandbox.admin.withdrawalSet', { status: status }));
+    loadSandboxWithdrawals();
+}
+
+async function loadSandboxWithdrawals() {
+    const list = document.getElementById('sandboxWithdrawalsList');
+    if (!list) return;
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) { list.innerHTML = ''; return; }
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/withdrawals');
+    if (!out.ok) { list.innerHTML = ''; return; }
+    const rows = (out.data && out.data.withdrawals) || [];
+    if (rows.length === 0) { list.innerHTML = t('sandbox.admin.noWithdrawals'); return; }
+    const colors = { pending: '#F59E0B', processing: '#3B82F6', completed: '#10B981' };
+    list.innerHTML = rows.map(function(w) {
+        const c = colors[w.status] || '#8896B5';
+        return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;border-bottom:1px solid #1E2A3F;">' +
+            '<span>#' + w.id + '</span>' +
+            '<span>$' + Number(w.amount).toFixed(2) + '</span>' +
+            '<span style="color:' + c + ';">' + w.status + '</span>' +
+            '<span style="color:#5A6A8A;">' + (w.address || '').slice(0, 10) + '…</span>' +
+            '<button type="button" class="btn btn-secondary" style="padding:2px 8px;font-size:10px;" onclick="sandboxWithdrawalStatus(\'processing\', ' + w.id + ')">' + t('sandbox.admin.processing') + '</button>' +
+            '<button type="button" class="btn btn-secondary" style="padding:2px 8px;font-size:10px;" onclick="sandboxWithdrawalStatus(\'completed\', ' + w.id + ')">' + t('sandbox.admin.completed') + '</button>' +
+        '</div>';
+    }).join('');
+}
+
+async function sandboxBadge(hidden) {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/badge', { method: 'POST', body: JSON.stringify({ hidden: hidden }) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.badgeFailed') + ': ' + (out.data.error || out.status), true); return; }
+    sandboxLog(hidden ? t('sandbox.admin.badgeHidden') : t('sandbox.admin.badgeShown'));
 }
 
 async function confirmDeposit(depositId) {

@@ -1429,3 +1429,124 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - HTML: moved each `.landing-step-connector` from a sibling of `.landing-step` to a child (before the step closing div) so the absolute-positioned left rail resolves against the relative `.landing-step`. 4 connectors for 5 steps (last step hides its connector).
 - Page-wide mobile readability pass: added `@media (max-width:768px)` block bumping important body text to >=15-16px (hero subtitle, section subtitles, prose, compare note, intro/split-card/withdraw points, FAQ answers 16px, risk/pricing-capital/security-desc 14.5-15px). Desktop sizes preserved. Did NOT shrink text to fit — increased width/reduced padding instead.
 - Verified (puppeteer-core + chromium): no horizontal overflow at 320/360/375/390/412/430px x6 langs; all important body text >=15px; step content uses full container width (e.g. 350/350 at 390px); desktop row layout intact; Arabic RTL ok.
+
+## PHASE 9 — MARKETING SANDBOX / MARKETING DEMO ENVIRONMENT (2026-08, server.js + public/index.html + new migration 013 + tests/marketing_sandbox.test.js)
+- A dedicated, fully server-side-isolated MARKETING_SANDBOX account environment
+  for marketing/content/screenshots/demos/training. It mirrors the real
+  customer UX (deposit -> invoice/QR/polling -> confirmed; bot -> trades -> P&L;
+  withdraw; subscription panel; transactions) with EVERY financial operation
+  simulated. It can NEVER move real money: it never reaches PaymentService /
+  payment providers / webhooks / blockchain or exchange execution / production
+  wallets / production deposits / the production withdrawal queue /
+  charge_subscription_safe / record_trade_safe / KYC / admin analytics.
+- CLASSIFICATION: `users.environment` (migration 013), `'PRODUCTION'` (default) |
+  `'MARKETING_SANDBOX'`, CHECK-constrained and IMMUTABLE (BEFORE UPDATE trigger
+  users_environment_immutable). Never derived from demo/live flags. The column
+  is set ONLY by public registration (always PRODUCTION; client-supplied
+  `environment` in the register body is explicitly stripped and NEVER copied)
+  or by the admin-only POST /api/admin/sandbox/accounts. There is NO UI/API
+  path that converts sandbox<->production. Every sandbox table row also has
+  `is_simulated=true` (CHECK-locked).
+- SERVER-SIDE ISOLATION (defense in depth, NEVER frontend-trusted):
+  1. `users.environment` is the single source of truth (JWT embeds it but the
+     server re-reads it from the DB per request; any tampered/missing value is
+     treated as PRODUCTION - fail-safe).
+  2. Every production financial route (deposit request/status, payment
+     create/invoice/cancel/check/history, withdraw request/history, /api/trade,
+     /api/transactions, /api/bot/*, /api/subscription*) has a FIRST-statement
+     branch: `if (await sandboxHandled(req,res,handleSandboxX)) return;`.
+     Production code continues unchanged for normal users (server.js diff is
+     additive; production statements byte-unchanged - pinned by tests).
+  3. All sandbox handlers (server.js ~line 446-1750) use supabaseAdmin and
+     touch ONLY sandbox_* tables / sandbox_* RPCs. KYC writes are 403-blocked
+     for sandbox (blockSandboxKyc); can-withdraw special-cases sandbox to
+     `canWithdraw:true` WITHOUT weakening the production KYC gate.
+  4. DB backstop: BEFORE INSERT OR UPDATE triggers on ALL production financial
+     tables (wallets, trades, deposits, withdrawals, transactions, subscriptions,
+     subscription_charges, payment_invoices) plus referrals (custom guard checks
+     BOTH referrer_id and referred_id). UPDATE coverage makes user_id pivots
+     impossible; the wallet guard validates whenever live_balance changes OR
+     user_id pivots. RAISE if the row's user is MARKETING_SANDBOX. So even a
+     hypothetical future route that forgets to branch fails loudly in the DB.
+  5. Migration 013's trailing DO $$ self-check block asserts the immutability
+     trigger + all 9 backstop triggers exist (raises EXCEPTION otherwise).
+- Withdrawal lifecycle (simulated): pending (debited at request) -> processing
+  (~20s) -> completed (~75s) via lazy advance; admin can force any state.
+  'rejected' is a TERMINAL fourth state that refunds the debit-at-request
+  amount EXACTLY ONCE (row-locked, mirrors production admin reject refund);
+  completed cannot be rejected; rejected cannot flow back. Failed withdrawals
+  can therefore never permanently debit the sandbox.
+- SANDBOX TABLES (migration 013, RLS disabled + service-role-only access, same
+  model as Phase 8 subscriptions): sandbox_wallets (balance, intro_day 1..15,
+  badge_hidden), sandbox_deposits (pending/confirmed/expired/cancelled + unique
+  idempotency), sandbox_withdrawals (pending/processing/completed/rejected,
+  debit-at-request, rejected refunds once), sandbox_trades, sandbox_transactions,
+  sandbox_subscriptions (active|payment_due|inactive|cancelled),
+  sandbox_subscription_charges (UNIQUE idempotency anchor), sandbox_bot_sessions.
+- SANDBOX RPCs (SECURITY DEFINER, mirror the production patterns: idempotency
+  check -> FOR UPDATE -> double-check -> mutate -> ledger; each FIRST calls
+  assert_sandbox_user(p_user_id)): sandbox_ensure_wallet, sandbox_set_balance,
+  sandbox_credit_deposit, sandbox_record_trade, sandbox_charge_subscription
+  (insufficient -> payment_due, $0 charged, no debt), sandbox_request_withdrawal
+  (debit-at-request, like production), sandbox_set_withdrawal_status,
+  sandbox_reset_account (one-click reset: balance=0, intro_day=1, badge_hidden=
+  false, bot stopped, all sandbox rows deleted).
+- SIMULATED UX (mirrors production response shapes 1:1): deposit -> creates a
+  sandbox invoice (FAKE `T`-prefixed TRC20 address, no blockchain) with both
+  legacy-deposit AND new-invoice response shapes; lazy state advancement
+  (pending ~8s -> confirmed, credit once; ~3 min -> expired) so the normal
+  deposit modal + progress indicator + polling + "success" UX work unmodified.
+  Withdraw: no KYC / no $700 min / no trade-count gates (skipped only inside
+  the sandbox branch + frontend display gates), balance-only; submitted ->
+  pending ~20s -> processing ~2 min -> completed (lazy), admin-overridable.
+  Subscription: 14-day intro model (intro_day 1..15; >14 = ended) + $7/month
+  simulated deduction on GET/activate (period-keyed idempotency, server-derived
+  key only); payment_due on insufficient; next billing date; cancel/reactivate.
+- MARKETING CONTROLS: /api/sandbox/* (self: state/reset/balance/intro-day/badge,
+  all behind sandboxOnlyMiddleware) and /api/admin/sandbox/* (list/create
+  accounts, reset, set balance $0/$1k/$5k/$10k/$50k/custom, generate N demo
+  trades w/ avgPnl+jitter+asset, bot start/stop, intro-day, subscription
+  due/charge, withdrawal status control, badge show/hide). EVERY admin control
+  re-verifies server-side `target.environment === MARKETING_SANDBOX`
+  (requireSandboxTargetUser) -> 403 otherwise. Admin "Sandbox" tab in
+  public/index.html (loadSandboxAccounts, createSandboxAccount w/ one-time
+  credentials display, sandboxSetBalance, sandboxResetAccount,
+  sandboxGenerateTrades, sandboxBotAction, sandboxSetIntroDay, sandboxSubDue,
+  sandboxSubCharge, sandboxWithdrawalStatus + loadSandboxWithdrawals,
+  sandboxBadge). Frontend shows a "MARKETING DEMO" badge (#sandboxBadge) +
+  intro-day chip (#sandboxIntroChip); badge hidable for clean recordings, but
+  the DB classification can NEVER be removed from the UI.
+- FRONTEND: APP.environment/sandboxIntroDay/sandboxBadgeHidden adopted from
+  /api/auth/me in syncWalletFromServer (display only). trackLandingEvent()
+  payloads now carry `environment` so sandbox demos never contaminate real
+  customer analytics (reuses existing dataLayer/ANALYTICS_ENDPOINT infra).
+  Withdraw modal + startBot MTA gates skip for sandbox (display only).
+  61 new i18n keys x6 locales (1226 -> 1227 keys/locale; EN pre-existing values
+  unchanged; parity/dup/placeholder verified via vm-eval).
+- PRE-EXISTING GAPS CONFIRMED (reported, not invented): the 14-day intro Live
+  period and a fixed bot session limit exist ONLY as marketing copy, NOT in
+  production code - so the sandbox reproduces them as demo-only state
+  (intro_day counter; bot start/stop = "session ending"). Production
+  subscription IS backend-implemented (Phase 8). Withdrawal 15-30 min is copy-
+  only (production withdrawals stay 'pending'); sandbox simulates
+  pending->processing->completed within ~3 minutes. Deposit "Select funding
+  method/asset" is a fixed USDT-TRC20 label in production - mirrored.
+- VERIFICATION: node --check server.js OK; vm.Script parse of all 5 inline
+  <script> blocks OK; i18n vm-eval parity 1227 keys x6, 0 problems (61 new
+  sandbox keys present, 0 dups, 0 placeholder mismatches, all data-i18n refs
+  defined; the only 6 flagged "problems" are PRE-EXISTING landing.howItWorks.*
+  duplicate keys identical to baseline). tests/marketing_sandbox.test.js 58/58
+  (classification/immutability/is_simulated, backstop triggers, sandbox RPC
+  env-assert + no production-table access, route-branch ordering BEFORE any
+  production code on all 17 branched routes, KYC block, sandbox handlers touch
+  no production tables/RPCs/PaymentService, self/admin controls verify env
+  server-side, register cannot create sandbox accounts, reverse-regression:
+  production /api/trade/withdraw/deposit-status/subscription byte-unchanged,
+  pure-JS mirrors for charge/trade/withdraw/reset, frontend wiring, analytics).
+  npm test = 166 pass / 1 fail (the single fail is the PRE-EXISTING
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure -
+  identical to baseline; no regression). 167 tests total.
+- NOT committed/pushed/deployed. Migration 013 NOT applied to production
+  (awaiting approval, per spec section 27). Working tree: M AGENTS.md,
+  M public/index.html, M server.js, ?? supabase/migrations/013_marketing_sandbox.sql,
+  ?? tests/marketing_sandbox.test.js.
