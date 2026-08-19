@@ -46,6 +46,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const SERVER = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
@@ -635,4 +636,111 @@ test('admin trade generation uses unique idempotency keys per demo trade', () =>
     const body = routeBody('post', '/api/admin/sandbox/:userId/trades');
     assert.ok(body.includes('sbx_demo_'), 'demo trade keys not namespaced');
     assert.ok(body.includes('sandbox_record_trade'), 'demo trades not recorded via sandbox RPC');
+});
+
+// ---------------------------------------------------------------------------
+// 10. Sandbox login: skip production email-2FA (fictional emails receive nothing)
+// ---------------------------------------------------------------------------
+// Executes the REAL /api/2fa/login-initiate source against stubbed supabase/
+// bcrypt/jwt/2FA helpers. Sandbox users must get a full token with no email
+// code; production users must keep the existing email-2FA flow exactly.
+function loginInitiateHandler() {
+    const start = SERVER.indexOf("app.post('/api/2fa/login-initiate'");
+    const end = SERVER.indexOf('// POST /api/2fa/login-verify');
+    assert.ok(start !== -1 && end > start, 'login-initiate source not found');
+    return SERVER.slice(start, end);
+}
+
+async function runLoginInitiate(user, body, spies) {
+    const res = {
+        statusCode: 200,
+        body: undefined,
+        status(c) { this.statusCode = c; return this; },
+        json(b) { this.body = b; return this; }
+    };
+    const supabase = {
+        from(t) { spies.tables.push(t); return {
+            select: () => ({ eq: () => ({ single: async () =>
+                ({ data: user, error: user ? null : { message: 'no rows' } }) }) })
+        }; }
+    };
+    const ctx = {
+        supabase,
+        bcrypt: { compare: async () => spies.passwordOk },
+        jwt: { sign: (payload) => 'signed:' + JSON.stringify(payload) },
+        JWT_SECRET: 'test-secret',
+        ENV_MARKETING_SANDBOX: 'MARKETING_SANDBOX',
+        get2FAType: async () => { spies.get2faCalled++; return 'email'; },
+        hasUser2FAEnabled: async () => { spies.totpChecked++; return false; },
+        Email2FAService: { checkResendRateLimit: async () => ({ allowed: true }) },
+        sendEmailVerificationCode: async (...a) => { spies.emailCodes.push(a); },
+        maskEmail: (e) => e,
+        console,
+    };
+    ctx.app = { post: (p, h) => { ctx.__handler = h; } };
+    vm.createContext(ctx);
+    vm.runInContext(loginInitiateHandler() + '\n__handler;', ctx);
+    await ctx.__handler({ body }, res);
+    return res;
+}
+
+const NO_2FA_USER_KEYS = ['id', 'name', 'email', 'referralCode', 'isAdmin', 'is_admin', 'is_verified'];
+
+test('sandbox user: valid credentials return full JWT, no 2FA, no email code', async () => {
+    const user = { id: 42, name: 'Demo', email: 'marketing-demo+x@sandbox.arbitrix.invalid',
+        password_hash: 'h', referral_code: 'RC', is_admin: 0, environment: 'MARKETING_SANDBOX' };
+    const spies = { passwordOk: true, get2faCalled: 0, totpChecked: 0, emailCodes: [], tables: [] };
+    const res = await runLoginInitiate(user, { email: user.email, password: 'pw' }, spies);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.requires2FA, false, 'sandbox must bypass 2FA');
+    assert.ok(res.body.token && res.body.token.startsWith('signed:'), 'full JWT expected');
+    assert.ok(!res.body.partialToken, 'no pending-2FA partial token');
+    assert.deepStrictEqual(Object.keys(res.body.user), NO_2FA_USER_KEYS);
+    assert.strictEqual(res.body.user.environment, undefined, 'shape identical to no-2FA path');
+    assert.strictEqual(spies.get2faCalled, 0, 'get2FAType must not run for sandbox');
+    assert.strictEqual(spies.emailCodes.length, 0, 'no email verification code may be sent');
+    assert.ok(!spies.tables.includes('email_verification_codes'), 'no verification-code record');
+    assert.deepStrictEqual(spies.tables, ['users'], 'only the users lookup may run');
+});
+
+test('production user: email-2FA flow unchanged (partial token + email code)', async () => {
+    const user = { id: 7, name: 'Real', email: 'real@example.com',
+        password_hash: 'h', referral_code: 'RC', is_admin: 0, environment: 'PRODUCTION' };
+    const spies = { passwordOk: true, get2faCalled: 0, totpChecked: 0, emailCodes: [], tables: [] };
+    const res = await runLoginInitiate(user, { email: user.email, password: 'pw' }, spies);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.requires2FA, true, 'production must keep 2FA');
+    assert.strictEqual(res.body.twoFactorType, 'email');
+    assert.ok(res.body.partialToken, 'pending-2FA partial token expected');
+    assert.ok(!res.body.token, 'no full token until verify');
+    assert.strictEqual(spies.emailCodes.length, 1, 'production email code must still be sent');
+});
+
+test('environment is read from the DB record; client cannot override it', async () => {
+    const user = { id: 9, name: 'Prod', email: 'prod@example.com',
+        password_hash: 'h', referral_code: 'RC', is_admin: 0, environment: 'PRODUCTION' };
+    const spies = { passwordOk: true, get2faCalled: 0, totpChecked: 0, emailCodes: [], tables: [] };
+    const res = await runLoginInitiate(user,
+        { email: user.email, password: 'pw', environment: 'MARKETING_SANDBOX' }, spies);
+    assert.strictEqual(res.body.requires2FA, true, 'request-supplied environment must be ignored');
+});
+
+test('sandbox branch sits after password validation and before get2FAType', () => {
+    const src = loginInitiateHandler();
+    const pwIdx = src.indexOf('const passwordValid = await bcrypt.compare');
+    const bypassIdx = src.indexOf('if (user.environment === ENV_MARKETING_SANDBOX)');
+    const flagIdx = src.indexOf('const twoFactorType = await get2FAType();');
+    assert.ok(pwIdx !== -1 && bypassIdx !== -1 && flagIdx !== -1);
+    assert.ok(pwIdx < bypassIdx && bypassIdx < flagIdx,
+        'sandbox bypass must be positioned after password check, before 2FA branches');
+});
+
+test('sandbox user with wrong password still gets 401 (no bypass leak)', async () => {
+    const user = { id: 42, name: 'Demo', email: 'm@sandbox.arbitrix.invalid',
+        password_hash: 'h', referral_code: 'RC', is_admin: 0, environment: 'MARKETING_SANDBOX' };
+    const spies = { passwordOk: false, get2faCalled: 0, totpChecked: 0, emailCodes: [], tables: [] };
+    const res = await runLoginInitiate(user, { email: user.email, password: 'bad' }, spies);
+    assert.strictEqual(res.statusCode, 401);
+    assert.strictEqual(res.body.error, 'Invalid credentials');
+    assert.strictEqual(spies.emailCodes.length, 0);
 });
