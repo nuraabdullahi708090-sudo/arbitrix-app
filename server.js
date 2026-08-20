@@ -1131,6 +1131,20 @@ async function getSubscription(userId) {
 }
 
 /**
+ * Subscription funding eligibility: the user's $50 Live promotional credit
+ * (seeded into wallets.live_balance at wallet creation) must NOT count toward
+ * subscription funding. Eligibility is established ONLY via a confirmed real
+ * deposit record (hasConfirmedDeposit), never via the live_balance value,
+ * which commingles promo and deposited funds. Server-side only; the client
+ * never supplies balance/deposit/status.
+ * @param {number} userId
+ * @returns {Promise<boolean>}
+ */
+async function hasSubscriptionFundingEligibility(userId) {
+  return hasConfirmedDeposit(userId);
+}
+
+/**
  * Compute a server-authoritative billing-period label + idempotency key for a
  * billing attempt. The key is derived ONLY from the user id and the target
  * billing month (UTC), so a user can never be charged twice for the same
@@ -1197,6 +1211,24 @@ async function processDueSubscription(userId) {
 
   if (!due) {
     return { price, subscription: sub, result: { success: false, reason: 'not_due', status: sub.status } };
+  }
+
+  // ELIGIBILITY GATE (recurring): a due subscription must NOT be collected
+  // solely from the $50 Live promotional credit. If the user has no confirmed
+  // real deposit, do not charge; mark payment_due (the application's existing
+  // failed-collection state) and preserve the existing balance. No debt, no
+  // ledger entry. A user WITH a confirmed deposit bills normally regardless of
+  // any remaining promo credit (that residual limitation is inherent to the
+  // commingled wallets.live_balance and is unchanged by this gate).
+  if (!(await hasSubscriptionFundingEligibility(userId))) {
+    await supabaseAdmin.from('subscriptions')
+      .update({ status: 'payment_due', updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+    return {
+      price,
+      subscription: { ...sub, status: 'payment_due' },
+      result: { success: false, reason: 'deposit_required', status: 'payment_due' },
+    };
   }
 
   const { periodLabel, idempotencyKey } = subscriptionBillingKey(userId, anchor, 'monthly');
@@ -4736,6 +4768,24 @@ app.post('/api/subscription/activate', authMiddleware, async (req, res) => {
         message: 'Subscription already active',
         price: Number(price),
         status: 'active',
+        nextBillingDate: sub.next_billing_date,
+      });
+    }
+    // ELIGIBILITY GATE: a confirmed real deposit is required before any charge.
+    // The $50 Live promotional credit (seeded into wallets.live_balance) does
+    // NOT qualify. Runs BEFORE any status mutation or RPC so a promo-only user
+    // can never activate. Server-side only (hasConfirmedDeposit); the client
+    // cannot influence balance/deposit/status. No charge, no ledger entry, no
+    // status change when ineligible — the promo balance is untouched.
+    if (!(await hasSubscriptionFundingEligibility(userId))) {
+      return res.json({
+        success: false,
+        reason: 'deposit_required',
+        message: 'Make a deposit to activate your subscription.',
+        price: Number(price),
+        charged: 0,
+        newBalance: null,
+        status: sub.status,
         nextBillingDate: sub.next_billing_date,
       });
     }

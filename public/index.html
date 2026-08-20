@@ -3560,6 +3560,12 @@ function renderSubscriptionPanel(data) {
 async function activateSubscription() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
+    // Demo Mode eligibility: subscription can only be activated from Live Mode.
+    // Blocked client-side BEFORE any server call (no request is made).
+    if (APP.mode !== 'live') {
+        showToast(t('subscription.switchToLive'), 'warning');
+        return;
+    }
     const btn = getEl('subscriptionActivateBtn');
     if (btn) UI.setButtonLoading('subscriptionActivateBtn', true);
     try {
@@ -3577,6 +3583,10 @@ async function activateSubscription() {
         }
         if (data.status === 'active') {
             showToast(t('subscription.activated'), 'success');
+        } else if (data.reason === 'deposit_required') {
+            showToast(t('subscription.depositRequired'), 'warning');
+        } else if (data.reason === 'insufficient_balance') {
+            showToast(t('subscription.depositMore'), 'warning');
         } else if (data.status === 'payment_due') {
             showToast(t('subscription.paymentDue'), 'warning');
         } else {
@@ -7525,6 +7535,9 @@ const TRANSLATIONS = {
         'subscription.status.cancelled': 'Cancelled',
         'subscription.activated': 'Arbitrix Pro activated.',
         'subscription.paymentDue': 'Insufficient available balance. Subscription marked Payment Due.',
+        'subscription.switchToLive': 'Switch to Live Mode to activate your subscription.',
+        'subscription.depositRequired': 'Make a deposit to activate your subscription.',
+        'subscription.depositMore': 'Please deposit more funds to activate your subscription.',
         'subscription.cancelled': 'Subscription cancelled.',
         'subscription.activateFailed': 'Could not activate subscription.',
         'subscription.cancelFailed': 'Could not cancel subscription.',
@@ -8772,6 +8785,9 @@ const TRANSLATIONS = {
         'subscription.status.cancelled': 'Cancelada',
         'subscription.activated': 'Arbitrix Pro activada.',
         'subscription.paymentDue': 'Saldo disponible insuficiente. Suscripción marcada como Pago vencido.',
+        'subscription.switchToLive': 'Cambia al modo LIVE para activar tu suscripción.',
+        'subscription.depositRequired': 'Realiza un depósito para activar tu suscripción.',
+        'subscription.depositMore': 'Deposita más fondos para activar tu suscripción.',
         'subscription.cancelled': 'Suscripción cancelada.',
         'subscription.activateFailed': 'No se pudo activar la suscripción.',
         'subscription.cancelFailed': 'No se pudo cancelar la suscripción.',
@@ -10020,6 +10036,9 @@ const TRANSLATIONS = {
         'subscription.status.cancelled': 'Cancelada',
         'subscription.activated': 'Arbitrix Pro ativada.',
         'subscription.paymentDue': 'Saldo disponível insuficiente. Assinatura marcada como Pagamento vencido.',
+        'subscription.switchToLive': 'Mude para o modo LIVE para ativar sua assinatura.',
+        'subscription.depositRequired': 'Faça um depósito para ativar sua assinatura.',
+        'subscription.depositMore': 'Deposite mais fundos para ativar sua assinatura.',
         'subscription.cancelled': 'Assinatura cancelada.',
         'subscription.activateFailed': 'Não foi possível ativar a assinatura.',
         'subscription.cancelFailed': 'Não foi possível cancelar a assinatura.',
@@ -11268,6 +11287,9 @@ const TRANSLATIONS = {
         'subscription.status.cancelled': 'Annulé',
         'subscription.activated': 'Arbitrix Pro activé.',
         'subscription.paymentDue': 'Solde disponible insuffisant. Abonnement marqué Paiement dû.',
+        'subscription.switchToLive': 'Passez en mode LIVE pour activer votre abonnement.',
+        'subscription.depositRequired': 'Effectuez un dépôt pour activer votre abonnement.',
+        'subscription.depositMore': 'Déposez plus de fonds pour activer votre abonnement.',
         'subscription.cancelled': 'Abonnement annulé.',
         'subscription.activateFailed': "Impossible d'activer l'abonnement.",
         'subscription.cancelFailed': "Impossible d'annuler l'abonnement.",
@@ -12516,6 +12538,9 @@ const TRANSLATIONS = {
         'subscription.status.cancelled': 'ملغى',
         'subscription.activated': 'تم تفعيل Arbitrix Pro.',
         'subscription.paymentDue': 'الرصيد المتاح غير كافٍ. تم وضع علامة دفعة مستحقة على الاشتراك.',
+        'subscription.switchToLive': 'انتقل إلى وضع LIVE لتفعيل اشتراكك.',
+        'subscription.depositRequired': 'قم بالإيداع لتفعيل اشتراكك.',
+        'subscription.depositMore': 'يرجى إيداع المزيد من الأموال لتفعيل اشتراكك.',
         'subscription.cancelled': 'تم إلغاء الاشتراك.',
         'subscription.activateFailed': 'تعذّر تفعيل الاشتراك.',
         'subscription.cancelFailed': 'تعذّر إلغاء الاشتراك.',
@@ -13764,6 +13789,9 @@ const TRANSLATIONS = {
         'subscription.status.cancelled': '已取消',
         'subscription.activated': 'Arbitrix Pro 已激活。',
         'subscription.paymentDue': '可用余额不足。订阅已标记为待付款。',
+        'subscription.switchToLive': '切换到 LIVE 模式以激活您的订阅。',
+        'subscription.depositRequired': '请存款以激活您的订阅。',
+        'subscription.depositMore': '请存入更多资金以激活您的订阅。',
         'subscription.cancelled': '订阅已取消。',
         'subscription.activateFailed': '无法激活订阅。',
         'subscription.cancelFailed': '无法取消订阅。',
