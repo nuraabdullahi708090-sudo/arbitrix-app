@@ -591,11 +591,17 @@ test('frontend shows a marketing demo badge driven by server state', () => {
 });
 
 test('frontend sandbox gate skips are keyed on APP.environment (display only)', () => {
-    // Withdraw gate skip + MTA skip both require the server-issued classification.
+    // Withdraw gate skip requires the server-issued classification.
     const withdrawSkip = INDEX.indexOf("const isSandbox = APP.environment === 'MARKETING_SANDBOX';\n    if (!isSandbox)");
     assert.ok(withdrawSkip > 0, 'withdraw gate skip not environment-gated');
     assert.match(INDEX, /APP\.liveData\.balance < APP\.MTA && !isSandbox/);
-    assert.match(INDEX, /APP\.environment !== 'MARKETING_SANDBOX'\) \{\n        const needed/);
+    // The bot-start MTA gate must NOT skip MARKETING_SANDBOX: the sandbox
+    // demonstrates the real customer experience, so the $143 MTA applies there
+    // too (see tests/bot_mta.test.js).
+    assert.match(INDEX, /if\(APP\.mode === 'live' && APP\.liveData\.balance < APP\.MTA\) \{\n        showToast\(t\('bot\.mtaBlocked'\),'error'\);\n        return;/);
+    const startBotIdx = INDEX.indexOf('function startBot()');
+    const startBotBody = INDEX.slice(startBotIdx, startBotIdx + 1200);
+    assert.ok(!startBotBody.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'startBot must not exempt MARKETING_SANDBOX from the MTA gate');
 });
 
 test('frontend admin sandbox controls call only /api/admin/sandbox endpoints', () => {

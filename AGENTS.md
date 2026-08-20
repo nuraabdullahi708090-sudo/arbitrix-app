@@ -1550,3 +1550,47 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   (awaiting approval, per spec section 27). Working tree: M AGENTS.md,
   M public/index.html, M server.js, ?? supabase/migrations/013_marketing_sandbox.sql,
   ?? tests/marketing_sandbox.test.js.
+
+## Phase 10 — Bot-Start MTA ($143) Enforcement (2026-08, server.js + public/index.html + tests)
+- ROOT CAUSE (3 holes): (1) `handleSandboxBotStart` created a running sandbox bot
+  session with NO balance/MTA check at all; (2) production `/api/bot/start`
+  checked `mode === 'live' && wallet.live_balance < 143` but TRUSTED the
+  client-supplied `mode`, so `mode:'demo'`/missing/garbage bypassed the gate
+  while still creating a running session; (3) frontend `startBot()` explicitly
+  EXEMPTED MARKETING_SANDBOX from its MTA gate
+  (`&& APP.environment !== 'MARKETING_SANDBOX'`) — and the web UI never calls
+  /api/bot/start (bot trading is a client-side setInterval -> /api/trade), so
+  the client gate was the only gate for UI users.
+- FIX (smallest safe): new module const `BOT_MIN_TRADING_BALANCE = 143` (value
+  unchanged) near the ENV constants. Production route: mode is normalized
+  server-side (`req.body.mode === 'demo' ? 'demo' : 'live'` — default-deny so a
+  missing/unexpected mode can never bypass), balance is server-read via
+  getWallet + Number()-coerced, MTA check runs BEFORE the bot_sessions upsert
+  (HTTP 400 `{error:'MTA not reached'}` — same error string as before).
+  Sandbox handler: reads the simulated wallet via `getSandboxWallet`
+  (auto-creates a $0 wallet → blocked) and applies the SAME check BEFORE the
+  sandbox_bot_sessions upsert. Frontend `startBot()`: sandbox exemption
+  removed; blocked toast now uses the concise new key `bot.mtaBlocked`
+  ("Minimum trading balance is $143 to start the bot.") added to all 6 locales
+  after `bot.reachMTA` (dictionaries 1227 -> 1228 keys/locale).
+- PRESERVED: $143 value, $50 min deposit, $50 promo Live credit (lands in
+  live_balance=50 < 143 → correctly blocked), $1,000 Demo balance, $7
+  subscription (fully separate — no MTA requirement added to subscription),
+  Demo Mode ungated, trading strategy/execution (`/api/trade` intentionally has
+  NO MTA gate so already-running sessions behave exactly as before; a restart
+  goes through the same gated start path), `/api/bot/stop` never gated,
+  migration 013, sandbox isolation. Admin `/api/admin/sandbox/:userId/bot`
+  start/stop is a deliberate marketing staging override (left unchanged).
+- Test pins UPDATED for the intentional change: marketing_sandbox.test.js
+  "frontend sandbox gate skips" (bot MTA gate must NOT exempt sandbox),
+  subscription_eligibility.test.js CASE 4 + "MTA remains $143" (old literal
+  `wallet.live_balance < 143` → the new `BOT_MIN_TRADING_BALANCE` form; the
+  semantic pin "MTA stays $143" is unchanged).
+- Tests: NEW tests/bot_mta.test.js (18 tests: prod matrix 0/50/142.99/143/>
+  143, sandbox matrix, fake-client-balance + fake-mode security, no-session-on-
+  block ordering, demo preserved, restart blocked, i18n 6-locale parity incl.
+  exact EN message, /api/trade + /api/bot/stop + subscription regression pins).
+  `npm test` = 239 pass / 1 fail (the single fail is the pre-existing
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
+  identical to the 221/1 baseline; no regression). node --check server.js OK;
+  all 8 inline index.html script blocks parse (vm.Script).

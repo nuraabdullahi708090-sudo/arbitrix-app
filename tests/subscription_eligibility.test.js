@@ -113,7 +113,8 @@ describe('case matrix', () => {
   });
   test('CASE 4: $93 deposit reaches ~$143 balance; subscription stays independent of MTA', () => {
     // MTA (143) is a trading/bot gate, not a subscription gate.
-    assert.ok(serverSrc.includes("wallet.live_balance < 143"));
+    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 143'));
+    assert.ok(serverSrc.includes('Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE'));
     const r = activateGate('inactive', true);
     assert.ok(r.charged);
   });
@@ -158,7 +159,8 @@ describe('constants preserved', () => {
     assert.ok(/'subscription\.pro_price', '7', 'number'/.test(fs.readFileSync(path.join(ROOT, 'supabase/migrations/011_subscription_pro.sql'), 'utf8')));
   });
   test('MTA remains $143', () => {
-    assert.ok(serverSrc.includes("wallet.live_balance < 143"));
+    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 143'));
+    assert.ok(serverSrc.includes('Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE'));
     assert.ok(indexSrc.includes('$143.00'));
   });
   test('Demo starting balance remains $1,000', () => {
