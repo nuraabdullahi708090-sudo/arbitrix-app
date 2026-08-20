@@ -652,6 +652,7 @@ async function handleSandboxInvoiceCreate(req, res) {
       id: invoiceId,
       address: SANDBOX_DEPOSIT_ADDRESS,
       network: net,
+      amountUsd: amt,
       amount_usd: amt,
       usdValue: amt,
       status: 'pending',
@@ -678,12 +679,19 @@ async function handleSandboxInvoiceGet(req, res) {
   const userId = req.user.id;
   const deposit = await advanceSandboxDeposit(userId, req.params.invoiceId);
   if (!deposit) return res.status(404).json({ success: false, error: 'Invoice not found' });
+  // Frontend confirmation reads `result.amountUsd || result.creditedAmount` —
+  // camelCase mirrors production PaymentService.getInvoiceStatus; amount_usd
+  // (snake_case) kept for backwards compatibility.
+  const credited = deposit.status === 'confirmed' ? Number(deposit.amount) : 0;
   res.json({
     success: true,
     invoice: {
       id: deposit.invoice_id,
       status: deposit.status,
+      amountUsd: Number(deposit.amount),
       amount_usd: Number(deposit.amount),
+      creditedAmount: credited,
+      credited: deposit.status === 'confirmed',
       network: deposit.network,
       address: deposit.address,
     },
