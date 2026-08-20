@@ -7086,6 +7086,7 @@ const TRANSLATIONS = {
         'bot.startedLive': '✅ Bot started in Live mode',
         'bot.paused': '⏸️ Bot paused',
         'bot.reachMTA': '💰 Reach $143 MTA to activate bot (need ${{needed}} more)',
+        'bot.mtaBlocked': 'Minimum trading balance is $143 to start the bot.',
         'bot.mtaMet': '✅ MTA met! Bot ready to trade',
         'chart.title': 'Equity Performance',
         'chart.all': 'ALL',
@@ -8336,6 +8337,7 @@ const TRANSLATIONS = {
         'bot.startedLive': '✅ Bot iniciado en modo Live',
         'bot.paused': '⏸️ Bot en pausa',
         'bot.reachMTA': '💰 Alcanza $143 de MTA para activar el bot (faltan ${{needed}})',
+        'bot.mtaBlocked': 'El saldo mínimo de trading es $143 para iniciar el bot.',
         'bot.mtaMet': '✅ ¡MTA alcanzado! Bot listo para operar',
         'chart.title': 'Rendimiento del patrimonio',
         'chart.all': 'TODO',
@@ -9587,6 +9589,7 @@ const TRANSLATIONS = {
         'bot.startedLive': '✅ Bot iniciado no modo Live',
         'bot.paused': '⏸️ Bot pausado',
         'bot.reachMTA': '💰 Atinja $143 de MTA para ativar o bot (faltam ${{needed}})',
+        'bot.mtaBlocked': 'O saldo mínimo de trading é $143 para iniciar o bot.',
         'bot.mtaMet': '✅ MTA atingido! Bot pronto para operar',
         'chart.title': 'Desempenho do patrimônio',
         'chart.all': 'TUDO',
@@ -10838,6 +10841,7 @@ const TRANSLATIONS = {
         'bot.startedLive': '✅ Bot démarré en mode live',
         'bot.paused': '⏸️ Bot en pause',
         'bot.reachMTA': '💰 Atteignez $143 de MTA pour activer le bot (il manque ${{needed}})',
+        'bot.mtaBlocked': 'Le solde de trading minimum est de $143 pour démarrer le bot.',
         'bot.mtaMet': '✅ MTA atteint ! Bot prêt à trader',
         'chart.title': 'Performance des capitaux',
         'chart.all': 'TOUT',
@@ -12089,6 +12093,7 @@ const TRANSLATIONS = {
         'bot.startedLive': '✅ تم تشغيل الروبوت في الوضع المباشر',
         'bot.paused': '⏸️ تم إيقاف الروبوت مؤقتًا',
         'bot.reachMTA': '💰 بلغ $143 من MTA لتفعيل الروبوت (يتبقى ${{needed}})',
+        'bot.mtaBlocked': 'الحد الأدنى لرصيد التداول هو $143 لبدء تشغيل الروبوت.',
         'bot.mtaMet': '✅ تم تحقيق MTA! الروبوت جاهز للتداول',
         'chart.title': 'أداء رأس المال',
         'chart.all': 'الكل',
@@ -13340,6 +13345,7 @@ const TRANSLATIONS = {
         'bot.startedLive': '✅ 机器人已在实盘模式启动',
         'bot.paused': '⏸️ 机器人已暂停',
         'bot.reachMTA': '💰 达到 $143 MTA 即可启动机器人（还差 ${{needed}}）',
+        'bot.mtaBlocked': '启动机器人所需的最低交易余额为 $143。',
         'bot.mtaMet': '✅ 已达到 MTA！机器人可交易',
         'chart.title': '权益表现',
         'chart.all': '全部',
@@ -16256,12 +16262,12 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
 }
 
 function startBot() {
-    // MARKETING_SANDBOX: skip the MTA gate (simulated balance; server has no
-    // sandbox MTA gate). Server-side isolation is unaffected by this display
-    // shortcut.
-    if(APP.mode === 'live' && APP.liveData.balance < APP.MTA && APP.environment !== 'MARKETING_SANDBOX') {
-        const needed = (APP.MTA - APP.liveData.balance).toFixed(2);
-        showToast(t('bot.reachMTA', {needed: needed}),'error');
+    // The $143 MTA applies to live-style trading in BOTH production and
+    // MARKETING_SANDBOX (the sandbox demonstrates the real customer
+    // experience, so it must not bypass the MTA). The server enforces this
+    // authoritatively at /api/bot/start; this gate mirrors it for UX.
+    if(APP.mode === 'live' && APP.liveData.balance < APP.MTA) {
+        showToast(t('bot.mtaBlocked'),'error');
         return;
     }
     if(APP.botInterval) clearInterval(APP.botInterval);

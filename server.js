@@ -454,6 +454,13 @@ async function addTransaction(userId, type, amount, detail) {
 const ENV_PRODUCTION = 'PRODUCTION';
 const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 
+// Minimum Trading Amount (MTA): the live-style trading balance required to
+// START the bot. Server-authoritative; applies identically to production live
+// trading and MARKETING_SANDBOX live-style trading (the sandbox demonstrates
+// the real customer experience, so it must not bypass the MTA). Separate from
+// the $7 Arbitrix Pro subscription. Demo mode is intentionally not gated.
+const BOT_MIN_TRADING_BALANCE = 143;
+
 // users.environment is immutable once set, so a short TTL cache is safe.
 const _environmentCache = new Map(); // userId -> { env, at }
 const ENV_CACHE_TTL_MS = 60 * 1000;
@@ -785,6 +792,13 @@ async function handleSandboxTransactions(req, res) {
 async function handleSandboxBotStart(req, res) {
   const userId = req.user.id;
   const mode = 'live';
+  // The sandbox mirrors the real customer experience, so the $143 MTA applies
+  // here too: read the simulated wallet server-side and block below the MTA
+  // BEFORE any session is created (no session, no trades, no debit).
+  const wallet = await getSandboxWallet(userId);
+  if (Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE) {
+    return res.status(400).json({ error: 'MTA not reached' });
+  }
   await supabaseAdmin.from('sandbox_bot_sessions').upsert(
     { user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() },
     { onConflict: 'user_id' }
@@ -4591,9 +4605,15 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated bot session only.
   if (await sandboxHandled(req, res, handleSandboxBotStart)) return;
   const userId = req.user.id;
-  const { mode } = req.body;
+  // Server-authoritative: only an explicit 'demo' request gets demo behavior;
+  // a missing/unexpected client mode is treated as live-style trading so the
+  // client can never bypass the MTA gate via the mode field. The balance is
+  // read from the server wallet, never from the request.
+  const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
   const wallet = await getWallet(userId);
-  if (mode === 'live' && wallet.live_balance < 143) return res.status(400).json({ error: 'MTA not reached' });
+  if (mode === 'live' && Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE) {
+    return res.status(400).json({ error: 'MTA not reached' });
+  }
   await supabase.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
   res.json({ status: 'started', mode });
 });
