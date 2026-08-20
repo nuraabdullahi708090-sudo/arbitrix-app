@@ -1594,3 +1594,48 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
   identical to the 221/1 baseline; no regression). node --check server.js OK;
   all 8 inline index.html script blocks parse (vm.Script).
+
+## Phase 11 — Multilingual UI / Responsive Layout Resilience (public/index.html + tests)
+- Frontend-only CSS/HTML resilience for the 6 locales (en/es/pt/fr/ar/zh). NO
+  financial/backend logic (trading, deposits, withdrawals, subscriptions, MTA,
+  KYC, auth, Marketing Sandbox) touched; server.js unchanged; no translation
+  VALUES rewritten for length (dictionary parity preserved, 1231 keys/locale).
+- ROOT CAUSES found by browser audit (puppeteer-core + chromium, stubbed fetch,
+  all 6 locales x 320/375/390/430/1280px): legitimate longer translations
+  overflowed inside (a) the admin tables (no horizontal-scroll wrapper), (b)
+  the Ops sub-tabs container (display:flex without flex-wrap), (c) the sandbox
+  custom-balance flex row (inline flex, no wrap), and components relied on
+  buttons/tabs/badges never wrapping (no white-space:normal / flex-wrap /
+  table-wrap). English looked fine only because its labels are shortest.
+- FIX (smallest safe):
+  - `.btn{min-width:0;max-width:100%;height:auto;line-height:1.35;
+    white-space:normal;overflow-wrap:break-word}` — long labels wrap/grow
+    vertically instead of overflowing/clipping (no fixed width, no font shrink).
+  - `.mode-tabs{flex-wrap:wrap;max-width:100%}` + `.mode-tab{white-space:normal}`
+    — ALL tab pills (incl. Admin Sandbox tab) stay reachable by wrapping.
+  - `.table-wrap{overflow-x:auto}` + `.table-wrap table{min-width:max-content}`
+    — the 6 admin tables (users/deposits/withdrawals/KYC/subscriptions/referral-
+    audit) scroll horizontally INSIDE a wrapper; cells never clipped.
+  - `.status-badge{white-space:normal;overflow-wrap:break-word}` — the localized
+    subscription status pill wraps instead of pushing price/buttons out.
+  - `@media (max-width:640px){ .sandbox-balance-row{flex-wrap:wrap} }` + a
+    `sandbox-balance-row` hook on the custom-balance row — sandbox balance
+    buttons wrap on phones.
+  - Ops sub-tabs container given inline `flex-wrap:wrap`.
+- VALIDATION: node --check-equivalent (vm.Script) on all 4 inline <script>
+  blocks OK. Browser re-audit after fix: 0 real (non-table) overflow, 0 clipping,
+  0 overlap across all 6 locales x 320/390/1280px on profile/subscription,
+  deposit, verification, admin-ops, admin-sandbox, admin-subscriptions, MTA
+  toast, referral surfaces; landing + app shells clean at 320/375/390/430/1280.
+  Tables now scroll correctly inside their wrapper. Screenshots verified
+  (ar RTL, es, zh at 320/390). Remaining flags in the raw audit are the
+  off-canvas mobile sidebar (burger menu), a pre-existing design false positive.
+- Tests: NEW tests/multilingual_layout.test.js (9 tests) pinning the CSS
+  contract (buttons wrap, tabs wrap, table-wrap scroll, badge wrap, sandbox row
+  mobile wrap, ops sub-tabs wrap) + i18n parity (identical key sets, no empties,
+  no duplicates across all 6 locales) + all data-i18n refs defined + safety (no
+  global overflow hack, no global font-size reduction). `npm test` = 248 pass /
+  1 fail (the single fail is the pre-existing tests/q8qpay.webhook.test.js
+  `Cannot find module 'express'` env failure — identical to baseline; no
+  regression). body{overflow-x:hidden} is a PRE-EXISTING baseline rule
+  (Phase 8C) that was NOT added or removed by this phase.
