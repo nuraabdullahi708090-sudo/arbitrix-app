@@ -1639,3 +1639,76 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   `Cannot find module 'express'` env failure — identical to baseline; no
   regression). body{overflow-x:hidden} is a PRE-EXISTING baseline rule
   (Phase 8C) that was NOT added or removed by this phase.
+
+## Phase 12 — Mobile Navigation Drawer + Header/Dashboard Density (2026-08, public/index.html CSS-only + tests/mobile_nav_layout.test.js)
+- Frontend-only UI/responsive fix. NO changes to deposits/withdrawals/trading/
+  bot/MTA/subscription/promo-credit/min-deposit/auth/2FA/KYC/sandbox isolation/
+  schema/migrations/payment providers. server.js untouched. No translation
+  VALUES changed (dictionary parity preserved; no new keys needed).
+- SHARED vs SANDBOX-SPECIFIC finding: Production Demo, Production Live, and
+  MARKETING_SANDBOX all use the SAME app shell (sidebar/header/ticker/stats).
+  The mobile nav issues were SHARED by all modes (NOT sandbox-specific). The
+  only sandbox-specific issue was the MARKETING DEMO badge's RTL position.
+- ROOT CAUSES (measured via puppeteer-core + /usr/bin/chromium, stubbed fetch):
+  1. `.sidebar{width:260px}` fixed for ALL widths -> 81% of a 320px viewport,
+     leaving only ~60px of dashboard visible. Fix: `max-width:78vw` on the same
+     base rule (260px is unchanged at >=334px; 320px gets ~250px so ~70px of
+     the dashboard + overlay remains visible/tappable).
+  2. Hamburger (`#mobileMenuBtn`, z-index 1001, fixed top-left) rendered ON TOP
+     of the open drawer (z-index 1000), covering the drawer's brand area.
+     Background also remained scrollable while the drawer was open. Fix (CSS
+     only, no JS state to go stale): `body:has(.sidebar.open){overflow:hidden}`
+     and `body:has(.sidebar.open) .mobile-menu-btn{opacity:0;pointer-events:
+     none}`. Graceful degradation: pre-Chrome-105 / pre-Safari-15.4 browsers
+     (no :has) keep the old behavior.
+  3. Header vertical stack was legitimately tall but had removable dead space:
+     `.app-header` gap 12px + margin-bottom 16px, `.ticker-wrapper`
+     margin-bottom 14px. Fix: a NEW `@media (max-width:640px)` block AFTER the
+     base rules (cascade matters — an earlier attempt placed it before the base
+     `.app-header` rule and silently did nothing): `.app-header{gap:8px;
+     margin-bottom:12px}` + `.ticker-wrapper{margin-bottom:10px}`. Stat cards
+     rise ~12px at every mobile width. `.app-header{padding-top:44px}` KEPT —
+     it is the necessary clearance for the fixed 44px hamburger; the header has
+     NO fixed height (content-driven, wraps).
+  4. RTL ONLY + SANDBOX ONLY: `#sandboxBadge` is inline-styled `top:12px;
+     right:12px`; in `ar` (dir=rtl) the hamburger moves to the physical RIGHT
+     (`html[dir="rtl"] .mobile-menu-btn{right:12px}`) so the badge OVERLAPPED
+     the hamburger (measured x-ranges intersected). Fix: `html[dir="rtl"]
+     #sandboxBadge{right:auto !important;left:12px !important}` (!important
+     required to beat the inline style). Badge remains visible/unambiguous in
+     all locales; in LTR it stays top-right.
+- NOT changed (deliberately): the drawer's 1px dark `--border-color` edge (the
+  prominent GOLD edge the user saw is the `.sidebar-link.active` 3px gold
+  active-item indicator — by design) ; the overlay rgba(0,0,0,0.6) (existing);
+  the mode-tabs full-width row at <=379px (needed so DEMO/LIVE stay reachable);
+  no drawer redesign (same off-canvas pattern, just width-capped).
+- Landing page unaffected (landing CSS untouched). Desktop (>=640px: 220px
+  static sidebar; >=1024px: 240px) byte-unchanged and verified at 1280px.
+- Measured post-fix (all 60 scenarios: 2 environments x 6 locales x
+  320/375/390/430/1280): documentElement.scrollWidth == innerWidth (0px
+  horizontal overflow) with the drawer open AND closed; drawer width 250px@320
+  / 260px@375 / 260px@390 / 260px@430; all 12 sidebar links inside the drawer;
+  overlay click + hamburger toggle close reliably (LTR and RTL); drawer scrolls
+  internally (overflow-y:auto); body scroll locked while open; MARKETING DEMO
+  badge never overlaps the notification button or hamburger in any locale;
+  Spanish (longest labels) wraps the header to ~222px at 320px with NO
+  clipping/overlap (legitimate wrapping, per spec).
+- Tests: NEW tests/mobile_nav_layout.test.js (14 tests): drawer viewport cap +
+  fixed/scrollable/z-index contract, off-canvas transform (no page overflow),
+  :has() scroll-lock + hamburger-hide rules, badge element/i18n wiring intact +
+  sandbox.badge key non-empty in all 6 locales, RTL badge override, .app-header
+  NO fixed height + compaction block placed AFTER base rules, desktop
+  220px/240px rules intact, i18n parity (identical key sets, no empties; dup
+  detector bounded to the TRANSLATIONS object span so it doesn't over-read into
+  BACKEND_MESSAGE_MAP; whitelists ONLY the pre-existing baseline
+  landing.howItWorks.*/landing.faq.tag|title dups), no global overflow hack,
+  sidebar nav structure intact.
+- Baseline-vs-fixed: baseline 248 pass/1 fail -> fixed 262 pass/1 fail (+14 new
+  tests). The single fail is the PRE-EXISTING tests/q8qpay.webhook.test.js
+  `Cannot find module 'express'` env failure (node_modules not installed) —
+  identical to baseline; no regression.
+- KNOWN BASELINE GAP (documented, not fixed here): pre-existing duplicate i18n
+  keys landing.howItWorks.* (10 keys) + landing.faq.tag/title in all 6 locales
+  (identical values; eval keeps the last). Cosmetic only; a cleanup pass should
+  remove the first occurrences in a separate PR.
+
