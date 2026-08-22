@@ -18158,7 +18158,7 @@ async function syncSandboxWithdrawHistory() {
         if (!res.ok) return;
         const rows = await res.json();
         if (!Array.isArray(rows)) return;
-        const STATUS_LABELS = { pending: 'Pending', processing: 'Processing', completed: 'Withdrawn', rejected: 'Rejected' };
+        const STATUS_LABELS = { pending: 'Pending', processing: 'Processing', completed: 'Withdrawn successfully', rejected: 'Rejected' };
         APP.withdrawHistory = rows.map(w => ({
             amount: Number(w.amount) || 0,
             address: (w.address || '').slice(0, 6) + '...',

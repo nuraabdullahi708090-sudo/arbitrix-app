@@ -58,7 +58,7 @@ test('syncSandboxWithdrawHistory exists and is sandbox-guarded', () => {
 
 test('server status completed maps to display Withdrawn', () => {
     const fn = extractFunction(INDEX, 'syncSandboxWithdrawHistory');
-    assert.ok(fn.includes("completed: 'Withdrawn'"), 'completed -> Withdrawn');
+    assert.ok(fn.includes("completed: 'Withdrawn successfully'"), 'completed -> Withdrawn successfully');
     assert.ok(fn.includes("processing: 'Processing'"), 'processing -> Processing');
     assert.ok(fn.includes("pending: 'Pending'"), 'pending -> Pending');
     assert.ok(fn.includes("rejected: 'Rejected'"), 'rejected -> Rejected');
@@ -88,7 +88,7 @@ test('syncSandboxWithdrawHistory functionally maps server rows (vm)', () => {
     return sandbox.__run().then(() => {
         assert.deepStrictEqual(calls, ['/api/withdraw/history']);
         assert.strictEqual(APP.withdrawHistory.length, 3);
-        assert.strictEqual(APP.withdrawHistory[0].status, 'Withdrawn');
+        assert.strictEqual(APP.withdrawHistory[0].status, 'Withdrawn successfully');
         assert.strictEqual(APP.withdrawHistory[0].amount, 25);
         assert.strictEqual(APP.withdrawHistory[0].address, 'TRJdD9...');
         assert.strictEqual(APP.withdrawHistory[1].status, 'Processing');
