@@ -1874,3 +1874,28 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   pass / 1 fail (the single fail is the pre-existing
   tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
   identical to baseline; no regression). 289 tests total.
+
+## Phase 16 — Sandbox Badge Label "PREVIEW" (2026-08, public/index.html + tests, frontend-only)
+- Label-only change: the visible MARKETING_SANDBOX badge text changed from
+  "MARKETING DEMO" to "PREVIEW" (less distracting in controlled marketing
+  presentations while still clearly indicating a non-customer account).
+- Changed ONLY i18n VALUES: `sandbox.badge` in all 6 locales
+  (en PREVIEW / es VISTA PREVIA / pt PRÉ-VISUALIZAÇÃO / fr APERÇU / ar معاينة /
+  zh 预览) plus the admin-only `sandbox.admin.showBadge` labels (en "Show Preview
+  Badge" + 5 locale equivalents). The badge element (#sandboxBadge), its
+  styling, positioning (fixed right:12px LTR; html[dir=rtl] flip to left:12px),
+  the t('sandbox.badge') render path, and the display gate
+  (`APP.environment === 'MARKETING_SANDBOX'` && !badgeHidden) are all UNCHANGED.
+- UNCHANGED: internal classification users.environment='MARKETING_SANDBOX'
+  (frontend gate + server ENV_MARKETING_SANDBOX), all sandbox behavior,
+  balances, financial/deposit/withdrawal/trading/bot/subscription/KYC/auth
+  logic, and production users (production accounts never see the badge).
+  Translation key parity preserved (identical key sets, 0 empties).
+- VERIFICATION: 7 new tests/sandbox_badge_label.test.js (label per locale,
+  i18n-key render path, MARKETING_SANDBOX gate unchanged, styling/RTL hooks
+  unchanged, no stray old label, key parity). Browser audit (puppeteer-core +
+  chromium, stubbed fetch): 2 environments x 5 widths (320/375/390/430/1280) x
+  6 langs = 60 scenarios, BAD 0 — sandbox shows the localized PREVIEW label
+  in-viewport (LTR + ar RTL), production shows NO badge, hOv=0 everywhere.
+  npm test = 295 pass / 1 fail (pre-existing q8qpay.webhook express env
+  failure, unchanged baseline; no regression). 296 tests total.
