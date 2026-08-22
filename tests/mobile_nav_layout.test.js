@@ -149,7 +149,8 @@ test('.app-header has NO fixed height (content-driven, wraps safely)', () => {
 });
 
 test('mobile header/ticker compaction exists and is placed after the base rules', () => {
-    const blockRe = /@media \(max-width: 640px\) \{\s*\.app-header\{gap:8px;margin-bottom:12px;\}\s*\.ticker-wrapper\{margin-bottom:10px;\}\s*\}/;
+    // anchor on the compaction rule itself (there are multiple 640px blocks)
+    const blockRe = /@media \(max-width: 640px\) \{\s*\.app-header\{gap:8px;margin-bottom:12px;\}\s*\.ticker-wrapper\{margin-bottom:10px;\}/;
     const m = CSS.match(blockRe);
     assert.ok(m, 'compaction media block missing or values changed');
     const baseIdx = CSS.indexOf('.app-header{display:flex');
@@ -157,6 +158,29 @@ test('mobile header/ticker compaction exists and is placed after the base rules'
     assert.ok(m.index > baseIdx, 'compaction block must come AFTER the base .app-header rule (cascade)');
     // desktop breakpoint still resets header padding
     assert.match(CSS, /@media\(min-width:640px\)\{[\s\S]*?\.app-header\{padding-top:0;\}/, 'desktop header reset intact');
+});
+
+// ---------------------------------------------------------------------------
+// 4b. Phase 13: header userName hidden on mobile so the localized accountStatus
+//     row does not force .app-header-right to wrap (Spanish demo regression)
+// ---------------------------------------------------------------------------
+test('header userName is hidden on mobile and the rules live in the mobile media block', () => {
+    // anchor on the compaction block specifically (there are multiple 640px blocks)
+    const blockRe = /@media \(max-width: 640px\) \{\s*\.app-header\{gap:8px;margin-bottom:12px;\}([\s\S]*?)\n        \}/;
+    const m = CSS.match(blockRe);
+    assert.ok(m, 'mobile compaction media block missing');
+    const block = m[1];
+    assert.match(block, /\.app-header-right\{gap:6px;\}/, 'mobile header-right gap rule missing');
+    assert.match(block, /\.app-header-right #userName\{display:none;\}/, 'mobile userName hide rule missing');
+    // the hide rule must NOT leak to desktop: it only exists inside the media block
+    const outside = CSS.replace(m[0], '');
+    assert.doesNotMatch(outside, /#userName\{display:none\}/, 'userName must stay visible on desktop');
+    // userName element still exists in the header (JS writes to it)
+    assert.match(INDEX, /id="userName"/, 'userName element must remain in the DOM');
+});
+
+test('desktop base .app-header-right rule is unchanged (wrap allowed)', () => {
+    assert.match(CSS, /\.app-header-right\{display:flex;align-items:center;gap:8px;flex-wrap:wrap;\}/, 'base header-right rule must remain');
 });
 
 test('mobile header keeps hamburger clearance (padding-top) instead of a fixed height', () => {

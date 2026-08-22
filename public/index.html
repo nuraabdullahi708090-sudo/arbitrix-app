@@ -1419,6 +1419,16 @@
         @media (max-width: 640px) {
             .app-header{gap:8px;margin-bottom:12px;}
             .ticker-wrapper{margin-bottom:10px;}
+            /* Phase 13: the header userName is redundant on mobile (the sidebar
+               status block already shows #displayName + the account badge) and
+               its ~60-90px forces .app-header-right to wrap to a second line
+               whenever the localized accountStatus text is long (e.g. Spanish
+               demo "Trading demo • Fondos virtuales"), adding ~52px of header
+               height and pushing the ticker/stat cards down. Hide it and tighten
+               the gap so the controls row fits on one line where it can. Longer
+               translations may still legitimately wrap at 320px. */
+            .app-header-right{gap:6px;}
+            .app-header-right #userName{display:none;}
         }
 
         /* Wallet visibility - controlled by JS */
