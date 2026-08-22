@@ -444,6 +444,13 @@
             padding: var(--space-6);
             width: 100%;
             max-width: 400px;
+            /* Tall content on short viewports must stay fully reachable: cap
+               the box and scroll internally (same pattern as
+               .deposit-modal-content), otherwise flex-centering pushes the
+               title/close button above the viewport with no way to scroll to
+               it. */
+            max-height: 92vh;
+            overflow-y: auto;
             transform: scale(0.95) translateY(10px);
             transition: transform 0.3s ease;
             box-shadow: var(--shadow-lg);
