@@ -1831,3 +1831,46 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   hook, RTL-safe margin. npm test = 276 pass / 1 fail (the single fail is the
   pre-existing tests/q8qpay.webhook.test.js `Cannot find module 'express'` env
   failure — identical to baseline; no regression).
+
+## Phase 15 — MARKETING_SANDBOX Default Demo Balance $1,000 (2026-08, server.js + tests)
+- PROBLEM: a newly created MARKETING_SANDBOX account started Demo Mode at $0,
+  while the normal Arbitrix experience starts a new production user's Demo Mode
+  at $1,000. Inconsistent demo experience for marketing screenshots/recordings.
+- ROOT CAUSE (diagnosed before changing anything): `getSandboxWallet()`
+  (server.js) hardcoded `demo_balance: 0` in the wallet response shape returned
+  by `/api/auth/me`. Production `getWallet()` seeds new users with
+  `demo_balance: 1000`. The `sandbox_wallets` table (migration 013) has NO demo
+  column BY DESIGN — demo trading has no server ledger (demo-mode trades are
+  client-side only; `executeBotTrade` calls `saveData()` but never POSTs
+  /api/trade in demo mode), so the demo balance is a pure READ-TIME response
+  value, not a stored balance. The frontend `syncWalletFromServer()` adopts
+  `wallet.demo_balance` verbatim → sandbox demo showed $0. Migration 013 was
+  NOT the bug and is NOT modified.
+- FIX (smallest safe, server.js only): new module const
+  `SANDBOX_DEMO_BALANCE = 1000` (next to BOT_MIN_TRADING_BALANCE) +
+  `getSandboxWallet` returns `demo_balance: SANDBOX_DEMO_BALANCE` instead of 0.
+  No DB change, no migration change, no schema change, no stored balance
+  altered. The value is computed at read time, so EXISTING sandbox accounts
+  automatically show $1,000 demo on next sync — nothing is silently altered in
+  the DB (no reset/migration operation needed or performed).
+- SAFETY (pinned by tests/sandbox_demo_balance.test.js, 12 tests): the $1,000
+  is ONLY the simulated demo seed — never stored, never a deposit, never a
+  ledger entry, never feeds live_balance. live_balance still derives ONLY from
+  sandbox_wallets.balance (DEFAULT 0). Sandbox account creation still inserts
+  ONLY into users + sandbox_wallets (no production `wallets` row, no deposit,
+  no transaction). Migration 013 schema + backstop triggers
+  (assert_user_not_marketing_sandbox / assert_wallet_not_marketing_sandbox)
+  byte-unchanged. Production wallet init unchanged (demo 1000 / live 50 promo /
+  bonus 0). $143 MTA unchanged (sandbox bot gate still on live_balance only).
+  Subscription eligibility unchanged. Switching to Live does NOT convert the
+  demo $1,000 into live funds (live stays $0; the simulated deposit flow is
+  still required). The frontend demo display path is unchanged.
+- VERIFICATION: `node --check server.js` OK. Browser audit (puppeteer-core +
+  chromium, stubbed /api/auth/me returning the fixed shape): 6 languages
+  (en/es/pt/fr/ar/zh) × 5 widths (320/375/390/430/1280px) = 30 scenarios, BAD 0
+  — Demo shows $1000.00 everywhere, Live shows $0.00, demo→live→demo switching
+  never converts the demo balance, hOv=0 (no horizontal overflow).
+- TESTS: NEW tests/sandbox_demo_balance.test.js (12 tests). npm test = 288
+  pass / 1 fail (the single fail is the pre-existing
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
+  identical to baseline; no regression). 289 tests total.
