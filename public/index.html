@@ -17186,6 +17186,9 @@ async function openWithdrawModal() {
 
     getEl('withdrawModal').classList.add('open');
     getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
+    // MARKETING_SANDBOX only: refresh Recent-withdrawal statuses so a completed
+    // simulated payout shows "Withdrawn" (no-op for production accounts).
+    syncSandboxWithdrawHistory();
 }
 
 function closeWithdrawModal() { getEl('withdrawModal').classList.remove('open'); }
@@ -17227,6 +17230,14 @@ async function submitWithdrawAPI(address, amount) {
             APP.withdrawHistory.unshift({amount:amount, address:address.slice(0,6)+'...', status:'Processing', time:new Date().toLocaleTimeString()});
             APP.liveData.history = APP.liveData.history || [];
             APP.liveData.history.unshift({type:'Withdraw', detail:'To ' + address.slice(0,6) + '...', amount:-amount, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
+            if (APP.environment === 'MARKETING_SANDBOX') {
+                // Reflect the simulated payout lifecycle in the Recent list: the
+                // server advances pending -> processing (~20s) -> completed (~75s)
+                // on each history read, so re-sync just after those thresholds to
+                // flip the entry Processing -> Withdrawn.
+                setTimeout(syncSandboxWithdrawHistory, 25000);
+                setTimeout(syncSandboxWithdrawHistory, 80000);
+            }
             getEl('withdrawAddressInput').value = '';
             getEl('withdrawAmountInput').value = '';
             updateUI();
@@ -18126,7 +18137,39 @@ async function syncWalletFromServer() {
         console.warn('[syncWalletFromServer] transactions sync failed:', e.message);
     }
 
+    // MARKETING_SANDBOX only: reconcile the withdraw-modal "Recent" list with
+    // the server's simulated payout lifecycle (no-op for production accounts).
+    await syncSandboxWithdrawHistory();
+
     return { ok: serverSynced, funded: fundedFromServer };
+}
+
+// MARKETING_SANDBOX only: reconcile the withdraw-modal "Recent" list with the
+// server's simulated withdrawal lifecycle (pending -> processing -> completed).
+// The server lazily advances states on each /api/withdraw/history read, so a
+// sandbox withdrawal visibly progresses Processing -> Withdrawn like a real
+// payout. No-op for production accounts (their history stays client-side).
+async function syncSandboxWithdrawHistory() {
+    if (APP.environment !== 'MARKETING_SANDBOX') return;
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/withdraw/history', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) return;
+        const rows = await res.json();
+        if (!Array.isArray(rows)) return;
+        const STATUS_LABELS = { pending: 'Pending', processing: 'Processing', completed: 'Withdrawn', rejected: 'Rejected' };
+        APP.withdrawHistory = rows.map(w => ({
+            amount: Number(w.amount) || 0,
+            address: (w.address || '').slice(0, 6) + '...',
+            status: STATUS_LABELS[w.status] || w.status || 'Pending',
+            time: w.created_at ? new Date(w.created_at).toLocaleTimeString() : new Date().toLocaleTimeString()
+        }));
+        saveData();
+        if (typeof updateUI === 'function') updateUI();
+    } catch (e) {
+        console.warn('[syncSandboxWithdrawHistory] failed:', e.message);
+    }
 }
 
 async function initApp() {
