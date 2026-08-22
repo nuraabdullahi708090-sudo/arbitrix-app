@@ -1899,3 +1899,41 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   in-viewport (LTR + ar RTL), production shows NO badge, hOv=0 everywhere.
   npm test = 295 pass / 1 fail (pre-existing q8qpay.webhook express env
   failure, unchanged baseline; no regression). 296 tests total.
+
+
+## Phase 17 — MARKETING_SANDBOX withdraw section: remove "$700 minimum" wording (2026-08, public/index.html + tests)
+- Sandbox withdrawals are balance-only (the server sandbox route enforces
+  balance-only rules; openWithdrawModal already skips the $700/deposit/trade
+  gates for sandbox). The withdraw section still DISPLAYED "$700 minimum" copy,
+  which was misleading for MARKETING_SANDBOX accounts. Frontend-only, display-
+  only fix; NO changes to server.js, gating logic, or financial constants.
+- Two NEW i18n keys added to ALL 6 locales (inserted after their production
+  counterparts): `withdraw.infoSandbox` ("No minimum withdrawal | 15-30min
+  processing") and `live.withdrawStatus.readySandbox` ("✅ Ready to withdraw").
+  None of the 12 values contain "700". Dictionaries 1233 -> 1235 keys/locale;
+  production keys `withdraw.info` / `live.withdrawStatus.ready` /
+  `withdraw.min700` are byte-unchanged (production still says $700).
+- `updateLiveWithdrawStatus()`: added `isSandbox = APP.environment ===
+  'MARKETING_SANDBOX'`; in the ready branch renders
+  `live.withdrawStatus.readySandbox` for sandbox (sidebar `#liveWithdrawStatus`)
+  and `withdraw.infoSandbox` for the modal info box (`#withdrawInfoText`).
+  All branch/gate logic (hasDeposit / reachedMTA / MIN_WITHDRAWAL / hasTrade)
+  is UNCHANGED — only the display string is swapped.
+- `updateDynamicTranslations()` now also calls `updateLiveWithdrawStatus()` so
+  a language switch re-renders both texts with the correct variant AFTER
+  applyTranslations() refreshes the `data-i18n="withdraw.info"` span (ordering
+  verified: data-i18n pass first, dynamic override after).
+- UNCHANGED: APP.MIN_WITHDRAWAL=700, Gate 2/3/4 + submitWithdraw production
+  checks (still skipped ONLY for sandbox), `withdraw.min700` +
+  BACKEND_MESSAGE_MAP (the production server error string; sandbox routes never
+  return 'Min $700'), KYC flow, all financial/backend logic.
+- Tests: NEW tests/sandbox_withdraw_wording.test.js (6 tests): variant keys
+  exist/non-empty/no-"700" in all 6 locales; production $700 keys unchanged;
+  vm-executed real updateLiveWithdrawStatus (sandbox -> variant, production ->
+  $700, undefined env -> production, non-ready branches unchanged); gate
+  constants/structure unchanged; language-switch hook present; i18n parity
+  (1235 keys/locale x6, 0 empty). npm test = 301 pass / 1 fail (the single
+  fail is the pre-existing tests/q8qpay.webhook.test.js `Cannot find module
+  'express'` env failure — identical to baseline; no regression).
+- NOT committed/pushed/deployed (checkpoint pending user confirmation).
+  Working tree: M public/index.html, ?? tests/sandbox_withdraw_wording.test.js.
