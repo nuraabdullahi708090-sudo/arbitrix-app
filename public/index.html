@@ -18163,7 +18163,7 @@ async function syncSandboxWithdrawHistory() {
             amount: Number(w.amount) || 0,
             address: (w.address || '').slice(0, 6) + '...',
             status: STATUS_LABELS[w.status] || w.status || 'Pending',
-            time: w.created_at ? new Date(w.created_at).toLocaleTimeString() : new Date().toLocaleTimeString()
+            time: w.created_at ? new Date(w.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
         }));
         saveData();
         if (typeof updateUI === 'function') updateUI();
