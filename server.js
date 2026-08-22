@@ -461,6 +461,13 @@ const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 // the $7 Arbitrix Pro subscription. Demo mode is intentionally not gated.
 const BOT_MIN_TRADING_BALANCE = 143;
 
+// Simulated Demo balance seed for MARKETING_SANDBOX accounts, matching the
+// production new-user demo seed (getWallet inserts demo_balance: 1000). Purely
+// a read-time response value: sandbox_wallets has no demo column by design
+// (demo trading has no server ledger - demo trades are client-side only), so
+// this is NOT a stored balance, NOT a deposit, and never feeds live_balance.
+const SANDBOX_DEMO_BALANCE = 1000;
+
 // users.environment is immutable once set, so a short TTL cache is safe.
 const _environmentCache = new Map(); // userId -> { env, at }
 const ENV_CACHE_TTL_MS = 60 * 1000;
@@ -519,7 +526,9 @@ async function getSandboxWallet(userId) {
   }
   return {
     user_id: userId,
-    demo_balance: 0,
+    // Simulated demo seed (see SANDBOX_DEMO_BALANCE). Read-time constant; the
+    // stored sandbox `balance` is the simulated LIVE balance only.
+    demo_balance: SANDBOX_DEMO_BALANCE,
     live_balance: Number(data.balance) || 0,
     bonus_balance: 0,
     intro_day: data.intro_day,
