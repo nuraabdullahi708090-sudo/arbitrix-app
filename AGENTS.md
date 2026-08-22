@@ -1712,3 +1712,54 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   (identical values; eval keeps the last). Cosmetic only; a cleanup pass should
   remove the first occurrences in a separate PR.
 
+## Phase 13 — Spanish Demo-Mode Header Wrap Fix (2026-08, public/index.html CSS-only + tests/mobile_nav_layout.test.js)
+- Follow-up investigation to PR #97 (Phase 12) for a confirmed real-world repro:
+  MARKETING_SANDBOX -> Demo Mode -> runtime language switch EN -> Español ->
+  mobile (~390px). Frontend-only CSS; NO financial/backend/i18n-value changes.
+- VERDICT: The PR #97 mechanics (drawer cap/scroll-lock/hamburger-hide/RTL
+  badge) fully held under the exact runtime repro — the switch harness
+  (Chromium, stubbed fetch, EN->ES->EN->ES with drawer open/close + scroll)
+  showed 0px horizontal overflow, no stuck-open drawer, no progressive drift,
+  and a ROUND-TRIP-PERFECT layout in both environments and all modes. The
+  screenshot's remaining complaint (tall header / content pushed down) was a
+  REAL residual density bug PR #97 did not cover:
+- ROOT CAUSE: `.app-header-right{display:flex;flex-wrap:wrap;gap:8px}`
+  contains #accountStatus + #userName + sound + language + notifications.
+  In DEMO mode the localized accountStatus is long (es "Trading demo • Fondos
+  virtuales" = 155px). Status 155 + userName ~60-90 + gaps + 3x44px buttons
+  EXCEEDS one row at <=390px -> the controls wrap to a SECOND line
+  (headerRight 44px -> 96px), adding ~52px of header height: 185px at 390px,
+  222px at 320/375. Spanish/Portuguese/French widen the status text by
+  ~10-15px vs English, which is why the wrap showed most clearly after
+  switching to Spanish. SHARED by Production Demo and Sandbox Demo (same
+  shell); Live unaffected ("Trading en vivo..." is shorter); not
+  Spanish-specific (en/fr/pt wrap too at the same widths in demo mode).
+  NOTE: the language switch itself is NOT broken — the same wrap happens with
+  Spanish loaded before page load (verified in the Phase 12 matrix: hdr 222px
+  @320 for es/pt/fr).
+- FIX (2 CSS lines inside the existing Phase 12 `@media (max-width: 640px)`
+  compaction block): `.app-header-right{gap:6px;}` +
+  `.app-header-right #userName{display:none;}`. The header userName is
+  redundant on mobile (the sidebar status block already shows #displayName +
+  the account badge). Result: header controls fit on ONE line at >=342px in
+  demo mode for ALL 6 locales: 390px demo header 185 -> 133px (matches Live;
+  ticker 213 -> 161, stats 265 -> 213); 375px 222 -> 170; 320px es/pt/fr
+  222 -> 220 (status+controls still legitimately wrap ~2px at the extreme
+  width — allowed; en/ar/zh 222 -> 170). Desktop (>=641px) UNCHANGED:
+  userName visible, header 44px (verified 1280px en+es).
+- Harness lessons: (a) `await initApp()` before setMode — initApp auto-switches
+  funded accounts to live, so a pre-setMode gets overridden; (b) fresh browser
+  context per scenario — arbi_mode persists in localStorage across pages.
+- Verification: runtime-switch harness (EN->ES->drawer open/close->scroll->
+  EN->ES->drawer again) at 390px x {sbx-demo, prod-demo, prod-live} + post-fix
+  at 320/375/390/430/1280: 0 overflow everywhere, docH/header round-trip
+  perfect (no progressive drift), drawer never stuck, badge never overlaps.
+  Baseline (pre-#97, worktree 6934840) rerun of the same repro confirms the
+  pre-fix state (header 189px, stats y=277, drawer full 260px, no scroll
+  lock). Demo-mode matrix all 6 langs x 320/375/390/430/1280 x both
+  environments: post-fix headers above; 0 hOverflow.
+- Tests: tests/mobile_nav_layout.test.js 14 -> 16 tests (new: userName hidden
+  only inside the mobile media block + element still in DOM; desktop base
+  .app-header-right rule unchanged). npm test = 264 pass / 1 fail (same
+  pre-existing q8qpay.webhook express env failure; no regression).
+
