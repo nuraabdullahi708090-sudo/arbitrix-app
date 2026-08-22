@@ -93,6 +93,9 @@ test('syncSandboxWithdrawHistory functionally maps server rows (vm)', () => {
         assert.strictEqual(APP.withdrawHistory[0].address, 'TRJdD9...');
         assert.strictEqual(APP.withdrawHistory[1].status, 'Processing');
         assert.strictEqual(APP.withdrawHistory[2].status, 'Rejected');
+        // 12-hour clock with AM/PM marker (e.g. "10:00 AM"), never 24-hour.
+        assert.match(APP.withdrawHistory[0].time, /\b(AM|PM)\b/i, 'time must be 12-hour with AM/PM');
+        assert.ok(!/^(1[3-9]|2[0-3]):/.test(APP.withdrawHistory[0].time), 'time must not be 24-hour');
     });
 });
 
