@@ -563,9 +563,11 @@ async function hasSandboxConfirmedDeposit(userId) {
   return (count || 0) > 0;
 }
 
-// Fictional sandbox deposit address (clearly not a real wallet; no funds can
-// ever be sent to it by accident — it is an invalid TRON address on purpose).
-const SANDBOX_DEPOSIT_ADDRESS = 'TSANDBOXDEMO000000000000000000000000';
+// Fictional sandbox deposit address. It LOOKS like a real USDT TRC20 address
+// (34-char base58, T-prefixed) for marketing screenshots, but its Base58Check
+// checksum is deliberately invalid, so no wallet will accept it as a send
+// destination — no funds can ever be sent to it by accident.
+const SANDBOX_DEPOSIT_ADDRESS = 'TRJdD9x53p6jHGBSb8hUi5yu9xVPkCxicb';
 
 // Lazily confirm a pending simulated deposit after a short delay (mirrors the
 // legacy deposit auto-confirm UX; no blockchain/payment network involved).
