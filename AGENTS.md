@@ -1763,3 +1763,71 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   .app-header-right rule unchanged). npm test = 264 pass / 1 fail (same
   pre-existing q8qpay.webhook express env failure; no regression).
 
+
+## Phase 14 — Subscription Discoverability & Profile UI (public/index.html + tests, frontend-only)
+- PROBLEM: the Arbitrix Pro subscription UI was only reachable deep inside Profile
+  Settings (below display name / email / language / sound). Users could not find
+  activation, billing status, next payment, or cancellation; Profile Settings
+  itself was unnecessarily long (933px scrollHeight @390px mobile).
+- AUDIT (read-only, confirmed before changes): subscription logic lived at
+  loadSubscriptionStatus()/renderSubscriptionPanel()/activateSubscription()/
+  cancelSubscription() (~L3560-3700) + one #subscriptionPanel embedded in the
+  profile modal. NO sidebar entry, NO header/menu shortcut, NO dashboard
+  shortcut. server.js subscription endpoints + Phase 8 financial logic complete
+  and untouched. All UI elements exist as real elements; no dead controls.
+- WHAT SHIPPED (smallest safe, REUSE — no duplicated UI):
+  1. New sidebar entry "Subscription" (#subscriptionSidebarLink, crown icon,
+     data-i18n sidebar.subscription) between Referral and the divider ->
+     openSubscriptionModal() (closes the mobile drawer + overlay, opens
+     #subscriptionModal, reloads server status).
+  2. The SINGLE existing #subscriptionPanel (badge, price, details, activate/
+     cancel, sandbox intro chip) was MOVED into a new dedicated
+     #subscriptionModal (reuses .modal-overlay/.modal-content classes; no new
+     CSS). Exactly one panel instance; original activate/cancel wiring intact.
+  3. Profile Settings keeps a compact summary card (#subscriptionProfileCard:
+     crown + "Arbitrix Pro" + #subscriptionStatusBadgeProfile + localized
+     Manage button -> openSubscriptionModal()). renderSubscriptionPanel mirrors
+     the panel badge text+class onto the profile badge (single source of
+     truth). Profile modal scrollHeight @390px es: 933px -> 791px.
+  4. STALE-TEXT FIX (pre-existing defect, made reachable by the new entry):
+     the active-state "Next payment: <date>" sentence was inserted as raw
+     locale-formatted text and did NOT update on language switch until the next
+     fetch. renderSubscriptionPanel now localizes details via t() directly (no
+     data-i18n spans, no applyTranslations() call — recursion-safe), and
+     updateDynamicTranslations() re-runs renderSubscriptionPanel(_subscriptionState)
+     (guarded) so switching language re-renders details + locale-formatted date
+     without a re-fetch. NOTE: applyTranslations() CALLS updateDynamicTranslations(),
+     so renderSubscriptionPanel must NEVER call applyTranslations() — pinned by test.
+- UNCHANGED (pinned by tests): demo-mode activation still short-circuits to the
+  switch-to-Live toast BEFORE any fetch; live-without-deposit still yields the
+  existing depositRequired/depositMore toasts; activate still sends an empty
+  {} body (server is the sole authority on price/user/period); the frontend only
+  ever calls the 3 existing endpoints (/api/subscription, /activate, /cancel) —
+  server-side sandbox branching (subscription_eligibility.test.js) untouched.
+  No new CSS, no new endpoints, no eligibility/financial/backend changes,
+  server.js byte-identical, subscription NEXT-payment behavior unchanged,
+  no auto-subscribe, no free-activation.
+- i18n: 1231 -> 1233 keys/locale (NEW: sidebar.subscription, subscription.manage)
+  in all 6 locales; identical key sets, 0 empty, 0 dups. Manage button uses
+  margin-inline-start (RTL-safe).
+- PRE-EXISTING issues observed (documented, NOT fixed, out of scope):
+  `updateDynamicTranslations error: ReferenceError: updateVerificationModalHeader
+  is not defined` logged once during initial page load (script-block ordering;
+  caught by try/catch; identical on the pre-Phase-14 baseline).
+- VERIFICATION: node --check-equivalent (vm.Script) on all 4 inline <script>
+  blocks OK. Browser audit (puppeteer-core + chromium, stubbed fetch):
+  2 env (PRODUCTION / MARKETING_SANDBOX) x 2 modes x 5 widths (320/375/390/430/
+  1280) x 6 langs = 120 scenarios, BAD 0 — hOv=0 everywhere, modal opens from the
+  sidebar link, drawer closes on click, demo gate blocks before any network call
+  (fetchDelta=0) with the switch-to-Live toast, live activation fires exactly 1
+  request, sandbox shows chip + simulated badge, profile card mirrors the badge,
+  profile modal no longer contains the panel. Language-switch details re-render
+  verified (en "Next payment: Sep 21, 2026" -> es "Próximo pago: 21 sept 2026"
+  -> ar "الدفع القادم: 21 سبتمبر 2026"). Screenshots: /tmp/shots/SUB-*.png.
+- Tests: NEW tests/subscription_nav.test.js (12 tests): sidebar entry wiring,
+  modal open flow, single-panel uniqueness + all panel ids inside the modal,
+  profile compact card (no panel, no activate btn), badge mirroring, demo gate
+  order, deposit toasts, no-new-endpoints, i18n parity, recursion-safe render
+  hook, RTL-safe margin. npm test = 276 pass / 1 fail (the single fail is the
+  pre-existing tests/q8qpay.webhook.test.js `Cannot find module 'express'` env
+  failure — identical to baseline; no regression).

@@ -3545,6 +3545,18 @@ function openProfileModal() {
     loadSubscriptionStatus();
 }
 
+// Dedicated subscription entry: opens the single Arbitrix Pro modal (the full
+// panel lives there; Profile Settings only shows a compact summary card).
+function openSubscriptionModal() {
+    document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
+    const link = document.getElementById('subscriptionSidebarLink');
+    if (link) link.classList.add('active');
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.getElementById('subscriptionModal').classList.add('open');
+    loadSubscriptionStatus();
+}
+
 // ============ ARBITRIX PRO SUBSCRIPTION ============
 // The frontend NEVER sends price/balance/billing-date/status to the server. It
 // only reflects server state and sends activate/cancel. The server derives the
@@ -3597,26 +3609,34 @@ function renderSubscriptionPanel(data) {
         badge.textContent = key ? t(key) : status;
         badge.className = 'status-badge ' + (status === 'active' ? 'funded' : (status === 'payment_due' ? 'pending' : 'demo'));
         if (key) badge.setAttribute('data-i18n', key);
+        // Mirror the status onto the compact Profile Settings summary card.
+        const badgeProfile = getEl('subscriptionStatusBadgeProfile');
+        if (badgeProfile) {
+            badgeProfile.textContent = badge.textContent;
+            badgeProfile.className = badge.className;
+            if (key) badgeProfile.setAttribute('data-i18n', key); else badgeProfile.removeAttribute('data-i18n');
+        }
     }
     if (actBtn) actBtn.style.display = (status === 'active') ? 'none' : 'flex';
     if (cancelBtn) cancelBtn.style.display = (status === 'active' || status === 'payment_due') ? 'flex' : 'none';
     if (details) {
+        // Details are localized via t() directly (no data-i18n spans) so this
+        // function is self-contained and can safely be re-run from
+        // updateDynamicTranslations() on language switch without recursion.
         let html = '';
         if (status === 'active') {
             const next = data.nextBillingDate ? new Date(data.nextBillingDate).toLocaleDateString(appLocale(), { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-            html = '<span data-i18n="subscription.activeDesc">Your subscription is active.</span> ' +
-                   (next ? t('subscription.nextPayment', { date: next }) : '');
+            html = escapeHtml(t('subscription.activeDesc')) +
+                   (next ? ' ' + escapeHtml(t('subscription.nextPayment', { date: next })) : '');
         } else if (status === 'payment_due') {
-            html = '<strong style="color:#F0B90B;">' + t('subscription.dueTitle') + '</strong><br>' +
-                   '<span data-i18n="subscription.dueDesc">Add at least $7 to your available balance to continue Pro access.</span>';
+            html = '<strong style="color:#F0B90B;">' + escapeHtml(t('subscription.dueTitle')) + '</strong><br>' +
+                   escapeHtml(t('subscription.dueDesc'));
         } else if (status === 'cancelled') {
-            html = '<span data-i18n="subscription.cancelledDesc">Your subscription is cancelled. Reactivate anytime.</span>';
+            html = escapeHtml(t('subscription.cancelledDesc'));
         } else {
-            html = '<span data-i18n="subscription.inactiveDesc">Activate Pro to unlock premium features. Billed monthly from your available Live balance.</span>';
+            html = escapeHtml(t('subscription.inactiveDesc'));
         }
         details.innerHTML = html;
-        // Re-apply translations for the freshly inserted data-i18n spans.
-        if (typeof applyTranslations === 'function') applyTranslations();
     }
 }
 
@@ -5048,6 +5068,7 @@ function toggleFaq(btn) {
         <a class="sidebar-link" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
         <a class="sidebar-link" data-section="history"><i class="fas fa-clock-rotate-left"></i> <span data-i18n="sidebar.history">Transaction Log</span></a>
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
+        <a class="sidebar-link" id="subscriptionSidebarLink" onclick="openSubscriptionModal()"><i class="fas fa-crown" style="color:#F0B90B;"></i> <span data-i18n="sidebar.subscription">Subscription</span></a>
         <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:#F0B90B;"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
         <div style="height:1px;background:#1E2A3F;margin:8px 20px;"></div>
         <a class="sidebar-link" id="twofaLink" onclick="openTwoFAModal()"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
@@ -6527,10 +6548,31 @@ function toggleFaq(btn) {
                 <i class="fas fa-play"></i> <span data-i18n="profile.testSound">Test Sound</span>
             </button>
         </div>
-        <!-- ARBITRIX PRO SUBSCRIPTION -->
-        <!-- Internal server-side debit of the available Live balance. No card /
-             payment form. The server is the sole authority on price, status, and
-             billing; the UI only reflects server state and sends activate/cancel. -->
+        <!-- ARBITRIX PRO SUBSCRIPTION (compact summary; the full panel lives in
+             #subscriptionModal, opened via the sidebar Subscription entry or the
+             Manage button below). No duplicated UI: the single panel is shared. -->
+        <div class="subscription-profile-card" id="subscriptionProfileCard" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#0F1629;border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:12px 16px;margin-top:16px;">
+            <i class="fas fa-crown" style="color:#F0B90B;font-size:18px;"></i>
+            <span style="font-size:14px;font-weight:700;color:#fff;">Arbitrix Pro</span>
+            <span id="subscriptionStatusBadgeProfile" class="status-badge" style="font-size:11px;padding:4px 10px;" data-i18n="subscription.status.inactive">Inactive</span>
+            <button type="button" class="btn btn-secondary" onclick="openSubscriptionModal()" style="margin-inline-start:auto;padding:8px 14px;">
+                <span data-i18n="subscription.manage">Manage</span> <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        
+        <div class="modal-actions"><button type="button" onclick="document.getElementById('profileModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button><button type="button" onclick="saveProfile()" class="btn btn-primary" data-i18n="common.save">Save</button></div>
+    </div>
+</div>
+
+<!-- ARBITRIX PRO SUBSCRIPTION MODAL (dedicated entry from the sidebar) -->
+<!-- Internal server-side debit of the available Live balance. No card /
+     payment form. The server is the sole authority on price, status, and
+     billing; the UI only reflects server state and sends activate/cancel. -->
+<div class="modal-overlay" id="subscriptionModal">
+    <div class="modal-content" style="max-width:440px;">
+        <button type="button" onclick="document.getElementById('subscriptionModal').classList.remove('open')" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div class="modal-header"><h3><i class="fas fa-crown" style="color:#F0B90B;"></i> <span data-i18n="sidebar.subscription">Subscription</span></h3></div>
         <div class="subscription-panel" id="subscriptionPanel" style="background:#0F1629;border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:16px;margin-top:16px;">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                 <div style="width:40px;height:40px;background:linear-gradient(135deg,rgba(240,185,11,0.25),rgba(240,185,11,0.08));border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -6558,9 +6600,6 @@ function toggleFaq(btn) {
             </div>
             <p style="font-size:10px;color:#6b7280;margin:10px 0 0 0;" data-i18n="subscription.disclaimer">The monthly fee is deducted from your available Live balance. No card required.</p>
         </div>
-
-        
-        <div class="modal-actions"><button type="button" onclick="document.getElementById('profileModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button><button type="button" onclick="saveProfile()" class="btn btn-primary" data-i18n="common.save">Save</button></div>
     </div>
 </div>
 
@@ -7120,6 +7159,7 @@ const TRANSLATIONS = {
         'sidebar.withdraw': 'Withdraw',
         'sidebar.history': 'Transaction Log',
         'sidebar.referral': 'Referral',
+        'sidebar.subscription': 'Subscription',
         'sidebar.2fa': '2FA Security',
         'sidebar.profile': 'Profile Settings',
         'sidebar.install': 'Install App',
@@ -7586,6 +7626,7 @@ const TRANSLATIONS = {
         'subscription.month': 'month',
         'subscription.activate': 'Activate Pro',
         'subscription.cancel': 'Cancel',
+        'subscription.manage': 'Manage',
         'subscription.disclaimer': 'The monthly fee is deducted from your available Live balance. No card required.',
         'subscription.inactiveDesc': 'Activate Pro to unlock premium features. Billed monthly from your available Live balance.',
         'subscription.activeDesc': 'Your subscription is active.',
@@ -8371,6 +8412,7 @@ const TRANSLATIONS = {
         'sidebar.withdraw': 'Retirar',
         'sidebar.history': 'Registro de transacciones',
         'sidebar.referral': 'Referidos',
+        'sidebar.subscription': 'Suscripción',
         'sidebar.2fa': 'Seguridad 2FA',
         'sidebar.profile': 'Ajustes de perfil',
         'sidebar.install': 'Instalar app',
@@ -8837,6 +8879,7 @@ const TRANSLATIONS = {
         'subscription.month': 'mes',
         'subscription.activate': 'Activar Pro',
         'subscription.cancel': 'Cancelar',
+        'subscription.manage': 'Gestionar',
         'subscription.disclaimer': 'La cuota mensual se deduce de tu saldo Live disponible. No se requiere tarjeta.',
         'subscription.inactiveDesc': 'Activa Pro para desbloquear funciones premium. Se factura mensualmente desde tu saldo Live disponible.',
         'subscription.activeDesc': 'Tu suscripción está activa.',
@@ -9623,6 +9666,7 @@ const TRANSLATIONS = {
         'sidebar.withdraw': 'Sacar',
         'sidebar.history': 'Registro de transações',
         'sidebar.referral': 'Indicações',
+        'sidebar.subscription': 'Assinatura',
         'sidebar.2fa': 'Segurança 2FA',
         'sidebar.profile': 'Ajustes de perfil',
         'sidebar.install': 'Instalar app',
@@ -10089,6 +10133,7 @@ const TRANSLATIONS = {
         'subscription.month': 'mês',
         'subscription.activate': 'Ativar Pro',
         'subscription.cancel': 'Cancelar',
+        'subscription.manage': 'Gerenciar',
         'subscription.disclaimer': 'A mensalidade é deduzida do seu saldo Live disponível. Não é necessário cartão.',
         'subscription.inactiveDesc': 'Ative o Pro para desbloquear recursos premium. Cobrado mensalmente do seu saldo Live disponível.',
         'subscription.activeDesc': 'Sua assinatura está ativa.',
@@ -10875,6 +10920,7 @@ const TRANSLATIONS = {
         'sidebar.withdraw': 'Retrait',
         'sidebar.history': 'Journal des transactions',
         'sidebar.referral': 'Parrainage',
+        'sidebar.subscription': 'Abonnement',
         'sidebar.2fa': 'Sécurité 2FA',
         'sidebar.profile': 'Réglages du profil',
         'sidebar.install': 'Installer l’app',
@@ -11341,6 +11387,7 @@ const TRANSLATIONS = {
         'subscription.month': 'mois',
         'subscription.activate': 'Activer Pro',
         'subscription.cancel': 'Annuler',
+        'subscription.manage': 'Gérer',
         'subscription.disclaimer': "Les frais mensuels sont déduits de votre solde Live disponible. Aucune carte requise.",
         'subscription.inactiveDesc': "Activez Pro pour débloquer les fonctionnalités premium. Facturé mensuellement depuis votre solde Live disponible.",
         'subscription.activeDesc': 'Votre abonnement est actif.',
@@ -12127,6 +12174,7 @@ const TRANSLATIONS = {
         'sidebar.withdraw': 'سحب',
         'sidebar.history': 'سجل المعاملات',
         'sidebar.referral': 'الإحالة',
+        'sidebar.subscription': 'الاشتراك',
         'sidebar.2fa': 'أمان 2FA',
         'sidebar.profile': 'إعدادات الملف الشخصي',
         'sidebar.install': 'تثبيت التطبيق',
@@ -12593,6 +12641,7 @@ const TRANSLATIONS = {
         'subscription.month': 'شهر',
         'subscription.activate': 'تفعيل Pro',
         'subscription.cancel': 'إلغاء',
+        'subscription.manage': 'إدارة',
         'subscription.disclaimer': 'يُخصم الرسوم الشهرية من رصيدك المتاح في المحفظة المباشرة. لا حاجة لبطاقة.',
         'subscription.inactiveDesc': 'فعّل Pro لفتح الميزات المميزة. يُحتسب شهريًا من رصيدك المتاح في المحفظة المباشرة.',
         'subscription.activeDesc': 'اشتراكك نشط.',
@@ -13379,6 +13428,7 @@ const TRANSLATIONS = {
         'sidebar.withdraw': '提现',
         'sidebar.history': '交易记录',
         'sidebar.referral': '推荐',
+        'sidebar.subscription': '订阅',
         'sidebar.2fa': '2FA 安全',
         'sidebar.profile': '个人设置',
         'sidebar.install': '安装应用',
@@ -13845,6 +13895,7 @@ const TRANSLATIONS = {
         'subscription.month': '月',
         'subscription.activate': '激活 Pro',
         'subscription.cancel': '取消',
+        'subscription.manage': '管理',
         'subscription.disclaimer': '月费从您的可用 Live 余额中扣除。无需银行卡。',
         'subscription.inactiveDesc': '激活 Pro 以解锁高级功能。每月从您的可用 Live 余额中扣费。',
         'subscription.activeDesc': '您的订阅已激活。',
@@ -14641,6 +14692,12 @@ function updateDynamicTranslations() {
         update2FACodeExpiryLabels();
         // Re-render the marketing demo badge + intro chip on language switch
         if (typeof updateSandboxBadge === 'function') updateSandboxBadge();
+        // Re-render the subscription panel details on language switch: the
+        // next-payment sentence is locale-formatted raw text, so it must be
+        // rebuilt with the new locale (badge/display only, no re-fetch).
+        if (typeof renderSubscriptionPanel === 'function' && typeof _subscriptionState !== 'undefined' && _subscriptionState) {
+            renderSubscriptionPanel(_subscriptionState);
+        }
         // Re-apply status-specific KYC modal header on language switch
         updateVerificationModalHeader();
         const accountStatus = document.getElementById('accountStatus');
