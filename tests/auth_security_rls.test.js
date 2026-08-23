@@ -55,6 +55,38 @@ test('migration 016 enables RLS on exactly the seven auth/security tables', () =
 // 2-5. anon denied SELECT/INSERT/UPDATE/DELETE
 //      (no anon policy + revoke; RLS default-deny covers all operations)
 // -----------------------------------------------
+test('migration 016 explicitly drops the four legacy password_reset_tokens policies', () => {
+  // The four legacy policies confirmed by the Phase-3A investigation to exist
+  // on password_reset_tokens (created by supabase/migrations/001).
+  const legacy = [
+    'Service role can insert reset tokens',
+    'Service role can select reset tokens',
+    'Service role can update reset tokens',
+    'Deny delete reset tokens',
+  ];
+  for (const name of legacy) {
+    assert.match(MIGRATION,
+      new RegExp(`DROP POLICY IF EXISTS "${name}" ON public\\.password_reset_tokens;`),
+      `migration must drop legacy policy "${name}"`);
+  }
+  // The drops must be scoped ONLY to password_reset_tokens (no other table).
+  const drops = MIGRATION.match(/DROP POLICY IF EXISTS "[^"]+" ON public\.\w+;/g) || [];
+  const legacyDrops = drops.filter((d) => !d.includes('_service_all'));
+  assert.strictEqual(legacyDrops.length, 4, 'exactly four legacy drops expected');
+  for (const d of legacyDrops) {
+    assert.match(d, /ON public\.password_reset_tokens;/,
+      'legacy drops must target only password_reset_tokens: ' + d);
+  }
+});
+
+test('migration 016 drops legacy policies BEFORE creating the service-role policy', () => {
+  const lastLegacyDrop = MIGRATION.lastIndexOf('DROP POLICY IF EXISTS "Deny delete reset tokens"');
+  const createService = MIGRATION.indexOf('CREATE POLICY "password_reset_tokens_service_all"');
+  assert.ok(lastLegacyDrop !== -1 && createService !== -1);
+  assert.ok(lastLegacyDrop < createService,
+    'legacy drops must precede the service-role policy creation');
+});
+
 test('migration 016 creates NO policy for anon/authenticated/public on any table', () => {
   const policies = MIGRATION.match(/CREATE POLICY[\s\S]*?;/g) || [];
   assert.strictEqual(policies.length, TABLES.length, 'one service_role policy per table expected');
@@ -80,9 +112,12 @@ test('migration 016 revokes ALL privileges from anon and authenticated on every 
 // 6. authenticated cannot directly access them
 // -----------------------------------------------
 test('migration 016 grants nothing to the authenticated role', () => {
-  assert.ok(!/GRANT\s+[^;]*\sTO\s+authenticated/i.test(MIGRATION),
+  // Strip comments so scope prose (e.g. describing the legacy TO anon policy
+  // being removed) doesn't count as a grant.
+  const code = MIGRATION.replace(/--[^\n]*/g, '');
+  assert.ok(!/GRANT\s+[^;]*\sTO\s+authenticated/i.test(code),
     'no GRANT to authenticated');
-  assert.ok(!/CREATE POLICY[\s\S]*?TO\s+authenticated/i.test(MIGRATION),
+  assert.ok(!/CREATE POLICY[\s\S]*?TO\s+authenticated/i.test(code),
     'no policy for authenticated');
 });
 

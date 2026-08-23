@@ -69,6 +69,20 @@ ALTER TABLE public.feature_flags            ENABLE ROW LEVEL SECURITY;
 -- enabled they are denied ALL operations (SELECT/INSERT/UPDATE/DELETE) by
 -- default. No USING(true)/WITH CHECK(true) client-facing policy is created
 -- anywhere; the only policies grant the service_role (server) full access.
+--
+-- LEGACY POLICY CLEANUP (password_reset_tokens only):
+-- Migration 001 created four legacy policies on password_reset_tokens that
+-- target anon/authenticated (one of them, "Service role can insert reset
+-- tokens", is TO authenticated, anon WITH CHECK(true) -- the live anon-INSERT
+-- exposure). They must be dropped BEFORE the service-role-only policy is
+-- created, otherwise the verification block below correctly fails. The other
+-- six Phase-3A tables have NO legacy policies (repo-wide grep + live probe
+-- confirmed), so no drops are needed for them.
+DROP POLICY IF EXISTS "Service role can insert reset tokens" ON public.password_reset_tokens;
+DROP POLICY IF EXISTS "Service role can select reset tokens" ON public.password_reset_tokens;
+DROP POLICY IF EXISTS "Service role can update reset tokens" ON public.password_reset_tokens;
+DROP POLICY IF EXISTS "Deny delete reset tokens" ON public.password_reset_tokens;
+
 DROP POLICY IF EXISTS "password_reset_tokens_service_all" ON public.password_reset_tokens;
 CREATE POLICY "password_reset_tokens_service_all" ON public.password_reset_tokens
     FOR ALL TO service_role
