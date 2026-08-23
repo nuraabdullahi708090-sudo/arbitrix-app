@@ -664,6 +664,9 @@ async function runLoginInitiate(user, body, spies) {
         status(c) { this.statusCode = c; return this; },
         json(b) { this.body = b; return this; }
     };
+    // Phase 2: all server-side table access uses the service-role client
+    // (supabaseAdmin); the anon client is stubbed too so the harness fails
+    // loudly if a route ever regresses to anon access.
     const supabase = {
         from(t) { spies.tables.push(t); return {
             select: () => ({ eq: () => ({ single: async () =>
@@ -672,6 +675,7 @@ async function runLoginInitiate(user, body, spies) {
     };
     const ctx = {
         supabase,
+        supabaseAdmin: supabase,
         bcrypt: { compare: async () => spies.passwordOk },
         jwt: { sign: (payload) => 'signed:' + JSON.stringify(payload) },
         JWT_SECRET: 'test-secret',
