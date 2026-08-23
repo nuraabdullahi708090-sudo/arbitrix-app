@@ -1116,7 +1116,9 @@ const SUBSCRIPTION_PRO_DEFAULT_PRICE = 7;
  */
 async function getSubscriptionPrice() {
   try {
-    const { data, error } = await supabase
+    // service_role: payment_config is RLS-locked to server-only (migration 015);
+    // the anon client would be denied once the lockdown is applied.
+    const { data, error } = await supabaseAdmin
       .from('payment_config')
       .select('value')
       .eq('key', 'subscription.pro_price')
