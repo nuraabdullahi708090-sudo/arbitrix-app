@@ -201,8 +201,14 @@ if (!supabaseServiceKey || supabaseServiceKey.trim() === '') {
 }
 // ------------------------------------------------------------
 
+// Anon-key client. As of Phase 2, NO server-side query uses this client:
+// every table/RPC/storage access goes through supabaseAdmin below (the
+// frontend never talks to Supabase directly). Retained only so the public
+// anon key stays defined for any future genuinely-public access.
 const supabase = createClient(supabaseUrl, supabaseKey);
-// Separate client with service role for RLS-protected operations
+// Separate client with service role for ALL server-side database access.
+// service_role bypasses RLS, so this works both before and after RLS is
+// enabled on the remaining tables (later phase).
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================
@@ -302,13 +308,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // `environment` is additive and read-only here; the MARKETING_SANDBOX
 // classification is enforced server-side via getUserEnvironment() branches.
 async function getUser(id) {
-  const { data, error } = await supabase.from('users').select('id, name, email, referral_code, is_admin, created_at, environment').eq('id', id).single();
+  const { data, error } = await supabaseAdmin.from('users').select('id, name, email, referral_code, is_admin, created_at, environment').eq('id', id).single();
   if (error) throw error;
   return data;
 }
 
 async function getUserByEmail(email) {
-  const { data, error } = await supabase.from('users').select('id, name, email, password_hash, referral_code, is_admin, environment').eq('email', email).single();
+  const { data, error } = await supabaseAdmin.from('users').select('id, name, email, password_hash, referral_code, is_admin, environment').eq('email', email).single();
   if (error && error.code !== 'PGRST116') throw error;
   return data;
 }
@@ -340,7 +346,7 @@ async function generateUniqueReferralCode() {
   const MAX_ATTEMPTS = 5;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const code = generateSecureReferralCode();
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('referral_code', code)
@@ -390,7 +396,7 @@ function isValidReferralCodeFormat(code) {
 async function assignReferralCodesToExistingUsers() {
   try {
     // Find users without a valid referral code
-    const { data: users, error } = await supabase
+    const { data: users, error } = await supabaseAdmin
       .from('users')
       .select('id, referral_code')
       .or('referral_code.is.null,referral_code.eq.');
@@ -405,7 +411,7 @@ async function assignReferralCodesToExistingUsers() {
     
     for (const user of usersNeedingCode) {
       const newCode = await generateUniqueReferralCode();
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('users')
         .update({ referral_code: newCode })
         .eq('id', user.id);
@@ -424,9 +430,9 @@ async function assignReferralCodesToExistingUsers() {
 }
 
 async function getWallet(userId) {
-  let { data, error } = await supabase.from('wallets').select('*').eq('user_id', userId).single();
+  let { data, error } = await supabaseAdmin.from('wallets').select('*').eq('user_id', userId).single();
   if (error && error.code === 'PGRST116') {
-    const { data: newWallet, error: insertError } = await supabase.from('wallets').insert({ user_id: userId, demo_balance: 1000, live_balance: 50, bonus_balance: 0 }).select().single();
+    const { data: newWallet, error: insertError } = await supabaseAdmin.from('wallets').insert({ user_id: userId, demo_balance: 1000, live_balance: 50, bonus_balance: 0 }).select().single();
     if (insertError) throw insertError;
     return newWallet;
   }
@@ -437,11 +443,11 @@ async function getWallet(userId) {
 async function updateWallet(userId, field, amount) {
   const current = await getWallet(userId);
   const newVal = (current[field] || 0) + amount;
-  await supabase.from('wallets').update({ [field]: newVal }).eq('user_id', userId);
+  await supabaseAdmin.from('wallets').update({ [field]: newVal }).eq('user_id', userId);
 }
 
 async function addTransaction(userId, type, amount, detail) {
-  await supabase.from('transactions').insert({ user_id: userId, type, amount, detail: detail || '' });
+  await supabaseAdmin.from('transactions').insert({ user_id: userId, type, amount, detail: detail || '' });
 }
 
 // ---------- MARKETING SANDBOX (environment classification + isolation) ----------
@@ -1034,7 +1040,7 @@ async function requireSandboxTargetUser(req, res) {
  */
 async function getReferralConfig(key, defaultValue = null) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('referral_config')
       .select('config_value')
       .eq('config_key', key)
@@ -1058,7 +1064,7 @@ async function getReferralConfig(key, defaultValue = null) {
  */
 async function getReferralConfigAll() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('referral_config')
       .select('config_key, config_value, description, updated_at');
     
@@ -1282,14 +1288,14 @@ async function processDueSubscription(userId) {
  */
 async function setReferralConfig(key, value) {
   try {
-    const { data, error } = await supabase.rpc('update_referral_config', {
+    const { data, error } = await supabaseAdmin.rpc('update_referral_config', {
       p_key: key,
       p_value: String(value)
     });
     
     if (error) {
       // Fallback to direct update
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('referral_config')
         .update({ config_value: String(value), updated_at: new Date().toISOString() })
         .eq('config_key', key);
@@ -1365,7 +1371,7 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     }
     
     // Find pending referral for this user
-    const { data: referral, error: findError } = await supabase
+    const { data: referral, error: findError } = await supabaseAdmin
       .from('referrals')
       .select(`
         id,
@@ -1397,7 +1403,7 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     
     // Check max rewards per user
     if (config.maxRewardsPerUser > 0) {
-      const { count } = await supabase
+      const { count } = await supabaseAdmin
         .from('referrals')
         .select('*', { count: 'exact', head: true })
         .eq('referrer_id', referral.referrer_id)
@@ -1414,7 +1420,7 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     const rewardAmount = config.rewardAmount;
     
     // Activate the referral
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('referrals')
       .update({
         status: 'active',
@@ -1461,7 +1467,7 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
  * @returns {Promise<boolean>} - True if this is their first confirmed deposit
  */
 async function isFirstConfirmedDeposit(userId) {
-  const { count, error } = await supabase
+  const { count, error } = await supabaseAdmin
     .from('deposits')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
@@ -1605,7 +1611,7 @@ async function createResetTokensTable() {
     // This won't work with Supabase REST API, so we'll use a workaround
     
     // Alternative: Check if we can use the pg_catalog
-    const { error } = await supabase.rpc('exec', { sql: createTableSQL });
+    const { error } = await supabaseAdmin.rpc('exec', { sql: createTableSQL });
     
     if (error) {
       console.log('Could not create table via RPC. Please create manually:');
@@ -1925,7 +1931,7 @@ app.post('/api/auth/register', async (req, res) => {
   // Generate unique, cryptographically secure referral code
   const userReferralCode = await generateUniqueReferralCode();
   
-  const { data: user, error } = await supabase.from('users').insert({ 
+  const { data: user, error } = await supabaseAdmin.from('users').insert({ 
     name, 
     email, 
     password_hash: hash, 
@@ -2194,7 +2200,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const newPasswordHash = bcrypt.hashSync(newPassword, 10);
     
     // Update the user's password
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('users')
       .update({ password_hash: newPasswordHash })
       .eq('id', user.id);
@@ -2621,7 +2627,7 @@ app.post('/api/deposit/request', authMiddleware, async (req, res) => {
   const invoiceId = 'inv_' + Date.now() + '_' + userId;
   const addresses = { TRC20: 'TDQ2Ymmejp2MXxawBdbYkxqjZ7tTkMyMJR', ERC20: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', BEP20: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e' };
   const address = addresses[net] || addresses.TRC20;
-  await supabase.from('deposits').insert({ user_id: userId, amount, network: net, address, invoice_id: invoiceId, status: 'pending' });
+  await supabaseAdmin.from('deposits').insert({ user_id: userId, amount, network: net, address, invoice_id: invoiceId, status: 'pending' });
   res.json({ id: invoiceId, address, cryptoAmount: (amount/1.0018).toFixed(6), usdValue: amount, expiresAt: new Date(Date.now()+3600000).toISOString(), network: net });
 });
 
@@ -2629,7 +2635,7 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: reads/confirms simulated deposits only.
   if (await sandboxHandled(req, res, handleSandboxDepositStatus)) return;
   const { invoiceId } = req.params;
-  const { data: deposit, error } = await supabase.from('deposits').select('*').eq('invoice_id', invoiceId).eq('user_id', req.user.id).single();
+  const { data: deposit, error } = await supabaseAdmin.from('deposits').select('*').eq('invoice_id', invoiceId).eq('user_id', req.user.id).single();
   if (error || !deposit) return res.status(404).json({ error: 'Invoice not found' });
   const elapsed = Date.now() - new Date(deposit.created_at).getTime();
   
@@ -2639,7 +2645,7 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
     // Check if this is the user's first deposit (for referral qualification)
     const isFirst = await isFirstConfirmedDeposit(req.user.id);
     
-    await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
+    await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
     await updateWallet(req.user.id, 'live_balance', deposit.amount);
     await addTransaction(req.user.id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
     deposit.status = 'confirmed';
@@ -2653,7 +2659,7 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
     }
   }
   if (elapsed > 3600000 && deposit.status === 'pending') {
-    await supabase.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
+    await supabaseAdmin.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
     deposit.status = 'expired';
   }
   const wallet = await getWallet(req.user.id);
@@ -2925,7 +2931,7 @@ app.get('/api/payment/history', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const { limit = 50, offset = 0 } = req.query;
 
-    const { data: invoices, error } = await supabase
+    const { data: invoices, error } = await supabaseAdmin
       .from('payment_invoices')
       .select('*')
       .eq('user_id', userId)
@@ -3581,7 +3587,7 @@ app.get('/api/paymento/status/:token', authMiddleware, async (req, res) => {
     }
 
     // Find our invoice
-    const { data: invoice, error: invoiceError } = await supabase
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from('payment_invoices')
       .select('*')
       .eq('invoice_id', verifyResult.orderId)
@@ -3629,7 +3635,7 @@ app.get('/api/admin/payments/invoices', authMiddleware, adminMiddleware, async (
       offset = 0 
     } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('payment_invoices')
       .select('*, users(name, email)', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -3701,7 +3707,7 @@ app.get('/api/admin/payments/webhook-logs', authMiddleware, adminMiddleware, asy
   try {
     const { provider, status, limit = 100, offset = 0 } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('webhook_logs')
       .select('*', { count: 'exact' })
       .order('received_at', { ascending: false })
@@ -3740,7 +3746,7 @@ app.post('/api/admin/payments/webhook/:id/retry', authMiddleware, adminMiddlewar
     const { id } = req.params;
 
     // Get the webhook log
-    const { data: webhook, error: findError } = await supabase
+    const { data: webhook, error: findError } = await supabaseAdmin
       .from('webhook_logs')
       .select('*')
       .eq('id', id)
@@ -3761,7 +3767,7 @@ app.post('/api/admin/payments/webhook/:id/retry', authMiddleware, adminMiddlewar
     }
 
     // Update status to processing
-    await supabase
+    await supabaseAdmin
       .from('webhook_logs')
       .update({ status: 'processing' })
       .eq('id', id);
@@ -3794,7 +3800,7 @@ app.get('/api/admin/payments/export', authMiddleware, adminMiddleware, async (re
   try {
     const { startDate, endDate, status } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('payment_invoices')
       .select('*, users(name, email, referral_code)')
       .order('created_at', { ascending: false });
@@ -3855,11 +3861,11 @@ app.get('/api/admin/payments/stats', authMiddleware, adminMiddleware, async (req
   try {
     const { startDate, endDate } = req.query;
 
-    let invoiceQuery = supabase
+    let invoiceQuery = supabaseAdmin
       .from('payment_invoices')
       .select('amount_usd, status, currency');
 
-    let webhookQuery = supabase
+    let webhookQuery = supabaseAdmin
       .from('webhook_logs')
       .select('status, provider');
 
@@ -3925,7 +3931,7 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
     const { transactionHash } = req.body;
 
     // Try new payment_invoices table first
-    let { data: invoice, error } = await supabase
+    let { data: invoice, error } = await supabaseAdmin
       .from('payment_invoices')
       .select('*')
       .eq('invoice_id', invoiceId)
@@ -3933,7 +3939,7 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
 
     // Fall back to old deposits table
     if (error || !invoice) {
-      const { data: oldDeposit, error: oldError } = await supabase
+      const { data: oldDeposit, error: oldError } = await supabaseAdmin
         .from('deposits')
         .select('*')
         .eq('invoice_id', invoiceId)
@@ -3957,7 +3963,7 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
       // Confirm the deposit
       const isFirst = await isFirstConfirmedDeposit(oldDeposit.user_id);
 
-      await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', oldDeposit.id);
+      await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', oldDeposit.id);
       await updateWallet(oldDeposit.user_id, 'live_balance', oldDeposit.amount);
       await addTransaction(oldDeposit.user_id, 'Deposit', oldDeposit.amount, 'USDT (' + oldDeposit.network + ')');
 
@@ -4034,13 +4040,13 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   if (!amount || amount < 700) return res.status(400).json({ error: 'Min $700' });
   if (amount > wallet.live_balance) return res.status(400).json({ error: 'Insufficient balance' });
   if (!address || address.length < 10) return res.status(400).json({ error: 'Valid address required' });
-  const { count } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
+  const { count } = await supabaseAdmin.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
   if (count < 1) return res.status(400).json({ error: 'Complete at least 1 trade first' });
 
   // All existing withdrawal logic continues unchanged
   await updateWallet(userId, 'live_balance', -amount);
   await addTransaction(userId, 'Withdraw', -amount, 'To ' + address.slice(0,6) + '...');
-  const { data, error } = await supabase.from('withdrawals').insert({ user_id: userId, amount, address, status: 'pending' }).select().single();
+  const { data, error } = await supabaseAdmin.from('withdrawals').insert({ user_id: userId, amount, address, status: 'pending' }).select().single();
   if (error) throw error;
   res.json({ id: data.id, amount, address, status: 'pending', message: 'Withdrawal submitted.' });
 });
@@ -4048,7 +4054,7 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
 app.get('/api/withdraw/history', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: reads simulated withdrawals only.
   if (await sandboxHandled(req, res, handleSandboxWithdrawHistory)) return;
-  const { data, error } = await supabase.from('withdrawals').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(20);
+  const { data, error } = await supabaseAdmin.from('withdrawals').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(20);
   if (error) throw error;
   res.json(data);
 });
@@ -4627,21 +4633,21 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   if (mode === 'live' && Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE) {
     return res.status(400).json({ error: 'MTA not reached' });
   }
-  await supabase.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
   res.json({ status: 'started', mode });
 });
 
 app.post('/api/bot/stop', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated bot session only.
   if (await sandboxHandled(req, res, handleSandboxBotStop)) return;
-  await supabase.from('bot_sessions').update({ is_running: 0 }).eq('user_id', req.user.id);
+  await supabaseAdmin.from('bot_sessions').update({ is_running: 0 }).eq('user_id', req.user.id);
   res.json({ status: 'stopped' });
 });
 
 app.get('/api/bot/status', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated bot session only.
   if (await sandboxHandled(req, res, handleSandboxBotStatus)) return;
-  const { data, error } = await supabase.from('bot_sessions').select('*').eq('user_id', req.user.id).single();
+  const { data, error } = await supabaseAdmin.from('bot_sessions').select('*').eq('user_id', req.user.id).single();
   if (error && error.code !== 'PGRST116') throw error;
   res.json({ isRunning: data ? data.is_running===1 : false, mode: data ? data.mode : 'demo', startedAt: data ? data.started_at : null });
 });
@@ -4712,7 +4718,7 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
 app.get('/api/transactions', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: reads the simulated transaction log only.
   if (await sandboxHandled(req, res, handleSandboxTransactions)) return;
-  const { data, error } = await supabase.from('transactions').select('id, type, amount, detail, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
+  const { data, error } = await supabaseAdmin.from('transactions').select('id, type, amount, detail, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
   res.json(data);
 });
@@ -5361,7 +5367,7 @@ app.get('/api/referral/config/audit', authMiddleware, adminMiddleware, async (re
     const safeOffset = Math.max(parseInt(offset) || 0, 0);
     const safeSort = sort === 'asc' ? 'asc' : 'desc';
     
-    const { data, error, count } = await supabase
+    const { data, error, count } = await supabaseAdmin
       .from('referral_config_audit_log')
       .select('id, admin_id, admin_email, config_key, old_value, new_value, ip_address, changed_at, reason', { 
         count: 'exact' 
@@ -5486,7 +5492,7 @@ app.put('/api/referral/config/:key', authMiddleware, adminMiddleware, async (req
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
     const userAgent = req.headers['user-agent'] || null;
     
-    await supabase.rpc('log_referral_config_change', {
+    await supabaseAdmin.rpc('log_referral_config_change', {
       p_admin_id: adminId,
       p_admin_email: adminEmail,
       p_config_key: key,
@@ -5520,7 +5526,7 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const userId = req.user.id;
   
   // Get all referrals made by this user
-  const { data: referrals, error } = await supabase
+  const { data: referrals, error } = await supabaseAdmin
     .from('referrals')
     .select('bonus_earned, status')
     .eq('referrer_id', userId);
@@ -5554,7 +5560,7 @@ app.get('/api/referral/detailed', authMiddleware, async (req, res) => {
   const userId = req.user.id;
   
   // Get all referrals made by this user
-  const { data: referrals, error } = await supabase
+  const { data: referrals, error } = await supabaseAdmin
     .from('referrals')
     .select(`
       id,
@@ -5577,7 +5583,7 @@ app.get('/api/referral/detailed', authMiddleware, async (req, res) => {
   const pendingReferrals = referrals.filter(r => r.status === 'pending').length;
   
   // Get user's own referral code
-  const { data: user } = await supabase
+  const { data: user } = await supabaseAdmin
     .from('users')
     .select('referral_code')
     .eq('id', userId)
@@ -5614,7 +5620,7 @@ app.get('/api/referral/validate/:code', async (req, res) => {
     return res.json({ valid: false, message: 'Invalid referral code format' });
   }
   
-  const { data: user, error } = await supabase
+  const { data: user, error } = await supabaseAdmin
     .from('users')
     .select('id')
     .eq('referral_code', code)
@@ -5629,11 +5635,11 @@ app.get('/api/referral/validate/:code', async (req, res) => {
 
 app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  await supabase.from('referrals').insert({ referrer_id: userId, referred_id: -userId, bonus_earned: 10 });
+  await supabaseAdmin.from('referrals').insert({ referrer_id: userId, referred_id: -userId, bonus_earned: 10 });
   await updateWallet(userId, 'bonus_balance', 10);
   await addTransaction(userId, 'Referral Bonus', 10, 'Simulated referral');
-  const { count: invited } = await supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_id', userId);
-  const { data: earnedData } = await supabase.from('referrals').select('bonus_earned').eq('referrer_id', userId);
+  const { count: invited } = await supabaseAdmin.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_id', userId);
+  const { data: earnedData } = await supabaseAdmin.from('referrals').select('bonus_earned').eq('referrer_id', userId);
   const earned = earnedData.reduce((s, r) => s + r.bonus_earned, 0);
   res.json({ invited, earned, bonusAdded: 10 });
 });
@@ -5644,7 +5650,7 @@ app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
 
 // Helper: Get user email by ID
 async function getUserEmail(userId) {
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
         .from('users')
         .select('email')
         .eq('id', userId)
@@ -5654,7 +5660,7 @@ async function getUserEmail(userId) {
 
 // Helper: Check if user has 2FA enabled (TOTP - for backward compatibility)
 async function hasUser2FAEnabled(userId) {
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
         .from('twofa_profiles')
         .select('id, is_enabled, is_verified')
         .eq('user_id', userId)
@@ -5674,7 +5680,7 @@ async function getFeatureFlag(flagKey, defaultValue = null) {
     
     // Fetch from database
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('feature_flags')
             .select('flag_value')
             .eq('flag_key', flagKey)
@@ -5705,7 +5711,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
     const expiresAt = new Date(Date.now() + Email2FAService.CONFIG.CODE_EXPIRY_MS).toISOString();
     
     // Invalidate any existing unused codes for this user and purpose
-    await supabase
+    await supabaseAdmin
         .from('email_verification_codes')
         .update({ used: true, used_at: new Date().toISOString() })
         .eq('user_id', userId)
@@ -5713,7 +5719,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
         .eq('used', false);
     
     // Store new code
-    await supabase
+    await supabaseAdmin
         .from('email_verification_codes')
         .insert({
             user_id: userId,
@@ -5819,7 +5825,7 @@ app.get('/api/2fa/status', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('is_enabled, is_verified, enabled_at, last_verified_at, backup_codes_remaining')
             .eq('user_id', userId)
@@ -5869,7 +5875,7 @@ app.post('/api/2fa/setup', authMiddleware, async (req, res) => {
         const hashedCodes = recoveryCodes.map(code => TOTPService.hashRecoveryCode(code));
         
         // Create or update 2FA profile
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('twofa_profiles')
             .upsert({
                 user_id: userId,
@@ -5913,7 +5919,7 @@ app.post('/api/2fa/verify-setup', authMiddleware, async (req, res) => {
         }
         
         // Get the 2FA profile
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('*')
             .eq('user_id', userId)
@@ -5943,7 +5949,7 @@ app.post('/api/2fa/verify-setup', authMiddleware, async (req, res) => {
         }
         
         // Update profile to verified
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
             .from('twofa_profiles')
             .update({
                 is_verified: true,
@@ -5957,7 +5963,7 @@ app.post('/api/2fa/verify-setup', authMiddleware, async (req, res) => {
         }
         
         // Log the verification
-        await supabase.from('twofa_attempts').insert({
+        await supabaseAdmin.from('twofa_attempts').insert({
             user_id: userId,
             code_hash: crypto.createHash('sha256').update(code).digest('hex'),
             success: true,
@@ -5981,7 +5987,7 @@ app.post('/api/2fa/enable', authMiddleware, async (req, res) => {
         const userId = req.user.id;
         
         // Check if verified
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('*')
             .eq('user_id', userId)
@@ -6000,7 +6006,7 @@ app.post('/api/2fa/enable', authMiddleware, async (req, res) => {
         }
         
         // Enable 2FA
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
             .from('twofa_profiles')
             .update({
                 is_enabled: true,
@@ -6015,7 +6021,7 @@ app.post('/api/2fa/enable', authMiddleware, async (req, res) => {
         
         // Log admin action if this is admin enabling for user
         if (req.body.userId && req.user.is_admin) {
-            await supabase.from('audit_logs').insert({
+            await supabaseAdmin.from('audit_logs').insert({
                 action: '2fa_enabled',
                 target_type: 'user',
                 target_id: req.body.userId,
@@ -6040,7 +6046,7 @@ app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
         const { code, recoveryCode } = req.body;
         
         // Get profile
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('*')
             .eq('user_id', userId)
@@ -6072,7 +6078,7 @@ app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
             if (isValid) {
                 // Remove used recovery code
                 const newHashes = storedHashes.filter(h => h !== hashedInput);
-                await supabase
+                await supabaseAdmin
                     .from('twofa_profiles')
                     .update({
                         backup_codes_hash: JSON.stringify(newHashes),
@@ -6087,7 +6093,7 @@ app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
         }
         
         // Disable 2FA
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
             .from('twofa_profiles')
             .update({
                 is_enabled: false,
@@ -6104,7 +6110,7 @@ app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
         }
         
         // Log the action
-        await supabase.from('audit_logs').insert({
+        await supabaseAdmin.from('audit_logs').insert({
             action: '2fa_disabled',
             target_type: 'user',
             target_id: userId,
@@ -6128,7 +6134,7 @@ app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
         const { code } = req.body;
         
         // Get profile
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('*')
             .eq('user_id', userId)
@@ -6154,7 +6160,7 @@ app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
         const newCodes = TOTPService.generateRecoveryCodes();
         const hashedCodes = newCodes.map(c => TOTPService.hashRecoveryCode(c));
         
-        await supabase
+        await supabaseAdmin
             .from('twofa_profiles')
             .update({
                 backup_codes_hash: JSON.stringify(hashedCodes),
@@ -6188,7 +6194,7 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
         }
         
         // Get profile
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('*')
             .eq('user_id', userId)
@@ -6200,7 +6206,7 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
         
         // Check for replay attack
         const codeHash = crypto.createHash('sha256').update(code || recoveryCode).digest('hex');
-        const { data: existingAttempt } = await supabase
+        const { data: existingAttempt } = await supabaseAdmin
             .from('twofa_attempts')
             .select('id')
             .eq('user_id', userId)
@@ -6237,7 +6243,7 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
             if (isValid) {
                 // Remove used recovery code
                 const newHashes = storedHashes.filter(h => h !== hashedInput);
-                await supabase
+                await supabaseAdmin
                     .from('twofa_profiles')
                     .update({
                         backup_codes_hash: JSON.stringify(newHashes),
@@ -6248,7 +6254,7 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
         }
         
         // Log attempt
-        await supabase.from('twofa_attempts').insert({
+        await supabaseAdmin.from('twofa_attempts').insert({
             user_id: userId,
             code_hash: codeHash,
             success: isValid,
@@ -6265,7 +6271,7 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
         TOTPService.clearRateLimit(userId);
         
         // Update last verified
-        await supabase
+        await supabaseAdmin
             .from('twofa_profiles')
             .update({ last_verified_at: new Date().toISOString() })
             .eq('user_id', userId);
@@ -6291,7 +6297,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         }
         
         // Verify credentials
-        const { data: user, error } = await supabase
+        const { data: user, error } = await supabaseAdmin
             .from('users')
             .select('*')
             .eq('email', email)
@@ -6365,7 +6371,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         } else if (twoFactorType === 'email') {
             // Email 2FA mode - always require for all users
             // Check resend rate limit (database-backed)
-            const rateLimit = await Email2FAService.checkResendRateLimit(supabase, `login:${user.id}`);
+            const rateLimit = await Email2FAService.checkResendRateLimit(supabaseAdmin, `login:${user.id}`);
             if (!rateLimit.allowed) {
                 return res.status(429).json({
                     error: 'Please wait before requesting another code',
@@ -6465,7 +6471,7 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         const twoFactorType = decoded._2fa_type || 'email';
         
         // Check verification rate limit (database-backed, using Email2FAService for all types)
-        const rateLimit = await Email2FAService.checkVerifyRateLimit(supabase, `login:${userId}`);
+        const rateLimit = await Email2FAService.checkVerifyRateLimit(supabaseAdmin, `login:${userId}`);
         if (!rateLimit.allowed) {
             return res.status(429).json({ 
                 error: 'Too many attempts. Please try again later.',
@@ -6501,7 +6507,7 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         );
 
         // Get user data (is_verified removed - column doesn't exist in users table)
-        const { data: user } = await supabase
+        const { data: user } = await supabaseAdmin
             .from('users')
             .select('id, name, email, referral_code, is_admin')
             .eq('id', userId)
@@ -6537,7 +6543,7 @@ async function verifyEmailCode(userId, code, purpose, req) {
         const codeHash = Email2FAService.hashCode(code);
         
         // Find valid code in database
-        const { data: storedCode } = await supabase
+        const { data: storedCode } = await supabaseAdmin
             .from('email_verification_codes')
             .select('id, code_hash, expires_at, used')
             .eq('user_id', userId)
@@ -6564,7 +6570,7 @@ async function verifyEmailCode(userId, code, purpose, req) {
         }
         
         // Mark code as used
-        await supabase
+        await supabaseAdmin
             .from('email_verification_codes')
             .update({ used: true, used_at: new Date().toISOString() })
             .eq('id', storedCode.id);
@@ -6583,7 +6589,7 @@ async function verifyEmailCode(userId, code, purpose, req) {
 async function verifyTOTPCode(userId, code, req) {
     try {
         // Get profile
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('*')
             .eq('user_id', userId)
@@ -6600,7 +6606,7 @@ async function verifyTOTPCode(userId, code, req) {
         
         // Log attempt
         const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-        await supabase.from('twofa_attempts').insert({
+        await supabaseAdmin.from('twofa_attempts').insert({
             user_id: userId,
             code_hash: codeHash,
             success: isValid,
@@ -6610,7 +6616,7 @@ async function verifyTOTPCode(userId, code, req) {
         
         if (isValid) {
             // Update last verified
-            await supabase
+            await supabaseAdmin
                 .from('twofa_profiles')
                 .update({ last_verified_at: new Date().toISOString() })
                 .eq('user_id', userId);
@@ -6630,7 +6636,7 @@ async function logEmail2FAAttempt(userId, email, success, failureReason, req) {
             || req?.socket?.remoteAddress 
             || null;
         
-        await supabase.from('email_2fa_attempts').insert({
+        await supabaseAdmin.from('email_2fa_attempts').insert({
             user_id: userId,
             email: email || 'unknown',
             success: success,
@@ -6648,7 +6654,7 @@ app.get('/api/admin/2fa/:userId', authMiddleware, adminMiddleware, async (req, r
     try {
         const { userId } = req.params;
         
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('twofa_profiles')
             .select('is_enabled, is_verified, enabled_at, last_verified_at, backup_codes_remaining, created_at')
             .eq('user_id', userId)
@@ -6674,21 +6680,21 @@ app.get('/api/admin/2fa/:userId', authMiddleware, adminMiddleware, async (req, r
 
 // ---------- ADMIN ----------
 app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
-  const { count: totalUsers } = await supabase.from('users').select('*', { count: 'exact', head: true });
-  const { data: deposits } = await supabase.from('deposits').select('amount').eq('status', 'confirmed');
+  const { count: totalUsers } = await supabaseAdmin.from('users').select('*', { count: 'exact', head: true });
+  const { data: deposits } = await supabaseAdmin.from('deposits').select('amount').eq('status', 'confirmed');
   const totalDeposits = deposits.reduce((s, d) => s + d.amount, 0);
-  const { data: withdrawals } = await supabase.from('withdrawals').select('amount').eq('status', 'approved');
+  const { data: withdrawals } = await supabaseAdmin.from('withdrawals').select('amount').eq('status', 'approved');
   const totalWithdrawals = withdrawals.reduce((s, w) => s + w.amount, 0);
-  const { data: txs } = await supabase.from('transactions').select('amount');
+  const { data: txs } = await supabaseAdmin.from('transactions').select('amount');
   const totalVolume = txs.reduce((s, t) => s + t.amount, 0);
-  const { count: activeBots } = await supabase.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
-  const { data: wallets } = await supabase.from('wallets').select('live_balance');
+  const { count: activeBots } = await supabaseAdmin.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
+  const { data: wallets } = await supabaseAdmin.from('wallets').select('live_balance');
   const totalLiveBalance = wallets.reduce((s, w) => s + w.live_balance, 0);
   res.json({ totalUsers: totalUsers||0, totalDeposits, totalWithdrawals, totalVolume, activeBots: activeBots||0, totalLiveBalance });
 });
 
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('users').select('id, name, email, referral_code, is_admin, created_at, wallets(demo_balance, live_balance, bonus_balance)').order('created_at', { ascending: false });
+  const { data, error } = await supabaseAdmin.from('users').select('id, name, email, referral_code, is_admin, created_at, wallets(demo_balance, live_balance, bonus_balance)').order('created_at', { ascending: false });
   if (error) throw error;
   const users = data.map(u => ({ ...u, demo_balance: u.wallets ? u.wallets.demo_balance : 0, live_balance: u.wallets ? u.wallets.live_balance : 0, bonus_balance: u.wallets ? u.wallets.bonus_balance : 0, wallets: undefined }));
   res.json(users);
@@ -6697,7 +6703,7 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
 // Admin subscription visibility (read-only). Lists each user's Arbitrix Pro
 // subscription state. No balance alteration is possible through this endpoint.
 app.get('/api/admin/subscriptions', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('subscriptions')
+  const { data, error } = await supabaseAdmin.from('subscriptions')
     .select('id, user_id, plan, price, status, started_at, next_billing_date, last_billing_date, last_charge_amount, created_at, updated_at')
     .order('updated_at', { ascending: false });
   if (error) throw error;
@@ -6705,7 +6711,7 @@ app.get('/api/admin/subscriptions', authMiddleware, adminMiddleware, async (req,
 });
 
 app.get('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('users').select('id, name, email, referral_code, is_admin, wallets(demo_balance, live_balance, bonus_balance)').eq('id', req.params.id).single();
+  const { data, error } = await supabaseAdmin.from('users').select('id, name, email, referral_code, is_admin, wallets(demo_balance, live_balance, bonus_balance)').eq('id', req.params.id).single();
   if (error) return res.status(404).json({ error: 'User not found' });
   const user = { ...data, demo_balance: data.wallets ? data.wallets.demo_balance : 0, live_balance: data.wallets ? data.wallets.live_balance : 0, bonus_balance: data.wallets ? data.wallets.bonus_balance : 0, wallets: undefined };
   res.json(user);
@@ -6714,8 +6720,8 @@ app.get('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res
 app.put('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
   const { name, email, demo_balance, live_balance, bonus_balance } = req.body;
-  await supabase.from('users').update({ name, email }).eq('id', id);
-  await supabase.from('wallets').update({ demo_balance, live_balance, bonus_balance }).eq('user_id', id);
+  await supabaseAdmin.from('users').update({ name, email }).eq('id', id);
+  await supabaseAdmin.from('wallets').update({ demo_balance, live_balance, bonus_balance }).eq('user_id', id);
   res.json({ success: true });
 });
 
@@ -6725,14 +6731,14 @@ app.post('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =
   if (await getUserByEmail(email)) return res.status(400).json({ error: 'Email exists' });
   const hash = bcrypt.hashSync(password, 10);
   const userReferralCode = await generateUniqueReferralCode();
-  const { data: user, error } = await supabase.from('users').insert({ name, email, password_hash: hash, referral_code: userReferralCode, is_admin: 0 }).select().single();
+  const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email, password_hash: hash, referral_code: userReferralCode, is_admin: 0 }).select().single();
   if (error) throw error;
-  await supabase.from('wallets').insert({ user_id: user.id, demo_balance: demo_balance || 1000, live_balance: 50, bonus_balance: 0 });
+  await supabaseAdmin.from('wallets').insert({ user_id: user.id, demo_balance: demo_balance || 1000, live_balance: 50, bonus_balance: 0 });
   res.json({ success: true, user });
 });
 
 app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('deposits').select('*, users(name)').order('created_at', { ascending: false }).limit(100);
+  const { data, error } = await supabaseAdmin.from('deposits').select('*, users(name)').order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
   const deposits = data.map(d => ({ ...d, user_name: d.users ? d.users.name : null, users: undefined }));
   res.json(deposits);
@@ -6740,14 +6746,14 @@ app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res)
 
 app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { data: deposit, error } = await supabase.from('deposits').select('*').eq('id', id).single();
+  const { data: deposit, error } = await supabaseAdmin.from('deposits').select('*').eq('id', id).single();
   if (error || !deposit) return res.status(404).json({ error: 'Deposit not found' });
   if (deposit.status !== 'pending') return res.status(400).json({ error: 'Already ' + deposit.status });
   
   // Check if this is the user's first deposit (for referral qualification)
   const isFirst = await isFirstConfirmedDeposit(deposit.user_id);
   
-  await supabase.from('deposits').update({ status: 'confirmed' }).eq('id', id);
+  await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', id);
   await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
   await addTransaction(deposit.user_id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
   
@@ -6764,7 +6770,7 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
 });
 
 app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('withdrawals').select('*, users(name)').order('created_at', { ascending: false }).limit(100);
+  const { data, error } = await supabaseAdmin.from('withdrawals').select('*, users(name)').order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
   const withdrawals = data.map(w => ({ ...w, user_name: w.users ? w.users.name : null, users: undefined }));
   res.json(withdrawals);
@@ -6772,27 +6778,27 @@ app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, r
 
 app.put('/api/admin/withdrawals/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { data: withdrawal, error } = await supabase.from('withdrawals').select('*').eq('id', id).single();
+  const { data: withdrawal, error } = await supabaseAdmin.from('withdrawals').select('*').eq('id', id).single();
   if (error || !withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
   if (withdrawal.status !== 'pending') return res.status(400).json({ error: 'Already ' + withdrawal.status });
-  await supabase.from('withdrawals').update({ status: 'approved' }).eq('id', id);
+  await supabaseAdmin.from('withdrawals').update({ status: 'approved' }).eq('id', id);
   await addTransaction(withdrawal.user_id, 'Withdraw Approved', -withdrawal.amount, 'Approved withdrawal');
   res.json({ success: true });
 });
 
 app.put('/api/admin/withdrawals/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { data: withdrawal, error } = await supabase.from('withdrawals').select('*').eq('id', id).single();
+  const { data: withdrawal, error } = await supabaseAdmin.from('withdrawals').select('*').eq('id', id).single();
   if (error || !withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
   if (withdrawal.status !== 'pending') return res.status(400).json({ error: 'Already ' + withdrawal.status });
-  await supabase.from('withdrawals').update({ status: 'rejected' }).eq('id', id);
+  await supabaseAdmin.from('withdrawals').update({ status: 'rejected' }).eq('id', id);
   await updateWallet(withdrawal.user_id, 'live_balance', withdrawal.amount);
   await addTransaction(withdrawal.user_id, 'Withdraw Rejected', withdrawal.amount, 'Rejected withdrawal refund');
   res.json({ success: true });
 });
 
 app.get('/api/admin/transactions', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('transactions').select('*, users(name)').order('created_at', { ascending: false }).limit(200);
+  const { data, error } = await supabaseAdmin.from('transactions').select('*, users(name)').order('created_at', { ascending: false }).limit(200);
   if (error) throw error;
   const txs = data.map(t => ({ ...t, user_name: t.users ? t.users.name : null, users: undefined }));
   res.json(txs);
@@ -6802,7 +6808,7 @@ app.get('/api/admin/transactions', authMiddleware, adminMiddleware, async (req, 
 app.get('/api/admin/referrals', authMiddleware, adminMiddleware, async (req, res) => {
   const { search, status, limit = 100, offset = 0 } = req.query;
   
-  let query = supabase
+  let query = supabaseAdmin
     .from('referrals')
     .select(`
       id,
@@ -6862,7 +6868,7 @@ app.get('/api/admin/referrals/top', authMiddleware, adminMiddleware, async (req,
   const { limit = 10 } = req.query;
   
   // Get referral counts per user
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('referrals')
     .select('referrer_id, bonus_earned')
     .eq('status', 'active');
@@ -6888,7 +6894,7 @@ app.get('/api/admin/referrals/top', authMiddleware, adminMiddleware, async (req,
     return res.json({ topReferrers: [] });
   }
   
-  const { data: users } = await supabase
+  const { data: users } = await supabaseAdmin
     .from('users')
     .select('id, name, email, referral_code, created_at')
     .in('id', referrerIds);
@@ -6911,7 +6917,7 @@ app.get('/api/admin/referrals/top', authMiddleware, adminMiddleware, async (req,
 
 // Admin: Export referrals (CSV format)
 app.get('/api/admin/referrals/export', authMiddleware, adminMiddleware, async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('referrals')
     .select(`
       id,
@@ -6958,7 +6964,7 @@ app.get('/api/admin/referrals/suspicious', authMiddleware, adminMiddleware, asyn
   // 2. Rapid-fire referrals (same referrer getting multiple referrals in short time)
   // 3. Self-referrals (should be blocked but check anyway)
   
-  const { data: recentReferrals, error } = await supabase
+  const { data: recentReferrals, error } = await supabaseAdmin
     .from('referrals')
     .select(`
       id,
@@ -7011,9 +7017,9 @@ app.get('/api/admin/dashboard/executive', authMiddleware, adminMiddleware, async
     const weekStart = new Date(now.setDate(now.getDate() - 7)).toISOString();
     
     // User Stats
-    const { count: totalUsers } = await supabase.from('users').select('*', { count: 'exact', head: true });
-    const { count: newUsersToday } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', todayStart);
-    const { count: newUsersWeek } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', weekStart);
+    const { count: totalUsers } = await supabaseAdmin.from('users').select('*', { count: 'exact', head: true });
+    const { count: newUsersToday } = await supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', todayStart);
+    const { count: newUsersWeek } = await supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', weekStart);
     
     // KYC Stats (use the service-role admin client: the KYC tables have RLS
     // enabled with service_role-only policies, so the anon client cannot read
@@ -7024,24 +7030,24 @@ app.get('/api/admin/dashboard/executive', authMiddleware, adminMiddleware, async
     const { count: kycRejectedToday } = await supabaseAdmin.from('verification_profiles').select('*', { count: 'exact', head: true }).eq('status', 'rejected').gte('updated_at', todayStart);
     
     // Financial Stats
-    const { data: depositsData } = await supabase.from('deposits').select('amount, status, created_at');
+    const { data: depositsData } = await supabaseAdmin.from('deposits').select('amount, status, created_at');
     const totalDeposits = depositsData.filter(d => d.status === 'confirmed').reduce((s, d) => s + d.amount, 0);
     const depositsToday = depositsData.filter(d => d.status === 'confirmed' && new Date(d.created_at) >= new Date(todayStart)).reduce((s, d) => s + d.amount, 0);
     
-    const { data: withdrawalsData } = await supabase.from('withdrawals').select('amount, status, created_at');
+    const { data: withdrawalsData } = await supabaseAdmin.from('withdrawals').select('amount, status, created_at');
     const totalWithdrawals = withdrawalsData.filter(w => w.status === 'approved').reduce((s, w) => s + w.amount, 0);
-    const { count: pendingWithdrawals } = await supabase.from('withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+    const { count: pendingWithdrawals } = await supabaseAdmin.from('withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending');
     
     // Referral Stats
-    const { data: referralsData } = await supabase.from('referrals').select('bonus_earned, status');
+    const { data: referralsData } = await supabaseAdmin.from('referrals').select('bonus_earned, status');
     const totalReferralRewards = referralsData.filter(r => r.status === 'active').reduce((s, r) => s + (r.bonus_earned || 0), 0);
     
     // Wallet Stats
-    const { data: wallets } = await supabase.from('wallets').select('live_balance, bonus_balance');
+    const { data: wallets } = await supabaseAdmin.from('wallets').select('live_balance, bonus_balance');
     const totalBalances = wallets.reduce((s, w) => s + (w.live_balance || 0) + (w.bonus_balance || 0), 0);
     
     // Payment Stats
-    const { data: invoicesData } = await supabase.from('payment_invoices').select('status, created_at');
+    const { data: invoicesData } = await supabaseAdmin.from('payment_invoices').select('status, created_at');
     const successfulPayments = invoicesData.filter(i => i.status === 'paid').length;
     const failedPayments = invoicesData.filter(i => i.status === 'failed').length;
     const pendingInvoices = invoicesData.filter(i => i.status === 'pending' || i.status === 'expired').length;
@@ -7050,7 +7056,7 @@ app.get('/api/admin/dashboard/executive', authMiddleware, adminMiddleware, async
     const paymentSuccessRate = totalInvoices > 0 ? ((successfulPayments / totalInvoices) * 100).toFixed(1) : 0;
     
     // Active Bots
-    const { count: activeBots } = await supabase.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
+    const { count: activeBots } = await supabaseAdmin.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
     
     res.json({
       users: {
@@ -7098,7 +7104,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
     
     // Get recent registrations
     if (!type || type === 'all' || type === 'registration') {
-      const { data: newUsers } = await supabase
+      const { data: newUsers } = await supabaseAdmin
         .from('users')
         .select('id, name, email, created_at')
         .order('created_at', { ascending: false })
@@ -7119,7 +7125,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
     
     // Get recent deposits
     if (!type || type === 'all' || type === 'deposit') {
-      const { data: deposits } = await supabase
+      const { data: deposits } = await supabaseAdmin
         .from('deposits')
         .select('id, amount, status, created_at, users(name, email)')
         .order('created_at', { ascending: false })
@@ -7143,7 +7149,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
     
     // Get recent withdrawals
     if (!type || type === 'all' || type === 'withdrawal') {
-      const { data: withdrawals } = await supabase
+      const { data: withdrawals } = await supabaseAdmin
         .from('withdrawals')
         .select('id, amount, status, created_at, users(name, email)')
         .order('created_at', { ascending: false })
@@ -7167,7 +7173,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
     
     // Get recent KYC submissions
     if (!type || type === 'all' || type === 'kyc') {
-      const { data: kycSubmissions } = await supabase
+      const { data: kycSubmissions } = await supabaseAdmin
         .from('verification_profiles')
         .select('user_id, status, created_at, updated_at, users(name, email)')
         .in('status', ['pending_review', 'approved', 'rejected'])
@@ -7195,7 +7201,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
     
     // Get recent referral activations
     if (!type || type === 'all' || type === 'referral') {
-      const { data: referrals } = await supabase
+      const { data: referrals } = await supabaseAdmin
         .from('referrals')
         .select('id, status, bonus_earned, activated_at, referred:users!referred_id(name, email)')
         .eq('status', 'active')
@@ -7243,7 +7249,7 @@ app.get('/api/admin/dashboard/health', authMiddleware, adminMiddleware, async (r
   // Database Check
   try {
     const dbStart = Date.now();
-    const { error: dbError } = await supabase.from('users').select('id').limit(1);
+    const { error: dbError } = await supabaseAdmin.from('users').select('id').limit(1);
     health.checks.database = {
       status: dbError ? 'unhealthy' : 'healthy',
       latency: Date.now() - dbStart,
@@ -7256,7 +7262,7 @@ app.get('/api/admin/dashboard/health', authMiddleware, adminMiddleware, async (r
   // Supabase Storage Check
   try {
     const storageStart = Date.now();
-    const { data: buckets, error: storageError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: storageError } = await supabaseAdmin.storage.listBuckets();
     health.checks.storage = {
       status: storageError ? 'degraded' : 'healthy',
       latency: Date.now() - storageStart,
@@ -7269,7 +7275,7 @@ app.get('/api/admin/dashboard/health', authMiddleware, adminMiddleware, async (r
   
   // Email Service Check (simulated based on recent failures)
   try {
-    const { data: failedEmails } = await supabase
+    const { data: failedEmails } = await supabaseAdmin
       .from('audit_logs')
       .select('id')
       .eq('action', 'email_failed')
@@ -7285,7 +7291,7 @@ app.get('/api/admin/dashboard/health', authMiddleware, adminMiddleware, async (r
   
   // Payment Provider Check
   try {
-    const { data: failedPayments } = await supabase
+    const { data: failedPayments } = await supabaseAdmin
       .from('payment_invoices')
       .select('id')
       .eq('status', 'failed')
@@ -7307,7 +7313,7 @@ app.get('/api/admin/dashboard/health', authMiddleware, adminMiddleware, async (r
   
   // Failed Jobs Check (from audit logs)
   try {
-    const { data: failedJobs } = await supabase
+    const { data: failedJobs } = await supabaseAdmin
       .from('audit_logs')
       .select('id')
       .eq('action', 'job_failed')
@@ -7337,7 +7343,7 @@ app.get('/api/admin/dashboard/alerts', authMiddleware, adminMiddleware, async (r
     const alerts = [];
     
     // Check for failed payments
-    const { data: failedPayments } = await supabase
+    const { data: failedPayments } = await supabaseAdmin
       .from('payment_invoices')
       .select('id, status, created_at')
       .eq('status', 'failed')
@@ -7355,7 +7361,7 @@ app.get('/api/admin/dashboard/alerts', authMiddleware, adminMiddleware, async (r
     }
     
     // Check for large withdrawals pending
-    const { data: largeWithdrawals } = await supabase
+    const { data: largeWithdrawals } = await supabaseAdmin
       .from('withdrawals')
       .select('id, amount, created_at')
       .eq('status', 'pending')
@@ -7374,7 +7380,7 @@ app.get('/api/admin/dashboard/alerts', authMiddleware, adminMiddleware, async (r
     }
     
     // Check for pending KYC reviews
-    const { count: pendingKyc } = await supabase
+    const { count: pendingKyc } = await supabaseAdmin
       .from('verification_profiles')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending_review')
@@ -7392,7 +7398,7 @@ app.get('/api/admin/dashboard/alerts', authMiddleware, adminMiddleware, async (r
     }
     
     // Check for suspicious referral activity
-    const { data: recentReferrals } = await supabase
+    const { data: recentReferrals } = await supabaseAdmin
       .from('referrals')
       .select('referrer_id, created_at')
       .gte('created_at', new Date(Date.now() - 86400000).toISOString());
@@ -7415,7 +7421,7 @@ app.get('/api/admin/dashboard/alerts', authMiddleware, adminMiddleware, async (r
     }
     
     // Check for webhook failures
-    const { data: webhookFailures } = await supabase
+    const { data: webhookFailures } = await supabaseAdmin
       .from('payment_invoices')
       .select('id')
       .eq('status', 'webhook_failed')
@@ -7457,7 +7463,7 @@ app.get('/api/admin/dashboard/audit-logs', authMiddleware, adminMiddleware, asyn
       endDate 
     } = req.query;
     
-    let query = supabase
+    let query = supabaseAdmin
       .from('audit_logs')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -7480,7 +7486,7 @@ app.get('/api/admin/dashboard/audit-logs', authMiddleware, adminMiddleware, asyn
     
     // Get admin user names
     const adminIds = [...new Set(logs?.map(l => l.performed_by).filter(Boolean) || [])];
-    const { data: admins } = await supabase
+    const { data: admins } = await supabaseAdmin
       .from('users')
       .select('id, name, email')
       .in('id', adminIds);
@@ -7515,7 +7521,7 @@ app.get('/api/admin/users/search', authMiddleware, adminMiddleware, async (req, 
       return res.status(400).json({ error: 'Search query required' });
     }
     
-    let query = supabase
+    let query = supabaseAdmin
       .from('users')
       .select(`
         id, name, email, referral_code, is_admin, created_at,
@@ -7575,7 +7581,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
     
     switch (type) {
       case 'users':
-        const { data: users } = await supabase
+        const { data: users } = await supabaseAdmin
           .from('users')
           .select('id, name, email, referral_code, is_admin, created_at, wallets(demo_balance, live_balance, bonus_balance)');
         
@@ -7595,7 +7601,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
         break;
         
       case 'deposits':
-        const { data: deposits } = await supabase
+        const { data: deposits } = await supabaseAdmin
           .from('deposits')
           .select('*, users(name, email)');
         
@@ -7616,7 +7622,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
         break;
         
       case 'withdrawals':
-        const { data: withdrawals } = await supabase
+        const { data: withdrawals } = await supabaseAdmin
           .from('withdrawals')
           .select('*, users(name, email)');
         
@@ -7638,7 +7644,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
         break;
         
       case 'referrals':
-        const { data: referrals } = await supabase
+        const { data: referrals } = await supabaseAdmin
           .from('referrals')
           .select('*, referrer:users!referrer_id(name, email), referred:users!referred_id(name, email)');
         
@@ -7658,7 +7664,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
         break;
         
       case 'kyc':
-        const { data: kyc } = await supabase
+        const { data: kyc } = await supabaseAdmin
           .from('verification_profiles')
           .select('*, users(name, email)');
         
@@ -7680,7 +7686,7 @@ app.get('/api/admin/reports/export', authMiddleware, adminMiddleware, async (req
         break;
         
       case 'audit':
-        const { data: audit } = await supabase
+        const { data: audit } = await supabaseAdmin
           .from('audit_logs')
           .select('*')
           .order('created_at', { ascending: false })
@@ -7734,7 +7740,7 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
     const { id } = req.params;
     
     // Get user basic info
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('id', id)
@@ -7743,27 +7749,27 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
     if (userError) return res.status(404).json({ error: 'User not found' });
     
     // Get wallet
-    const { data: wallet } = await supabase
+    const { data: wallet } = await supabaseAdmin
       .from('wallets')
       .select('*')
       .eq('user_id', id)
       .single();
     
     // Get KYC profile
-    const { data: kyc } = await supabase
+    const { data: kyc } = await supabaseAdmin
       .from('verification_profiles')
       .select('*')
       .eq('user_id', id)
       .single();
     
     // Get documents count
-    const { count: docsCount } = await supabase
+    const { count: docsCount } = await supabaseAdmin
       .from('verification_documents')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', id);
     
     // Get deposit history
-    const { data: deposits } = await supabase
+    const { data: deposits } = await supabaseAdmin
       .from('deposits')
       .select('*')
       .eq('user_id', id)
@@ -7771,7 +7777,7 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
       .limit(10);
     
     // Get withdrawal history
-    const { data: withdrawals } = await supabase
+    const { data: withdrawals } = await supabaseAdmin
       .from('withdrawals')
       .select('*')
       .eq('user_id', id)
@@ -7779,7 +7785,7 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
       .limit(10);
     
     // Get transactions
-    const { data: transactions } = await supabase
+    const { data: transactions } = await supabaseAdmin
       .from('transactions')
       .select('*')
       .eq('user_id', id)
@@ -7787,14 +7793,14 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
       .limit(20);
     
     // Get referrals (as referrer)
-    const { data: referralsAsReferrer } = await supabase
+    const { data: referralsAsReferrer } = await supabaseAdmin
       .from('referrals')
       .select('*, referred:users!referred_id(name, email)')
       .eq('referrer_id', id)
       .limit(10);
     
     // Get referred by
-    const { data: referredBy } = await supabase
+    const { data: referredBy } = await supabaseAdmin
       .from('referrals')
       .select('*, referrer:users!referrer_id(name, email)')
       .eq('referred_id', id)
@@ -7820,10 +7826,10 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
 // ---------- SEED ADMIN ----------
 (async function seedAdmin() {
   try {
-    const existing = await supabase.from('users').select('id').eq('email', 'admin@arbitrix.ai').single();
+    const existing = await supabaseAdmin.from('users').select('id').eq('email', 'admin@arbitrix.ai').single();
     if (!existing.data) {
       const hash = bcrypt.hashSync('admin123', 10);
-      const { data: admin, error } = await supabase.from('users').insert({
+      const { data: admin, error } = await supabaseAdmin.from('users').insert({
         name: 'Admin',
         email: 'admin@arbitrix.ai',
         password_hash: hash,
@@ -7831,7 +7837,7 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
         is_admin: 1
       }).select().single();
       if (admin) {
-        await supabase.from('wallets').insert({
+        await supabaseAdmin.from('wallets').insert({
           user_id: admin.id,
           demo_balance: 10000,
           live_balance: 5000,
@@ -7873,7 +7879,7 @@ app.get('/api/diagnostic', async (req, res) => {
   
   // Test Supabase query
   try {
-    const { data, error, details, hint, message } = await supabase.from('users').select('id').limit(1);
+    const { data, error, details, hint, message } = await supabaseAdmin.from('users').select('id').limit(1);
     diagnostics.supabaseUrlReachable = true;
     if (error) {
       diagnostics.supabaseQueryTest = { 
