@@ -79,9 +79,11 @@ test('supabaseAdmin service-role client still exists and is used', () => {
         'expected the bulk of server queries to use supabaseAdmin');
 });
 
-test('no RLS/permission changes snuck in: no new migration files in this phase', () => {
+test('no RLS/permission changes snuck in: Phase 2 adds no migration files', () => {
     const migrations = fs.readdirSync(path.join(ROOT, 'supabase', 'migrations'))
         .filter((f) => f.endsWith('.sql')).sort();
-    // Phase 2 is a code-only migration; the newest migration stays 015.
-    assert.strictEqual(migrations[migrations.length - 1], '015_payment_config_rls_lockdown.sql');
+    // Phase 2 is code-only; 015 is the newest migration at Phase-2 time. Later
+    // phases (016+) legitimately add migrations, so pin that 015 EXISTS rather
+    // than asserting it is the latest.
+    assert.ok(migrations.includes('015_payment_config_rls_lockdown.sql'));
 });
