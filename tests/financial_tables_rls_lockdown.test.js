@@ -34,6 +34,48 @@ const OFF_LIMITS = [
   'referral_config', 'referral_config_audit_log', 'audit_logs',
 ];
 
+// The exact 19 legacy "TO anon" policies (confirmed via live pg_policies
+// investigation after the first 018 apply attempt failed + rolled back) that
+// migration 018 must drop BEFORE creating each table's service-role policy.
+// trades / payment_invoices / webhook_logs / subscriptions have ZERO.
+const LEGACY_DROPS = {
+  users: [
+    'Allow anonymous signup on users',
+    'Allow anonymous select on users',
+    'Allow anonymous update on users',
+  ],
+  wallets: [
+    'Allow wallet insert on wallets',
+    'Allow wallet select on wallets',
+    'Allow wallet update on wallets',
+  ],
+  deposits: [
+    'Allow deposit insert on deposits',
+    'Allow deposit select on deposits',
+    'Allow deposit update on deposits',
+  ],
+  withdrawals: [
+    'Allow withdrawal insert on withdrawals',
+    'Allow withdrawal select on withdrawals',
+    'Allow withdrawal update on withdrawals',
+  ],
+  transactions: [
+    'Allow transaction insert on transactions',
+    'Allow transaction select on transactions',
+  ],
+  bot_sessions: [
+    'Allow bot session insert on bot_sessions',
+    'Allow bot session select on bot_sessions',
+    'Allow bot session update on bot_sessions',
+  ],
+  referrals: [
+    'Allow referral insert on referrals',
+    'Allow referral select on referrals',
+  ],
+};
+const LEGACY_DROP_COUNT = Object.values(LEGACY_DROPS).flat().length;
+const LEGACY_FREE_TABLES = TABLES.filter((t) => !LEGACY_DROPS[t]);
+
 // -----------------------------------------------
 // 1. exact 11-table scope: RLS enabled on exactly these (and only these)
 // -----------------------------------------------
@@ -199,4 +241,96 @@ test('server accesses the eleven tables only via supabaseAdmin (never bare anon 
 test('frontend has no direct Supabase access', () => {
   assert.ok(!/supabase/i.test(INDEX_HTML),
     'public/index.html must not reference supabase');
+});
+
+// -----------------------------------------------
+// 16. exactly the 19 confirmed legacy drops, each verbatim + correctly scoped
+// -----------------------------------------------
+test('migration 018 drops exactly the 19 legacy anon policies, verbatim and scoped to the correct table', () => {
+  assert.strictEqual(LEGACY_DROP_COUNT, 19, 'this phase confirmed exactly 19 legacy policies (not 22)');
+  for (const [table, names] of Object.entries(LEGACY_DROPS)) {
+    for (const name of names) {
+      const stmt = `DROP POLICY IF EXISTS "${name}" ON public.${table};`;
+      assert.ok(MIGRATION.includes(stmt),
+        `missing exact legacy drop: ${stmt}`);
+      // each drop is scoped to ONE table only (the table named in the ON clause)
+      assert.ok(!new RegExp(`DROP POLICY IF EXISTS "${name}" ON public\\.(?!${table}\\b)`).test(MIGRATION),
+        `legacy drop "${name}" must be scoped only to public.${table}`);
+    }
+  }
+});
+
+// -----------------------------------------------
+// 17. legacy drops occur BEFORE each table's service-all policy creation
+// -----------------------------------------------
+test('migration 018 drops legacy policies before creating the service-role policy', () => {
+  for (const [table, names] of Object.entries(LEGACY_DROPS)) {
+    const createIdx = MIGRATION.indexOf(`CREATE POLICY "${table}_service_all" ON public.${table}`);
+    assert.ok(createIdx > -1, `service-role policy must exist for ${table}`);
+    for (const name of names) {
+      const dropIdx = MIGRATION.indexOf(`DROP POLICY IF EXISTS "${name}" ON public.${table};`);
+      assert.ok(dropIdx > -1, `legacy drop missing for "${name}" on ${table}`);
+      assert.ok(dropIdx < createIdx,
+        `"${name}" must be dropped before ${table}_service_all is created`);
+    }
+  }
+});
+
+// -----------------------------------------------
+// 18. no unexpected policy drops (19 legacy + 11 service_all = 30 total)
+// -----------------------------------------------
+test('migration 018 contains no unexpected policy drops', () => {
+  const drops = MIGRATION.match(/DROP POLICY IF EXISTS\s+"[^"]+"\s+ON public\.\w+\s*;/g) || [];
+  assert.strictEqual(drops.length, LEGACY_DROP_COUNT + TABLES.length,
+    'only the 19 legacy drops + 11 <table>_service_all drops are allowed');
+  const allowed = new Set();
+  for (const [table, names] of Object.entries(LEGACY_DROPS)) {
+    for (const name of names) allowed.add(`DROP POLICY IF EXISTS "${name}" ON public.${table};`);
+  }
+  for (const t of TABLES) allowed.add(`DROP POLICY IF EXISTS "${t}_service_all" ON public.${t};`);
+  for (const d of drops) {
+    assert.ok(allowed.has(d.replace(/\s+ON public\./, ' ON public.').trim()),
+      `unexpected policy drop: ${d}`);
+  }
+  // tables confirmed to have ZERO legacy policies must have no legacy drops
+  assert.deepStrictEqual(LEGACY_FREE_TABLES, ['trades', 'payment_invoices', 'webhook_logs', 'subscriptions']);
+  for (const t of LEGACY_FREE_TABLES) {
+    const dropsForTable = drops.filter((d) => d.includes(`public.${t};`));
+    assert.ok(!/Allow /.test(dropsForTable.join(' ')),
+      `${t} must have no legacy "Allow ..." drops`);
+  }
+});
+
+// -----------------------------------------------
+// 19. legacy root file guard: supabase_rls_policies.sql must never be
+// re-applied to production; migration 018 must drop every anon policy it
+// creates. The file itself is NOT modified/deleted by this phase.
+// -----------------------------------------------
+test('legacy root policy file is quarantined: every anon policy it creates is dropped by 018', () => {
+  const legacyPath = path.join(ROOT, 'supabase_rls_policies.sql');
+  const legacy = fs.readFileSync(legacyPath, 'utf8');
+  const anonCreates = legacy.match(/CREATE POLICY\s+"[^"]+"\s+ON\s+public\.\w+\s+FOR\s+\w+\s+TO\s+anon/gi) || [];
+  assert.ok(anonCreates.length > 0, 'legacy file should contain anon policies (kept for reference)');
+  for (const stmt of anonCreates) {
+    const name = stmt.match(/"([^"]+)"/)[1];
+    const table = stmt.match(/ON\s+public\.(\w+)/i)[1].toLowerCase();
+    const drop = `DROP POLICY IF EXISTS "${name}" ON public.${table};`;
+    assert.ok(MIGRATION.includes(drop),
+      `migration 018 must drop legacy-file policy "${name}" on ${table} (legacy file must stay non-authoritative)`);
+  }
+  // the migration header documents the quarantine (no second migration, no deletion)
+  assert.match(MIGRATION, /supabase_rls_policies\.sql/);
+  assert.match(MIGRATION, /must NEVER be re-applied/);
+});
+
+// -----------------------------------------------
+// 20. header commentary corrected (no longer claims zero pre-existing
+// policies; documents the failed first apply + quarantine warning)
+// -----------------------------------------------
+test('migration 018 header records the failed-first-apply correction + legacy quarantine', () => {
+  assert.match(MIGRATION, /CORRECTION \(Phase 3C follow-up\)/);
+  assert.match(MIGRATION, /NINETEEN legacy permissive/);
+  assert.match(MIGRATION, /rolled back completely/);
+  assert.ok(!/NO\s+existing\s+non-service-role\s+policies/.test(MIGRATION.replace(/--[^\n]*/g, '')),
+    'stale "no existing policies" claim must be gone from executable code');
 });

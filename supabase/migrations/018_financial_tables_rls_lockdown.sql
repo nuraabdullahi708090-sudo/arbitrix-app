@@ -12,10 +12,25 @@
 -- ROOT CAUSE: these tables were never given Row Level Security. They default
 -- to RLS-off, and the anon/authenticated roles hold Supabase's default table
 -- GRANTs (SELECT/INSERT/UPDATE/DELETE) on public-schema tables, so the anon
--- role can read AND write them. A repo-wide audit confirmed there are NO
--- existing non-service-role policies on these eleven tables (the exposure is
--- RLS-disabled/default-grant, not a permissive policy), so no arbitrary
--- policy drops are required.
+-- role can read AND write them.
+--
+-- CORRECTION (Phase 3C follow-up): the first apply attempt of this migration
+-- FAILED at the verification block and rolled back completely, because a
+-- live pg_policies investigation found NINETEEN legacy permissive
+-- "TO anon" policies still present on 7 of the 11 tables (created by the
+-- legacy root file supabase_rls_policies.sql):
+--   users (3), wallets (3), transactions (2), referrals (2), deposits (3),
+--   withdrawals (3), bot_sessions (3)
+--   trades / payment_invoices / webhook_logs / subscriptions have NONE.
+-- The amended migration below drops EXACTLY those 19 named legacy policies
+-- (idempotently, DROP POLICY IF EXISTS) immediately before creating each
+-- table's service-role-only policy. No arbitrary/extra policy drops are
+-- performed.
+--
+-- WARNING: the legacy root file supabase_rls_policies.sql is retained in the
+-- repo for historical reference ONLY. Its "Allow ... TO anon" policies
+-- RE-OPEN anon access to these tables and must NEVER be re-applied to
+-- production. The authoritative lockdown is this migration (and 014-017).
 --
 -- SCOPE (deliberately narrow - Phase 3C only):
 -- This migration touches ONLY the eleven tables listed above. It does NOT:
@@ -74,37 +89,57 @@ ALTER TABLE public.referrals         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions     ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- 2. SERVICE-ROLE-ONLY POLICIES
+-- 2. LEGACY ANON POLICY DROPS + SERVICE-ROLE-ONLY POLICIES
 -- ============================================
 -- No policy is created for the anon or authenticated roles, so with RLS
 -- enabled they are denied ALL operations (SELECT/INSERT/UPDATE/DELETE) by
--- default. The audit found no pre-existing non-service-role policies on
--- these tables, so only the (idempotent) "<table>_service_all" drop+create
--- is needed.
+-- default. FIRST, exactly the nineteen legacy "TO anon" policies found by
+-- the live pg_policies investigation (see header) are dropped
+-- (idempotently); then each table's "<table>_service_all" policy is
+-- (re)created. No other policy drops are performed.
+-- users: 3 legacy policies
+DROP POLICY IF EXISTS "Allow anonymous signup on users" ON public.users;
+DROP POLICY IF EXISTS "Allow anonymous select on users" ON public.users;
+DROP POLICY IF EXISTS "Allow anonymous update on users" ON public.users;
 DROP POLICY IF EXISTS "users_service_all" ON public.users;
 CREATE POLICY "users_service_all" ON public.users
     FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
 
+-- wallets: 3 legacy policies
+DROP POLICY IF EXISTS "Allow wallet insert on wallets" ON public.wallets;
+DROP POLICY IF EXISTS "Allow wallet select on wallets" ON public.wallets;
+DROP POLICY IF EXISTS "Allow wallet update on wallets" ON public.wallets;
 DROP POLICY IF EXISTS "wallets_service_all" ON public.wallets;
 CREATE POLICY "wallets_service_all" ON public.wallets
     FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
 
+-- deposits: 3 legacy policies
+DROP POLICY IF EXISTS "Allow deposit insert on deposits" ON public.deposits;
+DROP POLICY IF EXISTS "Allow deposit select on deposits" ON public.deposits;
+DROP POLICY IF EXISTS "Allow deposit update on deposits" ON public.deposits;
 DROP POLICY IF EXISTS "deposits_service_all" ON public.deposits;
 CREATE POLICY "deposits_service_all" ON public.deposits
     FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
 
+-- withdrawals: 3 legacy policies
+DROP POLICY IF EXISTS "Allow withdrawal insert on withdrawals" ON public.withdrawals;
+DROP POLICY IF EXISTS "Allow withdrawal select on withdrawals" ON public.withdrawals;
+DROP POLICY IF EXISTS "Allow withdrawal update on withdrawals" ON public.withdrawals;
 DROP POLICY IF EXISTS "withdrawals_service_all" ON public.withdrawals;
 CREATE POLICY "withdrawals_service_all" ON public.withdrawals
     FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
 
+-- transactions: 2 legacy policies
+DROP POLICY IF EXISTS "Allow transaction insert on transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Allow transaction select on transactions" ON public.transactions;
 DROP POLICY IF EXISTS "transactions_service_all" ON public.transactions;
 CREATE POLICY "transactions_service_all" ON public.transactions
     FOR ALL TO service_role
@@ -117,6 +152,10 @@ CREATE POLICY "trades_service_all" ON public.trades
     USING (true)
     WITH CHECK (true);
 
+-- bot_sessions: 3 legacy policies
+DROP POLICY IF EXISTS "Allow bot session insert on bot_sessions" ON public.bot_sessions;
+DROP POLICY IF EXISTS "Allow bot session select on bot_sessions" ON public.bot_sessions;
+DROP POLICY IF EXISTS "Allow bot session update on bot_sessions" ON public.bot_sessions;
 DROP POLICY IF EXISTS "bot_sessions_service_all" ON public.bot_sessions;
 CREATE POLICY "bot_sessions_service_all" ON public.bot_sessions
     FOR ALL TO service_role
@@ -135,6 +174,9 @@ CREATE POLICY "webhook_logs_service_all" ON public.webhook_logs
     USING (true)
     WITH CHECK (true);
 
+-- referrals: 2 legacy policies
+DROP POLICY IF EXISTS "Allow referral insert on referrals" ON public.referrals;
+DROP POLICY IF EXISTS "Allow referral select on referrals" ON public.referrals;
 DROP POLICY IF EXISTS "referrals_service_all" ON public.referrals;
 CREATE POLICY "referrals_service_all" ON public.referrals
     FOR ALL TO service_role
