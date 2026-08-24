@@ -1937,3 +1937,30 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   'express'` env failure — identical to baseline; no regression).
 - NOT committed/pushed/deployed (checkpoint pending user confirmation).
   Working tree: M public/index.html, ?? tests/sandbox_withdraw_wording.test.js.
+
+## Phase 5 Cleanup — Obsolete Route Removal + Legacy SQL Quarantine (2026-08)
+- Removed the obsolete unauthenticated bootstrap routes `POST
+  /api/setup/reset-tokens-table` and `POST /api/debug/create-table` from
+  server.js, together with their dead helpers `ensureResetTokensTable()` /
+  `createResetTokensTable()` (no callers; the RPCs they invoked —
+  `create_password_reset_tokens_table`, `exec_sql` — do not exist). Password
+  reset itself is untouched (`/api/auth/forgot-password`,
+  `/api/auth/reset-password`, `generateResetToken`, `hashToken` remain).
+- REMOVED `GET /api/diagnostic` entirely (it publicly exposed a real user id,
+  Node version, and the Supabase project ref). Full-repo search showed no
+  application/test/doc dependency, so removal (not admin-gating) was chosen.
+- `supabase_rls_policies.sql` QUARANTINED with a prominent header (DO NOT APPLY
+  TO PRODUCTION; historical legacy file; creates the old permissive `TO anon`
+  policies that migration 018 intentionally removes; production security is
+  managed by the migration history). NOTE: the audit described the file as
+  also containing an outdated Paymento function definition — the current file
+  does NOT contain one (grep-verified: no `paymento`, no `CREATE FUNCTION`);
+  the header therefore refers to historical revisions only. SQL content below
+  the header is byte-identical (sha256-pinned in tests).
+- tests/phase5_cleanup.test.js (17 tests): routes gone, diagnostic gone, dead
+  helpers gone, password-reset intact, no frontend/script references, header
+  present + comment-only prefix, legacy body sha256 + 19 anon-policy count,
+  migrations 001/014-018 sha256-pinned, no new setup/debug/diagnostic routes.
+- npm test = 439 pass / 1 fail (the single fail is the pre-existing
+  tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
+  identical to baseline; no regression). 440 tests total.

@@ -1,4 +1,30 @@
 -- ============================================================
+-- *** QUARANTINED — DO NOT APPLY TO PRODUCTION ***
+-- ============================================================
+--
+-- This is a HISTORICAL LEGACY policy file, retained for reference ONLY.
+--
+--   * It creates the OLD PERMISSIVE "TO anon" policies (USING (true) /
+--     WITH CHECK (true)) that RE-OPEN anonymous read/write access to the
+--     production tables (users, wallets, transactions, referrals,
+--     deposits, withdrawals, bot_sessions).
+--   * Migration 018 (supabase/migrations/018_financial_tables_rls_lockdown.sql)
+--     INTENTIONALLY REMOVES those 19 legacy anon policies and replaces them
+--     with service-role-only policies. Re-applying this file would silently
+--     undo that lockdown.
+--   * Historical revisions of this legacy file also carried an OUTDATED
+--     Paymento function definition, superseded by the migration history;
+--     do not resurrect it from here.
+--   * Current production security is managed EXCLUSIVELY by the migration
+--     history under supabase/migrations/ (in particular the 014-018
+--     lockdown migrations). This file is NOT part of that chain.
+--
+-- THIS FILE MUST NOT BE EXECUTED AGAINST PRODUCTION (or any live
+-- environment). Do not run it in the Supabase SQL Editor, do not pipe it
+-- through psql, and do not reference it from deployment tooling.
+-- ============================================================
+
+-- ============================================================
 -- Supabase Row Level Security Policies for Arbitrix App
 -- ============================================================
 -- 
