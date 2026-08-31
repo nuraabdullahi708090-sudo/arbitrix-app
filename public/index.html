@@ -27,6 +27,132 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23070B14'/%3E%3Ctext y='340' font-family='Arial' font-size='340' font-weight='900' text-anchor='middle' fill='%23F0B90B'%3EA%3C/text%3E%3C/svg%3E">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23070B14'/%3E%3Ctext x='50' y='68' font-family='Arial' font-size='60' font-weight='900' text-anchor='middle' fill='%23F0B90B'%3EA%3C/text%3E%3C/svg%3E">
     <title>Arbitrix AI | Automated Arbitrage Trading Platform</title>
+    <!-- Meta Pixel (base tracking; single init; no secrets) -->
+    <script>
+        // Base loader: defines fbq/queue. Actual init + PageView are fired from
+        // the STARTUP block below (exactly once, after APP/environment exist) so
+        // MARKETING_SANDBOX visitors never emit Pixel events. This loader
+        // itself sends nothing. No PII, tokens, credentials, balances, or
+        // transaction details are ever sent to Meta.
+
+        (function() {
+            try {
+                if (window._fbPixelLoaded) return;
+                if (!__metaConsented()) return;
+                window._fbPixelLoaded = true;
+                !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+            } catch(e) { console.error('[meta-pixel] loader error:', e); }
+        })();
+
+        // Consent gate:the startup loader (above)and every track/init call is
+        // gated on this single storage flag (meta_consent === '1'); default deny,
+        // so no Meta script is injected and no event fires until the visitor chooses.
+
+
+        function __metaConsented() {
+            try { return localStorage.getItem('meta_consent') === '1'; } catch(e) { return false; }
+        }
+
+
+        // Consent actions:persist the explicit choice (meta_consent)and hide
+        // thee banner. Accept also boots thee (consent-gated) loader once.
+
+
+        function grantConsent() {
+            try { localStorage.setItem('meta_consent', '1'); } catch(e) {}
+            hideMetaConsentBanner();
+            bootstrapMetaLoader();
+        }
+
+        function denyConsent() {
+            try { localStorage.setItem('meta_consent', '0'); } catch(e) {}
+            hideMetaConsentBanner();
+        }
+
+        // Late-load path:for returning consenters whose startup load was gated,
+        // injectsthe fbevents.js script + runs trackMetaInit() exactly once (all
+        // helper once-flags make repeat invocation no-ops).
+
+        function bootstrapMetaLoader() {
+            try {
+                if (!__metaConsented() || window._fbPixelLoaded || !window.fbq) return;
+                window._fbPixelLoaded = true;
+                !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+                trackMetaInit();
+            } catch(e) { console.error('[meta-pixel] bootstrap error:', e); }
+        }
+
+
+
+        // Lightweight consent banner (fixed bottom-right; no framework; plain English
+        // copy first pass — localization is a future polish). Shown only while no choice
+        // is stored;the choice persists (meta_consent) so returning visitors don't nag.
+
+
+        function showMetaConsentBanner() {
+            try {
+                if (localStorage.getItem('meta_consent')) return;
+                if (document.getElementById('metaConsentBanner')) return;
+                const wrap = document.createElement('div');
+                wrap.id = 'metaConsentBanner';
+                wrap.innerHTML = '<p>We use cookies and similar technologies to measure our ads and improve your experience. Click "Accept" to allow Meta Pixel tracking, or "Decline" to browse without it. See our <a href="/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p>' +
+                    '<div class="meta-consent-btns">' +
+                    '<button type="button" id="metaConsentAccept" onclick="grantConsent()">Accept</button>' +
+                    '<button type="button" id="metaConsentDecline" onclick="denyConsent()">Decline</button>' +
+                    '</div>';
+                document.body.appendChild(wrap);
+            } catch(e) { console.error('[meta-pixel] banner error:', e); }
+        }
+
+        function hideMetaConsentBanner() {
+            try {
+                const b = document.getElementById('metaConsentBanner');
+                if (b && b.parentNode) b.parentNode.removeChild(b);
+            } catch(e) {}
+        }
+
+
+        // Central Meta Pixel helpers. All events are gated to PRODUCTION so
+        // MARKETING_SANDBOX demos never pollute real advertising measurement.
+
+
+        function __metaProduction() {
+            try {
+                if (typeof APP !== 'undefined' && APP && APP.environment === 'MARKETING_SANDBOX' ) return false;
+                // Fallback before APP exists: a cached sandbox user must not emit.
+                const cu = localStorage.getItem('arbi_user');
+                if (cu) {
+                    const u = JSON.parse(cu);
+                    if (u && u.environment === 'MARKETING_SANDBOX') return false;
+                }
+                return true;
+            } catch(e) { return true; }
+        }
+        function trackMetaInit() {
+            try {
+                if (window._fbPixelInited || !window.fbq || !__metaConsented()) return;
+                window._fbPixelInited = true;
+                if (__metaProduction()) {
+                    fbq('init', '2122253382062919');
+                    fbq('track', 'PageView');
+                }
+            } catch(e) { console.error('[meta-pixel] init error:', e); }
+        }
+        function trackMetaPageView() {
+            try { if (window.fbq && window._fbPixelInited && __metaConsented() && __metaProduction()) { fbq('track', 'PageView'); } } catch(e) { console.error('[meta-pixel] PageView error:', e); }
+        }
+        function trackMetaConversion(eventName, params) {
+            try { if (window.fbq && window._fbPixelInited && __metaConsented() && __metaProduction()) { fbq('track', eventName, params || {}); } } catch(e) { console.error('[meta-pixel] ' + eventName + ' error:', e); }
+        }
+        window.trackMetaInit = trackMetaInit;
+        window.trackMetaPageView = trackMetaPageView;
+        window.trackMetaConversion = trackMetaConversion;
+        window.grantConsent = grantConsent;
+        window.denyConsent = denyConsent;
+
+
+    </script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -2559,6 +2685,19 @@
             .landing-trust-grid-wrap .landing-trust-grid { grid-template-columns:1fr; }
             .landing-footer-grid { gap:24px; }
         }
+        /* Meta Pixel consent banner (added with the consent gate; localizable later) */
+        #metaConsentBanner{position:fixed;bottom:12px;right:12px;max-width:340px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:12px;padding:14px 16px;box-shadow:0 8px 30px rgba(0,0,0,0.55);z-index:99999;font-size:13px;line-height:1.45;color:var(--text-primary);}
+        /* Mobile <=480px: keep the banner clear of the support FAB via width constraint (FAB sits right:16px width ~48px -> reserve ~64px + 8px gap; RTL mirrors to the left). */
+        @media (max-width: 480px) {
+            #metaConsentBanner{left:12px;right:72px;width:auto;}
+            html[dir="rtl"] #metaConsentBanner{left:72px;right:12px;}
+        }
+        #metaConsentBanner p{margin:0 0 10px;}
+        #metaConsentBanner a{color:var(--gold-light);}
+        .meta-consent-btns{display:flex;gap:8px;justify-content:flex-end;}
+        .meta-consent-btns button{cursor:pointer;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;}
+        #metaConsentAccept{background:var(--gold);color:#070B14;}
+        #metaConsentDecline{background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);}
     </style>
 </head>
 <body>
@@ -2890,6 +3029,17 @@ async function handleSignup() {
         localStorage.setItem('jwt_token', data.token);
         localStorage.setItem('arbi_user', JSON.stringify(data.user));
         
+// Adopt the server-authoritative environment classification so the Meta
+        // Pixel conversion gate sees the real account type. New public registrations
+        // are always PRODUCTION (server strips any client-supplied environment), so
+        // this is defensive only; it also keeps the cached user's environment in
+        // sync for the __metaProduction fallback.
+        APP.environment = (data.user && data.user.environment === 'MARKETING_SANDBOX') ? 'MARKETING_SANDBOX' : 'PRODUCTION';
+        try {
+            const cached = JSON.parse(localStorage.getItem('arbi_user') || '{}');
+            cached.environment = APP.environment;
+            localStorage.setItem('arbi_user', JSON.stringify(cached));
+        } catch (e) {}
         // Update APP state with user's new referral code
         if (data.user.referralCode) {
             APP.referralCode = data.user.referralCode;
@@ -2897,6 +3047,13 @@ async function handleSignup() {
 
         showAuthSuccess('Account created successfully! Redirecting...', 'signup');
         setButtonLoading(btn, false);
+
+        // Meta Pixel: fire only after the account was actually created server-side
+        // (response.ok + token persisted above). Never on form errors/failed requests.
+
+        if (typeof trackMetaConversion === 'function') {
+            trackMetaConversion('CompleteRegistration');
+        }
 
         setTimeout(() => {
             document.getElementById('authPage').style.display = 'none';
@@ -2910,6 +3067,14 @@ async function handleSignup() {
             }
             checkAdminAccess();
             updateReferralDisplay();
+            // Landing is now meaningfully shown to the new user: fire the landing
+            // content view + the SPA screen view for Meta Pixel. PageView was
+            // already fired ast startup for the auth screen; this landing view is a
+            // genuinely new screen so one PageView per screen change is sent.
+
+            if (typeof trackMetaConversion === 'function') trackMetaConversion('ViewContent');
+            if (typeof trackMetaPageView === 'function') trackMetaPageView();
+
             // Show success message about referral if user was referred
             if (referral) {
                 showToast(t('referral.welcomeReferred'), 'success', 5000);
@@ -3393,25 +3558,55 @@ function completeLogin(token, user, is2FAFlow) {
     console.log('[COMPLETE_LOGIN] user.name:', user.name);
     console.log('[COMPLETE_LOGIN] token present:', !!token);
     console.log('[COMPLETE_LOGIN] token length:', token?.length);
-    
+
     console.log('[COMPLETE_LOGIN] Setting localStorage jwt_token...');
     localStorage.setItem('jwt_token', token);
     console.log('[COMPLETE_LOGIN] jwt_token set successfully');
-    
+
     console.log('[COMPLETE_LOGIN] Setting localStorage arbi_user...');
     localStorage.setItem('arbi_user', JSON.stringify(user));
     console.log('[COMPLETE_LOGIN] arbi_user set successfully');
-    
+
     console.log('[COMPLETE_LOGIN] Verifying localStorage:');
     console.log('[COMPLETE_LOGIN]   jwt_token:', localStorage.getItem('jwt_token')?.substring(0, 20) + '...');
     console.log('[COMPLETE_LOGIN]   arbi_user:', localStorage.getItem('arbi_user')?.substring(0, 50) + '...');
-    
+
+    // Adopt the server-authoritative environment classification so the Meta Pixel
+    // conversion gate sees the real account type for this session. /api/auth/me
+    // will re-affirm it later; never trust a bare client-side flag here.
+    if (user && (user.environment === 'MARKETING_SANDBOX')) {
+        APP.environment = 'MARKETING_SANDBOX';
+    } else {
+        APP.environment = 'PRODUCTION';
+    }
+    try {
+        const cached = JSON.parse(localStorage.getItem('arbi_user') || '{}');
+        cached.environment = APP.environment;
+        localStorage.setItem('arbi_user', JSON.stringify(cached));
+    } catch (e) {}
+
     if (user.referralCode) {
         APP.referralCode = user.referralCode;
     }
 
+    // Meta Pixel: Login fires only after authentication has actually succeeded and
+    // the server-authoritative environment has been adopted (gated by __metaProduction
+    // which now sees APP.environment / cached user). completeLogin is the single
+    // success funnel for BOTHthe normal (no-2FA) and the 2FA login flows.
+    // Failed logins never reach here;the login-initiate step (which merely
+    // starts a 2FA challenge) does not fire it. ViewContent =the marketing
+    // landing is about to be shown (distinct meaningful screen); PageView =the
+    // auth screen was the first screen at load; landing is a genuinely new screen,
+    // so one screen-view per screen change (mirrors the signup path; no duplicate
+    // with the startup PageView).
+    if (typeof trackMetaConversion === 'function') {
+        trackMetaConversion('Login');
+        trackMetaConversion('ViewContent');
+    }
+    if (typeof trackMetaPageView === 'function') trackMetaPageView();
+
     // For 2FA flow, transition immediately without showing success message on login form
-    // (the login form is hidden during 2FA, so success message would be invisible anyway)
+    // (the login form is hidden during2FA, so success message would be invisible anyway)
     if (is2FAFlow) {
         console.log('[COMPLETE_LOGIN] ========== 2FA FLOW - TRANSITIONING IMMEDIATELY ==========');
         
@@ -4165,7 +4360,16 @@ function goToApp(source) {
             }
         }
         document.getElementById('landingPage').style.display = 'none';
+        const mainAppEl = document.getElementById('mainApp');
+        const wasMainVisible = mainAppEl && mainAppEl.style.display === 'block';
         document.getElementById('mainApp').style.display = 'block';
+        // SPA screen change: the dashboard is now the visible screen. Fire
+        // PageView only once per transition into the dashboard; repeat
+        // clicks / double-clicks / re-enters of an already-open dashboard
+        // are no-ops.
+        if (typeof trackMetaPageView === 'function' && !wasMainVisible) {
+            trackMetaPageView();
+        }
         if (typeof initApp === 'function') {
             initApp();
         } else {
@@ -16445,6 +16649,7 @@ function stopBot() {
 function toggleBot() { APP.botRunning ? stopBot() : startBot(); }
 
 function setMode(mode) {
+    const prevMode = APP.mode;
     APP.mode = mode;
     getEl('demoTab').classList.toggle('active', mode==='demo');
     getEl('liveTab').classList.toggle('active', mode==='live');
@@ -16459,6 +16664,13 @@ function setMode(mode) {
     if (btn) btn.dataset.expanded = 'false';
     updateUI();
     switchChartWallet();
+    // Meta Pixel: StartDemo only when Demo Mode has actually started. Fires
+    // once per ENTRY into demo (not on every state update; tab clicks of the
+    // already-active demo tab are no-ops because prevMode==='demo').
+    // MARKETING_SANDBOX demos are excluded by the helper.
+    if (prevMode !== 'demo' && mode === 'demo') {
+        if (typeof trackMetaConversion === 'function') trackMetaConversion('StartDemo');
+    }
 }
 
 // ==================== DEPOSIT SYSTEM FUNCTIONS ====================
@@ -18327,6 +18539,11 @@ async function initApp() {
         // setMode() already calls updateUI(); otherwise render the authoritative
         // state that syncWalletFromServer just populated.
         updateUI();
+        // Demo Mode has actually started for this session (unfunded/new/fresh
+        // login accounts default to demo). Fire once per init (appReady guard
+        // ensures initApp runs exactly once per login; MARKETING_SANDBOX demos
+        // are excluded by the helper. A funded auto-live account never gets here).
+        if (typeof trackMetaConversion === 'function') trackMetaConversion('StartDemo');
     }
 
     const botToggle = getEl('botToggle');
@@ -20643,10 +20860,30 @@ if(savedUser) {
             greeting.style.display = 'inline-block';
             document.getElementById('landingUserName').textContent = user.name || t('common.trader');
         }
+        // Returning logged-in user on refresh: landing content is the first screen
+        // shown, so fire one content view for it (the startup PageView already
+        // covered this first screen; no duplicate PageView here).
+        if (typeof trackMetaConversion === 'function') trackMetaConversion('ViewContent');
     } catch(e) {
         localStorage.removeItem('arbi_user');
     }
 }
+
+// Meta Pixel init + first-screen PageView. Exactly once per page load;the
+// cache gate inside trackMetaInit() makes repeat runs no-ops. MARKETING_SANDBOX
+// cached sessions are excluded via __metaProduction() (the loader alone never
+// emits). A logged-in returning PRODUCTION user with a cached session also gets
+// one PageView here (the first screen shown is the landing/auth state above).
+try { if (typeof trackMetaInit === 'function') trackMetaInit(); }
+catch(e) { console.error('[meta-pixel] startup init error:', e); }
+
+// Consent banner:shown only when no explicit choice is stored yet (meta_consent
+// absent);an existing 0/1 choice never re-nags the visitor. Returning
+// consenters (meta_consent = 1) had the loader gated at parse — bootstrapMetaLoader
+// injects+inits them here exactly once.
+
+try { if (typeof showMetaConsentBanner === 'function') showMetaConsentBanner(); }
+catch(e) { console.error('[meta-pixel] banner error:', e); }
 
 console.log('🚀 All scripts loaded successfully');
 </script>
