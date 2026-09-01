@@ -145,9 +145,33 @@
         function trackMetaConversion(eventName, params) {
             try { if (window.fbq && window._fbPixelInited && __metaConsented() && __metaProduction()) { fbq('track', eventName, params || {}); } } catch(e) { console.error('[meta-pixel] ' + eventName + ' error:', e); }
         }
+        // One-shot "LiveAccountActivated" firing helper. The CALLER (deposit
+        // confirmation / wallet-sync transition) must already have verified the
+        // server-authoritative funded flag flips false->true; this helper only
+        // performs the durable once-per-account/event claim via the server
+        // (meta_event_claims INSERT ... ON CONFLICT) and then emits the custom
+        // event through trackMetaConversion() so the existing consent and PRODUCTION-
+        // only gates stay intact. No amounts, balances, user IDs, emails, wallet,
+        // or transaction details are ever sent — only the event name.
+
+        async function fireLiveAccountActivatedIfFirst() {
+            try {
+                if (!window.fbq || !window._fbPixelInited || !__metaConsented() || !__metaProduction()) return;
+                const token = localStorage.getItem('jwt_token');
+                if (!token) return;
+                const res = await fetch('/api/tracking/claim-live-activated', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json().catch(() => ({}));
+                if (data && data.claimed === true) {
+                    trackMetaConversion('LiveAccountActivated');
+                }
+            } catch(e) { console.error('[meta-pixel] LiveAccountActivated claim error:', e); }
+        }
         window.trackMetaInit = trackMetaInit;
         window.trackMetaPageView = trackMetaPageView;
         window.trackMetaConversion = trackMetaConversion;
+        window.fireLiveAccountActivatedIfFirst = fireLiveAccountActivatedIfFirst;
         window.grantConsent = grantConsent;
         window.denyConsent = denyConsent;
 
@@ -17069,7 +17093,19 @@ function startPollingForPayment(invoiceId) {
         
         // Update app data
         APP.liveData.balance = newBalance;
+        // LiveAccountActivated: server-authoritative funded flag flips from
+        // not-funded to funded (first confirmed real deposit; the $50 promo
+        // seed does NOT count). Fire the one-shot Meta custom event exactly
+        // once per account — gated on the false->true transition AND backed by
+        // the server-side durable claim (meta_event_claims), so a page load,
+        // revisit, mode-tab click, invoice creation, or deposit attempt alone
+        // can never trigger it again. No amount/balance/PII is sent.
+
+        const wasLiveFunded = !!APP.liveData.hasRealDeposit;
         APP.liveData.hasRealDeposit = true;
+        if (!wasLiveFunded && typeof window.fireLiveAccountActivatedIfFirst === 'function') {
+            window.fireLiveAccountActivatedIfFirst();
+        }
         
         // Record in Transaction Log only if not already present (idempotent)
         APP.liveData.history = APP.liveData.history || [];
@@ -18261,8 +18297,19 @@ async function syncWalletFromServer() {
                 // deposit (see hasConfirmedDeposit). This replaces the old
                 // balance > 50 heuristic, which was unreliable for mode init.
                 if (typeof meData.hasRealDeposit === 'boolean') {
+                    // LiveAccountActivated transition: the server-authoritative
+                    // funded flag flips false->true here when a confirmed deposit was
+                    // credited between sessions (a poll was missed, e.g.). The fire
+                    // is gated on the false->true transition; the server-side durable
+                    // claim (meta_event_claims) makes it strictly once-per-account.
+                    const wasLiveFunded = !!APP.liveData.hasRealDeposit;
                     APP.liveData.hasRealDeposit = meData.hasRealDeposit;
                     fundedFromServer = meData.hasRealDeposit;
+
+                    if (!wasLiveFunded && meData.hasRealDeposit === true &&
+                        typeof window.fireLiveAccountActivatedIfFirst === 'function') {
+                        window.fireLiveAccountActivatedIfFirst();
+                    }
                 } else if (serverLive > 50) {
                     // Fallback only if the server omitted the field.
                     APP.liveData.hasRealDeposit = true;
@@ -18376,7 +18423,17 @@ async function syncWalletFromServer() {
                 // funded account (secondary signal; the authoritative flag above
                 // comes from hasConfirmedDeposit via /api/auth/me).
                 if (depositTxs.length) {
+                    // LiveAccountActivated transition (secondary path):if the
+                    // authoritative /api/auth/me flag was absent/failed but the
+                    // transaction ledger shows a confirmed deposit, adopt funded
+                    // and fire the one-shot event on the false->true transition. The
+                    // server-side durable claim still gates it to once-per-account.
+
+                    const wasLiveFunded = !!APP.liveData.hasRealDeposit;
                     APP.liveData.hasRealDeposit = true;
+                    if (!wasLiveFunded && typeof window.fireLiveAccountActivatedIfFirst === 'function') {
+                        window.fireLiveAccountActivatedIfFirst();
+                    }
                     if (!fundedFromServer) fundedFromServer = true;
                 }
                 saveData();

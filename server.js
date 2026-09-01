@@ -2411,6 +2411,57 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   });
 });
 
+// ---------- Marketing conversion claims (read-only, no PII) ----------
+// One-shot Meta conversion event claim (currently only LiveAccountActivated).
+// AUTHORITATIVE ONCE-PER-USER GUARD: a user+event can hold exactly ONE row
+// in meta_event_claims. The first authenticated caller to reach here AFTER a
+// server-confirmed deposit exists claims the event; every later call (page reload,
+// log back in, new device, retry, localStorage cleared) collides with the
+// UNIQUE(event_name, user_id) constraint (Postgres raises 23505, treated as
+// a no-op claimed =>false).
+//
+// SECURITY (mirrors the deposit/trade model):
+//   - authMiddleware: identity from the verified JWT (req.user.id), never
+//     from the client body. There is NO request body at all.
+//   - MARKETING_SANDBOX accounts are short-circuited before any DB write — their
+//     demos never pollute real advertising measurement (claimed =>false).
+//   - hasConfirmedDeposit is the funding gate (same authoritative source as
+//     /api/auth/me hasRealDeposit): first confirmed real deposit. The $50
+//     promo live_balance seed does NOT count, and no client-supplied
+//     balance/deposit/amount/userId is ever trusted.
+//   - The response leaks NO PII / amounts / balances — only a boolean claim
+//     result (an event-name enum may be echoed back).
+app.get('/api/tracking/claim-live-activated', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (await isMarketingSandboxUser(userId)) {
+      return res.json({ claimed: false, event: 'LiveAccountActivated' });
+    }
+    if (!(await hasConfirmedDeposit(userId))) {
+      // Not yet funded: nothing to claim. The event may only fire on the
+      // server-confirmed first real deposit.
+
+      return res.json({ claimed: false, event: 'LiveAccountActivated' });
+    }
+    const { data, error } = await supabaseAdmin
+      .from('meta_event_claims')
+      .insert({ event_name: 'LiveAccountActivated', user_id: userId, environment: ENV_PRODUCTION })
+      .select('id');
+    if (error) {
+      // Unique violation = already claimed once (durable once-guard). Treat as
+      // a no-op claim result (never a 500; no partial state involved).
+      if (error.code === '23505') {
+        return res.json({ claimed: false, event: 'LiveAccountActivated' });
+      }
+      throw error;
+    }
+    res.json({ claimed: !!data && data.length > 0, event: 'LiveAccountActivated' });
+  } catch (err) {
+    console.error('[GET /api/tracking/claim-live-activated]', err);
+    res.status(500).json({ error: 'Server error claiming conversion event' });
+  }
+});
+
 // ---------- Deposit ----------
 app.post('/api/deposit/request', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated deposit only (no real invoice/address write).
