@@ -1488,16 +1488,23 @@ async function isFirstConfirmedDeposit(userId) {
  * Uses the service-role client to bypass any RLS.
  */
 async function hasConfirmedDeposit(userId) {
-  const { count, error } = await supabaseAdmin
-    .from('deposits')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'confirmed');
-  if (error) {
-    console.log('[hasConfirmedDeposit] error:', error.message);
+  const [{ count: legacyCount, error: legacyError }, { count: providerCount, error: providerError }] = await Promise.all([
+    supabaseAdmin
+      .from('deposits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'confirmed'),
+    supabaseAdmin
+      .from('payment_invoices')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'confirmed')
+  ]);
+  if (legacyError || providerError) {
+    console.log('[hasConfirmedDeposit] error:', (legacyError || providerError).message);
     return false;
   }
-  return (count || 0) > 0;
+  return ((legacyCount || 0) + (providerCount || 0)) > 0;
 }
 
 /**
