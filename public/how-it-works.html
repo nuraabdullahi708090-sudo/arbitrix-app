@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Arbitrix Works - Arbitrix AI</title>
+    <meta name="description" content="See how Arbitrix uses automated arbitrage to monitor multiple markets and automate the trading process.">
+    <link rel="icon" href="data:image/svg+xml,">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #070B14;
+            --bg-card: #0F1629;
+            --bg-input: #141C2E;
+            --border-color: #1E2A3F;
+            --text-primary: #E8EDF5;
+            --text-secondary: #8896B5;
+            --text-muted: #6B7A99;
+            --gold: #F0B90B;
+            --gold-dim: rgba(240,185,11,0.12);
+            --gold-light: #FCD535;
+            --gold-glow: rgba(240,185,11,0.2);
+            --radius: 16px;
+            --radius-sm: 8px;
+            --radius-lg: 20px;
+            --shadow: 0 12px 48px rgba(0,0,0,0.5);
+            --shadow-sm: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html {
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .page {
+            flex: 1;
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 28px 20px 64px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: 800;
+            font-size: 22px;
+            letter-spacing: -0.5px;
+            margin-bottom: 36px;
+        }
+        .logo i {
+            color: var(--gold);
+            font-size: 24px;
+        }
+        .logo span span {
+            color: var(--gold);
+        }
+        h1 {
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #F0B90B, #FFD700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .intro {
+            color: var(--text-secondary);
+            font-size: 16px;
+            max-width: 520px;
+            margin-bottom: 32px;
+        }
+        .video-wrap {
+            width: 100%;
+            max-width: 480px;
+            margin-bottom: 36px;
+        }
+        .video-frame {
+            position: relative;
+            width: 100%;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            background: #000;
+        }
+        .video-frame video {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 9 / 16;
+            object-fit: contain;
+            background: #000;
+        }
+        @media (min-width: 560px) {
+            .video-frame video {
+                aspect-ratio: auto;
+                width: auto;
+                height: 68vh;
+                max-width: 100%;
+                margin: 0 auto;
+                object-fit: contain;
+            }
+        }
+        .cta {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            max-width: 420px;
+        }
+        .btn {
+            font-weight: 600;
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 200ms ease;
+            font-size: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            min-height: 48px;
+            width: 100%;
+            text-decoration: none;
+        }
+        .btn-primary {
+            background: var(--gold);
+            color: #070B14;
+        }
+        .btn-primary:hover {
+            background: var(--gold-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px var(--gold-glow);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .footer-note {
+            margin-top: 28px;
+            color: var(--text-muted);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        @media (min-width: 640px) {
+            .page {
+                padding-top: 48px;
+            }
+            h1 {
+                font-size: 40px;
+            }
+            .video-frame video {
+                min-height: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a href="/" class="logo" aria-label="Arbitrix AI home">
+            <i class="fas fa-arrows-spin" aria-hidden="true"></i>
+            <span>Arbitrix <span>AI</span></span>
+        </a>
+
+        <h1>How Arbitrix Works</h1>
+        <p class="intro">See how Arbitrix uses automated arbitrage to monitor multiple markets and automate the trading process.</p>
+
+        <div class="video-wrap">
+            <div class="video-frame">
+                <video id="explainerVideo" controls playsinline preload="metadata" poster="/video/arbitrix-poster.jpg">
+                    <source src="/video/arbitrix-explainer.mp4" type="video/mp4">
+                    <source src="https://files2.heygen.ai/movio/video/2e3112e23dd44f17a675785577b4c2b2/96544d6e224740e7b16ad8211f444f86/caption.mp4" type="video/mp4">
+                    Your browser does not support embedded video.
+
+                </video>
+            </div>
+        </div>
+
+        <div class="cta">
+            <a class="btn btn-primary" href="/?action=create-account" id="createAccountCta">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                Create Your Arbitrix Account
+            </a>
+            <a class="btn btn-secondary" href="/?action=sign-in" id="signInCta">
+                <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                Already have an account? Sign in
+            </a>
+        </div>
+
+        <p class="footer-note">
+            <i class="fas fa-shield-halved" aria-hidden="true"></i>
+            No card required to create an account
+        </p>
+    </div>
+
+    <script>
+        (function () {
+            // Share the entry point within this page session so the auth screen can
+            // adopt the intended default (create-account vs sign-in accurately.
+            try {
+                sessionStorage.setItem('arbi_auth_entry', window.location.search || '/how-it-works');
+            } catch (e) {}
+
+            var v = document.getElementById('explainerVideo');
+
+            if (v) {
+                // Muted autoplay: play the avatar explainer immediately so the
+                // presenter is visible on load (no sound until the user taps
+                // the in-video mute/unmute control; playsinline keeps iOS Safari
+                // from hijacking into fullscreen).
+                try {
+                    v.muted = true;
+                    v.playsInline = true;
+                    var p = v.play();
+                    if (p) { p.catch(function () { /* autoplay blocked; poster remains */ }); }
+                } catch (e) { /* poster covers the player if autoplay is denied */ }
+
+                // Backup:if the primary local file can't be reached (e.g.
+                // production asset not yet deployed),  the HeyGen CDN mp4 still
+                // provides a playable video. The native controls keep the poster
+                // until play,and playsinline keeps iOS Safari from hijacking into
+                // fullscreen on tap.
+
+            v.addEventListener('error', function () {
+                    if (this.currentSrc && this.currentSrc.indexOf('arbitrix-explainer.mp4') !== -1 && this.lastSourceIndex !== 1) {
+                        this.lastSourceIndex = 1;
+                        this.src = 'https://files2.heygen.ai/movio/video/2e3112e23dd44f17a675785577b4c2b2/96544d6e224740e7b16ad8211f444f86/caption.mp4';
+                    }
+                });
+            }
+
+            // Spacebar toggles play/pause when the page body is focused (desktop
+            // convenience; no-op when a button/link/input has focus).
+            document.addEventListener('keydown', function (e) {
+                if (e.code !== 'Space') return;
+                var tag = e.target && e.target.tagName;
+                if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'TEXTAREA') return;
+                if (v && document.activeElement === document.body) {
+                    e.preventDefault();
+                    if (v.paused) v.play(); else v.pause();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

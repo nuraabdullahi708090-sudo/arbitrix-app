@@ -7719,6 +7719,12 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Marketing onboarding page: standalone branded "How Arbitrix Works" page
+// with the explainer video + primary CTAs to the existing registration/login flow.
+app.get('/how-it-works', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'how-it-works.html'));
+});
+
 // Referral link route handler
 // Redirects /ref/ARBI-XXXXX to /?ref=ARBI-XXXXX
 app.get('/ref/:code', (req, res) => {

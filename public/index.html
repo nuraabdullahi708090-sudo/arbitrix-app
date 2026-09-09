@@ -330,6 +330,11 @@
             background: var(--bg-primary);
             position: relative;
             overflow: hidden;
+            /* On short mobile viewports the auth card is taller than the screen; allow
+               vertical scrolling so the submit/CTA controls are never clipped behind
+               the fixed cookie banner (which docks as a slim bottom bar). The
+               decorative background stays clipped via .auth-bg overflow:hidden. */
+            overflow-y: auto;
         }
         
         /* Animated Background */
@@ -1080,11 +1085,17 @@
         /* Mobile Responsive */
         @media (max-width: 640px) {
             .auth-card {
-                padding: var(--space-5);
+                padding: var(--space-4);
                 border-radius: var(--radius);
+                /* Keep the compact card clear of the fixed consent bar on phones. */
+                margin-bottom: 12px;
             }
             .auth-form-panel {
                 padding: var(--space-4);
+                padding-top: var(--space-5);
+                /* Keep the bottom-most auth control scrollable fully above the fixed
+                   consent bar (which docks as a slim bottom bar on phones).) */
+                padding-bottom: calc(env(safe-area-inset-bottom,#0px) + 300px);
             }
             .form-footer {
                 flex-direction: column;
@@ -2712,10 +2723,17 @@
         }
         /* Meta Pixel consent banner (added with the consent gate; localizable later) */
         #metaConsentBanner{position:fixed;bottom:12px;right:12px;max-width:340px;background:var(--bg-card);border:1px solid var(--gold-dim);border-radius:12px;padding:14px 16px;box-shadow:0 8px 30px rgba(0,0,0,0.55);z-index:99999;font-size:13px;line-height:1.45;color:var(--text-primary);}
-        /* Mobile <=480px: keep the banner clear of the support FAB via width constraint (FAB sits right:16px width ~48px -> reserve ~64px + 8px gap; RTL mirrors to the left). */
+        /* Mobile <=480px: dock the banner as a slim full-width bottom bar so it
+           never covers the auth controls on a typical phone screen. The support FAB
+           is bottom-right (48px); on small screens the FAB hides behind the bar, so
+           the bar spans the full width. RTL mirrors the rounded corners to the top.
+           */
         @media (max-width: 480px) {
-            #metaConsentBanner{left:12px;right:72px;width:auto;}
-            html[dir="rtl"] #metaConsentBanner{left:72px;right:12px;}
+            #metaConsentBanner{left:8px;right:8px;bottom:8px;width:auto;max-width:none;padding:8px 11px;border-radius:12px;font-size:12px;line-height:1.3;}
+            #metaConsentBanner p{margin:0 0 5px;}
+            .meta-consent-btns{gap:6px;margin-top:2px;justify-content:flex-end;}
+            .meta-consent-btns button{padding:5px 9px;font-size:12px;}
+            html[dir="rtl"] #metaConsentBanner{left:8px;right:8px;}
         }
         #metaConsentBanner p{margin:0 0 10px;}
         #metaConsentBanner a{color:var(--gold-light);}
@@ -2796,6 +2814,44 @@ function showSignupForm() {
         // Auto-populate referral code from URL
         populateReferralFromURL();
     } catch(e) { console.error('showSignupForm failed:', e); }
+}
+
+// New-user vs existing-user entry intent. The marketing /how-it-works page
+// links here with ?action=create-account (primary) or ?action=sign-in
+// (secondary), so a first-time visitor always lands on the correct auth
+// screen instead of having to figure out the tabs. Logout + manual tab
+// switches keep their existing behavior unchanged.
+
+
+function applyAuthEntryIntent() {
+    try {
+        var query = window.location.search || '';
+        // The query string is the single source of truth whenever it carries an
+        // explicit action intent (so the two /how-it-works CTAs always land on the
+        // correct tab, even right after the other CTA was clicked). Persist only
+        // whichever intent won so a logout re-entry keeps the same tab.
+        if (query.indexOf('action=sign-in') !== -1) {
+            showLoginForm();
+            sessionStorage.setItem('arbi_auth_entry', '?action=sign-in');
+            return;
+        }
+        if (query.indexOf('action=create-account') !== -1) {
+            showSignupForm();
+            sessionStorage.setItem('arbi_auth_entry', '?action=create-account');
+            return;
+        }
+        // No explicit intent in the URL: fall back to a previously-seeded intent
+        // (the marketing page links carry their action in the URL, so this only
+        // matters for programmatic seeds), but never re-persist it — a later
+        // deep link with the other intent must win over anything stale.
+        var entry = sessionStorage.getItem('arbi_auth_entry');
+        if (entry && entry.indexOf('action=sign-in') !== -1) {
+            showLoginForm();
+        } else if (entry && entry.indexOf('action=create-account') !== -1) {
+            showSignupForm();
+        } // else: default remains Create Account (signup tab is already active in HTML).
+        sessionStorage.removeItem('arbi_auth_entry');
+    } catch(e) { /* non-fatal: default remains Create Account */ }
 }
 
 // Toggle password/field visibility
@@ -4994,12 +5050,12 @@ function toggleFaq(btn) {
                 <div class="auth-card">
                     <!-- Tabs -->
                     <div class="auth-tabs">
-                        <button type="button" class="auth-tab active" id="loginTab" onclick="showLoginForm()" data-i18n="auth.tab.signin">Sign In</button>
-                        <button type="button" class="auth-tab" id="signupTab" onclick="showSignupForm()" data-i18n="auth.tab.signup">Create Account</button>
+                        <button type="button" class="auth-tab active" id="signupTab" onclick="showSignupForm()" data-i18n="auth.tab.signup">Create Account</button>
+                        <button type="button" class="auth-tab" id="loginTab" onclick="showLoginForm()" data-i18n="auth.tab.signin">Sign In</button>
                     </div>
                     
                     <!-- Login Form -->
-                    <div id="loginForm">
+                    <div id="loginForm" style="display:none;">
                         <div class="auth-header">
                             <h2 data-i18n="auth.login.title">Welcome Back</h2>
                             <p data-i18n="auth.login.subtitle">Sign in to access your trading dashboard</p>
@@ -5101,7 +5157,7 @@ function toggleFaq(btn) {
                     </div>
                     
                     <!-- Signup Form -->
-                    <div id="signupForm" style="display:none;">
+                    <div id="signupForm">
                         <div class="auth-header">
                             <h2 data-i18n="auth.signup.title">Create Account</h2>
                             <p data-i18n="auth.signup.subtitle">Start your trading journey today</p>
@@ -7340,7 +7396,7 @@ const TRANSLATIONS = {
         'auth.tab.signin': 'Sign In',
         'auth.tab.signup': 'Create Account',
         'auth.login.title': 'Welcome Back',
-        'auth.login.subtitle': 'Sign in to access your trading dashboard',
+        'auth.login.subtitle': 'Already have an Arbitrix account? Sign in.',
         'auth.login.emailLabel': 'Email Address',
         'auth.login.emailPlaceholder': 'you@example.com',
         'auth.login.passwordLabel': 'Password',
@@ -7348,8 +7404,8 @@ const TRANSLATIONS = {
         'auth.login.rememberMe': 'Remember me',
         'auth.login.forgotPassword': 'Forgot Password?',
         'auth.login.submit': 'Sign In',
-        'auth.signup.title': 'Create Account',
-        'auth.signup.subtitle': 'Start your trading journey today',
+        'auth.signup.title': 'Create Your Account',
+        'auth.signup.subtitle': 'New to Arbitrix? Create your account to get started.',
         'auth.signup.nameLabel': 'Full Name',
         'auth.signup.namePlaceholder': 'John Doe',
         'auth.signup.emailLabel': 'Email Address',
@@ -8595,7 +8651,7 @@ const TRANSLATIONS = {
         'auth.tab.signin': 'Iniciar sesión',
         'auth.tab.signup': 'Crear cuenta',
         'auth.login.title': 'Bienvenido de nuevo',
-        'auth.login.subtitle': 'Inicie sesión para acceder a su panel de trading',
+        'auth.login.subtitle': '¿Ya tienes una cuenta de Arbitrix? Inicia sesión.',
         'auth.login.emailLabel': 'Correo electrónico',
         'auth.login.emailPlaceholder': 'usted@ejemplo.com',
         'auth.login.passwordLabel': 'Contraseña',
@@ -8603,8 +8659,8 @@ const TRANSLATIONS = {
         'auth.login.rememberMe': 'Recordarme',
         'auth.login.forgotPassword': '¿Olvidó su contraseña?',
         'auth.login.submit': 'Iniciar sesión',
-        'auth.signup.title': 'Crear cuenta',
-        'auth.signup.subtitle': 'Comience su viaje de trading hoy',
+        'auth.signup.title': 'Crea tu cuenta',
+        'auth.signup.subtitle': '¿Nuevo en Arbitrix? Crea tu cuenta para empezar.',
         'auth.signup.nameLabel': 'Nombre completo',
         'auth.signup.namePlaceholder': 'Juan Pérez',
         'auth.signup.emailLabel': 'Correo electrónico',
@@ -9851,7 +9907,7 @@ const TRANSLATIONS = {
         'auth.tab.signin': 'Entrar',
         'auth.tab.signup': 'Criar conta',
         'auth.login.title': 'Bem-vindo de volta',
-        'auth.login.subtitle': 'Entre para acessar seu painel de trading',
+        'auth.login.subtitle': 'Já tem uma conta Arbitrix? Entre.',
         'auth.login.emailLabel': 'Endereço de e-mail',
         'auth.login.emailPlaceholder': 'voce@exemplo.com',
         'auth.login.passwordLabel': 'Senha',
@@ -9859,8 +9915,8 @@ const TRANSLATIONS = {
         'auth.login.rememberMe': 'Lembrar de mim',
         'auth.login.forgotPassword': 'Esqueceu a senha?',
         'auth.login.submit': 'Entrar',
-        'auth.signup.title': 'Criar conta',
-        'auth.signup.subtitle': 'Comece sua jornada de trading hoje',
+        'auth.signup.title': 'Crie sua conta',
+        'auth.signup.subtitle': 'Novo na Arbitrix? Crie sua conta para começar.',
         'auth.signup.nameLabel': 'Nome completo',
         'auth.signup.namePlaceholder': 'João da Silva',
         'auth.signup.emailLabel': 'Endereço de e-mail',
@@ -11107,7 +11163,7 @@ const TRANSLATIONS = {
         'auth.tab.signin': 'Se connecter',
         'auth.tab.signup': 'Créer un compte',
         'auth.login.title': 'Bon retour',
-        'auth.login.subtitle': 'Connectez-vous pour accéder à votre tableau de bord de trading',
+        'auth.login.subtitle': 'Vous avez déjà un compte Arbitrix? Connectez-vous.',
         'auth.login.emailLabel': 'Adresse e-mail',
         'auth.login.emailPlaceholder': 'vous@exemple.com',
         'auth.login.passwordLabel': 'Mot de passe',
@@ -11115,8 +11171,8 @@ const TRANSLATIONS = {
         'auth.login.rememberMe': 'Se souvenir de moi',
         'auth.login.forgotPassword': 'Mot de passe oublié ?',
         'auth.login.submit': 'Se connecter',
-        'auth.signup.title': 'Créer un compte',
-        'auth.signup.subtitle': 'Commencez votre parcours de trading dès aujourd’hui',
+        'auth.signup.title': 'Créez votre compte',
+        'auth.signup.subtitle': 'Nouveau sur Arbitrix? Créez votre compte pour commencer.',
         'auth.signup.nameLabel': 'Nom complet',
         'auth.signup.namePlaceholder': 'Jean Dupont',
         'auth.signup.emailLabel': 'Adresse e-mail',
@@ -12363,7 +12419,7 @@ const TRANSLATIONS = {
         'auth.tab.signin': 'تسجيل الدخول',
         'auth.tab.signup': 'إنشاء حساب',
         'auth.login.title': 'مرحبًا بعودتك',
-        'auth.login.subtitle': 'سجّل الدخول للوصول إلى لوحة تحكم التداول',
+        'auth.login.subtitle': 'هل لديك حساب في أربيتريكس بالفعل؟ سجّل الدخول.',
         'auth.login.emailLabel': 'البريد الإلكتروني',
         'auth.login.emailPlaceholder': 'you@example.com',
         'auth.login.passwordLabel': 'كلمة المرور',
@@ -12371,8 +12427,8 @@ const TRANSLATIONS = {
         'auth.login.rememberMe': 'تذكّرني',
         'auth.login.forgotPassword': 'نسيت كلمة المرور؟',
         'auth.login.submit': 'تسجيل الدخول',
-        'auth.signup.title': 'إنشاء حساب',
-        'auth.signup.subtitle': 'ابدأ رحلة التداول اليوم',
+        'auth.signup.title': 'أنشئ حسابك',
+        'auth.signup.subtitle': 'جديد في أربيتريكس؟ أنشئ حسابك للبدء.',
         'auth.signup.nameLabel': 'الاسم الكامل',
         'auth.signup.namePlaceholder': 'محمد علي',
         'auth.signup.emailLabel': 'البريد الإلكتروني',
@@ -13619,7 +13675,7 @@ const TRANSLATIONS = {
         'auth.tab.signin': '登录',
         'auth.tab.signup': '创建账户',
         'auth.login.title': '欢迎回来',
-        'auth.login.subtitle': '登录以访问您的交易仪表盘',
+        'auth.login.subtitle': '已经有 Arbitrix 账户？登录。',
         'auth.login.emailLabel': '电子邮箱',
         'auth.login.emailPlaceholder': 'you@example.com',
         'auth.login.passwordLabel': '密码',
@@ -13627,8 +13683,8 @@ const TRANSLATIONS = {
         'auth.login.rememberMe': '记住我',
         'auth.login.forgotPassword': '忘记密码？',
         'auth.login.submit': '登录',
-        'auth.signup.title': '创建账户',
-        'auth.signup.subtitle': '今天就开启您的交易之旅',
+        'auth.signup.title': '创建您的账户',
+        'auth.signup.subtitle': 'Arbitrix 新用户？创建您的账户即可开始。',
         'auth.signup.nameLabel': '全名',
         'auth.signup.namePlaceholder': '张三',
         'auth.signup.emailLabel': '电子邮箱',
@@ -18747,7 +18803,7 @@ async function initApp() {
             getEl('mainApp').style.display = 'none';
             getEl('landingPage').style.display = 'none';
             getEl('authPage').style.display = 'flex';
-            showSignupForm();
+            applyAuthEntryIntent();
             // Clear authentication and user-specific data from localStorage
             localStorage.removeItem('jwt_token');
             localStorage.removeItem('arbi_user');
@@ -20926,6 +20982,27 @@ if(savedUser) {
         localStorage.removeItem('arbi_user');
     }
 }
+
+// Apply the intended auth entry (new-user vs existing-user) once at first
+// load. The /how-it-works marketing page sets sessionStorage 'arbi_auth_entry'
+// to ?action=create-account or ?action=sign-in; the query-string fallback
+// also covers deep links like /?action=sign-in. Default (no signal) is the
+// Create Account screen (sign-up is the primary action for new visitors).
+// When the deep link carries an explicit intent from the marketing /how-it-works
+// page (sessionStorage arbi_auth_entry) or a raw ?action= query, show the
+// auth screen DIRECTLY (instead of the marketing landing) so "Create Your
+// Arbitrix Account" lands on the registration form without an extra tap. A
+// returning logged-in user is unaffected (the saved-session branch above already
+// hid the auth screen);no session is created,so the user can still freely
+// switch to Sign In or browse the landing via the logo or browser back.
+var hasEntryIntent = sessionStorage.getItem('arbi_auth_entry') || /[?&]action=(create-account|sign-in)/.test(window.location.search || '');
+if (hasEntryIntent && !savedUser) {
+    var authEntryEl = document.getElementById('authPage');
+    if (authEntryEl) { authEntryEl.style.display = 'none'; authEntryEl.style.display = 'flex'; }
+    if (document.getElementById('landingPage')) document.getElementById('landingPage').style.display = 'none';
+    if (document.getElementById('mainApp')) document.getElementById('mainApp').style.display = 'none';
+}
+applyAuthEntryIntent();
 
 // Meta Pixel init + first-screen PageView. Exactly once per page load;the
 // cache gate inside trackMetaInit() makes repeat runs no-ops. MARKETING_SANDBOX
