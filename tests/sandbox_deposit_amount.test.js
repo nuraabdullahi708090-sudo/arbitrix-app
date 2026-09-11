@@ -67,7 +67,7 @@ function fnBody(name) {
 // handleSandboxInvoiceCreate.
 function mirrorCreateSandboxDeposit(state, amount, network) {
     const amt = Number(amount);
-    assert.ok(amt && amt >= 10, 'mirror: min $10');
+    assert.ok(amt && amt >= 100, 'mirror: platform minimum deposit $100');
     const invoiceId = 'sbx_inv_' + Date.now() + '_' + state.userId;
     const deposit = {
         user_id: state.userId,
@@ -167,6 +167,7 @@ test('sandbox deposit records store the requested amount rounded to 2dp', () => 
     for (const name of ['handleSandboxDepositRequest', 'handleSandboxInvoiceCreate']) {
         const body = fnBody(name);
         assert.match(body, /amount:\s*Math\.round\(amt \* 100\) \/ 100/, `${name} must insert 2dp amount`);
+        assert.match(body, /amt < PLATFORM_MIN_DEPOSIT_USD/, `${name} must enforce the platform minimum deposit ($100)`);
     }
 });
 

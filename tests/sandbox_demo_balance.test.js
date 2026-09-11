@@ -19,7 +19,7 @@
  *  - live_balance still derives ONLY from sandbox_wallets.balance (DEFAULT 0).
  *  - No production wallet / deposit / trade / withdrawal / subscription table
  *    or RPC is touched by the change.
- *  - Production wallet initialization, subscription eligibility, the $143 MTA
+ *  - Production wallet initialization, subscription eligibility, the $200 MTA
  *    rule, and the $50 promotional Live credit are byte-unchanged.
  *  - Frontend demo display path (syncWalletFromServer adoption of
  *    wallet.demo_balance) is unchanged — it just now receives 1000.
@@ -97,14 +97,16 @@ test('getSandboxWallet only reads sandbox_wallets (no production tables, no ledg
     }
 });
 
-test('sandbox account creation still inserts ONLY into users + sandbox_wallets', () => {
+test('sandbox account creation inserts ONLY into sandbox tables (plus the user row)', () => {
     const m = SERVER.match(/app\.post\('\/api\/admin\/sandbox\/accounts'[\s\S]*?\n\}\);/);
     assert.ok(m, 'sandbox account creation route missing');
     assert.ok(m[0].includes("from('users').insert"), 'must create the user');
-    assert.ok(m[0].includes("from('sandbox_wallets').insert({ user_id: user.id })"), 'must create only the sandbox wallet row');
+    assert.ok(m[0].includes("from('sandbox_wallets').insert({"), 'must create only the sandbox wallet row');
+    assert.ok(m[0].includes('balance: SANDBOX_PROMO_CREDIT'), 'seeded with the simulated $50 promotional credit');
     assert.ok(!m[0].includes("from('wallets')"), 'must NOT create a production wallet');
     assert.ok(!m[0].includes("from('deposits')"), 'must NOT create a deposit');
     assert.ok(!m[0].includes("from('transactions')"), 'must NOT create a ledger entry');
+    assert.ok(!m[0].includes("from('referrals')"), 'must NOT create a production referral row');
 });
 
 // ---------------------------------------------------------------------------
@@ -171,11 +173,13 @@ test('production wallet initialization is unchanged (demo 1000, live 50 promo, b
     assert.match(fnBody('getWallet'), /demo_balance: 1000, live_balance: 50, bonus_balance: 0/, 'production new-user wallet seed unchanged');
 });
 
-test('$143 MTA rule is unchanged and still gated on live balance only', () => {
-    assert.match(SERVER, /const BOT_MIN_TRADING_BALANCE = 143;/, 'MTA constant unchanged');
+test('production MTA is $200; the sandbox has NO MTA at all', () => {
+    assert.match(SERVER, /const BOT_MIN_TRADING_BALANCE = 200;/, 'production MTA constant is the active $200');
+    assert.ok(!SERVER.includes('SANDBOX_BOT_MIN_TRADING_BALANCE'), 'the sandbox MTA constant is gone');
     const sandboxBot = SERVER.match(/async function handleSandboxBotStart\b[\s\S]*?\n\}/);
     assert.ok(sandboxBot, 'sandbox bot start handler present');
-    assert.match(sandboxBot[0], /Number\(wallet\.live_balance\) < BOT_MIN_TRADING_BALANCE/, 'sandbox MTA gate intact (live balance only)');
+    assert.ok(!/live_balance/.test(sandboxBot[0]), 'the sandbox bot start reads no balance (no gate)');
+    assert.ok(!sandboxBot[0].includes('getEffectiveMta'), 'sandbox bot start must not follow the production/env MTA');
 });
 
 test('subscription charge logic does not reference the demo seed', () => {

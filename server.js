@@ -460,12 +460,85 @@ async function addTransaction(userId, type, amount, detail) {
 const ENV_PRODUCTION = 'PRODUCTION';
 const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 
+// PLATFORM MINIMUM DEPOSIT (management decision): $100 for BOTH environments.
+// This is the SINGLE SOURCE OF TRUTH for the platform's minimum deposit — it
+// gates production invoice creation (/api/payment/create-invoice), the sandbox
+// simulated deposit routes, and is the fallback for the referral qualifying
+// deposit (referral_config.minimum_qualifying_deposit, whose live value is
+// managed via migrations/admin config).
+//
+// NOT to be confused with the $50 PROMOTIONAL CREDIT (a separate new-user seed
+// in wallets.live_balance / SANDBOX_PROMO_CREDIT). The promo credit is NOT a
+// deposit and must never be derived from this constant.
+const PLATFORM_MIN_DEPOSIT_USD = 100;
+
+// Conversion minimum for referral earnings into tradable Live capital. FINAL
+// management model: referral earnings have NO conversion minimum — a single
+// qualifying referral at the $100 platform minimum earns exactly $20, and
+// management requires genuinely earned referral earnings to be usable as
+// tradable capital. The old $50 "bonus wallet" conversion threshold no longer
+// applies to referral earnings. The conversion remains server-authoritative
+// (see /api/referral/earnings/convert + migration 023), is capped by genuinely
+// earned rewards, and never creates money: it only moves the referral-earnings
+// bucket (wallets.bonus_balance) into wallets.live_balance. The $700 minimum
+// withdrawal, KYC, address and all other withdrawal safeguards are unchanged.
+const REFERRAL_EARNINGS_MIN_CONVERT_USD = 0;
+
 // Minimum Trading Amount (MTA): the live-style trading balance required to
-// START the bot. Server-authoritative; applies identically to production live
-// trading and MARKETING_SANDBOX live-style trading (the sandbox demonstrates
-// the real customer experience, so it must not bypass the MTA). Separate from
-// the $7 Arbitrix Pro subscription. Demo mode is intentionally not gated.
-const BOT_MIN_TRADING_BALANCE = 143;
+// START the bot. Server-authoritative and PRODUCTION-ONLY ($200). It applies to
+// the production live bot start; MARKETING_SANDBOX has NO MTA at all (see the
+// note below). Separate from the $7 Arbitrix Pro subscription. Demo mode is
+// intentionally not gated. MTA is NOT a withdrawal requirement (see
+// /api/withdraw/request) and does not affect deposits or subscriptions — the bot
+// MTA and the platform withdrawal/deposit rules are deliberately decoupled.
+const BOT_MIN_TRADING_BALANCE = 200;
+
+// SINGLE SOURCE OF TRUTH for the MTA *value*. Management decision: the active
+// MTA is $200 ($143 is no longer active; $300 was rejected). To change it
+// without touching code, set the server env var `MTA_AMOUNT` (production uses
+// MTA_AMOUNT=200). Missing/invalid values fall back to BOT_MIN_TRADING_BALANCE.
+// Every server-side MTA enforcement reads getEffectiveMta(), so there is
+// exactly one place to change.
+const MTA_ENV_VAR = 'MTA_AMOUNT';
+function getEffectiveMta(defaultMta = BOT_MIN_TRADING_BALANCE) {
+  const raw = process.env[MTA_ENV_VAR];
+  if (raw === undefined || raw === null || String(raw).trim() === '') return defaultMta;
+  const n = Number(raw);
+  return (Number.isFinite(n) && n > 0) ? n : defaultMta;
+}
+
+// MARKETING_SANDBOX has NO minimum trading amount: there is no MTA (and no
+// hidden equivalent minimum) that can prevent a sandbox account from starting
+// the bot / trading. The server therefore exposes mta: 0 for sandbox accounts
+// and the sandbox bot-start route performs no balance gate at all. (Production
+// keeps its own MTA — see getEffectiveMta().)
+
+// The MARKETING SANDBOX referral program mirrors PRODUCTION (management
+// decision): a ONE-TIME reward equal to a percentage (default 20%) of the
+// referred user's initial qualifying deposit at the platform minimum. The
+// sandbox reads the SAME referral_config keys production uses (single source of
+// truth); these constants are only the fallbacks used when the config row is
+// missing/unreadable. There is NO downline commission in the final model.
+const SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20;
+const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;
+
+// Simulated "$50 promotional credit" seed for a new MARKETING_SANDBOX wallet,
+// mirroring the production new-user seed (getWallet inserts live_balance: 50).
+// It is the sandbox's tradable simulated balance: usable through the existing
+// trading engine and (sandbox rules unchanged) withdrawable like any other
+// simulated balance.
+const SANDBOX_PROMO_CREDIT = 50;
+
+// Promotional-credit tradability. A user with NO confirmed deposit but a
+// positive live balance is funded solely by the $50 promotional credit.
+// Management decision: that credit is TRADABLE through the SAME trading engine
+// (/api/trade + record_trade_safe) and is therefore exempt from the bot-start
+// MTA gate. It stays NON-withdrawable until a qualifying deposit AND at least
+// one completed trade (enforced on /api/withdraw/request). This defines WHO the
+// MTA gate applies to; it does NOT change the MTA value.
+function isPromoFundedTrading(hasConfirmedDeposit, liveBalance) {
+  return !hasConfirmedDeposit && Number(liveBalance) > 0;
+}
 
 // Simulated Demo balance seed for MARKETING_SANDBOX accounts, matching the
 // production new-user demo seed (getWallet inserts demo_balance: 1000). Purely
@@ -522,7 +595,9 @@ async function getSandboxWallet(userId) {
   if (error && error.code === 'PGRST116') {
     const { data: created, error: insertError } = await supabaseAdmin
       .from('sandbox_wallets')
-      .insert({ user_id: userId })
+      // Simulated $50 promotional credit (mirrors the production new-user
+      // live_balance seed). Tradable through the existing sandbox engine.
+      .insert({ user_id: userId, balance: SANDBOX_PROMO_CREDIT })
       .select()
       .single();
     if (insertError) throw insertError;
@@ -559,6 +634,78 @@ async function getSandboxTodayRealizedPnl(userId) {
   return (data || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 }
 
+// ---------- MARKETING SANDBOX: referral program (PRODUCTION PARITY) ----------
+// Management decision (final): the sandbox referral program matches production
+// (one-time reward = 20% of the referred user's initial qualifying deposit at
+// the $100 platform minimum; there is NO downline commission).
+// Everything below is sandbox-only: reads/writes go through sandbox_* tables and
+// the sandbox RPCs from migration 022, and the reward is credited to
+// the referrer's SIMULATED, TRADABLE sandbox balance (sandbox_wallets.balance) —
+// the same balance the existing trading engine uses. No production table, RPC,
+// config or account can be reached from here.
+
+// Sandbox referral rows for a referrer. Returns null when migration 022 is not
+// applied yet so callers can fall back to an empty (all-zero) referral view
+// instead of erroring.
+async function getSandboxReferralRows(referrerId) {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_referrals')
+    .select('id, referred_id, status, bonus_earned, qualified_at, qualification_type, created_at')
+    .eq('referrer_id', referrerId)
+    .order('created_at', { ascending: false });
+  if (error) return null;
+  return data || [];
+}
+
+// Sandbox referral summary (same shape/meaning as the production endpoints).
+// Referral earnings shown here are genuinely earned: the reward is only written
+// once a referral is ACTIVE (qualifying deposit). The final model has no
+// downline commission, so there is no commission ledger to read.
+async function getSandboxReferralSummary(referrerId) {
+  const [rows, rewardPercent, minDeposit] = await Promise.all([
+    getSandboxReferralRows(referrerId),
+    getReferralConfig('referral_reward_percent', String(SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT)),
+    getReferralConfig('minimum_qualifying_deposit', String(SANDBOX_REFERRAL_MIN_DEPOSIT)),
+  ]);
+  const list = rows || [];
+  const totalEarned = list.reduce((sum, r) => sum + (Number(r.bonus_earned) || 0), 0);
+  return {
+    referrals: list,
+    totalReferrals: list.length,
+    activeReferrals: list.filter(r => r.status === 'active').length,
+    pendingReferrals: list.filter(r => r.status === 'pending').length,
+    totalEarned,
+    totalReferralEarnings: totalEarned,
+    config: {
+      rewardsEnabled: true,
+      rewardPercent: Number(parseConfigValue(rewardPercent)) || SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT,
+      minimumDeposit: Number(parseConfigValue(minDeposit)) || SANDBOX_REFERRAL_MIN_DEPOSIT,
+    },
+  };
+}
+
+// Exactly-once referral award, called AFTER a simulated sandbox deposit is
+// credited. The platform minimum, the reward percentage, the exactly-once
+// guarantee and the sandbox-user assertions all live in the sandbox RPC
+// (migration 022). Non-fatal: a referral problem must never fail the deposit
+// itself.
+async function awardSandboxReferralOnDeposit(referredUserId, depositAmount) {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('sandbox_award_referral_qualification', {
+      p_referred_id: referredUserId,
+      p_deposit_amount: Number(depositAmount) || 0,
+    });
+    if (error) {
+      console.warn('[sandbox referral] award skipped:', error.message);
+      return null;
+    }
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) {
+    console.warn('[sandbox referral] award error:', e.message);
+    return null;
+  }
+}
+
 async function hasSandboxConfirmedDeposit(userId) {
   const { count, error } = await supabaseAdmin
     .from('sandbox_deposits')
@@ -592,7 +739,13 @@ async function advanceSandboxDeposit(userId, invoiceId) {
       p_user_id: userId,
       p_invoice_id: invoiceId,
     });
-    if (result && result.success) deposit.status = 'confirmed';
+    if (result && result.success) {
+      deposit.status = 'confirmed';
+      // Simulated referral program (production parity): a confirmed simulated
+      // deposit of at least the platform minimum qualifies this account's
+      // pending referral (exactly-once; enforced inside the sandbox RPC).
+      await awardSandboxReferralOnDeposit(userId, deposit.amount);
+    }
   }
   if (deposit.status === 'pending' && elapsed > 3600000) {
     await supabaseAdmin.from('sandbox_deposits').update({ status: 'expired' }).eq('id', deposit.id);
@@ -630,7 +783,11 @@ async function handleSandboxDepositRequest(req, res) {
   const { amount, network } = req.body;
   const userId = req.user.id;
   const amt = Number(amount);
-  if (!amt || amt < 10) return res.status(400).json({ error: 'Min $10' });
+  // Platform minimum deposit ($100) - applies to the sandbox too (management
+  // decision). This is the deposit floor, NOT the $50 promotional credit.
+  if (!amt || amt < PLATFORM_MIN_DEPOSIT_USD) {
+    return res.status(400).json({ error: 'Min $' + PLATFORM_MIN_DEPOSIT_USD });
+  }
   const net = network || 'TRC20';
   const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
   const { error } = await supabaseAdmin.from('sandbox_deposits').insert({
@@ -656,8 +813,10 @@ async function handleSandboxInvoiceCreate(req, res) {
   const { amount, network } = req.body || {};
   const userId = req.user.id;
   const amt = Number(amount);
-  if (!amt || amt < 10) {
-    return res.status(400).json({ success: false, error: 'Min $10' });
+  // Platform minimum deposit ($100) - applies to the sandbox too (management
+  // decision). This is the deposit floor, NOT the $50 promotional credit.
+  if (!amt || amt < PLATFORM_MIN_DEPOSIT_USD) {
+    return res.status(400).json({ success: false, error: 'Min $' + PLATFORM_MIN_DEPOSIT_USD });
   }
   const net = network || 'TRC20';
   const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
@@ -780,6 +939,9 @@ async function handleSandboxTrade(req, res) {
     if (!result.success) {
       return res.status(400).json({ error: result.error || 'Trade recording failed' });
     }
+    // The sandbox referral program mirrors production: only the one-time
+    // percentage reward on the downline's initial qualifying deposit. There is
+    // no downline profit-share commission, so a trade never credits a referrer.
     const todayRealizedPnl = await getSandboxTodayRealizedPnl(userId).catch(() => 0);
     res.json({
       success: true,
@@ -809,18 +971,14 @@ async function handleSandboxTransactions(req, res) {
 async function handleSandboxBotStart(req, res) {
   const userId = req.user.id;
   const mode = 'live';
-  // The sandbox mirrors the real customer experience, so the $143 MTA applies
-  // here too: read the simulated wallet server-side and block below the MTA
-  // BEFORE any session is created (no session, no trades, no debit).
-  const wallet = await getSandboxWallet(userId);
-  if (Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE) {
-    return res.status(400).json({ error: 'MTA not reached' });
-  }
+  // NO MTA / NO hidden equivalent minimum for MARKETING_SANDBOX (management
+  // decision): the bot starts regardless of the simulated balance. Every other
+  // sandbox behavior is unchanged.
   await supabaseAdmin.from('sandbox_bot_sessions').upsert(
     { user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() },
     { onConflict: 'user_id' }
   );
-  res.json({ status: 'started', mode });
+  res.json({ status: 'started', mode, mta: 0 });
 }
 
 async function handleSandboxBotStop(req, res) {
@@ -839,6 +997,113 @@ async function handleSandboxBotStatus(req, res) {
     isRunning: data ? data.is_running === 1 : false,
     mode: data ? data.mode : 'live',
     startedAt: data ? data.started_at : null,
+  });
+}
+
+// ---------- MARKETING SANDBOX referral handlers (production-parity program) ----------
+
+// Creates a SIMULATED downline referral for the given referrer and runs it
+// through the SAME qualification path as a real referred sandbox account, so the
+// platform minimum qualifying deposit is genuinely enforced (a below-minimum
+// amount qualifies nothing). Shared by /api/referral/simulate (sandbox) and the
+// marketing admin control.
+async function simulateSandboxReferralDeposit(referrerId, amount) {
+  const min = SANDBOX_REFERRAL_MIN_DEPOSIT;
+  const amt = (amount == null) ? min : Number(amount);
+  if (!isFinite(amt) || amt < 0) return { ok: false, error: 'Invalid amount' };
+  // Synthetic negative referred id (unique per call), mirroring the production
+  // simulated-referral convention. Real sandbox attributions use real ids.
+  const syntheticId = -(Date.now() % 1000000000) - Math.floor(Math.random() * 100000) - 1;
+  const { error } = await supabaseAdmin.from('sandbox_referrals').insert({
+    referrer_id: referrerId,
+    referred_id: syntheticId,
+    status: 'pending',
+    bonus_earned: 0,
+  });
+  if (error) return { ok: false, error: error.message };
+  const award = await awardSandboxReferralOnDeposit(syntheticId, amt);
+  return {
+    ok: true,
+    referredId: syntheticId,
+    qualified: !!(award && award.success),
+    reason: (award && award.reason) || null,
+    bonusAdded: (award && award.success) ? Number(award.bonus_amount) : 0,
+    newBalance: (award && award.success) ? Number(award.new_balance) : null,
+    minimumDeposit: min,
+  };
+}
+
+async function handleSandboxReferralStats(req, res) {
+  const summary = await getSandboxReferralSummary(req.user.id);
+  res.json({
+    totalReferrals: summary.totalReferrals,
+    activeReferrals: summary.activeReferrals,
+    pendingReferrals: summary.pendingReferrals,
+    earned: summary.totalEarned,
+    config: summary.config,
+  });
+}
+
+async function handleSandboxReferralDetailed(req, res) {
+  const summary = await getSandboxReferralSummary(req.user.id);
+  const { data: user } = await supabaseAdmin
+    .from('users')
+    .select('referral_code')
+    .eq('id', req.user.id)
+    .single();
+  // Resolve the display identity of REAL referred sandbox accounts (synthetic
+  // simulated downlines have no user row and are shown as generic entries).
+  const realIds = summary.referrals.filter(r => Number(r.referred_id) > 0).map(r => r.referred_id);
+  let referredUsers = {};
+  if (realIds.length) {
+    const { data: rows } = await supabaseAdmin
+      .from('users')
+      .select('id, name, email, created_at')
+      .in('id', realIds);
+    referredUsers = (rows || []).reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
+  }
+  res.json({
+    referralCode: (user && user.referral_code) || null,
+    totalReferrals: summary.totalReferrals,
+    activeReferrals: summary.activeReferrals,
+    pendingReferrals: summary.pendingReferrals,
+    totalEarned: summary.totalEarned,
+    totalReferralEarnings: summary.totalReferralEarnings,
+    simulated: true,
+    referrals: summary.referrals.map(r => {
+      const u = referredUsers[r.referred_id];
+      return {
+        id: r.id,
+        bonusEarned: Number(r.bonus_earned) || 0,
+        status: r.status,
+        registeredAt: r.created_at,
+        qualifiedAt: r.qualified_at,
+        qualificationType: r.qualification_type,
+        referredUser: u ? {
+          id: u.id,
+          name: u.name,
+          email: u.email ? u.email.replace(/(.{2}).*(@.*)/, '$1***$2') : null,
+          joinedAt: u.created_at,
+        } : null,
+      };
+    }),
+  });
+}
+
+async function handleSandboxReferralSimulate(req, res) {
+  const amount = (req.body && req.body.amount != null) ? req.body.amount : null;
+  const out = await simulateSandboxReferralDeposit(req.user.id, amount);
+  if (!out.ok) return res.status(400).json({ error: out.error || 'Simulation failed' });
+  const summary = await getSandboxReferralSummary(req.user.id);
+  res.json({
+    success: true,
+    qualified: out.qualified,
+    reason: out.reason,
+    bonusAdded: out.bonusAdded,
+    invited: summary.totalReferrals,
+    earned: summary.totalEarned,
+    minimumDeposit: out.minimumDeposit,
+    simulated: true,
   });
 }
 
@@ -1032,6 +1297,18 @@ async function requireSandboxTargetUser(req, res) {
 
 // ---------- REFERRAL ACTIVATION HELPERS ----------
 
+// Referral reward (FINAL management model): a ONE-TIME reward equal to this
+// percentage of the referred user's INITIAL QUALIFYING DEPOSIT — the platform's
+// minimum required deposit (see PLATFORM_MIN_DEPOSIT_USD). The live value is
+// stored in referral_config('referral_reward_percent') and always overrides
+// this default (see getReferralConfig). This constant is the fallback used only
+// when the config row is missing/unreadable.
+//
+// There is NO fixed/flat referral reward and NO downline profit-share
+// commission in the final model (both were retired; migration 024 removes the
+// obsolete architecture).
+const REFERRAL_REWARD_PERCENT_DEFAULT = 20;
+
 /**
  * Get referral configuration value by key
  * @param {string} key - Configuration key
@@ -1097,8 +1374,8 @@ async function getReferralConfigAll() {
 function getDefaultReferralConfig() {
   return {
     rewards_enabled: { value: 'true', description: 'Enable or disable referral rewards system-wide' },
-    minimum_qualifying_deposit: { value: '50', description: 'Minimum deposit amount required (USD)' },
-    referral_reward_amount: { value: '10', description: 'Amount awarded to referrer (USD)' },
+    minimum_qualifying_deposit: { value: String(PLATFORM_MIN_DEPOSIT_USD), description: 'Minimum deposit amount required (USD)' },
+    referral_reward_percent: { value: String(REFERRAL_REWARD_PERCENT_DEFAULT), description: 'Referral reward as a percentage of the referred user\'s initial qualifying deposit' },
     first_deposit_required: { value: 'true', description: 'Whether referral requires first deposit to qualify' },
     max_rewards_per_user: { value: '0', description: 'Maximum rewards per user (0 = unlimited)' }
   };
@@ -1340,11 +1617,15 @@ function parseConfigValue(value) {
  */
 async function activateReferralOnQualification(userId, qualificationType = 'first_deposit', depositInfo = {}) {
   try {
+    // MARKETING_SANDBOX accounts never participate in the production referral
+    // program (the 20%-of-initial-deposit reward is a production-only decision).
+    if (await isMarketingSandboxUser(userId)) return { success: false, reason: 'sandbox' };
+
     // Get referral configuration
     const config = {
       rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
-      rewardAmount: parseConfigValue(await getReferralConfig('referral_reward_amount', '10')),
-      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', '50')),
+      rewardPercent: parseConfigValue(await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))),
+      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT_USD))),
       firstDepositRequired: parseConfigValue(await getReferralConfig('first_deposit_required', 'true')),
       maxRewardsPerUser: parseConfigValue(await getReferralConfig('max_rewards_per_user', '0'))
     };
@@ -1355,19 +1636,41 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
       return { success: false, reason: 'rewards_disabled' };
     }
     
-    // Check if first deposit is required and if this is the first deposit
-    if (config.firstDepositRequired) {
-      const isFirst = await isFirstConfirmedDeposit(userId);
-      if (!isFirst) {
-        console.log('Not the first deposit, skipping referral activation');
-        return { success: false, reason: 'not_first_deposit' };
-      }
+    // Qualification rule (management decision): a referral is QUALIFIED only
+    // when the referred user makes the platform's minimum required deposit.
+    // Registration / account creation / onboarding never qualify (those leave
+    // the referral in 'pending' with bonus_earned = 0). This function is only
+    // ever called on a CONFIRMED deposit, so the only remaining requirement is
+    // the platform minimum checked below. The award stays exactly-once via the
+    // pending-status + bonus_earned guards further down.
+    //
+    // NOTE: this intentionally does NOT require the deposit to be the literal
+    // "first" confirmed deposit. The old first_deposit_required gate used
+    // isFirstConfirmedDeposit(), which permanently disqualified a referral if
+    // the user's first deposit happened to be below the minimum (a later
+    // qualifying deposit could never activate it). The platform minimum is the
+    // authoritative qualification rule; the once-only guards preserve anti-abuse.
+    if (config.firstDepositRequired && !(Number(depositInfo.amount) > 0)) {
+      console.log('No confirmed deposit amount supplied; referral stays pending');
+      return { success: false, reason: 'no_qualifying_deposit' };
     }
     
-    // Check minimum deposit requirement
-    if (depositInfo.amount && depositInfo.amount < config.minDeposit) {
+    // Check minimum deposit requirement (existing platform minimum; unchanged).
+    if (!(Number(depositInfo.amount) >= config.minDeposit)) {
       console.log(`Deposit amount ${depositInfo.amount} is below minimum ${config.minDeposit}`);
       return { success: false, reason: 'below_minimum_deposit', minimumRequired: config.minDeposit };
+    }
+
+    // FINAL MODEL: the reward is a ONE-TIME percentage of the deposit that just
+    // qualified this referral (its INITIAL qualifying deposit), rounded to
+    // cents. There is deliberately NO fixed amount.
+    const rawPercent = Number(config.rewardPercent);
+    const effectiveRewardPercent = (isFinite(rawPercent) && rawPercent > 0)
+      ? Math.min(rawPercent, 100)
+      : REFERRAL_REWARD_PERCENT_DEFAULT;
+    const rewardAmount = Math.round(Number(depositInfo.amount) * effectiveRewardPercent) / 100;
+    if (!(rewardAmount > 0)) {
+      return { success: false, reason: 'no_reward_amount' };
     }
     
     // Find pending referral for this user
@@ -1417,10 +1720,13 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     
     // Get referrer details
     const referrer = referral.referrer;
-    const rewardAmount = config.rewardAmount;
     
-    // Activate the referral
-    const { error: updateError } = await supabaseAdmin
+    // Activate the referral. The update is CONDITIONAL on the row still being
+    // 'pending': only the caller that actually flips the row may credit the
+    // referrer, so duplicate/concurrent deposit confirmations can never pay the
+    // referral reward twice (mirrors the row-locked SQL authority in migration
+    // 021). A single caller behaves exactly as before.
+    const { data: activatedRows, error: updateError } = await supabaseAdmin
       .from('referrals')
       .update({
         status: 'active',
@@ -1428,11 +1734,17 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
         qualified_at: new Date().toISOString(),
         qualification_type: qualificationType
       })
-      .eq('id', referral.id);
-    
+      .eq('id', referral.id)
+      .eq('status', 'pending')
+      .select('id');
+
     if (updateError) {
       console.log('Error activating referral:', updateError.message);
       return { success: false, reason: 'activation_failed' };
+    }
+    if (!activatedRows || activatedRows.length === 0) {
+      console.log('Referral already activated by a concurrent request; no double award');
+      return { success: false, reason: 'already_activated' };
     }
     
     // Award bonus to referrer
@@ -1457,6 +1769,59 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
   } catch (e) {
     console.log('Referral activation error:', e.message);
     return { success: false, reason: 'exception' };
+  }
+}
+
+/**
+ * The amount of a referrer's earnings that are GENUINELY earned referral income
+ * and therefore withdrawable without first placing a trade (management
+ * decision).
+ *
+ * Genuinely earned = real, ACTIVE referrals' reward bonuses, server-derived:
+ *   - referrals.bonus_earned where referrer_id = user, status='active'
+ *     and referred_id > 0. The `> 0` filter deliberately EXCLUDES the test-only
+ *     "simulated referral" rows (which use referred_id = -userId), so
+ *     manufactured/simulated bonuses are NOT exempt.
+ *
+ * The final referral model has no downline commission ledger: earnings are
+ * exactly the one-time 20%-of-initial-qualifying-deposit rewards recorded in
+ * referrals.bonus_earned.
+ *
+ * The result is capped at the user's current bonus_balance (the bucket these
+ * earnings are credited to), because that bucket is debited when the earnings
+ * are withdrawn or converted — so the cap can never be reused for a repeat
+ * no-trade withdrawal. Never throws; returns 0 on any error.
+ *
+ * @param {number} referrerId
+ * @returns {Promise<{ earned:number, bonusBalance:number, available:number }>}
+ */
+async function getGenuinelyEarnedReferralEarnings(referrerId) {
+  try {
+    const [wallet, refsRes] = await Promise.all([
+      getWallet(referrerId),
+      supabaseAdmin
+        .from('referrals')
+        .select('bonus_earned')
+        .eq('referrer_id', referrerId)
+        .eq('status', 'active')
+        .gt('referred_id', 0),
+    ]);
+    const bonusBalance = Number(wallet?.bonus_balance) || 0;
+    if (refsRes.error) {
+      if (refsRes.error.code !== 'PGRST116') {
+        console.log('[getGenuinelyEarnedReferralEarnings] error:', refsRes.error.message);
+      }
+      return { earned: 0, bonusBalance, available: 0 };
+    }
+    const rewardTotal = (refsRes.data || []).reduce((s, r) => s + (Number(r.bonus_earned) || 0), 0);
+    const earned = Math.round(rewardTotal * 100) / 100;
+    // Cap by the actual bucket: earnings already withdrawn/converted cannot be
+    // reused to skip the trade requirement again.
+    const available = Math.max(0, Math.min(bonusBalance, earned));
+    return { earned, bonusBalance, available };
+  } catch (e) {
+    console.log('[getGenuinelyEarnedReferralEarnings] error:', e.message);
+    return { earned: 0, bonusBalance: 0, available: 0 };
   }
 }
 
@@ -2391,6 +2756,10 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       environment: ENV_MARKETING_SANDBOX,
       introDay: wallet.intro_day,
       badgeHidden: wallet.badge_hidden,
+      // MARKETING_SANDBOX has NO MTA: 0 means "no minimum trading amount", so
+      // no gate is ever applied (the sandbox bot-start route has no gate at
+      // all). Nothing is silently substituted for the MTA.
+      mta: 0,
     });
   }
   // getUser and getWallet are independent (both keyed by the same user id),
@@ -2415,6 +2784,9 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     hasRealDeposit: !!funded,
     todayRealizedPnl: Number(todayPnl) || 0,
     environment: ENV_PRODUCTION,
+    // Server-authoritative MTA (single source of truth, env-selectable).
+    // Frontend adopts this so the UI never hardcodes the value.
+    mta: getEffectiveMta(),
   });
 });
 
@@ -2495,8 +2867,8 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
   let referralActivated = null;
   
   if (elapsed > 15000 && deposit.status === 'pending') {
-    // Check if this is the user's first deposit (for referral qualification)
-    const isFirst = await isFirstConfirmedDeposit(req.user.id);
+    // Confirmed deposit -> attempt referral qualification (platform minimum,
+    // self-guarded exactly-once). Not limited to the literal first deposit.
     
     await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
     await updateWallet(req.user.id, 'live_balance', deposit.amount);
@@ -2504,12 +2876,10 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
     deposit.status = 'confirmed';
     
     // Activate referral with deposit info (amount for minimum check)
-    if (isFirst) {
-      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
-        amount: deposit.amount,
-        network: deposit.network
-      });
-    }
+    referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
+      amount: deposit.amount,
+      network: deposit.network
+    });
   }
   if (elapsed > 3600000 && deposit.status === 'pending') {
     await supabaseAdmin.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
@@ -2577,7 +2947,9 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
   try {
     // SECURITY: Strict input validation
     const { amount, currency, network } = req.body;
-    const MIN_DEPOSIT_AMOUNT = 50;
+    // Platform minimum deposit ($100, single source of truth). This is the
+    // deposit floor — it is NOT the $50 promotional credit.
+    const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT_USD;
     
     if (!amount || typeof amount !== 'number' || amount < MIN_DEPOSIT_AMOUNT) {
       return res.status(400).json({ 
@@ -3813,19 +4185,17 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
         });
       }
 
-      // Confirm the deposit
-      const isFirst = await isFirstConfirmedDeposit(oldDeposit.user_id);
-
+      // Confirm the deposit, then attempt referral activation. Qualification
+      // is the platform minimum deposit (self-guarded, exactly-once) rather
+      // than strictly the first confirmed deposit.
       await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', oldDeposit.id);
       await updateWallet(oldDeposit.user_id, 'live_balance', oldDeposit.amount);
       await addTransaction(oldDeposit.user_id, 'Deposit', oldDeposit.amount, 'USDT (' + oldDeposit.network + ')');
 
-      if (isFirst) {
-        await activateReferralOnQualification(oldDeposit.user_id, 'first_deposit', {
-          amount: oldDeposit.amount,
-          network: oldDeposit.network
-        });
-      }
+      await activateReferralOnQualification(oldDeposit.user_id, 'first_deposit', {
+        amount: oldDeposit.amount,
+        network: oldDeposit.network
+      });
 
       return res.json({
         success: true,
@@ -3891,13 +4261,64 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   // PRESERVED: All existing withdrawal business logic (unchanged order/meaning)
   const wallet = await getWallet(userId);
   if (!amount || amount < 700) return res.status(400).json({ error: 'Min $700' });
-  if (amount > wallet.live_balance) return res.status(400).json({ error: 'Insufficient balance' });
-  if (!address || address.length < 10) return res.status(400).json({ error: 'Valid address required' });
-  const { count } = await supabaseAdmin.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
-  if (count < 1) return res.status(400).json({ error: 'Complete at least 1 trade first' });
 
-  // All existing withdrawal logic continues unchanged
-  await updateWallet(userId, 'live_balance', -amount);
+  // Referral-earnings exception (management decision): genuinely earned
+  // referral income must NOT require placing a trade before withdrawal. The
+  // eligible amount is derived SERVER-SIDE from real referral rewards, capped by
+  // the referral-earnings bucket
+  // (wallets.bonus_balance), so it can never be manufactured, inflated, or
+  // reused. The client cannot influence any of it.
+  const liveBalance = Number(wallet.live_balance) || 0;
+  const { count } = await supabaseAdmin.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
+  const hasTrade = count >= 1;
+  const hasDeposit = await hasConfirmedDeposit(userId);
+  const referral = await getGenuinelyEarnedReferralEarnings(userId);
+  const requirementsMet = hasTrade && hasDeposit;
+
+  // Decide which bucket funds the withdrawal. A fully qualified user keeps the
+  // exact existing behavior (live balance first). Referral earnings held in the
+  // referral bucket are always withdrawable — even before a trade/deposit.
+  let fromLive = 0;
+  let fromBonus = 0;
+  if (requirementsMet) {
+    if (amount > liveBalance + referral.available) return res.status(400).json({ error: 'Insufficient balance' });
+    fromLive = Math.min(amount, liveBalance);
+    fromBonus = Math.round((amount - fromLive) * 100) / 100;
+  } else if (amount <= referral.available) {
+    fromBonus = amount;
+  } else if (amount > liveBalance) {
+    // Existing balance requirement (unchanged meaning/precedence).
+    return res.status(400).json({ error: 'Insufficient balance' });
+  }
+
+  if (!address || address.length < 10) return res.status(400).json({ error: 'Valid address required' });
+
+  if (!requirementsMet && fromBonus === 0) {
+    if (!hasTrade) return res.status(400).json({ error: 'Complete at least 1 trade first' });
+
+    // Promotional-credit withdrawal rule (management decision): a user who has
+    // NOT made their required qualifying first deposit cannot withdraw the $50
+    // promotional credit or any profits generated by trading it. This is the
+    // server-authoritative enforcement of the frontend's existing needDeposit
+    // gate; it appends a requirement and does NOT weaken or reorder any existing
+    // one (KYC, $700 minimum, balance, address, and trade-count above are all
+    // unchanged). After a qualifying deposit AND at least one completed trade
+    // (already required above), the normal withdrawal process applies.
+    return res.status(400).json({
+      error: 'A qualifying first deposit is required before you can withdraw your promotional credit or trading profits.',
+      depositRequired: true,
+      requiresFirstDeposit: true
+    });
+  }
+
+  // All existing withdrawal logic continues unchanged, except that the portion
+  // covered by genuinely earned referral earnings debits the referral-earnings
+  // bucket that actually holds those funds. Ordinary withdrawals debit
+  // live_balance exactly as before. Deposits, promotional credit, and ordinary
+  // trading profits can never take the referral path (fromBonus is only > 0 for
+  // genuinely earned referral income, capped by the referral bucket).
+  if (fromLive > 0) await updateWallet(userId, 'live_balance', -fromLive);
+  if (fromBonus > 0) await updateWallet(userId, 'bonus_balance', -fromBonus);
   await addTransaction(userId, 'Withdraw', -amount, 'To ' + address.slice(0,6) + '...');
   const { data, error } = await supabaseAdmin.from('withdrawals').insert({ user_id: userId, amount, address, status: 'pending' }).select().single();
   if (error) throw error;
@@ -4483,7 +4904,15 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // read from the server wallet, never from the request.
   const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
   const wallet = await getWallet(userId);
-  if (mode === 'live' && Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE) {
+  const balance = Number(wallet.live_balance) || 0;
+  // Single-source PRODUCTION MTA value (env-selectable; default 200).
+  // MARKETING_SANDBOX uses its own fixed value elsewhere.
+  const mta = getEffectiveMta(BOT_MIN_TRADING_BALANCE);
+  // Promo-credit-funded accounts (no confirmed deposit, positive balance) may
+  // trade the $50 promotional credit through the SAME engine, so they are not
+  // blocked by the bot-start MTA gate. The MTA value itself is unchanged.
+  const promoFunded = isPromoFundedTrading(await hasConfirmedDeposit(userId).catch(() => false), balance);
+  if (mode === 'live' && balance < mta && !promoFunded) {
     return res.status(400).json({ error: 'MTA not reached' });
   }
   await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
@@ -4549,6 +4978,10 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error || 'Trade recording failed' });
     }
+    // The referral program pays ONLY the one-time 20%-of-initial-qualifying-
+    // deposit reward (on the referred user's qualifying deposit). There is no
+    // downline profit-share commission: a trade never credits the referrer, so
+    // this route does not touch referral wallets at all.
     // Re-read today's realized P&L from the ledger after the (idempotent) write
     // so the client can reconcile "Today's P&L" to the exact server-persisted
     // total. record_trade_safe() itself is unchanged; this is a read-only sum.
@@ -4880,24 +5313,57 @@ app.post('/api/admin/sandbox/accounts', authMiddleware, adminMiddleware, async (
     const existing = await getUserByEmail(email);
     if (existing) return res.status(400).json({ error: 'Email already registered' });
 
+    // Optional attribution: the sandbox referral code of an EXISTING sandbox
+    // account. A production account's code is rejected so the sandbox referral
+    // program can never involve production data.
+    const referralCode = (req.body && req.body.referralCode ? String(req.body.referralCode) : '').trim().toUpperCase();
+    let referrer = null;
+    if (referralCode) {
+      const { data: candidate } = await supabaseAdmin
+        .from('users')
+        .select('id, environment')
+        .eq('referral_code', referralCode)
+        .maybeSingle();
+      if (!candidate || candidate.environment !== ENV_MARKETING_SANDBOX) {
+        return res.status(400).json({ error: 'Referral code must belong to a marketing sandbox account' });
+      }
+      referrer = candidate;
+    }
+
     const hash = bcrypt.hashSync(password, 10);
-    const referralCode = await generateUniqueReferralCode();
+    const newReferralCode = await generateUniqueReferralCode();
     const { data: user, error } = await supabaseAdmin.from('users').insert({
       name,
       email,
       password_hash: hash,
-      referral_code: referralCode,
+      referral_code: newReferralCode,
       is_admin: 0,
       environment: ENV_MARKETING_SANDBOX,
     }).select('id, name, email, environment').single();
     if (error) throw error;
-    // Simulated wallet only (NO production wallets row).
-    await supabaseAdmin.from('sandbox_wallets').insert({ user_id: user.id });
+    // Simulated wallet only (NO production wallets row). Seeded with the
+    // simulated $50 promotional credit, mirroring the production new-user seed.
+    await supabaseAdmin.from('sandbox_wallets').insert({
+      user_id: user.id,
+      balance: SANDBOX_PROMO_CREDIT,
+    });
+    // Sandbox-only attribution (pending until the referred account makes the
+    // platform minimum qualifying deposit).
+    if (referrer) {
+      const { error: refError } = await supabaseAdmin.from('sandbox_referrals').insert({
+        referrer_id: referrer.id,
+        referred_id: user.id,
+        status: 'pending',
+        bonus_earned: 0,
+      });
+      if (refError) console.warn('[sandbox referral] attribution skipped:', refError.message);
+    }
     res.json({
       success: true,
       account: { id: user.id, name: user.name, email: user.email, environment: user.environment },
       // One-time credential display for the marketing operator.
       credentials: { email, password },
+      referredBy: referrer ? referrer.id : null,
     });
   } catch (err) {
     console.error('[POST /api/admin/sandbox/accounts]', err);
@@ -5012,6 +5478,32 @@ app.post('/api/admin/sandbox/:userId/trades', authMiddleware, adminMiddleware, a
   } catch (err) {
     console.error('[POST /api/admin/sandbox/trades]', err);
     res.status(500).json({ error: 'Server error generating demonstration trades' });
+  }
+});
+
+// Marketing control: simulate a downline referral deposit. Runs the SAME
+// qualification path as a real referred sandbox account, so the platform
+// minimum qualifying deposit is enforced (a below-minimum amount awards $0).
+app.post('/api/admin/sandbox/:userId/referral/deposit', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const amount = (req.body && req.body.amount != null) ? req.body.amount : SANDBOX_REFERRAL_MIN_DEPOSIT;
+    const out = await simulateSandboxReferralDeposit(targetId, amount);
+    if (!out.ok) return res.status(400).json({ error: out.error || 'Simulation failed' });
+    const summary = await getSandboxReferralSummary(targetId);
+    res.json({
+      success: true,
+      qualified: out.qualified,
+      reason: out.reason,
+      bonusAdded: out.bonusAdded,
+      minimumDeposit: out.minimumDeposit,
+      earned: summary.totalEarned,
+      invited: summary.totalReferrals,
+    });
+  } catch (err) {
+    console.error('[POST /api/admin/sandbox/referral/deposit]', err);
+    res.status(500).json({ error: 'Server error simulating a referral deposit' });
   }
 });
 
@@ -5147,11 +5639,11 @@ const CONFIG_VALIDATION = {
     max: 10000,
     description: 'Minimum deposit amount required for referral qualification (USD)'
   },
-  referral_reward_amount: {
+  referral_reward_percent: {
     type: 'number',
     min: 0,
-    max: 1000,
-    description: 'Amount awarded to referrer when referral qualifies (USD)'
+    max: 100,
+    description: 'Referral reward as a percentage of the referred user\'s initial qualifying deposit (e.g. 20 = 20%)'
   },
   first_deposit_required: {
     type: 'boolean',
@@ -5175,8 +5667,8 @@ app.get('/api/referral/config', async (req, res) => {
     // No internal details, descriptions, or metadata exposed
     res.json({
       rewardsEnabled: config.rewards_enabled?.value === 'true',
-      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || '50'),
-      rewardAmount: parseConfigValue(config.referral_reward_amount?.value || '10'),
+      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || String(PLATFORM_MIN_DEPOSIT_USD)),
+      rewardPercent: parseConfigValue(config.referral_reward_percent?.value || String(REFERRAL_REWARD_PERCENT_DEFAULT)),
       firstDepositRequired: config.first_deposit_required?.value === 'true',
       maxRewardsPerUser: parseConfigValue(config.max_rewards_per_user?.value || '0')
     });
@@ -5185,8 +5677,8 @@ app.get('/api/referral/config', async (req, res) => {
     // Return defaults on error - do NOT expose internal error details
     res.json({
       rewardsEnabled: true,
-      minimumDeposit: 50,
-      rewardAmount: 10,
+      minimumDeposit: PLATFORM_MIN_DEPOSIT_USD,
+      rewardPercent: REFERRAL_REWARD_PERCENT_DEFAULT,
       firstDepositRequired: true,
       maxRewardsPerUser: 0
     });
@@ -5377,7 +5869,12 @@ app.put('/api/referral/config/:key', authMiddleware, adminMiddleware, async (req
 
 app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  
+
+  // MARKETING_SANDBOX: the sandbox referral program matches production (one-time
+  // reward = 20% of the initial qualifying deposit; no commission) and is served
+  // entirely from sandbox tables/RPCs — production referral data is never read.
+  if (await sandboxHandled(req, res, handleSandboxReferralStats)) return;
+
   // Get all referrals made by this user
   const { data: referrals, error } = await supabaseAdmin
     .from('referrals')
@@ -5395,8 +5892,8 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   // Get config for display
   const config = {
     rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
-    rewardAmount: parseConfigValue(await getReferralConfig('referral_reward_amount', '10')),
-    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', '50'))
+    rewardPercent: parseConfigValue(await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))),
+    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT_USD))),
   };
   
   res.json({ 
@@ -5408,10 +5905,94 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   });
 });
 
+// Convert REFERRAL EARNINGS into tradable Live capital.
+//
+// SERVER-AUTHORITATIVE replacement for the previous client-side-only balance
+// mutation in withdrawBonusToLive(): the move is done in Postgres (atomic,
+// idempotent, ledgered) by convert_referral_earnings_safe() — migration 023.
+// The user id ALWAYS comes from the JWT, the amount is derived from the
+// referral-earnings bucket (wallets.bonus_balance) and the client can only
+// supply a retry key. No money is created (bonus_balance decreases by exactly
+// the amount live_balance increases), the $50 promotional credit and the demo
+// balance are never touched, and a replayed/concurrent submit can never
+// double-convert.
+//
+// FINAL management model: genuinely earned referral earnings are convertible to
+// tradable Live capital with NO conversion minimum. Eligibility is derived
+// server-side from real, qualified referral rewards (status = active) capped by
+// the earnings bucket — so a pending/unqualified referral (or a bare referral
+// row with no qualifying deposit) grants nothing, and no client input can
+// manufacture an amount. The $50 "bonus wallet" conversion threshold and the
+// generic "any referral row exists" gate no longer apply to referral earnings.
+app.post('/api/referral/earnings/convert', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  // MARKETING_SANDBOX: simulated referral income is already credited to the
+  // tradable sandbox balance (sandbox_wallets.balance) — there is no earnings
+  // bucket to convert and production wallets must never be touched.
+  if (await isMarketingSandboxUser(userId)) {
+    return res.status(400).json({ error: 'Not available for marketing sandbox accounts', sandbox: true });
+  }
+
+  try {
+    // Server-authoritative eligibility: only GENUINELY earned referral rewards
+    // (qualified referrals) count. No referral, or only unqualified referrals,
+    // yields zero available earnings and is refused.
+    const genuine = await getGenuinelyEarnedReferralEarnings(userId);
+    if (!(genuine.available > 0)) {
+      return res.status(400).json({ error: 'No referral earnings to convert', reason: 'no_referral_earnings' });
+    }
+
+    // Retry key only — never identity, amount, or balances.
+    const rawKey = (req.body && typeof req.body.idempotencyKey === 'string') ? req.body.idempotencyKey.trim() : '';
+    const idempotencyKey = (rawKey && rawKey.length <= 128)
+      ? 'conv_' + userId + '_' + rawKey
+      : 'conv_' + userId + '_' + Date.now() + '_' + crypto.randomBytes(8).toString('hex');
+
+    const { data, error } = await supabaseAdmin.rpc('convert_referral_earnings_safe', {
+      p_user_id: userId,
+      p_idempotency_key: idempotencyKey,
+      p_min_amount: REFERRAL_EARNINGS_MIN_CONVERT_USD
+    });
+    if (error) throw error;
+
+    if (!data || data.success !== true) {
+      const reason = (data && (data.reason || data.error)) || 'conversion_failed';
+      if (reason === 'no_referral_earnings') {
+        return res.status(400).json({ error: 'No referral earnings to convert', reason });
+      }
+      if (reason === 'below_minimum') {
+        return res.status(400).json({
+          error: `Minimum $${REFERRAL_EARNINGS_MIN_CONVERT_USD} in referral earnings is required to convert`,
+          reason,
+          minimum: Number(data.minimum) || REFERRAL_EARNINGS_MIN_CONVERT_USD
+        });
+      }
+      console.error('[referral/earnings/convert] rpc returned:', data);
+      return res.status(400).json({ error: 'Conversion failed', reason });
+    }
+
+    // Balances come from the same transaction that performed the move.
+    res.json({
+      success: true,
+      duplicate: !!data.duplicate,
+      amount: Number(data.amount) || 0,
+      bonusBalance: Number(data.bonus_balance) || 0,
+      liveBalance: Number(data.live_balance) || 0
+    });
+  } catch (e) {
+    console.error('[POST /api/referral/earnings/convert]', e.message);
+    res.status(500).json({ error: 'Conversion failed' });
+  }
+});
+
 // Get detailed referral stats (including referral list)
 app.get('/api/referral/detailed', authMiddleware, async (req, res) => {
   const userId = req.user.id;
-  
+
+  // MARKETING_SANDBOX: sandbox-only referral view (same shape as production).
+  if (await sandboxHandled(req, res, handleSandboxReferralDetailed)) return;
+
   // Get all referrals made by this user
   const { data: referrals, error } = await supabaseAdmin
     .from('referrals')
@@ -5448,6 +6029,7 @@ app.get('/api/referral/detailed', authMiddleware, async (req, res) => {
     activeReferrals,
     pendingReferrals,
     totalEarned,
+    totalReferralEarnings: totalEarned,
     referrals: referrals.map(r => ({
       id: r.id,
       bonusEarned: r.bonus_earned,
@@ -5487,14 +6069,19 @@ app.get('/api/referral/validate/:code', async (req, res) => {
 });
 
 app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
-  const userId = req.user.id;
-  await supabaseAdmin.from('referrals').insert({ referrer_id: userId, referred_id: -userId, bonus_earned: 10 });
-  await updateWallet(userId, 'bonus_balance', 10);
-  await addTransaction(userId, 'Referral Bonus', 10, 'Simulated referral');
-  const { count: invited } = await supabaseAdmin.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_id', userId);
-  const { data: earnedData } = await supabaseAdmin.from('referrals').select('bonus_earned').eq('referrer_id', userId);
-  const earned = earnedData.reduce((s, r) => s + r.bonus_earned, 0);
-  res.json({ invited, earned, bonusAdded: 10 });
+  // MARKETING SANDBOX ONLY. A simulated referral must never be a production
+  // referral-qualification path: an award that skipped the required initial
+  // qualifying deposit would contradict the final referral model (only a real
+  // >= $100 first deposit qualifies a referral). Sandbox accounts are
+  // server-verified here (isMarketingSandboxUser reads users.environment) and
+  // the handler writes only sandbox_* rows/RPCs, so production referral,
+  // wallet and transaction rows are unreachable from this route.
+  if (await sandboxHandled(req, res, handleSandboxReferralSimulate)) return;
+
+  return res.status(403).json({
+    error: 'Referral simulation is only available for Marketing Sandbox accounts',
+    sandboxOnly: true
+  });
 });
 
 // ============================================================
@@ -6603,8 +7190,8 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   if (error || !deposit) return res.status(404).json({ error: 'Deposit not found' });
   if (deposit.status !== 'pending') return res.status(400).json({ error: 'Already ' + deposit.status });
   
-  // Check if this is the user's first deposit (for referral qualification)
-  const isFirst = await isFirstConfirmedDeposit(deposit.user_id);
+  // Confirmed deposit -> attempt referral qualification (platform minimum,
+  // self-guarded exactly-once).
   
   await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', id);
   await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
@@ -6612,12 +7199,10 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   
   // Activate referral with deposit info (amount for minimum check)
   let referralActivated = null;
-  if (isFirst) {
-    referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit', {
-      amount: deposit.amount,
-      network: deposit.network
-    });
-  }
+  referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit', {
+    amount: deposit.amount,
+    network: deposit.network
+  });
   
   res.json({ success: true, referralActivated });
 });

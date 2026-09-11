@@ -5498,17 +5498,17 @@ function toggleFaq(btn) {
             </div>
             <div class="mta-amount-row">
                 <div class="mta-current" id="mtaCurrentAmount">$50.00</div>
-                <div class="mta-target"><span data-i18n="common.of">of</span> <span>$143.00</span> MTA</div>
+                <div class="mta-target"><span data-i18n="common.of">of</span> <span id="mtaTargetAmount">$200.00</span> MTA</div>
             </div>
             <div class="mta-bar-wrapper"><div class="mta-bar-fill" id="mtaBarFill" style="width:35%;"></div></div>
             <div class="mta-milestones">
                 <div class="mta-milestone reached" data-threshold="0"><div class="milestone-dot"></div><span>$0</span></div>
                 <div class="mta-milestone" data-threshold="50"><div class="milestone-dot"></div><span>$50</span></div>
                 <div class="mta-milestone" data-threshold="100"><div class="milestone-dot"></div><span>$100</span></div>
-                <div class="mta-milestone" data-threshold="143"><div class="milestone-dot"></div><span>$143</span></div>
+                <div class="mta-milestone" id="mtaMilestoneFinal" data-threshold="200"><div class="milestone-dot"></div><span>$200</span></div>
             </div>
             <div class="mta-footer">
-                <div class="mta-message"><i class="fas fa-info-circle"></i><span id="mtaMessage"><span data-i18n="mta.depositMore">Deposit</span> <strong>$93.00</strong> <span data-i18n="mta.moreToUnlock">more to unlock live trading</span></span></div>
+                <div class="mta-message"><i class="fas fa-info-circle"></i><span id="mtaMessage"><span data-i18n="mta.depositMore">Deposit</span> <strong>$150.00</strong> <span data-i18n="mta.moreToUnlock">more to unlock live trading</span></span></div>
                 <button type="button" class="mta-cta" id="mtaDepositBtn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i><span data-i18n="mta.depositNow">Deposit Now</span></button>
             </div>
         </div>
@@ -5560,6 +5560,11 @@ function toggleFaq(btn) {
                             <button type="button" class="quick-amount-btn" id="withdrawLiveBtn" onclick="openWithdrawModal()" data-i18n="sidebar.withdraw">🏦 Withdraw</button>
                         </div>
                         <div id="liveWithdrawStatus" style="font-size:10px;color:var(--text-muted);margin-top:6px;text-align:center;"></div>
+                        <!-- Promotional-credit disclosure: tradable but NOT withdrawable
+                             until a qualifying first deposit + at least one trade. -->
+                        <div id="promoCreditNotice" class="hidden" style="font-size:10px;color:#F0B90B;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.25);border-radius:6px;padding:6px 8px;margin-top:8px;text-align:center;line-height:1.4;">
+                            <i class="fas fa-gift"></i> <span data-i18n="promo.tradableNotice">Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.</span>
+                        </div>
                     </div>
                 </div>
                 <div class="card" id="liveBotCard">
@@ -5589,7 +5594,7 @@ function toggleFaq(btn) {
                             </button>
                             <div id="bonusWithdrawInfo" class="bonus-info-box hidden">
                                 <i class="fas fa-info-circle"></i> 
-                                <span data-i18n="bonus.minWithdraw">Minimum $50 bonus balance required to withdraw</span>
+                                <span data-i18n="bonus.noEarnings">No referral earnings to convert yet.</span>
                             </div>
                             <div id="bonusWithdrawStatus" style="font-size:10px;color:var(--text-muted);margin-top:6px;text-align:center;"></div>
                         </div>
@@ -6162,6 +6167,17 @@ function toggleFaq(btn) {
                             </div>
                         </div>
 
+                        <!-- Referral program (20% of the referred user's first qualifying deposit, production parity) -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-user-plus"></i></span> <span data-i18n="sandbox.admin.referralTitle">Referral Program</span></div>
+                            <div class="card-body">
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                    <input id="sandboxReferralAmount" type="number" min="0" step="0.01" value="100" style="width:120px;padding:8px;border-radius:8px;background:#141C2E;color:#E5E9F2;border:1px solid #1E2A3F;" placeholder="Deposit" data-i18n-placeholder="sandbox.admin.referralAmount">
+                                    <button type="button" class="btn btn-primary" onclick="sandboxSimulateReferralDeposit()" data-i18n="sandbox.admin.simulateReferral">Simulate Referral Deposit</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Subscription / intro -->
                         <div class="card" style="margin-bottom:12px;">
                             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-crown"></i></span> <span data-i18n="sandbox.admin.subscriptionTitle">Introductory Period & Subscription</span></div>
@@ -6213,7 +6229,7 @@ function toggleFaq(btn) {
                 <div class="card-header"><span class="icon-bg gold"><i class="fas fa-gift"></i></span> <span data-i18n="referral.title">Referral Program</span></div>
                 <div class="card-body">
                     <div style="background:linear-gradient(145deg,#0F1629,#1A2540);border:1px solid rgba(240,185,11,0.12);border-radius:16px;padding:16px;">
-                        <h4 style="font-size:14px;font-weight:700;text-align:center;"><span data-i18n="referral.invite">Invite Friends, Earn</span> <span id="refRewardAmount">$10</span></h4>
+                        <h4 style="font-size:14px;font-weight:700;text-align:center;"><span data-i18n="referral.invite">Invite Friends, Earn</span> <span id="refRewardPercent">20%</span> <span data-i18n="referral.ofFirstDeposit">of their first deposit</span></h4>
                         <p style="font-size:10px;color:#8896B5;text-align:center;margin-bottom:12px;" data-i18n="referral.shareEarn">Share your link. Earn when friends deposit!</p>
                         
                         <!-- Stats Grid -->
@@ -6231,6 +6247,8 @@ function toggleFaq(btn) {
                                 <div style="font-size:9px;color:#8896B5;" data-i18n="referral.earnedLabel">Earned</div>
                             </div>
                         </div>
+
+                        <p style="font-size:9px;color:#8896B5;text-align:center;margin:-10px 0 14px;" data-i18n="referral.withdrawNote">Earned referral income can be withdrawn without trading (platform minimum applies).</p>
                         
                         <!-- My Referral Code Section -->
                         <div style="margin-bottom:12px;">
@@ -6268,8 +6286,8 @@ function toggleFaq(btn) {
                         <div style="font-size:9px;color:#5A6A8A;text-align:left;padding:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;margin-bottom:8px;">
                             <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> <span data-i18n="referral.howItWorks">How it works:</span></div>
                             <div style="margin-bottom:4px;"><span style="color:#8896B5;">1.</span> <span data-i18n="referral.step1Text">Friend registers with your code</span> → <span style="color:#F0B90B;" data-i18n="referral.pending">Pending</span></div>
-                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> <span data-i18n="referral.step2Text">Friend deposits ≥</span><span id="refMinDeposit">$50</span> → <span style="color:#10B981;" data-i18n="referral.active">Active</span></div>
-                            <div><span style="color:#8896B5;">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#F0B90B;">$<span id="refRewardAmount2">10</span> <span data-i18n="referral.bonusWord">bonus</span></strong> → <span data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
+                            <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> <span data-i18n="referral.step2Text">Friend deposits ≥</span><span id="refMinDeposit">$100</span> → <span style="color:#10B981;" data-i18n="referral.active">Active</span></div>
+                            <div><span style="color:#8896B5;">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#F0B90B;"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> → <span data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
                         </div>
                         
                         <!-- Pending Referrals List -->
@@ -6315,13 +6333,13 @@ function toggleFaq(btn) {
         <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="withdraw.amount">Amount (USD)</label>
         <div style="position:relative;margin-top:8px;">
           <span class="deposit-amount-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8896B5;font-size:18px;">$</span>
-          <input type="number" id="liveDepositAmount" placeholder="50.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="50">
+          <input type="number" id="liveDepositAmount" placeholder="100.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="100">
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-          <button type="button" class="quick-amount-btn" onclick="setDepositAmount(50)">$50</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(100)">$100</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(250)">$250</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(500)">$500</button>
+          <button type="button" class="quick-amount-btn" onclick="setDepositAmount(1000)">$1,000</button>
         </div>
       </div>
 
@@ -6712,6 +6730,21 @@ function toggleFaq(btn) {
             <i class="fas fa-fire"></i> <span data-i18n="kyc.demoInfo.switchToLive">Switch to LIVE Mode</span>
         </button>
         <button type="button" onclick="closeVerificationDemoInfo()" class="btn btn-secondary btn-block" data-i18n="common.close">Close</button>
+    </div>
+</div>
+
+<!-- Marketing Sandbox verification info modal (no KYC in the sandbox; frontend-only) -->
+<div class="deposit-modal" id="verificationSandboxInfoModal">
+    <div class="deposit-modal-content" style="max-width:440px;text-align:center;">
+        <button type="button" onclick="closeVerificationSandboxInfo()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div style="width:72px;height:72px;background:rgba(16,185,129,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fas fa-circle-check" style="font-size:32px;color:var(--green,#10B981);"></i>
+        </div>
+        <h3 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="kyc.sandboxInfo.title">Verification Not Required</h3>
+        <p style="font-size:12px;color:#8896B5;line-height:1.6;margin-bottom:20px;" data-i18n="kyc.sandboxInfo.body">
+            The Marketing Sandbox does not use identity verification.
+        </p>
+        <button type="button" onclick="closeVerificationSandboxInfo()" class="btn btn-secondary btn-block" data-i18n="common.close">Close</button>
     </div>
 </div>
 
@@ -7323,10 +7356,10 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Multi-network support',
         'landing.features.wallet.list3': 'Instant deposits',
         'landing.features.referral.title': 'Referral Rewards',
-        'landing.features.referral.desc': 'Earn $10 for each friend who joins. No limits on how much you can earn through referrals.',
-        'landing.features.referral.list1': '$10 per referral',
+        'landing.features.referral.desc': 'Earn 20% of your friend’s first qualifying deposit (minimum $100). No limits on how much you can earn through referrals.',
+        'landing.features.referral.list1': '20% of the first qualifying deposit',
         'landing.features.referral.list2': 'Instant bonuses',
-        'landing.features.referral.list3': 'Lifetime commissions',
+        'landing.features.referral.list3': 'One-time reward, no recurring commission',
         'landing.features.multiDevice.title': 'Multi-Device Support',
         'landing.features.multiDevice.desc': 'Access your dashboard from any device. Desktop, tablet, or mobile — your portfolio follows you.',
         'landing.features.multiDevice.list1': 'Responsive design',
@@ -7367,7 +7400,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'How does the AI trading bot work?',
         'landing.faq.4.a': 'Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.',
         'landing.faq.5.q': 'How do referral rewards work?',
-        'landing.faq.5.a': 'Earn $10 for each friend who signs up through your referral link. Your bonuses accumulate in the Bonus Wallet. Once you have at least $50 in bonus and 1 referral, you can withdraw to your Live Wallet.',
+        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $100. Referral earnings build up in the Bonus Wallet and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (minimum $700, identity verification and a valid address).',
         'landing.faq.6.q': 'Is account verification required?',
         'landing.faq.6.a': 'Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.',
         'landing.cta.title': 'Start with Demo Mode',
@@ -7480,8 +7513,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot started in Demo mode',
         'bot.startedLive': '✅ Bot started in Live mode',
         'bot.paused': '⏸️ Bot paused',
-        'bot.reachMTA': '💰 Reach $143 MTA to activate bot (need ${{needed}} more)',
-        'bot.mtaBlocked': 'Minimum trading balance is $143 to start the bot.',
+        'bot.reachMTA': '💰 Reach ${{mta}} MTA to activate bot (need ${{needed}} more)',
+        'bot.mtaBlocked': 'Minimum trading balance is ${{mta}} to start the bot.',
         'bot.mtaMet': '✅ MTA met! Bot ready to trade',
         'chart.title': 'Equity Performance',
         'chart.all': 'ALL',
@@ -7527,11 +7560,11 @@ const TRANSLATIONS = {
         'demo.noFunds': 'No funds to remove',
         'demo.confirmRemove': 'Remove all ${{amount}} from Demo wallet?',
         'bonus.balance': 'Bonus Balance',
+        'bonus.noEarnings': 'No referral earnings to convert yet.',
         'bonus.withdrawToLive': 'Withdraw Bonus to Live Wallet',
-        'bonus.minWithdraw': 'Minimum $50 bonus balance required to withdraw',
         'bonus.withdrawSuccess': '✅ ${{amount}} bonus withdrawn to Live wallet!',
-        'bonus.withdrawFailed': '❌ Minimum $50 bonus balance required. Current: ${{balance}}',
         'bonus.noReferrals': '📢 Refer at least 1 friend before withdrawing bonus',
+        'bonus.convertFailed': '❌ Could not convert your referral earnings. Please try again.',
         'bonus.withdrawHistory': '💰 Bonus withdrawn: ${{amount}} to Live wallet',
         'history.title': 'Transaction Log',
         'history.last30min': 'Last 30 min',
@@ -7547,14 +7580,17 @@ const TRANSLATIONS = {
         'market.commodities': 'Commodities',
         'referral.title': 'Referral Program',
         'referral.invite': 'Invite Friends, Earn',
-        'referral.subtitle': 'Share your link. Earn $10 when a friend makes their first deposit.',
+        'referral.ofFirstDeposit': 'of their first deposit',
+        'referral.subtitle': 'Share your link. Earn 20% of your friend’s first qualifying deposit.',
         'referral.totalReferrals': 'Total Referrals',
         'referral.totalEarned': 'Total Earned',
         'referral.perReferral': 'Per Referral',
         'referral.simulate': 'Simulate Referral',
         'referral.reset': 'Reset',
-        'referral.earned': '🎉 You earned $10 bonus for referring a friend!',
-        'referral.simulated': '✅ Simulated referral! +1 friend, +$10 bonus',
+        'referral.earned': '🎉 You earned a referral reward for referring a friend!',
+        'referral.withdrawNote': 'Earned referral income can be withdrawn without trading (platform minimum applies).',
+        'promo.tradableNotice': 'Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.',
+        'referral.simulated': '✅ Simulated referral! +1 friend, reward added',
         'referral.resetConfirm': 'Reset all referral data? This cannot be undone.',
         'referral.resetDone': 'Referral data reset',
         'deposit.title': 'Deposit Funds',
@@ -7582,7 +7618,7 @@ const TRANSLATIONS = {
         'withdraw.recent': 'Recent',
         'withdraw.noWithdrawals': 'No withdrawals yet',
         'withdraw.switchToLive': 'Switch to LIVE mode to withdraw',
-        'withdraw.needDeposit': 'Make a deposit first before withdrawing',
+        'withdraw.needDeposit': 'A qualifying first deposit is required before you can withdraw your promotional credit or trading profits.',
         'withdraw.needTrade': 'Complete at least 1 trade before withdrawing',
         'withdraw.minWithdrawal': 'Minimum withdrawal is ${{min}}. Current: ${{current}}',
         'withdraw.enterAddress': 'Please enter a wallet address',
@@ -7692,18 +7728,19 @@ const TRANSLATIONS = {
         'badges.unstoppable': 'Unstoppable',
         'badges.unstoppableDesc': '10 consecutive wins',
         'badges.mtaUnlocked': 'MTA Unlocked',
-        'badges.mtaUnlockedDesc': 'Reach $143 MTA',
+        'badges.mtaUnlockedDesc': 'Reach ${{mta}} MTA',
         'badges.bigWinner': 'Big Winner',
         'badges.bigWinnerDesc': 'Single trade > $50',
         'badges.luckyTrader': 'Lucky Trader',
         'badges.luckyTraderDesc': '70%+ win rate (20+ trades)',
         'badges.diamondHands': 'Diamond Hands',
         'badges.diamondHandsDesc': 'Profitable after 10 trades',
-        'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $50 to enable withdrawals',
-        'live.withdrawStatus.mtaNotReached': '📈 Need to reach $143 MTA and complete at least 1 trade to withdraw',
+        'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $100 to enable withdrawals',
+        'live.withdrawStatus.needMinimum': '📈 Reach the ${{min}} minimum to withdraw',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
         'live.withdrawStatus.ready': '✅ Ready to withdraw (min $700)',
         'live.withdrawStatus.readySandbox': '✅ Ready to withdraw',
+        'live.withdrawStatus.sandboxEmpty': '💼 No simulated balance to withdraw yet',
         'admin.title': 'Admin Panel',
         'auth.backToLogin': 'Back to Login',
         'sidebar.admin': 'Admin Panel',
@@ -7783,15 +7820,16 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'No history',
         'support.reply.default': 'Thanks for your message! Our team will get back to you shortly.',
         'support.reply.bot': '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach ${{mta}} MTA first, 3) Click \'Start Bot\' button.',
+        'support.reply.botNoMta': '🤖 To start the bot: switch to LIVE mode (or DEMO) and click the \'Start Bot\' button.',
         'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, choose your network (TRC20 recommended), click \'Get Payment Address\', and send USDT to the displayed address. We\'ll auto-detect it.',
         'support.reply.withdraw': '🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click \'Withdraw\' in the sidebar. Processing takes 15-30 minutes.',
-        'support.reply.bonus': '🎁 Refer friends to earn $10 bonus each! Your bonus accumulates in the Bonus Wallet. Withdraw to Live Wallet once you have at least $50 in bonus and at least 1 referral.',
+        'support.reply.bonus': '🎁 Refer friends to earn 20% of their first qualifying deposit! Your reward accumulates in the Bonus Wallet and can be converted to your Live Wallet at any time — no minimum.',
         'support.reply.sound': '🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.',
         'support.reply.language': '🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.',
         'support.reply.hello': '👋 Hello! Welcome to Arbitrix AI support. How can I assist you today?',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> earned <span class="ticker-amount green">+${{amount}}</span> on {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> deposited <span class="ticker-amount gold">${{amount}}</span>',
-        'ticker.referred': '<span class="ticker-user">{{user}}</span> referred a friend and earned <span class="ticker-amount gold">$10</span> bonus!',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> referred a friend and earned a <span class="ticker-amount gold">referral reward</span>!',
         'ticker.arbitrage': 'Arbitrage detected: <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
         'ticker.newTrader': 'New trader from <span class="ticker-amount gold">{{country}}</span> joined Arbitrix AI',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> unlocked <span class="ticker-amount gold">{{badge}}</span></span>',
@@ -7913,6 +7951,7 @@ const TRANSLATIONS = {
         'tx.type.referralBonus': 'Referral Bonus',
         'tx.type.withdrawalToLive': 'Withdrawal to Live',
         'tx.type.subscription': 'Subscription',
+        'tx.type.referralCommission': 'Referral Commission',
         'tx.detail.demoFunds': 'Demo Funds',
         'tx.detail.allFundsRemoved': 'All funds removed',
         'tx.detail.fromBonusWallet': 'From Bonus Wallet',
@@ -8029,6 +8068,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Failed to regenerate codes',
         '2fa.disableFailed': 'Failed to disable 2FA',
         'deposit.min10': 'Minimum deposit is $10',
+        'deposit.min100': 'Minimum deposit is $100',
         'deposit.invoiceNotFound': 'Invoice not found',
         'deposit.createInvoiceFailed': 'Failed to create invoice',
         'deposit.notFound': 'Deposit not found',
@@ -8155,6 +8195,8 @@ const TRANSLATIONS = {
         'kyc.demoInfo.title': 'Verification Not Required',
         'kyc.demoInfo.body': 'Deposit and trading do not require identity verification.',
         'kyc.demoInfo.switchToLive': 'Switch to LIVE Mode',
+        'kyc.sandboxInfo.title': 'Verification Not Required',
+        'kyc.sandboxInfo.body': 'The Marketing Sandbox does not use identity verification. Deposits, trading and simulated withdrawals all work without KYC — everything is simulated.',
         'kyc.demoInfo.needTrade': 'Make at least 1 trade before starting identity verification.',
         'kyc.progress': 'Progress',
         'kyc.tab.personal': 'Personal Info',
@@ -8180,7 +8222,7 @@ const TRANSLATIONS = {
         'kyc.selfieInstruction': 'Take a selfie holding your uploaded ID document',
         'kyc.submitForReview': 'Submit for Review',
         'kyc.history': 'History',
-        'referral.shareEarn': 'Share your link. Earn when friends deposit!',
+        'referral.shareEarn': 'Share your link. Earn 20% of your friend’s first qualifying deposit!',
         'referral.active': 'Active',
         'referral.myCode': 'My Referral Code',
         'referral.linkLabel': 'Referral Link',
@@ -8309,8 +8351,8 @@ const TRANSLATIONS = {
         'admin.referral.disabled': 'Disabled',
         'admin.referral.cfg.rewardsEnabled': 'Enable Referral Rewards',
         'admin.referral.cfg.rewardsEnabledDesc': 'Turn on/off the entire referral rewards system',
-        'admin.referral.cfg.rewardAmount': 'Reward Amount',
-        'admin.referral.cfg.rewardAmountDesc': 'Amount awarded to referrer when a referral qualifies (USD)',
+        'admin.referral.cfg.rewardPercent': 'Reward Percent',
+        'admin.referral.cfg.rewardPercentDesc': 'Percentage of the referred user’s initial qualifying deposit paid to the referrer (e.g. 20 = 20%)',
         'admin.referral.cfg.minDeposit': 'Minimum Deposit',
         'admin.referral.cfg.minDepositDesc': 'Minimum deposit amount required for referral qualification (USD)',
         'admin.referral.cfg.requireFirstDeposit': 'Require First Deposit',
@@ -8497,6 +8539,12 @@ const TRANSLATIONS = {
         'sandbox.admin.withdrawalFailed': 'Could not set withdrawal status',
         'sandbox.admin.indicatorTitle': 'Recording Indicator',
         'sandbox.admin.showBadge': 'Show Preview Badge',
+        'sandbox.admin.referralTitle': 'Referral Program (20% of first qualifying deposit)',
+        'sandbox.admin.referralAmount': 'Referred deposit',
+        'sandbox.admin.simulateReferral': 'Simulate Referral Deposit',
+        'sandbox.admin.referralDepositDone': 'Referral qualified: ${{amount}} reward credited',
+        'sandbox.admin.referralNotQualified': 'Not qualified: the referred deposit must be at least ${{min}}',
+        'sandbox.admin.referralFailed': 'Referral simulation failed',
         'sandbox.admin.hideBadge': 'Hide Badge (clean recording)',
         'sandbox.admin.badgeHidden': 'Badge hidden for clean recording',
         'sandbox.admin.badgeShown': 'Badge shown',
@@ -8578,10 +8626,10 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Soporte multired',
         'landing.features.wallet.list3': 'Depósitos instantáneos',
         'landing.features.referral.title': 'Recompensas por referidos',
-        'landing.features.referral.desc': 'Gane $10 por cada amigo que se una. Sin límites en cuánto puede ganar mediante referidos.',
-        'landing.features.referral.list1': '$10 por referido',
+        'landing.features.referral.desc': 'Gane el 20% del primer depósito válido de su amigo (mínimo $100). Sin límites en cuánto puede ganar mediante referidos.',
+        'landing.features.referral.list1': '20% del primer depósito válido',
         'landing.features.referral.list2': 'Bonos instantáneos',
-        'landing.features.referral.list3': 'Comisiones de por vida',
+        'landing.features.referral.list3': 'Recompensa única, sin comisión recurrente',
         'landing.features.multiDevice.title': 'Soporte multidispositivo',
         'landing.features.multiDevice.desc': 'Acceda a su panel desde cualquier dispositivo. Escritorio, tablet o móvil: su cartera le sigue a todas partes.',
         'landing.features.multiDevice.list1': 'Diseño adaptable',
@@ -8622,7 +8670,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': '¿Cómo funciona el bot de trading con IA?',
         'landing.faq.4.a': 'Nuestra IA monitorea continuamente las diferencias de precio en 50+ exchanges. Cuando detecta una oportunidad de arbitraje (discrepancia de precio), ejecuta operaciones automáticamente para obtener ganancias de la diferencia. Puede iniciar/detener el bot en cualquier momento.',
         'landing.faq.5.q': '¿Cómo funcionan las recompensas por referidos?',
-        'landing.faq.5.a': 'Gane $10 por cada amigo que se registre mediante su enlace de referido. Sus bonos se acumulan en la Billetera de bonos. Una vez que tenga al menos $50 en bonos y 1 referido, puede retirar a su Billetera LIVE.',
+        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $100 de un amigo referido. Los ingresos por referidos se acumulan en la Billetera de bonos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (mínimo $700, verificación de identidad y una dirección válida).',
         'landing.faq.6.q': '¿Se requiere verificación de cuenta?',
         'landing.faq.6.a': 'La creación básica de cuenta requiere solo un correo y una contraseña. La verificación KYC puede ser necesaria para límites de retiro más altos o funciones específicas para cumplir con los requisitos regulatorios.',
         'landing.cta.title': 'Empieza con el Modo Demo',
@@ -8735,8 +8783,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot iniciado en modo demo',
         'bot.startedLive': '✅ Bot iniciado en modo Live',
         'bot.paused': '⏸️ Bot en pausa',
-        'bot.reachMTA': '💰 Alcanza $143 de MTA para activar el bot (faltan ${{needed}})',
-        'bot.mtaBlocked': 'El saldo mínimo de trading es $143 para iniciar el bot.',
+        'bot.reachMTA': '💰 Alcanza ${{mta}} de MTA para activar el bot (faltan ${{needed}})',
+        'bot.mtaBlocked': 'El saldo mínimo de trading es ${{mta}} para iniciar el bot.',
         'bot.mtaMet': '✅ ¡MTA alcanzado! Bot listo para operar',
         'chart.title': 'Rendimiento del patrimonio',
         'chart.all': 'TODO',
@@ -8782,11 +8830,11 @@ const TRANSLATIONS = {
         'demo.noFunds': 'No hay fondos para quitar',
         'demo.confirmRemove': '¿Quitar todos los ${{amount}} de la cartera demo?',
         'bonus.balance': 'Saldo de bonos',
+        'bonus.noEarnings': 'Aún no hay ingresos por referidos para convertir.',
         'bonus.withdrawToLive': 'Retirar bono a la cartera Live',
-        'bonus.minWithdraw': 'Se requiere un saldo de bono mínimo de $50 para retirar',
         'bonus.withdrawSuccess': '✅ ¡${{amount}} de bono retirados a la cartera Live!',
-        'bonus.withdrawFailed': '❌ Se requiere un saldo de bono mínimo de $50. Actual: ${{balance}}',
         'bonus.noReferrals': '📢 Refiere al menos a 1 amigo antes de retirar el bono',
+        'bonus.convertFailed': '❌ No se pudieron convertir tus ingresos por referidos. Inténtalo de nuevo.',
         'bonus.withdrawHistory': '💰 Bono retirado: ${{amount}} a la cartera Live',
         'history.title': 'Registro de transacciones',
         'history.last30min': 'Últimos 30 min',
@@ -8802,14 +8850,17 @@ const TRANSLATIONS = {
         'market.commodities': 'Materias primas',
         'referral.title': 'Programa de referidos',
         'referral.invite': 'Invita amigos, gana',
-        'referral.subtitle': 'Comparte tu enlace. Gana $10 cuando un amigo haga su primer depósito.',
+        'referral.ofFirstDeposit': 'de su primer depósito',
+        'referral.subtitle': 'Comparte tu enlace. Gana el 20% del primer depósito válido de tu amigo.',
         'referral.totalReferrals': 'Referidos totales',
         'referral.totalEarned': 'Total ganado',
         'referral.perReferral': 'Por referido',
         'referral.simulate': 'Simular referido',
         'referral.reset': 'Reiniciar',
-        'referral.earned': '🎉 ¡Ganaste $10 de bono por referir a un amigo!',
-        'referral.simulated': '✅ ¡Referido simulado! +1 amigo, +$10 de bono',
+        'referral.earned': '🎉 ¡Ganaste una recompensa por referir a un amigo!',
+        'referral.withdrawNote': 'Los ingresos por referidos pueden retirarse sin operar (se aplica el mínimo de la plataforma).',
+        'promo.tradableNotice': 'Tu crédito promocional de $50 se puede usar para operar, pero no es retirable hasta que hagas un primer depósito válido y completes al menos una operación.',
+        'referral.simulated': '✅ ¡Referido simulado! +1 amigo, recompensa añadida',
         'referral.resetConfirm': '¿Reiniciar todos los datos de referidos? No se puede deshacer.',
         'referral.resetDone': 'Datos de referidos reiniciados',
         'deposit.title': 'Depositar fondos',
@@ -8837,7 +8888,7 @@ const TRANSLATIONS = {
         'withdraw.recent': 'Recientes',
         'withdraw.noWithdrawals': 'Aún no hay retiros',
         'withdraw.switchToLive': 'Cambia al modo LIVE para retirar',
-        'withdraw.needDeposit': 'Haz un depósito primero antes de retirar',
+        'withdraw.needDeposit': 'Se requiere un primer depósito válido antes de poder retirar tu crédito promocional o las ganancias de trading.',
         'withdraw.needTrade': 'Completa al menos 1 operación antes de retirar',
         'withdraw.minWithdrawal': 'El retiro mínimo es ${{min}}. Actual: ${{current}}',
         'withdraw.enterAddress': 'Por favor, introduce una dirección de cartera',
@@ -8947,18 +8998,19 @@ const TRANSLATIONS = {
         'badges.unstoppable': 'Imparable',
         'badges.unstoppableDesc': '10 aciertos consecutivos',
         'badges.mtaUnlocked': 'MTA desbloqueado',
-        'badges.mtaUnlockedDesc': 'Alcanza $143 de MTA',
+        'badges.mtaUnlockedDesc': 'Alcanza ${{mta}} de MTA',
         'badges.bigWinner': 'Gran ganador',
         'badges.bigWinnerDesc': 'Operación única superior a $50',
         'badges.luckyTrader': 'Trader afortunado',
         'badges.luckyTraderDesc': 'Tasa de acierto superior al 70% (más de 20 operaciones)',
         'badges.diamondHands': 'Manos de diamante',
         'badges.diamondHandsDesc': 'Rentable después de 10 operaciones',
-        'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de $50 para habilitar los retiros',
-        'live.withdrawStatus.mtaNotReached': '📈 Necesitas alcanzar $143 de MTA y completar al menos 1 operación para retirar',
+        'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de $100 para habilitar los retiros',
+        'live.withdrawStatus.needMinimum': '📈 Alcanza el mínimo de ${{min}} para retirar',
         'live.withdrawStatus.noTrades': '📊 Completa al menos 1 operación para retirar',
         'live.withdrawStatus.ready': '✅ Listo para retirar (mín. $700)',
         'live.withdrawStatus.readySandbox': '✅ Listo para retirar',
+        'live.withdrawStatus.sandboxEmpty': '💼 Aún no hay saldo simulado para retirar',
         'admin.title': 'Panel de administración',
         'auth.backToLogin': 'Volver al inicio de sesión',
         'sidebar.admin': 'Panel de administración',
@@ -9038,15 +9090,16 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'Sin historial',
         'support.reply.default': '¡Gracias por tu mensaje! Nuestro equipo se pondrá en contacto contigo pronto.',
         'support.reply.bot': '🤖 Para iniciar el bot: 1) Cambia a modo DEMO o LIVE, 2) En modo LIVE, alcanza ${{mta}} MTA primero, 3) Haz clic en el botón \'Start Bot\'.',
+        'support.reply.botNoMta': '🤖 Para iniciar el bot: cambia a modo LIVE (o DEMO) y haz clic en el botón \'Start Bot\'.',
         'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto, elige tu red (TRC20 recomendado), haz clic en \'Get Payment Address\' y envía USDT a la dirección mostrada. Lo detectaremos automáticamente.',
         'support.reply.withdraw': '🏦 Para retirar: 1) Cambia a modo LIVE, 2) Haz un depósito, 3) Completa al menos 1 operación, 4) Haz clic en \'Withdraw\' en la barra lateral. El procesamiento toma 15-30 minutos.',
-        'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar $10 de bono cada uno! Tu bono se acumula en la Billetera de Bonos. Retírala a la Billetera Live cuando tengas al menos $50 en bonos y al menos 1 referido.',
+        'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar el 20% de su primer depósito válido! Tu recompensa se acumula en la Billetera de Bonos y puedes convertirla a tu Billetera Live en cualquier momento, sin mínimo.',
         'support.reply.sound': '🔊 Puedes controlar los sonidos haciendo clic en el ícono de altavoz en el encabezado, o ajustar el volumen en Configuración de perfil.',
         'support.reply.language': '🌍 Puedes cambiar el idioma haciendo clic en el ícono 🌐 del globo en el encabezado, o en Configuración de perfil.',
         'support.reply.hello': '👋 ¡Hola! Bienvenido al soporte de Arbitrix AI. ¿Cómo puedo ayudarte hoy?',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganó <span class="ticker-amount green">+${{amount}}</span> en {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> depositó <span class="ticker-amount gold">${{amount}}</span>',
-        'ticker.referred': '<span class="ticker-user">{{user}}</span> refirió a un amigo y ganó <span class="ticker-amount gold">$10</span> de bono!',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> refirió a un amigo y ganó una <span class="ticker-amount gold">recompensa por referido</span>!',
         'ticker.arbitrage': 'Arbitraje detectado: <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
         'ticker.newTrader': 'Nuevo trader de <span class="ticker-amount gold">{{country}}</span> se unió a Arbitrix AI',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> desbloqueó <span class="ticker-amount gold">{{badge}}</span></span>',
@@ -9168,6 +9221,7 @@ const TRANSLATIONS = {
         'tx.type.referralBonus': 'Bono de referencia',
         'tx.type.withdrawalToLive': 'Retiro a Live',
         'tx.type.subscription': 'Suscripción',
+        'tx.type.referralCommission': 'Comisión por referido',
         'tx.detail.demoFunds': 'Fondos de demostración',
         'tx.detail.allFundsRemoved': 'Todos los fondos eliminados',
         'tx.detail.fromBonusWallet': 'Desde la Bonus Wallet',
@@ -9284,6 +9338,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'No se pudieron regenerar los códigos',
         '2fa.disableFailed': 'No se pudo desactivar 2FA',
         'deposit.min10': 'El depósito mínimo es $10',
+        'deposit.min100': 'El depósito mínimo es $100',
         'deposit.invoiceNotFound': 'Factura no encontrada',
         'deposit.createInvoiceFailed': 'No se pudo crear la factura',
         'deposit.notFound': 'Depósito no encontrado',
@@ -9410,6 +9465,8 @@ const TRANSLATIONS = {
         'kyc.demoInfo.title': 'Verificación no requerida',
         'kyc.demoInfo.body': 'Depositar y operar no requieren verificación de identidad.',
         'kyc.demoInfo.switchToLive': 'Cambiar a modo LIVE',
+        'kyc.sandboxInfo.title': 'No se requiere verificación',
+        'kyc.sandboxInfo.body': 'El sandbox de marketing no utiliza verificación de identidad. Los depósitos, el trading y los retiros simulados funcionan sin KYC: todo es simulado.',
         'kyc.demoInfo.needTrade': 'Realiza al menos 1 operación antes de iniciar la verificación de identidad.',
         'kyc.progress': 'Progreso',
         'kyc.tab.personal': 'Información personal',
@@ -9435,7 +9492,7 @@ const TRANSLATIONS = {
         'kyc.selfieInstruction': 'Toma una selfie sosteniendo tu documento de identidad subido',
         'kyc.submitForReview': 'Enviar para revisión',
         'kyc.history': 'Historial',
-        'referral.shareEarn': '¡Comparte tu enlace. Gana cuando tus amigos depositen!',
+        'referral.shareEarn': 'Comparte tu enlace. ¡Gana el 20% del primer depósito válido de tu amigo!',
         'referral.active': 'Activos',
         'referral.myCode': 'Mi código de referido',
         'referral.linkLabel': 'Enlace de referido',
@@ -9564,8 +9621,8 @@ const TRANSLATIONS = {
         'admin.referral.disabled': 'Desactivado',
         'admin.referral.cfg.rewardsEnabled': 'Activar recompensas por referidos',
         'admin.referral.cfg.rewardsEnabledDesc': 'Activa/desactiva todo el sistema de recompensas por referidos',
-        'admin.referral.cfg.rewardAmount': 'Importe de recompensa',
-        'admin.referral.cfg.rewardAmountDesc': 'Importe otorgado al referidor cuando un referido califica (USD)',
+        'admin.referral.cfg.rewardPercent': 'Porcentaje de recompensa',
+        'admin.referral.cfg.rewardPercentDesc': 'Porcentaje del depósito inicial de calificación del referido pagado al referidor (ej. 20 = 20%)',
         'admin.referral.cfg.minDeposit': 'Depósito mínimo',
         'admin.referral.cfg.minDepositDesc': 'Depósito mínimo requerido para la calificación del referido (USD)',
         'admin.referral.cfg.requireFirstDeposit': 'Requerir primer depósito',
@@ -9753,6 +9810,12 @@ const TRANSLATIONS = {
         'sandbox.admin.withdrawalFailed': 'No se pudo establecer el estado del retiro',
         'sandbox.admin.indicatorTitle': 'Indicador de grabación',
         'sandbox.admin.showBadge': 'Mostrar insignia de vista previa',
+        'sandbox.admin.referralTitle': 'Programa de referidos (20% del primer depósito válido)',
+        'sandbox.admin.referralAmount': 'Depósito del referido',
+        'sandbox.admin.simulateReferral': 'Simular depósito de referido',
+        'sandbox.admin.referralDepositDone': 'Referido calificado: recompensa de ${{amount}} acreditada',
+        'sandbox.admin.referralNotQualified': 'No califica: el depósito del referido debe ser de al menos ${{min}}',
+        'sandbox.admin.referralFailed': 'Falló la simulación de referidos',
         'sandbox.admin.hideBadge': 'Ocultar insignia (grabación limpia)',
         'sandbox.admin.badgeHidden': 'Insignia oculta para grabación limpia',
         'sandbox.admin.badgeShown': 'Insignia visible',
@@ -9834,10 +9897,10 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Suporte multi-rede',
         'landing.features.wallet.list3': 'Depósitos instantâneos',
         'landing.features.referral.title': 'Recompensas por indicação',
-        'landing.features.referral.desc': 'Ganhe $10 por cada amigo que entrar. Sem limites de quanto você pode ganhar com indicações.',
-        'landing.features.referral.list1': '$10 por indicação',
+        'landing.features.referral.desc': 'Ganhe 20% do primeiro depósito válido do seu amigo (mínimo $100). Sem limites de quanto você pode ganhar com indicações.',
+        'landing.features.referral.list1': '20% do primeiro depósito válido',
         'landing.features.referral.list2': 'Bônus instantâneos',
-        'landing.features.referral.list3': 'Comissões vitalícias',
+        'landing.features.referral.list3': 'Recompensa única, sem comissão recorrente',
         'landing.features.multiDevice.title': 'Suporte multidispositivo',
         'landing.features.multiDevice.desc': 'Acesse seu painel de qualquer dispositivo. Desktop, tablet ou celular — sua carteira o acompanha.',
         'landing.features.multiDevice.list1': 'Design responsivo',
@@ -9878,7 +9941,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Como funciona o bot de trading com IA?',
         'landing.faq.4.a': 'Nossa IA monitora continuamente as diferenças de preço em 50+ exchanges. Quando detecta uma oportunidade de arbitragem (discrepância de preço), executa operações automaticamente para lucrar com a diferença. Você pode iniciar/parar o bot a qualquer momento.',
         'landing.faq.5.q': 'Como funcionam as recompensas por indicação?',
-        'landing.faq.5.a': 'Ganhe $10 por cada amigo que se cadastrar pelo seu link de indicação. Seus bônus se acumulam na Carteira de Bônus. Quando tiver pelo menos $50 em bônus e 1 indicação, você pode sacar para sua Carteira LIVE.',
+        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $100 de um amigo indicado. Os ganhos de indicação acumulam-se na Carteira de Bônus e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (mínimo $700, verificação de identidade e um endereço válido).',
         'landing.faq.6.q': 'É necessária verificação de conta?',
         'landing.faq.6.a': 'A criação básica de conta requer apenas um e-mail e uma senha. A verificação KYC pode ser necessária para limites de saque mais altos ou recursos específicos para cumprir requisitos regulatórios.',
         'landing.cta.title': 'Comece com o Modo Demo',
@@ -9991,8 +10054,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot iniciado no modo demo',
         'bot.startedLive': '✅ Bot iniciado no modo Live',
         'bot.paused': '⏸️ Bot pausado',
-        'bot.reachMTA': '💰 Atinja $143 de MTA para ativar o bot (faltam ${{needed}})',
-        'bot.mtaBlocked': 'O saldo mínimo de trading é $143 para iniciar o bot.',
+        'bot.reachMTA': '💰 Atinja ${{mta}} de MTA para ativar o bot (faltam ${{needed}})',
+        'bot.mtaBlocked': 'O saldo mínimo de trading é ${{mta}} para iniciar o bot.',
         'bot.mtaMet': '✅ MTA atingido! Bot pronto para operar',
         'chart.title': 'Desempenho do patrimônio',
         'chart.all': 'TUDO',
@@ -10038,11 +10101,11 @@ const TRANSLATIONS = {
         'demo.noFunds': 'Não há fundos para remover',
         'demo.confirmRemove': 'Remover todos os ${{amount}} da carteira demo?',
         'bonus.balance': 'Saldo de bônus',
+        'bonus.noEarnings': 'Ainda não há ganhos de indicação para converter.',
         'bonus.withdrawToLive': 'Sacar bônus para a carteira Live',
-        'bonus.minWithdraw': 'É necessário um saldo de bônus mínimo de $50 para sacar',
         'bonus.withdrawSuccess': '✅ ${{amount}} de bônus sacados para a carteira Live!',
-        'bonus.withdrawFailed': '❌ É necessário um saldo de bônus mínimo de $50. Atual: ${{balance}}',
         'bonus.noReferrals': '📢 Indique pelo menos 1 amigo antes de sacar o bônus',
+        'bonus.convertFailed': '❌ Não foi possível converter seus ganhos de indicação. Tente novamente.',
         'bonus.withdrawHistory': '💰 Bônus sacado: ${{amount}} para a carteira Live',
         'history.title': 'Registro de transações',
         'history.last30min': 'Últimos 30 min',
@@ -10058,14 +10121,17 @@ const TRANSLATIONS = {
         'market.commodities': 'Commodities',
         'referral.title': 'Programa de indicações',
         'referral.invite': 'Convide amigos, ganhe',
-        'referral.subtitle': 'Compartilhe seu link. Ganhe $10 quando um amigo fizer o primeiro depósito.',
+        'referral.ofFirstDeposit': 'do primeiro depósito',
+        'referral.subtitle': 'Compartilhe seu link. Ganhe 20% do primeiro depósito válido do seu amigo.',
         'referral.totalReferrals': 'Indicações totais',
         'referral.totalEarned': 'Total ganho',
         'referral.perReferral': 'Por indicação',
         'referral.simulate': 'Simular indicação',
         'referral.reset': 'Redefinir',
-        'referral.earned': '🎉 Você ganhou $10 de bônus por indicar um amigo!',
-        'referral.simulated': '✅ Indicação simulada! +1 amigo, +$10 de bônus',
+        'referral.earned': '🎉 Você ganhou uma recompensa por indicar um amigo!',
+        'referral.withdrawNote': 'A renda de indicações pode ser sacada sem operar (aplica-se o mínimo da plataforma).',
+        'promo.tradableNotice': 'Seu crédito promocional de $50 pode ser usado para operar, mas não é sacável até que você faça um primeiro depósito válido e conclua pelo menos uma operação.',
+        'referral.simulated': '✅ Indicação simulada! +1 amigo, recompensa adicionada',
         'referral.resetConfirm': 'Redefinir todos os dados de indicações? Isso não pode ser desfeito.',
         'referral.resetDone': 'Dados de indicações redefinidos',
         'deposit.title': 'Depositar fundos',
@@ -10093,7 +10159,7 @@ const TRANSLATIONS = {
         'withdraw.recent': 'Recentes',
         'withdraw.noWithdrawals': 'Ainda não há saques',
         'withdraw.switchToLive': 'Mude para o modo LIVE para sacar',
-        'withdraw.needDeposit': 'Faça um depósito primeiro antes de sacar',
+        'withdraw.needDeposit': 'É necessário um primeiro depósito válido antes de sacar seu crédito promocional ou os lucros de trading.',
         'withdraw.needTrade': 'Conclua pelo menos 1 operação antes de sacar',
         'withdraw.minWithdrawal': 'O saque mínimo é ${{min}}. Atual: ${{current}}',
         'withdraw.enterAddress': 'Por favor, insira um endereço de carteira',
@@ -10203,18 +10269,19 @@ const TRANSLATIONS = {
         'badges.unstoppable': 'Imparável',
         'badges.unstoppableDesc': '10 acertos seguidos',
         'badges.mtaUnlocked': 'MTA desbloqueado',
-        'badges.mtaUnlockedDesc': 'Atinja $143 de MTA',
+        'badges.mtaUnlockedDesc': 'Atinja ${{mta}} de MTA',
         'badges.bigWinner': 'Grande vencedor',
         'badges.bigWinnerDesc': 'Operação única acima de $50',
         'badges.luckyTrader': 'Trader sortudo',
         'badges.luckyTraderDesc': 'Taxa de acerto acima de 70% (mais de 20 operações)',
         'badges.diamondHands': 'Mãos de diamante',
         'badges.diamondHandsDesc': 'Lucrativo após 10 operações',
-        'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de $50 para habilitar os saques',
-        'live.withdrawStatus.mtaNotReached': '📈 Você precisa atingir $143 de MTA e concluir pelo menos 1 operação para sacar',
+        'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de $100 para habilitar os saques',
+        'live.withdrawStatus.needMinimum': '📈 Atinga o mínimo de ${{min}} para sacar',
         'live.withdrawStatus.noTrades': '📊 Conclua pelo menos 1 operação para sacar',
         'live.withdrawStatus.ready': '✅ Pronto para sacar (mín. $700)',
         'live.withdrawStatus.readySandbox': '✅ Pronto para sacar',
+        'live.withdrawStatus.sandboxEmpty': '💼 Ainda não há saldo simulado para sacar',
         'admin.title': 'Painel administrativo',
         'auth.backToLogin': 'Voltar ao login',
         'sidebar.admin': 'Painel administrativo',
@@ -10294,15 +10361,16 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'Sem histórico',
         'support.reply.default': 'Obrigado pela sua mensagem! Nossa equipe entrará em contato em breve.',
         'support.reply.bot': '🤖 Para iniciar o bot: 1) Mude para o modo DEMO ou LIVE, 2) No modo LIVE, alcance ${{mta}} MTA primeiro, 3) Clique no botão \'Start Bot\'.',
+        'support.reply.botNoMta': '🤖 Para iniciar o bot: mude para o modo LIVE (ou DEMO) e clique no botão \'Start Bot\'.',
         'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor, escolha sua rede (TRC20 recomendado), clique em \'Get Payment Address\' e envie USDT para o endereço exibido. Detectaremos automaticamente.',
         'support.reply.withdraw': '🏦 Para sacar: 1) Mude para o modo LIVE, 2) Faça um depósito, 3) Complete pelo menos 1 operação, 4) Clique em \'Withdraw\' na barra lateral. O processamento leva 15-30 minutos.',
-        'support.reply.bonus': '🎁 Indique amigos para ganhar $10 de bônus cada! Seu bônus acumula na Carteira de Bônus. Saque para a Carteira Live quando tiver pelo menos $50 em bônus e pelo menos 1 indicação.',
+        'support.reply.bonus': '🎁 Indique amigos para ganhar 20% do primeiro depósito válido deles! Sua recompensa acumula na Carteira de Bônus e pode ser convertida para a sua Carteira Live a qualquer momento — sem mínimo.',
         'support.reply.sound': '🔊 Você pode controlar os sons clicando no ícone de alto-falante no cabeçalho, ou ajustar o volume nas Configurações de perfil.',
         'support.reply.language': '🌍 Você pode alterar o idioma clicando no ícone 🌐 de globo no cabeçalho, ou nas Configurações de perfil.',
         'support.reply.hello': '👋 Olá! Bem-vindo ao suporte do Arbitrix AI. Como posso ajudar hoje?',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganhou <span class="ticker-amount green">+${{amount}}</span> em {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> depositou <span class="ticker-amount gold">${{amount}}</span>',
-        'ticker.referred': '<span class="ticker-user">{{user}}</span> indicou um amigo e ganhou <span class="ticker-amount gold">$10</span> de bônus!',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> indicou um amigo e ganhou uma <span class="ticker-amount gold">recompensa de indicação</span>!',
         'ticker.arbitrage': 'Arbitragem detectada: <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
         'ticker.newTrader': 'Novo trader de <span class="ticker-amount gold">{{country}}</span> entrou no Arbitrix AI',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> desbloqueou <span class="ticker-amount gold">{{badge}}</span></span>',
@@ -10424,6 +10492,7 @@ const TRANSLATIONS = {
         'tx.type.referralBonus': 'Bônus de indicação',
         'tx.type.withdrawalToLive': 'Saque para Live',
         'tx.type.subscription': 'Assinatura',
+        'tx.type.referralCommission': 'Comissão de indicação',
         'tx.detail.demoFunds': 'Fundos de demonstração',
         'tx.detail.allFundsRemoved': 'Todos os fundos removidos',
         'tx.detail.fromBonusWallet': 'Da Bonus Wallet',
@@ -10540,6 +10609,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Falha ao regenerar códigos',
         '2fa.disableFailed': 'Falha ao desativar 2FA',
         'deposit.min10': 'O depósito mínimo é $10',
+        'deposit.min100': 'O depósito mínimo é $100',
         'deposit.invoiceNotFound': 'Fatura não encontrada',
         'deposit.createInvoiceFailed': 'Falha ao criar fatura',
         'deposit.notFound': 'Depósito não encontrado',
@@ -10666,6 +10736,8 @@ const TRANSLATIONS = {
         'kyc.demoInfo.title': 'Verificação não necessária',
         'kyc.demoInfo.body': 'Depósitos e negociação não exigem verificação de identidade.',
         'kyc.demoInfo.switchToLive': 'Mudar para modo LIVE',
+        'kyc.sandboxInfo.title': 'Verificação não necessária',
+        'kyc.sandboxInfo.body': 'O sandbox de marketing não usa verificação de identidade. Depósitos, trading e saques simulados funcionam sem KYC — tudo é simulado.',
         'kyc.demoInfo.needTrade': 'Faça pelo menos 1 operação antes de iniciar a verificação de identidade.',
         'kyc.progress': 'Progresso',
         'kyc.tab.personal': 'Informações pessoais',
@@ -10691,7 +10763,7 @@ const TRANSLATIONS = {
         'kyc.selfieInstruction': 'Tire uma selfie segurando seu documento de identidade enviado',
         'kyc.submitForReview': 'Enviar para revisão',
         'kyc.history': 'Histórico',
-        'referral.shareEarn': 'Compartilhe seu link. Ganhe quando amigos depositarem!',
+        'referral.shareEarn': 'Compartilhe seu link. Ganhe 20% do primeiro depósito válido do seu amigo!',
         'referral.active': 'Ativos',
         'referral.myCode': 'Meu código de indicação',
         'referral.linkLabel': 'Link de indicação',
@@ -10820,8 +10892,8 @@ const TRANSLATIONS = {
         'admin.referral.disabled': 'Desativado',
         'admin.referral.cfg.rewardsEnabled': 'Ativar recompensas por indicação',
         'admin.referral.cfg.rewardsEnabledDesc': 'Ativa/desativa todo o sistema de recompensas por indicação',
-        'admin.referral.cfg.rewardAmount': 'Valor da recompensa',
-        'admin.referral.cfg.rewardAmountDesc': 'Valor concedido ao indicante quando uma indicação se qualifica (USD)',
+        'admin.referral.cfg.rewardPercent': 'Percentual da recompensa',
+        'admin.referral.cfg.rewardPercentDesc': 'Percentual do depósito inicial de qualificação do indicado pago ao indicante (ex.: 20 = 20%)',
         'admin.referral.cfg.minDeposit': 'Depósito mínimo',
         'admin.referral.cfg.minDepositDesc': 'Depósito mínimo necessário para qualificação da indicação (USD)',
         'admin.referral.cfg.requireFirstDeposit': 'Exigir primeiro depósito',
@@ -11009,6 +11081,12 @@ const TRANSLATIONS = {
         'sandbox.admin.withdrawalFailed': 'Não foi possível definir o status do saque',
         'sandbox.admin.indicatorTitle': 'Indicador de gravação',
         'sandbox.admin.showBadge': 'Mostrar selo de pré-visualização',
+        'sandbox.admin.referralTitle': 'Programa de indicações (20% do primeiro depósito válido)',
+        'sandbox.admin.referralAmount': 'Depósito do indicado',
+        'sandbox.admin.simulateReferral': 'Simular depósito de indicação',
+        'sandbox.admin.referralDepositDone': 'Indicação qualificada: recompensa de ${{amount}} creditada',
+        'sandbox.admin.referralNotQualified': 'Não qualificado: o depósito do indicado deve ser de pelo menos ${{min}}',
+        'sandbox.admin.referralFailed': 'Falha na simulação de indicação',
         'sandbox.admin.hideBadge': 'Ocultar selo (gravação limpa)',
         'sandbox.admin.badgeHidden': 'Selo oculto para gravação limpa',
         'sandbox.admin.badgeShown': 'Selo visível',
@@ -11090,10 +11168,10 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Support multi-réseaux',
         'landing.features.wallet.list3': 'Dépôts instantanés',
         'landing.features.referral.title': 'Récompenses de parrainage',
-        'landing.features.referral.desc': 'Gagnez $10 pour chaque ami qui rejoint. Sans limite sur ce que vous pouvez gagner grâce aux parrainages.',
-        'landing.features.referral.list1': '$10 par parrainage',
+        'landing.features.referral.desc': 'Gagnez 20 % du premier dépôt éligible de votre ami (minimum $100). Sans limite sur ce que vous pouvez gagner grâce aux parrainages.',
+        'landing.features.referral.list1': '20 % du premier dépôt éligible',
         'landing.features.referral.list2': 'Bonus instantanés',
-        'landing.features.referral.list3': 'Commissions à vie',
+        'landing.features.referral.list3': 'Récompense unique, sans commission récurrente',
         'landing.features.multiDevice.title': 'Support multi-appareils',
         'landing.features.multiDevice.desc': 'Accédez à votre tableau de bord depuis n’importe quel appareil. Ordinateur, tablette ou mobile — votre portefeuille vous suit partout.',
         'landing.features.multiDevice.list1': 'Design responsive',
@@ -11134,7 +11212,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Comment fonctionne le bot de trading IA ?',
         'landing.faq.4.a': 'Notre IA surveille en continu les écarts de prix sur 50+ exchanges. Lorsqu’elle détecte une opportunité d’arbitrage (écart de prix), elle exécute automatiquement des trades pour profiter de la différence. Vous pouvez démarrer/arrêter le bot à tout moment.',
         'landing.faq.5.q': 'Comment fonctionnent les récompenses de parrainage ?',
-        'landing.faq.5.a': 'Gagnez $10 pour chaque ami qui s’inscrit via votre lien de parrainage. Vos bonus s’accumulent dans le Portefeuille Bonus. Une fois que vous avez au moins $50 de bonus et 1 parrainage, vous pouvez les retirer vers votre Portefeuille LIVE.',
+        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $100 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Portefeuille Bonus et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (minimum $700, vérification d’identité et une adresse valide).',
         'landing.faq.6.q': 'La vérification du compte est-elle obligatoire ?',
         'landing.faq.6.a': 'La création de base d’un compte ne nécessite qu’un e-mail et un mot de passe. La vérification KYC peut être requise pour des limites de retrait plus élevées ou certaines fonctionnalités afin de respecter les exigences réglementaires.',
         'landing.cta.title': 'Commencez par le mode démo',
@@ -11247,8 +11325,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot démarré en mode démo',
         'bot.startedLive': '✅ Bot démarré en mode live',
         'bot.paused': '⏸️ Bot en pause',
-        'bot.reachMTA': '💰 Atteignez $143 de MTA pour activer le bot (il manque ${{needed}})',
-        'bot.mtaBlocked': 'Le solde de trading minimum est de $143 pour démarrer le bot.',
+        'bot.reachMTA': '💰 Atteignez ${{mta}} de MTA pour activer le bot (il manque ${{needed}})',
+        'bot.mtaBlocked': 'Le solde de trading minimum est de ${{mta}} pour démarrer le bot.',
         'bot.mtaMet': '✅ MTA atteint ! Bot prêt à trader',
         'chart.title': 'Performance des capitaux',
         'chart.all': 'TOUT',
@@ -11294,11 +11372,11 @@ const TRANSLATIONS = {
         'demo.noFunds': 'Aucun fonds à retirer',
         'demo.confirmRemove': 'Retirer tous les ${{amount}} du portefeuille démo ?',
         'bonus.balance': 'Solde bonus',
+        'bonus.noEarnings': 'Aucun gain de parrainage à convertir pour le moment.',
         'bonus.withdrawToLive': 'Retirer le bonus vers le portefeuille live',
-        'bonus.minWithdraw': 'Un solde bonus minimum de $50 est requis pour retirer',
         'bonus.withdrawSuccess': '✅ ${{amount}} de bonus retirés vers le portefeuille live !',
-        'bonus.withdrawFailed': '❌ Un solde bonus minimum de $50 est requis. Actuel : ${{balance}}',
         'bonus.noReferrals': '📢 Parrainez au moins 1 ami avant de retirer le bonus',
+        'bonus.convertFailed': '❌ Impossible de convertir vos gains de parrainage. Veuillez réessayer.',
         'bonus.withdrawHistory': '💰 Bonus retiré : ${{amount}} vers le portefeuille live',
         'history.title': 'Journal des transactions',
         'history.last30min': '30 dernières minutes',
@@ -11314,14 +11392,17 @@ const TRANSLATIONS = {
         'market.commodities': 'Matières premières',
         'referral.title': 'Programme de parrainage',
         'referral.invite': 'Invitez des amis, gagnez',
-        'referral.subtitle': 'Partagez votre lien. Gagnez $10 lorsqu’un ami effectue son premier dépôt.',
+        'referral.ofFirstDeposit': 'de leur premier dépôt',
+        'referral.subtitle': 'Partagez votre lien. Gagnez 20 % du premier dépôt éligible de votre ami.',
         'referral.totalReferrals': 'Parrainages totaux',
         'referral.totalEarned': 'Total gagné',
         'referral.perReferral': 'Par parrainage',
         'referral.simulate': 'Simuler un parrainage',
         'referral.reset': 'Réinitialiser',
-        'referral.earned': '🎉 Vous avez gagné $10 de bonus pour avoir parrainé un ami !',
-        'referral.simulated': '✅ Parrainage simulé ! +1 ami, +$10 de bonus',
+        'referral.earned': '🎉 Vous avez gagné une récompense de parrainage pour avoir parrainé un ami !',
+        'referral.withdrawNote': 'Les revenus de parrainage peuvent être retirés sans trader (le minimum de la plateforme s\'applique).',
+        'promo.tradableNotice': 'Votre crédit promotionnel de 50 $ peut être utilisé pour trader, mais il est non retirable avant un premier dépôt éligible et au moins une transaction.',
+        'referral.simulated': '✅ Parrainage simulé ! +1 ami, récompense ajoutée',
         'referral.resetConfirm': 'Réinitialiser toutes les données de parrainage ? Irréversible.',
         'referral.resetDone': 'Données de parrainage réinitialisées',
         'deposit.title': 'Déposer des fonds',
@@ -11349,7 +11430,7 @@ const TRANSLATIONS = {
         'withdraw.recent': 'Récents',
         'withdraw.noWithdrawals': 'Aucun retrait pour l’instant',
         'withdraw.switchToLive': 'Passez en mode LIVE pour retirer',
-        'withdraw.needDeposit': 'Effectuez d’abord un dépôt avant de retirer',
+        'withdraw.needDeposit': 'Un premier dépôt éligible est requis avant de pouvoir retirer votre crédit promotionnel ou vos bénéfices de trading.',
         'withdraw.needTrade': 'Effectuez au moins 1 transaction avant de retirer',
         'withdraw.minWithdrawal': 'Le retrait minimum est de ${{min}}. Actuel : ${{current}}',
         'withdraw.enterAddress': 'Veuillez saisir une adresse de portefeuille',
@@ -11459,18 +11540,19 @@ const TRANSLATIONS = {
         'badges.unstoppable': 'Implacable',
         'badges.unstoppableDesc': '10 gains consécutifs',
         'badges.mtaUnlocked': 'MTA débloqué',
-        'badges.mtaUnlockedDesc': 'Atteignez $143 de MTA',
+        'badges.mtaUnlockedDesc': 'Atteignez ${{mta}} de MTA',
         'badges.bigWinner': 'Grand gagnant',
         'badges.bigWinnerDesc': 'Transaction unique supérieure à $50',
         'badges.luckyTrader': 'Trader chanceux',
         'badges.luckyTraderDesc': 'Taux de réussite supérieur à 70 % (plus de 20 transactions)',
         'badges.diamondHands': 'Mains de diamant',
         'badges.diamondHandsDesc': 'Rentable après 10 transactions',
-        'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de $50 pour activer les retraits',
-        'live.withdrawStatus.mtaNotReached': '📈 Vous devez atteindre $143 de MTA et effectuer au moins 1 transaction pour retirer',
+        'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de $100 pour activer les retraits',
+        'live.withdrawStatus.needMinimum': '📈 Atteignez le minimum de ${{min}} pour retirer',
         'live.withdrawStatus.noTrades': '📊 Effectuez au moins 1 transaction pour retirer',
         'live.withdrawStatus.ready': '✅ Prêt à retirer (min. $700)',
         'live.withdrawStatus.readySandbox': '✅ Prêt à retirer',
+        'live.withdrawStatus.sandboxEmpty': '💼 Aucun solde simulé à retirer pour le moment',
         'admin.title': 'Panneau d’administration',
         'auth.backToLogin': 'Retour à la connexion',
         'sidebar.admin': 'Panneau d’administration',
@@ -11550,15 +11632,16 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'Aucun historique',
         'support.reply.default': 'Merci pour votre message ! Notre équipe vous répondra sous peu.',
         'support.reply.bot': '🤖 Pour démarrer le bot : 1) Passez en mode DEMO ou LIVE, 2) En mode LIVE, atteignez ${{mta}} MTA d\'abord, 3) Cliquez sur le bouton \'Start Bot\'.',
+        'support.reply.botNoMta': '🤖 Pour démarrer le bot : passez en mode LIVE (ou DEMO) et cliquez sur le bouton \'Start Bot\'.',
         'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, choisissez votre réseau (TRC20 recommandé), cliquez sur \'Get Payment Address\' et envoyez des USDT à l\'adresse affichée. Nous le détecterons automatiquement.',
         'support.reply.withdraw': '🏦 Pour retirer : 1) Passez en mode LIVE, 2) Effectuez un dépôt, 3) Effectuez au moins 1 trade, 4) Cliquez sur \'Withdraw\' dans la barre latérale. Le traitement prend 15-30 minutes.',
-        'support.reply.bonus': '🎁 Parrainez des amis pour gagner $10 de bonus chacun ! Vos bonus s\'accumulent dans le Portefeuille Bonus. Retirez vers le Portefeuille Live lorsque vous avez au moins $50 de bonus et au moins 1 filleul.',
+        'support.reply.bonus': '🎁 Parrainez des amis pour gagner 20 % de leur premier dépôt éligible ! Votre récompense s’accumule dans le Portefeuille Bonus et peut être convertie dans votre Portefeuille Live à tout moment — sans minimum.',
         'support.reply.sound': '🔊 Vous pouvez contrôler les sons en cliquant sur l\'icône haut-parleur dans l\'en-tête, ou ajuster le volume dans les Paramètres du profil.',
         'support.reply.language': '🌍 Vous pouvez changer la langue en cliquant sur l\'icône 🌐 de globe dans l\'en-tête, ou dans les Paramètres du profil.',
         'support.reply.hello': '👋 Bonjour ! Bienvenue sur le support d\'Arbitrix AI. Comment puis-je vous aider aujourd\'hui ?',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> a gagné <span class="ticker-amount green">+${{amount}}</span> sur {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> a déposé <span class="ticker-amount gold">${{amount}}</span>',
-        'ticker.referred': '<span class="ticker-user">{{user}}</span> a parrainé un ami et gagné <span class="ticker-amount gold">$10</span> de bonus !',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> a parrainé un ami et gagné une <span class="ticker-amount gold">récompense de parrainage</span> !',
         'ticker.arbitrage': 'Arbitrage détecté : <span class="ticker-amount gold">{{asset}}</span> spread <span class="ticker-amount green">+{{spread}}%</span>',
         'ticker.newTrader': 'Nouveau trader de <span class="ticker-amount gold">{{country}}</span> a rejoint Arbitrix AI',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> a débloqué <span class="ticker-amount gold">{{badge}}</span></span>',
@@ -11680,6 +11763,7 @@ const TRANSLATIONS = {
         'tx.type.referralBonus': 'Bonus de parrainage',
         'tx.type.withdrawalToLive': 'Retrait vers Live',
         'tx.type.subscription': 'Abonnement',
+        'tx.type.referralCommission': 'Commission de parrainage',
         'tx.detail.demoFunds': 'Fonds de démo',
         'tx.detail.allFundsRemoved': 'Tous les fonds supprimés',
         'tx.detail.fromBonusWallet': 'Depuis le Bonus Wallet',
@@ -11796,6 +11880,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Échec de la régénération des codes',
         '2fa.disableFailed': 'Échec de la désactivation de 2FA',
         'deposit.min10': 'Le dépôt minimum est de $10',
+        'deposit.min100': 'Le dépôt minimum est de $100',
         'deposit.invoiceNotFound': 'Facture introuvable',
         'deposit.createInvoiceFailed': 'Échec de la création de la facture',
         'deposit.notFound': 'Dépôt introuvable',
@@ -11922,6 +12007,8 @@ const TRANSLATIONS = {
         'kyc.demoInfo.title': 'Vérification non requise',
         'kyc.demoInfo.body': 'Les dépôts et le trading ne nécessitent pas de vérification d\'identité.',
         'kyc.demoInfo.switchToLive': 'Passer en mode LIVE',
+        'kyc.sandboxInfo.title': 'Vérification non requise',
+        'kyc.sandboxInfo.body': "Le sandbox marketing n'utilise pas de vérification d'identité. Les dépôts, le trading et les retraits simulés fonctionnent sans KYC — tout est simulé.",
         'kyc.demoInfo.needTrade': 'Effectuez au moins 1 transaction avant de commencer la vérification d\'identité.',
         'kyc.progress': 'Progression',
         'kyc.tab.personal': 'Informations personnelles',
@@ -11947,7 +12034,7 @@ const TRANSLATIONS = {
         'kyc.selfieInstruction': 'Prenez un selfie en tenant votre pièce d\'identité téléversée',
         'kyc.submitForReview': 'Soumettre pour vérification',
         'kyc.history': 'Historique',
-        'referral.shareEarn': 'Partagez votre lien. Gagnez quand vos amis déposent !',
+        'referral.shareEarn': 'Partagez votre lien. Gagnez 20 % du premier dépôt éligible de votre ami !',
         'referral.active': 'Actifs',
         'referral.myCode': 'Mon code de parrainage',
         'referral.linkLabel': 'Lien de parrainage',
@@ -12076,8 +12163,8 @@ const TRANSLATIONS = {
         'admin.referral.disabled': 'Désactivé',
         'admin.referral.cfg.rewardsEnabled': 'Activer les récompenses de parrainage',
         'admin.referral.cfg.rewardsEnabledDesc': 'Active/désactive tout le système de récompenses de parrainage',
-        'admin.referral.cfg.rewardAmount': 'Montant de la récompense',
-        'admin.referral.cfg.rewardAmountDesc': 'Montant accordé au parrain lorsqu\'un filleul se qualifie (USD)',
+        'admin.referral.cfg.rewardPercent': 'Pourcentage de récompense',
+        'admin.referral.cfg.rewardPercentDesc': 'Pourcentage du dépôt initial de qualification du filleul versé au parrain (ex. 20 = 20 %)',
         'admin.referral.cfg.minDeposit': 'Dépôt minimum',
         'admin.referral.cfg.minDepositDesc': 'Dépôt minimum requis pour la qualification du parrainage (USD)',
         'admin.referral.cfg.requireFirstDeposit': 'Exiger un premier dépôt',
@@ -12265,6 +12352,12 @@ const TRANSLATIONS = {
         'sandbox.admin.withdrawalFailed': 'Impossible de définir le statut du retrait',
         'sandbox.admin.indicatorTitle': 'Indicateur d’enregistrement',
         'sandbox.admin.showBadge': 'Afficher le badge d’aperçu',
+        'sandbox.admin.referralTitle': 'Programme de parrainage (20 % du premier dépôt éligible)',
+        'sandbox.admin.referralAmount': 'Dépôt du filleul',
+        'sandbox.admin.simulateReferral': 'Simuler le dépôt du filleul',
+        'sandbox.admin.referralDepositDone': 'Filleul qualifié : récompense de ${{amount}} créditée',
+        'sandbox.admin.referralNotQualified': 'Non qualifié : le dépôt du filleul doit être d’au moins ${{min}}',
+        'sandbox.admin.referralFailed': 'Échec de la simulation de parrainage',
         'sandbox.admin.hideBadge': 'Masquer le badge (enregistrement propre)',
         'sandbox.admin.badgeHidden': 'Badge masqué pour enregistrement propre',
         'sandbox.admin.badgeShown': 'Badge affiché',
@@ -12346,10 +12439,10 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'دعم متعدد الشبكات',
         'landing.features.wallet.list3': 'إيداع فوري',
         'landing.features.referral.title': 'مكافآت الإحالة',
-        'landing.features.referral.desc': 'اكسب $10 مقابل كل صديق ينضم. لا توجد حدود لمقدار ما يمكنك كسبه من الإحالات.',
-        'landing.features.referral.list1': '$10 لكل إحالة',
+        'landing.features.referral.desc': 'اربح 20% من أول إيداع مؤهل لصديقك (بحد أدنى $100). لا توجد حدود لمقدار ما يمكنك كسبه من الإحالات.',
+        'landing.features.referral.list1': '20% من أول إيداع مؤهل',
         'landing.features.referral.list2': 'مكافآت فورية',
-        'landing.features.referral.list3': 'عمولات مدى الحياة',
+        'landing.features.referral.list3': 'مكافأة لمرة واحدة، دون عمولة متكررة',
         'landing.features.multiDevice.title': 'دعم متعدد الأجهزة',
         'landing.features.multiDevice.desc': 'الوصول إلى لوحة التحكم من أي جهاز. سطح المكتب أو الجهاز اللوحي أو الجوال — محفظتك ترافقك أينما كنت.',
         'landing.features.multiDevice.list1': 'تصميم متجاوب',
@@ -12390,7 +12483,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'كيف يعمل روبوت التداول بالذكاء الاصطناعي؟',
         'landing.faq.4.a': 'يراقب ذكاؤنا الاصطناعي باستمرار فروق الأسعار عبر 50+ منصة. عندما يكتشف فرصة مراجحة (تباين في السعر)، ينفذ الصفقات تلقائيًا لتحقيق ربح من الفرق. يمكنك بدء/إيقاف الروبوت في أي وقت.',
         'landing.faq.5.q': 'كيف تعمل مكافآت الإحالة؟',
-        'landing.faq.5.a': 'اكسب $10 عن كل صديق يسجّل عبر رابط الإحالة الخاص بك. تتراكم مكافآتك في محفظة المكافآت. بمجرد أن يكون لديك $50 على الأقل من المكافآت وإحالة واحدة، يمكنك السحب إلى محفظة LIVE.',
+        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $100 لصديق محال. تتراكم أرباح الإحالة في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (بحد أدنى $700، والتحقق من الهوية، وعنوان صالح).',
         'landing.faq.6.q': 'هل التحقق من الحساب مطلوب؟',
         'landing.faq.6.a': 'يتطلب إنشاء حساب أساسي بريدًا إلكترونيًا وكلمة مرور فقط. قد يلزم التحقق KYC لحدود سحب أعلى أو ميزات محددة للامتثال للمتطلبات التنظيمية.',
         'landing.cta.title': 'ابدأ بالوضع التجريبي',
@@ -12503,8 +12596,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ تم تشغيل الروبوت في الوضع التجريبي',
         'bot.startedLive': '✅ تم تشغيل الروبوت في الوضع المباشر',
         'bot.paused': '⏸️ تم إيقاف الروبوت مؤقتًا',
-        'bot.reachMTA': '💰 بلغ $143 من MTA لتفعيل الروبوت (يتبقى ${{needed}})',
-        'bot.mtaBlocked': 'الحد الأدنى لرصيد التداول هو $143 لبدء تشغيل الروبوت.',
+        'bot.reachMTA': '💰 بلغ ${{mta}} من MTA لتفعيل الروبوت (يتبقى ${{needed}})',
+        'bot.mtaBlocked': 'الحد الأدنى لرصيد التداول هو ${{mta}} لبدء تشغيل الروبوت.',
         'bot.mtaMet': '✅ تم تحقيق MTA! الروبوت جاهز للتداول',
         'chart.title': 'أداء رأس المال',
         'chart.all': 'الكل',
@@ -12550,11 +12643,11 @@ const TRANSLATIONS = {
         'demo.noFunds': 'لا توجد أموال لإزالتها',
         'demo.confirmRemove': 'إزالة جميع ${{amount}} من المحفظة التجريبية؟',
         'bonus.balance': 'رصيد المكافآت',
+        'bonus.noEarnings': 'لا توجد أرباح إحالة قابلة للتحويل بعد.',
         'bonus.withdrawToLive': 'سحب المكافأة إلى المحفظة المباشرة',
-        'bonus.minWithdraw': 'يلزم رصيد مكافآت لا يقل عن $50 للسحب',
         'bonus.withdrawSuccess': '✅ تم سحب ${{amount}} من المكافآت إلى المحفظة المباشرة!',
-        'bonus.withdrawFailed': '❌ يلزم رصيد مكافآت لا يقل عن $50. الحالي: ${{balance}}',
         'bonus.noReferrals': '📢 أَحِل صديقًا واحدًا على الأقل قبل سحب المكافأة',
+        'bonus.convertFailed': '❌ تعذّر تحويل أرباح الإحالة. يرجى المحاولة مرة أخرى.',
         'bonus.withdrawHistory': '💰 تم سحب المكافأة: ${{amount}} إلى المحفظة المباشرة',
         'history.title': 'سجل المعاملات',
         'history.last30min': 'آخر 30 دقيقة',
@@ -12570,14 +12663,17 @@ const TRANSLATIONS = {
         'market.commodities': 'سلع',
         'referral.title': 'برنامج الإحالة',
         'referral.invite': 'ادعُ أصدقاءَك، واكسب',
-        'referral.subtitle': 'شارك رابطك. اربح $10 عندما يُجري صديق أول إيداع له.',
+        'referral.ofFirstDeposit': 'من أول إيداع لهم',
+        'referral.subtitle': 'شارك رابطك. اربح 20% من أول إيداع مؤهل لصديقك.',
         'referral.totalReferrals': 'إجمالي الإحالات',
         'referral.totalEarned': 'إجمالي الأرباح',
         'referral.perReferral': 'لكل إحالة',
         'referral.simulate': 'محاكاة إحالة',
         'referral.reset': 'إعادة تعيين',
-        'referral.earned': '🎉 ربحت $10 مكافأة لإحالتك صديقًا!',
-        'referral.simulated': '✅ تمت محاكاة الإحالة! +1 صديق، +$10 مكافأة',
+        'referral.earned': '🎉 ربحت مكافأة إحالة لإحالتك صديقًا!',
+        'referral.withdrawNote': 'يمكن سحب دخل الإحالة دون تداول (يُطبق الحد الأدنى للمنصة).',
+        'promo.tradableNotice': 'يمكن استخدام رصيدك الترويجي البالغ $50 للتداول، لكنه غير قابل للسحب حتى تقوم بإيداع أول مؤهل وتكمل صفقة واحدة على الأقل.',
+        'referral.simulated': '✅ تمت محاكاة الإحالة! +1 صديق، تمت إضافة المكافأة',
         'referral.resetConfirm': 'إعادة تعيين جميع بيانات الإحالة؟ لا يمكن التراجع عن ذلك.',
         'referral.resetDone': 'تمت إعادة تعيين بيانات الإحالة',
         'deposit.title': 'إيداع الأموال',
@@ -12605,7 +12701,7 @@ const TRANSLATIONS = {
         'withdraw.recent': 'حديثة',
         'withdraw.noWithdrawals': 'لا توجد عمليات سحب بعد',
         'withdraw.switchToLive': 'بدّل إلى الوضع المباشر للسحب',
-        'withdraw.needDeposit': 'أودِع مبلغًا أولًا قبل السحب',
+        'withdraw.needDeposit': 'يلزم إجراء أول إيداع مؤهل قبل سحب رصيدك الترويجي أو أرباح التداول.',
         'withdraw.needTrade': 'أتمم صفقة واحدة على الأقل قبل السحب',
         'withdraw.minWithdrawal': 'الحد الأدنى للسحب هو ${{min}}. الحالي: ${{current}}',
         'withdraw.enterAddress': 'يرجى إدخال عنوان محفظة',
@@ -12715,18 +12811,19 @@ const TRANSLATIONS = {
         'badges.unstoppable': 'لا يُوقف',
         'badges.unstoppableDesc': '10 انتصارات متتالية',
         'badges.mtaUnlocked': 'تم فتح MTA',
-        'badges.mtaUnlockedDesc': 'بلغ $143 من MTA',
+        'badges.mtaUnlockedDesc': 'بلغ ${{mta}} من MTA',
         'badges.bigWinner': 'فائز كبير',
         'badges.bigWinnerDesc': 'صفقة واحدة تتجاوز $50',
         'badges.luckyTrader': 'متداول محظوظ',
         'badges.luckyTraderDesc': 'نسبة فوز تتجاوز 70% (أكثر من 20 صفقة)',
         'badges.diamondHands': 'أيدٍ ماسية',
         'badges.diamondHandsDesc': 'تحقيق ربح بعد 10 صفقات',
-        'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى $50 لتفعيل السحب',
-        'live.withdrawStatus.mtaNotReached': '📈 تحتاج إلى بلوغ $143 من MTA وإتمام صفقة واحدة على الأقل للسحب',
+        'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى $100 لتفعيل السحب',
+        'live.withdrawStatus.needMinimum': '📈 بلوغ الحد الأدنى ${{min}} للسحب',
         'live.withdrawStatus.noTrades': '📊 أتمم صفقة واحدة على الأقل للسحب',
         'live.withdrawStatus.ready': '✅ جاهز للسحب (الحد الأدنى $700)',
         'live.withdrawStatus.readySandbox': '✅ جاهز للسحب',
+        'live.withdrawStatus.sandboxEmpty': '💼 لا يوجد رصيد محاكى للسحب بعد',
         'admin.title': 'لوحة الإدارة',
         'auth.backToLogin': 'العودة إلى تسجيل الدخول',
         'sidebar.admin': 'لوحة الإدارة',
@@ -12806,15 +12903,16 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'لا يوجد سجل',
         'support.reply.default': 'شكرًا لرسالتك! سيتواصل معك فريقنا قريبًا.',
         'support.reply.bot': '🤖 لبدء البوت: 1) بدّل إلى وضع DEMO أو LIVE، 2) في وضع LIVE، اصل إلى ${{mta}} MTA أولًا، 3) انقر على زر \'Start Bot\'.',
+        'support.reply.botNoMta': '🤖 لبدء البوت: بدّل إلى وضع LIVE (أو DEMO) وانقر على زر \'Start Bot\'.',
         'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، اختر شبكتك (TRC20 موصى بها)، انقر على \'Get Payment Address\' وأرسل USDT إلى العنوان المعروض. سنكتشف ذلك تلقائيًا.',
         'support.reply.withdraw': '🏦 للسحب: 1) بدّل إلى وضع LIVE، 2) قم بإيداع، 3) أكمل عملية واحدة على الأقل، 4) انقر على \'Withdraw\' في الشريط الجانبي. تستغرق المعالجة 15-30 دقيقة.',
-        'support.reply.bonus': '🎁 ادعُ أصدقاءك لتكسب $10 مكافأة لكل واحد! تتراكم مكافآتك في محفظة المكافآت. اسحبها إلى محفظة Live عندما يكون لديك 50$ على الأقل من المكافآت وإحالة واحدة على الأقل.',
+        'support.reply.bonus': '🎁 أحِل أصدقاء لتكسب 20% من أول إيداع مؤهل لهم! تتراكم مكافأتك في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى.',
         'support.reply.sound': '🔊 يمكنك التحكم بالأصوات بالنقر على أيقونة السماعة في الترويسة، أو ضبط مستوى الصوت في إعدادات الملف الشخصي.',
         'support.reply.language': '🌍 يمكنك تغيير اللغة بالنقر على أيقونة 🌐 الكرة الأرضية في الترويسة، أو في إعدادات الملف الشخصي.',
         'support.reply.hello': '👋 مرحبًا! أهلًا بك في دعم Arbitrix AI. كيف يمكنني مساعدتك اليوم؟',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ربح <span class="ticker-amount green">+${{amount}}</span> على {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> أودع <span class="ticker-amount gold">${{amount}}</span>',
-        'ticker.referred': '<span class="ticker-user">{{user}}</span> دعى صديقًا وكسب <span class="ticker-amount gold">$10</span> مكافأة!',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> دعى صديقًا وكسب <span class="ticker-amount gold">مكافأة إحالة</span>!',
         'ticker.arbitrage': 'تم اكتشاف مراجحة: <span class="ticker-amount gold">{{asset}}</span> فروق <span class="ticker-amount green">+{{spread}}%</span>',
         'ticker.newTrader': 'متداول جديد من <span class="ticker-amount gold">{{country}}</span> انضم إلى Arbitrix AI',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> فتح <span class="ticker-amount gold">{{badge}}</span></span>',
@@ -12936,6 +13034,7 @@ const TRANSLATIONS = {
         'tx.type.referralBonus': 'مكافأة الإحالة',
         'tx.type.withdrawalToLive': 'سحب إلى LIVE',
         'tx.type.subscription': 'اشتراك',
+        'tx.type.referralCommission': 'عمولة الإحالة',
         'tx.detail.demoFunds': 'أموال تجريبية',
         'tx.detail.allFundsRemoved': 'تمت إزالة كل الأموال',
         'tx.detail.fromBonusWallet': 'من محفظة المكافآت',
@@ -13052,6 +13151,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'فشل إعادة إنشاء الرموز',
         '2fa.disableFailed': 'فشل تعطيل المصادقة الثنائية',
         'deposit.min10': 'الحد الأدنى للإيداع هو $10',
+        'deposit.min100': 'الحد الأدنى للإيداع هو $100',
         'deposit.invoiceNotFound': 'الفاتورة غير موجودة',
         'deposit.createInvoiceFailed': 'فشل إنشاء الفاتورة',
         'deposit.notFound': 'الإيداع غير موجود',
@@ -13178,6 +13278,8 @@ const TRANSLATIONS = {
         'kyc.demoInfo.title': 'التحقق غير مطلوب',
         'kyc.demoInfo.body': 'الإيداع والتداول لا يتطلبان التحقق من الهوية.',
         'kyc.demoInfo.switchToLive': 'التبديل إلى الوضع المباشر',
+        'kyc.sandboxInfo.title': 'التحقق غير مطلوب',
+        'kyc.sandboxInfo.body': 'البيئة التجريبية التسويقية لا تستخدم التحقق من الهوية. الإيداع والتداول والسحب المحاكى تعمل جميعها دون KYC — كل شيء محاكى.',
         'kyc.demoInfo.needTrade': 'أكمل صفقة واحدة على الأقل قبل بدء التحقق من الهوية.',
         'kyc.progress': 'التقدم',
         'kyc.tab.personal': 'المعلومات الشخصية',
@@ -13203,7 +13305,7 @@ const TRANSLATIONS = {
         'kyc.selfieInstruction': 'التقط صورة شخصية وأنت تحمل وثيقة هويتك المرفوعة',
         'kyc.submitForReview': 'إرسال للمراجعة',
         'kyc.history': 'السجل',
-        'referral.shareEarn': 'شارك رابطك. اربح عندما يقوم أصدقاؤك بالإيداع!',
+        'referral.shareEarn': 'شارك رابطك. اربح 20% من أول إيداع مؤهل لصديقك!',
         'referral.active': 'نشط',
         'referral.myCode': 'رمز الإحالة الخاص بي',
         'referral.linkLabel': 'رابط الإحالة',
@@ -13332,8 +13434,8 @@ const TRANSLATIONS = {
         'admin.referral.disabled': 'معطّل',
         'admin.referral.cfg.rewardsEnabled': 'تفعيل مكافآت الإحالات',
         'admin.referral.cfg.rewardsEnabledDesc': 'تشغيل/إيقاف نظام مكافآت الإحالات بالكامل',
-        'admin.referral.cfg.rewardAmount': 'مبلغ المكافأة',
-        'admin.referral.cfg.rewardAmountDesc': 'المبلغ الممنوح للمحيل عند تأهل الإحالة (USD)',
+        'admin.referral.cfg.rewardPercent': 'نسبة المكافأة',
+        'admin.referral.cfg.rewardPercentDesc': 'النسبة المئوية من إيداع التأهيل الأولي للمُحال المدفوعة للمحيل (مثال: 20 = 20%)',
         'admin.referral.cfg.minDeposit': 'الحد الأدنى للإيداع',
         'admin.referral.cfg.minDepositDesc': 'الحد الأدنى للإيداع المطلوب لتأهل الإحالة (USD)',
         'admin.referral.cfg.requireFirstDeposit': 'اشتراط أول إيداع',
@@ -13521,6 +13623,12 @@ const TRANSLATIONS = {
         'sandbox.admin.withdrawalFailed': 'تعذّر تعيين حالة السحب',
         'sandbox.admin.indicatorTitle': 'مؤشر التسجيل',
         'sandbox.admin.showBadge': 'إظهار شارة المعاينة',
+        'sandbox.admin.referralTitle': 'برنامج الإحالة (20% من أول إيداع مؤهل)',
+        'sandbox.admin.referralAmount': 'إيداع المُحال',
+        'sandbox.admin.simulateReferral': 'محاكاة إيداع المُحال',
+        'sandbox.admin.referralDepositDone': 'تم تأهيل الإحالة: تم إضافة مكافأة ${{amount}}',
+        'sandbox.admin.referralNotQualified': 'غير مؤهل: يجب أن يكون إيداع المُحال ${{min}} على الأقل',
+        'sandbox.admin.referralFailed': 'فشلت محاكاة الإحالة',
         'sandbox.admin.hideBadge': 'إخفاء الشارة (تسجيل نظيف)',
         'sandbox.admin.badgeHidden': 'تم إخفاء الشارة للتسجيل النظيف',
         'sandbox.admin.badgeShown': 'الشارة ظاهرة',
@@ -13602,10 +13710,10 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': '多网络支持',
         'landing.features.wallet.list3': '即时充值',
         'landing.features.referral.title': '推荐奖励',
-        'landing.features.referral.desc': '每邀请一位好友加入即可赚取 $10。通过推荐可获得的收益无上限。',
-        'landing.features.referral.list1': '每次推荐 $10',
+        'landing.features.referral.desc': '好友完成至少 $100 的合格首笔入金时，您可赚取其入金的 20%。通过推荐可获得的收益无上限。',
+        'landing.features.referral.list1': '首次合格入金的 20%',
         'landing.features.referral.list2': '即时奖励',
-        'landing.features.referral.list3': '终身佣金',
+        'landing.features.referral.list3': '一次性奖励，无持续佣金',
         'landing.features.multiDevice.title': '多设备支持',
         'landing.features.multiDevice.desc': '从任何设备访问您的仪表盘。桌面、平板或手机 — 您的投资组合随您而行。',
         'landing.features.multiDevice.list1': '响应式设计',
@@ -13646,7 +13754,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'AI 交易机器人如何工作？',
         'landing.faq.4.a': '我们的 AI 持续监控 50+ 家交易所的价格差异。当它发现套利机会（价格差异）时，会自动执行交易以从差价中获利。您可以随时启动/停止机器人。',
         'landing.faq.5.q': '推荐奖励如何运作？',
-        'landing.faq.5.a': '每位通过您的推荐链接注册的好友可为您赚取 $10。您的奖励会累积到奖励钱包中。当您拥有至少 $50 奖励和 1 位推荐后，即可提现到您的 LIVE 钱包。',
+        'landing.faq.5.a': '当您推荐的好友完成至少 $100 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（最低 $700、身份验证和有效地址）。',
         'landing.faq.6.q': '需要账户验证吗？',
         'landing.faq.6.a': '创建基础账户仅需邮箱和密码。为遵守监管要求，可能需要 KYC 验证以获得更高的提现额度或使用特定功能。',
         'landing.cta.title': '从演示模式开始',
@@ -13759,8 +13867,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ 机器人已在模拟模式启动',
         'bot.startedLive': '✅ 机器人已在实盘模式启动',
         'bot.paused': '⏸️ 机器人已暂停',
-        'bot.reachMTA': '💰 达到 $143 MTA 即可启动机器人（还差 ${{needed}}）',
-        'bot.mtaBlocked': '启动机器人所需的最低交易余额为 $143。',
+        'bot.reachMTA': '💰 达到 ${{mta}} MTA 即可启动机器人（还差 ${{needed}}）',
+        'bot.mtaBlocked': '启动机器人所需的最低交易余额为 ${{mta}}。',
         'bot.mtaMet': '✅ 已达到 MTA！机器人可交易',
         'chart.title': '权益表现',
         'chart.all': '全部',
@@ -13806,11 +13914,11 @@ const TRANSLATIONS = {
         'demo.noFunds': '没有可移除的资金',
         'demo.confirmRemove': '从模拟钱包移除全部 ${{amount}}？',
         'bonus.balance': '奖金余额',
+        'bonus.noEarnings': '暂无可转换的推荐收益。',
         'bonus.withdrawToLive': '将奖金提现到实盘钱包',
-        'bonus.minWithdraw': '提现奖金需至少 $50 的奖金余额',
         'bonus.withdrawSuccess': '✅ 已将 ${{amount}} 奖金提现到实盘钱包！',
-        'bonus.withdrawFailed': '❌ 奖金余额需至少 $50。当前：${{balance}}',
         'bonus.noReferrals': '📢 提现奖金前请至少推荐 1 位好友',
+        'bonus.convertFailed': '❌ 无法转换您的推荐收益。请重试。',
         'bonus.withdrawHistory': '💰 奖金已提现：${{amount}} 到实盘钱包',
         'history.title': '交易记录',
         'history.last30min': '最近 30 分钟',
@@ -13826,14 +13934,17 @@ const TRANSLATIONS = {
         'market.commodities': '大宗商品',
         'referral.title': '推荐计划',
         'referral.invite': '邀请好友，赚',
-        'referral.subtitle': '分享您的链接。好友首次入金即可赚取 $10。',
+        'referral.ofFirstDeposit': '首次入金',
+        'referral.subtitle': '分享您的链接。好友首次合格入金即可赚取 20%。',
         'referral.totalReferrals': '推荐总数',
         'referral.totalEarned': '累计收益',
         'referral.perReferral': '每次推荐',
         'referral.simulate': '模拟推荐',
         'referral.reset': '重置',
-        'referral.earned': '🎉 推荐好友成功，您获得了 $10 奖金！',
-        'referral.simulated': '✅ 推荐已模拟！+1 好友，+$10 奖金',
+        'referral.earned': '🎉 推荐好友成功，您获得了推荐奖励！',
+        'referral.withdrawNote': '推荐收益无需交易即可提现（适用平台最低提现额）。',
+        'promo.tradableNotice': '您的 $50 促销信用可用于交易，但在您完成合格的首笔入金并完成至少一笔交易之前不可提现。',
+        'referral.simulated': '✅ 推荐已模拟！+1 好友，已添加奖励',
         'referral.resetConfirm': '重置所有推荐数据？此操作无法撤销。',
         'referral.resetDone': '推荐数据已重置',
         'deposit.title': '入金',
@@ -13861,7 +13972,7 @@ const TRANSLATIONS = {
         'withdraw.recent': '最近',
         'withdraw.noWithdrawals': '暂无提现记录',
         'withdraw.switchToLive': '切换到实盘模式以提现',
-        'withdraw.needDeposit': '提现前请先入金',
+        'withdraw.needDeposit': '在提取您的促销信用或交易利润之前，需要先完成合格的首笔入金。',
         'withdraw.needTrade': '提现前请至少完成 1 笔交易',
         'withdraw.minWithdrawal': '最低提现金额为 ${{min}}。当前：${{current}}',
         'withdraw.enterAddress': '请输入钱包地址',
@@ -13971,18 +14082,19 @@ const TRANSLATIONS = {
         'badges.unstoppable': '势不可挡',
         'badges.unstoppableDesc': '连续 10 次获胜',
         'badges.mtaUnlocked': 'MTA 已解锁',
-        'badges.mtaUnlockedDesc': '达到 $143 MTA',
+        'badges.mtaUnlockedDesc': '达到 ${{mta}} MTA',
         'badges.bigWinner': '大赢家',
         'badges.bigWinnerDesc': '单笔交易超过 $50',
         'badges.luckyTrader': '幸运交易员',
         'badges.luckyTraderDesc': '胜率超过 70%（20 笔以上交易）',
         'badges.diamondHands': '钻石手',
         'badges.diamondHandsDesc': '10 笔交易后盈利',
-        'live.withdrawStatus.notDeposited': '💳 请至少入金 $50 以启用提现',
-        'live.withdrawStatus.mtaNotReached': '📈 需达到 $143 MTA 并完成至少 1 笔交易才能提现',
+        'live.withdrawStatus.notDeposited': '💳 请至少入金 $100 以启用提现',
+        'live.withdrawStatus.needMinimum': '📈 达到最低提现额 ${{min}} 才能提现',
         'live.withdrawStatus.noTrades': '📊 请至少完成 1 笔交易才能提现',
         'live.withdrawStatus.ready': '✅ 可以提现（最低 $700）',
         'live.withdrawStatus.readySandbox': '✅ 可以提现',
+        'live.withdrawStatus.sandboxEmpty': '💼 目前没有可提取的模拟余额',
         'admin.title': '管理面板',
         'auth.backToLogin': '返回登录',
         'sidebar.admin': '管理面板',
@@ -14062,15 +14174,16 @@ const TRANSLATIONS = {
         'kyc.noHistory': '无历史记录',
         'support.reply.default': '感谢您的留言！我们的团队将尽快与您联系。',
         'support.reply.bot': '🤖 启动机器人：1) 切换到 DEMO 或 LIVE 模式，2) 在 LIVE 模式下，先达到 ${{mta}} MTA，3) 点击 \'Start Bot\' 按钮。',
+        'support.reply.botNoMta': '🤖 启动机器人：切换到 LIVE（或 DEMO）模式并点击 \'Start Bot\' 按钮。',
         'support.reply.deposit': '💰 存款：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，选择您的网络（推荐 TRC20），点击 \'Get Payment Address\'，然后将 USDT 发送到显示的地址。我们会自动检测。',
         'support.reply.withdraw': '🏦 提现：1) 切换到 LIVE 模式，2) 进行存款，3) 至少完成 1 笔交易，4) 点击侧边栏的 \'Withdraw\'。处理时间为 15-30 分钟。',
-        'support.reply.bonus': '🎁 邀请好友，每人可获得 $10 奖励！您的奖励会累积在奖励钱包中。当您拥有至少 $50 奖励和至少 1 个推荐时，即可提现到 Live 钱包。',
+        'support.reply.bonus': '🎁 推荐好友即可赚取其首次合格入金的 20%！您的奖励会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低额度。',
         'support.reply.sound': '🔊 您可以点击页眉中的扬声器图标来控制声音，或在个人资料设置中调节音量。',
         'support.reply.language': '🌍 您可以点击页眉中的 🌐 地球图标更改语言，或在个人资料设置中更改。',
         'support.reply.hello': '👋 您好！欢迎来到 Arbitrix AI 支持。今天我能为您做些什么？',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> 在 {{asset}} 赚取 <span class="ticker-amount green">+${{amount}}</span>',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> 存入 <span class="ticker-amount gold">${{amount}}</span>',
-        'ticker.referred': '<span class="ticker-user">{{user}}</span> 推荐了一位好友并获得 <span class="ticker-amount gold">$10</span> 奖励！',
+        'ticker.referred': '<span class="ticker-user">{{user}}</span> 推荐了一位好友并获得<span class="ticker-amount gold">推荐奖励</span>！',
         'ticker.arbitrage': '检测到套利：<span class="ticker-amount gold">{{asset}}</span> 价差 <span class="ticker-amount green">+{{spread}}%</span>',
         'ticker.newTrader': '来自 <span class="ticker-amount gold">{{country}}</span> 的新交易者加入了 Arbitrix AI',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> 解锁了 <span class="ticker-amount gold">{{badge}}</span></span>',
@@ -14192,6 +14305,7 @@ const TRANSLATIONS = {
         'tx.type.referralBonus': '推荐奖励',
         'tx.type.withdrawalToLive': '提现到 Live',
         'tx.type.subscription': '订阅',
+        'tx.type.referralCommission': '推荐佣金',
         'tx.detail.demoFunds': '模拟资金',
         'tx.detail.allFundsRemoved': '所有资金已移除',
         'tx.detail.fromBonusWallet': '来自 Bonus Wallet',
@@ -14308,6 +14422,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': '重新生成恢复码失败',
         '2fa.disableFailed': '禁用两步验证失败',
         'deposit.min10': '最低存款为 $10',
+        'deposit.min100': '最低存款为 $100',
         'deposit.invoiceNotFound': '未找到发票',
         'deposit.createInvoiceFailed': '创建发票失败',
         'deposit.notFound': '未找到存款',
@@ -14434,6 +14549,8 @@ const TRANSLATIONS = {
         'kyc.demoInfo.title': '无需验证',
         'kyc.demoInfo.body': '充值和交易不需要身份验证。',
         'kyc.demoInfo.switchToLive': '切换到 LIVE 模式',
+        'kyc.sandboxInfo.title': '无需身份验证',
+        'kyc.sandboxInfo.body': '营销沙盒不进行身份验证。存款、交易和模拟提现均无需 KYC——一切都是模拟的。',
         'kyc.demoInfo.needTrade': '在开始身份验证前，请先完成至少 1 笔交易。',
         'kyc.progress': '进度',
         'kyc.tab.personal': '个人信息',
@@ -14459,7 +14576,7 @@ const TRANSLATIONS = {
         'kyc.selfieInstruction': '请手持已上传的证件拍摄自拍',
         'kyc.submitForReview': '提交审核',
         'kyc.history': '历史记录',
-        'referral.shareEarn': '分享您的链接，好友存款即可赚取奖励！',
+        'referral.shareEarn': '分享您的链接，好友首次合格入金即可赚取 20%！',
         'referral.active': '活跃',
         'referral.myCode': '我的推荐码',
         'referral.linkLabel': '推荐链接',
@@ -14588,8 +14705,8 @@ const TRANSLATIONS = {
         'admin.referral.disabled': '已禁用',
         'admin.referral.cfg.rewardsEnabled': '启用推荐奖励',
         'admin.referral.cfg.rewardsEnabledDesc': '开启/关闭整个推荐奖励系统',
-        'admin.referral.cfg.rewardAmount': '奖励金额',
-        'admin.referral.cfg.rewardAmountDesc': '推荐合格时授予推荐人的金额（USD）',
+        'admin.referral.cfg.rewardPercent': '奖励百分比',
+        'admin.referral.cfg.rewardPercentDesc': '支付给推荐人的被推荐人首次合格入金百分比（例如 20 = 20%）',
         'admin.referral.cfg.minDeposit': '最低存款',
         'admin.referral.cfg.minDepositDesc': '推荐合格所需的最低存款金额（USD）',
         'admin.referral.cfg.requireFirstDeposit': '要求首次存款',
@@ -14777,6 +14894,12 @@ const TRANSLATIONS = {
         'sandbox.admin.withdrawalFailed': '无法设置提现状态',
         'sandbox.admin.indicatorTitle': '录屏指示器',
         'sandbox.admin.showBadge': '显示预览徽章',
+        'sandbox.admin.referralTitle': '推荐计划（首次合格入金的 20%）',
+        'sandbox.admin.referralAmount': '被推荐人入金',
+        'sandbox.admin.simulateReferral': '模拟推荐入金',
+        'sandbox.admin.referralDepositDone': '推荐已达成：已发放 ${{amount}} 奖励',
+        'sandbox.admin.referralNotQualified': '未达成：被推荐人的入金必须至少为 ${{min}}',
+        'sandbox.admin.referralFailed': '推荐模拟失败',
         'sandbox.admin.hideBadge': '隐藏徽章（干净录屏）',
         'sandbox.admin.badgeHidden': '徽章已隐藏（便于录屏）',
         'sandbox.admin.badgeShown': '徽章已显示',
@@ -14884,6 +15007,8 @@ const BACKEND_MESSAGE_MAP = {
     'Email and password required': 'auth.errors.fillAll',
     // ---- Deposit / payment (user-facing) ----
     'Min $10': 'deposit.min10',
+    // Sandbox simulated deposit floor is now the platform minimum ($100).
+    'Min $100': 'deposit.min100',
     'Invoice not found': 'deposit.invoiceNotFound',
     'Failed to create invoice': 'deposit.createInvoiceFailed',
     // ---- Withdrawal (user-facing) ----
@@ -15271,14 +15396,14 @@ const BADGES = [
     { id:'profit_500', nameKey:'badges.arbKing', descKey:'badges.arbKingDesc', icon:'👑', rarity:'legendary', condition:function(d){return d.pnl>=500;} },
     { id:'streak_5', nameKey:'badges.hotStreak', descKey:'badges.hotStreakDesc', icon:'🔥', rarity:'rare', condition:function(d){return (d.maxStreak||0)>=5;} },
     { id:'streak_10', nameKey:'badges.unstoppable', descKey:'badges.unstoppableDesc', icon:'⚡', rarity:'epic', condition:function(d){return (d.maxStreak||0)>=10;} },
-    { id:'mta_unlocked', nameKey:'badges.mtaUnlocked', descKey:'badges.mtaUnlockedDesc', icon:'🚀', rarity:'rare', condition:function(d){return d.balance>=143;} },
+    { id:'mta_unlocked', nameKey:'badges.mtaUnlocked', descKey:'badges.mtaUnlockedDesc', icon:'🚀', rarity:'rare', condition:function(d){return Number(APP.MTA) > 0 && d.balance>=APP.MTA;} },
     { id:'big_winner', nameKey:'badges.bigWinner', descKey:'badges.bigWinnerDesc', icon:'💰', rarity:'epic', condition:function(d){return (d.bestTrade||0)>=50;} },
     { id:'lucky_trader', nameKey:'badges.luckyTrader', descKey:'badges.luckyTraderDesc', icon:'🎲', rarity:'legendary', condition:function(d){return d.trades>=20 && (d.wins/d.trades)>=0.7;} },
     { id:'diamond_hands', nameKey:'badges.diamondHands', descKey:'badges.diamondHandsDesc', icon:'💎', rarity:'epic', condition:function(d){return d.trades>=10 && d.pnl>0;} }
 ];
 
 function getBadgeName(badge) { return t(badge.nameKey); }
-function getBadgeDesc(badge) { return t(badge.descKey); }
+function getBadgeDesc(badge) { return t(badge.descKey, {mta: APP.MTA}); }
 
 // ============ APP STATE ============
 const APP = {
@@ -15289,7 +15414,7 @@ const APP = {
     demoData: { balance: 1000, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     liveData: { balance: 50, pnl: 0, trades: 0, wins: 0, history: [], hasRealDeposit: false, hasTradingActivity: false, bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     bonusData: { balance: 0, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
-    MIN_DEPOSIT: 50, MTA: 143, MIN_WITHDRAWAL: 700, BONUS_MIN_WITHDRAW: 50,
+    MIN_DEPOSIT: 100, MTA: 200, MIN_WITHDRAWAL: 700, BONUS_MIN_WITHDRAW: 50,
     referralCode: null,
     depositHistory: [], withdrawHistory: [],
     referralStats: { invited: 0, earned: 0 },
@@ -15441,6 +15566,24 @@ async function fetchReferralStats() {
             if (data.referralCode) {
                 APP.referralCode = data.referralCode;
             }
+
+            // Public referral config (reward percentage / minimum qualifying
+            // deposit) drives the displayed figures. Server-authoritative and
+            // non-fatal: if it fails, updateReferralDisplay falls back to the
+            // model defaults (20% of a $100 minimum).
+            try {
+                const cfgRes = await fetch('/api/referral/config');
+                if (cfgRes.ok) {
+                    const cfg = await cfgRes.json();
+                    APP.referralStats.config = {
+                        rewardPercent: cfg.rewardPercent,
+                        minimumDeposit: cfg.minimumDeposit,
+                        rewardsEnabled: cfg.rewardsEnabled
+                    };
+                }
+            } catch (cfgErr) {
+                console.log('Error fetching referral config:', cfgErr);
+            }
             
             saveData();
             updateReferralDisplay();
@@ -15527,51 +15670,37 @@ function populateReferralFromURL() {
  * Calls the server-side simulate endpoint
  */
 async function simulateReferral() {
+    // MARKETING SANDBOX ONLY. Referral simulation is NOT a production
+    // qualification path - production referrals qualify only through a real
+    // first deposit (server-enforced). The endpoint refuses production
+    // accounts; never mint a client-side "simulated" bonus either.
+    if (APP.environment !== 'MARKETING_SANDBOX') {
+        showToast(t('referral.simulateError'), 'error');
+        return;
+    }
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
-    
+
     try {
         const response = await fetch('/api/referral/simulate', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + token }
         });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const bonusEarned = data.bonusAdded || 10;
-            
-            APP.referralStats.activeReferrals = (APP.referralStats.activeReferrals || 0) + 1;
-            APP.referralStats.earned = (APP.referralStats.earned || 0) + bonusEarned;
-            
-            APP.bonusData.balance = (APP.bonusData.balance || 0) + bonusEarned;
-            APP.bonusData.history = APP.bonusData.history || [];
-            APP.bonusData.history.unshift({
-                type: 'Referral Bonus',
-                detail: 'Simulated referral bonus',
-                amount: bonusEarned,
-                time: new Date().toLocaleTimeString(),
-                timestamp: Date.now()
-            });
-            
-            const data_wallet = getCurrentData();
-            data_wallet.history = data_wallet.history || [];
-            data_wallet.history.unshift({
-                type: 'Referral Bonus',
-                detail: '+$10 bonus earned (simulated)',
-                amount: bonusEarned,
-                time: new Date().toLocaleTimeString(),
-                timestamp: Date.now()
-            });
-            
-            saveData();
-            updateUI();
-            updateReferralDisplay();
-            updateBonusWalletUI();
-            showToast(t('referral.simulatedToast', {amount: bonusEarned}), 'success', 4000);
-            try { Sound.referralEarn(); } catch(e) {}
-            try { Confetti.celebrateReferral(); } catch(e) {}
-            Notifications.add('success', t('referral.simulatedTitle'), t('referral.simulatedDesc', {amount: bonusEarned}), 'fa-gift');
-        }
+        if (!response.ok) return;
+        const data = await response.json();
+        const bonusEarned = data.bonusAdded || 0;
+
+        // Sandbox referral earnings are credited SERVER-SIDE to the simulated
+        // tradable balance (sandbox_wallets.balance), so adopt the authoritative
+        // state instead of any optimistic local bump.
+        await syncWalletFromServer();
+        await fetchReferralStats();
+        updateUI();
+        updateReferralDisplay();
+        showToast(t('referral.simulatedToast', {amount: bonusEarned}), 'success', 4000);
+        try { Sound.referralEarn(); } catch(e) {}
+        try { Confetti.celebrateReferral(); } catch(e) {}
+        Notifications.add('success', t('referral.simulatedTitle'), t('referral.simulatedDesc', {amount: bonusEarned}), 'fa-gift');
     } catch (e) {
         console.log('Error simulating referral:', e);
         showToast(t('referral.simulateError'), 'error');
@@ -15606,6 +15735,7 @@ function updateReferralDisplay() {
     
     const earnedDisplay = getEl('refTotalEarned');
     if (earnedDisplay) earnedDisplay.textContent = formatCurrency(APP.referralStats.earned || 0);
+
     
     // Update referral code and link displays
     const codeDisplay = getEl('referralCodeDisplay');
@@ -15621,14 +15751,15 @@ function updateReferralDisplay() {
     
     // Update dynamic config values (if available from API)
     const config = APP.referralStats.config || {};
-    const rewardAmount = config.rewardAmount || 10;
-    const minDeposit = config.minimumDeposit || 50;
+    const rewardPercent = (config.rewardPercent != null && isFinite(Number(config.rewardPercent)))
+        ? Number(config.rewardPercent) : 20;
+    const minDeposit = config.minimumDeposit || 100;
     
-    const rewardDisplay = getEl('refRewardAmount');
-    if (rewardDisplay) rewardDisplay.textContent = '$' + rewardAmount;
+    const percentDisplay = getEl('refRewardPercent');
+    if (percentDisplay) percentDisplay.textContent = rewardPercent + '%';
     
-    const rewardDisplay2 = getEl('refRewardAmount2');
-    if (rewardDisplay2) rewardDisplay2.textContent = rewardAmount;
+    const percentDisplay2 = getEl('refRewardPercent2');
+    if (percentDisplay2) percentDisplay2.textContent = String(rewardPercent);
     
     const minDepositDisplay = getEl('refMinDeposit');
     if (minDepositDisplay) minDepositDisplay.textContent = '$' + minDeposit;
@@ -15678,67 +15809,89 @@ function updateBonusWalletUI() {
     const info = document.getElementById('bonusWithdrawInfo');
     const status = document.getElementById('bonusWithdrawStatus');
     const balance = APP.bonusData.balance || 0;
-    const hasReferrals = (APP.referralStats.invited || 0) > 0;
-    if (hasReferrals && balance < APP.BONUS_MIN_WITHDRAW) {
-        info.classList.remove('hidden');
-        info.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t('bonus.minWithdraw') + '</span>';
-        btn.disabled = true;
-        status.textContent = '';
-    } else if (!hasReferrals) {
-        info.classList.remove('hidden');
-        info.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t('bonus.noReferrals') + '</span>';
-        btn.disabled = true;
-        status.textContent = '';
-    } else if (balance >= APP.BONUS_MIN_WITHDRAW) {
+    // FINAL management model: genuinely earned referral earnings are convertible
+    // at ANY amount — the old $50 "bonus wallet" threshold and the separate
+    // referral-count gate no longer apply. The SERVER re-derives the genuine,
+    // qualified amount and refuses anything it cannot verify.
+    if (balance > 0) {
         info.classList.add('hidden');
         btn.disabled = false;
         status.textContent = t('bonus.availableToWithdraw', { amount: formatCurrency(balance) });
         status.style.color = '#10B981';
     } else {
-        info.classList.add('hidden');
+        info.classList.remove('hidden');
+        info.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t('bonus.noEarnings') + '</span>';
         btn.disabled = true;
         status.textContent = '';
     }
 }
 
-function withdrawBonusToLive() {
+async function withdrawBonusToLive() {
     const balance = APP.bonusData.balance || 0;
-    const hasReferrals = (APP.referralStats.invited || 0) > 0;
-    if (!hasReferrals) {
-        showToast(t('bonus.noReferrals'), 'info');
+    // FINAL management model: genuinely earned referral earnings have NO
+    // conversion minimum — any real earnings can become tradable Live capital.
+    // The SERVER re-derives the genuine amount from qualified referrals, so a
+    // bare referral row, the $50 promotional credit or any other balance can
+    // never be converted here.
+    if (!(balance > 0)) {
+        showToast(t('bonus.noEarnings'), 'info');
         return;
     }
-    if (balance < APP.BONUS_MIN_WITHDRAW) {
-        showToast(t('bonus.withdrawFailed', {balance: formatCurrency(balance)}), 'error');
-        return;
+
+    // SERVER-AUTHORITATIVE conversion (management decision): referral earnings
+    // are moved into tradable Live capital by the backend — atomic, persisted,
+    // idempotent and ledgered — NOT by mutating localStorage. The client only
+    // supplies a retry key; identity, amount and balances come from the server.
+    const btn = getEl('bonusWithdrawBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const response = await fetch('/api/referral/earnings/convert', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || '')
+            },
+            body: JSON.stringify({ idempotencyKey: 'bonus_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10) })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+            showToast(translateBackendMessage(result.error, 'bonus.convertFailed'), 'error');
+            return;
+        }
+        const amount = Number(result.amount) || 0;
+        // Adopt the authoritative server balances.
+        APP.liveData.balance = Number(result.liveBalance) || 0;
+        APP.bonusData.balance = Number(result.bonusBalance) || 0;
+        // Display ledger (the authoritative row is written by the backend).
+        APP.liveData.history = APP.liveData.history || [];
+        APP.liveData.history.unshift({
+            type: 'Bonus Withdrawal',
+            detail: 'From Bonus Wallet',
+            amount: amount,
+            time: new Date().toLocaleTimeString(),
+            timestamp: Date.now()
+        });
+        APP.bonusData.history = APP.bonusData.history || [];
+        APP.bonusData.history.unshift({
+            type: 'Withdrawal to Live',
+            detail: 'Bonus withdrawn to Live Wallet',
+            amount: -amount,
+            time: new Date().toLocaleTimeString(),
+            timestamp: Date.now()
+        });
+        saveData();
+        updateUI();
+        updateBonusWalletUI();
+        updateReferralDisplay();
+        showToast(t('bonus.withdrawSuccess', {amount: formatCurrency(amount)}), 'success', 4000);
+        try { Sound.bonusWithdraw(); } catch(e) {}
+        try { Confetti.cannon('medium'); } catch(e) {}
+        Notifications.add('success', t('bonus.withdrawnTitle'), t('bonus.withdrawHistory', {amount: formatCurrency(amount)}), 'fa-arrow-right');
+    } catch (e) {
+        showToast(t('bonus.convertFailed'), 'error');
+    } finally {
+        updateBonusWalletUI();
     }
-    const amount = balance;
-    APP.liveData.balance = (APP.liveData.balance || 0) + amount;
-    APP.bonusData.balance = 0;
-    APP.liveData.history = APP.liveData.history || [];
-    APP.liveData.history.unshift({
-        type: 'Bonus Withdrawal',
-        detail: 'From Bonus Wallet',
-        amount: amount,
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now()
-    });
-    APP.bonusData.history = APP.bonusData.history || [];
-    APP.bonusData.history.unshift({
-        type: 'Withdrawal to Live',
-        detail: 'Bonus withdrawn to Live Wallet',
-        amount: -amount,
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now()
-    });
-    saveData();
-    updateUI();
-    updateBonusWalletUI();
-    updateReferralDisplay();
-    showToast(t('bonus.withdrawSuccess', {amount: formatCurrency(amount)}), 'success', 4000);
-    try { Sound.bonusWithdraw(); } catch(e) {}
-    try { Confetti.cannon('medium'); } catch(e) {}
-    Notifications.add('success', t('bonus.withdrawnTitle'), t('bonus.withdrawHistory', {amount: formatCurrency(amount)}), 'fa-arrow-right');
 }
 
 // ============ TRANSACTION LOG ============
@@ -15754,7 +15907,8 @@ const TX_TYPE_LABELS = {
     'Bonus Withdrawal': 'tx.type.bonusWithdrawal',
     'Referral Bonus': 'tx.type.referralBonus',
     'Withdrawal to Live': 'tx.type.withdrawalToLive',
-    'Subscription': 'tx.type.subscription'
+    'Subscription': 'tx.type.subscription',
+    'Referral Commission': 'tx.type.referralCommission'
 };
 const TX_DETAIL_LABELS = {
     'Demo Funds': 'tx.detail.demoFunds',
@@ -16227,13 +16381,25 @@ function updateTradingStats() {
 function updateMTAProgress() {
     const card = getEl('mtaProgressCard');
     if(!card) return;
-    if(APP.mode !== 'live' || APP.liveData.balance >= APP.MTA) { card.classList.add('hidden'); return; }
+    // No MTA (0) => there is no minimum trading balance to progress towards;
+    // the card is never shown.
+    if(!(Number(APP.MTA) > 0) || APP.mode !== 'live' || APP.liveData.balance >= APP.MTA) { card.classList.add('hidden'); return; }
     card.classList.remove('hidden');
     const balance = APP.liveData.balance;
     const mta = APP.MTA;
     const percentage = Math.min(100, Math.max(0, (balance / mta) * 100));
     const needed = mta - balance;
     getEl('mtaCurrentAmount').textContent = formatCurrency(balance);
+    const mtaTargetEl = getEl('mtaTargetAmount');
+    if(mtaTargetEl) mtaTargetEl.textContent = '$' + Number(mta).toFixed(2);
+    // The top milestone mirrors the server-authoritative MTA so the value is
+    // never hard-coded in a second UI location.
+    const finalMilestone = getEl('mtaMilestoneFinal');
+    if(finalMilestone) {
+        finalMilestone.dataset.threshold = String(mta);
+        const finalMilestoneLabel = finalMilestone.querySelector('span');
+        if(finalMilestoneLabel) finalMilestoneLabel.textContent = '$' + Number(mta).toFixed(0);
+    }
     getEl('mtaBarFill').style.width = percentage + '%';
     document.querySelectorAll('.mta-milestone').forEach(function(m) {
         const threshold = parseFloat(m.dataset.threshold);
@@ -16255,22 +16421,25 @@ function renderBadges() {
     const unlocked = APP.unlockedBadges[wallet] || [];
     const grid = getEl('badgesGrid');
     if(!grid) return;
-    grid.innerHTML = BADGES.map(function(badge) {
+    // The MTA badge is meaningless without an MTA (MARKETING_SANDBOX has none),
+    // so it is not shown at all rather than rendered as "Reach $0 MTA".
+    const visibleBadges = BADGES.filter(function(b) { return b.id !== 'mta_unlocked' || Number(APP.MTA) > 0; });
+    grid.innerHTML = visibleBadges.map(function(badge) {
         const isUnlocked = unlocked.includes(badge.id);
         const name = getBadgeName(badge);
         const desc = getBadgeDesc(badge);
         return '<div class="badge-item ' + (isUnlocked ? 'unlocked' : 'locked') + '" data-badge-id="' + badge.id + '" title="' + desc + '"><span class="badge-rarity ' + badge.rarity + '">' + badge.rarity + '</span><span class="badge-lock"><i class="fas fa-lock"></i></span><span class="badge-icon">' + badge.icon + '</span><div class="badge-name">' + name + '</div><div class="badge-desc">' + desc + '</div></div>';
     }).join('');
-    const total = BADGES.length;
-    const count = unlocked.length;
-    const pct = (count / total) * 100;
+    const total = visibleBadges.length;
+    const count = visibleBadges.filter(function(b) { return unlocked.includes(b.id); }).length;
+    const pct = total > 0 ? (count / total) * 100 : 0;
     getEl('achievementsCounter').innerHTML = count + ' / ' + total + ' <span>' + t('achievements.unlocked') + '</span>';
     getEl('achievementsProgressFill').style.width = pct + '%';
     getEl('achievementsProgressPct').textContent = pct.toFixed(0) + '%';
     if(count === 0) getEl('achievementsProgressText').textContent = t('achievements.startTrading');
     else if(count === total) getEl('achievementsProgressText').textContent = t('achievements.allUnlocked');
     else {
-        const nextBadge = BADGES.find(function(b) { return !unlocked.includes(b.id); });
+        const nextBadge = visibleBadges.find(function(b) { return !unlocked.includes(b.id); });
         if(nextBadge) getEl('achievementsProgressText').textContent = t('achievements.next') + ' ' + getBadgeName(nextBadge);
     }
 }
@@ -16375,42 +16544,69 @@ function checkStreakMilestones() {
 }
 
 // ============ LIVE WITHDRAW STATUS ============
+// Total funds the user can withdraw across buckets: the live trading balance
+// plus genuinely earned referral earnings held in the referral (bonus) bucket.
+// Display/UX only — the server re-derives and enforces the eligible amount.
+function getWithdrawableTotal() {
+    return (Number(APP.liveData.balance) || 0) + (Number(APP.bonusData.balance) || 0);
+}
+
 function updateLiveWithdrawStatus() {
     const statusEl = document.getElementById('liveWithdrawStatus');
     if (!statusEl) return;
     const hasDeposit = APP.liveData.hasRealDeposit;
     const hasTrade = APP.liveData.hasTradingActivity;
     const balance = APP.liveData.balance;
-    const reachedMTA = balance >= APP.MTA;
-    // MARKETING_SANDBOX: sandbox withdrawals are balance-only (no $700
-    // minimum), so the withdraw section must never show "$700 minimum"
-    // wording. Display-only: the readiness logic itself is unchanged.
+    // Referral earnings (server-synced bonus bucket) are withdrawable WITHOUT a
+    // trade and can satisfy the deposit/trade requirements for the withdrawal
+    // they fund (management decision). Display-only mirror; the server
+    // re-derives and enforces the eligible amount authoritatively.
+    const referralEarnings = APP.bonusData.balance || 0;
+    const canFundFromReferral = referralEarnings >= APP.MIN_WITHDRAWAL;
+    const totalWithdrawable = balance + referralEarnings;
+    // MARKETING_SANDBOX: sandbox withdrawals are balance-only — there is NO
+    // deposit, trade-count or minimum requirement, so the sandbox must never
+    // show production requirement wording ($50 deposit / 1 trade / $700 min).
+    // Display-only; the sandbox withdrawal route enforces amount > 0 and
+    // amount <= balance.
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     let statusText = '';
     let statusClass = '';
-    if (!hasDeposit) {
+    if (isSandbox) {
+        if (totalWithdrawable > 0) {
+            statusText = t('live.withdrawStatus.readySandbox');
+            statusClass = 'text-success';
+        } else {
+            statusText = t('live.withdrawStatus.sandboxEmpty');
+            statusClass = 'text-muted';
+        }
+    } else if (!hasDeposit && !canFundFromReferral) {
         statusText = t('live.withdrawStatus.notDeposited');
         statusClass = 'text-warning';
-    } else if (!reachedMTA || !hasTrade) {
-        statusText = t('live.withdrawStatus.mtaNotReached');
+    } else if (!hasTrade && !canFundFromReferral) {
+        statusText = t('live.withdrawStatus.noTrades');
         statusClass = 'text-muted';
-    } else if (balance >= APP.MIN_WITHDRAWAL && hasTrade) {
-        statusText = isSandbox ? t('live.withdrawStatus.readySandbox') : t('live.withdrawStatus.ready');
+    } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
+        statusText = t('live.withdrawStatus.ready');
         statusClass = 'text-success';
     } else {
-        statusText = t('live.withdrawStatus.mtaNotReached');
+        statusText = t('live.withdrawStatus.needMinimum', { min: APP.MIN_WITHDRAWAL });
         statusClass = 'text-muted';
     }
     statusEl.textContent = statusText;
     statusEl.style.color = statusClass === 'text-success' ? '#10B981' : statusClass === 'text-warning' ? '#F59E0B' : '#5A6A8A';
     const infoText = document.getElementById('withdrawInfoText');
     if (infoText) {
-        if (!hasDeposit) {
+        if (isSandbox) {
+            infoText.textContent = t('withdraw.infoSandbox');
+        } else if (!hasDeposit && !canFundFromReferral) {
             infoText.textContent = t('live.withdrawStatus.notDeposited');
-        } else if (!reachedMTA || !hasTrade) {
-            infoText.textContent = t('live.withdrawStatus.mtaNotReached');
+        } else if (!hasTrade && !canFundFromReferral) {
+            infoText.textContent = t('live.withdrawStatus.noTrades');
+        } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
+            infoText.textContent = t('withdraw.info');
         } else {
-            infoText.textContent = isSandbox ? t('withdraw.infoSandbox') : t('withdraw.info');
+            infoText.textContent = t('live.withdrawStatus.needMinimum', { min: APP.MIN_WITHDRAWAL });
         }
     }
 }
@@ -16433,7 +16629,7 @@ function updateUI() {
     getEl('withdrawHistoryCount').textContent = APP.withdrawHistory.length;
     getEl('withdrawHistoryList').innerHTML = APP.withdrawHistory.length ? APP.withdrawHistory.slice(0,5).map(function(w) { return '<div style="display:flex;justify-content:space-between;padding:2px 0;gap:8px;"><span>$' + w.amount.toFixed(2) + '</span><span style="color:#10B981;">✅ ' + w.status + '</span><span>' + w.time + '</span></div>'; }).join('') : t('withdraw.noWithdrawals');
     updateReferralDisplay();
-    getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
+    getEl('withdrawBalanceDisplay').textContent = formatCurrency(getWithdrawableTotal());
     getEl('accountStatusBadge').textContent = APP.mode==='demo' ? t('status.demo') : APP.liveData.hasRealDeposit ? t('status.funded') : t('status.pending');
     getEl('accountStatusBadge').className = 'status-badge ' + (APP.mode==='demo' ? 'demo' : APP.liveData.hasRealDeposit ? 'funded' : 'pending');
     getEl('accountStatus').textContent = APP.mode==='demo' ? t('status.demoTrading') : APP.liveData.hasRealDeposit ? t('status.liveFunded') : t('status.livePending');
@@ -16443,13 +16639,21 @@ function updateUI() {
     const botMsg = getEl('botStatusMsg');
     const botMsgLive = getEl('botStatusMsgLive');
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    // Promo-credit disclosure: shown while the live balance is promotional
+    // (no confirmed deposit). Display-only; enforcement is server-side.
+    const promoNotice = document.getElementById('promoCreditNotice');
+    if (promoNotice) promoNotice.classList.toggle('hidden', !(APP.liveData.balance > 0 && !APP.liveData.hasRealDeposit));
     if(APP.mode === 'live') {
-        // MARKETING_SANDBOX: the MTA gate is skipped (simulated balance; the
-        // server-side sandbox bot start has no MTA gate anyway).
-        if(APP.liveData.balance < APP.MTA && !isSandbox) {
+        // MARKETING_SANDBOX: no MTA at all (the server-side sandbox bot start
+        // has no gate and /api/auth/me reports mta: 0), so a no-MTA account is
+        // never gated here. Promo-credit-funded accounts are also exempt
+        // (management decision: the $50 promotional credit is tradable through
+        // the same engine).
+        const promoFunded = isPromoFundedTrading();
+        if(Number(APP.MTA) > 0 && APP.liveData.balance < APP.MTA && !isSandbox && !promoFunded) {
             if(botBtnLive) { botBtnLive.disabled = true; }
             const needed = (APP.MTA - APP.liveData.balance).toFixed(2);
-            if(botMsgLive) botMsgLive.textContent = t('bot.reachMTA', {needed: needed});
+            if(botMsgLive) botMsgLive.textContent = t('bot.reachMTA', {needed: needed, mta: APP.MTA});
         } else {
             if(botBtnLive) { botBtnLive.disabled = false; }
             if(botMsgLive) botMsgLive.textContent = t('bot.mtaMet');
@@ -16693,13 +16897,26 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
     }
 }
 
+// Promo-credit-funded trading: no confirmed deposit but a positive live
+// balance == the $50 promotional credit. Management decision: it is tradable
+// through the SAME trading engine (/api/trade), so the bot-start MTA gate does
+// not block it. Server-side /api/bot/start mirrors this. It stays
+// non-withdrawable until a qualifying deposit + at least one trade.
+function isPromoFundedTrading() {
+    return APP.mode === 'live'
+        && !APP.liveData.hasRealDeposit
+        && Number(APP.liveData.balance) > 0;
+}
+
 function startBot() {
-    // The $143 MTA applies to live-style trading in BOTH production and
-    // MARKETING_SANDBOX (the sandbox demonstrates the real customer
-    // experience, so it must not bypass the MTA). The server enforces this
-    // authoritatively at /api/bot/start; this gate mirrors it for UX.
-    if(APP.mode === 'live' && APP.liveData.balance < APP.MTA) {
-        showToast(t('bot.mtaBlocked'),'error');
+    // The MTA (server-authoritative; adopted into APP.MTA per environment)
+    // applies to live-style trading in PRODUCTION only. MARKETING_SANDBOX has
+    // NO MTA: the server reports mta: 0 and the sandbox bot-start route has no
+    // balance gate at all, so a no-MTA account is never blocked here. Promo-
+    // credit-funded trading is exempt (see isPromoFundedTrading). The server
+    // enforces this authoritatively at /api/bot/start; this gate mirrors it.
+    if(APP.mode === 'live' && Number(APP.MTA) > 0 && APP.liveData.balance < APP.MTA && !isPromoFundedTrading()) {
+        showToast(t('bot.mtaBlocked', {mta: APP.MTA}),'error');
         return;
     }
     if(APP.botInterval) clearInterval(APP.botInterval);
@@ -16767,7 +16984,9 @@ let currentNetwork = 'TRC20';
 
 async function requestDepositAddress() {
   const amountUSD = parseFloat(document.getElementById('liveDepositAmount').value);
-  const MIN_DEPOSIT_AMOUNT = 50;
+  // Platform minimum deposit ($100) - single frontend mirror of the server's
+  // PLATFORM_MIN_DEPOSIT_USD. NOT the $50 promotional credit.
+  const MIN_DEPOSIT_AMOUNT = 100;
   if (!amountUSD || amountUSD < MIN_DEPOSIT_AMOUNT) {
     showToast(t('deposit.minDepositToast', {min: MIN_DEPOSIT_AMOUNT}), 'error');
     return;
@@ -17434,6 +17653,23 @@ function updateNetworkOptions(currency) {
 async function openWithdrawModal() {
     if(APP.mode === 'demo') { showToast(t('withdraw.switchToLive'),'info'); return; }
 
+    // MARKETING_SANDBOX: no identity verification exists in the sandbox, so the
+    // KYC capability check AND the min-amount/deposit/trade-count gates are all
+    // skipped (the sandbox withdrawal route enforces its own balance-only rules
+    // and the production route is never reachable for a sandbox account, so the
+    // server stays authoritative). Product isolation is never affected.
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    if (isSandbox) {
+        getEl('withdrawKycRequired').style.display = 'none';
+        getEl('withdrawForm').style.display = 'block';
+        getEl('withdrawModal').classList.add('open');
+        getEl('withdrawBalanceDisplay').textContent = formatCurrency(getWithdrawableTotal());
+        // Refresh simulated withdrawal statuses so a completed payout shows
+        // "Withdrawn" (same call as the production path below).
+        syncSandboxWithdrawHistory();
+        return;
+    }
+
     // Gate 1 — KYC must be approved BEFORE any other withdrawal eligibility
     // check (minimum amount, balance, completed trade, address). An unapproved
     // user sees the existing verification-required experience and can start
@@ -17467,7 +17703,7 @@ async function openWithdrawModal() {
                 }
 
                 getEl('withdrawModal').classList.add('open');
-                getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
+                getEl('withdrawBalanceDisplay').textContent = formatCurrency(getWithdrawableTotal());
                 return;
             }
             // KYC verified - fall through to the remaining gates below
@@ -17477,18 +17713,27 @@ async function openWithdrawModal() {
         // Default to continuing on error (existing fail-open behavior)
     }
 
-    // MARKETING_SANDBOX: skip the min-amount / deposit / trade-count gates
-    // (server-side sandbox withdrawal enforces balance-only rules; KYC already
-    // returns canWithdraw for sandbox accounts). Product isolation is never
-    // affected by these skipped UI gates.
-    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    // Production-only gates: min-amount / deposit / trade-count (the sandbox
+    // returned above). These UX mirrors are unchanged for production accounts.
     if (!isSandbox) {
-        // Gate 2 — minimum withdrawal amount
-        if(APP.liveData.balance < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: APP.liveData.balance.toFixed(2)}),'error'); return; }
-        // Gate 3 — existing balance / deposit requirement
-        if(!APP.liveData.hasRealDeposit) { showToast(t('withdraw.needDeposit'),'error'); return; }
-        // Gate 4 — existing completed-trade requirement (incl. MTA)
-        if(!APP.liveData.hasTradingActivity || APP.liveData.balance < APP.MTA) { showToast(t('withdraw.needTrade'),'error'); return; }
+        // genuinely earned referral earnings (server-synced referral bucket) can
+        // fund a withdrawal WITHOUT a prior trade and WITHOUT a first deposit
+        // (management decision). The SERVER re-derives the eligible amount from
+        // real, QUALIFIED referral rewards and enforces it; these are the UX
+        // mirrors only.
+        const referralEarnings = Number(APP.bonusData.balance) || 0;
+        const canFundFromReferral = referralEarnings >= APP.MIN_WITHDRAWAL;
+        const totalWithdrawable = getWithdrawableTotal();
+        // Gate 2 — minimum withdrawal amount (threshold unchanged)
+        if(totalWithdrawable < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: totalWithdrawable.toFixed(2)}),'error'); return; }
+        // Gate 3 — existing balance / deposit requirement (unchanged; skipped
+        // only when the withdrawal is funded by referral earnings)
+        if(!APP.liveData.hasRealDeposit && !canFundFromReferral) { showToast(t('withdraw.needDeposit'),'error'); return; }
+        // Gate 4 — existing completed-trade requirement (unchanged). The bot
+        // MTA is NOT a withdrawal requirement and is deliberately not checked
+        // here; a referral-earnings-funded withdrawal is exempt from the trade
+        // requirement.
+        if(!APP.liveData.hasTradingActivity && !canFundFromReferral) { showToast(t('withdraw.needTrade'),'error'); return; }
     }
 
     // KYC verified (or fail-open) - show withdrawal form (Gates 5 & 6: address
@@ -17497,7 +17742,7 @@ async function openWithdrawModal() {
     getEl('withdrawKycRequired').style.display = 'none';
 
     getEl('withdrawModal').classList.add('open');
-    getEl('withdrawBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
+    getEl('withdrawBalanceDisplay').textContent = formatCurrency(getWithdrawableTotal());
     // MARKETING_SANDBOX only: refresh Recent-withdrawal statuses so a completed
     // simulated payout shows "Withdrawn" (no-op for production accounts).
     syncSandboxWithdrawHistory();
@@ -17514,7 +17759,7 @@ function submitWithdraw() {
     // sandbox route enforces amount > 0 and sufficient simulated balance.
     if(!amount || (!isSandbox && amount < APP.MIN_WITHDRAWAL)) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL}),'error'); return; }
     if(isSandbox && amount <= 0) { showToast(t('withdraw.enterAddress'),'error'); return; }
-    if(amount > APP.liveData.balance) { showToast(t('withdraw.insufficient'),'error'); return; }
+    if(amount > getWithdrawableTotal()) { showToast(t('withdraw.insufficient'),'error'); return; }
     
     // Submit withdrawal request
     submitWithdrawAPI(address, amount);
@@ -17538,7 +17783,16 @@ async function submitWithdrawAPI(address, amount) {
         const data = await res.json();
         
         if (res.ok) {
-            APP.liveData.balance -= amount;
+            // Optimistic local debit (live balance first, remainder from the
+            // referral/bonus bucket). The server is authoritative about which
+            // buckets were actually debited, so re-sync immediately after to
+            // reconcile both balances exactly.
+            const fromLive = Math.min(amount, Number(APP.liveData.balance) || 0);
+            APP.liveData.balance -= fromLive;
+            const fromBonus = Math.round((amount - fromLive) * 100) / 100;
+            if (fromBonus > 0) {
+                APP.bonusData.balance = Math.max(0, (Number(APP.bonusData.balance) || 0) - fromBonus);
+            }
             APP.withdrawHistory.unshift({amount:amount, address:address.slice(0,6)+'...', status:'Processing', time:new Date().toLocaleTimeString()});
             APP.liveData.history = APP.liveData.history || [];
             APP.liveData.history.unshift({type:'Withdraw', detail:'To ' + address.slice(0,6) + '...', amount:-amount, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
@@ -17554,6 +17808,10 @@ async function submitWithdrawAPI(address, amount) {
             getEl('withdrawAmountInput').value = '';
             updateUI();
             updateChart();
+            // Authoritative reconcile: the server decides which bucket(s) funded
+            // the withdrawal (live balance vs genuinely earned referral
+            // earnings), so re-adopt the server balances.
+            if (typeof syncWalletFromServer === 'function') syncWalletFromServer();
             closeWithdrawModal();
             showToast(t('withdraw.success', {amount: amount.toFixed(2)}),'success');
             Notifications.add('info', t('withdraw.submitted'), t('withdraw.processing', {amount: amount.toFixed(2)}), 'fa-circle-up');
@@ -17568,7 +17826,15 @@ async function submitWithdrawAPI(address, amount) {
                 getEl('withdrawKycProgressFill').style.width = '25%';
                 getEl('withdrawKycProgressText').textContent = t('withdraw.percentComplete', { percent: 25 }) + ' - ' + t('withdraw.identityRequired');
             } else {
-                showToast(translateBackendMessage(data.error, 'withdraw.failed'), 'error');
+                // Promotional-credit withdrawal rule: a qualifying first deposit
+                // is required (server-authoritative). Show the clear eligibility
+                // message rather than a generic failure.
+                if (data.depositRequired) {
+                    showToast(t('withdraw.needDeposit'), 'error', 6000);
+                    Notifications.add('warning', t('deposit.title'), t('withdraw.needDeposit'), 'fa-circle-info');
+                } else {
+                    showToast(translateBackendMessage(data.error, 'withdraw.failed'), 'error');
+                }
             }
         }
     } catch (e) {
@@ -17587,6 +17853,15 @@ let KYC_DATA = {
 };
 
 function openVerificationModal() {
+    // MARKETING_SANDBOX: the sandbox has NO identity verification at all — no
+    // KYC is ever required or possible for a sandbox account (the server also
+    // 403-blocks every KYC endpoint for it). Never open the real KYC form;
+    // show an informational message instead. Display-only: no KYC/withdrawal
+    // logic changes (sandbox withdrawals are simulated and skip KYC).
+    if (APP.environment === 'MARKETING_SANDBOX') {
+        const sandboxInfo = document.getElementById('verificationSandboxInfoModal');
+        if (sandboxInfo) { sandboxInfo.classList.add('open'); return; }
+    }
     // Demo mode: do NOT open the KYC form. Deposits and trading do not require
     // verification. Show an informational message with an action to switch to
     // LIVE mode instead. Demo trading behavior is unchanged.
@@ -17613,6 +17888,12 @@ function closeVerificationModal() {
 // Demo Verification info modal helpers (frontend-only; no KYC/trading logic).
 function closeVerificationDemoInfo() {
     const el = document.getElementById('verificationDemoInfoModal');
+    if (el) el.classList.remove('open');
+}
+
+// Marketing Sandbox verification info modal helper (frontend-only).
+function closeVerificationSandboxInfo() {
+    const el = document.getElementById('verificationSandboxInfoModal');
     if (el) el.classList.remove('open');
 }
 
@@ -18262,7 +18543,7 @@ function sendSupportMessage() {
         setTimeout(function() {
             let reply = t('support.reply.default');
             const lower = msg.toLowerCase();
-            if(lower.includes('bot') || lower.includes('start')) reply = t('support.reply.bot', {mta: APP.MTA});
+            if(lower.includes('bot') || lower.includes('start')) reply = Number(APP.MTA) > 0 ? t('support.reply.bot', {mta: APP.MTA}) : t('support.reply.botNoMta');
             else if(lower.includes('deposit')) reply = t('support.reply.deposit');
             else if(lower.includes('withdraw')) reply = t('support.reply.withdraw');
             else if(lower.includes('bonus') || lower.includes('referral')) reply = t('support.reply.bonus');
@@ -18370,6 +18651,14 @@ async function syncWalletFromServer() {
                     // Fallback only if the server omitted the field.
                     APP.liveData.hasRealDeposit = true;
                     fundedFromServer = true;
+                }
+                // Server-authoritative MTA: adopt the server's value (the single
+                // source of truth, per environment) so the UI never hardcodes it.
+                // A value of 0 means "no MTA" (MARKETING_SANDBOX) and is adopted
+                // too, so no minimum trading balance is ever applied there.
+                // Falls back to the existing default when the field is omitted.
+                if (Number.isFinite(Number(meData.mta)) && Number(meData.mta) >= 0) {
+                    APP.MTA = Number(meData.mta);
                 }
                 // Server-authoritative "Today's P&L": the signed sum of trades
                 // actually persisted via record_trade_safe() for the current UTC
@@ -18928,7 +19217,7 @@ async function initApp() {
     const shareReferralBtn = getEl('shareReferralBtn');
     if(shareReferralBtn) shareReferralBtn.addEventListener('click', function() {
         const referralLink = getReferralLink();
-        const shareText = encodeURIComponent('Join Arbitrix AI and get started with $10 bonus! Use my referral link:');
+        const shareText = encodeURIComponent('Join Arbitrix AI and start trading with automated arbitrage! Use my referral link:');
         const twitterUrl = `https://twitter.com/intent/tweet?text=${shareText}&url=${encodeURIComponent(referralLink)}`;
         window.open(twitterUrl, '_blank', 'width=600,height=400');
     });
@@ -18943,7 +19232,7 @@ async function initApp() {
             try {
                 await navigator.share({
                     title: 'Join Arbitrix AI',
-                    text: 'Join Arbitrix AI and get started with $10 bonus!',
+                    text: 'Join Arbitrix AI and start trading with automated arbitrage!',
                     url: referralLink
                 });
             } catch (err) {
@@ -19686,7 +19975,7 @@ async function loadReferralConfig() {
 // fall back to the raw key verbatim (formatConfigKey) / empty (description).
 const REFERRAL_CONFIG_LABELS = {
     'rewards_enabled': { label: 'admin.referral.cfg.rewardsEnabled', desc: 'admin.referral.cfg.rewardsEnabledDesc' },
-    'referral_reward_amount': { label: 'admin.referral.cfg.rewardAmount', desc: 'admin.referral.cfg.rewardAmountDesc' },
+    'referral_reward_percent': { label: 'admin.referral.cfg.rewardPercent', desc: 'admin.referral.cfg.rewardPercentDesc' },
     'minimum_qualifying_deposit': { label: 'admin.referral.cfg.minDeposit', desc: 'admin.referral.cfg.minDepositDesc' },
     'first_deposit_required': { label: 'admin.referral.cfg.requireFirstDeposit', desc: 'admin.referral.cfg.requireFirstDepositDesc' },
     'max_rewards_per_user': { label: 'admin.referral.cfg.maxRewards', desc: 'admin.referral.cfg.maxRewardsDesc' }
@@ -19708,7 +19997,7 @@ function renderReferralConfig(config) {
 
     const configItems = [
         { key: 'rewards_enabled', type: 'toggle', parseValue: (v) => v === 'true' },
-        { key: 'referral_reward_amount', type: 'number', parseValue: (v) => parseFloat(v), min: 0, step: 1 },
+        { key: 'referral_reward_percent', type: 'number', parseValue: (v) => parseFloat(v), min: 0, max: 100, step: 1 },
         { key: 'minimum_qualifying_deposit', type: 'number', parseValue: (v) => parseFloat(v), min: 0, step: 1 },
         { key: 'first_deposit_required', type: 'toggle', parseValue: (v) => v === 'true' },
         { key: 'max_rewards_per_user', type: 'number', parseValue: (v) => parseInt(v), min: 0, step: 1 }
@@ -19907,8 +20196,12 @@ function formatConfigValue(key, value) {
         return value === 'true' ? '✅ ' + t('admin.referral.enabled') : '❌ ' + t('admin.referral.disabled');
     }
 
-    if (key === 'minimum_qualifying_deposit' || key === 'referral_reward_amount') {
+    if (key === 'minimum_qualifying_deposit') {
         return '$' + value;
+    }
+
+    if (key === 'referral_reward_percent') {
+        return value + '%';
     }
 
     return value;
@@ -20822,6 +21115,24 @@ async function sandboxGenerateTrades() {
     });
     if (!out.ok) { sandboxLog(t('sandbox.admin.tradesFailed') + ': ' + (out.data.error || out.status), true); return; }
     sandboxLog(t('sandbox.admin.tradesGenerated', { count: out.data.generated || 0 }));
+    loadSandboxAccounts();
+}
+
+// Marketing control: simulate a downline referral deposit through the SAME
+// qualification path as production (the platform minimum qualifying deposit is
+// enforced server-side) and show the resulting reward.
+async function sandboxSimulateReferralDeposit() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const amount = parseFloat(document.getElementById('sandboxReferralAmount').value);
+    if (!isFinite(amount) || amount < 0) { showToast(t('sandbox.admin.referralFailed'), 'error'); return; }
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/referral/deposit', { method: 'POST', body: JSON.stringify({ amount: amount }) });
+    if (!out.ok) { sandboxLog(t('sandbox.admin.referralFailed') + ': ' + (out.data.error || out.status), true); return; }
+    if (out.data.qualified) {
+        sandboxLog(t('sandbox.admin.referralDepositDone', { amount: Number(out.data.bonusAdded).toFixed(2) }));
+    } else {
+        sandboxLog(t('sandbox.admin.referralNotQualified', { min: out.data.minimumDeposit }), true);
+    }
     loadSandboxAccounts();
 }
 

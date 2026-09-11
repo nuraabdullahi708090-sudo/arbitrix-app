@@ -59,7 +59,7 @@ function extractFunction(name) {
     return INDEX.slice(start, end + 1);
 }
 
-const SANDBOX_KEYS = ['withdraw.infoSandbox', 'live.withdrawStatus.readySandbox'];
+const SANDBOX_KEYS = ['withdraw.infoSandbox', 'live.withdrawStatus.readySandbox', 'live.withdrawStatus.sandboxEmpty'];
 
 test('sandbox withdraw variant keys exist in all 6 locales and contain no "700"', () => {
     const T = loadTranslations();
@@ -92,7 +92,8 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
             APP: {
                 environment,
                 liveData,
-                MTA: 143,
+                bonusData: { balance: 0 },
+                MTA: 200,
                 MIN_WITHDRAWAL: 700,
             },
             document: { getElementById: (id) => els[id] || null },
@@ -119,10 +120,34 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
     els = run(undefined, { ...funded });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.ready');
 
-    // Sandbox non-ready branches unchanged (no $700 keys involved there).
+    // Sandbox below the production $700 minimum, or with no deposit / no trade,
+    // STILL renders the sandbox variant: the sandbox has no minimum and no
+    // deposit/trade requirement, so production requirement wording must never
+    // appear for a sandbox account.
+    els = run('MARKETING_SANDBOX', { hasRealDeposit: true, hasTradingActivity: true, balance: 20 });
+    assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.readySandbox');
+    assert.strictEqual(els.withdrawInfoText.textContent, 'withdraw.infoSandbox');
+
+    els = run('MARKETING_SANDBOX', { hasRealDeposit: false, hasTradingActivity: false, balance: 20 });
+    assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.readySandbox');
+    assert.strictEqual(els.withdrawInfoText.textContent, 'withdraw.infoSandbox');
+
+    // Sandbox with nothing to withdraw: neutral empty state (no requirement).
     els = run('MARKETING_SANDBOX', { hasRealDeposit: false, hasTradingActivity: false, balance: 0 });
+    assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.sandboxEmpty');
+    assert.strictEqual(els.withdrawInfoText.textContent, 'withdraw.infoSandbox');
+
+    // Production non-ready branches unchanged.
+    els = run('PRODUCTION', { hasRealDeposit: false, hasTradingActivity: false, balance: 0 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.notDeposited');
     assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.notDeposited');
+
+    els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: false, balance: 1500 });
+    assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.noTrades');
+
+    els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: true, balance: 20 });
+    assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.needMinimum');
+    assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.needMinimum');
 });
 
 test('production gating logic is unchanged (MIN_WITHDRAWAL=700, gates skipped only for sandbox)', () => {
@@ -132,7 +157,7 @@ test('production gating logic is unchanged (MIN_WITHDRAWAL=700, gates skipped on
     assert.ok(submit.includes('!isSandbox && amount < APP.MIN_WITHDRAWAL'), 'production $700 submit gate must remain');
     const open = extractFunction('openWithdrawModal');
     assert.ok(open.includes('if (!isSandbox)'), 'production-only gate block must remain in openWithdrawModal');
-    assert.ok(open.includes('APP.liveData.balance < APP.MIN_WITHDRAWAL'), 'Gate 2 min-withdrawal check must remain for production');
+    assert.ok(open.includes('totalWithdrawable < APP.MIN_WITHDRAWAL'), 'Gate 2 min-withdrawal check must remain for production');
 });
 
 test('language switch re-renders the withdraw status/info text (hook in updateDynamicTranslations)', () => {
@@ -147,7 +172,7 @@ test('language switch re-renders the withdraw status/info text (hook in updateDy
 test('i18n parity: identical key sets across all 6 locales, no empty values', () => {
     const T = loadTranslations();
     const en = Object.keys(T.en);
-    assert.strictEqual(en.length, 1235, 'expected 1235 keys per locale');
+    assert.strictEqual(en.length, 1250, 'expected 1250 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         const keys = Object.keys(dict);
         assert.deepStrictEqual(new Set(keys), new Set(en), `${lang} key set differs from en`);

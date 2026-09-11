@@ -1964,3 +1964,644 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - npm test = 439 pass / 1 fail (the single fail is the pre-existing
   tests/q8qpay.webhook.test.js `Cannot find module 'express'` env failure —
   identical to baseline; no regression). 440 tests total.
+
+## Phase 18 — Referral $20 / 10% Commission / Promo-Credit Trading / MTA Single Source (2026-08)
+- Management-approved business-logic changes. Preservation mandate honored:
+  deposits, minimum-deposit logic, withdrawal sequence + $700 minimum, KYC,
+  security checks, trading mechanics, profit calculation, balances, account
+  states, referral attribution, anti-abuse, fees, auth, onboarding, payment
+  providers and webhooks are all UNCHANGED except where stated below.
+- Files changed: `server.js`, `public/index.html`, `.env.example`, new
+  `supabase/migrations/020_referral_reward_and_commission.sql`, new
+  `tests/referral_promo_mta.test.js`, plus pin updates to
+  `tests/bot_mta.test.js`, `tests/marketing_sandbox.test.js`,
+  `tests/sandbox_demo_balance.test.js`, `tests/sandbox_withdraw_wording.test.js`,
+  `tests/subscription_eligibility.test.js`. NO production MTA change. NOT
+  committed/pushed/deployed.
+
+### 1. Referral qualification + $20 reward
+- Reward default is now $20, single definition `REFERRAL_REWARD_DEFAULT_USD='20'`
+  in server.js. Effective value is still read from `referral_config`
+  (`referral_reward_amount`), which migration 020 bumps 10 -> 20 (guarded; a
+  deliberately admin-customised value other than the historical '10' is left
+  alone and the migration verifier only asserts the value is no longer '10').
+- Qualification: a referral QUALIFIES only on the platform minimum deposit
+  (`minimum_qualifying_deposit`, default 50 — unchanged). The old
+  `isFirstConfirmedDeposit()` gate (which could permanently disqualify a
+  referral whose FIRST deposit was below the minimum) was REPLACED by the
+  platform-minimum rule in `activateReferralOnQualification()`. Registration /
+  onboarding never call it (only confirmed-deposit paths do).
+- Anti-abuse intact: `status='pending'` lookup + `bonus_earned>0` double-check +
+  `max_rewards_per_user`. Reward credits the existing `bonus_balance`
+  (referral-earnings bucket) via `updateWallet`. Exactly once per referral.
+- `isFirstConfirmedDeposit()` is now unused but left defined (no test pins its
+  removal); `activateReferralOnQualification` is called from the same 4 deposit
+  confirm paths as before.
+- `/api/referral/config` + `/stats` + `/detailed` use the server default;
+  `/api/referral/simulate` now uses the configured reward (no hardcoded 10).
+  Frontend: `refRewardAmount`/`refRewardAmount2` defaults + `|| 20` fallbacks.
+
+### 2. Referral earnings withdrawal
+- NO new withdrawal path and NO new gate. Reward + commission credit the
+  existing `bonus_balance`; moving that to Live uses the EXISTING bonus
+  withdrawal flow (>= $50 bonus + >= 1 referral), then the existing withdrawal
+  process (KYC, $700 min, balance, address, >= 1 trade) applies unchanged.
+- INTERPRETATION FLAGGED: "referral earnings do not require a trade" is read as
+  "no NEW referral-specific trading/rollover requirement was added". The
+  platform-wide `>= 1 Trade Executed` withdrawal requirement is pre-existing
+  and was deliberately NOT bypassed (management explicitly forbade bypassing
+  existing requirements). See the final report for the clarification request.
+
+### 3. 10% downline profit commission
+- New `creditReferralProfitCommission(downlineUserId, profitAmount, sourceTradeId)`
+  called from `/api/trade` right after `record_trade_safe`, ONLY when
+  `!result.duplicate && Number(result.applied_amount) > 0`. Profit basis is the
+  platform's existing definition (`record_trade_safe` realized P&L = the signed
+  `trades.amount`); losses pay nothing and the definition is NOT reinterpreted.
+  The trade response/balance/P&L of the downline is untouched; a commission
+  failure can never fail the trade (`.catch(() => {})`).
+- Rate `REFERRAL_PROFIT_COMMISSION_RATE=0.10`, overridable via referral_config
+  `referral_profit_commission_rate` (added to `CONFIG_VALIDATION`, 0..1).
+- Attribution preserved: lookup is `.eq('referred_id', userId).eq('status','active')`
+  (only QUALIFIED downlines earn), self-referral rejected; sandbox users
+  short-circuit.
+- Atomic DB work in migration 020: table `referral_commissions` (append-only,
+  RLS on, service_role-only) + `credit_referral_commission_safe(...)`
+  SECURITY DEFINER mirroring `credit_payment_safe`/`record_trade_safe`
+  (validate -> idempotency check #1 -> `FOR UPDATE` wallet lock -> check #2 ->
+  credit referrer `bonus_balance` -> ledger row -> `transactions` row type
+  `'Referral Commission'` -> EXCEPTION handler returns JSON). Idempotency key
+  is server-derived `refcomm_<referralId>_<sourceTradeId>` (UNIQUE) — exactly
+  once per source trade. Execute locked to service_role.
+- Read-only `getReferralCommissionTotal(referrerId)` (returns 0 if the table is
+  absent) feeds `commissionEarned` in `/api/referral/stats` + `/detailed`
+  (plus `totalReferralEarnings`). Frontend shows a separate "Profit commission
+  earned" row (`#refCommissionEarned`). New TX type mapped render-only:
+  `'Referral Commission' -> tx.type.referralCommission` (all 6 locales).
+
+### 4. $50 promotional credit is TRADABLE (not withdrawable until deposit + 1 trade)
+- Server: `isPromoFundedTrading(hasConfirmedDeposit, liveBalance)` = no confirmed
+  deposit AND positive live balance. `/api/bot/start` exempts promo-funded users
+  from the MTA gate. Trading itself still goes through the EXISTING engine
+  (`/api/trade` + `record_trade_safe`); NO separate promo trading engine/RPC.
+- Frontend: `isPromoFundedTrading()` mirrors the server for UX (bot button in
+  `updateUI` + `startBot` gate). New `#promoCreditNotice` disclosure in the Live
+  wallet card (`promo.tradableNotice`, 6 locales) — explicitly says the $50 is
+  tradable but not withdrawable until a qualifying first deposit + 1 trade.
+- Withdrawal: `/api/withdraw/request` APPENDS a gate after the unchanged KYC ->
+  $700 -> balance -> address -> >=1-trade sequence: if no confirmed deposit ->
+  400 `{ error: 'A qualifying first deposit is required before you can withdraw
+  your promotional credit or trading profits.', depositRequired: true,
+  requiresFirstDeposit: true }`. The frontend already gates deposit (Gate 3)
+  before trade (Gate 4) in `openWithdrawModal`, and `submitWithdrawAPI` renders
+  `withdraw.needDeposit` (6 locales, rewritten to the clear eligibility message)
+  when `data.depositRequired`. KYC/$700/1-trade requirements unchanged; after a
+  qualifying deposit + 1 trade the normal process applies.
+
+### 5. MTA ($143) — single source of truth, NOT changed
+- `const BOT_MIN_TRADING_BALANCE = 143` is now consumed ONLY through
+  `getEffectiveMta(defaultMta = BOT_MIN_TRADING_BALANCE)`, which reads the single
+  optional env override `MTA_AMOUNT` (invalid/absent -> 143). Production MTA is
+  STILL 143; $200/$300 are NOT hardcoded anywhere (pinned by tests).
+- To select an option later: set `MTA_AMOUNT=200` or `MTA_AMOUNT=300` (documented
+  in `.env.example`) — or change the single constant. Enforced server-side at
+  `/api/bot/start` and `handleSandboxBotStart` (both on live_balance only; demo
+  not gated). `/api/auth/me` returns `mta`; frontend adopts it into `APP.MTA`.
+- Frontend MTA consumers: `updateMTAProgress()` (+ new `#mtaTargetAmount`),
+  `updateUI()` bot gate + `bot.reachMTA {{mta}}`, `startBot()` + `bot.mtaBlocked
+  {{mta}}`, `updateLiveWithdrawStatus()` (`live.withdrawStatus.mtaNotReached
+  {{mta}}`), `openWithdrawModal()` Gate 4 (`balance < APP.MTA`), and the
+  `mta_unlocked` badge condition/desc. i18n MTA keys now interpolate `{{mta}}`
+  instead of hardcoding `$143` (6 locales).
+- IMPORTANT side effect for management: the MTA value is ALSO the frontend
+  withdrawal-eligibility gate (Gate 4). The SERVER withdrawal route has NO MTA
+  check (only KYC/$700/balance/address/1-trade/deposit), so changing MTA changes
+  only the client-side withdrawal gate, not server enforcement.
+
+### Verification
+- `node --check server.js` OK. `vm.Script` parse on all 6 non-empty inline
+  `<script>` blocks OK.
+- i18n: 1238 keys/locale x 6 (was 1235; +3 = referral.commissionEarned,
+  promo.tradableNotice, tx.type.referralCommission), identical key sets, 0
+  empty, 0 placeholder-parity issues.
+- `npm test` = 494 pass / 1 fail. The single fail is the PRE-EXISTING
+  `tests/q8qpay.webhook.test.js` `Cannot find module 'express'` env failure
+  (node_modules not installed) — identical to baseline; no regression.
+- Existing pins were updated for the INTENTIONAL changes (startBot promo
+  exemption, `bot.mtaBlocked` `{{mta}}` token, `getEffectiveMta(...)` in the
+  MTA-gate assertions, i18n key count 1235 -> 1237 -> 1238). New
+  `tests/referral_promo_mta.test.js` covers the referral/commission/promo/MTA
+  contracts from the brief.
+- Migration 020 NOT applied (awaiting approval). The commission endpoints fail
+  safe (return 0) and `/api/trade` is unaffected when the table/fn are absent.
+
+
+## Phase 19 — Referral $20 / 10% Commission / Promo Tradability / MTA $200 (PRODUCTION-ONLY, 2026-08)
+- Management-approved business-logic changes. **Every change is PRODUCTION-ONLY:
+  MARKETING_SANDBOX keeps its existing referral reward, MTA (143),
+  promotional-credit and withdrawal behavior.** No deploy, no push, no
+  production migration (020 still unapplied).
+- Referral qualification: a referral QUALIFIES only on the referred user's
+  platform minimum deposit ($50, existing config `minimum_qualifying_deposit` /
+  `MIN_DEPOSIT` — unchanged, not reinvented). Registration/onboarding never
+  qualify. `activateReferralOnQualification()` is only called from confirmed
+  deposit paths and keeps the pending-status + `bonus_earned` exactly-once
+  guards + existing attribution/anti-abuse.
+- Referral reward: `REFERRAL_REWARD_DEFAULT_USD = '20'` (was 10). Frontend
+  fallback + HTML default are $20. Reward still credits the referrer's existing
+  referral-earnings bucket (`wallets.bonus_balance`).
+- 10% downline profit commission: `REFERRAL_PROFIT_COMMISSION_RATE = 0.10`,
+  computed from the EXISTING profit definition (`record_trade_safe()
+  result.applied_amount` for a fresh profitable trade), credited atomically by
+  `credit_referral_commission_safe()` (migration 020: idempotency → FOR UPDATE
+  → double-check → bonus_balance → ledger → transactions row). The downline's
+  own profit/balance is never touched.
+- Referral-earnings withdrawal: genuinely earned referral income is withdrawable
+  WITHOUT a prior trade. `getGenuinelyEarnedReferralEarnings(userId)` derives the
+  eligible amount SERVER-SIDE (real `referrals` rows with `status='active'` and
+  `referred_id > 0` + the commission ledger), capped by the actual
+  `bonus_balance`. `/api/withdraw/request` debits live first then the referral
+  bucket; only referral earnings skip the trade/deposit requirement. Minimum
+  withdrawal (`amount < 700`), KYC gate, address, and the existing withdrawal
+  process/table are all unchanged. Frontend mirrors it via
+  `getWithdrawableTotal()` (live + referral bucket) and a `canFundFromReferral`
+  display gate.
+- $50 promotional credit: tradable through the SAME engine (no second engine).
+  New `isPromoFundedTrading()` exempts promo-funded bot starts from the MTA.
+  WITHDRAWAL RULE enforced server-side: no confirmed deposit ⇒ only referral
+  earnings are withdrawable; the response carries
+  `depositRequired:true, requiresFirstDeposit:true` and the existing message. A
+  deposit alone still cannot bypass the 1-trade requirement. After deposit + one
+  trade the normal process applies.
+- MTA: production is **$200** (`BOT_MIN_TRADING_BALANCE = 200`, single source of
+  truth `getEffectiveMta()`, optional env `MTA_AMOUNT`; .env.example updated).
+  The MTA is NOT a withdrawal requirement (removed from the withdraw modal
+  gates). MARKETING_SANDBOX keeps `SANDBOX_BOT_MIN_TRADING_BALANCE = 143` and
+  never reads `MTA_AMOUNT`; `/api/auth/me` returns `getEffectiveMta()` for
+  production and the sandbox constant for sandbox accounts, so the frontend
+  adopts the right value per environment.
+- Production/sandbox isolation hardening (smallest safe): `activateReferralOnQualification`
+  now short-circuits MARKETING_SANDBOX (matching `creditReferralProfitCommission`);
+  `/api/referral/stats` returns a sandbox-only display (legacy $10 reward, no
+  commission) for sandbox accounts; migration 020's RPC also refuses sandbox
+  users on either side.
+- i18n: 1231 → 1239 keys/locale (new: `referral.withdrawNote`; `promo.tradableNotice`,
+  `bot.mtaBlocked`, `referral.earned`, `referral.commissionEarned`,
+  `tx.type.referralCommission` etc. from the earlier slice in this phase). Parity
+  verified (identical key sets, 0 empties, 0 dups).
+- Tests: `tests/referral_promo_mta.test.js` (44) + `tests/bot_mta.test.js` (19,
+  production $200 AND sandbox $143 matrices) + updated
+  sandbox_demo_balance/subscription_eligibility/marketing_sandbox/
+  sandbox_withdraw_wording. `npm test` = 510 pass / 1 fail — the single fail is
+  the pre-existing `tests/q8qpay.webhook.test.js` `Cannot find module 'express'`
+  env failure (node_modules not installed), identical to baseline.
+- NOT committed/pushed/deployed. Migration 020 NOT applied.
+
+## Phase 19B — Provider referral-award correctness (migration 021) + audit follow-ups (2026-08)
+- DISCOVERY: the $20 referral reward was NOT effective on provider-credited
+  deposits. FOUR provider credit functions hard-coded `v_referral_reward := 10;`,
+  qualified on ANY first deposit, and never marked the referral `active`:
+  - `confirm_payment_with_credit(BIGINT,BIGINT,DECIMAL,TEXT)` — 002
+    (still used by `services/PaymentService.js:653`)
+  - `credit_payment_safe(BIGINT,BIGINT,DECIMAL,TEXT,TEXT,TEXT)` — 008 (q8qpay)
+  - `paymento_credit_user_safe(...)` 5-arg — 006, and 8-arg — 007
+  A `referral_config` row cannot change a literal hard-coded inside a function,
+  and leaving the referral `pending` also meant the 10% commission could never
+  apply for provider-credited referrals (the JS path keys on `status='active'`).
+- NEW `supabase/migrations/021_provider_referral_award_correctness.sql`
+  (additive, idempotent, ~31 KB, NOT applied): defines ONE shared helper
+  `award_referral_qualification_safe(p_user_id BIGINT, p_deposit_amount DECIMAL)`
+  and `CREATE OR REPLACE`s the four provider functions with ONLY their referral
+  block replaced by a single call to it. Everything outside that block is
+  byte-identical to 002/006/007/008 (verified programmatically in
+  `tests/referral_provider_award.test.js` — this is the safety property).
+- Helper contract (mirrors the JS `activateReferralOnQualification`): returns 0
+  unless the referred user's deposit ≥ the EXISTING platform minimum
+  (`minimum_qualifying_deposit`, default 50 — not reinvented); reward from
+  `referral_reward_amount` (default 20); honours `rewards_enabled` /
+  `max_rewards_per_user`; refuses MARKETING_SANDBOX on EITHER side; tolerates a
+  missing `users.environment` (fails closed to production); locks the still
+  `pending` referral row `FOR UPDATE`, re-checks after the lock, activates with
+  `GET DIAGNOSTICS row_count` (a losing racer awards 0); credits ONLY the
+  referrer's `bonus_balance` + a `Referral Bonus` transactions row; never touches
+  the referred user's money. Self-verifying DO block asserts the helper exists
+  and that no provider function still hard-codes `10`. REVOKE/GRANT keeps all
+  five functions service_role-only.
+- `020` tweak: `credit_referral_commission_safe` now wraps its
+  `users.environment` sandbox probe in BEGIN/EXCEPTION (`v_is_sandbox := FALSE`)
+  so a missing column (migration 013 not applied) can no longer make every
+  commission silently fail.
+- `public/index.html`: top MTA milestone is now server-derived
+  (`#mtaMilestoneFinal` threshold+label set from `APP.MTA` in
+  `updateMTAProgress()`), removing a second hard-coded MTA value. Stale
+  `$10 bonus` referral share text (X + native share) reworded — it advertised a
+  bonus the platform never paid.
+- VALIDATION (local Docker Postgres 16, minimal Supabase-like schema, then
+  migrations 020+021 applied): behavioral SQL suites all PASS —
+  below-minimum deposit awards 0 / stays pending; qualifying deposit awards $20
+  once + activates + writes exactly 1 ledger row; replayed invoice and a second
+  deposit award 0; self-referral 0; MARKETING_SANDBOX 0; `rewards_enabled=false`
+  0; config-driven reward (25 → 25); `max_rewards_per_user=1` blocks;
+  `confirm_payment_with_credit` awards $20 once; concurrent credits on two
+  invoices for the same referred user award EXACTLY once (session A $20, session
+  B $0, referred user still credited 100, 1 ledger row); commission RPC 10% /
+  idempotent per source trade / 0 on loss / self-referral refused / sandbox
+  refused / NULL-or-empty key refused.
+- `tests/referral_provider_award.test.js` (16 tests) pins all of the above at the
+  source level (only-the-referral-block-changed diff, helper guards, additive/
+  idempotent/no-DDL, not applied by app code, 020 tolerances, server wiring).
+- `npm test` = 526 pass / 1 fail (pre-existing q8qpay express env failure).
+  i18n parity re-verified: 1239 keys × 6 locales, 0 problems.
+- STILL NOT APPLIED / NOT DEPLOYED / NOT PUSHED. DEPLOY PREREQUISITE: migrations
+  020 **and** 021 must be applied together for the $20 reward + 10% commission to
+  be correct on provider-credited deposits (without 021 the provider path still
+  awards $10 and can double-award against the JS path).
+
+
+## Phase 20 — FINAL management model: sandbox referral-program PARITY + NO sandbox MTA (2026-08, server.js + public/index.html + migration 022 + tests)
+- Supersedes, for the MARKETING SANDBOX ONLY, three earlier claims in this file:
+  `SANDBOX_BOT_MIN_TRADING_BALANCE = 143`, the sandbox $10 referral reward and
+  `commissionRate: 0`. The sandbox no longer has an MTA at all and now mirrors
+  the production referral program. Production values are unchanged from Phase 19
+  ($20 reward, $50 qualifying deposit, 10% commission, MTA $200).
+- PRODUCTION (unchanged by this phase; see Phase 19/19B):
+  - `BOT_MIN_TRADING_BALANCE = 200` (server.js:470) is the single MTA constant;
+    `MTA_ENV_VAR = 'MTA_AMOUNT'` + `getEffectiveMta()` (server.js:478-482) is the
+    only reader, so the active MTA can be moved to $200/$300 via env alone.
+    `.env.example` documents `MTA_AMOUNT=200`. To switch to $300: change that one
+    line (or the constant if the built-in default should move) — no other code.
+  - `isPromoFundedTrading(hasConfirmedDeposit, liveBalance)` (server.js:515) =
+    no confirmed deposit AND positive live balance => the $50 promo credit is
+    tradable through the existing engine (record_trade_safe) and exempt from the
+    MTA gate, but NON-withdrawable until a qualifying first deposit AND >= 1
+    completed trade (`/api/withdraw/request`, 400 `depositRequired:true` +
+    `requiresFirstDeposit:true`, message `withdraw.needDeposit` in all 6 locales;
+    frontend shows a toast + notification).
+- SANDBOX referral program (migration **022_sandbox_referral_program.sql**,
+  additive + idempotent + sandbox-only; RLS-off like the other sandbox tables):
+  - `sandbox_referrals` (status pending|active, bonus_earned, is_simulated,
+    no-self CHECK, UNIQUE(referred_id) WHERE referred_id > 0 so a REAL sandbox
+    user is attributable once while synthetic negative demo downlines repeat) and
+    append-only `sandbox_referral_commissions` (`idempotency_key` UNIQUE =
+    exactly-once anchor).
+  - `sandbox_referral_config()` reads the SAME `referral_config` keys production
+    uses (`minimum_qualifying_deposit` / `referral_reward_amount` /
+    `referral_profit_commission_rate`) with $50/$20/10% fallbacks — the minimum
+    deposit definition is reused, never reinvented.
+  - `sandbox_award_referral_qualification(p_referred_id, p_deposit_amount)`:
+    below-minimum -> `below_minimum_deposit`; `FOR UPDATE` + post-lock
+    `status='pending' AND bonus_earned = 0` + `GET DIAGNOSTICS` => exactly-once;
+    credits ONLY the referrer's `sandbox_wallets.balance` (+$20), pending->active,
+    writes a `'Referral Bonus'` sandbox transaction; asserts
+    `assert_sandbox_user` for the referrer (and for the referred account when it
+    is real) so a production account can never be credited.
+  - `sandbox_credit_referral_commission(referrer, referred, source_trade_id,
+    profit, idempotency_key)`: 10% of the EXISTING realized profit basis
+    (`sandbox_trades.amount`, no second profit definition), losses/zero earn
+    nothing, only `status='active'` referrals earn, idempotency checked before
+    AND after the wallet `FOR UPDATE`, credits only the referrer, never writes a
+    trade row and never touches the referred user's balance.
+  - `sandbox_reset_account()` re-created to also clear the two new sandbox
+    referral tables (one-click marketing reset stays complete). Trailing DO $$
+    self-check raises if any 022 object is missing.
+  - Server wiring: `getSandboxReferralSummary/Rows/CommissionRows`,
+    `awardSandboxReferralOnDeposit` (called from `advanceSandboxDeposit` after a
+    CONFIRMED simulated credit), `creditSandboxDownlineCommission` (called from
+    `handleSandboxTrade` with the recorded `applied_amount` + `trade_id`, skipped
+    on `duplicate`), `simulateSandboxReferralDeposit`,
+    `simulateSandboxDownlineProfit`; `/api/referral/{stats,detailed,simulate}`
+    branch to `handleSandboxReferral*` BEFORE any production query; admin-only
+    `POST /api/admin/sandbox/:userId/referral/{deposit,profit}` re-verify
+    `requireSandboxTargetUser`. Constants `SANDBOX_REFERRAL_REWARD_DEFAULT_USD
+    = '20'`, `SANDBOX_REFERRAL_MIN_DEPOSIT = 50`,
+    `SANDBOX_REFERRAL_COMMISSION_RATE = 0.10`, `SANDBOX_PROMO_CREDIT = 50`
+    (auto-created sandbox wallet seeds the tradable $50 simulated balance).
+  - Sandbox attribution is optional (`referralCode` on admin account creation)
+    and accepts ONLY another MARKETING_SANDBOX referrer; it writes
+    `sandbox_referrals`, never production `referrals`.
+- SANDBOX MTA: **none**. `SANDBOX_BOT_MIN_TRADING_BALANCE` is deleted,
+  `handleSandboxBotStart` performs no balance read/gate and returns `mta: 0`;
+  `/api/auth/me` reports `mta: 0` for sandbox accounts. Frontend: the MTA is
+  adopted server-authoritatively (0 accepted), `updateMTAProgress()` hides the
+  card when `Number(APP.MTA) > 0` is false, `renderBadges()` suppresses the
+  `mta_unlocked` badge without an MTA, `startBot()` gates only when
+  `Number(APP.MTA) > 0` (no environment special-case), and the support bot uses
+  `support.reply.botNoMta` (new key, 6 locales) when `APP.MTA === 0`.
+- UI: new admin Sandbox "Referral Program ($20 + 10% downline)" card
+  (data-i18n `sandbox.admin.referralTitle/referralAmount/downlineProfit/
+  simulateReferral/simulateProfit`) + `sandbox.admin.referralDepositDone/
+  referralNotQualified/referralProfitDone/referralFailed` log lines; the card
+  posts only to `/api/admin/sandbox/...`. Dictionaries 1233 -> 1249 keys/locale (final: 1252 after the follow-up fixes below)
+  (10 new: the 9 sandbox.referral admin keys + `support.reply.botNoMta`),
+  identical key sets across en/es/pt/fr/ar/zh, 0 empty, 0 placeholder-parity and
+  0 tag-parity issues, 589 data-i18n refs all defined.
+- SANDBOX WITHDRAW DISPLAY (follow-up fix): the withdraw section previously
+  still fell through the PRODUCTION requirement branches for a sandbox account
+  (a sandbox with no simulated deposit showed "Please make a minimum deposit of
+  $50 to enable withdrawals", no trades -> "Complete at least 1 trade to
+  withdraw", balance < $700 -> "Reach the $700 minimum to withdraw") even though
+  the sandbox route/RPC enforces balance-only rules. `updateLiveWithdrawStatus()`
+  now branches on `isSandbox` FIRST: balance > 0 -> `readySandbox`
+  ("✅ Ready to withdraw") + info box `withdraw.infoSandbox` ("No minimum
+  withdrawal | 15-30min processing"); balance = 0 -> new key
+  `live.withdrawStatus.sandboxEmpty` (neutral, no requirement implied) +
+  `withdraw.infoSandbox`. Production wording/branches are byte-unchanged and
+  `APP.MIN_WITHDRAWAL` stays 700 for production. Dictionaries 1249 -> **1250**
+  keys/locale. `tests/sandbox_withdraw_wording.test.js` now also pins the
+  below-minimum sandbox case (balance $20 with/without deposit+trade flags ->
+  `readySandbox`) and the empty case. Server-side minimum remains absent by
+  design: `handleSandboxWithdrawRequest` is reached BEFORE the production
+  `amount < 700` check and `sandbox_request_withdrawal()` requires only
+  `amount > 0`, a valid address and `amount <= balance`.
+- SANDBOX HAS NO KYC / VERIFICATION (follow-up fix): the server was already
+  correct (every KYC write endpoint 403-blocks sandbox accounts via
+  `blockSandboxKyc`, and `/api/kyc/can-withdraw` short-circuits to
+  `{canWithdraw:true, verificationStatus:'sandbox'}` WITHOUT weakening the
+  production `isVerified` requirement), but the UI still offered a KYC path:
+  a sandbox account in LIVE mode with a trade opened the REAL KYC form (which
+  then 403-ed on save/upload/submit), and the withdraw modal still issued a
+  `/api/kyc/can-withdraw` call. Fixes (frontend-only, display-only):
+  `openVerificationModal()` now checks `APP.environment === 'MARKETING_SANDBOX'`
+  FIRST and opens a new informational `#verificationSandboxInfoModal`
+  ("Verification Not Required" + no-KYC body, Close button, reuses the
+  `.deposit-modal`/`.btn` classes) with `closeVerificationSandboxInfo()`,
+  never the `#verificationModal` form and never `loadVerificationStatus()`;
+  `openWithdrawModal()` short-circuits for sandbox BEFORE the KYC fetch
+  (hides `#withdrawKycRequired`, shows the form, still calls
+  `syncSandboxWithdrawHistory()`). Production + demo (non-sandbox) paths are
+  byte-unchanged (demo info modal, live no-trade toast, live KYC form, Gate 1
+  `!kycData.canWithdraw`, min/deposit/trade gates, MIN_WITHDRAWAL 700).
+  Dictionaries 1250 -> **1252** keys/locale (`kyc.sandboxInfo.title` +
+  `kyc.sandboxInfo.body`, 6 locales). NEW `tests/sandbox_no_kyc.test.js`
+  (8 tests: server 403 guards, can-withdraw ordering + production
+  `canWithdraw:isVerified` intact, all 22 sandbox handler fns free of KYC
+  tables/`kycService`, sandbox-first modal branch, runtime per
+  environment/mode modal matrix, markup/close helper, sandbox-first withdraw
+  short-circuit + production gate intact, i18n parity + copy never claims a
+  requirement).
+- TESTS: NEW `tests/sandbox_referral_program.test.js` (25 tests: parity
+  constants, platform-minimum reuse, promo $50, deposit-only qualification,
+  exactly-once award, downline commission on the existing profit basis,
+  idempotency key derivation, tradability/withdrawability through the existing
+  flows, no-trade-requirement, sandbox route ordering, sandbox-only surfaces,
+  env assertions on every RPC, migration 022 additivity/self-check, production
+  020/021 untouched, MTA-free sandbox, admin target verification, i18n parity).
+  UPDATED for the intentional change: `tests/bot_mta.test.js` (sandbox matrix ->
+  never blocked; frontend gate + `mta:0` adoption), `tests/marketing_sandbox.test.js`
+  (frontend bot-gate regex), `tests/sandbox_demo_balance.test.js` (no sandbox MTA
+  constant; sandbox account creation inserts only sandbox tables + $50 seed),
+  `tests/referral_promo_mta.test.js` (sandbox has no MTA; sandbox referral parity),
+  `tests/referral_provider_award.test.js` (sandbox reward $20),
+  `tests/sandbox_withdraw_wording.test.js` (expected key count 1252; sandbox
+  below-minimum/empty display cases pinned).
+  `npm test` = 560 pass / 1 fail (the single fail is the PRE-EXISTING
+  `tests/q8qpay.webhook.test.js` `Cannot find module 'express'` env failure —
+  identical to baseline; no regression). `node --check server.js` OK; all 6
+  inline index.html script blocks + reset-password block parse (vm.Script).
+- DB VERIFICATION (real Postgres 16 in docker; migrations 013 + 022 applied
+  cleanly incl. 022's self-check): `/tmp/sbxtest/30_behavior.sql` = **23/23
+  PASS** (registration pays nothing; $10/$49.99 below-minimum rejected; $50 pays
+  exactly $20 once; further deposits `no_pending_referral` and no second credit;
+  synthetic downline same rules; production referrer/referred refused with
+  `not a MARKETING_SANDBOX account` and nothing credited; 10% commission
+  (`100 -> 10`, `33.33 -> 3.33`), idempotent replay `duplicate:true`, losses/zero
+  earn nothing, unqualified referral earns nothing, self-referral rejected,
+  missing idempotency key rejected, production referrer earns nothing; no
+  production table written and the 013 backstops still reject sandbox writes;
+  config parity $50/$20/0.10; reset clears the program).
+  `/tmp/sbxtest/31_race.sh` = **2/2 PASS** (two concurrent qualifying deposits
+  award exactly one $20; two concurrent identical commission calls credit once).
+- NOT committed / NOT pushed / NOT deployed. Migration 022 (and 020/021) are NOT
+  applied to production — deploying requires the migration review/approval path.
+- DEFERRED / FOR MANAGEMENT AUDIT: (1) the admin sandbox referral simulations
+  accept an operator-supplied `amount`/`profit` (marketing-only, sandbox target
+  re-verified, no real money) — clamp/allow-list if desired; (2) the sandbox
+  `$50` promo seed is a server read-time constant for a NEW sandbox wallet only
+  (existing wallets keep their stored balance) — say if existing sandbox accounts
+  should also be topped up; (3) sandbox referral earnings increase the single
+  simulated tradable balance (no separate earnings bucket, matching the sandbox's
+  existing balance-only withdrawal model) — production keeps its separate
+  referral-earnings bucket untouched.
+
+
+## Phase 21 — FINAL management model closed out: platform minimum deposit $100 + referral-earnings conversion + UI verification (2026-08, server.js + public/index.html + migration 023 + tests)
+- SUPERSEDES one claim in Phase 20/19: the platform **minimum qualifying
+  deposit is now $100, not $50** (the reward is unchanged at $20 after Phase 19).
+  Everything else in Phase 20 stays as written (sandbox referral parity, no
+  sandbox MTA, MTA $200 production, $50 promo credit, $700 withdrawal minimum).
+- SINGLE SOURCE OF TRUTH for the platform minimum deposit:
+  - server: `PLATFORM_MIN_DEPOSIT_USD = 100` (server.js, next to
+    `BOT_MIN_TRADING_BALANCE`); production invoice validation and the sandbox
+    simulated-deposit floor both read it, and `SANDBOX_REFERRAL_MIN_DEPOSIT`
+    derives from it.
+  - database/config: `referral_config.minimum_qualifying_deposit = '100'`
+    (migration 023 bumps the historical '50'; the guard only rewrites '50'/'' so
+    an operator-customised value is preserved).
+  - frontend: `APP.MIN_DEPOSIT = 100` + the module-level `MIN_DEPOSIT_AMOUNT = 100`
+    used by the deposit modal validation; deposit presets are $100/$250/$500/$1,000
+    (no $50 preset). The `$50` quick-amount buttons that remain in the DOM belong
+    to the DEMO FundS card (`data-amount`) and are demo money, NOT a deposit preset.
+  - Do NOT invent another amount: the $50 PROMOTIONAL CREDIT is a separate
+    constant (`SANDBOX_PROMO_CREDIT` / the `live_balance: 50` new-user seed) and
+    is intentionally unchanged.
+- migration **023_final_min_deposit_and_referral_earnings.sql** (additive,
+  idempotent, self-checking):
+  - bumps `referral_config.minimum_qualifying_deposit` 50 -> 100 (guarded), and
+  - creates `referral_earning_conversions` (UNIQUE `idempotency_key` anchor) +
+    `convert_referral_earnings_safe(p_user_id, p_idempotency_key,
+    p_min_amount DEFAULT 50)`: idempotency check -> `FOR UPDATE` wallet lock ->
+    double-check -> credits `live_balance`, debits `bonus_balance`, writes the
+    ledger row and a `'Bonus Withdrawal'` transaction, atomically. It creates NO
+    money (the value must already exist in the referral-earnings bucket), refuses
+    `below_minimum` (below the existing $50 conversion minimum) and
+    `sandbox_account`, and is service_role-only.
+- Referral-earnings conversion is now SERVER-AUTHORITATIVE: `withdrawBonusToLive()`
+  (public/index.html) POSTs `/api/referral/earnings/convert` with ONLY an
+  idempotency key and adopts the returned `liveBalance`/`bonusBalance`; the old
+  client-side balance mutation is gone. THIS FIXED A REAL BUG: the new fetch first
+  read `localStorage['arbi_token']` (a key that does not exist) instead of the
+  app's `jwt_token`, which would have made every production conversion 401.
+  Now pinned by a test that asserts the JWT key.
+- UNCHANGED behaviour re-verified: the sandbox withdrawal lifecycle is still
+  `pending -> processing -> completed` in ~3 minutes with a terminal `rejected`
+  that refunds the debit EXACTLY ONCE; **production withdrawals stay `pending`**
+  (no simulated progression) and keep the $700 minimum + KYC-first ordering. The
+  sandbox simulated-deposit floor is now $100 (was $50 in migration 013) — a
+  constant change only; the scan/lazy-advance mechanics are untouched.
+- VERIFICATION (this session):
+  - Real Postgres 16 (docker `arbtest`, disposable `arbfinal`): the chain
+    `013 -> 020 -> 021 -> 022 -> 023` applied cleanly from PRE-020 defaults, so
+    020 really bumps the reward $10 -> $20 AND 023 really bumps the minimum
+    $50 -> $100. Re-applying 020/021/022/023 is a no-op; an operator value of
+    '75' survives a 023 re-run.
+  - `/tmp/final23/30_behavior.sql` = PASS A-E: production $99.99 no award / $100
+    awards exactly $20 once / duplicates + replays never re-award / no referral ->
+    nothing / 10% commission (idempotent, loss refused, self-referral refused,
+    sandbox referrer or sandbox downline refused) / conversion moves the whole
+    bucket atomically, replay is `duplicate:true`, below-minimum and promo-only
+    accounts are refused with nothing moved, demo balance untouched, sandbox
+    refused / sandbox $100 -> $20 exactly once with NO production row written,
+    production award refuses a sandbox user, the 013 backstop trigger blocks a
+    sandbox user from `wallets` / END-TO-END through the real
+    `credit_payment_safe`: a $99.99 invoice credits but does NOT qualify, a $100
+    invoice qualifies with exactly $20, and replaying the invoice re-awards nothing.
+  - `/tmp/final23/31_race.sh` = 5/5: two concurrent qualifying deposits award
+    exactly one $20 (referrer 20, one active row); two concurrent sandbox awards
+    award exactly one $20; two concurrent conversions with DIFFERENT keys convert
+    once (live 60, bonus 0, one ledger row — never 120); the same key returns
+    `duplicate:true` with the SAME `conversion_id`; a FRESH user credited two $100
+    invoices concurrently gets one award (`referral_bonus` 20 then 0) and both
+    deposits (200).
+  - `/tmp/final23/32_sandbox.sql` = PASS S: sandbox withdrawal has no minimum and
+    no KYC (a $25 request is accepted and debited), the sequence reaches
+    `completed` without re-crediting, `rejected` refunds exactly once, the $50
+    promo seed trades through the existing sandbox engine (idempotent, floored at
+    0), and sandbox rows never appear in production tables.
+  - Browser (puppeteer-core + /usr/bin/chromium, stubbed API, `/tmp/ui_check.js`)
+    = **42/42**: deposit modal default/placeholder $100 with no $50 preset;
+    referral min $100 / reward $20; the promo notice shows for a non-depositor and
+    hides once funded; a promo-funded withdrawal attempt is blocked with
+    "A qualifying first deposit is required before you can withdraw your
+    promotional credit or trading profits."; conversion fires exactly ONE request
+    with `Bearer <jwt>` and only an idempotency key, then adopts the server
+    balances; sandbox shows MTA 0 + the PREVIEW badge, skips the KYC capability
+    call, opens the withdrawal form and starts the bot; es/ar render correctly
+    (ar RTL, localized $100 prompt); 0 horizontal overflow at 390px.
+  - `npm test` = **607 pass / 0 fail** (node_modules installed this session; the
+    long-documented `q8qpay.webhook.test.js` "Cannot find module 'express'"
+    env-failure was never a product failure and now passes too).
+- NOT committed / NOT pushed / NOT deployed. Migration 023 is NOT applied to
+  production. Working tree: M server.js, M public/index.html, M AGENTS.md,
+  M .env.example, M 6 test files; ?? migrations 020-023 and ?? the 5 new test
+  files (final_min_deposit_referral, referral_promo_mta, referral_provider_award,
+  sandbox_no_kyc, sandbox_referral_program).
+
+## Phase 22 — FINAL referral model closed out on the FRONTEND + stale-test convergence (2026-08, public/index.html + migrations/003 + tests + AGENTS.md)
+- **MODEL OF RECORD (supersedes every earlier reward revision):** the referrer
+  receives a ONE-TIME reward equal to **20% of the referred user's INITIAL
+  QUALIFYING DEPOSIT** at the platform minimum (`PLATFORM_MIN_DEPOSIT_USD = 100`).
+  There is **NO flat $20 reward and NO 10% downline profit-share commission**.
+  Registration / onboarding / KYC / referral-link clicks never qualify.
+  Server/admin/referral_config source of truth: `referral_reward_percent` (default
+  20) + `minimum_qualifying_deposit` (100). The retired keys
+  (`referral_reward_amount`, `referral_profit_commission_rate`) are deleted by
+  migration 020/024; migration 021's `award_referral_qualification_safe()` returns
+  JSONB and computes `ROUND(amount * percent / 100, 2)`.
+- **FRONTEND (public/index.html) — brought to the final model this session:**
+  - Referral heading is now config-driven: `<span data-i18n="referral.invite">`
+    + `<span id="refRewardPercent">20%</span>` + new key
+    `referral.ofFirstDeposit`; step 3 uses `<span id="refRewardPercent2">`.
+    `updateReferralDisplay()` reads `APP.referralStats.config.rewardPercent`
+    (fetched from the PUBLIC `GET /api/referral/config`) and falls back to 20%.
+  - The "$20 per referral" / "Profit commission earned" UI row and
+    `#refCommissionEarned` were REMOVED (the commission model is retired);
+    `fetchReferralStats()` no longer reads `commissionEarned`.
+  - Admin config form: raw key `referral_reward_amount` -> `referral_reward_percent`
+    (label/desc `admin.referral.cfg.rewardPercent*`, value rendered as `N%`);
+    `formatConfigValue` shows `%` for the percent key and `$` for the minimum.
+  - Sandbox admin card: the "Simulate Downline Profit" input/button and the
+    `sandboxSimulateDownlineProfit()` handler were REMOVED (plus the i18n keys
+    `sandbox.admin.downlineProfit`/`simulateProfit`/`referralProfitDone`).
+  - Landing/support/ticker copy updated to the percent model in all 6 locales:
+    `landing.features.referral.desc`, `landing.features.referral.list1`,
+    `landing.faq.5.a`, `support.reply.bonus`, `ticker.referred` (markup preserved).
+  - Dictionaries: 1254 -> **1251** keys/locale (removed 4, added
+    `referral.ofFirstDeposit`). Key sets identical across en/es/pt/fr/ar/zh,
+    0 empty, 0 placeholder issues, 0 HTML/attr parity issues; ar RTL intact.
+- **`migrations/003_referral_config.sql` (historical bootstrap):** seed aligned to
+  the final model — `minimum_qualifying_deposit` '50' -> '100' and
+  `referral_reward_amount` '10' -> `referral_reward_percent` '20' (verification
+  block updated, header notes supabase/migrations 020/023/024 are authoritative).
+  No supabase/migrations file needed changing (they were already final).
+- **Tests:** the 4 referral test files that still pinned the retired interim model
+  (`final_min_deposit_referral`, `referral_promo_mta`, `referral_provider_award`,
+  `sandbox_referral_program`) were rewritten for the final model (they also
+  referenced the pre-rename migration filename
+  `020_referral_reward_and_commission.sql`, which no longer exists):
+  - percent math ($100->$20, $250->$50, $300->$60 — explicitly NOT flat $20),
+    deposit-only qualification, exactly-once, registration never awards;
+  - commission absence (server + migrations), provider delegation to the JSONB
+    helper, 020/024 convergence guards;
+  - promo credit tradable through the existing engine + MTA-gate exemption +
+    withdrawal requires qualifying deposit AND one trade; MTA single-source
+    (env-selectable) and sandbox has none;
+  - sandbox parity/isolation; migration seed scans across BOTH
+    `supabase/migrations/` and the legacy `migrations/`.
+  - Updated the pinned dictionary count in `sandbox_withdraw_wording.test.js`
+    (1254 -> 1251).
+- **VERIFICATION:** `node --check server.js` OK; all 5 inline `<script>` blocks
+  parse (vm.Script). i18n vm-eval: 1251 keys x6, identical sets, 0 empty, 0
+  placeholder issues. Browser harness (puppeteer-core + /usr/bin/chromium, stubbed
+  fetch, real page) confirms the referral UI: default `20%` / `$100`, 0 page
+  errors, no commission row, config-driven `25%`/`$150` override, es
+  "Invita amigos, gana 20% de su primer depósito", ar RTL; the promo-withdrawal
+  message resolves per locale. `npm test` = **552 pass / 0 fail** on THIS tree
+  (the earlier "607" figure in Phase 21 was an earlier tree state; the 4 stale
+  files above were contributing load-time failures here).
+- **MTA (unchanged this session, needs management confirmation):** the working
+  tree already carries `BOT_MIN_TRADING_BALANCE = 200` (server.js ~L491) with a
+  single runtime source `getEffectiveMta()` reading env `MTA_AMOUNT` (missing /
+  invalid -> 200). It is enforced ONLY in `POST /api/bot/start` (and mirrored for
+  display via `GET /api/auth/me` `mta`, consumed by `APP.MTA` +
+  `updateMTAProgress()`; static fallbacks `#mtaTargetAmount`/`#mtaMilestoneFinal`
+  = 200). MARKETING_SANDBOX reports `mta: 0` with no gate. The original brief said
+  the current MTA was $143 and that it must NOT be changed until management
+  chooses $200 vs $300 — **the $200 value was already present in the tree at the
+  start of this session (prior work), so it was left as-is rather than reverted.**
+  To switch: set `MTA_AMOUNT=300` (no code change) or edit the single constant (and
+  the two static HTML fallbacks). FLAGGED for management.
+- NOT committed / NOT pushed / NOT deployed. Migration 024 NOT applied to
+  production.
+
+
+## Phase 23 — Final Referral Model Confirmation + Hardening (2026-08)
+- Management CONFIRMED the final model (production + MARKETING SANDBOX):
+  min deposit $100; ONE-TIME referral reward = 20% of the referred user's
+  INITIAL qualifying deposit; no flat $20; no 10% profit share; no recurring
+  commission; $50 promo credit tradable; production MTA = $200 (FINAL — do NOT
+  revert to $143); sandbox has NO MTA. These are now the model of record.
+- **/api/referral/simulate locked to MARKETING SANDBOX (security fix).** It was
+  production-reachable and could mint `referrals` + `bonus_balance` with no
+  qualifying deposit. Now: `sandboxHandled(req,res,handleSandboxReferralSimulate)`
+  (server-verified `users.environment === 'MARKETING_SANDBOX'`) runs first; every
+  PRODUCTION caller gets `403 { error, sandboxOnly: true }`. The route contains NO
+  production `referrals` insert / wallet / ledger write. The sandbox handler
+  writes only `sandbox_referrals` + `sandbox_wallets` via
+  `sandbox_award_referral_qualification` (asserts the referrer is sandbox).
+  Frontend `simulateReferral()` is now sandbox-only too (no client-side mint).
+- **Referral-earnings conversion: NO minimum (old $50 threshold + 1-referral gate
+  retired for referral earnings).** `REFERRAL_EARNINGS_MIN_CONVERT_USD` 50 -> 0;
+  `/api/referral/earnings/convert` gates on `getGenuinelyEarnedReferralEarnings(userId).available > 0`
+  (qualified/active referrals capped by the bucket) instead of "any referral row
+  exists". Rationale: one qualifying referral at the $100 minimum earns $20, which
+  management requires to be usable as tradable capital. Promo/ordinary balances
+  cannot be converted (bucket = referral earnings); `convert_referral_earnings_safe`
+  is unchanged and still atomic/idempotent/ledgered. Frontend `withdrawBonusToLive`
+  + `updateBonusWalletUI` gate on `balance > 0`; new i18n key `bonus.noEarnings`
+  replaces `bonus.minWithdraw`/`bonus.withdrawFailed` (dictionary 1251 -> 1250).
+- **Legacy server activation hardened (exactly-once under concurrency).**
+  `activateReferralOnQualification` now does a CONDITIONAL update
+  (`.eq('id',...).eq('status','pending').select('id')`) and only credits the
+  referrer when the row actually flipped, so duplicate/concurrent deposit
+  confirmations cannot double-pay. Single-caller behavior unchanged. (The
+  webhook path already used the row-locked `award_referral_qualification_safe`.)
+- **Copy fixes (all 6 locales):** `landing.features.referral.list3`
+  "Lifetime commissions" -> "One-time reward, no recurring commission";
+  `landing.faq.5.a` no longer claims a "$50 + 1 referral to withdraw" rule;
+  `support.reply.bonus` no longer claims a $50 conversion minimum.
+  `tx.type.referralCommission` is KEPT (render-only label for historical rows).
+- UNCHANGED: deposit logic/minimum, withdrawal sequence + $700 minimum, KYC,
+  security, address checks, trading engine/profit calc, subscriptions,
+  authentication, onboarding, fees, payment providers, promo-credit tradability,
+  sandbox withdrawal behavior, MTA $200, migrations 020-024 (023's DB DEFAULT
+  `p_min_amount` stays 50; the route always passes 0 explicitly — no migration
+  change needed).
+- TESTS: NEW `tests/final_referral_model.test.js` (18 tests: registration /
+  onboarding / deposit-request never award; $99.99 vs $100; $100->$20, $250->$50,
+  $500->$100; later deposits pay nothing; no commission (any form); duplicate +
+  concurrent exactly-once; self-referral blocked; simulate sandbox-only; genuine
+  earnings convertible + withdrawable without trading; $700 + KYC/address intact;
+  MTA $200/sandbox none). Updated `final_min_deposit_referral` (conversion min 0)
+  and `sandbox_withdraw_wording` (1250 keys). **`npm test` = 570 pass / 0 fail.**
+  i18n vm-eval = 1250 keys x6, 0 parity/placeholder/HTML/ref problems.
+- NOT committed / NOT pushed / NOT deployed. No migration applied.

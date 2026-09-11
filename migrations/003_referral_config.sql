@@ -4,6 +4,13 @@
 -- Arbitrix AI - Dynamic Referral Configuration
 -- ============================================================
 --
+-- BOOTSTRAP FILE (historical). The referral reward MODEL is maintained by
+-- supabase/migrations/020_referral_reward_model.sql + 023/024: a ONE-TIME
+-- reward equal to 20% of the referred user's initial qualifying deposit
+-- (no flat amount, no downline commission). The default seeds below are
+-- aligned with that final model so a fresh bootstrap can never seed the
+-- retired $10 flat reward.
+--
 -- This migration creates a table to store referral system configuration
 -- allowing administrators to modify referral behavior without code changes.
 -- ============================================================
@@ -34,8 +41,8 @@ CREATE TABLE IF NOT EXISTS public.referral_config (
 
 INSERT INTO public.referral_config (config_key, config_value, description) VALUES
     ('rewards_enabled', 'true', 'Enable or disable referral rewards system-wide'),
-    ('minimum_qualifying_deposit', '50', 'Minimum deposit amount required for referral qualification (in USD)'),
-    ('referral_reward_amount', '10', 'Amount awarded to referrer when referral qualifies (in USD)'),
+    ('minimum_qualifying_deposit', '100', 'Minimum deposit amount required for referral qualification (in USD)'),
+    ('referral_reward_percent', '20', 'Referral reward as a percentage of the referred user''s initial qualifying deposit'),
     ('first_deposit_required', 'true', 'Whether referral requires first deposit to qualify'),
     ('max_rewards_per_user', '0', 'Maximum number of referral rewards per user (0 = unlimited)')
 ON CONFLICT (config_key) DO NOTHING;
@@ -129,8 +136,8 @@ BEGIN
         RAISE EXCEPTION 'minimum_qualifying_deposit config not set!';
     END IF;
     
-    IF NOT EXISTS (SELECT 1 FROM public.referral_config WHERE config_key = 'referral_reward_amount') THEN
-        RAISE EXCEPTION 'referral_reward_amount config not set!';
+    IF NOT EXISTS (SELECT 1 FROM public.referral_config WHERE config_key = 'referral_reward_percent') THEN
+        RAISE EXCEPTION 'referral_reward_percent config not set!';
     END IF;
     
     RAISE NOTICE '✅ Referral config migration completed successfully!';

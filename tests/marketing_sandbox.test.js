@@ -591,17 +591,20 @@ test('frontend shows a marketing demo badge driven by server state', () => {
 });
 
 test('frontend sandbox gate skips are keyed on APP.environment (display only)', () => {
-    // Withdraw gate skip requires the server-issued classification.
-    const withdrawSkip = INDEX.indexOf("const isSandbox = APP.environment === 'MARKETING_SANDBOX';\n    if (!isSandbox)");
+    // Withdraw gate skip requires the server-issued classification: the sandbox
+    // short-circuits (no KYC check, no min/deposit/trade gates) and production
+    // keeps its own gate block.
+    const withdrawSkip = INDEX.indexOf("const isSandbox = APP.environment === 'MARKETING_SANDBOX';\n    if (isSandbox) {");
     assert.ok(withdrawSkip > 0, 'withdraw gate skip not environment-gated');
+    assert.ok(INDEX.includes("    if (!isSandbox) {"), 'production-only gate block must remain');
     assert.match(INDEX, /APP\.liveData\.balance < APP\.MTA && !isSandbox/);
-    // The bot-start MTA gate must NOT skip MARKETING_SANDBOX: the sandbox
-    // demonstrates the real customer experience, so the $143 MTA applies there
-    // too (see tests/bot_mta.test.js).
-    assert.match(INDEX, /if\(APP\.mode === 'live' && APP\.liveData\.balance < APP\.MTA\) \{\n        showToast\(t\('bot\.mtaBlocked'\),'error'\);\n        return;/);
+    // The sim/withdraw gate skip above is a DISPLAY convenience; the MTA itself
+    // is gone for the sandbox (server reports mta: 0), so the bot-start gate is
+    // simply inactive there because no MTA exists (see tests/bot_mta.test.js).
+    assert.match(INDEX, /if\(APP\.mode === 'live' && Number\(APP\.MTA\) > 0 && APP\.liveData\.balance < APP\.MTA && !isPromoFundedTrading\(\)\) \{\n        showToast\(t\('bot\.mtaBlocked', \{mta: APP\.MTA\}\),'error'\);\n        return;/);
     const startBotIdx = INDEX.indexOf('function startBot()');
-    const startBotBody = INDEX.slice(startBotIdx, startBotIdx + 1200);
-    assert.ok(!startBotBody.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'startBot must not exempt MARKETING_SANDBOX from the MTA gate');
+    const startBotBody = INDEX.slice(startBotIdx, startBotIdx + 1400);
+    assert.ok(!startBotBody.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'startBot must not use an environment special-case');
 });
 
 test('frontend admin sandbox controls call only /api/admin/sandbox endpoints', () => {

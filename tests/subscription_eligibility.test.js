@@ -111,14 +111,14 @@ describe('case matrix', () => {
     const r = activateGate('inactive', true);
     assert.ok(r.charged);
   });
-  test('CASE 4: $93 deposit reaches ~$143 balance; subscription stays independent of MTA', () => {
-    // MTA (143) is a trading/bot gate, not a subscription gate.
-    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 143'));
-    assert.ok(serverSrc.includes('Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE'));
+  test('CASE 4: $150 deposit; subscription stays independent of MTA', () => {
+    // MTA (200) is a trading/bot gate, not a subscription gate.
+    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 200'));
+    assert.ok(serverSrc.includes('getEffectiveMta(BOT_MIN_TRADING_BALANCE)'));
     const r = activateGate('inactive', true);
     assert.ok(r.charged);
   });
-  test('CASE 5: $143+ deposit -> normal funded-user behavior', () => {
+  test('CASE 5: $200+ deposit -> normal funded-user behavior', () => {
     assert.ok(activateGate('inactive', true).charged);
   });
   test('CASE 6: no promo, $50+ deposit -> eligible (gate only needs a confirmed deposit)', () => {
@@ -158,10 +158,10 @@ describe('constants preserved', () => {
     assert.ok(/SUBSCRIPTION_PRO_DEFAULT_PRICE = 7/.test(serverSrc));
     assert.ok(/'subscription\.pro_price', '7', 'number'/.test(fs.readFileSync(path.join(ROOT, 'supabase/migrations/011_subscription_pro.sql'), 'utf8')));
   });
-  test('MTA remains $143', () => {
-    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 143'));
-    assert.ok(serverSrc.includes('Number(wallet.live_balance) < BOT_MIN_TRADING_BALANCE'));
-    assert.ok(indexSrc.includes('$143.00'));
+  test('MTA is $200 (active value)', () => {
+    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 200'));
+    assert.ok(serverSrc.includes('getEffectiveMta(BOT_MIN_TRADING_BALANCE)'));
+    assert.ok(indexSrc.includes('$200.00'));
   });
   test('Demo starting balance remains $1,000', () => {
     assert.ok(/demo_balance: 1000/.test(serverSrc));
