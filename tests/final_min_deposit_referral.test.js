@@ -246,13 +246,14 @@ test('promo credit: stays $50 and is not derived from the minimum deposit', () =
 });
 
 test('promo credit: tradable through the EXISTING engine (no separate engine)', () => {
-    assert.match(SERVER, /function isPromoFundedTrading\(/);
+    assert.match(SERVER, /function isNonDepositedTrading\(/);
     const trade = SERVER.slice(SERVER.indexOf("app.post('/api/trade'"), SERVER.indexOf("app.post('/api/trade'") + 900);
     assert.match(trade, /record_trade_safe/, 'promo trading uses the same trading engine');
 });
 
 test('promo credit: withdrawal requires a qualifying first deposit, then one trade', () => {
-    assert.ok(WITHDRAW_SOURCE.indexOf('verificationRequired') < WITHDRAW_SOURCE.indexOf('Min $700'), 'KYC is still the first gate');
+    assert.ok(WITHDRAW_SOURCE.indexOf('requiresFirstDeposit') < WITHDRAW_SOURCE.indexOf('verificationRequired'), 'first-deposit prompt is the first gate');
+    assert.ok(WITHDRAW_SOURCE.indexOf('verificationRequired') < WITHDRAW_SOURCE.indexOf('Min $700'), 'KYC still precedes the $700 minimum');
     assert.ok(WITHDRAW_SOURCE.includes('Min $700'), 'existing $700 minimum preserved');
     assert.ok(WITHDRAW_SOURCE.includes('Complete at least 1 trade first'), 'the existing one-trade rule is preserved');
     assert.ok(WITHDRAW_SOURCE.includes('A qualifying first deposit is required before you can withdraw your promotional credit'), 'clear deposit requirement message');

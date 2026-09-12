@@ -50,14 +50,15 @@ function effectiveMta(env, fallback) {
     return (Number.isFinite(n) && n > 0) ? n : fallback;
 }
 
-// Pure mirror of isPromoFundedTrading().
-function promoFunded(hasConfirmedDeposit, liveBalance) {
+// Pure mirror of isNonDepositedTrading() — the MTA-exemption classifier, which
+// is NOT the promotional-credit cap classifier (see promo_trading_cap.test.js).
+function nonDepositedTrading(hasConfirmedDeposit, liveBalance) {
     return !hasConfirmedDeposit && Number(liveBalance) > 0;
 }
 
 // Pure mirror of the bot-start gate.
 function botStartAllowed(mode, balance, mta, hasConfirmedDeposit) {
-    return !(mode === 'live' && balance < mta && !promoFunded(hasConfirmedDeposit, balance));
+    return !(mode === 'live' && balance < mta && !nonDepositedTrading(hasConfirmedDeposit, balance));
 }
 
 test('promo credit: the $50 seed is a constant, not derived from the minimum deposit', () => {
@@ -67,12 +68,13 @@ test('promo credit: the $50 seed is a constant, not derived from the minimum dep
 });
 
 test('promo credit: tradable via the EXISTING engine and exempt from the bot MTA gate', () => {
-    assert.match(SERVER, /function isPromoFundedTrading\(hasConfirmedDeposit, liveBalance\)/);
-    const promoFn = fnSource('isPromoFundedTrading');
+    assert.match(SERVER, /function isNonDepositedTrading\(hasConfirmedDeposit, liveBalance\)/);
+    const promoFn = fnSource('isNonDepositedTrading');
     assert.match(promoFn, /!hasConfirmedDeposit && Number\(liveBalance\) > 0/);
     // The bot-start route applies the exemption but keeps the MTA value gate.
-    assert.match(BOT_START, /isPromoFundedTrading\(await hasConfirmedDeposit\(userId\)/);
-    assert.match(BOT_START, /if \(mode === 'live' && balance < mta && !promoFunded\)/);
+    assert.match(BOT_START, /const hasDeposit = await hasConfirmedDeposit\(userId\)/);
+    assert.match(BOT_START, /isNonDepositedTrading\(hasDeposit, balance\)/);
+    assert.match(BOT_START, /if \(mode === 'live' && balance < mta && !nonDepositedTrading\)/);
     assert.match(BOT_START, /getEffectiveMta\(BOT_MIN_TRADING_BALANCE\)/);
 });
 
@@ -94,19 +96,24 @@ test('promo credit: withdrawal requires a qualifying first deposit AND one trade
     assert.ok(WITHDRAW.includes('depositRequired: true'));
     assert.ok(WITHDRAW.includes('requiresFirstDeposit: true'));
     assert.ok(WITHDRAW.includes("Complete at least 1 trade first"), 'the existing one-trade rule is preserved');
-    // Existing gates preserved and ordered before the new requirement.
-    assert.ok(WITHDRAW.indexOf('verificationRequired') < WITHDRAW.indexOf('Min $700'), 'KYC remains the first gate');
+    // The production first-deposit gate now precedes the verification prompt
+    // (prompt priority), while KYC still precedes the $700 minimum.
+    assert.ok(WITHDRAW.indexOf('requiresFirstDeposit') < WITHDRAW.indexOf('verificationRequired'), 'first-deposit prompt precedes verification');
+    assert.ok(WITHDRAW.indexOf('verificationRequired') < WITHDRAW.indexOf('Min $700'), 'KYC precedes the $700 minimum');
     assert.ok(WITHDRAW.includes('Min $700'), 'the $700 minimum is unchanged');
     assert.ok(WITHDRAW.includes('Insufficient balance'), 'the balance check is unchanged');
     assert.ok(WITHDRAW.includes('Valid address required'), 'the address check is unchanged');
 });
 
-test('promo credit: the requirement is appended in the not-fully-qualified branch only', () => {
-    const guardIdx = WITHDRAW.indexOf('if (!requirementsMet && fromBonus === 0)');
+test('promo credit: the deposit requirement is a first-priority gate; the trade rule stays in the not-fully-qualified branch', () => {
     const depositGate = WITHDRAW.indexOf('requiresFirstDeposit');
+    const kycGate = WITHDRAW.indexOf('verificationRequired');
+    const guardIdx = WITHDRAW.indexOf('if (!requirementsMet && fromBonus === 0)');
     const tradeGate = WITHDRAW.indexOf("Complete at least 1 trade first");
-    assert.ok(guardIdx > 0 && tradeGate > guardIdx && depositGate > tradeGate,
-        'the deposit requirement follows the existing trade requirement inside the same branch');
+    assert.ok(depositGate > 0 && kycGate > depositGate,
+        'the first-deposit requirement must take priority over the verification prompt');
+    assert.ok(guardIdx > 0 && tradeGate > guardIdx,
+        'the completed-trade requirement remains inside the not-fully-qualified branch');
 });
 
 test('MTA: exactly one place defines the value, env-selectable (no hard-coded 200/300 in routes)', () => {
