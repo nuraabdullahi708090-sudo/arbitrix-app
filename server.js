@@ -27,6 +27,9 @@ const TOTPService = require('./services/TOTPService');
 // Email 2FA Service (Primary 2FA method)
 const Email2FAService = require('./services/Email2FAService');
 
+// Server-side JWT session revocation (jti denylist) for logout
+const TokenRevocation = require('./services/TokenRevocationService');
+
 // Feature flag cache (refreshes every 5 minutes)
 let featureFlagCache = {
     '2fa_type': 'email' // Default to email 2FA
@@ -2068,14 +2071,53 @@ This is an automated message from Arbitrix AI.`
 }
 
 // ---------- AUTH MIDDLEWARE ----------
-function authMiddleware(req, res, next) {
+// Server-side session revocation store (jti denylist). Backed by the
+// service-role Supabase client; table `revoked_tokens` (migration 025).
+const sessionRevocationStore = TokenRevocation.createSupabaseStore(supabaseAdmin);
+
+// Session TTL. Kept as the single source shared by every FULL token issuer
+// (register/login/2FA); partial 2FA tokens stay short-lived below.
+const SESSION_TTL = '7d';
+
+/**
+ * Sign a full session token. Every full token carries a unique `jti` so logout
+ * can revoke that exact session server-side (see authMiddleware / logout).
+ * Only full sessions get a jti; 2FA partial tokens are intentionally not
+ * revocable because they are not authenticated sessions.
+ */
+function signSessionToken({ id, email, isAdmin }) {
+  return jwt.sign(
+    { id, email, isAdmin: !!isAdmin, jti: TokenRevocation.generateJti() },
+    JWT_SECRET,
+    { expiresIn: SESSION_TTL }
+  );
+}
+
+async function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  let decoded;
   try {
-    const decoded = jwt.verify(auth.slice(7), JWT_SECRET);
-    req.user = decoded;
-    next();
+    decoded = jwt.verify(auth.slice(7), JWT_SECRET);
   } catch (e) { return res.status(401).json({ error: 'Invalid token' }); }
+  // A 2FA partial token is only valid as input to /api/2fa/login-verify; it
+  // must never be usable as a full authenticated session.
+  if (decoded && decoded._2fa_pending) return res.status(401).json({ error: 'Invalid token' });
+  // Server-side revocation: a token whose jti was revoked (logout) is rejected
+  // even though its signature and exp are still valid.
+  if (decoded && decoded.jti) {
+    try {
+      if (await TokenRevocation.isTokenRevoked(sessionRevocationStore, decoded.jti)) {
+        return res.status(401).json({ error: 'Session revoked' });
+      }
+    } catch (e) {
+      // Availability trade-off: a transient revocation-store error must not log
+      // every user out. Never log token material.
+      console.warn('[auth] revocation check unavailable:', e.message);
+    }
+  }
+  req.user = decoded;
+  next();
 }
 
 function adminMiddleware(req, res, next) {
@@ -2196,7 +2238,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
   }
   
-  const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
+  const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
   // Public registration always creates a PRODUCTION account. MARKETING_SANDBOX
   // accounts can only be created via POST /api/admin/sandbox/accounts (admin).
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: ENV_PRODUCTION } });
@@ -2208,8 +2250,28 @@ app.post('/api/auth/login', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const user = await getUserByEmail(email);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.is_admin===1 }, JWT_SECRET, { expiresIn: '7d' });
+  const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: user.environment || ENV_PRODUCTION } });
+});
+
+// Logout — server-side session revocation.
+// Revokes the presented token's jti so a replayed copy is rejected by
+// authMiddleware even though its signature/exp remain valid. The client clears
+// its local token regardless; this endpoint makes that revocation effective
+// server-side. Revocation itself is idempotent: re-revoking the same jti is a
+// no-op (upsert ignoreDuplicates) and never errors. (A second HTTP call with an
+// already-revoked token returns 401 from authMiddleware by design, not an
+// error state.)
+app.post('/api/auth/logout', authMiddleware, async (req, res) => {
+  try {
+    const result = await TokenRevocation.revokeToken(sessionRevocationStore, req.user);
+    // `revoked:false` only for legacy tokens without a jti (unrevocable) or a
+    // missing store; the session is still ended client-side.
+    res.json({ success: true, revoked: result.revoked });
+  } catch (err) {
+    console.error('[auth/logout]', err.message);
+    res.status(500).json({ error: 'Logout failed' });
+  }
 });
 
 // ---------- FORGOT PASSWORD ----------
@@ -6759,11 +6821,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         // shape to the no-2FA path below). users.environment is server-stored
         // and immutable; the client can never supply or override it.
         if (user.environment === ENV_MARKETING_SANDBOX) {
-            const token = jwt.sign(
-                { id: user.id, email: user.email, isAdmin: user.is_admin===1 },
-                JWT_SECRET,
-                { expiresIn: '7d' }
-            );
+            const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
 
             return res.json({
                 success: true,
@@ -6846,11 +6904,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         }
         
         // No 2FA required - return token directly
-        const token = jwt.sign(
-            { id: user.id, email: user.email, isAdmin: user.is_admin===1 },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
 
         return res.json({
             success: true,
@@ -6940,11 +6994,7 @@ app.post('/api/2fa/login-verify', async (req, res) => {
         // Generate full token (isAdmin camelCase matches /api/auth/login so
         // adminMiddleware (req.user.isAdmin) and frontend checkAdminAccess work
         // for the 2FA login path too).
-        const token = jwt.sign(
-            { id: userId, email: decoded.email, isAdmin: !!decoded.isAdmin },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        const token = signSessionToken({ id: userId, email: decoded.email, isAdmin: !!decoded.isAdmin });
 
         // Get user data (is_verified removed - column doesn't exist in users table)
         const { data: user } = await supabaseAdmin

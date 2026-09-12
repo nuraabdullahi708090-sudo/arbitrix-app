@@ -6287,7 +6287,13 @@ function toggleFaq(btn) {
                             <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> <span data-i18n="referral.howItWorks">How it works:</span></div>
                             <div style="margin-bottom:4px;"><span style="color:#8896B5;">1.</span> <span data-i18n="referral.step1Text">Friend registers with your code</span> → <span style="color:#F0B90B;" data-i18n="referral.pending">Pending</span></div>
                             <div style="margin-bottom:4px;"><span style="color:#8896B5;">2.</span> <span data-i18n="referral.step2Text">Friend deposits ≥</span><span id="refMinDeposit">$100</span> → <span style="color:#10B981;" data-i18n="referral.active">Active</span></div>
-                            <div><span style="color:#8896B5;">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#F0B90B;"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> → <span data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
+                            <div><span style="color:#8896B5;">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#F0B90B;"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> → <span id="refStep3Destination" data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
+                        </div>
+
+                        <!-- Sandbox-only: where sandbox referral rewards land. Hidden
+                             for production accounts (see updateSandboxReferralWording). -->
+                        <div id="referralSandboxNote" class="hidden" style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.25);border-radius:8px;padding:8px;margin-bottom:8px;line-height:1.4;">
+                            <i class="fas fa-circle-info"></i> <span data-i18n="referral.sandboxCreditNote">Sandbox referral rewards are credited to your simulated Live balance — not the Bonus Wallet.</span>
                         </div>
                         
                         <!-- Pending Referrals List -->
@@ -6331,6 +6337,10 @@ function toggleFaq(btn) {
       <!-- Deposit Amount Input -->
       <div style="margin:16px 0;">
         <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="withdraw.amount">Amount (USD)</label>
+        <!-- Minimum deposit, shown before submission. Text is rendered by
+             updateDepositMinNotice() from APP.MIN_DEPOSIT so the number has a
+             single source (no duplicated hard-coded value). -->
+        <div id="depositMinNotice" style="font-size:11px;color:#8896B5;margin-top:6px;"></div>
         <div style="position:relative;margin-top:8px;">
           <span class="deposit-amount-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8896B5;font-size:18px;">$</span>
           <input type="number" id="liveDepositAmount" placeholder="100.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="100">
@@ -7561,6 +7571,7 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'Remove all ${{amount}} from Demo wallet?',
         'bonus.balance': 'Bonus Balance',
         'bonus.noEarnings': 'No referral earnings to convert yet.',
+        'bonus.sandboxNoEarnings': 'Sandbox referral rewards are credited to your simulated Live balance.',
         'bonus.withdrawToLive': 'Withdraw Bonus to Live Wallet',
         'bonus.withdrawSuccess': '✅ ${{amount}} bonus withdrawn to Live wallet!',
         'bonus.noReferrals': '📢 Refer at least 1 friend before withdrawing bonus',
@@ -8234,6 +8245,8 @@ const TRANSLATIONS = {
         'referral.step3Text': 'You earn',
         'referral.bonusWord': 'bonus',
         'referral.bonusWallet': 'Bonus Wallet',
+        'referral.sandboxWalletTarget': 'Simulated Live balance',
+        'referral.sandboxCreditNote': 'Sandbox referral rewards are credited to your simulated Live balance — not the Bonus Wallet.',
         'referral.pendingAwaiting': 'Pending Referrals (Awaiting First Deposit)',
         'referral.copyCode': 'Copy Code',
         'referral.copyLink': 'Copy Link',
@@ -8831,6 +8844,7 @@ const TRANSLATIONS = {
         'demo.confirmRemove': '¿Quitar todos los ${{amount}} de la cartera demo?',
         'bonus.balance': 'Saldo de bonos',
         'bonus.noEarnings': 'Aún no hay ingresos por referidos para convertir.',
+        'bonus.sandboxNoEarnings': 'Las recompensas por referidos del sandbox se abonan en tu saldo Live simulado.',
         'bonus.withdrawToLive': 'Retirar bono a la cartera Live',
         'bonus.withdrawSuccess': '✅ ¡${{amount}} de bono retirados a la cartera Live!',
         'bonus.noReferrals': '📢 Refiere al menos a 1 amigo antes de retirar el bono',
@@ -9504,6 +9518,8 @@ const TRANSLATIONS = {
         'referral.step3Text': 'Ganas',
         'referral.bonusWord': 'bono',
         'referral.bonusWallet': 'Billetera de bonos',
+        'referral.sandboxWalletTarget': 'Saldo Live simulado',
+        'referral.sandboxCreditNote': 'Las recompensas por referidos del sandbox se abonan en tu saldo Live simulado, no en la Billetera de bonos.',
         'referral.pendingAwaiting': 'Referidos pendientes (esperando primer depósito)',
         'referral.copyCode': 'Copiar código',
         'referral.copyLink': 'Copiar enlace',
@@ -10102,6 +10118,7 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'Remover todos os ${{amount}} da carteira demo?',
         'bonus.balance': 'Saldo de bônus',
         'bonus.noEarnings': 'Ainda não há ganhos de indicação para converter.',
+        'bonus.sandboxNoEarnings': 'As recompensas de indicação do sandbox são creditadas no seu saldo Live simulado.',
         'bonus.withdrawToLive': 'Sacar bônus para a carteira Live',
         'bonus.withdrawSuccess': '✅ ${{amount}} de bônus sacados para a carteira Live!',
         'bonus.noReferrals': '📢 Indique pelo menos 1 amigo antes de sacar o bônus',
@@ -10775,6 +10792,8 @@ const TRANSLATIONS = {
         'referral.step3Text': 'Você ganha',
         'referral.bonusWord': 'bônus',
         'referral.bonusWallet': 'Carteira de bônus',
+        'referral.sandboxWalletTarget': 'Saldo Live simulado',
+        'referral.sandboxCreditNote': 'As recompensas de indicação do sandbox são creditadas no seu saldo Live simulado, não na Carteira de bônus.',
         'referral.pendingAwaiting': 'Indicações pendentes (aguardando primeiro depósito)',
         'referral.copyCode': 'Copiar código',
         'referral.copyLink': 'Copiar link',
@@ -11373,6 +11392,7 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'Retirer tous les ${{amount}} du portefeuille démo ?',
         'bonus.balance': 'Solde bonus',
         'bonus.noEarnings': 'Aucun gain de parrainage à convertir pour le moment.',
+        'bonus.sandboxNoEarnings': 'Les récompenses de parrainage du bac à sable sont créditées sur votre solde Live simulé.',
         'bonus.withdrawToLive': 'Retirer le bonus vers le portefeuille live',
         'bonus.withdrawSuccess': '✅ ${{amount}} de bonus retirés vers le portefeuille live !',
         'bonus.noReferrals': '📢 Parrainez au moins 1 ami avant de retirer le bonus',
@@ -12046,6 +12066,8 @@ const TRANSLATIONS = {
         'referral.step3Text': 'Vous gagnez',
         'referral.bonusWord': 'bonus',
         'referral.bonusWallet': 'Portefeuille bonus',
+        'referral.sandboxWalletTarget': 'Solde Live simulé',
+        'referral.sandboxCreditNote': 'Les récompenses de parrainage du bac à sable sont créditées sur votre solde Live simulé, et non dans le Portefeuille bonus.',
         'referral.pendingAwaiting': 'Parrainages en attente (en attente du premier dépôt)',
         'referral.copyCode': 'Copier le code',
         'referral.copyLink': 'Copier le lien',
@@ -12644,6 +12666,7 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'إزالة جميع ${{amount}} من المحفظة التجريبية؟',
         'bonus.balance': 'رصيد المكافآت',
         'bonus.noEarnings': 'لا توجد أرباح إحالة قابلة للتحويل بعد.',
+        'bonus.sandboxNoEarnings': 'تُضاف مكافآت الإحالة في وضع التجربة إلى رصيدك التجريبي (Live).',
         'bonus.withdrawToLive': 'سحب المكافأة إلى المحفظة المباشرة',
         'bonus.withdrawSuccess': '✅ تم سحب ${{amount}} من المكافآت إلى المحفظة المباشرة!',
         'bonus.noReferrals': '📢 أَحِل صديقًا واحدًا على الأقل قبل سحب المكافأة',
@@ -13317,6 +13340,8 @@ const TRANSLATIONS = {
         'referral.step3Text': 'تكتسب',
         'referral.bonusWord': 'مكافأة',
         'referral.bonusWallet': 'محفظة المكافآت',
+        'referral.sandboxWalletTarget': 'رصيد Live التجريبي',
+        'referral.sandboxCreditNote': 'تُضاف مكافآت الإحالة في وضع التجربة إلى رصيدك التجريبي (Live) وليس إلى محفظة المكافآت.',
         'referral.pendingAwaiting': 'الإحالات المعلقة (في انتظار أول إيداع)',
         'referral.copyCode': 'نسخ الرمز',
         'referral.copyLink': 'نسخ الرابط',
@@ -13915,6 +13940,7 @@ const TRANSLATIONS = {
         'demo.confirmRemove': '从模拟钱包移除全部 ${{amount}}？',
         'bonus.balance': '奖金余额',
         'bonus.noEarnings': '暂无可转换的推荐收益。',
+        'bonus.sandboxNoEarnings': '沙盒推荐奖励会计入你的模拟 Live 余额。',
         'bonus.withdrawToLive': '将奖金提现到实盘钱包',
         'bonus.withdrawSuccess': '✅ 已将 ${{amount}} 奖金提现到实盘钱包！',
         'bonus.noReferrals': '📢 提现奖金前请至少推荐 1 位好友',
@@ -14588,6 +14614,8 @@ const TRANSLATIONS = {
         'referral.step3Text': '您赚取',
         'referral.bonusWord': '奖励',
         'referral.bonusWallet': '奖励钱包',
+        'referral.sandboxWalletTarget': '模拟 Live 余额',
+        'referral.sandboxCreditNote': '沙盒推荐奖励会计入你的模拟 Live 余额，而不是奖励钱包。',
         'referral.pendingAwaiting': '待处理推荐（等待首次存款）',
         'referral.copyCode': '复制码',
         'referral.copyLink': '复制链接',
@@ -15133,6 +15161,13 @@ function updateDynamicTranslations() {
         // language switch (dynamic text; the MARKETING_SANDBOX variants must
         // also re-apply after applyTranslations() refreshes data-i18n spans).
         if (typeof updateLiveWithdrawStatus === 'function') updateLiveWithdrawStatus();
+        // Re-render the deposit minimum notice (value from APP.MIN_DEPOSIT) so
+        // it follows the active locale and the single configured minimum.
+        if (typeof updateDepositMinNotice === 'function') updateDepositMinNotice();
+        // Re-apply sandbox-only referral/bonus wording on language switch (the
+        // Bonus Wallet info text is dynamic innerHTML, not a data-i18n span).
+        if (typeof updateSandboxReferralWording === 'function') updateSandboxReferralWording();
+        if (typeof updateBonusWalletUI === 'function') updateBonusWalletUI();
         const accountStatus = document.getElementById('accountStatus');
         if (accountStatus && typeof APP !== 'undefined') {
             if (APP.mode === 'demo') accountStatus.textContent = t('status.demoTrading');
@@ -15725,6 +15760,19 @@ function resetReferrals() {
     }
 }
 
+// Sandbox-only clarity: for a MARKETING_SANDBOX account the referral reward is
+// credited to the simulated LIVE balance, not the Bonus Wallet. Production
+// wording is unchanged. Pure display logic — no calculation or business rule.
+function updateSandboxReferralWording() {
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    const destination = document.getElementById('refStep3Destination');
+    if (destination) {
+        destination.textContent = t(isSandbox ? 'referral.sandboxWalletTarget' : 'referral.bonusWallet');
+    }
+    const note = document.getElementById('referralSandboxNote');
+    if (note) note.classList.toggle('hidden', !isSandbox);
+}
+
 function updateReferralDisplay() {
     // Update stats from local storage or API
     const activeCount = getEl('refActiveCount');
@@ -15766,6 +15814,9 @@ function updateReferralDisplay() {
     
     // Update pending referrals list if available
     updatePendingReferralsList();
+
+    // Sandbox-only wording: where referral rewards are actually credited.
+    updateSandboxReferralWording();
 }
 
 function updatePendingReferralsList() {
@@ -15820,7 +15871,11 @@ function updateBonusWalletUI() {
         status.style.color = '#10B981';
     } else {
         info.classList.remove('hidden');
-        info.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t('bonus.noEarnings') + '</span>';
+        // Sandbox clarity: sandbox referral rewards are credited to the
+        // simulated Live balance, so this wallet staying empty is expected —
+        // say so explicitly instead of the production "no earnings" wording.
+        const emptyKey = (APP.environment === 'MARKETING_SANDBOX') ? 'bonus.sandboxNoEarnings' : 'bonus.noEarnings';
+        info.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t(emptyKey) + '</span>';
         btn.disabled = true;
         status.textContent = '';
     }
@@ -16984,9 +17039,10 @@ let currentNetwork = 'TRC20';
 
 async function requestDepositAddress() {
   const amountUSD = parseFloat(document.getElementById('liveDepositAmount').value);
-  // Platform minimum deposit ($100) - single frontend mirror of the server's
-  // PLATFORM_MIN_DEPOSIT_USD. NOT the $50 promotional credit.
-  const MIN_DEPOSIT_AMOUNT = 100;
+  // Platform minimum deposit (APP.MIN_DEPOSIT) — the single frontend source,
+  // mirroring the server's PLATFORM_MIN_DEPOSIT_USD. NOT the $50 promotional
+  // credit.
+  const MIN_DEPOSIT_AMOUNT = APP.MIN_DEPOSIT;
   if (!amountUSD || amountUSD < MIN_DEPOSIT_AMOUNT) {
     showToast(t('deposit.minDepositToast', {min: MIN_DEPOSIT_AMOUNT}), 'error');
     return;
@@ -17585,12 +17641,22 @@ function closeDepositModal() {
   resetDepositModal();
 }
 
+// Render the deposit minimum notice from APP.MIN_DEPOSIT (single frontend
+// source; mirrors the server's PLATFORM_MIN_DEPOSIT_USD). Called at startup,
+// on language switch (via updateDynamicTranslations) and when the modal opens.
+function updateDepositMinNotice() {
+    const el = document.getElementById('depositMinNotice');
+    if (!el) return;
+    el.textContent = t('deposit.minDeposit', { min: Number(APP.MIN_DEPOSIT) });
+}
+
 function openDepositModal() {
   if (APP.mode === 'demo') { 
     showToast(t('deposit.switchToLive'), 'info'); 
     return; 
   }
   resetDepositModal();
+  updateDepositMinNotice();
   document.getElementById('depositModal').classList.add('open');
   document.getElementById('liveDepositAmount').focus();
 }
@@ -19083,9 +19149,26 @@ async function initApp() {
     });
     
     const logoutLink = getEl('logoutLink');
-    if(logoutLink) logoutLink.addEventListener('click', function(e) {
+    if(logoutLink) logoutLink.addEventListener('click', async function(e) {
         e.preventDefault();
         if(confirm(t('logout.confirm'))) {
+            // Revoke the session server-side BEFORE clearing the local token, so a
+            // replayed copy of this token is rejected by the API. Best-effort and
+            // time-boxed: a network/DB failure must never trap the user in the app.
+            try {
+                const authToken = localStorage.getItem('jwt_token');
+                if (authToken) {
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(function() { ctrl.abort(); }, 5000);
+                    try {
+                        await fetch('/api/auth/logout', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + authToken },
+                            signal: ctrl.signal
+                        });
+                    } finally { clearTimeout(timer); }
+                }
+            } catch (err) { /* local logout proceeds regardless */ }
             if(APP.botInterval) clearInterval(APP.botInterval);
             if(tickerInterval) clearInterval(tickerInterval);
             APP.botRunning = false;
