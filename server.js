@@ -532,15 +532,59 @@ const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;
 // simulated balance.
 const SANDBOX_PROMO_CREDIT = 50;
 
-// Promotional-credit tradability. A user with NO confirmed deposit but a
-// positive live balance is funded solely by the $50 promotional credit.
-// Management decision: that credit is TRADABLE through the SAME trading engine
-// (/api/trade + record_trade_safe) and is therefore exempt from the bot-start
-// MTA gate. It stays NON-withdrawable until a qualifying deposit AND at least
-// one completed trade (enforced on /api/withdraw/request). This defines WHO the
-// MTA gate applies to; it does NOT change the MTA value.
-function isPromoFundedTrading(hasConfirmedDeposit, liveBalance) {
+// Promotional-credit tradability (MTA exemption). A user with NO confirmed
+// deposit and a positive Live balance is trading with their own non-deposited
+// capital — the $50 promotional credit OR genuine referral earnings they
+// converted into Live balance. Management decision: that capital is TRADABLE
+// through the SAME trading engine (/api/trade + record_trade_safe), so such a
+// user is exempt from the bot-start MTA gate (their capital is below the MTA by
+// definition).
+//
+// IMPORTANT: this is NOT the promotional-credit classifier. "No deposit +
+// positive balance" does NOT mean the balance IS the $50 promotional credit —
+// it may be converted referral earnings. The production $20 promotional-credit
+// trading cap therefore uses isPromoCreditFunded() (authoritative source-of-
+// funds classification) below, NEVER this helper. This helper defines only WHO
+// the MTA gate applies to; it does NOT change the MTA value.
+function isNonDepositedTrading(hasConfirmedDeposit, liveBalance) {
   return !hasConfirmedDeposit && Number(liveBalance) > 0;
+}
+
+// PROMOTIONAL-CREDIT TRADING CAP (production-only, management decision). The
+// cap targets users whose non-deposited Live capital IS the $50 promotional
+// credit grant. The cumulative NET realized profit from trading that credit is
+// capped at $20.00. The lock is INCLUSIVE: it applies as soon as the ledger sum
+// is >= $20.00 (exactly $20.00 locks). At that point the bot is stopped and BOTH
+// /api/trade and /api/bot/start refuse further trading until a confirmed deposit
+// exists (the cap is computed live from hasConfirmedDeposit, so the deposit
+// itself unlocks trading again).
+//
+// WHO IS A "PROMOTIONAL-CREDIT USER" is decided by the AUTHORITATIVE
+// source-of-funds classifier isPromoCreditFunded() below — NOT by "no deposit +
+// positive balance". A user who converted genuine referral earnings into Live
+// balance is funded (at least partly) by real referral capital and is therefore
+// NOT a promotional-credit user, even with no deposit and a positive balance.
+// Deposited users are never promotional-credit users.
+//
+// The cap is derived from the append-only `trades` ledger (signed amounts) —
+// the SAME realized-P&L source the platform already treats as authoritative —
+// and is only consulted for users the classifier identifies as promotional-
+// credit users. MARKETING_SANDBOX trades (sandbox_trades) can never reach it:
+// sandbox routes branch before this code, the classifier returns false for
+// sandbox accounts, and migration 026's trigger skips them.
+const PROMO_PROFIT_CAP_USD = 20;
+const PROMO_LIMIT_CODE = 'PROMO_TRADING_LIMIT_REACHED';
+const PROMO_LIMIT_MESSAGE = 'You have reached the promotional trading limit. Make your first deposit to continue trading.';
+
+/**
+ * TRUE iff the production promotional-credit trading cap is reached.
+ * @param {boolean} isPromoCreditFunded authoritative source-of-funds
+ *   classification (isPromoCreditFunded()); a deposited user and a
+ *   referral-funded user are NOT promotional-credit users. Sandbox: false.
+ * @param {number} promoProfit cumulative NET realized profit from `trades`.
+ */
+function isPromoProfitCapReached(isPromoCreditFunded, promoProfit) {
+  return !!isPromoCreditFunded && Number(promoProfit) >= PROMO_PROFIT_CAP_USD;
 }
 
 // Simulated Demo balance seed for MARKETING_SANDBOX accounts, matching the
@@ -1901,6 +1945,201 @@ async function getTodayRealizedPnl(userId) {
   return data.reduce((sum, row) => sum + (Number(row && row.amount) || 0), 0);
 }
 
+/**
+ * Cumulative NET realized P&L for a production user, read from the append-only
+ * `trades` ledger (signed amounts). Feeds the promotional-credit trading cap.
+ *
+ * Scope note: this is ONLY consulted for users the authoritative source-of-funds
+ * classifier (isPromoCreditFunded) identifies as promotional-credit users — no
+ * confirmed deposit AND no referral-earnings conversion into Live balance. For
+ * such a user every server-recorded trade is funded by the $50 promotional
+ * credit, so the ledger sum is exactly the promotional realized profit. For
+ * deposited users and referral-funded users the helper is not consulted by the
+ * cap paths (they are never restricted), so deposited/historical production
+ * profits and converted referral capital are never counted against a promotion.
+ * Sandbox trades live in `sandbox_trades` and are never read here. Returns a
+ * Number (USD); 0 on any error.
+ */
+async function getPromoRealizedProfit(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('trades')
+    .select('amount')
+    .eq('user_id', userId)
+    .eq('mode', 'live');
+  if (error) {
+    console.log('[getPromoRealizedProfit] error:', error.message);
+    return 0;
+  }
+  if (!Array.isArray(data) || !data.length) return 0;
+  const total = data.reduce((sum, row) => sum + (Number(row && row.amount) || 0), 0);
+  return Math.round(total * 100) / 100;
+}
+
+/**
+ * Stop the production bot session when the promotional-credit cap is reached.
+ * Best-effort: the cap check itself is authoritative and the frontend also
+ * stops its interval, so a failure here can never re-enable trading.
+ */
+async function stopBotSessionForPromoLimit(userId) {
+  try {
+    await supabaseAdmin.from('bot_sessions').update({ is_running: 0 }).eq('user_id', userId);
+  } catch (e) {
+    console.log('[stopBotSessionForPromoLimit] error:', e.message);
+  }
+}
+
+/** Machine-readable promotional-cap response body (production-only). */
+function promoLimitBody(extra = {}) {
+  return {
+    error: PROMO_LIMIT_MESSAGE,
+    code: PROMO_LIMIT_CODE,
+    promoLimitReached: true,
+    depositRequired: true,
+    ...extra
+  };
+}
+
+/**
+ * Structured observability for source-of-funds classification failures.
+ *
+ * Emits ONE machine-parseable JSON line so an UNDETERMINED promotion
+ * classification is visible in logs/metrics rather than silently swallowed. No
+ * secrets/credentials/PII are ever written — only a numeric internal user id,
+ * the failing reads, error codes and a short DB error message.
+ */
+function logPromoClassificationUnknown(userId, fields = {}) {
+  try {
+    const payload = {
+      event: 'promo_classification_unknown',
+      severity: 'warning',
+      component: 'hasConvertedReferralEarnings',
+      fallback: 'treat_as_not_promo_credit',
+      impact: 'production_promo_cap_not_enforced_for_this_request',
+      userId: Number(userId) || null,
+    };
+    for (const [k, v] of Object.entries(fields)) {
+      if (v === undefined || v === null) continue;
+      payload[k] = (typeof v === 'string') ? v.slice(0, 200) : v;
+    }
+    console.warn(JSON.stringify(payload));
+  } catch (_) {
+    // Logging must never throw into a financial request path.
+  }
+}
+
+// BUSINESS DECISION (management-approved, documented 2026-09 — REGRESSION-
+// TESTED): the referral-earnings exemption is PERMANENT for the life of the
+// account while it has no confirmed deposit. ANY referral-earnings conversion —
+// however small — moves genuine referral capital into wallets.live_balance, so
+// the account's Live balance is no longer composed solely of the $50
+// promotional grant and the user must never be subject to the $20 promotional-
+// credit cap again. We deliberately do NOT attempt proportional attribution of
+// converted-referral capital vs promotional principal: the wallet is
+// commingled, and inventing a split would risk wrongly capping genuine referral
+// earnings. A confirmed qualifying deposit or a fresh no-conversion account is
+// the only state in which the cap applies.
+//
+// Implementation consequence: hasConvertedReferralEarnings() applies NO amount
+// threshold and NO time window (a $0.01 conversion counts the same as $500).
+
+/**
+ * AUTHORITATIVE source-of-funds classification for the production promotional-
+ * credit trading cap.
+ *
+ * Returns TRUE only when the user's non-deposited Live capital IS the $50
+ * promotional credit grant:
+ *   - production account (MARKETING_SANDBOX is never classified here), AND
+ *   - NO confirmed qualifying deposit (deposits / payment_invoices), AND
+ *   - the user has NEVER converted referral earnings into Live balance
+ *     (no row in referral_earning_conversions and no 'Bonus Withdrawal'
+ *     transaction). A conversion means the Live balance contains genuine
+ *     referral capital, so the user is NOT a promotional-credit-only user.
+ *
+ * It deliberately does NOT look at the balance AMOUNT: a promotional-credit user
+ * who lost part of the credit is still promotional-credit funded, and a
+ * referral-funded user with a positive balance is not.
+ *
+ * Fail-open on an UNDETERMINED conversion state: returns null (never true) so a
+ * legitimate referral-funded user is never wrongly capped. The caller must treat
+ * null as "not capped" AND surface it as unknown (see /api/auth/me
+ * promoClassificationUnknown) — never as definitively promotional-credit
+ * funded. The failure is logged (structured) by hasConvertedReferralEarnings().
+ *
+ * @param {number} userId
+ * @param {boolean} hasConfirmedDeposit pre-computed hasConfirmedDeposit()
+ * @returns {Promise<true|false|null>} true = promo-credit funded;
+ *   false = definitively not; null = could not determine (fail-open).
+ */
+async function isPromoCreditFunded(userId, hasConfirmedDeposit) {
+  if (hasConfirmedDeposit) return false;                       // rule 3: deposited users
+  if (await isMarketingSandboxUser(userId)) return false;      // rule 4: sandbox exempt
+  const converted = await hasConvertedReferralEarnings(userId);
+  if (converted === null) return null;                         // unknown -> fail open
+  return !converted;                                           // rule 2: referral-funded exempt
+}
+
+/**
+ * Has this user ever converted referral earnings into Live balance?
+ *
+ * Authoritative sources, in order:
+ *   1. `referral_earning_conversions` — the append-only ledger written by
+ *      convert_referral_earnings_safe() (migration 023) for every conversion.
+ *      When this ledger is READABLE it is authoritative: an empty result means
+ *      "no conversion" and the marker below is not consulted.
+ *   2. `transactions` type 'Bonus Withdrawal' — written ATOMICALLY with the
+ *      conversion by the same RPC. Consulted only when the ledger read FAILS
+ *      (e.g. a schema where migration 023 has not been applied), so an older
+ *      schema still classifies correctly.
+ *
+ * NO minimum amount and no time window: see the BUSINESS DECISION note above —
+ * ANY conversion permanently exempts the account (while it has no confirmed
+ * deposit). Both a $0.01 and a $500 conversion therefore return true.
+ *
+ * Failures are NEVER silent: when BOTH reads fail, a structured
+ * 'promo_classification_unknown' log line is emitted before returning null.
+ *
+ * @returns {Promise<true|false|null>} null means "could not determine".
+ */
+async function hasConvertedReferralEarnings(userId) {
+  let ledgerError = null;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('referral_earning_conversions')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+    if (!error) return Array.isArray(data) && data.length > 0;
+    if (error.code !== 'PGRST116') {
+      ledgerError = { code: error.code || null, message: error.message || null };
+    }
+  } catch (e) {
+    ledgerError = { code: 'exception', message: (e && e.message) || null };
+  }
+  // Fallback marker (same authoritative conversion, different table).
+  let transactionsError = null;
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('type', 'Bonus Withdrawal');
+    if (!error) return (count || 0) > 0;
+    transactionsError = { code: error.code || null, message: error.message || null };
+  } catch (e) {
+    transactionsError = { code: 'exception', message: (e && e.message) || null };
+  }
+  // Neither authoritative source could be read: never swallow it.
+  logPromoClassificationUnknown(userId, {
+    ledgerFailed: ledgerError !== null,
+    transactionsFailed: transactionsError !== null,
+    ledgerErrorCode: ledgerError && ledgerError.code,
+    ledgerErrorMessage: ledgerError && ledgerError.message,
+    transactionsErrorCode: transactionsError && transactionsError.code,
+    transactionsErrorMessage: transactionsError && transactionsError.message,
+  });
+  return null;
+}
+
 
 // ---------- PASSWORD RESET HELPERS ----------
 
@@ -2822,6 +3061,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       // no gate is ever applied (the sandbox bot-start route has no gate at
       // all). Nothing is silently substituted for the MTA.
       mta: 0,
+      // MARKETING_SANDBOX has NO promotional-credit trading cap: the sandbox
+      // reports zero/never-locked so the production-only $20 rule can never be
+      // surfaced for a sandbox account. It is also never classified as a
+      // promotional-credit user (and never "unknown" — it is definitively exempt).
+      promoCreditFunded: false,
+      promoClassificationUnknown: false,
+      promoRealizedProfit: 0,
+      promoLimitReached: false,
     });
   }
   // getUser and getWallet are independent (both keyed by the same user id),
@@ -2840,6 +3087,17 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     hasConfirmedDeposit(user.id).catch(() => false),
     getTodayRealizedPnl(user.id).catch(() => 0),
   ]);
+  // Promotional-credit trading cap (production-only): classify by the
+  // AUTHORITATIVE source of funds. Only a user whose non-deposited Live capital
+  // IS the $50 promotional credit is capped — deposited users and referral-
+  // funded users (who converted referral earnings into Live balance) are not,
+  // so the extra ledger read is skipped for them. A null result means the
+  // classification could not be determined: it is reported explicitly (never as
+  // a definitive boolean) and the cap is not applied (fail open).
+  const promoFunding = await isPromoCreditFunded(user.id, !!funded);
+  const promoCreditFunded = promoFunding === true;
+  const promoClassificationUnknown = promoFunding === null;
+  const promoProfit = promoCreditFunded ? await getPromoRealizedProfit(user.id).catch(() => 0) : 0;
   res.json({
     user,
     wallet,
@@ -2849,6 +3107,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     // Server-authoritative MTA (single source of truth, env-selectable).
     // Frontend adopts this so the UI never hardcodes the value.
     mta: getEffectiveMta(),
+    // Server-authoritative promotional-credit cap state (frontend mirrors it
+    // for display only; enforcement is server-side in /api/trade + /api/bot/start).
+    promoCreditFunded,
+    // True when the conversion state could not be read (structured log emitted).
+    // The frontend MUST NOT present this as definitively promotional-credit.
+    promoClassificationUnknown,
+    promoRealizedProfit: Number(promoProfit) || 0,
+    promoLimitReached: isPromoProfitCapReached(promoCreditFunded, promoProfit),
   });
 });
 
@@ -4304,12 +4570,40 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   const { amount, address } = req.body;
   const userId = req.user.id;
 
-  // Gate 1 — Identity Verification (KYC) MUST be satisfied BEFORE any other
-  // withdrawal eligibility check. An unapproved user receives the existing
-  // verificationRequired:true response regardless of the requested amount,
-  // balance, address, or trade history. This is an ordering change only; the
-  // existing $700 minimum, balance, trade-count, and address requirements
-  // below are unchanged in meaning and still enforced after KYC approval.
+  // PRODUCTION-ONLY Gate 1 — FIRST-DEPOSIT PRIORITY. A production account that
+  // has NEVER made a real qualifying deposit must see the clear first-deposit
+  // requirement FIRST — before the verification prompt, the $700 minimum, the
+  // balance, the address, or the completed-trade count. This covers both a user
+  // who only holds the $50 promotional credit (no trades) and one who traded
+  // that credit and realised a profit. The single exception is the existing
+  // referral-earnings rule: genuinely earned referral income may be withdrawn
+  // without a deposit, so a request fully covered by it is not blocked here.
+  //
+  // MARKETING_SANDBOX never reaches this code — sandboxHandled() returned above
+  // — so the sandbox's balance-only withdrawal behavior is untouched. This is
+  // an ORDERING/priority change only: every existing requirement below keeps its
+  // exact meaning and is still enforced.
+  const hasDeposit = await hasConfirmedDeposit(userId);
+  const referral = await getGenuinelyEarnedReferralEarnings(userId);
+  // The referral-earnings exception requires a positive request not exceeding
+  // the genuinely earned (server-derived, bucket-capped) amount.
+  const requestedAmount = Number(amount) || 0;
+  const referralFunded = requestedAmount > 0 && requestedAmount <= referral.available;
+  if (!hasDeposit && !referralFunded) {
+    return res.status(400).json({
+      error: 'A qualifying first deposit is required before you can withdraw your promotional credit or trading profits.',
+      depositRequired: true,
+      requiresFirstDeposit: true,
+      code: 'FIRST_DEPOSIT_REQUIRED'
+    });
+  }
+
+  // Gate 2 — Identity Verification (KYC) MUST be satisfied BEFORE the remaining
+  // eligibility checks. An unapproved, otherwise-eligible user receives the
+  // existing verificationRequired:true response regardless of the requested
+  // amount (below $700), balance, address, or trade history. This is an
+  // ordering change only; the existing $700 minimum, balance, trade-count, and
+  // address requirements below are unchanged in meaning.
   const verificationStatus = await kycService.getVerificationStatus(userId);
   if (verificationStatus !== VERIFICATION_STATUS.APPROVED) {
     return res.status(400).json({
@@ -4333,8 +4627,6 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   const liveBalance = Number(wallet.live_balance) || 0;
   const { count } = await supabaseAdmin.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('type', 'Trade Executed');
   const hasTrade = count >= 1;
-  const hasDeposit = await hasConfirmedDeposit(userId);
-  const referral = await getGenuinelyEarnedReferralEarnings(userId);
   const requirementsMet = hasTrade && hasDeposit;
 
   // Decide which bucket funds the withdrawal. A fully qualified user keeps the
@@ -4357,20 +4649,10 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
 
   if (!requirementsMet && fromBonus === 0) {
     if (!hasTrade) return res.status(400).json({ error: 'Complete at least 1 trade first' });
-
-    // Promotional-credit withdrawal rule (management decision): a user who has
-    // NOT made their required qualifying first deposit cannot withdraw the $50
-    // promotional credit or any profits generated by trading it. This is the
-    // server-authoritative enforcement of the frontend's existing needDeposit
-    // gate; it appends a requirement and does NOT weaken or reorder any existing
-    // one (KYC, $700 minimum, balance, address, and trade-count above are all
-    // unchanged). After a qualifying deposit AND at least one completed trade
-    // (already required above), the normal withdrawal process applies.
-    return res.status(400).json({
-      error: 'A qualifying first deposit is required before you can withdraw your promotional credit or trading profits.',
-      depositRequired: true,
-      requiresFirstDeposit: true
-    });
+    // Reaching here requires a confirmed deposit: the first-deposit requirement
+    // is enforced as Gate 1 above (it now takes priority over the verification
+    // prompt), so without a completed trade the deposit requirement is already
+    // satisfied and the only unmet requirement is the completed trade.
   }
 
   // All existing withdrawal logic continues unchanged, except that the portion
@@ -4967,14 +5249,30 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
   const wallet = await getWallet(userId);
   const balance = Number(wallet.live_balance) || 0;
+  const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
+  // PROMOTIONAL-CREDIT TRADING CAP (production-only): only a user whose
+  // non-deposited Live capital IS the $50 promotional credit (authoritative
+  // source-of-funds classification) may not (re)start the bot once $20.00 net
+  // realized profit is reached. Referral-funded users and deposited users are
+  // NOT promotional-credit users and are never blocked here. A restart is just
+  // another start request, so this path closes the bot-restart bypass.
+  const promoCreditFunded = await isPromoCreditFunded(userId, hasDeposit);
+  if (mode === 'live' && promoCreditFunded === true) {
+    const promoProfit = await getPromoRealizedProfit(userId).catch(() => 0);
+    if (isPromoProfitCapReached(promoCreditFunded, promoProfit)) {
+      await stopBotSessionForPromoLimit(userId);
+      return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
+    }
+  }
   // Single-source PRODUCTION MTA value (env-selectable; default 200).
   // MARKETING_SANDBOX uses its own fixed value elsewhere.
   const mta = getEffectiveMta(BOT_MIN_TRADING_BALANCE);
-  // Promo-credit-funded accounts (no confirmed deposit, positive balance) may
-  // trade the $50 promotional credit through the SAME engine, so they are not
-  // blocked by the bot-start MTA gate. The MTA value itself is unchanged.
-  const promoFunded = isPromoFundedTrading(await hasConfirmedDeposit(userId).catch(() => false), balance);
-  if (mode === 'live' && balance < mta && !promoFunded) {
+  // Non-deposited trading (the $50 promotional credit OR converted referral
+  // earnings) is exempt from the bot-start MTA gate: that capital is below the
+  // MTA by definition and is tradable through the SAME engine. The MTA value
+  // itself is unchanged.
+  const nonDepositedTrading = isNonDepositedTrading(hasDeposit, balance);
+  if (mode === 'live' && balance < mta && !nonDepositedTrading) {
     return res.status(400).json({ error: 'MTA not reached' });
   }
   await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
@@ -5021,6 +5319,21 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     if (Math.abs(amount) > Math.max(currentBalance, 1)) {
       return res.status(400).json({ error: 'Trade amount exceeds balance' });
     }
+    // PROMOTIONAL-CREDIT TRADING CAP (production-only). Only a user whose
+    // non-deposited Live capital IS the $50 promotional credit is restricted —
+    // the classification is by AUTHORITATIVE source of funds, so deposited
+    // users and referral-funded users (who converted referral earnings into
+    // Live balance) are never capped. Enforced BEFORE the RPC, which blocks
+    // DIRECT API calls, not just the frontend button.
+    const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
+    const promoCreditFunded = await isPromoCreditFunded(userId, hasDeposit);
+    if (promoCreditFunded === true) {
+      const promoProfit = await getPromoRealizedProfit(userId).catch(() => 0);
+      if (isPromoProfitCapReached(promoCreditFunded, promoProfit)) {
+        await stopBotSessionForPromoLimit(userId);
+        return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
+      }
+    }
     // 2-dp precision to match DECIMAL(18,2).
     const amount2dp = Math.round(amount * 100) / 100;
     const key = (idempotencyKey && String(idempotencyKey).trim()) ||
@@ -5038,6 +5351,13 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
 
     const result = (data && typeof data === 'object') ? data : { success: false, error: 'Invalid response from record_trade_safe' };
     if (!result.success) {
+      // Migration 026's defence-in-depth trigger raises this code when a
+      // concurrent request slipped past the pre-check above; surface the same
+      // machine-readable response and keep the bot stopped.
+      if (String(result.error || '').includes(PROMO_LIMIT_CODE)) {
+        await stopBotSessionForPromoLimit(userId);
+        return res.status(403).json(promoLimitBody());
+      }
       return res.status(400).json({ error: result.error || 'Trade recording failed' });
     }
     // The referral program pays ONLY the one-time 20%-of-initial-qualifying-
@@ -5048,6 +5368,12 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     // so the client can reconcile "Today's P&L" to the exact server-persisted
     // total. record_trade_safe() itself is unchanged; this is a read-only sum.
     const todayRealizedPnl = await getTodayRealizedPnl(userId).catch(() => 0);
+    // Promotional-credit cap state AFTER this (idempotent) write. When the trade
+    // that reached $20.00 lands, the bot is stopped immediately and the response
+    // tells the client to keep it stopped; a confirmed deposit clears it again.
+    const promoProfitAfter = promoCreditFunded === true ? await getPromoRealizedProfit(userId).catch(() => 0) : 0;
+    const promoLimitReached = isPromoProfitCapReached(promoCreditFunded, promoProfitAfter);
+    if (promoLimitReached) await stopBotSessionForPromoLimit(userId);
     res.json({
       success: true,
       duplicate: !!result.duplicate,
@@ -5055,6 +5381,11 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
       appliedAmount: Number(result.applied_amount),
       newBalance: Number(result.new_balance),
       todayRealizedPnl: Number(todayRealizedPnl) || 0,
+      promoLimitReached,
+      // Classification could not be read (structured log emitted): reported
+      // explicitly so the client never treats it as definitively promo-funded.
+      promoClassificationUnknown: promoCreditFunded === null,
+      promoRealizedProfit: Number(promoProfitAfter) || 0,
     });
   } catch (err) {
     console.error('[POST /api/trade]', err);

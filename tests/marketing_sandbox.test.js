@@ -383,11 +383,13 @@ test('production /api/trade keeps record_trade_safe call unchanged', () => {
     assert.ok(afterBranch.includes('getTodayRealizedPnl'), 'production PnL re-read removed');
 });
 
-test('production withdraw gate order unchanged (KYC first, then $700 min)', () => {
+test('production withdraw gate order: first-deposit priority, then KYC, then $700 min', () => {
     const body = routeBody('post', '/api/withdraw/request');
+    const depositIdx = body.indexOf('requiresFirstDeposit');
     const kycIdx = body.indexOf('kycService.getVerificationStatus');
     const minIdx = body.indexOf('amount < 700');
-    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'production withdraw gate order changed');
+    assert.ok(depositIdx > 0 && kycIdx > depositIdx, 'the first-deposit gate must precede KYC');
+    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'KYC must precede the $700 minimum');
 });
 
 test('production subscription activate still uses charge_subscription_safe', () => {
@@ -601,7 +603,7 @@ test('frontend sandbox gate skips are keyed on APP.environment (display only)', 
     // The sim/withdraw gate skip above is a DISPLAY convenience; the MTA itself
     // is gone for the sandbox (server reports mta: 0), so the bot-start gate is
     // simply inactive there because no MTA exists (see tests/bot_mta.test.js).
-    assert.match(INDEX, /if\(APP\.mode === 'live' && Number\(APP\.MTA\) > 0 && APP\.liveData\.balance < APP\.MTA && !isPromoFundedTrading\(\)\) \{\n        showToast\(t\('bot\.mtaBlocked', \{mta: APP\.MTA\}\),'error'\);\n        return;/);
+    assert.match(INDEX, /if\(APP\.mode === 'live' && Number\(APP\.MTA\) > 0 && APP\.liveData\.balance < APP\.MTA && !isNonDepositedTrading\(\)\) \{\n        showToast\(t\('bot\.mtaBlocked', \{mta: APP\.MTA\}\),'error'\);\n        return;/);
     const startBotIdx = INDEX.indexOf('function startBot()');
     const startBotBody = INDEX.slice(startBotIdx, startBotIdx + 1400);
     assert.ok(!startBotBody.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'startBot must not use an environment special-case');

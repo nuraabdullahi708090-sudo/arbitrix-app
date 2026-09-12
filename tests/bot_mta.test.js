@@ -224,13 +224,13 @@ test('environment isolation: production MTA is $200; the sandbox reports NO MTA 
 test('frontend startBot gates on MTA only when an MTA exists (no-MTA accounts are never blocked)', () => {
     const idx = INDEX.indexOf('function startBot()');
     assert.ok(idx > 0, 'startBot not found');
-    const body = INDEX.slice(idx, idx + 1400);
+    const body = INDEX.slice(idx, idx + 2600);
     assert.ok(body.includes("APP.mode === 'live' && Number(APP.MTA) > 0 && APP.liveData.balance < APP.MTA"),
         'MTA gate must be conditional on an MTA existing');
     assert.ok(!body.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'no environment special-case may be used');
     assert.ok(body.includes("showToast(t('bot.mtaBlocked', {mta: APP.MTA}),'error')"), 'concise MTA toast missing');
     // Promo-credit-funded trading is exempt (management decision).
-    assert.ok(body.includes('!isPromoFundedTrading()'), 'promo-credit exemption missing');
+    assert.ok(body.includes('!isNonDepositedTrading()'), 'promo-credit exemption missing');
     // The gate must return BEFORE the trading interval starts.
     const gateIdx = body.indexOf('APP.liveData.balance < APP.MTA');
     const intervalIdx = body.indexOf('setInterval(executeBotTrade');

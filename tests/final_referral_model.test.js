@@ -243,8 +243,10 @@ test('the $700 minimum withdrawal remains enforced', () => {
 });
 
 test('KYC / security / address checks remain enforced on withdrawal', () => {
+    const depositGate = WITHDRAW.indexOf('requiresFirstDeposit');
     const kyc = WITHDRAW.indexOf('verificationRequired');
-    assert.ok(kyc > 0 && kyc < WITHDRAW.indexOf('Min $700'), 'KYC remains the FIRST gate');
+    assert.ok(depositGate > 0 && depositGate < kyc, 'the first-deposit priority gate precedes the verification prompt');
+    assert.ok(kyc > 0 && kyc < WITHDRAW.indexOf('Min $700'), 'KYC still precedes the $700 minimum');
     assert.match(WITHDRAW, /redirectTo: '\/#\/verification'/);
     assert.match(WITHDRAW, /Valid address required/);
     assert.match(WITHDRAW, /Complete at least 1 trade first/);

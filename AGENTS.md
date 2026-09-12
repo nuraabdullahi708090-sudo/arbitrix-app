@@ -2605,3 +2605,83 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   and `sandbox_withdraw_wording` (1250 keys). **`npm test` = 570 pass / 0 fail.**
   i18n vm-eval = 1250 keys x6, 0 parity/placeholder/HTML/ref problems.
 - NOT committed / NOT pushed / NOT deployed. No migration applied.
+
+
+## Phase 24/24B/24C - Promo-credit trading cap, source-of-funds classification (2026-09)
+- PRODUCTION-ONLY. Two management rules: (A) withdrawal prompt priority - a user
+  who has never made a real qualifying deposit sees the FIRST-DEPOSIT requirement
+  first ("Make your first deposit to unlock withdrawals.") and never
+  "Verification required" first; (B) a $20 realized-profit cap while trading the
+  $50 promotional credit before a qualifying deposit (bot stopped + /api/trade
+  and /api/bot/start refuse; cleared by a confirmed qualifying deposit).
+- MARKETING_SANDBOX is untouched: no MTA, no promo cap, sandbox withdrawal
+  behavior unchanged (server-verified env guard, not frontend hiding).
+- NOTE (writing convention): keep additions to this file ASCII-only. Editing the
+  legacy mojibake byte sequences in this file with a text re-encoder corrupts
+  them; append in binary mode instead.
+
+### Classification (authoritative source of funds, NOT "no deposit + balance > 0")
+- `isNonDepositedTrading(hasConfirmedDeposit, liveBalance)` (renamed from
+  `isPromoFundedTrading`) = `!deposit && balance > 0`. MTA-EXEMPTION classifier
+  only (promo credit OR converted referral earnings). NEVER used for the cap.
+- `isPromoCreditFunded(userId, hasConfirmedDeposit)` async TRI-STATE:
+  `true` = promotional-credit funded; `false` = definitively not (confirmed
+  deposit | MARKETING_SANDBOX | referral-earnings conversion); `null` = UNKNOWN
+  (conversion state unreadable -> callers use `=== true`, so it FAILS OPEN and is
+  never capped). Never inspects the balance amount.
+- `hasConvertedReferralEarnings(userId)`: ledger `referral_earning_conversions`
+  (migration 023) is authoritative when readable (empty result = no conversion);
+  the `transactions.type = 'Bonus Withdrawal'` marker is consulted only when the
+  ledger read fails. Returns true/false/null.
+- DOCUMENTED BUSINESS DECISION: ANY conversion - even $0.01 - PERMANENTLY
+  exempts the account from the cap while it has no confirmed deposit (no amount
+  threshold, no time window, no proportional attribution; the wallet is
+  commingled). Regression-tested.
+- `isPromoProfitCapReached(isPromoCreditFunded, promoProfit)`: INCLUSIVE,
+  `>= PROMO_PROFIT_CAP_USD (20)`; basis `SUM(trades.amount)` where `mode='live'`.
+- Enforced server-side at `/api/trade` (before `record_trade_safe`; also maps the
+  migration-026 trigger error to the same machine-readable body
+  `{code:'PROMO_TRADING_LIMIT_REACHED', promoLimitReached:true, depositRequired:true}`)
+  and `/api/bot/start` (before the `bot_sessions` upsert, so restarts cannot
+  bypass). `/api/auth/me` reports `promoCreditFunded` (hard boolean),
+  `promoClassificationUnknown`, `promoRealizedProfit`, `promoLimitReached`;
+  sandbox reports false/0/false.
+- Observability: `logPromoClassificationUnknown()` emits ONE structured JSON
+  line (`event:'promo_classification_unknown'`, severity, component, fallback,
+  impact, userId, per-source failure flags + error codes + 200-char-truncated
+  messages) whenever both reads fail. Whitelisted fields only; never throws.
+- Frontend: `APP.liveData.promoClassificationUnknown` adopted from the server;
+  unknown FORCES `promoCreditFunded=false`; the promo disclosure requires
+  `promoCreditFunded === true && promoClassificationUnknown !== true`; a
+  confirmed deposit clears both. `bot.promoLimitReached` added to all 6 locales.
+- Migration `supabase/migrations/026_promo_trading_cap.sql` (NEW, NOT APPLIED):
+  fail-open, sandbox-skipping `BEFORE INSERT` row-level trigger on `public.trades`
+  with the same source-of-funds rule map (R1 deposit exempt, R2 sandbox exempt,
+  R3 referral marker exempt, R4 otherwise capped, R5 never reads the balance,
+  R6 inclusive >= 20, R7 SUM(trades.amount) mode='live'); additive/idempotent,
+  self-checking DO block. Migration 025 untouched.
+
+### Verification
+- `npm test` = 660 pass / 0 fail (7 suites). `node --check server.js` OK; all 5
+  index.html inline script blocks + the reset-password block parse.
+- New/updated tests: `tests/promo_trading_cap.test.js` (31),
+  `tests/promo_classification_observability.test.js` (14, executes the real
+  helpers in a vm sandbox with a mocked Supabase client),
+  `tests/withdrawal_prompt_priority.test.js`, `tests/withdraw_gating.test.js`,
+  plus renamed-helper pin updates in bot_mta / marketing_sandbox /
+  final_min_deposit_referral / referral_promo_mta.
+- Migration 026 EXECUTED against a real PostgreSQL 16.15 server in a temporary
+  Docker container (now removed; never staging/production): applies cleanly,
+  re-apply is a no-op, 14/14 behavioural checks PASS (inclusive >= $20 lock at a
+  ledger of exactly 20.00; $0.01 referral conversion exempt; Bonus Withdrawal
+  marker exempt; confirmed deposits/payment_invoices exempt; sandbox exempt;
+  pending deposit NOT exempt; demo trades excluded; missing ledger still capped
+  via the transactions fallback; both sources missing -> fail open; re-created
+  trigger leaves existing rows untouched and still enforces; UPDATEs ungated;
+  exact error string). Two-session concurrency check with the `wallets`
+  `FOR UPDATE` lock (as `record_trade_safe` takes) -> exactly 1 trade / $20.00;
+  the loser is rejected with PROMO_TRADING_LIMIT_REACHED.
+- Headless Chromium smoke = 12/12 (promo / capped / referral-funded / deposited /
+  UNKNOWN / sandbox).
+- STATUS: NOT committed, NOT pushed, NOT deployed; migration 026 NOT applied to
+  any staging/production database.
