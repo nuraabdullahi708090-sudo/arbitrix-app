@@ -681,6 +681,10 @@ async function runLoginInitiate(user, body, spies) {
         supabaseAdmin: supabase,
         bcrypt: { compare: async () => spies.passwordOk },
         jwt: { sign: (payload) => 'signed:' + JSON.stringify(payload) },
+        // Full sessions are signed through signSessionToken (adds a jti for
+        // server-side revocation); the harness stubs it with the same token
+        // shape so the sandbox-vs-production flow assertions stay valid.
+        signSessionToken: (payload) => 'signed:' + JSON.stringify(payload),
         JWT_SECRET: 'test-secret',
         ENV_MARKETING_SANDBOX: 'MARKETING_SANDBOX',
         get2FAType: async () => { spies.get2faCalled++; return 'email'; },
