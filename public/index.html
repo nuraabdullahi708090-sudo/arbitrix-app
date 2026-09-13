@@ -1431,6 +1431,27 @@
         .achievements-progress-bar{background:var(--bg-input);border-radius:8px;height:6px;overflow:hidden;border:1px solid var(--border-color);}
         .achievements-progress-fill{height:100%;background:linear-gradient(90deg,#F0B90B,#FCD535);border-radius:8px;transition:width 0.6s ease;}
         .achievements-progress-label{display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:4px;font-weight:600;}
+        /* Achievements now live in Profile Settings (moved off the main
+           dashboard). The card, ids and inner styling are unchanged; this
+           collapsible wrapper is the only addition. Collapsed by default so
+           Profile Settings stays compact. */
+        .profile-achievements{margin:16px 0 0;padding:0;}
+        .profile-achievements>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;cursor:pointer;list-style:none;position:relative;z-index:1;}
+        .profile-achievements>summary::-webkit-details-marker{display:none;}
+        .profile-achievements>summary>.achievements-title{flex:1 1 auto;min-width:0;}
+        .profile-achievements>summary>.achievements-counter{margin-inline-start:auto;}
+        .profile-achievements>summary::after{content:'\25BE';font-size:11px;color:var(--text-muted);transition:transform 0.2s;flex-shrink:0;}
+        .profile-achievements[open]>summary::after{transform:rotate(180deg);}
+        .profile-achievements>summary:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;}
+        .profile-achievements .achievements-progress{padding-top:0;}
+        /* Profile Settings is narrower than the old dashboard slot, so the fixed
+           2/3/4/6 column rules squeeze the cells and a long badge name
+           ("Unstoppable") can overflow. Inside this section the columns are
+           width-driven instead, and the text is allowed to break as a backstop.
+           Scoped to the profile section; every original .badges-grid rule above
+           is untouched. */
+        .profile-achievements .badges-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));}
+        .profile-achievements .badge-name,.profile-achievements .badge-desc{overflow-wrap:break-word;}
         .badges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 16px 16px;position:relative;z-index:1;}
         .badge-item{background:var(--bg-input);border:1px solid var(--border-color);border-radius:12px;padding:12px 8px;text-align:center;transition:all 0.3s;position:relative;cursor:pointer;overflow:hidden;}
         .badge-item:hover{transform:translateY(-2px);border-color:rgba(240,185,11,0.3);}
@@ -5588,18 +5609,6 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <div class="achievements-card">
-            <div class="achievements-header">
-                <div class="achievements-title"><span class="icon-bg gold"><i class="fas fa-medal"></i></span><span data-i18n="achievements.title">Achievements</span></div>
-                <div class="achievements-counter" id="achievementsCounter">0 / 12 <span data-i18n="achievements.unlocked">Unlocked</span></div>
-            </div>
-            <div class="achievements-progress">
-                <div class="achievements-progress-bar"><div class="achievements-progress-fill" id="achievementsProgressFill" style="width:0%;"></div></div>
-                <div class="achievements-progress-label"><span id="achievementsProgressText" data-i18n="achievements.startTrading">Start trading to unlock badges</span><span id="achievementsProgressPct">0%</span></div>
-            </div>
-            <div class="badges-grid" id="badgesGrid"></div>
-        </div>
-
         <div class="mta-progress-card hidden" id="mtaProgressCard">
             <div class="mta-header">
                 <div class="mta-title">
@@ -7258,6 +7267,23 @@ function toggleFaq(btn) {
         </div>
 
         
+        <!-- ACHIEVEMENTS (moved off the main dashboard so the dashboard stays
+             focused on trading). The card markup, ids and inner styling are
+             preserved verbatim, so renderBadges()/checkBadges() need no
+             changes; only the collapsible <details> wrapper is new. Collapsed
+             by default so Profile Settings stays compact. -->
+        <details class="achievements-card profile-achievements" id="profileAchievements">
+            <summary class="achievements-header">
+                <div class="achievements-title"><span class="icon-bg gold"><i class="fas fa-medal"></i></span><span data-i18n="achievements.title">Achievements</span></div>
+                <div class="achievements-counter" id="achievementsCounter">0 / 12 <span data-i18n="achievements.unlocked">Unlocked</span></div>
+            </summary>
+            <div class="achievements-progress">
+                <div class="achievements-progress-bar"><div class="achievements-progress-fill" id="achievementsProgressFill" style="width:0%;"></div></div>
+                <div class="achievements-progress-label"><span id="achievementsProgressText" data-i18n="achievements.startTrading">Start trading to unlock badges</span><span id="achievementsProgressPct">0%</span></div>
+            </div>
+            <div class="badges-grid" id="badgesGrid"></div>
+        </details>
+
         <!-- Account help: official support + verification transparency.
              UI-only: does not change any KYC/withdrawal/backend behavior. -->
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid #1E2A3F;">

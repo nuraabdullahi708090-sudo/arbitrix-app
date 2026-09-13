@@ -2939,3 +2939,87 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   #walletSyncLoader (z-index 9999) displayed, which would cover modals - the harness hides it
   only; and "TradingView is not defined" / "Chart is not defined" come from the blocked
   external CDN, identical on the untouched baseline.
+
+## Phase 27 DEPLOYED TO PRODUCTION (2026-09-13)
+- Deployment commit: 1bfba091a244bf49331cac5c6fbab598f1247efe
+  ("fix: beginner UX - support from profile, history range, LIVE ACTIVITY ticker"),
+  pushed e617cd7..1bfba09 main -> main on
+  github.com/nuraabdullahi708090-sudo/arbitrix-app.
+- Host: the push to main auto-deployed to https://arbitrix.pro within ~1 minute
+  (observed: old build served at 22:21:17Z, new build at 22:21:47Z). NOTE the
+  platform is NOT declared anywhere in the repo (no render.yaml/Procfile/
+  Dockerfile/CI config), so Render is inferred from this auto-deploy behaviour
+  plus management confirmation, not from a committed config file.
+- Post-deploy verification: the served public/index.html is BYTE-IDENTICAL to the
+  committed file (sha256 f052e81e908d1a1d671da5cb90782ace1e55bdc8f9a781790e5b1a03b6118c38).
+  Live markers: "LIVE ACTIVITY" present, "Sample activity" 0, txShowOlder 5,
+  reviewLiveRequirements 2, demoCta.risk 7, MIN_WITHDRAWAL: 700 preserved.
+  Headless Chromium on the production URL: HTTP 200, 0 page errors, 0 failed
+  requests, 0 horizontal overflow at 390px, auth page renders for a logged-out
+  visitor. /reset-password.html 200, /api/health 200.
+- AUTH NOTE: the credential embedded in the origin URL (ghu_...) no longer
+  authenticates (it drops to a password prompt); the GITHUB_TOKEN secret does
+  work. The origin URL was re-pointed at the token to complete the push.
+- CHANGE SET: public/index.html + AGENTS.md + 7 test files. No server.js,
+  services, migrations, DB schema or production configuration was modified.
+- This deployment note is intentionally LEFT UNCOMMITTED so that recording it
+  does not trigger a second production rebuild. The working tree therefore shows
+  AGENTS.md as modified - it is documentation only.
+
+## Phase 28 - Achievements Panel Moved Off the Dashboard (2026-09-13, public/index.html + tests, frontend-only)
+- The Achievements panel was removed from the main dashboard and relocated into
+  Profile Settings as a collapsed section, so the dashboard stays focused on
+  trading. DISPLAY/LOCATION change only - the feature is preserved, not deleted
+  (no JS logic, data, storage or styling was rewritten).
+- WHAT CHANGED (public/index.html, 3 edits, 64 insertions / 12 deletions):
+  1. The `.achievements-card` block was deleted from `#mainContent` (dashboard).
+     Removed verbatim; it is now inside `#profileModal`, after the Arbitrix Pro
+     summary card and before the account-help block.
+  2. The panel is wrapped in `<details class="achievements-card
+     profile-achievements" id="profileAchievements">` with the original
+     `.achievements-header` markup as its `<summary>`. Collapsed by default.
+  3. New scoped CSS (`.profile-achievements*`) for the summary/affordance, the
+     adaptive columns and the break-word backstop. Every original
+     `.achievements-card` / `.achievements-title` / `.achievements-counter` /
+     `.achievements-progress*` / `.badges-grid` / `.badge-item` rule is
+     byte-identical.
+- ZERO JS CHANGES. All element ids are preserved (`badgesGrid`,
+  `achievementsCounter`, `achievementsProgressFill`, `achievementsProgressText`,
+  `achievementsProgressPct`), so `renderBadges()` / `checkBadges()` (called from
+  `updateUI()`) keep working untouched - badge unlocking, toasts, confetti,
+  ticker announcements and the `arbi_badges` per-wallet persistence are
+  unaffected. The panel lives in the always-present modal markup, so
+  `getElementById('badgesGrid')` still resolves on first render.
+- RESPONSIVENESS FIX (real regression caught during verification): the profile
+  modal is narrower than the old dashboard slot, so the inherited fixed
+  3-column `.badges-grid` rule squeezed mobile cells to 85px and the
+  "Unstoppable" badge name (71px) overflowed its 67px content box at 390/412px.
+  Fixed with a SCOPED `.profile-achievements .badges-grid{repeat(auto-fill,
+  minmax(104px,1fr))}` plus `overflow-wrap:break-word` on the name/desc. Cells
+  are now 105-143px on mobile with 2 columns; 16/16 locale x width scenarios
+  clean (en/es/ar/zh x 320/360/390/412).
+- NO empty space: `#mainContent` is a vertical card stack, so removing the card
+  leaves no gap - measured 16px (the normal card margin) between
+  `.trading-stats-card` and the next visible card at every tested width.
+- PRESERVED/UNTOUCHED (verified): the activity ticker banner (0 diff lines
+  mentioning ticker/live-dot/LIVE ACTIVITY/sample - "SAMPLE ACTIVITY"/"LIVE
+  ACTIVITY" was NOT modified by this phase), `APP.MIN_WITHDRAWAL = 700`, all
+  deposit/withdrawal/payment/trading/balance/bot/chart/transaction code, and
+  the i18n dictionary (still 1391 keys/locale x 6, full parity - NO new keys
+  were needed because `achievements.*` already exists in all locales).
+- FILES: M public/index.html, M AGENTS.md, ?? tests/achievements_panel.test.js.
+  No server.js, services, migrations, DB schema, package or production
+  configuration changed.
+- VERIFICATION: `npm test` = 759 pass / 0 fail (750 baseline + 9 new in
+  tests/achievements_panel.test.js, which pins: panel absent from the dashboard
+  slice, feature preserved, panel inside the profile modal, collapsible
+  wrapper + no new navigation, CSS preservation + adaptive columns, a vm-run of
+  the real `renderBadges()` against the moved markup (12 badges, counter and
+  progress still update), i18n parity at 1391 keys, and financial/backend
+  non-involvement). Browser harness (puppeteer-core + chromium, stubbed fetch)
+  = 60/60 across en/ar x 320/390: panel gone from the dashboard, present and
+  collapsed in Profile, expands to 12 badges, charts/stats/transactions/bot
+  still render, ticker intact, $700 intact, 0 horizontal overflow, 0 page
+  errors. Screenshots: /tmp/uxverify/shots/ach-*.png.
+- NOTE: this phase is NOT committed, NOT pushed and NOT deployed (the working
+  tree also still carries the uncommitted Phase 27 deployment note above).
