@@ -2685,3 +2685,128 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   UNKNOWN / sandbox).
 - STATUS: NOT committed, NOT pushed, NOT deployed; migration 026 NOT applied to
   any staging/production database.
+
+
+## Phase 25 - Deposit UX in Demo + Post-Registration Onboarding Funnel (2026-09, public/index.html + tests)
+- Frontend-only (public/index.html). NO server.js / DB / migrations / payment-provider
+  / webhook / KYC / trading / withdrawal changes. No deploy, no merge, no production data
+  touched. MARKETING_SANDBOX behavior unchanged (server-verified in tests).
+- A) Demo-mode deposit UX: openDepositModal() no longer blocks in Demo for PRODUCTION.
+  It opens the modal, reveals #depositDemoNotice (virtual-funds explanation + a balance
+  breakdown of Demo/virtual, Live/real, Deposited funds, Promotional credit), the deposit
+  requirements (min from APP.MIN_DEPOSIT via {{min}}) and a prominent
+  "Switch to Live & Continue" CTA (switchToLiveAndContinueDeposit) that calls setMode('live')
+  and KEEPS the modal open. The generate button is hidden while in Demo and
+  requestDepositAddress() has a hard guard (`if (APP.mode === 'demo') return`). A
+  #depositLiveNotice clarifies LIVE = real balance. Sandbox demo keeps the OLD toast.
+  Display-only: opening the modal / switching modes makes no request and credits nothing.
+- B) Onboarding funnel: #onboardingModal with PRIMARY "Make My First Deposit"
+  (chooseOnboarding('deposit')) and SECONDARY "Explore Demo" (chooseOnboarding('demo')).
+  Shown by handleSignup (after successful registration, before the app) and by
+  initApp -> maybeShowOnboardingForCurrentUser() for a returning, never-onboarded,
+  unfunded, non-sandbox account. Choice is stored per account in localStorage
+  ('arbi_onboarding_<userId>' = 'shown'|'demo'|'deposit'); the 'shown' marker is written
+  the first time the screen appears, so it is shown at most once per account (never every
+  login). 'deposit' sets pendingOnboardingDeposit, consumed by initApp after the sync to
+  open the deposit modal immediately (no invoice). 'demo' enters Demo mode and shows a
+  dismissible in-demo CTA (#demoFirstDepositCta / dismissDemoDepositCta), never forced.
+  Funded users and MARKETING_SANDBOX are never prompted.
+- i18n: 1272 -> 1287 keys/locale (15 new: onboarding.* x10, demoCta.* x4, wallet.liveReal).
+  Identical key sets across en/es/pt/fr/ar/zh, 0 empty, 0 new duplicate keys, {{min}} kept
+  in onboarding.primaryDesc, all data-i18n refs defined. ar RTL verified.
+- Labels: demo.virtualOnly (existing) + onboarding.virtualNote; wallet.liveReal and
+  onboarding.realNote label LIVE as real trading funds; onboarding.promoNote and
+  demoCta.body state the $50 promotional credit / demo funds are separate and demo funds
+  are not withdrawable. No earnings/guarantee claims (tested).
+- Tests: NEW tests/deposit_demo_ux.test.js (9) + tests/onboarding_funnel.test.js (9);
+  sandbox_withdraw_wording pinned count 1255 -> 1287. npm test = 678 pass / 0 fail.
+- Browser verification (puppeteer-core + /usr/bin/chromium, real public/index.html):
+  onboarding opens (min deposit rendered), demo deposit modal shows the notice + separated
+  balances + hidden generate button, switch keeps the modal open and enables the form,
+  in-demo CTA visible, sandbox keeps the toast/no modal, ZERO create-invoice requests
+  during onboarding/open/switch, 12/12 no-horizontal-overflow at 320/390/1280 x en/es/ar/zh
+  (ar dir=rtl). Screenshots: /tmp/onboarding_shots/01..05.
+- UX decisions needing approval: (1) onboarding is shown once to pre-existing unfunded
+  accounts on their next app entry (funded accounts and sandbox are excluded) - confirm
+  this back-fill is wanted vs. new-registrations-only; (2) the per-account onboarding flag
+  lives in localStorage (no DB column added; a DB flag would need a migration).
+
+
+## Phase 26 - Official Customer Support + Standalone KYC/Verification UI Hidden (2026-09, public/index.html + tests)
+- Frontend-only (public/index.html). NO server.js / services / DB / schema /
+  migrations / KYCService / payment-provider / webhook / withdrawal changes.
+  No deploy, no commit, no production data touched.
+- SUPPORT (new, real customer-support experience):
+  - Sidebar entry `#supportSidebarLink` (id-keyed, localized `sidebar.support`)
+    -> `openSupportModal()`; opens `#supportModal`, closes the mobile drawer,
+    marks the nav item active.
+  - `#supportModal` sections: official Telegram CTA (`#supportTelegramBtn`),
+    an unconfigured notice (`#supportNotConfigured`), a security warning, safe
+    payment information, and a FAQ.
+  - CONFIGURABLE official link: `getOfficialSupportTelegramUrl()` reads
+    `window.ARBITRIX_SUPPORT_TELEGRAM_URL` first, then the
+    `<meta name="arbitrix-support-telegram" content="">` tag. `updateSupportLinks()`
+    sets the href + visibility of every `.js-official-telegram` anchor (and shows
+    the notice when unset). NO personal/staff account is hardcoded - the official
+    URL appears EXACTLY ONCE in the document (the meta config); the test asserts
+    that single occurrence and that no anchor hardcodes a destination. The
+    management-confirmed official URL is set in that meta tag (see below).
+  - Security warning covers password / OTP / private key / seed phrase / recovery
+    phrase / card details / recovery codes. The support modal contains NO input
+    or textarea (no secret collection).
+  - Safe payment information: invoice reference, amount, network, tx hash,
+    screenshot only.
+  - Payment-problem guidance is display-only: `#depositInvoiceRef` shows the
+    current invoice id and `copyInvoiceRef()` copies it via the existing safe
+    clipboard pattern. `updatePaymentSupportHelp()` maps the last observed
+    payment status (pending / detected+confirming / expired+cancelled) to
+    `support.paymentHelp.*`. `startPollingForPayment()` records `lastPaymentStatus`
+    and refreshes the guidance; confirmation, crediting, polling and provider
+    calls are unchanged.
+  - Support entry points: sidebar, deposit instructions, deposit payment section,
+    account/settings profile modal, withdrawal modal, and the existing support
+    widget (`#supportPanel`).
+- KYC/VERIFICATION UI HIDDEN (UI-only):
+  - `#verificationSidebarLink` is now `class="sidebar-link hidden"` - the
+    standalone verification tab is not visible.
+  - NOTHING else changed: `#verificationModal` still exists, every `/api/kyc/*`
+    endpoint and `KYCService` are untouched, and the WITHDRAWAL-triggered
+    verification path (withdraw KYC-required screen -> Start Verification ->
+    `openVerificationModal()`) still works (live users need >= 1 trade, as before).
+  - Approved wording `support.verificationNotRequired` ("Verification is not
+    required... additional checks may still be required...") is shown in the
+    account/settings area and localized in all 6 locales.
+- i18n: 1287 -> 1331 keys/locale (44 NEW support keys). Identical key sets across
+  en/es/pt/fr/ar/zh, 0 empty, 0 new duplicate keys (only the pre-existing
+  `landing.howItWorks.*` duplicates remain), 0 placeholder/tag parity issues, all
+  655 `data-i18n` refs defined. ar RTL verified.
+- Tests: NEW `tests/support_ui.test.js` (17), `tests/kyc_ui_hidden.test.js` (8),
+  `tests/withdrawal_protection.test.js` (8); 1 added to
+  `tests/onboarding_funnel.test.js`; pinned key count 1331 in
+  onboarding_funnel / deposit_demo_ux and 1255 -> 1331 in
+  sandbox_withdraw_wording.
+  `npm test` = 712 pass / 0 fail.
+- Browser verification (puppeteer-core + /usr/bin/chromium, real
+  public/index.html, stubbed fetch): 21/21 - onboarding -> deposit flow, support
+  from all 5 entry points, all 3 official Telegram anchors resolve to the ONE
+  configured URL (no other t.me href on the page) with the fallback hidden, the
+  unset case hides every anchor and shows the fallback, the official link is
+  visible + correct at 390px and 1280px, security warning with 0 inputs, pending
+  + expired guidance, zero invoices created by support, demo deposit modal +
+  demo->live preserved with no invoice, standalone verification tab hidden while
+  withdrawal-triggered verification still opens the KYC form, 0 horizontal
+  overflow at 320/430/1280px, Arabic RTL + localized, Spanish copy.
+  Screenshots /tmp/shots/support-{ar,es}-390.png.
+- The two page console errors observed are PRE-EXISTING (`updateDynamicTranslations
+  error: updateVerificationModalHeader is not defined`, and the missing sw.js 404);
+  both are identical on the baseline and unrelated to this change.
+- OFFICIAL URL CONFIGURED (management-confirmed): the single meta tag
+  `<meta name="arbitrix-support-telegram" content="https://t.me/Arbitrix_Official_Support">`
+  is the only place the URL is defined. `updateSupportLinks()` propagates it at
+  runtime to every `.js-official-telegram` anchor (support modal button, deposit
+  payment section, landing footer) - no anchor hardcodes a destination, no
+  personal account, no old link, HTTPS + official t.me domain. When the meta
+  content is empty the anchors stay hidden and the `support.notConfigured`
+  fallback shows instead (never a broken/empty link).
+- STATUS: NOT committed, NOT pushed, NOT deployed.
+

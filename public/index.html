@@ -13,6 +13,14 @@
     <meta name="robots" content="index, follow">
     <meta name="author" content="Arbitrix AI">
     <meta name="facebook-domain-verification" content="d0aufqxqfytuj1dju056bwey5m7ojb" />
+    <!-- Official support Telegram link - SINGLE SOURCE OF TRUTH.
+         This meta tag is the only place the URL is defined; every official
+         Telegram entry point (support modal, deposit payment section, landing
+         footer) receives it at runtime via updateSupportLinks() and no anchor
+         hardcodes a destination. Leave the content empty to hide the direct
+         link and show the in-app support guidance instead. Public link only -
+         never put tokens, secrets, or credentials here. -->
+    <meta name="arbitrix-support-telegram" content="https://t.me/Arbitrix_Official_Support">
     <!-- Open Graph / social sharing -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Arbitrix AI">
@@ -3160,6 +3168,12 @@ async function handleSignup() {
             if (referral) {
                 showToast(t('referral.welcomeReferred'), 'success', 5000);
             }
+
+            // Post-registration onboarding: show the two-choice funnel screen
+            // (Make My First Deposit / Explore Demo) before the general app
+            // experience. Shown at most once per account; creates no invoice and
+            // credits nothing.
+            showOnboarding(data.user);
         }, 1000);
     } catch (e) {
         showAuthError('Network error. Please try again.', 'signup');
@@ -4926,6 +4940,7 @@ console.log('🔐 Auth script loaded successfully');
                 <div class="landing-footer-links">
                     <h4 data-i18n="landing.footer.contact">Contact</h4>
                     <a href="mailto:support@arbitrix.ai">support@arbitrix.ai</a>
+                    <a href="#" class="js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer" data-i18n="support.telegramShort">Telegram Support</a>
                 </div>
             </div>
             <div class="landing-footer-bottom">
@@ -5357,7 +5372,11 @@ function toggleFaq(btn) {
         <a class="sidebar-link" data-section="markets"><i class="fas fa-chart-line"></i> <span data-i18n="sidebar.markets">Markets</span></a>
         <a class="sidebar-link" id="depositSidebarLink"><i class="fas fa-circle-down"></i> <span data-i18n="sidebar.deposit">Deposit</span></a>
         <a class="sidebar-link" id="withdrawSidebarLink"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></a>
-        <a class="sidebar-link" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
+        <!-- Standalone verification/KYC entry is intentionally hidden for now
+             (UI-only). Withdrawal-triggered verification and every backend KYC
+             check remain fully intact. -->
+        <a class="sidebar-link hidden" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
+        <a class="sidebar-link" id="supportSidebarLink" onclick="openSupportModal()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
         <a class="sidebar-link" data-section="history"><i class="fas fa-clock-rotate-left"></i> <span data-i18n="sidebar.history">Transaction Log</span></a>
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
         <a class="sidebar-link" id="subscriptionSidebarLink" onclick="openSubscriptionModal()"><i class="fas fa-crown" style="color:#F0B90B;"></i> <span data-i18n="sidebar.subscription">Subscription</span></a>
@@ -5438,6 +5457,20 @@ function toggleFaq(btn) {
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div></div></div>
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value" style="color:#10B981;">+$0.00</div></div></div>
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#EF4444;" data-i18n="bot.offline">Offline</div></div></div>
+        </div>
+
+        <!-- In-Demo first-deposit CTA: shown while a production user explores
+             Demo with no real deposit. Non-aggressive (dismissible) and never
+             shown for MARKETING_SANDBOX or funded accounts. -->
+        <div id="demoFirstDepositCta" class="hidden" style="background:linear-gradient(135deg, rgba(240,185,11,0.12), rgba(240,185,11,0.04));border:1px solid rgba(240,185,11,0.35);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+            <div style="flex:1;min-width:200px;">
+                <div style="font-size:13px;font-weight:700;color:#F0B90B;margin-bottom:4px;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.title">Ready for real trading?</span></div>
+                <div style="font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="demoCta.body">You're exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;min-width:170px;">
+                <button type="button" onclick="openDepositModal()" class="btn btn-primary" style="background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.button">Make My First Deposit</span></button>
+                <button type="button" onclick="dismissDemoDepositCta()" class="btn btn-secondary" style="font-size:11px;" data-i18n="demoCta.later">Maybe later</button>
+            </div>
         </div>
 
         <div class="chart-card">
@@ -5555,6 +5588,7 @@ function toggleFaq(btn) {
                     <div class="card-header"><span class="icon-bg gold"><i class="fas fa-circle-down"></i></span> <span data-i18n="deposit.title">Live Wallet</span></div>
                     <div class="card-body">
                         <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:8px;"><span data-i18n="wallet.live">Live Balance</span><span id="liveBalanceDisplay">$50.00</span></div>
+                        <div style="font-size:9px;color:#10B981;margin-bottom:8px;text-align:center;line-height:1.4;"><i class="fas fa-shield-halved"></i> <span data-i18n="wallet.liveReal">Real trading funds — separate from demo funds and promotional credit.</span></div>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
                             <button type="button" class="quick-amount-btn" onclick="openDepositModal()" data-i18n="deposit.title">💰 Deposit</button>
                             <button type="button" class="quick-amount-btn" id="withdrawLiveBtn" onclick="openWithdrawModal()" data-i18n="sidebar.withdraw">🏦 Withdraw</button>
@@ -6321,6 +6355,62 @@ function toggleFaq(btn) {
     <!-- STEP 1: INPUT SECTION (shown before invoice) -->
     <!-- ============================================= -->
     <div id="depositInputSection">
+      <!-- DEMO MODE NOTICE (shown while the user is in Demo mode). Opening the
+           modal never creates an invoice; the prominent "Switch to Live &
+           Continue" action moves the session to LIVE and keeps this modal open
+           so the real invoice can be created without reopening the tab.
+           MARKETING_SANDBOX behavior is intentionally unchanged
+           (see openDepositModal). Display-only: never credits a balance. -->
+      <div id="depositDemoNotice" style="display:none;background:rgba(240,185,11,0.10);border:1px solid rgba(240,185,11,0.45);border-radius:12px;padding:16px;margin:16px 0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <i class="fas fa-flask" style="color:#F0B90B;font-size:15px;"></i>
+          <strong style="font-size:13px;color:#F0B90B;" data-i18n="deposit.demoNotice.title">You're in Demo Mode</strong>
+        </div>
+        <p style="font-size:12px;color:#8896B5;line-height:1.6;margin:0 0 8px;" data-i18n="deposit.demoNotice.body">You're currently using virtual/demo funds. Demo funds are not real money and cannot be deposited or withdrawn.</p>
+        <p style="font-size:12px;color:#8896B5;line-height:1.6;margin:0 0 12px;" data-i18n="deposit.demoNotice.realNote">Real deposits are added to your LIVE balance and are separate from demo funds and promotional credit.</p>
+
+        <div style="background:rgba(7,11,20,0.35);border-radius:10px;padding:12px;margin-bottom:12px;">
+          <div style="font-size:10px;font-weight:600;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" data-i18n="deposit.demoNotice.balancesTitle">Your balances</div>
+          <div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;">
+            <span style="color:#8896B5;" data-i18n="deposit.demoNotice.demoBalance">Demo / virtual balance</span>
+            <span id="depositDemoBalance" style="color:#E8EDF5;font-weight:600;">$0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;">
+            <span style="color:#8896B5;" data-i18n="deposit.demoNotice.liveBalance">Live / real balance</span>
+            <span id="depositLiveBalance" style="color:#E8EDF5;font-weight:600;">$0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;">
+            <span style="color:#8896B5;" data-i18n="deposit.demoNotice.depositedFunds">Deposited funds</span>
+            <span id="depositFundedStatus" style="color:#E8EDF5;font-weight:600;text-align:right;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;">
+            <span style="color:#8896B5;" data-i18n="deposit.demoNotice.promoCredit">Promotional credit</span>
+            <span id="depositPromoStatus" style="color:#E8EDF5;font-weight:600;text-align:right;">—</span>
+          </div>
+        </div>
+
+        <div style="font-size:11px;color:#8896B5;line-height:1.6;margin-bottom:14px;">
+          <strong style="color:#F0B90B;" data-i18n="deposit.demoNotice.requirementsTitle">Deposit requirements</strong><br>
+          <span id="depositDemoReqText"></span>
+        </div>
+
+        <button type="button" onclick="switchToLiveAndContinueDeposit()" class="btn btn-primary btn-block" style="width:100%;background:#10B981;border:#10B981;color:#fff;padding:14px;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;">
+          <i class="fas fa-fire"></i> <span data-i18n="deposit.demoNotice.switchCta">Switch to Live &amp; Continue</span>
+        </button>
+      </div>
+
+      <!-- LIVE MODE NOTICE: clarifies that a deposit funds the LIVE/real balance
+           and is separate from demo funds and the promotional credit. -->
+      <div id="depositLiveNotice" style="display:none;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:14px;margin:16px 0;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <i class="fas fa-circle-check" style="color:#10B981;font-size:16px;margin-top:2px;"></i>
+          <div>
+            <strong style="font-size:12px;color:#10B981;" data-i18n="deposit.liveNotice.title">Depositing to your LIVE balance</strong>
+            <div style="font-size:11px;color:#8896B5;line-height:1.6;margin-top:4px;" data-i18n="deposit.liveNotice.body">This deposit is added to your LIVE / real balance. It is separate from demo funds and from your promotional credit.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Supported Currencies Banner -->
       <div id="supportedCoinsInfo" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin:16px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -6367,6 +6457,13 @@ function toggleFaq(btn) {
       <!-- Initial Instructions -->
       <div id="initialInstructions" style="text-align:center;padding:16px;color:#8896B5;font-size:12px;line-height:1.6;" data-i18n="deposit.initialInstructions">
         Enter your deposit amount and click 'Generate Payment' to receive your unique USDT (TRC20) payment address.
+      </div>
+
+      <!-- Deposit help: official support (display-only, opens the support modal) -->
+      <div style="text-align:center;margin-top:4px;">
+        <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:#8896B5;font-size:11px;cursor:pointer;text-decoration:underline;">
+          <i class="fas fa-headset"></i> <span data-i18n="support.needHelpDeposit">Need help with your deposit?</span>
+        </button>
       </div>
     </div>
 
@@ -6465,6 +6562,26 @@ function toggleFaq(btn) {
         <div style="font-size:11px;color:#8896B5;margin-bottom:4px;" data-i18n="deposit.currentStatus">Current Status</div>
         <div id="depositStatusText" style="font-size:13px;font-weight:600;color:#F0B90B;">Waiting for payment...</div>
       </div>
+
+      <!-- Invoice reference + payment help / official support (display-only).
+           The reference is the invoice id already used for this payment; no
+           extra private user data is shown. No confirmation happens here. -->
+      <div id="paymentSupportHelp" style="background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:12px;margin:12px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:10px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.invoiceRef">Invoice Reference</span>
+          <span id="depositInvoiceRef" style="font-family:monospace;font-size:10px;color:#F0B90B;word-break:break-all;text-align:end;">---</span>
+        </div>
+        <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary btn-block" style="font-size:11px;padding:8px;margin-bottom:10px;">
+          <i class="fas fa-copy"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
+        </button>
+        <div id="paymentSupportHelpText" style="font-size:11px;color:#8896B5;line-height:1.6;">Need help with your payment? Contact official Arbitrix Support.</div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button type="button" onclick="openSupportModal()" class="btn btn-primary" style="flex:1;min-width:150px;">
+            <i class="fas fa-headset"></i> <span data-i18n="support.contactOfficial">Contact official Arbitrix Support</span>
+          </button>
+          <a href="#" class="btn btn-secondary js-official-telegram" style="display:none;flex:1;min-width:150px;text-align:center;" target="_blank" rel="noopener noreferrer" data-i18n="support.officialTelegram">Official Telegram Support</a>
+        </div>
+      </div>
     </div>
 
     <!-- ========================================= -->
@@ -6534,6 +6651,59 @@ function toggleFaq(btn) {
   </div>
 </div>
 
+<!-- ==================== POST-REGISTRATION ONBOARDING ====================
+     Shown once per account (production only) before the general app
+     experience. The primary path is the first deposit; Demo stays a fully
+     optional secondary path. Display-only: opening this screen creates no
+     invoice and credits nothing. MARKETING_SANDBOX never sees it. -->
+<div class="deposit-modal" id="onboardingModal">
+  <div class="deposit-modal-content" style="max-width:460px;">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="width:64px;height:64px;background:rgba(240,185,11,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+        <i class="fas fa-robot" style="font-size:28px;color:#F0B90B;"></i>
+      </div>
+      <h3 style="justify-content:center;text-align:center;font-size:18px;font-weight:700;color:#E8EDF5;margin-bottom:6px;" data-i18n="onboarding.title">Welcome to Arbitrix</h3>
+      <p style="font-size:12px;color:#8896B5;line-height:1.6;margin:0;" data-i18n="onboarding.subtitle">How would you like to start?</p>
+    </div>
+
+    <!-- PRIMARY: first deposit (visually dominant, never forced) -->
+    <button type="button" onclick="chooseOnboarding('deposit')" class="btn btn-primary btn-block" style="width:100%;text-align:left;background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;padding:16px;border-radius:12px;cursor:pointer;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-circle-down" style="font-size:20px;"></i>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;" data-i18n="onboarding.primary">Make My First Deposit</div>
+          <div id="onboardingPrimaryDesc" style="font-size:11px;font-weight:500;opacity:0.85;line-height:1.5;margin-top:2px;"></div>
+        </div>
+      </div>
+    </button>
+
+    <!-- SECONDARY: explore demo -->
+    <button type="button" onclick="chooseOnboarding('demo')" class="btn btn-secondary btn-block" style="width:100%;text-align:left;padding:16px;border-radius:12px;cursor:pointer;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-flask" style="font-size:18px;color:#F0B90B;"></i>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:#E8EDF5;" data-i18n="onboarding.secondary">Explore Demo</div>
+          <div style="font-size:11px;color:#8896B5;line-height:1.5;margin-top:2px;" data-i18n="onboarding.secondaryDesc">Try the bot with $1,000 in virtual funds. No money required.</div>
+        </div>
+      </div>
+    </button>
+
+    <div style="background:rgba(7,11,20,0.35);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="display:flex;gap:8px;font-size:11px;color:#8896B5;padding:2px 0;line-height:1.5;">
+        <i class="fas fa-flask" style="color:#F0B90B;margin-top:2px;"></i><span data-i18n="onboarding.virtualNote">Demo balance = virtual funds. No real value.</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:#8896B5;padding:2px 0;line-height:1.5;">
+        <i class="fas fa-shield-halved" style="color:#10B981;margin-top:2px;"></i><span data-i18n="onboarding.realNote">Live balance = real trading funds.</span>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;color:#8896B5;padding:2px 0;line-height:1.5;">
+        <i class="fas fa-gift" style="color:#F0B90B;margin-top:2px;"></i><span data-i18n="onboarding.promoNote">$50 promotional credit is separate from your deposited funds.</span>
+      </div>
+    </div>
+
+    <p style="font-size:10px;color:#5A6A8A;text-align:center;line-height:1.5;margin:0;" data-i18n="onboarding.noObligation">You can deposit later — Demo is always available.</p>
+  </div>
+</div>
+
 <!-- WITHDRAW MODAL -->
 <div class="deposit-modal" id="withdrawModal">
     <div class="deposit-modal-content">
@@ -6545,6 +6715,11 @@ function toggleFaq(btn) {
         <div id="withdrawForm">
             <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
             <div id="withdrawInfoBox" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
+            <div style="text-align:center;margin-bottom:12px;">
+                <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:#8896B5;font-size:11px;cursor:pointer;text-decoration:underline;">
+                    <i class="fas fa-headset"></i> <span data-i18n="support.needHelpWithdraw">Need help with a withdrawal?</span>
+                </button>
+            </div>
             <div class="form-group"><label data-i18n="withdraw.amount">Amount (USD)</label><input type="number" id="withdrawAmountInput" class="input-field" placeholder="0.00"></div>
             <div class="form-group">
                 <label data-i18n="withdraw.address">Wallet Address</label>
@@ -6589,6 +6764,10 @@ function toggleFaq(btn) {
                 </button>
                 <p style="font-size:10px;color:#6B7A99;">
                     <i class="fas fa-lock"></i> <span data-i18n="withdraw.docsEncrypted">Your documents are encrypted and secure</span>
+                </p>
+                <p style="font-size:10px;color:#6B7A99;margin-top:10px;">
+                    <i class="fas fa-headset"></i>
+                    <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:#F0B90B;font-size:10px;cursor:pointer;text-decoration:underline;" data-i18n="support.contactShort">Contact Support</button>
                 </p>
             </div>
         </div>
@@ -6758,6 +6937,80 @@ function toggleFaq(btn) {
     </div>
 </div>
 
+<!-- ==================== OFFICIAL SUPPORT MODAL ====================
+     Customer support experience: official Telegram link (configurable), help
+     topics, payment-problem guidance, and a security warning. Display-only: no
+     payment/KYC/withdrawal logic is reachable from here, no secrets are
+     collected, and no user private data is displayed. -->
+<div class="deposit-modal" id="supportModal">
+    <div class="deposit-modal-content" style="max-width:520px;">
+        <button type="button" onclick="closeSupportModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:rgba(240,185,11,0.12);display:flex;align-items:center;justify-content:center;color:#F0B90B;"><i class="fas fa-headset" style="font-size:20px;"></i></div>
+            <div>
+                <h3 style="margin:0;font-size:16px;font-weight:700;color:#E8EDF5;" data-i18n="support.modal.title">Arbitrix Support</h3>
+                <p style="margin:0;font-size:11px;color:#8896B5;" data-i18n="support.modal.subtitle">We are here to help with deposits, withdrawals and account questions.</p>
+            </div>
+        </div>
+
+        <!-- Official Telegram support (configurable; no personal account hardcoded) -->
+        <a href="#" id="supportTelegramBtn" class="btn btn-primary btn-block js-official-telegram" style="display:none;margin-top:12px;text-align:center;background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;" target="_blank" rel="noopener noreferrer">
+            <i class="fab fa-telegram"></i> <span data-i18n="support.officialTelegram">Official Telegram Support</span>
+        </a>
+        <div id="supportNotConfigured" style="display:none;margin-top:12px;font-size:11px;color:#8896B5;background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:10px;line-height:1.6;" data-i18n="support.notConfigured">Official Telegram Support is being configured. In the meantime use the in-app support chat or email support@arbitrix.ai.</div>
+
+        <!-- Security warning -->
+        <div style="margin-top:14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;">
+            <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:6px;"><i class="fas fa-shield-halved"></i> <span data-i18n="support.security.title">Official Support will NEVER ask for</span></div>
+            <ul style="margin:0;padding-inline-start:18px;font-size:11px;color:#B8C2D9;line-height:1.7;">
+                <li data-i18n="support.security.password">Your password</li>
+                <li data-i18n="support.security.otp">OTP / 2FA codes</li>
+                <li data-i18n="support.security.privateKey">Private keys</li>
+                <li data-i18n="support.security.seedPhrase">Seed phrases</li>
+                <li data-i18n="support.security.recoveryPhrase">Wallet recovery phrases</li>
+                <li data-i18n="support.security.cardDetails">Full card details</li>
+                <li data-i18n="support.security.recoveryCodes">Account recovery codes</li>
+            </ul>
+        </div>
+
+        <!-- Payment problem guidance -->
+        <div style="margin-top:14px;background:var(--bg-input);border-radius:10px;padding:12px;">
+            <div style="font-size:12px;font-weight:700;color:#E8EDF5;margin-bottom:6px;"><i class="fas fa-circle-info" style="color:#F0B90B;"></i> <span data-i18n="support.paymentHelp.title">Having a payment problem?</span></div>
+            <p style="margin:0 0 6px;font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="support.paymentHelp.body">If a deposit is pending, delayed or looks wrong, it is safe to share only:</p>
+            <ul style="margin:0;padding-inline-start:18px;font-size:11px;color:#B8C2D9;line-height:1.7;">
+                <li data-i18n="support.safeInfo.invoice">Invoice reference</li>
+                <li data-i18n="support.safeInfo.amount">Payment amount</li>
+                <li data-i18n="support.safeInfo.network">Payment network</li>
+                <li data-i18n="support.safeInfo.txHash">Transaction hash (if applicable)</li>
+                <li data-i18n="support.safeInfo.screenshot">A screenshot, when necessary</li>
+            </ul>
+        </div>
+
+        <!-- Help topics -->
+        <div style="margin-top:14px;">
+            <div style="font-size:12px;font-weight:700;color:#E8EDF5;margin-bottom:6px;" data-i18n="support.faq.title">Help topics</div>
+            <details style="border:1px solid #1E2A3F;border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+                <summary style="font-size:12px;color:#E8EDF5;cursor:pointer;" data-i18n="support.faq.depositPending.q">My deposit is still pending</summary>
+                <p style="margin:6px 0 0;font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="support.faq.depositPending.a">USDT (TRC20) deposits are detected automatically and usually confirm within a few minutes. Keep the invoice reference: official support can check the payment with it. Never send funds twice.</p>
+            </details>
+            <details style="border:1px solid #1E2A3F;border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+                <summary style="font-size:12px;color:#E8EDF5;cursor:pointer;" data-i18n="support.faq.depositFailed.q">My payment failed or expired</summary>
+                <p style="margin:6px 0 0;font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="support.faq.depositFailed.a">An expired invoice is never credited. Generate a new invoice and pay the exact amount shown on the TRON (TRC20) network. If funds left your wallet, contact official support with the transaction hash.</p>
+            </details>
+            <details style="border:1px solid #1E2A3F;border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+                <summary style="font-size:12px;color:#E8EDF5;cursor:pointer;" data-i18n="support.faq.withdrawal.q">Withdrawal requirements</summary>
+                <p style="margin:6px 0 0;font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="support.faq.withdrawal.a">Withdrawals require a confirmed deposit, at least one completed trade, and any security checks that apply to your account. The withdrawal page always shows the current requirements.</p>
+            </details>
+            <details style="border:1px solid #1E2A3F;border-radius:8px;padding:8px 10px;">
+                <summary style="font-size:12px;color:#E8EDF5;cursor:pointer;" data-i18n="support.faq.security.q">Keeping your account safe</summary>
+                <p style="margin:6px 0 0;font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="support.faq.security.a">Arbitrix support only writes from official channels. Verify the destination before sharing anything, and never share the items listed in the security warning above.</p>
+            </details>
+        </div>
+
+        <button type="button" onclick="closeSupportModal()" class="btn btn-secondary btn-block" style="margin-top:16px;" data-i18n="common.close">Close</button>
+    </div>
+</div>
+
 <!-- Image Viewer Modal -->
 <div class="modal-overlay" id="imageViewerModal">
     <div class="modal-content" style="max-width:90vw;max-height:90vh;padding:0;overflow:hidden;">
@@ -6896,6 +7149,15 @@ function toggleFaq(btn) {
         </div>
 
         
+        <!-- Account help: official support + verification transparency.
+             UI-only: does not change any KYC/withdrawal/backend behavior. -->
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid #1E2A3F;">
+            <button type="button" class="btn btn-secondary btn-block" onclick="openSupportModal()" style="margin-bottom:10px;">
+                <i class="fas fa-headset"></i> <span data-i18n="profile.contactSupport">Contact Support</span>
+            </button>
+            <p id="verificationNotRequiredNote" style="font-size:10px;color:#5A6A8A;line-height:1.5;text-align:center;margin:0;" data-i18n="support.verificationNotRequired">Verification is not required. Additional checks may still be required for account security, payment-provider requirements, or other applicable conditions.</p>
+        </div>
+
         <div class="modal-actions"><button type="button" onclick="document.getElementById('profileModal').classList.remove('open')" class="btn btn-secondary" data-i18n="common.cancel">Cancel</button><button type="button" onclick="saveProfile()" class="btn btn-primary" data-i18n="common.save">Save</button></div>
     </div>
 </div>
@@ -7150,6 +7412,9 @@ function toggleFaq(btn) {
                 <button type="button" class="quick-reply-btn" data-msg="How do I start the arbitrage bot?" data-i18n="support.botSetup">🤖 Bot setup</button>
                 <button type="button" class="quick-reply-btn" data-msg="I need help with my deposit." data-i18n="support.deposit">💰 Deposit</button>
                 <button type="button" class="quick-reply-btn" data-msg="When can I withdraw my funds?" data-i18n="support.withdraw">🏦 Withdraw</button>
+            </div>
+            <div style="padding:8px 12px 0;text-align:center;">
+                <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:#F0B90B;font-size:10px;cursor:pointer;text-decoration:underline;" data-i18n="support.openCenter">Open Support Center</button>
             </div>
         </div>
         <div class="support-panel-footer">
@@ -7615,6 +7880,38 @@ const TRANSLATIONS = {
         'deposit.history': 'History',
         'deposit.noDeposits': 'No deposits yet',
         'deposit.switchToLive': 'Switch to LIVE mode to deposit real funds',
+        'deposit.demoNotice.title': 'You\'re in Demo Mode',
+        'deposit.demoNotice.body': 'You\'re currently using virtual/demo funds. Demo funds are not real money and cannot be deposited or withdrawn.',
+        'deposit.demoNotice.realNote': 'Real deposits are added to your LIVE balance and are separate from demo funds and promotional credit.',
+        'deposit.demoNotice.balancesTitle': 'Your balances',
+        'deposit.demoNotice.demoBalance': 'Demo / virtual balance',
+        'deposit.demoNotice.liveBalance': 'Live / real balance',
+        'deposit.demoNotice.depositedFunds': 'Deposited funds',
+        'deposit.demoNotice.depositedYes': 'Deposited \u2014 confirmed',
+        'deposit.demoNotice.depositedNo': 'Not deposited yet',
+        'deposit.demoNotice.promoCredit': 'Promotional credit',
+        'deposit.demoNotice.promoActive': 'Active (tradable, not withdrawable)',
+        'deposit.demoNotice.promoNone': 'Not applicable',
+        'deposit.demoNotice.requirementsTitle': 'Deposit requirements',
+        'deposit.demoNotice.req': 'Minimum deposit: ${{min}} \u2022 USDT on TRON (TRC20) only \u2022 Credited to your LIVE balance',
+        'deposit.demoNotice.switchCta': 'Switch to Live &amp; Continue',
+        'deposit.liveNotice.title': 'Depositing to your LIVE balance',
+        'deposit.liveNotice.body': 'This deposit is added to your LIVE / real balance. It is separate from demo funds and from your promotional credit.',
+        'onboarding.title': 'Welcome to Arbitrix',
+        'onboarding.subtitle': 'How would you like to start?',
+        'onboarding.primary': 'Make My First Deposit',
+        'onboarding.primaryDesc': 'Fund your Live balance and start real trading. Minimum deposit ${{min}}.',
+        'onboarding.secondary': 'Explore Demo',
+        'onboarding.secondaryDesc': 'Try the bot with $1,000 in virtual funds. No money required.',
+        'onboarding.virtualNote': 'Demo balance = virtual funds. No real value.',
+        'onboarding.realNote': 'Live balance = real trading funds.',
+        'onboarding.promoNote': '$50 promotional credit is separate from your deposited funds.',
+        'onboarding.noObligation': 'You can deposit later — Demo is always available.',
+        'demoCta.title': 'Ready for real trading?',
+        'demoCta.body': 'You\'re exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.',
+        'demoCta.button': 'Make My First Deposit',
+        'demoCta.later': 'Maybe later',
+        'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT deposited successfully!',
         'deposit.confirmed': 'Deposit Confirmed',
@@ -7840,6 +8137,50 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.',
         'support.reply.language': '🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.',
         'support.reply.hello': '👋 Hello! Welcome to Arbitrix AI support. How can I assist you today?',
+        'support.telegramShort': 'Telegram Support',
+        'support.modal.title': 'Arbitrix Support',
+        'support.modal.subtitle': 'We are here to help with deposits, withdrawals and account questions.',
+        'support.officialTelegram': 'Official Telegram Support',
+        'support.notConfigured': 'Official Telegram Support is being configured. In the meantime use the in-app support chat or email support@arbitrix.ai.',
+        'support.security.title': 'Official Support will NEVER ask for',
+        'support.security.password': 'Your password',
+        'support.security.otp': 'OTP / 2FA codes',
+        'support.security.privateKey': 'Private keys',
+        'support.security.seedPhrase': 'Seed phrases',
+        'support.security.recoveryPhrase': 'Wallet recovery phrases',
+        'support.security.cardDetails': 'Full card details',
+        'support.security.recoveryCodes': 'Account recovery codes',
+        'support.paymentHelp.title': 'Having a payment problem?',
+        'support.paymentHelp.body': 'If a deposit is pending, delayed or looks wrong, it is safe to share only:',
+        'support.safeInfo.invoice': 'Invoice reference',
+        'support.safeInfo.amount': 'Payment amount',
+        'support.safeInfo.network': 'Payment network',
+        'support.safeInfo.txHash': 'Transaction hash (if applicable)',
+        'support.safeInfo.screenshot': 'A screenshot, when necessary',
+        'support.faq.title': 'Help topics',
+        'support.faq.depositPending.q': 'My deposit is still pending',
+        'support.faq.depositPending.a': 'USDT (TRC20) deposits are detected automatically and usually confirm within a few minutes. Keep the invoice reference: official support can check the payment with it. Never send funds twice.',
+        'support.faq.depositFailed.q': 'My payment failed or expired',
+        'support.faq.depositFailed.a': 'An expired invoice is never credited. Generate a new invoice and pay the exact amount shown on the TRON (TRC20) network. If funds left your wallet, contact official support with the transaction hash.',
+        'support.faq.withdrawal.q': 'Withdrawal requirements',
+        'support.faq.withdrawal.a': 'Withdrawals require a confirmed deposit, at least one completed trade, and any security checks that apply to your account. The withdrawal page always shows the current requirements.',
+        'support.faq.security.q': 'Keeping your account safe',
+        'support.faq.security.a': 'Arbitrix support only writes from official channels. Verify the destination before sharing anything, and never share the items listed in the security warning above.',
+        'support.needHelpDeposit': 'Need help with your deposit?',
+        'support.needHelpWithdraw': 'Need help with a withdrawal?',
+        'support.contactOfficial': 'Contact official Arbitrix Support',
+        'support.contactShort': 'Contact Support',
+        'support.openCenter': 'Open Support Center',
+        'support.verificationNotRequired': 'Verification is not required. Additional checks may still be required for account security, payment-provider requirements, or other applicable conditions.',
+        'sidebar.support': 'Support',
+        'profile.contactSupport': 'Contact Support',
+        'deposit.invoiceRef': 'Invoice Reference',
+        'deposit.copyInvoiceRef': 'Copy invoice reference',
+        'support.paymentHelp.pending': 'Need help with your payment? Contact official Arbitrix Support and share only your invoice reference, payment amount, network, and transaction hash.',
+        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, contact official Arbitrix Support with your invoice reference and transaction hash.',
+        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or contact official Arbitrix Support with your invoice reference and transaction hash if funds left your wallet.',
+        'deposit.copyInvoiceRefSuccess': 'Invoice reference copied',
+        'deposit.copyInvoiceRefFailed': 'Could not copy the invoice reference',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> earned <span class="ticker-amount green">+${{amount}}</span> on {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> deposited <span class="ticker-amount gold">${{amount}}</span>',
         'ticker.referred': '<span class="ticker-user">{{user}}</span> referred a friend and earned a <span class="ticker-amount gold">referral reward</span>!',
@@ -8890,6 +9231,38 @@ const TRANSLATIONS = {
         'deposit.history': 'Historial',
         'deposit.noDeposits': 'Aún no hay depósitos',
         'deposit.switchToLive': 'Cambia al modo LIVE para depositar fondos reales',
+        'deposit.demoNotice.title': 'Est\u00e1s en modo Demo',
+        'deposit.demoNotice.body': 'Actualmente usas fondos virtuales/demo. Los fondos demo no son dinero real y no se pueden depositar ni retirar.',
+        'deposit.demoNotice.realNote': 'Los dep\u00f3sitos reales se a\u00f1aden a tu saldo LIVE y son independientes de los fondos demo y del cr\u00e9dito promocional.',
+        'deposit.demoNotice.balancesTitle': 'Tus saldos',
+        'deposit.demoNotice.demoBalance': 'Saldo demo / virtual',
+        'deposit.demoNotice.liveBalance': 'Saldo LIVE / real',
+        'deposit.demoNotice.depositedFunds': 'Fondos depositados',
+        'deposit.demoNotice.depositedYes': 'Depositado \u2014 confirmado',
+        'deposit.demoNotice.depositedNo': 'A\u00fan no depositado',
+        'deposit.demoNotice.promoCredit': 'Cr\u00e9dito promocional',
+        'deposit.demoNotice.promoActive': 'Activo (operable, no retirable)',
+        'deposit.demoNotice.promoNone': 'No aplica',
+        'deposit.demoNotice.requirementsTitle': 'Requisitos de dep\u00f3sito',
+        'deposit.demoNotice.req': 'Dep\u00f3sito m\u00ednimo: ${{min}} \u2022 Solo USDT en TRON (TRC20) \u2022 Acreditado en tu saldo LIVE',
+        'deposit.demoNotice.switchCta': 'Cambiar a Live y continuar',
+        'deposit.liveNotice.title': 'Depositando en tu saldo LIVE',
+        'deposit.liveNotice.body': 'Este dep\u00f3sito se a\u00f1ade a tu saldo LIVE / real. Es independiente de los fondos demo y de tu cr\u00e9dito promocional.',
+        'onboarding.title': 'Bienvenido a Arbitrix',
+        'onboarding.subtitle': '¿Cómo quieres empezar?',
+        'onboarding.primary': 'Hacer mi primer depósito',
+        'onboarding.primaryDesc': 'Financia tu saldo LIVE y comienza a operar de verdad. Depósito mínimo ${{min}}.',
+        'onboarding.secondary': 'Explorar la Demo',
+        'onboarding.secondaryDesc': 'Prueba el bot con $1,000 en fondos virtuales. Sin dinero real.',
+        'onboarding.virtualNote': 'Saldo demo = fondos virtuales. Sin valor real.',
+        'onboarding.realNote': 'Saldo LIVE = fondos reales de trading.',
+        'onboarding.promoNote': 'El crédito promocional de $50 es independiente de tus fondos depositados.',
+        'onboarding.noObligation': 'Puedes depositar más tarde — la Demo siempre está disponible.',
+        'demoCta.title': '¿Listo para operar de verdad?',
+        'demoCta.body': 'Estás explorando con fondos virtuales. Haz tu primer depósito para financiar tu saldo LIVE. Los fondos demo siguen siendo virtuales y no se pueden retirar.',
+        'demoCta.button': 'Hacer mi primer depósito',
+        'demoCta.later': 'Quizás más tarde',
+        'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
         'deposit.success': '✅ ¡${{amount}} USDT depositados con éxito!',
         'deposit.confirmed': 'Depósito confirmado',
@@ -9115,6 +9488,50 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 Puedes controlar los sonidos haciendo clic en el ícono de altavoz en el encabezado, o ajustar el volumen en Configuración de perfil.',
         'support.reply.language': '🌍 Puedes cambiar el idioma haciendo clic en el ícono 🌐 del globo en el encabezado, o en Configuración de perfil.',
         'support.reply.hello': '👋 ¡Hola! Bienvenido al soporte de Arbitrix AI. ¿Cómo puedo ayudarte hoy?',
+        'support.telegramShort': 'Soporte de Telegram',
+        'support.modal.title': 'Soporte de Arbitrix',
+        'support.modal.subtitle': 'Estamos aquí para ayudarte con depósitos, retiros y consultas de la cuenta.',
+        'support.officialTelegram': 'Soporte oficial de Telegram',
+        'support.notConfigured': 'El soporte oficial de Telegram se está configurando. Mientras tanto, usa el chat de soporte de la app o escribe a support@arbitrix.ai.',
+        'support.security.title': 'El soporte oficial NUNCA te pedirá',
+        'support.security.password': 'Tu contraseña',
+        'support.security.otp': 'Códigos OTP / 2FA',
+        'support.security.privateKey': 'Claves privadas',
+        'support.security.seedPhrase': 'Frases semilla',
+        'support.security.recoveryPhrase': 'Frases de recuperación de cartera',
+        'support.security.cardDetails': 'Datos completos de la tarjeta',
+        'support.security.recoveryCodes': 'Códigos de recuperación de la cuenta',
+        'support.paymentHelp.title': '¿Tienes un problema con un pago?',
+        'support.paymentHelp.body': 'Si un depósito está pendiente, demorado o parece incorrecto, es seguro compartir solo:',
+        'support.safeInfo.invoice': 'Referencia de la factura',
+        'support.safeInfo.amount': 'Monto del pago',
+        'support.safeInfo.network': 'Red de pago',
+        'support.safeInfo.txHash': 'Hash de la transacción (si corresponde)',
+        'support.safeInfo.screenshot': 'Una captura de pantalla, cuando sea necesaria',
+        'support.faq.title': 'Temas de ayuda',
+        'support.faq.depositPending.q': 'Mi depósito sigue pendiente',
+        'support.faq.depositPending.a': 'Los depósitos en USDT (TRC20) se detectan automáticamente y suelen confirmarse en pocos minutos. Conserva la referencia de la factura: el soporte oficial puede verificar el pago con ella. Nunca envíes fondos dos veces.',
+        'support.faq.depositFailed.q': 'Mi pago falló o expiró',
+        'support.faq.depositFailed.a': 'Una factura expirada nunca se acredita. Genera una nueva factura y paga el monto exacto indicado en la red TRON (TRC20). Si los fondos salieron de tu cartera, contacta al soporte oficial con el hash de la transacción.',
+        'support.faq.withdrawal.q': 'Requisitos de retiro',
+        'support.faq.withdrawal.a': 'Los retiros requieren un depósito confirmado, al menos una operación completada y las verificaciones de seguridad aplicables a tu cuenta. La página de retiro siempre muestra los requisitos actuales.',
+        'support.faq.security.q': 'Mantener tu cuenta segura',
+        'support.faq.security.a': 'El soporte de Arbitrix solo escribe desde canales oficiales. Verifica el destino antes de compartir algo y nunca compartas los datos indicados en la advertencia de seguridad anterior.',
+        'support.needHelpDeposit': '¿Necesitas ayuda con tu depósito?',
+        'support.needHelpWithdraw': '¿Necesitas ayuda con un retiro?',
+        'support.contactOfficial': 'Contactar al soporte oficial de Arbitrix',
+        'support.contactShort': 'Contactar a soporte',
+        'support.openCenter': 'Abrir el centro de soporte',
+        'support.verificationNotRequired': 'No se requiere verificación. Es posible que aún sean necesarias comprobaciones adicionales por seguridad de la cuenta, requisitos del proveedor de pagos u otras condiciones aplicables.',
+        'sidebar.support': 'Soporte',
+        'profile.contactSupport': 'Contactar a soporte',
+        'deposit.invoiceRef': 'Referencia de la factura',
+        'deposit.copyInvoiceRef': 'Copiar referencia de la factura',
+        'support.paymentHelp.pending': '¿Necesitas ayuda con tu pago? Contacta al soporte oficial de Arbitrix y comparte solo tu referencia de factura, monto, red y hash de la transacción.',
+        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmación, contacta al soporte oficial de Arbitrix con tu referencia de factura y el hash de la transacción.',
+        'support.paymentHelp.failed': 'Esta factura expiró o fue cancelada y no se acreditó. Genera una nueva factura o contacta al soporte oficial de Arbitrix con tu referencia de factura y el hash de la transacción si los fondos salieron de tu cartera.',
+        'deposit.copyInvoiceRefSuccess': 'Referencia de la factura copiada',
+        'deposit.copyInvoiceRefFailed': 'No se pudo copiar la referencia de la factura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganó <span class="ticker-amount green">+${{amount}}</span> en {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> depositó <span class="ticker-amount gold">${{amount}}</span>',
         'ticker.referred': '<span class="ticker-user">{{user}}</span> refirió a un amigo y ganó una <span class="ticker-amount gold">recompensa por referido</span>!',
@@ -10166,6 +10583,38 @@ const TRANSLATIONS = {
         'deposit.history': 'Histórico',
         'deposit.noDeposits': 'Ainda não há depósitos',
         'deposit.switchToLive': 'Mude para o modo LIVE para depositar fundos reais',
+        'deposit.demoNotice.title': 'Voc\u00ea est\u00e1 no modo Demo',
+        'deposit.demoNotice.body': 'Voc\u00ea est\u00e1 usando fundos virtuais/demo. Fundos demo n\u00e3o s\u00e3o dinheiro real e n\u00e3o podem ser depositados nem sacados.',
+        'deposit.demoNotice.realNote': 'Dep\u00f3sitos reais s\u00e3o adicionados ao seu saldo LIVE e s\u00e3o separados dos fundos demo e do cr\u00e9dito promocional.',
+        'deposit.demoNotice.balancesTitle': 'Seus saldos',
+        'deposit.demoNotice.demoBalance': 'Saldo demo / virtual',
+        'deposit.demoNotice.liveBalance': 'Saldo LIVE / real',
+        'deposit.demoNotice.depositedFunds': 'Fundos depositados',
+        'deposit.demoNotice.depositedYes': 'Depositado \u2014 confirmado',
+        'deposit.demoNotice.depositedNo': 'Ainda n\u00e3o depositado',
+        'deposit.demoNotice.promoCredit': 'Cr\u00e9dito promocional',
+        'deposit.demoNotice.promoActive': 'Ativo (negoci\u00e1vel, n\u00e3o sac\u00e1vel)',
+        'deposit.demoNotice.promoNone': 'N\u00e3o se aplica',
+        'deposit.demoNotice.requirementsTitle': 'Requisitos de dep\u00f3sito',
+        'deposit.demoNotice.req': 'Dep\u00f3sito m\u00ednimo: ${{min}} \u2022 Somente USDT na TRON (TRC20) \u2022 Creditado no seu saldo LIVE',
+        'deposit.demoNotice.switchCta': 'Mudar para Live e continuar',
+        'deposit.liveNotice.title': 'Depositando no seu saldo LIVE',
+        'deposit.liveNotice.body': 'Este dep\u00f3sito \u00e9 adicionado ao seu saldo LIVE / real. \u00c9 separado dos fundos demo e do seu cr\u00e9dito promocional.',
+        'onboarding.title': 'Bem-vindo à Arbitrix',
+        'onboarding.subtitle': 'Como você quer começar?',
+        'onboarding.primary': 'Fazer meu primeiro depósito',
+        'onboarding.primaryDesc': 'Financie seu saldo LIVE e comece a negociar de verdade. Depósito mínimo ${{min}}.',
+        'onboarding.secondary': 'Explorar a Demo',
+        'onboarding.secondaryDesc': 'Teste o bot com $1,000 em fundos virtuais. Sem dinheiro real.',
+        'onboarding.virtualNote': 'Saldo demo = fundos virtuais. Sem valor real.',
+        'onboarding.realNote': 'Saldo LIVE = fundos reais de negociação.',
+        'onboarding.promoNote': 'O crédito promocional de $50 é separado dos seus fundos depositados.',
+        'onboarding.noObligation': 'Você pode depositar depois — a Demo está sempre disponível.',
+        'demoCta.title': 'Pronto para negociar de verdade?',
+        'demoCta.body': 'Você está explorando com fundos virtuais. Faça seu primeiro depósito para financiar seu saldo LIVE. Os fundos demo continuam virtuais e não podem ser sacados.',
+        'demoCta.button': 'Fazer meu primeiro depósito',
+        'demoCta.later': 'Talvez mais tarde',
+        'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT depositados com sucesso!',
         'deposit.confirmed': 'Depósito confirmado',
@@ -10391,6 +10840,50 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 Você pode controlar os sons clicando no ícone de alto-falante no cabeçalho, ou ajustar o volume nas Configurações de perfil.',
         'support.reply.language': '🌍 Você pode alterar o idioma clicando no ícone 🌐 de globo no cabeçalho, ou nas Configurações de perfil.',
         'support.reply.hello': '👋 Olá! Bem-vindo ao suporte do Arbitrix AI. Como posso ajudar hoje?',
+        'support.telegramShort': 'Suporte no Telegram',
+        'support.modal.title': 'Suporte Arbitrix',
+        'support.modal.subtitle': 'Estamos aqui para ajudar com depósitos, saques e dúvidas da conta.',
+        'support.officialTelegram': 'Suporte oficial no Telegram',
+        'support.notConfigured': 'O suporte oficial no Telegram está sendo configurado. Enquanto isso, use o chat de suporte do app ou envie um e-mail para support@arbitrix.ai.',
+        'support.security.title': 'O suporte oficial NUNCA pedirá',
+        'support.security.password': 'Sua senha',
+        'support.security.otp': 'Códigos OTP / 2FA',
+        'support.security.privateKey': 'Chaves privadas',
+        'support.security.seedPhrase': 'Frases semente',
+        'support.security.recoveryPhrase': 'Frases de recuperação da carteira',
+        'support.security.cardDetails': 'Dados completos do cartão',
+        'support.security.recoveryCodes': 'Códigos de recuperação da conta',
+        'support.paymentHelp.title': 'Está com problema em um pagamento?',
+        'support.paymentHelp.body': 'Se um depósito está pendente, atrasado ou parece errado, é seguro compartilhar apenas:',
+        'support.safeInfo.invoice': 'Referência da fatura',
+        'support.safeInfo.amount': 'Valor do pagamento',
+        'support.safeInfo.network': 'Rede de pagamento',
+        'support.safeInfo.txHash': 'Hash da transação (se aplicável)',
+        'support.safeInfo.screenshot': 'Uma captura de tela, quando necessário',
+        'support.faq.title': 'Tópicos de ajuda',
+        'support.faq.depositPending.q': 'Meu depósito ainda está pendente',
+        'support.faq.depositPending.a': 'Depósitos em USDT (TRC20) são detectados automaticamente e geralmente confirmam em poucos minutos. Guarde a referência da fatura: o suporte oficial pode verificar o pagamento com ela. Nunca envie fundos duas vezes.',
+        'support.faq.depositFailed.q': 'Meu pagamento falhou ou expirou',
+        'support.faq.depositFailed.a': 'Uma fatura expirada nunca é creditada. Gere uma nova fatura e pague o valor exato mostrado na rede TRON (TRC20). Se os fundos saíram da sua carteira, contate o suporte oficial com o hash da transação.',
+        'support.faq.withdrawal.q': 'Requisitos de saque',
+        'support.faq.withdrawal.a': 'Os saques exigem um depósito confirmado, pelo menos uma operação concluída e as verificações de segurança aplicáveis à sua conta. A página de saque sempre mostra os requisitos atuais.',
+        'support.faq.security.q': 'Mantendo sua conta segura',
+        'support.faq.security.a': 'O suporte da Arbitrix só escreve por canais oficiais. Verifique o destino antes de compartilhar qualquer coisa e nunca compartilhe os itens listados no aviso de segurança acima.',
+        'support.needHelpDeposit': 'Precisa de ajuda com seu depósito?',
+        'support.needHelpWithdraw': 'Precisa de ajuda com um saque?',
+        'support.contactOfficial': 'Falar com o suporte oficial da Arbitrix',
+        'support.contactShort': 'Falar com o suporte',
+        'support.openCenter': 'Abrir a central de suporte',
+        'support.verificationNotRequired': 'A verificação não é necessária. Verificações adicionais ainda podem ser exigidas por segurança da conta, requisitos do provedor de pagamento ou outras condições aplicáveis.',
+        'sidebar.support': 'Suporte',
+        'profile.contactSupport': 'Falar com o suporte',
+        'deposit.invoiceRef': 'Referência da fatura',
+        'deposit.copyInvoiceRef': 'Copiar referência da fatura',
+        'support.paymentHelp.pending': 'Precisa de ajuda com seu pagamento? Fale com o suporte oficial da Arbitrix e compartilhe apenas a referência da fatura, o valor, a rede e o hash da transação.',
+        'support.paymentHelp.detected': 'Pagamento detectado. Se não for creditado após a confirmação, fale com o suporte oficial da Arbitrix com a referência da fatura e o hash da transação.',
+        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e não foi creditada. Gere uma nova fatura ou fale com o suporte oficial da Arbitrix com a referência da fatura e o hash da transação se os fundos saíram da sua carteira.',
+        'deposit.copyInvoiceRefSuccess': 'Referência da fatura copiada',
+        'deposit.copyInvoiceRefFailed': 'Não foi possível copiar a referência da fatura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganhou <span class="ticker-amount green">+${{amount}}</span> em {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> depositou <span class="ticker-amount gold">${{amount}}</span>',
         'ticker.referred': '<span class="ticker-user">{{user}}</span> indicou um amigo e ganhou uma <span class="ticker-amount gold">recompensa de indicação</span>!',
@@ -11442,6 +11935,38 @@ const TRANSLATIONS = {
         'deposit.history': 'Historique',
         'deposit.noDeposits': 'Aucun dépôt pour l’instant',
         'deposit.switchToLive': 'Passez en mode LIVE pour déposer des fonds réels',
+        'deposit.demoNotice.title': 'Vous \u00eates en mode D\u00e9mo',
+        'deposit.demoNotice.body': 'Vous utilisez actuellement des fonds virtuels/d\u00e9mo. Les fonds d\u00e9mo ne sont pas de l\'argent r\u00e9el et ne peuvent \u00eatre d\u00e9pos\u00e9s ni retir\u00e9s.',
+        'deposit.demoNotice.realNote': 'Les d\u00e9p\u00f4ts r\u00e9els sont ajout\u00e9s \u00e0 votre solde LIVE et sont distincts des fonds d\u00e9mo et du cr\u00e9dit promotionnel.',
+        'deposit.demoNotice.balancesTitle': 'Vos soldes',
+        'deposit.demoNotice.demoBalance': 'Solde d\u00e9mo / virtuel',
+        'deposit.demoNotice.liveBalance': 'Solde LIVE / r\u00e9el',
+        'deposit.demoNotice.depositedFunds': 'Fonds d\u00e9pos\u00e9s',
+        'deposit.demoNotice.depositedYes': 'D\u00e9pos\u00e9 \u2014 confirm\u00e9',
+        'deposit.demoNotice.depositedNo': 'Pas encore d\u00e9pos\u00e9',
+        'deposit.demoNotice.promoCredit': 'Cr\u00e9dit promotionnel',
+        'deposit.demoNotice.promoActive': 'Actif (n\u00e9gociable, non retirable)',
+        'deposit.demoNotice.promoNone': 'Non applicable',
+        'deposit.demoNotice.requirementsTitle': 'Conditions de d\u00e9p\u00f4t',
+        'deposit.demoNotice.req': 'D\u00e9p\u00f4t minimum : ${{min}} \u2022 USDT sur TRON (TRC20) uniquement \u2022 Cr\u00e9dit\u00e9 sur votre solde LIVE',
+        'deposit.demoNotice.switchCta': 'Passer en Live et continuer',
+        'deposit.liveNotice.title': 'D\u00e9p\u00f4t sur votre solde LIVE',
+        'deposit.liveNotice.body': 'Ce d\u00e9p\u00f4t est ajout\u00e9 \u00e0 votre solde LIVE / r\u00e9el. Il est distinct des fonds d\u00e9mo et de votre cr\u00e9dit promotionnel.',
+        'onboarding.title': 'Bienvenue sur Arbitrix',
+        'onboarding.subtitle': 'Comment souhaitez-vous commencer ?',
+        'onboarding.primary': 'Faire mon premier dépôt',
+        'onboarding.primaryDesc': 'Alimentez votre solde LIVE et commencez à trader réellement. Dépôt minimum ${{min}}.',
+        'onboarding.secondary': 'Explorer la Démo',
+        'onboarding.secondaryDesc': 'Essayez le bot avec $1,000 en fonds virtuels. Aucun argent requis.',
+        'onboarding.virtualNote': 'Solde démo = fonds virtuels. Aucune valeur réelle.',
+        'onboarding.realNote': 'Solde LIVE = fonds de trading réels.',
+        'onboarding.promoNote': 'Le crédit promotionnel de $50 est distinct de vos fonds déposés.',
+        'onboarding.noObligation': 'Vous pouvez déposer plus tard — la Démo reste toujours disponible.',
+        'demoCta.title': 'Prêt à trader réellement ?',
+        'demoCta.body': 'Vous explorez avec des fonds virtuels. Faites votre premier dépôt pour alimenter votre solde LIVE. Les fonds démo restent virtuels et ne peuvent pas être retirés.',
+        'demoCta.button': 'Faire mon premier dépôt',
+        'demoCta.later': 'Plus tard',
+        'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT déposés avec succès !',
         'deposit.confirmed': 'Dépôt confirmé',
@@ -11667,6 +12192,50 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 Vous pouvez contrôler les sons en cliquant sur l\'icône haut-parleur dans l\'en-tête, ou ajuster le volume dans les Paramètres du profil.',
         'support.reply.language': '🌍 Vous pouvez changer la langue en cliquant sur l\'icône 🌐 de globe dans l\'en-tête, ou dans les Paramètres du profil.',
         'support.reply.hello': '👋 Bonjour ! Bienvenue sur le support d\'Arbitrix AI. Comment puis-je vous aider aujourd\'hui ?',
+        'support.telegramShort': 'Support Telegram',
+        'support.modal.title': 'Support Arbitrix',
+        'support.modal.subtitle': 'Nous sommes là pour vous aider avec les dépôts, les retraits et les questions de compte.',
+        'support.officialTelegram': 'Support Telegram officiel',
+        'support.notConfigured': 'Le support Telegram officiel est en cours de configuration. En attendant, utilisez le chat de support de l\'application ou écrivez à support@arbitrix.ai.',
+        'support.security.title': 'Le support officiel ne demandera JAMAIS',
+        'support.security.password': 'Votre mot de passe',
+        'support.security.otp': 'Codes OTP / 2FA',
+        'support.security.privateKey': 'Clés privées',
+        'support.security.seedPhrase': 'Phrases de récupération (seed)',
+        'support.security.recoveryPhrase': 'Phrases de récupération de portefeuille',
+        'support.security.cardDetails': 'Détails complets de la carte',
+        'support.security.recoveryCodes': 'Codes de récupération du compte',
+        'support.paymentHelp.title': 'Un problème de paiement ?',
+        'support.paymentHelp.body': 'Si un dépôt est en attente, retardé ou semble incorrect, vous pouvez partager uniquement :',
+        'support.safeInfo.invoice': 'Référence de la facture',
+        'support.safeInfo.amount': 'Montant du paiement',
+        'support.safeInfo.network': 'Réseau de paiement',
+        'support.safeInfo.txHash': 'Hash de transaction (le cas échéant)',
+        'support.safeInfo.screenshot': 'Une capture d\'écran, si nécessaire',
+        'support.faq.title': 'Sujets d\'aide',
+        'support.faq.depositPending.q': 'Mon dépôt est toujours en attente',
+        'support.faq.depositPending.a': 'Les dépôts en USDT (TRC20) sont détectés automatiquement et sont généralement confirmés en quelques minutes. Conservez la référence de la facture : le support officiel peut vérifier le paiement avec celle-ci. N\'envoyez jamais les fonds deux fois.',
+        'support.faq.depositFailed.q': 'Mon paiement a échoué ou a expiré',
+        'support.faq.depositFailed.a': 'Une facture expirée n\'est jamais créditée. Générez une nouvelle facture et payez le montant exact affiché sur le réseau TRON (TRC20). Si les fonds ont quitté votre portefeuille, contactez le support officiel avec le hash de transaction.',
+        'support.faq.withdrawal.q': 'Conditions de retrait',
+        'support.faq.withdrawal.a': 'Les retraits nécessitent un dépôt confirmé, au moins un trade clôturé et les vérifications de sécurité applicables à votre compte. La page de retrait affiche toujours les conditions actuelles.',
+        'support.faq.security.q': 'Sécuriser votre compte',
+        'support.faq.security.a': 'Le support Arbitrix n\'écrit que depuis des canaux officiels. Vérifiez la destination avant de partager quoi que ce soit et ne partagez jamais les éléments listés dans l\'avertissement de sécurité ci-dessus.',
+        'support.needHelpDeposit': 'Besoin d\'aide avec votre dépôt ?',
+        'support.needHelpWithdraw': 'Besoin d\'aide avec un retrait ?',
+        'support.contactOfficial': 'Contacter le support officiel Arbitrix',
+        'support.contactShort': 'Contacter le support',
+        'support.openCenter': 'Ouvrir le centre de support',
+        'support.verificationNotRequired': 'La vérification n\'est pas requise. Des contrôles supplémentaires peuvent encore être nécessaires pour la sécurité du compte, les exigences du prestataire de paiement ou d\'autres conditions applicables.',
+        'sidebar.support': 'Support',
+        'profile.contactSupport': 'Contacter le support',
+        'deposit.invoiceRef': 'Référence de la facture',
+        'deposit.copyInvoiceRef': 'Copier la référence de la facture',
+        'support.paymentHelp.pending': 'Besoin d\'aide avec votre paiement ? Contactez le support officiel Arbitrix et partagez uniquement votre référence de facture, le montant, le réseau et le hash de transaction.',
+        'support.paymentHelp.detected': 'Paiement détecté. S\'il n\'est pas crédité après confirmation, contactez le support officiel Arbitrix avec votre référence de facture et le hash de transaction.',
+        'support.paymentHelp.failed': 'Cette facture a expiré ou a été annulée et n\'a pas été créditée. Générez une nouvelle facture ou contactez le support officiel Arbitrix avec votre référence de facture et le hash de transaction si les fonds ont quitté votre portefeuille.',
+        'deposit.copyInvoiceRefSuccess': 'Référence de la facture copiée',
+        'deposit.copyInvoiceRefFailed': 'Impossible de copier la référence de la facture',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> a gagné <span class="ticker-amount green">+${{amount}}</span> sur {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> a déposé <span class="ticker-amount gold">${{amount}}</span>',
         'ticker.referred': '<span class="ticker-user">{{user}}</span> a parrainé un ami et gagné une <span class="ticker-amount gold">récompense de parrainage</span> !',
@@ -12718,6 +13287,38 @@ const TRANSLATIONS = {
         'deposit.history': 'السجل',
         'deposit.noDeposits': 'لا توجد إيداعات بعد',
         'deposit.switchToLive': 'بدّل إلى الوضع المباشر لإيداع أموال حقيقية',
+        'deposit.demoNotice.title': '\u0623\u0646\u062a \u0641\u064a \u0648\u0636\u0639 Demo',
+        'deposit.demoNotice.body': '\u0623\u0646\u062a \u062a\u0633\u062a\u062e\u062f\u0645 \u062d\u0627\u0644\u064a\u064b\u0627 \u0623\u0645\u0648\u0627\u0644\u064b\u0627 \u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629/\u062a\u062c\u0631\u064a\u0628\u064a\u0629. \u0623\u0645\u0648\u0627\u0644 Demo \u0644\u064a\u0633\u062a \u0623\u0645\u0648\u0627\u0644\u064b\u0627 \u062d\u0642\u064a\u0642\u064a\u0629 \u0648\u0644\u0627 \u064a\u0645\u0643\u0646 \u0625\u064a\u062f\u0627\u0639\u0647\u0627 \u0623\u0648 \u0633\u062d\u0628\u0647\u0627.',
+        'deposit.demoNotice.realNote': '\u062a\u064f\u0636\u0627\u0641 \u0627\u0644\u0625\u064a\u062f\u0627\u0639\u0627\u062a \u0627\u0644\u062d\u0642\u064a\u0642\u064a\u0629 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE \u0648\u0647\u064a \u0645\u0646\u0641\u0635\u0644\u0629 \u0639\u0646 \u0623\u0645\u0648\u0627\u0644 Demo \u0648\u0627\u0644\u0631\u0635\u064a\u062f \u0627\u0644\u062a\u0631\u0648\u064a\u062c\u064a.',
+        'deposit.demoNotice.balancesTitle': '\u0623\u0631\u0635\u062f\u062a\u0643',
+        'deposit.demoNotice.demoBalance': '\u0631\u0635\u064a\u062f Demo / \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a',
+        'deposit.demoNotice.liveBalance': '\u0631\u0635\u064a\u062f LIVE / \u0627\u0644\u062d\u0642\u064a\u0642\u064a',
+        'deposit.demoNotice.depositedFunds': '\u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0627\u0644\u0645\u0648\u062f\u0639\u0629',
+        'deposit.demoNotice.depositedYes': '\u0645\u0648\u062f\u064e\u0639 \u2014 \u0645\u0624\u0643\u062f',
+        'deposit.demoNotice.depositedNo': '\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0628\u0639\u062f',
+        'deposit.demoNotice.promoCredit': '\u0631\u0635\u064a\u062f \u062a\u0631\u0648\u064a\u062c\u064a',
+        'deposit.demoNotice.promoActive': '\u0646\u0634\u0637 (\u0642\u0627\u0628\u0644 \u0644\u0644\u062a\u062f\u0627\u0648\u0644\u060c \u063a\u064a\u0631 \u0642\u0627\u0628\u0644 \u0644\u0644\u0633\u062d\u0628)',
+        'deposit.demoNotice.promoNone': '\u063a\u064a\u0631 \u0645\u0646\u0637\u0628\u0642',
+        'deposit.demoNotice.requirementsTitle': '\u0645\u062a\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0625\u064a\u062f\u0627\u0639',
+        'deposit.demoNotice.req': '\u0627\u0644\u062d\u062f \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0625\u064a\u062f\u0627\u0639: ${{min}} \u2022 USDT \u0639\u0644\u0649 TRON (TRC20) \u0641\u0642\u0637 \u2022 \u064a\u064f\u0636\u0627\u0641 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE',
+        'deposit.demoNotice.switchCta': '\u0627\u0644\u062a\u0628\u062f\u064a\u0644 \u0625\u0644\u0649 Live \u0648\u0627\u0644\u0645\u062a\u0627\u0628\u0639\u0629',
+        'deposit.liveNotice.title': '\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0631\u0635\u064a\u062f\u0643 LIVE',
+        'deposit.liveNotice.body': '\u064a\u064f\u0636\u0627\u0641 \u0647\u0630\u0627 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE / \u0627\u0644\u062d\u0642\u064a\u0642\u064a. \u0648\u0647\u0648 \u0645\u0646\u0641\u0635\u0644 \u0639\u0646 \u0623\u0645\u0648\u0627\u0644 Demo \u0648\u0639\u0646 \u0631\u0635\u064a\u062f\u0643 \u0627\u0644\u062a\u0631\u0648\u064a\u062c\u064a.',
+        'onboarding.title': 'مرحبًا بك في Arbitrix',
+        'onboarding.subtitle': 'كيف تريد أن تبدأ؟',
+        'onboarding.primary': 'إجراء أول إيداع لي',
+        'onboarding.primaryDesc': 'موّل رصيدك LIVE وابدأ التداول الحقيقي. الحد الأدنى للإيداع ${{min}}.',
+        'onboarding.secondary': 'استكشاف Demo',
+        'onboarding.secondaryDesc': 'جرّب البوت برصيد افتراضي بقيمة $1,000. بدون أموال حقيقية.',
+        'onboarding.virtualNote': 'رصيد Demo = أموال افتراضية. بلا قيمة حقيقية.',
+        'onboarding.realNote': 'رصيد LIVE = أموال تداول حقيقية.',
+        'onboarding.promoNote': 'الرصيد الترويجي البالغ $50 منفصل عن أموالك المودعة.',
+        'onboarding.noObligation': 'يمكنك الإيداع لاحقًا — وضع Demo متاح دائمًا.',
+        'demoCta.title': 'مستعد للتداول الحقيقي؟',
+        'demoCta.body': 'أنت تستكشف بأموال افتراضية. أجرِ أول إيداع لك لتمويل رصيدك LIVE. تبقى أموال Demo افتراضية ولا يمكن سحبها.',
+        'demoCta.button': 'إجراء أول إيداع لي',
+        'demoCta.later': 'ربما لاحقًا',
+        'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.success': '✅ تم إيداع ${{amount}} USDT بنجاح!',
         'deposit.confirmed': 'تم تأكيد الإيداع',
@@ -12943,6 +13544,50 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 يمكنك التحكم بالأصوات بالنقر على أيقونة السماعة في الترويسة، أو ضبط مستوى الصوت في إعدادات الملف الشخصي.',
         'support.reply.language': '🌍 يمكنك تغيير اللغة بالنقر على أيقونة 🌐 الكرة الأرضية في الترويسة، أو في إعدادات الملف الشخصي.',
         'support.reply.hello': '👋 مرحبًا! أهلًا بك في دعم Arbitrix AI. كيف يمكنني مساعدتك اليوم؟',
+        'support.telegramShort': 'دعم تيليجرام',
+        'support.modal.title': 'دعم Arbitrix',
+        'support.modal.subtitle': 'نحن هنا لمساعدتك في الإيداع والسحب وأسئلة الحساب.',
+        'support.officialTelegram': 'دعم تيليجرام الرسمي',
+        'support.notConfigured': 'يتم إعداد دعم تيليجرام الرسمي. في هذه الأثناء استخدم محادثة الدعم داخل التطبيق أو راسل support@arbitrix.ai.',
+        'support.security.title': 'الدعم الرسمي لن يطلب منك أبدًا',
+        'support.security.password': 'كلمة المرور الخاصة بك',
+        'support.security.otp': 'رموز OTP / 2FA',
+        'support.security.privateKey': 'المفاتيح الخاصة',
+        'support.security.seedPhrase': 'عبارات الاسترداد',
+        'support.security.recoveryPhrase': 'عبارات استرداد المحفظة',
+        'support.security.cardDetails': 'بيانات البطاقة الكاملة',
+        'support.security.recoveryCodes': 'رموز استرداد الحساب',
+        'support.paymentHelp.title': 'لديك مشكلة في الدفع؟',
+        'support.paymentHelp.body': 'إذا كان الإيداع معلّقًا أو متأخرًا أو يبدو غير صحيح، فمن الآمن مشاركة ما يلي فقط:',
+        'support.safeInfo.invoice': 'مرجع الفاتورة',
+        'support.safeInfo.amount': 'مبلغ الدفع',
+        'support.safeInfo.network': 'شبكة الدفع',
+        'support.safeInfo.txHash': 'هاش المعاملة (إن وُجد)',
+        'support.safeInfo.screenshot': 'لقطة شاشة عند الحاجة',
+        'support.faq.title': 'موضوعات المساعدة',
+        'support.faq.depositPending.q': 'إيداعي لا يزال معلّقًا',
+        'support.faq.depositPending.a': 'يتم اكتشاف إيداعات USDT (TRC20) تلقائيًا وعادةً ما يتم تأكيدها خلال دقائق. احتفظ بمرجع الفاتورة: يمكن للدعم الرسمي التحقق من الدفع به. لا ترسل الأموال مرتين أبدًا.',
+        'support.faq.depositFailed.q': 'فشل الدفع أو انتهت صلاحيته',
+        'support.faq.depositFailed.a': 'الفاتورة المنتهية لا تُضاف إلى الرصيد أبدًا. أنشئ فاتورة جديدة وادفع المبلغ الدقيق المعروض على شبكة TRON (TRC20). إذا خرجت الأموال من محفظتك، فتواصل مع الدعم الرسمي مع هاش المعاملة.',
+        'support.faq.withdrawal.q': 'متطلبات السحب',
+        'support.faq.withdrawal.a': 'يتطلب السحب إيداعًا مؤكدًا وعملية مكتملة واحدة على الأقل وأي فحوصات أمنية تنطبق على حسابك. تعرض صفحة السحب دائمًا المتطلبات الحالية.',
+        'support.faq.security.q': 'الحفاظ على أمان حسابك',
+        'support.faq.security.a': 'يتواصل دعم Arbitrix من القنوات الرسمية فقط. تحقق من الجهة قبل مشاركة أي شيء، ولا تشارك أبدًا العناصر المذكورة في تحذير الأمان أعلاه.',
+        'support.needHelpDeposit': 'هل تحتاج مساعدة في الإيداع؟',
+        'support.needHelpWithdraw': 'هل تحتاج مساعدة في السحب؟',
+        'support.contactOfficial': 'تواصل مع دعم Arbitrix الرسمي',
+        'support.contactShort': 'تواصل مع الدعم',
+        'support.openCenter': 'افتح مركز الدعم',
+        'support.verificationNotRequired': 'التحقق غير مطلوب. قد تظل هناك حاجة إلى فحوصات إضافية لأمان الحساب أو متطلبات مزود الدفع أو أي شروط أخرى معمول بها.',
+        'sidebar.support': 'الدعم',
+        'profile.contactSupport': 'تواصل مع الدعم',
+        'deposit.invoiceRef': 'مرجع الفاتورة',
+        'deposit.copyInvoiceRef': 'نسخ مرجع الفاتورة',
+        'support.paymentHelp.pending': 'هل تحتاج مساعدة في الدفع؟ تواصل مع دعم Arbitrix الرسمي وشارك فقط مرجع الفاتورة والمبلغ والشبكة وهاش المعاملة.',
+        'support.paymentHelp.detected': 'تم اكتشاف الدفع. إذا لم يُضف إلى الرصيد بعد التأكيد، فتواصل مع دعم Arbitrix الرسمي مع مرجع الفاتورة وهاش المعاملة.',
+        'support.paymentHelp.failed': 'انتهت صلاحية هذه الفاتورة أو تم إلغاؤها ولم تُضف إلى الرصيد. أنشئ فاتورة جديدة أو تواصل مع دعم Arbitrix الرسمي مع مرجع الفاتورة وهاش المعاملة إذا خرجت الأموال من محفظتك.',
+        'deposit.copyInvoiceRefSuccess': 'تم نسخ مرجع الفاتورة',
+        'deposit.copyInvoiceRefFailed': 'تعذر نسخ مرجع الفاتورة',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ربح <span class="ticker-amount green">+${{amount}}</span> على {{asset}}',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> أودع <span class="ticker-amount gold">${{amount}}</span>',
         'ticker.referred': '<span class="ticker-user">{{user}}</span> دعى صديقًا وكسب <span class="ticker-amount gold">مكافأة إحالة</span>!',
@@ -13994,6 +14639,38 @@ const TRANSLATIONS = {
         'deposit.history': '历史记录',
         'deposit.noDeposits': '暂无入金记录',
         'deposit.switchToLive': '切换到实盘模式以入金真实资金',
+        'deposit.demoNotice.title': '\u60a8\u5904\u4e8e\u6f14\u793a\u6a21\u5f0f',
+        'deposit.demoNotice.body': '\u60a8\u5f53\u524d\u4f7f\u7528\u7684\u662f\u865a\u62df/\u6f14\u793a\u8d44\u91d1\u3002\u6f14\u793a\u8d44\u91d1\u4e0d\u662f\u771f\u5b9e\u8d44\u91d1\uff0c\u65e0\u6cd5\u5b58\u5165\u6216\u63d0\u53d6\u3002',
+        'deposit.demoNotice.realNote': '\u771f\u5b9e\u5165\u91d1\u4f1a\u6dfb\u52a0\u5230\u60a8\u7684 LIVE \u4f59\u989d\uff0c\u4e14\u4e0e\u6f14\u793a\u8d44\u91d1\u548c\u4fc3\u9500\u989d\u5ea6\u76f8\u4e92\u72ec\u7acb\u3002',
+        'deposit.demoNotice.balancesTitle': '\u60a8\u7684\u4f59\u989d',
+        'deposit.demoNotice.demoBalance': '\u6f14\u793a / \u865a\u62df\u4f59\u989d',
+        'deposit.demoNotice.liveBalance': 'LIVE / \u771f\u5b9e\u4f59\u989d',
+        'deposit.demoNotice.depositedFunds': '\u5df2\u5165\u91d1\u8d44\u91d1',
+        'deposit.demoNotice.depositedYes': '\u5df2\u5165\u91d1 \u2014 \u5df2\u786e\u8ba4',
+        'deposit.demoNotice.depositedNo': '\u5c1a\u672a\u5165\u91d1',
+        'deposit.demoNotice.promoCredit': '\u4fc3\u9500\u989d\u5ea6',
+        'deposit.demoNotice.promoActive': '\u6709\u6548\uff08\u53ef\u4ea4\u6613\uff0c\u4e0d\u53ef\u63d0\u53d6\uff09',
+        'deposit.demoNotice.promoNone': '\u4e0d\u9002\u7528',
+        'deposit.demoNotice.requirementsTitle': '\u5165\u91d1\u8981\u6c42',
+        'deposit.demoNotice.req': '\u6700\u4f4e\u5165\u91d1\uff1a${{min}} \u2022 \u4ec5\u9650 TRON (TRC20) \u7f51\u7edc\u4e0a\u7684 USDT \u2022 \u8ba1\u5165\u60a8\u7684 LIVE \u4f59\u989d',
+        'deposit.demoNotice.switchCta': '\u5207\u6362\u5230 Live \u5e76\u7ee7\u7eed',
+        'deposit.liveNotice.title': '\u5165\u91d1\u81f3\u60a8\u7684 LIVE \u4f59\u989d',
+        'deposit.liveNotice.body': '\u8be5\u5165\u91d1\u4f1a\u6dfb\u52a0\u5230\u60a8\u7684 LIVE / \u771f\u5b9e\u4f59\u989d\uff0c\u4e0e\u6f14\u793a\u8d44\u91d1\u548c\u4fc3\u9500\u989d\u5ea6\u76f8\u4e92\u72ec\u7acb\u3002',
+        'onboarding.title': '欢迎来到 Arbitrix',
+        'onboarding.subtitle': '您想如何开始？',
+        'onboarding.primary': '进行我的首次入金',
+        'onboarding.primaryDesc': '为您的 LIVE 余额充值并开始真实交易。最低入金 ${{min}}。',
+        'onboarding.secondary': '体验演示',
+        'onboarding.secondaryDesc': '使用 $1,000 虚拟资金试用机器人。无需真实资金。',
+        'onboarding.virtualNote': '演示余额 = 虚拟资金。无实际价值。',
+        'onboarding.realNote': 'LIVE 余额 = 真实交易资金。',
+        'onboarding.promoNote': '$50 促销额度与您的入金资金相互独立。',
+        'onboarding.noObligation': '您可以稍后入金 — 演示模式始终可用。',
+        'demoCta.title': '准备好进行真实交易了吗？',
+        'demoCta.body': '您正在使用虚拟资金体验。进行首次入金可为您的 LIVE 余额充值。演示资金始终保持虚拟且无法提取。',
+        'demoCta.button': '进行我的首次入金',
+        'demoCta.later': '稍后再说',
+        'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
         'deposit.success': '✅ 成功入金 ${{amount}} USDT！',
         'deposit.confirmed': '入金已确认',
@@ -14219,6 +14896,50 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 您可以点击页眉中的扬声器图标来控制声音，或在个人资料设置中调节音量。',
         'support.reply.language': '🌍 您可以点击页眉中的 🌐 地球图标更改语言，或在个人资料设置中更改。',
         'support.reply.hello': '👋 您好！欢迎来到 Arbitrix AI 支持。今天我能为您做些什么？',
+        'support.telegramShort': 'Telegram 支持',
+        'support.modal.title': 'Arbitrix 支持',
+        'support.modal.subtitle': '我们随时为您解答入金、出金和账户问题。',
+        'support.officialTelegram': '官方 Telegram 支持',
+        'support.notConfigured': '官方 Telegram 支持正在配置中。在此期间，请使用应用内支持聊天或发送邮件至 support@arbitrix.ai。',
+        'support.security.title': '官方支持绝不会索要',
+        'support.security.password': '您的密码',
+        'support.security.otp': 'OTP / 2FA 验证码',
+        'support.security.privateKey': '私钥',
+        'support.security.seedPhrase': '助记词',
+        'support.security.recoveryPhrase': '钱包恢复短语',
+        'support.security.cardDetails': '完整银行卡信息',
+        'support.security.recoveryCodes': '账户恢复代码',
+        'support.paymentHelp.title': '支付遇到问题？',
+        'support.paymentHelp.body': '如果入金处于待处理、延迟或看起来有误，仅可安全地提供以下信息：',
+        'support.safeInfo.invoice': '发票参考号',
+        'support.safeInfo.amount': '支付金额',
+        'support.safeInfo.network': '支付网络',
+        'support.safeInfo.txHash': '交易哈希（如适用）',
+        'support.safeInfo.screenshot': '必要时提供截图',
+        'support.faq.title': '帮助主题',
+        'support.faq.depositPending.q': '我的入金仍在处理中',
+        'support.faq.depositPending.a': 'USDT (TRC20) 入金会自动检测，通常在几分钟内确认。请保留发票参考号：官方支持可用它核查付款。切勿重复转账。',
+        'support.faq.depositFailed.q': '我的支付失败或已过期',
+        'support.faq.depositFailed.a': '已过期的发票不会被入账。请生成新发票，并在 TRON (TRC20) 网络上支付所示的确切金额。如果资金已从您的钱包转出，请携带交易哈希联系官方支持。',
+        'support.faq.withdrawal.q': '出金要求',
+        'support.faq.withdrawal.a': '出金需要已确认的入金、至少完成一笔交易，以及适用于您账户的任何安全检查。出金页面始终显示当前要求。',
+        'support.faq.security.q': '保护您的账户安全',
+        'support.faq.security.a': 'Arbitrix 支持只会通过官方渠道联系您。在分享任何信息前请核实对方身份，切勿分享上方安全警告中列出的内容。',
+        'support.needHelpDeposit': '入金需要帮助？',
+        'support.needHelpWithdraw': '出金需要帮助？',
+        'support.contactOfficial': '联系官方 Arbitrix 支持',
+        'support.contactShort': '联系支持',
+        'support.openCenter': '打开支持中心',
+        'support.verificationNotRequired': '无需验证。出于账户安全、支付服务商要求或其他适用条件，仍可能需要进行额外检查。',
+        'sidebar.support': '支持',
+        'profile.contactSupport': '联系支持',
+        'deposit.invoiceRef': '发票参考号',
+        'deposit.copyInvoiceRef': '复制发票参考号',
+        'support.paymentHelp.pending': '支付需要帮助？请联系官方 Arbitrix 支持，并仅提供您的发票参考号、支付金额、网络和交易哈希。',
+        'support.paymentHelp.detected': '已检测到付款。如果确认后仍未入账，请携带发票参考号和交易哈希联系官方 Arbitrix 支持。',
+        'support.paymentHelp.failed': '该发票已过期或被取消，未入账。请生成新发票；如果资金已从您的钱包转出，请携带发票参考号和交易哈希联系官方 Arbitrix 支持。',
+        'deposit.copyInvoiceRefSuccess': '已复制发票参考号',
+        'deposit.copyInvoiceRefFailed': '无法复制发票参考号',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> 在 {{asset}} 赚取 <span class="ticker-amount green">+${{amount}}</span>',
         'ticker.deposited': '<span class="ticker-user">{{user}}</span> 存入 <span class="ticker-amount gold">${{amount}}</span>',
         'ticker.referred': '<span class="ticker-user">{{user}}</span> 推荐了一位好友并获得<span class="ticker-amount gold">推荐奖励</span>！',
@@ -15167,6 +15888,13 @@ function updateDynamicTranslations() {
         if (typeof renderSubscriptionPanel === 'function' && typeof _subscriptionState !== 'undefined' && _subscriptionState) {
             renderSubscriptionPanel(_subscriptionState);
         }
+        // Official support links + the payment-problem guidance are dynamic
+        // (config-driven href / status-driven text), so re-apply them here.
+        // These run BEFORE the KYC-header call below on purpose: that call is a
+        // pre-existing cross-block reference that throws on the first load and
+        // would otherwise skip everything after it. Each is typeof-guarded.
+        if (typeof updateSupportLinks === 'function') updateSupportLinks();
+        if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
         // Re-apply status-specific KYC modal header on language switch
         updateVerificationModalHeader();
         // Re-render the live withdraw status + withdraw modal info text on
@@ -15176,6 +15904,9 @@ function updateDynamicTranslations() {
         // Re-render the deposit minimum notice (value from APP.MIN_DEPOSIT) so
         // it follows the active locale and the single configured minimum.
         if (typeof updateDepositMinNotice === 'function') updateDepositMinNotice();
+        // Re-render the Demo/LIVE deposit notice + balance breakdown on language
+        // switch (dynamic text/values; display-only).
+        if (typeof refreshDepositModeNotice === 'function') refreshDepositModeNotice();
         // Re-apply sandbox-only referral/bonus wording on language switch (the
         // Bonus Wallet info text is dynamic innerHTML, not a data-i18n span).
         if (typeof updateSandboxReferralWording === 'function') updateSandboxReferralWording();
@@ -16720,6 +17451,8 @@ function updateUI() {
             : (APP.liveData.promoCreditFunded === true && APP.liveData.promoClassificationUnknown !== true);
         promoNotice.classList.toggle('hidden', !showPromoNotice);
     }
+    // In-Demo "Make My First Deposit" CTA (non-aggressive funnel prompt).
+    updateDemoFirstDepositCta();
     if(APP.mode === 'live') {
         // MARKETING_SANDBOX: no MTA at all (the server-side sandbox bot start
         // has no gate and /api/auth/me reports mta: 0), so a no-MTA account is
@@ -17112,6 +17845,14 @@ let currentCurrency = 'USDT';
 let currentNetwork = 'TRC20';
 
 async function requestDepositAddress() {
+  // Never create a payment invoice while the user is in Demo mode. The demo
+  // notice in the modal requires an explicit "Switch to Live & Continue" first.
+  // This is a display/flow guard only: the provider payment flow and all
+  // server-side safeguards are unchanged.
+  if (APP.mode === 'demo') {
+    showToast(t('deposit.switchToLive'), 'info');
+    return;
+  }
   const amountUSD = parseFloat(document.getElementById('liveDepositAmount').value);
   // Platform minimum deposit (APP.MIN_DEPOSIT) — the single frontend source,
   // mirroring the server's PLATFORM_MIN_DEPOSIT_USD. NOT the $50 promotional
@@ -17190,6 +17931,13 @@ function showPaymentSection(invoice, amountUSD) {
   // Set progress to "Created"
   updatePaymentProgress('created');
   updateCurrentStatus(t('deposit.status.waiting'), '#F0B90B');
+
+  // Payment-support block: expose the invoice reference and the matching
+  // next-step guidance. Display-only — never confirms or credits anything.
+  if (typeof lastPaymentStatus !== 'undefined') lastPaymentStatus = 'pending';
+  const invoiceRefEl = document.getElementById('depositInvoiceRef');
+  if (invoiceRefEl) invoiceRefEl.textContent = invoice.id || currentInvoiceId || '---';
+  if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
   
   // Generate QR code and set wallet address
   if (invoice.provider === 'q8qpay') {
@@ -17573,10 +18321,14 @@ function startPollingForPayment(invoiceId) {
         // (q8qpay does not emit this state, but keep it for providers that do.)
         updatePaymentProgress('confirming');
         updateCurrentStatus(t('deposit.status.detectedConfirming'), '#F0B90B');
+        if (typeof lastPaymentStatus !== 'undefined') lastPaymentStatus = result.status;
+        if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
       } else if (result.status === 'detected') {
         // Provider explicitly reports a payment has been detected.
         updatePaymentProgress('detected');
         updateCurrentStatus(t('deposit.status.detected'), '#F0B90B');
+        if (typeof lastPaymentStatus !== 'undefined') lastPaymentStatus = result.status;
+        if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
       } else if (result.status === 'pending') {
         // Invoice created but no payment received yet. q8qpay invoices sit in
         // `pending` until the exact USDT hits the TRC20 address, so a fresh
@@ -17584,10 +18336,14 @@ function startPollingForPayment(invoiceId) {
         // Keep the progress on the Created step only (do NOT mark Detected active).
         updatePaymentProgress('created');
         updateCurrentStatus(t('deposit.status.waiting'), '#F0B90B');
+        if (typeof lastPaymentStatus !== 'undefined') lastPaymentStatus = result.status;
+        if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
       } else if (result.status === 'expired' || result.status === 'cancelled') {
         clearInterval(paymentPollingInterval);
         paymentPollingInterval = null;
         updateCurrentStatus(result.status === 'cancelled' ? t('deposit.status.cancelled') : t('deposit.status.expired'), '#EF4444');
+        if (typeof lastPaymentStatus !== 'undefined') lastPaymentStatus = result.status;
+        if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
         document.getElementById('cancelInvoiceBtn').style.display = 'none';
         document.getElementById('forceCheckBtn').style.display = 'none';
         document.getElementById('newInvoiceBtn').style.display = 'block';
@@ -17705,6 +18461,11 @@ function resetDepositModal() {
   
   // Reset status
   updateCurrentStatus(t('deposit.status.waiting'), '#F0B90B');
+  // Reset the payment-support block (invoice reference + guidance).
+  if (typeof lastPaymentStatus !== 'undefined') lastPaymentStatus = null;
+  const invoiceRefReset = document.getElementById('depositInvoiceRef');
+  if (invoiceRefReset) invoiceRefReset.textContent = '---';
+  if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
   
   // Clear gateway URL
   window.currentGatewayUrl = null;
@@ -17715,6 +18476,13 @@ function resetDepositModal() {
   if (q8qBadge) q8qBadge.style.display = 'none';
   const addrLabel = document.getElementById('paymentAddressLabel');
   if (addrLabel) addrLabel.textContent = t('deposit.paymentAddressLabel');
+
+  // Hide the Demo/LIVE notices; openDepositModal() (and the switch CTA) re-apply
+  // them for the current mode.
+  const demoNotice = document.getElementById('depositDemoNotice');
+  if (demoNotice) demoNotice.style.display = 'none';
+  const liveNotice = document.getElementById('depositLiveNotice');
+  if (liveNotice) liveNotice.style.display = 'none';
 }
 
 function closeDepositModal() {
@@ -17732,14 +18500,159 @@ function updateDepositMinNotice() {
 }
 
 function openDepositModal() {
-  if (APP.mode === 'demo') { 
-    showToast(t('deposit.switchToLive'), 'info'); 
-    return; 
+  // MARKETING_SANDBOX: behavior intentionally UNCHANGED. A sandbox account in
+  // Demo mode keeps the existing toast (the sandbox has its own simulated
+  // deposit flow, which must not be altered here).
+  if (APP.environment === 'MARKETING_SANDBOX' && APP.mode === 'demo') {
+    showToast(t('deposit.switchToLive'), 'info');
+    return;
   }
   resetDepositModal();
   updateDepositMinNotice();
+  refreshDepositModeNotice();
   document.getElementById('depositModal').classList.add('open');
-  document.getElementById('liveDepositAmount').focus();
+  // Focus the amount field only when the real (Live) deposit form is active.
+  // In Demo mode the user must switch to Live first via the notice CTA.
+  if (APP.mode !== 'demo') {
+    document.getElementById('liveDepositAmount').focus();
+  }
+}
+
+// Render the Demo-mode deposit notice + LIVE-mode disclosure. Pure display:
+// never creates an invoice and never mutates a balance. When in Demo mode the
+// invoice-generation button is hidden so the only path forward is the explicit
+// "Switch to Live & Continue" action. The balance breakdown distinguishes
+// demo/virtual funds, live/real funds, actual deposited funds and the
+// promotional credit (server-authoritative booleans; no amounts are invented).
+function refreshDepositModeNotice() {
+  const isDemo = (typeof APP !== 'undefined') && APP.mode === 'demo';
+  const demoNotice = document.getElementById('depositDemoNotice');
+  const liveNotice = document.getElementById('depositLiveNotice');
+  const genBtn = document.getElementById('getAddressBtn');
+  if (demoNotice) demoNotice.style.display = isDemo ? 'block' : 'none';
+  if (liveNotice) liveNotice.style.display = isDemo ? 'none' : 'block';
+  if (genBtn) genBtn.style.display = isDemo ? 'none' : 'block';
+  if (!isDemo) return;
+
+  const demoBal = document.getElementById('depositDemoBalance');
+  if (demoBal) demoBal.textContent = formatCurrency(APP.demoData ? APP.demoData.balance : 0);
+  const liveBal = document.getElementById('depositLiveBalance');
+  if (liveBal) liveBal.textContent = formatCurrency(APP.liveData ? APP.liveData.balance : 0);
+
+  const funded = document.getElementById('depositFundedStatus');
+  if (funded) funded.textContent = (APP.liveData && APP.liveData.hasRealDeposit)
+    ? t('deposit.demoNotice.depositedYes') : t('deposit.demoNotice.depositedNo');
+
+  const promo = document.getElementById('depositPromoStatus');
+  if (promo) promo.textContent = (APP.liveData && APP.liveData.promoCreditFunded)
+    ? t('deposit.demoNotice.promoActive') : t('deposit.demoNotice.promoNone');
+
+  const reqText = document.getElementById('depositDemoReqText');
+  if (reqText) reqText.textContent = t('deposit.demoNotice.req', { min: Number(APP.MIN_DEPOSIT) });
+}
+
+// "Switch to Live & Continue": moves the session to LIVE and KEEPS the deposit
+// modal open so the user can create the real payment invoice without reopening
+// the Deposit tab. It performs no payment action and credits nothing —
+// setMode() only swaps the displayed wallet/chart.
+function switchToLiveAndContinueDeposit() {
+  if (APP.mode !== 'live') setMode('live');
+  refreshDepositModeNotice();
+  updateDepositMinNotice();
+  const modal = document.getElementById('depositModal');
+  if (modal && !modal.classList.contains('open')) modal.classList.add('open');
+  const amountInput = document.getElementById('liveDepositAmount');
+  if (amountInput) amountInput.focus();
+}
+
+// ==================== POST-REGISTRATION ONBOARDING ====================
+// The onboarding choice is a funnel prompt, never a gate: Demo stays fully
+// available. It is shown at most once per account, recorded in localStorage
+// under the account's user id (the app's existing client-side account
+// mechanism). Display-only: choosing a path creates no invoice and credits
+// nothing. MARKETING_SANDBOX accounts never see it.
+let pendingOnboardingDeposit = false;
+let demoDepositCtaDismissed = false;
+
+function currentCachedUser() {
+    try { return JSON.parse(localStorage.getItem('arbi_user') || 'null'); } catch (e) { return null; }
+}
+
+function onboardingKey(userId) { return 'arbi_onboarding_' + String(userId); }
+
+function getOnboardingChoice(userId) {
+    try { return localStorage.getItem(onboardingKey(userId)); } catch (e) { return null; }
+}
+
+function setOnboardingChoice(userId, choice) {
+    if (!userId) return;
+    try { localStorage.setItem(onboardingKey(userId), choice); } catch (e) {}
+}
+
+// True only when this account has never seen the onboarding screen and is a
+// normal production account.
+function onboardingNeeded(user) {
+    if (!user || !user.id) return false;
+    if (APP.environment === 'MARKETING_SANDBOX') return false;
+    return !getOnboardingChoice(user.id);
+}
+
+// Show the onboarding choice once. The 'shown' marker is stored immediately so
+// a reload without a choice can never re-trigger it (never "every time").
+function showOnboarding(user) {
+    if (!onboardingNeeded(user)) return false;
+    setOnboardingChoice(user.id, 'shown');
+    const desc = document.getElementById('onboardingPrimaryDesc');
+    if (desc) desc.textContent = t('onboarding.primaryDesc', { min: Number(APP.MIN_DEPOSIT) });
+    const modal = document.getElementById('onboardingModal');
+    if (!modal) return false;
+    modal.classList.add('open');
+    return true;
+}
+
+// Called after the initial app sync for a returning account that has never seen
+// the choice and has not funded yet (funded accounts are never prompted).
+function maybeShowOnboardingForCurrentUser() {
+    if (APP.environment === 'MARKETING_SANDBOX') return;
+    if (APP.liveData && APP.liveData.hasRealDeposit) return;
+    showOnboarding(currentCachedUser());
+}
+
+// "Make My First Deposit" -> open the deposit flow; "Explore Demo" -> Demo mode.
+// Neither branch creates an invoice or credits a balance.
+function chooseOnboarding(choice) {
+    const user = currentCachedUser();
+    if (user && user.id) setOnboardingChoice(user.id, choice === 'deposit' ? 'deposit' : 'demo');
+    const modal = document.getElementById('onboardingModal');
+    if (modal) modal.classList.remove('open');
+
+    if (choice === 'deposit') {
+        pendingOnboardingDeposit = true;
+        goToApp('onboarding_deposit');
+        return;
+    }
+    pendingOnboardingDeposit = false;
+    goToApp('onboarding_demo');
+    if (APP.environment !== 'MARKETING_SANDBOX' && APP.mode !== 'demo') setMode('demo');
+    updateDemoFirstDepositCta();
+}
+
+// Non-aggressive in-Demo prompt to make the first deposit. Shown only to
+// production accounts that are in Demo mode without a confirmed deposit.
+function updateDemoFirstDepositCta() {
+    const el = document.getElementById('demoFirstDepositCta');
+    if (!el) return;
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    const show = !isSandbox
+        && APP.mode === 'demo'
+        && !(APP.liveData && APP.liveData.hasRealDeposit)
+        && !demoDepositCtaDismissed;
+    el.classList.toggle('hidden', !show);
+}
+
+function dismissDemoDepositCta() {
+    demoDepositCtaDismissed = true;
+    updateDemoFirstDepositCta();
 }
 
 // Initialize currency selection listeners
@@ -18684,6 +19597,87 @@ async function loadEmailChangeStatus() {
     } catch(e) { getEl('emailChangePending').style.display = 'none'; }
 }
 
+// ==================== OFFICIAL SUPPORT ====================
+// Single configurable source for the official support Telegram link. Management
+// supplies the value; NO personal/staff account is hardcoded. Configure via
+// <meta name="arbitrix-support-telegram" content="https://t.me/..."> or by
+// setting window.ARBITRIX_SUPPORT_TELEGRAM_URL before this script runs. Only a
+// public link belongs here — never a token, secret, or credential.
+function getOfficialSupportTelegramUrl() {
+    try {
+        if (typeof window !== 'undefined' && window.ARBITRIX_SUPPORT_TELEGRAM_URL) {
+            return String(window.ARBITRIX_SUPPORT_TELEGRAM_URL).trim();
+        }
+        const meta = document.querySelector('meta[name="arbitrix-support-telegram"]');
+        return (meta && meta.content ? String(meta.content) : '').trim();
+    } catch (e) { return ''; }
+}
+
+// Apply the configured link to every official-Telegram entry point. When the
+// link is not configured yet, the direct link is hidden and the in-app guidance
+// is shown instead (no broken/placeholder destination is ever published).
+function updateSupportLinks() {
+    const url = getOfficialSupportTelegramUrl();
+    const valid = /^https?:\/\//i.test(url);
+    document.querySelectorAll('.js-official-telegram').forEach(function (a) {
+        if (valid) {
+            a.setAttribute('href', url);
+            a.style.display = '';
+        } else {
+            a.setAttribute('href', '#');
+            a.style.display = 'none';
+        }
+    });
+    const notConfigured = document.getElementById('supportNotConfigured');
+    if (notConfigured) notConfigured.style.display = valid ? 'none' : 'block';
+}
+
+function openSupportModal() {
+    document.querySelectorAll('.sidebar-link').forEach(function (l) { l.classList.remove('active'); });
+    const link = document.getElementById('supportSidebarLink');
+    if (link) link.classList.add('active');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('open');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (overlay) overlay.classList.remove('open');
+    updateSupportLinks();
+    const modal = document.getElementById('supportModal');
+    if (modal) modal.classList.add('open');
+}
+
+function closeSupportModal() {
+    const modal = document.getElementById('supportModal');
+    if (modal) modal.classList.remove('open');
+}
+
+// Payment-problem guidance shown next to the invoice reference. Display-only:
+// reads the last observed payment status and never confirms/credits anything.
+let lastPaymentStatus = null;
+function updatePaymentSupportHelp() {
+    const el = document.getElementById('paymentSupportHelpText');
+    if (!el) return;
+    const status = (typeof lastPaymentStatus !== 'undefined') ? lastPaymentStatus : null;
+    let key = 'support.paymentHelp.pending';
+    if (status === 'detected' || status === 'confirming') key = 'support.paymentHelp.detected';
+    else if (status === 'expired' || status === 'cancelled') key = 'support.paymentHelp.failed';
+    el.textContent = t(key);
+}
+
+// Copy the invoice reference using the same safe clipboard pattern as the
+// existing address/amount copy actions. No confirmation, no balance change.
+function copyInvoiceRef() {
+    const ref = document.getElementById('depositInvoiceRef');
+    const value = ref ? ref.textContent : '';
+    if (!value || value === '---') return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(function () {
+            showToast(t('deposit.copyInvoiceRefSuccess'), 'success');
+        }).catch(function () {
+            showToast(t('deposit.copyInvoiceRefFailed'), 'error');
+        });
+    }
+}
+
 function toggleSupport() {
     try {
         const panel = document.getElementById('supportPanel');
@@ -19078,6 +20072,9 @@ async function initApp() {
     initTicker();
     tickerInterval = setInterval(refreshTicker, 30000);
     initChart();
+    // Official support entry points (config-driven Telegram link + in-app
+    // guidance). Display-only: sets href/visibility, never collects secrets.
+    updateSupportLinks();
     setTimeout(showInstallPrompt, 3000);
     Notifications.add('info', t('notifications.welcome'), t('notifications.welcomeDesc'), 'fa-info-circle');
 
@@ -19140,6 +20137,16 @@ async function initApp() {
         // are excluded by the helper. A funded auto-live account never gets here).
         if (typeof trackMetaConversion === 'function') trackMetaConversion('StartDemo');
     }
+
+    // Onboarding: "Make My First Deposit" asked for the deposit flow, so open it
+    // now (mode is settled above). Then, for a returning account that has never
+    // seen the onboarding choice and has not funded yet, show it once. Neither
+    // creates an invoice nor credits anything.
+    if (pendingOnboardingDeposit) {
+        pendingOnboardingDeposit = false;
+        openDepositModal();
+    }
+    maybeShowOnboardingForCurrentUser();
 
     const botToggle = getEl('botToggle');
     if(botToggle) botToggle.addEventListener('change', toggleBot);
@@ -19318,6 +20325,12 @@ async function initApp() {
             // Reset the one-shot app-init guard so the next login re-runs
             // initApp() and re-syncs the wallet/history from the server.
             appReady = false;
+
+            // Reset per-session onboarding state (the per-account onboarding
+            // choice in localStorage is intentionally kept, so a returning user
+            // is never re-onboarded).
+            pendingOnboardingDeposit = false;
+            demoDepositCtaDismissed = false;
 
             // Reset in-memory live wallet state so a stale balance from the
             // previous session is never shown before the server re-sync runs.
