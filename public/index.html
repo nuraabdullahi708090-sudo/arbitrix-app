@@ -104,10 +104,19 @@
                 if (document.getElementById('metaConsentBanner')) return;
                 const wrap = document.createElement('div');
                 wrap.id = 'metaConsentBanner';
-                wrap.innerHTML = '<p>We use cookies and similar technologies to measure our ads and improve your experience. Click "Accept" to allow Meta Pixel tracking, or "Decline" to browse without it. See our <a href="/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p>' +
+                // Localized consent copy. Falls back to English if the i18n
+                // system has not loaded yet (the banner is created once).
+                const _ct = function(k, fb) {
+                    try {
+                        const v = (typeof window.t === 'function') ? window.t(k) : null;
+                        return (v && v !== k) ? v : fb;
+                    } catch (e) { return fb; }
+                };
+                wrap.innerHTML = '<p>' + _ct('cookies.body', 'We use optional analytics cookies to improve your experience. We never share account or payment data.') +
+                    ' <a href="/privacy-policy.html" target="_blank" rel="noopener">' + _ct('landing.footer.privacy', 'Privacy Policy') + '</a>.</p>' +
                     '<div class="meta-consent-btns">' +
-                    '<button type="button" id="metaConsentAccept" onclick="grantConsent()">Accept</button>' +
-                    '<button type="button" id="metaConsentDecline" onclick="denyConsent()">Decline</button>' +
+                    '<button type="button" id="metaConsentAccept" onclick="grantConsent()">' + _ct('cookies.accept', 'Accept') + '</button>' +
+                    '<button type="button" id="metaConsentDecline" onclick="denyConsent()">' + _ct('cookies.decline', 'Decline') + '</button>' +
                     '</div>';
                 document.body.appendChild(wrap);
             } catch(e) { console.error('[meta-pixel] banner error:', e); }
@@ -1551,7 +1560,7 @@
             .auth-container{padding:24px 18px;}
             .deposit-modal-content,.modal-content{padding:20px 16px;}
             .code-input{width:36px;height:44px;font-size:16px;}
-            .ticker-label{display:none;}
+            .ticker-label{display:flex;font-size:9px;letter-spacing:0.2px;padding-right:6px;}
             .chart-container{height:180px;}
             .chart-stats{gap:10px;}
             .chart-stat-value{font-size:12px;}
@@ -2749,6 +2758,8 @@
         .meta-consent-btns button{cursor:pointer;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;}
         #metaConsentAccept{background:var(--gold);color:#070B14;}
         #metaConsentDecline{background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);}
+        /* "Start Here" beginner checklist step numbers (frontend orientation aid) */
+        .sh-num{width:18px;height:18px;border-radius:50%;background:rgba(240,185,11,0.18);color:#F0B90B;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
     </style>
 </head>
 <body>
@@ -3084,21 +3095,45 @@ async function handleSignup() {
     const confirm = document.getElementById('signupConfirm').value;
     const referral = document.getElementById('signupReferral').value.trim().toUpperCase();
 
-    if (!name || !email || !password || !confirm) {
-        showAuthError('Please fill in all required fields', 'signup');
+    // Per-field, localized validation so each problem is shown beside the
+    // input that needs attention instead of one generic banner.
+    const setFieldError = function(id, key) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        let err = document.getElementById(id + 'Error');
+        if (!err) {
+            err = document.createElement('div');
+            err.id = id + 'Error';
+            err.className = 'field-error';
+            err.style.cssText = 'font-size:11px;color:#EF4444;margin-top:4px;';
+            const group = input.closest ? input.closest('.form-group') : null;
+            (group || input.parentNode).appendChild(err);
+        }
+        err.textContent = t(key);
+        input.setAttribute('aria-invalid', 'true');
+    };
+    const clearFieldErrors = function() {
+        ['signupName', 'signupEmail', 'signupPassword', 'signupConfirm'].forEach(function(id) {
+            const e = document.getElementById(id + 'Error');
+            if (e) e.remove();
+            const i = document.getElementById(id);
+            if (i) i.removeAttribute('aria-invalid');
+        });
+    };
+    const failField = function(id, key) {
+        setFieldError(id, key);
+        const el = document.getElementById(id);
+        if (el && el.focus) el.focus();
         setButtonLoading(btn, false);
-        return;
-    }
-    if (password.length < 6) {
-        showAuthError('Password must be at least 6 characters', 'signup');
-        setButtonLoading(btn, false);
-        return;
-    }
-    if (password !== confirm) {
-        showAuthError('Passwords do not match', 'signup');
-        setButtonLoading(btn, false);
-        return;
-    }
+    };
+    clearFieldErrors();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!name) { failField('signupName', 'auth.errors.nameRequired'); return; }
+    if (!email) { failField('signupEmail', 'auth.errors.emailRequired'); return; }
+    if (!emailOk) { failField('signupEmail', 'auth.errors.validEmailRequired'); return; }
+    if (!password) { failField('signupPassword', 'auth.errors.passwordRequired'); return; }
+    if (password.length < 6) { failField('signupPassword', 'auth.signup.passwordMin'); return; }
+    if (password !== confirm) { failField('signupConfirm', 'auth.errors.passwordMatch'); return; }
 
     try {
         const response = await fetch('/api/auth/register', {
@@ -3109,7 +3144,10 @@ async function handleSignup() {
 
         if (!response.ok) {
             const error = await response.json();
-            showAuthError(error.error || 'Signup failed', 'signup');
+            const _tbm = (typeof translateBackendMessage === 'function')
+                ? translateBackendMessage
+                : function(msg, key) { return msg || t(key); };
+            showAuthError(_tbm(error.error, 'auth.signup.failed'), 'signup');
             setButtonLoading(btn, false);
             return;
         }
@@ -5059,6 +5097,7 @@ function toggleFaq(btn) {
                 <div class="auth-logo-mobile">
                     <i class="fas fa-arrows-spin"></i>
                     <h1>Arbi<em>trix</em> AI</h1>
+                    <p style="font-size:12px;color:#8896B5;line-height:1.5;margin:8px 0 0;" data-i18n="auth.mobileTagline">Multi-asset automated arbitrage. Start in Demo Mode.</p>
                 </div>
                 
                 <!-- Auth Card -->
@@ -5213,6 +5252,7 @@ function toggleFaq(btn) {
                                     <i class="fas fa-eye-slash"></i>
                                 </button>
                             </div>
+                            <div style="font-size:10px;color:#5A6A8A;margin-top:4px;" data-i18n="auth.signup.passwordHint">At least 6 characters.</div>
                             <div class="password-strength" id="passwordStrength">
                                 <div class="strength-bars">
                                     <div class="strength-bar" id="strengthBar1"></div>
@@ -5242,15 +5282,18 @@ function toggleFaq(btn) {
                         <div class="form-group">
                             <label for="signupReferral" data-i18n="auth.signup.referralLabel">Referral Code <span style="color:var(--text-muted);font-weight:400;" data-i18n="auth.signup.referralOptional">(Optional)</span></label>
                             <div class="input-wrapper">
-                                <input type="text" id="signupReferral" class="input-field" placeholder="ARBI-XXXX" style="text-transform:uppercase;">
+                                <input type="text" id="signupReferral" class="input-field" placeholder="ARBI-XXXX" data-i18n-placeholder="auth.signup.referralPlaceholder" style="text-transform:uppercase;" autocapitalize="characters" autocomplete="off">
                                 <i class="fas fa-gift input-icon"></i>
                             </div>
+                            <div style="font-size:10px;color:#5A6A8A;margin-top:4px;" data-i18n="auth.signup.referralHint">Only fill this in if a friend invited you.</div>
                         </div>
                         
                         <button type="button" id="signupSubmitBtn" class="btn btn-primary btn-block btn-submit" onclick="handleSignup()">
                             <i class="fas fa-user-plus"></i> <span data-i18n="auth.signup.submit">Create Account</span>
                         </button>
                         
+                        <p style="font-size:11px;color:#8896B5;line-height:1.6;margin:10px 0 0;text-align:center;" data-i18n="auth.signup.next">After creating your account you'll choose Demo Mode or Live Mode. You can switch at any time.</p>
+
                         <div class="auth-terms" data-i18n="auth.signup.terms">By creating an account, you agree to our <a href="/terms-of-service.html" target="_blank">Terms of Service</a> and <a href="/privacy-policy.html" target="_blank">Privacy Policy</a></div>
                         
                         <div class="auth-switch">
@@ -5263,6 +5306,18 @@ function toggleFaq(btn) {
                         <i class="fas fa-shield-halved"></i>
                         <span data-i18n="auth.securityBadge">Served over a secure HTTPS connection</span>
                     </div>
+                </div>
+
+                <!-- First-screen orienter: what Arbitrix is + what to do first.
+                     Visible on every screen size (the desktop brand panel is
+                     hidden below 1024px, so mobile users get this instead). -->
+                <div id="authExplainer" class="auth-explainer" style="margin-top:16px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:14px 16px;">
+                    <div style="font-size:13px;font-weight:700;color:#E8EDF5;margin-bottom:6px;"><i class="fas fa-circle-info" style="color:#F0B90B;"></i> <span data-i18n="landing.whatIs.title">What is Arbitrix?</span></div>
+                    <p style="font-size:12px;color:#8896B5;line-height:1.6;margin:0 0 8px;" data-i18n="auth.explainer.body">Arbitrix is a multi-asset trading platform that automates arbitrage across supported markets.</p>
+                    <div style="display:flex;gap:8px;font-size:11px;color:#8896B5;line-height:1.5;padding:2px 0;"><i class="fas fa-flask" style="color:#F0B90B;margin-top:2px;"></i><span data-i18n="auth.explainer.demo">Demo Mode uses $1,000 in virtual funds — no real money.</span></div>
+                    <div style="display:flex;gap:8px;font-size:11px;color:#8896B5;line-height:1.5;padding:2px 0;"><i class="fas fa-shield-halved" style="color:#10B981;margin-top:2px;"></i><span data-i18n="auth.explainer.live">Live Mode uses real funds. Review its requirements before you deposit.</span></div>
+                    <p style="font-size:11px;color:#B9C4DA;line-height:1.5;margin:8px 0 0;" data-i18n="auth.explainer.firstStep">New here? Create an account, then start in Demo Mode.</p>
+                    <a href="/how-it-works" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600;color:#F0B90B;text-decoration:none;" data-i18n="landing.nav.howItWorks">How It Works</a>
                 </div>
             </div>
         </div>
@@ -5448,15 +5503,35 @@ function toggleFaq(btn) {
         </div>
 
         <div class="ticker-wrapper" id="activityTicker">
-            <div class="ticker-label"><span class="live-dot"></span><span data-i18n="ticker.live">LIVE</span></div>
+            <div class="ticker-label"><span class="live-dot" style="background:#8896B5;box-shadow:none;animation:none;"></span><span data-i18n="ticker.sample">Sample activity</span></div>
             <div class="ticker-track"><div class="ticker-content" id="tickerContent"></div></div>
         </div>
 
+        <!-- "Start Here" beginner orientation checklist (dismissible; display only) -->
+        <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid rgba(240,185,11,0.35);background:linear-gradient(135deg, rgba(240,185,11,0.10), rgba(240,185,11,0.03));">
+            <div class="card-body">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                    <div style="min-width:0;">
+                        <div style="font-size:14px;font-weight:700;color:#F0B90B;"><i class="fas fa-compass"></i> <span data-i18n="startHere.title">Start Here</span></div>
+                        <div style="font-size:11px;color:#8896B5;margin-top:4px;line-height:1.5;" data-i18n="startHere.subtitle">A quick path to understand the platform.</div>
+                    </div>
+                    <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;min-height:0;white-space:nowrap;" data-i18n="startHere.dismiss">Dismiss</button>
+                </div>
+                <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#B9C4DA;line-height:1.5;"><span class="sh-num">1</span><span data-i18n="startHere.step1">Explore the dashboard</span></div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#B9C4DA;line-height:1.5;"><span class="sh-num">2</span><span data-i18n="startHere.step2">Start the demo bot</span></div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#B9C4DA;line-height:1.5;"><span class="sh-num">3</span><span data-i18n="startHere.step3">Watch how demo activity is displayed</span></div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#B9C4DA;line-height:1.5;"><span class="sh-num">4</span><span data-i18n="startHere.step4">Review Live Mode requirements</span></div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#B9C4DA;line-height:1.5;"><span class="sh-num">5</span><span data-i18n="startHere.step5">Continue when you are ready</span></div>
+                </div>
+            </div>
+        </div>
+
         <div class="stats-grid" style="margin-bottom:16px;">
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div><div id="totalEquity" class="stat-value">$1,000.00</div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value" style="color:#10B981;">+$0.00</div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#EF4444;" data-i18n="bot.offline">Offline</div></div></div>
+            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div><div id="totalEquity" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:#5A6A8A;margin-top:2px;" data-i18n="hint.equity">Account value</div></div></div>
+            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:#5A6A8A;margin-top:2px;" data-i18n="hint.available">Ready to use</div></div></div>
+            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value" style="color:#10B981;">+$0.00</div><div class="stat-hint" style="font-size:10px;color:#5A6A8A;margin-top:2px;" data-i18n="hint.pnl">Today's trading profit/loss</div></div></div>
+            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#EF4444;" data-i18n="bot.offline">Offline</div><div class="stat-hint" style="font-size:10px;color:#5A6A8A;margin-top:2px;" data-i18n="hint.botStatus">Running or stopped</div></div></div>
         </div>
 
         <!-- In-Demo first-deposit CTA: shown while a production user explores
@@ -5531,7 +5606,7 @@ function toggleFaq(btn) {
             </div>
             <div class="mta-amount-row">
                 <div class="mta-current" id="mtaCurrentAmount">$50.00</div>
-                <div class="mta-target"><span data-i18n="common.of">of</span> <span id="mtaTargetAmount">$200.00</span> MTA</div>
+                <div class="mta-target"><span data-i18n="mta.targetLabel">Minimum trading balance:</span> <span id="mtaTargetAmount">$200.00</span></div>
             </div>
             <div class="mta-bar-wrapper"><div class="mta-bar-fill" id="mtaBarFill" style="width:35%;"></div></div>
             <div class="mta-milestones">
@@ -5573,7 +5648,9 @@ function toggleFaq(btn) {
                 <div class="card" id="demoBotCard">
                     <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> <span data-i18n="bot.title">Arbitrix AI Bot</span></div>
                     <div class="card-body">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><span style="font-size:12px;" data-i18n="bot.enableScanner">Enable Scanner</span><label class="toggle-switch"><input type="checkbox" id="botToggle"><span class="toggle-slider"></span></label></div>
+                        <div style="font-size:10px;color:#5A6A8A;margin-bottom:10px;line-height:1.5;" data-i18n="hint.bot">Scans supported markets and trades automatically when running</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:10px;"><span style="font-size:12px;" data-i18n="bot.enableScanner">Enable Scanner</span><label class="toggle-switch"><input type="checkbox" id="botToggle"><span class="toggle-slider"></span></label></div>
+                        <div style="font-size:10px;color:#5A6A8A;margin-bottom:10px;" data-i18n="hint.scanner">Market scanning</div>
                         <button type="button" id="startStopBtn" class="btn btn-primary btn-block" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
                         <div id="botStatusMsg" style="font-size:10px;color:#5A6A8A;margin-top:8px;text-align:center;" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
                     </div>
@@ -5604,7 +5681,9 @@ function toggleFaq(btn) {
                 <div class="card" id="liveBotCard">
                     <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> <span data-i18n="bot.title">Arbitrix AI Bot</span></div>
                     <div class="card-body">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;"><span style="font-size:12px;" data-i18n="bot.enableScanner">Enable Scanner</span><label class="toggle-switch"><input type="checkbox" id="botToggleLive"><span class="toggle-slider"></span></label></div>
+                        <div style="font-size:10px;color:#5A6A8A;margin-bottom:10px;line-height:1.5;" data-i18n="hint.bot">Scans supported markets and trades automatically when running</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:10px;"><span style="font-size:12px;" data-i18n="bot.enableScanner">Enable Scanner</span><label class="toggle-switch"><input type="checkbox" id="botToggleLive"><span class="toggle-slider"></span></label></div>
+                        <div style="font-size:10px;color:#5A6A8A;margin-bottom:10px;" data-i18n="hint.scanner">Market scanning</div>
                         <button type="button" id="startStopBtnLive" class="btn btn-primary btn-block" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
                         <div id="botStatusMsgLive" style="font-size:10px;color:#5A6A8A;margin-top:8px;text-align:center;" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
                     </div>
@@ -5653,6 +5732,7 @@ function toggleFaq(btn) {
                 </span>
             </div>
             <div class="card-body">
+                <div style="font-size:10px;color:#5A6A8A;margin-bottom:8px;" data-i18n="hint.txLog">Your recent activity (last 30 minutes).</div>
                 <div class="tx-list-wrapper" id="txListWrapper">
                     <div id="tradeHistoryContainer" class="empty-state">
                         <i class="fas fa-inbox"></i>
@@ -5667,7 +5747,7 @@ function toggleFaq(btn) {
 
         <!-- ADVANCED TRADINGVIEW CHART -->
         <div class="card" style="margin-bottom:16px;" id="markets">
-            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-candlestick"></i></span> <span>Advanced Market Chart</span></div>
+            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-candlestick"></i></span> <span data-i18n="markets.advancedChart">Advanced Market Chart</span></div>
             <div class="card-body" style="padding:0;">
                 <div style="position:relative;width:100%;height:400px;background:#0A1020;border-radius:12px;overflow:hidden;">
                     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -6441,6 +6521,10 @@ function toggleFaq(btn) {
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(500)">$500</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(1000)">$1,000</button>
         </div>
+        <div style="background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:12px;margin-top:12px;">
+          <div style="font-size:11px;font-weight:700;color:#F0B90B;margin-bottom:4px;"><i class="fas fa-circle-question"></i> <span data-i18n="deposit.newToUsdt.title">New to this payment method?</span></div>
+          <div style="font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="deposit.newToUsdt.body">USDT is a stablecoin pegged to the US dollar. TRON (TRC20) is the network used for this deposit. You can buy USDT from an exchange or wallet app that supports sending USDT on TRC20.</div>
+        </div>
       </div>
 
       <!-- Safety Warning -->
@@ -6515,6 +6599,7 @@ function toggleFaq(btn) {
           <span id="liveDepositDisplayAmount">0.00</span> <span style="font-size:20px;">USDT</span>
         </div>
         <div style="font-size:14px;color:#8896B5;">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
+        <div style="font-size:10px;color:#5A6A8A;margin-top:4px;line-height:1.5;" data-i18n="deposit.usdVsUsdt">USDT is the amount you send. USD is the amount credited to your balance.</div>
         <div id="exactAmountInstruction" style="font-size:11px;color:#8896B5;margin-top:10px;line-height:1.5;"><span data-i18n="deposit.sendExactlyPrefix">Send exactly</span> <strong id="exactAmountValue" style="color:#10B981;">0.00</strong> <span data-i18n="deposit.sendExactlySuffix">USDT on the TRON (TRC20) network.</span></div>
       </div>
 
@@ -6524,6 +6609,9 @@ function toggleFaq(btn) {
         <span style="color:#8896B5;" data-i18n="deposit.on">on</span>
         <span style="background:rgba(240,185,11,0.15);padding:4px 10px;border-radius:6px;color:#F0B90B;font-weight:600;">TRON (TRC20)</span>
       </div>
+
+      <!-- Payment-method confirmation (display only) -->
+      <div style="font-size:11px;color:#8896B5;line-height:1.6;background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:10px;margin:12px 0;" data-i18n="deposit.methodNotice">This payment method uses USDT on the TRON (TRC20) network. Before sending funds, confirm that your wallet or exchange supports the exact asset and network shown here.</div>
 
       <!-- QR Code -->
       <div id="qrCodeContainer" style="text-align:center;margin:16px 0;">
@@ -6536,6 +6624,7 @@ function toggleFaq(btn) {
       <!-- Payment Address -->
       <div id="walletAddressContainer" style="background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:14px;margin:12px 0;">
         <div id="paymentAddressLabel" style="font-size:9px;color:#8896B5;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="deposit.paymentAddressLabel">Payment Address</div>
+        <div style="font-size:10px;color:#5A6A8A;line-height:1.5;margin-bottom:6px;" data-i18n="deposit.addressExplain">This is your personal USDT (TRC20) payment address. Send only USDT on the TRON (TRC20) network to this address.</div>
         <div id="liveWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">
           Loading...
         </div>
@@ -6561,6 +6650,7 @@ function toggleFaq(btn) {
       <div id="currentStatusBox" style="background:var(--bg-input);border-radius:8px;padding:14px;margin:12px 0;text-align:center;">
         <div style="font-size:11px;color:#8896B5;margin-bottom:4px;" data-i18n="deposit.currentStatus">Current Status</div>
         <div id="depositStatusText" style="font-size:13px;font-weight:600;color:#F0B90B;">Waiting for payment...</div>
+        <div style="font-size:10px;color:#5A6A8A;margin-top:8px;line-height:1.5;" data-i18n="deposit.afterSending">After sending, keep this page open. Arbitrix detects the payment automatically and credits your Live balance once confirmed.</div>
       </div>
 
       <!-- Invoice reference + payment help / official support (display-only).
@@ -6574,6 +6664,7 @@ function toggleFaq(btn) {
         <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary btn-block" style="font-size:11px;padding:8px;margin-bottom:10px;">
           <i class="fas fa-copy"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
         </button>
+        <div style="font-size:10px;color:#5A6A8A;line-height:1.5;margin-bottom:6px;" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.</div>
         <div id="paymentSupportHelpText" style="font-size:11px;color:#8896B5;line-height:1.6;">Need help with your payment? Contact official Arbitrix Support.</div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           <button type="button" onclick="openSupportModal()" class="btn btn-primary" style="flex:1;min-width:150px;">
@@ -6666,24 +6757,27 @@ function toggleFaq(btn) {
       <p style="font-size:12px;color:#8896B5;line-height:1.6;margin:0;" data-i18n="onboarding.subtitle">How would you like to start?</p>
     </div>
 
-    <!-- PRIMARY: first deposit (visually dominant, never forced) -->
-    <button type="button" onclick="chooseOnboarding('deposit')" class="btn btn-primary btn-block" style="width:100%;text-align:left;background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;padding:16px;border-radius:12px;cursor:pointer;margin-bottom:12px;">
+    <!-- Plain-language platform explanation (multi-asset + Demo vs Live) -->
+    <p id="onboardingExplainer" style="font-size:12px;color:#B9C4DA;line-height:1.6;margin:0 0 14px;" data-i18n="onboarding.explainer">Arbitrix is a multi-asset trading platform with Demo Mode and Live Mode. Start by exploring Demo Mode to understand the platform, then review Live Mode when you are ready.</p>
+
+    <!-- PRIMARY: explore Demo Mode (safe, no real money) -->
+    <button type="button" id="onboardingPrimaryBtn" onclick="chooseOnboarding('demo')" class="btn btn-primary btn-block" style="width:100%;text-align:left;background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;padding:16px;border-radius:12px;cursor:pointer;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-circle-down" style="font-size:20px;"></i>
+        <i class="fas fa-flask" style="font-size:20px;"></i>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:700;" data-i18n="onboarding.primary">Make My First Deposit</div>
-          <div id="onboardingPrimaryDesc" style="font-size:11px;font-weight:500;opacity:0.85;line-height:1.5;margin-top:2px;"></div>
+          <div style="font-size:14px;font-weight:700;" data-i18n="onboarding.primary">Explore Demo Mode</div>
+          <div id="onboardingPrimaryDesc" style="font-size:11px;font-weight:500;opacity:0.85;line-height:1.5;margin-top:2px;" data-i18n="onboarding.primaryDesc">Try the bot with $1,000 in virtual funds — no real money required. You can switch modes anytime.</div>
         </div>
       </div>
     </button>
 
-    <!-- SECONDARY: explore demo -->
-    <button type="button" onclick="chooseOnboarding('demo')" class="btn btn-secondary btn-block" style="width:100%;text-align:left;padding:16px;border-radius:12px;cursor:pointer;margin-bottom:14px;">
+    <!-- SECONDARY: review Live Mode requirements (no deposit required) -->
+    <button type="button" id="onboardingSecondaryBtn" onclick="chooseOnboarding('live')" class="btn btn-secondary btn-block" style="width:100%;text-align:left;padding:16px;border-radius:12px;cursor:pointer;margin-bottom:14px;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-flask" style="font-size:18px;color:#F0B90B;"></i>
+        <i class="fas fa-shield-halved" style="font-size:18px;color:#10B981;"></i>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:#E8EDF5;" data-i18n="onboarding.secondary">Explore Demo</div>
-          <div style="font-size:11px;color:#8896B5;line-height:1.5;margin-top:2px;" data-i18n="onboarding.secondaryDesc">Try the bot with $1,000 in virtual funds. No money required.</div>
+          <div style="font-size:13px;font-weight:700;color:#E8EDF5;" data-i18n="onboarding.secondary">Review Live Mode</div>
+          <div style="font-size:11px;color:#8896B5;line-height:1.5;margin-top:2px;" data-i18n="onboarding.secondaryDesc">See the Live balance, the minimum trading balance, and what is required before you fund your account.</div>
         </div>
       </div>
     </button>
@@ -6950,12 +7044,13 @@ function toggleFaq(btn) {
             <div>
                 <h3 style="margin:0;font-size:16px;font-weight:700;color:#E8EDF5;" data-i18n="support.modal.title">Arbitrix Support</h3>
                 <p style="margin:0;font-size:11px;color:#8896B5;" data-i18n="support.modal.subtitle">We are here to help with deposits, withdrawals and account questions.</p>
+                <p style="margin:4px 0 0;font-size:10px;color:#5A6A8A;line-height:1.5;" data-i18n="support.assistant.automated">Automated assistant — replies instantly with guidance. For a person, use official support below.</p>
             </div>
         </div>
 
         <!-- Official Telegram support (configurable; no personal account hardcoded) -->
         <a href="#" id="supportTelegramBtn" class="btn btn-primary btn-block js-official-telegram" style="display:none;margin-top:12px;text-align:center;background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;" target="_blank" rel="noopener noreferrer">
-            <i class="fab fa-telegram"></i> <span data-i18n="support.officialTelegram">Official Telegram Support</span>
+            <i class="fab fa-telegram"></i> <span data-i18n="support.human.title">Contact Official Support</span>
         </a>
         <div id="supportNotConfigured" style="display:none;margin-top:12px;font-size:11px;color:#8896B5;background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:10px;line-height:1.6;" data-i18n="support.notConfigured">Official Telegram Support is being configured. In the meantime use the in-app support chat or email support@arbitrix.ai.</div>
 
@@ -7400,10 +7495,10 @@ function toggleFaq(btn) {
 
 <!-- SUPPORT WIDGET -->
 <div class="support-widget" id="supportWidget">
-    <button type="button" class="support-toggle-btn" id="supportToggleBtn" aria-label="Open support" onclick="toggleSupport()"><i class="fas fa-headset"></i><span class="badge" id="unreadBadge">3</span></button>
+    <button type="button" class="support-toggle-btn" id="supportToggleBtn" aria-label="Open support" onclick="toggleSupport()"><i class="fas fa-headset"></i></button>
     <div class="support-panel" id="supportPanel">
         <div class="support-panel-header">
-            <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;border-radius:50%;background:rgba(240,185,11,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold);"><i class="fas fa-headset"></i></div><div><h4 data-i18n="support.title">Support</h4><div style="font-size:10px;color:#10B981;" data-i18n="support.online">● Online</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;border-radius:50%;background:rgba(240,185,11,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold);"><i class="fas fa-headset"></i></div><div><h4 data-i18n="support.assistant.name">Arbitrix Support Assistant</h4><div style="font-size:10px;color:#8896B5;" data-i18n="support.assistant.status">Automated</div></div></div>
             <button type="button" onclick="document.getElementById('supportPanel').classList.remove('open')" style="background:none;border:none;color:#5A6A8A;cursor:pointer;font-size:18px;" aria-label="Close support"><i class="fas fa-times"></i></button>
         </div>
         <div class="support-panel-body" id="supportBody">
@@ -7571,6 +7666,10 @@ const TRANSLATIONS = {
         'auth.errors.fillAll': 'Please fill all fields',
         'auth.errors.passwordLength': 'Password must be at least 6 characters',
         'auth.errors.passwordMatch': 'Passwords do not match',
+        'auth.errors.nameRequired': 'Please enter your full name.',
+        'auth.errors.emailRequired': 'Please enter your email address.',
+        'auth.errors.passwordRequired': 'Please enter a password.',
+        'auth.signup.passwordMin': 'Password must be at least 6 characters.',
         'auth.errors.noAccount': 'No account found. Please create an account first.',
         'auth.errors.invalidCredentials': 'Invalid email or password',
         'auth.success.created': 'Account created successfully!',
@@ -7687,11 +7786,14 @@ const TRANSLATIONS = {
         'landing.footer.legal': 'Legal',
         'landing.footer.contact': 'Contact',
         'landing.footer.privacy': 'Privacy Policy',
+        'cookies.body': 'We use optional analytics cookies to understand how Arbitrix is used and improve your experience. We never share account or payment data.',
+        'cookies.accept': 'Accept',
+        'cookies.decline': 'Decline',
         'landing.footer.terms': 'Terms of Service',
         'landing.footer.copyright': '© 2026 Arbitrix AI. All rights reserved.',
         'landing.footer.disclaimer': 'Trading involves risk. Past performance is not indicative of future results and does not guarantee Live performance.',
         'auth.brand.title': 'Automated Arbitrage. Made Simple.',
-        'auth.brand.subtitle': 'Arbitrix monitors supported markets for price discrepancies and automates eligible arbitrage trades. Explore the strategy in Demo Mode first — no card required to create an account.',
+        'auth.brand.subtitle': 'Arbitrix is a multi-asset trading platform. It monitors supported markets for price discrepancies and automates eligible arbitrage trades. Explore the strategy in Demo Mode first — no card required to create an account.',
         'auth.brand.security.title': 'Automated Execution',
         'auth.brand.security.desc': 'Designed to identify arbitrage opportunities among supported markets and execute automatically.',
         'auth.brand.execution.title': 'Start with Demo Mode',
@@ -7727,10 +7829,19 @@ const TRANSLATIONS = {
         'auth.signup.referralOptional': '(Optional)',
         'auth.signup.referralPlaceholder': 'ARBI-XXXX',
         'auth.signup.submit': 'Create Account',
+        'auth.signup.passwordHint': 'At least 6 characters.',
+        'auth.signup.referralHint': 'Only fill this in if a friend invited you.',
+        'auth.signup.next': 'After creating your account you\'ll choose Demo Mode or Live Mode. You can switch at any time.',
+        'auth.signup.failed': 'Sign up failed. Please try again.',
         'auth.signup.terms': 'By creating an account, you agree to our <a href="/terms-of-service.html" target="_blank">Terms of Service</a> and <a href="/privacy-policy.html" target="_blank">Privacy Policy</a>',
         'auth.switch.noAccount': "Don't have an account?",
         'auth.switch.hasAccount': 'Already have an account?',
         'auth.securityBadge': 'Served over a secure HTTPS connection',
+        'auth.mobileTagline': 'Multi-asset automated arbitrage. Start in Demo Mode.',
+        'auth.explainer.body': 'Arbitrix is a multi-asset trading platform that automates arbitrage across supported markets.',
+        'auth.explainer.demo': 'Demo Mode uses $1,000 in virtual funds — no real money.',
+        'auth.explainer.live': 'Live Mode uses real funds. Review its requirements before you deposit.',
+        'auth.explainer.firstStep': 'New here? Create an account, then start in Demo Mode.',
         'auth.2fa.title': 'Email Verification',
         'auth.2fa.hint': 'Enter the 6-digit code sent to your email',
         'auth.2fa.codeLabel': 'Verification Code',
@@ -7770,29 +7881,41 @@ const TRANSLATIONS = {
         'status.demo': 'Demo Account',
         'status.funded': 'Funded',
         'status.pending': 'Pending',
+        'status.completed': 'Completed',
+        'status.confirmed': 'Confirmed',
+        'status.processing': 'Processing',
         'status.demoTrading': 'Demo Trading • Virtual Funds',
         'status.liveFunded': 'Live • Funded',
         'status.livePending': 'Live • Pending Deposit',
         'ticker.live': 'LIVE',
+        'ticker.sample': 'Sample activity',
         'stats.equity': 'Total Equity',
         'stats.available': 'Available',
         'stats.pnl': "Today's P&L",
         'stats.botStatus': 'Bot Status',
+        'hint.equity': 'Account value',
+        'hint.available': 'Ready to use',
+        'hint.pnl': 'Today\'s trading profit/loss',
+        'hint.botStatus': 'Running or stopped',
+        'hint.bot': 'Scans supported markets and trades automatically when running',
+        'hint.scanner': 'Market scanning',
+        'hint.txLog': 'Your recent activity (last 30 minutes).',
         'bot.offline': 'Offline',
         'bot.running': 'Running',
         'bot.title': 'Arbitrix AI Bot',
         'bot.enableScanner': 'Enable Scanner',
         'bot.startBot': 'Start Bot',
         'bot.pauseBot': 'Pause Bot',
-        'bot.clickToStart': 'Click "Start Bot" to begin scanning',
+        'bot.clickToStart': 'Click "Start Bot" and it will scan supported markets and trade automatically',
         'bot.startedDemo': '✅ Bot started in Demo mode',
         'bot.startedLive': '✅ Bot started in Live mode',
         'bot.paused': '⏸️ Bot paused',
-        'bot.reachMTA': '💰 Reach ${{mta}} MTA to activate bot (need ${{needed}} more)',
+        'bot.reachMTA': '💰 Minimum trading balance: ${{mta}} to start the bot (need ${{needed}} more)',
         'bot.mtaBlocked': 'Minimum trading balance is ${{mta}} to start the bot.',
         'bot.promoLimitReached': 'You have reached the promotional trading limit. Make your first deposit to continue trading.',
-        'bot.mtaMet': '✅ MTA met! Bot ready to trade',
+        'bot.mtaMet': '✅ Minimum trading balance reached! Bot ready to trade',
         'chart.title': 'Equity Performance',
+        'markets.advancedChart': 'Advanced Market Chart',
         'chart.all': 'ALL',
         'chart.starting': 'Starting',
         'chart.current': 'Current',
@@ -7807,13 +7930,18 @@ const TRANSLATIONS = {
         'trading.worstTrade': 'Worst Trade',
         'trading.streak': 'Win Streak',
         'achievements.title': 'Achievements',
+        'badge.rarity.common': 'Common',
+        'badge.rarity.rare': 'Rare',
+        'badge.rarity.epic': 'Epic',
+        'badge.rarity.legendary': 'Legendary',
         'achievements.unlocked': 'Unlocked',
         'achievements.startTrading': 'Start trading to unlock badges',
         'achievements.allUnlocked': '🎉 All badges unlocked!',
         'achievements.next': 'Next:',
         'mta.title': 'Unlock Live Trading',
-        'mta.subtitle': 'Reach the Minimum Trading Amount to activate the bot',
+        'mta.subtitle': 'Reach the minimum trading balance to start the bot',
         'mta.inProgress': 'In Progress',
+        'mta.targetLabel': 'Minimum trading balance:',
         'mta.of': 'of',
         'mta.nearlyThere': 'Almost there! Only',
         'mta.greatProgress': 'Great progress!',
@@ -7872,6 +8000,13 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Referral data reset',
         'deposit.title': 'Deposit Funds',
         'deposit.subtitle': 'Secure crypto deposit — funds credited automatically',
+        'deposit.methodNotice': 'This payment method uses USDT on the TRON (TRC20) network. Before sending funds, confirm that your wallet or exchange supports the exact asset and network shown here.',
+        'deposit.newToUsdt.title': 'New to this payment method?',
+        'deposit.newToUsdt.body': 'USDT is a stablecoin pegged to the US dollar. TRON (TRC20) is the network used for this deposit. You can buy USDT from an exchange or wallet app that supports sending USDT on TRC20.',
+        'deposit.usdVsUsdt': 'USDT is the amount you send. USD is the amount credited to your balance.',
+        'deposit.addressExplain': 'This is your personal USDT (TRC20) payment address. Send only USDT on the TRON (TRC20) network to this address.',
+        'deposit.referenceExplain': 'Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.',
+        'deposit.afterSending': 'After sending, keep this page open. Arbitrix detects the payment automatically and credits your Live balance once confirmed.',
         'deposit.amount': 'Amount (USD)',
         'deposit.network': 'Network',
         'deposit.walletAddress': 'WALLET ADDRESS',
@@ -7898,19 +8033,28 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'Depositing to your LIVE balance',
         'deposit.liveNotice.body': 'This deposit is added to your LIVE / real balance. It is separate from demo funds and from your promotional credit.',
         'onboarding.title': 'Welcome to Arbitrix',
-        'onboarding.subtitle': 'How would you like to start?',
-        'onboarding.primary': 'Make My First Deposit',
-        'onboarding.primaryDesc': 'Fund your Live balance and start real trading. Minimum deposit ${{min}}.',
-        'onboarding.secondary': 'Explore Demo',
-        'onboarding.secondaryDesc': 'Try the bot with $1,000 in virtual funds. No money required.',
+        'onboarding.subtitle': 'Here\'s how to get started.',
+        'onboarding.primary': 'Explore Demo Mode',
+        'onboarding.primaryDesc': 'Try the bot with $1,000 in virtual funds — no real money required. You can switch modes anytime.',
+        'onboarding.secondary': 'Review Live Mode',
+        'onboarding.secondaryDesc': 'See the Live balance, the minimum trading balance, and what is required before you fund your account.',
         'onboarding.virtualNote': 'Demo balance = virtual funds. No real value.',
         'onboarding.realNote': 'Live balance = real trading funds.',
         'onboarding.promoNote': '$50 promotional credit is separate from your deposited funds.',
-        'onboarding.noObligation': 'You can deposit later — Demo is always available.',
+        'onboarding.noObligation': 'You can switch between Demo and Live anytime — Demo is always available.',
+        'onboarding.explainer': 'Arbitrix is a multi-asset trading platform with Demo Mode and Live Mode. Start by exploring Demo Mode to understand the platform, then review Live Mode when you are ready.',
         'demoCta.title': 'Ready for real trading?',
         'demoCta.body': 'You\'re exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.',
         'demoCta.button': 'Make My First Deposit',
         'demoCta.later': 'Maybe later',
+        'startHere.title': 'Start Here',
+        'startHere.subtitle': 'A quick path to understand the platform.',
+        'startHere.step1': 'Explore the dashboard',
+        'startHere.step2': 'Start the demo bot',
+        'startHere.step3': 'Watch how demo activity is displayed',
+        'startHere.step4': 'Review Live Mode requirements',
+        'startHere.step5': 'Continue when you are ready',
+        'startHere.dismiss': 'Dismiss',
         'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT deposited successfully!',
@@ -7919,8 +8063,8 @@ const TRANSLATIONS = {
         'withdraw.title': 'Withdraw Funds',
         'withdraw.subtitle': 'Transfer to your wallet',
         'withdraw.available': 'Available',
-        'withdraw.info': 'Min withdrawal: $700 | Requires 1 trade completed | 15-30min processing',
-        'withdraw.infoSandbox': 'No minimum withdrawal | 15-30min processing',
+        'withdraw.info': 'Min withdrawal: $700 | Requires 1 trade completed | Withdrawal processing usually takes 15–30 minutes.',
+        'withdraw.infoSandbox': 'No minimum withdrawal | Withdrawal processing usually takes 15–30 minutes.',
         'withdraw.amount': 'Amount (USD)',
         'withdraw.address': 'Wallet Address',
         'withdraw.submit': 'Withdraw',
@@ -7933,9 +8077,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': 'Minimum withdrawal is ${{min}}. Current: ${{current}}',
         'withdraw.enterAddress': 'Please enter a wallet address',
         'withdraw.insufficient': 'Insufficient balance',
-        'withdraw.success': '✅ ${{amount}} withdrawal submitted! Processing in 15-30min.',
+        'withdraw.success': '✅ ${{amount}} withdrawal submitted! Withdrawal processing usually takes 15–30 minutes.',
         'withdraw.submitted': 'Withdrawal Submitted',
-        'withdraw.processing': '${{amount}} will be processed within 15-30 minutes',
+        'withdraw.processing': '${{amount}} submitted. Withdrawal processing usually takes 15–30 minutes.',
         'profile.title': 'Profile',
         'profile.name': 'Display Name',
         'profile.email': 'Email',
@@ -7982,6 +8126,10 @@ const TRANSLATIONS = {
         'ios.gotIt': 'Got It!',
         'support.title': 'Support',
         'support.online': '● Online',
+        'support.assistant.status': 'Automated',
+        'support.assistant.name': 'Arbitrix Support Assistant',
+        'support.assistant.automated': 'Automated assistant — replies instantly with guidance. For a person, use official support below.',
+        'support.human.title': 'Contact Official Support',
         'support.welcome': '👋 Welcome! How can I help?',
         'support.botSetup': '🤖 Bot setup',
         'support.deposit': '💰 Deposit',
@@ -8129,10 +8277,10 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'No documents uploaded',
         'kyc.noHistory': 'No history',
         'support.reply.default': 'Thanks for your message! Our team will get back to you shortly.',
-        'support.reply.bot': '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach ${{mta}} MTA first, 3) Click \'Start Bot\' button.',
+        'support.reply.bot': '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach the minimum trading balance of ${{mta}} first, 3) Click \'Start Bot\'.',
         'support.reply.botNoMta': '🤖 To start the bot: switch to LIVE mode (or DEMO) and click the \'Start Bot\' button.',
-        'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, choose your network (TRC20 recommended), click \'Get Payment Address\', and send USDT to the displayed address. We\'ll auto-detect it.',
-        'support.reply.withdraw': '🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click \'Withdraw\' in the sidebar. Processing takes 15-30 minutes.',
+        'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, then send USDT on the TRON (TRC20) network to the displayed address. Arbitrix accepts USDT on TRON (TRC20) only. We\'ll auto-detect it.',
+        'support.reply.withdraw': '🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click \'Withdraw\' in the sidebar. Withdrawal processing usually takes 15–30 minutes.',
         'support.reply.bonus': '🎁 Refer friends to earn 20% of their first qualifying deposit! Your reward accumulates in the Bonus Wallet and can be converted to your Live Wallet at any time — no minimum.',
         'support.reply.sound': '🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.',
         'support.reply.language': '🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.',
@@ -8799,7 +8947,7 @@ const TRANSLATIONS = {
         'landing.withdraw.lead': 'Your trading balance remains yours and you can request a withdrawal when eligible.',
         'landing.withdraw.point1': 'Withdraw to your own wallet.',
         'landing.withdraw.point2': 'No subscription lock on your funds.',
-        'landing.withdraw.point3': 'Typical processing: approximately 15–30 minutes.',
+        'landing.withdraw.point3': 'Withdrawal processing usually takes 15–30 minutes.',
         'landing.withdraw.point4': 'Applicable verification/security checks may apply.',
         'landing.security.tag': 'Security',
         'landing.security.title': 'Security',
@@ -8836,7 +8984,7 @@ const TRANSLATIONS = {
         'landing.faq.q8': 'How much is Arbitrix Pro?',
         'landing.faq.a8': 'The Arbitrix Pro subscription is $7/month, deducted from your available trading balance when due. Based on the current product model, there are no additional platform fees.',
         'landing.faq.q9': 'How do withdrawals work?',
-        'landing.faq.a9': 'You can withdraw to your own wallet address whenever eligible. Requests are typically processed within approximately 15–30 minutes, and applicable verification/security checks may apply.',
+        'landing.faq.a9': 'You can withdraw to your own wallet address whenever eligible. Withdrawal processing usually takes 15–30 minutes, and applicable verification/security checks may apply.',
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'No card',
 
@@ -8922,6 +9070,10 @@ const TRANSLATIONS = {
         'auth.errors.fillAll': 'Por favor, completa todos los campos',
         'auth.errors.passwordLength': 'La contraseña debe tener al menos 6 caracteres',
         'auth.errors.passwordMatch': 'Las contraseñas no coinciden',
+        'auth.errors.nameRequired': 'Introduce tu nombre completo.',
+        'auth.errors.emailRequired': 'Introduce tu dirección de correo electrónico.',
+        'auth.errors.passwordRequired': 'Introduce una contraseña.',
+        'auth.signup.passwordMin': 'La contraseña debe tener al menos 6 caracteres.',
         'auth.errors.noAccount': 'No se encontró ninguna cuenta. Crea una cuenta primero.',
         'auth.errors.invalidCredentials': 'Correo o contraseña inválidos',
         'auth.success.created': '¡Cuenta creada con éxito!',
@@ -9038,11 +9190,14 @@ const TRANSLATIONS = {
         'landing.footer.legal': 'Legal',
         'landing.footer.contact': 'Contacto',
         'landing.footer.privacy': 'Política de privacidad',
+        'cookies.body': 'Usamos cookies de análisis opcionales para entender cómo se usa Arbitrix y mejorar tu experiencia. Nunca compartimos datos de cuenta o de pago.',
+        'cookies.accept': 'Aceptar',
+        'cookies.decline': 'Rechazar',
         'landing.footer.terms': 'Términos del servicio',
         'landing.footer.copyright': '© 2026 Arbitrix AI. Todos los derechos reservados.',
         'landing.footer.disclaimer': 'Operar implica riesgos. El rendimiento pasado no es indicativo de resultados futuros y no garantiza el rendimiento en Real.',
         'auth.brand.title': 'Arbitraje Automatizado. Simple y Fácil.',
-        'auth.brand.subtitle': 'Arbitrix monitorea los mercados compatibles en busca de discrepancias de precio y automatiza las operaciones de arbitraje elegibles. Explora la estrategia en Modo Demo primero — no se necesita tarjeta para crear una cuenta.',
+        'auth.brand.subtitle': 'Arbitrix es una plataforma de trading multi-activo. Monitorea los mercados compatibles en busca de discrepancias de precio y automatiza las operaciones de arbitraje elegibles. Explora la estrategia en Modo Demo primero — no se necesita tarjeta para crear una cuenta.',
         'auth.brand.security.title': 'Ejecución Automatizada',
         'auth.brand.security.desc': 'Diseñado para identificar oportunidades de arbitraje entre los mercados compatibles y ejecutar automáticamente.',
         'auth.brand.execution.title': 'Empieza con el Modo Demo',
@@ -9078,10 +9233,19 @@ const TRANSLATIONS = {
         'auth.signup.referralOptional': '(Opcional)',
         'auth.signup.referralPlaceholder': 'ARBI-XXXX',
         'auth.signup.submit': 'Crear cuenta',
+        'auth.signup.passwordHint': 'Al menos 6 caracteres.',
+        'auth.signup.referralHint': 'Rellena esto solo si un amigo te invitó.',
+        'auth.signup.next': 'Tras crear tu cuenta elegirás el Modo Demo o el Modo Live. Puedes cambiar cuando quieras.',
+        'auth.signup.failed': 'No se pudo crear la cuenta. Inténtalo de nuevo.',
         'auth.signup.terms': 'Al crear una cuenta, acepta nuestros <a href="/terms-of-service.html" target="_blank">Términos del servicio</a> y la <a href="/privacy-policy.html" target="_blank">Política de privacidad</a>',
         'auth.switch.noAccount': '¿No tiene una cuenta?',
         'auth.switch.hasAccount': '¿Ya tiene una cuenta?',
         'auth.securityBadge': 'Servido sobre una conexión HTTPS segura',
+        'auth.mobileTagline': 'Arbitraje automatizado multi-activo. Empieza en Modo Demo.',
+        'auth.explainer.body': 'Arbitrix es una plataforma de trading multi-activo que automatiza el arbitraje en los mercados compatibles.',
+        'auth.explainer.demo': 'El Modo Demo usa $1,000 en fondos virtuales — sin dinero real.',
+        'auth.explainer.live': 'El Modo Live usa fondos reales. Revisa sus requisitos antes de depositar.',
+        'auth.explainer.firstStep': '¿Eres nuevo? Crea una cuenta y empieza en Modo Demo.',
         'auth.2fa.title': 'Verificación por correo',
         'auth.2fa.hint': 'Ingrese el código de 6 dígitos enviado a su correo',
         'auth.2fa.codeLabel': 'Código de verificación',
@@ -9121,29 +9285,41 @@ const TRANSLATIONS = {
         'status.demo': 'Cuenta demo',
         'status.funded': 'Fondos cargados',
         'status.pending': 'Pendiente',
+        'status.completed': 'Completado',
+        'status.confirmed': 'Confirmado',
+        'status.processing': 'Procesando',
         'status.demoTrading': 'Trading demo • Fondos virtuales',
         'status.liveFunded': 'Live • Fondos cargados',
         'status.livePending': 'Live • Depósito pendiente',
         'ticker.live': 'LIVE',
+        'ticker.sample': 'Actividad de ejemplo',
         'stats.equity': 'Patrimonio total',
         'stats.available': 'Disponible',
         'stats.pnl': 'P&L de hoy',
         'stats.botStatus': 'Estado del bot',
+        'hint.equity': 'Valor de la cuenta',
+        'hint.available': 'Listo para usar',
+        'hint.pnl': 'Ganancia/pérdida de hoy',
+        'hint.botStatus': 'En ejecución o detenido',
+        'hint.bot': 'Analiza los mercados compatibles y opera automáticamente cuando está activo',
+        'hint.scanner': 'Escaneo de mercado',
+        'hint.txLog': 'Tu actividad reciente (últimos 30 minutos).',
         'bot.offline': 'Desconectado',
         'bot.running': 'En ejecución',
         'bot.title': 'Bot Arbitrix AI',
         'bot.enableScanner': 'Activar escáner',
         'bot.startBot': 'Iniciar bot',
         'bot.pauseBot': 'Pausar bot',
-        'bot.clickToStart': 'Pulsa "Iniciar bot" para empezar a escanear',
+        'bot.clickToStart': 'Pulsa "Iniciar bot" y escaneará los mercados compatibles y operará automáticamente',
         'bot.startedDemo': '✅ Bot iniciado en modo demo',
         'bot.startedLive': '✅ Bot iniciado en modo Live',
         'bot.paused': '⏸️ Bot en pausa',
-        'bot.reachMTA': '💰 Alcanza ${{mta}} de MTA para activar el bot (faltan ${{needed}})',
+        'bot.reachMTA': '💰 Saldo mínimo de trading: ${{mta}} para iniciar el bot (faltan ${{needed}})',
         'bot.mtaBlocked': 'El saldo mínimo de trading es ${{mta}} para iniciar el bot.',
         'bot.promoLimitReached': 'Has alcanzado el límite de trading promocional. Haz tu primer depósito para seguir operando.',
-        'bot.mtaMet': '✅ ¡MTA alcanzado! Bot listo para operar',
+        'bot.mtaMet': '✅ ¡Saldo mínimo de trading alcanzado! Bot listo para operar',
         'chart.title': 'Rendimiento del patrimonio',
+        'markets.advancedChart': 'Gráfico de mercado avanzado',
         'chart.all': 'TODO',
         'chart.starting': 'Saldo inicial',
         'chart.current': 'Actual',
@@ -9158,13 +9334,18 @@ const TRANSLATIONS = {
         'trading.worstTrade': 'Peor operación',
         'trading.streak': 'Racha de aciertos',
         'achievements.title': 'Logros',
+        'badge.rarity.common': 'Común',
+        'badge.rarity.rare': 'Raro',
+        'badge.rarity.epic': 'Épico',
+        'badge.rarity.legendary': 'Legendario',
         'achievements.unlocked': 'Desbloqueados',
         'achievements.startTrading': 'Empieza a operar para desbloquear insignias',
         'achievements.allUnlocked': '🎉 ¡Todas las insignias desbloqueadas!',
         'achievements.next': 'Siguiente:',
         'mta.title': 'Desbloquear trading en vivo',
-        'mta.subtitle': 'Alcanza el Monto Mínimo de Trading para activar el bot',
+        'mta.subtitle': 'Alcanza el saldo mínimo de trading para iniciar el bot',
         'mta.inProgress': 'En progreso',
+        'mta.targetLabel': 'Saldo mínimo de trading:',
         'mta.of': 'de',
         'mta.nearlyThere': '¡Casi lo logras! Solo',
         'mta.greatProgress': '¡Gran progreso!',
@@ -9223,6 +9404,13 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Datos de referidos reiniciados',
         'deposit.title': 'Depositar fondos',
         'deposit.subtitle': 'Depósito seguro en cripto — fondos acreditados automáticamente',
+        'deposit.methodNotice': 'Este método de pago usa USDT en la red TRON (TRC20). Antes de enviar fondos, confirma que tu billetera o exchange admite el activo y la red exactos que se muestran aquí.',
+        'deposit.newToUsdt.title': '¿Nuevo en este método de pago?',
+        'deposit.newToUsdt.body': 'USDT es una stablecoin vinculada al dólar estadounidense. TRON (TRC20) es la red usada para este depósito. Puedes comprar USDT en un exchange o billetera que permita enviar USDT por TRC20.',
+        'deposit.usdVsUsdt': 'USDT es la cantidad que envías. USD es la cantidad acreditada en tu saldo.',
+        'deposit.addressExplain': 'Esta es tu dirección de pago personal de USDT (TRC20). Envía solo USDT en la red TRON (TRC20) a esta dirección.',
+        'deposit.referenceExplain': 'Tu referencia de pago identifica este depósito si contactas al soporte. No es una contraseña — nunca compartas tu contraseña, código OTP o claves.',
+        'deposit.afterSending': 'Después de enviar, mantén esta página abierta. Arbitrix detecta el pago automáticamente y acredita tu saldo Live una vez confirmado.',
         'deposit.amount': 'Monto (USD)',
         'deposit.network': 'Red',
         'deposit.walletAddress': 'DIRECCIÓN DE LA CARTERA',
@@ -9249,19 +9437,28 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'Depositando en tu saldo LIVE',
         'deposit.liveNotice.body': 'Este dep\u00f3sito se a\u00f1ade a tu saldo LIVE / real. Es independiente de los fondos demo y de tu cr\u00e9dito promocional.',
         'onboarding.title': 'Bienvenido a Arbitrix',
-        'onboarding.subtitle': '¿Cómo quieres empezar?',
-        'onboarding.primary': 'Hacer mi primer depósito',
-        'onboarding.primaryDesc': 'Financia tu saldo LIVE y comienza a operar de verdad. Depósito mínimo ${{min}}.',
-        'onboarding.secondary': 'Explorar la Demo',
-        'onboarding.secondaryDesc': 'Prueba el bot con $1,000 en fondos virtuales. Sin dinero real.',
+        'onboarding.subtitle': 'Así puedes empezar.',
+        'onboarding.primary': 'Explorar el Modo Demo',
+        'onboarding.primaryDesc': 'Prueba el bot con $1,000 en fondos virtuales — sin dinero real. Puedes cambiar de modo cuando quieras.',
+        'onboarding.secondary': 'Revisar el Modo Live',
+        'onboarding.secondaryDesc': 'Consulta el saldo Live, el saldo mínimo de trading y lo que se requiere antes de financiar tu cuenta.',
         'onboarding.virtualNote': 'Saldo demo = fondos virtuales. Sin valor real.',
         'onboarding.realNote': 'Saldo LIVE = fondos reales de trading.',
         'onboarding.promoNote': 'El crédito promocional de $50 es independiente de tus fondos depositados.',
-        'onboarding.noObligation': 'Puedes depositar más tarde — la Demo siempre está disponible.',
+        'onboarding.noObligation': 'Puedes cambiar entre Demo y Live cuando quieras — la Demo siempre está disponible.',
+        'onboarding.explainer': 'Arbitrix es una plataforma de trading multi-activo con Modo Demo y Modo Live. Empieza explorando el Modo Demo para conocer la plataforma y revisa el Modo Live cuando estés listo.',
         'demoCta.title': '¿Listo para operar de verdad?',
         'demoCta.body': 'Estás explorando con fondos virtuales. Haz tu primer depósito para financiar tu saldo LIVE. Los fondos demo siguen siendo virtuales y no se pueden retirar.',
         'demoCta.button': 'Hacer mi primer depósito',
         'demoCta.later': 'Quizás más tarde',
+        'startHere.title': 'Empieza aquí',
+        'startHere.subtitle': 'Una ruta rápida para entender la plataforma.',
+        'startHere.step1': 'Explora el panel',
+        'startHere.step2': 'Inicia el bot de demo',
+        'startHere.step3': 'Observa cómo se muestra la actividad de demo',
+        'startHere.step4': 'Revisa los requisitos del Modo Live',
+        'startHere.step5': 'Continúa cuando estés listo',
+        'startHere.dismiss': 'Descartar',
         'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
         'deposit.success': '✅ ¡${{amount}} USDT depositados con éxito!',
@@ -9270,8 +9467,8 @@ const TRANSLATIONS = {
         'withdraw.title': 'Retirar fondos',
         'withdraw.subtitle': 'Transfiere a tu cartera',
         'withdraw.available': 'Disponible',
-        'withdraw.info': 'Retiro mín.: $700 | Requiere 1 operación completada | Procesamiento 15-30 min',
-        'withdraw.infoSandbox': 'Sin retiro mínimo | Procesamiento 15-30 min',
+        'withdraw.info': 'Retiro mín.: $700 | Requiere 1 operación completada | El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
+        'withdraw.infoSandbox': 'Sin retiro mínimo | El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'withdraw.amount': 'Monto (USD)',
         'withdraw.address': 'Dirección de la cartera',
         'withdraw.submit': 'Retirar',
@@ -9284,9 +9481,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': 'El retiro mínimo es ${{min}}. Actual: ${{current}}',
         'withdraw.enterAddress': 'Por favor, introduce una dirección de cartera',
         'withdraw.insufficient': 'Saldo insuficiente',
-        'withdraw.success': '✅ ¡Retiro de ${{amount}} enviado! Procesando en 15-30 min.',
+        'withdraw.success': '✅ ¡Retiro de ${{amount}} enviado! El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'withdraw.submitted': 'Retiro enviado',
-        'withdraw.processing': '${{amount}} se procesará en un plazo de 15-30 minutos',
+        'withdraw.processing': '${{amount}} enviado. El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'profile.title': 'Perfil',
         'profile.name': 'Nombre visible',
         'profile.email': 'Correo',
@@ -9333,6 +9530,10 @@ const TRANSLATIONS = {
         'ios.gotIt': '¡Entendido!',
         'support.title': 'Soporte',
         'support.online': '● En línea',
+        'support.assistant.status': 'Automatizado',
+        'support.assistant.name': 'Asistente de soporte de Arbitrix',
+        'support.assistant.automated': 'Asistente automatizado — responde al instante con orientación. Para hablar con una persona, usa el soporte oficial abajo.',
+        'support.human.title': 'Contactar al soporte oficial',
         'support.welcome': '👋 ¡Bienvenido! ¿En qué puedo ayudarte?',
         'support.botSetup': '🤖 Configurar bot',
         'support.deposit': '💰 Depositar',
@@ -9480,10 +9681,10 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'No se han subido documentos',
         'kyc.noHistory': 'Sin historial',
         'support.reply.default': '¡Gracias por tu mensaje! Nuestro equipo se pondrá en contacto contigo pronto.',
-        'support.reply.bot': '🤖 Para iniciar el bot: 1) Cambia a modo DEMO o LIVE, 2) En modo LIVE, alcanza ${{mta}} MTA primero, 3) Haz clic en el botón \'Start Bot\'.',
+        'support.reply.bot': '🤖 Para iniciar el bot: 1) Cambia a modo DEMO o LIVE, 2) En modo LIVE, alcanza primero el saldo mínimo de trading de ${{mta}}, 3) Haz clic en \'Start Bot\'.',
         'support.reply.botNoMta': '🤖 Para iniciar el bot: cambia a modo LIVE (o DEMO) y haz clic en el botón \'Start Bot\'.',
-        'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto, elige tu red (TRC20 recomendado), haz clic en \'Get Payment Address\' y envía USDT a la dirección mostrada. Lo detectaremos automáticamente.',
-        'support.reply.withdraw': '🏦 Para retirar: 1) Cambia a modo LIVE, 2) Haz un depósito, 3) Completa al menos 1 operación, 4) Haz clic en \'Withdraw\' en la barra lateral. El procesamiento toma 15-30 minutos.',
+        'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto y envía USDT en la red TRON (TRC20) a la dirección mostrada. Arbitrix solo acepta USDT en TRON (TRC20). Lo detectaremos automáticamente.',
+        'support.reply.withdraw': '🏦 Para retirar: 1) Cambia a modo LIVE, 2) Haz un depósito, 3) Completa al menos 1 operación, 4) Haz clic en \'Withdraw\' en la barra lateral. El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar el 20% de su primer depósito válido! Tu recompensa se acumula en la Billetera de Bonos y puedes convertirla a tu Billetera Live en cualquier momento, sin mínimo.',
         'support.reply.sound': '🔊 Puedes controlar los sonidos haciendo clic en el ícono de altavoz en el encabezado, o ajustar el volumen en Configuración de perfil.',
         'support.reply.language': '🌍 Puedes cambiar el idioma haciendo clic en el ícono 🌐 del globo en el encabezado, o en Configuración de perfil.',
@@ -10150,7 +10351,7 @@ const TRANSLATIONS = {
         'landing.withdraw.lead': 'Tu saldo de trading sigue siendo tuyo y puedes solicitar un retiro cuando seas elegible.',
         'landing.withdraw.point1': 'Retira a tu propia billetera.',
         'landing.withdraw.point2': 'Sin bloqueo de suscripción sobre tus fondos.',
-        'landing.withdraw.point3': 'Procesamiento típico: aproximadamente 15–30 minutos.',
+        'landing.withdraw.point3': 'El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'landing.withdraw.point4': 'Pueden aplicar verificaciones/controles de seguridad.',
         'landing.security.tag': 'Seguridad',
         'landing.security.title': 'Seguridad',
@@ -10187,7 +10388,7 @@ const TRANSLATIONS = {
         'landing.faq.q8': '¿Cuánto cuesta Arbitrix Pro?',
         'landing.faq.a8': 'La suscripción a Arbitrix Pro es de $7/mes, debitados de tu saldo de trading disponible cuando se deben. Según el modelo actual, no hay tarifas adicionales de plataforma.',
         'landing.faq.q9': '¿Cómo funcionan los retiros?',
-        'landing.faq.a9': 'Puedes retirar a tu propia dirección de billetera cuando seas elegible. Las solicitudes se procesan típicamente en aproximadamente 15–30 minutos y pueden aplicar verificaciones/controles de seguridad.',
+        'landing.faq.a9': 'Puedes retirar a tu propia dirección de billetera cuando seas elegible. El procesamiento del retiro suele tardar entre 15 y 30 minutos y pueden aplicar verificaciones/controles de seguridad.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'Sin tarjeta',
@@ -10274,6 +10475,10 @@ const TRANSLATIONS = {
         'auth.errors.fillAll': 'Por favor, preencha todos os campos',
         'auth.errors.passwordLength': 'A senha deve ter pelo menos 6 caracteres',
         'auth.errors.passwordMatch': 'As senhas não coincidem',
+        'auth.errors.nameRequired': 'Digite seu nome completo.',
+        'auth.errors.emailRequired': 'Digite seu endereço de e-mail.',
+        'auth.errors.passwordRequired': 'Digite uma senha.',
+        'auth.signup.passwordMin': 'A senha deve ter pelo menos 6 caracteres.',
         'auth.errors.noAccount': 'Nenhuma conta encontrada. Crie uma conta primeiro.',
         'auth.errors.invalidCredentials': 'E-mail ou senha inválidos',
         'auth.success.created': 'Conta criada com sucesso!',
@@ -10390,11 +10595,14 @@ const TRANSLATIONS = {
         'landing.footer.legal': 'Legal',
         'landing.footer.contact': 'Contato',
         'landing.footer.privacy': 'Política de privacidade',
+        'cookies.body': 'Usamos cookies de análise opcionais para entender como a Arbitrix é usada e melhorar sua experiência. Nunca compartilhamos dados de conta ou pagamento.',
+        'cookies.accept': 'Aceitar',
+        'cookies.decline': 'Recusar',
         'landing.footer.terms': 'Termos de serviço',
         'landing.footer.copyright': '© 2026 Arbitrix AI. Todos os direitos reservados.',
         'landing.footer.disclaimer': 'Negociar envolve riscos. O desempenho passado não é indicativo de resultados futuros e não garante o desempenho Real.',
         'auth.brand.title': 'Arbitragem Automatizada. Simples.',
-        'auth.brand.subtitle': 'A Arbitrix monitora os mercados compatíveis em busca de discrepâncias de preço e automatiza as operações de arbitragem elegíveis. Explore a estratégia no Modo Demo primeiro — não é necessário cartão para criar uma conta.',
+        'auth.brand.subtitle': 'A Arbitrix é uma plataforma de negociação multi-ativo. Ela monitora os mercados compatíveis em busca de discrepâncias de preço e automatiza as operações de arbitragem elegíveis. Explore a estratégia no Modo Demo primeiro — não é necessário cartão para criar uma conta.',
         'auth.brand.security.title': 'Execução Automatizada',
         'auth.brand.security.desc': 'Projetada para identificar oportunidades de arbitragem entre os mercados compatíveis e executar automaticamente.',
         'auth.brand.execution.title': 'Comece com o Modo Demo',
@@ -10430,10 +10638,19 @@ const TRANSLATIONS = {
         'auth.signup.referralOptional': '(Opcional)',
         'auth.signup.referralPlaceholder': 'ARBI-XXXX',
         'auth.signup.submit': 'Criar conta',
+        'auth.signup.passwordHint': 'Pelo menos 6 caracteres.',
+        'auth.signup.referralHint': 'Preencha isto apenas se um amigo te convidou.',
+        'auth.signup.next': 'Depois de criar a conta, você escolherá o Modo Demo ou o Modo Live. Pode alternar quando quiser.',
+        'auth.signup.failed': 'Falha ao criar a conta. Tente novamente.',
         'auth.signup.terms': 'Ao criar uma conta, você concorda com nossos <a href="/terms-of-service.html" target="_blank">Termos de serviço</a> e a <a href="/privacy-policy.html" target="_blank">Política de privacidade</a>',
         'auth.switch.noAccount': 'Não tem uma conta?',
         'auth.switch.hasAccount': 'Já tem uma conta?',
         'auth.securityBadge': 'Servido por uma conexão HTTPS segura',
+        'auth.mobileTagline': 'Arbitragem automatizada multi-ativo. Comece no Modo Demo.',
+        'auth.explainer.body': 'A Arbitrix é uma plataforma de negociação multi-ativo que automatiza a arbitragem nos mercados compatíveis.',
+        'auth.explainer.demo': 'O Modo Demo usa $1,000 em fundos virtuais — sem dinheiro real.',
+        'auth.explainer.live': 'O Modo Live usa fundos reais. Revise os requisitos antes de depositar.',
+        'auth.explainer.firstStep': 'É novo por aqui? Crie uma conta e comece no Modo Demo.',
         'auth.2fa.title': 'Verificação por e-mail',
         'auth.2fa.hint': 'Digite o código de 6 dígitos enviado ao seu e-mail',
         'auth.2fa.codeLabel': 'Código de verificação',
@@ -10473,29 +10690,41 @@ const TRANSLATIONS = {
         'status.demo': 'Conta demo',
         'status.funded': 'Fundos disponíveis',
         'status.pending': 'Pendente',
+        'status.completed': 'Concluído',
+        'status.confirmed': 'Confirmado',
+        'status.processing': 'Processando',
         'status.demoTrading': 'Trading demo • Fundos virtuais',
         'status.liveFunded': 'Live • Fundos disponíveis',
         'status.livePending': 'Live • Depósito pendente',
         'ticker.live': 'LIVE',
+        'ticker.sample': 'Atividade de exemplo',
         'stats.equity': 'Patrimônio total',
         'stats.available': 'Disponível',
         'stats.pnl': 'P&L de hoje',
         'stats.botStatus': 'Status do bot',
+        'hint.equity': 'Valor da conta',
+        'hint.available': 'Pronto para usar',
+        'hint.pnl': 'Lucro/prejuízo de hoje',
+        'hint.botStatus': 'Em execução ou parado',
+        'hint.bot': 'Analisa os mercados compatíveis e negocia automaticamente quando ativo',
+        'hint.scanner': 'Varredura de mercado',
+        'hint.txLog': 'Sua atividade recente (últimos 30 minutos).',
         'bot.offline': 'Desconectado',
         'bot.running': 'Em execução',
         'bot.title': 'Bot Arbitrix AI',
         'bot.enableScanner': 'Ativar scanner',
         'bot.startBot': 'Iniciar bot',
         'bot.pauseBot': 'Pausar bot',
-        'bot.clickToStart': 'Clique em "Iniciar bot" para começar a analisar',
+        'bot.clickToStart': 'Clique em "Iniciar bot" e ele analisará os mercados compatíveis e negociará automaticamente',
         'bot.startedDemo': '✅ Bot iniciado no modo demo',
         'bot.startedLive': '✅ Bot iniciado no modo Live',
         'bot.paused': '⏸️ Bot pausado',
-        'bot.reachMTA': '💰 Atinja ${{mta}} de MTA para ativar o bot (faltam ${{needed}})',
+        'bot.reachMTA': '💰 Saldo mínimo de negociação: ${{mta}} para iniciar o bot (faltam ${{needed}})',
         'bot.mtaBlocked': 'O saldo mínimo de trading é ${{mta}} para iniciar o bot.',
         'bot.promoLimitReached': 'Você atingiu o limite de trading promocional. Faça seu primeiro depósito para continuar operando.',
-        'bot.mtaMet': '✅ MTA atingido! Bot pronto para operar',
+        'bot.mtaMet': '✅ Saldo mínimo de negociação atingido! Bot pronto para operar',
         'chart.title': 'Desempenho do patrimônio',
+        'markets.advancedChart': 'Gráfico de mercado avançado',
         'chart.all': 'TUDO',
         'chart.starting': 'Saldo inicial',
         'chart.current': 'Atual',
@@ -10510,13 +10739,18 @@ const TRANSLATIONS = {
         'trading.worstTrade': 'Pior operação',
         'trading.streak': 'Sequência de acertos',
         'achievements.title': 'Conquistas',
+        'badge.rarity.common': 'Comum',
+        'badge.rarity.rare': 'Raro',
+        'badge.rarity.epic': 'Épico',
+        'badge.rarity.legendary': 'Lendário',
         'achievements.unlocked': 'Desbloqueadas',
         'achievements.startTrading': 'Comece a operar para desbloquear insígnias',
         'achievements.allUnlocked': '🎉 Todas as insígnias desbloqueadas!',
         'achievements.next': 'Próxima:',
         'mta.title': 'Desbloquear trading ao vivo',
-        'mta.subtitle': 'Atinja o Valor Mínimo de Trading para ativar o bot',
+        'mta.subtitle': 'Atinja o saldo mínimo de negociação para iniciar o bot',
         'mta.inProgress': 'Em andamento',
+        'mta.targetLabel': 'Saldo mínimo de negociação:',
         'mta.of': 'de',
         'mta.nearlyThere': 'Quase lá! Apenas',
         'mta.greatProgress': 'Ótimo progresso!',
@@ -10575,6 +10809,13 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Dados de indicações redefinidos',
         'deposit.title': 'Depositar fundos',
         'deposit.subtitle': 'Depósito seguro em cripto — fundos creditados automaticamente',
+        'deposit.methodNotice': 'Este método de pagamento usa USDT na rede TRON (TRC20). Antes de enviar fundos, confirme que sua carteira ou exchange suporta o ativo e a rede exatos mostrados aqui.',
+        'deposit.newToUsdt.title': 'Novo neste método de pagamento?',
+        'deposit.newToUsdt.body': 'USDT é uma stablecoin atrelada ao dólar americano. TRON (TRC20) é a rede usada para este depósito. Você pode comprar USDT em uma exchange ou carteira que permita enviar USDT na TRC20.',
+        'deposit.usdVsUsdt': 'USDT é o valor que você envia. USD é o valor creditado no seu saldo.',
+        'deposit.addressExplain': 'Este é o seu endereço de pagamento pessoal de USDT (TRC20). Envie apenas USDT na rede TRON (TRC20) para este endereço.',
+        'deposit.referenceExplain': 'Sua referência de pagamento identifica este depósito se você contatar o suporte. Não é uma senha — nunca compartilhe sua senha, código OTP ou chaves.',
+        'deposit.afterSending': 'Após enviar, mantenha esta página aberta. A Arbitrix detecta o pagamento automaticamente e credita seu saldo Live após a confirmação.',
         'deposit.amount': 'Valor (USD)',
         'deposit.network': 'Rede',
         'deposit.walletAddress': 'ENDEREÇO DA CARTEIRA',
@@ -10601,19 +10842,28 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'Depositando no seu saldo LIVE',
         'deposit.liveNotice.body': 'Este dep\u00f3sito \u00e9 adicionado ao seu saldo LIVE / real. \u00c9 separado dos fundos demo e do seu cr\u00e9dito promocional.',
         'onboarding.title': 'Bem-vindo à Arbitrix',
-        'onboarding.subtitle': 'Como você quer começar?',
-        'onboarding.primary': 'Fazer meu primeiro depósito',
-        'onboarding.primaryDesc': 'Financie seu saldo LIVE e comece a negociar de verdade. Depósito mínimo ${{min}}.',
-        'onboarding.secondary': 'Explorar a Demo',
-        'onboarding.secondaryDesc': 'Teste o bot com $1,000 em fundos virtuais. Sem dinheiro real.',
+        'onboarding.subtitle': 'Veja como começar.',
+        'onboarding.primary': 'Explorar o Modo Demo',
+        'onboarding.primaryDesc': 'Teste o bot com $1,000 em fundos virtuais — sem dinheiro real. Você pode mudar de modo quando quiser.',
+        'onboarding.secondary': 'Revisar o Modo Live',
+        'onboarding.secondaryDesc': 'Veja o saldo Live, o saldo mínimo de negociação e o que é necessário antes de financiar sua conta.',
         'onboarding.virtualNote': 'Saldo demo = fundos virtuais. Sem valor real.',
         'onboarding.realNote': 'Saldo LIVE = fundos reais de negociação.',
         'onboarding.promoNote': 'O crédito promocional de $50 é separado dos seus fundos depositados.',
-        'onboarding.noObligation': 'Você pode depositar depois — a Demo está sempre disponível.',
+        'onboarding.noObligation': 'Você pode alternar entre Demo e Live quando quiser — a Demo está sempre disponível.',
+        'onboarding.explainer': 'A Arbitrix é uma plataforma de negociação multi-ativo com Modo Demo e Modo Live. Comece explorando o Modo Demo para entender a plataforma e veja o Modo Live quando estiver pronto.',
         'demoCta.title': 'Pronto para negociar de verdade?',
         'demoCta.body': 'Você está explorando com fundos virtuais. Faça seu primeiro depósito para financiar seu saldo LIVE. Os fundos demo continuam virtuais e não podem ser sacados.',
         'demoCta.button': 'Fazer meu primeiro depósito',
         'demoCta.later': 'Talvez mais tarde',
+        'startHere.title': 'Comece aqui',
+        'startHere.subtitle': 'Um caminho rápido para entender a plataforma.',
+        'startHere.step1': 'Explore o painel',
+        'startHere.step2': 'Inicie o bot de demonstração',
+        'startHere.step3': 'Veja como a atividade de demonstração é exibida',
+        'startHere.step4': 'Revise os requisitos do Modo Live',
+        'startHere.step5': 'Continue quando estiver pronto',
+        'startHere.dismiss': 'Dispensar',
         'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT depositados com sucesso!',
@@ -10622,8 +10872,8 @@ const TRANSLATIONS = {
         'withdraw.title': 'Sacar fundos',
         'withdraw.subtitle': 'Transfira para sua carteira',
         'withdraw.available': 'Disponível',
-        'withdraw.info': 'Saque mín.: $700 | Exige 1 operação concluída | Processamento 15-30 min',
-        'withdraw.infoSandbox': 'Sem saque mínimo | Processamento 15-30 min',
+        'withdraw.info': 'Saque mín.: $700 | Exige 1 operação concluída | O processamento do saque geralmente leva de 15 a 30 minutos.',
+        'withdraw.infoSandbox': 'Sem saque mínimo | O processamento do saque geralmente leva de 15 a 30 minutos.',
         'withdraw.amount': 'Valor (USD)',
         'withdraw.address': 'Endereço da carteira',
         'withdraw.submit': 'Sacar',
@@ -10636,9 +10886,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': 'O saque mínimo é ${{min}}. Atual: ${{current}}',
         'withdraw.enterAddress': 'Por favor, insira um endereço de carteira',
         'withdraw.insufficient': 'Saldo insuficiente',
-        'withdraw.success': '✅ Saque de ${{amount}} enviado! Processamento em 15-30 min.',
+        'withdraw.success': '✅ Saque de ${{amount}} enviado! O processamento do saque geralmente leva de 15 a 30 minutos.',
         'withdraw.submitted': 'Saque enviado',
-        'withdraw.processing': '${{amount}} será processado em até 15-30 minutos',
+        'withdraw.processing': '${{amount}} enviado. O processamento do saque geralmente leva de 15 a 30 minutos.',
         'profile.title': 'Perfil',
         'profile.name': 'Nome de exibição',
         'profile.email': 'E-mail',
@@ -10685,6 +10935,10 @@ const TRANSLATIONS = {
         'ios.gotIt': 'Entendi!',
         'support.title': 'Suporte',
         'support.online': '● Online',
+        'support.assistant.status': 'Automatizado',
+        'support.assistant.name': 'Assistente de suporte da Arbitrix',
+        'support.assistant.automated': 'Assistente automatizado — responde na hora com orientações. Para falar com uma pessoa, use o suporte oficial abaixo.',
+        'support.human.title': 'Falar com o suporte oficial',
         'support.welcome': '👋 Bem-vindo! Como posso ajudar?',
         'support.botSetup': '🤖 Configurar bot',
         'support.deposit': '💰 Depositar',
@@ -10832,10 +11086,10 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'Nenhum documento enviado',
         'kyc.noHistory': 'Sem histórico',
         'support.reply.default': 'Obrigado pela sua mensagem! Nossa equipe entrará em contato em breve.',
-        'support.reply.bot': '🤖 Para iniciar o bot: 1) Mude para o modo DEMO ou LIVE, 2) No modo LIVE, alcance ${{mta}} MTA primeiro, 3) Clique no botão \'Start Bot\'.',
+        'support.reply.bot': '🤖 Para iniciar o bot: 1) Mude para o modo DEMO ou LIVE, 2) No modo LIVE, atinja primeiro o saldo mínimo de negociação de ${{mta}}, 3) Clique em \'Start Bot\'.',
         'support.reply.botNoMta': '🤖 Para iniciar o bot: mude para o modo LIVE (ou DEMO) e clique no botão \'Start Bot\'.',
-        'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor, escolha sua rede (TRC20 recomendado), clique em \'Get Payment Address\' e envie USDT para o endereço exibido. Detectaremos automaticamente.',
-        'support.reply.withdraw': '🏦 Para sacar: 1) Mude para o modo LIVE, 2) Faça um depósito, 3) Complete pelo menos 1 operação, 4) Clique em \'Withdraw\' na barra lateral. O processamento leva 15-30 minutos.',
+        'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor e envie USDT na rede TRON (TRC20) para o endereço exibido. A Arbitrix aceita apenas USDT na TRON (TRC20). Detectaremos automaticamente.',
+        'support.reply.withdraw': '🏦 Para sacar: 1) Mude para o modo LIVE, 2) Faça um depósito, 3) Complete pelo menos 1 operação, 4) Clique em \'Withdraw\' na barra lateral. O processamento do saque geralmente leva de 15 a 30 minutos.',
         'support.reply.bonus': '🎁 Indique amigos para ganhar 20% do primeiro depósito válido deles! Sua recompensa acumula na Carteira de Bônus e pode ser convertida para a sua Carteira Live a qualquer momento — sem mínimo.',
         'support.reply.sound': '🔊 Você pode controlar os sons clicando no ícone de alto-falante no cabeçalho, ou ajustar o volume nas Configurações de perfil.',
         'support.reply.language': '🌍 Você pode alterar o idioma clicando no ícone 🌐 de globo no cabeçalho, ou nas Configurações de perfil.',
@@ -11502,7 +11756,7 @@ const TRANSLATIONS = {
         'landing.withdraw.lead': 'Seu saldo de negociação continua seu e você pode solicitar um saque quando elegível.',
         'landing.withdraw.point1': 'Saque para sua própria carteira.',
         'landing.withdraw.point2': 'Sem bloqueio de assinatura sobre seus fundos.',
-        'landing.withdraw.point3': 'Processamento típico: aproximadamente 15–30 minutos.',
+        'landing.withdraw.point3': 'O processamento do saque geralmente leva de 15 a 30 minutos.',
         'landing.withdraw.point4': 'Verificações/controles de segurança aplicáveis podem se aplicar.',
         'landing.security.tag': 'Segurança',
         'landing.security.title': 'Segurança',
@@ -11539,7 +11793,7 @@ const TRANSLATIONS = {
         'landing.faq.q8': 'Quanto custa o Arbitrix Pro?',
         'landing.faq.a8': 'A assinatura do Arbitrix Pro é de $7/mês, debitada do seu saldo de negociação disponível quando vence. Com base no modelo atual, não há tarifas adicionais de plataforma.',
         'landing.faq.q9': 'Como funcionam os saques?',
-        'landing.faq.a9': 'Você pode sacar para seu próprio endereço de carteira quando elegível. As solicitações são normalmente processadas em aproximadamente 15–30 minutos e verificações/controles de segurança aplicáveis podem se aplicar.',
+        'landing.faq.a9': 'Você pode sacar para seu próprio endereço de carteira quando elegível. O processamento do saque geralmente leva de 15 a 30 minutos e verificações/controles de segurança aplicáveis podem se aplicar.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'Sem cartão',
@@ -11626,6 +11880,10 @@ const TRANSLATIONS = {
         'auth.errors.fillAll': 'Veuillez remplir tous les champs',
         'auth.errors.passwordLength': 'Le mot de passe doit contenir au moins 6 caractères',
         'auth.errors.passwordMatch': 'Les mots de passe ne correspondent pas',
+        'auth.errors.nameRequired': 'Veuillez saisir votre nom complet.',
+        'auth.errors.emailRequired': 'Veuillez saisir votre adresse e-mail.',
+        'auth.errors.passwordRequired': 'Veuillez saisir un mot de passe.',
+        'auth.signup.passwordMin': 'Le mot de passe doit contenir au moins 6 caractères.',
         'auth.errors.noAccount': 'Aucun compte trouvé. Veuillez d’abord créer un compte.',
         'auth.errors.invalidCredentials': 'E-mail ou mot de passe invalide',
         'auth.success.created': 'Compte créé avec succès !',
@@ -11742,11 +12000,14 @@ const TRANSLATIONS = {
         'landing.footer.legal': 'Légal',
         'landing.footer.contact': 'Contact',
         'landing.footer.privacy': 'Politique de confidentialité',
+        'cookies.body': 'Nous utilisons des cookies d\'analyse facultatifs pour comprendre comment Arbitrix est utilisé et améliorer votre expérience. Nous ne partageons jamais vos données de compte ou de paiement.',
+        'cookies.accept': 'Accepter',
+        'cookies.decline': 'Refuser',
         'landing.footer.terms': 'Conditions d’utilisation',
         'landing.footer.copyright': '© 2026 Arbitrix AI. Tous droits réservés.',
         'landing.footer.disclaimer': 'Trader comporte des risques. Les performances passées ne sont pas indicatives des résultats futurs et ne garantissent pas les performances en mode réel.',
         'auth.brand.title': 'Arbitrage Automatisé. Tout Simplement.',
-        'auth.brand.subtitle': 'Arbitrix surveille les marchés pris en charge pour détecter les écarts de prix et automatise les opérations d\'arbitrage éligibles. Explorez la stratégie en mode démo d\'abord — aucune carte n\'est requise pour créer un compte.',
+        'auth.brand.subtitle': 'Arbitrix est une plateforme de trading multi-actifs. Elle surveille les marchés pris en charge pour détecter les écarts de prix et automatise les opérations d\'arbitrage éligibles. Explorez la stratégie en mode démo d\'abord — aucune carte n\'est requise pour créer un compte.',
         'auth.brand.security.title': 'Exécution Automatisée',
         'auth.brand.security.desc': 'Conçu pour identifier les opportunités d\'arbitrage parmi les marchés pris en charge et exécuter automatiquement.',
         'auth.brand.execution.title': 'Commencez par le mode démo',
@@ -11782,10 +12043,19 @@ const TRANSLATIONS = {
         'auth.signup.referralOptional': '(Facultatif)',
         'auth.signup.referralPlaceholder': 'ARBI-XXXX',
         'auth.signup.submit': 'Créer un compte',
+        'auth.signup.passwordHint': 'Au moins 6 caractères.',
+        'auth.signup.referralHint': 'Remplissez ce champ uniquement si un ami vous a invité.',
+        'auth.signup.next': 'Après la création de votre compte, vous choisirez le mode démo ou le mode Live. Vous pouvez changer à tout moment.',
+        'auth.signup.failed': 'Échec de l\'inscription. Veuillez réessayer.',
         'auth.signup.terms': 'En créant un compte, vous acceptez nos <a href="/terms-of-service.html" target="_blank">Conditions d’utilisation</a> et notre <a href="/privacy-policy.html" target="_blank">Politique de confidentialité</a>',
         'auth.switch.noAccount': 'Vous n’avez pas de compte ?',
         'auth.switch.hasAccount': 'Vous avez déjà un compte ?',
         'auth.securityBadge': 'Servi via une connexion HTTPS sécurisée',
+        'auth.mobileTagline': 'Arbitrage automatisé multi-actifs. Commencez en mode démo.',
+        'auth.explainer.body': 'Arbitrix est une plateforme de trading multi-actifs qui automatise l\'arbitrage sur les marchés pris en charge.',
+        'auth.explainer.demo': 'Le mode démo utilise $1,000 en fonds virtuels — aucun argent réel.',
+        'auth.explainer.live': 'Le mode Live utilise des fonds réels. Consultez ses conditions avant de déposer.',
+        'auth.explainer.firstStep': 'Nouveau ici ? Créez un compte, puis commencez en mode démo.',
         'auth.2fa.title': 'Vérification par e-mail',
         'auth.2fa.hint': 'Saisissez le code à 6 chiffres envoyé à votre e-mail',
         'auth.2fa.codeLabel': 'Code de vérification',
@@ -11825,29 +12095,41 @@ const TRANSLATIONS = {
         'status.demo': 'Compte démo',
         'status.funded': 'Approvisionné',
         'status.pending': 'En attente',
+        'status.completed': 'Terminé',
+        'status.confirmed': 'Confirmé',
+        'status.processing': 'En traitement',
         'status.demoTrading': 'Trading démo • Fonds virtuels',
         'status.liveFunded': 'Live • Approvisionné',
         'status.livePending': 'Live • Dépôt en attente',
         'ticker.live': 'LIVE',
+        'ticker.sample': 'Activité d\'exemple',
         'stats.equity': 'Capitaux propres totaux',
         'stats.available': 'Disponible',
         'stats.pnl': 'P&L du jour',
         'stats.botStatus': 'État du bot',
+        'hint.equity': 'Valeur du compte',
+        'hint.available': 'Disponible',
+        'hint.pnl': 'Profit/perte du jour',
+        'hint.botStatus': 'En cours ou arrêté',
+        'hint.bot': 'Analyse les marchés pris en charge et trade automatiquement lorsqu\'il est actif',
+        'hint.scanner': 'Analyse des marchés',
+        'hint.txLog': 'Votre activité récente (30 dernières minutes).',
         'bot.offline': 'Hors ligne',
         'bot.running': 'En cours',
         'bot.title': 'Bot Arbitrix AI',
         'bot.enableScanner': 'Activer le scanner',
         'bot.startBot': 'Démarrer le bot',
         'bot.pauseBot': 'Mettre le bot en pause',
-        'bot.clickToStart': 'Cliquez sur « Démarrer le bot » pour lancer l’analyse',
+        'bot.clickToStart': 'Cliquez sur « Démarrer le bot » : il analysera les marchés pris en charge et tradera automatiquement',
         'bot.startedDemo': '✅ Bot démarré en mode démo',
         'bot.startedLive': '✅ Bot démarré en mode live',
         'bot.paused': '⏸️ Bot en pause',
-        'bot.reachMTA': '💰 Atteignez ${{mta}} de MTA pour activer le bot (il manque ${{needed}})',
+        'bot.reachMTA': '💰 Solde de trading minimum : ${{mta}} pour démarrer le bot (il manque ${{needed}})',
         'bot.mtaBlocked': 'Le solde de trading minimum est de ${{mta}} pour démarrer le bot.',
         'bot.promoLimitReached': 'Vous avez atteint la limite de trading promotionnel. Effectuez votre premier dépôt pour continuer à trader.',
-        'bot.mtaMet': '✅ MTA atteint ! Bot prêt à trader',
+        'bot.mtaMet': '✅ Solde de trading minimum atteint ! Bot prêt à trader',
         'chart.title': 'Performance des capitaux',
+        'markets.advancedChart': 'Graphique de marché avancé',
         'chart.all': 'TOUT',
         'chart.starting': 'Solde initial',
         'chart.current': 'Actuel',
@@ -11862,13 +12144,18 @@ const TRANSLATIONS = {
         'trading.worstTrade': 'Pire transaction',
         'trading.streak': 'Série de gains',
         'achievements.title': 'Trophées',
+        'badge.rarity.common': 'Commune',
+        'badge.rarity.rare': 'Rare',
+        'badge.rarity.epic': 'Épique',
+        'badge.rarity.legendary': 'Légendaire',
         'achievements.unlocked': 'Débloqués',
         'achievements.startTrading': 'Commencez à trader pour débloquer des badges',
         'achievements.allUnlocked': '🎉 Tous les badges débloqués !',
         'achievements.next': 'Suivant :',
         'mta.title': 'Débloquer le trading en direct',
-        'mta.subtitle': 'Atteignez le Montant Minimal de Trading pour activer le bot',
+        'mta.subtitle': 'Atteignez le solde de trading minimum pour démarrer le bot',
         'mta.inProgress': 'En cours',
+        'mta.targetLabel': 'Solde de trading minimum :',
         'mta.of': 'sur',
         'mta.nearlyThere': 'Presque ! Plus que',
         'mta.greatProgress': 'Beau progress !',
@@ -11927,6 +12214,13 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Données de parrainage réinitialisées',
         'deposit.title': 'Déposer des fonds',
         'deposit.subtitle': 'Dépôt crypto sécurisé — fonds crédités automatiquement',
+        'deposit.methodNotice': 'Ce moyen de paiement utilise l\'USDT sur le réseau TRON (TRC20). Avant d\'envoyer des fonds, vérifiez que votre portefeuille ou plateforme prend en charge l\'actif et le réseau exacts indiqués ici.',
+        'deposit.newToUsdt.title': 'Nouveau avec ce moyen de paiement ?',
+        'deposit.newToUsdt.body': 'L\'USDT est un stablecoin indexé sur le dollar américain. TRON (TRC20) est le réseau utilisé pour ce dépôt. Vous pouvez acheter de l\'USDT sur une plateforme ou un portefeuille permettant d\'envoyer de l\'USDT sur TRC20.',
+        'deposit.usdVsUsdt': 'L\'USDT est le montant que vous envoyez. L\'USD est le montant crédité sur votre solde.',
+        'deposit.addressExplain': 'Il s\'agit de votre adresse de paiement personnelle USDT (TRC20). Envoyez uniquement de l\'USDT sur le réseau TRON (TRC20) à cette adresse.',
+        'deposit.referenceExplain': 'Votre référence de paiement identifie ce dépôt si vous contactez le support. Ce n\'est pas un mot de passe — ne partagez jamais votre mot de passe, code OTP ou clés.',
+        'deposit.afterSending': 'Après l\'envoi, gardez cette page ouverte. Arbitrix détecte le paiement automatiquement et crédite votre solde Live une fois confirmé.',
         'deposit.amount': 'Montant (USD)',
         'deposit.network': 'Réseau',
         'deposit.walletAddress': 'ADRESSE DU PORTEFEUILLE',
@@ -11953,19 +12247,28 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'D\u00e9p\u00f4t sur votre solde LIVE',
         'deposit.liveNotice.body': 'Ce d\u00e9p\u00f4t est ajout\u00e9 \u00e0 votre solde LIVE / r\u00e9el. Il est distinct des fonds d\u00e9mo et de votre cr\u00e9dit promotionnel.',
         'onboarding.title': 'Bienvenue sur Arbitrix',
-        'onboarding.subtitle': 'Comment souhaitez-vous commencer ?',
-        'onboarding.primary': 'Faire mon premier dépôt',
-        'onboarding.primaryDesc': 'Alimentez votre solde LIVE et commencez à trader réellement. Dépôt minimum ${{min}}.',
-        'onboarding.secondary': 'Explorer la Démo',
-        'onboarding.secondaryDesc': 'Essayez le bot avec $1,000 en fonds virtuels. Aucun argent requis.',
+        'onboarding.subtitle': 'Voici comment commencer.',
+        'onboarding.primary': 'Explorer le mode démo',
+        'onboarding.primaryDesc': 'Essayez le bot avec $1,000 en fonds virtuels — aucun argent réel requis. Vous pouvez changer de mode à tout moment.',
+        'onboarding.secondary': 'Découvrir le mode Live',
+        'onboarding.secondaryDesc': 'Consultez le solde Live, le solde de trading minimum et ce qui est requis avant d\'alimenter votre compte.',
         'onboarding.virtualNote': 'Solde démo = fonds virtuels. Aucune valeur réelle.',
         'onboarding.realNote': 'Solde LIVE = fonds de trading réels.',
         'onboarding.promoNote': 'Le crédit promotionnel de $50 est distinct de vos fonds déposés.',
-        'onboarding.noObligation': 'Vous pouvez déposer plus tard — la Démo reste toujours disponible.',
+        'onboarding.noObligation': 'Vous pouvez passer d\'un mode à l\'autre à tout moment — la démo reste toujours disponible.',
+        'onboarding.explainer': 'Arbitrix est une plateforme de trading multi-actifs avec un mode démo et un mode Live. Commencez par explorer le mode démo pour découvrir la plateforme, puis découvrez le mode Live quand vous serez prêt.',
         'demoCta.title': 'Prêt à trader réellement ?',
         'demoCta.body': 'Vous explorez avec des fonds virtuels. Faites votre premier dépôt pour alimenter votre solde LIVE. Les fonds démo restent virtuels et ne peuvent pas être retirés.',
         'demoCta.button': 'Faire mon premier dépôt',
         'demoCta.later': 'Plus tard',
+        'startHere.title': 'Commencez ici',
+        'startHere.subtitle': 'Un parcours rapide pour comprendre la plateforme.',
+        'startHere.step1': 'Explorez le tableau de bord',
+        'startHere.step2': 'Démarrez le bot de démo',
+        'startHere.step3': 'Regardez comment l\'activité de démo s\'affiche',
+        'startHere.step4': 'Consultez les conditions du mode Live',
+        'startHere.step5': 'Continuez quand vous êtes prêt',
+        'startHere.dismiss': 'Ignorer',
         'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT déposés avec succès !',
@@ -11974,8 +12277,8 @@ const TRANSLATIONS = {
         'withdraw.title': 'Retirer des fonds',
         'withdraw.subtitle': 'Transférez vers votre portefeuille',
         'withdraw.available': 'Disponible',
-        'withdraw.info': 'Retrait min. : $700 | 1 transaction requise | Traitement 15-30 min',
-        'withdraw.infoSandbox': 'Aucun retrait minimum | Traitement 15-30 min',
+        'withdraw.info': 'Retrait min. : $700 | 1 transaction requise | Le traitement du retrait prend généralement 15 à 30 minutes.',
+        'withdraw.infoSandbox': 'Aucun retrait minimum | Le traitement du retrait prend généralement 15 à 30 minutes.',
         'withdraw.amount': 'Montant (USD)',
         'withdraw.address': 'Adresse du portefeuille',
         'withdraw.submit': 'Retirer',
@@ -11988,9 +12291,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': 'Le retrait minimum est de ${{min}}. Actuel : ${{current}}',
         'withdraw.enterAddress': 'Veuillez saisir une adresse de portefeuille',
         'withdraw.insufficient': 'Solde insuffisant',
-        'withdraw.success': '✅ Retrait de ${{amount}} soumis ! Traitement en 15-30 min.',
+        'withdraw.success': '✅ Retrait de ${{amount}} soumis ! Le traitement du retrait prend généralement 15 à 30 minutes.',
         'withdraw.submitted': 'Retrait soumis',
-        'withdraw.processing': '${{amount}} sera traité sous 15 à 30 minutes',
+        'withdraw.processing': '${{amount}} soumis. Le traitement du retrait prend généralement 15 à 30 minutes.',
         'profile.title': 'Profil',
         'profile.name': 'Nom affiché',
         'profile.email': 'E-mail',
@@ -12037,6 +12340,10 @@ const TRANSLATIONS = {
         'ios.gotIt': 'Compris !',
         'support.title': 'Support',
         'support.online': '● En ligne',
+        'support.assistant.status': 'Automatisé',
+        'support.assistant.name': 'Assistant de support Arbitrix',
+        'support.assistant.automated': 'Assistant automatisé — répond instantanément avec des conseils. Pour une personne, utilisez le support officiel ci-dessous.',
+        'support.human.title': 'Contacter le support officiel',
         'support.welcome': '👋 Bienvenue ! Comment puis-je aider ?',
         'support.botSetup': '🤖 Configurer le bot',
         'support.deposit': '💰 Dépôt',
@@ -12184,10 +12491,10 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'Aucun document téléversé',
         'kyc.noHistory': 'Aucun historique',
         'support.reply.default': 'Merci pour votre message ! Notre équipe vous répondra sous peu.',
-        'support.reply.bot': '🤖 Pour démarrer le bot : 1) Passez en mode DEMO ou LIVE, 2) En mode LIVE, atteignez ${{mta}} MTA d\'abord, 3) Cliquez sur le bouton \'Start Bot\'.',
+        'support.reply.bot': '🤖 Pour démarrer le bot : 1) Passez en mode DEMO ou LIVE, 2) En mode LIVE, atteignez d\'abord le solde de trading minimum de ${{mta}}, 3) Cliquez sur \'Start Bot\'.',
         'support.reply.botNoMta': '🤖 Pour démarrer le bot : passez en mode LIVE (ou DEMO) et cliquez sur le bouton \'Start Bot\'.',
-        'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, choisissez votre réseau (TRC20 recommandé), cliquez sur \'Get Payment Address\' et envoyez des USDT à l\'adresse affichée. Nous le détecterons automatiquement.',
-        'support.reply.withdraw': '🏦 Pour retirer : 1) Passez en mode LIVE, 2) Effectuez un dépôt, 3) Effectuez au moins 1 trade, 4) Cliquez sur \'Withdraw\' dans la barre latérale. Le traitement prend 15-30 minutes.',
+        'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, puis envoyez des USDT sur le réseau TRON (TRC20) à l\'adresse affichée. Arbitrix accepte uniquement l\'USDT sur TRON (TRC20). Nous le détecterons automatiquement.',
+        'support.reply.withdraw': '🏦 Pour retirer : 1) Passez en mode LIVE, 2) Effectuez un dépôt, 3) Effectuez au moins 1 trade, 4) Cliquez sur \'Withdraw\' dans la barre latérale. Le traitement du retrait prend généralement 15 à 30 minutes.',
         'support.reply.bonus': '🎁 Parrainez des amis pour gagner 20 % de leur premier dépôt éligible ! Votre récompense s’accumule dans le Portefeuille Bonus et peut être convertie dans votre Portefeuille Live à tout moment — sans minimum.',
         'support.reply.sound': '🔊 Vous pouvez contrôler les sons en cliquant sur l\'icône haut-parleur dans l\'en-tête, ou ajuster le volume dans les Paramètres du profil.',
         'support.reply.language': '🌍 Vous pouvez changer la langue en cliquant sur l\'icône 🌐 de globe dans l\'en-tête, ou dans les Paramètres du profil.',
@@ -12854,7 +13161,7 @@ const TRANSLATIONS = {
         'landing.withdraw.lead': 'Votre solde de trading vous appartient et vous pouvez demander un retrait lorsque vous êtes éligible.',
         'landing.withdraw.point1': 'Retirez vers votre propre portefeuille.',
         'landing.withdraw.point2': 'Aucun verrouillage d\'abonnement sur vos fonds.',
-        'landing.withdraw.point3': 'Traitement typique : environ 15–30 minutes.',
+        'landing.withdraw.point3': 'Le traitement du retrait prend généralement 15 à 30 minutes.',
         'landing.withdraw.point4': 'Des vérifications/contrôles de sécurité applicables peuvent s\'appliquer.',
         'landing.security.tag': 'Sécurité',
         'landing.security.title': 'Sécurité',
@@ -12891,7 +13198,7 @@ const TRANSLATIONS = {
         'landing.faq.q8': 'Combien coûte Arbitrix Pro ?',
         'landing.faq.a8': 'L\'abonnement Arbitrix Pro est de 7 $/mois, déduit de votre solde de trading disponible lorsqu\'il est dû. Selon le modèle actuel, il n\'y a pas de frais de plateforme supplémentaires.',
         'landing.faq.q9': 'Comment fonctionnent les retraits ?',
-        'landing.faq.a9': 'Vous pouvez retirer vers votre propre adresse de portefeuille lorsque vous êtes éligible. Les demandes sont généralement traitées en environ 15–30 minutes et des vérifications/contrôles de sécurité applicables peuvent s\'appliquer.',
+        'landing.faq.a9': 'Vous pouvez retirer vers votre propre adresse de portefeuille lorsque vous êtes éligible. Le traitement du retrait prend généralement 15 à 30 minutes et des vérifications/contrôles de sécurité applicables peuvent s\'appliquer.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Démo',
         'auth.brand.noCard': 'Sans carte',
@@ -12978,6 +13285,10 @@ const TRANSLATIONS = {
         'auth.errors.fillAll': 'يرجى ملء جميع الحقول',
         'auth.errors.passwordLength': 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل',
         'auth.errors.passwordMatch': 'كلمتا المرور غير متطابقتين',
+        'auth.errors.nameRequired': 'يرجى إدخال اسمك الكامل.',
+        'auth.errors.emailRequired': 'يرجى إدخال بريدك الإلكتروني.',
+        'auth.errors.passwordRequired': 'يرجى إدخال كلمة مرور.',
+        'auth.signup.passwordMin': 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.',
         'auth.errors.noAccount': 'لم يتم العثور على حساب. يرجى إنشاء حساب أولاً.',
         'auth.errors.invalidCredentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
         'auth.success.created': 'تم إنشاء الحساب بنجاح!',
@@ -13094,11 +13405,14 @@ const TRANSLATIONS = {
         'landing.footer.legal': 'قانوني',
         'landing.footer.contact': 'تواصل',
         'landing.footer.privacy': 'سياسة الخصوصية',
+        'cookies.body': 'نستخدم ملفات تعريف ارتباط تحليلية اختيارية لفهم كيفية استخدام Arbitrix وتحسين تجربتك. لا نشارك أبدًا بيانات الحساب أو الدفع.',
+        'cookies.accept': 'قبول',
+        'cookies.decline': 'رفض',
         'landing.footer.terms': 'شروط الخدمة',
         'landing.footer.copyright': '© 2026 Arbitrix AI. جميع الحقوق محفوظة.',
         'landing.footer.disclaimer': 'ينطوي التداول على مخاطر. الأداء السابق لا يدل على النتائج المستقبلية ولا يضمن الأداء المباشر.',
         'auth.brand.title': 'مراجحة مؤتمتة. ببساطة.',
-        'auth.brand.subtitle': 'يراقب Arbitrix الأسواق المدعومة بحثًا عن فروقات الأسعار ويؤتمت صفقات المراجحة المؤهلة. استكشف الاستراتيجية في الوضع التجريبي أولًًا — لا حاجة إلى بطاقة لإنشاء حساب.',
+        'auth.brand.subtitle': 'Arbitrix منصة تداول متعددة الأصول. تراقب الأسواق المدعومة بحثًا عن فروقات الأسعار وتؤتمت صفقات المراجحة المؤهلة. استكشف الاستراتيجية في الوضع التجريبي أولًا — لا حاجة إلى بطاقة لإنشاء حساب.',
         'auth.brand.security.title': 'تنفيذ مؤتمت',
         'auth.brand.security.desc': 'مصمم لتحديد فرص المراجحة بين الأسواق المدعومة والتنفيذ تلقائيًا.',
         'auth.brand.execution.title': 'ابدأ بالوضع التجريبي',
@@ -13134,10 +13448,19 @@ const TRANSLATIONS = {
         'auth.signup.referralOptional': '(اختياري)',
         'auth.signup.referralPlaceholder': 'ARBI-XXXX',
         'auth.signup.submit': 'إنشاء حساب',
+        'auth.signup.passwordHint': '6 أحرف على الأقل.',
+        'auth.signup.referralHint': 'املأ هذا الحقل فقط إذا دعاك صديق.',
+        'auth.signup.next': 'بعد إنشاء حسابك ستختار الوضع التجريبي أو وضع LIVE. يمكنك التبديل في أي وقت.',
+        'auth.signup.failed': 'فشل إنشاء الحساب. حاول مرة أخرى.',
         'auth.signup.terms': 'بإنشاء حساب، فإنك توافق على <a href="/terms-of-service.html" target="_blank">شروط الخدمة</a> و<a href="/privacy-policy.html" target="_blank">سياسة الخصوصية</a>',
         'auth.switch.noAccount': 'ليس لديك حساب؟',
         'auth.switch.hasAccount': 'لديك حساب بالفعل؟',
         'auth.securityBadge': 'يُقدَّم عبر اتصال HTTPS آمن',
+        'auth.mobileTagline': 'مراجحة آلية متعددة الأصول. ابدأ في الوضع التجريبي.',
+        'auth.explainer.body': 'Arbitrix منصة تداول متعددة الأصول تؤتمت المراجحة عبر الأسواق المدعومة.',
+        'auth.explainer.demo': 'يستخدم الوضع التجريبي $1,000 من الأموال الافتراضية — دون أموال حقيقية.',
+        'auth.explainer.live': 'يستخدم وضع LIVE أموالًا حقيقية. راجع متطلباته قبل الإيداع.',
+        'auth.explainer.firstStep': 'هل أنت جديد؟ أنشئ حسابًا ثم ابدأ في الوضع التجريبي.',
         'auth.2fa.title': 'التحقق بالبريد الإلكتروني',
         'auth.2fa.hint': 'أدخل الرمز المكوّن من 6 أرقام المرسل إلى بريدك الإلكتروني',
         'auth.2fa.codeLabel': 'رمز التحقق',
@@ -13177,29 +13500,41 @@ const TRANSLATIONS = {
         'status.demo': 'حساب تجريبي',
         'status.funded': 'مموّل',
         'status.pending': 'قيد الانتظار',
+        'status.completed': 'مكتمل',
+        'status.confirmed': 'مؤكد',
+        'status.processing': 'قيد المعالجة',
         'status.demoTrading': 'تداول تجريبي • أموال افتراضية',
         'status.liveFunded': 'مباشر • مموّل',
         'status.livePending': 'مباشر • إيداع معلّق',
         'ticker.live': 'مباشر',
+        'ticker.sample': 'نشاط تجريبي للعرض',
         'stats.equity': 'إجمالي رأس المال',
         'stats.available': 'متاح',
         'stats.pnl': 'ربح وخسارة اليوم',
         'stats.botStatus': 'حالة الروبوت',
+        'hint.equity': 'قيمة الحساب',
+        'hint.available': 'جاهز للاستخدام',
+        'hint.pnl': 'ربح/خسارة تداولات اليوم',
+        'hint.botStatus': 'قيد التشغيل أو متوقف',
+        'hint.bot': 'يفحص الأسواق المدعومة ويتداول تلقائيًا عند التشغيل',
+        'hint.scanner': 'فحص السوق',
+        'hint.txLog': 'نشاطك الأخير (آخر 30 دقيقة).',
         'bot.offline': 'غير متصل',
         'bot.running': 'قيد التشغيل',
         'bot.title': 'روبوت Arbitrix AI',
         'bot.enableScanner': 'تفعيل الماسح',
         'bot.startBot': 'تشغيل الروبوت',
         'bot.pauseBot': 'إيقاف الروبوت مؤقتًا',
-        'bot.clickToStart': 'انقر على "تشغيل الروبوت" لبدء المسح',
+        'bot.clickToStart': 'انقر على "تشغيل الروبوت" وسيفحص الأسواق المدعومة ويتداول تلقائيًا',
         'bot.startedDemo': '✅ تم تشغيل الروبوت في الوضع التجريبي',
         'bot.startedLive': '✅ تم تشغيل الروبوت في الوضع المباشر',
         'bot.paused': '⏸️ تم إيقاف الروبوت مؤقتًا',
-        'bot.reachMTA': '💰 بلغ ${{mta}} من MTA لتفعيل الروبوت (يتبقى ${{needed}})',
+        'bot.reachMTA': '💰 الحد الأدنى لرصيد التداول: ${{mta}} لبدء الروبوت (يتبقى ${{needed}})',
         'bot.mtaBlocked': 'الحد الأدنى لرصيد التداول هو ${{mta}} لبدء تشغيل الروبوت.',
         'bot.promoLimitReached': 'لقد وصلت إلى حد التداول الترويجي. قم بإجراء أول إيداع لمواصلة التداول.',
-        'bot.mtaMet': '✅ تم تحقيق MTA! الروبوت جاهز للتداول',
+        'bot.mtaMet': '✅ تم بلوغ الحد الأدنى لرصيد التداول! الروبوت جاهز للتداول',
         'chart.title': 'أداء رأس المال',
+        'markets.advancedChart': 'مخطط السوق المتقدم',
         'chart.all': 'الكل',
         'chart.starting': 'رصيد البداية',
         'chart.current': 'الحالي',
@@ -13214,13 +13549,18 @@ const TRANSLATIONS = {
         'trading.worstTrade': 'أسوأ صفقة',
         'trading.streak': 'سلسلة الفوز',
         'achievements.title': 'الإنجازات',
+        'badge.rarity.common': 'شائع',
+        'badge.rarity.rare': 'نادر',
+        'badge.rarity.epic': 'ملحمي',
+        'badge.rarity.legendary': 'أسطوري',
         'achievements.unlocked': 'تم فتحها',
         'achievements.startTrading': 'ابدأ التداول لفتح الشارات',
         'achievements.allUnlocked': '🎉 تم فتح جميع الشارات!',
         'achievements.next': 'التالي:',
         'mta.title': 'فتح التداول المباشر',
-        'mta.subtitle': 'بلغ الحد الأدنى لمبلغ التداول لتفعيل الروبوت',
+        'mta.subtitle': 'بلغ الحد الأدنى لرصيد التداول لبدء الروبوت',
         'mta.inProgress': 'قيد التقدم',
+        'mta.targetLabel': 'الحد الأدنى لرصيد التداول:',
         'mta.of': 'من',
         'mta.nearlyThere': 'اقتربت! تبقّى',
         'mta.greatProgress': 'تقدّم رائع!',
@@ -13279,6 +13619,13 @@ const TRANSLATIONS = {
         'referral.resetDone': 'تمت إعادة تعيين بيانات الإحالة',
         'deposit.title': 'إيداع الأموال',
         'deposit.subtitle': 'إيداع آمن بالعملات الرقمية — تُضاف الأموال تلقائيًا',
+        'deposit.methodNotice': 'تستخدم طريقة الدفع هذه USDT على شبكة TRON (TRC20). قبل إرسال الأموال، تأكد من أن محفظتك أو منصتك تدعم الأصل والشبكة المحددين هنا تمامًا.',
+        'deposit.newToUsdt.title': 'هل هذه أول مرة تستخدم طريقة الدفع هذه؟',
+        'deposit.newToUsdt.body': 'USDT عملة مستقرة مرتبطة بالدولار الأمريكي. TRON (TRC20) هي الشبكة المستخدمة لهذا الإيداع. يمكنك شراء USDT من منصة أو محفظة تدعم إرسال USDT عبر TRC20.',
+        'deposit.usdVsUsdt': 'USDT هو المبلغ الذي ترسله. USD هو المبلغ المودع في رصيدك.',
+        'deposit.addressExplain': 'هذا عنوان الدفع الشخصي الخاص بك لـ USDT (TRC20). أرسل فقط USDT على شبكة TRON (TRC20) إلى هذا العنوان.',
+        'deposit.referenceExplain': 'مرجع الدفع الخاص بك يحدد هذا الإيداع إذا تواصلت مع الدعم. إنه ليس كلمة مرور — لا تشارك أبدًا كلمة المرور أو رمز OTP أو المفاتيح.',
+        'deposit.afterSending': 'بعد الإرسال، أبقِ هذه الصفحة مفتوحة. يكتشف Arbitrix الدفع تلقائيًا ويضيفه إلى رصيد LIVE بعد التأكيد.',
         'deposit.amount': 'المبلغ (USD)',
         'deposit.network': 'الشبكة',
         'deposit.walletAddress': 'عنوان المحفظة',
@@ -13305,19 +13652,28 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': '\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0631\u0635\u064a\u062f\u0643 LIVE',
         'deposit.liveNotice.body': '\u064a\u064f\u0636\u0627\u0641 \u0647\u0630\u0627 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE / \u0627\u0644\u062d\u0642\u064a\u0642\u064a. \u0648\u0647\u0648 \u0645\u0646\u0641\u0635\u0644 \u0639\u0646 \u0623\u0645\u0648\u0627\u0644 Demo \u0648\u0639\u0646 \u0631\u0635\u064a\u062f\u0643 \u0627\u0644\u062a\u0631\u0648\u064a\u062c\u064a.',
         'onboarding.title': 'مرحبًا بك في Arbitrix',
-        'onboarding.subtitle': 'كيف تريد أن تبدأ؟',
-        'onboarding.primary': 'إجراء أول إيداع لي',
-        'onboarding.primaryDesc': 'موّل رصيدك LIVE وابدأ التداول الحقيقي. الحد الأدنى للإيداع ${{min}}.',
-        'onboarding.secondary': 'استكشاف Demo',
-        'onboarding.secondaryDesc': 'جرّب البوت برصيد افتراضي بقيمة $1,000. بدون أموال حقيقية.',
+        'onboarding.subtitle': 'إليك كيف تبدأ.',
+        'onboarding.primary': 'استكشاف الوضع التجريبي',
+        'onboarding.primaryDesc': 'جرّب الروبوت برصيد افتراضي بقيمة $1,000 — دون أموال حقيقية. يمكنك تبديل الوضع في أي وقت.',
+        'onboarding.secondary': 'مراجعة وضع LIVE',
+        'onboarding.secondaryDesc': 'اطّلع على رصيد LIVE والحد الأدنى لرصيد التداول وما هو مطلوب قبل تمويل حسابك.',
         'onboarding.virtualNote': 'رصيد Demo = أموال افتراضية. بلا قيمة حقيقية.',
         'onboarding.realNote': 'رصيد LIVE = أموال تداول حقيقية.',
         'onboarding.promoNote': 'الرصيد الترويجي البالغ $50 منفصل عن أموالك المودعة.',
-        'onboarding.noObligation': 'يمكنك الإيداع لاحقًا — وضع Demo متاح دائمًا.',
+        'onboarding.noObligation': 'يمكنك التبديل بين Demo وLIVE في أي وقت — الوضع التجريبي متاح دائمًا.',
+        'onboarding.explainer': 'Arbitrix منصة تداول متعددة الأصول تتضمن الوضع التجريبي ووضع LIVE. ابدأ باستكشاف الوضع التجريبي لفهم المنصة، ثم راجع وضع LIVE عندما تكون مستعدًا.',
         'demoCta.title': 'مستعد للتداول الحقيقي؟',
         'demoCta.body': 'أنت تستكشف بأموال افتراضية. أجرِ أول إيداع لك لتمويل رصيدك LIVE. تبقى أموال Demo افتراضية ولا يمكن سحبها.',
         'demoCta.button': 'إجراء أول إيداع لي',
         'demoCta.later': 'ربما لاحقًا',
+        'startHere.title': 'ابدأ من هنا',
+        'startHere.subtitle': 'مسار سريع لفهم المنصة.',
+        'startHere.step1': 'استكشف لوحة التحكم',
+        'startHere.step2': 'شغّل روبوت العرض التجريبي',
+        'startHere.step3': 'شاهد كيف يظهر نشاط العرض التجريبي',
+        'startHere.step4': 'راجع متطلبات وضع LIVE',
+        'startHere.step5': 'تابع عندما تكون مستعدًا',
+        'startHere.dismiss': 'تجاهل',
         'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.success': '✅ تم إيداع ${{amount}} USDT بنجاح!',
@@ -13326,8 +13682,8 @@ const TRANSLATIONS = {
         'withdraw.title': 'سحب الأموال',
         'withdraw.subtitle': 'حوّل إلى محفظتك',
         'withdraw.available': 'متاح',
-        'withdraw.info': 'الحد الأدنى للسحب: $700 | يتطلب إتمام صفقة واحدة | المعالجة 15-30 دقيقة',
-        'withdraw.infoSandbox': 'لا يوجد حد أدنى للسحب | المعالجة 15-30 دقيقة',
+        'withdraw.info': 'الحد الأدنى للسحب: $700 | يتطلب إتمام صفقة واحدة | تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
+        'withdraw.infoSandbox': 'لا يوجد حد أدنى للسحب | تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'withdraw.amount': 'المبلغ (USD)',
         'withdraw.address': 'عنوان المحفظة',
         'withdraw.submit': 'سحب',
@@ -13340,9 +13696,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': 'الحد الأدنى للسحب هو ${{min}}. الحالي: ${{current}}',
         'withdraw.enterAddress': 'يرجى إدخال عنوان محفظة',
         'withdraw.insufficient': 'رصيد غير كافٍ',
-        'withdraw.success': '✅ تم إرسال طلب سحب ${{amount}}! تتم المعالجة خلال 15-30 دقيقة.',
+        'withdraw.success': '✅ تم إرسال طلب سحب ${{amount}}! تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'withdraw.submitted': 'تم إرسال السحب',
-        'withdraw.processing': 'سيتم معالجة ${{amount}} خلال 15-30 دقيقة',
+        'withdraw.processing': 'تم إرسال ${{amount}}. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'profile.title': 'الملف الشخصي',
         'profile.name': 'الاسم المعروض',
         'profile.email': 'البريد الإلكتروني',
@@ -13389,6 +13745,10 @@ const TRANSLATIONS = {
         'ios.gotIt': 'فهمت!',
         'support.title': 'الدعم',
         'support.online': '● متصل',
+        'support.assistant.status': 'آلي',
+        'support.assistant.name': 'مساعد دعم Arbitrix',
+        'support.assistant.automated': 'مساعد آلي — يرد فورًا بإرشادات. للتواصل مع شخص، استخدم الدعم الرسمي أدناه.',
+        'support.human.title': 'تواصل مع الدعم الرسمي',
         'support.welcome': '👋 مرحبًا! كيف يمكنني المساعدة؟',
         'support.botSetup': '🤖 إعداد الروبوت',
         'support.deposit': '💰 إيداع',
@@ -13536,10 +13896,10 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'لم يتم رفع أي مستندات',
         'kyc.noHistory': 'لا يوجد سجل',
         'support.reply.default': 'شكرًا لرسالتك! سيتواصل معك فريقنا قريبًا.',
-        'support.reply.bot': '🤖 لبدء البوت: 1) بدّل إلى وضع DEMO أو LIVE، 2) في وضع LIVE، اصل إلى ${{mta}} MTA أولًا، 3) انقر على زر \'Start Bot\'.',
+        'support.reply.bot': '🤖 لبدء البوت: 1) بدّل إلى وضع DEMO أو LIVE، 2) في وضع LIVE، اصل أولًا إلى الحد الأدنى لرصيد التداول ${{mta}}، 3) انقر على \'Start Bot\'.',
         'support.reply.botNoMta': '🤖 لبدء البوت: بدّل إلى وضع LIVE (أو DEMO) وانقر على زر \'Start Bot\'.',
-        'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، اختر شبكتك (TRC20 موصى بها)، انقر على \'Get Payment Address\' وأرسل USDT إلى العنوان المعروض. سنكتشف ذلك تلقائيًا.',
-        'support.reply.withdraw': '🏦 للسحب: 1) بدّل إلى وضع LIVE، 2) قم بإيداع، 3) أكمل عملية واحدة على الأقل، 4) انقر على \'Withdraw\' في الشريط الجانبي. تستغرق المعالجة 15-30 دقيقة.',
+        'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، ثم أرسل USDT على شبكة TRON (TRC20) إلى العنوان المعروض. يقبل Arbitrix USDT على TRON (TRC20) فقط. سنكتشف ذلك تلقائيًا.',
+        'support.reply.withdraw': '🏦 للسحب: 1) بدّل إلى وضع LIVE، 2) قم بإيداع، 3) أكمل عملية واحدة على الأقل، 4) انقر على \'Withdraw\' في الشريط الجانبي. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'support.reply.bonus': '🎁 أحِل أصدقاء لتكسب 20% من أول إيداع مؤهل لهم! تتراكم مكافأتك في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى.',
         'support.reply.sound': '🔊 يمكنك التحكم بالأصوات بالنقر على أيقونة السماعة في الترويسة، أو ضبط مستوى الصوت في إعدادات الملف الشخصي.',
         'support.reply.language': '🌍 يمكنك تغيير اللغة بالنقر على أيقونة 🌐 الكرة الأرضية في الترويسة، أو في إعدادات الملف الشخصي.',
@@ -14206,7 +14566,7 @@ const TRANSLATIONS = {
         'landing.withdraw.lead': 'يبقى رصيد التداول ملكك ويمكنك طلب سحب عند الأهلية.',
         'landing.withdraw.point1': 'اسحب إلى محفظتك الخاصة.',
         'landing.withdraw.point2': 'لا قيد اشتراك على أموالك.',
-        'landing.withdraw.point3': 'معالجة نموذجية: حوالي 15–30 دقيقة.',
+        'landing.withdraw.point3': 'تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'landing.withdraw.point4': 'قد تنطبق تدابير التحقق/الأمن.',
         'landing.security.tag': 'الأمان',
         'landing.security.title': 'الأمان',
@@ -14243,7 +14603,7 @@ const TRANSLATIONS = {
         'landing.faq.q8': 'كم سعر Arbitrix Pro؟',
         'landing.faq.a8': 'اشتراك Arbitrix Pro هو 7$/شهريًا، يُخصم من رصيد التداول المتاح عند الاستحقاق. بناءً على النموذج الحالي، لا توجد رسوم منصة إضافية.',
         'landing.faq.q9': 'كيف تعمل السحوبات؟',
-        'landing.faq.a9': 'يمكنك السحب إلى عنوان محفظتك الخاصة عند الأهلية. تُعالج الطلبات عادةً خلال حوالي 15–30 دقيقة وقد تنطبق تدابير التحقق/الأمن.',
+        'landing.faq.a9': 'يمكنك السحب إلى عنوان محفظتك الخاصة عند الأهلية. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة وقد تنطبق تدابير التحقق/الأمن.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'تجريبي',
         'auth.brand.noCard': 'بدون بطاقة',
@@ -14330,6 +14690,10 @@ const TRANSLATIONS = {
         'auth.errors.fillAll': '请填写所有字段',
         'auth.errors.passwordLength': '密码至少需要 6 个字符',
         'auth.errors.passwordMatch': '两次密码不一致',
+        'auth.errors.nameRequired': '请输入您的全名。',
+        'auth.errors.emailRequired': '请输入您的电子邮箱地址。',
+        'auth.errors.passwordRequired': '请输入密码。',
+        'auth.signup.passwordMin': '密码必须至少为 6 个字符。',
         'auth.errors.noAccount': '未找到账户。请先创建账户。',
         'auth.errors.invalidCredentials': '邮箱或密码无效',
         'auth.success.created': '账户创建成功！',
@@ -14446,11 +14810,14 @@ const TRANSLATIONS = {
         'landing.footer.legal': '法律',
         'landing.footer.contact': '联系',
         'landing.footer.privacy': '隐私政策',
+        'cookies.body': '我们使用可选的分析 Cookie 来了解 Arbitrix 的使用情况并改善您的体验。我们绝不会共享账户或支付数据。',
+        'cookies.accept': '接受',
+        'cookies.decline': '拒绝',
         'landing.footer.terms': '服务条款',
         'landing.footer.copyright': '© 2026 Arbitrix AI. 保留所有权利。',
         'landing.footer.disclaimer': '交易涉及风险。过往表现不代表未来结果，也不保证实盘表现。',
         'auth.brand.title': '自动化套利。简单易用。',
-        'auth.brand.subtitle': 'Arbitrix 监控受支持市场的价格差异，并自动执行符合条件的套利交易。请先在演示模式中探索该策略——创建账户无需银行卡。',
+        'auth.brand.subtitle': 'Arbitrix 是一个多资产交易平台，监控受支持市场的价格差异并自动执行符合条件的套利交易。请先在演示模式中探索该策略——创建账户无需银行卡。',
         'auth.brand.security.title': '自动执行',
         'auth.brand.security.desc': '旨在识别受支持市场中的套利机会并自动执行。',
         'auth.brand.execution.title': '从演示模式开始',
@@ -14486,10 +14853,19 @@ const TRANSLATIONS = {
         'auth.signup.referralOptional': '（可选）',
         'auth.signup.referralPlaceholder': 'ARBI-XXXX',
         'auth.signup.submit': '创建账户',
+        'auth.signup.passwordHint': '至少 6 个字符。',
+        'auth.signup.referralHint': '仅当有朋友邀请您时才填写。',
+        'auth.signup.next': '创建账户后，您将选择演示模式或 LIVE 模式。您可以随时切换。',
+        'auth.signup.failed': '注册失败，请重试。',
         'auth.signup.terms': '创建账户即表示您同意我们的<a href="/terms-of-service.html" target="_blank">服务条款</a>和<a href="/privacy-policy.html" target="_blank">隐私政策</a>',
         'auth.switch.noAccount': '没有账户？',
         'auth.switch.hasAccount': '已经有账户？',
         'auth.securityBadge': '通过安全的 HTTPS 连接提供服务',
+        'auth.mobileTagline': '多资产自动套利。从演示模式开始。',
+        'auth.explainer.body': 'Arbitrix 是一个多资产交易平台，可在受支持的市场中自动执行套利。',
+        'auth.explainer.demo': '演示模式使用 $1,000 虚拟资金——无需真实资金。',
+        'auth.explainer.live': 'LIVE 模式使用真实资金。入金前请先查看其要求。',
+        'auth.explainer.firstStep': '第一次使用？创建账户后从演示模式开始。',
         'auth.2fa.title': '邮箱验证',
         'auth.2fa.hint': '输入发送到您邮箱的 6 位验证码',
         'auth.2fa.codeLabel': '验证码',
@@ -14529,29 +14905,41 @@ const TRANSLATIONS = {
         'status.demo': '模拟账户',
         'status.funded': '已入金',
         'status.pending': '待处理',
+        'status.completed': '已完成',
+        'status.confirmed': '已确认',
+        'status.processing': '处理中',
         'status.demoTrading': '模拟交易 • 虚拟资金',
         'status.liveFunded': '实盘 • 已入金',
         'status.livePending': '实盘 • 待入金',
         'ticker.live': '实盘',
+        'ticker.sample': '示例活动',
         'stats.equity': '总权益',
         'stats.available': '可用',
         'stats.pnl': '今日盈亏',
         'stats.botStatus': '机器人状态',
+        'hint.equity': '账户价值',
+        'hint.available': '可使用',
+        'hint.pnl': '今日交易盈亏',
+        'hint.botStatus': '运行中或已停止',
+        'hint.bot': '运行时自动扫描受支持市场并交易',
+        'hint.scanner': '市场扫描',
+        'hint.txLog': '您最近的活动（最近 30 分钟）。',
         'bot.offline': '离线',
         'bot.running': '运行中',
         'bot.title': 'Arbitrix AI 机器人',
         'bot.enableScanner': '启用扫描',
         'bot.startBot': '启动机器人',
         'bot.pauseBot': '暂停机器人',
-        'bot.clickToStart': '点击"启动机器人"开始扫描',
+        'bot.clickToStart': '点击"启动机器人"，它会扫描受支持的市场并自动交易',
         'bot.startedDemo': '✅ 机器人已在模拟模式启动',
         'bot.startedLive': '✅ 机器人已在实盘模式启动',
         'bot.paused': '⏸️ 机器人已暂停',
-        'bot.reachMTA': '💰 达到 ${{mta}} MTA 即可启动机器人（还差 ${{needed}}）',
+        'bot.reachMTA': '💰 最低交易余额：${{mta}} 即可启动机器人（还差 ${{needed}}）',
         'bot.mtaBlocked': '启动机器人所需的最低交易余额为 ${{mta}}。',
         'bot.promoLimitReached': '您已达到促销交易限额。请完成首笔入金以继续交易。',
-        'bot.mtaMet': '✅ 已达到 MTA！机器人可交易',
+        'bot.mtaMet': '✅ 已达到最低交易余额！机器人可交易',
         'chart.title': '权益表现',
+        'markets.advancedChart': '高级市场图表',
         'chart.all': '全部',
         'chart.starting': '起始',
         'chart.current': '当前',
@@ -14566,13 +14954,18 @@ const TRANSLATIONS = {
         'trading.worstTrade': '最差交易',
         'trading.streak': '连胜',
         'achievements.title': '成就',
+        'badge.rarity.common': '普通',
+        'badge.rarity.rare': '稀有',
+        'badge.rarity.epic': '史诗',
+        'badge.rarity.legendary': '传说',
         'achievements.unlocked': '已解锁',
         'achievements.startTrading': '开始交易以解锁徽章',
         'achievements.allUnlocked': '🎉 所有徽章已解锁！',
         'achievements.next': '下一个：',
         'mta.title': '解锁实盘交易',
-        'mta.subtitle': '达到最低交易金额即可启动机器人',
+        'mta.subtitle': '达到最低交易余额即可启动机器人',
         'mta.inProgress': '进行中',
+        'mta.targetLabel': '最低交易余额：',
         'mta.of': '/',
         'mta.nearlyThere': '就差一点！仅需',
         'mta.greatProgress': '进展不错！',
@@ -14631,6 +15024,13 @@ const TRANSLATIONS = {
         'referral.resetDone': '推荐数据已重置',
         'deposit.title': '入金',
         'deposit.subtitle': '安全的加密货币入金 — 资金自动到账',
+        'deposit.methodNotice': '此支付方式使用 TRON (TRC20) 网络上的 USDT。发送资金前，请确认您的钱包或交易所支持此处显示的确切资产和网络。',
+        'deposit.newToUsdt.title': '第一次使用此支付方式？',
+        'deposit.newToUsdt.body': 'USDT 是一种与美元挂钩的稳定币。TRON (TRC20) 是本次入金使用的网络。您可以在支持通过 TRC20 发送 USDT 的交易所或钱包中购买 USDT。',
+        'deposit.usdVsUsdt': 'USDT 是您发送的金额。USD 是计入您余额的金额。',
+        'deposit.addressExplain': '这是您的专属 USDT (TRC20) 支付地址。请仅通过 TRON (TRC20) 网络向此地址发送 USDT。',
+        'deposit.referenceExplain': '如果您联系客服，付款参考号可用来识别此笔入金。它不是密码——切勿分享您的密码、OTP 验证码或密钥。',
+        'deposit.afterSending': '发送后请保持此页面打开。Arbitrix 会自动检测付款，并在确认后计入您的 LIVE 余额。',
         'deposit.amount': '金额（美元）',
         'deposit.network': '网络',
         'deposit.walletAddress': '钱包地址',
@@ -14657,19 +15057,28 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': '\u5165\u91d1\u81f3\u60a8\u7684 LIVE \u4f59\u989d',
         'deposit.liveNotice.body': '\u8be5\u5165\u91d1\u4f1a\u6dfb\u52a0\u5230\u60a8\u7684 LIVE / \u771f\u5b9e\u4f59\u989d\uff0c\u4e0e\u6f14\u793a\u8d44\u91d1\u548c\u4fc3\u9500\u989d\u5ea6\u76f8\u4e92\u72ec\u7acb\u3002',
         'onboarding.title': '欢迎来到 Arbitrix',
-        'onboarding.subtitle': '您想如何开始？',
-        'onboarding.primary': '进行我的首次入金',
-        'onboarding.primaryDesc': '为您的 LIVE 余额充值并开始真实交易。最低入金 ${{min}}。',
-        'onboarding.secondary': '体验演示',
-        'onboarding.secondaryDesc': '使用 $1,000 虚拟资金试用机器人。无需真实资金。',
+        'onboarding.subtitle': '您可以这样开始。',
+        'onboarding.primary': '体验演示模式',
+        'onboarding.primaryDesc': '使用 $1,000 虚拟资金试用机器人——无需真实资金。您可以随时切换模式。',
+        'onboarding.secondary': '查看 LIVE 模式',
+        'onboarding.secondaryDesc': '查看 LIVE 余额、最低交易余额，以及为账户充值前的所需条件。',
         'onboarding.virtualNote': '演示余额 = 虚拟资金。无实际价值。',
         'onboarding.realNote': 'LIVE 余额 = 真实交易资金。',
         'onboarding.promoNote': '$50 促销额度与您的入金资金相互独立。',
-        'onboarding.noObligation': '您可以稍后入金 — 演示模式始终可用。',
+        'onboarding.noObligation': '您可以随时在演示和 LIVE 之间切换——演示模式始终可用。',
+        'onboarding.explainer': 'Arbitrix 是一个多资产交易平台，提供演示模式和 LIVE 模式。请先体验演示模式来了解平台，准备好后再查看 LIVE 模式。',
         'demoCta.title': '准备好进行真实交易了吗？',
         'demoCta.body': '您正在使用虚拟资金体验。进行首次入金可为您的 LIVE 余额充值。演示资金始终保持虚拟且无法提取。',
         'demoCta.button': '进行我的首次入金',
         'demoCta.later': '稍后再说',
+        'startHere.title': '从这里开始',
+        'startHere.subtitle': '快速了解平台的路径。',
+        'startHere.step1': '浏览仪表板',
+        'startHere.step2': '启动演示机器人',
+        'startHere.step3': '查看演示活动如何显示',
+        'startHere.step4': '查看 LIVE 模式要求',
+        'startHere.step5': '准备好后继续',
+        'startHere.dismiss': '忽略',
         'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
         'deposit.success': '✅ 成功入金 ${{amount}} USDT！',
@@ -14678,8 +15087,8 @@ const TRANSLATIONS = {
         'withdraw.title': '提现',
         'withdraw.subtitle': '转账到您的钱包',
         'withdraw.available': '可用',
-        'withdraw.info': '最低提现：$700 | 需完成 1 笔交易 | 15-30 分钟处理',
-        'withdraw.infoSandbox': '无最低提现要求 | 15-30 分钟处理',
+        'withdraw.info': '最低提现：$700 | 需完成 1 笔交易 | 提现处理通常需要 15–30 分钟。',
+        'withdraw.infoSandbox': '无最低提现要求 | 提现处理通常需要 15–30 分钟。',
         'withdraw.amount': '金额（美元）',
         'withdraw.address': '钱包地址',
         'withdraw.submit': '提现',
@@ -14692,9 +15101,9 @@ const TRANSLATIONS = {
         'withdraw.minWithdrawal': '最低提现金额为 ${{min}}。当前：${{current}}',
         'withdraw.enterAddress': '请输入钱包地址',
         'withdraw.insufficient': '余额不足',
-        'withdraw.success': '✅ 已提交 ${{amount}} 提现！15-30 分钟内处理。',
+        'withdraw.success': '✅ 已提交 ${{amount}} 提现！提现处理通常需要 15–30 分钟。',
         'withdraw.submitted': '提现已提交',
-        'withdraw.processing': '${{amount}} 将在 15-30 分钟内处理',
+        'withdraw.processing': '已提交 ${{amount}}。提现处理通常需要 15–30 分钟。',
         'profile.title': '个人资料',
         'profile.name': '显示名称',
         'profile.email': '邮箱',
@@ -14741,6 +15150,10 @@ const TRANSLATIONS = {
         'ios.gotIt': '知道了！',
         'support.title': '客服支持',
         'support.online': '● 在线',
+        'support.assistant.status': '自动',
+        'support.assistant.name': 'Arbitrix 支持助手',
+        'support.assistant.automated': '自动助手——即时提供指引。如需人工服务，请使用下方的官方支持。',
+        'support.human.title': '联系官方支持',
         'support.welcome': '👋 欢迎！有什么可以帮您？',
         'support.botSetup': '🤖 机器人设置',
         'support.deposit': '💰 入金',
@@ -14888,10 +15301,10 @@ const TRANSLATIONS = {
         'kyc.noDocuments': '未上传文档',
         'kyc.noHistory': '无历史记录',
         'support.reply.default': '感谢您的留言！我们的团队将尽快与您联系。',
-        'support.reply.bot': '🤖 启动机器人：1) 切换到 DEMO 或 LIVE 模式，2) 在 LIVE 模式下，先达到 ${{mta}} MTA，3) 点击 \'Start Bot\' 按钮。',
+        'support.reply.bot': '🤖 启动机器人：1) 切换到 DEMO 或 LIVE 模式，2) 在 LIVE 模式下先达到最低交易余额 ${{mta}}，3) 点击 \'Start Bot\'。',
         'support.reply.botNoMta': '🤖 启动机器人：切换到 LIVE（或 DEMO）模式并点击 \'Start Bot\' 按钮。',
-        'support.reply.deposit': '💰 存款：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，选择您的网络（推荐 TRC20），点击 \'Get Payment Address\'，然后将 USDT 发送到显示的地址。我们会自动检测。',
-        'support.reply.withdraw': '🏦 提现：1) 切换到 LIVE 模式，2) 进行存款，3) 至少完成 1 笔交易，4) 点击侧边栏的 \'Withdraw\'。处理时间为 15-30 分钟。',
+        'support.reply.deposit': '💰 入金：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，然后通过 TRON (TRC20) 网络将 USDT 发送到显示的地址。Arbitrix 仅接受 TRON (TRC20) 网络上的 USDT。我们会自动检测。',
+        'support.reply.withdraw': '🏦 提现：1) 切换到 LIVE 模式，2) 进行存款，3) 至少完成 1 笔交易，4) 点击侧边栏的 \'Withdraw\'。提现处理通常需要 15–30 分钟。',
         'support.reply.bonus': '🎁 推荐好友即可赚取其首次合格入金的 20%！您的奖励会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低额度。',
         'support.reply.sound': '🔊 您可以点击页眉中的扬声器图标来控制声音，或在个人资料设置中调节音量。',
         'support.reply.language': '🌍 您可以点击页眉中的 🌐 地球图标更改语言，或在个人资料设置中更改。',
@@ -15558,7 +15971,7 @@ const TRANSLATIONS = {
         'landing.withdraw.lead': '您的交易余额始终属于您，符合条件时即可申请提现。',
         'landing.withdraw.point1': '提现到您自己的钱包。',
         'landing.withdraw.point2': '您的资金不受订阅锁定。',
-        'landing.withdraw.point3': '典型处理时间：约 15–30 分钟。',
+        'landing.withdraw.point3': '提现处理通常需要 15–30 分钟。',
         'landing.withdraw.point4': '可能适用验证/安全检查。',
         'landing.security.tag': '安全',
         'landing.security.title': '安全',
@@ -15595,7 +16008,7 @@ const TRANSLATIONS = {
         'landing.faq.q8': 'Arbitrix Pro 多少钱？',
         'landing.faq.a8': 'Arbitrix Pro 订阅为 $7/月，到期时从您的可用交易余额中扣除。根据当前产品模型，没有额外的平台费用。',
         'landing.faq.q9': '提现如何运作？',
-        'landing.faq.a9': '符合条件时，您可以提现到自己的钱包地址。请求通常在约 15–30 分钟内处理，可能适用验证/安全检查。',
+        'landing.faq.a9': '符合条件时，您可以提现到自己的钱包地址。提现处理通常需要 15–30 分钟，可能适用验证/安全检查。',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': '演示',
         'auth.brand.noCard': '无需银行卡',
@@ -16824,6 +17237,8 @@ const DEPOSIT_STATUS_LABELS = {
 const WITHDRAWAL_STATUS_LABELS = {
     'approved': 'admin.status.approved',
     'pending': 'status.pending',
+    'processing': 'status.processing',
+    'completed': 'status.completed',
     'rejected': 'admin.status.rejected'
 };
 function depositStatusLabel(rawStatus) {
@@ -17214,6 +17629,13 @@ function updateMTAProgress() {
 }
 
 // ============ BADGES ============
+function badgeRarityLabel(rarity) {
+    // Display-only localization of the badge rarity pill. The CSS class keeps
+    // the raw rarity value; only the visible text is translated.
+    var map = { common: 'badge.rarity.common', rare: 'badge.rarity.rare', epic: 'badge.rarity.epic', legendary: 'badge.rarity.legendary' };
+    return map[rarity] ? t(map[rarity]) : rarity;
+}
+
 function renderBadges() {
     const wallet = APP.currentWallet === 'live' ? 'live' : 'demo';
     const unlocked = APP.unlockedBadges[wallet] || [];
@@ -17226,7 +17648,7 @@ function renderBadges() {
         const isUnlocked = unlocked.includes(badge.id);
         const name = getBadgeName(badge);
         const desc = getBadgeDesc(badge);
-        return '<div class="badge-item ' + (isUnlocked ? 'unlocked' : 'locked') + '" data-badge-id="' + badge.id + '" title="' + desc + '"><span class="badge-rarity ' + badge.rarity + '">' + badge.rarity + '</span><span class="badge-lock"><i class="fas fa-lock"></i></span><span class="badge-icon">' + badge.icon + '</span><div class="badge-name">' + name + '</div><div class="badge-desc">' + desc + '</div></div>';
+        return '<div class="badge-item ' + (isUnlocked ? 'unlocked' : 'locked') + '" data-badge-id="' + badge.id + '" title="' + desc + '"><span class="badge-rarity ' + badge.rarity + '">' + badgeRarityLabel(badge.rarity) + '</span><span class="badge-lock"><i class="fas fa-lock"></i></span><span class="badge-icon">' + badge.icon + '</span><div class="badge-name">' + name + '</div><div class="badge-desc">' + desc + '</div></div>';
     }).join('');
     const total = visibleBadges.length;
     const count = visibleBadges.filter(function(b) { return unlocked.includes(b.id); }).length;
@@ -17423,9 +17845,9 @@ function updateUI() {
     getEl('bonusBalanceDisplay').textContent = formatCurrency(APP.bonusData.balance);
     updateTransactionLog();
     getEl('depositHistoryCount').textContent = APP.depositHistory.length;
-    getEl('depositHistoryList').innerHTML = APP.depositHistory.length ? APP.depositHistory.slice(0,5).map(function(d) { return '<div style="display:flex;justify-content:space-between;padding:2px 0;gap:8px;"><span>$' + d.amount.toFixed(2) + '</span><span style="color:#10B981;">✅ ' + d.status + '</span><span>' + d.time + '</span></div>'; }).join('') : t('deposit.noDeposits');
+    getEl('depositHistoryList').innerHTML = APP.depositHistory.length ? APP.depositHistory.slice(0,5).map(function(d) { return '<div style="display:flex;justify-content:space-between;padding:2px 0;gap:8px;"><span>$' + d.amount.toFixed(2) + '</span><span style="color:#10B981;">✅ ' + depositStatusLabel(d.status) + '</span><span>' + d.time + '</span></div>'; }).join('') : t('deposit.noDeposits');
     getEl('withdrawHistoryCount').textContent = APP.withdrawHistory.length;
-    getEl('withdrawHistoryList').innerHTML = APP.withdrawHistory.length ? APP.withdrawHistory.slice(0,5).map(function(w) { return '<div style="display:flex;justify-content:space-between;padding:2px 0;gap:8px;"><span>$' + w.amount.toFixed(2) + '</span><span style="color:#10B981;">✅ ' + w.status + '</span><span>' + w.time + '</span></div>'; }).join('') : t('withdraw.noWithdrawals');
+    getEl('withdrawHistoryList').innerHTML = APP.withdrawHistory.length ? APP.withdrawHistory.slice(0,5).map(function(w) { return '<div style="display:flex;justify-content:space-between;padding:2px 0;gap:8px;"><span>$' + w.amount.toFixed(2) + '</span><span style="color:#10B981;">✅ ' + withdrawalStatusLabel(w.status) + '</span><span>' + w.time + '</span></div>'; }).join('') : t('withdraw.noWithdrawals');
     updateReferralDisplay();
     getEl('withdrawBalanceDisplay').textContent = formatCurrency(getWithdrawableTotal());
     getEl('accountStatusBadge').textContent = APP.mode==='demo' ? t('status.demo') : APP.liveData.hasRealDeposit ? t('status.funded') : t('status.pending');
@@ -17453,6 +17875,8 @@ function updateUI() {
     }
     // In-Demo "Make My First Deposit" CTA (non-aggressive funnel prompt).
     updateDemoFirstDepositCta();
+    // "Start Here" beginner checklist (dismissible; display only).
+    updateStartHere();
     if(APP.mode === 'live') {
         // MARKETING_SANDBOX: no MTA at all (the server-side sandbox bot start
         // has no gate and /api/auth/me reports mta: 0), so a no-MTA account is
@@ -18602,8 +19026,6 @@ function onboardingNeeded(user) {
 function showOnboarding(user) {
     if (!onboardingNeeded(user)) return false;
     setOnboardingChoice(user.id, 'shown');
-    const desc = document.getElementById('onboardingPrimaryDesc');
-    if (desc) desc.textContent = t('onboarding.primaryDesc', { min: Number(APP.MIN_DEPOSIT) });
     const modal = document.getElementById('onboardingModal');
     if (!modal) return false;
     modal.classList.add('open');
@@ -18618,11 +19040,14 @@ function maybeShowOnboardingForCurrentUser() {
     showOnboarding(currentCachedUser());
 }
 
-// "Make My First Deposit" -> open the deposit flow; "Explore Demo" -> Demo mode.
-// Neither branch creates an invoice or credits a balance.
+// "Explore Demo Mode" -> Demo mode; "Review Live Mode" -> Live mode preview.
+// The legacy 'deposit' branch is kept for accounts that stored that choice
+// before the onboarding copy changed. None of these branches creates an
+// invoice or credits a balance.
 function chooseOnboarding(choice) {
     const user = currentCachedUser();
-    if (user && user.id) setOnboardingChoice(user.id, choice === 'deposit' ? 'deposit' : 'demo');
+    const stored = (choice === 'deposit') ? 'deposit' : (choice === 'live') ? 'live' : 'demo';
+    if (user && user.id) setOnboardingChoice(user.id, stored);
     const modal = document.getElementById('onboardingModal');
     if (modal) modal.classList.remove('open');
 
@@ -18632,6 +19057,12 @@ function chooseOnboarding(choice) {
         return;
     }
     pendingOnboardingDeposit = false;
+    if (choice === 'live') {
+        goToApp('onboarding_live');
+        // Display-only preview of Live Mode requirements (no deposit, invoice or credit).
+        if (APP.environment !== 'MARKETING_SANDBOX' && APP.mode !== 'live') setMode('live');
+        return;
+    }
     goToApp('onboarding_demo');
     if (APP.environment !== 'MARKETING_SANDBOX' && APP.mode !== 'demo') setMode('demo');
     updateDemoFirstDepositCta();
@@ -18653,6 +19084,28 @@ function updateDemoFirstDepositCta() {
 function dismissDemoDepositCta() {
     demoDepositCtaDismissed = true;
     updateDemoFirstDepositCta();
+}
+
+// ---- "Start Here" beginner checklist (dismissible, per account) -----------
+// Pure frontend orientation aid: explains the suggested first steps. It never
+// creates an invoice, credits a balance, or changes any trading rule.
+function startHereKey() {
+    const u = (typeof currentCachedUser === 'function') ? currentCachedUser() : null;
+    return 'arbi_starthere_' + (u && u.id ? u.id : 'anon');
+}
+
+function dismissStartHere() {
+    try { localStorage.setItem(startHereKey(), '1'); } catch (e) {}
+    updateStartHere();
+}
+
+function updateStartHere() {
+    const el = document.getElementById('startHereCard');
+    if (!el) return;
+    let hidden = false;
+    try { hidden = localStorage.getItem(startHereKey()) === '1'; } catch (e) {}
+    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    el.style.display = (!hidden && !isSandbox) ? 'block' : 'none';
 }
 
 // Initialize currency selection listeners
@@ -19682,7 +20135,6 @@ function toggleSupport() {
     try {
         const panel = document.getElementById('supportPanel');
         panel.classList.toggle('open');
-        if(panel.classList.contains('open')) document.getElementById('unreadBadge').classList.add('hidden');
     } catch(e) {}
 }
 

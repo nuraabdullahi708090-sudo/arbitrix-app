@@ -149,25 +149,43 @@ function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = fals
     return sandbox;
 }
 
-test('New user sees the two onboarding choices (primary deposit + secondary demo)', () => {
-    // Static wiring: both CTAs exist, deposit is visually primary.
-    const primaryIdx = INDEX.indexOf('onclick="chooseOnboarding(\'deposit\')"');
-    const secondaryIdx = INDEX.indexOf('onclick="chooseOnboarding(\'demo\')"');
-    assert.ok(primaryIdx > 0, 'primary deposit CTA must exist');
-    assert.ok(secondaryIdx > 0, 'secondary demo CTA must exist');
-    assert.ok(primaryIdx < secondaryIdx, 'the deposit CTA must come first (primary position)');
+test('New user sees the two onboarding choices (primary demo + secondary live)', () => {
+    // Static wiring: both CTAs exist and the safe (no real money) choice is
+    // visually primary so a beginner is never pushed straight into depositing.
+    const primaryIdx = INDEX.indexOf('onclick="chooseOnboarding(\'demo\')"');
+    const secondaryIdx = INDEX.indexOf('onclick="chooseOnboarding(\'live\')"');
+    assert.ok(primaryIdx > 0, 'primary demo CTA must exist');
+    assert.ok(secondaryIdx > 0, 'secondary live CTA must exist');
+    assert.ok(primaryIdx < secondaryIdx, 'the demo CTA must come first (primary position)');
     const primaryBtn = INDEX.slice(INDEX.lastIndexOf('<button', primaryIdx), INDEX.indexOf('>', primaryIdx) + 1);
     const secondaryBtn = INDEX.slice(INDEX.lastIndexOf('<button', secondaryIdx), INDEX.indexOf('>', secondaryIdx) + 1);
-    assert.ok(/btn-primary/.test(primaryBtn), 'Make My First Deposit must be a primary button');
-    assert.ok(/btn-secondary/.test(secondaryBtn), 'Explore Demo must be a secondary button');
+    assert.ok(/btn-primary/.test(primaryBtn), 'Explore Demo Mode must be a primary button');
+    assert.ok(/btn-secondary/.test(secondaryBtn), 'Review Live Mode must be a secondary button');
 
-    // Behavioral: showOnboarding opens the modal and renders the min amount.
+    // The modal explains the platform in plain language before the choice.
+    const at = INDEX.indexOf('id="onboardingModal"');
+    const block = INDEX.slice(at, INDEX.indexOf('id="withdrawModal"', at));
+    assert.ok(/onboarding\.explainer/.test(block), 'onboarding must explain the platform');
+    assert.ok(/data-i18n="onboarding\.primaryDesc"/.test(block), 'primary outcome text is a localized span');
+
+    // Behavioral: showOnboarding opens the modal and makes no request.
     const sb = buildSandbox();
     const shown = vm.runInContext('showOnboarding({ id: 1, name: "A" })', sb);
     assert.strictEqual(shown, true);
     assert.ok(sb.el('onboardingModal').classList.contains('open'), 'onboarding modal must open');
-    assert.ok(sb.els.onboardingPrimaryDesc.textContent.includes('min='), 'min deposit must be rendered from {{min}}');
     assert.strictEqual(sb.fetchCalls.length, 0, 'showing onboarding must not make any request');
+});
+
+test('"Review Live Mode" enters Live mode without depositing or creating an invoice', () => {
+    const sb = buildSandbox({ mode: 'demo' });
+    sb.store['arbi_user'] = JSON.stringify({ id: 12 });
+    vm.runInContext('chooseOnboarding("live")', sb);
+    assert.strictEqual(sb.store['arbi_onboarding_12'], 'live', 'live choice persisted per account');
+    assert.deepStrictEqual(sb.goToAppCalls, ['onboarding_live'], 'live path enters the app');
+    assert.strictEqual(sb.APP.mode, 'live', 'user is switched to Live for review');
+    assert.strictEqual(sb.pendingOnboardingDeposit, false, 'live preview never queues a deposit');
+    assert.strictEqual(sb.fetchCalls.length, 0, 'live preview makes no request');
+    assert.ok(!sb.el('onboardingModal').classList.contains('open'), 'onboarding closes after choosing');
 });
 
 test('"Make My First Deposit" opens the deposit flow (no invoice yet)', () => {
@@ -328,18 +346,17 @@ test('Onboarding never credits a balance and creates no invoice', () => {
 test('i18n parity across 6 locales for the onboarding keys', () => {
     const T = loadTranslations();
     const keys = ['onboarding.title', 'onboarding.subtitle', 'onboarding.primary', 'onboarding.primaryDesc',
-        'onboarding.secondary', 'onboarding.secondaryDesc', 'onboarding.virtualNote', 'onboarding.realNote',
-        'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body', 'demoCta.button',
-        'demoCta.later', 'wallet.liveReal'];
+        'onboarding.secondary', 'onboarding.secondaryDesc', 'onboarding.explainer', 'onboarding.virtualNote',
+        'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
+        'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1331, 'expected 1331 keys per locale');
+    assert.strictEqual(enKeys.length, 1384, 'expected 1384 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {
             assert.ok(dict[k], `${lang}.${k} missing`);
             assert.ok(String(dict[k]).length > 0, `${lang}.${k} empty`);
         }
-        assert.ok(dict['onboarding.primaryDesc'].includes('{{min}}'), `${lang} primaryDesc must keep {{min}}`);
     }
 });
 

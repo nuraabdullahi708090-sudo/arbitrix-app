@@ -2810,3 +2810,64 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   fallback shows instead (never a broken/empty link).
 - STATUS: NOT committed, NOT pushed, NOT deployed.
 
+
+## Phase 27 - Beginner-Friendly First-Time-User UX Pass (2026-09, public/index.html + tests only)
+- Frontend-only clarity/wording pass (public/index.html). NO server.js, services/,
+  migrations, auth, wallet, trading, withdrawal-gate, KYC-enforcement, deposit
+  confirmation/crediting, webhook or payment-provider changes. No commit/push.
+  git status for this pass: M public/index.html, M tests/deposit_demo_ux.test.js,
+  M tests/onboarding_funnel.test.js, M tests/sandbox_withdraw_wording.test.js,
+  ?? tests/beginner_ux.test.js.
+- i18n: dictionaries 1331 -> 1384 keys/locale (53 new keys). Identical key sets
+  across en/es/pt/fr/ar/zh, 0 empty, 0 duplicate keys, 0 placeholder/tag parity
+  issues; all 669 data-i18n refs + 22 data-i18n-placeholder refs resolve.
+- Behavioral change (approved): the onboarding modal's PRIMARY choice is now the
+  safe one - "Explore Demo Mode" (btn-primary) with a secondary "Review Live
+  Mode" (btn-secondary). Live review only enters Live mode (no deposit, no
+  invoice). The legacy chooseOnboarding('deposit') path still exists.
+- Onboarding now explains the platform in plain language (onboarding.explainer +
+  a rewritten onboarding.primaryDesc set as a data-i18n span, so the modal
+  localizes instantly). Onboarding is still once-per-account, sandbox-exempt.
+- Auth page: added a mobile tagline (auth.mobileTagline) and the first-screen
+  explainer (auth.explainer.*).
+- Registration: handleSignup() now does PER-FIELD, localized validation
+  (signupName/signupEmail/signupPassword/signupConfirm get a .field-error beside
+  the input via setFieldError/failField) with new keys auth.errors.nameRequired/
+  emailRequired/passwordRequired + auth.signup.passwordMin; backend errors go
+  through translateBackendMessage. Added a password hint, a referral hint and a
+  "what happens next" note (auth.signup.passwordHint/referralHint/next/failed).
+- Dashboard: new dismissible "Start Here" checklist (#startHereCard, per-account
+  arbi_starthere_<id>, hidden for MARKETING_SANDBOX) plus short plain-language
+  hints on Total Equity, Available, Today's P&L, bot status, bot description,
+  market scanner and the transaction log (hint.* keys).
+- Deposit modal (display-only clarity): newToUsdt explainer, USDT-vs-USD note,
+  payment-method confirmation notice, address explanation, payment-reference
+  explanation and an "after sending" note (deposit.methodNotice/newToUsdt.*/
+  usdVsUsdt/addressExplain/referenceExplain/afterSending). No crediting logic
+  touched.
+- De-jargon: MTA is no longer exposed to users - mta.subtitle/bot.reachMTA/
+  bot.mtaMet/support.reply.bot now say "minimum trading balance" (the $200 value
+  and all gates are unchanged); the MTA-vs-amount line uses mta.targetLabel.
+- The activity ticker is now labelled "Sample activity" (ticker.sample), its
+  green live dot is neutral grey, live_amount and the LIVE badge were removed
+  from the mock items, and the label stays visible down to 320px (the
+  @media(max-width:379px) .ticker-label{display:none} rule was replaced with a
+  compact visible variant).
+- Support widget: the fake unread-count badge was removed; the header is now
+  "Support assistant" + "Automated" (support.assistant.name/automated/status)
+  with an official human-support section (support.human.title) and a clear
+  Telegram button label (support.officialTelegram).
+- Other: cookie consent localized (cookies.*), badge rarity pills localized at
+  render time (badgeRarityLabel + badge.rarity.*), history statuses localized
+  via depositStatusLabel/withdrawalStatusLabel (added status.processing +
+  status.completed for the sandbox lifecycle), and withdrawal copy now says
+  processing "usually takes 15-30 minutes" while the $700 minimum and "Requires
+  1 trade completed" clauses are unchanged in all 6 locales.
+- Verification: node --check-equivalent (vm.Script) on all 5 inline <script>
+  blocks OK. npm test = 725 pass / 0 fail (was 712; +13 = tests/beginner_ux.test.js
+  with 12 tests, plus the updated onboarding tests). Headless Chromium
+  (puppeteer-core + /usr/bin/chromium, stub fetch) = 16/16 scenarios
+  (en/es/ar/zh x 320/360/390/412): 0 horizontal overflow on auth + dashboard,
+  explainer/tagline/start-here/ticker/hints visible, onboarding opens, ar RTL
+  correct, deposit clarity copy present.
+- NOT committed / NOT pushed / NOT deployed.
