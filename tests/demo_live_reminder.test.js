@@ -15,7 +15,9 @@
  *   - dismissal is respected for the rest of the session;
  *   - the reminder is a dismissible banner, never a modal, and by itself it
  *     starts no deposit, invoice, trade or mode change;
- *   - it states the real-fund/loss risk and that demo funds are virtual.
+ *   - it states that demo funds are virtual and cannot be withdrawn (the
+ *     second "Live Mode uses real funds..." paragraph was removed by an
+ *     approved UI change, so it must stay gone).
  *
  * Run: npm test
  */
@@ -196,24 +198,34 @@ test('the reminder is a dismissible banner and never acts on its own', () => {
     assert.ok(/class="hidden"/.test(tag), 'starts hidden');
     assert.ok(!/modal-overlay/.test(tag), 'must not be a blocking modal');
 
-    // The banner explains demo funds are virtual and that Live uses real funds.
+    // The banner explains demo funds are virtual and cannot be withdrawn.
+    // The former second paragraph ("Live Mode uses real funds...") was removed
+    // by an approved UI change and must not come back.
     const block = INDEX.slice(at, INDEX.indexOf('</div>', INDEX.indexOf('demoCta.later', at)));
-    assert.ok(/data-i18n="demoCta\.risk"/.test(block), 'risk line present');
+    assert.ok(!/data-i18n="demoCta\.risk"/.test(block), 'removed risk paragraph must not return');
+    assert.ok(/data-i18n="demoCta\.body"/.test(block), 'virtual-funds paragraph present');
+    assert.ok(/data-i18n="demoCta\.title"/.test(block), 'heading present');
+    assert.ok(/data-i18n="demoCta\.button"/.test(block), 'primary deposit action present');
     assert.ok(/data-i18n="demoCta\.reviewLive"/.test(block), 'review action present');
     assert.ok(/onclick="dismissDemoDepositCta\(\)"/.test(block), 'dismiss action present');
 });
 
-test('risk wording is explicit and present in all 6 locales', () => {
+test('removed risk paragraph is retired in all 6 locales; card copy intact', () => {
     const T = loadTranslations();
     const locales = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-    const en = T.en['demoCta.risk'];
-    assert.ok(/real/i.test(en), 'EN must say Live uses real funds');
-    assert.ok(/los(e|ing)|risk/i.test(en), 'EN must state trading risk');
-    assert.ok(/virtual/i.test(en), 'EN must clarify demo funds are virtual');
+    // The approved UI change deleted the second paragraph from the card, so its
+    // copy must not linger in any dictionary - a stale key would invite it back.
     for (const l of locales) {
-        assert.ok(T[l] && String(T[l]['demoCta.risk'] || '').trim().length > 0, 'demoCta.risk missing for ' + l);
-        assert.ok(String(T[l]['demoCta.reviewLive'] || '').trim().length > 0, 'demoCta.reviewLive missing for ' + l);
-        assert.ok(String(T[l]['demoCta.reviewLiveToast'] || '').trim().length > 0, 'demoCta.reviewLiveToast missing for ' + l);
+        assert.ok(T[l], 'missing locale ' + l);
+        assert.strictEqual(T[l]['demoCta.risk'], undefined, 'demoCta.risk must be retired for ' + l);
+    }
+    // The retained copy still tells the beginner what demo funds are.
+    assert.ok(/virtual/i.test(T.en['demoCta.body']), 'EN body must clarify demo funds are virtual');
+    assert.ok(/cannot be withdrawn/i.test(T.en['demoCta.body']), 'EN body must say demo funds cannot be withdrawn');
+    for (const l of locales) {
+        for (const k of ['demoCta.title', 'demoCta.body', 'demoCta.button', 'demoCta.reviewLive', 'demoCta.reviewLiveToast', 'demoCta.later']) {
+            assert.ok(String(T[l][k] || '').trim().length > 0, k + ' missing for ' + l);
+        }
     }
 });
 

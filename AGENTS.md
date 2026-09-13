@@ -3023,3 +3023,106 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   errors. Screenshots: /tmp/uxverify/shots/ach-*.png.
 - NOTE: this phase is NOT committed, NOT pushed and NOT deployed (the working
   tree also still carries the uncommitted Phase 27 deployment note above).
+
+## Phase 28 DEPLOYED TO PRODUCTION (2026-09-13)
+- Deployment commit: 3768fa2f82835b83c3f0dca159d13aa609932f0d
+  ("refactor: move achievements to profile settings"), pushed
+  1bfba09..3768fa2 main -> main to github.com/nuraabdullahi708090-sudo/arbitrix-app
+  with the GITHUB_TOKEN-authenticated origin URL (the token embedded in the
+  original remote URL is dead and drops to a password prompt).
+- Auto-deployed to https://arbitrix.pro within ~1 minute (old build observed at
+  22:39:42Z/22:40:08Z, new build at 22:40:33Z).
+- Post-deploy verification: the served public/index.html is BYTE-IDENTICAL to
+  the committed file (sha256 e3c5b29fa0a3051db2f855f5993097ddca20d87d4c8c24f618ab25b85123d73a).
+  Live markers: id="profileAchievements" 1, adaptive grid rule 1, ticker
+  "LIVE ACTIVITY" 1, ticker.sample 0, MIN_WITHDRAWAL: 700 1. Placement in the
+  served HTML confirms mainContent at 278553 < profileModal at 437841 <
+  achievements panel at 443351, i.e. the panel is inside the profile modal and
+  absent from the dashboard slice, which still contains chart/trading-stats/MTA.
+- Production smoke (headless Chromium on the live URL, en@390 / en@1280 /
+  ar@390) = 36/36: panel NOT in the dashboard, panel inside the profile modal,
+  collapsed by default with the 0/12 counter markup intact, expand-on-click
+  works, dashboard content intact, LIVE ACTIVITY ticker intact, 0 horizontal
+  overflow, 0 page errors, 0 failed requests. /reset-password.html 200,
+  /api/health 200.
+- HARSHESS NOTE for future production checks: an anonymous visitor never runs
+  the authenticated `updateUI()`, so `#badgesGrid` is legitimately EMPTY on the
+  live site until login - badge population must be verified with the local
+  harness against the byte-identical file (60/60), not against the anonymous
+  production page. Also use `textContent` (not `innerText`) when reading text
+  inside hidden subtrees, and accept 304 for cached page loads.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does
+  not trigger a second production rebuild. The working tree therefore shows
+  AGENTS.md as modified - it is documentation only.
+
+## Phase 29 - Demo CTA copy trim + support surface de-overlap (2026-09-13, public/index.html + tests, frontend-only)
+- Two approved UI fixes. NO changes to server.js, services, Supabase, migrations,
+  DB schema, payment processing, deposit/withdrawal/trading/bot logic, wallet
+  math, production config, the LIVE ACTIVITY ticker, or the Phase 28
+  achievements relocation. Not committed, not pushed, not deployed.
+
+### 1. "Ready for real trading?" card (`#demoFirstDepositCta`) - 2nd paragraph removed
+- The card now ends after the first paragraph, before the buttons:
+  heading `demoCta.title` + ONE paragraph `demoCta.body` ("You're exploring with
+  virtual funds. Make your first deposit to fund your Live balance. Demo funds
+  stay virtual and cannot be withdrawn.") - BYTE-IDENTICAL to before.
+- REMOVED ELEMENT (the only markup deletion):
+  `<div style="font-size:11px;color:#8896B5;line-height:1.6;margin-top:6px;"
+   data-i18n="demoCta.risk">Live Mode uses real funds and trading involves risk
+   - you can lose money. Demo funds are virtual and can never be withdrawn.</div>`
+  Nothing replaced it (no substitute wording was invented).
+- KEPT: the heading, the first paragraph, "Make My First Deposit"
+  (openDepositModal), "Review Live Requirements" (reviewLiveRequirements),
+  "Maybe later" (dismissDemoDepositCta) - all handlers unchanged.
+- The now-dead `demoCta.risk` key was DELETED from all 6 locales (a stale key
+  would invite the paragraph back). Dictionary 1391 -> 1390 keys/locale, parity
+  intact across en/es/pt/fr/ar/zh. The 5 count pins were updated
+  (achievements_panel / beginner_ux / deposit_demo_ux / onboarding_funnel /
+  sandbox_withdraw_wording) and `tests/demo_live_reminder.test.js` now asserts
+  the paragraph is ABSENT, the `demoCta.risk` key is RETIRED in every locale,
+  and the retained `demoCta.*` keys still exist.
+
+### 2. Contact Support vs. floating assistant overlap - FIXED
+- ROOT CAUSE (measured, not guessed): the floating assistant widget
+  `.support-widget` is `z-index:9998` while the Support Center modal
+  (`#supportModal`, class `.deposit-modal`) is `z-index:3000`. So the assistant
+  panel - and even just the launcher FAB - rendered ON TOP of the Support
+  Center. Reproduction with the pre-change file: `panelVisible:true,
+  overlap:true, active surfaces:2` (EN and AR, 390px). Two support surfaces
+  were live at once.
+- FIX (3 small edits, no new destination, no new component):
+  1. CSS (stale-proof, tracks the modal's own class so it holds no matter which
+     of the 7 "Contact Support" buttons opened it): 
+     `body:has(#supportModal.open) .support-widget{display:none;}`
+  2. `openSupportModal()` also collapses the assistant
+     (`#supportPanel.classList.remove('open')`), so it cannot reopen on top of
+     or outlive the modal.
+  3. `toggleSupport()` closes `#supportModal` when it is opening the assistant,
+     so the reverse direction also keeps exactly one surface active.
+  `closeSupportModal()` was NOT changed: hiding the widget is pure CSS, so
+  closing the modal restores the launcher automatically (verified).
+- PRESERVED: assistant quick replies (3), message input, sendSupportMessage,
+  the official Telegram link/`openSupportModal` entry points, and the assistant
+  itself. Duplicate-open is structurally impossible (single `#supportPanel` /
+  `#supportModal` nodes; `classList.add` is idempotent) and was verified by
+  tapping Contact Support 5x + the FAB 3x -> still 1 panel / 1 widget / 1 modal
+  / 1 FAB and <= 1 active surface.
+- VERIFICATION: dedicated harness `/tmp/uxverify/support_overlap.js`
+  (puppeteer-core + chromium, stubbed fetch) at 320/360/390/412px:
+  BEFORE 44 pass / 20 fail -> AFTER 64 pass / 0 fail. Covers: one active
+  surface, no panel/modal competition, launcher not floating over the modal,
+  duplicate taps, close dismisses + launcher returns, close button visible and
+  tappable, FAB >= 44px, modal fits the viewport, no horizontal overflow, and
+  the assistant still usable (quick replies + 36px-tall input) on mobile.
+  Before/after screenshots: /tmp/uxverify/shots/support-{BEFORE,AFTER}-{390,ar-390}.png.
+- Demo-card harness `/tmp/uxverify/demo_cta_card.js`: 169 pass / 0 fail across
+  4 widths x 6 locales (heading kept, exactly one paragraph = `demoCta.body`,
+  removed paragraph absent from the DOM and from the card's copy, 3 actions with
+  handlers, all tappable and in-viewport, no overflow, no page errors, and the
+  EN first paragraph byte-identical to the approved text).
+- `npm test` = 759 pass / 0 fail. Inline script blocks parse (6/6, 0 errors).
+- HARNESS LESSONS (repeated): read `textContent` (not `innerText`) inside
+  hidden subtrees; `checkVisibility()` needs `{visibilityProperty:true,
+  opacityProperty:true, contentVisibilityAuto:true}`; scope "is this copy gone"
+  checks to the component (other surfaces legitimately use risk wording); and
+  reset surface state before a step that assumes a starting condition.

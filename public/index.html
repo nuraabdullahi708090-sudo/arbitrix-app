@@ -1289,6 +1289,14 @@
         .support-toggle-btn .badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
         .support-panel{position:fixed;bottom:74px;right:16px;left:16px;max-width:380px;max-height:70vh;background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border-color);box-shadow:0 20px 60px rgba(0,0,0,0.7);transform:scale(0.9) translateY(20px);opacity:0;pointer-events:none;transition:all 0.35s;overflow:hidden;display:flex;flex-direction:column;width:calc(100% - 32px);margin:0 auto;}
         .support-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}
+        /* Only one support surface may be active at a time. The floating
+           assistant widget sits at z-index 9998 while the Support Center modal
+           is z-index 3000, so an open assistant (or just its launcher button)
+           would render on top of the modal and the two would visually compete.
+           Hide the widget whenever the Support Center is open. This tracks the
+           modal's own .open class, so it holds no matter which of the many
+           "Contact Support" buttons opened it or how it gets closed. */
+        body:has(#supportModal.open) .support-widget{display:none;}
         .support-panel-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border-color);}
         .support-panel-header h4{font-size:14px;font-weight:700;}
         .support-panel-body{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
@@ -5562,7 +5570,6 @@ function toggleFaq(btn) {
             <div style="flex:1;min-width:200px;">
                 <div style="font-size:13px;font-weight:700;color:#F0B90B;margin-bottom:4px;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.title">Ready for real trading?</span></div>
                 <div style="font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="demoCta.body">You're exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.</div>
-                <div style="font-size:11px;color:#8896B5;line-height:1.6;margin-top:6px;" data-i18n="demoCta.risk">Live Mode uses real funds and trading involves risk - you can lose money. Demo funds are virtual and can never be withdrawn.</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;min-width:170px;">
                 <button type="button" onclick="openDepositModal()" class="btn btn-primary" style="background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.button">Make My First Deposit</span></button>
@@ -8089,7 +8096,6 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix is a multi-asset trading platform with Demo Mode and Live Mode. Start by exploring Demo Mode to understand the platform, then review Live Mode when you are ready.',
         'demoCta.title': 'Ready for real trading?',
         'demoCta.body': 'You\'re exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.',
-        'demoCta.risk': 'Live Mode uses real funds and trading involves risk - you can lose money. Demo funds are virtual and can never be withdrawn.',
         'demoCta.reviewLive': 'Review Live Requirements',
         'demoCta.reviewLiveToast': 'Live Mode shown. A deposit is required before you can trade real funds.',
         'demoCta.button': 'Make My First Deposit',
@@ -9500,7 +9506,6 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix es una plataforma de trading multi-activo con Modo Demo y Modo Live. Empieza explorando el Modo Demo para conocer la plataforma y revisa el Modo Live cuando estés listo.',
         'demoCta.title': '¿Listo para operar de verdad?',
         'demoCta.body': 'Estás explorando con fondos virtuales. Haz tu primer depósito para financiar tu saldo LIVE. Los fondos demo siguen siendo virtuales y no se pueden retirar.',
-        'demoCta.risk': 'El modo Live usa fondos reales y operar implica riesgo: puedes perder dinero. Los fondos demo son virtuales y nunca se pueden retirar.',
         'demoCta.reviewLive': 'Ver requisitos de Live',
         'demoCta.reviewLiveToast': 'Modo Live mostrado. Se requiere un depósito antes de operar con fondos reales.',
         'demoCta.button': 'Hacer mi primer depósito',
@@ -10912,7 +10917,6 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'A Arbitrix é uma plataforma de negociação multi-ativo com Modo Demo e Modo Live. Comece explorando o Modo Demo para entender a plataforma e veja o Modo Live quando estiver pronto.',
         'demoCta.title': 'Pronto para negociar de verdade?',
         'demoCta.body': 'Você está explorando com fundos virtuais. Faça seu primeiro depósito para financiar seu saldo LIVE. Os fundos demo continuam virtuais e não podem ser sacados.',
-        'demoCta.risk': 'O modo Live usa fundos reais e negociar envolve risco - você pode perder dinheiro. Os fundos demo são virtuais e nunca podem ser sacados.',
         'demoCta.reviewLive': 'Ver requisitos do Live',
         'demoCta.reviewLiveToast': 'Modo Live exibido. É necessário um depósito antes de negociar com fundos reais.',
         'demoCta.button': 'Fazer meu primeiro depósito',
@@ -12324,7 +12328,6 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix est une plateforme de trading multi-actifs avec un mode démo et un mode Live. Commencez par explorer le mode démo pour découvrir la plateforme, puis découvrez le mode Live quand vous serez prêt.',
         'demoCta.title': 'Prêt à trader réellement ?',
         'demoCta.body': 'Vous explorez avec des fonds virtuels. Faites votre premier dépôt pour alimenter votre solde LIVE. Les fonds démo restent virtuels et ne peuvent pas être retirés.',
-        'demoCta.risk': 'Le mode Live utilise des fonds réels et le trading comporte des risques : vous pouvez perdre de l\'argent. Les fonds démo sont virtuels et ne peuvent jamais être retirés.',
         'demoCta.reviewLive': 'Voir les conditions Live',
         'demoCta.reviewLiveToast': 'Mode Live affiché. Un dépôt est requis avant de trader avec des fonds réels.',
         'demoCta.button': 'Faire mon premier dépôt',
@@ -13736,7 +13739,6 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix منصة تداول متعددة الأصول تتضمن الوضع التجريبي ووضع LIVE. ابدأ باستكشاف الوضع التجريبي لفهم المنصة، ثم راجع وضع LIVE عندما تكون مستعدًا.',
         'demoCta.title': 'مستعد للتداول الحقيقي؟',
         'demoCta.body': 'أنت تستكشف بأموال افتراضية. أجرِ أول إيداع لك لتمويل رصيدك LIVE. تبقى أموال Demo افتراضية ولا يمكن سحبها.',
-        'demoCta.risk': 'يستخدم وضع Live أموالاً حقيقية، والتداول ينطوي على مخاطر — قد تخسر أموالك. أموال Demo افتراضية ولا يمكن سحبها أبداً.',
         'demoCta.reviewLive': 'مراجعة متطلبات Live',
         'demoCta.reviewLiveToast': 'تم عرض وضع Live. يلزم إجراء إيداع قبل التداول بأموال حقيقية.',
         'demoCta.button': 'إجراء أول إيداع لي',
@@ -15148,7 +15150,6 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix 是一个多资产交易平台，提供演示模式和 LIVE 模式。请先体验演示模式来了解平台，准备好后再查看 LIVE 模式。',
         'demoCta.title': '准备好进行真实交易了吗？',
         'demoCta.body': '您正在使用虚拟资金体验。进行首次入金可为您的 LIVE 余额充值。演示资金始终保持虚拟且无法提取。',
-        'demoCta.risk': '实盘模式使用真实资金，交易存在风险——您可能亏损。演示资金为虚拟资金，永远无法提取。',
         'demoCta.reviewLive': '查看实盘要求',
         'demoCta.reviewLiveToast': '已显示实盘模式。在进行真实资金交易前需要先充值。',
         'demoCta.button': '进行我的首次入金',
@@ -20259,6 +20260,10 @@ function openSupportModal() {
     // completely and the button that opened it looks broken. Close them first
     // so the support modal is always the visible layer.
     document.querySelectorAll('.modal-overlay.open').forEach(function (m) { m.classList.remove('open'); });
+    // Only one support surface at a time: collapse the floating assistant so it
+    // cannot reopen on top of (or outlive) the Support Center modal.
+    const assistant = document.getElementById('supportPanel');
+    if (assistant) assistant.classList.remove('open');
     updateSupportLinks();
     const modal = document.getElementById('supportModal');
     if (modal) modal.classList.add('open');
@@ -20300,6 +20305,12 @@ function copyInvoiceRef() {
 function toggleSupport() {
     try {
         const panel = document.getElementById('supportPanel');
+        // Only one support surface at a time: bringing the assistant forward
+        // dismisses the Support Center modal (which also un-hides this widget).
+        if (!panel.classList.contains('open')) {
+            const modal = document.getElementById('supportModal');
+            if (modal) modal.classList.remove('open');
+        }
         panel.classList.toggle('open');
     } catch(e) {}
 }
