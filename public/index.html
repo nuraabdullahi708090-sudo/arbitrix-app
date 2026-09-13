@@ -5503,7 +5503,7 @@ function toggleFaq(btn) {
         </div>
 
         <div class="ticker-wrapper" id="activityTicker">
-            <div class="ticker-label"><span class="live-dot" style="background:#8896B5;box-shadow:none;animation:none;"></span><span data-i18n="ticker.sample">Sample activity</span></div>
+            <div class="ticker-label"><span class="live-dot"></span><span data-i18n="ticker.live">LIVE ACTIVITY</span></div>
             <div class="ticker-track"><div class="ticker-content" id="tickerContent"></div></div>
         </div>
 
@@ -5541,10 +5541,14 @@ function toggleFaq(btn) {
             <div style="flex:1;min-width:200px;">
                 <div style="font-size:13px;font-weight:700;color:#F0B90B;margin-bottom:4px;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.title">Ready for real trading?</span></div>
                 <div style="font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="demoCta.body">You're exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.</div>
+                <div style="font-size:11px;color:#8896B5;line-height:1.6;margin-top:6px;" data-i18n="demoCta.risk">Live Mode uses real funds and trading involves risk - you can lose money. Demo funds are virtual and can never be withdrawn.</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;min-width:170px;">
                 <button type="button" onclick="openDepositModal()" class="btn btn-primary" style="background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.button">Make My First Deposit</span></button>
-                <button type="button" onclick="dismissDemoDepositCta()" class="btn btn-secondary" style="font-size:11px;" data-i18n="demoCta.later">Maybe later</button>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" onclick="reviewLiveRequirements()" class="btn btn-secondary" style="font-size:11px;flex:1;min-width:120px;" data-i18n="demoCta.reviewLive">Review Live Requirements</button>
+                    <button type="button" onclick="dismissDemoDepositCta()" class="btn btn-secondary" style="font-size:11px;flex:1;min-width:90px;" data-i18n="demoCta.later">Maybe later</button>
+                </div>
             </div>
         </div>
 
@@ -5727,12 +5731,16 @@ function toggleFaq(btn) {
                 <span class="icon-bg gold"><i class="fas fa-clock-rotate-left"></i></span> 
                 <span data-i18n="history.title">Transaction Log</span> 
                 <span style="margin-left:auto;font-size:9px;display:flex;align-items:center;gap:8px;">
-                    <span data-i18n="history.last30min">Last 30 min</span>
+                    <span id="txRangeRecentLabel" data-i18n="history.last30min">Last 30 min</span>
+                    <span id="txRangeAllLabel" class="hidden" data-i18n="history.allActivity">All activity</span>
                     <span class="tx-count-badge" id="historyCount">0</span>
                 </span>
             </div>
             <div class="card-body">
-                <div style="font-size:10px;color:#5A6A8A;margin-bottom:8px;" data-i18n="hint.txLog">Your recent activity (last 30 minutes).</div>
+                <div style="font-size:10px;color:#5A6A8A;margin-bottom:8px;">
+                    <span id="txHintRecent" data-i18n="hint.txLog">Your recent activity (last 30 minutes).</span>
+                    <span id="txHintAll" class="hidden" data-i18n="hint.txLogAll">All activity for this account, including older sessions.</span>
+                </div>
                 <div class="tx-list-wrapper" id="txListWrapper">
                     <div id="tradeHistoryContainer" class="empty-state">
                         <i class="fas fa-inbox"></i>
@@ -5741,6 +5749,12 @@ function toggleFaq(btn) {
                 </div>
                 <button type="button" class="tx-view-more-btn hidden" id="viewMoreTxBtn" onclick="toggleTransactionView()">
                     <i class="fas fa-chevron-down"></i> <span data-i18n="history.viewMore">View More</span> <span id="txMoreCount"></span>
+                </button>
+                <!-- Display-only range switch: reveals transactions older than the
+                     30-minute preview from the same stored history. It never
+                     deletes, rewrites or re-credits anything. -->
+                <button type="button" class="tx-view-more-btn hidden" id="viewOlderTxBtn" onclick="toggleTransactionRange()">
+                    <i class="fas fa-clock-rotate-left"></i> <span id="txOlderLabelMore" data-i18n="history.viewOlder">Older activity</span><span id="txOlderLabelBack" class="hidden" data-i18n="history.backToRecent">Back to last 30 min</span> <span id="txOlderCount"></span>
                 </button>
             </div>
         </div>
@@ -7887,8 +7901,7 @@ const TRANSLATIONS = {
         'status.demoTrading': 'Demo Trading • Virtual Funds',
         'status.liveFunded': 'Live • Funded',
         'status.livePending': 'Live • Pending Deposit',
-        'ticker.live': 'LIVE',
-        'ticker.sample': 'Sample activity',
+        'ticker.live': 'LIVE ACTIVITY',
         'stats.equity': 'Total Equity',
         'stats.available': 'Available',
         'stats.pnl': "Today's P&L",
@@ -7900,6 +7913,7 @@ const TRANSLATIONS = {
         'hint.bot': 'Scans supported markets and trades automatically when running',
         'hint.scanner': 'Market scanning',
         'hint.txLog': 'Your recent activity (last 30 minutes).',
+        'hint.txLogAll': 'All activity for this account, including older sessions.',
         'bot.offline': 'Offline',
         'bot.running': 'Running',
         'bot.title': 'Arbitrix AI Bot',
@@ -7973,6 +7987,10 @@ const TRANSLATIONS = {
         'bonus.withdrawHistory': '💰 Bonus withdrawn: ${{amount}} to Live wallet',
         'history.title': 'Transaction Log',
         'history.last30min': 'Last 30 min',
+        'history.allActivity': 'All activity',
+        'history.viewOlder': 'Older activity',
+        'history.backToRecent': 'Back to last 30 min',
+        'history.empty': 'No transactions yet',
         'history.entries': 'entries',
         'history.noTransactions': 'No transactions in last 30 minutes',
         'history.viewMore': 'View More',
@@ -8045,6 +8063,9 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix is a multi-asset trading platform with Demo Mode and Live Mode. Start by exploring Demo Mode to understand the platform, then review Live Mode when you are ready.',
         'demoCta.title': 'Ready for real trading?',
         'demoCta.body': 'You\'re exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.',
+        'demoCta.risk': 'Live Mode uses real funds and trading involves risk - you can lose money. Demo funds are virtual and can never be withdrawn.',
+        'demoCta.reviewLive': 'Review Live Requirements',
+        'demoCta.reviewLiveToast': 'Live Mode shown. A deposit is required before you can trade real funds.',
         'demoCta.button': 'Make My First Deposit',
         'demoCta.later': 'Maybe later',
         'startHere.title': 'Start Here',
@@ -9291,8 +9312,7 @@ const TRANSLATIONS = {
         'status.demoTrading': 'Trading demo • Fondos virtuales',
         'status.liveFunded': 'Live • Fondos cargados',
         'status.livePending': 'Live • Depósito pendiente',
-        'ticker.live': 'LIVE',
-        'ticker.sample': 'Actividad de ejemplo',
+        'ticker.live': 'ACTIVIDAD EN VIVO',
         'stats.equity': 'Patrimonio total',
         'stats.available': 'Disponible',
         'stats.pnl': 'P&L de hoy',
@@ -9304,6 +9324,7 @@ const TRANSLATIONS = {
         'hint.bot': 'Analiza los mercados compatibles y opera automáticamente cuando está activo',
         'hint.scanner': 'Escaneo de mercado',
         'hint.txLog': 'Tu actividad reciente (últimos 30 minutos).',
+        'hint.txLogAll': 'Toda la actividad de esta cuenta, incluidas sesiones anteriores.',
         'bot.offline': 'Desconectado',
         'bot.running': 'En ejecución',
         'bot.title': 'Bot Arbitrix AI',
@@ -9377,6 +9398,10 @@ const TRANSLATIONS = {
         'bonus.withdrawHistory': '💰 Bono retirado: ${{amount}} a la cartera Live',
         'history.title': 'Registro de transacciones',
         'history.last30min': 'Últimos 30 min',
+        'history.allActivity': 'Toda la actividad',
+        'history.viewOlder': 'Actividad anterior',
+        'history.backToRecent': 'Volver a los últimos 30 min',
+        'history.empty': 'Aún no hay transacciones',
         'history.entries': 'entradas',
         'history.noTransactions': 'Sin transacciones en los últimos 30 minutos',
         'history.viewMore': 'Ver más',
@@ -9449,6 +9474,9 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix es una plataforma de trading multi-activo con Modo Demo y Modo Live. Empieza explorando el Modo Demo para conocer la plataforma y revisa el Modo Live cuando estés listo.',
         'demoCta.title': '¿Listo para operar de verdad?',
         'demoCta.body': 'Estás explorando con fondos virtuales. Haz tu primer depósito para financiar tu saldo LIVE. Los fondos demo siguen siendo virtuales y no se pueden retirar.',
+        'demoCta.risk': 'El modo Live usa fondos reales y operar implica riesgo: puedes perder dinero. Los fondos demo son virtuales y nunca se pueden retirar.',
+        'demoCta.reviewLive': 'Ver requisitos de Live',
+        'demoCta.reviewLiveToast': 'Modo Live mostrado. Se requiere un depósito antes de operar con fondos reales.',
         'demoCta.button': 'Hacer mi primer depósito',
         'demoCta.later': 'Quizás más tarde',
         'startHere.title': 'Empieza aquí',
@@ -10696,8 +10724,7 @@ const TRANSLATIONS = {
         'status.demoTrading': 'Trading demo • Fundos virtuais',
         'status.liveFunded': 'Live • Fundos disponíveis',
         'status.livePending': 'Live • Depósito pendente',
-        'ticker.live': 'LIVE',
-        'ticker.sample': 'Atividade de exemplo',
+        'ticker.live': 'ATIVIDADE AO VIVO',
         'stats.equity': 'Patrimônio total',
         'stats.available': 'Disponível',
         'stats.pnl': 'P&L de hoje',
@@ -10709,6 +10736,7 @@ const TRANSLATIONS = {
         'hint.bot': 'Analisa os mercados compatíveis e negocia automaticamente quando ativo',
         'hint.scanner': 'Varredura de mercado',
         'hint.txLog': 'Sua atividade recente (últimos 30 minutos).',
+        'hint.txLogAll': 'Toda a atividade desta conta, incluindo sessões anteriores.',
         'bot.offline': 'Desconectado',
         'bot.running': 'Em execução',
         'bot.title': 'Bot Arbitrix AI',
@@ -10782,6 +10810,10 @@ const TRANSLATIONS = {
         'bonus.withdrawHistory': '💰 Bônus sacado: ${{amount}} para a carteira Live',
         'history.title': 'Registro de transações',
         'history.last30min': 'Últimos 30 min',
+        'history.allActivity': 'Toda a atividade',
+        'history.viewOlder': 'Atividade anterior',
+        'history.backToRecent': 'Voltar aos últimos 30 min',
+        'history.empty': 'Ainda não há transações',
         'history.entries': 'registros',
         'history.noTransactions': 'Sem transações nos últimos 30 minutos',
         'history.viewMore': 'Ver mais',
@@ -10854,6 +10886,9 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'A Arbitrix é uma plataforma de negociação multi-ativo com Modo Demo e Modo Live. Comece explorando o Modo Demo para entender a plataforma e veja o Modo Live quando estiver pronto.',
         'demoCta.title': 'Pronto para negociar de verdade?',
         'demoCta.body': 'Você está explorando com fundos virtuais. Faça seu primeiro depósito para financiar seu saldo LIVE. Os fundos demo continuam virtuais e não podem ser sacados.',
+        'demoCta.risk': 'O modo Live usa fundos reais e negociar envolve risco - você pode perder dinheiro. Os fundos demo são virtuais e nunca podem ser sacados.',
+        'demoCta.reviewLive': 'Ver requisitos do Live',
+        'demoCta.reviewLiveToast': 'Modo Live exibido. É necessário um depósito antes de negociar com fundos reais.',
         'demoCta.button': 'Fazer meu primeiro depósito',
         'demoCta.later': 'Talvez mais tarde',
         'startHere.title': 'Comece aqui',
@@ -12101,8 +12136,7 @@ const TRANSLATIONS = {
         'status.demoTrading': 'Trading démo • Fonds virtuels',
         'status.liveFunded': 'Live • Approvisionné',
         'status.livePending': 'Live • Dépôt en attente',
-        'ticker.live': 'LIVE',
-        'ticker.sample': 'Activité d\'exemple',
+        'ticker.live': 'ACTIVITÉ EN DIRECT',
         'stats.equity': 'Capitaux propres totaux',
         'stats.available': 'Disponible',
         'stats.pnl': 'P&L du jour',
@@ -12114,6 +12148,7 @@ const TRANSLATIONS = {
         'hint.bot': 'Analyse les marchés pris en charge et trade automatiquement lorsqu\'il est actif',
         'hint.scanner': 'Analyse des marchés',
         'hint.txLog': 'Votre activité récente (30 dernières minutes).',
+        'hint.txLogAll': 'Toute l\'activité de ce compte, y compris les sessions précédentes.',
         'bot.offline': 'Hors ligne',
         'bot.running': 'En cours',
         'bot.title': 'Bot Arbitrix AI',
@@ -12187,6 +12222,10 @@ const TRANSLATIONS = {
         'bonus.withdrawHistory': '💰 Bonus retiré : ${{amount}} vers le portefeuille live',
         'history.title': 'Journal des transactions',
         'history.last30min': '30 dernières minutes',
+        'history.allActivity': 'Toute l\'activité',
+        'history.viewOlder': 'Activité antérieure',
+        'history.backToRecent': 'Retour aux 30 dernières min',
+        'history.empty': 'Aucune transaction pour le moment',
         'history.entries': 'entrées',
         'history.noTransactions': 'Aucune transaction dans les 30 dernières minutes',
         'history.viewMore': 'Voir plus',
@@ -12259,6 +12298,9 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix est une plateforme de trading multi-actifs avec un mode démo et un mode Live. Commencez par explorer le mode démo pour découvrir la plateforme, puis découvrez le mode Live quand vous serez prêt.',
         'demoCta.title': 'Prêt à trader réellement ?',
         'demoCta.body': 'Vous explorez avec des fonds virtuels. Faites votre premier dépôt pour alimenter votre solde LIVE. Les fonds démo restent virtuels et ne peuvent pas être retirés.',
+        'demoCta.risk': 'Le mode Live utilise des fonds réels et le trading comporte des risques : vous pouvez perdre de l\'argent. Les fonds démo sont virtuels et ne peuvent jamais être retirés.',
+        'demoCta.reviewLive': 'Voir les conditions Live',
+        'demoCta.reviewLiveToast': 'Mode Live affiché. Un dépôt est requis avant de trader avec des fonds réels.',
         'demoCta.button': 'Faire mon premier dépôt',
         'demoCta.later': 'Plus tard',
         'startHere.title': 'Commencez ici',
@@ -13506,8 +13548,7 @@ const TRANSLATIONS = {
         'status.demoTrading': 'تداول تجريبي • أموال افتراضية',
         'status.liveFunded': 'مباشر • مموّل',
         'status.livePending': 'مباشر • إيداع معلّق',
-        'ticker.live': 'مباشر',
-        'ticker.sample': 'نشاط تجريبي للعرض',
+        'ticker.live': 'نشاط مباشر',
         'stats.equity': 'إجمالي رأس المال',
         'stats.available': 'متاح',
         'stats.pnl': 'ربح وخسارة اليوم',
@@ -13519,6 +13560,7 @@ const TRANSLATIONS = {
         'hint.bot': 'يفحص الأسواق المدعومة ويتداول تلقائيًا عند التشغيل',
         'hint.scanner': 'فحص السوق',
         'hint.txLog': 'نشاطك الأخير (آخر 30 دقيقة).',
+        'hint.txLogAll': 'كل نشاط هذا الحساب، بما في ذلك الجلسات السابقة.',
         'bot.offline': 'غير متصل',
         'bot.running': 'قيد التشغيل',
         'bot.title': 'روبوت Arbitrix AI',
@@ -13592,6 +13634,10 @@ const TRANSLATIONS = {
         'bonus.withdrawHistory': '💰 تم سحب المكافأة: ${{amount}} إلى المحفظة المباشرة',
         'history.title': 'سجل المعاملات',
         'history.last30min': 'آخر 30 دقيقة',
+        'history.allActivity': 'كل النشاط',
+        'history.viewOlder': 'نشاط أقدم',
+        'history.backToRecent': 'العودة إلى آخر 30 دقيقة',
+        'history.empty': 'لا توجد معاملات بعد',
         'history.entries': 'عمليات',
         'history.noTransactions': 'لا توجد معاملات في آخر 30 دقيقة',
         'history.viewMore': 'عرض المزيد',
@@ -13664,6 +13710,9 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix منصة تداول متعددة الأصول تتضمن الوضع التجريبي ووضع LIVE. ابدأ باستكشاف الوضع التجريبي لفهم المنصة، ثم راجع وضع LIVE عندما تكون مستعدًا.',
         'demoCta.title': 'مستعد للتداول الحقيقي؟',
         'demoCta.body': 'أنت تستكشف بأموال افتراضية. أجرِ أول إيداع لك لتمويل رصيدك LIVE. تبقى أموال Demo افتراضية ولا يمكن سحبها.',
+        'demoCta.risk': 'يستخدم وضع Live أموالاً حقيقية، والتداول ينطوي على مخاطر — قد تخسر أموالك. أموال Demo افتراضية ولا يمكن سحبها أبداً.',
+        'demoCta.reviewLive': 'مراجعة متطلبات Live',
+        'demoCta.reviewLiveToast': 'تم عرض وضع Live. يلزم إجراء إيداع قبل التداول بأموال حقيقية.',
         'demoCta.button': 'إجراء أول إيداع لي',
         'demoCta.later': 'ربما لاحقًا',
         'startHere.title': 'ابدأ من هنا',
@@ -14911,8 +14960,7 @@ const TRANSLATIONS = {
         'status.demoTrading': '模拟交易 • 虚拟资金',
         'status.liveFunded': '实盘 • 已入金',
         'status.livePending': '实盘 • 待入金',
-        'ticker.live': '实盘',
-        'ticker.sample': '示例活动',
+        'ticker.live': '实时活动',
         'stats.equity': '总权益',
         'stats.available': '可用',
         'stats.pnl': '今日盈亏',
@@ -14924,6 +14972,7 @@ const TRANSLATIONS = {
         'hint.bot': '运行时自动扫描受支持市场并交易',
         'hint.scanner': '市场扫描',
         'hint.txLog': '您最近的活动（最近 30 分钟）。',
+        'hint.txLogAll': '此账户的全部活动，包括此前的会话。',
         'bot.offline': '离线',
         'bot.running': '运行中',
         'bot.title': 'Arbitrix AI 机器人',
@@ -14997,6 +15046,10 @@ const TRANSLATIONS = {
         'bonus.withdrawHistory': '💰 奖金已提现：${{amount}} 到实盘钱包',
         'history.title': '交易记录',
         'history.last30min': '最近 30 分钟',
+        'history.allActivity': '全部活动',
+        'history.viewOlder': '更早的活动',
+        'history.backToRecent': '返回最近 30 分钟',
+        'history.empty': '暂无交易',
         'history.entries': '条记录',
         'history.noTransactions': '最近 30 分钟内无交易',
         'history.viewMore': '查看更多',
@@ -15069,6 +15122,9 @@ const TRANSLATIONS = {
         'onboarding.explainer': 'Arbitrix 是一个多资产交易平台，提供演示模式和 LIVE 模式。请先体验演示模式来了解平台，准备好后再查看 LIVE 模式。',
         'demoCta.title': '准备好进行真实交易了吗？',
         'demoCta.body': '您正在使用虚拟资金体验。进行首次入金可为您的 LIVE 余额充值。演示资金始终保持虚拟且无法提取。',
+        'demoCta.risk': '实盘模式使用真实资金，交易存在风险——您可能亏损。演示资金为虚拟资金，永远无法提取。',
+        'demoCta.reviewLive': '查看实盘要求',
+        'demoCta.reviewLiveToast': '已显示实盘模式。在进行真实资金交易前需要先充值。',
         'demoCta.button': '进行我的首次入金',
         'demoCta.later': '稍后再说',
         'startHere.title': '从这里开始',
@@ -16614,7 +16670,7 @@ const APP = {
     chartPeriod: '30m', chartInstance: null,
     unlockedBadges: { demo: [], live: [] },
     celebratedMilestones: { profit_100: false, profit_500: false, profit_1000: false, streak_5: false, streak_10: false, mta_reached: false, first_deposit: false, all_badges: false },
-    txViewExpanded: false
+    txViewExpanded: false, txShowOlder: false
 };
 
 let appReady = false;
@@ -17295,25 +17351,33 @@ function toggleTransactionView() {
 
 function updateTransactionLog() {
     const data = getCurrentData();
-    const recentHistory = getRecentHistory(data.history, 30);
+    const fullHistory = (data && Array.isArray(data.history)) ? data.history : [];
+    const recentHistory = getRecentHistory(fullHistory, 30);
+    // "Older activity" is a DISPLAY range switch only. The stored history is
+    // never trimmed: entries older than 30 minutes stay in data.history
+    // (persisted in localStorage per wallet) and are rendered on demand.
+    const showingAll = !!APP.txShowOlder;
+    const visibleHistory = showingAll ? fullHistory : recentHistory;
     const container = document.getElementById('tradeHistoryContainer');
     const btn = document.getElementById('viewMoreTxBtn');
     const moreCount = document.getElementById('txMoreCount');
-    if (!recentHistory.length) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>' + t('history.noTransactions') + '</p></div>';
-        btn.classList.add('hidden');
+
+    if (!visibleHistory.length) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>' + t(showingAll ? 'history.empty' : 'history.noTransactions') + '</p></div>';
+        if (btn) btn.classList.add('hidden');
+        updateTransactionRangeControls(fullHistory, recentHistory, showingAll);
         return;
     }
-    const displayCount = APP.txViewExpanded ? recentHistory.length : Math.min(5, recentHistory.length);
-    const hiddenCount = recentHistory.length - displayCount;
+    const displayCount = APP.txViewExpanded ? visibleHistory.length : Math.min(5, visibleHistory.length);
+    const hiddenCount = visibleHistory.length - displayCount;
     let html = '';
-    for (let i = 0; i < displayCount && i < recentHistory.length; i++) {
-        const entry = recentHistory[i];
+    for (let i = 0; i < displayCount && i < visibleHistory.length; i++) {
+        const entry = visibleHistory[i];
         let amountClass = 'neutral';
         let prefix = '';
         if (entry.amount > 0) { amountClass = 'positive'; prefix = '+'; }
         else if (entry.amount < 0) { amountClass = 'negative'; prefix = '-'; }
-        
+
         html += '<div class="tx-entry">' +
                 '<div style="min-width:0;flex:1;">' +
                     '<div class="tx-type">' + txTypeLabel(entry.type) + '</div>' +
@@ -17326,7 +17390,7 @@ function updateTransactionLog() {
             '</div>';
     }
     container.innerHTML = html;
-    if (recentHistory.length > 5) {
+    if (visibleHistory.length > 5) {
         btn.classList.remove('hidden');
         if (hiddenCount > 0) {
             moreCount.textContent = '(' + hiddenCount + ' ' + t('history.entries') + ')';
@@ -17336,7 +17400,44 @@ function updateTransactionLog() {
     } else {
         btn.classList.add('hidden');
     }
-    document.getElementById('historyCount').textContent = recentHistory.length;
+    document.getElementById('historyCount').textContent = visibleHistory.length;
+    updateTransactionRangeControls(fullHistory, recentHistory, showingAll);
+}
+
+// Range UI for the Transaction Log: switches the "Last 30 min" / "All activity"
+// labels and hints and shows the "Older activity" toggle. Read-only display
+// state - it never deletes, rewrites or re-credits a stored transaction.
+function updateTransactionRangeControls(fullHistory, recentHistory, showingAll) {
+    const olderCount = Math.max(0, fullHistory.length - recentHistory.length);
+    const setHidden = function (id, hidden) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', !!hidden);
+    };
+    setHidden('txRangeRecentLabel', showingAll);
+    setHidden('txRangeAllLabel', !showingAll);
+    setHidden('txHintRecent', showingAll);
+    setHidden('txHintAll', !showingAll);
+    setHidden('txOlderLabelMore', showingAll);
+    setHidden('txOlderLabelBack', !showingAll);
+
+    const olderBtn = document.getElementById('viewOlderTxBtn');
+    if (olderBtn) {
+        // Offer the switch when older entries exist, and keep it reachable in
+        // the all-activity view so the user can always return to the preview.
+        olderBtn.classList.toggle('hidden', olderCount <= 0 && !showingAll);
+    }
+    const olderCountEl = document.getElementById('txOlderCount');
+    if (olderCountEl) {
+        olderCountEl.textContent = olderCount > 0 ? '(' + olderCount + ' ' + t('history.entries') + ')' : '';
+    }
+}
+
+function toggleTransactionRange() {
+    APP.txShowOlder = !APP.txShowOlder;
+    APP.txViewExpanded = false;
+    const btn = document.getElementById('viewMoreTxBtn');
+    if (btn) btn.dataset.expanded = 'false';
+    updateTransactionLog();
 }
 
 // ============ TICKER ============
@@ -18244,6 +18345,7 @@ function setMode(mode) {
         APP.currentWallet = 'live';
     }
     APP.txViewExpanded = false;
+    APP.txShowOlder = false;
     const btn = document.getElementById('viewMoreTxBtn');
     if (btn) btn.dataset.expanded = 'false';
     updateUI();
@@ -18997,6 +19099,13 @@ function switchToLiveAndContinueDeposit() {
 // nothing. MARKETING_SANDBOX accounts never see it.
 let pendingOnboardingDeposit = false;
 let demoDepositCtaDismissed = false;
+// Demo-to-Live reminder pacing (session only). The reminder is deliberately
+// restrained: it waits for meaningful demo activity, is suppressed while the
+// bot is trading, and once hidden it is not raised again until the interval has
+// elapsed - so it can never nag after every trade.
+const DEMO_CTA_MIN_TRADES = 3;
+const DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;
+let demoCtaLastShownAt = 0;
 
 function currentCachedUser() {
     try { return JSON.parse(localStorage.getItem('arbi_user') || 'null'); } catch (e) { return null; }
@@ -19069,21 +19178,47 @@ function chooseOnboarding(choice) {
 }
 
 // Non-aggressive in-Demo prompt to make the first deposit. Shown only to
-// production accounts that are in Demo mode without a confirmed deposit.
+// production accounts that are in Demo mode, have no confirmed deposit AND have
+// built up meaningful demo activity. Never modal, never blocking.
 function updateDemoFirstDepositCta() {
     const el = document.getElementById('demoFirstDepositCta');
     if (!el) return;
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
-    const show = !isSandbox
-        && APP.mode === 'demo'
-        && !(APP.liveData && APP.liveData.hasRealDeposit)
+    const demo = APP.mode === 'demo';
+    const funded = !!(APP.liveData && APP.liveData.hasRealDeposit);
+    const trades = Number((APP.demoData && APP.demoData.trades) || 0);
+    const wasVisible = !el.classList.contains('hidden');
+
+    let show = !isSandbox
+        && demo
+        && !funded
+        && trades >= DEMO_CTA_MIN_TRADES
+        && !APP.botRunning
         && !demoDepositCtaDismissed;
+
+    // Frequency limit: a reminder that has been hidden is not raised again
+    // until the interval elapses (i.e. never once per trade).
+    const now = Date.now();
+    if (show && !wasVisible && demoCtaLastShownAt
+        && (now - demoCtaLastShownAt) < DEMO_CTA_REMINDER_INTERVAL_MS) {
+        show = false;
+    }
+    if (show && !wasVisible) demoCtaLastShownAt = now;
     el.classList.toggle('hidden', !show);
 }
 
 function dismissDemoDepositCta() {
     demoDepositCtaDismissed = true;
     updateDemoFirstDepositCta();
+}
+
+// "Review Live Requirements" reuses the existing review-only Live entry - the
+// same setMode('live') path onboarding's "Review Live Mode" already uses. It
+// starts no deposit, invoice or trade; it only shows the Live view so the user
+// can read what funding Live actually requires.
+function reviewLiveRequirements() {
+    setMode('live');
+    showToast(t('demoCta.reviewLiveToast'), 'info');
 }
 
 // ---- "Start Here" beginner checklist (dismissible, per account) -----------
@@ -20093,6 +20228,11 @@ function openSupportModal() {
     if (sidebar) sidebar.classList.remove('open');
     const overlay = document.getElementById('sidebarOverlay');
     if (overlay) overlay.classList.remove('open');
+    // Overlay modals (Profile Settings, Subscription, ...) sit at a higher
+    // z-index than this modal, so an overlay left open hides the support modal
+    // completely and the button that opened it looks broken. Close them first
+    // so the support modal is always the visible layer.
+    document.querySelectorAll('.modal-overlay.open').forEach(function (m) { m.classList.remove('open'); });
     updateSupportLinks();
     const modal = document.getElementById('supportModal');
     if (modal) modal.classList.add('open');
@@ -20505,6 +20645,7 @@ async function initApp() {
     else APP.currentWallet = 'live';
     
     APP.txViewExpanded = false;
+    APP.txShowOlder = false;
     const btn = document.getElementById('viewMoreTxBtn');
     if (btn) btn.dataset.expanded = 'false';
     
@@ -20783,6 +20924,7 @@ async function initApp() {
             // is never re-onboarded).
             pendingOnboardingDeposit = false;
             demoDepositCtaDismissed = false;
+            demoCtaLastShownAt = 0;
 
             // Reset in-memory live wallet state so a stale balance from the
             // previous session is never shown before the server re-sync runs.

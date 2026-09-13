@@ -71,7 +71,7 @@ const NEW_KEYS = [
     'startHere.title', 'startHere.subtitle', 'startHere.step1', 'startHere.step2', 'startHere.step3', 'startHere.step4',
     'startHere.step5', 'startHere.dismiss',
     'hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus', 'hint.bot', 'hint.scanner', 'hint.txLog',
-    'ticker.sample', 'markets.advancedChart',
+    'ticker.live', 'markets.advancedChart',
     'badge.rarity.common', 'badge.rarity.rare', 'badge.rarity.epic', 'badge.rarity.legendary',
     'status.confirmed', 'status.processing', 'status.completed',
     'cookies.body', 'cookies.accept', 'cookies.decline',
@@ -86,7 +86,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1384, 'expected 1384 keys per locale');
+    assert.strictEqual(enKeys.length, 1391, 'expected 1391 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -140,13 +140,19 @@ test('MTA jargon replaced with plain "minimum trading balance" wording', () => {
     assert.ok(T.en['mta.targetLabel'].length > 0);
 });
 
-test('activity ticker is labelled as sample activity, not LIVE', () => {
-    assert.ok(/data-i18n="ticker\.sample"/.test(INDEX), 'ticker must use the sample label');
-    assert.ok(!/<span data-i18n="ticker\.live">/.test(INDEX), 'the LIVE ticker label must be gone');
+test('activity ticker carries the LIVE ACTIVITY label (management decision)', () => {
+    // REVERSED BY MANAGEMENT (2026-09): the ticker label was briefly "Sample
+    // activity"; management asked for the previous live form back with the
+    // wording "LIVE ACTIVITY". The live dot styling is restored with it.
+    assert.ok(/data-i18n="ticker\.live"/.test(INDEX), 'ticker must use the live label key');
+    assert.ok(!/ticker\.sample/.test(INDEX), 'the retired sample key must be gone');
+    assert.ok(/<span class="live-dot"><\/span>/.test(INDEX), 'the pulsing live dot must be restored (no inert inline override)');
     const T = loadTranslations();
     for (const lang of LANGS) {
-        assert.ok(/sample|ejemplo|exemplo|exemple|تجريبي|示例/i.test(T[lang]['ticker.sample']), `${lang} sample label`);
+        assert.ok(String(T[lang]['ticker.live'] || '').trim().length > 0, `${lang} live label must be non-empty`);
     }
+    assert.strictEqual(T.en['ticker.live'], 'LIVE ACTIVITY', 'EN label wording');
+    assert.ok(/live|vivo|direct|مباشر|实时/i.test(T.es['ticker.live'] + T.pt['ticker.live'] + T.fr['ticker.live'] + T.ar['ticker.live'] + T.zh['ticker.live']), 'localized live wording');
 });
 
 test('support widget: automated assistant, no fake unread count', () => {

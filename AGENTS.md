@@ -2871,3 +2871,71 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   explainer/tagline/start-here/ticker/hints visible, onboarding opens, ar RTL
   correct, deposit clarity copy present.
 - NOT committed / NOT pushed / NOT deployed.
+
+## Phase 27 - Beginner UX Fixes: Support From Profile, History Range, Demo Reminder (2026-09, public/index.html + tests)
+- FRONTEND-ONLY. Files changed: public/index.html; new tests/support_profile_button.test.js,
+  tests/tx_history_range.test.js, tests/demo_live_reminder.test.js; test pins updated in
+  beginner_ux / deposit_demo_ux / onboarding_funnel / sandbox_withdraw_wording.
+  NO server.js, services, migrations, .env, package or payment code touched. NOT committed,
+  NOT pushed, NOT deployed (working tree only).
+- (1) PROFILE SETTINGS "CONTACT SUPPORT" DID NOTHING (fixed). Root cause: the button was
+  already wired to openSupportModal(), but #supportModal is a `.deposit-modal` (z-index 3000)
+  while #profileModal is a `.modal-overlay` (z-index 9999), so the support modal opened BEHIND
+  the still-open profile modal and was invisible. Fix: openSupportModal() now closes any
+  open `.modal-overlay.open` (via document.querySelectorAll) before showing itself, so it is
+  always the visible/topmost layer. It reuses the SAME existing destination as the sidebar
+  Support entry (#supportModal) - no new URL, route or destination invented; the modal still
+  contains the security warning and collects no input. Visible feedback on tap = the modal is
+  now actually visible (profile modal visibly closes). All support entry points benefit.
+- (2) TRANSACTION HISTORY FELT DELETED (fixed). getRecentHistory(history, 30) is a PURE
+  read-only display filter; stored history was never trimmed (persisted per wallet in
+  localStorage). The real gap was that "View More" only expanded WITHIN the 30-minute window,
+  so older rows were unreachable. Fix (display-only): new "Older activity" range switch
+  (#viewOlderTxBtn -> toggleTransactionRange -> APP.txShowOlder) plus
+  updateTransactionRangeControls(fullHistory, recentHistory, showingAll). Default is still the
+  short "Last 30 min" preview; all-activity mode renders the full stored history with
+  "All activity" / hint.txLogAll labels. Existing TX_TYPE_LABELS/txTypeLabel render-only
+  mapping, raw stored type/detail values, and the `=== 'Deposit'` comparisons are unchanged.
+  Demo/live separation preserved (getCurrentData() still keys off the active wallet).
+  An empty 30-minute window no longer hides older records. NOTE: logout still clears
+  arbi_demo/arbi_live by design, so history does not survive a logout (unchanged).
+- (3) DEMO -> LIVE REMINDER (restrained). The existing #demoFirstDepositCta banner is now
+  gated: production-only, Demo-only, no confirmed deposit, AND >= DEMO_CTA_MIN_TRADES (3)
+  meaningful demo trades; suppressed while APP.botRunning; rate limited by
+  DEMO_CTA_REMINDER_INTERVAL_MS (10 min) so a hidden reminder is not re-raised after every
+  trade; dismissal (dismissDemoDepositCta) is respected for the session. Added the loss-risk
+  line (demoCta.risk) and a "Review Live Requirements" action (reviewLiveRequirements ->
+  setMode('live') + toast) which reuses the onboarding review-only Live path, starts no
+  deposit/invoice and touches no balance. The two secondary buttons share a wrapping row so
+  the banner stays compact on small phones (278px tall at 320px, was 317px).
+- (4) TICKER LABEL RESTORED TO "LIVE ACTIVITY" (management decision, reversing 645e67d's
+  "Sample activity"). The markup points back at the pre-existing `ticker.live` key with the
+  new wording and the pulsing red `.live-dot` (the inert grey inline override is gone). The
+  dead `ticker.sample` key was deleted (dictionary 1392 -> 1391 keys/locale x6). Values:
+  en "LIVE ACTIVITY", es "ACTIVIDAD EN VIVO", pt "ATIVIDADE AO VIVO", fr "ACTIVITE EN DIRECT"
+  (accented), ar "nishat mubashir", zh "shishi huodong". tests/beginner_ux.test.js was
+  updated from the old honesty pin to pin the restored label + live dot. CAVEAT (recorded;
+  decision accepted): generateTickerItems() still builds the strip from TICKER_TEMPLATES +
+  Math.random(), so the animated entries remain illustrative rather than a real-time feed of
+  customer activity - wire the ticker to real data if that ever needs to be literal.
+- i18n: 1384 -> 1392 -> 1391 keys/locale (8 NEW keys x 6 locales: history.allActivity,
+  history.viewOlder, history.backToRecent, history.empty, hint.txLogAll, demoCta.risk,
+  demoCta.reviewLive, demoCta.reviewLiveToast). Identical key sets, 0 empty, 0 new duplicate
+  keys, 0 placeholder-parity issues, 786 data-i18n refs all defined. ar RTL intact.
+- PRESERVED (verified): APP.MIN_WITHDRAWAL = 700 and server.js `amount < 700`; the cautious
+  "withdrawal processing usually takes 15-30 minutes" wording; KYC / withdrawal gates
+  (openWithdrawModal gate order, canWithdraw, verificationRequired) and all
+  deposit/withdrawal/payment/balance/referral logic untouched (diff touches no such lines).
+- VERIFICATION: npm test = 750 pass / 0 fail (was 725; +25 new). All 6 inline script blocks
+  parse (vm.Script). i18n verifier (vm-eval of the real TRANSLATIONS) = 0 problems.
+  Chromium harness (puppeteer-core + /usr/bin/chromium, stubbed fetch) = 92/92 checks across
+  en/ar x 320/390: profile->support opens the modal ON TOP with the profile modal closed and
+  zero credential inputs; history preview/older-toggle/switch-back with nothing deleted;
+  demo reminder withheld at 0 trades, shown at 5, review-only (0 deposit/invoice requests),
+  dismissal respected; ticker data-i18n still `ticker.sample`. Mobile matrix (en/es/ar/zh x
+  320/360/390/412) = 16/16 clean: 0 horizontal overflow, CTA fits, all CTA buttons >= 30px
+  and unclipped, support modal topmost, all-activity rows render.
+- HARNESS NOTES (not product bugs, both baseline-identical): the stubbed init can leave
+  #walletSyncLoader (z-index 9999) displayed, which would cover modals - the harness hides it
+  only; and "TradingView is not defined" / "Chart is not defined" come from the blocked
+  external CDN, identical on the untouched baseline.

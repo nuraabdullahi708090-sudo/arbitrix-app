@@ -141,7 +141,8 @@ function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = fals
     vm.createContext(sandbox);
 
     const src = [
-        'var pendingOnboardingDeposit = false; var demoDepositCtaDismissed = false;',
+        'var pendingOnboardingDeposit = false; var demoDepositCtaDismissed = false; var demoCtaLastShownAt = 0;',
+        'var DEMO_CTA_MIN_TRADES = 3; var DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;',
         'let paymentPollingInterval = null; let countdownInterval = null; let currentInvoiceId = null; let currentCurrency = "USDT"; let currentNetwork = "TRC20";',
         ...ONBOARDING_FNS.map(extractFunction),
     ].join('\n');
@@ -225,8 +226,13 @@ test('"Explore Demo" enters Demo mode without forcing a deposit', () => {
     assert.strictEqual(sb.fetchCalls.length, 0, 'demo path makes no request');
     assert.strictEqual(sb.APP.demoData.balance, before.demo, 'demo balance unchanged');
     assert.strictEqual(sb.APP.liveData.balance, before.live, 'live balance unchanged');
-    // In-Demo CTA is available but non-aggressive (dismissible).
-    assert.ok(!sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo deposit CTA visible');
+    // The in-Demo CTA is deliberately restrained: it is withheld until the user
+    // has meaningful demo activity, so it is not raised on entering Demo.
+    assert.ok(sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA withheld until meaningful demo activity');
+    sb.APP.demoData.trades = 3;
+    vm.runInContext('updateDemoFirstDepositCta()', sb);
+    assert.ok(!sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA appears after meaningful demo activity');
+    assert.strictEqual(sb.fetchCalls.length, 0, 'showing the CTA makes no request');
     vm.runInContext('dismissDemoDepositCta()', sb);
     assert.ok(sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA can be dismissed');
     // Clicking it opens the deposit flow (demo notice + switch), never an invoice.
@@ -350,7 +356,7 @@ test('i18n parity across 6 locales for the onboarding keys', () => {
         'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
         'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1384, 'expected 1384 keys per locale');
+    assert.strictEqual(enKeys.length, 1391, 'expected 1391 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {
