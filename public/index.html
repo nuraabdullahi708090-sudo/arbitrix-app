@@ -1224,6 +1224,19 @@
         .deposit-modal.open{display:flex;}
         .deposit-modal-content{background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border:1px solid var(--border-color);max-width:500px;width:100%;max-height:92vh;overflow-y:auto;padding:24px 20px;box-shadow:0 24px 64px rgba(0,0,0,0.9);position:relative;animation:modal-slide-up 0.3s ease;}
         .deposit-modal-content h3{font-size:var(--text-lg);font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+
+        /* Compact, collapsed-by-default USDT/TRC20 explainer in the deposit
+           modal. Replaces the previous always-visible paragraph so the amount
+           field and the Generate Payment action stay above the fold. Markup
+           follows the same <details> pattern as .profile-achievements. */
+        .deposit-usdt-help{background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:10px 12px;margin:0 0 16px;}
+        .deposit-usdt-help>summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;font-size:11px;font-weight:700;color:#F0B90B;min-width:0;}
+        .deposit-usdt-help>summary::-webkit-details-marker{display:none;}
+        .deposit-usdt-help>summary>span{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;word-break:break-word;}
+        .deposit-usdt-help>summary::after{content:'\25BE';font-size:10px;color:#F0B90B;flex:0 0 auto;transition:transform 0.2s;}
+        .deposit-usdt-help[open]>summary::after{transform:rotate(180deg);}
+        .deposit-usdt-help>summary:focus-visible{outline:2px solid #F0B90B;outline-offset:-2px;}
+        .deposit-usdt-help-body{font-size:11px;color:#8896B5;line-height:1.6;margin-top:8px;overflow-wrap:anywhere;word-break:break-word;}
         
         /* Upload Area */
         .upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;border:2px dashed var(--border-color);border-radius:12px;cursor:pointer;transition:all 0.2s ease;background:rgba(240,185,11,0.02);}
@@ -6534,6 +6547,14 @@ function toggleFaq(btn) {
         </div>
       </div>
 
+      <!-- Compact, collapsed-by-default explainer for the asset/network shown
+           above. Keeps the USDT/TRC20 guidance without the long paragraph that
+           used to sit between the amount field and the payment action. -->
+      <details class="deposit-usdt-help" id="depositUsdtHelp">
+        <summary><i class="fas fa-circle-question"></i> <span data-i18n="deposit.newToUsdt.title">New to this payment method?</span></summary>
+        <div class="deposit-usdt-help-body" data-i18n="deposit.newToUsdt.body">USDT is a digital dollar. TRC20 is the network used for this deposit. Make sure your exchange or wallet supports USDT on TRC20.</div>
+      </details>
+
       <!-- Deposit Amount Input -->
       <div style="margin:16px 0;">
         <label style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="withdraw.amount">Amount (USD)</label>
@@ -6551,9 +6572,15 @@ function toggleFaq(btn) {
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(500)">$500</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(1000)">$1,000</button>
         </div>
-        <div style="background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:10px;padding:12px;margin-top:12px;">
-          <div style="font-size:11px;font-weight:700;color:#F0B90B;margin-bottom:4px;"><i class="fas fa-circle-question"></i> <span data-i18n="deposit.newToUsdt.title">New to this payment method?</span></div>
-          <div style="font-size:11px;color:#8896B5;line-height:1.6;" data-i18n="deposit.newToUsdt.body">USDT is a stablecoin pegged to the US dollar. TRON (TRC20) is the network used for this deposit. You can buy USDT from an exchange or wallet app that supports sending USDT on TRC20.</div>
+        <!-- Primary payment action, kept directly under the amount the user just
+             entered (relocated from #depositActionButtons). The element keeps its
+             original id, classes, inline style and onclick, so
+             requestDepositAddress() and all existing show/hide wiring are
+             untouched. -->
+        <div id="generatePaymentRow" style="margin-top:12px;">
+          <button type="button" id="getAddressBtn" class="btn btn-primary" style="width:100%;padding:14px;font-size:14px;font-weight:600;" onclick="requestDepositAddress()">
+            <i class="fas fa-qrcode"></i> <span data-i18n="deposit.btn.generatePayment">Generate Payment</span>
+          </button>
         </div>
       </div>
 
@@ -6562,15 +6589,10 @@ function toggleFaq(btn) {
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <i class="fas fa-exclamation-triangle" style="color:#EF4444;font-size:18px;margin-top:2px;"></i>
           <div style="font-size:11px;color:#8896B5;line-height:1.6;">
-            <strong style="color:#EF4444;" data-i18n="deposit.sendUsdtOnly">Send USDT only</strong> <span data-i18n="deposit.onThe">on the</span> <strong style="color:#EF4444;">TRON (TRC20)</strong> <span data-i18n="deposit.networkSuffix">network.</span><br>
+            <strong style="color:#EF4444;" data-i18n="deposit.sendUsdtOnly">Send USDT only</strong> <span data-i18n="deposit.onThe">on the</span> <strong style="color:#EF4444;">TRON (TRC20)</strong><span data-i18n="deposit.networkSuffix"> network.</span><br>
             <span data-i18n="deposit.safetyWarningBody">Sending USDT through another network may result in loss of funds and may not be credited automatically.</span>
           </div>
         </div>
-      </div>
-
-      <!-- Initial Instructions -->
-      <div id="initialInstructions" style="text-align:center;padding:16px;color:#8896B5;font-size:12px;line-height:1.6;" data-i18n="deposit.initialInstructions">
-        Enter your deposit amount and click 'Generate Payment' to receive your unique USDT (TRC20) payment address.
       </div>
 
       <!-- Deposit help: official support (display-only, opens the support modal) -->
@@ -6739,12 +6761,12 @@ function toggleFaq(btn) {
       </button>
     </div>
 
-    <!-- Action Buttons -->
+    <!-- Invoice action buttons. Generate Payment now lives under the amount
+         presets inside #depositInputSection; these controls must stay here
+         because they have to remain reachable in step 2, where the input
+         section is hidden. -->
     <div id="depositActionButtons" style="margin-top:16px;">
-      <button type="button" id="getAddressBtn" class="btn btn-primary" style="width:100%;padding:14px;font-size:14px;font-weight:600;" onclick="requestDepositAddress()">
-        <i class="fas fa-qrcode"></i> <span data-i18n="deposit.btn.generatePayment">Generate Payment</span>
-      </button>
-      <div style="display:flex;gap:8px;margin-top:10px;">
+      <div style="display:flex;gap:8px;">
         <button type="button" id="cancelInvoiceBtn" class="btn btn-secondary" style="flex:1;display:none;" onclick="cancelCurrentInvoice()">
           <i class="fas fa-times"></i> <span data-i18n="common.cancel">Cancel</span>
         </button>
@@ -8053,7 +8075,7 @@ const TRANSLATIONS = {
         'deposit.subtitle': 'Secure crypto deposit — funds credited automatically',
         'deposit.methodNotice': 'This payment method uses USDT on the TRON (TRC20) network. Before sending funds, confirm that your wallet or exchange supports the exact asset and network shown here.',
         'deposit.newToUsdt.title': 'New to this payment method?',
-        'deposit.newToUsdt.body': 'USDT is a stablecoin pegged to the US dollar. TRON (TRC20) is the network used for this deposit. You can buy USDT from an exchange or wallet app that supports sending USDT on TRC20.',
+        'deposit.newToUsdt.body': 'USDT is a digital dollar. TRC20 is the network used for this deposit. Make sure your exchange or wallet supports USDT on TRC20.',
         'deposit.usdVsUsdt': 'USDT is the amount you send. USD is the amount credited to your balance.',
         'deposit.addressExplain': 'This is your personal USDT (TRC20) payment address. Send only USDT on the TRON (TRC20) network to this address.',
         'deposit.referenceExplain': 'Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.',
@@ -8710,10 +8732,9 @@ const TRANSLATIONS = {
         'deposit.currentlySupported': 'Currently Supported',
         'deposit.on': 'on',
         'deposit.onThe': 'on the',
-        'deposit.networkSuffix': 'network.',
+        'deposit.networkSuffix': ' network.',
         'deposit.sendUsdtOnly': 'Send USDT only',
-        'deposit.safetyWarningBody': 'Sending USDT through another network may result in loss of funds and may not be credited automatically.',
-        'deposit.initialInstructions': 'Enter your deposit amount and click \'Generate Payment\' to receive your unique USDT (TRC20) payment address.',
+        'deposit.safetyWarningBody': 'Sending through another network may result in loss of funds or delayed credit.',
         'deposit.paymentAmount': 'Payment Amount',
         'deposit.sendExactlyPrefix': 'Send exactly',
         'deposit.sendExactlySuffix': 'USDT on the TRON (TRC20) network.',
@@ -9463,7 +9484,7 @@ const TRANSLATIONS = {
         'deposit.subtitle': 'Depósito seguro en cripto — fondos acreditados automáticamente',
         'deposit.methodNotice': 'Este método de pago usa USDT en la red TRON (TRC20). Antes de enviar fondos, confirma que tu billetera o exchange admite el activo y la red exactos que se muestran aquí.',
         'deposit.newToUsdt.title': '¿Nuevo en este método de pago?',
-        'deposit.newToUsdt.body': 'USDT es una stablecoin vinculada al dólar estadounidense. TRON (TRC20) es la red usada para este depósito. Puedes comprar USDT en un exchange o billetera que permita enviar USDT por TRC20.',
+        'deposit.newToUsdt.body': 'USDT es un dólar digital. TRC20 es la red que se usa para este depósito. Asegúrate de que tu exchange o billetera sea compatible con USDT en TRC20.',
         'deposit.usdVsUsdt': 'USDT es la cantidad que envías. USD es la cantidad acreditada en tu saldo.',
         'deposit.addressExplain': 'Esta es tu dirección de pago personal de USDT (TRC20). Envía solo USDT en la red TRON (TRC20) a esta dirección.',
         'deposit.referenceExplain': 'Tu referencia de pago identifica este depósito si contactas al soporte. No es una contraseña — nunca compartas tu contraseña, código OTP o claves.',
@@ -10119,11 +10140,10 @@ const TRANSLATIONS = {
         'withdraw.addressPlaceholder': 'Ingresa la dirección de tu billetera',
         'deposit.currentlySupported': 'Compatible actualmente',
         'deposit.on': 'en',
-        'deposit.onThe': 'en la',
-        'deposit.networkSuffix': 'red.',
+        'deposit.onThe': 'en la red',
+        'deposit.networkSuffix': '.',
         'deposit.sendUsdtOnly': 'Envía solo USDT',
-        'deposit.safetyWarningBody': 'Enviar USDT a través de otra red puede provocar la pérdida de fondos y puede no acreditarse automáticamente.',
-        'deposit.initialInstructions': 'Ingresa el monto del depósito y haz clic en \'Generar pago\' para recibir tu dirección de pago USDT (TRC20) única.',
+        'deposit.safetyWarningBody': 'Enviar por otra red puede provocar la pérdida de fondos o un abono con retraso.',
         'deposit.paymentAmount': 'Monto del pago',
         'deposit.sendExactlyPrefix': 'Envía exactamente',
         'deposit.sendExactlySuffix': 'USDT en la red TRON (TRC20).',
@@ -10874,7 +10894,7 @@ const TRANSLATIONS = {
         'deposit.subtitle': 'Depósito seguro em cripto — fundos creditados automaticamente',
         'deposit.methodNotice': 'Este método de pagamento usa USDT na rede TRON (TRC20). Antes de enviar fundos, confirme que sua carteira ou exchange suporta o ativo e a rede exatos mostrados aqui.',
         'deposit.newToUsdt.title': 'Novo neste método de pagamento?',
-        'deposit.newToUsdt.body': 'USDT é uma stablecoin atrelada ao dólar americano. TRON (TRC20) é a rede usada para este depósito. Você pode comprar USDT em uma exchange ou carteira que permita enviar USDT na TRC20.',
+        'deposit.newToUsdt.body': 'USDT é um dólar digital. A TRC20 é a rede usada para este depósito. Verifique se sua exchange ou carteira é compatível com USDT na TRC20.',
         'deposit.usdVsUsdt': 'USDT é o valor que você envia. USD é o valor creditado no seu saldo.',
         'deposit.addressExplain': 'Este é o seu endereço de pagamento pessoal de USDT (TRC20). Envie apenas USDT na rede TRON (TRC20) para este endereço.',
         'deposit.referenceExplain': 'Sua referência de pagamento identifica este depósito se você contatar o suporte. Não é uma senha — nunca compartilhe sua senha, código OTP ou chaves.',
@@ -11530,11 +11550,10 @@ const TRANSLATIONS = {
         'withdraw.addressPlaceholder': 'Insira o endereço da sua carteira',
         'deposit.currentlySupported': 'Atualmente suportado',
         'deposit.on': 'em',
-        'deposit.onThe': 'na',
-        'deposit.networkSuffix': 'rede.',
+        'deposit.onThe': 'na rede',
+        'deposit.networkSuffix': '.',
         'deposit.sendUsdtOnly': 'Envie apenas USDT',
-        'deposit.safetyWarningBody': 'Enviar USDT por outra rede pode resultar em perda de fundos e pode não ser creditado automaticamente.',
-        'deposit.initialInstructions': 'Insira o valor do depósito e clique em \'Gerar pagamento\' para receber seu endereço de pagamento USDT (TRC20) exclusivo.',
+        'deposit.safetyWarningBody': 'Enviar por outra rede pode resultar em perda de fundos ou crédito atrasado.',
         'deposit.paymentAmount': 'Valor do pagamento',
         'deposit.sendExactlyPrefix': 'Envie exatamente',
         'deposit.sendExactlySuffix': 'USDT na rede TRON (TRC20).',
@@ -12285,7 +12304,7 @@ const TRANSLATIONS = {
         'deposit.subtitle': 'Dépôt crypto sécurisé — fonds crédités automatiquement',
         'deposit.methodNotice': 'Ce moyen de paiement utilise l\'USDT sur le réseau TRON (TRC20). Avant d\'envoyer des fonds, vérifiez que votre portefeuille ou plateforme prend en charge l\'actif et le réseau exacts indiqués ici.',
         'deposit.newToUsdt.title': 'Nouveau avec ce moyen de paiement ?',
-        'deposit.newToUsdt.body': 'L\'USDT est un stablecoin indexé sur le dollar américain. TRON (TRC20) est le réseau utilisé pour ce dépôt. Vous pouvez acheter de l\'USDT sur une plateforme ou un portefeuille permettant d\'envoyer de l\'USDT sur TRC20.',
+        'deposit.newToUsdt.body': 'USDT est un dollar numérique. TRC20 est le réseau utilisé pour ce dépôt. Vérifiez que votre exchange ou portefeuille prend en charge USDT sur TRC20.',
         'deposit.usdVsUsdt': 'L\'USDT est le montant que vous envoyez. L\'USD est le montant crédité sur votre solde.',
         'deposit.addressExplain': 'Il s\'agit de votre adresse de paiement personnelle USDT (TRC20). Envoyez uniquement de l\'USDT sur le réseau TRON (TRC20) à cette adresse.',
         'deposit.referenceExplain': 'Votre référence de paiement identifie ce dépôt si vous contactez le support. Ce n\'est pas un mot de passe — ne partagez jamais votre mot de passe, code OTP ou clés.',
@@ -12941,11 +12960,10 @@ const TRANSLATIONS = {
         'withdraw.addressPlaceholder': 'Saisissez l\'adresse de votre portefeuille',
         'deposit.currentlySupported': 'Actuellement pris en charge',
         'deposit.on': 'sur',
-        'deposit.onThe': 'sur le',
-        'deposit.networkSuffix': 'réseau.',
+        'deposit.onThe': 'sur le réseau',
+        'deposit.networkSuffix': '.',
         'deposit.sendUsdtOnly': 'Envoyez uniquement de l\'USDT',
-        'deposit.safetyWarningBody': 'Envoyer de l\'USDT via un autre réseau peut entraîner une perte de fonds et ne pas être crédité automatiquement.',
-        'deposit.initialInstructions': 'Saisissez le montant du dépôt et cliquez sur « Générer le paiement » pour recevoir votre adresse de paiement USDT (TRC20) unique.',
+        'deposit.safetyWarningBody': 'Envoyer via un autre réseau peut entraîner une perte de fonds ou un crédit retardé.',
         'deposit.paymentAmount': 'Montant du paiement',
         'deposit.sendExactlyPrefix': 'Envoyez exactement',
         'deposit.sendExactlySuffix': 'USDT sur le réseau TRON (TRC20).',
@@ -13696,7 +13714,7 @@ const TRANSLATIONS = {
         'deposit.subtitle': 'إيداع آمن بالعملات الرقمية — تُضاف الأموال تلقائيًا',
         'deposit.methodNotice': 'تستخدم طريقة الدفع هذه USDT على شبكة TRON (TRC20). قبل إرسال الأموال، تأكد من أن محفظتك أو منصتك تدعم الأصل والشبكة المحددين هنا تمامًا.',
         'deposit.newToUsdt.title': 'هل هذه أول مرة تستخدم طريقة الدفع هذه؟',
-        'deposit.newToUsdt.body': 'USDT عملة مستقرة مرتبطة بالدولار الأمريكي. TRON (TRC20) هي الشبكة المستخدمة لهذا الإيداع. يمكنك شراء USDT من منصة أو محفظة تدعم إرسال USDT عبر TRC20.',
+        'deposit.newToUsdt.body': 'USDT هو دولار رقمي. TRC20 هي الشبكة المستخدمة لهذا الإيداع. تأكد من أن منصتك أو محفظتك تدعم USDT على TRC20.',
         'deposit.usdVsUsdt': 'USDT هو المبلغ الذي ترسله. USD هو المبلغ المودع في رصيدك.',
         'deposit.addressExplain': 'هذا عنوان الدفع الشخصي الخاص بك لـ USDT (TRC20). أرسل فقط USDT على شبكة TRON (TRC20) إلى هذا العنوان.',
         'deposit.referenceExplain': 'مرجع الدفع الخاص بك يحدد هذا الإيداع إذا تواصلت مع الدعم. إنه ليس كلمة مرور — لا تشارك أبدًا كلمة المرور أو رمز OTP أو المفاتيح.',
@@ -14353,10 +14371,9 @@ const TRANSLATIONS = {
         'deposit.currentlySupported': 'مدعوم حاليًا',
         'deposit.on': 'على',
         'deposit.onThe': 'على شبكة',
-        'deposit.networkSuffix': 'الشبكة.',
+        'deposit.networkSuffix': '.',
         'deposit.sendUsdtOnly': 'أرسل USDT فقط',
-        'deposit.safetyWarningBody': 'قد يؤدي إرسال USDT عبر شبكة أخرى إلى فقدان الأموال وقد لا يُضاف إلى رصيدك تلقائيًا.',
-        'deposit.initialInstructions': 'أدخل مبلغ الإيداع واضغط على "إنشاء دفعة" لاستلام عنوان دفع USDT (TRC20) فريد خاص بك.',
+        'deposit.safetyWarningBody': 'قد يؤدي الإرسال عبر شبكة أخرى إلى فقدان الأموال أو تأخر الإيداع.',
         'deposit.paymentAmount': 'مبلغ الدفع',
         'deposit.sendExactlyPrefix': 'أرسل بالضبط',
         'deposit.sendExactlySuffix': 'USDT على شبكة TRON (TRC20).',
@@ -15107,7 +15124,7 @@ const TRANSLATIONS = {
         'deposit.subtitle': '安全的加密货币入金 — 资金自动到账',
         'deposit.methodNotice': '此支付方式使用 TRON (TRC20) 网络上的 USDT。发送资金前，请确认您的钱包或交易所支持此处显示的确切资产和网络。',
         'deposit.newToUsdt.title': '第一次使用此支付方式？',
-        'deposit.newToUsdt.body': 'USDT 是一种与美元挂钩的稳定币。TRON (TRC20) 是本次入金使用的网络。您可以在支持通过 TRC20 发送 USDT 的交易所或钱包中购买 USDT。',
+        'deposit.newToUsdt.body': 'USDT 是一种数字美元。TRC20 是本次存款使用的网络。请确认您的交易所或钱包支持 TRC20 网络上的 USDT。',
         'deposit.usdVsUsdt': 'USDT 是您发送的金额。USD 是计入您余额的金额。',
         'deposit.addressExplain': '这是您的专属 USDT (TRC20) 支付地址。请仅通过 TRON (TRC20) 网络向此地址发送 USDT。',
         'deposit.referenceExplain': '如果您联系客服，付款参考号可用来识别此笔入金。它不是密码——切勿分享您的密码、OTP 验证码或密钥。',
@@ -15764,10 +15781,9 @@ const TRANSLATIONS = {
         'deposit.currentlySupported': '当前支持',
         'deposit.on': '在',
         'deposit.onThe': '在',
-        'deposit.networkSuffix': '网络。',
+        'deposit.networkSuffix': ' 网络上。',
         'deposit.sendUsdtOnly': '仅发送 USDT',
-        'deposit.safetyWarningBody': '通过其他网络发送 USDT 可能导致资金丢失，且可能无法自动到账。',
-        'deposit.initialInstructions': '输入您的存款金额并点击“生成付款”以获取您专属的 USDT (TRC20) 付款地址。',
+        'deposit.safetyWarningBody': '通过其他网络发送可能导致资金损失或到账延迟。',
         'deposit.paymentAmount': '付款金额',
         'deposit.sendExactlyPrefix': '精确发送',
         'deposit.sendExactlySuffix': 'USDT，通过 TRON (TRC20) 网络。',

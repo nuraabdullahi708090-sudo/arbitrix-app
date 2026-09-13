@@ -3126,3 +3126,132 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   opacityProperty:true, contentVisibilityAuto:true}`; scope "is this copy gone"
   checks to the component (other surfaces legitimately use risk wording); and
   reset surface state before a step that assumes a starting condition.
+
+## Phase 29 DEPLOYED TO PRODUCTION (2026-09-13)
+- Deployment commit: d09cc192d3594a6fa4a506c9420176c97c536b01
+  ("fix: clean demo CTA and prevent support modal overlap"), pushed
+  3768fa2..d09cc19 main -> main to github.com/nuraabdullahi708090-sudo/arbitrix-app.
+  Pre-push checks: branch main, clean tree, HEAD == approved SHA, remote still at
+  the previous commit, `git merge-base --is-ancestor` confirmed a normal
+  fast-forward of exactly 1 commit. No force-push/rebase/reset/amend/squash.
+- HOSTING: production is RENDER, confirmed by the response header
+  `x-render-origin-server: Render` (behind Cloudflare). Render auto-deployed on
+  push within ~52s (old build 23:14:30Z -> new build 23:14:56Z); no manual
+  trigger or alternate host was used.
+- Post-deploy verification: the served public/index.html is BYTE-IDENTICAL to the
+  committed file (sha256 91b33cb58a92852ae3f0f50ea1dd46b49479b1bfd48cd80fb7d14362961111d3).
+  `/api/health` -> `{"status":"ok"}` HTTP 200.
+- Production smoke (headless Chromium on the live URL; en@320 / en@390 /
+  en@1280 / ar@390) = 80/80: the removed risk paragraph is absent from the DOM
+  and the card holds exactly ONE paragraph (`demoCta.body`) byte-identical in EN;
+  heading + all 3 actions intact; achievements NOT in the dashboard and present
+  + collapsed in Profile Settings; LIVE ACTIVITY ticker intact; Contact Support
+  opens the Support Center with the floating assistant NOT overlapping
+  (1 active surface); closing restores the launcher (FAB >= 44px, in viewport);
+  duplicate taps create no extra panels; opening the assistant dismisses the
+  modal; 0 horizontal overflow; 0 page errors.
+- IMPORTANT NUANCE for future prod checks: the string "Live Mode uses real
+  funds" still appears twice on the live site, but in UNRELATED, untouched copy -
+  `auth.explainer.live` (auth brand panel) and `pwa.install` (PWA install
+  prompt) - both unchanged from the previous build (6 occurrences each = 1 key x
+  6 locales). The demo CTA CARD contains neither `demoCta.risk` nor that phrase
+  (before: both true; after: both false). Do not "fix" those other two keys.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
+  trigger a second Render rebuild. The working tree therefore shows AGENTS.md as
+  modified - documentation only.
+
+## Phase 30 - Demo Deposit Modal UX reorder + copy trim (2026-09-13, public/index.html + tests, frontend-only)
+- Approved deposit-modal UX change. Frontend-only: NO changes to server.js,
+  services, Supabase, migrations, deposit/withdrawal/payment/wallet/trading
+  logic, address generation or validation, the minimum deposit amount, the
+  LIVE ACTIVITY ticker, or any inline JS (verified: 0 JS-ish lines in the
+  public/index.html diff). Not committed, not pushed, not deployed.
+- NEW ORDER inside `#depositInputSection` (verified by rect-top ordering in the
+  browser at 320/360/390/412px): `#depositDemoNotice` (incl. Switch to Live &
+  Continue) -> `#supportedCoinsInfo` (USDT / TRON (TRC20)) -> `#depositUsdtHelp`
+  (collapsed) -> Amount (USD) label -> `#depositMinNotice` -> `#liveDepositAmount`
+  input -> amount presets -> `#getAddressBtn` -> `#safetyWarning` -> help link.
+- GENERATE PAYMENT MOVED: `#getAddressBtn` was lifted out of
+  `#depositActionButtons` (which sits AFTER `#depositPaymentSection`) into a new
+  `#generatePaymentRow` immediately under the amount presets. The element itself
+  is byte-identical (same id/classes/inline style/onclick), so
+  `requestDepositAddress()` and every existing show/hide call
+  (showPaymentSection -> `display:none`, expiry -> `display:flex`,
+  resetDepositModal -> `display:block`, demo guard -> `display:none`) still work.
+  Cancel / Refresh Status / New Invoice deliberately STAY in
+  `#depositActionButtons` because they must remain reachable in step 2, where
+  `#depositInputSection` is hidden.
+- REMOVED (approved): the `#initialInstructions` block ("Enter your deposit
+  amount and click 'Generate Payment' to receive your unique USDT (TRC20)
+  payment address.") plus its now-dead `deposit.initialInstructions` key in all
+  6 locales. Dictionary 1390 -> 1389 keys/locale, key sets identical, 0 empty.
+- "New to this payment method?" converted from an always-visible paragraph into
+  a compact COLLAPSED `<details class="deposit-usdt-help">` (new CSS following
+  the `.profile-achievements` pattern: `list-style:none`, hidden webkit marker,
+  `::after` chevron rotating on `[open]`, `min-width:0` + `overflow-wrap` so it
+  never overflows at 320px). Its body is the approved short paragraph
+  ("USDT is a digital dollar. TRC20 is the network used for this deposit.
+  Make sure your exchange or wallet supports USDT on TRC20.") in all 6 locales.
+  It sits directly under the "Currently Supported" banner it explains - a
+  judgement call, since the approved order list covers items 1-9 and this
+  element is supplementary reading (collapsed, ~40px).
+- WARNING SHORTENED (approved): `deposit.safetyWarningBody` is now
+  "Sending through another network may result in loss of funds or delayed
+  credit." in all 6 locales (was "...may result in loss of funds and may not be
+  credited automatically."). The first line still renders from
+  `deposit.sendUsdtOnly` + `deposit.onThe` + the TRON (TRC20) <strong> +
+  `deposit.networkSuffix`, so the "Send USDT only"/network emphasis is kept and
+  the full rendered sentence is exactly the approved
+  "Send USDT only on the TRON (TRC20) network." + the shortened second line.
+  NO network-safety information was dropped (TRC20-only requirement, "Send USDT
+  only", loss-of-funds consequence all retained).
+- EXTRA FIX (pre-existing locale defects in the very line this task finalised):
+  the shared fragments made the first sentence read wrong in 5 of 6 locales -
+  AR duplicated the word ("... على شبكة TRON (TRC20) الشبكة"), and ES/PT/FR/ZH
+  put the network name between article and noun ("en la TRON (TRC20) red").
+  The fragments are used ONLY by this warning. Normalised per locale:
+  `deposit.onThe` es 'en la red' / pt 'na rede' / fr 'sur le réseau' /
+  ar 'على شبكة' (zh/en unchanged), and `deposit.networkSuffix` en ' network.' /
+  es/pt/fr/ar '.' / zh ' 网络上。'. The hard-coded space before the suffix span in
+  the markup was moved INTO the fragment so punctuation attaches cleanly
+  ("TRON (TRC20)." not "TRON (TRC20) ."). Rendered warning per locale now:
+  EN "Send USDT only on the TRON (TRC20) network. Sending through another network
+  may result in loss of funds or delayed credit."
+  ES "Envía solo USDT en la red TRON (TRC20). Enviar por otra red puede provocar
+  la pérdida de fondos o un abono con retraso."
+  PT "Envie apenas USDT na rede TRON (TRC20). Enviar por outra rede pode resultar
+  em perda de fundos ou crédito atrasado."
+  FR "Envoyez uniquement de l'USDT sur le réseau TRON (TRC20). Envoyer via un
+  autre réseau peut entraîner une perte de fonds ou un crédit retardé."
+  AR "أرسل USDT فقط على شبكة TRON (TRC20). قد يؤدي الإرسال عبر شبكة أخرى إلى
+  فقدان الأموال أو تأخر الإيداع."
+  ZH "仅发送 USDT 在 TRON (TRC20) 网络上。通过其他网络发送可能导致资金损失或到账延迟。"
+- BEHAVIOURAL NUANCE TO KNOW (not a regression of any rule): because
+  `#getAddressBtn` now lives inside `#depositInputSection`, the invoice-EXPIRY
+  handler's `getAddressBtn.style.display='flex'` becomes inert (that section is
+  hidden in step 2). The same handler also reveals `newInvoiceBtn`
+  ("New Invoice" -> the identical `requestDepositAddress()` call), so the user is
+  never stuck; only the duplicate button is no longer shown on the expired
+  screen. No JS was changed to achieve this - flagged for a decision if the
+  duplicate is wanted back (it would need a one-line JS change, out of scope).
+- TESTS: updated `tests/support_ui.test.js` (the deposit-support test anchored on
+  `#initialInstructions`, which is gone -> now anchors on `#safetyWarning` with a
+  1800-char window) and the 5 dictionary-count pins 1390 -> 1389. `npm test` =
+  759 pass / 0 fail.
+- VERIFICATION: new harness `/tmp/uxverify/deposit_modal.js` = 148 pass / 0 fail
+  (4 widths x EN + 6 locales at 390px, all network stubbed - NO real invoice was
+  ever created). Covers: requested rect-top order (Demo-mode visible order +
+  LIVE-mode order incl. Generate), structural adjacency
+  (presets.nextElementSibling === #generatePaymentRow), Generate no longer in
+  `#depositActionButtons`, all kept items present (Switch CTA, USDT/TRON(TRC20),
+  amount label, min text "$100", input, 4 presets, warning, help link ->
+  openSupportModal), redundant instruction absent from the DOM, warning
+  shortened with TRC20 + loss-of-funds retained, explainer collapsed by default
+  with the approved text and expanding on tap, no block overlap, 0 horizontal
+  overflow and 0 raw i18n keys at every width/locale, AR RTL ok, and the full
+  flow: Demo -> switch to Live (modal stays open) -> Generate Payment POSTs
+  /api/payment/create-invoice with the entered amount (100, USDT, TRC20) ->
+  payment section shown / input section hidden / address populated.
+  Screenshots: /tmp/uxverify/shots/depmodal-{en-320..412,ar-390,es-390}.png.
+- NOT committed / NOT pushed / NOT deployed. Working tree also carries the
+  uncommitted Phase 29 deployment note in AGENTS.md.

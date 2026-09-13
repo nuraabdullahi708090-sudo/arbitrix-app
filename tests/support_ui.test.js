@@ -209,7 +209,7 @@ test('updateSupportLinks applies the configured URL and degrades safely when uns
 });
 
 test('support is available from the deposit modal (instructions area)', () => {
-    const win = elementWindow('initialInstructions', 1200);
+    const win = elementWindow('safetyWarning', 1800);
     assert.ok(/openSupportModal\(\)/.test(win), 'deposit instructions should link to support');
     assert.ok(/support\.needHelpDeposit/.test(win), 'localized deposit-help wording');
 });
