@@ -2883,6 +2883,23 @@
         #metaConsentDecline{background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);}
         /* "Start Here" beginner checklist step numbers (frontend orientation aid) */
         .sh-num{width:18px;height:18px;border-radius:50%;background:var(--brand-soft);color:#F0B90B;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+        /* Pending referrals: collapsible summary row (Stage 19D). The whole row
+           is a real <button> so mobile has a large tap target and keyboard users
+           get Enter/Space for free; the chevron mirrors aria-expanded. */
+        .pending-ref-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#141C2E;border:1px solid var(--border-color);border-radius:8px;padding:12px;min-height:56px;cursor:pointer;font-family:inherit;text-align:left;color:inherit;min-width:0;}
+        .pending-ref-toggle:hover{border-color:#F0B90B;}
+        .pending-ref-toggle:focus-visible{outline:2px solid #F0B90B;outline-offset:2px;}
+        .pending-ref-head{display:flex;flex-direction:column;gap:2px;min-width:0;}
+        .pending-ref-title{font-size:11px;font-weight:600;color:#fff;overflow-wrap:anywhere;}
+        .pending-ref-sub{font-size:9px;color:var(--text-secondary);overflow-wrap:anywhere;}
+        .pending-ref-action{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+        .pending-ref-hint{font-size:9px;color:#F0B90B;white-space:normal;}
+        .pending-ref-chevron{font-size:10px;color:#F0B90B;transition:transform .2s ease;}
+        .pending-ref-toggle[aria-expanded="true"] .pending-ref-chevron{transform:rotate(180deg);}
+        .pending-ref-list{max-height:120px;overflow-y:auto;margin-top:8px;}
+        .pending-ref-empty{font-size:10px;color:var(--text-secondary);background:#141C2E;border:1px solid var(--border-color);border-radius:8px;padding:10px;overflow-wrap:anywhere;}
+        .pending-ref-a11y{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
     </style>
 </head>
 <body>
@@ -6678,10 +6695,26 @@ function toggleFaq(btn) {
                             <i class="fas fa-circle-info"></i> <span data-i18n="referral.sandboxCreditNote">Sandbox referral rewards are credited to your simulated Live balance — not the Bonus Wallet.</span>
                         </div>
                         
-                        <!-- Pending Referrals List -->
+                        <!-- Pending Referrals - collapsible, collapsed by default.
+                             The summary row is a real <button> (large tap target,
+                             keyboard accessible) with aria-expanded/aria-controls;
+                             the list below is hidden until the user expands it. -->
                         <div id="pendingReferralsSection" style="display:none;">
-                            <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;" data-i18n="referral.pendingAwaiting">Pending Referrals (Awaiting First Deposit)</div>
-                            <div id="pendingReferralsList" style="max-height:120px;overflow-y:auto;"></div>
+                            <button type="button" id="pendingReferralsToggle" class="pending-ref-toggle"
+                                    aria-expanded="false" aria-controls="pendingReferralsList"
+                                    onclick="togglePendingReferrals()">
+                                <span class="pending-ref-head">
+                                    <span class="pending-ref-title" id="pendingReferralsTitle">Pending Referrals (0)</span>
+                                    <span class="pending-ref-sub" data-i18n="referral.pending.subtitle">Awaiting first deposit</span>
+                                </span>
+                                <span class="pending-ref-action">
+                                    <span class="pending-ref-hint" id="pendingRefTapHint">Tap to view</span>
+                                    <i class="fas fa-chevron-down pending-ref-chevron" aria-hidden="true"></i>
+                                </span>
+                                <span class="pending-ref-a11y" id="pendingRefA11yState">Expand pending referrals</span>
+                            </button>
+                            <div id="pendingReferralsList" class="pending-ref-list" hidden></div>
+                            <div id="pendingReferralsEmpty" class="pending-ref-empty" style="display:none;" data-i18n="referral.pending.empty">No pending referrals awaiting deposit.</div>
                         </div>
                     </div>
                 </div>
@@ -9047,7 +9080,13 @@ const TRANSLATIONS = {
         'referral.bonusWallet': 'Bonus Wallet',
         'referral.sandboxWalletTarget': 'Simulated Live balance',
         'referral.sandboxCreditNote': 'Sandbox referral rewards are credited to your simulated Live balance — not the Bonus Wallet.',
-        'referral.pendingAwaiting': 'Pending Referrals (Awaiting First Deposit)',
+        'referral.pending.titleCount': 'Pending Referrals ({{count}})',
+        'referral.pending.subtitle': 'Awaiting first deposit',
+        'referral.pending.tapToView': 'Tap to view',
+        'referral.pending.tapToHide': 'Tap to hide',
+        'referral.pending.empty': 'No pending referrals awaiting deposit.',
+        'referral.pending.a11y.expand': 'Expand pending referrals',
+        'referral.pending.a11y.collapse': 'Collapse pending referrals',
         'referral.copyCode': 'Copy Code',
         'referral.copyLink': 'Copy Link',
         'referral.pending': 'Pending',
@@ -10463,7 +10502,13 @@ const TRANSLATIONS = {
         'referral.bonusWallet': 'Billetera de bonos',
         'referral.sandboxWalletTarget': 'Saldo Live simulado',
         'referral.sandboxCreditNote': 'Las recompensas por referidos del sandbox se abonan en tu saldo Live simulado, no en la Billetera de bonos.',
-        'referral.pendingAwaiting': 'Referidos pendientes (esperando primer depósito)',
+        'referral.pending.titleCount': 'Referidos pendientes ({{count}})',
+        'referral.pending.subtitle': 'Esperando el primer depósito',
+        'referral.pending.tapToView': 'Toca para ver',
+        'referral.pending.tapToHide': 'Toca para ocultar',
+        'referral.pending.empty': 'No hay referidos pendientes esperando depósito.',
+        'referral.pending.a11y.expand': 'Expandir referidos pendientes',
+        'referral.pending.a11y.collapse': 'Contraer referidos pendientes',
         'referral.copyCode': 'Copiar código',
         'referral.copyLink': 'Copiar enlace',
         'referral.pending': 'Pendientes',
@@ -11880,7 +11925,13 @@ const TRANSLATIONS = {
         'referral.bonusWallet': 'Carteira de bônus',
         'referral.sandboxWalletTarget': 'Saldo Live simulado',
         'referral.sandboxCreditNote': 'As recompensas de indicação do sandbox são creditadas no seu saldo Live simulado, não na Carteira de bônus.',
-        'referral.pendingAwaiting': 'Indicações pendentes (aguardando primeiro depósito)',
+        'referral.pending.titleCount': 'Indicações pendentes ({{count}})',
+        'referral.pending.subtitle': 'Aguardando o primeiro depósito',
+        'referral.pending.tapToView': 'Toque para ver',
+        'referral.pending.tapToHide': 'Toque para ocultar',
+        'referral.pending.empty': 'Nenhuma indicação pendente aguardando depósito.',
+        'referral.pending.a11y.expand': 'Expandir indicações pendentes',
+        'referral.pending.a11y.collapse': 'Recolher indicações pendentes',
         'referral.copyCode': 'Copiar código',
         'referral.copyLink': 'Copiar link',
         'referral.pending': 'Pendentes',
@@ -13297,7 +13348,13 @@ const TRANSLATIONS = {
         'referral.bonusWallet': 'Portefeuille bonus',
         'referral.sandboxWalletTarget': 'Solde Live simulé',
         'referral.sandboxCreditNote': 'Les récompenses de parrainage du bac à sable sont créditées sur votre solde Live simulé, et non dans le Portefeuille bonus.',
-        'referral.pendingAwaiting': 'Parrainages en attente (en attente du premier dépôt)',
+        'referral.pending.titleCount': 'Parrainages en attente ({{count}})',
+        'referral.pending.subtitle': 'En attente du premier dépôt',
+        'referral.pending.tapToView': 'Appuyez pour voir',
+        'referral.pending.tapToHide': 'Appuyez pour masquer',
+        'referral.pending.empty': 'Aucun parrainage en attente de dépôt.',
+        'referral.pending.a11y.expand': 'Développer les parrainages en attente',
+        'referral.pending.a11y.collapse': 'Réduire les parrainages en attente',
         'referral.copyCode': 'Copier le code',
         'referral.copyLink': 'Copier le lien',
         'referral.pending': 'En attente',
@@ -14714,7 +14771,13 @@ const TRANSLATIONS = {
         'referral.bonusWallet': 'محفظة المكافآت',
         'referral.sandboxWalletTarget': 'رصيد Live التجريبي',
         'referral.sandboxCreditNote': 'تُضاف مكافآت الإحالة في وضع التجربة إلى رصيدك التجريبي (Live) وليس إلى محفظة المكافآت.',
-        'referral.pendingAwaiting': 'الإحالات المعلقة (في انتظار أول إيداع)',
+        'referral.pending.titleCount': 'الإحالات المعلقة ({{count}})',
+        'referral.pending.subtitle': 'في انتظار أول إيداع',
+        'referral.pending.tapToView': 'اضغط للعرض',
+        'referral.pending.tapToHide': 'اضغط للإخفاء',
+        'referral.pending.empty': 'لا توجد إحالات معلقة في انتظار الإيداع.',
+        'referral.pending.a11y.expand': 'توسيع الإحالات المعلقة',
+        'referral.pending.a11y.collapse': 'طي الإحالات المعلقة',
         'referral.copyCode': 'نسخ الرمز',
         'referral.copyLink': 'نسخ الرابط',
         'referral.pending': 'قيد الانتظار',
@@ -16131,7 +16194,13 @@ const TRANSLATIONS = {
         'referral.bonusWallet': '奖励钱包',
         'referral.sandboxWalletTarget': '模拟 Live 余额',
         'referral.sandboxCreditNote': '沙盒推荐奖励会计入你的模拟 Live 余额，而不是奖励钱包。',
-        'referral.pendingAwaiting': '待处理推荐（等待首次存款）',
+        'referral.pending.titleCount': '待处理推荐（{{count}}）',
+        'referral.pending.subtitle': '等待首次入金',
+        'referral.pending.tapToView': '点击查看',
+        'referral.pending.tapToHide': '点击隐藏',
+        'referral.pending.empty': '暂无等待入金的待处理推荐。',
+        'referral.pending.a11y.expand': '展开待处理推荐',
+        'referral.pending.a11y.collapse': '收起待处理推荐',
         'referral.copyCode': '复制码',
         'referral.copyLink': '复制链接',
         'referral.pending': '待处理',
@@ -16694,6 +16763,10 @@ function updateDynamicTranslations() {
         // configuration amounts ({{min}}/{{mta}}), so rebuild them for the
         // active locale. typeof-guarded (declared in a later script block).
         if (typeof updateStartHere === 'function') updateStartHere();
+        // Pending-referrals summary labels are rendered by JS (dynamic count and
+        // a state-dependent hint), so refresh them for the active locale. The
+        // panel's open state is preserved - a language switch never expands it.
+        if (typeof updatePendingReferralsList === 'function') updatePendingReferralsList();
         // Re-render the Demo/LIVE deposit notice + balance breakdown on language
         // switch (dynamic text/values; display-only).
         if (typeof refreshDepositModeNotice === 'function') refreshDepositModeNotice();
@@ -17443,29 +17516,74 @@ function updateReferralDisplay() {
     updateSandboxReferralWording();
 }
 
+// Stage 19D: the pending-referrals panel is COLLAPSED by default and is never
+// auto-expanded by a data refresh, a re-render or a language switch. The open
+// state lives here (not in the markup) and only the user's tap changes it.
+function pendingReferralsOpen() { return APP.referralPendingOpen === true; }
+
+function renderPendingReferralsList(pending) {
+    const list = getEl('pendingReferralsList');
+    if (!list) return;
+    list.innerHTML = pending.map(r => `
+        <div style="background:#141C2E;border-radius:6px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="min-width:0;">
+                <div style="font-size:11px;color:#fff;overflow-wrap:anywhere;">${r.name || t('common.user')}</div>
+                <div style="font-size:9px;color:var(--text-secondary);">${r.joinedAt ? new Date(r.joinedAt).toLocaleDateString(appLocale()) : 'Recently'}</div>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.1);padding:2px 6px;border-radius:4px;">${t('referral.awaitingDeposit')}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Presentation only: mirrors the open state into aria-expanded, the list's
+// hidden attribute, the chevron (CSS) and the localized hint/label. It never
+// touches referral data or status.
+function setPendingReferralsExpanded(open) {
+    const toggle = getEl('pendingReferralsToggle');
+    const list = getEl('pendingReferralsList');
+    const hint = getEl('pendingRefTapHint');
+    const a11y = getEl('pendingRefA11yState');
+    const expanded = !!open;
+    if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (list) list.hidden = !expanded;
+    if (hint) hint.textContent = t(expanded ? 'referral.pending.tapToHide' : 'referral.pending.tapToView');
+    if (a11y) a11y.textContent = t(expanded ? 'referral.pending.a11y.collapse' : 'referral.pending.a11y.expand');
+}
+
+function togglePendingReferrals() {
+    const pending = (APP.referralStats && APP.referralStats.pendingReferralsList) || [];
+    if (pending.length === 0) return; // nothing to expand (compact empty state)
+    APP.referralPendingOpen = !pendingReferralsOpen();
+    setPendingReferralsExpanded(APP.referralPendingOpen);
+}
+
 function updatePendingReferralsList() {
     const section = getEl('pendingReferralsSection');
     const list = getEl('pendingReferralsList');
-    
+    const toggle = getEl('pendingReferralsToggle');
+    const empty = getEl('pendingReferralsEmpty');
+    const title = getEl('pendingReferralsTitle');
+
     if (!section || !list) return;
-    
+
     const pending = APP.referralStats.pendingReferralsList || [];
-    
+    section.style.display = 'block';
+    if (title) title.textContent = t('referral.pending.titleCount', { count: pending.length });
+
     if (pending.length > 0) {
-        section.style.display = 'block';
-        list.innerHTML = pending.map(r => `
-            <div style="background:#141C2E;border-radius:6px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                    <div style="font-size:11px;color:#fff;">${r.name || t('common.user')}</div>
-                    <div style="font-size:9px;color:var(--text-secondary);">${r.joinedAt ? new Date(r.joinedAt).toLocaleDateString() : 'Recently'}</div>
-                </div>
-                <div style="text-align:right;">
-                    <span style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.1);padding:2px 6px;border-radius:4px;">${t('referral.awaitingDeposit')}</span>
-                </div>
-            </div>
-        `).join('');
+        if (toggle) toggle.style.display = 'flex';
+        if (empty) empty.style.display = 'none';
+        renderPendingReferralsList(pending);
+        // Re-apply the user's choice (collapsed on load); never force it open.
+        setPendingReferralsExpanded(pendingReferralsOpen());
     } else {
-        section.style.display = 'none';
+        // Compact NON-EXPANDABLE state: no summary row, no list - just the note.
+        if (toggle) { toggle.style.display = 'none'; toggle.setAttribute('aria-expanded', 'false'); }
+        list.hidden = true;
+        list.innerHTML = '';
+        if (empty) empty.style.display = 'block';
     }
 }
 

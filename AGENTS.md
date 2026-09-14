@@ -3412,3 +3412,68 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   canWithdraw=false (flag restored) the verification block is visible again. 0 page errors.
   Screenshots: /tmp/s19c_shots/modal-unverified-ok-390.png, modal-flag-on-390.png.
 - NOT committed/pushed/deployed at the time of writing (combined with Stage 19D below).
+
+## Stage 19D - Collapsible Pending Referrals Panel (2026-09-14, public/index.html + tests)
+- The Referral Program page used to render every pending referral inline. It is
+  now a collapsible panel: COLLAPSED by default, a compact summary row
+  ("Pending Referrals (N)" + "Awaiting first deposit" + "Tap to view" + chevron),
+  expanding on tap to the existing name / registration-date / awaiting-deposit
+  rows, and collapsing again on the same header tap. Presentation only - no
+  referral data, eligibility, status, reward or backend change.
+- WHY there was no functional bug hidden here: the previous code simply set
+  `section.style.display = 'block'` and dumped the rows into the page; the list
+  was always visible once loaded. The new panel keeps the same data source
+  (`APP.referralStats.pendingReferralsList`) and only changes how it is shown.
+- Markup (`#pendingReferralsSection`): a real `<button id="pendingReferralsToggle">`
+  (large tap target, Enter/Space for free, `aria-expanded`, `aria-controls`,
+  `onclick="togglePendingReferrals()"`), `#pendingReferralsList` with the native
+  `hidden` attribute, and a compact `#pendingReferralsEmpty` note. The chevron is
+  `aria-hidden` decoration; `#pendingRefA11yState` is a visually-hidden localized
+  label ("Expand/Collapse pending referrals"). Labels are re-localized on
+  language switch by a hook added to `updateDynamicTranslations()`.
+- JS: `pendingReferralsOpen()` / `renderPendingReferralsList()` /
+  `setPendingReferralsExpanded()` / `togglePendingReferrals()` /
+  `updatePendingReferralsList()`. The open state lives in `APP.referralPendingOpen`
+  (default collapsed) so a REFRESH or LANGUAGE SWITCH can never auto-expand (or
+  force-collapse) the panel. `togglePendingReferrals()` is a no-op when there are
+  no pending referrals, so the empty state has no expandable panel at all. The
+  renderer is read-only: no referral-data writes, no API calls, no status logic.
+  `appLocale()` (Phase 3F) is now also used for the registration date display.
+- i18n: 1396 -> 1402 keys/locale. REMOVED `referral.pendingAwaiting` (the old
+  header, exclusively used by this block) and ADDED 7 keys x 6 locales:
+  `referral.pending.titleCount` ('Pending Referrals ({{count}})' - dynamic count),
+  `referral.pending.subtitle`, `referral.pending.tapToView`,
+  `referral.pending.tapToHide`, `referral.pending.empty`,
+  `referral.pending.a11y.expand`, `referral.pending.a11y.collapse`. Identical key
+  sets across en/es/pt/fr/ar/zh, 0 empty values, `{{count}}` parity on all 6.
+  Dynamic strings (count, hint, a11y label) are JS-owned and deliberately NOT
+  `data-i18n` targets, so `applyTranslations()` cannot clobber them.
+- CSS: `.pending-ref-*` classes use existing tokens (`--border-color`,
+  `--text-secondary`, and the brand gold `#F0B90B`), `min-height:56px` full-width
+  tap target, `:focus-visible` outline, chevron `rotate(180deg)` driven by
+  `[aria-expanded="true"]`, `overflow-wrap:anywhere` + `min-width:0` overflow
+  safety and a `.pending-ref-a11y` visually-hidden utility (the app had none).
+- PRESERVED: `#refActiveCount`, `#refPendingCount`, `#refTotalEarned`,
+  `#referralCodeDisplay`, `#referralLinkDisplay`, `#copyReferralBtn`,
+  `#copyReferralLinkBtn`, `#shareReferralBtn`, the reward/percent copy, the
+  "Awaiting deposit" status chip and the whole referral data pipeline
+  (`.filter(r => r.status === 'pending')` mapping unchanged).
+- Tests: NEW tests/pending_referrals_collapsible.test.js (22) - markup/a11y,
+  collapsed default, expand + collapse by tap, dynamic count (0/1/3), compact
+  non-expandable empty state, refresh never self-expands, the user's expanded
+  choice survives a refresh, language switch translates without changing state,
+  all-locale rendering without raw keys, i18n parity + placeholder parity +
+  removed old key, preserved referral surfaces, presentation-only proof, and the
+  CSS contract. Dictionary-count pins updated 1396 -> 1402 in 6 test files.
+  npm test = 855 pass / 0 fail. git diff --check clean.
+- Browser (puppeteer-core + chromium, local server, stubbed API): 47/47 checks -
+  0/1/2 pending referrals, collapsed on load, real tap (on the header TEXT, not
+  the chevron) expands, tap again collapses, keyboard Enter/Space toggles,
+  count dynamic, language switch (es + ar RTL) renders translated labels and
+  keeps the collapsed state, refresh never self-expands, expanded choice
+  survives a refresh, 0 horizontal overflow, no page errors. Plus a width sweep
+  (320/360/390/430 x en/es/ar/zh) = 16/16: no overflow, no clipping in the
+  title/hint/row. Screenshots: /tmp/s19d_shots/{collapsed,expanded}-{1,2}-390.png,
+  es-collapsed-{1,2}-390.png.
+- NOT committed/pushed/deployed at the time of writing (committed together with
+  the Stage 19C wrap-up in the same session).
