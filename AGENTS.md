@@ -44,6 +44,37 @@
 `Q8QPAY_CALLBACK_URL` (full webhook URL, public-reachable), `Q8QPAY_RETURN_URL`.
 Set `PAYMENT_PROVIDER=q8qpay` to switch the active provider.
 
+## Telegram support bot (@ArbitrixSupportBot)
+- Code: `services/TelegramSupportService.js` (routing/formatting + webhook
+  handler factory) and `services/TelegramSupportStore.js` (Supabase mapping).
+  Wired in `server.js` right after the q8qpay webhook.
+- Routes: `POST /api/telegram/webhook` (secret-token gated),
+  `GET /api/telegram/status` and `POST /api/telegram/set-webhook` (both
+  `authMiddleware` + `adminMiddleware`).
+- ROUTE PATH MATTERS: the webhook is `/api/telegram/webhook`, NOT
+  `/api/webhook/telegram` — the generic `app.post('/api/webhook/:provider')`
+  registered earlier shadows every `/api/webhook/*` path.
+- Tables (migration `027_telegram_support_bot.sql`, RLS service_role-only, so
+  the store must use `supabaseAdmin`): `telegram_support_conversations`
+  (keyed by `telegram_chat_id`, with `display_name`/`language`),
+  `telegram_support_messages` (`conversation_id`, `direction`, `body` — NO
+  message-id/update-id column), `telegram_support_escalations`
+  (`conversation_id`, `created_at`).
+- Because the messages table has no id columns, redelivery idempotency (bounded
+  `update_id` deduper) and reply-to threading (bounded group-message-id -> chat
+  id map, plus the durable `/reply <chat_id> <message>`) are per-process and
+  live in the service, not the DB. The env constants
+  `DIRECTION_INBOUND`/`DIRECTION_OUTBOUND` and `STATUS_*` in the service must
+  match the applied CHECK literals.
+- Support group chat id discovery: the bot is a group admin, so with
+  `TELEGRAM_SUPPORT_CHAT_ID` empty an admin sends `/chatid` in the group and the
+  bot replies with the id to paste into the env var. Until it is set the bot
+  stores messages and acknowledges but cannot forward.
+- Env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_SUPPORT_CHAT_ID`, `TELEGRAM_ADMIN_IDS`
+  (comma-separated; commands are refused when empty), `TELEGRAM_WEBHOOK_SECRET`,
+  plus `BASE_URL` for the webhook URL. Secrets are never logged/returned;
+  webhook `401`s on a missing/mismatched `X-Telegram-Bot-Api-Secret-Token`.
+
 ## Conventions
 - Do NOT remove/break Paymento until q8qpay passes E2E testing.
 - Reuse the existing atomic crediting mechanism; do not build a second one.
