@@ -180,7 +180,7 @@ test('language switch re-renders the withdraw status/info text (hook in updateDy
 test('i18n parity: identical key sets across all 6 locales, no empty values', () => {
     const T = loadTranslations();
     const en = Object.keys(T.en);
-    assert.strictEqual(en.length, 1404, 'expected 1404 keys per locale');
+    assert.strictEqual(en.length, 1416, 'expected 1416 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         const keys = Object.keys(dict);
         assert.deepStrictEqual(new Set(keys), new Set(en), `${lang} key set differs from en`);

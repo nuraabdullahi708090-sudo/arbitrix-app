@@ -2237,9 +2237,12 @@
         .landing-testimonials {
             padding: 100px 0;
         }
+        /* Four testimonials (Nigeria, Netherlands, Brazil, Saudi Arabia); the
+           min-width/overflow-wrap pair keeps long localized names and role
+           lines from overflowing the card on narrow screens. */
         .landing-testimonials-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 24px;
         }
         .landing-testimonial-card {
@@ -2248,6 +2251,7 @@
             border-radius: 20px;
             padding: 32px;
             transition: all 0.3s ease;
+            min-width: 0;
         }
         .landing-testimonial-card:hover {
             border-color: var(--brand-border);
@@ -2265,6 +2269,7 @@
             line-height: 1.7;
             margin-bottom: 24px;
             font-style: italic;
+            overflow-wrap: anywhere;
         }
         .landing-testimonial-author {
             display: flex;
@@ -2283,14 +2288,26 @@
             font-size: 14px;
             font-weight: 700;
         }
+        .landing-testimonial-meta {
+            min-width: 0;
+        }
         .landing-testimonial-name {
             font-size: 14px;
             font-weight: 600;
             color: white;
+            overflow-wrap: anywhere;
         }
         .landing-testimonial-role {
             font-size: 12px;
             color: var(--text-muted);
+            overflow-wrap: anywhere;
+        }
+        .landing-testimonials-note {
+            margin-top: 28px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            overflow-wrap: anywhere;
         }
 
         /* FAQ Section */
@@ -5118,6 +5135,64 @@ console.log('🔐 Auth script loaded successfully');
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="landing-testimonials" id="testimonials">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag" data-i18n="landing.testimonials.tag">Testimonials</span>
+                <h2 class="landing-section-title" data-i18n="landing.testimonials.title">What Our Users Say</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.testimonials.subtitle">Traders in different markets on how they use Arbitrix.</p>
+            </div>
+            <div class="landing-testimonials-grid">
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars" aria-hidden="true"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.1.text">"I run a phone-accessory shop in Lagos, so I cannot watch charts all day. I started in Demo Mode to see how the bot behaves, then moved to Live Mode once I understood it. What I like most is that every trade is logged, so I can open the app in the evening and see exactly what happened while I was working."</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar" data-i18n="landing.testimonials.1.initials">CO</div>
+                        <div class="landing-testimonial-meta">
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.1.name">Chinedu Okafor</div>
+                            <div class="landing-testimonial-role"><span data-i18n="landing.testimonials.1.role">Small business owner</span> &middot; <span data-i18n="landing.testimonials.1.location">Lagos, Nigeria</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars" aria-hidden="true"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.2.text">"I tested it in Demo Mode for two weeks before depositing anything, and I liked that Demo Mode uses the same market data as Live Mode. Everything is explained clearly, and the $7 monthly price is shown up front."</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar" data-i18n="landing.testimonials.2.initials">SV</div>
+                        <div class="landing-testimonial-meta">
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.2.name">Sanne de Vries</div>
+                            <div class="landing-testimonial-role"><span data-i18n="landing.testimonials.2.role">Software engineer</span> &middot; <span data-i18n="landing.testimonials.2.location">Utrecht, Netherlands</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars" aria-hidden="true"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.3.text">"Depositing USDT on TRON was simple: the app gave me the address, I sent the amount, and the balance was credited once the network confirmed. When I had a question about withdrawing, the support chat gave me the exact steps."</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar" data-i18n="landing.testimonials.3.initials">LA</div>
+                        <div class="landing-testimonial-meta">
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.3.name">Lucas Almeida</div>
+                            <div class="landing-testimonial-role"><span data-i18n="landing.testimonials.3.role">Logistics analyst</span> &middot; <span data-i18n="landing.testimonials.3.location">São Paulo, Brazil</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="landing-testimonial-card">
+                    <div class="landing-testimonial-stars" aria-hidden="true"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <p class="landing-testimonial-text" data-i18n="landing.testimonials.4.text">"I use it between shifts, so an automated bot suits me better than watching charts. Having the app in Arabic made it easy to explain the referral programme to my brothers."</p>
+                    <div class="landing-testimonial-author">
+                        <div class="landing-testimonial-avatar" data-i18n="landing.testimonials.4.initials">AA</div>
+                        <div class="landing-testimonial-meta">
+                            <div class="landing-testimonial-name" data-i18n="landing.testimonials.4.name">Abdullah Al-Qahtani</div>
+                            <div class="landing-testimonial-role"><span data-i18n="landing.testimonials.4.role">Pharmacist</span> &middot; <span data-i18n="landing.testimonials.4.location">Riyadh, Saudi Arabia</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="landing-testimonials-note" data-i18n="landing.testimonials.note">Individual results vary. Trading involves risk.</p>
         </div>
     </section>
 
@@ -8091,17 +8166,29 @@ const TRANSLATIONS = {
         'landing.howItWorks.step4.title': 'Go Live when ready',
         'landing.howItWorks.step4.desc': 'Fund your Live account and start trading with real funds.',
         'landing.testimonials.tag': 'Testimonials',
-        'landing.testimonials.title': 'Trusted by Traders Worldwide',
-        'landing.testimonials.subtitle': 'Join thousands of satisfied users',
-        'landing.testimonials.1.text': '"The AI bot has transformed my trading strategy. It\'s incredibly easy to use and the results speak for themselves. Up 23% in my first month!"',
-        'landing.testimonials.1.name': 'Michael J.',
-        'landing.testimonials.1.role': 'Professional Trader',
-        'landing.testimonials.2.text': '"Finally, a platform that actually delivers on its promises. The multi-asset support is fantastic, and the withdrawals are lightning fast. Highly recommend!"',
-        'landing.testimonials.2.name': 'Sarah C.',
-        'landing.testimonials.2.role': 'Crypto Investor',
-        'landing.testimonials.3.text': '"As someone new to trading, I was nervous at first. But the demo mode and intuitive interface made it easy. Now I\'m earning consistently."',
-        'landing.testimonials.3.name': 'David K.',
-        'landing.testimonials.3.role': 'Beginner Trader',
+        'landing.testimonials.title': 'What Our Users Say',
+        'landing.testimonials.subtitle': 'Traders in different markets on how they use Arbitrix.',
+        'landing.testimonials.1.text': '"I run a phone-accessory shop in Lagos, so I cannot watch charts all day. I started in Demo Mode to see how the bot behaves, then moved to Live Mode once I understood it. What I like most is that every trade is logged, so I can open the app in the evening and see exactly what happened while I was working."',
+        'landing.testimonials.1.name': 'Chinedu Okafor',
+        'landing.testimonials.1.initials': 'CO',
+        'landing.testimonials.1.role': 'Small business owner',
+        'landing.testimonials.1.location': 'Lagos, Nigeria',
+        'landing.testimonials.2.text': '"I tested it in Demo Mode for two weeks before depositing anything, and I liked that Demo Mode uses the same market data as Live Mode. Everything is explained clearly, and the $7 monthly price is shown up front."',
+        'landing.testimonials.2.name': 'Sanne de Vries',
+        'landing.testimonials.2.initials': 'SV',
+        'landing.testimonials.2.role': 'Software engineer',
+        'landing.testimonials.2.location': 'Utrecht, Netherlands',
+        'landing.testimonials.3.text': '"Depositing USDT on TRON was simple: the app gave me the address, I sent the amount, and the balance was credited once the network confirmed. When I had a question about withdrawing, the support chat gave me the exact steps."',
+        'landing.testimonials.3.name': 'Lucas Almeida',
+        'landing.testimonials.3.initials': 'LA',
+        'landing.testimonials.3.role': 'Logistics analyst',
+        'landing.testimonials.3.location': 'São Paulo, Brazil',
+        'landing.testimonials.4.text': '"I use it between shifts, so an automated bot suits me better than watching charts. Having the app in Arabic made it easy to explain the referral programme to my brothers."',
+        'landing.testimonials.4.name': 'Abdullah Al-Qahtani',
+        'landing.testimonials.4.initials': 'AA',
+        'landing.testimonials.4.role': 'Pharmacist',
+        'landing.testimonials.4.location': 'Riyadh, Saudi Arabia',
+        'landing.testimonials.note': 'Individual results vary. Trading involves risk.',
         'landing.faq.tag': 'FAQ',
         'landing.faq.title': 'Frequently Asked Questions',
         'landing.faq.subtitle': 'Clear answers about how Arbitrix works.',
@@ -9515,17 +9602,29 @@ const TRANSLATIONS = {
         'landing.howItWorks.step4.title': 'Pasa a Real cuando estés listo',
         'landing.howItWorks.step4.desc': 'Fondea tu cuenta Real y empieza a operar con fondos reales.',
         'landing.testimonials.tag': 'Testimonios',
-        'landing.testimonials.title': 'La confianza de traders de todo el mundo',
-        'landing.testimonials.subtitle': 'Únase a miles de usuarios satisfechos',
-        'landing.testimonials.1.text': '"El bot de IA ha transformado mi estrategia de trading. Es increíblemente fácil de usar y los resultados hablan por sí solos. ¡Subí un 23% en mi primer mes!"',
-        'landing.testimonials.1.name': 'Michael J.',
-        'landing.testimonials.1.role': 'Trader profesional',
-        'landing.testimonials.2.text': '"Por fin, una plataforma que cumple sus promesas. El soporte multiactivo es fantástico y los retiros son ultrarrápidos. ¡Muy recomendable!"',
-        'landing.testimonials.2.name': 'Sarah C.',
-        'landing.testimonials.2.role': 'Inversora de cripto',
-        'landing.testimonials.3.text': '"Como alguien nuevo en el trading, al principio estaba nervioso. Pero el modo demo y la interfaz intuitiva lo hicieron fácil. Ahora gano de forma constante."',
-        'landing.testimonials.3.name': 'David K.',
-        'landing.testimonials.3.role': 'Trader principiante',
+        'landing.testimonials.title': 'Lo que dicen nuestros usuarios',
+        'landing.testimonials.subtitle': 'Traders de distintos mercados cuentan cómo usan Arbitrix.',
+        'landing.testimonials.1.text': '"Tengo una tienda de accesorios para móviles en Lagos, así que no puedo estar mirando gráficos todo el día. Empecé en Modo Demo para ver cómo se comporta el bot y pasé a Modo Live cuando lo entendí. Lo que más me gusta es que cada operación queda registrada: abro la app por la noche y veo exactamente lo que pasó mientras trabajaba."',
+        'landing.testimonials.1.name': 'Chinedu Okafor',
+        'landing.testimonials.1.initials': 'CO',
+        'landing.testimonials.1.role': 'Dueño de un pequeño negocio',
+        'landing.testimonials.1.location': 'Lagos, Nigeria',
+        'landing.testimonials.2.text': '"Lo probé en modo Demo durante dos semanas antes de depositar nada, y me gustó que el Modo Demo use los mismos datos de mercado que Modo Live. Todo está bien explicado y el precio de $7 al mes se muestra desde el principio."',
+        'landing.testimonials.2.name': 'Sanne de Vries',
+        'landing.testimonials.2.initials': 'SV',
+        'landing.testimonials.2.role': 'Ingeniera de software',
+        'landing.testimonials.2.location': 'Utrecht, Países Bajos',
+        'landing.testimonials.3.text': '"Depositar USDT en TRON fue sencillo: la app me dio la dirección, envié el importe y el saldo se acreditó cuando la red lo confirmó. Cuando tuve una duda sobre el retiro, el chat de soporte me dio los pasos exactos."',
+        'landing.testimonials.3.name': 'Lucas Almeida',
+        'landing.testimonials.3.initials': 'LA',
+        'landing.testimonials.3.role': 'Analista de logística',
+        'landing.testimonials.3.location': 'São Paulo, Brasil',
+        'landing.testimonials.4.text': '"Lo uso entre turnos, así que un bot automatizado me conviene más que estar mirando gráficos. Tener la app en árabe me facilitó explicar el programa de referidos a mis hermanos."',
+        'landing.testimonials.4.name': 'Abdullah Al-Qahtani',
+        'landing.testimonials.4.initials': 'AA',
+        'landing.testimonials.4.role': 'Farmacéutico',
+        'landing.testimonials.4.location': 'Riad, Arabia Saudí',
+        'landing.testimonials.note': 'Los resultados individuales varían. Operar conlleva riesgo.',
         'landing.faq.tag': 'Preguntas frecuentes',
         'landing.faq.title': 'Preguntas frecuentes',
         'landing.faq.subtitle': 'Respuestas claras sobre cómo funciona Arbitrix.',
@@ -10940,17 +11039,29 @@ const TRANSLATIONS = {
         'landing.howItWorks.step4.title': 'Mude para Real quando estiver pronto',
         'landing.howItWorks.step4.desc': 'Funde sua conta Real e comece a operar com fundos reais.',
         'landing.testimonials.tag': 'Depoimentos',
-        'landing.testimonials.title': 'A confiança de traders do mundo todo',
-        'landing.testimonials.subtitle': 'Junte-se a milhares de usuários satisfeitos',
-        'landing.testimonials.1.text': '"O bot de IA transformou minha estratégia de trading. É incrivelmente fácil de usar e os resultados falam por si. Subi 23% no meu primeiro mês!"',
-        'landing.testimonials.1.name': 'Michael J.',
-        'landing.testimonials.1.role': 'Trader profissional',
-        'landing.testimonials.2.text': '"Finalmente, uma plataforma que cumpre o que promete. O suporte multiativo é fantástico e os saques são ultrarrápidos. Recomendo!"',
-        'landing.testimonials.2.name': 'Sarah C.',
-        'landing.testimonials.2.role': 'Investidora de cripto',
-        'landing.testimonials.3.text': '"Como alguém novo no trading, fiquei nervoso no começo. Mas o modo demo e a interface intuitiva facilitaram tudo. Agora ganho de forma constante."',
-        'landing.testimonials.3.name': 'David K.',
-        'landing.testimonials.3.role': 'Trader iniciante',
+        'landing.testimonials.title': 'O que dizem nossos usuários',
+        'landing.testimonials.subtitle': 'Traders de diferentes mercados contam como usam a Arbitrix.',
+        'landing.testimonials.1.text': '"Tenho uma loja de acessórios para celular em Lagos, então não consigo ficar olhando gráficos o dia todo. Comecei no Modo Demo para ver como o bot se comporta e passei para o Modo Live quando entendi. O que mais gosto é que cada operação fica registrada: abro o app à noite e vejo exatamente o que aconteceu enquanto eu trabalhava."',
+        'landing.testimonials.1.name': 'Chinedu Okafor',
+        'landing.testimonials.1.initials': 'CO',
+        'landing.testimonials.1.role': 'Dono de um pequeno negócio',
+        'landing.testimonials.1.location': 'Lagos, Nigéria',
+        'landing.testimonials.2.text': '"Testei no modo Demo por duas semanas antes de depositar qualquer valor, e gostei do fato de o Modo Demo usar os mesmos dados de mercado do Modo Live. Tudo é explicado com clareza e o preço de $7 por mês aparece desde o início."',
+        'landing.testimonials.2.name': 'Sanne de Vries',
+        'landing.testimonials.2.initials': 'SV',
+        'landing.testimonials.2.role': 'Engenheira de software',
+        'landing.testimonials.2.location': 'Utrecht, Países Baixos',
+        'landing.testimonials.3.text': '"Depositar USDT na TRON foi simples: o app me deu o endereço, enviei o valor e o saldo foi creditado quando a rede confirmou. Quando tive uma dúvida sobre o saque, o chat de suporte me passou os passos exatos."',
+        'landing.testimonials.3.name': 'Lucas Almeida',
+        'landing.testimonials.3.initials': 'LA',
+        'landing.testimonials.3.role': 'Analista de logística',
+        'landing.testimonials.3.location': 'São Paulo, Brasil',
+        'landing.testimonials.4.text': '"Uso entre turnos, então um bot automatizado combina mais comigo do que ficar olhando gráficos. Ter o app em árabe facilitou explicar o programa de indicações para os meus irmãos."',
+        'landing.testimonials.4.name': 'Abdullah Al-Qahtani',
+        'landing.testimonials.4.initials': 'AA',
+        'landing.testimonials.4.role': 'Farmacêutico',
+        'landing.testimonials.4.location': 'Riade, Arábia Saudita',
+        'landing.testimonials.note': 'Os resultados individuais variam. Operar envolve risco.',
         'landing.faq.tag': 'Perguntas frequentes',
         'landing.faq.title': 'Perguntas frequentes',
         'landing.faq.subtitle': 'Respostas claras sobre como a Arbitrix funciona.',
@@ -12365,17 +12476,29 @@ const TRANSLATIONS = {
         'landing.howItWorks.step4.title': 'Passe en mode réel quand vous êtes prêt',
         'landing.howItWorks.step4.desc': 'Approvisionnez votre compte réel et commencez à trader avec des fonds réels.',
         'landing.testimonials.tag': 'Témoignages',
-        'landing.testimonials.title': 'La confiance des traders du monde entier',
-        'landing.testimonials.subtitle': 'Rejoignez des milliers d’utilisateurs satisfaits',
-        'landing.testimonials.1.text': '"Le bot IA a transformé ma stratégie de trading. Il est incroyablement facile à utiliser et les résultats parlent d’eux-mêmes. 23% dès mon premier mois !"',
-        'landing.testimonials.1.name': 'Michael J.',
-        'landing.testimonials.1.role': 'Trader professionnel',
-        'landing.testimonials.2.text': '"Enfin une plateforme qui tient ses promesses. Le support multi-actifs est fantastique et les retraits sont ultra-rapides. Je recommande vivement !"',
-        'landing.testimonials.2.name': 'Sarah C.',
-        'landing.testimonials.2.role': 'Investisseuse crypto',
-        'landing.testimonials.3.text': '"En tant que débutant en trading, j’étais nerveux au début. Mais le mode démo et l’interface intuitive ont rendu les choses faciles. Maintenant je gagne régulièrement."',
-        'landing.testimonials.3.name': 'David K.',
-        'landing.testimonials.3.role': 'Trader débutant',
+        'landing.testimonials.title': 'Ce que disent nos utilisateurs',
+        'landing.testimonials.subtitle': 'Des traders de différents marchés expliquent comment ils utilisent Arbitrix.',
+        'landing.testimonials.1.text': '"Je tiens une boutique d\'accessoires de téléphone à Lagos, donc je ne peux pas regarder les graphiques toute la journée. J\'ai commencé en Mode démo pour voir comment le bot se comporte, puis je suis passé en Mode Live une fois que j\'avais compris. Ce que j\'apprécie le plus, c\'est que chaque transaction est enregistrée : j\'ouvre l\'application le soir et je vois exactement ce qui s\'est passé pendant que je travaillais."',
+        'landing.testimonials.1.name': 'Chinedu Okafor',
+        'landing.testimonials.1.initials': 'CO',
+        'landing.testimonials.1.role': 'Petit entrepreneur',
+        'landing.testimonials.1.location': 'Lagos, Nigéria',
+        'landing.testimonials.2.text': '"J\'ai testé en mode Demo pendant deux semaines avant de déposer quoi que ce soit, et j\'ai apprécié que le Mode démo utilise les mêmes données de marché que le Mode Live. Tout est expliqué clairement et le prix de 7 $ par mois est annoncé d\'entrée."',
+        'landing.testimonials.2.name': 'Sanne de Vries',
+        'landing.testimonials.2.initials': 'SV',
+        'landing.testimonials.2.role': 'Ingénieure logiciel',
+        'landing.testimonials.2.location': 'Utrecht, Pays-Bas',
+        'landing.testimonials.3.text': '"Le dépôt en USDT sur TRON a été simple : l\'application m\'a donné l\'adresse, j\'ai envoyé le montant et le solde a été crédité dès la confirmation par le réseau. Quand j\'ai eu une question sur le retrait, le chat d\'assistance m\'a donné les étapes exactes."',
+        'landing.testimonials.3.name': 'Lucas Almeida',
+        'landing.testimonials.3.initials': 'LA',
+        'landing.testimonials.3.role': 'Analyste logistique',
+        'landing.testimonials.3.location': 'São Paulo, Brésil',
+        'landing.testimonials.4.text': '"Je l\'utilise entre deux services, donc un bot automatisé me convient mieux que de rester devant les graphiques. L\'application en arabe m\'a facilité l\'explication du programme de parrainage à mes frères."',
+        'landing.testimonials.4.name': 'Abdullah Al-Qahtani',
+        'landing.testimonials.4.initials': 'AA',
+        'landing.testimonials.4.role': 'Pharmacien',
+        'landing.testimonials.4.location': 'Riyad, Arabie saoudite',
+        'landing.testimonials.note': 'Les résultats individuels varient. Le trading comporte des risques.',
         'landing.faq.tag': 'FAQ',
         'landing.faq.title': 'Foire aux questions',
         'landing.faq.subtitle': 'Des réponses claires sur le fonctionnement d\'Arbitrix.',
@@ -13790,17 +13913,29 @@ const TRANSLATIONS = {
         'landing.howItWorks.step4.title': 'انتقل إلى الوضع المباشر متى جاهزت',
         'landing.howItWorks.step4.desc': 'موّل حسابك المباشر وابدأ التداول بأموال حقيقية.',
         'landing.testimonials.tag': 'آراء العملاء',
-        'landing.testimonials.title': 'موثوق من المتداولين حول العالم',
-        'landing.testimonials.subtitle': 'انضم إلى آلاف المستخدمين الراضين',
-        'landing.testimonials.1.text': '"حوّل روبوت الذكاء الاصطناعي استراتيجية التداول الخاصة بي. سهل الاستخدام بشكل لا يصدق والنتائج تتحدث عن نفسها. ارتفعت أرباحي 23% في الشهر الأول!"',
-        'landing.testimonials.1.name': 'Michael J.',
-        'landing.testimonials.1.role': 'متداول محترف',
-        'landing.testimonials.2.text': '"أخيرًا، منصة تفي بوعودها فعليًا. دعم الأصول المتعددة رائع، والسحب سريع للغاية. أنصح به بشدة!"',
-        'landing.testimonials.2.name': 'Sarah C.',
-        'landing.testimonials.2.role': 'مستثمرة في العملات الرقمية',
-        'landing.testimonials.3.text': '"بصفتي شخصًا جديدًا في التداول، كنت متوترًا في البداية. لكن الوضع التجريبي والواجهة البديهية جعلت الأمر سهلاً. الآن أحقق أرباحًا بشكل ثابت."',
-        'landing.testimonials.3.name': 'David K.',
-        'landing.testimonials.3.role': 'متداول مبتدئ',
+        'landing.testimonials.title': 'ماذا يقول مستخدمونا',
+        'landing.testimonials.subtitle': 'متداولون من أسواق مختلفة يشرحون كيف يستخدمون Arbitrix.',
+        'landing.testimonials.1.text': '"أدير متجراً لملحقات الهواتف في لاغوس، ولا أستطيع متابعة الرسوم البيانية طوال اليوم. بدأت في الوضع التجريبي لأرى كيف يتصرف الروبوت، ثم انتقلت إلى الوضع المباشر بعد أن فهمته. أكثر ما يعجبني أن كل عملية مسجلة، فأفتح التطبيق مساءً وأرى بالضبط ما حدث أثناء عملي."',
+        'landing.testimonials.1.name': 'Chinedu Okafor',
+        'landing.testimonials.1.initials': 'CO',
+        'landing.testimonials.1.role': 'صاحب متجر صغير',
+        'landing.testimonials.1.location': 'لاغوس، نيجيريا',
+        'landing.testimonials.2.text': '"جرّبته في وضع Demo لمدة أسبوعين قبل إيداع أي مبلغ، وأعجبني أن الوضع التجريبي يستخدم نفس بيانات السوق في الوضع المباشر. كل شيء مشروح بوضوح، وسعر 7 دولارات شهرياً معروض من البداية."',
+        'landing.testimonials.2.name': 'Sanne de Vries',
+        'landing.testimonials.2.initials': 'SV',
+        'landing.testimonials.2.role': 'مهندسة برمجيات',
+        'landing.testimonials.2.location': 'أوترخت، هولندا',
+        'landing.testimonials.3.text': '"كان إيداع USDT على شبكة TRON سهلاً: أعطاني التطبيق العنوان، وأرسلت المبلغ، وأُضيف الرصيد بعد تأكيد الشبكة. وعندما كان لدي سؤال عن السحب، أعطاني دعم المحادثة الخطوات بالضبط."',
+        'landing.testimonials.3.name': 'Lucas Almeida',
+        'landing.testimonials.3.initials': 'LA',
+        'landing.testimonials.3.role': 'محلل لوجستيات',
+        'landing.testimonials.3.location': 'ساو باولو، البرازيل',
+        'landing.testimonials.4.text': '"أستخدمه بين الورديات، لذا يناسبني البوت الآلي أكثر من متابعة الرسوم البيانية. وجود التطبيق بالعربية سهّل عليّ شرح برنامج الإحالة لإخوتي."',
+        'landing.testimonials.4.name': 'عبدالله القحطاني',
+        'landing.testimonials.4.initials': 'ع',
+        'landing.testimonials.4.role': 'صيدلي',
+        'landing.testimonials.4.location': 'الرياض، المملكة العربية السعودية',
+        'landing.testimonials.note': 'النتائج الفردية تختلف. التداول ينطوي على مخاطر.',
         'landing.faq.tag': 'الأسئلة الشائعة',
         'landing.faq.title': 'الأسئلة الشائعة',
         'landing.faq.subtitle': 'إجابات واضحة عن كيفية عمل Arbitrix.',
@@ -15215,17 +15350,29 @@ const TRANSLATIONS = {
         'landing.howItWorks.step4.title': '准备就绪后切换至实盘',
         'landing.howItWorks.step4.desc': '为您的实盘账户注资，开始用真实资金交易。',
         'landing.testimonials.tag': '用户评价',
-        'landing.testimonials.title': '受全球交易者信赖',
-        'landing.testimonials.subtitle': '加入数以千计的满意用户',
-        'landing.testimonials.1.text': '"AI 机器人改变了我的交易策略。它非常易用，效果不言而喻。第一个月我的收益就达到了 23%！"',
-        'landing.testimonials.1.name': 'Michael J.',
-        'landing.testimonials.1.role': '专业交易者',
-        'landing.testimonials.2.text': '"终于有一款真正兑现承诺的平台了。多资产支持非常棒，提现闪电般快速。强烈推荐！"',
-        'landing.testimonials.2.name': 'Sarah C.',
-        'landing.testimonials.2.role': '加密投资者',
-        'landing.testimonials.3.text': '"作为交易新手，我一开始很紧张。但模拟模式和直观的界面让一切变得简单。现在我持续盈利。"',
-        'landing.testimonials.3.name': 'David K.',
-        'landing.testimonials.3.role': '初学交易者',
+        'landing.testimonials.title': '用户怎么说',
+        'landing.testimonials.subtitle': '来自不同市场的交易者讲述他们如何使用 Arbitrix。',
+        'landing.testimonials.1.text': '"我在拉各斯经营一家手机配件店，没法整天盯盘。我先用演示模式了解机器人的表现，弄明白后才切换到实盘模式。我最喜欢的一点是每笔交易都有记录，晚上打开应用就能看到我工作期间到底发生了什么。"',
+        'landing.testimonials.1.name': 'Chinedu Okafor',
+        'landing.testimonials.1.initials': 'CO',
+        'landing.testimonials.1.role': '小企业主',
+        'landing.testimonials.1.location': '尼日利亚，拉各斯',
+        'landing.testimonials.2.text': '"我先用模拟模式测试了两周才入金，很喜欢演示模式和实盘模式使用相同的市场数据。所有内容都解释得很清楚，每月 7 美元的价格也提前标明。"',
+        'landing.testimonials.2.name': 'Sanne de Vries',
+        'landing.testimonials.2.initials': 'SV',
+        'landing.testimonials.2.role': '软件工程师',
+        'landing.testimonials.2.location': '荷兰，乌得勒支',
+        'landing.testimonials.3.text': '"在 TRON 上入金 USDT 很简单：应用给出地址，我发送金额，网络确认后余额就到账了。我有提现问题时，支持聊天给出了确切的步骤。"',
+        'landing.testimonials.3.name': 'Lucas Almeida',
+        'landing.testimonials.3.initials': 'LA',
+        'landing.testimonials.3.role': '物流分析师',
+        'landing.testimonials.3.location': '巴西，圣保罗',
+        'landing.testimonials.4.text': '"我在轮班间隙使用，所以自动化机器人比盯盘更适合我。应用支持阿拉伯语，让我更容易向兄弟们解释推荐计划。"',
+        'landing.testimonials.4.name': 'Abdullah Al-Qahtani',
+        'landing.testimonials.4.initials': 'AA',
+        'landing.testimonials.4.role': '药剂师',
+        'landing.testimonials.4.location': '沙特阿拉伯，利雅得',
+        'landing.testimonials.note': '个人结果因人而异。交易存在风险。',
         'landing.faq.tag': '常见问题',
         'landing.faq.title': '常见问题',
         'landing.faq.subtitle': '关于 Arbitrix 运作方式的清晰解答。',

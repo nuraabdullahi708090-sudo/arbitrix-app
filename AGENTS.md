@@ -3633,3 +3633,93 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   auto-reverts. Left to management because it touches the consent/FAB stacking.
 - NOT committed/pushed/deployed at the time of writing (deployed later in the
   same session on instruction).
+
+## Stage 20A DEPLOYED TO PRODUCTION (2026-09-14)
+- Deployment commit: b01999f10cd54db0c8b8f6540c26476bf7da99f9
+  ("feat: route unanswered support questions to human support"), pushed
+  10207a7..b01999f main -> main to
+  github.com/nuraabdullahi708090-sudo/arbitrix-app. Normal fast-forward of one
+  commit; no force-push/rebase/reset/amend.
+- Render auto-deployed on push. The served public/index.html is BYTE-IDENTICAL to
+  the committed file (sha256
+  dda4d6c4def63b131f1e5d0dccaa9203ecf3a7ff05ba46c8e531c8f6321f96c2).
+  / and /api/health both OK.
+- Live markers: the six old misleading fallback strings are GONE; the new honest
+  message is present in all six locales; 'support.fallback.actionAria' appears 7x
+  (6 dictionary entries + 1 call site); appendSupportFallbackReply() and its call
+  site are present; the whole-word keyword tests are present; the
+  .support-human-action CSS and its :focus-visible rule are present; the Support
+  Center modal and the official-link meta are intact; MIN_WITHDRAWAL 700 intact.
+- Production smoke (headless Chromium against the live site, anonymous visitor,
+  cookie banner answered, 5 scenarios: en@390, ar@390, es@390, en@320, en@1280)
+  = 50/50: a supported question still returns that locale's bot answer with no
+  action offered; an unsupported question returns that locale's honest fallback
+  message; no "get back to you shortly"; the action is displayed with the
+  localized label and aria-label (>=44px, inside the viewport); no clipping,
+  overflow or raw keys; clicking the action opens the existing Support Center
+  whose official link equals the configured meta content; 0 page errors.
+- Still open (pre-existing, reported, NOT changed in this stage): the
+  cookie-consent banner overlays the support launcher until consent is answered -
+  see the Stage 20A note above for the measurements and the proposed one-line fix.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
+  trigger a second Render rebuild. The working tree therefore shows AGENTS.md as
+  modified - documentation only.
+
+## Landing Testimonials - Four Country-Authentic Users (2026-09-14, public/index.html + tests)
+- The landing had `landing.testimonials.*` copy and `.landing-testimonial*` CSS but NO
+  section markup (dropped in the Phase 8C content-density pass), so nothing rendered
+  and the three dictionary entries were dead (generic names Michael J./Sarah C./David
+  K., including an "Up 23% in my first month" claim).
+- ADDED a testimonials section (after Security, before the FAQ) with FOUR testimonials
+  from the requested countries:
+    Chinedu Okafor   - Small business owner - Lagos, Nigeria
+    Sanne de Vries   - Software engineer    - Utrecht, Netherlands
+    Lucas Almeida    - Logistics analyst    - Sao Paulo, Brazil
+    Abdullah Al-Qahtani - Pharmacist        - Riyadh, Saudi Arabia
+  Each card: 5 star icons, quote, avatar initials, name, and a "role . city, country"
+  line.
+- NAMES are authentic to each country (Igbo given + surname; Dutch tussenvoegsel
+  surname "de Vries"; Portuguese given + surname; Arabic given name + Al- family
+  name). Names are NEVER translated, EXCEPT the Saudi name which renders in Arabic
+  script for `ar` (Abdullah Al-Qahtani in Arabic, avatar initial in Arabic) - pinned
+  by tests.
+- LOCALIZED: heading, subtitle, risk note, all four quotes, roles, cities and
+  countries (ar uses Arabic city/country names; zh uses the country-first order).
+- TERMINOLOGY: the quotes reuse the site's canonical per-locale terms instead of
+  inventing new ones - the mode names are read from `landing.compare.demo.tag` /
+  `landing.compare.live.tag` ("Demo Mode"/"Live Mode", "Modo Demo"/"Modo Live",
+  "Mode demo"/"Mode Live", the Arabic Demo/Live mode names, the Chinese
+  demonstration/real-account mode names), and the deposit / withdrawal / referral /
+  bot terms match `deposit.title`, `sidebar.withdraw`, `sidebar.referral`,
+  `support.botSetup` (e.g. zh deposit/withdraw/referral/bot terms; ar uses the Arabic
+  robot term). A test derives the mode terms from the dictionary itself, so they can
+  never drift.
+- HONEST COPY: no return percentages, no guaranteed / risk-free / passive-income
+  language; the only figure quoted is the published $7/month price. A localized risk
+  note was added ("Individual results vary. Trading involves risk."). The old
+  fabricated entries are removed.
+  NOTE FOR MANAGEMENT: the four quotes are illustrative personas, not verified
+  customer statements. If real, attributable reviews are required for publication,
+  swap the copy - the keys are already wired.
+- i18n: 1404 -> 1416 keys/locale (12 new: 4 locations, 4 initials, card 4
+  text/name/role, the note; tag/title/subtitle and cards 1-3 reuse the dead keys).
+  Identical key sets across en/es/pt/fr/ar/zh, 0 empty values.
+- CSS: grid 3 -> 4 columns (the existing 1024px = 2 and 768px = 1 rules still stack
+  it), plus `min-width:0` on the card and `overflow-wrap:anywhere` on the quote /
+  name / role / note so long localized strings cannot overflow, and new
+  `.landing-testimonial-meta` / `.landing-testimonials-note` rules.
+- Tests: NEW tests/landing_testimonials.test.js (13): section structure and card
+  count, country coverage, per-country authentic names, the no-translation rule plus
+  the Arabic-script Saudi name, localized cities, honest copy (no percentages or
+  guarantees, only the published price), the risk note, canonical terminology
+  (dictionary-derived), i18n parity at 1416 with ONLY landing.testimonials.* keys
+  added, the 4/2/1 responsive grid + overflow safety, and that the section is
+  display-only. Dictionary pins 1404 -> 1416 in 8 test files.
+  npm test = 899 pass / 0 fail; git diff --check clean.
+- Browser (puppeteer-core + chromium, local server): 360/360 - 6 locales x 5 widths
+  (320/360/390/430/1280) x 12 checks: four cards, correct grid columns (4/2/1), five
+  stars per card, localized names/initials/roles/locations, quotes rendered with no
+  raw keys, localized risk note, no clipping or horizontal overflow, cards inside the
+  viewport, RTL for ar, 0 page errors.
+- COMMITTED LOCALLY ONLY - not pushed and not deployed (a push to main auto-deploys
+  on Render), pending management approval.
