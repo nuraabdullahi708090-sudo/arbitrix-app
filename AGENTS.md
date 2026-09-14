@@ -3255,3 +3255,50 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   Screenshots: /tmp/uxverify/shots/depmodal-{en-320..412,ar-390,es-390}.png.
 - NOT committed / NOT pushed / NOT deployed. Working tree also carries the
   uncommitted Phase 29 deployment note in AGENTS.md.
+
+## Stage 19A - Mode-Aware "Start Here" Onboarding Card (2026-09-14, public/index.html + tests, frontend-only)
+- Problem: the dashboard onboarding card showed demo-only instructions ("Start the demo bot",
+  "Watch how demo activity is displayed", "Switch to Live Mode when ready") even while the
+  account was already in LIVE Mode.
+- What changed (DISPLAY ONLY) - the card content is now mode-aware:
+  - DEMO Mode: UNCHANGED. The original 5-step beginner checklist and the "Start Here"
+    title/subtitle are byte-identical to the previous build.
+  - LIVE Mode: a Live Mode Guide header (`startHere.live.title` / `.subtitle`) plus a 4-step
+    checklist built ONLY from requirements the product actually enforces:
+      step1 platform minimum deposit (APP.MIN_DEPOSIT, currently $100)
+      step2 minimum trading balance to start the bot (APP.MTA - server-driven via /api/auth/me
+            and getEffectiveMta(); currently $200; MARKETING_SANDBOX reports 0 and needs none)
+      step3 identity verification, required to withdraw
+      step4 withdrawal minimum + completed-trade requirement (APP.MIN_WITHDRAWAL, $700)
+    The steps are rendered through t(key, vars) because the amounts are configuration-driven,
+    and updateDynamicTranslations() re-renders them on language switch. No demo wording and no
+    "Switch to Live Mode when ready" is DISPLAYED in LIVE Mode (the demo rows stay in the DOM,
+    hidden, so the demo checklist is preserved for DEMO Mode).
+  - LIVE completion state: when APP.liveData.hasRealDeposit AND hasTradingActivity (the
+    existing reliable server flags from /api/auth/me - no new or fake progress tracking), the
+    checklist is replaced by the compact line `startHere.live.ready`.
+- Helpers added: `startHereLiveSteps()`, `startHereLiveComplete()`, `renderStartHereLiveSteps()`;
+  `updateStartHere()` is now mode-aware. Switching is already covered because
+  setMode() -> updateUI() -> updateStartHere(); the language switch is covered by adding
+  updateStartHere() to updateDynamicTranslations().
+- Unchanged: dismissal (arbi_starthere_<id>), MARKETING_SANDBOX hiding, card styling/layout,
+  the DEMO copy, and every financial/backend path (deposits, withdrawals, trading, bot, the MTA
+  value, subscription, KYC, referral). server.js is untouched by this stage.
+- i18n: 1391 -> 1398 keys/locale (7 new startHere.live.* keys x 6 locales; EN values for the
+  1391 pre-existing keys byte-identical). Identical key sets, 0 empty, 0 placeholder-parity
+  issues ({{min}}, {{mta}}, {{wmin}}).
+- Tests: NEW tests/starthere_mode_aware.test.js (13 tests) + dictionary-count pins updated
+  (1391 -> 1398) in 6 existing test files. npm test = 805 pass / 0 fail.
+- Browser verification (puppeteer-core + /usr/bin/chromium, stubbed API): DEMO card unchanged;
+  LIVE shows the guide + 4 steps with $100/$200/$700 and NO demo wording and NO "Switch to Live
+  Mode when ready" (visibility-aware innerText check); completion state shows the ready line;
+  DEMO<->LIVE switching updates the card both ways; dismiss hides the card in both modes; a
+  MARKETING_SANDBOX account never sees the card; all 6 locales render correctly (ar RTL) with
+  no raw keys; 0 horizontal overflow and 0 text clipping at 320/360/390/412/1280px.
+  Screenshots: /tmp/s19a_shots/{demo,live}-390.png.
+- TOOLING NOTE (important for future sessions): passing public/index.html through a
+  text re-encoder corrupted the file's legacy non-ASCII (em-dashes, emoji, Arabic, Chinese)
+  into CP866-style mojibake across the WHOLE file. The file was restored from HEAD and the
+  change re-applied with an ASCII-only Python script that writes non-ASCII as \u escapes.
+  After any scripted edit to public/index.html, diff the whole file and assert that no
+  pre-existing non-ASCII code point was lost.

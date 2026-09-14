@@ -5764,17 +5764,32 @@ function toggleFaq(btn) {
             <div class="card-body">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                     <div style="min-width:0;">
-                        <div style="font-size:14px;font-weight:700;color:#F0B90B;"><i class="fas fa-compass"></i> <span data-i18n="startHere.title">Start Here</span></div>
-                        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.subtitle">A quick path to understand the platform.</div>
+                        <!-- DEMO header (unchanged copy) -->
+                        <div id="startHereHeadDemo">
+                            <div style="font-size:14px;font-weight:700;color:#F0B90B;"><i class="fas fa-compass"></i> <span data-i18n="startHere.title">Start Here</span></div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.subtitle">A quick path to understand the platform.</div>
+                        </div>
+                        <!-- LIVE header: shown instead of the demo header in LIVE Mode -->
+                        <div id="startHereHeadLive" style="display:none;">
+                            <div style="font-size:14px;font-weight:700;color:#F0B90B;"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Live Mode Guide</span></div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">You're in Live Mode. Trades use real funds.</div>
+                        </div>
                     </div>
                     <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;min-height:0;white-space:nowrap;" data-i18n="startHere.dismiss">Dismiss</button>
                 </div>
-                <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+                <div id="startHereStepsDemo" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">1</span><span data-i18n="startHere.step1">Explore the dashboard</span></div>
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">2</span><span data-i18n="startHere.step2">Start the demo bot</span></div>
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">3</span><span data-i18n="startHere.step3">Watch how demo activity is displayed</span></div>
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">4</span><span data-i18n="startHere.step4">Review Live Mode requirements</span></div>
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">5</span><span data-i18n="startHere.step5">Switch to Live Mode when ready</span></div>
+                </div>
+                <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
+                     the amounts ({{min}}/{{mta}}/{{wmin}}) are configuration-driven. -->
+                <div id="startHereStepsLive" style="margin-top:12px;display:none;flex-direction:column;gap:8px;"></div>
+                <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
+                <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#0ECB81;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
                 </div>
             </div>
         </div>
@@ -8345,6 +8360,13 @@ const TRANSLATIONS = {
         'startHere.step4': 'Review Live Mode requirements',
         'startHere.step5': 'Switch to Live Mode when ready',
         'startHere.dismiss': 'Dismiss',
+        'startHere.live.title': 'Live Mode Guide',
+        'startHere.live.subtitle': 'You\'re in Live Mode. Trades use real funds.',
+        'startHere.live.step1': 'Fund your Live balance to trade (minimum deposit ${{min}})',
+        'startHere.live.step2': 'Minimum trading balance: ${{mta}} to start the bot',
+        'startHere.live.step3': 'Verify your account to withdraw',
+        'startHere.live.step4': 'Min withdrawal: ${{wmin}} | Requires 1 trade completed',
+        'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT deposited successfully!',
@@ -9756,6 +9778,13 @@ const TRANSLATIONS = {
         'startHere.step4': 'Revisa los requisitos del Modo Live',
         'startHere.step5': 'Cambia al modo Live cuando estés listo',
         'startHere.dismiss': 'Descartar',
+        'startHere.live.title': 'Guía del Modo Live',
+        'startHere.live.subtitle': 'Estás en Modo Live. Las operaciones usan fondos reales.',
+        'startHere.live.step1': 'Financia tu saldo Live para operar (depósito mínimo ${{min}})',
+        'startHere.live.step2': 'Saldo mínimo de trading: ${{mta}} para iniciar el bot',
+        'startHere.live.step3': 'Verifica tu cuenta para retirar',
+        'startHere.live.step4': 'Retiro mín.: ${{wmin}} | Requiere 1 operación completada',
+        'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
         'deposit.success': '✅ ¡${{amount}} USDT depositados con éxito!',
@@ -11168,6 +11197,13 @@ const TRANSLATIONS = {
         'startHere.step4': 'Revise os requisitos do Modo Live',
         'startHere.step5': 'Mude para o Modo Live quando estiver pronto',
         'startHere.dismiss': 'Dispensar',
+        'startHere.live.title': 'Guia do Modo Live',
+        'startHere.live.subtitle': 'Você está no Modo Live. As operações usam fundos reais.',
+        'startHere.live.step1': 'Financie seu saldo Live para operar (depósito mínimo ${{min}})',
+        'startHere.live.step2': 'Saldo mínimo de negociação: ${{mta}} para iniciar o bot',
+        'startHere.live.step3': 'Verifique sua conta para sacar',
+        'startHere.live.step4': 'Saque mín.: ${{wmin}} | Exige 1 operação concluída',
+        'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT depositados com sucesso!',
@@ -12580,6 +12616,13 @@ const TRANSLATIONS = {
         'startHere.step4': 'Consultez les conditions du mode Live',
         'startHere.step5': 'Passez au mode Live quand vous êtes prêt',
         'startHere.dismiss': 'Ignorer',
+        'startHere.live.title': 'Guide du mode Live',
+        'startHere.live.subtitle': 'Vous êtes en mode Live. Les transactions utilisent des fonds réels.',
+        'startHere.live.step1': 'Financez votre solde Live pour trader (dépôt minimum ${{min}})',
+        'startHere.live.step2': 'Solde de trading minimum : ${{mta}} pour démarrer le bot',
+        'startHere.live.step3': 'Vérifiez votre compte pour retirer',
+        'startHere.live.step4': 'Retrait min. : ${{wmin}} | 1 transaction requise',
+        'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
         'deposit.success': '✅ ${{amount}} USDT déposés avec succès !',
@@ -13992,6 +14035,13 @@ const TRANSLATIONS = {
         'startHere.step4': 'راجع متطلبات وضع LIVE',
         'startHere.step5': 'انتقل إلى الوضع المباشر عندما تكون مستعدًا',
         'startHere.dismiss': 'تجاهل',
+        'startHere.live.title': 'دليل وضع LIVE',
+        'startHere.live.subtitle': 'أنت في وضع LIVE. تتم التداولات بأموال حقيقية.',
+        'startHere.live.step1': 'موّل رصيد LIVE الخاص بك للتداول (الحد الأدنى للإيداع ${{min}})',
+        'startHere.live.step2': 'الحد الأدنى لرصيد التداول: ${{mta}} لبدء الروبوت',
+        'startHere.live.step3': 'تحقق من حسابك للسحب',
+        'startHere.live.step4': 'الحد الأدنى للسحب: ${{wmin}} | يتطلب إتمام صفقة واحدة',
+        'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.success': '✅ تم إيداع ${{amount}} USDT بنجاح!',
@@ -15404,6 +15454,13 @@ const TRANSLATIONS = {
         'startHere.step4': '查看 LIVE 模式要求',
         'startHere.step5': '准备好后切换到实盘模式',
         'startHere.dismiss': '忽略',
+        'startHere.live.title': '实盘模式指南',
+        'startHere.live.subtitle': '您已进入实盘模式。交易使用真实资金。',
+        'startHere.live.step1': '为实盘余额入金以进行交易（最低入金 ${{min}}）',
+        'startHere.live.step2': '最低交易余额：${{mta}} 即可启动机器人',
+        'startHere.live.step3': '验证您的账户以提现',
+        'startHere.live.step4': '最低提现：${{wmin}} | 需完成 1 笔交易',
+        'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
         'deposit.success': '✅ 成功入金 ${{amount}} USDT！',
@@ -16645,6 +16702,10 @@ function updateDynamicTranslations() {
         // Re-render the deposit minimum notice (value from APP.MIN_DEPOSIT) so
         // it follows the active locale and the single configured minimum.
         if (typeof updateDepositMinNotice === 'function') updateDepositMinNotice();
+        // "Start Here" card: mode-aware content, and the LIVE steps embed
+        // configuration amounts ({{min}}/{{mta}}/{{wmin}}), so rebuild them for
+        // the active locale. typeof-guarded (declared in a later script block).
+        if (typeof updateStartHere === 'function') updateStartHere();
         // Re-render the Demo/LIVE deposit notice + balance breakdown on language
         // switch (dynamic text/values; display-only).
         if (typeof refreshDepositModeNotice === 'function') refreshDepositModeNotice();
@@ -19658,6 +19719,57 @@ function updateStartHere() {
     try { hidden = localStorage.getItem(startHereKey()) === '1'; } catch (e) {}
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     el.style.display = (!hidden && !isSandbox) ? 'block' : 'none';
+    if (hidden || isSandbox) return;
+    // Mode-aware content (display only). DEMO keeps the original beginner
+    // checklist; LIVE shows the requirements the product actually enforces for
+    // Live. No balance, trading rule, invoice or session is touched here.
+    const isLive = (typeof APP !== 'undefined') && APP.mode === 'live';
+    const liveDone = isLive && startHereLiveComplete();
+    const show = function (id, on, display) {
+        const node = document.getElementById(id);
+        if (node) node.style.display = on ? display : 'none';
+    };
+    show('startHereHeadDemo', !isLive, 'block');
+    show('startHereHeadLive', isLive, 'block');
+    show('startHereStepsDemo', !isLive, 'flex');
+    show('startHereStepsLive', isLive && !liveDone, 'flex');
+    show('startHereStepsLiveReady', liveDone, 'block');
+    if (isLive && !liveDone) renderStartHereLiveSteps();
+}
+
+// LIVE checklist: only requirements the current product actually enforces.
+//   1. funding the Live balance (platform minimum deposit)
+//   2. the minimum trading balance required to start the bot (getEffectiveMta)
+//   3. identity verification, required to withdraw
+//   4. the withdrawal minimum + completed-trade requirement
+// Amounts come from the same APP constants the rest of the UI uses (the MTA is
+// server-driven), so this copy can never drift from the configuration.
+function startHereLiveSteps() {
+    const num = function (v, fallback) { const n = Number(v); return (isFinite(n) && n > 0) ? n : fallback; };
+    return [
+        { key: 'startHere.live.step1', vars: { min: num(APP.MIN_DEPOSIT, 100) } },
+        { key: 'startHere.live.step2', vars: { mta: num(APP.MTA, 200) } },
+        { key: 'startHere.live.step3', vars: {} },
+        { key: 'startHere.live.step4', vars: { wmin: num(APP.MIN_WITHDRAWAL, 700) } },
+    ];
+}
+
+// Completion state, driven ONLY by reliable server flags already adopted into
+// APP.liveData: a confirmed real deposit (hasRealDeposit) and at least one
+// completed trade (hasTradingActivity). No new/fake progress tracking.
+function startHereLiveComplete() {
+    const d = (typeof APP !== 'undefined' && APP.liveData) ? APP.liveData : null;
+    if (!d) return false;
+    return !!(d.hasRealDeposit && d.hasTradingActivity);
+}
+
+function renderStartHereLiveSteps() {
+    const wrap = document.getElementById('startHereStepsLive');
+    if (!wrap) return;
+    wrap.innerHTML = startHereLiveSteps().map(function (step, i) {
+        return '<div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;">' +
+            '<span class="sh-num">' + (i + 1) + '</span><span>' + t(step.key, step.vars) + '</span></div>';
+    }).join('');
 }
 
 // Initialize currency selection listeners
