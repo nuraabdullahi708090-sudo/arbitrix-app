@@ -487,6 +487,20 @@ const PLATFORM_MIN_DEPOSIT_USD = 100;
 // withdrawal, KYC, address and all other withdrawal safeguards are unchanged.
 const REFERRAL_EARNINGS_MIN_CONVERT_USD = 0;
 
+// TEMPORARY (management decision): account verification is NOT required to
+// withdraw at this time, so an unverified account is no longer blocked and the
+// request proceeds to the next applicable withdrawal validation (first-deposit
+// / minimum amount / balance / completed trade / address).
+// TO RESTORE the previous KYC-first withdrawal gate, set the env var
+// `WITHDRAWAL_REQUIRES_VERIFICATION=true` (or edit this single constant). The
+// gate code below is unchanged and is merely skipped while the flag is off.
+// SCOPE: this flag affects ONLY the verification requirement. The $700 minimum,
+// the completed-trade rule, balance/address validation, the first-deposit rule,
+// duplicate/pending protections and authorization are all untouched, and the
+// verification system itself (collection, review, storage) is NOT removed.
+const WITHDRAWAL_REQUIRES_VERIFICATION =
+  String(process.env.WITHDRAWAL_REQUIRES_VERIFICATION || '').trim().toLowerCase() === 'true';
+
 // Minimum Trading Amount (MTA): the live-style trading balance required to
 // START the bot. Server-authoritative and PRODUCTION-ONLY ($200). It applies to
 // the production live bot start; MARKETING_SANDBOX has NO MTA at all (see the
@@ -4598,20 +4612,24 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
     });
   }
 
-  // Gate 2 — Identity Verification (KYC) MUST be satisfied BEFORE the remaining
-  // eligibility checks. An unapproved, otherwise-eligible user receives the
-  // existing verificationRequired:true response regardless of the requested
-  // amount (below $700), balance, address, or trade history. This is an
-  // ordering change only; the existing $700 minimum, balance, trade-count, and
-  // address requirements below are unchanged in meaning.
-  const verificationStatus = await kycService.getVerificationStatus(userId);
-  if (verificationStatus !== VERIFICATION_STATUS.APPROVED) {
-    return res.status(400).json({
-      error: 'Identity verification required',
-      verificationRequired: true,
-      status: verificationStatus,
-      redirectTo: '/#/verification'
-    });
+  // Gate 2 — Identity Verification (KYC). TEMPORARILY DISABLED by management
+  // decision: a withdrawal no longer requires an APPROVED verification status,
+  // so an unverified account falls through to the next applicable withdrawal
+  // validation (minimum amount / balance / completed trade / address) instead of
+  // being rejected here. The requirement is NOT removed: set the env var
+  // WITHDRAWAL_REQUIRES_VERIFICATION=true and this block enforces exactly the
+  // previous behavior (the verificationRequired:true response, returned FIRST,
+  // regardless of amount, balance, address or trade history).
+  if (WITHDRAWAL_REQUIRES_VERIFICATION) {
+    const verificationStatus = await kycService.getVerificationStatus(userId);
+    if (verificationStatus !== VERIFICATION_STATUS.APPROVED) {
+      return res.status(400).json({
+        error: 'Identity verification required',
+        verificationRequired: true,
+        status: verificationStatus,
+        redirectTo: '/#/verification'
+      });
+    }
   }
 
   // PRESERVED: All existing withdrawal business logic (unchanged order/meaning)
@@ -4945,14 +4963,22 @@ app.get('/api/kyc/can-withdraw', authMiddleware, async (req, res) => {
     const status = await kycService.getVerificationStatus(userId);
     const isVerified = status === VERIFICATION_STATUS.APPROVED;
     
+    // TEMPORARY: while WITHDRAWAL_REQUIRES_VERIFICATION is off an unverified
+    // account is allowed to withdraw, so the capability check reports true and
+    // the UI proceeds to the remaining gates (it is driven entirely by this
+    // response, so the frontend can never block a request the API accepts).
+    // The real verification status is still reported. Flip the flag to restore
+    // the previous gating.
+    const requiresVerification = WITHDRAWAL_REQUIRES_VERIFICATION;
     res.json({
-      canWithdraw: isVerified,
+      canWithdraw: requiresVerification ? isVerified : true,
+      verificationRequired: requiresVerification && !isVerified,
       verificationStatus: status,
-      message: isVerified 
-        ? 'Identity verified' 
-        : status === 'pending_review' 
-          ? 'Verification pending review' 
-          : 'Identity verification required'
+      message: isVerified
+        ? 'Identity verified'
+        : requiresVerification
+          ? (status === 'pending_review' ? 'Verification pending review' : 'Identity verification required')
+          : 'Verification not required for withdrawals'
     });
   } catch (error) {
     console.error('[KYC] Can withdraw error:', error);

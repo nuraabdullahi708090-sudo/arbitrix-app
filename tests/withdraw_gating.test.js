@@ -14,8 +14,12 @@
  *     or completed-trade count. This covers a user who only holds the $50
  *     promotional credit and one who traded it for a profit.
  *
- *   Gate 2 (KYC) — otherwise, if verification status !== 'approved', the
- *     existing verificationRequired:true object is returned, REGARDLESS of the
+ *   Gate 2 (KYC) — TEMPORARILY DISABLED by management decision. With
+ *     WITHDRAWAL_REQUIRES_VERIFICATION off (the current production setting) an
+ *     unverified account is NOT rejected here; it falls through to the next
+ *     applicable validation (minimum amount -> balance -> address -> trade).
+ *     Setting the flag to true restores the previous behavior exactly: the
+ *     existing verificationRequired:true object is returned REGARDLESS of the
  *     requested amount (below $700), balance, address, or completed-trade count.
  *
  *   Gate 3+ — after KYC approval the existing requirements keep their exact
@@ -47,9 +51,11 @@ const DEPOSIT_MSG = 'A qualifying first deposit is required before you can withd
 // Faithful mirror of the /api/withdraw/request gate order (server.js).
 // hasDeposit: true iff at least one confirmed real deposit exists.
 // referralAvailable: genuinely earned referral earnings (server-derived).
+// requireVerification: mirrors WITHDRAWAL_REQUIRES_VERIFICATION (currently OFF
+// in production, so the default here is false = verification not required).
 function evaluateWithdrawGate({
     verificationStatus, amount, address, liveBalance, tradeCount,
-    hasDeposit, referralAvailable = 0
+    hasDeposit, referralAvailable = 0, requireVerification = false
 }) {
     const requestedAmount = Number(amount) || 0;
     const referralFunded = requestedAmount > 0 && requestedAmount <= referralAvailable;
@@ -67,7 +73,7 @@ function evaluateWithdrawGate({
         };
     }
     // Gate 2 — KYC (unchanged).
-    if (verificationStatus !== APPROVED) {
+    if (requireVerification && verificationStatus !== APPROVED) {
         return {
             status: 400,
             body: {
@@ -158,13 +164,23 @@ test('the first-deposit response shape is exact (machine-readable)', () => {
 // B. Referral-earnings exception is preserved
 // ---------------------------------------------------------------------------
 
-test('a request fully covered by genuine referral earnings skips the deposit gate (KYC still applies)', () => {
+test('a request fully covered by genuine referral earnings skips the deposit gate (KYC still applies when required)', () => {
+    const r = evaluateWithdrawGate({
+        verificationStatus: 'not_started', amount: 800, address: 'TRX1234567890',
+        liveBalance: 0, tradeCount: 0, hasDeposit: false, referralAvailable: 800,
+        requireVerification: true
+    });
+    assert.strictEqual(r.body.depositRequired, undefined);
+    assert.strictEqual(r.body.verificationRequired, true);
+});
+
+test('TEMPORARY: referral-earnings request by an unverified account succeeds while verification is not required', () => {
     const r = evaluateWithdrawGate({
         verificationStatus: 'not_started', amount: 800, address: 'TRX1234567890',
         liveBalance: 0, tradeCount: 0, hasDeposit: false, referralAvailable: 800
     });
-    assert.strictEqual(r.body.depositRequired, undefined);
-    assert.strictEqual(r.body.verificationRequired, true);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.verificationRequired, undefined);
 });
 
 test('a partial referral-earnings request (above available) still hits the first-deposit gate', () => {
@@ -183,7 +199,7 @@ test('deposited user with the trading condition met but unapproved KYC -> verifi
     for (const s of NON_APPROVED_STATUSES) {
         const r = evaluateWithdrawGate({
             verificationStatus: s, amount: 800, address: 'TRX1234567890',
-            liveBalance: 5000, tradeCount: 5, hasDeposit: true
+            liveBalance: 5000, tradeCount: 5, hasDeposit: true, requireVerification: true
         });
         assert.strictEqual(r.body.verificationRequired, true, `status ${s} should be gated`);
         assert.strictEqual(r.body.status, s, 'raw status echoed back verbatim (not localized)');
@@ -200,7 +216,7 @@ test('deposited + unapproved KYC wins for any amount/balance/address/trade combi
         { amount: 800, address: 'x', liveBalance: 5000, tradeCount: 5 }
     ];
     for (const c of cases) {
-        const r = evaluateWithdrawGate({ verificationStatus: 'pending_review', hasDeposit: true, ...c });
+        const r = evaluateWithdrawGate({ verificationStatus: 'pending_review', hasDeposit: true, requireVerification: true, ...c });
         assert.strictEqual(r.body.verificationRequired, true);
         assert.notStrictEqual(r.body.error, 'Min $700');
         assert.notStrictEqual(r.body.error, 'Insufficient balance');
@@ -260,8 +276,75 @@ test('deposited + all requirements satisfied -> success', () => {
 test('the verification-required response shape is reused exactly (no new fields)', () => {
     const r = evaluateWithdrawGate({
         verificationStatus: 'not_started', amount: 100, address: 'TRX1234567890',
-        liveBalance: 5000, tradeCount: 5, hasDeposit: true
+        liveBalance: 5000, tradeCount: 5, hasDeposit: true, requireVerification: true
     });
     assert.deepStrictEqual(Object.keys(r.body).sort(),
         ['error', 'redirectTo', 'status', 'verificationRequired'].sort());
+});
+
+// ---------------------------------------------------------------------------
+// E. TEMPORARY behavior: verification is not required for withdrawals
+//    (WITHDRAWAL_REQUIRES_VERIFICATION off). Every OTHER rule must still apply.
+// ---------------------------------------------------------------------------
+
+test('unverified user is not rejected solely for missing verification', () => {
+    for (const s of NON_APPROVED_STATUSES) {
+        const r = evaluateWithdrawGate({
+            verificationStatus: s, amount: 800, address: 'TRX1234567890',
+            liveBalance: 5000, tradeCount: 3, hasDeposit: true
+        });
+        assert.strictEqual(r.status, 200, `status ${s} must not be blocked by verification`);
+        assert.strictEqual(r.body.verificationRequired, undefined);
+    }
+});
+
+test('an unverified request proceeds to the NEXT applicable validation', () => {
+    const base = { verificationStatus: 'not_started', address: 'TRX1234567890', liveBalance: 5000, tradeCount: 3, hasDeposit: true };
+    assert.strictEqual(evaluateWithdrawGate({ ...base, amount: 600 }).body.error, 'Min $700', 'minimum amount is the next gate');
+});
+
+test('minimum withdrawal amount is still enforced for unverified users', () => {
+    const r = evaluateWithdrawGate({ verificationStatus: 'not_started', amount: 699.99, address: 'TRX1234567890', liveBalance: 5000, tradeCount: 3, hasDeposit: true });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.error, 'Min $700');
+});
+
+test('the completed-trade requirement is still enforced for unverified users', () => {
+    const r = evaluateWithdrawGate({ verificationStatus: 'not_started', amount: 800, address: 'TRX1234567890', liveBalance: 5000, tradeCount: 0, hasDeposit: true });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.error, 'Complete at least 1 trade first');
+});
+
+test('balance and wallet validation are still enforced for unverified users', () => {
+    const r = evaluateWithdrawGate({ verificationStatus: 'not_started', amount: 800, address: 'TRX1234567890', liveBalance: 700, tradeCount: 3, hasDeposit: true });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.error, 'Insufficient balance');
+});
+
+test('address validation is still enforced for unverified users', () => {
+    const r = evaluateWithdrawGate({ verificationStatus: 'not_started', amount: 800, address: 'short', liveBalance: 5000, tradeCount: 3, hasDeposit: true });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.error, 'Valid address required');
+});
+
+test('the first-deposit rule is still enforced for unverified users', () => {
+    const r = evaluateWithdrawGate({ verificationStatus: 'not_started', amount: 800, address: 'TRX1234567890', liveBalance: 5000, tradeCount: 3, hasDeposit: false });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.depositRequired, true);
+});
+
+test('with the flag ON every non-approved status is gated again (restore path)', () => {
+    for (const s of NON_APPROVED_STATUSES) {
+        const r = evaluateWithdrawGate({
+            verificationStatus: s, amount: 800, address: 'TRX1234567890',
+            liveBalance: 5000, tradeCount: 3, hasDeposit: true, requireVerification: true
+        });
+        assert.strictEqual(r.body.verificationRequired, true);
+        assert.strictEqual(r.body.status, s);
+    }
+});
+
+test('approved users behave identically in both modes', () => {
+    const args = { verificationStatus: APPROVED, amount: 800, address: 'TRX1234567890', liveBalance: 5000, tradeCount: 3, hasDeposit: true };
+    assert.deepStrictEqual(evaluateWithdrawGate(args), evaluateWithdrawGate({ ...args, requireVerification: true }));
 });

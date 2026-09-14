@@ -3363,3 +3363,52 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   Screenshots: /tmp/s19b_shots/{demo,live}-390.png.
 - (The Stage 19A deployment note above is included in this commit; it was previously kept
   uncommitted only to avoid a second Render rebuild, and this push rebuilds anyway.)
+
+## Stage 19C - Temporary Withdrawal Verification Gate (2026-09-14, server.js + .env.example + tests)
+- Management decision: account verification is NOT required to withdraw at this time.
+  The verification requirement is DISABLED behind ONE server-side flag (not deleted):
+  `const WITHDRAWAL_REQUIRES_VERIFICATION = String(process.env.WITHDRAWAL_REQUIRES_VERIFICATION || '')
+  .trim().toLowerCase() === 'true';` (server.js, next to REFERRAL_EARNINGS_MIN_CONVERT_USD).
+  Default OFF. To RESTORE the previous KYC-first gate: set the env var to `true`
+  (documented in .env.example as WITHDRAWAL_REQUIRES_VERIFICATION=false).
+- ROOT CAUSE of the modal in the screenshot: BOTH layers still enforced the old rule -
+  (a) `/api/withdraw/request` returned 400 `{error:'Identity verification required',
+  verificationRequired:true,status,redirectTo:'/#/verification'}` as Gate 2, and
+  (b) `/api/kyc/can-withdraw` returned `canWithdraw: isVerified`, which drove the frontend
+  `openWithdrawModal()` Gate 2 to show `#withdrawKycRequired`
+  ("Verification Required / Verify your account to withdraw.") and `submitWithdrawAPI()`
+  rendered the same block on `data.verificationRequired`.
+- FIX (smallest safe, fully reversible): the KYC block in `/api/withdraw/request` is now
+  wrapped in `if (WITHDRAWAL_REQUIRES_VERIFICATION) { ... }` (code unchanged inside), and
+  `/api/kyc/can-withdraw` reports `canWithdraw: requiresVerification ? isVerified : true`,
+  `verificationRequired: requiresVerification && !isVerified` plus
+  'Verification not required for withdrawals'. The FRONTEND needs no change: it is driven
+  entirely by that response, so the UI and the API can never disagree (verified by a browser
+  run in BOTH modes - with the flag off the form opens; with canWithdraw=false the old
+  verification block returns).
+- PRESERVED (pinned by tests): authMiddleware; first-deposit priority gate;
+  `amount < 700` ("Min $700"); balance check ("Insufficient balance"); address check
+  (>= 10 chars, "Valid address required"); completed-trade check ("Complete at least 1
+  trade first"); the referral-earnings rules; the debit + `withdrawals` insert with
+  status 'pending'; sandbox short-circuits; the whole KYC system (endpoints, service,
+  review) is untouched. NOTE: the production route has NO duplicate/pending-withdrawal
+  guard or withdrawal-specific rate limit today - that was true before this change and is
+  unchanged (the sandbox has its own simulated protections, also untouched).
+- Tests: NEW tests/withdraw_verification_flag.test.js (18) - flag single-source + default
+  OFF for missing/invalid values, gate wrapped in the flag, restore path intact,
+  capability response flag-driven, every preserved rule still present, frontend is
+  API-driven (no client-side verification gate), KYC system intact, .env.example documented,
+  and the flag used in only 2 executable places. tests/withdraw_gating.test.js mirror now
+  models the flag (requireVerification=false default) and gained 10 tests proving: an
+  unverified user is not rejected, proceeds to the next validation, and that minimum /
+  trade / balance / address / first-deposit rules still apply, plus approved-user equality
+  across both modes. tests/sandbox_no_kyc.test.js pin updated to the flag-aware
+  can-withdraw form. npm test = 833 pass / 0 fail.
+- Browser (puppeteer-core + chromium, stubbed API, local server): unverified + all rules
+  otherwise satisfied -> modal opens with the withdrawal form and NO verification UI;
+  unverified + below $700 -> the existing minimum message; unverified + no trade -> the
+  existing trade message; unverified + no deposit -> the existing first-deposit message;
+  server rejecting another rule -> mapped existing error, no verification UI; and with
+  canWithdraw=false (flag restored) the verification block is visible again. 0 page errors.
+  Screenshots: /tmp/s19c_shots/modal-unverified-ok-390.png, modal-flag-on-390.png.
+- NOT committed/pushed/deployed at the time of writing (combined with Stage 19D below).

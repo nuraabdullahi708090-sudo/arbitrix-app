@@ -58,7 +58,10 @@ test('server: can-withdraw short-circuits sandbox without weakening production K
     assert.ok(sbxIdx > 0, 'sandbox branch must exist');
     assert.ok(prodIdx > sbxIdx, 'production verification check must remain AFTER the sandbox branch');
     assert.ok(body.includes('canWithdraw: true'), 'sandbox reports canWithdraw without KYC');
-    assert.ok(/canWithdraw: isVerified/.test(body), 'production still requires APPROVED verification');
+    assert.ok(/canWithdraw: requiresVerification \? isVerified : true/.test(body),
+        'production can-withdraw is driven by WITHDRAWAL_REQUIRES_VERIFICATION');
+    assert.ok(/const requiresVerification = WITHDRAWAL_REQUIRES_VERIFICATION;/.test(body),
+        'the flag is read from the single server constant');
 });
 
 test('server: sandbox handlers never touch the production KYC surfaces', () => {
