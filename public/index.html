@@ -2885,6 +2885,13 @@ function showSignupForm() {
 
 
 function applyAuthEntryIntent() {
+    // Fix A: capture (and remember) the referral code on EVERY auth entry,
+    // before the tab intent is applied, so a referral link is honoured whichever
+    // path the visitor used — no ?action= param, ?action=sign-in, ?action=
+    // create-account, a direct /signup landing, or a return from another page.
+    // populateReferralFromURL() is idempotent and never overwrites a code the
+    // user typed. Non-fatal: a failure here must not block the auth screen.
+    try { populateReferralFromURL(); } catch (e) { /* non-fatal */ }
     try {
         var query = window.location.search || '';
         // The query string is the single source of truth whenever it carries an
@@ -3197,6 +3204,11 @@ async function handleSignup() {
         const data = await response.json();
         localStorage.setItem('jwt_token', data.token);
         localStorage.setItem('arbi_user', JSON.stringify(data.user));
+
+        // The account now exists and its attribution (if any) is recorded
+        // server-side, so the pending code has done its job. Clearing it keeps a
+        // stale code from leaking into a later, unrelated signup in this session.
+        clearPendingReferralCode();
         
 // Adopt the server-authoritative environment classification so the Meta
         // Pixel conversion gate sees the real account type. New public registrations
@@ -16936,21 +16948,73 @@ function isValidReferralCodeFormat(code) {
 }
 
 /**
- * Auto-populate referral code field from URL when signup form is shown
+ * Pending referral code captured from a referral link, kept for this browser
+ * session so it survives reloads and internal navigation before registration.
+ * Browser-only and display/attribution-input only: nothing is sent to the
+ * server until the user submits the signup form, and the value is cleared once
+ * an account has actually been created.
+ */
+const PENDING_REFERRAL_KEY = 'arbi_pending_ref';
+
+function rememberPendingReferralCode(code) {
+    try {
+        if (code && isValidReferralCodeFormat(code)) {
+            sessionStorage.setItem(PENDING_REFERRAL_KEY, String(code).trim().toUpperCase());
+        }
+    } catch (e) { /* storage unavailable: capture still works for this page */ }
+}
+
+function getPendingReferralCode() {
+    try { return sessionStorage.getItem(PENDING_REFERRAL_KEY) || null; } catch (e) { return null; }
+}
+
+function clearPendingReferralCode() {
+    try { sessionStorage.removeItem(PENDING_REFERRAL_KEY); } catch (e) { /* non-fatal */ }
+}
+
+/**
+ * Auto-populate the signup referral field.
+ *
+ * Runs on every authentication entry (applyAuthEntryIntent) as well as whenever
+ * the Create Account form is shown, and is idempotent.
+ *
+ * Precedence: a valid code in the CURRENT URL wins (that is the link the visitor
+ * just followed) and is remembered for later; otherwise the code remembered
+ * earlier in this browser session is restored. Overwrite rules:
+ *   - empty field                   -> filled
+ *   - value WE auto-filled earlier  -> replaced by a newer link code
+ *   - anything the user typed       -> never overwritten
  */
 function populateReferralFromURL() {
-    const referralCode = getReferralCodeFromURL();
-    if (referralCode && isValidReferralCodeFormat(referralCode)) {
-        const referralInput = document.getElementById('signupReferral');
-        if (referralInput && !referralInput.value) {
-            referralInput.value = referralCode;
-            // Visual feedback
-            referralInput.style.borderColor = '#10B981';
-            setTimeout(() => {
-                referralInput.style.borderColor = '';
-            }, 2000);
-        }
+    const urlCode = getReferralCodeFromURL();
+    const validUrlCode = (urlCode && isValidReferralCodeFormat(urlCode)) ? urlCode : null;
+    if (validUrlCode) rememberPendingReferralCode(validUrlCode);
+
+    const referralCode = validUrlCode || getPendingReferralCode();
+    if (!referralCode || !isValidReferralCodeFormat(referralCode)) return;
+
+    const referralInput = document.getElementById('signupReferral');
+    if (!referralInput) return;
+
+    // Once the user edits the field the value is theirs, not ours.
+    if (!referralInput.dataset.referralListenBound) {
+        referralInput.dataset.referralListenBound = '1';
+        referralInput.addEventListener('input', function () {
+            referralInput.dataset.referralAutoFilled = '';
+        });
     }
+
+    const current = (referralInput.value || '').trim();
+    const ours = referralInput.dataset.referralAutoFilled === '1';
+    if (current && !(ours && current.toUpperCase() !== referralCode.toUpperCase())) return;
+
+    referralInput.value = referralCode;
+    referralInput.dataset.referralAutoFilled = '1';
+    // Visual feedback
+    referralInput.style.borderColor = '#10B981';
+    setTimeout(() => {
+        referralInput.style.borderColor = '';
+    }, 2000);
 }
 
 // ============ REFERRAL SYSTEM ============
