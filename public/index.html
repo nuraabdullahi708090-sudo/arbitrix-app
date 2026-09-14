@@ -1616,6 +1616,19 @@
         .language-option .check{margin-left:auto;color:var(--gold);display:none;}
         .language-option.active .check{display:block;}
 
+        /* Stage 11: compact language selector for the landing + auth headers.
+           Reuses .language-selector/.language-dropdown/.language-option and the
+           existing setLanguage()/arbi_lang mechanism - no second i18n system. */
+        .landing-nav-right{display:flex;align-items:center;gap:16px;}
+        .lang-trigger{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;background:transparent;border:1px solid var(--border-color);border-radius:10px;color:var(--text-secondary);font-family:inherit;font-size:12px;font-weight:600;line-height:1;letter-spacing:0.4px;cursor:pointer;transition:all 0.2s;}
+        .lang-trigger:hover{color:var(--text-primary);border-color:var(--gold);}
+        .lang-trigger .fa-globe{font-size:13px;}
+        .language-dropdown.lang-menu{min-width:180px;width:auto;max-width:calc(100vw - 24px);}
+        button.language-option{width:100%;background:transparent;border:0;font-family:inherit;text-align:start;}
+        .auth-lang-row{display:flex;justify-content:flex-end;margin-bottom:12px;}
+        .landing-nav-right .language-selector,.auth-lang-row .language-selector{display:inline-flex;}
+        @media (max-width:768px){ .landing-lang{margin-inline-start:6px;} .lang-trigger{padding:7px 9px;} }
+
         /* Sound Controls */
         .sound-controls{display:flex;flex-direction:column;gap:12px;padding:12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:12px;margin-top:12px;}
         .sound-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
@@ -4749,17 +4762,33 @@ console.log('🔐 Auth script loaded successfully');
                 <a href="#pricing" data-i18n="landing.nav.pricing">Pricing</a>
                 <a href="#faq" data-i18n="landing.nav.faq">FAQ</a>
             </div>
-            <div class="landing-nav-actions">
-                <span style="display:none;" id="landingUserGreeting">Welcome, <span id="landingUserName" style="color:var(--gold);font-weight:600;">Trader</span></span>
-                <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-btn">
-                    <span data-i18n="auth.tab.signin">Sign In</span>
-                </button>
-                <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-btn">
-                    <span data-i18n="auth.tab.signup">Create Account</span>
-                </button>
-                <button type="button" onclick="goToApp('nav')" class="btn btn-secondary landing-cta-btn">
-                    <span data-i18n="landing.launchApp">Launch App</span> <i class="fas fa-arrow-right"></i>
-                </button>
+            <div class="landing-nav-right">
+                <div class="landing-nav-actions">
+                    <span style="display:none;" id="landingUserGreeting">Welcome, <span id="landingUserName" style="color:var(--gold);font-weight:600;">Trader</span></span>
+                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-btn">
+                        <span data-i18n="auth.tab.signin">Sign In</span>
+                    </button>
+                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-btn">
+                        <span data-i18n="auth.tab.signup">Create Account</span>
+                    </button>
+                    <button type="button" onclick="goToApp('nav')" class="btn btn-secondary landing-cta-btn">
+                        <span data-i18n="landing.launchApp">Launch App</span> <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+                <div class="language-selector landing-lang">
+                    <button type="button" class="lang-trigger" id="landingLangBtn" aria-haspopup="true" aria-expanded="false" aria-label="Language: English" title="English" onclick="toggleLangMenu('landingLangMenu','landingLangBtn')">
+                        <i class="fas fa-globe" aria-hidden="true"></i>
+                        <span class="lang-code" id="landingLangCode">EN</span>
+                    </button>
+                    <div class="language-dropdown lang-menu" id="landingLangMenu">
+                        <button type="button" class="language-option" data-lang="en" onclick="setLanguage('en')"><span class="flag">🇺🇸</span><span>English</span><i class="fas fa-check check"></i></button>
+                        <button type="button" class="language-option" data-lang="es" onclick="setLanguage('es')"><span class="flag">🇪🇸</span><span>Español</span><i class="fas fa-check check"></i></button>
+                        <button type="button" class="language-option" data-lang="fr" onclick="setLanguage('fr')"><span class="flag">🇫🇷</span><span>Français</span><i class="fas fa-check check"></i></button>
+                        <button type="button" class="language-option" data-lang="ar" onclick="setLanguage('ar')"><span class="flag">🇸🇦</span><span>العربية</span><i class="fas fa-check check"></i></button>
+                        <button type="button" class="language-option" data-lang="zh" onclick="setLanguage('zh')"><span class="flag">🇨🇳</span><span>中文</span><i class="fas fa-check check"></i></button>
+                        <button type="button" class="language-option" data-lang="pt" onclick="setLanguage('pt')"><span class="flag">🇧🇷</span><span>Português</span><i class="fas fa-check check"></i></button>
+                    </div>
+                </div>
             </div>
             <button class="landing-mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">
                 <i class="fas fa-bars"></i>
@@ -5305,6 +5334,25 @@ function toggleFaq(btn) {
                 </div>
                 
                 <!-- Auth Card -->
+                <!-- Stage 11: same language selector as the landing header, available on
+                     both Create Account and Sign In (outside the tab panels). -->
+                <div class="auth-lang-row">
+                    <div class="language-selector">
+                        <button type="button" class="lang-trigger" id="authLangBtn" aria-haspopup="true" aria-expanded="false" aria-label="Language: English" title="English" onclick="toggleLangMenu('authLangMenu','authLangBtn')">
+                            <i class="fas fa-globe" aria-hidden="true"></i>
+                            <span class="lang-code" id="authLangCode">EN</span>
+                        </button>
+                        <div class="language-dropdown lang-menu" id="authLangMenu">
+                            <button type="button" class="language-option" data-lang="en" onclick="setLanguage('en')"><span class="flag">🇺🇸</span><span>English</span><i class="fas fa-check check"></i></button>
+                            <button type="button" class="language-option" data-lang="es" onclick="setLanguage('es')"><span class="flag">🇪🇸</span><span>Español</span><i class="fas fa-check check"></i></button>
+                            <button type="button" class="language-option" data-lang="fr" onclick="setLanguage('fr')"><span class="flag">🇫🇷</span><span>Français</span><i class="fas fa-check check"></i></button>
+                            <button type="button" class="language-option" data-lang="ar" onclick="setLanguage('ar')"><span class="flag">🇸🇦</span><span>العربية</span><i class="fas fa-check check"></i></button>
+                            <button type="button" class="language-option" data-lang="zh" onclick="setLanguage('zh')"><span class="flag">🇨🇳</span><span>中文</span><i class="fas fa-check check"></i></button>
+                            <button type="button" class="language-option" data-lang="pt" onclick="setLanguage('pt')"><span class="flag">🇧🇷</span><span>Português</span><i class="fas fa-check check"></i></button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="auth-card">
                     <!-- Tabs -->
                     <div class="auth-tabs">
@@ -16554,6 +16602,8 @@ function update2FACodeExpiryLabels() {
 function updateDynamicTranslations() {
     try {
         update2FACodeExpiryLabels();
+        // Stage 11: keep the landing/auth language trigger labels in sync.
+        if (typeof updateLanguageTriggerLabels === 'function') updateLanguageTriggerLabels();
         // Re-render the marketing demo badge + intro chip on language switch
         if (typeof updateSandboxBadge === 'function') updateSandboxBadge();
         // Re-render the subscription panel details on language switch: the
@@ -16621,6 +16671,42 @@ function updateDynamicTranslations() {
         }
     } catch(e) { console.error('updateDynamicTranslations error:', e); }
 }
+// Stage 11: compact language menus for the landing + auth headers. They reuse the
+// existing setLanguage()/arbi_lang/applyTranslations() system; only opening,
+// closing and the trigger label are new.
+function closeLangMenus() {
+    document.querySelectorAll('.language-dropdown.open').forEach(function (m) { m.classList.remove('open'); });
+    document.querySelectorAll('.lang-trigger').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+}
+function toggleLangMenu(menuId, btnId) {
+    const menu = document.getElementById(menuId);
+    if (!menu) return;
+    const wasOpen = menu.classList.contains('open');
+    closeLangMenus();
+    if (!wasOpen) {
+        menu.classList.add('open');
+        const btn = document.getElementById(btnId);
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+}
+// Keeps the landing/auth triggers in sync with currentLang (code + accessible name).
+// The endonym is read from the menu's own option label, so nothing is duplicated.
+function updateLanguageTriggerLabels() {
+    const code = String(currentLang || 'en').toUpperCase();
+    [['landingLangCode', 'landingLangMenu', 'landingLangBtn'],
+     ['authLangCode', 'authLangMenu', 'authLangBtn']].forEach(function (ids) {
+        const codeEl = document.getElementById(ids[0]);
+        if (codeEl) codeEl.textContent = code;
+        const menu = document.getElementById(ids[1]);
+        const btn = document.getElementById(ids[2]);
+        if (menu && btn) {
+            const opt = menu.querySelector('.language-option[data-lang="' + currentLang + '"] span:nth-child(2)');
+            const name = opt ? opt.textContent.trim() : code;
+            btn.setAttribute('aria-label', 'Language: ' + name);
+            btn.setAttribute('title', name);
+        }
+    });
+}
 function setLanguage(lang) {
     if (!TRANSLATIONS[lang]) return;
     currentLang = lang;
@@ -16631,8 +16717,7 @@ function setLanguage(lang) {
     // language change takes effect immediately WITHOUT refetching. Pure:
     // no API calls, no raw-value changes, no filter/pagination/modal reset.
     rerenderDynamicSurfaces();
-    const dropdown = document.getElementById('languageDropdown');
-    if (dropdown) dropdown.classList.remove('open');
+    closeLangMenus();
     const langNames = { en: 'English', es: 'Español', fr: 'Français', ar: 'العربية', zh: '中文', pt: 'Português' };
     showToast('✅ ' + langNames[lang], 'success', 2000);
 }
@@ -16641,9 +16726,10 @@ function toggleLanguageDropdown() {
     if (dropdown) dropdown.classList.toggle('open');
 }
 document.addEventListener('click', function(e) {
-    const dropdown = document.getElementById('languageDropdown');
-    const selector = e.target.closest('.language-selector');
-    if (dropdown && !selector) dropdown.classList.remove('open');
+    if (!e.target.closest('.language-selector')) closeLangMenus();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLangMenus();
 });
 applyTranslations();
 // Stage 10: static markup is localized now - reveal the page. The early bootstrap
