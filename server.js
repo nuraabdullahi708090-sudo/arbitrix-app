@@ -30,6 +30,17 @@ const Email2FAService = require('./services/Email2FAService');
 // Server-side JWT session revocation (jti denylist) for logout
 const TokenRevocation = require('./services/TokenRevocationService');
 
+// Telegram support bot (@ArbitrixSupportBot). Additive: the app boots with the
+// bot unconfigured and the /api/telegram/* routes fail closed until the
+// TELEGRAM_* env vars are set (see .env.example).
+const {
+  createTelegramSupportBot,
+  createTelegramTransport,
+  createTelegramWebhookHandler,
+  resolveTelegramConfig
+} = require('./services/TelegramSupportService');
+const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
+
 // Feature flag cache (refreshes every 5 minutes)
 let featureFlagCache = {
     '2fa_type': 'email' // Default to email 2FA
@@ -3995,6 +4006,79 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
     console.error('[Q8QPay Webhook] Error:', error);
     // Return 200 to prevent q8qpay from retrying; log for investigation
     res.status(200).json({ error: 'Processing error' });
+  }
+});
+
+// ============================================
+// TELEGRAM SUPPORT BOT (@ArbitrixSupportBot)
+// ============================================
+// Webhook endpoint for the support bot. Registered on its own path
+// (/api/telegram/webhook) on purpose: the generic
+// app.post('/api/webhook/:provider') above shadows /api/webhook/* paths, so a
+// bot webhook placed under /api/webhook/telegram would never be reached.
+//
+// Storage uses supabaseAdmin because the telegram_support_* tables are
+// RLS-restricted to service_role (migration 027).
+//
+// Security:
+//  - The request must carry a Telegram secret token header that matches
+//    TELEGRAM_WEBHOOK_SECRET (constant-time compare). No secret configured or no
+//    header => rejected. Never logged.
+//  - The bot token is only used inside the transport to build the Telegram API
+//    URL; it is never returned or logged.
+//  - We always answer 2xx for authenticated updates (even on a processing
+//    error) so Telegram does not endlessly retry a poisoned update; the error is
+//    logged server-side. Duplicate deliveries are absorbed by the bounded
+//    update_id deduper inside the service (the applied messages table has no
+//    update_id column, so this is per-process, not a DB constraint).
+const telegramConfig = resolveTelegramConfig(process.env);
+const telegramBot = createTelegramSupportBot({
+  config: telegramConfig,
+  store: createTelegramSupportStore(supabaseAdmin),
+  transport: createTelegramTransport({ token: telegramConfig.token })
+});
+if (telegramConfig.token) {
+  console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
+} else {
+  console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
+}
+
+app.post('/api/telegram/webhook', createTelegramWebhookHandler({ bot: telegramBot }));
+
+/**
+ * Telegram bot status for operators. Reports only WHETHER each piece of
+ * configuration is present - never the values themselves.
+ */
+app.get('/api/telegram/status', authMiddleware, adminMiddleware, async (req, res) => {
+  const status = telegramBot.status();
+  let webhook = null;
+  if (status.tokenConfigured) {
+    try {
+      const info = await telegramBot.getWebhookInfo();
+      // getWebhookInfo returns the webhook URL but never the secret token.
+      webhook = info ? {
+        url: info.url || '',
+        pendingUpdateCount: info.pending_update_count || 0,
+        lastErrorDate: info.last_error_date || null,
+        lastErrorMessage: info.last_error_message || null
+      } : null;
+    } catch (error) {
+      webhook = { error: error && error.message ? error.message : 'getWebhookInfo failed' };
+    }
+  }
+  res.json({ success: true, status, webhook });
+});
+
+/**
+ * Register (or refresh) the Telegram webhook from BASE_URL. Admin only.
+ * Returns the public webhook URL - never the bot token or the webhook secret.
+ */
+app.post('/api/telegram/set-webhook', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await telegramBot.setWebhook();
+    res.json({ success: true, url: result.url, webhookPath: result.webhookPath });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error && error.message ? error.message : 'Failed to set webhook' });
   }
 });
 
