@@ -195,6 +195,47 @@
 
     </script>
     
+    <!-- Stage 10: first-paint language bootstrap. Sets <html lang/dir> before the
+         first paint (Arabic -> RTL) and, when a supported non-English locale is in
+         effect, hides the page until the existing applyTranslations() pass has run.
+         Detection mirrors detectBrowserLanguage(); a failsafe prevents a permanent hide. -->
+    <style>
+        html.i18n-pending body { visibility: hidden; }
+        html.i18n-pending { background: #070B14; }
+    </style>
+    <script>
+    (function () {
+        var SUPPORTED = ['es', 'pt', 'fr', 'ar', 'zh', 'en'];
+        var root = document.documentElement;
+        var lang = null;
+        try { lang = localStorage.getItem('arbi_lang'); } catch (e) { lang = null; }
+        if (!lang) {
+            var candidates = [];
+            try {
+                if (navigator.languages && navigator.languages.length) {
+                    for (var i = 0; i < navigator.languages.length; i++) { candidates.push(navigator.languages[i]); }
+                }
+                if (navigator.language) { candidates.push(navigator.language); }
+            } catch (e) {}
+            for (var j = 0; j < candidates.length; j++) {
+                var prefix = String(candidates[j]).toLowerCase().split('-')[0];
+                if (SUPPORTED.indexOf(prefix) !== -1) { lang = prefix; break; }
+            }
+            if (!lang) { lang = 'en'; }
+        }
+        try {
+            root.setAttribute('lang', lang);
+            root.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+            if (lang !== 'en' && SUPPORTED.indexOf(lang) !== -1) {
+                root.classList.add('i18n-pending');
+                setTimeout(function () { root.classList.remove('i18n-pending'); }, 2000);
+            }
+        } catch (e) {
+            try { root.classList.remove('i18n-pending'); } catch (e2) {}
+        }
+    })();
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -16605,6 +16646,9 @@ document.addEventListener('click', function(e) {
     if (dropdown && !selector) dropdown.classList.remove('open');
 });
 applyTranslations();
+// Stage 10: static markup is localized now - reveal the page. The early bootstrap
+// only hid it when a supported non-English locale was in effect.
+document.documentElement.classList.remove('i18n-pending');
 console.log('🌍 i18n system loaded. Current language:', currentLang);
 </script>
 
