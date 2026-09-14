@@ -2317,6 +2317,13 @@
             font-size: 15px !important;
             border-radius: 12px !important;
         }
+        .landing-cta-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
         .landing-cta-note {
             display: block;
             font-size: 12px;
@@ -3838,8 +3845,11 @@ function completeLogin(token, user, is2FAFlow) {
         console.log('[COMPLETE_LOGIN] Setting twofaLoginSection display = none...');
         if (twofaLoginSection) twofaLoginSection.style.display = 'none';
         
-        console.log('[COMPLETE_LOGIN] Setting landingPage display = block...');
-        if (landingPage) landingPage.style.display = 'block';
+        console.log('[COMPLETE_LOGIN] Entering the dashboard (authenticated)...');
+        // Successful login enters the dashboard directly: hides the landing,
+        // shows the dashboard and runs the existing initApp() flow, which also
+        // preserves the once-per-account onboarding gate.
+        enterAppStartup();
         
         console.log('[COMPLETE_LOGIN] display states AFTER transition:');
         console.log('[COMPLETE_LOGIN]   authPage.style.display:', authPage?.style.display);
@@ -3924,7 +3934,10 @@ function completeLogin(token, user, is2FAFlow) {
 
         console.log('[COMPLETE_LOGIN] Executing transition...');
         document.getElementById('authPage').style.display = 'none';
-        document.getElementById('landingPage').style.display = 'block';
+        // Successful login enters the dashboard directly: hides the landing,
+        // shows the dashboard and runs the existing initApp() flow, which also
+        // preserves the once-per-account onboarding gate.
+        enterAppStartup();
         document.getElementById('displayName').textContent = user.name;
         document.getElementById('userName').textContent = user.name;
         const greeting = document.getElementById('landingUserGreeting');
@@ -4559,6 +4572,14 @@ function show2FADisableError(message) {
 function goToApp(source) {
     console.log('✅ DASHBOARD BUTTON CLICKED', source || '');
     try {
+        // Private-screen guard: the dashboard is only entered with a session.
+        // An anonymous visitor following a landing CTA is routed to the auth
+        // screen instead. Display-only - no session is created or changed here
+        // and the API still enforces authentication on every request.
+        if (!localStorage.getItem('jwt_token')) {
+            openAuthScreen('signup');
+            return;
+        }
         if (source) {
             trackLandingEvent('hero_cta_click', { cta: source });
             if (source === 'hero_demo' || source === 'demo_cta' || source === 'final_cta') {
@@ -4584,6 +4605,52 @@ function goToApp(source) {
         }
     } catch(e) {
         console.error('goToApp error:', e);
+    }
+}
+
+// Startup entry for an already server-validated session (see the STARTUP block).
+// Shows the dashboard and runs the existing initApp() flow (wallet sync +
+// onboarding). No landing-CTA analytics are emitted because this is not a CTA
+// click, and no PageView is fired here (the startup Pixel init already covered
+// the first screen).
+function enterAppStartup() {
+    try {
+        const landingEl = document.getElementById('landingPage');
+        if (landingEl) landingEl.style.display = 'none';
+        const mainEl = document.getElementById('mainApp');
+        if (mainEl) mainEl.style.display = 'block';
+        if (typeof initApp === 'function') {
+            initApp();
+        } else {
+            setTimeout(function() { if (typeof initApp === 'function') initApp(); }, 500);
+        }
+    } catch (e) {
+        console.error('enterAppStartup error:', e);
+    }
+}
+
+// Landing -> auth transition (Create Account / Sign In). Reuses the existing
+// auth tab switch so the ?action= contract, the referral capture and all auth
+// behavior stay unchanged; only the visible screen is swapped (display-only).
+function openAuthScreen(mode) {
+    try {
+        const landingEl = document.getElementById('landingPage');
+        const authEl = document.getElementById('authPage');
+        const mainEl = document.getElementById('mainApp');
+        if (landingEl) landingEl.style.display = 'none';
+        if (mainEl) mainEl.style.display = 'none';
+        if (authEl) authEl.style.display = 'flex';
+        if (mode === 'signin') {
+            if (typeof showLoginForm === 'function') showLoginForm();
+        } else {
+            if (typeof showSignupForm === 'function') showSignupForm();
+        }
+        if (typeof trackLandingEvent === 'function') {
+            trackLandingEvent('auth_cta_click', { cta: mode === 'signin' ? 'signin' : 'signup' });
+        }
+        try { window.scrollTo(0, 0); } catch (e) {}
+    } catch (e) {
+        console.error('openAuthScreen error:', e);
     }
 }
 
@@ -4626,7 +4693,7 @@ console.log('🔐 Auth script loaded successfully');
 <div class="offline-banner hidden" id="offlineBanner"><i class="fas fa-wifi"></i><span data-i18n="offline.message">You're offline • Using cached data</span></div>
 
 <!-- ==================== NEW LANDING PAGE ==================== -->
-<div id="landingPage" style="display:none; min-height:100vh; background: var(--bg-primary);">
+<div id="landingPage" style="display:block; min-height:100vh; background: var(--bg-primary);">
     <!-- Fixed Navigation -->
     <nav class="landing-nav">
         <div class="landing-nav-container">
@@ -4643,7 +4710,13 @@ console.log('🔐 Auth script loaded successfully');
             </div>
             <div class="landing-nav-actions">
                 <span style="display:none;" id="landingUserGreeting">Welcome, <span id="landingUserName" style="color:var(--gold);font-weight:600;">Trader</span></span>
-                <button type="button" onclick="goToApp('nav')" class="btn btn-primary landing-cta-btn">
+                <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-btn">
+                    <span data-i18n="auth.tab.signin">Sign In</span>
+                </button>
+                <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-btn">
+                    <span data-i18n="auth.tab.signup">Create Account</span>
+                </button>
+                <button type="button" onclick="goToApp('nav')" class="btn btn-secondary landing-cta-btn">
                     <span data-i18n="landing.launchApp">Launch App</span> <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
@@ -4657,7 +4730,9 @@ console.log('🔐 Auth script loaded successfully');
             <a href="#demo" data-i18n="landing.nav.demo">Demo Mode</a>
             <a href="#pricing" data-i18n="landing.nav.pricing">Pricing</a>
             <a href="#faq" data-i18n="landing.nav.faq">FAQ</a>
-            <button type="button" onclick="goToApp('nav')" class="btn btn-primary" style="width:100%;margin-top:8px;"><span data-i18n="landing.launchApp">Launch App</span></button>
+            <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary" style="width:100%;margin-top:8px;"><span data-i18n="auth.tab.signup">Create Account</span></button>
+            <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary" style="width:100%;margin-top:8px;"><span data-i18n="auth.tab.signin">Sign In</span></button>
+            <button type="button" onclick="goToApp('nav')" class="btn btn-secondary" style="width:100%;margin-top:8px;"><span data-i18n="landing.launchApp">Launch App</span></button>
         </div>
     </nav>
 
@@ -4678,7 +4753,13 @@ console.log('🔐 Auth script loaded successfully');
                     Arbitrix monitors supported markets for qualifying price discrepancies and automates eligible arbitrage trades.
                 </p>
                 <div class="landing-hero-cta">
-                    <button type="button" onclick="goToApp('hero_demo')" class="btn btn-primary landing-hero-btn">
+                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-hero-btn">
+                        <i class="fas fa-user-plus"></i> <span data-i18n="auth.tab.signup">Create Account</span>
+                    </button>
+                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-hero-btn-secondary">
+                        <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.tab.signin">Sign In</span>
+                    </button>
+                    <button type="button" onclick="goToApp('hero_demo')" class="btn btn-secondary landing-hero-btn-secondary">
                         <i class="fas fa-play-circle"></i> <span data-i18n="landing.hero.ctaPrimary">Try Demo Mode</span>
                     </button>
                     <button type="button" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'});trackLandingEvent('hero_cta_click',{cta:'how_it_works'})" class="btn btn-secondary landing-hero-btn-secondary">
@@ -5017,9 +5098,17 @@ console.log('🔐 Auth script loaded successfully');
             <div class="landing-cta-content">
                 <h2 data-i18n="landing.cta.title">Start with Demo Mode</h2>
                 <p data-i18n="landing.cta.subtitle">Explore Arbitrix, understand how automated arbitrage works, and decide when you're ready to experience Live trading.</p>
-                <button type="button" onclick="goToApp('final_cta')" class="btn btn-primary landing-cta-final-btn">
-                    <i class="fas fa-play-circle"></i> <span data-i18n="landing.cta.button">Try Demo Mode</span>
-                </button>
+                <div class="landing-cta-actions">
+                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-final-btn">
+                        <i class="fas fa-user-plus"></i> <span data-i18n="auth.tab.signup">Create Account</span>
+                    </button>
+                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-final-btn">
+                        <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.tab.signin">Sign In</span>
+                    </button>
+                    <button type="button" onclick="goToApp('final_cta')" class="btn btn-secondary landing-cta-final-btn">
+                        <i class="fas fa-play-circle"></i> <span data-i18n="landing.cta.button">Try Demo Mode</span>
+                    </button>
+                </div>
                 <span class="landing-cta-note" data-i18n="landing.cta.note">No card required to create an account • 14 days of free Live trading included</span>
             </div>
         </div>
@@ -5110,7 +5199,7 @@ function toggleFaq(btn) {
 
 
 <!-- PREMIUM AUTH PAGE -->
-<div id="authPage" class="auth-page" style="display:flex;">
+<div id="authPage" class="auth-page" style="display:none;">
     <div class="auth-bg"></div>
     <div class="auth-split">
         <!-- Brand Panel (Desktop) -->
@@ -23227,12 +23316,24 @@ async function rejectWithdrawal(withdrawalId) {
 }
 
 // ============ STARTUP ============
-const savedUser = localStorage.getItem('arbi_user');
-if(savedUser) {
+// First-screen decision (display-only). The marketing landing is the HTML
+// first paint, so an anonymous visitor never sees an auth-page flash before
+// JS runs; JavaScript only upgrades the screen when there is a session or an
+// explicit entry intent.
+//
+//   1. server-validated session          -> dashboard (goToApp/initApp flow)
+//   2. ?action=sign-in | create-account  -> auth page (entry-intent contract)
+//      or sessionStorage['arbi_auth_entry']
+//   3. anonymous, no intent              -> marketing landing (default)
+var startupUser = localStorage.getItem('arbi_user');
+var startupToken = localStorage.getItem('jwt_token');
+var startupEntryIntent = sessionStorage.getItem('arbi_auth_entry') || /[?&]action=(create-account|sign-in)/.test(window.location.search || '');
+
+// Cached-user greeting + landing content view. Trigger condition (a cached
+// user is present) is unchanged from the previous build.
+if (startupUser) {
     try {
-        const user = JSON.parse(savedUser);
-        document.getElementById('authPage').style.display = 'none';
-        document.getElementById('landingPage').style.display = 'block';
+        const user = JSON.parse(startupUser);
         document.getElementById('displayName').textContent = user.name || t('common.trader');
         document.getElementById('userName').textContent = user.name || t('common.trader');
         var greeting = document.getElementById('landingUserGreeting');
@@ -23240,9 +23341,6 @@ if(savedUser) {
             greeting.style.display = 'inline-block';
             document.getElementById('landingUserName').textContent = user.name || t('common.trader');
         }
-        // Returning logged-in user on refresh: landing content is the first screen
-        // shown, so fire one content view for it (the startup PageView already
-        // covered this first screen; no duplicate PageView here).
         if (typeof trackMetaConversion === 'function') trackMetaConversion('ViewContent');
     } catch(e) {
         localStorage.removeItem('arbi_user');
@@ -23251,24 +23349,89 @@ if(savedUser) {
 
 // Apply the intended auth entry (new-user vs existing-user) once at first
 // load. The /how-it-works marketing page sets sessionStorage 'arbi_auth_entry'
-// to ?action=create-account or ?action=sign-in; the query-string fallback
-// also covers deep links like /?action=sign-in. Default (no signal) is the
-// Create Account screen (sign-up is the primary action for new visitors).
-// When the deep link carries an explicit intent from the marketing /how-it-works
-// page (sessionStorage arbi_auth_entry) or a raw ?action= query, show the
-// auth screen DIRECTLY (instead of the marketing landing) so "Create Your
-// Arbitrix Account" lands on the registration form without an extra tap. A
-// returning logged-in user is unaffected (the saved-session branch above already
-// hid the auth screen);no session is created,so the user can still freely
-// switch to Sign In or browse the landing via the logo or browser back.
-var hasEntryIntent = sessionStorage.getItem('arbi_auth_entry') || /[?&]action=(create-account|sign-in)/.test(window.location.search || '');
-if (hasEntryIntent && !savedUser) {
-    var authEntryEl = document.getElementById('authPage');
-    if (authEntryEl) { authEntryEl.style.display = 'none'; authEntryEl.style.display = 'flex'; }
-    if (document.getElementById('landingPage')) document.getElementById('landingPage').style.display = 'none';
-    if (document.getElementById('mainApp')) document.getElementById('mainApp').style.display = 'none';
-}
+// to ?action=create-account or ?action=sign-in; the query-string fallback also
+// covers deep links like /?action=sign-in. Contract unchanged: it selects the
+// auth TAB and captures the referral code, and never creates a session.
 applyAuthEntryIntent();
+
+// Validate a cached session with the EXISTING endpoint (/api/auth/me, the same
+// call syncWalletFromServer() makes). This is not a new authentication system;
+// it only decides the first screen. Resolves:
+//   true      -> the server accepted the token
+//   false     -> the server rejected it (401/403)
+//   'unknown' -> the check could not complete (offline / server error), in
+//                which case the existing offline-tolerant behavior is kept.
+function validateStartupSession(token) {
+    return new Promise(function(resolve) {
+        var settled = false;
+        function done(v) { if (!settled) { settled = true; resolve(v); } }
+        var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+        var timer = setTimeout(function() {
+            if (ctrl) { try { ctrl.abort(); } catch(e) {} }
+            done('unknown');
+        }, 8000);
+        fetch('/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + token },
+            signal: ctrl ? ctrl.signal : undefined
+        }).then(function(res) {
+            clearTimeout(timer);
+            if (res && res.ok) return done(true);
+            if (res && (res.status === 401 || res.status === 403)) return done(false);
+            done('unknown');
+        }).catch(function() {
+            clearTimeout(timer);
+            done('unknown');
+        });
+    });
+}
+
+(function startupRouting() {
+    function showLanding() {
+        var landingEl = document.getElementById('landingPage');
+        var authEl = document.getElementById('authPage');
+        var mainEl = document.getElementById('mainApp');
+        if (landingEl) landingEl.style.display = 'block';
+        if (authEl) authEl.style.display = 'none';
+        if (mainEl) mainEl.style.display = 'none';
+    }
+    function showAuth() {
+        var landingEl = document.getElementById('landingPage');
+        var authEl = document.getElementById('authPage');
+        var mainEl = document.getElementById('mainApp');
+        if (landingEl) landingEl.style.display = 'none';
+        if (authEl) authEl.style.display = 'flex';
+        if (mainEl) mainEl.style.display = 'none';
+    }
+
+    // A cached user without a token is not an authenticated session.
+    if (!startupToken && startupUser) {
+        try { localStorage.removeItem('arbi_user'); } catch(e) {}
+    }
+
+    // An explicit marketing deep link (?action=... / arbi_auth_entry) with no
+    // session wins over the landing default so the correct auth tab is shown
+    // directly (existing behavior).
+    if (startupEntryIntent && !startupToken) { showAuth(); return; }
+
+    if (startupToken) {
+        validateStartupSession(startupToken).then(function(state) {
+            if (state === false) {
+                // Server rejected the session: clear the stale token/user and
+                // never expose the dashboard.
+                try { localStorage.removeItem('jwt_token'); localStorage.removeItem('arbi_user'); } catch(e) {}
+                if (startupEntryIntent) showAuth(); else showLanding();
+            } else {
+                // Valid session, or unverifiable while offline: enter the
+                // dashboard through the existing initApp() flow.
+                enterAppStartup();
+            }
+        });
+        return;
+    }
+
+    // Anonymous visitor: the landing is already the first paint.
+    showLanding();
+})();
 
 // Meta Pixel init + first-screen PageView. Exactly once per page load;the
 // cache gate inside trackMetaInit() makes repeat runs no-ops. MARKETING_SANDBOX
