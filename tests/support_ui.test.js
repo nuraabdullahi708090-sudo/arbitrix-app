@@ -215,7 +215,14 @@ test('support is available from the deposit modal (instructions area)', () => {
 });
 
 test('support is available from the payment pending/failed state with invoice reference', () => {
-    const win = elementWindow('paymentSupportHelp', 1600);
+    // Window must fit the whole 'support.contactOfficial' occurrence, so it needs
+    // to reach at least its offset + its length (currently 1594 + 23 = 1617).
+    // It stays inside the block, which ends at the next top-level comment (~1965).
+    // The window grew only because Stage 1 swapped inline hex colours in this
+    // block for token references (e.g. #8896B5 -> var(--text-secondary) and the
+    // brand/red alpha values for var(--brand-*) / var(--on-brand)); the markup
+    // and every assertion are unchanged.
+    const win = elementWindow('paymentSupportHelp', 1900);
     assert.ok(/openSupportModal\(\)/.test(win), 'payment help should link to support');
     assert.ok(/id="depositInvoiceRef"/.test(win), 'invoice reference is displayed');
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');

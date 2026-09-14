@@ -6,16 +6,42 @@
     <title>Terms of Service - Arbitrix AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        :root {
+                :root {
+            /* Direction B (Institutional Trust) - shared palette, Stage 1 */
             --bg-primary: #070B14;
-            --bg-card: #0D1424;
-            --text-primary: #FFFFFF;
-            --text-secondary: #A0AEC0;
-            --text-muted: #718096;
-            --border-color: #1E293B;
-            --gold: #F0B90B;
-            --gold-dim: rgba(240, 185, 11, 0.15);
-            --red: #EF4444;
+            --bg-elevated: #0A1020;
+            --bg-card: #0F1629;
+            --bg-input: #141C2E;
+            --brand: #F0B90B;
+            --brand-hover: #FCD535;
+            --brand-weak: rgba(240,185,11,0.08);
+            --brand-soft: rgba(240,185,11,0.16);
+            --brand-border: rgba(240,185,11,0.32);
+            --brand-strong: rgba(240,185,11,0.55);
+            --gold: var(--brand);
+            --gold-light: var(--brand-hover);
+            --gold-dim: rgba(240,185,11,0.12);
+            --gold-glow: rgba(240,185,11,0.2);
+            --on-brand: #070B14;
+            --text-primary: #E8EDF5;
+            --text-secondary: #8896B5;
+            --text-muted: #7E8CAB;
+            --border: #24314A;
+            --border-strong: #2A3852;
+            --border-color: var(--border);
+            --border-hover: var(--brand-border);
+            --success: #10B981;
+            --success-dim: rgba(16,185,129,0.10);
+            --success-border: rgba(16,185,129,0.30);
+            --warning: #F59E0B;
+            --warning-dim: rgba(245,158,11,0.10);
+            --destructive: #EF4444;
+            --info: #3B82F6;
+            --info-dim: rgba(59,130,246,0.10);
+            --green: var(--success);
+            --red: var(--destructive);
+            --orange: var(--warning);
+            --blue: var(--info);
         }
         * {
             margin: 0;
@@ -58,7 +84,7 @@
             font-size: 36px;
             font-weight: 800;
             margin-bottom: 12px;
-            background: linear-gradient(135deg, #F0B90B, #FFD700);
+            background: linear-gradient(135deg, #F0B90B, var(--brand-hover));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
