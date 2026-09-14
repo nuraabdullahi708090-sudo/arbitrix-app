@@ -16434,13 +16434,15 @@ function updateDynamicTranslations() {
         }
         // Official support links + the payment-problem guidance are dynamic
         // (config-driven href / status-driven text), so re-apply them here.
-        // These run BEFORE the KYC-header call below on purpose: that call is a
-        // pre-existing cross-block reference that throws on the first load and
-        // would otherwise skip everything after it. Each is typeof-guarded.
         if (typeof updateSupportLinks === 'function') updateSupportLinks();
         if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
-        // Re-apply status-specific KYC modal header on language switch
-        updateVerificationModalHeader();
+        // Re-apply status-specific KYC modal header on language switch. Guarded
+        // with typeof because the function is declared in a LATER <script>
+        // block: applyTranslations() runs at parse time on first load, before
+        // that block is evaluated. It is still called directly from
+        // populateVerificationUI() when the modal opens, so behavior is
+        // unchanged.
+        if (typeof updateVerificationModalHeader === 'function') updateVerificationModalHeader();
         // Re-render the live withdraw status + withdraw modal info text on
         // language switch (dynamic text; the MARKETING_SANDBOX variants must
         // also re-apply after applyTranslations() refreshes data-i18n spans).
