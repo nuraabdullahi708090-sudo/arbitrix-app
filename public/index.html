@@ -5785,7 +5785,7 @@ function toggleFaq(btn) {
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">5</span><span data-i18n="startHere.step5">Switch to Live Mode when ready</span></div>
                 </div>
                 <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
-                     the amounts ({{min}}/{{mta}}/{{wmin}}) are configuration-driven. -->
+                     the amounts ({{min}}/{{mta}}) are configuration-driven. -->
                 <div id="startHereStepsLive" style="margin-top:12px;display:none;flex-direction:column;gap:8px;"></div>
                 <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
                 <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
@@ -8362,10 +8362,8 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Dismiss',
         'startHere.live.title': 'Live Mode Guide',
         'startHere.live.subtitle': 'You\'re in Live Mode. Trades use real funds.',
-        'startHere.live.step1': 'Fund your Live balance to trade (minimum deposit ${{min}})',
-        'startHere.live.step2': 'Minimum trading balance: ${{mta}} to start the bot',
-        'startHere.live.step3': 'Verify your account to withdraw',
-        'startHere.live.step4': 'Min withdrawal: ${{wmin}} | Requires 1 trade completed',
+        'startHere.live.step1': 'Deposit at least ${{min}} to activate Live funding',
+        'startHere.live.step2': 'Maintain at least ${{mta}} available balance to start the bot',
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
@@ -9780,10 +9778,8 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Descartar',
         'startHere.live.title': 'Guía del Modo Live',
         'startHere.live.subtitle': 'Estás en Modo Live. Las operaciones usan fondos reales.',
-        'startHere.live.step1': 'Financia tu saldo Live para operar (depósito mínimo ${{min}})',
-        'startHere.live.step2': 'Saldo mínimo de trading: ${{mta}} para iniciar el bot',
-        'startHere.live.step3': 'Verifica tu cuenta para retirar',
-        'startHere.live.step4': 'Retiro mín.: ${{wmin}} | Requiere 1 operación completada',
+        'startHere.live.step1': 'Deposita al menos ${{min}} para activar los fondos de Live',
+        'startHere.live.step2': 'Mantén al menos ${{mta}} de saldo disponible para iniciar el bot',
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
@@ -11199,10 +11195,8 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Dispensar',
         'startHere.live.title': 'Guia do Modo Live',
         'startHere.live.subtitle': 'Você está no Modo Live. As operações usam fundos reais.',
-        'startHere.live.step1': 'Financie seu saldo Live para operar (depósito mínimo ${{min}})',
-        'startHere.live.step2': 'Saldo mínimo de negociação: ${{mta}} para iniciar o bot',
-        'startHere.live.step3': 'Verifique sua conta para sacar',
-        'startHere.live.step4': 'Saque mín.: ${{wmin}} | Exige 1 operação concluída',
+        'startHere.live.step1': 'Deposite pelo menos ${{min}} para ativar o financiamento do Live',
+        'startHere.live.step2': 'Mantenha pelo menos ${{mta}} de saldo disponível para iniciar o bot',
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
@@ -12618,10 +12612,8 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Ignorer',
         'startHere.live.title': 'Guide du mode Live',
         'startHere.live.subtitle': 'Vous êtes en mode Live. Les transactions utilisent des fonds réels.',
-        'startHere.live.step1': 'Financez votre solde Live pour trader (dépôt minimum ${{min}})',
-        'startHere.live.step2': 'Solde de trading minimum : ${{mta}} pour démarrer le bot',
-        'startHere.live.step3': 'Vérifiez votre compte pour retirer',
-        'startHere.live.step4': 'Retrait min. : ${{wmin}} | 1 transaction requise',
+        'startHere.live.step1': 'Déposez au moins ${{min}} pour activer le financement Live',
+        'startHere.live.step2': 'Maintenez au moins ${{mta}} de solde disponible pour démarrer le bot',
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
@@ -14037,10 +14029,8 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'تجاهل',
         'startHere.live.title': 'دليل وضع LIVE',
         'startHere.live.subtitle': 'أنت في وضع LIVE. تتم التداولات بأموال حقيقية.',
-        'startHere.live.step1': 'موّل رصيد LIVE الخاص بك للتداول (الحد الأدنى للإيداع ${{min}})',
-        'startHere.live.step2': 'الحد الأدنى لرصيد التداول: ${{mta}} لبدء الروبوت',
-        'startHere.live.step3': 'تحقق من حسابك للسحب',
-        'startHere.live.step4': 'الحد الأدنى للسحب: ${{wmin}} | يتطلب إتمام صفقة واحدة',
+        'startHere.live.step1': 'أودع ما لا يقل عن ${{min}} لتفعيل تمويل وضع LIVE',
+        'startHere.live.step2': 'حافظ على رصيد متاح لا يقل عن ${{mta}} لبدء الروبوت',
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
@@ -15456,10 +15446,8 @@ const TRANSLATIONS = {
         'startHere.dismiss': '忽略',
         'startHere.live.title': '实盘模式指南',
         'startHere.live.subtitle': '您已进入实盘模式。交易使用真实资金。',
-        'startHere.live.step1': '为实盘余额入金以进行交易（最低入金 ${{min}}）',
-        'startHere.live.step2': '最低交易余额：${{mta}} 即可启动机器人',
-        'startHere.live.step3': '验证您的账户以提现',
-        'startHere.live.step4': '最低提现：${{wmin}} | 需完成 1 笔交易',
+        'startHere.live.step1': '入金至少 ${{min}} 以激活实盘资金',
+        'startHere.live.step2': '保持至少 ${{mta}} 的可用余额以启动机器人',
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
@@ -16703,8 +16691,8 @@ function updateDynamicTranslations() {
         // it follows the active locale and the single configured minimum.
         if (typeof updateDepositMinNotice === 'function') updateDepositMinNotice();
         // "Start Here" card: mode-aware content, and the LIVE steps embed
-        // configuration amounts ({{min}}/{{mta}}/{{wmin}}), so rebuild them for
-        // the active locale. typeof-guarded (declared in a later script block).
+        // configuration amounts ({{min}}/{{mta}}), so rebuild them for the
+        // active locale. typeof-guarded (declared in a later script block).
         if (typeof updateStartHere === 'function') updateStartHere();
         // Re-render the Demo/LIVE deposit notice + balance breakdown on language
         // switch (dynamic text/values; display-only).
@@ -19737,11 +19725,10 @@ function updateStartHere() {
     if (isLive && !liveDone) renderStartHereLiveSteps();
 }
 
-// LIVE checklist: only requirements the current product actually enforces.
+// LIVE checklist: only requirements the current product actually enforces,
+// limited by management direction to the two Live funding/trading steps.
 //   1. funding the Live balance (platform minimum deposit)
 //   2. the minimum trading balance required to start the bot (getEffectiveMta)
-//   3. identity verification, required to withdraw
-//   4. the withdrawal minimum + completed-trade requirement
 // Amounts come from the same APP constants the rest of the UI uses (the MTA is
 // server-driven), so this copy can never drift from the configuration.
 function startHereLiveSteps() {
@@ -19749,8 +19736,6 @@ function startHereLiveSteps() {
     return [
         { key: 'startHere.live.step1', vars: { min: num(APP.MIN_DEPOSIT, 100) } },
         { key: 'startHere.live.step2', vars: { mta: num(APP.MTA, 200) } },
-        { key: 'startHere.live.step3', vars: {} },
-        { key: 'startHere.live.step4', vars: { wmin: num(APP.MIN_WITHDRAWAL, 700) } },
     ];
 }
 

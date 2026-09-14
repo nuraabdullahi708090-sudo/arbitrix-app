@@ -3302,3 +3302,64 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   change re-applied with an ASCII-only Python script that writes non-ASCII as \u escapes.
   After any scripted edit to public/index.html, diff the whole file and assert that no
   pre-existing non-ASCII code point was lost.
+
+## Stage 19A DEPLOYED TO PRODUCTION (2026-09-14)
+- Deployment commit: 80ac53a85eb5bed5404e5a82f8fcfbcaf6e17d02
+  ("fix: make dashboard onboarding card mode-aware (LIVE vs DEMO)"), pushed
+  e8fe74f..80ac53a main -> main to github.com/nuraabdullahi708090-sudo/arbitrix-app
+  (fast-forward, verified with git merge-base --is-ancestor before the push).
+  The origin URL was re-pointed at the GITHUB_TOKEN-authenticated URL for the push
+  (the credential previously embedded in the remote URL no longer authenticates).
+- Hosting: RENDER (response header x-render-origin-server: Render). Auto-deployed on
+  push: the previous build was still served at ~t+30s and the new build at ~t+40s.
+- Post-deploy verification:
+  - The served public/index.html is BYTE-IDENTICAL to the committed file
+    (sha256 e7ff4c1ec5984eb846a5a9260dad7eaeece660d22d2bb382c7cfd36780430d89);
+    the previous deployed hash was ef69d17bf735d04743cc93daa6c596fc17d56307683c1f8794d3f08c3197a302.
+  - Endpoints: / 200 (text/html), /api/health 200, /reset-password.html 200.
+  - Production smoke (headless Chromium on the LIVE page, no login needed because the
+    deployed JS was exercised directly against the served DOM) = all PASS:
+    DEMO -> demo header + demo checklist visible, every live element hidden, no live
+    steps rendered; LIVE -> demo header/steps hidden, "Live Mode Guide" + the 4
+    requirement steps visible with $100 / $200 / $700, no demo wording anywhere in the
+    visible card, and no "Switch to Live Mode when ready"; completion state -> ready
+    line visible and the checklist hidden; demo checklist still intact; 0 horizontal
+    overflow at 390px; 0 page errors (the old updateVerificationModalHeader console
+    error did not appear - it was fixed in an earlier stage).
+- CHANGE SET: public/index.html, AGENTS.md, tests/starthere_mode_aware.test.js (new) and
+  dictionary-count pins in 6 existing test files. No server.js, services, migrations, DB
+  schema, payment/deposit/withdrawal/wallet/trading/KYC/referral code or production
+  configuration was modified.
+- This deployment note is intentionally LEFT UNCOMMITTED so that recording it does not
+  trigger a second Render rebuild. The working tree therefore shows AGENTS.md as modified
+  - it is documentation only.
+
+## Stage 19B - LIVE Card Reduced to Two Steps (2026-09-14, public/index.html + tests, frontend-only)
+- Management direction: the LIVE Mode card shows exactly TWO steps; the verification and
+  withdrawal steps are removed.
+  - step1 (new EN): "Deposit at least ${{min}} to activate Live funding"
+  - step2 (new EN): "Maintain at least ${{mta}} available balance to start the bot"
+- Removed from LIVE Mode entirely: `startHere.live.step3` (identity verification before
+  withdrawal) and `startHere.live.step4` (withdrawal minimum + completed trade) - deleted from
+  `startHereLiveSteps()` and from all 6 dictionaries. They were used ONLY by the card; shared
+  keys were NOT touched (e.g. `withdraw.info` ("Min withdrawal: $700 ...") and
+  `withdraw.kycRequiredBody` ("Verify your account to withdraw.") are still present and used by
+  the withdraw modal). `APP.MIN_WITHDRAWAL` is no longer referenced by the card.
+- Unchanged: the LIVE header (`startHere.live.title`/`subtitle`), the completion state
+  (`APP.liveData.hasRealDeposit && hasTradingActivity` -> `startHere.live.ready`), DEMO Mode
+  (all five original steps and their wording), dismissal, MARKETING_SANDBOX hiding, card
+  styling, mode switching, routing and every backend path. server.js untouched.
+- i18n: 1398 -> 1396 keys/locale (2 keys removed per locale, 6 locales); identical key sets,
+  0 empty, placeholder parity OK ({{min}} in step1, {{mta}} in step2).
+- Tests: tests/starthere_mode_aware.test.js updated for the two-step model (asserts exactly two
+  steps, the removed keys absent in every locale, and that the removed copy never renders);
+  dictionary-count pins 1398 -> 1396 in 6 existing test files.
+  Focused: 13/13 pass. Full suite: npm test = 805 pass / 0 fail.
+- Browser (puppeteer-core + /usr/bin/chromium, stubbed API): DEMO shows the 5 original steps;
+  LIVE shows EXACTLY two numbered steps with $100 / $200 and none of the removed withdrawal/
+  verification wording and no demo wording; DEMO<->LIVE switching works both ways; completion
+  line still shown; all 6 locales render with no raw keys (ar RTL); 0 horizontal overflow and
+  0 text clipping at 320/360/390/412/1280px; the MARKETING_SANDBOX account still hides the card.
+  Screenshots: /tmp/s19b_shots/{demo,live}-390.png.
+- (The Stage 19A deployment note above is included in this commit; it was previously kept
+  uncommitted only to avoid a second Render rebuild, and this push rebuilds anyway.)
