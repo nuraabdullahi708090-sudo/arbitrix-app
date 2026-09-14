@@ -3477,3 +3477,57 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   es-collapsed-{1,2}-390.png.
 - NOT committed/pushed/deployed at the time of writing (committed together with
   the Stage 19C wrap-up in the same session).
+
+## Quick Fix - $700 Minimum Message Scoped to Eligible Accounts (2026-09-14, public/index.html + tests)
+- The "$700 minimum withdrawal" wording used to appear for accounts that were
+  nowhere near eligible: the modal's minimum-amount gate ran BEFORE the deposit
+  and trade gates, and the sidebar/info-box catch-all branch showed
+  `live.withdrawStatus.needMinimum` to ANY deposited + traded account, including
+  one below the minimum trading balance.
+- NEW RULE: the $700 message is shown ONLY for an account that has (a) made a
+  real deposit, (b) completed a trade and (c) reached the minimum trading
+  balance (MTA). Everything else shows the requirement actually missing:
+    not deposited                      -> 'Please make a minimum deposit of $100 ...'
+    deposited, no trade                -> 'Complete at least 1 trade to withdraw'
+    deposited + traded, below the MTA  -> NEW 'Keep trading to reach the minimum withdrawal balance.'
+    deposited + traded, >= MTA, < $700 -> the $700 minimum  (the ONLY case)
+    >= $700                            -> 'Ready to withdraw (min $700)'
+- `openWithdrawModal()` gate order is now: demo -> sandbox -> first-deposit
+  priority -> KYC (flag-aware) -> deposit -> trade -> MINIMUM TRADING BALANCE
+  -> minimum withdrawal amount -> form. The MTA guard is
+  `totalWithdrawable < (Number(APP.MTA) || 0)`, so an unknown/zero MTA fails open
+  (never blocks a valid withdrawal) and it can never hide a real $700-eligible
+  account: MTA 200 < MIN_WITHDRAWAL 700, so a below-MTA balance could not fund a
+  valid withdrawal anyway. Referral-earnings-funded withdrawals keep their
+  deposit/trade exemption and stay ready.
+- `updateLiveWithdrawStatus()` gets the same new branch ahead of the $700 branch,
+  for BOTH the sidebar status and the modal info box, so an ineligible account
+  never sees "$700" anywhere.
+- i18n: 1402 -> 1403 keys/locale. New key `live.withdrawStatus.belowTradingBalance`
+  with per-locale wording (en/es/pt/fr/ar/zh); it deliberately quotes NO threshold
+  and uses NO placeholder, so the MTA is never re-framed as a withdrawal rule.
+  Identical key sets, 0 empty values. The one key feeds both the sidebar/info box
+  and the toast.
+- DELIBERATE NON-CHANGE: server.js is untouched. `/api/withdraw/request` keeps
+  its existing order/strings (including 'Min $700'), so a non-UI client can still
+  receive that message; the UI can no longer reach it for an ineligible account
+  because the gates above run first. Aligning the API order is a separate
+  decision (offered to management, not done).
+- Unchanged: MIN_WITHDRAWAL 700, production MTA 200 (sandbox has none), the
+  server `amount < 700` check, KYC (flag off), the referral exemption, sandbox
+  wording, and all deposit/wallet/trading/referral logic.
+- Tests: NEW tests/withdraw_min_message.test.js (16) - gate ordering, the real
+  `updateLiveWithdrawStatus` matrix (no deposit / no trade / below MTA / at MTA /
+  $700 / ready / referral-funded / sandbox / unknown-MTA fail-open), thresholds
+  and existing copy unchanged, the new key threshold-free + placeholder-free, and
+  i18n parity. Updated tests/sandbox_withdraw_wording.test.js (the below-MTA case
+  now expects the new key; added the balance-300 case that does show $700) and
+  the 7 dictionary-size pins 1402 -> 1403. npm test = 871 pass / 0 fail;
+  git diff --check clean; all 6 inline script blocks parse.
+- Browser (puppeteer-core + chromium, local server, stubbed API): 61/61 - the
+  7-case matrix (no deposit / no trade / below MTA / at MTA below $700 / ready /
+  referral-funded / sandbox) with the exact sidebar, info-box and toast text per
+  case, "the $700 message appears only in the eligible case", modal opens only
+  when eligible, no verification UI, 0 page errors, 0 horizontal overflow, plus
+  the new string rendered in en/es/ar(RTL)/zh at 320/390px.
+- Committed and deployed in the same session on management instruction.

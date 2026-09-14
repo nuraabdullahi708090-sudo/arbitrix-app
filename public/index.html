@@ -8538,6 +8538,7 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Profitable after 10 trades',
         'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $100 to enable withdrawals',
         'live.withdrawStatus.needMinimum': '📈 Reach the ${{min}} minimum to withdraw',
+        'live.withdrawStatus.belowTradingBalance': '📈 Keep trading to reach the minimum withdrawal balance.',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
         'live.withdrawStatus.ready': '✅ Ready to withdraw (min $700)',
         'live.withdrawStatus.readySandbox': '✅ Ready to withdraw',
@@ -9960,6 +9961,7 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Rentable después de 10 operaciones',
         'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de $100 para habilitar los retiros',
         'live.withdrawStatus.needMinimum': '📈 Alcanza el mínimo de ${{min}} para retirar',
+        'live.withdrawStatus.belowTradingBalance': '📈 Sigue operando para alcanzar el saldo mínimo de retiro.',
         'live.withdrawStatus.noTrades': '📊 Completa al menos 1 operación para retirar',
         'live.withdrawStatus.ready': '✅ Listo para retirar (mín. $700)',
         'live.withdrawStatus.readySandbox': '✅ Listo para retirar',
@@ -11383,6 +11385,7 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Lucrativo após 10 operações',
         'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de $100 para habilitar os saques',
         'live.withdrawStatus.needMinimum': '📈 Atinga o mínimo de ${{min}} para sacar',
+        'live.withdrawStatus.belowTradingBalance': '📈 Continue operando para atingir o saldo mínimo de saque.',
         'live.withdrawStatus.noTrades': '📊 Conclua pelo menos 1 operação para sacar',
         'live.withdrawStatus.ready': '✅ Pronto para sacar (mín. $700)',
         'live.withdrawStatus.readySandbox': '✅ Pronto para sacar',
@@ -12806,6 +12809,7 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Rentable après 10 transactions',
         'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de $100 pour activer les retraits',
         'live.withdrawStatus.needMinimum': '📈 Atteignez le minimum de ${{min}} pour retirer',
+        'live.withdrawStatus.belowTradingBalance': '📈 Continuez à trader pour atteindre le solde minimum de retrait.',
         'live.withdrawStatus.noTrades': '📊 Effectuez au moins 1 transaction pour retirer',
         'live.withdrawStatus.ready': '✅ Prêt à retirer (min. $700)',
         'live.withdrawStatus.readySandbox': '✅ Prêt à retirer',
@@ -14229,6 +14233,7 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'تحقيق ربح بعد 10 صفقات',
         'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى $100 لتفعيل السحب',
         'live.withdrawStatus.needMinimum': '📈 بلوغ الحد الأدنى ${{min}} للسحب',
+        'live.withdrawStatus.belowTradingBalance': '📈 واصل التداول للوصول إلى الحد الأدنى لرصيد السحب.',
         'live.withdrawStatus.noTrades': '📊 أتمم صفقة واحدة على الأقل للسحب',
         'live.withdrawStatus.ready': '✅ جاهز للسحب (الحد الأدنى $700)',
         'live.withdrawStatus.readySandbox': '✅ جاهز للسحب',
@@ -15652,6 +15657,7 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': '10 笔交易后盈利',
         'live.withdrawStatus.notDeposited': '💳 请至少入金 $100 以启用提现',
         'live.withdrawStatus.needMinimum': '📈 达到最低提现额 ${{min}} 才能提现',
+        'live.withdrawStatus.belowTradingBalance': '📈 继续交易以达到最低提现余额。',
         'live.withdrawStatus.noTrades': '📊 请至少完成 1 笔交易才能提现',
         'live.withdrawStatus.ready': '✅ 可以提现（最低 $700）',
         'live.withdrawStatus.readySandbox': '✅ 可以提现',
@@ -18437,6 +18443,11 @@ function updateLiveWithdrawStatus() {
     } else if (!hasTrade && !canFundFromReferral) {
         statusText = t('live.withdrawStatus.noTrades');
         statusClass = 'text-muted';
+    } else if (totalWithdrawable < (Number(APP.MTA) || 0)) {
+        // Deposited + traded, but the minimum trading balance has not been
+        // reached yet: show that requirement, NOT the withdrawal minimum.
+        statusText = t('live.withdrawStatus.belowTradingBalance');
+        statusClass = 'text-muted';
     } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
         statusText = t('live.withdrawStatus.ready');
         statusClass = 'text-success';
@@ -18454,6 +18465,8 @@ function updateLiveWithdrawStatus() {
             infoText.textContent = t('live.withdrawStatus.notDeposited');
         } else if (!hasTrade && !canFundFromReferral) {
             infoText.textContent = t('live.withdrawStatus.noTrades');
+        } else if (totalWithdrawable < (Number(APP.MTA) || 0)) {
+            infoText.textContent = t('live.withdrawStatus.belowTradingBalance');
         } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
             infoText.textContent = t('withdraw.info');
         } else {
@@ -20017,16 +20030,23 @@ async function openWithdrawModal() {
         // real, QUALIFIED referral rewards and enforces it; these are the UX
         // mirrors only. referralEarnings/canFundFromReferral come from Gate 1.
         const totalWithdrawable = getWithdrawableTotal();
-        // Gate 4 — minimum withdrawal amount (threshold unchanged)
-        if(totalWithdrawable < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: totalWithdrawable.toFixed(2)}),'error'); return; }
-        // Gate 5 — existing balance / deposit requirement (defensive: Gate 1
+        // Gate 4 - existing balance / deposit requirement (defensive: Gate 1
         // already returned for a no-deposit, non-referral-funded request)
         if(!APP.liveData.hasRealDeposit && !canFundFromReferral) { showToast(t('withdraw.firstDeposit'),'error'); return; }
-        // Gate 6 — existing completed-trade requirement (unchanged). The bot
-        // MTA is NOT a withdrawal requirement and is deliberately not checked
-        // here; a referral-earnings-funded withdrawal is exempt from the trade
-        // requirement.
+        // Gate 5 - existing completed-trade requirement (unchanged). The bot MTA
+        // is NOT a withdrawal requirement; a referral-earnings-funded withdrawal
+        // is exempt from the trade requirement.
         if(!APP.liveData.hasTradingActivity && !canFundFromReferral) { showToast(t('withdraw.needTrade'),'error'); return; }
+        // Gate 6 - minimum TRADING balance. A funded account that has not yet
+        // reached the minimum trading balance is told about the trading balance
+        // instead of the withdrawal minimum. Display gate only: a balance below
+        // the MTA can never satisfy the withdrawal minimum below, so no valid
+        // withdrawal is blocked here.
+        if(totalWithdrawable < (Number(APP.MTA) || 0)) { showToast(t('live.withdrawStatus.belowTradingBalance'),'error'); return; }
+        // Gate 7 - minimum withdrawal amount (threshold unchanged). Shown ONLY
+        // once the account has deposited, completed a trade AND reached the
+        // minimum trading balance (the gates above).
+        if(totalWithdrawable < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: totalWithdrawable.toFixed(2)}),'error'); return; }
     }
 
     // KYC verified (or fail-open) - show withdrawal form (Gates 5 & 6: address

@@ -145,7 +145,15 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
     els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: false, balance: 1500 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.noTrades');
 
+    // Production: deposited + traded but BELOW the minimum trading balance ->
+    // the trading-balance requirement, NOT the $700 withdrawal minimum.
     els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: true, balance: 20 });
+    assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.belowTradingBalance');
+    assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.belowTradingBalance');
+
+    // Production: deposited + traded + at/above the minimum trading balance but
+    // below $700 -> the $700 withdrawal minimum (the only case that shows it).
+    els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: true, balance: 300 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.needMinimum');
     assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.needMinimum');
 });
@@ -172,7 +180,7 @@ test('language switch re-renders the withdraw status/info text (hook in updateDy
 test('i18n parity: identical key sets across all 6 locales, no empty values', () => {
     const T = loadTranslations();
     const en = Object.keys(T.en);
-    assert.strictEqual(en.length, 1402, 'expected 1402 keys per locale');
+    assert.strictEqual(en.length, 1403, 'expected 1403 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         const keys = Object.keys(dict);
         assert.deepStrictEqual(new Set(keys), new Set(en), `${lang} key set differs from en`);
