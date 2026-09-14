@@ -248,10 +248,10 @@ test('5b. server.js untouched: no /login or /signup routes, "/" still serves ind
         'root still serves index.html');
 });
 
-test('5c. i18n dictionary unchanged (1389 keys/locale, no new keys needed)', () => {
+test('5c. i18n dictionary size is pinned (1391 keys/locale)', () => {
     LANGS.forEach((l) => {
         assert.ok(T[l], 'locale ' + l + ' must exist');
-        assert.strictEqual(Object.keys(T[l]).length, 1389, l + ' must still have 1389 keys');
+        assert.strictEqual(Object.keys(T[l]).length, 1391, l + ' must still have 1391 keys');
     });
 });
 

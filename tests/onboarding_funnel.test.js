@@ -64,7 +64,8 @@ const ONBOARDING_FNS = [
     'currentCachedUser', 'onboardingKey', 'getOnboardingChoice', 'setOnboardingChoice',
     'onboardingNeeded', 'showOnboarding', 'maybeShowOnboardingForCurrentUser',
     'chooseOnboarding', 'updateDemoFirstDepositCta', 'dismissDemoDepositCta',
-    'updateDepositMinNotice', 'refreshDepositModeNotice', 'resetDepositModal',
+    'updateDepositMinNotice', 'refreshDepositModeNotice', 'setExactAmountInstruction',
+    'resetDepositModal',
     'openDepositModal', 'switchToLiveAndContinueDeposit', 'requestDepositAddress',
 ];
 
@@ -356,7 +357,7 @@ test('i18n parity across 6 locales for the onboarding keys', () => {
         'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
         'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1389, 'expected 1389 keys per locale');
+    assert.strictEqual(enKeys.length, 1391, 'expected 1391 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {

@@ -3349,7 +3349,7 @@ async function handleSignup() {
             showOnboarding(data.user);
         }, 1000);
     } catch (e) {
-        showAuthError('Network error. Please try again.', 'signup');
+        showAuthError(t('auth.errors.networkError'), 'signup');
         setButtonLoading(btn, false);
         console.error(e);
     }
@@ -3381,7 +3381,7 @@ async function handleLogin() {
 
     if (!email || !password) {
         console.log('[HANDLE_LOGIN] Missing email or password');
-        showAuthError('Please fill in all fields', 'login');
+        showAuthError(t('auth.errors.fillAll'), 'login');
         setButtonLoading(btn, false);
         return;
     }
@@ -3424,7 +3424,7 @@ async function handleLogin() {
         setButtonLoading(btn, false);
     } catch (e) {
         console.error('[HANDLE_LOGIN] Exception:', e.message);
-        showAuthError('Network error. Please try again.', 'login');
+        showAuthError(t('auth.errors.networkError'), 'login');
         setButtonLoading(btn, false);
         console.error(e);
     }
@@ -3516,7 +3516,7 @@ async function resend2FACode() {
     
     if (!pendingLoginCredentials) {
         console.log('[RESEND 2FA] No pending credentials - session expired');
-        showAuthError('Session expired. Please login again.', 'twofaLogin');
+        showAuthError(t('2fa.sessionExpired'), 'twofaLogin');
         hide2FALoginForm();
         return;
     }
@@ -3583,7 +3583,7 @@ async function resend2FACode() {
         
     } catch (e) {
         console.error('[RESEND 2FA] Error:', e);
-        showAuthError('Failed to resend code. Please try again.', 'twofaLogin');
+        showAuthError(t('2fa.resendFailed'), 'twofaLogin');
     }
 }
 
@@ -3640,7 +3640,7 @@ async function handle2FALoginSubmit() {
     
     if (code.length !== 6) {
         console.log('[LOGIN 2FA] INVALID CODE - not 6 digits');
-        showAuthError('Please enter the 6-digit code', 'twofaLogin');
+        showAuthError(t('2fa.enterCode'), 'twofaLogin');
         is2FASubmitting = false;
         setButtonLoading(btn, false);
         return;
@@ -3648,7 +3648,7 @@ async function handle2FALoginSubmit() {
     
     if (!pendingLoginPartialToken) {
         console.log('[LOGIN 2FA] ERROR: No pending partial token');
-        showAuthError('Session expired. Please login again.', 'twofaLogin');
+        showAuthError(t('2fa.sessionExpired'), 'twofaLogin');
         hide2FALoginForm();
         is2FASubmitting = false;
         setButtonLoading(btn, false);
@@ -3729,14 +3729,14 @@ async function handle2FALoginSubmit() {
             
         } else {
             console.log('[LOGIN 2FA] ========== Missing token or user ==========');
-            showAuthError('Login failed. Please try again.', 'twofaLogin');
+            showAuthError(t('auth.errors.loginFailed'), 'twofaLogin');
             hide2FALoginForm();
         }
     } catch (e) {
         console.error('[LOGIN 2FA] ========== EXCEPTION ==========');
         console.error('[LOGIN 2FA] Exception message:', e.message);
         console.error('[LOGIN 2FA] Exception stack:', e.stack);
-        showAuthError('Network error. Please try again.', 'twofaLogin');
+        showAuthError(t('auth.errors.networkError'), 'twofaLogin');
     } finally {
         // Always reset the flag
         is2FASubmitting = false;
@@ -6862,7 +6862,10 @@ function toggleFaq(btn) {
         </div>
         <div style="font-size:14px;color:var(--text-secondary);">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:4px;line-height:1.5;" data-i18n="deposit.usdVsUsdt">USDT is the amount you send. USD is the amount credited to your balance.</div>
-        <div id="exactAmountInstruction" style="font-size:11px;color:var(--text-secondary);margin-top:10px;line-height:1.5;"><span data-i18n="deposit.sendExactlyPrefix">Send exactly</span> <strong id="exactAmountValue" style="color:#10B981;">0.00</strong> <span data-i18n="deposit.sendExactlySuffix">USDT on the TRON (TRC20) network.</span></div>
+        <!-- Money-flow statement: shown ONLY when a provider explicitly confirms
+             the exact amount to send (see setExactAmountInstruction). Hidden by
+             default so a placeholder value like "0.00" can never reach a customer. -->
+        <div id="exactAmountInstruction" style="font-size:11px;color:var(--text-secondary);margin-top:10px;line-height:1.5;display:none;"><span data-i18n="deposit.sendExactlyPrefix">Send exactly</span> <strong id="exactAmountValue" style="color:#10B981;"></strong> <span data-i18n="deposit.sendExactlySuffix">USDT on the TRON (TRC20) network.</span></div>
       </div>
 
       <!-- Network Badge (shown for q8qpay white-label deposits) -->
@@ -7943,6 +7946,8 @@ const TRANSLATIONS = {
         'auth.alreadyHave': 'Already have an account?',
         'auth.dontHave': "Don't have an account?",
         'auth.errors.fillAll': 'Please fill all fields',
+        'auth.errors.networkError': 'Network error. Please try again.',
+        'auth.errors.loginFailed': 'Login failed. Please try again.',
         'auth.errors.passwordLength': 'Password must be at least 6 characters',
         'auth.errors.passwordMatch': 'Passwords do not match',
         'auth.errors.nameRequired': 'Please enter your full name.',
@@ -9352,6 +9357,8 @@ const TRANSLATIONS = {
         'auth.alreadyHave': '¿Ya tienes una cuenta?',
         'auth.dontHave': '¿No tienes una cuenta?',
         'auth.errors.fillAll': 'Por favor, completa todos los campos',
+        'auth.errors.networkError': 'Error de red. Inténtalo de nuevo.',
+        'auth.errors.loginFailed': 'Error al iniciar sesión. Inténtalo de nuevo.',
         'auth.errors.passwordLength': 'La contraseña debe tener al menos 6 caracteres',
         'auth.errors.passwordMatch': 'Las contraseñas no coinciden',
         'auth.errors.nameRequired': 'Introduce tu nombre completo.',
@@ -10762,6 +10769,8 @@ const TRANSLATIONS = {
         'auth.alreadyHave': 'Já tem uma conta?',
         'auth.dontHave': 'Não tem uma conta?',
         'auth.errors.fillAll': 'Por favor, preencha todos os campos',
+        'auth.errors.networkError': 'Erro de rede. Tente novamente.',
+        'auth.errors.loginFailed': 'Falha ao entrar. Tente novamente.',
         'auth.errors.passwordLength': 'A senha deve ter pelo menos 6 caracteres',
         'auth.errors.passwordMatch': 'As senhas não coincidem',
         'auth.errors.nameRequired': 'Digite seu nome completo.',
@@ -12172,6 +12181,8 @@ const TRANSLATIONS = {
         'auth.alreadyHave': 'Vous avez déjà un compte ?',
         'auth.dontHave': 'Vous n’avez pas de compte ?',
         'auth.errors.fillAll': 'Veuillez remplir tous les champs',
+        'auth.errors.networkError': 'Erreur réseau. Veuillez réessayer.',
+        'auth.errors.loginFailed': 'Échec de la connexion. Veuillez réessayer.',
         'auth.errors.passwordLength': 'Le mot de passe doit contenir au moins 6 caractères',
         'auth.errors.passwordMatch': 'Les mots de passe ne correspondent pas',
         'auth.errors.nameRequired': 'Veuillez saisir votre nom complet.',
@@ -13582,6 +13593,8 @@ const TRANSLATIONS = {
         'auth.alreadyHave': 'هل لديك حساب بالفعل؟',
         'auth.dontHave': 'ليس لديك حساب؟',
         'auth.errors.fillAll': 'يرجى ملء جميع الحقول',
+        'auth.errors.networkError': 'خطأ في الشبكة. حاول مرة أخرى.',
+        'auth.errors.loginFailed': 'فشل تسجيل الدخول. حاول مرة أخرى.',
         'auth.errors.passwordLength': 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل',
         'auth.errors.passwordMatch': 'كلمتا المرور غير متطابقتين',
         'auth.errors.nameRequired': 'يرجى إدخال اسمك الكامل.',
@@ -14992,6 +15005,8 @@ const TRANSLATIONS = {
         'auth.alreadyHave': '已有账户？',
         'auth.dontHave': '还没有账户？',
         'auth.errors.fillAll': '请填写所有字段',
+        'auth.errors.networkError': '网络错误。请重试。',
+        'auth.errors.loginFailed': '登录失败。请重试。',
         'auth.errors.passwordLength': '密码至少需要 6 个字符',
         'auth.errors.passwordMatch': '两次密码不一致',
         'auth.errors.nameRequired': '请输入您的全名。',
@@ -18785,6 +18800,42 @@ async function requestDepositAddress() {
   }
 }
 
+// Show/hide the "Send exactly N USDT" instruction.
+//
+// This sentence is a MONEY-FLOW statement, so it is only shown when a provider
+// explicitly confirms the exact amount to send: a finite, strictly positive
+// value that also matches the payment amount the customer is currently shown.
+// Every other case (missing / zero / negative / non-numeric / provider did not
+// confirm one / mismatch with the displayed amount) hides the instruction.
+// No amount is ever guessed, derived from the requested USD value, or invented
+// per provider. Returns true when the instruction is visible.
+function setExactAmountInstruction(exactAmount, displayedAmount) {
+  const wrap = document.getElementById('exactAmountInstruction');
+  const valueEl = document.getElementById('exactAmountValue');
+  if (!wrap || !valueEl) return false;
+
+  const num = (exactAmount === null || exactAmount === undefined || exactAmount === '')
+    ? NaN
+    : Number(exactAmount);
+  let show = isFinite(num) && num > 0;
+
+  // Consistency guard: never print a number that contradicts the payment
+  // amount displayed directly above it.
+  if (show && displayedAmount !== undefined && displayedAmount !== null) {
+    const shown = Number(String(displayedAmount).replace(/,/g, ''));
+    show = isFinite(shown) && Math.abs(shown - num) < 1e-8;
+  }
+
+  if (!show) {
+    valueEl.textContent = '';
+    wrap.style.display = 'none';
+    return false;
+  }
+  valueEl.textContent = String(exactAmount).replace(/,/g, '');
+  wrap.style.display = '';
+  return true;
+}
+
 // Show payment section after invoice creation
 function showPaymentSection(invoice, amountUSD) {
   // Hide input section, show payment section
@@ -18795,6 +18846,10 @@ function showPaymentSection(invoice, amountUSD) {
   // Update amount display
   document.getElementById('liveDepositDisplayAmount').textContent = amountUSD.toFixed(2);
   document.getElementById('liveDepositDisplayUSD').textContent = amountUSD.toFixed(2);
+
+  // Safe default for EVERY provider branch: the exact-amount instruction stays
+  // hidden until a provider explicitly confirms a valid exact amount below.
+  setExactAmountInstruction(null);
   
   // Update buttons
   const btn = document.getElementById('getAddressBtn');
@@ -18824,11 +18879,20 @@ function showPaymentSection(invoice, amountUSD) {
     // fee). The customer must pay amountUsdtExact exactly, so display/copy/QR
     // all use it with 4 decimals, NOT the user's entered USD amount. amount_usd
     // (the entered USD) is still what gets credited to the Arbitrix balance.
-    const exactAmount = Number(invoice.amountUsdtExact).toFixed(4);
+    const exactAmount = Number(invoice.amountUsdtExact);
+    const hasProviderExactAmount = isFinite(exactAmount) && exactAmount > 0;
+    // Never present "NaN"/"0.00" as the amount to pay: if the provider did not
+    // supply a usable exact amount, fall back to the requested USD amount that
+    // is already displayed. The "Send exactly" sentence stays hidden in that
+    // case (see setExactAmountInstruction below) because no exact amount was
+    // confirmed by the provider.
+    const exactAmountText = hasProviderExactAmount
+      ? exactAmount.toFixed(4)
+      : Number(amountUSD).toFixed(2);
 
     // QR encodes the TRC20 payment URI so mobile wallets can scan-to-pay
     const qrData = invoice.qrData ||
-      `tron:${address}?amount=${exactAmount}&token=USDT&network=TRC20`;
+      `tron:${address}?amount=${exactAmountText}&token=USDT&network=TRC20`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
     document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
 
@@ -18838,12 +18902,16 @@ function showPaymentSection(invoice, amountUSD) {
     window.currentPaymentAddress = address;
 
     // Display the exact USDT amount to send (consistent across display, copy, QR, instruction)
-    document.getElementById('liveDepositDisplayAmount').textContent = exactAmount;
-    document.getElementById('liveDepositDisplayUSD').textContent = exactAmount;
+    document.getElementById('liveDepositDisplayAmount').textContent = exactAmountText;
+    document.getElementById('liveDepositDisplayUSD').textContent = exactAmountText;
 
-    // Keep the "Send exactly N USDT" instruction in sync with the exact amount
-    const exactAmountEl = document.getElementById('exactAmountValue');
-    if (exactAmountEl) exactAmountEl.textContent = exactAmount;
+    // Show the "Send exactly N USDT" instruction ONLY when the provider
+    // explicitly confirmed this exact amount AND it matches the amount the
+    // customer is being shown. Otherwise it stays hidden (never "0.00"/"NaN").
+    setExactAmountInstruction(
+      hasProviderExactAmount ? exactAmountText : null,
+      document.getElementById('liveDepositDisplayAmount').textContent
+    );
 
     // Update the "Payment Address" label to reflect a deposit address
     const addrLabel = document.getElementById('paymentAddressLabel');
@@ -19318,8 +19386,9 @@ function resetDepositModal() {
   // Reset amount display
   document.getElementById('liveDepositDisplayAmount').textContent = '0.00';
   document.getElementById('liveDepositDisplayUSD').textContent = '0.00';
-  const exactAmountEl = document.getElementById('exactAmountValue');
-  if (exactAmountEl) exactAmountEl.textContent = '0.00';
+  // Keep the exact-amount instruction hidden until a provider explicitly
+  // supplies a valid positive exact amount (never reset it to a placeholder).
+  setExactAmountInstruction(null);
   document.getElementById('depositTimer').textContent = '60:00';
   
   // Reset QR code
