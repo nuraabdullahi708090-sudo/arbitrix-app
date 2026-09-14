@@ -248,15 +248,21 @@ function buildForwardText(conversation, chatId, name, text) {
 }
 
 /** Telegram Bot API client. The token lives only inside the request URL. */
-function createTelegramTransport({ token, fetchImpl }) {
-  const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
-  if (typeof doFetch !== 'function') {
-    throw new Error('No fetch implementation available for the Telegram transport');
-  }
+function createTelegramTransport({ token, fetchImpl } = {}) {
+  // undefined -> use the global fetch; an explicit value (including null) wins,
+  // so callers can pass an implementation or deliberately none.
+  const doFetch = fetchImpl === undefined
+    ? (typeof fetch === 'function' ? fetch : null)
+    : fetchImpl;
   const safe = (message) => String(message === undefined || message === null ? '' : message)
     .split(String(token || '\u0000')).join('***');
 
   async function call(method, payload) {
+    // Resolved here rather than at construction so a runtime without a global
+    // fetch can still boot the app while the bot stays unconfigured.
+    if (typeof doFetch !== 'function') {
+      throw new Error(`No fetch implementation available for Telegram ${method}`);
+    }
     let res;
     try {
       res = await doFetch(`${TELEGRAM_API_BASE}/bot${token}/${method}`, {

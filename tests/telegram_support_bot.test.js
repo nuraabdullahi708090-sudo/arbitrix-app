@@ -44,6 +44,7 @@ const {
   routeUpdate,
   createUpdateDeduper,
   createLimitedMap,
+  createTelegramTransport,
   createTelegramSupportBot,
   createTelegramWebhookHandler,
   TELEGRAM_MAX_MESSAGE_LENGTH,
@@ -634,6 +635,26 @@ test('webhook handler absorbs processing errors (200) and never logs the token',
 // ---------------------------------------------------------------------------
 // Secret hygiene and operator endpoints
 // ---------------------------------------------------------------------------
+
+test('transport can be constructed without fetch and only fails when used', async () => {
+  const noFetch = createTelegramTransport({ token: TOKEN, fetchImpl: null });
+  // Construction must not throw (the app has to boot on a runtime without a
+  // global fetch); the failure surfaces only if the bot is actually exercised.
+  await assert.rejects(() => noFetch.getMe(), /No fetch implementation/);
+});
+
+test('transport scrubs the bot token from request errors', async () => {
+  const failing = () => Promise.reject(new Error(`connect failed for bot${TOKEN}/sendMessage`));
+  const transport = createTelegramTransport({ token: TOKEN, fetchImpl: failing });
+  await assert.rejects(
+    () => transport.sendMessage(USER_CHAT_ID, 'hi'),
+    (err) => {
+      assert.ok(!err.message.includes(TOKEN), 'token must not appear in the error message');
+      assert.ok(err.message.includes('***'), 'the token is replaced, not dropped');
+      return true;
+    }
+  );
+});
 
 test('no secret ever appears in transport payloads or logs during a normal flow', async () => {
   const { bot, transport, logger } = makeBot();

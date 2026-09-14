@@ -4028,8 +4028,9 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 //    URL; it is never returned or logged.
 //  - We always answer 2xx for authenticated updates (even on a processing
 //    error) so Telegram does not endlessly retry a poisoned update; the error is
-//    logged server-side. Duplicate deliveries are absorbed by the update_id
-//    unique index in the store.
+//    logged server-side. Duplicate deliveries are absorbed by the bounded
+//    update_id deduper inside the service (the applied messages table has no
+//    update_id column, so this is per-process, not a DB constraint).
 const telegramConfig = resolveTelegramConfig(process.env);
 const telegramBot = createTelegramSupportBot({
   config: telegramConfig,
