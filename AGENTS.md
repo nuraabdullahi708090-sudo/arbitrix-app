@@ -3531,3 +3531,105 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   when eligible, no verification UI, 0 page errors, 0 horizontal overflow, plus
   the new string rendered in en/es/ar(RTL)/zh at 320/390px.
 - Committed and deployed in the same session on management instruction.
+
+## Quick Fix DEPLOYED TO PRODUCTION (2026-09-14)
+- Deployment commit: 10207a73c00ba2ebba5c389386ba22c6b3e3b911
+  ("fix: show the $700 withdrawal minimum only to eligible accounts"), pushed
+  2b6635b..10207a7 main -> main to
+  github.com/nuraabdullahi708090-sudo/arbitrix-app. Normal fast-forward of one
+  commit; no force-push/rebase/reset/amend.
+- Render auto-deployed on push (header x-render-origin-server: Render). The
+  served public/index.html is BYTE-IDENTICAL to the committed file (sha256
+  3538aff8959f8f7f7d063f08080c4e9969a28157ebbb416dd11516d2bf63702d).
+  /api/health ok, /reset-password.html 200.
+- Live markers: 'live.withdrawStatus.belowTradingBalance' x9 (6 dictionary
+  entries + 3 argument-free call sites), the new EN copy present, the previous
+  'Reach the $200 minimum trading balance' copy GONE, 0 leftover {mta} arguments
+  for the key, 'totalWithdrawable < (Number(APP.MTA) || 0)' x3, the $700 gate
+  still present, and all 5 non-EN locale copies present.
+- Production behaviour check (headless Chromium against the live site, invoking
+  the DEPLOYED updateLiveWithdrawStatus()/openWithdrawModal() with a stubbed APP,
+  at 390px and 1280px) = 38/38: the 5-state matrix renders the expected sidebar
+  AND info-box text (no deposit / no trade / below MTA / at MTA below $700 /
+  ready); a below-MTA account gets the new copy, never the $700 message, and the
+  modal stays closed; a $300 account gets "Minimum withdrawal is $700. Current:
+  $300.00"; an $800 account reaches the form; the shipped EN copy is the new one;
+  0 horizontal overflow; 0 page errors.
+- LIMITATION: an anonymous production visitor cannot log in, so the
+  referral-funded and MARKETING_SANDBOX rows of the matrix are covered by the
+  local browser run (61/61) plus the test suite; every path executable anonymously
+  was executed against the live build.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
+  trigger a second Render rebuild. The working tree therefore shows AGENTS.md as
+  modified - documentation only.
+
+## Stage 20A - Human-Support Fallback for Unanswered Assistant Questions (2026-09-14, public/index.html + tests)
+- ROOT CAUSE: `sendSupportMessage()` initialized `reply` to `t('support.reply.default')`
+  and only overwrote it when one of the English keyword groups matched. Any
+  unrecognized message therefore rendered the old default copy ("Thanks for your
+  message! Our team will get back to you shortly."), which reads as if a human had
+  already received the message even though nothing is sent anywhere and no ticket
+  exists. There is no confidence system in this app - only that keyword fallback
+  path, which is what this stage reuses.
+- WHAT SHIPPED (fallback path + related UI only):
+  - `support.reply.default` (6 locales) is now the honest message, e.g. EN: "I'm
+    not able to answer that accurately. Please contact our official support team
+    through the Support Center, where a human support representative can assist
+    you." No locale claims receipt, a ticket, an assignment or a reply "shortly".
+  - NEW `appendSupportFallbackReply(message)` renders that message plus a REAL
+    `<button class="support-human-action">` whose visible label reuses the existing
+    `support.openCenter` key and whose accessible name is the NEW
+    `support.fallback.actionAria` key (which contains the visible label in every
+    locale, WCAG 2.5.3). Wired with addEventListener; it calls the existing
+    `openSupportModal()`. No URL, email, handle, route or new destination is
+    invented and nothing is embedded in the chat.
+  - `sendSupportMessage()` keeps `reply=''` and routes unmatched messages to the
+    fallback. Whole-word tests for the bot (`\bbots?\b`) and greeting
+    (`\b(hi|hello|hey)\b`) groups: bare substring tests were matching
+    "history"/"both", sending unsupported questions to the greeting/bot answer
+    instead of the fallback.
+  - CSS: `.support-human-action` (full width, min-height 44px, visible
+    `:focus-visible` ring, overflow-wrap) and
+    `.chat-message.agent .msg-bubble.support-fallback{max-width:92%;overflow-wrap:anywhere}`.
+- OFFICIAL DESTINATION USED: the existing Support Center modal (`#supportModal`,
+  opened by `openSupportModal()`), which carries the configured official support
+  link (`<meta name="arbitrix-support-telegram">` -> `.js-official-telegram`) and
+  the existing not-configured fallback. No new channel was created.
+- UNCHANGED: the supported answer keys and keyword topics (bot / DEMO-LIVE /
+  deposit / withdraw / referral / sound / language / greeting), the three
+  quick-action buttons and their wiring, the widget's "Open Support Center"
+  button, the Support Center itself, the security warning, the close button and
+  the chat input. No server.js/DB/payment/wallet/trading/withdrawal/KYC/referral/
+  auth change; nothing is sent anywhere and no ticket or handoff is created.
+- i18n: 1403 -> 1404 keys/locale (1 new key + the replaced value). Identical key
+  sets across en/es/pt/fr/ar/zh, 0 empty values.
+- Tests: NEW tests/support_fallback.test.js (15) runs the REAL
+  `sendSupportMessage`/`appendSupportFallbackReply` in a vm sandbox with a fake
+  DOM: supported answers unchanged (incl. {{mta}} interpolation), unsupported ->
+  fallback, substring misfires now reach the fallback, no false claim (per-locale
+  claim patterns + the 6 old strings removed), the action is displayed/localized/
+  accessible, clicking it calls openSupportModal (and no URL/route/persistence/
+  ticket), all 6 locales, quick actions intact, the CSS a11y contract, and no
+  financial/backend involvement. Dictionary pins 1403 -> 1404 in 7 test files.
+  npm test = 886 pass / 0 fail; git diff --check clean.
+- Browser (puppeteer-core + chromium, local server, stubbed API): 54/54.
+  Scenario 1 (en, 390px): quick action -> bot answer; typed question -> withdraw
+  answer; unsupported -> the honest fallback + action (44px, in viewport,
+  unclipped, no "get back to you shortly", no raw keys); keyboard focus + Enter
+  opens the Support Center whose official link is the configured one; the chat
+  history survives the round trip; input and close button still work; 0 page
+  errors. Scenario 2: 6 locales x 320/360/390/430/1280 = 30 checks, all clean
+  (localized message/label/aria, >=44px, in viewport, no chat or page overflow,
+  no raw keys).
+- PRE-EXISTING FINDING (NOT fixed here - outside this stage's scope, needs a
+  decision): `#metaConsentBanner` (z-index 99999) overlaps the support launcher
+  `.support-toggle-btn` (z-index 9998) at 320/360/390/430/768/1280, so a first
+  visit before consent is answered has the tap land on the banner's Decline
+  button and the assistant does not open. Measured: banner bottom 868-872 vs
+  launcher bottom 864 with overlapping x-ranges at every width; after consent the
+  launcher works (verified at all six widths). Proposed minimal fix (NOT
+  applied): `body:has(#metaConsentBanner) .support-widget{bottom:150px;}` - the
+  banner element is removed from the DOM once consent is answered, so the offset
+  auto-reverts. Left to management because it touches the consent/FAB stacking.
+- NOT committed/pushed/deployed at the time of writing (deployed later in the
+  same session on instruction).

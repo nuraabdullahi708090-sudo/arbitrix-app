@@ -222,7 +222,7 @@ test('the new trading-balance message quotes no threshold and needs no interpola
  * ------------------------------------------------------------------ */
 test('the new key is localized in all 6 locales (no interpolation needed)', () => {
     assert.strictEqual(new Set(LANGS.map((l) => Object.keys(T[l]).sort().join('|'))).size, 1, 'identical key sets');
-    assert.strictEqual(Object.keys(T.en).length, 1403, 'dictionary size pinned');
+    assert.strictEqual(Object.keys(T.en).length, 1404, 'dictionary size pinned');
     assert.strictEqual(T.en[NEW_KEY], '\u{1F4C8} Keep trading to reach the minimum withdrawal balance.');
     LANGS.forEach((l) => {
         assert.ok(typeof T[l][NEW_KEY] === 'string' && T[l][NEW_KEY].trim(), l + ' must define the key');
