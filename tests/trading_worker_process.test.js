@@ -110,7 +110,7 @@ test('worker.js has no unref() on its tick timer and logs start + shutdown', () 
 });
 
 test('migration 027 declares bot_sessions.updated_at (a column the stop path writes)', () => {
-  const migration = fs.readFileSync(path.join(ROOT, 'supabase/migrations/027_trading_worker.sql'), 'utf8');
+  const migration = fs.readFileSync(path.join(ROOT, 'supabase/migrations/028_trading_worker.sql'), 'utf8');
   assert.match(migration, /ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ/);
   const selfCheck = migration.slice(migration.indexOf('FOREACH v_col IN ARRAY'));
   assert.match(selfCheck, /'updated_at'/);

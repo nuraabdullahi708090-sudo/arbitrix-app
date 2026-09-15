@@ -3901,7 +3901,7 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
     `TRADING_WORKER_ENABLED=true`; refuses to start without SUPABASE_SERVICE_KEY
     (exit 1, presence-only logging - never the value); exits 1 and trades NOTHING if
     the control row is unreadable (migration 027 absent). Graceful SIGTERM/SIGINT.
-  - `supabase/migrations/027_trading_worker.sql` - additive, idempotent, self-checking
+  - `supabase/migrations/028_trading_worker.sql` - additive, idempotent, self-checking
     (DO block raises and rolls back if anything is missing): bot_sessions gains
     heartbeat_at/last_tick_at/tick_count/consecutive_failures/stopped_reason/
     worker_version/risk_limits + an (is_running, heartbeat_at) index; new singleton

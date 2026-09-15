@@ -42,7 +42,7 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const SERVER = read('server.js');
 const WORKER_ENTRY = read('worker.js');
-const MIGRATION = read('supabase/migrations/027_trading_worker.sql');
+const MIGRATION = read('supabase/migrations/028_trading_worker.sql');
 const INDEX = read('public/index.html');
 
 // --------------------------------------------------------------------------
@@ -375,7 +375,7 @@ test('migration 027 adds the persistence columns and the control table, without 
   assert.ok(!/\bsandbox_[a-z_]+/i.test(migrationSql), 'migration must not reference sandbox tables');
   assert.ok(!/record_trade_safe/i.test(migrationSql), 'migration must not touch the trade RPC');
   assert.ok(!/(ALTER|UPDATE|DELETE FROM)[^;]*\bwallets\b/i.test(migrationSql), 'migration must not alter wallets');
-  assert.ok(!/027_trading_worker/.test(SERVER), 'the server must not apply migrations');
+  assert.ok(!/028_trading_worker/.test(SERVER), 'the server must not apply migrations');
 });
 
 // ==========================================================================
