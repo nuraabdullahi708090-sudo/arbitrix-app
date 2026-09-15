@@ -4056,15 +4056,15 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   description/result and SCRUBS the token from messages), summarizeTelegramBot,
   summarizeTelegramWebhook. resolveTelegramConfig now normalizes the token (and
   strips surrounding quotes from the webhook secret).
-- DIAGNOSTICS (both report ONLY non-secret facts; no token/secret/JWT):
+- DIAGNOSTICS (report ONLY non-secret facts; no token/secret/JWT):
   1. `node scripts/diagnose-telegram.js [--json]` - runnable in the host shell
      (Render: Shell tab) with NO deploy; reads the RUNNING instance env, so it
      proves which token the live deploy loaded (length + damage flags + getMe
-     username/id + RENDER_GIT_COMMIT/BRANCH).
-  2. `GET /api/telegram/diagnose` (authMiddleware + adminMiddleware) -
-     TEMPORARY admin route; remove after the incident. Not reachable until
-     deployed. Route name does NOT trip the phase-5 guard (that guard only
-     matches /api/setup*, /api/debug*, /api/diagnostic*).
+     username/id + RENDER_GIT_COMMIT/BRANCH). This is now the ONLY diagnostic
+     surface.
+  2. `GET /api/telegram/diagnose` was used during the incident and has been
+     REMOVED (cleanup commit). Do not re-add it: the standalone script covers the
+     same ground without widening the deployed surface.
   - `scripts/diagnose-telegram.js` accepts an injectable fetch (2nd arg to
     buildReport) purely so tests never hit the network.
 - ENV CHECKS: Node/`process.env` cannot hold a duplicate key, so "duplicate env

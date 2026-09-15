@@ -37,12 +37,7 @@ const {
   createTelegramSupportBot,
   createTelegramTransport,
   createTelegramWebhookHandler,
-  resolveTelegramConfig,
-  describeTelegramToken,
-  findTelegramTokenKeyVariants,
-  probeTelegramMethod,
-  summarizeTelegramBot,
-  summarizeTelegramWebhook
+  resolveTelegramConfig
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
 
@@ -4188,75 +4183,6 @@ app.post('/api/telegram/set-webhook', authMiddleware, adminMiddleware, async (re
   } catch (error) {
     res.status(400).json({ success: false, error: error && error.message ? error.message : 'Failed to set webhook' });
   }
-});
-
-/**
- * TEMPORARY Telegram setWebhook diagnostic (admin only).
- *
- * Exists to explain a Telegram `setWebhook` HTTP 404, which the Bot API returns
- * both for a genuinely wrong token AND for a token whose value is malformed
- * (surrounding quotes, a `bot` prefix pasted from an API URL, stray
- * whitespace). It reports ONLY non-secret facts:
- *   - token presence / length / formatting-damage booleans (never the value)
- *   - the Telegram getMe HTTP status, ok, error code, description, bot id and
- *     bot username
- *   - which deployment is serving the request (Render env identifiers)
- *   - getWebhookInfo (URL + last delivery error) when getMe succeeds
- * The token, webhook secret and JWT are never returned or logged. Remove this
- * route once the cause is confirmed.
- */
-app.get('/api/telegram/diagnose', authMiddleware, adminMiddleware, async (req, res) => {
-  const tokenShape = describeTelegramToken(process.env.TELEGRAM_BOT_TOKEN);
-  // Belt-and-braces: even if Telegram echoed the token, redact it from output.
-  const redact = (value) => String(value === null || value === undefined ? '' : value)
-    .split(String(telegramConfig.token || '\u0000')).join('***');
-
-  const me = await probeTelegramMethod({ token: telegramConfig.token, method: 'getMe' });
-  const bot = summarizeTelegramBot(me.result);
-  const telegram = {
-    httpStatus: me.httpStatus,
-    ok: me.ok,
-    errorCode: me.errorCode,
-    description: redact(me.description),
-    botId: bot.botId,
-    botUsername: bot.botUsername
-  };
-
-  let webhook = null;
-  if (me.ok) {
-    const info = await probeTelegramMethod({ token: telegramConfig.token, method: 'getWebhookInfo' });
-    const summary = summarizeTelegramWebhook(info.result);
-    webhook = Object.assign(
-      { httpStatus: info.httpStatus, ok: info.ok, description: redact(info.description) },
-      summary ? {
-        url: redact(summary.url),
-        pendingUpdateCount: summary.pendingUpdateCount,
-        lastErrorDate: summary.lastErrorDate,
-        lastErrorMessage: redact(summary.lastErrorMessage)
-      } : {}
-    );
-  }
-
-  res.json({
-    success: true,
-    token: tokenShape,
-    configPresent: {
-      TELEGRAM_BOT_TOKEN: Object.prototype.hasOwnProperty.call(process.env, 'TELEGRAM_BOT_TOKEN') && tokenShape.present,
-      tokenKeyVariants: findTelegramTokenKeyVariants(process.env),
-      TELEGRAM_WEBHOOK_SECRET: Boolean(telegramConfig.webhookSecret),
-      BASE_URL: Boolean(telegramConfig.baseUrl),
-      TELEGRAM_SUPPORT_CHAT_ID: Boolean(telegramConfig.supportChatId),
-      TELEGRAM_ADMIN_IDS: telegramConfig.adminIds.length > 0
-    },
-    deployment: {
-      render: Boolean(process.env.RENDER),
-      gitCommit: process.env.RENDER_GIT_COMMIT || null,
-      gitBranch: process.env.RENDER_GIT_BRANCH || null,
-      nodeEnv: process.env.NODE_ENV || null
-    },
-    telegram,
-    webhook
-  });
 });
 
 /**
@@ -9138,3 +9064,47 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   console.log(`📊 Admin panel at http://0.0.0.0:${PORT}/admin`);
 });
+
+// Reconcile the Telegram webhook registration on boot (non-blocking, no secrets).
+//
+// A webhook registered without the CURRENT secret_token - or against a stale
+// URL/path - makes Telegram refuse every delivery, so the bot goes silent while
+// setWebhook and getMe both still report success. `getWebhookInfo` does not
+// reveal whether a secret_token is registered, so the boot path re-asserts the
+// registration with the configured URL + secret. That is idempotent and repairs
+// the failure without a restart. Set TELEGRAM_WEBHOOK_AUTO_REGISTER=false to
+// opt out (e.g. while deliberately pointing the webhook elsewhere).
+// Never enables the trading worker and never logs a secret value.
+const telegramAutoRegister = String(process.env.TELEGRAM_WEBHOOK_AUTO_REGISTER || 'true')
+  .trim()
+  .toLowerCase() !== 'false';
+
+if (telegramAutoRegister && telegramConfig.token && telegramConfig.webhookSecret && telegramConfig.baseUrl) {
+  // Fully detached from startup: scheduled after listen() has returned, wrapped
+  // in try/catch, and with a .catch() on the promise, so no outcome of this
+  // network call can prevent the server from starting or crash a running it.
+  setTimeout(() => {
+    try {
+      const scrub = (value) => String(value === null || value === undefined ? '' : value)
+        .split(String(telegramConfig.token || '\u0000')).join('***');
+      telegramBot.ensureWebhookRegistration({ force: true })
+        .then((result) => {
+          console.log('[Telegram] Webhook reconciliation: ' + JSON.stringify({
+            ok: result.ok,
+            reRegistered: Boolean(result.reRegistered),
+            reason: result.reason,
+            previousUrl: result.plan ? scrub(result.plan.currentUrl) || null : null,
+            expectedPath: '/api/telegram/webhook',
+            telegramLastError: result.plan ? scrub(result.plan.lastError) || null : null,
+            probeError: result.probeError || null,
+            setWebhookError: result.error || null
+          }));
+        })
+        .catch((error) => {
+          console.warn('[Telegram] Webhook reconciliation failed: ' + scrub(error && error.message ? error.message : error));
+        });
+    } catch (error) {
+      console.warn('[Telegram] Webhook reconciliation could not run: ' + (error && error.message ? error.message : error));
+    }
+  }, 2000);
+}

@@ -244,35 +244,30 @@ test('summarizeTelegramBot / summarizeTelegramWebhook expose only non-secret fie
 // Server route wiring
 // ---------------------------------------------------------------------------
 
-test('the temporary /api/telegram/diagnose route is registered and admin-gated', () => {
-  assert.ok(SERVER.includes("app.get('/api/telegram/diagnose', authMiddleware, adminMiddleware"),
-    'diagnose route must be registered behind authMiddleware + adminMiddleware');
-  assert.ok(/app\.get\('\/api\/telegram\/diagnose'[\s\S]{0,600}describeTelegramToken/.test(SERVER),
-    'the route uses the safe shape descriptor');
-  assert.ok(/app\.get\('\/api\/telegram\/diagnose'[\s\S]{0,900}probeTelegramMethod/.test(SERVER),
-    'the route uses the non-throwing probe');
+test('the temporary /api/telegram/diagnose route has been removed (cleanup)', () => {
+  assert.strictEqual(SERVER.includes('/api/telegram/diagnose'), false,
+    'the temporary diagnostic route must not ship once the cause is fixed');
+  // The diagnostic capability now lives ONLY in the standalone script, which is
+  // run from the host shell and needs no deployed route.
+  assert.ok(SCRIPT.includes('buildReport'), 'the standalone script remains the diagnostic tool');
+  assert.ok(!/describeTelegramToken|probeTelegramMethod/.test(SERVER),
+    'the route-only helper imports are gone from server.js too');
 });
 
-test('the diagnostic route never outputs the token or the webhook secret', () => {
-  const start = SERVER.indexOf("app.get('/api/telegram/diagnose'");
-  assert.ok(start > -1);
-  const body = SERVER.slice(start, SERVER.indexOf('\n});', start));
-  const jsonStart = body.indexOf('res.json({');
-  assert.ok(jsonStart > -1, 'the route serializes a JSON report');
-  const jsonBlock = body.slice(jsonStart, body.indexOf('});', jsonStart));
+test('the boot webhook reconciliation log never outputs the token or the webhook secret', () => {
+  const start = SERVER.indexOf('const telegramAutoRegister');
+  assert.ok(start > -1, 'the reconciliation block exists');
+  const block = SERVER.slice(start, SERVER.indexOf('}, 2000);', start) + '}, 2000);'.length);
 
-  assert.ok(jsonBlock.includes('token: tokenShape'),
-    'the token field is the shape descriptor, not the raw value');
-  assert.ok(!/telegramConfig\.token/.test(jsonBlock),
-    'the raw token is never serialized');
-  assert.ok(!/:\s*process\.env\.TELEGRAM_BOT_TOKEN\b/.test(jsonBlock),
-    'the raw token env value is never serialized');
-  assert.ok(body.includes('redact('), 'output strings are redacted as a backstop');
+  assert.ok(block.includes('scrub('), 'logged values are scrubbed');
+  assert.ok(!/JSON\.stringify\([^)]*telegramConfig\.token/.test(block), 'the raw token is never serialized');
+  assert.ok(!/JSON\.stringify\([^)]*webhookSecret/.test(block), 'the webhook secret is never serialized');
+  assert.ok(!/console\.log\([^)]*process\.env/.test(block), 'no raw environment value is logged');
 
-  const secretRefs = (jsonBlock.match(/telegramConfig\.webhookSecret/g) || []).length;
-  const secretBooleans = (jsonBlock.match(/Boolean\(telegramConfig\.webhookSecret\)/g) || []).length;
-  assert.ok(secretRefs > 0, 'the secret presence is reported');
-  assert.strictEqual(secretRefs, secretBooleans, 'every webhook-secret reference is wrapped in Boolean()');
+  // Whitelisted, non-secret fields only.
+  for (const key of ['ok', 'reRegistered', 'reason', 'previousUrl', 'expectedPath', 'telegramLastError', 'probeError', 'setWebhookError']) {
+    assert.ok(block.includes(key + ':'), `reports ${key}`);
+  }
 });
 
 test('the diagnostic route does not trip the phase-5 forbidden-route guard', () => {

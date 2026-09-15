@@ -62,12 +62,18 @@ const ADMIN_HELP_TEXT = [
   '/chatid - show this group chat ID'
 ].join('\n');
 
+/** Normalize a Telegram numeric id: strips surrounding quotes and whitespace. */
+function normalizeTelegramId(raw) {
+  const trimmed = String(raw === null || raw === undefined ? '' : raw).trim();
+  return stripSurroundingQuotes(trimmed).trim();
+}
+
 /** Parse the comma-separated TELEGRAM_ADMIN_IDS value into a list of id strings. */
 function parseAdminIds(raw) {
   if (raw === null || raw === undefined) return [];
   return String(raw)
     .split(',')
-    .map((part) => part.trim())
+    .map((part) => normalizeTelegramId(part))
     .filter((part) => part.length > 0);
 }
 
@@ -164,7 +170,7 @@ function resolveTelegramConfig(env) {
   const baseUrl = String(e.BASE_URL || '').trim().replace(/\/+$/, '');
   return {
     token: normalizeTelegramToken(e.TELEGRAM_BOT_TOKEN),
-    supportChatId: String(e.TELEGRAM_SUPPORT_CHAT_ID || '').trim() || null,
+    supportChatId: normalizeTelegramId(e.TELEGRAM_SUPPORT_CHAT_ID) || null,
     adminIds: parseAdminIds(e.TELEGRAM_ADMIN_IDS),
     // Same class of damage as the token: a quoted value would be rejected by
     // Telegram ("secret token contains unallowed characters").
@@ -477,6 +483,39 @@ function summarizeTelegramWebhook(result) {
   };
 }
 
+/** Updates the bot asks Telegram to deliver. */
+const TELEGRAM_ALLOWED_UPDATES = ['message', 'edited_message'];
+
+/**
+ * Decide whether the registered webhook must be re-asserted.
+ *
+ * Re-registration is required when the registered URL is not ours, or when
+ * Telegram recorded a delivery error. A rejected secret token, a wrong path and
+ * an unreachable host all surface to Telegram as a failed delivery and land in
+ * `lastErrorMessage`, so this single check covers every "registered but the bot
+ * never replies" case.
+ *
+ * Pure: no network, no secrets. `webhookSummary` comes from
+ * summarizeTelegramWebhook(getWebhookInfo()).
+ */
+function planWebhookRegistration(webhookSummary, expectedUrl) {
+  const info = webhookSummary || null;
+  const currentUrl = info && typeof info.url === 'string' ? info.url : '';
+  const lastError = info && info.lastErrorMessage ? String(info.lastErrorMessage) : '';
+  if (currentUrl !== expectedUrl) {
+    return {
+      needsRegistration: true,
+      reason: currentUrl ? 'url-mismatch' : 'no-webhook-registered',
+      currentUrl,
+      lastError
+    };
+  }
+  if (lastError) {
+    return { needsRegistration: true, reason: 'telegram-last-error', currentUrl, lastError };
+  }
+  return { needsRegistration: false, reason: 'up-to-date', currentUrl, lastError };
+}
+
 /**
  * Build the bot from injected collaborators.
  *
@@ -497,6 +536,38 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null };
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
   const forwarded = threadMap || createLimitedMap({ max: 500 });
+
+  // Secret-free delivery telemetry. This is what turns "the bot is silent" into
+  // a diagnosable event: it records whether updates arrive at all, whether they
+  // were rejected on the secret header, how routing classified them, and the
+  // last error message (with the token scrubbed out).
+  const stats = {
+    updatesReceived: 0,
+    duplicateUpdates: 0,
+    secretRejected: 0,
+    processed: 0,
+    ignored: 0,
+    repliesSent: 0,
+    lastUpdateAt: null,
+    lastAction: null,
+    lastReason: null,
+    lastSecretRejectionAt: null,
+    lastError: null
+  };
+
+  const scrub = (message) => String(message === undefined || message === null ? '' : message)
+    .split(String(cfg.token || '\u0000')).join('***')
+    .slice(0, 300);
+
+  function getStats() {
+    return Object.assign({}, stats);
+  }
+
+  /** Called by the webhook route when the secret header is missing/mismatched. */
+  function recordRejectedSecret() {
+    stats.secretRejected += 1;
+    stats.lastSecretRejectionAt = new Date().toISOString();
+  }
 
   const warn = (message) => {
     if (log && typeof log.warn === 'function') log.warn(`[Telegram] ${message}`);
@@ -522,7 +593,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       baseUrlConfigured: Boolean(cfg.baseUrl),
       webhookPath: '/api/telegram/webhook',
       seenUpdates: seenUpdates.size(),
-      threadedReplies: forwarded.size()
+      threadedReplies: forwarded.size(),
+      stats: getStats()
     };
   }
 
@@ -537,6 +609,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   /** Send to the user and persist an outbound row. Returns Telegram's result. */
   async function sendOutbound(conversation, body) {
     const sent = await transport.sendMessage(conversation.telegram_chat_id, body);
+    stats.repliesSent += 1;
     await store.insertMessage({
       conversationId: conversation.id,
       direction: DIRECTION_OUTBOUND,
@@ -599,14 +672,32 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
 
     if (cfg.supportChatId) {
       const name = conversation.display_name || telegramDisplayName(from);
-      const sent = await transport.sendMessage(cfg.supportChatId, buildForwardText(conversation, conversation.telegram_chat_id, name, text));
-      if (sent && sent.message_id !== undefined && sent.message_id !== null) {
-        forwarded.set(sent.message_id, conversation.telegram_chat_id);
-      }
+      // Acknowledge the customer BEFORE forwarding. A wrong/unreachable
+      // TELEGRAM_SUPPORT_CHAT_ID (or a group the bot was removed from) must
+      // never leave the customer with silence.
+      let acknowledged = false;
       if (created) {
         await sendOutbound(conversation, RECEIPT_TEXT);
+        acknowledged = true;
       }
-      return { handled: true, action: 'forwarded' };
+      try {
+        const sent = await transport.sendMessage(cfg.supportChatId, buildForwardText(conversation, conversation.telegram_chat_id, name, text));
+        if (sent && sent.message_id !== undefined && sent.message_id !== null) {
+          forwarded.set(sent.message_id, conversation.telegram_chat_id);
+        }
+        return { handled: true, action: 'forwarded' };
+      } catch (err) {
+        warn(`forwarding to the support group failed for conversation ${conversation.id}: ${scrub(err && err.message ? err.message : err)}`);
+        if (!acknowledged) {
+          // The team will not see this message, so acknowledge the customer.
+          try {
+            await sendOutbound(conversation, RECEIPT_TEXT);
+          } catch (ackError) {
+            warn(`customer acknowledgement also failed for conversation ${conversation.id}: ${scrub(ackError && ackError.message ? ackError.message : ackError)}`);
+          }
+        }
+        return { handled: true, action: 'forward-failed' };
+      }
     }
 
     // Capture mode: TELEGRAM_SUPPORT_CHAT_ID is not set yet, so there is nowhere
@@ -706,18 +797,101 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   }
 
   async function handleUpdate(update) {
+    stats.updatesReceived += 1;
+    stats.lastUpdateAt = new Date().toISOString();
+
     const id = updateId(update);
-    if (seenUpdates.has(id)) return { handled: true, action: 'duplicate' };
+    if (seenUpdates.has(id)) {
+      stats.duplicateUpdates += 1;
+      stats.lastAction = 'duplicate';
+      return { handled: true, action: 'duplicate' };
+    }
 
     const route = routeUpdate(update, routingConfig);
-    if (route.kind === 'ignore') return { handled: false, reason: route.reason };
+    if (route.kind === 'ignore') {
+      stats.ignored += 1;
+      stats.lastAction = 'ignored';
+      stats.lastReason = route.reason;
+      return { handled: false, reason: route.reason };
+    }
 
-    const result = route.kind === 'group'
-      ? await handleGroupUpdate(route, update)
-      : await handleUserUpdate(route, update);
+    try {
+      const result = route.kind === 'group'
+        ? await handleGroupUpdate(route, update)
+        : await handleUserUpdate(route, update);
+      stats.processed += 1;
+      stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
+      stats.lastReason = (result && result.reason) || null;
+      seenUpdates.remember(id);
+      return result;
+    } catch (error) {
+      stats.lastError = scrub(error && error.message ? error.message : error);
+      stats.lastAction = 'error';
+      stats.lastReason = 'processing-error';
+      throw error;
+    }
+  }
 
-    seenUpdates.remember(id);
-    return result;
+  /**
+   * Compare Telegram's registered webhook with what this deployment expects and
+   * re-register when they differ.
+   *
+   * Re-registering also re-asserts `secret_token`. That repairs the common
+   * production failure where the webhook was registered before (or without) the
+   * current secret, after which every delivery is rejected and the bot is
+   * silent even though getMe and setWebhook both report success.
+   *
+   * Never throws and never returns or logs a secret value.
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.force] - re-register even when the current state
+   *   looks healthy. Used on boot, because `getWebhookInfo` does NOT reveal
+   *   whether a secret_token is registered, so only an explicit re-assert can
+   *   guarantee the running config matches Telegram's.
+   */
+  async function ensureWebhookRegistration({ force = false } = {}) {
+    const expectedUrl = cfg.baseUrl ? `${cfg.baseUrl}/api/telegram/webhook` : null;
+    if (!isTelegramConfigured(cfg) || !expectedUrl) {
+      return { ok: false, reason: 'not-configured', reRegistered: false, plan: null, webhook: null };
+    }
+
+    let summary = null;
+    let probeError = null;
+    try {
+      summary = summarizeTelegramWebhook(await transport.getWebhookInfo());
+    } catch (error) {
+      probeError = scrub(error && error.message ? error.message : error);
+    }
+
+    const plan = planWebhookRegistration(summary, expectedUrl);
+    const base = { plan, webhook: summary, probeError };
+
+    // Without a reliable "current state" we still re-assert once: registering
+    // the correct URL + secret is idempotent and is the safer default.
+    const needsRegistration = force || probeError ? true : plan.needsRegistration;
+    if (!needsRegistration) {
+      return Object.assign({ ok: true, reRegistered: false, reason: plan.reason }, base);
+    }
+
+    try {
+      await transport.setWebhook({
+        url: expectedUrl,
+        secret_token: cfg.webhookSecret,
+        allowed_updates: TELEGRAM_ALLOWED_UPDATES
+      });
+      return Object.assign({
+        ok: true,
+        reRegistered: true,
+        reason: force ? 'forced-reassert' : (probeError ? 'probe-failed-reasserted' : plan.reason)
+      }, base);
+    } catch (error) {
+      return Object.assign({
+        ok: false,
+        reRegistered: false,
+        reason: 'set-webhook-failed',
+        error: scrub(error && error.message ? error.message : error)
+      }, base);
+    }
   }
 
   /** Register the webhook with Telegram. Never returns the secret token. */
@@ -729,7 +903,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     await transport.setWebhook({
       url,
       secret_token: cfg.webhookSecret,
-      allowed_updates: ['message', 'edited_message']
+      allowed_updates: TELEGRAM_ALLOWED_UPDATES
     });
     return { url, webhookPath: '/api/telegram/webhook' };
   }
@@ -738,7 +912,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return transport.getWebhookInfo();
   }
 
-  return { handleUpdate, setWebhook, getWebhookInfo, getConfig, status };
+  return { handleUpdate, setWebhook, getWebhookInfo, getConfig, status, ensureWebhookRegistration, getStats, recordRejectedSecret };
 }
 
 /**
@@ -766,14 +940,28 @@ function createTelegramWebhookHandler({ bot, logger }) {
       : (req.headers ? req.headers['x-telegram-bot-api-secret-token'] : undefined);
 
     if (!verifyTelegramWebhookSecret(provided, config.webhookSecret)) {
+      if (typeof bot.recordRejectedSecret === 'function') bot.recordRejectedSecret();
       if (log && typeof log.warn === 'function') {
-        log.warn('[Telegram] Webhook rejected: invalid secret token header');
+        // A MISSING header while a secret IS configured is the signature of a
+        // webhook registered without (or with a different) secret_token:
+        // Telegram cannot match, so every delivery is refused and the bot looks
+        // dead even though getMe/setWebhook both succeed. Re-registering repairs
+        // it; the startup reconciliation does this automatically.
+        log.warn(provided
+          ? '[Telegram] Webhook rejected: secret token header does not match'
+          : '[Telegram] Webhook rejected: secret token header missing - the registered webhook carries no/another secret_token');
       }
       return res.status(401).json({ ok: false });
     }
 
     try {
       const result = await bot.handleUpdate(req.body);
+      const action = result && result.action
+        ? result.action
+        : (result && result.handled ? 'handled' : 'no-action');
+      if (log && typeof log.log === 'function') {
+        log.log(`[Telegram] update received -> ${action}${result && result.reason ? ' (' + result.reason + ')' : ''}`);
+      }
       return res.status(200).json({ ok: true, handled: Boolean(result && result.handled) });
     } catch (error) {
       if (log && typeof log.error === 'function') {
@@ -797,6 +985,7 @@ module.exports = {
   ESCALATION_ACK,
   ADMIN_HELP_TEXT,
   parseAdminIds,
+  normalizeTelegramId,
   TELEGRAM_TOKEN_FORMAT,
   stripSurroundingQuotes,
   normalizeTelegramToken,
@@ -807,6 +996,8 @@ module.exports = {
   probeTelegramMethod,
   summarizeTelegramBot,
   summarizeTelegramWebhook,
+  TELEGRAM_ALLOWED_UPDATES,
+  planWebhookRegistration,
   timingSafeStringEqual,
   verifyTelegramWebhookSecret,
   isTelegramConfigured,

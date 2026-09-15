@@ -48,7 +48,8 @@ const {
   createTelegramSupportBot,
   createTelegramWebhookHandler,
   TELEGRAM_MAX_MESSAGE_LENGTH,
-  USER_HELP_TEXT
+  USER_HELP_TEXT,
+  RECEIPT_TEXT
 } = require('../services/TelegramSupportService');
 const { createTelegramSupportStore, numeric } = require('../services/TelegramSupportStore');
 
@@ -131,15 +132,21 @@ function createFakeStore() {
   };
 }
 
-function createFakeTransport({ failSendMessage = false } = {}) {
+function createFakeTransport({ failSendMessage = false, failChatIds = null } = {}) {
   const calls = [];
+  const failing = Array.isArray(failChatIds) ? failChatIds.map(String) : [];
   let nextMessageId = 90000;
   return {
     calls,
     async sendMessage(chatId, text, options) {
-      if (failSendMessage) throw new Error('Telegram sendMessage failed: simulated');
-      calls.push({ method: 'sendMessage', chatId: String(chatId), text, options: options || null });
-      return { message_id: nextMessageId++ };
+      if (failSendMessage || failing.indexOf(String(chatId)) !== -1) {
+        throw new Error('Telegram sendMessage failed: simulated');
+      }
+      const messageId = nextMessageId++;
+      // The id is recorded so tests can thread a reply to a specific send
+      // without depending on the order the messages were sent in.
+      calls.push({ method: 'sendMessage', chatId: String(chatId), text, options: options || null, messageId });
+      return { message_id: messageId };
     },
     async setWebhook(params) {
       calls.push({ method: 'setWebhook', params });
@@ -163,10 +170,11 @@ function makeBot({
   adminIds = [ADMIN_ID],
   token = TOKEN,
   webhookSecret = WEBHOOK_SECRET,
-  failSendMessage = false
+  failSendMessage = false,
+  failChatIds = null
 } = {}) {
   const store = createFakeStore();
-  const transport = createFakeTransport({ failSendMessage });
+  const transport = createFakeTransport({ failSendMessage, failChatIds });
   const logger = createFakeLogger();
   const bot = createTelegramSupportBot({
     config: { token, supportChatId, adminIds, webhookSecret, baseUrl: 'https://arbitrix.pro' },
@@ -507,8 +515,9 @@ test('a non-admin cannot use group commands', async () => {
 test('an agent replying to the forwarded message reaches the user', async () => {
   const { bot, store, transport } = makeBot();
   await bot.handleUpdate(userUpdate({ text: 'where is my withdrawal?', messageId: 5, updateId: 300 }));
-  // The fake transport issues ids from 90000; the forward is the first group send.
-  const forwardedId = 90000;
+  // Threading keys off the id Telegram returns for the GROUP forward, so read
+  // it back from the recorded call instead of assuming a send order.
+  const forwardedId = transport.calls.find((c) => c.chatId === SUPPORT_CHAT_ID).messageId;
 
   transport.calls.length = 0;
   const result = await bot.handleUpdate(groupUpdate({ text: 'It is queued, 2h ETA.', replyTo: forwardedId, messageId: 55, updateId: 301 }));
@@ -519,6 +528,57 @@ test('an agent replying to the forwarded message reaches the user', async () => 
 
   const adminOutbound = store.state.messages.filter((m) => m.direction === 'outbound' && m.body === 'It is queued, 2h ETA.');
   assert.strictEqual(adminOutbound.length, 1);
+});
+
+test('a customer is acknowledged even when the support-group forward fails', async () => {
+  // TELEGRAM_SUPPORT_CHAT_ID points at a chat the bot cannot post to (removed
+  // from the group, wrong id, ...). The customer must still get an answer.
+  const { bot, store, transport, logger } = makeBot({ failChatIds: [SUPPORT_CHAT_ID] });
+  const result = await bot.handleUpdate(userUpdate({ text: 'my deposit is missing', updateId: 400 }));
+
+  assert.strictEqual(result.action, 'forward-failed');
+  const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
+  assert.strictEqual(toUser.length, 1, 'the customer is acknowledged');
+  assert.strictEqual(toUser[0].text, RECEIPT_TEXT);
+  // The inbound message is still stored, and the failure is logged without secrets.
+  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'inbound').length, 1);
+  assert.ok(logger.lines.some((l) => l.includes('forwarding to the support group failed')));
+  assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never appears in logs');
+});
+
+test('the customer is acknowledged before the group forward is attempted', async () => {
+  const { bot, transport } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: 'hello', updateId: 410 }));
+
+  const sends = transport.calls.filter((c) => c.method === 'sendMessage');
+  assert.strictEqual(sends[0].chatId, USER_CHAT_ID, 'acknowledgement is sent first');
+  assert.strictEqual(sends[1].chatId, SUPPORT_CHAT_ID, 'then the group forward');
+});
+
+test('delivery telemetry records routing decisions without recording secrets', async () => {
+  const { bot } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: '/start', updateId: 420 }));
+  await bot.handleUpdate(userUpdate({ text: 'where is my withdrawal?', updateId: 421 }));
+  bot.recordRejectedSecret();
+
+  const stats = bot.getStats();
+  assert.strictEqual(stats.updatesReceived, 2);
+  assert.strictEqual(stats.processed, 2);
+  assert.strictEqual(stats.secretRejected, 1);
+  // /start always answers; the follow-up message is only receipted on the first
+  // contact (the agent then replies from the support group).
+  assert.strictEqual(stats.repliesSent, 1);
+  assert.ok(stats.lastUpdateAt, 'last update timestamp is recorded');
+  assert.ok(!JSON.stringify(stats).includes(TOKEN), 'stats never contain the token');
+});
+
+test('telemetry records the routing reason for an ignored update', async () => {
+  const { bot } = makeBot({ supportChatId: null });
+  const result = await bot.handleUpdate(groupUpdate({ text: 'hello', userId: '999', updateId: 430 }));
+  assert.strictEqual(result.handled, false);
+  const stats = bot.getStats();
+  assert.strictEqual(stats.ignored, 1);
+  assert.strictEqual(stats.lastReason, 'unconfigured-group-non-admin');
 });
 
 test('an unmapped reply in the group is a no-op (no accidental broadcast)', async () => {
