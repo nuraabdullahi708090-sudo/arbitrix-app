@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS public.telegram_support_messages (
 -- ============================================
 -- 3. ESCALATIONS
 -- ============================================
+-- LIVE SCHEMA NOTE (authoritative, confirmed in production):
+-- The pre-existing telegram_support_escalations table ALSO has
+--     support_message_id BIGINT NOT NULL   -- -> telegram_support_messages(id)
+-- which this legacy mirror does not declare (its CREATE is a no-op on the
+-- existing table). The application always persists the customer message FIRST
+-- and passes that exact row id as support_message_id; it never writes null or
+-- undefined there (that was the production 23502).
+-- ============================================
 CREATE TABLE IF NOT EXISTS public.telegram_support_escalations (
     id BIGSERIAL PRIMARY KEY,
     conversation_id BIGINT NOT NULL REFERENCES public.telegram_support_conversations(id) ON DELETE CASCADE,

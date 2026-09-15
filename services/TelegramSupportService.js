@@ -1031,8 +1031,32 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
 
     if (command && command.name === 'escalate') {
       const reason = command.rest || 'User requested human support';
+      // The live escalations table requires support_message_id NOT NULL (the id
+      // of the escalated message), so the incoming customer message is persisted
+      // FIRST and that exact row id is referenced. A storage failure here keeps
+      // the update queued (500) instead of writing a null reference.
+      let escalated = null;
+      try {
+        markStage('storage:insert-message');
+        const inserted = await store.insertMessage({
+          conversationId: conversation.id,
+          direction: DIRECTION_CUSTOMER,
+          body: route.text || reason
+        });
+        escalated = inserted && inserted.message ? inserted.message : null;
+      } catch (error) {
+        noteStorageFailure(error);
+        await acknowledgeStorageDegraded(update, route);
+        throw error;
+      }
+      if (!escalated || escalated.id === undefined || escalated.id === null) {
+        const missingId = new Error('escalation aborted: the inserted message did not return an id');
+        noteStorageFailure(missingId);
+        await acknowledgeStorageDegraded(update, route);
+        throw missingId;
+      }
       markStage('storage:create-escalation');
-      await store.createEscalation({ conversationId: conversation.id });
+      await store.createEscalation({ conversationId: conversation.id, supportMessageId: escalated.id });
       markStage('storage:set-status');
       await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_ESCALATED });
       if (cfg.supportChatId) {
@@ -1177,8 +1201,20 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'escalate-missing' };
           }
+          // The live table requires support_message_id, so an agent escalation
+          // references the customer's newest stored message. With nothing stored
+          // there is no valid reference, so it is refused rather than inserted
+          // with null.
+          const latest = await store.getLatestMessageByConversation({
+            conversationId: conversation.id,
+            direction: DIRECTION_CUSTOMER
+          });
+          if (!latest || latest.id === undefined || latest.id === null) {
+            await transport.sendMessage(route.chatId, `No stored message for chat ${target}; nothing to escalate.`);
+            return { handled: true, action: 'escalate-no-message' };
+          }
           markStage('storage:create-escalation');
-          await store.createEscalation({ conversationId: conversation.id });
+          await store.createEscalation({ conversationId: conversation.id, supportMessageId: latest.id });
           markStage('storage:set-status');
           await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_ESCALATED });
           await transport.sendMessage(route.chatId, `Conversation #${conversation.id} escalated.`);
@@ -1303,7 +1339,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // and logged a false PGRST205 even when the real tables existed.
     const probes = [
       { label: 'messages', table: 'telegram_support_messages', columns: ['id', 'conversation_id', 'direction', 'body', 'created_at'] },
-      { label: 'escalations', table: 'telegram_support_escalations', columns: ['id', 'conversation_id', 'created_at'] }
+      { label: 'escalations', table: 'telegram_support_escalations', columns: ['id', 'conversation_id', 'support_message_id', 'created_at'] }
     ];
     for (const probe of probes) {
       if (typeof store.probeColumns !== 'function') {

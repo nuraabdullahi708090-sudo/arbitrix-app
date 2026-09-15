@@ -8,7 +8,8 @@
  *   telegram_support_conversations(id, telegram_chat_id, telegram_user_id,
  *     username, display_name, mode, status, language, created_at, updated_at)
  *   telegram_support_messages(id, conversation_id, direction, body, created_at)
- *   telegram_support_escalations(id, conversation_id, created_at)
+ *   telegram_support_escalations(id, conversation_id, support_message_id,
+ *                               created_at)
  *
  * Two consequences shape this store:
  *   - The conversation is keyed by `telegram_chat_id` (the Telegram private
@@ -176,6 +177,23 @@ function createTelegramSupportStore(supabaseClient) {
     return { message: data };
   }
 
+  /**
+   * Newest stored message for a conversation (read-only), used when an agent
+   * escalates from the support group without supplying a message id. An optional
+   * `direction` narrows it to the customer's own message. Returns null when the
+   * conversation has no matching stored message.
+   */
+  async function getLatestMessageByConversation({ conversationId, direction = null }) {
+    let query = supabaseClient
+      .from(MESSAGES)
+      .select('id, conversation_id, direction, body, created_at')
+      .eq('conversation_id', numeric(conversationId));
+    if (direction) query = query.eq('direction', direction);
+    const { data, error } = await query.order('id', { ascending: false }).limit(1);
+    if (error) throw storageError('message lookup', error);
+    return (data && data[0]) || null;
+  }
+
   async function setConversationStatus({ conversationId, status }) {
     const { error } = await supabaseClient
       .from(CONVERSATIONS)
@@ -185,11 +203,30 @@ function createTelegramSupportStore(supabaseClient) {
     return true;
   }
 
-  /** Record an escalation. The applied table links a conversation to a timestamp. */
-  async function createEscalation({ conversationId }) {
+  /**
+   * Record an escalation.
+   *
+   * The LIVE table requires `support_message_id` NOT NULL (the
+   * telegram_support_messages.id of the message being escalated), so it is
+   * mandatory here and validated BEFORE the insert: an escalation can never be
+   * written with a null/undefined/missing reference (that was the production
+   * 23502). Returns the inserted row.
+   */
+  async function createEscalation({ conversationId, supportMessageId }) {
+    const messageId = numeric(supportMessageId);
+    if (messageId === null || typeof messageId !== 'number' ||
+        !Number.isSafeInteger(messageId) || messageId <= 0) {
+      throw new Error(
+        'createEscalation requires a valid supportMessageId ' +
+        '(the telegram_support_messages.id); got ' + JSON.stringify(supportMessageId)
+      );
+    }
     const { data, error } = await supabaseClient
       .from(ESCALATIONS)
-      .insert({ conversation_id: numeric(conversationId) })
+      .insert({
+        conversation_id: numeric(conversationId),
+        support_message_id: messageId
+      })
       .select()
       .single();
     if (error) throw storageError('escalation insert', error);
@@ -224,6 +261,7 @@ function createTelegramSupportStore(supabaseClient) {
     getConversationByChatId,
     upsertConversation,
     insertMessage,
+    getLatestMessageByConversation,
     setConversationStatus,
     createEscalation,
     probeColumns

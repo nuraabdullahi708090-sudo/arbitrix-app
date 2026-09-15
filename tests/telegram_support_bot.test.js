@@ -90,6 +90,7 @@ function createFakeStore({ failStore = false } = {}) {
       getConversationById: unavailable,
       upsertConversation: unavailable,
       insertMessage: unavailable,
+      getLatestMessageByConversation: unavailable,
       setConversationStatus: unavailable,
       createEscalation: unavailable
     };
@@ -143,8 +144,17 @@ function createFakeStore({ failStore = false } = {}) {
       if (conversation) conversation.status = status;
       return true;
     },
-    async createEscalation({ conversationId }) {
-      const row = { id: state.nextEscalationId++, conversation_id: Number(conversationId) };
+    async getLatestMessageByConversation({ conversationId, direction = null }) {
+      let rows = state.messages.filter((m) => m.conversation_id === Number(conversationId));
+      if (direction) rows = rows.filter((m) => m.direction === direction);
+      return rows.length ? rows[rows.length - 1] : null;
+    },
+    async createEscalation({ conversationId, supportMessageId }) {
+      const row = {
+        id: state.nextEscalationId++,
+        conversation_id: Number(conversationId),
+        support_message_id: supportMessageId
+      };
       state.escalations.push(row);
       return row;
     }
@@ -487,18 +497,109 @@ test('/help answers the user with the support instructions', async () => {
   assert.strictEqual(transport.calls.find((c) => c.chatId === USER_CHAT_ID).text, USER_HELP_TEXT);
 });
 
-test('/escalate records an escalation, flags the conversation and notifies the group', async () => {
+test('/escalate stores the incoming message first and links its exact id on the escalation', async () => {
   const { bot, store, transport } = makeBot();
   const result = await bot.handleUpdate(userUpdate({ text: '/escalate deposit missing since friday' }));
 
   assert.strictEqual(result.action, 'escalate');
   assert.strictEqual(store.state.escalations.length, 1);
-  assert.strictEqual(store.state.escalations[0].conversation_id, store.state.conversations[0].id);
   assert.strictEqual(store.state.conversations[0].status, 'escalated');
+
+  // The incoming customer message is persisted FIRST so the escalation can
+  // reference its exact row id (the live support_message_id is NOT NULL).
+  const escalatedMessage = store.state.messages.find(
+    (m) => m.direction === DIRECTION_CUSTOMER && m.body === '/escalate deposit missing since friday'
+  );
+  assert.ok(escalatedMessage, 'the /escalate message is stored as a customer message');
+  assert.ok(Number.isInteger(escalatedMessage.id) && escalatedMessage.id > 0, 'the stored row has a real id');
+
+  const escalation = store.state.escalations[0];
+  assert.strictEqual(escalation.conversation_id, store.state.conversations[0].id, 'correct conversation');
+  assert.strictEqual(escalation.support_message_id, escalatedMessage.id,
+    'the escalation references the exact inserted message id');
+  assert.notStrictEqual(escalation.support_message_id, null);
+  assert.notStrictEqual(escalation.support_message_id, undefined);
 
   const notice = transport.calls.find((c) => c.chatId === SUPPORT_CHAT_ID);
   assert.ok(notice.text.includes('Escalation requested'));
   assert.ok(notice.text.includes('deposit missing since friday'));
+});
+
+test('the /escalate command uses the correct customer message id for that conversation', async () => {
+  const { bot, store } = makeBot();
+  // A prior message in the same conversation must not be confused with the one
+  // that is actually escalated.
+  await bot.handleUpdate(userUpdate({ text: 'first message', messageId: 1, updateId: 76001 }));
+  const escalated = await bot.handleUpdate(userUpdate({ text: '/escalate please call me', messageId: 2, updateId: 76002 }));
+  assert.strictEqual(escalated.action, 'escalate');
+
+  const customerMessage = store.state.messages.find((m) => m.body === '/escalate please call me');
+  assert.ok(customerMessage, 'the escalated message is stored');
+  assert.strictEqual(customerMessage.direction, DIRECTION_CUSTOMER);
+  assert.strictEqual(store.state.escalations[0].support_message_id, customerMessage.id);
+  assert.strictEqual(store.state.escalations[0].conversation_id, customerMessage.conversation_id,
+    'the escalation names the same conversation as the message it links');
+});
+
+test('a redelivered /escalate update creates no duplicate message or escalation', async () => {
+  const { bot, store } = makeBot();
+  const update = userUpdate({ text: '/escalate deposit missing since friday', updateId: 77001 });
+
+  const first = await bot.handleUpdate(update);
+  const second = await bot.handleUpdate(update);
+
+  assert.strictEqual(first.action, 'escalate');
+  assert.strictEqual(second.action, 'duplicate');
+  assert.strictEqual(store.state.escalations.length, 1, 'exactly one escalation');
+  assert.strictEqual(
+    store.state.messages.filter((m) => m.body === '/escalate deposit missing since friday').length,
+    1,
+    'exactly one stored customer message'
+  );
+});
+
+test('customer -> bot -> escalation flow keeps the right directions and links the message', async () => {
+  const { bot, store } = makeBot();
+
+  // 1. A normal customer message plus the automated acknowledgement.
+  await bot.handleUpdate(userUpdate({ text: 'my deposit is stuck', messageId: 11, updateId: 77101 }));
+  // 2. The customer asks for a human.
+  const escalated = await bot.handleUpdate(userUpdate({ text: '/escalate need help now', messageId: 12, updateId: 77102 }));
+  assert.strictEqual(escalated.action, 'escalate');
+
+  assert.deepStrictEqual(
+    store.state.messages.map((m) => m.direction),
+    [DIRECTION_CUSTOMER, DIRECTION_BOT, DIRECTION_CUSTOMER, DIRECTION_BOT],
+    'customer message, automated ack, escalated customer message, automated ack'
+  );
+  const escalatedMessage = store.state.messages[2];
+  assert.strictEqual(escalatedMessage.body, '/escalate need help now');
+  assert.strictEqual(store.state.escalations[0].support_message_id, escalatedMessage.id);
+  assert.strictEqual(store.state.escalations[0].conversation_id, store.state.conversations[0].id);
+});
+
+test("an agent /escalate from the group links the conversation's newest customer message", async () => {
+  const { bot, store } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: 'please help', messageId: 21, updateId: 77201 }));
+
+  const customerMessage = store.state.messages.find((m) => m.direction === DIRECTION_CUSTOMER);
+  const result = await bot.handleUpdate(groupUpdate({ text: `/escalate ${USER_CHAT_ID}`, updateId: 77202 }));
+
+  assert.strictEqual(result.action, 'escalate');
+  assert.strictEqual(store.state.escalations.length, 1);
+  assert.strictEqual(store.state.escalations[0].support_message_id, customerMessage.id);
+  assert.notStrictEqual(store.state.escalations[0].support_message_id, null);
+});
+
+test('the group /escalate refuses when the conversation has no stored message (never a null reference)', async () => {
+  const { bot, store } = makeBot();
+  // A conversation that exists but has no message row (e.g. /start only).
+  store.state.conversations.push({ id: 42, telegram_chat_id: Number(USER_CHAT_ID), status: 'open' });
+
+  const result = await bot.handleUpdate(groupUpdate({ text: `/escalate ${USER_CHAT_ID}`, updateId: 77301 }));
+
+  assert.strictEqual(result.action, 'escalate-no-message');
+  assert.strictEqual(store.state.escalations.length, 0, 'no escalation row was created');
 });
 
 test('media-only messages ask for text instead of storing an empty message', async () => {
@@ -1058,10 +1159,57 @@ test('store: status writes and escalations target the right rows/tables', async 
   await store.setConversationStatus({ conversationId: conversation.id, status: 'escalated' });
   assert.strictEqual(client.tables.telegram_support_conversations[0].status, 'escalated');
 
-  await store.createEscalation({ conversationId: conversation.id });
+  const { message } = await store.insertMessage({
+    conversationId: conversation.id,
+    direction: DIRECTION_CUSTOMER,
+    body: 'please escalate'
+  });
+  await store.createEscalation({ conversationId: conversation.id, supportMessageId: message.id });
+
   const inserted = client.log.inserts.find((i) => i.table === 'telegram_support_escalations');
-  assert.deepStrictEqual(Object.keys(inserted.row).sort(), ['conversation_id', 'id']);
+  assert.deepStrictEqual(Object.keys(inserted.row).sort(), ['conversation_id', 'id', 'support_message_id']);
   assert.strictEqual(inserted.row.conversation_id, conversation.id);
+  assert.strictEqual(inserted.row.support_message_id, message.id,
+    'the escalation stores the support message id, never null');
+});
+
+test('store: createEscalation rejects a null/undefined/missing supportMessageId before any DB write', async () => {
+  const client = createFakeSupabase();
+  const store = createTelegramSupportStore(client);
+  const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
+
+  for (const bad of [null, undefined, '', 0, -1, 'abc', 1.5]) {
+    await assert.rejects(
+      () => store.createEscalation({ conversationId: conversation.id, supportMessageId: bad }),
+      /supportMessageId/,
+      'supportMessageId ' + JSON.stringify(bad) + ' must be refused'
+    );
+  }
+  await assert.rejects(
+    () => store.createEscalation({ conversationId: conversation.id }),
+    /supportMessageId/,
+    'a missing supportMessageId must be refused'
+  );
+
+  assert.strictEqual(client.tables.telegram_support_escalations.length, 0, 'no escalation reached the database');
+  assert.strictEqual(client.log.inserts.filter((i) => i.table === 'telegram_support_escalations').length, 0);
+});
+
+test('store: getLatestMessageByConversation returns the newest row, optionally filtered by direction', async () => {
+  const client = createFakeSupabase();
+  const store = createTelegramSupportStore(client);
+  const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
+
+  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_CUSTOMER, body: 'one' });
+  const ack = await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_BOT, body: 'ack' });
+
+  const newest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
+  assert.strictEqual(newest.id, ack.message.id, 'newest row overall');
+  const newestCustomer = await store.getLatestMessageByConversation({
+    conversationId: conversation.id, direction: DIRECTION_CUSTOMER
+  });
+  assert.strictEqual(newestCustomer.body, 'one', 'newest customer row when filtered');
+  assert.strictEqual(await store.getLatestMessageByConversation({ conversationId: 999 }), null);
 });
 
 test('store: getConversationByChatId returns null when absent', async () => {
@@ -1130,5 +1278,12 @@ test('the migration matches the applied schema with service_role-only RLS polici
   assert.ok(escalationsBlock.includes('created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()'),
     'escalations records when it was raised');
   assert.ok(!escalationsBlock.includes('reason'), 'escalations has no reason column in the applied schema');
+  // support_message_id is required by the LIVE table but is absent from this
+  // legacy mirror's DDL; the divergence is documented in the file and the
+  // application always supplies the id.
+  assert.ok(!escalationsBlock.includes('support_message_id'),
+    'the legacy mirror DDL does not declare support_message_id');
+  assert.ok(sql.includes('support_message_id BIGINT NOT NULL'),
+    'migration documents the live NOT NULL support_message_id column');
   assert.ok(!/TO\s+(anon|authenticated)/.test(sql), 'no policy grants anon/authenticated');
 });

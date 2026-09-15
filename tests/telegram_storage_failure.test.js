@@ -365,7 +365,7 @@ test('checkStorage queries the prefixed tables, not the short telemetry labels',
   assert.ok(!probed.some((p) => p.table === 'messages' || p.table === 'escalations'),
     'the preflight must never query public.messages / public.escalations');
   assert.deepStrictEqual(probed[0].columns, ['id', 'conversation_id', 'direction', 'body', 'created_at']);
-  assert.deepStrictEqual(probed[1].columns, ['id', 'conversation_id', 'created_at']);
+  assert.deepStrictEqual(probed[1].columns, ['id', 'conversation_id', 'support_message_id', 'created_at']);
   // The short labels remain the telemetry keys, unchanged.
   assert.strictEqual(result.tables.messages.ok, true);
   assert.strictEqual(result.tables.escalations.ok, true);
@@ -461,13 +461,18 @@ test('the direction literals match the confirmed LIVE CHECK constraint', () => {
   }
 });
 
-test('the store writes only columns migration 027 defines', () => {
+test('the store writes the columns migration 027 defines (plus the live-only escalation link)', () => {
   const store = fs.readFileSync(path.join(__dirname, '..', 'services', 'TelegramSupportStore.js'), 'utf8');
   const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '027_telegram_support_bot.sql'), 'utf8');
   for (const column of ['telegram_chat_id', 'telegram_user_id', 'username', 'display_name', 'updated_at', 'conversation_id', 'direction', 'body']) {
     assert.ok(store.includes(column), `store uses ${column}`);
     assert.ok(migration.includes(column), `migration 027 defines ${column}`);
   }
+  // The LIVE escalations table requires support_message_id NOT NULL. It is not in
+  // 027's legacy mirror DDL, so the store must write it and the migration must
+  // document the divergence.
+  assert.ok(store.includes('support_message_id'), 'store writes the live escalation link');
+  assert.ok(migration.includes('support_message_id'), 'migration documents the live escalation link');
 });
 
 test('this fix touches no sandbox or trading-worker code', () => {
