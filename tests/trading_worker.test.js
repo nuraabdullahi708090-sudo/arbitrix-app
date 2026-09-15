@@ -2,7 +2,7 @@
 
 /**
  * Tests for the SERVER-SIDE trading worker (services/TradingWorker.js,
- * services/PromoCheck.js, worker.js, migration 027, and the server-side kill
+ * services/PromoCheck.js, worker.js, migration 028, and the server-side kill
  * switch).
  *
  * Required coverage (management brief):
@@ -361,13 +361,13 @@ test('state is PERSISTED each tick: heartbeat, tick_count and failure counters',
   assert.equal(patch.tick_count, 4, 'tick_count advances from the persisted value');
 });
 
-test('migration 027 adds the persistence columns and the control table, without touching money tables', () => {
+test('migration 028 adds the persistence columns and the control table, without touching money tables', () => {
   assert.match(MIGRATION, /ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ/);
   assert.match(MIGRATION, /ADD COLUMN IF NOT EXISTS consecutive_failures INTEGER/);
   assert.match(MIGRATION, /CREATE TABLE IF NOT EXISTS public\.bot_worker_control/);
   assert.match(MIGRATION, /emergency_stop BOOLEAN NOT NULL DEFAULT FALSE/);
   assert.match(MIGRATION, /ENABLE ROW LEVEL SECURITY/);
-  assert.match(MIGRATION, /RAISE EXCEPTION 'Migration 027 self-check failed/);
+  assert.match(MIGRATION, /RAISE EXCEPTION 'Migration 028 self-check failed/);
   // additive + idempotent, and it must not run as part of the app
   const migrationSql = MIGRATION.replace(/--[^\n]*/g, '');
   assert.ok(!/DROP TABLE/i.test(migrationSql), 'no executable DROP TABLE');
@@ -583,7 +583,7 @@ test('emergency stop: the server exposes admin-only engage/clear/status routes',
   assert.match(startBody, /const control = await getWorkerControl\(\)/);
   assert.match(startBody, /TRADING_PAUSED/);
   // DEPLOY SAFETY: the start gate blocks only when the row is READABLE and
-  // engaged, so shipping this code before migration 027 cannot pause trading.
+  // engaged, so shipping this code before migration 028 cannot pause trading.
   assert.match(startBody, /if \(control\.available && control\.emergencyStop\)/);
   const controlFn = SERVER.slice(SERVER.indexOf('async function getWorkerControl()'), SERVER.indexOf('async function getWorkerControl()') + 1200);
   assert.match(controlFn, /emergencyStop: true/, 'unreadable control row must report the stop as engaged');

@@ -1,5 +1,5 @@
 -- ============================================
--- MIGRATION: 027 - Server-side trading worker support
+-- MIGRATION: 028 - Server-side trading worker support
 --                  (Additive, idempotent, self-checking)
 -- ============================================
 -- PURPOSE
@@ -156,10 +156,10 @@ BEGIN
     END IF;
 
     IF array_length(v_missing, 1) IS NOT NULL THEN
-        RAISE EXCEPTION 'Migration 027 self-check failed; missing: %', array_to_string(v_missing, ', ');
+        RAISE EXCEPTION 'Migration 028 self-check failed; missing: %', array_to_string(v_missing, ', ');
     END IF;
 
-    RAISE NOTICE 'Migration 027 self-check passed (worker columns + control row + RLS).';
+    RAISE NOTICE 'Migration 028 self-check passed (worker columns + control row + RLS).';
 END $$;
 
 COMMIT;
