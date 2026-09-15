@@ -21,8 +21,8 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1399;
-// 1399 keys/locale now = 1375 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1401;
+// 1401 keys/locale now = 1375 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys. (The MTA keys were removed by management after
 // the testimonials landed, so the outside count dropped from 1392 to 1374.)
 const BASE_OUTSIDE_TESTIMONIALS = 1375;
@@ -196,9 +196,13 @@ test('i18n parity: identical key sets, no empties, all testimonials keys present
 });
 
 test('this change only added landing.testimonials.* keys', () => {
+    // Phase 31 added the two server-engine disclosure variants (bot.*). Any
+    // OTHER key outside landing.testimonials.* still fails this test.
+    const ALLOWED_EXTRA = ['bot.engineNoticeWorker', 'bot.workerManaged'];
     LANGS.forEach((l) => {
-        const outside = Object.keys(T[l]).filter((k) => !k.startsWith('landing.testimonials.'));
+        const outside = Object.keys(T[l]).filter((k) => !k.startsWith('landing.testimonials.') && !ALLOWED_EXTRA.includes(k));
         assert.strictEqual(outside.length, BASE_OUTSIDE_TESTIMONIALS, l + ': no key outside landing.testimonials.* was added or removed');
+        ALLOWED_EXTRA.forEach((k) => assert.ok(T[l][k], l + ' is missing ' + k));
     });
     LANGS.forEach((l) => {
         for (const n of ['1', '2', '3', '4']) {

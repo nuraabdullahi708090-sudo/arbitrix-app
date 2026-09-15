@@ -4022,3 +4022,15 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   worker stays DISABLED (TRADING_WORKER_ENABLED unset) and migration 027 is NOT
   applied. No Supabase DDL credentials and no Render API key are available in this
   environment, so neither can be done from here.
+
+- Phase 31 follow-up: the bot engine disclosure is now SELF-CORRECTING. The static
+  browser-only notice would become a MISLEADING claim the moment a server-side
+  worker owns a session (the user would be told trading stops when the tab closes
+  while the worker keeps trading). The client now switches the notice to
+  bot.engineNoticeWorker ("Managed by the server: this bot keeps trading after you
+  close this tab...") and stops its own loop when /api/trade answers 409
+  WORKER_OWNED_SESSION, so the copy can only ever describe the engine that is
+  really trading and no manual copy edit is needed at cutover. New i18n keys
+  bot.engineNoticeWorker + bot.workerManaged in all 6 locales; dictionary
+  1401 keys/locale; re-applied on language switch by updateDynamicTranslations.
+  Tests: tests/bot_engine_disclosure.test.js (8). npm test = 1011 pass / 0 fail.

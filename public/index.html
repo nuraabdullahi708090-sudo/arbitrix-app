@@ -8284,6 +8284,8 @@ const TRANSLATIONS = {
         'bot.promoLimitReached': 'You have reached the promotional trading limit. Make your first deposit to continue trading.',
         'bot.readyToTrade': '✅ Bot ready to trade',
         'bot.engineNotice': 'Runs in this browser tab and stops when you close or refresh it. A server-side engine that keeps trading after you close the tab is in development.',
+        'bot.engineNoticeWorker': "Managed by the server: this bot keeps trading after you close this tab. Use Stop Bot to end it.",
+        'bot.workerManaged': "This bot session is now run by the server, not this tab. The browser no longer trades.",
         'chart.title': 'Equity Performance',
         'markets.advancedChart': 'Advanced Market Chart',
         'chart.all': 'ALL',
@@ -9703,6 +9705,8 @@ const TRANSLATIONS = {
         'bot.promoLimitReached': 'Has alcanzado el límite de trading promocional. Haz tu primer depósito para seguir operando.',
         'bot.readyToTrade': '✅ Bot listo para operar',
         'bot.engineNotice': 'Se ejecuta en esta pestaña del navegador y se detiene al cerrarla o actualizarla. Estamos desarrollando un motor en el servidor que seguirá operando tras cerrar la pestaña.',
+        'bot.engineNoticeWorker': "Gestionado por el servidor: este bot sigue operando después de cerrar esta pestaña. Usa Detener bot para finalizarlo.",
+        'bot.workerManaged': "Esta sesión de bot ahora la ejecuta el servidor, no esta pestaña. El navegador ya no opera.",
         'chart.title': 'Rendimiento del patrimonio',
         'markets.advancedChart': 'Gráfico de mercado avanzado',
         'chart.all': 'TODO',
@@ -11123,6 +11127,8 @@ const TRANSLATIONS = {
         'bot.promoLimitReached': 'Você atingiu o limite de trading promocional. Faça seu primeiro depósito para continuar operando.',
         'bot.readyToTrade': '✅ Bot pronto para operar',
         'bot.engineNotice': 'É executado nesta aba do navegador e para ao fechá-la ou atualizá-la. Estamos desenvolvendo um motor no servidor que continuará operando após fechar a aba.',
+        'bot.engineNoticeWorker': "Gerenciado pelo servidor: este bot continua operando depois que você fecha esta aba. Use Parar bot para encerrá-lo.",
+        'bot.workerManaged': "Esta sessão de bot agora é executada pelo servidor, não por esta aba. O navegador não opera mais.",
         'chart.title': 'Desempenho do patrimônio',
         'markets.advancedChart': 'Gráfico de mercado avançado',
         'chart.all': 'TUDO',
@@ -12543,6 +12549,8 @@ const TRANSLATIONS = {
         'bot.promoLimitReached': 'Vous avez atteint la limite de trading promotionnel. Effectuez votre premier dépôt pour continuer à trader.',
         'bot.readyToTrade': '✅ Bot prêt à trader',
         'bot.engineNotice': 'S’exécute dans cet onglet du navigateur et s’arrête lorsque vous le fermez ou l’actualisez. Un moteur côté serveur qui continue après la fermeture de l’onglet est en développement.',
+        'bot.engineNoticeWorker': "Géré par le serveur : ce bot continue de trader après la fermeture de cet onglet. Utilisez Arrêter le bot pour l’arrêter.",
+        'bot.workerManaged': "Cette session de bot est désormais exécutée par le serveur, pas par cet onglet. Le navigateur ne trade plus.",
         'chart.title': 'Performance des capitaux',
         'markets.advancedChart': 'Graphique de marché avancé',
         'chart.all': 'TOUT',
@@ -13963,6 +13971,8 @@ const TRANSLATIONS = {
         'bot.promoLimitReached': 'لقد وصلت إلى حد التداول الترويجي. قم بإجراء أول إيداع لمواصلة التداول.',
         'bot.readyToTrade': '✅ الروبوت جاهز للتداول',
         'bot.engineNotice': 'يعمل داخل هذا التبويب ويتوقف عند إغلاقه أو تحديثه. يجري تطوير محرك على الخادم لمواصلة التداول بعد إغلاق التبويب.',
+        'bot.engineNoticeWorker': "يُدار من الخادم: يستمر هذا البوت في التداول بعد إغلاق هذا التبويب. استخدم إيقاف البوت لإنهاء الجلسة.",
+        'bot.workerManaged': "تُدار جلسة البوت هذه الآن من الخادم وليس من هذا التبويب. لم يعد المتصفح يتداول.",
         'chart.title': 'أداء رأس المال',
         'markets.advancedChart': 'مخطط السوق المتقدم',
         'chart.all': 'الكل',
@@ -15383,6 +15393,8 @@ const TRANSLATIONS = {
         'bot.promoLimitReached': '您已达到促销交易限额。请完成首笔入金以继续交易。',
         'bot.readyToTrade': '✅ 机器人可交易',
         'bot.engineNotice': '在当前浏览器标签页中运行，关闭或刷新标签页后会停止。服务端引擎正在开发中，完成后将在关闭标签页后继续运行。',
+        'bot.engineNoticeWorker': "由服务器管理：关闭此标签页后该机器人仍会继续交易。使用“停止机器人”结束会话。",
+        'bot.workerManaged': "此机器人会话现在由服务器运行，而不是此标签页。浏览器不再交易。",
         'chart.title': '权益表现',
         'markets.advancedChart': '高级市场图表',
         'chart.all': '全部',
@@ -16741,6 +16753,9 @@ function updateDynamicTranslations() {
         update2FACodeExpiryLabels();
         // Stage 11: keep the landing/auth language trigger labels in sync.
         if (typeof updateLanguageTriggerLabels === 'function') updateLanguageTriggerLabels();
+        // Keep the bot engine disclosure in the user's language (the static
+        // data-i18n default assumes the browser engine).
+        if (typeof updateBotEngineNotice === 'function') updateBotEngineNotice();
         // Re-render the marketing demo badge + intro chip on language switch
         if (typeof updateSandboxBadge === 'function') updateSandboxBadge();
         // Re-render the subscription panel details on language switch: the
@@ -18706,6 +18721,17 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
             // message (server-authoritative; this is UX only).
             try {
                 const errBody = await res.json();
+                if (errBody && errBody.code === 'WORKER_OWNED_SESSION') {
+                    // The server-side engine now owns this session: stop the
+                    // browser loop (it can no longer trade) and tell the user the
+                    // truth about what happens when the tab closes.
+                    APP.botExecutedBy = 'worker';
+                    rollback();
+                    stopBot();
+                    updateBotEngineNotice('worker');
+                    showToast(t('bot.workerManaged'), 'info', 6000);
+                    return;
+                }
                 if (errBody && errBody.code === 'PROMO_TRADING_LIMIT_REACHED') {
                     APP.liveData.promoLimitReached = true;
                     if (typeof errBody.promoRealizedProfit === 'number') {
@@ -18801,6 +18827,22 @@ function startBot() {
     updateUI();
     showToast(APP.mode==='demo' ? t('bot.startedDemo') : t('bot.startedLive'),'success');
     try { Sound.botStart(); } catch(e) {}
+}
+
+/**
+ * Keep the bot disclosure HONEST about who is actually trading.
+ * 'browser'  -> the tab-bound loop (today's behaviour)
+ * 'worker'   -> a server-side worker owns the session, so closing the tab does
+ *               NOT stop trading. Switching is triggered by the server's own
+ *               409 WORKER_OWNED_SESSION response, so the copy can never claim
+ *               "stops when you close the tab" while a worker keeps trading.
+ */
+function updateBotEngineNotice(source) {
+    const el = document.getElementById('botEngineNotice');
+    if (!el) return;
+    const src = source || APP.botExecutedBy || 'browser';
+    APP.botExecutedBy = src;
+    el.textContent = t(src === 'worker' ? 'bot.engineNoticeWorker' : 'bot.engineNotice');
 }
 
 function stopBot() {
