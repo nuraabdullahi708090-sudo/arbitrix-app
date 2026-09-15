@@ -32,6 +32,14 @@
 -- introspected through PostgREST (that identifier resolves to the reserved
 -- `mode()` aggregate) and the bot never reads or writes it, so it is not
 -- asserted here. Column names are otherwise confirmed against the live tables.
+-- LIVE SCHEMA NOTE (status, authoritative, confirmed in production):
+-- Production REJECTED status 'escalated' with 23514 on
+-- telegram_support_conversations_status_check, so the legacy
+-- ('open','escalated','closed') CHECK below is NOT the live vocabulary. The live
+-- allowed values cannot be read through PostgREST and are therefore UNCONFIRMED;
+-- the application deliberately writes NO status value (an escalation is recorded
+-- in telegram_support_escalations instead). Do not restore a status write until
+-- the live definition is confirmed.
 CREATE TABLE IF NOT EXISTS public.telegram_support_conversations (
     id BIGSERIAL PRIMARY KEY,
     telegram_chat_id BIGINT NOT NULL UNIQUE,

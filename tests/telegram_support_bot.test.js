@@ -54,7 +54,7 @@ const {
   DIRECTION_BOT,
   DIRECTION_AGENT
 } = require('../services/TelegramSupportService');
-const { createTelegramSupportStore, numeric, ALLOWED_DIRECTIONS } = require('../services/TelegramSupportStore');
+const { createTelegramSupportStore, numeric, ALLOWED_DIRECTIONS, CONFIRMED_CONVERSATION_STATUSES } = require('../services/TelegramSupportStore');
 
 const TOKEN = '123456:TEST-BOT-TOKEN';
 const WEBHOOK_SECRET = 'test-webhook-secret';
@@ -71,6 +71,7 @@ function createFakeStore({ failStore = false } = {}) {
     conversations: [],
     messages: [],
     escalations: [],
+    statusWrites: [],
     nextConversationId: 1,
     nextMessageId: 1,
     nextEscalationId: 1
@@ -140,6 +141,7 @@ function createFakeStore({ failStore = false } = {}) {
       return { message: row };
     },
     async setConversationStatus({ conversationId, status }) {
+      state.statusWrites.push({ conversationId: Number(conversationId), status });
       const conversation = state.conversations.find((c) => c.id === Number(conversationId));
       if (conversation) conversation.status = status;
       return true;
@@ -503,7 +505,9 @@ test('/escalate stores the incoming message first and links its exact id on the 
 
   assert.strictEqual(result.action, 'escalate');
   assert.strictEqual(store.state.escalations.length, 1);
-  assert.strictEqual(store.state.conversations[0].status, 'escalated');
+  // The live CHECK rejects the app's legacy status vocabulary, so no status
+  // write may be attempted - the escalation row is the record.
+  assert.strictEqual(store.state.statusWrites.length, 0, 'no conversation status write is attempted');
 
   // The incoming customer message is persisted FIRST so the escalation can
   // reference its exact row id (the live support_message_id is NOT NULL).
@@ -600,6 +604,21 @@ test('the group /escalate refuses when the conversation has no stored message (n
 
   assert.strictEqual(result.action, 'escalate-no-message');
   assert.strictEqual(store.state.escalations.length, 0, 'no escalation row was created');
+});
+
+test('the bot never writes conversation.status on any path (escalate, group, close)', async () => {
+  const { bot, store } = makeBot();
+
+  await bot.handleUpdate(userUpdate({ text: 'hello', updateId: 78001 }));
+  await bot.handleUpdate(userUpdate({ text: '/escalate please help', updateId: 78002 }));
+  const groupEscalated = await bot.handleUpdate(groupUpdate({ text: `/escalate ${USER_CHAT_ID}`, updateId: 78003 }));
+  const closed = await bot.handleUpdate(groupUpdate({ text: `/close ${USER_CHAT_ID}`, updateId: 78004 }));
+
+  assert.strictEqual(groupEscalated.action, 'escalate');
+  assert.strictEqual(closed.action, 'close');
+  assert.strictEqual(store.state.statusWrites.length, 0, 'no conversation status write on any of these paths');
+  assert.strictEqual(store.state.conversations[0].status, 'open', 'the stored status is left untouched');
+  assert.strictEqual(store.state.escalations.length, 2, 'both escalations are still recorded');
 });
 
 test('media-only messages ask for text instead of storing an empty message', async () => {
@@ -740,7 +759,7 @@ test('/close marks the conversation closed', async () => {
   await bot.handleUpdate(userUpdate({ text: 'hi', updateId: 500 }));
   const result = await bot.handleUpdate(groupUpdate({ text: `/close ${USER_CHAT_ID}`, updateId: 501 }));
   assert.strictEqual(result.action, 'close');
-  assert.strictEqual(store.state.conversations[0].status, 'closed');
+  assert.strictEqual(store.state.statusWrites.length, 0, 'no conversation status write is attempted');
 });
 
 test('unknown group commands are ignored silently', async () => {
@@ -1151,13 +1170,10 @@ test('service: customer -> bot -> agent flow preserves the labels end to end', a
   assert.ok(store.state.messages.every((m) => ALLOWED_DIRECTIONS.includes(m.direction)));
 });
 
-test('store: status writes and escalations target the right rows/tables', async () => {
+test('store: escalations target the right rows/tables', async () => {
   const client = createFakeSupabase();
   const store = createTelegramSupportStore(client);
   const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
-
-  await store.setConversationStatus({ conversationId: conversation.id, status: 'escalated' });
-  assert.strictEqual(client.tables.telegram_support_conversations[0].status, 'escalated');
 
   const { message } = await store.insertMessage({
     conversationId: conversation.id,
@@ -1171,6 +1187,33 @@ test('store: status writes and escalations target the right rows/tables', async 
   assert.strictEqual(inserted.row.conversation_id, conversation.id);
   assert.strictEqual(inserted.row.support_message_id, message.id,
     'the escalation stores the support message id, never null');
+});
+
+test('store: setConversationStatus refuses every unconfirmed status (no DB write)', async () => {
+  const client = createFakeSupabase();
+  const store = createTelegramSupportStore(client);
+  const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
+
+  // The live CHECK rejected 'escalated' and its allowed values are unknown, so
+  // the confirmed list is intentionally EMPTY and nothing may be written.
+  assert.deepStrictEqual([...CONFIRMED_CONVERSATION_STATUSES], []);
+  for (const status of ['escalated', 'closed', 'open', 'active', 'resolved', '', null, undefined]) {
+    await assert.rejects(
+      () => store.setConversationStatus({ conversationId: conversation.id, status }),
+      /refusing to write conversation status/,
+      'status ' + JSON.stringify(status) + ' must be refused'
+    );
+  }
+  const updates = client.log.updates.filter((u) => u.table === 'telegram_support_conversations');
+  assert.strictEqual(updates.length, 0, 'no conversation status update reached the database');
+});
+
+test('the migration documents the live status CHECK divergence', () => {
+  const migration = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '027_telegram_support_bot.sql'), 'utf8');
+  assert.ok(migration.includes('telegram_support_conversations_status_check'),
+    'the migration names the live status CHECK it diverges from');
+  assert.ok(/the application deliberately writes NO status value/.test(migration),
+    'the migration records that the app writes no status value');
 });
 
 test('store: createEscalation rejects a null/undefined/missing supportMessageId before any DB write', async () => {

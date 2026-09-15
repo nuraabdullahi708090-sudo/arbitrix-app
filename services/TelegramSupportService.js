@@ -42,9 +42,12 @@ const DIRECTION_CUSTOMER = 'customer'; // incoming customer message
 const DIRECTION_BOT = 'bot';           // automated bot/AI reply
 const DIRECTION_AGENT = 'agent';       // human support-agent reply
 
-const STATUS_OPEN = 'open';
-const STATUS_ESCALATED = 'escalated';
-const STATUS_CLOSED = 'closed';
+// NOTE (conversation status): this service does NOT write
+// telegram_support_conversations.status. The live table's CHECK rejected the
+// legacy 'escalated' literal with 23514 and its allowed values cannot be read
+// through PostgREST, so no status literal is guessed (see
+// CONFIRMED_CONVERSATION_STATUSES in TelegramSupportStore.js). Escalations are
+// recorded in telegram_support_escalations and announced to the support group.
 
 /**
  * Sent to a customer when a storage write fails.
@@ -1057,8 +1060,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       }
       markStage('storage:create-escalation');
       await store.createEscalation({ conversationId: conversation.id, supportMessageId: escalated.id });
-      markStage('storage:set-status');
-      await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_ESCALATED });
+      // The conversation status is deliberately NOT written: the live CHECK
+      // rejected the legacy vocabulary with 23514. The escalation row above is
+      // the authoritative record (see CONFIRMED_CONVERSATION_STATUSES).
       if (cfg.supportChatId) {
         try {
           await transport.sendMessage(cfg.supportChatId, truncateForTelegram([
@@ -1185,8 +1189,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'close-missing' };
           }
-          markStage('storage:set-status');
-          await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_CLOSED });
+          // Conversation status is deliberately NOT written (live CHECK
+          // vocabulary unconfirmed) - see CONFIRMED_CONVERSATION_STATUSES.
           await transport.sendMessage(route.chatId, `Conversation #${conversation.id} closed.`);
           return { handled: true, action: 'close' };
         }
@@ -1215,8 +1219,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           }
           markStage('storage:create-escalation');
           await store.createEscalation({ conversationId: conversation.id, supportMessageId: latest.id });
-          markStage('storage:set-status');
-          await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_ESCALATED });
+          // Status is not written (live CHECK vocabulary unconfirmed) - the
+          // escalation row above is the record.
           await transport.sendMessage(route.chatId, `Conversation #${conversation.id} escalated.`);
           return { handled: true, action: 'escalate' };
         }
@@ -1630,9 +1634,6 @@ module.exports = {
   DIRECTION_CUSTOMER,
   DIRECTION_BOT,
   DIRECTION_AGENT,
-  STATUS_OPEN,
-  STATUS_ESCALATED,
-  STATUS_CLOSED,
   STORAGE_DEGRADED_TEXT,
   STORAGE_ERROR_CAUSES,
   classifyStorageError,

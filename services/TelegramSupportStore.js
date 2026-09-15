@@ -47,6 +47,26 @@ const ESCALATIONS = 'telegram_support_escalations';
  */
 const ALLOWED_DIRECTIONS = Object.freeze(['customer', 'bot', 'agent']);
 
+/**
+ * CONFIRMED live values for `telegram_support_conversations.status`.
+ *
+ * The pre-existing production table was created OUTSIDE migration 027 and its
+ * CHECK (`telegram_support_conversations_status_check`) does NOT accept the
+ * app's legacy vocabulary: production rejected 'escalated' with 23514. A CHECK
+ * definition cannot be read through PostgREST, so the allowed literals are
+ * UNKNOWN - and we do not guess. This list is intentionally EMPTY, which makes
+ * setConversationStatus refuse every write, so an unsupported status can never
+ * reach Postgres again. The escalation is recorded in
+ * telegram_support_escalations instead.
+ *
+ * To re-enable status writes: run
+ *   SELECT pg_get_constraintdef(oid) FROM pg_constraint
+ *    WHERE conname = 'telegram_support_conversations_status_check';
+ * add the confirmed literal(s) here and start calling setConversationStatus
+ * again from the service.
+ */
+const CONFIRMED_CONVERSATION_STATUSES = Object.freeze([]);
+
 /** Postgres bigint columns: send numbers when the value is a safe integer. */
 function numeric(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -194,7 +214,23 @@ function createTelegramSupportStore(supabaseClient) {
     return (data && data[0]) || null;
   }
 
+  /**
+   * Update a conversation's status.
+   *
+   * Refuses every value that is not in CONFIRMED_CONVERSATION_STATUSES (which is
+   * currently EMPTY because the live CHECK's allowed literals are unknown - see
+   * that constant). The live constraint rejected the legacy 'escalated' literal
+   * with 23514, so this guard stops any unverified status reaching Postgres.
+   */
   async function setConversationStatus({ conversationId, status }) {
+    if (!CONFIRMED_CONVERSATION_STATUSES.includes(status)) {
+      throw new Error(
+        'refusing to write conversation status ' + JSON.stringify(status) +
+        ': not a confirmed value of telegram_support_conversations.status ' +
+        '(the live CHECK rejected the legacy literals with 23514 and its ' +
+        'definition cannot be read through PostgREST)'
+      );
+    }
     const { error } = await supabaseClient
       .from(CONVERSATIONS)
       .update({ status, updated_at: new Date().toISOString() })
@@ -275,5 +311,6 @@ module.exports = {
   CONVERSATIONS,
   MESSAGES,
   ESCALATIONS,
-  ALLOWED_DIRECTIONS
+  ALLOWED_DIRECTIONS,
+  CONFIRMED_CONVERSATION_STATUSES
 };
