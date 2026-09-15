@@ -3866,3 +3866,106 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   migration needed for this stage). Telegram webhook registration NOT started
   (per instruction: it waits for these changes to be completed, tested, deployed
   and verified).
+
+
+## Stage 21 - Server-Side Trading Worker + Legacy Browser Loop Disclosure (2026-09-15, NOT deployed)
+- LOCAL COMMIT ONLY: committed on `main` but NOT pushed and NOT deployed, because the
+  brief requires the worker implementation and tests to be reviewed before any
+  live-money execution ships. Migration 027 is NOT applied anywhere.
+- WHY: the production trading loop lived in the BROWSER
+  (`APP.botInterval = setInterval(executeBotTrade, 8000)` in public/index.html), so
+  closing the tab / sleeping the phone / refreshing silently stopped trading, and
+  `bot_sessions.is_running` could stay 1 with NO executor behind it (a phantom
+  "running" bot that admin stats still counted).
+- NEW FILES (all inert until explicitly enabled):
+  - `services/TradingWorker.js` - the durable engine. Server-side, dependency-
+    injected, no HTTP/socket/browser dependency. Exports testable helpers
+    (`tickBucket`, `buildTickIdempotencyKey`, `backoffDelay`, `isStaleHeartbeat`,
+    `computeTradeAmount`, `evaluateRisk`, `withRetry`, `DEFAULT_LIMITS`).
+    Guarantees: IDEMPOTENCY (per-user-per-tick key derived server-side from the tick
+    bucket; a replayed/racing tick is deduped by record_trade_safe's unique key),
+    RISK LIMITS evaluated BEFORE the write (no balance, trades/day, daily loss,
+    promotional-credit $20 cap, consecutive-failure auto-stop), RECONNECT/RETRY
+    (exponential backoff + jitter; retries thrown errors AND Supabase `{error}`),
+    PERSISTED STATE (heartbeat_at, last_tick_at, tick_count, consecutive_failures,
+    stopped_reason, worker_version), STALE-SESSION RECONCILE on start, EMERGENCY
+    STOP (fail-CLOSED: an unreadable control row counts as engaged), STRUCTURED JSON
+    logs with no secrets. Money moves ONLY through `record_trade_safe`; it never
+    writes wallets/trades directly and never references any `sandbox_*` object.
+  - `services/PromoCheck.js` - the worker's copy of the promotional-credit rule
+    table ($20 INCLUSIVE cap; source-of-funds precedence deposit > conversion >
+    promo; FAIL-OPEN on an unreadable source). Parity with the server's own table is
+    pinned by tests. Unifying the two into one imported module is a recommended
+    follow-up but touches the live `/api/trade` path, so it is out of scope here.
+  - `worker.js` - process entrypoint (`node worker.js`). INERT unless
+    `TRADING_WORKER_ENABLED=true`; refuses to start without SUPABASE_SERVICE_KEY
+    (exit 1, presence-only logging - never the value); exits 1 and trades NOTHING if
+    the control row is unreadable (migration 027 absent). Graceful SIGTERM/SIGINT.
+  - `supabase/migrations/027_trading_worker.sql` - additive, idempotent, self-checking
+    (DO block raises and rolls back if anything is missing): bot_sessions gains
+    heartbeat_at/last_tick_at/tick_count/consecutive_failures/stopped_reason/
+    worker_version/risk_limits + an (is_running, heartbeat_at) index; new singleton
+    `bot_worker_control` (id=1, emergency_stop DEFAULT FALSE) with RLS service_role-
+    only (no anon/authenticated policy = deny by default). It does NOT touch wallets,
+    trades, deposits, withdrawals, subscriptions, referrals, KYC or sandbox tables.
+  - `tests/trading_worker.test.js` - 42 tests (fake Supabase client + the REAL engine)
+    covering: inert-by-default, service-key handling, fail-closed control,
+    CONTINUES AFTER TAB CLOSURE (many ticks, no client), SERVICE RESTART (stale
+    heartbeat reconcile + start()-reconciles-first), persisted state, idempotency
+    (replay + two concurrent instances => exactly one ledger row), risk limits
+    (bounded size, loss clamped to balance, veto before the write, daily loss,
+    failure auto-stop, promo cap boundary/parity/fail-open), emergency stop (all
+    three paths + admin routes + status truth), retry/backoff, structured logging
+    without secrets, and the safety boundaries above.
+- server.js CHANGES (additive):
+  - `WORKER_STALE_HEARTBEAT_MS = 60000`, `getWorkerControl()` (fail-closed report,
+    with `available` distinguishing "unreadable" from "really stopped"),
+    `getWorkerStatus()`.
+  - `POST /api/admin/bot/emergency-stop`, `POST /api/admin/bot/emergency-stop/clear`,
+    `GET /api/admin/bot/worker-status` (all `authMiddleware, adminMiddleware`).
+    Engaging the stop also marks every running session stopped with
+    stopped_reason='emergency_stop' so no phantom "running" row survives.
+  - `/api/bot/start` refuses while the stop is ENGAGED (503 `TRADING_PAUSED`) and
+    clears `stopped_reason` on a fresh start. DEPLOY-SAFE BY DESIGN: it blocks only
+    when the control row is READABLE and engaged, so shipping this code before
+    migration 027 is applied can never pause trading platform-wide (the worker
+    itself stays strictly fail-closed).
+  - `/api/bot/status` now also reports heartbeatAt/heartbeatAgeMs/tickCount/
+    stoppedReason plus `executedBy: 'worker' | 'browser'` and `stale` - i.e. whether
+    a session REALLY has an executor behind it (the browser engine never writes a
+    heartbeat).
+- public/index.html: a localized disclosure (`#botEngineNotice`, `bot.engineNotice`
+  x6 locales) in the LIVE bot card stating that the bot runs in this browser tab and
+  stops when the tab is closed/refreshed, and that a server-side engine is in
+  development. This MARKS the limitation honestly; live trading was deliberately NOT
+  disabled (disabling it would stop real users' trading with no replacement, which
+  is a bigger unapproved behaviour change). i18n 1398 -> 1399 keys/locale.
+- UNCHANGED (verified): all 12 sandbox functions byte-identical; zero sandbox logic
+  lines in the diff; no sandbox tables/RPCs referenced by the worker; marketing
+  sandbox deposit/withdrawal untouched. record_trade_safe untouched. MTA stays
+  removed; withdrawal minimum stays $500; Security Check wording intact.
+- VERIFICATION: `npm test` = 984 pass / 0 fail (942 baseline + 42 new). `node --check`
+  on server.js/worker.js/services/*.js OK; all 7 inline index.html script blocks +
+  the reset-password block parse. i18n probe: 1399 keys/locale x 6, identical key
+  sets, 0 empties, no duplicates, bot.engineNotice present in all 6. Encoding check
+  vs the deployed HEAD: only the intended additions (rsquo +4, arabic alef +11, zh
+  zhong +2, everything else 0, 0 replacement chars). Worker runtime: default = inert
+  (exit 0); enabled without a key = refuse (exit 1); enabled with a key but no
+  migration 027 = FAIL CLOSED, trades nothing (exit 1). Headless Chromium: 46/46 -
+  the notice renders visible and localized (en/es/ar/zh) at 320/390px with 0
+  horizontal overflow, ar RTL correct, and copy that never over-promises 24/7
+  operation.
+- NOT VERIFIED AGAINST A LIVE DATABASE: migration 027 has not been applied, so the
+  RPC path (record_trade_safe via the worker) and the reconcile queries have not
+  been exercised against real Postgres/Supabase in this session - the SQL is
+  reviewed and the column/table/policy assertions are in its self-check block, but a
+  staging apply + a shadow (no-money) run is REQUIRED before cutover.
+- OPEN DECISIONS FOR MANAGEMENT: (1) approve deploying this change set (server.js +
+  the frontend disclosure) with migration 027, and approve the Render Background
+  Worker service for `node worker.js`; (2) whether the browser loop should now be
+  DISABLED outright (one line) instead of merely marked; (3) the risk-limit defaults
+  (0.5% of balance / $50 absolute / $100 daily loss / 288 trades per day); (4)
+  whether to unify PromoCheck with the server's rule table in a follow-up; (5) the
+  cutover window, since both engines must not trade simultaneously (enable the worker
+  only after the browser loop is stopped/disabled).
+- Telegram webhook registration REMAINS BLOCKED pending the above.

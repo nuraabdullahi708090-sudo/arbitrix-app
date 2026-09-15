@@ -21,11 +21,11 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1398;
-// 1398 keys/locale now = 1374 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1399;
+// 1399 keys/locale now = 1375 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys. (The MTA keys were removed by management after
 // the testimonials landed, so the outside count dropped from 1392 to 1374.)
-const BASE_OUTSIDE_TESTIMONIALS = 1374;
+const BASE_OUTSIDE_TESTIMONIALS = 1375;
 
 function loadTranslations() {
     const tIdx = INDEX.indexOf('const TRANSLATIONS');

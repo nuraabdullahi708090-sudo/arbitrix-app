@@ -2013,6 +2013,88 @@ function promoLimitBody(extra = {}) {
 }
 
 /**
+ * SERVER-SIDE TRADING WORKER support (read-only status + admin kill switch).
+ *
+ * The production trading loop used to live in the browser, so it stopped when
+ * the tab closed and `bot_sessions.is_running` could stay 1 with no executor
+ * behind it. The durable executor is now the separate `worker.js` process; the
+ * helpers below only REPORT its state and let an admin stop it. They never
+ * execute a trade and never write a wallet.
+ *
+ * Fail-closed: if the control row cannot be read we report the stop as ENGAGED,
+ * because we cannot prove the platform is not stopped. Requires migration 027.
+ */
+const WORKER_STALE_HEARTBEAT_MS = 60000;
+
+async function getWorkerControl() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bot_worker_control')
+      .select('emergency_stop, reason, engaged_by, engaged_at, updated_at')
+      .eq('id', 1)
+      .single();
+    if (error) throw error;
+    return {
+      available: true,
+      emergencyStop: !!(data && data.emergency_stop),
+      reason: (data && data.reason) || null,
+      engagedBy: (data && data.engaged_by) || null,
+      engagedAt: (data && data.engaged_at) || null,
+      updatedAt: (data && data.updated_at) || null
+    };
+  } catch (e) {
+    return { available: false, emergencyStop: true, reason: 'control_unreadable', error: e.message };
+  }
+}
+
+/** Worker/session insight for the admin panel (no PII beyond internal ids). */
+async function getWorkerStatus() {
+  const control = await getWorkerControl();
+  let sessions = [];
+  let error = null;
+  try {
+    const { data } = await supabaseAdmin
+      .from('bot_sessions')
+      .select('user_id, is_running, mode, started_at, heartbeat_at, last_tick_at, tick_count, consecutive_failures, stopped_reason, worker_version')
+      .eq('is_running', 1);
+    sessions = Array.isArray(data) ? data : [];
+  } catch (e) {
+    error = e.message;
+  }
+  const now = Date.now();
+  const withHeartbeat = sessions.map((s) => {
+    const ts = s.heartbeat_at ? Date.parse(s.heartbeat_at) : NaN;
+    const ageMs = Number.isFinite(ts) ? now - ts : null;
+    return {
+      userId: s.user_id,
+      mode: s.mode,
+      startedAt: s.started_at,
+      heartbeatAt: s.heartbeat_at,
+      heartbeatAgeMs: ageMs,
+      // A running session with no fresh heartbeat has no executor behind it.
+      stale: !Number.isFinite(ts) || (now - ts) > WORKER_STALE_HEARTBEAT_MS,
+      tickCount: s.tick_count || 0,
+      consecutiveFailures: s.consecutive_failures || 0,
+      stoppedReason: s.stopped_reason || null,
+      workerVersion: s.worker_version || null
+    };
+  });
+  return {
+    workerEnabled: String(process.env.TRADING_WORKER_ENABLED || '').trim().toLowerCase() === 'true',
+    emergencyStop: control.emergencyStop,
+    controlAvailable: control.available,
+    stopReason: control.reason,
+    engagedBy: control.engagedBy,
+    engagedAt: control.engagedAt,
+    staleHeartbeatMs: WORKER_STALE_HEARTBEAT_MS,
+    runningSessions: withHeartbeat,
+    runningCount: withHeartbeat.length,
+    staleCount: withHeartbeat.filter((s) => s.stale).length,
+    error
+  };
+}
+
+/**
  * Structured observability for source-of-funds classification failures.
  *
  * Emits ONE machine-parseable JSON line so an UNDETERMINED promotion
@@ -5362,7 +5444,24 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // (there was only ever one, and it is gone). Any positive balance may start
   // the bot; the only trading restriction that remains is the separate
   // promotional-credit $20 realized-profit cap enforced above.
-  await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  // PLATFORM EMERGENCY STOP: while the kill switch is ENGAGED no session may be
+  // started. A start request would otherwise create a session that the worker
+  // immediately stops, and would leave a phantom "running" row in the admin view.
+  // The gate is deliberately deploy-safe: it blocks only when the control row is
+  // READABLE and engaged. If the row is missing (migration 027 not yet applied)
+  // this route behaves exactly as it did before the worker existed, so shipping
+  // the new code can never pause trading platform-wide. The worker itself is
+  // strictly fail-closed; it refuses to run at all without a readable row.
+  const control = await getWorkerControl();
+  if (control.available && control.emergencyStop) {
+    return res.status(503).json({
+      error: 'Trading is temporarily paused platform-wide. Please try again later.',
+      code: 'TRADING_PAUSED',
+      emergencyStop: true,
+      reason: control.reason || 'emergency_stop'
+    });
+  }
+  await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString(), stopped_reason: null }, { onConflict: 'user_id' });
   res.json({ status: 'started', mode });
 });
 
@@ -5378,7 +5477,73 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
   if (await sandboxHandled(req, res, handleSandboxBotStatus)) return;
   const { data, error } = await supabaseAdmin.from('bot_sessions').select('*').eq('user_id', req.user.id).single();
   if (error && error.code !== 'PGRST116') throw error;
-  res.json({ isRunning: data ? data.is_running===1 : false, mode: data ? data.mode : 'demo', startedAt: data ? data.started_at : null });
+  // Execution truth: a session is only REALLY trading when a fresh heartbeat
+  // exists (the server-side worker is the only thing that writes one). The
+  // legacy browser engine never writes a heartbeat, so its sessions report
+  // executedBy:'browser' and stale:true.
+  const heartbeatAt = data ? data.heartbeat_at : null;
+  const heartbeatAgeMs = heartbeatAt ? Date.now() - Date.parse(heartbeatAt) : null;
+  const hasExecutorHeartbeat = Number.isFinite(heartbeatAgeMs) && heartbeatAgeMs <= WORKER_STALE_HEARTBEAT_MS;
+  res.json({
+    isRunning: data ? data.is_running===1 : false,
+    mode: data ? data.mode : 'demo',
+    startedAt: data ? data.started_at : null,
+    heartbeatAt,
+    heartbeatAgeMs,
+    tickCount: data ? (data.tick_count || 0) : 0,
+    stoppedReason: data ? (data.stopped_reason || null) : null,
+    // 'worker' = durable server-side executor, 'browser' = tab-bound legacy loop
+    executedBy: hasExecutorHeartbeat ? 'worker' : 'browser',
+    stale: !hasExecutorHeartbeat
+  });
+});
+
+// ---------- Admin: server-side trading worker control ----------
+// Read-only status plus the platform-wide KILL SWITCH. No trade is ever
+// executed here; engaging the stop also marks every running session stopped so
+// nothing trades again until it is explicitly cleared.
+app.get('/api/admin/bot/worker-status', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    res.json(await getWorkerStatus());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/bot/emergency-stop', authMiddleware, adminMiddleware, async (req, res) => {
+  const reason = (req.body && req.body.reason) || 'manual_admin_stop';
+  const engagedBy = (req.user && (req.user.email || req.user.id)) ? String(req.user.email || req.user.id) : 'admin';
+  const nowIso = new Date().toISOString();
+  try {
+    const { error } = await supabaseAdmin
+      .from('bot_worker_control')
+      .upsert({ id: 1, emergency_stop: true, reason, engaged_by: engagedBy, engaged_at: nowIso, updated_at: nowIso }, { onConflict: 'id' });
+    if (error) throw error;
+    // Mark every running session stopped: no phantom "running" rows survive.
+    const { data: sessions } = await supabaseAdmin.from('bot_sessions').select('user_id').eq('is_running', 1);
+    const ids = (Array.isArray(sessions) ? sessions : []).map((s) => s.user_id);
+    if (ids.length) {
+      await supabaseAdmin.from('bot_sessions').update({ is_running: 0, stopped_reason: 'emergency_stop', updated_at: nowIso }).in('user_id', ids);
+    }
+    console.log(JSON.stringify({ event: 'emergency_stop_engaged', component: 'Server', by: engagedBy, reason, sessionsStopped: ids.length }));
+    res.json({ ok: true, emergencyStop: true, reason, engagedBy, sessionsStopped: ids.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/bot/emergency-stop/clear', authMiddleware, adminMiddleware, async (req, res) => {
+  const clearedBy = (req.user && (req.user.email || req.user.id)) ? String(req.user.email || req.user.id) : 'admin';
+  try {
+    const { error } = await supabaseAdmin
+      .from('bot_worker_control')
+      .upsert({ id: 1, emergency_stop: false, reason: null, engaged_by: null, engaged_at: null, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    if (error) throw error;
+    console.log(JSON.stringify({ event: 'emergency_stop_cleared', component: 'Server', by: clearedBy }));
+    res.json({ ok: true, emergencyStop: false });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ---------- Trade (server-authoritative realized P&L) ----------

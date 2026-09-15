@@ -204,7 +204,7 @@ test('the neutral sidebar prompt quotes no threshold and needs no interpolation'
  * ------------------------------------------------------------------ */
 test('the neutral key is localized in all 6 locales (no interpolation needed)', () => {
     assert.strictEqual(new Set(LANGS.map((l) => Object.keys(T[l]).sort().join('|'))).size, 1, 'identical key sets');
-    assert.strictEqual(Object.keys(T.en).length, 1398, 'dictionary size pinned');
+    assert.strictEqual(Object.keys(T.en).length, 1399, 'dictionary size pinned');
     assert.strictEqual(T.en[NEUTRAL_KEY], '\u{1F4C8} Keep trading to grow your eligible balance');
     LANGS.forEach((l) => {
         assert.ok(typeof T[l][NEUTRAL_KEY] === 'string' && T[l][NEUTRAL_KEY].trim(), l + ' must define the key');
