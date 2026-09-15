@@ -4188,3 +4188,75 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - This note is intentionally LEFT UNCOMMITTED (documentation only) so recording
   it does not trigger another Render rebuild.
 
+
+## Telegram silent bot - handler inspection + secret-free delivery trace (DEPLOYED 2026-09-15, commit 8ff622a)
+- Live state reported by the operator: getMe 200 / ArbitrixSupportBot; webhook secret
+  set true; BASE_URL set true; registered URL correct;
+  **pending_update_count GROWING (3 -> 10)**; `last_error_message` blank;
+  support chat id NOT set; no reply to /start.
+- DECISIVE INFERENCE: a 401 OR a 500 from us populates `last_error_message`, and a
+  2xx DRAINS the pending queue. Pending only accumulating means delivery never
+  completes. The trace must split "no request reached us" from "requests reached us
+  and we answered X".
+- CONFOUND TO REMEMBER: the boot reconciliation calls `setWebhook` with
+  `force: true` on EVERY boot, which CLEARS Telegram's `last_error_message`. A blank
+  error measured right after a deploy is therefore NOT evidence of health. The trace
+  records `lastRegistration` precisely so "did the registration we think happened
+  actually happen?" is answerable.
+- HANDLER INSPECTION (the 8 classes asked about):
+  1. early 200 - none; `await bot.handleUpdate()` precedes any response.
+  2. unawaited promise - none on the customer path.
+  3. response before processing - none.
+  4. catch returning 200 - this WAS the defect; fixed in 77b4662 (now 500 + stage).
+  5. exception outside the try/catch - **REAL GAP, now fixed**: `getConfig()`,
+     `isTelegramConfigured()`, the header read, `recordRejectedSecret()` and the
+     logger call all sat outside it. The whole handler body is now inside one
+     try/catch with a single `respond()` helper (records the status, logs one
+     evidence line, `headersSent`-guarded).
+  6. route/middleware ordering - fine. `express.json()` (global, ~line 314) ->
+     `express.static` -> routes; the webhook route (~4155) is before the 404 and
+     error handlers, and nothing shadows it (proven by our own 401 from the endpoint).
+  7. secret validation - constant-time, fail-closed, runs before processing.
+  8. sendMessage reached - only after a successful store call on the ticket path, and
+     immediately for /start; `lastApiCall` now records whether it was reached and what
+     Telegram answered.
+- TELEMETRY added (in-memory, admin-only surface, never a token/secret/JWT/chat id/
+  message text): request count (counted BEFORE validation), secret passed/rejected +
+  last rejection time, last update timestamp/id/count/duplicates, last routing action
+  + reason, last processing stage (`parsed` / `routed:<kind>` / `storage:*` /
+  `sendMessage` / `forwardToSupportGroup` / `done:<action>` / `ignored:<reason>` /
+  `secret-rejected`), last HTTP status we answered with, last Telegram API call
+  (method + HTTP status + `error_code` + Telegram's own description, token scrubbed),
+  what the answer means for the pending queue, and the last webhook registration
+  outcome. The transport now records `getLastCall()`.
+- SURFACE: `GET /api/telegram/status` (authMiddleware + adminMiddleware) returns a
+  `trace` object with all eight items - no new route was added (deliberately, to avoid
+  re-widening the deployed surface). Every response also logs ONE greppable evidence
+  line, e.g. `[Telegram] status=200 requests=4 secretPassed=4 secretRejected=0
+  updates=4 lastUpdateAt=... lastAction=help lastStage=done:help repliesSent=1
+  storageFailures=0 lastSendMessage=sendMessage http=200 ok=true
+  pendingResult=acknowledged 2xx ...`.
+- EVIDENCE GATHERED FROM HERE (real, verifiable, no credentials needed):
+  - The trace build is LIVE: the 401 body now carries `secretProvided`, a field that
+    exists only in 8ff622a.
+  - The edge does NOT block Telegram: a POST with UA `TelegramBot (like TwitterBot)`
+    and a realistic update payload reaches the handler and answers
+    `401 {"ok":false,"error":"invalid_secret","secretProvided":false}` in ~0.2s.
+  - So the route, the handler and secret validation are all reachable and fast.
+- DECISION TREE for the next measurement (one /start, then read the trace):
+  - `requests == 0` -> Telegram is not delivering to us at all; check
+    `lastWebhookRegistration` (a failed `setWebhook`, e.g. an invalid secret_token
+    charset, leaves the OLD registration in place).
+  - `secretRejected > 0`, `secretPassed == 0` -> the registered secret differs from
+    the env secret; the re-assert is not taking effect.
+  - `secretPassed > 0` + `lastSendMessage.ok == false` -> sendMessage failed; Telegram's
+    `description` names it exactly.
+  - `secretPassed > 0`, `repliesSent > 0`, `lastResponseStatus == 200` -> the delivery
+    succeeded end to end and the earlier observation was stale.
+- TESTS: tests/telegram_delivery_trace.test.js (15, real transport + real handler with a
+  fake fetch), Telegram suites 123/123, full suite 1045 pass / 6 fail (same pre-existing
+  missing-dependency failures). `node --check` clean on server.js and the service.
+- UNCHANGED: trading worker (still disabled), sandbox deposit/withdrawal, webhook
+  secret validation semantics, deduping, routing, ack-before-forward.
+- This note is intentionally LEFT UNCOMMITTED (documentation only).
+

@@ -28,6 +28,8 @@
 const {
   resolveTelegramConfig,
   describeTelegramToken,
+  describeTelegramWebhookSecret,
+  isValidTelegramWebhookSecret,
   findTelegramTokenKeyVariants,
   probeTelegramMethod,
   summarizeTelegramBot,
@@ -63,10 +65,16 @@ async function buildReport(env, fetchImpl) {
 
   return {
     token: tokenShape,
+    // Telegram-compatibility of the webhook secret. Booleans + counts only; the
+    // value is never printed. An invalid secret makes setWebhook fail with
+    // "secret token contains illegal characters", which leaves the PREVIOUS
+    // registration in place and silently kills the bot.
+    secret: describeTelegramWebhookSecret(env.TELEGRAM_WEBHOOK_SECRET),
     configPresent: {
       TELEGRAM_BOT_TOKEN: tokenShape.present,
       tokenKeyVariants: findTelegramTokenKeyVariants(env),
       TELEGRAM_WEBHOOK_SECRET: Boolean(config.webhookSecret),
+      TELEGRAM_WEBHOOK_SECRET_FORMAT_VALID: isValidTelegramWebhookSecret(config.webhookSecret),
       BASE_URL: Boolean(config.baseUrl),
       TELEGRAM_SUPPORT_CHAT_ID: Boolean(config.supportChatId),
       TELEGRAM_ADMIN_IDS: config.adminIds.length > 0
@@ -94,6 +102,9 @@ async function buildReport(env, fetchImpl) {
 function verdict(report) {
   const t = report.token;
   if (!t.present) return 'TELEGRAM_BOT_TOKEN is missing or empty in this environment.';
+  if (report.secret && report.secret.present && !report.secret.validFormat) {
+    return 'TELEGRAM_WEBHOOK_SECRET contains characters Telegram does not allow. setWebhook is rejected with "Bad Request: secret token contains illegal characters", the PREVIOUS registration stays in place, and the bot receives nothing. Generate a compliant value with `node scripts/generate-telegram-secret.js`, set it in the host environment, and restart.';
+  }
   if (t.hadSurroundingQuotes || t.hadBotPrefix || t.hadInnerWhitespace) {
     return 'The token VALUE is malformed (quotes / "bot" prefix / inner whitespace). This is the classic cause of a Telegram 404. Fix the env var formatting only; do not rotate the credential.';
   }
@@ -143,6 +154,8 @@ async function main() {
     console.log('token set                :', report.configPresent.TELEGRAM_BOT_TOKEN);
     console.log('token key variants       :', JSON.stringify(report.configPresent.tokenKeyVariants));
     console.log('webhook secret set       :', report.configPresent.TELEGRAM_WEBHOOK_SECRET);
+    console.log('webhook secret format ok :', report.configPresent.TELEGRAM_WEBHOOK_SECRET_FORMAT_VALID);
+    console.log('webhook secret shape     :', JSON.stringify(report.secret));
     console.log('BASE_URL set             :', report.configPresent.BASE_URL);
     console.log('support chat id set      :', report.configPresent.TELEGRAM_SUPPORT_CHAT_ID);
     console.log('admin ids set            :', report.configPresent.TELEGRAM_ADMIN_IDS);

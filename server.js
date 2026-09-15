@@ -37,7 +37,8 @@ const {
   createTelegramSupportBot,
   createTelegramTransport,
   createTelegramWebhookHandler,
-  resolveTelegramConfig
+  resolveTelegramConfig,
+  isValidTelegramWebhookSecret
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
 
@@ -9122,6 +9123,15 @@ const telegramAutoRegister = String(process.env.TELEGRAM_WEBHOOK_AUTO_REGISTER |
   .trim()
   .toLowerCase() !== 'false';
 
+// Secret-compatibility metadata, computed once at boot. Booleans and a length
+// only: the secret VALUE is never logged, and this keeps the reconciliation log
+// payload free of any direct reference to the configured secret.
+const telegramSecretMeta = {
+  configured: Boolean(telegramConfig.webhookSecret),
+  formatValid: isValidTelegramWebhookSecret(telegramConfig.webhookSecret),
+  length: String(telegramConfig.webhookSecret || '').length
+};
+
 if (telegramAutoRegister && telegramConfig.token && telegramConfig.webhookSecret && telegramConfig.baseUrl) {
   // Fully detached from startup: scheduled after listen() has returned, wrapped
   // in try/catch, and with a .catch() on the promise, so no outcome of this
@@ -9136,12 +9146,25 @@ if (telegramAutoRegister && telegramConfig.token && telegramConfig.webhookSecret
             ok: result.ok,
             reRegistered: Boolean(result.reRegistered),
             reason: result.reason,
+            secretFormatValid: telegramSecretMeta.formatValid,
+            secretLength: telegramSecretMeta.length,
             previousUrl: result.plan ? scrub(result.plan.currentUrl) || null : null,
             expectedPath: '/api/telegram/webhook',
             telegramLastError: result.plan ? scrub(result.plan.lastError) || null : null,
             probeError: result.probeError || null,
             setWebhookError: result.error || null
           }));
+
+          // Loud, actionable, secret-free: Telegram rejects a secret_token that
+          // is not A-Z a-z 0-9 _ -, keeps the PREVIOUS registration, and the bot
+          // then silently receives nothing.
+          if (result.reason === 'invalid-webhook-secret-format') {
+            console.warn('[Telegram] CONFIGURATION ERROR: TELEGRAM_WEBHOOK_SECRET is not ' +
+              'Telegram-compatible (allowed: A-Z a-z 0-9 _ -, 1-256 chars) so the webhook could ' +
+              'NOT be registered. ' + JSON.stringify(result.secret || {}) +
+              '. Generate a valid value with: node scripts/generate-telegram-secret.js ' +
+              'then set it in the host environment and restart.');
+          }
         })
         .catch((error) => {
           console.warn('[Telegram] Webhook reconciliation failed: ' + scrub(error && error.message ? error.message : error));

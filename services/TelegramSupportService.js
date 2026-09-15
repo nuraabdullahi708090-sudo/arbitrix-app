@@ -80,6 +80,21 @@ function parseAdminIds(raw) {
 /** Shape of a real BotFather token: "<bot id>:<secret>". */
 const TELEGRAM_TOKEN_FORMAT = /^\d{5,15}:[A-Za-z0-9_-]{25,}$/;
 
+/**
+ * Telegram's `secret_token` charset: "1-256 characters. Only characters A-Z,
+ * a-z, 0-9, _ and - are allowed."
+ *
+ * https://core.telegram.org/bots/api#setwebhook
+ *
+ * Telegram REJECTS a setWebhook call whose secret_token contains anything else
+ * with `Bad Request: secret token contains illegal characters`. The rejection
+ * leaves the PREVIOUS registration in place, so the bot silently stops
+ * receiving updates while `getMe`/`setWebhook` appear to work - which is exactly
+ * how this shipped to production once. Validate before calling Telegram.
+ */
+const TELEGRAM_SECRET_FORMAT = /^[A-Za-z0-9_-]{1,256}$/;
+const TELEGRAM_SECRET_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+
 /** Remove one matching pair of surrounding quotes, if present. */
 function stripSurroundingQuotes(value) {
   const s = value === null || value === undefined ? '' : String(value);
@@ -122,6 +137,70 @@ function normalizeTelegramToken(raw) {
 /** True when the value looks like a real BotFather token. */
 function isValidTelegramToken(token) {
   return TELEGRAM_TOKEN_FORMAT.test(String(token === null || token === undefined ? '' : token));
+}
+
+/**
+ * True when the value is a Telegram-compatible `secret_token`.
+ *
+ * Only A-Z a-z 0-9 _ - are permitted, 1-256 characters. Anything else makes
+ * Telegram reject setWebhook, which leaves the old registration in place and
+ * makes the bot silently miss every update.
+ */
+function isValidTelegramWebhookSecret(secret) {
+  return TELEGRAM_SECRET_FORMAT.test(String(secret === null || secret === undefined ? '' : secret));
+}
+
+/**
+ * Generate a Telegram-compatible webhook secret.
+ *
+ * Maps crypto-random bytes onto Telegram's permitted alphabet (rejection
+ * sampling, so every character is uniformly likely), which guarantees the value
+ * passes setWebhook. Never log the return value.
+ */
+function generateTelegramWebhookSecret(length = 48) {
+  const size = Math.min(Math.max(Number(length) || 48, 32), 256);
+  const out = [];
+  while (out.length < size) {
+    for (const byte of crypto.randomBytes(size)) {
+      if (byte < 256 - (256 % TELEGRAM_SECRET_ALPHABET.length)) {
+        out.push(TELEGRAM_SECRET_ALPHABET[byte % TELEGRAM_SECRET_ALPHABET.length]);
+      }
+      if (out.length === size) break;
+    }
+  }
+  return out.join('');
+}
+
+/**
+ * Non-secret description of how a raw webhook secret is shaped.
+ *
+ * Returns booleans, a length and a count only - never any character of the
+ * value - so it is safe for logs and admin diagnostics.
+ */
+function describeTelegramWebhookSecret(raw) {
+  const rawString = raw === null || raw === undefined ? '' : String(raw);
+  const trimmed = rawString.trim();
+  const dequoted = stripSurroundingQuotes(trimmed).trim();
+  const normalised = dequoted;
+  const illegal = normalised.split('').filter((ch) => !/[A-Za-z0-9_-]/.test(ch));
+  return {
+    present: rawString.length > 0,
+    length: normalised.length,
+    rawLength: rawString.length,
+    hadSurroundingQuotes: trimmed.length >= 2 &&
+      ((trimmed.charAt(0) === '"' && trimmed.charAt(trimmed.length - 1) === '"') ||
+       (trimmed.charAt(0) === "'" && trimmed.charAt(trimmed.length - 1) === "'")),
+    hadWhitespace: /\s/.test(trimmed),
+    disallowedCharCount: illegal.length,
+    // Distinct offending characters, never the value itself.
+    disallowedCharClasses: Array.from(new Set(illegal.map((ch) => {
+      if (/\s/.test(ch)) return 'whitespace';
+      if (/[A-Za-z0-9_-]/.test(ch)) return 'allowed';
+      return 'punctuation-or-symbol';
+    }))).filter((c) => c !== 'allowed'),
+    withinLengthLimit: normalised.length >= 1 && normalised.length <= 256,
+    validFormat: isValidTelegramWebhookSecret(normalised)
+  };
 }
 
 /**
@@ -168,13 +247,19 @@ function describeTelegramToken(raw) {
 function resolveTelegramConfig(env) {
   const e = env || {};
   const baseUrl = String(e.BASE_URL || '').trim().replace(/\/+$/, '');
+  // Normalize formatting damage only (quotes/whitespace). The value itself is
+  // never altered: if it still contains characters Telegram does not allow, it
+  // is reported as INVALID rather than silently rewritten, because a silently
+  // mutated credential is worse than a loud configuration error.
+  const webhookSecret = stripSurroundingQuotes(String(e.TELEGRAM_WEBHOOK_SECRET || '').trim()).trim();
   return {
     token: normalizeTelegramToken(e.TELEGRAM_BOT_TOKEN),
     supportChatId: normalizeTelegramId(e.TELEGRAM_SUPPORT_CHAT_ID) || null,
     adminIds: parseAdminIds(e.TELEGRAM_ADMIN_IDS),
-    // Same class of damage as the token: a quoted value would be rejected by
-    // Telegram ("secret token contains unallowed characters").
-    webhookSecret: stripSurroundingQuotes(String(e.TELEGRAM_WEBHOOK_SECRET || '').trim()).trim(),
+    // Same class of damage as the token: a quoted value is rejected by Telegram
+    // ("secret token contains illegal characters").
+    webhookSecret,
+    webhookSecretValid: isValidTelegramWebhookSecret(webhookSecret),
     baseUrl
   };
 }
@@ -655,6 +740,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       supportChatId: cfg.supportChatId || null,
       adminIds: adminIds.slice(),
       webhookSecret: cfg.webhookSecret || '',
+      webhookSecretValid: isValidTelegramWebhookSecret(cfg.webhookSecret),
       baseUrl: cfg.baseUrl || ''
     };
   }
@@ -664,6 +750,12 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       configured: isTelegramConfigured(cfg),
       tokenConfigured: Boolean(cfg.token),
       webhookSecretConfigured: Boolean(cfg.webhookSecret),
+      // Telegram-compatibility of the configured secret - booleans and a length
+      // only, never the value. False means setWebhook will be REJECTED, which
+      // silently leaves the previous webhook registration in place.
+      webhookSecretFormatValid: isValidTelegramWebhookSecret(cfg.webhookSecret),
+      webhookSecretLength: String(cfg.webhookSecret || '').length,
+      webhookSecretIssues: describeTelegramWebhookSecret(cfg.webhookSecret),
       supportChatConfigured: Boolean(cfg.supportChatId),
       adminIdsConfigured: adminIds.length > 0,
       baseUrlConfigured: Boolean(cfg.baseUrl),
@@ -1042,6 +1134,25 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       return { ok: false, reason: 'not-configured', reRegistered: false, plan: null, webhook: null };
     }
 
+    // Telegram only accepts a secret_token made of A-Z a-z 0-9 _ - (1-256
+    // chars). Calling setWebhook with anything else fails with
+    // "Bad Request: secret token contains illegal characters" and leaves the
+    // PREVIOUS registration in place - the bot then silently receives nothing
+    // while getMe/setWebhook look fine. Refuse early with a precise, secret-free
+    // reason instead of letting Telegram answer opaquely.
+    if (!isValidTelegramWebhookSecret(cfg.webhookSecret)) {
+      return {
+        ok: false,
+        reason: 'invalid-webhook-secret-format',
+        reRegistered: false,
+        plan: null,
+        webhook: null,
+        secret: describeTelegramWebhookSecret(cfg.webhookSecret),
+        hint: 'Telegram allows only A-Z a-z 0-9 _ - (1-256 chars). Generate a ' +
+          'compliant value with: node scripts/generate-telegram-secret.js'
+      };
+    }
+
     let summary = null;
     let probeError = null;
     try {
@@ -1245,9 +1356,14 @@ module.exports = {
   parseAdminIds,
   normalizeTelegramId,
   TELEGRAM_TOKEN_FORMAT,
+  TELEGRAM_SECRET_FORMAT,
+  TELEGRAM_SECRET_ALPHABET,
   stripSurroundingQuotes,
   normalizeTelegramToken,
   isValidTelegramToken,
+  isValidTelegramWebhookSecret,
+  generateTelegramWebhookSecret,
+  describeTelegramWebhookSecret,
   findTelegramTokenKeyVariants,
   describeTelegramToken,
   resolveTelegramConfig,
