@@ -142,7 +142,14 @@ const USER_HELP_TEXT = [
   '/chatid - show this chat ID'
 ].join('\n');
 
-const RECEIPT_TEXT = 'Message received. Our support team will respond in this chat.';
+// Sent to the customer for EVERY ordinary (non-command) message. It both
+// acknowledges the message and guides the customer, including the /escalate
+// hint. It replaces the old receipt that was sent only when the conversation had
+// just been created - which left customers with no reply at all whenever their
+// conversation already existed (e.g. created by /chatid or /escalate) and for
+// every message after their first.
+const CUSTOMER_GUIDE_TEXT =
+  'Thanks for contacting Arbitrix Support. Please describe your issue, and a support agent will assist you here. You can also use /escalate to request a human agent.';
 const ESCALATION_ACK = 'Your request has been flagged for a human agent. A member of the support team will follow up in this chat.';
 
 const ADMIN_HELP_TEXT = [
@@ -1100,16 +1107,19 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       throw error;
     }
 
+    // Acknowledge AND guide the customer on EVERY ordinary message, BEFORE any
+    // forwarding. This is the fix for "normal messages are silent": the reply
+    // used to be gated on `created`, so a customer whose conversation already
+    // existed (created by /chatid, /start or /escalate) - and every message
+    // after their first - received no reply at all.
+    //
+    // A send failure propagates (HTTP 500) so Telegram redelivers instead of
+    // dropping the message; a successfully processed update is recorded in the
+    // deduper, so a redelivery can never duplicate this reply.
+    await sendOutbound(conversation, CUSTOMER_GUIDE_TEXT);
+
     if (cfg.supportChatId) {
       const name = conversation.display_name || telegramDisplayName(from);
-      // Acknowledge the customer BEFORE forwarding. A wrong/unreachable
-      // TELEGRAM_SUPPORT_CHAT_ID (or a group the bot was removed from) must
-      // never leave the customer with silence.
-      let acknowledged = false;
-      if (created) {
-        await sendOutbound(conversation, RECEIPT_TEXT);
-        acknowledged = true;
-      }
       try {
         markStage('forwardToSupportGroup');
         const sent = await transport.sendMessage(cfg.supportChatId, buildForwardText(conversation, conversation.telegram_chat_id, name, text));
@@ -1118,24 +1128,16 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         }
         return { handled: true, action: 'forwarded' };
       } catch (err) {
+        // The customer has already been acknowledged above, so a broken or
+        // unreachable support group can never leave them in silence.
         warn(`forwarding to the support group failed for conversation ${conversation.id}: ${scrub(err && err.message ? err.message : err)}`);
-        if (!acknowledged) {
-          // The team will not see this message, so acknowledge the customer.
-          try {
-            await sendOutbound(conversation, RECEIPT_TEXT);
-          } catch (ackError) {
-            warn(`customer acknowledgement also failed for conversation ${conversation.id}: ${scrub(ackError && ackError.message ? ackError.message : ackError)}`);
-          }
-        }
         return { handled: true, action: 'forward-failed' };
       }
     }
 
     // Capture mode: TELEGRAM_SUPPORT_CHAT_ID is not set yet, so there is nowhere
-    // to forward to. The message is still stored; acknowledge the first one.
-    if (created) {
-      await sendOutbound(conversation, RECEIPT_TEXT);
-    }
+    // to forward to. The message is stored and the customer has been
+    // acknowledged above.
     return { handled: true, action: 'stored-without-group' };
   }
 
@@ -1638,7 +1640,7 @@ module.exports = {
   STORAGE_ERROR_CAUSES,
   classifyStorageError,
   USER_HELP_TEXT,
-  RECEIPT_TEXT,
+  CUSTOMER_GUIDE_TEXT,
   ESCALATION_ACK,
   ADMIN_HELP_TEXT,
   parseAdminIds,

@@ -4312,3 +4312,37 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - This note is intentionally LEFT UNCOMMITTED (documentation only).
 
 
+
+## Telegram normal-message silence - root cause + fix (2026-09-15)
+- SYMPTOM: /escalate and /chatid replied; ordinary text messages ("How do i chat
+  them", "What can i do next") got NO reply.
+- ROOT CAUSE (code, not config): in `handleUserUpdate` the customer
+  acknowledgement was gated on `if (created)` - i.e. only when THAT update
+  created the conversation row. Consequences: (a) every message after the first
+  was stored + forwarded with no reply; (b) when the conversation already
+  existed - created by `/chatid` (rememberConversation upserts WITHOUT storing a
+  message) or by `/escalate` - even the FIRST ordinary message got nothing. The
+  production screenshot is (b): /chatid first, then ordinary messages = silence.
+  There was NO exception, NO storage failure and NO early return: the group
+  forward succeeded and no reply was ever queued (the old fallback ack inside the
+  forward catch only ran when the forward FAILED).
+- FIX: `CUSTOMER_GUIDE_TEXT` (replaces `RECEIPT_TEXT`) is sent for EVERY ordinary
+  message, always BEFORE the group forward, in BOTH the configured-group and the
+  capture-mode (no TELEGRAM_SUPPORT_CHAT_ID) branches. Text:
+  "Thanks for contacting Arbitrix Support. Please describe your issue, and a
+  support agent will assist you here. You can also use /escalate to request a
+  human agent."
+  The old `let acknowledged` + fallback-ack logic is gone (the ack always
+  precedes the forward, so a failed forward can never silence the customer).
+- No server-side AI/LLM support reply exists (grep: no openai/anthropic/LLM in
+  server.js or services/), so the safe fallback text is used; the keyword-reply
+  assistant lives only in the public/index.html website widget.
+- DEDUP/RETRY: the update deduper remembers an update_id only AFTER successful
+  processing, so a redelivery of a SUCCESSFUL update returns 'duplicate' (no
+  second reply), while a FAILED update (e.g. sendMessage error) is rethrown ->
+  webhook 500 -> Telegram redelivers. Pinned by tests.
+- Preserved: /escalate, /chatid, /start, /help, /reply, /close behaviour, the
+  escalation record + group notification, and the previous "never write
+  conversation.status" guard.
+- Tests: telegram_support_bot 81 pass, all telegram suites 183 pass, full
+  `npm test` 1142 pass / 0 fail.

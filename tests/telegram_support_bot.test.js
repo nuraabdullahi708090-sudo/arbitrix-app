@@ -49,7 +49,7 @@ const {
   createTelegramWebhookHandler,
   TELEGRAM_MAX_MESSAGE_LENGTH,
   USER_HELP_TEXT,
-  RECEIPT_TEXT,
+  CUSTOMER_GUIDE_TEXT,
   DIRECTION_CUSTOMER,
   DIRECTION_BOT,
   DIRECTION_AGENT
@@ -455,8 +455,9 @@ test('user message is stored, forwarded to the group and acknowledged', async ()
   assert.ok(forward.text.includes(`/reply ${USER_CHAT_ID}`));
 
   const receipt = transport.calls.find((c) => c.chatId === USER_CHAT_ID);
-  assert.ok(receipt, 'first message is acknowledged');
-  assert.ok(receipt.text.includes('Message received'));
+  assert.ok(receipt, 'the message is acknowledged');
+  assert.strictEqual(receipt.text, CUSTOMER_GUIDE_TEXT, 'acknowledgement + guidance');
+  assert.ok(receipt.text.includes('/escalate'), 'the reply points at /escalate');
 });
 
 test('a redelivered update is not forwarded twice', async () => {
@@ -481,7 +482,7 @@ test('the same update is never re-processed even for commands', async () => {
   assert.strictEqual(transport.calls.length, 1);
 });
 
-test('without a support group the message is stored and the user is told once', async () => {
+test('without a support group every message is stored and acknowledged', async () => {
   const { bot, store, transport } = makeBot({ supportChatId: null });
   const first = await bot.handleUpdate(userUpdate({ text: 'anyone there?', messageId: 1, updateId: 200 }));
   const second = await bot.handleUpdate(userUpdate({ text: 'hello?', messageId: 2, updateId: 201 }));
@@ -489,7 +490,69 @@ test('without a support group the message is stored and the user is told once', 
   assert.strictEqual(first.action, 'stored-without-group');
   assert.strictEqual(second.action, 'stored-without-group');
   assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 2);
-  assert.strictEqual(transport.calls.filter((c) => c.chatId === USER_CHAT_ID).length, 1);
+  const replies = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
+  assert.strictEqual(replies.length, 2, 'each ordinary message is acknowledged');
+  assert.ok(replies.every((c) => c.text === CUSTOMER_GUIDE_TEXT));
+});
+
+test('a message in a PRE-EXISTING conversation is acknowledged (the reported bug)', async () => {
+  // The customer was first seen by /chatid, which creates the conversation
+  // WITHOUT storing a message. Every ordinary message after that used to get no
+  // reply at all, because the acknowledgement was gated on "conversation created
+  // by this very update". This is the exact production symptom.
+  const { bot, store, transport } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: '/chatid', updateId: 78501 }));
+  transport.calls.length = 0;
+
+  const result = await bot.handleUpdate(userUpdate({ text: 'How do i chat them', updateId: 78502 }));
+
+  assert.strictEqual(result.action, 'forwarded');
+  const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
+  assert.strictEqual(toUser.length, 1, 'acknowledged even though the conversation already existed');
+  assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.ok(toUser[0].text.includes('/escalate'), 'the reply guides the customer to /escalate');
+  assert.ok(store.state.messages.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === 'How do i chat them'));
+  assert.strictEqual(transport.calls.filter((c) => c.chatId === SUPPORT_CHAT_ID).length, 1, 'still forwarded');
+});
+
+test('an ordinary message with an active human escalation is still acknowledged', async () => {
+  const { bot, store, transport } = makeBot();
+
+  const first = await bot.handleUpdate(userUpdate({ text: 'my deposit is stuck', updateId: 78601 }));
+  const escalated = await bot.handleUpdate(userUpdate({ text: '/escalate deposit stuck', updateId: 78602 }));
+  transport.calls.length = 0;
+
+  // A human escalation is already open - the bot must not go silent.
+  const followUp = await bot.handleUpdate(userUpdate({ text: 'What can i do next', updateId: 78603 }));
+
+  assert.strictEqual(first.action, 'forwarded');
+  assert.strictEqual(escalated.action, 'escalate');
+  assert.strictEqual(followUp.action, 'forwarded');
+  const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
+  assert.strictEqual(toUser.length, 1, 'the follow-up is acknowledged too');
+  assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(store.state.escalations.length, 1, 'the escalation itself is untouched');
+});
+
+test('a Telegram redelivery of an ordinary message never duplicates the reply', async () => {
+  const { bot, transport } = makeBot();
+  const update = userUpdate({ text: 'What can i do next', updateId: 78701 });
+
+  const first = await bot.handleUpdate(update);
+  const retry = await bot.handleUpdate(update);
+
+  assert.strictEqual(first.action, 'forwarded');
+  assert.strictEqual(retry.action, 'duplicate');
+  assert.strictEqual(transport.calls.filter((c) => c.chatId === USER_CHAT_ID).length, 1,
+    'exactly one customer reply across the delivery and the retry');
+  assert.strictEqual(transport.calls.filter((c) => c.chatId === SUPPORT_CHAT_ID).length, 1);
+});
+
+test('a failing acknowledgement is retried (500) instead of being dropped', async () => {
+  // The reply could not be sent, so the update must NOT count as processed:
+  // handleUpdate throws (the webhook answers 500) and Telegram redelivers.
+  const { bot } = makeBot({ failChatIds: [USER_CHAT_ID] });
+  await assert.rejects(() => bot.handleUpdate(userUpdate({ text: 'hello', updateId: 78801 })));
 });
 
 test('/help answers the user with the support instructions', async () => {
@@ -679,7 +742,7 @@ test('a customer is acknowledged even when the support-group forward fails', asy
   assert.strictEqual(result.action, 'forward-failed');
   const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
   assert.strictEqual(toUser.length, 1, 'the customer is acknowledged');
-  assert.strictEqual(toUser[0].text, RECEIPT_TEXT);
+  assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
   // The inbound message is still stored, and the failure is logged without secrets.
   assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 1);
   assert.ok(logger.lines.some((l) => l.includes('forwarding to the support group failed')));
@@ -705,9 +768,9 @@ test('delivery telemetry records routing decisions without recording secrets', a
   assert.strictEqual(stats.updatesReceived, 2);
   assert.strictEqual(stats.processed, 2);
   assert.strictEqual(stats.secretRejected, 1);
-  // /start always answers; the follow-up message is only receipted on the first
-  // contact (the agent then replies from the support group).
-  assert.strictEqual(stats.repliesSent, 1);
+  // /start answers, and the ordinary message is acknowledged with the customer
+  // guide - every ordinary message gets a reply (it is never left silent).
+  assert.strictEqual(stats.repliesSent, 2);
   assert.ok(stats.lastUpdateAt, 'last update timestamp is recorded');
   assert.ok(!JSON.stringify(stats).includes(TOKEN), 'stats never contain the token');
 });
@@ -799,6 +862,33 @@ test('webhook handler rejects a missing or wrong secret token without logging it
   const logged = logger.lines.join('\n');
   assert.ok(!logged.includes('attacker-guess'), 'the presented header value is never logged');
   assert.ok(!logged.includes(TOKEN));
+});
+
+test('end-to-end: an ordinary customer message is answered (webhook 200, reply, clean trace)', async () => {
+  // This mirrors the production trace for a normal message: the webhook must
+  // answer 200 KEEPING the update, send exactly one reply to the customer, and
+  // report no storage failure.
+  const { bot, transport } = makeBot();
+  const handler = createTelegramWebhookHandler({ bot, logger: createFakeLogger() });
+
+  const res = makeRes();
+  await handler(makeReq({
+    headers: { 'x-telegram-bot-api-secret-token': WEBHOOK_SECRET },
+    body: userUpdate({ text: 'What can i do next', updateId: 79001 })
+  }), res);
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.ok, true);
+
+  const reply = transport.calls.find((c) => c.chatId === USER_CHAT_ID);
+  assert.ok(reply, 'the customer is answered');
+  assert.strictEqual(reply.text, CUSTOMER_GUIDE_TEXT);
+
+  const stats = bot.getStats();
+  assert.strictEqual(stats.lastAction, 'forwarded', 'the message is still forwarded to the group');
+  assert.strictEqual(stats.lastStage, 'done:forwarded');
+  assert.strictEqual(stats.repliesSent, 1, 'exactly one customer reply');
+  assert.strictEqual(stats.storageFailures, 0, 'no storage failure on the ordinary path');
 });
 
 test('webhook handler processes a correctly authenticated update', async () => {
@@ -1116,7 +1206,7 @@ test('service: customer message stores customer and the automated acknowledgemen
 
   const inbound = store.state.messages.find((m) => m.body === 'where is my withdrawal?');
   assert.strictEqual(inbound.direction, DIRECTION_CUSTOMER, 'inbound customer message -> customer');
-  const receipt = store.state.messages.find((m) => m.body === RECEIPT_TEXT);
+  const receipt = store.state.messages.find((m) => m.body === CUSTOMER_GUIDE_TEXT);
   assert.strictEqual(receipt.direction, DIRECTION_BOT, 'automated acknowledgement -> bot');
   assert.ok(store.state.messages.every((m) => ALLOWED_DIRECTIONS.includes(m.direction)));
 });
