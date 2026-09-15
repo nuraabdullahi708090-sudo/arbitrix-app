@@ -138,6 +138,30 @@ function makeAdmin(db, opts = {}) {
       return Promise.resolve({ data: { success: true, released, server_now: iso(db.serverNowMs) }, error: null });
     }
 
+    if (name === 'stop_bot_session_fenced') {
+      if (leaseRpcUnavailable) {
+        return Promise.resolve({
+          data: null,
+          error: {
+            code: 'PGRST202',
+            message: 'Could not find the function public.stop_bot_session_fenced(p_reason, p_requested_by, p_user_id) in the schema cache',
+          },
+        });
+      }
+      db.calls.stops = (db.calls.stops || 0) + 1;
+      const s = sessionById(args.p_user_id);
+      if (!s) return Promise.resolve({ data: { success: true, stopped: false, generation: null }, error: null });
+      // Mirrors the SQL: stop, BUMP the generation, clear the lease. The bump is
+      // what fences a stale executor (its next renew -> GENERATION_MISMATCH).
+      s.is_running = 0;
+      s.generation = Number(s.generation || 0) + 1;
+      s.claimed_by = null;
+      s.lease_acquired_at = null;
+      s.lease_expires_at = null;
+      s.stopped_reason = args.p_reason;
+      return Promise.resolve({ data: { success: true, stopped: true, generation: s.generation }, error: null });
+    }
+
     if (name === 'record_trade_safe') {
       db.calls.trade++;
       db.calls.tradeKeys.push(args.p_idempotency_key);
@@ -657,15 +681,16 @@ test('contract: lease RPC call sites match migration 029 parameter names', () =>
     const body = SERVICE_SRC.slice(at, SERVICE_SRC.indexOf('})', at));
     return [...body.matchAll(/(p_[a-z_]+)\s*:/g)].map((m) => m[1]).sort();
   };
-  for (const fn of ['claim_bot_sessions', 'renew_bot_session_lease', 'release_bot_session_lease']) {
+  for (const fn of ['claim_bot_sessions', 'renew_bot_session_lease', 'release_bot_session_lease', 'stop_bot_session_fenced']) {
     assert.deepStrictEqual(callArgs(fn), sqlParams(fn),
       fn + ': the named arguments the worker sends must be the SQL parameters');
   }
-  // The fenced stop exists but is deliberately NOT wired into any runtime stop
-  // path yet, so an explicit stop does not bump the generation today. Verify this
-  // before assuming generation fencing covers a partitioned worker at cutover.
-  assert.ok(!/stop_bot_session_fenced/.test(SERVICE_SRC), 'the worker does not call the fenced stop yet');
-  assert.ok(!/stop_bot_session_fenced/.test(SERVER), 'the server does not call the fenced stop yet');
+  // Explicit stops must go through the FENCED stop, which is what bumps the
+  // generation and fences a stale executor (its next renew is refused).
+  const stopCall = SERVICE_SRC.slice(SERVICE_SRC.indexOf("rpc('stop_bot_session_fenced'"));
+  assert.match(stopCall.slice(0, 300), /p_user_id:\s*userId/, 'the stop must address one user id');
+  assert.match(stopCall.slice(0, 300), /p_reason:\s*stoppedReason/);
+  assert.match(stopCall.slice(0, 300), /p_requested_by:/);
   assert.deepStrictEqual(sqlParams('stop_bot_session_fenced'), ['p_reason', 'p_requested_by', 'p_user_id']);
 });
 
@@ -687,4 +712,112 @@ test('worker entrypoint: no stale migration reference and no secret exposure', (
     'const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });',
   ]);
   assert.ok(!/console\.log\([^)]*serviceKey/.test(WORKER_ENTRY));
+});
+
+// ==========================================================================
+// STAGE 8A: the fenced stop is now WIRED into every explicit stop path.
+// The generation bump it performs is what fences a stale executor.
+// ==========================================================================
+test('fenced stop: an explicit stop stops the row, bumps the generation and clears the lease', async () => {
+  const { worker, db } = makeWorker({ workerId: 'worker-A' });
+  await worker.runOnce();
+  assert.deepStrictEqual(worker.heldLeases(), [{ userId: 1, generation: 0 }], 'precondition: holds generation 0');
+  assert.strictEqual(db.sessions[0].is_running, 1);
+
+  const ok = await worker.stopSession(1, 'user_stopped');
+
+  assert.strictEqual(ok, true, 'the stop must report success');
+  const call = db.calls.rpcs.find((c) => c.name === 'stop_bot_session_fenced');
+  assert.ok(call, 'the stop must go through the FENCED stop RPC');
+  assert.strictEqual(call.args.p_user_id, 1, 'the stop addresses exactly one user id');
+  assert.strictEqual(call.args.p_reason, 'user_stopped');
+  assert.strictEqual(call.args.p_requested_by, 'worker-A');
+  assert.strictEqual(db.sessions[0].is_running, 0, 'the session is stopped');
+  assert.strictEqual(db.sessions[0].generation, 1, 'the generation MUST bump');
+  assert.strictEqual(db.sessions[0].claimed_by, null, 'the lease is cleared');
+  assert.deepStrictEqual(worker.heldLeases(), [], 'the worker no longer holds the session');
+});
+
+test('fenced stop: a worker holding the OLD generation cannot renew afterwards', async () => {
+  const { worker, db } = makeWorker({ workerId: 'worker-A' });
+  await worker.runOnce();
+  await worker.stopSession(1, 'user_stopped');
+
+  // Its own stale belief: still generation 0.
+  const stopped = await worker.renewLease({ user_id: 1, generation: 0 });
+  assert.strictEqual(stopped.renewed, false, 'a stopped session can never be renewed');
+  assert.strictEqual(stopped.code, 'SESSION_NOT_RUNNING');
+
+  // The user presses Start again: the session runs again, but the OLD generation
+  // is now stale - this is precisely the case the generation bump exists for.
+  db.sessions[0].is_running = 1;
+  const restarted = await worker.renewLease({ user_id: 1, generation: 0 });
+  assert.strictEqual(restarted.renewed, false, 'a stale generation must never renew');
+  assert.strictEqual(restarted.code, 'GENERATION_MISMATCH');
+});
+
+test('fenced stop: a worker holding the OLD generation cannot TRADE afterwards', async () => {
+  const { worker, db } = makeWorker({ workerId: 'worker-A' });
+  await worker.runOnce();
+  const tradesBefore = db.calls.trade;
+  await worker.stopSession(1, 'user_stopped');
+  db.sessions[0].is_running = 1; // restarted, with a new generation
+
+  const res = await worker.tickSession({ user_id: 1, generation: 0 });
+
+  assert.strictEqual(res.action, 'fenced', 'the stale executor is fenced');
+  assert.strictEqual(res.code, 'GENERATION_MISMATCH');
+  assert.strictEqual(db.calls.trade, tradesBefore, 'NO trade may be recorded after the stop');
+});
+
+test('fenced stop: Stop followed quickly by Start yields a NEW valid generation that trades again', async () => {
+  const { worker, db } = makeWorker({ workerId: 'worker-A' });
+  await worker.runOnce();
+  assert.strictEqual(db.calls.trade, 1);
+
+  await worker.stopSession(1, 'user_stopped'); // Stop
+  db.sessions[0].is_running = 1;               // /api/bot/start upsert
+  await worker.runOnce();                      // the fresh worker tick
+
+  const renews = db.calls.rpcs.filter((c) => c.name === 'renew_bot_session_lease');
+  const lastRenew = renews[renews.length - 1];
+  assert.strictEqual(db.sessions[0].generation, 1, 'the restarted session has a new generation');
+  assert.strictEqual(lastRenew.args.p_generation, 1, 'the new executor renews the NEW generation');
+  assert.strictEqual(db.calls.trade, 2, 'the restarted session trades again');
+});
+
+test('fenced stop: stopping one session never touches another user', async () => {
+  const { worker, db } = makeWorker({
+    workerId: 'worker-A',
+    dbOverrides: {
+      sessions: [
+        { user_id: 1, is_running: 1, mode: 'live', generation: 0, claimed_by: null, lease_expires_at: null, consecutive_failures: 0, tick_count: 0 },
+        { user_id: 2, is_running: 1, mode: 'live', generation: 0, claimed_by: null, lease_expires_at: null, consecutive_failures: 0, tick_count: 0 },
+      ],
+      wallets: { 1: 1000, 2: 1000 },
+    },
+  });
+  await worker.runOnce();
+
+  await worker.stopSession(1, 'user_stopped');
+
+  const one = db.sessions.find((s) => s.user_id === 1);
+  const two = db.sessions.find((s) => s.user_id === 2);
+  assert.strictEqual(one.is_running, 0);
+  assert.strictEqual(one.generation, 1);
+  assert.strictEqual(two.is_running, 1, 'the other session keeps running');
+  assert.strictEqual(two.generation, 0, 'the other session generation is untouched');
+  const stopCalls = db.calls.rpcs.filter((c) => c.name === 'stop_bot_session_fenced');
+  assert.deepStrictEqual(stopCalls.map((c) => c.args.p_user_id), [1], 'exactly one stop, for one user');
+});
+
+test('fenced stop: without migration 029 the worker still stops the session (documented fallback)', async () => {
+  const { worker, db, logger } = makeWorker({ adminOpts: { leaseRpcUnavailable: true }, logger: collect() });
+
+  const ok = await worker.stopSession(1, 'user_stopped');
+
+  assert.strictEqual(ok, true, 'stopping must always win, even without the RPC');
+  assert.strictEqual(db.sessions[0].is_running, 0, 'the unfenced update stopped the session');
+  assert.strictEqual(db.sessions[0].generation, 0, 'degraded: no generation bump without 029');
+  assert.ok(logger.lines.some((l) => l.includes('fenced_stop_unavailable')), 'the degradation is logged, never silent');
 });

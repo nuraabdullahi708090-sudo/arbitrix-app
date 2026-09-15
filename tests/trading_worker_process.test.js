@@ -186,7 +186,12 @@ test('session stop/heartbeat results are inspected (supabase-js resolves with {e
 
 test('emergency-stop route reports the truth when the session-stop write fails', () => {
   const body = SERVER.slice(SERVER.indexOf("app.post('/api/admin/bot/emergency-stop'"), SERVER.indexOf("app.post('/api/admin/bot/emergency-stop/clear'"));
-  assert.match(body, /const \{ error: stopErr \}/);
+  // Every running session is stopped through the FENCED stop (generation bump),
+  // and the route only counts a session it actually stopped.
+  assert.match(body, /for \(const id of ids\)/);
+  assert.match(body, /await stopBotSessionFenced\(id, 'emergency_stop', engagedBy\)/);
+  assert.match(body, /if \(outcome\.stopped\) sessionsStopped\+\+;/);
+  assert.match(body, /if \(!outcome\.stopped && outcome\.error\) sessionsStopError = outcome\.error;/);
   assert.match(body, /sessionsStopError/);
-  assert.match(body, /if \(stopErr\) sessionsStopError = stopErr\.message;\s*else sessionsStopped = ids\.length;/);
+  assert.match(body, /sessionsFenced/);
 });

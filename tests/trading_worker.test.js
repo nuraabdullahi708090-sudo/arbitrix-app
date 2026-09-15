@@ -187,6 +187,20 @@ function makeFakeAdmin(state = {}) {
     rpc: (name, args) => {
       calls.rpcs.push({ name, args });
       if (state.rpc) return state.rpc(name, args, calls);
+      // Mirrors public.stop_bot_session_fenced (migration 029): stop the row,
+      // BUMP the generation and clear the lease. Without this the worker's stop
+      // paths would look successful while the fake session stayed running.
+      if (name === 'stop_bot_session_fenced') {
+        const row = db.sessions.find((s) => s.user_id === args.p_user_id);
+        if (!row) return Promise.resolve({ data: { success: true, stopped: false, generation: null }, error: null });
+        row.is_running = 0;
+        row.generation = Number(row.generation || 0) + 1;
+        row.claimed_by = null;
+        row.lease_acquired_at = null;
+        row.lease_expires_at = null;
+        row.stopped_reason = args.p_reason;
+        return Promise.resolve({ data: { success: true, stopped: true, generation: row.generation }, error: null });
+      }
       return Promise.resolve({ data: { success: true, applied_amount: args.p_amount, new_balance: 100 }, error: null });
     },
     _calls: calls,
@@ -199,6 +213,12 @@ const collectingLogger = () => {
   const lines = [];
   return { lines, log: (l) => lines.push(l) };
 };
+
+// Session/lease RPCs are state management, never money. Any other RPC (i.e.
+// record_trade_safe) is a ledger write. Explicit stops now go through the FENCED
+// stop RPC, so "no trade happened" must be asserted on the trade RPCs only.
+const SESSION_RPCS = ['claim_bot_sessions', 'renew_bot_session_lease', 'release_bot_session_lease', 'stop_bot_session_fenced'];
+const tradeRpcs = (calls) => (calls.rpcs || []).filter((r) => !SESSION_RPCS.includes(r.name));
 
 function makeWorker(overrides = {}) {
   const fakeState = { ...(overrides.state || {}) };
@@ -267,7 +287,7 @@ test('WORKER_ENABLED=false worker never trades: runOnce with no sessions is a no
   const { worker, admin } = makeWorker({ state: { sessions: [] } });
   const res = await worker.runOnce();
   assert.equal(res.sessions, 0);
-  assert.equal(admin._calls.rpcs.length, 0);
+  assert.equal(tradeRpcs(admin._calls).length, 0);
 });
 
 // ==========================================================================
@@ -483,7 +503,7 @@ test('risk limits are enforced BEFORE the write (no RPC on a veto)', async () =>
   const res = await worker.runOnce();
   assert.equal(res.results[0].action, 'blocked');
   assert.equal(res.results[0].code, 'NO_BALANCE');
-  assert.equal(admin._calls.rpcs.length, 0, 'a blocked session must not reach record_trade_safe');
+  assert.deepStrictEqual(tradeRpcs(admin._calls), [], 'no ledger write for a blocked session');
 });
 
 test('risk limits: the daily-loss breach persists via the ledger and stops the session', async () => {
@@ -499,7 +519,8 @@ test('risk limits: the daily-loss breach persists via the ledger and stops the s
   const res = await worker.runOnce();
   assert.equal(res.results[0].action, 'stopped');
   assert.equal(res.results[0].code, 'DAILY_LOSS_LIMIT');
-  assert.equal(admin._calls.rpcs.length, 0);
+  assert.deepStrictEqual(tradeRpcs(admin._calls), [], 'the breached session is stopped, not traded');
+  assert.equal(admin._calls.rpcs.some((r) => r.name === 'stop_bot_session_fenced'), true, 'the stop must be fenced');
 });
 
 test('risk limits: repeated failures auto-stop the session', async () => {
@@ -552,7 +573,8 @@ test('emergency stop: engaged kill switch refuses trades and stops every session
   const res = await worker.runOnce();
   assert.equal(res.skipped, true);
   assert.equal(res.reason, 'emergency_stop');
-  assert.equal(admin._calls.rpcs.length, 0, 'no trade while stopped');
+  assert.deepStrictEqual(tradeRpcs(admin._calls), [], 'the kill switch leaves the ledger untouched');
+  assert.equal(admin._calls.rpcs.some((r) => r.name === 'stop_bot_session_fenced'), true, 'each session is stopped through the fenced stop');
   const rows = await worker.listRunningSessions();
   assert.equal(rows.length, 0, 'all sessions marked stopped');
 });
@@ -582,7 +604,7 @@ test('emergency stop: env override forces the stop even with a clear DB row', as
   assert.equal(control.source, 'env');
   const res = await worker.runOnce();
   assert.equal(res.skipped, true);
-  assert.equal(admin._calls.rpcs.length, 0);
+  assert.deepStrictEqual(tradeRpcs(admin._calls), [], 'env kill switch: no ledger write');
 });
 
 test('emergency stop: engaging persists the stop and clears only explicitly', async () => {

@@ -1989,17 +1989,101 @@ async function getPromoRealizedProfit(userId) {
   return Math.round(total * 100) / 100;
 }
 
+/** PostgREST/PG codes for "this function does not exist" (i.e. 029 not applied). */
+function isMissingFunctionError(error) {
+  const code = String((error && error.code) || '');
+  const message = String((error && error.message) || error || '');
+  return code === 'PGRST202' || code === '42883'
+    || /could not find the function|function .* does not exist/i.test(message);
+}
+
+/** The pre-029 stop: unfenced, best-effort, exactly today's behaviour. */
+async function legacyStopBotSession(userId, reason) {
+  try {
+    const { error } = await supabaseAdmin
+      .from('bot_sessions')
+      .update({ is_running: 0, stopped_reason: reason })
+      .eq('user_id', userId);
+    if (error) {
+      console.log(JSON.stringify({ event: 'legacy_session_stop_failed', userId, message: error.message }));
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.log(JSON.stringify({ event: 'legacy_session_stop_failed', userId, message: (e && e.message) || String(e) }));
+    return false;
+  }
+}
+
+/**
+ * Migration 029's fenced stop is the only stop that BUMPS the session
+ * generation. That bump is what provably fences a stale executor: whatever
+ * generation a worker is holding, its next renew returns GENERATION_MISMATCH (or
+ * SESSION_NOT_RUNNING) and it cannot trade.
+ *
+ * The RPC takes the ACTOR, not a worker id or generation - deliberately. A stop
+ * must always win, so it can never be vetoed by the identity or generation of the
+ * executor being stopped. It returns {success, stopped, generation, requested_by,
+ * server_now}:
+ *   stopped=true   - the session row was stopped and the generation bumped
+ *   stopped=false  - there was no session row for that user (nothing to stop).
+ *                    This is NOT an error, and it can never touch another user's
+ *                    row because the RPC addresses the row by user_id.
+ *
+ * Pre-029 databases have no such function; there we fall back to the legacy
+ * unfenced update so the Stop button keeps working, and log loudly. With
+ * is_running=0 the worker's next renew still returns SESSION_NOT_RUNNING, so a
+ * stale executor is still refused - only the generation bump is lost.
+ *
+ * Never throws. Returns { stopped, generation, fenced, error }.
+ */
+async function stopBotSessionFenced(userId, reason = 'user_stopped', requestedBy = 'api') {
+  // Real user ids are positive integers. Number(null) is 0 and Number('') is 0,
+  // so a loose check would let a missing id reach the database as user 0.
+  const id = Number(userId);
+  if (!Number.isInteger(id) || id <= 0) return { stopped: false, generation: null, fenced: false, error: 'invalid user id' };
+  let rpcError = null;
+  try {
+    const { data, error } = await supabaseAdmin.rpc('stop_bot_session_fenced', {
+      p_user_id: id,
+      p_reason: reason,
+      p_requested_by: requestedBy,
+    });
+    if (!error) {
+      const generation = Number(data && data.generation);
+      return {
+        stopped: !!(data && data.stopped === true),
+        generation: Number.isFinite(generation) ? generation : null,
+        fenced: true,
+        error: null,
+      };
+    }
+    rpcError = error;
+  } catch (e) {
+    rpcError = e;
+  }
+  // Fall back to the unfenced stop: stopping must always win. Loud, never silent.
+  const stopped = await legacyStopBotSession(id, reason);
+  console.log(JSON.stringify({
+    event: 'fenced_stop_unavailable',
+    userId: id,
+    reason,
+    missingFunction: isMissingFunctionError(rpcError),
+    message: (rpcError && rpcError.message) || String(rpcError),
+    legacyStopped: stopped,
+  }));
+  return { stopped, generation: null, fenced: false, error: (rpcError && rpcError.message) || String(rpcError) };
+}
+
 /**
  * Stop the production bot session when the promotional-credit cap is reached.
- * Best-effort: the cap check itself is authoritative and the frontend also
- * stops its interval, so a failure here can never re-enable trading.
+ * Routed through the fenced stop so the generation moves and a stale executor
+ * cannot resume this session. Best-effort: the cap check itself is authoritative
+ * and the frontend also stops its interval, so a failure here can never
+ * re-enable trading.
  */
 async function stopBotSessionForPromoLimit(userId) {
-  try {
-    await supabaseAdmin.from('bot_sessions').update({ is_running: 0 }).eq('user_id', userId);
-  } catch (e) {
-    console.log('[stopBotSessionForPromoLimit] error:', e.message);
-  }
+  await stopBotSessionFenced(userId, 'promo_trading_limit', 'system');
 }
 
 /** Machine-readable promotional-cap response body (production-only). */
@@ -5553,8 +5637,17 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
 app.post('/api/bot/stop', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated bot session only.
   if (await sandboxHandled(req, res, handleSandboxBotStop)) return;
-  await supabaseAdmin.from('bot_sessions').update({ is_running: 0 }).eq('user_id', req.user.id);
-  res.json({ status: 'stopped' });
+  // The one stop path behind the Stop button, logout, the mode switch and the
+  // client-side promotional-cap stop. Routed through the FENCED stop so the
+  // generation bumps and a stale executor can never renew or trade this session
+  // again. Addresses the caller's own session only (req.user.id) and never takes
+  // a user id from the request body.
+  const result = await stopBotSessionFenced(req.user.id, 'user_stopped', 'user');
+  if (!result.stopped && !result.fenced) {
+    // Even the fallback update failed: report it instead of claiming a stop.
+    return res.status(500).json({ error: 'Failed to stop the bot session', fenced: false });
+  }
+  res.json({ status: 'stopped', stopped: result.stopped, fenced: result.fenced, generation: result.generation });
 });
 
 app.get('/api/bot/status', authMiddleware, async (req, res) => {
@@ -5604,24 +5697,26 @@ app.post('/api/admin/bot/emergency-stop', authMiddleware, adminMiddleware, async
       .from('bot_worker_control')
       .upsert({ id: 1, emergency_stop: true, reason, engaged_by: engagedBy, engaged_at: nowIso, updated_at: nowIso }, { onConflict: 'id' });
     if (error) throw error;
-    // Mark every running session stopped: no phantom "running" rows survive.
+    // Mark every running session stopped through the FENCED stop, so each
+    // session's generation bumps and no stale executor can resume it. Falls back
+    // to the unfenced bulk update inside stopBotSessionFenced when 029 is not
+    // applied yet.
     const { data: sessions } = await supabaseAdmin.from('bot_sessions').select('user_id').eq('is_running', 1);
     const ids = (Array.isArray(sessions) ? sessions : []).map((s) => s.user_id);
     let sessionsStopped = 0;
     let sessionsStopError = null;
-    if (ids.length) {
-      const { error: stopErr } = await supabaseAdmin
-        .from('bot_sessions')
-        .update({ is_running: 0, stopped_reason: 'emergency_stop', updated_at: nowIso })
-        .in('user_id', ids);
-      // Report TRUTHFULLY: the kill switch is engaged either way (the worker
-      // refuses to trade while it is), but never claim sessions were stopped
-      // when the write failed.
-      if (stopErr) sessionsStopError = stopErr.message;
-      else sessionsStopped = ids.length;
+    let sessionsFenced = true;
+    for (const id of ids) {
+      const outcome = await stopBotSessionFenced(id, 'emergency_stop', engagedBy);
+      if (outcome.stopped) sessionsStopped++;
+      if (!outcome.fenced) sessionsFenced = false;
+      if (!outcome.stopped && outcome.error) sessionsStopError = outcome.error;
     }
-    console.log(JSON.stringify({ event: 'emergency_stop_engaged', component: 'Server', by: engagedBy, reason, sessionsStopped, sessionsStopError }));
-    res.json({ ok: true, emergencyStop: true, reason, engagedBy, sessionsStopped, sessionsStopError });
+    // Report TRUTHFULLY: the kill switch is engaged either way (the worker
+    // refuses to trade while it is), but never claim sessions were stopped
+    // when the write failed.
+    console.log(JSON.stringify({ event: 'emergency_stop_engaged', component: 'Server', by: engagedBy, reason, sessionsStopped, sessionsFenced, sessionsStopError }));
+    res.json({ ok: true, emergencyStop: true, reason, engagedBy, sessionsStopped, sessionsFenced, sessionsStopError });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

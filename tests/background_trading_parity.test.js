@@ -98,6 +98,20 @@ function makeWorker(opts = {}) {
     from: (t) => builder(t),
     rpc: (name, args) => {
       state.rpcs.push({ name, args });
+      // Mirrors public.stop_bot_session_fenced: stop the row, bump the generation,
+      // clear the lease - so a reconciled session is really stopped, and a stale
+      // holder of the old generation can never renew it again.
+      if (name === 'stop_bot_session_fenced') {
+        const row = state.sessions.find((s) => s.user_id === args.p_user_id);
+        if (!row) return Promise.resolve({ data: { success: true, stopped: false, generation: null }, error: null });
+        row.is_running = 0;
+        row.generation = Number(row.generation || 0) + 1;
+        row.claimed_by = null;
+        row.lease_acquired_at = null;
+        row.lease_expires_at = null;
+        row.stopped_reason = args.p_reason;
+        return Promise.resolve({ data: { success: true, stopped: true, generation: row.generation }, error: null });
+      }
       return Promise.resolve({ data: { success: true, applied_amount: args.p_amount, new_balance: 1000 }, error: null });
     },
   };
@@ -430,7 +444,7 @@ test('scope: sandbox accounts are never registered or stopped from the UI', () =
 
 test('scope: the worker still moves money ONLY through record_trade_safe', () => {
   const rpcs = [...SERVICE.matchAll(/rpc\('([a-z_]+)'/g)].map((m) => m[1]);
-  const leaseRpcs = ['claim_bot_sessions', 'renew_bot_session_lease', 'release_bot_session_lease'];
+  const leaseRpcs = ['claim_bot_sessions', 'renew_bot_session_lease', 'release_bot_session_lease', 'stop_bot_session_fenced'];
   assert.deepStrictEqual([...new Set(rpcs.filter((n) => !leaseRpcs.includes(n)))], ['record_trade_safe']);
   assert.ok(!/from\('(wallets|trades|transactions)'\)\s*\.\s*(update|upsert|insert)/.test(SERVICE),
     'the worker must never write a ledger table directly');

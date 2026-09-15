@@ -568,6 +568,39 @@ function createTradingWorker({
       refuseWrite('stop_session', { userId, stoppedReason });
       return false;
     }
+    // FENCED stop (migration 029). Bumping the generation is what provably stops
+    // a stale executor: its next renew returns GENERATION_MISMATCH, so it can
+    // neither renew nor trade this session again, restart or not. One attempt
+    // only - a database without 029 must not pay retry backoff on every stop.
+    const fenced = await withRetry(
+      () =>
+        rpc('stop_bot_session_fenced', {
+          p_user_id: userId,
+          p_reason: stoppedReason,
+          p_requested_by: workerId || 'worker',
+        }),
+      { attempts: 1, rng, sleep }
+    );
+    if (fenced.ok) {
+      held.delete(String(userId));
+      const payload = (fenced.result && typeof fenced.result === 'object' && fenced.result.data) || {};
+      stats.stopped++;
+      log('session_stopped', {
+        userId,
+        stoppedReason,
+        fenced: true,
+        generation: payload.generation === undefined ? null : Number(payload.generation),
+      });
+      return true;
+    }
+    // 029 not applied (or the RPC is unavailable): fall back to the unfenced
+    // update. is_running=0 still makes the next renew return SESSION_NOT_RUNNING,
+    // so the session IS stopped either way - only the generation bump is lost.
+    log('fenced_stop_unavailable', {
+      userId,
+      stoppedReason,
+      message: (fenced.error && fenced.error.message) || String(fenced.error),
+    });
     // The update result MUST be inspected: supabase-js resolves with { error }
     // instead of throwing, so an unchecked write would log a false success and
     // leave a phantom "running" session behind (the exact bug this worker exists
@@ -594,7 +627,7 @@ function createTradingWorker({
       return false;
     }
     stats.stopped++;
-    log('session_stopped', { userId, stoppedReason });
+    log('session_stopped', { userId, stoppedReason, fenced: false });
     return true;
   }
 
