@@ -307,7 +307,9 @@ test('an unclassified error still reports its code instead of guessing', () => {
 // ---------------------------------------------------------------------------
 
 test('checkStorage probes all three tables and reports per-table codes', async () => {
-  const { bot } = makeBot({ fail: { probe: { messages: 'PGRST204' } } });
+  // The probe receives the REAL relation name, so failures are injected by it
+  // (the telemetry label `messages` is only the output key).
+  const { bot } = makeBot({ fail: { probe: { telegram_support_messages: 'PGRST204' } } });
   const result = await bot.checkStorage();
 
   assert.strictEqual(result.ok, false);
@@ -325,6 +327,80 @@ test('checkStorage reports success when every table is reachable', async () => {
   assert.strictEqual(result.ok, true);
   assert.strictEqual(result.tables.conversations.ok, true);
   assert.strictEqual(result.tables.messages.ok, true);
+  assert.strictEqual(result.tables.escalations.ok, true);
+});
+
+// Regression: the preflight must query the REAL prefixed relations while the
+// short labels stay only as telemetry keys. Passing the label as the table name
+// asked PostgREST for public.messages / public.escalations and logged a false
+// PGRST205 even when migration 027 had been applied.
+test('checkStorage queries the prefixed tables, not the short telemetry labels', async () => {
+  const probed = [];
+  const store = {
+    async getConversationByChatId() { return null; },
+    async probeColumns(table, columns) { probed.push({ table, columns }); return true; }
+  };
+  const transport = {
+    async sendMessage() { return { message_id: 1 }; },
+    async setWebhook() { return true; },
+    async getWebhookInfo() { return { url: 'https://arbitrix.pro/api/telegram/webhook' }; },
+    getLastCall() { return null; }
+  };
+  const bot = createTelegramSupportBot({
+    config: { token: TOKEN, supportChatId: null, adminIds: [], webhookSecret: SECRET, baseUrl: 'https://arbitrix.pro' },
+    store,
+    transport,
+    logger: { log() {}, warn() {}, error() {} }
+  });
+
+  const result = await bot.checkStorage();
+
+  assert.deepStrictEqual(
+    probed.map((p) => p.table),
+    ['telegram_support_messages', 'telegram_support_escalations'],
+    'the preflight queries the prefixed relation names'
+  );
+  assert.ok(!probed.some((p) => p.table === 'messages' || p.table === 'escalations'),
+    'the preflight must never query public.messages / public.escalations');
+  assert.deepStrictEqual(probed[0].columns, ['id', 'conversation_id', 'direction', 'body', 'created_at']);
+  assert.deepStrictEqual(probed[1].columns, ['id', 'conversation_id', 'created_at']);
+  // The short labels remain the telemetry keys, unchanged.
+  assert.strictEqual(result.tables.messages.ok, true);
+  assert.strictEqual(result.tables.escalations.ok, true);
+  assert.ok(!('telegram_support_messages' in result.tables), 'telemetry keys stay short');
+});
+
+// Regression: a failure on a prefixed probe is still reported under the short
+// telemetry label so the delivery trace keeps its stable shape.
+test('a failed prefixed probe is reported under the short telemetry label', async () => {
+  const store = {
+    async getConversationByChatId() { return null; },
+    async probeColumns(table) {
+      if (table === 'telegram_support_messages') {
+        throw storageError('schema probe on ' + table, { code: 'PGRST204', message: 'injected column-missing' });
+      }
+      return true;
+    }
+  };
+  const transport = {
+    async sendMessage() { return { message_id: 1 }; },
+    async setWebhook() { return true; },
+    async getWebhookInfo() { return { url: 'https://arbitrix.pro/api/telegram/webhook' }; },
+    getLastCall() { return null; }
+  };
+  const bot = createTelegramSupportBot({
+    config: { token: TOKEN, supportChatId: null, adminIds: [], webhookSecret: SECRET, baseUrl: 'https://arbitrix.pro' },
+    store,
+    transport,
+    logger: { log() {}, warn() {}, error() {} }
+  });
+
+  const result = await bot.checkStorage();
+
+  assert.strictEqual(result.ok, false);
+  assert.strictEqual(result.tables.conversations.ok, true);
+  assert.strictEqual(result.tables.messages.ok, false);
+  assert.strictEqual(result.tables.messages.code, 'PGRST204');
   assert.strictEqual(result.tables.escalations.ok, true);
 });
 

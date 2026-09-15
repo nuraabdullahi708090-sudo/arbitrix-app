@@ -1282,20 +1282,25 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // The other two tables get a read-only probe with the exact column list the
     // store writes. This separates "table missing" from "column missing", which
     // a plain existence check cannot.
+    //
+    // `label` is the short key used in the telemetry output; `table` is the REAL
+    // relation that is queried. Keep them separate: passing the short label as
+    // the table name asked PostgREST for public.messages / public.escalations
+    // and logged a false PGRST205 even when the real tables existed.
     const probes = [
-      { table: 'messages', columns: ['id', 'conversation_id', 'direction', 'body', 'created_at'] },
-      { table: 'escalations', columns: ['id', 'conversation_id', 'created_at'] }
+      { label: 'messages', table: 'telegram_support_messages', columns: ['id', 'conversation_id', 'direction', 'body', 'created_at'] },
+      { label: 'escalations', table: 'telegram_support_escalations', columns: ['id', 'conversation_id', 'created_at'] }
     ];
     for (const probe of probes) {
       if (typeof store.probeColumns !== 'function') {
-        tables[probe.table] = { ok: null, reason: 'probe-not-supported' };
+        tables[probe.label] = { ok: null, reason: 'probe-not-supported' };
         continue;
       }
       try {
         await store.probeColumns(probe.table, probe.columns);
-        tables[probe.table] = { ok: true };
+        tables[probe.label] = { ok: true };
       } catch (error) {
-        recordFailure(probe.table, error);
+        recordFailure(probe.label, error);
       }
     }
 
