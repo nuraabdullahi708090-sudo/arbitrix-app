@@ -260,8 +260,8 @@ test('the trace records the storage stage when the store is down', async () => {
   await handler(req(userUpdate('hello support', 11)), res);
 
   assert.strictEqual(res.statusCode, 500);
-  assert.strictEqual(res.body.stage, 'storage');
-  assert.strictEqual(bot.getStats().lastErrorStage, 'storage');
+  assert.strictEqual(res.body.stage, 'storage:upsert-conversation');
+  assert.strictEqual(bot.getStats().lastErrorStage, 'storage:upsert-conversation');
   assert.strictEqual(bot.getStats().storageFailures, 1);
 });
 

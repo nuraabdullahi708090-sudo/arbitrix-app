@@ -41,6 +41,91 @@ const STATUS_OPEN = 'open';
 const STATUS_ESCALATED = 'escalated';
 const STATUS_CLOSED = 'closed';
 
+/**
+ * Sent to a customer when a storage write fails.
+ *
+ * A storage outage must never leave the customer in silence, but it must also
+ * not be answered with 2xx: the update is redelivered until it can be stored, so
+ * the ticket is never lost. This message is the courtesy half of that trade-off
+ * and touches no database.
+ */
+const STORAGE_DEGRADED_TEXT =
+  'We received your message. Our support system is temporarily unavailable, so ' +
+  'our team may take longer than usual to reply.';
+
+/**
+ * Map a PostgREST/Postgres error code to a plain-English cause and remedy.
+ *
+ * The code is what actually distinguishes these failures; the wording of
+ * `message` varies between PostgREST versions.
+ */
+const STORAGE_ERROR_CAUSES = {
+  '42P01': {
+    cause: 'table-missing',
+    remedy: 'Apply supabase/migrations/027_telegram_support_bot.sql to this Supabase project.'
+  },
+  PGRST205: {
+    cause: 'table-missing',
+    remedy: 'Apply supabase/migrations/027_telegram_support_bot.sql to this Supabase project.'
+  },
+  '42703': {
+    cause: 'column-missing',
+    remedy: 'The applied table differs from migration 027. The message names the column; add it, or align the store with the applied schema.'
+  },
+  PGRST204: {
+    cause: 'column-missing',
+    remedy: 'The applied table differs from migration 027. The message names the column; add it, or align the store with the applied schema.'
+  },
+  '42501': {
+    cause: 'permission-denied',
+    remedy: 'RLS/privileges are blocking this write. The bot must run with the SERVICE-ROLE key (SUPABASE_SERVICE_KEY); the anon key cannot write these tables.'
+  },
+  '23514': {
+    cause: 'check-constraint-violation',
+    remedy: 'A CHECK constraint rejected the row. The message names the constraint - align DIRECTION_INBOUND/DIRECTION_OUTBOUND (or the STATUS_* literals) with the values the applied table allows.'
+  },
+  '23502': {
+    cause: 'not-null-violation',
+    remedy: 'The applied table has a NOT NULL column that the store does not write.'
+  },
+  '23503': {
+    cause: 'foreign-key-violation',
+    remedy: 'The referenced conversation row does not exist in the applied table.'
+  },
+  '23505': {
+    cause: 'unique-violation',
+    remedy: 'A unique constraint was violated (most likely a duplicate telegram_chat_id).'
+  },
+  PGRST301: {
+    cause: 'invalid-or-missing-api-key',
+    remedy: 'Supabase rejected the client credentials. Check SUPABASE_SERVICE_KEY in the host environment.'
+  }
+};
+
+/** Classify a storage error without exposing the client credentials. */
+function classifyStorageError(error) {
+  const code = (error && error.supabase && error.supabase.code) || (error && error.code) || null;
+  const message = error && error.message ? String(error.message) : String(error || '');
+  const known = STORAGE_ERROR_CAUSES[String(code)];
+  if (known) return { code: code || null, cause: known.cause, remedy: known.remedy };
+  // PostgREST does not send a code for every failure; fall back to the wording.
+  if (/does not exist|schema cache/i.test(message)) {
+    return {
+      code: code || null,
+      cause: 'relation-or-column-missing',
+      remedy: 'A table or column the store writes is absent from the applied schema. Compare it with migration 027.'
+    };
+  }
+  if (/permission denied|row-level security/i.test(message)) {
+    return {
+      code: code || null,
+      cause: 'permission-denied',
+      remedy: 'RLS/privileges are blocking this write; confirm the bot uses the SERVICE-ROLE key (SUPABASE_SERVICE_KEY).'
+    };
+  }
+  return { code: code || null, cause: 'unknown', remedy: 'Read the captured message in the delivery trace.' };
+}
+
 const USER_HELP_TEXT = [
   'Arbitrix Support',
   '',
@@ -648,6 +733,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null };
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
   const forwarded = threadMap || createLimitedMap({ max: 500 });
+  // Update ids already answered with the storage-degraded notice, so Telegram's
+  // retries do not send the customer one apology per attempt.
+  const degradedAcks = createUpdateDeduper({ max: 500 });
 
   // Secret-free delivery telemetry: enough to locate the exact failing stage of
   // a delivery without ever recording a token, secret, JWT or message text.
@@ -681,6 +769,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     lastPendingResult: null,
     lastErrorStage: null,
     lastError: null,
+    lastErrorCode: null,
+    lastErrorDetails: null,
+    lastErrorHint: null,
+    storageCause: null,
     lastRegistration: null
   };
 
@@ -760,6 +852,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       adminIdsConfigured: adminIds.length > 0,
       baseUrlConfigured: Boolean(cfg.baseUrl),
       webhookPath: '/api/telegram/webhook',
+      // Whether the configured client can actually reach the Telegram tables.
+      // Populated by checkStorage() at boot; null until then.
+      storage: stats.lastErrorStage === 'storage-preflight'
+        ? { ok: false, cause: stats.storageCause, code: stats.lastErrorCode, error: stats.lastError }
+        : null,
       seenUpdates: seenUpdates.size(),
       threadedReplies: forwarded.size(),
       // Last Telegram API call outcome (sendMessage status + Telegram's own
@@ -797,20 +894,70 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * pure function of the incoming update. A database problem (missing
    * table/column, RLS/service-key, outage) must never make the bot silent.
    */
-  async function replyToChat(chatId, body) {
-    markStage('sendMessage');
+  async function replyToChat(chatId, body, { stage = 'sendMessage' } = {}) {
+    // `stage: null` keeps the CURRENT stage, which is what the storage-degraded
+    // acknowledgement needs: it must not overwrite the storage stage that is the
+    // whole point of the trace.
+    if (stage) markStage(stage);
     const sent = await transport.sendMessage(chatId, body);
     stats.repliesSent += 1;
     return sent;
   }
 
-  /** Record a storage failure without letting it break a reply. */
+  /**
+   * Record a storage failure without letting it break a reply.
+   *
+   * Idempotent per error object: the same error can pass through an inner catch
+   * (this function) and the outer per-update catch, and counting it twice would
+   * make the failure counter drift away from reality.
+   *
+   * The PostgREST `code`/`details`/`hint` are preserved so the trace can name
+   * the CAUSE (table missing vs column mismatch vs RLS vs constraint) instead of
+   * only proving that something failed.
+   */
   function noteStorageFailure(error) {
-    const message = error && error.message ? error.message : error;
+    if (error && error.__storageFailureNoted) return;
+    if (error && typeof error === 'object') {
+      try { error.__storageFailureNoted = true; } catch (err) { /* frozen error object */ }
+    }
     stats.storageFailures += 1;
-    stats.lastErrorStage = 'storage';
-    stats.lastError = scrub(message);
-    warn(`storage unavailable (${stats.lastError})`);
+    stats.lastErrorStage = stats.lastStage || 'storage';
+    stats.lastError = scrub(error && error.message ? error.message : error);
+    stats.lastErrorCode = (error && error.supabase && error.supabase.code)
+      || (error && error.code)
+      || null;
+    stats.lastErrorDetails = scrub((error && error.supabase && error.supabase.details)
+      || (error && error.details) || '') || null;
+    stats.lastErrorHint = scrub((error && error.supabase && error.supabase.hint)
+      || (error && error.hint) || '') || null;
+    stats.storageCause = classifyStorageError(error).cause;
+    warn(`storage unavailable [${stats.lastErrorStage}] cause=${stats.storageCause}: ${stats.lastError}`);
+  }
+
+  /**
+   * Best-effort customer acknowledgement when storage is unavailable.
+   *
+   * The update is still answered 5xx so Telegram redelivers it and the ticket is
+   * not lost, but the customer must not be left in silence while that happens.
+   * Deduplicated by update id so the retries do not produce one apology each.
+   * In-process only: a restart can at worst produce one extra message, which is
+   * preferable to silence.
+   */
+  async function acknowledgeStorageDegraded(update, route) {
+    const id = updateId(update);
+    if (id !== null && id !== undefined) {
+      if (degradedAcks.has(id)) return false;
+      degradedAcks.remember(id);
+    }
+    try {
+      // `stage: null`: this reply is a consequence of the storage failure, so it
+      // must not replace the storage stage in the trace.
+      await replyToChat(route.chatId, STORAGE_DEGRADED_TEXT, { stage: null });
+      return true;
+    } catch (error) {
+      warn(`degraded-storage acknowledgement failed: ${scrub(error && error.message ? error.message : error)}`);
+      return false;
+    }
   }
 
   /** Best-effort conversation bookkeeping; never blocks a reply. */
@@ -866,12 +1013,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // the handler returns 500 and Telegram retries the update instead of
       // dropping the customer's message forever.
       noteStorageFailure(error);
+      await acknowledgeStorageDegraded(update, route);
       throw error;
     }
 
     if (command && command.name === 'escalate') {
       const reason = command.rest || 'User requested human support';
+      markStage('storage:create-escalation');
       await store.createEscalation({ conversationId: conversation.id });
+      markStage('storage:set-status');
       await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_ESCALATED });
       if (cfg.supportChatId) {
         try {
@@ -895,11 +1045,20 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       return { handled: true, action: 'unsupported-content' };
     }
 
-    await store.insertMessage({
-      conversationId: conversation.id,
-      direction: DIRECTION_INBOUND,
-      body: text
-    });
+    try {
+      markStage('storage:insert-message');
+      await store.insertMessage({
+        conversationId: conversation.id,
+        direction: DIRECTION_INBOUND,
+        body: text
+      });
+    } catch (error) {
+      // Same contract as the conversation upsert: keep the update queued (500 so
+      // Telegram redelivers) but never leave the customer in silence.
+      noteStorageFailure(error);
+      await acknowledgeStorageDegraded(update, route);
+      throw error;
+    }
 
     if (cfg.supportChatId) {
       const name = conversation.display_name || telegramDisplayName(from);
@@ -989,6 +1148,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'close-missing' };
           }
+          markStage('storage:set-status');
           await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_CLOSED });
           await transport.sendMessage(route.chatId, `Conversation #${conversation.id} closed.`);
           return { handled: true, action: 'close' };
@@ -1004,7 +1164,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'escalate-missing' };
           }
+          markStage('storage:create-escalation');
           await store.createEscalation({ conversationId: conversation.id });
+          markStage('storage:set-status');
           await store.setConversationStatus({ conversationId: conversation.id, status: STATUS_ESCALATED });
           await transport.sendMessage(route.chatId, `Conversation #${conversation.id} escalated.`);
           return { handled: true, action: 'escalate' };
@@ -1068,6 +1230,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // Attribute the failure to the stage that actually threw (storage/sendMessage/
       // forward), falling back to a generic marker.
       stats.lastErrorStage = stats.lastErrorStage || stats.lastStage || 'processing';
+      // Count EVERY storage failure exactly once, whether or not an inner catch
+      // already reported it. Previously only the two conversation-upsert paths
+      // called noteStorageFailure, so a failing insertMessage/escalation/status
+      // write produced status=500 with storageFailures=0 - a trace that proved
+      // something failed without saying what.
+      if (String(stats.lastErrorStage).startsWith('storage')
+        || String(stats.lastStage || '').startsWith('storage')) {
+        noteStorageFailure(error);
+      }
       stats.lastError = scrub(error && error.message ? error.message : error);
       stats.lastAction = 'error';
       stats.lastReason = 'processing-error';
@@ -1085,15 +1256,68 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * or logs a secret.
    */
   async function checkStorage() {
+    const tables = {};
+    let allOk = true;
+    const recordFailure = (table, error) => {
+      allOk = false;
+      const classified = classifyStorageError(error);
+      tables[table] = {
+        ok: false,
+        code: classified.code,
+        cause: classified.cause,
+        message: scrub(error && error.message ? error.message : error)
+      };
+    };
+
+    // The conversations probe is the REAL call the write path makes, so on its
+    // own it detects a missing table, a missing column, RLS, a bad service key
+    // and an outage. It is kept first for exactly that reason.
     try {
-      const probe = await store.getConversationByChatId(cfg.supportChatId || '0');
-      return { ok: true, error: null, probeFound: Boolean(probe) };
+      await store.getConversationByChatId(cfg.supportChatId || '0');
+      tables.conversations = { ok: true };
     } catch (error) {
-      const message = scrub(error && error.message ? error.message : error);
-      stats.lastErrorStage = 'storage-preflight';
-      stats.lastError = message;
-      return { ok: false, error: message };
+      recordFailure('conversations', error);
     }
+
+    // The other two tables get a read-only probe with the exact column list the
+    // store writes. This separates "table missing" from "column missing", which
+    // a plain existence check cannot.
+    const probes = [
+      { table: 'messages', columns: ['id', 'conversation_id', 'direction', 'body', 'created_at'] },
+      { table: 'escalations', columns: ['id', 'conversation_id', 'created_at'] }
+    ];
+    for (const probe of probes) {
+      if (typeof store.probeColumns !== 'function') {
+        tables[probe.table] = { ok: null, reason: 'probe-not-supported' };
+        continue;
+      }
+      try {
+        await store.probeColumns(probe.table, probe.columns);
+        tables[probe.table] = { ok: true };
+      } catch (error) {
+        recordFailure(probe.table, error);
+      }
+    }
+
+    // A read probe cannot see an RLS/INSERT or CHECK-constraint problem - those
+    // only surface on a real write, which is why the live error is captured
+    // separately by the delivery trace.
+    if (allOk) {
+      return { ok: true, error: null, tables };
+    }
+
+    const firstFailure = Object.values(tables).find((t) => t && t.ok === false) || {};
+    stats.lastErrorStage = 'storage-preflight';
+    stats.lastError = firstFailure.message || 'storage preflight failed';
+    stats.lastErrorCode = firstFailure.code || null;
+    stats.storageCause = firstFailure.cause || null;
+    return {
+      ok: false,
+      error: firstFailure.message || 'storage preflight failed',
+      code: firstFailure.code || null,
+      cause: firstFailure.cause || null,
+      tables
+    };
   }
 
   /**
@@ -1274,6 +1498,10 @@ function createTelegramWebhookHandler({ bot, logger }) {
         `lastUpdateId=${stats.lastUpdateId}`,
         `lastAction=${stats.lastAction}`,
         `lastStage=${stats.lastStage}`,
+        `lastErrorStage=${stats.lastErrorStage}`,
+        `lastErrorCode=${stats.lastErrorCode}`,
+        `storageCause=${stats.storageCause}`,
+        `lastError="${String(stats.lastError || '').slice(0, 200)}"`,
         `repliesSent=${stats.repliesSent}`,
         `storageFailures=${stats.storageFailures}`,
         `lastSendMessage=${lastSend}`,
@@ -1349,6 +1577,9 @@ module.exports = {
   STATUS_OPEN,
   STATUS_ESCALATED,
   STATUS_CLOSED,
+  STORAGE_DEGRADED_TEXT,
+  STORAGE_ERROR_CAUSES,
+  classifyStorageError,
   USER_HELP_TEXT,
   RECEIPT_TEXT,
   ESCALATION_ACK,

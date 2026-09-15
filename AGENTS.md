@@ -4260,3 +4260,55 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   secret validation semantics, deduping, routing, ack-before-forward.
 - This note is intentionally LEFT UNCOMMITTED (documentation only).
 
+## Telegram silent bot - ROOT CAUSE CONFIRMED + fix (DEPLOYED 2026-09-15, commit 3b15876)
+- CONFIRMED ROOT CAUSE (from the host): Telegram rejects our webhook registration with
+  `Bad Request: secret token contains illegal characters`. Telegram's `secret_token`
+  accepts ONLY `A-Z a-z 0-9 _ -` (1-256 chars). The configured
+  `TELEGRAM_WEBHOOK_SECRET` contains characters outside that set, so `setWebhook`
+  was REFUSED, Telegram KEPT the previous registration, and the bot silently received
+  nothing while `getMe`/`setWebhook` both looked healthy. That also explains the two
+  symptoms that made this hard: `pending_update_count` growing with a BLANK
+  `last_error_message` (the failure is an outbound `setWebhook` rejection, not an
+  inbound delivery error, so Telegram never records a delivery error).
+- CONTRIBUTING CAUSE (fixed): `.env.example` told operators to generate the secret
+  with an `openssl` idiom whose common base64 form emits `+`, `/` and `=`, all
+  illegal. Documented guidance replaced; `openssl rand -hex 32` happens to be safe
+  (hex is a subset of a-z0-9) but the project generator is now the recommended path.
+- FIX (commit 3b15876):
+  - `TELEGRAM_SECRET_FORMAT` + `isValidTelegramWebhookSecret()` - the charset rule in
+    one place, with the Telegram doc reference.
+  - `generateTelegramWebhookSecret(length)` - crypto-random, rejection-sampled onto
+    Telegram's alphabet, so a generated value can never be rejected. Default 48,
+    clamped 32..256.
+  - `describeTelegramWebhookSecret()` - SAFE METADATA ONLY (present, length,
+    disallowedCharCount, disallowedCharClasses, validFormat). Never the value.
+  - `ensureWebhookRegistration()` REFUSES to call `setWebhook` when the secret is not
+    Telegram-compatible (`reason: 'invalid-webhook-secret-format'` + metadata + hint)
+    instead of letting Telegram answer opaquely. The value is never mutated/rotated;
+    a silently rewritten credential would be worse than a loud config error.
+  - server.js boot log gains `secretFormatValid` + `secretLength` and a loud
+    CONFIGURATION ERROR line naming the cause and the generator.
+  - `/api/telegram/status` + the delivery trace report secret validity as metadata.
+  - NEW `scripts/generate-telegram-secret.js`: prints a compliant secret (the one
+    artifact an operator copies into the host env); `--check <value>` / `--check-env`
+    report validity WITHOUT echoing the value (non-zero exit when invalid).
+  - `scripts/diagnose-telegram.js` reports `webhook secret format ok` and its verdict
+    now names this exact failure first.
+- OPERATOR STEPS (need Render access + the bot token, which this environment does NOT
+  have - no Render API key, no TELEGRAM_BOT_TOKEN, so 3/5/6/7/8/9 cannot be done from
+  here and are NOT claimed as done): in the Render shell run
+  `node scripts/generate-telegram-secret.js`, set the printed value as
+  `TELEGRAM_WEBHOOK_SECRET`, restart. Because boot reconciliation is already deployed
+  (`force: true`), the restart re-registers
+  `https://arbitrix.pro/api/telegram/webhook` with the new secret automatically - no
+  further code deploy needed. Then verify with the diagnose script + `getWebhookInfo`.
+- EXPECTED SIDE EFFECT to communicate: Telegram will REDELIVER the accumulated pending
+  updates once the registration succeeds, so the earlier senders get a (late) reply.
+- TESTS: tests/telegram_secret_format.test.js (17). Telegram suites 140/140. Full suite
+  1062 pass / 6 fail (same pre-existing missing-dependency failures). No secret value
+  appears in any file, log or report.
+- UNCHANGED: bot token, trading worker (still disabled), sandbox deposit/withdrawal,
+  and the 500-on-processing-failure / storage-independent `/start` behaviour.
+- This note is intentionally LEFT UNCOMMITTED (documentation only).
+
+

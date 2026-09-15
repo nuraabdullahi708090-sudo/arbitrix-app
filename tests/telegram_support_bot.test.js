@@ -733,7 +733,9 @@ test('/start still replies when storage is completely broken', async () => {
 
   const stats = bot.getStats();
   assert.strictEqual(stats.storageFailures, 1, 'the storage failure is counted');
-  assert.strictEqual(stats.lastErrorStage, 'storage');
+  // The stage must name the FAILING WRITE, not just 'storage': the coarse value is
+  // what made the production trace ambiguous (upsert vs insert looked identical).
+  assert.strictEqual(stats.lastErrorStage, 'storage:bookkeeping');
   assert.ok(logger.lines.some((l) => l.includes('storage unavailable')), 'the storage failure is logged');
   assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never logged');
 });
@@ -750,7 +752,7 @@ test('a plain-text message still answers and forwards when storage is broken', a
   // Storage is required to queue a ticket, so the update is NOT complete: answer
   // 500 so Telegram retries instead of dropping the customer's message.
   assert.strictEqual(res.statusCode, 500);
-  assert.strictEqual(res.body.stage, 'storage');
+  assert.strictEqual(res.body.stage, 'storage:upsert-conversation', 'the failing write is named');
   assert.ok(logger.lines.some((l) => l.includes('storage unavailable')));
   assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never logged');
   assert.ok(transport.calls.length >= 0);

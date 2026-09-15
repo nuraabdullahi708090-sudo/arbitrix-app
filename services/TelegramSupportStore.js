@@ -39,6 +39,34 @@ function numeric(value) {
   return s;
 }
 
+/**
+ * Build an Error that PRESERVES PostgREST's structured diagnostics.
+ *
+ * Supabase/PostgREST return `code`, `details` and `hint` next to `message`, and
+ * `code` alone identifies the failure class:
+ *   42P01 / PGRST205 - table missing        (migration not applied)
+ *   42703 / PGRST204 - column missing       (applied table differs from the migration)
+ *   42501            - permission denied    (RLS / not the service-role client)
+ *   23514            - CHECK constraint     (a literal does not match the applied schema)
+ *   23502            - NOT NULL violation
+ *   23503            - foreign key violation
+ *   23505            - unique violation
+ * Wrapping only `message` (as this store used to) discards exactly the
+ * information needed to diagnose a storage outage, so a log line could never
+ * say WHICH problem it was. These fields are never secrets.
+ */
+function storageError(label, error) {
+  const code = error && error.code ? String(error.code) : null;
+  const message = error && error.message ? String(error.message) : String(error || 'unknown storage error');
+  const wrapped = new Error(`telegram ${label} failed${code ? ' [' + code + ']' : ''}: ${message}`);
+  wrapped.supabase = {
+    code,
+    details: error && error.details ? String(error.details) : null,
+    hint: error && error.hint ? String(error.hint) : null
+  };
+  return wrapped;
+}
+
 function createTelegramSupportStore(supabaseClient) {
   if (!supabaseClient || typeof supabaseClient.from !== 'function') {
     throw new Error('createTelegramSupportStore requires a Supabase client');
@@ -50,7 +78,7 @@ function createTelegramSupportStore(supabaseClient) {
       .select('*')
       .eq('id', numeric(id))
       .limit(1);
-    if (error) throw new Error('telegram conversation lookup failed: ' + error.message);
+    if (error) throw storageError('conversation lookup', error);
     const row = Array.isArray(data) ? data[0] : data;
     return row || null;
   }
@@ -62,7 +90,7 @@ function createTelegramSupportStore(supabaseClient) {
       .select('*')
       .eq('telegram_chat_id', numeric(chatId))
       .limit(1);
-    if (error) throw new Error('telegram conversation lookup failed: ' + error.message);
+    if (error) throw storageError('conversation lookup', error);
     const row = Array.isArray(data) ? data[0] : data;
     return row || null;
   }
@@ -87,7 +115,7 @@ function createTelegramSupportStore(supabaseClient) {
         .eq('id', existing.id)
         .select()
         .single();
-      if (error) throw new Error('telegram conversation update failed: ' + error.message);
+      if (error) throw storageError('conversation update', error);
       return { conversation: data, created: false };
     }
 
@@ -101,7 +129,7 @@ function createTelegramSupportStore(supabaseClient) {
       })
       .select()
       .single();
-    if (error) throw new Error('telegram conversation insert failed: ' + error.message);
+    if (error) throw storageError('conversation insert', error);
     return { conversation: data, created: true };
   }
 
@@ -116,7 +144,7 @@ function createTelegramSupportStore(supabaseClient) {
       })
       .select()
       .single();
-    if (error) throw new Error('telegram message insert failed: ' + error.message);
+    if (error) throw storageError('message insert', error);
     return { message: data };
   }
 
@@ -125,7 +153,7 @@ function createTelegramSupportStore(supabaseClient) {
       .from(CONVERSATIONS)
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', numeric(conversationId));
-    if (error) throw new Error('telegram conversation status update failed: ' + error.message);
+    if (error) throw storageError('conversation status update', error);
     return true;
   }
 
@@ -136,8 +164,31 @@ function createTelegramSupportStore(supabaseClient) {
       .insert({ conversation_id: numeric(conversationId) })
       .select()
       .single();
-    if (error) throw new Error('telegram escalation insert failed: ' + error.message);
+    if (error) throw storageError('escalation insert', error);
     return data;
+  }
+
+  /**
+   * READ-ONLY schema probe: verifies a table exists and that the exact columns
+   * the store writes are present.
+   *
+   * A `select` with the write column list surfaces the two failures that a
+   * plain existence check cannot separate:
+   *   - table missing      -> 42P01 / PGRST205 (migration not applied)
+   *   - column missing     -> 42703 / PGRST204 (applied table != migration)
+   *
+   * LIMITATION, by design: an RLS-denied SELECT returns an empty result rather
+   * than an error, so this probe cannot confirm INSERT permission or CHECK
+   * constraints. Those only surface on a real write, which is why the live
+   * error is captured separately in the delivery trace.
+   */
+  async function probeColumns(table, columns) {
+    const { error } = await supabaseClient
+      .from(table)
+      .select(columns.join(','))
+      .limit(1);
+    if (error) throw storageError(`schema probe on ${table}`, error);
+    return true;
   }
 
   return {
@@ -146,12 +197,14 @@ function createTelegramSupportStore(supabaseClient) {
     upsertConversation,
     insertMessage,
     setConversationStatus,
-    createEscalation
+    createEscalation,
+    probeColumns
   };
 }
 
 module.exports = {
   createTelegramSupportStore,
+  storageError,
   numeric,
   CONVERSATIONS,
   MESSAGES,

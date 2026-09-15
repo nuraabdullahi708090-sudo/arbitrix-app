@@ -4201,6 +4201,11 @@ app.get('/api/telegram/status', authMiddleware, adminMiddleware, async (req, res
     lastProcessingError: {
       stage: s.lastErrorStage,
       message: s.lastError,
+      // PostgREST diagnostics: the CODE is what identifies the failure class.
+      code: s.lastErrorCode,
+      details: s.lastErrorDetails,
+      hint: s.lastErrorHint,
+      cause: s.storageCause,
       storageFailures: s.storageFailures
     },
     lastResponseSentByServer: {
@@ -9190,9 +9195,23 @@ if (telegramConfig.token) {
         .then((result) => {
           console.log('[Telegram] Storage preflight: ' + JSON.stringify({
             ok: result.ok,
-            probeFound: Boolean(result.probeFound),
+            code: result.code || null,
+            cause: result.cause || null,
+            tables: result.tables || null,
             error: result.ok ? null : scrub(result.error)
           }));
+
+          // A broken store is why the bot goes silent on plain messages while
+          // /start still works. Say WHICH table and WHICH class of problem, and
+          // what to do about it, without any secret.
+          if (!result.ok) {
+            console.warn('[Telegram] STORAGE ERROR: the Telegram support tables are not ' +
+              'writable by this deployment (cause=' + (result.cause || 'unknown') +
+              (result.code ? ', code=' + result.code : '') + '). ' + scrub(result.error || '') +
+              ' — the bot will answer 500 so Telegram retries, and will send customers a ' +
+              'temporary-unavailable notice. Apply migration ' +
+              '027_telegram_support_bot.sql.');
+          }
         })
         .catch((error) => {
           console.warn('[Telegram] Storage preflight could not run: ' + scrub(error && error.message ? error.message : error));
