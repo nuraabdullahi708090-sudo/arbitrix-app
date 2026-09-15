@@ -49,9 +49,11 @@ const {
   createTelegramWebhookHandler,
   TELEGRAM_MAX_MESSAGE_LENGTH,
   USER_HELP_TEXT,
-  RECEIPT_TEXT
+  RECEIPT_TEXT,
+  DIRECTION_INBOUND,
+  DIRECTION_OUTBOUND
 } = require('../services/TelegramSupportService');
-const { createTelegramSupportStore, numeric } = require('../services/TelegramSupportStore');
+const { createTelegramSupportStore, numeric, ALLOWED_DIRECTIONS } = require('../services/TelegramSupportStore');
 
 const TOKEN = '123456:TEST-BOT-TOKEN';
 const WEBHOOK_SECRET = 'test-webhook-secret';
@@ -934,6 +936,54 @@ test('store: insertMessage writes only the applied message columns', async () =>
   assert.deepStrictEqual(Object.keys(inserted.row).sort(), ['body', 'conversation_id', 'direction', 'id']);
   assert.strictEqual(inserted.row.conversation_id, conversation.id);
   assert.strictEqual(client.tables.telegram_support_messages[0].body, 'hi');
+});
+
+test('store: inserts the exact direction literals (inbound from the user, outbound from the bot)', async () => {
+  const client = createFakeSupabase();
+  const store = createTelegramSupportStore(client);
+  const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
+
+  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_INBOUND, body: 'user msg' });
+  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_OUTBOUND, body: 'bot msg' });
+
+  const rows = client.tables.telegram_support_messages;
+  assert.deepStrictEqual(rows.map((r) => r.direction), ['inbound', 'outbound']);
+  assert.deepStrictEqual([...ALLOWED_DIRECTIONS], ['inbound', 'outbound']);
+});
+
+test('store: refuses any direction outside the migration CHECK set (no DB write)', async () => {
+  const client = createFakeSupabase();
+  const store = createTelegramSupportStore(client);
+  const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
+
+  // Every one of these was a plausible alternative; none may reach Postgres,
+  // which is what produced the 23514 direction_check violation in production.
+  for (const bad of ['incoming', 'outgoing', 'in', 'out', 'INBOUND', 'Outbound', '', null, undefined, 1]) {
+    await assert.rejects(
+      () => store.insertMessage({ conversationId: conversation.id, direction: bad, body: 'x' }),
+      /invalid message direction/,
+      'direction ' + JSON.stringify(bad) + ' must be refused'
+    );
+  }
+  assert.strictEqual(client.tables.telegram_support_messages.length, 0, 'no invalid row reached the database');
+  assert.strictEqual(client.log.inserts.filter((i) => i.table === 'telegram_support_messages').length, 0);
+});
+
+test('store: ALLOWED_DIRECTIONS equals the migration direction CHECK exactly', () => {
+  const sql = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '027_telegram_support_bot.sql'), 'utf8');
+  const match = sql.match(/direction\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(\s*direction\s+IN\s*\(([^)]*)\)\s*\)/);
+  assert.ok(match, 'migration declares the inline direction CHECK');
+  const allowed = match[1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
+  assert.deepStrictEqual(allowed, [...ALLOWED_DIRECTIONS], 'code and migration agree on the direction literals');
+});
+
+test('service: a user message stores inbound and the acknowledgement stores outbound', async () => {
+  const { bot, store } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: 'where is my withdrawal?', updateId: 99001 }));
+  const dirs = store.state.messages.map((m) => m.direction);
+  assert.ok(dirs.includes(DIRECTION_INBOUND), 'user message stored with the inbound literal');
+  assert.ok(dirs.includes(DIRECTION_OUTBOUND), 'bot acknowledgement stored with the outbound literal');
+  assert.ok(dirs.every((d) => ALLOWED_DIRECTIONS.includes(d)), 'every stored direction is within the CHECK set');
 });
 
 test('store: status writes and escalations target the right rows/tables', async () => {

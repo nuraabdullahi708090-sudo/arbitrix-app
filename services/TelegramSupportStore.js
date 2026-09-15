@@ -30,6 +30,15 @@ const CONVERSATIONS = 'telegram_support_conversations';
 const MESSAGES = 'telegram_support_messages';
 const ESCALATIONS = 'telegram_support_escalations';
 
+/**
+ * The ONLY values migration 027 allows for `telegram_support_messages.direction`
+ * (`CHECK (direction IN ('inbound', 'outbound'))`). Kept here as the single
+ * source of truth and enforced before an insert, so a value the live CHECK does
+ * not allow can never reach Postgres (the old failure was a 23514
+ * check-constraint violation on this column).
+ */
+const ALLOWED_DIRECTIONS = Object.freeze(['inbound', 'outbound']);
+
 /** Postgres bigint columns: send numbers when the value is a safe integer. */
 function numeric(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -133,8 +142,20 @@ function createTelegramSupportStore(supabaseClient) {
     return { conversation: data, created: true };
   }
 
-  /** Persist one message. `direction` is 'inbound' (from the user) or 'outbound'. */
+  /**
+   * Persist one message. `direction` must be one of ALLOWED_DIRECTIONS - the
+   * exact literals migration 027's CHECK accepts ('inbound' from the user,
+   * 'outbound' from the bot/agent). Validating here means an unsupported value
+   * fails locally with a clear message instead of surfacing as an opaque
+   * Postgres 23514 check-constraint violation.
+   */
   async function insertMessage({ conversationId, direction, body }) {
+    if (!ALLOWED_DIRECTIONS.includes(direction)) {
+      throw new Error(
+        'invalid message direction ' + JSON.stringify(direction) +
+        '; allowed directions: ' + ALLOWED_DIRECTIONS.join(', ')
+      );
+    }
     const { data, error } = await supabaseClient
       .from(MESSAGES)
       .insert({
@@ -208,5 +229,6 @@ module.exports = {
   numeric,
   CONVERSATIONS,
   MESSAGES,
-  ESCALATIONS
+  ESCALATIONS,
+  ALLOWED_DIRECTIONS
 };
