@@ -274,20 +274,34 @@ function createTradingWorker({
   }
 
   async function stopSession(userId, stoppedReason) {
-    try {
-      await admin
-        .from('bot_sessions')
-        .update({
-          is_running: 0,
-          stopped_reason: stoppedReason,
-          updated_at: new Date(clock()).toISOString(),
-        })
-        .eq('user_id', userId);
-      stats.stopped++;
-      log('session_stopped', { userId, stoppedReason });
-    } catch (e) {
-      log('session_stop_failed', { userId, stoppedReason, message: (e && e.message) || String(e) });
+    // The update result MUST be inspected: supabase-js resolves with { error }
+    // instead of throwing, so an unchecked write would log a false success and
+    // leave a phantom "running" session behind (the exact bug this worker exists
+    // to remove).
+    const res = await withRetry(
+      () =>
+        admin
+          .from('bot_sessions')
+          .update({
+            is_running: 0,
+            stopped_reason: stoppedReason,
+            updated_at: new Date(clock()).toISOString(),
+          })
+          .eq('user_id', userId),
+      { rng, sleep, onRetry: (r) => log('retry', { op: 'stop_session', attempt: r.attempt }) }
+    );
+    if (!res.ok) {
+      stats.errors++;
+      log('session_stop_failed', {
+        userId,
+        stoppedReason,
+        message: (res.error && res.error.message) || String(res.error),
+      });
+      return false;
     }
+    stats.stopped++;
+    log('session_stopped', { userId, stoppedReason });
+    return true;
   }
 
   async function stopAllSessions(stoppedReason) {
@@ -506,7 +520,10 @@ function createTradingWorker({
         log('tick_error', { message: (e && e.message) || String(e) });
       });
     }, cfg.tickMs);
-    if (timer.unref) timer.unref();
+    // NO unref() here: the interval MUST keep the process alive. Calling unref()
+    // let the event loop drain and the worker exited immediately after logging
+    // worker_started - i.e. it never traded at all (caught by the staging run,
+    // pinned by the "stays alive and keeps ticking" test).
   }
 
   async function stop() {

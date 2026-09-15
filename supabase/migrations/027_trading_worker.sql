@@ -56,7 +56,12 @@ ALTER TABLE public.bot_sessions
     ADD COLUMN IF NOT EXISTS consecutive_failures INTEGER NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS stopped_reason TEXT,
     ADD COLUMN IF NOT EXISTS worker_version TEXT,
-    ADD COLUMN IF NOT EXISTS risk_limits JSONB;
+    ADD COLUMN IF NOT EXISTS risk_limits JSONB,
+    -- Written by the worker's heartbeat/stop paths and by the admin emergency
+    -- stop. bot_sessions is pre-existing (no migration creates it), so the
+    -- column is added defensively: without it those writes fail silently and a
+    -- phantom "running" session survives a stop.
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 
 -- Stale-heartbeat reconciliation scans running sessions only.
 CREATE INDEX IF NOT EXISTS idx_bot_sessions_heartbeat
@@ -121,7 +126,7 @@ DECLARE
 BEGIN
     FOREACH v_col IN ARRAY ARRAY['heartbeat_at', 'last_tick_at', 'tick_count',
                                  'consecutive_failures', 'stopped_reason',
-                                 'worker_version', 'risk_limits']
+                                 'worker_version', 'risk_limits', 'updated_at']
     LOOP
         IF NOT EXISTS (
             SELECT 1 FROM information_schema.columns

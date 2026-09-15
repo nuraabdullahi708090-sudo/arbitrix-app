@@ -3969,3 +3969,56 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   cutover window, since both engines must not trade simultaneously (enable the worker
   only after the browser loop is stopped/disabled).
 - Telegram webhook registration REMAINS BLOCKED pending the above.
+
+
+## Phase 31 - Staging verification of the trading worker (2026-09-15)
+- Verification was done on a THROWAWAY local PostgreSQL cluster (embedded PG 18.4
+  at /tmp/pgstaging, database arbitrix_staging) reached through a minimal
+  PostgREST-compatible shim (/tmp/pgstaging/pgrest_shim.js), so the REAL worker.js,
+  the REAL services/TradingWorker.js and the REAL record_trade_safe() RPC ran
+  unmodified. No production database, credentials or money were involved, and
+  nothing was applied to staging/production Supabase.
+- Chain applied cleanly to a fresh database: base schema -> 009 (trades +
+  record_trade_safe) -> 027 (fresh apply, self-check passed) -> 027 re-apply
+  (idempotent, no-op). All 27 staging scenarios PASS (migration objects, RPC money
+  path, restart reconciliation, replay + two-process idempotency, every risk limit,
+  emergency stop, browser-independence).
+- TWO REAL BUGS FOUND BY RUNNING IT (neither was visible to the unit tests):
+  1. FATAL: services/TradingWorker.js start() called timer.unref() on the tick
+     interval, so the event loop drained and the worker exited immediately after
+     logging worker_started - it never ticked or traded at all. Fixed by removing
+     the unref(); pinned by tests/trading_worker_process.test.js, which SPAWNS the
+     real worker against a PostgREST stub and asserts it stays alive, ticks
+     repeatedly, records trades with no browser, and exits 0 on SIGTERM.
+  2. SILENT: stopSession() ignored the { error } that supabase-js resolves with
+     (it does not throw), so it logged a FALSE "session_stopped" while the write
+     had failed - a phantom running session would survive a stop/emergency stop.
+     Root cause on staging: bot_sessions is not created by any migration and had no
+     updated_at column, which the stop/heartbeat paths write. Fixed by routing the
+     stop through withRetry, branching on the resolved result, logging
+     session_stop_failed and returning false; migration 027 now adds
+     bot_sessions.updated_at defensively (ADD COLUMN IF NOT EXISTS) and its
+     self-check asserts the column, like every other column the worker writes.
+     The admin emergency-stop route now also reports sessionsStopError instead of
+     claiming sessions were stopped when that write failed.
+- SINGLE-ENGINE GUARD (cutover safety, server-enforced): /api/trade refuses a
+  browser-originated trade when the user's session is worker-owned (is_running=1
+  AND heartbeat_at within WORKER_STALE_HEARTBEAT_MS), returning HTTP 409
+  {code:'WORKER_OWNED_SESSION', executedBy:'worker'}. isWorkerOwnedSession() is
+  deliberately FAIL-OPEN: any read error (including migration 027 not being
+  applied, which makes every read error) returns false, so the guard can never
+  itself stop trading, and with no worker running it is a no-op. This makes
+  "never both engines trading" a server-side property rather than a deploy-order
+  promise. Pinned by tests/trading_worker_single_engine.test.js (10 tests).
+- CUTOVER CONSEQUENCE TO COMMUNICATE (by design, not a bug): when the worker is
+  first enabled, every session with is_running=1 and no/stale heartbeat - i.e. all
+  browser-era bot sessions - is reconciled and STOPPED with
+  stopped_reason='stale_heartbeat_reconciled'. Users must start the bot again under
+  the new engine. This is the fail-safe that prevents double execution, but it is a
+  user-visible event and should be announced at cutover.
+- Tests: npm test = 1003 pass / 0 fail (984 baseline + 19 new: 9 process-level,
+  10 single-engine guard). i18n unchanged (1399 keys/locale, 0 empties).
+- NOT COMMITTED/DEPLOYED pending the migration + worker-service path: production
+  worker stays DISABLED (TRADING_WORKER_ENABLED unset) and migration 027 is NOT
+  applied. No Supabase DDL credentials and no Render API key are available in this
+  environment, so neither can be done from here.

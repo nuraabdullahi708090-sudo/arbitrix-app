@@ -2047,6 +2047,42 @@ async function getWorkerControl() {
   }
 }
 
+/**
+ * TRUE when a server-side worker currently owns this user's bot session, i.e. the
+ * session is running AND its worker heartbeat is fresh. Used by /api/trade as the
+ * single-engine guard: while a worker is executing a session, browser-originated
+ * trades for that session are refused (409 WORKER_OWNED_SESSION) so the two
+ * engines can never both trade it.
+ *
+ * Deliberately FAIL-OPEN. A read error (or the migration not being applied, which
+ * makes every read error) returns false and leaves the pre-worker behaviour
+ * untouched, so this guard can never itself stop trading. The heartbeat column is
+ * only ever written by the worker, so with no worker running this returns false.
+ */
+async function isWorkerOwnedSession(userId) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bot_sessions')
+      .select('is_running, heartbeat_at')
+      .eq('user_id', userId)
+      .single();
+    if (error) throw error;
+    if (!data || Number(data.is_running) !== 1 || !data.heartbeat_at) return false;
+    const age = Date.now() - new Date(data.heartbeat_at).getTime();
+    if (!isFinite(age)) return false;
+    return age >= 0 && age < WORKER_STALE_HEARTBEAT_MS;
+  } catch (e) {
+    console.log(JSON.stringify({
+      event: 'worker_owned_check_failed',
+      component: 'Server',
+      userId,
+      fallback: 'treat_as_browser_owned',
+      message: (e && e.message) || String(e)
+    }));
+    return false;
+  }
+}
+
 /** Worker/session insight for the admin panel (no PII beyond internal ids). */
 async function getWorkerStatus() {
   const control = await getWorkerControl();
@@ -5522,11 +5558,21 @@ app.post('/api/admin/bot/emergency-stop', authMiddleware, adminMiddleware, async
     // Mark every running session stopped: no phantom "running" rows survive.
     const { data: sessions } = await supabaseAdmin.from('bot_sessions').select('user_id').eq('is_running', 1);
     const ids = (Array.isArray(sessions) ? sessions : []).map((s) => s.user_id);
+    let sessionsStopped = 0;
+    let sessionsStopError = null;
     if (ids.length) {
-      await supabaseAdmin.from('bot_sessions').update({ is_running: 0, stopped_reason: 'emergency_stop', updated_at: nowIso }).in('user_id', ids);
+      const { error: stopErr } = await supabaseAdmin
+        .from('bot_sessions')
+        .update({ is_running: 0, stopped_reason: 'emergency_stop', updated_at: nowIso })
+        .in('user_id', ids);
+      // Report TRUTHFULLY: the kill switch is engaged either way (the worker
+      // refuses to trade while it is), but never claim sessions were stopped
+      // when the write failed.
+      if (stopErr) sessionsStopError = stopErr.message;
+      else sessionsStopped = ids.length;
     }
-    console.log(JSON.stringify({ event: 'emergency_stop_engaged', component: 'Server', by: engagedBy, reason, sessionsStopped: ids.length }));
-    res.json({ ok: true, emergencyStop: true, reason, engagedBy, sessionsStopped: ids.length });
+    console.log(JSON.stringify({ event: 'emergency_stop_engaged', component: 'Server', by: engagedBy, reason, sessionsStopped, sessionsStopError }));
+    res.json({ ok: true, emergencyStop: true, reason, engagedBy, sessionsStopped, sessionsStopError });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -5585,6 +5631,20 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
         await stopBotSessionForPromoLimit(userId);
         return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
       }
+    }
+    // SINGLE-ENGINE GUARD (cutover safety): a session with a FRESH server-side
+    // worker heartbeat must be driven by that worker, not by a browser tab. The
+    // browser loop and the worker would otherwise both execute the same session
+    // (double trading), and sequencing two deploys by hand is not a guarantee.
+    // This is server-enforced, so it does not depend on the client cooperating.
+    // With no worker running the heartbeat is NULL and this is a no-op, i.e.
+    // production behaviour is unchanged until the worker is actually enabled.
+    if (await isWorkerOwnedSession(userId)) {
+      return res.status(409).json({
+        error: 'This bot session is executed by the server-side trading engine.',
+        code: 'WORKER_OWNED_SESSION',
+        executedBy: 'worker'
+      });
     }
     // 2-dp precision to match DECIMAL(18,2).
     const amount2dp = Math.round(amount * 100) / 100;
