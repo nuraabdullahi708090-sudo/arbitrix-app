@@ -4034,3 +4034,53 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   bot.engineNoticeWorker + bot.workerManaged in all 6 locales; dictionary
   1401 keys/locale; re-applied on language switch by updateDynamicTranslations.
   Tests: tests/bot_engine_disclosure.test.js (8). npm test = 1011 pass / 0 fail.
+
+## Telegram setWebhook 404 - safe diagnosis (2026-09-15)
+- SYMPTOM: Telegram `setWebhook` (and/or `getMe`) answers HTTP 404.
+- PROVEN CAUSE CLASS (reproduced against the live Bot API with FAKE tokens):
+  a Telegram 404 is returned for a MALFORMED token in the request path, not for
+  an unknown token. Matrix observed:
+    `123456789:<fake>` (well formed, unknown) -> 401 "Unauthorized"
+    `"123456789:<fake>"` (surrounding quotes)  -> 404 "Not Found"
+    `bot123456789:<fake>` (leading bot prefix) -> 404 "Not Found"
+    `123456789:<fake with inner space>`        -> 404 "Not Found"
+    `123456789` (no colon / truncated)         -> 404 "Not Found"
+  Same for getMe and setWebhook. So a 404 == the stored VALUE is malformed
+  (quotes, `bot` prefix, inner whitespace, truncated), NOT a wrong/revoked bot.
+- CODE CHANGE (formatting repair only; NO credential rotation): in
+  services/TelegramSupportService.js add TELEGRAM_TOKEN_FORMAT,
+  stripSurroundingQuotes, normalizeTelegramToken (loop: strip quotes + `bot`
+  prefix + trim), isValidTelegramToken, findTelegramTokenKeyVariants,
+  describeTelegramToken (booleans/lengths only - never the value),
+  probeTelegramMethod (non-throwing; returns httpStatus/ok/errorCode/
+  description/result and SCRUBS the token from messages), summarizeTelegramBot,
+  summarizeTelegramWebhook. resolveTelegramConfig now normalizes the token (and
+  strips surrounding quotes from the webhook secret).
+- DIAGNOSTICS (both report ONLY non-secret facts; no token/secret/JWT):
+  1. `node scripts/diagnose-telegram.js [--json]` - runnable in the host shell
+     (Render: Shell tab) with NO deploy; reads the RUNNING instance env, so it
+     proves which token the live deploy loaded (length + damage flags + getMe
+     username/id + RENDER_GIT_COMMIT/BRANCH).
+  2. `GET /api/telegram/diagnose` (authMiddleware + adminMiddleware) -
+     TEMPORARY admin route; remove after the incident. Not reachable until
+     deployed. Route name does NOT trip the phase-5 guard (that guard only
+     matches /api/setup*, /api/debug*, /api/diagnostic*).
+  - `scripts/diagnose-telegram.js` accepts an injectable fetch (2nd arg to
+    buildReport) purely so tests never hit the network.
+- ENV CHECKS: Node/`process.env` cannot hold a duplicate key, so "duplicate env
+  var" means the same NAME defined in several places on the host (dashboard +
+  Blueprint/render.yaml + env group). This repo has NO render.yaml and does NOT
+  load dotenv, so only the host dashboard applies. Case-variant keys are now
+  reported by `findTelegramTokenKeyVariants` (names only).
+- STATUS CONFIRMATION REQUIREMENT: no Render API key and no valid production
+  admin JWT are available in this environment (the provided ADMIN_JWT returns
+  401 "Invalid token" against https://arbitrix.pro/api/telegram/status), so the
+  live "did the new token load?" check must be run by an operator via (1) or (2).
+- TESTS: new tests/telegram_diagnose.test.js (27 tests) pins normalization,
+  the 401-vs-404 discrimination, secret non-leakage, the admin-gated route and
+  the script wiring. `npm test` here = 1001 pass / 6 fail where all 6 are
+  PRE-EXISTING missing-dependency failures (jsonwebtoken / express /
+  @supabase/supabase-js not installed; node_modules absent) - identical to
+  baseline, no regression.
+- NOT committed / NOT pushed / NOT deployed. The route needs a deploy to be
+  reachable; the script works immediately.

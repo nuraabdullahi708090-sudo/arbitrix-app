@@ -37,7 +37,12 @@ const {
   createTelegramSupportBot,
   createTelegramTransport,
   createTelegramWebhookHandler,
-  resolveTelegramConfig
+  resolveTelegramConfig,
+  describeTelegramToken,
+  findTelegramTokenKeyVariants,
+  probeTelegramMethod,
+  summarizeTelegramBot,
+  summarizeTelegramWebhook
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
 
@@ -4183,6 +4188,75 @@ app.post('/api/telegram/set-webhook', authMiddleware, adminMiddleware, async (re
   } catch (error) {
     res.status(400).json({ success: false, error: error && error.message ? error.message : 'Failed to set webhook' });
   }
+});
+
+/**
+ * TEMPORARY Telegram setWebhook diagnostic (admin only).
+ *
+ * Exists to explain a Telegram `setWebhook` HTTP 404, which the Bot API returns
+ * both for a genuinely wrong token AND for a token whose value is malformed
+ * (surrounding quotes, a `bot` prefix pasted from an API URL, stray
+ * whitespace). It reports ONLY non-secret facts:
+ *   - token presence / length / formatting-damage booleans (never the value)
+ *   - the Telegram getMe HTTP status, ok, error code, description, bot id and
+ *     bot username
+ *   - which deployment is serving the request (Render env identifiers)
+ *   - getWebhookInfo (URL + last delivery error) when getMe succeeds
+ * The token, webhook secret and JWT are never returned or logged. Remove this
+ * route once the cause is confirmed.
+ */
+app.get('/api/telegram/diagnose', authMiddleware, adminMiddleware, async (req, res) => {
+  const tokenShape = describeTelegramToken(process.env.TELEGRAM_BOT_TOKEN);
+  // Belt-and-braces: even if Telegram echoed the token, redact it from output.
+  const redact = (value) => String(value === null || value === undefined ? '' : value)
+    .split(String(telegramConfig.token || '\u0000')).join('***');
+
+  const me = await probeTelegramMethod({ token: telegramConfig.token, method: 'getMe' });
+  const bot = summarizeTelegramBot(me.result);
+  const telegram = {
+    httpStatus: me.httpStatus,
+    ok: me.ok,
+    errorCode: me.errorCode,
+    description: redact(me.description),
+    botId: bot.botId,
+    botUsername: bot.botUsername
+  };
+
+  let webhook = null;
+  if (me.ok) {
+    const info = await probeTelegramMethod({ token: telegramConfig.token, method: 'getWebhookInfo' });
+    const summary = summarizeTelegramWebhook(info.result);
+    webhook = Object.assign(
+      { httpStatus: info.httpStatus, ok: info.ok, description: redact(info.description) },
+      summary ? {
+        url: redact(summary.url),
+        pendingUpdateCount: summary.pendingUpdateCount,
+        lastErrorDate: summary.lastErrorDate,
+        lastErrorMessage: redact(summary.lastErrorMessage)
+      } : {}
+    );
+  }
+
+  res.json({
+    success: true,
+    token: tokenShape,
+    configPresent: {
+      TELEGRAM_BOT_TOKEN: Object.prototype.hasOwnProperty.call(process.env, 'TELEGRAM_BOT_TOKEN') && tokenShape.present,
+      tokenKeyVariants: findTelegramTokenKeyVariants(process.env),
+      TELEGRAM_WEBHOOK_SECRET: Boolean(telegramConfig.webhookSecret),
+      BASE_URL: Boolean(telegramConfig.baseUrl),
+      TELEGRAM_SUPPORT_CHAT_ID: Boolean(telegramConfig.supportChatId),
+      TELEGRAM_ADMIN_IDS: telegramConfig.adminIds.length > 0
+    },
+    deployment: {
+      render: Boolean(process.env.RENDER),
+      gitCommit: process.env.RENDER_GIT_COMMIT || null,
+      gitBranch: process.env.RENDER_GIT_BRANCH || null,
+      nodeEnv: process.env.NODE_ENV || null
+    },
+    telegram,
+    webhook
+  });
 });
 
 /**

@@ -71,15 +71,104 @@ function parseAdminIds(raw) {
     .filter((part) => part.length > 0);
 }
 
+/** Shape of a real BotFather token: "<bot id>:<secret>". */
+const TELEGRAM_TOKEN_FORMAT = /^\d{5,15}:[A-Za-z0-9_-]{25,}$/;
+
+/** Remove one matching pair of surrounding quotes, if present. */
+function stripSurroundingQuotes(value) {
+  const s = value === null || value === undefined ? '' : String(value);
+  if (s.length >= 2) {
+    const first = s.charAt(0);
+    const last = s.charAt(s.length - 1);
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return s.slice(1, -1);
+    }
+  }
+  return s;
+}
+
+/**
+ * Normalize a raw TELEGRAM_BOT_TOKEN value.
+ *
+ * Hosts and copy/paste from BotFather routinely introduce formatting damage
+ * that is invisible in a dashboard: a value wrapped in quotes, a leading `bot`
+ * prefix pasted from an API URL, or stray whitespace. Any of those makes the
+ * request URL malformed, and Telegram answers HTTP 404 "Not Found" - the same
+ * response as a genuinely wrong token, which is why it is hard to diagnose.
+ * Normalizing fixes only the FORMATTING of the stored credential; the
+ * credential itself is never changed or rotated. The raw value is never
+ * logged or returned.
+ */
+function normalizeTelegramToken(raw) {
+  let s = String(raw === null || raw === undefined ? '' : raw).trim();
+  // Loop: a value can carry several artifacts at once ("bot<token>", quotes
+  // around either form, extra padding). Two passes cover every combination.
+  for (let pass = 0; pass < 3; pass += 1) {
+    const before = s;
+    s = stripSurroundingQuotes(s).trim();
+    // Pasted from https://api.telegram.org/bot<token>/getMe
+    if (/^bot\d/i.test(s)) s = s.slice(3).trim();
+    if (s === before) break;
+  }
+  return s;
+}
+
+/** True when the value looks like a real BotFather token. */
+function isValidTelegramToken(token) {
+  return TELEGRAM_TOKEN_FORMAT.test(String(token === null || token === undefined ? '' : token));
+}
+
+/**
+ * Env keys that look like TELEGRAM_BOT_TOKEN but are not the exact key.
+ *
+ * A host can end up holding a case-variant (or typo) alongside the real key,
+ * and only one of them is the value the code reads. Reporting the KEY NAMES
+ * (never the values) is safe and makes that mistake visible.
+ */
+function findTelegramTokenKeyVariants(env) {
+  const e = env || {};
+  return Object.keys(e).filter((key) => key !== 'TELEGRAM_BOT_TOKEN' && key.toUpperCase() === 'TELEGRAM_BOT_TOKEN');
+}
+
+/**
+ * Non-secret description of how a raw token is shaped.
+ *
+ * Reports lengths and booleans only - never any character of the value - so it
+ * is safe to return from an admin diagnostic endpoint or print in a log.
+ */
+function describeTelegramToken(raw) {
+  const rawString = raw === null || raw === undefined ? '' : String(raw);
+  const trimmed = rawString.trim();
+  const dequoted = stripSurroundingQuotes(trimmed).trim();
+  const normalized = normalizeTelegramToken(rawString);
+  const hasMatchingQuotes = trimmed.length >= 2 &&
+    ((trimmed.charAt(0) === '"' && trimmed.charAt(trimmed.length - 1) === '"') ||
+     (trimmed.charAt(0) === "'" && trimmed.charAt(trimmed.length - 1) === "'"));
+  return {
+    present: rawString.length > 0,
+    length: normalized.length,
+    rawLength: rawString.length,
+    hadSurroundingQuotes: hasMatchingQuotes,
+    hadLeadingWhitespace: /^\s/.test(rawString),
+    hadTrailingWhitespace: /\s$/.test(rawString),
+    hadInnerWhitespace: /\s/.test(dequoted),
+    hadBotPrefix: /^bot\d/i.test(dequoted),
+    changedByNormalization: normalized !== rawString,
+    validFormat: isValidTelegramToken(normalized)
+  };
+}
+
 /** Resolve Telegram configuration from an env-shaped object. Never logs values. */
 function resolveTelegramConfig(env) {
   const e = env || {};
   const baseUrl = String(e.BASE_URL || '').trim().replace(/\/+$/, '');
   return {
-    token: String(e.TELEGRAM_BOT_TOKEN || '').trim(),
+    token: normalizeTelegramToken(e.TELEGRAM_BOT_TOKEN),
     supportChatId: String(e.TELEGRAM_SUPPORT_CHAT_ID || '').trim() || null,
     adminIds: parseAdminIds(e.TELEGRAM_ADMIN_IDS),
-    webhookSecret: String(e.TELEGRAM_WEBHOOK_SECRET || '').trim(),
+    // Same class of damage as the token: a quoted value would be rejected by
+    // Telegram ("secret token contains unallowed characters").
+    webhookSecret: stripSurroundingQuotes(String(e.TELEGRAM_WEBHOOK_SECRET || '').trim()).trim(),
     baseUrl
   };
 }
@@ -302,6 +391,89 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
     getMe() {
       return call('getMe', {});
     }
+  };
+}
+
+/**
+ * Call a Telegram Bot API method and return a SAFE summary instead of throwing.
+ *
+ * createTelegramTransport.call() throws on a non-2xx response and hides the
+ * HTTP status, so an operator cannot tell a 404 "Not Found" (malformed or wrong
+ * bot token) from a 400 (bad parameters) or a network failure. This helper
+ * returns the status/ok/description so a diagnosis can be made, while never
+ * including the bot token in the returned object or the error text.
+ *
+ * @returns {Promise<{httpStatus:number|null, ok:boolean, errorCode:number|null,
+ *                    description:string, result:object|null}>}
+ */
+async function probeTelegramMethod({ token, method, payload, fetchImpl } = {}) {
+  const safeToken = normalizeTelegramToken(token);
+  const doFetch = fetchImpl === undefined
+    ? (typeof fetch === 'function' ? fetch : null)
+    : fetchImpl;
+  const scrub = (text) => String(text === null || text === undefined ? '' : text)
+    .split(String(safeToken || '\u0000')).join('***');
+
+  if (!safeToken) {
+    return { httpStatus: null, ok: false, errorCode: null, description: 'TELEGRAM_BOT_TOKEN is not set', result: null };
+  }
+  if (typeof doFetch !== 'function') {
+    return { httpStatus: null, ok: false, errorCode: null, description: 'No fetch implementation available for Telegram', result: null };
+  }
+
+  let res;
+  try {
+    res = await doFetch(`${TELEGRAM_API_BASE}/bot${safeToken}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+  } catch (err) {
+    return {
+      httpStatus: null,
+      ok: false,
+      errorCode: null,
+      description: scrub('Request failed: ' + (err && err.message ? err.message : err)),
+      result: null
+    };
+  }
+
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  const httpStatus = typeof res.status === 'number' ? res.status : null;
+  const ok = Boolean(body && body.ok === true);
+  const description = body && body.description
+    ? scrub(body.description)
+    : (ok ? '' : 'HTTP ' + httpStatus);
+  return {
+    httpStatus,
+    ok,
+    errorCode: body && body.error_code ? body.error_code : null,
+    description,
+    result: ok && body.result && typeof body.result === 'object' ? body.result : null
+  };
+}
+
+/**
+ * Extract only the non-secret identity fields from a getMe result.
+ * Bot usernames/ids are public, so this is safe to show an operator.
+ */
+function summarizeTelegramBot(result) {
+  if (!result || typeof result !== 'object') return { botId: null, botUsername: null };
+  return {
+    botId: result.id !== undefined && result.id !== null ? result.id : null,
+    botUsername: typeof result.username === 'string' ? result.username : null
+  };
+}
+
+/** Extract only the non-secret fields from a getWebhookInfo result. */
+function summarizeTelegramWebhook(result) {
+  if (!result || typeof result !== 'object') return null;
+  return {
+    url: typeof result.url === 'string' ? result.url : '',
+    pendingUpdateCount: result.pending_update_count || 0,
+    lastErrorDate: result.last_error_date || null,
+    lastErrorMessage: result.last_error_message || null
   };
 }
 
@@ -625,7 +797,16 @@ module.exports = {
   ESCALATION_ACK,
   ADMIN_HELP_TEXT,
   parseAdminIds,
+  TELEGRAM_TOKEN_FORMAT,
+  stripSurroundingQuotes,
+  normalizeTelegramToken,
+  isValidTelegramToken,
+  findTelegramTokenKeyVariants,
+  describeTelegramToken,
   resolveTelegramConfig,
+  probeTelegramMethod,
+  summarizeTelegramBot,
+  summarizeTelegramWebhook,
   timingSafeStringEqual,
   verifyTelegramWebhookSecret,
   isTelegramConfigured,
