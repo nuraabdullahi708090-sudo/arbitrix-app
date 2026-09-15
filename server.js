@@ -4169,7 +4169,50 @@ app.get('/api/telegram/status', authMiddleware, adminMiddleware, async (req, res
       webhook = { error: error && error.message ? error.message : 'getWebhookInfo failed' };
     }
   }
-  res.json({ success: true, status, webhook });
+
+  // TEMPORARY delivery trace (admin-only, secret-free). It answers, in order:
+  //   1 how many webhook requests arrived, 2 secret pass/reject counts,
+  //   3 last update timestamp/id, 4 last routing action, 5 last processing stage,
+  //   6 last HTTP status we answered with, 7 last sendMessage status + Telegram's
+  //   own description, 8 what our answer means for Telegram's pending queue.
+  // It never contains a token, secret, JWT, chat id or message text.
+  const s = status.stats || {};
+  const trace = {
+    webhookRequestsReceived: s.requestsReceived,
+    secretValidation: {
+      passed: s.secretPassed,
+      rejected: s.secretRejected,
+      lastRejectedAt: s.lastSecretRejectionAt
+    },
+    lastUpdate: {
+      at: s.lastUpdateAt,
+      updateId: s.lastUpdateId,
+      count: s.updatesReceived,
+      duplicates: s.duplicateUpdates
+    },
+    lastRoutingAction: {
+      action: s.lastAction,
+      reason: s.lastReason,
+      processed: s.processed,
+      ignored: s.ignored
+    },
+    lastProcessingStage: s.lastStage,
+    lastProcessingError: {
+      stage: s.lastErrorStage,
+      message: s.lastError,
+      storageFailures: s.storageFailures
+    },
+    lastResponseSentByServer: {
+      status: s.lastResponseStatus,
+      at: s.lastResponseAt
+    },
+    lastSendMessage: status.lastApiCall,
+    pendingUpdateHandling: s.lastPendingResult,
+    lastWebhookRegistration: s.lastRegistration,
+    repliesSent: s.repliesSent
+  };
+
+  res.json({ success: true, status, webhook, trace });
 });
 
 /**

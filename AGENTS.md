@@ -4135,3 +4135,56 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   trigger a second Render rebuild (working tree shows AGENTS.md modified -
   documentation only).
 
+
+## Telegram "still silent" root cause - the 200 swallow + storage-bound /start (DEPLOYED 2026-09-15, commit 77b4662)
+- Reported live state: webhook URL registered correctly, `pending_update_count: 3`,
+  `last_error_message` BLANK, `TELEGRAM_SUPPORT_CHAT_ID` unset, bot never answers
+  /start.
+- KEY DIAGNOSTIC INSIGHT: a blank `last_error_message` together with a correctly
+  registered URL is the signature of OUR server answering 2xx while failing
+  internally. Telegram records no error because we told it "OK". A 401/5xx from
+  the webhook would have shown up as a `last_error_message`.
+- ROOT CAUSE (code-visible): `store.upsertConversation()` was the FIRST `await`
+  in `handleUserUpdate` - before any reply - and `createTelegramWebhookHandler`
+  converted EVERY processing failure into `200 {ok:true,handled:false}`.
+  Therefore any storage failure (missing table/column, RLS or a missing service
+  key, Supabase outage) made /start do nothing, dropped the customer's message
+  permanently (Telegram marks it delivered and never retries) and left NO trace
+  on the Telegram side. `pending_update_count: 3` is the leftover backlog from
+  the earlier 401 era; Telegram had not re-recorded an error yet.
+- FIX (commit 77b4662, pushed 9befd56..77b4662, Render auto-deployed ~60s):
+  1. `/start`, `/help` and `/chatid` answer WITHOUT storage (`replyToChat`), so a
+     database problem can never silence the bot again; bookkeeping for those
+     commands is best-effort (`rememberConversation`) and logged on failure.
+  2. A processing failure now answers **500** with a `stage` field, so the update
+     stays queued, Telegram retries, and `last_error_message` finally shows it.
+     Customer-visible expectation: no reply is sent on that path, so a retry
+     cannot duplicate a message.
+  3. Storage failures are loud and attributed: `noteStorageFailure()` increments
+     `stats.storageFailures` and sets `stats.lastErrorStage` +
+     `stats.lastError` (scrubbed), exposed by the admin-only
+     `GET /api/telegram/status` telemetry. `lastErrorStage` resets per update.
+  4. `checkStorage()` read-only preflight, run 3s after `listen()` (detached,
+     try/catch + `.catch`) and logged as `[Telegram] Storage preflight: {...}`.
+- LOG LINES TO LOOK FOR (all secret-free; token/secret/JWT never logged):
+  - `[Telegram] Storage preflight: {"ok":true|false,...}` - false means the store
+    is the cause and the error text names it (missing table/column, RLS, etc.).
+  - `[Telegram] update received -> help` - updates ARE reaching us.
+  - `[Telegram] processing failed at storage: ... (answering 500 so Telegram
+    retries; check storage/webhook config)`.
+  - `[Telegram] Webhook rejected: ...` - the 401 secret path (would appear in
+    `getWebhookInfo.last_error_message`, which is blank today).
+  - `[Telegram] Webhook reconciliation: {"ok":true,...}` - the boot re-assert.
+- UNCHANGED: webhook secret validation (401 fail-closed), deduping, routing,
+  ack-before-forward, trading worker (not enabled), sandbox deposit/withdrawal.
+- TESTS: Telegram suites 107/107 (new: /start replies with a fully broken store;
+  plain-text with a broken store answers 500 + stage=storage; checkStorage;
+  the handler 500 contract; the boot preflight wiring). Full `npm test` =
+  1030 pass / 6 fail (the same pre-existing missing-dependency failures).
+- STILL NOT READABLE FROM THIS ENVIRONMENT: Render logs and `getWebhookInfo`
+  (no bot token, no Render API key; the supplied ADMIN_JWT is not a JWT). The
+  definitive end-to-end proof is sending `/start` to @ArbitrixSupportBot: after
+  77b4662 that reply no longer depends on the database at all.
+- This note is intentionally LEFT UNCOMMITTED (documentation only) so recording
+  it does not trigger another Render rebuild.
+

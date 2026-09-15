@@ -352,6 +352,11 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
   const safe = (message) => String(message === undefined || message === null ? '' : message)
     .split(String(token || '\u0000')).join('***');
 
+  // Outcome of the most recent Telegram API call: HTTP status plus Telegram's
+  // error_code/description, scrubbed of the token. Never carries the request
+  // body, the chat id or any customer content.
+  let lastCall = null;
+
   async function call(method, payload) {
     // Resolved here rather than at construction so a runtime without a global
     // fetch can still boot the app while the bot stays unconfigured.
@@ -366,6 +371,14 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
         body: JSON.stringify(payload || {})
       });
     } catch (err) {
+      lastCall = {
+        method,
+        httpStatus: null,
+        ok: false,
+        errorCode: null,
+        description: safe(err && err.message).slice(0, 200),
+        at: new Date().toISOString()
+      };
       throw new Error(`Telegram ${method} request failed: ${safe(err && err.message)}`);
     }
     let body = null;
@@ -374,7 +387,18 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
     } catch (err) {
       body = null;
     }
-    if (!res.ok || !body || body.ok !== true) {
+    const ok = Boolean(res.ok && body && body.ok === true);
+    lastCall = {
+      method,
+      httpStatus: typeof res.status === 'number' ? res.status : null,
+      ok,
+      errorCode: body && body.error_code ? body.error_code : null,
+      description: body && body.description
+        ? safe(body.description).slice(0, 200)
+        : (ok ? null : `HTTP ${res.status}`),
+      at: new Date().toISOString()
+    };
+    if (!ok || !body || body.ok !== true) {
       const description = body && body.description ? body.description : `HTTP ${res.status}`;
       throw new Error(`Telegram ${method} failed: ${safe(description)}`);
     }
@@ -396,6 +420,9 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
     },
     getMe() {
       return call('getMe', {});
+    },
+    getLastCall() {
+      return lastCall;
     }
   };
 }
@@ -537,24 +564,39 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
   const forwarded = threadMap || createLimitedMap({ max: 500 });
 
-  // Secret-free delivery telemetry. This is what turns "the bot is silent" into
-  // a diagnosable event: it records whether updates arrive at all, whether they
-  // were rejected on the secret header, how routing classified them, and the
-  // last error message (with the token scrubbed out).
+  // Secret-free delivery telemetry: enough to locate the exact failing stage of
+  // a delivery without ever recording a token, secret, JWT or message text.
+  /**
+   * Delivery trace.
+   *
+   * Records enough to locate the exact failing stage of a Telegram delivery
+   * WITHOUT any secret or customer content: how many requests arrived, how many
+   * passed/failed the secret check, the last update timestamp, the last routing
+   * action, the last processing stage, the HTTP status we answered with, and the
+   * outcome of the last Telegram API call (sendMessage status + description).
+   */
   const stats = {
+    requestsReceived: 0,
+    secretPassed: 0,
+    secretRejected: 0,
     updatesReceived: 0,
     duplicateUpdates: 0,
-    secretRejected: 0,
     processed: 0,
     ignored: 0,
     repliesSent: 0,
     storageFailures: 0,
     lastUpdateAt: null,
+    lastUpdateId: null,
     lastAction: null,
     lastReason: null,
+    lastStage: null,
     lastSecretRejectionAt: null,
+    lastResponseStatus: null,
+    lastResponseAt: null,
+    lastPendingResult: null,
     lastErrorStage: null,
-    lastError: null
+    lastError: null,
+    lastRegistration: null
   };
 
   const scrub = (message) => String(message === undefined || message === null ? '' : message)
@@ -569,6 +611,38 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   function recordRejectedSecret() {
     stats.secretRejected += 1;
     stats.lastSecretRejectionAt = new Date().toISOString();
+    stats.lastStage = 'secret-rejected';
+    stats.lastPendingResult = 'rejected (Telegram records last_error_message and retries)';
+  }
+
+  /** Called by the webhook route for every POST it receives, before validation. */
+  function recordRequest() {
+    stats.requestsReceived += 1;
+  }
+
+  /** Called by the webhook route once the secret header has been verified. */
+  function recordSecretPassed() {
+    stats.secretPassed += 1;
+  }
+
+  /** Record the HTTP status this server answered the webhook with. */
+  function noteResponse(statusCode) {
+    stats.lastResponseStatus = statusCode;
+    stats.lastResponseAt = new Date().toISOString();
+    if (statusCode >= 200 && statusCode < 300) {
+      stats.lastPendingResult = 'acknowledged 2xx (update leaves the Telegram pending queue)';
+    } else if (statusCode === 401) {
+      stats.lastPendingResult = 'rejected 401 (Telegram sets last_error_message and retries)';
+    } else if (statusCode >= 500) {
+      stats.lastPendingResult = 'retry 5xx (Telegram keeps it pending and retries)';
+    } else {
+      stats.lastPendingResult = `not-acknowledged ${statusCode} (Telegram keeps it pending and retries)`;
+    }
+  }
+
+  /** Mark the phase of the update currently being processed. */
+  function markStage(stage) {
+    stats.lastStage = stage;
   }
 
   const warn = (message) => {
@@ -596,6 +670,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       webhookPath: '/api/telegram/webhook',
       seenUpdates: seenUpdates.size(),
       threadedReplies: forwarded.size(),
+      // Last Telegram API call outcome (sendMessage status + Telegram's own
+      // description) - token scrubbed, no chat id, no message text.
+      lastApiCall: transport.getLastCall ? transport.getLastCall() : null,
       stats: getStats()
     };
   }
@@ -610,6 +687,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
 
   /** Send to the user and persist an outbound row. Returns Telegram's result. */
   async function sendOutbound(conversation, body) {
+    markStage('sendMessage');
     const sent = await transport.sendMessage(conversation.telegram_chat_id, body);
     stats.repliesSent += 1;
     await store.insertMessage({
@@ -628,6 +706,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * table/column, RLS/service-key, outage) must never make the bot silent.
    */
   async function replyToChat(chatId, body) {
+    markStage('sendMessage');
     const sent = await transport.sendMessage(chatId, body);
     stats.repliesSent += 1;
     return sent;
@@ -645,6 +724,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   /** Best-effort conversation bookkeeping; never blocks a reply. */
   async function rememberConversation(route, from) {
     try {
+      markStage('storage:bookkeeping');
       const { conversation } = await store.upsertConversation({
         chatId: route.chatId,
         telegramUserId: route.fromId,
@@ -665,6 +745,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // Commands answer WITHOUT storage so /start can never be silenced by a
     // database problem. Booking is best-effort and logged on failure.
     if (command && (command.name === 'start' || command.name === 'help')) {
+      markStage('reply:help');
       await replyToChat(route.chatId, USER_HELP_TEXT);
       await rememberConversation(route, from);
       return { handled: true, action: 'help' };
@@ -679,6 +760,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     let conversation = null;
     let created = false;
     try {
+      markStage('storage:upsert-conversation');
       const upserted = await store.upsertConversation({
         chatId: route.chatId,
         telegramUserId: route.fromId,
@@ -738,6 +820,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         acknowledged = true;
       }
       try {
+        markStage('forwardToSupportGroup');
         const sent = await transport.sendMessage(cfg.supportChatId, buildForwardText(conversation, conversation.telegram_chat_id, name, text));
         if (sent && sent.message_id !== undefined && sent.message_id !== null) {
           forwarded.set(sent.message_id, conversation.telegram_chat_id);
@@ -858,19 +941,24 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     stats.lastUpdateAt = new Date().toISOString();
     // Reset per-update so the reported stage always belongs to THIS update.
     stats.lastErrorStage = null;
+    markStage('parsed');
 
     const id = updateId(update);
+    stats.lastUpdateId = id;
     if (seenUpdates.has(id)) {
       stats.duplicateUpdates += 1;
       stats.lastAction = 'duplicate';
+      markStage('duplicate');
       return { handled: true, action: 'duplicate' };
     }
 
     const route = routeUpdate(update, routingConfig);
+    markStage('routed:' + route.kind);
     if (route.kind === 'ignore') {
       stats.ignored += 1;
       stats.lastAction = 'ignored';
       stats.lastReason = route.reason;
+      stats.lastStage = 'ignored:' + route.reason;
       return { handled: false, reason: route.reason };
     }
 
@@ -881,10 +969,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       stats.processed += 1;
       stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
       stats.lastReason = (result && result.reason) || null;
+      markStage('done:' + stats.lastAction);
       seenUpdates.remember(id);
       return result;
     } catch (error) {
-      stats.lastErrorStage = stats.lastErrorStage || 'processing';
+      // Attribute the failure to the stage that actually threw (storage/sendMessage/
+      // forward), falling back to a generic marker.
+      stats.lastErrorStage = stats.lastErrorStage || stats.lastStage || 'processing';
       stats.lastError = scrub(error && error.message ? error.message : error);
       stats.lastAction = 'error';
       stats.lastReason = 'processing-error';
@@ -931,6 +1022,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    *   guarantee the running config matches Telegram's.
    */
   async function ensureWebhookRegistration({ force = false } = {}) {
+    const result = await runWebhookRegistration(force);
+    // Keep the last registration outcome so the trace can answer "did the
+    // webhook we think we registered actually get registered?".
+    stats.lastRegistration = {
+      at: new Date().toISOString(),
+      ok: result.ok,
+      reRegistered: Boolean(result.reRegistered),
+      reason: result.reason || null,
+      error: result.error || null,
+      probeError: result.probeError || null
+    };
+    return result;
+  }
+
+  async function runWebhookRegistration(force) {
     const expectedUrl = cfg.baseUrl ? `${cfg.baseUrl}/api/telegram/webhook` : null;
     if (!isTelegramConfigured(cfg) || !expectedUrl) {
       return { ok: false, reason: 'not-configured', reRegistered: false, plan: null, webhook: null };
@@ -993,7 +1099,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return transport.getWebhookInfo();
   }
 
-  return { handleUpdate, setWebhook, getWebhookInfo, getConfig, status, ensureWebhookRegistration, checkStorage, getStats, recordRejectedSecret };
+  return {
+    handleUpdate,
+    setWebhook,
+    getWebhookInfo,
+    getConfig,
+    status,
+    ensureWebhookRegistration,
+    checkStorage,
+    getStats,
+    recordRequest,
+    recordSecretPassed,
+    recordRejectedSecret,
+    noteResponse,
+    markStage
+  };
 }
 
 /**
@@ -1003,59 +1123,109 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
  *   - 503 when the bot is not configured (no token or no webhook secret).
  *   - 401 when the X-Telegram-Bot-Api-Secret-Token header is missing/mismatched
  *     (constant-time compare). The header value is never logged.
- *   - 200 otherwise, even if processing throws, so Telegram does not retry a
- *     poisoned update forever; the error is logged without secrets.
+ *   - 200 when the update was processed.
+ *   - 500 when processing failed, so the update stays queued, Telegram retries
+ *     it, and `getWebhookInfo.last_error_message` finally shows the failure.
+ *
+ * The ENTIRE body is inside one try/catch so no exception (config read, header
+ * read, logging) can escape without a recorded status and a response.
+ *
+ * Every response logs one secret-free evidence line carrying the delivery trace:
+ * requests received, secret pass/reject counts, last update/action/stage, replies
+ * sent, the last sendMessage HTTP status + Telegram description, and what the
+ * answer means for Telegram's pending queue.
  */
 function createTelegramWebhookHandler({ bot, logger }) {
   if (!bot) throw new Error('createTelegramWebhookHandler requires a bot');
   const log = logger || console;
 
   return async function telegramWebhookHandler(req, res) {
-    const config = bot.getConfig();
-    if (!isTelegramConfigured(config)) {
-      return res.status(503).json({ ok: false, error: 'Telegram bot not configured' });
-    }
+    const safeCall = (fn) => {
+      try { return fn(); } catch (err) { return null; }
+    };
 
-    const provided = typeof req.get === 'function'
-      ? req.get('x-telegram-bot-api-secret-token')
-      : (req.headers ? req.headers['x-telegram-bot-api-secret-token'] : undefined);
+    const evidence = (status) => {
+      const stats = safeCall(() => (bot.getStats ? bot.getStats() : {})) || {};
+      const api = safeCall(() => (bot.status ? bot.status().lastApiCall : null));
+      const lastSend = api
+        ? `${api.method} http=${api.httpStatus} ok=${api.ok}` +
+          (api.errorCode ? ` error_code=${api.errorCode}` : '') +
+          (api.description ? ` desc="${api.description}"` : '')
+        : 'none';
+      return [
+        `status=${status}`,
+        `requests=${stats.requestsReceived}`,
+        `secretPassed=${stats.secretPassed}`,
+        `secretRejected=${stats.secretRejected}`,
+        `updates=${stats.updatesReceived}`,
+        `duplicates=${stats.duplicateUpdates}`,
+        `lastUpdateAt=${stats.lastUpdateAt}`,
+        `lastUpdateId=${stats.lastUpdateId}`,
+        `lastAction=${stats.lastAction}`,
+        `lastStage=${stats.lastStage}`,
+        `repliesSent=${stats.repliesSent}`,
+        `storageFailures=${stats.storageFailures}`,
+        `lastSendMessage=${lastSend}`,
+        `pendingResult=${stats.lastPendingResult}`
+      ].join(' ');
+    };
 
-    if (!verifyTelegramWebhookSecret(provided, config.webhookSecret)) {
-      if (typeof bot.recordRejectedSecret === 'function') bot.recordRejectedSecret();
-      if (log && typeof log.warn === 'function') {
-        // A MISSING header while a secret IS configured is the signature of a
-        // webhook registered without (or with a different) secret_token:
-        // Telegram cannot match, so every delivery is refused and the bot looks
-        // dead even though getMe/setWebhook both succeed. Re-registering repairs
-        // it; the startup reconciliation does this automatically.
-        log.warn(provided
-          ? '[Telegram] Webhook rejected: secret token header does not match'
-          : '[Telegram] Webhook rejected: secret token header missing - the registered webhook carries no/another secret_token');
-      }
-      return res.status(401).json({ ok: false });
-    }
+    // Records the status + trace and sends the response exactly once.
+    const respond = (status, payload, level = 'log') => {
+      safeCall(() => { if (typeof bot.noteResponse === 'function') bot.noteResponse(status); });
+      safeCall(() => {
+        if (log && typeof log[level] === 'function') log[level](`[Telegram] ${evidence(status)}`);
+      });
+      if (res.headersSent) return res;
+      return res.status(status).json(payload);
+    };
 
     try {
+      safeCall(() => { if (typeof bot.recordRequest === 'function') bot.recordRequest(); });
+
+      const config = bot.getConfig();
+      if (!isTelegramConfigured(config)) {
+        return respond(503, { ok: false, error: 'Telegram bot not configured' }, 'warn');
+      }
+
+      const provided = typeof req.get === 'function'
+        ? req.get('x-telegram-bot-api-secret-token')
+        : (req.headers ? req.headers['x-telegram-bot-api-secret-token'] : undefined);
+
+      if (!verifyTelegramWebhookSecret(provided, config.webhookSecret)) {
+        safeCall(() => { if (typeof bot.recordRejectedSecret === 'function') bot.recordRejectedSecret(); });
+        if (log && typeof log.warn === 'function') {
+          // A MISSING header while a secret IS configured is the signature of a
+          // webhook registered without (or with a different) secret_token:
+          // Telegram cannot match, so every delivery is refused and the bot looks
+          // dead even though getMe/setWebhook both succeed. Re-registering repairs
+          // it; the startup reconciliation does this automatically.
+          log.warn(provided
+            ? '[Telegram] Webhook rejected: secret token header does not match'
+            : '[Telegram] Webhook rejected: secret token header missing - the registered webhook carries no/another secret_token');
+        }
+        return respond(401, { ok: false, error: 'invalid_secret', secretProvided: Boolean(provided) }, 'warn');
+      }
+      safeCall(() => { if (typeof bot.recordSecretPassed === 'function') bot.recordSecretPassed(); });
+
       const result = await bot.handleUpdate(req.body);
       const action = result && result.action
         ? result.action
         : (result && result.handled ? 'handled' : 'no-action');
-      if (log && typeof log.log === 'function') {
-        log.log(`[Telegram] update received -> ${action}${result && result.reason ? ' (' + result.reason + ')' : ''}`);
-      }
-      return res.status(200).json({ ok: true, handled: Boolean(result && result.handled) });
+      return respond(200, { ok: true, handled: Boolean(result && result.handled), action });
     } catch (error) {
       // A processing failure is NOT a delivered update. Answering 200 here would
       // make Telegram drop the customer's message forever AND record no error at
       // all (a silently dead bot). 500 keeps the update queued, makes Telegram
       // retry it, and surfaces the failure in getWebhookInfo.last_error_message.
-      const stage = (bot.getStats && bot.getStats().lastErrorStage) || 'processing';
+      const stats = safeCall(() => (bot.getStats ? bot.getStats() : {})) || {};
+      const stage = stats.lastErrorStage || stats.lastStage || 'processing';
       if (log && typeof log.error === 'function') {
         log.error(`[Telegram] processing failed at ${stage}: ` +
           (error && error.message ? error.message : error) +
           ' (answering 500 so Telegram retries; check storage/webhook config)');
       }
-      return res.status(500).json({ ok: false, error: 'processing_failed', stage });
+      return respond(500, { ok: false, error: 'processing_failed', stage }, 'error');
     }
   };
 }
