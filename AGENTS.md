@@ -4084,3 +4084,54 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   baseline, no regression.
 - NOT committed / NOT pushed / NOT deployed. The route needs a deploy to be
   reachable; the script works immediately.
+
+## Telegram Support Bot - silent-bot repair + diagnostic cleanup (DEPLOYED 2026-09-15)
+- Incident: webhook registered, `getMe` 200, but the bot never replied to
+  `/start` or customer messages.
+- Commit `9befd56` ("fix: repair silent Telegram support bot (re-assert webhook
+  secret + customer fallback)"), pushed `7800158..9befd56` main -> main
+  (fast-forward of 1 commit). Render auto-deployed in ~60s
+  (x-render-origin-server: Render, behind Cloudflare).
+- Two causes addressed:
+  1. A webhook registered without the CURRENT `secret_token` (or before it was
+     set) makes Telegram refuse every delivery - the bot is silent while
+     `setWebhook`/`getMe` both report success. `getWebhookInfo` does NOT reveal
+     whether a secret_token is registered, so the server now re-asserts the
+     registration (URL + secret + `allowed_updates`) 2s after `listen()`:
+     `ensureWebhookRegistration({ force: true })`, wrapped in
+     `setTimeout` + `try/catch` + `.catch` so nothing can prevent startup.
+     Opt out with `TELEGRAM_WEBHOOK_AUTO_REGISTER=false`.
+  2. A plain-text customer message was forwarded to `TELEGRAM_SUPPORT_CHAT_ID`
+     BEFORE the acknowledgement, so a wrong/unreachable support group threw and
+     the customer saw nothing. The acknowledgement is now sent first, and
+     forwarding failures are caught, logged (token scrubbed) and still leave the
+     customer answered (`forward-failed`).
+- Also: `normalizeTelegramId` de-quotes `TELEGRAM_SUPPORT_CHAT_ID` and each
+  `TELEGRAM_ADMIN_IDS` entry (the same paste-damage class that caused the token
+  404); secret-free delivery telemetry on the admin status route
+  (`updatesReceived`/`duplicateUpdates`/`secretRejected`/`processed`/`ignored`/
+  `repliesSent`/`lastAction`/`lastReason`/`lastUpdateAt`/`lastError`); and the
+  temporary `GET /api/telegram/diagnose` route is REMOVED (its imports too).
+- Unchanged: webhook secret validation (401 on missing/mismatched header, 503
+  when unconfigured), update deduping, escalation/`/chatid`/`/reply` routing,
+  trading worker (still not enabled), sandbox deposit/withdrawal logic.
+- Tests: Telegram suites 104/104. Full `npm test` = 1026 pass / 6 fail, where
+  all 6 are the PRE-EXISTING missing-dependency failures
+  (jsonwebtoken / express / @supabase/supabase-js; node_modules absent).
+- Post-deploy verification: `/api/health` 200; `/api/telegram/webhook` -> 401
+  `{"ok":false}` for a missing OR wrong secret header (fail-closed preserved);
+  `/api/telegram/diagnose` no longer 401s - it falls through to the SPA HTML,
+  proving the cleanup build is live; `/api/telegram/status` still 401
+  (admin-gated); `/` and `/reset-password.html` 200; `/server.js` serves the SPA
+  HTML, not the source.
+- NOT VERIFIABLE FROM THIS ENVIRONMENT (no bot token, no Render API key, and the
+  supplied ADMIN_JWT is not a JWT): Telegram's `getWebhookInfo`
+  (url / last_error_message / pending_update_count) and an end-to-end `/start`
+  reply. To confirm, run `node scripts/diagnose-telegram.js` in the Render Shell
+  (the only diagnostic surface now) and send `/start` to @ArbitrixSupportBot.
+  The successful boot reconciliation logs
+  `[Telegram] Webhook reconciliation: {"ok":true,"reRegistered":true,...}`.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
+  trigger a second Render rebuild (working tree shows AGENTS.md modified -
+  documentation only).
+

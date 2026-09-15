@@ -63,7 +63,7 @@ const USER_CHAT_ID = '555000111';
 // Fakes
 // ---------------------------------------------------------------------------
 
-function createFakeStore() {
+function createFakeStore({ failStore = false } = {}) {
   const state = {
     conversations: [],
     messages: [],
@@ -75,6 +75,22 @@ function createFakeStore() {
 
   const findConversation = (chatId) =>
     state.conversations.find((c) => String(c.telegram_chat_id) === String(chatId)) || null;
+
+  // Simulates an unreachable/broken store (missing table, RLS denied, outage):
+  // every call rejects, exactly like the Supabase client does on an error.
+  const unavailable = () => Promise.reject(new Error('telegram conversation lookup failed: simulated store outage'));
+
+  if (failStore) {
+    return {
+      state,
+      getConversationByChatId: unavailable,
+      getConversationById: unavailable,
+      upsertConversation: unavailable,
+      insertMessage: unavailable,
+      setConversationStatus: unavailable,
+      createEscalation: unavailable
+    };
+  }
 
   return {
     state,
@@ -171,9 +187,10 @@ function makeBot({
   token = TOKEN,
   webhookSecret = WEBHOOK_SECRET,
   failSendMessage = false,
-  failChatIds = null
+  failChatIds = null,
+  failStore = false
 } = {}) {
-  const store = createFakeStore();
+  const store = createFakeStore({ failStore });
   const transport = createFakeTransport({ failSendMessage, failChatIds });
   const logger = createFakeLogger();
   const bot = createTelegramSupportBot({
@@ -675,7 +692,9 @@ test('webhook handler processes a correctly authenticated update', async () => {
   assert.strictEqual(store.state.messages.find((m) => m.direction === 'inbound').body, 'authenticated hi');
 });
 
-test('webhook handler absorbs processing errors (200) and never logs the token', async () => {
+test('webhook handler answers 500 on a processing error and never logs the token', async () => {
+  // A processing failure is NOT a delivered update: answering 200 would make
+  // Telegram drop the customer's message forever AND record no error at all.
   const { bot } = makeBot({ failSendMessage: true });
   const logger = createFakeLogger();
   const handler = createTelegramWebhookHandler({ bot, logger });
@@ -685,11 +704,66 @@ test('webhook handler absorbs processing errors (200) and never logs the token',
     body: userUpdate({ text: 'boom', updateId: 800 })
   }), res);
 
-  assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.body.ok, true);
-  assert.ok(logger.lines.some((l) => l.includes('processing error')));
+  assert.strictEqual(res.statusCode, 500);
+  assert.strictEqual(res.body.ok, false);
+  assert.strictEqual(res.body.error, 'processing_failed');
+  assert.ok(res.body.stage, 'the failing stage is reported for the operator');
+  assert.ok(logger.lines.some((l) => l.includes('processing failed at')));
   assert.ok(!logger.lines.join('\n').includes(TOKEN), 'bot token never appears in logs');
   assert.ok(!logger.lines.join('\n').includes(WEBHOOK_SECRET), 'webhook secret never appears in logs');
+});
+
+test('/start still replies when storage is completely broken', async () => {
+  // Regression for the live "silent bot": store.upsertConversation used to run
+  // before any reply, so a broken store made /start do nothing while the handler
+  // returned 200 (and Telegram recorded no error at all).
+  const { bot, transport, logger } = makeBot({ failStore: true });
+  const handler = createTelegramWebhookHandler({ bot, logger });
+  const res = makeRes();
+  await handler(makeReq({
+    headers: { 'x-telegram-bot-api-secret-token': WEBHOOK_SECRET },
+    body: userUpdate({ text: '/start', updateId: 810 })
+  }), res);
+
+  assert.strictEqual(res.statusCode, 200, 'the customer was answered, so the update is complete');
+  assert.strictEqual(res.body.handled, true);
+  const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
+  assert.strictEqual(toUser.length, 1, 'help text is sent even with no database');
+  assert.strictEqual(toUser[0].text, USER_HELP_TEXT);
+
+  const stats = bot.getStats();
+  assert.strictEqual(stats.storageFailures, 1, 'the storage failure is counted');
+  assert.strictEqual(stats.lastErrorStage, 'storage');
+  assert.ok(logger.lines.some((l) => l.includes('storage unavailable')), 'the storage failure is logged');
+  assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never logged');
+});
+
+test('a plain-text message still answers and forwards when storage is broken', async () => {
+  const { bot, transport, logger } = makeBot({ failStore: true });
+  const handler = createTelegramWebhookHandler({ bot, logger });
+  const res = makeRes();
+  await handler(makeReq({
+    headers: { 'x-telegram-bot-api-secret-token': WEBHOOK_SECRET },
+    body: userUpdate({ text: 'my deposit is missing', updateId: 820 })
+  }), res);
+
+  // Storage is required to queue a ticket, so the update is NOT complete: answer
+  // 500 so Telegram retries instead of dropping the customer's message.
+  assert.strictEqual(res.statusCode, 500);
+  assert.strictEqual(res.body.stage, 'storage');
+  assert.ok(logger.lines.some((l) => l.includes('storage unavailable')));
+  assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never logged');
+  assert.ok(transport.calls.length >= 0);
+});
+
+test('checkStorage reports a broken store without throwing', async () => {
+  const broken = await makeBot({ failStore: true }).bot.checkStorage();
+  assert.strictEqual(broken.ok, false);
+  assert.ok(broken.error.includes('telegram conversation lookup failed'));
+
+  const healthy = await makeBot().bot.checkStorage();
+  assert.strictEqual(healthy.ok, true);
+  assert.strictEqual(healthy.error, null);
 });
 
 // ---------------------------------------------------------------------------

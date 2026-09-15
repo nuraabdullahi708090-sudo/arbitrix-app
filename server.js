@@ -9108,3 +9108,31 @@ if (telegramAutoRegister && telegramConfig.token && telegramConfig.webhookSecret
     }
   }, 2000);
 }
+
+// Telegram storage preflight (non-blocking, no secrets).
+//
+// A broken store (missing table/column, RLS or a missing service key, an outage)
+// used to make the bot answer EVERY update with a silent 200: /start did nothing
+// and Telegram recorded no error at all. The command replies no longer touch
+// storage, and this probe makes the broken state visible in the boot log.
+if (telegramConfig.token) {
+  setTimeout(() => {
+    const scrub = (value) => String(value === null || value === undefined ? '' : value)
+      .split(String(telegramConfig.token || '\u0000')).join('***');
+    try {
+      telegramBot.checkStorage()
+        .then((result) => {
+          console.log('[Telegram] Storage preflight: ' + JSON.stringify({
+            ok: result.ok,
+            probeFound: Boolean(result.probeFound),
+            error: result.ok ? null : scrub(result.error)
+          }));
+        })
+        .catch((error) => {
+          console.warn('[Telegram] Storage preflight could not run: ' + scrub(error && error.message ? error.message : error));
+        });
+    } catch (error) {
+      console.warn('[Telegram] Storage preflight could not run: ' + scrub(error && error.message ? error.message : error));
+    }
+  }, 3000);
+}

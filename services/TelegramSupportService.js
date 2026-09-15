@@ -548,10 +548,12 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     processed: 0,
     ignored: 0,
     repliesSent: 0,
+    storageFailures: 0,
     lastUpdateAt: null,
     lastAction: null,
     lastReason: null,
     lastSecretRejectionAt: null,
+    lastErrorStage: null,
     lastError: null
   };
 
@@ -618,24 +620,79 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return sent;
   }
 
+  /**
+   * Reply straight to a chat WITHOUT touching storage.
+   *
+   * Deliberately storage-free: answering `/start`, `/help` and `/chatid` is a
+   * pure function of the incoming update. A database problem (missing
+   * table/column, RLS/service-key, outage) must never make the bot silent.
+   */
+  async function replyToChat(chatId, body) {
+    const sent = await transport.sendMessage(chatId, body);
+    stats.repliesSent += 1;
+    return sent;
+  }
+
+  /** Record a storage failure without letting it break a reply. */
+  function noteStorageFailure(error) {
+    const message = error && error.message ? error.message : error;
+    stats.storageFailures += 1;
+    stats.lastErrorStage = 'storage';
+    stats.lastError = scrub(message);
+    warn(`storage unavailable (${stats.lastError})`);
+  }
+
+  /** Best-effort conversation bookkeeping; never blocks a reply. */
+  async function rememberConversation(route, from) {
+    try {
+      const { conversation } = await store.upsertConversation({
+        chatId: route.chatId,
+        telegramUserId: route.fromId,
+        username: from.username || null,
+        displayName: telegramDisplayName(from)
+      });
+      return conversation;
+    } catch (error) {
+      noteStorageFailure(error);
+      return null;
+    }
+  }
+
   async function handleUserUpdate(route, update) {
     const from = route.message.from || {};
-    const { conversation, created } = await store.upsertConversation({
-      chatId: route.chatId,
-      telegramUserId: route.fromId,
-      username: from.username || null,
-      displayName: telegramDisplayName(from)
-    });
-
     const command = route.command;
+
+    // Commands answer WITHOUT storage so /start can never be silenced by a
+    // database problem. Booking is best-effort and logged on failure.
     if (command && (command.name === 'start' || command.name === 'help')) {
-      await sendOutbound(conversation, USER_HELP_TEXT);
+      await replyToChat(route.chatId, USER_HELP_TEXT);
+      await rememberConversation(route, from);
       return { handled: true, action: 'help' };
     }
 
     if (command && command.name === 'chatid') {
-      await sendOutbound(conversation, `Your chat ID is: ${conversation.telegram_chat_id}`);
+      await replyToChat(route.chatId, `Your chat ID is: ${route.chatId}`);
+      await rememberConversation(route, from);
       return { handled: true, action: 'chatid' };
+    }
+
+    let conversation = null;
+    let created = false;
+    try {
+      const upserted = await store.upsertConversation({
+        chatId: route.chatId,
+        telegramUserId: route.fromId,
+        username: from.username || null,
+        displayName: telegramDisplayName(from)
+      });
+      conversation = upserted.conversation;
+      created = upserted.created;
+    } catch (error) {
+      // A ticket cannot be queued without storage. Do NOT answer 2xx: rethrow so
+      // the handler returns 500 and Telegram retries the update instead of
+      // dropping the customer's message forever.
+      noteStorageFailure(error);
+      throw error;
     }
 
     if (command && command.name === 'escalate') {
@@ -799,6 +856,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   async function handleUpdate(update) {
     stats.updatesReceived += 1;
     stats.lastUpdateAt = new Date().toISOString();
+    // Reset per-update so the reported stage always belongs to THIS update.
+    stats.lastErrorStage = null;
 
     const id = updateId(update);
     if (seenUpdates.has(id)) {
@@ -825,10 +884,32 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       seenUpdates.remember(id);
       return result;
     } catch (error) {
+      stats.lastErrorStage = stats.lastErrorStage || 'processing';
       stats.lastError = scrub(error && error.message ? error.message : error);
       stats.lastAction = 'error';
       stats.lastReason = 'processing-error';
       throw error;
+    }
+  }
+
+  /**
+   * Read-only storage preflight.
+   *
+   * Verifies the Telegram tables are actually reachable with the client the bot
+   * was built with (a missing table/column, RLS or a missing service key all
+   * fail here). Called at boot so a broken store is visible immediately instead
+   * of silently swallowing every customer message. Never throws; never returns
+   * or logs a secret.
+   */
+  async function checkStorage() {
+    try {
+      const probe = await store.getConversationByChatId(cfg.supportChatId || '0');
+      return { ok: true, error: null, probeFound: Boolean(probe) };
+    } catch (error) {
+      const message = scrub(error && error.message ? error.message : error);
+      stats.lastErrorStage = 'storage-preflight';
+      stats.lastError = message;
+      return { ok: false, error: message };
     }
   }
 
@@ -912,7 +993,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return transport.getWebhookInfo();
   }
 
-  return { handleUpdate, setWebhook, getWebhookInfo, getConfig, status, ensureWebhookRegistration, getStats, recordRejectedSecret };
+  return { handleUpdate, setWebhook, getWebhookInfo, getConfig, status, ensureWebhookRegistration, checkStorage, getStats, recordRejectedSecret };
 }
 
 /**
@@ -964,10 +1045,17 @@ function createTelegramWebhookHandler({ bot, logger }) {
       }
       return res.status(200).json({ ok: true, handled: Boolean(result && result.handled) });
     } catch (error) {
+      // A processing failure is NOT a delivered update. Answering 200 here would
+      // make Telegram drop the customer's message forever AND record no error at
+      // all (a silently dead bot). 500 keeps the update queued, makes Telegram
+      // retry it, and surfaces the failure in getWebhookInfo.last_error_message.
+      const stage = (bot.getStats && bot.getStats().lastErrorStage) || 'processing';
       if (log && typeof log.error === 'function') {
-        log.error('[Telegram] Webhook processing error: ' + (error && error.message ? error.message : error));
+        log.error(`[Telegram] processing failed at ${stage}: ` +
+          (error && error.message ? error.message : error) +
+          ' (answering 500 so Telegram retries; check storage/webhook config)');
       }
-      return res.status(200).json({ ok: true, handled: false });
+      return res.status(500).json({ ok: false, error: 'processing_failed', stage });
     }
   };
 }

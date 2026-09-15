@@ -350,6 +350,16 @@ test('the reconciliation log reports only non-secret fields and scrubs the token
   assert.ok(logBlock.includes("expectedPath: '/api/telegram/webhook'"));
 });
 
+test('server.js runs a secret-free Telegram storage preflight after startup', () => {
+  assert.ok(SERVER.includes('telegramBot.checkStorage()'), 'storage is probed at boot');
+  assert.ok(SERVER.includes('[Telegram] Storage preflight:'), 'the result is logged');
+  const start = SERVER.indexOf('Telegram storage preflight');
+  const block = SERVER.slice(start, SERVER.indexOf('}, 3000);', start));
+  assert.ok(block.includes('scrub('), 'the error is scrubbed');
+  assert.ok(!/webhookSecret/.test(block), 'the webhook secret is never logged');
+  assert.ok(!/process\.env/.test(block), 'no raw environment value is logged');
+});
+
 test('this change does not enable the trading worker', () => {
   // server.js only READS the flag (a status report); nothing assigns or forces it.
   assert.ok(!/process\.env\.TRADING_WORKER_ENABLED\s*=/.test(SERVER));
