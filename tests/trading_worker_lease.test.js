@@ -640,6 +640,35 @@ test('migration 029: service_role only - anon/authenticated cannot touch the lea
   assert.ok(!/GRANT[^;]*TO (anon|authenticated)/.test(MIGRATION_029), 'never grant the lease to a client role');
 });
 
+test('contract: lease RPC call sites match migration 029 parameter names', () => {
+  // supabase-js sends RPC arguments BY NAME, so a renamed parameter is not a type
+  // error - it is a runtime failure the fake client in these tests cannot see.
+  // Verified against a real PostgreSQL 17 instance (throwaway cluster) where the
+  // migration was applied and these exact calls were exercised.
+  const sqlParams = (fn) => {
+    const at = MIGRATION_029.indexOf('CREATE OR REPLACE FUNCTION public.' + fn + '(');
+    assert.ok(at > -1, fn + ' must be defined by migration 029');
+    const head = MIGRATION_029.slice(at, MIGRATION_029.indexOf('RETURNS', at));
+    return [...head.matchAll(/^\s*(p_[a-z_]+)\s+(TEXT|INTEGER|BIGINT)/gm)].map((m) => m[1]).sort();
+  };
+  const callArgs = (fn) => {
+    const at = SERVICE_SRC.indexOf("rpc('" + fn + "', {");
+    assert.ok(at > -1, fn + ' must be called by the worker');
+    const body = SERVICE_SRC.slice(at, SERVICE_SRC.indexOf('})', at));
+    return [...body.matchAll(/(p_[a-z_]+)\s*:/g)].map((m) => m[1]).sort();
+  };
+  for (const fn of ['claim_bot_sessions', 'renew_bot_session_lease', 'release_bot_session_lease']) {
+    assert.deepStrictEqual(callArgs(fn), sqlParams(fn),
+      fn + ': the named arguments the worker sends must be the SQL parameters');
+  }
+  // The fenced stop exists but is deliberately NOT wired into any runtime stop
+  // path yet, so an explicit stop does not bump the generation today. Verify this
+  // before assuming generation fencing covers a partitioned worker at cutover.
+  assert.ok(!/stop_bot_session_fenced/.test(SERVICE_SRC), 'the worker does not call the fenced stop yet');
+  assert.ok(!/stop_bot_session_fenced/.test(SERVER), 'the server does not call the fenced stop yet');
+  assert.deepStrictEqual(sqlParams('stop_bot_session_fenced'), ['p_reason', 'p_requested_by', 'p_user_id']);
+});
+
 test('worker entrypoint: no stale migration reference and no secret exposure', () => {
   assert.ok(!/migration 027|027_/.test(WORKER_ENTRY), 'the worker migration is 028 (+029), never 027');
   assert.match(WORKER_ENTRY, /migration 028 must be applied/);
