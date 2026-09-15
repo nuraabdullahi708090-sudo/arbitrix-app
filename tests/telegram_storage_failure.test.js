@@ -30,7 +30,9 @@ const {
   classifyStorageError,
   STORAGE_ERROR_CAUSES,
   STORAGE_DEGRADED_TEXT,
-  DIRECTION_INBOUND
+  DIRECTION_CUSTOMER,
+  DIRECTION_BOT,
+  DIRECTION_AGENT
 } = require('../services/TelegramSupportService');
 const { storageError } = require('../services/TelegramSupportStore');
 
@@ -256,7 +258,7 @@ test('the store preserves PostgREST code/details/hint instead of only the messag
   const failing = {
     from() { return this; },
     select() { return this; },
-    limit() { return Promise.resolve({ data: null, error: { code: '23514', message: 'violates check constraint "direction_check"', details: 'Failing row', hint: 'Try inbound' } }); }
+    limit() { return Promise.resolve({ data: null, error: { code: '23514', message: 'violates check constraint "direction_check"', details: 'Failing row', hint: 'Try customer' } }); }
   };
   const { createTelegramSupportStore } = require('../services/TelegramSupportStore');
   const store = createTelegramSupportStore(failing);
@@ -268,7 +270,7 @@ test('the store preserves PostgREST code/details/hint instead of only the messag
       assert.match(error.message, /direction_check/);
       assert.strictEqual(error.supabase.code, '23514');
       assert.strictEqual(error.supabase.details, 'Failing row');
-      assert.strictEqual(error.supabase.hint, 'Try inbound');
+      assert.strictEqual(error.supabase.hint, 'Try customer');
       return true;
     }
   );
@@ -435,13 +437,28 @@ test('the trace never contains customer message text', async () => {
 // Guardrails
 // ---------------------------------------------------------------------------
 
-test('the direction literals still match the migration CHECK constraint', () => {
+test('the direction literals match the confirmed LIVE CHECK constraint', () => {
   const service = fs.readFileSync(path.join(__dirname, '..', 'services', 'TelegramSupportService.js'), 'utf8');
   const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '027_telegram_support_bot.sql'), 'utf8');
-  assert.strictEqual(DIRECTION_INBOUND, 'inbound');
-  assert.ok(service.includes("const DIRECTION_INBOUND = 'inbound';"));
-  assert.ok(service.includes("const DIRECTION_OUTBOUND = 'outbound';"));
+
+  // Live production (authoritative):
+  //   CHECK (direction = ANY (ARRAY['customer'::text, 'bot'::text, 'agent'::text]))
+  assert.strictEqual(DIRECTION_CUSTOMER, 'customer');
+  assert.strictEqual(DIRECTION_BOT, 'bot');
+  assert.strictEqual(DIRECTION_AGENT, 'agent');
+  assert.ok(service.includes("const DIRECTION_CUSTOMER = 'customer';"));
+  assert.ok(service.includes("const DIRECTION_BOT = 'bot';"));
+  assert.ok(service.includes("const DIRECTION_AGENT = 'agent';"));
+
+  // The legacy literals that caused the production 23514 must be gone.
+  assert.ok(!service.includes('DIRECTION_INBOUND'), 'legacy inbound constant removed');
+  assert.ok(!service.includes('DIRECTION_OUTBOUND'), 'legacy outbound constant removed');
+
+  // Migration 027 keeps its legacy DDL but documents the authoritative values.
   assert.match(migration, /direction IN \('inbound', 'outbound'\)/);
+  for (const liveValue of ['customer', 'bot', 'agent']) {
+    assert.ok(migration.includes(liveValue), 'migration documents the live value ' + liveValue);
+  }
 });
 
 test('the store writes only columns migration 027 defines', () => {

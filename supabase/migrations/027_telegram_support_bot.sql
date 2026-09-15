@@ -3,7 +3,7 @@
 -- ============================================
 -- Persistence for @ArbitrixSupportBot:
 --   telegram_support_conversations - one row per Telegram private chat
---   telegram_support_messages      - inbound (user) and outbound messages
+--   telegram_support_messages      - messages (direction: customer | bot | agent)
 --   telegram_support_escalations   - a conversation flagged for human follow-up
 --
 -- This migration mirrors the schema that was ALREADY APPLIED and verified in
@@ -45,7 +45,21 @@ CREATE TABLE IF NOT EXISTS public.telegram_support_conversations (
 );
 
 -- ============================================
--- 2. MESSAGES (inbound from the user / outbound from bot or agent)
+-- 2. MESSAGES (from the customer / from the bot / from a human agent)
+-- ============================================
+-- LIVE SCHEMA NOTE (authoritative, confirmed in production):
+-- The pre-existing telegram_support_messages table was created OUTSIDE this file
+-- and its `direction` CHECK is:
+--     CHECK (direction = ANY (ARRAY['customer'::text, 'bot'::text, 'agent'::text]))
+--   'customer' = an incoming customer message
+--   'bot'      = an automated bot/AI reply
+--   'agent'    = a human support-agent reply
+-- services/TelegramSupportService.js and services/TelegramSupportStore.js use
+-- exactly those three literals. The CREATE below is a LEGACY MIRROR whose
+-- ('inbound','outbound') CHECK is NOT the live shape; because
+-- CREATE TABLE IF NOT EXISTS is a no-op on the existing table it never overrode
+-- production. Do NOT change the live constraint without a coordinated database
+-- change - the live table is the source of truth for the application.
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.telegram_support_messages (
     id BIGSERIAL PRIMARY KEY,

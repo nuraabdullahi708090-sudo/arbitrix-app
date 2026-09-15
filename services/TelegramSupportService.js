@@ -34,8 +34,13 @@ const crypto = require('crypto');
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
 
-const DIRECTION_INBOUND = 'inbound';
-const DIRECTION_OUTBOUND = 'outbound';
+// Live `telegram_support_messages.direction` CHECK:
+//   CHECK (direction = ANY (ARRAY['customer'::text, 'bot'::text, 'agent'::text]))
+// The pre-existing production table is authoritative; migration 027's file
+// still carries a legacy ('inbound','outbound') CHECK (documented there).
+const DIRECTION_CUSTOMER = 'customer'; // incoming customer message
+const DIRECTION_BOT = 'bot';           // automated bot/AI reply
+const DIRECTION_AGENT = 'agent';       // human support-agent reply
 
 const STATUS_OPEN = 'open';
 const STATUS_ESCALATED = 'escalated';
@@ -82,7 +87,7 @@ const STORAGE_ERROR_CAUSES = {
   },
   '23514': {
     cause: 'check-constraint-violation',
-    remedy: 'A CHECK constraint rejected the row. The message names the constraint - align DIRECTION_INBOUND/DIRECTION_OUTBOUND (or the STATUS_* literals) with the values the applied table allows.'
+    remedy: 'A CHECK constraint rejected the row. The message names the constraint - align the DIRECTION_* constants (customer/bot/agent) or the STATUS_* literals with the values the applied table allows.'
   },
   '23502': {
     cause: 'not-null-violation',
@@ -874,14 +879,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return update && update.update_id !== undefined ? update.update_id : null;
   }
 
-  /** Send to the user and persist an outbound row. Returns Telegram's result. */
-  async function sendOutbound(conversation, body) {
+  /**
+   * Send to the customer and persist a reply row.
+   *
+   * `direction` distinguishes the two outbound kinds the live CHECK allows:
+   * DIRECTION_BOT for an automated acknowledgement/reply (the default, which
+   * every automated call site relies on) and DIRECTION_AGENT for a reply typed
+   * by a human support agent. Returns Telegram's result.
+   */
+  async function sendOutbound(conversation, body, direction = DIRECTION_BOT) {
     markStage('sendMessage');
     const sent = await transport.sendMessage(conversation.telegram_chat_id, body);
     stats.repliesSent += 1;
     await store.insertMessage({
       conversationId: conversation.id,
-      direction: DIRECTION_OUTBOUND,
+      direction,
       body
     });
     return sent;
@@ -1049,7 +1061,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       markStage('storage:insert-message');
       await store.insertMessage({
         conversationId: conversation.id,
-        direction: DIRECTION_INBOUND,
+        direction: DIRECTION_CUSTOMER,
         body: text
       });
     } catch (error) {
@@ -1133,7 +1145,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'reply-missing' };
           }
-          await sendOutbound(conversation, body);
+          // A human agent typed this in the support group -> 'agent', never 'bot'.
+          await sendOutbound(conversation, body, DIRECTION_AGENT);
           await transport.sendMessage(route.chatId, `Sent to chat ${conversation.telegram_chat_id}.`);
           return { handled: true, action: 'reply' };
         }
@@ -1183,7 +1196,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       if (!targetChatId) return { handled: false, reason: 'reply-unmapped' };
       const conversation = await store.getConversationByChatId(targetChatId);
       if (!conversation) return { handled: false, reason: 'reply-conversation-missing' };
-      await sendOutbound(conversation, route.text);
+      // A human agent replied to the forwarded message -> 'agent', never 'bot'.
+      await sendOutbound(conversation, route.text, DIRECTION_AGENT);
       return { handled: true, action: 'admin-reply' };
     }
 
@@ -1577,8 +1591,9 @@ function createTelegramWebhookHandler({ bot, logger }) {
 module.exports = {
   TELEGRAM_API_BASE,
   TELEGRAM_MAX_MESSAGE_LENGTH,
-  DIRECTION_INBOUND,
-  DIRECTION_OUTBOUND,
+  DIRECTION_CUSTOMER,
+  DIRECTION_BOT,
+  DIRECTION_AGENT,
   STATUS_OPEN,
   STATUS_ESCALATED,
   STATUS_CLOSED,

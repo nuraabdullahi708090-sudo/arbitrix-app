@@ -50,8 +50,9 @@ const {
   TELEGRAM_MAX_MESSAGE_LENGTH,
   USER_HELP_TEXT,
   RECEIPT_TEXT,
-  DIRECTION_INBOUND,
-  DIRECTION_OUTBOUND
+  DIRECTION_CUSTOMER,
+  DIRECTION_BOT,
+  DIRECTION_AGENT
 } = require('../services/TelegramSupportService');
 const { createTelegramSupportStore, numeric, ALLOWED_DIRECTIONS } = require('../services/TelegramSupportStore');
 
@@ -431,7 +432,7 @@ test('user message is stored, forwarded to the group and acknowledged', async ()
   assert.strictEqual(conversation.username, 'alice');
   assert.strictEqual(conversation.display_name, 'Alice Test');
 
-  const inbound = store.state.messages.find((m) => m.direction === 'inbound');
+  const inbound = store.state.messages.find((m) => m.direction === 'customer');
   assert.strictEqual(inbound.body, 'my deposit is stuck');
   assert.strictEqual(inbound.conversation_id, conversation.id);
 
@@ -454,7 +455,7 @@ test('a redelivered update is not forwarded twice', async () => {
 
   assert.strictEqual(first.action, 'forwarded');
   assert.strictEqual(second.action, 'duplicate');
-  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'inbound').length, 1);
+  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 1);
   assert.strictEqual(transport.calls.filter((c) => c.chatId === SUPPORT_CHAT_ID).length, 1);
 });
 
@@ -475,7 +476,7 @@ test('without a support group the message is stored and the user is told once', 
 
   assert.strictEqual(first.action, 'stored-without-group');
   assert.strictEqual(second.action, 'stored-without-group');
-  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'inbound').length, 2);
+  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 2);
   assert.strictEqual(transport.calls.filter((c) => c.chatId === USER_CHAT_ID).length, 1);
 });
 
@@ -506,7 +507,7 @@ test('media-only messages ask for text instead of storing an empty message', asy
   update.message.text = undefined;
   const result = await bot.handleUpdate(update);
   assert.strictEqual(result.action, 'unsupported-content');
-  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'inbound').length, 0);
+  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 0);
   assert.ok(transport.calls.some((c) => c.chatId === USER_CHAT_ID));
 });
 
@@ -545,7 +546,7 @@ test('an agent replying to the forwarded message reaches the user', async () => 
   const toUser = transport.calls.find((c) => c.chatId === USER_CHAT_ID);
   assert.strictEqual(toUser.text, 'It is queued, 2h ETA.');
 
-  const adminOutbound = store.state.messages.filter((m) => m.direction === 'outbound' && m.body === 'It is queued, 2h ETA.');
+  const adminOutbound = store.state.messages.filter((m) => m.direction === 'agent' && m.body === 'It is queued, 2h ETA.');
   assert.strictEqual(adminOutbound.length, 1);
 });
 
@@ -560,7 +561,7 @@ test('a customer is acknowledged even when the support-group forward fails', asy
   assert.strictEqual(toUser.length, 1, 'the customer is acknowledged');
   assert.strictEqual(toUser[0].text, RECEIPT_TEXT);
   // The inbound message is still stored, and the failure is logged without secrets.
-  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'inbound').length, 1);
+  assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 1);
   assert.ok(logger.lines.some((l) => l.includes('forwarding to the support group failed')));
   assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never appears in logs');
 });
@@ -691,7 +692,7 @@ test('webhook handler processes a correctly authenticated update', async () => {
 
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.body.handled, true);
-  assert.strictEqual(store.state.messages.find((m) => m.direction === 'inbound').body, 'authenticated hi');
+  assert.strictEqual(store.state.messages.find((m) => m.direction === 'customer').body, 'authenticated hi');
 });
 
 test('webhook handler answers 500 on a processing error and never logs the token', async () => {
@@ -931,34 +932,34 @@ test('store: insertMessage writes only the applied message columns', async () =>
   const store = createTelegramSupportStore(client);
   const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
 
-  await store.insertMessage({ conversationId: conversation.id, direction: 'inbound', body: 'hi' });
+  await store.insertMessage({ conversationId: conversation.id, direction: 'customer', body: 'hi' });
   const inserted = client.log.inserts.find((i) => i.table === 'telegram_support_messages');
   assert.deepStrictEqual(Object.keys(inserted.row).sort(), ['body', 'conversation_id', 'direction', 'id']);
   assert.strictEqual(inserted.row.conversation_id, conversation.id);
   assert.strictEqual(client.tables.telegram_support_messages[0].body, 'hi');
 });
 
-test('store: inserts the exact direction literals (inbound from the user, outbound from the bot)', async () => {
+test('store: inserts each of the three live direction literals', async () => {
   const client = createFakeSupabase();
   const store = createTelegramSupportStore(client);
   const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
 
-  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_INBOUND, body: 'user msg' });
-  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_OUTBOUND, body: 'bot msg' });
+  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_CUSTOMER, body: 'customer msg' });
+  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_BOT, body: 'bot reply' });
+  await store.insertMessage({ conversationId: conversation.id, direction: DIRECTION_AGENT, body: 'agent reply' });
 
   const rows = client.tables.telegram_support_messages;
-  assert.deepStrictEqual(rows.map((r) => r.direction), ['inbound', 'outbound']);
-  assert.deepStrictEqual([...ALLOWED_DIRECTIONS], ['inbound', 'outbound']);
+  assert.deepStrictEqual(rows.map((r) => r.direction), ['customer', 'bot', 'agent']);
 });
 
-test('store: refuses any direction outside the migration CHECK set (no DB write)', async () => {
+test('store: refuses any direction outside the live CHECK set (no DB write)', async () => {
   const client = createFakeSupabase();
   const store = createTelegramSupportStore(client);
   const { conversation } = await store.upsertConversation({ chatId: USER_CHAT_ID });
 
-  // Every one of these was a plausible alternative; none may reach Postgres,
-  // which is what produced the 23514 direction_check violation in production.
-  for (const bad of ['incoming', 'outgoing', 'in', 'out', 'INBOUND', 'Outbound', '', null, undefined, 1]) {
+  // 'inbound'/'outbound' are exactly the legacy literals that produced the
+  // production 23514; neither they nor any other value may reach Postgres now.
+  for (const bad of ['inbound', 'outbound', 'incoming', 'outgoing', 'in', 'out', 'BOT', 'Customer', '', null, undefined, 1]) {
     await assert.rejects(
       () => store.insertMessage({ conversationId: conversation.id, direction: bad, body: 'x' }),
       /invalid message direction/,
@@ -969,21 +970,84 @@ test('store: refuses any direction outside the migration CHECK set (no DB write)
   assert.strictEqual(client.log.inserts.filter((i) => i.table === 'telegram_support_messages').length, 0);
 });
 
-test('store: ALLOWED_DIRECTIONS equals the migration direction CHECK exactly', () => {
-  const sql = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '027_telegram_support_bot.sql'), 'utf8');
-  const match = sql.match(/direction\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(\s*direction\s+IN\s*\(([^)]*)\)\s*\)/);
-  assert.ok(match, 'migration declares the inline direction CHECK');
-  const allowed = match[1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
-  assert.deepStrictEqual(allowed, [...ALLOWED_DIRECTIONS], 'code and migration agree on the direction literals');
+test('direction literals and validation match the confirmed live CHECK constraint exactly', () => {
+  // Confirmed against production:
+  //   CHECK (direction = ANY (ARRAY['customer'::text, 'bot'::text, 'agent'::text]))
+  const LIVE = ['customer', 'bot', 'agent'];
+  assert.deepStrictEqual([...ALLOWED_DIRECTIONS], LIVE, 'store validation set equals the live CHECK set');
+  assert.strictEqual(DIRECTION_CUSTOMER, 'customer');
+  assert.strictEqual(DIRECTION_BOT, 'bot');
+  assert.strictEqual(DIRECTION_AGENT, 'agent');
+  const storeSrc = fs.readFileSync(path.join(ROOT, 'services', 'TelegramSupportStore.js'), 'utf8');
+  assert.ok(storeSrc.includes("const ALLOWED_DIRECTIONS = Object.freeze(['customer', 'bot', 'agent']);"),
+    'store guard is built from exactly the live set');
+  // Migration 027 documents that the live pre-existing table is authoritative
+  // (its own DDL still carries the legacy inbound/outbound CHECK).
+  const migration = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '027_telegram_support_bot.sql'), 'utf8');
+  for (const liveValue of LIVE) {
+    assert.ok(migration.includes(liveValue), 'migration documents the live value ' + liveValue);
+  }
 });
 
-test('service: a user message stores inbound and the acknowledgement stores outbound', async () => {
+test('service: customer message stores customer and the automated acknowledgement stores bot', async () => {
   const { bot, store } = makeBot();
-  await bot.handleUpdate(userUpdate({ text: 'where is my withdrawal?', updateId: 99001 }));
-  const dirs = store.state.messages.map((m) => m.direction);
-  assert.ok(dirs.includes(DIRECTION_INBOUND), 'user message stored with the inbound literal');
-  assert.ok(dirs.includes(DIRECTION_OUTBOUND), 'bot acknowledgement stored with the outbound literal');
-  assert.ok(dirs.every((d) => ALLOWED_DIRECTIONS.includes(d)), 'every stored direction is within the CHECK set');
+  const result = await bot.handleUpdate(userUpdate({ text: 'where is my withdrawal?', updateId: 99001 }));
+  assert.strictEqual(result.action, 'forwarded');
+
+  const inbound = store.state.messages.find((m) => m.body === 'where is my withdrawal?');
+  assert.strictEqual(inbound.direction, DIRECTION_CUSTOMER, 'inbound customer message -> customer');
+  const receipt = store.state.messages.find((m) => m.body === RECEIPT_TEXT);
+  assert.strictEqual(receipt.direction, DIRECTION_BOT, 'automated acknowledgement -> bot');
+  assert.ok(store.state.messages.every((m) => ALLOWED_DIRECTIONS.includes(m.direction)));
+});
+
+test('service: an agent reply to the forwarded message stores agent, never bot', async () => {
+  const { bot, store, transport } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: 'where is my withdrawal?', messageId: 5, updateId: 99101 }));
+  const forwardedId = transport.calls.find((c) => c.chatId === SUPPORT_CHAT_ID).messageId;
+
+  const result = await bot.handleUpdate(
+    groupUpdate({ text: 'It is queued, 2h ETA.', replyTo: forwardedId, messageId: 55, updateId: 99102 })
+  );
+  assert.strictEqual(result.action, 'admin-reply');
+  const reply = store.state.messages.find((m) => m.body === 'It is queued, 2h ETA.');
+  assert.strictEqual(reply.direction, DIRECTION_AGENT, 'human reply -> agent');
+  assert.notStrictEqual(reply.direction, DIRECTION_BOT, 'a human reply must never be labelled bot');
+});
+
+test('service: the /reply command from the support group stores agent, never bot', async () => {
+  const { bot, store } = makeBot();
+  await bot.handleUpdate(userUpdate({ text: 'help me', updateId: 99201 }));
+  const result = await bot.handleUpdate(groupUpdate({ text: `/reply ${USER_CHAT_ID} we are on it`, updateId: 99202 }));
+  assert.strictEqual(result.action, 'reply');
+
+  const reply = store.state.messages.find((m) => m.body === 'we are on it');
+  assert.strictEqual(reply.direction, DIRECTION_AGENT, 'human /reply -> agent');
+  assert.notStrictEqual(reply.direction, DIRECTION_BOT);
+});
+
+test('service: customer -> bot -> agent flow preserves the labels end to end', async () => {
+  const { bot, store, transport } = makeBot();
+
+  // 1. Customer writes in. 2. The bot acknowledges automatically.
+  const first = await bot.handleUpdate(userUpdate({ text: 'my deposit is stuck', messageId: 7, updateId: 99301 }));
+  assert.strictEqual(first.action, 'forwarded');
+  // 3. A human agent answers in the support group.
+  const forwardedId = transport.calls.find((c) => c.chatId === SUPPORT_CHAT_ID).messageId;
+  const second = await bot.handleUpdate(
+    groupUpdate({ text: 'Resolved - funds released.', replyTo: forwardedId, messageId: 77, updateId: 99302 })
+  );
+  assert.strictEqual(second.action, 'admin-reply');
+
+  assert.deepStrictEqual(
+    store.state.messages.map((m) => m.direction),
+    [DIRECTION_CUSTOMER, DIRECTION_BOT, DIRECTION_AGENT],
+    'the stored flow is customer, then bot, then agent'
+  );
+  const bodies = store.state.messages.map((m) => m.body);
+  assert.strictEqual(bodies[0], 'my deposit is stuck');
+  assert.strictEqual(bodies[bodies.length - 1], 'Resolved - funds released.');
+  assert.ok(store.state.messages.every((m) => ALLOWED_DIRECTIONS.includes(m.direction)));
 });
 
 test('store: status writes and escalations target the right rows/tables', async () => {
