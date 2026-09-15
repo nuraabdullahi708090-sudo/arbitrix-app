@@ -18727,8 +18727,12 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
                     // truth about what happens when the tab closes.
                     APP.botExecutedBy = 'worker';
                     rollback();
-                    stopBot();
-                    updateBotEngineNotice('worker');
+                    // YIELD to the server-side worker: drop the tab loop only. The
+                    // bot is still RUNNING (on the server), so this must NOT go
+                    // through stopBot() - that would record a "Bot Paused" history
+                    // entry, show a "paused" toast and claim a stop that never
+                    // happened.
+                    adoptWorkerOwnership();
                     showToast(t('bot.workerManaged'), 'info', 6000);
                     return;
                 }
@@ -18802,6 +18806,74 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
 // helper is needed here. The promotional-credit $20 realized-profit cap is a
 // SEPARATE rule and is enforced server-side (mirrored below).
 
+/**
+ * SERVER-SIDE BOT SESSION (background trading).
+ *
+ * Starting/stopping the bot also tells the server, so the session can be owned by
+ * a durable server-side worker and keep trading after this tab is closed. The
+ * call is NON-AUTHORITATIVE for the tab loop: every failure path resolves to
+ * null, and the browser loop starts exactly as before, so this can never stop a
+ * user's bot. MARKETING_SANDBOX keeps its simulated session and is never called
+ * here. Demo mode has no server-side session or ledger, so only 'start' is
+ * live-gated; 'stop' is sent for both modes because it is harmless and
+ * idempotent, and it is what ends a live session when the user switches to Demo
+ * or logs out.
+ */
+function syncBotSessionWithServer(action) {
+    try {
+        if (APP.environment === 'MARKETING_SANDBOX') return Promise.resolve(null);
+        if (action === 'start' && APP.mode !== 'live') return Promise.resolve(null);
+        const token = localStorage.getItem('jwt_token');
+        if (!token) return Promise.resolve(null);
+        return fetch('/api/bot/' + action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ mode: APP.mode })
+        }).then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+          .catch(function () { return null; });
+    } catch (e) { return Promise.resolve(null); }
+}
+
+/** Ask the server who is REALLY executing the bot. Resolves null when unknown. */
+function fetchBotExecutionStatus() {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) return Promise.resolve(null);
+        return fetch('/api/bot/status', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+            .catch(function () { return null; });
+    } catch (e) { return Promise.resolve(null); }
+}
+
+/**
+ * Adopt a WORKER-OWNED session in the UI: the bot really is running, on the
+ * server. Clears the tab loop so the two engines can never race, WITHOUT ending
+ * the server session, without a "Bot Paused" history entry, without a "paused"
+ * toast and without touching the balance - i.e. it never implies a stop.
+ */
+function adoptWorkerOwnership() {
+    if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
+    APP.botRunning = true;
+    APP.botExecutedBy = 'worker';
+    updateStatus(true);
+    updateUI();
+    updateBotEngineNotice('worker');
+}
+
+/**
+ * Adopt an existing server-side session when the app starts. Background trading
+ * means the bot can still be running when the user returns to a fresh tab, so the
+ * UI must show the truth (RUNNING + the server-managed notice) rather than
+ * "stopped". Non-blocking and silent on failure.
+ */
+function adoptServerBotState() {
+    if (APP.mode !== 'live' || APP.environment === 'MARKETING_SANDBOX') return;
+    fetchBotExecutionStatus().then(function (st) {
+        if (!st || !st.isRunning || st.executedBy !== 'worker') return;
+        adoptWorkerOwnership();
+    }).catch(function () {});
+}
+
 function startBot() {
     // NO minimum trading balance: the MTA gate was removed by management
     // decision. Any live account may start the bot; the only remaining trading
@@ -18827,6 +18899,22 @@ function startBot() {
     updateUI();
     showToast(APP.mode==='demo' ? t('bot.startedDemo') : t('bot.startedLive'),'success');
     try { Sound.botStart(); } catch(e) {}
+    // BACKGROUND TRADING HANDOVER. Register the session server-side and, if a
+    // server-side worker already owns it, hand execution over: keep the bot shown
+    // as RUNNING (it really is - on the server), drop the tab loop so the two
+    // engines can never race, and tell the user the truth about closing the tab.
+    // Fully asynchronous and failure-tolerant: if the request fails the tab loop
+    // is all there is, which is exactly today's behaviour.
+    if (APP.mode === 'live' && APP.environment !== 'MARKETING_SANDBOX') {
+        syncBotSessionWithServer('start')
+            .then(function () { return fetchBotExecutionStatus(); })
+            .then(function (st) {
+                if (!st || !st.isRunning || st.executedBy !== 'worker') return;
+                adoptWorkerOwnership();
+                showToast(t('bot.workerManaged'), 'info', 6000);
+            })
+            .catch(function () {});
+    }
 }
 
 /**
@@ -18849,6 +18937,12 @@ function stopBot() {
     if(APP.botInterval) clearInterval(APP.botInterval);
     APP.botInterval = null;
     APP.botRunning = false;
+    // An explicit Stop (button, mode switch, logout, promo cap) must end the
+    // SERVER session too, otherwise background trading would continue after the
+    // user stopped it. Yielding to a worker does NOT come through here - it uses
+    // adoptWorkerOwnership(), which never ends the session or claims a stop.
+    // Fire-and-forget: the UI never waits on the network.
+    syncBotSessionWithServer('stop');
     updateStatus(false);
     const data = getCurrentData();
     data.history = data.history || [];
@@ -21409,6 +21503,12 @@ async function initApp() {
         if (typeof trackMetaConversion === 'function') trackMetaConversion('StartDemo');
     }
 
+    // BACKGROUND TRADING: a server-side worker may still be trading this account,
+    // so adopt its state and tell the truth on a fresh tab. This runs AFTER the
+    // mode above is resolved on purpose: a funded account that has just been
+    // switched Demo -> Live must be adopted as Live, not skipped.
+    adoptServerBotState();
+
     // Onboarding: "Make My First Deposit" asked for the deposit flow, so open it
     // now (mode is settled above). Then, for a returning account that has never
     // seen the onboarding choice and has not funded yet, show it once. Neither
@@ -21576,6 +21676,10 @@ async function initApp() {
             if(APP.botInterval) clearInterval(APP.botInterval);
             if(tickerInterval) clearInterval(tickerInterval);
             APP.botRunning = false;
+            // Logging out ends the server-side session too (logging out stops
+            // trading today; background trading must not change that). Sent while
+            // the token is still present - fire-and-forget.
+            syncBotSessionWithServer('stop');
             getEl('mainApp').style.display = 'none';
             getEl('landingPage').style.display = 'none';
             getEl('authPage').style.display = 'flex';

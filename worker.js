@@ -10,7 +10,7 @@
  * THIS PROCESS IS INERT UNTIL EXPLICITLY ENABLED. It requires BOTH:
  *   * TRADING_WORKER_ENABLED=true   (feature switch; default OFF)
  *   * a readable `bot_worker_control` row with emergency_stop = FALSE
- *     (migration 027 must be applied; the worker fails CLOSED without it)
+ *     (migration 028 must be applied; the worker fails CLOSED without it)
  *
  * It never listens on a port, never imports server.js, and never touches the
  * sandbox: it only reconciles `bot_sessions` and writes money through the
@@ -23,6 +23,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const os = require('os');
 const { createTradingWorker, DEFAULT_LIMITS } = require('./services/TradingWorker');
 const { createPromoCheck } = require('./services/PromoCheck');
 
@@ -57,6 +58,16 @@ async function main() {
   const logger = makeLogger();
   const enabled = envFlag('TRADING_WORKER_ENABLED');
   const envEmergencyStop = envFlag('TRADING_EMERGENCY_STOP');
+  // SHADOW MODE (default OFF): observe + log intended actions, write NOTHING.
+  // It additionally requires TRADING_WORKER_ENABLED, so this flag alone can
+  // never start a process that does anything.
+  const dryRun = envFlag('TRADING_WORKER_DRY_RUN');
+  // EXECUTOR IDENTITY - server-configured only. It is never read from a request,
+  // a header or any other client-controlled input; a client therefore cannot
+  // claim someone else's lease. RENDER_INSTANCE_ID distinguishes instances.
+  const workerId =
+    String(process.env.TRADING_WORKER_ID || process.env.RENDER_INSTANCE_ID || '').trim() ||
+    `${os.hostname()}-${process.pid}`;
 
   if (!enabled) {
     logger.log(
@@ -97,9 +108,16 @@ async function main() {
     enabled: true,
     envEmergencyStop,
     workerVersion: WORKER_VERSION,
+    // EXECUTOR LEASE (migration 029) is REQUIRED here: without a working lease
+    // RPC the worker executes NOTHING (fail closed) rather than risking two
+    // executors on one session. There is deliberately no env switch to weaken it.
+    requireLease: true,
+    workerId,
+    dryRun,
     limits: {
       ...DEFAULT_LIMITS,
       tickMs: envNumber('TRADING_WORKER_TICK_MS', DEFAULT_LIMITS.tickMs),
+      leaseMs: envNumber('TRADING_WORKER_LEASE_MS', DEFAULT_LIMITS.leaseMs),
       maxTradePctOfBalance: envNumber('TRADING_MAX_TRADE_PCT', DEFAULT_LIMITS.maxTradePctOfBalance),
       maxAbsTradeUsd: envNumber('TRADING_MAX_TRADE_USD', DEFAULT_LIMITS.maxAbsTradeUsd),
       dailyLossLimitUsd: envNumber('TRADING_DAILY_LOSS_LIMIT_USD', DEFAULT_LIMITS.dailyLossLimitUsd),
@@ -118,7 +136,7 @@ async function main() {
         component: 'TradingWorker',
         version: WORKER_VERSION,
         reason: 'control_unreadable',
-        detail: 'bot_worker_control is unreadable (is migration 027 applied?). No trading was executed.',
+        detail: 'bot_worker_control is unreadable (is migration 028 applied?). No trading was executed.',
       })
     );
     return 1;

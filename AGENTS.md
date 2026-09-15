@@ -4346,3 +4346,44 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   conversation.status" guard.
 - Tests: telegram_support_bot 81 pass, all telegram suites 183 pass, full
   `npm test` 1142 pass / 0 fail.
+
+## Tab-Close Continuity - server-side worker handoff (2026-09-15, PREPARED, not enabled)
+- GOAL (management): a LIVE bot keeps trading after the user closes the tab, WITHOUT
+  changing platform business logic.
+- PARITY DEFAULTS in services/TradingWorker.js: tickMs 8000 (the browser cadence),
+  assets/draw-order/labels mirrored from executeBotTrade, computeTradeAmount
+  reproducing balance * 0.5 * (r*2.4/100) * (r>0.35 ? 1 : -0.5) EXACTLY (losses are
+  half the size of wins, 2-dp rounding). The three safety rails
+  (TRADING_MAX_TRADE_USD / TRADING_DAILY_LOSS_LIMIT_USD / TRADING_MAX_TRADES_PER_DAY)
+  are DISABLED by default because the browser has no such limits; enabling any of
+  them is a management decision, not a deployment detail.
+- Held-lease ticking fix: sessions claimed on an earlier tick are ticked from the
+  held map (unioned with the fresh claim), so accounts beyond maxClaimsPerTick keep
+  their 8s cadence instead of going idle until their lease expires.
+- public/index.html (frontend-only, ASCII): syncBotSessionWithServer(),
+  fetchBotExecutionStatus(), adoptWorkerOwnership(), adoptServerBotState(); startBot()
+  handover; stopBot() ends the server session; logout ends it; 409
+  WORKER_OWNED_SESSION yields.
+- THE YIELD IS NOT A STOP: the 409/adoption/handover path clears the tab loop but
+  keeps RUNNING, writes NO "Bot Paused" history entry, shows NO "paused" toast and
+  sends NO /api/bot/stop. Only an explicit Stop (button, mode switch, promo cap,
+  logout) ends the server session. Routing the yield through stopBot() was a real
+  bug: it claimed a stop while the worker kept trading.
+- adoptServerBotState() is called from initApp AFTER the funded Demo->Live mode
+  decision. Calling it earlier silently skipped funded accounts (UI showed "stopped"
+  while the server traded) - found by the browser harness, now pinned by a test.
+- BROWSER-ERA SESSIONS (announce at cutover): worker start() calls
+  reconcileStaleSessions() FIRST. Any is_running=1 row whose heartbeat is stale OR
+  MISSING (all browser-era rows - the tab loop never wrote one) is stopped with
+  stopped_reason='stale_heartbeat_reconciled' (surfaced by GET /api/bot/status as
+  stoppedReason). Those customers must press Start Bot again under the new engine.
+  The UI cannot show a stopped/browser session as RUNNING: both adoption paths
+  require isRunning===true AND executedBy==='worker'; a failed status read adopts
+  nothing (the tab keeps looping and the server's fail-open 409 guard still keeps
+  exactly one engine trading).
+- ACTIVATION (NOT done; needs approval + credentials): apply migrations 028 AND 029,
+  then a Render Background Worker running "node worker.js" with
+  TRADING_WORKER_ENABLED=true (optionally TRADING_WORKER_DRY_RUN=true first),
+  TRADING_WORKER_ID, TRADING_WORKER_LEASE_MS. .env.example documents all of them.
+- STILL NOT DONE: no migration applied, no Render change, TRADING_WORKER_ENABLED
+  unset, no deploy, no real order, no balance or ledger write.

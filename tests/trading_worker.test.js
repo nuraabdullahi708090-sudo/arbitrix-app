@@ -216,6 +216,13 @@ function makeWorker(overrides = {}) {
     sleep: async () => {},
     callRpc: overrides.callRpc,
     envEmergencyStop: overrides.envEmergencyStop || false,
+    // These tests predate the executor lease (migration 029) and exercise the
+    // engine directly, so they run the legacy single-instance path and opt out of
+    // lease mode explicitly. Lease mode END-TO-END (claim / renew / fence /
+    // expiry / isolation) is covered by tests/trading_worker_lease.test.js.
+    requireLease: overrides.requireLease === true,
+    workerId: overrides.workerId || 'test-worker',
+    dryRun: overrides.dryRun === true,
   });
   return { worker, admin };
 }
@@ -385,10 +392,10 @@ test('idempotency keys are SERVER-derived from the tick bucket, never the client
   const key = buildTickIdempotencyKey(42, 'live', tickBucket(1_700_000_001_234, 8000));
   assert.equal(key, buildTickIdempotencyKey(42, 'live', tickBucket(1_700_000_003_999, 8000)), 'same bucket -> same key');
   assert.notEqual(key, buildTickIdempotencyKey(42, 'live', tickBucket(1_700_000_009_999, 8000)), 'next bucket -> new key');
-  assert.match(key, /^bot_42_live_\d+$/);
+  assert.match(key, /^bot_42_live_0_\d+$/);
   const src = read('services/TradingWorker.js');
   assert.ok(!/p_idempotency_key:\s*(req|body)/.test(src));
-  assert.match(src, /const idempotencyKey = buildTickIdempotencyKey\(userId, mode, bucket\)/);
+  assert.match(src, /const idempotencyKey = buildTickIdempotencyKey\(userId, mode, bucket, generation\)/);
 });
 
 test('idempotency: a replayed tick returns duplicate and does NOT count a second trade', async () => {
@@ -429,11 +436,18 @@ test('idempotency: two concurrent worker instances cannot double-credit the same
 // ==========================================================================
 // 5. Risk limits
 // ==========================================================================
-test('risk limits: trade magnitude is bounded by percent-of-balance AND an absolute cap', () => {
+test('risk limits: magnitude follows the browser formula and the absolute cap is OPT-IN', () => {
+  // PARITY DEFAULT: the browser engine has no absolute ceiling, so neither does
+  // the worker. For a $1,000,000 balance this is the browser's own value.
+  const browserProfit = 1_000_000 * 0.5 * (0.99 * 2.4 / 100) * 1;
   const amount = computeTradeAmount(1_000_000, DEFAULT_LIMITS, () => 0.99);
-  assert.ok(Math.abs(amount) <= DEFAULT_LIMITS.maxAbsTradeUsd, 'absolute cap holds');
+  assert.equal(amount, Math.round(browserProfit * 100) / 100, 'browser-identical magnitude');
+  assert.ok(amount > 50, 'the old $50 ceiling no longer applies by default (parity)');
+  // OPT-IN rail (management decision): the ceiling still works when enabled.
+  const capped = computeTradeAmount(1_000_000, { ...DEFAULT_LIMITS, maxAbsTradeUsd: 50 }, () => 0.99);
+  assert.equal(Math.abs(capped), 50, 'absolute cap holds when explicitly enabled');
   const small = computeTradeAmount(100, DEFAULT_LIMITS, () => 0.99);
-  assert.ok(Math.abs(small) <= 100 * (DEFAULT_LIMITS.maxTradePctOfBalance / 100) * 2.4 + 0.01);
+  assert.ok(Math.abs(small) <= 100 * DEFAULT_LIMITS.maxTradePctOfBalance * 2.4 / 100 + 0.01);
   assert.equal(computeTradeAmount(0, DEFAULT_LIMITS, () => 0.5), 0, 'no balance -> no trade');
 });
 
@@ -448,8 +462,14 @@ test('risk limits: veto order and reasons are explicit', () => {
   const base = { balance: 500, realizedToday: 0, tradesToday: 0, promoCreditFunded: false, promoProfit: 0, limits: DEFAULT_LIMITS, isPromoProfitCapReached };
   assert.equal(evaluateRisk({ ...base }).allow, true);
   assert.equal(evaluateRisk({ ...base, balance: 0 }).reason, 'no_balance');
-  assert.equal(evaluateRisk({ ...base, tradesToday: DEFAULT_LIMITS.maxTradesPerDay }).code, 'MAX_TRADES_PER_DAY');
-  const loss = evaluateRisk({ ...base, realizedToday: -DEFAULT_LIMITS.dailyLossLimitUsd });
+  // PARITY DEFAULT: the daily caps are OFF, exactly like the browser loop, so a
+  // large trade count or a deep drawdown does NOT stop the bot.
+  assert.equal(evaluateRisk({ ...base, tradesToday: 100000 }).allow, true);
+  assert.equal(evaluateRisk({ ...base, realizedToday: -100000 }).allow, true);
+  // OPT-IN rails (management decision) still fire when explicitly configured.
+  const rails = { ...DEFAULT_LIMITS, maxTradesPerDay: 288, dailyLossLimitUsd: 100 };
+  assert.equal(evaluateRisk({ ...base, limits: rails, tradesToday: 288 }).code, 'MAX_TRADES_PER_DAY');
+  const loss = evaluateRisk({ ...base, limits: rails, realizedToday: -100 });
   assert.equal(loss.code, 'DAILY_LOSS_LIMIT');
   assert.equal(loss.stopSession, true, 'a daily-loss breach stops the session');
   const promo = evaluateRisk({ ...base, promoCreditFunded: true, promoProfit: PROMO_PROFIT_CAP_USD });
@@ -468,6 +488,8 @@ test('risk limits are enforced BEFORE the write (no RPC on a veto)', async () =>
 
 test('risk limits: the daily-loss breach persists via the ledger and stops the session', async () => {
   const { worker, admin } = makeWorker({
+    // The rail is opt-in (parity default is off), so it is enabled explicitly here.
+    limits: { ...DEFAULT_LIMITS, dailyLossLimitUsd: 100 },
     state: {
       sessions: [{ user_id: 11, is_running: 1, mode: 'live' }],
       wallets: { 11: 500 },

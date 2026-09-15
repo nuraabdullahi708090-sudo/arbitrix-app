@@ -4,7 +4,7 @@
  * worker can never both trade the same session during (and after) cutover.
  *
  * The guard is FAIL-OPEN by design: it must never be able to stop trading on its
- * own (e.g. before migration 027 is applied, every read errors).
+ * own (e.g. before migration 028 is applied, every read errors).
  */
 const test = require('node:test');
 const assert = require('node:assert');

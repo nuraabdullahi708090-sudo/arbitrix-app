@@ -22,11 +22,13 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const WORKER_PROCESS_SRC = fs.readFileSync(path.join(ROOT, 'worker.js'), 'utf8');
 
 function startStub() {
-  const state = { rpcs: 0, stops: 0, patches: 0, control: { id: 1, emergency_stop: false, reason: null, engaged_by: null, engaged_at: null } };
+  const state = { rpcs: 0, stops: 0, patches: 0, claims: 0, renews: 0, releases: 0, writes: 0, control: { id: 1, emergency_stop: false, reason: null, engaged_by: null, engaged_at: null } };
   const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', (c) => { body += c; });
     req.on('end', () => {
+      // Anything that is not a read is a WRITE. Dry-run must produce ZERO of them.
+      if (req.method !== 'GET' && req.method !== 'HEAD') state.writes++;
       const p = new URL(req.url, 'http://x').pathname;
       const single = (req.headers.accept || '').includes('object+json');
       const json = (code, data, extra = {}) => {
@@ -34,6 +36,31 @@ function startStub() {
         res.end(data === undefined ? '' : JSON.stringify(data));
       };
       if (p === '/rest/v1/rpc/record_trade_safe') { state.rpcs++; return json(200, { success: true, applied_amount: 0.5, new_balance: 999.5 }); }
+      // Executor lease (migration 029): the worker CLAIMS work and RENEWS its
+      // lease before it may trade, so the stub must answer like the RPCs do.
+      if (p === '/rest/v1/rpc/claim_bot_sessions') {
+        state.claims++;
+        const now = new Date();
+        return json(200, {
+          success: true,
+          server_now: now.toISOString(),
+          claimed: [{
+            user_id: 1, is_running: 1, generation: 0, claimed_by: 'stub-worker',
+            lease_expires_at: new Date(now.getTime() + 30000).toISOString(),
+            consecutive_failures: 0, tick_count: 0,
+          }],
+        });
+      }
+      if (p === '/rest/v1/rpc/renew_bot_session_lease') {
+        state.renews++;
+        const now = new Date();
+        return json(200, {
+          success: true, renewed: true, code: null, server_now: now.toISOString(),
+          generation: 0, is_running: 1, claimed_by: 'stub-worker',
+          lease_expires_at: new Date(now.getTime() + 30000).toISOString(),
+        });
+      }
+      if (p === '/rest/v1/rpc/release_bot_session_lease') { state.releases++; return json(200, { success: true, released: true, server_now: new Date().toISOString() }); }
       if (p === '/rest/v1/bot_worker_control') return json(200, single ? state.control : [state.control]);
       if (p === '/rest/v1/bot_sessions' && req.method === 'PATCH') { state.patches++; state.stops++; return json(204); }
       if (p === '/rest/v1/bot_sessions') return json(200, [{ user_id: 1, is_running: 1, mode: 'live', heartbeat_at: new Date().toISOString(), tick_count: 0, consecutive_failures: 0 }]);
@@ -78,6 +105,10 @@ test('worker process stays alive after start and keeps ticking (regression: time
   const ticks = (out.match(/"event":"tick_complete"/g) || []).length;
   assert.ok(ticks >= 2, 'expected at least 2 completed ticks, saw ' + ticks + '; log:\n' + out.slice(0, 600));
   assert.ok(state.rpcs >= 1, 'the tick must reach the trade RPC; log:\n' + out.slice(0, 600));
+  // Lease mode (migration 029): a tick may only trade after claiming the session
+  // and renewing (verifying) its lease, so those RPCs must have been reached too.
+  assert.ok(state.claims >= 1, 'the worker must claim sessions through the lease RPC; log:\n' + out.slice(0, 600));
+  assert.ok(state.renews >= 1, 'the worker must renew/fence the lease before trading; log:\n' + out.slice(0, 600));
 });
 
 test('trading needs NO browser: ticks and trades accumulate with no client attached', async () => {
@@ -109,14 +140,32 @@ test('worker.js has no unref() on its tick timer and logs start + shutdown', () 
   assert.match(WORKER_PROCESS_SRC, /process\.on\('SIGTERM'/);
 });
 
-test('migration 027 declares bot_sessions.updated_at (a column the stop path writes)', () => {
+test('dry run (process level): the REAL worker writes nothing at all', async () => {
+  const { out, state, aliveAfterWindow } = await runWorkerFor(1400, { TRADING_WORKER_DRY_RUN: 'true' });
+
+  assert.strictEqual(aliveAfterWindow, true, 'the dry-run worker must stay alive');
+  assert.ok((out.match(/"event":"tick_complete"/g) || []).length >= 2, 'dry run must still tick; log:\n' + out.slice(0, 600));
+  assert.ok(/"event":"dry_run_trade"/.test(out), 'dry run must report what it WOULD write');
+  assert.ok(/"wouldWrite":\{"rpc":"record_trade_safe"/.test(out), 'the intended write must be named');
+
+  // ZERO writes of any kind: no trade RPC, no lease RPC, no session mutation.
+  assert.strictEqual(state.writes, 0, 'dry run performed ' + state.writes + ' write request(s)');
+  assert.strictEqual(state.rpcs, 0, 'dry run must never reach record_trade_safe');
+  assert.strictEqual(state.claims, 0, 'dry run must not claim a lease');
+  assert.strictEqual(state.renews, 0, 'dry run must not renew a lease');
+  assert.strictEqual(state.releases, 0, 'dry run must not release a lease');
+  assert.strictEqual(state.patches, 0, 'dry run must not mutate bot_sessions (no heartbeat/stop)');
+  assert.ok(!/"event":"trade_recorded"/.test(out), 'no trade may be recorded');
+});
+
+test('migration 028 declares bot_sessions.updated_at (a column the stop path writes)', () => {
   const migration = fs.readFileSync(path.join(ROOT, 'supabase/migrations/028_trading_worker.sql'), 'utf8');
   assert.match(migration, /ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ/);
   const selfCheck = migration.slice(migration.indexOf('FOREACH v_col IN ARRAY'));
   assert.match(selfCheck, /'updated_at'/);
 });
 
-test('no migration creates bot_sessions, so the worker must tolerate its columns being added by 027', () => {
+test('no migration creates bot_sessions, so the worker must tolerate its columns being added by 028', () => {
   const dir = path.join(ROOT, 'supabase/migrations');
   for (const f of fs.readdirSync(dir)) {
     const s = fs.readFileSync(path.join(dir, f), 'utf8');

@@ -35,24 +35,58 @@
  */
 
 const DEFAULT_LIMITS = {
-  tickMs: 8000,
-  maxTradePctOfBalance: 0.5, // % of live balance that bounds one trade's size
-  maxAbsTradeUsd: 50, // hard ceiling on one trade's magnitude
-  dailyLossLimitUsd: 100, // stop a session for the rest of the UTC day
-  maxTradesPerDay: 288, // ~ one per 5 minutes
+  tickMs: 8000, // SAME cadence as the browser loop: setInterval(executeBotTrade, 8000)
+  // ---------------------------------------------------------------------------
+  // BUSINESS-LOGIC PARITY (do not change without an explicit management decision)
+  //
+  // These defaults reproduce the production browser engine EXACTLY, so moving
+  // execution from the tab to the server does not change a single user-visible
+  // trade. The browser (public/index.html, executeBotTrade) computes:
+  //
+  //   profit = balance * 0.5 * (Math.random()*2.4/100) * (Math.random()>0.35 ? 1 : -0.5)
+  //
+  //   * maxTradePctOfBalance 0.5  -> the browser's leading 0.5 factor
+  //                                  (effective size ceiling = 0.5 * 2.4% = 1.2% of balance)
+  //   * lossScaleFactor      0.5  -> the browser's losing multiplier (-0.5), i.e.
+  //                                  losses are HALF the size of wins
+  //   * maxAbsTradeUsd       none -> the browser has NO absolute ceiling
+  //   * dailyLossLimitUsd    none -> the browser has NO daily loss stop
+  //   * maxTradesPerDay      none -> the browser trades every tick, all day
+  //
+  // The three "rails" below are therefore DISABLED by default. They remain
+  // available as env-tunable options (TRADING_MAX_TRADE_USD,
+  // TRADING_DAILY_LOSS_LIMIT_USD, TRADING_MAX_TRADES_PER_DAY) for a management
+  // decision to enable them later - enabling any of them CHANGES what users
+  // experience and is not a worker-internal concern.
+  maxTradePctOfBalance: 0.5,
+  lossScaleFactor: 0.5,
+  maxAbsTradeUsd: Infinity,
+  dailyLossLimitUsd: Infinity,
+  maxTradesPerDay: Infinity,
+  // Operational only (NOT business logic): "failure" means the trade RPC errored
+  // repeatedly, never that a trade lost money. A losing trade is a normal trade.
   maxConsecutiveFailures: 5, // auto-stop the session past this many
   staleHeartbeatMs: 60000, // a heartbeat older than this means "no executor"
   maxRetryAttempts: 4,
   retryBaseMs: 250,
+  // Executor lease (migration 029). At most ONE worker instance may execute a
+  // given session at a time. The lease is written with the DATABASE clock and
+  // expires on its own, so a crashed instance can never hold a session forever.
+  leaseMs: 30000,
+  maxClaimsPerTick: 25,
 };
 
 /** Assets the bot may pick from (mirrors the UI list; display metadata only). */
 const ASSETS = [
-  { symbol: 'BTC/USDT', detail: 'Binance->Bybit' },
-  { symbol: 'ETH/USDT', detail: 'Binance->Coinbase' },
-  { symbol: 'EUR/USD', detail: 'OANDA->FXCM' },
-  { symbol: 'AAPL', detail: 'NYSE->NASDAQ' },
-  { symbol: 'XAU/USD', detail: 'Spot->Futures' },
+  // EXACT parity with the browser list in public/index.html (executeBotTrade).
+  // The arrow is written as \u2192 so the source stays ASCII while the string sent
+  // to record_trade_safe (and therefore shown in the user's history) is
+  // character-for-character identical to the browser's.
+  { symbol: 'BTC/USDT', detail: 'Binance\u2192Bybit' },
+  { symbol: 'ETH/USDT', detail: 'Binance\u2192Coinbase' },
+  { symbol: 'EUR/USD', detail: 'OANDA\u2192FXCM' },
+  { symbol: 'AAPL', detail: 'NYSE\u2192NASDAQ' },
+  { symbol: 'XAU/USD', detail: 'Spot\u2192Futures' },
 ];
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
@@ -62,9 +96,72 @@ function tickBucket(nowMs, tickMs) {
   return Math.floor(Number(nowMs) / Number(tickMs));
 }
 
-/** Server-derived idempotency key. The client NEVER supplies this. */
-function buildTickIdempotencyKey(userId, mode, bucket) {
-  return `bot_${userId}_${mode}_${bucket}`;
+/**
+ * Server-derived idempotency key. The client NEVER supplies this.
+ *
+ * The session GENERATION is part of the key. After a stop or a reassignment the
+ * generation is bumped, so the NEW executor can trade inside the same tick
+ * bucket without being deduped against the previous executor's tick, while an
+ * in-flight tick from the OLD executor carries a different key and is rejected
+ * by the fence before it ever reaches this key. Defaults to 0 so callers that
+ * predate generations keep a stable key.
+ */
+function buildTickIdempotencyKey(userId, mode, bucket, generation = 0) {
+  return `bot_${userId}_${mode}_${Number(generation) || 0}_${bucket}`;
+}
+
+/**
+ * Absolute lease expiry from a DATABASE-provided server timestamp plus the lease
+ * duration. Lease timing is always derived from the database clock - never from
+ * the worker host clock and never from any client-supplied value.
+ */
+function leaseExpiresAtMs(serverNowMs, leaseMs) {
+  const base = Number(serverNowMs);
+  const ms = Number(leaseMs);
+  if (!Number.isFinite(base) || !Number.isFinite(ms) || ms <= 0) return NaN;
+  return base + ms;
+}
+
+/**
+ * PURE, DETERMINISTIC fence verdict for one session - evaluated BEFORE any
+ * money-moving write.
+ *
+ * It is a function only of the database-observed session state, the generation
+ * this tick expects, and the worker's own configured identity. No host clock, no
+ * randomness, no client input, so it is exhaustively testable and its `code`
+ * matches the `code` returned by the renew RPC in migration 029 (first failing
+ * check wins, in this order):
+ *   SESSION_NOT_RUNNING -> GENERATION_MISMATCH -> LEASE_UNCLAIMED
+ *   -> LEASE_NOT_OWNED -> LEASE_EXPIRED -> allow
+ */
+function evaluateFence({
+  workerId,
+  claimedBy,
+  leaseExpiresAtMs: leaseExpiry,
+  serverNowMs,
+  expectedGeneration,
+  observedGeneration,
+  isRunning,
+}) {
+  const running = isRunning === true || Number(isRunning) === 1;
+  if (!running) return { allow: false, code: 'SESSION_NOT_RUNNING' };
+
+  if (Number(observedGeneration || 0) !== Number(expectedGeneration || 0)) {
+    return { allow: false, code: 'GENERATION_MISMATCH' };
+  }
+  if (claimedBy === null || claimedBy === undefined || claimedBy === '') {
+    return { allow: false, code: 'LEASE_UNCLAIMED' };
+  }
+  if (String(claimedBy) !== String(workerId)) {
+    return { allow: false, code: 'LEASE_NOT_OWNED' };
+  }
+
+  const now = Number(serverNowMs);
+  const expiry = Number(leaseExpiry);
+  if (!Number.isFinite(expiry) || !Number.isFinite(now) || expiry <= now) {
+    return { allow: false, code: 'LEASE_EXPIRED' };
+  }
+  return { allow: true, code: null };
 }
 
 /** Exponential backoff with jitter (deterministic when `rng` is injected). */
@@ -82,14 +179,39 @@ function isStaleHeartbeat(heartbeatAt, nowMs, staleMs = DEFAULT_LIMITS.staleHear
   return nowMs - ts > staleMs;
 }
 
-/** Bounded, server-generated trade size. Never derives from client input. */
+/**
+ * Trade size - EXACT PARITY with the production browser engine.
+ *
+ * The browser loop computes (public/index.html, executeBotTrade):
+ *
+ *   profit = balance * 0.5 * (Math.random()*2.4/100) * (Math.random()>0.35 ? 1 : -0.5)
+ *
+ * With the shipped defaults this function evaluates the SAME expression in the
+ * SAME order, so the amount (and therefore the recorded P&L) is identical for
+ * the same draw: the RNG is consumed in the browser's order (caller draws the
+ * asset first, then this function draws magnitude, then sign).
+ *
+ *   magnitude = balance * maxTradePctOfBalance * (rng() * 2.4 / 100)   // 0.5 * 2.4% = 1.2% max
+ *   sign      = rng() > 0.35 ? +1 : -lossScaleFactor                   // losses are HALF
+ *
+ * The optional rails are inert at their parity defaults:
+ *   * maxAbsTradeUsd    - null/Infinity/not-finite means "no ceiling" (browser behaviour)
+ *   * lossScaleFactor   - 0.5 reproduces the browser's -0.5 losing multiplier
+ * Setting either one changes user-visible trade sizes, so it is a management
+ * decision, never a side effect of moving execution server-side.
+ */
 function computeTradeAmount(balance, limits = DEFAULT_LIMITS, rng = Math.random) {
   const bal = Number(balance) || 0;
   if (bal <= 0) return 0;
-  const pct = Number(limits.maxTradePctOfBalance) / 100;
-  const raw = bal * pct * (rng() * 2.4);
-  const magnitude = Math.min(raw, Number(limits.maxAbsTradeUsd));
-  const signed = (rng() > 0.35 ? 1 : -1) * magnitude;
+  const factor = Number(limits.maxTradePctOfBalance);
+  const scale = Number.isFinite(factor) ? factor : DEFAULT_LIMITS.maxTradePctOfBalance;
+  // Browser-identical expression order (bit-for-bit the same result).
+  const raw = bal * scale * (rng() * 2.4 / 100);
+  const cap = Number(limits.maxAbsTradeUsd);
+  const magnitude = Number.isFinite(cap) ? Math.min(raw, cap) : raw;
+  const lossScale = Number(limits.lossScaleFactor);
+  const losing = Number.isFinite(lossScale) ? lossScale : DEFAULT_LIMITS.lossScaleFactor;
+  const signed = (rng() > 0.35 ? 1 : -losing) * magnitude;
   let amount = round2(signed);
   if (amount < 0) amount = -Math.min(Math.abs(amount), bal); // loss can never exceed balance
   return round2(amount);
@@ -169,13 +291,32 @@ function createTradingWorker({
   callRpc = null,
   enabled = false,
   envEmergencyStop = false,
+  // EXECUTOR LEASE (migration 029). Defaults to the safe production posture:
+  // without a working lease RPC the worker executes NOTHING, rather than
+  // risking two executors on one session. Callers that deliberately run the
+  // legacy single-instance behaviour must opt out explicitly.
+  requireLease = true,
+  // Executor identity. Server-configured only (env var / hostname); it is never
+  // taken from a request, a header or any other client-controlled input.
+  workerId = null,
+  // SHADOW MODE: observe and log intended actions, write NOTHING AT ALL.
+  dryRun = false,
 }) {
   if (!admin) throw new Error('createTradingWorker requires a service-role Supabase client');
+  if (requireLease && !dryRun && !workerId) {
+    throw new Error('createTradingWorker: requireLease needs a workerId (executor identity)');
+  }
   const cfg = { ...DEFAULT_LIMITS, ...limits };
   const rpc = callRpc || ((name, args) => admin.rpc(name, args));
   let timer = null;
   let started = false;
-  const stats = { ticks: 0, trades: 0, duplicates: 0, blocked: 0, stopped: 0, errors: 0 };
+  const stats = {
+    ticks: 0, trades: 0, duplicates: 0, blocked: 0, stopped: 0, errors: 0,
+    claimed: 0, released: 0, fenceRejections: 0, leaseErrors: 0,
+    dryRunTrades: 0, dryRunBlockedWrites: 0,
+  };
+  // Sessions this process currently holds a lease for: userId -> { generation }.
+  const held = new Map();
 
   const log = (event, payload = {}) => {
     try {
@@ -184,6 +325,18 @@ function createTradingWorker({
       /* logging must never break trading */
     }
   };
+
+  /**
+   * SHADOW MODE must be provably write-free. Every write site in this module
+   * funnels through this guard, so a dry-run process cannot move money or mutate
+   * session state even if a future edit forgets a branch. Returns false so
+   * callers keep a truthful "nothing happened" result.
+   */
+  function refuseWrite(op, extra = {}) {
+    stats.dryRunBlockedWrites++;
+    log('dry_run_write_blocked', { op, ...extra });
+    return false;
+  }
 
   // ---------------------------------------------------------------- kill switch
   /**
@@ -214,6 +367,10 @@ function createTradingWorker({
   }
 
   async function engageEmergencyStop(reason, engagedBy) {
+    if (dryRun) {
+      refuseWrite('engage_emergency_stop', { reason: reason || 'manual' });
+      return { ok: false, dryRun: true, sessionsStopped: 0 };
+    }
     const res = await withRetry(
       () =>
         admin
@@ -237,6 +394,10 @@ function createTradingWorker({
   }
 
   async function clearEmergencyStop(clearedBy) {
+    if (dryRun) {
+      refuseWrite('clear_emergency_stop', { clearedBy: clearedBy || 'unknown' });
+      return { ok: false, dryRun: true };
+    }
     const res = await withRetry(
       () =>
         admin
@@ -273,7 +434,140 @@ function createTradingWorker({
     return Array.isArray(data) ? data : [];
   }
 
+  // ------------------------------------------------- executor lease (029)
+  /**
+   * Claim claimable sessions with a DATABASE-timestamped lease.
+   *
+   * FAILS CLOSED: if the RPC is unavailable (migration 029 not applied) or
+   * errors, this returns [] and the tick executes NOTHING. Falling back to "scan
+   * every running session" is precisely the double-execution the lease exists to
+   * prevent, so there is deliberately no fallback.
+   */
+  async function claimSessions() {
+    if (!workerId) {
+      stats.leaseErrors++;
+      log('claim_skipped', { reason: 'no_worker_id' });
+      return [];
+    }
+    const res = await withRetry(
+      () => rpc('claim_bot_sessions', {
+        p_worker_id: workerId,
+        p_lease_ms: cfg.leaseMs,
+        p_limit: cfg.maxClaimsPerTick,
+      }),
+      { rng, sleep, onRetry: (r) => log('retry', { op: 'claim_sessions', attempt: r.attempt }) }
+    );
+    if (!res.ok) {
+      stats.leaseErrors++;
+      log('claim_failed_fail_closed', {
+        message: (res.error && res.error.message) || String(res.error),
+        hint: 'is migration 029 (bot session lease) applied?',
+      });
+      return [];
+    }
+    const payload = res.result && typeof res.result === 'object' ? res.result.data : null;
+    if (!payload || typeof payload !== 'object' || payload.success === false) {
+      stats.leaseErrors++;
+      log('claim_rejected_fail_closed', { error: (payload && payload.error) || 'invalid claim response' });
+      return [];
+    }
+    const rows = Array.isArray(payload.claimed) ? payload.claimed : [];
+    const serverNowMs = Date.parse(payload.server_now);
+    if (!Number.isFinite(serverNowMs)) log('claim_missing_server_clock', { rows: rows.length });
+    for (const row of rows) {
+      held.set(String(row.user_id), {
+        userId: row.user_id,
+        generation: Number(row.generation || 0),
+        expiresAtMs: Date.parse(row.lease_expires_at),
+      });
+    }
+    stats.claimed += rows.length;
+    log('sessions_claimed', { count: rows.length, serverNow: payload.server_now || null, workerId });
+    return rows.map((row) => ({ ...row, server_now_ms: serverNowMs }));
+  }
+
+  /**
+   * Renew + VERIFY our lease for one session. This is the fence: it is called
+   * immediately before any money-moving write, and when the database refuses we
+   * discard the session without trading. Prefer the database's own `code`;
+   * otherwise derive the verdict from the state it returned with the same pure
+   * function the unit tests cover.
+   */
+  async function renewLease(session) {
+    const expectedGeneration = Number(session.generation || 0);
+    const res = await withRetry(
+      () => rpc('renew_bot_session_lease', {
+        p_user_id: session.user_id,
+        p_worker_id: workerId,
+        p_generation: expectedGeneration,
+        p_lease_ms: cfg.leaseMs,
+      }),
+      { rng, sleep, onRetry: (r) => log('retry', { op: 'renew_lease', attempt: r.attempt }) }
+    );
+    if (!res.ok) {
+      stats.leaseErrors++;
+      log('lease_renew_failed_fail_closed', {
+        userId: session.user_id,
+        message: (res.error && res.error.message) || String(res.error),
+      });
+      held.delete(String(session.user_id));
+      return { renewed: false, code: 'LEASE_RPC_ERROR' };
+    }
+    const payload = (res.result && typeof res.result === 'object' && res.result.data) || {};
+    const serverNowMs = Date.parse(payload.server_now);
+    const leaseExpiry = Date.parse(payload.lease_expires_at);
+    if (payload.renewed === true) {
+      held.set(String(session.user_id), {
+        userId: session.user_id,
+        generation: Number(payload.generation === undefined ? expectedGeneration : payload.generation) || 0,
+        expiresAtMs: leaseExpiry,
+      });
+      return { renewed: true, code: null, serverNowMs, leaseExpiresAtMs: leaseExpiry };
+    }
+    const verdict = evaluateFence({
+      workerId,
+      claimedBy: payload.claimed_by,
+      leaseExpiresAtMs: leaseExpiry,
+      serverNowMs,
+      expectedGeneration,
+      observedGeneration: payload.generation,
+      isRunning: payload.is_running,
+    });
+    held.delete(String(session.user_id));
+    return { renewed: false, code: payload.code || verdict.code || 'LEASE_REJECTED', serverNowMs };
+  }
+
+  /** Give a lease back (best effort; expiry would cover it anyway). */
+  async function releaseLease(userId, generation) {
+    held.delete(String(userId));
+    if (!workerId) return false;
+    if (dryRun) {
+      refuseWrite('release_lease', { userId });
+      return false;
+    }
+    const res = await withRetry(
+      () => rpc('release_bot_session_lease', {
+        p_user_id: userId,
+        p_worker_id: workerId,
+        p_generation: Number(generation || 0),
+      }),
+      { rng, sleep, onRetry: (r) => log('retry', { op: 'release_lease', attempt: r.attempt }) }
+    );
+    if (!res.ok) {
+      stats.leaseErrors++;
+      log('lease_release_failed', { userId, message: (res.error && res.error.message) || String(res.error) });
+      return false;
+    }
+    stats.released++;
+    return true;
+  }
+
   async function stopSession(userId, stoppedReason) {
+    if (dryRun) {
+      held.delete(String(userId));
+      refuseWrite('stop_session', { userId, stoppedReason });
+      return false;
+    }
     // The update result MUST be inspected: supabase-js resolves with { error }
     // instead of throwing, so an unchecked write would log a false success and
     // leave a phantom "running" session behind (the exact bug this worker exists
@@ -305,6 +599,10 @@ function createTradingWorker({
   }
 
   async function stopAllSessions(stoppedReason) {
+    if (dryRun) {
+      refuseWrite('stop_all_sessions', { stoppedReason, held: held.size });
+      return 0;
+    }
     const sessions = await listRunningSessions();
     for (const s of sessions) await stopSession(s.user_id, stoppedReason);
     return sessions.length;
@@ -318,6 +616,14 @@ function createTradingWorker({
   async function reconcileStaleSessions(nowMs = clock()) {
     const sessions = await listRunningSessions();
     let reconciled = 0;
+    if (dryRun) {
+      const stale = sessions.filter((s) => isStaleHeartbeat(s.heartbeat_at, nowMs, cfg.staleHeartbeatMs));
+      log('dry_run_reconcile_skipped', {
+        running: sessions.length,
+        wouldStop: stale.map((s) => s.user_id),
+      });
+      return 0;
+    }
     for (const s of sessions) {
       if (!isStaleHeartbeat(s.heartbeat_at, nowMs, cfg.staleHeartbeatMs)) continue;
       await stopSession(s.user_id, 'stale_heartbeat_reconciled');
@@ -372,6 +678,10 @@ function createTradingWorker({
   }
 
   async function heartbeat(userId, patch = {}) {
+    if (dryRun) {
+      refuseWrite('heartbeat', { userId });
+      return false;
+    }
     const nowIso = new Date(clock()).toISOString();
     const res = await withRetry(
       () =>
@@ -401,6 +711,25 @@ function createTradingWorker({
       return { userId, action: 'stopped', code: 'EMERGENCY_STOP' };
     }
 
+    // EXECUTOR FENCE (migration 029): renew + verify ownership, generation,
+    // running state and lease validity BEFORE we read anything for a trade and
+    // long before any money-moving write. A stale generation (session stopped or
+    // reassigned) is rejected here, so it can never reach record_trade_safe.
+    if (requireLease && !dryRun) {
+      const lease = await renewLease(session);
+      if (!lease.renewed) {
+        stats.fenceRejections++;
+        log('fence_rejected', {
+          userId,
+          code: lease.code,
+          expectedGeneration: Number(session.generation || 0),
+          claimedBy: session.claimed_by || null,
+          workerId,
+        });
+        return { userId, action: 'fenced', code: lease.code };
+      }
+    }
+
     const inputs = await loadSessionInputs(userId);
     const verdict = evaluateRisk({
       ...inputs,
@@ -419,10 +748,49 @@ function createTradingWorker({
       return { userId, action: 'blocked', code: verdict.code };
     }
 
+    // Draw order mirrors the browser engine EXACTLY: asset first, then the
+    // magnitude, then the sign - so for any given RNG stream the server produces
+    // the same trade the tab would have produced.
+    const asset = ASSETS[Math.floor(rng() * ASSETS.length)];
     const amount = computeTradeAmount(inputs.balance, cfg, rng);
     const bucket = tickBucket(clock(), cfg.tickMs);
-    const idempotencyKey = buildTickIdempotencyKey(userId, mode, bucket);
-    const asset = ASSETS[Math.floor(rng() * ASSETS.length)];
+    const generation = Number(session.generation || 0);
+    const idempotencyKey = buildTickIdempotencyKey(userId, mode, bucket, generation);
+
+    // Parity with the browser's NET EFFECT at a tiny balance: the tab POSTs
+    // `amount: profit` and /api/trade rejects exactly 0 (400 "Invalid trade
+    // amount"), so a trade rounding to zero leaves NO ledger row and changes no
+    // balance. Mirror that: no write at all.
+    if (amount === 0) {
+      log('tick_skipped', { userId, reason: 'zero_amount', balance: inputs.balance });
+      return { userId, action: 'skipped', code: 'ZERO_AMOUNT' };
+    }
+
+    // SHADOW / DRY RUN: log exactly what WOULD be written, then write nothing.
+    // This branch sits BEFORE the money-moving RPC, so dry-run is structurally
+    // incapable of writing a trade.
+    if (dryRun) {
+      stats.dryRunTrades++;
+      log('dry_run_trade', {
+        userId,
+        mode,
+        generation,
+        balance: inputs.balance,
+        amount,
+        asset: asset.symbol,
+        idempotencyKey,
+        wouldWrite: {
+          rpc: 'record_trade_safe',
+          p_user_id: userId,
+          p_amount: amount,
+          p_mode: mode,
+          p_asset: asset.symbol,
+          p_detail: asset.detail,
+          p_idempotency_key: idempotencyKey,
+        },
+      });
+      return { userId, action: 'dry_run', amount };
+    }
 
     let res;
     try {
@@ -495,7 +863,20 @@ function createTradingWorker({
       log('tick_skipped', { reason: 'emergency_stop', source: control.source, stopped });
       return { tick: stats.ticks, skipped: true, reason: 'emergency_stop', results: [] };
     }
-    const sessions = await listRunningSessions();
+    // Lease mode CLAIMS work (DB-timestamped, SKIP LOCKED) so two instances can
+    // never execute the same session. Dry-run never claims (it must not write),
+    // and a failed claim returns [] so the tick executes nothing.
+    const claimed = requireLease && !dryRun ? await claimSessions() : await listRunningSessions();
+    // Every session we HOLD a lease for is ticked too, not just the ones claimed
+    // in this pass. Otherwise a session leased on an earlier tick would sit idle
+    // until its lease expired whenever more than maxClaimsPerTick sessions are
+    // running - i.e. the bot would silently slow down at scale. Ticking the held
+    // set keeps the 8s cadence identical to the browser loop at any fleet size.
+    const claimedIds = new Set(claimed.map((s) => String(s.user_id)));
+    const heldOnly = Array.from(held.values())
+      .filter((v) => !claimedIds.has(String(v.userId)))
+      .map((v) => ({ user_id: v.userId, generation: v.generation }));
+    const sessions = claimed.concat(heldOnly);
     const results = [];
     for (const s of sessions) {
       try {
@@ -513,7 +894,14 @@ function createTradingWorker({
     if (started) return;
     started = true;
     const reconciled = await reconcileStaleSessions();
-    log('worker_started', { tickMs: cfg.tickMs, reconciled, enabled });
+    log('worker_started', {
+      tickMs: cfg.tickMs,
+      reconciled,
+      enabled,
+      dryRun: dryRun === true,
+      requireLease: requireLease === true,
+      workerId: workerId || null,
+    });
     timer = setInterval(() => {
       runOnce().catch((e) => {
         stats.errors++;
@@ -530,6 +918,12 @@ function createTradingWorker({
     started = false;
     if (timer) clearInterval(timer);
     timer = null;
+    // Hand our leases back so another instance (or the next boot) can claim them
+    // immediately instead of waiting for expiry.
+    for (const [userId, info] of Array.from(held.entries())) {
+      await releaseLease(userId, info.generation);
+    }
+    held.clear();
     log('worker_stopped', { ...stats });
   }
 
@@ -540,6 +934,10 @@ function createTradingWorker({
     engageEmergencyStop,
     clearEmergencyStop,
     listRunningSessions,
+    claimSessions,
+    renewLease,
+    releaseLease,
+    heldLeases: () => Array.from(held.values()).map((v) => ({ userId: v.userId, generation: v.generation })),
     reconcileStaleSessions,
     stopSession,
     stopAllSessions,
@@ -556,6 +954,8 @@ module.exports = {
   ASSETS,
   tickBucket,
   buildTickIdempotencyKey,
+  leaseExpiresAtMs,
+  evaluateFence,
   backoffDelay,
   isStaleHeartbeat,
   computeTradeAmount,

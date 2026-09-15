@@ -15,6 +15,8 @@ const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+// Code-only view, so a negative assertion cannot trip over an explanatory comment.
+const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 
@@ -54,8 +56,16 @@ test('the disclosure switch is driven by the server 409, not by a manual copy ed
   const start = INDEX.indexOf('const res = await fetch(\'/api/trade\'');
   const body = INDEX.slice(start, start + 2500);
   assert.match(body, /errBody\.code === 'WORKER_OWNED_SESSION'/);
-  assert.match(body, /updateBotEngineNotice\('worker'\)/);
-  assert.match(body, /stopBot\(\)/, 'the tab loop must stop once the worker owns the session');
+  assert.match(body, /adoptWorkerOwnership\(\)/, 'the tab loop must YIELD once the worker owns the session');
+  // The worker copy is applied by the shared yield helper (used by the 409, by
+  // fresh-tab adoption and by the startBot handover), never by a manual edit.
+  assert.match(INDEX, /function adoptWorkerOwnership\(\)[\s\S]{0,400}?updateBotEngineNotice\('worker'\)/);
+  // Scoped to the 409 branch itself (the NEXT branch, the promo cap, legitimately
+  // stops the bot for real - the yield never goes through stopBot()).
+  const branchAt = INDEX.indexOf("errBody.code === 'WORKER_OWNED_SESSION'");
+  const nextAt = INDEX.indexOf('PROMO_TRADING_LIMIT_REACHED', branchAt);
+  const branch = INDEX.slice(branchAt, nextAt > branchAt ? nextAt : branchAt + 900);
+  assert.ok(!/stopBot\(/.test(stripComments(branch)), 'the handover must not end the server session (that would defeat background trading)');
 });
 
 test('the server emits exactly the code the client keys off', () => {
@@ -65,7 +75,7 @@ test('the server emits exactly the code the client keys off', () => {
 
 test('updateBotEngineNotice picks the copy from APP.botExecutedBy and defaults to browser', () => {
   const start = INDEX.indexOf('function updateBotEngineNotice');
-  const src = INDEX.slice(start, INDEX.indexOf('function stopBot() {'));
+  const src = INDEX.slice(start, INDEX.indexOf('function stopBot('));
   const el = { textContent: '' };
   const sandbox = {
     APP: {},
@@ -91,5 +101,5 @@ test('the disclosure copy sits in the live bot card and is still a data-i18n def
 });
 
 test('no sandbox file or sandbox string was touched by this change', () => {
-  assert.ok(!/sandbox/i.test(INDEX.slice(INDEX.indexOf('function updateBotEngineNotice'), INDEX.indexOf('function stopBot() {'))));
+  assert.ok(!/sandbox/i.test(INDEX.slice(INDEX.indexOf('function updateBotEngineNotice'), INDEX.indexOf('function stopBot('))));
 });
