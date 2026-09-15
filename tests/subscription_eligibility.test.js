@@ -111,10 +111,12 @@ describe('case matrix', () => {
     const r = activateGate('inactive', true);
     assert.ok(r.charged);
   });
-  test('CASE 4: $150 deposit; subscription stays independent of MTA', () => {
-    // MTA (200) is a trading/bot gate, not a subscription gate.
-    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 200'));
-    assert.ok(serverSrc.includes('getEffectiveMta(BOT_MIN_TRADING_BALANCE)'));
+  test('CASE 4: $150 deposit; subscription stays independent of any trading gate', () => {
+    // The MTA has been removed entirely; subscription eligibility never depended
+    // on it and must not reference any trading threshold.
+    const code = serverSrc.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'));
+    assert.ok(!code.includes('getEffectiveMta'));
     const r = activateGate('inactive', true);
     assert.ok(r.charged);
   });
@@ -158,10 +160,12 @@ describe('constants preserved', () => {
     assert.ok(/SUBSCRIPTION_PRO_DEFAULT_PRICE = 7/.test(serverSrc));
     assert.ok(/'subscription\.pro_price', '7', 'number'/.test(fs.readFileSync(path.join(ROOT, 'supabase/migrations/011_subscription_pro.sql'), 'utf8')));
   });
-  test('MTA is $200 (active value)', () => {
-    assert.ok(serverSrc.includes('const BOT_MIN_TRADING_BALANCE = 200'));
-    assert.ok(serverSrc.includes('getEffectiveMta(BOT_MIN_TRADING_BALANCE)'));
-    assert.ok(indexSrc.includes('$200.00'));
+  test('the MTA is fully removed (no trading minimum)', () => {
+    const code = serverSrc.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'));
+    assert.ok(!code.includes('getEffectiveMta'));
+    assert.ok(!indexSrc.includes('APP.MTA'));
+    assert.ok(!indexSrc.includes('mtaProgressCard'));
   });
   test('Demo starting balance remains $1,000', () => {
     assert.ok(/demo_balance: 1000/.test(serverSrc));

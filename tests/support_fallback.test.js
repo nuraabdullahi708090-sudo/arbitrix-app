@@ -116,15 +116,16 @@ test('supported questions still receive their normal answers', () => {
     cases.forEach(([msg, key]) => {
         const r = ask(msg, 'en');
         assert.strictEqual(r.usedFallback, false, msg + ' must NOT use the human-support fallback');
-        assert.ok(r.html.includes(T.en[key].split('{{mta}}').join('200')), msg + ' must answer with ' + key);
+        assert.ok(r.html.includes(T.en[key]), msg + ' must answer with ' + key);
         assert.ok(!r.html.includes(T.en['support.reply.default']), msg + ' must not show the fallback text');
     });
 });
 
-test('the bot answer keeps its {{mta}} interpolation and DEMO/LIVE topics work', () => {
+test('the bot answer no longer mentions an MTA (removed) and DEMO/LIVE topics work', () => {
     const r = ask('how do I start the bot in demo mode', 'en');
-    assert.ok(r.html.includes('$200'), 'the minimum trading balance is interpolated');
-    assert.ok(r.html.includes(T.en['support.reply.bot'].split('{{mta}}').join('200')));
+    assert.ok(!r.html.includes('{{mta}}'), 'no literal {{mta}} placeholder may be rendered');
+    assert.ok(!/minimum trading balance/i.test(r.html), 'the bot answer must not claim a minimum trading balance');
+    assert.ok(r.html.includes(T.en['support.reply.bot']), 'the bot answer matches the dictionary');
 });
 
 /* ------------------------------------------------------------------ *
@@ -251,7 +252,7 @@ test('the fallback works in every supported locale', () => {
 test('i18n stays consistent: identical key sets, no empties, count pinned', () => {
     const sets = LANGS.map((l) => Object.keys(T[l]).sort().join('|'));
     assert.strictEqual(new Set(sets).size, 1, 'identical key sets across locales');
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1416, l + ' key count'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1398, l + ' key count'));
     LANGS.forEach((l) => Object.values(T[l]).forEach((v) => assert.ok(String(v).trim(), l + ' has an empty value')));
 });
 
@@ -294,8 +295,9 @@ test('the fallback action is mobile-tappable and keyboard accessible', () => {
 test('no financial, account or backend logic is involved', () => {
     assert.strictEqual(SERVER.includes('appendSupportFallbackReply'), false, 'this feature is frontend-only');
     assert.strictEqual(SERVER.includes('support.reply'), false, 'no server-side assistant replies were added');
-    assert.ok(/MIN_WITHDRAWAL:\s*700/.test(INDEX), 'the $700 withdrawal minimum is untouched');
-    assert.ok(/BOT_MIN_TRADING_BALANCE\s*=\s*200/.test(SERVER), 'the MTA is untouched');
+    assert.ok(/MIN_WITHDRAWAL:\s*500/.test(INDEX), 'the $500 withdrawal minimum is intact');
+    const serverCode = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!serverCode.includes('BOT_MIN_TRADING_BALANCE'), 'the MTA is fully removed (management decision)');
     // the supported answer copy itself is unchanged
     assert.match(T.en['support.reply.deposit'], /USDT on the TRON \(TRC20\)/);
     assert.match(T.en['support.reply.withdraw'], /at least 1 trade/);

@@ -494,9 +494,17 @@ const PLATFORM_MIN_DEPOSIT_USD = 100;
 // applies to referral earnings. The conversion remains server-authoritative
 // (see /api/referral/earnings/convert + migration 023), is capped by genuinely
 // earned rewards, and never creates money: it only moves the referral-earnings
-// bucket (wallets.bonus_balance) into wallets.live_balance. The $700 minimum
-// withdrawal, KYC, address and all other withdrawal safeguards are unchanged.
+// bucket (wallets.bonus_balance) into wallets.live_balance. The $500 minimum
+// withdrawal, security verification, address and all other withdrawal safeguards
+// are unchanged.
 const REFERRAL_EARNINGS_MIN_CONVERT_USD = 0;
+
+// Platform minimum withdrawal (USD). ENFORCED SERVER-SIDE. Management decision:
+// the value is $500. It is deliberately NOT advertised in the always-on UI; it
+// is disclosed at the withdrawal stage (the withdraw modal) and surfaced in the
+// clear error when a request falls below it. MARKETING_SANDBOX is unaffected
+// (sandbox withdrawals are balance-only and never reach production validation).
+const MIN_WITHDRAWAL_USD = 500;
 
 // TEMPORARY (management decision): account verification is NOT required to
 // withdraw at this time, so an unverified account is no longer blocked and the
@@ -505,41 +513,26 @@ const REFERRAL_EARNINGS_MIN_CONVERT_USD = 0;
 // TO RESTORE the previous KYC-first withdrawal gate, set the env var
 // `WITHDRAWAL_REQUIRES_VERIFICATION=true` (or edit this single constant). The
 // gate code below is unchanged and is merely skipped while the flag is off.
-// SCOPE: this flag affects ONLY the verification requirement. The $700 minimum,
+// SCOPE: this flag affects ONLY the verification requirement. The $500 minimum,
 // the completed-trade rule, balance/address validation, the first-deposit rule,
 // duplicate/pending protections and authorization are all untouched, and the
 // verification system itself (collection, review, storage) is NOT removed.
 const WITHDRAWAL_REQUIRES_VERIFICATION =
   String(process.env.WITHDRAWAL_REQUIRES_VERIFICATION || '').trim().toLowerCase() === 'true';
 
-// Minimum Trading Amount (MTA): the live-style trading balance required to
-// START the bot. Server-authoritative and PRODUCTION-ONLY ($200). It applies to
-// the production live bot start; MARKETING_SANDBOX has NO MTA at all (see the
-// note below). Separate from the $7 Arbitrix Pro subscription. Demo mode is
-// intentionally not gated. MTA is NOT a withdrawal requirement (see
-// /api/withdraw/request) and does not affect deposits or subscriptions — the bot
-// MTA and the platform withdrawal/deposit rules are deliberately decoupled.
-const BOT_MIN_TRADING_BALANCE = 200;
-
-// SINGLE SOURCE OF TRUTH for the MTA *value*. Management decision: the active
-// MTA is $200 ($143 is no longer active; $300 was rejected). To change it
-// without touching code, set the server env var `MTA_AMOUNT` (production uses
-// MTA_AMOUNT=200). Missing/invalid values fall back to BOT_MIN_TRADING_BALANCE.
-// Every server-side MTA enforcement reads getEffectiveMta(), so there is
-// exactly one place to change.
-const MTA_ENV_VAR = 'MTA_AMOUNT';
-function getEffectiveMta(defaultMta = BOT_MIN_TRADING_BALANCE) {
-  const raw = process.env[MTA_ENV_VAR];
-  if (raw === undefined || raw === null || String(raw).trim() === '') return defaultMta;
-  const n = Number(raw);
-  return (Number.isFinite(n) && n > 0) ? n : defaultMta;
-}
-
-// MARKETING_SANDBOX has NO minimum trading amount: there is no MTA (and no
-// hidden equivalent minimum) that can prevent a sandbox account from starting
-// the bot / trading. The server therefore exposes mta: 0 for sandbox accounts
-// and the sandbox bot-start route performs no balance gate at all. (Production
-// keeps its own MTA — see getEffectiveMta().)
+// MINIMUM TRADING AMOUNT (MTA) — REMOVED FROM PRODUCTION (management decision).
+// There is no longer any minimum live balance required to START the bot: a user
+// with a confirmed deposit may start the bot with any positive balance. The
+// `MTA_AMOUNT` env var, the `BOT_MIN_TRADING_BALANCE` constant and the
+// `getEffectiveMta()` helper are all gone, together with the production
+// /api/bot/start gate, the MTA dashboard card/badge and the MTA references in
+// the withdrawal UX. The promotional-credit $20 realized-profit cap is a
+// SEPARATE rule and is unchanged (see isPromoCreditFunded below). MTA was never
+// a withdrawal requirement.
+//
+// MARKETING_SANDBOX was already MTA-free; its bot-start route had (and keeps) no
+// balance gate, so nothing changes there. Its /api/auth/me response still
+// reports `mta: 0` for shape compatibility, but the frontend no longer reads it.
 
 // The MARKETING SANDBOX referral program mirrors PRODUCTION (management
 // decision): a ONE-TIME reward equal to a percentage (default 20%) of the
@@ -557,24 +550,19 @@ const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;
 // simulated balance.
 const SANDBOX_PROMO_CREDIT = 50;
 
-// Promotional-credit tradability (MTA exemption). A user with NO confirmed
-// deposit and a positive Live balance is trading with their own non-deposited
-// capital — the $50 promotional credit OR genuine referral earnings they
-// converted into Live balance. Management decision: that capital is TRADABLE
-// through the SAME trading engine (/api/trade + record_trade_safe), so such a
-// user is exempt from the bot-start MTA gate (their capital is below the MTA by
-// definition).
+// Promotional-credit tradability. A user with NO confirmed deposit and a
+// positive Live balance is trading with their own non-deposited capital — the
+// $50 promotional credit OR genuine referral earnings they converted into Live
+// balance. Management decision: that capital is TRADABLE through the SAME
+// trading engine (/api/trade + record_trade_safe). With the MTA gate removed
+// there is no bot-start threshold at all, so no exemption helper is needed.
 //
-// IMPORTANT: this is NOT the promotional-credit classifier. "No deposit +
-// positive balance" does NOT mean the balance IS the $50 promotional credit —
-// it may be converted referral earnings. The production $20 promotional-credit
-// trading cap therefore uses isPromoCreditFunded() (authoritative source-of-
-// funds classification) below, NEVER this helper. This helper defines only WHO
-// the MTA gate applies to; it does NOT change the MTA value.
-function isNonDepositedTrading(hasConfirmedDeposit, liveBalance) {
-  return !hasConfirmedDeposit && Number(liveBalance) > 0;
-}
-
+// NOTE: this is NOT the promotional-credit classifier. "No deposit + positive
+// balance" does NOT mean the balance IS the $50 promotional credit — it may be
+// converted referral earnings. The production $20 promotional-credit trading cap
+// therefore uses isPromoCreditFunded() (authoritative source-of-funds
+// classification) below.
+//
 // PROMOTIONAL-CREDIT TRADING CAP (production-only, management decision). The
 // cap targets users whose non-deposited Live capital IS the $50 promotional
 // credit grant. The cumulative NET realized profit from trading that credit is
@@ -3129,9 +3117,6 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     hasRealDeposit: !!funded,
     todayRealizedPnl: Number(todayPnl) || 0,
     environment: ENV_PRODUCTION,
-    // Server-authoritative MTA (single source of truth, env-selectable).
-    // Frontend adopts this so the UI never hardcodes the value.
-    mta: getEffectiveMta(),
     // Server-authoritative promotional-credit cap state (frontend mirrors it
     // for display only; enforcement is server-side in /api/trade + /api/bot/start).
     promoCreditFunded,
@@ -4670,7 +4655,7 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
 
   // PRODUCTION-ONLY Gate 1 — FIRST-DEPOSIT PRIORITY. A production account that
   // has NEVER made a real qualifying deposit must see the clear first-deposit
-  // requirement FIRST — before the verification prompt, the $700 minimum, the
+  // requirement FIRST — before the verification prompt, the $500 minimum, the
   // balance, the address, or the completed-trade count. This covers both a user
   // who only holds the $50 promotional credit (no trades) and one who traded
   // that credit and realised a profit. The single exception is the existing
@@ -4716,9 +4701,11 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
     }
   }
 
-  // PRESERVED: All existing withdrawal business logic (unchanged order/meaning)
+  // PRESERVED: All existing withdrawal business logic (unchanged order/meaning).
+  // Minimum withdrawal is $500 (MIN_WITHDRAWAL_USD) and is enforced here — the
+  // authoritative gate; the UI only surfaces it at the withdrawal stage.
   const wallet = await getWallet(userId);
-  if (!amount || amount < 700) return res.status(400).json({ error: 'Min $700' });
+  if (!amount || amount < MIN_WITHDRAWAL_USD) return res.status(400).json({ error: 'Min $' + MIN_WITHDRAWAL_USD });
 
   // Referral-earnings exception (management decision): genuinely earned
   // referral income must NOT require placing a trade before withdrawal. The
@@ -5353,12 +5340,9 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   if (await sandboxHandled(req, res, handleSandboxBotStart)) return;
   const userId = req.user.id;
   // Server-authoritative: only an explicit 'demo' request gets demo behavior;
-  // a missing/unexpected client mode is treated as live-style trading so the
-  // client can never bypass the MTA gate via the mode field. The balance is
-  // read from the server wallet, never from the request.
+  // a missing/unexpected client mode is treated as live-style trading. The
+  // balance is read from the server wallet, never from the request.
   const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
-  const wallet = await getWallet(userId);
-  const balance = Number(wallet.live_balance) || 0;
   const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
   // PROMOTIONAL-CREDIT TRADING CAP (production-only): only a user whose
   // non-deposited Live capital IS the $50 promotional credit (authoritative
@@ -5374,17 +5358,10 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
       return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
     }
   }
-  // Single-source PRODUCTION MTA value (env-selectable; default 200).
-  // MARKETING_SANDBOX uses its own fixed value elsewhere.
-  const mta = getEffectiveMta(BOT_MIN_TRADING_BALANCE);
-  // Non-deposited trading (the $50 promotional credit OR converted referral
-  // earnings) is exempt from the bot-start MTA gate: that capital is below the
-  // MTA by definition and is tradable through the SAME engine. The MTA value
-  // itself is unchanged.
-  const nonDepositedTrading = isNonDepositedTrading(hasDeposit, balance);
-  if (mode === 'live' && balance < mta && !nonDepositedTrading) {
-    return res.status(400).json({ error: 'MTA not reached' });
-  }
+  // NO minimum trading balance: the MTA gate was removed by management decision
+  // (there was only ever one, and it is gone). Any positive balance may start
+  // the bot; the only trading restriction that remains is the separate
+  // promotional-credit $20 realized-profit cap enforced above.
   await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString() }, { onConflict: 'user_id' });
   res.json({ status: 'started', mode });
 });

@@ -19,7 +19,7 @@
  *  - live_balance still derives ONLY from sandbox_wallets.balance (DEFAULT 0).
  *  - No production wallet / deposit / trade / withdrawal / subscription table
  *    or RPC is touched by the change.
- *  - Production wallet initialization, subscription eligibility, the $200 MTA
+ *  - Production wallet initialization, subscription eligibility, the MTA
  *    rule, and the $50 promotional Live credit are byte-unchanged.
  *  - Frontend demo display path (syncWalletFromServer adoption of
  *    wallet.demo_balance) is unchanged — it just now receives 1000.
@@ -167,19 +167,23 @@ test('sandbox deposit request/credit flow is untouched', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10/11/12. Production init, subscription eligibility, MTA unchanged
+// 10/11/12. Production init, subscription eligibility, MTA removed
 // ---------------------------------------------------------------------------
 test('production wallet initialization is unchanged (demo 1000, live 50 promo, bonus 0)', () => {
     assert.match(fnBody('getWallet'), /demo_balance: 1000, live_balance: 50, bonus_balance: 0/, 'production new-user wallet seed unchanged');
 });
 
-test('production MTA is $200; the sandbox has NO MTA at all', () => {
-    assert.match(SERVER, /const BOT_MIN_TRADING_BALANCE = 200;/, 'production MTA constant is the active $200');
-    assert.ok(!SERVER.includes('SANDBOX_BOT_MIN_TRADING_BALANCE'), 'the sandbox MTA constant is gone');
+test('the MTA is fully removed: production has none and the sandbox still has none', () => {
+    // Comments may still explain the removal; executable code must not.
+    const code = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'the production MTA constant is removed');
+    assert.ok(!code.includes('getEffectiveMta'), 'the production MTA helper is removed');
+    assert.ok(!code.includes('SANDBOX_BOT_MIN_TRADING_BALANCE'), 'the sandbox MTA constant is gone');
     const sandboxBot = SERVER.match(/async function handleSandboxBotStart\b[\s\S]*?\n\}/);
     assert.ok(sandboxBot, 'sandbox bot start handler present');
-    assert.ok(!/live_balance/.test(sandboxBot[0]), 'the sandbox bot start reads no balance (no gate)');
-    assert.ok(!sandboxBot[0].includes('getEffectiveMta'), 'sandbox bot start must not follow the production/env MTA');
+    const sandboxBotCode = sandboxBot[0].split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!/live_balance/.test(sandboxBotCode), 'the sandbox bot start reads no balance (no gate)');
+    assert.ok(!/MTA/.test(sandboxBotCode), 'sandbox bot start has no MTA reference');
 });
 
 test('subscription charge logic does not reference the demo seed', () => {

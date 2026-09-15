@@ -246,28 +246,30 @@ test('promo credit: stays $50 and is not derived from the minimum deposit', () =
 });
 
 test('promo credit: tradable through the EXISTING engine (no separate engine)', () => {
-    assert.match(SERVER, /function isNonDepositedTrading\(/);
+    // The MTA (and its exemption helper) is gone, so no exemption is needed at
+    // all: the promo credit trades through the same engine as any balance.
+    assert.ok(!SERVER.includes('isNonDepositedTrading'), 'the retired MTA-exemption helper must be gone');
     const trade = SERVER.slice(SERVER.indexOf("app.post('/api/trade'"), SERVER.indexOf("app.post('/api/trade'") + 900);
     assert.match(trade, /record_trade_safe/, 'promo trading uses the same trading engine');
 });
 
 test('promo credit: withdrawal requires a qualifying first deposit, then one trade', () => {
     assert.ok(WITHDRAW_SOURCE.indexOf('requiresFirstDeposit') < WITHDRAW_SOURCE.indexOf('verificationRequired'), 'first-deposit prompt is the first gate');
-    assert.ok(WITHDRAW_SOURCE.indexOf('verificationRequired') < WITHDRAW_SOURCE.indexOf('Min $700'), 'KYC still precedes the $700 minimum');
-    assert.ok(WITHDRAW_SOURCE.includes('Min $700'), 'existing $700 minimum preserved');
+    assert.ok(WITHDRAW_SOURCE.indexOf('verificationRequired') < WITHDRAW_SOURCE.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'KYC still precedes the $500 minimum');
+    assert.ok(WITHDRAW_SOURCE.includes("Min $' + MIN_WITHDRAWAL_USD"), 'existing $500 minimum preserved');
     assert.ok(WITHDRAW_SOURCE.includes('Complete at least 1 trade first'), 'the existing one-trade rule is preserved');
     assert.ok(WITHDRAW_SOURCE.includes('A qualifying first deposit is required before you can withdraw your promotional credit'), 'clear deposit requirement message');
     assert.ok(WITHDRAW_SOURCE.includes('depositRequired: true'));
     assert.ok(WITHDRAW_SOURCE.includes('requiresFirstDeposit: true'));
 });
 
-test('MTA: production $200 via a single source of truth, sandbox has none', () => {
-    assert.match(SERVER, /const BOT_MIN_TRADING_BALANCE = 200;/, 'production MTA is $200');
-    assert.match(SERVER, /const MTA_ENV_VAR = 'MTA_AMOUNT';/, 'env override is the single knob');
-    assert.match(SERVER, /function getEffectiveMta\(/);
-    assert.match(SERVER, /mta: 0/, 'sandbox reports MTA 0');
+test('MTA: fully removed from production and still absent from the sandbox', () => {
+    const code = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'the production MTA constant is removed');
+    assert.ok(!code.includes('MTA_AMOUNT'), 'the env override is removed');
+    assert.ok(!code.includes('getEffectiveMta'), 'the MTA helper is removed');
     const sandboxBot = fnSource('handleSandboxBotStart');
-    assert.ok(!/BOT_MIN_TRADING_BALANCE|getEffectiveMta/.test(sandboxBot), 'sandbox bot start has no MTA gate');
+    assert.ok(!/MTA/.test(sandboxBot.replace(/\/\/.*$/gm, '')), 'sandbox bot start has no MTA gate');
 });
 
 test('sandbox: reward percent / minimum deposit mirror production', () => {

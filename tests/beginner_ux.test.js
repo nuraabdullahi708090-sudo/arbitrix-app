@@ -78,7 +78,6 @@ const NEW_KEYS = [
     'deposit.methodNotice', 'deposit.newToUsdt.title', 'deposit.newToUsdt.body', 'deposit.usdVsUsdt',
     'deposit.addressExplain', 'deposit.referenceExplain', 'deposit.afterSending',
     'support.assistant.name', 'support.assistant.automated', 'support.assistant.status', 'support.human.title',
-    'mta.targetLabel',
     'auth.signup.passwordHint', 'auth.signup.referralHint', 'auth.signup.next', 'auth.signup.failed',
     'auth.errors.nameRequired', 'auth.errors.emailRequired', 'auth.errors.passwordRequired', 'auth.signup.passwordMin',
 ];
@@ -86,7 +85,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1416, 'expected 1416 keys per locale');
+    assert.strictEqual(enKeys.length, 1398, 'expected 1398 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -107,8 +106,9 @@ test('withdrawal copy: processing time clarified, requirements untouched', () =>
         ar: /يتطلب إتمام صفقة واحدة/, zh: /需完成 1 笔交易/,
     };
     for (const lang of LANGS) {
-        assert.ok(/\$700/.test(T[lang]['withdraw.info']), `${lang} withdraw.info must keep $700`);
+        assert.ok(!/\$700/.test(T[lang]['withdraw.info']), `${lang} withdraw.info must not claim a $700 minimum`);
         assert.match(T[lang]['withdraw.info'], TRADE_REQ[lang], `${lang} withdraw.info must keep the 1-trade requirement`);
+        assert.ok(/\$500/.test(T[lang]['withdraw.minAmount']), `${lang} withdraw.minAmount must disclose the $500 minimum`);
     }
     // EN copy must not over-promise a fixed window.
     assert.match(T.en['withdraw.info'], /usually takes 15/);
@@ -126,18 +126,19 @@ test('withdrawal copy: processing time clarified, requirements untouched', () =>
     assert.match(T.en['support.reply.withdraw'], /at least 1 trade/);
 });
 
-test('MTA jargon replaced with plain "minimum trading balance" wording', () => {
+test('the MTA is fully removed: no MTA key, label, card or jargon survives', () => {
     const T = loadTranslations();
-    for (const k of ['mta.subtitle', 'bot.reachMTA', 'bot.mtaMet', 'support.reply.bot']) {
-        for (const lang of LANGS) {
-            assert.ok(!/\bMTA\b/.test(T[lang][k]), `${lang}.${k} should not expose the MTA acronym`);
-            assert.ok(!/Minimum Trading Amount/.test(T[lang][k]), `${lang}.${k} should not say Minimum Trading Amount`);
+    // No MTA key in any locale, and no MTA jargon in the surviving bot copy.
+    for (const lang of LANGS) {
+        for (const k of Object.keys(T[lang])) {
+            assert.ok(!/^mta\./.test(k), `${lang} must not keep the ${k} key`);
         }
+        assert.ok(!/\bMTA\b/.test(T[lang]['support.reply.bot']), `${lang} support reply should not expose the MTA acronym`);
+        assert.ok(!/Minimum Trading Amount/.test(T[lang]['support.reply.bot']), `${lang} should not say Minimum Trading Amount`);
     }
-    assert.match(T.en['bot.mtaMet'], /Minimum trading balance/i);
-    // The standalone MTA-vs-amount line now uses a localized label.
-    assert.ok(/mta\.targetLabel/.test(INDEX), 'mta.targetLabel must be used in markup');
-    assert.ok(T.en['mta.targetLabel'].length > 0);
+    assert.ok(!/mta\.targetLabel/.test(INDEX), 'the MTA label must not be referenced in markup');
+    assert.ok(!/id="mtaProgressCard"/.test(INDEX), 'the MTA card must be gone');
+    assert.ok(!/Minimum trading balance/i.test(T.en['support.reply.bot']), 'the bot reply must not claim a minimum');
 });
 
 test('activity ticker carries the LIVE ACTIVITY label (management decision)', () => {
@@ -239,8 +240,9 @@ test('dashboard terms have short localized hints and the auth page orients first
 test('no financial/backend logic was touched by this UX pass', () => {
     // Behavioural constants the UX pass must not have changed.
     assert.ok(/const PLATFORM_MIN_DEPOSIT_USD = 100;/.test(SERVER), 'min deposit unchanged');
-    assert.ok(/const BOT_MIN_TRADING_BALANCE = 200;/.test(SERVER), 'MTA value unchanged');
-    assert.ok(/amount < 700/.test(SERVER), 'withdrawal minimum unchanged in server');
+    const code = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'the MTA is removed');
+    assert.ok(/amount < MIN_WITHDRAWAL_USD/.test(SERVER), 'withdrawal minimum unchanged in server (now $500)');
     // The withdrawal gate order in the server route remains first-deposit -> KYC -> ...
     const route = SERVER.slice(SERVER.indexOf("app.post('/api/withdraw/request'"));
     assert.ok(/depositRequired/.test(route), 'withdrawal first-deposit gate intact');

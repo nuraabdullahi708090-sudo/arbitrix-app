@@ -1,14 +1,17 @@
 'use strict';
 
 /**
- * Promotional credit ($50, tradable) + Minimum Trading Amount (MTA).
+ * Promotional credit ($50, tradable) after the MTA removal.
  *
- * The $50 promotional credit is TRADABLE through the existing trading engine
- * and is therefore exempt from the bot-start MTA gate. It stays non-withdrawable
- * until the user has made a qualifying first deposit AND completed at least one
- * trade; after that the normal withdrawal rules apply (KYC first, $700 minimum,
- * balance, address). The MTA VALUE is unchanged by this feature and lives in a
- * single place.
+ * The $50 promotional credit is TRADABLE through the existing trading engine.
+ * It stays non-withdrawable until the user has made a qualifying first deposit
+ * AND completed at least one trade; after that the normal withdrawal rules apply
+ * (verification when enabled, $500 minimum, balance, address).
+ *
+ * The Minimum Trading Amount (MTA) has been REMOVED entirely: there is no
+ * minimum trading balance, no `MTA_AMOUNT` env override and therefore no
+ * exemption helper. The $20 promotional-credit realized-profit cap is a
+ * SEPARATE rule and remains the only live-trading stop.
  *
  * Run: npm test
  */
@@ -20,6 +23,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const SERVER_CODE = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
 
 function fnSource(name) {
     const idx = SERVER.indexOf(`function ${name}(`);
@@ -42,65 +46,40 @@ function routeSource(start, end) {
 const BOT_START = routeSource("app.post('/api/bot/start'", "app.post('/api/bot/stop'");
 const WITHDRAW = routeSource("app.post('/api/withdraw/request'", "app.get('/api/withdraw/history'");
 
-// Pure mirror of getEffectiveMta().
-function effectiveMta(env, fallback) {
-    const raw = env.MTA_AMOUNT;
-    if (raw === undefined || raw === null || String(raw).trim() === '') return fallback;
-    const n = Number(raw);
-    return (Number.isFinite(n) && n > 0) ? n : fallback;
-}
-
-// Pure mirror of isNonDepositedTrading() — the MTA-exemption classifier, which
-// is NOT the promotional-credit cap classifier (see promo_trading_cap.test.js).
-function nonDepositedTrading(hasConfirmedDeposit, liveBalance) {
-    return !hasConfirmedDeposit && Number(liveBalance) > 0;
-}
-
-// Pure mirror of the bot-start gate.
-function botStartAllowed(mode, balance, mta, hasConfirmedDeposit) {
-    return !(mode === 'live' && balance < mta && !nonDepositedTrading(hasConfirmedDeposit, balance));
-}
-
+// ---------------------------------------------------------------------------
+// Promotional credit
+// ---------------------------------------------------------------------------
 test('promo credit: the $50 seed is a constant, not derived from the minimum deposit', () => {
     assert.match(SERVER, /const SANDBOX_PROMO_CREDIT = 50;/);
     assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
     assert.notStrictEqual(50, 100);
 });
 
-test('promo credit: tradable via the EXISTING engine and exempt from the bot MTA gate', () => {
-    assert.match(SERVER, /function isNonDepositedTrading\(hasConfirmedDeposit, liveBalance\)/);
-    const promoFn = fnSource('isNonDepositedTrading');
-    assert.match(promoFn, /!hasConfirmedDeposit && Number\(liveBalance\) > 0/);
-    // The bot-start route applies the exemption but keeps the MTA value gate.
-    assert.match(BOT_START, /const hasDeposit = await hasConfirmedDeposit\(userId\)/);
-    assert.match(BOT_START, /isNonDepositedTrading\(hasDeposit, balance\)/);
-    assert.match(BOT_START, /if \(mode === 'live' && balance < mta && !nonDepositedTrading\)/);
-    assert.match(BOT_START, /getEffectiveMta\(BOT_MIN_TRADING_BALANCE\)/);
+test('promo credit: tradable via the EXISTING engine (no separate engine)', () => {
+    assert.ok(!SERVER.includes('isNonDepositedTrading'), 'the retired MTA-exemption helper must be gone');
+    const trade = SERVER.slice(SERVER.indexOf("app.post('/api/trade'"), SERVER.indexOf("app.post('/api/trade'") + 900);
+    assert.match(trade, /record_trade_safe/, 'promo trading uses the same trading engine');
 });
 
-test('promo credit: NO confirmed deposit + positive balance may start the bot', () => {
-    const mta = 200;
-    assert.strictEqual(botStartAllowed('live', 50, mta, false), true, 'promo-funded live trading is allowed to start');
-    assert.strictEqual(botStartAllowed('live', 0, mta, false), false, 'a zero balance is still gated');
-    assert.strictEqual(botStartAllowed('live', 50, mta, true), false, 'a confirmed deposit of only $50 is gated (not promo-funded)');
-    assert.strictEqual(botStartAllowed('live', 500, mta, true), true, 'funded above the MTA is allowed');
-});
-
-test('promo credit: demo mode is intentionally not gated', () => {
-    assert.strictEqual(botStartAllowed('demo', 0, 200, false), true);
+test('promo credit: the bot starts with any balance (no trading minimum)', () => {
+    const botCode = BOT_START.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!botCode.includes('MTA'), 'the bot route must not gate on the MTA');
+    assert.ok(!/balance\s*<\s*\d/.test(BOT_START), 'no balance threshold may remain');
     assert.match(BOT_START, /req\.body\.mode === 'demo' \? 'demo' : 'live'/, 'default-deny mode normalisation');
+    // the separate promo cap remains the only live-trading stop
+    assert.match(BOT_START, /isPromoProfitCapReached/);
 });
 
 test('promo credit: withdrawal requires a qualifying first deposit AND one trade', () => {
     assert.ok(WITHDRAW.includes('A qualifying first deposit is required before you can withdraw your promotional credit'));
     assert.ok(WITHDRAW.includes('depositRequired: true'));
     assert.ok(WITHDRAW.includes('requiresFirstDeposit: true'));
-    assert.ok(WITHDRAW.includes("Complete at least 1 trade first"), 'the existing one-trade rule is preserved');
-    // The production first-deposit gate now precedes the verification prompt
-    // (prompt priority), while KYC still precedes the $700 minimum.
+    assert.ok(WITHDRAW.includes('Complete at least 1 trade first'), 'the existing one-trade rule is preserved');
+    // The production first-deposit gate precedes the verification prompt, while
+    // verification (when enabled) precedes the $500 minimum.
     assert.ok(WITHDRAW.indexOf('requiresFirstDeposit') < WITHDRAW.indexOf('verificationRequired'), 'first-deposit prompt precedes verification');
-    assert.ok(WITHDRAW.indexOf('verificationRequired') < WITHDRAW.indexOf('Min $700'), 'KYC precedes the $700 minimum');
-    assert.ok(WITHDRAW.includes('Min $700'), 'the $700 minimum is unchanged');
+    assert.ok(WITHDRAW.indexOf('verificationRequired') < WITHDRAW.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'verification precedes the $500 minimum');
+    assert.ok(WITHDRAW.includes("Min $' + MIN_WITHDRAWAL_USD"), 'the $500 minimum is applied');
     assert.ok(WITHDRAW.includes('Insufficient balance'), 'the balance check is unchanged');
     assert.ok(WITHDRAW.includes('Valid address required'), 'the address check is unchanged');
 });
@@ -109,37 +88,32 @@ test('promo credit: the deposit requirement is a first-priority gate; the trade 
     const depositGate = WITHDRAW.indexOf('requiresFirstDeposit');
     const kycGate = WITHDRAW.indexOf('verificationRequired');
     const guardIdx = WITHDRAW.indexOf('if (!requirementsMet && fromBonus === 0)');
-    const tradeGate = WITHDRAW.indexOf("Complete at least 1 trade first");
+    const tradeGate = WITHDRAW.indexOf('Complete at least 1 trade first');
     assert.ok(depositGate > 0 && kycGate > depositGate,
         'the first-deposit requirement must take priority over the verification prompt');
     assert.ok(guardIdx > 0 && tradeGate > guardIdx,
         'the completed-trade requirement remains inside the not-fully-qualified branch');
 });
 
-test('MTA: exactly one place defines the value, env-selectable (no hard-coded 200/300 in routes)', () => {
-    assert.match(SERVER, /const BOT_MIN_TRADING_BALANCE = \d+;/);
-    assert.match(SERVER, /const MTA_ENV_VAR = 'MTA_AMOUNT';/);
-    assert.match(SERVER, /function getEffectiveMta\(/);
-    // No route may hard-code the MTA literal; all must go through the helper.
-    const literalInBot = /balance < \d{3}/.test(BOT_START);
-    assert.ok(!literalInBot, 'the bot route must not hard-code the MTA');
-    assert.match(BOT_START, /getEffectiveMta/);
-});
-
-test('MTA: the env override accepts 200 or 300 and falls back safely', () => {
-    const fallback = Number((SERVER.match(/const BOT_MIN_TRADING_BALANCE = (\d+);/) || [])[1]);
-    assert.ok(Number.isFinite(fallback) && fallback > 0);
-    assert.strictEqual(effectiveMta({ MTA_AMOUNT: '200' }, fallback), 200);
-    assert.strictEqual(effectiveMta({ MTA_AMOUNT: '300' }, fallback), 300);
-    assert.strictEqual(effectiveMta({}, fallback), fallback, 'missing env -> code default');
-    assert.strictEqual(effectiveMta({ MTA_AMOUNT: '' }, fallback), fallback, 'empty env -> code default');
-    assert.strictEqual(effectiveMta({ MTA_AMOUNT: 'abc' }, fallback), fallback, 'invalid env -> code default');
-    assert.strictEqual(effectiveMta({ MTA_AMOUNT: '-5' }, fallback), fallback, 'non-positive env -> code default');
+// ---------------------------------------------------------------------------
+// MTA removed
+// ---------------------------------------------------------------------------
+test('MTA: fully removed from production', () => {
+    assert.ok(!SERVER_CODE.includes('BOT_MIN_TRADING_BALANCE'), 'no MTA constant');
+    assert.ok(!SERVER_CODE.includes('MTA_AMOUNT'), 'no MTA env override');
+    assert.ok(!SERVER_CODE.includes('getEffectiveMta'), 'no MTA helper');
+    const botCode = BOT_START.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!/balance < \d{3}/.test(botCode), 'the bot route must not hard-code an MTA');
 });
 
 test('MTA: MARKETING_SANDBOX has no MTA gate', () => {
-    assert.match(SERVER, /mta: 0/);
     const sandboxBot = fnSource('handleSandboxBotStart');
-    assert.ok(!/BOT_MIN_TRADING_BALANCE|getEffectiveMta/.test(sandboxBot), 'sandbox bot start performs no MTA gate');
+    const sandboxCode = sandboxBot.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!/BOT_MIN_TRADING_BALANCE|getEffectiveMta|MTA\b/.test(sandboxCode), 'sandbox bot start performs no MTA gate');
     assert.match(sandboxBot, /sandbox_bot_sessions/, 'the simulated session is still persisted');
+});
+
+test('withdrawal minimum is $500 (unchanged rule, updated value)', () => {
+    assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 500;/);
+    assert.ok(WITHDRAW.includes('amount < MIN_WITHDRAWAL_USD'));
 });

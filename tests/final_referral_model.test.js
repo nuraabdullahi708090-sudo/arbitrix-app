@@ -236,17 +236,17 @@ test('referral earnings are NOT required to be traded before withdrawal', () => 
 // =========================================================================
 // 17-19. Withdrawal safeguards unchanged
 // =========================================================================
-test('the $700 minimum withdrawal remains enforced', () => {
-    assert.match(WITHDRAW, /amount < 700/, 'the $700 minimum is intact');
-    assert.match(WITHDRAW, /Min \$700/);
-    assert.match(INDEX, /MIN_WITHDRAWAL: 700/);
+test('the $500 minimum withdrawal remains enforced', () => {
+    assert.match(WITHDRAW, /amount < MIN_WITHDRAWAL_USD/, 'the $500 minimum is intact');
+    assert.match(WITHDRAW, /Min \$' \+ MIN_WITHDRAWAL_USD/);
+    assert.match(INDEX, /MIN_WITHDRAWAL: 500/);
 });
 
 test('KYC / security / address checks remain enforced on withdrawal', () => {
     const depositGate = WITHDRAW.indexOf('requiresFirstDeposit');
     const kyc = WITHDRAW.indexOf('verificationRequired');
     assert.ok(depositGate > 0 && depositGate < kyc, 'the first-deposit priority gate precedes the verification prompt');
-    assert.ok(kyc > 0 && kyc < WITHDRAW.indexOf('Min $700'), 'KYC still precedes the $700 minimum');
+    assert.ok(kyc > 0 && kyc < WITHDRAW.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'KYC still precedes the $500 minimum');
     assert.match(WITHDRAW, /redirectTo: '\/#\/verification'/);
     assert.match(WITHDRAW, /Valid address required/);
     assert.match(WITHDRAW, /Complete at least 1 trade first/);
@@ -256,11 +256,11 @@ test('KYC / security / address checks remain enforced on withdrawal', () => {
 // =========================================================================
 // MTA final confirmation
 // =========================================================================
-test('MTA: production $200 (final), sandbox none', () => {
-    assert.match(SERVER, /const BOT_MIN_TRADING_BALANCE = 200;/);
-    assert.ok(!/BOT_MIN_TRADING_BALANCE = 143/.test(SERVER), 'the $143 value is retired');
-    assert.match(SERVER, /const MTA_ENV_VAR = 'MTA_AMOUNT';/);
-    assert.match(SERVER, /mta: 0/);
+test('MTA: removed from production (final), sandbox none', () => {
+    const code = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'the production MTA constant is removed');
+    assert.ok(!code.includes('MTA_AMOUNT'), 'the env override is removed');
+    assert.ok(!code.includes('getEffectiveMta'), 'the MTA helper is removed');
     const sandboxBot = route('async function handleSandboxBotStart(', 'async function handleSandboxBotStop(');
-    assert.ok(!/BOT_MIN_TRADING_BALANCE|getEffectiveMta/.test(sandboxBot), 'no sandbox MTA gate');
+    assert.ok(!/MTA/.test(sandboxBot.replace(/\/\/.*$/gm, '')), 'no sandbox MTA gate');
 });

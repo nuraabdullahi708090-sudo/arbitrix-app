@@ -65,7 +65,7 @@ test('the Achievements panel is gone from the main dashboard', () => {
     assert.ok(!/id="badgesGrid"/.test(dashboard), 'the badges grid must not be rendered in the dashboard');
     assert.ok(!/id="achievementsCounter"/.test(dashboard), 'the achievements counter must not be in the dashboard');
     // The dashboard still keeps its real content (nothing else was removed).
-    for (const keep of ['id="startHereCard"', 'class="chart-card"', 'class="trading-stats-card"', 'id="mtaProgressCard"']) {
+    for (const keep of ['id="startHereCard"', 'class="chart-card"', 'class="trading-stats-card"']) {
         assert.ok(dashboard.includes(keep), 'dashboard must still contain ' + keep);
     }
 });
@@ -140,7 +140,7 @@ test('renderBadges still populates the moved panel (functional)', () => {
         console: { log: () => {}, warn: () => {}, error: () => {} },
         document: { getElementById: (id) => els[id] || null, querySelector: () => null, querySelectorAll: () => [] },
         t: (k) => k,
-        APP: { currentWallet: 'demo', MTA: 200, unlockedBadges: { demo: ['first_trade', 'ten_trades'], live: [] } },
+        APP: { currentWallet: 'demo', unlockedBadges: { demo: ['first_trade', 'ten_trades'], live: [] } },
     };
     vm.createContext(sandbox);
     vm.runInContext([
@@ -157,17 +157,17 @@ test('renderBadges still populates the moved panel (functional)', () => {
 
     const grid = els.badgesGrid.innerHTML;
     const items = grid.match(/class="badge-item /g) || [];
-    assert.strictEqual(items.length, 12, 'all 12 badges must render from the new location');
+    assert.strictEqual(items.length, 11, 'all 11 badges must render from the new location');
     assert.strictEqual((grid.match(/unlocked/g) || []).length >= 2, true, 'unlocked badges must be marked');
-    assert.ok(/2 \/ 12/.test(els.achievementsCounter.innerHTML), 'counter must still update: ' + els.achievementsCounter.innerHTML);
-    assert.strictEqual(els.achievementsProgressFill.style.width, '16.666666666666664%', 'progress fill must still update');
-    assert.strictEqual(els.achievementsProgressPct.textContent, '17%', 'progress percent must still update');
+    assert.ok(/2 \/ 11/.test(els.achievementsCounter.innerHTML), 'counter must still update: ' + els.achievementsCounter.innerHTML);
+    assert.strictEqual(els.achievementsProgressFill.style.width, '18.181818181818183%', 'progress fill must still update');
+    assert.strictEqual(els.achievementsProgressPct.textContent, '18%', 'progress percent must still update');
 });
 
 test('i18n is unchanged (no new keys, all locales intact)', () => {
     const T = loadTranslations();
     const keys = Object.keys(T.en);
-    assert.strictEqual(keys.length, 1416, 'dictionary size must match the current baseline');
+    assert.strictEqual(keys.length, 1398, 'dictionary size must match the current baseline');
     for (const lang of LANGS) {
         assert.deepStrictEqual(Object.keys(T[lang]).sort(), keys.slice().sort(), lang + ' key set must match EN');
         for (const k of ['achievements.title', 'achievements.unlocked', 'achievements.startTrading', 'achievements.allUnlocked', 'achievements.next']) {
@@ -178,12 +178,12 @@ test('i18n is unchanged (no new keys, all locales intact)', () => {
 
 test('nothing financial or unrelated was touched', () => {
     // Withdrawal minimum and gating copy stay as they were.
-    assert.ok(/MIN_WITHDRAWAL: 700/.test(INDEX), 'the $700 withdrawal minimum must be intact');
+    assert.ok(/MIN_WITHDRAWAL: 500/.test(INDEX), 'the $500 withdrawal minimum must be intact');
     assert.ok(INDEX.includes("withdraw.info"), 'withdrawal info copy must be intact');
     // Deposits / withdrawals / trading / wallet / bot entry points still exist.
     for (const fn of ['openDepositModal', 'requestDepositAddress', 'openWithdrawModal', 'submitWithdrawAPI',
                       'executeBotTrade', 'persistLiveTrade', 'startBot', 'stopBot', 'updateTransactionLog',
-                      'updateTradingStats', 'updateMTAProgress', 'syncWalletFromServer']) {
+                      'updateTradingStats', 'syncWalletFromServer']) {
         assert.ok(INDEX.includes('function ' + fn + '(') || INDEX.includes(fn + ' = function'), 'missing: ' + fn);
     }
     // The activity ticker banner is untouched by this change.

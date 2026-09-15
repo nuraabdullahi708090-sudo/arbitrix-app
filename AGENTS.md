@@ -3754,3 +3754,115 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   viewport, RTL for ar, 0 page errors.
 - COMMITTED LOCALLY ONLY - not pushed and not deployed (a push to main auto-deploys
   on Render), pending management approval.
+
+
+## Stage 21 - MTA Removed + $500 Withdrawal Minimum + Verification Rename (2026-09-15, server.js + public/index.html + .env.example + tests)
+- Management-approved. Frontend + server + tests + env docs. NO change to marketing
+  sandbox deposit or withdrawal logic (verified: the only sandbox-touching diff
+  line is a comment, `!isSandbox && amount < APP.MIN_WITHDRAWAL` is unchanged,
+  and no `handleSandbox*` function body changed).
+- MTA (Minimum Trading Amount) REMOVED from production:
+  - Deleted `BOT_MIN_TRADING_BALANCE`, `MTA_ENV_VAR`, `getEffectiveMta()` and the
+    now-unneeded `isNonDepositedTrading()` exemption helper from server.js.
+  - `/api/bot/start` no longer reads the wallet balance and no longer returns
+    `MTA not reached`; the mode default-deny (`req.body.mode === 'demo' ? 'demo'
+    : 'live'`) and the promotional-credit $20 cap check are preserved and the cap
+    check still runs BEFORE the `bot_sessions` upsert.
+  - `/api/auth/me` no longer returns `mta` for production accounts (the sandbox
+    response still carries `mta: 0` for shape compatibility; the frontend no
+    longer reads it).
+  - Frontend: the MTA dashboard card + CSS, `updateMTAProgress()`, the MTA badge
+    (`mta_unlocked`), `APP.MTA` adoption, `bot.reachMTA` / `bot.mtaMet` /
+    `mta.subtitle` / `mta.targetLabel` and the MTA-vs-amount line are all gone.
+    The bot now starts with any balance; the bot status line uses the new
+    `bot.readyToTrade` key.
+  - `.env.example`: the `MTA_AMOUNT=200` entry is replaced by a "REMOVED / do not
+    set" note (the variable is obsolete and unread).
+  - NO database change: no migration ever stored an MTA and `bot_sessions` keeps
+    its columns (the MTA was never persisted).
+  - Documentation-only MTA mentions remain in `server.js` comments and in
+    migrations 022/023 comments (both describe the removal / "sandbox: none").
+    Applied migration files were deliberately NOT rewritten.
+- Minimum withdrawal $700 -> $500, single server source of truth
+  `const MIN_WITHDRAWAL_USD = 500;` (server.js) and the matching frontend
+  `MIN_WITHDRAWAL: 500`. Enforced in `/api/withdraw/request` as
+  `amount < MIN_WITHDRAWAL_USD` -> 400 `{ error: 'Min $' + MIN_WITHDRAWAL_USD }`
+  (the same error SHAPE/message form as before, now $500). All tests, error
+  messages, the modal info box and the landing FAQ copy were updated.
+- DISCLOSURE POLICY (management requirement: no misleading/hidden conditions):
+  the $500 minimum is deliberately NOT advertised in the always-visible sidebar
+  status. The sidebar shows a neutral, amount-free message
+  (`live.withdrawStatus.belowMinimum`); the amount is disclosed only at the
+  withdrawal stage (the withdraw-modal info box `live.withdrawStatus.needMinimum`
+  with `{{min}}`) and surfaced in the clear toast when a request falls below it
+  (`withdraw.minWithdrawal` with `{{min}}`/`{{current}}`). `landing.faq.5.a` was
+  corrected in all 6 locales from "$700, identity verification" to
+  "$500, withdrawal security verification when required".
+- Verification flow RENAMED to an accurate, self-explaining name (it stays
+  event-triggered; the sidebar entry remains hidden):
+  `withdraw.kycRequiredTitle` = "Withdrawal Security Verification",
+  `withdraw.kycRequiredBody` explains WHY (protect your account; one-time
+  security check before withdrawing) and WHAT to submit (government-issued ID +
+  a selfie holding it), progress label "Security Check Progress", CTA "Start
+  Security Check", `kyc.modalTitle`/`kyc.modalSubtitle` and all
+  `kyc.title.*`/`kyc.subtitle.*` status headers renamed, and
+  `withdraw.identityRequired` = "Withdrawal security verification required".
+  The server's machine-readable `error: 'Identity verification required'` string
+  and the `verificationRequired: true` flag are UNCHANGED (they are pinned by
+  tests and mapped on the frontend via BACKEND_MESSAGE_MAP; the raw string is
+  never shown to the user).
+- `WITHDRAWAL_REQUIRES_VERIFICATION` (default FALSE = verification not required
+  to withdraw) is unchanged and still the single knob to restore the KYC-first
+  gate. Withdraw gate order (production): first-deposit priority -> verification
+  (when enabled) -> $500 minimum -> balance -> address -> completed-trade ->
+  duplicate/pending -> auth.
+- TRADING ARCHITECTURE AUDIT (read-only; NO implementation - see below):
+  - Root cause of "trading stops when the browser tab closes": the trading loop
+    is `APP.botInterval = setInterval(executeBotTrade, 8000)` in
+    `public/index.html` (`startBot()`), i.e. it lives in the browser tab. Closing
+    the tab (or navigating, or a phone sleeping) destroys the interval.
+  - The server has NO trading engine: `/api/bot/start` + `/api/bot/stop` only
+    write `bot_sessions.is_running`, and the web UI never even calls them
+    (`grep` finds zero `/api/bot/*` fetch calls in index.html). There is no
+    cron, queue, worker or scheduler in the repo; the only server timer is a
+    rate-limit-store cleanup. Deployment is a single Render web service.
+  - Consequence: `bot_sessions.is_running` can stay 1 after the tab closes or the
+    service restarts (a "phantom running bot" that is counted by the admin
+    activeBots stats), while nothing is trading.
+  - Trade outcomes are generated CLIENT-SIDE (`Math.random()`), and
+    `POST /api/trade` accepts a client-supplied `amount` (bounded only by
+    `|amount| <= max(balance, 1)`). `record_trade_safe` DOES provide atomicity +
+    idempotency-key dedup + wallet row locking, and the promo-$20 cap is
+    enforced server-side - so the ledger is safe, but the PRICE/P&L source is the
+    client.
+  - Therefore a server-side worker is a TRUST-MODEL change (the server would own
+    both the outcome and the timing), which the brief explicitly gates on tests
+    and approval. Plan proposed (NOT implemented): a dedicated `worker.js`
+    process (separate Render Background Worker) that (1) reconciles
+    `bot_sessions` on boot (reset stale is_running=1 rows + heartbeat column),
+    (2) drives each running session on a fixed tick, (3) generates the trade
+    server-side and submits it through the EXISTING `record_trade_safe` RPC with
+    a deterministic per-(user, tick) idempotency key (duplicate-order
+    protection), (4) enforces risk limits (per-tick, per-day loss limits, max
+    exposure, promo cap) BEFORE the RPC, (5) exposes structured JSON logs and an
+    admin emergency stop (`POST /api/admin/bot/emergency-stop`) that flips all
+    sessions off and refuses new `/api/trade` while engaged, and (6) has the
+    browser only render `/api/bot/status` (+ reconnect handling) instead of
+    executing trades. Requires a new migration (heartbeat/version column) and
+    new tests. AWAITING APPROVAL.
+- i18n: 1398 keys/locale x 6 (was 1404; the 6 `mta.*` keys were removed). Parity
+  verified (identical key sets, 0 empties, 0 `$700` anywhere, no `mta.*` key).
+- Tests: full suite `npm test` = 942 pass / 0 fail. Updated for the intentional
+  changes: bot_mta (15, rewritten for "MTA fully removed"), referral_promo_mta
+  (8, rewritten), withdraw_min_message (13), withdrawal_protection,
+  withdrawal_prompt_priority, withdraw_verification_flag, promo_trading_cap,
+  subscription_eligibility, final_min_deposit_referral, final_referral_model,
+  achievements_panel, beginner_ux, landing_testimonials, sandbox_demo_balance,
+  sandbox_no_kyc, sandbox_withdraw_wording, support_fallback, starthere_mode_aware,
+  marketing_sandbox, subscription, email_change, deposit_demo_ux,
+  onboarding_funnel, pending_referrals_collapsible, first_visit_landing.
+  `node --check server.js` OK; all 7 inline `<script>` blocks parse (vm.Script).
+- NOT committed / NOT pushed / NOT deployed. Migration state unchanged (no new
+  migration needed for this stage). Telegram webhook registration NOT started
+  (per instruction: it waits for these changes to be completed, tested, deployed
+  and verified).

@@ -272,7 +272,7 @@ test('every locale renders the panel with no raw keys', () => {
  * ------------------------------------------------------------------ */
 test('the new keys exist and are non-empty in all 6 locales (identical key sets)', () => {
     assert.strictEqual(new Set(LANGS.map((l) => Object.keys(T[l]).sort().join('|'))).size, 1, 'key sets identical');
-    assert.strictEqual(Object.keys(T.en).length, 1416, 'dictionary size pinned');
+    assert.strictEqual(Object.keys(T.en).length, 1398, 'dictionary size pinned');
     LANGS.forEach((l) => NEW_KEYS.forEach((k) => assert.ok(typeof T[l][k] === 'string' && T[l][k].trim(), l + '.' + k + ' must be non-empty')));
     LANGS.forEach((l) => assert.ok(!(OLD_KEY in T[l]), 'the obsolete header key is gone from ' + l));
 });

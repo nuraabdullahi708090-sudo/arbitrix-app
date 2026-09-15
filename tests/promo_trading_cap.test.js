@@ -195,11 +195,13 @@ test('/api/bot/start refuses a restart at the cap BEFORE creating a session', ()
     assert.match(body, /stopBotSessionForPromoLimit\(userId\)/);
 });
 
-test('/api/bot/start keeps the MTA gate and the promo-funded exemption intact', () => {
+test('/api/bot/start has no MTA gate and keeps the promo cap + default-deny mode', () => {
     const body = routeBody('post', '/api/bot/start');
     assert.ok(body.includes("req.body.mode === 'demo' ? 'demo' : 'live'"));
-    assert.match(body, /getEffectiveMta\(BOT_MIN_TRADING_BALANCE\)/);
-    assert.ok(body.includes("res.status(400).json({ error: 'MTA not reached' })"));
+    const code = body.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
+    assert.ok(!code.includes('MTA'), 'the MTA gate must be gone');
+    assert.ok(!code.includes('getEffectiveMta'), 'no MTA helper may be consulted');
+    assert.ok(body.includes('isPromoProfitCapReached'), 'the separate promo cap is still enforced');
 });
 
 // ---------------------------------------------------------------------------
@@ -260,13 +262,13 @@ test('/api/trade and /api/bot/start classify via isPromoCreditFunded BEFORE the 
     }
 });
 
-test('the MTA exemption helper is NOT the promo-cap classifier', () => {
-    // "no deposit + positive balance" is the MTA-exemption category (renamed
-    // isNonDepositedTrading) and must never be used to decide the cap.
-    const mtaFn = extractFunction(SERVER, 'isNonDepositedTrading');
-    assert.match(mtaFn, /!hasConfirmedDeposit && Number\(liveBalance\) > 0/);
+test('the cap classifier is the authoritative source-of-funds rule (no MTA-exemption helper)', () => {
+    // The MTA-exemption category ("no deposit + positive balance") has been
+    // REMOVED together with the MTA. The cap must use ONLY the authoritative
+    // source-of-funds classifier, never a balance-shape heuristic.
+    assert.ok(!SERVER.includes('isNonDepositedTrading'), 'the MTA-exemption helper must be gone');
     const capFn = extractFunction(SERVER, 'isPromoProfitCapReached');
-    assert.ok(!capFn.includes('isNonDepositedTrading'), 'cap must not reuse the MTA-exemption classifier');
+    assert.ok(!/liveBalance|balance\s*>/.test(capFn), 'cap must not inspect the balance');
     for (const routePath of ['/api/trade', '/api/bot/start']) {
         const body = routeBody('post', routePath);
         assert.ok(body.includes('isPromoProfitCapReached(promoCreditFunded, '),

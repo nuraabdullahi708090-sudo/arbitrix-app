@@ -164,7 +164,7 @@ test('frontend: sandbox withdraw skips the KYC capability call; production gate 
     // Production gate unchanged.
     assert.ok(fn.includes('if (!kycData.canWithdraw)'), 'production KYC gate must remain');
     assert.ok(fn.includes('if (!isSandbox) {'), 'production-only min/deposit/trade gates must remain');
-    assert.ok(/MIN_WITHDRAWAL:\s*700/.test(INDEX), 'production withdrawal minimum stays 700');
+    assert.ok(/MIN_WITHDRAWAL:\s*500/.test(INDEX), 'production withdrawal minimum stays 500');
 });
 
 // ---------- i18n ----------

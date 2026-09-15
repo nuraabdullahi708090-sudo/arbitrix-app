@@ -66,7 +66,7 @@ test('1/2. the withdraw KYC gate is skipped unless the flag is on (unverified ->
         'the verification block must be wrapped in the flag');
     const flagIdx = WITHDRAW_ROUTE.indexOf('if (WITHDRAWAL_REQUIRES_VERIFICATION) {');
     const kycIdx = WITHDRAW_ROUTE.indexOf('kycService.getVerificationStatus(userId)', flagIdx);
-    const minIdx = WITHDRAW_ROUTE.indexOf("amount < 700");
+    const minIdx = WITHDRAW_ROUTE.indexOf("amount < MIN_WITHDRAWAL_USD");
     assert.ok(kycIdx > flagIdx, 'the KYC lookup lives inside the flag branch');
     assert.ok(minIdx > kycIdx, 'the next applicable validation (minimum) follows the gate');
     const between = WITHDRAW_ROUTE.slice(flagIdx, WITHDRAW_ROUTE.indexOf('\n  }', flagIdx));
@@ -111,8 +111,8 @@ test('8. verified users are unaffected by the change', () => {
 
 // ------------------------------------------------------- preserved protections
 test('3. minimum withdrawal amount enforcement remains active', () => {
-    assert.ok(WITHDRAW_ROUTE.includes('if (!amount || amount < 700) return res.status(400).json({ error: '), 'minimum guard present');
-    assert.ok(WITHDRAW_ROUTE.includes("'Min $700'"), 'existing message unchanged');
+    assert.ok(WITHDRAW_ROUTE.includes('if (!amount || amount < MIN_WITHDRAWAL_USD) return res.status(400).json({ error: '), 'minimum guard present');
+    assert.ok(WITHDRAW_ROUTE.includes("'Min $' + MIN_WITHDRAWAL_USD"), 'existing message form unchanged (now $500)');
 });
 
 test('4. completed-trade enforcement remains active', () => {

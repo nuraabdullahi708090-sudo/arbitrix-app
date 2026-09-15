@@ -383,13 +383,13 @@ test('production /api/trade keeps record_trade_safe call unchanged', () => {
     assert.ok(afterBranch.includes('getTodayRealizedPnl'), 'production PnL re-read removed');
 });
 
-test('production withdraw gate order: first-deposit priority, then KYC, then $700 min', () => {
+test('production withdraw gate order: first-deposit priority, then KYC, then $500 min', () => {
     const body = routeBody('post', '/api/withdraw/request');
     const depositIdx = body.indexOf('requiresFirstDeposit');
     const kycIdx = body.indexOf('kycService.getVerificationStatus');
-    const minIdx = body.indexOf('amount < 700');
+    const minIdx = body.indexOf('amount < MIN_WITHDRAWAL_USD');
     assert.ok(depositIdx > 0 && kycIdx > depositIdx, 'the first-deposit gate must precede KYC');
-    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'KYC must precede the $700 minimum');
+    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'KYC must precede the $500 minimum');
 });
 
 test('production subscription activate still uses charge_subscription_safe', () => {
@@ -599,14 +599,14 @@ test('frontend sandbox gate skips are keyed on APP.environment (display only)', 
     const withdrawSkip = INDEX.indexOf("const isSandbox = APP.environment === 'MARKETING_SANDBOX';\n    if (isSandbox) {");
     assert.ok(withdrawSkip > 0, 'withdraw gate skip not environment-gated');
     assert.ok(INDEX.includes("    if (!isSandbox) {"), 'production-only gate block must remain');
-    assert.match(INDEX, /APP\.liveData\.balance < APP\.MTA && !isSandbox/);
-    // The sim/withdraw gate skip above is a DISPLAY convenience; the MTA itself
-    // is gone for the sandbox (server reports mta: 0), so the bot-start gate is
-    // simply inactive there because no MTA exists (see tests/bot_mta.test.js).
-    assert.match(INDEX, /if\(APP\.mode === 'live' && Number\(APP\.MTA\) > 0 && APP\.liveData\.balance < APP\.MTA && !isNonDepositedTrading\(\)\) \{\n        showToast\(t\('bot\.mtaBlocked', \{mta: APP\.MTA\}\),'error'\);\n        return;/);
+    // The MTA (minimum trading balance) no longer exists at all, so there is no
+    // MTA gate anywhere (see tests/bot_mta.test.js). The bot-start display gate
+    // is now only the separate promotional-credit cap.
+    assert.ok(!INDEX.includes('APP.MTA'), 'no MTA gate may remain anywhere');
     const startBotIdx = INDEX.indexOf('function startBot()');
     const startBotBody = INDEX.slice(startBotIdx, startBotIdx + 1400);
     assert.ok(!startBotBody.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'startBot must not use an environment special-case');
+    assert.ok(startBotBody.includes('promoLimitReached'), 'the promo-cap gate remains the only live-trading stop');
 });
 
 test('frontend admin sandbox controls call only /api/admin/sandbox endpoints', () => {

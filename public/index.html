@@ -387,8 +387,6 @@
         html[dir="rtl"] .language-dropdown{right:auto;left:0;}
         html[dir="rtl"] .stat-value,
         html[dir="rtl"] .trading-stat-item .stat-main,
-        html[dir="rtl"] .mta-current,
-        html[dir="rtl"] .mta-target,
         html[dir="rtl"] .ticker-amount{unicode-bidi:isolate;direction:ltr;}
         html[dir="rtl"] .toggle-slider:before{left:auto;right:2px;}
         html[dir="rtl"] .toggle-switch input:checked + .toggle-slider:before{transform:translateX(-20px);}
@@ -1483,35 +1481,6 @@
         .win-rate-circle .progress-circle{fill:none;stroke:var(--green);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 0.8s ease;}
         .win-rate-circle .center-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:800;color:var(--text-primary);}
 
-        .mta-progress-card{background:linear-gradient(135deg,var(--brand-weak),rgba(240,185,11,0.02));border:1px solid var(--gold-glow);border-radius:var(--radius);padding:18px 16px;margin-bottom:16px;position:relative;overflow:hidden;}
-        .mta-progress-card::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at top right,var(--brand-weak),transparent 60%);pointer-events:none;}
-        .mta-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:10px;flex-wrap:wrap;position:relative;z-index:1;}
-        .mta-title{display:flex;align-items:center;gap:10px;}
-        .mta-icon{width:40px;height:40px;border-radius:10px;background:var(--gold-dim);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:18px;flex-shrink:0;}
-        .mta-title h4{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:2px;}
-        .mta-title p{font-size:11px;color:var(--text-secondary);}
-        .mta-badge{background:rgba(245,158,11,0.15);color:var(--orange);padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:4px;flex-shrink:0;}
-        .mta-badge .pulse-dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 1.5s infinite;}
-        .mta-amount-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;position:relative;z-index:1;}
-        .mta-current{font-size:24px;font-weight:800;color:var(--gold);letter-spacing:-0.5px;}
-        .mta-target{font-size:13px;color:var(--text-muted);font-weight:600;}
-        .mta-target span{color:var(--text-secondary);}
-        .mta-bar-wrapper{background:var(--bg-input);border-radius:10px;height:14px;overflow:hidden;position:relative;border:1px solid var(--border-color);margin-bottom:8px;}
-        .mta-bar-fill{height:100%;background:linear-gradient(90deg,#F0B90B,#FCD535);border-radius:10px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden;min-width:0;}
-        .mta-bar-fill::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);animation:shimmer 2s infinite;}
-        @keyframes shimmer{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
-        .mta-milestones{display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-bottom:12px;position:relative;z-index:1;}
-        .mta-milestone{display:flex;flex-direction:column;align-items:center;gap:2px;}
-        .mta-milestone.reached{color:var(--gold);font-weight:700;}
-        .mta-milestone .milestone-dot{width:6px;height:6px;border-radius:50%;background:var(--border-color);}
-        .mta-milestone.reached .milestone-dot{background:var(--gold);box-shadow:0 0 6px var(--gold);}
-        .mta-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:relative;z-index:1;}
-        .mta-message{font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex:1;min-width:0;}
-        .mta-message i{color:var(--gold);}
-        .mta-cta{background:var(--gold);color:var(--on-brand);border:none;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;min-height:36px;flex-shrink:0;}
-        .mta-cta:hover{background:#FCD535;transform:translateY(-1px);}
-        .mta-cta.completed{background:var(--green);cursor:default;}
-
         .achievements-card{background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border-color);margin-bottom:16px;overflow:hidden;position:relative;}
         .achievements-card::before{content:'';position:absolute;top:0;left:0;right:0;height:120px;background:radial-gradient(ellipse at top,var(--brand-weak),transparent 70%);pointer-events:none;}
         .achievements-header{padding:14px 16px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;position:relative;z-index:1;}
@@ -1690,7 +1659,6 @@
             .chart-stat-value{font-size:12px;}
             .trading-stats-grid{grid-template-columns:repeat(2,1fr);}
             .trading-stat-item .stat-main{font-size:16px;}
-            .mta-current{font-size:20px;}
             .badges-grid{grid-template-columns:repeat(2,1fr);}
             .badge-icon{font-size:24px;}
             .pwa-install-prompt{left:8px;right:8px;max-width:none;bottom:8px;}
@@ -5885,7 +5853,7 @@ function toggleFaq(btn) {
                     <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><span class="sh-num">5</span><span data-i18n="startHere.step5">Switch to Live Mode when ready</span></div>
                 </div>
                 <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
-                     the amounts ({{min}}/{{mta}}) are configuration-driven. -->
+                     the amounts ({{min}}) are configuration-driven. -->
                 <div id="startHereStepsLive" style="margin-top:12px;display:none;flex-direction:column;gap:8px;"></div>
                 <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
                 <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
@@ -5951,31 +5919,6 @@ function toggleFaq(btn) {
                 <div class="trading-stat-item"><div class="stat-icon green"><i class="fas fa-trophy"></i></div><div class="stat-main positive" id="statBestTrade">$0.00</div><div class="stat-sub" data-i18n="trading.bestTrade">Best Trade</div></div>
                 <div class="trading-stat-item"><div class="stat-icon red"><i class="fas fa-chart-line-down"></i></div><div class="stat-main negative" id="statWorstTrade">$0.00</div><div class="stat-sub" data-i18n="trading.worstTrade">Worst Trade</div></div>
                 <div class="trading-stat-item"><div class="stat-icon gold"><i class="fas fa-fire"></i></div><div class="stat-main" id="statStreak">0</div><div class="stat-sub" data-i18n="trading.streak">Win Streak</div><div class="stat-trend up" id="streakTrend" style="display:none;">🔥 HOT</div></div>
-            </div>
-        </div>
-
-        <div class="mta-progress-card hidden" id="mtaProgressCard">
-            <div class="mta-header">
-                <div class="mta-title">
-                    <div class="mta-icon"><i class="fas fa-flag-checkered"></i></div>
-                    <div><h4 data-i18n="mta.title">Unlock Live Trading</h4><p data-i18n="mta.subtitle">Reach the Minimum Trading Amount to activate the bot</p></div>
-                </div>
-                <div class="mta-badge"><span class="pulse-dot"></span><span data-i18n="mta.inProgress">In Progress</span></div>
-            </div>
-            <div class="mta-amount-row">
-                <div class="mta-current" id="mtaCurrentAmount">$50.00</div>
-                <div class="mta-target"><span data-i18n="mta.targetLabel">Minimum trading balance:</span> <span id="mtaTargetAmount">$200.00</span></div>
-            </div>
-            <div class="mta-bar-wrapper"><div class="mta-bar-fill" id="mtaBarFill" style="width:35%;"></div></div>
-            <div class="mta-milestones">
-                <div class="mta-milestone reached" data-threshold="0"><div class="milestone-dot"></div><span>$0</span></div>
-                <div class="mta-milestone" data-threshold="50"><div class="milestone-dot"></div><span>$50</span></div>
-                <div class="mta-milestone" data-threshold="100"><div class="milestone-dot"></div><span>$100</span></div>
-                <div class="mta-milestone" id="mtaMilestoneFinal" data-threshold="200"><div class="milestone-dot"></div><span>$200</span></div>
-            </div>
-            <div class="mta-footer">
-                <div class="mta-message"><i class="fas fa-info-circle"></i><span id="mtaMessage"><span data-i18n="mta.depositMore">Deposit</span> <strong>$150.00</strong> <span data-i18n="mta.moreToUnlock">more to unlock live trading</span></span></div>
-                <button type="button" class="mta-cta" id="mtaDepositBtn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i><span data-i18n="mta.depositNow">Deposit Now</span></button>
             </div>
         </div>
 
@@ -7204,7 +7147,7 @@ function toggleFaq(btn) {
         <!-- Withdrawal Form (shown when KYC is verified) -->
         <div id="withdrawForm">
             <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
-            <div id="withdrawInfoBox" style="background:var(--warning-dim);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Min withdrawal: $50 | Requires 1 trade completed | 15-30min processing</span></div>
+            <div id="withdrawInfoBox" style="background:var(--warning-dim);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Requires 1 trade completed | Withdrawal processing usually takes 15–30 minutes.</span></div>
             <div style="text-align:center;margin-bottom:12px;">
                 <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;">
                     <i class="fas fa-headset"></i> <span data-i18n="support.needHelpWithdraw">Need help with a withdrawal?</span>
@@ -7235,14 +7178,14 @@ function toggleFaq(btn) {
                 <div style="width:80px;height:80px;background:var(--brand-weak);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
                     <i class="fas fa-user-check" style="font-size:36px;color:#F0B90B;"></i>
                 </div>
-                <h4 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="withdraw.kycRequiredTitle">Identity Verification Required</h4>
+                <h4 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="withdraw.kycRequiredTitle">Withdrawal Security Verification</h4>
                 <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;" data-i18n="withdraw.kycRequiredBody">
-                    To protect your funds, we require identity verification before your first withdrawal. This is a standard security measure.
+                    To protect your account, complete a one-time security check before withdrawing. You will need a government-issued ID and a selfie holding it.
                 </p>
                 
                 <!-- Verification Progress -->
                 <div id="withdrawKycProgress" style="background:var(--bg-input);border-radius:10px;padding:16px;margin-bottom:20px;text-align:left;">
-                    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;" data-i18n="withdraw.verificationProgress">Verification Progress</div>
+                    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;" data-i18n="withdraw.verificationProgress">Security Check Progress</div>
                     <div id="withdrawKycProgressBar" style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:12px;">
                         <div id="withdrawKycProgressFill" style="height:100%;background:linear-gradient(90deg,#F0B90B,#FCD535);width:25%;transition:width 0.3s ease;"></div>
                     </div>
@@ -7250,7 +7193,7 @@ function toggleFaq(btn) {
                 </div>
                 
                 <button type="button" onclick="closeWithdrawModal();openVerificationModal();" class="btn btn-primary btn-block" style="margin-bottom:12px;">
-                    <i class="fas fa-shield-halved"></i> <span data-i18n="withdraw.startVerification">Start Verification</span>
+                    <i class="fas fa-shield-halved"></i> <span data-i18n="withdraw.startVerification">Start Security Check</span>
                 </button>
                 <p style="font-size:10px;color:var(--text-muted);">
                     <i class="fas fa-lock"></i> <span data-i18n="withdraw.docsEncrypted">Your documents are encrypted and secure</span>
@@ -8201,7 +8144,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'How does the AI trading bot work?',
         'landing.faq.4.a': 'Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.',
         'landing.faq.5.q': 'How do referral rewards work?',
-        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $100. Referral earnings build up in the Bonus Wallet and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (minimum $700, identity verification and a valid address).',
+        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $100. Referral earnings build up in the Bonus Wallet and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (minimum $500, withdrawal security verification when required, and a valid address).',
         'landing.faq.6.q': 'Is account verification required?',
         'landing.faq.6.a': 'Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.',
         'landing.cta.title': 'Start with Demo Mode',
@@ -8337,10 +8280,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot started in Demo mode',
         'bot.startedLive': '✅ Bot started in Live mode',
         'bot.paused': '⏸️ Bot paused',
-        'bot.reachMTA': '💰 Minimum trading balance: ${{mta}} to start the bot (need ${{needed}} more)',
-        'bot.mtaBlocked': 'Minimum trading balance is ${{mta}} to start the bot.',
         'bot.promoLimitReached': 'You have reached the promotional trading limit. Make your first deposit to continue trading.',
-        'bot.mtaMet': '✅ Minimum trading balance reached! Bot ready to trade',
+        'bot.readyToTrade': '✅ Bot ready to trade',
         'chart.title': 'Equity Performance',
         'markets.advancedChart': 'Advanced Market Chart',
         'chart.all': 'ALL',
@@ -8365,17 +8306,6 @@ const TRANSLATIONS = {
         'achievements.startTrading': 'Start trading to unlock badges',
         'achievements.allUnlocked': '🎉 All badges unlocked!',
         'achievements.next': 'Next:',
-        'mta.title': 'Unlock Live Trading',
-        'mta.subtitle': 'Reach the minimum trading balance to start the bot',
-        'mta.inProgress': 'In Progress',
-        'mta.targetLabel': 'Minimum trading balance:',
-        'mta.of': 'of',
-        'mta.nearlyThere': 'Almost there! Only',
-        'mta.greatProgress': 'Great progress!',
-        'mta.depositMore': 'Deposit',
-        'mta.moreToUnlock': 'more to unlock live trading',
-        'mta.depositNow': 'Deposit Now',
-        'mta.reached': '🎉 MTA reached! You can now start live trading!',
         'wallet.demo': 'Demo Wallet',
         'wallet.live': 'Live Wallet',
         'wallet.bonus': 'Bonus Wallet',
@@ -8491,7 +8421,6 @@ const TRANSLATIONS = {
         'startHere.live.title': 'Live Mode Guide',
         'startHere.live.subtitle': 'You\'re in Live Mode. Trades use real funds.',
         'startHere.live.step1': 'Deposit at least ${{min}} to activate Live funding',
-        'startHere.live.step2': 'Maintain at least ${{mta}} available balance to start the bot',
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
@@ -8501,7 +8430,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Withdraw Funds',
         'withdraw.subtitle': 'Transfer to your wallet',
         'withdraw.available': 'Available',
-        'withdraw.info': 'Min withdrawal: $700 | Requires 1 trade completed | Withdrawal processing usually takes 15–30 minutes.',
+        'withdraw.info': 'Requires 1 trade completed | Withdrawal processing usually takes 15–30 minutes.',
         'withdraw.infoSandbox': 'No minimum withdrawal | Withdrawal processing usually takes 15–30 minutes.',
         'withdraw.amount': 'Amount (USD)',
         'withdraw.address': 'Wallet Address',
@@ -8513,6 +8442,7 @@ const TRANSLATIONS = {
         'withdraw.firstDeposit': 'Make your first deposit to unlock withdrawals.',
         'withdraw.needTrade': 'Complete at least 1 trade before withdrawing',
         'withdraw.minWithdrawal': 'Minimum withdrawal is ${{min}}. Current: ${{current}}',
+        'withdraw.minAmount': 'Minimum withdrawal is $500',
         'withdraw.enterAddress': 'Please enter a wallet address',
         'withdraw.insufficient': 'Insufficient balance',
         'withdraw.success': '✅ ${{amount}} withdrawal submitted! Withdrawal processing usually takes 15–30 minutes.',
@@ -8623,8 +8553,6 @@ const TRANSLATIONS = {
         'badges.hotStreakDesc': '5 consecutive wins',
         'badges.unstoppable': 'Unstoppable',
         'badges.unstoppableDesc': '10 consecutive wins',
-        'badges.mtaUnlocked': 'MTA Unlocked',
-        'badges.mtaUnlockedDesc': 'Reach ${{mta}} MTA',
         'badges.bigWinner': 'Big Winner',
         'badges.bigWinnerDesc': 'Single trade > $50',
         'badges.luckyTrader': 'Lucky Trader',
@@ -8633,9 +8561,9 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Profitable after 10 trades',
         'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $100 to enable withdrawals',
         'live.withdrawStatus.needMinimum': '📈 Reach the ${{min}} minimum to withdraw',
-        'live.withdrawStatus.belowTradingBalance': '📈 Keep trading to reach the minimum withdrawal balance.',
+        'live.withdrawStatus.belowMinimum': '📈 Keep trading to grow your eligible balance',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
-        'live.withdrawStatus.ready': '✅ Ready to withdraw (min $700)',
+        'live.withdrawStatus.ready': '✅ Ready to withdraw',
         'live.withdrawStatus.readySandbox': '✅ Ready to withdraw',
         'live.withdrawStatus.sandboxEmpty': '💼 No simulated balance to withdraw yet',
         'admin.title': 'Admin Panel',
@@ -8692,16 +8620,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'Not Started',
         'kyc.status.required': 'Verification Required',
         'kyc.status.new': 'new',
-        'kyc.title.notStarted': 'Verification',
-        'kyc.title.pendingReview': 'Verification',
-        'kyc.title.approved': 'Verification ✓',
-        'kyc.title.rejected': 'Verification',
-        'kyc.title.resubmission': 'Verification',
-        'kyc.subtitle.notStarted': 'Not required for trading or deposits',
-        'kyc.subtitle.pendingReview': 'Under review',
-        'kyc.subtitle.approved': 'Verified — withdrawals enabled',
-        'kyc.subtitle.rejected': 'Verification rejected — action required',
-        'kyc.subtitle.resubmission': 'Update your information to resubmit',
+        'kyc.title.notStarted': 'Withdrawal Security Verification',
+        'kyc.title.pendingReview': 'Withdrawal Security Verification',
+        'kyc.title.approved': 'Withdrawal Security Verification ✓',
+        'kyc.title.rejected': 'Withdrawal Security Verification',
+        'kyc.title.resubmission': 'Withdrawal Security Verification',
+        'kyc.subtitle.notStarted': 'Required before withdrawals. Submit a government-issued ID and a selfie holding it.',
+        'kyc.subtitle.pendingReview': 'Under review — we are checking your submitted documents.',
+        'kyc.subtitle.approved': 'Verified — withdrawals enabled.',
+        'kyc.subtitle.rejected': 'Verification rejected — please review and resubmit.',
+        'kyc.subtitle.resubmission': 'Update your information to resubmit.',
         'kyc.level.emailVerified': 'Email Verified',
         'kyc.level.identitySubmitted': 'Identity Submitted',
         'kyc.level.identityVerified': 'Identity Verified',
@@ -8717,8 +8645,7 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'No history',
         'support.reply.default': 'I\'m not able to answer that accurately. Please contact our official support team through the Support Center, where a human support representative can assist you.',
         'support.fallback.actionAria': 'Open Support Center to reach human support',
-        'support.reply.bot': '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) In LIVE mode, reach the minimum trading balance of ${{mta}} first, 3) Click \'Start Bot\'.',
-        'support.reply.botNoMta': '🤖 To start the bot: switch to LIVE mode (or DEMO) and click the \'Start Bot\' button.',
+        'support.reply.bot': '🤖 To start the bot: 1) Switch to DEMO or LIVE mode, 2) Click \'Start Bot\' and it will scan supported markets and trade automatically.',
         'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, then send USDT on the TRON (TRC20) network to the displayed address. Arbitrix accepts USDT on TRON (TRC20) only. We\'ll auto-detect it.',
         'support.reply.withdraw': '🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click \'Withdraw\' in the sidebar. Withdrawal processing usually takes 15–30 minutes.',
         'support.reply.bonus': '🎁 Refer friends to earn 20% of their first qualifying deposit! Your reward accumulates in the Bonus Wallet and can be converted to your Live Wallet at any time — no minimum.',
@@ -9014,11 +8941,9 @@ const TRANSLATIONS = {
         'deposit.invoiceNotFound': 'Invoice not found',
         'deposit.createInvoiceFailed': 'Failed to create invoice',
         'deposit.notFound': 'Deposit not found',
-        'withdraw.min700': 'Minimum withdrawal is $700',
         'withdraw.validAddressRequired': 'A valid wallet address is required',
-        'withdraw.identityRequired': 'Identity verification required',
+        'withdraw.identityRequired': 'Withdrawal security verification required',
         'withdraw.notFound': 'Withdrawal not found',
-        'trade.mtaNotReached': 'Minimum trading amount not reached',
         'trade.invalidAmount': 'Invalid trade amount',
         'trade.exceedsBalance': 'Trade amount exceeds balance',
         'kyc.legalNameRequired': 'Full legal name is required (min 2 characters)',
@@ -9125,14 +9050,14 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Payment received',
         'deposit.step.desc.confirming': 'Confirming on TRON',
         'deposit.step.desc.credited': 'Balance credited',
-        'withdraw.kycRequiredTitle': 'Verification Required',
-        'withdraw.kycRequiredBody': 'Verify your account to withdraw.',
-        'withdraw.verificationProgress': 'Verification Progress',
+        'withdraw.kycRequiredTitle': 'Withdrawal Security Verification',
+        'withdraw.kycRequiredBody': 'To protect your account, complete a one-time security check before withdrawing. You will need a government-issued ID and a selfie holding it.',
+        'withdraw.verificationProgress': 'Security Check Progress',
         'withdraw.percentComplete': '{{percent}}% Complete',
-        'withdraw.startVerification': 'Start Verification',
+        'withdraw.startVerification': 'Start Security Check',
         'withdraw.docsEncrypted': 'Your documents are encrypted and secure',
-        'kyc.modalTitle': 'Identity Verification',
-        'kyc.modalSubtitle': 'Complete verification to enable withdrawals',
+        'kyc.modalTitle': 'Withdrawal Security Verification',
+        'kyc.modalSubtitle': 'Required to protect your account before withdrawals. Submit a government-issued ID and a selfie holding it.',
         'kyc.demoInfo.title': 'Verification Not Required',
         'kyc.demoInfo.body': 'Deposit and trading do not require identity verification.',
         'kyc.demoInfo.switchToLive': 'Switch to LIVE Mode',
@@ -9637,7 +9562,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': '¿Cómo funciona el bot de trading con IA?',
         'landing.faq.4.a': 'Nuestra IA monitorea continuamente las diferencias de precio en 50+ exchanges. Cuando detecta una oportunidad de arbitraje (discrepancia de precio), ejecuta operaciones automáticamente para obtener ganancias de la diferencia. Puede iniciar/detener el bot en cualquier momento.',
         'landing.faq.5.q': '¿Cómo funcionan las recompensas por referidos?',
-        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $100 de un amigo referido. Los ingresos por referidos se acumulan en la Billetera de bonos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (mínimo $700, verificación de identidad y una dirección válida).',
+        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $100 de un amigo referido. Los ingresos por referidos se acumulan en la Billetera de bonos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (mínimo $500, verificación de seguridad para retiros cuando sea necesaria y una dirección válida).',
         'landing.faq.6.q': '¿Se requiere verificación de cuenta?',
         'landing.faq.6.a': 'La creación básica de cuenta requiere solo un correo y una contraseña. La verificación KYC puede ser necesaria para límites de retiro más altos o funciones específicas para cumplir con los requisitos regulatorios.',
         'landing.cta.title': 'Empieza con el Modo Demo',
@@ -9773,10 +9698,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot iniciado en modo demo',
         'bot.startedLive': '✅ Bot iniciado en modo Live',
         'bot.paused': '⏸️ Bot en pausa',
-        'bot.reachMTA': '💰 Saldo mínimo de trading: ${{mta}} para iniciar el bot (faltan ${{needed}})',
-        'bot.mtaBlocked': 'El saldo mínimo de trading es ${{mta}} para iniciar el bot.',
         'bot.promoLimitReached': 'Has alcanzado el límite de trading promocional. Haz tu primer depósito para seguir operando.',
-        'bot.mtaMet': '✅ ¡Saldo mínimo de trading alcanzado! Bot listo para operar',
+        'bot.readyToTrade': '✅ Bot listo para operar',
         'chart.title': 'Rendimiento del patrimonio',
         'markets.advancedChart': 'Gráfico de mercado avanzado',
         'chart.all': 'TODO',
@@ -9801,17 +9724,6 @@ const TRANSLATIONS = {
         'achievements.startTrading': 'Empieza a operar para desbloquear insignias',
         'achievements.allUnlocked': '🎉 ¡Todas las insignias desbloqueadas!',
         'achievements.next': 'Siguiente:',
-        'mta.title': 'Desbloquear trading en vivo',
-        'mta.subtitle': 'Alcanza el saldo mínimo de trading para iniciar el bot',
-        'mta.inProgress': 'En progreso',
-        'mta.targetLabel': 'Saldo mínimo de trading:',
-        'mta.of': 'de',
-        'mta.nearlyThere': '¡Casi lo logras! Solo',
-        'mta.greatProgress': '¡Gran progreso!',
-        'mta.depositMore': 'Deposita',
-        'mta.moreToUnlock': 'más para desbloquear el trading en vivo',
-        'mta.depositNow': 'Depositar ahora',
-        'mta.reached': '🎉 ¡MTA alcanzado! Ya puedes empezar a operar en vivo',
         'wallet.demo': 'Cartera demo',
         'wallet.live': 'Cartera Live',
         'wallet.bonus': 'Cartera de bonos',
@@ -9927,7 +9839,6 @@ const TRANSLATIONS = {
         'startHere.live.title': 'Guía del Modo Live',
         'startHere.live.subtitle': 'Estás en Modo Live. Las operaciones usan fondos reales.',
         'startHere.live.step1': 'Deposita al menos ${{min}} para activar los fondos de Live',
-        'startHere.live.step2': 'Mantén al menos ${{mta}} de saldo disponible para iniciar el bot',
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
@@ -9937,7 +9848,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Retirar fondos',
         'withdraw.subtitle': 'Transfiere a tu cartera',
         'withdraw.available': 'Disponible',
-        'withdraw.info': 'Retiro mín.: $700 | Requiere 1 operación completada | El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
+        'withdraw.info': 'Requiere 1 operación completada | El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'withdraw.infoSandbox': 'Sin retiro mínimo | El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'withdraw.amount': 'Monto (USD)',
         'withdraw.address': 'Dirección de la cartera',
@@ -9949,6 +9860,7 @@ const TRANSLATIONS = {
         'withdraw.firstDeposit': 'Haz tu primer depósito para desbloquear los retiros.',
         'withdraw.needTrade': 'Completa al menos 1 operación antes de retirar',
         'withdraw.minWithdrawal': 'El retiro mínimo es ${{min}}. Actual: ${{current}}',
+        'withdraw.minAmount': 'El retiro mínimo es $500',
         'withdraw.enterAddress': 'Por favor, introduce una dirección de cartera',
         'withdraw.insufficient': 'Saldo insuficiente',
         'withdraw.success': '✅ ¡Retiro de ${{amount}} enviado! El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
@@ -10059,8 +9971,6 @@ const TRANSLATIONS = {
         'badges.hotStreakDesc': '5 aciertos consecutivos',
         'badges.unstoppable': 'Imparable',
         'badges.unstoppableDesc': '10 aciertos consecutivos',
-        'badges.mtaUnlocked': 'MTA desbloqueado',
-        'badges.mtaUnlockedDesc': 'Alcanza ${{mta}} de MTA',
         'badges.bigWinner': 'Gran ganador',
         'badges.bigWinnerDesc': 'Operación única superior a $50',
         'badges.luckyTrader': 'Trader afortunado',
@@ -10069,9 +9979,9 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Rentable después de 10 operaciones',
         'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de $100 para habilitar los retiros',
         'live.withdrawStatus.needMinimum': '📈 Alcanza el mínimo de ${{min}} para retirar',
-        'live.withdrawStatus.belowTradingBalance': '📈 Sigue operando para alcanzar el saldo mínimo de retiro.',
+        'live.withdrawStatus.belowMinimum': '📈 Sigue operando para aumentar tu saldo disponible',
         'live.withdrawStatus.noTrades': '📊 Completa al menos 1 operación para retirar',
-        'live.withdrawStatus.ready': '✅ Listo para retirar (mín. $700)',
+        'live.withdrawStatus.ready': '✅ Listo para retirar',
         'live.withdrawStatus.readySandbox': '✅ Listo para retirar',
         'live.withdrawStatus.sandboxEmpty': '💼 Aún no hay saldo simulado para retirar',
         'admin.title': 'Panel de administración',
@@ -10128,16 +10038,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'No iniciado',
         'kyc.status.required': 'Verificación requerida',
         'kyc.status.new': 'nuevo',
-        'kyc.title.notStarted': 'Verificación',
-        'kyc.title.pendingReview': 'Verificación',
-        'kyc.title.approved': 'Verificación ✓',
-        'kyc.title.rejected': 'Verificación',
-        'kyc.title.resubmission': 'Verificación',
-        'kyc.subtitle.notStarted': 'No requerida para operar ni depositar',
-        'kyc.subtitle.pendingReview': 'En revisión',
-        'kyc.subtitle.approved': 'Verificada — retiros habilitados',
-        'kyc.subtitle.rejected': 'Verificación rechazada — acción requerida',
-        'kyc.subtitle.resubmission': 'Actualiza tu información para reenviar',
+        'kyc.title.notStarted': 'Verificación de seguridad para retiros',
+        'kyc.title.pendingReview': 'Verificación de seguridad para retiros',
+        'kyc.title.approved': 'Verificación de seguridad para retiros ✓',
+        'kyc.title.rejected': 'Verificación de seguridad para retiros',
+        'kyc.title.resubmission': 'Verificación de seguridad para retiros',
+        'kyc.subtitle.notStarted': 'Requerido antes de retirar. Envía un documento de identidad oficial y una selfie sosteniéndolo.',
+        'kyc.subtitle.pendingReview': 'En revisión: estamos comprobando los documentos enviados.',
+        'kyc.subtitle.approved': 'Verificado: retiros habilitados.',
+        'kyc.subtitle.rejected': 'Verificación rechazada: revísala y vuelve a enviarla.',
+        'kyc.subtitle.resubmission': 'Actualiza tu información para volver a enviarla.',
         'kyc.level.emailVerified': 'Correo verificado',
         'kyc.level.identitySubmitted': 'Identidad enviada',
         'kyc.level.identityVerified': 'Identidad verificada',
@@ -10153,8 +10063,7 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'Sin historial',
         'support.reply.default': 'No puedo responder eso con precisión. Contacta con nuestro equipo de soporte oficial a través del Centro de Soporte, donde un representante de soporte humano puede ayudarte.',
         'support.fallback.actionAria': 'Abrir el centro de soporte para contactar con un humano',
-        'support.reply.bot': '🤖 Para iniciar el bot: 1) Cambia a modo DEMO o LIVE, 2) En modo LIVE, alcanza primero el saldo mínimo de trading de ${{mta}}, 3) Haz clic en \'Start Bot\'.',
-        'support.reply.botNoMta': '🤖 Para iniciar el bot: cambia a modo LIVE (o DEMO) y haz clic en el botón \'Start Bot\'.',
+        'support.reply.bot': '🤖 Para iniciar el bot: 1) Cambia a modo DEMO o LIVE, 2) Haz clic en \'Start Bot\' y escaneará los mercados compatibles y operará automáticamente.',
         'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto y envía USDT en la red TRON (TRC20) a la dirección mostrada. Arbitrix solo acepta USDT en TRON (TRC20). Lo detectaremos automáticamente.',
         'support.reply.withdraw': '🏦 Para retirar: 1) Cambia a modo LIVE, 2) Haz un depósito, 3) Completa al menos 1 operación, 4) Haz clic en \'Withdraw\' en la barra lateral. El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
         'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar el 20% de su primer depósito válido! Tu recompensa se acumula en la Billetera de Bonos y puedes convertirla a tu Billetera Live en cualquier momento, sin mínimo.',
@@ -10450,11 +10359,9 @@ const TRANSLATIONS = {
         'deposit.invoiceNotFound': 'Factura no encontrada',
         'deposit.createInvoiceFailed': 'No se pudo crear la factura',
         'deposit.notFound': 'Depósito no encontrado',
-        'withdraw.min700': 'El retiro mínimo es $700',
         'withdraw.validAddressRequired': 'Se requiere una dirección de billetera válida',
-        'withdraw.identityRequired': 'Se requiere verificación de identidad',
+        'withdraw.identityRequired': 'Se requiere verificación de seguridad para retiros',
         'withdraw.notFound': 'Retiro no encontrado',
-        'trade.mtaNotReached': 'Monto mínimo de operación no alcanzado',
         'trade.invalidAmount': 'Monto de operación inválido',
         'trade.exceedsBalance': 'El monto excede el saldo',
         'kyc.legalNameRequired': 'Se requiere nombre legal completo (mín. 2 caracteres)',
@@ -10561,14 +10468,14 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Pago recibido',
         'deposit.step.desc.confirming': 'Confirmando en TRON',
         'deposit.step.desc.credited': 'Saldo acreditado',
-        'withdraw.kycRequiredTitle': 'Verificación requerida',
-        'withdraw.kycRequiredBody': 'Verifica tu cuenta para retirar.',
-        'withdraw.verificationProgress': 'Progreso de verificación',
+        'withdraw.kycRequiredTitle': 'Verificación de seguridad para retiros',
+        'withdraw.kycRequiredBody': 'Para proteger tu cuenta, completa una verificación de seguridad única antes de retirar. Necesitarás un documento de identidad oficial y una selfie sosteniéndolo.',
+        'withdraw.verificationProgress': 'Progreso de la verificación de seguridad',
         'withdraw.percentComplete': '{{percent}}% completado',
-        'withdraw.startVerification': 'Iniciar verificación',
+        'withdraw.startVerification': 'Iniciar verificación de seguridad',
         'withdraw.docsEncrypted': 'Tus documentos están cifrados y seguros',
-        'kyc.modalTitle': 'Verificación de identidad',
-        'kyc.modalSubtitle': 'Completa la verificación para habilitar retiros',
+        'kyc.modalTitle': 'Verificación de seguridad para retiros',
+        'kyc.modalSubtitle': 'Requerido para proteger tu cuenta antes de retirar. Envía un documento de identidad oficial y una selfie sosteniéndolo.',
         'kyc.demoInfo.title': 'Verificación no requerida',
         'kyc.demoInfo.body': 'Depositar y operar no requieren verificación de identidad.',
         'kyc.demoInfo.switchToLive': 'Cambiar a modo LIVE',
@@ -11074,7 +10981,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Como funciona o bot de trading com IA?',
         'landing.faq.4.a': 'Nossa IA monitora continuamente as diferenças de preço em 50+ exchanges. Quando detecta uma oportunidade de arbitragem (discrepância de preço), executa operações automaticamente para lucrar com a diferença. Você pode iniciar/parar o bot a qualquer momento.',
         'landing.faq.5.q': 'Como funcionam as recompensas por indicação?',
-        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $100 de um amigo indicado. Os ganhos de indicação acumulam-se na Carteira de Bônus e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (mínimo $700, verificação de identidade e um endereço válido).',
+        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $100 de um amigo indicado. Os ganhos de indicação acumulam-se na Carteira de Bônus e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (mínimo $500, verificação de segurança para saques quando exigida e um endereço válido).',
         'landing.faq.6.q': 'É necessária verificação de conta?',
         'landing.faq.6.a': 'A criação básica de conta requer apenas um e-mail e uma senha. A verificação KYC pode ser necessária para limites de saque mais altos ou recursos específicos para cumprir requisitos regulatórios.',
         'landing.cta.title': 'Comece com o Modo Demo',
@@ -11210,10 +11117,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot iniciado no modo demo',
         'bot.startedLive': '✅ Bot iniciado no modo Live',
         'bot.paused': '⏸️ Bot pausado',
-        'bot.reachMTA': '💰 Saldo mínimo de negociação: ${{mta}} para iniciar o bot (faltam ${{needed}})',
-        'bot.mtaBlocked': 'O saldo mínimo de trading é ${{mta}} para iniciar o bot.',
         'bot.promoLimitReached': 'Você atingiu o limite de trading promocional. Faça seu primeiro depósito para continuar operando.',
-        'bot.mtaMet': '✅ Saldo mínimo de negociação atingido! Bot pronto para operar',
+        'bot.readyToTrade': '✅ Bot pronto para operar',
         'chart.title': 'Desempenho do patrimônio',
         'markets.advancedChart': 'Gráfico de mercado avançado',
         'chart.all': 'TUDO',
@@ -11238,17 +11143,6 @@ const TRANSLATIONS = {
         'achievements.startTrading': 'Comece a operar para desbloquear insígnias',
         'achievements.allUnlocked': '🎉 Todas as insígnias desbloqueadas!',
         'achievements.next': 'Próxima:',
-        'mta.title': 'Desbloquear trading ao vivo',
-        'mta.subtitle': 'Atinja o saldo mínimo de negociação para iniciar o bot',
-        'mta.inProgress': 'Em andamento',
-        'mta.targetLabel': 'Saldo mínimo de negociação:',
-        'mta.of': 'de',
-        'mta.nearlyThere': 'Quase lá! Apenas',
-        'mta.greatProgress': 'Ótimo progresso!',
-        'mta.depositMore': 'Deposite',
-        'mta.moreToUnlock': 'a mais para desbloquear o trading ao vivo',
-        'mta.depositNow': 'Depositar agora',
-        'mta.reached': '🎉 MTA atingido! Você já pode começar a operar ao vivo',
         'wallet.demo': 'Carteira demo',
         'wallet.live': 'Carteira Live',
         'wallet.bonus': 'Carteira de bônus',
@@ -11364,7 +11258,6 @@ const TRANSLATIONS = {
         'startHere.live.title': 'Guia do Modo Live',
         'startHere.live.subtitle': 'Você está no Modo Live. As operações usam fundos reais.',
         'startHere.live.step1': 'Deposite pelo menos ${{min}} para ativar o financiamento do Live',
-        'startHere.live.step2': 'Mantenha pelo menos ${{mta}} de saldo disponível para iniciar o bot',
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
@@ -11374,7 +11267,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Sacar fundos',
         'withdraw.subtitle': 'Transfira para sua carteira',
         'withdraw.available': 'Disponível',
-        'withdraw.info': 'Saque mín.: $700 | Exige 1 operação concluída | O processamento do saque geralmente leva de 15 a 30 minutos.',
+        'withdraw.info': 'Exige 1 operação concluída | O processamento do saque geralmente leva de 15 a 30 minutos.',
         'withdraw.infoSandbox': 'Sem saque mínimo | O processamento do saque geralmente leva de 15 a 30 minutos.',
         'withdraw.amount': 'Valor (USD)',
         'withdraw.address': 'Endereço da carteira',
@@ -11386,6 +11279,7 @@ const TRANSLATIONS = {
         'withdraw.firstDeposit': 'Faça seu primeiro depósito para desbloquear os saques.',
         'withdraw.needTrade': 'Conclua pelo menos 1 operação antes de sacar',
         'withdraw.minWithdrawal': 'O saque mínimo é ${{min}}. Atual: ${{current}}',
+        'withdraw.minAmount': 'O saque mínimo é $500',
         'withdraw.enterAddress': 'Por favor, insira um endereço de carteira',
         'withdraw.insufficient': 'Saldo insuficiente',
         'withdraw.success': '✅ Saque de ${{amount}} enviado! O processamento do saque geralmente leva de 15 a 30 minutos.',
@@ -11496,8 +11390,6 @@ const TRANSLATIONS = {
         'badges.hotStreakDesc': '5 acertos seguidos',
         'badges.unstoppable': 'Imparável',
         'badges.unstoppableDesc': '10 acertos seguidos',
-        'badges.mtaUnlocked': 'MTA desbloqueado',
-        'badges.mtaUnlockedDesc': 'Atinja ${{mta}} de MTA',
         'badges.bigWinner': 'Grande vencedor',
         'badges.bigWinnerDesc': 'Operação única acima de $50',
         'badges.luckyTrader': 'Trader sortudo',
@@ -11506,9 +11398,9 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Lucrativo após 10 operações',
         'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de $100 para habilitar os saques',
         'live.withdrawStatus.needMinimum': '📈 Atinga o mínimo de ${{min}} para sacar',
-        'live.withdrawStatus.belowTradingBalance': '📈 Continue operando para atingir o saldo mínimo de saque.',
+        'live.withdrawStatus.belowMinimum': '📈 Continue operando para aumentar seu saldo disponível',
         'live.withdrawStatus.noTrades': '📊 Conclua pelo menos 1 operação para sacar',
-        'live.withdrawStatus.ready': '✅ Pronto para sacar (mín. $700)',
+        'live.withdrawStatus.ready': '✅ Pronto para sacar',
         'live.withdrawStatus.readySandbox': '✅ Pronto para sacar',
         'live.withdrawStatus.sandboxEmpty': '💼 Ainda não há saldo simulado para sacar',
         'admin.title': 'Painel administrativo',
@@ -11565,16 +11457,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'Não iniciado',
         'kyc.status.required': 'Verificação necessária',
         'kyc.status.new': 'novo',
-        'kyc.title.notStarted': 'Verificação',
-        'kyc.title.pendingReview': 'Verificação',
-        'kyc.title.approved': 'Verificação ✓',
-        'kyc.title.rejected': 'Verificação',
-        'kyc.title.resubmission': 'Verificação',
-        'kyc.subtitle.notStarted': 'Não necessária para operar nem depositar',
-        'kyc.subtitle.pendingReview': 'Em revisão',
-        'kyc.subtitle.approved': 'Verificada — saques habilitados',
-        'kyc.subtitle.rejected': 'Verificação rejeitada — ação necessária',
-        'kyc.subtitle.resubmission': 'Atualize suas informações para reenviar',
+        'kyc.title.notStarted': 'Verificação de segurança para saques',
+        'kyc.title.pendingReview': 'Verificação de segurança para saques',
+        'kyc.title.approved': 'Verificação de segurança para saques ✓',
+        'kyc.title.rejected': 'Verificação de segurança para saques',
+        'kyc.title.resubmission': 'Verificação de segurança para saques',
+        'kyc.subtitle.notStarted': 'Necessário antes de sacar. Envie um documento de identidade oficial e uma selfie segurando-o.',
+        'kyc.subtitle.pendingReview': 'Em análise: estamos verificando os documentos enviados.',
+        'kyc.subtitle.approved': 'Verificado: saques habilitados.',
+        'kyc.subtitle.rejected': 'Verificação rejeitada: revise e reenvie.',
+        'kyc.subtitle.resubmission': 'Atualize suas informações para reenviar.',
         'kyc.level.emailVerified': 'E-mail verificado',
         'kyc.level.identitySubmitted': 'Identidade enviada',
         'kyc.level.identityVerified': 'Identidade verificada',
@@ -11590,8 +11482,7 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'Sem histórico',
         'support.reply.default': 'Não consigo responder isso com precisão. Fale com a nossa equipe de suporte oficial através da Central de Suporte, onde um representante de suporte humano pode ajudar você.',
         'support.fallback.actionAria': 'Abrir a central de suporte para falar com um humano',
-        'support.reply.bot': '🤖 Para iniciar o bot: 1) Mude para o modo DEMO ou LIVE, 2) No modo LIVE, atinja primeiro o saldo mínimo de negociação de ${{mta}}, 3) Clique em \'Start Bot\'.',
-        'support.reply.botNoMta': '🤖 Para iniciar o bot: mude para o modo LIVE (ou DEMO) e clique no botão \'Start Bot\'.',
+        'support.reply.bot': '🤖 Para iniciar o bot: 1) Mude para o modo DEMO ou LIVE, 2) Clique em \'Start Bot\' e ele analisará os mercados compatíveis e negociará automaticamente.',
         'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor e envie USDT na rede TRON (TRC20) para o endereço exibido. A Arbitrix aceita apenas USDT na TRON (TRC20). Detectaremos automaticamente.',
         'support.reply.withdraw': '🏦 Para sacar: 1) Mude para o modo LIVE, 2) Faça um depósito, 3) Complete pelo menos 1 operação, 4) Clique em \'Withdraw\' na barra lateral. O processamento do saque geralmente leva de 15 a 30 minutos.',
         'support.reply.bonus': '🎁 Indique amigos para ganhar 20% do primeiro depósito válido deles! Sua recompensa acumula na Carteira de Bônus e pode ser convertida para a sua Carteira Live a qualquer momento — sem mínimo.',
@@ -11887,11 +11778,9 @@ const TRANSLATIONS = {
         'deposit.invoiceNotFound': 'Fatura não encontrada',
         'deposit.createInvoiceFailed': 'Falha ao criar fatura',
         'deposit.notFound': 'Depósito não encontrado',
-        'withdraw.min700': 'O saque mínimo é $700',
         'withdraw.validAddressRequired': 'É necessário um endereço de carteira válido',
-        'withdraw.identityRequired': 'Verificação de identidade necessária',
+        'withdraw.identityRequired': 'Verificação de segurança para saques necessária',
         'withdraw.notFound': 'Saque não encontrado',
-        'trade.mtaNotReached': 'Valor mínimo de operação não atingido',
         'trade.invalidAmount': 'Valor de operação inválido',
         'trade.exceedsBalance': 'O valor excede o saldo',
         'kyc.legalNameRequired': 'Nome legal completo é necessário (mín. 2 caracteres)',
@@ -11998,14 +11887,14 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Pagamento recebido',
         'deposit.step.desc.confirming': 'Confirmando na TRON',
         'deposit.step.desc.credited': 'Saldo creditado',
-        'withdraw.kycRequiredTitle': 'Verificação necessária',
-        'withdraw.kycRequiredBody': 'Verifique sua conta para sacar.',
-        'withdraw.verificationProgress': 'Progresso da verificação',
+        'withdraw.kycRequiredTitle': 'Verificação de segurança para saques',
+        'withdraw.kycRequiredBody': 'Para proteger sua conta, conclua uma verificação de segurança única antes de sacar. Você precisará de um documento de identidade oficial e uma selfie segurando-o.',
+        'withdraw.verificationProgress': 'Progresso da verificação de segurança',
         'withdraw.percentComplete': '{{percent}}% concluído',
-        'withdraw.startVerification': 'Iniciar verificação',
+        'withdraw.startVerification': 'Iniciar verificação de segurança',
         'withdraw.docsEncrypted': 'Seus documentos estão criptografados e seguros',
-        'kyc.modalTitle': 'Verificação de identidade',
-        'kyc.modalSubtitle': 'Conclua a verificação para habilitar saques',
+        'kyc.modalTitle': 'Verificação de segurança para saques',
+        'kyc.modalSubtitle': 'Necessário para proteger sua conta antes de sacar. Envie um documento de identidade oficial e uma selfie segurando-o.',
         'kyc.demoInfo.title': 'Verificação não necessária',
         'kyc.demoInfo.body': 'Depósitos e negociação não exigem verificação de identidade.',
         'kyc.demoInfo.switchToLive': 'Mudar para modo LIVE',
@@ -12511,7 +12400,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Comment fonctionne le bot de trading IA ?',
         'landing.faq.4.a': 'Notre IA surveille en continu les écarts de prix sur 50+ exchanges. Lorsqu’elle détecte une opportunité d’arbitrage (écart de prix), elle exécute automatiquement des trades pour profiter de la différence. Vous pouvez démarrer/arrêter le bot à tout moment.',
         'landing.faq.5.q': 'Comment fonctionnent les récompenses de parrainage ?',
-        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $100 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Portefeuille Bonus et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (minimum $700, vérification d’identité et une adresse valide).',
+        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $100 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Portefeuille Bonus et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (minimum $500, vérification de sécurité des retraits si nécessaire et une adresse valide).',
         'landing.faq.6.q': 'La vérification du compte est-elle obligatoire ?',
         'landing.faq.6.a': 'La création de base d’un compte ne nécessite qu’un e-mail et un mot de passe. La vérification KYC peut être requise pour des limites de retrait plus élevées ou certaines fonctionnalités afin de respecter les exigences réglementaires.',
         'landing.cta.title': 'Commencez par le mode démo',
@@ -12647,10 +12536,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot démarré en mode démo',
         'bot.startedLive': '✅ Bot démarré en mode live',
         'bot.paused': '⏸️ Bot en pause',
-        'bot.reachMTA': '💰 Solde de trading minimum : ${{mta}} pour démarrer le bot (il manque ${{needed}})',
-        'bot.mtaBlocked': 'Le solde de trading minimum est de ${{mta}} pour démarrer le bot.',
         'bot.promoLimitReached': 'Vous avez atteint la limite de trading promotionnel. Effectuez votre premier dépôt pour continuer à trader.',
-        'bot.mtaMet': '✅ Solde de trading minimum atteint ! Bot prêt à trader',
+        'bot.readyToTrade': '✅ Bot prêt à trader',
         'chart.title': 'Performance des capitaux',
         'markets.advancedChart': 'Graphique de marché avancé',
         'chart.all': 'TOUT',
@@ -12675,17 +12562,6 @@ const TRANSLATIONS = {
         'achievements.startTrading': 'Commencez à trader pour débloquer des badges',
         'achievements.allUnlocked': '🎉 Tous les badges débloqués !',
         'achievements.next': 'Suivant :',
-        'mta.title': 'Débloquer le trading en direct',
-        'mta.subtitle': 'Atteignez le solde de trading minimum pour démarrer le bot',
-        'mta.inProgress': 'En cours',
-        'mta.targetLabel': 'Solde de trading minimum :',
-        'mta.of': 'sur',
-        'mta.nearlyThere': 'Presque ! Plus que',
-        'mta.greatProgress': 'Beau progress !',
-        'mta.depositMore': 'Déposez',
-        'mta.moreToUnlock': 'pour débloquer le trading en direct',
-        'mta.depositNow': 'Déposer maintenant',
-        'mta.reached': '🎉 MTA atteint ! Vous pouvez maintenant trader en direct',
         'wallet.demo': 'Portefeuille démo',
         'wallet.live': 'Portefeuille live',
         'wallet.bonus': 'Portefeuille bonus',
@@ -12801,7 +12677,6 @@ const TRANSLATIONS = {
         'startHere.live.title': 'Guide du mode Live',
         'startHere.live.subtitle': 'Vous êtes en mode Live. Les transactions utilisent des fonds réels.',
         'startHere.live.step1': 'Déposez au moins ${{min}} pour activer le financement Live',
-        'startHere.live.step2': 'Maintenez au moins ${{mta}} de solde disponible pour démarrer le bot',
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
@@ -12811,7 +12686,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'Retirer des fonds',
         'withdraw.subtitle': 'Transférez vers votre portefeuille',
         'withdraw.available': 'Disponible',
-        'withdraw.info': 'Retrait min. : $700 | 1 transaction requise | Le traitement du retrait prend généralement 15 à 30 minutes.',
+        'withdraw.info': '1 transaction requise | Le traitement du retrait prend généralement 15 à 30 minutes.',
         'withdraw.infoSandbox': 'Aucun retrait minimum | Le traitement du retrait prend généralement 15 à 30 minutes.',
         'withdraw.amount': 'Montant (USD)',
         'withdraw.address': 'Adresse du portefeuille',
@@ -12823,6 +12698,7 @@ const TRANSLATIONS = {
         'withdraw.firstDeposit': 'Effectuez votre premier dépôt pour débloquer les retraits.',
         'withdraw.needTrade': 'Effectuez au moins 1 transaction avant de retirer',
         'withdraw.minWithdrawal': 'Le retrait minimum est de ${{min}}. Actuel : ${{current}}',
+        'withdraw.minAmount': 'Le retrait minimum est de $500',
         'withdraw.enterAddress': 'Veuillez saisir une adresse de portefeuille',
         'withdraw.insufficient': 'Solde insuffisant',
         'withdraw.success': '✅ Retrait de ${{amount}} soumis ! Le traitement du retrait prend généralement 15 à 30 minutes.',
@@ -12933,8 +12809,6 @@ const TRANSLATIONS = {
         'badges.hotStreakDesc': '5 gains consécutifs',
         'badges.unstoppable': 'Implacable',
         'badges.unstoppableDesc': '10 gains consécutifs',
-        'badges.mtaUnlocked': 'MTA débloqué',
-        'badges.mtaUnlockedDesc': 'Atteignez ${{mta}} de MTA',
         'badges.bigWinner': 'Grand gagnant',
         'badges.bigWinnerDesc': 'Transaction unique supérieure à $50',
         'badges.luckyTrader': 'Trader chanceux',
@@ -12943,9 +12817,9 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'Rentable après 10 transactions',
         'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de $100 pour activer les retraits',
         'live.withdrawStatus.needMinimum': '📈 Atteignez le minimum de ${{min}} pour retirer',
-        'live.withdrawStatus.belowTradingBalance': '📈 Continuez à trader pour atteindre le solde minimum de retrait.',
+        'live.withdrawStatus.belowMinimum': '📈 Continuez à trader pour augmenter votre solde disponible',
         'live.withdrawStatus.noTrades': '📊 Effectuez au moins 1 transaction pour retirer',
-        'live.withdrawStatus.ready': '✅ Prêt à retirer (min. $700)',
+        'live.withdrawStatus.ready': '✅ Prêt à retirer',
         'live.withdrawStatus.readySandbox': '✅ Prêt à retirer',
         'live.withdrawStatus.sandboxEmpty': '💼 Aucun solde simulé à retirer pour le moment',
         'admin.title': 'Panneau d’administration',
@@ -13002,16 +12876,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'Non commencé',
         'kyc.status.required': 'Vérification requise',
         'kyc.status.new': 'nouveau',
-        'kyc.title.notStarted': 'Vérification',
-        'kyc.title.pendingReview': 'Vérification',
-        'kyc.title.approved': 'Vérification ✓',
-        'kyc.title.rejected': 'Vérification',
-        'kyc.title.resubmission': 'Vérification',
-        'kyc.subtitle.notStarted': 'Non requise pour trader ou déposer',
-        'kyc.subtitle.pendingReview': 'En cours de révision',
-        'kyc.subtitle.approved': 'Vérifiée — retraits activés',
-        'kyc.subtitle.rejected': 'Vérification rejetée — action requise',
-        'kyc.subtitle.resubmission': 'Mettez à jour vos informations pour renvoyer',
+        'kyc.title.notStarted': 'Vérification de sécurité des retraits',
+        'kyc.title.pendingReview': 'Vérification de sécurité des retraits',
+        'kyc.title.approved': 'Vérification de sécurité des retraits ✓',
+        'kyc.title.rejected': 'Vérification de sécurité des retraits',
+        'kyc.title.resubmission': 'Vérification de sécurité des retraits',
+        'kyc.subtitle.notStarted': 'Requis avant tout retrait. Envoyez une pièce d’identité officielle et un selfie la tenant.',
+        'kyc.subtitle.pendingReview': 'En cours d’examen : nous vérifions les documents envoyés.',
+        'kyc.subtitle.approved': 'Vérifié : retraits activés.',
+        'kyc.subtitle.rejected': 'Vérification refusée : veuillez vérifier et renvoyer.',
+        'kyc.subtitle.resubmission': 'Mettez à jour vos informations pour renvoyer.',
         'kyc.level.emailVerified': 'E-mail vérifié',
         'kyc.level.identitySubmitted': 'Identité soumise',
         'kyc.level.identityVerified': 'Identité vérifiée',
@@ -13027,8 +12901,7 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'Aucun historique',
         'support.reply.default': 'Je ne peux pas répondre à cela avec précision. Contactez notre équipe de support officielle via le Centre de support, où un représentant du support humain peut vous aider.',
         'support.fallback.actionAria': 'Ouvrir le centre de support pour joindre un humain',
-        'support.reply.bot': '🤖 Pour démarrer le bot : 1) Passez en mode DEMO ou LIVE, 2) En mode LIVE, atteignez d\'abord le solde de trading minimum de ${{mta}}, 3) Cliquez sur \'Start Bot\'.',
-        'support.reply.botNoMta': '🤖 Pour démarrer le bot : passez en mode LIVE (ou DEMO) et cliquez sur le bouton \'Start Bot\'.',
+        'support.reply.bot': '🤖 Pour démarrer le bot : 1) Passez en mode DEMO ou LIVE, 2) Cliquez sur « Start Bot » : il analysera les marchés pris en charge et tradera automatiquement.',
         'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, puis envoyez des USDT sur le réseau TRON (TRC20) à l\'adresse affichée. Arbitrix accepte uniquement l\'USDT sur TRON (TRC20). Nous le détecterons automatiquement.',
         'support.reply.withdraw': '🏦 Pour retirer : 1) Passez en mode LIVE, 2) Effectuez un dépôt, 3) Effectuez au moins 1 trade, 4) Cliquez sur \'Withdraw\' dans la barre latérale. Le traitement du retrait prend généralement 15 à 30 minutes.',
         'support.reply.bonus': '🎁 Parrainez des amis pour gagner 20 % de leur premier dépôt éligible ! Votre récompense s’accumule dans le Portefeuille Bonus et peut être convertie dans votre Portefeuille Live à tout moment — sans minimum.',
@@ -13324,11 +13197,9 @@ const TRANSLATIONS = {
         'deposit.invoiceNotFound': 'Facture introuvable',
         'deposit.createInvoiceFailed': 'Échec de la création de la facture',
         'deposit.notFound': 'Dépôt introuvable',
-        'withdraw.min700': 'Le retrait minimum est de $700',
         'withdraw.validAddressRequired': 'Une adresse de portefeuille valide est requise',
-        'withdraw.identityRequired': 'Vérification d’identité requise',
+        'withdraw.identityRequired': 'Vérification de sécurité des retraits requise',
         'withdraw.notFound': 'Retrait introuvable',
-        'trade.mtaNotReached': 'Montant minimum de transaction non atteint',
         'trade.invalidAmount': 'Montant de transaction invalide',
         'trade.exceedsBalance': 'Le montant dépasse le solde',
         'kyc.legalNameRequired': 'Nom légal complet requis (min. 2 caractères)',
@@ -13435,14 +13306,14 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'Paiement reçu',
         'deposit.step.desc.confirming': 'Confirmation sur TRON',
         'deposit.step.desc.credited': 'Solde crédité',
-        'withdraw.kycRequiredTitle': 'Vérification requise',
-        'withdraw.kycRequiredBody': 'Vérifiez votre compte pour retirer.',
-        'withdraw.verificationProgress': 'Progression de la vérification',
+        'withdraw.kycRequiredTitle': 'Vérification de sécurité des retraits',
+        'withdraw.kycRequiredBody': 'Pour protéger votre compte, effectuez une vérification de sécurité unique avant de retirer. Vous aurez besoin d’une pièce d’identité officielle et d’un selfie la tenant.',
+        'withdraw.verificationProgress': 'Progression de la vérification de sécurité',
         'withdraw.percentComplete': '{{percent}}% terminé',
-        'withdraw.startVerification': 'Commencer la vérification',
+        'withdraw.startVerification': 'Démarrer la vérification de sécurité',
         'withdraw.docsEncrypted': 'Vos documents sont chiffrés et sécurisés',
-        'kyc.modalTitle': 'Vérification d\'identité',
-        'kyc.modalSubtitle': 'Complétez la vérification pour activer les retraits',
+        'kyc.modalTitle': 'Vérification de sécurité des retraits',
+        'kyc.modalSubtitle': 'Requis pour protéger votre compte avant les retraits. Envoyez une pièce d’identité officielle et un selfie la tenant.',
         'kyc.demoInfo.title': 'Vérification non requise',
         'kyc.demoInfo.body': 'Les dépôts et le trading ne nécessitent pas de vérification d\'identité.',
         'kyc.demoInfo.switchToLive': 'Passer en mode LIVE',
@@ -13948,7 +13819,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'كيف يعمل روبوت التداول بالذكاء الاصطناعي؟',
         'landing.faq.4.a': 'يراقب ذكاؤنا الاصطناعي باستمرار فروق الأسعار عبر 50+ منصة. عندما يكتشف فرصة مراجحة (تباين في السعر)، ينفذ الصفقات تلقائيًا لتحقيق ربح من الفرق. يمكنك بدء/إيقاف الروبوت في أي وقت.',
         'landing.faq.5.q': 'كيف تعمل مكافآت الإحالة؟',
-        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $100 لصديق محال. تتراكم أرباح الإحالة في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (بحد أدنى $700، والتحقق من الهوية، وعنوان صالح).',
+        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $100 لصديق محال. تتراكم أرباح الإحالة في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (بحد أدنى $500، والتحقق الأمني للسحب عند الحاجة، وعنوان صالح).',
         'landing.faq.6.q': 'هل التحقق من الحساب مطلوب؟',
         'landing.faq.6.a': 'يتطلب إنشاء حساب أساسي بريدًا إلكترونيًا وكلمة مرور فقط. قد يلزم التحقق KYC لحدود سحب أعلى أو ميزات محددة للامتثال للمتطلبات التنظيمية.',
         'landing.cta.title': 'ابدأ بالوضع التجريبي',
@@ -14084,10 +13955,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ تم تشغيل الروبوت في الوضع التجريبي',
         'bot.startedLive': '✅ تم تشغيل الروبوت في الوضع المباشر',
         'bot.paused': '⏸️ تم إيقاف الروبوت مؤقتًا',
-        'bot.reachMTA': '💰 الحد الأدنى لرصيد التداول: ${{mta}} لبدء الروبوت (يتبقى ${{needed}})',
-        'bot.mtaBlocked': 'الحد الأدنى لرصيد التداول هو ${{mta}} لبدء تشغيل الروبوت.',
         'bot.promoLimitReached': 'لقد وصلت إلى حد التداول الترويجي. قم بإجراء أول إيداع لمواصلة التداول.',
-        'bot.mtaMet': '✅ تم بلوغ الحد الأدنى لرصيد التداول! الروبوت جاهز للتداول',
+        'bot.readyToTrade': '✅ الروبوت جاهز للتداول',
         'chart.title': 'أداء رأس المال',
         'markets.advancedChart': 'مخطط السوق المتقدم',
         'chart.all': 'الكل',
@@ -14112,17 +13981,6 @@ const TRANSLATIONS = {
         'achievements.startTrading': 'ابدأ التداول لفتح الشارات',
         'achievements.allUnlocked': '🎉 تم فتح جميع الشارات!',
         'achievements.next': 'التالي:',
-        'mta.title': 'فتح التداول المباشر',
-        'mta.subtitle': 'بلغ الحد الأدنى لرصيد التداول لبدء الروبوت',
-        'mta.inProgress': 'قيد التقدم',
-        'mta.targetLabel': 'الحد الأدنى لرصيد التداول:',
-        'mta.of': 'من',
-        'mta.nearlyThere': 'اقتربت! تبقّى',
-        'mta.greatProgress': 'تقدّم رائع!',
-        'mta.depositMore': 'أودِع',
-        'mta.moreToUnlock': 'إضافية لفتح التداول المباشر',
-        'mta.depositNow': 'أودِع الآن',
-        'mta.reached': '🎉 تم تحقيق MTA! يمكنك الآن بدء التداول المباشر',
         'wallet.demo': 'محفظة تجريبية',
         'wallet.live': 'محفظة مباشرة',
         'wallet.bonus': 'محفظة المكافآت',
@@ -14238,7 +14096,6 @@ const TRANSLATIONS = {
         'startHere.live.title': 'دليل وضع LIVE',
         'startHere.live.subtitle': 'أنت في وضع LIVE. تتم التداولات بأموال حقيقية.',
         'startHere.live.step1': 'أودع ما لا يقل عن ${{min}} لتفعيل تمويل وضع LIVE',
-        'startHere.live.step2': 'حافظ على رصيد متاح لا يقل عن ${{mta}} لبدء الروبوت',
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
@@ -14248,7 +14105,7 @@ const TRANSLATIONS = {
         'withdraw.title': 'سحب الأموال',
         'withdraw.subtitle': 'حوّل إلى محفظتك',
         'withdraw.available': 'متاح',
-        'withdraw.info': 'الحد الأدنى للسحب: $700 | يتطلب إتمام صفقة واحدة | تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
+        'withdraw.info': 'يتطلب إتمام صفقة واحدة | تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'withdraw.infoSandbox': 'لا يوجد حد أدنى للسحب | تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'withdraw.amount': 'المبلغ (USD)',
         'withdraw.address': 'عنوان المحفظة',
@@ -14260,6 +14117,7 @@ const TRANSLATIONS = {
         'withdraw.firstDeposit': 'قم بإجراء أول إيداع لفتح السحب.',
         'withdraw.needTrade': 'أتمم صفقة واحدة على الأقل قبل السحب',
         'withdraw.minWithdrawal': 'الحد الأدنى للسحب هو ${{min}}. الحالي: ${{current}}',
+        'withdraw.minAmount': 'الحد الأدنى للسحب هو $500',
         'withdraw.enterAddress': 'يرجى إدخال عنوان محفظة',
         'withdraw.insufficient': 'رصيد غير كافٍ',
         'withdraw.success': '✅ تم إرسال طلب سحب ${{amount}}! تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
@@ -14370,8 +14228,6 @@ const TRANSLATIONS = {
         'badges.hotStreakDesc': '5 انتصارات متتالية',
         'badges.unstoppable': 'لا يُوقف',
         'badges.unstoppableDesc': '10 انتصارات متتالية',
-        'badges.mtaUnlocked': 'تم فتح MTA',
-        'badges.mtaUnlockedDesc': 'بلغ ${{mta}} من MTA',
         'badges.bigWinner': 'فائز كبير',
         'badges.bigWinnerDesc': 'صفقة واحدة تتجاوز $50',
         'badges.luckyTrader': 'متداول محظوظ',
@@ -14380,9 +14236,9 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': 'تحقيق ربح بعد 10 صفقات',
         'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى $100 لتفعيل السحب',
         'live.withdrawStatus.needMinimum': '📈 بلوغ الحد الأدنى ${{min}} للسحب',
-        'live.withdrawStatus.belowTradingBalance': '📈 واصل التداول للوصول إلى الحد الأدنى لرصيد السحب.',
+        'live.withdrawStatus.belowMinimum': '📈 واصل التداول لزيادة رصيدك المؤهل',
         'live.withdrawStatus.noTrades': '📊 أتمم صفقة واحدة على الأقل للسحب',
-        'live.withdrawStatus.ready': '✅ جاهز للسحب (الحد الأدنى $700)',
+        'live.withdrawStatus.ready': '✅ جاهز للسحب',
         'live.withdrawStatus.readySandbox': '✅ جاهز للسحب',
         'live.withdrawStatus.sandboxEmpty': '💼 لا يوجد رصيد محاكى للسحب بعد',
         'admin.title': 'لوحة الإدارة',
@@ -14439,16 +14295,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': 'لم يبدأ',
         'kyc.status.required': 'التحقق مطلوب',
         'kyc.status.new': 'جديد',
-        'kyc.title.notStarted': 'التحقق',
-        'kyc.title.pendingReview': 'التحقق',
-        'kyc.title.approved': 'التحقق ✓',
-        'kyc.title.rejected': 'التحقق',
-        'kyc.title.resubmission': 'التحقق',
-        'kyc.subtitle.notStarted': 'غير مطلوب للتداول أو الإيداع',
-        'kyc.subtitle.pendingReview': 'قيد المراجعة',
-        'kyc.subtitle.approved': 'تم التحقق — السحب مفعّل',
-        'kyc.subtitle.rejected': 'تم رفض التحقق — إجراء مطلوب',
-        'kyc.subtitle.resubmission': 'حدّث معلوماتك لإعادة الإرسال',
+        'kyc.title.notStarted': 'التحقق الأمني للسحب',
+        'kyc.title.pendingReview': 'التحقق الأمني للسحب',
+        'kyc.title.approved': 'التحقق الأمني للسحب ✓',
+        'kyc.title.rejected': 'التحقق الأمني للسحب',
+        'kyc.title.resubmission': 'التحقق الأمني للسحب',
+        'kyc.subtitle.notStarted': 'مطلوب قبل السحب. قدّم بطاقة هوية رسمية وصورة شخصية تحملها.',
+        'kyc.subtitle.pendingReview': 'قيد المراجعة — نتحقق من المستندات المقدمة.',
+        'kyc.subtitle.approved': 'تم التحقق — تم تفعيل السحب.',
+        'kyc.subtitle.rejected': 'تم رفض التحقق — يرجى المراجعة وإعادة الإرسال.',
+        'kyc.subtitle.resubmission': 'حدّث معلوماتك لإعادة الإرسال.',
         'kyc.level.emailVerified': 'تم التحقق من البريد',
         'kyc.level.identitySubmitted': 'تم إرسال الهوية',
         'kyc.level.identityVerified': 'تم التحقق من الهوية',
@@ -14464,8 +14320,7 @@ const TRANSLATIONS = {
         'kyc.noHistory': 'لا يوجد سجل',
         'support.reply.default': 'لا أستطيع الإجابة على ذلك بدقة. يرجى التواصل مع فريق الدعم الرسمي عبر مركز الدعم، حيث يمكن لممثل دعم بشري مساعدتك.',
         'support.fallback.actionAria': 'افتح مركز الدعم للتواصل مع دعم بشري',
-        'support.reply.bot': '🤖 لبدء البوت: 1) بدّل إلى وضع DEMO أو LIVE، 2) في وضع LIVE، اصل أولًا إلى الحد الأدنى لرصيد التداول ${{mta}}، 3) انقر على \'Start Bot\'.',
-        'support.reply.botNoMta': '🤖 لبدء البوت: بدّل إلى وضع LIVE (أو DEMO) وانقر على زر \'Start Bot\'.',
+        'support.reply.bot': '🤖 لبدء البوت: 1) بدّل إلى وضع DEMO أو LIVE، 2) انقر على \'Start Bot\' وسيفحص الأسواق المدعومة ويتداول تلقائيًا.',
         'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، ثم أرسل USDT على شبكة TRON (TRC20) إلى العنوان المعروض. يقبل Arbitrix USDT على TRON (TRC20) فقط. سنكتشف ذلك تلقائيًا.',
         'support.reply.withdraw': '🏦 للسحب: 1) بدّل إلى وضع LIVE، 2) قم بإيداع، 3) أكمل عملية واحدة على الأقل، 4) انقر على \'Withdraw\' في الشريط الجانبي. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
         'support.reply.bonus': '🎁 أحِل أصدقاء لتكسب 20% من أول إيداع مؤهل لهم! تتراكم مكافأتك في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى.',
@@ -14761,11 +14616,9 @@ const TRANSLATIONS = {
         'deposit.invoiceNotFound': 'الفاتورة غير موجودة',
         'deposit.createInvoiceFailed': 'فشل إنشاء الفاتورة',
         'deposit.notFound': 'الإيداع غير موجود',
-        'withdraw.min700': 'الحد الأدنى للسحب هو $700',
         'withdraw.validAddressRequired': 'يرجى إدخال عنوان محفظة صالح',
-        'withdraw.identityRequired': 'التحقق من الهوية مطلوب',
+        'withdraw.identityRequired': 'التحقق الأمني للسحب مطلوب',
         'withdraw.notFound': 'السحب غير موجود',
-        'trade.mtaNotReached': 'الحد الأدنى لمبلغ التداول غير مُحقق',
         'trade.invalidAmount': 'مبلغ التداول غير صالح',
         'trade.exceedsBalance': 'المبلغ يتجاوز الرصيد',
         'kyc.legalNameRequired': 'الاسم القانوني الكامل مطلوب (٢ حرف على الأقل)',
@@ -14872,14 +14725,14 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': 'تم استلام الدفع',
         'deposit.step.desc.confirming': 'جارٍ التأكيد على TRON',
         'deposit.step.desc.credited': 'تم إضافة الرصيد',
-        'withdraw.kycRequiredTitle': 'التحقق مطلوب',
-        'withdraw.kycRequiredBody': 'تحقق من حسابك للسحب.',
-        'withdraw.verificationProgress': 'تقدم التحقق',
+        'withdraw.kycRequiredTitle': 'التحقق الأمني للسحب',
+        'withdraw.kycRequiredBody': 'لحماية حسابك، أكمل تحققًا أمنيًا لمرة واحدة قبل السحب. ستحتاج إلى بطاقة هوية رسمية وصورة شخصية تحملها.',
+        'withdraw.verificationProgress': 'تقدم التحقق الأمني',
         'withdraw.percentComplete': 'اكتمل {{percent}}%',
-        'withdraw.startVerification': 'بدء التحقق',
+        'withdraw.startVerification': 'بدء التحقق الأمني',
         'withdraw.docsEncrypted': 'مستنداتك مشفرة وآمنة',
-        'kyc.modalTitle': 'التحقق من الهوية',
-        'kyc.modalSubtitle': 'أكمل التحقق لتمكين السحب',
+        'kyc.modalTitle': 'التحقق الأمني للسحب',
+        'kyc.modalSubtitle': 'مطلوب لحماية حسابك قبل السحب. قدّم بطاقة هوية رسمية وصورة شخصية تحملها.',
         'kyc.demoInfo.title': 'التحقق غير مطلوب',
         'kyc.demoInfo.body': 'الإيداع والتداول لا يتطلبان التحقق من الهوية.',
         'kyc.demoInfo.switchToLive': 'التبديل إلى الوضع المباشر',
@@ -15385,7 +15238,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'AI 交易机器人如何工作？',
         'landing.faq.4.a': '我们的 AI 持续监控 50+ 家交易所的价格差异。当它发现套利机会（价格差异）时，会自动执行交易以从差价中获利。您可以随时启动/停止机器人。',
         'landing.faq.5.q': '推荐奖励如何运作？',
-        'landing.faq.5.a': '当您推荐的好友完成至少 $100 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（最低 $700、身份验证和有效地址）。',
+        'landing.faq.5.a': '当您推荐的好友完成至少 $100 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（最低 $500、需要时进行提现安全验证以及有效地址）。',
         'landing.faq.6.q': '需要账户验证吗？',
         'landing.faq.6.a': '创建基础账户仅需邮箱和密码。为遵守监管要求，可能需要 KYC 验证以获得更高的提现额度或使用特定功能。',
         'landing.cta.title': '从演示模式开始',
@@ -15521,10 +15374,8 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ 机器人已在模拟模式启动',
         'bot.startedLive': '✅ 机器人已在实盘模式启动',
         'bot.paused': '⏸️ 机器人已暂停',
-        'bot.reachMTA': '💰 最低交易余额：${{mta}} 即可启动机器人（还差 ${{needed}}）',
-        'bot.mtaBlocked': '启动机器人所需的最低交易余额为 ${{mta}}。',
         'bot.promoLimitReached': '您已达到促销交易限额。请完成首笔入金以继续交易。',
-        'bot.mtaMet': '✅ 已达到最低交易余额！机器人可交易',
+        'bot.readyToTrade': '✅ 机器人可交易',
         'chart.title': '权益表现',
         'markets.advancedChart': '高级市场图表',
         'chart.all': '全部',
@@ -15549,17 +15400,6 @@ const TRANSLATIONS = {
         'achievements.startTrading': '开始交易以解锁徽章',
         'achievements.allUnlocked': '🎉 所有徽章已解锁！',
         'achievements.next': '下一个：',
-        'mta.title': '解锁实盘交易',
-        'mta.subtitle': '达到最低交易余额即可启动机器人',
-        'mta.inProgress': '进行中',
-        'mta.targetLabel': '最低交易余额：',
-        'mta.of': '/',
-        'mta.nearlyThere': '就差一点！仅需',
-        'mta.greatProgress': '进展不错！',
-        'mta.depositMore': '入金',
-        'mta.moreToUnlock': '即可解锁实盘交易',
-        'mta.depositNow': '立即入金',
-        'mta.reached': '🎉 已达到 MTA！您现在可以开始实盘交易',
         'wallet.demo': '模拟钱包',
         'wallet.live': '实盘钱包',
         'wallet.bonus': '奖金钱包',
@@ -15675,7 +15515,6 @@ const TRANSLATIONS = {
         'startHere.live.title': '实盘模式指南',
         'startHere.live.subtitle': '您已进入实盘模式。交易使用真实资金。',
         'startHere.live.step1': '入金至少 ${{min}} 以激活实盘资金',
-        'startHere.live.step2': '保持至少 ${{mta}} 的可用余额以启动机器人',
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
@@ -15685,7 +15524,7 @@ const TRANSLATIONS = {
         'withdraw.title': '提现',
         'withdraw.subtitle': '转账到您的钱包',
         'withdraw.available': '可用',
-        'withdraw.info': '最低提现：$700 | 需完成 1 笔交易 | 提现处理通常需要 15–30 分钟。',
+        'withdraw.info': '需完成 1 笔交易 | 提现处理通常需要 15–30 分钟。',
         'withdraw.infoSandbox': '无最低提现要求 | 提现处理通常需要 15–30 分钟。',
         'withdraw.amount': '金额（美元）',
         'withdraw.address': '钱包地址',
@@ -15697,6 +15536,7 @@ const TRANSLATIONS = {
         'withdraw.firstDeposit': '请完成首笔入金以解锁提现。',
         'withdraw.needTrade': '提现前请至少完成 1 笔交易',
         'withdraw.minWithdrawal': '最低提现金额为 ${{min}}。当前：${{current}}',
+        'withdraw.minAmount': '最低提现为 $500',
         'withdraw.enterAddress': '请输入钱包地址',
         'withdraw.insufficient': '余额不足',
         'withdraw.success': '✅ 已提交 ${{amount}} 提现！提现处理通常需要 15–30 分钟。',
@@ -15807,8 +15647,6 @@ const TRANSLATIONS = {
         'badges.hotStreakDesc': '连续 5 次获胜',
         'badges.unstoppable': '势不可挡',
         'badges.unstoppableDesc': '连续 10 次获胜',
-        'badges.mtaUnlocked': 'MTA 已解锁',
-        'badges.mtaUnlockedDesc': '达到 ${{mta}} MTA',
         'badges.bigWinner': '大赢家',
         'badges.bigWinnerDesc': '单笔交易超过 $50',
         'badges.luckyTrader': '幸运交易员',
@@ -15817,9 +15655,9 @@ const TRANSLATIONS = {
         'badges.diamondHandsDesc': '10 笔交易后盈利',
         'live.withdrawStatus.notDeposited': '💳 请至少入金 $100 以启用提现',
         'live.withdrawStatus.needMinimum': '📈 达到最低提现额 ${{min}} 才能提现',
-        'live.withdrawStatus.belowTradingBalance': '📈 继续交易以达到最低提现余额。',
+        'live.withdrawStatus.belowMinimum': '📈 继续交易以增加您的可用余额',
         'live.withdrawStatus.noTrades': '📊 请至少完成 1 笔交易才能提现',
-        'live.withdrawStatus.ready': '✅ 可以提现（最低 $700）',
+        'live.withdrawStatus.ready': '✅ 可以提现',
         'live.withdrawStatus.readySandbox': '✅ 可以提现',
         'live.withdrawStatus.sandboxEmpty': '💼 目前没有可提取的模拟余额',
         'admin.title': '管理面板',
@@ -15876,16 +15714,16 @@ const TRANSLATIONS = {
         'kyc.status.notStarted': '未开始',
         'kyc.status.required': '需要验证',
         'kyc.status.new': '新建',
-        'kyc.title.notStarted': '身份验证',
-        'kyc.title.pendingReview': '身份验证',
-        'kyc.title.approved': '身份验证 ✓',
-        'kyc.title.rejected': '身份验证',
-        'kyc.title.resubmission': '身份验证',
-        'kyc.subtitle.notStarted': '交易或存款无需验证',
-        'kyc.subtitle.pendingReview': '审核中',
-        'kyc.subtitle.approved': '已验证 — 提现已启用',
-        'kyc.subtitle.rejected': '验证被拒 — 需要操作',
-        'kyc.subtitle.resubmission': '更新您的信息以重新提交',
+        'kyc.title.notStarted': '提现安全验证',
+        'kyc.title.pendingReview': '提现安全验证',
+        'kyc.title.approved': '提现安全验证 ✓',
+        'kyc.title.rejected': '提现安全验证',
+        'kyc.title.resubmission': '提现安全验证',
+        'kyc.subtitle.notStarted': '提现前需要完成。请提交政府签发的身份证件和手持证件的自拍照。',
+        'kyc.subtitle.pendingReview': '审核中——我们正在核查您提交的文件。',
+        'kyc.subtitle.approved': '已验证——提现已启用。',
+        'kyc.subtitle.rejected': '验证未通过——请检查后重新提交。',
+        'kyc.subtitle.resubmission': '更新您的信息以重新提交。',
         'kyc.level.emailVerified': '邮箱已验证',
         'kyc.level.identitySubmitted': '身份已提交',
         'kyc.level.identityVerified': '身份已验证',
@@ -15901,8 +15739,7 @@ const TRANSLATIONS = {
         'kyc.noHistory': '无历史记录',
         'support.reply.default': '我无法准确回答这个问题。请通过支持中心联系我们的官方支持团队，那里有真人客服可以为您提供帮助。',
         'support.fallback.actionAria': '打开支持中心以联系真人客服',
-        'support.reply.bot': '🤖 启动机器人：1) 切换到 DEMO 或 LIVE 模式，2) 在 LIVE 模式下先达到最低交易余额 ${{mta}}，3) 点击 \'Start Bot\'。',
-        'support.reply.botNoMta': '🤖 启动机器人：切换到 LIVE（或 DEMO）模式并点击 \'Start Bot\' 按钮。',
+        'support.reply.bot': '🤖 启动机器人：1) 切换到 DEMO 或 LIVE 模式，2) 点击“启动机器人”，它会扫描受支持的市场并自动交易。',
         'support.reply.deposit': '💰 入金：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，然后通过 TRON (TRC20) 网络将 USDT 发送到显示的地址。Arbitrix 仅接受 TRON (TRC20) 网络上的 USDT。我们会自动检测。',
         'support.reply.withdraw': '🏦 提现：1) 切换到 LIVE 模式，2) 进行存款，3) 至少完成 1 笔交易，4) 点击侧边栏的 \'Withdraw\'。提现处理通常需要 15–30 分钟。',
         'support.reply.bonus': '🎁 推荐好友即可赚取其首次合格入金的 20%！您的奖励会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低额度。',
@@ -16198,11 +16035,9 @@ const TRANSLATIONS = {
         'deposit.invoiceNotFound': '未找到发票',
         'deposit.createInvoiceFailed': '创建发票失败',
         'deposit.notFound': '未找到存款',
-        'withdraw.min700': '最低提现为 $700',
         'withdraw.validAddressRequired': '需要有效的钱包地址',
-        'withdraw.identityRequired': '需要身份验证',
+        'withdraw.identityRequired': '需要提现安全验证',
         'withdraw.notFound': '未找到提现',
-        'trade.mtaNotReached': '未达到最低交易金额',
         'trade.invalidAmount': '交易金额无效',
         'trade.exceedsBalance': '交易金额超过余额',
         'kyc.legalNameRequired': '需要完整法定姓名（至少 2 个字符）',
@@ -16309,14 +16144,14 @@ const TRANSLATIONS = {
         'deposit.step.desc.detected': '已收到付款',
         'deposit.step.desc.confirming': '在 TRON 上确认中',
         'deposit.step.desc.credited': '余额已到账',
-        'withdraw.kycRequiredTitle': '需要验证',
-        'withdraw.kycRequiredBody': '验证您的账户以提现。',
-        'withdraw.verificationProgress': '验证进度',
+        'withdraw.kycRequiredTitle': '提现安全验证',
+        'withdraw.kycRequiredBody': '为保护您的账户，请在提现前完成一次性安全验证。您需要提供政府签发的身份证件和手持证件的自拍照。',
+        'withdraw.verificationProgress': '安全验证进度',
         'withdraw.percentComplete': '已完成 {{percent}}%',
-        'withdraw.startVerification': '开始验证',
+        'withdraw.startVerification': '开始安全验证',
         'withdraw.docsEncrypted': '您的文件已加密且安全',
-        'kyc.modalTitle': '身份验证',
-        'kyc.modalSubtitle': '完成验证以启用提款',
+        'kyc.modalTitle': '提现安全验证',
+        'kyc.modalSubtitle': '为保护您的账户安全，提现前需完成验证。请提交政府签发的身份证件和手持证件的自拍照。',
         'kyc.demoInfo.title': '无需验证',
         'kyc.demoInfo.body': '充值和交易不需要身份验证。',
         'kyc.demoInfo.switchToLive': '切换到 LIVE 模式',
@@ -16791,7 +16626,7 @@ const BACKEND_MESSAGE_MAP = {
     'Invoice not found': 'deposit.invoiceNotFound',
     'Failed to create invoice': 'deposit.createInvoiceFailed',
     // ---- Withdrawal (user-facing) ----
-    'Min $700': 'withdraw.min700',
+    'Min $500': 'withdraw.minAmount',
     'Insufficient balance': 'withdraw.insufficient',
     'Valid address required': 'withdraw.validAddressRequired',
     'Complete at least 1 trade first': 'withdraw.needTrade',
@@ -16799,7 +16634,6 @@ const BACKEND_MESSAGE_MAP = {
     'Withdrawal not found': 'withdraw.notFound',
     'Deposit not found': 'deposit.notFound',
     // ---- Trade (user-facing) ----
-    'MTA not reached': 'trade.mtaNotReached',
     'Invalid trade amount': 'trade.invalidAmount',
     'Trade amount exceeds balance': 'trade.exceedsBalance',
     // ---- KYC (user-facing validation / submit) ----
@@ -16927,7 +16761,7 @@ function updateDynamicTranslations() {
         // it follows the active locale and the single configured minimum.
         if (typeof updateDepositMinNotice === 'function') updateDepositMinNotice();
         // "Start Here" card: mode-aware content, and the LIVE steps embed
-        // configuration amounts ({{min}}/{{mta}}), so rebuild them for the
+        // configuration amounts ({{min}}), so rebuild them for the
         // active locale. typeof-guarded (declared in a later script block).
         if (typeof updateStartHere === 'function') updateStartHere();
         // Pending-referrals summary labels are rendered by JS (dynamic count and
@@ -17192,7 +17026,7 @@ pwaCheckRelatedApps().then(function(installed) {
 });
 
 // ============ CONFETTI SYSTEM ============
-const Confetti = { canvas: null, ctx: null, particles: [], animationId: null, running: false, dpr: window.devicePixelRatio || 1, width: 0, height: 0, palettes: { gold: ['#F0B90B', '#FCD535', '#D4A000', '#FFE066', '#FFF5CC'], success: ['#10B981', '#34D399', '#6EE7B7', '#F0B90B', '#FCD535'], epic: ['#A855F7', '#C084FC', '#F0B90B', '#FCD535', '#3B82F6'], legendary: ['#F0B90B', '#FCD535', '#A855F7', '#EC4899', '#3B82F6', '#10B981', '#FFFFFF'] }, init() { try { this.canvas = document.getElementById('confettiCanvas'); if(!this.canvas) return; this.ctx = this.canvas.getContext('2d'); if(!this.ctx) return; this.resize(); window.addEventListener('resize', function() { Confetti.resize(); }); } catch(e) {} }, resize() { if(!this.canvas || !this.ctx) return; const w = window.innerWidth; const h = window.innerHeight; this.canvas.width = w * this.dpr; this.canvas.height = h * this.dpr; this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px'; this.ctx.setTransform(1,0,0,1,0,0); this.ctx.scale(this.dpr, this.dpr); this.width = w; this.height = h; }, createParticle(x, y, colors, options) { options = options || {}; const angle = options.angle !== undefined ? options.angle : (Math.random() * Math.PI * 2); const speed = options.speed || (Math.random() * 8 + 4); const shapes = ['rect', 'circle', 'strip']; const shape = options.shape || shapes[Math.floor(Math.random() * shapes.length)]; return { x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - (options.upward ? 6 : 0), color: colors[Math.floor(Math.random() * colors.length)], size: options.size || (Math.random() * 6 + 4), rotation: Math.random() * Math.PI * 2, rotationSpeed: (Math.random() - 0.5) * 0.3, gravity: options.gravity !== undefined ? options.gravity : 0.25, friction: 0.98, life: 1, decay: options.decay || (Math.random() * 0.008 + 0.005), shape: shape, aspect: shape === 'strip' ? (Math.random() * 2 + 2) : 1 }; }, burst(options) { options = options || {}; const x = options.x || this.width / 2; const y = options.y || this.height / 3; const count = options.count || 50; const palette = options.palette || 'gold'; const spread = options.spread || Math.PI * 2; const angle = options.angle || -Math.PI / 2; const speed = options.speed || 10; const colors = this.palettes[palette] || this.palettes.gold; for(let i = 0; i < count; i++) { const particleAngle = angle + (Math.random() - 0.5) * spread; const particleSpeed = speed * (Math.random() * 0.6 + 0.7); this.particles.push(this.createParticle(x, y, colors, { angle: particleAngle, speed: particleSpeed, upward: options.upward })); } if(!this.running) { this.running = true; this.animate(); } }, cannon(intensity) { intensity = intensity || 'medium'; const configs = { small: { count: 30, palette: 'gold', speed: 8 }, medium: { count: 60, palette: 'success', speed: 11 }, large: { count: 100, palette: 'epic', speed: 14 }, massive: { count: 180, palette: 'legendary', speed: 16 }, ultimate: { count: 280, palette: 'legendary', speed: 18 } }; const cfg = configs[intensity] || configs.medium; this.burst({ x: this.width * 0.15, y: this.height * 0.7, count: Math.floor(cfg.count / 2), palette: cfg.palette, angle: -Math.PI / 3, spread: Math.PI / 2, speed: cfg.speed, upward: true }); setTimeout(function() { Confetti.burst({ x: Confetti.width * 0.85, y: Confetti.height * 0.7, count: Math.floor(cfg.count / 2), palette: cfg.palette, angle: -Math.PI * 2 / 3, spread: Math.PI / 2, speed: cfg.speed, upward: true }); }, 150); }, sparkle(x, y) { const colors = this.palettes.gold; for(let i = 0; i < 15; i++) this.particles.push(this.createParticle(x, y, colors, { speed: Math.random() * 4 + 2, size: Math.random() * 3 + 2, gravity: 0.1, decay: 0.02, shape: 'circle' })); if(!this.running) { this.running = true; this.animate(); } }, animate() { if(!this.ctx) return; this.ctx.clearRect(0, 0, this.width, this.height); for(let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.vy += p.gravity; p.vx *= p.friction; p.vy *= p.friction; p.x += p.vx; p.y += p.vy; p.rotation += p.rotationSpeed; p.life -= p.decay; if(p.life <= 0 || p.y > this.height + 50) { this.particles.splice(i, 1); continue; } this.ctx.save(); this.ctx.globalAlpha = Math.max(0, p.life); this.ctx.translate(p.x, p.y); this.ctx.rotate(p.rotation); this.ctx.fillStyle = p.color; if(p.shape === 'circle') { this.ctx.beginPath(); this.ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2); this.ctx.fill(); } else if(p.shape === 'rect') { this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); } else if(p.shape === 'strip') { this.ctx.fillRect(-p.size * p.aspect / 2, -p.size / 4, p.size * p.aspect, p.size / 2); } this.ctx.restore(); } if(this.particles.length > 0) { this.animationId = requestAnimationFrame(function() { Confetti.animate(); }); } else { this.running = false; this.ctx.clearRect(0, 0, this.width, this.height); } }, celebrateBadge(rarity) { switch(rarity) { case 'common': this.sparkle(this.width / 2, this.height / 2); break; case 'rare': this.burst({ count: 50, palette: 'success', speed: 10 }); break; case 'epic': this.cannon('large'); break; case 'legendary': this.cannon('massive'); setTimeout(function() { Confetti.cannon('massive'); }, 600); break; } }, celebrateMTA() { this.cannon('large'); }, celebrateProfit(amount) { if(amount >= 1000) this.cannon('massive'); else if(amount >= 500) this.cannon('large'); else if(amount >= 100) this.cannon('medium'); }, celebrateStreak(count) { if(count >= 10) this.cannon('large'); else if(count >= 5) this.cannon('medium'); }, celebrateAllBadges() { this.cannon('ultimate'); setTimeout(function() { Confetti.cannon('ultimate'); }, 500); setTimeout(function() { Confetti.cannon('ultimate'); }, 1000); }, celebrateFirstDeposit() { this.cannon('medium'); }, celebrateReferral() { this.cannon('medium'); } };
+const Confetti = { canvas: null, ctx: null, particles: [], animationId: null, running: false, dpr: window.devicePixelRatio || 1, width: 0, height: 0, palettes: { gold: ['#F0B90B', '#FCD535', '#D4A000', '#FFE066', '#FFF5CC'], success: ['#10B981', '#34D399', '#6EE7B7', '#F0B90B', '#FCD535'], epic: ['#A855F7', '#C084FC', '#F0B90B', '#FCD535', '#3B82F6'], legendary: ['#F0B90B', '#FCD535', '#A855F7', '#EC4899', '#3B82F6', '#10B981', '#FFFFFF'] }, init() { try { this.canvas = document.getElementById('confettiCanvas'); if(!this.canvas) return; this.ctx = this.canvas.getContext('2d'); if(!this.ctx) return; this.resize(); window.addEventListener('resize', function() { Confetti.resize(); }); } catch(e) {} }, resize() { if(!this.canvas || !this.ctx) return; const w = window.innerWidth; const h = window.innerHeight; this.canvas.width = w * this.dpr; this.canvas.height = h * this.dpr; this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px'; this.ctx.setTransform(1,0,0,1,0,0); this.ctx.scale(this.dpr, this.dpr); this.width = w; this.height = h; }, createParticle(x, y, colors, options) { options = options || {}; const angle = options.angle !== undefined ? options.angle : (Math.random() * Math.PI * 2); const speed = options.speed || (Math.random() * 8 + 4); const shapes = ['rect', 'circle', 'strip']; const shape = options.shape || shapes[Math.floor(Math.random() * shapes.length)]; return { x: x, y: y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - (options.upward ? 6 : 0), color: colors[Math.floor(Math.random() * colors.length)], size: options.size || (Math.random() * 6 + 4), rotation: Math.random() * Math.PI * 2, rotationSpeed: (Math.random() - 0.5) * 0.3, gravity: options.gravity !== undefined ? options.gravity : 0.25, friction: 0.98, life: 1, decay: options.decay || (Math.random() * 0.008 + 0.005), shape: shape, aspect: shape === 'strip' ? (Math.random() * 2 + 2) : 1 }; }, burst(options) { options = options || {}; const x = options.x || this.width / 2; const y = options.y || this.height / 3; const count = options.count || 50; const palette = options.palette || 'gold'; const spread = options.spread || Math.PI * 2; const angle = options.angle || -Math.PI / 2; const speed = options.speed || 10; const colors = this.palettes[palette] || this.palettes.gold; for(let i = 0; i < count; i++) { const particleAngle = angle + (Math.random() - 0.5) * spread; const particleSpeed = speed * (Math.random() * 0.6 + 0.7); this.particles.push(this.createParticle(x, y, colors, { angle: particleAngle, speed: particleSpeed, upward: options.upward })); } if(!this.running) { this.running = true; this.animate(); } }, cannon(intensity) { intensity = intensity || 'medium'; const configs = { small: { count: 30, palette: 'gold', speed: 8 }, medium: { count: 60, palette: 'success', speed: 11 }, large: { count: 100, palette: 'epic', speed: 14 }, massive: { count: 180, palette: 'legendary', speed: 16 }, ultimate: { count: 280, palette: 'legendary', speed: 18 } }; const cfg = configs[intensity] || configs.medium; this.burst({ x: this.width * 0.15, y: this.height * 0.7, count: Math.floor(cfg.count / 2), palette: cfg.palette, angle: -Math.PI / 3, spread: Math.PI / 2, speed: cfg.speed, upward: true }); setTimeout(function() { Confetti.burst({ x: Confetti.width * 0.85, y: Confetti.height * 0.7, count: Math.floor(cfg.count / 2), palette: cfg.palette, angle: -Math.PI * 2 / 3, spread: Math.PI / 2, speed: cfg.speed, upward: true }); }, 150); }, sparkle(x, y) { const colors = this.palettes.gold; for(let i = 0; i < 15; i++) this.particles.push(this.createParticle(x, y, colors, { speed: Math.random() * 4 + 2, size: Math.random() * 3 + 2, gravity: 0.1, decay: 0.02, shape: 'circle' })); if(!this.running) { this.running = true; this.animate(); } }, animate() { if(!this.ctx) return; this.ctx.clearRect(0, 0, this.width, this.height); for(let i = this.particles.length - 1; i >= 0; i--) { const p = this.particles[i]; p.vy += p.gravity; p.vx *= p.friction; p.vy *= p.friction; p.x += p.vx; p.y += p.vy; p.rotation += p.rotationSpeed; p.life -= p.decay; if(p.life <= 0 || p.y > this.height + 50) { this.particles.splice(i, 1); continue; } this.ctx.save(); this.ctx.globalAlpha = Math.max(0, p.life); this.ctx.translate(p.x, p.y); this.ctx.rotate(p.rotation); this.ctx.fillStyle = p.color; if(p.shape === 'circle') { this.ctx.beginPath(); this.ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2); this.ctx.fill(); } else if(p.shape === 'rect') { this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); } else if(p.shape === 'strip') { this.ctx.fillRect(-p.size * p.aspect / 2, -p.size / 4, p.size * p.aspect, p.size / 2); } this.ctx.restore(); } if(this.particles.length > 0) { this.animationId = requestAnimationFrame(function() { Confetti.animate(); }); } else { this.running = false; this.ctx.clearRect(0, 0, this.width, this.height); } }, celebrateBadge(rarity) { switch(rarity) { case 'common': this.sparkle(this.width / 2, this.height / 2); break; case 'rare': this.burst({ count: 50, palette: 'success', speed: 10 }); break; case 'epic': this.cannon('large'); break; case 'legendary': this.cannon('massive'); setTimeout(function() { Confetti.cannon('massive'); }, 600); break; } }, celebrateProfit(amount) { if(amount >= 1000) this.cannon('massive'); else if(amount >= 500) this.cannon('large'); else if(amount >= 100) this.cannon('medium'); }, celebrateStreak(count) { if(count >= 10) this.cannon('large'); else if(count >= 5) this.cannon('medium'); }, celebrateAllBadges() { this.cannon('ultimate'); setTimeout(function() { Confetti.cannon('ultimate'); }, 500); setTimeout(function() { Confetti.cannon('ultimate'); }, 1000); }, celebrateFirstDeposit() { this.cannon('medium'); }, celebrateReferral() { this.cannon('medium'); } };
 try { Confetti.init(); } catch(e) {}
 
 // ============ NOTIFICATION SYSTEM ============
@@ -17243,14 +17077,13 @@ const BADGES = [
     { id:'profit_500', nameKey:'badges.arbKing', descKey:'badges.arbKingDesc', icon:'👑', rarity:'legendary', condition:function(d){return d.pnl>=500;} },
     { id:'streak_5', nameKey:'badges.hotStreak', descKey:'badges.hotStreakDesc', icon:'🔥', rarity:'rare', condition:function(d){return (d.maxStreak||0)>=5;} },
     { id:'streak_10', nameKey:'badges.unstoppable', descKey:'badges.unstoppableDesc', icon:'⚡', rarity:'epic', condition:function(d){return (d.maxStreak||0)>=10;} },
-    { id:'mta_unlocked', nameKey:'badges.mtaUnlocked', descKey:'badges.mtaUnlockedDesc', icon:'🚀', rarity:'rare', condition:function(d){return Number(APP.MTA) > 0 && d.balance>=APP.MTA;} },
     { id:'big_winner', nameKey:'badges.bigWinner', descKey:'badges.bigWinnerDesc', icon:'💰', rarity:'epic', condition:function(d){return (d.bestTrade||0)>=50;} },
     { id:'lucky_trader', nameKey:'badges.luckyTrader', descKey:'badges.luckyTraderDesc', icon:'🎲', rarity:'legendary', condition:function(d){return d.trades>=20 && (d.wins/d.trades)>=0.7;} },
     { id:'diamond_hands', nameKey:'badges.diamondHands', descKey:'badges.diamondHandsDesc', icon:'💎', rarity:'epic', condition:function(d){return d.trades>=10 && d.pnl>0;} }
 ];
 
 function getBadgeName(badge) { return t(badge.nameKey); }
-function getBadgeDesc(badge) { return t(badge.descKey, {mta: APP.MTA}); }
+function getBadgeDesc(badge) { return t(badge.descKey); }
 
 // ============ APP STATE ============
 const APP = {
@@ -17261,7 +17094,7 @@ const APP = {
     demoData: { balance: 1000, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
     liveData: { balance: 50, pnl: 0, trades: 0, wins: 0, history: [], hasRealDeposit: false, hasTradingActivity: false, bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [], promoLimitReached: false, promoRealizedProfit: 0, promoCreditFunded: false, promoClassificationUnknown: false },
     bonusData: { balance: 0, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
-    MIN_DEPOSIT: 100, MTA: 200, MIN_WITHDRAWAL: 700, BONUS_MIN_WITHDRAW: 50,
+    MIN_DEPOSIT: 100, MIN_WITHDRAWAL: 500, BONUS_MIN_WITHDRAW: 50,
     referralCode: null,
     depositHistory: [], withdrawHistory: [],
     referralStats: { invited: 0, earned: 0 },
@@ -17269,7 +17102,7 @@ const APP = {
     chartData: { demo: { labels: [], values: [] }, live: { labels: [], values: [] } },
     chartPeriod: '30m', chartInstance: null,
     unlockedBadges: { demo: [], live: [] },
-    celebratedMilestones: { profit_100: false, profit_500: false, profit_1000: false, streak_5: false, streak_10: false, mta_reached: false, first_deposit: false, all_badges: false },
+    celebratedMilestones: { profit_100: false, profit_500: false, profit_1000: false, streak_5: false, streak_10: false, first_deposit: false, all_badges: false },
     txViewExpanded: false, txShowOlder: false
 };
 
@@ -18388,44 +18221,6 @@ function updateTradingStats() {
     else { streakTrend.style.display = 'none'; }
 }
 
-// ============ MTA PROGRESS ============
-function updateMTAProgress() {
-    const card = getEl('mtaProgressCard');
-    if(!card) return;
-    // No MTA (0) => there is no minimum trading balance to progress towards;
-    // the card is never shown.
-    if(!(Number(APP.MTA) > 0) || APP.mode !== 'live' || APP.liveData.balance >= APP.MTA) { card.classList.add('hidden'); return; }
-    card.classList.remove('hidden');
-    const balance = APP.liveData.balance;
-    const mta = APP.MTA;
-    const percentage = Math.min(100, Math.max(0, (balance / mta) * 100));
-    const needed = mta - balance;
-    getEl('mtaCurrentAmount').textContent = formatCurrency(balance);
-    const mtaTargetEl = getEl('mtaTargetAmount');
-    if(mtaTargetEl) mtaTargetEl.textContent = '$' + Number(mta).toFixed(2);
-    // The top milestone mirrors the server-authoritative MTA so the value is
-    // never hard-coded in a second UI location.
-    const finalMilestone = getEl('mtaMilestoneFinal');
-    if(finalMilestone) {
-        finalMilestone.dataset.threshold = String(mta);
-        const finalMilestoneLabel = finalMilestone.querySelector('span');
-        if(finalMilestoneLabel) finalMilestoneLabel.textContent = '$' + Number(mta).toFixed(0);
-    }
-    getEl('mtaBarFill').style.width = percentage + '%';
-    document.querySelectorAll('.mta-milestone').forEach(function(m) {
-        const threshold = parseFloat(m.dataset.threshold);
-        if(balance >= threshold) m.classList.add('reached');
-        else m.classList.remove('reached');
-    });
-    const msgEl = getEl('mtaMessage');
-    if(percentage >= 90) msgEl.innerHTML = '<i class="fas fa-star" style="color:#F0B90B;"></i> <span>' + t('mta.nearlyThere') + ' <strong>' + formatCurrency(needed) + '</strong> ' + t('mta.moreToUnlock') + '</span>';
-    else if(percentage >= 50) msgEl.innerHTML = '<i class="fas fa-rocket" style="color:#F0B90B;"></i> <span>' + t('mta.greatProgress') + ' <strong>' + formatCurrency(needed) + '</strong> ' + t('mta.moreToUnlock') + '</span>';
-    else msgEl.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t('mta.depositMore') + ' <strong>' + formatCurrency(needed) + '</strong> ' + t('mta.moreToUnlock') + '</span>';
-    const ctaBtn = getEl('mtaDepositBtn');
-    if(percentage >= 100) { ctaBtn.classList.add('completed'); ctaBtn.innerHTML = '<i class="fas fa-check"></i><span>MTA ' + t('status.funded') + '</span>'; }
-    else { ctaBtn.classList.remove('completed'); ctaBtn.innerHTML = '<i class="fas fa-circle-down"></i><span>' + t('mta.depositNow') + '</span>'; }
-}
-
 // ============ BADGES ============
 function badgeRarityLabel(rarity) {
     // Display-only localization of the badge rarity pill. The CSS class keeps
@@ -18439,9 +18234,7 @@ function renderBadges() {
     const unlocked = APP.unlockedBadges[wallet] || [];
     const grid = getEl('badgesGrid');
     if(!grid) return;
-    // The MTA badge is meaningless without an MTA (MARKETING_SANDBOX has none),
-    // so it is not shown at all rather than rendered as "Reach $0 MTA".
-    const visibleBadges = BADGES.filter(function(b) { return b.id !== 'mta_unlocked' || Number(APP.MTA) > 0; });
+    const visibleBadges = BADGES;
     grid.innerHTML = visibleBadges.map(function(badge) {
         const isUnlocked = unlocked.includes(badge.id);
         const name = getBadgeName(badge);
@@ -18584,10 +18377,14 @@ function updateLiveWithdrawStatus() {
     const totalWithdrawable = balance + referralEarnings;
     // MARKETING_SANDBOX: sandbox withdrawals are balance-only — there is NO
     // deposit, trade-count or minimum requirement, so the sandbox must never
-    // show production requirement wording ($50 deposit / 1 trade / $700 min).
+    // show production requirement wording ($100 deposit / 1 trade / $500 min).
     // Display-only; the sandbox withdrawal route enforces amount > 0 and
     // amount <= balance.
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
+    // The $500 minimum withdrawal is deliberately NOT advertised in the
+    // always-visible sidebar status (management decision). It is disclosed at
+    // the withdrawal stage (the modal info box below) and surfaced in the clear
+    // error/toast when a request falls below it.
     let statusText = '';
     let statusClass = '';
     if (isSandbox) {
@@ -18604,30 +18401,28 @@ function updateLiveWithdrawStatus() {
     } else if (!hasTrade && !canFundFromReferral) {
         statusText = t('live.withdrawStatus.noTrades');
         statusClass = 'text-muted';
-    } else if (totalWithdrawable < (Number(APP.MTA) || 0)) {
-        // Deposited + traded, but the minimum trading balance has not been
-        // reached yet: show that requirement, NOT the withdrawal minimum.
-        statusText = t('live.withdrawStatus.belowTradingBalance');
-        statusClass = 'text-muted';
     } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
         statusText = t('live.withdrawStatus.ready');
         statusClass = 'text-success';
     } else {
-        statusText = t('live.withdrawStatus.needMinimum', { min: APP.MIN_WITHDRAWAL });
+        // Eligible, but below the withdrawal minimum. The sidebar shows a
+        // neutral message WITHOUT the amount (it is not an always-on banner).
+        statusText = t('live.withdrawStatus.belowMinimum');
         statusClass = 'text-muted';
     }
     statusEl.textContent = statusText;
     statusEl.style.color = statusClass === 'text-success' ? '#10B981' : statusClass === 'text-warning' ? '#F59E0B' : 'var(--text-muted)';
     const infoText = document.getElementById('withdrawInfoText');
     if (infoText) {
+        // This box lives INSIDE the withdraw modal, so it is only seen once the
+        // user reaches the withdrawal stage — the appropriate place to disclose
+        // the minimum and the trade requirement.
         if (isSandbox) {
             infoText.textContent = t('withdraw.infoSandbox');
         } else if (!hasDeposit && !canFundFromReferral) {
             infoText.textContent = t('live.withdrawStatus.notDeposited');
         } else if (!hasTrade && !canFundFromReferral) {
             infoText.textContent = t('live.withdrawStatus.noTrades');
-        } else if (totalWithdrawable < (Number(APP.MTA) || 0)) {
-            infoText.textContent = t('live.withdrawStatus.belowTradingBalance');
         } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
             infoText.textContent = t('withdraw.info');
         } else {
@@ -18683,12 +18478,9 @@ function updateUI() {
     // "Start Here" beginner checklist (dismissible; display only).
     updateStartHere();
     if(APP.mode === 'live') {
-        // MARKETING_SANDBOX: no MTA at all (the server-side sandbox bot start
-        // has no gate and /api/auth/me reports mta: 0), so a no-MTA account is
-        // never gated here. Promo-credit-funded accounts are also exempt
-        // (management decision: the $50 promotional credit is tradable through
-        // the same engine).
-        const promoFunded = isNonDepositedTrading();
+        // NO minimum trading balance (MTA removed by management decision): any
+        // live account may start the bot. The only remaining live-trading
+        // restriction is the separate promotional-credit $20 realized-profit cap.
         // PROMOTIONAL-CREDIT TRADING CAP (production-only): when the server
         // reports the cap reached, the live bot button is disabled and the
         // message explains the first-deposit requirement. Display mirror only —
@@ -18697,13 +18489,9 @@ function updateUI() {
         if(promoLimitReached) {
             if(botBtnLive) { botBtnLive.disabled = true; }
             if(botMsgLive) botMsgLive.textContent = t('bot.promoLimitReached');
-        } else if(Number(APP.MTA) > 0 && APP.liveData.balance < APP.MTA && !isSandbox && !promoFunded) {
-            if(botBtnLive) { botBtnLive.disabled = true; }
-            const needed = (APP.MTA - APP.liveData.balance).toFixed(2);
-            if(botMsgLive) botMsgLive.textContent = t('bot.reachMTA', {needed: needed, mta: APP.MTA});
         } else {
             if(botBtnLive) { botBtnLive.disabled = false; }
-            if(botMsgLive) botMsgLive.textContent = t('bot.mtaMet');
+            if(botMsgLive) botMsgLive.textContent = t('bot.readyToTrade');
         }
         if(botBtn) botBtn.style.display = 'none';
         if(botBtnLive) botBtnLive.style.display = 'flex';
@@ -18744,7 +18532,6 @@ function updateUI() {
     });
     document.body.className = 'mode-' + APP.mode;
     updateTradingStats();
-    updateMTAProgress();
     renderBadges();
     checkBadges();
     checkProfitMilestones();
@@ -18976,30 +18763,17 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
     }
 }
 
-// Non-deposited trading (MTA exemption): no confirmed deposit but a positive
-// live balance == the user's own non-deposited capital (the $50 promotional
-// credit OR converted referral earnings). Management decision: it is tradable
-// through the SAME trading engine (/api/trade), so the bot-start MTA gate does
-// not block it. This is NOT the promotional-credit cap classifier — that uses
-// the server's authoritative promoCreditFunded flag. It stays non-withdrawable
-// until a qualifying deposit + at least one trade.
-function isNonDepositedTrading() {
-    return APP.mode === 'live'
-        && !APP.liveData.hasRealDeposit
-        && Number(APP.liveData.balance) > 0;
-}
+// Non-deposited trading (the $50 promotional credit OR converted referral
+// earnings) is tradable through the SAME trading engine (/api/trade). With the
+// MTA gate removed there is no bot-start threshold at all, so no exemption
+// helper is needed here. The promotional-credit $20 realized-profit cap is a
+// SEPARATE rule and is enforced server-side (mirrored below).
 
 function startBot() {
-    // The MTA (server-authoritative; adopted into APP.MTA per environment)
-    // applies to live-style trading in PRODUCTION only. MARKETING_SANDBOX has
-    // NO MTA: the server reports mta: 0 and the sandbox bot-start route has no
-    // balance gate at all, so a no-MTA account is never blocked here. Non-
-    // deposited trading is exempt (see isNonDepositedTrading). The server
-    // enforces this authoritatively at /api/bot/start; this gate mirrors it.
-    if(APP.mode === 'live' && Number(APP.MTA) > 0 && APP.liveData.balance < APP.MTA && !isNonDepositedTrading()) {
-        showToast(t('bot.mtaBlocked', {mta: APP.MTA}),'error');
-        return;
-    }
+    // NO minimum trading balance: the MTA gate was removed by management
+    // decision. Any live account may start the bot; the only remaining trading
+    // restriction is the separate promotional-credit $20 realized-profit cap
+    // below (enforced authoritatively server-side).
     // Promotional-credit trading cap (production-only): once the $20 realized-
     // profit limit is reached the bot must stay stopped until the first
     // qualifying deposit. promoLimitReached is adopted from the server
@@ -20017,17 +19791,15 @@ function updateStartHere() {
     if (isLive && !liveDone) renderStartHereLiveSteps();
 }
 
-// LIVE checklist: only requirements the current product actually enforces,
-// limited by management direction to the two Live funding/trading steps.
-//   1. funding the Live balance (platform minimum deposit)
-//   2. the minimum trading balance required to start the bot (getEffectiveMta)
-// Amounts come from the same APP constants the rest of the UI uses (the MTA is
-// server-driven), so this copy can never drift from the configuration.
+// LIVE checklist: only requirements the current product actually enforces.
+// With the bot minimum trading balance (MTA) removed there is a single funding
+// step: deposit at least the platform minimum to activate Live funding. The
+// amount comes from the same APP constant the rest of the UI uses, so this copy
+// can never drift from the configuration.
 function startHereLiveSteps() {
     const num = function (v, fallback) { const n = Number(v); return (isFinite(n) && n > 0) ? n : fallback; };
     return [
         { key: 'startHere.live.step1', vars: { min: num(APP.MIN_DEPOSIT, 100) } },
-        { key: 'startHere.live.step2', vars: { mta: num(APP.MTA, 200) } },
     ];
 }
 
@@ -20194,23 +19966,18 @@ async function openWithdrawModal() {
         // Gate 4 - existing balance / deposit requirement (defensive: Gate 1
         // already returned for a no-deposit, non-referral-funded request)
         if(!APP.liveData.hasRealDeposit && !canFundFromReferral) { showToast(t('withdraw.firstDeposit'),'error'); return; }
-        // Gate 5 - existing completed-trade requirement (unchanged). The bot MTA
-        // is NOT a withdrawal requirement; a referral-earnings-funded withdrawal
-        // is exempt from the trade requirement.
+        // Gate 5 - existing completed-trade requirement (unchanged). A
+        // referral-earnings-funded withdrawal is exempt from the trade
+        // requirement. (The bot MTA no longer exists and was never a withdrawal
+        // requirement.)
         if(!APP.liveData.hasTradingActivity && !canFundFromReferral) { showToast(t('withdraw.needTrade'),'error'); return; }
-        // Gate 6 - minimum TRADING balance. A funded account that has not yet
-        // reached the minimum trading balance is told about the trading balance
-        // instead of the withdrawal minimum. Display gate only: a balance below
-        // the MTA can never satisfy the withdrawal minimum below, so no valid
-        // withdrawal is blocked here.
-        if(totalWithdrawable < (Number(APP.MTA) || 0)) { showToast(t('live.withdrawStatus.belowTradingBalance'),'error'); return; }
-        // Gate 7 - minimum withdrawal amount (threshold unchanged). Shown ONLY
-        // once the account has deposited, completed a trade AND reached the
-        // minimum trading balance (the gates above).
+        // Gate 6 - minimum withdrawal amount. The $500 minimum is NOT advertised
+        // ahead of time: it surfaces here, at the withdrawal stage, in the clear
+        // "minimum withdrawal is $500" message, and again on submit below it.
         if(totalWithdrawable < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: totalWithdrawable.toFixed(2)}),'error'); return; }
     }
 
-    // KYC verified (or fail-open) - show withdrawal form (Gates 5 & 6: address
+    // Verification capability check passed - show withdrawal form (address
     // validation + submission handled by submitWithdraw / submitWithdrawAPI)
     getEl('withdrawForm').style.display = 'block';
     getEl('withdrawKycRequired').style.display = 'none';
@@ -20229,7 +19996,7 @@ function submitWithdraw() {
     const amount = parseFloat(getEl('withdrawAmountInput').value);
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     if(!address) { showToast(t('withdraw.enterAddress'),'error'); return; }
-    // MARKETING_SANDBOX: no $700 minimum (easy demo withdrawals); the server
+    // MARKETING_SANDBOX: no platform withdrawal minimum (easy demo withdrawals); the server
     // sandbox route enforces amount > 0 and sufficient simulated balance.
     if(!amount || (!isSandbox && amount < APP.MIN_WITHDRAWAL)) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL}),'error'); return; }
     if(isSandbox && amount <= 0) { showToast(t('withdraw.enterAddress'),'error'); return; }
@@ -21117,7 +20884,7 @@ function sendSupportMessage() {
             // unsupported questions ("...my transaction history?", "...both
             // wallets") return the bot/greeting answer instead of the
             // human-support fallback below.
-            if(/\bbots?\b/.test(lower) || lower.includes('start')) reply = Number(APP.MTA) > 0 ? t('support.reply.bot', {mta: APP.MTA}) : t('support.reply.botNoMta');
+            if(/\bbots?\b/.test(lower) || lower.includes('start')) reply = t('support.reply.bot');
             else if(lower.includes('deposit')) reply = t('support.reply.deposit');
             else if(lower.includes('withdraw')) reply = t('support.reply.withdraw');
             else if(lower.includes('bonus') || lower.includes('referral')) reply = t('support.reply.bonus');
@@ -21265,14 +21032,9 @@ async function syncWalletFromServer() {
                     APP.liveData.hasRealDeposit = true;
                     fundedFromServer = true;
                 }
-                // Server-authoritative MTA: adopt the server's value (the single
-                // source of truth, per environment) so the UI never hardcodes it.
-                // A value of 0 means "no MTA" (MARKETING_SANDBOX) and is adopted
-                // too, so no minimum trading balance is ever applied there.
-                // Falls back to the existing default when the field is omitted.
-                if (Number.isFinite(Number(meData.mta)) && Number(meData.mta) >= 0) {
-                    APP.MTA = Number(meData.mta);
-                }
+                // The bot minimum trading balance (MTA) was removed by management
+                // decision, so there is no longer an MTA value to adopt from the
+                // server (the /api/auth/me response no longer carries one).
                 // Server-authoritative "Today's P&L": the signed sum of trades
                 // actually persisted via record_trade_safe() for the current UTC
                 // day. This REPLACES the localStorage pnl accumulator as the
