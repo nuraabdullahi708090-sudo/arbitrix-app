@@ -26,6 +26,7 @@ const { createClient } = require('@supabase/supabase-js');
 const os = require('os');
 const { createTradingWorker, DEFAULT_LIMITS } = require('./services/TradingWorker');
 const { createPromoCheck } = require('./services/PromoCheck');
+const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
 
 const WORKER_VERSION = 'trading-worker/1';
 
@@ -123,7 +124,10 @@ async function main() {
       dailyLossLimitUsd: envNumber('TRADING_DAILY_LOSS_LIMIT_USD', DEFAULT_LIMITS.dailyLossLimitUsd),
       maxTradesPerDay: envNumber('TRADING_MAX_TRADES_PER_DAY', DEFAULT_LIMITS.maxTradesPerDay),
       maxConsecutiveFailures: envNumber('TRADING_MAX_CONSECUTIVE_FAILURES', DEFAULT_LIMITS.maxConsecutiveFailures),
-      staleHeartbeatMs: envNumber('TRADING_STALE_HEARTBEAT_MS', DEFAULT_LIMITS.staleHeartbeatMs),
+      // SINGLE SOURCE OF TRUTH: the same services/WorkerConfig.js resolver the
+      // web guard uses, so the two can never silently disagree (see .env.example:
+      // set TRADING_STALE_HEARTBEAT_MS on BOTH services, or on neither).
+      staleHeartbeatMs: resolveStaleHeartbeatMs(),
     },
   });
 

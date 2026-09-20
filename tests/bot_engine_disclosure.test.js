@@ -69,7 +69,11 @@ test('the disclosure switch is driven by the server 409, not by a manual copy ed
 });
 
 test('the server emits exactly the code the client keys off', () => {
-  assert.match(SERVER, /code: 'WORKER_OWNED_SESSION'/);
+  // One definition (WORKER_OWNED_CODE) drives both enforcement points - the
+  // /api/trade pre-check and the migration 031 database backstop mapping - so the
+  // string the client keys off cannot drift between them.
+  assert.match(SERVER, /const WORKER_OWNED_CODE = 'WORKER_OWNED_SESSION';/);
+  assert.match(SERVER, /code: WORKER_OWNED_CODE/);
   assert.match(SERVER, /executedBy: 'worker'/);
 });
 

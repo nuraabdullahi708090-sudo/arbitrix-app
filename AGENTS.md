@@ -4387,3 +4387,173 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   TRADING_WORKER_ID, TRADING_WORKER_LEASE_MS. .env.example documents all of them.
 - STILL NOT DONE: no migration applied, no Render change, TRADING_WORKER_ENABLED
   unset, no deploy, no real order, no balance or ledger write.
+
+## Post-Audit Fixes - TradingWorker Integration Hardening (2026-09-20, NOT deployed, worker still DISABLED)
+- Follows the read-only TradingWorker audit. Migrations 028 and 029 are APPLIED in
+  production (verified byte-identical here: 028 sha256 e711af83...246ef0dc, 8224 B /
+  165 lines; 029 sha256 f566fa51...d7ceb8a, 21306 B / 449 lines). No migration was
+  applied, no deploy, no Render change, `TRADING_WORKER_ENABLED` still unset, worker
+  never started. `node_modules` WAS installed in this env so the full suite runs (it
+  is gitignored; the previously documented "6 missing-dependency failures" are gone).
+
+### 1. ONE source of truth for the executor-staleness window
+- BEFORE: `server.js` had `const WORKER_STALE_HEARTBEAT_MS = 60000;` (web guard +
+  admin view) while `services/TradingWorker.js` had its own
+  `DEFAULT_LIMITS.staleHeartbeatMs = 60000` (stale-session reconcile) and
+  `worker.js` parsed `TRADING_STALE_HEARTBEAT_MS` via its own `envNumber()`. Three
+  definitions of one operational threshold that MUST agree - if the web window were
+  longer than the worker's, a browser tab would be refused a session the worker had
+  abandoned; shorter, and a tab could trade alongside the worker.
+- NOW: NEW `services/WorkerConfig.js` (pure, dependency-free) owns
+  `DEFAULT_STALE_HEARTBEAT_MS = 60000` + `STALE_HEARTBEAT_ENV =
+  'TRADING_STALE_HEARTBEAT_MS'` + `resolveStaleHeartbeatMs(env, fallback)`.
+  `server.js` -> `const WORKER_STALE_HEARTBEAT_MS = resolveStaleHeartbeatMs();`,
+  `TradingWorker.DEFAULT_LIMITS.staleHeartbeatMs = DEFAULT_STALE_HEARTBEAT_MS`
+  (required from the module), `worker.js` -> `resolveStaleHeartbeatMs()` (it no
+  longer parses the var itself). Both processes report the RESOLVED value at
+  runtime (worker: the `worker_started` log line, new `staleHeartbeatMs` field;
+  web: `GET /api/admin/bot/worker-status` -> `staleHeartbeatMs`) so a one-sided
+  env var is visible rather than silent. `.env.example` documents the
+  set-on-BOTH-services-or-neither rule and no longer ships the var as an active
+  default (it is commented out).
+- RESIDUAL (documented, not solvable in-process): the two processes are separate
+  services, so an operator setting `TRADING_STALE_HEARTBEAT_MS` on exactly one of
+  them would still diverge. The code-level single definition, the shared env var
+  name, the boot logs and the env docs are the mitigation. A DB-carried value
+  (e.g. via bot_sessions.risk_limits) was considered and rejected as a new coupling
+  for a value that does not change at runtime.
+
+### 2. A LIVE migration-029 lease now counts as ownership
+- BEFORE: `isWorkerOwnedSession()` keyed ONLY off `is_running = 1 AND heartbeat_at
+  fresher than the window`. 029's `claim_bot_sessions` writes `claimed_by` +
+  `heartbeat_at = v_now` + `lease_expires_at` together, but a worker that then
+  stalls (a long tick, an event-loop block, a slow RPC) past 60s while still HOLDING
+  the lease made the guard fall OPEN, so a browser tab could trade concurrently with
+  a worker that considered itself the executor.
+- NOW: new PURE helper `hasActiveWorkerLease(row, nowMs)` = `claimed_by` present AND
+  `lease_expires_at` in the future, mirroring 029's own claim predicate
+  (`... OR lease_expires_at IS NULL OR lease_expires_at <= now()`), so a NULL/absent
+  expiry counts as INACTIVE and a crashed worker's stale claimant can never refuse
+  trading forever. `isWorkerOwnedSession()` checks the LEASE first, the heartbeat as
+  the fallback; `getWorkerStatus()` and `/api/bot/status` use the SAME helper, so the
+  admin view and the trade guard cannot disagree about ownership. Still fail-open on
+  a read error.
+- HONEST LIMIT recorded in the code: the guard is still a read-then-write, so a
+  worker may claim immediately AFTER it returns false. That residual race is closed
+  in the DATABASE (item 4), not by this check.
+
+### 3. A restart cannot inherit stale executor state
+- `/api/bot/start` now reads the session first and, when no LIVE lease is present,
+  writes `claimed_by: null, lease_acquired_at: null, lease_expires_at: null,
+  heartbeat_at: null` alongside `is_running: 1`. Without it a crashed/disabled
+  worker's lease outlived the run and (a) kept the session looking WORKER-OWNED to
+  /api/trade for up to the window - refusing the browser user's own trades - and (b)
+  made the new session invisible to 029's claim RPC (which only claims NULL/expired
+  leases). Only STALE state is cleared: clearing an ACTIVE lease would hand the
+  session to the browser tab while the worker still considers itself its executor
+  (`requireLease: true` is hardcoded in worker.js, and 029 fences the worker at its
+  next renew), so a live lease is left intact and the client's existing
+  adoptWorkerOwnership() yields to the worker instead. A crashed worker's lease
+  simply expires, after which the same Start clears it. `generation` is deliberately
+  NOT bumped here: 029 bumps it on STOP, and clearing the lease already fences a
+  stale executor (its next renew returns LEASE_UNCLAIMED / LEASE_NOT_OWNED); bumping
+  it here would be an unguarded read-modify-write.
+- Same route: the upsert error is now INSPECTED and logged
+  (`event: 'bot_session_start_failed'` with the PG code). It was fired and forgotten,
+  so a missing unique index (42P10) answered "started" while persisting nothing. The
+  response shape is deliberately unchanged, so no client contract moved.
+
+### 4. Migration 031 - the database backstop for the residual race
+- `supabase/migrations/031_single_executor_trade_guard.sql` (NEW, NOT applied,
+  additive, idempotent, self-checking): `BEFORE INSERT ... FOR EACH ROW` on
+  `public.trades` calling `public.enforce_single_executor_trade()`. record_trade_safe
+  performs the trades INSERT, so the guard runs INSIDE the trade transaction: a claim
+  that committed first refuses the browser trade, and a trade that committed first
+  strictly preceded the claim (the worker simply trades afterwards). No interleaving
+  produces a concurrent duplicate.
+- DISCRIMINATOR: while the session carries an ACTIVE lease, only the worker's own
+  server-derived key namespace is admitted
+  (`NEW.idempotency_key LIKE 'bot\_' || NEW.user_id::text || '\_%' ESCAPE '\'`, i.e.
+  `buildTickIdempotencyKey`'s `bot_<uid>_<mode>_<generation>_<bucket>`); the browser/
+  API namespace cannot collide (`trade_<uid>_<ts>_<rand>`). The check ADMITS the
+  worker rather than DENYING the browser, so a mis-specified pattern can only weaken
+  the backstop - it can never reject the execution it protects.
+- FAIL OPEN by construction: the decision is made inside the guarded block and the
+  `RAISE EXCEPTION 'WORKER_OWNED_SESSION'` is OUTSIDE the `EXCEPTION WHEN OTHERS`
+  handler (a RAISE inside it would be swallowed and the guard would silently never
+  fire). Unexpected errors (missing bot_sessions/lease columns, schema drift) return
+  NEW. MARKETING_SANDBOX is skipped explicitly. No financial logic: it never reads or
+  writes an amount, a balance, a wallet or a ledger row.
+- server.js maps the resulting `record_trade_safe` error to the SAME 409 body as the
+  pre-check via one shared definition (`WORKER_OWNED_CODE` / `WORKER_OWNED_MESSAGE` /
+  `workerOwnedBody()`), so the JS guard and the DB trigger cannot drift. Nothing was
+  recorded on refusal, and the client's existing `code === 'WORKER_OWNED_SESSION'`
+  yield path is unchanged (no frontend change needed).
+
+### 5. Migration 030 - the unique user_id requirement is now recorded
+- `supabase/migrations/030_bot_sessions_unique_user_id.sql` (NEW, NOT applied,
+  additive, idempotent, self-checking): preconditions (table/column present), a
+  duplicate pre-flight that RAISES with the affected count and changes NOTHING (never
+  deletes rows), `CREATE UNIQUE INDEX IF NOT EXISTS bot_sessions_user_id_unique ON
+  public.bot_sessions (user_id)`, a COMMENT, and a self-check asserting the index
+  exists AND is unique.
+- WHY it matters: `/api/bot/start` upserts with `{ onConflict: 'user_id' }`, which
+  PostgREST compiles to `ON CONFLICT (user_id) DO UPDATE` - requiring a unique index
+  (else 42P10); `.single()` reads in /api/bot/status and isWorkerOwnedSession() need
+  one row; 029's lease RPCs address the row by user_id, so with duplicates a
+  SELECT INTO/RETURNING picks an arbitrary row and a stop could fence the wrong one.
+  Production already has this index (confirmed) - the file documents/asserts it.
+  `sandbox_bot_sessions.user_id` is the PRIMARY KEY twin (migration 013).
+- No migration in this repository CREATES `public.bot_sessions`; 030/031 assert
+  requirements over the externally-created table, exactly like 028/029.
+
+### 6. Verified against a REAL PostgreSQL 16.15 (throwaway Docker container, since removed)
+- 030: applied fresh (index created where absent, self-check passed), re-apply a
+  no-op, `ON CONFLICT (user_id)` upsert then works; on a database WITH duplicate
+  user_id rows it failed loudly with the count and created no index / deleted nothing.
+- 031: applied fresh + re-applied (still exactly 1 trigger). With the trigger armed:
+  no session row / running+no lease / running+EXPIRED lease / STOPPED row / lease
+  expiry == now() -> ALLOWED; running + ACTIVE lease + browser key -> refused
+  `WORKER_OWNED_SESSION`; running + ACTIVE lease + the worker's own `bot_<uid>_...`
+  key -> ALLOWED; `bot_<OTHER uid>_...` -> refused; MARKETING_SANDBOX + ACTIVE lease
+  + browser key -> ALLOWED (and the identical-state production control -> refused);
+  lease column dropped (029 absent) -> ALLOWED (fail open).
+- The important one: a record_trade_safe-SHAPED transaction (wallet UPDATE then
+  trades INSERT inside one PL/pgSQL block with an EXCEPTION handler) was refused ->
+  `{"success": false, "error": "WORKER_OWNED_SESSION"}`, the wallet balance was
+  UNCHANGED (500.00) and no ledger row existed; the SAME call succeeded once the
+  lease was cleared (no permanent poisoning). That is the proof that a refused trade
+  cannot leave a partial debit - the trigger fires before the commit, so PL/pgSQL's
+  implicit savepoint rolls the wallet mutation back.
+
+### 7. Tests
+- NEW `tests/trading_worker_lease_integration.test.js` (16 tests): 028/029 byte-identical
+  (sha256/size/lines), the single-source threshold (both processes, no literal, both
+  report the resolved value), the lease-aware guard + the shared predicate, the
+  /api/bot/start lease+heartbeat clearing + start-failure log + kill-switch ordering +
+  no generation bump, the 031 trigger shape / idempotency / additivity / fail-open
+  structure / worker-namespace admission (checked against the REAL
+  `buildTickIdempotencyKey`) / sandbox skip / lease semantics / absence of financial
+  references, 030's safe idempotent assertion + duplicate pre-flight, lease
+  observability, the worker staying inert, and a guard that no business constant
+  drifted (min deposit 100, min withdrawal 500, promo cap 20, referral percent 20,
+  MTA still removed).
+- UPDATED for the intentional change: `tests/trading_worker_single_engine.test.js`
+  (sandbox now evaluates `hasActiveWorkerLease` too; new cases for active lease with a
+  stale heartbeat, active lease with NO heartbeat, expired lease, NULL expiry, stopped
+  session, and the SELECT columns; the window pin rewritten to the single-source form),
+  `tests/trading_worker.test.js` (no bare window literal), `bot_engine_disclosure` +
+  `background_trading_parity` (assert the shared `WORKER_OWNED_CODE` constant instead
+  of an inline literal).
+- `npm test` = 1250 pass / 0 fail (baseline with deps: 1228; +22 new). `node --check`
+  clean on server.js / worker.js / TradingWorker.js / WorkerConfig.js.
+- `node worker.js` with the flag unset still logs `worker_disabled` and exits 0 -
+  the worker remains INERT.
+
+### 8. Still open / for management
+- 030 and 031 are NOT applied. 030 is a no-op where the index already exists (the
+  live database), so it is safe to apply; 031 arms the backstop and is a strict no-op
+  while no lease is held.
+- The bot engine notice copy and the single-engine guard now agree with the lease
+  behaviour; the cutover announcement about stopped browser-era sessions still stands.
+- No deploy, no push, no Render change in this work.

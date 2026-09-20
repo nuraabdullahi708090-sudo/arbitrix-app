@@ -638,7 +638,11 @@ test('emergency stop: /api/bot/status reports execution truth (worker vs browser
   const body = SERVER.slice(SERVER.indexOf("app.get('/api/bot/status'"), SERVER.indexOf("// ---------- Admin: server-side trading worker control"));
   assert.match(body, /executedBy: hasExecutorHeartbeat \? 'worker' : 'browser'/);
   assert.match(body, /stale: !hasExecutorHeartbeat/);
-  assert.match(SERVER, /WORKER_STALE_HEARTBEAT_MS = 60000/);
+  // SINGLE SOURCE OF TRUTH: the window is resolved from services/WorkerConfig.js
+  // - the same module the worker process resolves - never a bare literal here.
+  assert.match(SERVER, /const WORKER_STALE_HEARTBEAT_MS = resolveStaleHeartbeatMs\(\);/);
+  assert.ok(!/const WORKER_STALE_HEARTBEAT_MS = \d+;/.test(SERVER),
+    'the staleness window must not be hard-coded in server.js');
 });
 
 // ==========================================================================

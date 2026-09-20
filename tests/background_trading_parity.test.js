@@ -323,7 +323,7 @@ test('handover: the 409 yield keeps the session alive so the worker keeps tradin
   assert.match(block, /adoptWorkerOwnership\(\)/);
   assert.ok(!/stopBot\(/.test(stripComments(block)),
     'yielding must not go through stopBot: that would end the server session, write a "Bot Paused" history entry and show a "paused" toast for a bot that is still trading');
-  assert.match(SERVER, /code: 'WORKER_OWNED_SESSION'/);
+  assert.match(SERVER, /const WORKER_OWNED_CODE = 'WORKER_OWNED_SESSION';/);
 });
 
 test('handover: the yield helper never implies a stop (no pause entry, no pause toast)', () => {
@@ -404,7 +404,7 @@ test('a FAILED status request leaves exactly one engine, whichever one it is', a
   const at409 = INDEX.indexOf("errBody.code === 'WORKER_OWNED_SESSION'");
   assert.ok(at409 > 0);
   assert.match(INDEX.slice(at409, at409 + 900), /adoptWorkerOwnership\(\)/);
-  assert.match(SERVER, /code: 'WORKER_OWNED_SESSION'/);
+  assert.match(SERVER, /const WORKER_OWNED_CODE = 'WORKER_OWNED_SESSION';/);
   // 2) Only a POSITIVE worker confirmation may drop the tab loop: the guard runs
   //    before the yield helper on both paths.
   for (const body of [

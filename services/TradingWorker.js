@@ -1,5 +1,7 @@
 'use strict';
 
+const { DEFAULT_STALE_HEARTBEAT_MS } = require('./WorkerConfig');
+
 /**
  * Server-side trading worker.
  *
@@ -66,7 +68,11 @@ const DEFAULT_LIMITS = {
   // Operational only (NOT business logic): "failure" means the trade RPC errored
   // repeatedly, never that a trade lost money. A losing trade is a normal trade.
   maxConsecutiveFailures: 5, // auto-stop the session past this many
-  staleHeartbeatMs: 60000, // a heartbeat older than this means "no executor"
+  // A heartbeat older than this means "no executor behind it". SINGLE SOURCE OF
+  // TRUTH: services/WorkerConfig.js, which server.js's isWorkerOwnedSession()
+  // also resolves, so the worker's reconcile window and the web guard's
+  // worker-owned window can never silently disagree.
+  staleHeartbeatMs: DEFAULT_STALE_HEARTBEAT_MS,
   maxRetryAttempts: 4,
   retryBaseMs: 250,
   // Executor lease (migration 029). At most ONE worker instance may execute a
@@ -929,6 +935,8 @@ function createTradingWorker({
     const reconciled = await reconcileStaleSessions();
     log('worker_started', {
       tickMs: cfg.tickMs,
+      // Observable so a misconfigured env var on ONE service is not silent.
+      staleHeartbeatMs: cfg.staleHeartbeatMs,
       reconciled,
       enabled,
       dryRun: dryRun === true,

@@ -41,6 +41,7 @@ const {
   isValidTelegramWebhookSecret
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
+const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
 
 // Feature flag cache (refreshes every 5 minutes)
 let featureFlagCache = {
@@ -589,6 +590,22 @@ const SANDBOX_PROMO_CREDIT = 50;
 const PROMO_PROFIT_CAP_USD = 20;
 const PROMO_LIMIT_CODE = 'PROMO_TRADING_LIMIT_REACHED';
 const PROMO_LIMIT_MESSAGE = 'You have reached the promotional trading limit. Make your first deposit to continue trading.';
+
+// SERVER-SIDE TRADING WORKER: the machine-readable refusal returned when a bot
+// session is owned by the worker and a browser-originated trade arrives.
+// ONE definition, used by BOTH enforcement points so they cannot drift:
+//   * the /api/trade pre-check (isWorkerOwnedSession), and
+//   * the migration 031 database backstop, whose trigger raises exactly this
+//     code from inside the trade transaction (record_trade_safe surfaces it as
+//     `{success:false, error:'WORKER_OWNED_SESSION'}`).
+// public/index.html keys its browser-loop yield off `code === 'WORKER_OWNED_SESSION'`.
+const WORKER_OWNED_CODE = 'WORKER_OWNED_SESSION';
+const WORKER_OWNED_MESSAGE = 'This bot session is executed by the server-side trading engine.';
+
+/** Machine-readable "the worker owns this session" response body (409). */
+function workerOwnedBody(extra = {}) {
+  return { error: WORKER_OWNED_MESSAGE, code: WORKER_OWNED_CODE, executedBy: 'worker', ...extra };
+}
 
 /**
  * TRUE iff the production promotional-credit trading cap is reached.
@@ -2109,7 +2126,12 @@ function promoLimitBody(extra = {}) {
  * Fail-closed: if the control row cannot be read we report the stop as ENGAGED,
  * because we cannot prove the platform is not stopped. Requires migration 027.
  */
-const WORKER_STALE_HEARTBEAT_MS = 60000;
+// SINGLE SOURCE OF TRUTH for "a heartbeat this old means no executor": resolved
+// through services/WorkerConfig.js, the same module (and env var) the worker
+// process uses for its own stale-session reconciliation. One default, one parse,
+// so the web guard and the worker cannot silently disagree. This is NOT a
+// business/financial value and never affects a trade amount or a balance.
+const WORKER_STALE_HEARTBEAT_MS = resolveStaleHeartbeatMs();
 
 async function getWorkerControl() {
   try {
@@ -2133,26 +2155,57 @@ async function getWorkerControl() {
 }
 
 /**
+ * PURE: does this bot_sessions row currently carry a LIVE executor lease?
+ *
+ * `claimed_by` is written only by migration 029's lease RPCs (service_role). The
+ * claimant alone is NOT enough: a crashed worker leaves `claimed_by` set until
+ * the lease expires or the row is stopped/re-claimed. So an ACTIVE lease requires
+ * a claimant AND an unexpired expiry. A NULL/absent expiry counts as NOT active,
+ * which matches 029's own claim predicate
+ * (`claimed_by IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= now()`)
+ * and guarantees a stale claimant can never refuse browser trading forever.
+ */
+function hasActiveWorkerLease(row, nowMs = Date.now()) {
+  if (!row || !row.claimed_by) return false;
+  const now = Number(nowMs);
+  const expiry = row.lease_expires_at ? Date.parse(row.lease_expires_at) : NaN;
+  if (!Number.isFinite(now) || !Number.isFinite(expiry)) return false;
+  return expiry > now;
+}
+
+/**
  * TRUE when a server-side worker currently owns this user's bot session, i.e. the
- * session is running AND its worker heartbeat is fresh. Used by /api/trade as the
- * single-engine guard: while a worker is executing a session, browser-originated
- * trades for that session are refused (409 WORKER_OWNED_SESSION) so the two
- * engines can never both trade it.
+ * session is running AND either
+ *   (1) it carries a LIVE EXECUTOR LEASE (migration 029), or
+ *   (2) its heartbeat is fresher than WORKER_STALE_HEARTBEAT_MS.
+ * Used by /api/trade as the single-engine guard: while a worker is executing a
+ * session, browser-originated trades for that session are refused (409
+ * WORKER_OWNED_SESSION) so the two engines can never both trade it.
+ *
+ * The LEASE is the primary signal. The worker takes the lease for the whole time
+ * it is executing the session (029's claim RPC writes claimed_by + lease_expires_at
+ * + heartbeat_at together), so checking the lease covers the window in which a
+ * worker owns the session but has not yet completed a tick, and it does not fail
+ * open just because a heartbeat aged out while the lease is still live.
  *
  * Deliberately FAIL-OPEN. A read error (or the migration not being applied, which
  * makes every read error) returns false and leaves the pre-worker behaviour
- * untouched, so this guard can never itself stop trading. The heartbeat column is
- * only ever written by the worker, so with no worker running this returns false.
+ * untouched, so this guard can never itself stop trading. Note this check is still
+ * a read-then-write: a worker may claim the session immediately AFTER this returns
+ * false. That residual race is closed authoritatively in the database by migration
+ * 031's trades trigger, which is evaluated inside the trade's own transaction.
  */
 async function isWorkerOwnedSession(userId) {
   try {
     const { data, error } = await supabaseAdmin
       .from('bot_sessions')
-      .select('is_running, heartbeat_at')
+      .select('is_running, heartbeat_at, claimed_by, lease_expires_at')
       .eq('user_id', userId)
       .single();
     if (error) throw error;
-    if (!data || Number(data.is_running) !== 1 || !data.heartbeat_at) return false;
+    if (!data || Number(data.is_running) !== 1) return false;
+    if (hasActiveWorkerLease(data)) return true;
+    if (!data.heartbeat_at) return false;
     const age = Date.now() - new Date(data.heartbeat_at).getTime();
     if (!isFinite(age)) return false;
     return age >= 0 && age < WORKER_STALE_HEARTBEAT_MS;
@@ -2176,7 +2229,7 @@ async function getWorkerStatus() {
   try {
     const { data } = await supabaseAdmin
       .from('bot_sessions')
-      .select('user_id, is_running, mode, started_at, heartbeat_at, last_tick_at, tick_count, consecutive_failures, stopped_reason, worker_version')
+      .select('user_id, is_running, mode, started_at, heartbeat_at, last_tick_at, tick_count, consecutive_failures, stopped_reason, worker_version, claimed_by, lease_acquired_at, lease_expires_at, generation')
       .eq('is_running', 1);
     sessions = Array.isArray(data) ? data : [];
   } catch (e) {
@@ -2186,6 +2239,11 @@ async function getWorkerStatus() {
   const withHeartbeat = sessions.map((s) => {
     const ts = s.heartbeat_at ? Date.parse(s.heartbeat_at) : NaN;
     const ageMs = Number.isFinite(ts) ? now - ts : null;
+    // EXECUTOR LEASE (migration 029). Same predicate isWorkerOwnedSession()
+    // uses, so the admin view and the /api/trade guard cannot disagree about
+    // who owns a session. `claimed_by` is an internal worker instance id -
+    // never a token, secret, email or other credential.
+    const leaseActive = hasActiveWorkerLease(s, now);
     return {
       userId: s.user_id,
       mode: s.mode,
@@ -2197,7 +2255,13 @@ async function getWorkerStatus() {
       tickCount: s.tick_count || 0,
       consecutiveFailures: s.consecutive_failures || 0,
       stoppedReason: s.stopped_reason || null,
-      workerVersion: s.worker_version || null
+      workerVersion: s.worker_version || null,
+      // --- executor lease observability (migration 029) ---
+      claimedBy: s.claimed_by || null,
+      leaseAcquiredAt: s.lease_acquired_at || null,
+      leaseExpiresAt: s.lease_expires_at || null,
+      leaseActive,
+      generation: Number(s.generation || 0)
     };
   });
   return {
@@ -2211,6 +2275,7 @@ async function getWorkerStatus() {
     runningSessions: withHeartbeat,
     runningCount: withHeartbeat.length,
     staleCount: withHeartbeat.filter((s) => s.stale).length,
+    leasedCount: withHeartbeat.filter((s) => s.leaseActive).length,
     error
   };
 }
@@ -5630,7 +5695,79 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
       reason: control.reason || 'emergency_stop'
     });
   }
-  await supabaseAdmin.from('bot_sessions').upsert({ user_id: userId, is_running: 1, mode, started_at: new Date().toISOString(), stopped_reason: null }, { onConflict: 'user_id' });
+  // Clear STALE executor state before marking the session running.
+  //
+  // Migration 029's executor lease (claimed_by / lease_acquired_at /
+  // lease_expires_at) and migration 028's heartbeat_at OUTLIVE a previous worker
+  // run - a crashed worker, the worker being disabled, or an earlier cutover
+  // leaves them set. A restart must not inherit them, otherwise:
+  //   * /api/trade would keep treating this session as WORKER-OWNED for up to the
+  //     staleness window, refusing the browser user's own trades, and
+  //   * the freshly started session would be invisible to the worker's claim RPC
+  //     until the old lease expired, because 029 only claims rows whose lease is
+  //     NULL or already expired.
+  // Clearing them makes a user-initiated Start a clean handover.
+  //
+  // A LIVE lease is deliberately left ALONE. Only STALE state must not be
+  // inherited: clearing an active lease would hand this session to the browser tab
+  // while the worker still considers itself its executor, so the two could trade
+  // until the worker's next renew fenced it. Leaving it intact keeps the worker the
+  // single executor of a session it is actively driving, and the client already
+  // yields to that (GET /api/bot/status reports executedBy 'worker' + leaseActive,
+  // which drives adoptWorkerOwnership()). A crashed worker's lease simply expires,
+  // after which the same Start clears it.
+  //
+  // `generation` is deliberately NOT bumped here. 029 bumps it on STOP (that bump
+  // is what fences a stale executor), and simply clearing claimed_by /
+  // lease_expires_at already fences one: its next lease renew returns
+  // LEASE_UNCLAIMED (or LEASE_NOT_OWNED when a different instance owns it).
+  // Keeping the bump exclusive to the stop path leaves the generation's
+  // documented meaning ("bumped on stop/reassignment") intact and avoids an
+  // unguarded read-modify-write in this route.
+  let hasLiveWorkerLease = false;
+  try {
+    const { data: currentSession, error: readError } = await supabaseAdmin
+      .from('bot_sessions')
+      .select('claimed_by, lease_expires_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    // Fail open to CLEARING: if the state cannot be read, the user must not be
+    // stranded behind a lease we cannot prove is live.
+    if (!readError) hasLiveWorkerLease = hasActiveWorkerLease(currentSession);
+  } catch (e) {
+    hasLiveWorkerLease = false;
+  }
+  const sessionState = {
+    user_id: userId,
+    is_running: 1,
+    mode,
+    started_at: new Date().toISOString(),
+    stopped_reason: null,
+  };
+  if (!hasLiveWorkerLease) {
+    sessionState.claimed_by = null;
+    sessionState.lease_acquired_at = null;
+    sessionState.lease_expires_at = null;
+    sessionState.heartbeat_at = null;
+  }
+  const { error: sessionError } = await supabaseAdmin
+    .from('bot_sessions')
+    .upsert(sessionState, { onConflict: 'user_id' });
+  // This write used to be fired and forgotten, so a failure (e.g. the unique
+  // index on user_id missing, which makes `ON CONFLICT (user_id)` raise 42P10)
+  // answered "started" while persisting nothing: the user saw a running bot and
+  // nothing was running it. Surface the failure instead of hiding it. The
+  // response shape is deliberately unchanged, so no client can be affected.
+  if (sessionError) {
+    console.error(JSON.stringify({
+      event: 'bot_session_start_failed',
+      component: 'Server',
+      userId,
+      mode,
+      code: sessionError.code || null,
+      message: sessionError.message
+    }));
+  }
   res.json({ status: 'started', mode });
 });
 
@@ -5662,6 +5799,11 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
   const heartbeatAt = data ? data.heartbeat_at : null;
   const heartbeatAgeMs = heartbeatAt ? Date.now() - Date.parse(heartbeatAt) : null;
   const hasExecutorHeartbeat = Number.isFinite(heartbeatAgeMs) && heartbeatAgeMs <= WORKER_STALE_HEARTBEAT_MS;
+  // EXECUTOR LEASE observability (migration 029): the authoritative "a worker
+  // owns this session right now" signal - the same predicate the /api/trade
+  // guard uses. claimedBy is an internal worker instance id, never a token,
+  // secret or credential.
+  const leaseActive = data ? hasActiveWorkerLease(data) : false;
   res.json({
     isRunning: data ? data.is_running===1 : false,
     mode: data ? data.mode : 'demo',
@@ -5672,7 +5814,13 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
     stoppedReason: data ? (data.stopped_reason || null) : null,
     // 'worker' = durable server-side executor, 'browser' = tab-bound legacy loop
     executedBy: hasExecutorHeartbeat ? 'worker' : 'browser',
-    stale: !hasExecutorHeartbeat
+    stale: !hasExecutorHeartbeat,
+    // --- executor lease (migration 029) ---
+    claimedBy: data ? (data.claimed_by || null) : null,
+    leaseAcquiredAt: data ? (data.lease_acquired_at || null) : null,
+    leaseExpiresAt: data ? (data.lease_expires_at || null) : null,
+    leaseActive,
+    generation: data ? Number(data.generation || 0) : 0
   });
 });
 
@@ -5776,19 +5924,18 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
         return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
       }
     }
-    // SINGLE-ENGINE GUARD (cutover safety): a session with a FRESH server-side
-    // worker heartbeat must be driven by that worker, not by a browser tab. The
-    // browser loop and the worker would otherwise both execute the same session
-    // (double trading), and sequencing two deploys by hand is not a guarantee.
-    // This is server-enforced, so it does not depend on the client cooperating.
-    // With no worker running the heartbeat is NULL and this is a no-op, i.e.
-    // production behaviour is unchanged until the worker is actually enabled.
+    // SINGLE-ENGINE GUARD (cutover safety): while a server-side worker owns this
+    // session (an ACTIVE migration-029 executor lease, or a fresh heartbeat) the
+    // browser tab must not drive it. This is server-enforced, so it does not
+    // depend on the client cooperating, and with no worker running the lease and
+    // the heartbeat are both NULL, so production behaviour is unchanged.
+    //
+    // This check is a read-then-write: a worker can claim the session immediately
+    // AFTER it returns false. That residual race is closed authoritatively in the
+    // database by migration 031's trigger on `trades`, evaluated inside the write
+    // below - see the WORKER_OWNED_CODE mapping after the RPC call.
     if (await isWorkerOwnedSession(userId)) {
-      return res.status(409).json({
-        error: 'This bot session is executed by the server-side trading engine.',
-        code: 'WORKER_OWNED_SESSION',
-        executedBy: 'worker'
-      });
+      return res.status(409).json(workerOwnedBody());
     }
     // 2-dp precision to match DECIMAL(18,2).
     const amount2dp = Math.round(amount * 100) / 100;
@@ -5813,6 +5960,13 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
       if (String(result.error || '').includes(PROMO_LIMIT_CODE)) {
         await stopBotSessionForPromoLimit(userId);
         return res.status(403).json(promoLimitBody());
+      }
+      // Migration 031's defence-in-depth trigger raises this code when a worker
+      // claimed the session between the guard above and this write (the residual
+      // read-then-write race). Nothing was recorded; return the same 409 the
+      // pre-check returns so the browser loop yields to the worker.
+      if (String(result.error || '').includes(WORKER_OWNED_CODE)) {
+        return res.status(409).json(workerOwnedBody());
       }
       return res.status(400).json({ error: result.error || 'Trade recording failed' });
     }
