@@ -155,13 +155,21 @@ function buildAnthropicProvider({ apiKey, model, timeoutMs, fetchImpl, buildProm
  */
 function createProvider(name, options = {}) {
   const providerName = String(name || 'knowledge').trim().toLowerCase();
-  const buildPrompt = options.buildPrompt;
   const opts = {
     apiKey: options.apiKey || null,
     model: options.model || null,
     timeoutMs: Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS,
     fetchImpl: options.fetchImpl,
-    baseUrl: options.baseUrl || null
+    baseUrl: options.baseUrl || null,
+    // The caller's prompt builder MUST travel with the options. The translation layer
+    // supplies its own so it reuses this provider's auth/timeout/error machinery
+    // without inheriting the "answer from the approved knowledge" framing; every
+    // builder below already accepts it. Dropping it here silently sent every
+    // translation request as a knowledge-answer request with an EMPTY approved-
+    // knowledge section, and the model's documented response to that ("reply with
+    // exactly NO_ANSWER") made the operator notice say "English translation:
+    // unavailable" for every Portuguese/Arabic message.
+    buildPrompt: options.buildPrompt
   };
 
   switch (providerName) {

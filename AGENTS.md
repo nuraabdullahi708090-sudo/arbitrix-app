@@ -4950,3 +4950,95 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   With no credential the layer reports itself unavailable and everything degrades safely,
   so shipping this code WITHOUT those variables changes nothing for pt/ar (they keep the
   localized fallback) and nothing for English.
+
+## Option B follow-up - production diagnosis: "English translation: unavailable" (2026-09-21, NOT deployed)
+- SYMPTOM: after the multilingual knowledge translation shipped and DeepSeek was enabled,
+  the operator notification for a pt/ar customer still read "English translation:
+  unavailable - the original message is shown above." (buildForwardText -> 
+  tOperator('notifyNoTranslation')). The customer-facing direction appeared to work.
+- TRACED PATH (all real code, no provider changes): customer pt/ar message ->
+  TelegramSupportService.translateForOperator() -> SupportTranslator.toEnglish() ->
+  translate() -> providerFor(pt,en).generate({ hits: [], instructions:
+  TRANSLATION_INSTRUCTIONS }) -> HTTP provider -> notice extras ->
+  buildForwardText(). Note toEnglish() runs with validate=false, so the safety,
+  fidelity and language checks do NOT apply to the operator direction - the floor is
+  the echoed text and the missing answer.
+- ROOT CAUSE 1 (the primary one, code-visible):
+  services/support/providers/index.js createProvider() read `options.buildPrompt` into a
+  local variable and NEVER PASSED IT to the provider builders. All three builders accept
+  and forward it (buildOpenAIProvider/buildDeepSeekProvider/buildAnthropicProvider ->
+  createHttpLLMProvider), and SupportTranslator supplies its own translation prompt, but
+  the hub dropped it. createHttpLLMProvider therefore fell back to
+  buildKnowledgePrompt, so every translation request was:
+    system: TRANSLATION_INSTRUCTIONS ("translate ... reply with the translation only")
+    user  : "Approved knowledge:" (EMPTY - the translator passes hits: [])
+            "Customer question: <the text to translate>"
+            "Answer ... using ONLY the approved knowledge above."
+            "If the approved knowledge does not answer the question, reply with exactly NO_ANSWER."
+  DeepSeek did the documented thing for an unanswerable question with no approved
+  knowledge and replied NO_ANSWER; SupportTranslator maps a missing answer to
+  { ok:false, reason:'no-answer' }; translateForOperator reports the failure;
+  operatorNoticeExtras passes translation: null; the notice prints the
+  "unavailable" marker. The same wrong framing degraded the CUSTOMER direction (it was
+  never a genuine translation request either), which is why pt/ar translation only
+  "appeared" to work - the model sometimes translated the text anyway, and the language
+  check withheld it whenever it did not.
+- ROOT CAUSE 2 (independent, same notice area): a plain /escalate uses OUR OWN English
+  fallback reason ('User requested human support') and passed it through the reverse
+  translation with the customer's language, i.e. it asked for a Portuguese->English
+  translation of an ENGLISH string. Even with a working translator the text comes back
+  unchanged, trips the `output === source` echo guard, and the escalation notice again
+  claimed "unavailable" (and mislabelled the English reason as "Original message
+  (Portuguese)").
+- FIX 1: providers/index.js createProvider() now forwards buildPrompt in the options
+  object (`buildPrompt: options.buildPrompt`). When no builder is supplied the value is
+  undefined and HttpLLMProvider keeps its knowledge-answer default, so the AI answering
+  path is byte-identical (pinned by a test).
+- FIX 2: buildEscalationNotice() takes an optional `reasonLanguage` (defaulting to the
+  previous `e.language`, so existing callers are unchanged) and the /escalate handler
+  passes `reasonLanguage = command.rest ? escalationLanguage : DEFAULT_LANGUAGE` while
+  keeping the CUSTOMER's language for the "Language:" line. Our own English reason is
+  therefore printed as `Reason: ...` and is not sent for translation at all;
+  customer-authored reasons are translated exactly as before.
+- ENV: NOTHING is missing. The reverse path reuses the SAME configuration as the forward
+  path (resolveTranslationConfig: SUPPORT_TRANSLATION_ENABLED + AI_SUPPORT_PROVIDER,
+  key from AI_SUPPORT_API_KEY else DEEPSEEK_API_KEY for deepseek, plus
+  AI_SUPPORT_MODEL/BASE_URL/TIMEOUT_MS and SUPPORT_TRANSLATION_MAX_CHARS). A missing
+  provider/key produces reason 'unavailable', which is a DIFFERENT reason from the
+  'no-answer'/'echo' this defect produced - and the customer side working proves the
+  provider and key are configured. No Render variable needs to be added or renamed.
+- LIVE CONFIRMATION PATH for the operator (no secrets in the response): GET
+  /api/telegram/status (admin) -> status.translationEnabled / status.translationProvider
+  / status.stats.{translationsSucceeded,translationsFailed,lastTranslationReason} and
+  trace.lastProcessingStage (which shows 'translate:to-english' when toEnglish was
+  reached). pre-fix this reads lastTranslationReason='no-answer' (customer message) or
+  'echo' (plain /escalate); post-fix it should read a success and the notice should carry
+  the translation.
+- TESTS: NEW tests/support_translation_provider_prompt.test.js (13). It drives the REAL
+  translator, the REAL provider builder and the REAL bot with only `fetch` faked, and the
+  fake provider ANSWERS THE REQUEST BODY IT WAS ACTUALLY SENT (NO_ANSWER for the
+  knowledge framing, the translation for the translation framing) - a stubbed translator
+  would have hidden the defect. Covers: createProvider forwards the builder for
+  deepseek/openai/anthropic; the answering path still uses the knowledge prompt; the
+  reverse and forward translation requests are translation requests (system =
+  TRANSLATION_INSTRUCTIONS, no "Approved knowledge:"/"Customer question:"); the provider
+  is reachable with only the provider-specific key; the key never appears in the URL or
+  the prompt; the pt and ar message notices now carry the English translation and not the
+  "unavailable" marker; a plain /escalate shows `Reason: User requested human support`
+  with "Language: Portuguese" and makes ZERO provider calls; a customer-authored
+  escalation reason is still translated; an English customer is unchanged; plus source
+  pins for both fixes.
+  REPRODUCTION PROOF: with the two fixes stashed (i.e. the production-equivalent code),
+  10 of the 13 tests fail - including both symptom-level regressions - and they all pass
+  once the fixes are restored.
+- VERIFICATION: npm test = 1650 pass / 0 fail on main + fix (main baseline 1637 + 13);
+  1683 pass / 0 fail on top of the Option B branch. git diff --check clean; encoding
+  integrity checked for both edited files.
+- STATUS: committed on the feature branch fix/telegram-admin-translation-unavailable.
+  NOT pushed, NOT merged, NOT deployed. No environment variable was read, written or
+  required; no architecture change; the translation provider configuration is untouched.
+- RESIDUAL (expected, not defects): if the provider genuinely fails (timeout/HTTP error),
+  if the customer's message exceeds SUPPORT_TRANSLATION_MAX_CHARS (1500 -> 'too-long'),
+  or if a customer writes in ENGLISH while their selected language is pt/ar (the text
+  comes back unchanged -> 'echo'), the notice still reports the translation as
+  unavailable while showing the original - by design.
