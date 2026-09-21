@@ -4325,6 +4325,12 @@ const telegramBot = createTelegramSupportBot({
 });
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
+  // Said out loud at boot because this is read ONCE, at startup: a process that
+  // started before TELEGRAM_SUPPORT_CHAT_ID was set keeps storing customer
+  // messages without forwarding them, and nothing else would say so.
+  console.log(`[Telegram] Support group notifications: ${telegramConfig.supportChatId
+    ? 'enabled'
+    : 'DISABLED - TELEGRAM_SUPPORT_CHAT_ID is not set for this process; restart after setting it'}`);
 } else {
   console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
 }
@@ -4395,6 +4401,8 @@ app.get('/api/telegram/status', authMiddleware, adminMiddleware, async (req, res
       at: s.lastResponseAt
     },
     lastSendMessage: status.lastApiCall,
+    // Support-group notification outcome (sent / skipped / Telegram's reason).
+    lastGroupNotify: status.lastGroupNotify,
     pendingUpdateHandling: s.lastPendingResult,
     lastWebhookRegistration: s.lastRegistration,
     repliesSent: s.repliesSent

@@ -195,7 +195,7 @@ test('with TELEGRAM_SUPPORT_CHAT_ID set /escalate notifies the support group', a
   const toGroup = sentTo(GROUP_ID);
   assert.strictEqual(toGroup.length, 1, 'the group is notified exactly once');
   assert.match(toGroup[0].payload.text, /Escalation requested/);
-  assert.match(toGroup[0].payload.text, new RegExp('Conversation #' + store.state.conversations[0].id));
+  assert.match(toGroup[0].payload.text, new RegExp('Conversation: #' + store.state.conversations[0].id));
   assert.match(toGroup[0].payload.text, new RegExp(CUSTOMER_ID), 'the operator gets the chat id needed to reply');
 });
 
@@ -213,8 +213,8 @@ test('the escalation notice carries only what an operator needs', async () => {
   const notice = sentTo(GROUP_ID)[0].payload.text;
 
   // useful fields
-  assert.match(notice, /Conversation #/);
-  assert.match(notice, /From: /);
+  assert.match(notice, /Conversation: #/);
+  assert.match(notice, /Customer: /);
   assert.match(notice, /Chat ID: |chat -?\d+/);
 
   // nothing unnecessary: no credentials, no account email, no balances
@@ -254,7 +254,7 @@ test('ordinary messages are forwarded to the group only when it is configured', 
   const withGroup = makeBot({ supportChatId: GROUP_ID });
   const r1 = await withGroup.bot.handleUpdate(privateMessage('how do I deposit?'));
   assert.strictEqual(r1.action, 'forwarded');
-  const forward = withGroup.sentTo(GROUP_ID).find((c) => /New support message/.test(c.payload.text));
+  const forward = withGroup.sentTo(GROUP_ID).find((c) => /New Customer Message/.test(c.payload.text));
   assert.ok(forward, 'the group received the message');
   assert.match(forward.payload.text, /how do I deposit\?/);
   assert.match(forward.payload.text, /\/reply /, 'the operator is told how to reply');
@@ -270,7 +270,7 @@ test('ordinary messages are forwarded to the group only when it is configured', 
 
 test('the forward text contains no account or credential detail', () => {
   const text = buildForwardText({ id: 7 }, CUSTOMER_ID, 'Customer Name', 'my deposit is late');
-  assert.match(text, /Conversation #7/);
+  assert.match(text, /Conversation: #7/);
   assert.match(text, /Chat ID: 555111/);
   assert.match(text, /my deposit is late/);
   assert.ok(!/email|password|seed|private key|api key|balance/i.test(text), text);
@@ -294,7 +294,7 @@ test('a human operator can reply with /reply <chat_id> <message>', async () => {
 test('a human operator can also reply to the forwarded message', async () => {
   const { bot, store, calls, sentTo } = makeBot({ supportChatId: GROUP_ID });
   await bot.handleUpdate(privateMessage('withdrawal question', CUSTOMER_ID));
-  const forwarded = sentTo(GROUP_ID).find((c) => /New support message/.test(c.payload.text));
+  const forwarded = sentTo(GROUP_ID).find((c) => /New Customer Message/.test(c.payload.text));
 
   const replyToForwarded = {
     update_id: ++updateSeq,

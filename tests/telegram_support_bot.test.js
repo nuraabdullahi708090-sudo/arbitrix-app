@@ -452,7 +452,9 @@ test('user message is stored, forwarded to the group and acknowledged', async ()
   assert.ok(forward, 'message forwarded to the support group');
   assert.ok(forward.text.includes('my deposit is stuck'));
   assert.ok(forward.text.includes(USER_CHAT_ID), 'the user chat id is visible so agents can /reply');
-  assert.ok(forward.text.includes(`/reply ${USER_CHAT_ID}`));
+  assert.ok(forward.text.includes(`Conversation: #${conversation.id}`),
+    'the conversation handle is shown, which is what the /reply hint uses');
+  assert.ok(forward.text.includes(`/reply ${conversation.id} `), 'the reply hint uses the conversation handle');
 
   const receipt = transport.calls.find((c) => c.chatId === USER_CHAT_ID);
   assert.ok(receipt, 'the message is acknowledged');
@@ -743,9 +745,20 @@ test('a customer is acknowledged even when the support-group forward fails', asy
   const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
   assert.strictEqual(toUser.length, 1, 'the customer is acknowledged');
   assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
-  // The inbound message is still stored, and the failure is logged without secrets.
+  // The inbound message is still stored, and the failure is logged with the real
+  // reason so it can actually be diagnosed.
   assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 1);
-  assert.ok(logger.lines.some((l) => l.includes('forwarding to the support group failed')));
+  const failureLines = logger.lines.filter((l) => l.includes('support group notification (customer-message) FAILED'));
+  assert.strictEqual(failureLines.length, 1, 'the group failure is logged exactly once');
+  assert.ok(failureLines[0].includes('Telegram sendMessage failed: simulated'),
+    'the actual error reason is logged, not a generic message');
+  // ...and recorded for the operator, since logs are not always reachable.
+  const groupNotify = bot.status().lastGroupNotify;
+  assert.strictEqual(groupNotify.kind, 'customer-message');
+  assert.strictEqual(groupNotify.sent, false);
+  assert.strictEqual(groupNotify.skipped, false);
+  assert.ok(groupNotify.error, 'the operator status carries the failure reason');
+  assert.strictEqual(bot.getStats().groupNotificationsFailed >= 1, true);
   assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never appears in logs');
 });
 
