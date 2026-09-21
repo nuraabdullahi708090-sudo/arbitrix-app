@@ -337,9 +337,9 @@ test('handover: the yield helper never implies a stop (no pause entry, no pause 
   assert.ok(!/syncBotSessionWithServer/.test(helper), 'a yield never ends the server session');
   assert.ok(!/updateStatus\(false\)/.test(helper));
   assert.ok(!/botStop/.test(helper), 'no stop sound on a yield');
-  // ...and all three worker-owned transitions use it, so they cannot diverge.
-  assert.strictEqual((stripComments(INDEX).match(/adoptWorkerOwnership\(\)/g) || []).length, 4,
-    'definition + 409 yield + fresh-tab adoption + startBot handover');
+  // ...and all worker-owned transitions use it, so they cannot diverge.
+  assert.strictEqual((stripComments(INDEX).match(/adoptWorkerOwnership\(\)/g) || []).length, 5,
+    'definition + 409 yield + fresh-tab adoption + startBot handover + sync-loop worker discovery');
 });
 
 test('handover: the server guard is heartbeat-based and fails OPEN', () => {
