@@ -31,6 +31,20 @@
 
 const crypto = require('crypto');
 
+const SupportGuidelines = require('./support/SupportGuidelines');
+const telegramI18n = require('./telegram-i18n');
+const {
+  DEFAULT_LANGUAGE,
+  TELEGRAM_LANGUAGES,
+  normalizeLanguage,
+  languageName,
+  nativeLanguageName,
+  parseLanguageCallback,
+  languageKeyboard,
+  t: tCustomer,
+  tOperator
+} = telegramI18n;
+
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
 
@@ -57,9 +71,11 @@ const DIRECTION_AGENT = 'agent';       // human support-agent reply
  * the ticket is never lost. This message is the courtesy half of that trade-off
  * and touches no database.
  */
-const STORAGE_DEGRADED_TEXT =
-  'We received your message. Our support system is temporarily unavailable, so ' +
-  'our team may take longer than usual to reply.';
+// Alias of the ENGLISH dictionary entry, so the exported constant and the
+// localized dictionary can never drift. Used for an ENGLISH customer, or when the
+// customer's language cannot be read (which is the common case here: this message
+// is a consequence of storage failing).
+const STORAGE_DEGRADED_TEXT = tCustomer(DEFAULT_LANGUAGE, 'storageDegraded');
 
 /**
  * Map a PostgREST/Postgres error code to a plain-English cause and remedy.
@@ -134,13 +150,10 @@ function classifyStorageError(error) {
   return { code: code || null, cause: 'unknown', remedy: 'Read the captured message in the delivery trace.' };
 }
 
-const USER_HELP_TEXT = [
-  'Arbitrix Support',
-  '',
-  'Send your question as a normal message and a support agent will reply here.',
-  '/escalate - request a human agent',
-  '/chatid - show this chat ID'
-].join('\n');
+// The bot's fixed customer strings are OWNED by services/telegram-i18n.js, which
+// holds the en/pt/ar dictionary. These exported constants are ALIASES of the
+// ENGLISH entries, so the dictionary and the exported values can never drift.
+const USER_HELP_TEXT = tCustomer(DEFAULT_LANGUAGE, 'help');
 
 // Sent to the customer for EVERY ordinary (non-command) message. It both
 // acknowledges the message and guides the customer, including the /escalate
@@ -148,9 +161,8 @@ const USER_HELP_TEXT = [
 // just been created - which left customers with no reply at all whenever their
 // conversation already existed (e.g. created by /chatid or /escalate) and for
 // every message after their first.
-const CUSTOMER_GUIDE_TEXT =
-  'Thanks for contacting Arbitrix Support. Please describe your issue, and a support agent will assist you here. You can also use /escalate to request a human agent.';
-const ESCALATION_ACK = 'Your request has been flagged for a human agent. A member of the support team will follow up in this chat.';
+const CUSTOMER_GUIDE_TEXT = tCustomer(DEFAULT_LANGUAGE, 'acknowledgement');
+const ESCALATION_ACK = tCustomer(DEFAULT_LANGUAGE, 'escalationAck');
 
 // Stage 2: the AI support layer answers ordinary customer messages from the
 // approved knowledge base (services/support/SupportAIService.js). It is injected
@@ -604,6 +616,40 @@ function routeUpdate(update, config) {
   const notifyTarget = resolveNotifyTarget(cfg.notifyTarget);
   if (!update || typeof update !== 'object') return { kind: 'ignore', reason: 'no-update' };
 
+  // ------------------------------------------------------------- callbacks
+  // An inline-keyboard press (currently only /language). Accepted ONLY when the
+  // press came from a PRIVATE chat AND that chat belongs to the user who pressed
+  // it (chat.id === from.id). Because the conversation is then resolved from the
+  // presser's OWN chat id, a press can never address somebody else's
+  // conversation - no caller-supplied conversation identifier is trusted.
+  if (update.callback_query) {
+    const query = update.callback_query;
+    const queryMessage = query.message || null;
+    const queryChat = queryMessage && queryMessage.chat ? queryMessage.chat : null;
+    const queryFrom = query.from || {};
+    if (!queryChat || queryChat.id === undefined || queryChat.id === null) {
+      return { kind: 'ignore', reason: 'callback-no-chat' };
+    }
+    if (queryChat.type !== 'private') return { kind: 'ignore', reason: 'callback-not-private' };
+    const queryChatId = String(queryChat.id);
+    const queryFromId = queryFrom.id === undefined || queryFrom.id === null ? null : String(queryFrom.id);
+    if (queryFromId === null || queryFromId !== queryChatId) {
+      return { kind: 'ignore', reason: 'callback-chat-mismatch' };
+    }
+    return {
+      kind: 'callback',
+      chatId: queryChatId,
+      chatType: 'private',
+      fromId: queryFromId,
+      isAdmin: adminIds.indexOf(queryFromId) !== -1,
+      message: queryMessage,
+      text: null,
+      command: null,
+      callbackId: query.id === undefined || query.id === null ? null : String(query.id),
+      callbackData: typeof query.data === 'string' ? query.data : null
+    };
+  }
+
   const message = update.message || update.edited_message;
   if (!message || !message.chat) return { kind: 'ignore', reason: 'no-message' };
 
@@ -704,33 +750,54 @@ function customerLabel(conversation, from) {
  * the customer handle, the conversation number (the documented /reply handle),
  * the raw chat id (also accepted by /reply) and the customer's message.
  */
-function buildForwardText(conversation, chatId, name, text) {
-  return [
-    '🔔 New Customer Message',
+function buildForwardText(conversation, chatId, name, text, extras) {
+  const e = extras || {};
+  const language = normalizeLanguage(e.language);
+  const lines = [
+    tOperator('notifyTitle'),
     '',
     `Customer: ${name || 'unknown'}`,
     `Conversation: #${conversation.id}`,
     `Chat ID: ${chatId}`,
-    '',
-    'Message:',
-    text,
-    '',
-    `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`
-  ].join('\n');
+    tOperator('notifyLanguage', { language: languageName(language) }),
+    ''
+  ];
+  if (language === DEFAULT_LANGUAGE) {
+    // The original is already English, so a "translation" would be a no-op and
+    // is deliberately omitted (this also keeps the English notice unchanged).
+    lines.push(tOperator('notifyMessage'), text);
+  } else {
+    // The ORIGINAL is always preserved and shown FIRST; the English translation
+    // is additive and is explicitly marked unavailable when we cannot produce it.
+    lines.push(tOperator('notifyOriginal', { language: languageName(language) }), text, '');
+    lines.push(tOperator('notifyTranslation'));
+    lines.push(e.translation || tOperator('notifyNoTranslation'));
+  }
+  lines.push('', `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`);
+  return lines.join('\n');
 }
 
 /** Internal operator notification for an escalation request. */
-function buildEscalationNotice(conversation, route, reason) {
+function buildEscalationNotice(conversation, route, reason, extras) {
+  const e = extras || {};
   const from = route && route.message ? route.message.from : null;
-  return truncateForTelegram([
+  const language = normalizeLanguage(e.language);
+  const lines = [
     '⚠️ Escalation requested',
     `Conversation: #${conversation.id}`,
     `Customer: ${customerLabel(conversation, from)}`,
     `Chat ID: ${route ? route.chatId : conversation.telegram_chat_id}`,
-    `Reason: ${reason}`,
-    '',
-    `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`
-  ].join('\n'));
+    tOperator('notifyLanguage', { language: languageName(language) })
+  ];
+  if (language === DEFAULT_LANGUAGE) {
+    lines.push(`Reason: ${reason}`);
+  } else {
+    lines.push(tOperator('notifyOriginal', { language: languageName(language) }), reason, '');
+    lines.push(tOperator('notifyTranslation'));
+    lines.push(e.translation || tOperator('notifyNoTranslation'));
+  }
+  lines.push('', `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`);
+  return truncateForTelegram(lines.join('\n'));
 }
 
 /** Telegram Bot API client. The token lives only inside the request URL. */
@@ -811,6 +878,16 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
     },
     getMe() {
       return call('getMe', {});
+    },
+    /**
+     * Acknowledge an inline-keyboard press, which is what stops Telegram leaving
+     * the button spinning. `options.text` shows a short toast to the user.
+     */
+    answerCallbackQuery(callbackQueryId, options) {
+      return call('answerCallbackQuery', Object.assign(
+        { callback_query_id: callbackQueryId },
+        options || {}
+      ));
     },
     getLastCall() {
       return lastCall;
@@ -949,7 +1026,7 @@ function planWebhookRegistration(webhookSummary, expectedUrl) {
  *   text. It receives ONLY the customer's message text and returns a string;
  *   it has no database, trading, withdrawal or account access.
  */
-function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI }) {
+function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI, translator }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -957,6 +1034,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // Optional AI answerer (Stage 2). Absent/null => AI off => standard guide text.
   // It is only ever handed the customer's message text (see composeCustomerReply).
   const ai = supportAI && typeof supportAI.ask === 'function' ? supportAI : null;
+  // Optional TRANSLATION layer (see services/support/SupportTranslator.js). It is
+  // independent of the answering layer: with `translator` absent, non-English
+  // customers still get localized fixed strings, and English operator replies are
+  // sent untranslated WITH an explicit notice to the operator.
+  const translate = translator && typeof translator.fromEnglish === 'function' ? translator : null;
   const adminIds = Array.isArray(cfg.adminIds) ? cfg.adminIds.map(String) : [];
   // 'admins' (default) delivers one private message per TELEGRAM_ADMIN_IDS id;
   // 'group' is the legacy support-group path kept for revert.
@@ -1017,7 +1099,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     aiEnabled: Boolean(ai),
     aiReplies: 0,
     aiHandoffs: 0,
-    aiFailures: 0
+    aiFailures: 0,
+    // Multilingual support. Counters only - never a message, a chat id or a key.
+    languagesSupported: TELEGRAM_LANGUAGES.length,
+    languageChanges: 0,
+    languageRejected: 0,
+    lastLanguage: null,
+    translatorEnabled: Boolean(translate),
+    translationsSucceeded: 0,
+    translationsFailed: 0,
+    lastTranslationReason: null,
+    adminRepliesTranslated: 0,
+    // Cases where the AI answered in the wrong language (Arabic script check) or
+    // the approved English text could not be localized. Visible so a language
+    // regression is observable rather than silent.
+    aiLanguageMisses: 0
   };
 
   const scrub = (message) => String(message === undefined || message === null ? '' : message)
@@ -1112,6 +1208,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // it. Booleans/name only - never an API key or any configuration value.
       supportAIEnabled: Boolean(ai),
       aiProvider: ai && typeof ai.providerName === 'function' ? ai.providerName() : null,
+      // Multilingual support: the accepted set, and whether a translation provider
+      // is wired in. Booleans/names/counts only - never an API key.
+      languagesSupported: TELEGRAM_LANGUAGES.slice(),
+      translationEnabled: Boolean(translate),
+      translationProvider: translate && typeof translate.describe === 'function'
+        ? translate.describe().provider
+        : null,
       // Last Telegram API call outcome (sendMessage status + Telegram's own
       // description) - token scrubbed, no chat id, no message text.
       lastApiCall: transport.getLastCall ? transport.getLastCall() : null,
@@ -1365,9 +1468,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       degradedAcks.remember(id);
     }
     try {
+      // Localized when we can still READ the language (a write-only failure, e.g.
+      // RLS on insert); a best-effort read that fails leaves English, which is the
+      // documented fallback for an unreadable language.
+      const language = await readConversationLanguage(route.chatId);
       // `stage: null`: this reply is a consequence of the storage failure, so it
       // must not replace the storage stage in the trace.
-      await replyToChat(route.chatId, STORAGE_DEGRADED_TEXT, { stage: null });
+      await replyToChat(route.chatId, tCustomer(language, 'storageDegraded'), { stage: null });
       return true;
     } catch (error) {
       warn(`degraded-storage acknowledgement failed: ${scrub(error && error.message ? error.message : error)}`);
@@ -1410,26 +1517,327 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * Any failure (provider error, empty answer) falls back to the standard text,
    * so the customer is never left without a reply.
    */
-  async function composeCustomerReply(text) {
-    if (!ai) return CUSTOMER_GUIDE_TEXT;
-    // A disabled service must never change customer-visible behaviour.
-    if (typeof ai.isEnabled === 'function' && !ai.isEnabled()) return CUSTOMER_GUIDE_TEXT;
+  /**
+   * Compose the customer-facing reply for ONE ordinary message.
+   *
+   * ENGLISH customers keep the pre-existing path EXACTLY (the AI answer verbatim,
+   * else CUSTOMER_GUIDE_TEXT), so this release cannot change what an English
+   * customer sees.
+   *
+   * NON-ENGLISH customers never receive English text:
+   *   - a GENERATED answer is already in their language, because the AI receives
+   *     an explicit highest-priority language directive; for Arabic the script is
+   *     additionally verified (deterministic), so a model that ignored the
+   *     directive is caught instead of being sent;
+   *   - APPROVED knowledge text (a guardrail entry, or the approved answer used
+   *     because the provider failed) is TRANSLATED, because the language changes
+   *     while the facts must not;
+   *   - the fixed fallbacks come from the localized dictionary.
+   */
+  async function composeCustomerReply(language, text) {
+    const lang = normalizeLanguage(language);
+    const question = String(text === null || text === undefined ? '' : text)
+      .slice(0, SUPPORT_AI_MAX_QUESTION_CHARS);
+
+    if (lang === DEFAULT_LANGUAGE) {
+      if (!ai) return CUSTOMER_GUIDE_TEXT;
+      // A disabled service must never change customer-visible behaviour.
+      if (typeof ai.isEnabled === 'function' && !ai.isEnabled()) return CUSTOMER_GUIDE_TEXT;
+      try {
+        markStage('support-ai');
+        const result = await ai.ask(question, { language: DEFAULT_LANGUAGE });
+        if (result && typeof result.answer === 'string' && result.answer.trim().length > 0) {
+          stats.aiReplies += 1;
+          if (result.needsHuman) stats.aiHandoffs += 1;
+          return result.answer.trim();
+        }
+        stats.aiFailures += 1;
+      } catch (error) {
+        // The AI must never be able to silence support: log and fall back.
+        stats.aiFailures += 1;
+        warn(`support AI failed; sending the standard acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
+      }
+      return CUSTOMER_GUIDE_TEXT;
+    }
+
+    // ----- non-English customers ------------------------------------------
+    if (!ai || (typeof ai.isEnabled === 'function' && !ai.isEnabled())) {
+      // AI support is off/disabled: the localized fixed acknowledgement, never the
+      // English guide text.
+      return tCustomer(lang, 'acknowledgement');
+    }
+
+    let outcome = null;
     try {
       markStage('support-ai');
-      const question = String(text === null || text === undefined ? '' : text).slice(0, SUPPORT_AI_MAX_QUESTION_CHARS);
-      const result = await ai.ask(question);
-      if (result && typeof result.answer === 'string' && result.answer.trim().length > 0) {
-        stats.aiReplies += 1;
-        if (result.needsHuman) stats.aiHandoffs += 1;
-        return result.answer.trim();
-      }
-      stats.aiFailures += 1;
+      outcome = await ai.ask(question, { language: lang });
     } catch (error) {
-      // The AI must never be able to silence support: log and fall back.
       stats.aiFailures += 1;
-      warn(`support AI failed; sending the standard acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
+      warn(`support AI failed; sending the localized acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
+      return tCustomer(lang, 'acknowledgement');
     }
-    return CUSTOMER_GUIDE_TEXT;
+
+    if (outcome && typeof outcome.answer === 'string' && outcome.answer.trim().length > 0) {
+      stats.aiReplies += 1;
+      if (outcome.needsHuman) stats.aiHandoffs += 1;
+      const answer = outcome.answer.trim();
+
+      // A GENERATED answer (kind 'answer', not the provider-failure fallback) is
+      // expected to be in the customer's language already.
+      const generated = outcome.kind === 'answer' && outcome.reason !== 'provider-fallback';
+      if (generated) {
+        if (SupportGuidelines.hasExpectedScript(answer, lang)) return answer;
+        stats.aiLanguageMisses += 1;
+        warn('support AI answered outside the selected language (' + lang + '); handing off instead');
+        return tCustomer(lang, 'uncertain');
+      }
+
+      // APPROVED English text: localize it, or fall back to a localized safe
+      // message rather than sending English.
+      const localized = await translateForCustomer(answer, lang);
+      if (localized) return localized;
+      stats.aiLanguageMisses += 1;
+      return tCustomer(lang, 'uncertain');
+    }
+
+    stats.aiFailures += 1;
+    return tCustomer(lang, localizedFallbackKey(outcome));
+  }
+
+  // ===========================================================================
+  // Language support (dictionary + metadata live in services/telegram-i18n.js)
+  // ===========================================================================
+
+  /**
+   * The conversation's language, with an EXPLICIT application-code fallback.
+   *
+   * A missing value, a NULL, an unsupported code or a storage failure all
+   * resolve to English HERE - never through a database default, which the applied
+   * schema does not guarantee.
+   *
+   * READ-ONLY and best-effort, because the storage-independent commands
+   * (/start, /help, /chatid, /language) use it: a database problem must degrade
+   * the LANGUAGE, never silence the bot. For the same reason a failure here is
+   * logged but NOT counted as a storage failure - that counter must keep meaning
+   * "a write the customer depended on failed".
+   */
+  async function readConversationLanguage(chatId) {
+    try {
+      const conversation = await store.getConversationByChatId(chatId);
+      return normalizeLanguage(conversation && conversation.language);
+    } catch (error) {
+      warn('conversation language could not be read; using ' + DEFAULT_LANGUAGE + ': ' +
+        scrub(error && error.message ? error.message : error));
+      return DEFAULT_LANGUAGE;
+    }
+  }
+
+  /** Language of a conversation already in hand (no extra query). */
+  function languageOf(conversation) {
+    return normalizeLanguage(conversation && conversation.language);
+  }
+
+  /** Persist the customer's choice and keep the in-memory row consistent. */
+  async function persistConversationLanguage(conversation, language) {
+    if (typeof store.setConversationLanguage !== 'function') {
+      throw new Error('the store does not implement setConversationLanguage');
+    }
+    await store.setConversationLanguage({ conversationId: conversation.id, language });
+    if (conversation && typeof conversation === 'object') conversation.language = language;
+  }
+
+  /** Send the inline language picker. */
+  async function sendLanguagePicker(chatId, language) {
+    markStage('reply:language');
+    const sent = await transport.sendMessage(chatId, tCustomer(language, 'languagePrompt'), {
+      reply_markup: languageKeyboard()
+    });
+    stats.repliesSent += 1;
+    return sent;
+  }
+
+  /** Acknowledge a button press so Telegram stops showing it as loading. */
+  async function answerCallback(route, text) {
+    if (!route.callbackId || typeof transport.answerCallbackQuery !== 'function') return;
+    try {
+      await transport.answerCallbackQuery(route.callbackId, text ? { text } : {});
+    } catch (error) {
+      // Cosmetic and never fatal: the customer still gets the durable
+      // confirmation message below.
+      warn('answerCallbackQuery failed: ' + scrub(error && error.message ? error.message : error));
+    }
+  }
+
+  /**
+   * Handle a `lang:<code>` inline-keyboard press.
+   *
+   * Order: identify the conversation -> validate the language -> persist ->
+   * acknowledge the callback -> confirm in the NEW language. The conversation is
+   * always resolved from the presser's OWN chat id (see routeUpdate), so a press
+   * can only ever change the presser's own language.
+   */
+  async function handleLanguageCallback(route) {
+    const requested = parseLanguageCallback(route.callbackData);
+    const from = (route.message && route.message.from) || {};
+
+    let conversation = null;
+    try {
+      markStage('storage:language-conversation');
+      const upserted = await store.upsertConversation({
+        chatId: route.chatId,
+        telegramUserId: route.fromId,
+        username: from.username || null,
+        displayName: telegramDisplayName(from)
+      });
+      conversation = upserted.conversation;
+    } catch (error) {
+      noteStorageFailure(error);
+      await answerCallback(route, null);
+      throw error;
+    }
+
+    if (!requested) {
+      // Unknown payload (a bare code, a wrong prefix, junk): change NOTHING, and
+      // never echo the caller-supplied value back to the chat.
+      const current = languageOf(conversation);
+      stats.languageRejected += 1;
+      await answerCallback(route, tCustomer(current, 'languageUnsupported', {
+        // The NATIVE name, because this string is shown to the customer in their
+        // own current language ("Vou continuar respondendo em Portugues").
+        language: nativeLanguageName(current)
+      }));
+      return { handled: false, reason: 'unsupported-language' };
+    }
+
+    try {
+      markStage('storage:set-language');
+      await persistConversationLanguage(conversation, requested);
+    } catch (error) {
+      noteStorageFailure(error);
+      await answerCallback(route, null);
+      throw error;
+    }
+
+    stats.languageChanges += 1;
+    stats.lastLanguage = requested;
+    const confirmation = tCustomer(requested, 'languageSet');
+    await answerCallback(route, confirmation);
+    await sendOutbound(conversation, confirmation);
+    return { handled: true, action: 'language', language: requested };
+  }
+
+  /**
+   * Translate a CUSTOMER message into English FOR THE OPERATOR ONLY.
+   *
+   * The operator surface is English by design. This never reaches the customer,
+   * never throws, and a failure is reported as `{ ok: false }` so the notice can
+   * say the translation is unavailable while still showing the ORIGINAL.
+   */
+  async function translateForOperator(text, language) {
+    if (language === DEFAULT_LANGUAGE) return { ok: false, text: null, reason: 'not-needed' };
+    if (!translate || typeof translate.toEnglish !== 'function') {
+      stats.translationsFailed += 1;
+      stats.lastTranslationReason = 'unavailable';
+      return { ok: false, text: null, reason: 'unavailable' };
+    }
+    markStage('translate:to-english');
+    const result = await translate.toEnglish(text, language);
+    if (result && result.ok && typeof result.text === 'string' && result.text.trim()) {
+      stats.translationsSucceeded += 1;
+      return { ok: true, text: result.text.trim(), reason: null };
+    }
+    stats.translationsFailed += 1;
+    stats.lastTranslationReason = (result && result.reason) || 'unavailable';
+    return { ok: false, text: null, reason: (result && result.reason) || 'unavailable' };
+  }
+
+  /**
+   * Translate CUSTOMER-FACING text into the customer's language.
+   *
+   * Returns null (never English, never unvalidated text) when translation is
+   * unavailable or the translation layer withheld the output, so the caller can
+   * fall back to a localized safe message.
+   */
+  async function translateForCustomer(text, language) {
+    if (!translate || typeof translate.fromEnglish !== 'function') return null;
+    markStage('translate:to-customer');
+    const result = await translate.fromEnglish(text, language);
+    if (result && result.ok && typeof result.text === 'string' && result.text.trim()
+      && SupportGuidelines.hasExpectedScript(result.text, language)) {
+      stats.translationsSucceeded += 1;
+      return result.text.trim();
+    }
+    stats.translationsFailed += 1;
+    stats.lastTranslationReason = (result && result.reason) || 'unavailable';
+    return null;
+  }
+
+  /** English (operator) extras for a notice: language + translation if available. */
+  async function operatorNoticeExtras(text, language) {
+    if (language === DEFAULT_LANGUAGE) return { language, translation: null };
+    const translated = await translateForOperator(text, language);
+    return { language, translation: translated.ok ? translated.text : null };
+  }
+
+  /**
+   * Translate an operator's ENGLISH reply into the customer's language.
+   *
+   * Returns the text to SEND plus an optional ENGLISH note for the operator. The
+   * reply is never dropped and never silently mistranslated: when translation is
+   * unavailable, or the language-aware safety check withheld the output, the
+   * operator's own English text is sent and the operator is told why.
+   */
+  async function translateAdminReply(conversation, text) {
+    const language = languageOf(conversation);
+    if (language === DEFAULT_LANGUAGE) return { text, notice: null, translated: false };
+    if (!translate || typeof translate.fromEnglish !== 'function') {
+      stats.translationsFailed += 1;
+      stats.lastTranslationReason = 'unavailable';
+      return {
+        text,
+        notice: tOperator('translateUnavailableToAdmin', { language: languageName(language) }),
+        translated: false
+      };
+    }
+    markStage('translate:admin-reply');
+    const result = await translate.fromEnglish(text, language);
+    if (result && result.ok && typeof result.text === 'string' && result.text.trim()
+      && SupportGuidelines.hasExpectedScript(result.text, language)) {
+      stats.translationsSucceeded += 1;
+      stats.adminRepliesTranslated += 1;
+      return { text: result.text.trim(), notice: null, translated: true };
+    }
+    stats.translationsFailed += 1;
+    const reason = (result && result.reason) || 'unavailable';
+    stats.lastTranslationReason = reason;
+    const notice = reason === 'unsafe'
+      ? tOperator('translateBlockedToAdmin', {
+        language: languageName(language),
+        reason: (result.violations || []).join(', ') || 'policy'
+      })
+      : tOperator('translateUnavailableToAdmin', { language: languageName(language) });
+    return { text, notice, translated: false };
+  }
+
+  /**
+   * Map an AI outcome to the localized fixed string that replaces its English
+   * fallback. Only used for NON-English customers: the English path returns the
+   * AI layer's own text verbatim, so English behaviour is unchanged.
+   */
+  function localizedFallbackKey(outcome) {
+    const reason = outcome && outcome.reason ? String(outcome.reason) : '';
+    if (reason === 'empty') return 'promptForQuestion';
+    if (reason === 'secret-shared') return 'secretShared';
+    if (reason === 'secret-request') return 'secretRefusal';
+    if (reason === 'status_check') return 'paymentStatus';
+    const byKind = {
+      handoff: 'humanHandoff',
+      refusal: 'secretRefusal',
+      unknown: 'uncertain',
+      disabled: 'aiDisabled',
+      guardrail: 'uncertain'
+    };
+    return (outcome && byKind[outcome.kind]) || 'uncertain';
   }
 
   async function handleUserUpdate(route, update) {
@@ -1440,15 +1848,27 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // database problem. Booking is best-effort and logged on failure.
     if (command && (command.name === 'start' || command.name === 'help')) {
       markStage('reply:help');
-      await replyToChat(route.chatId, USER_HELP_TEXT);
+      // Localized, and still STORAGE-INDEPENDENT: a failed language read degrades
+      // to English instead of silencing the bot.
+      await replyToChat(route.chatId, tCustomer(await readConversationLanguage(route.chatId), 'help'));
       await rememberConversation(route, from);
       return { handled: true, action: 'help' };
     }
 
     if (command && command.name === 'chatid') {
-      await replyToChat(route.chatId, `Your chat ID is: ${route.chatId}`);
+      const chatIdLanguage = await readConversationLanguage(route.chatId);
+      await replyToChat(route.chatId, tCustomer(chatIdLanguage, 'chatId', { id: route.chatId }));
       await rememberConversation(route, from);
       return { handled: true, action: 'chatid' };
+    }
+
+    if (command && command.name === 'language') {
+      // Same storage-independent shape as /start and /help: the picker is always
+      // shown - in the current language when it can be read, in English when not.
+      // The selection itself is persisted by the callback handler, never here.
+      await sendLanguagePicker(route.chatId, await readConversationLanguage(route.chatId));
+      await rememberConversation(route, from);
+      return { handled: true, action: 'language' };
     }
 
     let conversation = null;
@@ -1506,18 +1926,20 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // Same single direct-delivery path as a new customer message. The previous
       // inline copy swallowed Telegram's reason entirely (it logged a bare
       // "escalation notice failed"), which made this failure undiagnosable.
+      const escalationLanguage = languageOf(conversation);
       await notifySupport({
         conversation,
         kind: 'escalation',
-        text: buildEscalationNotice(conversation, route, reason)
+        text: buildEscalationNotice(conversation, route, reason,
+          await operatorNoticeExtras(reason, escalationLanguage))
       });
-      await sendOutbound(conversation, ESCALATION_ACK);
+      await sendOutbound(conversation, tCustomer(escalationLanguage, 'escalationAck'));
       return { handled: true, action: 'escalate' };
     }
 
     const text = route.text;
     if (!text) {
-      await sendOutbound(conversation, 'Please send a text message so our support team can help.');
+      await sendOutbound(conversation, tCustomer(languageOf(conversation), 'textOnly'));
       return { handled: true, action: 'unsupported-content' };
     }
 
@@ -1550,16 +1972,23 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // A send failure propagates (HTTP 500) so Telegram redelivers instead of
     // dropping the message; a successfully processed update is recorded in the
     // deduper, so a redelivery can never duplicate this reply.
-    await sendOutbound(conversation, await composeCustomerReply(text));
+    // The conversation language is authoritative for the reply; it comes from the
+    // stored row (never from the message text, so an English word cannot switch it).
+    const language = languageOf(conversation);
+    await sendOutbound(conversation, await composeCustomerReply(language, text));
 
     // Notify the operators through the single direct-delivery path. This
     // runs AFTER the customer's reply above and can never throw, so a broken,
     // unauthorized or unreachable recipient cannot affect the customer in any way.
     markStage('notifyOperators');
+    // The OPERATOR notice is ENGLISH regardless of the customer's language: the
+    // original message is always preserved, and an English translation is added
+    // when one is available (with an explicit marker when it is not).
     const notice = await notifySupport({
       conversation,
       kind: 'customer-message',
-      text: buildForwardText(conversation, conversation.telegram_chat_id, customerLabel(conversation, from), text)
+      text: buildForwardText(conversation, conversation.telegram_chat_id, customerLabel(conversation, from), text,
+        await operatorNoticeExtras(text, language))
     });
     if (notice.sent) {
       // Map EVERY delivered notification id -> customer chat id, so any admin can
@@ -1650,10 +2079,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'reply-missing' };
           }
+          // ONLY the reply TEXT is translated: the command itself was parsed
+          // above and is never sent to the customer or translated.
+          const translated = await translateAdminReply(conversation, body);
           // A human operator typed this -> 'agent', never 'bot'.
-          await sendOutbound(conversation, body, DIRECTION_AGENT);
-          await transport.sendMessage(route.chatId, `Sent to chat ${conversation.telegram_chat_id}.`);
-          return { handled: true, action: 'reply' };
+          await sendOutbound(conversation, translated.text, DIRECTION_AGENT);
+          await transport.sendMessage(route.chatId, translated.notice
+            ? `Sent to chat ${conversation.telegram_chat_id}. ${translated.notice}`
+            : `Sent to chat ${conversation.telegram_chat_id}.`);
+          return { handled: true, action: 'reply', translated: translated.translated };
         }
         case 'close': {
           const target = command.args[0];
@@ -1701,6 +2135,12 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           await transport.sendMessage(route.chatId, `Conversation #${conversation.id} escalated.`);
           return { handled: true, action: 'escalate' };
         }
+        case 'language': {
+          // An operator's private chat is a conversation too, so the picker works
+          // there as well instead of the command being silently ignored.
+          await sendLanguagePicker(route.chatId, await readConversationLanguage(route.chatId));
+          return { handled: true, action: 'language' };
+        }
         default:
           return { handled: false, reason: 'unknown-command' };
       }
@@ -1714,8 +2154,18 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       const conversation = await store.getConversationByChatId(targetChatId);
       if (!conversation) return { handled: false, reason: 'reply-conversation-missing' };
       // A human agent replied to the forwarded message -> 'agent', never 'bot'.
-      await sendOutbound(conversation, route.text, DIRECTION_AGENT);
-      return { handled: true, action: 'admin-reply' };
+      // The operator writes English; the customer receives their own language.
+      const translated = await translateAdminReply(conversation, route.text);
+      await sendOutbound(conversation, translated.text, DIRECTION_AGENT);
+      if (translated.notice) {
+        // English notice to the operator only - never a customer-facing message.
+        try {
+          await transport.sendMessage(route.chatId, translated.notice);
+        } catch (error) {
+          warn('operator notice could not be delivered: ' + scrub(error && error.message ? error.message : error));
+        }
+      }
+      return { handled: true, action: 'admin-reply', translated: translated.translated };
     }
 
     return { handled: false, reason: 'group-no-action' };
@@ -1748,9 +2198,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     }
 
     try {
-      const result = (route.kind === 'group' || route.kind === 'admin')
-        ? await handleGroupUpdate(route, update)
-        : await handleUserUpdate(route, update);
+      const result = route.kind === 'callback'
+        ? await handleLanguageCallback(route)
+        : (route.kind === 'group' || route.kind === 'admin')
+          ? await handleGroupUpdate(route, update)
+          : await handleUserUpdate(route, update);
       stats.processed += 1;
       stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
       stats.lastReason = (result && result.reason) || null;

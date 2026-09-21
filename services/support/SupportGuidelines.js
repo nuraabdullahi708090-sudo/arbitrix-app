@@ -163,8 +163,13 @@ function isCredentialRequest(text) {
  *
  * Negation-aware: "we never ask for your password" and "does not guarantee
  * profits" are disclaimers and must not be reported as violations.
+ *
+ * LANGUAGE AWARENESS (additive): pass `{ language: 'pt' | 'ar' }` to also apply
+ * the multilingual denylist for the same hard rules. Called with no options (the
+ * pre-existing signature) the behaviour is byte-identical to before, which is
+ * what keeps the English pipeline unchanged.
  */
-function assertSafeAnswer(text) {
+function assertSafeAnswer(text, options) {
   const s = String(text === null || text === undefined ? '' : text);
   const violations = [];
   if (!s) return ['answer is empty'];
@@ -177,7 +182,201 @@ function assertSafeAnswer(text) {
   PAYMENT_CLAIM_PATTERNS.forEach((re, i) => {
     if (firstUnnegatedMatchIndex(s, re) !== -1) violations.push('payment-claim:' + i);
   });
+
+  const language = baseLanguage(options && options.language);
+  if (language !== 'en') {
+    const rules = MULTILINGUAL_FORBIDDEN_PATTERNS[language] || [];
+    rules.forEach((rule) => {
+      if (multilingualMatchIndex(s, rule, language) !== -1) {
+        violations.push(language + ':' + rule.name);
+      }
+    });
+  }
+
   return violations;
+}
+
+// ===========================================================================
+// Multilingual support (en / pt / ar)
+// ===========================================================================
+
+/** Reduce any language tag ("pt-BR", " AR ") to its base code; default 'en'. */
+function baseLanguage(language) {
+  const value = String(language === null || language === undefined ? '' : language)
+    .trim().toLowerCase().split(/[-_]/)[0];
+  return value || 'en';
+}
+
+/**
+ * Names used ONLY inside model prompts (the AI layer stays transport- and
+ * locale-agnostic: it never imports the Telegram dictionary).
+ */
+const LANGUAGE_NAMES = Object.freeze({
+  en: 'English',
+  pt: 'Brazilian Portuguese',
+  ar: 'Modern Standard Arabic'
+});
+
+/**
+ * True when a negation marker sits shortly BEFORE the match.
+ *
+ * A denial ("we never ask for your password", "não podemos garantir lucros")
+ * is a disclaimer, not a violation - the same intent as the English
+ * `isNegatedAt` helper, kept deliberately narrow so it can only ever WHITELIST
+ * a statement, never manufacture a violation.
+ */
+function negativeContextBefore(text, index, language) {
+  const window = text.slice(Math.max(0, index - 34), index).toLowerCase();
+  return language === 'pt'
+    ? /(\bn[ãa]o\b|\bnunca\b|\bjamais\b|\bsem\b)/.test(window)
+    : /(لا|لن|ليس|بدون|بلا|دون)/.test(window);
+}
+
+/**
+ * Supplementary denylist for the SAME hard rules the English patterns enforce
+ * (no promised profits, no risk-free claims, no credential requests, no
+ * unverifiable payment claims), expressed as POSITIVE assertions.
+ *
+ * Deliberately a denylist and not a classifier: it catches the phrasings the
+ * model is most likely to produce, fails CLOSED (a match withholds the text),
+ * and is documented as a supplement to - not a parity replacement for - the
+ * English NLU checks. See the limitations note in the delivery report.
+ */
+const MULTILINGUAL_FORBIDDEN_PATTERNS = Object.freeze({
+  pt: Object.freeze([
+    { name: 'guarantee', re: /\b(lucros?|retornos?|ganhos?)\s+(garantid|assegurad)\w*/i },
+    { name: 'guarantee', re: /\bgarantid\w*\s+(lucros?|retornos?|ganhos?)/i },
+    { name: 'risk-free', re: /\b(sem|zero)\s+riscos?\b/i },
+    { name: 'no-loss', re: /\bnunca\s+(vai\s+)?perder\b/i },
+    {
+      name: 'credential-request',
+      re: /\b(envie|enviar|mande|mandar|informe|informar|digite|digitar|compartilhe|compartilhar|forne[çc]a|fornecer|confirme|confirmar|passe|passar)\b[^.!?]{0,40}\b(senhas?|chaves? privadas?|frase de recupera[çc][ãa]o|frases? seed|c[óo]digos? de (uso [úu]nico|verifica[çc][ãa]o|seguran[çc]a|2fa))\b/i
+    },
+    {
+      name: 'payment-claim',
+      re: /\b(dep[óo]sitos?|saques?|pagamentos?)\b[^.!?]{0,30}\b(confirmad\w*|creditad\w*|processad\w*|conclu[íi]d\w*|aprovad\w*|recebid\w*)/i
+    }
+  ]),
+  ar: Object.freeze([
+    { name: 'guarantee', re: /(ربح|أرباح|عوائد|مكاسب)\s*(مضمون|مضمونة)/ },
+    { name: 'guarantee', re: /(مضمون|مضمونة)\s*(الربح|الأرباح|العوائد|المكاسب)/ },
+    { name: 'risk-free', re: /(بدون|بلا|دون)\s*(مخاطر|خطر)/ },
+    { name: 'no-loss', re: /لن\s*(تخسر|تخسري|يخسر)/ },
+    {
+      name: 'credential-request',
+      re: /(شارك|أرسل|ارسل|أدخل|ادخل|قدم|زود|أكد|اكد|اكتب)[^.!؟?]{0,40}(كلمة المرور|كلمات المرور|المفتاح الخاص|المفاتيح الخاصة|عبارة الاسترداد|عبارات الاسترداد|رمز التحقق|رمز 2fa)/
+    },
+    {
+      name: 'payment-claim',
+      re: /(الإيداع|إيداع|السحب|الدفع|المبلغ)[^.!؟?]{0,30}(تم تأكيده|تمت إضافته|تمت معالجته|مكتمل|تم إتمامه)/
+    }
+  ])
+});
+
+/** First NON-negated match index for a multilingual rule, or -1. */
+function multilingualMatchIndex(text, rule, language) {
+  const flags = rule.re.flags.indexOf('g') === -1 ? rule.re.flags + 'g' : rule.re.flags;
+  const g = new RegExp(rule.re.source, flags);
+  let match;
+  let guard = 0;
+  while ((match = g.exec(text)) !== null && guard < 50) {
+    guard += 1;
+    if (!negativeContextBefore(text, match.index, language)) return match.index;
+    if (g.lastIndex === match.index) g.lastIndex += 1;
+  }
+  return -1;
+}
+
+/** True when the text contains Arabic script (used as a hard language check). */
+function isArabicScript(text) {
+  return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/
+    .test(String(text === null || text === undefined ? '' : text));
+}
+
+/**
+ * Verify the output actually looks like the requested language.
+ *
+ * For Arabic this is a HARD, deterministic check (the script is unambiguous), so
+ * a model that ignores the language directive is caught instead of being sent to
+ * the customer. Portuguese cannot be distinguished from English reliably without
+ * a dependency, so it is NOT guessed here - see the limitations note.
+ */
+function hasExpectedScript(text, language) {
+  const value = String(text === null || text === undefined ? '' : text);
+  if (!value.trim()) return false;
+  if (baseLanguage(language) === 'ar') return isArabicScript(value);
+  return true;
+}
+
+/**
+ * Resolve a REQUESTED answer language to one this layer actually supports.
+ *
+ * Anything missing, malformed or not yet supported resolves to English, so a
+ * caller can never make the model answer in a language the platform does not
+ * support (and `outcome.language` can never report an unsupported code).
+ */
+function normalizeAnswerLanguage(language) {
+  const code = baseLanguage(language);
+  return Object.prototype.hasOwnProperty.call(LANGUAGE_NAMES, code) ? code : 'en';
+}
+
+/**
+ * The language directive. HIGH PRIORITY: it is appended as its own labelled
+ * block so the model cannot treat it as one more style preference, and it states
+ * that the selected language is authoritative.
+ */
+function languageInstruction(language) {
+  const code = normalizeAnswerLanguage(language);
+  const name = LANGUAGE_NAMES[code];
+  return [
+    'LANGUAGE RULE (highest priority - overrides every other writing-style rule):',
+    '- Write your ENTIRE answer in ' + name + '.',
+    '- The customer selected ' + name + ' for this conversation. That selection is authoritative and does not change until the customer changes it with /language.',
+    '- Do NOT switch language just because the customer message contains words in another language, an English product term or command, a ticker such as USDT, or a number.',
+    '- Keep every number, amount, currency, percentage, duration, ticker, link and command name EXACTLY as approved: translate the words around them, never the values themselves.',
+    '- Keep the product name "Arbitrix" and the commands (/language, /escalate, /chatid) untranslated.',
+    '- If you cannot say something in ' + name + ', say that in ' + name + ' and offer a human - never fall back to English.'
+  ].join('\n');
+}
+
+/** The full instruction set sent to a provider for a given customer language. */
+function instructionsFor(language) {
+  return SUPPORT_INSTRUCTIONS + '\n\n' + languageInstruction(language);
+}
+
+/**
+ * System instructions for the TRANSLATION layer.
+ *
+ * The translation layer is a separate concern from answering: it must move text
+ * between languages without adding, removing or softening anything. It is told
+ * to return the NO_ANSWER sentinel when it cannot comply, which the caller
+ * treats as "translation unavailable".
+ */
+const TRANSLATION_INSTRUCTIONS = [
+  'You are a professional translator working for Arbitrix customer support.',
+  '',
+  'You translate a single message between English, Brazilian Portuguese and Modern Standard Arabic.',
+  '',
+  'Hard rules - never break these:',
+  '1. Output ONLY the translation. No preamble, no explanation, no notes, no surrounding quotes.',
+  '2. Translate the meaning faithfully. Never add, remove, soften or strengthen anything.',
+  '3. Keep every number, amount, currency symbol, percentage, date, duration and ticker EXACTLY as written.',
+  '4. Keep product names (Arbitrix), network names (TRON, TRC20, USDT) and commands (/language, /escalate, /reply, /chatid) unchanged.',
+  '5. Never introduce promises, guarantees, returns, financial advice, policies, or any request for passwords, private keys, seed phrases, one-time codes or other credentials.',
+  '6. If you cannot translate the message faithfully, reply with exactly NO_ANSWER.'
+].join('\n');
+
+/** Build the user prompt for one translation. */
+function buildTranslationPrompt(fromLanguage, toLanguage, text) {
+  const from = LANGUAGE_NAMES[normalizeAnswerLanguage(fromLanguage)];
+  const to = LANGUAGE_NAMES[normalizeAnswerLanguage(toLanguage)];
+  return [
+    'Translate the message below from ' + from + ' into ' + to + '.',
+    'Reply with the translation only, or with exactly NO_ANSWER if you cannot translate it faithfully.',
+    '',
+    'Message:',
+    String(text === null || text === undefined ? '' : text)
+  ].join('\n');
 }
 
 /**
@@ -263,5 +462,15 @@ module.exports = {
   indexOfUnnegatedPhrase,
   firstUnnegatedMatchIndex,
   findUnsupportedClaims,
-  assertSafeAnswer
+  assertSafeAnswer,
+  LANGUAGE_NAMES,
+  baseLanguage,
+  normalizeAnswerLanguage,
+  languageInstruction,
+  instructionsFor,
+  TRANSLATION_INSTRUCTIONS,
+  buildTranslationPrompt,
+  MULTILINGUAL_FORBIDDEN_PATTERNS,
+  isArabicScript,
+  hasExpectedScript
 };

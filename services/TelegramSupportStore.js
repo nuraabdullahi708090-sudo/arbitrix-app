@@ -133,7 +133,36 @@ function createTelegramSupportStore(supabaseClient) {
   }
 
   /**
+   * Persist the conversation's language (en / pt / ar).
+   *
+   * Uses the EXISTING `telegram_support_conversations.language` column - no
+   * second column is introduced. The caller always passes an explicitly
+   * validated code, and a missing/invalid stored value is resolved to English on
+   * READ in the service, so this never depends on a database default.
+   *
+   * `updated_at` is refreshed like every other write in this store.
+   * @returns {Promise<object|null>} the updated row.
+   */
+  async function setConversationLanguage({ conversationId, language }) {
+    if (conversationId === undefined || conversationId === null) {
+      throw new Error('setConversationLanguage requires a conversationId');
+    }
+    const { data, error } = await supabaseClient
+      .from(CONVERSATIONS)
+      .update({ language, updated_at: new Date().toISOString() })
+      .eq('id', numeric(conversationId))
+      .select('*')
+      .limit(1);
+    if (error) throw storageError('conversation language update', error);
+    const row = Array.isArray(data) ? data[0] : data;
+    return row || null;
+  }
+
+  /**
    * Find-or-create the conversation for a Telegram chat.
+   *
+   * NOTE: the update branch deliberately does NOT write `language`, so a routine
+   * message upsert can never reset a customer's language choice.
    * @returns {Promise<{conversation: object, created: boolean}>}
    */
   async function upsertConversation({ chatId, telegramUserId, username, displayName }) {
@@ -296,6 +325,7 @@ function createTelegramSupportStore(supabaseClient) {
     getConversationById,
     getConversationByChatId,
     upsertConversation,
+    setConversationLanguage,
     insertMessage,
     getLatestMessageByConversation,
     setConversationStatus,
