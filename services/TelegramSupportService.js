@@ -168,19 +168,131 @@ const ADMIN_HELP_TEXT = [
   '/chatid - show this group chat ID'
 ].join('\n');
 
-/** Normalize a Telegram numeric id: strips surrounding quotes and whitespace. */
+/**
+ * Legacy low-level repair: strips surrounding ASCII quotes and whitespace.
+ *
+ * Kept unchanged for callers that want only that repair (it never returns
+ * null). Configuration values should go through
+ * `canonicalizeTelegramChatId()` instead, which additionally folds Unicode
+ * dashes, full-width digits, invisible characters and Unicode quotes, and
+ * validates the result.
+ */
 function normalizeTelegramId(raw) {
   const trimmed = String(raw === null || raw === undefined ? '' : raw).trim();
   return stripSurroundingQuotes(trimmed).trim();
 }
 
-/** Parse the comma-separated TELEGRAM_ADMIN_IDS value into a list of id strings. */
+/**
+ * Characters that render like a minus sign but are not U+002D. Telegram
+ * supergroup ids are negative ("-100..."), so the sign is exactly the
+ * character a paste from a rich-text editor, a PDF, or a CJK input method
+ * mangles. A mangled sign means the configured id can never equal the numeric
+ * id Telegram sends, so the support group is silently never recognised.
+ */
+const CHAT_ID_MINUS_CHARS = new Set([
+  '\u2010', // HYPHEN
+  '\u2011', // NON-BREAKING HYPHEN
+  '\u2012', // FIGURE DASH
+  '\u2013', // EN DASH
+  '\u2014', // EM DASH
+  '\u2015', // HORIZONTAL BAR
+  '\u2043', // HYPHEN BULLET
+  '\u2212', // MINUS SIGN
+  '\u2796', // HEAVY MINUS SIGN
+  '\ufe58', // SMALL EM DASH
+  '\ufe63', // SMALL HYPHEN-MINUS
+  '\uff0d'  // FULLWIDTH HYPHEN-MINUS
+]);
+
+/** Quote characters a paste can wrap an id in (ASCII and common Unicode forms). */
+const CHAT_ID_QUOTE_CHARS = new Set([
+  '"', "'",
+  '\u201a', '\u201e', // low single / low double
+  '\u2018', '\u2019', // curly single
+  '\u201c', '\u201d', // curly double
+  '\u2039', '\u203a', // single guillemets
+  '\u00ab', '\u00bb', // double guillemets
+  '\u300c', '\u300d', // CJK corner brackets
+  '\u300e', '\u300f', // CJK white corner brackets
+  '\ufe41', '\ufe42', // presentation-form corner brackets
+  '\ufe43', '\ufe44', // presentation-form white corner brackets
+  '\uff02', // fullwidth quotation mark
+  '\uff07'  // fullwidth apostrophe
+]);
+
+/**
+ * Invisible characters that survive a copy-paste and silently corrupt an id:
+ * zero-width spaces and joiners, bidi marks and isolates, soft hyphen, word
+ * joiner and BOM (all `Cf`), C0/C1 controls (`Cc`) and any whitespace (`Z*`).
+ * No legitimate Telegram id contains these, so removing them cannot alter one.
+ */
+const CHAT_ID_INVISIBLE_RE = /[\p{Cf}\p{Cc}\p{Zs}\p{Zl}\p{Zp}]/gu;
+
+/** A canonical Telegram chat id: an optional ASCII minus followed by digits. */
+const TELEGRAM_CHAT_ID_FORMAT = /^-?\d+$/;
+
+/** Fold every Unicode minus/dash look-alike to ASCII U+002D. */
+function foldChatIdMinus(value) {
+  let out = '';
+  for (const ch of String(value)) out += CHAT_ID_MINUS_CHARS.has(ch) ? '-' : ch;
+  return out;
+}
+
+/**
+ * Strip surrounding quote padding. Matched pairs, mismatched pairs, doubled
+ * quoting and quote padding separated by whitespace are all removed, because a
+ * legitimate chat id contains no quote character at all.
+ */
+function stripChatIdQuotes(value) {
+  let s = String(value);
+  for (let pass = 0; pass < 5; pass += 1) {
+    if (s.length < 2) break;
+    const first = s.charAt(0);
+    const last = s.charAt(s.length - 1);
+    if (!CHAT_ID_QUOTE_CHARS.has(first) || !CHAT_ID_QUOTE_CHARS.has(last)) break;
+    s = s.slice(1, -1);
+  }
+  return s;
+}
+
+/**
+ * Canonicalize a chat id that came from CONFIGURATION
+ * (`TELEGRAM_SUPPORT_CHAT_ID` / `TELEGRAM_ADMIN_IDS`). Deliberately NOT applied
+ * to ids taken from an incoming Telegram update: Telegram always sends plain
+ * ASCII, so rewriting a live update id could only introduce risk.
+ *
+ * Pipeline: NFKC -> fold Unicode minus look-alikes -> drop invisible/control and
+ * whitespace -> strip surrounding quotes -> validate `^-?\d+$`.
+ *
+ * NFKC is an identity transform on a well-formed id ("-1003306395935" is
+ * unchanged), so a legitimate value is never altered. Returns the canonical id,
+ * or null when no valid id can be recovered (callers treat that as unconfigured
+ * rather than as a value that can never match a real update).
+ */
+function canonicalizeTelegramChatId(raw) {
+  if (raw === null || raw === undefined) return null;
+  let s = String(raw).normalize('NFKC');
+  s = foldChatIdMinus(s);
+  s = s.replace(CHAT_ID_INVISIBLE_RE, '');
+  s = stripChatIdQuotes(s).trim();
+  return TELEGRAM_CHAT_ID_FORMAT.test(s) ? s : null;
+}
+
+/**
+ * Parse the comma-separated TELEGRAM_ADMIN_IDS value into canonical admin ids.
+ *
+ * The whole value is NFKC-folded BEFORE splitting, so a full-width (U+FF0C) or
+ * small (U+FE50) comma from a CJK paste separates entries instead of silently
+ * corrupting one. Unrepairable entries are dropped rather than kept as values
+ * that can never match a real update.
+ */
 function parseAdminIds(raw) {
   if (raw === null || raw === undefined) return [];
   return String(raw)
+    .normalize('NFKC')
     .split(',')
-    .map((part) => normalizeTelegramId(part))
-    .filter((part) => part.length > 0);
+    .map((part) => canonicalizeTelegramChatId(part))
+    .filter((part) => part !== null);
 }
 
 /** Shape of a real BotFather token: "<bot id>:<secret>". */
@@ -360,7 +472,9 @@ function resolveTelegramConfig(env) {
   const webhookSecret = stripSurroundingQuotes(String(e.TELEGRAM_WEBHOOK_SECRET || '').trim()).trim();
   return {
     token: normalizeTelegramToken(e.TELEGRAM_BOT_TOKEN),
-    supportChatId: normalizeTelegramId(e.TELEGRAM_SUPPORT_CHAT_ID) || null,
+    // Canonicalized: a pasted id can carry Unicode dashes/digits, quotes or
+    // invisible characters that would make it never match a real update.
+    supportChatId: canonicalizeTelegramChatId(e.TELEGRAM_SUPPORT_CHAT_ID),
     adminIds: parseAdminIds(e.TELEGRAM_ADMIN_IDS),
     // Same class of damage as the token: a quoted value is rejected by Telegram
     // ("secret token contains illegal characters").
@@ -1868,6 +1982,8 @@ module.exports = {
   ADMIN_HELP_TEXT,
   parseAdminIds,
   normalizeTelegramId,
+  canonicalizeTelegramChatId,
+  TELEGRAM_CHAT_ID_FORMAT,
   TELEGRAM_TOKEN_FORMAT,
   TELEGRAM_SECRET_FORMAT,
   TELEGRAM_SECRET_ALPHABET,
