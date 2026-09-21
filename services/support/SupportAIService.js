@@ -150,23 +150,93 @@ function createSupportAIService(options = {}) {
     fetchImpl: options.fetchImpl
   });
 
+  // Optional TRANSLATION collaborator (services/support/SupportTranslator.js).
+  // Used for exactly ONE thing: making the English knowledge base reachable for
+  // pt/ar customers (see englishForRetrieval). The approved answer this enables
+  // stays ENGLISH - localizing it is the caller's job, per the provenance contract
+  // in `ask`. Absent => byte-identical behaviour to before.
+  const questionTranslator = options.translator && typeof options.translator.toEnglish === 'function'
+    ? options.translator
+    : null;
+  const questionTranslations = { attempted: 0, translated: 0, failed: 0 };
+
   const entryById = (id) => retriever.getEntry(id);
 
-  function classify(question) {
+  /**
+   * Classify a question.
+   *
+   * `extraText` is the customer's ORIGINAL wording when `question` is its English
+   * translation for retrieval: the intent patterns are English, so the translation
+   * is the text that can match them, while the original must still be able to
+   * trigger the secret guards (translating a message must never become a way to
+   * slip a shared credential past them). Detections are the UNION of both texts, so
+   * no detection that works today can be lost.
+   */
+  function classify(question, extraText) {
     const text = String(question === null || question === undefined ? '' : question).trim();
-    if (!text) return { intent: 'empty', needsHuman: true, reason: 'empty' };
-    if (SupportGuidelines.containsLikelySecret(text)) {
+    const other = String(extraText === null || extraText === undefined ? '' : extraText).trim();
+    const texts = other && other !== text ? [text, other] : [text];
+    if (texts.every((t) => !t)) return { intent: 'empty', needsHuman: true, reason: 'empty' };
+    if (texts.some((t) => SupportGuidelines.containsLikelySecret(t))) {
       return { intent: 'secret_shared', needsHuman: true, reason: 'secret-shared' };
     }
-    if (SupportGuidelines.asksForSecrets(text)) {
+    if (texts.some((t) => SupportGuidelines.asksForSecrets(t))) {
       return { intent: 'secret_request', needsHuman: true, reason: 'secret-request' };
     }
     for (const trigger of HUMAN_ESCALATION_TRIGGERS) {
-      if (trigger.re.test(text)) return { intent: 'sensitive', needsHuman: true, reason: trigger.name };
+      if (texts.some((t) => trigger.re.test(t))) {
+        return { intent: 'sensitive', needsHuman: true, reason: trigger.name };
+      }
     }
-    if (ADVICE_INTENT.test(text)) return { intent: 'advice', needsHuman: true, reason: 'personal-advice' };
-    if (PROFIT_INTENT.test(text)) return { intent: 'profit', needsHuman: false, reason: 'profit-intent' };
+    if (texts.some((t) => ADVICE_INTENT.test(t))) {
+      return { intent: 'advice', needsHuman: true, reason: 'personal-advice' };
+    }
+    if (texts.some((t) => PROFIT_INTENT.test(t))) {
+      return { intent: 'profit', needsHuman: false, reason: 'profit-intent' };
+    }
     return { intent: 'question', needsHuman: false, reason: null };
+  }
+
+  /**
+   * ENGLISH wording of a customer question, for classification and retrieval ONLY.
+   *
+   * WHY THIS EXISTS: the approved knowledge base is authored in English and matched
+   * by English keywords, so a Portuguese/Arabic question scored ZERO and produced
+   * the generic "I do not have an approved answer" text (measured:
+   * 'Qual e o deposito minimo?' -> no knowledge hit, while 'What is the minimum
+   * deposit?' -> deposits.minimum). No approved answer was ever produced, so the
+   * caller's translation layer had nothing to localize: the answer could not reach
+   * the customer in ANY language. Translating the question fixes exactly that link,
+   * and only that link - what the customer receives is still the APPROVED English
+   * answer, localized by the caller.
+   *
+   * Deliberately quiet about failures: with no translator configured, translation
+   * disabled, no credential, a timeout, an API error, a malformed response or an
+   * empty translation it returns the ORIGINAL text - which is exactly the behaviour
+   * before this change. It never throws and it never blocks an answer.
+   */
+  async function englishForRetrieval(text, language) {
+    if (!questionTranslator || !text) return text;
+    if (SupportGuidelines.baseLanguage(language) === 'en') return text;
+    questionTranslations.attempted += 1;
+    try {
+      if (typeof questionTranslator.isAvailable === 'function' && !questionTranslator.isAvailable()) {
+        questionTranslations.failed += 1;
+        return text;
+      }
+      const result = await questionTranslator.toEnglish(text, language);
+      if (result && result.ok === true && typeof result.text === 'string' && result.text.trim()) {
+        questionTranslations.translated += 1;
+        return result.text.trim();
+      }
+      questionTranslations.failed += 1;
+      return text;
+    } catch (error) {
+      // SupportTranslator reports failures as results rather than throwing; this is
+      // belt and braces so a translation problem can never reach the customer path.
+      questionTranslations.failed += 1;
+      return text;
+    }
   }
 
   const result = (over) => Object.assign({
@@ -233,7 +303,13 @@ function createSupportAIService(options = {}) {
     }
 
     const text = String(question === null || question === undefined ? '' : question).trim();
-    const intent = classify(text);
+    // The knowledge base is English and matched by English keywords, so a pt/ar
+    // question used to score zero and produce the generic "no approved answer" text:
+    // with no approved answer there was nothing for the caller to translate. The
+    // English wording is used for CLASSIFICATION and RETRIEVAL only - the reply is
+    // still the approved English answer, localized by the caller.
+    const retrievalText = await englishForRetrieval(text, language);
+    const intent = classify(retrievalText, text);
 
     if (intent.intent === 'empty') {
       const outcome = result({ answer: SupportGuidelines.PROMPT_FOR_QUESTION_TEXT, reason: 'empty' });
@@ -303,7 +379,7 @@ function createSupportAIService(options = {}) {
       return outcome;
     }
 
-    const hits = retriever.retrieve(text, { minScore: config.minScore });
+    const hits = retriever.retrieve(retrievalText, { minScore: config.minScore });
     if (hits.length === 0) {
       const outcome = result({ kind: 'unknown', answer: SupportGuidelines.UNCERTAIN_TEXT, reason: 'no-knowledge' });
       logEvent(text, outcome);
@@ -331,7 +407,11 @@ function createSupportAIService(options = {}) {
     let providerFailed = false;
     try {
       generated = await provider.generate({
-        question: text,
+        // The English wording keeps the prompt coherent with the English approved
+        // knowledge it must answer from; `instructionsFor(language)` still directs the
+        // model to answer in the CUSTOMER's language, and such an answer keeps
+        // 'provider' provenance so the caller never translates it twice.
+        question: retrievalText,
         hits,
         instructions: SupportGuidelines.instructionsFor(language)
       });
@@ -449,6 +529,8 @@ function createSupportAIService(options = {}) {
     classify,
     retrieve: (question, opts) => retriever.retrieve(question, opts),
     isEnabled: () => config.enabled === true,
+    // Secret-free counters for the retrieval translation step (see englishForRetrieval).
+    translationStats: () => Object.assign({ available: Boolean(questionTranslator) }, questionTranslations),
     describe,
     knowledgeMeta,
     providerName: () => provider.name,

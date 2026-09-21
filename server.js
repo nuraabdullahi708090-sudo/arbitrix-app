@@ -4310,11 +4310,18 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
  * the standard human-support flow (the customer's message is still stored and
  * forwarded, and /escalate still works).
  */
-function createSupportAIServiceSafely() {
+function createSupportAIServiceSafely(translator) {
   try {
     const supportAIConfig = resolveSupportAIConfig(process.env);
     if (!supportAIConfig.enabled) return null;
-    const service = createSupportAIService({ config: supportAIConfig });
+    // The translator (when it is actually available) is what makes the ENGLISH
+    // knowledge base answer pt/ar questions: the QUESTION is translated for
+    // retrieval, while the approved answer stays English and is localized by the
+    // Telegram bot. Without it the behaviour is exactly as before.
+    const service = createSupportAIService({
+      config: supportAIConfig,
+      translator: translator || null
+    });
     const meta = service.knowledgeMeta();
     console.log(`[SupportAI] enabled (provider=${service.providerName()}, knowledge v${meta.version}, ${meta.entryCount} entries); Telegram answers from approved knowledge and hands off to humans when unsure`);
     return service;
@@ -4351,12 +4358,16 @@ function createSupportTranslatorSafely() {
 }
 
 const telegramConfig = resolveTelegramConfig(process.env);
+// The translator is built FIRST: the AI layer uses it to make the English knowledge
+// base reachable for pt/ar questions (the answer itself is localized by the bot).
+// The two layers stay independent - translation keeps working with AI answering off.
+const supportTranslator = createSupportTranslatorSafely();
 const telegramBot = createTelegramSupportBot({
   config: telegramConfig,
   store: createTelegramSupportStore(supabaseAdmin),
   transport: createTelegramTransport({ token: telegramConfig.token }),
-  supportAI: createSupportAIServiceSafely(),
-  translator: createSupportTranslatorSafely()
+  supportAI: createSupportAIServiceSafely(supportTranslator),
+  translator: supportTranslator
 });
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');

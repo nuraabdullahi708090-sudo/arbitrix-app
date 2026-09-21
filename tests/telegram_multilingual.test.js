@@ -1047,8 +1047,16 @@ test('16e. translation is a SEPARATE gate from AI_SUPPORT_ENABLED', () => {
   assert.ok(fn.length > 0, 'the translator factory must exist');
   assert.ok(!/AI_SUPPORT_ENABLED/.test(fn), 'the translator must not be gated on the AI answering flag');
   assert.match(fn, /resolveTranslationConfig\(process\.env\)/);
-  // Wired into the bot next to the AI layer, so AI-off keeps translation.
-  assert.match(server, /supportAI: createSupportAIServiceSafely\(\),\s*\n\s*translator: createSupportTranslatorSafely\(\)/);
+  // Wired into the bot next to the AI layer, so AI-off keeps translation. The
+  // translator instance is built ONCE and handed to both layers (the AI layer uses it
+  // to reach the English knowledge base from a pt/ar question, the bot to localize the
+  // approved answer), which is why it is created before the bot.
+  assert.match(server, /const supportTranslator = createSupportTranslatorSafely\(\);/);
+  assert.ok(
+    server.indexOf('const supportTranslator = createSupportTranslatorSafely();')
+      < server.indexOf('const telegramBot = createTelegramSupportBot('),
+    'the translator must exist before the bot (and the AI layer) receive it');
+  assert.match(server, /supportAI: createSupportAIServiceSafely\(supportTranslator\),\s*\n\s*translator: supportTranslator/);
   assert.strictEqual(
     require('../services/support/SupportTranslator').TRANSLATION_ENABLED_ENV,
     'SUPPORT_TRANSLATION_ENABLED'

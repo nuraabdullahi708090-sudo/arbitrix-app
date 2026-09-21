@@ -173,7 +173,11 @@ test('AI answering is OFF by default and never constructed unless enabled', () =
   const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
   assert.match(server, /resolveSupportAIConfig\(process\.env\)/, 'server must read the existing flag');
   assert.match(server, /if \(!supportAIConfig\.enabled\) return null;/, 'server must skip construction when disabled');
-  assert.match(server, /supportAI: createSupportAIServiceSafely\(\)/, 'the bot must receive the AI service');
+  // The translator instance is handed to BOTH layers: the AI layer needs it to make
+  // the English knowledge base reachable for pt/ar questions, the bot needs it to
+  // localize the approved answer. Neither is gated on the AI answering flag.
+  assert.match(server, /supportAI: createSupportAIServiceSafely\(supportTranslator\),/, 'the bot must receive the AI service');
+  assert.match(server, /translator: supportTranslator/, 'the bot must receive the translator');
   assert.match(server, /catch \(error\)[\s\S]{0,200}return null;/, 'AI init failure must degrade to the human flow');
 
   assert.match(fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8'), /^AI_SUPPORT_ENABLED=false$/m);
