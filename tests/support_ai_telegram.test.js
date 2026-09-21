@@ -103,7 +103,9 @@ function createHarness({ supportAI = null, supportChatId = SUPPORT_CHAT_ID } = {
       webhookSecret: WEBHOOK_SECRET,
       baseUrl: 'https://arbitrix.pro',
       supportChatId,
-      adminIds: [ADMIN_ID]
+      adminIds: [ADMIN_ID],
+      // Legacy target: this suite pins AI behaviour alongside group forwarding.
+      notifyTarget: 'group'
     },
     store,
     transport,

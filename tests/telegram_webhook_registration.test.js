@@ -78,6 +78,8 @@ function makeBot(transport, configOverrides = {}) {
       token: TOKEN,
       supportChatId: SUPPORT_CHAT_ID,
       adminIds: [ADMIN_ID],
+      // Legacy target, so this suite keeps pinning the support-group path.
+      notifyTarget: 'group',
       webhookSecret: SECRET,
       baseUrl: 'https://arbitrix.pro'
     }, configOverrides),

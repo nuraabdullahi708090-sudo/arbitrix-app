@@ -4326,11 +4326,19 @@ const telegramBot = createTelegramSupportBot({
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
   // Said out loud at boot because this is read ONCE, at startup: a process that
-  // started before TELEGRAM_SUPPORT_CHAT_ID was set keeps storing customer
-  // messages without forwarding them, and nothing else would say so.
-  console.log(`[Telegram] Support group notifications: ${telegramConfig.supportChatId
-    ? 'enabled'
-    : 'DISABLED - TELEGRAM_SUPPORT_CHAT_ID is not set for this process; restart after setting it'}`);
+  // started before the recipient list was set keeps storing customer messages
+  // without notifying anyone, and nothing else would say so.
+  // Customer notifications are delivered to the admins in a PRIVATE chat by
+  // default; TELEGRAM_NOTIFY_TARGET=group restores the legacy support group.
+  const notifyToAdmins = telegramConfig.notifyTarget !== 'group';
+  const adminRecipientCount = (telegramConfig.adminIds || []).length;
+  const notifySummary = notifyToAdmins
+    ? `${adminRecipientCount} admin recipient(s) via TELEGRAM_ADMIN_IDS` +
+      (adminRecipientCount ? '' : ' - DISABLED, no admins configured; restart after setting it')
+    : 'support group ' + (telegramConfig.supportChatId
+        ? 'enabled'
+        : 'DISABLED - TELEGRAM_SUPPORT_CHAT_ID is not set for this process; restart after setting it');
+  console.log(`[Telegram] Customer notifications: ${notifySummary}`);
 } else {
   console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
 }
@@ -4401,8 +4409,8 @@ app.get('/api/telegram/status', authMiddleware, adminMiddleware, async (req, res
       at: s.lastResponseAt
     },
     lastSendMessage: status.lastApiCall,
-    // Support-group notification outcome (sent / skipped / Telegram's reason).
-    lastGroupNotify: status.lastGroupNotify,
+    // Operator notification outcome (delivered / skipped / Telegram's reason).
+    lastNotify: status.lastNotify,
     pendingUpdateHandling: s.lastPendingResult,
     lastWebhookRegistration: s.lastRegistration,
     repliesSent: s.repliesSent

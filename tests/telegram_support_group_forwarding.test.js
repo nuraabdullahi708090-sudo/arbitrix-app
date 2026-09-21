@@ -125,6 +125,8 @@ function createHarness({ groupId = GROUP_ID, failGroupSend = false, failSendMess
     config: {
       token: TOKEN,
       supportChatId: groupId,
+      // Pinned to the LEGACY target: this suite pins support-group forwarding.
+      notifyTarget: 'group',
       adminIds: ['900001'],
       webhookSecret: 'test-webhook-secret',
       baseUrl: 'https://arbitrix.pro'
@@ -266,7 +268,7 @@ test('the AI reply is untouched and reaches the customer while the group is noti
     }
   });
   const bot = createTelegramSupportBot({
-    config: { token: TOKEN, supportChatId: GROUP_ID, adminIds: [], webhookSecret: 's', baseUrl: 'b' },
+    config: { token: TOKEN, supportChatId: GROUP_ID, adminIds: [], notifyTarget: 'group', webhookSecret: 's', baseUrl: 'b' },
     store,
     transport,
     logger,
@@ -309,14 +311,14 @@ test('a group failure logs Telegram\'s real reason and records it for operators'
   assert.ok(failure[0].includes('http 400'), 'the HTTP status is logged');
   assert.ok(failure[0].includes(`conversation ${CONVERSATION_ID}`));
 
-  const notify = h.bot.status().lastGroupNotify;
+  const notify = h.bot.status().lastNotify;
   assert.strictEqual(notify.kind, 'customer-message');
   assert.strictEqual(notify.sent, false);
   assert.strictEqual(notify.skipped, false);
   assert.strictEqual(notify.error, 'Bad Request: chat not found');
   assert.strictEqual(notify.httpStatus, 400);
   assert.strictEqual(notify.errorCode, 400);
-  assert.ok(h.bot.getStats().groupNotificationsFailed >= 1);
+  assert.ok(h.bot.getStats().notificationsFailed >= 1);
 });
 
 test('an escalation failure logs the reason too (it used to log none)', async () => {
@@ -326,8 +328,8 @@ test('an escalation failure logs the reason too (it used to log none)', async ()
   const failure = h.lines.filter((l) => l.includes('support group notification (escalation) FAILED'));
   assert.strictEqual(failure.length, 1);
   assert.ok(failure[0].includes('Bad Request: chat not found'), 'the escalation reason is now diagnosable');
-  assert.strictEqual(h.bot.status().lastGroupNotify.kind, 'escalation');
-  assert.strictEqual(h.bot.status().lastGroupNotify.sent, false);
+  assert.strictEqual(h.bot.status().lastNotify.kind, 'escalation');
+  assert.strictEqual(h.bot.status().lastNotify.sent, false);
 });
 
 test('a transport without getLastCall still reports a real reason', async () => {
@@ -342,14 +344,14 @@ test('a transport without getLastCall still reports a real reason', async () => 
     // deliberately no getLastCall
   };
   const bot = createTelegramSupportBot({
-    config: { token: TOKEN, supportChatId: GROUP_ID, adminIds: [], webhookSecret: 's', baseUrl: 'b' },
+    config: { token: TOKEN, supportChatId: GROUP_ID, adminIds: [], notifyTarget: 'group', webhookSecret: 's', baseUrl: 'b' },
     store, transport, logger
   });
 
   const result = await bot.handleUpdate(customerMessage('no lastCall transport'));
   assert.strictEqual(result.action, 'forward-failed');
   assert.ok(lines.some((l) => l.includes('network ECONNRESET')), 'the thrown reason is logged');
-  assert.strictEqual(bot.status().lastGroupNotify.sent, false);
+  assert.strictEqual(bot.status().lastNotify.sent, false);
 });
 
 test('an unconfigured group is loud, never a silent no-op', async () => {
@@ -364,10 +366,10 @@ test('an unconfigured group is loud, never a silent no-op', async () => {
   assert.strictEqual(skipped.length, 1, 'the skip is logged');
   assert.ok(skipped[0].includes('TELEGRAM_SUPPORT_CHAT_ID'), 'it names the variable');
   assert.ok(/restart/i.test(skipped[0]), 'it says a restart is required');
-  const notify = h.bot.status().lastGroupNotify;
+  const notify = h.bot.status().lastNotify;
   assert.strictEqual(notify.skipped, true);
   assert.strictEqual(notify.sent, false);
-  assert.strictEqual(h.bot.getStats().groupNotificationsSkipped, 1);
+  assert.strictEqual(h.bot.getStats().notificationsSkipped, 1);
 });
 
 // ------------------------------------------------------------ reply / escalate ---
@@ -455,8 +457,8 @@ test('a failed group notification is not retried (no duplicate into the group)',
 
   const attempts = h.calls.filter((c) => c.chatId === String(GROUP_ID));
   assert.strictEqual(attempts.length, 0, 'the failed attempt is not recorded as a call');
-  assert.ok(h.bot.getStats().groupNotificationsFailed >= 1);
-  assert.strictEqual(h.bot.getStats().groupNotificationsSent, 0);
+  assert.ok(h.bot.getStats().notificationsFailed >= 1);
+  assert.strictEqual(h.bot.getStats().notificationsSent, 0);
 });
 
 // ------------------------------------------------------------ authorization ---
