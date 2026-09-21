@@ -785,7 +785,7 @@ test('safety: the worker has no HTTP server and no client-trusted input', () => 
   assert.ok(!/"body"|\bparams\b\s*=>|req\.body/.test(src));
 });
 
-test('safety: the legacy browser loop is clearly marked in the UI until the worker ships', () => {
+test('safety: the bot UI disclosure reflects the shipped server-side engine (no "in development" copy)', () => {
   assert.match(INDEX, /id="botEngineNotice"/);
   assert.match(INDEX, /data-i18n="bot\.engineNotice"/);
   const langs = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
@@ -793,7 +793,11 @@ test('safety: the legacy browser loop is clearly marked in the UI until the work
     assert.ok(new RegExp("'bot\\.engineNotice':").test(INDEX), 'missing key');
   }
   assert.equal((INDEX.match(/'bot\.engineNotice':/g) || []).length, 6, 'localized in all 6 locales');
-  assert.match(INDEX, /A server-side engine that keeps trading after you close the tab is in development/);
+  // The obsolete "in development" wording is gone; the copy reflects the shipped
+  // server-side engine.
+  assert.ok(!/A server-side engine that keeps trading after you close the tab is in development/.test(INDEX),
+    'obsolete "in development" copy must not remain');
+  assert.match(INDEX, /Your bot runs automatically and keeps trading even when you're offline/);
 });
 
 test('safety: the browser loop was NOT silently en-route disabled for live users', () => {

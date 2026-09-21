@@ -48,8 +48,42 @@ test('the browser copy promises tab-bound behaviour; the worker copy states the 
     assert.notStrictEqual(T[l]['bot.engineNotice'], T[l]['bot.engineNoticeWorker'], l + ' variants must differ');
   }
   // EN is the pinned contract (per-locale wording is reviewed, not machine-checked).
-  assert.match(T.en['bot.engineNotice'], /close or refresh/i);
-  assert.match(T.en['bot.engineNoticeWorker'], /keeps trading after you close this tab/i);
+  // Both variants are beginner-friendly now that server-side trading has shipped:
+  // no "in development" copy and no server/browser jargon.
+  assert.strictEqual(
+    T.en['bot.engineNotice'],
+    "\u{1F916} Your bot runs automatically and keeps trading even when you're offline."
+  );
+  assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
+  assert.match(T.en['bot.workerManaged'], /runs automatically/i);
+  assert.ok(T.en['bot.engineNotice'].startsWith('\u{1F916}'), 'friendly robot emoji leads the default copy');
+  assert.ok(T.en['bot.workerManaged'].startsWith('\u{1F916}'), 'friendly robot emoji leads the message');
+});
+
+test('the old technical bot wording is fully replaced in all 6 locales', () => {
+  const T = translations();
+  assert.strictEqual(
+    T.en['bot.engineNoticeWorker'],
+    'Your bot keeps running even when you close this page. Come back anytime to check your activity.'
+  );
+  assert.strictEqual(
+    T.en['bot.workerManaged'],
+    "\u{1F916} Your bot now runs automatically. It will keep trading even when you're offline."
+  );
+  // The previous sentences must not survive anywhere in the document.
+  assert.ok(!INDEX.includes('run by the server, not this tab'), 'old workerManaged wording removed');
+  assert.ok(!INDEX.includes('Managed by the server: this bot keeps trading'), 'old engineNoticeWorker wording removed');
+  // The obsolete "in development" browser-loop copy is gone from the dictionary...
+  assert.ok(!INDEX.includes('is in development'), 'obsolete engineNotice wording removed');
+  assert.ok(!INDEX.includes('A server-side engine that keeps trading after you close the tab'), 'obsolete browser-loop copy removed');
+  // ...and from the pre-hydration markup default, which is what a user sees right
+  // after a refresh before the bot is started (applyTranslations has not run yet).
+  const markupDefault = 'data-i18n="bot.engineNotice">\u{1F916} Your bot runs automatically and keeps trading even when you\'re offline.</div>';
+  assert.ok(INDEX.includes(markupDefault), 'the pre-hydration markup default shows the new copy');
+  for (const l of LANGS) {
+    assert.ok(T[l]['bot.engineNoticeWorker'] && String(T[l]['bot.engineNoticeWorker']).trim(), l + ' notice');
+    assert.ok(T[l]['bot.workerManaged'] && String(T[l]['bot.workerManaged']).trim(), l + ' workerManaged');
+  }
 });
 
 test('the disclosure switch is driven by the server 409, not by a manual copy edit', () => {
