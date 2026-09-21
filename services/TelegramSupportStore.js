@@ -137,8 +137,9 @@ function createTelegramSupportStore(supabaseClient) {
    *
    * Uses the EXISTING `telegram_support_conversations.language` column - no
    * second column is introduced. The caller always passes an explicitly
-   * validated code, and a missing/invalid stored value is resolved to English on
-   * READ in the service, so this never depends on a database default.
+   * validated code (en / pt / ar), which is what the column's CHECK constraint
+   * requires. Creating a conversation omits this column on purpose, so a new row
+   * takes the column DEFAULT 'en' (see upsertConversation).
    *
    * `updated_at` is refreshed like every other write in this store.
    * @returns {Promise<object|null>} the updated row.

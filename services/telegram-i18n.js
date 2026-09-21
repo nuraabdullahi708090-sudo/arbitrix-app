@@ -25,10 +25,12 @@
  *     depend on the customer's language. Those live in OPERATOR_STRINGS.
  *
  * LANGUAGE SOURCE OF TRUTH
- *   `telegram_support_conversations.language` (one row per Telegram chat).
- *   A missing / invalid / unsupported stored value ALWAYS resolves to
- *   DEFAULT_LANGUAGE ('en') here, in application code - never via a database
- *   default, which the applied schema does not guarantee.
+ *   `telegram_support_conversations.language` (one row per Telegram chat), which
+ *   the database pins to TEXT NOT NULL DEFAULT 'en' with
+ *   CHECK (language IN ('en', 'pt', 'ar')) - see migration 032. The column
+ *   default is what an INSERT that omits the column gets, and an invalid /
+ *   unsupported stored value is additionally resolved to DEFAULT_LANGUAGE ('en')
+ *   here, in application code.
  *
  * ADDING A LANGUAGE LATER (es / fr / zh)
  *   1. add a locale object to CUSTOMER_STRINGS with the SAME key set,

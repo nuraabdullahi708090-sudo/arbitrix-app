@@ -4704,12 +4704,15 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   `HttpLLMProvider` / `providers/index.js` (defaults to the knowledge-answer
   prompt, so every existing caller is byte-identical). Never throws: every
   failure is `{ok:false, reason}`.
-- NEW `supabase/migrations/032_telegram_support_language.sql` (NOT applied) -
-  uses the EXISTING `telegram_support_conversations.language` column (defensive
-  `ADD COLUMN IF NOT EXISTS`, no second column, NO column DEFAULT), plus a
-  pre-flight that RAISES if an unsupported non-NULL value exists (rewrites
-  nothing) and a CHECK `language IS NULL OR language IN ('en','pt','ar')`.
-  Self-check runs INSIDE the transaction so a failure rolls back.
+- `supabase/migrations/032_telegram_support_language.sql` - the EXISTING
+  `telegram_support_conversations.language` column: TEXT NOT NULL DEFAULT 'en'
+  with CHECK `language IN ('en','pt','ar')` (no NULL branch - NULL is not a valid
+  state). No second column, every statement idempotent, the default is
+  (re)asserted rather than removed, and a pre-flight RAISES - rewriting nothing -
+  if a row holds NULL or an unsupported value. Self-check runs INSIDE the
+  transaction so a failure rolls back. CORRECTED after the change was applied to
+  production by hand: the first version wrongly assumed NULL was allowed and that
+  the column had no default.
 - `services/TelegramSupportStore.js` - new `setConversationLanguage`. The
   find-or-create UPDATE still does NOT write `language`, so a routine message
   upsert can never reset a customer's choice.
@@ -4737,10 +4740,11 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - `/language` shows an inline keyboard with EXACTLY English / Portugues /
   al-Arabiyya and payloads `lang:en`, `lang:pt`, `lang:ar` (never bare codes; the
   parser rejects `pt`, `language:pt`, `lang:`, `lang:zz`, junk).
-- Stored per conversation in `telegram_support_conversations.language`. A missing,
-  NULL, invalid or unsupported value resolves to `en` IN APPLICATION CODE - never
-  via a DB default. Persistence survives messages, restarts, webhook restarts and
-  deploys (pinned by a simulated-restart test).
+- Stored per conversation in `telegram_support_conversations.language` (TEXT
+  NOT NULL DEFAULT 'en' with CHECK en/pt/ar - see migration 032), so a stored
+  conversation always holds a supported code; the application additionally
+  resolves an unexpected value to `en` on read. Persistence survives messages,
+  restarts, webhook restarts and deploys (pinned by a simulated-restart test).
 - Callback order: identify conversation -> validate -> persist -> acknowledge the
   callback query -> send the localized confirmation (all 3 locales ship their own
   natural wording).

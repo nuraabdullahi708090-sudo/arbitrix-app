@@ -1611,9 +1611,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   /**
    * The conversation's language, with an EXPLICIT application-code fallback.
    *
-   * A missing value, a NULL, an unsupported code or a storage failure all
-   * resolve to English HERE - never through a database default, which the applied
-   * schema does not guarantee.
+   * The column is NOT NULL and constrained to 'en' / 'pt' / 'ar' (migration 032),
+   * so an unsupported value cannot be stored. A storage failure, a read that
+   * returns no row, or a value that is somehow not one of the three still
+   * resolves to English HERE instead of surfacing as an error.
    *
    * READ-ONLY and best-effort, because the storage-independent commands
    * (/start, /help, /chatid, /language) use it: a database problem must degrade

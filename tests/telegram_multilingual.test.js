@@ -56,7 +56,9 @@ const nextUpdateId = () => ++updateSeq;
 
 // ------------------------------------------------------------------- harness ---
 
-function createFakeStore({ language = null } = {}) {
+// The real column is TEXT NOT NULL DEFAULT 'en' with CHECK (en/pt/ar): a row that
+// is created without a language takes 'en', exactly as this fake does.
+function createFakeStore({ language = 'en' } = {}) {
   const state = { conversations: [], messages: [], escalations: [], languageWrites: [] };
   const byChat = new Map();
   let conversationId = CONVERSATION_ID;
@@ -69,7 +71,7 @@ function createFakeStore({ language = null } = {}) {
       telegram_user_id: Number(chatId),
       username: username || null,
       display_name: 'John Customer',
-      language: null
+      language: 'en'
     };
     state.conversations.push(row);
     byChat.set(String(chatId), row);
@@ -132,7 +134,9 @@ function createFakeStore({ language = null } = {}) {
 function createHarness(options = {}) {
   const {
     adminIds = [ADMIN_A],
-    language = null,
+    // Mirrors the real column (TEXT NOT NULL DEFAULT 'en'): a harness that does not
+    // ask for a language gets an English conversation, never a NULL one.
+    language = 'en',
     supportAI = null,
     translator = null,
     supportChatId = null,
@@ -369,14 +373,42 @@ test('8. the language persists onto the conversation row', async () => {
   assert.strictEqual(h2.toCustomer().pop(), 'إجابة بالعربية (ar)');
 });
 
-test('9. the default language is English', async () => {
-  const h = createHarness({ language: null });
+test('9. a new conversation is English via the column default (NOT NULL DEFAULT en)', async () => {
+  const h = createHarness();
+  assert.strictEqual(h.store.conversation.language, 'en', 'the column default is en');
   assert.strictEqual(h.bot.status().languagesSupported.join(','), 'en,pt,ar');
   await h.bot.handleUpdate(customerMessage('/start'));
   assert.strictEqual(h.toCustomer()[0], i18n.t('en', 'help'));
 });
 
-test('10. an invalid STORED language falls back to English in application code', async () => {
+test('9b. the INSERT omits `language` (NOT NULL takes the column DEFAULT) and an upsert never resets it', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'services', 'TelegramSupportStore.js'), 'utf8');
+  const insertAt = src.indexOf('.insert({');
+  assert.ok(insertAt > -1, 'the insert path exists');
+  const insertPayload = src.slice(insertAt, src.indexOf('})', insertAt));
+  assert.ok(!/\blanguage\b/.test(insertPayload),
+    'the insert must not send language: the NOT NULL column takes DEFAULT en');
+
+  const upsertAt = src.indexOf('async function upsertConversation');
+  const existingAt = src.indexOf('if (existing) {', upsertAt);
+  const eqAt = src.indexOf(".eq('id', existing.id)", existingAt);
+  assert.ok(upsertAt > -1 && existingAt > -1 && eqAt > -1, 'the upsert branches exist');
+  assert.ok(!/\blanguage\b/.test(src.slice(existingAt, eqAt)),
+    'a routine message upsert must never write language');
+});
+
+test('9c. the only language writer passes an explicitly validated code', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'services', 'TelegramSupportService.js'), 'utf8');
+  assert.match(src, /const requested = parseLanguageCallback\(/);
+  const calls = src.match(/persistConversationLanguage\(conversation, requested\)/g) || [];
+  assert.strictEqual(calls.length, 1, 'exactly one write site');
+  assert.match(src, /if \(!requested\) \{/, 'an unsupported payload returns before any write');
+});
+
+test('10. an out-of-vocabulary value still resolves to English (application safety net)', async () => {
+  // Production cannot store any of these: the column is NOT NULL DEFAULT 'en' with
+  // CHECK (language IN ('en','pt','ar')). This pins the application-level fallback
+  // that must hold regardless (e.g. in an environment where 032 is not applied).
   for (const stored of ['es', 'de', '', '   ', 'xx-YY', 42]) {
     const h = createHarness({ language: stored });
     await h.bot.handleUpdate(customerMessage('/start'));
@@ -782,7 +814,7 @@ test('26b. a routine message upsert cannot reset the language', async () => {
 test('27. a callback can only change the PRESSER OWN conversation', async () => {
   const h = createHarness({ language: 'pt' });
   const other = h.store.addConversation(OTHER_CHAT_ID, 'someone-else');
-  assert.strictEqual(other.language, null);
+  assert.strictEqual(other.language, 'en', 'a fresh row takes the column default en');
 
   // A press originating from the OTHER chat changes the OTHER conversation only.
   await h.bot.handleUpdate(callbackUpdate('lang:ar', { chatId: OTHER_CHAT_ID }));
@@ -878,16 +910,32 @@ test('29b. support-group forwarding was NOT reintroduced', () => {
   });
 });
 
-test('29c. the versioned migration exists, is idempotent and never relies on a default', () => {
+test('29c. the versioned migration matches the production schema and is idempotent', () => {
   const sql = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '032_telegram_support_language.sql'), 'utf8');
-  assert.match(sql, /ADD COLUMN IF NOT EXISTS language TEXT/);
+  // The production shape, verified after the change was applied by hand:
+  // language TEXT NOT NULL DEFAULT 'en' with CHECK (language IN ('en','pt','ar')).
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS language TEXT NOT NULL DEFAULT 'en'/);
+  assert.match(sql, /ALTER COLUMN language SET DEFAULT 'en'/);
+  assert.match(sql, /ALTER COLUMN language SET NOT NULL/);
+  assert.match(sql, /CHECK \(language IN \('en', 'pt', 'ar'\)\)/);
+  // NULL is not a valid state, and the default is asserted rather than removed.
+  assert.ok(!/CHECK \(language IS NULL/i.test(sql), 'the constraint must not allow NULL');
+  assert.ok(!/IS NULL OR language/i.test(sql), 'NULL must not be a valid language state');
+  assert.ok(!/DROP DEFAULT|ALTER COLUMN language DROP/i.test(sql), 'the default must not be removed');
+  // Idempotent guards.
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS/);
   assert.match(sql, /DROP CONSTRAINT IF EXISTS telegram_support_conversations_language_check/);
-  assert.match(sql, /CHECK \(language IS NULL OR language IN \('en', 'pt', 'ar'\)\)/);
+  // Bad data is diagnosed, never rewritten.
   assert.match(sql, /RAISE EXCEPTION/);
-  assert.ok(!/DEFAULT\s+'en'/i.test(sql), 'the migration must not add a column DEFAULT');
-  assert.ok(!/CREATE TABLE/i.test(sql), 'must not create a table');
-  assert.ok(!/DELETE\s+FROM|UPDATE\s+public\.telegram_support_conversations\s+SET/i.test(sql),
+  assert.match(sql, /WHERE language IS NULL/);
+  assert.match(sql, /NOT IN \('en', 'pt', 'ar'\)/);
+  assert.ok(!/DELETE\s+FROM|UPDATE\s+public\.telegram_support_conversations\s+SET|INSERT\s+INTO/i.test(sql),
     'must never rewrite customer data');
+  assert.ok(!/CREATE TABLE|DROP TABLE/i.test(sql), 'must not create or drop a table');
+  // The self-check verifies NOT NULL, the default and the constraint definition.
+  assert.match(sql, /is_nullable/);
+  assert.match(sql, /column_default/);
+  assert.match(sql, /pg_get_constraintdef/);
   // No other migration defines a second language column.
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase', 'migrations'));
   const others = migrations.filter((f) => f.endsWith('.sql') && !f.startsWith('032_'));
@@ -1057,7 +1105,8 @@ test('7b. a language callback works end-to-end through the real webhook handler'
   // changes nothing.
   await handler(req(callbackUpdate('lang:pt'), {}), makeRes());
   assert.strictEqual(responses[0].statusCode, 401, 'the secret gate still guards callbacks');
-  assert.strictEqual(h.store.conversation.language, null, 'a rejected callback changes nothing');
+  assert.strictEqual(h.store.conversation.language, 'en',
+    'a rejected callback changes nothing (the row keeps the column default en)');
   assert.strictEqual(h.store.state.languageWrites.length, 0);
 
   await handler(req(callbackUpdate('lang:pt')), makeRes());
@@ -1076,4 +1125,29 @@ test('7b. a language callback works end-to-end through the real webhook handler'
   assert.strictEqual(h.store.state.languageWrites.length, before + 1,
     'exactly one write for the new update, none for its redelivery');
   assert.strictEqual(h.bot.getStats().duplicateUpdates >= 1, true, 'the deduper caught it');
+});
+
+test('29h. no shipped file still claims NULL is valid or that the language column has no default', () => {
+  const files = [
+    'supabase/migrations/032_telegram_support_language.sql',
+    '.env.example',
+    'services/telegram-i18n.js',
+    'services/TelegramSupportService.js',
+    'services/TelegramSupportStore.js'
+  ];
+  const stale = [
+    /NULL is allowed/i,
+    /NULL remains allowed/i,
+    /NULL = English/i,
+    /NULL means English/i,
+    /no column DEFAULT/i,
+    /the column has no default/i,
+    /does not guarantee/i,
+    /never via a (DB|database) default/i,
+    /never through a database default/i
+  ];
+  files.forEach((rel) => {
+    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    stale.forEach((re) => assert.ok(!re.test(text), rel + ' still claims ' + re));
+  });
 });
