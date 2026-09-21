@@ -1582,18 +1582,28 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       if (outcome.needsHuman) stats.aiHandoffs += 1;
       const answer = outcome.answer.trim();
 
-      // A GENERATED answer (kind 'answer', not the provider-failure fallback) is
-      // expected to be in the customer's language already.
-      const generated = outcome.kind === 'answer' && outcome.reason !== 'provider-fallback';
-      if (generated) {
+      // PROVENANCE, not guesswork. ONLY text a MODEL wrote for this request is
+      // assumed to already be in the customer's language. `modelGenerated === true`
+      // is the explicit signal from SupportAIService; an outcome that does not set
+      // it (approved knowledge-base wording - including everything the offline
+      // `knowledge` provider returns - guardrails, handoffs, refusals, approved-text
+      // fallbacks) is ENGLISH by construction and must be localized or replaced.
+      // Treating `kind === 'answer'` as "the model answered in the customer's
+      // language" is what leaked English into Portuguese conversations.
+      const modelGenerated = outcome.modelGenerated === true;
+      if (modelGenerated) {
+        // Keep the hard script verification for Arabic: the script is unambiguous,
+        // so a model that ignored the language directive is caught, not sent. No
+        // heuristic Portuguese-vs-English detection is attempted (see the
+        // documented limitation in SupportGuidelines).
         if (SupportGuidelines.hasExpectedScript(answer, lang)) return answer;
         stats.aiLanguageMisses += 1;
         warn('support AI answered outside the selected language (' + lang + '); handing off instead');
         return tCustomer(lang, 'uncertain');
       }
 
-      // APPROVED English text: localize it, or fall back to a localized safe
-      // message rather than sending English.
+      // APPROVED English text whose language we cannot verify: localize it, or fall
+      // back to the localized safe message rather than sending English.
       const localized = await translateForCustomer(answer, lang);
       if (localized) return localized;
       stats.aiLanguageMisses += 1;
