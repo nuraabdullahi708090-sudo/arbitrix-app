@@ -198,8 +198,10 @@ test('the trace records the last routing action, stage and update id', async () 
   const s = bot.getStats();
   assert.strictEqual(s.lastUpdateId, 77);
   assert.ok(s.lastUpdateAt, 'timestamp recorded');
-  assert.strictEqual(s.lastAction, 'help');
-  assert.strictEqual(s.lastStage, 'done:help');
+  // A brand-new conversation: /start answers with the language picker, so the
+  // trace names that action/stage (the customer has not chosen a language yet).
+  assert.strictEqual(s.lastAction, 'start-language-picker');
+  assert.strictEqual(s.lastStage, 'done:start-language-picker');
   assert.strictEqual(s.repliesSent, 1);
 });
 
@@ -245,7 +247,8 @@ test('the trace exposes the last sendMessage outcome when sending fails', async 
   await handler(req(userUpdate('/start', 9)), res);
 
   assert.strictEqual(res.statusCode, 500);
-  assert.strictEqual(res.body.stage, 'sendMessage', 'the exact failing stage is reported');
+  // The failing operation is the PICKER send (the /start first-contact reply).
+  assert.strictEqual(res.body.stage, 'reply:language', 'the exact failing stage is reported');
 
   const status = bot.status();
   assert.strictEqual(status.lastApiCall.method, 'sendMessage');

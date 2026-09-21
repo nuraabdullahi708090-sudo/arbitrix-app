@@ -564,7 +564,9 @@ test('a failing acknowledgement is retried (500) instead of being dropped', asyn
 
 test('/help answers the user with the support instructions', async () => {
   const { bot, transport } = makeBot();
-  const result = await bot.handleUpdate(userUpdate({ text: '/start' }));
+  // /help is unchanged; /start has its own first-contact suite
+  // (tests/telegram_first_contact_language.test.js).
+  const result = await bot.handleUpdate(userUpdate({ text: '/help' }));
   assert.strictEqual(result.action, 'help');
   assert.strictEqual(transport.calls.find((c) => c.chatId === USER_CHAT_ID).text, USER_HELP_TEXT);
 });
