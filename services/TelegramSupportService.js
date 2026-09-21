@@ -823,6 +823,11 @@ function buildEscalationNotice(conversation, route, reason, extras) {
   const e = extras || {};
   const from = route && route.message ? route.message.from : null;
   const language = normalizeLanguage(e.language);
+  // The reason is NOT always the customer's own words: /escalate without a text uses
+  // our own English constant. Its language is therefore tracked separately from the
+  // customer's (which still labels the notice), so an English reason is printed as
+  // English instead of being translated and reported "unavailable".
+  const reasonLanguage = normalizeLanguage(e.reasonLanguage || e.language);
   const lines = [
     '⚠️ Escalation requested',
     `Conversation: #${conversation.id}`,
@@ -830,10 +835,10 @@ function buildEscalationNotice(conversation, route, reason, extras) {
     `Chat ID: ${route ? route.chatId : conversation.telegram_chat_id}`,
     tOperator('notifyLanguage', { language: languageName(language) })
   ];
-  if (language === DEFAULT_LANGUAGE) {
+  if (reasonLanguage === DEFAULT_LANGUAGE) {
     lines.push(`Reason: ${reason}`);
   } else {
-    lines.push(tOperator('notifyOriginal', { language: languageName(language) }), reason, '');
+    lines.push(tOperator('notifyOriginal', { language: languageName(reasonLanguage) }), reason, '');
     lines.push(tOperator('notifyTranslation'));
     lines.push(e.translation || tOperator('notifyNoTranslation'));
   }
@@ -2047,11 +2052,20 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // inline copy swallowed Telegram's reason entirely (it logged a bare
       // "escalation notice failed"), which made this failure undiagnosable.
       const escalationLanguage = languageOf(conversation);
+      // A plain /escalate carries OUR OWN English fallback reason, not the customer's
+      // words, so it is NOT sent for reverse translation: an already-English text comes
+      // back unchanged from the translator and the notice then claimed the English
+      // translation was "unavailable". Customer-authored text is translated as before.
+      const reasonLanguage = command.rest ? escalationLanguage : DEFAULT_LANGUAGE;
+      const reasonTranslation = await operatorNoticeExtras(reason, reasonLanguage);
       await notifySupport({
         conversation,
         kind: 'escalation',
-        text: buildEscalationNotice(conversation, route, reason,
-          await operatorNoticeExtras(reason, escalationLanguage))
+        text: buildEscalationNotice(conversation, route, reason, {
+          language: escalationLanguage,
+          reasonLanguage: reasonLanguage,
+          translation: reasonTranslation.translation
+        })
       });
       await sendOutbound(conversation, tCustomer(escalationLanguage, 'escalationAck'));
       return { handled: true, action: 'escalate' };
