@@ -120,7 +120,13 @@ test('DeepSeek requests use the OpenAI-compatible chat-completions format', asyn
   assert.strictEqual(body.stream, false);
   assert.strictEqual(body.messages.length, 2);
   assert.strictEqual(body.messages[0].role, 'system');
-  assert.strictEqual(body.messages[0].content, G.SUPPORT_INSTRUCTIONS);
+  // The system message still carries EVERY pre-existing hard rule, unchanged and
+  // first, followed by the highest-priority language directive (the customer's
+  // selected language; English when none was requested).
+  assert.ok(body.messages[0].content.startsWith(G.SUPPORT_INSTRUCTIONS),
+    'the existing hard rules must remain, unchanged and first');
+  assert.strictEqual(body.messages[0].content,
+    G.SUPPORT_INSTRUCTIONS + '\n\n' + G.languageInstruction('en'));
   assert.strictEqual(body.messages[1].role, 'user');
 
   const prompt = body.messages[1].content;

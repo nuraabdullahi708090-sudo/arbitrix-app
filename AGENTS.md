@@ -4678,3 +4678,155 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   Telegram sends per customer message (one per admin), which scales with the admin
   list; (3) the /start precondition above should be verified in the Render Shell
   before relying on delivery.
+
+
+## Multilingual Telegram Support (en / pt / ar) - 2026-09-21 (NOT pushed, NOT deployed)
+- First multilingual release of the Telegram support bot. Branch
+  `feat/telegram-multilingual-support`, created FROM
+  `feat/telegram-private-admin-notifications` (08f884f). `main` untouched, PR #124
+  untouched, nothing pushed/merged/deployed.
+- SCOPE: en / pt (Brazilian Portuguese) / ar (Modern Standard Arabic) ONLY.
+  Spanish, French and Chinese are deliberately NOT implemented; adding one is
+  (1) a locale object in `services/telegram-i18n.js`, (2) an entry in
+  `TELEGRAM_LANGUAGES`/`LANGUAGE_META`, (3) a CHECK update in migration 032. No
+  restructuring needed (every lookup falls back to English per key).
+
+### Files
+- NEW `services/telegram-i18n.js` - the SMALL Telegram-specific dictionary (16
+  customer keys x 3 locales + English-only operator strings). It is NOT a copy of
+  the web app's ~1,400 keys. `TelegramSupportService` now ALIASES its exported
+  constants (`USER_HELP_TEXT`, `CUSTOMER_GUIDE_TEXT`, `ESCALATION_ACK`,
+  `STORAGE_DEGRADED_TEXT`) to the English entries, so the constant and the
+  dictionary can never drift.
+- NEW `services/support/SupportTranslator.js` - bidirectional translation between
+  English and pt/ar. Reuses the EXISTING provider machinery (auth, timeout,
+  abort, error scrubbing) through a new optional `buildPrompt` hook in
+  `HttpLLMProvider` / `providers/index.js` (defaults to the knowledge-answer
+  prompt, so every existing caller is byte-identical). Never throws: every
+  failure is `{ok:false, reason}`.
+- `supabase/migrations/032_telegram_support_language.sql` - the EXISTING
+  `telegram_support_conversations.language` column: TEXT NOT NULL DEFAULT 'en'
+  with CHECK `language IN ('en','pt','ar')` (no NULL branch - NULL is not a valid
+  state). No second column, every statement idempotent, the default is
+  (re)asserted rather than removed, and a pre-flight RAISES - rewriting nothing -
+  if a row holds NULL or an unsupported value. Self-check runs INSIDE the
+  transaction so a failure rolls back. CORRECTED after the change was applied to
+  production by hand: the first version wrongly assumed NULL was allowed and that
+  the column had no default.
+- `services/TelegramSupportStore.js` - new `setConversationLanguage`. The
+  find-or-create UPDATE still does NOT write `language`, so a routine message
+  upsert can never reset a customer's choice.
+- `services/TelegramSupportService.js` - callback-query support
+  (`answerCallbackQuery` in the transport; `sendMessage` already merged an
+  options object, so the inline keyboard needed no transport change), `/language`
+  for customers AND operators, `handleLanguageCallback`, language-aware replies,
+  English operator notices, translated operator replies. Telemetry: languages
+  supported, languageChanges/languageRejected/lastLanguage, translatorEnabled,
+  translationsSucceeded/Failed + lastTranslationReason, adminRepliesTranslated,
+  aiLanguageMisses. `status()` reports the supported set + translation provider.
+- `services/support/SupportAIService.js` + `SupportGuidelines.js` - `ask(question,
+  {language})`; the language directive is appended as its own HIGHEST-PRIORITY
+  labelled block (`instructionsFor`), plus `normalizeAnswerLanguage` (anything
+  unsupported -> en), `hasExpectedScript`/`isArabicScript`, a pt/ar supplementary
+  denylist in `assertSafeAnswer(text, {language})` (negation-aware; the
+  no-options call is byte-identical to before), `TRANSLATION_INSTRUCTIONS` +
+  `buildTranslationPrompt`.
+- `server.js` - `createSupportTranslatorSafely()` wired into the bot next to
+  `supportAI`; boot log line. `.env.example` documents SUPPORT_TRANSLATION_ENABLED
+  (default true, but with no provider credential the layer is UNAVAILABLE) and
+  SUPPORT_TRANSLATION_MAX_CHARS.
+
+### Language contract
+- `/language` shows an inline keyboard with EXACTLY English / Portugues /
+  al-Arabiyya and payloads `lang:en`, `lang:pt`, `lang:ar` (never bare codes; the
+  parser rejects `pt`, `language:pt`, `lang:`, `lang:zz`, junk).
+- Stored per conversation in `telegram_support_conversations.language` (TEXT
+  NOT NULL DEFAULT 'en' with CHECK en/pt/ar - see migration 032), so a stored
+  conversation always holds a supported code; the application additionally
+  resolves an unexpected value to `en` on read. Persistence survives messages,
+  restarts, webhook restarts and deploys (pinned by a simulated-restart test).
+- Callback order: identify conversation -> validate -> persist -> acknowledge the
+  callback query -> send the localized confirmation (all 3 locales ship their own
+  natural wording).
+- SECURITY: callbacks are accepted ONLY from a PRIVATE chat whose chat.id equals
+  the sender's user id, and the conversation is resolved from that same id, so a
+  press can only ever change the PRESSER'S OWN conversation. A mismatch, a group
+  callback, or junk changes nothing and is answered so the button never spins.
+  The webhook secret gate still guards callbacks (401 before any handler runs).
+- The canonicalization of CONFIG values (TELEGRAM_ADMIN_IDS,
+  TELEGRAM_SUPPORT_CHAT_ID) is untouched, and no support-group forwarding was
+  reintroduced (the group path remains opt-in via TELEGRAM_NOTIFY_TARGET=group).
+- NOT IMPLEMENTED (deliberate): automatic language DETECTION. Only Arabic script
+  can be detected deterministically without a dependency, and guessing pt vs en
+  from message text would be a fragile heuristic - explicitly forbidden by the
+  brief. English is the default until the customer picks one with /language.
+
+### AI behaviour
+- The selected conversation language is passed to `SupportAIService.ask` and
+  appended as a highest-priority directive (write the WHOLE answer in X; the
+  selection is authoritative; do NOT switch because the message contains an
+  English word/ticker/number; keep every value exact; never fall back to English).
+- ENGLISH customers take the pre-existing path BYTE-IDENTICALLY (AI answer
+  verbatim, else CUSTOMER_GUIDE_TEXT), so this release cannot change what an
+  English customer sees. Non-English customers never receive English:
+  a GENERATED answer comes back in their language (and for `ar` the SCRIPT is
+  verified - a latin answer is replaced by the localized fallback), APPROVED
+  knowledge text (guardrail entries, or the approved answer used after a provider
+  failure) is TRANSLATED, and the fixed fallbacks come from the dictionary.
+- AI-OFF: unchanged fallback semantics, but the fixed messages are localized;
+  operator notifications stay English; operator replies are STILL translated
+  because `SUPPORT_TRANSLATION_ENABLED` is a SEPARATE gate from
+  `AI_SUPPORT_ENABLED` (pinned by a test).
+
+### Operator workflow
+- Notifications stay ENGLISH and now carry: the customer handle, conversation
+  number, chat id (= the customer's Telegram id in a private chat), the selected
+  language in English words, the ORIGINAL message verbatim, and an English
+  translation when one is available - or `English translation: unavailable`
+  instead. The original is NEVER replaced by the translation, and the escalation
+  notice got the same treatment.
+- Operators reply in English as before (reply-to-notification AND `/reply <n>
+  <msg>`). Only the REPLY TEXT is translated; commands (`/reply`, `/close`,
+  `/escalate`, `/chatid`, `/help`, `/language`) are never translated and never
+  sent to a customer. If translation is unavailable or the language-aware safety
+  check withholds the output, the operator's own English text is sent and the
+  operator is told why IN ENGLISH - a reply is never silently dropped and never
+  silently mistranslated.
+
+### Safety + LIMITATIONS (report before shipping)
+- The pt/ar denylist is a SUPPLEMENT to the English checks, not a parity
+  replacement: it covers promised profits, risk-free claims, credential requests
+  and unverifiable payment claims as POSITIVE assertions with a narrow negation
+  guard, and it FAILS CLOSED (a match withholds the translation -> localized safe
+  fallback / the operator's English text + a notice). A reviewer should not treat
+  it as equivalent to the English NLU checks.
+- Approved FACTUAL content is never hand-retyped into the dictionary; it reaches
+  a non-English customer only through the translator, which is instructed to
+  keep numbers/amounts/ticks/commands exact and is validation-gated. With no
+  translator the customer gets a LOCALIZED safe message instead of English facts.
+- PRIVACY: with a provider credential present, customer messages and operator
+  replies are sent to that provider for translation. `SUPPORT_TRANSLATION_ENABLED=
+  false` forbids it.
+- Portuguese output cannot be verified as Portuguese (only Arabic has a
+  deterministic script check); correctness there relies on the model following
+  the directive.
+- Unverified in this environment: no Postgres runtime was available, so migration
+  032 was REVIEWED and structurally checked but NOT executed; no provider
+  credential exists, so real translation quality is unverified (the pipeline,
+  guardrails and fallbacks are).
+
+### Verification
+- NEW `tests/telegram_multilingual.test.js` - 58 tests covering every scenario in
+  the brief (picker + exact payloads, each callback, invalid payloads,
+  acknowledgement, persistence, default + invalid fallback, AI directives for all
+  three languages, AI answer language + the Arabic script guard, AI-off
+  localizations, English operator notices with original + translation +
+  unavailable marker, admin reply translation for pt/ar, command
+  non-translation, restart persistence, cross-conversation isolation,
+  mismatch/group callback rejection, storage failure, dictionary completeness).
+- `npm test` = 1575 pass / 0 fail (baseline 1517 + 58 new).
+- Pins updated for the INTENTIONAL changes only: `support_ai_telegram`
+  (the `ai.ask(question, {language})` call shape) and `support_deepseek_provider`
+  (the system prompt now equals SUPPORT_INSTRUCTIONS + the language directive).
+- NOT committed to `main`, NOT pushed, NOT merged, NOT deployed; migration 032 is
+  NOT applied.

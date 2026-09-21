@@ -191,9 +191,16 @@ function createSupportAIService(options = {}) {
     else logger.info(line);
   }
 
-  /** Answer a customer question. Never throws; never returns a secret. */
-  async function ask(question, askOptions = {}) {
-    void askOptions; // reserved (e.g. per-user rate limiting in a later stage)
+  /**
+   * Answer a customer question in `language` (en / pt / ar).
+   *
+   * The language directive is appended to the system instructions as its own
+   * highest-priority block, so the model answers in the customer's selected
+   * language and does not drift back to English because the question happened to
+   * contain an English word. Nothing else about the pipeline changed: retrieval,
+   * the guardrails and the groundedness filter are the same.
+   */
+  async function askInternal(question, language) {
 
     if (config.enabled !== true) {
       const outcome = result({
@@ -308,7 +315,7 @@ function createSupportAIService(options = {}) {
       generated = await provider.generate({
         question: text,
         hits,
-        instructions: SupportGuidelines.SUPPORT_INSTRUCTIONS
+        instructions: SupportGuidelines.instructionsFor(language)
       });
     } catch (error) {
       // Never invent: fall back to the APPROVED knowledge text, or hand off.
@@ -363,6 +370,23 @@ function createSupportAIService(options = {}) {
       unsupportedClaims
     });
     logEvent(text, outcome);
+    return outcome;
+  }
+
+  /**
+   * Public entry point. Resolves the requested language defensively (any
+   * missing/invalid/unsupported value becomes 'en') and annotates the outcome
+   * with it for observability.
+   *
+   * NOTE for callers: `language` is what was REQUESTED. The answer text is in
+   * that language only when the model generated it; outcomes that carry APPROVED
+   * knowledge (kind 'guardrail', or kind 'answer' with reason
+   * 'provider-fallback') are English and the caller must localize them.
+   */
+  async function ask(question, askOptions = {}) {
+    const language = SupportGuidelines.normalizeAnswerLanguage(askOptions && askOptions.language);
+    const outcome = await askInternal(question, language);
+    if (outcome && typeof outcome === 'object') outcome.language = language;
     return outcome;
   }
 

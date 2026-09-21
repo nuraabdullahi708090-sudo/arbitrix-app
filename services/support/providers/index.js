@@ -39,13 +39,14 @@ function normalizeBaseUrl(raw) {
   return value;
 }
 
-function buildOpenAIProvider({ apiKey, model, timeoutMs, fetchImpl }) {
+function buildOpenAIProvider({ apiKey, model, timeoutMs, fetchImpl, buildPrompt }) {
   return createHttpLLMProvider({
     name: 'openai',
     apiKey,
     model: model || DEFAULT_OPENAI_MODEL,
     timeoutMs,
     fetchImpl,
+    buildPrompt,
     endpoint: 'https://api.openai.com/v1/chat/completions',
     buildRequest: ({ model: m, prompt, instructions }) => ({
       url: 'https://api.openai.com/v1/chat/completions',
@@ -83,7 +84,7 @@ function buildOpenAIProvider({ apiKey, model, timeoutMs, fetchImpl }) {
  * The base URL is overridable for a proxy/self-hosted gateway; it must be a plain
  * http(s) URL. The API key is never logged or returned.
  */
-function buildDeepSeekProvider({ apiKey, model, timeoutMs, fetchImpl, baseUrl }) {
+function buildDeepSeekProvider({ apiKey, model, timeoutMs, fetchImpl, baseUrl, buildPrompt }) {
   const base = normalizeBaseUrl(baseUrl) || DEFAULT_DEEPSEEK_BASE_URL;
   const endpoint = base + '/chat/completions';
   return createHttpLLMProvider({
@@ -92,6 +93,7 @@ function buildDeepSeekProvider({ apiKey, model, timeoutMs, fetchImpl, baseUrl })
     model: model || DEFAULT_DEEPSEEK_MODEL,
     timeoutMs,
     fetchImpl,
+    buildPrompt,
     endpoint,
     buildRequest: ({ model: m, prompt, instructions }) => ({
       url: endpoint,
@@ -116,13 +118,14 @@ function buildDeepSeekProvider({ apiKey, model, timeoutMs, fetchImpl, baseUrl })
   });
 }
 
-function buildAnthropicProvider({ apiKey, model, timeoutMs, fetchImpl }) {
+function buildAnthropicProvider({ apiKey, model, timeoutMs, fetchImpl, buildPrompt }) {
   return createHttpLLMProvider({
     name: 'anthropic',
     apiKey,
     model: model || DEFAULT_ANTHROPIC_MODEL,
     timeoutMs,
     fetchImpl,
+    buildPrompt,
     endpoint: 'https://api.anthropic.com/v1/messages',
     buildRequest: ({ model: m, prompt, instructions }) => ({
       url: 'https://api.anthropic.com/v1/messages',
@@ -152,6 +155,7 @@ function buildAnthropicProvider({ apiKey, model, timeoutMs, fetchImpl }) {
  */
 function createProvider(name, options = {}) {
   const providerName = String(name || 'knowledge').trim().toLowerCase();
+  const buildPrompt = options.buildPrompt;
   const opts = {
     apiKey: options.apiKey || null,
     model: options.model || null,

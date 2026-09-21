@@ -442,10 +442,11 @@ test('the AI layer has no database, trading, withdrawal or account access', () =
     });
   });
 
-  // The bot hands the AI a string and receives text back - nothing else. Only
-  // ask/isEnabled/providerName are ever called on it.
+  // The bot hands the AI a string (plus the selected conversation language) and
+  // receives text back - nothing else. Only ask/isEnabled/providerName are ever
+  // called on it.
   const telegram = fs.readFileSync(path.join(ROOT, 'services', 'TelegramSupportService.js'), 'utf8');
-  assert.match(telegram, /const result = await ai\.ask\(question\);/);
+  assert.match(telegram, /const result = await ai\.ask\(question, \{ language: DEFAULT_LANGUAGE \}\);/);
   const allowed = new Set(['ai.ask(', 'ai.isEnabled(', 'ai.providerName(']);
   const aiCalls = telegram.match(/\bai\.[a-zA-Z]+\(/g) || [];
   assert.ok(aiCalls.length >= 2, 'expected the AI to be consulted from the reply path');

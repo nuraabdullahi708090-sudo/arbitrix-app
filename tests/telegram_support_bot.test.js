@@ -123,7 +123,8 @@ function createFakeStore({ failStore = false } = {}) {
         display_name: displayName,
         mode: 'support',
         status: 'open',
-        language: null,
+        // The real column is TEXT NOT NULL DEFAULT 'en' with CHECK (en/pt/ar).
+        language: 'en',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

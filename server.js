@@ -48,6 +48,14 @@ const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
 // bot answers exactly as before. The service only READS approved knowledge and
 // returns text - it has no database, trading, withdrawal or account access.
 const { createSupportAIService, resolveSupportAIConfig } = require('./services/support/SupportAIService');
+// Multilingual translation for the Telegram support bot (customer <-> English
+// operator). Its own gate (SUPPORT_TRANSLATION_ENABLED) so the operator workflow
+// keeps working when automated AI answering is off. With no provider credential
+// it reports itself unavailable and every caller falls back safely.
+const {
+  createSupportTranslator,
+  resolveTranslationConfig
+} = require('./services/support/SupportTranslator');
 
 // Feature flag cache (refreshes every 5 minutes)
 let featureFlagCache = {
@@ -4316,12 +4324,39 @@ function createSupportAIServiceSafely() {
   }
 }
 
+/**
+ * Build the translation layer for the Telegram bot, or null.
+ *
+ * Never breaks the webhook: any failure logs and degrades to "translation
+ * unavailable", in which case non-English customers still receive localized
+ * fixed messages and an operator's English reply is sent as-is WITH an explicit
+ * notice to the operator.
+ */
+function createSupportTranslatorSafely() {
+  try {
+    const translationConfig = resolveTranslationConfig(process.env);
+    const translator = createSupportTranslator({ config: translationConfig });
+    const available = translator.isAvailable();
+    console.log(`[SupportTranslator] ${available ? 'enabled' : 'unavailable'} `
+      + `(provider=${translationConfig.provider}, credential=${translationConfig.apiKey ? 'set' : 'missing'}); `
+      + (available
+        ? 'customer messages are translated to English for operators, and operator replies into the customer language'
+        : 'non-English customers get localized fixed replies; operator notifications show the original message only'));
+    return translator;
+  } catch (error) {
+    console.error('[SupportTranslator] initialisation failed; translation stays unavailable:',
+      error && error.message ? error.message : error);
+    return null;
+  }
+}
+
 const telegramConfig = resolveTelegramConfig(process.env);
 const telegramBot = createTelegramSupportBot({
   config: telegramConfig,
   store: createTelegramSupportStore(supabaseAdmin),
   transport: createTelegramTransport({ token: telegramConfig.token }),
-  supportAI: createSupportAIServiceSafely()
+  supportAI: createSupportAIServiceSafely(),
+  translator: createSupportTranslatorSafely()
 });
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
@@ -4339,6 +4374,7 @@ if (telegramConfig.token) {
         ? 'enabled'
         : 'DISABLED - TELEGRAM_SUPPORT_CHAT_ID is not set for this process; restart after setting it');
   console.log(`[Telegram] Customer notifications: ${notifySummary}`);
+  console.log('[Telegram] Customer languages: en, pt, ar (/language); operator notifications stay English');
 } else {
   console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
 }

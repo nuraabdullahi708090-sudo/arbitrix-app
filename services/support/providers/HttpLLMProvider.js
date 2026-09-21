@@ -54,6 +54,13 @@ function createHttpLLMProvider(options = {}) {
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : 8000;
   const buildRequest = options.buildRequest;
   const parseAnswer = options.parseAnswer;
+  // Optional prompt builder. Defaults to the knowledge-answer prompt, so every
+  // existing caller stays byte-identical; the translation layer supplies its own
+  // so it can reuse this provider's auth/timeout/error machinery without
+  // inheriting the "answer from the approved knowledge" framing.
+  const buildPrompt = typeof options.buildPrompt === 'function'
+    ? options.buildPrompt
+    : buildKnowledgePrompt;
   const fetchImpl = options.fetchImpl === undefined
     ? (typeof fetch === 'function' ? fetch : null)
     : options.fetchImpl;
@@ -67,7 +74,7 @@ function createHttpLLMProvider(options = {}) {
   async function generate({ question, hits, instructions } = {}) {
     if (!available) throw new ProviderUnavailableError(name);
 
-    const prompt = buildKnowledgePrompt(question, hits);
+    const prompt = buildPrompt(question, hits);
     const request = buildRequest({ model, prompt, instructions: instructions || '' });
 
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
