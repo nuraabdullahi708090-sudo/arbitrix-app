@@ -4557,3 +4557,59 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - The bot engine notice copy and the single-engine guard now agree with the lease
   behaviour; the cutover announcement about stopped browser-era sessions still stands.
 - No deploy, no push, no Render change in this work.
+
+
+## Stage 1-3 - Guarded AI Telegram support (2026-09-21, DISABLED BY DEFAULT, not enabled in production)
+- OFF BY DEFAULT. `AI_SUPPORT_ENABLED=false` is the default and the only switch;
+  `createSupportAIServiceSafely()` (server.js) returns null unless it is exactly
+  'true', so the Telegram bot runs without an AI collaborator and the pre-AI
+  behaviour is unchanged. The provider defaults to the offline `knowledge`
+  provider (no key, no network calls).
+- FILES: services/support/{SupportAIService,SupportKnowledge,SupportGuidelines}.js,
+  services/support/arbitrix-knowledge.json (38 approved entries, 15 categories),
+  services/support/providers/{index,HttpLLMProvider,KnowledgeProvider}.js,
+  services/TelegramSupportService.js (optional `supportAI` collaborator +
+  composeCustomerReply), server.js wiring, scripts/smoke-deepseek.js, and 5 new
+  test files (support_ai_service / support_ai_guardrails / support_ai_telegram /
+  support_knowledge / support_deepseek_provider).
+- SAFETY PIPELINE (order unchanged): retrieve approved knowledge -> generate ->
+  safety-check -> send or hand off. `assertSafeAnswer` catches promised returns,
+  credential requests and payment claims. Stage 3 ADDED a groundedness check
+  (`SupportGuidelines.findUnsupportedClaims`): every money amount, percentage and
+  duration in a GENERATED answer must appear in the approved knowledge retrieved
+  for that question, otherwise the answer is replaced by the approved text (or the
+  hand-off message). Rationale: assertSafeAnswer is knowledge-blind and would
+  otherwise let an external model invent e.g. "the minimum deposit is $500".
+  Verified: a poisoned model answer is rejected and replaced for all 7 questions.
+- PROVIDERS: knowledge (default, offline) | openai | anthropic | deepseek.
+  deepseek is OpenAI-compatible (POST https://api.deepseek.com/chat/completions,
+  default model deepseek-chat, `Authorization: Bearer`), selected with
+  AI_SUPPORT_PROVIDER=deepseek; AI_SUPPORT_MODEL overrides the model and
+  AI_SUPPORT_BASE_URL optionally overrides the endpoint (deepseek only). An
+  unknown provider name falls back to `knowledge`, so a typo cannot enable an
+  external provider. Key read from AI_SUPPORT_API_KEY, else OPENAI_API_KEY /
+  ANTHROPIC_API_KEY / DEEPSEEK_API_KEY by provider; never logged, never returned
+  by describe(), scrubbed from provider error messages.
+- QUESTIONS THAT NEVER REACH THE MODEL (knowledge stays the source of truth):
+  handoff entries (e.g. the unresolved 14-day free period), the profit guardrail,
+  advice intent, and anything below the retrieval score threshold. 5 of the 7
+  evaluation questions call the model; 2 are decided by the knowledge base.
+- SMOKE TEST: `node scripts/smoke-deepseek.js` (real API; `--dry-run` needs no key
+  and no network; `--json`; `--model=`). Reports final answer, outcome, safety
+  result, HTTP status, latency and token usage per question. It imports neither
+  the Telegram service nor a database client, redacts the key from all output, and
+  does not change AI_SUPPORT_ENABLED. Exit 2 = no key, 3 = unsafe answer survived.
+- NOT YET RUN AGAINST THE REAL API: no DeepSeek credential is available in this
+  environment (no DEEPSEEK_API_KEY / AI_SUPPORT_API_KEY; provider-connections/ and
+  profiles/ are empty; the platform keeps its own LLM credential outside the
+  sandbox). Supply a key as a workspace secret or run the script locally to
+  complete the live check. The model's real output quality is therefore UNVERIFIED;
+  only the pipeline behaviour (guardrails, fallback, no-invention) is verified.
+- OUTSTANDING (not done, needs a decision): the knowledge base says "no minimum
+  withdrawal" while server.js still enforces MIN_WITHDRAWAL_USD = 500 (KB conflict
+  `withdrawal_minimum`: "CODE NOT YET ALIGNED"), so the bot and the API disagree
+  for amounts under $500. Also: an advice-flavoured sentence containing no figure
+  ("you should invest more") is blocked by intent routing, not by output filtering.
+  Neither is changed by this commit.
+- Production Telegram/AI configuration was NOT touched: no Render env var was set,
+  no webhook re-registered, no customer-facing send, no database change.

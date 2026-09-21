@@ -43,6 +43,12 @@ const {
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
 
+// Stage 2: AI customer-support layer for the Telegram bot. Answering is OFF
+// unless AI_SUPPORT_ENABLED=true (see .env.example); with no key and no flag the
+// bot answers exactly as before. The service only READS approved knowledge and
+// returns text - it has no database, trading, withdrawal or account access.
+const { createSupportAIService, resolveSupportAIConfig } = require('./services/support/SupportAIService');
+
 // Feature flag cache (refreshes every 5 minutes)
 let featureFlagCache = {
     '2fa_type': 'email' // Default to email 2FA
@@ -4284,11 +4290,38 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 //    logged server-side. Duplicate deliveries are absorbed by the bounded
 //    update_id deduper inside the service (the applied messages table has no
 //    update_id column, so this is per-process, not a DB constraint).
+/**
+ * Build the AI support answerer for the Telegram bot, or null to stay on the
+ * human-only path.
+ *
+ * OFF BY DEFAULT: when AI_SUPPORT_ENABLED is not exactly "true" this returns null
+ * WITHOUT loading the knowledge base or constructing a provider, so the bot's
+ * customer-visible behaviour is byte-identical to before Stage 2.
+ *
+ * Initialisation can never break the webhook: any failure logs and degrades to
+ * the standard human-support flow (the customer's message is still stored and
+ * forwarded, and /escalate still works).
+ */
+function createSupportAIServiceSafely() {
+  try {
+    const supportAIConfig = resolveSupportAIConfig(process.env);
+    if (!supportAIConfig.enabled) return null;
+    const service = createSupportAIService({ config: supportAIConfig });
+    const meta = service.knowledgeMeta();
+    console.log(`[SupportAI] enabled (provider=${service.providerName()}, knowledge v${meta.version}, ${meta.entryCount} entries); Telegram answers from approved knowledge and hands off to humans when unsure`);
+    return service;
+  } catch (error) {
+    console.error('[SupportAI] initialisation failed; customers keep the standard human-support flow:', error && error.message ? error.message : error);
+    return null;
+  }
+}
+
 const telegramConfig = resolveTelegramConfig(process.env);
 const telegramBot = createTelegramSupportBot({
   config: telegramConfig,
   store: createTelegramSupportStore(supabaseAdmin),
-  transport: createTelegramTransport({ token: telegramConfig.token })
+  transport: createTelegramTransport({ token: telegramConfig.token }),
+  supportAI: createSupportAIServiceSafely()
 });
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');

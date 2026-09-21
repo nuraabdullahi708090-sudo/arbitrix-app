@@ -1,0 +1,491 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-09-21",
+  "description": "Approved, customer-facing Arbitrix support knowledge. Every answer is derived from the current repository (server.js constants/routes, services/*, public/index.html copy). This file is the single approved source for the SupportAIService: the AI layer may ONLY answer from these entries and must hand off to a human when the answer is not present, is marked handoff, or is listed in conflicts.",
+  "sources": {
+    "wallet_seed": "server.js:451 (getWallet inserts demo_balance: 1000, live_balance: 50, bonus_balance: 0)",
+    "min_deposit": "server.js:489 PLATFORM_MIN_DEPOSIT_USD = 100 (enforced server.js:3556-3563)",
+    "min_withdrawal": "server.js:509 MIN_WITHDRAWAL_USD = 500",
+    "withdrawal_verification_flag": "server.js:522-523 WITHDRAWAL_REQUIRES_VERIFICATION (default false)",
+    "withdrawal_gates": "server.js:4966-5085 /api/withdraw/request (first deposit -> verification(flag) -> min $500 -> balance -> address -> 1 trade), referral-earnings exception",
+    "promo_credit": "server.js:451 live_balance: 50; server.js:553 SANDBOX_PROMO_CREDIT = 50",
+    "promo_cap": "server.js:590 PROMO_PROFIT_CAP_USD = 20; server.js:592 PROMO_LIMIT_MESSAGE",
+    "referral": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 100, referral_reward_percent = 20",
+    "referral_conversion": "server.js:502 REFERRAL_EARNINGS_MIN_CONVERT_USD = 0",
+    "subscription": "server.js:1470 SUBSCRIPTION_PRO_DEFAULT_PRICE = 7; charge_subscription_safe RPC (migration 011)",
+    "deposit_flow": "public/index.html deposit modal (USDT on TRON/TRC20 only); server.js:3565-3585 currency/network validation",
+    "kyc": "services/KYCService.js DOCUMENT_TYPES (national_id_front, passport, selfie_with_id), MIN_DOCUMENT_COUNT = 2; server.js /api/kyc/* (event-triggered, no standalone tab)",
+    "sandbox": "server.js sandbox handlers (no minimum withdrawal, no KYC, no MTA, simulated lifecycle)"
+  },
+  "conflicts": [
+    {
+      "id": "withdrawal_minimum",
+      "status": "RESOLVED BY MANAGEMENT (no minimum withdrawal) - CODE NOT YET ALIGNED",
+      "summary": "Management has decided there is NO minimum withdrawal. However server.js still enforces MIN_WITHDRAWAL_USD = 500, so the bot's answer will not match platform behaviour until the withdrawal code is changed.",
+      "values": [
+        "management decision: no minimum withdrawal (authoritative customer-facing rule)",
+        "server.js:509 MIN_WITHDRAWAL_USD = 500 (STILL ENFORCED by /api/withdraw/request today)",
+        "MARKETING_SANDBOX: never had a minimum (matches the decision)"
+      ],
+      "note": "ACTION REQUIRED: the production API can still reject an amount under $500 with 'Min $500'. Aligning the code is a withdrawal-business-logic change and needs its own approval."
+    },
+    {
+      "id": "withdrawal_processing_time",
+      "status": "RESOLVED BY MANAGEMENT (15-30 minutes) - NO PROCESSING TIMER IN CODE",
+      "summary": "Management states a withdrawal arrives within 15-30 minutes of placement. server.js has no processing timer: a withdrawal is inserted as 'pending' and nothing advances it automatically.",
+      "values": [
+        "management decision: withdrawals arrive within 15-30 minutes (authoritative customer-facing rule)",
+        "server.js /api/withdraw/request: inserts status 'pending'; NO timer or auto-progression",
+        "MARKETING_SANDBOX: simulates pending -> processing -> completed in about 3 minutes"
+      ],
+      "note": "ACTION REQUIRED: the 15-30 minute promise is not yet backed by code. Implementing withdrawal processing is a separate, approved change."
+    },
+    {
+      "id": "kyc_requirement",
+      "status": "RESOLVED BY MANAGEMENT (no KYC)",
+      "summary": "Identity verification is NOT required for deposits, trading or withdrawals.",
+      "values": [
+        "management decision: no KYC (authoritative customer-facing rule)",
+        "server.js:522 WITHDRAWAL_REQUIRES_VERIFICATION default false (matches the decision)",
+        "MARKETING_SANDBOX: no KYC at all (matches the decision)"
+      ],
+      "note": "The env flag WITHDRAWAL_REQUIRES_VERIFICATION can re-enable the requirement; it must stay false to match this decision. If it is ever set to true, this knowledge must be updated."
+    },
+    {
+      "id": "bot_offline_behavior",
+      "status": "RESOLVED (production verified) - SERVER-SIDE WORKER RUNNING",
+      "summary": "Live bots keep trading when the customer closes the app or goes offline, because production Render runs the durable server-side trading worker.",
+      "values": [
+        "operator confirmation: production Render has TRADING_WORKER_ENABLED=true, the worker is active, and trade_recorded events have been observed",
+        "services/TradingWorker.js + migrations 028/029 implement the durable worker; the browser loop yields on HTTP 409 WORKER_OWNED_SESSION so only one engine trades",
+        "local/default environment: TRADING_WORKER_ENABLED unset, so the worker is inert outside production (the code default is unchanged)"
+      ],
+      "note": "Demo Mode trades are generated in the browser and never reach the server, so a Demo bot still stops when the tab closes; the knowledge answers accordingly. Revisit if the worker is ever disabled in production."
+    },
+    {
+      "id": "fourteen_day_free_period",
+      "status": "UNRESOLVED - flagged to owner",
+      "summary": "Marketing copy advertises 14 days free Live trading, but no 14-day production logic exists in server.js.",
+      "values": [
+        "public/index.html landing copy: '14 days, then $7/month', '$7/month subscription'",
+        "server.js: SUBSCRIPTION_PRO_DEFAULT_PRICE = 7 with explicit user activation (activateSubscription); no 14-day trial/period logic. The only 'intro_day' code is MARKETING_SANDBOX simulation."
+      ],
+      "note": "The bot does not state a free period; it hands the question to a human."
+    },
+    {
+      "id": "deposit_asset_list",
+      "status": "UNRESOLVED - flagged to owner",
+      "summary": "The deposit UI says USDT (TRC20) only; the legacy deposit endpoint accepts a wider list.",
+      "values": [
+        "public/index.html deposit modal: 'Arbitrix accepts USDT on TRON (TRC20) only.'",
+        "server.js:3568-3580 legacy /api/payment/create-invoice accepts USDT/BTC/ETH and TRC20/ERC20/BEP20/BTC/ETH"
+      ],
+      "note": "The bot states USDT on TRON (TRC20) (the customer-facing path) and does not enumerate the legacy list."
+    }
+  ],
+  "categories": [
+    {
+      "id": "what_is_arbitrix",
+      "title": "What Arbitrix is",
+      "entries": [
+        {
+          "id": "what_is_arbitrix.overview",
+          "question": "How does Arbitrix work?",
+          "answer": "Arbitrix is an automated arbitrage platform, designed to seek arbitrage opportunities automatically across supported markets. It places trades for you, so you do not have to trade by hand. You can try it first in Demo Mode with virtual funds, then move to Live Mode with real funds when you are ready. Results vary - you can gain or lose.",
+          "keywords": ["arbitrix", "how does arbitrix work", "what is arbitrix", "how it works", "works", "platform", "about arbitrix"],
+          "kind": "info",
+          "source": "public/index.html landing ('Automated Arbitrage. Made Simple.'); server.js trading routes"
+        },
+        {
+          "id": "what_is_arbitrix.arbitrage",
+          "question": "What is arbitrage?",
+          "answer": "Arbitrage means taking advantage of a price difference for the same asset between markets - buying where it is cheaper and selling where it is more expensive. Arbitrix automates that process for you.",
+          "keywords": ["arbitrage", "what is arbitrage", "price difference", "buy low sell high"],
+          "kind": "info",
+          "source": "public/index.html landing FAQ"
+        }
+      ]
+    },
+    {
+      "id": "demo_mode",
+      "title": "How Demo Mode works",
+      "entries": [
+        {
+          "id": "demo_mode.can_i_use",
+          "question": "Can I use Demo Mode?",
+          "answer": "Yes. Demo Mode lets you try Arbitrix with virtual funds so you can see how it works without using real money. A new Demo account starts with $1,000 in virtual funds. Demo funds are not real and cannot be withdrawn.",
+          "keywords": ["demo", "demo mode", "virtual funds", "practice", "try it", "can i use demo", "test mode"],
+          "kind": "info",
+          "source": "server.js:451 demo_balance: 1000; public/index.html demo copy"
+        },
+        {
+          "id": "demo_mode.real_money",
+          "question": "Does Demo Mode use real money?",
+          "answer": "No. Demo Mode uses virtual funds only - a new Demo account starts with $1,000 that is not real money. Nothing in Demo Mode can be withdrawn.",
+          "keywords": ["is demo real", "demo real money", "virtual money", "fake money", "demo money"],
+          "kind": "info",
+          "source": "server.js:451 demo_balance: 1000; public/index.html demo copy"
+        },
+        {
+          "id": "demo_mode.start",
+          "question": "How do I start Demo Mode?",
+          "answer": "Open the app and switch to DEMO using the DEMO / LIVE switch at the top. You can then start the bot and watch it work with virtual funds.",
+          "keywords": ["start demo", "switch to demo", "enable demo", "how to use demo"],
+          "kind": "info",
+          "source": "public/index.html mode switch"
+        }
+      ]
+    },
+    {
+      "id": "live_mode",
+      "title": "How Live Mode works",
+      "entries": [
+        {
+          "id": "live_mode.overview",
+          "question": "How does Live Mode work?",
+          "answer": "In Live Mode Arbitrix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $100) and then start the bot to trade automatically. Live results are real and can go up or down - you can lose money.",
+          "keywords": ["live mode", "live", "real funds", "real money", "real trading"],
+          "kind": "info",
+          "source": "server.js:489 minimum deposit; public/index.html live mode copy"
+        },
+        {
+          "id": "live_mode.switch",
+          "question": "How do I switch between Demo and Live?",
+          "answer": "Use the DEMO / LIVE switch at the top of the app. Demo uses virtual funds; Live uses the real funds in your Live balance.",
+          "keywords": ["switch mode", "change mode", "demo to live", "live to demo"],
+          "kind": "info",
+          "source": "public/index.html mode switch"
+        }
+      ]
+    },
+    {
+      "id": "getting_started",
+      "title": "Getting started",
+      "entries": [
+        {
+          "id": "getting_started.steps",
+          "question": "How do I get started?",
+          "answer": "1) Create your account. 2) Explore Demo Mode with virtual funds. 3) When you are ready, switch to Live and make a deposit of at least $100. 4) Start the bot and follow your results in the dashboard. If any step is unclear, our support team can help.",
+          "keywords": ["get started", "getting started", "how to start", "first steps", "new user", "begin", "setup"],
+          "kind": "info",
+          "source": "public/index.html onboarding/landing; server.js:489 minimum deposit"
+        }
+      ]
+    },
+    {
+      "id": "deposits",
+      "title": "Deposits",
+      "entries": [
+        {
+          "id": "deposits.minimum",
+          "question": "What is the minimum deposit?",
+          "answer": "The minimum deposit is $100. Deposits are credited to your Live balance.",
+          "keywords": ["minimum deposit", "min deposit", "how much to deposit", "deposit minimum", "deposit amount", "least deposit"],
+          "kind": "info",
+          "source": "server.js:489 PLATFORM_MIN_DEPOSIT_USD = 100 (server.js:3556-3563)"
+        },
+        {
+          "id": "deposits.how_to",
+          "question": "How do I make a deposit?",
+          "answer": "Switch to Live Mode, open Deposit, enter an amount of at least $100, then send the exact amount of USDT on the TRON (TRC20) network to the address shown. Deposits are detected automatically once the network confirms them.",
+          "keywords": ["how to deposit", "make a deposit", "add funds", "fund my account", "top up", "deposit money"],
+          "kind": "info",
+          "source": "public/index.html deposit modal; server.js deposit routes"
+        },
+        {
+          "id": "deposits.asset",
+          "question": "Which cryptocurrency can I deposit?",
+          "answer": "Deposits are made in USDT on the TRON (TRC20) network. Before sending, make sure your wallet or exchange supports USDT on TRC20, and always check the address and network shown on the Deposit screen.",
+          "keywords": ["which crypto", "which coin", "usdt", "trc20", "which network", "deposit currency"],
+          "kind": "info",
+          "source": "public/index.html deposit modal ('USDT on TRON (TRC20) only')"
+        },
+        {
+          "id": "deposits.pending",
+          "question": "My deposit is still pending",
+          "answer": "TRC20 deposits are detected automatically and normally confirm within a few minutes. Keep your invoice reference and never send the same payment twice. If it still has not appeared, our support team can check it using your transaction hash.",
+          "keywords": ["deposit pending", "deposit not arrived", "deposit missing", "deposit stuck", "sent but not credited", "deposit not showing"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "public/index.html support FAQ (depositPending)"
+        },
+        {
+          "id": "deposits.expired",
+          "question": "My payment failed or expired",
+          "answer": "An expired invoice is never credited. Create a new invoice and pay the exact amount shown, on TRON (TRC20). If funds already left your wallet, contact support with the transaction hash - and never send the same payment twice.",
+          "keywords": ["payment failed", "invoice expired", "expired deposit", "payment expired", "deposit failed"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "public/index.html support FAQ (depositFailed)"
+        }
+      ]
+    },
+    {
+      "id": "trading_bot",
+      "title": "Trading / bot",
+      "entries": [
+        {
+          "id": "trading_bot.how_it_works",
+          "question": "How does the bot work?",
+          "answer": "The bot is designed to seek arbitrage opportunities automatically across supported markets, and places trades using the platform strategy. You start and stop it from the dashboard, and every trade is recorded in your history. Results vary and are not guaranteed.",
+          "keywords": ["bot", "trading bot", "how does the bot work", "automatic trading", "robot", "start bot", "designed to seek arbitrage opportunities"],
+          "kind": "info",
+          "source": "public/index.html bot controls; server.js /api/bot/* + /api/trade"
+        },
+        {
+          "id": "trading_bot.offline",
+          "question": "Does the bot keep trading if I close the app?",
+          "answer": "Yes for Live Mode. Live bots run on our servers, so trading continues even if you close the app, log out, or your phone goes to sleep - your trade history updates as trades are recorded. Demo Mode runs in your browser, so a Demo bot stops when you close the app.",
+          "keywords": ["close tab", "close app", "offline", "keep trading", "log out", "while sleeping", "browser closed", "background"],
+          "kind": "info",
+          "source": "production verified: TRADING_WORKER_ENABLED=true on Render with observed trade_recorded events (services/TradingWorker.js + migrations 028/029). Demo Mode is browser-side only."
+        },
+        {
+          "id": "trading_bot.risk",
+          "question": "Is trading risky?",
+          "answer": "Yes. Trading involves risk and results vary - you can lose money as well as gain. Arbitrix does not promise profits or guaranteed returns, and nothing here is financial advice.",
+          "keywords": ["risk", "risky", "lose money", "losses", "is it safe", "can i lose"],
+          "kind": "guardrail",
+          "source": "platform risk disclosure (landing)"
+        }
+      ]
+    },
+    {
+      "id": "withdrawals",
+      "title": "Withdrawals",
+      "entries": [
+        {
+          "id": "withdrawals.requirements",
+          "question": "How do withdrawals work?",
+          "answer": "To withdraw from Live you normally need a qualifying first deposit, at least one completed trade, and a valid wallet address. There is no minimum withdrawal amount. Genuinely earned referral rewards are an exception - they can be withdrawn without placing a trade. A withdrawal starts as pending and appears in your history.",
+          "keywords": ["how do withdrawals work", "withdraw", "withdrawal requirements", "cash out", "take out money"],
+          "kind": "info",
+          "source": "server.js:4966-5085 /api/withdraw/request gates"
+        },
+        {
+          "id": "withdrawals.minimum",
+          "question": "What is the minimum withdrawal?",
+          "answer": "No minimum withdrawal is needed - there is no minimum withdrawal amount, and you can withdraw any amount up to your available balance.",
+          "keywords": ["minimum withdrawal", "min withdrawal", "withdrawal minimum", "least withdrawal", "how much can i withdraw"],
+          "kind": "info",
+          "source": "management decision (no minimum). NOTE: server.js MIN_WITHDRAWAL_USD = 500 still enforces a production minimum until the withdrawal code is aligned."
+        },
+        {
+          "id": "withdrawals.timing",
+          "question": "How long does a withdrawal take?",
+          "answer": "Withdrawals usually arrive within 15-30 minutes after you place the request. You can follow the status in your transaction history, and if it takes longer than that, contact support and we will check it for you.",
+          "keywords": ["how long does withdrawal take", "withdrawal time", "when will i get", "processing time", "when will my withdrawal arrive"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "management decision (15-30 minutes). NOTE: server.js has no processing timer yet - production withdrawals stay 'pending' until processing is implemented."
+        },
+        {
+          "id": "withdrawals.problem",
+          "question": "My withdrawal is stuck or has not arrived",
+          "answer": "I am not able to check your account from here. Please contact support with the amount, the destination address and the date, and our team will investigate. Never share your password, private key or seed phrase with anyone.",
+          "keywords": ["withdrawal stuck", "withdrawal not arrived", "withdrawal problem", "missing withdrawal", "withdrawal failed", "did not receive withdrawal"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "sensitive case - hand to human"
+        }
+      ]
+    },
+    {
+      "id": "kyc_security",
+      "title": "KYC / security",
+      "entries": [
+        {
+          "id": "kyc_security.required",
+          "question": "Do I need to verify my identity?",
+          "answer": "No. Arbitrix does not require identity verification (KYC) - you can deposit, trade and withdraw without submitting identity documents.",
+          "keywords": ["kyc", "verify identity", "verification", "id check", "identity", "do i need to verify", "kyc required"],
+          "kind": "info",
+          "source": "management decision (no KYC); server.js WITHDRAWAL_REQUIRES_VERIFICATION default false and MARKETING_SANDBOX has no KYC"
+        },
+        {
+          "id": "kyc_security.documents",
+          "question": "What documents do I need for verification?",
+          "answer": "You do not need to submit any documents. Identity verification is not required on Arbitrix.",
+          "keywords": ["documents", "what documents", "passport", "national id", "selfie", "id upload"],
+          "kind": "info",
+          "source": "management decision (no KYC)"
+        },
+        {
+          "id": "kyc_security.account_safety",
+          "question": "How do I keep my account safe?",
+          "answer": "Never share your password, private key, seed phrase, or one-time codes with anyone - Arbitrix support will never ask you for them. Always use official channels and check the address and network before you send funds.",
+          "keywords": ["keep account safe", "security", "protect my account", "scam", "phishing", "stay safe"],
+          "kind": "info",
+          "source": "public/index.html security warning; support policy"
+        }
+      ]
+    },
+    {
+      "id": "promotional_credit",
+      "title": "Promotional credit",
+      "entries": [
+        {
+          "id": "promotional_credit.what_is_it",
+          "question": "What is the $50 promotional credit?",
+          "answer": "New Live accounts may receive a $50 promotional credit in the Live balance. It is a head start you can trade with - it is not a deposit and it cannot be withdrawn. To withdraw funds you need a qualifying deposit (at least $100) and at least one completed trade.",
+          "keywords": ["promotional credit", "promo credit", "50 promo", "promotional", "free credit", "bonus credit", "welcome credit", "$50"],
+          "kind": "info",
+          "source": "server.js:451 live_balance: 50; promo rules"
+        },
+        {
+          "id": "promotional_credit.cap",
+          "question": "Why did my bot stop after making a profit?",
+          "answer": "While you are trading only the $50 promotional credit (before your first qualifying deposit), realized profit from it is capped at $20. When the cap is reached the bot stops and further trading needs a qualifying deposit. After you deposit, that cap no longer applies.",
+          "keywords": ["bot stopped", "promo limit", "trading limit", "promotional trading limit", "cap", "why did my bot stop", "promotional trading limit reached"],
+          "kind": "info",
+          "source": "server.js:590 PROMO_PROFIT_CAP_USD = 20; server.js:592 PROMO_LIMIT_MESSAGE"
+        }
+      ]
+    },
+    {
+      "id": "referrals",
+      "title": "Referrals",
+      "entries": [
+        {
+          "id": "referrals.program",
+          "question": "What is the referral program?",
+          "answer": "You earn 20% of the first qualifying deposit of each person you refer - a one-time reward. Their deposit must reach the minimum qualifying amount ($100) for the reward to count. There is no recurring commission.",
+          "keywords": ["referral", "referral program", "invite", "refer", "referral reward", "earn from referrals"],
+          "kind": "info",
+          "source": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 100"
+        },
+        {
+          "id": "referrals.using_earnings",
+          "question": "How do I use my referral earnings?",
+          "answer": "Referral rewards are credited to your Bonus Wallet. You can convert them to your Live balance at any time - there is no minimum to convert - and genuinely earned referral rewards can be withdrawn without needing to place a trade.",
+          "keywords": ["referral earnings", "referral bonus", "bonus wallet", "convert referral", "withdraw referral"],
+          "kind": "info",
+          "source": "server.js:502 REFERRAL_EARNINGS_MIN_CONVERT_USD = 0"
+        }
+      ]
+    },
+    {
+      "id": "subscription",
+      "title": "Subscription",
+      "entries": [
+        {
+          "id": "subscription.price",
+          "question": "How much is the subscription?",
+          "answer": "Arbitrix Pro is $7 per month. It is deducted from your available Live balance when due, and no card is required. If your balance is too low when it is due, the subscription is marked as due and retried - it does not create a debt.",
+          "keywords": ["subscription", "arbitrix pro", "pro plan", "7 per month", "monthly", "platform fee", "pricing"],
+          "kind": "info",
+          "source": "server.js:1470 SUBSCRIPTION_PRO_DEFAULT_PRICE = 7; charge_subscription_safe"
+        },
+        {
+          "id": "subscription.cancel",
+          "question": "Can I cancel my subscription?",
+          "answer": "Yes - you can cancel from the Subscription section in your profile. You keep access until the end of the period you already paid for, and you will not be charged again after cancelling.",
+          "keywords": ["cancel subscription", "stop subscription", "cancel pro", "unsubscribe"],
+          "kind": "info",
+          "source": "server.js /api/subscription/cancel"
+        },
+        {
+          "id": "subscription.free_period",
+          "question": "Do I get 14 days free?",
+          "answer": "I cannot confirm that accurately from here and I do not want to give you the wrong information. Please contact support and we will confirm the current plan and any free period that applies to your account.",
+          "keywords": ["14 days", "free trial", "introductory period", "free period", "trial"],
+          "kind": "handoff",
+          "source": "conflict: marketing copy claims 14 free days; no 14-day logic in server.js"
+        }
+      ]
+    },
+    {
+      "id": "supported_countries",
+      "title": "Supported countries / payment information",
+      "entries": [
+        {
+          "id": "supported_countries.availability",
+          "question": "Which countries can use Arbitrix?",
+          "answer": "I do not have a verified list of supported countries here, so I do not want to guess. Arbitrix is used through the web app and deposits are made in USDT (TRC20). Please contact support and we will confirm this for your country.",
+          "keywords": ["which countries", "country", "available in", "supported countries", "my country", "region", "is arbitrix available"],
+          "kind": "handoff",
+          "source": "no country-restriction logic found in the repository"
+        },
+        {
+          "id": "supported_countries.payment",
+          "question": "What payment methods are supported?",
+          "answer": "Deposits are made with USDT on the TRON (TRC20) network. No card or bank details are needed. Always confirm the exact asset and network on the Deposit screen before sending.",
+          "keywords": ["payment methods", "how do i pay", "card", "bank", "crypto payment", "payment"],
+          "kind": "info",
+          "source": "public/index.html deposit modal; server.js deposit routes"
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Common troubleshooting",
+      "entries": [
+        {
+          "id": "troubleshooting.login",
+          "question": "I cannot log in",
+          "answer": "I cannot access account details from here. Please use 'Forgot password' on the login screen, and if you still cannot get in, contact support - we will help you regain access securely. Never share your password with anyone.",
+          "keywords": ["cannot log in", "can not login", "locked out", "forgot password", "login problem", "cannot sign in", "reset password", "change password"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "sensitive case - hand to human"
+        },
+        {
+          "id": "troubleshooting.bot_start",
+          "question": "The bot is not starting",
+          "answer": "Check that you are in the mode you want (Demo or Live) and, if you are in Live, that your Live balance is funded. If it still will not start, contact support with a screenshot and we will look into it.",
+          "keywords": ["bot not starting", "bot will not start", "bot not working", "start bot failed", "bot stopped"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "public/index.html bot controls"
+        },
+        {
+          "id": "troubleshooting.wrong_address",
+          "question": "I sent funds to the wrong address or network",
+          "answer": "Please contact support right away with the transaction hash. Sending on the wrong network can result in loss of funds, and our team will help you check what can be done.",
+          "keywords": ["wrong address", "wrong network", "sent to wrong", "mistake deposit", "sent to wrong address"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "sensitive case - hand to human"
+        }
+      ]
+    },
+    {
+      "id": "contact_human",
+      "title": "When to contact a human",
+      "entries": [
+        {
+          "id": "contact_human.how",
+          "question": "How do I contact a human?",
+          "answer": "You can ask for a human at any time - just say so, or use /escalate in this chat. Support can help with payment disputes, deposits or withdrawals that look wrong, account access problems, and anything I am not sure about.",
+          "keywords": ["contact human", "contact support", "reach support", "talk to human", "speak to someone", "real person", "agent", "support team", "escalate", "human support", "human"],
+          "kind": "info",
+          "offerHuman": true,
+          "source": "services/TelegramSupportService.js /escalate; app Support Center"
+        }
+      ]
+    },
+    {
+      "id": "guardrails",
+      "title": "Risk and answer limits",
+      "entries": [
+        {
+          "id": "guardrails.no_guarantee",
+          "question": "Will I make a profit?",
+          "answer": "No one can promise that. Arbitrix does not guarantee profits or returns and trading involves risk - you can lose money as well as gain. Past results do not predict future results. This is general information, not financial advice.",
+          "keywords": ["will i make profit", "guaranteed", "guarantee", "risk free", "risk-free", "how much will i earn", "assured returns", "safe profit", "can i make money"],
+          "kind": "guardrail",
+          "source": "platform risk disclosure; support policy"
+        },
+        {
+          "id": "guardrails.no_advice",
+          "question": "Should I invest or deposit more?",
+          "answer": "I cannot give personalized financial or trading advice and I will not tell you how much to invest. I can explain how Arbitrix works so you can decide what is right for you. For anything specific to your situation, please speak with our support team.",
+          "keywords": ["should i invest", "should i deposit", "financial advice", "what should i buy", "good investment", "how much should i invest"],
+          "kind": "guardrail",
+          "offerHuman": true,
+          "source": "support policy"
+        }
+      ]
+    }
+  ]
+}

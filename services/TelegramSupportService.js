@@ -152,6 +152,12 @@ const CUSTOMER_GUIDE_TEXT =
   'Thanks for contacting Arbitrix Support. Please describe your issue, and a support agent will assist you here. You can also use /escalate to request a human agent.';
 const ESCALATION_ACK = 'Your request has been flagged for a human agent. A member of the support team will follow up in this chat.';
 
+// Stage 2: the AI support layer answers ordinary customer messages from the
+// approved knowledge base (services/support/SupportAIService.js). It is injected
+// by server.js ONLY when AI_SUPPORT_ENABLED=true - with no `supportAI` the reply
+// is exactly CUSTOMER_GUIDE_TEXT above, so the default behaviour is unchanged.
+const SUPPORT_AI_MAX_QUESTION_CHARS = 2000;
+
 const ADMIN_HELP_TEXT = [
   'Arbitrix support group commands',
   '',
@@ -738,12 +744,19 @@ function planWebhookRegistration(webhookSummary, expectedUrl) {
  * @param {object} [deps.logger]  - console-like logger (never receives secrets)
  * @param {object} [deps.deduper] - createUpdateDeduper(...) output
  * @param {object} [deps.threadMap] - createLimitedMap(...) output
+ * @param {object} [deps.supportAI] - OPTIONAL support AI answerer
+ *   (services/support/SupportAIService.js). Absent = AI off = the standard guide
+ *   text. It receives ONLY the customer's message text and returns a string;
+ *   it has no database, trading, withdrawal or account access.
  */
-function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap }) {
+function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
   const cfg = config || {};
+  // Optional AI answerer (Stage 2). Absent/null => AI off => standard guide text.
+  // It is only ever handed the customer's message text (see composeCustomerReply).
+  const ai = supportAI && typeof supportAI.ask === 'function' ? supportAI : null;
   const adminIds = Array.isArray(cfg.adminIds) ? cfg.adminIds.map(String) : [];
   const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null };
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
@@ -788,7 +801,12 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     lastErrorDetails: null,
     lastErrorHint: null,
     storageCause: null,
-    lastRegistration: null
+    lastRegistration: null,
+    // Stage 2 AI answering. All zero while AI_SUPPORT_ENABLED is off.
+    aiEnabled: Boolean(ai),
+    aiReplies: 0,
+    aiHandoffs: 0,
+    aiFailures: 0
   };
 
   const scrub = (message) => String(message === undefined || message === null ? '' : message)
@@ -874,6 +892,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         : null,
       seenUpdates: seenUpdates.size(),
       threadedReplies: forwarded.size(),
+      // Stage 2: whether the AI answerer is wired in, and which provider backs
+      // it. Booleans/name only - never an API key or any configuration value.
+      supportAIEnabled: Boolean(ai),
+      aiProvider: ai && typeof ai.providerName === 'function' ? ai.providerName() : null,
       // Last Telegram API call outcome (sendMessage status + Telegram's own
       // description) - token scrubbed, no chat id, no message text.
       lastApiCall: transport.getLastCall ? transport.getLastCall() : null,
@@ -999,6 +1021,46 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     }
   }
 
+  /**
+   * Compose the reply to an ORDINARY (non-command) customer message.
+   *
+   * No AI (the default): returns the standard acknowledgement/guide text, so the
+   * behaviour of the bot is byte-identical to before Stage 2.
+   *
+   * With AI: asks the support AI layer for an answer built ONLY from approved
+   * knowledge. SupportAIService itself performs the safety checks (no invented
+   * facts, no promises, no secrets, no personalized advice, unresolved conflicts
+   * and sensitive account topics handed to a human).
+   *
+   * The AI is handed NOTHING but the customer's message text - no chat id, no
+   * user id, no account data, no wallet, no tools. It cannot read or write
+   * anything; this function only receives a string back.
+   *
+   * Any failure (provider error, empty answer) falls back to the standard text,
+   * so the customer is never left without a reply.
+   */
+  async function composeCustomerReply(text) {
+    if (!ai) return CUSTOMER_GUIDE_TEXT;
+    // A disabled service must never change customer-visible behaviour.
+    if (typeof ai.isEnabled === 'function' && !ai.isEnabled()) return CUSTOMER_GUIDE_TEXT;
+    try {
+      markStage('support-ai');
+      const question = String(text === null || text === undefined ? '' : text).slice(0, SUPPORT_AI_MAX_QUESTION_CHARS);
+      const result = await ai.ask(question);
+      if (result && typeof result.answer === 'string' && result.answer.trim().length > 0) {
+        stats.aiReplies += 1;
+        if (result.needsHuman) stats.aiHandoffs += 1;
+        return result.answer.trim();
+      }
+      stats.aiFailures += 1;
+    } catch (error) {
+      // The AI must never be able to silence support: log and fall back.
+      stats.aiFailures += 1;
+      warn(`support AI failed; sending the standard acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
+    }
+    return CUSTOMER_GUIDE_TEXT;
+  }
+
   async function handleUserUpdate(route, update) {
     const from = route.message.from || {};
     const command = route.command;
@@ -1113,10 +1175,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // existed (created by /chatid, /start or /escalate) - and every message
     // after their first - received no reply at all.
     //
+    // Stage 2: when the AI support layer is enabled, composeCustomerReply returns
+    // its (already safety-checked) answer instead of the generic guide text. The
+    // message is still PERSISTED and still FORWARDED below either way, so the
+    // human support system keeps the full record and /escalate is unaffected.
+    //
     // A send failure propagates (HTTP 500) so Telegram redelivers instead of
     // dropping the message; a successfully processed update is recorded in the
     // deduper, so a redelivery can never duplicate this reply.
-    await sendOutbound(conversation, CUSTOMER_GUIDE_TEXT);
+    await sendOutbound(conversation, await composeCustomerReply(text));
 
     if (cfg.supportChatId) {
       const name = conversation.display_name || telegramDisplayName(from);
@@ -1641,6 +1708,7 @@ module.exports = {
   classifyStorageError,
   USER_HELP_TEXT,
   CUSTOMER_GUIDE_TEXT,
+  SUPPORT_AI_MAX_QUESTION_CHARS,
   ESCALATION_ACK,
   ADMIN_HELP_TEXT,
   parseAdminIds,
