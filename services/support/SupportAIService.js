@@ -31,6 +31,14 @@ const { createProvider, listProviders, DEFAULT_TIMEOUT_MS } = require('./provide
 const DEFAULT_MIN_SCORE = 2;
 const DEFAULT_MAX_ANSWER_CHARS = 1200;
 
+/**
+ * The offline provider that ECHOES approved knowledge. Text it returns is the
+ * approved ENGLISH wording, never a sentence a model wrote for this request, so it
+ * must never be mistaken for an answer already in the customer's language. See the
+ * `source` / `modelGenerated` provenance fields every outcome carries.
+ */
+const KNOWLEDGE_PROVIDER_NAME = 'knowledge';
+
 /** Sensitive topics that must always reach a human. Order matters (first wins). */
 const HUMAN_ESCALATION_TRIGGERS = Object.freeze([
   {
@@ -171,6 +179,16 @@ function createSupportAIService(options = {}) {
     category: null,
     confidence: 0,
     provider: provider.name,
+    // PROVENANCE of `answer` - what the text IS, independent of `kind`/`reason`:
+    //   'knowledge' - approved knowledge-base wording. English by construction.
+    //   'provider'  - a MODEL wrote it for this request, in the requested language.
+    // `modelGenerated` is the boolean a caller must switch on before assuming the
+    // text is already in the customer's language. The DEFAULT is the safe one:
+    // anything that does not explicitly claim provider provenance (guardrails,
+    // handoffs, refusals, approved-text fallbacks, truncation filter results) is
+    // approved English, never a customer-language answer.
+    source: 'knowledge',
+    modelGenerated: false,
     sources: [],
     reason: null,
     filtered: false,
@@ -324,6 +342,14 @@ function createSupportAIService(options = {}) {
     }
 
     let answer = generated && generated.text ? String(generated.text).trim() : null;
+    // WHO wrote this text? The offline `knowledge` provider echoes the APPROVED
+    // English wording, so reaching us through the provider interface does NOT make
+    // it a customer-language answer: only a non-knowledge provider's text is
+    // 'provider' (model-generated). Every fallback to approved text below keeps
+    // (or restores) the 'knowledge' provenance.
+    const wroteText = !!(generated && generated.text
+      && ((generated.provider || provider.name) !== KNOWLEDGE_PROVIDER_NAME));
+    let source = wroteText ? 'provider' : 'knowledge';
 
     if (!answer) {
       // Provider had nothing (or was unavailable). If we have an approved
@@ -331,6 +357,7 @@ function createSupportAIService(options = {}) {
       const approved = hits.find((h) => h.kind === 'info') || top;
       if (approved && approved.answer) {
         answer = approved.answer;
+        source = 'knowledge';
       } else {
         const outcome = result({ kind: 'unknown', answer: SupportGuidelines.UNCERTAIN_TEXT, reason: 'no-answer' });
         logEvent(text, outcome);
@@ -354,6 +381,9 @@ function createSupportAIService(options = {}) {
       const fallbackSafe = SupportGuidelines.assertSafeAnswer(fallbackText).length === 0
         && SupportGuidelines.findUnsupportedClaims(fallbackText, hits).length === 0;
       answer = fallbackSafe ? fallbackText : SupportGuidelines.UNCERTAIN_TEXT;
+      // Whatever we replaced it with is APPROVED wording, not model-written text
+      // for this request - provenance must follow the text, not the provider.
+      source = 'knowledge';
     }
 
     const outcome = result({
@@ -366,6 +396,10 @@ function createSupportAIService(options = {}) {
       confidence: top.score,
       sources: hits.map((h) => h.source).filter(Boolean),
       reason: providerFailed ? 'provider-fallback' : null,
+      // Explicit provenance: callers must switch on `modelGenerated`, never infer
+      // "already in the customer's language" from `kind`/`reason`.
+      source,
+      modelGenerated: source === 'provider',
       filtered,
       unsupportedClaims
     });
@@ -378,10 +412,17 @@ function createSupportAIService(options = {}) {
    * missing/invalid/unsupported value becomes 'en') and annotates the outcome
    * with it for observability.
    *
-   * NOTE for callers: `language` is what was REQUESTED. The answer text is in
-   * that language only when the model generated it; outcomes that carry APPROVED
-   * knowledge (kind 'guardrail', or kind 'answer' with reason
-   * 'provider-fallback') are English and the caller must localize them.
+   * NOTE for callers: `language` is what was REQUESTED, NOT a statement about the
+   * text. Switch on the provenance fields to decide what to do with `answer`:
+   *   - `modelGenerated: true` (`source: 'provider'`) - a MODEL wrote the text for
+   *     this request, so it is expected to already be in `language`.
+   *   - `modelGenerated: false` (`source: 'knowledge'`) - APPROVED knowledge-base
+   *     wording, which is ENGLISH by construction (guardrails, handoffs, refusals,
+   *     the offline `knowledge` provider and every approved-text fallback). A
+   *     caller serving a non-English customer MUST localize it or replace it with
+   *     a localized fallback - never send it verbatim.
+   * `kind` and `reason` are kept for compatibility and telemetry; they are NOT a
+   * reliable language signal.
    */
   async function ask(question, askOptions = {}) {
     const language = SupportGuidelines.normalizeAnswerLanguage(askOptions && askOptions.language);

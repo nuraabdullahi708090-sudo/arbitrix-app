@@ -4830,3 +4830,45 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   (the system prompt now equals SUPPORT_INSTRUCTIONS + the language directive).
 - NOT committed to `main`, NOT pushed, NOT merged, NOT deployed; migration 032 is
   NOT applied.
+
+## Answer provenance - multilingual Telegram language leak fix (2026-09-21, NOT committed)
+- PRODUCTION BUG: a Portuguese customer selected Portugues (choice stored AND
+  confirmed in Portuguese) and then received an ENGLISH answer. The language
+  flow was NOT the cause: the value was persisted, read back and passed to the AI
+  correctly.
+- ROOT CAUSE: the offline `knowledge` provider (the DEFAULT when
+  AI_SUPPORT_PROVIDER is unset) echoes the APPROVED ENGLISH knowledge text as
+  `{ kind: 'answer', reason: null }`. composeCustomerReply() read that shape as
+  "the model answered in the customer's language"
+  (`kind === 'answer' && reason !== 'provider-fallback'`), and
+  SupportGuidelines.hasExpectedScript() returns TRUE for every non-Arabic
+  language (only `ar` gets a script check), so Portuguese had no verification and
+  the English text went out verbatim. Arabic was protected by the script check.
+- FIX (explicit provenance, no heuristics): SupportAIService propagates
+  `source: 'provider' | 'knowledge'` + `modelGenerated: boolean` on EVERY outcome,
+  defaulting to the SAFE pair ('knowledge' / false) inside result(), so
+  guardrails, handoffs, refusals, approved-text fallbacks and filtered answers are
+  all approved English. Only text from a non-knowledge provider
+  (KNOWLEDGE_PROVIDER_NAME) is 'provider' / true. composeCustomerReply switches on
+  `outcome.modelGenerated === true`; approved text always goes through
+  translateForCustomer() and falls back to the localized `uncertain` message. The
+  Arabic script check is kept; NO heuristic pt-vs-en detection was added.
+- English behaviour is untouched (the `lang === DEFAULT_LANGUAGE` branch
+  short-circuits before any provenance logic). Language-selection flow, DB schema
+  and the private-admin architecture are unchanged.
+- OPERATIONAL CONSEQUENCE: with the knowledge provider and no translation
+  credential, a pt/ar customer now receives the LOCALIZED "no approved answer /
+  escalated to support" message instead of English facts. Real Portuguese/Arabic
+  ANSWERS still require either AI_SUPPORT_PROVIDER (+ key) so a model writes in the
+  requested language, or SUPPORT_TRANSLATION_ENABLED (+ key) so approved English is
+  translated. Both are env-only changes.
+- Tests: NEW tests/support_language_provenance.test.js (19 tests: provenance unit
+  pins incl. the filtered/failed-provider cases; the exact production-bug
+  reproduction; en/pt/ar x knowledge/model-generated; translator on/off; guardrail
+  unchanged; the Arabic script guard; "no approved English answer reaches a pt/ar
+  customer" across questions; source-level pins; and the documented limitation that
+  a model ignoring the directive for pt is not detected). 4 AI stubs in
+  tests/telegram_multilingual.test.js now declare
+  `source: 'provider', modelGenerated: true` - they impersonate a model writing in
+  the customer's language, which is exactly what the field means.
+- NOT committed / NOT pushed / NOT deployed.

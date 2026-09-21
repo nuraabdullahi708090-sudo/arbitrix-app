@@ -366,7 +366,9 @@ test('8. the language persists onto the conversation row', async () => {
     isEnabled: () => true,
     // The answer must be in Arabic SCRIPT: the bot verifies that for `ar`, so a
     // Latin placeholder would be (correctly) rejected.
-    async ask(question, opts) { return { kind: 'answer', answer: 'إجابة بالعربية (' + opts.language + ')', needsHuman: false }; }
+    // A MODEL-written answer declares its provenance (`source: 'provider'`); the
+    // bot only treats text with that signal as already in the customer's language.
+    async ask(question, opts) { return { kind: 'answer', answer: 'إجابة بالعربية (' + opts.language + ')', needsHuman: false, source: 'provider', modelGenerated: true }; }
   };
   const h2 = createHarness({ language: 'ar', supportAI: ai });
   await h2.bot.handleUpdate(customerMessage('another message'));
@@ -498,7 +500,9 @@ test('14. the customer AI response uses the selected language and the AI receive
     providerName: () => 'stub',
     async ask(question, options) {
       this.calls.push({ question, language: options && options.language });
-      return { kind: 'answer', answer: 'Você pode fazer um depósito de $500.', needsHuman: false, reason: null };
+      // `modelGenerated` is what tells the bot this text is already in the
+      // customer's language (approved knowledge text is English and is not marked).
+      return { kind: 'answer', answer: 'Você pode fazer um depósito de $500.', needsHuman: false, reason: null, source: 'provider', modelGenerated: true };
     }
   };
   const h = createHarness({ language: 'pt', supportAI: ai });
@@ -512,7 +516,8 @@ test('14. the customer AI response uses the selected language and the AI receive
 test('14b. an AI answer outside the selected language is NOT sent to an Arabic customer', async () => {
   const ai = {
     isEnabled: () => true,
-    async ask() { return { kind: 'answer', answer: 'You can withdraw anytime.', needsHuman: false }; }
+    // A model that IGNORED the language directive: it must be caught by the script guard.
+    async ask() { return { kind: 'answer', answer: 'You can withdraw anytime.', needsHuman: false, source: 'provider', modelGenerated: true }; }
   };
   const h = createHarness({ language: 'ar', supportAI: ai });
   await h.bot.handleUpdate(customerMessage(AR_QUESTION));
@@ -792,7 +797,7 @@ test('26. the language survives a bot/process restart', async () => {
   assert.strictEqual(shared.store.conversation.language, 'pt');
 
   // A NEW bot instance reading the SAME store (a restart/deploy) must see it.
-  const ai = { isEnabled: () => true, async ask(q, o) { return { kind: 'answer', answer: 'PT:' + o.language }; } };
+  const ai = { isEnabled: () => true, async ask(q, o) { return { kind: 'answer', answer: 'PT:' + o.language, source: 'provider', modelGenerated: true }; } };
   const second = createTelegramSupportBot({
     config: { token: TOKEN, adminIds: [ADMIN_A] },
     store: shared.store,
