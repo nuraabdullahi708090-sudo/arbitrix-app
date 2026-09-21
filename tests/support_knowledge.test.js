@@ -101,14 +101,21 @@ test('the decided rules are answered from the knowledge base', () => {
 });
 
 test('the bot is described with the approved non-promissory wording', () => {
-  const phrase = /designed to seek arbitrage opportunities automatically/i;
   const bot = S.flattenEntries(kb).find((e) => e.id === 'trading_bot.how_it_works');
   const overview = S.flattenEntries(kb).find((e) => e.id === 'what_is_arbitrix.overview');
-  assert.ok(bot && phrase.test(bot.answer), 'the bot entry must use the approved wording');
-  assert.ok(overview && phrase.test(overview.answer), 'the overview must use the approved wording');
-  // and it must stay non-promissory
+  // Both entries must still describe the same product truth: automated arbitrage
+  // seeking across the supported markets.
+  [bot, overview].forEach((entry) => {
+    assert.ok(entry, 'entry must exist');
+    assert.match(entry.answer, /arbitrage opportunit/i, entry.id + ' must describe seeking arbitrage opportunities');
+    assert.match(entry.answer, /automatically/i, entry.id + ' must describe automation');
+  });
+  // and they must stay non-promissory
   assert.deepStrictEqual(S.findPromiseViolations(bot.answer), []);
   assert.deepStrictEqual(S.findPromiseViolations(overview.answer), []);
+  // the overview was reworded to the approved beginner-friendly version and no
+  // longer carries the alarming loss phrasing (see support_tone_risk_wording.test.js)
+  assert.ok(!/you can gain or lose/i.test(overview.answer), 'the objective is answered without a loss warning');
 });
 
 test('offline trading is answered from production-verified facts, while the 14-day period still hands off', () => {

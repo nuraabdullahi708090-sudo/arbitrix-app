@@ -91,7 +91,7 @@
         {
           "id": "what_is_arbitrix.overview",
           "question": "How does Arbitrix work?",
-          "answer": "Arbitrix is an automated arbitrage platform, designed to seek arbitrage opportunities automatically across supported markets. It places trades for you, so you do not have to trade by hand. You can try it first in Demo Mode with virtual funds, then move to Live Mode with real funds when you are ready. Results vary - you can gain or lose.",
+          "answer": "Arbitrix is an automated arbitrage platform. It looks for arbitrage opportunities across supported markets and places trades for you automatically. You can start with Demo Mode using virtual funds, then switch to Live Mode when you're ready.",
           "keywords": ["arbitrix", "how does arbitrix work", "what is arbitrix", "how it works", "works", "platform", "about arbitrix"],
           "kind": "info",
           "source": "public/index.html landing ('Automated Arbitrage. Made Simple.'); server.js trading routes"
@@ -143,7 +143,7 @@
         {
           "id": "live_mode.overview",
           "question": "How does Live Mode work?",
-          "answer": "In Live Mode Arbitrix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $100) and then start the bot to trade automatically. Live results are real and can go up or down - you can lose money.",
+          "answer": "In Live Mode Arbitrix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $100) and then start the bot to trade automatically.",
           "keywords": ["live mode", "live", "real funds", "real money", "real trading"],
           "kind": "info",
           "source": "server.js:489 minimum deposit; public/index.html live mode copy"
