@@ -28,7 +28,8 @@ const {
   ESCALATION_ACK,
   USER_HELP_TEXT,
   DIRECTION_CUSTOMER,
-  DIRECTION_BOT
+  DIRECTION_BOT,
+  FIRST_CONTACT_TEXT
 } = require('../services/TelegramSupportService');
 
 const { createSupportAIService, resolveSupportAIConfig } = require('../services/support/SupportAIService');
@@ -301,13 +302,16 @@ test('/escalate still works exactly as before and never consults the AI', async 
   assert.strictEqual(asked, 0, 'commands must not be handed to the AI');
 });
 
-test('/start and /help still work with the AI enabled', async () => {
+test('/start shows the first-contact language picker and /help still works with the AI enabled', async () => {
   const h = createHarness({ supportAI: enabledAIService() });
+  // A BRAND-NEW conversation gets the language picker, not an English support or
+  // AI answer: the customer chooses a language before any support content.
   const started = await h.bot.handleUpdate(customerUpdate({ text: '/start' }));
-  assert.strictEqual(started.action, 'help');
-  assert.deepStrictEqual(repliesToCustomer(h), [USER_HELP_TEXT]);
+  assert.strictEqual(started.action, 'start-language-picker');
+  assert.deepStrictEqual(repliesToCustomer(h), [FIRST_CONTACT_TEXT]);
+  // The conversation now exists, so /help is the pre-existing localized help text.
   await h.bot.handleUpdate(customerUpdate({ text: '/help' }));
-  assert.deepStrictEqual(repliesToCustomer(h), [USER_HELP_TEXT, USER_HELP_TEXT]);
+  assert.deepStrictEqual(repliesToCustomer(h), [FIRST_CONTACT_TEXT, USER_HELP_TEXT]);
 });
 
 // ------------------------------------------------ failure => human fallback --

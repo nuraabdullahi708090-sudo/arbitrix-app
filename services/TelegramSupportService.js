@@ -176,6 +176,21 @@ function classifyStorageError(error) {
 // ENGLISH entries, so the dictionary and the exported values can never drift.
 const USER_HELP_TEXT = tCustomer(DEFAULT_LANGUAGE, 'help');
 
+/**
+ * First-contact prompt for a BRAND-NEW Telegram conversation.
+ *
+ * Deliberately NOT localized: the customer has not chosen a language yet, so it
+ * introduces the choice in all three supported languages at once. The buttons
+ * underneath are the existing /language keyboard (same `lang:<code>` callbacks),
+ * so the selection is persisted by the very same handler /language uses - there is
+ * no second language-selection system.
+ */
+const FIRST_CONTACT_TEXT = [
+  'Welcome to Arbitrix Support 👋',
+  'Choose your preferred language:',
+  'Escolha seu idioma / اختر لغتك'
+].join('\n');
+
 // Sent to the customer for EVERY ordinary (non-command) message. It both
 // acknowledges the message and guides the customer, including the /escalate
 // hint. It replaces the old receipt that was sent only when the conversation had
@@ -1524,13 +1539,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   async function rememberConversation(route, from) {
     try {
       markStage('storage:bookkeeping');
-      const { conversation } = await store.upsertConversation({
+      const { conversation, created } = await store.upsertConversation({
         chatId: route.chatId,
         telegramUserId: route.fromId,
         username: from.username || null,
         displayName: telegramDisplayName(from)
       });
-      return conversation;
+      // `created` distinguishes first contact from a returning customer. A store
+      // that omits the flag is treated as "not new" (the pre-existing behaviour).
+      return { conversation: conversation || null, created: created === true };
     } catch (error) {
       noteStorageFailure(error);
       return null;
@@ -1713,10 +1730,18 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     if (conversation && typeof conversation === 'object') conversation.language = language;
   }
 
-  /** Send the inline language picker. */
-  async function sendLanguagePicker(chatId, language) {
+  /**
+   * Send the language picker (the existing inline keyboard).
+   *
+   * `text` overrides the localized prompt: first contact (/start on a brand-new
+   * conversation) sends the tri-lingual welcome instead, while /language keeps the
+   * localized prompt. The KEYBOARD and therefore the `lang:<code>` callback path
+   * are identical in both cases.
+   */
+  async function sendLanguagePicker(chatId, language, text) {
     markStage('reply:language');
-    const sent = await transport.sendMessage(chatId, tCustomer(language, 'languagePrompt'), {
+    const body = text === undefined || text === null ? tCustomer(language, 'languagePrompt') : text;
+    const sent = await transport.sendMessage(chatId, body, {
       reply_markup: languageKeyboard()
     });
     stats.repliesSent += 1;
@@ -1917,7 +1942,31 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
 
     // Commands answer WITHOUT storage so /start can never be silenced by a
     // database problem. Booking is best-effort and logged on failure.
-    if (command && (command.name === 'start' || command.name === 'help')) {
+    if (command && command.name === 'start') {
+      markStage('reply:start');
+      // FIRST CONTACT: a brand-new conversation is shown the welcome + the language
+      // picker INSTEAD of the help text, so a new customer never has to know
+      // /language and never receives English support content before choosing.
+      //
+      // A RETURNING customer is untouched: the picker is not repeated, their stored
+      // language is never reset here (this path writes no language) and they keep
+      // getting the localized help - with /language still available to change it.
+      //
+      // Storage-independent by design: if the bookkeeping read fails we cannot know
+      // whether the conversation is new, so we degrade to the pre-existing help
+      // reply rather than leave the customer in silence.
+      const remembered = await rememberConversation(route, from);
+      if (remembered && remembered.created) {
+        await sendLanguagePicker(route.chatId, DEFAULT_LANGUAGE, FIRST_CONTACT_TEXT);
+        return { handled: true, action: 'start-language-picker' };
+      }
+      // Localized, and still STORAGE-INDEPENDENT: a failed language read degrades
+      // to English instead of silencing the bot.
+      await replyToChat(route.chatId, tCustomer(await readConversationLanguage(route.chatId), 'help'));
+      return { handled: true, action: 'help' };
+    }
+
+    if (command && command.name === 'help') {
       markStage('reply:help');
       // Localized, and still STORAGE-INDEPENDENT: a failed language read degrades
       // to English instead of silencing the bot.
@@ -2656,6 +2705,7 @@ module.exports = {
   STORAGE_ERROR_CAUSES,
   classifyStorageError,
   USER_HELP_TEXT,
+  FIRST_CONTACT_TEXT,
   CUSTOMER_GUIDE_TEXT,
   SUPPORT_AI_MAX_QUESTION_CHARS,
   ESCALATION_ACK,
