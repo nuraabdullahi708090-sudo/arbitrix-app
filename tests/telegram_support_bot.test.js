@@ -1041,7 +1041,9 @@ test('setWebhook derives the URL from BASE_URL and passes the secret token to Te
   const call = transport.calls.find((c) => c.method === 'setWebhook');
   assert.ok(call, 'Telegram setWebhook is called');
   assert.strictEqual(call.params.secret_token, WEBHOOK_SECRET);
-  assert.deepStrictEqual(call.params.allowed_updates, ['message', 'edited_message']);
+  // `callback_query` is required: Telegram treats allowed_updates as a delivery
+  // whitelist, so without it the inline /language buttons never reach the bot.
+  assert.deepStrictEqual(call.params.allowed_updates, ['message', 'edited_message', 'callback_query']);
 });
 
 test('setWebhook fails closed when required configuration is missing', async () => {
