@@ -204,7 +204,7 @@
           "id": "deposits.pending",
           "question": "My deposit is still pending",
           "answer": "TRC20 deposits are detected automatically and normally confirm within a few minutes. Keep your invoice reference and never send the same payment twice. If it still has not appeared, our support team can check it using your transaction hash.",
-          "keywords": ["deposit pending", "deposit not arrived", "deposit missing", "deposit stuck", "sent but not credited", "deposit not showing"],
+          "keywords": ["deposit pending", "still pending", "pending deposit", "deposit not arrived", "deposit missing", "deposit stuck", "sent but not credited", "deposit not showing"],
           "kind": "info",
           "offerHuman": true,
           "source": "public/index.html support FAQ (depositPending)"
@@ -258,7 +258,7 @@
           "id": "withdrawals.requirements",
           "question": "How do withdrawals work?",
           "answer": "To withdraw from Live you normally need a qualifying first deposit, at least one completed trade, and a valid wallet address. There is no minimum withdrawal amount. Genuinely earned referral rewards are an exception - they can be withdrawn without placing a trade. A withdrawal starts as pending and appears in your history.",
-          "keywords": ["how do withdrawals work", "withdraw", "withdrawal requirements", "cash out", "take out money"],
+          "keywords": ["how do withdrawals work", "withdraw", "withdrawal", "withdrawal requirements", "cash out", "cashing out", "cashout", "take out money", "take out funds"],
           "kind": "info",
           "source": "server.js:4966-5085 /api/withdraw/request gates"
         },
@@ -350,7 +350,7 @@
           "id": "referrals.program",
           "question": "What is the referral program?",
           "answer": "You earn 20% of the first qualifying deposit of each person you refer - a one-time reward. Their deposit must reach the minimum qualifying amount ($100) for the reward to count. There is no recurring commission.",
-          "keywords": ["referral", "referral program", "invite", "refer", "referral reward", "earn from referrals"],
+          "keywords": ["referral", "referrals", "referral program", "how do referrals work", "invite", "refer", "referral reward", "earn from referrals"],
           "kind": "info",
           "source": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 100"
         },
@@ -380,7 +380,7 @@
           "id": "subscription.cancel",
           "question": "Can I cancel my subscription?",
           "answer": "Yes - you can cancel from the Subscription section in your profile. You keep access until the end of the period you already paid for, and you will not be charged again after cancelling.",
-          "keywords": ["cancel subscription", "stop subscription", "cancel pro", "unsubscribe"],
+          "keywords": ["cancel subscription", "cancel my subscription", "cancel", "cancelling", "stop subscription", "stop my subscription", "cancel pro", "unsubscribe"],
           "kind": "info",
           "source": "server.js /api/subscription/cancel"
         },

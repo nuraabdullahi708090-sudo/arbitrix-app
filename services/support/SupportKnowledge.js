@@ -190,6 +190,99 @@ function flattenEntries(knowledge) {
 }
 
 /**
+ * Query intents, used for RANKING ONLY.
+ *
+ * Retrieval is keyword-first and deterministic, but ordering used to fall back to
+ * `a.id.localeCompare(b.id)`, so a tie was won alphabetically: `deposits.asset`
+ * beat `withdrawals.requirements` on a 2-2 tie even when the customer explicitly
+ * asked about withdrawing, and a withdrawal question could therefore be answered
+ * with the deposit-network entry.
+ *
+ * Each intent maps explicit customer language to the category that answers it.
+ * A question that matches one or more intents ranks hits from those categories
+ * ahead of hits from other categories. Three deliberate limits keep this safe:
+ *   - it reorders only entries that ALREADY cleared the score threshold, so it can
+ *     never make an unrelated entry retrievable (questions with no keyword match
+ *     still return no hits and fall through to a human hand-off);
+ *   - guardrail entries never take part in the intent tier, so a topical preference
+ *     cannot promote a safety entry above a stronger info entry;
+ *   - when the strongest match is itself a guardrail, no topical re-ranking happens
+ *     at all, so a leading safety entry is never demoted.
+ * A question matching several intents (e.g. "can I deposit and then withdraw")
+ * makes all of their categories preferred, so no intent is privileged arbitrarily.
+ */
+const QUERY_INTENTS = Object.freeze([
+  {
+    id: 'withdrawal',
+    categories: ['withdrawals'],
+    pattern: /\bwithdraw\w*\b|\bcash(?:ing)?\s+out\b|\bcash\s+out\b|\btake\s+out\s+(?:funds|money|cash)\b/
+  },
+  {
+    id: 'deposit',
+    categories: ['deposits'],
+    pattern: /\bdeposit\w*\b|\bmake\s+a\s+deposit\b|\btop\s+up\b|\badd\s+funds\b|\bfund\s+my\s+account\b/
+  },
+  {
+    id: 'referral',
+    categories: ['referrals'],
+    pattern: /\breferral\w*\b|\brefer(?:red|ring)?\b|\binvit\w*\b/
+  },
+  {
+    id: 'subscription',
+    categories: ['subscription'],
+    pattern: /\bsubscri\w*\b|\bpro\s+plan\b|\bmonthly\s+(?:fee|price|plan|payment)\b/
+  },
+  {
+    id: 'verification',
+    categories: ['kyc_security'],
+    pattern: /\bkyc\b|\bverif\w*\b|\bidentity\s+(?:check|verification|document|card)\b|\bpassport\b|\bselfie\b/
+  },
+  {
+    id: 'promotional_credit',
+    categories: ['promotional_credit'],
+    pattern: /\bpromotional\s+credit\b|\bpromo\s+credit\b|\bbonus\s+credit\b/
+  },
+  {
+    id: 'demo_mode',
+    categories: ['demo_mode'],
+    pattern: /\bdemo\b|\bvirtual\s+funds\b|\bpractice\s+(?:mode|account)\b/
+  },
+  {
+    id: 'live_mode',
+    categories: ['live_mode'],
+    pattern: /\blive\b|\bgo\s+live\b/
+  },
+  {
+    id: 'troubleshooting',
+    categories: ['troubleshooting'],
+    pattern: /\bnot\s+(?:working|starting)\b|\bstuck\b|\bfail(?:ed|ing|s)?\b|\berror\b|\bbroken\b|\bproblem\b|\bissue\b|\bcannot\b|\bcan\s+t\b/
+  },
+  {
+    id: 'contact_human',
+    categories: ['contact_human'],
+    pattern: /\bhuman\b|\bagent\b|\brepresentative\b|\bsupport\s+team\b|\bescalate\b/
+  }
+]);
+
+/** Intent ids detected in a question (normalized, so punctuation is irrelevant). */
+function detectQueryIntents(question) {
+  const text = normalize(question);
+  if (text.length === 0) return [];
+  return QUERY_INTENTS.filter((intent) => intent.pattern.test(text)).map((intent) => intent.id);
+}
+
+/** Categories preferred by the question's intents (ranking only). */
+function queryIntentCategories(question) {
+  const text = normalize(question);
+  const categories = new Set();
+  if (text.length === 0) return categories;
+  QUERY_INTENTS.forEach((intent) => {
+    if (intent.pattern.test(text)) intent.categories.forEach((category) => categories.add(category));
+  });
+  return categories;
+}
+
+/**
  * Build a retriever over the knowledge base.
  *
  * Scoring is keyword-first and deterministic:
@@ -199,6 +292,9 @@ function flattenEntries(knowledge) {
  * An entry scores only when it shares at least one keyword token, so unrelated
  * questions return no hits (which the service turns into a human hand-off)
  * rather than a random best-effort answer.
+ *
+ * Ordering is: query intent (see QUERY_INTENTS) -> score -> entry id. The id
+ * comparison keeps the order fully deterministic.
  */
 function createRetriever(knowledge, { minScore = 2 } = {}) {
   const entries = flattenEntries(knowledge).map((entry) => {
@@ -234,12 +330,17 @@ function createRetriever(knowledge, { minScore = 2 } = {}) {
     return score;
   }
 
+  // Deterministic score order: score desc, then entry id as the stable tie-break.
+  const byScore = (a, b) => (b.score - a.score) || a.id.localeCompare(b.id);
+
   function retrieve(question, options = {}) {
     const limit = Number.isFinite(options.limit) ? options.limit : 3;
     const threshold = Number.isFinite(options.minScore) ? options.minScore : minScore;
     const questionTokens = new Set(tokenize(question));
     const normalizedQuestion = normalize(question);
     if (questionTokens.size === 0) return [];
+
+    const preferredCategories = queryIntentCategories(question);
 
     const hits = [];
     // Only count each keyword once (keywordTokens is per-entry above, so a
@@ -261,7 +362,26 @@ function createRetriever(knowledge, { minScore = 2 } = {}) {
       }
     });
 
-    hits.sort((a, b) => (b.score - a.score) || a.id.localeCompare(b.id));
+    // Ranking: query intent first, then score, then id (fully deterministic).
+    //
+    // The intent tier only reorders entries that already cleared the threshold, so
+    // it cannot make an unrelated entry retrievable. Two safety-first limits apply:
+    //   - guardrail entries are excluded from the intent tier, so a topical
+    //     preference can never PROMOTE a safety entry above a stronger info entry;
+    //   - when the strongest match is itself a guardrail, the score order is kept for
+    //     the whole question and no topical re-ranking happens at all, so a leading
+    //     safety entry can never be DEMOTED.
+    // `score` is left untouched (it stays the raw keyword score).
+    hits.sort(byScore);
+    const leader = hits[0];
+    if (leader && leader.kind !== 'guardrail' && preferredCategories.size > 0) {
+      hits.sort((a, b) => {
+        const aPreferred = preferredCategories.has(a.category) && a.kind !== 'guardrail';
+        const bPreferred = preferredCategories.has(b.category) && b.kind !== 'guardrail';
+        if (aPreferred !== bPreferred) return aPreferred ? -1 : 1;
+        return byScore(a, b);
+      });
+    }
     return hits.slice(0, Math.max(0, limit));
   }
 
@@ -296,6 +416,7 @@ module.exports = {
   FORBIDDEN_PROMISE_PHRASES,
   NEGATION_RE,
   STOPWORDS,
+  QUERY_INTENTS,
   normalize,
   tokenize,
   isNegatedAt,
@@ -304,6 +425,8 @@ module.exports = {
   readKnowledge,
   validateKnowledge,
   flattenEntries,
+  detectQueryIntents,
+  queryIntentCategories,
   createRetriever,
   loadSupportKnowledge
 };
