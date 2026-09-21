@@ -141,8 +141,16 @@ function createTelegramSupportStore(supabaseClient) {
    * requires. Creating a conversation omits this column on purpose, so a new row
    * takes the column DEFAULT 'en' (see upsertConversation).
    *
+   * A 0-row UPDATE is raised as a STORAGE FAILURE, never returned as "nothing".
+   * PostgREST answers 200 with an empty body when the update matches no row, so a
+   * bare `return row || null` let a dropped language change look like a success:
+   * the caller marked it applied, the customer was told their language had been
+   * set, and every later message (and the operator notice) still read the old
+   * language. The written row is therefore verified before returning.
+   *
    * `updated_at` is refreshed like every other write in this store.
-   * @returns {Promise<object|null>} the updated row.
+   * @returns {Promise<{id: number|string, language: string}>} the updated row.
+   * @throws {Error} when the write errors OR matches no conversation row.
    */
   async function setConversationLanguage({ conversationId, language }) {
     if (conversationId === undefined || conversationId === null) {
@@ -152,11 +160,19 @@ function createTelegramSupportStore(supabaseClient) {
       .from(CONVERSATIONS)
       .update({ language, updated_at: new Date().toISOString() })
       .eq('id', numeric(conversationId))
-      .select('*')
+      .select('id, language')
       .limit(1);
     if (error) throw storageError('conversation language update', error);
     const row = Array.isArray(data) ? data[0] : data;
-    return row || null;
+    if (!row) {
+      throw storageError('conversation language update', {
+        code: 'no-row-returned',
+        message: `the update matched no conversation row for id ${conversationId}`,
+        details: 'PostgREST answers 200 with an empty body for an UPDATE that matches no row',
+        hint: 'verify the conversation still exists and that the client may update it (RLS / service key / id)'
+      });
+    }
+    return row;
   }
 
   /**

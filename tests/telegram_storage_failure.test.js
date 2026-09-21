@@ -359,14 +359,19 @@ test('checkStorage queries the prefixed tables, not the short telemetry labels',
 
   assert.deepStrictEqual(
     probed.map((p) => p.table),
-    ['telegram_support_messages', 'telegram_support_escalations'],
+    ['telegram_support_conversations', 'telegram_support_messages', 'telegram_support_escalations'],
     'the preflight queries the prefixed relation names'
   );
   assert.ok(!probed.some((p) => p.table === 'messages' || p.table === 'escalations'),
     'the preflight must never query public.messages / public.escalations');
-  assert.deepStrictEqual(probed[0].columns, ['id', 'conversation_id', 'direction', 'body', 'created_at']);
-  assert.deepStrictEqual(probed[1].columns, ['id', 'conversation_id', 'support_message_id', 'created_at']);
+  // The conversations table is probed too: `select('*')` cannot see a missing
+  // column the store writes, so `language` is only verified here.
+  assert.deepStrictEqual(probed[0].columns,
+    ['id', 'telegram_chat_id', 'telegram_user_id', 'username', 'display_name', 'language', 'created_at', 'updated_at']);
+  assert.deepStrictEqual(probed[1].columns, ['id', 'conversation_id', 'direction', 'body', 'created_at']);
+  assert.deepStrictEqual(probed[2].columns, ['id', 'conversation_id', 'support_message_id', 'created_at']);
   // The short labels remain the telemetry keys, unchanged.
+  assert.strictEqual(result.tables.conversations.ok, true);
   assert.strictEqual(result.tables.messages.ok, true);
   assert.strictEqual(result.tables.escalations.ok, true);
   assert.ok(!('telegram_support_messages' in result.tables), 'telemetry keys stay short');

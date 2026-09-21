@@ -64,6 +64,27 @@ const DIRECTION_AGENT = 'agent';       // human support-agent reply
 // recorded in telegram_support_escalations and announced to the support group.
 
 /**
+ * The telegram_support_conversations columns this service reads or writes.
+ *
+ * Probed by checkStorage() so a MISSING COLUMN is reported. The live call the
+ * write path makes is a `select('*')`, which succeeds even when a column the
+ * store writes is absent - so a missing `language` used to surface as
+ * "conversations ok" while every language change failed with PGRST204.
+ *
+ * `status` is deliberately absent: it is never written (see the note above).
+ */
+const CONVERSATION_PROBE_COLUMNS = [
+  'id',
+  'telegram_chat_id',
+  'telegram_user_id',
+  'username',
+  'display_name',
+  'language',
+  'created_at',
+  'updated_at'
+];
+
+/**
  * Sent to a customer when a storage write fails.
  *
  * A storage outage must never leave the customer in silence, but it must also
@@ -641,6 +662,11 @@ function routeUpdate(update, config) {
       chatId: queryChatId,
       chatType: 'private',
       fromId: queryFromId,
+      // WHO pressed: `callback_query.from`. Deliberately exposed because
+      // `message.from` on a callback is the BOT (the inline keyboard lives on the
+      // bot's own message), so any handler that reads the presser out of
+      // `route.message.from` would store @ArbitrixSupportBot as the customer.
+      from: queryFrom,
       isAdmin: adminIds.indexOf(queryFromId) !== -1,
       message: queryMessage,
       text: null,
@@ -1648,12 +1674,30 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return normalizeLanguage(conversation && conversation.language);
   }
 
-  /** Persist the customer's choice and keep the in-memory row consistent. */
+  /**
+   * Persist the customer's choice, and only then mirror it in memory.
+   *
+   * The write is VERIFIED, never assumed. PostgREST answers 200 with an empty body
+   * when an UPDATE matches no row, so an unverified write could leave the row on
+   * its old language while the customer was told the change had been applied (and
+   * every later reply/notice still used the old language).
+   *
+   * On a missing row or a stored value that differs from the request this throws:
+   * the caller's existing error handling records the storage failure, the in-memory
+   * row is left UNTOUCHED and no success confirmation is sent to the customer.
+   */
   async function persistConversationLanguage(conversation, language) {
     if (typeof store.setConversationLanguage !== 'function') {
       throw new Error('the store does not implement setConversationLanguage');
     }
-    await store.setConversationLanguage({ conversationId: conversation.id, language });
+    const stored = await store.setConversationLanguage({ conversationId: conversation.id, language });
+    const storedLanguage = stored && stored.language !== undefined && stored.language !== null
+      ? normalizeLanguage(stored.language)
+      : null;
+    if (storedLanguage !== language) {
+      throw new Error('the conversation language was not persisted (requested ' + language +
+        ', stored ' + (storedLanguage === null ? 'nothing' : storedLanguage) + ')');
+    }
     if (conversation && typeof conversation === 'object') conversation.language = language;
   }
 
@@ -1689,7 +1733,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    */
   async function handleLanguageCallback(route) {
     const requested = parseLanguageCallback(route.callbackData);
-    const from = (route.message && route.message.from) || {};
+    // The PRESSER, never route.message.from: on a callback `route.message` is the
+    // bot's own message (the one carrying the inline keyboard), so reading the
+    // identity from there stored the bot's username/display name as the
+    // customer's. route.from = callback_query.from, i.e. the person who pressed.
+    const from = route.from || {};
 
     let conversation = null;
     try {
@@ -2263,9 +2311,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       };
     };
 
-    // The conversations probe is the REAL call the write path makes, so on its
-    // own it detects a missing table, a missing column, RLS, a bad service key
-    // and an outage. It is kept first for exactly that reason.
+    // The conversations probe is the REAL call the write path makes, so it detects
+    // a missing table, RLS, a bad service key and an outage. It is kept first for
+    // exactly that reason.
+    //
+    // It does NOT verify the columns: it is a `select('*')`, which succeeds even
+    // when the columns the store writes are absent - the CONVERSATION_PROBE_COLUMNS
+    // probe below covers that (a missing `language` used to be invisible).
     try {
       await store.getConversationByChatId(cfg.supportChatId || '0');
       tables.conversations = { ok: true };
@@ -2273,26 +2325,40 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       recordFailure('conversations', error);
     }
 
-    // The other two tables get a read-only probe with the exact column list the
-    // store writes. This separates "table missing" from "column missing", which
-    // a plain existence check cannot.
+    // Every table then gets a read-only probe with the exact column list the store
+    // reads/writes. This separates "table missing" from "column missing", which a
+    // plain existence check cannot.
+    //
+    // `conversations` is included even though it was just called for real: that
+    // call is a `select('*')`, so it still succeeds when a column the store WRITES
+    // is absent (a missing `language` used to be reported as "conversations ok"
+    // while every language change failed with PGRST204). The probe therefore
+    // covers CONVERSATION_PROBE_COLUMNS, `language` included.
     //
     // `label` is the short key used in the telemetry output; `table` is the REAL
     // relation that is queried. Keep them separate: passing the short label as
     // the table name asked PostgREST for public.messages / public.escalations
     // and logged a false PGRST205 even when the real tables existed.
     const probes = [
+      { label: 'conversations', table: 'telegram_support_conversations', columns: CONVERSATION_PROBE_COLUMNS },
       { label: 'messages', table: 'telegram_support_messages', columns: ['id', 'conversation_id', 'direction', 'body', 'created_at'] },
       { label: 'escalations', table: 'telegram_support_escalations', columns: ['id', 'conversation_id', 'support_message_id', 'created_at'] }
     ];
     for (const probe of probes) {
+      // A probe never MASKS a failure the real call already recorded for that
+      // label: with the table itself missing, an unsupported or successful column
+      // probe must not downgrade `ok:false` to `ok:null`/`ok:true` (that would
+      // hide the outage behind the label it belongs to).
+      const recordProbe = (value) => {
+        if (!tables[probe.label] || tables[probe.label].ok !== false) tables[probe.label] = value;
+      };
       if (typeof store.probeColumns !== 'function') {
-        tables[probe.label] = { ok: null, reason: 'probe-not-supported' };
+        recordProbe({ ok: null, reason: 'probe-not-supported' });
         continue;
       }
       try {
         await store.probeColumns(probe.table, probe.columns);
-        tables[probe.label] = { ok: true };
+        recordProbe({ ok: true });
       } catch (error) {
         recordFailure(probe.label, error);
       }
