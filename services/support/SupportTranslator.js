@@ -25,6 +25,10 @@
  *     returned, with the target language's supplementary denylist. A rejection
  *     is reported as `unsafe:<violations>` so the caller can fall back instead of
  *     silently sending unvalidated text.
+ *   - FIDELITY: a customer-facing translation must carry every number, amount,
+ *     percentage and URL of the source across UNCHANGED. A mismatch is reported as
+ *     `fidelity:<violations>` and the caller falls back, so a translation can never
+ *     quietly alter a minimum deposit, a withdrawal rule or a link.
  *
  * SAFETY LIMITATION (see the delivery report)
  *   The multilingual denylist is a SUPPLEMENT to the English checks, not a
@@ -198,6 +202,28 @@ function createSupportTranslator(options = {}) {
       if (!SupportGuidelines.hasExpectedScript(output, toCode)) {
         warn('translated text withheld: it is not in the requested language (' + toCode + ')');
         return { ok: false, text: '', reason: 'wrong-language' };
+      }
+      // FIDELITY. The approved English source is the source of truth, so a
+      // translation may not change a number, amount, percentage or URL. FAIL-CLOSED:
+      // a mismatch is reported as unavailable and the caller keeps its localized
+      // fallback, so an altered deposit minimum or withdrawal rule can never reach a
+      // customer.
+      const fidelity = SupportGuidelines.checkTranslationFidelity(source, output);
+      const mismatchCount = fidelity.missingNumbers.length + fidelity.addedNumbers.length
+        + fidelity.missingUrls.length + fidelity.addedUrls.length;
+      if (mismatchCount > 0) {
+        warn('translated text withheld: it changed a value (missing=['
+          + fidelity.missingNumbers.concat(fidelity.missingUrls).join('|')
+          + '] added=[' + fidelity.addedNumbers.concat(fidelity.addedUrls).join('|') + '])');
+        return {
+          ok: false,
+          text: '',
+          reason: 'fidelity',
+          violations: fidelity.missingNumbers.map((n) => 'missing-value:' + n)
+            .concat(fidelity.addedNumbers.map((n) => 'added-value:' + n))
+            .concat(fidelity.missingUrls.map((u) => 'missing-url:' + u))
+            .concat(fidelity.addedUrls.map((u) => 'added-url:' + u))
+        };
       }
     }
 

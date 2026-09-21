@@ -254,7 +254,24 @@ const MULTILINGUAL_FORBIDDEN_PATTERNS = Object.freeze({
     },
     {
       name: 'payment-claim',
-      re: /\b(dep[óo]sitos?|saques?|pagamentos?)\b[^.!?]{0,30}\b(confirmad\w*|creditad\w*|processad\w*|conclu[íi]d\w*|aprovad\w*|recebid\w*)/i
+      // ENGLISH PARITY with the rule above, which requires a determiner/possessive,
+      // the money noun, an auxiliary/perfect marker and a participle ("your deposit
+      // has been credited"). This rule used to match the GENERAL present-tense form
+      // too - and that is exactly how a faithful translation of an approved
+      // knowledge answer reads:
+      //   "Os depósitos são creditados ao seu saldo Live."  (deposits.minimum)
+      //   "Os saques são processados em 15-30 minutos."     (withdrawals.timing)
+      // Both were withheld from Portuguese customers as 'pt:payment-claim', so the
+      // approved answers could never reach them. The claim this rule exists to catch
+      // - the bot telling a customer that THEIR payment already happened - still
+      // matches: "Seu depósito foi creditado", "O saque foi processado",
+      // "Seu pagamento está confirmado", "A transferência já foi concluída".
+      //
+      // NOTE the `(?!\w)` after the auxiliary/marker group instead of `\b`: an
+      // alternative ending in an accented vowel ("está", "já", "será") is not a \w
+      // character, so `\b` never matches after it and those phrasings would slip
+      // through. `(?!\w)` gives the same "end of word" guarantee for both.
+      re: /\b(?:o|a|os|as|do|da|dos|das|seu|sua|seus|suas|meu|minha|meus|minhas|este|esta|esse|essa|deste|desta)\s+(?:pagamentos?|dep[óo]sitos?|saques?|transa[çc][õo]es?|transfer[êe]ncias?)\b[^.!?]{0,20}\b(?:foi|foram|est[áa]|est[ãa]o|tem|t[êe]m|j[áa]|acabou|acabaram|havia|tinha|tinham|ser[áa]|ser[ãa]o)(?!\w)[^.!?]{0,30}\b(?:confirmad\w*|creditad\w*|processad\w*|conclu[íi]d\w*|aprovad\w*|recebid\w*|enviad\w*)/i
     }
   ]),
   ar: Object.freeze([
@@ -439,6 +456,64 @@ function findUnsupportedClaims(answer, hits) {
   return Array.from(unsupported);
 }
 
+// ===========================================================================
+// Translation fidelity (approved English answer -> pt/ar)
+// ===========================================================================
+
+/**
+ * The tokens a FAITHFUL translation must carry across unchanged.
+ *
+ * Same idea as CLAIM_TOKEN_PATTERNS: the details a customer acts on. Money,
+ * percentages, quantities of two or more digits and URLs are compared between the
+ * approved English source and the translated text in BOTH directions, so a
+ * translation can neither lose a value ("$100" -> "100") nor invent one
+ * ("15-30 minutes" -> "2-4 minutes"). Single-digit bare numbers are ignored on
+ * purpose: enumerations ("1) ...") and product terms ("2FA") may legitimately be
+ * written out in another language.
+ */
+function extractFidelityTokens(text) {
+  const value = String(text === null || text === undefined ? '' : text);
+  const numbers = [];
+  const push = (raw) => {
+    const digits = String(raw).replace(/[^\d]/g, '');
+    if (digits) numbers.push(digits);
+  };
+  (value.match(/\$\s?\d[\d.,]*/g) || []).forEach(push);
+  (value.match(/\b\d[\d.,]*\s?(?:usdt|usdc|usd|eur|gbp|brl)\b/gi) || []).forEach(push);
+  (value.match(/\b\d[\d.,]*\s?%/g) || []).forEach(push);
+  (value.match(/\d[\d.,]*/g) || []).forEach((m) => {
+    if (m.replace(/[^\d]/g, '').length >= 2) push(m);
+  });
+  const urls = (value.match(/(?:https?:\/\/|www\.)[^\s<>"')\]]+/gi) || [])
+    .map((u) => u.replace(/[.,;:)\]]+$/, '').toLowerCase());
+  return { numbers, urls };
+}
+
+/**
+ * Compare a translation's tokens with its source. An EMPTY result means every
+ * number, amount, percentage and URL survived the translation unchanged.
+ */
+function checkTranslationFidelity(source, translation) {
+  const left = extractFidelityTokens(source);
+  const right = extractFidelityTokens(translation);
+  const diff = (from, against) => {
+    const pool = against.slice();
+    const missing = [];
+    from.forEach((token) => {
+      const index = pool.indexOf(token);
+      if (index === -1) missing.push(token);
+      else pool.splice(index, 1);
+    });
+    return missing;
+  };
+  return {
+    missingNumbers: diff(left.numbers, right.numbers),
+    addedNumbers: diff(right.numbers, left.numbers),
+    missingUrls: diff(left.urls, right.urls),
+    addedUrls: diff(right.urls, left.urls)
+  };
+}
+
 module.exports = {
   SUPPORT_INSTRUCTIONS,
   AI_DISABLED_TEXT,
@@ -452,6 +527,8 @@ module.exports = {
   CREDENTIAL_REQUEST_PATTERNS,
   PAYMENT_CLAIM_PATTERNS,
   CLAIM_TOKEN_PATTERNS,
+  extractFidelityTokens,
+  checkTranslationFidelity,
   SECRET_VALUE_PATTERNS,
   SECRET_WORDS,
   REVEAL_VERBS,

@@ -368,7 +368,7 @@ test('configuration is env-driven, off by default, and never exposes the key', (
 test('AI stays OFF by default and the Telegram wiring is unchanged', () => {
   const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
   assert.match(server, /if \(!supportAIConfig\.enabled\) return null;/);
-  assert.match(server, /supportAI: createSupportAIServiceSafely\(\)/);
+  assert.match(server, /supportAI: createSupportAIServiceSafely\(supportTranslator\)/);
 
   const envExample = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
   assert.match(envExample, /^AI_SUPPORT_ENABLED=false$/m);

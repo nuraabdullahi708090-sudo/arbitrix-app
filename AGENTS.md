@@ -4872,3 +4872,81 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   `source: 'provider', modelGenerated: true` - they impersonate a model writing in
   the customer's language, which is exactly what the field means.
 - NOT committed / NOT pushed / NOT deployed.
+
+## Option B - Approved English knowledge answers translated for pt/ar customers (2026-09-21, NOT deployed)
+- GOAL: a pt/ar customer must receive the APPROVED knowledge-base answer in their own
+  language. English behaviour must remain byte-identical. No architecture redesign, no
+  group support, no change to the first-contact picker or callback handling.
+- TWO ROOT CAUSES, both reproduced BEFORE changing anything and pinned by tests:
+  1. RETRIEVAL WAS ENGLISH-ONLY. The knowledge base is English-keyword matched, so a
+     pt/ar question scored 0 and produced the generic UNCERTAIN text (measured:
+     'Qual e o deposito minimo?' -> kind=unknown reason=no-knowledge, while
+     'What is the minimum deposit?' -> deposits.minimum). With no approved answer ever
+     produced, the translation layer had NOTHING to localize - so the answer could not
+     reach the customer in ANY language. The plumbing (provenance -> translateForCustomer)
+     already existed and only ever saw fixed texts.
+  2. THE pt payment-claim SAFETY RULE WAS NOT ENGLISH-PARITY. A faithful translation of
+     an approved answer ("Os depositos sao creditados ao seu saldo Live") tripped
+     'pt:payment-claim', so the answer was withheld as unsafe and the customer got the
+     generic fallback. The English rule requires determiner/possessive + money noun +
+     auxiliary/perfect marker + participle ("your deposit has been credited"); the pt
+     rule had dropped the determiner+auxiliary requirement.
+- CODE (no architecture change, NO new env var, NO schema/migration, NO KB translation):
+  - services/support/SupportAIService.js: optional `translator` collaborator.
+    `englishForRetrieval()` translates the QUESTION to English for classification +
+    retrieval + the provider prompt only when the language is pt/ar AND a translator is
+    available; on ANY failure (no translator, disabled, no credential, timeout, API
+    error, malformed, empty) it returns the ORIGINAL text, i.e. exactly the previous
+    behaviour. `classify(question, extraText)` now checks the UNION of the English
+    wording and the customer's OWN text, so the secret guards cannot be bypassed by a
+    rewrite. New secret-free `translationStats()`.
+  - services/support/SupportGuidelines.js: pt payment-claim rule narrowed to English
+    parity - the general present-tense statement no longer fires, while
+    "Seu deposito foi creditado", "O saque foi processado", "Seu pagamento esta
+    confirmado", "A transferencia ja foi concluida" still do. NOTE: the auxiliary group
+    is followed by `(?!\w)` and NOT `\b` - an alternative ending in an accented vowel
+    ("esta", "ja", "sera") is not a `\w` character, so `\b` never matches after it and
+    those phrasings would silently slip through (caught by a test). New fail-closed
+    helpers `extractFidelityTokens()` + `checkTranslationFidelity()`.
+  - services/support/SupportTranslator.js: the customer-facing direction additionally
+    enforces FIDELITY - every number/amount/percentage/URL of the source must survive
+    UNCHANGED, compared in both directions as multisets. A mismatch returns
+    `{ok:false, reason:'fidelity'}` so the caller falls back instead of sending an
+    altered minimum deposit, withdrawal rule or link. It can only WITHHOLD, never allow.
+  - server.js: the translator is built ONCE (before the bot) and handed to BOTH the AI
+    factory (`createSupportAIServiceSafely(translator)`) and the bot, so the AI layer can
+    reach the English knowledge base and the bot can localize the approved answer.
+    Neither layer is gated on AI_SUPPORT_ENABLED.
+  - .env.example: documents the three translation moves. No variable added or changed.
+- BEHAVIOUR: English unchanged (same approved answer, zero translation calls); pt/ar with
+  a working translator -> the translated approved answer (numbers/amounts preserved);
+  pt/ar without a translator or on any failure -> the existing localized fallback, never
+  English; a model-generated answer is never translated twice (provenance contract
+  untouched); operator notices stay English and keep the customer's ORIGINAL message.
+- TESTS: tests/support_translation_delivery.test.js (33) uses the REAL knowledge base,
+  the REAL SupportAIService, the REAL SupportTranslator, the REAL bot and the REAL
+  transport (fake fetch) - only the translating MODEL is a fake. Covers: A English
+  unchanged; B/C pt+ar translated, asserting the exact direction AND text that reached
+  the layer (pt->en question for retrieval, en->pt answer for delivery); D/E provider
+  failures -> localized fallback; F fidelity (changed value, lost value, dropped URL,
+  changed duration, and that an altered amount never reaches the customer); G no double
+  translation of model text; H operator notice English + original preserved; I/J
+  first-contact picker and callback persistence unchanged; K the secret guard still fires
+  when the translation hides the secret; the two ROOT-CAUSE pins; the four
+  real-provider failure modes (timeout/abort, HTTP 500, malformed body, empty
+  translation) end-to-end plus a webhook that still answers 200.
+  Wiring pins updated DELIBERATELY: tests/support_ai_telegram.test.js,
+  tests/support_deepseek_provider.test.js, tests/telegram_multilingual.test.js (16e).
+- VERIFICATION: npm test = 1670 pass / 0 fail (7 suites; baseline was 1637, +33 new).
+  `node --check` on server.js and the three services; encoding integrity checked for
+  every edited file (no pre-existing non-ASCII character lost, no replacement chars);
+  git diff --check clean; no secret in the diff.
+- STATUS: committed on a feature branch only - NOT pushed, NOT merged, NOT deployed. No
+  migration, no schema change, no Render environment change, and no translated answers
+  added to the knowledge base (English stays canonical).
+- TO ACTIVATE LATER (a management decision, not a code change): AI_SUPPORT_ENABLED=true
+  plus an HTTP translation provider with a credential (AI_SUPPORT_PROVIDER=deepseek with
+  DEEPSEEK_API_KEY or AI_SUPPORT_API_KEY) and SUPPORT_TRANSLATION_ENABLED (default true).
+  With no credential the layer reports itself unavailable and everything degrades safely,
+  so shipping this code WITHOUT those variables changes nothing for pt/ar (they keep the
+  localized fallback) and nothing for English.
