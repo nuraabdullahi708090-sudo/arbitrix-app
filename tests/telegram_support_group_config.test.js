@@ -98,7 +98,7 @@ function makeBot({ supportChatId = null, adminIds = [ADMIN_ID] } = {}) {
   const store = makeStore();
   const { transport, calls } = makeTransport();
   const bot = createTelegramSupportBot({
-    config: { token: TOKEN, supportChatId, adminIds, webhookSecret: 'x', baseUrl: 'https://arbitrix.pro' },
+    config: { token: TOKEN, supportChatId, adminIds, notifyTarget: 'group', webhookSecret: 'x', baseUrl: 'https://arbitrix.pro' },
     store,
     transport,
     logger: { log() {}, warn() {}, error() {} }
@@ -238,7 +238,7 @@ test('a group send failure never silences the customer', async () => {
     }
   });
   const bot = createTelegramSupportBot({
-    config: { token: TOKEN, supportChatId: GROUP_ID, adminIds: [ADMIN_ID], webhookSecret: 'x', baseUrl: 'b' },
+    config: { token: TOKEN, supportChatId: GROUP_ID, adminIds: [ADMIN_ID], notifyTarget: 'group', webhookSecret: 'x', baseUrl: 'b' },
     store, transport, logger: { log() {}, warn() {}, error() {} }
   });
 

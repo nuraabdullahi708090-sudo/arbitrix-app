@@ -209,7 +209,11 @@ function makeBot({
   const transport = createFakeTransport({ failSendMessage, failChatIds });
   const logger = createFakeLogger();
   const bot = createTelegramSupportBot({
-    config: { token, supportChatId, adminIds, webhookSecret, baseUrl: 'https://arbitrix.pro' },
+    // Pinned to the LEGACY notification target on purpose: this suite pins the
+    // pre-existing support-group behaviour, which is retained for revert.
+    // The private-admin default is covered by
+    // tests/telegram_private_admin_notifications.test.js.
+    config: { token, supportChatId, adminIds, notifyTarget: 'group', webhookSecret, baseUrl: 'https://arbitrix.pro' },
     store,
     transport,
     logger
@@ -753,12 +757,12 @@ test('a customer is acknowledged even when the support-group forward fails', asy
   assert.ok(failureLines[0].includes('Telegram sendMessage failed: simulated'),
     'the actual error reason is logged, not a generic message');
   // ...and recorded for the operator, since logs are not always reachable.
-  const groupNotify = bot.status().lastGroupNotify;
+  const groupNotify = bot.status().lastNotify;
   assert.strictEqual(groupNotify.kind, 'customer-message');
   assert.strictEqual(groupNotify.sent, false);
   assert.strictEqual(groupNotify.skipped, false);
   assert.ok(groupNotify.error, 'the operator status carries the failure reason');
-  assert.strictEqual(bot.getStats().groupNotificationsFailed >= 1, true);
+  assert.strictEqual(bot.getStats().notificationsFailed >= 1, true);
   assert.ok(!logger.lines.join('\n').includes(TOKEN), 'token never appears in logs');
 });
 

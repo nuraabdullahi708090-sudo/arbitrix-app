@@ -168,6 +168,16 @@ const ADMIN_HELP_TEXT = [
   '/chatid - show this group chat ID'
 ].join('\n');
 
+const ADMIN_HELP_TEXT_PRIVATE = [
+  'Arbitrix support notifications',
+  '',
+  'Reply directly to a notification to answer that customer, or:',
+  '/reply <conversation number or chat id> <message> - send a reply to a user',
+  '/escalate <conversation number or chat id> [reason] - flag a conversation for follow-up',
+  '/close <conversation number or chat id> - close a conversation',
+  '/chatid - show this chat ID'
+].join('\n');
+
 /**
  * Legacy low-level repair: strips surrounding ASCII quotes and whitespace.
  *
@@ -461,6 +471,30 @@ function describeTelegramToken(raw) {
   };
 }
 
+/**
+ * Where INTERNAL customer notifications are delivered.
+ *
+ *   'admins' - one direct private message per id in TELEGRAM_ADMIN_IDS (current).
+ *   'group'  - the legacy single TELEGRAM_SUPPORT_CHAT_ID chat.
+ *
+ * Both code paths are kept: TELEGRAM_NOTIFY_TARGET=group restores the previous
+ * behaviour completely (group notifications AND private admins treated as
+ * customers), so the change is revertible by configuration alone.
+ */
+const NOTIFY_TARGET_ADMINS = 'admins';
+const NOTIFY_TARGET_GROUP = 'group';
+const TELEGRAM_NOTIFY_TARGET_ENV = 'TELEGRAM_NOTIFY_TARGET';
+
+/**
+ * Resolve the notification target. A missing or unrecognised value falls back
+ * to 'admins' (the current behaviour), so a typo can never silently re-enable
+ * group forwarding.
+ */
+function resolveNotifyTarget(raw) {
+  const value = String(raw === null || raw === undefined ? '' : raw).trim().toLowerCase();
+  return value === NOTIFY_TARGET_GROUP ? NOTIFY_TARGET_GROUP : NOTIFY_TARGET_ADMINS;
+}
+
 /** Resolve Telegram configuration from an env-shaped object. Never logs values. */
 function resolveTelegramConfig(env) {
   const e = env || {};
@@ -476,6 +510,9 @@ function resolveTelegramConfig(env) {
     // invisible characters that would make it never match a real update.
     supportChatId: canonicalizeTelegramChatId(e.TELEGRAM_SUPPORT_CHAT_ID),
     adminIds: parseAdminIds(e.TELEGRAM_ADMIN_IDS),
+    // Customer notifications no longer use the support group by default; the
+    // group path stays selectable for a one-variable revert.
+    notifyTarget: resolveNotifyTarget(e[TELEGRAM_NOTIFY_TARGET_ENV]),
     // Same class of damage as the token: a quoted value is rejected by Telegram
     // ("secret token contains illegal characters").
     webhookSecret,
@@ -564,6 +601,7 @@ function parseCommand(text) {
 function routeUpdate(update, config) {
   const cfg = config || { adminIds: [], supportChatId: null };
   const adminIds = Array.isArray(cfg.adminIds) ? cfg.adminIds.map(String) : [];
+  const notifyTarget = resolveNotifyTarget(cfg.notifyTarget);
   if (!update || typeof update !== 'object') return { kind: 'ignore', reason: 'no-update' };
 
   const message = update.message || update.edited_message;
@@ -578,6 +616,16 @@ function routeUpdate(update, config) {
   const base = { chatId, chatType, fromId, isAdmin, message, text, command: parseCommand(text) };
 
   if (chatType === 'private') {
+    // A configured operator talking to the bot ONE-TO-ONE is routed to the
+    // operator handler, so /reply, /close, /escalate, /chatid and replying to a
+    // notification all work in the very chat the notification arrives in. Every
+    // other private chat stays a customer conversation, unchanged.
+    //
+    // Gated on the notification target so TELEGRAM_NOTIFY_TARGET=group restores
+    // the previous behaviour exactly (admins were only recognised in a group).
+    if (isAdmin && notifyTarget === NOTIFY_TARGET_ADMINS) {
+      return Object.assign({ kind: 'admin' }, base);
+    }
     return Object.assign({ kind: 'user' }, base);
   }
 
@@ -647,10 +695,12 @@ function customerLabel(conversation, from) {
 }
 
 /**
- * Internal support-group notification for ONE customer message.
+ * Internal operator notification for ONE customer message.
  *
- * This text is NEVER sent to the customer - it goes only to
- * TELEGRAM_SUPPORT_CHAT_ID. It carries everything an agent needs to act:
+ * This text is NEVER sent to the customer - it goes only to the configured
+ * notification recipients (a private message to each TELEGRAM_ADMIN_IDS id by
+ * default, or the legacy TELEGRAM_SUPPORT_CHAT_ID group). It carries everything
+ * an operator needs to act:
  * the customer handle, the conversation number (the documented /reply handle),
  * the raw chat id (also accepted by /reply) and the customer's message.
  */
@@ -665,11 +715,11 @@ function buildForwardText(conversation, chatId, name, text) {
     'Message:',
     text,
     '',
-    `Reply to this message, or use: /reply ${conversation.id} <message>`
+    `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`
   ].join('\n');
 }
 
-/** Internal support-group notification for an escalation request. */
+/** Internal operator notification for an escalation request. */
 function buildEscalationNotice(conversation, route, reason) {
   const from = route && route.message ? route.message.from : null;
   return truncateForTelegram([
@@ -679,7 +729,7 @@ function buildEscalationNotice(conversation, route, reason) {
     `Chat ID: ${route ? route.chatId : conversation.telegram_chat_id}`,
     `Reason: ${reason}`,
     '',
-    `Reply to this message, or use: /reply ${conversation.id} <message>`
+    `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`
   ].join('\n'));
 }
 
@@ -908,7 +958,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // It is only ever handed the customer's message text (see composeCustomerReply).
   const ai = supportAI && typeof supportAI.ask === 'function' ? supportAI : null;
   const adminIds = Array.isArray(cfg.adminIds) ? cfg.adminIds.map(String) : [];
-  const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null };
+  // 'admins' (default) delivers one private message per TELEGRAM_ADMIN_IDS id;
+  // 'group' is the legacy support-group path kept for revert.
+  const notifyTarget = resolveNotifyTarget(cfg.notifyTarget);
+  const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null, notifyTarget };
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
   const forwarded = threadMap || createLimitedMap({ max: 500 });
   // Update ids already answered with the storage-degraded notice, so Telegram's
@@ -936,14 +989,14 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     ignored: 0,
     repliesSent: 0,
     storageFailures: 0,
-    // Support-group notification outcomes (customer messages + escalations).
-    // Counted separately from repliesSent because they go to the GROUP, not to
-    // the customer, and because "skipped" is a silent failure mode that must be
+    // Notification outcomes (customer messages + escalations). Counted
+    // separately from repliesSent because they go to the OPERATORS, not to the
+    // customer, and because "skipped" is a silent failure mode that must be
     // visible to an operator.
-    groupNotificationsSent: 0,
-    groupNotificationsFailed: 0,
-    groupNotificationsSkipped: 0,
-    lastGroupNotify: null,
+    notificationsSent: 0,
+    notificationsFailed: 0,
+    notificationsSkipped: 0,
+    lastNotify: null,
     lastUpdateAt: null,
     lastUpdateId: null,
     lastAction: null,
@@ -1022,6 +1075,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       token: cfg.token || '',
       supportChatId: cfg.supportChatId || null,
       adminIds: adminIds.slice(),
+      notifyTarget,
       webhookSecret: cfg.webhookSecret || '',
       webhookSecretValid: isValidTelegramWebhookSecret(cfg.webhookSecret),
       baseUrl: cfg.baseUrl || ''
@@ -1041,6 +1095,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       webhookSecretIssues: describeTelegramWebhookSecret(cfg.webhookSecret),
       supportChatConfigured: Boolean(cfg.supportChatId),
       adminIdsConfigured: adminIds.length > 0,
+      // Where customer notifications ACTUALLY go: 'admins' = one private message
+      // per TELEGRAM_ADMIN_IDS id; 'group' = the legacy support-group path.
+      notifyTarget,
+      notifyRecipients: resolveNotifyRecipients().length,
       baseUrlConfigured: Boolean(cfg.baseUrl),
       webhookPath: '/api/telegram/webhook',
       // Whether the configured client can actually reach the Telegram tables.
@@ -1057,10 +1115,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // Last Telegram API call outcome (sendMessage status + Telegram's own
       // description) - token scrubbed, no chat id, no message text.
       lastApiCall: transport.getLastCall ? transport.getLastCall() : null,
-      // Outcome of the most recent SUPPORT-GROUP notification: whether it was
-      // sent, skipped (no group configured) or rejected by Telegram, with
-      // Telegram's own reason. Secret-free: no token, no chat id, no message text.
-      lastGroupNotify: stats.lastGroupNotify,
+      // Outcome of the most recent OPERATOR notification: how many recipients
+      // accepted it, how many were skipped (none configured) or rejected by
+      // Telegram, with Telegram's own reason. Secret-free: no token, no chat id,
+      // no message text.
+      lastNotify: stats.lastNotify,
       stats: getStats()
     };
   }
@@ -1094,89 +1153,153 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   }
 
   /**
-   * Deliver ONE internal notification to the support group.
+   * Resolve the recipients of a customer notification, at CALL time.
    *
-   * The ONLY customer->support-group path: both a new customer message and an
-   * escalation go through here, and it is a single direct Telegram Bot API
-   * sendMessage call to the configured group.
+   *   'admins' -> one private chat per TELEGRAM_ADMIN_IDS entry. A bot cannot
+   *               start a conversation, so each admin must have pressed /start
+   *               in a private chat with this bot at least once; otherwise
+   *               Telegram answers 403 and that recipient is reported as failed.
+   *   'group'  -> the legacy single TELEGRAM_SUPPORT_CHAT_ID chat.
+   */
+  function resolveNotifyRecipients() {
+    const current = getConfig();
+    if (notifyTarget === NOTIFY_TARGET_GROUP) {
+      return current.supportChatId
+        ? [{ chatId: String(current.supportChatId), target: NOTIFY_TARGET_GROUP }]
+        : [];
+    }
+    return current.adminIds.map((id) => ({ chatId: String(id), target: NOTIFY_TARGET_ADMINS }));
+  }
+
+  /**
+   * Deliver ONE internal notification per configured recipient for a customer
+   * message or an escalation.
+   *
+   * The ONLY customer->operator path, and the only place that decides where a
+   * notification goes.
    *
    * Deliberate properties (each one is a past production failure mode):
-   *   - The group id is resolved through getConfig() at CALL time, so the
+   *   - recipients are resolved through getConfig() at CALL time, so a
    *     notification always uses the configuration the running process is
    *     actually using (never a stale value copied somewhere else);
-   *   - an unconfigured group is logged LOUDLY. Silently doing nothing is what
-   *     made "the config looks right but the group stays empty" so hard to
-   *     diagnose: the previous code skipped the send with no log at all;
+   *   - having NO recipient is logged LOUDLY. Silently doing nothing is what
+   *     made "the config looks right but nothing arrives" so hard to diagnose;
+   *   - one recipient failing never stops the others: every recipient is
+   *     attempted independently and the counts are reported;
    *   - a Telegram rejection logs Telegram's OWN reason (error_code +
    *     description, token-scrubbed) plus our HTTP status, not a generic
    *     'failed' line;
    *   - it NEVER throws. The customer's reply is always sent BEFORE this, so a
-   *     missing, unauthorized or unreachable group can never break, delay or
+   *     missing, unauthorized or unreachable recipient can never break, delay or
    *     alter the customer experience;
-   *   - it sends exactly ONCE per call - no retry loop - so a notification can
-   *     never be duplicated in the group.
+   *   - it sends exactly ONCE per recipient - no retry loop - so a notification
+   *     can never be duplicated for the same recipient.
    *
-   * Returns { sent, skipped, messageId, error } and records the outcome in
-   * stats.lastGroupNotify for the operator status route.
+   * Returns { sent, skipped, messageId, messageIds, sentCount, failedCount,
+   * error } and records the outcome in stats.lastNotify for the operator status
+   * route. No chat id, token or message text is ever recorded there.
    */
-  async function notifySupportGroup({ conversation, text, kind }) {
+  async function notifySupport({ conversation, text, kind }) {
     const at = new Date().toISOString();
-    // Resolved per call from the bot's configuration - the single source of
-    // truth for this process.
-    const groupChatId = getConfig().supportChatId;
+    const recipients = resolveNotifyRecipients();
+    // Distinct prefixes so an operator can tell WHICH delivery path fired. The
+    // group wording is kept verbatim because it is a documented log signature
+    // operators grep during a revert.
+    const label = notifyTarget === NOTIFY_TARGET_GROUP
+      ? 'support group notification'
+      : 'support admin notification';
 
-    if (!groupChatId) {
-      stats.groupNotificationsSkipped += 1;
-      stats.lastGroupNotify = {
+    if (recipients.length === 0) {
+      stats.notificationsSkipped += 1;
+      stats.lastNotify = {
         kind,
         at,
+        target: notifyTarget,
+        recipients: 0,
         sent: false,
         skipped: true,
-        error: 'TELEGRAM_SUPPORT_CHAT_ID is not configured in this process'
+        sentCount: 0,
+        failedCount: 0,
+        error: notifyTarget === NOTIFY_TARGET_GROUP
+          ? 'TELEGRAM_SUPPORT_CHAT_ID is not configured in this process'
+          : 'TELEGRAM_ADMIN_IDS is not configured in this process'
       };
-      warn(`support group notification (${kind}) SKIPPED: TELEGRAM_SUPPORT_CHAT_ID is not set in this RUNNING process. ` +
-        'Set it in the host environment and restart the service - the value is read at startup.');
-      return { sent: false, skipped: true, messageId: null, error: 'support group not configured' };
+      warn(`${label} (${kind}) SKIPPED: ` +
+        `${notifyTarget === NOTIFY_TARGET_GROUP ? 'TELEGRAM_SUPPORT_CHAT_ID' : 'TELEGRAM_ADMIN_IDS'} ` +
+        'is not set in this RUNNING process. Set it in the host environment and restart the service - ' +
+        'the value is read at startup.');
+      return {
+        sent: false,
+        skipped: true,
+        messageId: null,
+        messageIds: [],
+        sentCount: 0,
+        failedCount: 0,
+        error: 'no notification recipients configured'
+      };
     }
 
-    try {
-      // Direct Telegram Bot API sendMessage to the configured support group.
-      const sent = await transport.sendMessage(groupChatId, text);
-      const sentId = sent && sent.message_id !== undefined ? sent.message_id : null;
-      stats.groupNotificationsSent += 1;
-      stats.lastGroupNotify = {
-        kind,
-        at: new Date().toISOString(),
-        sent: true,
-        skipped: false,
-        error: null,
-        messageId: sentId
-      };
-      return { sent: true, skipped: false, messageId: sentId, error: null };
-    } catch (err) {
-      // The real reason, straight from Telegram when we have it.
-      const last = typeof transport.getLastCall === 'function' ? transport.getLastCall() : null;
-      const reason = scrub((last && last.description) || (err && err.message) || 'unknown error');
-      const context = last
-        ? ` (http ${last.httpStatus}, error_code ${last.errorCode})`
+    const messageIds = [];
+    const failures = [];
+    for (const recipient of recipients) {
+      try {
+        // Direct Telegram Bot API sendMessage: one call per recipient.
+        const sent = await transport.sendMessage(recipient.chatId, text);
+        const sentId = sent && sent.message_id !== undefined ? sent.message_id : null;
+        if (sentId !== null && sentId !== undefined) messageIds.push(sentId);
+        else failures.push({ error: 'sendMessage returned no message id', httpStatus: null, errorCode: null });
+      } catch (err) {
+        // The real reason, straight from Telegram when we have it.
+        const last = typeof transport.getLastCall === 'function' ? transport.getLastCall() : null;
+        failures.push({
+          error: scrub((last && last.description) || (err && err.message) || 'unknown error'),
+          httpStatus: last ? last.httpStatus : null,
+          errorCode: last ? last.errorCode : null
+        });
+      }
+    }
+
+    stats.notificationsSent += messageIds.length;
+    stats.notificationsFailed += failures.length;
+    stats.lastNotify = {
+      kind,
+      at: new Date().toISOString(),
+      target: notifyTarget,
+      recipients: recipients.length,
+      sent: messageIds.length > 0,
+      skipped: false,
+      sentCount: messageIds.length,
+      failedCount: failures.length,
+      error: failures.length ? failures[0].error : null,
+      httpStatus: failures.length ? failures[0].httpStatus : null,
+      errorCode: failures.length ? failures[0].errorCode : null
+    };
+
+    if (failures.length) {
+      const first = failures[0];
+      const context = first.httpStatus !== null || first.errorCode !== null
+        ? ` (http ${first.httpStatus}, error_code ${first.errorCode})`
         : '';
-      stats.groupNotificationsFailed += 1;
-      stats.lastGroupNotify = {
-        kind,
-        at: new Date().toISOString(),
-        sent: false,
-        skipped: false,
-        error: reason,
-        httpStatus: last ? last.httpStatus : null,
-        errorCode: last ? last.errorCode : null
-      };
       // Loud + actionable, and never thrown: the customer has already been
       // answered on every call path.
-      warn(`support group notification (${kind}) FAILED for conversation ` +
-        `${conversation && conversation.id !== undefined ? conversation.id : 'unknown'}: ${reason}${context}. ` +
-        'Check that the bot is a member of the group and that TELEGRAM_SUPPORT_CHAT_ID is that group id.');
-      return { sent: false, skipped: false, messageId: null, error: reason };
+      warn(`${label} (${kind}) FAILED for ${failures.length}/${recipients.length} recipient(s), ` +
+        `conversation ${conversation && conversation.id !== undefined ? conversation.id : 'unknown'}: ` +
+        `${first.error}${context}. ` +
+        (notifyTarget === NOTIFY_TARGET_GROUP
+          ? 'Check that the bot is a member of the group and that TELEGRAM_SUPPORT_CHAT_ID is that group id.'
+          : 'Check that each TELEGRAM_ADMIN_IDS id has started a private chat with the bot ' +
+            '(a bot cannot message a user first).'));
     }
+
+    return {
+      sent: messageIds.length > 0,
+      skipped: false,
+      messageId: messageIds.length ? messageIds[0] : null,
+      messageIds,
+      sentCount: messageIds.length,
+      failedCount: failures.length,
+      error: failures.length ? failures[0].error : null
+    };
   }
 
   /**
@@ -1383,7 +1506,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // Same single direct-delivery path as a new customer message. The previous
       // inline copy swallowed Telegram's reason entirely (it logged a bare
       // "escalation notice failed"), which made this failure undiagnosable.
-      await notifySupportGroup({
+      await notifySupport({
         conversation,
         kind: 'escalation',
         text: buildEscalationNotice(conversation, route, reason)
@@ -1429,27 +1552,25 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // deduper, so a redelivery can never duplicate this reply.
     await sendOutbound(conversation, await composeCustomerReply(text));
 
-    // Notify the support group through the single direct-delivery path. This
+    // Notify the operators through the single direct-delivery path. This
     // runs AFTER the customer's reply above and can never throw, so a broken,
-    // unauthorized or unreachable group cannot affect the customer in any way.
-    markStage('forwardToSupportGroup');
-    const groupNotice = await notifySupportGroup({
+    // unauthorized or unreachable recipient cannot affect the customer in any way.
+    markStage('notifyOperators');
+    const notice = await notifySupport({
       conversation,
       kind: 'customer-message',
       text: buildForwardText(conversation, conversation.telegram_chat_id, customerLabel(conversation, from), text)
     });
-    if (groupNotice.sent) {
-      // Map the group message id -> customer chat id so an agent can reply by
-      // replying to the notification (unchanged behaviour).
-      if (groupNotice.messageId !== null && groupNotice.messageId !== undefined) {
-        forwarded.set(groupNotice.messageId, conversation.telegram_chat_id);
-      }
+    if (notice.sent) {
+      // Map EVERY delivered notification id -> customer chat id, so any admin can
+      // answer by replying to the notification THEY received.
+      for (const messageId of notice.messageIds) forwarded.set(messageId, conversation.telegram_chat_id);
       return { handled: true, action: 'forwarded' };
     }
-    // Established action names, unchanged in meaning: capture mode (no group
-    // configured) vs an attempted send that Telegram rejected. notifySupportGroup
-    // has already logged the real reason and recorded it in stats.lastGroupNotify.
-    return { handled: true, action: groupNotice.skipped ? 'stored-without-group' : 'forward-failed' };
+    // Established action names kept as stable telemetry identifiers: 'no
+    // recipient configured' vs 'Telegram rejected the delivery'. notifySupport
+    // has already logged the real reason and recorded it in stats.lastNotify.
+    return { handled: true, action: notice.skipped ? 'stored-without-group' : 'forward-failed' };
   }
 
   /**
@@ -1477,6 +1598,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return null;
   }
 
+  /**
+   * Operator command handler.
+   *
+   * Serves BOTH the legacy support group (when TELEGRAM_NOTIFY_TARGET=group) and
+   * an admin's PRIVATE chat with the bot (the default, so an operator can act in
+   * the very chat the notification arrived in). Every command and the
+   * reply-to-notification path are chat-type agnostic; only the /chatid hints and
+   * the /help text differ.
+   */
   async function handleGroupUpdate(route, update) {
     if (!route.isAdmin) return { handled: false, reason: 'non-admin-group-message' };
     const command = route.command;
@@ -1491,12 +1621,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           ];
           if (route.chatTitle) lines.push(`Chat title: ${route.chatTitle}`);
           lines.push(`Your user ID: ${route.fromId}`);
-          lines.push('Set TELEGRAM_SUPPORT_CHAT_ID to the Chat ID above to enable forwarding.');
+          if (route.chatType === 'private') {
+            lines.push('You receive customer notifications here. Keep this user ID in TELEGRAM_ADMIN_IDS.');
+          } else if (notifyTarget === NOTIFY_TARGET_GROUP) {
+            lines.push('Set TELEGRAM_SUPPORT_CHAT_ID to the Chat ID above to enable forwarding.');
+          } else {
+            lines.push('Customer notifications are delivered to TELEGRAM_ADMIN_IDS, not to this group.');
+          }
           await transport.sendMessage(route.chatId, lines.join('\n'));
           return { handled: true, action: 'chatid' };
         }
         case 'help': {
-          await transport.sendMessage(route.chatId, ADMIN_HELP_TEXT);
+          await transport.sendMessage(
+            route.chatId,
+            route.chatType === 'private' ? ADMIN_HELP_TEXT_PRIVATE : ADMIN_HELP_TEXT
+          );
           return { handled: true, action: 'help' };
         }
         case 'reply': {
@@ -1511,7 +1650,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             await transport.sendMessage(route.chatId, `No conversation found for chat ${target}.`);
             return { handled: true, action: 'reply-missing' };
           }
-          // A human agent typed this in the support group -> 'agent', never 'bot'.
+          // A human operator typed this -> 'agent', never 'bot'.
           await sendOutbound(conversation, body, DIRECTION_AGENT);
           await transport.sendMessage(route.chatId, `Sent to chat ${conversation.telegram_chat_id}.`);
           return { handled: true, action: 'reply' };
@@ -1609,7 +1748,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     }
 
     try {
-      const result = route.kind === 'group'
+      const result = (route.kind === 'group' || route.kind === 'admin')
         ? await handleGroupUpdate(route, update)
         : await handleUserUpdate(route, update);
       stats.processed += 1;
@@ -1980,10 +2119,15 @@ module.exports = {
   SUPPORT_AI_MAX_QUESTION_CHARS,
   ESCALATION_ACK,
   ADMIN_HELP_TEXT,
+  ADMIN_HELP_TEXT_PRIVATE,
   parseAdminIds,
   normalizeTelegramId,
   canonicalizeTelegramChatId,
   TELEGRAM_CHAT_ID_FORMAT,
+  resolveNotifyTarget,
+  NOTIFY_TARGET_ADMINS,
+  NOTIFY_TARGET_GROUP,
+  TELEGRAM_NOTIFY_TARGET_ENV,
   TELEGRAM_TOKEN_FORMAT,
   TELEGRAM_SECRET_FORMAT,
   TELEGRAM_SECRET_ALPHABET,

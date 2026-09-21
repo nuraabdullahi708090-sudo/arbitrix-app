@@ -4613,3 +4613,68 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   Neither is changed by this commit.
 - Production Telegram/AI configuration was NOT touched: no Render env var was set,
   no webhook re-registered, no customer-facing send, no database change.
+
+## Private-admin Telegram notifications replace support-group forwarding (2026-09-21, branch only, NOT merged)
+- Requested change: customer notifications go to every TELEGRAM_ADMIN_IDS id in a
+  PRIVATE chat instead of to TELEGRAM_SUPPORT_CHAT_ID. Implemented on branch
+  feat/telegram-private-admin-notifications, based on the PR #124 branch
+  fix/telegram-chat-id-canonicalization @ bbdb247. NOT pushed, NOT merged, NOT
+  deployed; no migration applied; no host environment variable changed.
+- REVERT IS ONE VARIABLE: TELEGRAM_NOTIFY_TARGET ('admins' default, 'group' =
+  legacy). resolveNotifyTarget() falls back to 'admins' for a missing or
+  unrecognised value, so a typo can never silently re-enable group forwarding.
+  Setting 'group' restores the ENTIRE previous behaviour, including private
+  admins being treated as ordinary customers.
+- The legacy TELEGRAM_SUPPORT_CHAT_ID code is fully retained (config parsing,
+  status fields, the group send path, the group /chatid hint and the group log
+  signature); it is simply no longer the default target.
+- Delivery: notifySupport() replaced notifySupportGroup() and fans out ONE direct
+  sendMessage per recipient (previously exactly one send). It returns
+  { sent, skipped, messageId, messageIds, sentCount, failedCount, error }; one
+  recipient failing no longer aborts the others, and a partial success still
+  counts as sent. Per-recipient outcomes land in stats.lastNotify (renamed from
+  lastGroupNotify) as COUNTS only - never a chat id, token or message text, so
+  the existing secret-free telemetry property is preserved.
+- Operator actions in a DM: routeUpdate() returns kind 'admin' for a private
+  message whose sender is in TELEGRAM_ADMIN_IDS (gated on notifyTarget), and
+  handleUpdate() dispatches 'admin' to the existing operator handler
+  handleGroupUpdate(). /reply, /close, /escalate, /chatid, /help AND replying to a
+  notification therefore all work in the private chat. A non-admin DM is still an
+  ordinary customer conversation, unchanged.
+- Reply threading is now per recipient: EVERY delivered notification message id is
+  registered in the forwarded map (previously only the single group message id),
+  so any admin can answer by replying to their own notification.
+- Notification text: the reply hint is now "Reply to this message here in this
+  chat, or use: /reply <id> <message>", so it no longer points at a group message.
+  The notification log prefix is mode-aware: "support group notification (...)" in
+  legacy group mode (kept verbatim because operators grep it) and
+  "support admin notification (...)" in admin mode. The delivery-trace stage name
+  forwardToSupportGroup became notifyOperators.
+- Status/boot accuracy: status() reports notifyTarget + notifyRecipients; the
+  server boot line is now "[Telegram] Customer notifications: N admin recipient(s)
+  via TELEGRAM_ADMIN_IDS" (or the legacy group line); the admin status route trace
+  field lastGroupNotify became lastNotify; .env.example documents
+  TELEGRAM_NOTIFY_TARGET and marks TELEGRAM_SUPPORT_CHAT_ID as LEGACY.
+- PRECONDITION that cannot be enforced in code: a bot cannot START a conversation,
+  so every id in TELEGRAM_ADMIN_IDS must have sent /start to the bot in a private
+  chat at least once. Otherwise that admin's send fails with 403 "bot can't
+  initiate conversation with a user" and is reported as a failed recipient while
+  the other admins still receive the notification.
+- Tests: 22 new in tests/telegram_private_admin_notifications.test.js covering the
+  9 required scenarios (customer message -> admin notification, customer /escalate
+  -> admin notification, admin private /reply, /close, /escalate, /chatid, admin
+  reply-to-notification, multiple admin ids, no configured admins) plus
+  ack-before-notification ordering, canonicalized admin ids, partial failure,
+  stranger DM, unmapped reply, the legacy revert and status accuracy.
+- Test-pin updates for the intentional change: the 5 existing suites that pin the
+  LEGACY support-group path now pass notifyTarget: 'group' explicitly
+  (telegram_support_bot, telegram_support_group_config,
+  telegram_support_group_forwarding, telegram_webhook_registration,
+  support_ai_telegram), and the renamed stat fields were updated in 2 of them.
+- npm test = 1517 pass / 0 fail (baseline 1495 + 22 new). node --check clean on
+  server.js and services/TelegramSupportService.js.
+- FLAGGED for review: (1) notifySupport() is the single decision point for the
+  target, so "notify admins AND the group" would go there; (2) the fan-out means N
+  Telegram sends per customer message (one per admin), which scales with the admin
+  list; (3) the /start precondition above should be verified in the Render Shell
+  before relying on delivery.
