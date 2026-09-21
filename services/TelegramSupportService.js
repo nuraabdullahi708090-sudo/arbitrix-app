@@ -1004,8 +1004,20 @@ function summarizeTelegramWebhook(result) {
   };
 }
 
-/** Updates the bot asks Telegram to deliver. */
-const TELEGRAM_ALLOWED_UPDATES = ['message', 'edited_message'];
+/**
+ * Updates the bot asks Telegram to deliver.
+ *
+ * Telegram treats this list as a DELIVERY WHITELIST: an update type that is not
+ * listed is never sent to the webhook at all. Omitting `callback_query` therefore
+ * silently disables every inline button the bot sends - the customer sees only the
+ * local pressed state (no toast, no action) and NOTHING is recorded anywhere:
+ * Telegram does not error for a filtered type, so `pending_update_count` stays 0
+ * and `last_error_message` stays blank while every registration looks healthy.
+ *
+ * Keep this list in step with every kind of update the bot handles (see
+ * routeUpdate): messages, edits of messages, and inline-keyboard presses.
+ */
+const TELEGRAM_ALLOWED_UPDATES = ['message', 'edited_message', 'callback_query'];
 
 /**
  * Decide whether the registered webhook must be re-asserted.
