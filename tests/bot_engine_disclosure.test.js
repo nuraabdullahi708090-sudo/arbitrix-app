@@ -49,7 +49,30 @@ test('the browser copy promises tab-bound behaviour; the worker copy states the 
   }
   // EN is the pinned contract (per-locale wording is reviewed, not machine-checked).
   assert.match(T.en['bot.engineNotice'], /close or refresh/i);
-  assert.match(T.en['bot.engineNoticeWorker'], /keeps trading after you close this tab/i);
+  // Beginner-friendly worker wording (management-requested): plain language, no
+  // server/browser jargon and no "use Stop Bot" instruction.
+  assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
+  assert.match(T.en['bot.workerManaged'], /runs automatically/i);
+  assert.ok(T.en['bot.workerManaged'].startsWith('\u{1F916}'), 'friendly robot emoji leads the message');
+});
+
+test('the old technical bot wording is fully replaced in all 6 locales', () => {
+  const T = translations();
+  assert.strictEqual(
+    T.en['bot.engineNoticeWorker'],
+    'Your bot keeps running even when you close this page. Come back anytime to check your activity.'
+  );
+  assert.strictEqual(
+    T.en['bot.workerManaged'],
+    "\u{1F916} Your bot now runs automatically. It will keep trading even when you're offline."
+  );
+  // The previous sentences must not survive anywhere in the document.
+  assert.ok(!INDEX.includes('run by the server, not this tab'), 'old workerManaged wording removed');
+  assert.ok(!INDEX.includes('Managed by the server: this bot keeps trading'), 'old engineNoticeWorker wording removed');
+  for (const l of LANGS) {
+    assert.ok(T[l]['bot.engineNoticeWorker'] && String(T[l]['bot.engineNoticeWorker']).trim(), l + ' notice');
+    assert.ok(T[l]['bot.workerManaged'] && String(T[l]['bot.workerManaged']).trim(), l + ' workerManaged');
+  }
 });
 
 test('the disclosure switch is driven by the server 409, not by a manual copy edit', () => {
