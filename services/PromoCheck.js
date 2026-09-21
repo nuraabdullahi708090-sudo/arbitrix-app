@@ -60,16 +60,28 @@ function isPromoProfitCapReached(isPromoCreditFunded, promoProfit) {
 function createPromoCheck({ admin, log = () => {} }) {
   if (!admin) throw new Error('createPromoCheck requires a service-role Supabase client');
 
-  /** Confirmed production deposit? (authoritative: deposits.status) */
+  /**
+   * Confirmed production deposit, matching server.js hasConfirmedDeposit() and
+   * migration 026: a confirmed row in EITHER `deposits` (legacy flow) OR
+   * `payment_invoices` (provider flow). Two parallel head-count reads, OR'd;
+   * fail-closed (any query error => false) and writes nothing.
+   */
   async function hasConfirmedDeposit(userId) {
     try {
-      const { count, error } = await admin
-        .from('deposits')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'confirmed');
-      if (error) return false;
-      return (count || 0) > 0;
+      const [legacy, provider] = await Promise.all([
+        admin
+          .from('deposits')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'confirmed'),
+        admin
+          .from('payment_invoices')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'confirmed'),
+      ]);
+      if (legacy.error || provider.error) return false;
+      return ((legacy.count || 0) + (provider.count || 0)) > 0;
     } catch (e) {
       return false;
     }

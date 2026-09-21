@@ -56,6 +56,7 @@ function makeFakeAdmin(state = {}) {
     wallets: state.wallets || {},
     trades: state.trades || {}, // userId -> [amount]
     deposits: state.deposits || {}, // userId -> confirmed count
+    paymentInvoices: state.paymentInvoices || {}, // userId -> confirmed count
     conversions: state.conversions || {}, // userId -> bool
     users: state.users || {}, // userId -> environment
     errors: state.errors || {},
@@ -152,6 +153,10 @@ function makeFakeAdmin(state = {}) {
       if (table === 'deposits') {
         const uid = firstVal(ctx.filters, 'user_id');
         return Promise.resolve({ data: null, count: db.deposits[uid] || 0, error: null });
+      }
+      if (table === 'payment_invoices') {
+        const uid = firstVal(ctx.filters, 'user_id');
+        return Promise.resolve({ data: null, count: db.paymentInvoices[uid] || 0, error: null });
       }
       if (table === 'referral_earning_conversions') {
         const uid = firstVal(ctx.filters, 'user_id');
@@ -557,6 +562,13 @@ test('promo classification parity: unknown source fails OPEN, so no one is wrong
   assert.equal(await converted.isPromoCreditFunded(1, false), false, 'referral-funded users are exempt');
   const deposited = createPromoCheck({ admin: makeFakeAdmin({ deposits: { 1: 1 } }), log: () => {} });
   assert.equal(await deposited.isPromoCreditFunded(1, await deposited.hasConfirmedDeposit(1)), false);
+  // provider flow: a confirmed payment_invoice (no legacy `deposits` row) is a
+  // deposit too - must match server.js hasConfirmedDeposit() and migration 026.
+  const providerFunded = createPromoCheck({ admin: makeFakeAdmin({ paymentInvoices: { 2: 1 } }), log: () => {} });
+  assert.equal(await providerFunded.hasConfirmedDeposit(2), true, 'confirmed payment_invoice is a deposit');
+  assert.equal(await providerFunded.isPromoCreditFunded(2, await providerFunded.hasConfirmedDeposit(2)), false);
+  const noDeposit = createPromoCheck({ admin: makeFakeAdmin({}), log: () => {} });
+  assert.equal(await noDeposit.hasConfirmedDeposit(3), false, 'neither table confirmed -> not a depositor');
 });
 
 // ==========================================================================
