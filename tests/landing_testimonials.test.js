@@ -21,10 +21,10 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1402;
-// 1402 keys/locale now = 1376 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1401;
+// 1401 keys/locale now = 1375 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1376;
+const BASE_OUTSIDE_TESTIMONIALS = 1375;
 
 function loadTranslations() {
     const tIdx = INDEX.indexOf('const TRANSLATIONS');
