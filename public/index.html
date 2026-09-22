@@ -5297,8 +5297,12 @@ console.log('🔐 Auth script loaded successfully');
                 </div>
                 <div class="landing-footer-links">
                     <h4 data-i18n="landing.footer.contact">Contact</h4>
-                    <a href="mailto:support@arbitrix.ai">support@arbitrix.ai</a>
+                    <!-- Official customer support is the Telegram support bot only.
+                         The destination is resolved at runtime from the
+                         arbitrix-support-telegram meta tag (single source of truth);
+                         no anchor hardcodes the URL. -->
                     <a href="#" class="js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer" data-i18n="support.telegramShort">Telegram Support</a>
+                    <a href="#" class="js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer">@ArbitrixSupportBot</a>
                 </div>
             </div>
             <div class="landing-footer-bottom">
@@ -7411,7 +7415,7 @@ function toggleFaq(btn) {
         <a href="#" id="supportTelegramBtn" class="btn btn-primary btn-block js-official-telegram" style="display:none;margin-top:12px;text-align:center;background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;" target="_blank" rel="noopener noreferrer">
             <i class="fab fa-telegram"></i> <span data-i18n="support.human.title">Contact Official Support</span>
         </a>
-        <div id="supportNotConfigured" style="display:none;margin-top:12px;font-size:11px;color:var(--text-secondary);background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:10px;line-height:1.6;" data-i18n="support.notConfigured">Official Telegram Support is being configured. In the meantime use the in-app support chat or email support@arbitrix.ai.</div>
+        <div id="supportNotConfigured" style="display:none;margin-top:12px;font-size:11px;color:var(--text-secondary);background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:10px;line-height:1.6;" data-i18n="support.notConfigured">Official Telegram Support is being configured. In the meantime, use the in-app support chat.</div>
 
         <!-- Security warning -->
         <div style="margin-top:14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;">
@@ -8679,7 +8683,7 @@ const TRANSLATIONS = {
         'support.modal.title': 'Arbitrix Support',
         'support.modal.subtitle': 'We are here to help with deposits, withdrawals and account questions.',
         'support.officialTelegram': 'Official Telegram Support',
-        'support.notConfigured': 'Official Telegram Support is being configured. In the meantime use the in-app support chat or email support@arbitrix.ai.',
+        'support.notConfigured': 'Official Telegram Support is being configured. In the meantime, use the in-app support chat.',
         'support.security.title': 'Official Support will NEVER ask for',
         'support.security.password': 'Your password',
         'support.security.otp': 'OTP / 2FA codes',
@@ -10100,7 +10104,7 @@ const TRANSLATIONS = {
         'support.modal.title': 'Soporte de Arbitrix',
         'support.modal.subtitle': 'Estamos aquí para ayudarte con depósitos, retiros y consultas de la cuenta.',
         'support.officialTelegram': 'Soporte oficial de Telegram',
-        'support.notConfigured': 'El soporte oficial de Telegram se está configurando. Mientras tanto, usa el chat de soporte de la app o escribe a support@arbitrix.ai.',
+        'support.notConfigured': 'El soporte oficial de Telegram se está configurando. Mientras tanto, usa el chat de soporte dentro de la aplicación.',
         'support.security.title': 'El soporte oficial NUNCA te pedirá',
         'support.security.password': 'Tu contraseña',
         'support.security.otp': 'Códigos OTP / 2FA',
@@ -11522,7 +11526,7 @@ const TRANSLATIONS = {
         'support.modal.title': 'Suporte Arbitrix',
         'support.modal.subtitle': 'Estamos aqui para ajudar com depósitos, saques e dúvidas da conta.',
         'support.officialTelegram': 'Suporte oficial no Telegram',
-        'support.notConfigured': 'O suporte oficial no Telegram está sendo configurado. Enquanto isso, use o chat de suporte do app ou envie um e-mail para support@arbitrix.ai.',
+        'support.notConfigured': 'O suporte oficial no Telegram está sendo configurado. Enquanto isso, use o chat de suporte dentro do aplicativo.',
         'support.security.title': 'O suporte oficial NUNCA pedirá',
         'support.security.password': 'Sua senha',
         'support.security.otp': 'Códigos OTP / 2FA',
@@ -12944,7 +12948,7 @@ const TRANSLATIONS = {
         'support.modal.title': 'Support Arbitrix',
         'support.modal.subtitle': 'Nous sommes là pour vous aider avec les dépôts, les retraits et les questions de compte.',
         'support.officialTelegram': 'Support Telegram officiel',
-        'support.notConfigured': 'Le support Telegram officiel est en cours de configuration. En attendant, utilisez le chat de support de l\'application ou écrivez à support@arbitrix.ai.',
+        'support.notConfigured': 'Le support Telegram officiel est en cours de configuration. En attendant, utilisez le chat de support intégré à l\'application.',
         'support.security.title': 'Le support officiel ne demandera JAMAIS',
         'support.security.password': 'Votre mot de passe',
         'support.security.otp': 'Codes OTP / 2FA',
@@ -14366,7 +14370,7 @@ const TRANSLATIONS = {
         'support.modal.title': 'دعم Arbitrix',
         'support.modal.subtitle': 'نحن هنا لمساعدتك في الإيداع والسحب وأسئلة الحساب.',
         'support.officialTelegram': 'دعم تيليجرام الرسمي',
-        'support.notConfigured': 'يتم إعداد دعم تيليجرام الرسمي. في هذه الأثناء استخدم محادثة الدعم داخل التطبيق أو راسل support@arbitrix.ai.',
+        'support.notConfigured': 'يتم إعداد دعم تيليجرام الرسمي. في هذه الأثناء، استخدم محادثة الدعم داخل التطبيق.',
         'support.security.title': 'الدعم الرسمي لن يطلب منك أبدًا',
         'support.security.password': 'كلمة المرور الخاصة بك',
         'support.security.otp': 'رموز OTP / 2FA',
@@ -15788,7 +15792,7 @@ const TRANSLATIONS = {
         'support.modal.title': 'Arbitrix 支持',
         'support.modal.subtitle': '我们随时为您解答入金、出金和账户问题。',
         'support.officialTelegram': '官方 Telegram 支持',
-        'support.notConfigured': '官方 Telegram 支持正在配置中。在此期间，请使用应用内支持聊天或发送邮件至 support@arbitrix.ai。',
+        'support.notConfigured': '官方 Telegram 支持正在配置中。在此期间，请使用应用内支持聊天。',
         'support.security.title': '官方支持绝不会索要',
         'support.security.password': '您的密码',
         'support.security.otp': 'OTP / 2FA 验证码',
@@ -21041,6 +21045,13 @@ function updateSupportLinks() {
     const notConfigured = document.getElementById('supportNotConfigured');
     if (notConfigured) notConfigured.style.display = valid ? 'none' : 'block';
 }
+
+// Resolve the official support links as soon as the page is ready. The landing
+// footer is visible to anonymous visitors (before initApp()), so the configured
+// Telegram bot must be published there too, not only after login.
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof updateSupportLinks === 'function') updateSupportLinks();
+});
 
 function openSupportModal() {
     document.querySelectorAll('.sidebar-link').forEach(function (l) { l.classList.remove('active'); });
