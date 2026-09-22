@@ -5291,3 +5291,46 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   tests/beginner_ux.test.js, tests/sandbox_withdraw_wording.test.js. `npm test` = 1738 pass /
   0 fail. index.html decodes as UTF-8 with 0 replacement chars; 6/6 inline script blocks parse.
 - NOT committed / NOT pushed / NOT deployed.
+
+
+## Telegram support retrieval - withdrawal-minimum questions fixed (2026-09-22, services/support/arbitrix-knowledge.json + tests)
+- REPORTED: "What is the minimum withdrawal amount" fell through to the generic
+  "I do not have an approved answer" hand-off, while "Is there a minimum withdrawal"
+  was answered correctly.
+- ROOT CAUSE (audited + reproduced): retrieval is keyword-first (SupportKnowledge.js,
+  minScore 2). A multi-word keyword must appear as an EXACT substring of the normalized
+  question; single keywords match tokens. The approved `withdrawals.minimum` entry
+  carried only 5 phrases, all requiring the exact substring "minimum withdrawal" /
+  "withdrawal minimum" / "least withdrawal" / "how much can i withdraw". Phrasings that
+  reorder the words or interpose one matched NO phrase, so they either (a) returned
+  nothing -> kind 'unknown' / reason 'no-knowledge' -> UNCERTAIN_TEXT ("I do not have
+  an approved answer...") and escalated, or (b) fell to the generic
+  `withdrawals.requirements` entry (bare "withdraw" keyword) instead of the minimum
+  answer. Measured BEFORE the fix:
+    "What's the minimum I can withdraw?"         -> withdrawals.requirements
+    "Is there a minimum amount for withdrawals?" -> NO HITS (escalated)
+    "Can I withdraw a small amount?"             -> withdrawals.requirements
+    "What is the least I can withdraw?"          -> withdrawals.requirements
+  ("What is the minimum withdrawal amount" itself scored 5 on this revision; the same
+  family failed, so the whole family is now pinned.)
+- FIX (knowledge-only, additive, scoped): 14 natural-language keyword phrases added to
+  the `withdrawals.minimum` entry. No keyword removed, no retrieval/ranking/threshold
+  code changed, no answer text changed, no other entry touched (all asserted).
+  AFTER the fix every brief question resolves to `withdrawals.minimum`:
+    What is the minimum withdrawal amount? (8) | Is there a minimum withdrawal? (5)
+    What's the minimum I can withdraw? (4) | How much can I withdraw at minimum? (4)
+    Is there a minimum amount for withdrawals? (4) | Can I withdraw a small amount? (3)
+    What is the least I can withdraw? (3)  (+15 natural equivalents, all >= 3)
+- NEGATIVE COVERAGE: 17 unrelated questions (deposit minimum, deposit how-to, deposit
+  network, withdrawal timing, withdrawal stuck, subscription, referral, KYC, demo/live,
+  login, contact human, unrelated chit-chat) retrieve `withdrawals.minimum` ZERO times
+  (not merely ranked second). Deposit-minimum questions still lead with
+  `deposits.minimum`.
+- TESTS: NEW tests/support_withdrawal_minimum_retrieval.test.js (12 tests: the 7 brief
+  questions, 15 equivalents, identical-answer assertion, end-to-end ask() for all 7
+  [answered / kind 'answer' / needsHuman false / entryId withdrawals.minimum / not
+  UNCERTAIN], the negatives, additive-only, new-keyword ownership, the sibling entry +
+  entry count pinned at 39, the approved answer/question unchanged, KB still validates).
+- UNCHANGED: every other knowledge topic and answer, the retrieval/ranking code, the
+  score threshold, the AI pipeline, and all Telegram bot behaviour. npm test = 1750
+  pass / 0 fail. NOT merged, NOT deployed.
