@@ -238,6 +238,19 @@ const OPERATOR_STRINGS = Object.freeze({
   notifyMessage: 'Message:',
   notifyTranslation: 'English translation:',
   notifyNoTranslation: 'English translation: unavailable - the original message is shown above.',
+  // Bot-response status shown on a private-admin notification, so an operator can
+  // tell at a glance whether the bot already answered or a human is needed.
+  // These describe what ACTUALLY happened (a Telegram send that succeeded, a
+  // stored human reply) - the service decides them, never the AI's intent.
+  notifyStatusBotReplied: '🤖 BOT REPLIED',
+  notifyStatusBotRepliedDetail: 'The customer has already received an automatic response.',
+  notifyStatusHumanNeeded: '⚠️ HUMAN NEEDED',
+  notifyStatusHumanNeededDetail: 'The bot could not provide a confident answer.',
+  notifyStatusHumanRequested: '👨‍💼 HUMAN REQUESTED',
+  notifyStatusHumanRequestedDetail: 'Please respond to the customer.',
+  notifyStatusHumanConversation: '💬 HUMAN CONVERSATION',
+  notifyStatusHumanConversationDetail: 'A human is already handling this conversation.',
+  notifyCustomerAnswer: 'Customer answer:',
   translateUnavailableToAdmin: 'Sent in English: automatic translation into {{language}} is unavailable, so the customer received your original English text.',
   translateBlockedToAdmin: 'Your reply was sent in English: the {{language}} translation was withheld by the safety check ({{reason}}). Please review before sending again.',
   translateUnavailableNote: 'Automatic translation is unavailable right now.'
