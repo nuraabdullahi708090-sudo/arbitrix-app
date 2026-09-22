@@ -510,17 +510,17 @@ const PLATFORM_MIN_DEPOSIT_USD = 100;
 // applies to referral earnings. The conversion remains server-authoritative
 // (see /api/referral/earnings/convert + migration 023), is capped by genuinely
 // earned rewards, and never creates money: it only moves the referral-earnings
-// bucket (wallets.bonus_balance) into wallets.live_balance. The $500 minimum
+// bucket (wallets.bonus_balance) into wallets.live_balance. The $700 minimum
 // withdrawal, security verification, address and all other withdrawal safeguards
 // are unchanged.
 const REFERRAL_EARNINGS_MIN_CONVERT_USD = 0;
 
 // Platform minimum withdrawal (USD). ENFORCED SERVER-SIDE. Management decision:
-// the value is $500. It is deliberately NOT advertised in the always-on UI; it
+// the value is $700. It is deliberately NOT advertised in the always-on UI; it
 // is disclosed at the withdrawal stage (the withdraw modal) and surfaced in the
 // clear error when a request falls below it. MARKETING_SANDBOX is unaffected
 // (sandbox withdrawals are balance-only and never reach production validation).
-const MIN_WITHDRAWAL_USD = 500;
+const MIN_WITHDRAWAL_USD = 700;
 
 // TEMPORARY (management decision): account verification is NOT required to
 // withdraw at this time, so an unverified account is no longer blocked and the
@@ -529,7 +529,7 @@ const MIN_WITHDRAWAL_USD = 500;
 // TO RESTORE the previous KYC-first withdrawal gate, set the env var
 // `WITHDRAWAL_REQUIRES_VERIFICATION=true` (or edit this single constant). The
 // gate code below is unchanged and is merely skipped while the flag is off.
-// SCOPE: this flag affects ONLY the verification requirement. The $500 minimum,
+// SCOPE: this flag affects ONLY the verification requirement. The $700 minimum,
 // the completed-trade rule, balance/address validation, the first-deposit rule,
 // duplicate/pending protections and authorization are all untouched, and the
 // verification system itself (collection, review, storage) is NOT removed.
@@ -5067,7 +5067,7 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
 
   // PRODUCTION-ONLY Gate 1 — FIRST-DEPOSIT PRIORITY. A production account that
   // has NEVER made a real qualifying deposit must see the clear first-deposit
-  // requirement FIRST — before the verification prompt, the $500 minimum, the
+  // requirement FIRST — before the verification prompt, the $700 minimum, the
   // balance, the address, or the completed-trade count. This covers both a user
   // who only holds the $50 promotional credit (no trades) and one who traded
   // that credit and realised a profit. The single exception is the existing
@@ -5114,7 +5114,7 @@ app.post('/api/withdraw/request', authMiddleware, async (req, res) => {
   }
 
   // PRESERVED: All existing withdrawal business logic (unchanged order/meaning).
-  // Minimum withdrawal is $500 (MIN_WITHDRAWAL_USD) and is enforced here — the
+  // Minimum withdrawal is $700 (MIN_WITHDRAWAL_USD) and is enforced here — the
   // authoritative gate; the UI only surfaces it at the withdrawal stage.
   const wallet = await getWallet(userId);
   if (!amount || amount < MIN_WITHDRAWAL_USD) return res.status(400).json({ error: 'Min $' + MIN_WITHDRAWAL_USD });

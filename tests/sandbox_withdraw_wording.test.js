@@ -7,10 +7,11 @@
  * withdraw section must never display production minimum wording. Pins:
  *  - sandbox variant keys exist, are non-empty in all 6 locales, and contain
  *    NO minimum wording;
- *  - the production keys carry the $500 minimum wording (and no obsolete $700 key);
+ *  - the production withdrawal copy discloses the $700 minimum only in the
+ *    withdrawal pop-up (the server enforces it; there is no obsolete min700 key);
  *  - updateLiveWithdrawStatus() renders the sandbox variants ONLY when
  *    APP.environment === 'MARKETING_SANDBOX' (production unchanged);
- *  - production gating logic is unchanged (MIN_WITHDRAWAL is 500; the
+ *  - production gating logic is unchanged (MIN_WITHDRAWAL is 700; the
  *    min/deposit/trade gates are still only SKIPPED for sandbox, not removed);
  *  - the language-switch re-render hook re-renders the withdraw text so the
  *    sandbox variant survives setLanguage();
@@ -73,11 +74,11 @@ test('sandbox withdraw variant keys exist in all 6 locales and contain no minimu
     }
 });
 
-test('production withdraw copy is the $500 wording and never uses the sandbox variants', () => {
+test('production withdraw copy discloses the $700 minimum and never uses the sandbox variants', () => {
     const T = loadTranslations();
     for (const lang of Object.keys(T)) {
-        assert.ok(T[lang]['withdraw.minAmount'].includes('$500'), `${lang} withdraw.minAmount changed`);
-        assert.ok(!T[lang]['withdraw.info'].includes('$700'), `${lang} withdraw.info must not claim a $700 minimum`);
+        assert.ok(T[lang]['withdraw.minAmount'].includes('$700'), `${lang} withdraw.minAmount changed`);
+        assert.ok(!/\$500|\$700/.test(T[lang]['withdraw.info']), `${lang} withdraw.info must not claim a withdrawal minimum`);
         assert.ok(!T[lang]['withdraw.min700'], `${lang} the obsolete withdraw.min700 key must be gone`);
     }
 });
@@ -94,7 +95,7 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
                 environment,
                 liveData,
                 bonusData: { balance: 0 },
-                MIN_WITHDRAWAL: 500,
+                MIN_WITHDRAWAL: 700,
             },
             document: { getElementById: (id) => els[id] || null },
             t: (key) => key,
@@ -105,7 +106,7 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
     }
     const funded = { hasRealDeposit: true, hasTradingActivity: true, balance: 1500 };
 
-    // Sandbox: ready state uses the sandbox variant (no $700 wording) for BOTH
+    // Sandbox: ready state uses the sandbox variant (no minimum wording) for BOTH
     // the sidebar status and the withdraw modal info box.
     let els = run('MARKETING_SANDBOX', { ...funded });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.readySandbox');
@@ -145,7 +146,7 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
     els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: false, balance: 1500 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.noTrades');
 
-    // Production: deposited + traded but below $500 -> the sidebar stays neutral
+    // Production: deposited + traded but below $700 -> the sidebar stays neutral
     // (no amount advertised) and the modal info box discloses the minimum.
     els = run('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: true, balance: 20 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.belowMinimum');
@@ -156,11 +157,11 @@ test('updateLiveWithdrawStatus renders sandbox variants only for MARKETING_SANDB
     assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.needMinimum');
 });
 
-test('production gating logic is unchanged (MIN_WITHDRAWAL=500, gates skipped only for sandbox)', () => {
-    assert.ok(/MIN_WITHDRAWAL:\s*500/.test(INDEX), 'APP.MIN_WITHDRAWAL must stay 500');
+test('production gating logic is unchanged (MIN_WITHDRAWAL=700, gates skipped only for sandbox)', () => {
+    assert.ok(/MIN_WITHDRAWAL:\s*700/.test(INDEX), 'APP.MIN_WITHDRAWAL must stay 700');
     const submit = extractFunction('submitWithdraw');
     assert.ok(submit.includes("APP.environment === 'MARKETING_SANDBOX'"), 'sandbox flag must remain in submitWithdraw');
-    assert.ok(submit.includes('!isSandbox && amount < APP.MIN_WITHDRAWAL'), 'production $500 submit gate must remain');
+    assert.ok(submit.includes('!isSandbox && amount < APP.MIN_WITHDRAWAL'), 'production $700 submit gate must remain');
     const open = extractFunction('openWithdrawModal');
     assert.ok(open.includes('if (!isSandbox)'), 'production-only gate block must remain in openWithdrawModal');
     assert.ok(open.includes('totalWithdrawable < APP.MIN_WITHDRAWAL'), 'Gate 2 min-withdrawal check must remain for production');

@@ -8,7 +8,7 @@
  * was removed, so the onboarding and FAQ copy now say the bot may be started
  * once the Live account is funded and the applicable eligibility requirements
  * are met - with no invented amount and no promise of uninterrupted operation.
- * The $500 withdrawal minimum is a DIFFERENT rule and must stay untouched.
+ * The $700 withdrawal minimum is a DIFFERENT rule and must stay untouched.
  *
  * Run: npm test
  */
@@ -187,8 +187,8 @@ test('the Terms of Service no longer claims a minimum balance requirement', () =
     assert.ok(TOS.includes('Demo mode is available for practice without real funds'), 'neighbour bullet intact');
 });
 
-test('the $500 withdrawal minimum is untouched by this cleanup', () => {
-    assert.ok(/const MIN_WITHDRAWAL_USD = 500;/.test(SERVER), 'server minimum stays $500');
-    assert.ok(/MIN_WITHDRAWAL: 500/.test(INDEX), 'frontend minimum stays $500');
-    assert.ok(!SERVER.includes('$700') && !INDEX.includes('$700'), 'no $700 remnant');
+test('the $700 withdrawal minimum is untouched by this cleanup', () => {
+    assert.ok(/const MIN_WITHDRAWAL_USD = 700;/.test(SERVER), 'server minimum stays $700');
+    assert.ok(/MIN_WITHDRAWAL: 700/.test(INDEX), 'frontend minimum stays $700');
+    assert.ok(!/Min \$(500|700)'/.test(SERVER), 'the minimum message is built from the constant, never a literal');
 });

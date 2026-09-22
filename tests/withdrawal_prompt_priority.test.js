@@ -65,13 +65,13 @@ test('server: the sandbox branch precedes the production first-deposit gate', ()
     assert.ok(depositIdx > sandboxIdx, 'the production gate must run only after the sandbox short-circuit');
 });
 
-test('server: first-deposit gate precedes the verification prompt and the $500 minimum', () => {
+test('server: first-deposit gate precedes the verification prompt and the $700 minimum', () => {
     const body = routeBody('post', '/api/withdraw/request');
     const depositIdx = body.indexOf('requiresFirstDeposit');
     const kycIdx = body.indexOf('kycService.getVerificationStatus');
     const minIdx = body.indexOf('amount < MIN_WITHDRAWAL_USD');
     assert.ok(depositIdx > 0 && kycIdx > depositIdx, 'first-deposit gate must precede verification');
-    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'verification must still precede the $500 minimum');
+    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'verification must still precede the $700 minimum');
 });
 
 test('server: the first-deposit gate requires no confirmed deposit AND no referral funding', () => {

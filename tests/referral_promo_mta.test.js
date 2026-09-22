@@ -6,7 +6,7 @@
  * The $50 promotional credit is TRADABLE through the existing trading engine.
  * It stays non-withdrawable until the user has made a qualifying first deposit
  * AND completed at least one trade; after that the normal withdrawal rules apply
- * (verification when enabled, $500 minimum, balance, address).
+ * (verification when enabled, $700 minimum, balance, address).
  *
  * The Minimum Trading Amount (MTA) has been REMOVED entirely: there is no
  * minimum trading balance, no `MTA_AMOUNT` env override and therefore no
@@ -76,10 +76,10 @@ test('promo credit: withdrawal requires a qualifying first deposit AND one trade
     assert.ok(WITHDRAW.includes('requiresFirstDeposit: true'));
     assert.ok(WITHDRAW.includes('Complete at least 1 trade first'), 'the existing one-trade rule is preserved');
     // The production first-deposit gate precedes the verification prompt, while
-    // verification (when enabled) precedes the $500 minimum.
+    // verification (when enabled) precedes the $700 minimum.
     assert.ok(WITHDRAW.indexOf('requiresFirstDeposit') < WITHDRAW.indexOf('verificationRequired'), 'first-deposit prompt precedes verification');
-    assert.ok(WITHDRAW.indexOf('verificationRequired') < WITHDRAW.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'verification precedes the $500 minimum');
-    assert.ok(WITHDRAW.includes("Min $' + MIN_WITHDRAWAL_USD"), 'the $500 minimum is applied');
+    assert.ok(WITHDRAW.indexOf('verificationRequired') < WITHDRAW.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'verification precedes the $700 minimum');
+    assert.ok(WITHDRAW.includes("Min $' + MIN_WITHDRAWAL_USD"), 'the $700 minimum is applied');
     assert.ok(WITHDRAW.includes('Insufficient balance'), 'the balance check is unchanged');
     assert.ok(WITHDRAW.includes('Valid address required'), 'the address check is unchanged');
 });
@@ -113,7 +113,7 @@ test('MTA: MARKETING_SANDBOX has no MTA gate', () => {
     assert.match(sandboxBot, /sandbox_bot_sessions/, 'the simulated session is still persisted');
 });
 
-test('withdrawal minimum is $500 (unchanged rule, updated value)', () => {
-    assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 500;/);
+test('withdrawal minimum is $700 (unchanged rule, updated value)', () => {
+    assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
     assert.ok(WITHDRAW.includes('amount < MIN_WITHDRAWAL_USD'));
 });

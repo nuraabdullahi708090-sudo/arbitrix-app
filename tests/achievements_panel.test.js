@@ -178,7 +178,7 @@ test('i18n is unchanged (no new keys, all locales intact)', () => {
 
 test('nothing financial or unrelated was touched', () => {
     // Withdrawal minimum and gating copy stay as they were.
-    assert.ok(/MIN_WITHDRAWAL: 500/.test(INDEX), 'the $500 withdrawal minimum must be intact');
+    assert.ok(/MIN_WITHDRAWAL: 700/.test(INDEX), 'the $700 withdrawal minimum must be intact');
     assert.ok(INDEX.includes("withdraw.info"), 'withdrawal info copy must be intact');
     // Deposits / withdrawals / trading / wallet / bot entry points still exist.
     for (const fn of ['openDepositModal', 'requestDepositAddress', 'openWithdrawModal', 'submitWithdrawAPI',

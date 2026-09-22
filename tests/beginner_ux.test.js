@@ -108,7 +108,7 @@ test('withdrawal copy: processing time clarified, requirements untouched', () =>
     for (const lang of LANGS) {
         assert.ok(!/\$700/.test(T[lang]['withdraw.info']), `${lang} withdraw.info must not claim a $700 minimum`);
         assert.match(T[lang]['withdraw.info'], TRADE_REQ[lang], `${lang} withdraw.info must keep the 1-trade requirement`);
-        assert.ok(/\$500/.test(T[lang]['withdraw.minAmount']), `${lang} withdraw.minAmount must disclose the $500 minimum`);
+        assert.match(T[lang]['withdraw.minAmount'], /\$700/, `${lang} withdraw.minAmount must disclose the $700 minimum`);
     }
     // EN copy must not over-promise a fixed window.
     assert.match(T.en['withdraw.info'], /usually takes 15/);
@@ -242,7 +242,7 @@ test('no financial/backend logic was touched by this UX pass', () => {
     assert.ok(/const PLATFORM_MIN_DEPOSIT_USD = 100;/.test(SERVER), 'min deposit unchanged');
     const code = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
     assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'the MTA is removed');
-    assert.ok(/amount < MIN_WITHDRAWAL_USD/.test(SERVER), 'withdrawal minimum unchanged in server (now $500)');
+    assert.ok(/amount < MIN_WITHDRAWAL_USD/.test(SERVER), 'withdrawal minimum unchanged in server (now $700)');
     // The withdrawal gate order in the server route remains first-deposit -> KYC -> ...
     const route = SERVER.slice(SERVER.indexOf("app.post('/api/withdraw/request'"));
     assert.ok(/depositRequired/.test(route), 'withdrawal first-deposit gate intact');

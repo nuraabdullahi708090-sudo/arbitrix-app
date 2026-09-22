@@ -333,13 +333,13 @@ test('11. deposit/credit_payment_safe/record_trade_safe code is unchanged in ser
 // ---------------------------------------------------------------------------
 test('12. withdrawal gate is unchanged — subscription is NOT a withdrawal gate', () => {
     // The withdraw handler must not reference subscription status. Its gates
-    // remain KYC -> $500 min -> balance -> address -> trade count (Phase 7A).
+    // remain KYC -> $700 min -> balance -> address -> trade count (Phase 7A).
     const m = SERVER.match(/app\.post\('\/api\/withdraw\/request'[\s\S]*?\n}\);/);
     assert.ok(m, 'withdraw handler found');
     const handler = m[0];
     assert.ok(!/subscription/i.test(handler), 'withdraw handler must not reference subscription');
     assert.ok(/Identity verification required/.test(handler), 'KYC gate intact');
-    assert.ok(/Min \$' \+ MIN_WITHDRAWAL_USD/.test(handler), '$500 minimum gate intact');
+    assert.ok(/Min \$' \+ MIN_WITHDRAWAL_USD/.test(handler), '$700 minimum gate intact');
     assert.ok(/Complete at least 1 trade/.test(handler), 'trade-count gate intact');
 });
 

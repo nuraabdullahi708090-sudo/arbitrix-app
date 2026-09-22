@@ -383,13 +383,13 @@ test('production /api/trade keeps record_trade_safe call unchanged', () => {
     assert.ok(afterBranch.includes('getTodayRealizedPnl'), 'production PnL re-read removed');
 });
 
-test('production withdraw gate order: first-deposit priority, then KYC, then $500 min', () => {
+test('production withdraw gate order: first-deposit priority, then KYC, then $700 min', () => {
     const body = routeBody('post', '/api/withdraw/request');
     const depositIdx = body.indexOf('requiresFirstDeposit');
     const kycIdx = body.indexOf('kycService.getVerificationStatus');
     const minIdx = body.indexOf('amount < MIN_WITHDRAWAL_USD');
     assert.ok(depositIdx > 0 && kycIdx > depositIdx, 'the first-deposit gate must precede KYC');
-    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'KYC must precede the $500 minimum');
+    assert.ok(kycIdx > 0 && minIdx > kycIdx, 'KYC must precede the $700 minimum');
 });
 
 test('production subscription activate still uses charge_subscription_safe', () => {

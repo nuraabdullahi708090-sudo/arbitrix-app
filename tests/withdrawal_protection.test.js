@@ -56,13 +56,13 @@ test('server: withdrawal gate order is first-deposit -> KYC -> minimum -> balanc
     const iInsufficient = route.indexOf("error: 'Insufficient balance'");
     assert.ok(iFirstDeposit > 0, 'first-deposit gate present');
     assert.ok(iKyc > iFirstDeposit, 'KYC gate runs after the first-deposit gate');
-    assert.ok(iMin > iKyc, '$500 minimum runs after KYC');
+    assert.ok(iMin > iKyc, '$700 minimum runs after KYC');
     assert.ok(iInsufficient > iMin, 'balance check runs after the minimum');
 });
 
-test('server: the $500 minimum, KYC response and trade requirement are unchanged', () => {
+test('server: the $700 minimum, KYC response and trade requirement are unchanged', () => {
     const route = withdrawRoute();
-    assert.ok(/amount < MIN_WITHDRAWAL_USD/.test(route), '$500 minimum preserved');
+    assert.ok(/amount < MIN_WITHDRAWAL_USD/.test(route), '$700 minimum preserved');
     assert.ok(/error: 'Min \$' \+ MIN_WITHDRAWAL_USD/.test(route), 'minimum error string preserved');
     assert.ok(/verificationRequired: true/.test(route), 'KYC-required response preserved');
     assert.ok(/kycService\.getVerificationStatus\(userId\)/.test(route), 'server-side KYC gate preserved');
@@ -103,7 +103,7 @@ test('frontend: withdrawal eligibility gates still execute in order', () => {
 });
 
 test('frontend: minimum withdrawal, balance math and constants are unchanged', () => {
-    assert.ok(/MIN_WITHDRAWAL:\s*500/.test(INDEX), 'APP.MIN_WITHDRAWAL must stay 500');
+    assert.ok(/MIN_WITHDRAWAL:\s*700/.test(INDEX), 'APP.MIN_WITHDRAWAL must stay 700');
     assert.ok(/APP\.MIN_WITHDRAWAL/.test(extractFunction('getWithdrawableTotal') + INDEX),
         'withdrawable total still uses the configured minimum');
     // No client-side withdrawal approval may exist.

@@ -1,24 +1,27 @@
 'use strict';
 
 /**
- * Withdrawal minimum message scoping ($500) + MTA removal.
+ * Withdrawal minimum disclosure (POP-UP ONLY) + MTA removal.
  *
- * The "$500 minimum withdrawal" message is DISCLOSED AT THE WITHDRAWAL STAGE
- * rather than advertised everywhere. Concretely:
+ * Management decision (copy): the public/general copy (landing page, shared UI)
+ * states there is NO minimum withdrawal, while the server still enforces its
+ * internal minimum (MIN_WITHDRAWAL_USD = 700). The $700 minimum is disclosed
+ * ONLY in the withdrawal pop-up, and only once the user has already passed the
+ * earlier withdrawal logic (first deposit + completed trade). Concretely:
  *
- *   - the always-visible sidebar status NEVER states the amount; below the
- *     minimum (but otherwise eligible) it shows a neutral prompt instead
- *   - the withdraw MODAL info box (seen only once the user reaches withdrawal)
- *     states the $500 minimum explicitly
- *   - the submit path / toast states the $500 minimum explicitly
+ *   - the always-visible sidebar status NEVER states an amount; below the
+ *     internal minimum (but otherwise eligible) it shows a neutral prompt
+ *   - the withdraw MODAL info box (seen only once the user reaches withdrawal,
+ *     after first deposit + completed trade) states the $700 minimum
+ *   - the submit path / toast states the $700 minimum
  *   - a user missing an earlier requirement keeps that requirement's message:
  *       no deposit            -> first-deposit prompt
  *       deposited, no trade   -> completed-trade prompt
- *       >= $500               -> ready
+ *       >= the internal min   -> ready
  *
  * The MTA (minimum trading balance) no longer exists, so it is not a gate and
  * must not appear in any withdrawal message. Display gating only: the server
- * keeps enforcing KYC (flag-gated), the $500 minimum, balance, address,
+ * keeps enforcing KYC (flag-gated), the internal minimum, balance, address,
  * first-deposit and completed-trade rules.
  *
  * Run: npm test
@@ -81,13 +84,13 @@ test('openWithdrawModal enforces no MTA gate and keeps every real gate in order'
     });
     assert.ok(iFirstDepositPriority < iDepositGate, 'first-deposit priority stays first');
     assert.ok(iDepositGate < iTradeGate, 'deposit requirement is evaluated before the trade requirement');
-    assert.ok(iTradeGate < iMinGate, 'the $500 minimum is the LAST eligibility message');
+    assert.ok(iTradeGate < iMinGate, 'the minimum-amount gate is the LAST eligibility message');
     assert.ok(!open.includes('APP.MTA'), 'no MTA gate may remain in the withdrawal modal');
 });
 
 test('no withdrawal rule was removed: the min/trade/deposit checks all still exist', () => {
     const open = extractFunction('openWithdrawModal');
-    assert.ok(open.includes('totalWithdrawable < APP.MIN_WITHDRAWAL'), '$500 minimum still enforced');
+    assert.ok(open.includes('totalWithdrawable < APP.MIN_WITHDRAWAL'), '$700 minimum still enforced');
     assert.ok(open.includes('hasTradingActivity'), 'trade requirement still enforced');
     assert.ok(open.includes('hasRealDeposit'), 'deposit requirement still enforced');
     assert.ok(open.indexOf('const isSandbox = APP.environment') < open.indexOf('if(!APP.liveData.hasRealDeposit'),
@@ -110,7 +113,7 @@ function runStatus(environment, liveData, opts) {
             environment,
             liveData,
             bonusData: { balance: o.bonus || 0 },
-            MIN_WITHDRAWAL: 500,
+            MIN_WITHDRAWAL: 700,
         },
         document: { getElementById: (id) => els[id] || null },
         t: (key) => key,
@@ -122,13 +125,13 @@ function runStatus(environment, liveData, opts) {
 
 const funded = { hasRealDeposit: true, hasTradingActivity: true };
 
-test('no deposit -> first-deposit wording, never the $500 minimum', () => {
+test('no deposit -> first-deposit wording, never the minimum message', () => {
     const els = runStatus('PRODUCTION', { hasRealDeposit: false, hasTradingActivity: false, balance: 0 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.notDeposited');
     assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.notDeposited');
 });
 
-test('deposited but no trade -> trade wording, never the $500 minimum', () => {
+test('deposited but no trade -> trade wording, never the minimum message', () => {
     [50, 300, 490].forEach((balance) => {
         const els = runStatus('PRODUCTION', { hasRealDeposit: true, hasTradingActivity: false, balance });
         assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.noTrades', 'balance ' + balance);
@@ -136,18 +139,18 @@ test('deposited but no trade -> trade wording, never the $500 minimum', () => {
     });
 });
 
-test('eligible but below $500 -> neutral sidebar prompt, explicit $500 in the modal info box', () => {
+test('eligible but below the internal minimum -> neutral sidebar prompt, $700 minimum in the modal info box', () => {
     [0, 19.99, 200, 499.99].forEach((balance) => {
         const els = runStatus('PRODUCTION', Object.assign({ balance }, funded));
         assert.strictEqual(els.liveWithdrawStatus.textContent, NEUTRAL_KEY,
             'the sidebar must not advertise the amount (balance ' + balance + ')');
         assert.strictEqual(els.withdrawInfoText.textContent, 'live.withdrawStatus.needMinimum',
-            'the modal info box states the minimum');
+            'the modal info box states the $700 minimum (pop-up only)');
     });
 });
 
-test('eligible and >= $500 -> ready', () => {
-    [500, 5000].forEach((balance) => {
+test('eligible and >= $700 -> ready', () => {
+    [700, 5000].forEach((balance) => {
         const els = runStatus('PRODUCTION', Object.assign({ balance }, funded));
         assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.ready', 'balance ' + balance);
         assert.strictEqual(els.withdrawInfoText.textContent, 'withdraw.info');
@@ -155,7 +158,7 @@ test('eligible and >= $500 -> ready', () => {
 });
 
 test('a referral-earnings-funded withdrawal keeps its exemption and stays ready', () => {
-    const els = runStatus('PRODUCTION', { hasRealDeposit: false, hasTradingActivity: false, balance: 0 }, { bonus: 500 });
+    const els = runStatus('PRODUCTION', { hasRealDeposit: false, hasTradingActivity: false, balance: 0 }, { bonus: 700 });
     assert.strictEqual(els.liveWithdrawStatus.textContent, 'live.withdrawStatus.ready');
 });
 
@@ -170,9 +173,9 @@ test('MARKETING_SANDBOX is unaffected (no production wording, no minimum)', () =
 /* ------------------------------------------------------------------ *
  * 3. Thresholds and existing copy
  * ------------------------------------------------------------------ */
-test('thresholds: $500 minimum front and back; the MTA is gone', () => {
-    assert.ok(/MIN_WITHDRAWAL:\s*500/.test(INDEX), 'APP.MIN_WITHDRAWAL is 500');
-    assert.ok(/MIN_WITHDRAWAL_USD\s*=\s*500/.test(SERVER), 'the server constant is 500');
+test('thresholds: internal $700 minimum front and back; the MTA is gone', () => {
+    assert.ok(/MIN_WITHDRAWAL:\s*700/.test(INDEX), 'APP.MIN_WITHDRAWAL is 700');
+    assert.ok(/MIN_WITHDRAWAL_USD\s*=\s*700/.test(SERVER), 'the server constant is 700');
     assert.ok(SERVER.includes('amount < MIN_WITHDRAWAL_USD'), 'the server minimum is enforced');
     assert.ok(!INDEX.includes('APP.MTA'), 'no frontend MTA remains');
     // Comments may explain the removal; executable code must not carry it.
@@ -183,7 +186,7 @@ test('thresholds: $500 minimum front and back; the MTA is gone', () => {
 test('the minimum-withdrawal copy is correct', () => {
     [
         ['withdraw.minWithdrawal', 'Minimum withdrawal is ${{min}}. Current: ${{current}}'],
-        ['withdraw.minAmount', 'Minimum withdrawal is $500'],
+        ['withdraw.minAmount', 'Minimum withdrawal is $700'],
         ['live.withdrawStatus.needMinimum', '\u{1F4C8} Reach the ${{min}} minimum to withdraw'],
     ].forEach(([k, v]) => assert.strictEqual(T.en[k], v, k + ' must keep its wording'));
     assert.strictEqual(T.en['withdraw.min700'], undefined, 'the obsolete $700 key is removed');
@@ -193,7 +196,7 @@ test('the neutral sidebar prompt quotes no threshold and needs no interpolation'
     LANGS.forEach((l) => {
         const v = T[l][NEUTRAL_KEY];
         assert.ok(typeof v === 'string' && v.trim(), l + ' must define the key');
-        assert.ok(!/500|{{min}}/.test(v), l + ' must not restate a withdrawal threshold');
+        assert.ok(!/700|500|{{min}}/.test(v), l + ' must not restate a withdrawal threshold');
         assert.ok(!/\{\{/.test(v), l + ' must not carry an unresolved placeholder');
         assert.ok(!/\d/.test(v), l + ' must stay threshold-free');
     });
@@ -213,10 +216,10 @@ test('the neutral key is localized in all 6 locales (no interpolation needed)', 
     assert.strictEqual(new Set(LANGS.map((l) => T[l][NEUTRAL_KEY])).size, LANGS.length, 'each locale has its own wording');
 });
 
-test('the status helper renders the neutral key through t() and keeps the modal disclosure', () => {
+test('the status helper renders the neutral key through t() and the minimum wording in the modal', () => {
     const fn = extractFunction('updateLiveWithdrawStatus');
     assert.ok(fn.includes("t('live.withdrawStatus.belowMinimum')"), 'renders the neutral key through t()');
     assert.ok(!fn.includes('APP.MTA'), 'no MTA reference may remain in the status helper');
     assert.ok(fn.includes("t('live.withdrawStatus.needMinimum', { min: APP.MIN_WITHDRAWAL })"),
-        'the modal info box still discloses the minimum');
+        'the modal info box states the $700 minimum (pop-up only)');
 });

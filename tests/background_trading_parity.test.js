@@ -450,7 +450,7 @@ test('scope: the worker still moves money ONLY through record_trade_safe', () =>
     'the worker must never write a ledger table directly');
 });
 
-test('scope: deposits, withdrawals, KYC and the $500 minimum are untouched', () => {
+test('scope: deposits, withdrawals, KYC and the $700 minimum are untouched', () => {
   for (const s of [
     "app.post('/api/withdraw/request'",
     "app.post('/api/deposit/request'",
@@ -459,6 +459,6 @@ test('scope: deposits, withdrawals, KYC and the $500 minimum are untouched', () 
   ]) {
     assert.ok(SERVER.includes(s), 'expected ' + s + ' to still exist');
   }
-  assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 500;/);
+  assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
   assert.match(SERVER, /amount < MIN_WITHDRAWAL_USD/);
 });
