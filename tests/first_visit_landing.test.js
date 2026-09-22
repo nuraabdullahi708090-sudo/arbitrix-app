@@ -115,7 +115,10 @@ test('2c. openAuthScreen(): signup -> signup tab, signin -> login tab (real func
         console,
     };
     vm.createContext(sb);
-    vm.runInContext(src + '\nopenAuthScreen("signup");', sb);
+    // openAuthScreen() now also releases the mobile drawer's scroll-lock via the
+    // closeMobileNav() helper; run the REAL helper so no stale lock can survive
+    // the app -> auth transition (see tests/logout_scroll_lock.test.js).
+    vm.runInContext(src + '\n' + extractFunction('closeMobileNav') + '\nopenAuthScreen("signup");', sb);
     assert.strictEqual(els.landingPage.style.display, 'none', 'landing hidden');
     assert.strictEqual(els.authPage.style.display, 'flex', 'auth shown');
     assert.strictEqual(els.mainApp.style.display, 'none', 'dashboard hidden');

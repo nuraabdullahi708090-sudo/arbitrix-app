@@ -5334,3 +5334,49 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - UNCHANGED: every other knowledge topic and answer, the retrieval/ranking code, the
   score threshold, the AI pipeline, and all Telegram bot behaviour. npm test = 1750
   pass / 0 fail. NOT merged, NOT deployed.
+
+## Mobile auth-page scroll lock after logout - fixed (2026-09-22, public/index.html + tests, frontend-only)
+
+- SYMPTOM: on Android Chrome, after logging out on a phone the auth / create-account
+  page could not be vertically touch-scrolled at all; the document looked "stuck"
+  part-way down (the auth card plus its "#authExplainer" / "What is Arbitrix?" card
+  extended below the fold).
+- ROOT CAUSE (reproduced and proven, not guessed): the Phase-12 drawer scroll lock
+  `body:has(.sidebar.open){overflow:hidden;}` (public/index.html line 1252) keeps
+  matching as long as ANY element with class `.sidebar.open` exists in the DOM -
+  including inside `#mainApp` after logout has set it to `display:none`. The logout
+  handler hid `#mainApp` and revealed `#authPage` but never removed `.open` from
+  `#sidebar` / `#sidebarOverlay`, so the drawer was left "open" in the DOM and the
+  body stayed `overflow:hidden` (computed `overflow: hidden`) on the auth page.
+  Desktop was unaffected because the off-canvas drawer is only ever toggled by the
+  mobile-only hamburger (`#mobileMenuBtn`), which is `display:none` at >=640px.
+  Browser measurement on the pre-fix build: after logout
+  `sidebarOpen=true overlayOpen=true bodyComputedOverflow=hidden docScrollHeight=1686
+  innerHeight=844`, and a real CDP touch swipe left `window.scrollY=0`.
+- FIX (minimal, frontend-only): new top-level `closeMobileNav()` helper (removes
+  `.open` from `#sidebar` and `#sidebarOverlay`) called from the logout handler
+  BEFORE the auth page is shown, together with `document.body.style.overflow = ''`
+  to drop any inline lock a modal may have left; `openAuthScreen()` (the only other
+  app -> auth transition) also calls it. The legitimate drawer/modal lock CSS is
+  UNCHANGED (requirement: do not weaken active-modal protection).
+- NOT changed: body/html overflow rules themselves, `:has()` drawer/modal rules,
+  auth form markup/logic, modals, support widget, desktop layout, server.js, DB,
+  payments, trading, wallet, KYC, referral, subscriptions.
+- TESTS: new tests/logout_scroll_lock.test.js (10 tests: real `closeMobileNav()` run
+  in a vm sandbox against a fake DOM, the modelled `body:has(.sidebar.open)` lock
+  released, logout ordering - drawer cleanup strictly before the auth page is shown,
+  inline overflow reset, `openAuthScreen` cleanup, `.auth-page{overflow-y:auto}`
+  intact, modal lock still set/restored, support widget surfaces untouched,
+  hamburger open/close behaviour preserved). tests/first_visit_landing.test.js 2c
+  updated to run the REAL `closeMobileNav()` in its sandbox (openAuthScreen now
+  depends on it - an intentional dependency change).
+- VERIFICATION: npm test = 1760 pass / 0 fail. All 7 non-empty inline script blocks
+  parse (vm.Script); non-ASCII code-point multiset byte-identical to HEAD (0
+  replacement chars). Headless Chromium (puppeteer-core + /usr/bin/chromium, stubbed
+  API, CDP touch swipe): 9/9 - drawer locks while open, logout closes drawer + body
+  unlocked, touch swipe scrolls the auth page (scrollY=695), forgot-password modal
+  still locks and restores, desktop body scrollable + scrolls; fresh anonymous paths
+  4/4 (landing scrolls, create-account auth page scrolls); support widget 6/6 (panel
+  open/close, center opens on top with widget hidden, body not locked, launcher
+  returns). Same harness on the pre-fix build = 5/9 (touch swipe scrollY=0).
+- NOT committed to main / NOT pushed / NOT deployed at the time of writing.

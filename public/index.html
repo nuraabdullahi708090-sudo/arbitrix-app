@@ -4693,6 +4693,22 @@ function enterAppStartup() {
     }
 }
 
+// Close the off-canvas mobile navigation drawer and release its scroll lock.
+// The drawer's background-scroll lock is a CSS rule keyed off the node's
+// `.open` class (body:has(.sidebar.open){overflow:hidden}). That node lives
+// inside #mainApp, which logout (and any other app -> auth transition) hides
+// with display:none - the class would otherwise survive on the detached-looking
+// node and keep the auth page's body unscrollable on touch devices. Clear it
+// whenever the drawer is dismissed or the app shell is left.
+function closeMobileNav() {
+    try {
+        var sidebarEl = document.getElementById('sidebar');
+        var overlayEl = document.getElementById('sidebarOverlay');
+        if (sidebarEl) sidebarEl.classList.remove('open');
+        if (overlayEl) overlayEl.classList.remove('open');
+    } catch (e) { /* never block navigation */ }
+}
+
 // Landing -> auth transition (Create Account / Sign In). Reuses the existing
 // auth tab switch so the ?action= contract, the referral capture and all auth
 // behavior stay unchanged; only the visible screen is swapped (display-only).
@@ -4703,6 +4719,9 @@ function openAuthScreen(mode) {
         const mainEl = document.getElementById('mainApp');
         if (landingEl) landingEl.style.display = 'none';
         if (mainEl) mainEl.style.display = 'none';
+        // Leaving the app shell: release any drawer scroll-lock so the auth page
+        // scrolls on touch devices.
+        closeMobileNav();
         if (authEl) authEl.style.display = 'flex';
         if (mode === 'signin') {
             if (typeof showLoginForm === 'function') showLoginForm();
@@ -21761,6 +21780,13 @@ async function initApp() {
             // trading today; background trading must not change that). Sent while
             // the token is still present - fire-and-forget.
             syncBotSessionWithServer('stop');
+            // Close the mobile drawer and drop any scroll-lock left behind before
+            // showing the auth page. Without this the drawer's `.open` class (and
+            // the body:has(.sidebar.open){overflow:hidden} rule it triggers)
+            // survives the screen swap inside the now display:none #mainApp and
+            // silently locks the auth page's body so it cannot be touch-scrolled.
+            closeMobileNav();
+            document.body.style.overflow = '';
             getEl('mainApp').style.display = 'none';
             getEl('landingPage').style.display = 'none';
             getEl('authPage').style.display = 'flex';
