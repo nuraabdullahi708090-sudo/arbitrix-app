@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-09-21",
+  "lastUpdated": "2026-09-22",
   "description": "Approved, customer-facing Arbitrix support knowledge. Every answer is derived from the current repository (server.js constants/routes, services/*, public/index.html copy). This file is the single approved source for the SupportAIService: the AI layer may ONLY answer from these entries and must hand off to a human when the answer is not present, is marked handoff, or is listed in conflicts.",
   "sources": {
     "wallet_seed": "server.js:451 (getWallet inserts demo_balance: 1000, live_balance: 50, bonus_balance: 0)",
@@ -266,7 +266,7 @@
           "id": "withdrawals.minimum",
           "question": "What is the minimum withdrawal?",
           "answer": "No minimum withdrawal is needed - there is no minimum withdrawal amount, and you can withdraw any amount up to your available balance.",
-          "keywords": ["minimum withdrawal", "min withdrawal", "withdrawal minimum", "least withdrawal", "how much can i withdraw"],
+          "keywords": ["minimum withdrawal", "min withdrawal", "withdrawal minimum", "least withdrawal", "how much can i withdraw", "minimum withdrawal amount", "minimum i can withdraw", "minimum to withdraw", "minimum amount to withdraw", "minimum amount for withdrawal", "minimum amount i can withdraw", "least i can withdraw", "least amount i can withdraw", "smallest withdrawal", "smallest amount i can withdraw", "withdraw a small amount", "withdraw small amount", "small withdrawal", "how much do i need to withdraw"],
           "kind": "info",
           "source": "management decision (no minimum). NOTE: server.js MIN_WITHDRAWAL_USD = 500 still enforces a production minimum until the withdrawal code is aligned."
         },
