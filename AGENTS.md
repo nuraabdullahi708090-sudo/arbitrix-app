@@ -5105,3 +5105,31 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   certificate loaded, no horizontal overflow, lightbox opens full-size and
   Escape closes, footer link localizes to es/ar (RTL).
 - NOT committed/pushed/deployed at the time of writing (branch + PR only).
+## Telegram admin-notification BOT RESPONSE STATUS (2026-09, NOT deployed)
+- A private-admin notification now leads with what the bot ACTUALLY did, so an
+  operator can tell at a glance whether anyone needs to act:
+    🤖 BOT REPLIED        - sent + the reply was a CONFIDENT answer
+    ⚠️ HUMAN NEEDED       - sent, but only a fallback/uncertain/handoff text
+    👨‍💼 HUMAN REQUESTED    - customer used /escalate
+    💬 HUMAN CONVERSATION - the most recent reply in the thread was from a human
+- Source of truth is the existing pipeline result, not a new rule set:
+  `composeCustomerReply` now returns `{ text, confident }`, where `confident` is
+  the AI layer's own `needsHuman !== true`. BOT REPLIED is only ever set AFTER the
+  awaited `sendOutbound` succeeded (a Telegram send failure throws -> 500 -> no
+  notification at all), so a failed delivery can never be reported as answered.
+  A localized fallback (e.g. translation unavailable) is never quoted back as the
+  customer answer.
+- HUMAN CONVERSATION reuses existing `direction='agent'` rows: the check runs
+  BEFORE the incoming customer message is stored and asks whether the thread's
+  latest message is an agent reply. Read-only, best-effort/fail-open.
+- Files: services/TelegramSupportService.js (NOTIFICATION_STATUS + status builders
+  + wiring), services/telegram-i18n.js (operator strings only), tests/
+  telegram_bot_response_status.test.js (20 tests). No customer-facing text,
+  knowledge base, translation, URL, admin id or RLS/schema change; no second
+  notification system. Admin reply-to-notification mechanism untouched.
+- DELIBERATE NON-CHANGE: when a human is already handling, the bot STILL sends its
+  normal reply (preserving the mandated "do not change customer-facing response
+  behavior"); only the STATUS changes. Suppressing the auto-reply is a one-line
+  option if management wants it, but it was not done here.
+- `npm test` = 1703 pass / 0 fail (was 1683; +20 new).
+

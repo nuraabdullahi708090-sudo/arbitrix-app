@@ -56,6 +56,22 @@ const DIRECTION_CUSTOMER = 'customer'; // incoming customer message
 const DIRECTION_BOT = 'bot';           // automated bot/AI reply
 const DIRECTION_AGENT = 'agent';       // human support-agent reply
 
+// Bot-response status shown on a private-admin notification. Every value is
+// decided from what ACTUALLY happened, never from what the bot attempted:
+//   BOT_REPLIED        - the awaited customer sendMessage succeeded AND the reply
+//                        was a confident answer (not a fallback/handoff).
+//   HUMAN_NEEDED       - the customer was answered but only with a fallback /
+//                        uncertain / handoff text; an operator should take over.
+//   HUMAN_REQUESTED    - the customer explicitly asked for a human (/escalate).
+//   HUMAN_CONVERSATION - the most recent reply in the thread came from a human
+//                        agent, so a colleague is already handling it.
+const NOTIFICATION_STATUS = Object.freeze({
+  BOT_REPLIED: 'bot-replied',
+  HUMAN_NEEDED: 'human-needed',
+  HUMAN_REQUESTED: 'human-requested',
+  HUMAN_CONVERSATION: 'human-conversation'
+});
+
 // NOTE (conversation status): this service does NOT write
 // telegram_support_conversations.status. The live table's CHECK rejected the
 // legacy 'escalated' literal with 23514 and its allowed values cannot be read
@@ -814,8 +830,50 @@ function buildForwardText(conversation, chatId, name, text, extras) {
     lines.push(tOperator('notifyTranslation'));
     lines.push(e.translation || tOperator('notifyNoTranslation'));
   }
+  // Tell the operator at a glance what the bot actually did. Only a successful,
+  // confident customer send carries the reply text; a fallback never claims the
+  // approved answer was delivered.
+  const statusLines = buildNotificationStatusLines(e.status, e.answer);
+  if (statusLines.length) lines.push('', ...statusLines);
   lines.push('', `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`);
   return lines.join('\n');
+}
+
+/** Bound the "Customer answer" quoted back to the operator. */
+const NOTIFICATION_ANSWER_MAX_CHARS = 600;
+
+/**
+ * The operator-facing status block (empty for an unknown/absent status).
+ *
+ * Operator strings only - this is never customer-facing, and the customer
+ * answer is included ONLY for a confirmed bot reply.
+ */
+function buildNotificationStatusLines(status, answer) {
+  const value = String(status || '');
+  if (value === NOTIFICATION_STATUS.BOT_REPLIED) {
+    const lines = [tOperator('notifyStatusBotReplied'), tOperator('notifyStatusBotRepliedDetail')];
+    const shown = summarizeNotificationAnswer(answer);
+    if (shown) lines.push('', tOperator('notifyCustomerAnswer'), shown);
+    return lines;
+  }
+  if (value === NOTIFICATION_STATUS.HUMAN_NEEDED) {
+    return [tOperator('notifyStatusHumanNeeded'), tOperator('notifyStatusHumanNeededDetail')];
+  }
+  if (value === NOTIFICATION_STATUS.HUMAN_REQUESTED) {
+    return [tOperator('notifyStatusHumanRequested'), tOperator('notifyStatusHumanRequestedDetail')];
+  }
+  if (value === NOTIFICATION_STATUS.HUMAN_CONVERSATION) {
+    return [tOperator('notifyStatusHumanConversation'), tOperator('notifyStatusHumanConversationDetail')];
+  }
+  return [];
+}
+
+/** The customer-facing text the bot actually sent, trimmed and bounded. */
+function summarizeNotificationAnswer(answer) {
+  const text = String(answer === null || answer === undefined ? '' : answer).trim();
+  if (!text) return '';
+  if (text.length <= NOTIFICATION_ANSWER_MAX_CHARS) return text;
+  return text.slice(0, NOTIFICATION_ANSWER_MAX_CHARS - 1) + '…';
 }
 
 /** Internal operator notification for an escalation request. */
@@ -842,6 +900,10 @@ function buildEscalationNotice(conversation, route, reason, extras) {
     lines.push(tOperator('notifyTranslation'));
     lines.push(e.translation || tOperator('notifyNoTranslation'));
   }
+  // An escalation IS an explicit human request, so the status is fixed. The
+  // operator can be told this without inspecting the message text.
+  const statusLines = buildNotificationStatusLines(e.status || NOTIFICATION_STATUS.HUMAN_REQUESTED);
+  if (statusLines.length) lines.push('', ...statusLines);
   lines.push('', `Reply to this message here in this chat, or use: /reply ${conversation.id} <message>`);
   return truncateForTelegram(lines.join('\n'));
 }
@@ -1360,8 +1422,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * error } and records the outcome in stats.lastNotify for the operator status
    * route. No chat id, token or message text is ever recorded there.
    */
-  async function notifySupport({ conversation, text, kind }) {
+  async function notifySupport({ conversation, text, kind, status }) {
     const at = new Date().toISOString();
+    const notificationStatus = status || null;
     const recipients = resolveNotifyRecipients();
     // Distinct prefixes so an operator can tell WHICH delivery path fired. The
     // group wording is kept verbatim because it is a documented log signature
@@ -1374,6 +1437,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       stats.notificationsSkipped += 1;
       stats.lastNotify = {
         kind,
+        status: notificationStatus,
         at,
         target: notifyTarget,
         recipients: 0,
@@ -1424,6 +1488,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     stats.notificationsFailed += failures.length;
     stats.lastNotify = {
       kind,
+      status: notificationStatus,
       at: new Date().toISOString(),
       target: notifyTarget,
       recipients: recipients.length,
@@ -1599,17 +1664,27 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     const question = String(text === null || text === undefined ? '' : text)
       .slice(0, SUPPORT_AI_MAX_QUESTION_CHARS);
 
+    // Returns { text, confident }:
+    //   text      - exactly what will be sent to the customer (unchanged shape).
+    //   confident - true ONLY when the text is a real answer for this question
+    //               (not the generic acknowledgement, not a handoff/refusal/
+    //               uncertain fallback, and not a withheld/localization failure).
+    //               It reflects the AI layer's own `needsHuman` signal, so the
+    //               notification status is derived from the SAME decision the
+    //               customer reply was built from - not a second rule set.
     if (lang === DEFAULT_LANGUAGE) {
-      if (!ai) return CUSTOMER_GUIDE_TEXT;
+      if (!ai) return { text: CUSTOMER_GUIDE_TEXT, confident: false };
       // A disabled service must never change customer-visible behaviour.
-      if (typeof ai.isEnabled === 'function' && !ai.isEnabled()) return CUSTOMER_GUIDE_TEXT;
+      if (typeof ai.isEnabled === 'function' && !ai.isEnabled()) {
+        return { text: CUSTOMER_GUIDE_TEXT, confident: false };
+      }
       try {
         markStage('support-ai');
         const result = await ai.ask(question, { language: DEFAULT_LANGUAGE });
         if (result && typeof result.answer === 'string' && result.answer.trim().length > 0) {
           stats.aiReplies += 1;
           if (result.needsHuman) stats.aiHandoffs += 1;
-          return result.answer.trim();
+          return { text: result.answer.trim(), confident: result.needsHuman !== true };
         }
         stats.aiFailures += 1;
       } catch (error) {
@@ -1617,14 +1692,14 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         stats.aiFailures += 1;
         warn(`support AI failed; sending the standard acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
       }
-      return CUSTOMER_GUIDE_TEXT;
+      return { text: CUSTOMER_GUIDE_TEXT, confident: false };
     }
 
     // ----- non-English customers ------------------------------------------
     if (!ai || (typeof ai.isEnabled === 'function' && !ai.isEnabled())) {
       // AI support is off/disabled: the localized fixed acknowledgement, never the
       // English guide text.
-      return tCustomer(lang, 'acknowledgement');
+      return { text: tCustomer(lang, 'acknowledgement'), confident: false };
     }
 
     let outcome = null;
@@ -1634,13 +1709,16 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     } catch (error) {
       stats.aiFailures += 1;
       warn(`support AI failed; sending the localized acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
-      return tCustomer(lang, 'acknowledgement');
+      return { text: tCustomer(lang, 'acknowledgement'), confident: false };
     }
 
     if (outcome && typeof outcome.answer === 'string' && outcome.answer.trim().length > 0) {
       stats.aiReplies += 1;
       if (outcome.needsHuman) stats.aiHandoffs += 1;
       const answer = outcome.answer.trim();
+      // The AI layer's explicit "a human should handle this" flag, reused as the
+      // confidence signal rather than re-deriving one from kind/reason.
+      const confident = outcome.needsHuman !== true;
 
       // PROVENANCE, not guesswork. ONLY text a MODEL wrote for this request is
       // assumed to already be in the customer's language. `modelGenerated === true`
@@ -1656,22 +1734,33 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         // so a model that ignored the language directive is caught, not sent. No
         // heuristic Portuguese-vs-English detection is attempted (see the
         // documented limitation in SupportGuidelines).
-        if (SupportGuidelines.hasExpectedScript(answer, lang)) return answer;
+        if (SupportGuidelines.hasExpectedScript(answer, lang)) return { text: answer, confident };
         stats.aiLanguageMisses += 1;
         warn('support AI answered outside the selected language (' + lang + '); handing off instead');
-        return tCustomer(lang, 'uncertain');
+        return { text: uncertainCustomerReply(lang), confident: false };
       }
 
       // APPROVED English text whose language we cannot verify: localize it, or fall
       // back to the localized safe message rather than sending English.
       const localized = await translateForCustomer(answer, lang);
-      if (localized) return localized;
+      if (localized) return { text: localized, confident };
       stats.aiLanguageMisses += 1;
-      return tCustomer(lang, 'uncertain');
+      return { text: uncertainCustomerReply(lang), confident: false };
     }
 
     stats.aiFailures += 1;
-    return tCustomer(lang, localizedFallbackKey(outcome));
+    return { text: tCustomer(lang, localizedFallbackKey(outcome)), confident: false };
+  }
+
+  /**
+   * The localized "no approved answer" fallback.
+   *
+   * Named so the reply path can return it as a NON-confident outcome: the customer
+   * protected by it has not received an approved answer, so the notification must
+   * say a human is needed rather than claim the bot replied.
+   */
+  function uncertainCustomerReply(lang) {
+    return tCustomer(lang, 'uncertain');
   }
 
   // ===========================================================================
@@ -1941,6 +2030,44 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return (outcome && byKind[outcome.kind]) || 'uncertain';
   }
 
+  /**
+   * Whether a HUMAN agent - not the bot - was the most recent voice in this
+   * conversation, evaluated on the stored thread BEFORE this incoming customer
+   * message is written.
+   *
+   * Reuses the existing agent-direction rows (the same record a `/reply` writes),
+   * so no new state and no schema change is needed. Read-only and fail-open: a
+   * lookup that errors or is unavailable is treated as "no human handling", so a
+   * status problem can never break a customer reply.
+   */
+  async function isHumanHandlingConversation(conversation) {
+    if (!conversation || conversation.id === undefined || conversation.id === null) return false;
+    if (!store || typeof store.getLatestMessageByConversation !== 'function') return false;
+    try {
+      const latest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
+      return Boolean(latest && latest.direction === DIRECTION_AGENT);
+    } catch (error) {
+      warn('could not check whether a human is handling conversation ' +
+        conversation.id + '; assuming not: ' + scrub(error && error.message ? error.message : error));
+      return false;
+    }
+  }
+
+  /**
+   * The notification status for an ordinary customer message.
+   *
+   * The bot's own reply result is the ONLY input for the bot-replied vs
+   * human-needed decision, and `reply.confident` is derived from the AI layer's
+   * `needsHuman`, so this cannot drift from the customer reply. A human who was
+   * the last to speak outranks both, because the other admins must not pile on.
+   */
+  function resolveNotificationStatus(humanHandling, reply) {
+    if (humanHandling) return NOTIFICATION_STATUS.HUMAN_CONVERSATION;
+    return reply && reply.confident === true
+      ? NOTIFICATION_STATUS.BOT_REPLIED
+      : NOTIFICATION_STATUS.HUMAN_NEEDED;
+  }
+
   async function handleUserUpdate(route, update) {
     const from = route.message.from || {};
     const command = route.command;
@@ -2061,6 +2188,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       await notifySupport({
         conversation,
         kind: 'escalation',
+        // The customer explicitly asked for a human: the status is not inferred.
+        status: NOTIFICATION_STATUS.HUMAN_REQUESTED,
         text: buildEscalationNotice(conversation, route, reason, {
           language: escalationLanguage,
           reasonLanguage: reasonLanguage,
@@ -2076,6 +2205,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       await sendOutbound(conversation, tCustomer(languageOf(conversation), 'textOnly'));
       return { handled: true, action: 'unsupported-content' };
     }
+
+    // Judge "a human was the last to reply" BEFORE this customer message is
+    // stored, so the incoming text cannot itself count as the latest message.
+    // Read-only and fail-open (see isHumanHandlingConversation).
+    const humanHandling = await isHumanHandlingConversation(conversation);
 
     try {
       markStage('storage:insert-message');
@@ -2109,7 +2243,12 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // The conversation language is authoritative for the reply; it comes from the
     // stored row (never from the message text, so an English word cannot switch it).
     const language = languageOf(conversation);
-    await sendOutbound(conversation, await composeCustomerReply(language, text));
+    // SEND FIRST, then decide: the awaited sendMessage is the proof that the
+    // customer actually received the reply. If it throws, this function propagates
+    // (HTTP 500) and NO notification is produced, so a Telegram send failure can
+    // never be reported to an admin as "BOT REPLIED".
+    const reply = await composeCustomerReply(language, text);
+    await sendOutbound(conversation, reply.text);
 
     // Notify the operators through the single direct-delivery path. This
     // runs AFTER the customer's reply above and can never throw, so a broken,
@@ -2118,11 +2257,19 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // The OPERATOR notice is ENGLISH regardless of the customer's language: the
     // original message is always preserved, and an English translation is added
     // when one is available (with an explicit marker when it is not).
+    //
+    // `status` reports what ACTUALLY happened (see resolveNotificationStatus), and
+    // the customer answer is quoted back ONLY for a confirmed bot reply.
+    const noticeStatus = resolveNotificationStatus(humanHandling, reply);
     const notice = await notifySupport({
       conversation,
       kind: 'customer-message',
+      status: noticeStatus,
       text: buildForwardText(conversation, conversation.telegram_chat_id, customerLabel(conversation, from), text,
-        await operatorNoticeExtras(text, language))
+        Object.assign(await operatorNoticeExtras(text, language), {
+          status: noticeStatus,
+          answer: noticeStatus === NOTIFICATION_STATUS.BOT_REPLIED ? reply.text : null
+        }))
     });
     if (notice.sent) {
       // Map EVERY delivered notification id -> customer chat id, so any admin can
@@ -2715,6 +2862,7 @@ module.exports = {
   DIRECTION_CUSTOMER,
   DIRECTION_BOT,
   DIRECTION_AGENT,
+  NOTIFICATION_STATUS,
   STORAGE_DEGRADED_TEXT,
   STORAGE_ERROR_CAUSES,
   classifyStorageError,
@@ -2761,6 +2909,7 @@ module.exports = {
   createUpdateDeduper,
   createLimitedMap,
   buildForwardText,
+  buildEscalationNotice,
   createTelegramTransport,
   createTelegramSupportBot,
   createTelegramWebhookHandler
