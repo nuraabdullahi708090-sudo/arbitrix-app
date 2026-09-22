@@ -5380,3 +5380,62 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   open/close, center opens on top with widget hidden, body not locked, launcher
   returns). Same harness on the pre-fix build = 5/9 (touch swipe scrollY=0).
 - NOT committed to main / NOT pushed / NOT deployed at the time of writing.
+## Customer support contact - footer publishes the Telegram bot, invalid support@arbitrix.ai removed (2026-09-22, public/index.html + tests, frontend-only)
+
+- PROBLEM: the landing footer "Contact" column published `support@arbitrix.ai`, which
+  is not an active mailbox. Customer support is the official Telegram bot only:
+  `@ArbitrixSupportBot` / https://t.me/ArbitrixSupportBot.
+- AUDIT (repo-wide, excluding node_modules): `support@arbitrix.ai` appeared in exactly
+  9 places, ALL in public/index.html - the footer mailto anchor and the
+  `support.notConfigured` fallback (1 static default text + the 6 locale values).
+  Every other `@arbitrix.ai` address is a DIFFERENT purpose and was deliberately left
+  alone (see below). No obsolete Telegram URL/handle existed; only the single
+  `https://t.me/ArbitrixSupportBot` meta source plus the `@ArbitrixSupportBot` handle.
+- CHANGED (customer-facing only):
+  1. Footer Contact column (`public/index.html` ~5279): the `<a href="mailto:...">` was
+     removed and replaced by TWO `.js-official-telegram` links - the localized label
+     (`support.telegramShort`, e.g. "Telegram Support") and a static handle line
+     `@ArbitrixSupportBot`. Both use the EXISTING configurable mechanism (href="#",
+     resolved at runtime from the `arbitrix-support-telegram` meta tag); no anchor
+     hardcodes the URL, so the single-source-of-truth contract is preserved.
+  2. `support.notConfigured` fallback (the support modal, shown only when the Telegram
+     link is unconfigured): the "or email support@arbitrix.ai" clause was removed in
+     the static default AND all 6 locales (en/es/pt/fr/ar/zh); the fallback now points
+     only at the in-app support chat. No email is offered there any more.
+- ROOT-CAUSE INSIGHT (fixed as part of this): the footer Telegram anchor was ALREADY
+  present but `style="display:none"` and `updateSupportLinks()` only ran inside
+  `initApp()` (post-login), `openSupportModal()` and the language switch. On the
+  anonymous landing page (before `initApp()`) the link therefore stayed hidden - so
+  simply deleting the email would have left the Contact column empty. Added a
+  `DOMContentLoaded` hook that calls `updateSupportLinks()` on page ready, so the
+  configured bot is published to anonymous visitors too. The function is idempotent and
+  display-only.
+- DELIBERATELY UNCHANGED (each serves a different purpose, not customer support):
+  `noreply@arbitrix.ai` (server.js:82 outbound transactional sender),
+  `admin@arbitrix.ai` (server.js seeded internal admin login),
+  `trader@arbitrix.ai` (read-only profile email placeholder value),
+  `legal@arbitrix.ai` (terms-of-service legal contact),
+  `privacy@arbitrix.ai` (privacy-policy privacy contact), `https://arbitrix.ai`
+  website links, and the sandbox synthetic `@sandbox.arbitrix.invalid` addresses.
+  The Telegram bot, its webhook architecture, `TELEGRAM_ADMIN_IDS` and the private
+  admin notification path were NOT touched, nor was the support widget/assistant.
+- TESTS: NEW `tests/footer_support_contact.test.js` (12 tests): footer Contact presents
+  label + handle and contains no email/mailto; both footer links use the shared
+  configurable class with `href="#"` + safe new-tab attrs and hardcode no URL; the
+  official URL is defined exactly once (the meta); the real `updateSupportLinks()`
+  resolves the footer links to the official URL; no invalid support email remains in
+  index.html; `support.notConfigured` is email-free in all 6 locales + the static
+  default; the label is localized while the `@handle` is never translated; a
+  `DOMContentLoaded` resolution hook exists; legal@/privacy@ remain; the support widget
+  and modal are untouched; the bot/admin-id config and the `noreply@` sender are
+  unchanged. `npm test` = 1762 pass / 0 fail (main baseline 1750 + 12).
+- VERIFICATION: all 7 non-empty inline `<script>` blocks parse (vm.Script); UTF-8 with 0
+  replacement chars and 0 U+FFFD; the non-ASCII code-point delta vs HEAD is exactly the
+  intended locale edits (removed the email/word characters, added the Arabic comma and
+  the accented letters in "aplicacion"/"integre"), no collateral characters changed.
+  Headless Chromium (puppeteer-core + /usr/bin/chromium, stubbed API) = 32/32 across
+  en@1280, en@390, es@390 and ar@390: the footer Contact column offers NO email, shows
+  BOTH lines ("Telegram Support"/localized label + "@ArbitrixSupportBot"), every visible
+  link resolves to exactly https://t.me/ArbitrixSupportBot with target=_blank +
+  noopener/noreferrer, and there is no horizontal overflow (ar RTL included).
+- NOT merged, NOT pushed at the time of writing (PR only).
