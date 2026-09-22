@@ -5046,8 +5046,10 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 
 ## Business Registration Page (KVK trust page) - 2026-09-22 (branch feat/business-registration-page, NOT merged)
 - Adds a dedicated, static Arbitrix business-registration / trust page at
-  /business-registration plus a landing-footer link and an approved Telegram
-  support answer. Frontend/content only: NO changes to auth, wallet, trading,
+  /business-registration plus an approved Telegram support answer. The page is
+  UNLISTED (see the UNLISTED bullet below): it is NOT linked from anywhere on
+  the website and is handed out only by customer support on request.
+  Frontend/content only: NO changes to auth, wallet, trading,
   deposits, withdrawals, KYC, referrals, subscriptions, payments/providers,
   webhooks, the marketing sandbox, or any customer-facing response behaviour.
 - PAGE public/business-registration.html (standalone, English-only like
@@ -5083,12 +5085,23 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   '/business-registration/']) -> sendFile(business-registration.html) right
   after /how-it-works and before the SPA fallback. The asset is served by the
   existing express.static(public).
-- FOOTER: public/index.html Legal column gets
-  <a href="/business-registration" data-i18n="landing.footer.businessRegistration">.
-  New i18n key in all 6 locales (en Business Registration / es Registro
-  mercantil / pt Registro empresarial / fr Registre du commerce / ar
-  as-sijil at-tijari / zh shangye dengji). Dictionary 1401 -> 1402 keys/locale
-  (11 existing pins updated; landing_testimonials BASE_OUTSIDE 1375 -> 1376).
+- UNLISTED (management decision, supersedes the earlier landing-footer link):
+  the licence/certificate must NOT be shown or linked anywhere on the website.
+  A customer can only see it when they ask, and then support (or the Telegram
+  support bot) sends them the link.
+  * The landing-footer link was REMOVED from public/index.html and its i18n key
+    landing.footer.businessRegistration was DELETED from all 6 locales (no dead
+    key). Dictionary 1402 -> 1401 keys/locale (11 pins + landing_testimonials
+    BASE_OUTSIDE 1376 -> 1375 updated back).
+  * public/business-registration.html now carries
+    <meta name="robots" content="noindex, nofollow"> + the googlebot equivalent,
+    so search engines cannot surface it (deliberately NO robots.txt entry - that
+    file would itself name the URL).
+  * The ROUTE is intentionally KEPT: it is the link support hands over.
+  * Tests pin the whole contract: no public page may contain
+    "business-registration" or "certificates/", the i18n key must be absent, the
+    page must be noindex/nofollow, the route must still exist, and the
+    certificate asset may be referenced ONLY by the page itself.
 - TELEGRAM KB: services/support/arbitrix-knowledge.json gains ONE English
   canonical entry (category business_registration, id business_registration.kvk,
   kind info) whose answer states the exact legal name + KVK number and points to
