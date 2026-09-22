@@ -9397,6 +9397,14 @@ app.get('/how-it-works', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'how-it-works.html'));
 });
 
+// Business registration / trust page: the company's KVK (Netherlands Chamber of
+// Commerce) registration details and certificate. Static content only - it reads
+// no session, touches no database, and exposes no personal data beyond the
+// published certificate itself.
+app.get(['/business-registration', '/business-registration/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'business-registration.html'));
+});
+
 // Referral link route handler
 // Redirects /ref/ARBI-XXXXX to /?ref=ARBI-XXXXX
 app.get('/ref/:code', (req, res) => {

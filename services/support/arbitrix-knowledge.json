@@ -417,6 +417,20 @@
       ]
     },
     {
+      "id": "business_registration",
+      "title": "Company registration",
+      "entries": [
+        {
+          "id": "business_registration.kvk",
+          "question": "Is Arbitrix a registered company / can I see your registration?",
+          "answer": "Arbitrix is operated by Arbitrix Trading, registered with the Netherlands Chamber of Commerce (KVK) under KVK number 72923513. You can see the business registration certificate here: https://arbitrix.pro/business-registration",
+          "keywords": ["licence", "license", "registration", "registered", "business registration", "company registration", "certificate", "company certificate", "kvk", "kvk number", "chamber of commerce", "are you registered", "what company operates arbitrix", "who operates arbitrix", "legal entity", "company details", "registered company"],
+          "kind": "info",
+          "source": "KVK Business Register extract (customer-provided certificate): legal name Arbitrix Trading, KVK number 72923513; page public/business-registration.html"
+        }
+      ]
+    },
+    {
       "id": "troubleshooting",
       "title": "Common troubleshooting",
       "entries": [

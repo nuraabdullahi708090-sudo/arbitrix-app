@@ -307,7 +307,7 @@ test('production provider safeguards are unchanged', () => {
 test('i18n parity: new keys exist and key sets are identical across 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1401, 'expected 1401 keys per locale');
+    assert.strictEqual(enKeys.length, 1402, 'expected 1402 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of enKeys) assert.ok(String(dict[k]).length > 0, `${lang}.${k} empty`);

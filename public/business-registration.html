@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitrix Business Registration - Arbitrix AI</title>
+    <meta name="description" content="Arbitrix is operated by Arbitrix Trading, registered with the Netherlands Chamber of Commerce (KVK). View the KVK business registration certificate.">
+    <link rel="icon" href="data:image/svg+xml,">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #070B14;
+            --bg-elevated: #0A1020;
+            --bg-card: #0F1629;
+            --brand: #F0B90B;
+            --brand-hover: #FCD535;
+            --gold: var(--brand);
+            --gold-light: var(--brand-hover);
+            --gold-glow: rgba(240,185,11,0.2);
+            --text-primary: #E8EDF5;
+            --text-secondary: #8896B5;
+            --text-muted: #7E8CAB;
+            --border: #24314A;
+            --border-color: var(--border);
+            --radius: 16px;
+            --radius-sm: 8px;
+            --radius-lg: 20px;
+            --shadow: 0 12px 48px rgba(0,0,0,0.5);
+            --shadow-sm: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html {
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .page {
+            flex: 1;
+            width: 100%;
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 24px 18px 56px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: #fff;
+            font-weight: 800;
+            font-size: 22px;
+            letter-spacing: -0.5px;
+        }
+        .logo i {
+            color: var(--gold);
+            font-size: 24px;
+        }
+        .logo span span {
+            color: var(--gold);
+        }
+        /* Top account actions: prominent and always visible above the fold. */
+        .topbar {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 30px;
+        }
+        .top-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .btn {
+            font-family: inherit;
+            font-weight: 600;
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 200ms ease;
+            font-size: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            min-height: 46px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--gold);
+            color: #070B14;
+        }
+        .btn-primary:hover {
+            background: var(--gold-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px var(--gold-glow);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .hero {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        h1 {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 14px;
+            line-height: 1.25;
+            background: linear-gradient(135deg, #F0B90B, var(--brand-hover));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .lede {
+            color: var(--text-secondary);
+            font-size: 16px;
+            max-width: 620px;
+            margin: 0 auto 18px;
+        }
+        .kvk-badge {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 12px 22px;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+        .kvk-badge i {
+            color: var(--gold);
+        }
+        .kvk-badge strong {
+            font-weight: 700;
+            letter-spacing: 0.4px;
+        }
+        .section {
+            width: 100%;
+            margin-top: 8px;
+        }
+        h2 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .section-sub {
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .cert-card {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 14px;
+            box-shadow: var(--shadow-sm);
+        }
+        .cert-frame {
+            position: relative;
+            display: block;
+            width: 100%;
+            border: 0;
+            padding: 0;
+            margin: 0;
+            background: #fff;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: zoom-in;
+            line-height: 0;
+        }
+        .cert-frame img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .cert-frame:focus-visible {
+            outline: 3px solid var(--gold);
+            outline-offset: 3px;
+        }
+        .cert-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .cert-actions .btn {
+            font-size: 14px;
+            padding: 10px 16px;
+            min-height: 44px;
+        }
+        .cert-hint {
+            color: var(--text-muted);
+            font-size: 12px;
+            text-align: center;
+            margin-top: 12px;
+        }
+        .bottom-cta {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 34px;
+        }
+        .site-footer {
+            width: 100%;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 8px 18px;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .site-footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .site-footer a:hover {
+            color: var(--gold);
+        }
+        /* Full-size viewer: lets a phone user read the certificate without
+           pinch-zooming a downscaled image. */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            background: rgba(3,6,12,0.94);
+            display: none;
+            flex-direction: column;
+        }
+        .lightbox.open {
+            display: flex;
+        }
+        .lightbox-bar {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(7,11,20,0.9);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .lightbox-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .lightbox-close {
+            min-height: 42px;
+            min-width: 42px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .lightbox-close:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .lightbox-scroll {
+            flex: 1 1 auto;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        .lightbox-scroll img {
+            width: 797px;
+            max-width: none;
+            height: auto;
+            background: #fff;
+            border-radius: 6px;
+        }
+        @media (max-width: 640px) {
+            .topbar {
+                justify-content: center;
+                text-align: center;
+            }
+            .top-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .top-actions .btn {
+                flex: 1 1 45%;
+            }
+            .lightbox-scroll {
+                justify-content: flex-start;
+            }
+        }
+        @media (min-width: 640px) {
+            .page {
+                padding-top: 40px;
+            }
+            h1 {
+                font-size: 38px;
+            }
+            .cert-card {
+                padding: 20px;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .btn {
+                transition: none;
+            }
+            .btn-primary:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a href="/" class="logo" aria-label="Arbitrix AI home">
+                <i class="fas fa-arrows-spin" aria-hidden="true"></i>
+                <span>Arbitrix <span>AI</span></span>
+            </a>
+            <div class="top-actions">
+                <a class="btn btn-primary" href="/?action=create-account" id="createAccountCta">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i>
+                    Create Account
+                </a>
+                <a class="btn btn-secondary" href="/?action=sign-in" id="signInCta">
+                    <i class="fas fa-right-to-bracket" aria-hidden="true"></i>
+                    Sign In
+                </a>
+            </div>
+        </div>
+
+        <header class="hero">
+            <h1>Arbitrix Business Registration</h1>
+            <p class="lede">Arbitrix is operated by Arbitrix Trading, registered with the Netherlands Chamber of Commerce (KVK).</p>
+            <p class="kvk-badge">
+                <i class="fas fa-building-columns" aria-hidden="true"></i>
+                <span>KVK Number:</span>
+                <strong>72923513</strong>
+            </p>
+        </header>
+
+        <section class="section" aria-labelledby="certificateHeading">
+            <h2 id="certificateHeading">Business Registration Certificate</h2>
+            <p class="section-sub">The KVK Business Register extract for Arbitrix Trading.</p>
+
+            <div class="cert-card">
+                <!-- Certificate pages. Add another .cert-page entry if a new page
+                     of the extract is published; the page count is not hard-coded. -->
+                <button type="button" class="cert-frame" id="certOpen" aria-label="Open the business registration certificate at full size">
+                    <img
+                        id="certImage"
+                        src="/certificates/kvk-business-registration-page-1.jpg"
+                        alt="KVK Business Register extract for Arbitrix Trading, KVK number 72923513"
+                        width="797" height="1095">
+                </button>
+                <div class="cert-actions">
+                    <a class="btn btn-secondary" id="certNewTab" href="/certificates/kvk-business-registration-page-1.jpg" target="_blank" rel="noopener">
+                        <i class="fas fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+                        Open Full Size
+                    </a>
+                    <a class="btn btn-secondary" id="certDownload" href="/certificates/kvk-business-registration-page-1.jpg" download="arbitrix-kvk-business-registration.jpg">
+                        <i class="fas fa-download" aria-hidden="true"></i>
+                        Download
+                    </a>
+                </div>
+                <p class="cert-hint">Tap the certificate to view it larger.</p>
+            </div>
+        </section>
+
+        <div class="bottom-cta">
+            <a class="btn btn-primary" href="/?action=create-account">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                Create Account
+            </a>
+            <a class="btn btn-secondary" href="/?action=sign-in">
+                <i class="fas fa-right-to-bracket" aria-hidden="true"></i>
+                Sign In
+            </a>
+        </div>
+
+        <footer class="site-footer">
+            <a href="/">Home</a>
+            <a href="/privacy-policy.html">Privacy Policy</a>
+            <a href="/terms-of-service.html">Terms of Service</a>
+        </footer>
+    </div>
+
+    <!-- Full-size viewer -->
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Business registration certificate, full size">
+        <div class="lightbox-bar">
+            <span class="lightbox-title">Arbitrix Trading - KVK 72923513</span>
+            <button type="button" class="lightbox-close" id="lightboxClose">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+                Close
+            </button>
+        </div>
+        <div class="lightbox-scroll">
+            <img id="lightboxImage" src="/certificates/kvk-business-registration-page-1.jpg" alt="KVK Business Register extract for Arbitrix Trading, KVK number 72923513, full size">
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            // Deep-link contract used by the marketing pages: remember the entry
+            // intent so the auth screen opens on the requested tab. This reuses the
+            // existing ?action= behaviour; no new authentication system.
+            try {
+                sessionStorage.setItem('arbi_auth_entry', window.location.search || '/business-registration');
+            } catch (e) {}
+
+            var lightbox = document.getElementById('lightbox');
+            var openBtn = document.getElementById('certOpen');
+            var closeBtn = document.getElementById('lightboxClose');
+            var lastFocus = null;
+
+            function openLightbox() {
+                if (!lightbox) return;
+                lastFocus = document.activeElement;
+                lightbox.classList.add('open');
+                document.body.style.overflow = 'hidden';
+                if (closeBtn) closeBtn.focus();
+            }
+
+            function closeLightbox() {
+                if (!lightbox || !lightbox.classList.contains('open')) return;
+                lightbox.classList.remove('open');
+                document.body.style.overflow = '';
+                if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+            }
+
+            if (openBtn) openBtn.addEventListener('click', openLightbox);
+            if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+            if (lightbox) {
+                lightbox.addEventListener('click', function (event) {
+                    // Tapping the dark backdrop (not the image) closes the viewer.
+                    if (event.target === lightbox) closeLightbox();
+                });
+            }
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') closeLightbox();
+            });
+        })();
+    </script>
+</body>
+</html>
