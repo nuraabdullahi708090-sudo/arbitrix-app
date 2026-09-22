@@ -3337,6 +3337,9 @@ async function handleSignup() {
                 greeting.style.display = 'inline-block';
                 document.getElementById('landingUserName').textContent = data.user.name;
             }
+            // The server just issued this session, so the landing page presents
+            // the authenticated state (Launch App only) when the user lands on it.
+            updateLandingAuthUI(true);
             checkAdminAccess();
             updateReferralDisplay();
             // Landing is now meaningfully shown to the new user: fire the landing
@@ -3930,12 +3933,9 @@ function completeLogin(token, user, is2FAFlow) {
         console.log('[COMPLETE_LOGIN] userNameEl text:', userNameEl?.textContent);
         
         console.log('[COMPLETE_LOGIN] Showing greeting...');
-        const greeting = document.getElementById('landingUserGreeting');
-        if (greeting) {
-            greeting.style.display = 'inline-block';
-            const landingUserNameEl = document.getElementById('landingUserName');
-            if (landingUserNameEl) landingUserNameEl.textContent = user.name || t('common.trader');
-        }
+        const landingUserNameEl = document.getElementById('landingUserName');
+        if (landingUserNameEl) landingUserNameEl.textContent = user.name || t('common.trader');
+        updateLandingAuthUI(true);
         
         console.log('[COMPLETE_LOGIN] Calling checkAdminAccess()...');
         try {
@@ -4004,11 +4004,8 @@ function completeLogin(token, user, is2FAFlow) {
         enterAppStartup();
         document.getElementById('displayName').textContent = user.name;
         document.getElementById('userName').textContent = user.name;
-        const greeting = document.getElementById('landingUserGreeting');
-        if (greeting) {
-            greeting.style.display = 'inline-block';
-            document.getElementById('landingUserName').textContent = user.name;
-        }
+        document.getElementById('landingUserName').textContent = user.name;
+        updateLandingAuthUI(true);
         checkAdminAccess();
         updateReferralDisplay();
         console.log('[COMPLETE_LOGIN] ========== Transition complete ==========');
@@ -4737,6 +4734,28 @@ function openAuthScreen(mode) {
     }
 }
 
+// Single source of truth for the landing page's session-dependent UI. An
+// authenticated visitor has no use for Create Account / Sign In (they are
+// already signed in); Launch App keeps its purpose, because it is the only
+// landing CTA that enters the dashboard.
+//
+// `authenticated` is ALWAYS supplied by the caller from authoritative session
+// knowledge - the server-validated startup routing, a session the server just
+// issued (signup/login), or an explicit logout - never inferred here from a
+// bare token string.
+//
+// Logged out: Create Account + Sign In visible, greeting hidden.
+// Logged in : Create Account + Sign In hidden, greeting shown. Launch App and
+//             the demo CTAs ("Try Demo Mode") are never touched.
+function updateLandingAuthUI(authenticated) {
+    const authed = authenticated === true;
+    document.querySelectorAll('.js-landing-auth-cta').forEach(function (btn) {
+        btn.style.display = authed ? 'none' : '';
+    });
+    const greeting = document.getElementById('landingUserGreeting');
+    if (greeting) greeting.style.display = authed ? 'inline-block' : 'none';
+}
+
 // ============ LANDING ANALYTICS ============
 // Lightweight, self-contained event tracking. No external network calls and no
 // duplicate analytics system: it pushes events to window.dataLayer (so a future
@@ -4794,10 +4813,10 @@ console.log('🔐 Auth script loaded successfully');
             <div class="landing-nav-right">
                 <div class="landing-nav-actions">
                     <span style="display:none;" id="landingUserGreeting">Welcome, <span id="landingUserName" style="color:var(--gold);font-weight:600;">Trader</span></span>
-                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-btn">
+                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-btn js-landing-auth-cta">
                         <span data-i18n="auth.tab.signin">Sign In</span>
                     </button>
-                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-btn">
+                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-btn js-landing-auth-cta">
                         <span data-i18n="auth.tab.signup">Create Account</span>
                     </button>
                     <button type="button" onclick="goToApp('nav')" class="btn btn-secondary landing-cta-btn">
@@ -4829,8 +4848,8 @@ console.log('🔐 Auth script loaded successfully');
             <a href="#demo" data-i18n="landing.nav.demo">Demo Mode</a>
             <a href="#pricing" data-i18n="landing.nav.pricing">Pricing</a>
             <a href="#faq" data-i18n="landing.nav.faq">FAQ</a>
-            <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary" style="width:100%;margin-top:8px;"><span data-i18n="auth.tab.signup">Create Account</span></button>
-            <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary" style="width:100%;margin-top:8px;"><span data-i18n="auth.tab.signin">Sign In</span></button>
+            <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary js-landing-auth-cta" style="width:100%;margin-top:8px;"><span data-i18n="auth.tab.signup">Create Account</span></button>
+            <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary js-landing-auth-cta" style="width:100%;margin-top:8px;"><span data-i18n="auth.tab.signin">Sign In</span></button>
             <button type="button" onclick="goToApp('nav')" class="btn btn-secondary" style="width:100%;margin-top:8px;"><span data-i18n="landing.launchApp">Launch App</span></button>
         </div>
     </nav>
@@ -4852,10 +4871,10 @@ console.log('🔐 Auth script loaded successfully');
                     Arbitrix monitors supported markets for qualifying price discrepancies and automates eligible arbitrage trades.
                 </p>
                 <div class="landing-hero-cta">
-                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-hero-btn">
+                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-hero-btn js-landing-auth-cta">
                         <i class="fas fa-user-plus"></i> <span data-i18n="auth.tab.signup">Create Account</span>
                     </button>
-                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-hero-btn-secondary">
+                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-hero-btn-secondary js-landing-auth-cta">
                         <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.tab.signin">Sign In</span>
                     </button>
                     <button type="button" onclick="goToApp('hero_demo')" class="btn btn-secondary landing-hero-btn-secondary">
@@ -5256,10 +5275,10 @@ console.log('🔐 Auth script loaded successfully');
                 <h2 data-i18n="landing.cta.title">Start with Demo Mode</h2>
                 <p data-i18n="landing.cta.subtitle">Explore Arbitrix, understand how automated arbitrage works, and decide when you're ready to experience Live trading.</p>
                 <div class="landing-cta-actions">
-                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-final-btn">
+                    <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-cta-final-btn js-landing-auth-cta">
                         <i class="fas fa-user-plus"></i> <span data-i18n="auth.tab.signup">Create Account</span>
                     </button>
-                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-final-btn">
+                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-cta-final-btn js-landing-auth-cta">
                         <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.tab.signin">Sign In</span>
                     </button>
                     <button type="button" onclick="goToApp('final_cta')" class="btn btn-secondary landing-cta-final-btn">
@@ -21819,6 +21838,12 @@ async function initApp() {
             // initApp() and re-syncs the wallet/history from the server.
             appReady = false;
 
+            // Logout is an explicit session end, so the landing page must not
+            // keep a logged-in-looking UI (hidden Create Account / Sign In, a
+            // visible greeting). Restore the logged-out CTA state here rather
+            // than waiting for the next full page load.
+            updateLandingAuthUI(false);
+
             // Reset per-session onboarding state (the per-account onboarding
             // choice in localStorage is intentionally kept, so a returning user
             // is never re-onboarded).
@@ -24008,11 +24033,13 @@ if (startupUser) {
         const user = JSON.parse(startupUser);
         document.getElementById('displayName').textContent = user.name || t('common.trader');
         document.getElementById('userName').textContent = user.name || t('common.trader');
-        var greeting = document.getElementById('landingUserGreeting');
-        if (greeting) {
-            greeting.style.display = 'inline-block';
-            document.getElementById('landingUserName').textContent = user.name || t('common.trader');
-        }
+        const landingUserNameEl = document.getElementById('landingUserName');
+        if (landingUserNameEl) landingUserNameEl.textContent = user.name || t('common.trader');
+        // Optimistic (cached-session) landing state. The server-validated
+        // startupRouting() below is authoritative and re-applies the correct
+        // state for this load, so a stale cache can never leave a
+        // logged-in-looking landing behind.
+        updateLandingAuthUI(true);
         if (typeof trackMetaConversion === 'function') trackMetaConversion('ViewContent');
     } catch(e) {
         localStorage.removeItem('arbi_user');
@@ -24058,6 +24085,12 @@ function validateStartupSession(token) {
 }
 
 (function startupRouting() {
+    // Both startup screens are reached only WITHOUT a validated session (a valid
+    // or offline-tolerated session enters the dashboard through
+    // enterAppStartup()), so each one applies the logged-out landing UI: Create
+    // Account + Sign In restored and the greeting cleared. This is also what
+    // corrects the optimistic cached-user state above when the server rejects a
+    // stale token, so no stale authenticated UI can survive.
     function showLanding() {
         var landingEl = document.getElementById('landingPage');
         var authEl = document.getElementById('authPage');
@@ -24065,6 +24098,7 @@ function validateStartupSession(token) {
         if (landingEl) landingEl.style.display = 'block';
         if (authEl) authEl.style.display = 'none';
         if (mainEl) mainEl.style.display = 'none';
+        updateLandingAuthUI(false);
     }
     function showAuth() {
         var landingEl = document.getElementById('landingPage');
@@ -24073,6 +24107,7 @@ function validateStartupSession(token) {
         if (landingEl) landingEl.style.display = 'none';
         if (authEl) authEl.style.display = 'flex';
         if (mainEl) mainEl.style.display = 'none';
+        updateLandingAuthUI(false);
     }
 
     // A cached user without a token is not an authenticated session.

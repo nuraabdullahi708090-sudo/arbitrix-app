@@ -5439,3 +5439,46 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   link resolves to exactly https://t.me/ArbitrixSupportBot with target=_blank +
   noopener/noreferrer, and there is no horizontal overflow (ar RTL included).
 - NOT merged, NOT pushed at the time of writing (PR only).
+
+
+## Landing authenticated CTA cleanup (2026-09-22, public/index.html + tests)
+- Frontend-only. An authenticated visitor on the landing page no longer sees
+  "Create Account" / "Sign In"; "Launch App" is kept, because it is the only
+  landing CTA that enters the dashboard. No auth/API/2FA/Telegram-support or demo
+  mode change, no redesign, no analytics change, no new i18n keys.
+- NEW single helper `updateLandingAuthUI(authenticated)` in public/index.html
+  (immediately after openAuthScreen): sets `.js-landing-auth-cta` buttons to
+  display none/'' and `#landingUserGreeting` to none/inline-block. Pure UI setter:
+  it never reads localStorage or a token itself - the caller always supplies the
+  state from authoritative session knowledge.
+- Markup: the hook class is on all 8 landing Create Account / Sign In buttons
+  (desktop nav, mobile menu, hero, final CTA). Launch App (nav + mobile) and the
+  "Try Demo Mode" demo CTAs are never tagged, so they remain visible in both
+  states.
+- Call sites (each an authoritative session event):
+  * showLanding() and showAuth() in startupRouting -> false. Both screens are only
+    reached without a validated session (valid/offline-tolerant sessions enter the
+    dashboard), so this is also what corrects a stale cached session.
+  * the first-paint cached-user block -> true (optimistic; routing corrects it).
+  * a successful signup returning to the landing -> true.
+  * both completeLogin flows (normal + 2FA) -> true.
+  * logout -> false, so no stale hidden CTA / greeting can survive a logout.
+- Tests: NEW tests/landing_authenticated_cta.test.js (20 tests). 14 of the 20 fail
+  against the pre-change public/index.html (verified by stashing that file), so
+  they are genuine regression pins. tests/first_visit_landing.test.js 4a: the
+  startup block is now bounded by the next section marker instead of a fixed
+  6000-character window (the added routing lines pushed `enterAppStartup();` two
+  characters past the old window); the assertions themselves are unchanged.
+- Verification: 7/7 inline script blocks parse; 0 U+FFFD; the non-ASCII code point
+  multiset is byte-identical to HEAD (all edits ASCII-only). npm test = 1792 pass
+  / 0 fail (origin/main 89b713c baseline 1772 + 20 new). Browser harness
+  (puppeteer-core + /usr/bin/chromium, stubbed API) = 37/37: anonymous desktop and
+  mobile menu show all three CTAs; authenticated hides all 8 and keeps Launch App;
+  a real signup return shows the authenticated landing (greeting + hidden CTAs)
+  and Launch App then enters the dashboard; a real logout restores both CTAs and
+  clears the greeting; a valid cached session startup leaves the authenticated
+  state; a server-rejected stale cache shows the logged-out landing with no stale
+  hidden CTAs; 0 horizontal overflow throughout.
+- Branch fix/landing-authenticated-cta, rebased onto origin/main (89b713c, which
+  now includes PR #142). PR #143 open. NOT merged, NOT deployed.
+
