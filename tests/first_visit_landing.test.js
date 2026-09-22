@@ -196,7 +196,11 @@ test('3c. enterAppStartup() shows the dashboard and runs initApp (real function)
 // ---------------------------------------------------------------------------
 test('4a. startup block declares the three explicit states and validates via /api/auth/me', () => {
     const start = INDEX.indexOf('// ============ STARTUP ============');
-    const block = INDEX.slice(start, start + 6000);
+    // Bound the block with the next top-level section marker rather than a fixed
+    // character count: the routing IIFE also applies the landing CTA state now,
+    // so a hard-coded window could silently truncate the assertions below.
+    const end = INDEX.indexOf('// Meta Pixel init + first-screen PageView', start);
+    const block = INDEX.slice(start, end > start ? end : start + 6000);
     assert.ok(block.includes('/api/auth/me'), 'startup must validate with the existing endpoint');
     assert.ok(block.includes("sessionStorage.getItem('arbi_auth_entry')"), 'entry-intent contract preserved');
     assert.ok(block.includes('/[?&]action=(create-account|sign-in)/'), '?action= contract preserved');
