@@ -120,6 +120,8 @@ test('2. with restored Live, adoptServerBotState() polls /api/bot/status and ado
     sandbox.APP = { mode: 'live', environment: 'PRODUCTION' };
     sandbox.fetchBotExecutionStatus = async () => { calls.status++; return { isRunning: true, executedBy: 'worker' }; };
     sandbox.adoptWorkerOwnership = () => { calls.adopt++; };
+    // TEMPORARY (management test): the profit-pause pop-up collaborator.
+    sandbox.maybeShowProfitPauseModal = () => {};
     vm.createContext(sandbox);
     vm.runInContext(extractFunction('adoptServerBotState'), sandbox);
 
@@ -138,6 +140,8 @@ test('3. persisted Live with no server session: mode stays Live, bot NOT auto-st
     sandbox.APP = { mode: 'live', environment: 'PRODUCTION' };
     sandbox.fetchBotExecutionStatus = async () => { calls.status++; return { isRunning: false, executedBy: 'browser' }; };
     sandbox.adoptWorkerOwnership = () => { calls.adopt++; };
+    // TEMPORARY (management test): the profit-pause pop-up collaborator.
+    sandbox.maybeShowProfitPauseModal = () => {};
     sandbox.startBot = () => { calls.startBot++; };
     vm.createContext(sandbox);
     vm.runInContext(extractFunction('adoptServerBotState'), sandbox);

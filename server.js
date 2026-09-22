@@ -42,6 +42,13 @@ const {
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
+// TEMPORARY management test: platform-wide bot profit pause (see the module).
+const {
+  resolveProfitPauseUsd,
+  createProfitPauseCheck,
+  PROFIT_PAUSE_CODE,
+  PROFIT_PAUSE_MESSAGE,
+} = require('./services/ProfitPause');
 
 // Stage 2: AI customer-support layer for the Telegram bot. Answering is OFF
 // unless AI_SUPPORT_ENABLED=true (see .env.example); with no key and no flag the
@@ -240,6 +247,21 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // service_role bypasses RLS, so this works both before and after RLS is
 // enabled on the remaining tables (later phase).
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// ============================================
+// TEMPORARY MANAGEMENT TEST - BOT PROFIT PAUSE
+// ============================================
+// Platform-wide: once an account's cumulative NET realized Live profit reaches
+// BOT_PROFIT_PAUSE_USD (default 400; 0 DISABLES the rule), the bot is paused and
+// trading is refused until a NEW confirmed deposit is made. Isolated in
+// services/ProfitPause.js so the whole experiment can be removed or retuned via
+// a single env var. Fails OPEN on any unreadable input.
+const PROFIT_PAUSE_USD = resolveProfitPauseUsd();
+const profitPause = createProfitPauseCheck({
+    admin: supabaseAdmin,
+    threshold: PROFIT_PAUSE_USD,
+    log: (e) => console.log(JSON.stringify(e)),
+});
 
 // ============================================
 // PAYMENT SERVICE INITIALIZATION
@@ -2115,6 +2137,40 @@ async function stopBotSessionFenced(userId, reason = 'user_stopped', requestedBy
  */
 async function stopBotSessionForPromoLimit(userId) {
   await stopBotSessionFenced(userId, 'promo_trading_limit', 'system');
+}
+
+// ============================================
+// TEMPORARY MANAGEMENT TEST - BOT PROFIT PAUSE
+// ============================================
+// Shared by /api/trade, /api/bot/start and /api/bot/status. `profitPause`
+// already excludes MARKETING_SANDBOX and fails OPEN, so these wrappers only add
+// belt-and-braces error isolation.
+
+/** Fenced stop used when the profit pause is (re)detected. */
+async function stopBotSessionForProfitPause(userId) {
+  try {
+    await stopBotSessionFenced(userId, 'profit_pause_deposit_required', 'system');
+  } catch (e) { /* best effort: the refusal below still blocks trading */ }
+}
+
+/** Machine-readable profit-pause response body. */
+function profitPauseBody(extra = {}) {
+  return {
+    error: PROFIT_PAUSE_MESSAGE,
+    code: PROFIT_PAUSE_CODE,
+    profitPauseReached: true,
+    depositRequired: true,
+    ...extra,
+  };
+}
+
+/** Is this account currently paused for profit? Never throws; fails open. */
+async function isProfitPausedForUser(userId) {
+  try {
+    return (await profitPause.isPaused(userId)) === true;
+  } catch (e) {
+    return false;
+  }
 }
 
 /** Machine-readable promotional-cap response body (production-only). */
@@ -5770,6 +5826,14 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
       return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
     }
   }
+  // TEMPORARY management test: platform-wide profit pause (LIVE trading only;
+  // demo sessions are not server-executed). A restart is just another start
+  // request, so this path closes the bot-restart bypass, and the session is
+  // fenced stopped so nothing keeps trading in the background.
+  if (mode === 'live' && await isProfitPausedForUser(userId)) {
+    await stopBotSessionForProfitPause(userId);
+    return res.status(403).json(profitPauseBody());
+  }
   // NO minimum trading balance: the MTA gate was removed by management decision
   // (there was only ever one, and it is gone). Any positive balance may start
   // the bot; the only trading restriction that remains is the separate
@@ -5900,6 +5964,9 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
   // guard uses. claimedBy is an internal worker instance id, never a token,
   // secret or credential.
   const leaseActive = data ? hasActiveWorkerLease(data) : false;
+  // TEMPORARY management test: platform-wide profit pause. Server-authoritative
+  // and the ONLY signal the app uses to show the pop-up. Fails open.
+  const profitPaused = await isProfitPausedForUser(req.user.id);
   res.json({
     isRunning: data ? data.is_running===1 : false,
     mode: data ? data.mode : 'demo',
@@ -5916,7 +5983,10 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
     leaseAcquiredAt: data ? (data.lease_acquired_at || null) : null,
     leaseExpiresAt: data ? (data.lease_expires_at || null) : null,
     leaseActive,
-    generation: data ? Number(data.generation || 0) : 0
+    generation: data ? Number(data.generation || 0) : 0,
+    // TEMPORARY management test: true while the account is under the profit
+    // pause (bot stopped until a new confirmed deposit). 0-threshold disables.
+    profitPaused
   });
 });
 
@@ -6019,6 +6089,13 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
         await stopBotSessionForPromoLimit(userId);
         return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
       }
+    }
+    // TEMPORARY management test: platform-wide profit pause. Applies to EVERY
+    // production user (the promo cap above already covers promo-funded ones).
+    // Enforced BEFORE the RPC, so it blocks direct API calls too.
+    if (await isProfitPausedForUser(userId)) {
+      await stopBotSessionForProfitPause(userId);
+      return res.status(403).json(profitPauseBody());
     }
     // SINGLE-ENGINE GUARD (cutover safety): while a server-side worker owns this
     // session (an ACTIVE migration-029 executor lease, or a fresh heartbeat) the

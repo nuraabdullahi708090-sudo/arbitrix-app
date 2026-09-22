@@ -1,6 +1,7 @@
 'use strict';
 
 const { DEFAULT_STALE_HEARTBEAT_MS } = require('./WorkerConfig');
+const { PROFIT_PAUSE_CODE } = require('./ProfitPause');
 
 /**
  * Server-side trading worker.
@@ -235,6 +236,7 @@ function evaluateRisk({
   tradesToday,
   promoCreditFunded,
   promoProfit,
+  profitPaused = false,
   limits = DEFAULT_LIMITS,
   isPromoProfitCapReached,
 }) {
@@ -248,6 +250,12 @@ function evaluateRisk({
   }
   if (isPromoProfitCapReached && isPromoProfitCapReached(promoCreditFunded, promoProfit)) {
     return { allow: false, code: 'PROMO_TRADING_LIMIT_REACHED', reason: 'promo_cap', stopSession: true };
+  }
+  // TEMPORARY management test: the platform-wide profit pause. Evaluated AFTER
+  // the promo cap so a promotional-credit account still gets the existing $20
+  // message; this rule is what pauses everyone else.
+  if (profitPaused === true) {
+    return { allow: false, code: PROFIT_PAUSE_CODE, reason: 'profit_pause', stopSession: true };
   }
   return { allow: true, code: null, reason: null };
 }
@@ -288,6 +296,9 @@ async function withRetry(fn, opts = {}) {
 function createTradingWorker({
   admin,
   promo,
+  // TEMPORARY management test: platform-wide profit pause. Optional collaborator
+  // exposing `isPaused(userId)`; when absent the rule is simply not applied.
+  profitPause = null,
   limits = DEFAULT_LIMITS,
   logger = console,
   clock = () => Date.now(),
@@ -707,12 +718,21 @@ function createTradingWorker({
       if (promoCreditFunded === true) promoProfit = await promo.getRealizedProfit(userId);
     }
 
+    // TEMPORARY management test: platform-wide profit pause. Server-evaluated
+    // and fails OPEN (any read problem yields "not paused"), so it can never
+    // strand a trader. Absent collaborator => rule not applied.
+    let profitPaused = false;
+    if (profitPause) {
+      try { profitPaused = (await profitPause.isPaused(userId)) === true; } catch (e) { profitPaused = false; }
+    }
+
     return {
       balance,
       realizedToday,
       tradesToday: todayTrades.length,
       promoCreditFunded,
       promoProfit,
+      profitPaused,
     };
   }
 
@@ -937,6 +957,8 @@ function createTradingWorker({
       tickMs: cfg.tickMs,
       // Observable so a misconfigured env var on ONE service is not silent.
       staleHeartbeatMs: cfg.staleHeartbeatMs,
+      // TEMPORARY management test: the active profit-pause threshold (0 = off).
+      profitPauseUsd: profitPause ? profitPause.threshold : 0,
       reconciled,
       enabled,
       dryRun: dryRun === true,

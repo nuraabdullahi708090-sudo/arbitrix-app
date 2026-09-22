@@ -26,6 +26,7 @@ const { createClient } = require('@supabase/supabase-js');
 const os = require('os');
 const { createTradingWorker, DEFAULT_LIMITS } = require('./services/TradingWorker');
 const { createPromoCheck } = require('./services/PromoCheck');
+const { resolveProfitPauseUsd, createProfitPauseCheck } = require('./services/ProfitPause');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
 
 const WORKER_VERSION = 'trading-worker/1';
@@ -101,10 +102,19 @@ async function main() {
 
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const promo = createPromoCheck({ admin, log: (e) => logger.log(JSON.stringify(e)) });
+  // TEMPORARY management test: platform-wide profit pause. Threshold comes from
+  // BOT_PROFIT_PAUSE_USD (default 400; 0 disables). Fails OPEN when the state
+  // table is unreadable, so this can never strand a trader.
+  const profitPause = createProfitPauseCheck({
+    admin,
+    threshold: resolveProfitPauseUsd(),
+    log: (e) => logger.log(JSON.stringify(e)),
+  });
 
   const worker = createTradingWorker({
     admin,
     promo,
+    profitPause,
     logger,
     enabled: true,
     envEmergencyStop,

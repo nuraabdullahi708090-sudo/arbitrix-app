@@ -252,7 +252,7 @@ test('the fallback works in every supported locale', () => {
 test('i18n stays consistent: identical key sets, no empties, count pinned', () => {
     const sets = LANGS.map((l) => Object.keys(T[l]).sort().join('|'));
     assert.strictEqual(new Set(sets).size, 1, 'identical key sets across locales');
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1401, l + ' key count'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1404, l + ' key count'));
     LANGS.forEach((l) => Object.values(T[l]).forEach((v) => assert.ok(String(v).trim(), l + ' has an empty value')));
 });
 

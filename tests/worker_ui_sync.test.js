@@ -64,7 +64,7 @@ function buildSandbox(opts = {}) {
         status = null,
     } = opts;
 
-    const calls = { sync: 0, adopt: 0, statusFetch: 0, intervals: [], cleared: [], updateStatus: [] };
+    const calls = { sync: 0, adopt: 0, statusFetch: 0, intervals: [], cleared: [], updateStatus: [], profitPauseNotice: 0 };
     const APP = {
         mode, environment, botRunning,
         botInterval: null, workerSyncInterval: null, workerSyncInFlight: false,
@@ -84,6 +84,8 @@ function buildSandbox(opts = {}) {
         updateStatus: (r) => { calls.updateStatus.push(r); },
         updateUI: () => {},
         updateBotEngineNotice: () => {},
+        // TEMPORARY (management test): the profit-pause pop-up collaborator.
+        maybeShowProfitPauseModal: () => { calls.profitPauseNotice++; },
     };
     vm.createContext(sandbox);
     vm.runInContext(

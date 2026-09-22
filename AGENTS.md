@@ -5504,3 +5504,80 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   provide the new setMode collaborators only.
 - npm test = 1806 pass / 0 fail (baseline 1792 + 14).
 - NOT committed/deployed at the time of writing.
+
+## Phase 31 DEPLOYED TO PRODUCTION (2026-09-22)
+- Deployment commit: 84c3bda (parent 493e818) - "fix: persist per-user Demo/Live mode so
+  promo-only Live sessions survive tab close", pushed 493e818..84c3bda main -> main
+  (fast-forward verified with git merge-base --is-ancestor; no force/rebase/reset/amend).
+- Render auto-deployed on push; the served public/index.html is BYTE-IDENTICAL to the
+  committed file (sha256 a8cda01452861086e4c61342eb1a83ccdf92682a9c42cd15aad3fe126767cfd3).
+  /api/health -> {"status":"ok"} HTTP 200.
+- Production smoke (headless Chromium against https://arbitrix.pro; 10/10 PASS): the three
+  helpers are exposed; setMode() persists; initApp() restores; adoptServerBotState() gate
+  intact; user 4242 stored 'live'; user 4243 has no choice (isolation); an invalid mode is
+  never written; 'demo' persists; only the expected arbi_mode_<id> keys exist.
+- CHANGE SET: public/index.html, tests/deposit_demo_ux.test.js, new
+  tests/mode_persistence.test.js, AGENTS.md. No server.js, services, migrations, worker,
+  promo-cap, deposit/withdrawal, or logout changes.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger a
+  second Render rebuild (the working tree shows AGENTS.md modified - documentation only).
+
+## TEMPORARY (management test): $400 bot profit pause (2026-09-22)
+- Temporary, platform-wide PRODUCTION rule: once an account's CUMULATIVE NET realized Live
+  profit (the existing record_trade_safe() profit basis; SUM(trades.amount) WHERE
+  mode='live') reaches $400, the bot is paused and further trading is refused until the
+  account receives a NEW CONFIRMED deposit created AFTER the pause triggered. Applies to
+  ALL production users (not only promo-credit accounts).
+- THRESHOLD is ONE server-side knob: services/ProfitPause.js reads BOT_PROFIT_PAUSE_USD
+  (DEFAULT_PROFIT_PAUSE_USD = 400). Unset/blank/invalid -> 400; <= 0 disables the rule
+  entirely. Neither server.js nor worker.js hard-codes the number; .env.example documents
+  the override. Not applied to MARKETING_SANDBOX (never paused).
+- FILES: new services/ProfitPause.js; new supabase/migrations/033_bot_profit_pause.sql;
+  modified services/TradingWorker.js, worker.js, server.js, public/index.html, 13 test
+  files (dictionary-count pins 1401 -> 1404) and new tests/profit_pause.test.js (38 tests).
+- ENFORCEMENT (all server/worker side so closing the tab cannot bypass it):
+  * /api/trade - pause check runs AFTER the promo-cap check and BEFORE
+    rpc('record_trade_safe') (server.js ~6096 vs ~6118). Returns 400
+    {code:'PROFIT_PAUSE_DEPOSIT_REQUIRED', profitPauseReached:true, depositRequired:true}
+    via the shared profitPauseBody()/PROFIT_PAUSE_CODE, and calls
+    stopBotSessionForProfitPause(userId) so the session is stopped, not merely skipped.
+  * /api/bot/start - live-gated check BEFORE the bot_sessions upsert (server.js ~5833 vs
+    ~5890), so no session row is created while paused.
+  * /api/bot/status - reports profitPaused (the ONLY signal the app uses).
+  * Trading worker - evaluateRisk() vetoes with stopSession:true (checked after the promo
+    cap; promo cap keeps precedence) and the tick calls stopSession(verdict.reason). The
+    worker loads the flag fail-open.
+  * Fail-open everywhere: an unreadable table/state never strands a trader.
+- DISCLOSURE POLICY: the pop-up is the ONLY user-facing surface and it reveals NO amount,
+  condition or threshold. New keys profitPause.title/body/addFunds (6 locales, no digits).
+  Nothing is written on the landing page, the dashboard, the bot card or the support-bot
+  knowledge base (KB contains no "400"; verified). #profitPauseModal is shown ONLY when the
+  server reports profitPaused (maybeShowProfitPauseModal, once per page load) from
+  runWorkerSyncTick(), adoptServerBotState(), startBot() and the refused-trade path; a
+  paused Start undoes the optimistic tab loop. "Add Funds" only opens the existing deposit
+  modal (no invoice, no crediting).
+- PRESERVED: min deposit $100, min withdrawal $700, promo $20 cap (runs first), referral
+  20%, new-user demo $1000 / live $50, MTA removal, deposits/withdrawals/KYC/referral/
+  subscriptions/payments/webhooks and all sandbox behaviour. server.js diff is 78
+  insertions / 1 line touched (the trailing comma on `generation` needed to append
+  profitPaused - value unchanged); TradingWorker 22/0; worker.js 10/0. Sandbox functions
+  untouched and both routes short-circuit to the sandbox handlers BEFORE the pause check.
+- MIGRATION 033 (public.bot_profit_pauses): additive, idempotent, RLS enabled with a
+  service_role-only policy, self-checking DO block; stores only triggered_at/cleared_at
+  (no money, no balance, no threshold). Verified on Postgres 16: applies cleanly, re-apply
+  is a no-op, anon denied, FK rejects unknown users. Rollback = DROP TABLE.
+  APPLIED TO PRODUCTION 2026-09-22 (by management). Without it the rule fails open.
+- ENCODING NOTE (important for future edits): a text-editor str_replace carrying a
+  NON-ASCII character re-encoded the whole public/index.html (Arabic/CJK/emoji -> CP866-style
+  mojibake, +109 KB). It was detected by a byte-multiset diff and fully reverted. Rule: make
+  ASCII-only edits to public/index.html with the editor; make non-ASCII edits with a Python
+  script that asserts a byte-growth invariant and that the non-ASCII byte multiset only ever
+  GROWS by the inserted block. Append to this AGENTS.md in binary mode for the same reason.
+- VERIFICATION: npm test = 1844 pass / 0 fail (baseline 1806 + 38 new;
+  tests/profit_pause.test.js covers config, the real module against a fake Supabase
+  (below/at threshold, deposit-before vs deposit-after, pending deposit, cleared-once,
+  sandbox, fail-open, disabled), worker veto + promo-cap precedence, server ordering, the
+  migration, the pop-up behaviour and full i18n parity). Headless Chromium pop-up check =
+  41/41 across all 6 locales (exact localized title, no digits, hidden by default, never
+  shown without the server signal, ar RTL, no overflow).
+- MERGED/DEPLOYED: see the deployment note below.
