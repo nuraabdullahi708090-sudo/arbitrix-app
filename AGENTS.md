@@ -2832,7 +2832,7 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   error: updateVerificationModalHeader is not defined`, and the missing sw.js 404);
   both are identical on the baseline and unrelated to this change.
 - OFFICIAL URL CONFIGURED (management-confirmed): the single meta tag
-  `<meta name="arbitrix-support-telegram" content="https://t.me/Arbitrix_Official_Support">`
+  `<meta name="arbitrix-support-telegram" content="https://t.me/ArbitrixSupportBot">`
   is the only place the URL is defined. `updateSupportLinks()` propagates it at
   runtime to every `.js-official-telegram` anchor (support modal button, deposit
   payment section, landing footer) - no anchor hardcodes a destination, no
