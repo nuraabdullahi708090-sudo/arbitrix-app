@@ -3763,18 +3763,28 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   the per-locale key count is unchanged (1402 on main; 1401 once the unrelated
   footer-link removal merges).
   The copy is deliberately matter-of-fact, the way a German user writes: it admits the
-  scepticism plainly ("I work in IT, so I check things before I trust them"), says the
-  bot was verified in Demo Mode against market data for a month before starting Live
-  Mode with a small amount, and closes without hype or an exclamation mark. It makes no
-  profit claim and cites no figure (the published $7 price is stated elsewhere).
+  scepticism plainly ("I work in IT, so I check things before I trust them"), mentions
+  Demo Mode only as something he LOOKED AT, then says he funded his account and started
+  Live Mode right away with an amount he was comfortable with, and closes without hype
+  or an exclamation mark. It makes no profit claim and cites no figure (the published
+  $7 price is stated elsewhere).
   The NAME stays the Latin form in every locale (only the Saudi name is scripted for
   ar), the initials stay Latin, and both city and country are localized per locale with
   zh keeping its country-first order.
   tests/landing_testimonials.test.js updated: the country list, the German
   persona/name/role assertions, the initials quadruple, the card-1 localized-city
   assertions, and a new pin that the removed Nigerian strings cannot return. The other
-  three testimonials are byte-unchanged. Browser check = 180/180 (6 locales x
-  320/390/1280); full npm test = 1734 pass / 0 fail on this branch.
+  three testimonials are byte-unchanged. Browser check = 198/198 (6 locales x
+  320/390/1280); full npm test = 1735 pass / 0 fail on this branch.
+- MANAGEMENT FOLLOW-UP (same day): the first draft said the bot was run in Demo Mode
+  "for a month" before going Live. That reads as a precondition and can discourage a
+  customer from depositing to Live and starting immediately, so the sentence was
+  rewritten in all 6 locales to "looked at Demo Mode ... then funded my account and
+  started Live Mode right away with an amount I was comfortable with" (Demo Mode stays
+  mentioned, as an option rather than a prerequisite). New pin in
+  tests/landing_testimonials.test.js: no locale may state a waiting period - it rejects
+  month/week/day/year in THAT locale's own words - and the copy must point at funding
+  the account and starting Live straight away.
 
 
 ## Stage 21 - MTA Removed + $500 Withdrawal Minimum + Verification Rename (2026-09-15, server.js + public/index.html + .env.example + tests)

@@ -107,6 +107,28 @@ test('the German testimonial is a German persona with natural, matter-of-fact co
         .forEach((s) => assert.strictEqual(INDEX.includes(s), false, 'removed content must not return: ' + s));
 });
 
+test('the German testimonial does not imply a waiting period before going Live', () => {
+    // Management: the copy must not read as "wait a month in Demo Mode before
+    // depositing" - that discourages funding Live and starting straight away.
+    const DURATION = {
+        en: /\b(month|months|week|weeks|day|days|year)\b/i,
+        es: /\b(mes|meses|semana|semanas|d\u00edas|d\u00eda)\b/i,
+        pt: /\b(m\u00eas|meses|semana|semanas|dias|dia)\b/i,
+        fr: /\b(mois|semaine|semaines|jours|jour)\b/i,
+        ar: /(\u0634\u0647\u0631|\u0623\u0634\u0647\u0631|\u0623\u0633\u0628\u0648\u0639|\u0623\u0633\u0627\u0628\u064a\u0639|\u0623\u064a\u0627\u0645)/,
+        zh: /(\u4e2a\u6708|\u6708|\u5468|\u5929)/,
+    };
+    LANGS.forEach((l) => {
+        assert.strictEqual(DURATION[l].test(T[l]['landing.testimonials.1.text']), false,
+            l + ' must not state a waiting period before Live');
+    });
+    // it must instead point at funding the account and starting Live right away
+    assert.match(T.en['landing.testimonials.1.text'], /funded my account/);
+    assert.match(T.en['landing.testimonials.1.text'], /started Live Mode right away/);
+    // Demo Mode is still mentioned (it is an option, not a prerequisite)
+    assert.match(T.en['landing.testimonials.1.text'], /Demo Mode/);
+});
+
 test('names are authentic for each country', () => {
     // Germany - common German given name + common German surname
     assert.strictEqual(T.en['landing.testimonials.1.name'], 'Thomas Weber');
