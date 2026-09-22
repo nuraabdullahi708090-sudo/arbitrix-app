@@ -326,7 +326,7 @@ test('the worker is still inert unless explicitly enabled', () => {
 
 test('no business/financial constant drifted while doing this work', () => {
   assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
-  assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 500;/);
+  assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
   assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 20;/);
   assert.match(SERVER, /const PROMO_LIMIT_CODE = 'PROMO_TRADING_LIMIT_REACHED';/);
   assert.match(SERVER, /const REFERRAL_EARNINGS_MIN_CONVERT_USD = 0;/);

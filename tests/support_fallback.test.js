@@ -295,7 +295,7 @@ test('the fallback action is mobile-tappable and keyboard accessible', () => {
 test('no financial, account or backend logic is involved', () => {
     assert.strictEqual(SERVER.includes('appendSupportFallbackReply'), false, 'this feature is frontend-only');
     assert.strictEqual(SERVER.includes('support.reply'), false, 'no server-side assistant replies were added');
-    assert.ok(/MIN_WITHDRAWAL:\s*500/.test(INDEX), 'the $500 withdrawal minimum is intact');
+    assert.ok(/MIN_WITHDRAWAL:\s*700/.test(INDEX), 'the $700 withdrawal minimum is intact');
     const serverCode = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
     assert.ok(!serverCode.includes('BOT_MIN_TRADING_BALANCE'), 'the MTA is fully removed (management decision)');
     // the supported answer copy itself is unchanged

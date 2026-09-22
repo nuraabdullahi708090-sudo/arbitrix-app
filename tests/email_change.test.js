@@ -476,7 +476,7 @@ test('20. financial/KYC/trading/payment/subscription critical paths are byte-unc
     assert.ok(/credit_payment_safe/.test(SERVER), 'deposit credit path intact');
     assert.ok(/record_trade_safe/.test(SERVER), 'trade recording path intact');
     assert.ok(/app\.post\('\/api\/withdraw\/request'/.test(SERVER), 'withdraw route intact');
-    assert.ok(/Min \$' \+ MIN_WITHDRAWAL_USD/.test(SERVER), 'withdraw $500 gate intact');
+    assert.ok(/Min \$' \+ MIN_WITHDRAWAL_USD/.test(SERVER), 'withdraw $700 gate intact');
     assert.ok(/app\.post\('\/api\/subscription\/activate'/.test(SERVER), 'subscription activate intact');
     assert.ok(/charge_subscription_safe/.test(SERVER), 'subscription charge path intact');
     // The verify handler must not touch any financial table.

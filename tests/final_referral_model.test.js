@@ -236,17 +236,17 @@ test('referral earnings are NOT required to be traded before withdrawal', () => 
 // =========================================================================
 // 17-19. Withdrawal safeguards unchanged
 // =========================================================================
-test('the $500 minimum withdrawal remains enforced', () => {
-    assert.match(WITHDRAW, /amount < MIN_WITHDRAWAL_USD/, 'the $500 minimum is intact');
+test('the $700 minimum withdrawal remains enforced', () => {
+    assert.match(WITHDRAW, /amount < MIN_WITHDRAWAL_USD/, 'the $700 minimum is intact');
     assert.match(WITHDRAW, /Min \$' \+ MIN_WITHDRAWAL_USD/);
-    assert.match(INDEX, /MIN_WITHDRAWAL: 500/);
+    assert.match(INDEX, /MIN_WITHDRAWAL: 700/);
 });
 
 test('KYC / security / address checks remain enforced on withdrawal', () => {
     const depositGate = WITHDRAW.indexOf('requiresFirstDeposit');
     const kyc = WITHDRAW.indexOf('verificationRequired');
     assert.ok(depositGate > 0 && depositGate < kyc, 'the first-deposit priority gate precedes the verification prompt');
-    assert.ok(kyc > 0 && kyc < WITHDRAW.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'KYC still precedes the $500 minimum');
+    assert.ok(kyc > 0 && kyc < WITHDRAW.indexOf("Min $' + MIN_WITHDRAWAL_USD"), 'KYC still precedes the $700 minimum');
     assert.match(WITHDRAW, /redirectTo: '\/#\/verification'/);
     assert.match(WITHDRAW, /Valid address required/);
     assert.match(WITHDRAW, /Complete at least 1 trade first/);

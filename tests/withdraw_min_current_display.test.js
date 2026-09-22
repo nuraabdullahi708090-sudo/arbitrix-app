@@ -5,13 +5,15 @@
  * always render the user's ACTUAL available balance.
  *
  * The key `withdraw.minWithdrawal` is "Minimum withdrawal is ${{min}}. Current:
- * ${{current}}". Two call sites render it:
- *   - the openWithdrawModal eligibility gate (already passed both vars), and
- *   - submitWithdraw (this fix) which passed ONLY {min}, so the toast literally
- *     showed "Current: ${{current}}" instead of the real balance.
+ * ${{current}}" (the $700 minimum is disclosed only in the withdrawal pop-up,
+ * i.e. once the user has passed the first-deposit + completed-trade logic).
+ * Two call sites render it:
+ *   - the openWithdrawModal eligibility gate, and
+ *   - submitWithdraw.
+ * Both must show the user's ACTUAL available balance.
  *
- * The $500 minimum, the completed-trade requirement, the KYC/security gate and
- * the withdrawal processing flow are all UNCHANGED — this pins that too.
+ * The internal $700 minimum, the completed-trade requirement, the KYC/security
+ * gate and the withdrawal processing flow are all UNCHANGED — this pins that too.
  *
  * Run: npm test (or: node --test tests/withdraw_min_current_display.test.js)
  */
@@ -60,7 +62,7 @@ function extractTranslations() {
 function runSubmit({ amount, balance = 350.5, mode = 'PRODUCTION' }) {
     const toasts = [];
     const sandbox = {
-        APP: { environment: mode, MIN_WITHDRAWAL: 500, liveData: {} },
+        APP: { environment: mode, MIN_WITHDRAWAL: 700, liveData: {} },
         localStorage: { getItem: () => 'jwt', setItem() {}, removeItem() {} },
         getEl: (id) => ({
             value: id === 'withdrawAddressInput' ? 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' : String(amount),
@@ -85,7 +87,7 @@ test('below-minimum submit renders the actual balance, never a raw placeholder',
     assert.strictEqual(toasts.length, 1, 'exactly one message shown');
     assert.ok(!toasts[0].includes('{{'), 'no uninterpolated placeholder: ' + toasts[0]);
     assert.ok(!toasts[0].includes('current}'), 'the literal ${current} bug is gone');
-    assert.match(toasts[0], /Minimum withdrawal is \$500/);
+    assert.match(toasts[0], /Minimum withdrawal is \$700/);
     assert.match(toasts[0], /Current: \$350\.50/, 'shows the real available balance');
 });
 
@@ -96,7 +98,7 @@ test('an empty/NaN amount still shows the real balance (not a placeholder)', () 
     assert.match(toasts[0], /Current: \$42\.00/);
 });
 
-test('both call sites of withdraw.minWithdrawal pass min AND current', () => {
+test('both call sites of withdraw.minWithdrawal pass the balance variable', () => {
     const open = extractFunction('openWithdrawModal');
     const submit = extractFunction('submitWithdraw');
     assert.ok(/t\('withdraw\.minWithdrawal',\s*\{min: APP\.MIN_WITHDRAWAL, current:/.test(open), 'modal gate passes current');
@@ -107,9 +109,9 @@ test('both call sites of withdraw.minWithdrawal pass min AND current', () => {
 // ---------------------------------------------------------------------------
 // BUSINESS RULES UNCHANGED
 // ---------------------------------------------------------------------------
-test('the $500 minimum withdrawal is untouched (frontend and server)', () => {
-    assert.match(INDEX, /MIN_WITHDRAWAL:\s*500/);
-    assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 500;/);
+test('the $700 minimum withdrawal is untouched (frontend and server)', () => {
+    assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/);
+    assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
     assert.match(SERVER, /amount < MIN_WITHDRAWAL_USD/);
 });
 
@@ -118,7 +120,7 @@ test('the withdrawal eligibility gates and flow are unchanged', () => {
     assert.ok(open.includes("t('withdraw.firstDeposit')"), 'first-deposit gate intact');
     assert.ok(open.includes("'/api/kyc/can-withdraw'"), 'KYC/security capability check intact');
     assert.ok(open.includes("t('withdraw.needTrade')"), 'completed-trade requirement intact');
-    assert.ok(open.includes('totalWithdrawable < APP.MIN_WITHDRAWAL'), '$500 minimum gate intact');
+    assert.ok(open.includes('totalWithdrawable < APP.MIN_WITHDRAWAL'), '$700 minimum gate intact');
     assert.ok(open.includes('if (!isSandbox)'), 'production-only gate block intact');
 
     const submit = extractFunction('submitWithdraw');

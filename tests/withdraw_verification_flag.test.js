@@ -112,7 +112,7 @@ test('8. verified users are unaffected by the change', () => {
 // ------------------------------------------------------- preserved protections
 test('3. minimum withdrawal amount enforcement remains active', () => {
     assert.ok(WITHDRAW_ROUTE.includes('if (!amount || amount < MIN_WITHDRAWAL_USD) return res.status(400).json({ error: '), 'minimum guard present');
-    assert.ok(WITHDRAW_ROUTE.includes("'Min $' + MIN_WITHDRAWAL_USD"), 'existing message form unchanged (now $500)');
+    assert.ok(WITHDRAW_ROUTE.includes("'Min $' + MIN_WITHDRAWAL_USD"), 'existing message form unchanged (now $700)');
 });
 
 test('4. completed-trade enforcement remains active', () => {
