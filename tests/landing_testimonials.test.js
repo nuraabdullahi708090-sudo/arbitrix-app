@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Landing-page testimonials: four country-authentic testimonials (Nigeria,
+ * Landing-page testimonials: four country-authentic testimonials (Germany,
  * Netherlands, Brazil, Saudi Arabia) wired to the existing i18n system.
  *
  * These pin the things that can silently rot: the section actually rendering,
@@ -80,17 +80,38 @@ test('each card carries a quote, initials, name, role and location', () => {
 test('the four requested countries are represented', () => {
     const locations = ['1', '2', '3', '4'].map((n) => T.en['landing.testimonials.' + n + '.location']);
     assert.deepStrictEqual(locations, [
-        'Lagos, Nigeria',
+        'Munich, Germany',
         'Utrecht, Netherlands',
         'S\u00e3o Paulo, Brazil',
         'Riyadh, Saudi Arabia',
     ]);
 });
 
+test('the German testimonial is a German persona with natural, matter-of-fact copy', () => {
+    assert.strictEqual(T.en['landing.testimonials.1.name'], 'Thomas Weber');
+    assert.strictEqual(T.en['landing.testimonials.1.initials'], 'TW');
+    assert.strictEqual(T.en['landing.testimonials.1.location'], 'Munich, Germany');
+    assert.strictEqual(T.en['landing.testimonials.1.role'], 'IT administrator');
+    // reads like a German user: verify first, plain wording, no marketing hype
+    assert.match(T.en['landing.testimonials.1.text'], /check things before I trust them/);
+    assert.match(T.en['landing.testimonials.1.text'], /Demo Mode/);
+    assert.match(T.en['landing.testimonials.1.text'], /Live Mode/);
+    assert.strictEqual(/!/.test(T.en['landing.testimonials.1.text']), false, 'no exclamation-mark hype');
+    // the name is the same Latin form in every locale (names are never translated)
+    LANGS.forEach((l) => {
+        assert.strictEqual(T[l]['landing.testimonials.1.name'], 'Thomas Weber', l + ' keeps the name as written');
+        assert.strictEqual(T[l]['landing.testimonials.1.initials'], 'TW', l + ' keeps Latin initials');
+    });
+    // the previous Nigerian testimonial is gone everywhere
+    ['Chinedu', 'Okafor', 'Lagos', '\u0646\u064a\u062c\u064a\u0631\u064a\u0627', '\u5c3c\u65e5\u5229\u4e9a', '\u62c9\u5404\u65af']
+        .forEach((s) => assert.strictEqual(INDEX.includes(s), false, 'removed content must not return: ' + s));
+});
+
 test('names are authentic for each country', () => {
-    // Nigeria - Igbo given name + Igbo surname
-    assert.strictEqual(T.en['landing.testimonials.1.name'], 'Chinedu Okafor');
-    assert.match(T.en['landing.testimonials.1.name'], /^[A-Z][a-z]+ (Okafor|Okonkwo|Nwosu|Eze|Obi|Adeyemi|Balogun|Abubakar)$/);
+    // Germany - common German given name + common German surname
+    assert.strictEqual(T.en['landing.testimonials.1.name'], 'Thomas Weber');
+    assert.match(T.en['landing.testimonials.1.name'], /^[A-Z][a-z]+ (Weber|M\u00fcller|Schmidt|Schneider|Fischer|Meyer|Wagner|Becker|Hoffmann|Schulz|Koch|Richter|Klein|Wolf|Schr\u00f6der|Neumann|Braun|Zimmermann)$/);
+    assert.strictEqual(T.en['landing.testimonials.1.role'], 'IT administrator');
     // Netherlands - Dutch given name + tussenvoegsel surname
     assert.strictEqual(T.en['landing.testimonials.2.name'], 'Sanne de Vries');
     assert.match(T.en['landing.testimonials.2.name'], /\b(de|van|van der|van den|van de)\b/);
@@ -115,15 +136,20 @@ test('names are never translated, except the Saudi name in Arabic script for ar'
     assert.strictEqual(T.ar['landing.testimonials.4.name'], '\u0639\u0628\u062f\u0627\u0644\u0644\u0647 \u0627\u0644\u0642\u062d\u0637\u0627\u0646\u064a');
     assert.strictEqual(T.ar['landing.testimonials.4.initials'], '\u0639');
     // the avatar initials track the displayed name
-    assert.deepStrictEqual(['1', '2', '3', '4'].map((n) => T.en['landing.testimonials.' + n + '.initials']), ['CO', 'SV', 'LA', 'AA']);
+    assert.deepStrictEqual(['1', '2', '3', '4'].map((n) => T.en['landing.testimonials.' + n + '.initials']), ['TW', 'SV', 'LA', 'AA']);
 });
 
 test('cities and countries are localized', () => {
-    assert.match(T.ar['landing.testimonials.1.location'], /\u0646\u064a\u062c\u064a\u0631\u064a\u0627/);      // نيجيريا
+    assert.match(T.ar['landing.testimonials.1.location'], /\u0623\u0644\u0645\u0627\u0646\u064a\u0627/);       // ألمانيا
+    assert.match(T.ar['landing.testimonials.1.location'], /\u0645\u064a\u0648\u0646\u062e/);              // ميونخ
     assert.match(T.ar['landing.testimonials.2.location'], /\u0647\u0648\u0644\u0646\u062f\u0627/);          // هولندا
     assert.match(T.ar['landing.testimonials.3.location'], /\u0627\u0644\u0628\u0631\u0627\u0632\u064a\u0644/);// البرازيل
     assert.match(T.ar['landing.testimonials.4.location'], /\u0627\u0644\u0633\u0639\u0648\u062f\u064a\u0629/); // السعودية
-    assert.match(T.zh['landing.testimonials.1.location'], /\u5c3c\u65e5\u5229\u4e9a/);                      // 尼日利亚
+    assert.match(T.zh['landing.testimonials.1.location'], /\u5fb7\u56fd/);                                 // 德国
+    assert.match(T.zh['landing.testimonials.1.location'], /\u6155\u5c3c\u9ed1/);                          // 慕尼黑
+    assert.match(T.es['landing.testimonials.1.location'], /Alemania/);
+    assert.match(T.pt['landing.testimonials.1.location'], /Alemanha/);
+    assert.match(T.fr['landing.testimonials.1.location'], /Allemagne/);
     assert.match(T.es['landing.testimonials.4.location'], /Arabia Saud/);
     assert.match(T.pt['landing.testimonials.3.location'], /Brasil/);
     assert.match(T.fr['landing.testimonials.2.location'], /Pays-Bas/);

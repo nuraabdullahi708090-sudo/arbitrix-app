@@ -3755,6 +3755,27 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - COMMITTED LOCALLY ONLY - not pushed and not deployed (a push to main auto-deploys
   on Render), pending management approval.
 
+- UPDATED 2026-09-22 (management request): the Nigerian testimonial was REPLACED with
+  a German one. Card 1 is now
+    Thomas Weber - IT administrator - Munich, Germany (initials TW)
+  The same five keys (text/name/initials/role/location) were rewritten in all 6
+  locales plus the English fallback in the markup. NO key was added or removed, so
+  the per-locale key count is unchanged (1402 on main; 1401 once the unrelated
+  footer-link removal merges).
+  The copy is deliberately matter-of-fact, the way a German user writes: it admits the
+  scepticism plainly ("I work in IT, so I check things before I trust them"), says the
+  bot was verified in Demo Mode against market data for a month before starting Live
+  Mode with a small amount, and closes without hype or an exclamation mark. It makes no
+  profit claim and cites no figure (the published $7 price is stated elsewhere).
+  The NAME stays the Latin form in every locale (only the Saudi name is scripted for
+  ar), the initials stay Latin, and both city and country are localized per locale with
+  zh keeping its country-first order.
+  tests/landing_testimonials.test.js updated: the country list, the German
+  persona/name/role assertions, the initials quadruple, the card-1 localized-city
+  assertions, and a new pin that the removed Nigerian strings cannot return. The other
+  three testimonials are byte-unchanged. Browser check = 180/180 (6 locales x
+  320/390/1280); full npm test = 1734 pass / 0 fail on this branch.
+
 
 ## Stage 21 - MTA Removed + $500 Withdrawal Minimum + Verification Rename (2026-09-15, server.js + public/index.html + .env.example + tests)
 - Management-approved. Frontend + server + tests + env docs. NO change to marketing
