@@ -264,11 +264,22 @@ test('parity: a trade that rounds to zero is skipped, like the rejected tab requ
 test('handover: starting the bot registers the session server-side (live only)', () => {
   const body = startBotBody();
   assert.match(body, /syncBotSessionWithServer\('start'\)/);
-  assert.match(body, /if \(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)/);
-  // The tab loop starts FIRST, so a slow or failing request can never delay or
-  // block a user's bot (that is the whole safety property of this wiring).
-  assert.ok(body.indexOf('setInterval(executeBotTrade, 8000)') < body.indexOf("syncBotSessionWithServer('start')"),
-    'the tab loop must start before the network call');
+  assert.match(body, /if \(!\(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)\)/);
+  // DEMO / sandbox has no server-side gate, so it still starts immediately.
+  const demo = body.slice(0, body.indexOf("syncBotSessionWithServer('start')"));
+  assert.match(demo, /if \(!\(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)\) \{\s*beginBotRun\(\);\s*return;/,
+    'demo/sandbox starts immediately');
+  // ORDERING (deliberate): the LIVE start is validated by the server BEFORE the
+  // running state is entered, so a refused start can produce no success state
+  // (profit pause). An accepted start still enters the running state before the
+  // worker-status handover, and a NULL result (offline / server error) falls
+  // through to beginBotRun() - so a slow or failing request never blocks a bot.
+  const live = body.slice(body.indexOf("syncBotSessionWithServer('start')"));
+  assert.ok(live.indexOf('isProfitPausePayload(res.body)') > 0
+    && live.indexOf('isProfitPausePayload(res.body)') < live.indexOf('beginBotRun();'),
+    'the pause branch must precede the running state');
+  assert.ok(live.indexOf('beginBotRun();') < live.indexOf('fetchBotExecutionStatus'),
+    'an accepted start enters the running state before the worker handover');
   assert.match(body, /\.catch\(function \(\) \{\}\);/);
 });
 

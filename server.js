@@ -2160,6 +2160,9 @@ function profitPauseBody(extra = {}) {
     code: PROFIT_PAUSE_CODE,
     profitPauseReached: true,
     depositRequired: true,
+    // The ACTIVE threshold, so the client can state the real figure in its prompt
+    // instead of hard-coding one (it stays correct if BOT_PROFIT_PAUSE_USD moves).
+    profitPauseThreshold: PROFIT_PAUSE_USD,
     ...extra,
   };
 }
@@ -5986,7 +5989,10 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
     generation: data ? Number(data.generation || 0) : 0,
     // TEMPORARY management test: true while the account is under the profit
     // pause (bot stopped until a new confirmed deposit). 0-threshold disables.
-    profitPaused
+    profitPaused,
+    // The active threshold (display only: the client renders it in its prompt so
+    // the figure can never drift from the one the server enforces).
+    profitPauseThreshold: PROFIT_PAUSE_USD
   });
 });
 

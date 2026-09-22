@@ -5581,3 +5581,55 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   41/41 across all 6 locales (exact localized title, no digits, hidden by default, never
   shown without the server signal, ar RTL, no overflow).
 - MERGED/DEPLOYED: see the deployment note below.
+
+## $400 BOT PROFIT-PAUSE DEPLOYED TO PRODUCTION (2026-09-22)
+- Deployment commit: 765961c ("feat: pause the bot at $400 realized profit until a new
+  deposit"), parent 84c3bda; pushed 84c3bda..765961c main -> main (verified a fast-forward with
+  git merge-base --is-ancestor; no force-push/rebase/reset/amend).
+- PREREQUISITE satisfied: migration 033 (public.bot_profit_pauses) was APPLIED TO PRODUCTION
+  by management immediately before this deploy. Without it the rule fails open; with it the
+  rule is live. Rollback of the rule alone = BOT_PROFIT_PAUSE_USD=0 (instant, no deploy);
+  full rollback = DROP TABLE public.bot_profit_pauses.
+- EFFECTIVE CONFIG: BOT_PROFIT_PAUSE_USD is unset in Render, so resolveProfitPauseUsd()
+  returns DEFAULT_PROFIT_PAUSE_USD = 400 - exactly the required threshold, no env change
+  needed. 0 (or any non-positive/invalid value) disables the rule entirely.
+- Render auto-deployed on push (~30s; the previous build was still served at t+15s and the
+  new build at t+30s). The served public/index.html is BYTE-IDENTICAL to the committed file
+  (sha256 32cf7761a2ddec91f509ed75b92657c50e0aaa8b53b99508d8957eb589389669). GET / 200, /reset-password.html 200, /api/health 200.
+- SERVER SIDE IS THE NEW BUILD: server.js requires ./services/ProfitPause at module load
+  (line 51) and calls createProfitPauseCheck({admin: supabaseAdmin, threshold:
+  PROFIT_PAUSE_USD}) at line 260, both at require time - a missing or throwing module would
+  have crashed the process, so the healthy / and /api/health responses prove the new server
+  code (and the wired rule) booted. Auth gates are intact: /api/bot/status, /api/auth/me,
+  /api/subscription, /api/transactions all answer 401 {"error":"Unauthorized"} anonymously.
+- LIVE POP-UP VERIFICATION (headless Chromium against https://arbitrix.pro, driving the
+  DEPLOYED functions with stubs; 32/32 PASS): helpers deployed; element present; hidden by
+  default; NEVER shown for null/undefined/{}/{profitPaused:false}/{isRunning:true}/
+  {profitPaused:'true'} (only a strict === true signal opens it); opens visible on the
+  signal with the exact EN title "Keep your bot trading" and body "Your bot has paused. Add
+  funds to keep it trading."; Add Funds + Close buttons; no i18n key leaks; NO DIGIT anywhere
+  in the rendered pop-up; fits 390px; single instance; Close dismisses; NOT re-shown in the
+  same page load (at most once); all 6 locales render exactly (en/es/pt/fr/ar/zh) with ar
+  RTL; "Add Funds" closes the pop-up and reuses the existing #depositModal (no new flow);
+  0 horizontal overflow; MIN_WITHDRAWAL still 700; bot-engine notice element intact;
+  0 uncaught page errors.
+- DISCLOSURE (unchanged by the deploy): the pop-up remains the ONLY user-facing surface and
+  reveals no amount, condition or threshold - the served bundle contains
+  exactly one id="profitPauseModal", the 3 profitPause.* keys in 6 locales (no digits), and
+  ZERO occurrences of BOT_PROFIT_PAUSE_USD. The support-bot knowledge base was not touched
+  and contains no "400".
+- STILL ONLY PROVABLE WITH A REAL ACCOUNT (not testable from this environment, no valid
+  admin/user JWT and no Supabase credential): the actual pause firing at $400 and the
+  refusal of POST /api/bot/start + POST /api/trade for a paused account. Management can
+  confirm in a minute from a real account that has crossed $400: the pop-up appears once,
+  Start Bot is refused, and the next attempted trade returns
+  code=PROFIT_PAUSE_DEPOSIT_REQUIRED; then a new confirmed deposit clears it and Start works
+  again (manual restart - the pause stops the session by design).
+- CHANGE SET: server.js, services/ProfitPause.js (new), services/TradingWorker.js, worker.js,
+  public/index.html, supabase/migrations/033_bot_profit_pause.sql (new),
+  tests/profit_pause.test.js (new) + 13 test files with dictionary-count pins 1401 -> 1404,
+  AGENTS.md. npm test = 1844 pass / 0 fail. No deposit/withdrawal/KYC/referral/subscription/
+  payment/webhook/sandbox logic was modified.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger a
+  second Render rebuild (the working tree therefore shows AGENTS.md as modified -
+  documentation only).

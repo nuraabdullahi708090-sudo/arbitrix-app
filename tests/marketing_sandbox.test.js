@@ -601,12 +601,17 @@ test('frontend sandbox gate skips are keyed on APP.environment (display only)', 
     assert.ok(INDEX.includes("    if (!isSandbox) {"), 'production-only gate block must remain');
     // The MTA (minimum trading balance) no longer exists at all, so there is no
     // MTA gate anywhere (see tests/bot_mta.test.js). The bot-start display gate
-    // is now only the separate promotional-credit cap.
+    // is now only the separate promotional-credit cap, and the $400 profit pause.
     assert.ok(!INDEX.includes('APP.MTA'), 'no MTA gate may remain anywhere');
     const startBotIdx = INDEX.indexOf('function startBot()');
-    const startBotBody = INDEX.slice(startBotIdx, startBotIdx + 1400);
-    assert.ok(!startBotBody.includes("APP.environment !== 'MARKETING_SANDBOX'"), 'startBot must not use an environment special-case');
-    assert.ok(startBotBody.includes('promoLimitReached'), 'the promo-cap gate remains the only live-trading stop');
+    const startBotBody = INDEX.slice(startBotIdx, INDEX.indexOf('function beginBotRun()'));
+    assert.ok(startBotBody.includes('promoLimitReached'), 'the promo-cap gate remains a live-trading stop');
+    assert.ok(!startBotBody.includes('APP.MTA'), 'startBot must not gate on an MTA');
+    // The sandbox is SIMULATED: it must never be routed through the production
+    // start validation (which carries the profit pause), so it keeps starting
+    // immediately through beginBotRun().
+    assert.match(startBotBody, /if \(!\(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)\) \{\s*beginBotRun\(\);\s*return;/,
+        'the simulated sandbox session skips the production start gate');
 });
 
 test('frontend admin sandbox controls call only /api/admin/sandbox endpoints', () => {

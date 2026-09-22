@@ -162,8 +162,13 @@ test('frontend: startBot has no MTA gate; the promo cap is the only stop', () =>
     assert.ok(body.includes('APP.liveData.promoLimitReached'), 'promo-cap gate missing');
     assert.ok(body.includes("showToast(t('bot.promoLimitReached'),'error', 6000)"), 'promo-cap toast missing');
     const capIdx = body.indexOf('promoLimitReached');
-    const intervalIdx = body.indexOf('setInterval(executeBotTrade');
-    assert.ok(capIdx > 0 && intervalIdx > capIdx, 'the stop must precede the background trading interval');
+    // The cap must stop the start BEFORE the running state is entered (the
+    // interval + success toast now live in beginBotRun()).
+    const runIdx = body.indexOf('beginBotRun()');
+    assert.ok(capIdx > 0 && runIdx > capIdx, 'the stop must precede entering the running state');
+    const runFn = INDEX.slice(INDEX.indexOf('function beginBotRun()'), INDEX.indexOf('function showProfitPauseStartBlocked'));
+    assert.ok(runFn.includes('setInterval(executeBotTrade'),
+        'the running state (interval) is entered only through beginBotRun()');
 });
 
 test('frontend: no APP.MTA reference or MTA UI remains anywhere', () => {

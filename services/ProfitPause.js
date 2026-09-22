@@ -32,8 +32,12 @@
 const DEFAULT_PROFIT_PAUSE_USD = 400;
 /** Env var that overrides the threshold (0 disables the rule entirely). */
 const PROFIT_PAUSE_ENV = 'BOT_PROFIT_PAUSE_USD';
-/** Machine-readable code so the client can react without parsing a sentence. */
-const PROFIT_PAUSE_CODE = 'PROFIT_PAUSE_DEPOSIT_REQUIRED';
+// Stable machine-readable code for "this account is profit-paused", consumed by
+// the frontend (Start Bot + trade refusal) and by the worker's risk verdict - the
+// ONE identifier for this condition, never matched as human-readable text.
+// 'PROFIT_PAUSE_DEPOSIT_REQUIRED' was the earlier value; the client still accepts
+// it (plus the profitPauseReached boolean) so a cached bundle cannot mis-read it.
+const PROFIT_PAUSE_CODE = 'BOT_PROFIT_PAUSED';
 const PROFIT_PAUSE_MESSAGE = 'Add funds to keep the bot trading.';
 
 /**

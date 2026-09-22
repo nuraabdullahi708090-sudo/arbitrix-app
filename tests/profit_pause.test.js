@@ -333,19 +333,23 @@ test('4c. /api/bot/start refuses (live only) and stops the session', () => {
     assert.ok(route.includes('profitPauseBody()'));
 });
 
-test('4d. /api/bot/status reports the pause to the app', () => {
+test('4d. /api/bot/status reports the pause (and its threshold) to the app', () => {
     const route = sliceBetween(SERVER, "app.get('/api/bot/status'", "app.get('/api/admin/bot/worker-status'");
     assert.ok(route.includes('const profitPaused = await isProfitPausedForUser(req.user.id)'));
-    assert.ok(/\n\s*profitPaused\n/.test(route), 'returned in the response body');
+    assert.ok(/\n\s*profitPaused,/.test(route), 'returned in the response body');
+    // The threshold travels with the signal so the prompt can state the figure
+    // the server actually enforces instead of a hard-coded number.
+    assert.ok(/\n\s*profitPauseThreshold: PROFIT_PAUSE_USD\b/.test(route), 'threshold is reported');
 });
 
-test('4e. the refusal body is machine-readable and promises no threshold', () => {
-    assert.strictEqual(MOD.PROFIT_PAUSE_CODE, 'PROFIT_PAUSE_DEPOSIT_REQUIRED');
+test('4e. the refusal body is machine-readable and never a human sentence', () => {
+    assert.strictEqual(MOD.PROFIT_PAUSE_CODE, 'BOT_PROFIT_PAUSED');
     const body = sliceBetween(SERVER, 'function profitPauseBody', '/** Machine-readable promotional-cap');
     assert.ok(body.includes('PROFIT_PAUSE_CODE'));
     assert.ok(body.includes('profitPauseReached: true'));
     assert.ok(body.includes('depositRequired: true'));
-    assert.ok(!/\d/.test(MOD.PROFIT_PAUSE_MESSAGE), 'the message must not disclose a number');
+    assert.ok(body.includes('profitPauseThreshold: PROFIT_PAUSE_USD'), 'the active threshold is carried');
+    assert.ok(!/\d/.test(MOD.PROFIT_PAUSE_MESSAGE), 'the human message must not disclose a number');
     const deny = sliceBetween(SERVER, 'async function isProfitPausedForUser', '/** Machine-readable promotional-cap');
     assert.ok(/catch \(e\) \{\s*return false;/.test(deny), 'helpers fail open');
 });
@@ -392,13 +396,17 @@ const MODAL = sliceBetween(INDEX, '<div class="deposit-modal" id="profitPauseMod
 test('6a. the pop-up exists and is fully localizable', () => {
     assert.strictEqual(INDEX.split('id="profitPauseModal"').length - 1, 1, 'exactly one pop-up');
     assert.ok(MODAL.includes('data-i18n="profitPause.title"'));
-    assert.ok(MODAL.includes('data-i18n="profitPause.body"'));
+    // The sentence is rendered by JS (it interpolates the server's threshold), so
+    // it must NOT be a data-i18n node - applyTranslations() would write the raw
+    // "{{amount}}" placeholder and clobber the figure.
+    assert.ok(!MODAL.includes('data-i18n="profitPause.body"'), 'body is JS-rendered, not static i18n');
+    assert.ok(MODAL.includes('id="profitPauseBody"'), 'body has the id the renderer targets');
     assert.ok(MODAL.includes('data-i18n="profitPause.addFunds"'));
     assert.ok(MODAL.includes('onclick="closeProfitPauseModal()"'));
     assert.ok(MODAL.includes('data-i18n="common.close"'));
 });
 
-test('6b. the pop-up reveals no amount, threshold or rule', () => {
+test('6b. the copy states the threshold only at runtime, never as literal text', () => {
     for (const lang of LANGS) {
         for (const key of ['profitPause.title', 'profitPause.body', 'profitPause.addFunds']) {
             const m = INDEX.match(new RegExp("'" + key.replace('.', '\\.') + "': '([^']*)'"));
@@ -410,11 +418,17 @@ test('6b. the pop-up reveals no amount, threshold or rule', () => {
     let n = 0;
     while ((m = re.exec(INDEX))) {
         n++;
-        assert.ok(!/\d/.test(m[2]), 'no digit may appear in the pop-up copy: ' + m[2]);
-        assert.ok(!/\$\s*400/.test(m[2]));
+        // The figure is interpolated ({{amount}}), so no locale may hard-code one:
+        // the prompt can never disagree with the enforced threshold.
+        assert.ok(!/\d/.test(m[2]), 'no hard-coded digit in the pop-up copy: ' + m[2]);
     }
     assert.strictEqual(n, 18, '18 pop-up values (3 keys x 6 locales)');
-    assert.ok(!/400/.test(MODAL), 'the pop-up must not disclose the threshold');
+    const body = INDEX.match(/'profitPause\.body': '([^']*)'/g) || [];
+    assert.strictEqual(body.length, 6);
+    for (const b of body) {
+        assert.ok(b.includes('{{amount}}'), 'the sentence interpolates the threshold');
+    }
+    assert.ok(!/\b400\b/.test(MODAL), 'no literal threshold in the markup either');
     assert.ok(!/profit.?pause/i.test(KNOWLEDGE), 'the support bot must not describe the rule');
     assert.ok(!INDEX.includes('BOT_PROFIT_PAUSE_USD'), 'the env var is server-side only');
 });
@@ -428,7 +442,8 @@ test('6c. the pop-up opens only when the server says so, at most once', () => {
         console: { warn() {}, log() {} },
     };
     vm.createContext(sandbox);
-    const src = ['openProfitPauseModal', 'closeProfitPauseModal', 'maybeShowProfitPauseModal']
+    const src = ['openProfitPauseModal', 'closeProfitPauseModal', 'maybeShowProfitPauseModal',
+        'renderProfitPauseBody', 'rememberProfitPauseThreshold']
         .map(extractFn)
         .join('\n');
     vm.runInContext(src + ';globalThis.__f = maybeShowProfitPauseModal;', sandbox);
@@ -467,11 +482,14 @@ test('6d. closing and "Add Funds" reuse the existing flow', () => {
 test('6e. the app reacts to the server signal at every trading entry point', () => {
     assert.ok(INDEX.includes("maybeShowProfitPauseModal(st);"),
         'wired into the worker-sync tick and on entry');
-    assert.ok(INDEX.includes('maybeShowProfitPauseModal({ profitPaused: true });'),
+    assert.ok(INDEX.includes('maybeShowProfitPauseModal({ profitPaused: true, profitPauseThreshold: errBody.profitPauseThreshold });'),
         'wired into the refused-trade path');
-    assert.ok(INDEX.includes("errBody.code === 'PROFIT_PAUSE_DEPOSIT_REQUIRED'"));
+    assert.ok(INDEX.includes('isProfitPausePayload(errBody)'),
+        'the refused trade branches on the shared machine-readable detector');
     assert.ok(INDEX.includes("st.profitPaused === true"),
-        'a refused bot start undoes the optimistic loop');
+        'a paused server session undoes the optimistic loop');
+    assert.ok(INDEX.includes('showProfitPauseStartBlocked(res.body)'),
+        'a refused start is handled before the bot can enter the running state');
     assert.ok(/profitPauseNoticeShown: false/.test(INDEX));
 });
 

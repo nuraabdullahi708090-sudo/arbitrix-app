@@ -128,8 +128,12 @@ test('the sync loop never calls /api/trade and never restarts the browser interv
     assert.ok(!/APP\.botInterval\s*=\s*setInterval/.test(region), 'must not restart the tab loop');
 });
 
-test('the loop is wired to start on startBot/adoptWorkerOwnership and stop on stopBot/logout', () => {
-    assert.ok(extractFunction('startBot').includes('startWorkerSyncLoop()'), 'startBot starts the sync loop');
+test('the loop is wired to start on a bot start and stop on stopBot/logout', () => {
+    // The running state (interval + sync loop) is entered through beginBotRun(),
+    // which BOTH startBot paths reach (demo immediately, live after the server
+    // verdict), so the wiring is unchanged in effect.
+    assert.ok(extractFunction('beginBotRun').includes('startWorkerSyncLoop()'), 'the running state starts the sync loop');
+    assert.ok(extractFunction('startBot').includes('beginBotRun();'), 'startBot enters the running state');
     assert.ok(extractFunction('adoptWorkerOwnership').includes('startWorkerSyncLoop()'), 'worker adoption starts the sync loop');
     assert.ok(extractFunction('stopBot').includes('stopWorkerSyncLoop()'), 'stopBot stops the sync loop');
     const logoutIdx = INDEX.indexOf("localStorage.removeItem('jwt_token')");

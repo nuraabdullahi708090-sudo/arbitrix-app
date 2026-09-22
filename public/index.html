@@ -7425,9 +7425,9 @@ function toggleFaq(btn) {
         <div style="width:72px;height:72px;background:rgba(240,185,11,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
             <i class="fas fa-gas-pump" style="font-size:30px;color:#F0B90B;"></i>
         </div>
-        <h3 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="profitPause.title">Keep your bot trading</h3>
-        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;" data-i18n="profitPause.body">Your bot has paused. Add funds to keep it trading.</p>
-        <button type="button" onclick="profitPauseDeposit()" class="btn btn-primary btn-block" data-i18n="profitPause.addFunds">Add Funds</button>
+        <h3 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="profitPause.title">Bot Trading Paused</h3>
+        <p id="profitPauseBody" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">Your account has reached the ${{amount}} profit-pause threshold. Make a new qualifying deposit to resume bot trading.</p>
+        <button type="button" onclick="profitPauseDeposit()" class="btn btn-primary btn-block" data-i18n="profitPause.addFunds">Deposit Funds</button>
         <button type="button" onclick="closeProfitPauseModal()" class="btn btn-secondary btn-block" style="margin-top:8px;" data-i18n="common.close">Close</button>
     </div>
 </div>
@@ -8342,9 +8342,9 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot started in Demo mode',
         'bot.startedLive': '✅ Bot started in Live mode',
         'bot.paused': '⏸️ Bot paused',
-        'profitPause.title': 'Keep your bot trading',
-        'profitPause.body': 'Your bot has paused. Add funds to keep it trading.',
-        'profitPause.addFunds': 'Add Funds',
+        'profitPause.title': 'Bot Trading Paused',
+        'profitPause.body': 'Your account has reached the ${{amount}} profit-pause threshold. Make a new qualifying deposit to resume bot trading.',
+        'profitPause.addFunds': 'Deposit Funds',
         'bot.promoLimitReached': 'You have reached the promotional trading limit. Make your first deposit to continue trading.',
         'bot.readyToTrade': '✅ Bot ready to trade',
         'bot.engineNotice': "🤖 Your bot runs automatically and keeps trading even when you're offline.",
@@ -9766,9 +9766,9 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot iniciado en modo demo',
         'bot.startedLive': '✅ Bot iniciado en modo Live',
         'bot.paused': '⏸️ Bot en pausa',
-        'profitPause.title': 'Mantén tu bot operando',
-        'profitPause.body': 'Tu bot se ha pausado. Añade fondos para que siga operando.',
-        'profitPause.addFunds': 'Añadir fondos',
+        'profitPause.title': 'Trading del bot en pausa',
+        'profitPause.body': 'Tu cuenta ha alcanzado el umbral de pausa de ${{amount}} en beneficios. Realiza un nuevo depósito válido para reanudar el trading del bot.',
+        'profitPause.addFunds': 'Depositar fondos',
         'bot.promoLimitReached': 'Has alcanzado el límite de trading promocional. Haz tu primer depósito para seguir operando.',
         'bot.readyToTrade': '✅ Bot listo para operar',
         'bot.engineNotice': "🤖 Tu bot se ejecuta automáticamente y sigue operando incluso cuando estás desconectado.",
@@ -11191,9 +11191,9 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot iniciado no modo demo',
         'bot.startedLive': '✅ Bot iniciado no modo Live',
         'bot.paused': '⏸️ Bot pausado',
-        'profitPause.title': 'Mantenha seu bot operando',
-        'profitPause.body': 'Seu bot foi pausado. Adicione fundos para que continue operando.',
-        'profitPause.addFunds': 'Adicionar fundos',
+        'profitPause.title': 'Trading do bot pausado',
+        'profitPause.body': 'Sua conta atingiu o limite de pausa de ${{amount}} em lucros. Faça um novo depósito qualificado para retomar o trading do bot.',
+        'profitPause.addFunds': 'Depositar fundos',
         'bot.promoLimitReached': 'Você atingiu o limite de trading promocional. Faça seu primeiro depósito para continuar operando.',
         'bot.readyToTrade': '✅ Bot pronto para operar',
         'bot.engineNotice': "🤖 Seu bot funciona automaticamente e continua operando mesmo quando você está offline.",
@@ -12616,9 +12616,9 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ Bot démarré en mode démo',
         'bot.startedLive': '✅ Bot démarré en mode live',
         'bot.paused': '⏸️ Bot en pause',
-        'profitPause.title': 'Gardez votre bot actif',
-        'profitPause.body': 'Votre bot est en pause. Ajoutez des fonds pour continuer à trader.',
-        'profitPause.addFunds': 'Ajouter des fonds',
+        'profitPause.title': 'Trading du bot en pause',
+        'profitPause.body': 'Votre compte a atteint le seuil de pause de ${{amount}} de bénéfices. Effectuez un nouveau dépôt qualifiant pour reprendre le trading du bot.',
+        'profitPause.addFunds': 'Déposer des fonds',
         'bot.promoLimitReached': 'Vous avez atteint la limite de trading promotionnel. Effectuez votre premier dépôt pour continuer à trader.',
         'bot.readyToTrade': '✅ Bot prêt à trader',
         'bot.engineNotice': "🤖 Votre bot fonctionne automatiquement et continue à trader même lorsque vous êtes hors ligne.",
@@ -14041,9 +14041,9 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ تم تشغيل الروبوت في الوضع التجريبي',
         'bot.startedLive': '✅ تم تشغيل الروبوت في الوضع المباشر',
         'bot.paused': '⏸️ تم إيقاف الروبوت مؤقتًا',
-        'profitPause.title': 'حافظ على تشغيل بوتك',
-        'profitPause.body': 'تم إيقاف بوتك مؤقتًا. أضف أموالًا ليستمر في التداول.',
-        'profitPause.addFunds': 'إضافة أموال',
+        'profitPause.title': 'تداول البوت متوقف مؤقتًا',
+        'profitPause.body': 'وصل حسابك إلى حد الإيقاف عند ${{amount}} من الأرباح. قم بإجراء إيداع مؤهل جديد لاستئناف تداول البوت.',
+        'profitPause.addFunds': 'إيداع أموال',
         'bot.promoLimitReached': 'لقد وصلت إلى حد التداول الترويجي. قم بإجراء أول إيداع لمواصلة التداول.',
         'bot.readyToTrade': '✅ الروبوت جاهز للتداول',
         'bot.engineNotice': "🤖 روبوتك يعمل تلقائيًا ويستمر في التداول حتى عندما تكون غير متصل.",
@@ -15466,9 +15466,9 @@ const TRANSLATIONS = {
         'bot.startedDemo': '✅ 机器人已在模拟模式启动',
         'bot.startedLive': '✅ 机器人已在实盘模式启动',
         'bot.paused': '⏸️ 机器人已暂停',
-        'profitPause.title': '让你的机器人继续交易',
-        'profitPause.body': '你的机器人已暂停。请充值以继续交易。',
-        'profitPause.addFunds': '充值',
+        'profitPause.title': '机器人交易已暂停',
+        'profitPause.body': '您的账户已达到 ${{amount}} 利润暂停阈值。请进行新的合格入金以恢复机器人交易。',
+        'profitPause.addFunds': '入金',
         'bot.promoLimitReached': '您已达到促销交易限额。请完成首笔入金以继续交易。',
         'bot.readyToTrade': '✅ 机器人可交易',
         'bot.engineNotice': "🤖 您的机器人会自动运行，即使您离线也会继续交易。",
@@ -16846,6 +16846,13 @@ function updateDynamicTranslations() {
         // Official support links + the payment-problem guidance are dynamic
         // (config-driven href / status-driven text), so re-apply them here.
         if (typeof updateSupportLinks === 'function') updateSupportLinks();
+        // The profit-pause prompt body is rendered by JS (it interpolates the
+        // server's threshold and is deliberately not a data-i18n node), so it is
+        // re-rendered here while the pop-up is open.
+        if (typeof renderProfitPauseBody === 'function') {
+            const ppm = document.getElementById('profitPauseModal');
+            if (ppm && ppm.classList.contains('open')) renderProfitPauseBody();
+        }
         if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
         // Re-apply status-specific KYC modal header on language switch. Guarded
         // with typeof because the function is declared in a LATER <script>
@@ -17192,6 +17199,9 @@ const APP = {
     // TEMPORARY management test: set once when the server reports the bot profit
     // pause, so the pop-up is shown at most once per page load.
     profitPauseNoticeShown: false,
+    // The threshold the SERVER enforces, adopted from its payload so the prompt
+    // states the real figure (never a hard-coded number).
+    profitPauseThreshold: null,
     // MARKETING_SANDBOX classification (server-authoritative; adopted from
     // /api/auth/me). Never editable client-side; only read/display state.
     environment: 'PRODUCTION', sandboxIntroDay: 1, sandboxBadgeHidden: false,
@@ -18824,11 +18834,12 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
                 // TEMPORARY management test: the account has reached the profit
                 // pause. The server has already stopped the session, so drop the
                 // tab loop (sending no /api/bot/stop), revert the optimistic
-                // trade and show the pop-up.
-                if (errBody && (errBody.code === 'PROFIT_PAUSE_DEPOSIT_REQUIRED' || errBody.profitPauseReached === true)) {
+                // trade and show the pop-up. Same machine-readable detection as
+                // the Start Bot path - one helper, so the two can never drift.
+                if (errBody && isProfitPausePayload(errBody)) {
                     rollback();
                     handleServerSessionEnded();
-                    maybeShowProfitPauseModal({ profitPaused: true });
+                    maybeShowProfitPauseModal({ profitPaused: true, profitPauseThreshold: errBody.profitPauseThreshold });
                     return;
                 }
                 if (errBody && errBody.code === 'PROMO_TRADING_LIMIT_REACHED') {
@@ -18924,8 +18935,15 @@ function syncBotSessionWithServer(action) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({ mode: APP.mode })
-        }).then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
-          .catch(function () { return null; });
+        }).then(function (r) {
+            // The body is returned for BOTH outcomes: a refusal carries the
+            // machine-readable reason the caller must branch on (profit pause),
+            // while success carries the session state. Resolves null only when
+            // the request itself failed (offline / network error).
+            return r.json().catch(function () { return null; }).then(function (body) {
+                return { ok: !!r.ok, status: r.status, body: body };
+            });
+        }).catch(function () { return null; });
     } catch (e) { return Promise.resolve(null); }
 }
 
@@ -19063,6 +19081,51 @@ function startBot() {
         showToast(t('bot.promoLimitReached'),'error', 6000);
         return;
     }
+    // DEMO (and the simulated sandbox session) has no server-side trading gate,
+    // so its immediate start is unchanged.
+    if (!(APP.mode === 'live' && APP.environment !== 'MARKETING_SANDBOX')) {
+        beginBotRun();
+        return;
+    }
+    // LIVE / PRODUCTION. The server is the authority on whether this account may
+    // trade (promotional cap, profit pause, emergency stop), so the start is
+    // REGISTERED AND VALIDATED BEFORE the running state is entered: a refused
+    // start must produce no success toast, no "Bot Started" history entry, no
+    // running loop and no retry. Any other outcome (offline, server error) falls
+    // through to the existing optimistic start, so every non-pause error keeps
+    // its previous handling.
+    syncBotSessionWithServer('start')
+        .then(function (res) {
+            if (res && isProfitPausePayload(res.body)) {
+                showProfitPauseStartBlocked(res.body);
+                return;
+            }
+            beginBotRun();
+            // BACKGROUND TRADING HANDOVER. If a server-side worker already owns
+            // this session, hand execution over: keep the bot shown as RUNNING (it
+            // really is - on the server), drop the tab loop so the two engines can
+            // never race, and tell the user the truth about closing the tab.
+            return fetchBotExecutionStatus().then(function (st) {
+                maybeShowProfitPauseModal(st);
+                if (st && st.profitPaused === true) {
+                    if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
+                    handleServerSessionEnded();
+                    return;
+                }
+                if (!st || !st.isRunning || st.executedBy !== 'worker') return;
+                adoptWorkerOwnership();
+                showToast(t('bot.workerManaged'), 'info', 6000);
+            });
+        })
+        .catch(function () {});
+}
+
+/**
+ * Enter the running state: the interval, the status/UI flip, the local history
+ * entry, the success toast and the sound. Exactly the previous startBot body, so
+ * demo and accepted live starts behave byte-for-byte as before.
+ */
+function beginBotRun() {
     if(APP.botInterval) clearInterval(APP.botInterval);
     APP.botRunning = true;
     APP.botInterval = setInterval(executeBotTrade, 8000);
@@ -19074,31 +19137,23 @@ function startBot() {
     updateUI();
     showToast(APP.mode==='demo' ? t('bot.startedDemo') : t('bot.startedLive'),'success');
     try { Sound.botStart(); } catch(e) {}
-    // BACKGROUND TRADING HANDOVER. Register the session server-side and, if a
-    // server-side worker already owns it, hand execution over: keep the bot shown
-    // as RUNNING (it really is - on the server), drop the tab loop so the two
-    // engines can never race, and tell the user the truth about closing the tab.
-    // Fully asynchronous and failure-tolerant: if the request fails the tab loop
-    // is all there is, which is exactly today's behaviour.
-    if (APP.mode === 'live' && APP.environment !== 'MARKETING_SANDBOX') {
-        syncBotSessionWithServer('start')
-            .then(function () { return fetchBotExecutionStatus(); })
-            .then(function (st) {
-                // TEMPORARY management test: the server refuses to start a paused
-                // session, so the optimistic local loop must be undone and the
-                // pop-up shown.
-                maybeShowProfitPauseModal(st);
-                if (st && st.profitPaused === true) {
-                    if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
-                    handleServerSessionEnded();
-                    return;
-                }
-                if (!st || !st.isRunning || st.executedBy !== 'worker') return;
-                adoptWorkerOwnership();
-                showToast(t('bot.workerManaged'), 'info', 6000);
-            })
-            .catch(function () {});
-    }
+}
+
+/**
+ * The server REFUSED this start because the account is profit-paused. Nothing
+ * may claim the bot started: no success toast, no "Bot Started" entry, no
+ * running loop, and no second start request. The user gets the deposit prompt
+ * instead (an explicit Start always shows it, even if the proactive pop-up was
+ * already dismissed).
+ */
+function showProfitPauseStartBlocked(body) {
+    if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
+    APP.botRunning = false;
+    stopWorkerSyncLoop();
+    rememberProfitPauseThreshold(body);
+    APP.profitPauseNoticeShown = true;
+    updateStatus(false);
+    openProfitPauseModal();
 }
 
 /**
@@ -20501,12 +20556,17 @@ function closeVerificationSandboxInfo() {
 
 // ==========================================================================
 // TEMPORARY (management test): BOT PROFIT PAUSE pop-up.
-// The SERVER is the only source of truth (`profitPaused` on /api/bot/status and
-// the PROFIT_PAUSE_DEPOSIT_REQUIRED code). Nothing here evaluates a profit
-// amount, and no threshold or rule text exists anywhere in the app copy. Shown
-// at most once per page load.
+// The SERVER is the only source of truth: `profitPaused` + `profitPauseThreshold`
+// on /api/bot/status, and the BOT_PROFIT_PAUSED code on a refused start/trade.
+// Nothing here evaluates a profit amount. The rule text exists ONLY in this
+// just-in-time prompt - never on the landing page, in the dashboard copy or in
+// the Telegram bot. The figure is interpolated from the server rather than
+// hard-coded, so the prompt cannot drift from the enforced threshold.
+// Proactive paths (status polling) show it at most once per page load; an
+// explicit Start Bot that the server refuses ALWAYS shows it.
 // ==========================================================================
 function openProfitPauseModal() {
+    renderProfitPauseBody();
     const el = document.getElementById('profitPauseModal');
     if (el) el.classList.add('open');
 }
@@ -20514,6 +20574,47 @@ function openProfitPauseModal() {
 function closeProfitPauseModal() {
     const el = document.getElementById('profitPauseModal');
     if (el) el.classList.remove('open');
+}
+
+/**
+ * Render the prompt sentence with the SERVER's threshold. The body is NOT a
+ * data-i18n node on purpose: applyTranslations() writes the raw key value, which
+ * would show the literal "{{amount}}" and clobber the figure (the same pitfall
+ * the 2FA expiry label had). Called when the pop-up opens and again on a language
+ * switch while it is open.
+ */
+function renderProfitPauseBody() {
+    const el = document.getElementById('profitPauseBody');
+    if (!el) return;
+    try {
+        const amount = APP.profitPauseThreshold;
+        const known = amount !== null && amount !== undefined && amount !== '' && Number.isFinite(Number(amount));
+        const txt = t('profitPause.body', known ? { amount: amount } : {});
+        // Defensive: never surface a raw placeholder if the server sent no figure.
+        el.textContent = known ? txt : txt.replace('{{amount}}', '').replace(/\s+/g, ' ').trim();
+    } catch (e) { /* display-only */ }
+}
+
+/** Adopt the server-enforced threshold from any payload that carries it. */
+function rememberProfitPauseThreshold(body) {
+    const raw = body ? body.profitPauseThreshold : undefined;
+    if (raw !== undefined && raw !== null && raw !== '' && Number.isFinite(Number(raw))) {
+        APP.profitPauseThreshold = Number(raw);
+    }
+}
+
+/**
+ * Is this a profit-pause payload from the server? MACHINE-READABLE ONLY: the
+ * stable error code, the legacy code it replaced, or the boolean the server has
+ * always sent alongside it. Never a human-readable message match, so upstream
+ * wording changes can never re-route this UX (and the promo $20 cap, which sends
+ * promoLimitReached/depositRequired but neither code, is never mistaken for it).
+ */
+function isProfitPausePayload(body) {
+    if (!body || typeof body !== 'object') return false;
+    return body.code === 'BOT_PROFIT_PAUSED'
+        || body.code === 'PROFIT_PAUSE_DEPOSIT_REQUIRED'
+        || body.profitPauseReached === true;
 }
 
 function profitPauseDeposit() {
@@ -20529,6 +20630,7 @@ function profitPauseDeposit() {
 function maybeShowProfitPauseModal(status) {
     try {
         if (!status || status.profitPaused !== true) return;
+        rememberProfitPauseThreshold(status);
         if (APP.profitPauseNoticeShown === true) return;
         APP.profitPauseNoticeShown = true;
         openProfitPauseModal();
