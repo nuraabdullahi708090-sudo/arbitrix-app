@@ -119,7 +119,7 @@ test('support modal contains the Telegram button, security warning, payment guid
     assert.ok(/id="supportNotConfigured"/.test(win), 'unconfigured notice');
 });
 
-const OFFICIAL_TELEGRAM_URL = 'https://t.me/Arbitrix_Official_Support';
+const OFFICIAL_TELEGRAM_URL = 'https://t.me/ArbitrixSupportBot';
 
 test('official Telegram URL is configured once via the meta tag (single source of truth)', () => {
     const fn = extractFunction('getOfficialSupportTelegramUrl');
