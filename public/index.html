@@ -19077,6 +19077,11 @@ function toggleBot() { APP.botRunning ? stopBot() : startBot(); }
 function setMode(mode) {
     const prevMode = APP.mode;
     APP.mode = mode;
+    // Persist the user's explicit mode choice per account so it survives a
+    // tab/browser close and a later login (restored in initApp). This stores
+    // ONLY the display mode - it never starts/stops a bot and never touches a
+    // server session.
+    setPersistedMode(mode);
     getEl('demoTab').classList.toggle('active', mode==='demo');
     getEl('liveTab').classList.toggle('active', mode==='live');
     if(APP.botRunning) stopBot();
@@ -19915,6 +19920,32 @@ function getOnboardingChoice(userId) {
 function setOnboardingChoice(userId, choice) {
     if (!userId) return;
     try { localStorage.setItem(onboardingKey(userId), choice); } catch (e) {}
+}
+
+// Per-account persisted Demo/Live mode choice. Follows the existing per-user
+// localStorage convention (arbi_onboarding_<userId>, arbi_starthere_<userId>).
+// Only the authenticated account's choice is stored, keyed by its id, so one
+// user's mode can never leak into another. Only 'demo'/'live' are ever written
+// or read; a corrupted/tampered value is treated as "no choice".
+function modePreferenceKey() {
+    const u = (typeof currentCachedUser === 'function') ? currentCachedUser() : null;
+    return (u && u.id) ? ('arbi_mode_' + String(u.id)) : null;
+}
+
+function getPersistedMode() {
+    const key = modePreferenceKey();
+    if (!key) return null;
+    try {
+        const v = localStorage.getItem(key);
+        return (v === 'demo' || v === 'live') ? v : null;
+    } catch (e) { return null; }
+}
+
+function setPersistedMode(mode) {
+    if (mode !== 'demo' && mode !== 'live') return;
+    const key = modePreferenceKey();
+    if (!key) return; // only an authenticated account's choice is persisted
+    try { localStorage.setItem(key, mode); } catch (e) {}
 }
 
 // True only when this account has never seen the onboarding screen and is a
@@ -21612,16 +21643,29 @@ async function initApp() {
     // duplicate points.
     anchorLiveChartToServerBalance();
 
-    // Live/demo mode initialization: for an authenticated user with a REAL
-    // funded account (authoritative: a confirmed deposit exists, reported by
-    // the server - NOT the old balance > 50 heuristic and NOT a stale localStorage
-    // flag), start the dashboard in LIVE mode. Genuinely unfunded/new accounts
-    // stay in DEMO. The user can still switch modes via the DEMO/LIVE tabs.
-    // Only auto-switch once, at init, so a user who deliberately picks DEMO is
-    // not yanked back during the same session.
-    if (syncResult.funded && APP.mode === 'demo') {
+    // Live/demo mode initialization. An EXPLICIT persisted per-account choice
+    // always wins and is restored first, regardless of funding, so:
+    //   * a promo-only user who chose Live returns to Live and
+    //     adoptServerBotState() below can then adopt an already-running worker
+    //     session; and
+    //   * a funded user who chose Demo is NOT forced back to Live.
+    // Only when there is NO stored choice does the existing funding-based
+    // default apply (funded -> LIVE, unfunded/new -> DEMO). Restoring a mode
+    // NEVER starts the bot: a session is only picked up when one already exists
+    // server-side (adopted below) or when the user explicitly presses Start.
+    const persistedMode = (typeof getPersistedMode === 'function') ? getPersistedMode() : null;
+    if (persistedMode === 'live') {
+        // Explicit Live choice (works for promo-only and funded alike).
+        if (APP.mode !== 'live') setMode('live');
+        else updateUI();
+    } else if (persistedMode === 'demo') {
+        // Explicit Demo choice: hasRealDeposit must NOT override it.
+        updateUI();
+    } else if (syncResult.funded && APP.mode === 'demo') {
+        // No stored choice: existing funded-user auto-Live behavior.
         setMode('live');
     } else {
+        // No stored choice and not funded: existing Demo default.
         // setMode() already calls updateUI(); otherwise render the authoritative
         // state that syncWalletFromServer just populated.
         updateUI();

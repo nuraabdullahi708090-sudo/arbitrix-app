@@ -159,6 +159,13 @@ function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', botRunning = 
 
     const src = [
         'let paymentPollingInterval = null; let countdownInterval = null; let currentInvoiceId = null; let currentCurrency = "USDT"; let currentNetwork = "TRC20";',
+        // setMode() persists the per-account Demo/Live choice; provide the same
+        // collaborators the app script block defines. No authenticated user in
+        // this sandbox, so nothing is stored (persistence is not under test here).
+        'function currentCachedUser(){ return null; }',
+        extractFunction('modePreferenceKey'),
+        extractFunction('getPersistedMode'),
+        extractFunction('setPersistedMode'),
         extractFunction('setMode'),
         extractFunction('updateDepositMinNotice'),
         extractFunction('refreshDepositModeNotice'),

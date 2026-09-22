@@ -5482,3 +5482,25 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - Branch fix/landing-authenticated-cta, rebased onto origin/main (89b713c, which
   now includes PR #142). PR #143 open. NOT merged, NOT deployed.
 
+
+## Phase 31 - Per-account Demo/Live Mode Persistence (promo-only Live sessions) (2026-09-22, public/index.html + tests)
+- Frontend-only. NO server.js / services / migrations / worker / promo-rule / deposit /
+  withdrawal / logout changes.
+- A promo-only user (no qualifying deposit, $50 promotional credit) returned in DEMO after
+  reopening the app, so adoptServerBotState() (gated on APP.mode === 'live') never
+  discovered the already-running server-side worker session. The worker itself does NOT
+  exclude promo sessions (proven by running the real engine against a promo-only session).
+- FIX: persist the user's explicit Demo/Live choice per account in arbi_mode_<userId>
+  (same convention as arbi_onboarding_<userId>), written only by setMode() and restored in
+  initApp(). The funding-based default (funded -> Live) is used ONLY when there is no stored
+  choice. Restoring a mode NEVER starts a bot; adoptServerBotState() then adopts an existing
+  running worker session.
+- Helpers: modePreferenceKey()/getPersistedMode()/setPersistedMode(); only 'demo'/'live' are
+  ever written or read; keyed by account id (no cross-user leakage; no 'anon' key).
+- Logout unchanged (still stops the server session; arbi_mode_<id> is NOT cleared). No
+  beforeunload/pagehide/visibilitychange/unload handler added.
+- Tests: NEW tests/mode_persistence.test.js (14) covering the 9 required scenarios +
+  worker/promo/deposit/logout guards. tests/deposit_demo_ux.test.js sandbox updated to
+  provide the new setMode collaborators only.
+- npm test = 1806 pass / 0 fail (baseline 1792 + 14).
+- NOT committed/deployed at the time of writing.
