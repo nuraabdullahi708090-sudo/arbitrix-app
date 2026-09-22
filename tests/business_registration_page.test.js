@@ -37,7 +37,9 @@ const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 
 const CERT_REL = '/certificates/kvk-business-registration-page-1.jpg';
 const CERT_PATH = path.join(ROOT, 'public', CERT_REL.replace(/^\//, ''));
-const CERT_SHA256 = 'dfe9dcf7174f39e6b4f843f6defec812370455b1a5a7735a36e01bd54bf0642d';
+// The published certificate is a byte-identical copy of the uploaded KVK
+// extract page 1 (refresh 2026-09-22: same document, cleaner capture).
+const CERT_SHA256 = '3497d5873c9837c1af30c1370763953dc8ea94291f470171048f9e7dce52243e';
 
 // Values extracted from the KVK Business Register extract (page 1).
 const LEGAL_NAME = 'Arbitrix Trading';

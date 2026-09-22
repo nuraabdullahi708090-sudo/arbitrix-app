@@ -5069,9 +5069,16 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   anywhere (the certificate IMAGE is published as-is on purpose, because the
   user supplied it for exactly that purpose).
 - CERTIFICATE: public/certificates/kvk-business-registration-page-1.jpg is a
-  BYTE-IDENTICAL copy of the uploaded image (sha256 dfe9dcf7...642d, pinned by
-  a test). The certificate itself is "Page 1 (of 2)"; only page 1 was uploaded,
-  so page 2 is NOT present and NOT invented - flagged to management.
+  BYTE-IDENTICAL copy of the uploaded image (sha256 3497d587...243e, pinned by
+  a test). REFRESHED 2026-09-22: the user uploaded a NEW capture of the SAME
+  document and asked to replace it; the previous pin was dfe9dcf7...642d
+  (797x1095), the replacement is 840x1097. Verified before replacing: same KVK
+  uittreksel page-1 layout, same printed values (Arbitrix Trading / KVK
+  72923513), same "Pagina 1 van 2" footer marker, and a matching text-line
+  structure (30 vs 32 line bands, same block grouping) - a cleaner capture of
+  the same page, not a different document. Neither file carries EXIF metadata.
+  The certificate itself is "Page 1 (of 2)"; only page 1 was uploaded, so page 2
+  is NOT present and NOT invented - flagged to management.
 - ROUTE: server.js registers app.get(['/business-registration',
   '/business-registration/']) -> sendFile(business-registration.html) right
   after /how-it-works and before the SPA fallback. The asset is served by the
