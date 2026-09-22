@@ -14,7 +14,9 @@
  *   - no unnecessary personal information transcribed from the certificate;
  *   - the Create Account / Sign In buttons reuse the EXISTING ?action= deep-link
  *     contract (no new authentication system);
- *   - the footer links to the page in all 6 locales.
+ *   - the page is UNLISTED: no public page links to it or to the certificate,
+ *     the page is noindex/nofollow, and it is handed out only by customer
+ *     support on request (the route must keep working for that).
  *
  * Static source checks only: no network, no database, no server boot.
  *
@@ -230,22 +232,66 @@ test('8. the page is mobile-first and matches the Arbitrix palette', () => {
 });
 
 /* ------------------------------------------------------------------ *
- * 9. Landing footer link + i18n parity
+ * 9. UNLISTED: nothing on the website may link to the page/certificate
  * ------------------------------------------------------------------ */
-test('9. the landing footer links to the page from the Legal column', () => {
-    assert.match(INDEX, /<a href="\/business-registration" data-i18n="landing\.footer\.businessRegistration">[\s\S]*?<\/a>/,
-        'the footer must link to /business-registration');
-    // Placed inside the Legal column next to the other legal links.
-    const legalIdx = INDEX.indexOf('data-i18n="landing.footer.legal"');
-    const linkIdx = INDEX.indexOf('href="/business-registration"');
-    assert.ok(legalIdx >= 0 && linkIdx > legalIdx, 'the link must follow the Legal heading');
+// The page and the certificate are NOT advertised anywhere on the site. They
+// are handed out only by customer support when a customer asks for the
+// registration document, so every public page (and the app shell) must stay
+// free of any reference to them.
+const PUBLIC_PAGES = ['index.html', 'how-it-works.html', 'privacy-policy.html', 'terms-of-service.html', 'reset-password.html'];
+
+test('9. no public page links to the registration page or the certificate', () => {
+    PUBLIC_PAGES.forEach((file) => {
+        const html = fs.readFileSync(path.join(ROOT, 'public', file), 'utf8');
+        assert.ok(!html.includes('business-registration'),
+            file + ' must not reference /business-registration (the page is unlisted)');
+        assert.ok(!html.includes('certificates/'),
+            file + ' must not reference the certificate asset');
+    });
 });
 
-test('9b. the new i18n key exists in all six locales with no empty value', () => {
+test('9b. the landing footer no longer advertises the registration page', () => {
+    assert.ok(!INDEX.includes('businessRegistration'), 'the footer key must be gone (no dead key)');
+    const legalIdx = INDEX.indexOf('data-i18n="landing.footer.legal"');
+    assert.ok(legalIdx >= 0, 'the Legal column must still exist');
+    // Legal column keeps only the Privacy Policy / Terms links.
+    const column = INDEX.slice(legalIdx, legalIdx + 1200);
+    assert.ok(!column.includes('business-registration'), 'the Legal column must not link to the page');
+});
+
+test('9c. the i18n key was removed from all six locales (no dead key)', () => {
     assert.strictEqual(new Set(LANGS.map((l) => Object.keys(T[l]).sort().join('|'))).size, 1, 'identical key sets');
     LANGS.forEach((l) => {
-        const value = T[l]['landing.footer.businessRegistration'];
-        assert.ok(value && String(value).trim(), l + ' is missing landing.footer.businessRegistration');
+        assert.ok(!Object.prototype.hasOwnProperty.call(T[l], 'landing.footer.businessRegistration'),
+            l + ' must not define landing.footer.businessRegistration any more');
     });
-    assert.strictEqual(T.en['landing.footer.businessRegistration'], 'Business Registration');
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1401, l + ' must have 1401 keys'));
+});
+
+/* ------------------------------------------------------------------ *
+ * 9d. ...but the page stays reachable for support to hand over
+ * ------------------------------------------------------------------ */
+test('9d. the unlisted page is not indexable and is still served on request', () => {
+    assert.match(PAGE, /<meta name="robots" content="noindex,\s*nofollow">/,
+        'the page must not be indexable by search engines');
+    assert.match(PAGE, /<meta name="googlebot" content="noindex,\s*nofollow">/);
+    // The route must survive so support can send the link.
+    assert.match(SERVER, /app\.get\(\[[^\]]*'\/business-registration'/,
+        '/business-registration must still be routed for support hand-offs');
+});
+
+test('9e. the certificate asset is referenced ONLY by the unlisted page', () => {
+    const refs = [];
+    const walk = (dir) => {
+        fs.readdirSync(dir, { withFileTypes: true }).forEach((e) => {
+            const full = path.join(dir, e.name);
+            if (e.isDirectory()) return walk(full);
+            if (!/\.(html|js|json)$/.test(e.name)) return;
+            const txt = fs.readFileSync(full, 'utf8');
+            if (txt.includes('certificates/') || txt.includes('business-registration')) refs.push(path.relative(ROOT, full));
+        });
+    };
+    walk(path.join(ROOT, 'public'));
+    assert.deepStrictEqual(refs.sort(), ['public/business-registration.html'],
+        'only the page itself may reference the page/certificate');
 });
