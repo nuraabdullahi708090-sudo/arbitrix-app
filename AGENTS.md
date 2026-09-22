@@ -5043,6 +5043,75 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   comes back unchanged -> 'echo'), the notice still reports the translation as
   unavailable while showing the original - by design.
 
+
+## Business Registration Page (KVK trust page) - 2026-09-22 (branch feat/business-registration-page, NOT merged)
+- Adds a dedicated, static Arbitrix business-registration / trust page at
+  /business-registration plus a landing-footer link and an approved Telegram
+  support answer. Frontend/content only: NO changes to auth, wallet, trading,
+  deposits, withdrawals, KYC, referrals, subscriptions, payments/providers,
+  webhooks, the marketing sandbox, or any customer-facing response behaviour.
+- PAGE public/business-registration.html (standalone, English-only like
+  how-it-works.html): logo, prominent top [Create Account] [Sign In] buttons,
+  exact legal name + KVK number, the certificate image (click to open a
+  full-size scrollable viewer; also Open Full Size + Download), a repeated CTA
+  row, and footer links. Mobile-first; no external anchors; no forms; no API
+  calls; no bespoke auth (reuses the existing ?action=create-account /
+  ?action=sign-in deep-link contract and sets arbi_auth_entry like the other
+  marketing pages, only when the user clicks through).
+- FACTS (from the uploaded KVK Business Register extract, page 1; OCR
+  cross-checked with several passes - nothing invented): legal name /
+  name in articles / trade name "Arbitrix Trading"; KVK number 72923513;
+  legal form Eenmanszaak; corporate seat Assen; first entry 31-01-2011; deed
+  31-01-2011; company start 30-01-2011; establishment number 000021127493;
+  visiting address Leenewald 144, 9407 GE Assen; phone; activity SBI 74279.
+  ONLY the legal name + KVK number are published; the address, phone,
+  establishment number, capital and activity are deliberately NOT transcribed
+  anywhere (the certificate IMAGE is published as-is on purpose, because the
+  user supplied it for exactly that purpose).
+- CERTIFICATE: public/certificates/kvk-business-registration-page-1.jpg is a
+  BYTE-IDENTICAL copy of the uploaded image (sha256 3497d587...243e, pinned by
+  a test). REFRESHED 2026-09-22: the user uploaded a NEW capture of the SAME
+  document and asked to replace it; the previous pin was dfe9dcf7...642d
+  (797x1095), the replacement is 840x1097. Verified before replacing: same KVK
+  uittreksel page-1 layout, same printed values (Arbitrix Trading / KVK
+  72923513), same "Pagina 1 van 2" footer marker, and a matching text-line
+  structure (30 vs 32 line bands, same block grouping) - a cleaner capture of
+  the same page, not a different document. Neither file carries EXIF metadata.
+  The certificate itself is "Page 1 (of 2)"; only page 1 was uploaded, so page 2
+  is NOT present and NOT invented - flagged to management.
+- ROUTE: server.js registers app.get(['/business-registration',
+  '/business-registration/']) -> sendFile(business-registration.html) right
+  after /how-it-works and before the SPA fallback. The asset is served by the
+  existing express.static(public).
+- FOOTER: public/index.html Legal column gets
+  <a href="/business-registration" data-i18n="landing.footer.businessRegistration">.
+  New i18n key in all 6 locales (en Business Registration / es Registro
+  mercantil / pt Registro empresarial / fr Registre du commerce / ar
+  as-sijil at-tijari / zh shangye dengji). Dictionary 1401 -> 1402 keys/locale
+  (11 existing pins updated; landing_testimonials BASE_OUTSIDE 1375 -> 1376).
+- TELEGRAM KB: services/support/arbitrix-knowledge.json gains ONE English
+  canonical entry (category business_registration, id business_registration.kvk,
+  kind info) whose answer states the exact legal name + KVK number and points to
+  https://arbitrix.pro/business-registration. NO pt/ar duplicate entries and NO
+  certificate image in the KB: pt/ar customers receive it through the EXISTING
+  translation layer (fidelity guard keeps the number + URL). Existing retrieval
+  is unchanged (verified for every existing canonical question + a curated list;
+  pinned by tests). KB entry count pin 38 -> 39.
+- SCOPE GUARDS pinned by tests: never called a licence/financial
+  licence/regulatory authorization; no CAC/Nigeria reference; no "how to verify"
+  instructions and no external (kvk.nl) verification links; no phone/address/
+  tax/bank identifiers; no government-looking wording; the Create Account / Sign
+  In buttons reuse the existing auth contract; existing Telegram answers are not
+  hijacked.
+- TESTS: NEW tests/business_registration_page.test.js and
+  tests/support_business_registration.test.js (30 tests). Deliberately do NOT
+  depend on the unmerged PR #134 notification-status field, so this branch is
+  independent of it. Full suite on this branch: 1713 pass / 0 fail (main
+  baseline 1683). Browser check (chromium, local static server): 51/53 with the
+  2 "failures" being HTTP 304 cache hits - page renders at 320/390/1280 with the
+  certificate loaded, no horizontal overflow, lightbox opens full-size and
+  Escape closes, footer link localizes to es/ar (RTL).
+- NOT committed/pushed/deployed at the time of writing (branch + PR only).
 ## Telegram admin-notification BOT RESPONSE STATUS (2026-09, NOT deployed)
 - A private-admin notification now leads with what the bot ACTUALLY did, so an
   operator can tell at a glance whether anyone needs to act:

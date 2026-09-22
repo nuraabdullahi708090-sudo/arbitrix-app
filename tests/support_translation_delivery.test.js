@@ -785,5 +785,7 @@ test('the English knowledge base is still the single source: no translated answe
   assert.ok(!/[áàâãéêíóôõúç]/i.test(raw), 'no Portuguese answer text in the knowledge base');
   assert.ok(!/[\u0600-\u06FF]/.test(raw), 'no Arabic answer text in the knowledge base');
   assert.strictEqual(KB.categories.length > 0, true);
-  assert.strictEqual(KB.categories.reduce((n, c) => n + c.entries.length, 0), 38);
+  // 39 entries: the 38 approved answers plus the business-registration entry
+  // (English canonical only - pt/ar customers receive it through translation).
+  assert.strictEqual(KB.categories.reduce((n, c) => n + c.entries.length, 0), 39);
 });

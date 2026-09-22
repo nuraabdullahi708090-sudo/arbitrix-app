@@ -167,7 +167,7 @@ test('renderBadges still populates the moved panel (functional)', () => {
 test('i18n is unchanged (no new keys, all locales intact)', () => {
     const T = loadTranslations();
     const keys = Object.keys(T.en);
-    assert.strictEqual(keys.length, 1401, 'dictionary size must match the current baseline');
+    assert.strictEqual(keys.length, 1402, 'dictionary size must match the current baseline');
     for (const lang of LANGS) {
         assert.deepStrictEqual(Object.keys(T[lang]).sort(), keys.slice().sort(), lang + ' key set must match EN');
         for (const k of ['achievements.title', 'achievements.unlocked', 'achievements.startTrading', 'achievements.allUnlocked', 'achievements.next']) {
