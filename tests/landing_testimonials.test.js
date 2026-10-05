@@ -21,10 +21,10 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1404;
-// 1404 keys/locale now = 1378 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1470;
+// 1470 keys/locale now = 1444 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1378;
+const BASE_OUTSIDE_TESTIMONIALS = 1444;
 
 function loadTranslations() {
     const tIdx = INDEX.indexOf('const TRANSLATIONS');
@@ -44,8 +44,11 @@ function loadTranslations() {
 const T = loadTranslations();
 const SECTION = (() => {
     const start = INDEX.indexOf('<!-- TESTIMONIALS -->');
-    const end = INDEX.indexOf('<!-- FAQ -->');
-    assert.ok(start > 0 && end > start, 'the testimonials section must sit before the FAQ');
+    // End at the next section boundary (the Referral Partner section now sits
+    // between Testimonials and the FAQ); the slice must stay the testimonials
+    // markup only.
+    const end = INDEX.indexOf('<!-- Referral Partner Section -->');
+    assert.ok(start > 0 && end > start, 'the testimonials section must sit before the referral partner section');
     return INDEX.slice(start, end);
 })();
 

@@ -81,11 +81,16 @@ test('1. first-paint defaults: landing visible, auth + dashboard hidden', () => 
 // ---------------------------------------------------------------------------
 // 2. Landing actions
 // ---------------------------------------------------------------------------
-test('2a. landing exposes Create Account + Sign In actions in nav, mobile menu, hero and final CTA', () => {
+test('2a. landing exposes Create Account actions in nav, mobile menu, hero and final CTA', () => {
     assert.ok((INDEX.match(/openAuthScreen\('signup'\)/g) || []).length >= 4,
         'Create Account action must appear in the nav, mobile menu, hero and final CTA');
-    assert.ok((INDEX.match(/openAuthScreen\('signin'\)/g) || []).length >= 4,
-        'Sign In action must appear in the nav, mobile menu, hero and final CTA');
+    // Sign In stays in the navigation (desktop + mobile) and the final CTA, but the
+    // hero no longer carries a competing Sign In action (management direction).
+    assert.ok((INDEX.match(/openAuthScreen\('signin'\)/g) || []).length >= 3,
+        'Sign In action must remain in the nav, mobile menu and final CTA');
+    const heroStart = INDEX.indexOf('class="landing-hero-cta"');
+    const hero = INDEX.slice(heroStart, INDEX.indexOf('class="landing-hero-trust"', heroStart));
+    assert.ok(!hero.includes("openAuthScreen('signin')"), 'hero must not carry a Sign In CTA');
 });
 
 test('2b. landing actions reuse existing i18n keys (no new/raw keys)', () => {
@@ -255,10 +260,10 @@ test('5b. server.js untouched: no /login or /signup routes, "/" still serves ind
         'root still serves index.html');
 });
 
-test('5c. i18n dictionary size is pinned (1404 keys/locale)', () => {
+test('5c. i18n dictionary size is pinned (1470 keys/locale)', () => {
     LANGS.forEach((l) => {
         assert.ok(T[l], 'locale ' + l + ' must exist');
-        assert.strictEqual(Object.keys(T[l]).length, 1404, l + ' must still have 1404 keys');
+        assert.strictEqual(Object.keys(T[l]).length, 1470, l + ' must still have 1470 keys');
     });
 });
 

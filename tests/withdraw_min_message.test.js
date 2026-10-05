@@ -183,13 +183,18 @@ test('thresholds: internal $700 minimum front and back; the MTA is gone', () => 
     assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'no server MTA remains');
 });
 
-test('the minimum-withdrawal copy is correct', () => {
+test('the minimum-withdrawal copy is neutral (no amount disclosed)', () => {
     [
-        ['withdraw.minWithdrawal', 'Minimum withdrawal is ${{min}}. Current: ${{current}}'],
-        ['withdraw.minAmount', 'Minimum withdrawal is $700'],
-        ['live.withdrawStatus.needMinimum', '\u{1F4C8} Reach the ${{min}} minimum to withdraw'],
-    ].forEach(([k, v]) => assert.strictEqual(T.en[k], v, k + ' must keep its wording'));
+        ['withdraw.minWithdrawal', 'Withdrawal requirements apply. Current: ${{current}}'],
+        ['withdraw.minAmount', 'Withdrawal requirements apply.'],
+        ['live.withdrawStatus.needMinimum', '\u{1F4C8} Withdrawal requirements apply'],
+    ].forEach(([k, v]) => assert.strictEqual(T.en[k], v, k + ' must keep its neutral wording'));
     assert.strictEqual(T.en['withdraw.min700'], undefined, 'the obsolete $700 key is removed');
+    LANGS.forEach((l) => {
+        assert.ok(!/\$700/.test(T[l]['withdraw.minAmount']), l + ' minAmount must not disclose $700');
+        assert.ok(!/\$700/.test(T[l]['withdraw.minWithdrawal']), l + ' minWithdrawal must not disclose $700');
+        assert.ok(!/\$700/.test(T[l]['live.withdrawStatus.needMinimum']), l + ' needMinimum must not disclose $700');
+    });
 });
 
 test('the neutral sidebar prompt quotes no threshold and needs no interpolation', () => {
@@ -207,7 +212,7 @@ test('the neutral sidebar prompt quotes no threshold and needs no interpolation'
  * ------------------------------------------------------------------ */
 test('the neutral key is localized in all 6 locales (no interpolation needed)', () => {
     assert.strictEqual(new Set(LANGS.map((l) => Object.keys(T[l]).sort().join('|'))).size, 1, 'identical key sets');
-    assert.strictEqual(Object.keys(T.en).length, 1404, 'dictionary size pinned');
+    assert.strictEqual(Object.keys(T.en).length, 1470, 'dictionary size pinned');
     assert.strictEqual(T.en[NEUTRAL_KEY], '\u{1F4C8} Keep trading to grow your eligible balance');
     LANGS.forEach((l) => {
         assert.ok(typeof T[l][NEUTRAL_KEY] === 'string' && T[l][NEUTRAL_KEY].trim(), l + ' must define the key');

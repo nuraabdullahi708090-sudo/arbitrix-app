@@ -40,7 +40,7 @@ function route(a, b) {
 
 const REGISTER = route("app.post('/api/auth/register'", "app.post('/api/auth/login'");
 const DEPOSIT_REQ = route("app.post('/api/deposit/request'", "app.get('/api/deposit/status");
-const SIMULATE = route("app.post('/api/referral/simulate'", "// ============================================================\n// EMAIL 2FA");
+const SIMULATE = route("app.post('/api/referral/simulate'", "\n// ============================================================\n// REFERRAL PARTNER PROGRAM");
 const CONVERT = route("app.post('/api/referral/earnings/convert'", "app.get('/api/referral/detailed'");
 const WITHDRAW = route("app.post('/api/withdraw/request'", "app.get('/api/withdraw/history'");
 

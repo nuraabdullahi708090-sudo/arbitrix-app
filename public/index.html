@@ -1959,6 +1959,84 @@
         .landing-hero-trust i {
             color: var(--gold);
         }
+
+        /* Landing conversion additions: hero promo pill, 3-step strip, explainer video */
+        .landing-hero-promo {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 14px auto 0;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: var(--brand-weak);
+            border: 1px solid var(--brand-border);
+            color: var(--gold);
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+        }
+        .landing-startfree-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .landing-startfree-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 20px 18px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            min-width: 0;
+        }
+        .landing-startfree-num {
+            flex: 0 0 auto;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--brand-weak);
+            border: 1px solid var(--brand-border);
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+        }
+        .landing-startfree-step h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 6px;
+            overflow-wrap: anywhere;
+        }
+        .landing-startfree-step p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+        .landing-video-wrap {
+            max-width: 880px;
+            margin: 0 auto;
+        }
+        .landing-video {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            background: #000;
+        }
+        @media (max-width: 760px) {
+            .landing-startfree-grid { grid-template-columns: 1fr; }
+        }
         @media (max-width: 480px) {
             .landing-hero { padding: 84px 0 44px; min-height: auto; }
             .landing-hero-cta { flex-direction: column; }
@@ -2272,6 +2350,56 @@
         }
         .landing-testimonials-note {
             margin-top: 28px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            overflow-wrap: anywhere;
+        }
+
+        /* Referral Partner Section */
+        .landing-partner {
+            padding: 100px 0;
+            background: rgba(240, 185, 11, 0.02);
+        }
+        .landing-partner-flow {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .landing-partner-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+            min-width: 0;
+        }
+        .landing-partner-num {
+            width: 34px;
+            height: 34px;
+            margin: 0 auto 12px;
+            border-radius: 50%;
+            background: var(--gold-dim);
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+        }
+        .landing-partner-step p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+            margin: 0;
+        }
+        .landing-partner-actions {
+            text-align: center;
+        }
+        .landing-partner-disclosure {
+            margin-top: 20px;
             text-align: center;
             font-size: 12px;
             color: var(--text-muted);
@@ -2893,6 +3021,28 @@
         .pending-ref-list{max-height:120px;overflow-y:auto;margin-top:8px;}
         .pending-ref-empty{font-size:10px;color:var(--text-secondary);background:#141C2E;border:1px solid var(--border-color);border-radius:8px;padding:10px;overflow-wrap:anywhere;}
         .pending-ref-a11y{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+        /* Referral Partner dashboard + manual payout workflow */
+        .ref-partner-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+        .ref-partner-stat{background:var(--bg-input);border:1px solid var(--border-color);border-radius:8px;padding:10px;text-align:center;min-width:0;}
+        .ref-partner-value{font-size:15px;font-weight:800;color:#F0B90B;overflow-wrap:anywhere;}
+        .ref-partner-label{font-size:9px;color:var(--text-secondary);overflow-wrap:anywhere;}
+        .ref-payout-item{background:#141C2E;border:1px solid var(--border-color);border-radius:8px;padding:10px;margin-bottom:6px;font-size:10px;color:var(--text-secondary);overflow-wrap:anywhere;}
+        .ref-payout-row{display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0;}
+        .ref-payout-amount{font-weight:700;color:#fff;}
+        .ref-payout-status{font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;white-space:normal;}
+        .ref-payout-status.pending{background:rgba(240,185,11,0.12);color:#F0B90B;}
+        .ref-payout-status.review{background:rgba(59,130,246,0.15);color:#60A5FA;}
+        .ref-payout-status.paid{background:rgba(16,185,129,0.12);color:#10B981;}
+        .ref-payout-status.rejected{background:rgba(239,68,68,0.12);color:#EF4444;}
+        .ref-partner-section-title{font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;margin:12px 0 6px;}
+        /* Referral Partner responsive flow (kept last so it cannot shadow the
+           earlier landing media queries used by other sections). */
+        @media (max-width: 768px) {
+            .landing-partner-flow { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 420px) {
+            .landing-partner-flow { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -4746,7 +4896,7 @@ function openAuthScreen(mode) {
 //
 // Logged out: Create Account + Sign In visible, greeting hidden.
 // Logged in : Create Account + Sign In hidden, greeting shown. Launch App and
-//             the demo CTAs ("Try Demo Mode") are never touched.
+//             the demo CTAs are never touched.
 function updateLandingAuthUI(authenticated) {
     const authed = authenticated === true;
     document.querySelectorAll('.js-landing-auth-cta').forEach(function (btn) {
@@ -4864,28 +5014,58 @@ console.log('🔐 Auth script loaded successfully');
                     <span data-i18n="landing.hero.badge">Automated arbitrage trading platform</span>
                 </div>
                 <h1 class="landing-hero-title" data-i18n="landing.hero.title">
-                    Automated Arbitrage.<br>
-                    <span class="landing-gradient-text">Made Simple.</span>
+                    Automated Arbitrage<br>
+                    <span class="landing-gradient-text">Across Multiple Markets</span>
                 </h1>
                 <p class="landing-hero-subtitle" data-i18n="landing.hero.subtitle">
                     Arbitrix monitors supported markets for qualifying price discrepancies and automates eligible arbitrage trades.
                 </p>
                 <div class="landing-hero-cta">
                     <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary landing-hero-btn js-landing-auth-cta">
-                        <i class="fas fa-user-plus"></i> <span data-i18n="auth.tab.signup">Create Account</span>
-                    </button>
-                    <button type="button" onclick="openAuthScreen('signin')" class="btn btn-secondary landing-hero-btn-secondary js-landing-auth-cta">
-                        <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.tab.signin">Sign In</span>
-                    </button>
-                    <button type="button" onclick="goToApp('hero_demo')" class="btn btn-secondary landing-hero-btn-secondary">
-                        <i class="fas fa-play-circle"></i> <span data-i18n="landing.hero.ctaPrimary">Try Demo Mode</span>
+                        <i class="fas fa-gift"></i> <span data-i18n="landing.hero.ctaPrimary">Start Free — Get $50 Credit</span>
                     </button>
                     <button type="button" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'});trackLandingEvent('hero_cta_click',{cta:'how_it_works'})" class="btn btn-secondary landing-hero-btn-secondary">
                         <i class="fas fa-circle-info"></i> <span data-i18n="landing.hero.ctaSecondary">See How It Works</span>
                     </button>
                 </div>
+                <div class="landing-hero-promo">
+                    <i class="fas fa-gift"></i><span data-i18n="landing.hero.promo">Eligible new users can start with a $50 promotional trading credit.</span>
+                </div>
                 <div class="landing-hero-trust" data-i18n="landing.hero.trustLine">
                     Demo → Live → 14 Days → $7/month
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Start Free in 3 Steps -->
+    <section class="landing-section landing-startfree" id="start-free">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag" data-i18n="landing.startFree.tag">Get Started</span>
+                <h2 class="landing-section-title" data-i18n="landing.startFree.title">START FREE IN 3 STEPS</h2>
+            </div>
+            <div class="landing-startfree-grid">
+                <div class="landing-startfree-step">
+                    <div class="landing-startfree-num">1</div>
+                    <div>
+                        <h3 data-i18n="landing.startFree.step1.title">Create Your Account</h3>
+                        <p data-i18n="landing.startFree.step1.desc">Create a free Arbitrix account.</p>
+                    </div>
+                </div>
+                <div class="landing-startfree-step">
+                    <div class="landing-startfree-num">2</div>
+                    <div>
+                        <h3 data-i18n="landing.startFree.step2.title">Explore Demo + Promotional Experience</h3>
+                        <p data-i18n="landing.startFree.step2.desc">Explore Demo Mode and, where eligible, access the $50 promotional trading credit.</p>
+                    </div>
+                </div>
+                <div class="landing-startfree-step">
+                    <div class="landing-startfree-num">3</div>
+                    <div>
+                        <h3 data-i18n="landing.startFree.step3.title">Fund Your Account When Ready</h3>
+                        <p data-i18n="landing.startFree.step3.desc">When ready for live trading, fund your account and continue using Arbitrix.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4959,7 +5139,7 @@ console.log('🔐 Auth script loaded successfully');
             <p class="landing-prose-center" data-i18n="landing.compare.note">Demo uses the same live market data as a Live account — results on Demo match a Live account, but Demo performance does not guarantee Live performance.</p>
             <div class="landing-cta-inline">
                 <button type="button" onclick="goToApp('demo_cta')" class="btn btn-primary landing-hero-btn">
-                    <i class="fas fa-play-circle"></i> <span data-i18n="landing.demo.cta">Try Demo Mode</span>
+                    <i class="fas fa-play-circle"></i> <span data-i18n="landing.demo.cta">Explore Demo — Create Free Account</span>
                 </button>
             </div>
         </div>
@@ -4984,6 +5164,23 @@ console.log('🔐 Auth script loaded successfully');
                     <h3 data-i18n="landing.intro.capital.title">Then $7/month to continue</h3>
                     <p data-i18n="landing.intro.capital.desc">After the 14-day period, a simple $7/month subscription keeps the platform running. Your trading capital stays separate and always yours.</p>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Explainer Video -->
+    <section class="landing-section landing-video-section" id="explainer">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag" data-i18n="landing.video.tag">Explainer</span>
+                <h2 class="landing-section-title" data-i18n="landing.video.title">See Arbitrix in Action</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.video.subtitle">A short overview of how Arbitrix automates eligible arbitrage.</p>
+            </div>
+            <div class="landing-video-wrap">
+                <video class="landing-video" controls preload="metadata" playsinline poster="/video/arbitrix-poster.jpg">
+                    <source src="/video/arbitrix-explainer.mp4" type="video/mp4">
+                    <span data-i18n="landing.video.fallback">Your browser does not support the video tag.</span>
+                </video>
             </div>
         </div>
     </section>
@@ -5202,6 +5399,30 @@ console.log('🔐 Auth script loaded successfully');
         </div>
     </section>
 
+    <!-- Referral Partner Section -->
+    <section class="landing-section landing-partner" id="referral-partner">
+        <div class="landing-container">
+            <div class="landing-section-header">
+                <span class="landing-section-tag" data-i18n="landing.partner.tag">Partner Program</span>
+                <h2 class="landing-section-title" data-i18n="landing.partner.title">Become an Arbitrix Referral Partner</h2>
+                <p class="landing-section-subtitle" data-i18n="landing.partner.subtitle">Introduce new users to Arbitrix and earn a 20% referral reward on their first qualifying deposit of $100 or more.</p>
+            </div>
+            <div class="landing-partner-flow">
+                <div class="landing-partner-step"><div class="landing-partner-num">1</div><p data-i18n="landing.partner.step1">Share your link</p></div>
+                <div class="landing-partner-step"><div class="landing-partner-num">2</div><p data-i18n="landing.partner.step2">User registers</p></div>
+                <div class="landing-partner-step"><div class="landing-partner-num">3</div><p data-i18n="landing.partner.step3">User makes a qualifying deposit</p></div>
+                <div class="landing-partner-step"><div class="landing-partner-num">4</div><p data-i18n="landing.partner.step4">Reward appears in your dashboard</p></div>
+                <div class="landing-partner-step"><div class="landing-partner-num">5</div><p data-i18n="landing.partner.step5">Request payout</p></div>
+            </div>
+            <div class="landing-partner-actions">
+                <button type="button" onclick="openAuthScreen('signup')" class="btn btn-primary js-landing-auth-cta">
+                    <i class="fas fa-handshake"></i> <span data-i18n="landing.partner.cta">Become a Referral Partner</span>
+                </button>
+            </div>
+            <p class="landing-partner-disclosure" data-i18n="landing.partner.disclosure">Self-referrals, duplicate accounts, fraudulent activity, and misleading promotion are not eligible for referral rewards.</p>
+        </div>
+    </section>
+
     <!-- FAQ -->
     <section class="landing-section landing-faq" id="faq">
         <div class="landing-container">
@@ -5282,7 +5503,7 @@ console.log('🔐 Auth script loaded successfully');
                         <i class="fas fa-sign-in-alt"></i> <span data-i18n="auth.tab.signin">Sign In</span>
                     </button>
                     <button type="button" onclick="goToApp('final_cta')" class="btn btn-secondary landing-cta-final-btn">
-                        <i class="fas fa-play-circle"></i> <span data-i18n="landing.cta.button">Try Demo Mode</span>
+                        <i class="fas fa-play-circle"></i> <span data-i18n="landing.cta.button">Explore Demo — Create Free Account</span>
                     </button>
                 </div>
                 <span class="landing-cta-note" data-i18n="landing.cta.note">No card required to create an account • 14 days of free Live trading included</span>
@@ -6436,6 +6657,7 @@ function toggleFaq(btn) {
                         <div style="margin-bottom:12px;border-bottom:1px solid var(--border);display:flex;gap:0;">
                             <button type="button" class="ref-sub-tab active" onclick="showReferralSubTab('config')" id="refSubTabConfig" data-i18n="admin.referral.configTab">Configuration</button>
                             <button type="button" class="ref-sub-tab" onclick="showReferralSubTab('history')" id="refSubTabHistory" data-i18n="admin.referral.auditHistoryTab">Audit History</button>
+                            <button type="button" class="ref-sub-tab" onclick="showReferralSubTab('payouts')" id="refSubTabPayouts" data-i18n="admin.referral.payoutsTab">Payouts</button>
                         </div>
 
                         <!-- Referral Configuration Sub-tab -->
@@ -6496,6 +6718,47 @@ function toggleFaq(btn) {
                             <div id="auditEmptyState" class="hidden" style="text-align:center;padding:40px;color:var(--text-secondary);">
                                 <i class="fas fa-history" style="font-size:32px;margin-bottom:12px;opacity:0.5;"></i>
                                 <p style="font-size:12px;" data-i18n="admin.empty.noConfigChanges">No configuration changes recorded yet.</p>
+                            </div>
+                        </div>
+
+                        <!-- Referral Payouts Sub-tab (MANUAL payouts) -->
+                        <div id="referralSubTabPayouts" class="hidden">
+                            <div style="margin-bottom:16px;padding:12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;">
+                                <p style="font-size:11px;color:var(--text-secondary);margin:0;" data-i18n="admin.referral.payoutsHelp">Verify the payout off-platform, send the crypto manually, then record the payment details here.</p>
+                            </div>
+                            <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:8px;gap:8px;">
+                                <select id="payoutStatusFilter" onchange="loadReferralPayouts()" style="padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--on-brand);font-size:11px;">
+                                    <option value="all" data-i18n="admin.field.all">All</option>
+                                    <option value="PENDING" data-i18n="referral.partner.statusPending">Pending</option>
+                                    <option value="UNDER_REVIEW" data-i18n="referral.partner.statusReview">Under Review</option>
+                                    <option value="PAID" data-i18n="referral.partner.statusPaid">Paid</option>
+                                    <option value="REJECTED" data-i18n="referral.partner.statusRejected">Rejected</option>
+                                </select>
+                                <button type="button" onclick="loadReferralPayouts()" style="background:var(--border);color:#F0B90B;border:none;padding:6px 12px;border-radius:4px;font-size:11px;cursor:pointer;">
+                                    <i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span>
+                                </button>
+                            </div>
+                            <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+                                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                    <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
+                                        <tr style="border-bottom:1px solid var(--border);">
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.partner">Partner</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.amount">Amount</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.status">Status</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.wallet">Wallet / Address</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.txRef">Transaction / Hash</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.manager">Manager</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.date">Requested</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.action">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="adminReferralPayoutsTable">
+                                        <tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-secondary);" data-i18n="common.loading">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="referralPayoutsEmpty" class="hidden" style="text-align:center;padding:24px;color:var(--text-secondary);">
+                                <p style="font-size:12px;" data-i18n="admin.referral.noPayouts">No payout requests.</p>
                             </div>
                         </div>
                     </div>
@@ -6718,6 +6981,28 @@ function toggleFaq(btn) {
 
                         <p style="font-size:9px;color:var(--text-secondary);text-align:center;margin:-10px 0 14px;" data-i18n="referral.withdrawNote">Earned referral income can be withdrawn without trading (platform minimum applies).</p>
                         
+                        <!-- Referral Partner dashboard + manual payout workflow.
+                             Amounts are always server-derived; payout is manual. -->
+                        <div id="referralPartnerPanel" style="border-top:1px solid var(--border-color);padding-top:14px;margin-bottom:14px;">
+                            <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:8px;"><i class="fas fa-handshake" style="color:#F0B90B;"></i> <span data-i18n="referral.partner.title">Referral Partner</span></div>
+                            <div class="ref-partner-grid">
+                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refTotalReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.totalReferrals">Total Referrals</div></div>
+                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifiedReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.qualified">Qualified Referrals</div></div>
+                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifyingVolume">$0.00</div><div class="ref-partner-label" data-i18n="referral.partner.volume">Qualifying Deposit Volume</div></div>
+                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refAvailableEarnings">$0.00</div><div class="ref-partner-label" data-i18n="referral.partner.available">Available Earnings</div></div>
+                            </div>
+                            <button type="button" id="requestPayoutBtn" class="btn btn-primary" style="width:100%;min-height:44px;" onclick="openReferralPayoutModal()">
+                                <i class="fas fa-money-bill-transfer"></i> <span data-i18n="referral.partner.requestPayout">Request Payout</span>
+                            </button>
+                            <div id="referralPayoutOpenNote" class="hidden" style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin-top:8px;overflow-wrap:anywhere;" data-i18n="referral.partner.alreadyOpen">A payout request is already in progress.</div>
+                            <div id="referralPendingPayoutsWrap" class="hidden">
+                                <div class="ref-partner-section-title" data-i18n="referral.partner.pendingPayouts">Pending Payout Requests</div>
+                                <div id="referralPendingPayouts"></div>
+                            </div>
+                            <div class="ref-partner-section-title" data-i18n="referral.partner.history">Payout History</div>
+                            <div id="referralPayoutHistory"></div>
+                        </div>
+
                         <!-- My Referral Code Section -->
                         <div style="margin-bottom:12px;">
                             <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;" data-i18n="referral.myCode">My Referral Code</div>
@@ -6792,6 +7077,25 @@ function toggleFaq(btn) {
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- REFERRAL PARTNER PAYOUT REQUEST MODAL (manual payout by the payment team) -->
+<div class="modal-overlay" id="referralPayoutModal">
+    <div class="modal-content" style="max-width:440px;">
+        <button type="button" onclick="closeReferralPayoutModal()" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
+        <div class="modal-header"><h3><i class="fas fa-money-bill-transfer" style="color:#F0B90B;"></i> <span data-i18n="referral.partner.modalTitle">Request Payout</span></h3></div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin:8px 0 16px;" data-i18n="referral.partner.modalDesc">A payment manager verifies and sends your payout manually.</p>
+        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;" data-i18n="referral.partner.amountLabel">Amount to pay out</div>
+        <div style="font-size:20px;font-weight:800;color:#F0B90B;margin-bottom:14px;" id="payoutAmountDisplay">$0.00</div>
+        <label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;" for="payoutWalletAddress" data-i18n="referral.partner.walletLabel">Receiving wallet address (USDT TRC20)</label>
+        <input type="text" id="payoutWalletAddress" class="input-field" style="width:100%;margin-bottom:12px;" data-i18n-placeholder="referral.partner.walletPlaceholder" placeholder="Your USDT TRC20 wallet address" autocomplete="off" autocapitalize="off">
+        <div id="payoutError" class="hidden" style="font-size:11px;color:#EF4444;margin-bottom:10px;overflow-wrap:anywhere;"></div>
+        <div style="display:flex;gap:8px;">
+            <button type="button" class="btn btn-secondary" style="flex:1;" onclick="closeReferralPayoutModal()" data-i18n="common.cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" style="flex:1;" id="payoutSubmitBtn" onclick="submitReferralPayoutRequest()"><i class="fas fa-paper-plane"></i> <span data-i18n="referral.partner.submit">Submit Request</span></button>
+        </div>
+        <p style="font-size:10px;color:var(--text-muted);margin-top:12px;overflow-wrap:anywhere;" data-i18n="referral.partner.manualNote">Payouts are sent manually by our payment team after verification. No automatic transfer is made.</p>
     </div>
 </div>
 
@@ -8107,9 +8411,9 @@ const TRANSLATIONS = {
         'landing.userGreeting': 'Welcome, {{name}}',
         'landing.launchApp': 'Launch App',
         'landing.hero.badge': 'Automated arbitrage trading platform',
-        'landing.hero.title': 'Automated Arbitrage.<br><span class="landing-gradient-text">Made Simple.</span>',
+        'landing.hero.title': 'Automated Arbitrage<br><span class="landing-gradient-text">Across Multiple Markets</span>',
         'landing.hero.subtitle': 'Arbitrix monitors supported markets for qualifying price discrepancies and automates eligible arbitrage trades.',
-        'landing.hero.ctaPrimary': 'Try Demo Mode',
+        'landing.hero.ctaPrimary': 'Start Free — Get $50 Credit',
         'landing.hero.ctaSecondary': 'See How It Works',
         'landing.hero.trust.encryption': '256-bit Encryption',
         'landing.hero.trust.withdrawals': '15-30min Withdrawals',
@@ -8211,7 +8515,7 @@ const TRANSLATIONS = {
         'landing.faq.6.a': 'Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.',
         'landing.cta.title': 'Start with Demo Mode',
         'landing.cta.subtitle': 'Explore Arbitrix, understand how automated arbitrage works, and decide when you\'re ready to experience Live trading.',
-        'landing.cta.button': 'Try Demo Mode',
+        'landing.cta.button': 'Explore Demo — Create Free Account',
         'landing.cta.note': 'No card required to create an account • 14 days of free Live trading included',
         'landing.footer.tagline': 'An automated multi-asset arbitrage trading platform.',
         'landing.footer.product': 'Product',
@@ -8413,6 +8717,72 @@ const TRANSLATIONS = {
         'market.stocks': 'Stocks',
         'market.commodities': 'Commodities',
         'referral.title': 'Referral Program',
+        'landing.partner.tag': 'Partner Program',
+        'landing.partner.title': 'Become an Arbitrix Referral Partner',
+        'landing.partner.subtitle': 'Introduce new users to Arbitrix and earn a 20% referral reward on their first qualifying deposit of $100 or more.',
+        'landing.partner.step1': 'Share your link',
+        'landing.partner.step2': 'User registers',
+        'landing.partner.step3': 'User makes a qualifying deposit',
+        'landing.partner.step4': 'Reward appears in your dashboard',
+        'landing.partner.step5': 'Request payout',
+        'landing.partner.cta': 'Become a Referral Partner',
+        'landing.partner.disclosure': 'Self-referrals, duplicate accounts, fraudulent activity, and misleading promotion are not eligible for referral rewards.',
+        'landing.hero.promo': 'Eligible new users can start with a $50 promotional trading credit.',
+        'landing.startFree.tag': 'Get Started',
+        'landing.startFree.title': 'START FREE IN 3 STEPS',
+        'landing.startFree.step1.title': 'Create Your Account',
+        'landing.startFree.step1.desc': 'Create a free Arbitrix account.',
+        'landing.startFree.step2.title': 'Explore Demo + Promotional Experience',
+        'landing.startFree.step2.desc': 'Explore Demo Mode and, where eligible, access the $50 promotional trading credit.',
+        'landing.startFree.step3.title': 'Fund Your Account When Ready',
+        'landing.startFree.step3.desc': 'When ready for live trading, fund your account and continue using Arbitrix.',
+        'landing.video.tag': 'Explainer',
+        'landing.video.title': 'See Arbitrix in Action',
+        'landing.video.subtitle': 'A short overview of how Arbitrix automates eligible arbitrage.',
+        'landing.video.fallback': 'Your browser does not support the video tag.',
+        'referral.partner.title': 'Referral Partner',
+        'referral.partner.totalReferrals': 'Total Referrals',
+        'referral.partner.qualified': 'Qualified Referrals',
+        'referral.partner.volume': 'Qualifying Deposit Volume',
+        'referral.partner.available': 'Available Earnings',
+        'referral.partner.requestPayout': 'Request Payout',
+        'referral.partner.alreadyOpen': 'A payout request is already in progress.',
+        'referral.partner.pendingPayouts': 'Pending Payout Requests',
+        'referral.partner.history': 'Payout History',
+        'referral.partner.modalTitle': 'Request Payout',
+        'referral.partner.modalDesc': 'A payment manager verifies and sends your payout manually.',
+        'referral.partner.amountLabel': 'Amount to pay out',
+        'referral.partner.walletLabel': 'Receiving wallet address (USDT TRC20)',
+        'referral.partner.walletPlaceholder': 'Your USDT TRC20 wallet address',
+        'referral.partner.walletInvalid': 'Enter a valid wallet address (at least 10 characters).',
+        'referral.partner.submit': 'Submit Request',
+        'referral.partner.manualNote': 'Payouts are sent manually by our payment team after verification. No automatic transfer is made.',
+        'referral.partner.requested': 'Payout request submitted',
+        'referral.partner.requestFailed': 'Payout request failed',
+        'referral.partner.noPayouts': 'No payouts yet.',
+        'referral.partner.statusPending': 'Pending',
+        'referral.partner.statusReview': 'Under Review',
+        'referral.partner.statusPaid': 'Paid',
+        'referral.partner.statusRejected': 'Rejected',
+        'referral.partner.txRef': 'Transaction / Hash',
+        'referral.partner.createdAt': 'Requested',
+        'admin.referral.payoutsTab': 'Payouts',
+        'admin.referral.payoutsHelp': 'Verify the payout off-platform, send the crypto manually, then record the payment details here.',
+        'admin.referral.payoutCol.partner': 'Partner',
+        'admin.referral.payoutCol.amount': 'Amount',
+        'admin.referral.payoutCol.status': 'Status',
+        'admin.referral.payoutCol.wallet': 'Wallet / Address',
+        'admin.referral.payoutCol.txRef': 'Transaction / Hash',
+        'admin.referral.payoutCol.manager': 'Manager',
+        'admin.referral.payoutCol.date': 'Requested',
+        'admin.referral.payoutCol.action': 'Action',
+        'admin.referral.recordPayment': 'Record Payment',
+        'admin.referral.rejectPayout': 'Reject',
+        'admin.referral.txRefPrompt': 'Enter the payment transaction hash / reference:',
+        'admin.referral.rejectConfirm': 'Reject this payout request? The reserved earnings will be returned to the partner.',
+        'admin.referral.noPayouts': 'No payout requests.',
+        'admin.referral.payoutUpdated': 'Payout updated',
+        'admin.referral.payoutUpdateFailed': 'Payout update failed',
         'referral.invite': 'Invite Friends, Earn',
         'referral.ofFirstDeposit': 'of their first deposit',
         'referral.subtitle': 'Share your link. Earn 20% of your friend’s first qualifying deposit.',
@@ -8509,8 +8879,8 @@ const TRANSLATIONS = {
         'withdraw.needDeposit': 'A qualifying first deposit is required before you can withdraw your promotional credit or trading profits.',
         'withdraw.firstDeposit': 'Make your first deposit to unlock withdrawals.',
         'withdraw.needTrade': 'Complete at least 1 trade before withdrawing',
-        'withdraw.minWithdrawal': 'Minimum withdrawal is ${{min}}. Current: ${{current}}',
-        'withdraw.minAmount': 'Minimum withdrawal is $700',
+        'withdraw.minWithdrawal': 'Withdrawal requirements apply. Current: ${{current}}',
+        'withdraw.minAmount': 'Withdrawal requirements apply.',
         'withdraw.enterAddress': 'Please enter a wallet address',
         'withdraw.insufficient': 'Insufficient balance',
         'withdraw.success': '✅ ${{amount}} withdrawal submitted! Withdrawal processing usually takes 15–30 minutes.',
@@ -8628,7 +8998,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Diamond Hands',
         'badges.diamondHandsDesc': 'Profitable after 10 trades',
         'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $100 to enable withdrawals',
-        'live.withdrawStatus.needMinimum': '📈 Reach the ${{min}} minimum to withdraw',
+        'live.withdrawStatus.needMinimum': '📈 Withdrawal requirements apply',
         'live.withdrawStatus.belowMinimum': '📈 Keep trading to grow your eligible balance',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
         'live.withdrawStatus.ready': '✅ Ready to withdraw',
@@ -9333,7 +9703,7 @@ const TRANSLATIONS = {
         'landing.compare.live.p2': 'Start the bot',
         'landing.compare.live.p3': 'Experience automated trading',
         'landing.compare.note': 'Demo uses the same live market data as a Live account — results on Demo match a Live account, but Demo performance does not guarantee Live performance.',
-        'landing.demo.cta': 'Try Demo Mode',
+        'landing.demo.cta': 'Explore Demo — Create Free Account',
         'landing.intro.tag': 'Live Experience',
         'landing.intro.title': '14-Day Live Experience',
         'landing.intro.note': 'Explore Demo first. When you\'re ready, fund Live and experience Arbitrix for 14 days before the $7/month platform subscription becomes due.',
@@ -9531,9 +9901,9 @@ const TRANSLATIONS = {
         'landing.userGreeting': 'Bienvenido, {{name}}',
         'landing.launchApp': 'Iniciar App',
         'landing.hero.badge': 'Plataforma de trading de arbitraje automatizado',
-        'landing.hero.title': 'Arbitraje Automatizado.<br><span class="landing-gradient-text">Simple y Fácil.</span>',
+        'landing.hero.title': 'Arbitraje Automatizado<br><span class="landing-gradient-text">en Múltiples Mercados</span>',
         'landing.hero.subtitle': 'Arbitrix monitorea los mercados compatibles en busca de discrepancias de precio que cumplan los requisitos y automatiza las operaciones de arbitraje elegibles.',
-        'landing.hero.ctaPrimary': 'Probar Modo Demo',
+        'landing.hero.ctaPrimary': 'Empieza gratis — obtén $50 de crédito',
         'landing.hero.ctaSecondary': 'Ver Cómo Funciona',
         'landing.hero.trust.encryption': 'Cifrado 256-bit',
         'landing.hero.trust.withdrawals': 'Retiros en 15-30 min',
@@ -9635,7 +10005,7 @@ const TRANSLATIONS = {
         'landing.faq.6.a': 'La creación básica de cuenta requiere solo un correo y una contraseña. La verificación KYC puede ser necesaria para límites de retiro más altos o funciones específicas para cumplir con los requisitos regulatorios.',
         'landing.cta.title': 'Empieza con el Modo Demo',
         'landing.cta.subtitle': 'Explora Arbitrix, entiende cómo funciona el arbitraje automatizado y decide cuándo estás listo para vivir la experiencia de trading en Real.',
-        'landing.cta.button': 'Probar Modo Demo',
+        'landing.cta.button': 'Explora la demo — crea una cuenta gratis',
         'landing.cta.note': 'No se necesita tarjeta para crear una cuenta • 14 días de trading Live gratuito incluidos',
         'landing.footer.tagline': 'Una plataforma automatizada de trading de arbitraje multi-activo.',
         'landing.footer.product': 'Producto',
@@ -9837,6 +10207,72 @@ const TRANSLATIONS = {
         'market.stocks': 'Acciones',
         'market.commodities': 'Materias primas',
         'referral.title': 'Programa de referidos',
+        'landing.partner.tag': 'Programa de socios',
+        'landing.partner.title': 'Conviértete en socio de referidos de Arbitrix',
+        'landing.partner.subtitle': 'Presenta nuevos usuarios a Arbitrix y gana una recompensa de referido del 20% sobre su primer depósito calificado de $100 o más.',
+        'landing.partner.step1': 'Comparte tu enlace',
+        'landing.partner.step2': 'El usuario se registra',
+        'landing.partner.step3': 'El usuario hace un depósito calificado',
+        'landing.partner.step4': 'La recompensa aparece en tu panel',
+        'landing.partner.step5': 'Solicita el pago',
+        'landing.partner.cta': 'Convertirme en socio de referidos',
+        'landing.partner.disclosure': 'Las autorreferencias, las cuentas duplicadas, la actividad fraudulenta y la promoción engañosa no son elegibles para recompensas por referidos.',
+        'landing.hero.promo': 'Los usuarios nuevos elegibles pueden empezar con un crédito de trading promocional de $50.',
+        'landing.startFree.tag': 'Empezar',
+        'landing.startFree.title': 'EMPIEZA GRATIS EN 3 PASOS',
+        'landing.startFree.step1.title': 'Crea tu cuenta',
+        'landing.startFree.step1.desc': 'Crea una cuenta gratuita en Arbitrix.',
+        'landing.startFree.step2.title': 'Explora la demo + experiencia promocional',
+        'landing.startFree.step2.desc': 'Explora el Modo Demo y, si cumples los requisitos, accede al crédito de trading promocional de $50.',
+        'landing.startFree.step3.title': 'Financia tu cuenta cuando quieras',
+        'landing.startFree.step3.desc': 'Cuando estés listo para operar en vivo, financia tu cuenta y sigue usando Arbitrix.',
+        'landing.video.tag': 'Explicativo',
+        'landing.video.title': 'Descubre Arbitrix en acción',
+        'landing.video.subtitle': 'Un breve resumen de cómo Arbitrix automatiza el arbitraje elegible.',
+        'landing.video.fallback': 'Tu navegador no admite la etiqueta de video.',
+        'referral.partner.title': 'Socio de referidos',
+        'referral.partner.totalReferrals': 'Referidos totales',
+        'referral.partner.qualified': 'Referidos calificados',
+        'referral.partner.volume': 'Volumen de depósitos calificados',
+        'referral.partner.available': 'Ganancias disponibles',
+        'referral.partner.requestPayout': 'Solicitar pago',
+        'referral.partner.alreadyOpen': 'Ya hay una solicitud de pago en curso.',
+        'referral.partner.pendingPayouts': 'Solicitudes de pago pendientes',
+        'referral.partner.history': 'Historial de pagos',
+        'referral.partner.modalTitle': 'Solicitar pago',
+        'referral.partner.modalDesc': 'Un gestor de pagos verifica y envía tu pago manualmente.',
+        'referral.partner.amountLabel': 'Importe a pagar',
+        'referral.partner.walletLabel': 'Dirección de cartera receptora (USDT TRC20)',
+        'referral.partner.walletPlaceholder': 'Tu dirección de cartera USDT TRC20',
+        'referral.partner.walletInvalid': 'Introduce una dirección de cartera válida (al menos 10 caracteres).',
+        'referral.partner.submit': 'Enviar solicitud',
+        'referral.partner.manualNote': 'Los pagos los envía manualmente nuestro equipo de pagos tras la verificación. No se realiza ninguna transferencia automática.',
+        'referral.partner.requested': 'Solicitud de pago enviada',
+        'referral.partner.requestFailed': 'La solicitud de pago falló',
+        'referral.partner.noPayouts': 'Aún no hay pagos.',
+        'referral.partner.statusPending': 'Pendiente',
+        'referral.partner.statusReview': 'En revisión',
+        'referral.partner.statusPaid': 'Pagado',
+        'referral.partner.statusRejected': 'Rechazado',
+        'referral.partner.txRef': 'Transacción / Hash',
+        'referral.partner.createdAt': 'Solicitado',
+        'admin.referral.payoutsTab': 'Pagos',
+        'admin.referral.payoutsHelp': 'Verifica el pago fuera de la plataforma, envía la cripto manualmente y luego registra aquí los detalles del pago.',
+        'admin.referral.payoutCol.partner': 'Socio',
+        'admin.referral.payoutCol.amount': 'Importe',
+        'admin.referral.payoutCol.status': 'Estado',
+        'admin.referral.payoutCol.wallet': 'Cartera / Dirección',
+        'admin.referral.payoutCol.txRef': 'Transacción / Hash',
+        'admin.referral.payoutCol.manager': 'Gestor',
+        'admin.referral.payoutCol.date': 'Solicitado',
+        'admin.referral.payoutCol.action': 'Acción',
+        'admin.referral.recordPayment': 'Registrar pago',
+        'admin.referral.rejectPayout': 'Rechazar',
+        'admin.referral.txRefPrompt': 'Introduce el hash / referencia de la transacción de pago:',
+        'admin.referral.rejectConfirm': '¿Rechazar esta solicitud de pago? Las ganancias reservadas se devolverán al socio.',
+        'admin.referral.noPayouts': 'No hay solicitudes de pago.',
+        'admin.referral.payoutUpdated': 'Pago actualizado',
+        'admin.referral.payoutUpdateFailed': 'No se pudo actualizar el pago',
         'referral.invite': 'Invita amigos, gana',
         'referral.ofFirstDeposit': 'de su primer depósito',
         'referral.subtitle': 'Comparte tu enlace. Gana el 20% del primer depósito válido de tu amigo.',
@@ -9933,8 +10369,8 @@ const TRANSLATIONS = {
         'withdraw.needDeposit': 'Se requiere un primer depósito válido antes de poder retirar tu crédito promocional o las ganancias de trading.',
         'withdraw.firstDeposit': 'Haz tu primer depósito para desbloquear los retiros.',
         'withdraw.needTrade': 'Completa al menos 1 operación antes de retirar',
-        'withdraw.minWithdrawal': 'El retiro mínimo es ${{min}}. Actual: ${{current}}',
-        'withdraw.minAmount': 'El retiro mínimo es $700',
+        'withdraw.minWithdrawal': 'Se aplican requisitos de retiro. Actual: ${{current}}',
+        'withdraw.minAmount': 'Se aplican requisitos de retiro.',
         'withdraw.enterAddress': 'Por favor, introduce una dirección de cartera',
         'withdraw.insufficient': 'Saldo insuficiente',
         'withdraw.success': '✅ ¡Retiro de ${{amount}} enviado! El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
@@ -10052,7 +10488,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Manos de diamante',
         'badges.diamondHandsDesc': 'Rentable después de 10 operaciones',
         'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de $100 para habilitar los retiros',
-        'live.withdrawStatus.needMinimum': '📈 Alcanza el mínimo de ${{min}} para retirar',
+        'live.withdrawStatus.needMinimum': '📈 Se aplican requisitos de retiro',
         'live.withdrawStatus.belowMinimum': '📈 Sigue operando para aumentar tu saldo disponible',
         'live.withdrawStatus.noTrades': '📊 Completa al menos 1 operación para retirar',
         'live.withdrawStatus.ready': '✅ Listo para retirar',
@@ -10757,7 +11193,7 @@ const TRANSLATIONS = {
         'landing.compare.live.p2': 'Inicia el bot',
         'landing.compare.live.p3': 'Vive el trading automatizado',
         'landing.compare.note': 'Demo usa los mismos datos de mercado en vivo que una cuenta Live: el resultado en Demo coincide con una cuenta Live, pero el rendimiento en Demo no garantiza el rendimiento en Live.',
-        'landing.demo.cta': 'Probar Modo Demo',
+        'landing.demo.cta': 'Explora la demo — crea una cuenta gratis',
         'landing.intro.tag': 'Experiencia Live',
         'landing.intro.title': 'Experiencia Live de 14 días',
         'landing.intro.note': 'Explora primero el Demo. Cuando estés listo, fondea Live y vive Arbitrix durante 14 días antes de que se debite la suscripción de $7/mes.',
@@ -10956,9 +11392,9 @@ const TRANSLATIONS = {
         'landing.userGreeting': 'Bem-vindo, {{name}}',
         'landing.launchApp': 'Iniciar App',
         'landing.hero.badge': 'Plataforma de negociação de arbitragem automatizada',
-        'landing.hero.title': 'Arbitragem Automatizada.<br><span class="landing-gradient-text">Simples.</span>',
+        'landing.hero.title': 'Arbitragem Automatizada<br><span class="landing-gradient-text">em Vários Mercados</span>',
         'landing.hero.subtitle': 'A Arbitrix monitora os mercados compatíveis em busca de discrepâncias de preço elegíveis e automatiza as operações de arbitragem elegíveis.',
-        'landing.hero.ctaPrimary': 'Experimentar o Modo Demo',
+        'landing.hero.ctaPrimary': 'Comece grátis — ganhe $50 de crédito',
         'landing.hero.ctaSecondary': 'Ver Como Funciona',
         'landing.hero.trust.encryption': 'Criptografia 256-bit',
         'landing.hero.trust.withdrawals': 'Saques em 15-30 min',
@@ -11060,7 +11496,7 @@ const TRANSLATIONS = {
         'landing.faq.6.a': 'A criação básica de conta requer apenas um e-mail e uma senha. A verificação KYC pode ser necessária para limites de saque mais altos ou recursos específicos para cumprir requisitos regulatórios.',
         'landing.cta.title': 'Comece com o Modo Demo',
         'landing.cta.subtitle': 'Explore a Arbitrix, entenda como funciona a arbitragem automatizada e decida quando está pronto para a experiência de negociação Real.',
-        'landing.cta.button': 'Experimentar o Modo Demo',
+        'landing.cta.button': 'Explore a demo — crie uma conta grátis',
         'landing.cta.note': 'Não é necessário cartão para criar uma conta • 14 dias de trading Live gratuito incluídos',
         'landing.footer.tagline': 'Uma plataforma automatizada de negociação de arbitragem multi-ativo.',
         'landing.footer.product': 'Produto',
@@ -11262,6 +11698,72 @@ const TRANSLATIONS = {
         'market.stocks': 'Ações',
         'market.commodities': 'Commodities',
         'referral.title': 'Programa de indicações',
+        'landing.partner.tag': 'Programa de parceiros',
+        'landing.partner.title': 'Torne-se um parceiro de indicações da Arbitrix',
+        'landing.partner.subtitle': 'Apresente novos usuários à Arbitrix e ganhe uma recompensa de indicação de 20% sobre o primeiro depósito qualificado de $100 ou mais.',
+        'landing.partner.step1': 'Compartilhe seu link',
+        'landing.partner.step2': 'O usuário se cadastra',
+        'landing.partner.step3': 'O usuário faz um depósito qualificado',
+        'landing.partner.step4': 'A recompensa aparece no seu painel',
+        'landing.partner.step5': 'Solicite o pagamento',
+        'landing.partner.cta': 'Torne-se um parceiro de indicações',
+        'landing.partner.disclosure': 'Autoindicações, contas duplicadas, atividade fraudulenta e promoção enganosa não são elegíveis para recompensas de indicação.',
+        'landing.hero.promo': 'Usuários novos elegíveis podem começar com um crédito de negociação promocional de $50.',
+        'landing.startFree.tag': 'Começar',
+        'landing.startFree.title': 'COMECE GRÁTIS EM 3 PASSOS',
+        'landing.startFree.step1.title': 'Crie sua conta',
+        'landing.startFree.step1.desc': 'Crie uma conta gratuita na Arbitrix.',
+        'landing.startFree.step2.title': 'Explore a demo + experiência promocional',
+        'landing.startFree.step2.desc': 'Explore o Modo Demo e, se elegível, acesse o crédito de negociação promocional de $50.',
+        'landing.startFree.step3.title': 'Financie sua conta quando estiver pronto',
+        'landing.startFree.step3.desc': 'Quando estiver pronto para negociar ao vivo, financie sua conta e continue usando a Arbitrix.',
+        'landing.video.tag': 'Explicativo',
+        'landing.video.title': 'Veja a Arbitrix em ação',
+        'landing.video.subtitle': 'Uma breve visão geral de como a Arbitrix automatiza a arbitragem elegível.',
+        'landing.video.fallback': 'Seu navegador não oferece suporte à tag de vídeo.',
+        'referral.partner.title': 'Parceiro de indicações',
+        'referral.partner.totalReferrals': 'Indicações totais',
+        'referral.partner.qualified': 'Indicações qualificadas',
+        'referral.partner.volume': 'Volume de depósitos qualificados',
+        'referral.partner.available': 'Ganhos disponíveis',
+        'referral.partner.requestPayout': 'Solicitar pagamento',
+        'referral.partner.alreadyOpen': 'Já existe uma solicitação de pagamento em andamento.',
+        'referral.partner.pendingPayouts': 'Solicitações de pagamento pendentes',
+        'referral.partner.history': 'Histórico de pagamentos',
+        'referral.partner.modalTitle': 'Solicitar pagamento',
+        'referral.partner.modalDesc': 'Um gestor de pagamentos verifica e envia seu pagamento manualmente.',
+        'referral.partner.amountLabel': 'Valor a pagar',
+        'referral.partner.walletLabel': 'Endereço da carteira de recebimento (USDT TRC20)',
+        'referral.partner.walletPlaceholder': 'Seu endereço de carteira USDT TRC20',
+        'referral.partner.walletInvalid': 'Informe um endereço de carteira válido (pelo menos 10 caracteres).',
+        'referral.partner.submit': 'Enviar solicitação',
+        'referral.partner.manualNote': 'Os pagamentos são enviados manualmente pela nossa equipe de pagamentos após a verificação. Nenhuma transferência automática é feita.',
+        'referral.partner.requested': 'Solicitação de pagamento enviada',
+        'referral.partner.requestFailed': 'Falha na solicitação de pagamento',
+        'referral.partner.noPayouts': 'Ainda não há pagamentos.',
+        'referral.partner.statusPending': 'Pendente',
+        'referral.partner.statusReview': 'Em análise',
+        'referral.partner.statusPaid': 'Pago',
+        'referral.partner.statusRejected': 'Rejeitado',
+        'referral.partner.txRef': 'Transação / Hash',
+        'referral.partner.createdAt': 'Solicitado',
+        'admin.referral.payoutsTab': 'Pagamentos',
+        'admin.referral.payoutsHelp': 'Verifique o pagamento fora da plataforma, envie a cripto manualmente e registre aqui os detalhes do pagamento.',
+        'admin.referral.payoutCol.partner': 'Parceiro',
+        'admin.referral.payoutCol.amount': 'Valor',
+        'admin.referral.payoutCol.status': 'Status',
+        'admin.referral.payoutCol.wallet': 'Carteira / Endereço',
+        'admin.referral.payoutCol.txRef': 'Transação / Hash',
+        'admin.referral.payoutCol.manager': 'Gestor',
+        'admin.referral.payoutCol.date': 'Solicitado',
+        'admin.referral.payoutCol.action': 'Ação',
+        'admin.referral.recordPayment': 'Registrar pagamento',
+        'admin.referral.rejectPayout': 'Rejeitar',
+        'admin.referral.txRefPrompt': 'Informe o hash / referência da transação de pagamento:',
+        'admin.referral.rejectConfirm': 'Rejeitar esta solicitação de pagamento? Os ganhos reservados serão devolvidos ao parceiro.',
+        'admin.referral.noPayouts': 'Nenhuma solicitação de pagamento.',
+        'admin.referral.payoutUpdated': 'Pagamento atualizado',
+        'admin.referral.payoutUpdateFailed': 'Falha ao atualizar o pagamento',
         'referral.invite': 'Convide amigos, ganhe',
         'referral.ofFirstDeposit': 'do primeiro depósito',
         'referral.subtitle': 'Compartilhe seu link. Ganhe 20% do primeiro depósito válido do seu amigo.',
@@ -11358,8 +11860,8 @@ const TRANSLATIONS = {
         'withdraw.needDeposit': 'É necessário um primeiro depósito válido antes de sacar seu crédito promocional ou os lucros de trading.',
         'withdraw.firstDeposit': 'Faça seu primeiro depósito para desbloquear os saques.',
         'withdraw.needTrade': 'Conclua pelo menos 1 operação antes de sacar',
-        'withdraw.minWithdrawal': 'O saque mínimo é ${{min}}. Atual: ${{current}}',
-        'withdraw.minAmount': 'O saque mínimo é $700',
+        'withdraw.minWithdrawal': 'Aplicam-se requisitos de saque. Atual: ${{current}}',
+        'withdraw.minAmount': 'Aplicam-se requisitos de saque.',
         'withdraw.enterAddress': 'Por favor, insira um endereço de carteira',
         'withdraw.insufficient': 'Saldo insuficiente',
         'withdraw.success': '✅ Saque de ${{amount}} enviado! O processamento do saque geralmente leva de 15 a 30 minutos.',
@@ -11477,7 +11979,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Mãos de diamante',
         'badges.diamondHandsDesc': 'Lucrativo após 10 operações',
         'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de $100 para habilitar os saques',
-        'live.withdrawStatus.needMinimum': '📈 Atinga o mínimo de ${{min}} para sacar',
+        'live.withdrawStatus.needMinimum': '📈 Aplicam-se requisitos de saque',
         'live.withdrawStatus.belowMinimum': '📈 Continue operando para aumentar seu saldo disponível',
         'live.withdrawStatus.noTrades': '📊 Conclua pelo menos 1 operação para sacar',
         'live.withdrawStatus.ready': '✅ Pronto para sacar',
@@ -12182,7 +12684,7 @@ const TRANSLATIONS = {
         'landing.compare.live.p2': 'Inicie o bot',
         'landing.compare.live.p3': 'Viva a negociação automatizada',
         'landing.compare.note': 'O Demo usa os mesmos dados de mercado ao vivo que uma conta Live: o resultado no Demo corresponde ao de uma conta Live, mas o desempenho no Demo não garante o desempenho no Live.',
-        'landing.demo.cta': 'Experimentar Modo Demo',
+        'landing.demo.cta': 'Explore a demo — crie uma conta grátis',
         'landing.intro.tag': 'Experiência Live',
         'landing.intro.title': 'Experiência Live de 14 dias',
         'landing.intro.note': 'Explore o Demo primeiro. Quando estiver pronto, fundeie o Live e viva a Arbitrix por 14 dias antes de a assinatura de $7/mês vencer.',
@@ -12381,9 +12883,9 @@ const TRANSLATIONS = {
         'landing.userGreeting': 'Bienvenue, {{name}}',
         'landing.launchApp': 'Lancer l’app',
         'landing.hero.badge': 'Plateforme de trading d\'arbitrage automatisée',
-        'landing.hero.title': 'Arbitrage Automatisé.<br><span class="landing-gradient-text">Tout Simplement.</span>',
+        'landing.hero.title': 'Arbitrage Automatisé<br><span class="landing-gradient-text">sur de Multiples Marchés</span>',
         'landing.hero.subtitle': 'Arbitrix surveille les marchés pris en charge pour détecter les écarts de prix éligibles et automatise les opérations d\'arbitrage éligibles.',
-        'landing.hero.ctaPrimary': 'Essayer le mode démo',
+        'landing.hero.ctaPrimary': 'Commencez gratuitement — obtenez $50 de crédit',
         'landing.hero.ctaSecondary': 'Voir comment ça fonctionne',
         'landing.hero.trust.encryption': 'Chiffrement 256-bit',
         'landing.hero.trust.withdrawals': 'Retraits en 15-30 min',
@@ -12485,7 +12987,7 @@ const TRANSLATIONS = {
         'landing.faq.6.a': 'La création de base d’un compte ne nécessite qu’un e-mail et un mot de passe. La vérification KYC peut être requise pour des limites de retrait plus élevées ou certaines fonctionnalités afin de respecter les exigences réglementaires.',
         'landing.cta.title': 'Commencez par le mode démo',
         'landing.cta.subtitle': 'Explorez Arbitrix, comprenez comment fonctionne l\'arbitrage automatisé et décidez quand vous êtes prêt à passer au trading réel.',
-        'landing.cta.button': 'Essayer le mode démo',
+        'landing.cta.button': 'Explorer la démo — créez un compte gratuit',
         'landing.cta.note': 'Aucune carte requise pour créer un compte • 14 jours de trading Live gratuit inclus',
         'landing.footer.tagline': 'Une plateforme de trading d\'arbitrage multi-actifs automatisée.',
         'landing.footer.product': 'Produit',
@@ -12687,6 +13189,72 @@ const TRANSLATIONS = {
         'market.stocks': 'Actions',
         'market.commodities': 'Matières premières',
         'referral.title': 'Programme de parrainage',
+        'landing.partner.tag': 'Programme partenaires',
+        'landing.partner.title': 'Devenez partenaire de parrainage Arbitrix',
+        'landing.partner.subtitle': 'Présentez de nouveaux utilisateurs à Arbitrix et gagnez une récompense de parrainage de 20% sur leur premier dépôt éligible de $100 ou plus.',
+        'landing.partner.step1': 'Partagez votre lien',
+        'landing.partner.step2': 'L\'utilisateur s\'inscrit',
+        'landing.partner.step3': 'L\'utilisateur effectue un dépôt éligible',
+        'landing.partner.step4': 'La récompense apparaît dans votre tableau de bord',
+        'landing.partner.step5': 'Demandez le paiement',
+        'landing.partner.cta': 'Devenir partenaire de parrainage',
+        'landing.partner.disclosure': 'L\'auto-parrainage, les comptes en double, les activités frauduleuses et la promotion trompeuse ne donnent pas droit aux récompenses de parrainage.',
+        'landing.hero.promo': 'Les nouveaux utilisateurs éligibles peuvent commencer avec un crédit de trading promotionnel de $50.',
+        'landing.startFree.tag': 'Commencer',
+        'landing.startFree.title': 'COMMENCEZ GRATUITEMENT EN 3 ÉTAPES',
+        'landing.startFree.step1.title': 'Créez votre compte',
+        'landing.startFree.step1.desc': 'Créez un compte Arbitrix gratuit.',
+        'landing.startFree.step2.title': 'Explorez la démo + l\'expérience promotionnelle',
+        'landing.startFree.step2.desc': 'Étudiez le mode démo et, si vous êtes éligible, accédez au crédit de trading promotionnel de $50.',
+        'landing.startFree.step3.title': 'Financez votre compte quand vous êtes prêt',
+        'landing.startFree.step3.desc': 'Quand vous êtes prêt pour le trading en direct, financez votre compte et continuez d\'utiliser Arbitrix.',
+        'landing.video.tag': 'Explicatif',
+        'landing.video.title': 'Découvrez Arbitrix en action',
+        'landing.video.subtitle': 'Un bref aperçu de la façon dont Arbitrix automatise l\'arbitrage éligible.',
+        'landing.video.fallback': 'Votre navigateur ne prend pas en charge la balise vidéo.',
+        'referral.partner.title': 'Partenaire de parrainage',
+        'referral.partner.totalReferrals': 'Parrainages totaux',
+        'referral.partner.qualified': 'Parrainages qualifiés',
+        'referral.partner.volume': 'Volume des dépôts éligibles',
+        'referral.partner.available': 'Gains disponibles',
+        'referral.partner.requestPayout': 'Demander un paiement',
+        'referral.partner.alreadyOpen': 'Une demande de paiement est déjà en cours.',
+        'referral.partner.pendingPayouts': 'Demandes de paiement en attente',
+        'referral.partner.history': 'Historique des paiements',
+        'referral.partner.modalTitle': 'Demander un paiement',
+        'referral.partner.modalDesc': 'Un gestionnaire de paiement vérifie et envoie votre paiement manuellement.',
+        'referral.partner.amountLabel': 'Montant à payer',
+        'referral.partner.walletLabel': 'Adresse du portefeuille de réception (USDT TRC20)',
+        'referral.partner.walletPlaceholder': 'Votre adresse de portefeuille USDT TRC20',
+        'referral.partner.walletInvalid': 'Saisissez une adresse de portefeuille valide (au moins 10 caractères).',
+        'referral.partner.submit': 'Envoyer la demande',
+        'referral.partner.manualNote': 'Les paiements sont envoyés manuellement par notre équipe de paiement après vérification. Aucun transfert automatique n\'est effectué.',
+        'referral.partner.requested': 'Demande de paiement envoyée',
+        'referral.partner.requestFailed': 'Échec de la demande de paiement',
+        'referral.partner.noPayouts': 'Aucun paiement pour l\'instant.',
+        'referral.partner.statusPending': 'En attente',
+        'referral.partner.statusReview': 'En cours d\'examen',
+        'referral.partner.statusPaid': 'Payé',
+        'referral.partner.statusRejected': 'Rejeté',
+        'referral.partner.txRef': 'Transaction / Hash',
+        'referral.partner.createdAt': 'Demandé',
+        'admin.referral.payoutsTab': 'Paiements',
+        'admin.referral.payoutsHelp': 'Vérifiez le paiement hors plateforme, envoyez la crypto manuellement, puis enregistrez ici les détails du paiement.',
+        'admin.referral.payoutCol.partner': 'Partenaire',
+        'admin.referral.payoutCol.amount': 'Montant',
+        'admin.referral.payoutCol.status': 'Statut',
+        'admin.referral.payoutCol.wallet': 'Portefeuille / Adresse',
+        'admin.referral.payoutCol.txRef': 'Transaction / Hash',
+        'admin.referral.payoutCol.manager': 'Gestionnaire',
+        'admin.referral.payoutCol.date': 'Demandé',
+        'admin.referral.payoutCol.action': 'Action',
+        'admin.referral.recordPayment': 'Enregistrer le paiement',
+        'admin.referral.rejectPayout': 'Rejeter',
+        'admin.referral.txRefPrompt': 'Saisissez le hash / la référence de la transaction de paiement :',
+        'admin.referral.rejectConfirm': 'Rejeter cette demande de paiement ? Les gains réservés seront rendus au partenaire.',
+        'admin.referral.noPayouts': 'Aucune demande de paiement.',
+        'admin.referral.payoutUpdated': 'Paiement mis à jour',
+        'admin.referral.payoutUpdateFailed': 'Échec de la mise à jour du paiement',
         'referral.invite': 'Invitez des amis, gagnez',
         'referral.ofFirstDeposit': 'de leur premier dépôt',
         'referral.subtitle': 'Partagez votre lien. Gagnez 20 % du premier dépôt éligible de votre ami.',
@@ -12783,8 +13351,8 @@ const TRANSLATIONS = {
         'withdraw.needDeposit': 'Un premier dépôt éligible est requis avant de pouvoir retirer votre crédit promotionnel ou vos bénéfices de trading.',
         'withdraw.firstDeposit': 'Effectuez votre premier dépôt pour débloquer les retraits.',
         'withdraw.needTrade': 'Effectuez au moins 1 transaction avant de retirer',
-        'withdraw.minWithdrawal': 'Le retrait minimum est de ${{min}}. Actuel : ${{current}}',
-        'withdraw.minAmount': 'Le retrait minimum est de $700',
+        'withdraw.minWithdrawal': 'Des conditions de retrait s\'appliquent. Actuel : ${{current}}',
+        'withdraw.minAmount': 'Des conditions de retrait s\'appliquent.',
         'withdraw.enterAddress': 'Veuillez saisir une adresse de portefeuille',
         'withdraw.insufficient': 'Solde insuffisant',
         'withdraw.success': '✅ Retrait de ${{amount}} soumis ! Le traitement du retrait prend généralement 15 à 30 minutes.',
@@ -12902,7 +13470,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Mains de diamant',
         'badges.diamondHandsDesc': 'Rentable après 10 transactions',
         'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de $100 pour activer les retraits',
-        'live.withdrawStatus.needMinimum': '📈 Atteignez le minimum de ${{min}} pour retirer',
+        'live.withdrawStatus.needMinimum': '📈 Des conditions de retrait s\'appliquent',
         'live.withdrawStatus.belowMinimum': '📈 Continuez à trader pour augmenter votre solde disponible',
         'live.withdrawStatus.noTrades': '📊 Effectuez au moins 1 transaction pour retirer',
         'live.withdrawStatus.ready': '✅ Prêt à retirer',
@@ -13607,7 +14175,7 @@ const TRANSLATIONS = {
         'landing.compare.live.p2': 'Démarrez le bot',
         'landing.compare.live.p3': 'Vivez le trading automatisé',
         'landing.compare.note': 'La démo utilise les mêmes données de marché en direct qu\'un compte Live : le résultat en démo correspond à un compte Live, mais les performances en démo ne garantissent pas les performances en Live.',
-        'landing.demo.cta': 'Essayer le mode démo',
+        'landing.demo.cta': 'Explorer la démo — créez un compte gratuit',
         'landing.intro.tag': 'Expérience Live',
         'landing.intro.title': 'Expérience Live de 14 jours',
         'landing.intro.note': 'Explorez d\'abord la démo. Quand vous êtes prêt, approvisionnez le Live et vivez Arbitrix pendant 14 jours avant que l\'abonnement de 7 $/mois ne soit dû.',
@@ -13806,9 +14374,9 @@ const TRANSLATIONS = {
         'landing.userGreeting': 'مرحبًا، {{name}}',
         'landing.launchApp': 'تشغيل التطبيق',
         'landing.hero.badge': 'منصة تداول مراجحة مؤتمتة',
-        'landing.hero.title': 'مراجحة مؤتمتة.<br><span class="landing-gradient-text">ببساطة.</span>',
+        'landing.hero.title': 'مراجحة مؤتمتة<br><span class="landing-gradient-text">عبر أسواق متعددة</span>',
         'landing.hero.subtitle': 'يراقب Arbitrix الأسواق المدعومة بحثًا عن فروقات الأسعار المؤهلة ويؤتمت صفقات المراجحة المؤهلة.',
-        'landing.hero.ctaPrimary': 'جرّب الوضع التجريبي',
+        'landing.hero.ctaPrimary': 'ابدأ مجانًا — احصل على $50 رصيد',
         'landing.hero.ctaSecondary': 'تعرّف على كيفية العمل',
         'landing.hero.trust.encryption': 'تشفير 256-bit',
         'landing.hero.trust.withdrawals': 'سحب خلال 15-30 دقيقة',
@@ -13910,7 +14478,7 @@ const TRANSLATIONS = {
         'landing.faq.6.a': 'يتطلب إنشاء حساب أساسي بريدًا إلكترونيًا وكلمة مرور فقط. قد يلزم التحقق KYC لحدود سحب أعلى أو ميزات محددة للامتثال للمتطلبات التنظيمية.',
         'landing.cta.title': 'ابدأ بالوضع التجريبي',
         'landing.cta.subtitle': 'استكشف Arbitrix وافهم كيف تعمل المراجحة المؤتمتة، وقرر متى تكون جاهزًا لتجربة التداول المباشر.',
-        'landing.cta.button': 'جرّب الوضع التجريبي',
+        'landing.cta.button': 'استكشف التجريبي — أنشئ حسابًا مجانًا',
         'landing.cta.note': 'لا حاجة إلى بطاقة لإنشاء حساب • 14 يومًا من التداول المباشر المجاني مشمولة',
         'landing.footer.tagline': 'منصة تداول مراجحة متعددة الأصول ومؤتمتة.',
         'landing.footer.product': 'المنتج',
@@ -14112,6 +14680,72 @@ const TRANSLATIONS = {
         'market.stocks': 'أسهم',
         'market.commodities': 'سلع',
         'referral.title': 'برنامج الإحالة',
+        'landing.partner.tag': 'برنامج الشركاء',
+        'landing.partner.title': 'كن شريك إحالة لدى Arbitrix',
+        'landing.partner.subtitle': 'قدّم مستخدمين جددًا إلى Arbitrix واربح مكافأة إحالة بنسبة 20% على أول إيداع مؤهل بقيمة $100 أو أكثر.',
+        'landing.partner.step1': 'شارك رابطك',
+        'landing.partner.step2': 'يسجّل المستخدم',
+        'landing.partner.step3': 'يجري المستخدم إيداعًا مؤهلًا',
+        'landing.partner.step4': 'تظهر المكافأة في لوحتك',
+        'landing.partner.step5': 'اطلب الدفع',
+        'landing.partner.cta': 'كن شريك إحالة',
+        'landing.partner.disclosure': 'الإحالة الذاتية والحسابات المكررة والنشاط الاحتيالي والترويج المضلل غير مؤهلة لمكافآت الإحالة.',
+        'landing.hero.promo': 'يمكن للمستخدمين الجدد المؤهلين البدء برصيد تداول ترويجي بقيمة $50.',
+        'landing.startFree.tag': 'ابدأ',
+        'landing.startFree.title': 'ابدأ مجانًا في 3 خطوات',
+        'landing.startFree.step1.title': 'أنشئ حسابك',
+        'landing.startFree.step1.desc': 'أنشئ حساب Arbitrix مجانًا.',
+        'landing.startFree.step2.title': 'استكشف التجريبي + التجربة الترويجية',
+        'landing.startFree.step2.desc': 'استكشف الوضع التجريبي، وعند الأهلية، احصل على رصيد التداول الترويجي بقيمة $50.',
+        'landing.startFree.step3.title': 'موّل حسابك عندما تكون جاهزًا',
+        'landing.startFree.step3.desc': 'عندما تصبح جاهزًا للتداول المباشر، موّل حسابك وتابع استخدام Arbitrix.',
+        'landing.video.tag': 'شرح',
+        'landing.video.title': 'شاهد Arbitrix أثناء العمل',
+        'landing.video.subtitle': 'نظرة موجزة على كيفية أتمتة Arbitrix للمراجحة المؤهلة.',
+        'landing.video.fallback': 'متصفحك لا يدعم وسم الفيديو.',
+        'referral.partner.title': 'شريك الإحالة',
+        'referral.partner.totalReferrals': 'إجمالي الإحالات',
+        'referral.partner.qualified': 'الإحالات المؤهلة',
+        'referral.partner.volume': 'حجم الإيداعات المؤهلة',
+        'referral.partner.available': 'الأرباح المتاحة',
+        'referral.partner.requestPayout': 'طلب الدفع',
+        'referral.partner.alreadyOpen': 'يوجد طلب دفع قيد المعالجة بالفعل.',
+        'referral.partner.pendingPayouts': 'طلبات الدفع المعلّقة',
+        'referral.partner.history': 'سجل المدفوعات',
+        'referral.partner.modalTitle': 'طلب الدفع',
+        'referral.partner.modalDesc': 'يتحقق مدير المدفوعات من طلبك ويرسل دفعتك يدويًا.',
+        'referral.partner.amountLabel': 'المبلغ المطلوب دفعه',
+        'referral.partner.walletLabel': 'عنوان المحفظة المستلمة (USDT TRC20)',
+        'referral.partner.walletPlaceholder': 'عنوان محفظة USDT TRC20 الخاصة بك',
+        'referral.partner.walletInvalid': 'أدخل عنوان محفظة صالحًا (10 أحرف على الأقل).',
+        'referral.partner.submit': 'إرسال الطلب',
+        'referral.partner.manualNote': 'يُرسل فريق المدفوعات لدينا الدفعات يدويًا بعد التحقق. لا يتم إجراء أي تحويل تلقائي.',
+        'referral.partner.requested': 'تم إرسال طلب الدفع',
+        'referral.partner.requestFailed': 'فشل طلب الدفع',
+        'referral.partner.noPayouts': 'لا توجد مدفوعات بعد.',
+        'referral.partner.statusPending': 'قيد الانتظار',
+        'referral.partner.statusReview': 'قيد المراجعة',
+        'referral.partner.statusPaid': 'مدفوع',
+        'referral.partner.statusRejected': 'مرفوض',
+        'referral.partner.txRef': 'المعاملة / الهاش',
+        'referral.partner.createdAt': 'تاريخ الطلب',
+        'admin.referral.payoutsTab': 'المدفوعات',
+        'admin.referral.payoutsHelp': 'تحقق من الدفع خارج المنصة، وأرسل العملة يدويًا، ثم سجّل تفاصيل الدفع هنا.',
+        'admin.referral.payoutCol.partner': 'الشريك',
+        'admin.referral.payoutCol.amount': 'المبلغ',
+        'admin.referral.payoutCol.status': 'الحالة',
+        'admin.referral.payoutCol.wallet': 'المحفظة / العنوان',
+        'admin.referral.payoutCol.txRef': 'المعاملة / الهاش',
+        'admin.referral.payoutCol.manager': 'المدير',
+        'admin.referral.payoutCol.date': 'تاريخ الطلب',
+        'admin.referral.payoutCol.action': 'إجراء',
+        'admin.referral.recordPayment': 'تسجيل الدفع',
+        'admin.referral.rejectPayout': 'رفض',
+        'admin.referral.txRefPrompt': 'أدخل هاش / مرجع معاملة الدفع:',
+        'admin.referral.rejectConfirm': 'هل تريد رفض طلب الدفع هذا؟ سيتم إرجاع الأرباح المحجوزة إلى الشريك.',
+        'admin.referral.noPayouts': 'لا توجد طلبات دفع.',
+        'admin.referral.payoutUpdated': 'تم تحديث الدفع',
+        'admin.referral.payoutUpdateFailed': 'فشل تحديث الدفع',
         'referral.invite': 'ادعُ أصدقاءَك، واكسب',
         'referral.ofFirstDeposit': 'من أول إيداع لهم',
         'referral.subtitle': 'شارك رابطك. اربح 20% من أول إيداع مؤهل لصديقك.',
@@ -14208,8 +14842,8 @@ const TRANSLATIONS = {
         'withdraw.needDeposit': 'يلزم إجراء أول إيداع مؤهل قبل سحب رصيدك الترويجي أو أرباح التداول.',
         'withdraw.firstDeposit': 'قم بإجراء أول إيداع لفتح السحب.',
         'withdraw.needTrade': 'أتمم صفقة واحدة على الأقل قبل السحب',
-        'withdraw.minWithdrawal': 'الحد الأدنى للسحب هو ${{min}}. الحالي: ${{current}}',
-        'withdraw.minAmount': 'الحد الأدنى للسحب هو $700',
+        'withdraw.minWithdrawal': 'تنطبق متطلبات السحب. الحالي: ${{current}}',
+        'withdraw.minAmount': 'تنطبق متطلبات السحب.',
         'withdraw.enterAddress': 'يرجى إدخال عنوان محفظة',
         'withdraw.insufficient': 'رصيد غير كافٍ',
         'withdraw.success': '✅ تم إرسال طلب سحب ${{amount}}! تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
@@ -14327,7 +14961,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'أيدٍ ماسية',
         'badges.diamondHandsDesc': 'تحقيق ربح بعد 10 صفقات',
         'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى $100 لتفعيل السحب',
-        'live.withdrawStatus.needMinimum': '📈 بلوغ الحد الأدنى ${{min}} للسحب',
+        'live.withdrawStatus.needMinimum': '📈 تنطبق متطلبات السحب',
         'live.withdrawStatus.belowMinimum': '📈 واصل التداول لزيادة رصيدك المؤهل',
         'live.withdrawStatus.noTrades': '📊 أتمم صفقة واحدة على الأقل للسحب',
         'live.withdrawStatus.ready': '✅ جاهز للسحب',
@@ -15032,7 +15666,7 @@ const TRANSLATIONS = {
         'landing.compare.live.p2': 'شغّل البوت',
         'landing.compare.live.p3': 'اختبر التداول الآلي',
         'landing.compare.note': 'يستخدم التجريبي نفس بيانات السوق المباشرة كحساب Live: النتيجة في التجريبي تطابق حساب Live، لكن أداء التجريبي لا يضمن الأداء المباشر.',
-        'landing.demo.cta': 'جرّب الوضع التجريبي',
+        'landing.demo.cta': 'استكشف التجريبي — أنشئ حسابًا مجانًا',
         'landing.intro.tag': 'تجربة المباشر',
         'landing.intro.title': 'تجربة مباشرة لمدة 14 يومًا',
         'landing.intro.note': 'استكشف التجريبي أولًا. عندما تكون جاهزًا، موّن المباشر واختبر Arbitrix لمدة 14 يومًا قبل استحقاق اشتراك 7$/شهريًا.',
@@ -15231,9 +15865,9 @@ const TRANSLATIONS = {
         'landing.userGreeting': '欢迎，{{name}}',
         'landing.launchApp': '启动应用',
         'landing.hero.badge': '自动化套利交易平台',
-        'landing.hero.title': '自动化套利。<br><span class="landing-gradient-text">简单易用。</span>',
+        'landing.hero.title': '自动化套利<br><span class="landing-gradient-text">覆盖多个市场</span>',
         'landing.hero.subtitle': 'Arbitrix 监控受支持市场中符合条件的价差，并自动执行符合条件的套利交易。',
-        'landing.hero.ctaPrimary': '试用演示模式',
+        'landing.hero.ctaPrimary': '免费开始 — 获取 $50 赠金',
         'landing.hero.ctaSecondary': '了解运作方式',
         'landing.hero.trust.encryption': '256-bit 加密',
         'landing.hero.trust.withdrawals': '15-30 分钟提现',
@@ -15335,7 +15969,7 @@ const TRANSLATIONS = {
         'landing.faq.6.a': '创建基础账户仅需邮箱和密码。为遵守监管要求，可能需要 KYC 验证以获得更高的提现额度或使用特定功能。',
         'landing.cta.title': '从演示模式开始',
         'landing.cta.subtitle': '探索 Arbitrix，了解自动化套利的运作方式，并决定何时准备好体验实盘交易。',
-        'landing.cta.button': '试用演示模式',
+        'landing.cta.button': '体验演示 — 免费创建账户',
         'landing.cta.note': '创建账户无需银行卡 • 包含 14 天免费 Live 交易',
         'landing.footer.tagline': '自动化多资产套利交易平台。',
         'landing.footer.product': '产品',
@@ -15537,6 +16171,72 @@ const TRANSLATIONS = {
         'market.stocks': '股票',
         'market.commodities': '大宗商品',
         'referral.title': '推荐计划',
+        'landing.partner.tag': '合作伙伴计划',
+        'landing.partner.title': '成为 Arbitrix 推荐合作伙伴',
+        'landing.partner.subtitle': '向 Arbitrix 引荐新用户，并在其首次满 $100 的合格入金上赚取 20% 推荐奖励。',
+        'landing.partner.step1': '分享你的链接',
+        'landing.partner.step2': '用户注册',
+        'landing.partner.step3': '用户完成合格入金',
+        'landing.partner.step4': '奖励显示在你的面板中',
+        'landing.partner.step5': '申请提现',
+        'landing.partner.cta': '成为推荐合作伙伴',
+        'landing.partner.disclosure': '自我推荐、重复账户、欺诈活动以及误导性推广不符合推荐奖励资格。',
+        'landing.hero.promo': '符合条件的新用户可获得 $50 促销交易赠金作为起步。',
+        'landing.startFree.tag': '开始使用',
+        'landing.startFree.title': '三步免费开始',
+        'landing.startFree.step1.title': '创建账户',
+        'landing.startFree.step1.desc': '免费创建 Arbitrix 账户。',
+        'landing.startFree.step2.title': '体验演示 + 促销体验',
+        'landing.startFree.step2.desc': '体验演示模式，并在符合条件时获取 $50 促销交易赠金。',
+        'landing.startFree.step3.title': '准备就绪后入金',
+        'landing.startFree.step3.desc': '准备好进行实盘交易时，为账户入金并继续使用 Arbitrix。',
+        'landing.video.tag': '说明',
+        'landing.video.title': '观看 Arbitrix 实际运作',
+        'landing.video.subtitle': '简要了解 Arbitrix 如何自动执行符合条件的套利。',
+        'landing.video.fallback': '您的浏览器不支持视频标签。',
+        'referral.partner.title': '推荐合作伙伴',
+        'referral.partner.totalReferrals': '总推荐数',
+        'referral.partner.qualified': '合格推荐数',
+        'referral.partner.volume': '合格入金总额',
+        'referral.partner.available': '可用收益',
+        'referral.partner.requestPayout': '申请提现',
+        'referral.partner.alreadyOpen': '已有提现申请正在处理中。',
+        'referral.partner.pendingPayouts': '待处理提现申请',
+        'referral.partner.history': '提现记录',
+        'referral.partner.modalTitle': '申请提现',
+        'referral.partner.modalDesc': '付款经理会核实并手动发送你的提现。',
+        'referral.partner.amountLabel': '提现金额',
+        'referral.partner.walletLabel': '收款钱包地址（USDT TRC20）',
+        'referral.partner.walletPlaceholder': '你的 USDT TRC20 钱包地址',
+        'referral.partner.walletInvalid': '请输入有效的钱包地址（至少 10 个字符）。',
+        'referral.partner.submit': '提交申请',
+        'referral.partner.manualNote': '提现由我们的付款团队在核实后手动发送，不进行任何自动转账。',
+        'referral.partner.requested': '提现申请已提交',
+        'referral.partner.requestFailed': '提现申请失败',
+        'referral.partner.noPayouts': '暂无提现记录。',
+        'referral.partner.statusPending': '待处理',
+        'referral.partner.statusReview': '审核中',
+        'referral.partner.statusPaid': '已支付',
+        'referral.partner.statusRejected': '已拒绝',
+        'referral.partner.txRef': '交易 / 哈希',
+        'referral.partner.createdAt': '申请时间',
+        'admin.referral.payoutsTab': '提现',
+        'admin.referral.payoutsHelp': '在平台外核实提现，手动发送加密货币，然后在此记录付款详情。',
+        'admin.referral.payoutCol.partner': '合作伙伴',
+        'admin.referral.payoutCol.amount': '金额',
+        'admin.referral.payoutCol.status': '状态',
+        'admin.referral.payoutCol.wallet': '钱包 / 地址',
+        'admin.referral.payoutCol.txRef': '交易 / 哈希',
+        'admin.referral.payoutCol.manager': '管理员',
+        'admin.referral.payoutCol.date': '申请时间',
+        'admin.referral.payoutCol.action': '操作',
+        'admin.referral.recordPayment': '记录付款',
+        'admin.referral.rejectPayout': '拒绝',
+        'admin.referral.txRefPrompt': '请输入付款交易哈希 / 参考号：',
+        'admin.referral.rejectConfirm': '确定要拒绝此提现申请吗？已冻结的收益将退还给合作伙伴。',
+        'admin.referral.noPayouts': '没有提现申请。',
+        'admin.referral.payoutUpdated': '提现已更新',
+        'admin.referral.payoutUpdateFailed': '提现更新失败',
         'referral.invite': '邀请好友，赚',
         'referral.ofFirstDeposit': '首次入金',
         'referral.subtitle': '分享您的链接。好友首次合格入金即可赚取 20%。',
@@ -15633,8 +16333,8 @@ const TRANSLATIONS = {
         'withdraw.needDeposit': '在提取您的促销信用或交易利润之前，需要先完成合格的首笔入金。',
         'withdraw.firstDeposit': '请完成首笔入金以解锁提现。',
         'withdraw.needTrade': '提现前请至少完成 1 笔交易',
-        'withdraw.minWithdrawal': '最低提现金额为 ${{min}}。当前：${{current}}',
-        'withdraw.minAmount': '最低提现为 $700',
+        'withdraw.minWithdrawal': '适用提现要求。当前：${{current}}',
+        'withdraw.minAmount': '适用提现要求。',
         'withdraw.enterAddress': '请输入钱包地址',
         'withdraw.insufficient': '余额不足',
         'withdraw.success': '✅ 已提交 ${{amount}} 提现！提现处理通常需要 15–30 分钟。',
@@ -15752,7 +16452,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': '钻石手',
         'badges.diamondHandsDesc': '10 笔交易后盈利',
         'live.withdrawStatus.notDeposited': '💳 请至少入金 $100 以启用提现',
-        'live.withdrawStatus.needMinimum': '📈 达到最低提现额 ${{min}} 才能提现',
+        'live.withdrawStatus.needMinimum': '📈 适用提现要求',
         'live.withdrawStatus.belowMinimum': '📈 继续交易以增加您的可用余额',
         'live.withdrawStatus.noTrades': '📊 请至少完成 1 笔交易才能提现',
         'live.withdrawStatus.ready': '✅ 可以提现',
@@ -16457,7 +17157,7 @@ const TRANSLATIONS = {
         'landing.compare.live.p2': '启动机器人',
         'landing.compare.live.p3': '体验自动交易',
         'landing.compare.note': '演示使用与实盘账户相同的实时市场数据——演示结果与实盘账户一致，但演示表现不保证实盘表现。',
-        'landing.demo.cta': '试用演示模式',
+        'landing.demo.cta': '体验演示 — 免费创建账户',
         'landing.intro.tag': '实盘体验',
         'landing.intro.title': '14 天实盘体验',
         'landing.intro.note': '先探索演示。准备好后，为实盘充值，在 $7/月平台订阅到期前体验 Arbitrix 14 天。',
@@ -16883,6 +17583,9 @@ function updateDynamicTranslations() {
         // Bonus Wallet info text is dynamic innerHTML, not a data-i18n span).
         if (typeof updateSandboxReferralWording === 'function') updateSandboxReferralWording();
         if (typeof updateBonusWalletUI === 'function') updateBonusWalletUI();
+        // Payout status labels are rendered by JS, so re-render them (and the
+        // numbers) for the active locale. No re-fetch; server data unchanged.
+        if (typeof updateReferralPartnerUI === 'function') updateReferralPartnerUI();
         const accountStatus = document.getElementById('accountStatus');
         if (accountStatus && typeof APP !== 'undefined') {
             if (APP.mode === 'demo') accountStatus.textContent = t('status.demoTrading');
@@ -17212,6 +17915,7 @@ const APP = {
     referralCode: null,
     depositHistory: [], withdrawHistory: [],
     referralStats: { invited: 0, earned: 0 },
+    referralPartner: null,
     currentWallet: 'demo',
     chartData: { demo: { labels: [], values: [] }, live: { labels: [], values: [] } },
     chartPeriod: '30m', chartInstance: null,
@@ -17381,9 +18085,155 @@ async function fetchReferralStats() {
             
             saveData();
             updateReferralDisplay();
+
+            // Referral Partner dashboard: server-authoritative earnings and the
+            // manual payout queue/history. Non-fatal (best effort).
+            await fetchReferralPartner();
         }
     } catch (e) {
         console.log('Error fetching referral stats:', e);
+    }
+}
+
+/**
+ * Fetch the Referral Partner dashboard (qualified volume, available earnings,
+ * pending payout requests, payout history). All amounts come from the server;
+ * the client never derives or submits an amount.
+ */
+async function fetchReferralPartner() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/referral/partner', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) return;
+        APP.referralPartner = await res.json();
+        updateReferralPartnerUI();
+    } catch (e) {
+        console.log('Error fetching referral partner data:', e);
+    }
+}
+
+// Presentation-only map of the server payout status to a localized label+class.
+function payoutStatusMeta(status) {
+    const s = String(status || '').toUpperCase();
+    if (s === 'PAID') return { cls: 'paid', key: 'referral.partner.statusPaid' };
+    if (s === 'REJECTED') return { cls: 'rejected', key: 'referral.partner.statusRejected' };
+    if (s === 'UNDER_REVIEW') return { cls: 'review', key: 'referral.partner.statusReview' };
+    return { cls: 'pending', key: 'referral.partner.statusPending' };
+}
+
+function payoutItemHtml(p) {
+    const meta = payoutStatusMeta(p.status);
+    const amount = Number(p.paid_amount != null ? p.paid_amount : p.amount) || 0;
+    const date = p.paid_at || p.reviewed_at || p.created_at;
+    const dateStr = date ? new Date(date).toLocaleDateString(appLocale()) : '';
+    const tx = p.tx_reference
+        ? '<div style="margin-top:4px;">' + t('referral.partner.txRef') + ': ' + escapeHtml(String(p.tx_reference)) + '</div>'
+        : '';
+    return '<div class="ref-payout-item">'
+        + '<div class="ref-payout-row">'
+        + '<span class="ref-payout-amount">' + formatCurrency(amount) + '</span>'
+        + '<span class="ref-payout-status ' + meta.cls + '">' + t(meta.key) + '</span>'
+        + '</div>'
+        + (dateStr ? '<div style="margin-top:4px;">' + t('referral.partner.createdAt') + ': ' + dateStr + '</div>' : '')
+        + tx
+        + '</div>';
+}
+
+function renderReferralPayouts() {
+    const partner = APP.referralPartner || {};
+    const pending = partner.pendingPayouts || [];
+    const history = partner.paidPayouts || [];
+
+    const pendingWrap = getEl('referralPendingPayoutsWrap');
+    const pendingEl = getEl('referralPendingPayouts');
+    const historyEl = getEl('referralPayoutHistory');
+    const openNote = getEl('referralPayoutOpenNote');
+
+    if (pendingWrap) pendingWrap.classList.toggle('hidden', pending.length === 0);
+    if (pendingEl) pendingEl.innerHTML = pending.map(payoutItemHtml).join('');
+    if (openNote) openNote.classList.toggle('hidden', pending.length === 0);
+    if (historyEl) {
+        historyEl.innerHTML = history.length
+            ? history.map(payoutItemHtml).join('')
+            : '<div class="ref-payout-item">' + t('referral.partner.noPayouts') + '</div>';
+    }
+}
+
+function updateReferralPartnerUI() {
+    const partner = APP.referralPartner;
+    if (!partner) return;
+    const setText = function (id, v) { const el = getEl(id); if (el) el.textContent = v; };
+    setText('refTotalReferrals', partner.totalReferrals || 0);
+    setText('refQualifiedReferrals', partner.qualifiedReferrals || 0);
+    setText('refQualifyingVolume', formatCurrency(partner.totalQualifyingDepositVolume || 0));
+    setText('refAvailableEarnings', formatCurrency(partner.availableEarnings || 0));
+
+    const btn = getEl('requestPayoutBtn');
+    if (btn) {
+        const available = Number(partner.availableEarnings) || 0;
+        const hasOpen = (partner.pendingPayouts || []).length > 0;
+        btn.disabled = !(available > 0) || hasOpen;
+        btn.style.opacity = btn.disabled ? '0.5' : '1';
+        btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';
+    }
+    renderReferralPayouts();
+}
+
+function openReferralPayoutModal() {
+    const partner = APP.referralPartner || {};
+    const available = Number(partner.availableEarnings) || 0;
+    if (!(available > 0)) { showToast(t('referral.partner.requestFailed'), 'error'); return; }
+    if ((partner.pendingPayouts || []).length > 0) { showToast(t('referral.partner.alreadyOpen'), 'info'); return; }
+
+    const amountEl = getEl('payoutAmountDisplay');
+    if (amountEl) amountEl.textContent = formatCurrency(available);
+    const input = getEl('payoutWalletAddress');
+    if (input) input.value = '';
+    const err = getEl('payoutError');
+    if (err) { err.textContent = ''; err.classList.add('hidden'); }
+    // One retry key per modal open so a double-click cannot create two requests.
+    APP.payoutRequestKey = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    const modal = getEl('referralPayoutModal');
+    if (modal) modal.classList.add('open');
+}
+
+function closeReferralPayoutModal() {
+    const modal = getEl('referralPayoutModal');
+    if (modal) modal.classList.remove('open');
+}
+
+async function submitReferralPayoutRequest() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    const input = getEl('payoutWalletAddress');
+    const address = (input && input.value ? input.value : '').trim();
+    const err = getEl('payoutError');
+    const showErr = function (msg) { if (err) { err.textContent = msg; err.classList.remove('hidden'); } };
+    if (address.length < 10) { showErr(t('referral.partner.walletInvalid')); return; }
+
+    const btn = getEl('payoutSubmitBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/referral/payouts/request', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletAddress: address, idempotencyKey: APP.payoutRequestKey })
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+            showErr(translateBackendMessage(data.error, 'referral.partner.requestFailed'));
+            return;
+        }
+        closeReferralPayoutModal();
+        showToast(t('referral.partner.requested'), 'success');
+        await fetchReferralPartner();
+        try { await syncWalletFromServer(); } catch (e) {}
+        updateUI();
+    } catch (e) {
+        showErr(t('referral.partner.requestFailed'));
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -20386,11 +21236,16 @@ async function openWithdrawModal() {
         // requirement.)
         if(!APP.liveData.hasTradingActivity && !canFundFromReferral) { showToast(t('withdraw.needTrade'),'error'); return; }
         // Gate 6 - minimum withdrawal amount (internal; server-enforced). Reached
-        // only after first deposit + completed trade, so this pop-up message is
-        // the ONLY place the $700 minimum is disclosed (management decision:
-        // every other user-facing place states there is no minimum withdrawal).
-        // It also surfaces again on submit below the internal minimum.
-        if(totalWithdrawable < APP.MIN_WITHDRAWAL) { showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: totalWithdrawable.toFixed(2)}),'error'); return; }
+        // only after first deposit + completed trade. The message is deliberately
+        // neutral (it never states an amount). If the account is under the profit
+        // pause, surface the actionable pause prompt instead of the
+        // withdrawal-minimum message (management decision); the server-side
+        // withdrawal rules themselves are unchanged.
+        if(totalWithdrawable < APP.MIN_WITHDRAWAL) {
+            if (await isProfitPausedNow()) { showProfitPauseOnWithdraw(); return; }
+            showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL, current: totalWithdrawable.toFixed(2)}),'error');
+            return;
+        }
     }
 
     // Verification capability check passed - show withdrawal form (address
@@ -20635,6 +21490,31 @@ function maybeShowProfitPauseModal(status) {
         APP.profitPauseNoticeShown = true;
         openProfitPauseModal();
     } catch (e) { /* display-only: never break the caller */ }
+}
+
+/**
+ * Fresh, server-authoritative profit-pause check used by the withdraw flow.
+ * FAIL-OPEN: any error/offline/malformed result means "not paused", so a status
+ * blip can never block a withdrawal or replace its message.
+ */
+async function isProfitPausedNow() {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch('/api/bot/status', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res.ok) return false;
+        const st = await res.json();
+        if (st && st.profitPaused === true) { rememberProfitPauseThreshold(st); return true; }
+    } catch (e) { /* fail-open: treat as not paused */ }
+    return false;
+}
+
+/**
+ * Surface the pause prompt from the withdraw flow. An explicit user action
+ * always shows it; the once-per-page-load guard only limits PROACTIVE shows.
+ */
+function showProfitPauseOnWithdraw() {
+    APP.profitPauseNoticeShown = true;
+    openProfitPauseModal();
 }
 
 function switchToLiveFromDemoInfo() {
@@ -23091,6 +23971,8 @@ function showReferralSubTab(tab) {
     // Show/hide content
     document.getElementById('referralSubTabConfig').classList.add('hidden');
     document.getElementById('referralSubTabHistory').classList.add('hidden');
+    const payoutsSubTab = document.getElementById('referralSubTabPayouts');
+    if (payoutsSubTab) payoutsSubTab.classList.add('hidden');
     
     const content = document.getElementById('referralSubTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
@@ -23099,6 +23981,112 @@ function showReferralSubTab(tab) {
     if (tab === 'history') {
         loadReferralAuditHistory();
     }
+
+    // Load the manual payout queue when shown.
+    if (tab === 'payouts') {
+        loadReferralPayouts();
+    }
+}
+
+// ============ REFERRAL PAYOUTS (MANUAL) ============
+async function loadReferralPayouts() {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+    const tbody = document.getElementById('adminReferralPayoutsTable');
+    const empty = document.getElementById('referralPayoutsEmpty');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('common.loading') + '</td></tr>';
+    try {
+        const filterEl = document.getElementById('payoutStatusFilter');
+        const status = filterEl && filterEl.value ? filterEl.value : 'all';
+        const res = await fetch('/api/admin/referral/payouts?status=' + encodeURIComponent(status), {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('load failed');
+        const data = await res.json();
+        renderReferralPayoutsAdmin(data.payouts || []);
+    } catch (e) {
+        console.log('Error loading referral payouts:', e);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('admin.referral.payoutUpdateFailed') + '</td></tr>';
+    }
+}
+
+function renderReferralPayoutsAdmin(payouts) {
+    const tbody = document.getElementById('adminReferralPayoutsTable');
+    const empty = document.getElementById('referralPayoutsEmpty');
+    if (!tbody) return;
+    if (!payouts.length) {
+        tbody.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    if (empty) empty.classList.add('hidden');
+    tbody.innerHTML = payouts.map(function (p) {
+        const meta = payoutStatusMeta(p.status);
+        const partner = escapeHtml(p.partnerName || (p.partnerEmail || String(p.userId || '')));
+        const wallet = escapeHtml(String(p.walletAddress || ''));
+        const tx = p.txReference ? escapeHtml(String(p.txReference)) : '-';
+        const manager = p.managerName ? escapeHtml(String(p.managerName)) : '-';
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString(appLocale()) : '';
+        const paid = p.paidAmount != null ? formatCurrency(p.paidAmount) : '';
+        let actions = '';
+        if (p.status === 'PENDING') {
+            actions += '<button type="button" onclick="updateReferralPayout(' + p.id + ', \'UNDER_REVIEW\')" style="background:var(--border);color:#60A5FA;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-right:4px;">' + t('referral.partner.statusReview') + '</button>';
+        }
+        if (p.status === 'PENDING' || p.status === 'UNDER_REVIEW') {
+            actions += '<button type="button" onclick="recordReferralPayoutPayment(' + p.id + ', ' + (Number(p.amount) || 0) + ')" style="background:rgba(16,185,129,0.15);color:#10B981;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-right:4px;">' + t('admin.referral.recordPayment') + '</button>';
+            actions += '<button type="button" onclick="rejectReferralPayout(' + p.id + ')" style="background:rgba(239,68,68,0.15);color:#EF4444;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">' + t('admin.referral.rejectPayout') + '</button>';
+        }
+        if (!actions) actions = '-';
+        return '<tr style="border-bottom:1px solid var(--border);">'
+            + '<td style="padding:8px;">' + partner + '</td>'
+            + '<td style="padding:8px;">' + formatCurrency(p.amount) + (paid ? ' <span style="color:var(--text-muted);">(' + paid + ')</span>' : '') + '</td>'
+            + '<td style="padding:8px;"><span class="ref-payout-status ' + meta.cls + '">' + t(meta.key) + '</span></td>'
+            + '<td style="padding:8px;max-width:160px;overflow-wrap:anywhere;">' + wallet + '</td>'
+            + '<td style="padding:8px;max-width:160px;overflow-wrap:anywhere;">' + tx + '</td>'
+            + '<td style="padding:8px;">' + manager + '</td>'
+            + '<td style="padding:8px;">' + date + '</td>'
+            + '<td style="padding:8px;">' + actions + '</td>'
+            + '</tr>';
+    }).join('');
+}
+
+async function updateReferralPayout(id, status, opts) {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return false;
+    opts = opts || {};
+    try {
+        const res = await fetch('/api/admin/referral/payouts/' + id, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                status: status,
+                txReference: opts.txReference || null,
+                paidAmount: (opts.paidAmount === undefined ? null : opts.paidAmount)
+            })
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+            showToast(translateBackendMessage(data.error, 'admin.referral.payoutUpdateFailed'), 'error');
+            return false;
+        }
+        showToast(t('admin.referral.payoutUpdated'), 'success');
+        loadReferralPayouts();
+        return true;
+    } catch (e) {
+        showToast(t('admin.referral.payoutUpdateFailed'), 'error');
+        return false;
+    }
+}
+
+function recordReferralPayoutPayment(id, amount) {
+    const tx = prompt(t('admin.referral.txRefPrompt'), '');
+    if (tx === null) return; // cancelled
+    updateReferralPayout(id, 'PAID', { txReference: tx, paidAmount: amount });
+}
+
+function rejectReferralPayout(id) {
+    if (!confirm(t('admin.referral.rejectConfirm'))) return;
+    updateReferralPayout(id, 'REJECTED');
 }
 
 // ============ REFERRAL AUDIT HISTORY ============

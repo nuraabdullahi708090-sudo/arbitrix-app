@@ -7267,6 +7267,234 @@ app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
 });
 
 // ============================================================
+// REFERRAL PARTNER PROGRAM - DASHBOARD + MANUAL PAYOUT WORKFLOW
+// ============================================================
+// The payout is MANUAL: a partner requests it, a human payment manager
+// verifies it off-platform, sends the crypto, then records the payment. There
+// is NO automated crypto transfer anywhere here. All amounts are derived
+// server-side; the client never supplies identity, amount or balances.
+
+const PAYOUT_STATUSES = ['PENDING', 'UNDER_REVIEW', 'PAID', 'REJECTED'];
+
+// Partner dashboard summary + the partner's payout requests/history.
+app.get('/api/referral/partner', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  // MARKETING_SANDBOX has no production referral-earnings bucket (its simulated
+  // income is credited straight to the simulated balance), so there is nothing
+  // to pay out. Serve a zeroed, non-payable view.
+  if (await isMarketingSandboxUser(userId)) {
+    return res.json({
+      sandbox: true,
+      totalReferrals: 0,
+      qualifiedReferrals: 0,
+      pendingReferrals: 0,
+      totalQualifyingDepositVolume: 0,
+      availableEarnings: 0,
+      pendingPayouts: [],
+      paidPayouts: [],
+      canRequestPayout: false
+    });
+  }
+
+  try {
+    const { data: referrals, error } = await supabaseAdmin
+      .from('referrals')
+      .select('bonus_earned, status, referred_id')
+      .eq('referrer_id', userId);
+    if (error) throw error;
+
+    const list = referrals || [];
+    const activeList = list.filter(r => r.status === 'active' && Number(r.referred_id) > 0);
+    const totalReferrals = list.length;
+    const qualifiedReferrals = activeList.length;
+    const pendingReferrals = list.filter(r => r.status === 'pending').length;
+
+    // Qualifying deposit volume is DERIVED from the stored one-time reward
+    // (reward = round(deposit * percent) / 100), using the configured percent.
+    // Both values are server-owned, so the client cannot inflate the volume.
+    const percentRaw = Number(parseConfigValue(
+      await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))
+    ));
+    const percent = (isFinite(percentRaw) && percentRaw > 0) ? Math.min(percentRaw, 100) : REFERRAL_REWARD_PERCENT_DEFAULT;
+    const rewardTotal = activeList.reduce((s, r) => s + (Number(r.bonus_earned) || 0), 0);
+    const totalQualifyingDepositVolume = Math.round((rewardTotal * 100 / percent) * 100) / 100;
+
+    // Available = genuinely earned rewards capped by the earnings bucket.
+    const genuine = await getGenuinelyEarnedReferralEarnings(userId);
+    const availableEarnings = Math.round((genuine.available || 0) * 100) / 100;
+
+    const { data: payouts, error: payoutErr } = await supabaseAdmin
+      .from('referral_payouts')
+      .select('id, amount, paid_amount, status, wallet_address, tx_reference, created_at, reviewed_at, paid_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    // A missing table (migration not applied) must not break the dashboard.
+    const payoutRows = payoutErr ? [] : (payouts || []);
+
+    const pendingPayouts = payoutRows.filter(p => p.status === 'PENDING' || p.status === 'UNDER_REVIEW');
+    const paidPayouts = payoutRows.filter(p => p.status === 'PAID' || p.status === 'REJECTED');
+
+    res.json({
+      sandbox: false,
+      totalReferrals,
+      qualifiedReferrals,
+      pendingReferrals,
+      totalQualifyingDepositVolume,
+      availableEarnings,
+      pendingPayouts,
+      paidPayouts,
+      canRequestPayout: availableEarnings > 0 && pendingPayouts.length === 0
+    });
+  } catch (e) {
+    console.error('[GET /api/referral/partner]', e.message);
+    res.status(500).json({ error: 'Failed to load partner dashboard' });
+  }
+});
+
+// Request a payout of ALL currently available referral earnings.
+app.post('/api/referral/payouts/request', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  if (await isMarketingSandboxUser(userId)) {
+    return res.status(400).json({ error: 'Not available for marketing sandbox accounts', sandbox: true });
+  }
+
+  try {
+    const walletAddress = (req.body && typeof req.body.walletAddress === 'string')
+      ? req.body.walletAddress.trim() : '';
+    if (walletAddress.length < 10 || walletAddress.length > 200) {
+      return res.status(400).json({ error: 'Valid payout wallet address required' });
+    }
+
+    // Retry key only - never identity, amount, or balances.
+    const rawKey = (req.body && typeof req.body.idempotencyKey === 'string') ? req.body.idempotencyKey.trim() : '';
+    const idempotencyKey = (rawKey && rawKey.length <= 128)
+      ? 'payout_' + userId + '_' + rawKey
+      : 'payout_' + userId + '_' + Date.now() + '_' + crypto.randomBytes(8).toString('hex');
+
+    const { data, error } = await supabaseAdmin.rpc('request_referral_payout_safe', {
+      p_user_id: userId,
+      p_wallet_address: walletAddress,
+      p_idempotency_key: idempotencyKey
+    });
+    if (error) throw error;
+
+    if (!data || data.success !== true) {
+      const reason = (data && (data.reason || data.error)) || 'payout_failed';
+      if (reason === 'no_referral_earnings') {
+        return res.status(400).json({ error: 'No referral earnings available for payout', reason });
+      }
+      if (reason === 'payout_already_open') {
+        return res.status(400).json({ error: 'A payout request is already in progress', reason });
+      }
+      if (reason === 'invalid_address') {
+        return res.status(400).json({ error: 'Valid payout wallet address required', reason });
+      }
+      console.error('[referral/payouts/request] rpc returned:', data);
+      return res.status(400).json({ error: 'Payout request failed', reason });
+    }
+
+    res.json({
+      success: true,
+      duplicate: !!data.duplicate,
+      payoutId: data.payout_id,
+      amount: Number(data.amount) || 0,
+      status: data.status,
+      bonusBalance: Number(data.bonus_balance) || 0
+    });
+  } catch (e) {
+    console.error('[POST /api/referral/payouts/request]', e.message);
+    res.status(500).json({ error: 'Payout request failed' });
+  }
+});
+
+// Admin: list payout requests (defaults to the open queue).
+app.get('/api/admin/referral/payouts', authMiddleware, adminMiddleware, async (req, res) => {
+  const { status } = req.query;
+  let query = supabaseAdmin
+    .from('referral_payouts')
+    .select(`
+      id, user_id, amount, paid_amount, status, wallet_address, tx_reference,
+      manager_id, note, created_at, updated_at, reviewed_at, paid_at,
+      partner:users!user_id(id, name, email, referral_code),
+      manager:users!manager_id(id, name, email)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (status && status !== 'all') query = query.eq('status', String(status).toUpperCase());
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  res.json({
+    payouts: (data || []).map(p => ({
+      id: p.id,
+      userId: p.user_id,
+      partnerName: p.partner ? p.partner.name : null,
+      partnerEmail: p.partner ? p.partner.email : null,
+      partnerCode: p.partner ? p.partner.referral_code : null,
+      amount: Number(p.amount) || 0,
+      paidAmount: p.paid_amount == null ? null : Number(p.paid_amount),
+      status: p.status,
+      walletAddress: p.wallet_address,
+      txReference: p.tx_reference,
+      managerName: p.manager ? p.manager.name : null,
+      managerId: p.manager_id,
+      note: p.note,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+      reviewedAt: p.reviewed_at,
+      paidAt: p.paid_at
+    }))
+  });
+});
+
+// Admin: advance a payout's lifecycle / record the manual payment.
+app.put('/api/admin/referral/payouts/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const payoutId = Number(req.params.id);
+  if (!Number.isFinite(payoutId)) return res.status(400).json({ error: 'Invalid payout id' });
+
+  const body = req.body || {};
+  const status = String(body.status || '').toUpperCase();
+  if (!PAYOUT_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid payout status' });
+
+  const paidAmount = (body.paidAmount === undefined || body.paidAmount === null || body.paidAmount === '')
+    ? null : Number(body.paidAmount);
+  if (paidAmount !== null && (!isFinite(paidAmount) || paidAmount < 0)) {
+    return res.status(400).json({ error: 'Invalid payout amount' });
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.rpc('update_referral_payout_safe', {
+      p_payout_id: payoutId,
+      p_status: status,
+      p_paid_amount: paidAmount,
+      p_tx_reference: body.txReference ? String(body.txReference).trim() : null,
+      p_manager_id: req.user.id,        // the manager is ALWAYS the authenticated admin
+      p_note: body.note ? String(body.note).trim() : null
+    });
+    if (error) throw error;
+
+    if (!data || data.success !== true) {
+      const err = (data && data.error) || 'payout_update_failed';
+      const status0 = ({
+        payout_not_found: 404,
+        invalid_status: 400,
+        already_paid: 400,
+        already_rejected: 400
+      })[err];
+      return res.status(status0 || 400).json({ error: err, reason: err });
+    }
+
+    res.json({ success: true, payoutId: data.payout_id, status: data.status, paidAmount: data.paid_amount, refunded: Number(data.refunded) || 0 });
+  } catch (e) {
+    console.error('[PUT /api/admin/referral/payouts/:id]', e.message);
+    res.status(500).json({ error: 'Payout update failed' });
+  }
+});
+
+// ============================================================
 // EMAIL 2FA & FEATURE FLAGS HELPERS
 // ============================================================
 

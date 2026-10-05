@@ -9,7 +9,7 @@
  *   logged out -> shows Create Account + Sign In, hides the greeting
  *   logged in  -> hides Create Account + Sign In, shows the greeting
  * and NEVER touches "Launch App" (it keeps its purpose: the only landing CTA that
- * enters the dashboard) or the demo CTAs ("Try Demo Mode").
+ * enters the dashboard) or the demo CTAs ("Explore Demo - Create Free Account").
  *
  * The helper is a pure UI setter: `authenticated` is always supplied by the caller
  * from authoritative session knowledge (server-validated startup routing, a session
@@ -103,17 +103,22 @@ function runUpdate(authenticated, dom) {
 // ---------------------------------------------------------------------------
 // 1. Tagging: exactly the Create Account / Sign In actions, never Launch App
 // ---------------------------------------------------------------------------
-test('1a. every landing auth CTA carries the shared hook class (8 in markup)', () => {
+test('1a. every landing auth CTA carries the shared hook class (7 in markup)', () => {
     const total = countTagged(NAV_CTAS) + countTagged(MOBILE_CTAS) + countTagged(HERO_CTAS) + countTagged(FINAL_CTAS);
-    assert.strictEqual(total, 8, 'nav + mobile menu + hero + final CTA = 2 each');
-    [['nav', NAV_CTAS], ['mobile menu', MOBILE_CTAS], ['hero', HERO_CTAS], ['final CTA', FINAL_CTAS]]
-        .forEach(([label, block]) => {
-            assert.strictEqual(countTagged(block), 2, label + ' must expose exactly two auth CTAs');
+    assert.strictEqual(total, 7, 'nav 2 + mobile menu 2 + hero 1 + final CTA 2');
+    [['nav', NAV_CTAS, 2], ['mobile menu', MOBILE_CTAS, 2], ['hero', HERO_CTAS, 1], ['final CTA', FINAL_CTAS, 2]]
+        .forEach(([label, block, n]) => {
+            assert.strictEqual(countTagged(block), n, label + ' must expose ' + n + ' auth CTA(s)');
             assert.match(block, /js-landing-auth-cta[^>]*>[\s\S]{0,200}openAuthScreen\('signup'\)|openAuthScreen\('signup'\)[\s\S]{0,200}js-landing-auth-cta/,
                 label + ' must tag a Create Account action');
-            assert.match(block, /js-landing-auth-cta[^>]*>[\s\S]{0,200}openAuthScreen\('signin'\)|openAuthScreen\('signin'\)[\s\S]{0,200}js-landing-auth-cta/,
-                label + ' must tag a Sign In action');
         });
+    // Sign In stays in the navigation / mobile menu / final CTA, but NOT the hero
+    // (management direction: no competing hero Sign In).
+    [['nav', NAV_CTAS], ['mobile menu', MOBILE_CTAS], ['final CTA', FINAL_CTAS]].forEach(([label, block]) => {
+        assert.match(block, /js-landing-auth-cta[^>]*>[\s\S]{0,200}openAuthScreen\('signin'\)|openAuthScreen\('signin'\)[\s\S]{0,200}js-landing-auth-cta/,
+            label + ' must tag a Sign In action');
+    });
+    assert.ok(!/openAuthScreen\('signin'\)/.test(HERO_CTAS), 'the hero must not carry a Sign In CTA');
 });
 
 test('1b. Launch App and the demo CTAs are never tagged', () => {
@@ -125,12 +130,15 @@ test('1b. Launch App and the demo CTAs are never tagged', () => {
     const launchButtons = [...INDEX.matchAll(/<button[^>]*goToApp\('nav'\)[^>]*>/g)].map((m) => m[0]);
     assert.strictEqual(launchButtons.length, 2, 'exactly two Launch App buttons (nav + mobile)');
     launchButtons.forEach((b) => assert.ok(!b.includes('js-landing-auth-cta'), 'Launch App must stay visible'));
-    // Demo CTAs ("Try Demo Mode") are out of scope here and must not be tagged.
-    ['hero_demo', 'final_cta'].forEach((src) => {
+    // Demo CTAs are out of scope here and must not be tagged.
+    ['demo_cta', 'final_cta'].forEach((src) => {
         const btn = INDEX.match(new RegExp("<button[^>]*goToApp\\('" + src + "'\\)[^>]*>"));
         assert.ok(btn, src + ' demo CTA must exist');
         assert.ok(!btn[0].includes('js-landing-auth-cta'), src + ' demo CTA must not be hidden');
     });
+    // The old hero demo button is gone: the hero now offers the signup ($50 credit)
+    // and "See How It Works" actions only.
+    assert.ok(!/goToApp\('hero_demo'\)/.test(INDEX), 'the hero demo CTA must be removed');
 });
 
 test('1c. the helper selects exactly the shared hook class and is a pure UI setter', () => {
@@ -146,7 +154,7 @@ test('1c. the helper selects exactly the shared hook class and is a pure UI sett
 // 2/3. Behaviour for each session state
 // ---------------------------------------------------------------------------
 test('2. logged out: Create Account + Sign In visible, greeting hidden, Launch App visible', () => {
-    const dom = runUpdate(false, makeDom(8));
+    const dom = runUpdate(false, makeDom(7));
     dom.buttons.forEach((b) => assert.strictEqual(b.style.display, '', 'auth CTA restored'));
     assert.strictEqual(dom.greeting.style.display, 'none', 'greeting hidden when logged out');
     assert.strictEqual(dom.launchApp.style.display, '', 'Launch App untouched');
@@ -154,7 +162,7 @@ test('2. logged out: Create Account + Sign In visible, greeting hidden, Launch A
 });
 
 test('3. logged in: Create Account + Sign In hidden, greeting shown, Launch App visible', () => {
-    const dom = runUpdate(true, makeDom(8));
+    const dom = runUpdate(true, makeDom(7));
     dom.buttons.forEach((b) => assert.strictEqual(b.style.display, 'none', 'auth CTA hidden'));
     assert.strictEqual(dom.greeting.style.display, 'inline-block', 'greeting shown when logged in');
     assert.strictEqual(dom.launchApp.style.display, '', 'Launch App stays visible');
@@ -162,7 +170,7 @@ test('3. logged in: Create Account + Sign In hidden, greeting shown, Launch App 
 });
 
 test('3b. the state is reversible in both directions (no one-way lock)', () => {
-    const dom = makeDom(8);
+    const dom = makeDom(7);
     runUpdate(true, dom);
     assert.ok(dom.buttons.every((b) => b.style.display === 'none'), 'hidden after login');
     runUpdate(false, dom);
@@ -214,7 +222,7 @@ test('5a. logout applies the logged-out landing state', () => {
 });
 
 test('5b. logging in then out leaves the Create Account + Sign In actions visible (real handler state)', () => {
-    const dom = makeDom(8);
+    const dom = makeDom(7);
     runUpdate(true, dom);                                            // session established
     assert.ok(dom.buttons.every((b) => b.style.display === 'none'));
     runUpdate(false, dom);                                           // the exact call logout makes

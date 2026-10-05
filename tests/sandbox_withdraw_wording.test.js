@@ -74,10 +74,10 @@ test('sandbox withdraw variant keys exist in all 6 locales and contain no minimu
     }
 });
 
-test('production withdraw copy discloses the $700 minimum and never uses the sandbox variants', () => {
+test('production withdraw copy is neutral (no $700) and never uses the sandbox variants', () => {
     const T = loadTranslations();
     for (const lang of Object.keys(T)) {
-        assert.ok(T[lang]['withdraw.minAmount'].includes('$700'), `${lang} withdraw.minAmount changed`);
+        assert.ok(!T[lang]['withdraw.minAmount'].includes('$700'), `${lang} withdraw.minAmount must not disclose $700`);
         assert.ok(!/\$500|\$700/.test(T[lang]['withdraw.info']), `${lang} withdraw.info must not claim a withdrawal minimum`);
         assert.ok(!T[lang]['withdraw.min700'], `${lang} the obsolete withdraw.min700 key must be gone`);
     }
@@ -179,7 +179,7 @@ test('language switch re-renders the withdraw status/info text (hook in updateDy
 test('i18n parity: identical key sets across all 6 locales, no empty values', () => {
     const T = loadTranslations();
     const en = Object.keys(T.en);
-    assert.strictEqual(en.length, 1404, 'expected 1404 keys per locale');
+    assert.strictEqual(en.length, 1470, 'expected 1470 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         const keys = Object.keys(dict);
         assert.deepStrictEqual(new Set(keys), new Set(en), `${lang} key set differs from en`);

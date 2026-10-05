@@ -85,7 +85,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1404, 'expected 1404 keys per locale');
+    assert.strictEqual(enKeys.length, 1470, 'expected 1470 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -108,7 +108,7 @@ test('withdrawal copy: processing time clarified, requirements untouched', () =>
     for (const lang of LANGS) {
         assert.ok(!/\$700/.test(T[lang]['withdraw.info']), `${lang} withdraw.info must not claim a $700 minimum`);
         assert.match(T[lang]['withdraw.info'], TRADE_REQ[lang], `${lang} withdraw.info must keep the 1-trade requirement`);
-        assert.match(T[lang]['withdraw.minAmount'], /\$700/, `${lang} withdraw.minAmount must disclose the $700 minimum`);
+        assert.ok(!/\$700/.test(T[lang]['withdraw.minAmount']), `${lang} withdraw.minAmount must not disclose a $700 minimum`);
     }
     // EN copy must not over-promise a fixed window.
     assert.match(T.en['withdraw.info'], /usually takes 15/);

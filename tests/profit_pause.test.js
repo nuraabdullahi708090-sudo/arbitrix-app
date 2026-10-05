@@ -528,7 +528,7 @@ test('7a. the pop-up copy exists in all 6 locales with full parity', () => {
     const T = loadTranslations();
     assert.deepStrictEqual(Object.keys(T).sort(), LANGS.slice().sort());
     LANGS.forEach((l) => {
-        assert.strictEqual(Object.keys(T[l]).length, 1404, l + ' key count');
+        assert.strictEqual(Object.keys(T[l]).length, 1470, l + ' key count');
     });
     const sets = LANGS.map((l) => Object.keys(T[l]).sort().join('|'));
     assert.strictEqual(new Set(sets).size, 1, 'identical key sets across locales');

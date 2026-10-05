@@ -4,9 +4,9 @@
  * WITHDRAWAL MINIMUM MESSAGE — the "Current: ${{current}}" placeholder must
  * always render the user's ACTUAL available balance.
  *
- * The key `withdraw.minWithdrawal` is "Minimum withdrawal is ${{min}}. Current:
- * ${{current}}" (the $700 minimum is disclosed only in the withdrawal pop-up,
- * i.e. once the user has passed the first-deposit + completed-trade logic).
+ * The key `withdraw.minWithdrawal` is neutral ("Withdrawal requirements apply.
+ * Current: ${{current}}"); no withdrawal-minimum amount is disclosed anywhere in
+ * the UI (management decision - the internal minimum is server-enforced only).
  * Two call sites render it:
  *   - the openWithdrawModal eligibility gate, and
  *   - submitWithdraw.
@@ -87,7 +87,8 @@ test('below-minimum submit renders the actual balance, never a raw placeholder',
     assert.strictEqual(toasts.length, 1, 'exactly one message shown');
     assert.ok(!toasts[0].includes('{{'), 'no uninterpolated placeholder: ' + toasts[0]);
     assert.ok(!toasts[0].includes('current}'), 'the literal ${current} bug is gone');
-    assert.match(toasts[0], /Minimum withdrawal is \$700/);
+    assert.match(toasts[0], /Withdrawal requirements apply/);
+    assert.ok(!/\$700/.test(toasts[0]), 'the toast must not disclose the internal minimum');
     assert.match(toasts[0], /Current: \$350\.50/, 'shows the real available balance');
 });
 
