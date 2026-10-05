@@ -5846,3 +5846,102 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   PAYOUT_ASSETS networks is ['TRC20'] (ERC20 removed from the selectable payout
   networks). Adding a network later is still a one-line server change.
 - No other changes. npm test all green (see the deployment checkpoint below).
+
+## Phase 33 - Sandbox referral-PARTNER payout demo (MARKETING_SANDBOX only, 2026-10-05)
+- Enables a MARKETING_SANDBOX partner to demonstrate the COMPLETE referral-partner
+  payout workflow for screen recording: partner -> referral link -> referred sandbox
+  customer -> simulated $100 qualifying deposit -> $20 reward -> request $20 payout ->
+  USDT/TRC20 -> UNDER_REVIEW -> admin records a SIMULATED tx reference -> PAID ->
+  partner sees the completed payout. Production is byte-unchanged where it matters and
+  can never be involved by construction.
+- FILES: NEW supabase/migrations/036_sandbox_referral_payouts.sql (additive, idempotent,
+  self-checking, sandbox_* only); server.js (+234/-25: two sandbox branches replacing
+  inline refusals, four new handlers, two admin endpoints, +referral_code on the admin
+  accounts select); public/index.html (+239/-3: admin sandbox payouts card + JS +
+  simulated marker + 17 i18n keys x6 locales); NEW tests/sandbox_referral_payouts.test.js
+  (23 tests); 16 existing test files re-pinned.
+- MIGRATION 036 (sandbox_* only):
+  * `sandbox_wallets` gains `referral_earnings DECIMAL(18,2) NOT NULL DEFAULT 0`
+    (CHECK >= 0) - a SIMULATED earnings bucket kept SEPARATE from the simulated trading
+    balance, mirroring production (a referral reward credits the earnings bucket, not
+    the trading balance).
+  * `sandbox_award_referral_qualification()` is re-created so a reward credits
+    `referral_earnings`; the simulated trading balance is NEVER touched. Same guards as
+    022 (min $100, 20 percent, FOR UPDATE, exactly-once, env-asserted).
+  * NEW table `sandbox_referral_payouts` (id, user_id, amount, paid_amount, status
+    CHECK PENDING/UNDER_REVIEW/PAID/REJECTED, wallet_address, coin, network,
+    tx_reference, note, manager_id, UNIQUE idempotency_key, is_simulated DEFAULT true
+    CHECK, environment CHECK = MARKETING_SANDBOX, timestamps). RLS ENABLED with a
+    service_role-only policy; REVOKE from PUBLIC/anon/authenticated.
+  * NEW `sandbox_request_referral_payout_safe(p_user_id, p_wallet_address,
+    p_idempotency_key, p_amount DEFAULT NULL, p_coin DEFAULT 'USDT', p_network DEFAULT
+    'TRC20')`: assert_sandbox_user -> idempotency check -> wallet FOR UPDATE ->
+    idempotency re-check -> one-open guard -> available = referral_earnings (NO minimum)
+    -> reserve (debit referral_earnings only) -> insert UNDER_REVIEW. Mirrors the
+    production RPC's order and error reasons (no_referral_earnings, payout_already_open,
+    invalid_address, invalid_amount, amount_exceeds_available, invalid_asset).
+  * NEW `sandbox_update_referral_payout_safe(p_payout_id, p_status, p_paid_amount,
+    p_tx_reference, p_manager_id, p_note)`: row FOR UPDATE, assert_sandbox_user,
+    terminal-state guards (already_paid/already_rejected), REJECTED refunds the reserved
+    earnings EXACTLY ONCE, PAID records paid_amount + the SIMULATED tx_reference + paid_at.
+  * `sandbox_reset_account()` re-created to also DELETE sandbox_referral_payouts and
+    zero `referral_earnings` (deterministic replay).
+  * Trailing DO $$ self-check RAISES if any object/RLS/constraint is missing.
+- server.js WIRING (sandbox branch FIRST, production statements unchanged):
+  * `GET /api/referral/partner` and `POST /api/referral/payouts/request` now open with
+    `if (await sandboxHandled(req, res, handleSandboxPartnerGet|handleSandboxPayoutRequest)) return;`
+    (replacing the old inline sandbox refusals). Handlers read/write sandbox_wallets +
+    sandbox_referral_payouts only; idempotency keys are namespaced `sbx_payout_`.
+  * NEW admin-only `GET /api/admin/sandbox/:userId/payouts` and
+    `PUT /api/admin/sandbox/:userId/payouts/:payoutId` (both re-verify the sandbox target
+    via requireSandboxTargetUser AND that the payout belongs to that target). COMPLETELY
+    SEPARATE from `/api/admin/referral/payouts` (no source toggle that could mix data).
+  * Admin sandbox accounts list select now also returns `referral_code` so an operator
+    can attribute a new referred account to the partner.
+- public/index.html: NEW "Referral Partner Payouts (simulated)" card in the admin
+  Sandbox tab (table + Refresh + Record simulated payment / Reject reusing the existing
+  admin.referral prompts), a `sandboxReferredByCode` input on account creation, an
+  `onchange` that loads payouts for the selected account, and a `#partnerSimulatedNote`
+  marker shown ONLY when the partner payload has `sandbox:true`. All sandbox admin calls
+  use `sandboxAdminFetch` (the marketing_sandbox test pins that the section never hits
+  `/api/admin/referral/*`).
+- i18n: 1488 -> 1505 keys/locale x6 (17 NEW keys: referral.partner.simulatedNote +
+  16 sandbox.admin.payout*). Identical key sets, 0 empty, 0 dups, 0 placeholder-parity
+  issues; inserted as \\uXXXX escapes so the non-ASCII byte multiset is UNCHANGED
+  (verified: 0 bytes added/lost, 0 U+FFFD, 791 data-i18n refs all defined, 7 inline
+  script blocks parse).
+- VERIFICATION:
+  * npm test = 1958 pass / 0 fail (7 suites; baseline 1935 + 23 new).
+  * REAL PostgreSQL 16.15 (throwaway docker container, since removed; migrations
+    013 + 022 + 036 applied verbatim): 036 applies cleanly, a re-apply is a no-op
+    (NOTICEs only) and its self-check passes. Behavioural suite 10/10 PASS:
+    award = $20 into referral_earnings with the trading balance untouched and the
+    referral ACTIVE; request -> UNDER_REVIEW with earnings reserved and the balance
+    untouched; PRODUCTION ISOLATION (no production referral_payouts row created incl. a
+    sentinel row left PENDING/untouched, no wallets/transactions/referrals rows for the
+    sandbox user); manager records a simulated TX -> PAID; a replayed request is
+    `duplicate:true` with exactly one row; REJECTED refunds once and a second rejection
+    is refused (no double refund); one-open enforced; a PRODUCTION user is refused by
+    assert_sandbox_user; invalid/excess amounts refused; reset clears payouts +
+    referrals + earnings.
+    CONCURRENCY: two simultaneous requests produced exactly one payout
+    (UNDER_REVIEW) and one `payout_already_open`, with earnings reserved exactly once.
+  * Production endpoints behave as before (pinned): the production payout routes still
+    call request_referral_payout_safe/update_referral_payout_safe with the `payout_`
+    key namespace; PAYOUT_ASSETS is still USDT/TRC20 only; PLATFORM_MIN_DEPOSIT_USD=100
+    and MIN_WITHDRAWAL_USD=700 unchanged.
+- MIGRATION 036 IS NOT APPLIED TO PRODUCTION (no DDL-capable credential in this
+  environment; the same review/approval path as 034/035 applies). Until applied, the
+  sandbox payout handlers fail safe (empty reads) and nothing changes for production.
+- RECORDING PROCEDURE: (1) Admin -> Sandbox -> create a "Partner" account; copy its
+  [REFERRAL CODE] from the account selector. (2) Create a second account with
+  "Referred-by code" = the partner's code. (3) Run the simulated $100 deposit for the
+  referred account (or "Simulate Referral Deposit") -> the partner earns $20. (4) Sign
+  in as the partner -> Referral -> Request Payout -> amount 20 -> coin USDT / network
+  TRC20 -> submit. (5) As admin -> Sandbox -> select the partner -> Record simulated
+  payment -> enter the amount + a SIMULATED reference -> PAID. (6) As the partner ->
+  the payout shows PAID with the reference. Re-run between takes: /api/sandbox/reset
+  (or Admin reset) clears payouts + referral earnings.
+- NOT committed / NOT pushed / NOT deployed. Working tree: M public/index.html,
+  M server.js, M 16 test files; ?? supabase/migrations/036_sandbox_referral_payouts.sql,
+  ?? tests/sandbox_referral_payouts.test.js.

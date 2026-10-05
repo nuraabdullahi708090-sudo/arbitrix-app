@@ -143,8 +143,11 @@ test('GET /api/referral/partner is auth-gated, self-scoped and server-derived', 
 test('payout request is auth-gated, sandbox-refused, and validates address + amount + asset', () => {
     const ep = sliceBetween(PARTNER_API, "app.post('/api/referral/payouts/request'", "app.get('/api/admin/referral/payouts'");
     assert.match(ep, /authMiddleware/);
+    // Sandbox accounts are handled (and refused from production) by the FIRST
+    // statement via sandboxHandled() -> handleSandboxPayoutRequest; the
+    // production path below is never reachable for a sandbox account.
+    assert.match(ep, /sandboxHandled\(req, res, handleSandboxPayoutRequest\)/);
     assert.match(ep, /const userId = req\.user\.id/);
-    assert.match(ep, /isMarketingSandboxUser\(userId\)/);
     // The partner chooses the amount (NO MINIMUM) and the coin/network; the RPC
     // re-validates the amount against the server-derived available earnings.
     assert.match(ep, /req\.body\.walletAddress/);

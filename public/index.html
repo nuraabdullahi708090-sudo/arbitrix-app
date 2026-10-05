@@ -6858,10 +6858,11 @@ function toggleFaq(btn) {
                             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-user-astronaut"></i></span> <span data-i18n="sandbox.admin.account">Sandbox Account</span></div>
                             <div class="card-body">
                                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-                                    <select id="sandboxAccountSelect" style="flex:1;min-width:220px;padding:8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);">
+                                    <select id="sandboxAccountSelect" onchange="onSandboxAccountSelected()" style="flex:1;min-width:220px;padding:8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);">
                                         <option value="" data-i18n="sandbox.admin.selectAccount">Select account...</option>
                                     </select>
                                     <button type="button" class="btn btn-secondary" onclick="loadSandboxAccounts()" data-i18n="admin.refresh">Refresh</button>
+                                    <input id="sandboxReferredByCode" type="text" placeholder="Referred-by code (optional)" data-i18n-placeholder="sandbox.admin.referredByCode" style="width:200px;padding:8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);">
                                     <button type="button" class="btn btn-primary" onclick="createSandboxAccount()" data-i18n="sandbox.admin.createAccount">New Sandbox Account</button>
                                 </div>
                                 <div id="sandboxAccountCredentials" style="display:none;font-size:12px;color:#93c5fd;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px;"></div>
@@ -6914,6 +6915,32 @@ function toggleFaq(btn) {
                                     <input id="sandboxReferralAmount" type="number" min="0" step="0.01" value="100" style="width:120px;padding:8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);" placeholder="Deposit" data-i18n-placeholder="sandbox.admin.referralAmount">
                                     <button type="button" class="btn btn-primary" onclick="sandboxSimulateReferralDeposit()" data-i18n="sandbox.admin.simulateReferral">Simulate Referral Deposit</button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Referral PARTNER payouts (SIMULATED). Completely separate from
+                             the production Payouts tab: sandbox_* tables/RPCs only. -->
+                        <div class="card" style="margin-bottom:12px;">
+                            <div class="card-header"><span class="icon-bg gold"><i class="fas fa-money-bill-transfer"></i></span> <span data-i18n="sandbox.admin.payoutsTitle">Referral Partner Payouts (simulated)</span></div>
+                            <div class="card-body">
+                                <div style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin-bottom:8px;overflow-wrap:anywhere;" data-i18n="sandbox.admin.payoutsSimulatedNote">Simulated only - recording a payment stores a demo reference. No real transfer is made.</div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                    <span id="sandboxPayoutEarnings" style="font-size:11px;color:var(--text-secondary);"></span>
+                                    <button type="button" class="btn btn-secondary" onclick="loadSandboxPayouts()" data-i18n="sandbox.admin.payoutsRefresh">Refresh Payouts</button>
+                                </div>
+                                <div class="table-wrap">
+                                    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                                        <thead><tr style="text-align:left;color:var(--text-secondary);">
+                                            <th style="padding:6px;" data-i18n="sandbox.admin.payoutsColAmount">Amount</th>
+                                            <th style="padding:6px;" data-i18n="sandbox.admin.payoutsColAsset">Asset</th>
+                                            <th style="padding:6px;" data-i18n="sandbox.admin.payoutsColStatus">Status</th>
+                                            <th style="padding:6px;" data-i18n="sandbox.admin.payoutsColTx">TX reference</th>
+                                            <th style="padding:6px;" data-i18n="sandbox.admin.payoutsColActions">Actions</th>
+                                        </tr></thead>
+                                        <tbody id="sandboxPayoutsTable"></tbody>
+                                    </table>
+                                </div>
+                                <div id="sandboxPayoutsEmpty" class="hidden" style="font-size:11px;color:var(--text-secondary);padding:8px;" data-i18n="sandbox.admin.payoutsEmpty">No simulated payouts yet.</div>
                             </div>
                         </div>
 
@@ -6993,6 +7020,7 @@ function toggleFaq(btn) {
                              Amounts are always server-derived; payout is manual. -->
                         <div id="referralPartnerPanel" style="border-top:1px solid var(--border-color);padding-top:14px;margin-bottom:14px;">
                             <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:8px;"><i class="fas fa-handshake" style="color:#F0B90B;"></i> <span data-i18n="referral.partner.title">Referral Partner</span></div>
+                            <div id="partnerSimulatedNote" class="hidden" style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin:0 0 10px;overflow-wrap:anywhere;" data-i18n="referral.partner.simulatedNote">Simulated demo data - no real money or payouts.</div>
                             <div class="ref-partner-grid">
                                 <div class="ref-partner-stat"><div class="ref-partner-value" id="refTotalReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.totalReferrals">Total Referrals</div></div>
                                 <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifiedReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.qualified">Qualified Referrals</div></div>
@@ -9912,6 +9940,23 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Referral qualified: ${{amount}} reward credited',
         'sandbox.admin.referralNotQualified': 'Not qualified: the referred deposit must be at least ${{min}}',
         'sandbox.admin.referralFailed': 'Referral simulation failed',
+        'referral.partner.simulatedNote': 'Simulated demo data - no real money or payouts.',
+        'sandbox.admin.payoutsTitle': 'Referral Partner Payouts (simulated)',
+        'sandbox.admin.payoutsSimulatedNote': 'Simulated only - recording a payment stores a demo reference. No real transfer is made.',
+        'sandbox.admin.payoutsRefresh': 'Refresh Payouts',
+        'sandbox.admin.payoutsColAmount': 'Amount',
+        'sandbox.admin.payoutsColAsset': 'Asset',
+        'sandbox.admin.payoutsColStatus': 'Status',
+        'sandbox.admin.payoutsColTx': 'TX reference',
+        'sandbox.admin.payoutsColActions': 'Actions',
+        'sandbox.admin.payoutsEmpty': 'No simulated payouts yet.',
+        'sandbox.admin.payoutsEarnings': 'Simulated referral earnings: ${{amount}}',
+        'sandbox.admin.payoutRecord': 'Record simulated payment',
+        'sandbox.admin.payoutReject': 'Reject',
+        'sandbox.admin.payoutsFailed': 'Failed to load simulated payouts',
+        'sandbox.admin.payoutsUpdateFailed': 'Failed to update the simulated payout',
+        'sandbox.admin.payoutUpdated': 'Simulated payout marked {{status}}',
+        'sandbox.admin.referredByCode': 'Referred-by code (optional)',
         'sandbox.admin.hideBadge': 'Hide Badge (clean recording)',
         'sandbox.admin.badgeHidden': 'Badge hidden for clean recording',
         'sandbox.admin.badgeShown': 'Badge shown',
@@ -11421,6 +11466,23 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Referido calificado: recompensa de ${{amount}} acreditada',
         'sandbox.admin.referralNotQualified': 'No califica: el depósito del referido debe ser de al menos ${{min}}',
         'sandbox.admin.referralFailed': 'Falló la simulación de referidos',
+        'referral.partner.simulatedNote': 'Datos de demostraci\u00f3n simulados: sin dinero ni pagos reales.',
+        'sandbox.admin.payoutsTitle': 'Pagos a socios de referidos (simulado)',
+        'sandbox.admin.payoutsSimulatedNote': 'Solo simulado: registrar un pago guarda una referencia de demostraci\u00f3n. No se realiza ninguna transferencia real.',
+        'sandbox.admin.payoutsRefresh': 'Actualizar pagos',
+        'sandbox.admin.payoutsColAmount': 'Importe',
+        'sandbox.admin.payoutsColAsset': 'Activo',
+        'sandbox.admin.payoutsColStatus': 'Estado',
+        'sandbox.admin.payoutsColTx': 'Referencia TX',
+        'sandbox.admin.payoutsColActions': 'Acciones',
+        'sandbox.admin.payoutsEmpty': 'A\u00fan no hay pagos simulados.',
+        'sandbox.admin.payoutsEarnings': 'Ganancias de referidos simuladas: ${{amount}}',
+        'sandbox.admin.payoutRecord': 'Registrar pago simulado',
+        'sandbox.admin.payoutReject': 'Rechazar',
+        'sandbox.admin.payoutsFailed': 'No se pudieron cargar los pagos simulados',
+        'sandbox.admin.payoutsUpdateFailed': 'No se pudo actualizar el pago simulado',
+        'sandbox.admin.payoutUpdated': 'Pago simulado marcado como {{status}}',
+        'sandbox.admin.referredByCode': 'C\u00f3digo de referidor (opcional)',
         'sandbox.admin.hideBadge': 'Ocultar insignia (grabación limpia)',
         'sandbox.admin.badgeHidden': 'Insignia oculta para grabación limpia',
         'sandbox.admin.badgeShown': 'Insignia visible',
@@ -12930,6 +12992,23 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Indicação qualificada: recompensa de ${{amount}} creditada',
         'sandbox.admin.referralNotQualified': 'Não qualificado: o depósito do indicado deve ser de pelo menos ${{min}}',
         'sandbox.admin.referralFailed': 'Falha na simulação de indicação',
+        'referral.partner.simulatedNote': 'Dados de demonstra\u00e7\u00e3o simulados - sem dinheiro nem pagamentos reais.',
+        'sandbox.admin.payoutsTitle': 'Pagamentos a parceiros de indica\u00e7\u00e3o (simulado)',
+        'sandbox.admin.payoutsSimulatedNote': 'Apenas simulado - registrar um pagamento guarda uma refer\u00eancia de demonstra\u00e7\u00e3o. Nenhuma transfer\u00eancia real \u00e9 feita.',
+        'sandbox.admin.payoutsRefresh': 'Atualizar pagamentos',
+        'sandbox.admin.payoutsColAmount': 'Valor',
+        'sandbox.admin.payoutsColAsset': 'Ativo',
+        'sandbox.admin.payoutsColStatus': 'Status',
+        'sandbox.admin.payoutsColTx': 'Refer\u00eancia TX',
+        'sandbox.admin.payoutsColActions': 'A\u00e7\u00f5es',
+        'sandbox.admin.payoutsEmpty': 'Ainda n\u00e3o h\u00e1 pagamentos simulados.',
+        'sandbox.admin.payoutsEarnings': 'Ganhos de indica\u00e7\u00e3o simulados: ${{amount}}',
+        'sandbox.admin.payoutRecord': 'Registrar pagamento simulado',
+        'sandbox.admin.payoutReject': 'Rejeitar',
+        'sandbox.admin.payoutsFailed': 'Falha ao carregar os pagamentos simulados',
+        'sandbox.admin.payoutsUpdateFailed': 'Falha ao atualizar o pagamento simulado',
+        'sandbox.admin.payoutUpdated': 'Pagamento simulado marcado como {{status}}',
+        'sandbox.admin.referredByCode': 'C\u00f3digo de quem indicou (opcional)',
         'sandbox.admin.hideBadge': 'Ocultar selo (gravação limpa)',
         'sandbox.admin.badgeHidden': 'Selo oculto para gravação limpa',
         'sandbox.admin.badgeShown': 'Selo visível',
@@ -14439,6 +14518,23 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Filleul qualifié : récompense de ${{amount}} créditée',
         'sandbox.admin.referralNotQualified': 'Non qualifié : le dépôt du filleul doit être d’au moins ${{min}}',
         'sandbox.admin.referralFailed': 'Échec de la simulation de parrainage',
+        'referral.partner.simulatedNote': 'Donn\u00e9es de d\u00e9monstration simul\u00e9es - aucun argent ni paiement r\u00e9el.',
+        'sandbox.admin.payoutsTitle': 'Paiements aux partenaires de parrainage (simul\u00e9)',
+        'sandbox.admin.payoutsSimulatedNote': 'Simulation uniquement - enregistrer un paiement stocke une r\u00e9f\u00e9rence de d\u00e9monstration. Aucun virement r\u00e9el n\'est effectu\u00e9.',
+        'sandbox.admin.payoutsRefresh': 'Actualiser les paiements',
+        'sandbox.admin.payoutsColAmount': 'Montant',
+        'sandbox.admin.payoutsColAsset': 'Actif',
+        'sandbox.admin.payoutsColStatus': 'Statut',
+        'sandbox.admin.payoutsColTx': 'R\u00e9f\u00e9rence TX',
+        'sandbox.admin.payoutsColActions': 'Actions',
+        'sandbox.admin.payoutsEmpty': 'Aucun paiement simul\u00e9 pour l\'instant.',
+        'sandbox.admin.payoutsEarnings': 'Gains de parrainage simul\u00e9s : ${{amount}}',
+        'sandbox.admin.payoutRecord': 'Enregistrer un paiement simul\u00e9',
+        'sandbox.admin.payoutReject': 'Rejeter',
+        'sandbox.admin.payoutsFailed': '\u00c9chec du chargement des paiements simul\u00e9s',
+        'sandbox.admin.payoutsUpdateFailed': '\u00c9chec de la mise \u00e0 jour du paiement simul\u00e9',
+        'sandbox.admin.payoutUpdated': 'Paiement simul\u00e9 marqu\u00e9 {{status}}',
+        'sandbox.admin.referredByCode': 'Code de parrainage (facultatif)',
         'sandbox.admin.hideBadge': 'Masquer le badge (enregistrement propre)',
         'sandbox.admin.badgeHidden': 'Badge masqué pour enregistrement propre',
         'sandbox.admin.badgeShown': 'Badge affiché',
@@ -15948,6 +16044,23 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'تم تأهيل الإحالة: تم إضافة مكافأة ${{amount}}',
         'sandbox.admin.referralNotQualified': 'غير مؤهل: يجب أن يكون إيداع المُحال ${{min}} على الأقل',
         'sandbox.admin.referralFailed': 'فشلت محاكاة الإحالة',
+        'referral.partner.simulatedNote': '\u0628\u064a\u0627\u0646\u0627\u062a \u0639\u0631\u0636 \u062a\u0648\u0636\u064a\u062d\u064a \u0645\u062d\u0627\u0643\u0627\u0629 - \u0644\u0627 \u0623\u0645\u0648\u0627\u0644 \u0623\u0648 \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u062d\u0642\u064a\u0642\u064a\u0629.',
+        'sandbox.admin.payoutsTitle': '\u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u0625\u062d\u0627\u0644\u0629 (\u0645\u062d\u0627\u0643\u0627\u0629)',
+        'sandbox.admin.payoutsSimulatedNote': '\u0645\u062d\u0627\u0643\u0627\u0629 \u0641\u0642\u0637 - \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u0641\u0639 \u064a\u062e\u0632\u0651\u0646 \u0645\u0631\u062c\u0639\u064b\u0627 \u062a\u062c\u0631\u064a\u0628\u064a\u064b\u0627. \u0644\u0627 \u064a\u062a\u0645 \u0625\u062c\u0631\u0627\u0621 \u0623\u064a \u062a\u062d\u0648\u064a\u0644 \u062d\u0642\u064a\u0642\u064a.',
+        'sandbox.admin.payoutsRefresh': '\u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0645\u062f\u0641\u0648\u0639\u0627\u062a',
+        'sandbox.admin.payoutsColAmount': '\u0627\u0644\u0645\u0628\u0644\u063a',
+        'sandbox.admin.payoutsColAsset': '\u0627\u0644\u0623\u0635\u0644',
+        'sandbox.admin.payoutsColStatus': '\u0627\u0644\u062d\u0627\u0644\u0629',
+        'sandbox.admin.payoutsColTx': '\u0645\u0631\u062c\u0639 \u0627\u0644\u0639\u0645\u0644\u064a\u0629',
+        'sandbox.admin.payoutsColActions': '\u0625\u062c\u0631\u0627\u0621\u0627\u062a',
+        'sandbox.admin.payoutsEmpty': '\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0645\u062d\u0627\u0643\u0627\u0629 \u0628\u0639\u062f.',
+        'sandbox.admin.payoutsEarnings': '\u0623\u0631\u0628\u0627\u062d \u0627\u0644\u0625\u062d\u0627\u0644\u0629 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629: ${{amount}}',
+        'sandbox.admin.payoutRecord': '\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629 \u0645\u062d\u0627\u0643\u0627\u0629',
+        'sandbox.admin.payoutReject': '\u0631\u0641\u0636',
+        'sandbox.admin.payoutsFailed': '\u0641\u0634\u0644 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629',
+        'sandbox.admin.payoutsUpdateFailed': '\u0641\u0634\u0644 \u062a\u062d\u062f\u064a\u062b \u0627\u0644\u062f\u0641\u0639\u0629 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629',
+        'sandbox.admin.payoutUpdated': '\u062a\u0645 \u0648\u0636\u0639 \u0627\u0644\u062f\u0641\u0639\u0629 \u0627\u0644\u0645\u062d\u0627\u0643\u0627\u0629 \u0643\u0640 {{status}}',
+        'sandbox.admin.referredByCode': '\u0631\u0645\u0632 \u0627\u0644\u0645\u064f\u062d\u064a\u0644 (\u0627\u062e\u062a\u064a\u0627\u0631\u064a)',
         'sandbox.admin.hideBadge': 'إخفاء الشارة (تسجيل نظيف)',
         'sandbox.admin.badgeHidden': 'تم إخفاء الشارة للتسجيل النظيف',
         'sandbox.admin.badgeShown': 'الشارة ظاهرة',
@@ -17457,6 +17570,23 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': '推荐已达成：已发放 ${{amount}} 奖励',
         'sandbox.admin.referralNotQualified': '未达成：被推荐人的入金必须至少为 ${{min}}',
         'sandbox.admin.referralFailed': '推荐模拟失败',
+        'referral.partner.simulatedNote': '\u6a21\u62df\u6f14\u793a\u6570\u636e - \u65e0\u771f\u5b9e\u8d44\u91d1\u6216\u4ed8\u6b3e\u3002',
+        'sandbox.admin.payoutsTitle': '\u63a8\u8350\u4f19\u4f34\u4ed8\u6b3e\uff08\u6a21\u62df\uff09',
+        'sandbox.admin.payoutsSimulatedNote': '\u4ec5\u9650\u6a21\u62df - \u8bb0\u5f55\u4ed8\u6b3e\u53ea\u4f1a\u4fdd\u5b58\u6f14\u793a\u53c2\u8003\u53f7\u3002\u4e0d\u4f1a\u8fdb\u884c\u771f\u5b9e\u8f6c\u8d26\u3002',
+        'sandbox.admin.payoutsRefresh': '\u5237\u65b0\u4ed8\u6b3e',
+        'sandbox.admin.payoutsColAmount': '\u91d1\u989d',
+        'sandbox.admin.payoutsColAsset': '\u8d44\u4ea7',
+        'sandbox.admin.payoutsColStatus': '\u72b6\u6001',
+        'sandbox.admin.payoutsColTx': '\u4ea4\u6613\u53c2\u8003\u53f7',
+        'sandbox.admin.payoutsColActions': '\u64cd\u4f5c',
+        'sandbox.admin.payoutsEmpty': '\u6682\u65e0\u6a21\u62df\u4ed8\u6b3e\u3002',
+        'sandbox.admin.payoutsEarnings': '\u6a21\u62df\u63a8\u8350\u6536\u76ca\uff1a${{amount}}',
+        'sandbox.admin.payoutRecord': '\u8bb0\u5f55\u6a21\u62df\u4ed8\u6b3e',
+        'sandbox.admin.payoutReject': '\u62d2\u7edd',
+        'sandbox.admin.payoutsFailed': '\u52a0\u8f7d\u6a21\u62df\u4ed8\u6b3e\u5931\u8d25',
+        'sandbox.admin.payoutsUpdateFailed': '\u66f4\u65b0\u6a21\u62df\u4ed8\u6b3e\u5931\u8d25',
+        'sandbox.admin.payoutUpdated': '\u6a21\u62df\u4ed8\u6b3e\u5df2\u6807\u8bb0\u4e3a {{status}}',
+        'sandbox.admin.referredByCode': '\u63a8\u8350\u7801\uff08\u53ef\u9009\uff09',
         'sandbox.admin.hideBadge': '隐藏徽章（干净录屏）',
         'sandbox.admin.badgeHidden': '徽章已隐藏（便于录屏）',
         'sandbox.admin.badgeShown': '徽章已显示',
@@ -18333,6 +18463,10 @@ function updateReferralPartnerUI() {
     setText('refQualifiedReferrals', partner.qualifiedReferrals || 0);
     setText('refQualifyingVolume', formatCurrency(partner.totalQualifyingDepositVolume || 0));
     setText('refAvailableEarnings', formatCurrency(partner.availableEarnings || 0));
+
+    // Simulated-data marker: shown ONLY for a MARKETING_SANDBOX partner.
+    const simNote = getEl('partnerSimulatedNote');
+    if (simNote) simNote.classList.toggle('hidden', partner.sandbox !== true);
 
     const btn = getEl('requestPayoutBtn');
     if (btn) {
@@ -25291,7 +25425,7 @@ async function loadSandboxAccounts() {
             const w = Array.isArray(a.sandbox_wallets) ? a.sandbox_wallets[0] : a.sandbox_wallets;
             const bal = w && w.balance != null ? Number(w.balance) : 0;
             const day = w && w.intro_day != null ? w.intro_day : 1;
-            return '<option value="' + a.id + '">' + (a.name || 'Sandbox') + ' — ' + a.email + ' ($' + bal.toFixed(2) + ', Day ' + day + ')</option>';
+            return '<option value="' + a.id + '">' + (a.name || 'Sandbox') + ' — ' + a.email + ' ($' + bal.toFixed(2) + ', Day ' + day + ')' + (a.referral_code ? ' [' + a.referral_code + ']' : '') + '</option>';
         }).join('');
     const info = document.getElementById('sandboxAccountInfo');
     if (info) info.textContent = t('sandbox.admin.accountCount', { count: accounts.length });
@@ -25308,7 +25442,9 @@ async function loadSandboxAccounts() {
 }
 
 async function createSandboxAccount() {
-    const out = await sandboxAdminFetch('/api/admin/sandbox/accounts', { method: 'POST', body: JSON.stringify({}) });
+    const refEl = document.getElementById('sandboxReferredByCode');
+    const refCode = refEl && refEl.value ? refEl.value.trim() : '';
+    const out = await sandboxAdminFetch('/api/admin/sandbox/accounts', { method: 'POST', body: JSON.stringify(refCode ? { referralCode: refCode } : {}) });
     if (!out.ok) { sandboxLog(t('sandbox.admin.createFailed') + ': ' + (out.data.error || out.status), true); return; }
     const creds = out.data.credentials || {};
     const box = document.getElementById('sandboxAccountCredentials');
@@ -25379,6 +25515,106 @@ async function sandboxSimulateReferralDeposit() {
         sandboxLog(t('sandbox.admin.referralNotQualified', { min: out.data.minimumDeposit }), true);
     }
     loadSandboxAccounts();
+}
+
+// --- Sandbox referral-PARTNER payouts (SIMULATED; sandbox_* only) ----------
+function onSandboxAccountSelected() {
+    const sel = document.getElementById('sandboxAccountSelect');
+    const id = sel ? parseInt(sel.value, 10) : NaN;
+    if (!Number.isInteger(id) || id <= 0) {
+        const tb = document.getElementById('sandboxPayoutsTable');
+        if (tb) tb.innerHTML = '';
+        const em = document.getElementById('sandboxPayoutsEmpty');
+        if (em) em.classList.add('hidden');
+        const earn = document.getElementById('sandboxPayoutEarnings');
+        if (earn) earn.textContent = '';
+        return;
+    }
+    loadSandboxPayouts();
+}
+
+async function loadSandboxPayouts() {
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return;
+    const tbody = document.getElementById('sandboxPayoutsTable');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--text-secondary);">' + t('common.loading') + '</td></tr>';
+    const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/payouts');
+    if (!out.ok) { sandboxLog(t('sandbox.admin.payoutsFailed') + ': ' + (out.data.error || out.status), true); return; }
+    const earn = document.getElementById('sandboxPayoutEarnings');
+    if (earn) earn.textContent = t('sandbox.admin.payoutsEarnings', { amount: Number(out.data.referralEarnings || 0).toFixed(2) });
+    renderSandboxPayoutsAdmin((out.data && out.data.payouts) || []);
+}
+
+function renderSandboxPayoutsAdmin(payouts) {
+    const tbody = document.getElementById('sandboxPayoutsTable');
+    const empty = document.getElementById('sandboxPayoutsEmpty');
+    if (!tbody) return;
+    if (!payouts.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+    if (empty) empty.classList.add('hidden');
+    tbody.innerHTML = payouts.map(function (p) {
+        const meta = payoutStatusMeta(p.status);
+        const amount = formatCurrency(p.amount);
+        const paid = p.paidAmount != null ? formatCurrency(p.paidAmount) : '';
+        const asset = escapeHtml(String(p.coin || 'USDT')) + ' / ' + escapeHtml(String(p.network || 'TRC20'));
+        const tx = p.txReference ? escapeHtml(String(p.txReference)) : '-';
+        let actions = '-';
+        if (p.status === 'PENDING' || p.status === 'UNDER_REVIEW') {
+            actions = '<button type="button" onclick="sandboxRecordPayoutPayment(' + p.id + ', ' + (Number(p.amount) || 0) + ')" style="background:rgba(16,185,129,0.15);color:#10B981;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-right:4px;">' + t('sandbox.admin.payoutRecord') + '</button>'
+                + '<button type="button" onclick="sandboxRejectPayout(' + p.id + ')" style="background:rgba(239,68,68,0.15);color:#EF4444;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">' + t('sandbox.admin.payoutReject') + '</button>';
+        }
+        return '<tr style="border-bottom:1px solid var(--border);">'
+            + '<td style="padding:8px;">' + amount + (paid ? ' <span style="color:var(--text-muted);">(' + paid + ')</span>' : '') + '</td>'
+            + '<td style="padding:8px;">' + asset + '</td>'
+            + '<td style="padding:8px;"><span class="ref-payout-status ' + meta.cls + '">' + t(meta.key) + '</span></td>'
+            + '<td style="padding:8px;max-width:160px;overflow-wrap:anywhere;">' + tx + '</td>'
+            + '<td style="padding:8px;">' + actions + '</td>'
+            + '</tr>';
+    }).join('');
+}
+
+async function sandboxUpdatePayout(id, status, opts) {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return false;
+    const userId = getSelectedSandboxUserId();
+    if (userId === null) return false;
+    opts = opts || {};
+    try {
+        const out = await sandboxAdminFetch('/api/admin/sandbox/' + userId + '/payouts/' + id, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: status,
+                txReference: opts.txReference || null,
+                paidAmount: (opts.paidAmount === undefined ? null : opts.paidAmount),
+                note: opts.note || null
+            })
+        });
+        if (!out.ok) { sandboxLog(t('sandbox.admin.payoutsUpdateFailed') + ': ' + (out.data.error || out.status), true); return false; }
+        sandboxLog(t('sandbox.admin.payoutUpdated', { status: status }));
+        loadSandboxPayouts();
+        return true;
+    } catch (e) {
+        sandboxLog(t('sandbox.admin.payoutsUpdateFailed'), true);
+        return false;
+    }
+}
+
+function sandboxRecordPayoutPayment(id, amount) {
+    // Record the SIMULATED amount paid (defaults to the requested amount).
+    const paidRaw = prompt(t('admin.referral.paidAmountPrompt'), String(Number(amount) || 0));
+    if (paidRaw === null) return;
+    const paidAmount = Number(paidRaw);
+    if (!isFinite(paidAmount) || paidAmount <= 0) { showToast(t('admin.referral.paidAmountInvalid'), 'error'); return; }
+    const tx = prompt(t('admin.referral.txRefPrompt'), 'SIMULATED-TRC20-000000');
+    if (tx === null) return;
+    sandboxUpdatePayout(id, 'PAID', { txReference: tx, paidAmount: paidAmount });
+}
+
+function sandboxRejectPayout(id) {
+    if (!confirm(t('admin.referral.rejectConfirm'))) return;
+    const reason = prompt(t('admin.referral.rejectReasonPrompt'), '');
+    if (reason === null) return;
+    if (!reason.trim()) { showToast(t('admin.referral.rejectReasonRequired'), 'error'); return; }
+    sandboxUpdatePayout(id, 'REJECTED', { note: reason.trim() });
 }
 
 async function sandboxBotAction(action) {

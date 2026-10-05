@@ -1143,6 +1143,7 @@ async function simulateSandboxReferralDeposit(referrerId, amount) {
     reason: (award && award.reason) || null,
     bonusAdded: (award && award.success) ? Number(award.bonus_amount) : 0,
     newBalance: (award && award.success) ? Number(award.new_balance) : null,
+    newEarnings: (award && award.success) ? Number(award.new_earnings) : null,
     minimumDeposit: min,
   };
 }
@@ -1219,6 +1220,129 @@ async function handleSandboxReferralSimulate(req, res) {
     minimumDeposit: out.minimumDeposit,
     simulated: true,
   });
+}
+
+// ---------------------------------------------------------------------------
+// SANDBOX referral-partner PAYOUTS (MARKETING_SANDBOX only)
+// Simulated money: reads/writes sandbox_referral_payouts and the simulated
+// referral_earnings bucket. NEVER touches public.referral_payouts, a wallet,
+// a deposit, a withdrawal, or any production referral row.
+// ---------------------------------------------------------------------------
+async function getSandboxReferralEarnings(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_wallets')
+    .select('referral_earnings')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error || !data) return 0;
+  return Math.round((Number(data.referral_earnings) || 0) * 100) / 100;
+}
+
+async function getSandboxPayoutRows(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('sandbox_referral_payouts')
+    .select('id, amount, paid_amount, status, wallet_address, coin, network, tx_reference, note, created_at, reviewed_at, paid_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+// GET /api/referral/partner for a sandbox account: SAME shape as production,
+// every number simulated and separately sourced from sandbox_* tables.
+async function handleSandboxPartnerGet(req, res) {
+  const userId = req.user.id;
+  const [summary, earnings, payouts] = await Promise.all([
+    getSandboxReferralSummary(userId),
+    getSandboxReferralEarnings(userId),
+    getSandboxPayoutRows(userId),
+  ]);
+  const pendingPayouts = payouts.filter(p => p.status === 'PENDING' || p.status === 'UNDER_REVIEW');
+  const paidPayouts = payouts.filter(p => p.status === 'PAID' || p.status === 'REJECTED');
+  const rewardTotal = (summary.referrals || []).reduce((s, r) => s + (Number(r.bonus_earned) || 0), 0);
+  const percent = Number(summary.config && summary.config.rewardPercent) || SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT;
+  const volume = percent > 0 ? Math.round((rewardTotal * 100 / percent) * 100) / 100 : 0;
+  res.json({
+    sandbox: true,
+    simulated: true,
+    totalReferrals: summary.totalReferrals,
+    qualifiedReferrals: summary.activeReferrals,
+    pendingReferrals: summary.pendingReferrals,
+    totalQualifyingDepositVolume: volume,
+    availableEarnings: earnings,
+    pendingPayouts,
+    paidPayouts,
+    canRequestPayout: earnings > 0 && pendingPayouts.length === 0,
+    assets: PAYOUT_ASSETS,
+  });
+}
+
+// POST /api/referral/payouts/request for a sandbox account. Reserves the
+// requested amount from the SIMULATED earnings bucket only.
+async function handleSandboxPayoutRequest(req, res) {
+  const userId = req.user.id;
+  try {
+    const walletAddress = (req.body && typeof req.body.walletAddress === 'string')
+      ? req.body.walletAddress.trim() : '';
+    if (walletAddress.length < 10 || walletAddress.length > 200) {
+      return res.status(400).json({ error: 'Valid payout wallet address required' });
+    }
+    const asset = resolvePayoutAsset(req.body && req.body.coin, req.body && req.body.network);
+    if (!asset) {
+      return res.status(400).json({ error: 'Unsupported payout coin or network', reason: 'invalid_asset', sandbox: true });
+    }
+    const rawAmount = req.body ? req.body.amount : undefined;
+    const amount = (rawAmount === undefined || rawAmount === null || rawAmount === '')
+      ? null : Number(rawAmount);
+    if (amount !== null && (!isFinite(amount) || amount <= 0)) {
+      return res.status(400).json({ error: 'Enter a valid payout amount', reason: 'invalid_amount', sandbox: true });
+    }
+    const rawKey = (req.body && typeof req.body.idempotencyKey === 'string') ? req.body.idempotencyKey.trim() : '';
+    const idempotencyKey = (rawKey && rawKey.length <= 128)
+      ? 'sbx_payout_' + userId + '_' + rawKey
+      : 'sbx_payout_' + userId + '_' + Date.now() + '_' + crypto.randomBytes(8).toString('hex');
+
+    const { data, error } = await supabaseAdmin.rpc('sandbox_request_referral_payout_safe', {
+      p_user_id: userId,
+      p_wallet_address: walletAddress,
+      p_idempotency_key: idempotencyKey,
+      p_amount: amount,
+      p_coin: asset.coin,
+      p_network: asset.network
+    });
+    if (error) throw error;
+
+    if (!data || data.success !== true) {
+      const reason = (data && (data.reason || data.error)) || 'payout_failed';
+      const messages = {
+        no_referral_earnings: 'No referral earnings available for payout',
+        payout_already_open: 'A payout request is already in progress',
+        invalid_address: 'Valid payout wallet address required',
+        invalid_amount: 'Enter a valid payout amount',
+        amount_exceeds_available: 'Payout amount exceeds your available referral earnings',
+        invalid_asset: 'Unsupported payout coin or network'
+      };
+      if (messages[reason]) return res.status(400).json({ error: messages[reason], reason, sandbox: true });
+      console.error('[sandbox/referral/payouts/request] rpc returned:', data);
+      return res.status(400).json({ error: 'Payout request failed', reason, sandbox: true });
+    }
+
+    res.json({
+      success: true,
+      duplicate: !!data.duplicate,
+      payoutId: data.payout_id,
+      amount: Number(data.amount) || 0,
+      status: data.status,
+      coin: data.coin || asset.coin,
+      network: data.network || asset.network,
+      referralEarnings: Number(data.referral_earnings) || 0,
+      sandbox: true,
+      simulated: true
+    });
+  } catch (e) {
+    console.error('[POST /api/referral/payouts/request] sandbox:', e.message);
+    res.status(500).json({ error: 'Payout request failed' });
+  }
 }
 
 async function handleSandboxWithdrawRequest(req, res) {
@@ -6469,7 +6593,7 @@ app.get('/api/admin/sandbox/accounts', authMiddleware, adminMiddleware, async (r
   try {
     const { data, error } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, created_at, environment, sandbox_wallets(balance, intro_day, badge_hidden)')
+      .select('id, name, email, created_at, environment, referral_code, sandbox_wallets(balance, intro_day, badge_hidden)')
       .eq('environment', ENV_MARKETING_SANDBOX)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -6686,6 +6810,107 @@ app.post('/api/admin/sandbox/:userId/referral/deposit', authMiddleware, adminMid
   } catch (err) {
     console.error('[POST /api/admin/sandbox/referral/deposit]', err);
     res.status(500).json({ error: 'Server error simulating a referral deposit' });
+  }
+});
+
+// Marketing control (SANDBOX ONLY): list a sandbox partner's SIMULATED payouts.
+// Completely separate from /api/admin/referral/payouts (production).
+app.get('/api/admin/sandbox/:userId/payouts', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+    const [rows, earnings, partnerRes] = await Promise.all([
+      getSandboxPayoutRows(targetId),
+      getSandboxReferralEarnings(targetId),
+      supabaseAdmin.from('users').select('id, name, email, referral_code').eq('id', targetId).single(),
+    ]);
+    const partner = partnerRes && partnerRes.data ? partnerRes.data : null;
+    res.json({
+      sandbox: true,
+      simulated: true,
+      partner: partner ? { id: partner.id, name: partner.name, email: partner.email, referralCode: partner.referral_code } : null,
+      referralEarnings: earnings,
+      payouts: rows.map(p => ({
+        id: p.id,
+        userId: targetId,
+        partnerName: partner ? partner.name : null,
+        partnerEmail: partner ? partner.email : null,
+        partnerCode: partner ? partner.referral_code : null,
+        amount: Number(p.amount) || 0,
+        paidAmount: p.paid_amount == null ? null : Number(p.paid_amount),
+        status: p.status,
+        walletAddress: p.wallet_address,
+        coin: p.coin,
+        network: p.network,
+        txReference: p.tx_reference,
+        note: p.note,
+        createdAt: p.created_at,
+        reviewedAt: p.reviewed_at,
+        paidAt: p.paid_at,
+      })),
+    });
+  } catch (err) {
+    console.error('[GET /api/admin/sandbox/:userId/payouts]', err);
+    res.status(500).json({ error: 'Server error loading sandbox payouts' });
+  }
+});
+
+// Marketing control (SANDBOX ONLY): record a SIMULATED payment / reject a
+// sandbox payout. The manager action only records a reference - there is NO
+// blockchain transfer. Never touches production payouts.
+app.put('/api/admin/sandbox/:userId/payouts/:payoutId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const targetId = await requireSandboxTargetUser(req, res);
+    if (targetId === null) return;
+
+    const payoutId = Number(req.params.payoutId);
+    if (!Number.isFinite(payoutId)) return res.status(400).json({ error: 'Invalid payout id' });
+
+    // Defence in depth: the payout must belong to THIS sandbox account.
+    const { data: row } = await supabaseAdmin
+      .from('sandbox_referral_payouts')
+      .select('id, user_id')
+      .eq('id', payoutId)
+      .maybeSingle();
+    if (!row || Number(row.user_id) !== targetId) {
+      return res.status(404).json({ error: 'Payout not found for this sandbox account', sandbox: true });
+    }
+
+    const body = req.body || {};
+    const status = String(body.status || '').toUpperCase();
+    if (!PAYOUT_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid payout status' });
+    const paidAmount = (body.paidAmount === undefined || body.paidAmount === null || body.paidAmount === '')
+      ? null : Number(body.paidAmount);
+    if (paidAmount !== null && (!isFinite(paidAmount) || paidAmount < 0)) {
+      return res.status(400).json({ error: 'Invalid payout amount' });
+    }
+
+    const { data, error } = await supabaseAdmin.rpc('sandbox_update_referral_payout_safe', {
+      p_payout_id: payoutId,
+      p_status: status,
+      p_paid_amount: paidAmount,
+      p_tx_reference: body.txReference ? String(body.txReference).trim() : null,
+      p_manager_id: req.user.id,
+      p_note: body.note ? String(body.note).trim() : null
+    });
+    if (error) throw error;
+    if (!data || data.success !== true) {
+      const errCode = (data && data.error) || 'payout_update_failed';
+      const code = ({ payout_not_found: 404, invalid_status: 400, already_paid: 400, already_rejected: 400 })[errCode];
+      return res.status(code || 400).json({ error: errCode, reason: errCode, sandbox: true });
+    }
+    res.json({
+      success: true,
+      payoutId: data.payout_id,
+      status: data.status,
+      paidAmount: data.paid_amount,
+      refunded: Number(data.refunded) || 0,
+      sandbox: true,
+      simulated: true,
+    });
+  } catch (err) {
+    console.error('[PUT /api/admin/sandbox/:userId/payouts/:payoutId]', err);
+    res.status(500).json({ error: 'Server error updating sandbox payout' });
   }
 });
 
@@ -7296,26 +7521,11 @@ function resolvePayoutAsset(coin, network) {
 
 // Partner dashboard summary + the partner's payout requests/history.
 app.get('/api/referral/partner', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX reads a fully SIMULATED partner dashboard (sandbox_*
+  // tables only); it never reaches the production queries below.
+  if (await sandboxHandled(req, res, handleSandboxPartnerGet)) return;
+
   const userId = req.user.id;
-
-  // MARKETING_SANDBOX has no production referral-earnings bucket (its simulated
-  // income is credited straight to the simulated balance), so there is nothing
-  // to pay out. Serve a zeroed, non-payable view.
-  if (await isMarketingSandboxUser(userId)) {
-    return res.json({
-      sandbox: true,
-      totalReferrals: 0,
-      qualifiedReferrals: 0,
-      pendingReferrals: 0,
-      totalQualifyingDepositVolume: 0,
-      availableEarnings: 0,
-      pendingPayouts: [],
-      paidPayouts: [],
-      canRequestPayout: false,
-      assets: PAYOUT_ASSETS
-    });
-  }
-
   try {
     const { data: referrals, error } = await supabaseAdmin
       .from('referrals')
@@ -7374,12 +7584,11 @@ app.get('/api/referral/partner', authMiddleware, async (req, res) => {
 
 // Request a payout of ALL currently available referral earnings.
 app.post('/api/referral/payouts/request', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX requests a fully SIMULATED payout (sandbox_* tables only;
+  // never public.referral_payouts). Production code below is untouched.
+  if (await sandboxHandled(req, res, handleSandboxPayoutRequest)) return;
+
   const userId = req.user.id;
-
-  if (await isMarketingSandboxUser(userId)) {
-    return res.status(400).json({ error: 'Not available for marketing sandbox accounts', sandbox: true });
-  }
-
   try {
     const walletAddress = (req.body && typeof req.body.walletAddress === 'string')
       ? req.body.walletAddress.trim() : '';
