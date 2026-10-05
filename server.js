@@ -7276,6 +7276,24 @@ app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
 
 const PAYOUT_STATUSES = ['PENDING', 'UNDER_REVIEW', 'PAID', 'REJECTED'];
 
+// Supported payout assets (coin + networks). SINGLE SOURCE OF TRUTH, served to
+// the partner UI via GET /api/referral/partner so the frontend never hard-codes
+// the list. Add an entry here to offer another coin/network later. Kept small
+// because every payout is sent MANUALLY by the payment team. Launch scope is
+// USDT on TRC20 only.
+const PAYOUT_ASSETS = [
+  { coin: 'USDT', networks: ['TRC20'] }
+];
+
+/** Normalise + validate a partner-chosen coin/network against PAYOUT_ASSETS. */
+function resolvePayoutAsset(coin, network) {
+  const c = String(coin || 'USDT').trim().toUpperCase();
+  const n = String(network || 'TRC20').trim().toUpperCase();
+  const asset = PAYOUT_ASSETS.find(a => a.coin === c);
+  if (!asset || !asset.networks.includes(n)) return null;
+  return { coin: c, network: n };
+}
+
 // Partner dashboard summary + the partner's payout requests/history.
 app.get('/api/referral/partner', authMiddleware, async (req, res) => {
   const userId = req.user.id;
@@ -7293,7 +7311,8 @@ app.get('/api/referral/partner', authMiddleware, async (req, res) => {
       availableEarnings: 0,
       pendingPayouts: [],
       paidPayouts: [],
-      canRequestPayout: false
+      canRequestPayout: false,
+      assets: PAYOUT_ASSETS
     });
   }
 
@@ -7326,7 +7345,7 @@ app.get('/api/referral/partner', authMiddleware, async (req, res) => {
 
     const { data: payouts, error: payoutErr } = await supabaseAdmin
       .from('referral_payouts')
-      .select('id, amount, paid_amount, status, wallet_address, tx_reference, created_at, reviewed_at, paid_at')
+      .select('id, amount, paid_amount, status, wallet_address, coin, network, tx_reference, note, created_at, reviewed_at, paid_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     // A missing table (migration not applied) must not break the dashboard.
@@ -7344,7 +7363,8 @@ app.get('/api/referral/partner', authMiddleware, async (req, res) => {
       availableEarnings,
       pendingPayouts,
       paidPayouts,
-      canRequestPayout: availableEarnings > 0 && pendingPayouts.length === 0
+      canRequestPayout: availableEarnings > 0 && pendingPayouts.length === 0,
+      assets: PAYOUT_ASSETS
     });
   } catch (e) {
     console.error('[GET /api/referral/partner]', e.message);
@@ -7367,7 +7387,24 @@ app.post('/api/referral/payouts/request', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Valid payout wallet address required' });
     }
 
-    // Retry key only - never identity, amount, or balances.
+    // The partner chooses the coin + network. Validated against PAYOUT_ASSETS
+    // (single source of truth); defaults to USDT / TRC20.
+    const asset = resolvePayoutAsset(req.body && req.body.coin, req.body && req.body.network);
+    if (!asset) {
+      return res.status(400).json({ error: 'Unsupported payout coin or network', reason: 'invalid_asset' });
+    }
+
+    // The partner chooses the amount (NO MINIMUM). Empty/null = pay the full
+    // available balance (backward compatible). The RPC re-validates against the
+    // server-derived available earnings, so the client can never over-request.
+    const rawAmount = req.body ? req.body.amount : undefined;
+    const amount = (rawAmount === undefined || rawAmount === null || rawAmount === '')
+      ? null : Number(rawAmount);
+    if (amount !== null && (!isFinite(amount) || amount <= 0)) {
+      return res.status(400).json({ error: 'Enter a valid payout amount', reason: 'invalid_amount' });
+    }
+
+    // Retry key only - never identity or balances.
     const rawKey = (req.body && typeof req.body.idempotencyKey === 'string') ? req.body.idempotencyKey.trim() : '';
     const idempotencyKey = (rawKey && rawKey.length <= 128)
       ? 'payout_' + userId + '_' + rawKey
@@ -7376,7 +7413,10 @@ app.post('/api/referral/payouts/request', authMiddleware, async (req, res) => {
     const { data, error } = await supabaseAdmin.rpc('request_referral_payout_safe', {
       p_user_id: userId,
       p_wallet_address: walletAddress,
-      p_idempotency_key: idempotencyKey
+      p_idempotency_key: idempotencyKey,
+      p_amount: amount,
+      p_coin: asset.coin,
+      p_network: asset.network
     });
     if (error) throw error;
 
@@ -7391,6 +7431,15 @@ app.post('/api/referral/payouts/request', authMiddleware, async (req, res) => {
       if (reason === 'invalid_address') {
         return res.status(400).json({ error: 'Valid payout wallet address required', reason });
       }
+      if (reason === 'invalid_amount') {
+        return res.status(400).json({ error: 'Enter a valid payout amount', reason });
+      }
+      if (reason === 'amount_exceeds_available') {
+        return res.status(400).json({ error: 'Payout amount exceeds your available referral earnings', reason });
+      }
+      if (reason === 'invalid_asset') {
+        return res.status(400).json({ error: 'Unsupported payout coin or network', reason });
+      }
       console.error('[referral/payouts/request] rpc returned:', data);
       return res.status(400).json({ error: 'Payout request failed', reason });
     }
@@ -7401,6 +7450,8 @@ app.post('/api/referral/payouts/request', authMiddleware, async (req, res) => {
       payoutId: data.payout_id,
       amount: Number(data.amount) || 0,
       status: data.status,
+      coin: data.coin || asset.coin,
+      network: data.network || asset.network,
       bonusBalance: Number(data.bonus_balance) || 0
     });
   } catch (e) {
@@ -7415,7 +7466,7 @@ app.get('/api/admin/referral/payouts', authMiddleware, adminMiddleware, async (r
   let query = supabaseAdmin
     .from('referral_payouts')
     .select(`
-      id, user_id, amount, paid_amount, status, wallet_address, tx_reference,
+      id, user_id, amount, paid_amount, status, wallet_address, coin, network, tx_reference,
       manager_id, note, created_at, updated_at, reviewed_at, paid_at,
       partner:users!user_id(id, name, email, referral_code),
       manager:users!manager_id(id, name, email)
@@ -7438,6 +7489,8 @@ app.get('/api/admin/referral/payouts', authMiddleware, adminMiddleware, async (r
       paidAmount: p.paid_amount == null ? null : Number(p.paid_amount),
       status: p.status,
       walletAddress: p.wallet_address,
+      coin: p.coin,
+      network: p.network,
       txReference: p.tx_reference,
       managerName: p.manager ? p.manager.name : null,
       managerId: p.manager_id,

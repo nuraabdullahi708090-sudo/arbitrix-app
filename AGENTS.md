@@ -5769,3 +5769,80 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   matrix; source ordering; server unchanged; no $700). npm test = 1903 pass / 0 fail.
   Headless Chromium = 11/11 (en@390).
 - NOT committed / NOT pushed / NOT deployed.
+
+## Phase 32 - Referral Partner payout experience: chosen amount + coin/network + review (2026-10-05, NOT committed/pushed/deployed)
+- Builds on the Phase 8/34 referral payout work (migration 034 + the manual
+  payout API). Only the referral-PARTNER payout path changed. Normal platform
+  withdrawals, the 20% referral reward, the $100 qualifying-deposit rule, the
+  $700 platform withdrawal minimum, KYC, trading, deposits and payments are all
+  UNTOUCHED.
+- MODEL OF RECORD for referral partners: earnings are paid out SEPARATELY from
+  normal user withdrawals; there is NO minimum payout and NO trading requirement;
+  a partner may request any amount up to their confirmed referral earnings (e.g.
+  $20 from ONE qualifying $100 referral). Payouts remain MANUAL - no automated
+  crypto transfer exists.
+- NEW migration supabase/migrations/035_referral_payout_amount_assets.sql
+  (additive, idempotent, self-checking, NOT applied to production):
+  - adds `coin` (default 'USDT') and `network` (default 'TRC20') to
+    public.referral_payouts;
+  - DROPs the old 3-argument request_referral_payout_safe() and creates a single
+    6-argument version (p_amount, p_coin, p_network, all with defaults so the
+    currently deployed server keeps working) that reserves ONLY the requested
+    amount and inserts the payout as UNDER_REVIEW;
+  - preserves idempotency (checked before AND after the wallet FOR UPDATE lock),
+    the one-open-payout guard, the active/qualified-referral earnings cap, the
+    bonus_balance-only debit, the MARKETING_SANDBOX refusal, RLS and the
+    service_role-only grant. NO minimum is enforced.
+- server.js: new const PAYOUT_ASSETS (single source of truth, USDT/TRC20 only)
+  + resolvePayoutAsset(); POST /api/referral/payouts/request accepts
+  amount/coin/network and forwards p_amount/p_coin/p_network; GET
+  /api/referral/partner returns coin/network/note + `assets`; GET
+  /api/admin/referral/payouts returns coin/network. The manager is still the
+  authenticated admin (never the body).
+- public/index.html (frontend): payout modal now collects an AMOUNT (defaults to
+  the available balance, no minimum), a COIN + NETWORK (built from the server
+  `assets`, so adding a coin/network is a server-side constant change), the wallet
+  address, and an explicit "I confirm the wallet address and network are correct"
+  checkbox. After submit the toast says "submitted - under review" and the payout
+  is created UNDER_REVIEW. Payout history shows amount, coin, network, a MASKED
+  wallet (first 6 + last 4), status, requested date, paid date, tx hash/reference
+  and the rejection reason. Admin payout table gained Coin + Network columns; the
+  manager records the ACTUAL amount paid + tx hash and can REJECT WITH A REASON
+  (prompted, sent as `note`). New "Contact Partner Support" button resolves a
+  CONFIGURABLE contact via window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL or the
+  <meta name="arbitrix-partner-support-telegram"> tag (empty by default -> opens
+  the existing Support Center); no personal account is hard-coded.
+- i18n: 1470 -> 1488 keys/locale x6 (18 new keys). Values inserted as ASCII-only
+  \uXXXX escapes (repo encoding rule); EN values for the 1470 pre-existing keys
+  unchanged except the intentional `referral.withdrawNote` /
+  `referral.partner.walletLabel` / `referral.partner.walletPlaceholder` rewrites.
+  Identical key sets, 0 empty, 0 NEW duplicate keys, 0 placeholder mismatches.
+  The old "(platform minimum applies)" wording is removed.
+- Tests: NEW tests/referral_partner_payout_flow.test.js (31, incl. functional
+  vm runs of the REAL submit handler proving a $20 request is submitted with
+  coin/network/address and that the confirmation checkbox is required).
+  tests/referral_partner_payout.test.js updated for the intentional change (the
+  client now supplies amount/coin/network). Dictionary-count pins 1470 -> 1488
+  in 13 test files; landing_testimonials BASE_OUTSIDE_TESTIMONIALS 1444 -> 1462.
+  `npm test` = 1934 pass / 0 fail. `node --check server.js` OK; all 7 inline
+  script blocks parse; 780 data-i18n refs all defined; 0 U+FFFD; the i18n diff
+  touched ONLY the intended 18+126 lines (byte-verified).
+- NOT committed / NOT pushed / NOT deployed. Migration 035 is NOT applied. The
+  deployed server keeps working with (or without) 035 because the new function
+  parameters default; apply 035 to enable partner-chosen amounts + coin/network.
+
+## Phase 32 follow-up (2026-10-05): partner support contact set + TRC20-only launch scope
+- Referral-partner support contact CONFIGURED via the single configurable
+  mechanism: <meta name="arbitrix-partner-support-telegram" content="@Arbitrix_CSA1">
+  (the username form; window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL still
+  overrides). getPartnerSupportTelegramUrl() now accepts EITHER a full
+  https://t.me/... URL OR a bare @username and builds the t.me URL at runtime, so
+  the username lives in exactly ONE place. (The username is configurable - swap
+  the meta value to change it; note it is currently the literal placeholder the
+  task supplied.)
+- Reverted to the intended business model: referral payouts are withdrawn
+  separately from normal withdrawals (no minimum, no trading requirement).
+- Launch scope: referral payout assets restricted to USDT on TRC20 only -
+  PAYOUT_ASSETS networks is ['TRC20'] (ERC20 removed from the selectable payout
+  networks). Adding a network later is still a one-line server change.
+- No other changes. npm test all green (see the deployment checkpoint below).

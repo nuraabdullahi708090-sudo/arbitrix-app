@@ -21,6 +21,12 @@
          link and show the in-app support guidance instead. Public link only -
          never put tokens, secrets, or credentials here. -->
     <meta name="arbitrix-support-telegram" content="https://t.me/ArbitrixSupportBot">
+    <!-- Referral Partner support/manager contact. Set the Telegram username
+         here (e.g. @ArbitrixPartners) or a full https://t.me/... URL, or via
+         window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL. This is the SINGLE source
+         of truth - never hard-code the account anywhere else in the UI. Empty =
+         fall back to the in-app Support Center. Public link only. -->
+    <meta name="arbitrix-partner-support-telegram" content="@Arbitrix_CSA1">
     <!-- Open Graph / social sharing -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Arbitrix AI">
@@ -6744,6 +6750,8 @@ function toggleFaq(btn) {
                                         <tr style="border-bottom:1px solid var(--border);">
                                             <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.partner">Partner</th>
                                             <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.amount">Amount</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.coin">Coin</th>
+                                            <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.network">Network</th>
                                             <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.status">Status</th>
                                             <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.wallet">Wallet / Address</th>
                                             <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.referral.payoutCol.txRef">Transaction / Hash</th>
@@ -6979,7 +6987,7 @@ function toggleFaq(btn) {
                             </div>
                         </div>
 
-                        <p style="font-size:9px;color:var(--text-secondary);text-align:center;margin:-10px 0 14px;" data-i18n="referral.withdrawNote">Earned referral income can be withdrawn without trading (platform minimum applies).</p>
+                        <p style="font-size:9px;color:var(--text-secondary);text-align:center;margin:-10px 0 14px;" data-i18n="referral.withdrawNote">Referral earnings are paid out separately from normal withdrawals - no minimum payout and no trading required.</p>
                         
                         <!-- Referral Partner dashboard + manual payout workflow.
                              Amounts are always server-derived; payout is manual. -->
@@ -6995,6 +7003,10 @@ function toggleFaq(btn) {
                                 <i class="fas fa-money-bill-transfer"></i> <span data-i18n="referral.partner.requestPayout">Request Payout</span>
                             </button>
                             <div id="referralPayoutOpenNote" class="hidden" style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin-top:8px;overflow-wrap:anywhere;" data-i18n="referral.partner.alreadyOpen">A payout request is already in progress.</div>
+                            <div style="font-size:10px;color:var(--text-secondary);line-height:1.5;margin-top:8px;" data-i18n="referral.partner.noMinimumNote">No minimum payout. Referral earnings do not require trading.</div>
+                            <button type="button" id="partnerSupportBtn" class="btn btn-secondary" style="width:100%;min-height:40px;margin-top:8px;" onclick="openPartnerSupport()">
+                                <i class="fab fa-telegram"></i> <span data-i18n="referral.partner.contactSupport">Contact Partner Support</span>
+                            </button>
                             <div id="referralPendingPayoutsWrap" class="hidden">
                                 <div class="ref-partner-section-title" data-i18n="referral.partner.pendingPayouts">Pending Payout Requests</div>
                                 <div id="referralPendingPayouts"></div>
@@ -7085,11 +7097,36 @@ function toggleFaq(btn) {
     <div class="modal-content" style="max-width:440px;">
         <button type="button" onclick="closeReferralPayoutModal()" class="modal-close" aria-label="Close"><i class="fas fa-times"></i></button>
         <div class="modal-header"><h3><i class="fas fa-money-bill-transfer" style="color:#F0B90B;"></i> <span data-i18n="referral.partner.modalTitle">Request Payout</span></h3></div>
-        <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin:8px 0 16px;" data-i18n="referral.partner.modalDesc">A payment manager verifies and sends your payout manually.</p>
-        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;" data-i18n="referral.partner.amountLabel">Amount to pay out</div>
-        <div style="font-size:20px;font-weight:800;color:#F0B90B;margin-bottom:14px;" id="payoutAmountDisplay">$0.00</div>
-        <label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;" for="payoutWalletAddress" data-i18n="referral.partner.walletLabel">Receiving wallet address (USDT TRC20)</label>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin:8px 0 14px;" data-i18n="referral.partner.modalDesc">A payment manager verifies and sends your payout manually.</p>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:#141C2E;border:1px solid var(--border-color);border-radius:8px;padding:10px;margin-bottom:12px;">
+            <span style="font-size:11px;color:var(--text-secondary);" data-i18n="referral.partner.available">Available Earnings</span>
+            <span style="font-size:16px;font-weight:800;color:#F0B90B;" id="payoutAmountDisplay">$0.00</span>
+        </div>
+
+        <label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;" for="payoutAmountInput" data-i18n="referral.partner.amountLabel">Amount to pay out</label>
+        <input type="number" id="payoutAmountInput" class="input-field" style="width:100%;margin-bottom:6px;" min="0" step="0.01" inputmode="decimal">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:12px;" data-i18n="referral.partner.noMinimumNote">No minimum payout. Referral earnings do not require trading.</div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <div style="flex:1;min-width:0;">
+                <label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;" for="payoutCoin" data-i18n="referral.partner.coinLabel">Coin</label>
+                <select id="payoutCoin" class="input-field" style="width:100%;" onchange="onPayoutAssetChange()"></select>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;" for="payoutNetwork" data-i18n="referral.partner.networkLabel">Network</label>
+                <select id="payoutNetwork" class="input-field" style="width:100%;" onchange="onPayoutAssetChange()"></select>
+            </div>
+        </div>
+
+        <label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;" for="payoutWalletAddress" id="payoutWalletLabel" data-i18n="referral.partner.walletLabel">Receiving wallet address (USDT TRC20)</label>
         <input type="text" id="payoutWalletAddress" class="input-field" style="width:100%;margin-bottom:12px;" data-i18n-placeholder="referral.partner.walletPlaceholder" placeholder="Your USDT TRC20 wallet address" autocomplete="off" autocapitalize="off">
+
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px;cursor:pointer;">
+            <input type="checkbox" id="payoutConfirmCheck" style="margin-top:2px;" onchange="clearPayoutError()">
+            <span data-i18n="referral.partner.confirmLabel">I confirm the wallet address and network are correct.</span>
+        </label>
+
         <div id="payoutError" class="hidden" style="font-size:11px;color:#EF4444;margin-bottom:10px;overflow-wrap:anywhere;"></div>
         <div style="display:flex;gap:8px;">
             <button type="button" class="btn btn-secondary" style="flex:1;" onclick="closeReferralPayoutModal()" data-i18n="common.cancel">Cancel</button>
@@ -8752,14 +8789,26 @@ const TRANSLATIONS = {
         'referral.partner.modalTitle': 'Request Payout',
         'referral.partner.modalDesc': 'A payment manager verifies and sends your payout manually.',
         'referral.partner.amountLabel': 'Amount to pay out',
-        'referral.partner.walletLabel': 'Receiving wallet address (USDT TRC20)',
-        'referral.partner.walletPlaceholder': 'Your USDT TRC20 wallet address',
+        'referral.partner.walletLabel': 'Receiving wallet address',
+        'referral.partner.walletPlaceholder': 'Your payout wallet address',
         'referral.partner.walletInvalid': 'Enter a valid wallet address (at least 10 characters).',
         'referral.partner.submit': 'Submit Request',
         'referral.partner.manualNote': 'Payouts are sent manually by our payment team after verification. No automatic transfer is made.',
         'referral.partner.requested': 'Payout request submitted',
         'referral.partner.requestFailed': 'Payout request failed',
         'referral.partner.noPayouts': 'No payouts yet.',
+        'referral.partner.noMinimumNote': 'No minimum payout. Referral earnings do not require trading.',
+        'referral.partner.coinLabel': 'Coin',
+        'referral.partner.networkLabel': 'Network',
+        'referral.partner.confirmLabel': 'I confirm the wallet address and network are correct.',
+        'referral.partner.confirmRequired': 'Please confirm the wallet address and network are correct.',
+        'referral.partner.amountInvalid': 'Enter an amount to pay out.',
+        'referral.partner.amountExceeds': 'Amount exceeds your available earnings.',
+        'referral.partner.submittedReview': 'Payout request submitted - under review.',
+        'referral.partner.contactSupport': 'Contact Partner Support',
+        'referral.partner.requestedDate': 'Requested',
+        'referral.partner.paidDate': 'Paid',
+        'referral.partner.rejectionReason': 'Reason',
         'referral.partner.statusPending': 'Pending',
         'referral.partner.statusReview': 'Under Review',
         'referral.partner.statusPaid': 'Paid',
@@ -8781,6 +8830,12 @@ const TRANSLATIONS = {
         'admin.referral.txRefPrompt': 'Enter the payment transaction hash / reference:',
         'admin.referral.rejectConfirm': 'Reject this payout request? The reserved earnings will be returned to the partner.',
         'admin.referral.noPayouts': 'No payout requests.',
+        'admin.referral.payoutCol.coin': 'Coin',
+        'admin.referral.payoutCol.network': 'Network',
+        'admin.referral.paidAmountPrompt': 'Actual amount paid:',
+        'admin.referral.paidAmountInvalid': 'Enter a valid paid amount.',
+        'admin.referral.rejectReasonPrompt': 'Reason for rejection:',
+        'admin.referral.rejectReasonRequired': 'A rejection reason is required.',
         'admin.referral.payoutUpdated': 'Payout updated',
         'admin.referral.payoutUpdateFailed': 'Payout update failed',
         'referral.invite': 'Invite Friends, Earn',
@@ -8792,7 +8847,7 @@ const TRANSLATIONS = {
         'referral.simulate': 'Simulate Referral',
         'referral.reset': 'Reset',
         'referral.earned': '🎉 You earned a referral reward for referring a friend!',
-        'referral.withdrawNote': 'Earned referral income can be withdrawn without trading (platform minimum applies).',
+        'referral.withdrawNote': 'Referral earnings are paid out separately from normal withdrawals - no minimum payout and no trading required.',
         'promo.tradableNotice': 'Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.',
         'referral.simulated': '✅ Simulated referral! +1 friend, reward added',
         'referral.resetConfirm': 'Reset all referral data? This cannot be undone.',
@@ -10242,14 +10297,26 @@ const TRANSLATIONS = {
         'referral.partner.modalTitle': 'Solicitar pago',
         'referral.partner.modalDesc': 'Un gestor de pagos verifica y envía tu pago manualmente.',
         'referral.partner.amountLabel': 'Importe a pagar',
-        'referral.partner.walletLabel': 'Dirección de cartera receptora (USDT TRC20)',
-        'referral.partner.walletPlaceholder': 'Tu dirección de cartera USDT TRC20',
+        'referral.partner.walletLabel': 'Direcci\u00f3n de la billetera de destino',
+        'referral.partner.walletPlaceholder': 'Tu direcci\u00f3n de billetera para el pago',
         'referral.partner.walletInvalid': 'Introduce una dirección de cartera válida (al menos 10 caracteres).',
         'referral.partner.submit': 'Enviar solicitud',
         'referral.partner.manualNote': 'Los pagos los envía manualmente nuestro equipo de pagos tras la verificación. No se realiza ninguna transferencia automática.',
         'referral.partner.requested': 'Solicitud de pago enviada',
         'referral.partner.requestFailed': 'La solicitud de pago falló',
         'referral.partner.noPayouts': 'Aún no hay pagos.',
+        'referral.partner.noMinimumNote': 'Sin pago m\u00ednimo. Las ganancias por referidos no requieren operar.',
+        'referral.partner.coinLabel': 'Moneda',
+        'referral.partner.networkLabel': 'Red',
+        'referral.partner.confirmLabel': 'Confirmo que la direcci\u00f3n de la billetera y la red son correctas.',
+        'referral.partner.confirmRequired': 'Confirma que la direcci\u00f3n de la billetera y la red son correctas.',
+        'referral.partner.amountInvalid': 'Introduce un importe para pagar.',
+        'referral.partner.amountExceeds': 'El importe supera tus ganancias disponibles.',
+        'referral.partner.submittedReview': 'Solicitud de pago enviada - en revisi\u00f3n.',
+        'referral.partner.contactSupport': 'Contactar con soporte para socios',
+        'referral.partner.requestedDate': 'Solicitado',
+        'referral.partner.paidDate': 'Pagado',
+        'referral.partner.rejectionReason': 'Motivo',
         'referral.partner.statusPending': 'Pendiente',
         'referral.partner.statusReview': 'En revisión',
         'referral.partner.statusPaid': 'Pagado',
@@ -10271,6 +10338,12 @@ const TRANSLATIONS = {
         'admin.referral.txRefPrompt': 'Introduce el hash / referencia de la transacción de pago:',
         'admin.referral.rejectConfirm': '¿Rechazar esta solicitud de pago? Las ganancias reservadas se devolverán al socio.',
         'admin.referral.noPayouts': 'No hay solicitudes de pago.',
+        'admin.referral.payoutCol.coin': 'Moneda',
+        'admin.referral.payoutCol.network': 'Red',
+        'admin.referral.paidAmountPrompt': 'Importe real pagado:',
+        'admin.referral.paidAmountInvalid': 'Introduce un importe pagado v\u00e1lido.',
+        'admin.referral.rejectReasonPrompt': 'Motivo del rechazo:',
+        'admin.referral.rejectReasonRequired': 'Se requiere un motivo de rechazo.',
         'admin.referral.payoutUpdated': 'Pago actualizado',
         'admin.referral.payoutUpdateFailed': 'No se pudo actualizar el pago',
         'referral.invite': 'Invita amigos, gana',
@@ -10282,7 +10355,7 @@ const TRANSLATIONS = {
         'referral.simulate': 'Simular referido',
         'referral.reset': 'Reiniciar',
         'referral.earned': '🎉 ¡Ganaste una recompensa por referir a un amigo!',
-        'referral.withdrawNote': 'Los ingresos por referidos pueden retirarse sin operar (se aplica el mínimo de la plataforma).',
+        'referral.withdrawNote': 'Las ganancias por referidos se pagan por separado de los retiros normales: sin pago m\u00ednimo y sin necesidad de operar.',
         'promo.tradableNotice': 'Tu crédito promocional de $50 se puede usar para operar, pero no es retirable hasta que hagas un primer depósito válido y completes al menos una operación.',
         'referral.simulated': '✅ ¡Referido simulado! +1 amigo, recompensa añadida',
         'referral.resetConfirm': '¿Reiniciar todos los datos de referidos? No se puede deshacer.',
@@ -11733,14 +11806,26 @@ const TRANSLATIONS = {
         'referral.partner.modalTitle': 'Solicitar pagamento',
         'referral.partner.modalDesc': 'Um gestor de pagamentos verifica e envia seu pagamento manualmente.',
         'referral.partner.amountLabel': 'Valor a pagar',
-        'referral.partner.walletLabel': 'Endereço da carteira de recebimento (USDT TRC20)',
-        'referral.partner.walletPlaceholder': 'Seu endereço de carteira USDT TRC20',
+        'referral.partner.walletLabel': 'Endere\u00e7o da carteira de destino',
+        'referral.partner.walletPlaceholder': 'O seu endere\u00e7o de carteira para o pagamento',
         'referral.partner.walletInvalid': 'Informe um endereço de carteira válido (pelo menos 10 caracteres).',
         'referral.partner.submit': 'Enviar solicitação',
         'referral.partner.manualNote': 'Os pagamentos são enviados manualmente pela nossa equipe de pagamentos após a verificação. Nenhuma transferência automática é feita.',
         'referral.partner.requested': 'Solicitação de pagamento enviada',
         'referral.partner.requestFailed': 'Falha na solicitação de pagamento',
         'referral.partner.noPayouts': 'Ainda não há pagamentos.',
+        'referral.partner.noMinimumNote': 'Sem pagamento m\u00ednimo. As comiss\u00f5es de indica\u00e7\u00e3o n\u00e3o exigem negocia\u00e7\u00e3o.',
+        'referral.partner.coinLabel': 'Moeda',
+        'referral.partner.networkLabel': 'Rede',
+        'referral.partner.confirmLabel': 'Confirmo que o endere\u00e7o da carteira e a rede est\u00e3o corretos.',
+        'referral.partner.confirmRequired': 'Confirme que o endere\u00e7o da carteira e a rede est\u00e3o corretos.',
+        'referral.partner.amountInvalid': 'Introduza um valor a pagar.',
+        'referral.partner.amountExceeds': 'O valor excede os seus ganhos dispon\u00edveis.',
+        'referral.partner.submittedReview': 'Pedido de pagamento enviado - em an\u00e1lise.',
+        'referral.partner.contactSupport': 'Contactar suporte para parceiros',
+        'referral.partner.requestedDate': 'Solicitado',
+        'referral.partner.paidDate': 'Pago',
+        'referral.partner.rejectionReason': 'Motivo',
         'referral.partner.statusPending': 'Pendente',
         'referral.partner.statusReview': 'Em análise',
         'referral.partner.statusPaid': 'Pago',
@@ -11762,6 +11847,12 @@ const TRANSLATIONS = {
         'admin.referral.txRefPrompt': 'Informe o hash / referência da transação de pagamento:',
         'admin.referral.rejectConfirm': 'Rejeitar esta solicitação de pagamento? Os ganhos reservados serão devolvidos ao parceiro.',
         'admin.referral.noPayouts': 'Nenhuma solicitação de pagamento.',
+        'admin.referral.payoutCol.coin': 'Moeda',
+        'admin.referral.payoutCol.network': 'Rede',
+        'admin.referral.paidAmountPrompt': 'Valor real pago:',
+        'admin.referral.paidAmountInvalid': 'Introduza um valor pago v\u00e1lido.',
+        'admin.referral.rejectReasonPrompt': 'Motivo da rejei\u00e7\u00e3o:',
+        'admin.referral.rejectReasonRequired': '\u00c9 obrigat\u00f3rio indicar um motivo de rejei\u00e7\u00e3o.',
         'admin.referral.payoutUpdated': 'Pagamento atualizado',
         'admin.referral.payoutUpdateFailed': 'Falha ao atualizar o pagamento',
         'referral.invite': 'Convide amigos, ganhe',
@@ -11773,7 +11864,7 @@ const TRANSLATIONS = {
         'referral.simulate': 'Simular indicação',
         'referral.reset': 'Redefinir',
         'referral.earned': '🎉 Você ganhou uma recompensa por indicar um amigo!',
-        'referral.withdrawNote': 'A renda de indicações pode ser sacada sem operar (aplica-se o mínimo da plataforma).',
+        'referral.withdrawNote': 'As comiss\u00f5es de indica\u00e7\u00e3o s\u00e3o pagas separadamente dos levantamentos normais - sem pagamento m\u00ednimo e sem necessidade de negociar.',
         'promo.tradableNotice': 'Seu crédito promocional de $50 pode ser usado para operar, mas não é sacável até que você faça um primeiro depósito válido e conclua pelo menos uma operação.',
         'referral.simulated': '✅ Indicação simulada! +1 amigo, recompensa adicionada',
         'referral.resetConfirm': 'Redefinir todos os dados de indicações? Isso não pode ser desfeito.',
@@ -13224,14 +13315,26 @@ const TRANSLATIONS = {
         'referral.partner.modalTitle': 'Demander un paiement',
         'referral.partner.modalDesc': 'Un gestionnaire de paiement vérifie et envoie votre paiement manuellement.',
         'referral.partner.amountLabel': 'Montant à payer',
-        'referral.partner.walletLabel': 'Adresse du portefeuille de réception (USDT TRC20)',
-        'referral.partner.walletPlaceholder': 'Votre adresse de portefeuille USDT TRC20',
+        'referral.partner.walletLabel': 'Adresse du portefeuille de r\u00e9ception',
+        'referral.partner.walletPlaceholder': 'Votre adresse de portefeuille pour le paiement',
         'referral.partner.walletInvalid': 'Saisissez une adresse de portefeuille valide (au moins 10 caractères).',
         'referral.partner.submit': 'Envoyer la demande',
         'referral.partner.manualNote': 'Les paiements sont envoyés manuellement par notre équipe de paiement après vérification. Aucun transfert automatique n\'est effectué.',
         'referral.partner.requested': 'Demande de paiement envoyée',
         'referral.partner.requestFailed': 'Échec de la demande de paiement',
         'referral.partner.noPayouts': 'Aucun paiement pour l\'instant.',
+        'referral.partner.noMinimumNote': 'Aucun paiement minimum. Les gains de parrainage n\'exigent pas de trading.',
+        'referral.partner.coinLabel': 'Devise',
+        'referral.partner.networkLabel': 'R\u00e9seau',
+        'referral.partner.confirmLabel': 'Je confirme que l\'adresse du portefeuille et le r\u00e9seau sont corrects.',
+        'referral.partner.confirmRequired': 'Veuillez confirmer que l\'adresse du portefeuille et le r\u00e9seau sont corrects.',
+        'referral.partner.amountInvalid': 'Saisissez un montant \u00e0 payer.',
+        'referral.partner.amountExceeds': 'Le montant d\u00e9passe vos gains disponibles.',
+        'referral.partner.submittedReview': 'Demande de paiement soumise - en cours d\'examen.',
+        'referral.partner.contactSupport': 'Contacter le support partenaire',
+        'referral.partner.requestedDate': 'Demand\u00e9',
+        'referral.partner.paidDate': 'Pay\u00e9',
+        'referral.partner.rejectionReason': 'Motif',
         'referral.partner.statusPending': 'En attente',
         'referral.partner.statusReview': 'En cours d\'examen',
         'referral.partner.statusPaid': 'Payé',
@@ -13253,6 +13356,12 @@ const TRANSLATIONS = {
         'admin.referral.txRefPrompt': 'Saisissez le hash / la référence de la transaction de paiement :',
         'admin.referral.rejectConfirm': 'Rejeter cette demande de paiement ? Les gains réservés seront rendus au partenaire.',
         'admin.referral.noPayouts': 'Aucune demande de paiement.',
+        'admin.referral.payoutCol.coin': 'Devise',
+        'admin.referral.payoutCol.network': 'R\u00e9seau',
+        'admin.referral.paidAmountPrompt': 'Montant r\u00e9el pay\u00e9 :',
+        'admin.referral.paidAmountInvalid': 'Saisissez un montant pay\u00e9 valide.',
+        'admin.referral.rejectReasonPrompt': 'Motif du rejet :',
+        'admin.referral.rejectReasonRequired': 'Un motif de rejet est requis.',
         'admin.referral.payoutUpdated': 'Paiement mis à jour',
         'admin.referral.payoutUpdateFailed': 'Échec de la mise à jour du paiement',
         'referral.invite': 'Invitez des amis, gagnez',
@@ -13264,7 +13373,7 @@ const TRANSLATIONS = {
         'referral.simulate': 'Simuler un parrainage',
         'referral.reset': 'Réinitialiser',
         'referral.earned': '🎉 Vous avez gagné une récompense de parrainage pour avoir parrainé un ami !',
-        'referral.withdrawNote': 'Les revenus de parrainage peuvent être retirés sans trader (le minimum de la plateforme s\'applique).',
+        'referral.withdrawNote': 'Les gains de parrainage sont pay\u00e9s s\u00e9par\u00e9ment des retraits normaux - aucun paiement minimum et aucun trading requis.',
         'promo.tradableNotice': 'Votre crédit promotionnel de 50 $ peut être utilisé pour trader, mais il est non retirable avant un premier dépôt éligible et au moins une transaction.',
         'referral.simulated': '✅ Parrainage simulé ! +1 ami, récompense ajoutée',
         'referral.resetConfirm': 'Réinitialiser toutes les données de parrainage ? Irréversible.',
@@ -14715,14 +14824,26 @@ const TRANSLATIONS = {
         'referral.partner.modalTitle': 'طلب الدفع',
         'referral.partner.modalDesc': 'يتحقق مدير المدفوعات من طلبك ويرسل دفعتك يدويًا.',
         'referral.partner.amountLabel': 'المبلغ المطلوب دفعه',
-        'referral.partner.walletLabel': 'عنوان المحفظة المستلمة (USDT TRC20)',
-        'referral.partner.walletPlaceholder': 'عنوان محفظة USDT TRC20 الخاصة بك',
+        'referral.partner.walletLabel': '\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0645\u062d\u0641\u0638\u0629 \u0627\u0644\u0645\u0633\u062a\u0644\u0645\u0629',
+        'referral.partner.walletPlaceholder': '\u0639\u0646\u0648\u0627\u0646 \u0645\u062d\u0641\u0638\u062a\u0643 \u0644\u0644\u062f\u0641\u0639',
         'referral.partner.walletInvalid': 'أدخل عنوان محفظة صالحًا (10 أحرف على الأقل).',
         'referral.partner.submit': 'إرسال الطلب',
         'referral.partner.manualNote': 'يُرسل فريق المدفوعات لدينا الدفعات يدويًا بعد التحقق. لا يتم إجراء أي تحويل تلقائي.',
         'referral.partner.requested': 'تم إرسال طلب الدفع',
         'referral.partner.requestFailed': 'فشل طلب الدفع',
         'referral.partner.noPayouts': 'لا توجد مدفوعات بعد.',
+        'referral.partner.noMinimumNote': '\u0644\u0627 \u064a\u0648\u062c\u062f \u062d\u062f \u0623\u062f\u0646\u0649 \u0644\u0644\u062f\u0641\u0639. \u0623\u0631\u0628\u0627\u062d \u0627\u0644\u0625\u062d\u0627\u0644\u0629 \u0644\u0627 \u062a\u062a\u0637\u0644\u0628 \u0627\u0644\u062a\u062f\u0627\u0648\u0644.',
+        'referral.partner.coinLabel': '\u0627\u0644\u0639\u0645\u0644\u0629',
+        'referral.partner.networkLabel': '\u0627\u0644\u0634\u0628\u0643\u0629',
+        'referral.partner.confirmLabel': '\u0623\u0624\u0643\u062f \u0623\u0646 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0645\u062d\u0641\u0638\u0629 \u0648\u0627\u0644\u0634\u0628\u0643\u0629 \u0635\u062d\u064a\u062d\u0627\u0646.',
+        'referral.partner.confirmRequired': '\u064a\u0631\u062c\u0649 \u062a\u0623\u0643\u064a\u062f \u0623\u0646 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0645\u062d\u0641\u0638\u0629 \u0648\u0627\u0644\u0634\u0628\u0643\u0629 \u0635\u062d\u064a\u062d\u0627\u0646.',
+        'referral.partner.amountInvalid': '\u0623\u062f\u062e\u0644 \u0645\u0628\u0644\u063a\u0627\u064b \u0644\u0644\u062f\u0641\u0639.',
+        'referral.partner.amountExceeds': '\u0627\u0644\u0645\u0628\u0644\u063a \u064a\u062a\u062c\u0627\u0648\u0632 \u0623\u0631\u0628\u0627\u062d\u0643 \u0627\u0644\u0645\u062a\u0627\u062d\u0629.',
+        'referral.partner.submittedReview': '\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628 \u0627\u0644\u062f\u0641\u0639 - \u0642\u064a\u062f \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629.',
+        'referral.partner.contactSupport': '\u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0628\u062f\u0639\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621',
+        'referral.partner.requestedDate': '\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0637\u0644\u0628',
+        'referral.partner.paidDate': '\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062f\u0641\u0639',
+        'referral.partner.rejectionReason': '\u0627\u0644\u0633\u0628\u0628',
         'referral.partner.statusPending': 'قيد الانتظار',
         'referral.partner.statusReview': 'قيد المراجعة',
         'referral.partner.statusPaid': 'مدفوع',
@@ -14744,6 +14865,12 @@ const TRANSLATIONS = {
         'admin.referral.txRefPrompt': 'أدخل هاش / مرجع معاملة الدفع:',
         'admin.referral.rejectConfirm': 'هل تريد رفض طلب الدفع هذا؟ سيتم إرجاع الأرباح المحجوزة إلى الشريك.',
         'admin.referral.noPayouts': 'لا توجد طلبات دفع.',
+        'admin.referral.payoutCol.coin': '\u0627\u0644\u0639\u0645\u0644\u0629',
+        'admin.referral.payoutCol.network': '\u0627\u0644\u0634\u0628\u0643\u0629',
+        'admin.referral.paidAmountPrompt': '\u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0641\u0639\u0644\u064a \u0627\u0644\u0645\u062f\u0641\u0648\u0639:',
+        'admin.referral.paidAmountInvalid': '\u0623\u062f\u062e\u0644 \u0645\u0628\u0644\u063a\u0627\u064b \u0645\u062f\u0641\u0648\u0639\u0627\u064b \u0635\u0627\u0644\u062d\u0627\u064b.',
+        'admin.referral.rejectReasonPrompt': '\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636:',
+        'admin.referral.rejectReasonRequired': '\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 \u0645\u0637\u0644\u0648\u0628.',
         'admin.referral.payoutUpdated': 'تم تحديث الدفع',
         'admin.referral.payoutUpdateFailed': 'فشل تحديث الدفع',
         'referral.invite': 'ادعُ أصدقاءَك، واكسب',
@@ -14755,7 +14882,7 @@ const TRANSLATIONS = {
         'referral.simulate': 'محاكاة إحالة',
         'referral.reset': 'إعادة تعيين',
         'referral.earned': '🎉 ربحت مكافأة إحالة لإحالتك صديقًا!',
-        'referral.withdrawNote': 'يمكن سحب دخل الإحالة دون تداول (يُطبق الحد الأدنى للمنصة).',
+        'referral.withdrawNote': '\u064a\u062a\u0645 \u062f\u0641\u0639 \u0623\u0631\u0628\u0627\u062d \u0627\u0644\u0625\u062d\u0627\u0644\u0629 \u0628\u0634\u0643\u0644 \u0645\u0646\u0641\u0635\u0644 \u0639\u0646 \u0639\u0645\u0644\u064a\u0627\u062a \u0627\u0644\u0633\u062d\u0628 \u0627\u0644\u0639\u0627\u062f\u064a\u0629 - \u0644\u0627 \u062d\u062f \u0623\u062f\u0646\u0649 \u0644\u0644\u062f\u0641\u0639 \u0648\u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u0644\u062a\u062f\u0627\u0648\u0644.',
         'promo.tradableNotice': 'يمكن استخدام رصيدك الترويجي البالغ $50 للتداول، لكنه غير قابل للسحب حتى تقوم بإيداع أول مؤهل وتكمل صفقة واحدة على الأقل.',
         'referral.simulated': '✅ تمت محاكاة الإحالة! +1 صديق، تمت إضافة المكافأة',
         'referral.resetConfirm': 'إعادة تعيين جميع بيانات الإحالة؟ لا يمكن التراجع عن ذلك.',
@@ -16206,14 +16333,26 @@ const TRANSLATIONS = {
         'referral.partner.modalTitle': '申请提现',
         'referral.partner.modalDesc': '付款经理会核实并手动发送你的提现。',
         'referral.partner.amountLabel': '提现金额',
-        'referral.partner.walletLabel': '收款钱包地址（USDT TRC20）',
-        'referral.partner.walletPlaceholder': '你的 USDT TRC20 钱包地址',
+        'referral.partner.walletLabel': '\u6536\u6b3e\u94b1\u5305\u5730\u5740',
+        'referral.partner.walletPlaceholder': '\u4f60\u7684\u6536\u6b3e\u94b1\u5305\u5730\u5740',
         'referral.partner.walletInvalid': '请输入有效的钱包地址（至少 10 个字符）。',
         'referral.partner.submit': '提交申请',
         'referral.partner.manualNote': '提现由我们的付款团队在核实后手动发送，不进行任何自动转账。',
         'referral.partner.requested': '提现申请已提交',
         'referral.partner.requestFailed': '提现申请失败',
         'referral.partner.noPayouts': '暂无提现记录。',
+        'referral.partner.noMinimumNote': '\u65e0\u6700\u4f4e\u63d0\u73b0\u989d\u3002\u63a8\u8350\u6536\u76ca\u65e0\u9700\u4ea4\u6613\u3002',
+        'referral.partner.coinLabel': '\u5e01\u79cd',
+        'referral.partner.networkLabel': '\u7f51\u7edc',
+        'referral.partner.confirmLabel': '\u6211\u786e\u8ba4\u94b1\u5305\u5730\u5740\u548c\u7f51\u7edc\u6b63\u786e\u3002',
+        'referral.partner.confirmRequired': '\u8bf7\u786e\u8ba4\u94b1\u5305\u5730\u5740\u548c\u7f51\u7edc\u6b63\u786e\u3002',
+        'referral.partner.amountInvalid': '\u8bf7\u8f93\u5165\u8981\u652f\u4ed8\u7684\u91d1\u989d\u3002',
+        'referral.partner.amountExceeds': '\u91d1\u989d\u8d85\u8fc7\u4f60\u7684\u53ef\u7528\u6536\u76ca\u3002',
+        'referral.partner.submittedReview': '\u63d0\u73b0\u7533\u8bf7\u5df2\u63d0\u4ea4 - \u5ba1\u6838\u4e2d\u3002',
+        'referral.partner.contactSupport': '\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u652f\u6301',
+        'referral.partner.requestedDate': '\u7533\u8bf7\u65f6\u95f4',
+        'referral.partner.paidDate': '\u652f\u4ed8\u65f6\u95f4',
+        'referral.partner.rejectionReason': '\u539f\u56e0',
         'referral.partner.statusPending': '待处理',
         'referral.partner.statusReview': '审核中',
         'referral.partner.statusPaid': '已支付',
@@ -16235,6 +16374,12 @@ const TRANSLATIONS = {
         'admin.referral.txRefPrompt': '请输入付款交易哈希 / 参考号：',
         'admin.referral.rejectConfirm': '确定要拒绝此提现申请吗？已冻结的收益将退还给合作伙伴。',
         'admin.referral.noPayouts': '没有提现申请。',
+        'admin.referral.payoutCol.coin': '\u5e01\u79cd',
+        'admin.referral.payoutCol.network': '\u7f51\u7edc',
+        'admin.referral.paidAmountPrompt': '\u5b9e\u9645\u652f\u4ed8\u91d1\u989d\uff1a',
+        'admin.referral.paidAmountInvalid': '\u8bf7\u8f93\u5165\u6709\u6548\u7684\u652f\u4ed8\u91d1\u989d\u3002',
+        'admin.referral.rejectReasonPrompt': '\u62d2\u7edd\u539f\u56e0\uff1a',
+        'admin.referral.rejectReasonRequired': '\u5fc5\u987b\u586b\u5199\u62d2\u7edd\u539f\u56e0\u3002',
         'admin.referral.payoutUpdated': '提现已更新',
         'admin.referral.payoutUpdateFailed': '提现更新失败',
         'referral.invite': '邀请好友，赚',
@@ -16246,7 +16391,7 @@ const TRANSLATIONS = {
         'referral.simulate': '模拟推荐',
         'referral.reset': '重置',
         'referral.earned': '🎉 推荐好友成功，您获得了推荐奖励！',
-        'referral.withdrawNote': '推荐收益无需交易即可提现（适用平台最低提现额）。',
+        'referral.withdrawNote': '\u63a8\u8350\u6536\u76ca\u4e0e\u666e\u901a\u63d0\u73b0\u5206\u5f00\u652f\u4ed8 - \u65e0\u6700\u4f4e\u63d0\u73b0\u989d\uff0c\u4e5f\u65e0\u9700\u4ea4\u6613\u3002',
         'promo.tradableNotice': '您的 $50 促销信用可用于交易，但在您完成合格的首笔入金并完成至少一笔交易之前不可提现。',
         'referral.simulated': '✅ 推荐已模拟！+1 好友，已添加奖励',
         'referral.resetConfirm': '重置所有推荐数据？此操作无法撤销。',
@@ -18122,22 +18267,42 @@ function payoutStatusMeta(status) {
     return { cls: 'pending', key: 'referral.partner.statusPending' };
 }
 
+/** Mask a wallet address for display: first 6 + last 4 characters. */
+function maskWalletAddress(addr) {
+    const s = String(addr || '');
+    if (s.length <= 12) return s;
+    return s.slice(0, 6) + '...' + s.slice(-4);
+}
+
+/** The server-advertised payout assets (coin + networks); safe fallback. */
+function payoutAssetList() {
+    const a = APP.referralPartner && APP.referralPartner.assets;
+    if (Array.isArray(a) && a.length) return a;
+    return [{ coin: 'USDT', networks: ['TRC20'] }];
+}
+
 function payoutItemHtml(p) {
     const meta = payoutStatusMeta(p.status);
     const amount = Number(p.paid_amount != null ? p.paid_amount : p.amount) || 0;
-    const date = p.paid_at || p.reviewed_at || p.created_at;
-    const dateStr = date ? new Date(date).toLocaleDateString(appLocale()) : '';
-    const tx = p.tx_reference
-        ? '<div style="margin-top:4px;">' + t('referral.partner.txRef') + ': ' + escapeHtml(String(p.tx_reference)) + '</div>'
-        : '';
-    return '<div class="ref-payout-item">'
+    const coin = String(p.coin || 'USDT');
+    const network = String(p.network || 'TRC20');
+    const addr = p.wallet_address ? maskWalletAddress(String(p.wallet_address)) : '';
+    const requested = p.created_at ? new Date(p.created_at).toLocaleDateString(appLocale()) : '';
+    const paidDate = p.paid_at ? new Date(p.paid_at).toLocaleDateString(appLocale()) : '';
+    const isPaid = p.status === 'PAID';
+    const isRejected = p.status === 'REJECTED';
+
+    let html = '<div class="ref-payout-item">'
         + '<div class="ref-payout-row">'
-        + '<span class="ref-payout-amount">' + formatCurrency(amount) + '</span>'
+        + '<span class="ref-payout-amount">' + amount.toFixed(2) + ' ' + escapeHtml(coin) + '</span>'
         + '<span class="ref-payout-status ' + meta.cls + '">' + t(meta.key) + '</span>'
-        + '</div>'
-        + (dateStr ? '<div style="margin-top:4px;">' + t('referral.partner.createdAt') + ': ' + dateStr + '</div>' : '')
-        + tx
         + '</div>';
+    html += '<div style="margin-top:4px;">' + escapeHtml(network) + (addr ? ' - ' + escapeHtml(addr) : '') + '</div>';
+    if (requested) html += '<div style="margin-top:2px;">' + t('referral.partner.requestedDate') + ': ' + escapeHtml(requested) + '</div>';
+    if (isPaid && paidDate) html += '<div style="margin-top:2px;">' + t('referral.partner.paidDate') + ': ' + escapeHtml(paidDate) + '</div>';
+    if (isPaid && p.tx_reference) html += '<div style="margin-top:2px;">' + t('referral.partner.txRef') + ': ' + escapeHtml(String(p.tx_reference)) + '</div>';
+    if (isRejected && p.note) html += '<div style="margin-top:2px;">' + t('referral.partner.rejectionReason') + ': ' + escapeHtml(String(p.note)) + '</div>';
+    return html + '</div>';
 }
 
 function renderReferralPayouts() {
@@ -18188,14 +18353,86 @@ function openReferralPayoutModal() {
 
     const amountEl = getEl('payoutAmountDisplay');
     if (amountEl) amountEl.textContent = formatCurrency(available);
+    // Default to the full available balance; the partner may lower it (NO MINIMUM).
+    const amountInput = getEl('payoutAmountInput');
+    if (amountInput) { amountInput.value = available.toFixed(2); amountInput.max = available.toFixed(2); }
+    populatePayoutAssetSelects();
     const input = getEl('payoutWalletAddress');
     if (input) input.value = '';
-    const err = getEl('payoutError');
-    if (err) { err.textContent = ''; err.classList.add('hidden'); }
+    const chk = getEl('payoutConfirmCheck');
+    if (chk) chk.checked = false;
+    clearPayoutError();
     // One retry key per modal open so a double-click cannot create two requests.
     APP.payoutRequestKey = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
     const modal = getEl('referralPayoutModal');
     if (modal) modal.classList.add('open');
+}
+
+function clearPayoutError() {
+    const err = getEl('payoutError');
+    if (err) { err.textContent = ''; err.classList.add('hidden'); }
+}
+
+/** Build the coin/network selects from the server-advertised PAYOUT_ASSETS. */
+function populatePayoutAssetSelects() {
+    const coinSel = getEl('payoutCoin');
+    const assets = payoutAssetList();
+    if (coinSel) {
+        coinSel.innerHTML = assets.map(function (a) {
+            return '<option value="' + escapeHtml(a.coin) + '">' + escapeHtml(a.coin) + '</option>';
+        }).join('');
+    }
+    onPayoutAssetChange();
+}
+
+/** Keep the network list in sync with the selected coin. */
+function onPayoutAssetChange() {
+    const coinSel = getEl('payoutCoin');
+    const netSel = getEl('payoutNetwork');
+    const assets = payoutAssetList();
+    const coin = coinSel ? coinSel.value : (assets[0] && assets[0].coin) || 'USDT';
+    const asset = assets.find(function (a) { return a.coin === coin; }) || assets[0] || { networks: [] };
+    const nets = asset.networks || [];
+    if (netSel) {
+        const current = netSel.value;
+        netSel.innerHTML = nets.map(function (n) {
+            return '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>';
+        }).join('');
+        if (nets.indexOf(current) >= 0) netSel.value = current;
+    }
+    clearPayoutError();
+}
+
+/**
+ * Referral-partner support contact. Configurable via
+ * window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL or the
+ * <meta name="arbitrix-partner-support-telegram"> tag - a full https://t.me/...
+ * URL OR a bare @username. This is the SINGLE source of truth; the account is
+ * never hard-coded anywhere else in the UI. When unset, the Support Center opens.
+ */
+function getPartnerSupportTelegramUrl() {
+    let raw = '';
+    try {
+        if (typeof window !== 'undefined' && window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL) {
+            raw = String(window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL).trim();
+        } else {
+            const meta = document.querySelector('meta[name="arbitrix-partner-support-telegram"]');
+            if (meta && meta.content) raw = String(meta.content).trim();
+        }
+    } catch (e) { /* fall through */ }
+    if (!raw) return '';
+    // Accept a full URL or a bare Telegram username (with or without "@").
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return 'https://t.me/' + raw.replace(/^@/, '');
+}
+
+function openPartnerSupport() {
+    const url = getPartnerSupportTelegramUrl();
+    if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+    }
+    if (typeof openSupportModal === 'function') openSupportModal();
 }
 
 function closeReferralPayoutModal() {
@@ -18206,11 +18443,25 @@ function closeReferralPayoutModal() {
 async function submitReferralPayoutRequest() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
-    const input = getEl('payoutWalletAddress');
-    const address = (input && input.value ? input.value : '').trim();
+    const partner = APP.referralPartner || {};
+    const available = Number(partner.availableEarnings) || 0;
+    const amountEl = getEl('payoutAmountInput');
+    const amount = amountEl ? Number(amountEl.value) : NaN;
+    const addrEl = getEl('payoutWalletAddress');
+    const address = (addrEl && addrEl.value ? addrEl.value : '').trim();
+    const coinEl = getEl('payoutCoin');
+    const netEl = getEl('payoutNetwork');
+    const coin = coinEl ? coinEl.value : 'USDT';
+    const network = netEl ? netEl.value : 'TRC20';
+    const chk = getEl('payoutConfirmCheck');
     const err = getEl('payoutError');
     const showErr = function (msg) { if (err) { err.textContent = msg; err.classList.remove('hidden'); } };
+
+    // NO MINIMUM: any positive amount up to the available earnings is valid.
+    if (!isFinite(amount) || amount <= 0) { showErr(t('referral.partner.amountInvalid')); return; }
+    if (amount > available + 0.0000001) { showErr(t('referral.partner.amountExceeds')); return; }
     if (address.length < 10) { showErr(t('referral.partner.walletInvalid')); return; }
+    if (!(chk && chk.checked)) { showErr(t('referral.partner.confirmRequired')); return; }
 
     const btn = getEl('payoutSubmitBtn');
     if (btn) btn.disabled = true;
@@ -18218,7 +18469,13 @@ async function submitReferralPayoutRequest() {
         const res = await fetch('/api/referral/payouts/request', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ walletAddress: address, idempotencyKey: APP.payoutRequestKey })
+            body: JSON.stringify({
+                amount: Math.round(amount * 100) / 100,
+                coin: coin,
+                network: network,
+                walletAddress: address,
+                idempotencyKey: APP.payoutRequestKey
+            })
         });
         const data = await res.json().catch(function () { return {}; });
         if (!res.ok) {
@@ -18226,7 +18483,8 @@ async function submitReferralPayoutRequest() {
             return;
         }
         closeReferralPayoutModal();
-        showToast(t('referral.partner.requested'), 'success');
+        // The request enters the manual review queue (UNDER_REVIEW).
+        showToast(t('referral.partner.submittedReview'), 'success');
         await fetchReferralPartner();
         try { await syncWalletFromServer(); } catch (e) {}
         updateUI();
@@ -23994,7 +24252,7 @@ async function loadReferralPayouts() {
     if (!token) return;
     const tbody = document.getElementById('adminReferralPayoutsTable');
     const empty = document.getElementById('referralPayoutsEmpty');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('common.loading') + '</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('common.loading') + '</td></tr>';
     try {
         const filterEl = document.getElementById('payoutStatusFilter');
         const status = filterEl && filterEl.value ? filterEl.value : 'all';
@@ -24006,7 +24264,7 @@ async function loadReferralPayouts() {
         renderReferralPayoutsAdmin(data.payouts || []);
     } catch (e) {
         console.log('Error loading referral payouts:', e);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('admin.referral.payoutUpdateFailed') + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('admin.referral.payoutUpdateFailed') + '</td></tr>';
     }
 }
 
@@ -24040,6 +24298,8 @@ function renderReferralPayoutsAdmin(payouts) {
         return '<tr style="border-bottom:1px solid var(--border);">'
             + '<td style="padding:8px;">' + partner + '</td>'
             + '<td style="padding:8px;">' + formatCurrency(p.amount) + (paid ? ' <span style="color:var(--text-muted);">(' + paid + ')</span>' : '') + '</td>'
+            + '<td style="padding:8px;">' + escapeHtml(String(p.coin || 'USDT')) + '</td>'
+            + '<td style="padding:8px;">' + escapeHtml(String(p.network || 'TRC20')) + '</td>'
             + '<td style="padding:8px;"><span class="ref-payout-status ' + meta.cls + '">' + t(meta.key) + '</span></td>'
             + '<td style="padding:8px;max-width:160px;overflow-wrap:anywhere;">' + wallet + '</td>'
             + '<td style="padding:8px;max-width:160px;overflow-wrap:anywhere;">' + tx + '</td>'
@@ -24061,7 +24321,8 @@ async function updateReferralPayout(id, status, opts) {
             body: JSON.stringify({
                 status: status,
                 txReference: opts.txReference || null,
-                paidAmount: (opts.paidAmount === undefined ? null : opts.paidAmount)
+                paidAmount: (opts.paidAmount === undefined ? null : opts.paidAmount),
+                note: opts.note || null
             })
         });
         const data = await res.json().catch(function () { return {}; });
@@ -24079,14 +24340,22 @@ async function updateReferralPayout(id, status, opts) {
 }
 
 function recordReferralPayoutPayment(id, amount) {
+    // Record the ACTUAL amount paid (defaults to the requested amount).
+    const paidRaw = prompt(t('admin.referral.paidAmountPrompt'), String(Number(amount) || 0));
+    if (paidRaw === null) return; // cancelled
+    const paidAmount = Number(paidRaw);
+    if (!isFinite(paidAmount) || paidAmount <= 0) { showToast(t('admin.referral.paidAmountInvalid'), 'error'); return; }
     const tx = prompt(t('admin.referral.txRefPrompt'), '');
     if (tx === null) return; // cancelled
-    updateReferralPayout(id, 'PAID', { txReference: tx, paidAmount: amount });
+    updateReferralPayout(id, 'PAID', { txReference: tx, paidAmount: paidAmount });
 }
 
 function rejectReferralPayout(id) {
     if (!confirm(t('admin.referral.rejectConfirm'))) return;
-    updateReferralPayout(id, 'REJECTED');
+    const reason = prompt(t('admin.referral.rejectReasonPrompt'), '');
+    if (reason === null) return; // cancelled
+    if (!reason.trim()) { showToast(t('admin.referral.rejectReasonRequired'), 'error'); return; }
+    updateReferralPayout(id, 'REJECTED', { note: reason.trim() });
 }
 
 // ============ REFERRAL AUDIT HISTORY ============

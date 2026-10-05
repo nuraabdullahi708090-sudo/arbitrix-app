@@ -140,14 +140,20 @@ test('GET /api/referral/partner is auth-gated, self-scoped and server-derived', 
     assert.ok(!/req\.body/.test(ep), 'GET must not read a client body');
 });
 
-test('payout request is auth-gated, sandbox-refused, address-validated and amount-free from the client', () => {
+test('payout request is auth-gated, sandbox-refused, and validates address + amount + asset', () => {
     const ep = sliceBetween(PARTNER_API, "app.post('/api/referral/payouts/request'", "app.get('/api/admin/referral/payouts'");
     assert.match(ep, /authMiddleware/);
     assert.match(ep, /const userId = req\.user\.id/);
     assert.match(ep, /isMarketingSandboxUser\(userId\)/);
-    assert.ok(!/req\.body\.amount|body\.amount|Number\(req\.body\.amount/.test(ep), 'the client must never supply the amount');
+    // The partner chooses the amount (NO MINIMUM) and the coin/network; the RPC
+    // re-validates the amount against the server-derived available earnings.
     assert.match(ep, /req\.body\.walletAddress/);
     assert.match(ep, /walletAddress\.length < 10/);
+    assert.match(ep, /resolvePayoutAsset\(/);
+    assert.match(ep, /p_amount: amount/);
+    assert.match(ep, /p_coin: asset\.coin/);
+    assert.match(ep, /p_network: asset\.network/);
+    assert.ok(!/amount < MIN_WITHDRAWAL|MIN_PAYOUT|minimum payout amount/i.test(ep), 'no minimum payout is enforced');
     assert.match(ep, /rpc\('request_referral_payout_safe'/);
     assert.match(ep, /p_user_id: userId/);
     // idempotency key is server-derived from the authenticated user id
@@ -217,10 +223,15 @@ test('a referral reward is credited at most once (conditional pending->active up
     assert.match(m021, /FOR UPDATE/);
 });
 
-test('the frontend payout request cannot manipulate the amount or identity', () => {
+test('the frontend payout request sends amount + coin/network + address but never an identity', () => {
     const fn = sliceBetween(INDEX, 'async function submitReferralPayoutRequest', 'function getCurrentData');
-    assert.match(fn, /JSON\.stringify\(\{ walletAddress: address, idempotencyKey: APP\.payoutRequestKey \}\)/);
-    assert.ok(!/amount\s*:/.test(fn), 'the client must not send an amount');
+    assert.match(fn, /amount: Math\.round\(amount \* 100\) \/ 100/);
+    assert.match(fn, /coin: coin/);
+    assert.match(fn, /network: network/);
+    assert.match(fn, /walletAddress: address/);
+    assert.match(fn, /idempotencyKey: APP\.payoutRequestKey/);
+    // the amount is bounded client-side by the server-derived available earnings
+    assert.match(fn, /amount > available \+ 0\.0000001/);
     assert.ok(!/userId|referrer_id|partner_id/.test(fn), 'the client must not send an identity');
 });
 
@@ -273,6 +284,13 @@ test('every locale has the full, identical referral-partner key set (no empties)
         'admin.referral.payoutCol.action', 'admin.referral.recordPayment', 'admin.referral.rejectPayout',
         'admin.referral.txRefPrompt', 'admin.referral.rejectConfirm', 'admin.referral.noPayouts',
         'admin.referral.payoutUpdated', 'admin.referral.payoutUpdateFailed',
+        // amount/coin/network + confirmation + history + support (migration 035 UI)
+        'referral.partner.noMinimumNote', 'referral.partner.coinLabel', 'referral.partner.networkLabel',
+        'referral.partner.confirmLabel', 'referral.partner.confirmRequired', 'referral.partner.amountInvalid',
+        'referral.partner.amountExceeds', 'referral.partner.submittedReview', 'referral.partner.contactSupport',
+        'referral.partner.requestedDate', 'referral.partner.paidDate', 'referral.partner.rejectionReason',
+        'admin.referral.payoutCol.coin', 'admin.referral.payoutCol.network', 'admin.referral.paidAmountPrompt',
+        'admin.referral.paidAmountInvalid', 'admin.referral.rejectReasonPrompt', 'admin.referral.rejectReasonRequired',
     ];
     for (const l of LANGS) {
         for (const k of required) {
@@ -292,11 +310,18 @@ test('the landing partner section and the payout UI are wired', () => {
     assert.match(INDEX, /id="refSubTabPayouts"/);
 });
 
-test('no currency keyword or amount is required to request a payout (server-derived only)', () => {
-    // The modal displays the server amount; the input is the wallet address only.
+test('the payout modal collects an amount (no minimum), a coin/network and a confirmation', () => {
     assert.match(INDEX, /id="payoutAmountDisplay"/);
+    assert.match(INDEX, /id="payoutAmountInput"/);
     assert.match(INDEX, /id="payoutWalletAddress"/);
-    assert.ok(!/id="payoutAmount"[^-]/.test(INDEX) || true);
+    assert.match(INDEX, /id="payoutCoin"/);
+    assert.match(INDEX, /id="payoutNetwork"/);
+    assert.match(INDEX, /id="payoutConfirmCheck"/);
+    assert.match(INDEX, /data-i18n="referral\.partner\.confirmLabel"/);
+    // No minimum is advertised; the explicit no-minimum note is present.
+    assert.match(INDEX, /data-i18n="referral\.partner\.noMinimumNote"/);
+    // The "platform minimum applies" wording is gone from the referral UI.
+    assert.ok(!/platform minimum applies/i.test(INDEX), 'the old platform-minimum wording must be removed');
 });
 
 test('no $700 withdrawal-minimum value remains anywhere in user-facing copy', () => {

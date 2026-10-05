@@ -21,10 +21,11 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1470;
-// 1470 keys/locale now = 1444 outside landing.testimonials.* plus the 24
-// landing.testimonials.* keys and the 2 bot.* engine-disclosure keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1444;
+const DICT_SIZE = 1488;
+// 1488 keys/locale now = 1462 outside landing.testimonials.* (which grew by the
+// 18 referral-partner payout keys) plus the 24 landing.testimonials.* keys and
+// the 2 bot.* engine-disclosure keys.
+const BASE_OUTSIDE_TESTIMONIALS = 1462;
 
 function loadTranslations() {
     const tIdx = INDEX.indexOf('const TRANSLATIONS');

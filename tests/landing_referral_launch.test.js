@@ -54,9 +54,9 @@ const NEW_KEYS = [
 // ---------------------------------------------------------------------------
 // i18n structure
 // ---------------------------------------------------------------------------
-test('dictionary: 1470 keys/locale and an identical key set across all 6 locales', () => {
+test('dictionary: 1488 keys/locale and an identical key set across all 6 locales', () => {
     const base = Object.keys(T.en).sort();
-    assert.strictEqual(base.length, 1470, 'expected 1470 keys per locale');
+    assert.strictEqual(base.length, 1488, 'expected 1488 keys per locale');
     LANGS.forEach((l) => {
         assert.ok(T[l], l + ' locale must exist');
         assert.deepStrictEqual(Object.keys(T[l]).sort(), base, l + ' key set must match en');
