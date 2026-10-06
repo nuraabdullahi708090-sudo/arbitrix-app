@@ -14,8 +14,14 @@
  * `.js-official-telegram` mechanism, resolved at runtime from the
  * `arbitrix-support-telegram` meta tag (single source of truth). This file pins
  * that contract plus "no invalid support email may remain customer-facing"
- * (including the support modal's not-configured fallback in all 6 locales),
- * while leaving legitimate legal@ / privacy@ addresses untouched.
+ * (including the support modal's not-configured fallback in all 6 locales).
+ *
+ * The same "no incorrect contact detail" rule now covers the LEGAL pages
+ * (privacy-policy.html / terms-of-service.html) - the pages the customer footer
+ * AND the /partners footer both open. They previously published the third-party
+ * domain arbitrix.ai plus two mailboxes on it; they must now carry the platform's
+ * own domain (arbitrix.pro), the published operator entity (Arbitrix Trading,
+ * KVK 72923513) and the official support channel only.
  *
  * Run: npm test
  */
@@ -168,9 +174,18 @@ test('the official support links are resolved at startup (anonymous landing visi
         'a DOMContentLoaded hook must apply the configured Telegram link to the page');
 });
 
-test('legitimate legal and privacy addresses are deliberately left unchanged', () => {
-    assert.match(TERMS, /mailto:legal@arbitrix\.ai/, 'legal@ must remain for legal matters');
-    assert.match(PRIVACY, /mailto:privacy@arbitrix\.ai/, 'privacy@ must remain for privacy matters');
+test('the legal pages publish the platform domain, operator entity and official channel only', () => {
+    // arbitrix.ai is NOT the platform: https://arbitrix.ai redirects to
+    // https://www.arbitrix.ai, which belongs to a different company. No
+    // arbitrix.ai reference, and no mailbox on it, may remain in a legal page.
+    for (const [name, page] of [['terms-of-service.html', TERMS], ['privacy-policy.html', PRIVACY]]) {
+        assert.ok(!/arbitrix\.ai/i.test(page), name + ' must not reference the third-party arbitrix.ai domain');
+        assert.ok(!/mailto:[^"]*arbitrix\.ai/i.test(page), name + ' must not publish a mailbox on arbitrix.ai');
+        assert.match(page, /https:\/\/arbitrix\.pro/, name + ' must publish the platform domain');
+        assert.match(page, /https:\/\/t\.me\/ArbitrixSupportBot/, name + ' must publish the official support channel');
+        assert.match(page, /Arbitrix Trading/, name + ' must identify the operator entity');
+        assert.match(page, /72923513/, name + ' must carry the published KVK number');
+    }
 });
 
 test('the support widget and support modal are untouched by this change', () => {
