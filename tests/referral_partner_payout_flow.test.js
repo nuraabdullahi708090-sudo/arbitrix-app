@@ -296,7 +296,7 @@ test('the referral UI no longer says "platform minimum applies"', () => {
 // ===========================================================================
 test('all 6 locales keep an identical, complete, non-empty payout key set', () => {
     const counts = LANGS.map((l) => Object.keys(T[l]).length);
-    assert.deepStrictEqual(counts, [1505, 1505, 1505, 1505, 1505, 1505]);
+    assert.deepStrictEqual(counts, [1501, 1501, 1501, 1501, 1501, 1501]);
     const base = Object.keys(T.en).sort().join('|');
     for (const l of LANGS) assert.strictEqual(Object.keys(T[l]).sort().join('|'), base, l + ' key set drift');
     for (const l of LANGS) for (const k of Object.keys(T[l])) {

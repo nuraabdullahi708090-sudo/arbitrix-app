@@ -5945,3 +5945,101 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - NOT committed / NOT pushed / NOT deployed. Working tree: M public/index.html,
   M server.js, M 16 test files; ?? supabase/migrations/036_sandbox_referral_payouts.sql,
   ?? tests/sandbox_referral_payouts.test.js.
+
+## Referral Partner acquisition page /partners (2026-10-06, server.js + public/partners.html + tests, frontend + route only)
+- NEW standalone, UNLISTED marketing landing page at /partners for a Meta ad, plus a
+  minimal server route. NO change to the customer funnel. public/index.html was
+  byte-unchanged when /partners shipped (sha256 a78ef485...aa49, pinned by tests); it has
+  since changed ONCE, by the separately-approved Option A cleanup of the sandbox referral
+  copy (see the 2026-10-06 recording note below; current sha256 6084ae0e...635a). It is
+  still NOT linked to /partners anywhere. No referral/payout/trading/deposit/withdrawal/
+  subscription/KYC/auth logic was modified.
+- ROUTE (server.js, registered immediately AFTER the /business-registration route and
+  BEFORE the SPA fallback app.use):
+    app.get(['/partners', '/partners/'], (req, res) => { res.sendFile(path.join(__dirname, 'public', 'partners.html')); });
+  Verified against the real Express server: both forms return 200 with partners.html
+  (81670 bytes, not the app shell); /, /how-it-works, /business-registration still 200.
+- PAGE public/partners.html: standalone, session-free, no API/form/password, no fetch.
+  Sections: hero (badge/title/subtitle + 4 highlight chips + CTAs), How It Works (4 steps),
+  demo section, earnings examples, payouts, who it's for, partner support, FAQ (8 Q),
+  Referral Partner Disclosure, bottom CTA, footer. SEO: title/description/canonical
+  (https://arbitrix.pro/partners)/robots index,follow/OG/Twitter; theme-color.
+- CTA destinations (all reuse existing flows; no bespoke registration):
+  primary "Apply to Become a Partner" -> /?action=create-account (topbar + hero + bottom);
+  secondary "See How It Works" -> /how-it-works (topbar + hero + bottom);
+  "Sign In" -> /?action=sign-in. Deep-link contract also seeds
+  sessionStorage arbi_auth_entry ('/partners' or the query) like the other marketing pages.
+- i18n: self-contained TRANSLATIONS (84 keys x 6 locales en/es/pt/fr/ar/zh; 87 before
+  the 3 placeholder-only keys were removed), same
+  pattern as reset-password.html (reuses localStorage 'arbi_lang' + browser detection;
+  Arabic -> dir=rtl; html[lang] + document.title set on apply). No index.html keys touched.
+- SUPPORT: single-source meta <meta name="arbitrix-partner-support-telegram" content="@Arbitrix_CSA1">
+  (matches the app value). The t.me URL is built at RUNTIME (accepts @handle or full URL via
+  window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL or the meta) - the handle literal appears
+  exactly once and no other Telegram/group URL is invented.
+- DEMO RECORDING MOUNT: SHIPPED 2026-10-06. .demo-stage now contains the real
+  <video class="demo-video" id="demoVideo" controls playsinline preload="metadata"> with
+  /video/arbitrix-partner-payout-demo.mp4 + a poster; the .demo-placeholder was REMOVED.
+  .demo-flow (10 workflow chips) and .demo-disclosure (the visible simulated-demo
+  disclosure) remain SIBLINGS inside .demo-stage and are KEPT. No fabricated
+  screenshots/transactions/earnings/customer data (pinned).
+  LAYOUT GOTCHA fixed: aspect-ratio:16/9 + min-height forced a ~356px min-width that
+  overflowed at <=375px; the placeholder used aspect-ratio alone (no min-height).
+  The video CSS caps it at max-width:405px, centered, aspect-ratio:9/16.
+- TESTS: NEW tests/partners_page.test.js (32) - route + ordering before the SPA fallback,
+  page completeness/static, SEO, CTA destinations, 6-locale parity (84 keys, no empty/dup),
+  data-i18n coverage, RTL, responsive/no-overflow CSS contract, compliance hygiene (no
+  guaranteed-earnings/licence/CAC, advice-authorization negation, approved figures only),
+  no fabricated data, demo stage + the shipped video + visible disclosure, support
+  handle single source + runtime URL, index.html byte-unchanged + unlisted. npm test =
+  1990 pass / 0 fail. Browser (puppeteer-core + /usr/bin/chromium) = 546/0 across 6 locales
+  x 320/375/390/430/1280 (no horizontal overflow, localized copy, CTAs, support link, RTL).
+  Screenshots: /tmp/pgen/shots/partners-<lang>-{320,390}.png.
+- NOT committed / NOT pushed / NOT deployed. Migration state unchanged (no migration).
+
+## /partners payout recording inserted + sandbox referral-copy cleanup (Option A) (2026-10-06, NOT committed)
+- Frontend/content only: public/index.html (referral copy), public/partners.html (video mount),
+  two new public/video assets, tests/partners_page.test.js + the dictionary-count pins.
+  server.js was NOT touched (it shows as modified from an earlier, unrelated phase).
+- OPTION A copy cleanup (sandbox-only strings; production partners never saw them):
+  removed #partnerSimulatedNote ("Simulated demo data - no real money or payouts.") and its
+  toggle, removed #referralSandboxNote (the "simulated Live balance - not the Bonus Wallet"
+  callout), the bonus empty-state now always uses the neutral `bonus.noEarnings`, the step-3
+  destination always uses the production "Bonus Wallet" label (updateSandboxReferralWording
+  deleted), and the 4 now-dead i18n keys (referral.partner.simulatedNote, referral.sandboxCreditNote,
+  referral.sandboxWalletTarget, bonus.sandboxNoEarnings) were removed. Dictionary 1505 -> 1501.
+  KEPT: the preview badge (sandbox.badge) and the video's own disclosure. Rationale: the video is
+  used to recruit real partners, so a disclosure is retained rather than removing every indicator.
+- RECORDING: produced from the deployed MARKETING_SANDBOX only, via a frame-stepped puppeteer-core
+  recorder (12 fps source, 405x720 viewport at deviceScaleFactor 2 -> 810x1440 9:16), NO admin
+  access used by the recorder. Story captured: partner login -> referral code/link -> referred
+  customer login -> switch to LIVE -> $100 deposit (invoice polled pending -> confirmed,
+  credited:true) -> partner 1 qualified / $100 volume / $20 available -> request $20 USDT/TRC20
+  -> UNDER REVIEW (payout id 2, sandbox:true) -> [manual admin approval] -> PAID
+  (tx SIMULATED-TRC20-000000) -> partner payout history.
+  Two-phase by design: Phase 1 stops and holds the browser at UNDER REVIEW; a read-only watcher
+  polls /api/referral/partner and releases Phase 2 once the admin marks it PAID, so browser state
+  is preserved across the manual approval.
+  Lesson: the recorder originally only logged the PARTNER in - the "customer" steps then ran on the
+  logged-out auth page (demo mode, no invoice, no credit). Always assert APP.mode after a mode
+  switch in a recording harness.
+  Lesson: killing a recorder does not always reap it; an orphaned process also resumed on the
+  Phase-2 flag. Verify frame-sequence integrity (contiguous indices, no extras) before encoding.
+- RETIMING: long idle stretches are time-compressed (deposit wait 1/3, reward 2/3, payout 4/5) and
+  the result encoded at 15 fps -> 700 source frames became a 40.8s MP4 (inside the 35-45s target).
+  Encoded: libx264, yuv420p, crf 20, +faststart, scale 810:1440, 2.78 MB.
+- INSERTION: replaced ONLY .demo-placeholder inside .demo-stage with
+  <video class="demo-video" id="demoVideo" controls playsinline preload="metadata"
+  poster="/video/arbitrix-partner-payout-poster.jpg"><source src="/video/arbitrix-partner-payout-demo.mp4">.
+  New scoped CSS caps it at max-width 405px, centered, aspect-ratio 9/16 (was a 16/9 placeholder).
+  The demo-flow ol and the .demo-disclosure paragraph are kept inside .demo-stage.
+  The 3 partners.demoPlaceholder* i18n keys were removed (12 lines x 6 locales); EXPECTED_KEYS 87 -> 84.
+- VERIFICATION: npm test = 1990 pass / 0 fail. Browser harness (puppeteer-core + /usr/bin/chromium,
+  local static server) = 114/114 across en at 320/360/390/412/430/1280 and es/pt/fr/ar/zh at 390:
+  video present with controls/playsinline/preload/poster/source; metadata 810x1440 duration 40.8s;
+  playback actually advanced currentTime; both assets serve 200 with real sizes; video width capped
+  and centered; portrait; the simulated-demo disclosure is visible and NOT inside the video; no raw
+  i18n keys; ar renders rtl; zero horizontal overflow; zero console errors. Note: a
+  net::ERR_ABORTED on the media request is expected with preload="metadata" (Chromium cancels the
+  range request after reading the header) - it is not an error.
+- NOT committed / NOT pushed / NOT deployed.

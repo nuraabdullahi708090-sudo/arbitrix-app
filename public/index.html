@@ -7020,7 +7020,6 @@ function toggleFaq(btn) {
                              Amounts are always server-derived; payout is manual. -->
                         <div id="referralPartnerPanel" style="border-top:1px solid var(--border-color);padding-top:14px;margin-bottom:14px;">
                             <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:8px;"><i class="fas fa-handshake" style="color:#F0B90B;"></i> <span data-i18n="referral.partner.title">Referral Partner</span></div>
-                            <div id="partnerSimulatedNote" class="hidden" style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin:0 0 10px;overflow-wrap:anywhere;" data-i18n="referral.partner.simulatedNote">Simulated demo data - no real money or payouts.</div>
                             <div class="ref-partner-grid">
                                 <div class="ref-partner-stat"><div class="ref-partner-value" id="refTotalReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.totalReferrals">Total Referrals</div></div>
                                 <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifiedReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.qualified">Qualified Referrals</div></div>
@@ -7083,11 +7082,6 @@ function toggleFaq(btn) {
                             <div><span style="color:var(--text-secondary);">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#F0B90B;"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> → <span id="refStep3Destination" data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
                         </div>
 
-                        <!-- Sandbox-only: where sandbox referral rewards land. Hidden
-                             for production accounts (see updateSandboxReferralWording). -->
-                        <div id="referralSandboxNote" class="hidden" style="font-size:9px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin-bottom:8px;line-height:1.4;">
-                            <i class="fas fa-circle-info"></i> <span data-i18n="referral.sandboxCreditNote">Sandbox referral rewards are credited to your simulated Live balance — not the Bonus Wallet.</span>
-                        </div>
                         
                         <!-- Pending Referrals - collapsible, collapsed by default.
                              The summary row is a real <button> (large tap target,
@@ -8759,7 +8753,6 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'Remove all ${{amount}} from Demo wallet?',
         'bonus.balance': 'Bonus Balance',
         'bonus.noEarnings': 'No referral earnings to convert yet.',
-        'bonus.sandboxNoEarnings': 'Sandbox referral rewards are credited to your simulated Live balance.',
         'bonus.withdrawToLive': 'Withdraw Bonus to Live Wallet',
         'bonus.withdrawSuccess': '✅ ${{amount}} bonus withdrawn to Live wallet!',
         'bonus.noReferrals': '📢 Refer at least 1 friend before withdrawing bonus',
@@ -9621,8 +9614,6 @@ const TRANSLATIONS = {
         'referral.step3Text': 'You earn',
         'referral.bonusWord': 'bonus',
         'referral.bonusWallet': 'Bonus Wallet',
-        'referral.sandboxWalletTarget': 'Simulated Live balance',
-        'referral.sandboxCreditNote': 'Sandbox referral rewards are credited to your simulated Live balance — not the Bonus Wallet.',
         'referral.pending.titleCount': 'Pending Referrals ({{count}})',
         'referral.pending.subtitle': 'Awaiting first deposit',
         'referral.pending.tapToView': 'Tap to view',
@@ -9940,7 +9931,6 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Referral qualified: ${{amount}} reward credited',
         'sandbox.admin.referralNotQualified': 'Not qualified: the referred deposit must be at least ${{min}}',
         'sandbox.admin.referralFailed': 'Referral simulation failed',
-        'referral.partner.simulatedNote': 'Simulated demo data - no real money or payouts.',
         'sandbox.admin.payoutsTitle': 'Referral Partner Payouts (simulated)',
         'sandbox.admin.payoutsSimulatedNote': 'Simulated only - recording a payment stores a demo reference. No real transfer is made.',
         'sandbox.admin.payoutsRefresh': 'Refresh Payouts',
@@ -10284,7 +10274,6 @@ const TRANSLATIONS = {
         'demo.confirmRemove': '¿Quitar todos los ${{amount}} de la cartera demo?',
         'bonus.balance': 'Saldo de bonos',
         'bonus.noEarnings': 'Aún no hay ingresos por referidos para convertir.',
-        'bonus.sandboxNoEarnings': 'Las recompensas por referidos del sandbox se abonan en tu saldo Live simulado.',
         'bonus.withdrawToLive': 'Retirar bono a la cartera Live',
         'bonus.withdrawSuccess': '✅ ¡${{amount}} de bono retirados a la cartera Live!',
         'bonus.noReferrals': '📢 Refiere al menos a 1 amigo antes de retirar el bono',
@@ -11146,8 +11135,6 @@ const TRANSLATIONS = {
         'referral.step3Text': 'Ganas',
         'referral.bonusWord': 'bono',
         'referral.bonusWallet': 'Billetera de bonos',
-        'referral.sandboxWalletTarget': 'Saldo Live simulado',
-        'referral.sandboxCreditNote': 'Las recompensas por referidos del sandbox se abonan en tu saldo Live simulado, no en la Billetera de bonos.',
         'referral.pending.titleCount': 'Referidos pendientes ({{count}})',
         'referral.pending.subtitle': 'Esperando el primer depósito',
         'referral.pending.tapToView': 'Toca para ver',
@@ -11466,7 +11453,6 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Referido calificado: recompensa de ${{amount}} acreditada',
         'sandbox.admin.referralNotQualified': 'No califica: el depósito del referido debe ser de al menos ${{min}}',
         'sandbox.admin.referralFailed': 'Falló la simulación de referidos',
-        'referral.partner.simulatedNote': 'Datos de demostraci\u00f3n simulados: sin dinero ni pagos reales.',
         'sandbox.admin.payoutsTitle': 'Pagos a socios de referidos (simulado)',
         'sandbox.admin.payoutsSimulatedNote': 'Solo simulado: registrar un pago guarda una referencia de demostraci\u00f3n. No se realiza ninguna transferencia real.',
         'sandbox.admin.payoutsRefresh': 'Actualizar pagos',
@@ -11810,7 +11796,6 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'Remover todos os ${{amount}} da carteira demo?',
         'bonus.balance': 'Saldo de bônus',
         'bonus.noEarnings': 'Ainda não há ganhos de indicação para converter.',
-        'bonus.sandboxNoEarnings': 'As recompensas de indicação do sandbox são creditadas no seu saldo Live simulado.',
         'bonus.withdrawToLive': 'Sacar bônus para a carteira Live',
         'bonus.withdrawSuccess': '✅ ${{amount}} de bônus sacados para a carteira Live!',
         'bonus.noReferrals': '📢 Indique pelo menos 1 amigo antes de sacar o bônus',
@@ -12672,8 +12657,6 @@ const TRANSLATIONS = {
         'referral.step3Text': 'Você ganha',
         'referral.bonusWord': 'bônus',
         'referral.bonusWallet': 'Carteira de bônus',
-        'referral.sandboxWalletTarget': 'Saldo Live simulado',
-        'referral.sandboxCreditNote': 'As recompensas de indicação do sandbox são creditadas no seu saldo Live simulado, não na Carteira de bônus.',
         'referral.pending.titleCount': 'Indicações pendentes ({{count}})',
         'referral.pending.subtitle': 'Aguardando o primeiro depósito',
         'referral.pending.tapToView': 'Toque para ver',
@@ -12992,7 +12975,6 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Indicação qualificada: recompensa de ${{amount}} creditada',
         'sandbox.admin.referralNotQualified': 'Não qualificado: o depósito do indicado deve ser de pelo menos ${{min}}',
         'sandbox.admin.referralFailed': 'Falha na simulação de indicação',
-        'referral.partner.simulatedNote': 'Dados de demonstra\u00e7\u00e3o simulados - sem dinheiro nem pagamentos reais.',
         'sandbox.admin.payoutsTitle': 'Pagamentos a parceiros de indica\u00e7\u00e3o (simulado)',
         'sandbox.admin.payoutsSimulatedNote': 'Apenas simulado - registrar um pagamento guarda uma refer\u00eancia de demonstra\u00e7\u00e3o. Nenhuma transfer\u00eancia real \u00e9 feita.',
         'sandbox.admin.payoutsRefresh': 'Atualizar pagamentos',
@@ -13336,7 +13318,6 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'Retirer tous les ${{amount}} du portefeuille démo ?',
         'bonus.balance': 'Solde bonus',
         'bonus.noEarnings': 'Aucun gain de parrainage à convertir pour le moment.',
-        'bonus.sandboxNoEarnings': 'Les récompenses de parrainage du bac à sable sont créditées sur votre solde Live simulé.',
         'bonus.withdrawToLive': 'Retirer le bonus vers le portefeuille live',
         'bonus.withdrawSuccess': '✅ ${{amount}} de bonus retirés vers le portefeuille live !',
         'bonus.noReferrals': '📢 Parrainez au moins 1 ami avant de retirer le bonus',
@@ -14198,8 +14179,6 @@ const TRANSLATIONS = {
         'referral.step3Text': 'Vous gagnez',
         'referral.bonusWord': 'bonus',
         'referral.bonusWallet': 'Portefeuille bonus',
-        'referral.sandboxWalletTarget': 'Solde Live simulé',
-        'referral.sandboxCreditNote': 'Les récompenses de parrainage du bac à sable sont créditées sur votre solde Live simulé, et non dans le Portefeuille bonus.',
         'referral.pending.titleCount': 'Parrainages en attente ({{count}})',
         'referral.pending.subtitle': 'En attente du premier dépôt',
         'referral.pending.tapToView': 'Appuyez pour voir',
@@ -14518,7 +14497,6 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'Filleul qualifié : récompense de ${{amount}} créditée',
         'sandbox.admin.referralNotQualified': 'Non qualifié : le dépôt du filleul doit être d’au moins ${{min}}',
         'sandbox.admin.referralFailed': 'Échec de la simulation de parrainage',
-        'referral.partner.simulatedNote': 'Donn\u00e9es de d\u00e9monstration simul\u00e9es - aucun argent ni paiement r\u00e9el.',
         'sandbox.admin.payoutsTitle': 'Paiements aux partenaires de parrainage (simul\u00e9)',
         'sandbox.admin.payoutsSimulatedNote': 'Simulation uniquement - enregistrer un paiement stocke une r\u00e9f\u00e9rence de d\u00e9monstration. Aucun virement r\u00e9el n\'est effectu\u00e9.',
         'sandbox.admin.payoutsRefresh': 'Actualiser les paiements',
@@ -14862,7 +14840,6 @@ const TRANSLATIONS = {
         'demo.confirmRemove': 'إزالة جميع ${{amount}} من المحفظة التجريبية؟',
         'bonus.balance': 'رصيد المكافآت',
         'bonus.noEarnings': 'لا توجد أرباح إحالة قابلة للتحويل بعد.',
-        'bonus.sandboxNoEarnings': 'تُضاف مكافآت الإحالة في وضع التجربة إلى رصيدك التجريبي (Live).',
         'bonus.withdrawToLive': 'سحب المكافأة إلى المحفظة المباشرة',
         'bonus.withdrawSuccess': '✅ تم سحب ${{amount}} من المكافآت إلى المحفظة المباشرة!',
         'bonus.noReferrals': '📢 أَحِل صديقًا واحدًا على الأقل قبل سحب المكافأة',
@@ -15724,8 +15701,6 @@ const TRANSLATIONS = {
         'referral.step3Text': 'تكتسب',
         'referral.bonusWord': 'مكافأة',
         'referral.bonusWallet': 'محفظة المكافآت',
-        'referral.sandboxWalletTarget': 'رصيد Live التجريبي',
-        'referral.sandboxCreditNote': 'تُضاف مكافآت الإحالة في وضع التجربة إلى رصيدك التجريبي (Live) وليس إلى محفظة المكافآت.',
         'referral.pending.titleCount': 'الإحالات المعلقة ({{count}})',
         'referral.pending.subtitle': 'في انتظار أول إيداع',
         'referral.pending.tapToView': 'اضغط للعرض',
@@ -16044,7 +16019,6 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': 'تم تأهيل الإحالة: تم إضافة مكافأة ${{amount}}',
         'sandbox.admin.referralNotQualified': 'غير مؤهل: يجب أن يكون إيداع المُحال ${{min}} على الأقل',
         'sandbox.admin.referralFailed': 'فشلت محاكاة الإحالة',
-        'referral.partner.simulatedNote': '\u0628\u064a\u0627\u0646\u0627\u062a \u0639\u0631\u0636 \u062a\u0648\u0636\u064a\u062d\u064a \u0645\u062d\u0627\u0643\u0627\u0629 - \u0644\u0627 \u0623\u0645\u0648\u0627\u0644 \u0623\u0648 \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u062d\u0642\u064a\u0642\u064a\u0629.',
         'sandbox.admin.payoutsTitle': '\u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u0625\u062d\u0627\u0644\u0629 (\u0645\u062d\u0627\u0643\u0627\u0629)',
         'sandbox.admin.payoutsSimulatedNote': '\u0645\u062d\u0627\u0643\u0627\u0629 \u0641\u0642\u0637 - \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u0641\u0639 \u064a\u062e\u0632\u0651\u0646 \u0645\u0631\u062c\u0639\u064b\u0627 \u062a\u062c\u0631\u064a\u0628\u064a\u064b\u0627. \u0644\u0627 \u064a\u062a\u0645 \u0625\u062c\u0631\u0627\u0621 \u0623\u064a \u062a\u062d\u0648\u064a\u0644 \u062d\u0642\u064a\u0642\u064a.',
         'sandbox.admin.payoutsRefresh': '\u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0645\u062f\u0641\u0648\u0639\u0627\u062a',
@@ -16388,7 +16362,6 @@ const TRANSLATIONS = {
         'demo.confirmRemove': '从模拟钱包移除全部 ${{amount}}？',
         'bonus.balance': '奖金余额',
         'bonus.noEarnings': '暂无可转换的推荐收益。',
-        'bonus.sandboxNoEarnings': '沙盒推荐奖励会计入你的模拟 Live 余额。',
         'bonus.withdrawToLive': '将奖金提现到实盘钱包',
         'bonus.withdrawSuccess': '✅ 已将 ${{amount}} 奖金提现到实盘钱包！',
         'bonus.noReferrals': '📢 提现奖金前请至少推荐 1 位好友',
@@ -17250,8 +17223,6 @@ const TRANSLATIONS = {
         'referral.step3Text': '您赚取',
         'referral.bonusWord': '奖励',
         'referral.bonusWallet': '奖励钱包',
-        'referral.sandboxWalletTarget': '模拟 Live 余额',
-        'referral.sandboxCreditNote': '沙盒推荐奖励会计入你的模拟 Live 余额，而不是奖励钱包。',
         'referral.pending.titleCount': '待处理推荐（{{count}}）',
         'referral.pending.subtitle': '等待首次入金',
         'referral.pending.tapToView': '点击查看',
@@ -17570,7 +17541,6 @@ const TRANSLATIONS = {
         'sandbox.admin.referralDepositDone': '推荐已达成：已发放 ${{amount}} 奖励',
         'sandbox.admin.referralNotQualified': '未达成：被推荐人的入金必须至少为 ${{min}}',
         'sandbox.admin.referralFailed': '推荐模拟失败',
-        'referral.partner.simulatedNote': '\u6a21\u62df\u6f14\u793a\u6570\u636e - \u65e0\u771f\u5b9e\u8d44\u91d1\u6216\u4ed8\u6b3e\u3002',
         'sandbox.admin.payoutsTitle': '\u63a8\u8350\u4f19\u4f34\u4ed8\u6b3e\uff08\u6a21\u62df\uff09',
         'sandbox.admin.payoutsSimulatedNote': '\u4ec5\u9650\u6a21\u62df - \u8bb0\u5f55\u4ed8\u6b3e\u53ea\u4f1a\u4fdd\u5b58\u6f14\u793a\u53c2\u8003\u53f7\u3002\u4e0d\u4f1a\u8fdb\u884c\u771f\u5b9e\u8f6c\u8d26\u3002',
         'sandbox.admin.payoutsRefresh': '\u5237\u65b0\u4ed8\u6b3e',
@@ -17856,7 +17826,6 @@ function updateDynamicTranslations() {
         if (typeof refreshDepositModeNotice === 'function') refreshDepositModeNotice();
         // Re-apply sandbox-only referral/bonus wording on language switch (the
         // Bonus Wallet info text is dynamic innerHTML, not a data-i18n span).
-        if (typeof updateSandboxReferralWording === 'function') updateSandboxReferralWording();
         if (typeof updateBonusWalletUI === 'function') updateBonusWalletUI();
         // Payout status labels are rendered by JS, so re-render them (and the
         // numbers) for the active locale. No re-fetch; server data unchanged.
@@ -18464,9 +18433,6 @@ function updateReferralPartnerUI() {
     setText('refQualifyingVolume', formatCurrency(partner.totalQualifyingDepositVolume || 0));
     setText('refAvailableEarnings', formatCurrency(partner.availableEarnings || 0));
 
-    // Simulated-data marker: shown ONLY for a MARKETING_SANDBOX partner.
-    const simNote = getEl('partnerSimulatedNote');
-    if (simNote) simNote.classList.toggle('hidden', partner.sandbox !== true);
 
     const btn = getEl('requestPayoutBtn');
     if (btn) {
@@ -18816,15 +18782,6 @@ function resetReferrals() {
 // Sandbox-only clarity: for a MARKETING_SANDBOX account the referral reward is
 // credited to the simulated LIVE balance, not the Bonus Wallet. Production
 // wording is unchanged. Pure display logic — no calculation or business rule.
-function updateSandboxReferralWording() {
-    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
-    const destination = document.getElementById('refStep3Destination');
-    if (destination) {
-        destination.textContent = t(isSandbox ? 'referral.sandboxWalletTarget' : 'referral.bonusWallet');
-    }
-    const note = document.getElementById('referralSandboxNote');
-    if (note) note.classList.toggle('hidden', !isSandbox);
-}
 
 function updateReferralDisplay() {
     // Update stats from local storage or API
@@ -18869,7 +18826,6 @@ function updateReferralDisplay() {
     updatePendingReferralsList();
 
     // Sandbox-only wording: where referral rewards are actually credited.
-    updateSandboxReferralWording();
 }
 
 // Stage 19D: the pending-referrals panel is COLLAPSED by default and is never
@@ -18969,10 +18925,7 @@ function updateBonusWalletUI() {
         status.style.color = '#10B981';
     } else {
         info.classList.remove('hidden');
-        // Sandbox clarity: sandbox referral rewards are credited to the
-        // simulated Live balance, so this wallet staying empty is expected —
-        // say so explicitly instead of the production "no earnings" wording.
-        const emptyKey = (APP.environment === 'MARKETING_SANDBOX') ? 'bonus.sandboxNoEarnings' : 'bonus.noEarnings';
+        const emptyKey = 'bonus.noEarnings';
         info.innerHTML = '<i class="fas fa-info-circle"></i> <span>' + t(emptyKey) + '</span>';
         btn.disabled = true;
         status.textContent = '';

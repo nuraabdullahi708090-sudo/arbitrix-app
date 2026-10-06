@@ -9978,6 +9978,15 @@ app.get(['/business-registration', '/business-registration/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'business-registration.html'));
 });
 
+// Referral Partner acquisition page (Meta-ad landing): standalone, unlisted
+// marketing page. Static content only - it reads no session, touches no database
+// and exposes no customer data. The CTAs reuse the EXISTING ?action=create-account
+// / ?action=sign-in deep links (no separate registration system). Registered
+// BEFORE the SPA fallback below so /partners does not resolve to the app shell.
+app.get(['/partners', '/partners/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'partners.html'));
+});
+
 // Referral link route handler
 // Redirects /ref/ARBI-XXXXX to /?ref=ARBI-XXXXX
 app.get('/ref/:code', (req, res) => {

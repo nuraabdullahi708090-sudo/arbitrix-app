@@ -243,10 +243,11 @@ test('sandbox admin UI exposes a separate simulated payout surface', () => {
     assert.match(section, /sandboxAdminFetch\('\/api\/admin\/sandbox\//);
 });
 
-test('partner panel shows a simulated-data marker for sandbox partners', () => {
-    assert.match(INDEX, /id="partnerSimulatedNote"/);
-    assert.match(INDEX, /simNote\.classList\.toggle\('hidden', partner\.sandbox !== true\)/);
-    assert.match(INDEX, /'referral\.partner\.simulatedNote'/);
+test('partner panel no longer shows a sandbox "simulated data" marker', () => {
+    // The sandbox-only callout was removed so the demo mirrors the production
+    // partner UI. The demo disclosure lives outside this panel (preview badge).
+    assert.ok(!INDEX.includes('partnerSimulatedNote'), 'marker element must be removed');
+    assert.ok(!INDEX.includes('referral.partner.simulatedNote'), 'marker key must be removed');
 });
 
 // ---------------------------------------------------------------------------
@@ -261,7 +262,7 @@ test('new sandbox payout i18n keys exist in all 6 locales with placeholder parit
     const T = sb.__T;
     const enKeys = Object.keys(T.en);
     for (const l of LANGS) assert.strictEqual(Object.keys(T[l]).length, enKeys.length, l + ' key-set size');
-    const NEW = ['referral.partner.simulatedNote', 'sandbox.admin.payoutsTitle', 'sandbox.admin.payoutsSimulatedNote', 'sandbox.admin.payoutsEarnings', 'sandbox.admin.payoutRecord', 'sandbox.admin.payoutReject', 'sandbox.admin.payoutUpdated', 'sandbox.admin.referredByCode'];
+    const NEW = ['sandbox.admin.payoutsTitle', 'sandbox.admin.payoutsSimulatedNote', 'sandbox.admin.payoutsEarnings', 'sandbox.admin.payoutRecord', 'sandbox.admin.payoutReject', 'sandbox.admin.payoutUpdated', 'sandbox.admin.referredByCode'];
     const ph = (s) => (String(s).match(/\{\{\w+\}\}/g) || []).sort().join(',');
     for (const k of NEW) {
         assert.ok(k in T.en, 'missing key ' + k);

@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <!-- SEO -->
+    <title>Become an Arbitrix Referral Partner | Arbitrix AI</title>
+    <meta name="description" content="Earn 20% of a referred user's first qualifying deposit of $100 or more. No trading required. No minimum payout. Paid in USDT on TRC20.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://arbitrix.pro/partners">
+    <meta name="theme-color" content="#070B14">
+    <!-- Open Graph / social sharing -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Arbitrix AI">
+    <meta property="og:title" content="Become an Arbitrix Referral Partner">
+    <meta property="og:description" content="Earn 20% of a referred user's first qualifying deposit of $100 or more. No trading required. No minimum payout.">
+    <meta property="og:url" content="https://arbitrix.pro/partners">
+    <meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 630'%3E%3Crect width='1200' height='630' fill='%23070B14'/%3E%3Ctext x='600' y='315' font-family='Arial' font-size='104' font-weight='900' text-anchor='middle' fill='%23F0B90B'%3EArbitrix%3C/text%3E%3Ctext x='600' y='415' font-family='Arial' font-size='52' font-weight='700' text-anchor='middle' fill='%23E8EDF5'%3EReferral Partners%3C/text%3E%3C/svg%3E">
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Become an Arbitrix Referral Partner">
+    <meta name="twitter:description" content="Earn 20% of a referred user's first qualifying deposit of $100 or more. No trading required. No minimum payout.">
+    <meta name="twitter:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 630'%3E%3Crect width='1200' height='630' fill='%23070B14'/%3E%3Ctext x='600' y='315' font-family='Arial' font-size='104' font-weight='900' text-anchor='middle' fill='%23F0B90B'%3EArbitrix%3C/text%3E%3Ctext x='600' y='415' font-family='Arial' font-size='52' font-weight='700' text-anchor='middle' fill='%23E8EDF5'%3EReferral Partners%3C/text%3E%3C/svg%3E">
+    <!-- Referral Partner support contact: the SAME single-source-of-truth handle
+         used by the app (public/index.html). Do not hardcode a different handle,
+         and never invent a community/group URL. Empty = fall back to the in-app
+         Support Center link on the homepage. Public link only. -->
+    <meta name="arbitrix-partner-support-telegram" content="@Arbitrix_CSA1">
+    <link rel="icon" href="data:image/svg+xml,">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #070B14;
+            --bg-elevated: #0A1020;
+            --bg-card: #0F1629;
+            --bg-input: #141C2E;
+            --brand: #F0B90B;
+            --brand-hover: #FCD535;
+            --brand-weak: rgba(240,185,11,0.08);
+            --brand-border: rgba(240,185,11,0.32);
+            --gold-glow: rgba(240,185,11,0.2);
+            --text-primary: #E8EDF5;
+            --text-secondary: #8896B5;
+            --text-muted: #7E8CAB;
+            --border: #24314A;
+            --border-color: var(--border);
+            --success: #10B981;
+            --radius: 16px;
+            --radius-sm: 8px;
+            --radius-lg: 20px;
+            --shadow-sm: 0 4px 12px rgba(0,0,0,0.3);
+            --shadow: 0 12px 48px rgba(0,0,0,0.5);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .page { flex: 1; width: 100%; max-width: 1000px; margin: 0 auto; padding: 20px 16px 56px; }
+        .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 800; font-size: 20px; letter-spacing: -0.5px; }
+        .logo i { color: var(--brand); font-size: 22px; }
+        .logo span span { color: var(--brand); }
+        .topbar { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+        .top-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+        .btn {
+            font-family: inherit; font-weight: 600; padding: 12px 18px; border-radius: 12px;
+            border: none; cursor: pointer; transition: all 200ms ease; font-size: 15px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            -webkit-tap-highlight-color: transparent; user-select: none; min-height: 46px;
+            text-decoration: none; white-space: normal; overflow-wrap: anywhere;
+            min-width: 0; max-width: 100%; text-align: center; line-height: 1.3;
+        }
+        .btn-primary { background: var(--brand); color: #070B14; }
+        .btn-primary:hover { background: var(--brand-hover); transform: translateY(-2px); box-shadow: 0 8px 28px var(--gold-glow); }
+        .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { border-color: var(--brand); color: var(--brand); }
+        .hero { width: 100%; text-align: center; margin-bottom: 36px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 8px; background: var(--brand-weak);
+            border: 1px solid var(--brand-border); color: var(--brand); border-radius: 999px;
+            padding: 7px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+            text-transform: uppercase; margin-bottom: 18px; max-width: 100%; overflow-wrap: anywhere;
+        }
+        h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 14px; line-height: 1.2; overflow-wrap: anywhere; }
+        .lede { color: var(--text-secondary); font-size: 16px; max-width: 660px; margin: 0 auto 20px; overflow-wrap: anywhere; }
+        .chips { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 0 auto 24px; padding: 0; max-width: 780px; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 8px; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 999px; padding: 9px 16px;
+            font-size: 13px; font-weight: 600; color: var(--text-primary);
+            min-width: 0; max-width: 100%; overflow-wrap: anywhere;
+        }
+        .chip i { color: var(--brand); }
+        .hero-actions, .bottom-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+        .section { width: 100%; margin-top: 44px; }
+        h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 8px; text-align: center; overflow-wrap: anywhere; }
+        .section-sub { color: var(--text-secondary); font-size: 14px; text-align: center; margin: 0 auto 20px; max-width: 640px; overflow-wrap: anywhere; }
+        .steps { list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0; margin: 0; }
+        .step { display: flex; gap: 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px; min-width: 0; }
+        .step-num {
+            flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: var(--brand);
+            color: #070B14; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+        }
+        .step-body { min-width: 0; }
+        .step-body h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; overflow-wrap: anywhere; }
+        .step-body p { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .demo-stage { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); }
+        .demo-video {
+            display: block; width: 100%; max-width: 405px; margin: 0 auto;
+            aspect-ratio: 9 / 16; background: #000; border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+        }
+        .demo-flow { list-style: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 16px 0 0; padding: 0; }
+        .flow-step {
+            background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 999px;
+            padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--text-primary);
+            min-width: 0; max-width: 100%; overflow-wrap: anywhere;
+        }
+        .flow-step.status { color: var(--brand); border-color: var(--brand-border); }
+        .flow-step.status.paid { color: #fff; background: var(--success); border-color: var(--success); }
+        .flow-arrow { color: var(--text-muted); font-size: 14px; }
+        html[dir="rtl"] .flow-arrow { transform: scaleX(-1); }
+        .demo-disclosure {
+            display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; background: var(--brand-weak);
+            border: 1px solid var(--brand-border); border-radius: var(--radius); padding: 12px 14px;
+            font-size: 12.5px; color: var(--text-secondary); overflow-wrap: anywhere;
+        }
+        .demo-disclosure i { color: var(--brand); margin-top: 2px; }
+        .demo-disclosure strong { color: var(--brand); }
+        .earnings-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow-sm); }
+        .earnings-head {
+            display: flex; justify-content: space-between; gap: 12px; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary);
+            padding: 0 6px 8px; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere;
+        }
+        .earnings-list { list-style: none; padding: 0; margin: 0; }
+        .earnings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 6px; border-bottom: 1px solid var(--border-color); }
+        .earnings-row:last-child { border-bottom: none; }
+        .earnings-deposit { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .earnings-arrow { color: var(--text-muted); }
+        .earnings-reward { font-size: 15px; font-weight: 800; color: var(--brand); }
+        .earnings-note { margin-top: 12px; font-size: 12px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+        .features { list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0; margin: 0; }
+        .features li {
+            display: flex; gap: 10px; align-items: flex-start; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 14px;
+            font-size: 13.5px; overflow-wrap: anywhere; min-width: 0;
+        }
+        .features li::before { content: "\2713"; color: var(--brand); font-weight: 800; }
+        .note { margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); text-align: center; overflow-wrap: anywhere; }
+        .who-list { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0; margin: 0; }
+        .who-list li {
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 999px;
+            padding: 9px 16px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; min-width: 0; max-width: 100%;
+        }
+        .support-card {
+            display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; text-align: center;
+        }
+        .support-handle { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+        #partnerSupportHandle { color: var(--brand); font-weight: 700; }
+        .faq { display: flex; flex-direction: column; gap: 8px; }
+        .faq-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0 14px; }
+        .faq-item summary {
+            cursor: pointer; list-style: none; padding: 14px 0; font-size: 14px; font-weight: 700;
+            display: flex; justify-content: space-between; gap: 12px; overflow-wrap: anywhere;
+        }
+        .faq-item summary::-webkit-details-marker { display: none; }
+        .faq-item summary::after { content: "+"; color: var(--brand); font-weight: 800; flex: 0 0 auto; }
+        .faq-item[open] summary::after { content: "\2212"; }
+        .faq-item p { font-size: 13.5px; color: var(--text-secondary); padding: 0 0 14px; overflow-wrap: anywhere; }
+        .disclosure { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; }
+        .disclosure h2 { text-align: left; color: var(--brand); }
+        .disclosure p { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .site-footer {
+            width: 100%; margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--border-color);
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: 8px 18px; font-size: 13px; color: var(--text-muted); text-align: center;
+        }
+        .site-footer a { color: var(--text-secondary); text-decoration: none; }
+        .site-footer a:hover { color: var(--brand); }
+        @media (max-width: 640px) {
+            .steps { grid-template-columns: 1fr; }
+            .features { grid-template-columns: 1fr; }
+            .topbar { justify-content: center; text-align: center; }
+            .top-actions { width: 100%; justify-content: center; }
+            .top-actions .btn { flex: 1 1 45%; }
+            h1 { font-size: 26px; }
+        }
+        @media (min-width: 900px) {
+            h1 { font-size: 40px; }
+            .page { padding-top: 36px; }
+            .lede { font-size: 17px; }
+        }
+        @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn-primary:hover { transform: none; } }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a href="/" class="logo" aria-label="Arbitrix AI home">
+                <i class="fas fa-arrows-spin" aria-hidden="true"></i>
+                <span>Arbitrix <span>AI</span></span>
+            </a>
+            <div class="top-actions">
+                <a class="btn btn-secondary" href="/?action=sign-in" data-i18n="partners.signIn">Sign In</a>
+                <a class="btn btn-primary js-apply-cta" href="/?action=create-account" data-i18n="partners.cta.apply">Apply to Become a Partner</a>
+            </div>
+        </div>
+
+        <header class="hero">
+            <span class="badge" data-i18n="partners.heroBadge">Referral Partner Program</span>
+            <h1 data-i18n="partners.heroTitle">Become an Arbitrix Referral Partner</h1>
+            <p class="lede" data-i18n="partners.heroSubtitle">Introduce new users to Arbitrix and earn 20% of their first qualifying deposit of $100 or more.</p>
+            <ul class="chips">
+                <li class="chip"><i class="fas fa-percent" aria-hidden="true"></i><span data-i18n="partners.chip.reward">20% of first qualifying deposit</span></li>
+                <li class="chip"><i class="fas fa-ban" aria-hidden="true"></i><span data-i18n="partners.chip.noTrading">No trading required</span></li>
+                <li class="chip"><i class="fas fa-sack-dollar" aria-hidden="true"></i><span data-i18n="partners.chip.noMinimum">No minimum payout</span></li>
+                <li class="chip"><i class="fas fa-coins" aria-hidden="true"></i><span data-i18n="partners.chip.asset">USDT / TRC20</span></li>
+            </ul>
+            <div class="hero-actions">
+                <a class="btn btn-primary js-apply-cta" id="applyCta" href="/?action=create-account"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
+                <a class="btn btn-secondary" href="/how-it-works"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.how">See How It Works</span></a>
+            </div>
+        </header>
+
+        <section class="section" aria-labelledby="howHeading">
+            <h2 id="howHeading" data-i18n="partners.howTitle">How It Works</h2>
+            <p class="section-sub" data-i18n="partners.howSubtitle">Four steps from introduction to payout.</p>
+            <ol class="steps">
+                <li class="step"><span class="step-num">1</span><div class="step-body"><h3 data-i18n="partners.step1Title">Join</h3><p data-i18n="partners.step1Desc">Create your Arbitrix partner account.</p></div></li>
+                <li class="step"><span class="step-num">2</span><div class="step-body"><h3 data-i18n="partners.step2Title">Share</h3><p data-i18n="partners.step2Desc">Get your unique referral link.</p></div></li>
+                <li class="step"><span class="step-num">3</span><div class="step-body"><h3 data-i18n="partners.step3Title">Earn</h3><p data-i18n="partners.step3Desc">Receive 20% of the referred user's first qualifying deposit of $100 or more.</p></div></li>
+                <li class="step"><span class="step-num">4</span><div class="step-body"><h3 data-i18n="partners.step4Title">Request</h3><p data-i18n="partners.step4Desc">Request confirmed referral earnings in USDT / TRC20.</p></div></li>
+            </ol>
+        </section>
+
+        <section class="section" id="demo" aria-labelledby="demoHeading">
+            <h2 id="demoHeading" data-i18n="partners.demoTitle">Partner Payout Walkthrough</h2>
+            <p class="section-sub" data-i18n="partners.demoSubtitle">See the complete referral payout workflow, from the partner dashboard to a paid payout.</p>
+            <div class="demo-stage">
+                <video class="demo-video" id="demoVideo" controls playsinline preload="metadata"
+                    poster="/video/arbitrix-partner-payout-poster.jpg"
+                    aria-label="Partner payout walkthrough - simulated demo screen recording">
+                    <source src="/video/arbitrix-partner-payout-demo.mp4" type="video/mp4">
+                </video>
+                <ol class="demo-flow" aria-label="Partner payout workflow">
+                    <li class="flow-step" data-i18n="partners.flow.partner">Partner</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.referral">Referral</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.deposit">$100 qualifying deposit</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.reward">$20 reward</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.request">Request payout</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.asset">USDT / TRC20</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step status" data-i18n="partners.flow.review">Under review</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.admin">Admin processing</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step status paid" data-i18n="partners.flow.paid">Paid</li>
+                    <li class="flow-arrow" aria-hidden="true">&rarr;</li>
+                    <li class="flow-step" data-i18n="partners.flow.history">Payout history</li>
+                </ol>
+                <p class="demo-disclosure">
+                    <i class="fas fa-circle-info" aria-hidden="true"></i>
+                    <span><strong data-i18n="partners.demoDisclosureTitle">Simulated demo</strong> <span data-i18n="partners.demoDisclosureBody">The walkthrough shows simulated referral activity and a simulated payout for illustration only. It does not show real customer data, real transactions, or real earnings.</span></span>
+                </p>
+            </div>
+        </section>
+
+        <section class="section" aria-labelledby="earningsHeading">
+            <h2 id="earningsHeading" data-i18n="partners.earningsTitle">Referral Reward Examples</h2>
+            <p class="section-sub" data-i18n="partners.earningsSubtitle">Rewards scale with the referred user's first qualifying deposit.</p>
+            <div class="earnings-card">
+                <div class="earnings-head">
+                    <span data-i18n="partners.earningsColDeposit">First qualifying deposit</span>
+                    <span data-i18n="partners.earningsColReward">Referral reward (20%)</span>
+                </div>
+                <ul class="earnings-list">
+                    <li class="earnings-row"><span class="earnings-deposit">$100</span><span class="earnings-arrow" aria-hidden="true">&rarr;</span><span class="earnings-reward">$20</span></li>
+                    <li class="earnings-row"><span class="earnings-deposit">$250</span><span class="earnings-arrow" aria-hidden="true">&rarr;</span><span class="earnings-reward">$50</span></li>
+                    <li class="earnings-row"><span class="earnings-deposit">$500</span><span class="earnings-arrow" aria-hidden="true">&rarr;</span><span class="earnings-reward">$100</span></li>
+                    <li class="earnings-row"><span class="earnings-deposit">$1,000</span><span class="earnings-arrow" aria-hidden="true">&rarr;</span><span class="earnings-reward">$200</span></li>
+                </ul>
+            </div>
+            <p class="earnings-note" data-i18n="partners.earningsNote">Examples only, not guaranteed earnings. Actual rewards depend on the referred user's qualifying activity.</p>
+        </section>
+
+        <section class="section" aria-labelledby="payoutHeading">
+            <h2 id="payoutHeading" data-i18n="partners.payoutTitle">Payouts</h2>
+            <p class="section-sub" data-i18n="partners.payoutSubtitle">How referral earnings are paid out.</p>
+            <ul class="features">
+                <li data-i18n="partners.payoutItem1">No minimum payout.</li>
+                <li data-i18n="partners.payoutItem2">No trading requirement.</li>
+                <li data-i18n="partners.payoutItem3">Paid in USDT.</li>
+                <li data-i18n="partners.payoutItem4">On the TRC20 network.</li>
+                <li data-i18n="partners.payoutItem5">Manual review and payment by our team.</li>
+                <li data-i18n="partners.payoutItem6">Payout history and transaction reference in the partner dashboard.</li>
+            </ul>
+            <p class="note" data-i18n="partners.payoutNote">Referral earnings are paid through the partner payout workflow and are not subject to the standard customer withdrawal minimum.</p>
+        </section>
+
+        <section class="section" aria-labelledby="whoHeading">
+            <h2 id="whoHeading" data-i18n="partners.whoTitle">Who It's For</h2>
+            <p class="section-sub" data-i18n="partners.whoSubtitle">For partners who introduce genuine new users.</p>
+            <ul class="who-list">
+                <li data-i18n="partners.whoItem1">Content creators</li>
+                <li data-i18n="partners.whoItem2">Community admins</li>
+                <li data-i18n="partners.whoItem3">Affiliate marketers</li>
+                <li data-i18n="partners.whoItem4">Social media marketers</li>
+                <li data-i18n="partners.whoItem5">Digital marketers</li>
+                <li data-i18n="partners.whoItem6">Crypto and finance communities</li>
+            </ul>
+        </section>
+
+        <section class="section" aria-labelledby="supportHeading">
+            <h2 id="supportHeading" data-i18n="partners.supportTitle">Partner Support</h2>
+            <p class="section-sub" data-i18n="partners.supportDesc">Questions about the partner program? Contact our partner support team on Telegram.</p>
+            <div class="support-card">
+                <a class="btn btn-secondary js-partner-support" id="partnerSupportBtn" href="#" target="_blank" rel="noopener noreferrer">
+                    <i class="fab fa-telegram" aria-hidden="true"></i>
+                    <span data-i18n="partners.supportCta">Contact Partner Support</span>
+                </a>
+                <p class="support-handle"><span data-i18n="partners.supportHandleLabel">Telegram</span>: <span id="partnerSupportHandle"></span></p>
+            </div>
+        </section>
+
+        <section class="section" aria-labelledby="faqHeading">
+            <h2 id="faqHeading" data-i18n="partners.faqTitle">Frequently Asked Questions</h2>
+            <div class="faq">
+                <details class="faq-item"><summary data-i18n="partners.faq1q">How much is the referral reward?</summary><p data-i18n="partners.faq1a">You earn 20% of the referred user's first qualifying deposit of $100 or more.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq2q">What counts as a qualifying deposit?</summary><p data-i18n="partners.faq2a">A confirmed first deposit of at least $100. Smaller deposits do not qualify.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq3q">Do I need to trade to earn?</summary><p data-i18n="partners.faq3a">No. Referral rewards are based on qualifying referred-user deposits. No trading is required.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq4q">Is there a minimum payout?</summary><p data-i18n="partners.faq4a">No. There is no minimum payout for referral earnings.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq5q">How are referral earnings paid?</summary><p data-i18n="partners.faq5a">In USDT on the TRC20 network, after a manual review and payment by our team.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq6q">When does a referral qualify?</summary><p data-i18n="partners.faq6a">When the referred user's first deposit of $100 or more is confirmed. Registration and link clicks alone do not qualify.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq7q">Are self-referrals or duplicate accounts allowed?</summary><p data-i18n="partners.faq7a">No. Self-referrals, duplicate accounts, fraudulent activity and misleading promotion are not eligible.</p></details>
+                <details class="faq-item"><summary data-i18n="partners.faq8q">Can I give investment or trading advice?</summary><p data-i18n="partners.faq8a">No. Partners are not authorized to provide investment or trading advice on behalf of Arbitrix.</p></details>
+            </div>
+        </section>
+
+        <section class="section disclosure" aria-labelledby="disclosureHeading">
+            <h2 id="disclosureHeading" data-i18n="partners.disclosureTitle">Referral Partner Disclosure</h2>
+            <p data-i18n="partners.disclosureBody">Referral partners provide marketing and introductions only. Partners are not authorized to provide investment or trading advice on behalf of Arbitrix. Referral rewards are based on qualifying referred-user activity. Self-referrals, duplicate accounts, fraudulent activity and misleading promotion are not eligible.</p>
+        </section>
+
+        <div class="bottom-cta">
+            <a class="btn btn-primary js-apply-cta" href="/?action=create-account"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
+            <a class="btn btn-secondary" href="/how-it-works"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.how">See How It Works</span></a>
+        </div>
+
+        <footer class="site-footer">
+            <a href="/" data-i18n="partners.footerHome">Home</a>
+            <a href="/how-it-works" data-i18n="partners.footerHow">How It Works</a>
+            <a href="/privacy-policy.html" data-i18n="partners.footerPrivacy">Privacy Policy</a>
+            <a href="/terms-of-service.html" data-i18n="partners.footerTerms">Terms of Service</a>
+        </footer>
+    </div>
+
+    <script>
+        // ============ i18n (self-contained, mirrors reset-password.html) ============
+        // Six locales (en/es/pt/fr/ar/zh). Reuses the main app's 'arbi_lang'
+        // localStorage key + browser detection, so a user's language choice
+        // carries over. Arabic gets RTL. Static page: no session, no API calls.
+        const TRANSLATIONS = {
+        "en": {
+                "partners.pageTitle": "Become an Arbitrix Referral Partner | Arbitrix AI",
+                "partners.heroBadge": "Referral Partner Program",
+                "partners.heroTitle": "Become an Arbitrix Referral Partner",
+                "partners.heroSubtitle": "Introduce new users to Arbitrix and earn 20% of their first qualifying deposit of $100 or more.",
+                "partners.chip.reward": "20% of first qualifying deposit",
+                "partners.chip.noTrading": "No trading required",
+                "partners.chip.noMinimum": "No minimum payout",
+                "partners.chip.asset": "USDT / TRC20",
+                "partners.cta.apply": "Apply to Become a Partner",
+                "partners.cta.how": "See How It Works",
+                "partners.signIn": "Sign In",
+                "partners.howTitle": "How It Works",
+                "partners.howSubtitle": "Four steps from introduction to payout.",
+                "partners.step1Title": "Join",
+                "partners.step1Desc": "Create your Arbitrix partner account.",
+                "partners.step2Title": "Share",
+                "partners.step2Desc": "Get your unique referral link.",
+                "partners.step3Title": "Earn",
+                "partners.step3Desc": "Receive 20% of the referred user's first qualifying deposit of $100 or more.",
+                "partners.step4Title": "Request",
+                "partners.step4Desc": "Request confirmed referral earnings in USDT / TRC20.",
+                "partners.demoTitle": "Partner Payout Walkthrough",
+                "partners.demoSubtitle": "See the complete referral payout workflow, from the partner dashboard to a paid payout.",
+                "partners.flow.partner": "Partner",
+                "partners.flow.referral": "Referral",
+                "partners.flow.deposit": "$100 qualifying deposit",
+                "partners.flow.reward": "$20 reward",
+                "partners.flow.request": "Request payout",
+                "partners.flow.asset": "USDT / TRC20",
+                "partners.flow.review": "Under review",
+                "partners.flow.admin": "Admin processing",
+                "partners.flow.paid": "Paid",
+                "partners.flow.history": "Payout history",
+                "partners.demoDisclosureTitle": "Simulated demo",
+                "partners.demoDisclosureBody": "The walkthrough shows simulated referral activity and a simulated payout for illustration only. It does not show real customer data, real transactions, or real earnings.",
+                "partners.earningsTitle": "Referral Reward Examples",
+                "partners.earningsSubtitle": "Rewards scale with the referred user's first qualifying deposit.",
+                "partners.earningsColDeposit": "First qualifying deposit",
+                "partners.earningsColReward": "Referral reward (20%)",
+                "partners.earningsNote": "Examples only, not guaranteed earnings. Actual rewards depend on the referred user's qualifying activity.",
+                "partners.payoutTitle": "Payouts",
+                "partners.payoutSubtitle": "How referral earnings are paid out.",
+                "partners.payoutItem1": "No minimum payout.",
+                "partners.payoutItem2": "No trading requirement.",
+                "partners.payoutItem3": "Paid in USDT.",
+                "partners.payoutItem4": "On the TRC20 network.",
+                "partners.payoutItem5": "Manual review and payment by our team.",
+                "partners.payoutItem6": "Payout history and transaction reference in the partner dashboard.",
+                "partners.payoutNote": "Referral earnings are paid through the partner payout workflow and are not subject to the standard customer withdrawal minimum.",
+                "partners.whoTitle": "Who It's For",
+                "partners.whoSubtitle": "For partners who introduce genuine new users.",
+                "partners.whoItem1": "Content creators",
+                "partners.whoItem2": "Community admins",
+                "partners.whoItem3": "Affiliate marketers",
+                "partners.whoItem4": "Social media marketers",
+                "partners.whoItem5": "Digital marketers",
+                "partners.whoItem6": "Crypto and finance communities",
+                "partners.supportTitle": "Partner Support",
+                "partners.supportDesc": "Questions about the partner program? Contact our partner support team on Telegram.",
+                "partners.supportCta": "Contact Partner Support",
+                "partners.supportHandleLabel": "Telegram",
+                "partners.faqTitle": "Frequently Asked Questions",
+                "partners.faq1q": "How much is the referral reward?",
+                "partners.faq1a": "You earn 20% of the referred user's first qualifying deposit of $100 or more.",
+                "partners.faq2q": "What counts as a qualifying deposit?",
+                "partners.faq2a": "A confirmed first deposit of at least $100. Smaller deposits do not qualify.",
+                "partners.faq3q": "Do I need to trade to earn?",
+                "partners.faq3a": "No. Referral rewards are based on qualifying referred-user deposits. No trading is required.",
+                "partners.faq4q": "Is there a minimum payout?",
+                "partners.faq4a": "No. There is no minimum payout for referral earnings.",
+                "partners.faq5q": "How are referral earnings paid?",
+                "partners.faq5a": "In USDT on the TRC20 network, after a manual review and payment by our team.",
+                "partners.faq6q": "When does a referral qualify?",
+                "partners.faq6a": "When the referred user's first deposit of $100 or more is confirmed. Registration and link clicks alone do not qualify.",
+                "partners.faq7q": "Are self-referrals or duplicate accounts allowed?",
+                "partners.faq7a": "No. Self-referrals, duplicate accounts, fraudulent activity and misleading promotion are not eligible.",
+                "partners.faq8q": "Can I give investment or trading advice?",
+                "partners.faq8a": "No. Partners are not authorized to provide investment or trading advice on behalf of Arbitrix.",
+                "partners.disclosureTitle": "Referral Partner Disclosure",
+                "partners.disclosureBody": "Referral partners provide marketing and introductions only. Partners are not authorized to provide investment or trading advice on behalf of Arbitrix. Referral rewards are based on qualifying referred-user activity. Self-referrals, duplicate accounts, fraudulent activity and misleading promotion are not eligible.",
+                "partners.footerHome": "Home",
+                "partners.footerHow": "How It Works",
+                "partners.footerPrivacy": "Privacy Policy",
+                "partners.footerTerms": "Terms of Service"
+        },
+        "es": {
+                "partners.pageTitle": "Conviértete en Socio de Referidos de Arbitrix | Arbitrix AI",
+                "partners.heroBadge": "Programa de Socios de Referidos",
+                "partners.heroTitle": "Conviértete en Socio de Referidos de Arbitrix",
+                "partners.heroSubtitle": "Presenta nuevos usuarios a Arbitrix y gana el 20% de su primer depósito válido de $100 o más.",
+                "partners.chip.reward": "20% del primer depósito válido",
+                "partners.chip.noTrading": "No requiere operar",
+                "partners.chip.noMinimum": "Sin pago mínimo",
+                "partners.chip.asset": "USDT / TRC20",
+                "partners.cta.apply": "Solicita ser Socio",
+                "partners.cta.how": "Ver Cómo Funciona",
+                "partners.signIn": "Iniciar Sesión",
+                "partners.howTitle": "Cómo Funciona",
+                "partners.howSubtitle": "Cuatro pasos desde la presentación hasta el pago.",
+                "partners.step1Title": "Únete",
+                "partners.step1Desc": "Crea tu cuenta de socio de Arbitrix.",
+                "partners.step2Title": "Comparte",
+                "partners.step2Desc": "Obtén tu enlace de referido único.",
+                "partners.step3Title": "Gana",
+                "partners.step3Desc": "Recibe el 20% del primer depósito válido de $100 o más del usuario referido.",
+                "partners.step4Title": "Solicita",
+                "partners.step4Desc": "Solicita tus ganancias de referidos confirmadas en USDT / TRC20.",
+                "partners.demoTitle": "Recorrido del Pago a Socios",
+                "partners.demoSubtitle": "Mira el flujo completo de pago de referidos, desde el panel del socio hasta un pago realizado.",
+                "partners.flow.partner": "Socio",
+                "partners.flow.referral": "Referido",
+                "partners.flow.deposit": "Depósito válido de $100",
+                "partners.flow.reward": "Recompensa de $20",
+                "partners.flow.request": "Solicitar pago",
+                "partners.flow.asset": "USDT / TRC20",
+                "partners.flow.review": "En revisión",
+                "partners.flow.admin": "Procesamiento del administrador",
+                "partners.flow.paid": "Pagado",
+                "partners.flow.history": "Historial de pagos",
+                "partners.demoDisclosureTitle": "Demo simulado",
+                "partners.demoDisclosureBody": "El recorrido muestra actividad de referidos simulada y un pago simulado solo con fines ilustrativos. No muestra datos de clientes reales, transacciones reales ni ganancias reales.",
+                "partners.earningsTitle": "Ejemplos de Recompensas por Referidos",
+                "partners.earningsSubtitle": "Las recompensas aumentan según el primer depósito válido del usuario referido.",
+                "partners.earningsColDeposit": "Primer depósito válido",
+                "partners.earningsColReward": "Recompensa por referido (20%)",
+                "partners.earningsNote": "Solo ejemplos, no son ganancias garantizadas. Las recompensas reales dependen de la actividad válida del usuario referido.",
+                "partners.payoutTitle": "Pagos",
+                "partners.payoutSubtitle": "Cómo se pagan las ganancias por referidos.",
+                "partners.payoutItem1": "Sin pago mínimo.",
+                "partners.payoutItem2": "No requiere operar.",
+                "partners.payoutItem3": "Pagado en USDT.",
+                "partners.payoutItem4": "En la red TRC20.",
+                "partners.payoutItem5": "Revisión y pago manuales por nuestro equipo.",
+                "partners.payoutItem6": "Historial de pagos y referencia de transacción en el panel del socio.",
+                "partners.payoutNote": "Las ganancias por referidos se pagan mediante el flujo de pago para socios y no están sujetas al mínimo de retiro estándar para clientes.",
+                "partners.whoTitle": "Para Quién Es",
+                "partners.whoSubtitle": "Para socios que presentan usuarios nuevos genuinos.",
+                "partners.whoItem1": "Creadores de contenido",
+                "partners.whoItem2": "Administradores de comunidad",
+                "partners.whoItem3": "Afiliados de marketing",
+                "partners.whoItem4": "Especialistas en redes sociales",
+                "partners.whoItem5": "Profesionales de marketing digital",
+                "partners.whoItem6": "Comunidades de cripto y finanzas",
+                "partners.supportTitle": "Soporte para Socios",
+                "partners.supportDesc": "¿Tienes preguntas sobre el programa de socios? Contacta a nuestro equipo de soporte para socios en Telegram.",
+                "partners.supportCta": "Contactar Soporte para Socios",
+                "partners.supportHandleLabel": "Telegram",
+                "partners.faqTitle": "Preguntas Frecuentes",
+                "partners.faq1q": "¿Cuánto es la recompensa por referido?",
+                "partners.faq1a": "Ganas el 20% del primer depósito válido de $100 o más del usuario referido.",
+                "partners.faq2q": "¿Qué cuenta como depósito válido?",
+                "partners.faq2a": "Un primer depósito confirmado de al menos $100. Los depósitos menores no son válidos.",
+                "partners.faq3q": "¿Necesito operar para ganar?",
+                "partners.faq3a": "No. Las recompensas por referidos se basan en depósitos válidos de los referidos. No se requiere operar.",
+                "partners.faq4q": "¿Existe un pago mínimo?",
+                "partners.faq4a": "No. No hay un pago mínimo para las ganancias por referidos.",
+                "partners.faq5q": "¿Cómo se pagan las ganancias por referidos?",
+                "partners.faq5a": "En USDT en la red TRC20, después de una revisión y un pago manuales por nuestro equipo.",
+                "partners.faq6q": "¿Cuándo califica un referido?",
+                "partners.faq6a": "Cuando se confirma el primer depósito de $100 o más del usuario referido. El registro y los clics en el enlace por sí solos no califican.",
+                "partners.faq7q": "¿Se permiten autorreferidos o cuentas duplicadas?",
+                "partners.faq7a": "No. Los autorreferidos, las cuentas duplicadas, la actividad fraudulenta y la promoción engañosa no son válidos.",
+                "partners.faq8q": "¿Puedo dar asesoramiento de inversión o trading?",
+                "partners.faq8a": "No. Los socios no están autorizados a ofrecer asesoramiento de inversión o trading en nombre de Arbitrix.",
+                "partners.disclosureTitle": "Divulgación para Socios de Referidos",
+                "partners.disclosureBody": "Los socios de referidos solo realizan marketing y presentaciones. Los socios no están autorizados a ofrecer asesoramiento de inversión o trading en nombre de Arbitrix. Las recompensas por referidos se basan en la actividad válida de los usuarios referidos. Los autorreferidos, las cuentas duplicadas, la actividad fraudulenta y la promoción engañosa no son válidos.",
+                "partners.footerHome": "Inicio",
+                "partners.footerHow": "Cómo Funciona",
+                "partners.footerPrivacy": "Política de Privacidad",
+                "partners.footerTerms": "Términos de Servicio"
+        },
+        "pt": {
+                "partners.pageTitle": "Torne-se um Parceiro de Indicação da Arbitrix | Arbitrix AI",
+                "partners.heroBadge": "Programa de Parceiros de Indicação",
+                "partners.heroTitle": "Torne-se um Parceiro de Indicação da Arbitrix",
+                "partners.heroSubtitle": "Apresente novos usuários à Arbitrix e ganhe 20% do primeiro depósito qualificado de $100 ou mais.",
+                "partners.chip.reward": "20% do primeiro depósito qualificado",
+                "partners.chip.noTrading": "Não é preciso operar",
+                "partners.chip.noMinimum": "Sem valor mínimo de pagamento",
+                "partners.chip.asset": "USDT / TRC20",
+                "partners.cta.apply": "Candidate-se a Parceiro",
+                "partners.cta.how": "Veja Como Funciona",
+                "partners.signIn": "Entrar",
+                "partners.howTitle": "Como Funciona",
+                "partners.howSubtitle": "Quatro passos da apresentação ao pagamento.",
+                "partners.step1Title": "Participe",
+                "partners.step1Desc": "Crie sua conta de parceiro da Arbitrix.",
+                "partners.step2Title": "Compartilhe",
+                "partners.step2Desc": "Receba seu link de indicação exclusivo.",
+                "partners.step3Title": "Ganhe",
+                "partners.step3Desc": "Receba 20% do primeiro depósito qualificado de $100 ou mais do usuário indicado.",
+                "partners.step4Title": "Solicite",
+                "partners.step4Desc": "Solicite seus ganhos de indicação confirmados em USDT / TRC20.",
+                "partners.demoTitle": "Demonstração do Pagamento a Parceiros",
+                "partners.demoSubtitle": "Veja o fluxo completo de pagamento de indicações, do painel do parceiro até um pagamento concluído.",
+                "partners.flow.partner": "Parceiro",
+                "partners.flow.referral": "Indicação",
+                "partners.flow.deposit": "Depósito qualificado de $100",
+                "partners.flow.reward": "Recompensa de $20",
+                "partners.flow.request": "Solicitar pagamento",
+                "partners.flow.asset": "USDT / TRC20",
+                "partners.flow.review": "Em análise",
+                "partners.flow.admin": "Processamento do administrador",
+                "partners.flow.paid": "Pago",
+                "partners.flow.history": "Histórico de pagamentos",
+                "partners.demoDisclosureTitle": "Demonstração simulada",
+                "partners.demoDisclosureBody": "A demonstração mostra atividade de indicação simulada e um pagamento simulado apenas para fins ilustrativos. Não mostra dados de clientes reais, transações reais ou ganhos reais.",
+                "partners.earningsTitle": "Exemplos de Recompensa por Indicação",
+                "partners.earningsSubtitle": "As recompensas aumentam conforme o primeiro depósito qualificado do usuário indicado.",
+                "partners.earningsColDeposit": "Primeiro depósito qualificado",
+                "partners.earningsColReward": "Recompensa por indicação (20%)",
+                "partners.earningsNote": "Apenas exemplos, não são ganhos garantidos. As recompensas reais dependem da atividade qualificada do usuário indicado.",
+                "partners.payoutTitle": "Pagamentos",
+                "partners.payoutSubtitle": "Como os ganhos de indicação são pagos.",
+                "partners.payoutItem1": "Sem valor mínimo de pagamento.",
+                "partners.payoutItem2": "Sem exigência de operar.",
+                "partners.payoutItem3": "Pago em USDT.",
+                "partners.payoutItem4": "Na rede TRC20.",
+                "partners.payoutItem5": "Revisão e pagamento manuais pela nossa equipe.",
+                "partners.payoutItem6": "Histórico de pagamentos e referência de transação no painel do parceiro.",
+                "partners.payoutNote": "Os ganhos de indicação são pagos pelo fluxo de pagamento de parceiros e não estão sujeitos ao valor mínimo de retirada padrão dos clientes.",
+                "partners.whoTitle": "Para Quem É",
+                "partners.whoSubtitle": "Para parceiros que apresentam novos usuários genuínos.",
+                "partners.whoItem1": "Criadores de conteúdo",
+                "partners.whoItem2": "Administradores de comunidade",
+                "partners.whoItem3": "Profissionais de afiliados",
+                "partners.whoItem4": "Especialistas em redes sociais",
+                "partners.whoItem5": "Profissionais de marketing digital",
+                "partners.whoItem6": "Comunidades de cripto e finanças",
+                "partners.supportTitle": "Suporte a Parceiros",
+                "partners.supportDesc": "Dúvidas sobre o programa de parceiros? Fale com nossa equipe de suporte a parceiros no Telegram.",
+                "partners.supportCta": "Falar com o Suporte a Parceiros",
+                "partners.supportHandleLabel": "Telegram",
+                "partners.faqTitle": "Perguntas Frequentes",
+                "partners.faq1q": "Qual é o valor da recompensa por indicação?",
+                "partners.faq1a": "Você ganha 20% do primeiro depósito qualificado de $100 ou mais do usuário indicado.",
+                "partners.faq2q": "O que conta como depósito qualificado?",
+                "partners.faq2a": "Um primeiro depósito confirmado de pelo menos $100. Depósitos menores não se qualificam.",
+                "partners.faq3q": "Preciso operar para ganhar?",
+                "partners.faq3a": "Não. As recompensas por indicação se baseiam em depósitos qualificados dos indicados. Não é preciso operar.",
+                "partners.faq4q": "Existe um valor mínimo de pagamento?",
+                "partners.faq4a": "Não. Não há valor mínimo de pagamento para os ganhos de indicação.",
+                "partners.faq5q": "Como os ganhos de indicação são pagos?",
+                "partners.faq5a": "Em USDT na rede TRC20, após revisão e pagamento manuais pela nossa equipe.",
+                "partners.faq6q": "Quando uma indicação se qualifica?",
+                "partners.faq6a": "Quando o primeiro depósito de $100 ou mais do usuário indicado é confirmado. O registro e os cliques no link por si só não qualificam.",
+                "partners.faq7q": "Autoindicações ou contas duplicadas são permitidas?",
+                "partners.faq7a": "Não. Autoindicações, contas duplicadas, atividade fraudulenta e promoção enganosa não são elegíveis.",
+                "partners.faq8q": "Posso dar consultoria de investimento ou trading?",
+                "partners.faq8a": "Não. Os parceiros não estão autorizados a fornecer consultoria de investimento ou trading em nome da Arbitrix.",
+                "partners.disclosureTitle": "Divulgação para Parceiros de Indicação",
+                "partners.disclosureBody": "Os parceiros de indicação realizam apenas marketing e apresentações. Os parceiros não estão autorizados a fornecer consultoria de investimento ou trading em nome da Arbitrix. As recompensas por indicação se baseiam na atividade qualificada dos usuários indicados. Autoindicações, contas duplicadas, atividade fraudulenta e promoção enganosa não são elegíveis.",
+                "partners.footerHome": "Início",
+                "partners.footerHow": "Como Funciona",
+                "partners.footerPrivacy": "Política de Privacidade",
+                "partners.footerTerms": "Termos de Serviço"
+        },
+        "fr": {
+                "partners.pageTitle": "Devenez Partenaire de Parrainage Arbitrix | Arbitrix AI",
+                "partners.heroBadge": "Programme Partenaires de Parrainage",
+                "partners.heroTitle": "Devenez Partenaire de Parrainage Arbitrix",
+                "partners.heroSubtitle": "Présentez de nouveaux utilisateurs à Arbitrix et gagnez 20% de leur premier dépôt admissible de $100 ou plus.",
+                "partners.chip.reward": "20% du premier dépôt admissible",
+                "partners.chip.noTrading": "Aucun trading requis",
+                "partners.chip.noMinimum": "Aucun paiement minimum",
+                "partners.chip.asset": "USDT / TRC20",
+                "partners.cta.apply": "Devenir Partenaire",
+                "partners.cta.how": "Voir Comment Ça Marche",
+                "partners.signIn": "Se Connecter",
+                "partners.howTitle": "Comment Ça Marche",
+                "partners.howSubtitle": "Quatre étapes, de la présentation au paiement.",
+                "partners.step1Title": "Rejoignez",
+                "partners.step1Desc": "Créez votre compte partenaire Arbitrix.",
+                "partners.step2Title": "Partagez",
+                "partners.step2Desc": "Obtenez votre lien de parrainage unique.",
+                "partners.step3Title": "Gagnez",
+                "partners.step3Desc": "Recevez 20% du premier dépôt admissible de $100 ou plus de l'utilisateur parrainé.",
+                "partners.step4Title": "Demandez",
+                "partners.step4Desc": "Demandez vos gains de parrainage confirmés en USDT / TRC20.",
+                "partners.demoTitle": "Démonstration du Paiement Partenaire",
+                "partners.demoSubtitle": "Découvrez le flux complet de paiement de parrainage, du tableau de bord partenaire à un paiement effectué.",
+                "partners.flow.partner": "Partenaire",
+                "partners.flow.referral": "Parrainage",
+                "partners.flow.deposit": "Dépôt admissible de $100",
+                "partners.flow.reward": "Récompense de $20",
+                "partners.flow.request": "Demander le paiement",
+                "partners.flow.asset": "USDT / TRC20",
+                "partners.flow.review": "En cours de vérification",
+                "partners.flow.admin": "Traitement par l'administrateur",
+                "partners.flow.paid": "Payé",
+                "partners.flow.history": "Historique des paiements",
+                "partners.demoDisclosureTitle": "Démo simulée",
+                "partners.demoDisclosureBody": "Cette démonstration présente une activité de parrainage simulée et un paiement simulé à titre illustratif uniquement. Elle ne montre aucune donnée client réelle, aucune transaction réelle et aucun gain réel.",
+                "partners.earningsTitle": "Exemples de Récompense de Parrainage",
+                "partners.earningsSubtitle": "Les récompenses augmentent avec le premier dépôt admissible de l'utilisateur parrainé.",
+                "partners.earningsColDeposit": "Premier dépôt admissible",
+                "partners.earningsColReward": "Récompense de parrainage (20%)",
+                "partners.earningsNote": "Exemples uniquement, pas des gains garantis. Les récompenses réelles dépendent de l'activité admissible de l'utilisateur parrainé.",
+                "partners.payoutTitle": "Paiements",
+                "partners.payoutSubtitle": "Comment les gains de parrainage sont payés.",
+                "partners.payoutItem1": "Aucun paiement minimum.",
+                "partners.payoutItem2": "Aucune exigence de trading.",
+                "partners.payoutItem3": "Payés en USDT.",
+                "partners.payoutItem4": "Sur le réseau TRC20.",
+                "partners.payoutItem5": "Vérification et paiement manuels par notre équipe.",
+                "partners.payoutItem6": "Historique des paiements et référence de transaction dans le tableau de bord partenaire.",
+                "partners.payoutNote": "Les gains de parrainage sont payés via le flux de paiement partenaire et ne sont pas soumis au minimum de retrait standard des clients.",
+                "partners.whoTitle": "Pour Qui",
+                "partners.whoSubtitle": "Pour les partenaires qui présentent de véritables nouveaux utilisateurs.",
+                "partners.whoItem1": "Créateurs de contenu",
+                "partners.whoItem2": "Administrateurs de communauté",
+                "partners.whoItem3": "Affiliés marketing",
+                "partners.whoItem4": "Spécialistes des réseaux sociaux",
+                "partners.whoItem5": "Professionnels du marketing digital",
+                "partners.whoItem6": "Communautés crypto et finance",
+                "partners.supportTitle": "Support Partenaire",
+                "partners.supportDesc": "Des questions sur le programme partenaire ? Contactez notre équipe de support partenaire sur Telegram.",
+                "partners.supportCta": "Contacter le Support Partenaire",
+                "partners.supportHandleLabel": "Telegram",
+                "partners.faqTitle": "Questions Fréquentes",
+                "partners.faq1q": "Quel est le montant de la récompense de parrainage ?",
+                "partners.faq1a": "Vous gagnez 20% du premier dépôt admissible de $100 ou plus de l'utilisateur parrainé.",
+                "partners.faq2q": "Qu'est-ce qu'un dépôt admissible ?",
+                "partners.faq2a": "Un premier dépôt confirmé d'au moins $100. Les dépôts inférieurs ne sont pas admissibles.",
+                "partners.faq3q": "Dois-je trader pour gagner ?",
+                "partners.faq3a": "Non. Les récompenses de parrainage reposent sur les dépôts admissibles des filleuls. Aucun trading n'est requis.",
+                "partners.faq4q": "Y a-t-il un paiement minimum ?",
+                "partners.faq4a": "Non. Il n'y a aucun paiement minimum pour les gains de parrainage.",
+                "partners.faq5q": "Comment les gains de parrainage sont-ils payés ?",
+                "partners.faq5a": "En USDT sur le réseau TRC20, après vérification et paiement manuels par notre équipe.",
+                "partners.faq6q": "Quand un parrainage est-il admissible ?",
+                "partners.faq6a": "Lorsque le premier dépôt de $100 ou plus de l'utilisateur parrainé est confirmé. L'inscription et les clics sur le lien ne suffisent pas.",
+                "partners.faq7q": "Les auto-parrainages ou comptes en double sont-ils autorisés ?",
+                "partners.faq7a": "Non. Les auto-parrainages, les comptes en double, l'activité frauduleuse et la promotion trompeuse ne sont pas admissibles.",
+                "partners.faq8q": "Puis-je donner des conseils d'investissement ou de trading ?",
+                "partners.faq8a": "Non. Les partenaires ne sont pas autorisés à fournir des conseils d'investissement ou de trading au nom d'Arbitrix.",
+                "partners.disclosureTitle": "Divulgation Partenaire de Parrainage",
+                "partners.disclosureBody": "Les partenaires de parrainage fournissent uniquement du marketing et des présentations. Les partenaires ne sont pas autorisés à fournir des conseils d'investissement ou de trading au nom d'Arbitrix. Les récompenses de parrainage reposent sur l'activité admissible des utilisateurs parrainés. Les auto-parrainages, les comptes en double, l'activité frauduleuse et la promotion trompeuse ne sont pas admissibles.",
+                "partners.footerHome": "Accueil",
+                "partners.footerHow": "Comment Ça Marche",
+                "partners.footerPrivacy": "Politique de Confidentialité",
+                "partners.footerTerms": "Conditions d'Utilisation"
+        },
+        "ar": {
+                "partners.pageTitle": "كن شريك إحالة لدى Arbitrix | Arbitrix AI",
+                "partners.heroBadge": "برنامج شركاء الإحالة",
+                "partners.heroTitle": "كن شريك إحالة لدى Arbitrix",
+                "partners.heroSubtitle": "عرّف مستخدمين جددًا إلى Arbitrix واربح 20% من أول إيداع مؤهل بقيمة $100 أو أكثر.",
+                "partners.chip.reward": "20% من أول إيداع مؤهل",
+                "partners.chip.noTrading": "لا حاجة للتداول",
+                "partners.chip.noMinimum": "لا حد أدنى للدفع",
+                "partners.chip.asset": "USDT / TRC20",
+                "partners.cta.apply": "تقدّم لتصبح شريكًا",
+                "partners.cta.how": "شاهد كيف يعمل",
+                "partners.signIn": "تسجيل الدخول",
+                "partners.howTitle": "كيف يعمل",
+                "partners.howSubtitle": "أربع خطوات من التعريف إلى الدفع.",
+                "partners.step1Title": "انضم",
+                "partners.step1Desc": "أنشئ حسابك كشريك في Arbitrix.",
+                "partners.step2Title": "شارك",
+                "partners.step2Desc": "احصل على رابط الإحالة الخاص بك.",
+                "partners.step3Title": "اربح",
+                "partners.step3Desc": "احصل على 20% من أول إيداع مؤهل بقيمة $100 أو أكثر للمستخدم المُحال.",
+                "partners.step4Title": "اطلب",
+                "partners.step4Desc": "اطلب أرباح الإحالة المؤكدة بعملة USDT / TRC20.",
+                "partners.demoTitle": "عرض توضيحي لدفع الشركاء",
+                "partners.demoSubtitle": "شاهد سير عملية دفع الإحالات بالكامل، من لوحة الشريك إلى الدفع المكتمل.",
+                "partners.flow.partner": "الشريك",
+                "partners.flow.referral": "الإحالة",
+                "partners.flow.deposit": "إيداع مؤهل بقيمة $100",
+                "partners.flow.reward": "مكافأة $20",
+                "partners.flow.request": "طلب الدفع",
+                "partners.flow.asset": "USDT / TRC20",
+                "partners.flow.review": "قيد المراجعة",
+                "partners.flow.admin": "معالجة المشرف",
+                "partners.flow.paid": "مدفوع",
+                "partners.flow.history": "سجل المدفوعات",
+                "partners.demoDisclosureTitle": "عرض محاكاة",
+                "partners.demoDisclosureBody": "يعرض هذا العرض نشاط إحالة محاكيًا ودفعًا محاكيًا لأغراض التوضيح فقط. لا يعرض بيانات عملاء حقيقية أو معاملات حقيقية أو أرباحًا حقيقية.",
+                "partners.earningsTitle": "أمثلة على مكافآت الإحالة",
+                "partners.earningsSubtitle": "تزداد المكافآت وفقًا لأول إيداع مؤهل للمستخدم المُحال.",
+                "partners.earningsColDeposit": "أول إيداع مؤهل",
+                "partners.earningsColReward": "مكافأة الإحالة (20%)",
+                "partners.earningsNote": "أمثلة فقط، وليست أرباحًا مضمونة. تعتمد المكافآت الفعلية على النشاط المؤهل للمستخدم المُحال.",
+                "partners.payoutTitle": "المدفوعات",
+                "partners.payoutSubtitle": "كيف تُدفع أرباح الإحالة.",
+                "partners.payoutItem1": "لا حد أدنى للدفع.",
+                "partners.payoutItem2": "لا حاجة للتداول.",
+                "partners.payoutItem3": "تُدفع بعملة USDT.",
+                "partners.payoutItem4": "على شبكة TRC20.",
+                "partners.payoutItem5": "مراجعة ودفع يدويان من فريقنا.",
+                "partners.payoutItem6": "سجل المدفوعات ومرجع المعاملة في لوحة الشريك.",
+                "partners.payoutNote": "تُدفع أرباح الإحالة عبر سير دفع الشركاء ولا تخضع للحد الأدنى القياسي للسحب الخاص بالعملاء.",
+                "partners.whoTitle": "لمن هذه البرنامج",
+                "partners.whoSubtitle": "للشركاء الذين يعرّفون مستخدمين جددًا حقيقيين.",
+                "partners.whoItem1": "صنّاع المحتوى",
+                "partners.whoItem2": "مشرفو المجتمعات",
+                "partners.whoItem3": "مسوّقو العمولة",
+                "partners.whoItem4": "مسوّقو وسائل التواصل الاجتماعي",
+                "partners.whoItem5": "مسوّقو التسويق الرقمي",
+                "partners.whoItem6": "مجتمعات العملات الرقمية والتمويل",
+                "partners.supportTitle": "دعم الشركاء",
+                "partners.supportDesc": "هل لديك أسئلة حول برنامج الشركاء؟ تواصل مع فريق دعم الشركاء عبر تيليجرام.",
+                "partners.supportCta": "تواصل مع دعم الشركاء",
+                "partners.supportHandleLabel": "تيليجرام",
+                "partners.faqTitle": "الأسئلة الشائعة",
+                "partners.faq1q": "كم تبلغ مكافأة الإحالة؟",
+                "partners.faq1a": "تربح 20% من أول إيداع مؤهل بقيمة $100 أو أكثر للمستخدم المُحال.",
+                "partners.faq2q": "ما الذي يُعد إيداعًا مؤهلًا؟",
+                "partners.faq2a": "أول إيداع مؤكد بقيمة $100 على الأقل. الإيداعات الأقل لا تكون مؤهلة.",
+                "partners.faq3q": "هل أحتاج إلى التداول لأربح؟",
+                "partners.faq3a": "لا. تعتمد مكافآت الإحالة على إيداعات مؤهلة للمستخدمين المُحالين. لا حاجة للتداول.",
+                "partners.faq4q": "هل هناك حد أدنى للدفع؟",
+                "partners.faq4a": "لا. لا يوجد حد أدنى للدفع لأرباح الإحالة.",
+                "partners.faq5q": "كيف تُدفع أرباح الإحالة؟",
+                "partners.faq5a": "بعملة USDT على شبكة TRC20، بعد مراجعة ودفع يدويين من فريقنا.",
+                "partners.faq6q": "متى تصبح الإحالة مؤهلة؟",
+                "partners.faq6a": "عند تأكيد أول إيداع بقيمة $100 أو أكثر للمستخدم المُحال. لا يكفي التسجيل أو النقر على الرابط وحده.",
+                "partners.faq7q": "هل يُسمح بالإحالة الذاتية أو الحسابات المكررة؟",
+                "partners.faq7a": "لا. الإحالة الذاتية والحسابات المكررة والنشاط الاحتيالي والترويج المضلل غير مؤهلة.",
+                "partners.faq8q": "هل يمكنني تقديم نصائح استثمارية أو تداول؟",
+                "partners.faq8a": "لا. الشركاء غير مخوّلين بتقديم نصائح استثمارية أو تداول نيابةً عن Arbitrix.",
+                "partners.disclosureTitle": "إفصاح شركاء الإحالة",
+                "partners.disclosureBody": "يقدّم شركاء الإحالة التسويق والتعريف فقط. الشركاء غير مخوّلين بتقديم نصائح استثمارية أو تداول نيابةً عن Arbitrix. تعتمد مكافآت الإحالة على النشاط المؤهل للمستخدمين المُحالين. الإحالة الذاتية والحسابات المكررة والنشاط الاحتيالي والترويج المضلل غير مؤهلة.",
+                "partners.footerHome": "الرئيسية",
+                "partners.footerHow": "كيف يعمل",
+                "partners.footerPrivacy": "سياسة الخصوصية",
+                "partners.footerTerms": "شروط الخدمة"
+        },
+        "zh": {
+                "partners.pageTitle": "成为 Arbitrix 推荐合作伙伴 | Arbitrix AI",
+                "partners.heroBadge": "推荐合作伙伴计划",
+                "partners.heroTitle": "成为 Arbitrix 推荐合作伙伴",
+                "partners.heroSubtitle": "向 Arbitrix 介绍新用户，即可获得其首次符合条件的 $100 或以上存款的 20% 奖励。",
+                "partners.chip.reward": "首次符合条件存款的 20%",
+                "partners.chip.noTrading": "无需交易",
+                "partners.chip.noMinimum": "无最低提现额",
+                "partners.chip.asset": "USDT / TRC20",
+                "partners.cta.apply": "申请成为合作伙伴",
+                "partners.cta.how": "了解运作方式",
+                "partners.signIn": "登录",
+                "partners.howTitle": "运作方式",
+                "partners.howSubtitle": "从介绍到提现的四个步骤。",
+                "partners.step1Title": "加入",
+                "partners.step1Desc": "创建您的 Arbitrix 合作伙伴账户。",
+                "partners.step2Title": "分享",
+                "partners.step2Desc": "获取您专属的推荐链接。",
+                "partners.step3Title": "赚取",
+                "partners.step3Desc": "获得被推荐用户首次符合条件的 $100 或以上存款的 20%。",
+                "partners.step4Title": "申请",
+                "partners.step4Desc": "以 USDT / TRC20 申请已确认的推荐收益。",
+                "partners.demoTitle": "合作伙伴提现演示",
+                "partners.demoSubtitle": "观看完整的推荐提现流程，从合作伙伴面板到提现完成。",
+                "partners.flow.partner": "合作伙伴",
+                "partners.flow.referral": "推荐",
+                "partners.flow.deposit": "符合条件的 $100 存款",
+                "partners.flow.reward": "$20 奖励",
+                "partners.flow.request": "申请提现",
+                "partners.flow.asset": "USDT / TRC20",
+                "partners.flow.review": "审核中",
+                "partners.flow.admin": "管理员处理",
+                "partners.flow.paid": "已支付",
+                "partners.flow.history": "提现记录",
+                "partners.demoDisclosureTitle": "模拟演示",
+                "partners.demoDisclosureBody": "此演示仅用于说明，展示的是模拟的推荐活动和模拟提现。它不显示真实客户数据、真实交易或真实收益。",
+                "partners.earningsTitle": "推荐奖励示例",
+                "partners.earningsSubtitle": "奖励随被推荐用户首次符合条件的存款而增加。",
+                "partners.earningsColDeposit": "首次符合条件的存款",
+                "partners.earningsColReward": "推荐奖励（20%）",
+                "partners.earningsNote": "仅为示例，并非保证收益。实际奖励取决于被推荐用户的符合条件活动。",
+                "partners.payoutTitle": "提现",
+                "partners.payoutSubtitle": "推荐收益的支付方式。",
+                "partners.payoutItem1": "无最低提现额。",
+                "partners.payoutItem2": "无交易要求。",
+                "partners.payoutItem3": "以 USDT 支付。",
+                "partners.payoutItem4": "通过 TRC20 网络。",
+                "partners.payoutItem5": "由我们的团队人工审核并支付。",
+                "partners.payoutItem6": "合作伙伴面板中的提现记录和交易参考号。",
+                "partners.payoutNote": "推荐收益通过合作伙伴提现流程支付，不适用标准客户提现最低额。",
+                "partners.whoTitle": "适合人群",
+                "partners.whoSubtitle": "适合介绍真实新用户的合作伙伴。",
+                "partners.whoItem1": "内容创作者",
+                "partners.whoItem2": "社区管理员",
+                "partners.whoItem3": "联盟营销人员",
+                "partners.whoItem4": "社交媒体营销人员",
+                "partners.whoItem5": "数字营销人员",
+                "partners.whoItem6": "加密货币与金融社区",
+                "partners.supportTitle": "合作伙伴支持",
+                "partners.supportDesc": "对合作伙伴计划有疑问？请通过 Telegram 联系我们的合作伙伴支持团队。",
+                "partners.supportCta": "联系合作伙伴支持",
+                "partners.supportHandleLabel": "Telegram",
+                "partners.faqTitle": "常见问题",
+                "partners.faq1q": "推荐奖励是多少？",
+                "partners.faq1a": "您可以获得被推荐用户首次符合条件的 $100 或以上存款的 20%。",
+                "partners.faq2q": "什么算符合条件的存款？",
+                "partners.faq2a": "至少 $100 的首次已确认存款。较小的存款不符合条件。",
+                "partners.faq3q": "我需要交易才能赚取吗？",
+                "partners.faq3a": "不需要。推荐奖励基于被推荐用户的符合条件存款。无需交易。",
+                "partners.faq4q": "有最低提现额吗？",
+                "partners.faq4a": "没有。推荐收益没有最低提现额。",
+                "partners.faq5q": "推荐收益如何支付？",
+                "partners.faq5a": "在我们团队人工审核并支付后，以 USDT 通过 TRC20 网络支付。",
+                "partners.faq6q": "推荐何时符合条件？",
+                "partners.faq6a": "当被推荐用户首次 $100 或以上的存款被确认时。仅注册或点击链接不符合条件。",
+                "partners.faq7q": "允许自我推荐或重复账户吗？",
+                "partners.faq7a": "不允许。自我推荐、重复账户、欺诈活动和误导性推广均不符合条件。",
+                "partners.faq8q": "我可以提供投资或交易建议吗？",
+                "partners.faq8a": "不可以。合作伙伴无权代表 Arbitrix 提供投资或交易建议。",
+                "partners.disclosureTitle": "推荐合作伙伴披露",
+                "partners.disclosureBody": "推荐合作伙伴仅提供营销和介绍。合作伙伴无权代表 Arbitrix 提供投资或交易建议。推荐奖励基于被推荐用户的符合条件活动。自我推荐、重复账户、欺诈活动和误导性推广均不符合条件。",
+                "partners.footerHome": "首页",
+                "partners.footerHow": "运作方式",
+                "partners.footerPrivacy": "隐私政策",
+                "partners.footerTerms": "服务条款"
+        }
+};
+
+        var SUPPORT_META_NAME = 'arbitrix-partner-support-telegram';
+        var SUPPORTED_LANGS = ['es', 'pt', 'fr', 'ar', 'zh', 'en'];
+
+        function detectBrowserLanguage() {
+            var candidates = [];
+            if (navigator.languages && navigator.languages.length) {
+                for (var i = 0; i < navigator.languages.length; i++) candidates.push(navigator.languages[i]);
+            }
+            if (navigator.language) candidates.push(navigator.language);
+            for (var j = 0; j < candidates.length; j++) {
+                var prefix = String(candidates[j]).toLowerCase().split('-')[0];
+                if (SUPPORTED_LANGS.indexOf(prefix) !== -1) return prefix;
+            }
+            return 'en';
+        }
+
+        var currentLang = null;
+        try { currentLang = localStorage.getItem('arbi_lang'); } catch (e) {}
+        if (!currentLang || !TRANSLATIONS[currentLang]) {
+            currentLang = detectBrowserLanguage();
+            try { localStorage.setItem('arbi_lang', currentLang); } catch (e) {}
+        }
+
+        function t(key) {
+            try {
+                return (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || TRANSLATIONS.en[key] || key;
+            } catch (e) { return key; }
+        }
+
+        function applyTranslations() {
+            try {
+                document.documentElement.lang = currentLang;
+                document.documentElement.dir = (currentLang === 'ar') ? 'rtl' : 'ltr';
+                document.title = t('partners.pageTitle');
+                var nodes = document.querySelectorAll('[data-i18n]');
+                for (var i = 0; i < nodes.length; i++) {
+                    var key = nodes[i].getAttribute('data-i18n');
+                    var val = t(key);
+                    if (val && val !== key) nodes[i].innerHTML = val;
+                }
+            } catch (e) { if (window.console) console.error('applyTranslations error:', e); }
+        }
+
+        // Partner support contact: reads the SAME single-source meta used by the
+        // app. A bare @username or a full https URL is accepted; the handle is
+        // never duplicated elsewhere in the page.
+        function partnerSupportRaw() {
+            var raw = '';
+            try { if (window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL) raw = String(window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL); } catch (e) {}
+            if (!raw) {
+                var meta = document.querySelector('meta[name="' + SUPPORT_META_NAME + '"]');
+                if (meta) raw = meta.getAttribute('content') || '';
+            }
+            return raw.trim();
+        }
+
+        function getPartnerSupportTelegramUrl() {
+            var raw = partnerSupportRaw();
+            if (!raw) return '';
+            if (/^https?:\/\//i.test(raw)) return raw;
+            var handle = raw.charAt(0) === '@' ? raw.slice(1) : raw;
+            if (!/^[A-Za-z0-9_]{3,}$/.test(handle)) return '';
+            return 'https://t.me/' + handle;
+        }
+
+        function applyPartnerSupport() {
+            var url = getPartnerSupportTelegramUrl();
+            var links = document.querySelectorAll('.js-partner-support');
+            for (var i = 0; i < links.length; i++) {
+                if (url) links[i].setAttribute('href', url);
+            }
+            var handleEl = document.getElementById('partnerSupportHandle');
+            if (handleEl) handleEl.textContent = partnerSupportRaw();
+        }
+
+        // Deep-link contract used by the marketing pages: remember the entry so
+        // the auth screen opens on the requested tab. Reuses the existing
+        // ?action= behaviour; no new authentication system.
+        try { sessionStorage.setItem('arbi_auth_entry', window.location.search || '/partners'); } catch (e) {}
+
+        applyTranslations();
+        applyPartnerSupport();
+    </script>
+</body>
+</html>

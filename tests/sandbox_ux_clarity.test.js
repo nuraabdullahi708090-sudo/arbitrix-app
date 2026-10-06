@@ -6,10 +6,10 @@
  *  F5: the deposit modal shows the minimum deposit before submission, rendered
  *      from the single frontend source APP.MIN_DEPOSIT (server validation is
  *      untouched).
- *  F7: sandbox referral/Bonus-Wallet wording makes clear that sandbox referral
- *      rewards are credited to the simulated LIVE balance. The referral
- *      CALCULATION (20% of the first qualifying deposit, $100 minimum) is not
- *      changed and is asserted here.
+ *  F7: the sandbox-only "no real money / simulated balance" callouts were
+ *      removed from the referral area so the demo mirrors production. The
+ *      referral CALCULATION (20% of the first qualifying deposit, $100 minimum)
+ *      is unchanged and is still asserted here.
  *
  * The real functions are extracted from public/index.html and executed in a vm
  * against a minimal fake DOM. No network/DB is touched.
@@ -135,38 +135,30 @@ test('F5: server-side minimum-deposit validation is unchanged', () => {
 });
 
 // ===========================================================================
-// F7 — sandbox referral / bonus wording
+// F7 - sandbox referral / bonus wording (disclosure callouts removed)
+//
+// The sandbox-only callouts were removed from the referral area so the demo
+// mirrors the production UI. The demo disclosure now lives outside this area
+// (the preview badge). The referral CALCULATION is unchanged.
 // ===========================================================================
 
-test('F7: referral step 3 destination is targetable and a sandbox note exists (hidden by default)', () => {
+const SANDBOX_KEYS_REMOVED = [
+  'referral.partner.simulatedNote',
+  'referral.sandboxCreditNote',
+  'referral.sandboxWalletTarget',
+  'bonus.sandboxNoEarnings',
+];
+
+test('F7: the sandbox disclosure callouts are gone from the referral area', () => {
   assert.ok(INDEX.includes('id="refStep3Destination"'), 'step-3 destination span exists');
-  const note = INDEX.match(/<div id="referralSandboxNote"[^>]*>/);
-  assert.ok(note, 'sandbox note exists');
-  assert.ok(/class="hidden"/.test(note[0]), 'sandbox note hidden by default');
-  assert.ok(INDEX.includes('data-i18n="referral.sandboxCreditNote"'), 'sandbox note is localized');
+  assert.ok(/id="refStep3Destination"[^>]*data-i18n="referral\.bonusWallet"/.test(INDEX),
+    'step-3 destination uses the production Bonus Wallet label');
+  for (const gone of ['referralSandboxNote', 'partnerSimulatedNote', 'updateSandboxReferralWording']) {
+    assert.ok(!INDEX.includes(gone), `${gone} must be removed`);
+  }
 });
 
-test('F7: sandbox wording points rewards at the simulated Live balance; production wording unchanged', () => {
-  const src = extractFunction(INDEX, 'updateSandboxReferralWording');
-
-  const sandboxEls = { refStep3Destination: fakeEl(), referralSandboxNote: fakeEl() };
-  const sandboxCtx = makeCtx(src, sandboxEls);
-  sandboxCtx.APP = { environment: 'MARKETING_SANDBOX' };
-  sandboxCtx.t = (k) => ({ 'referral.sandboxWalletTarget': 'Simulated Live balance', 'referral.bonusWallet': 'Bonus Wallet' })[k] || k;
-  sandboxCtx.updateSandboxReferralWording();
-  assert.strictEqual(sandboxEls.refStep3Destination.textContent, 'Simulated Live balance');
-  assert.strictEqual(sandboxEls.referralSandboxNote.classList.contains('hidden'), false, 'note visible for sandbox');
-
-  const prodEls = { refStep3Destination: fakeEl(), referralSandboxNote: fakeEl() };
-  const prodCtx = makeCtx(src, prodEls);
-  prodCtx.APP = { environment: 'PRODUCTION' };
-  prodCtx.t = (k) => ({ 'referral.sandboxWalletTarget': 'Simulated Live balance', 'referral.bonusWallet': 'Bonus Wallet' })[k] || k;
-  prodCtx.updateSandboxReferralWording();
-  assert.strictEqual(prodEls.refStep3Destination.textContent, 'Bonus Wallet');
-  assert.strictEqual(prodEls.referralSandboxNote.classList.contains('hidden'), true, 'note hidden for production');
-});
-
-test('F7: Bonus Wallet empty-state explains sandbox crediting for sandbox accounts only', () => {
+test('F7: the Bonus Wallet empty-state copy is neutral for sandbox and production', () => {
   const src = extractFunction(INDEX, 'updateBonusWalletUI');
 
   function run(environment) {
@@ -179,31 +171,23 @@ test('F7: Bonus Wallet empty-state explains sandbox crediting for sandbox accoun
     const ctx = makeCtx(src, els);
     ctx.APP = { environment, bonusData: { balance: 0 } };
     ctx.formatCurrency = (n) => '$' + Number(n).toFixed(2);
-    ctx.t = (k) => ({ 'bonus.noEarnings': 'No referral earnings to convert yet.',
-                      'bonus.sandboxNoEarnings': 'Sandbox referral rewards are credited to your simulated Live balance.' })[k] || k;
+    ctx.t = (k) => ({ 'bonus.noEarnings': 'No referral earnings to convert yet.' })[k] || k;
     ctx.updateBonusWalletUI();
-    return els;
+    return els.bonusWithdrawInfo.innerHTML;
   }
 
-  assert.ok(run('MARKETING_SANDBOX').bonusWithdrawInfo.innerHTML.includes('simulated Live balance'));
-  assert.ok(run('PRODUCTION').bonusWithdrawInfo.innerHTML.includes('No referral earnings'));
+  const sandbox = run('MARKETING_SANDBOX');
+  const prod = run('PRODUCTION');
+  assert.ok(sandbox.includes('No referral earnings'), 'sandbox uses the neutral production copy');
+  assert.ok(prod.includes('No referral earnings'), 'production is unchanged');
+  assert.ok(!/simulat|sandbox/i.test(sandbox), 'no demo-speak in the sandbox bonus empty-state');
+  assert.ok(!src.includes('MARKETING_SANDBOX'), 'the empty-state no longer branches on environment');
 
   const hook = extractFunction(INDEX, 'updateDynamicTranslations');
-  assert.ok(hook.includes('updateSandboxReferralWording()'), 'referral wording refreshes on language switch');
   assert.ok(hook.includes('updateBonusWalletUI()'), 'bonus wallet text refreshes on language switch');
 });
 
-test('F7: referral calculation/business rules are unchanged', () => {
-  assert.match(SERVER, /SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20/);
-  assert.match(SERVER, /SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD/);
-  assert.match(SERVER, /REFERRAL_REWARD_PERCENT_DEFAULT = 20/);
-  // The sandbox reward RPC/percent logic is untouched by this display change.
-  assert.match(SERVER, /sandbox_record_referral|sandbox_apply_referral|reward_percent/);
-});
-
-test('F7: the new i18n keys are defined and non-empty in all 6 locales', () => {
-  // Locate the TRANSLATIONS object inside a <script> block and brace-match it
-  // (the inner per-locale objects make a regex terminator unreliable).
+test('F7: the removed sandbox-only keys are absent from every locale', () => {
   const blocks = [...INDEX.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   const blk = blocks.find((b) => b.includes('const TRANSLATIONS'));
   assert.ok(blk, 'TRANSLATIONS block should exist');
@@ -221,11 +205,24 @@ test('F7: the new i18n keys are defined and non-empty in all 6 locales', () => {
   vm.runInContext('this.T = ' + blk.slice(blk.indexOf('{', start), end + 1), sandbox);
   const T = sandbox.T;
 
-  const keys = ['referral.sandboxWalletTarget', 'referral.sandboxCreditNote', 'bonus.sandboxNoEarnings'];
   for (const lang of ['en', 'es', 'pt', 'fr', 'ar', 'zh']) {
-    for (const k of keys) {
-      assert.ok(T[lang] && typeof T[lang][k] === 'string' && T[lang][k].trim().length > 0,
-        `${lang}.${k} must be a non-empty string`);
+    for (const k of SANDBOX_KEYS_REMOVED) {
+      assert.strictEqual(T[lang][k], undefined, `${lang}.${k} must be removed`);
     }
+    assert.strictEqual(Object.keys(T[lang]).length, 1501, `${lang} must have 1501 keys`);
   }
+});
+
+test('F7: the demo preview disclosure outside the referral area is preserved', () => {
+  assert.ok(INDEX.includes('id="sandboxBadge"'), 'the preview badge still exists');
+  assert.match(INDEX, /'sandbox\.badge':/);
+  assert.match(INDEX, /APP\.environment === 'MARKETING_SANDBOX'/);
+});
+
+test('F7: referral calculation/business rules are unchanged', () => {
+  assert.match(SERVER, /SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20/);
+  assert.match(SERVER, /SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD/);
+  assert.match(SERVER, /REFERRAL_REWARD_PERCENT_DEFAULT = 20/);
+  // The sandbox reward RPC/percent logic is untouched by this display change.
+  assert.match(SERVER, /sandbox_record_referral|sandbox_apply_referral|reward_percent/);
 });
