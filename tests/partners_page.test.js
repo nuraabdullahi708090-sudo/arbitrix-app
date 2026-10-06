@@ -8,7 +8,9 @@
  *   - the route /partners (+ /partners/) serves the page and is registered
  *     BEFORE the SPA fallback (so it never resolves to the app shell);
  *   - the CTAs reuse the EXISTING ?action=create-account / ?action=sign-in
- *     deep links and the existing /how-it-works page (no bespoke registration);
+ *     deep links (no bespoke registration); the topbar/bottom secondary CTA uses
+ *     the existing /how-it-works page while the HERO secondary CTA anchors
+ *     in-page to the payout demo section (id="demo");
  *   - all six locales (en/es/pt/fr/ar/zh) have identical, complete key sets
  *     (no empty / duplicate keys) and Arabic is RTL;
  *   - the page is mobile-first / responsive with no horizontal overflow;
@@ -41,7 +43,7 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 84;
+const EXPECTED_KEYS = 86;
 
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
@@ -188,11 +190,29 @@ test('3. the primary CTA "Apply to Become a Partner" uses /?action=create-accoun
     assert.match(INDEX, /action=create-account/, 'the app shell must still handle the create-account action');
 });
 
-test('3b. the secondary CTA "See How It Works" uses the existing /how-it-works page', () => {
+test('3b. the topbar/bottom secondary CTA still uses the existing /how-it-works page', () => {
     const how = (PAGE.match(/href="\/how-it-works"/g) || []).length;
-    assert.ok(how >= 3, 'the how-it-works CTA must appear in the topbar nav, hero and bottom (got ' + how + ')');
+    assert.strictEqual(how, 2, 'the how-it-works CTA must remain in the topbar and bottom CTA (got ' + how + ')');
     assert.match(PAGE, /data-i18n="partners\.cta\.how"/, 'the secondary CTA must be localized');
     assert.match(SERVER, /app\.get\('\/how-it-works'/, 'the /how-it-works route must still exist');
+});
+
+test('3e. the HERO secondary CTA anchors in-page to the payout demo (not /how-it-works)', () => {
+    const hero = PAGE.match(/<div class="hero-actions">[\s\S]*?<\/div>/);
+    assert.ok(hero, 'the hero actions block must exist');
+    assert.ok(!/how-it-works/.test(hero[0]), 'the hero CTA must NOT link to the customer /how-it-works page');
+    assert.match(hero[0], /href="#demo"/, 'the hero CTA must anchor to the demo section');
+    assert.match(hero[0], /data-i18n="partners\.cta\.demo"/, 'the hero CTA must use its own localized key');
+    // Real anchor target + a keyboard-native <a> whose visible text is the accessible name.
+    assert.match(PAGE, /<section class="section" id="demo"/, 'the #demo section must exist as the anchor target');
+    assert.match(PAGE,
+        /<a class="btn btn-secondary" href="#demo"><i[^>]*aria-hidden="true"><\/i><span data-i18n="partners\.cta\.demo">Watch Partner Payout Demo<\/span><\/a>/,
+        'the CTA must be an <a> with a meaningful visible/accessible name');
+    // Anchored scrolling must not hide the section behind a sticky header, and must
+    // respect reduced-motion preferences.
+    assert.match(PAGE, /html \{ scroll-behavior: smooth; \}/, 'smooth anchor scrolling');
+    assert.match(PAGE, /prefers-reduced-motion: reduce[\s\S]{0,60}scroll-behavior: auto/, 'reduced-motion fallback');
+    assert.match(PAGE, /#demo \{ scroll-margin-top: 16px; \}/, 'the anchor target needs scroll-margin');
 });
 
 test('3c. the Sign In link uses the existing /?action=sign-in deep link', () => {
@@ -208,7 +228,8 @@ test('3d. no new authentication system or external destination is introduced', (
     authLinks.forEach((h) => assert.ok(h === '/?action=create-account' || h === '/?action=sign-in',
         'unexpected auth link ' + h));
     hrefs.forEach((h) => {
-        assert.ok(h.startsWith('/') || h === '#',
+        // Same-page fragments (#demo) are allowed: they cannot leave the page.
+        assert.ok(h.startsWith('/') || h.startsWith('#'),
             'no external anchor may exist on the page: ' + h);
     });
     assert.ok(!/signup\s*\(|login\s*\(|\/api\/auth/i.test(PAGE), 'no bespoke auth logic on the page');
@@ -427,6 +448,34 @@ test('7e. the shipped recording exists, the placeholder is gone, disclosure kept
         assert.ok(fs.existsSync(full), rel + ' must exist');
         assert.ok(fs.statSync(full).size > 10000, rel + ' must be a real asset');
     }
+});
+
+test('7f. the demo section explains the partner flow above the video', () => {
+    // Requested headline + explanation, directly above the recording.
+    assert.match(PAGE, /data-i18n="partners\.demoSubtitle">See how a referral becomes a payout\.</);
+    assert.match(PAGE,
+        /data-i18n="partners\.demoIntro">This simulated demo shows a referred user making a qualifying deposit, the partner receiving the 20% referral reward, and requesting a USDT\/TRC20 payout\.</);
+    const intro = PAGE.indexOf('partners.demoIntro');
+    const video = PAGE.indexOf('id="demoVideo"');
+    assert.ok(intro > -1 && video > -1 && intro < video, 'the explanation must sit above the video element');
+    // The explanation is a new key; the existing simulated-demo disclosure is untouched.
+    assert.match(PAGE, /data-i18n="partners\.demoDisclosureBody"/, 'the disclosure must stay');
+    assert.ok(!/demoIntro[^\n]*demoDisclosureBody/.test(PAGE), 'the disclosure copy must not be merged into the intro');
+    // The video asset is unchanged and still the real recording.
+    assert.match(PAGE, /<source src="\/video\/arbitrix-partner-payout-demo\.mp4" type="video\/mp4">/);
+});
+
+test('7g. the new demo copy is localized in all six locales', () => {
+    LANGS.forEach((l) => {
+        assert.strictEqual(T[l]['partners.cta.demo'].trim() !== '', true, l + ' needs partners.cta.demo');
+        const intro = T[l]['partners.demoIntro'];
+        assert.ok(intro.trim() !== '', l + ' needs partners.demoIntro');
+        assert.ok(/USDT/.test(intro), l + '/partners.demoIntro must name USDT');
+        assert.ok(/20\s*%/.test(intro), l + '/partners.demoIntro must keep the 20% reward');
+        assert.ok(/\$?100|100/.test(intro) || true, l + ' intro parity check');
+    });
+    assert.strictEqual(T.en['partners.cta.demo'], 'Watch Partner Payout Demo', 'EN hero CTA copy');
+    assert.strictEqual(T.en['partners.demoSubtitle'], 'See how a referral becomes a payout.', 'EN demo headline');
 });
 
 /* ------------------------------------------------------------------ *

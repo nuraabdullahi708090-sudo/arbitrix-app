@@ -135,6 +135,10 @@
         }
         .demo-disclosure i { color: var(--brand); margin-top: 2px; }
         .demo-disclosure strong { color: var(--brand); }
+        html { scroll-behavior: smooth; }
+        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+        #demo { scroll-margin-top: 16px; }
+        .demo-intro { margin-top: -6px; }
         .earnings-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow-sm); }
         .earnings-head {
             display: flex; justify-content: space-between; gap: 12px; font-size: 11px; font-weight: 700;
@@ -228,7 +232,7 @@
             </ul>
             <div class="hero-actions">
                 <a class="btn btn-primary js-apply-cta" id="applyCta" href="/?action=create-account"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
-                <a class="btn btn-secondary" href="/how-it-works"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.how">See How It Works</span></a>
+                <a class="btn btn-secondary" href="#demo"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.demo">Watch Partner Payout Demo</span></a>
             </div>
         </header>
 
@@ -245,7 +249,8 @@
 
         <section class="section" id="demo" aria-labelledby="demoHeading">
             <h2 id="demoHeading" data-i18n="partners.demoTitle">Partner Payout Walkthrough</h2>
-            <p class="section-sub" data-i18n="partners.demoSubtitle">See the complete referral payout workflow, from the partner dashboard to a paid payout.</p>
+            <p class="section-sub" data-i18n="partners.demoSubtitle">See how a referral becomes a payout.</p>
+            <p class="section-sub demo-intro" data-i18n="partners.demoIntro">This simulated demo shows a referred user making a qualifying deposit, the partner receiving the 20% referral reward, and requesting a USDT/TRC20 payout.</p>
             <div class="demo-stage">
                 <video class="demo-video" id="demoVideo" controls playsinline preload="metadata"
                     poster="/video/arbitrix-partner-payout-poster.jpg"
@@ -386,6 +391,7 @@
                 "partners.chip.asset": "USDT / TRC20",
                 "partners.cta.apply": "Apply to Become a Partner",
                 "partners.cta.how": "See How It Works",
+                "partners.cta.demo": "Watch Partner Payout Demo",
                 "partners.signIn": "Sign In",
                 "partners.howTitle": "How It Works",
                 "partners.howSubtitle": "Four steps from introduction to payout.",
@@ -398,7 +404,8 @@
                 "partners.step4Title": "Request",
                 "partners.step4Desc": "Request confirmed referral earnings in USDT / TRC20.",
                 "partners.demoTitle": "Partner Payout Walkthrough",
-                "partners.demoSubtitle": "See the complete referral payout workflow, from the partner dashboard to a paid payout.",
+                "partners.demoSubtitle": "See how a referral becomes a payout.",
+                "partners.demoIntro": "This simulated demo shows a referred user making a qualifying deposit, the partner receiving the 20% referral reward, and requesting a USDT/TRC20 payout.",
                 "partners.flow.partner": "Partner",
                 "partners.flow.referral": "Referral",
                 "partners.flow.deposit": "$100 qualifying deposit",
@@ -472,6 +479,7 @@
                 "partners.chip.asset": "USDT / TRC20",
                 "partners.cta.apply": "Solicita ser Socio",
                 "partners.cta.how": "Ver Cómo Funciona",
+                "partners.cta.demo": "Ver Demo de Pago a Socios",
                 "partners.signIn": "Iniciar Sesión",
                 "partners.howTitle": "Cómo Funciona",
                 "partners.howSubtitle": "Cuatro pasos desde la presentación hasta el pago.",
@@ -484,7 +492,8 @@
                 "partners.step4Title": "Solicita",
                 "partners.step4Desc": "Solicita tus ganancias de referidos confirmadas en USDT / TRC20.",
                 "partners.demoTitle": "Recorrido del Pago a Socios",
-                "partners.demoSubtitle": "Mira el flujo completo de pago de referidos, desde el panel del socio hasta un pago realizado.",
+                "partners.demoSubtitle": "Descubre cómo una referencia se convierte en un pago.",
+                "partners.demoIntro": "Esta demo simulada muestra a un usuario referido realizando un depósito válido, al socio recibiendo la recompensa del 20% por referido y solicitando un pago en USDT/TRC20.",
                 "partners.flow.partner": "Socio",
                 "partners.flow.referral": "Referido",
                 "partners.flow.deposit": "Depósito válido de $100",
@@ -558,6 +567,7 @@
                 "partners.chip.asset": "USDT / TRC20",
                 "partners.cta.apply": "Candidate-se a Parceiro",
                 "partners.cta.how": "Veja Como Funciona",
+                "partners.cta.demo": "Ver Demonstração de Pagamento a Parceiros",
                 "partners.signIn": "Entrar",
                 "partners.howTitle": "Como Funciona",
                 "partners.howSubtitle": "Quatro passos da apresentação ao pagamento.",
@@ -570,7 +580,8 @@
                 "partners.step4Title": "Solicite",
                 "partners.step4Desc": "Solicite seus ganhos de indicação confirmados em USDT / TRC20.",
                 "partners.demoTitle": "Demonstração do Pagamento a Parceiros",
-                "partners.demoSubtitle": "Veja o fluxo completo de pagamento de indicações, do painel do parceiro até um pagamento concluído.",
+                "partners.demoSubtitle": "Veja como uma indicação se transforma em um pagamento.",
+                "partners.demoIntro": "Esta demonstração simulada mostra um usuário indicado fazendo um depósito qualificado, o parceiro recebendo a recompensa de 20% por indicação e solicitando um pagamento em USDT/TRC20.",
                 "partners.flow.partner": "Parceiro",
                 "partners.flow.referral": "Indicação",
                 "partners.flow.deposit": "Depósito qualificado de $100",
@@ -644,6 +655,7 @@
                 "partners.chip.asset": "USDT / TRC20",
                 "partners.cta.apply": "Devenir Partenaire",
                 "partners.cta.how": "Voir Comment Ça Marche",
+                "partners.cta.demo": "Voir la Démo de Paiement Partenaire",
                 "partners.signIn": "Se Connecter",
                 "partners.howTitle": "Comment Ça Marche",
                 "partners.howSubtitle": "Quatre étapes, de la présentation au paiement.",
@@ -656,7 +668,8 @@
                 "partners.step4Title": "Demandez",
                 "partners.step4Desc": "Demandez vos gains de parrainage confirmés en USDT / TRC20.",
                 "partners.demoTitle": "Démonstration du Paiement Partenaire",
-                "partners.demoSubtitle": "Découvrez le flux complet de paiement de parrainage, du tableau de bord partenaire à un paiement effectué.",
+                "partners.demoSubtitle": "Découvrez comment un parrainage devient un paiement.",
+                "partners.demoIntro": "Cette démo simulée montre un utilisateur parrainé effectuant un dépôt qualifiant, le partenaire recevant la récompense de parrainage de 20 % et demandant un paiement en USDT/TRC20.",
                 "partners.flow.partner": "Partenaire",
                 "partners.flow.referral": "Parrainage",
                 "partners.flow.deposit": "Dépôt admissible de $100",
@@ -730,6 +743,7 @@
                 "partners.chip.asset": "USDT / TRC20",
                 "partners.cta.apply": "تقدّم لتصبح شريكًا",
                 "partners.cta.how": "شاهد كيف يعمل",
+                "partners.cta.demo": "شاهد عرض دفع الشركاء",
                 "partners.signIn": "تسجيل الدخول",
                 "partners.howTitle": "كيف يعمل",
                 "partners.howSubtitle": "أربع خطوات من التعريف إلى الدفع.",
@@ -742,7 +756,8 @@
                 "partners.step4Title": "اطلب",
                 "partners.step4Desc": "اطلب أرباح الإحالة المؤكدة بعملة USDT / TRC20.",
                 "partners.demoTitle": "عرض توضيحي لدفع الشركاء",
-                "partners.demoSubtitle": "شاهد سير عملية دفع الإحالات بالكامل، من لوحة الشريك إلى الدفع المكتمل.",
+                "partners.demoSubtitle": "شاهد كيف تتحول الإحالة إلى عملية دفع.",
+                "partners.demoIntro": "يعرض هذا العرض المحاكي مستخدمًا مُحالًا يقوم بإيداع مؤهل، والشريك يتلقى مكافأة الإحالة بنسبة 20%، ثم يطلب دفعًا بعملة USDT/TRC20.",
                 "partners.flow.partner": "الشريك",
                 "partners.flow.referral": "الإحالة",
                 "partners.flow.deposit": "إيداع مؤهل بقيمة $100",
@@ -816,6 +831,7 @@
                 "partners.chip.asset": "USDT / TRC20",
                 "partners.cta.apply": "申请成为合作伙伴",
                 "partners.cta.how": "了解运作方式",
+                "partners.cta.demo": "观看合作伙伴提现演示",
                 "partners.signIn": "登录",
                 "partners.howTitle": "运作方式",
                 "partners.howSubtitle": "从介绍到提现的四个步骤。",
@@ -828,7 +844,8 @@
                 "partners.step4Title": "申请",
                 "partners.step4Desc": "以 USDT / TRC20 申请已确认的推荐收益。",
                 "partners.demoTitle": "合作伙伴提现演示",
-                "partners.demoSubtitle": "观看完整的推荐提现流程，从合作伙伴面板到提现完成。",
+                "partners.demoSubtitle": "了解推荐如何变成提现。",
+                "partners.demoIntro": "此模拟演示展示被推荐用户完成符合条件的入金、合作伙伴获得 20% 推荐奖励，并申请 USDT/TRC20 提现。",
                 "partners.flow.partner": "合作伙伴",
                 "partners.flow.referral": "推荐",
                 "partners.flow.deposit": "符合条件的 $100 存款",
