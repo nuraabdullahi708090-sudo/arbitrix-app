@@ -43,7 +43,7 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 86;
+const EXPECTED_KEYS = 87;
 
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
@@ -450,32 +450,63 @@ test('7e. the shipped recording exists, the placeholder is gone, disclosure kept
     }
 });
 
-test('7f. the demo section explains the partner flow above the video', () => {
+test('7f. the demo section explains the REFERRED USER deposit above the video', () => {
     // Requested headline + explanation, directly above the recording.
     assert.match(PAGE, /data-i18n="partners\.demoSubtitle">See how a referral becomes a payout\.</);
     assert.match(PAGE,
-        /data-i18n="partners\.demoIntro">This simulated demo shows a referred user making a qualifying deposit, the partner receiving the 20% referral reward, and requesting a USDT\/TRC20 payout\.</);
+        /data-i18n="partners\.demoIntro">The deposit shown in this demo is made by the user you referred\./);
+    assert.match(PAGE, /Once their qualifying deposit is credited, your 20% referral reward is added to your partner balance/,
+        'the explanation must credit the reward to the PARTNER balance once the REFERRED user deposit is credited');
     const intro = PAGE.indexOf('partners.demoIntro');
     const video = PAGE.indexOf('id="demoVideo"');
     assert.ok(intro > -1 && video > -1 && intro < video, 'the explanation must sit above the video element');
-    // The explanation is a new key; the existing simulated-demo disclosure is untouched.
+    // The key clarification sits DIRECTLY above the video, inside the demo stage.
+    assert.match(PAGE,
+        /<p class="demo-deposit-note" role="note">[\s\S]{0,140}data-i18n="partners\.demoDepositNote">Important: The \$100 deposit shown is the referred user's deposit \u2014 not the partner's\.<\/span><\/p>\s*<video/,
+        'the "$100 is the referred user deposit" clarification must sit directly above the video');
+    assert.match(PAGE, /<section class="section" id="demo"/, 'the anchor target is unchanged');
+    // The existing simulated-demo disclosure is untouched (truthfulness).
     assert.match(PAGE, /data-i18n="partners\.demoDisclosureBody"/, 'the disclosure must stay');
     assert.ok(!/demoIntro[^\n]*demoDisclosureBody/.test(PAGE), 'the disclosure copy must not be merged into the intro');
     // The video asset is unchanged and still the real recording.
     assert.match(PAGE, /<source src="\/video\/arbitrix-partner-payout-demo\.mp4" type="video\/mp4">/);
 });
 
-test('7g. the new demo copy is localized in all six locales', () => {
+test('7g. the demo copy + deposit note are localized in all six locales', () => {
     LANGS.forEach((l) => {
         assert.strictEqual(T[l]['partners.cta.demo'].trim() !== '', true, l + ' needs partners.cta.demo');
         const intro = T[l]['partners.demoIntro'];
+        const note = T[l]['partners.demoDepositNote'];
         assert.ok(intro.trim() !== '', l + ' needs partners.demoIntro');
-        assert.ok(/USDT/.test(intro), l + '/partners.demoIntro must name USDT');
         assert.ok(/20\s*%/.test(intro), l + '/partners.demoIntro must keep the 20% reward');
-        assert.ok(/\$?100|100/.test(intro) || true, l + ' intro parity check');
+        assert.ok(note.trim() !== '', l + ' needs partners.demoDepositNote');
+        assert.ok(/100/.test(note), l + '/partners.demoDepositNote must keep the $100 figure');
+        assert.ok(note.trim().length >= 20, l + '/partners.demoDepositNote must be a full sentence');
+        assert.ok(!/^partners\./.test(note), l + ' the note must be translated, not a raw key');
+        if (l !== 'en') assert.notStrictEqual(note, T.en['partners.demoDepositNote'], l + ' the note must be translated');
     });
     assert.strictEqual(T.en['partners.cta.demo'], 'Watch Partner Payout Demo', 'EN hero CTA copy');
     assert.strictEqual(T.en['partners.demoSubtitle'], 'See how a referral becomes a payout.', 'EN demo headline');
+    assert.match(T.en['partners.demoIntro'], /^The deposit shown in this demo is made by the user you referred\./);
+    assert.match(T.en['partners.demoDepositNote'], /^Important: The \$100 deposit shown is the referred user's deposit/);
+});
+
+test('7h. no internal sandbox wording on the partner page', () => {
+    // The two internal/sandbox strings must never appear on the partner-facing page.
+    assert.ok(!/Simulated demo data/i.test(PAGE), 'the sandbox note must not appear');
+    assert.ok(!/no real money or payouts/i.test(PAGE), 'the sandbox "no real money" copy must not appear');
+    assert.ok(!/Sandbox referral rewards/i.test(PAGE), 'the sandbox referral-reward copy must not appear');
+    assert.ok(!/simulated Live balance/i.test(PAGE), 'the sandbox Live-balance copy must not appear');
+    assert.ok(!/not the Bonus Wallet/i.test(PAGE), 'the sandbox Bonus-Wallet copy must not appear');
+    assert.ok(!/sandbox/i.test(PAGE), 'the word "sandbox" must not appear on the partner page at all');
+    // Truthfulness: the page must not claim the walkthrough was a real transaction.
+    ['real payout', 'live transaction', 'already paid'].forEach((claim) => {
+        assert.ok(!new RegExp(claim, 'i').test(PAGE), 'no fabricated claim: "' + claim + '"');
+    });
+    // The legitimate disclosures stay.
+    assert.match(PAGE, /data-i18n="partners\.disclosureTitle"/, 'Referral Partner Disclosure must stay');
+    assert.match(PAGE, /data-i18n="partners\.disclosureBody"/, 'the partner disclosure body must stay');
+    assert.match(PAGE, /data-i18n="partners\.demoDisclosureBody"/, 'the walkthrough disclosure must stay');
 });
 
 /* ------------------------------------------------------------------ *
