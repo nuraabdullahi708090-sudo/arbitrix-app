@@ -174,7 +174,7 @@ test('the official support links are resolved at startup (anonymous landing visi
         'a DOMContentLoaded hook must apply the configured Telegram link to the page');
 });
 
-test('the legal pages publish the platform domain, operator entity and official channel only', () => {
+test('the legal pages publish the platform domain and official channel only', () => {
     // arbitrix.ai is NOT the platform: https://arbitrix.ai redirects to
     // https://www.arbitrix.ai, which belongs to a different company. No
     // arbitrix.ai reference, and no mailbox on it, may remain in a legal page.
@@ -183,9 +183,15 @@ test('the legal pages publish the platform domain, operator entity and official 
         assert.ok(!/mailto:[^"]*arbitrix\.ai/i.test(page), name + ' must not publish a mailbox on arbitrix.ai');
         assert.match(page, /https:\/\/arbitrix\.pro/, name + ' must publish the platform domain');
         assert.match(page, /https:\/\/t\.me\/ArbitrixSupportBot/, name + ' must publish the official support channel');
-        assert.match(page, /Arbitrix Trading/, name + ' must identify the operator entity');
-        assert.match(page, /72923513/, name + ' must carry the published KVK number');
+        // Requested cleanup: the verbose inline "Operator: ..." line is gone, so
+        // the contact block stays minimal (support + website only).
+        assert.ok(!/registered with the Netherlands Chamber of Commerce/.test(page),
+            name + ' must not carry the removed Operator line');
     }
+    // The Privacy Policy (the page that defines "we") still names the operator
+    // entity in its opening sentence.
+    assert.match(PRIVACY, /Arbitrix AI, operated by Arbitrix Trading/,
+        'the Privacy Policy must still name the operator entity');
 });
 
 test('the support widget and support modal are untouched by this change', () => {
