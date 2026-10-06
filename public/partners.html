@@ -138,16 +138,6 @@
         html { scroll-behavior: smooth; }
         @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
         #demo { scroll-margin-top: 16px; }
-        .demo-intro { margin-top: -6px; }
-        .demo-deposit-note {
-            display: flex; align-items: flex-start; gap: 8px;
-            background: var(--brand-weak); border: 1px solid var(--brand-border);
-            border-left: 3px solid var(--brand); border-radius: var(--radius-sm);
-            padding: 10px 12px; margin: 0 0 14px;
-            font-size: 12.5px; line-height: 1.55; font-weight: 600;
-            color: var(--text-primary); text-align: left; overflow-wrap: anywhere;
-        }
-        .demo-deposit-note i { color: var(--brand); margin-top: 2px; }
         .earnings-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow-sm); }
         .earnings-head {
             display: flex; justify-content: space-between; gap: 12px; font-size: 11px; font-weight: 700;
@@ -258,10 +248,7 @@
 
         <section class="section" id="demo" aria-labelledby="demoHeading">
             <h2 id="demoHeading" data-i18n="partners.demoTitle">Partner Payout Walkthrough</h2>
-            <p class="section-sub" data-i18n="partners.demoSubtitle">See how a referral becomes a payout.</p>
-            <p class="section-sub demo-intro" data-i18n="partners.demoIntro">The deposit shown in this demo is made by the user you referred. Once their qualifying deposit is credited, your 20% referral reward is added to your partner balance and can be requested for payout.</p>
             <div class="demo-stage">
-                <p class="demo-deposit-note" role="note"><i class="fas fa-circle-exclamation" aria-hidden="true"></i><span data-i18n="partners.demoDepositNote">Important: The $100 deposit shown is the referred user's deposit — not the partner's.</span></p>
                 <video class="demo-video" id="demoVideo" controls playsinline preload="metadata"
                     poster="/video/arbitrix-partner-payout-poster.jpg"
                     aria-label="Partner payout walkthrough - simulated demo screen recording">
@@ -414,9 +401,6 @@
                 "partners.step4Title": "Request",
                 "partners.step4Desc": "Request confirmed referral earnings in USDT / TRC20.",
                 "partners.demoTitle": "Partner Payout Walkthrough",
-                "partners.demoSubtitle": "See how a referral becomes a payout.",
-                "partners.demoIntro": "The deposit shown in this demo is made by the user you referred. Once their qualifying deposit is credited, your 20% referral reward is added to your partner balance and can be requested for payout.",
-                "partners.demoDepositNote": "Important: The $100 deposit shown is the referred user's deposit — not the partner's.",
                 "partners.flow.partner": "Partner",
                 "partners.flow.referral": "Referral",
                 "partners.flow.deposit": "$100 qualifying deposit",
@@ -503,9 +487,6 @@
                 "partners.step4Title": "Solicita",
                 "partners.step4Desc": "Solicita tus ganancias de referidos confirmadas en USDT / TRC20.",
                 "partners.demoTitle": "Recorrido del Pago a Socios",
-                "partners.demoSubtitle": "Descubre cómo una referencia se convierte en un pago.",
-                "partners.demoIntro": "El depósito que se muestra en esta demo lo realiza el usuario al que referiste. Cuando se acredite su depósito válido, tu recompensa del 20% por referido se añade a tu saldo de socio y podrás solicitar su pago.",
-                "partners.demoDepositNote": "Importante: el depósito de $100 que se muestra es el del usuario referido, no el del socio.",
                 "partners.flow.partner": "Socio",
                 "partners.flow.referral": "Referido",
                 "partners.flow.deposit": "Depósito válido de $100",
@@ -592,9 +573,6 @@
                 "partners.step4Title": "Solicite",
                 "partners.step4Desc": "Solicite seus ganhos de indicação confirmados em USDT / TRC20.",
                 "partners.demoTitle": "Demonstração do Pagamento a Parceiros",
-                "partners.demoSubtitle": "Veja como uma indicação se transforma em um pagamento.",
-                "partners.demoIntro": "O depósito mostrado nesta demonstração é feito pelo usuário que você indicou. Quando o depósito qualificado dele for creditado, sua recompensa de 20% por indicação é adicionada ao seu saldo de parceiro e pode ser solicitada para pagamento.",
-                "partners.demoDepositNote": "Importante: o depósito de $100 mostrado é do usuário indicado — não do parceiro.",
                 "partners.flow.partner": "Parceiro",
                 "partners.flow.referral": "Indicação",
                 "partners.flow.deposit": "Depósito qualificado de $100",
@@ -681,9 +659,6 @@
                 "partners.step4Title": "Demandez",
                 "partners.step4Desc": "Demandez vos gains de parrainage confirmés en USDT / TRC20.",
                 "partners.demoTitle": "Démonstration du Paiement Partenaire",
-                "partners.demoSubtitle": "Découvrez comment un parrainage devient un paiement.",
-                "partners.demoIntro": "Le dépôt présenté dans cette démo est effectué par l'utilisateur que vous avez parrainé. Une fois son dépôt qualifiant crédité, votre récompense de parrainage de 20 % est ajoutée à votre solde partenaire et peut être demandée en paiement.",
-                "partners.demoDepositNote": "Important : le dépôt de 100 $ présenté est celui de l'utilisateur parrainé — pas celui du partenaire.",
                 "partners.flow.partner": "Partenaire",
                 "partners.flow.referral": "Parrainage",
                 "partners.flow.deposit": "Dépôt admissible de $100",
@@ -770,9 +745,6 @@
                 "partners.step4Title": "اطلب",
                 "partners.step4Desc": "اطلب أرباح الإحالة المؤكدة بعملة USDT / TRC20.",
                 "partners.demoTitle": "عرض توضيحي لدفع الشركاء",
-                "partners.demoSubtitle": "شاهد كيف تتحول الإحالة إلى عملية دفع.",
-                "partners.demoIntro": "الإيداع الظاهر في هذا العرض يقوم به المستخدم الذي أحلت إليه. بمجرد اعتماد إيداعه المؤهل، تُضاف مكافأة الإحالة بنسبة 20% إلى رصيدك كشريك ويمكنك طلب دفعها.",
-                "partners.demoDepositNote": "مهم: الإيداع البالغ 100$ الظاهر هو إيداع المستخدم المُحال — وليس إيداع الشريك.",
                 "partners.flow.partner": "الشريك",
                 "partners.flow.referral": "الإحالة",
                 "partners.flow.deposit": "إيداع مؤهل بقيمة $100",
@@ -859,9 +831,6 @@
                 "partners.step4Title": "申请",
                 "partners.step4Desc": "以 USDT / TRC20 申请已确认的推荐收益。",
                 "partners.demoTitle": "合作伙伴提现演示",
-                "partners.demoSubtitle": "了解推荐如何变成提现。",
-                "partners.demoIntro": "此演示中显示的入金由你推荐的用户完成。当其符合条件的入金到账后，你的 20% 推荐奖励会计入你的合作伙伴余额，并可申请提现。",
-                "partners.demoDepositNote": "重要：演示中的 $100 入金是被推荐用户的入金，而非合作伙伴的入金。",
                 "partners.flow.partner": "合作伙伴",
                 "partners.flow.referral": "推荐",
                 "partners.flow.deposit": "符合条件的 $100 存款",

@@ -6043,3 +6043,72 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   net::ERR_ABORTED on the media request is expected with preload="metadata" (Chromium cancels the
   range request after reading the header) - it is not an error.
 - NOT committed / NOT pushed / NOT deployed.
+
+
+## /partners Phase 2 - Captioned Partner Payout Walkthrough (2026-10-06, NOT committed)
+- Goal: make the EXISTING partner payout recording explain the whole referral flow
+  on its own, so the /partners demo section no longer needs explanatory copy above it.
+  The real product screen recording is PRESERVED - no screen is re-created, no
+  screenshot, transaction, earning or customer detail is fabricated.
+- The recording was EDITED (not replaced): the original mp4 was decoded, each frame
+  was cleaned, captions were composited, and the result was re-encoded. Format is
+  unchanged: 810x1440, 15fps, 612 frames, 40.8s, h264 High, yuv420p, faststart, no
+  audio (same as before). 2,776,234 -> 3,040,368 bytes.
+- CLEANED (measured, then removed by per-column background interpolation between the
+  rows just above and below each band, so there is no seam and no smearing):
+  * the burned-in bottom overlay "SIMULATED DEMO - No real money or payouts"
+    (y 1394..1430, full width);
+  * the in-app sandbox note "Simulated demo data - no real money or payouts."
+    (y 560..596 and y 326..370, x 108..588) only during the windows in which it is
+    on screen. Verified: no "simulated demo"/"no real payouts" text remains in any
+    of the 82 sampled frames, and the bottom band is now empty where the overlay was.
+  * DELIBERATELY KEPT (not sandbox chrome): the app's own "Demo Mode ... no real
+    money" explainer on the auth page (legitimate production copy), the neutral
+    PREVIEW header badge (removing it would require repainting genuine header UI
+    next to it), and the recording's actual data values (the demo account email, the
+    invoice reference, the wallet address, and the "SIMULATED-TRC20-000000" tx
+    reference - masking that last one would move the video TOWARDS implying a real
+    payout, which the brief forbids).
+- EIGHT BURNED-IN CAPTIONS (Inter Bold, translucent dark rounded bar, white text with
+  brand-gold accents, 0.3s fade + slide, vector arrows because the subset font has no
+  U+2192), timed to the real on-screen actions:
+    1 (t=8.8)  1. Share your referral link
+    2 (t=10.8) 2. Your referred user signs in
+    3 (t=18.9) 3. Your referred user deposits $100+
+    4 (t=23.2) The deposit is made by your referred user - not you.  [2 lines]
+    5 (t=28.6) 4. You earn 20% of their qualifying deposit
+               $100 deposit -> $20 referral reward                     [2 lines]
+    6 (t=31.0) 5. Request your payout
+    7 (t=36.5) 6. Get paid in USDT / TRC20
+    8 (t=38.7) Refer -> Earn 20% -> Request payout   (holds to the last frame)
+  Caption 2 says "signs in" because the recording literally shows the referred user's
+  LOGIN screen (no signup form is recorded) - accurate wording for the moment shown.
+- PLACEMENT: a consistent top band (y=92) was chosen from a measured layout+content
+  analysis. It avoids EVERY user-listed critical item (referral code/link, deposit
+  amount, reward amount, payout status, important buttons) in all eight moments; it
+  only ever overlaps section headings/notes. Verified programmatically with a
+  differential test (new vs original frame in the caption band): zero caption-band
+  change outside the caption windows, and each caption present in its window.
+- POSTER regenerated from the CLEANED video at the same moment as before (t=31.4,
+  the payout step): 810x1440, 85,419 bytes, overlay gone, caption visible.
+- PAGE (public/partners.html): the above-video copy was REMOVED - partners.demoSubtitle,
+  partners.demoIntro and the partners.demoDepositNote callout, plus their now-dead
+  i18n keys (all 6 locales) and CSS hooks (.demo-intro / .demo-deposit-note). The
+  section is now compact: heading -> video -> workflow flow -> visible simulated-demo
+  disclosure. Removal was done byte-safely (script) and the non-ASCII character
+  multiset was proven to shrink by EXACTLY the removed content. 87 -> 84 keys/locale.
+- UNCHANGED: the support handle @Arbitrix_CSA1 (single meta source; the CTA resolves
+  to https://t.me/Arbitrix_CSA1), the /partners route, the homepage navigation (the
+  page stays unlisted), the customer funnel (public/index.html and server.js are
+  byte-identical - git shows only partners.html, the two video assets and the test
+  file as modified), and all referral/payout business logic.
+- VERIFICATION: npm test = 1994 pass / 0 fail (tests/partners_page.test.js 36/36,
+  with 7f/7g rewritten to pin the removal and EXPECTED_KEYS 87 -> 84). Headless
+  Chromium on the real page = 50/50: video inside .demo-stage decoding at 810x1440 /
+  40.80s, poster+source wired, disclosure visible below the video and saying
+  "simulated", 10 workflow steps, no paragraph between the heading and the video,
+  0 px horizontal overflow at 320/390/1280, Arabic RTL with no raw keys and a fully
+  localized disclosure, support CTA + handle correct, no page errors, no failed
+  requests.
+- The original recording remains recoverable from git (HEAD: 2,776,234 bytes).
+- NOT committed / NOT pushed / NOT deployed.
