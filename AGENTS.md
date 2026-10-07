@@ -6112,3 +6112,76 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   requests.
 - The original recording remains recoverable from git (HEAD: 2,776,234 bytes).
 - NOT committed / NOT pushed / NOT deployed.
+
+
+## /partners locale-aware partner video architecture (2026-10-07, public/partners.html + tests)
+- ONE shared /partners landing page. The partner payout walkthrough recording is
+  now chosen by the ACTIVE LOCALE, with an automatic fallback to the English
+  recording when a localized asset is absent. Only the English recording exists;
+  NO localized video/poster files were created (defined as FUTURE paths only).
+- Files changed: public/partners.html (+196/-0, purely additive: selector CSS +
+  topbar selector markup + video-localization/language-switch JS + 2 boot calls)
+  and NEW tests/partners_video_locale.test.js (24 tests). Nothing else was
+  touched (no server.js, services, migrations, index.html, how-it-works, legal
+  pages, email/Render config, referral/payout/auth/customer logic).
+- LOCALE -> ASSET MAPPING (base '/video/'), PARTNER_VIDEO_FILE_BY_LANG:
+    en -> arbitrix-partner-payout-demo.mp4      (EXISTING, shipped)
+    es -> arbitrix-partner-payout-demo-es.mp4   (future)
+    pt -> arbitrix-partner-payout-demo-pt.mp4   (future)
+    fr -> arbitrix-partner-payout-demo-fr.mp4   (future)
+    ar -> arbitrix-partner-payout-demo-ar.mp4   (future)
+    zh -> arbitrix-partner-payout-demo-zh.mp4   (future)
+  Posters follow the same convention (PARTNER_POSTER_FILE_BY_LANG):
+    en -> arbitrix-partner-payout-poster.jpg, others -> ...-poster-<lang>.jpg.
+  To add a language's video later: drop the file in public/video/ with the mapped
+  name - NO code change is required. "Do NOT change the locale mappings" applies.
+- FALLBACK (applyPartnerVideo(), called at boot and on every locale change):
+  * en: the shipped <source src> already equals the English path, so the media is
+    left entirely untouched (no attribute mutation, no video.load()) - the English
+    experience is byte-identical.
+  * non-en: the localized <source src> is set + video.load(); error listeners are
+    attached to BOTH the <source> element (its error event does not bubble) and the
+    <video> element, plus a loadedmetadata listener. A 404 fires error -> the source
+    reverts to the English recording and data-video-lang='en'. The English POSTER is
+    never replaced, so no blank/broken frame is ever shown; a loadedmetadata means the
+    localized asset is real -> the localized poster is adopted then.
+  * The listeners are one-shot (cleanup() removes all three) -> no reload loop.
+  * The shipped HTML always contains exactly ONE <source> (the English file), so the
+    initial document never emits a broken source, for any locale.
+  * partnerVideoSrcForLang(lang) falls back to the English file for any unknown/
+    unsupported/empty locale, so no locale can resolve to a broken source.
+- LANGUAGE SELECTION: /partners had NO visible selector. A compact one was added to
+  the existing topbar REUSING the app-wide mechanism, not a second i18n system:
+  the same shared localStorage 'arbi_lang' key + detectBrowserLanguage() +
+  applyTranslations(), and the app's own class conventions
+  (.language-selector/.lang-trigger/.language-dropdown/.language-option). Six
+  options (en/es/pt/fr/ar/zh). setLanguage(lang) validates, sets currentLang,
+  persists arbi_lang, re-runs applyTranslations() (html lang/dir, title, data-i18n),
+  then applyPartnerVideo() + updatePartnerLangUI(). It is a LIVE switch (no page
+  reload). At most one menu is ever open; clicking outside or Escape closes it. On
+  small screens the dropdown anchors under the trigger (left:50% + translateX(-50%))
+  so it is never clipped off-screen; Arabic uses left:50% too under dir=rtl.
+- i18n: NO new dictionary keys (still 84 keys/locale x6). Selector labels are static
+  native names (English/Espanol/Portugues/Francais/...), matching the existing app
+  selector. The dictionary, the demo disclosure, the workflow steps and the partner
+  business rules (20% / first qualifying deposit / $100 minimum / no trading required
+  / no minimum payout / USDT TRC20 / manual review) are UNCHANGED in all locales.
+- THE ENGLISH ASSETS ARE FROZEN (task requirement): sha256 and size pinned in the new
+  test - mp4 85a3f42fb511934c193b389e3018986e3df00441d2a762b2d4d9fd4c8fd38922
+  (3040368 B); poster 800576039903cd616fb8827c7afa4be941a41f8ef951223c12f03347b5673f4d
+  (85419 B). Updating the recording must be a deliberate, separately approved change
+  that updates these pins.
+- VERIFICATION: npm test = 2018 pass / 0 fail (baseline 1994; +24 new). Browser
+  harness (puppeteer-core + /usr/bin/chromium, real page over HTTP) = 378/378 across
+  6 locales x 1280/390/320: one video/one source, no broken source (English fallback),
+  html lang + dir correct (ar RTL), selector visible with 6 options + correct active
+  option/code, no horizontal overflow, only the expected localized 404s (0 for en,
+  exactly 1 per non-en = the missing MP4), no page errors; menu opens, locale switch
+  updates lang/dir/video/arbi_lang/code and closes the menu. Dropdown-fit harness =
+  16/16 (open menu stays in the viewport at 320/360/390/1280 incl. RTL). Encoding:
+  no non-ASCII character lost vs HEAD, 0 U+FFFD. public/video unchanged.
+- KNOWN, BY DESIGN: a non-English visit makes ONE request for the not-yet-produced
+  localized MP4 and receives 404 before the fallback engages (standard runtime
+  fallback; no manifest needed). The localized poster is only adopted after a
+  localized video successfully loads, so a localized poster without a localized
+  video will not display.

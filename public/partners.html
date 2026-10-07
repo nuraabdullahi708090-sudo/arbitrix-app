@@ -70,6 +70,46 @@
         .logo span span { color: var(--brand); }
         .topbar { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
         .top-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+        /* Language selector: reuses the app-wide language switch (the shared
+           'arbi_lang' key + detectBrowserLanguage) - no second i18n system. The
+           walkthrough video is localized per language by applyPartnerVideo(). */
+        .language-selector { position: relative; display: inline-flex; }
+        .lang-trigger {
+            display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px;
+            background: transparent; border: 1px solid var(--border-color); border-radius: 12px;
+            color: var(--text-secondary); font-family: inherit; font-size: 12px; font-weight: 700;
+            letter-spacing: 0.4px; cursor: pointer; transition: all 200ms ease; min-height: 46px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .lang-trigger:hover { color: var(--text-primary); border-color: var(--brand); }
+        .lang-trigger .fa-globe { font-size: 13px; color: var(--brand); }
+        .language-dropdown {
+            position: absolute; top: calc(100% + 8px); right: 0; width: 200px;
+            max-width: calc(100vw - 24px); background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6); z-index: 10002; display: none; overflow: hidden;
+        }
+        .language-dropdown.open { display: block; }
+        .language-option {
+            display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px;
+            background: transparent; border: 0; cursor: pointer; transition: all 200ms ease;
+            font-family: inherit; font-size: 12px; font-weight: 600;
+            color: var(--text-secondary); text-align: start;
+        }
+        .language-option:hover { background: var(--bg-input); color: var(--text-primary); }
+        .language-option.active { background: var(--brand-weak); color: var(--brand); font-weight: 700; }
+        .language-option .flag { font-size: 18px; }
+        .language-option .check { margin-inline-start: auto; color: var(--brand); display: none; }
+        .language-option.active .check { display: block; }
+        html[dir="rtl"] .language-dropdown { right: auto; left: 0; }
+        /* On small screens the selector sits mid-row, so anchor the menu under
+           the trigger instead of right:0 (which would clip it off-screen). */
+        @media (max-width: 640px) {
+            .lang-trigger { padding: 7px 9px; }
+            .language-dropdown { right: auto; left: 50%; transform: translateX(-50%); }
+            html[dir="rtl"] .language-dropdown { right: auto; left: 50%; }
+        }
         .btn {
             font-family: inherit; font-weight: 600; padding: 12px 18px; border-radius: 12px;
             border: none; cursor: pointer; transition: all 200ms ease; font-size: 15px;
@@ -216,6 +256,20 @@
             <div class="top-actions">
                 <a class="btn btn-secondary" href="/?action=sign-in" data-i18n="partners.signIn">Sign In</a>
                 <a class="btn btn-primary js-apply-cta" href="/?action=create-account" data-i18n="partners.cta.apply">Apply to Become a Partner</a>
+                <div class="language-selector">
+                    <button type="button" class="lang-trigger" id="partnerLangBtn" aria-haspopup="true" aria-expanded="false" aria-label="Language: English" onclick="togglePartnerLangMenu()">
+                        <i class="fas fa-globe" aria-hidden="true"></i>
+                        <span class="lang-code" id="partnerLangCode">EN</span>
+                    </button>
+                    <div class="language-dropdown lang-menu" id="partnerLangMenu" role="menu">
+                        <button type="button" class="language-option" data-lang="en" role="menuitem" onclick="setLanguage('en')"><span class="flag">🇺🇸</span><span>English</span><i class="fas fa-check check" aria-hidden="true"></i></button>
+                        <button type="button" class="language-option" data-lang="es" role="menuitem" onclick="setLanguage('es')"><span class="flag">🇪🇸</span><span>Español</span><i class="fas fa-check check" aria-hidden="true"></i></button>
+                        <button type="button" class="language-option" data-lang="pt" role="menuitem" onclick="setLanguage('pt')"><span class="flag">🇧🇷</span><span>Português</span><i class="fas fa-check check" aria-hidden="true"></i></button>
+                        <button type="button" class="language-option" data-lang="fr" role="menuitem" onclick="setLanguage('fr')"><span class="flag">🇫🇷</span><span>Français</span><i class="fas fa-check check" aria-hidden="true"></i></button>
+                        <button type="button" class="language-option" data-lang="ar" role="menuitem" onclick="setLanguage('ar')"><span class="flag">🇸🇦</span><span>العربية</span><i class="fas fa-check check" aria-hidden="true"></i></button>
+                        <button type="button" class="language-option" data-lang="zh" role="menuitem" onclick="setLanguage('zh')"><span class="flag">🇨🇳</span><span>中文</span><i class="fas fa-check check" aria-hidden="true"></i></button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -970,6 +1024,146 @@
             if (handleEl) handleEl.textContent = partnerSupportRaw();
         }
 
+        // ============ Partner walkthrough video localization ============
+        // ONE shared /partners page. The walkthrough recording is chosen by the
+        // active locale. Only the English recording exists today; every other
+        // entry is the FUTURE asset path (no placeholder file is shipped). If a
+        // localized asset is absent the player falls back to the English video,
+        // so a not-yet-produced translation can never show a broken player.
+        var PARTNER_VIDEO_BASE = '/video/';
+        var PARTNER_VIDEO_FILE_BY_LANG = {
+            en: 'arbitrix-partner-payout-demo.mp4',
+            es: 'arbitrix-partner-payout-demo-es.mp4',
+            pt: 'arbitrix-partner-payout-demo-pt.mp4',
+            fr: 'arbitrix-partner-payout-demo-fr.mp4',
+            ar: 'arbitrix-partner-payout-demo-ar.mp4',
+            zh: 'arbitrix-partner-payout-demo-zh.mp4'
+        };
+        var PARTNER_POSTER_FILE_BY_LANG = {
+            en: 'arbitrix-partner-payout-poster.jpg',
+            es: 'arbitrix-partner-payout-poster-es.jpg',
+            pt: 'arbitrix-partner-payout-poster-pt.jpg',
+            fr: 'arbitrix-partner-payout-poster-fr.jpg',
+            ar: 'arbitrix-partner-payout-poster-ar.jpg',
+            zh: 'arbitrix-partner-payout-poster-zh.jpg'
+        };
+        var PARTNER_VIDEO_FALLBACK_SRC = PARTNER_VIDEO_BASE + PARTNER_VIDEO_FILE_BY_LANG.en;
+        var PARTNER_POSTER_FALLBACK_SRC = PARTNER_VIDEO_BASE + PARTNER_POSTER_FILE_BY_LANG.en;
+
+        function partnerVideoSrcForLang(lang) {
+            var file = PARTNER_VIDEO_FILE_BY_LANG[lang] || PARTNER_VIDEO_FILE_BY_LANG.en;
+            return PARTNER_VIDEO_BASE + file;
+        }
+        function partnerPosterSrcForLang(lang) {
+            var file = PARTNER_POSTER_FILE_BY_LANG[lang] || PARTNER_POSTER_FILE_BY_LANG.en;
+            return PARTNER_VIDEO_BASE + file;
+        }
+
+        function applyPartnerVideo() {
+            try {
+                var video = document.getElementById('demoVideo');
+                if (!video) return;
+                var sourceEl = video.querySelector ? video.querySelector('source') : null;
+                if (!sourceEl) return;
+                var desiredSrc = partnerVideoSrcForLang(currentLang);
+                // English is the shipped markup: no reload and no media mutation,
+                // so the English experience stays exactly as before.
+                if (sourceEl.getAttribute('src') === desiredSrc) {
+                    video.setAttribute('data-video-lang', currentLang);
+                    return;
+                }
+                var cleanup = function () {
+                    if (sourceEl.removeEventListener) sourceEl.removeEventListener('error', onError);
+                    if (video.removeEventListener) video.removeEventListener('error', onError);
+                    if (video.removeEventListener) video.removeEventListener('loadedmetadata', onLoaded);
+                };
+                // The localized asset is missing: revert to the English recording.
+                // The English poster was never replaced, so no broken media shows.
+                var onError = function () {
+                    cleanup();
+                    sourceEl.setAttribute('src', PARTNER_VIDEO_FALLBACK_SRC);
+                    video.setAttribute('data-video-lang', 'en');
+                    try { video.load(); } catch (e2) {}
+                };
+                // The localized asset is real: adopt its localized poster too.
+                var onLoaded = function () {
+                    cleanup();
+                    video.setAttribute('poster', partnerPosterSrcForLang(currentLang));
+                    video.setAttribute('data-video-lang', currentLang);
+                };
+                // Source error events do not bubble; some engines surface a media
+                // load failure on the element instead. Listen to both.
+                if (sourceEl.addEventListener) sourceEl.addEventListener('error', onError);
+                if (video.addEventListener) video.addEventListener('error', onError);
+                if (video.addEventListener) video.addEventListener('loadedmetadata', onLoaded);
+                sourceEl.setAttribute('src', desiredSrc);
+                video.setAttribute('data-video-lang', currentLang);
+                try { video.load(); } catch (e3) {}
+            } catch (e) { if (window.console) console.error('applyPartnerVideo error:', e); }
+        }
+
+        // ============ Language selector (reuses the shared arbi_lang key) ============
+        var PARTNER_LANG_ENGLISH_NAMES = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ar: 'Arabic', zh: 'Chinese' };
+
+        function updatePartnerLangUI() {
+            try {
+                var code = document.getElementById('partnerLangCode');
+                if (code) code.textContent = String(currentLang || 'en').toUpperCase();
+                var btn = document.getElementById('partnerLangBtn');
+                if (btn) {
+                    var name = PARTNER_LANG_ENGLISH_NAMES[currentLang] || 'English';
+                    btn.setAttribute('aria-label', 'Language: ' + name);
+                    btn.setAttribute('title', name);
+                }
+                var options = document.querySelectorAll('#partnerLangMenu .language-option');
+                for (var i = 0; i < options.length; i++) {
+                    var isActive = options[i].getAttribute('data-lang') === currentLang;
+                    if (options[i].classList) {
+                        if (isActive) options[i].classList.add('active');
+                        else options[i].classList.remove('active');
+                    }
+                }
+            } catch (e) { if (window.console) console.error('updatePartnerLangUI error:', e); }
+        }
+
+        function closePartnerLangMenu() {
+            var menu = document.getElementById('partnerLangMenu');
+            if (menu && menu.classList) menu.classList.remove('open');
+            var btn = document.getElementById('partnerLangBtn');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+
+        function togglePartnerLangMenu() {
+            var menu = document.getElementById('partnerLangMenu');
+            if (!menu || !menu.classList) return;
+            var willOpen = !menu.classList.contains('open');
+            if (willOpen) menu.classList.add('open');
+            else menu.classList.remove('open');
+            var btn = document.getElementById('partnerLangBtn');
+            if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        }
+
+        function setLanguage(lang) {
+            if (!TRANSLATIONS[lang]) lang = 'en';
+            currentLang = lang;
+            try { localStorage.setItem('arbi_lang', lang); } catch (e) {}
+            applyTranslations();
+            applyPartnerVideo();
+            updatePartnerLangUI();
+            closePartnerLangMenu();
+        }
+
+        if (document.addEventListener) {
+            document.addEventListener('click', function (ev) {
+                var root = document.querySelector ? document.querySelector('.language-selector') : null;
+                if (root && ev && ev.target && root.contains && root.contains(ev.target)) return;
+                closePartnerLangMenu();
+            });
+            document.addEventListener('keydown', function (ev) {
+                if (ev && (ev.key === 'Escape' || ev.keyCode === 27)) closePartnerLangMenu();
+            });
+        }
+
         // Deep-link contract used by the marketing pages: remember the entry so
         // the auth screen opens on the requested tab. Reuses the existing
         // ?action= behaviour; no new authentication system.
@@ -977,6 +1171,8 @@
 
         applyTranslations();
         applyPartnerSupport();
+        applyPartnerVideo();
+        updatePartnerLangUI();
     </script>
 </body>
 </html>
