@@ -6185,3 +6185,116 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   fallback; no manifest needed). The localized poster is only adopted after a
   localized video successfully loads, so a localized poster without a localized
   video will not display.
+
+
+## /partners locale-aware partner video ARCHITECTURE DEPLOYED TO PRODUCTION (2026-10-07)
+- Deployment commit: eb0bfd0bba22a7eb95f3a42972e5af8a0511f836
+  ("feat: add locale-aware partner video architecture"), pushed
+  a6f33cc..eb0bfd0 main -> main to
+  github.com/nuraabdullahi708090-sudo/arbitrix-app (normal fast-forward; the parent
+  of the commit was exactly the previous origin/main a6f33cc; no force-push/rebase/
+  reset/amend). Origin URL re-pointed at the GITHUB_TOKEN-authenticated URL for the
+  push (the credential previously embedded in the remote URL no longer authenticates).
+- CHANGE SET: public/partners.html (+196/-0, purely additive), NEW
+  tests/partners_video_locale.test.js (24 tests), AGENTS.md (+73). No server.js,
+  services, migrations, public/index.html, how-it-works, legal pages, email/Render
+  config, or referral/payment/auth/customer logic was touched. No localized video/
+  poster files were created. The English recording + poster are byte-for-byte
+  unchanged (sha256 pinned in the new test and verified against HEAD before the push).
+- Pre-commit checks: npm test = 2018 pass / 0 fail; working tree contained only the
+  three intended files; English mp4 sha256 85a3f42f...38922 (3040368 B) and poster
+  sha256 80057603...3f4d (85419 B) matched HEAD; ls public/video/ showed no
+  localized placeholder files.
+- HOSTING: Render auto-deployed on push. The served /partners became the new build at
+  ~t+50s and is now BYTE-IDENTICAL to the committed file (sha256
+  6673915610e3667e7dac0b26019d8317781ca4349818b2b02b0fbc97d4648609, 90125 bytes).
+  NOTE: compare with cmp/sha256 of the FETCHED FILE, not a shell command-substitution
+  hash (the shell strips the trailing newline and yields a false mismatch).
+- LIVE VERIFICATION:
+  * Endpoints: /partners 200, /api/health 200, / 200, /how-it-works 200.
+  * Unchanged pages: live / and /how-it-works are byte-identical to their committed
+    HEAD files (cmp = YES), confirming the change is isolated to /partners.
+  * Headless Chromium on https://arbitrix.pro/partners (120/120 checks across
+    en/es/pt/fr/ar/zh @390 + en/ar @1280): every locale ends on the English source
+    (/video/arbitrix-partner-payout-demo.mp4) with the media element actually loaded
+    (readyState >= 1, no media error) - i.e. English loads the real English video and
+    every non-English locale falls back to it while localized assets are absent; the
+    language selector is visible with 6 options and the correct active code; switching
+    locale updates html lang/dir + the video + arbi_lang and closes the menu; Arabic
+    renders dir=rtl; 0 horizontal overflow; only expected localized-asset 404s, no JS
+    page errors.
+  * Screenshots: /tmp/pv/liveshots/live-partners-en-1280/en-390/ar-390/es-390.png.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
+  trigger a second Render rebuild (the working tree therefore shows AGENTS.md modified
+  - documentation only).
+
+
+## /partners locale-aware video - poster fallback hardening (2026-10-07, NOT committed)
+- Follow-up to eb0bfd0 (the locale-aware partner video architecture, already
+  committed + deployed earlier). Independent browser verification found ONE residual
+  gap: when a localized RECORDING exists but its localized POSTER does not, onLoaded
+  adopted the missing poster path, so the player ended on a broken poster frame
+  (measured: the localized poster 404s and the poster image fails to render) even
+  though the recording itself played fine.
+- Fix (public/partners.html, video-locale block only): new applyPartnerPoster(lang)
+  probes the localized poster with an Image() and adopts it ONLY on a successful
+  load; on error it keeps the shipped English poster. A stale probe cannot overwrite
+  a newer switch (partnerPosterProbeLang guard), and returning to the English asset
+  immediately restores the shipped poster. No media asset was created, changed or
+  removed (all four public/video files verified byte-identical to HEAD); the page is
+  still ONE shared /partners file; no new i18n keys, no CSS or markup change.
+- Tests: tests/partners_video_locale.test.js gains 4 tests (4e a missing localized
+  poster keeps the English poster; 4f the poster is never written straight from the
+  locale map; 4g returning to English restores the shipped poster; 4h a straight
+  English visit probes and mutates nothing) and 4d now asserts the probe runs before
+  the poster is adopted. npm test = 2022 pass / 0 fail (was 2018).
+- Browser verification (puppeteer-core + chromium, local static server on public/):
+  126/126 checks - every locale (en/es/pt/fr/ar/zh) at 390 and en/ar at 1280 ends on
+  the English recording with a really loaded media element (readyState>=1, no media
+  error, duration>0) and the English poster, so no broken player is ever shown;
+  scenario B (localized recording AND poster both served) adopts both and returns to
+  the English pair when switching back; the poster-missing case keeps the English
+  poster and it still renders (7/7 separate checks). Arabic renders dir=rtl; 0
+  horizontal overflow; only the expected localized-asset 404s, no JS errors.
+- NOT committed / NOT deployed.
+
+## /how-it-works video replaced with the approved polished product demo (2026-10-07, NOT committed)
+- SCOPE: the /how-it-works player only. NO changes to server.js, auth, signup/login,
+  deposits, trading, withdrawals, referrals, backend APIs, the database, or any other
+  page. public/index.html was NOT touched.
+- FILES: M public/how-it-works.html; NEW public/video/arbitrix-how-it-works-product-demo-en.mp4
+  (sha256 b48c72ed...901a, 9,243,462 B); NEW public/video/arbitrix-how-it-works-poster.jpg
+  (sha256 a117bf62...f42e, 60,182 B, 1080x1920); NEW tests/how_it_works_video.test.js (9 tests).
+- ASSET PROVENANCE: the served MP4 is a BYTE-IDENTICAL copy of the approved master
+  build/video/how-it-works/arbitrix-how-it-works-product-demo-en.mp4 (no re-encode, quality
+  unchanged; 1080x1920, h264 High, 30 fps, AAC 44.1 kHz mono, 89.60 s).
+- DELIBERATE NON-CHANGE (the key finding): /video/arbitrix-explainer.mp4 and
+  /video/arbitrix-poster.jpg are SHARED with the LANDING page (public/index.html,
+  .landing-video) and are pinned by tests/landing_referral_launch.test.js. Overwriting them
+  in place would have silently changed the landing page's video. The new video therefore
+  uses NEW filenames and only public/how-it-works.html was repointed; the landing page and
+  its assets are untouched.
+- REMOVED from the page: the second <source> pointing at the HeyGen CDN
+  (files2.heygen.ai/.../caption.mp4) and the matching video 'error' handler, because that
+  CDN copy IS the retired AI-presenter explainer - keeping it would have let the page fall
+  back to the old video. The page now has exactly ONE local source (the landing page's
+  approach). No external video dependency remains on /how-it-works.
+- PLAYER CONTRACT PRESERVED: controls, playsinline, preload="metadata", the 9:16 mobile
+  framing (aspect-ratio 9/16, object-fit contain) and the >=560px 68vh desktop rule are
+  unchanged; muted autoplay is kept (v.muted = true) so there is never autoplay with sound.
+- POSTER: frame taken from the new video at 88.8 s (the branded closing card), 1080x1920.
+- VERIFICATION: npm test = 2031 pass / 0 fail (was 2022; +9 new).
+  Browser (puppeteer-core + /usr/bin/chromium, local server) = 63/63 across 1280x800,
+  390x844 and 360x740: the new MP4 is the only source, currentSrc = the new asset,
+  duration 89.6 s, intrinsic 1080x1920, controls+playsinline+preload intact, muted with no
+  autoplay attribute, plays from the beginning and reaches ended=true at 89.60/89.6,
+  poster loads and renders (0:00 / 1:29), portrait 9:16 on mobile (ratio 1.777-1.779),
+  desktop height 544 px = 68vh, 0 px horizontal overflow, no 404s, no console errors, and
+  arbitrix-explainer.mp4 / heygen.ai are NEVER requested. NOTE: Chromium reports
+  net::ERR_ABORTED for the initial media range request when preload="metadata" - that is
+  expected browser behaviour, not a failure (it is excluded from the failure list in the
+  harness; there are no 4xx/5xx responses).
+- ALSO PRESENT IN THE WORKING TREE, NOT PART OF THIS CHANGE: M public/partners.html and
+  M tests/partners_video_locale.test.js (an earlier, uncommitted /partners poster-fallback
+  hardening session), plus the untracked build/ master-video workspace. Exclude those if
+  only the /how-it-works replacement is being committed.

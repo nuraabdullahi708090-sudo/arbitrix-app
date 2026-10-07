@@ -224,9 +224,8 @@
 
         <div class="video-wrap">
             <div class="video-frame">
-                <video id="explainerVideo" controls playsinline preload="metadata" poster="/video/arbitrix-poster.jpg">
-                    <source src="/video/arbitrix-explainer.mp4" type="video/mp4">
-                    <source src="https://files2.heygen.ai/movio/video/2e3112e23dd44f17a675785577b4c2b2/96544d6e224740e7b16ad8211f444f86/caption.mp4" type="video/mp4">
+                <video id="explainerVideo" controls playsinline preload="metadata" poster="/video/arbitrix-how-it-works-poster.jpg">
+                    <source src="/video/arbitrix-how-it-works-product-demo-en.mp4" type="video/mp4">
                     Your browser does not support embedded video.
 
                 </video>
@@ -261,29 +260,15 @@
             var v = document.getElementById('explainerVideo');
 
             if (v) {
-                // Muted autoplay: play the avatar explainer immediately so the
-                // presenter is visible on load (no sound until the user taps
-                // the in-video mute/unmute control; playsinline keeps iOS Safari
-                // from hijacking into fullscreen).
+                // Muted autoplay: the product demo starts on load with no sound
+                // until the viewer uses the player's own controls; playsinline
+                // keeps iOS Safari from hijacking into fullscreen on tap.
                 try {
                     v.muted = true;
                     v.playsInline = true;
                     var p = v.play();
                     if (p) { p.catch(function () { /* autoplay blocked; poster remains */ }); }
                 } catch (e) { /* poster covers the player if autoplay is denied */ }
-
-                // Backup:if the primary local file can't be reached (e.g.
-                // production asset not yet deployed),  the HeyGen CDN mp4 still
-                // provides a playable video. The native controls keep the poster
-                // until play,and playsinline keeps iOS Safari from hijacking into
-                // fullscreen on tap.
-
-            v.addEventListener('error', function () {
-                    if (this.currentSrc && this.currentSrc.indexOf('arbitrix-explainer.mp4') !== -1 && this.lastSourceIndex !== 1) {
-                        this.lastSourceIndex = 1;
-                        this.src = 'https://files2.heygen.ai/movio/video/2e3112e23dd44f17a675785577b4c2b2/96544d6e224740e7b16ad8211f444f86/caption.mp4';
-                    }
-                });
             }
 
             // Spacebar toggles play/pause when the page body is focused (desktop
