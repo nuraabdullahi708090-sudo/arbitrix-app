@@ -8849,6 +8849,7 @@ const TRANSLATIONS = {
         'admin.referral.recordPayment': 'Record Payment',
         'admin.referral.rejectPayout': 'Reject',
         'admin.referral.txRefPrompt': 'Enter the payment transaction hash / reference:',
+        'admin.referral.txRefRequired': 'A transaction reference is required to mark a payout paid.',
         'admin.referral.rejectConfirm': 'Reject this payout request? The reserved earnings will be returned to the partner.',
         'admin.referral.noPayouts': 'No payout requests.',
         'admin.referral.payoutCol.coin': 'Coin',
@@ -10370,6 +10371,7 @@ const TRANSLATIONS = {
         'admin.referral.recordPayment': 'Registrar pago',
         'admin.referral.rejectPayout': 'Rechazar',
         'admin.referral.txRefPrompt': 'Introduce el hash / referencia de la transacción de pago:',
+        'admin.referral.txRefRequired': 'Se requiere una referencia de transacción para marcar un pago como pagado.',
         'admin.referral.rejectConfirm': '¿Rechazar esta solicitud de pago? Las ganancias reservadas se devolverán al socio.',
         'admin.referral.noPayouts': 'No hay solicitudes de pago.',
         'admin.referral.payoutCol.coin': 'Moneda',
@@ -11892,6 +11894,7 @@ const TRANSLATIONS = {
         'admin.referral.recordPayment': 'Registrar pagamento',
         'admin.referral.rejectPayout': 'Rejeitar',
         'admin.referral.txRefPrompt': 'Informe o hash / referência da transação de pagamento:',
+        'admin.referral.txRefRequired': 'É necessária uma referência de transação para marcar um pagamento como pago.',
         'admin.referral.rejectConfirm': 'Rejeitar esta solicitação de pagamento? Os ganhos reservados serão devolvidos ao parceiro.',
         'admin.referral.noPayouts': 'Nenhuma solicitação de pagamento.',
         'admin.referral.payoutCol.coin': 'Moeda',
@@ -13414,6 +13417,7 @@ const TRANSLATIONS = {
         'admin.referral.recordPayment': 'Enregistrer le paiement',
         'admin.referral.rejectPayout': 'Rejeter',
         'admin.referral.txRefPrompt': 'Saisissez le hash / la référence de la transaction de paiement :',
+        'admin.referral.txRefRequired': 'Une référence de transaction est requise pour marquer un paiement comme payé.',
         'admin.referral.rejectConfirm': 'Rejeter cette demande de paiement ? Les gains réservés seront rendus au partenaire.',
         'admin.referral.noPayouts': 'Aucune demande de paiement.',
         'admin.referral.payoutCol.coin': 'Devise',
@@ -14936,6 +14940,7 @@ const TRANSLATIONS = {
         'admin.referral.recordPayment': 'تسجيل الدفع',
         'admin.referral.rejectPayout': 'رفض',
         'admin.referral.txRefPrompt': 'أدخل هاش / مرجع معاملة الدفع:',
+        'admin.referral.txRefRequired': 'مطلوب مرجع معاملة لتعليم الدفعة كمدفوعة.',
         'admin.referral.rejectConfirm': 'هل تريد رفض طلب الدفع هذا؟ سيتم إرجاع الأرباح المحجوزة إلى الشريك.',
         'admin.referral.noPayouts': 'لا توجد طلبات دفع.',
         'admin.referral.payoutCol.coin': '\u0627\u0644\u0639\u0645\u0644\u0629',
@@ -16458,6 +16463,7 @@ const TRANSLATIONS = {
         'admin.referral.recordPayment': '记录付款',
         'admin.referral.rejectPayout': '拒绝',
         'admin.referral.txRefPrompt': '请输入付款交易哈希 / 参考号：',
+        'admin.referral.txRefRequired': '将付款标记为已支付需要提供交易参考号。',
         'admin.referral.rejectConfirm': '确定要拒绝此提现申请吗？已冻结的收益将退还给合作伙伴。',
         'admin.referral.noPayouts': '没有提现申请。',
         'admin.referral.payoutCol.coin': '\u5e01\u79cd',
@@ -17689,7 +17695,9 @@ const BACKEND_MESSAGE_MAP = {
     'Invalid file data encoding': 'kyc.invalidFileEncoding',
     'Missing required fields: documentType, fileData, fileName, mimeType': 'kyc.missingUploadFields',
     'Rejection reason is required': 'kyc.rejectionReasonRequired',
-    'Reason for resubmission is required': 'kyc.resubmissionReasonRequired'
+    'Reason for resubmission is required': 'kyc.resubmissionReasonRequired',
+    // ---- Referral partner payouts (admin) ----
+    'Transaction reference is required to mark a payout paid': 'admin.referral.txRefRequired'
 };
 
 // Curated dynamic (variable-bearing) backend messages. Each entry is a scoped
@@ -24401,13 +24409,20 @@ async function updateReferralPayout(id, status, opts) {
     const token = localStorage.getItem('jwt_token');
     if (!token) return false;
     opts = opts || {};
+    const txReference = (opts.txReference === undefined || opts.txReference === null)
+        ? null : String(opts.txReference).trim();
+    // Defense: a payout must never be marked PAID without a payment reference.
+    if (String(status).toUpperCase() === 'PAID' && !txReference) {
+        showToast(t('admin.referral.txRefRequired'), 'error');
+        return false;
+    }
     try {
         const res = await fetch('/api/admin/referral/payouts/' + id, {
             method: 'PUT',
             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 status: status,
-                txReference: opts.txReference || null,
+                txReference: txReference || null,
                 paidAmount: (opts.paidAmount === undefined ? null : opts.paidAmount),
                 note: opts.note || null
             })
@@ -24434,7 +24449,9 @@ function recordReferralPayoutPayment(id, amount) {
     if (!isFinite(paidAmount) || paidAmount <= 0) { showToast(t('admin.referral.paidAmountInvalid'), 'error'); return; }
     const tx = prompt(t('admin.referral.txRefPrompt'), '');
     if (tx === null) return; // cancelled
-    updateReferralPayout(id, 'PAID', { txReference: tx, paidAmount: paidAmount });
+    const txReference = String(tx).trim();
+    if (!txReference) { showToast(t('admin.referral.txRefRequired'), 'error'); return; }
+    updateReferralPayout(id, 'PAID', { txReference: txReference, paidAmount: paidAmount });
 }
 
 function rejectReferralPayout(id) {

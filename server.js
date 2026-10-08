@@ -7727,12 +7727,23 @@ app.put('/api/admin/referral/payouts/:id', authMiddleware, adminMiddleware, asyn
     return res.status(400).json({ error: 'Invalid payout amount' });
   }
 
+  // A payout MUST carry a real payment reference before it can be marked PAID.
+  // Reject null/undefined/empty/whitespace-only; any non-empty format is accepted.
+  const txReference = (body.txReference === undefined || body.txReference === null)
+    ? null : String(body.txReference).trim();
+  if (status === 'PAID' && !txReference) {
+    return res.status(400).json({
+      error: 'Transaction reference is required to mark a payout paid',
+      code: 'TX_REFERENCE_REQUIRED'
+    });
+  }
+
   try {
     const { data, error } = await supabaseAdmin.rpc('update_referral_payout_safe', {
       p_payout_id: payoutId,
       p_status: status,
       p_paid_amount: paidAmount,
-      p_tx_reference: body.txReference ? String(body.txReference).trim() : null,
+      p_tx_reference: txReference || null,
       p_manager_id: req.user.id,        // the manager is ALWAYS the authenticated admin
       p_note: body.note ? String(body.note).trim() : null
     });
@@ -7744,7 +7755,8 @@ app.put('/api/admin/referral/payouts/:id', authMiddleware, adminMiddleware, asyn
         payout_not_found: 404,
         invalid_status: 400,
         already_paid: 400,
-        already_rejected: 400
+        already_rejected: 400,
+        tx_reference_required: 400
       })[err];
       return res.status(status0 || 400).json({ error: err, reason: err });
     }

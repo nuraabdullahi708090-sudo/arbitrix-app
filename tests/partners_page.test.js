@@ -50,9 +50,11 @@ const EXPECTED_KEYS = 84;
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
 // separately-approved removal of the sandbox "simulated" callouts from the
-// referral area (Option A), and again for the separately-approved landing-video
-// repoint to the product-demo asset (arbitrix-how-it-works-product-demo-en.mp4).
-const INDEX_SHA256 = 'd0d98f7a244e95d7e269824e73b502fb69a273ea719db06621544e29ac91cdda';
+// referral area (Option A), again for the separately-approved landing-video
+// repoint to the product-demo asset (arbitrix-how-it-works-product-demo-en.mp4),
+// and again for the referral-payout audit fix (a PAID payout now requires a
+// non-empty transaction reference in the admin UI).
+const INDEX_SHA256 = 'b298855ad1c8485144e561477800fba434f3c8b030d2ab20111e75962b124f25';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [
