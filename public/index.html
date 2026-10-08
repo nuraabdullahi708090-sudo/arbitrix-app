@@ -168,19 +168,38 @@
         function trackMetaConversion(eventName, params) {
             try { if (window.fbq && window._fbPixelInited && __metaConsented() && __metaProduction()) { fbq('track', eventName, params || {}); } } catch(e) { console.error('[meta-pixel] ' + eventName + ' error:', e); }
         }
-        // Partner-funnel attribution marker (query-independent). It is set ONLY by
-        // the partner landing page on entry. The legacy arbi_auth_entry value is
-        // derived from window.location.search and is overwritten whenever the ad URL
-        // carries UTM parameters, so it cannot be used to attribute a partner signup;
-        // this dedicated marker can. Read once on a successful signup so a partner
-        // account emits the PartnerLead conversion while an ordinary customer signup
-        // never does. No pixel state or PII is involved.
+        // Partner-funnel attribution (set ONLY by the partner landing page). Three
+        // independent signals, any ONE of which marks a partner-attributed signup:
+        //   1. sessionStorage 'arbi_partner_entry' === '1'   (same-tab navigation)
+        //   2. localStorage   'arbi_partner_entry' = <epoch ms>  (survives a tab
+        //      boundary; accepted for PARTNER_ENTRY_TTL_MS so a stale partner visit
+        //      can never attribute a later, unrelated customer signup)
+        //   3. ?src=partners in the URL  (survives a tab boundary even when browser
+        //      storage is unavailable)
+        // Read ONCE on a successful signup so a partner account emits the PartnerLead
+        // conversion while an ordinary customer signup never does, then consumed. No
+        // pixel state and no PII is involved.
         var PARTNER_ENTRY_KEY = 'arbi_partner_entry';
+        var PARTNER_ENTRY_TTL_MS = 60 * 60 * 1000;   // 1-hour storage attribution window
         function isPartnerFunnelEntry() {
-            try { return sessionStorage.getItem(PARTNER_ENTRY_KEY) === '1'; } catch (e) { return false; }
+            try {
+                if (sessionStorage.getItem(PARTNER_ENTRY_KEY) === '1') return true;
+                var ts = Number(localStorage.getItem(PARTNER_ENTRY_KEY));
+                if (ts && (Date.now() - ts) < PARTNER_ENTRY_TTL_MS) return true;
+            } catch (e) { /* fall through to the URL signal */ }
+            try { return /[?&]src=partners(?:&|$)/.test(window.location.search || ''); } catch (e) { return false; }
         }
         function clearPartnerFunnelEntry() {
             try { sessionStorage.removeItem(PARTNER_ENTRY_KEY); } catch (e) { /* non-fatal */ }
+            try { localStorage.removeItem(PARTNER_ENTRY_KEY); } catch (e) { /* non-fatal */ }
+            // Also drop the URL signal so a reload cannot re-fire it in this session.
+            try {
+                if (window.history && window.history.replaceState && /[?&]src=partners(?:&|$)/.test(window.location.search || '')) {
+                    var u = new URL(window.location.href);
+                    u.searchParams.delete('src');
+                    window.history.replaceState(null, '', u.pathname + u.search + u.hash);
+                }
+            } catch (e) { /* non-fatal */ }
         }
         // One-shot "LiveAccountActivated" firing helper. The CALLER (deposit
         // confirmation / wallet-sync transition) must already have verified the

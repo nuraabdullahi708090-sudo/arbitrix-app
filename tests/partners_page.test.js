@@ -54,9 +54,10 @@ const EXPECTED_KEYS = 84;
 // repoint to the product-demo asset (arbitrix-how-it-works-product-demo-en.mp4),
 // again for the referral-payout audit fix (a PAID payout now requires a
 // non-empty transaction reference in the admin UI), and again for the
-// partner-funnel attribution marker + dedicated PartnerLead Meta conversion
-// event (still additive: no partner-page logic injected into the app shell).
-const INDEX_SHA256 = '725794c1f040cc1f30ca5f79475861db7000709af4bc2a71e7295aa99446a17e';
+// partner-funnel attribution fix (a 1-hour localStorage fallback + a
+// ?src=partners signal on the partner Apply CTAs; still additive: no
+// partner-page logic injected into the app shell).
+const INDEX_SHA256 = 'b2a805de57d582f3a27318264c0c7613755ce3b91a20887046f9b898d192bf0e';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [
@@ -191,7 +192,7 @@ test('2. the page carries SEO + social metadata and a canonical URL', () => {
  * 3. CTAs reuse the EXISTING flows (no bespoke registration)
  * ------------------------------------------------------------------ */
 test('3. the primary CTA "Apply to Become a Partner" uses /?action=create-account', () => {
-    const apply = (PAGE.match(/href="\/\?action=create-account"/g) || []).length;
+    const apply = (PAGE.match(/href="\/\?action=create-account(&src=partners)?"/g) || []).length;
     assert.ok(apply >= 3, 'the apply CTA must appear in the topbar, hero and bottom CTA (got ' + apply + ')');
     assert.match(PAGE, /data-i18n="partners\.cta\.apply"/, 'the apply CTA must be localized');
     assert.match(INDEX, /action=create-account/, 'the app shell must still handle the create-account action');
@@ -232,7 +233,7 @@ test('3d. no new authentication system or external destination is introduced', (
     const hrefs = anchorHrefs(PAGE);
     const authLinks = hrefs.filter((h) => h.includes('action='));
     assert.ok(authLinks.length >= 4, 'the page must expose the two auth entry points');
-    authLinks.forEach((h) => assert.ok(h === '/?action=create-account' || h === '/?action=sign-in',
+    authLinks.forEach((h) => assert.ok(h === '/?action=create-account&src=partners' || h === '/?action=sign-in',
         'unexpected auth link ' + h));
     hrefs.forEach((h) => {
         // Same-page fragments (#demo) are allowed: they cannot leave the page.

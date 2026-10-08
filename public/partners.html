@@ -255,7 +255,7 @@
             </a>
             <div class="top-actions">
                 <a class="btn btn-secondary" href="/?action=sign-in" data-i18n="partners.signIn">Sign In</a>
-                <a class="btn btn-primary js-apply-cta" href="/?action=create-account" data-i18n="partners.cta.apply">Apply to Become a Partner</a>
+                <a class="btn btn-primary js-apply-cta" href="/?action=create-account&src=partners" data-i18n="partners.cta.apply">Apply to Become a Partner</a>
                 <div class="language-selector">
                     <button type="button" class="lang-trigger" id="partnerLangBtn" aria-haspopup="true" aria-expanded="false" aria-label="Language: English" onclick="togglePartnerLangMenu()">
                         <i class="fas fa-globe" aria-hidden="true"></i>
@@ -284,7 +284,7 @@
                 <li class="chip"><i class="fas fa-coins" aria-hidden="true"></i><span data-i18n="partners.chip.asset">USDT / TRC20</span></li>
             </ul>
             <div class="hero-actions">
-                <a class="btn btn-primary js-apply-cta" id="applyCta" href="/?action=create-account"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
+                <a class="btn btn-primary js-apply-cta" id="applyCta" href="/?action=create-account&src=partners"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
                 <a class="btn btn-secondary" href="#demo"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.demo">Watch Partner Payout Demo</span></a>
             </div>
         </header>
@@ -413,7 +413,7 @@
         </section>
 
         <div class="bottom-cta">
-            <a class="btn btn-primary js-apply-cta" href="/?action=create-account"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
+            <a class="btn btn-primary js-apply-cta" href="/?action=create-account&src=partners"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
             <a class="btn btn-secondary" href="/how-it-works"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.how">See How It Works</span></a>
         </div>
 
@@ -1169,12 +1169,27 @@
         // ?action= behaviour; no new authentication system.
         try { sessionStorage.setItem('arbi_auth_entry', window.location.search || '/partners'); } catch (e) {}
 
-        // Query-independent partner-funnel marker. The auth-entry value above is
-        // derived from window.location.search, so it stops identifying /partners as
-        // soon as the ad URL carries UTM/click-id parameters. This dedicated marker
-        // survives any query string, so a partner-attributed signup can emit the
-        // PartnerLead conversion reliably.
-        try { sessionStorage.setItem('arbi_partner_entry', '1'); } catch (e) {}
+        // Partner-funnel attribution is ARMED ON THE APPLY CTA CLICK ONLY - never on
+        // page load - so merely visiting this page can never attribute a later,
+        // ordinary customer signup. Both markers are written synchronously before the
+        // navigation is followed. The Apply CTAs additionally carry ?src=partners as
+        // a storage-independent fallback (new tab / storage unavailable).
+        //   1. sessionStorage 'arbi_partner_entry' = '1'         (same tab)
+        //   2. localStorage   'arbi_partner_entry' = <epoch ms>  (cross tab, 1h TTL)
+        function markPartnerEntry() {
+            try { sessionStorage.setItem('arbi_partner_entry', '1'); } catch (e) {}
+            try { localStorage.setItem('arbi_partner_entry', String(Date.now())); } catch (e) {}
+        }
+        // A click (mouse OR keyboard-activated) is dispatched before the browser
+        // follows the link, so the writes always land first.
+        if (document.querySelectorAll) {
+            var partnerApplyCtas = document.querySelectorAll('.js-apply-cta');
+            for (var partnerCtaIdx = 0; partnerCtaIdx < partnerApplyCtas.length; partnerCtaIdx++) {
+                if (partnerApplyCtas[partnerCtaIdx].addEventListener) {
+                    partnerApplyCtas[partnerCtaIdx].addEventListener('click', markPartnerEntry);
+                }
+            }
+        }
 
         applyTranslations();
         applyPartnerSupport();
