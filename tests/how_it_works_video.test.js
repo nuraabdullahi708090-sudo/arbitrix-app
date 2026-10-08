@@ -14,8 +14,8 @@
  *   - the poster is a real 1080x1920 frame from the new video;
  *   - the player contract is preserved: controls, playsinline, preload, muted
  *     autoplay only (never autoplay with sound), 9:16 responsive framing;
- *   - the LANDING page keeps using the old explainer assets untouched - the
- *     replacement is scoped to /how-it-works only.
+ *   - the LANDING page has since been repointed to the same new asset/poster;
+ *     the retired explainer files are kept on disk but no longer referenced.
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -132,22 +132,25 @@ test('the page structure, CTAs and copy are untouched', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. blast radius: the landing page keeps the old explainer assets
+// 4. the landing page was repointed to the new assets (old files kept on disk)
 // ---------------------------------------------------------------------------
-test('the landing page is untouched and still uses the old explainer assets', () => {
-    assert.match(INDEX, /<source src="\/video\/arbitrix-explainer\.mp4" type="video\/mp4">/,
-        'landing keeps its explainer source');
-    assert.match(INDEX, /class="landing-video"[^>]*poster="\/video\/arbitrix-poster\.jpg"/,
-        'landing keeps its poster');
+test('the landing page now uses the new product demo and poster', () => {
+    assert.match(INDEX, /class="landing-video"[^>]*poster="\/video\/arbitrix-how-it-works-poster\.jpg"/,
+        'landing video uses the new poster');
+    assert.match(INDEX, /<source src="\/video\/arbitrix-how-it-works-product-demo-en\.mp4" type="video\/mp4">/,
+        'landing video source is the new asset');
+    assert.ok(!INDEX.includes('arbitrix-explainer.mp4'),
+        'the retired explainer is no longer referenced by the landing page');
+    assert.ok(!INDEX.includes('arbitrix-poster.jpg'),
+        'the retired poster is no longer referenced by the landing page');
+    // The retired files must remain on disk (never overwritten or deleted).
     assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-explainer.mp4')),
-        'old asset still present for the landing page');
+        'old explainer asset kept on disk');
     assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-poster.jpg')),
-        'old poster still present for the landing page');
-    assert.ok(!INDEX.includes('arbitrix-how-it-works-product-demo-en.mp4'),
-        'the landing page was not switched to the new video');
+        'old poster kept on disk');
 });
 
-test('only the how-it-works page references the new video', () => {
+test('exactly the landing and how-it-works pages reference the new video', () => {
     const walk = (dir, out = []) => {
         for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
             if (e.name === 'node_modules' || e.name === '.git' || e.name === 'build') continue;
@@ -159,6 +162,7 @@ test('only the how-it-works page references the new video', () => {
     };
     const refs = walk(path.join(ROOT, 'public')).filter((p) =>
         fs.readFileSync(p, 'utf8').includes('arbitrix-how-it-works-product-demo-en.mp4'));
-    assert.deepStrictEqual(refs.map((p) => path.relative(ROOT, p)), ['public/how-it-works.html'],
-        'exactly one page references the new video');
+    assert.deepStrictEqual(refs.map((p) => path.relative(ROOT, p)).sort(),
+        ['public/how-it-works.html', 'public/index.html'],
+        'exactly the two expected pages reference the new video');
 });

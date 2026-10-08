@@ -9,7 +9,7 @@
  *   - no competing hero Sign In (Sign In stays in the navigation)
  *   - Demo CTA wording accurately says an account is required
  *   - "START FREE IN 3 STEPS" strip below the hero
- *   - existing explainer video embedded near How It Works
+ *   - product-demo video embedded near How It Works
  *   - Referral Partner section copy + disclosure
  *   - claims hygiene: no $700 anywhere, no $200, no MTA, no "Try Demo Mode",
  *     no guaranteed-profit language
@@ -142,14 +142,18 @@ test('START FREE IN 3 STEPS strip is present below the hero', () => {
 // ---------------------------------------------------------------------------
 // Explainer video
 // ---------------------------------------------------------------------------
-test('the existing explainer video is embedded near How It Works', () => {
-    assert.match(INDEX, /<video[^>]*class="landing-video"[^>]*poster="\/video\/arbitrix-poster\.jpg"/, 'video element with poster');
-    assert.match(INDEX, /<source src="\/video\/arbitrix-explainer\.mp4" type="video\/mp4">/, 'video source wired');
+test('the product-demo video is embedded near How It Works', () => {
+    assert.match(INDEX, /<video[^>]*class="landing-video"[^>]*poster="\/video\/arbitrix-how-it-works-poster\.jpg"/, 'video element with the new poster');
+    assert.match(INDEX, /<source src="\/video\/arbitrix-how-it-works-product-demo-en\.mp4" type="video\/mp4">/, 'video source wired to the new asset');
     const videoAt = INDEX.indexOf('id="explainer"');
     const howAt = INDEX.indexOf('id="how-it-works"');
     assert.ok(videoAt > 0 && howAt > videoAt, 'video section sits before How It Works');
-    assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-explainer.mp4')), 'video asset exists');
-    assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-poster.jpg')), 'poster asset exists');
+    assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-how-it-works-product-demo-en.mp4')), 'new video asset exists');
+    assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-how-it-works-poster.jpg')), 'new poster asset exists');
+    // The retired explainer assets are kept on disk but no longer referenced.
+    assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-explainer.mp4')), 'old video asset kept on disk');
+    assert.ok(fs.existsSync(path.join(ROOT, 'public', 'video', 'arbitrix-poster.jpg')), 'old poster kept on disk');
+    assert.ok(!INDEX.includes('arbitrix-explainer.mp4'), 'old video not referenced');
     // No new external dependency was introduced for the video.
     assert.ok(!/<video[\s\S]{0,300}https?:\/\//.test(INDEX), 'video must not load from an external URL');
 });

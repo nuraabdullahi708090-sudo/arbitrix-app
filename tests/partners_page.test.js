@@ -22,8 +22,10 @@
  *   - NO fabricated screenshots / transactions / earnings / customer data and
  *     NO video element is shipped before the real recording exists;
  *   - the partner support handle is the single source of truth (@Arbitrix_CSA1);
- *   - public/index.html (the customer funnel) is byte-for-byte unchanged and the
- *     page is not linked from the homepage navigation.
+ *   - public/index.html (the customer funnel) is byte-for-byte unchanged BY THIS
+ *     FEATURE and the page is not linked from the homepage navigation. (The
+ *     baseline hash is re-pinned when a separately-approved change edits the
+ *     homepage, e.g. the landing-video repoint.)
  *
  * Static source checks only: no network, no database, no server boot.
  *
@@ -48,8 +50,9 @@ const EXPECTED_KEYS = 84;
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
 // separately-approved removal of the sandbox "simulated" callouts from the
-// referral area (Option A).
-const INDEX_SHA256 = '6084ae0e91ff3cf9143c63edaf13c7c7cf6ab15e69fa8ba09e7fe7b806bc635a';
+// referral area (Option A), and again for the separately-approved landing-video
+// repoint to the product-demo asset (arbitrix-how-it-works-product-demo-en.mp4).
+const INDEX_SHA256 = 'd0d98f7a244e95d7e269824e73b502fb69a273ea719db06621544e29ac91cdda';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [
