@@ -52,9 +52,11 @@ const EXPECTED_KEYS = 84;
 // separately-approved removal of the sandbox "simulated" callouts from the
 // referral area (Option A), again for the separately-approved landing-video
 // repoint to the product-demo asset (arbitrix-how-it-works-product-demo-en.mp4),
-// and again for the referral-payout audit fix (a PAID payout now requires a
-// non-empty transaction reference in the admin UI).
-const INDEX_SHA256 = 'b298855ad1c8485144e561477800fba434f3c8b030d2ab20111e75962b124f25';
+// again for the referral-payout audit fix (a PAID payout now requires a
+// non-empty transaction reference in the admin UI), and again for the
+// partner-funnel attribution marker + dedicated PartnerLead Meta conversion
+// event (still additive: no partner-page logic injected into the app shell).
+const INDEX_SHA256 = '725794c1f040cc1f30ca5f79475861db7000709af4bc2a71e7295aa99446a17e';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [

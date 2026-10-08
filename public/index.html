@@ -168,6 +168,20 @@
         function trackMetaConversion(eventName, params) {
             try { if (window.fbq && window._fbPixelInited && __metaConsented() && __metaProduction()) { fbq('track', eventName, params || {}); } } catch(e) { console.error('[meta-pixel] ' + eventName + ' error:', e); }
         }
+        // Partner-funnel attribution marker (query-independent). It is set ONLY by
+        // the partner landing page on entry. The legacy arbi_auth_entry value is
+        // derived from window.location.search and is overwritten whenever the ad URL
+        // carries UTM parameters, so it cannot be used to attribute a partner signup;
+        // this dedicated marker can. Read once on a successful signup so a partner
+        // account emits the PartnerLead conversion while an ordinary customer signup
+        // never does. No pixel state or PII is involved.
+        var PARTNER_ENTRY_KEY = 'arbi_partner_entry';
+        function isPartnerFunnelEntry() {
+            try { return sessionStorage.getItem(PARTNER_ENTRY_KEY) === '1'; } catch (e) { return false; }
+        }
+        function clearPartnerFunnelEntry() {
+            try { sessionStorage.removeItem(PARTNER_ENTRY_KEY); } catch (e) { /* non-fatal */ }
+        }
         // One-shot "LiveAccountActivated" firing helper. The CALLER (deposit
         // confirmation / wallet-sync transition) must already have verified the
         // server-authoritative funded flag flips false->true; this helper only
@@ -194,6 +208,8 @@
         window.trackMetaInit = trackMetaInit;
         window.trackMetaPageView = trackMetaPageView;
         window.trackMetaConversion = trackMetaConversion;
+        window.isPartnerFunnelEntry = isPartnerFunnelEntry;
+        window.clearPartnerFunnelEntry = clearPartnerFunnelEntry;
         window.fireLiveAccountActivatedIfFirst = fireLiveAccountActivatedIfFirst;
         window.grantConsent = grantConsent;
         window.denyConsent = denyConsent;
@@ -3482,6 +3498,20 @@ async function handleSignup() {
         if (typeof trackMetaConversion === 'function') {
             trackMetaConversion('CompleteRegistration');
         }
+
+        // ---- Partner-funnel conversion (dedicated event; see tests/partner_lead_event.test.js) ----
+        // Fires ONCE per partner-attributed signup (the arbi_partner_entry marker is
+        // set ONLY by the partner landing page and is independent of the query
+        // string, so UTM parameters cannot strip the attribution). An ordinary
+        // customer signup has no marker and therefore emits CompleteRegistration
+        // alone. The marker is consumed here so it can never leak into a later,
+        // unrelated signup in this browser session. trackMetaConversion keeps every
+        // existing gate (consent, PRODUCTION-only, MARKETING_SANDBOX exclusion, no PII).
+        if (typeof isPartnerFunnelEntry === 'function' && isPartnerFunnelEntry()) {
+            if (typeof trackMetaConversion === 'function') trackMetaConversion('PartnerLead');
+            if (typeof clearPartnerFunnelEntry === 'function') clearPartnerFunnelEntry();
+        }
+        // ---- /Partner-funnel conversion ----
 
         setTimeout(() => {
             document.getElementById('authPage').style.display = 'none';

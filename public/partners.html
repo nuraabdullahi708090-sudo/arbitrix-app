@@ -1169,6 +1169,13 @@
         // ?action= behaviour; no new authentication system.
         try { sessionStorage.setItem('arbi_auth_entry', window.location.search || '/partners'); } catch (e) {}
 
+        // Query-independent partner-funnel marker. The auth-entry value above is
+        // derived from window.location.search, so it stops identifying /partners as
+        // soon as the ad URL carries UTM/click-id parameters. This dedicated marker
+        // survives any query string, so a partner-attributed signup can emit the
+        // PartnerLead conversion reliably.
+        try { sessionStorage.setItem('arbi_partner_entry', '1'); } catch (e) {}
+
         applyTranslations();
         applyPartnerSupport();
         applyPartnerVideo();
