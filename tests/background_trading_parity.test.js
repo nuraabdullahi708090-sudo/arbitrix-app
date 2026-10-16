@@ -184,21 +184,28 @@ test('parity: the browser formula, cadence and draw order are UNCHANGED', () => 
 });
 
 test('parity: the asset metadata is character-identical to the UI list', () => {
-  const uiRaw = [...INDEX.matchAll(/\{symbol:'([^']+)',detail:'([^']+)'\}/g)].map((m) => [m[1], m[2]]);
-  const workerRaw = [...SERVICE.matchAll(/\{ symbol: '([^']+)', detail: '([^']*)' \}/g)]
-    .map((m) => [m[1], JSON.parse('"' + m[2] + '"')]); // decode the \u2192 escapes
-  assert.strictEqual(uiRaw.length, 5, 'the UI list must have 5 assets');
-  assert.deepStrictEqual(workerRaw, uiRaw, 'symbols and details must match the UI list exactly');
+  // The browser list is inline (public/index.html, executeBotTrade); the server
+  // list is the canonical module. Both are decoded from their \u2192 escapes and
+  // must match exactly, element for element, in draw order.
+  const uiRaw = [...INDEX.matchAll(/\{symbol:'([^']+)',detail:'([^']+)'\}/g)]
+    .map((m) => [m[1], JSON.parse('"' + m[2] + '"')]);
+  const { TRADING_ASSETS } = require('../services/tradingAssets');
+  assert.strictEqual(uiRaw.length, TRADING_ASSETS.length, 'the UI list must equal the canonical universe');
+  assert.ok(TRADING_ASSETS.length >= 40, 'the universe must be significantly expanded (was 5)');
+  assert.deepStrictEqual(uiRaw, TRADING_ASSETS.map((a) => [a.symbol, a.detail]),
+    'symbols and details must match the canonical list exactly');
 });
 
 test('parity: the runtime payload carries the browser asset labels and the same RPC fields', async () => {
+  const { ASSETS } = require('../services/TradingWorker');
   const { worker, state } = makeWorker({ rng: makeRng([0.99, 0.5, 0.9]) });
   await worker.runOnce();
   const call = tradeCall(state);
   assert.ok(call, 'the tick must reach the ledger');
-  // asset index floor(0.99*5) = 4
-  assert.strictEqual(call.args.p_asset, 'XAU/USD');
-  assert.strictEqual(call.args.p_detail, 'Spot\u2192Futures');
+  // the same draw resolves to the same asset on both sides
+  const expected = ASSETS[Math.floor(0.99 * ASSETS.length)];
+  assert.strictEqual(call.args.p_asset, expected.symbol);
+  assert.strictEqual(call.args.p_detail, expected.detail);
   assert.strictEqual(call.args.p_mode, 'live');
   // /api/trade posts exactly these fields to the same RPC, so the user's history
   // and P&L render identically whichever engine executed the trade.

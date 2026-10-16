@@ -1584,6 +1584,45 @@
         .pwa-install-dismiss{background:transparent;color:var(--text-muted);border:1px solid var(--border-color);width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;}
         .pwa-install-dismiss:hover{background:var(--bg-input);color:var(--text-primary);}
 
+        /* ===== Rotating arbitrage opportunity notification (landing page) =====
+           Fixed to the bottom-left on desktop; on phones it spans the safe width
+           and lifts above the fixed consent bar. It hides whenever an overlay in
+           the same corner is active (install prompt, support panel/centre) so it
+           can never cover a control, and its z-index sits above page content but
+           below every modal/toast/consent layer. Motion is disabled for visitors
+           who prefer reduced motion (rotation is also skipped in JS). */
+        .arb-opp-card{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:9990;width:min(320px, calc(100vw - 32px));box-sizing:border-box;padding:12px 14px;border-radius:14px;border:1px solid var(--brand-border, var(--border-color));background:linear-gradient(160deg, var(--bg-card), var(--bg-elevated));box-shadow:0 16px 44px rgba(0,0,0,0.55);color:var(--text-primary);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(14px);transition:opacity 0.34s ease, transform 0.34s cubic-bezier(0.22,1,0.36,1), visibility 0s linear 0.34s;}
+        .arb-opp-card.show{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0);transition-delay:0s;}
+        .arb-opp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+        .arb-opp-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:var(--gold);min-width:0;}
+        .arb-opp-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;animation:arbOppPulse 2.4s infinite;}
+        @keyframes arbOppPulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,0.5);}70%{box-shadow:0 0 0 7px rgba(16,185,129,0);}100%{box-shadow:0 0 0 0 rgba(16,185,129,0);}}
+        .arb-opp-dismiss{background:transparent;border:none;color:var(--text-muted);width:26px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+        .arb-opp-dismiss:hover{background:var(--bg-input);color:var(--text-primary);}
+        .arb-opp-dismiss:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+        .arb-opp-asset{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0;}
+        .arb-opp-symbol{font-size:15px;font-weight:800;color:var(--text-primary);overflow-wrap:anywhere;}
+        .arb-opp-name{font-size:11px;color:var(--text-secondary);overflow-wrap:anywhere;}
+        .arb-opp-route{display:flex;align-items:center;gap:6px;margin:6px 0 10px;font-size:11px;color:var(--text-secondary);direction:ltr;unicode-bidi:isolate;flex-wrap:wrap;}
+        .arb-opp-arrow{color:var(--gold);font-size:9px;flex-shrink:0;}
+        .arb-opp-metrics{display:flex;gap:18px;}
+        .arb-opp-metric{display:flex;flex-direction:column;gap:1px;min-width:0;}
+        .arb-opp-metric-label{font-size:9px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);}
+        .arb-opp-metric-value{font-size:14px;font-weight:800;}
+        .arb-opp-metric-value.green{color:var(--green);}
+        .arb-opp-metric-value.gold{color:var(--gold);}
+        .arb-opp-note{margin-top:9px;font-size:9px;line-height:1.4;color:var(--text-muted);}
+        html[dir="rtl"] .arb-opp-card{left:auto;right:16px;}
+        @media(max-width:640px){.arb-opp-card{left:12px;right:12px;width:auto;}html[dir="rtl"] .arb-opp-card{left:12px;right:12px;}}
+        /* Overlay precedence: yield the corner rather than cover a control. */
+        body:has(#metaConsentBanner) .arb-opp-card{bottom:calc(150px + env(safe-area-inset-bottom, 0px));}
+        body:has(#pwaInstallPrompt:not(.hidden)) .arb-opp-card,
+        body:has(#supportPanel.open) .arb-opp-card,
+        body:has(#supportModal.open) .arb-opp-card,
+        body:has(.modal-overlay.open) .arb-opp-card,
+        body:has(.deposit-modal.open) .arb-opp-card{display:none;}
+        @media(prefers-reduced-motion:reduce){.arb-opp-card{transform:none;transition:opacity 0.01ms linear;}.arb-opp-dot{animation:none;}}
+
         .ios-install-steps{display:flex;flex-direction:column;gap:12px;margin:16px 0;}
         .ios-step{display:flex;gap:12px;align-items:flex-start;}
         .ios-step-num{width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--on-brand);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
@@ -2954,7 +2993,7 @@
         .landing-capital-box p[data-i18n="landing.pricing.capital.nocard"] i { color:var(--gold); font-size:1.1rem; flex-shrink:0; }
 
         /* Assets */
-        .landing-asset-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; max-width:880px; margin:0 auto 20px; min-width:0; }
+        .landing-asset-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; max-width:880px; margin:0 auto 20px; min-width:0; }
         .landing-asset-card {
             padding:20px 12px; border-radius:14px; text-align:center;
             background:rgba(255,255,255,0.02); border:1px solid var(--border-color);
@@ -5300,10 +5339,11 @@ console.log('🔐 Auth script loaded successfully');
                 <p class="landing-section-subtitle" data-i18n="landing.assets.subtitle">A multi-asset platform. These asset classes are displayed across the trading experience:</p>
             </div>
             <div class="landing-asset-grid">
-                <div class="landing-asset-card"><i class="fab fa-bitcoin"></i><h4 data-i18n="landing.assets.crypto">Crypto</h4><p data-i18n="landing.assets.cryptoDesc">e.g. BTC/USDT, ETH/USDT</p></div>
-                <div class="landing-asset-card"><i class="fas fa-money-bill-transfer"></i><h4 data-i18n="landing.assets.forex">Forex</h4><p data-i18n="landing.assets.forexDesc">e.g. EUR/USD</p></div>
-                <div class="landing-asset-card"><i class="fas fa-building-columns"></i><h4 data-i18n="landing.assets.stocks">Stocks</h4><p data-i18n="landing.assets.stocksDesc">e.g. AAPL</p></div>
-                <div class="landing-asset-card"><i class="fas fa-coins"></i><h4 data-i18n="landing.assets.commodities">Commodities</h4><p data-i18n="landing.assets.commoditiesDesc">e.g. XAU/USD (gold)</p></div>
+                <div class="landing-asset-card"><i class="fab fa-bitcoin"></i><h4 data-i18n="landing.assets.crypto">Crypto</h4><p data-i18n="landing.assets.cryptoDesc">e.g. BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT</p></div>
+                <div class="landing-asset-card"><i class="fas fa-money-bill-transfer"></i><h4 data-i18n="landing.assets.forex">Forex</h4><p data-i18n="landing.assets.forexDesc">e.g. EUR/USD, GBP/USD, USD/JPY, AUD/USD</p></div>
+                <div class="landing-asset-card"><i class="fas fa-chart-line"></i><h4 data-i18n="landing.assets.stocks">Stocks &amp; Indices</h4><p data-i18n="landing.assets.stocksDesc">e.g. AAPL, TSLA, SPX500</p></div>
+                <div class="landing-asset-card"><i class="fas fa-coins"></i><h4 data-i18n="landing.assets.metals">Precious Metals</h4><p data-i18n="landing.assets.metalsDesc">e.g. XAU/USD (gold), XAG/USD (silver)</p></div>
+                <div class="landing-asset-card"><i class="fas fa-fire"></i><h4 data-i18n="landing.assets.commodities">Energy &amp; Commodities</h4><p data-i18n="landing.assets.commoditiesDesc">e.g. WTI/USD (crude oil), NATGAS/USD</p></div>
             </div>
             <p class="landing-assets-note" data-i18n="landing.assets.note">Availability of specific instruments is determined by the platform and is not a guarantee of execution on any specific asset.</p>
         </div>
@@ -5606,6 +5646,38 @@ console.log('🔐 Auth script loaded successfully');
             </div>
         </div>
     </footer>
+
+    <!-- Rotating arbitrage opportunity notification (landing page only).
+         Populated by JS from /api/market/opportunities (which is built from the
+         canonical asset registry - no second hardcoded catalogue here). The
+         values are illustrative examples of how Arbitrix detects a cross-venue
+         spread; nothing is executed and no money moves. -->
+    <aside id="arbOpportunityCard" class="arb-opp-card" role="status" aria-live="polite" aria-atomic="true" aria-labelledby="arbOppTitle">
+        <div class="arb-opp-head">
+            <span class="arb-opp-badge"><span class="arb-opp-dot" aria-hidden="true"></span><span id="arbOppTitle" data-i18n="arbOpp.title">Arbitrage opportunity</span></span>
+            <button type="button" class="arb-opp-dismiss" id="arbOppDismiss" aria-label="Dismiss notification"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="arb-opp-asset">
+            <span class="arb-opp-symbol" id="arbOppSymbol"></span>
+            <span class="arb-opp-name" id="arbOppName"></span>
+        </div>
+        <div class="arb-opp-route" id="arbOppRoute">
+            <span id="arbOppSource"></span>
+            <i class="fas fa-arrow-right arb-opp-arrow" aria-hidden="true"></i>
+            <span id="arbOppDestination"></span>
+        </div>
+        <div class="arb-opp-metrics">
+            <div class="arb-opp-metric">
+                <span class="arb-opp-metric-label" data-i18n="arbOpp.observed">Observed spread</span>
+                <span class="arb-opp-metric-value green" id="arbOppObserved"></span>
+            </div>
+            <div class="arb-opp-metric">
+                <span class="arb-opp-metric-label" data-i18n="arbOpp.net">Est. net spread</span>
+                <span class="arb-opp-metric-value gold" id="arbOppNet"></span>
+            </div>
+        </div>
+        <div class="arb-opp-note" id="arbOppNote" data-i18n="arbOpp.note">Illustrative example of a detected spread. Not an offer or a guarantee of execution.</div>
+    </aside>
 </div>
 
 <script>
@@ -9851,14 +9923,21 @@ const TRANSLATIONS = {
         'landing.assets.title': 'Supported Markets',
         'landing.assets.subtitle': 'A multi-asset platform. These asset classes are displayed across the trading experience:',
         'landing.assets.crypto': 'Crypto',
-        'landing.assets.cryptoDesc': 'e.g. BTC/USDT, ETH/USDT',
+        'landing.assets.cryptoDesc': 'e.g. BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT',
         'landing.assets.forex': 'Forex',
-        'landing.assets.forexDesc': 'e.g. EUR/USD',
-        'landing.assets.stocks': 'Stocks',
-        'landing.assets.stocksDesc': 'e.g. AAPL',
-        'landing.assets.commodities': 'Commodities',
-        'landing.assets.commoditiesDesc': 'e.g. XAU/USD (gold)',
+        'landing.assets.forexDesc': 'e.g. EUR/USD, GBP/USD, USD/JPY, AUD/USD',
+        'landing.assets.stocks': 'Stocks & Indices',
+        'landing.assets.stocksDesc': 'e.g. AAPL, TSLA, SPX500',
+        'landing.assets.commodities': 'Energy & Commodities',
+        'landing.assets.commoditiesDesc': 'e.g. WTI/USD (crude oil), NATGAS/USD',
+        'landing.assets.metals': 'Precious Metals',
+        'landing.assets.metalsDesc': 'e.g. XAU/USD (gold), XAG/USD (silver)',
         'landing.assets.note': 'Availability of specific instruments is determined by the platform and is not a guarantee of execution on any specific asset.',
+        'arbOpp.title': 'Arbitrage opportunity',
+        'arbOpp.observed': 'Observed spread',
+        'arbOpp.net': 'Est. net spread',
+        'arbOpp.note': 'Illustrative example of a detected spread. Not an offer or a guarantee of execution.',
+        'arbOpp.dismiss': 'Dismiss notification',
         'landing.pricing.tag': 'Pricing',
         'landing.pricing.title': 'Arbitrix Pro',
         'landing.pricing.label': 'Arbitrix Pro',
@@ -11373,14 +11452,21 @@ const TRANSLATIONS = {
         'landing.assets.title': 'Mercados compatibles',
         'landing.assets.subtitle': 'Una plataforma multi-activo. Estas clases de activos se muestran en la experiencia de trading:',
         'landing.assets.crypto': 'Cripto',
-        'landing.assets.cryptoDesc': 'p. ej. BTC/USDT, ETH/USDT',
+        'landing.assets.cryptoDesc': 'p. ej. BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT',
         'landing.assets.forex': 'Forex',
-        'landing.assets.forexDesc': 'p. ej. EUR/USD',
-        'landing.assets.stocks': 'Acciones',
-        'landing.assets.stocksDesc': 'p. ej. AAPL',
-        'landing.assets.commodities': 'Materias primas',
-        'landing.assets.commoditiesDesc': 'p. ej. XAU/USD (oro)',
+        'landing.assets.forexDesc': 'p. ej. EUR/USD, GBP/USD, USD/JPY, AUD/USD',
+        'landing.assets.stocks': 'Acciones e índices',
+        'landing.assets.stocksDesc': 'p. ej. AAPL, TSLA, SPX500',
+        'landing.assets.commodities': 'Energía y materias primas',
+        'landing.assets.commoditiesDesc': 'p. ej. WTI/USD (petróleo crudo), NATGAS/USD',
+        'landing.assets.metals': 'Metales preciosos',
+        'landing.assets.metalsDesc': 'p. ej. XAU/USD (oro), XAG/USD (plata)',
         'landing.assets.note': 'La disponibilidad de instrumentos específicos la determina la plataforma y no garantiza la ejecución sobre ningún activo en particular.',
+        'arbOpp.title': 'Oportunidad de arbitraje',
+        'arbOpp.observed': 'Spread observado',
+        'arbOpp.net': 'Spread neto est.',
+        'arbOpp.note': 'Ejemplo ilustrativo de un spread detectado. No es una oferta ni una garantía de ejecución.',
+        'arbOpp.dismiss': 'Descartar notificación',
         'landing.pricing.tag': 'Precios',
         'landing.pricing.title': 'Arbitrix Pro',
         'landing.pricing.label': 'Arbitrix Pro',
@@ -12896,14 +12982,21 @@ const TRANSLATIONS = {
         'landing.assets.title': 'Mercados compatíveis',
         'landing.assets.subtitle': 'Uma plataforma multi-ativo. Estas classes de ativos são exibidas na experiência de negociação:',
         'landing.assets.crypto': 'Cripto',
-        'landing.assets.cryptoDesc': 'ex. BTC/USDT, ETH/USDT',
+        'landing.assets.cryptoDesc': 'ex. BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT',
         'landing.assets.forex': 'Forex',
-        'landing.assets.forexDesc': 'ex. EUR/USD',
-        'landing.assets.stocks': 'Ações',
-        'landing.assets.stocksDesc': 'ex. AAPL',
-        'landing.assets.commodities': 'Commodities',
-        'landing.assets.commoditiesDesc': 'ex. XAU/USD (ouro)',
+        'landing.assets.forexDesc': 'ex. EUR/USD, GBP/USD, USD/JPY, AUD/USD',
+        'landing.assets.stocks': 'Ações e índices',
+        'landing.assets.stocksDesc': 'ex. AAPL, TSLA, SPX500',
+        'landing.assets.commodities': 'Energia e commodities',
+        'landing.assets.commoditiesDesc': 'ex. WTI/USD (petróleo bruto), NATGAS/USD',
+        'landing.assets.metals': 'Metais preciosos',
+        'landing.assets.metalsDesc': 'ex. XAU/USD (ouro), XAG/USD (prata)',
         'landing.assets.note': 'A disponibilidade de instrumentos específicos é determinada pela plataforma e não garante execução sobre nenhum ativo específico.',
+        'arbOpp.title': 'Oportunidade de arbitragem',
+        'arbOpp.observed': 'Spread observado',
+        'arbOpp.net': 'Spread líquido est.',
+        'arbOpp.note': 'Exemplo ilustrativo de um spread detectado. Não é uma oferta nem uma garantia de execução.',
+        'arbOpp.dismiss': 'Dispensar notificação',
         'landing.pricing.tag': 'Preços',
         'landing.pricing.title': 'Arbitrix Pro',
         'landing.pricing.label': 'Arbitrix Pro',
@@ -14419,14 +14512,21 @@ const TRANSLATIONS = {
         'landing.assets.title': 'Marchés pris en charge',
         'landing.assets.subtitle': 'Une plateforme multi-actifs. Ces classes d\'actifs sont affichées dans l\'expérience de trading :',
         'landing.assets.crypto': 'Crypto',
-        'landing.assets.cryptoDesc': 'ex. BTC/USDT, ETH/USDT',
+        'landing.assets.cryptoDesc': 'ex. BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT',
         'landing.assets.forex': 'Forex',
-        'landing.assets.forexDesc': 'ex. EUR/USD',
-        'landing.assets.stocks': 'Actions',
-        'landing.assets.stocksDesc': 'ex. AAPL',
-        'landing.assets.commodities': 'Matières premières',
-        'landing.assets.commoditiesDesc': 'ex. XAU/USD (or)',
+        'landing.assets.forexDesc': 'ex. EUR/USD, GBP/USD, USD/JPY, AUD/USD',
+        'landing.assets.stocks': 'Actions et indices',
+        'landing.assets.stocksDesc': 'ex. AAPL, TSLA, SPX500',
+        'landing.assets.commodities': 'Énergie et matières premières',
+        'landing.assets.commoditiesDesc': 'ex. WTI/USD (pétrole brut), NATGAS/USD',
+        'landing.assets.metals': 'Métaux précieux',
+        'landing.assets.metalsDesc': 'ex. XAU/USD (or), XAG/USD (argent)',
         'landing.assets.note': 'La disponibilité d\'instruments spécifiques est déterminée par la plateforme et ne garantit pas l\'exécution sur un actif particulier.',
+        'arbOpp.title': 'Opportunité d\'arbitrage',
+        'arbOpp.observed': 'Spread observé',
+        'arbOpp.net': 'Spread net est.',
+        'arbOpp.note': 'Exemple illustratif d\'un spread détecté. Ni une offre ni une garantie d\'exécution.',
+        'arbOpp.dismiss': 'Ignorer la notification',
         'landing.pricing.tag': 'Tarifs',
         'landing.pricing.title': 'Arbitrix Pro',
         'landing.pricing.label': 'Arbitrix Pro',
@@ -15942,14 +16042,21 @@ const TRANSLATIONS = {
         'landing.assets.title': 'الأسواق المدعومة',
         'landing.assets.subtitle': 'منصة متعددة الأصول. تُعرض فئات الأصول هذه عبر تجربة التداول:',
         'landing.assets.crypto': 'العملات الرقمية',
-        'landing.assets.cryptoDesc': 'مثال BTC/USDT، ETH/USDT',
+        'landing.assets.cryptoDesc': 'مثال BTC/USDT، ETH/USDT، SOL/USDT، XRP/USDT',
         'landing.assets.forex': 'الفوركس',
-        'landing.assets.forexDesc': 'مثال EUR/USD',
-        'landing.assets.stocks': 'الأسهم',
-        'landing.assets.stocksDesc': 'مثال AAPL',
-        'landing.assets.commodities': 'السلع',
-        'landing.assets.commoditiesDesc': 'مثال XAU/USD (ذهب)',
+        'landing.assets.forexDesc': 'مثال EUR/USD، GBP/USD، USD/JPY، AUD/USD',
+        'landing.assets.stocks': 'الأسهم والمؤشرات',
+        'landing.assets.stocksDesc': 'مثال AAPL، TSLA، SPX500',
+        'landing.assets.commodities': 'الطاقة والسلع',
+        'landing.assets.commoditiesDesc': 'مثال WTI/USD (النفط الخام)، NATGAS/USD',
+        'landing.assets.metals': 'المعادن الثمينة',
+        'landing.assets.metalsDesc': 'مثال XAU/USD (ذهب)، XAG/USD (فضة)',
         'landing.assets.note': 'تحدد المنصة توافر الأدوات المحددة ولا يوجد ضمان للتنفيذ على أي أصل محدد.',
+        'arbOpp.title': 'فرصة مراجحة',
+        'arbOpp.observed': 'الفرق الملحوظ',
+        'arbOpp.net': 'صافي الفرق المتوقع',
+        'arbOpp.note': 'مثال توضيحي لفرق تم رصده. ليس عرضًا ولا ضمانًا للتنفيذ.',
+        'arbOpp.dismiss': 'تجاهل الإشعار',
         'landing.pricing.tag': 'الأسعار',
         'landing.pricing.title': 'Arbitrix Pro',
         'landing.pricing.label': 'Arbitrix Pro',
@@ -17465,14 +17572,21 @@ const TRANSLATIONS = {
         'landing.assets.title': '支持的市场',
         'landing.assets.subtitle': '一个多资产平台。这些资产类别显示在交易体验中：',
         'landing.assets.crypto': '加密货币',
-        'landing.assets.cryptoDesc': '例如 BTC/USDT、ETH/USDT',
+        'landing.assets.cryptoDesc': '例如 BTC/USDT、ETH/USDT、SOL/USDT、XRP/USDT',
         'landing.assets.forex': '外汇',
-        'landing.assets.forexDesc': '例如 EUR/USD',
-        'landing.assets.stocks': '股票',
-        'landing.assets.stocksDesc': '例如 AAPL',
-        'landing.assets.commodities': '大宗商品',
-        'landing.assets.commoditiesDesc': '例如 XAU/USD（黄金）',
+        'landing.assets.forexDesc': '例如 EUR/USD、GBP/USD、USD/JPY、AUD/USD',
+        'landing.assets.stocks': '股票与指数',
+        'landing.assets.stocksDesc': '例如 AAPL、TSLA、SPX500',
+        'landing.assets.commodities': '能源与大宗商品',
+        'landing.assets.commoditiesDesc': '例如 WTI/USD（原油）、NATGAS/USD',
+        'landing.assets.metals': '贵金属',
+        'landing.assets.metalsDesc': '例如 XAU/USD（黄金）、XAG/USD（白银）',
         'landing.assets.note': '特定工具的可用性由平台决定，不保证对任何特定资产的执行。',
+        'arbOpp.title': '套利机会',
+        'arbOpp.observed': '观测价差',
+        'arbOpp.net': '预估净价差',
+        'arbOpp.note': '检测到的价差示例，仅供参考。不构成报价或成交保证。',
+        'arbOpp.dismiss': '关闭通知',
         'landing.pricing.tag': '定价',
         'landing.pricing.title': 'Arbitrix Pro',
         'landing.pricing.label': 'Arbitrix Pro',
@@ -17856,6 +17970,9 @@ function updateDynamicTranslations() {
             if (ppm && ppm.classList.contains('open')) renderProfitPauseBody();
         }
         if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
+        // The landing opportunity card's dismiss aria-label is JS-set (the rest
+        // of its labels are data-i18n), so re-apply it on language switch.
+        if (typeof renderArbOpportunityLabels === 'function') renderArbOpportunityLabels();
         // Re-apply status-specific KYC modal header on language switch. Guarded
         // with typeof because the function is declared in a LATER <script>
         // block: applyTranslations() runs at parse time on first load, before
@@ -19338,7 +19455,7 @@ function toggleTransactionRange() {
 
 // ============ TICKER ============
 const TICKER_NAMES = ['Alex','Maria','James','Sophia','David','Emma','Michael','Olivia','Daniel','Ava','Robert','Isabella','William','Mia','Joseph','Charlotte','Thomas','Amelia','Christopher','Harper','Lucas','Evelyn','Henry','Abigail','Kenji','Yuki','Hans','Priya','Ahmed','Liu','Carlos','Fatima'];
-const TICKER_ASSETS = [{symbol:'BTC/USDT'},{symbol:'ETH/USDT'},{symbol:'EUR/USD'},{symbol:'AAPL'},{symbol:'XAU/USD'},{symbol:'SOL/USDT'},{symbol:'GBP/JPY'},{symbol:'TSLA'}];
+const TICKER_ASSETS = [{symbol:'XAU/USD'},{symbol:'XAG/USD'},{symbol:'XPT/USD'},{symbol:'XPD/USD'},{symbol:'EUR/USD'},{symbol:'GBP/USD'},{symbol:'USD/JPY'},{symbol:'AUD/USD'},{symbol:'USD/CHF'},{symbol:'USD/CAD'},{symbol:'NZD/USD'},{symbol:'EUR/GBP'},{symbol:'EUR/JPY'},{symbol:'GBP/JPY'},{symbol:'AAPL'},{symbol:'TSLA'},{symbol:'MSFT'},{symbol:'NVDA'},{symbol:'AMZN'},{symbol:'GOOGL'},{symbol:'META'},{symbol:'SPX500'},{symbol:'NAS100'},{symbol:'US30'},{symbol:'DAX40'},{symbol:'UK100'},{symbol:'JP225'},{symbol:'BTC/USDT'},{symbol:'ETH/USDT'},{symbol:'SOL/USDT'},{symbol:'XRP/USDT'},{symbol:'LTC/USDT'},{symbol:'BNB/USDT'},{symbol:'ADA/USDT'},{symbol:'DOGE/USDT'},{symbol:'AVAX/USDT'},{symbol:'DOT/USDT'},{symbol:'LINK/USDT'},{symbol:'MATIC/USDT'},{symbol:'WTI/USD'},{symbol:'BRENT/USD'},{symbol:'NATGAS/USD'},{symbol:'CORN/USD'},{symbol:'WHEAT/USD'},{symbol:'SOYBEAN/USD'},{symbol:'COFFEE/USD'},{symbol:'SUGAR/USD'}];
 const TICKER_TEMPLATES = [
     {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];const a=TICKER_ASSETS[Math.floor(Math.random()*TICKER_ASSETS.length)];const p=(Math.random()*180+5).toFixed(2);const m=n.charAt(0)+'***'+n.charAt(n.length-1);return{icon:'💰',html:t('ticker.earned',{user:m,amount:p,asset:a.symbol})};}},
     {generate:function(){const n=TICKER_NAMES[Math.floor(Math.random()*TICKER_NAMES.length)];const amts=[50,100,250,500,1000,2500,5000];const a=amts[Math.floor(Math.random()*amts.length)];return{icon:'💵',html:t('ticker.deposited',{user:n.charAt(0)+'***',amount:a.toLocaleString()})};}},
@@ -19980,7 +20097,55 @@ function updateStatus(running) {
 // modes have no server wallet and stay client-side (localStorage only).
 function executeBotTrade() {
     const data = getCurrentData();
-    const assets = [{symbol:'BTC/USDT',detail:'Binance→Bybit'},{symbol:'ETH/USDT',detail:'Binance→Coinbase'},{symbol:'EUR/USD',detail:'OANDA→FXCM'},{symbol:'AAPL',detail:'NYSE→NASDAQ'},{symbol:'XAU/USD',detail:'Spot→Futures'}];
+    const assets = [
+        {symbol:'XAU/USD',detail:'Spot\u2192Futures'},
+        {symbol:'XAG/USD',detail:'Spot\u2192Futures'},
+        {symbol:'XPT/USD',detail:'Spot\u2192Futures'},
+        {symbol:'XPD/USD',detail:'Spot\u2192Futures'},
+        {symbol:'EUR/USD',detail:'OANDA\u2192FXCM'},
+        {symbol:'GBP/USD',detail:'OANDA\u2192FXCM'},
+        {symbol:'USD/JPY',detail:'OANDA\u2192FXCM'},
+        {symbol:'AUD/USD',detail:'OANDA\u2192FXCM'},
+        {symbol:'USD/CHF',detail:'OANDA\u2192FXCM'},
+        {symbol:'USD/CAD',detail:'OANDA\u2192FXCM'},
+        {symbol:'NZD/USD',detail:'OANDA\u2192FXCM'},
+        {symbol:'EUR/GBP',detail:'OANDA\u2192FXCM'},
+        {symbol:'EUR/JPY',detail:'OANDA\u2192FXCM'},
+        {symbol:'GBP/JPY',detail:'OANDA\u2192FXCM'},
+        {symbol:'AAPL',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'TSLA',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'MSFT',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'NVDA',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'AMZN',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'GOOGL',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'META',detail:'NYSE\u2192NASDAQ'},
+        {symbol:'SPX500',detail:'CME\u2192ICE'},
+        {symbol:'NAS100',detail:'CME\u2192ICE'},
+        {symbol:'US30',detail:'CME\u2192ICE'},
+        {symbol:'DAX40',detail:'Eurex\u2192ICE'},
+        {symbol:'UK100',detail:'ICE\u2192Eurex'},
+        {symbol:'JP225',detail:'OSE\u2192CME'},
+        {symbol:'BTC/USDT',detail:'Binance\u2192Bybit'},
+        {symbol:'ETH/USDT',detail:'Binance\u2192Coinbase'},
+        {symbol:'SOL/USDT',detail:'Kraken\u2192OKX'},
+        {symbol:'XRP/USDT',detail:'Coinbase\u2192Bitstamp'},
+        {symbol:'LTC/USDT',detail:'Binance\u2192Kraken'},
+        {symbol:'BNB/USDT',detail:'Binance\u2192OKX'},
+        {symbol:'ADA/USDT',detail:'Kraken\u2192Bybit'},
+        {symbol:'DOGE/USDT',detail:'Binance\u2192OKX'},
+        {symbol:'AVAX/USDT',detail:'Coinbase\u2192Kraken'},
+        {symbol:'DOT/USDT',detail:'Binance\u2192Bybit'},
+        {symbol:'LINK/USDT',detail:'Coinbase\u2192OKX'},
+        {symbol:'MATIC/USDT',detail:'Binance\u2192Kraken'},
+        {symbol:'WTI/USD',detail:'NYMEX\u2192ICE'},
+        {symbol:'BRENT/USD',detail:'ICE\u2192NYMEX'},
+        {symbol:'NATGAS/USD',detail:'NYMEX\u2192ICE'},
+        {symbol:'CORN/USD',detail:'CBOT\u2192ICE'},
+        {symbol:'WHEAT/USD',detail:'CBOT\u2192ICE'},
+        {symbol:'SOYBEAN/USD',detail:'CBOT\u2192ICE'},
+        {symbol:'COFFEE/USD',detail:'ICE\u2192NYMEX'},
+        {symbol:'SUGAR/USD',detail:'ICE\u2192NYMEX'}
+    ];
     const asset = assets[Math.floor(Math.random()*assets.length)];
     const profit = data.balance * 0.5 * (Math.random()*2.4/100) * (Math.random()>0.35 ? 1 : -0.5);
     // Unique per-trade idempotency key so retries/replays never double-credit.
@@ -25916,6 +26081,228 @@ try { if (typeof showMetaConsentBanner === 'function') showMetaConsentBanner(); 
 catch(e) { console.error('[meta-pixel] banner error:', e); }
 
 console.log('🚀 All scripts loaded successfully');
+</script>
+
+<script>
+// ============ ROTATING ARBITRAGE OPPORTUNITY NOTIFICATIONS ============
+// Landing page only. Populates #arbOpportunityCard from the PUBLIC, read-only
+// /api/market/opportunities endpoint (built server-side from the canonical asset
+// registry, so no asset is duplicated here) and rotates one example at a
+// randomized 8-15s cadence after a polite initial delay. Display-only: it never
+// trades, moves money or calls an authenticated endpoint, and it yields the
+// corner whenever another overlay needs it (handled in CSS). Auto-rotation is
+// skipped for visitors who prefer reduced motion.
+(function () {
+    'use strict';
+
+    var CONFIG = {
+        endpoint: '/api/market/opportunities',
+        poolSize: 10,
+        initialMinMs: 6000,
+        initialMaxMs: 10000,
+        gapMinMs: 8000,
+        gapMaxMs: 15000,
+        visibleMinMs: 6500,
+        visibleMaxMs: 9000,
+        storageKey: 'arb_opp_dismissed'
+    };
+
+    var state = {
+        pool: [],
+        queue: [],
+        cursor: 0,
+        showTimer: null,
+        hideTimer: null,
+        initialTimer: null,
+        observer: null,
+        running: false,
+        loading: false,
+        lastSymbol: null
+    };
+
+    function el(id) { return document.getElementById(id); }
+    function rand(min, max) { return Math.floor(min + Math.random() * (max - min + 1)); }
+
+    function reducedMotion() {
+        try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+        catch (e) { return false; }
+    }
+    function dismissed() {
+        try { return sessionStorage.getItem(CONFIG.storageKey) === '1'; } catch (e) { return false; }
+    }
+    function landingActive() {
+        var lp = el('landingPage');
+        if (!lp) return false;
+        try { return getComputedStyle(lp).display !== 'none'; } catch (e) { return lp.style.display !== 'none'; }
+    }
+
+    function clearTimers() {
+        clearTimeout(state.initialTimer);
+        clearTimeout(state.showTimer);
+        clearTimeout(state.hideTimer);
+        state.initialTimer = null; state.showTimer = null; state.hideTimer = null;
+    }
+    function hideCard() {
+        var card = el('arbOpportunityCard');
+        if (card) card.classList.remove('show');
+    }
+    function shuffle(list) {
+        for (var i = list.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+        }
+        return list;
+    }
+
+    // Localized labels that cannot be data-i18n (the dismiss button's aria-label).
+    function renderArbOpportunityLabels() {
+        var btn = el('arbOppDismiss');
+        if (btn && typeof t === 'function') btn.setAttribute('aria-label', t('arbOpp.dismiss'));
+    }
+
+    // One fetch feeds several rotations. Best-effort: on any failure we simply
+    // show nothing (there is deliberately no hardcoded fallback catalogue).
+    function fetchPool() {
+        if (state.loading) return;
+        state.loading = true;
+        fetch(CONFIG.endpoint + '?count=' + CONFIG.poolSize, { headers: { Accept: 'application/json' } })
+            .then(function (r) { return r && r.ok ? r.json() : null; })
+            .then(function (data) {
+                var list = data && Array.isArray(data.opportunities) ? data.opportunities : null;
+                if (!list || !list.length) return;
+                state.pool = list;
+                state.queue = shuffle(list.slice());
+                state.cursor = 0;
+            })
+            .catch(function () { /* best-effort only */ })
+            .then(function () { state.loading = false; });
+    }
+
+    function nextOpportunity() {
+        if (!state.queue.length) return null;
+        if (state.cursor >= state.queue.length) {
+            state.queue = shuffle(state.pool.slice());
+            state.cursor = 0;
+            fetchPool(); // refresh the numbers in the background for the next cycle
+        }
+        var opp = state.queue[state.cursor++] || null;
+        // Never repeat the same instrument back to back.
+        if (opp && opp.symbol === state.lastSymbol && state.queue.length > 1) {
+            var alt = state.queue[state.cursor] || null;
+            if (alt) { state.cursor++; opp = alt; }
+        }
+        if (opp) state.lastSymbol = opp.symbol;
+        return opp;
+    }
+
+    function showCard(opp) {
+        if (!opp) return;
+        var set = function (id, v) { var n = el(id); if (n) n.textContent = (v === null || v === undefined) ? '' : String(v); };
+        set('arbOppSymbol', opp.symbol);
+        set('arbOppName', opp.name || '');
+        set('arbOppSource', opp.source || '');
+        set('arbOppDestination', opp.destination || '');
+        var route = el('arbOppRoute');
+        if (route) route.style.display = (opp.source && opp.destination) ? 'flex' : 'none';
+        set('arbOppObserved', Number(opp.spreadPct).toFixed(2) + '%');
+        set('arbOppNet', Number(opp.netSpreadPct).toFixed(2) + '%');
+        renderArbOpportunityLabels();
+        var card = el('arbOpportunityCard');
+        if (card) card.classList.add('show');
+    }
+
+    function scheduleNext() {
+        if (!state.running) return;
+        clearTimeout(state.showTimer);
+        state.showTimer = setTimeout(tick, rand(CONFIG.gapMinMs, CONFIG.gapMaxMs));
+    }
+
+    function tick() {
+        if (!state.running) return;
+        if (dismissed() || !landingActive()) { arbOppStop(); return; }
+        if (document.hidden) { scheduleNext(); return; }
+        var opp = nextOpportunity();
+        if (!opp) { arbOppStop(); return; }
+        showCard(opp);
+        state.hideTimer = setTimeout(function () {
+            hideCard();
+            scheduleNext();
+        }, rand(CONFIG.visibleMinMs, CONFIG.visibleMaxMs));
+    }
+
+    // Reduced motion: reveal a single example with no rotation at all.
+    function showStaticOnce() {
+        var opp = nextOpportunity();
+        if (!opp) { arbOppStop(); return; }
+        showCard(opp);
+        state.hideTimer = setTimeout(function () { hideCard(); arbOppStop(); }, rand(CONFIG.visibleMinMs, CONFIG.visibleMaxMs));
+    }
+
+    // Poll briefly for the async pool before the first reveal.
+    function whenPoolReady(cb, tries) {
+        if (state.pool && state.pool.length) { cb(); return; }
+        if ((tries || 0) > 20) return; // give up after ~10s; stay silent
+        setTimeout(function () { whenPoolReady(cb, (tries || 0) + 1); }, 500);
+    }
+
+    function arbOppStart() {
+        if (state.running || dismissed() || !landingActive()) return;
+        state.running = true;
+        fetchPool();
+        state.initialTimer = setTimeout(function () {
+            whenPoolReady(function () {
+                if (!state.running) return;
+                if (reducedMotion()) showStaticOnce(); else tick();
+            }, 0);
+        }, rand(CONFIG.initialMinMs, CONFIG.initialMaxMs));
+    }
+
+    function arbOppStop() {
+        state.running = false;
+        clearTimers();
+        hideCard();
+    }
+
+    function dismissArbOpportunity() {
+        try { sessionStorage.setItem(CONFIG.storageKey, '1'); } catch (e) {}
+        arbOppStop();
+    }
+
+    // Keep the rotator in step with the landing screen without touching routing.
+    function arbOppSync() {
+        if (dismissed()) { arbOppStop(); return; }
+        if (landingActive()) arbOppStart(); else arbOppStop();
+    }
+
+    function initArbOpportunities() {
+        var card = el('arbOpportunityCard');
+        if (!card) return;
+        var btn = el('arbOppDismiss');
+        if (btn) btn.addEventListener('click', dismissArbOpportunity);
+        renderArbOpportunityLabels();
+
+        var lp = el('landingPage');
+        if (lp && window.MutationObserver) {
+            state.observer = new MutationObserver(function () { arbOppSync(); });
+            state.observer.observe(lp, { attributes: true, attributeFilter: ['style', 'class'] });
+        }
+        // No tab-lifecycle handler is registered: tick() simply skips a reveal
+        // while the document is hidden and reschedules, so a background tab never
+        // pops a notification (and no session/bot state can be touched here).
+        arbOppSync();
+    }
+
+    window.arbOppSync = arbOppSync;
+    window.dismissArbOpportunity = dismissArbOpportunity;
+    window.renderArbOpportunityLabels = renderArbOpportunityLabels;
+    window.initArbOpportunities = initArbOpportunities;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initArbOpportunities);
+    } else {
+        initArbOpportunities();
+    }
+})();
 </script>
 
 </body>

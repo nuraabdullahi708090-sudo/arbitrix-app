@@ -2,6 +2,7 @@
 
 const { DEFAULT_STALE_HEARTBEAT_MS } = require('./WorkerConfig');
 const { PROFIT_PAUSE_CODE } = require('./ProfitPause');
+const { ENGINE_ASSETS: ASSETS } = require('./tradingAssets');
 
 /**
  * Server-side trading worker.
@@ -83,18 +84,11 @@ const DEFAULT_LIMITS = {
   maxClaimsPerTick: 25,
 };
 
-/** Assets the bot may pick from (mirrors the UI list; display metadata only). */
-const ASSETS = [
-  // EXACT parity with the browser list in public/index.html (executeBotTrade).
-  // The arrow is written as \u2192 so the source stays ASCII while the string sent
-  // to record_trade_safe (and therefore shown in the user's history) is
-  // character-for-character identical to the browser's.
-  { symbol: 'BTC/USDT', detail: 'Binance\u2192Bybit' },
-  { symbol: 'ETH/USDT', detail: 'Binance\u2192Coinbase' },
-  { symbol: 'EUR/USD', detail: 'OANDA\u2192FXCM' },
-  { symbol: 'AAPL', detail: 'NYSE\u2192NASDAQ' },
-  { symbol: 'XAU/USD', detail: 'Spot\u2192Futures' },
-];
+/** Assets the bot may pick from (display metadata only). SINGLE SOURCE OF TRUTH:
+ * services/tradingAssets.js. The browser (public/index.html, executeBotTrade)
+ * carries an inline copy of the same ENGINE_ASSETS list; the parity test pins
+ * them to be character-identical so they can never drift. */
+// `ASSETS` is imported above from ./tradingAssets.
 
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 

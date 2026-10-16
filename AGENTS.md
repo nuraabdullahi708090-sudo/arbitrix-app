@@ -6298,3 +6298,174 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   M tests/partners_video_locale.test.js (an earlier, uncommitted /partners poster-fallback
   hardening session), plus the untracked build/ master-video workspace. Exclude those if
   only the /how-it-works replacement is being committed.
+
+
+## Phase 35 - Expanded Multi-Asset Universe (2026-10-16, services/tradingAssets.js + public/index.html + server.js + services/TradingWorker.js + tests)
+- The arb engine's tradeable universe was expanded from 5 to 47 instruments
+  across five classes: precious metals (XAU/XAG/XPT/XPD), FX majors (EUR/USD,
+  GBP/USD, USD/JPY, AUD/USD + 6 more), equities & indices (7 shares + 6 index
+  instruments), digital assets (BTC/ETH/SOL/XRP/LTC + 7 more pairs) and
+  energy/commodities (WTI, BRENT, NATGAS + 5 agricultural).
+- ENGINE LOGIC AND SAFEGUARDS UNCHANGED. The asset is display metadata:
+  record_trade_safe(p_asset,p_detail) stores any label and validates nothing.
+  The formula (balance * 0.5 * (rng*2.4/100) * sign), the draw ORDER
+  (asset -> magnitude -> sign), the 8s cadence, idempotency, the promo $20 cap,
+  the $400 profit pause and the worker-inert default are all untouched. NO
+  migration, NO schema change, NO new env var (verified: 37 migrations, none
+  asset-related; record_trade_safe unchanged).
+- SINGLE SOURCE OF TRUTH: NEW services/tradingAssets.js (ASCII-only) exports
+  ASSET_CATEGORIES / TRADING_ASSETS / ENGINE_ASSETS / TICKER_SYMBOLS / pickAsset.
+  TradingWorker now does `const { ENGINE_ASSETS: ASSETS } = require('./tradingAssets')`;
+  server.js's sandbox demo-trade generator draws from the same list.
+- BROWSER: executeBotTrade carries the parity-pinned inline ENGINE_ASSETS list
+  (now written with \u2192 escapes so the source stays ASCII); TICKER_ASSETS holds
+  the same 47 symbols. tests/background_trading_parity.test.js now compares the
+  browser list to the canonical module (no longer a hard-coded 5).
+- LANDING: "Supported Markets" now shows 5 cards (Crypto, Forex, Stocks &
+  Indices, Precious Metals, Energy & Commodities) with examples; grid is
+  auto-fit minmax(170px,1fr). i18n 1502 -> 1504 keys/locale (new
+  landing.assets.metals / landing.assets.metalsDesc) in all 6 locales; 16 test
+  dictionary pins updated (1502 -> 1504; landing_testimonials BASE_OUTSIDE
+  1476 -> 1478). partners_page INDEX_SHA256 re-pinned to
+  f30c12b8...5ac2a per its own comment ("re-pinned when a separately-approved
+  change edits the homepage").
+- TESTS: NEW tests/trading_assets.test.js (21 tests: class coverage, metadata
+  consistency, engine parity/draw order, browser/worker/ticker sync, display-only
+  safeguard pins). npm test = 2106 pass / 1 fail, where the single fail is the
+  PRE-EXISTING tests/how_it_works_video.test.js "approved master is present for
+  comparison" (the untracked build/video master is absent in this clone; identical
+  on the unmodified baseline). Baseline before this change = 2085 pass / 1 fail.
+- VERIFICATION: node --check server.js OK; all 6 inline index.html script blocks
+  + the other public pages parse (vm.Script). i18n vm-eval = 1504 keys x 6,
+  identical key sets, 0 empty, 0 within-locale dups. Non-ASCII integrity checked
+  (the -15 arrow bytes from the rewritten engine line are the only removals; the
+  dictionary delta is exactly the edited value text; 0 U+FFFD). Headless Chromium
+  (puppeteer-core + /usr/bin/chromium) = 44/44: 5 localized cards per locale (en/
+  es/pt/fr/ar/zh), ar RTL, 0 horizontal overflow at 320/360/390/430/1280, ticker
+  renders, browser engine list expanded.
+- NOT committed / NOT pushed / NOT deployed.
+
+## TASK-2 - Rotating arbitrage opportunity notifications on the landing page (2026-10-16, frontend + one public read-only API; NOT committed/pushed/deployed)
+- Management goal: a compact, polished notification card on the landing page that
+  rotates real-looking arbitrage opportunities (asset name/symbol, source ->
+  destination venues, observed spread %, estimated net spread %), fixed
+  bottom-left on desktop and safely above mobile chrome, animated, accessible,
+  rotating at randomized intervals, respecting reduced motion, and NEVER blocking
+  cookie consent, forms, navigation or the support surfaces. The existing trading
+  engine and every safeguard had to stay untouched.
+- RECON FIRST (no market-data/opportunity API existed; ~135 /api routes, none for
+  markets): `/api/health` and `/api/referral/config` are the only public GETs.
+  There is no exchange/market feed in the repo, so the numbers are DELIBERATELY
+  SIMULATED - and are disclosed as such in the card and in the API response
+  (`simulated: true`). The card is illustrative, not a claim of live pricing.
+
+### 1. One data path, no second catalogue
+- `services/tradingAssets.js` (the canonical registry from the asset-universe
+  task) gained an ASCII `name` per instrument (Gold, Ethereum, S&P 500, ...) and
+  `TRADING_ASSETS` now carries `{ symbol, name, detail, category }`. `ENGINE_ASSETS`
+  is unchanged in shape (`symbol` + `detail`), so the engine list, the ticker and
+  `background_trading_parity` are unaffected.
+- NEW `services/MarketOpportunities.js` - builds simulated opportunities FROM that
+  registry (no duplicated list): it parses the venue pair out of the registry's own
+  `detail` ("Binance\u2192Bybit" -> source/destination), draws a distinct shuffled
+  subset, and returns `{ symbol, name, category, source, destination, spreadPct,
+  netSpreadPct }`. Observed spread is 0.08-0.95%, the estimated cost 0.03-0.20%
+  percentage points, and `netSpreadPct` is ALWAYS below `spreadPct` and >= 0.01%.
+- NEW public route `GET /api/market/opportunities?count=N` (server.js, right after
+  the public `/api/referral/config`, well before the SPA fallback): no auth, no
+  session, no database, no wallet/ledger/RPC/provider call - a pure function of the
+  registry. `Cache-Control: public, max-age=15`; `count` is clamped 1..24.
+
+### 2. The card (public/index.html, frontend-only)
+- Markup: `<aside id="arbOpportunityCard" class="arb-opp-card" role="status"
+  aria-live="polite" aria-atomic="true" aria-labelledby="arbOppTitle">` as the last
+  child of `#landingPage`, so it can only ever exist on the landing screen (leaving
+  the landing hides it with its parent - no routing code touched).
+- Contents: a localized title + pulsing live dot, a localized dismiss button
+  (`aria-label` set from `arbOpp.dismiss`), the instrument symbol AND name, the
+  `source -> destination` venue route (`direction:ltr` + `unicode-bidi:isolate` so
+  the arrow reads correctly in RTL), the observed spread and the estimated net
+  spread, and an honest note ("Illustrative example of a detected spread. Not an
+  offer or a guarantee of execution.").
+- CSS: `position:fixed; left:16px; bottom:calc(16px + env(safe-area-inset-bottom));
+  z-index:9990` (above page content, below every modal/toast/consent layer),
+  hidden by default (`opacity:0; visibility:hidden; pointer-events:none;
+  transform:translateY(14px)`) and revealed by `.show` with a 0.34s slide+fade.
+  RTL flips it to the bottom-right (`right:16px`); <=640px it spans the safe width
+  (`left:12px; right:12px`, with an explicit RTL twin so RTL also spans).
+- CORNER PRECEDENCE (the "never block a control" requirement): `body:has(...)`
+  rules lift the card `150px` above the cookie-consent banner and `display:none` it
+  while the PWA install prompt, the support assistant panel, the Support Center,
+  any `.modal-overlay.open` or any `.deposit-modal.open` is showing. Because the
+  consent banner is z-index 99999 and the card is 9990, the banner's Accept/Decline
+  buttons stay clickable even before the lift applies.
+- Reduced motion: an explicit `@media(prefers-reduced-motion:reduce)` block makes
+  the reveal instant and stops the pulsing dot; the JS then shows exactly ONE
+  example and stops (no rotation).
+- JS (dedicated script block at the end of body, IIFE, no globals leak except 4
+  helpers): fetches the endpoint ONCE (`poolSize: 10`), shuffles, and rotates with
+  `rand(8000, 15000)`ms between notifications after an initial `rand(6000, 10000)`ms
+  delay; each card stays `rand(6500, 9000)`ms. It never repeats the same instrument
+  back to back, refetches the pool at the end of a cycle, and gives up silently if
+  the fetch fails (there is intentionally NO hardcoded fallback catalogue).
+  Values are written with `textContent` (no `innerHTML`) and formatted `toFixed(2)`.
+- Dismissal: `sessionStorage['arb_opp_dismissed']='1'` stops the rotator for the
+  visit; `arbOppSync()` (also re-run by a MutationObserver on `#landingPage`'s
+  style/class) starts/stops it as the landing screen appears/disappears.
+- LANGUAGE SWITCH: the static labels are `data-i18n`; the dismiss `aria-label` is
+  re-applied by a new hook in `updateDynamicTranslations()`.
+- i18n: 1504 -> 1509 keys/locale (5 new: arbOpp.title / .observed / .net / .note /
+  .dismiss) across en/es/pt/fr/ar/zh, identical key sets, 0 empty, 0 figures in the
+  labels (the numbers come from the API). Dictionary pins updated 1504 -> 1509 in
+  18 test files and `BASE_OUTSIDE_TESTIMONIALS` 1478 -> 1483.
+
+### 3. Verified
+- `node --check` on server.js / services/*.js; all 8 inline index.html script
+  blocks parse (vm.Script); 0 U+FFFD; the non-ASCII code-point multiset only GREW
+  (verified against a pre-edit backup - the only diff lines are the 5 keys x 6
+  locales, one CSS line, one `id` attribute and the removal of the tab-lifecycle
+  listener).
+- NEW `tests/arbitrage_notifications.test.js` (21): venue parsing, 47 named
+  instruments, distinct registry-backed draws, field/band invariants
+  (`netSpreadPct < spreadPct`, 2dp), count clamping, deterministic rng, the module
+  never references supabase/rpc/wallet/ledger/balance/fetch, the route is public +
+  additive + before the SPA fallback, the markup/accessibility contract, no
+  hardcoded catalogue in markup or JS, the CSS position/reveal/RTL/mobile/
+  precedence/reduced-motion contract, the 8-15s cadence + initial delay +
+  reduced-motion + landing-only + no-tab-lifecycle-handler pins, the
+  `updateDynamicTranslations` hook, 6-locale key parity, and that the engine
+  formula, `setInterval(executeBotTrade, 8000)`, the asset draw line and the 47
+  ticker symbols are UNCHANGED.
+- `npm test` = 2128 tests, 2127 pass, 1 fail - the single fail is the PRE-EXISTING
+  `tests/how_it_works_video.test.js` "served MP4 is a byte-identical copy of the
+  approved master" (the `/how-it-works` video task left the master build/ asset
+  uncommitted); identical before this change.
+- Real server boot (`node server.js`, PORT 4180) + curl: `/api/health` 200 and
+  `/api/market/opportunities?count=4` 200 with no auth, returning e.g.
+  `{"symbol":"DAX40","name":"DAX 40","category":"equities_indices",
+  "source":"Eurex","destination":"ICE","spreadPct":0.46,"netSpreadPct":0.27}`;
+  a junk `count` still returns 200 (clamped). NOTE: the three `→` "losses" vs HEAD
+  in the character audit are PRE-EXISTING (the asset-universe task encodes the
+  browser list's arrow as the `\u2192` escape, per the ASCII rule for index.html).
+- Browser harness (puppeteer-core + /usr/bin/chromium, local server that serves the
+  REAL `buildOpportunities()` at `/api/market/opportunities`, so the frontend is
+  exercised against the real module) = 66/66: endpoint shape; the card appears
+  after the initial delay with a symbol/name/venue route/two 2dp percentages and
+  the honest note; the net spread is below the observed spread; z-index below the
+  modal layer; no horizontal overflow; NO landing control (nav, hero CTAs, footer,
+  language selector) is covered by the card; rotation shows a DIFFERENT instrument
+  on the next reveal; dismissal hides it and nothing reappears for the rest of the
+  session; with the consent banner injected the card does not overlap it, sits
+  >=140px above the viewport bottom and the banner buttons remain the
+  `elementFromPoint` hit; the mobile nav button stays reachable; the card is
+  `display:none` while the install prompt or the support panel is open; 5 locales
+  render localized labels with no raw keys and ar is RTL; ar spans 12/12px on
+  mobile and flips to `right:16px` on desktop while en stays `left:16px`;
+  no card on the auth screen; no horizontal overflow at 320/360/390/430/1280; and
+  reduced motion shows ONE example with no slide transform and no further rotation.
+  Screenshots: /tmp/arbopp_shots/arb-opp-{en-1280,en-390,ar-390}.png.
+- PRESERVED: the arbitrage engine formula, the draw order, the 8s browser cadence,
+  `record_trade_safe`, the promo cap, the $400 profit pause, MTA removal, min
+  deposit $100, the withdrawal flow (internal $700 only in the pop-up), KYC,
+  referrals, subscriptions, the marketing sandbox, and every existing route. The
+  change is additive: one new public GET plus landing-only UI.

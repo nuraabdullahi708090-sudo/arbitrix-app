@@ -42,6 +42,12 @@ const {
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
+// Canonical multi-asset universe (display metadata). SINGLE SOURCE OF TRUTH for
+// the engine draw list; the browser keeps a parity-pinned inline copy.
+const { ENGINE_ASSETS: TRADING_ASSETS } = require('./services/tradingAssets');
+// Simulated, read-only arbitrage opportunities for the landing-page notification
+// card. Derived from the canonical registry above; moves no money.
+const { buildOpportunities: buildMarketOpportunities } = require('./services/MarketOpportunities');
 // TEMPORARY management test: platform-wide bot profit pause (see the module).
 const {
   resolveProfitPauseUsd,
@@ -6757,12 +6763,7 @@ app.post('/api/admin/sandbox/:userId/trades', authMiddleware, adminMiddleware, a
     if (!isFinite(avgPnl)) return res.status(400).json({ error: 'avgPnl must be a number' });
     const assets = req.body && req.body.asset
       ? [{ symbol: String(req.body.asset).slice(0, 40), detail: 'Demo' }]
-      : [
-        { symbol: 'BTC/USDT', detail: 'Binance→Bybit' },
-        { symbol: 'ETH/USDT', detail: 'Binance→Coinbase' },
-        { symbol: 'SOL/USDT', detail: 'Kraken→OKX' },
-        { symbol: 'XRP/USDT', detail: 'Coinbase→Bitstamp' },
-      ];
+      : TRADING_ASSETS;
     const results = [];
     for (let i = 0; i < count; i++) {
       const variance = jitter > 0 ? (Math.random() * 2 - 1) * jitter : 0;
@@ -7089,6 +7090,23 @@ app.get('/api/referral/config', async (req, res) => {
       firstDepositRequired: true,
       maxRewardsPerUser: 0
     });
+  }
+});
+
+// Simulated arbitrage opportunities for the landing-page notification card.
+// PUBLIC, read-only, unauthenticated: it returns example instrument/venue/spread
+// rows derived from the canonical asset registry. It reads no session, touches
+// no database and moves no money (no wallet, ledger, order or provider call) -
+// the customer funnel, the trading engine and every safeguard are untouched.
+app.get('/api/market/opportunities', (req, res) => {
+  try {
+    const opportunities = buildMarketOpportunities({ count: req.query && req.query.count });
+    // Short cache: one fetch feeds several rotations on the client.
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json({ simulated: true, opportunities, ts: new Date().toISOString() });
+  } catch (e) {
+    console.error('Error building market opportunities:', e.message);
+    res.status(500).json({ error: 'Failed to build opportunities' });
   }
 });
 
