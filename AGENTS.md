@@ -6469,3 +6469,61 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
   deposit $100, the withdrawal flow (internal $700 only in the pop-up), KYC,
   referrals, subscriptions, the marketing sandbox, and every existing route. The
   change is additive: one new public GET plus landing-only UI.
+
+## TASK-1 + TASK-2 DEPLOYED TO PRODUCTION (2026-10-16)
+- Deployment commit: 7df4cda ("feat: expand to 47 instruments and add rotating
+  arbitrage notifications"), parent 7794985; pushed 7794985..7df4cda main -> main
+  as a normal fast-forward (verified with `git merge-base --is-ancestor
+  origin/main HEAD` before the push; no force-push/rebase/reset/amend). Pushed with
+  the GITHUB_TOKEN-authenticated URL (`git push https://${GITHUB_TOKEN}@github.com/
+  nuraabdullahi708090-sudo/arbitrix-app.git main:main`) so no credential was
+  persisted in .git/config. Commit author `openhands <openhands@all-hands.dev>`
+  (matches the existing history).
+- CHANGE SET (25 files, +1406/-90): NEW services/tradingAssets.js,
+  services/MarketOpportunities.js, tests/trading_assets.test.js,
+  tests/arbitrage_notifications.test.js; MODIFIED server.js (+30), public/index.html
+  (+430/-43), services/TradingWorker.js, AGENTS.md and 16 test files (dictionary
+  pins 1502 -> 1504 -> 1509).
+- PRE-PUSH GATE: `npm test` = 2128 tests, 2127 pass, 1 fail - the single failure is
+  the PRE-EXISTING `tests/how_it_works_video.test.js` "served MP4 is a byte-identical
+  copy of the approved master" (the master build/ asset was never tracked);
+  identical before this change. Also checked: 0 U+FFFD, all 8 inline index.html
+  script blocks parse, `node --check` clean, and a secret scan of the staged diff
+  found nothing.
+- HOSTING: Render (confirmed by the response header `x-render-origin-server:
+  Render`, behind Cloudflare) auto-deployed on push - the previous build was still
+  served at t+15s and the new build at ~t+90s (7 polls).
+- POST-DEPLOY VERIFICATION:
+  * The served public/index.html is BYTE-IDENTICAL to the committed file (sha256
+    a3208776666a162f6a302d16f5882bdf1467141cd622e366cb985bc17bd38d4b; verified with
+    `cmp`, since a shell command-substitution hash strips the trailing newline).
+  * Endpoints: /api/health 200, /reset-password.html 200, /partners 200.
+  * THE NEW PUBLIC ENDPOINT IS LIVE: `GET /api/market/opportunities?count=3` -> 200
+    unauthenticated, `{"simulated":true,"opportunities":[{symbol,name,category,
+    source,destination,spreadPct,netSpreadPct}...]}`, e.g. JP225 / Nikkei 225 /
+    OSE -> CME / 0.09% / 0.01% with net < observed.
+  * Live markers in the served HTML: `id="arbOpportunityCard"` x1, `arbOpp.title`
+    and `arbOpp.dismiss` x7 each (6 locales + markup), `arb-opp-card.show` x1,
+    `landing.assets.metalsDesc` x7, `/api/market/opportunities` x3, and 94
+    `symbol:'...'` entries = the 47-symbol TICKER_ASSETS plus the 47-entry
+    `executeBotTrade` engine list.
+  * Production browser run (headless Chromium against https://arbitrix.pro, REAL
+    API - no stubs) = 23/23 meaningful checks: the rotator helpers are in the new
+    bundle; the real endpoint is requested exactly once with `?count=10` and
+    answers 200; the card appears on a 390px viewport with symbol + name + venues +
+    two 2-dp percentages, net below observed, spanning 12/12px, with NO horizontal
+    overflow; rotation then shows a DIFFERENT instrument; dismissal hides it and
+    nothing reappears for 10s; on 1280px it is anchored bottom-left at 16px and not
+    stretched; 0 page errors; landing controls intact.
+  * ONE KNOWN FALSE POSITIVE in that run: `net::ERR_ABORTED` on
+    /video/arbitrix-how-it-works-product-demo-en.mp4 (the landing media element
+    uses preload="metadata", so Chromium cancels the range request after reading the
+    header - the documented behaviour already recorded in an earlier phase). The
+    asset itself is healthy: a ranged GET returns 206 with `video/mp4` and real
+    bytes. Not a regression of this change.
+- ROLLBACK: `git revert 7df4cda` (or redeploy the previous commit 7794985). The new
+  route and the page card are additive; nothing in the deposit/withdrawal/trading/
+  KYC/referral/subscription/sandbox paths was modified.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
+  trigger a second Render rebuild (the working tree therefore shows AGENTS.md as
+  modified - documentation only).

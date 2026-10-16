@@ -21,12 +21,12 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1509;
-// 1509 keys/locale now = 1483 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1508;
+// 1508 keys/locale now = 1482 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
-// (1483 + 24 + 2 = 1509). Earlier additions: the expanded landing.assets.*
-// universe (metals) and the 5 landing arbOpp.* notification keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1483;
+// (1482 + 24 + 2 = 1508). Earlier additions: the expanded landing.assets.*
+// universe (metals) and the 4 remaining landing arbOpp.* notification keys.
+const BASE_OUTSIDE_TESTIMONIALS = 1482;
 
 function loadTranslations() {
     const tIdx = INDEX.indexOf('const TRANSLATIONS');

@@ -126,9 +126,20 @@ test('the card markup is accessible and lives on the landing page', () => {
   for (const id of ['arbOppSymbol', 'arbOppName', 'arbOppSource', 'arbOppDestination', 'arbOppObserved', 'arbOppNet']) {
     assert.ok(card.includes('id="' + id + '"'), 'missing ' + id);
   }
-  assert.match(card, /data-i18n="arbOpp.note"/);
   // The live region must stay in the a11y tree (visibility, not the hidden attr).
   assert.ok(!/<aside[^>]*id="arbOpportunityCard"[^>]*\shidden/.test(INDEX), 'the card must not use the hidden attribute');
+});
+
+test('the removed note line stays removed (management cleanup)', () => {
+  // The card used to end with "Illustrative example of a detected spread. Not an
+  // offer or a guarantee of execution." Management asked for it to be removed, so
+  // the element, its CSS and its key must all stay gone - in EVERY locale.
+  const card = INDEX.slice(INDEX.indexOf('id="arbOpportunityCard"'), INDEX.indexOf('</aside>', INDEX.indexOf('id="arbOpportunityCard"')));
+  assert.ok(!/arb-opp-note/.test(INDEX), 'the note element/CSS must not return');
+  assert.ok(!/arbOppNote/.test(INDEX), 'the note id must not return');
+  assert.ok(!/arbOpp\.note/.test(INDEX), 'the arbOpp.note key must not return');
+  assert.ok(!/Illustrative example/i.test(card), 'the note copy must not render in the card');
+  assert.ok(!/not an offer/i.test(INDEX), 'no locale may re-add the note copy');
 });
 
 test('the card carries no hardcoded asset catalogue', () => {
@@ -228,7 +239,7 @@ test('language switching re-applies the card labels', () => {
 // ==========================================================================
 // 4. I18N
 // ==========================================================================
-test('all 6 locales define the 5 arbOpp keys with identical key sets', () => {
+test('all 6 locales define the 4 arbOpp keys with identical key sets', () => {
   const tIdx = INDEX.indexOf('const TRANSLATIONS = {');
   const end = INDEX.indexOf('\n};\n', tIdx);
   const obj = INDEX.slice(tIdx + 'const TRANSLATIONS = '.length, end + 2);
@@ -236,7 +247,7 @@ test('all 6 locales define the 5 arbOpp keys with identical key sets', () => {
   const sb = {};
   vm.createContext(sb);
   const T = vm.runInContext('(' + obj + ')', sb);
-  const keys = ['arbOpp.title', 'arbOpp.observed', 'arbOpp.net', 'arbOpp.note', 'arbOpp.dismiss'];
+  const keys = ['arbOpp.title', 'arbOpp.observed', 'arbOpp.net', 'arbOpp.dismiss'];
   for (const l of LANGS) {
     for (const k of keys) {
       assert.ok(T[l][k] && String(T[l][k]).trim(), l + ' missing ' + k);
