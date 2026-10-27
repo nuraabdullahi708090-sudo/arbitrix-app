@@ -273,7 +273,7 @@ function createOnboarding(options) {
   }
 
   /**
-   * @param {{chatId: string, members: Array<{id:string,name:string,isBot:boolean}>, messageId: string}} event
+   * @param {{chatId: string, members: Array<{id:string,firstName:(string|null),name:string,isBot:boolean}>, messageId: string}} event
    */
   async function handleNewMembers(event) {
     const e = event || {};
