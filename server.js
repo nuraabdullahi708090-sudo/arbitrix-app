@@ -41,6 +41,23 @@ const {
   isValidTelegramWebhookSecret
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
+// Telegram marketing publisher: approved templates, content guard, durable queue
+// and the join-triggered partner welcome. Publishing is OFF by default and needs
+// TELEGRAM_MARKETING_ENABLED=true plus an unpaused, non-dry-run control row.
+const {
+  resolveMarketingConfig,
+  describeMarketingConfig,
+  validateDestination
+} = require('./services/TelegramBroadcast');
+const { createMarketingStore } = require('./services/MarketingStore');
+const {
+  createOnboarding,
+  buildPostRow,
+  buildCalendarRows,
+  buildStartHereRow,
+  buildChannelIntroRow
+} = require('./services/MarketingOnboarding');
+const { checkContent } = require('./services/ContentGuard');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
 // Canonical multi-asset universe (display metadata). SINGLE SOURCE OF TRUTH for
 // the engine draw list; the browser keeps a parity-pinned inline copy.
@@ -4547,6 +4564,23 @@ function createSupportTranslatorSafely() {
 }
 
 const telegramConfig = resolveTelegramConfig(process.env);
+
+// Facts injected into marketing copy. They come from the SAME constants the
+// application enforces, so a template can never advertise a different amount.
+const MARKETING_FACTS = {
+  minDeposit: PLATFORM_MIN_DEPOSIT_USD,
+  referralPercent: REFERRAL_REWARD_PERCENT_DEFAULT,
+  promoCredit: 50 // new-user promotional credit seeded on the Live wallet
+};
+
+const marketingConfig = Object.assign(resolveMarketingConfig(process.env), { facts: MARKETING_FACTS });
+const marketingStore = createMarketingStore({ admin: supabaseAdmin });
+const marketingTransport = createTelegramTransport({ token: telegramConfig.token });
+const marketingOnboarding = createOnboarding({
+  config: marketingConfig,
+  transport: marketingTransport,
+  store: marketingStore
+});
 // The translator is built FIRST: the AI layer uses it to make the English knowledge
 // base reachable for pt/ar questions (the answer itself is localized by the bot).
 // The two layers stay independent - translation keeps working with AI answering off.
@@ -4556,7 +4590,11 @@ const telegramBot = createTelegramSupportBot({
   store: createTelegramSupportStore(supabaseAdmin),
   transport: createTelegramTransport({ token: telegramConfig.token }),
   supportAI: createSupportAIServiceSafely(supportTranslator),
-  translator: supportTranslator
+  translator: supportTranslator,
+  // Join-triggered partner welcome (only for the configured marketing group) and
+  // the /subscribe + /unsubscribe consent store.
+  onNewMembers: (event) => marketingOnboarding.handleNewMembers(event),
+  marketing: marketingStore
 });
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
@@ -4578,6 +4616,16 @@ if (telegramConfig.token) {
 } else {
   console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
 }
+
+// Marketing publisher: presence booleans only, never a value.
+const marketingBoot = describeMarketingConfig(marketingConfig);
+console.log('[Telegram] Marketing publisher: '
+  + (marketingBoot.enabled ? 'enabled' : 'DISABLED (TELEGRAM_MARKETING_ENABLED is not true)')
+  + `; group=${marketingBoot.groupConfigured ? 'configured' : 'NOT CONFIGURED'}`
+  + `; channel=${marketingBoot.channelConfigured ? 'configured' : 'NOT CONFIGURED'}`
+  + `; locale=${marketingBoot.locale}`
+  + `; envDryRun=${marketingBoot.dryRun}`
+  + '; the queue is also gated by telegram_marketing_control (paused + dry_run)');
 
 app.post('/api/telegram/webhook', createTelegramWebhookHandler({ bot: telegramBot }));
 
@@ -4667,6 +4715,398 @@ app.post('/api/telegram/set-webhook', authMiddleware, adminMiddleware, async (re
     res.status(400).json({ success: false, error: error && error.message ? error.message : 'Failed to set webhook' });
   }
 });
+// ============================================
+// TELEGRAM MARKETING PUBLISHER (admin)
+//
+// Every route is behind authMiddleware + adminMiddleware. The publisher never
+// accepts a chat id, a price, a percentage or a recipient list from the client:
+// the destination is resolved from the server configuration at send time, and
+// the business facts are the application constants.
+//
+// Publishing itself happens in marketing-worker.js (a separate process). These
+// routes only prepare, preview, approve and observe the queue, so an admin
+// session cannot bypass the content guard or the worker's three gates.
+// ============================================
+
+const MARKETING_TEMPLATE_KINDS = ['welcome', 'startHere', 'channelIntro', 'weekly'];
+const MARKETING_AUDIENCES = ['group', 'channel'];
+
+function marketingIsoDate(value) {
+  if (!value) return new Date().toISOString();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+function marketingGuardReport(text, locale) {
+  return checkContent(text, {
+    locale,
+    minDeposit: MARKETING_FACTS.minDeposit,
+    referralPercent: MARKETING_FACTS.referralPercent
+  });
+}
+
+app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const control = await marketingStore.getControl();
+    const due = await marketingStore.countDue();
+    const recent = await marketingStore.listPosts({ limit: 10 });
+    res.json({
+      success: true,
+      config: describeMarketingConfig(marketingConfig),
+      facts: MARKETING_FACTS,
+      control: control.ok ? { paused: control.data.paused, dryRun: control.data.dry_run } : null,
+      controlError: control.ok ? null : control.reason,
+      dueNow: due.ok ? due.count : null,
+      recentPosts: recent.ok ? recent.data : [],
+      worker: {
+        entrypoint: 'marketing-worker.js',
+        enabled: marketingConfig.enabled,
+        note: 'Publishing requires TELEGRAM_MARKETING_ENABLED=true, control.paused=false and control.dry_run=false.'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to read marketing status' });
+  }
+});
+
+/** Render a template (and run the guard) WITHOUT touching the queue or Telegram. */
+app.post('/api/admin/marketing/preview', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const kind = String(body.kind || 'welcome');
+    if (!MARKETING_TEMPLATE_KINDS.includes(kind)) {
+      return res.status(400).json({ success: false, error: 'Unknown kind' });
+    }
+    const locale = body.locale || marketingConfig.locale;
+    const audience = MARKETING_AUDIENCES.includes(body.audience) ? body.audience : 'group';
+    const built = buildPostRow({
+      kind,
+      theme: body.theme,
+      audience,
+      locale,
+      config: marketingConfig,
+      scheduledFor: marketingIsoDate(body.scheduledFor),
+      idempotencyKey: 'preview-' + crypto.randomBytes(6).toString('hex'),
+      createdBy: req.user.id,
+      name: body.name ? String(body.name).slice(0, 64) : null
+    });
+    res.json({
+      success: true,
+      kind,
+      locale: built.content.locale,
+      theme: built.content.theme,
+      text: built.content.text,
+      buttons: built.content.buttons,
+      status: built.row.status,
+      guard: built.guard
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error && error.message ? error.message : 'Preview failed' });
+  }
+});
+
+app.get('/api/admin/marketing/posts', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await marketingStore.listPosts({
+      status: req.query.status ? String(req.query.status) : undefined,
+      limit: req.query.limit
+    });
+    if (!result.ok) return res.status(503).json({ success: false, error: result.reason });
+    res.json({ success: true, posts: result.data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to list posts' });
+  }
+});
+
+app.get('/api/admin/marketing/sends', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const result = await marketingStore.listSends({
+      postId: req.query.postId ? Number(req.query.postId) : undefined,
+      limit: req.query.limit
+    });
+    if (!result.ok) return res.status(503).json({ success: false, error: result.reason });
+    res.json({ success: true, sends: result.data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to list sends' });
+  }
+});
+
+/**
+ * Queue one post.
+ *
+ * body: { kind, theme?, locale?, audience?, scheduledFor?, content?, name? }
+ *
+ * A CUSTOM body.content is guarded like a template. It is never queued as
+ * 'scheduled' unless the guard returns ok - unverified claims land in
+ * 'awaiting_approval' and hard violations are rejected with 400.
+ */
+app.post('/api/admin/marketing/posts', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const kind = String(body.kind || '');
+    const locale = body.locale || marketingConfig.locale;
+    const audience = MARKETING_AUDIENCES.includes(body.audience) ? body.audience : 'group';
+    const scheduledFor = marketingIsoDate(body.scheduledFor);
+    let built;
+
+    if (kind === 'custom') {
+      const content = String(body.content || '').trim();
+      if (!content) return res.status(400).json({ success: false, error: 'content is required' });
+      if (content.length > 3900) {
+        return res.status(400).json({ success: false, error: 'content is too long for Telegram' });
+      }
+      const guard = marketingGuardReport(content, locale);
+      if (guard.blocked) {
+        return res.status(400).json({ success: false, error: 'Content blocked by the safety guard', guard });
+      }
+      built = {
+        content: { text: content, locale, buttons: [], replyMarkup: null },
+        guard,
+        row: {
+          kind: 'custom',
+          theme: null,
+          locale,
+          audience,
+          chat_id: null,
+          content,
+          buttons: [],
+          status: guard.ok ? 'scheduled' : 'awaiting_approval',
+          idempotency_key: 'custom:' + crypto.randomBytes(8).toString('hex'),
+          scheduled_for: guard.ok ? scheduledFor : null,
+          guard,
+          created_by: req.user.id
+        }
+      };
+    } else if (kind === 'startHere') {
+      built = buildStartHereRow({ config: marketingConfig, locale, scheduledFor, createdBy: req.user.id });
+    } else if (kind === 'channelIntro') {
+      built = buildChannelIntroRow({ config: marketingConfig, locale, scheduledFor, createdBy: req.user.id });
+    } else if (MARKETING_TEMPLATE_KINDS.includes(kind)) {
+      built = buildPostRow({
+        kind,
+        theme: body.theme,
+        audience,
+        locale,
+        config: marketingConfig,
+        scheduledFor,
+        idempotencyKey: 'manual:' + kind + ':' + locale + ':' + crypto.randomBytes(8).toString('hex'),
+        createdBy: req.user.id,
+        name: body.name ? String(body.name).slice(0, 64) : null
+      });
+    } else {
+      return res.status(400).json({ success: false, error: 'Unknown kind' });
+    }
+
+    if (built.row.status === 'blocked') {
+      return res.status(400).json({
+        success: false,
+        error: 'Content blocked by the safety guard',
+        guard: built.guard
+      });
+    }
+
+    const inserted = await marketingStore.insertPost(built.row);
+    if (!inserted.ok) return res.status(503).json({ success: false, error: inserted.reason });
+    res.json({
+      success: true,
+      duplicate: Boolean(inserted.duplicate),
+      post: inserted.data,
+      guard: built.guard
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to queue post' });
+  }
+});
+
+/**
+ * Move a queued post through the approval states.
+ *
+ * body: { action: approve | cancel | retry | unschedule, scheduledFor? }
+ *
+ * `approve` re-runs the guard and refuses a blocked post - an approval can never
+ * turn unsafe copy into a published message.
+ */
+app.patch('/api/admin/marketing/posts/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: 'Invalid post id' });
+    const found = await marketingStore.getPost(id);
+    if (!found.ok) return res.status(503).json({ success: false, error: found.reason });
+    if (!found.data) return res.status(404).json({ success: false, error: 'Post not found' });
+
+    const post = found.data;
+    const action = String((req.body && req.body.action) || '');
+    const when = marketingIsoDate(req.body && req.body.scheduledFor);
+
+    if (action === 'cancel') {
+      const updated = await marketingStore.updatePost(id, { status: 'cancelled', scheduled_for: null });
+      return res.json({ success: updated.ok, post: updated.data });
+    }
+
+    if (action === 'unschedule') {
+      const updated = await marketingStore.updatePost(id, { status: 'approved', scheduled_for: null });
+      return res.json({ success: updated.ok, post: updated.data });
+    }
+
+    if (action === 'retry') {
+      if (post.status !== 'failed' && post.status !== 'blocked') {
+        return res.status(400).json({ success: false, error: 'Only a failed or blocked post can be retried' });
+      }
+      const guard = marketingGuardReport(post.content, post.locale);
+      if (guard.blocked) {
+        return res.status(400).json({ success: false, error: 'Content is still blocked', guard });
+      }
+      const updated = await marketingStore.updatePost(id, {
+        status: 'scheduled',
+        attempts: 0,
+        scheduled_for: when,
+        last_error: null
+      });
+      return res.json({ success: updated.ok, post: updated.data });
+    }
+
+    if (action === 'approve') {
+      const guard = marketingGuardReport(post.content, post.locale);
+      if (guard.blocked) {
+        return res.status(400).json({ success: false, error: 'Content is blocked and must be rewritten', guard });
+      }
+      const updated = await marketingStore.updatePost(id, {
+        status: 'scheduled',
+        scheduled_for: post.scheduled_for || when,
+        approved_by: req.user.id,
+        approved_at: new Date().toISOString(),
+        guard
+      });
+      return res.json({ success: updated.ok, post: updated.data, guard });
+    }
+
+    return res.status(400).json({ success: false, error: 'Unknown action' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to update post' });
+  }
+});
+
+/** Seed the weekly calendar. Idempotent: each slot has a dated key. */
+app.post('/api/admin/marketing/calendar/seed', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const rows = buildCalendarRows({
+      config: marketingConfig,
+      weeks: (req.body && req.body.weeks) || 2,
+      now: new Date(),
+      createdBy: req.user.id
+    });
+    let inserted = 0;
+    let duplicates = 0;
+    let awaitingApproval = 0;
+    for (const built of rows) {
+      if (built.row.status === 'blocked') continue;
+      if (built.row.status === 'awaiting_approval') awaitingApproval += 1;
+      const result = await marketingStore.insertPost(built.row);
+      if (!result.ok) return res.status(503).json({ success: false, error: result.reason, inserted });
+      if (result.duplicate) duplicates += 1;
+      else inserted += 1;
+    }
+    res.json({ success: true, considered: rows.length, inserted, duplicates, awaitingApproval });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to seed calendar' });
+  }
+});
+
+/**
+ * Queue the pinned Start Here guide for the group (and, optionally, the channel
+ * introduction). Publishing is still performed by the worker, subject to the
+ * three gates, so this never posts during a dry run.
+ */
+app.post('/api/admin/marketing/start-here', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const built = buildStartHereRow({
+      config: marketingConfig,
+      locale: body.locale || marketingConfig.locale,
+      scheduledFor: marketingIsoDate(body.scheduledFor),
+      createdBy: req.user.id
+    });
+    if (built.row.status === 'blocked') {
+      return res.status(400).json({ success: false, error: 'Content blocked by the safety guard', guard: built.guard });
+    }
+    const inserted = await marketingStore.insertPost(built.row);
+    if (!inserted.ok) return res.status(503).json({ success: false, error: inserted.reason });
+
+    let intro = null;
+    if (body.includeChannelIntro) {
+      const introBuilt = buildChannelIntroRow({
+        config: marketingConfig,
+        locale: body.locale || marketingConfig.locale,
+        scheduledFor: marketingIsoDate(body.scheduledFor),
+        createdBy: req.user.id
+      });
+      intro = await marketingStore.insertPost(introBuilt.row);
+    }
+
+    res.json({
+      success: true,
+      duplicate: Boolean(inserted.duplicate),
+      post: inserted.data,
+      channelIntro: intro && intro.ok ? intro.data : null,
+      guard: built.guard,
+      pinAvailable: Boolean(marketingConfig.groupChatId)
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to queue Start Here' });
+  }
+});
+
+/**
+ * Pin an already-published message in the marketing group.
+ * body: { postId } or { messageId }
+ */
+app.post('/api/admin/marketing/pin', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    let messageId = body.messageId ? Number(body.messageId) : null;
+    if (!messageId && body.postId) {
+      const found = await marketingStore.getPost(Number(body.postId));
+      if (!found.ok || !found.data) return res.status(404).json({ success: false, error: 'Post not found' });
+      messageId = found.data.telegram_message_id ? Number(found.data.telegram_message_id) : null;
+    }
+    if (!messageId) return res.status(400).json({ success: false, error: 'A published message id is required' });
+
+    const destination = validateDestination(marketingConfig.groupChatId, marketingConfig);
+    if (!destination.ok) {
+      return res.status(400).json({
+        success: false,
+        error: 'Marketing group is not configured (' + destination.reason + ')'
+      });
+    }
+    await marketingTransport.pinChatMessage(destination.chatId, messageId, { disable_notification: true });
+    res.json({ success: true, chatId: destination.chatId, messageId });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error && error.message ? error.message : 'Failed to pin message' });
+  }
+});
+
+/** Pause/resume and dry-run. Requires the migration; fails closed otherwise. */
+app.post('/api/admin/marketing/control', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    if (typeof body.paused !== 'boolean' && typeof body.dryRun !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'paused and/or dryRun (boolean) is required' });
+    }
+    const updated = await marketingStore.setControl({
+      paused: typeof body.paused === 'boolean' ? body.paused : undefined,
+      dryRun: typeof body.dryRun === 'boolean' ? body.dryRun : undefined,
+      updatedBy: req.user.id
+    });
+    if (!updated.ok) return res.status(503).json({ success: false, error: updated.reason });
+    res.json({
+      success: true,
+      control: { paused: updated.data.paused, dryRun: updated.data.dry_run }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to update control' });
+  }
+});
+
 
 /**
  * Q8QPay invoice status (for frontend polling / manual check).

@@ -710,6 +710,28 @@ function routeUpdate(update, config) {
   const message = update.message || update.edited_message;
   if (!message || !message.chat) return { kind: 'ignore', reason: 'no-message' };
 
+  // New members joining a group arrive as a SERVICE message with no text, so
+  // they must be recognised before any text parsing. Only groups/supergroups can
+  // produce a join; everything else falls through to the normal routing.
+  if (Array.isArray(message.new_chat_members) && message.new_chat_members.length
+      && (message.chat.type === 'group' || message.chat.type === 'supergroup')) {
+    const members = message.new_chat_members
+      .filter((m) => m && m.id !== undefined && m.id !== null)
+      .map((m) => ({
+        id: String(m.id),
+        name: telegramDisplayName(m),
+        isBot: m.is_bot === true
+      }));
+    return {
+      kind: 'join',
+      chatId: message.chat.id !== undefined && message.chat.id !== null ? String(message.chat.id) : null,
+      chatType: message.chat.type,
+      chatTitle: message.chat.title || null,
+      messageId: message.message_id !== undefined && message.message_id !== null ? String(message.message_id) : null,
+      members
+    };
+  }
+
   const chatType = message.chat.type;
   const chatId = message.chat.id !== undefined && message.chat.id !== null ? String(message.chat.id) : null;
   const from = message.from || {};
@@ -959,6 +981,9 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
       httpStatus: typeof res.status === 'number' ? res.status : null,
       ok,
       errorCode: body && body.error_code ? body.error_code : null,
+      retryAfter: body && body.parameters && body.parameters.retry_after
+        ? Number(body.parameters.retry_after)
+        : null,
       description: body && body.description
         ? safe(body.description).slice(0, 200)
         : (ok ? null : `HTTP ${res.status}`),
@@ -994,6 +1019,17 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
     answerCallbackQuery(callbackQueryId, options) {
       return call('answerCallbackQuery', Object.assign(
         { callback_query_id: callbackQueryId },
+        options || {}
+      ));
+    },
+    /**
+     * Pin a message in a chat. Requires the bot to be an administrator with the
+     * "pin messages" right; a failure is returned to the caller, never retried
+     * here.
+     */
+    pinChatMessage(chatId, messageId, options) {
+      return call('pinChatMessage', Object.assign(
+        { chat_id: chatId, message_id: messageId, disable_notification: true },
         options || {}
       ));
     },
@@ -1146,7 +1182,8 @@ function planWebhookRegistration(webhookSummary, expectedUrl) {
  *   text. It receives ONLY the customer's message text and returns a string;
  *   it has no database, trading, withdrawal or account access.
  */
-function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI, translator }) {
+function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI,
+                                  translator, onNewMembers, marketing }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -2072,6 +2109,35 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     const from = route.message.from || {};
     const command = route.command;
 
+    // Partner-update consent. Deliberately storage-independent (like /start and
+    // /help) so a database problem cannot silence the confirmation, and kept
+    // SEPARATE from support: /unsubscribe never affects support replies.
+    if (command && (command.name === 'subscribe' || command.name === 'unsubscribe')) {
+      const lang = await readConversationLanguage(route.chatId);
+      if (!marketing || typeof marketing.subscribe !== 'function'
+          || typeof marketing.unsubscribe !== 'function') {
+        await replyToChat(route.chatId, tCustomer(lang, 'subscribeUnavailable'));
+        await rememberConversation(route, from);
+        return { handled: true, action: command.name + '-unavailable' };
+      }
+      let outcome;
+      try {
+        outcome = command.name === 'subscribe'
+          ? await marketing.subscribe({ chatId: route.chatId, userId: route.fromId, locale: lang })
+          : await marketing.unsubscribe({ chatId: route.chatId });
+      } catch (error) {
+        warn('marketing ' + command.name + ' failed: ' + scrub(error && error.message ? error.message : error));
+        outcome = { ok: false };
+      }
+      const ok = Boolean(outcome && outcome.ok);
+      const key = ok
+        ? (command.name === 'subscribe' ? 'subscribeSet' : 'unsubscribeSet')
+        : 'subscribeUnavailable';
+      await replyToChat(route.chatId, tCustomer(lang, key));
+      await rememberConversation(route, from);
+      return { handled: true, action: command.name + (ok ? '' : '-failed') };
+    }
+
     // Commands answer WITHOUT storage so /start can never be silenced by a
     // database problem. Booking is best-effort and logged on failure.
     if (command && command.name === 'start') {
@@ -2452,6 +2518,45 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return { handled: false, reason: 'group-no-action' };
   }
 
+  /**
+   * A new member joined a group.
+   *
+   * The onboarding handler is OPTIONAL: when the marketing group is not
+   * configured (or onboarding is disabled) the update is acknowledged and
+   * ignored. It can never fail the webhook - a welcome message is a nice-to-have,
+   * while a 5xx makes Telegram redeliver the update forever.
+   */
+  async function handleJoinUpdate(route) {
+    if (!route || !route.members || !route.members.length) {
+      return { handled: false, reason: 'no-members' };
+    }
+    if (typeof onNewMembers !== 'function') {
+      stats.lastAction = 'join-ignored';
+      stats.lastReason = 'onboarding-not-configured';
+      return { handled: false, reason: 'onboarding-not-configured' };
+    }
+    try {
+      markStage('onboarding:welcome');
+      const result = await onNewMembers({
+        chatId: route.chatId,
+        chatType: route.chatType,
+        members: route.members,
+        messageId: route.messageId
+      });
+      stats.lastAction = result && result.sent ? 'welcome-sent' : 'welcome-skipped';
+      stats.lastReason = (result && result.skipped) || null;
+      if (result && result.sent) stats.repliesSent += 1;
+      markStage('done:' + stats.lastAction);
+      return { handled: true, action: stats.lastAction, reason: stats.lastReason };
+    } catch (error) {
+      const detail = scrub(error && error.message ? error.message : error);
+      warn('welcome handler failed (the update is still acknowledged): ' + detail);
+      stats.lastAction = 'welcome-failed';
+      stats.lastReason = 'onboarding-error';
+      return { handled: false, reason: 'onboarding-error' };
+    }
+  }
+
   async function handleUpdate(update) {
     stats.updatesReceived += 1;
     stats.lastUpdateAt = new Date().toISOString();
@@ -2481,9 +2586,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     try {
       const result = route.kind === 'callback'
         ? await handleLanguageCallback(route)
-        : (route.kind === 'group' || route.kind === 'admin')
-          ? await handleGroupUpdate(route, update)
-          : await handleUserUpdate(route, update);
+        : route.kind === 'join'
+          ? await handleJoinUpdate(route)
+          : (route.kind === 'group' || route.kind === 'admin')
+            ? await handleGroupUpdate(route, update)
+            : await handleUserUpdate(route, update);
       stats.processed += 1;
       stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
       stats.lastReason = (result && result.reason) || null;

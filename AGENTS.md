@@ -6527,3 +6527,140 @@ M server.js, M public/index.html, ?? supabase/migrations/012_email_change.sql,
 - This deployment note is intentionally LEFT UNCOMMITTED so recording it does not
   trigger a second Render rebuild (the working tree therefore shows AGENTS.md as
   modified - documentation only).
+
+## Telegram Partner Marketing Automation (2026-10-27, NOT enabled, migration 038 NOT applied)
+
+- Scope: partner onboarding GROUP + announcement CHANNEL content publishing + opt-in
+  private updates. Content only. No wallet, trade, deposit, withdrawal, subscription,
+  referral or sandbox code was touched; no financial constant changed.
+- Everything is INERT. Three independent gates must all be open before a single
+  message is published:
+    1. TELEGRAM_MARKETING_ENABLED=true
+    2. telegram_marketing_control.paused = FALSE
+    3. telegram_marketing_control.dry_run = FALSE
+  The migration seeds the control row as paused + dry_run, and TELEGRAM_MARKETING_DRY_RUN
+  defaults to true, so shipping this code publishes nothing.
+
+### Onboarding (highest priority)
+- `services/TelegramSupportService.js`
+  - `routeUpdate()` now recognises `message.new_chat_members` BEFORE text parsing and
+    returns `{ kind: 'join', chatId, chatType, chatTitle, messageId, members }`.
+    Only groups/supergroups can produce a join; private chats are unaffected.
+  - `handleUpdate()` dispatches `join` to `handleJoinUpdate()`, which calls the optional
+    `onNewMembers` collaborator. With no collaborator the update is acknowledged and
+    ignored (`onboarding-not-configured`); a throw becomes `onboarding-error` and NEVER
+    fails the webhook.
+  - `/subscribe` and `/unsubscribe` are storage-independent (like /start and /help):
+    they call the injected `marketing.subscribe/unsubscribe`, always answer, and never
+    touch support state. They are advertised in `/help` in en/pt/ar.
+  - Transport gained `pinChatMessage()` and now records Telegram `retry_after`.
+- `services/MarketingOnboarding.js`: the join handler (permission-checked against
+  `TELEGRAM_MARKETING_CHAT_ID` only, bots skipped, per-(chat,member,message) dedupe,
+  errors swallowed and audited) plus the pure queue builders
+  (`buildPostRow`, `buildCalendarRows`, `buildStartHereRow`, `buildChannelIntroRow`).
+
+### Publishing engine
+- `supabase/migrations/038_marketing_broadcast.sql` (NEW, additive, idempotent,
+  self-checking, NOT applied):
+  - `telegram_marketing_posts` (UNIQUE idempotency_key, status draft | awaiting_approval |
+    approved | scheduled | sending | published | failed | blocked | cancelled,
+    audience group | channel | subscribers, locale en | pt | ar, guard JSONB, attempts).
+  - `telegram_marketing_subscriptions` (opt-in, one row per private chat).
+  - `telegram_marketing_control` (singleton, paused + dry_run default TRUE).
+  - `telegram_marketing_sends` (per-send audit).
+  - RLS enabled on all four, service_role-only policies and grants, no anon/authenticated
+    policy. `claim_marketing_posts` uses FOR UPDATE SKIP LOCKED; `finish_marketing_post`
+    and `block_marketing_post` are the only terminal transitions.
+- `services/ContentGuard.js`: hard blocks (guaranteed profit, risk-free, lifetime /
+  recurring / passive commission, bonus/matching/cashback, fake urgency, `$700`,
+  live-signal claims, credential requests, email/wallet/phone) and requires-approval
+  (earnings figures, win rates, user counts, testimonials, amounts or percentages that
+  do not match the configured facts). Reuses `SupportGuidelines` for the English and
+  multilingual denylist. Locale-aware negation handling (`matchIndex`) so
+  "never promise guaranteed profit" and "not a recurring commission" are disclaimers.
+- `services/MarketingContent.js`: static approved copy in en / pt / ar for welcome,
+  Start Here, channel intro and seven weekly themes. Only configured facts are
+  interpolated (min deposit, referral percent); the withdrawal minimum appears nowhere.
+  Links/buttons are built only from configured URLs - an unset value omits the line
+  instead of inventing a handle.
+- `services/TelegramBroadcast.js`: env resolution (all values optional), secret-free
+  `describeMarketingConfig`, strict destination validation (must equal the configured
+  group/channel id AND match `^-100\d{6,}$`), audience resolution, per-chat rate limiter
+  (<=15/min), exponential backoff and 429 `retry_after` parsing.
+- `services/MarketingWorker.js` + `marketing-worker.js` (NEW process entrypoint):
+  claim -> re-run guard -> resolve destination from CONFIGURATION (never a stored
+  chat_id) -> send -> audit. Fail-closed on an unreadable control row or queue; dry run
+  never claims; a guard failure marks the post `blocked`; a send failure schedules a
+  backoff retry; subscribers are resolved from opt-in rows only. Inert without
+  TELEGRAM_MARKETING_ENABLED=true and refuses to start without SUPABASE_URL +
+  SUPABASE_SERVICE_KEY.
+- `services/MarketingStore.js`: Supabase access for the four tables (plain
+  `{ok, reason, error}` results, send audit failures never break a send).
+
+### Admin surface (all authMiddleware + adminMiddleware)
+`GET /api/admin/marketing/status`, `POST /preview` (render + guard, no write),
+`GET /posts`, `GET /sends`, `POST /posts` (template or guarded custom copy),
+`PATCH /posts/:id` (approve | cancel | unschedule | retry; approve re-runs the guard and
+refuses blocked copy), `POST /calendar/seed` (2 weeks = 3 group + 4 channel posts,
+idempotent dated keys), `POST /start-here` (optional channel intro),
+`POST /pin` (configured group only), `POST /control` (booleans only).
+The server never accepts a chat id, price, percentage or recipient list from the client;
+`chat_id` is stored as NULL and resolved at send time.
+
+### Business claims
+- Only the configured facts are used: source of truth is `PLATFORM_MIN_DEPOSIT_USD` (100)
+  and `REFERRAL_REWARD_PERCENT_DEFAULT` (20), injected as `MARKETING_FACTS`.
+- Copy states the reward is ONE-TIME, that there is no recurring/lifetime commission, that
+  Demo Mode uses virtual funds, and that trading involves risk with no guaranteed profit.
+  It never mentions the withdrawal minimum, a bonus engine, or a guaranteed return.
+
+### Tests
+- NEW `tests/marketing_content.test.js` (42), `tests/marketing_publishing.test.js` (35),
+  `tests/marketing_bot_wiring.test.js` (26).
+- Pins updated for the intentional changes: `tests/trading_assets.test.js`
+  (migration count 37 -> 38, 038 is the marketing queue) and
+  `tests/partner_lead_event.test.js` (the no-migration guard is now feature-specific).
+- `npm test` = 2232 tests, 2231 pass, 1 fail. The single failure is the PRE-EXISTING
+  `tests/how_it_works_video.test.js` "approved master is present for comparison"
+  (the untracked `build/` master is absent in this clone; identical before this change).
+- Local boot with a dummy Supabase URL verified the fail-closed paths: status reports
+  `controlError: control-unreadable`, preview renders pt/en copy, blocked custom copy is
+  rejected with 400 + codes, safe custom copy returns 503 `insert-failed` (never a fake
+  success), and the unauthenticated route returns 401.
+- `node --check` clean on server.js, marketing-worker.js and every new service; the 7
+  inline `public/index.html` blocks were untouched.
+
+### Manual actions required (none of these were done here)
+1. Apply `supabase/migrations/038_marketing_broadcast.sql` (paused + dry-run by default).
+2. Set `TELEGRAM_MARKETING_CHAT_ID` (partner group) and optionally
+   `TELEGRAM_ANNOUNCEMENT_CHAT_ID` (channel); add the bot to both and make it an admin
+   (post + pin rights). Get the ids with `/chatid`.
+3. Set `TELEGRAM_SUPPORT_USERNAME` and `TELEGRAM_PARTNER_SUPPORT_USERNAME` (and
+   `TELEGRAM_ANNOUNCEMENT_CHANNEL_URL`) so the welcome can link to them. Unset values are
+   omitted - no handle is invented.
+4. Enable the publisher: `TELEGRAM_MARKETING_ENABLED=true`, deploy/run
+   `node marketing-worker.js` as a Render Background Worker, then
+   `POST /api/admin/marketing/control {"paused":false,"dryRun":false}` and set
+   `TELEGRAM_MARKETING_DRY_RUN=false`.
+5. Review with `POST /api/admin/marketing/preview`, seed with `/calendar/seed`, publish
+   Start Here with `/start-here`, then pin it with `/pin`.
+
+### Deferred (deliberate)
+- No live arbitrage signal feed: `services/MarketOpportunities.js` is simulated metadata
+  and the guard blocks presenting it as a live signal. A real feed needs a data vendor.
+- No flash/matching bonus: no bonus engine exists and the guard rejects such copy.
+- No fabricated testimonials or customer-level proof: those require approval and
+  verifiable production evidence.
+- No leaderboards (P&L outcomes are still client-generated), no new bot, no second
+  notification service.
+- `activity.description`/audit details and other backend free text remain untranslated.
+
+### Status
+- NOT enabled, NOT applied, NOT deployed at the time of writing. Working tree:
+  M .env.example, M server.js, M services/TelegramSupportService.js,
+  M services/telegram-i18n.js, M tests/partner_lead_event.test.js,
+  M tests/trading_assets.test.js, ?? marketing-worker.js,
+  ?? services/{ContentGuard,MarketingContent,MarketingOnboarding,MarketingStore,
+  MarketingWorker,TelegramBroadcast}.js,
+  ?? supabase/migrations/038_marketing_broadcast.sql,
+  ?? tests/marketing_{content,publishing,bot_wiring}.test.js.
