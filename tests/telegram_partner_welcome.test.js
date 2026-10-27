@@ -62,13 +62,10 @@ test('the English welcome carries the approved copy', () => {
     'Ready to get started? Create your account here:',
     '3\uFE0F\u20E3 DISCOVER THE PARTNER PROGRAMME',
     'Want to introduce others to Arbitrix?',
-    'Your personal referral link lives inside your account:',
-    '\u2022 Log in to your Arbitrix account.',
-    '\u2022 Open your account dashboard.',
-    '\u2022 Scroll down to the Referral section.',
-    "\u2022 There you'll find your personal referral link and your referral code.",
-    '\u2022 Copy the link and share it with the people you invite.',
-    "Can't find your referral link? Scroll down your account dashboard to locate the Referral section.",
+    // Approved final copy: ONE sentence, and it never implies the personal link
+    // is sent to the member automatically.
+    "After registering, log into your account and open the Referral page. "
+      + "There, you'll find your personal referral link and code.",
     '\u{1F381} REFERRAL REWARD',
     'Earn a one-time reward equal to 20% of a referred user',
     'first qualifying deposit of $100 or more',
@@ -78,6 +75,58 @@ test('the English welcome carries the approved copy', () => {
   ];
   for (const line of required) {
     assert.ok(text.includes(line), 'missing approved copy: ' + line);
+  }
+});
+
+test('the pinned Start Here guide matches the welcome and walks through the Referral page', () => {
+  const text = render('startHere', 'en', CTX).text;
+  const required = [
+    '\u{1F4CC} START HERE',
+    '\u{1F680} YOUR NEXT STEPS',
+    '1\uFE0F\u20E3 EXPLORE ARBITRIX',
+    '2\uFE0F\u20E3 CREATE YOUR ACCOUNT',
+    '3\uFE0F\u20E3 DISCOVER THE PARTNER PROGRAMME',
+    'Want to introduce others to Arbitrix?',
+    "After registering, log into your account and open the Referral page. "
+      + "There, you'll find your personal referral link and code.",
+    '\u2022 Log in to your Arbitrix account.',
+    '\u2022 Scroll down to the Referral section.',
+    '\u2022 Copy the link and share it with the people you invite.',
+    '4\uFE0F\u20E3 REFERRAL REWARD',
+    'Earn a one-time reward equal to 20% of a referred user',
+    'first qualifying deposit of $100 or more',
+    '\u{1F91D} PROMOTE RESPONSIBLY',
+    '\u{1F4AC} NEED HELP?'
+  ];
+  for (const line of required) {
+    assert.ok(text.includes(line), 'Start Here is missing: ' + line);
+  }
+  // All four confirmed destinations appear in the guide's own text.
+  for (const url of Object.values(DESTINATIONS)) {
+    assert.ok(text.includes(url), 'Start Here is missing the destination ' + url);
+  }
+});
+
+test('the approved Referral-page sentence is localized, not copied from English', () => {
+  const english = LABELS.en.referralIntro;
+  for (const locale of ['pt', 'ar']) {
+    const intro = LABELS[locale].referralIntro;
+    assert.notStrictEqual(intro, english, locale + ' reuses the English sentence');
+    assert.ok(intro.length > 20, locale + ' sentence is not a real translation');
+    for (const kind of ['welcome', 'startHere']) {
+      assert.ok(render(kind, locale, CTX).text.includes(intro), locale + '/' + kind + ' is missing its sentence');
+    }
+  }
+  // Every locale states the action (log in, open the Referral page) explicitly.
+  assert.match(LABELS.en.referralIntro, /After registering, log into your account and open the Referral page/);
+  assert.match(LABELS.pt.referralIntro, /Depois do cadastro/);
+  assert.match(LABELS.pt.referralIntro, /Indica\u00e7\u00f5es/);
+  assert.match(LABELS.ar.referralIntro, /\u0628\u0639\u062f \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u062d\u0633\u0627\u0628/);
+  assert.match(LABELS.ar.referralIntro, /\u0642\u0633\u0645 \u0627\u0644\u0625\u062d\u0627\u0644\u0627\u062a/);
+  // ...and none of them hints that the link arrives automatically.
+  const auto = /(we('| wi)ll send|sent to you|you will receive your link|enviaremos|receber\u00e1 seu link|\u0633\u0646\u0631\u0633\u0644)/i;
+  for (const locale of LOCALES) {
+    assert.ok(!auto.test(LABELS[locale].referralIntro), locale + ' implies the link is sent automatically');
   }
 });
 

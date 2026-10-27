@@ -226,28 +226,35 @@ test('a name can never break the message layout or inject markup', async () => {
 // B. Referral instructions
 // ---------------------------------------------------------------------------
 
-test('the welcome and the Start Here guide both explain how to find the personal link', () => {
+test('the welcome points at the Referral page in one sentence; the guide walks through it', () => {
+  // Approved final copy: the WELCOME carries the single instruction, and the
+  // pinned Start Here guide carries the full walkthrough. Neither may imply that
+  // a personal link is sent to the member automatically.
+  const intro = "After registering, log into your account and open the Referral page. "
+    + "There, you'll find your personal referral link and code.";
   const steps = [
     'Log in to your Arbitrix account.',
     'Open your account dashboard.',
     'Scroll down to the Referral section.',
-    "There you'll find your personal referral link and your referral code.",
     'Copy the link and share it with the people you invite.'
   ];
-  const intro = 'Your personal referral link lives inside your account:';
   const reminder = "Can't find your referral link? Scroll down your account dashboard to locate the Referral section.";
 
-  for (const kind of ['welcome', 'startHere']) {
-    const text = render(kind, 'en', CTX).text;
-    assert.ok(text.includes(intro), kind + ' is missing the lead-in');
-    for (const step of steps) {
-      assert.ok(text.includes('\u2022 ' + step), kind + ' is missing step: ' + step);
-    }
-    assert.ok(text.includes(reminder), kind + ' is missing the reminder');
-    // Order: intro, then the five steps in sequence, then the reminder.
-    const positions = steps.map((s) => text.indexOf(s));
-    assert.deepStrictEqual(positions.slice().sort((a, b) => a - b), positions, kind + ' steps out of order');
+  const welcome = render('welcome', 'en', CTX).text;
+  assert.ok(welcome.includes(intro), 'the welcome is missing the approved referral sentence');
+  for (const step of steps) {
+    assert.ok(!welcome.includes('\u2022 ' + step), 'the welcome must not carry the guide walkthrough: ' + step);
   }
+
+  const guide = render('startHere', 'en', CTX).text;
+  assert.ok(guide.includes(intro), 'the guide is missing the approved referral sentence');
+  for (const step of steps) {
+    assert.ok(guide.includes('\u2022 ' + step), 'the guide is missing step: ' + step);
+  }
+  assert.ok(guide.includes(reminder), 'the guide is missing the reminder');
+  // Order inside the guide: the sentence, then the steps in sequence, then the reminder.
+  const positions = steps.map((s) => guide.indexOf(s));
+  assert.deepStrictEqual(positions.slice().sort((a, b) => a - b), positions, 'guide steps out of order');
 });
 
 test('the referral copy never invents a personal link or a referral URL', () => {
@@ -272,9 +279,9 @@ test('the referral copy never invents a personal link or a referral URL', () => 
 });
 
 test('the step list and reminder are translated, not copied from English', () => {
-  const en = render('welcome', 'en', CTX).text;
+  const en = render('startHere', 'en', CTX).text;
   for (const locale of ['pt', 'ar']) {
-    const text = render('welcome', locale, CTX).text;
+    const text = render('startHere', locale, CTX).text;
     assert.notStrictEqual(text, en);
     // No English sentence from the walkthrough survives in the translation.
     for (const line of LABELS.en.referralSteps) {
@@ -286,8 +293,10 @@ test('the step list and reminder are translated, not copied from English', () =>
     assert.ok(text.includes('\u2022 ' + LABELS[locale].referralSteps[0]));
     assert.ok(text.includes(LABELS[locale].referralReminder));
   }
-  // Arabic keeps the Referral section in Arabic script.
-  assert.ok(render('welcome', 'ar', CTX).text.includes('\u0642\u0633\u0645 \u0627\u0644\u0625\u062d\u0627\u0644\u0627\u062a'));
+  // Arabic keeps the Referral section in Arabic script, in both messages.
+  for (const kind of ['welcome', 'startHere']) {
+    assert.ok(render(kind, 'ar', CTX).text.includes('\u0642\u0633\u0645 \u0627\u0644\u0625\u062d\u0627\u0644\u0627\u062a'), kind);
+  }
 });
 
 test('the instructions match the real dashboard, which is where the Referral card lives', () => {
@@ -317,7 +326,8 @@ test('localisation covers all three languages for the greeting and the walkthrou
   for (const locale of LOCALES) {
     const { sent } = await runJoin({ members: [human({ id: 900 + LOCALES.indexOf(locale), first_name: 'Ana' })], locale });
     assert.ok(sent[0].text.includes(expected[locale]), locale + ' greeting');
-    assert.ok(sent[0].text.includes(LABELS[locale].referralSteps[2]), locale + ' walkthrough');
+    // The join message carries the approved Referral-page sentence, localized.
+    assert.ok(sent[0].text.includes(LABELS[locale].referralIntro), locale + ' referral instruction');
   }
 });
 

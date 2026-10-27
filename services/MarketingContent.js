@@ -49,12 +49,13 @@ const LABELS = {
       support: '💬 Customer Support',
       partnerSupport: '💳 Partner Payment Support'
     },
-    referralIntro: 'Your personal referral link lives inside your account:',
+    // The approved wording: the member logs in and opens the Referral page. It
+    // never suggests that a personal link is sent to them automatically.
+    referralIntro: 'After registering, log into your account and open the Referral page. There, you\'ll find your personal referral link and code.',
     referralSteps: [
       'Log in to your Arbitrix account.',
       'Open your account dashboard.',
       'Scroll down to the Referral section.',
-      "There you'll find your personal referral link and your referral code.",
       'Copy the link and share it with the people you invite.'
     ],
     referralReminder: "Can't find your referral link? Scroll down your account dashboard to locate the Referral section."
@@ -77,12 +78,11 @@ const LABELS = {
       support: '💬 Suporte ao cliente',
       partnerSupport: '💳 Suporte de pagamentos a parceiros'
     },
-    referralIntro: 'Seu link de indicação pessoal fica dentro da sua conta:',
+    referralIntro: 'Depois do cadastro, entre na sua conta e abra a seção Indicações. Ali você encontra seu link de indicação pessoal e seu código de indicação.',
     referralSteps: [
       'Entre na sua conta Arbitrix.',
       'Abra o painel da sua conta.',
       'Role a página para baixo até a seção Indicações.',
-      'Ali você encontra seu link de indicação pessoal e seu código de indicação.',
       'Copie o link e compartilhe com as pessoas que você convidar.'
     ],
     referralReminder: 'Não encontrou seu link de indicação? Role o painel da sua conta para baixo até a seção Indicações.'
@@ -105,12 +105,11 @@ const LABELS = {
       support: '💬 دعم العملاء',
       partnerSupport: '💳 دعم مدفوعات الشركاء'
     },
-    referralIntro: 'رابط الإحالة الخاص بك موجود داخل حسابك:',
+    referralIntro: 'بعد إنشاء الحساب، سجّل الدخول إلى حسابك وافتح قسم الإحالات. ستجد هناك رابط الإحالة الخاص بك ورمز الإحالة.',
     referralSteps: [
       'سجّل الدخول إلى حسابك في Arbitrix.',
       'افتح لوحة تحكم حسابك.',
       'مرّر إلى الأسفل حتى قسم الإحالات.',
-      'ستجد هناك رابط الإحالة الخاص بك ورمز الإحالة.',
       'انسخ الرابط وشاركه مع الأشخاص الذين تدعوهم.'
     ],
     referralReminder: 'لم تجد رابط الإحالة الخاص بك؟ مرّر لوحة تحكم حسابك إلى الأسفل للوصول إلى قسم الإحالات.'
@@ -147,10 +146,6 @@ const EN = {
     '',
     '{{referralIntro}}',
     '',
-    '{{referralSteps}}',
-    '',
-    '{{referralReminder}}',
-    '',
     '🎁 REFERRAL REWARD',
     '',
     'Earn a one-time reward equal to {{referralPercent}}% of a referred user\'s first qualifying deposit of ${{minDeposit}} or more.',
@@ -183,7 +178,8 @@ const EN = {
     '',
     '{{createLine}}',
     '',
-    '3️⃣ FIND YOUR REFERRAL LINK',
+    '3️⃣ DISCOVER THE PARTNER PROGRAMME',
+    'Want to introduce others to Arbitrix?',
     '{{referralIntro}}',
     '',
     '{{referralSteps}}',
@@ -358,10 +354,6 @@ const PT = {
     '',
     '{{referralIntro}}',
     '',
-    '{{referralSteps}}',
-    '',
-    '{{referralReminder}}',
-    '',
     '🎁 RECOMPENSA DE INDICAÇÃO',
     '',
     'Receba uma recompensa única equivalente a {{referralPercent}}% do primeiro depósito qualificado do seu indicado, de ${{minDeposit}} ou mais.',
@@ -394,7 +386,8 @@ const PT = {
     '',
     '{{createLine}}',
     '',
-    '3️⃣ ENCONTRE SEU LINK DE INDICAÇÃO',
+    '3️⃣ CONHEÇA O PROGRAMA DE PARCEIROS',
+    'Quer apresentar a Arbitrix para outras pessoas?',
     '{{referralIntro}}',
     '',
     '{{referralSteps}}',
@@ -569,10 +562,6 @@ const AR = {
     '',
     '{{referralIntro}}',
     '',
-    '{{referralSteps}}',
-    '',
-    '{{referralReminder}}',
-    '',
     '🎁 مكافأة الإحالة',
     '',
     'احصل على مكافأة لمرة واحدة تعادل {{referralPercent}}% من أول إيداع مؤهل للمستخدم الذي أحلت إليه بقيمة ${{minDeposit}} أو أكثر.',
@@ -605,7 +594,8 @@ const AR = {
     '',
     '{{createLine}}',
     '',
-    '3️⃣ اعثر على رابط الإحالة الخاص بك',
+    '3️⃣ تعرّف على برنامج الشركاء',
+    'هل ترغب في تعريف الآخرين بـ Arbitrix؟',
     '{{referralIntro}}',
     '',
     '{{referralSteps}}',
