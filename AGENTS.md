@@ -6768,3 +6768,60 @@ The server never accepts a chat id, price, percentage or recipient list from the
   entirely means either changing the enforced minimum (a business-logic change that needs
   its own approval) or removing the pop-up disclosure (which leaves a dead end). The KB
   conflict record documents this.
+
+## /chatid and /id answered PRIVATELY from any group (2026-10-27)
+
+- PROBLEM: `/chatid` was answered only inside the configured support group. With
+  TELEGRAM_SUPPORT_CHAT_ID set, every other group was dropped at routing
+  (`reason: 'other-group'`), so an operator who added the bot to the partner group
+  got silence and had no way to learn that group's id without detaching the
+  production webhook. That is exactly the id TELEGRAM_MARKETING_CHAT_ID needs.
+- FIX (services/TelegramSupportService.js, additive): a new route kind `chatid`.
+  A sender in TELEGRAM_ADMIN_IDS who sends `/chatid` or `/id` in a group that is
+  NOT the support group is answered in their PRIVATE chat by
+  `handleChatIdPrivate()`. The reply carries the chat id, type, title, the
+  operator's own user id, and names both variables (TELEGRAM_MARKETING_CHAT_ID
+  and TELEGRAM_SUPPORT_CHAT_ID).
+- ROUTING MATRIX after the change:
+    support group + anything                  -> 'group'   (byte-identical)
+    other group + admin + /chatid|/id         -> 'chatid'  (NEW: private DM)
+    other group + admin + anything else       -> 'ignore'  (other-group)
+    other group + non-admin                   -> 'ignore'  (other-group, no reply)
+    no support group + admin                  -> 'group'   (bootstrap console kept)
+    no support group + admin + /chatid|/id    -> 'chatid'  (private DM)
+    no support group + non-admin              -> 'ignore'
+- SECURITY: the destination is `route.fromId`, taken from the Telegram-authenticated
+  update, and `isAdmin` is the same canonicalized TELEGRAM_ADMIN_IDS membership test
+  used everywhere else - no new authorization path, nothing weakened. A non-admin
+  gets NO response at all (no oracle, and no send the bot could be used to trigger).
+  Only `/chatid` and `/id` are accepted from a foreign group; `/help`, `/reply`,
+  `/close`, `/escalate` and plain text stay ignored. The id is never posted to the
+  group on the success path.
+- DM FAILURE (the operator never pressed /start, Telegram 403): a short, ID-FREE
+  notice is posted in the group ("I can only send the Chat ID in a private message
+  ... open a private chat, send /start, then run /chatid again"). The id is NEVER
+  used as a fallback, and a failed notice send is swallowed (read-only groups).
+  Trace: action `chatid-private-failed`, reason `dm-failed:403`.
+- UNCHANGED: TELEGRAM_SUPPORT_CHAT_ID is never read as anything but a comparison
+  target and is never written; the support-group reply, the bootstrap console,
+  customer routing, the deduper, the notification fan-out, the webhook secret gate
+  (still 401 before any handler) and every other command are byte-identical.
+  No new env var, no new route, no database access, no migration.
+- TESTS: NEW tests/telegram_chatid_private.test.js (16) - private delivery from a
+  foreign group, `/id` and the `@Bot` addressed form, multiple operators, the id is
+  canonical and differs from the user id, non-admin ignored with zero sends, every
+  other command ignored, `chat.type: group` as well as supergroup, support group
+  unchanged (in-group reply), bootstrap routing preserved, customer private
+  /chatid unchanged, config never mutated, redelivery answered once, the 403
+  fallback is id-free, a failing fallback does not throw, the webhook still fails
+  closed, and the pure routeUpdate contract.
+  5 legacy pins updated for the intentional change (telegram_support_bot,
+  telegram_support_group_config) - each one's INTENT (an admin can discover the id)
+  is preserved, only the delivery channel moved from the group to a private message.
+- VERIFIED: telegram + support + marketing-wiring suites 701/701. Full suite 2267
+  tests, 2266 pass; the single failure is the PRE-EXISTING how_it_works_video
+  master-asset check (untracked build/ file), identical before this change.
+- NOTE ON DEPLOY VERIFICATION: this is a server-side-only change with no new public
+  route or static asset, so it cannot be fingerprinted from outside. The definitive
+  proof is that /api/telegram/status reports lastAction `chatid-private` after the
+  operator runs the command - a value that exists only in this build.

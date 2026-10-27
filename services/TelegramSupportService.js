@@ -655,12 +655,19 @@ function parseCommand(text) {
  *
  * Returns one of:
  *   { kind: 'ignore', reason }
- *   { kind: 'user',  chatId, chatType, fromId, isAdmin, message, text, command }
- *   { kind: 'group', chatId, chatType, chatTitle, fromId, isAdmin, message, text, command }
+ *   { kind: 'user',   chatId, chatType, fromId, isAdmin, message, text, command }
+ *   { kind: 'group',  chatId, chatType, chatTitle, fromId, isAdmin, message, text, command }
+ *   { kind: 'chatid', chatId, chatType, chatTitle, fromId, isAdmin, message, text, command }
  *
  * Group messages are only accepted from the configured support group, EXCEPT
  * while TELEGRAM_SUPPORT_CHAT_ID is unset - in that window admin messages are
  * accepted from any group so the bot can answer /chatid for setup.
+ *
+ * A configured operator's `/chatid` or `/id` in ANY OTHER group is a separate,
+ * deliberately narrow exception: it is answered in the operator's PRIVATE chat
+ * (kind 'chatid') so a group's id is never posted to its members. No other
+ * command is accepted from a foreign group, and a non-operator message there is
+ * still ignored silently.
  */
 function routeUpdate(update, config) {
   const cfg = config || { adminIds: [], supportChatId: null };
@@ -755,12 +762,28 @@ function routeUpdate(update, config) {
   }
 
   if (chatType === 'group' || chatType === 'supergroup') {
-    if (cfg.supportChatId && chatId !== String(cfg.supportChatId)) {
+    const isSupportGroup = Boolean(cfg.supportChatId) && chatId === String(cfg.supportChatId);
+    const commandName = base.command ? base.command.name : null;
+    const wantsChatId = commandName === 'chatid' || commandName === 'id';
+
+    // A configured operator asking for the id from a group we do not otherwise
+    // serve: answer PRIVATELY (handleChatIdPrivate) so the id is never posted to
+    // the group. This is the ONLY command accepted from a foreign group.
+    if (!isSupportGroup && isAdmin && wantsChatId) {
+      return Object.assign({ kind: 'chatid', chatTitle: message.chat.title || null }, base);
+    }
+
+    if (!isSupportGroup) {
+      // Unchanged: with no support group configured an operator may still use any
+      // group as the console (the bootstrap window), and everybody else is
+      // ignored. Once a support group IS configured every other group is ignored.
+      if (!cfg.supportChatId) {
+        if (!isAdmin) return { kind: 'ignore', reason: 'unconfigured-group-non-admin' };
+        return Object.assign({ kind: 'group', chatTitle: message.chat.title || null }, base);
+      }
       return { kind: 'ignore', reason: 'other-group' };
     }
-    if (!cfg.supportChatId && !isAdmin) {
-      return { kind: 'ignore', reason: 'unconfigured-group-non-admin' };
-    }
+
     return Object.assign({ kind: 'group', chatTitle: message.chat.title || null }, base);
   }
 
@@ -2375,6 +2398,51 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   }
 
   /**
+   * Answer `/chatid` and `/id` PRIVATELY.
+   *
+   * Reached only for a configured operator (TELEGRAM_ADMIN_IDS) who sends the
+   * command in a group that is not the support group. The id goes to the
+   * operator's private chat so it is never posted to the group's members.
+   *
+   * A bot cannot start a conversation: if the operator has never pressed /start
+   * in a private chat with it, Telegram answers 403. In that case we post a
+   * short, ID-FREE notice in the group explaining how to fix it - we never fall
+   * back to publishing the id, and a failure to post the notice is swallowed
+   * because the group may be read-only.
+   */
+  async function handleChatIdPrivate(route) {
+    const lines = [
+      `Chat ID: ${route.chatId}`,
+      `Chat type: ${route.chatType}`
+    ];
+    if (route.chatTitle) lines.push(`Chat title: ${route.chatTitle}`);
+    lines.push(`Your user ID: ${route.fromId}`);
+    lines.push('Set this as TELEGRAM_MARKETING_CHAT_ID for a partner group, or as TELEGRAM_SUPPORT_CHAT_ID for the support group.');
+
+    try {
+      await replyToChat(route.fromId, lines.join('\n'), { stage: 'chatid:dm' });
+      return { handled: true, action: 'chatid-private' };
+    } catch (error) {
+      const call = transport.getLastCall ? transport.getLastCall() : null;
+      const code = call && call.errorCode ? call.errorCode : null;
+      const reason = code ? `dm-failed:${code}` : 'dm-failed';
+      markStage('chatid:dm-failed');
+      const name = telegramDisplayName(route.message && route.message.from) || 'Admin';
+      const notice = [
+        `${name}, I can only send the Chat ID in a private message.`,
+        'Open a private chat with me (tap my name, then Start), send /start, then run /chatid again in this group.'
+      ].join('\n');
+      try {
+        await transport.sendMessage(route.chatId, notice);
+      } catch (ignored) {
+        // The group can be read-only or the bot can lack send rights; the trace
+        // (lastApiCall + action) still records that the private send failed.
+      }
+      return { handled: true, action: 'chatid-private-failed', reason };
+    }
+  }
+
+  /**
    * Operator command handler.
    *
    * Serves BOTH the legacy support group (when TELEGRAM_NOTIFY_TARGET=group) and
@@ -2586,11 +2654,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     try {
       const result = route.kind === 'callback'
         ? await handleLanguageCallback(route)
-        : route.kind === 'join'
-          ? await handleJoinUpdate(route)
-          : (route.kind === 'group' || route.kind === 'admin')
-            ? await handleGroupUpdate(route, update)
-            : await handleUserUpdate(route, update);
+        : route.kind === 'chatid'
+          ? await handleChatIdPrivate(route)
+          : route.kind === 'join'
+            ? await handleJoinUpdate(route)
+            : (route.kind === 'group' || route.kind === 'admin')
+              ? await handleGroupUpdate(route, update)
+              : await handleUserUpdate(route, update);
       stats.processed += 1;
       stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
       stats.lastReason = (result && result.reason) || null;

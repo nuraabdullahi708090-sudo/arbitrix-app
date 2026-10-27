@@ -422,8 +422,13 @@ test('routeUpdate: other groups are ignored even for admins', () => {
 });
 
 test('routeUpdate: while the support chat id is unset, admins can still be reached for setup', () => {
+  // Discovery still works before the support group exists, but /chatid and /id
+  // are now answered PRIVATELY (kind 'chatid') instead of being posted in chat.
   const adminRoute = routeUpdate(groupUpdate({ text: '/chatid' }), { adminIds: [ADMIN_ID], supportChatId: null });
-  assert.strictEqual(adminRoute.kind, 'group');
+  assert.strictEqual(adminRoute.kind, 'chatid');
+  // Every other operator command still uses the group as the console.
+  const noteRoute = routeUpdate(groupUpdate(), { adminIds: [ADMIN_ID], supportChatId: null });
+  assert.strictEqual(noteRoute.kind, 'group');
   const otherRoute = routeUpdate(groupUpdate({ userId: '999' }), { adminIds: [ADMIN_ID], supportChatId: null });
   assert.deepStrictEqual(otherRoute, { kind: 'ignore', reason: 'unconfigured-group-non-admin' });
 });
@@ -707,13 +712,16 @@ test('media-only messages ask for text instead of storing an empty message', asy
 // Support group / agent flow
 // ---------------------------------------------------------------------------
 
-test('an admin can discover the group chat id with /chatid', async () => {
+test('an admin can discover the group chat id with /chatid (privately)', async () => {
   const { bot, transport } = makeBot({ supportChatId: null });
   const result = await bot.handleUpdate(groupUpdate({ text: '/chatid@ArbitrixSupportBot' }));
-  assert.strictEqual(result.action, 'chatid');
-  const reply = transport.calls.find((c) => c.chatId === SUPPORT_CHAT_ID);
-  assert.ok(reply.text.includes(SUPPORT_CHAT_ID), 'replies with the group chat id');
-  assert.ok(reply.text.includes('TELEGRAM_SUPPORT_CHAT_ID'), 'tells the operator where to put it');
+  assert.strictEqual(result.action, 'chatid-private');
+  const dm = transport.calls.find((c) => c.chatId === ADMIN_ID);
+  assert.ok(dm, 'the id is delivered to the operator, not to the group');
+  assert.ok(dm.text.includes(SUPPORT_CHAT_ID), 'reports the group chat id');
+  assert.ok(dm.text.includes('TELEGRAM_SUPPORT_CHAT_ID'), 'tells the operator where to put it');
+  assert.strictEqual(transport.calls.filter((c) => c.chatId === SUPPORT_CHAT_ID).length, 0,
+    'nothing is posted in the group');
 });
 
 test('a non-admin cannot use group commands', async () => {

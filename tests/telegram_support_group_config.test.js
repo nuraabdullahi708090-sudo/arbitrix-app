@@ -332,28 +332,36 @@ test('admins are required for the operator workflow (TELEGRAM_ADMIN_IDS)', async
 
 // ------------------------------------------------------------------ /chatid ---
 
-test('/chatid in the group reports the group id and names the variable to set', async () => {
+test('/chatid in the group reports the group id privately and names the variables', async () => {
   const { bot, sentTo } = makeBot({ supportChatId: null });
   const result = await bot.handleUpdate(groupMessage('/chatid'));
-  assert.strictEqual(result.action, 'chatid');
-  const reply = sentTo(GROUP_ID)[0].payload.text;
+  assert.strictEqual(result.action, 'chatid-private');
+  const reply = sentTo(ADMIN_ID)[0].payload.text;
   assert.match(reply, new RegExp('Chat ID: ' + GROUP_ID));
   assert.match(reply, /Chat type: supergroup/);
   assert.match(reply, /Your user ID: /);
-  assert.match(reply, /Set TELEGRAM_SUPPORT_CHAT_ID to the Chat ID above to enable forwarding\./,
-    'the bot tells the operator the exact variable name');
+  assert.match(reply, /TELEGRAM_SUPPORT_CHAT_ID/, 'the bot names the support-group variable');
+  assert.match(reply, /TELEGRAM_MARKETING_CHAT_ID/, 'and the partner-group variable');
+  assert.strictEqual(sentTo(GROUP_ID).length, 0, 'the id is never posted in the group');
 });
 
 test('/chatid works BEFORE the group is configured, so the id can be discovered', async () => {
   const { bot, sentTo } = makeBot({ supportChatId: null, adminIds: [ADMIN_ID] });
   await bot.handleUpdate(groupMessage('/chatid', ADMIN_ID));
-  assert.strictEqual(sentTo(GROUP_ID).length, 1);
+  assert.strictEqual(sentTo(ADMIN_ID).length, 1, 'the operator receives it privately');
+  assert.strictEqual(sentTo(GROUP_ID).length, 0, 'the id is never posted in the group');
 
-  // ...but an unknown group is ignored once the group IS configured
+  // Once a support group IS configured an admin may still learn ANOTHER group's
+  // id - privately - but no other command is accepted there.
   const configured = makeBot({ supportChatId: GROUP_ID });
   const r = await configured.bot.handleUpdate(groupMessage('/chatid', ADMIN_ID, '-1009999999999'));
-  assert.strictEqual(r.handled, false);
-  assert.strictEqual(r.reason, 'other-group');
+  assert.strictEqual(r.action, 'chatid-private');
+  assert.strictEqual(configured.sentTo('-1009999999999').length, 0, 'nothing posted in that group');
+  assert.strictEqual(configured.sentTo(ADMIN_ID).length, 1);
+
+  const other = await configured.bot.handleUpdate(groupMessage('hello', ADMIN_ID, '-1009999999999'));
+  assert.strictEqual(other.handled, false);
+  assert.strictEqual(other.reason, 'other-group');
 });
 
 test('/chatid in a private chat answers the customer with their own chat id', async () => {
@@ -365,15 +373,22 @@ test('/chatid in a private chat answers the customer with their own chat id', as
 
 // ------------------------------------------------------ routing (pure function) ---
 
-test('routing accepts the configured group, ignores other groups', () => {
+test('routing accepts the configured group; other groups only for /chatid and /id', () => {
   const cfg = { supportChatId: GROUP_ID, adminIds: [ADMIN_ID] };
-  assert.strictEqual(routeUpdate(groupMessage('/chatid'), cfg).kind, 'group');
-  assert.strictEqual(routeUpdate(groupMessage('/chatid', ADMIN_ID, '-100999'), cfg).reason, 'other-group');
+  assert.strictEqual(routeUpdate(groupMessage('/chatid'), cfg).kind, 'group', 'the support group is unchanged');
+  assert.strictEqual(routeUpdate(groupMessage('/chatid', ADMIN_ID, '-100999'), cfg).kind, 'chatid');
+  assert.strictEqual(routeUpdate(groupMessage('/id', ADMIN_ID, '-100999'), cfg).kind, 'chatid');
+  assert.strictEqual(routeUpdate(groupMessage('hello', ADMIN_ID, '-100999'), cfg).reason, 'other-group');
+  assert.strictEqual(routeUpdate(groupMessage('/chatid', '999', '-100999'), cfg).reason, 'other-group',
+    'a non-admin is ignored, never answered');
 });
 
 test('routing accepts an admin message from any group while unconfigured, but not a stranger', () => {
   const unconfigured = { supportChatId: null, adminIds: [ADMIN_ID] };
-  assert.strictEqual(routeUpdate(groupMessage('/chatid', ADMIN_ID, '-100555'), unconfigured).kind, 'group');
+  assert.strictEqual(routeUpdate(groupMessage('/chatid', ADMIN_ID, '-100555'), unconfigured).kind, 'chatid',
+    'the id is answered privately');
+  assert.strictEqual(routeUpdate(groupMessage('hi', ADMIN_ID, '-100555'), unconfigured).kind, 'group',
+    'the bootstrap console still accepts operator traffic');
   assert.strictEqual(routeUpdate(groupMessage('hi', ADMIN2_ID, '-100555'), unconfigured).reason,
     'unconfigured-group-non-admin');
 });
