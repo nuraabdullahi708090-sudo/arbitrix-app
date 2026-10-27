@@ -21,6 +21,7 @@
  */
 
 const { checkContent } = require('./ContentGuard');
+const { groupButtons } = require('./MarketingContent');
 const {
   chatIdForAudience,
   validateDestination,
@@ -99,9 +100,10 @@ function createMarketingWorker(options) {
       return 'rate-limited';
     }
 
-    const replyMarkup = post.buttons && post.buttons.length
-      ? { inline_keyboard: post.buttons.map((b) => [{ text: b.text, url: b.url }]) }
-      : undefined;
+    // Rows are rebuilt from the stored `row` index, so an approved two-per-row
+    // layout is not flattened into four stacked buttons on the way out.
+    const buttonRows = groupButtons(post.buttons);
+    const replyMarkup = buttonRows.length ? { inline_keyboard: buttonRows } : undefined;
 
     try {
       const message = await transport.sendMessage(chatId, post.content, replyMarkup ? { reply_markup: replyMarkup } : undefined);

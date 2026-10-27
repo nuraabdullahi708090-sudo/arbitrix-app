@@ -30,8 +30,9 @@ const CONFIG = {
   timezone: 'UTC',
   tickMs: 60000,
   registerUrl: 'https://arbitrix.pro/?action=create-account',
+  howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/ArbitrixPayments',
+  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1',
   announcementUrl: 'https://t.me/ArbitrixChannel',
   facts: { minDeposit: 100, referralPercent: 20, promoCredit: 50 }
 };
@@ -414,7 +415,7 @@ test('the welcome uses the configured locale', async () => {
     members: [{ id: '1', name: 'Ana', isBot: false }],
     messageId: '1'
   });
-  assert.match(transport.sent[0].text, /Bem-vindo à Arbitrix/);
+  assert.match(transport.sent[0].text, /Comunidade de Parceiros Arbitrix/);
 });
 
 // ---------------------------------------------------------------------------

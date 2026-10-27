@@ -6825,3 +6825,55 @@ The server never accepts a chat id, price, percentage or recipient list from the
   route or static asset, so it cannot be fingerprinted from outside. The definitive
   proof is that /api/telegram/status reports lastAction `chatid-private` after the
   operator runs the command - a value that exists only in this build.
+
+
+## Partner welcome message + Start Here refinement (2026-10-27, services/MarketingContent.js + TelegramBroadcast + MarketingOnboarding + MarketingWorker + tests)
+- Scope: the JOIN-triggered welcome in the partner group (MarketingOnboarding) and the
+  queueable/pinnable Start Here guide. Copy, buttons and link defaults only.
+  NO change to deposits, withdrawals, trading, promo credit, referral logic, KYC,
+  subscriptions, the trading worker or the marketing publisher's three gates
+  (TELEGRAM_MARKETING_ENABLED unset, migration 038 untouched, still paused+dry-run).
+- Approved English copy is rendered verbatim: community greeting, YOUR NEXT STEPS
+  (Explore / Create account / Partner programme), REFERRAL REWARD, NEED HELP, and the
+  closing "Choose an option below". The per-member greeting line was REMOVED from the
+  welcome template because the approved copy opens with the community greeting; the
+  greeting machinery in render() (LABELS.greeting/greetingAnon, ctx.name) is still
+  supported for any future template.
+- Business facts are interpolated, never hardcoded: referralPercent (20) and minDeposit
+  (100) come from MARKETING_FACTS (server.js constants). Reward wording: ONE-TIME 20%
+  of the referred user's FIRST qualifying deposit of $100 or more. No recurring /
+  lifetime / passive commission, no bonus, no guaranteed income, no direct referral
+  URL (the copy always says: log in and open the Referral page).
+- No risk-disclaimer paragraph in the welcome (explicit requirement). The Start Here
+  guide keeps the previously approved "PROMOTE RESPONSIBLY - never promise profits,
+  never describe trading as risk-free" section so partner guidance was not weakened.
+- Inline keyboard (welcome AND Start Here): TWO rows of two, each button carries a
+  `row` index so the layout survives the DB round trip:
+    row 0: Create Account (register) + How It Works
+    row 1: Customer Support (@ArbitrixSupportBot) + Partner Payment Support (@Arbitrix_CSA1)
+  New helpers: buildStepLines / partnerButtons / groupButtons; toReplyMarkup groups by
+  `row` (no `row` = the previous one-per-row behaviour) and MarketingWorker now uses the
+  same groupButtons, so a queued Start Here is published 2x2 instead of stacked.
+- New config: howItWorksUrl (TELEGRAM_MARKETING_HOW_IT_WORKS_URL || BASE_URL + /how-it-works
+  || https://arbitrix.pro/how-it-works). OFFICIAL_LINKS in TelegramBroadcast provides the
+  four confirmed destinations when an env value is EMPTY (register, how-it-works,
+  @ArbitrixSupportBot, @Arbitrix_CSA1); a configured value always wins. Side effect to
+  know: weekly/channel templates now always have the two official support links
+  available (the publisher is disabled, so nothing is sent today).
+- Pinning: buildStartHereRow only QUEUES the guide (audience group, status scheduled,
+  chat_id NULL). Pinning stays the explicit admin-only POST /api/admin/marketing/pin
+  with a real published message id - no auto-pin was added (pinned by tests).
+- i18n: en / pt / ar rewritten with natural, native wording (no copied English), same
+  meaning and identical URLs; Arabic button labels and headings use the Arabic script.
+  Button labels reuse the approved icon + short label and stay under Telegram's
+  64-character limit.
+- Tests: NEW tests/telegram_partner_welcome.test.js (22) pins the approved copy, the four
+  destinations, the 2x2 layout in all three languages, the one-time reward wording, the
+  absence of recurring/bonus/guarantee/risk-paragraph/direct-referral-URL claims, the
+  responsible-promotion section, config defaults + env override, the end-to-end join
+  delivery, Telegram API validity and the no-auto-pin contract. Updated
+  tests/marketing_content.test.js (2x2 layout, howItWorksUrl, community greeting) and
+  tests/marketing_publishing.test.js (howItWorksUrl, PT greeting).
+- npm test = 2290 pass / 1 fail; the single failure is the PRE-EXISTING
+  tests/how_it_works_video.test.js "approved master is present for comparison" (the
+  untracked build/ master video is absent in this clone).

@@ -36,7 +36,17 @@ const LABELS = {
     partnerSupport: 'Partner payment support',
     announcements: 'Official announcements',
     register: 'Create your account',
-    channel: 'Official channel'
+    channel: 'Official channel',
+    learnHowItWorks: '🎓 Learn how it works:',
+    openRegister: '👉',
+    supportLine: '💬 Customer support:',
+    partnerSupportLine: '💳 Partner payment support:',
+    buttons: {
+      register: '🚀 Create Account',
+      howItWorks: '🎓 How It Works',
+      support: '💬 Customer Support',
+      partnerSupport: '💳 Partner Payment Support'
+    }
   },
   pt: {
     greeting: 'Bem-vindo à Arbitrix, {{name}}.',
@@ -45,7 +55,17 @@ const LABELS = {
     partnerSupport: 'Suporte de pagamentos a parceiros',
     announcements: 'Avisos oficiais',
     register: 'Criar sua conta',
-    channel: 'Canal oficial'
+    channel: 'Canal oficial',
+    learnHowItWorks: '🎓 Veja como funciona:',
+    openRegister: '👉',
+    supportLine: '💬 Suporte ao cliente:',
+    partnerSupportLine: '💳 Suporte de pagamentos a parceiros:',
+    buttons: {
+      register: '🚀 Criar conta',
+      howItWorks: '🎓 Como funciona',
+      support: '💬 Suporte ao cliente',
+      partnerSupport: '💳 Suporte de pagamentos a parceiros'
+    }
   },
   ar: {
     greeting: 'مرحبًا بك في Arbitrix، {{name}}.',
@@ -54,55 +74,98 @@ const LABELS = {
     partnerSupport: 'دعم مدفوعات الشركاء',
     announcements: 'الإعلانات الرسمية',
     register: 'أنشئ حسابك',
-    channel: 'القناة الرسمية'
+    channel: 'القناة الرسمية',
+    learnHowItWorks: '🎓 تعرّف على كيفية العمل:',
+    openRegister: '👉',
+    supportLine: '💬 دعم العملاء:',
+    partnerSupportLine: '💳 دعم مدفوعات الشركاء:',
+    buttons: {
+      register: '🚀 إنشاء حساب',
+      howItWorks: '🎓 كيف يعمل',
+      support: '💬 دعم العملاء',
+      partnerSupport: '💳 دعم مدفوعات الشركاء'
+    }
   }
 };
 
 const EN = {
   welcome: [
-    '{{greeting}}',
+    '👋 Welcome to the Arbitrix Partners Community!',
     '',
-    'Arbitrix is automated multi-asset arbitrage software. It compares prices for the same instrument on different venues and records the result of each execution in your account.',
+    'We\'re happy to have you here! 🎉',
     '',
-    'Your next steps:',
-    '1. See how it works - Demo Mode uses virtual funds, so you can explore before funding anything.',
-    '2. Create your account - it takes about a minute.',
-    '3. Open the Referral page after registering to find your personal link and code.',
-    '4. Referral reward: {{referralPercent}}% of your referred user\'s first qualifying deposit (minimum ${{minDeposit}}). This is a one-time reward, not a recurring commission.',
-    '5. Need help? The support contacts are listed below.',
+    'Arbitrix is an automated multi-asset arbitrage platform designed to identify price differences for the same instruments across different trading venues.',
     '',
-    '{{links}}',
+    'Whether you\'re here to explore the platform, learn how it works, or grow through referrals, we\'re here to help you get started.',
     '',
-    'Trading involves risk and profits are not guaranteed. Demo results do not predict live results.'
+    '🚀 YOUR NEXT STEPS',
+    '',
+    '1️⃣ EXPLORE ARBITRIX',
+    '',
+    'Discover how the platform works and explore Demo Mode using virtual funds before funding a live account.',
+    '',
+    '{{learnLine}}',
+    '',
+    '2️⃣ CREATE YOUR ACCOUNT',
+    '',
+    'Ready to get started? Create your account here:',
+    '',
+    '{{createLine}}',
+    '',
+    '3️⃣ DISCOVER THE PARTNER PROGRAMME',
+    '',
+    'Want to introduce others to Arbitrix?',
+    '',
+    'After registering, log into your account and open the Referral page. There, you\'ll find your personal referral link and code.',
+    '',
+    '🎁 REFERRAL REWARD',
+    '',
+    'Earn a one-time reward equal to {{referralPercent}}% of a referred user\'s first qualifying deposit of ${{minDeposit}} or more.',
+    '',
+    '💬 NEED HELP?',
+    '',
+    'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
+    '',
+    'Choose the appropriate support option below whenever you need assistance.',
+    '',
+    '👇 Choose an option below to get started!',
   ].join('\n'),
 
   startHere: [
-    'START HERE',
+    '📌 START HERE',
     '',
-    '1. Understand the product',
-    'Arbitrix is automated arbitrage software. It compares prices for the same instrument across venues and records the result of each execution in your account.',
+    '👋 Welcome to the Arbitrix Partners Community!',
     '',
-    '2. Know the two modes',
-    'Demo Mode uses virtual funds and nothing is at risk. Live Mode uses your own deposited funds. The minimum deposit for Live is ${{minDeposit}}.',
+    'Arbitrix is an automated multi-asset arbitrage platform that identifies price differences for the same instruments across different trading venues.',
     '',
-    '3. Register',
-    'Create your account, then sign in. Registration and the dashboard are on the official site only.',
+    '🚀 YOUR NEXT STEPS',
     '',
-    '4. Find your referral link',
-    'Open Referral in the sidebar. Your personal code and link are shown there.',
+    '1️⃣ EXPLORE ARBITRIX',
+    'Discover how the platform works and explore Demo Mode using virtual funds before funding a live account.',
     '',
-    '5. Understand the reward',
-    'You earn {{referralPercent}}% of your referred user\'s first qualifying deposit (minimum ${{minDeposit}}). The reward is paid once. There is no recurring or lifetime commission.',
+    '{{learnLine}}',
     '',
-    '6. Promote responsibly',
-    'Describe what the platform does. Do not promise profits and never describe trading as risk-free.',
+    '2️⃣ CREATE YOUR ACCOUNT',
+    'Ready to get started? Create your account here:',
     '',
-    '7. Get help',
-    'Use the support contacts below. Account questions go to customer support; payout questions go to partner payment support.',
+    '{{createLine}}',
     '',
-    '{{links}}',
+    '3️⃣ FIND YOUR REFERRAL LINK',
+    'After registering, log into your account and open the Referral page. There, you\'ll find your personal referral link and code.',
     '',
-    'Trading involves risk and profits are not guaranteed.'
+    '4️⃣ REFERRAL REWARD',
+    'Earn a one-time reward equal to {{referralPercent}}% of a referred user\'s first qualifying deposit of ${{minDeposit}} or more.',
+    '',
+    '🤝 PROMOTE RESPONSIBLY',
+    'Describe what the platform does. Never promise profits, and never describe trading as risk-free.',
+    '',
+    '💬 NEED HELP?',
+    'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
+    '',
+    '{{supportLine}}',
+    '{{partnerSupportLine}}',
+    '',
+    '👇 Choose an option below to get started!',
   ].join('\n'),
 
   channelIntro: [
@@ -230,49 +293,82 @@ const EN = {
 
 const PT = {
   welcome: [
-    '{{greeting}}',
+    '👋 Bem-vindo à Comunidade de Parceiros Arbitrix!',
     '',
-    'A Arbitrix é um software automatizado de arbitragem multi-ativo. Ele compara preços do mesmo instrumento em corretoras diferentes e registra o resultado de cada execução na sua conta.',
+    'Que bom ter você aqui! 🎉',
     '',
-    'Seus próximos passos:',
-    '1. Veja como funciona - o Modo Demo usa fundos virtuais, então você pode explorar antes de depositar.',
-    '2. Crie sua conta - leva cerca de um minuto.',
-    '3. Abra a página de Indicações depois de se registrar para encontrar seu link e código.',
-    '4. Recompensa de indicação: {{referralPercent}}% do primeiro depósito qualificado do seu indicado (mínimo ${{minDeposit}}). É um pagamento único, não uma comissão recorrente.',
-    '5. Precisa de ajuda? Os contatos de suporte estão abaixo.',
+    'A Arbitrix é uma plataforma automatizada de arbitragem multi-ativo, criada para identificar diferenças de preço do mesmo instrumento em diferentes corretoras.',
     '',
-    '{{links}}',
+    'Seja para conhecer a plataforma, entender como ela funciona ou crescer com indicações, estamos aqui para ajudar você a começar.',
     '',
-    'Negociar envolve risco e os lucros não são garantidos. Resultados no Modo Demo não preveem resultados reais.'
+    '🚀 SEUS PRÓXIMOS PASSOS',
+    '',
+    '1️⃣ CONHEÇA A ARBITRIX',
+    '',
+    'Veja como a plataforma funciona e explore o Modo Demo com fundos virtuais antes de depositar em uma conta real.',
+    '',
+    '{{learnLine}}',
+    '',
+    '2️⃣ CRIE SUA CONTA',
+    '',
+    'Pronto para começar? Crie sua conta aqui:',
+    '',
+    '{{createLine}}',
+    '',
+    '3️⃣ CONHEÇA O PROGRAMA DE PARCEIROS',
+    '',
+    'Quer apresentar a Arbitrix para outras pessoas?',
+    '',
+    'Depois de se registrar, entre na sua conta e abra a página de Indicações. Lá você encontra seu link e código de indicação pessoais.',
+    '',
+    '🎁 RECOMPENSA DE INDICAÇÃO',
+    '',
+    'Receba uma recompensa única equivalente a {{referralPercent}}% do primeiro depósito qualificado do seu indicado, de ${{minDeposit}} ou mais.',
+    '',
+    '💬 PRECISA DE AJUDA?',
+    '',
+    'Nossa equipe de suporte está disponível para ajudar você a começar, usar a plataforma e entender o Programa de Parceiros.',
+    '',
+    'Escolha a opção de suporte adequada abaixo sempre que precisar.',
+    '',
+    '👇 Escolha uma opção abaixo para começar!',
   ].join('\n'),
 
   startHere: [
-    'COMECE AQUI',
+    '📌 COMECE AQUI',
     '',
-    '1. Entenda o produto',
-    'A Arbitrix é um software automatizado de arbitragem. Ele compara preços do mesmo instrumento em corretoras diferentes e registra o resultado de cada execução na sua conta.',
+    '👋 Bem-vindo à Comunidade de Parceiros Arbitrix!',
     '',
-    '2. Conheça os dois modos',
-    'O Modo Demo usa fundos virtuais e nada está em risco. O Modo Live usa os seus próprios fundos depositados. O depósito mínimo para o Live é ${{minDeposit}}.',
+    'A Arbitrix é uma plataforma automatizada de arbitragem multi-ativo que identifica diferenças de preço do mesmo instrumento em diferentes corretoras.',
     '',
-    '3. Registre-se',
-    'Crie sua conta e entre. O cadastro e o painel ficam apenas no site oficial.',
+    '🚀 SEUS PRÓXIMOS PASSOS',
     '',
-    '4. Encontre seu link de indicação',
-    'Abra Indicações no menu lateral. Seu código e link pessoais aparecem ali.',
+    '1️⃣ CONHEÇA A ARBITRIX',
+    'Veja como a plataforma funciona e explore o Modo Demo com fundos virtuais antes de depositar em uma conta real.',
     '',
-    '5. Entenda a recompensa',
-    'Você recebe {{referralPercent}}% do primeiro depósito qualificado do seu indicado (mínimo ${{minDeposit}}). A recompensa é paga uma única vez. Não existe comissão recorrente ou vitalícia.',
+    '{{learnLine}}',
     '',
-    '6. Divulgue com responsabilidade',
-    'Descreva o que a plataforma faz. Não prometa lucros e nunca diga que negociar não tem risco.',
+    '2️⃣ CRIE SUA CONTA',
+    'Pronto para começar? Crie sua conta aqui:',
     '',
-    '7. Obtenha ajuda',
-    'Use os contatos abaixo. Dúvidas de conta vão para o suporte ao cliente; dúvidas de pagamento vão para o suporte de pagamentos a parceiros.',
+    '{{createLine}}',
     '',
-    '{{links}}',
+    '3️⃣ ENCONTRE SEU LINK DE INDICAÇÃO',
+    'Depois de se registrar, entre na sua conta e abra a página de Indicações. Lá você encontra seu link e código de indicação pessoais.',
     '',
-    'Negociar envolve risco e os lucros não são garantidos.'
+    '4️⃣ RECOMPENSA DE INDICAÇÃO',
+    'Receba uma recompensa única equivalente a {{referralPercent}}% do primeiro depósito qualificado do seu indicado, de ${{minDeposit}} ou mais.',
+    '',
+    '🤝 DIVULGUE COM RESPONSABILIDADE',
+    'Descreva o que a plataforma faz. Nunca prometa lucros e nunca diga que negociar não tem risco.',
+    '',
+    '💬 PRECISA DE AJUDA?',
+    'Nossa equipe de suporte está disponível para ajudar você a começar, usar a plataforma e entender o Programa de Parceiros.',
+    '',
+    '{{supportLine}}',
+    '{{partnerSupportLine}}',
+    '',
+    '👇 Escolha uma opção abaixo para começar!',
   ].join('\n'),
 
   channelIntro: [
@@ -400,49 +496,82 @@ const PT = {
 
 const AR = {
   welcome: [
-    '{{greeting}}',
+    '👋 مرحبًا بك في مجتمع شركاء Arbitrix!',
     '',
-    'Arbitrix منصة مراجحة آلية متعددة الأصول. تتابع فروق الأسعار للأداة نفسها في منصات مختلفة، وتسجل نتيجة كل تنفيذ في حسابك.',
+    'يسعدنا وجودك معنا! 🎉',
     '',
-    'خطواتك التالية:',
-    '1. تعرّف على المنصة - يستخدم الوضع التجريبي أموالًا افتراضية، لذا يمكنك الاستكشاف قبل الإيداع.',
-    '2. أنشئ حسابك - يستغرق حوالي دقيقة.',
-    '3. افتح صفحة الإحالات بعد التسجيل للعثور على رابطك ورمزك.',
-    '4. مكافأة الإحالة: {{referralPercent}}% من أول إيداع مؤهل للمستخدم الذي أحلت إليه (بحد أدنى ${{minDeposit}}). وهي دفعة لمرة واحدة، وليست عمولة متكررة.',
-    '5. تحتاج مساعدة؟ جهات الدعم مدرجة أدناه.',
+    'Arbitrix منصة آلية متعددة الأصول للمراجحة، صُممت لتحديد فروق الأسعار للأداة نفسها بين منصات التداول المختلفة.',
     '',
-    '{{links}}',
+    'سواء كنت هنا لاستكشاف المنصة، أو لمعرفة كيف تعمل، أو لتنمية أعمالك عبر الإحالات، فنحن هنا لمساعدتك على البدء.',
     '',
-    'التداول ينطوي على مخاطر والأرباح غير مضمونة. نتائج الوضع التجريبي لا تتنبأ بالنتائج الفعلية.'
+    '🚀 خطواتك التالية',
+    '',
+    '1️⃣ استكشف Arbitrix',
+    '',
+    'تعرّف على كيفية عمل المنصة واستكشف الوضع التجريبي بأموال افتراضية قبل تمويل حساب حقيقي.',
+    '',
+    '{{learnLine}}',
+    '',
+    '2️⃣ أنشئ حسابك',
+    '',
+    'هل أنت مستعد للبدء؟ أنشئ حسابك هنا:',
+    '',
+    '{{createLine}}',
+    '',
+    '3️⃣ تعرّف على برنامج الشركاء',
+    '',
+    'هل ترغب في تعريف الآخرين بـ Arbitrix؟',
+    '',
+    'بعد التسجيل، سجّل الدخول إلى حسابك وافتح صفحة الإحالات. ستجد هناك رابط الإحالة والرمز الخاصين بك.',
+    '',
+    '🎁 مكافأة الإحالة',
+    '',
+    'احصل على مكافأة لمرة واحدة تعادل {{referralPercent}}% من أول إيداع مؤهل للمستخدم الذي أحلت إليه بقيمة ${{minDeposit}} أو أكثر.',
+    '',
+    '💬 تحتاج إلى مساعدة؟',
+    '',
+    'فريق الدعم لدينا جاهز لمساعدتك على البدء واستخدام المنصة وفهم برنامج الشركاء.',
+    '',
+    'اختر خيار الدعم المناسب أدناه متى احتجت إلى المساعدة.',
+    '',
+    '👇 اختر أحد الخيارات أدناه للبدء!',
   ].join('\n'),
 
   startHere: [
-    'ابدأ من هنا',
+    '📌 ابدأ من هنا',
     '',
-    '1. افهم المنتج',
-    'Arbitrix برنامج مراجحة آلي. يقارن أسعار الأداة نفسها في منصات مختلفة، ويسجل نتيجة كل تنفيذ في حسابك.',
+    '👋 مرحبًا بك في مجتمع شركاء Arbitrix!',
     '',
-    '2. اعرف الوضعين',
-    'يستخدم الوضع التجريبي أموالًا افتراضية، ولا شيء معرض للخطر. ويستخدم الوضع الحقيقي أموالك المودعة. الحد الأدنى للإيداع في الوضع الحقيقي هو ${{minDeposit}}.',
+    'Arbitrix منصة آلية متعددة الأصول للمراجحة تحدد فروق الأسعار للأداة نفسها بين منصات التداول المختلفة.',
     '',
-    '3. سجّل',
-    'أنشئ حسابك ثم سجّل الدخول. التسجيل ولوحة التحكم متاحان على الموقع الرسمي فقط.',
+    '🚀 خطواتك التالية',
     '',
-    '4. اعثر على رابط الإحالة',
-    'افتح صفحة الإحالات في القائمة الجانبية. يظهر رمزك ورابطك الشخصي هناك.',
+    '1️⃣ استكشف Arbitrix',
+    'تعرّف على كيفية عمل المنصة واستكشف الوضع التجريبي بأموال افتراضية قبل تمويل حساب حقيقي.',
     '',
-    '5. افهم المكافأة',
-    'تحصل على {{referralPercent}}% من أول إيداع مؤهل للمستخدم الذي أحلت إليه (بحد أدنى ${{minDeposit}}). تُدفع المكافأة مرة واحدة. لا توجد عمولة متكررة أو مدى الحياة.',
+    '{{learnLine}}',
     '',
-    '6. رَوّج بمسؤولية',
+    '2️⃣ أنشئ حسابك',
+    'هل أنت مستعد للبدء؟ أنشئ حسابك هنا:',
+    '',
+    '{{createLine}}',
+    '',
+    '3️⃣ اعثر على رابط الإحالة الخاص بك',
+    'بعد التسجيل، سجّل الدخول إلى حسابك وافتح صفحة الإحالات. ستجد هناك رابط الإحالة والرمز الخاصين بك.',
+    '',
+    '4️⃣ مكافأة الإحالة',
+    'احصل على مكافأة لمرة واحدة تعادل {{referralPercent}}% من أول إيداع مؤهل للمستخدم الذي أحلت إليه بقيمة ${{minDeposit}} أو أكثر.',
+    '',
+    '🤝 رَوّج بمسؤولية',
     'اشرح ما تفعله المنصة. لا تعد بأرباح، ولا تصف التداول أبدًا بأنه بلا مخاطر.',
     '',
-    '7. احصل على المساعدة',
-    'استخدم جهات الدعم أدناه. أسئلة الحساب إلى دعم العملاء، وأسئلة الدفع إلى دعم مدفوعات الشركاء.',
+    '💬 تحتاج إلى مساعدة؟',
+    'فريق الدعم لدينا جاهز لمساعدتك على البدء واستخدام المنصة وفهم برنامج الشركاء.',
     '',
-    '{{links}}',
+    '{{supportLine}}',
+    '{{partnerSupportLine}}',
     '',
-    'التداول ينطوي على مخاطر والأرباح غير مضمونة.'
+    '👇 اختر أحد الخيارات أدناه للبدء!',
   ].join('\n'),
 
   channelIntro: [
@@ -597,8 +726,45 @@ function buildLinksBlock(locale, ctx) {
   return lines.join('\n');
 }
 
+/**
+ * Single-purpose link lines used by the approved partner copy. A line is empty
+ * when its URL is not configured, so nothing is invented and no blank URL is
+ * rendered.
+ */
+function buildStepLines(locale, ctx) {
+  const labels = labelsFor(locale);
+  const c = ctx || {};
+  // Each line is empty when its URL is not configured: nothing is invented and
+  // no dangling label is rendered.
+  return {
+    learnLine: c.howItWorksUrl ? labels.learnHowItWorks + '\n' + c.howItWorksUrl : '',
+    createLine: c.registerUrl ? labels.openRegister + ' ' + c.registerUrl : '',
+    supportLine: c.supportUrl ? labels.supportLine + ' ' + c.supportUrl : '',
+    partnerSupportLine: c.partnerSupportUrl
+      ? labels.partnerSupportLine + ' ' + c.partnerSupportUrl
+      : ''
+  };
+}
+
+/**
+ * The four approved partner buttons, in two rows of two. Each button carries its
+ * `row` index so the same layout survives the database round trip (the publisher
+ * stores a flat list and rebuilds the rows from this field).
+ */
+function partnerButtons(locale, ctx) {
+  const b = labelsFor(locale).buttons;
+  const c = ctx || {};
+  const rows = [[], []];
+  if (c.registerUrl) rows[0].push({ text: b.register, url: c.registerUrl, row: 0 });
+  if (c.howItWorksUrl) rows[0].push({ text: b.howItWorks, url: c.howItWorksUrl, row: 0 });
+  if (c.supportUrl) rows[1].push({ text: b.support, url: c.supportUrl, row: 1 });
+  if (c.partnerSupportUrl) rows[1].push({ text: b.partnerSupport, url: c.partnerSupportUrl, row: 1 });
+  return rows.reduce((all, row) => all.concat(row), []);
+}
+
 /** Inline keyboard built from configured URLs only. */
-function buildButtons(locale, ctx) {
+function buildButtons(locale, ctx, kind) {
+  if (kind === 'welcome' || kind === 'startHere') return partnerButtons(locale, ctx);
   const labels = labelsFor(locale);
   const c = ctx || {};
   const buttons = [];
@@ -609,12 +775,32 @@ function buildButtons(locale, ctx) {
   return buttons;
 }
 
+/**
+ * Group a flat button list into Telegram rows.
+ * A button carrying a `row` index joins that row; a button without one keeps a
+ * row of its own (the original one-per-row behaviour).
+ */
+function groupButtons(buttons) {
+  const list = (buttons || []).filter((b) => b && b.url);
+  const rows = [];
+  for (const button of list) {
+    const entry = { text: button.text, url: button.url };
+    const row = Number(button.row);
+    if (Number.isInteger(row) && row >= 0) {
+      while (rows.length <= row) rows.push([]);
+      rows[row].push(entry);
+    } else {
+      rows.push([entry]);
+    }
+  }
+  return rows.filter((row) => row.length);
+}
+
 /** Wrap a flat list of URL buttons into Telegram's inline_keyboard shape. */
 function toReplyMarkup(buttons) {
-  const list = (buttons || []).filter((b) => b && b.url);
-  if (!list.length) return null;
-  // One button per row: long localized labels stay readable on a phone.
-  return { inline_keyboard: list.map((b) => [{ text: b.text, url: b.url }]) };
+  const rows = groupButtons(buttons);
+  if (!rows.length) return null;
+  return { inline_keyboard: rows };
 }
 
 /** Replace every {{placeholder}} using the supplied values. */
@@ -631,9 +817,9 @@ function interpolate(text, vars) {
  *
  * @param {string} kind    welcome | startHere | channelIntro | weekly
  * @param {string} locale  en | pt | ar
- * @param {object} ctx     { registerUrl, supportUrl, partnerSupportUrl,
- *                           announcementUrl, minDeposit, referralPercent,
- *                           promoCredit, name, theme }
+ * @param {object} ctx     { registerUrl, howItWorksUrl, supportUrl,
+ *                           partnerSupportUrl, announcementUrl, minDeposit,
+ *                           referralPercent, promoCredit, name, theme }
  */
 function render(kind, locale, ctx) {
   const lang = normalizeLocale(locale);
@@ -657,15 +843,15 @@ function render(kind, locale, ctx) {
     ? interpolate(labels.greeting, { name: String(c.name) })
     : labels.greetingAnon;
 
-  const rendered = interpolate(text, {
+  const rendered = interpolate(text, Object.assign({
     greeting,
     minDeposit: c.minDeposit,
     referralPercent: c.referralPercent,
     promoCredit: c.promoCredit,
     links: buildLinksBlock(lang, c)
-  }).replace(/\n{3,}/g, '\n\n').trim();
+  }, buildStepLines(lang, c))).replace(/\n{3,}/g, '\n\n').trim();
 
-  const buttons = buildButtons(lang, c);
+  const buttons = buildButtons(lang, c, kind);
   return {
     kind,
     locale: lang,
@@ -690,7 +876,10 @@ module.exports = {
   ARROW,
   normalizeLocale,
   buildLinksBlock,
+  buildStepLines,
   buildButtons,
+  partnerButtons,
+  groupButtons,
   toReplyMarkup,
   interpolate,
   render,

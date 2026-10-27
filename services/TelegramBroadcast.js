@@ -68,6 +68,19 @@ function httpUrl(raw) {
 }
 
 /**
+ * Confirmed official destinations for the partner onboarding messages.
+ * A configured value always wins; these are only the fallbacks used when the
+ * environment leaves a value empty, so the approved welcome can never render a
+ * missing or invented link.
+ */
+const OFFICIAL_LINKS = Object.freeze({
+  registerUrl: 'https://arbitrix.pro/?action=create-account',
+  howItWorksUrl: 'https://arbitrix.pro/how-it-works',
+  supportUrl: 'https://t.me/ArbitrixSupportBot',
+  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1'
+});
+
+/**
  * Resolve the whole marketing configuration from an env-shaped object.
  * Presence booleans only - never a token or a secret.
  */
@@ -75,7 +88,7 @@ function resolveMarketingConfig(env) {
   const e = env || {};
   const baseUrl = firstString(e.BASE_URL).replace(/\/+$/, '');
   const registerUrl = httpUrl(e.TELEGRAM_MARKETING_REGISTER_URL) ||
-    (baseUrl ? baseUrl + '/?action=create-account' : '');
+    (baseUrl ? baseUrl + '/?action=create-account' : OFFICIAL_LINKS.registerUrl);
   return {
     enabled: boolFromEnv(e.TELEGRAM_MARKETING_ENABLED, false),
     dryRun: boolFromEnv(e.TELEGRAM_MARKETING_DRY_RUN, true),
@@ -86,12 +99,15 @@ function resolveMarketingConfig(env) {
     tickMs: intFromEnv(e.TELEGRAM_MARKETING_TICK_MS, 60000, 15000, 900000),
     workerId: firstString(e.TELEGRAM_MARKETING_WORKER_ID) || 'marketing-worker',
     registerUrl,
+    howItWorksUrl: httpUrl(e.TELEGRAM_MARKETING_HOW_IT_WORKS_URL) ||
+      (baseUrl ? baseUrl + '/how-it-works' : OFFICIAL_LINKS.howItWorksUrl),
     announcementUrl: httpUrl(e.TELEGRAM_ANNOUNCEMENT_CHANNEL_URL) ||
       (firstString(e.TELEGRAM_ANNOUNCEMENT_CHANNEL_USERNAME)
         ? telegramProfileUrl(e.TELEGRAM_ANNOUNCEMENT_CHANNEL_USERNAME)
         : ''),
-    supportUrl: telegramProfileUrl(e.TELEGRAM_SUPPORT_USERNAME),
-    partnerSupportUrl: telegramProfileUrl(e.TELEGRAM_PARTNER_SUPPORT_USERNAME),
+    supportUrl: telegramProfileUrl(e.TELEGRAM_SUPPORT_USERNAME) || OFFICIAL_LINKS.supportUrl,
+    partnerSupportUrl: telegramProfileUrl(e.TELEGRAM_PARTNER_SUPPORT_USERNAME) ||
+      OFFICIAL_LINKS.partnerSupportUrl,
     baseUrl
   };
 }
@@ -107,6 +123,7 @@ function describeMarketingConfig(config) {
     locale: normalizeLocale(c.locale),
     timezone: c.timezone || 'UTC',
     registerUrlConfigured: Boolean(c.registerUrl),
+    howItWorksUrlConfigured: Boolean(c.howItWorksUrl),
     announcementUrlConfigured: Boolean(c.announcementUrl),
     supportUrlConfigured: Boolean(c.supportUrl),
     partnerSupportUrlConfigured: Boolean(c.partnerSupportUrl)

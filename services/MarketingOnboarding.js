@@ -103,6 +103,7 @@ function nextSlot({ theme, hour, minute, timezone, after }) {
 function buildLinkContext(config, name) {
   return {
     registerUrl: config.registerUrl,
+    howItWorksUrl: config.howItWorksUrl,
     supportUrl: config.supportUrl,
     partnerSupportUrl: config.partnerSupportUrl,
     announcementUrl: config.announcementUrl,

@@ -26,8 +26,9 @@ const ROOT = path.join(__dirname, '..');
 const FACTS = { minDeposit: 100, referralPercent: 20 };
 const CTX = {
   registerUrl: 'https://arbitrix.pro/?action=create-account',
+  howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/ArbitrixPayments',
+  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1',
   announcementUrl: 'https://t.me/ArbitrixChannel',
   minDeposit: 100,
   referralPercent: 20
@@ -116,17 +117,47 @@ test('links and buttons are omitted, never invented, when configuration is missi
 
   const full = render('welcome', 'en', CTX);
   assert.strictEqual(full.buttons.length, 4);
-  assert.ok(full.replyMarkup.inline_keyboard.every((row) => row.length === 1));
+  assert.deepStrictEqual(full.replyMarkup.inline_keyboard.map((row) => row.length), [2, 2]);
   for (const button of full.buttons) {
     assert.match(button.url, /^https:\/\/t\.me\/|^https:\/\/arbitrix\.pro\//);
   }
 });
 
-test('the greeting is personalized only when a name is supplied', () => {
-  assert.match(render('welcome', 'en', Object.assign({ name: 'Ana' }, CTX)).text, /Welcome to Arbitrix, Ana\./);
-  assert.match(render('welcome', 'en', CTX).text, /Welcome to Arbitrix\./);
-  assert.match(render('welcome', 'pt', Object.assign({ name: 'Ana' }, CTX)).text, /Bem-vindo à Arbitrix, Ana\./);
-  assert.match(render('welcome', 'ar', Object.assign({ name: 'Ana' }, CTX)).text, /مرحبًا بك في Arbitrix، Ana\./);
+test('the partner welcome and Start Here use the four approved buttons in two rows', () => {
+  const expected = [
+    ['\u{1F680} Create Account', 'https://arbitrix.pro/?action=create-account'],
+    ['\u{1F393} How It Works', 'https://arbitrix.pro/how-it-works'],
+    ['\u{1F4AC} Customer Support', 'https://t.me/ArbitrixSupportBot'],
+    ['\u{1F4B3} Partner Payment Support', 'https://t.me/Arbitrix_CSA1']
+  ];
+  for (const kind of ['welcome', 'startHere']) {
+    const out = render(kind, 'en', CTX);
+    const rows = out.replyMarkup.inline_keyboard;
+    assert.strictEqual(rows.length, 2, `${kind} must render two rows`);
+    assert.deepStrictEqual(rows.map((row) => row.length), [2, 2], `${kind} must render 2x2`);
+    assert.deepStrictEqual(rows[0].map((b) => [b.text, b.url]), [expected[0], expected[1]]);
+    assert.deepStrictEqual(rows[1].map((b) => [b.text, b.url]), [expected[2], expected[3]]);
+  }
+});
+
+test('a missing URL drops only its own button, never the row layout', () => {
+  const partial = render('welcome', 'en', Object.assign({}, CTX, { howItWorksUrl: '' }));
+  assert.strictEqual(partial.buttons.length, 3);
+  assert.deepStrictEqual(partial.replyMarkup.inline_keyboard.map((row) => row.length), [1, 2]);
+  assert.ok(!partial.buttons.some((b) => /how-it-works/.test(b.url)));
+});
+
+test('the welcome opens with the approved community greeting, with no extra greeting line', () => {
+  const expected = {
+    en: '\u{1F44B} Welcome to the Arbitrix Partners Community!',
+    pt: '\u{1F44B} Bem-vindo \u00e0 Comunidade de Parceiros Arbitrix!',
+    ar: '\u{1F44B} \u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Arbitrix!'
+  };
+  for (const lang of LOCALES) {
+    const text = render('welcome', lang, Object.assign({ name: 'Ana' }, CTX)).text;
+    assert.ok(text.startsWith(expected[lang]), `${lang} must open with the approved greeting`);
+    assert.ok(!/Welcome to Arbitrix, Ana/.test(text), `${lang} must not add a personal greeting line`);
+  }
 });
 
 test('an unknown locale or kind falls back safely instead of throwing at render time', () => {
