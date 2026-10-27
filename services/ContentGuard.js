@@ -73,8 +73,20 @@ const BLOCK_RULES = [
   },
   {
     code: 'withdrawal-minimum-disclosure',
-    detail: 'The withdrawal minimum is disclosed only in the withdrawal flow, never in marketing copy',
-    patterns: [/\$\s?700\b/, /\b700\s*(usd|dollars|dólares|دولار)\b/i]
+    detail: 'No withdrawal minimum may be stated in marketing copy, whatever the amount - it is disclosed only inside the withdrawal flow',
+    patterns: [
+      /\$\s?700\b/,
+      /\b700\s*(usd|dollars|dólares|دولار)\b/i,
+      // Any withdrawal-minimum statement, whatever the number. Negated forms
+      // ("there is no minimum withdrawal", "sem saque mínimo",
+      // "لا يوجد حد أدنى للسحب") are whitelisted by matchIndex().
+      /\b(minimum|min\.?)\s+withdrawals?\b/i,
+      /\bwithdrawals?\s+minimum\b/i,
+      /\b(saque|retirada|retiro)\s+m[ií]nimo\b/i,
+      /\bm[ií]nimo\s+(de\s+)?(saque|retirada|retiro)\b/i,
+      /الحد\s+الأدنى\s+للسحب/,
+      /حد\s+أدنى\s+للسحب/
+    ]
   },
   {
     code: 'simulated-as-live-signal',

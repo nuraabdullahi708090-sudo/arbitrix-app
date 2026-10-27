@@ -87,8 +87,9 @@ test('below-minimum submit renders the actual balance, never a raw placeholder',
     assert.strictEqual(toasts.length, 1, 'exactly one message shown');
     assert.ok(!toasts[0].includes('{{'), 'no uninterpolated placeholder: ' + toasts[0]);
     assert.ok(!toasts[0].includes('current}'), 'the literal ${current} bug is gone');
-    assert.match(toasts[0], /Withdrawal requirements apply/);
-    assert.ok(!/\$700/.test(toasts[0]), 'the toast must not disclose the internal minimum');
+    // The withdraw pop-up is the ONLY place the amount may be shown, and it must
+    // still render the real available balance next to it.
+    assert.match(toasts[0], /Minimum withdrawal is \$700/);
     assert.match(toasts[0], /Current: \$350\.50/, 'shows the real available balance');
 });
 

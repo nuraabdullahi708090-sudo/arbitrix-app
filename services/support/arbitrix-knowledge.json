@@ -21,13 +21,13 @@
     {
       "id": "withdrawal_minimum",
       "status": "RESOLVED BY MANAGEMENT (no minimum withdrawal) - CODE NOT YET ALIGNED",
-      "summary": "Management has decided there is NO minimum withdrawal. However server.js still enforces MIN_WITHDRAWAL_USD = 500, so the bot's answer will not match platform behaviour until the withdrawal code is changed.",
+      "summary": "Management has decided there is NO minimum withdrawal. However server.js still enforces an internal MIN_WITHDRAWAL_USD threshold, so the bot's answer does not describe it. The amount is disclosed ONLY in the withdrawal pop-up, and only once the first-deposit and completed-trade requirements are already met.",
       "values": [
         "management decision: no minimum withdrawal (authoritative customer-facing rule)",
-        "server.js:509 MIN_WITHDRAWAL_USD = 500 (STILL ENFORCED by /api/withdraw/request today)",
+        "server.js MIN_WITHDRAWAL_USD (STILL ENFORCED by /api/withdraw/request today; the value is never advertised and never appears in this knowledge base)",
         "MARKETING_SANDBOX: never had a minimum (matches the decision)"
       ],
-      "note": "ACTION REQUIRED: the production API can still reject an amount under $500 with 'Min $500'. Aligning the code is a withdrawal-business-logic change and needs its own approval."
+      "note": "POLICY (management): customers are told there is no minimum withdrawal; the amount may appear only in the withdrawal pop-up. The API can still reject a smaller amount with a 'Min ...' error, which the front end maps to the pop-up copy. Aligning enforcement with the public copy remains a separate, approved business-logic change."
     },
     {
       "id": "withdrawal_processing_time",

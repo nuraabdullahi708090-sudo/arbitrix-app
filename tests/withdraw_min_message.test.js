@@ -183,18 +183,21 @@ test('thresholds: internal $700 minimum front and back; the MTA is gone', () => 
     assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'no server MTA remains');
 });
 
-test('the minimum-withdrawal copy is neutral (no amount disclosed)', () => {
-    [
-        ['withdraw.minWithdrawal', 'Withdrawal requirements apply. Current: ${{current}}'],
-        ['withdraw.minAmount', 'Withdrawal requirements apply.'],
-        ['live.withdrawStatus.needMinimum', '\u{1F4C8} Withdrawal requirements apply'],
-    ].forEach(([k, v]) => assert.strictEqual(T.en[k], v, k + ' must keep its neutral wording'));
-    assert.strictEqual(T.en['withdraw.min700'], undefined, 'the obsolete $700 key is removed');
+test('the minimum-withdrawal amount is disclosed ONLY by the withdraw pop-up keys', () => {
+    // Management policy: the public knowledge says there is no minimum; the
+    // figure may appear only inside the withdrawal flow, from the runtime value.
+    const POPUP = ['withdraw.minWithdrawal', 'withdraw.minAmount', 'live.withdrawStatus.needMinimum'];
     LANGS.forEach((l) => {
-        assert.ok(!/\$700/.test(T[l]['withdraw.minAmount']), l + ' minAmount must not disclose $700');
-        assert.ok(!/\$700/.test(T[l]['withdraw.minWithdrawal']), l + ' minWithdrawal must not disclose $700');
-        assert.ok(!/\$700/.test(T[l]['live.withdrawStatus.needMinimum']), l + ' needMinimum must not disclose $700');
+        POPUP.forEach((k) => {
+            assert.match(T[l][k], /\{\{min\}\}/, l + '/' + k + ' must interpolate the runtime minimum');
+            assert.ok(!/700/.test(T[l][k]), l + '/' + k + ' must not hardcode the amount');
+        });
+        // Nothing else may carry the figure or the interpolation.
+        const leaking = Object.keys(T[l]).filter((k) => !POPUP.includes(k)
+            && (/\$\{\{min\}\}/.test(T[l][k]) && /withdraw|retir|saque|سحب|提现/i.test(T[l][k])));
+        assert.deepStrictEqual(leaking, [], l + ' leaks the minimum: ' + leaking.join(','));
     });
+    assert.strictEqual(T.en['withdraw.min700'], undefined, 'the obsolete $700 key is removed');
 });
 
 test('the neutral sidebar prompt quotes no threshold and needs no interpolation', () => {

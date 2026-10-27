@@ -331,11 +331,11 @@ test('no $700 withdrawal-minimum value remains anywhere in user-facing copy', ()
     // Landing copy states there is no minimum.
     assert.match(T.en['landing.faq.5.a'], /no minimum withdrawal/i);
     assert.ok(!/\$700/.test(T.en['landing.faq.5.a']));
-    // Across ALL locales, NO translation mentions $700 - not even the withdraw
-    // pop-up (the internal minimum is server-enforced only, never displayed).
+    // No locale hardcodes the figure: the withdrawal pop-up interpolates the
+    // runtime value, and every other surface must never mention it at all.
     for (const l of LANGS) {
         const offenders = Object.keys(T[l]).filter((k) => /\$700/.test(String(T[l][k])));
-        assert.deepStrictEqual(offenders, [], l + ' advertises $700: ' + offenders.join(','));
+        assert.deepStrictEqual(offenders, [], l + ' hardcodes $700: ' + offenders.join(','));
     }
     // The bot knowledge base does NOT claim a $700 minimum.
     const kb = fs.readFileSync(path.join(ROOT, 'services', 'support', 'arbitrix-knowledge.json'), 'utf8');
