@@ -67,13 +67,16 @@ function createConversionStore(options) {
     }
   }
 
-  async function completeNotification(id, status, reason, retrySeconds) {
+  async function completeNotification(id, status, reason, retrySeconds, workerId) {
     try {
       const { data, error } = await admin.rpc('conversion_complete_notification', {
         p_id: id,
         p_status: status,
         p_reason: reason === undefined ? null : reason,
-        p_retry_seconds: retrySeconds === undefined ? null : retrySeconds
+        p_retry_seconds: retrySeconds === undefined ? null : retrySeconds,
+        // Fence: the database refuses a completion from a worker that no longer
+        // owns the row (it stalled past its lease and was superseded).
+        p_worker_id: workerId === undefined ? null : workerId
       });
       if (error) return fail('complete_failed', error);
       return { ok: true, data: data === true };
@@ -163,7 +166,9 @@ function createConversionStore(options) {
     try {
       const { data, error } = await admin
         .from(DEPOSITS_TABLE)
-        .select('id, user_id, amount, status, created_at')
+        // `credited` is the marker migration 041 sets AFTER the wallet credit;
+        // a bare status change is never treated as proof of a credit.
+        .select('id, user_id, amount, status, credited, created_at')
         .eq('id', depositId)
         .maybeSingle();
       if (error) return fail('deposit_unreadable', error);
@@ -202,6 +207,25 @@ function createConversionStore(options) {
     }
   }
 
+  /**
+   * Re-derive events that a capture trigger failed to record (they intentionally
+   * downgrade their own errors to a WARNING). Idempotent: it uses the same
+   * dedupe keys, so anything already captured produces nothing.
+   */
+  async function backfillMissing(opts) {
+    const o = opts || {};
+    try {
+      const { data, error } = await admin.rpc('conversion_backfill_missing', {
+        p_since_minutes: o.sinceMinutes,
+        p_limit: o.limit
+      });
+      if (error) return fail('backfill_failed', error);
+      return { ok: true, data: data || null };
+    } catch (error) {
+      return fail('backfill_failed', error);
+    }
+  }
+
   async function purge(opts) {
     const o = opts || {};
     try {
@@ -228,6 +252,7 @@ function createConversionStore(options) {
     getLegacyDeposit,
     getReferral,
     enqueuePendingReminders,
+    backfillMissing,
     purge
   };
 }

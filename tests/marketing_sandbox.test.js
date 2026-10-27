@@ -402,7 +402,14 @@ test('production deposit status still credits via production deposits table', ()
     const body = routeBody('get', '/api/deposit/status/:invoiceId');
     const afterBranch = body.slice(body.indexOf('handleSandboxDepositStatus)) return;'));
     assert.ok(afterBranch.includes("from('deposits')"), 'production deposit table read changed');
-    assert.ok(afterBranch.includes("updateWallet(req.user.id, 'live_balance', deposit.amount)"), 'production credit changed');
+    // The wallet credit is now ATOMIC (migration 041): the route confirms through
+    // the shared helper, which credits via confirm_legacy_deposit_safe so the
+    // conversion event cannot be recorded before the money moved. The previous
+    // `updateWallet` sequence survives only as the deploy-order fallback.
+    assert.ok(afterBranch.includes('confirmLegacyDeposit(deposit)'), 'production credit path changed');
+    assert.ok(/supabaseAdmin\.rpc\('confirm_legacy_deposit_safe'/.test(SERVER), 'the atomic credit RPC is not wired');
+    assert.ok(SERVER.includes("updateWallet(deposit.user_id, 'live_balance', deposit.amount)"),
+        'the documented fallback credit was removed');
 });
 
 test('production admin stats read production tables only (no sandbox contamination)', () => {

@@ -330,11 +330,8 @@ BEGIN
         IF COALESCE(NEW.status, '') <> 'confirmed' THEN
             RETURN NEW;
         END IF;
-        IF TG_OP = 'UPDATE' AND COALESCE(NEW.credited, FALSE) = FALSE THEN
+        IF COALESCE(NEW.credited, FALSE) = FALSE THEN
             -- "confirmed" without an authoritative credit is not a credit.
-            RETURN NEW;
-        END IF;
-        IF TG_OP = 'INSERT' AND COALESCE(NEW.credited, FALSE) = FALSE THEN
             RETURN NEW;
         END IF;
         v_user_id := NEW.user_id;
@@ -344,6 +341,20 @@ BEGIN
         v_payload := jsonb_build_object('invoiceId', NEW.id);
     ELSE
         IF COALESCE(NEW.status, '') <> 'confirmed' THEN
+            RETURN NEW;
+        END IF;
+        -- The legacy `deposits` table historically had no credit marker: the
+        -- application flipped status to 'confirmed' and only THEN called the
+        -- wallet update, so a status change alone proves nothing. Migration 041
+        -- adds `deposits.credited`, set by the atomic
+        -- confirm_legacy_deposit_safe() AFTER the wallet credit and in the same
+        -- transaction, and this trigger refuses to record the event without it.
+        -- Consequence (deliberate): a status flip that forgot to credit produces
+        -- NO notification instead of a false "we received your deposit". If 041
+        -- has not been applied yet this reference raises, the handler below logs
+        -- a warning and no legacy event is recorded - the safe direction. Apply
+        -- 040 and 041 together (see 041's header).
+        IF COALESCE(NEW.credited, FALSE) = FALSE THEN
             RETURN NEW;
         END IF;
         v_user_id := NEW.user_id;
@@ -394,6 +405,10 @@ BEGIN
         RETURN NEW;
     END IF;
     IF COALESCE(NEW.referred_id, 0) <= 0 THEN
+        RETURN NEW;
+    END IF;
+    IF NEW.referrer_id = NEW.referred_id THEN
+        -- Self-referral is refused upstream; never announce one either.
         RETURN NEW;
     END IF;
     IF NEW.referrer_id IS NULL THEN
@@ -484,7 +499,11 @@ BEGIN
           FROM public.conversion_notifications
          WHERE (status = 'pending' AND next_attempt_at <= now())
             OR (status = 'failed' AND next_attempt_at <= now() AND attempts < max_attempts)
-            OR (status = 'sending' AND lease_expires_at IS NOT NULL AND lease_expires_at < now())
+            -- A claimed row whose lease ran out belongs to a worker that died or
+            -- stalled. A NULL lease on a 'sending' row cannot be produced by the
+            -- claim below (it always sets one), so treating it as expired is pure
+            -- defence: without it such a row would be stuck forever.
+            OR (status = 'sending' AND (lease_expires_at IS NULL OR lease_expires_at < now()))
          ORDER BY next_attempt_at ASC, id ASC
          LIMIT v_limit
          FOR UPDATE SKIP LOCKED
@@ -511,11 +530,17 @@ GRANT EXECUTE ON FUNCTION public.conversion_claim_notifications(TEXT, INTEGER, I
 --   'failed'  -> retry with backoff, or terminal once attempts hit max_attempts
 -- Any row not currently 'sending' is left alone, so a duplicate completion call
 -- is harmless.
+-- The 4-argument version is replaced by the fenced one below. Dropping the
+-- exact old signature keeps a single (unambiguous) function for PostgREST; the
+-- new parameter defaults, so a 4-argument call still works.
+DROP FUNCTION IF EXISTS public.conversion_complete_notification(BIGINT, TEXT, TEXT, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.conversion_complete_notification(
     p_id            BIGINT,
     p_status        TEXT,
     p_reason        TEXT DEFAULT NULL,
-    p_retry_seconds INTEGER DEFAULT NULL
+    p_retry_seconds INTEGER DEFAULT NULL,
+    p_worker_id     TEXT DEFAULT NULL
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -541,6 +566,16 @@ BEGIN
     -- Only a claimed row may be completed (prevents a stale worker from
     -- overwriting a row another worker already finished).
     IF v_row.status <> 'sending' THEN
+        RETURN FALSE;
+    END IF;
+    -- FENCE: when the caller identifies itself, it may only complete a row it
+    -- still owns. A worker that stalled past its lease and was superseded gets
+    -- FALSE instead of clobbering the newer claim. The CURRENT owner always
+    -- matches, so this can never wedge a row. (The lease itself is not required
+    -- to be live: a worker whose send simply took longer than the lease should
+    -- still be allowed to record its own outcome, which avoids a duplicate.)
+    IF p_worker_id IS NOT NULL
+       AND COALESCE(v_row.claimed_by, '') <> COALESCE(NULLIF(p_worker_id, ''), 'worker') THEN
         RETURN FALSE;
     END IF;
 
@@ -599,9 +634,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.conversion_complete_notification(BIGINT, TEXT, TEXT, INTEGER)
+REVOKE ALL ON FUNCTION public.conversion_complete_notification(BIGINT, TEXT, TEXT, INTEGER, TEXT)
     FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.conversion_complete_notification(BIGINT, TEXT, TEXT, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION public.conversion_complete_notification(BIGINT, TEXT, TEXT, INTEGER, TEXT) TO service_role;
 
 -- Enqueue at most p_max_per_deposit PROMOTIONAL reminders for deposits that are
 -- still genuinely pending.

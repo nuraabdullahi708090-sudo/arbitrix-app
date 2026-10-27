@@ -20,6 +20,12 @@
  *     rows require marketing consent at ENQUEUE time (SQL) AND are re-checked
  *     here at SEND time. Transactional rows (deposit confirmed, referral
  *     qualified) are service messages about the user's own account.
+ *   * It never treats a status change as proof of a credit: a legacy deposit
+ *     must still carry `credited = TRUE` (migration 041), which is written only
+ *     after the wallet credit committed.
+ *   * It periodically runs the idempotent `conversion_backfill_missing()` pass,
+ *     so an event the capture triggers failed to record (they downgrade their
+ *     own errors to a WARNING on purpose) is recovered instead of lost.
  *   * It never logs a chat id, a token, an email, an amount or a balance.
  *
  * CONCURRENCY
@@ -27,6 +33,11 @@
  *   LOCKED + lease + attempts incremented at claim time), so two workers can
  *   never send the same row, a crashed worker's rows are reclaimed after the
  *   lease, and a poisonous row stops retrying on its own.
+ *
+ * CONCURRENCY: a completion is FENCED by the claiming worker id, so a worker
+ * that stalled past its lease and was superseded cannot overwrite the state of
+ * the worker that took over. A claimed row whose lease is missing or expired is
+ * always reclaimable, so a crash can never leave a notification stuck.
  *
  * DELIVERY GUARANTEE: at-least-once, bounded by max_attempts. If the process
  * dies (or the database is unreachable) in the instant BETWEEN a successful
@@ -57,6 +68,13 @@ const DEFAULT_CONFIG = Object.freeze({
   pendingRemindersEnabled: false,
   reminderDelayMinutes: 30,
   reminderMaxPerDeposit: 1,
+  // Event reconciliation (recover a swallowed capture error). ON by default:
+  // it is idempotent, bounded, and it is what makes the triggers' "never block a
+  // credit" trade-off safe instead of lossy.
+  backfillEnabled: true,
+  backfillIntervalMs: 15 * 60 * 1000,
+  backfillWindowMinutes: 2880,
+  backfillLimit: 200,
   // Housekeeping. Off by default: an operator enables it deliberately.
   purgeEnabled: false,
   purgeIntervalMs: 24 * 60 * 60 * 1000,
@@ -66,6 +84,14 @@ const DEFAULT_CONFIG = Object.freeze({
 
 function envBool(value) {
   return String(value === undefined || value === null ? '' : value).trim().toLowerCase() === 'true';
+}
+
+/** Boolean flag with a real default (only an explicit true/false overrides it). */
+function envFlag(value, fallback) {
+  const raw = String(value === undefined || value === null ? '' : value).trim().toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return fallback;
 }
 
 function envInt(value, fallback, min, max) {
@@ -89,6 +115,10 @@ function resolveConversionConfig(env) {
     pendingRemindersEnabled: envBool(source.CONVERSION_PENDING_REMINDERS_ENABLED),
     reminderDelayMinutes: envInt(source.CONVERSION_REMINDER_DELAY_MINUTES, DEFAULT_CONFIG.reminderDelayMinutes, 5, 10080),
     reminderMaxPerDeposit: envInt(source.CONVERSION_REMINDER_MAX_PER_DEPOSIT, DEFAULT_CONFIG.reminderMaxPerDeposit, 1, 5),
+    backfillEnabled: envFlag(source.CONVERSION_BACKFILL_ENABLED, DEFAULT_CONFIG.backfillEnabled),
+    backfillIntervalMs: envInt(source.CONVERSION_BACKFILL_INTERVAL_MS, DEFAULT_CONFIG.backfillIntervalMs, 60000, 24 * 60 * 60 * 1000),
+    backfillWindowMinutes: envInt(source.CONVERSION_BACKFILL_WINDOW_MINUTES, DEFAULT_CONFIG.backfillWindowMinutes, 5, 43200),
+    backfillLimit: envInt(source.CONVERSION_BACKFILL_LIMIT, DEFAULT_CONFIG.backfillLimit, 1, 1000),
     purgeEnabled: envBool(source.CONVERSION_PURGE_ENABLED),
     purgeIntervalMs: envInt(source.CONVERSION_PURGE_INTERVAL_MS, DEFAULT_CONFIG.purgeIntervalMs, 60000, 7 * 24 * 60 * 60 * 1000),
     notificationRetentionDays: envInt(source.CONVERSION_NOTIFICATION_RETENTION_DAYS, DEFAULT_CONFIG.notificationRetentionDays, 7, 3650),
@@ -104,6 +134,7 @@ function describeConversionConfig(config) {
     batchSize: c.batchSize,
     leaseSeconds: c.leaseSeconds,
     maxAgeMinutes: c.maxAgeMinutes,
+    backfillEnabled: c.backfillEnabled !== false,
     pendingRemindersEnabled: Boolean(c.pendingRemindersEnabled),
     reminderDelayMinutes: c.reminderDelayMinutes,
     reminderMaxPerDeposit: c.reminderMaxPerDeposit,
@@ -169,6 +200,8 @@ function createConversionWorker(options) {
     stopped: false,
     timer: null,
     lastPurgeAt: 0,
+    lastBackfillAt: 0,
+    lastBackfillReason: null,
     lastSendAtByChat: new Map()
   };
 
@@ -179,6 +212,7 @@ function createConversionWorker(options) {
     skipped: 0,
     retried: 0,
     enqueuedReminders: 0,
+    backfilled: 0,
     claimFailures: 0,
     completeFailures: 0,
     lastTickAt: null,
@@ -201,7 +235,7 @@ function createConversionWorker(options) {
 
   /** Complete a row and update the counters. Never throws. */
   async function finish(row, status, reason, retrySeconds) {
-    const res = await store.completeNotification(row.id, status, reason, retrySeconds);
+    const res = await store.completeNotification(row.id, status, reason, retrySeconds, workerId);
     if (!res.ok) {
       stats.completeFailures += 1;
       emit('warn', 'notification_complete_failed', { notificationId: row.id, reason: res.reason });
@@ -267,6 +301,11 @@ function createConversionWorker(options) {
         if (!res.data || String(res.data.status || '').toLowerCase() !== 'confirmed') {
           return { ok: false, reason: 'not_confirmed' };
         }
+        // status alone is never proof: migration 041 writes this marker only
+        // after the wallet credit committed in the same transaction.
+        if (res.data.credited !== true) {
+          return { ok: false, reason: 'not_credited' };
+        }
       } else {
         const invoiceId = payload.invoiceId;
         if (invoiceId === undefined || invoiceId === null) return { ok: false, reason: 'unverifiable' };
@@ -331,7 +370,7 @@ function createConversionWorker(options) {
     const eventRes = await store.getEvent(row.event_id);
     if (!eventRes.ok) {
       // A read failure must not consume the attempt; retry later.
-      await store.completeNotification(row.id, 'failed', 'event_unreadable', 60);
+      await store.completeNotification(row.id, 'failed', 'event_unreadable', 60, workerId);
       stats.retried += 1;
       return;
     }
@@ -382,6 +421,40 @@ function createConversionWorker(options) {
     return res.data;
   }
 
+  /**
+   * Recover events a capture trigger failed to record. Bounded, idempotent, and
+   * skipped entirely when disabled or when the RPC is not deployed yet (the
+   * failure is logged once per distinct reason, not every tick).
+   */
+  async function maybeBackfill() {
+    if (!config.backfillEnabled) return;
+    const nowMs = clock();
+    if (nowMs - state.lastBackfillAt < config.backfillIntervalMs) return;
+    state.lastBackfillAt = nowMs;
+
+    if (typeof store.backfillMissing !== 'function') return;
+    const res = await store.backfillMissing({
+      sinceMinutes: config.backfillWindowMinutes,
+      limit: config.backfillLimit
+    });
+    if (!res.ok) {
+      if (state.lastBackfillReason !== res.reason) {
+        state.lastBackfillReason = res.reason;
+        emit('warn', 'backfill_failed', {
+          reason: res.reason,
+          hint: res.reason === 'backfill_failed' ? 'migration 041 may not be applied' : undefined
+        });
+      }
+      return;
+    }
+    state.lastBackfillReason = null;
+    const recovered = res.data && Number(res.data.total) > 0 ? Number(res.data.total) : 0;
+    if (recovered > 0) {
+      stats.backfilled += recovered;
+      emit('info', 'backfill_recovered', res.data);
+    }
+  }
+
   async function maybePurge() {
     if (!config.purgeEnabled) return;
     const nowMs = clock();
@@ -404,6 +477,7 @@ function createConversionWorker(options) {
     stats.ticks += 1;
     stats.lastTickAt = new Date().toISOString();
     try {
+      await maybeBackfill();
       await maybeEnqueueReminders();
       await maybePurge();
 

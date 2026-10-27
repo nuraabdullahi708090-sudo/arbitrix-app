@@ -7033,3 +7033,331 @@ The server never accepts a chat id, price, percentage or recipient list from the
   change. Telegram/marketing/support suites 912/912. node --check clean.
 - NOT A LIVE-TELEGRAM CLAIM: no real group join was performed from here; the end-to-end proof
   is the first mixed join in the partner group plus the `welcome_sent` log fields.
+
+## Multi-member welcome hardening DEPLOYED TO PRODUCTION (2026-10-27)
+- Deployment commit: 87a648e ("fix: handle mixed human/bot join batches in the partner
+  welcome"), pushed c13c6c1..87a648e main -> main as a normal fast-forward (verified with
+  `git merge-base --is-ancestor origin/main HEAD`; no force/rebase/reset). Remote main
+  confirmed at 87a648e via ls-remote. Pushed with the GITHUB_TOKEN-authenticated URL.
+- CHANGE SET: services/MarketingOnboarding.js (+133/-47), NEW
+  tests/telegram_welcome_batch.test.js (25 tests), AGENTS.md (the previous session's
+  deployment note plus this feature note). No server.js, no migration, no static asset, no
+  copy/localisation change, no change to the keyboard, the four destinations, ContentGuard,
+  the referral rules or the publisher.
+- POST-DEPLOY VERIFICATION: /api/health 200 {"status":"ok"} polled four times across the
+  deploy; / 200, /partners 200, /how-it-works 200, /reset-password.html 200; the served
+  public/index.html is byte-identical to the repo (cmp); /api/telegram/webhook still fails
+  closed (401 invalid_secret); /api/admin/marketing/status 401 (admin gate intact).
+- NOT VERIFIED FROM HERE: live Telegram behaviour. No group join was performed, and the
+  change adds no public route, so the new build cannot be fingerprinted from outside the
+  app. The definitive check is a real (preferably mixed human+bot) join in the partner
+  group: the welcome appears once, and the log line
+  {"event":"welcome_sent","component":"marketing-onboarding","members":N,"bots":M,...}
+  reports how many humans were greeted and how many bots were filtered.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger
+  another Render rebuild; the working tree therefore shows AGENTS.md modified (documentation
+  only).
+
+## Phase 1 - Secure Telegram account linking (2026-10-27, NOT applied, NOT pushed)
+
+- GOAL: let a logged-in customer bind their Arbitrix account to their own Telegram
+  chat, as the foundation for the conversion automation. NOTHING is sent to a linked
+  chat yet - this phase only establishes a trustworthy account <-> chat association.
+- FILES: NEW supabase/migrations/039_telegram_account_links.sql,
+  NEW services/TelegramAccountLinks.js, NEW tests/telegram_account_link.test.js (65);
+  modified services/TelegramSupportService.js (handler + scrub hardening),
+  services/telegram-i18n.js (/unlink + 10 keys x en/pt/ar), server.js (3 routes +
+  wiring), public/index.html (Profile "Telegram" card + 15 keys x 6 locales),
+  .env.example (TELEGRAM_BOT_USERNAME), plus the pins listed below.
+- MODEL: the token is minted ONLY from an authenticated session
+  (POST /api/telegram/link/start -> req.user.id), 32 random bytes base64url with an
+  `lk_` prefix (= 46 chars, inside Telegram's 64-char start-payload limit and its
+  A-Za-z0-9_- charset). Only the SHA-256 hex digest is stored; the raw token leaves
+  the server exactly once, inside the deep link. 10-minute TTL, single use.
+- CONSUMPTION IS ATOMIC IN POSTGRES: consume_telegram_link_token(token_hash, chat_id,
+  telegram_user_id) SECURITY DEFINER; idempotent shape; `SELECT ... FOR UPDATE` on the
+  token row; enforced in BOTH directions with unique indexes
+  (telegram_chat_id unique where not null, user_id unique where chat not null).
+  A conflict returns chat_linked_elsewhere / account_linked_elsewhere and NEVER
+  transfers ownership; the token is then DELETED (not marked used) so the invariant
+  "a used row always carries a chat" (shape CHECK) stays true for every row.
+- RLS is ENABLED with a single service_role policy; REVOKE from PUBLIC/anon/
+  authenticated; no anon policy exists. FK to users(id) ON DELETE CASCADE.
+- BOT: `/start lk_<token>` (private chat only, chat.id === from.id) links;
+  `/unlink` removes. Replies are localized and deliberately coarse: invalid, expired
+  and already-used tokens share ONE message so a stranger cannot probe hashes. A
+  group `/start lk_` is ignored (nothing is answered). Replies never contain an email,
+  balance, deposit figure or the token. `/unlink` only ever acts on the presser's own
+  private chat - the same rule the callback-query handler uses.
+- CONSENT IS UNTOUCHED: linking never calls marketing.subscribe/unsubscribe and never
+  writes telegram_marketing_subscriptions. The dashboard card says so explicitly
+  (telegramLink.consentNote) and the confirmation repeats that marketing is a
+  separate `/subscribe` opt-in.
+- FAIL CLOSED: with migration 039 absent the three endpoints answer 503 (no deep
+  link is ever issued) and `/start lk_...` replies "temporarily unavailable"; the rest
+  of the bot is unchanged. Some(user) is not reachable, so no token can be created.
+- HARDENING: tokens and bot credentials are scrubbed from log lines (the scrub now
+  also masks `lk_...`), minting is limited to 5 per 10 min per account with a 3s
+  cooldown, and bad-token attempts are throttled at 8 per 10 min per chat (429 with
+  Retry-After at the API). Every link response is Cache-Control: no-store. No chat id
+  or Telegram id is ever returned by the API - the dashboard sees only
+  { connected, linkedAt, pending }.
+- NOT A MARKETING OPT-OUT: the association is one-directional and revocable; /unlink
+  deletes the row, and revoking also discards any pending token.
+- VERIFIED AGAINST REAL POSTGRES 16.15 (throwaway Docker container, since removed;
+  migrations applied to a fresh database with a minimal users table and Supabase-like
+  roles): 039 applies cleanly, a second apply is a no-op, and 12 behavioural cases
+  PASS (fresh link, idempotent replay, used-from-another-chat refused, expired,
+  invalid inputs, chat_linked_elsewhere with ownership preserved, account_linked_
+  elsewhere, both unique indexes as the backstop, the used-requires-chat CHECK, anon
+  denied read AND write, service_role allowed). CONCURRENCY: two sessions on one
+  token, the first holding the row lock for 3s -> session A success, session B `used`,
+  exactly ONE linked row. That also caught a real bug: burning the token by setting
+  used=true violated the shape CHECK (no chat) for the two refusal paths; the fix
+  deletes the burned row, and the in-memory test fake was aligned with it.
+- TESTS: npm test = 2399 tests, 2398 pass. The single failure is the PRE-EXISTING
+  tests/how_it_works_video.test.js master-asset check (the untracked build/ master is
+  absent in this clone; identical before this change). New suite 65/65.
+  Pins updated for INTENTIONAL changes: dictionary size 1508 -> 1523 in 15 files
+  (15 telegramLink.* keys x 6 locales; landing_testimonials baseline 1482 -> 1497),
+  trading_assets migration count 38 -> 39 (plus an explicit 039 assertion),
+  marketing_bot_wiring migration regex scoped to the marketing file, support_ui
+  profile-modal window 9000 -> 14000 (the card made the section longer), and the
+  partners_page homepage hash re-pinned twice (its own comment allows this).
+- NOT DONE ON PURPOSE: no marketing/broadcast use of the link, no automatic pinning,
+  no change to referral/deposit/withdrawal/trading/subscription logic, no migration
+  applied, no deploy, no push. Migration 039 must be applied before the feature works
+  in production; until then it fails closed by design.
+
+## Phase 2 - Conversion automation: durable events + Telegram outbox (2026-10-27, NOT applied, NOT pushed)
+
+- GOAL: notify a customer in their own LINKED Telegram chat when something real
+  happens on their account, without ever duplicating a message or inventing one.
+  Three automations are implemented (A registration tracked but never messaged,
+  B deposit confirmed, C referral qualified) plus the scaffold for D (pending
+  deposit reminder) which stays DISABLED.
+- FILES: NEW supabase/migrations/040_conversion_events.sql,
+  services/ConversionStore.js, services/ConversionWorker.js,
+  services/conversion-i18n.js, conversion-worker.js,
+  tests/conversion_events.test.js (59); MODIFIED .env.example (CONVERSION_*
+  block) and tests/trading_assets.test.js (migration count 39 -> 40). server.js
+  is UNTOUCHED: no new route, no new dependency, no change to any money path.
+
+### Why triggers instead of JS hooks
+- The authoritative "money arrived" markers are written inside PostgreSQL
+  (credit_payment_safe, paymento_credit_user_safe, confirm_payment_with_credit)
+  AND by two JS paths (legacy /api/deposit/status auto-confirm, admin confirm).
+  A JS hook would need four call sites and would silently miss the next one.
+- Migration 040 therefore OBSERVES the tables with row triggers that fire inside
+  the SAME transaction as the marker write:
+    users (AFTER INSERT)                        -> registration event, NO notification
+    payment_invoices (AFTER INSERT OR UPDATE OF status, credited)
+      when status='confirmed' AND credited=TRUE  -> deposit_confirmed (transactional)
+    deposits (AFTER INSERT OR UPDATE OF status)  -> deposit_confirmed (legacy source)
+    referrals (AFTER INSERT OR UPDATE OF status, bonus_earned)
+      when status='active' AND bonus_earned>0
+      AND referred_id>0 AND referrer not sandbox -> referral_qualified (transactional)
+  No credit function was modified and no business rule changed.
+- Every trigger function catches its own errors and downgrades them to a WARNING,
+  so telemetry can never block a deposit, a credit or a referral award.
+
+### Duplicate prevention (four independent layers)
+1. `conversion_events.dedupe_key` is UNIQUE (`deposit:invoice:<id>`,
+   `deposit:legacy:<id>`, `referral:<id>`, `registration:<id>`,
+   `reminder:invoice:<id>:<n>`); `conversion_record_event()` inserts with
+   ON CONFLICT DO NOTHING and returns NULL when the fact was already recorded.
+2. `conversion_notifications.idempotency_key` is UNIQUE and equal to the dedupe
+   key, so one event can produce at most one notification.
+3. The provider credit functions return "duplicate" BEFORE writing anything, so a
+   retried webhook never even reaches the trigger.
+4. The worker claims with FOR UPDATE SKIP LOCKED and only completes rows that are
+   still `sending`; `sent` is terminal.
+
+### Outbox / worker
+- `conversion_notifications` carries category (transactional | promotional),
+  status (pending|sending|sent|skipped|failed), attempts, max_attempts,
+  next_attempt_at, lease_expires_at, claimed_by, last_error, skip_reason.
+  It stores NO chat id and NO message body: the target is resolved and
+  RE-VALIDATED at send time.
+- `conversion_claim_notifications(worker_id, limit, lease)` -> SKIP LOCKED, lease
+  180s, attempts incremented AT CLAIM time (bounded sends even across crashes).
+- `conversion_complete_notification(id, status, reason, retry_seconds)` ->
+  status whitelist, only from `sending`, exponential backoff (1m,2m,4m,8m... cap
+  6h) or Telegram's retry_after, terminal `failed` at max_attempts.
+- Pre-dispatch re-checks (all live, immediately before sendMessage): event still
+  exists; not older than CONVERSION_MAX_AGE_MINUTES (default 24h); still linked
+  (unlink deletes the row); chat id is a PRIVATE id (negative ids are refused, so
+  a financial message can never reach a group); promotional rows additionally
+  require subscribed=TRUE at that instant; deposit events re-verify
+  status/credited on the source row; reminders re-verify pending + not expired;
+  referral events re-verify status='active', bonus_earned>0 and that the
+  recipient is still the row's referrer.
+- Language: telegram_support_conversations.language -> subscription locale -> en.
+- Per-chat pacing (default 1s) plus batchSize per tick; 429 honours retry_after.
+- DELIVERY GUARANTEE: at-least-once, bounded by max_attempts. A crash in the
+  instant between a successful send and the completion write can resend once;
+  the alternative (marking sent before sending) would drop messages.
+
+### Messaging rules (copy enforced by tests)
+- Deposit confirmed: private, states the amount, says it was added to the Live
+  balance, points at the Transactions section. No balance, no address, no tx hash.
+- Referral qualified: quotes NO amount and does NOT claim a payment has landed,
+  because the SQL path credits inside the transaction while the legacy JS path
+  credits in a second call - one template cannot truthfully say "paid" for both.
+  It points at the Referral section instead.
+- Pending reminder (promotional, opt-in): never calls a pending deposit paid, and
+  every locale ends with the `/unsubscribe` instruction.
+- No profit/return/guarantee language anywhere (pinned).
+
+### Consent model (deliberate)
+- Account LINKING is not marketing consent. Transactional messages are service
+  notices about the user's own account (that is what linking enables, and the
+  Phase 1 UI says so). Promotional reminders require BOTH a linked chat AND
+  `telegram_marketing_subscriptions.subscribed = TRUE`, checked at enqueue and
+  again at send. /unsubscribe suppresses queued promotional rows; /unlink stops
+  everything for that chat.
+
+### Disabled by default
+- `CONVERSION_WORKER_ENABLED` (default false) and
+  `CONVERSION_PENDING_REMINDERS_ENABLED` (default false). `conversion-worker.js`
+  exits 0 without sending when disabled, and exits 1 (fail closed) when enabled
+  but SUPABASE_URL / SUPABASE_SERVICE_KEY / TELEGRAM_BOT_TOKEN is missing or the
+  outbox is unreadable (migration 040 absent). The worker also refuses to
+  dispatch any promotional row it finds queued while the reminder switch is off.
+- No scheduled marketing broadcast was enabled and no message was sent anywhere.
+
+### Verification
+- REAL PostgreSQL 16.15 (throwaway docker container, since removed; never
+  staging/production): 040 applies cleanly, the self-check passes, and a re-apply
+  is a no-op. 20 behavioural checks PASS: registration recorded with NO
+  notification; pending invoice creates no event; confirmed+credited invoice
+  creates exactly one transactional notification; a duplicate credit attempt
+  creates neither a second event nor a second notification; status='confirmed'
+  WITHOUT credited=TRUE is not a credit; an invoice inserted already-confirmed is
+  captured; the legacy deposits path is captured with source legacy_deposit;
+  referral qualification notifies the REFERRER once and a replay adds nothing;
+  zero-bonus and synthetic referrals are ignored; MARKETING_SANDBOX produces no
+  events; claim is exclusive across two workers; sent is terminal/idempotent;
+  failure schedules backoff; retries stop at max_attempts; skip is terminal with a
+  reason; an expired lease is reclaimed (restart); reminders are enqueued only for
+  pending + linked + subscribed + unexpired invoices and respect the per-deposit
+  cap; unsubscribed/unlinked/expired/confirmed invoices are never queued; purge
+  removes only old delivered rows; anon is denied on both tables.
+  CONCURRENCY (two real sessions): a single queued row is claimed by exactly one
+  worker (A=0, B=1, attempts=1), and a 3-row batch is split without any row being
+  claimed twice (each attempts=1, no lock waiters).
+- npm test = 2458 tests, 2457 pass, 1 fail. The single failure is the
+  PRE-EXISTING how_it_works_video master-asset check (the untouched build/ master
+  is absent in this clone; identical before this phase). The new suite is 59/59.
+- node --check clean on the four new JS files and server.js untouched.
+
+### Not done on purpose
+- No production migration, no push, no deploy, no worker service, no environment
+  variable set, no marketing publisher. Migration 039 (Phase 1) is ALSO still
+  unapplied, so nothing can be delivered yet even if the worker were started:
+  without 039 there is no linked chat and every row would be skipped 'not_linked'.
+- Known pre-existing non-atomicity (out of scope): the legacy JS deposit path
+  writes deposits.status='confirmed' and then credits the wallet in a SEPARATE
+  call, so the trigger can record the event a moment before the credit lands. The
+  provider paths write both inside one transaction.
+
+## Phase 2 hardening - legacy deposit credit race + outbox review (2026-10-27, NOT applied/pushed)
+
+- Follow-up to Phase 2 (1d934a6). Two outcomes: a REAL bug fixed (the legacy
+  deposit path recorded the conversion event before the wallet credit), and a
+  review of migration 040 that produced three small hardening changes.
+
+### 1. The legacy deposit race (fixed)
+- AUDIT: three paths confirmed a LEGACY `deposits` row as:
+    UPDATE deposits SET status='confirmed'  ->  updateWallet(live_balance)  ->  addTransaction
+  i.e. three separate round-trips. GET /api/deposit/status/:invoiceId plus
+  PUT /api/admin/deposits/:id/confirm and POST /api/admin/payments/:invoiceId/confirm.
+  `updateWallet` is itself a read-modify-write (getWallet then write the computed
+  value), so it was also racy under concurrent credits.
+- CONSEQUENCE: the Phase 2 trigger fired on the FIRST write, so a failed or
+  interrupted credit left a deposit marked confirmed with no money moved, and the
+  worker could tell the customer the deposit "was added to your Live balance".
+- FIX (migration 041 + server.js):
+  * `deposits.credited BOOLEAN` - an explicit credit marker (same idea as
+    `payment_invoices.credited`). Existing rows are NOT retro-claimed.
+  * `confirm_legacy_deposit_safe(deposit_id, user_id)` - ONE transaction:
+    row-lock the deposit -> idempotency check before AND after the lock ->
+    ownership check -> atomic `live_balance = live_balance + amount` -> ledger
+    row -> LAST: `status='confirmed', credited=TRUE`. The trigger fires on that
+    final UPDATE, so the event can only exist after the money moved. A retry
+    returns duplicate=true and credits nothing.
+  * server.js: the three sites call the RPC through one helper. A transient
+    failure writes NOTHING (the next poll retries); only a MISSING function
+    (migration not applied) falls back to the old sequence, with a warning -
+    identical behaviour to before, never worse. Referral activation still runs
+    only for a fresh credit, through the existing exactly-once helper.
+  * The worker additionally requires `deposits.credited === TRUE` at send time,
+    so a status change alone can never produce a notification.
+- DELIBERATE TRADE-OFF: a row that is status='confirmed' but credited=FALSE is
+  NOT auto-credited by the RPC. A historical confirmed row is indistinguishable
+  from an uncredited one, so re-crediting it could pay twice. Those rows produce
+  no notification and need manual reconciliation.
+
+### 2. Migration 040 review - what changed
+- `conversion_capture_deposit()` (040 and 041 keep byte-identical copies, pinned
+  by a test) now requires `credited` on BOTH branches; re-applying either file
+  cannot revert the guard.
+- Claim now reclaims a `sending` row whose lease is NULL, not just expired: such
+  a row (unreachable through the claim itself) would otherwise be stuck forever.
+- Completion is FENCED by the claiming worker id (`p_worker_id`): a worker that
+  stalled past its lease and was superseded gets FALSE instead of clobbering the
+  newer claim. The 4-argument signature is dropped so PostgREST sees one
+  function, and its REVOKE/GRANT were updated to match (a stale 4-argument grant
+  would fail on a fresh database - caught by running it).
+- The referral trigger and the reconciliation pass both refuse a self-referral
+  (`referrer_id = referred_id`).
+- SILENT-GAP question answered by `conversion_backfill_missing()` (041) plus a
+  worker pass that runs it every 15 minutes by default: the triggers still never
+  block a deposit, but a swallowed event is now RECOVERED from the committed
+  markers (bounded window, idempotent dedupe keys, sandbox-aware, writes only
+  conversion rows - never money). `CONVERSION_BACKFILL_*` documented.
+
+### 3. Review findings that needed no change (evidence)
+- Event identity: `deposit:invoice:<id>` vs `deposit:legacy:<id>` vs
+  `referral:<id>` vs `registration:<id>` - separate namespaces, so two real
+  deposits always produce two events and one deposit can never produce two.
+- Referral recipient: the trigger uses `NEW.referrer_id` and requires
+  active + bonus>0 + referred_id>0; the worker re-verifies the recipient is
+  still that row's referrer.
+- Consent: promotional rows require `telegram_marketing_subscriptions.subscribed`
+  at enqueue AND at send; /unsubscribe suppresses queued rows.
+- Group safety: the target chat comes only from `telegram_account_links` and a
+  negative (group) chat id is refused.
+- Missing schema/credentials: the worker exits 1 (fail closed) rather than idling.
+
+### 4. Verification
+- REAL PostgreSQL 16.15 (throwaway docker, since removed), migrations 040 + 041
+  applied to a fresh database, both self-checks passing, re-apply a no-op:
+  * 30 behavioural checks PASS (suite A-G): atomic credit + exactly one event
+    and one notification; replay = duplicate with no second credit; the PRE-FIX
+    bug reproduced as inert (status-only flip records NO event); expired and
+    wrong-owner rows refused with nothing credited; provider invoice path
+    unchanged; reconciliation recovers a deleted event exactly once and ignores
+    a status-only legacy row; sandbox deposits credit locally but emit nothing.
+  * 17 hardening checks PASS (suite H): a single 5-argument completion function;
+    a superseded worker cannot complete another worker's row while the owner can;
+    a NULL-lease and an expired-lease `sending` row are both reclaimed; referral
+    events target the referrer, and pending / self / zero-bonus referrals produce
+    nothing; two deposits -> two events; invoice and legacy namespaces do not
+    collide.
+  * anon AND authenticated are denied EXECUTE on both new RPCs (3/3).
+  * Two real concurrent sessions calling confirm on one deposit: exactly one
+    credit (wallet 150 -> 300, one ledger row, one event, one notification); the
+    other session returns duplicate=true.
+- npm test = 2517 tests, 2516 pass, 1 fail - the single failure is the
+  PRE-EXISTING how_it_works_video master-asset check (untracked build/ absent in
+  this clone). Focused deposit/payment/referral/conversion/Telegram run:
+  719/719 pass.
+- server.js parses; all services parse; the 7 inline index.html blocks untouched.
+
+### 5. Deployment order (unchanged prerequisites, plus 041)
+- Apply 038 -> 039 -> 040 -> 041, then set the worker env and start
+  `node conversion-worker.js`. 040's legacy branch reads `deposits.credited`,
+  which 041 creates, so they belong in the same batch; shipping code first is
+  safe (a missing RPC falls back to the previous behaviour; a status-only flip
+  still notifies nothing).

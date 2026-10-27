@@ -25,6 +25,7 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const MIGRATION = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '040_conversion_events.sql'), 'utf8');
+const MIGRATION_041 = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '041_legacy_deposit_atomic_credit.sql'), 'utf8');
 const WORKER_SRC = fs.readFileSync(path.join(ROOT, 'services', 'ConversionWorker.js'), 'utf8');
 const STORE_SRC = fs.readFileSync(path.join(ROOT, 'services', 'ConversionStore.js'), 'utf8');
 const I18N_SRC = fs.readFileSync(path.join(ROOT, 'services', 'conversion-i18n.js'), 'utf8');
@@ -67,7 +68,7 @@ function createFakeStore(options) {
     deposits: {},
     referrals: {},
     seq: 1,
-    calls: { claim: 0, complete: [], enqueue: 0, purge: 0 }
+    calls: { claim: 0, complete: [], enqueue: 0, purge: 0, backfill: 0 }
   };
   const fail = opts.fail || {};
   let now = opts.startMs || Date.now();
@@ -131,8 +132,8 @@ function createFakeStore(options) {
       }
       return { ok: true, data: due.map((r) => Object.assign({}, r)) };
     },
-    async completeNotification(id, status, reason, retrySeconds) {
-      state.calls.complete.push({ id, status, reason, retrySeconds });
+    async completeNotification(id, status, reason, retrySeconds, workerId) {
+      state.calls.complete.push({ id, status, reason, retrySeconds, workerId });
       if (fail.complete) return { ok: false, reason: 'complete_failed' };
       const row = state.notifications.find((n) => n.id === id);
       if (!row || row.status !== 'sending') return { ok: true, data: false };
@@ -184,6 +185,12 @@ function createFakeStore(options) {
     async enqueuePendingReminders() {
       state.calls.enqueue += 1;
       return { ok: true, data: 0 };
+    },
+    async backfillMissing() {
+      state.calls.backfill += 1;
+      if (fail.backfill) return { ok: false, reason: 'backfill_failed' };
+      const recovered = opts.backfillRecovered || 0;
+      return { ok: true, data: { invoices: recovered, deposits: 0, referrals: 0, total: recovered } };
     },
     async purge() {
       state.calls.purge += 1;
@@ -549,26 +556,46 @@ test('eligibility: a deposit that is no longer confirmed is not announced', asyn
   }
 });
 
-test('eligibility: a legacy deposit is verified against the deposits table', async () => {
+test('eligibility: a legacy deposit needs the credit marker, not just a status', async () => {
   const good = makeWorker();
   const event = good.store.addEvent({
     event_type: 'deposit_confirmed', source: 'legacy_deposit', payload: { depositId: 5 }, amount: 120
   });
-  good.store.state.deposits[5] = { id: 5, status: 'confirmed' };
+  good.store.state.deposits[5] = { id: 5, status: 'confirmed', credited: true };
   good.store.state.links[USER_ID] = CHAT_ID;
   good.store.addNotification(event);
   await good.worker.tick();
   assert.strictEqual(good.transport.calls.length, 1);
 
-  const bad = makeWorker();
-  const event2 = bad.store.addEvent({
+  const pending = makeWorker();
+  const event2 = pending.store.addEvent({
     event_type: 'deposit_confirmed', source: 'legacy_deposit', payload: { depositId: 6 }, amount: 120
   });
-  bad.store.state.deposits[6] = { id: 6, status: 'pending' };
-  bad.store.state.links[USER_ID] = CHAT_ID;
-  bad.store.addNotification(event2);
-  await bad.worker.tick();
-  assert.strictEqual(bad.transport.calls.length, 0);
+  pending.store.state.deposits[6] = { id: 6, status: 'pending', credited: false };
+  pending.store.state.links[USER_ID] = CHAT_ID;
+  pending.store.addNotification(event2);
+  await pending.worker.tick();
+  assert.strictEqual(pending.transport.calls.length, 0);
+});
+
+test('eligibility: a legacy deposit confirmed WITHOUT a credit is never announced', async () => {
+  // The exact pre-fix bug: status flipped, wallet credit failed. The marker is
+  // absent, so no message may claim the money arrived.
+  for (const credited of [false, null, undefined]) {
+    const { store, transport, worker } = makeWorker();
+    const event = store.addEvent({
+      event_type: 'deposit_confirmed', source: 'legacy_deposit', payload: { depositId: 7 }, amount: 120
+    });
+    store.state.deposits[7] = { id: 7, status: 'confirmed', credited };
+    store.state.links[USER_ID] = CHAT_ID;
+    const notification = store.addNotification(event);
+    await worker.tick();
+    assert.strictEqual(transport.calls.length, 0, 'credited=' + String(credited));
+    assert.strictEqual(
+      store.state.notifications.find((n) => n.id === notification.id).skip_reason,
+      'not_credited'
+    );
+  }
 });
 
 test('eligibility: a pending reminder is dropped once the deposit is confirmed', async () => {
@@ -720,6 +747,41 @@ test('stop(): no further dispatch after stop() is called', async () => {
   assert.strictEqual(transport.calls.length, 0);
 });
 
+test('concurrency: every completion carries the claiming worker id (fencing)', async () => {
+  const { store, worker } = makeWorker({ workerId: 'conv-w-7' });
+  seedDeposit(store);
+  await worker.tick();
+
+  assert.ok(store.state.calls.complete.length >= 1);
+  for (const call of store.state.calls.complete) {
+    assert.strictEqual(call.workerId, 'conv-w-7', 'the database can refuse a superseded worker');
+  }
+});
+
+test('concurrency: the SQL fences completions and can always reclaim a stuck row', () => {
+  const mig = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '040_conversion_events.sql'), 'utf8');
+  const complete = mig.slice(
+    mig.indexOf('CREATE OR REPLACE FUNCTION public.conversion_complete_notification'),
+    mig.indexOf('$$;', mig.indexOf('CREATE OR REPLACE FUNCTION public.conversion_complete_notification'))
+  );
+  // Fence on the claimant.
+  assert.match(complete, /p_worker_id\s+TEXT DEFAULT NULL/);
+  assert.match(complete, /COALESCE\(v_row\.claimed_by, ''\) <> COALESCE\(NULLIF\(p_worker_id, ''\), 'worker'\)/);
+  // The old 4-argument signature is dropped so PostgREST sees ONE function.
+  assert.match(mig, /DROP FUNCTION IF EXISTS public\.conversion_complete_notification\(BIGINT, TEXT, TEXT, INTEGER\)/);
+  // Only a claimed row may be completed, and terminal states are respected.
+  assert.match(complete, /IF v_row\.status <> 'sending' THEN\s*\n\s*RETURN FALSE;/);
+
+  // A 'sending' row with a NULL or expired lease is reclaimable: no stuck rows.
+  const claim = mig.slice(
+    mig.indexOf('CREATE OR REPLACE FUNCTION public.conversion_claim_notifications'),
+    mig.indexOf('$$;', mig.indexOf('CREATE OR REPLACE FUNCTION public.conversion_claim_notifications'))
+  );
+  assert.match(claim, /status = 'sending' AND \(lease_expires_at IS NULL OR lease_expires_at < now\(\)\)/);
+  assert.match(claim, /FOR UPDATE SKIP LOCKED/);
+  assert.match(claim, /attempts = n\.attempts \+ 1/);
+});
+
 test('ops: reminders and purge stay off unless enabled', async () => {
   const off = makeWorker();
   seedDeposit(off.store);
@@ -731,6 +793,53 @@ test('ops: reminders and purge stay off unless enabled', async () => {
   await on.worker.tick();
   assert.strictEqual(on.store.state.calls.enqueue, 1);
   assert.strictEqual(on.store.state.calls.purge, 1);
+});
+
+test('reconciliation: the backfill runs by default, is throttled, and can be disabled', async () => {
+  const on = makeWorker();
+  seedDeposit(on.store);
+  await on.worker.tick();
+  assert.strictEqual(on.store.state.calls.backfill, 1, 'enabled by default');
+
+  // Same clock -> throttled by the interval (default 15 min).
+  await on.worker.tick();
+  assert.strictEqual(on.store.state.calls.backfill, 1);
+  on.store.advance(16 * 60 * 1000);
+  await on.worker.tick();
+  assert.strictEqual(on.store.state.calls.backfill, 2);
+
+  const off = makeWorker({ config: { backfillEnabled: false } });
+  await off.worker.tick();
+  assert.strictEqual(off.store.state.calls.backfill, 0);
+});
+
+test('reconciliation: recovered events are counted and a failure is logged once', async () => {
+  const recovered = makeWorker({ storeOptions: { backfillRecovered: 3 } });
+  await recovered.worker.tick();
+  assert.strictEqual(recovered.worker.stats().backfilled, 3);
+  assert.ok(recovered.logs.some((l) => l.includes('backfill_recovered')));
+
+  const broken = makeWorker({ storeOptions: { fail: { backfill: true } } });
+  await broken.worker.tick();
+  broken.store.advance(16 * 60 * 1000);
+  await broken.worker.tick();
+  const warnings = broken.logs.filter((l) => l.includes('backfill_failed'));
+  assert.strictEqual(warnings.length, 1, 'the same failure must not be logged every tick');
+});
+
+test('migration: a SELF-referral can never be announced', () => {
+  // Defense in depth: the application refuses self-referral, and the capture
+  // trigger plus the reconciliation pass must not resurrect the notification.
+  assert.match(MIGRATION, /IF NEW\.referrer_id = NEW\.referred_id THEN/);
+  const backfill = MIGRATION_041.slice(MIGRATION_041.indexOf('CREATE OR REPLACE FUNCTION public.conversion_backfill_missing'));
+  assert.match(backfill, /r\.referrer_id <> r\.referred_id/);
+});
+
+test('migration: the completion RPC grants match its fenced signature', () => {
+  assert.match(MIGRATION, /REVOKE ALL ON FUNCTION public\.conversion_complete_notification\(BIGINT, TEXT, TEXT, INTEGER, TEXT\)/);
+  assert.match(MIGRATION, /GRANT EXECUTE ON FUNCTION public\.conversion_complete_notification\(BIGINT, TEXT, TEXT, INTEGER, TEXT\) TO service_role/);
+  // No stale 4-argument grant may remain (it would fail on a fresh database).
+  assert.ok(!/ON FUNCTION public\.conversion_complete_notification\(BIGINT, TEXT, TEXT, INTEGER\)\s*\n\s*FROM PUBLIC/.test(MIGRATION));
 });
 
 test('privacy: no chat id, amount or token is written to the logs', async () => {

@@ -529,6 +529,93 @@ async function addTransaction(userId, type, amount, detail) {
   await supabaseAdmin.from('transactions').insert({ user_id: userId, type, amount, detail: detail || '' });
 }
 
+/**
+ * Confirm a LEGACY deposit (the `deposits` table) atomically.
+ *
+ * WHY: the legacy paths used to write, as three separate round-trips,
+ *   deposits.status = 'confirmed'  ->  wallet credit  ->  ledger row
+ * so a failure or a restart between the first two left a deposit marked
+ * confirmed but never credited - and the conversion trigger (migration 040) had
+ * already fired on that status write, so the customer could be told their deposit
+ * was added to the Live balance when it was not.
+ *
+ * confirm_legacy_deposit_safe() (migration 041) does all three inside ONE
+ * PostgreSQL transaction and sets the credit marker LAST, so the notification
+ * trigger cannot run before the money moved. It is idempotent on that marker
+ * (a retry returns duplicate=true and credits nothing), and its wallet update is
+ * an atomic increment, which also removes the read-modify-write lost-update race
+ * the JS helper had.
+ *
+ * @returns {Promise<{ok:boolean, missing?:boolean, error?:string, result?:object}>}
+ *   `missing` marks the deploy-order case (migration 041 not applied).
+ */
+async function confirmLegacyDepositAtomic(deposit) {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('confirm_legacy_deposit_safe', {
+      p_deposit_id: deposit.id,
+      p_user_id: deposit.user_id
+    });
+    if (error) {
+      // 42883 (undefined_function) / PGRST202 (schema cache) mean migration 041
+      // has not been applied to this database yet.
+      const missing = error.code === '42883' || error.code === 'PGRST202'
+        || /could not find the function/i.test(error.message || '');
+      return { ok: false, missing, error: error.message };
+    }
+    const result = (data && typeof data === 'object') ? data : { success: false, error: 'invalid_response' };
+    return { ok: true, result };
+  } catch (e) {
+    return { ok: false, missing: false, error: e && e.message };
+  }
+}
+
+/**
+ * Confirm a legacy deposit and report exactly what happened.
+ *
+ * DEPLOY-ORDER SAFETY: when migration 041 is not applied yet the RPC is missing
+ * and we fall back to the PREVIOUS sequence (status, then credit), with a loud
+ * warning. That is never worse than the status quo, and because the fallback
+ * never sets the credit marker the 041-era trigger would not notify for it
+ * either. Any OTHER error (a transient database failure, a refused row) leaves
+ * the deposit untouched so the caller can retry - it never marks confirmed.
+ */
+async function confirmLegacyDeposit(deposit) {
+  const rpc = await confirmLegacyDepositAtomic(deposit);
+  if (rpc.ok) {
+    const r = rpc.result;
+    if (r.success === true) {
+      return {
+        credited: r.duplicate !== true,
+        duplicate: r.duplicate === true,
+        status: r.status || 'confirmed',
+        newBalance: typeof r.new_balance === 'number' ? r.new_balance : null,
+        error: null,
+        fallback: false
+      };
+    }
+    return {
+      credited: false,
+      duplicate: false,
+      status: r.status || null,
+      newBalance: null,
+      error: r.error || 'refused',
+      fallback: false
+    };
+  }
+  if (rpc.missing) {
+    console.warn('[legacy deposit] confirm_legacy_deposit_safe is unavailable (migration 041 not applied) - using the previous non-atomic sequence');
+    try {
+      await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
+      await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
+      await addTransaction(deposit.user_id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
+      return { credited: true, duplicate: false, status: 'confirmed', newBalance: null, error: null, fallback: true };
+    } catch (e) {
+      return { credited: false, duplicate: false, status: null, newBalance: null, error: 'fallback_failed', fallback: true };
+    }
+  }
+  return { credited: false, duplicate: false, status: null, newBalance: null, error: 'rpc_failed', fallback: false };
+}
+
 // ---------- MARKETING SANDBOX (environment classification + isolation) ----------
 // A MARKETING_SANDBOX account is a marketing/demo account whose ENTIRE financial
 // lifecycle is simulated. Isolation is enforced server-side and at the DB level
@@ -3697,19 +3784,27 @@ app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
   let referralActivated = null;
   
   if (elapsed > 15000 && deposit.status === 'pending') {
-    // Confirmed deposit -> attempt referral qualification (platform minimum,
-    // self-guarded exactly-once). Not limited to the literal first deposit.
-    
-    await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', deposit.id);
-    await updateWallet(req.user.id, 'live_balance', deposit.amount);
-    await addTransaction(req.user.id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
-    deposit.status = 'confirmed';
-    
-    // Activate referral with deposit info (amount for minimum check)
-    referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
-      amount: deposit.amount,
-      network: deposit.network
-    });
+    // Atomic confirmation: the wallet credit, the ledger row and the
+    // status/credit marker commit together, so the conversion trigger can only
+    // fire after the money actually moved (migration 041).
+    const confirmation = await confirmLegacyDeposit(deposit);
+    if (confirmation.credited) {
+      deposit.status = 'confirmed';
+
+      // Confirmed deposit -> attempt referral qualification (platform minimum,
+      // self-guarded exactly-once). Not limited to the literal first deposit,
+      // and only for a FRESH credit.
+      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
+        amount: deposit.amount,
+        network: deposit.network
+      });
+    } else if (confirmation.duplicate) {
+      deposit.status = confirmation.status || 'confirmed';
+    } else {
+      // Refused or failed: nothing was credited and nothing was marked, so the
+      // next poll retries.
+      console.error('[deposit/status] legacy confirmation not credited:', confirmation.error);
+    }
   }
   if (elapsed > 3600000 && deposit.status === 'pending') {
     await supabaseAdmin.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
@@ -5720,17 +5815,25 @@ app.post('/api/admin/payments/:invoiceId/confirm', authMiddleware, adminMiddlewa
         });
       }
 
-      // Confirm the deposit, then attempt referral activation. Qualification
-      // is the platform minimum deposit (self-guarded, exactly-once) rather
-      // than strictly the first confirmed deposit.
-      await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', oldDeposit.id);
-      await updateWallet(oldDeposit.user_id, 'live_balance', oldDeposit.amount);
-      await addTransaction(oldDeposit.user_id, 'Deposit', oldDeposit.amount, 'USDT (' + oldDeposit.network + ')');
+      // Atomic confirm (wallet credit + credit marker in one transaction), then
+      // attempt referral activation. Qualification is the platform minimum
+      // deposit (self-guarded, exactly-once) rather than strictly the first
+      // confirmed deposit.
+      const confirmation = await confirmLegacyDeposit(oldDeposit);
+      if (!confirmation.credited && !confirmation.duplicate) {
+        console.error('[admin/payments/confirm] legacy deposit not credited:', confirmation.error);
+        if (confirmation.status) {
+          return res.status(400).json({ success: false, error: `Already ${confirmation.status}` });
+        }
+        return res.status(500).json({ success: false, error: 'Confirmation failed' });
+      }
 
-      await activateReferralOnQualification(oldDeposit.user_id, 'first_deposit', {
-        amount: oldDeposit.amount,
-        network: oldDeposit.network
-      });
+      if (confirmation.credited) {
+        await activateReferralOnQualification(oldDeposit.user_id, 'first_deposit', {
+          amount: oldDeposit.amount,
+          network: oldDeposit.network
+        });
+      }
 
       return res.json({
         success: true,
@@ -9403,20 +9506,25 @@ app.put('/api/admin/deposits/:id/confirm', authMiddleware, adminMiddleware, asyn
   if (error || !deposit) return res.status(404).json({ error: 'Deposit not found' });
   if (deposit.status !== 'pending') return res.status(400).json({ error: 'Already ' + deposit.status });
   
+  // Atomic confirm: wallet credit + credit marker in one transaction. A failure
+  // leaves the deposit pending, so nothing is credited and nothing is announced.
+  const confirmation = await confirmLegacyDeposit(deposit);
+  if (!confirmation.credited && !confirmation.duplicate) {
+    console.error('[admin/deposits/confirm] not credited:', confirmation.error, 'status:', confirmation.status);
+    if (confirmation.status) return res.status(400).json({ error: 'Already ' + confirmation.status });
+    return res.status(500).json({ error: 'Confirmation failed' });
+  }
+
   // Confirmed deposit -> attempt referral qualification (platform minimum,
-  // self-guarded exactly-once).
-  
-  await supabaseAdmin.from('deposits').update({ status: 'confirmed' }).eq('id', id);
-  await updateWallet(deposit.user_id, 'live_balance', deposit.amount);
-  await addTransaction(deposit.user_id, 'Deposit', deposit.amount, 'USDT (' + deposit.network + ')');
-  
-  // Activate referral with deposit info (amount for minimum check)
+  // self-guarded exactly-once). Only for a FRESH credit.
   let referralActivated = null;
-  referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit', {
-    amount: deposit.amount,
-    network: deposit.network
-  });
-  
+  if (confirmation.credited) {
+    referralActivated = await activateReferralOnQualification(deposit.user_id, 'first_deposit', {
+      amount: deposit.amount,
+      network: deposit.network
+    });
+  }
+
   res.json({ success: true, referralActivated });
 });
 
