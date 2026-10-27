@@ -203,11 +203,12 @@ test('no new environment variable or migration was added for assets', () => {
   assert.ok(!/TRADING_ASSETS?_ENV|ASSET_(LIST|UNIVERSE)/.test(SERVER), 'assets must not be env-gated');
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase', 'migrations'));
   // 001..037 existed before the asset-universe change; 038 is the separately
-  // approved Telegram marketing queue (content publishing only). The asset
-  // universe itself is display metadata and needs no schema change, which the
-  // next assertion still proves.
-  assert.strictEqual(migrations.length, 38, 'only the approved marketing migration may be added');
+  // approved Telegram marketing queue and 039 the Telegram account-link table.
+  // The asset universe itself is display metadata and needs no schema change,
+  // which the next assertion still proves.
+  assert.strictEqual(migrations.length, 39, 'only approved migrations may be added');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
+  assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(!migrations.some((f) => /trading.?assets?/i.test(f)), 'no asset-allow-list migration should exist');
 });
 

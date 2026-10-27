@@ -1208,9 +1208,14 @@ function planWebhookRegistration(webhookSummary, expectedUrl) {
  *   (services/support/SupportAIService.js). Absent = AI off = the standard guide
  *   text. It receives ONLY the customer's message text and returns a string;
  *   it has no database, trading, withdrawal or account access.
+ * @param {function} [deps.linkAccount] - OPTIONAL async ({ payload, chatId,
+ *   telegramUserId }) => { ok, already?, reason? }. Consumes a single-use linking
+ *   token. Absent = `/start lk_...` answers "temporarily unavailable".
+ * @param {function} [deps.unlinkAccount] - OPTIONAL async ({ chatId,
+ *   telegramUserId }) => { ok, removed }. Revokes the link for that chat.
  */
 function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI,
-                                  translator, onNewMembers, marketing }) {
+                                  translator, onNewMembers, marketing, linkAccount, unlinkAccount }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -1300,7 +1305,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     aiLanguageMisses: 0
   };
 
+  // Removes the bot token AND any account-linking payload (`lk_...`) from a log
+  // line: an unexpected error string must never leak a single-use link token.
   const scrub = (message) => String(message === undefined || message === null ? '' : message)
+    .replace(/lk_[A-Za-z0-9_-]{20,128}/g, 'lk_[redacted]')
     .split(String(cfg.token || '\u0000')).join('***')
     .slice(0, 300);
 
@@ -2629,6 +2637,127 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Account linking (Phase 1)
+  //
+  // A Telegram chat may be linked to an Arbitrix account ONLY by presenting a
+  // single-use token the user minted from an authenticated web session. The
+  // identity bound is the one Telegram authenticated for THIS update: the chat
+  // id (and, for a private chat, the same value as the sender id). A username,
+  // display name or anything typed into the chat is never used as proof.
+  //
+  // Linking is confined to PRIVATE chats: in a group the chat id is the group,
+  // not a person, so there is nothing safe to bind.
+  // -------------------------------------------------------------------------
+  const LINK_PREFIX = 'lk_';
+  const LINK_PAYLOAD_MAX = 140;
+  // Same shape the server mints (32 random bytes -> 43 base64url characters).
+  // Bounded, but slightly wider than the exact length so an encoding change
+  // cannot silently reject valid tokens.
+  const LINK_PAYLOAD_RE = /^lk_[A-Za-z0-9_-]{20,128}$/;
+
+  /** Decide whether this update is an account-link action (null = normal flow). */
+  function accountLinkAction(route) {
+    if (!route || route.chatType !== 'private') return null;
+    if (!route.chatId || String(route.chatId) !== String(route.fromId)) return null;
+    const command = route.command;
+    if (!command) return null;
+    if (command.name === 'unlink') return 'unlink';
+    if (command.name === 'start'
+        && typeof command.rest === 'string'
+        && command.rest.indexOf(LINK_PREFIX) === 0) {
+      return 'link';
+    }
+    return null;
+  }
+
+  /**
+   * Map an internal linking reason to a customer-facing string. Deliberately
+   * coarse: every "bad token" outcome collapses into the same message so a
+   * stranger cannot probe whether a hash exists, while the two ownership
+   * conflicts (which concern the caller's own chat) are stated plainly.
+   */
+  function accountLinkReplyKey(reason) {
+    switch (reason) {
+      case 'expired':
+      case 'used':
+      case 'invalid':
+      case 'invalid_chat':
+        return 'linkInvalid';
+      case 'chat_linked_elsewhere':
+        return 'linkChatTaken';
+      case 'account_linked_elsewhere':
+        return 'linkAccountBusy';
+      case 'rate_limited':
+        return 'linkRateLimited';
+      default:
+        return 'linkUnavailable';
+    }
+  }
+
+  /**
+   * Run `/start lk_<token>` or `/unlink` in a private chat.
+   *
+   * Replies contain no email address, balance, deposit information or account
+   * identifier, and the token is never echoed back.
+   */
+  async function handleAccountLink(route, action) {
+    const chatId = route.chatId;
+    const telegramUserId = route.fromId || null;
+    const lang = await readConversationLanguage(chatId).catch(() => DEFAULT_LANGUAGE);
+
+    if (action === 'unlink') {
+      markStage('link:unlink');
+      if (typeof unlinkAccount !== 'function') {
+        await replyToChat(chatId, tCustomer(lang, 'unlinkUnavailable'));
+        return { handled: true, action: 'unlink-unavailable' };
+      }
+      let outcome = null;
+      try {
+        outcome = await unlinkAccount({ chatId, telegramUserId });
+      } catch (error) {
+        warn('unlink failed: ' + scrub(error && error.message ? error.message : error));
+      }
+      if (!outcome || outcome.ok !== true) {
+        await replyToChat(chatId, tCustomer(lang, 'unlinkUnavailable'));
+        return { handled: true, action: 'unlink-unavailable' };
+      }
+      await replyToChat(chatId, tCustomer(lang, outcome.removed ? 'unlinkRemoved' : 'unlinkNotLinked'));
+      return { handled: true, action: outcome.removed ? 'unlink-removed' : 'unlink-not-linked' };
+    }
+
+    markStage('link:consume');
+    const payload = String(route.command.rest || '');
+    // Format check BEFORE any database work. A malformed payload never reaches
+    // the service and never costs a query.
+    if (payload.length > LINK_PAYLOAD_MAX || !LINK_PAYLOAD_RE.test(payload)) {
+      await replyToChat(chatId, tCustomer(lang, 'linkInvalid'));
+      return { handled: true, action: 'link-invalid' };
+    }
+    if (typeof linkAccount !== 'function') {
+      await replyToChat(chatId, tCustomer(lang, 'linkUnavailable'));
+      return { handled: true, action: 'link-unavailable' };
+    }
+
+    let outcome = null;
+    try {
+      outcome = await linkAccount({ payload, chatId, telegramUserId });
+    } catch (error) {
+      warn('account link failed: ' + scrub(error && error.message ? error.message : error));
+    }
+    if (!outcome) {
+      await replyToChat(chatId, tCustomer(lang, 'linkUnavailable'));
+      return { handled: true, action: 'link-unavailable' };
+    }
+    if (outcome.ok === true) {
+      await replyToChat(chatId, tCustomer(lang, outcome.already === true ? 'linkAlready' : 'linkSuccess'));
+      return { handled: true, action: outcome.already === true ? 'link-already' : 'link-success' };
+    }
+    const reason = typeof outcome.reason === 'string' ? outcome.reason : 'invalid';
+    await replyToChat(chatId, tCustomer(lang, accountLinkReplyKey(reason)));
+    return { handled: true, action: 'link-refused:' + reason };
+  }
+
   async function handleUpdate(update) {
     stats.updatesReceived += 1;
     stats.lastUpdateAt = new Date().toISOString();
@@ -2656,15 +2785,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     }
 
     try {
-      const result = route.kind === 'callback'
-        ? await handleLanguageCallback(route)
-        : route.kind === 'chatid'
-          ? await handleChatIdPrivate(route)
-          : route.kind === 'join'
-            ? await handleJoinUpdate(route)
-            : (route.kind === 'group' || route.kind === 'admin')
-              ? await handleGroupUpdate(route, update)
-              : await handleUserUpdate(route, update);
+      // Account linking is handled BEFORE the normal dispatch so an operator's
+      // private chat works exactly like a customer's: `/start lk_...` and
+      // `/unlink` are account actions, not support conversations.
+      const linkAction = accountLinkAction(route);
+      const result = linkAction
+        ? await handleAccountLink(route, linkAction)
+        : route.kind === 'callback'
+          ? await handleLanguageCallback(route)
+          : route.kind === 'chatid'
+            ? await handleChatIdPrivate(route)
+            : route.kind === 'join'
+              ? await handleJoinUpdate(route)
+              : (route.kind === 'group' || route.kind === 'admin')
+                ? await handleGroupUpdate(route, update)
+                : await handleUserUpdate(route, update);
       stats.processed += 1;
       stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
       stats.lastReason = (result && result.reason) || null;

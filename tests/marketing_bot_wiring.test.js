@@ -369,7 +369,9 @@ test('the worker refuses to start without the service credential', () => {
 
 test('the migration file is the only schema change this feature adds', () => {
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase', 'migrations'));
-  const added = migrations.filter((f) => /^03[89]/.test(f));
+  // Scope to the marketing feature's own file: later features add their own
+  // migrations (e.g. 039_telegram_account_links.sql) and must not fail this.
+  const added = migrations.filter((f) => /^038/.test(f));
   assert.deepStrictEqual(added, ['038_marketing_broadcast.sql']);
   const sql = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '038_marketing_broadcast.sql'), 'utf8');
   // Content publishing only: no ALTER of a financial table.

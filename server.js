@@ -41,6 +41,10 @@ const {
   isValidTelegramWebhookSecret
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
+// Account linking (Phase 1): one-to-one Telegram <-> Arbitrix association with
+// single-use, hashed, 10-minute tokens. Requires migration 039; until it is
+// applied every call fails closed ("temporarily unavailable").
+const { createTelegramAccountLinks } = require('./services/TelegramAccountLinks');
 // Telegram marketing publisher: approved templates, content guard, durable queue
 // and the join-triggered partner welcome. Publishing is OFF by default and needs
 // TELEGRAM_MARKETING_ENABLED=true plus an unpaused, non-dry-run control row.
@@ -4584,6 +4588,12 @@ const marketingOnboarding = createOnboarding({
 // The translator is built FIRST: the AI layer uses it to make the English knowledge
 // base reachable for pt/ar questions (the answer itself is localized by the bot).
 // The two layers stay independent - translation keeps working with AI answering off.
+const TELEGRAM_BOT_USERNAME = (process.env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '')
+  || 'ArbitrixSupportBot';
+const telegramAccountLinks = createTelegramAccountLinks({
+  admin: supabaseAdmin,
+  botUsername: TELEGRAM_BOT_USERNAME
+});
 const supportTranslator = createSupportTranslatorSafely();
 const telegramBot = createTelegramSupportBot({
   config: telegramConfig,
@@ -4594,7 +4604,11 @@ const telegramBot = createTelegramSupportBot({
   // Join-triggered partner welcome (only for the configured marketing group) and
   // the /subscribe + /unsubscribe consent store.
   onNewMembers: (event) => marketingOnboarding.handleNewMembers(event),
-  marketing: marketingStore
+  marketing: marketingStore,
+  // `/start lk_<token>` and `/unlink`. Both receive the Telegram-authenticated
+  // chat/sender ids and never a client-supplied account id.
+  linkAccount: (input) => telegramAccountLinks.consumeToken(input),
+  unlinkAccount: (input) => telegramAccountLinks.unlinkByChat(input && input.chatId)
 });
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
@@ -4628,6 +4642,75 @@ console.log('[Telegram] Marketing publisher: '
   + '; the queue is also gated by telegram_marketing_control (paused + dry_run)');
 
 app.post('/api/telegram/webhook', createTelegramWebhookHandler({ bot: telegramBot }));
+
+// ---------------------------------------------------------------------------
+// Telegram account linking (Phase 1)
+//
+// All three routes use the app's own JWT middleware and derive the account from
+// req.user.id ONLY. No route accepts a user id, chat id or token from the body,
+// so one account can never read, create or revoke another account's link (no
+// IDOR). Responses are never cached, never contain the token (except the deep
+// link the owner just created) and never contain a chat id or email address.
+//
+// Until migration 039 is applied every call fails closed with 503.
+// ---------------------------------------------------------------------------
+
+// Mint a single-use linking token and return the official bot deep link.
+app.post('/api/telegram/link/start', authMiddleware, async (req, res) => {
+  // A minted deep link carries a single-use token: it must never be stored by a
+  // browser, proxy or CDN. Set once, so every branch (including errors) is safe.
+  res.set('Cache-Control', 'no-store');
+  try {
+    const result = await telegramAccountLinks.createToken(req.user.id);
+    if (!result.ok) {
+      if (result.reason === 'rate_limited' || result.reason === 'cooldown') {
+        const retryAfter = Math.max(1, Math.ceil((result.retryAfterMs || 60000) / 1000));
+        res.set('Retry-After', String(retryAfter));
+        return res.status(429).json({ error: 'Too many link requests', retryAfter });
+      }
+      console.error('[Telegram link] token creation failed:', result.reason);
+      return res.status(503).json({ error: 'Telegram linking is unavailable' });
+    }
+    res.json({ url: result.url, expiresAt: result.expiresAt });
+  } catch (error) {
+    // Never surface the internal error (and never the token) to the client.
+    console.error('[Telegram link] token creation threw');
+    res.status(503).json({ error: 'Telegram linking is unavailable' });
+  }
+});
+
+// Connection status for the authenticated account.
+app.get('/api/telegram/link', authMiddleware, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const status = await telegramAccountLinks.getStatus(req.user.id);
+    if (!status.ok) return res.status(503).json({ error: 'Telegram linking is unavailable' });
+    res.json({
+      connected: status.connected === true,
+      linkedAt: status.connected === true ? status.linkedAt : null,
+      pending: status.pending || null
+    });
+  } catch (error) {
+    console.error('[Telegram link] status read threw');
+    res.status(503).json({ error: 'Telegram linking is unavailable' });
+  }
+});
+
+// Disconnect. Revoking removes the association (so no future account-specific
+// message can be addressed to that chat) and invalidates any pending token.
+// It deliberately does NOT touch marketing consent: /unsubscribe stays the only
+// thing that changes marketing subscriptions.
+app.delete('/api/telegram/link', authMiddleware, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const result = await telegramAccountLinks.revoke(req.user.id);
+    if (!result.ok) return res.status(503).json({ error: 'Telegram linking is unavailable' });
+    res.json({ ok: true, disconnected: result.disconnected === true });
+  } catch (error) {
+    console.error('[Telegram link] revoke threw');
+    res.status(503).json({ error: 'Telegram linking is unavailable' });
+  }
+});
 
 /**
  * Telegram bot status for operators. Reports only WHETHER each piece of

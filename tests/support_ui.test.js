@@ -243,7 +243,9 @@ test('support is available from the payment pending/failed state with invoice re
 });
 
 test('support is available from the account/settings area', () => {
-    const profile = elementWindow('profileModal', 9000);
+    // 14000: the profile modal gained the Telegram-linking card (Phase 1) between
+    // the subscription summary and the account-help block.
+    const profile = elementWindow('profileModal', 14000);
     assert.ok(/openSupportModal\(\)/.test(profile), 'profile modal should link to support');
     assert.ok(/profile\.contactSupport/.test(profile), 'localized contact-support label');
 });

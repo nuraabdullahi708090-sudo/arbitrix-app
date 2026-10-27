@@ -4269,6 +4269,7 @@ function openProfileModal() {
     }
     document.getElementById('profileModal').classList.add('open');
     loadSubscriptionStatus();
+    loadTelegramLinkStatus();
 }
 
 // Dedicated subscription entry: opens the single Arbitrix Pro modal (the full
@@ -4318,6 +4319,111 @@ async function loadSubscriptionStatus() {
         updateSandboxBadge();
     } catch (e) {
         console.warn('[loadSubscriptionStatus] failed:', e.message);
+    }
+}
+
+// ============ TELEGRAM ACCOUNT LINKING (Phase 1) ============
+// The dashboard only ever talks to the three authenticated endpoints; the
+// backend owns the token, the expiry and the one-to-one rules. Nothing here is
+// trusted by the server (it derives the account from the JWT).
+function telegramLinkToken() {
+    return localStorage.getItem('jwt_token');
+}
+
+function setTelegramLinkStatus(connected) {
+    var badge = getEl('telegramLinkStatus');
+    if (!badge) return;
+    var key = connected ? 'telegramLink.statusConnected' : 'telegramLink.statusDisconnected';
+    badge.textContent = t(key);
+    badge.setAttribute('data-i18n', key);
+    badge.className = 'status-badge ' + (connected ? 'funded' : 'demo');
+    var connect = getEl('telegramLinkConnectBtn');
+    var disconnect = getEl('telegramLinkDisconnectBtn');
+    if (connect) connect.style.display = connected ? 'none' : '';
+    if (disconnect) disconnect.style.display = connected ? '' : 'none';
+    if (connected) {
+        // A pending deep link is meaningless once the account is connected.
+        var open = getEl('telegramLinkOpenBtn');
+        if (open) open.style.display = 'none';
+        var note = getEl('telegramLinkNote');
+        if (note) note.style.display = 'none';
+    }
+}
+
+function renderTelegramLink(data) {
+    setTelegramLinkStatus(Boolean(data && data.connected));
+}
+
+async function loadTelegramLinkStatus() {
+    var token = telegramLinkToken();
+    if (!token) return;
+    try {
+        var res = await fetch('/api/telegram/link', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        renderTelegramLink(await res.json());
+    } catch (e) {
+        console.warn('[loadTelegramLinkStatus] failed:', e.message);
+    }
+}
+
+async function startTelegramLink() {
+    var token = telegramLinkToken();
+    if (!token) return;
+    var btn = getEl('telegramLinkConnectBtn');
+    if (btn) setButtonLoading(btn, true);
+    try {
+        var res = await fetch('/api/telegram/link/start', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var data = {};
+        try { data = await res.json(); } catch (e) { data = {}; }
+        if (!res.ok || !data.url) {
+            showToast(res.status === 429 ? t('telegramLink.rateLimited') : t('telegramLink.error'), 'error');
+            return;
+        }
+        var open = getEl('telegramLinkOpenBtn');
+        if (open) {
+            open.href = data.url;
+            open.style.display = '';
+        }
+        var note = getEl('telegramLinkNote');
+        if (note) note.style.display = '';
+        // Opening the deep link hands the single-use token to Telegram; the bot
+        // consumes it. No token is stored in localStorage or the DOM beyond the
+        // href the user is about to tap.
+        try { window.open(data.url, '_blank', 'noopener,noreferrer'); } catch (e) { /* popup blocked */ }
+        showToast(t('telegramLink.ready'), 'success');
+    } catch (e) {
+        showToast(t('telegramLink.error'), 'error');
+    } finally {
+        if (btn) setButtonLoading(btn, false);
+    }
+}
+
+async function disconnectTelegramLink() {
+    var token = telegramLinkToken();
+    if (!token) return;
+    if (!confirm(t('telegramLink.confirmDisconnect'))) return;
+    var btn = getEl('telegramLinkDisconnectBtn');
+    if (btn) setButtonLoading(btn, true);
+    try {
+        var res = await fetch('/api/telegram/link', {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) {
+            showToast(t('telegramLink.unavailable'), 'error');
+            return;
+        }
+        setTelegramLinkStatus(false);
+        showToast(t('telegramLink.disconnected'), 'success');
+    } catch (e) {
+        showToast(t('telegramLink.unavailable'), 'error');
+    } finally {
+        if (btn) setButtonLoading(btn, false);
     }
 }
 
@@ -8126,6 +8232,31 @@ function toggleFaq(btn) {
             </button>
         </div>
 
+        <!-- TELEGRAM ACCOUNT LINKING (Phase 1). Links THIS account to the user's
+             own Telegram chat through the official bot. Linking is deliberately
+             separate from marketing consent: nothing here subscribes the user. -->
+        <div class="telegram-link-card" id="telegramLinkCard" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:12px 16px;margin-top:16px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <i class="fab fa-telegram" style="color:#229ED9;font-size:18px;"></i>
+                <span style="font-size:14px;font-weight:700;color:var(--text-primary);" data-i18n="telegramLink.title">Telegram</span>
+                <span id="telegramLinkStatus" class="status-badge demo" style="font-size:11px;padding:4px 10px;" data-i18n="telegramLink.statusDisconnected">Not connected</span>
+            </div>
+            <p style="font-size:12px;color:var(--text-secondary);margin:8px 0 0;line-height:1.55;" data-i18n="telegramLink.desc">Connect your Telegram account to receive account-related updates in our official bot.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                <button type="button" id="telegramLinkConnectBtn" class="btn btn-secondary" onclick="startTelegramLink()" style="padding:8px 14px;">
+                    <i class="fab fa-telegram"></i> <span data-i18n="telegramLink.connect">Connect Telegram</span>
+                </button>
+                <a id="telegramLinkOpenBtn" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" style="display:none;padding:8px 14px;text-decoration:none;">
+                    <i class="fab fa-telegram"></i> <span data-i18n="telegramLink.open">Open Telegram</span>
+                </a>
+                <button type="button" id="telegramLinkDisconnectBtn" class="btn btn-secondary" onclick="disconnectTelegramLink()" style="display:none;padding:8px 14px;">
+                    <i class="fas fa-link-slash"></i> <span data-i18n="telegramLink.disconnect">Disconnect</span>
+                </button>
+            </div>
+            <p id="telegramLinkNote" style="display:none;font-size:11px;color:var(--text-secondary);margin:8px 0 0;line-height:1.5;" data-i18n="telegramLink.expires">This link expires in 10 minutes. Open it in Telegram to finish.</p>
+            <p style="font-size:11px;color:var(--text-secondary);margin:8px 0 0;line-height:1.5;" data-i18n="telegramLink.consentNote">Connecting Telegram does not subscribe you to marketing or partner messages. Marketing updates stay opt-in with /subscribe in the bot.</p>
+        </div>
+
         
         <!-- ACHIEVEMENTS (moved off the main dashboard so the dashboard stays
              focused on trading). The card markup, ids and inner styling are
@@ -9463,6 +9594,21 @@ const TRANSLATIONS = {
         'subscription.activate': 'Activate Pro',
         'subscription.cancel': 'Cancel',
         'subscription.manage': 'Manage',
+        'telegramLink.title': 'Telegram',
+        'telegramLink.desc': 'Connect your Telegram account to receive account-related updates from our official bot.',
+        'telegramLink.statusConnected': 'Connected',
+        'telegramLink.statusDisconnected': 'Not connected',
+        'telegramLink.connect': 'Connect Telegram',
+        'telegramLink.open': 'Open Telegram',
+        'telegramLink.disconnect': 'Disconnect',
+        'telegramLink.confirmDisconnect': 'Disconnect Telegram from this account? You will stop receiving account-related messages in Telegram.',
+        'telegramLink.expires': 'This link expires in 10 minutes. Open it in Telegram to finish.',
+        'telegramLink.consentNote': 'Connecting Telegram does not subscribe you to marketing or partner messages. Marketing updates stay opt-in with /subscribe in the bot.',
+        'telegramLink.error': 'Could not start Telegram linking. Please try again.',
+        'telegramLink.rateLimited': 'Too many attempts. Please wait a few minutes and try again.',
+        'telegramLink.ready': 'Link created. Finish in Telegram.',
+        'telegramLink.disconnected': 'Telegram disconnected.',
+        'telegramLink.unavailable': 'Telegram linking is temporarily unavailable.',
         'subscription.disclaimer': 'The monthly fee is deducted from your available Live balance. No card required.',
         'subscription.inactiveDesc': 'Activate Pro to unlock premium features. Billed monthly from your available Live balance.',
         'subscription.activeDesc': 'Your subscription is active.',
@@ -10991,6 +11137,21 @@ const TRANSLATIONS = {
         'subscription.activate': 'Activar Pro',
         'subscription.cancel': 'Cancelar',
         'subscription.manage': 'Gestionar',
+        'telegramLink.title': 'Telegram',
+        'telegramLink.desc': 'Conecta tu cuenta de Telegram para recibir novedades relacionadas con tu cuenta desde nuestro bot oficial.',
+        'telegramLink.statusConnected': 'Conectado',
+        'telegramLink.statusDisconnected': 'No conectado',
+        'telegramLink.connect': 'Conectar Telegram',
+        'telegramLink.open': 'Abrir Telegram',
+        'telegramLink.disconnect': 'Desconectar',
+        'telegramLink.confirmDisconnect': '¿Desconectar Telegram de esta cuenta? Dejarás de recibir mensajes relacionados con tu cuenta en Telegram.',
+        'telegramLink.expires': 'Este enlace caduca en 10 minutos. Ábrelo en Telegram para finalizar.',
+        'telegramLink.consentNote': 'Conectar Telegram no te suscribe a mensajes de marketing ni del programa de socios. Las novedades siguen siendo opcionales con /subscribe en el bot.',
+        'telegramLink.error': 'No se pudo iniciar la conexión con Telegram. Inténtalo de nuevo.',
+        'telegramLink.rateLimited': 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+        'telegramLink.ready': 'Enlace creado. Finaliza en Telegram.',
+        'telegramLink.disconnected': 'Telegram desconectado.',
+        'telegramLink.unavailable': 'La conexión con Telegram no está disponible temporalmente.',
         'subscription.disclaimer': 'La cuota mensual se deduce de tu saldo Live disponible. No se requiere tarjeta.',
         'subscription.inactiveDesc': 'Activa Pro para desbloquear funciones premium. Se factura mensualmente desde tu saldo Live disponible.',
         'subscription.activeDesc': 'Tu suscripción está activa.',
@@ -12520,6 +12681,21 @@ const TRANSLATIONS = {
         'subscription.activate': 'Ativar Pro',
         'subscription.cancel': 'Cancelar',
         'subscription.manage': 'Gerenciar',
+        'telegramLink.title': 'Telegram',
+        'telegramLink.desc': 'Conecte sua conta do Telegram para receber novidades relacionadas à conta pelo nosso bot oficial.',
+        'telegramLink.statusConnected': 'Conectado',
+        'telegramLink.statusDisconnected': 'Não conectado',
+        'telegramLink.connect': 'Conectar Telegram',
+        'telegramLink.open': 'Abrir Telegram',
+        'telegramLink.disconnect': 'Desconectar',
+        'telegramLink.confirmDisconnect': 'Desconectar o Telegram desta conta? Você deixará de receber mensagens relacionadas à conta no Telegram.',
+        'telegramLink.expires': 'Este link expira em 10 minutos. Abra-o no Telegram para concluir.',
+        'telegramLink.consentNote': 'Conectar o Telegram não inscreve você em mensagens de marketing ou do programa de parceiros. As novidades continuam opcionais com /subscribe no bot.',
+        'telegramLink.error': 'Não foi possível iniciar a conexão com o Telegram. Tente novamente.',
+        'telegramLink.rateLimited': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+        'telegramLink.ready': 'Link criado. Conclua no Telegram.',
+        'telegramLink.disconnected': 'Telegram desconectado.',
+        'telegramLink.unavailable': 'A conexão com o Telegram está temporariamente indisponível.',
         'subscription.disclaimer': 'A mensalidade é deduzida do seu saldo Live disponível. Não é necessário cartão.',
         'subscription.inactiveDesc': 'Ative o Pro para desbloquear recursos premium. Cobrado mensalmente do seu saldo Live disponível.',
         'subscription.activeDesc': 'Sua assinatura está ativa.',
@@ -14049,6 +14225,21 @@ const TRANSLATIONS = {
         'subscription.activate': 'Activer Pro',
         'subscription.cancel': 'Annuler',
         'subscription.manage': 'Gérer',
+        'telegramLink.title': 'Telegram',
+        'telegramLink.desc': 'Connectez votre compte Telegram pour recevoir les informations liées à votre compte via notre bot officiel.',
+        'telegramLink.statusConnected': 'Connecté',
+        'telegramLink.statusDisconnected': 'Non connecté',
+        'telegramLink.connect': 'Connecter Telegram',
+        'telegramLink.open': 'Ouvrir Telegram',
+        'telegramLink.disconnect': 'Déconnecter',
+        'telegramLink.confirmDisconnect': 'Déconnecter Telegram de ce compte ? Vous ne recevrez plus de messages liés à votre compte sur Telegram.',
+        'telegramLink.expires': 'Ce lien expire dans 10 minutes. Ouvrez-le dans Telegram pour terminer.',
+        'telegramLink.consentNote': 'Connecter Telegram ne vous abonne pas aux messages marketing ou partenaires. Les actualités restent facultatives avec /subscribe dans le bot.',
+        'telegramLink.error': 'Impossible de démarrer la connexion Telegram. Veuillez réessayer.',
+        'telegramLink.rateLimited': 'Trop de tentatives. Patientez quelques minutes et réessayez.',
+        'telegramLink.ready': 'Lien créé. Terminez dans Telegram.',
+        'telegramLink.disconnected': 'Telegram déconnecté.',
+        'telegramLink.unavailable': 'La connexion Telegram est temporairement indisponible.',
         'subscription.disclaimer': "Les frais mensuels sont déduits de votre solde Live disponible. Aucune carte requise.",
         'subscription.inactiveDesc': "Activez Pro pour débloquer les fonctionnalités premium. Facturé mensuellement depuis votre solde Live disponible.",
         'subscription.activeDesc': 'Votre abonnement est actif.',
@@ -15578,6 +15769,21 @@ const TRANSLATIONS = {
         'subscription.activate': 'تفعيل Pro',
         'subscription.cancel': 'إلغاء',
         'subscription.manage': 'إدارة',
+        'telegramLink.title': 'تيليجرام',
+        'telegramLink.desc': 'اربط حساب تيليجرام الخاص بك لتلقي التحديثات المتعلقة بحسابك من البوت الرسمي.',
+        'telegramLink.statusConnected': 'متصل',
+        'telegramLink.statusDisconnected': 'غير متصل',
+        'telegramLink.connect': 'ربط تيليجرام',
+        'telegramLink.open': 'فتح تيليجرام',
+        'telegramLink.disconnect': 'إلغاء الربط',
+        'telegramLink.confirmDisconnect': 'هل تريد إلغاء ربط تيليجرام بهذا الحساب؟ لن تتلقى بعد الآن رسائل متعلقة بحسابك على تيليجرام.',
+        'telegramLink.expires': 'تنتهي صلاحية هذا الرابط خلال 10 دقائق. افتحه في تيليجرام لإكمال الربط.',
+        'telegramLink.consentNote': 'ربط تيليجرام لا يشتركك في رسائل التسويق أو رسائل الشركاء. تبقى تحديثات التسويق اختيارية عبر /subscribe في البوت.',
+        'telegramLink.error': 'تعذّر بدء الربط بتيليجرام. يرجى المحاولة مرة أخرى.',
+        'telegramLink.rateLimited': 'محاولات كثيرة. يرجى الانتظار بضع دقائق ثم المحاولة مرة أخرى.',
+        'telegramLink.ready': 'تم إنشاء الرابط. أكمل العملية في تيليجرام.',
+        'telegramLink.disconnected': 'تم إلغاء ربط تيليجرام.',
+        'telegramLink.unavailable': 'الربط بتيليجرام غير متاح مؤقتًا.',
         'subscription.disclaimer': 'يُخصم الرسوم الشهرية من رصيدك المتاح في المحفظة المباشرة. لا حاجة لبطاقة.',
         'subscription.inactiveDesc': 'فعّل Pro لفتح الميزات المميزة. يُحتسب شهريًا من رصيدك المتاح في المحفظة المباشرة.',
         'subscription.activeDesc': 'اشتراكك نشط.',
@@ -17107,6 +17313,21 @@ const TRANSLATIONS = {
         'subscription.activate': '激活 Pro',
         'subscription.cancel': '取消',
         'subscription.manage': '管理',
+        'telegramLink.title': 'Telegram',
+        'telegramLink.desc': '连接你的 Telegram 账号，通过我们的官方机器人接收与你账号相关的通知。',
+        'telegramLink.statusConnected': '已连接',
+        'telegramLink.statusDisconnected': '未连接',
+        'telegramLink.connect': '连接 Telegram',
+        'telegramLink.open': '打开 Telegram',
+        'telegramLink.disconnect': '断开连接',
+        'telegramLink.confirmDisconnect': '要断开此账号的 Telegram 连接吗？你将不再通过 Telegram 收到与该账号相关的消息。',
+        'telegramLink.expires': '此链接 10 分钟后失效。请在 Telegram 中打开以完成连接。',
+        'telegramLink.consentNote': '连接 Telegram 不会让你订阅营销或合作伙伴消息。营销通知仍需在机器人中发送 /subscribe 才会开启。',
+        'telegramLink.error': '无法开始 Telegram 连接，请重试。',
+        'telegramLink.rateLimited': '尝试次数过多，请等待几分钟后重试。',
+        'telegramLink.ready': '链接已创建，请在 Telegram 中完成。',
+        'telegramLink.disconnected': '已断开 Telegram 连接。',
+        'telegramLink.unavailable': 'Telegram 连接暂时不可用。',
         'subscription.disclaimer': '月费从您的可用 Live 余额中扣除。无需银行卡。',
         'subscription.inactiveDesc': '激活 Pro 以解锁高级功能。每月从您的可用 Live 余额中扣费。',
         'subscription.activeDesc': '您的订阅已激活。',
