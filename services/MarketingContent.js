@@ -26,12 +26,14 @@
 const LOCALES = Object.freeze(['en', 'pt', 'ar']);
 const DEFAULT_LOCALE = 'en';
 const ARROW = '\u2192';
+// Telegram's own first_name limit, reused as the greeting-name cap.
+const GREETING_NAME_MAX = 64;
 const WEEKLY_THEMES = Object.freeze(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
 const LABELS = {
   en: {
-    greeting: 'Welcome to Arbitrix, {{name}}.',
-    greetingAnon: 'Welcome to Arbitrix.',
+    greeting: '👋 Welcome to the Arbitrix Partners Community, {{name}}!',
+    greetingAnon: '👋 Welcome to the Arbitrix Partners Community!',
     support: 'Customer support',
     partnerSupport: 'Partner payment support',
     announcements: 'Official announcements',
@@ -46,11 +48,20 @@ const LABELS = {
       howItWorks: '🎓 How It Works',
       support: '💬 Customer Support',
       partnerSupport: '💳 Partner Payment Support'
-    }
+    },
+    referralIntro: 'Your personal referral link lives inside your account:',
+    referralSteps: [
+      'Log in to your Arbitrix account.',
+      'Open your account dashboard.',
+      'Scroll down to the Referral section.',
+      "There you'll find your personal referral link and your referral code.",
+      'Copy the link and share it with the people you invite.'
+    ],
+    referralReminder: "Can't find your referral link? Scroll down your account dashboard to locate the Referral section."
   },
   pt: {
-    greeting: 'Bem-vindo à Arbitrix, {{name}}.',
-    greetingAnon: 'Bem-vindo à Arbitrix.',
+    greeting: '👋 Boas-vindas à Comunidade de Parceiros Arbitrix, {{name}}!',
+    greetingAnon: '👋 Boas-vindas à Comunidade de Parceiros Arbitrix!',
     support: 'Suporte ao cliente',
     partnerSupport: 'Suporte de pagamentos a parceiros',
     announcements: 'Avisos oficiais',
@@ -65,11 +76,20 @@ const LABELS = {
       howItWorks: '🎓 Como funciona',
       support: '💬 Suporte ao cliente',
       partnerSupport: '💳 Suporte de pagamentos a parceiros'
-    }
+    },
+    referralIntro: 'Seu link de indicação pessoal fica dentro da sua conta:',
+    referralSteps: [
+      'Entre na sua conta Arbitrix.',
+      'Abra o painel da sua conta.',
+      'Role a página para baixo até a seção Indicações.',
+      'Ali você encontra seu link de indicação pessoal e seu código de indicação.',
+      'Copie o link e compartilhe com as pessoas que você convidar.'
+    ],
+    referralReminder: 'Não encontrou seu link de indicação? Role o painel da sua conta para baixo até a seção Indicações.'
   },
   ar: {
-    greeting: 'مرحبًا بك في Arbitrix، {{name}}.',
-    greetingAnon: 'مرحبًا بك في Arbitrix.',
+    greeting: '👋 مرحبًا بك في مجتمع شركاء Arbitrix، {{name}}!',
+    greetingAnon: '👋 مرحبًا بك في مجتمع شركاء Arbitrix!',
     support: 'دعم العملاء',
     partnerSupport: 'دعم مدفوعات الشركاء',
     announcements: 'الإعلانات الرسمية',
@@ -84,13 +104,22 @@ const LABELS = {
       howItWorks: '🎓 كيف يعمل',
       support: '💬 دعم العملاء',
       partnerSupport: '💳 دعم مدفوعات الشركاء'
-    }
+    },
+    referralIntro: 'رابط الإحالة الخاص بك موجود داخل حسابك:',
+    referralSteps: [
+      'سجّل الدخول إلى حسابك في Arbitrix.',
+      'افتح لوحة تحكم حسابك.',
+      'مرّر إلى الأسفل حتى قسم الإحالات.',
+      'ستجد هناك رابط الإحالة الخاص بك ورمز الإحالة.',
+      'انسخ الرابط وشاركه مع الأشخاص الذين تدعوهم.'
+    ],
+    referralReminder: 'لم تجد رابط الإحالة الخاص بك؟ مرّر لوحة تحكم حسابك إلى الأسفل للوصول إلى قسم الإحالات.'
   }
 };
 
 const EN = {
   welcome: [
-    '👋 Welcome to the Arbitrix Partners Community!',
+    '{{greeting}}',
     '',
     'We\'re happy to have you here! 🎉',
     '',
@@ -116,7 +145,11 @@ const EN = {
     '',
     'Want to introduce others to Arbitrix?',
     '',
-    'After registering, log into your account and open the Referral page. There, you\'ll find your personal referral link and code.',
+    '{{referralIntro}}',
+    '',
+    '{{referralSteps}}',
+    '',
+    '{{referralReminder}}',
     '',
     '🎁 REFERRAL REWARD',
     '',
@@ -151,7 +184,11 @@ const EN = {
     '{{createLine}}',
     '',
     '3️⃣ FIND YOUR REFERRAL LINK',
-    'After registering, log into your account and open the Referral page. There, you\'ll find your personal referral link and code.',
+    '{{referralIntro}}',
+    '',
+    '{{referralSteps}}',
+    '',
+    '{{referralReminder}}',
     '',
     '4️⃣ REFERRAL REWARD',
     'Earn a one-time reward equal to {{referralPercent}}% of a referred user\'s first qualifying deposit of ${{minDeposit}} or more.',
@@ -293,7 +330,7 @@ const EN = {
 
 const PT = {
   welcome: [
-    '👋 Bem-vindo à Comunidade de Parceiros Arbitrix!',
+    '{{greeting}}',
     '',
     'Que bom ter você aqui! 🎉',
     '',
@@ -319,7 +356,11 @@ const PT = {
     '',
     'Quer apresentar a Arbitrix para outras pessoas?',
     '',
-    'Depois de se registrar, entre na sua conta e abra a página de Indicações. Lá você encontra seu link e código de indicação pessoais.',
+    '{{referralIntro}}',
+    '',
+    '{{referralSteps}}',
+    '',
+    '{{referralReminder}}',
     '',
     '🎁 RECOMPENSA DE INDICAÇÃO',
     '',
@@ -337,7 +378,7 @@ const PT = {
   startHere: [
     '📌 COMECE AQUI',
     '',
-    '👋 Bem-vindo à Comunidade de Parceiros Arbitrix!',
+    '👋 Boas-vindas à Comunidade de Parceiros Arbitrix!',
     '',
     'A Arbitrix é uma plataforma automatizada de arbitragem multi-ativo que identifica diferenças de preço do mesmo instrumento em diferentes corretoras.',
     '',
@@ -354,7 +395,11 @@ const PT = {
     '{{createLine}}',
     '',
     '3️⃣ ENCONTRE SEU LINK DE INDICAÇÃO',
-    'Depois de se registrar, entre na sua conta e abra a página de Indicações. Lá você encontra seu link e código de indicação pessoais.',
+    '{{referralIntro}}',
+    '',
+    '{{referralSteps}}',
+    '',
+    '{{referralReminder}}',
     '',
     '4️⃣ RECOMPENSA DE INDICAÇÃO',
     'Receba uma recompensa única equivalente a {{referralPercent}}% do primeiro depósito qualificado do seu indicado, de ${{minDeposit}} ou mais.',
@@ -496,7 +541,7 @@ const PT = {
 
 const AR = {
   welcome: [
-    '👋 مرحبًا بك في مجتمع شركاء Arbitrix!',
+    '{{greeting}}',
     '',
     'يسعدنا وجودك معنا! 🎉',
     '',
@@ -522,7 +567,11 @@ const AR = {
     '',
     'هل ترغب في تعريف الآخرين بـ Arbitrix؟',
     '',
-    'بعد التسجيل، سجّل الدخول إلى حسابك وافتح صفحة الإحالات. ستجد هناك رابط الإحالة والرمز الخاصين بك.',
+    '{{referralIntro}}',
+    '',
+    '{{referralSteps}}',
+    '',
+    '{{referralReminder}}',
     '',
     '🎁 مكافأة الإحالة',
     '',
@@ -557,7 +606,11 @@ const AR = {
     '{{createLine}}',
     '',
     '3️⃣ اعثر على رابط الإحالة الخاص بك',
-    'بعد التسجيل، سجّل الدخول إلى حسابك وافتح صفحة الإحالات. ستجد هناك رابط الإحالة والرمز الخاصين بك.',
+    '{{referralIntro}}',
+    '',
+    '{{referralSteps}}',
+    '',
+    '{{referralReminder}}',
     '',
     '4️⃣ مكافأة الإحالة',
     'احصل على مكافأة لمرة واحدة تعادل {{referralPercent}}% من أول إيداع مؤهل للمستخدم الذي أحلت إليه بقيمة ${{minDeposit}} أو أكثر.',
@@ -803,6 +856,58 @@ function toReplyMarkup(buttons) {
   return { inline_keyboard: rows };
 }
 
+/**
+ * The referral walkthrough shared by the welcome and the Start Here guide, so
+ * the two can never drift apart. Every line is an approved, translatable step;
+ * the personal link itself is NEVER constructed here - the member copies it from
+ * their own authenticated account.
+ */
+function buildReferralSteps(locale) {
+  const steps = labelsFor(locale).referralSteps || [];
+  return steps.map((line) => '\u2022 ' + line).join('\n');
+}
+
+// A Telegram first name is short and self-contained. Anything carrying a link,
+// a handle, a path or instruction-ish wording is not a name: it is rejected so
+// an official partner message can never be used to relay a phishing line.
+const NAME_REJECT_PATTERN = new RegExp(
+  '[@:/\\\\]|\\b(?:https?|www|t\\.me|telegram|dm|pm|send|click|claim|contact|message|bonus|giveaway|airdrop|verify|password|passcode|seed|phrase|wallet|support|admin)\\b',
+  'i'
+);
+const GREETING_NAME_WORDS_MAX = 5;
+
+/**
+ * Telegram `first_name` is user-controlled, and `sendMessage` sends PLAIN TEXT
+ * (the transport sets no parse_mode), so HTML/Markdown escaping is deliberately
+ * NOT applied - escaping would print `&amp;` literally. Instead the name is
+ * reduced to a safe single-line plain-text token: control characters, zero-width
+ * and bidi-override code points are removed, markup-significant `<`/`>` are
+ * dropped, whitespace is collapsed and the value is capped (Telegram's own
+ * first_name limit is 64). Anything unusable - empty, blank, a literal
+ * "undefined"/"null" artifact, or a string that reads like an instruction, a
+ * handle or a link (see NAME_REJECT_PATTERN) - returns null so the caller greets
+ * generically rather than quoting it inside an official message.
+ */
+function sanitizeGreetingName(raw) {
+  if (raw === null || raw === undefined) return null;
+  const text = typeof raw === 'string' ? raw : String(raw);
+  const cleaned = text
+    .replace(/<[^>]*>/g, '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
+    .replace(/[<>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, GREETING_NAME_MAX)
+    .replace(/[\uD800-\uDBFF]$/, '')
+    .trim();
+  if (!cleaned) return null;
+  if (/^(undefined|null|none|n\/a)$/i.test(cleaned)) return null;
+  if (NAME_REJECT_PATTERN.test(cleaned)) return null;
+  if (cleaned.split(' ').length > GREETING_NAME_WORDS_MAX) return null;
+  return cleaned;
+}
+
 /** Replace every {{placeholder}} using the supplied values. */
 function interpolate(text, vars) {
   return String(text === null || text === undefined ? '' : text)
@@ -839,8 +944,9 @@ function render(kind, locale, ctx) {
     throw new Error('unknown marketing content kind: ' + kind);
   }
 
-  const greeting = c.name
-    ? interpolate(labels.greeting, { name: String(c.name) })
+  const greetingName = sanitizeGreetingName(c.name);
+  const greeting = greetingName
+    ? interpolate(labels.greeting, { name: greetingName })
     : labels.greetingAnon;
 
   const rendered = interpolate(text, Object.assign({
@@ -848,7 +954,10 @@ function render(kind, locale, ctx) {
     minDeposit: c.minDeposit,
     referralPercent: c.referralPercent,
     promoCredit: c.promoCredit,
-    links: buildLinksBlock(lang, c)
+    links: buildLinksBlock(lang, c),
+    referralIntro: labels.referralIntro || '',
+    referralSteps: buildReferralSteps(lang),
+    referralReminder: labels.referralReminder || ''
   }, buildStepLines(lang, c))).replace(/\n{3,}/g, '\n\n').trim();
 
   const buttons = buildButtons(lang, c, kind);
@@ -877,6 +986,9 @@ module.exports = {
   normalizeLocale,
   buildLinksBlock,
   buildStepLines,
+  buildReferralSteps,
+  sanitizeGreetingName,
+  GREETING_NAME_MAX,
   buildButtons,
   partnerButtons,
   groupButtons,

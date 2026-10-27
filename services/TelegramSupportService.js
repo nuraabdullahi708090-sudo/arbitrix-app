@@ -726,6 +726,10 @@ function routeUpdate(update, config) {
       .filter((m) => m && m.id !== undefined && m.id !== null)
       .map((m) => ({
         id: String(m.id),
+        // The member's OWN Telegram first name, used to personalise the welcome.
+        // Raw here (Telegram-supplied, user-controlled); the content layer
+        // sanitises it before it reaches the message.
+        firstName: typeof m.first_name === 'string' ? m.first_name : null,
         name: telegramDisplayName(m),
         isBot: m.is_bot === true
       }));

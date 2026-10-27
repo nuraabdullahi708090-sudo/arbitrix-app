@@ -6877,3 +6877,68 @@ The server never accepts a chat id, price, percentage or recipient list from the
 - npm test = 2290 pass / 1 fail; the single failure is the PRE-EXISTING
   tests/how_it_works_video.test.js "approved master is present for comparison" (the
   untracked build/ master video is absent in this clone).
+
+## Partner welcome: per-member first-name personalisation + Referral-page instructions (2026-10-27)
+- Follow-up to commit 1d18765 (partner welcome / inline buttons / Start Here). Marketing copy
+  and one routing field only. NO change to deposits, withdrawals, trading, promotional credit,
+  referral LOGIC (the reward is still a one-time 20% of the referred user's first qualifying
+  deposit of at least $100), subscriptions, KYC, the marketing sandbox, ContentGuard rules or
+  the publisher/worker.
+- PERSONALISATION: `routeUpdate()` now carries `firstName` (raw Telegram `m.first_name`, null
+  when absent) on each `new_chat_members` entry, and `MarketingOnboarding.handleNewMembers()`
+  passes `fresh[0].firstName` into the render context. The welcome opens with
+  `{{greeting}}` = LABELS[locale].greeting / greetingAnon, so it reads
+  "Welcome to the Arbitrix Partners Community, Ana!" and falls back to the generic community
+  greeting when the name is missing or unusable. Only the JOINING MEMBER's own first name is
+  ever used - never the bot's, never an administrator's, never a @username and never the
+  synthetic "user <id>". A service message listing several people yields the generic greeting
+  (there is no single person to name), and bots are still skipped.
+- SAFE NAME HANDLING: the transport sends PLAIN TEXT (no parse_mode), so HTML/Markdown
+  escaping would print `&amp;` literally. `MarketingContent.sanitizeGreetingName()` instead
+  reduces the name to a safe single-line plain-text token: markup tags and `<`/`>` removed,
+  control characters and zero-width/bidi-override code points stripped, whitespace collapsed,
+  capped at GREETING_NAME_MAX (64, Telegram's own first_name limit), and REJECTED (generic
+  greeting) when it still reads like an instruction/handle/link (NAME_REJECT_PATTERN covers
+  URLs, t.me, @handles, path separators and words such as send/click/claim/bonus/verify/
+  password/seed/wallet/support/admin) or exceeds 5 words. Rationale: the name is quoted
+  inside an official-looking group post, so a hostile first_name must not become a phishing
+  line. Legitimate names in Latin/Cyrillic/Arabic/CJK, with accents, apostrophes and hyphens,
+  are preserved unchanged (pinned by tests).
+- REFERRAL INSTRUCTIONS: welcome and Start Here both render `{{referralIntro}}`,
+  `{{referralSteps}}` (5 bullets) and `{{referralReminder}}` from LABELS, replacing the old
+  one-line "open the Referral page" sentence. The copy tells the member to log in, open the
+  account dashboard, scroll to the Referral section, copy the link/code and share it. NO
+  personal referral URL is constructed anywhere (pinned: no `?ref=`, no `t.me/...?start`,
+  no `/r/<code>` path); the only URLs in either message are the four approved destinations.
+  Dashboard accuracy verified in a real browser (Chromium, stubbed API): the Referral card
+  (`#referral`) is inside `#mainContent` ~2038px down a 390x844 viewport (i.e. below the fold,
+  so "scroll down" is literally correct) and, once scrolled to, shows the referral code, the
+  referral link and both copy buttons inside the viewport width. The sidebar
+  `data-section="referral"` shortcut still exists.
+- TRANSLATIONS: en / pt / ar updated together (greeting, referralIntro, referralSteps,
+  referralReminder). PT uses "Boas-vindas ... Comunidade de Parceiros Arbitrix" (gender
+  neutral, identical wording in the welcome and the Start Here guide) and reuses the
+  platform's existing referral vocabulary - "Indicacoes" / "link de indicacao" / "codigo de
+  indicacao", matching sidebar.referral and referral.linkLabel / referral.myCode. AR uses the
+  existing community and Referral-section terms (mujtama' shuraka' / qism al-ihalat). No
+  English sentence is reused inside a translation (pinned by tests).
+- TESTS: NEW tests/telegram_welcome_personalisation.test.js (18) drives the REAL path
+  routeUpdate -> handleNewMembers -> render -> transport: the member's first name appears;
+  bot/admin names never do; bots are skipped; missing/blank/null/undefined/zero-width names
+  fall back to the generic greeting; multi-member service messages stay generic; plain-text
+  (no parse_mode) sanitisation rather than HTML escaping; hostile names cannot add a line or
+  inject markup; accepted/refused name matrices; the 5 referral steps in both messages and in
+  order; no fabricated referral URL; no English leakage into pt/ar; the dashboard really
+  contains the Referral card; 2x2 keyboards with the four exact URLs per locale; business
+  facts unchanged; ContentGuard accepts every personalised variant; Start Here remains
+  queue-only (still no automatic pin).
+  Pins updated for the intentional change: marketing_bot_wiring (join payload now includes
+  firstName), marketing_content (greeting assertions), telegram_partner_welcome (approved
+  copy + localized referral assertions).
+- VERIFICATION: `node --check` clean on the three services; npm test = 2307 tests, 2306 pass,
+  1 fail - the PRE-EXISTING how_it_works_video "approved master" check (untracked build/
+  asset), identical before this change. Encoding audit on MarketingContent.js: 0 U+FFFD, no
+  Cyrillic mojibake, only the intended characters added/removed.
+- UNCHANGED: the four confirmed destinations and their button layout, the absence of the risk
+  disclaimer paragraph in this message, the ContentGuard send-time re-check, and the
+  documented `pinChatMessage`-based admin /pin workflow (nothing auto-pins).

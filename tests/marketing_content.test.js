@@ -147,16 +147,26 @@ test('a missing URL drops only its own button, never the row layout', () => {
   assert.ok(!partial.buttons.some((b) => /how-it-works/.test(b.url)));
 });
 
-test('the welcome opens with the approved community greeting, with no extra greeting line', () => {
-  const expected = {
+test('the welcome opens with the approved community greeting, personalised when a name is supplied', () => {
+  const named = {
+    en: '\u{1F44B} Welcome to the Arbitrix Partners Community, Ana!',
+    pt: '\u{1F44B} Boas-vindas \u00e0 Comunidade de Parceiros Arbitrix, Ana!',
+    ar: '\u{1F44B} \u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Arbitrix\u060c Ana!'
+  };
+  const generic = {
     en: '\u{1F44B} Welcome to the Arbitrix Partners Community!',
-    pt: '\u{1F44B} Bem-vindo \u00e0 Comunidade de Parceiros Arbitrix!',
+    pt: '\u{1F44B} Boas-vindas \u00e0 Comunidade de Parceiros Arbitrix!',
     ar: '\u{1F44B} \u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Arbitrix!'
   };
   for (const lang of LOCALES) {
-    const text = render('welcome', lang, Object.assign({ name: 'Ana' }, CTX)).text;
-    assert.ok(text.startsWith(expected[lang]), `${lang} must open with the approved greeting`);
-    assert.ok(!/Welcome to Arbitrix, Ana/.test(text), `${lang} must not add a personal greeting line`);
+    assert.strictEqual(
+      render('welcome', lang, Object.assign({ name: 'Ana' }, CTX)).text.split('\n')[0],
+      named[lang], lang + ' must greet the member by first name'
+    );
+    assert.strictEqual(
+      render('welcome', lang, CTX).text.split('\n')[0],
+      generic[lang], lang + ' must fall back to the generic greeting'
+    );
   }
 });
 

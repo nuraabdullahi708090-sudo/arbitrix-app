@@ -94,7 +94,7 @@ test('new_chat_members routes as a join event, before text parsing', () => {
   assert.strictEqual(route.chatId, GROUP);
   assert.strictEqual(route.chatTitle, 'Arbitrix Partners');
   assert.strictEqual(route.messageId, '9');
-  assert.deepStrictEqual(route.members, [{ id: '777', name: 'Ana', isBot: false }]);
+  assert.deepStrictEqual(route.members, [{ id: '777', firstName: 'Ana', name: 'Ana', isBot: false }]);
 });
 
 test('a bot joining is flagged so onboarding can ignore it', () => {

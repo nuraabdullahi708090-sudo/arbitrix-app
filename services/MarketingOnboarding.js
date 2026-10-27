@@ -100,7 +100,15 @@ function nextSlot({ theme, hour, minute, timezone, after }) {
   throw new Error('no slot found for theme ' + theme);
 }
 
-function buildLinkContext(config, name) {
+/**
+ * Template context for the partner messages.
+ *
+ * `greetingName` is the JOINING MEMBER's own Telegram first name and is used by
+ * the welcome only (Start Here is a shared group post). The content layer
+ * sanitises it and falls back to the generic greeting when it is missing or
+ * unusable, so callers may pass null.
+ */
+function buildLinkContext(config, greetingName) {
   return {
     registerUrl: config.registerUrl,
     howItWorksUrl: config.howItWorksUrl,
@@ -110,7 +118,7 @@ function buildLinkContext(config, name) {
     minDeposit: config.facts && config.facts.minDeposit,
     referralPercent: config.facts && config.facts.referralPercent,
     promoCredit: config.facts && config.facts.promoCredit,
-    name
+    name: greetingName
   };
 }
 
@@ -292,8 +300,12 @@ function createOnboarding(options) {
       return { sent: false, skipped: 'duplicate' };
     }
 
-    const name = fresh.length === 1 ? fresh[0].name : null;
-    const content = render('welcome', config.locale, buildLinkContext(config, name));
+    // Personalise with the JOINING MEMBER's own Telegram first name - never the
+    // bot's or an administrator's. A service message can list several members at
+    // once; there is no single person to name then, so those joins get the
+    // generic greeting instead of one arbitrary member's name.
+    const firstName = fresh.length === 1 ? fresh[0].firstName : null;
+    const content = render('welcome', config.locale, buildLinkContext(config, firstName));
 
     try {
       const message = await transport.sendMessage(

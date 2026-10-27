@@ -62,8 +62,13 @@ test('the English welcome carries the approved copy', () => {
     'Ready to get started? Create your account here:',
     '3\uFE0F\u20E3 DISCOVER THE PARTNER PROGRAMME',
     'Want to introduce others to Arbitrix?',
-    'After registering, log into your account and open the Referral page.',
-    "There, you'll find your personal referral link and code.",
+    'Your personal referral link lives inside your account:',
+    '\u2022 Log in to your Arbitrix account.',
+    '\u2022 Open your account dashboard.',
+    '\u2022 Scroll down to the Referral section.',
+    "\u2022 There you'll find your personal referral link and your referral code.",
+    '\u2022 Copy the link and share it with the people you invite.',
+    "Can't find your referral link? Scroll down your account dashboard to locate the Referral section.",
     '\u{1F381} REFERRAL REWARD',
     'Earn a one-time reward equal to 20% of a referred user',
     'first qualifying deposit of $100 or more',
@@ -206,16 +211,16 @@ test('every supported language has its own welcome and Start Here copy', () => {
 
 test('the localized messages keep the Referral page instruction and the one-time reward', () => {
   const referralPage = {
-    pt: /\u00e1gina de Indica\u00e7\u00f5es/,
-    ar: /\u0635\u0641\u062d\u0629 \u0627\u0644\u0625\u062d\u0627\u0644\u0627\u062a/
+    pt: /se\u00e7\u00e3o Indica\u00e7\u00f5es/,
+    ar: /\u0642\u0633\u0645 \u0627\u0644\u0625\u062d\u0627\u0644\u0627\u062a/
   };
   const once = {
     pt: /\u00fanica/,
     ar: /\u0645\u0631\u0629 \u0648\u0627\u062d\u062f\u0629/
   };
   for (const [locale, pattern] of Object.entries(referralPage)) {
-    assert.match(render('welcome', locale, CTX).text, pattern, locale + ' welcome: Referral page');
-    assert.match(render('startHere', locale, CTX).text, pattern, locale + ' Start Here: Referral page');
+    assert.match(render('welcome', locale, CTX).text, pattern, locale + ' welcome: Referral section');
+    assert.match(render('startHere', locale, CTX).text, pattern, locale + ' Start Here: Referral section');
   }
   for (const [locale, pattern] of Object.entries(once)) {
     assert.match(render('welcome', locale, CTX).text, pattern, locale + ' welcome: one-time reward');
