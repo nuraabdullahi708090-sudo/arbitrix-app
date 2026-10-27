@@ -6942,3 +6942,94 @@ The server never accepts a chat id, price, percentage or recipient list from the
 - UNCHANGED: the four confirmed destinations and their button layout, the absence of the risk
   disclaimer paragraph in this message, the ContentGuard send-time re-check, and the
   documented `pinChatMessage`-based admin /pin workflow (nothing auto-pins).
+
+## Partner welcome personalisation DEPLOYED TO PRODUCTION (2026-10-27)
+- Deployment commits: e14e48e ("feat: personalise the partner welcome and point members to
+  their Referral page") and c13c6c1 ("docs: record firstName on the marketing join event"),
+  pushed 1d18765..e14e48e..c13c6c1 main -> main as normal fast-forwards (verified with
+  `git merge-base --is-ancestor origin/main HEAD` before each push; no force/rebase/reset).
+  Pushed with the GITHUB_TOKEN-authenticated URL so no credential is stored in .git/config.
+- CHANGE SET: services/MarketingContent.js (greeting labels + referral intro/steps/reminder in
+  en/pt/ar, `sanitizeGreetingName`, `buildReferralSteps`, `{{greeting}}` in the welcome),
+  services/MarketingOnboarding.js (passes the joining member's first name, context doc),
+  services/TelegramSupportService.js (`firstName` on each new_chat_members entry),
+  tests/telegram_welcome_personalisation.test.js (new, 18 tests) and three test files with
+  updated pins. No server.js, no migration, no frontend/static asset, no deposit/withdrawal/
+  trading/referral-logic/KYC/payment change; migration 038 remains unapplied and scheduled
+  marketing broadcasts remain disabled.
+- PRE-PUSH GATE: npm test = 2309 tests, 2308 pass, 1 fail - the PRE-EXISTING
+  how_it_works_video "approved master" check (the build/ master asset is untracked in this
+  clone); identical before the change. node --check clean on the three services; 0 U+FFFD and
+  no Cyrillic mojibake in the edited file; git diff --check clean.
+- POST-DEPLOY VERIFICATION (https://arbitrix.pro): /api/health 200 {"status":"ok"} polled
+  continuously across the deploy with zero non-200 responses; / 200, /partners 200,
+  /how-it-works 200, /reset-password.html 200; the served public/index.html is byte-identical
+  to the repo (cmp), so there is no static drift; /api/telegram/webhook still fails closed
+  (401 invalid_secret); /api/market/opportunities 200.
+- HONEST LIMITATION: this change is server-internal - it adds no route and no static asset -
+  so no public response distinguishes the old build from the new one. The available evidence
+  is that the service booted cleanly with the new code (a bad require would have failed
+  startup) and that Render auto-deploys on push (established for every earlier commit). The
+  definitive proof is the first real join in the partner group: the welcome should open with
+  the member's first name and the log line
+  {"event":"welcome_sent","component":"marketing-onboarding",...} should appear.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger a
+  third Render rebuild; the working tree therefore shows AGENTS.md modified (documentation
+  only).
+
+## Partner welcome: multi-member / mixed human+bot batches audited and hardened (2026-10-27)
+- Scope: services/MarketingOnboarding.js only (plus tests). No change to the copy, the
+  localisation, the safe-name sanitiser, ContentGuard, the 2x2 keyboard, the four
+  destinations, the referral rules, the webhook secret gate, auth, deposits, withdrawals,
+  trading or the publisher. No migration, no new dependency.
+- AUDIT (verified by running the pre-change handler against the new suite: 20 of the 22
+  behavioural tests already passed):
+  * bots were already filtered PER MEMBER (`filter(m => m && !m.isBot && m.id)`), so a bot
+    never suppressed the humans beside it and a bot-only batch already sent nothing;
+  * several humans already produced ONE generic welcome (`fresh.length === 1` decided the
+    personalised variant), and the personalisation rule was already tested;
+  * redelivery was already covered twice: `createUpdateDeduper` on `update_id` in the bot
+    and the per-(chat, member, messageId) map in the onboarding.
+- TWO REAL DEFECTS FOUND AND FIXED:
+  1. The member key was REMEMBERED INSIDE THE filter, i.e. before `sendMessage` ran. A send
+     that failed (Telegram 502/429/403, network) therefore consumed the member's one
+     welcome: a redelivery of the same service message was answered `duplicate` although
+     nothing had ever been posted. Now `reserve(keys)` takes every key or none (a service
+     message is atomic, which also blocks two concurrent copies of one update), and
+     `release(keys)` frees them when the send throws - a message that never reached the
+     group can still be welcomed later.
+  2. `store.recordSend()` was awaited INSIDE the delivery try/catch, so an audit-store
+     failure was reported as `send-failed` for a message the group had received (and would
+     have released the reservation, allowing a duplicate). The audit write is now isolated
+     in `audit()` - bookkeeping can never change the delivery outcome.
+- STRUCTURE: two pure, exported helpers now make the classification and the greeting choice
+  explicit and unit-testable: `selectWelcomeTargets(members)` -> `{humans, bots, received}`
+  (per-member inspection, id de-duplication so a repeated id cannot turn a personalised
+  greeting into a generic one, malformed entries dropped, non-array tolerated) and
+  `pickGreetingName(humans)` (a name only when EXACTLY one human joined). The result object
+  gained `members` (humans greeted) and `bots` (filtered), and the `welcome_sent` /
+  `welcome_skipped` log lines now carry `received` and `bots`, so a mixed join is diagnosable
+  from the logs. `skipped` values are unchanged: chat-not-configured,
+  marketing-group-not-configured, no-human-members, duplicate, send-failed.
+- GUARANTEE, stated precisely: at-most-once per running process, not exactly-once. Both
+  dedupe maps are in-memory and bounded (bot 1000 update ids, onboarding 500 member keys),
+  so a redelivery after a restart could greet again; the app runs a single Render instance,
+  so no cross-instance duplication. Persisting the ledger would need a migration, which this
+  change deliberately does not add.
+- TESTS: NEW tests/telegram_welcome_batch.test.js (25) drives the real path
+  routeUpdate -> handleNewMembers -> render -> transport: one human personalised; 2 and 5
+  humans -> one generic welcome with no name; one bot and several bots -> nothing sent; human
+  + bot (either order) -> personalised welcome for the human only; 2 humans + 2 bots -> one
+  generic welcome; bot-only is not an error; missing/blank/zero-width names -> generic;
+  hostile names cannot add a line, markup or a handle; bot/admin names never used; duplicate
+  redelivery -> one message; two concurrent deliveries -> one message; a failed send is
+  retried on redelivery (and then remembered); an audit-store failure does not change the
+  outcome; the bot-level update_id deduper; another group still ignored; en/pt/ar batch
+  greetings; the 2x2 keyboard with the four exact URLs and ContentGuard on both variants;
+  plus the pure-helper contracts. `_seenSize()` is asserted (no key for a bot, one per human,
+  none left behind after a failure).
+- VERIFICATION: npm test = 2334 tests, 2333 pass, 1 fail - the PRE-EXISTING
+  how_it_works_video "approved master" check (untracked build/ asset), identical before this
+  change. Telegram/marketing/support suites 912/912. node --check clean.
+- NOT A LIVE-TELEGRAM CLAIM: no real group join was performed from here; the end-to-end proof
+  is the first mixed join in the partner group plus the `welcome_sent` log fields.

@@ -237,6 +237,49 @@ function buildChannelIntroRow({ config, locale, scheduledFor, createdBy }) {
 }
 
 /**
+ * Split a Telegram `new_chat_members` batch into the members that may be
+ * welcomed and the bots that must not be.
+ *
+ * Every member is inspected INDIVIDUALLY: a bot in the batch never suppresses the
+ * humans beside it, and a batch of only bots yields an empty `humans` list. The
+ * list is de-duplicated by id - Telegram does not send the same member twice, but
+ * a duplicated entry must not read as two separate people (that would turn a
+ * single personalised greeting into a generic one) - and malformed entries are
+ * dropped instead of throwing.
+ *
+ * @param {Array<{id:*,firstName?:(string|null),isBot?:boolean}>} members
+ * @returns {{humans: Array<{id:string,firstName:(string|null)}>, bots: Array<{id:string}>, received: number}}
+ */
+function selectWelcomeTargets(members) {
+  const list = Array.isArray(members) ? members : [];
+  const humans = [];
+  const bots = [];
+  const seenIds = new Set();
+  for (const member of list) {
+    if (!member || typeof member !== 'object') continue;
+    const id = member.id === undefined || member.id === null ? '' : String(member.id);
+    if (!id || seenIds.has(id)) continue;
+    seenIds.add(id);
+    if (member.isBot === true) {
+      bots.push({ id });
+    } else {
+      humans.push({ id, firstName: typeof member.firstName === 'string' ? member.firstName : null });
+    }
+  }
+  return { humans, bots, received: list.length };
+}
+
+/**
+ * The greeting name for one service message: used only when EXACTLY ONE human
+ * joined. Several people sharing a single welcome must not be addressed with one
+ * arbitrary member's name - the content layer then renders the generic community
+ * greeting instead.
+ */
+function pickGreetingName(humans) {
+  return Array.isArray(humans) && humans.length === 1 ? humans[0].firstName : null;
+}
+
+/**
  * Create the join handler.
  *
  * @param {object} options {config, transport, store, logger, clock}
@@ -249,18 +292,32 @@ function createOnboarding(options) {
   const log = opts.logger || console;
   if (!transport) throw new Error('createOnboarding requires a transport');
 
-  // Bounded de-duplication: Telegram can redeliver a service message.
+  // Bounded de-duplication of the member keys we have welcomed. Telegram can
+  // redeliver a service message, and two copies can even be in flight at once, so
+  // a key is RESERVED before the send and RELEASED again if the send fails: a
+  // message that never reached the group must not block that member's welcome.
+  // This map lives in process memory, so it guarantees at-most-once per running
+  // process - not exactly-once across restarts or instances.
   const seen = new Map();
   const SEEN_MAX = 500;
 
-  function remember(key) {
-    if (seen.has(key)) return false;
-    seen.set(key, Date.now());
-    if (seen.size > SEEN_MAX) {
-      const oldest = seen.keys().next().value;
-      seen.delete(oldest);
+  // Reserve every key or none: a service message is atomic, so a partially known
+  // batch is treated as a redelivery rather than greeted twice.
+  function reserve(keys) {
+    if (keys.some((key) => seen.has(key))) return false;
+    const at = Date.now();
+    for (const key of keys) {
+      seen.set(key, at);
+      if (seen.size > SEEN_MAX) {
+        const oldest = seen.keys().next().value;
+        seen.delete(oldest);
+      }
     }
     return true;
+  }
+
+  function release(keys) {
+    for (const key of keys) seen.delete(key);
   }
 
   function report(event, extra) {
@@ -272,8 +329,28 @@ function createOnboarding(options) {
     } catch (error) { /* never break the webhook */ }
   }
 
+  // The send audit is bookkeeping, not delivery: a store failure must never turn
+  // a delivered welcome into a reported failure (which would also release the
+  // reservation for a message the group already received).
+  async function audit(chatId, row) {
+    if (!store) return;
+    try {
+      await store.recordSend(Object.assign({ audience: 'group', chatId }, row));
+    } catch (error) { /* best effort, see above */ }
+  }
+
   /**
-   * @param {{chatId: string, members: Array<{id:string,firstName:(string|null),name:string,isBot:boolean}>, messageId: string}} event
+   * Greet the humans in a Telegram `new_chat_members` service message.
+   *
+   * Bots are filtered out individually, so a mixed batch still greets its humans;
+   * a batch with no humans sends nothing. One welcome is posted per service
+   * message: personalised when exactly one human joined, generic otherwise.
+   *
+   * @param {{chatId: string, chatType?: string,
+   *          members: Array<{id:string,firstName:(string|null),name:string,isBot:boolean}>,
+   *          messageId: string}} event
+   * @returns {Promise<{sent:boolean, skipped?:string, error?:string, locale?:string,
+   *                    text?:string, members?:number, bots?:number}>}
    */
   async function handleNewMembers(event) {
     const e = event || {};
@@ -288,61 +365,68 @@ function createOnboarding(options) {
       return { sent: false, skipped: destination.reason };
     }
 
-    const humans = (e.members || []).filter((m) => m && !m.isBot && m.id);
-    if (!humans.length) {
-      report('welcome_skipped', { reason: 'no-human-members' });
-      return { sent: false, skipped: 'no-human-members' };
+    const targets = selectWelcomeTargets(e.members);
+    if (!targets.humans.length) {
+      // A bot-only (or empty/garbage) batch is not an error: there is simply
+      // nobody to greet, and nothing is sent.
+      report('welcome_skipped', {
+        reason: 'no-human-members',
+        received: targets.received,
+        bots: targets.bots.length
+      });
+      return { sent: false, skipped: 'no-human-members', members: 0, bots: targets.bots.length };
     }
 
-    const fresh = humans.filter((m) => remember(String(e.chatId) + ':' + String(m.id) + ':' + String(e.messageId || '')));
-    if (!fresh.length) {
-      report('welcome_skipped', { reason: 'duplicate' });
-      return { sent: false, skipped: 'duplicate' };
+    const keys = targets.humans.map(
+      (member) => String(e.chatId) + ':' + member.id + ':' + String(e.messageId || '')
+    );
+    if (!reserve(keys)) {
+      report('welcome_skipped', { reason: 'duplicate', received: targets.received, bots: targets.bots.length });
+      return { sent: false, skipped: 'duplicate', members: 0, bots: targets.bots.length };
     }
 
     // Personalise with the JOINING MEMBER's own Telegram first name - never the
-    // bot's or an administrator's. A service message can list several members at
-    // once; there is no single person to name then, so those joins get the
-    // generic greeting instead of one arbitrary member's name.
-    const firstName = fresh.length === 1 ? fresh[0].firstName : null;
+    // bot's or an administrator's. Several humans in one service message share a
+    // single welcome, so none of them is named.
+    const firstName = pickGreetingName(targets.humans);
     const content = render('welcome', config.locale, buildLinkContext(config, firstName));
 
+    let message;
     try {
-      const message = await transport.sendMessage(
+      message = await transport.sendMessage(
         destination.chatId,
         content.text,
         content.replyMarkup ? { reply_markup: content.replyMarkup } : undefined
       );
-      if (store) {
-        await store.recordSend({
-          audience: 'group',
-          chatId: destination.chatId,
-          status: 'sent',
-          messageId: message && message.message_id ? message.message_id : null
-        });
-      }
-      report('welcome_sent', {
-        locale: content.locale,
-        members: fresh.length,
-        messageId: message && message.message_id ? message.message_id : null
-      });
-      return { sent: true, locale: content.locale, text: content.text };
     } catch (error) {
-      // The customer's join event must never fail the webhook. Log and move on;
-      // Telegram will not retry a 2xx, and a failed welcome is not worth an
-      // update loop.
+      // The customer's join event must never fail the webhook. Log and move on,
+      // but free the reservations so this service message can still be welcomed
+      // if Telegram redelivers it: nothing was delivered.
       const detail = String(error && error.message ? error.message : error).slice(0, 200);
-      report('welcome_failed', { error: detail });
-      if (store) {
-        await store.recordSend({
-          audience: 'group',
-          chatId: destination.chatId,
-          status: 'failed',
-          error: detail
-        });
-      }
+      release(keys);
+      report('welcome_failed', { error: detail, members: keys.length, bots: targets.bots.length });
+      await audit(destination.chatId, { status: 'failed', error: detail });
       return { sent: false, skipped: 'send-failed', error: detail };
     }
+
+    await audit(destination.chatId, {
+      status: 'sent',
+      messageId: message && message.message_id ? message.message_id : null
+    });
+    report('welcome_sent', {
+      locale: content.locale,
+      members: keys.length,
+      bots: targets.bots.length,
+      received: targets.received,
+      messageId: message && message.message_id ? message.message_id : null
+    });
+    return {
+      sent: true,
+      locale: content.locale,
+      text: content.text,
+      members: keys.length,
+      bots: targets.bots.length
+    };
   }
 
   return {
@@ -358,6 +442,8 @@ module.exports = {
   localDateKey,
   nextSlot,
   buildLinkContext,
+  selectWelcomeTargets,
+  pickGreetingName,
   guardOptions,
   buildPostRow,
   buildCalendarRows,
