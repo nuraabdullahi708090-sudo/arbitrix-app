@@ -57,7 +57,7 @@ const EXPECTED_KEYS = 84;
 // partner-funnel attribution fix (a 1-hour localStorage fallback + a
 // ?src=partners signal on the partner Apply CTAs; still additive: no
 // partner-page logic injected into the app shell).
-const INDEX_SHA256 = 'f42b2f08aa1bc81d8c07f85aad1cd863277bb4d02e9bd5722b995b01ff6252e8';
+const INDEX_SHA256 = '0f6482656ab298f868d8042922082a3b510fe5535ebff98832435af0494694f6';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [
