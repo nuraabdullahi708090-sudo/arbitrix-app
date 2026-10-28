@@ -171,7 +171,7 @@ Interpretation:
 | `healthy: true` | A worker is running the intended commit |
 | `healthy: false`, `heartbeatAt: null` | The worker has never reached this database |
 | `healthy: false`, `ageMs > staleAfterMs` | The worker stopped or cannot write to the database |
-| `enabled: false` | Publishing switched off by configuration (expected before go-live) |
+| `enabled: false` | `TELEGRAM_MARKETING_ENABLED` is off on the WEB service. The Background Worker has its own value, so read `heartbeat` for real liveness |
 | `controlError: "control-unreadable"` | Migration 038 missing or wrong service key |
 
 ---

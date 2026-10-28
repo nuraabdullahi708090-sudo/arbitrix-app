@@ -4953,9 +4953,14 @@ app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (r
       recentPosts: recent.ok ? recent.data : [],
       worker: {
         entrypoint: 'marketing-worker.js',
+        // This is THIS service's value. The Background Worker has its own
+        // environment, so liveness must be read from `heartbeat`, never from
+        // this flag.
         enabled: marketingConfig.enabled,
         heartbeat: health,
-        note: 'Publishing requires TELEGRAM_MARKETING_ENABLED=true, control.paused=false and control.dry_run=false.'
+        note: 'enabled reflects this web service only; the worker service has its own TELEGRAM_MARKETING_ENABLED. ' +
+          'Use heartbeat.healthy for liveness. Publishing requires TELEGRAM_MARKETING_ENABLED=true, ' +
+          'control.paused=false and control.dry_run=false.'
       },
       // A single controlled test message can be sent without enabling the queue.
       // The destination must be configured and the caller must send the exact
