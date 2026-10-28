@@ -160,8 +160,14 @@ async function buildReport(env, fetchImpl, deps) {
   const report = {
     gates,
     token: { configured: Boolean(token) },
-    group: Object.assign(describeId(groupId), { reachable: null, type: null, botStatus: null, canPost: null, canPin: null }),
-    channel: Object.assign(describeId(channelId), { reachable: null, type: null, botStatus: null, canPost: null, canPin: null }),
+    group: Object.assign(describeId(groupId), {
+      reachable: null, type: null, botStatus: null, canPost: null, canPin: null,
+      typeMismatch: null, wrongKind: null
+    }),
+    channel: Object.assign(describeId(channelId), {
+      reachable: null, type: null, botStatus: null, canPost: null, canPin: null,
+      typeMismatch: null, wrongKind: null
+    }),
     sameChatConfigured: Boolean(groupId) && groupId === channelId,
     database: null,
     dbOnly: Boolean(deps && deps.dbOnly),
@@ -269,7 +275,7 @@ async function buildReport(env, fetchImpl, deps) {
     );
   }
 
-  async function inspect(targetId, label, state, expectType) {
+  async function inspect(targetId, label, state, expectType, wrongTypes) {
     if (!targetId || report.sameChatConfigured) return;
     // Metadata-only probe would answer for a @username while the publisher
     // rejects it, so an invalid format is reported and left unprobed.
@@ -290,7 +296,11 @@ async function buildReport(env, fetchImpl, deps) {
     }
     state.type = chat.result && chat.result.type ? String(chat.result.type) : null;
     if (expectType && state.type && state.type !== expectType) {
-      warnings.push(label + ': expected a ' + expectType + ' but the chat reports "' + state.type + '"');
+      // A channel where the group belongs (or the reverse) is not a cosmetic
+      // mismatch: group copy would be published to the announcement channel and
+      // channel copy to the partner group. Recorded here, judged after both.
+      state.typeMismatch = true;
+      state.wrongKind = (wrongTypes || []).includes(state.type);
     }
     if (!botId) return;
     const member = await probeTelegramMethod({
@@ -317,8 +327,35 @@ async function buildReport(env, fetchImpl, deps) {
     }
   }
 
-  await inspect(groupId, 'Partner group', report.group, 'supergroup');
-  await inspect(channelId, 'Announcement channel', report.channel, 'channel');
+  await inspect(groupId, 'Partner group', report.group, 'supergroup', ['channel']);
+  await inspect(channelId, 'Announcement channel', report.channel, 'channel', ['supergroup', 'group']);
+
+  if (report.group.typeMismatch && report.channel.typeMismatch) {
+    issues.push(
+      'the two destination ids look SWAPPED: the group id points at a "' + report.group.type +
+      '" and the channel id at a "' + report.channel.type + '" - publish would mix the audiences'
+    );
+  } else {
+    if (report.group.wrongKind) {
+      issues.push(
+        'Partner group: this chat is a "' + report.group.type + '", not a supergroup - ' +
+        'TELEGRAM_MARKETING_CHAT_ID does not point at the partner group'
+      );
+    } else if (report.group.typeMismatch) {
+      warnings.push(
+        'Partner group: expected a supergroup but the chat reports "' + report.group.type +
+        '" (posts and member checks still work)'
+      );
+    }
+    if (report.channel.wrongKind) {
+      issues.push(
+        'Announcement channel: this chat is a "' + report.channel.type + '", not a channel - ' +
+        'TELEGRAM_ANNOUNCEMENT_CHAT_ID does not point at the announcement channel'
+      );
+    } else if (report.channel.typeMismatch) {
+      warnings.push('Announcement channel: expected a channel but the chat reports "' + report.channel.type + '"');
+    }
+  }
 
   if (!gates.supabaseUrlPresent) {
     issues.push('SUPABASE_URL is not set - the publisher cannot read its queue');

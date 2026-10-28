@@ -57,7 +57,7 @@ function healthyRoutes(over) {
       if (o.chatFails && String(body.chat_id) === String(o.chatFails)) {
         return jsonResponse(400, { ok: false, error_code: 400, description: 'Bad Request: chat not found' })();
       }
-      const type = String(body.chat_id) === GROUP ? (o.groupType || 'supergroup') : 'channel';
+      const type = String(body.chat_id) === GROUP ? (o.groupType || 'supergroup') : (o.channelType || 'channel');
       return jsonResponse(200, { ok: true, result: { id: body.chat_id, type } })();
     },
     getChatMember: async (body) => {
@@ -155,12 +155,52 @@ test('missing pin rights are a warning, not a blocker', async () => {
   assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
 });
 
-test('a type mismatch between configuration and reality is a warning', async () => {
+test('a channel where the group belongs is an ISSUE, not a warning', async () => {
   const report = await buildReport(
     baseEnv(),
     fakeFetch(healthyRoutes({ groupType: 'channel' }))
   );
-  assert.ok(report.warnings.some((w) => /expected a supergroup/.test(w)));
+  assert.ok(
+    report.issues.some((text) => /Partner group: this chat is a "channel"/.test(text) &&
+      /TELEGRAM_MARKETING_CHAT_ID does not point at the partner group/.test(text)),
+    'the wrong chat kind blocks readiness'
+  );
+  assert.strictEqual(report.verdict, 'NOT_READY');
+});
+
+test('a supergroup where the channel belongs is an ISSUE', async () => {
+  const report = await buildReport(
+    baseEnv(),
+    fakeFetch(healthyRoutes({ channelType: 'supergroup' }))
+  );
+  assert.ok(
+    report.issues.some((text) => /Announcement channel: this chat is a "supergroup"/.test(text))
+  );
+  assert.strictEqual(report.verdict, 'NOT_READY');
+});
+
+test('two swapped ids are reported once, as a swap', async () => {
+  const report = await buildReport(
+    baseEnv(),
+    fakeFetch(healthyRoutes({ groupType: 'channel', channelType: 'supergroup' }))
+  );
+  const swaps = report.issues.filter((text) => /look SWAPPED/.test(text));
+  assert.strictEqual(swaps.length, 1);
+  assert.match(swaps[0], /publish would mix the audiences/);
+  assert.ok(
+    !report.issues.some((text) => /does not point at the partner group|does not point at the announcement channel/.test(text)),
+    'the combined message replaces the two per-destination ones'
+  );
+  assert.strictEqual(report.verdict, 'NOT_READY');
+});
+
+test('a plain group instead of a supergroup stays a warning', async () => {
+  const report = await buildReport(
+    baseEnv(),
+    fakeFetch(healthyRoutes({ groupType: 'group' }))
+  );
+  assert.strictEqual(report.issues.length, 0);
+  assert.ok(report.warnings.some((w) => /expected a supergroup but the chat reports "group"/.test(w)));
   assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
 });
 

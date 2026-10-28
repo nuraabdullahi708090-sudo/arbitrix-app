@@ -83,6 +83,10 @@ Three rows means the heartbeat migration is applied.
    `TELEGRAM_ANNOUNCEMENT_CHAT_ID` equals `TELEGRAM_MARKETING_CHAT_ID`, the
    channel destination is disabled on purpose and
    `config.channelConflictsWithGroup` reports `true`.
+   A swap is not silent either: if the group id points at a `channel` (or the
+   channel id at a `supergroup`), the readiness check reports a blocking issue
+   ("the two destination ids look SWAPPED") instead of a warning, because
+   publishing would send group copy to the announcement channel.
 5. Both ids MUST be the numeric chat id (a `-100...` value). A `@username` or a
    `t.me` link is NOT accepted: the publisher addresses chats by id only, so
    such a value resolves to "not configured". `getChat` would still succeed on a
