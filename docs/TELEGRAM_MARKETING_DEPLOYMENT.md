@@ -116,6 +116,27 @@ from the control row, the worker heartbeat and the queue alone. A stale or
 missing heartbeat is reported as a warning (the publisher would not be running),
 never as a silent pass.
 
+### Rehearsing the worker's database contract (throwaway DB only)
+
+The worker's publishing calls are unit-tested against fakes, so before the first
+production run you can prove the RPCs behave as expected on a real PostgreSQL
+(one with 038 + 043 + 044 applied):
+
+```bash
+psql -d arbitrix_rehearsal \
+  -c "set arbitrix.rehearsal = 'yes';" \
+  -f docs/sql/marketing_rpc_rehearsal.sql
+```
+
+It asserts eight things: the claim takes the due post and holds a lease; a
+second worker claims nothing while that lease is held; a FOREIGN worker cannot
+finish the post (fencing); the owner's finish publishes it with its message id;
+the heartbeat leaves `paused`/`dry_run` untouched; `block_marketing_post`
+records the reason; the send audit row inserts; an expired lease is reclaimed.
+
+The script DELETEs marketing rows, so it refuses to run unless the session sets
+`arbitrix.rehearsal = 'yes'`. Never point it at production.
+
 ### 3.3 Environment variables
 
 Required for the worker:
