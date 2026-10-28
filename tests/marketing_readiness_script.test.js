@@ -41,6 +41,7 @@ function baseEnv(over) {
     TELEGRAM_BOT_TOKEN: TOKEN,
     TELEGRAM_MARKETING_CHAT_ID: GROUP,
     TELEGRAM_ANNOUNCEMENT_CHAT_ID: CHANNEL,
+    TELEGRAM_ANNOUNCEMENT_CHANNEL_URL: 'https://t.me/ArbitrixAnnouncements',
     TELEGRAM_MARKETING_ENABLED: 'true',
     TELEGRAM_MARKETING_DRY_RUN: 'false',
     TELEGRAM_MARKETING_LOCALE: 'en',
@@ -202,6 +203,33 @@ test('a plain group instead of a supergroup stays a warning', async () => {
   assert.strictEqual(report.issues.length, 0);
   assert.ok(report.warnings.some((w) => /expected a supergroup but the chat reports "group"/.test(w)));
   assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
+});
+
+test('a channel without a public link is a warning, not a blocker', async () => {
+  const withoutLink = baseEnv();
+  delete withoutLink.TELEGRAM_ANNOUNCEMENT_CHANNEL_URL;
+  const report = await buildReport(withoutLink, fakeFetch(healthyRoutes()));
+  assert.strictEqual(report.announcementLinkConfigured, false);
+  assert.ok(report.warnings.some((w) => /link back to the channel/.test(w)));
+  assert.strictEqual(report.issues.length, 0);
+  assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
+});
+
+test('a username is enough for the channel link', async () => {
+  const env = baseEnv();
+  delete env.TELEGRAM_ANNOUNCEMENT_CHANNEL_URL;
+  env.TELEGRAM_ANNOUNCEMENT_CHANNEL_USERNAME = '@ArbitrixAnnouncements';
+  const report = await buildReport(env, fakeFetch(healthyRoutes()));
+  assert.strictEqual(report.announcementLinkConfigured, true);
+  assert.ok(!report.warnings.some((w) => /link back to the channel/.test(w)));
+});
+
+test('no channel configured means no link warning', async () => {
+  const env = baseEnv();
+  delete env.TELEGRAM_ANNOUNCEMENT_CHANNEL_URL;
+  delete env.TELEGRAM_ANNOUNCEMENT_CHAT_ID;
+  const report = await buildReport(env, fakeFetch(healthyRoutes()));
+  assert.ok(!report.warnings.some((w) => /link back to the channel/.test(w)));
 });
 
 test('the inert defaults are warnings, never issues', async () => {

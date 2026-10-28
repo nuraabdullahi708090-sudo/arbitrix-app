@@ -370,6 +370,20 @@ async function buildReport(env, fetchImpl, deps) {
     warnings.push('TELEGRAM_MARKETING_DRY_RUN is still true - the worker will not publish (expected before go-live)');
   }
 
+  // The channel is addressed by id, but posts carry a LINK back to the channel and
+  // that link needs its own value. Without it the post is still valid, just less
+  // useful, so this is a warning rather than a blocker.
+  const announcementLink = String(
+    env.TELEGRAM_ANNOUNCEMENT_CHANNEL_URL || env.TELEGRAM_ANNOUNCEMENT_CHANNEL_USERNAME || ''
+  ).trim();
+  report.announcementLinkConfigured = Boolean(announcementLink);
+  if (channelId && report.channel.reachable && !announcementLink) {
+    warnings.push(
+      'TELEGRAM_ANNOUNCEMENT_CHANNEL_URL / _USERNAME is not set - channel posts will not ' +
+      'include a link back to the channel'
+    );
+  }
+
   const destinationsOk =
     (!groupId || (report.group.reachable && report.group.canPost)) &&
     (!channelId || report.sameChatConfigured || (report.channel.reachable && report.channel.canPost));
