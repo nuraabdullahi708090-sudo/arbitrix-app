@@ -1018,7 +1018,13 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
     };
     if (!ok || !body || body.ok !== true) {
       const description = body && body.description ? body.description : `HTTP ${res.status}`;
-      throw new Error(`Telegram ${method} failed: ${safe(description)}`);
+      const failure = new Error(`Telegram ${method} failed: ${safe(description)}`);
+      // Attach the machine-readable parts so callers do not have to parse the
+      // message: a 429 carries retry_after, which the publisher's backoff uses.
+      if (lastCall.retryAfter) failure.retryAfter = lastCall.retryAfter;
+      if (lastCall.httpStatus) failure.httpStatus = lastCall.httpStatus;
+      if (lastCall.errorCode) failure.errorCode = lastCall.errorCode;
+      throw failure;
     }
     return body.result;
   }

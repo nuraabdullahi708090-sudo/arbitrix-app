@@ -7474,3 +7474,121 @@ The server never accepts a chat id, price, percentage or recipient list from the
   docs/BACKUP_BEFORE_038_043.md was rewritten as a quick-start procedure. Rehearsed end
   to end on local PostgreSQL 16: backup rc=0, verify PASS, caller directory untouched, no
   stray containers. Still NOT executed against production and no production backup exists.
+
+
+## Telegram Marketing Group + Channel - completion pass (2026-10-28, NOT deployed)
+
+Scope: partner group onboarding, official announcement channel, scheduled content,
+admin controls, background publisher. No money path, no deposit/withdrawal/trading/
+subscription/referral/KYC/sandbox code touched. `public/index.html` untouched.
+Nothing pushed, nothing deployed, no production environment variable changed, and
+migration 044 is NOT applied to production.
+
+### Verified already-complete (no change needed)
+- Join-triggered welcome with per-member bot filtering, mixed human/bot batches,
+  reserve/release member keys, in-process duplicate protection, safe name
+  sanitisation (`services/MarketingOnboarding.js`).
+- Approved Start Here / channel-intro / weekly templates in en/pt/ar with the
+  four partner buttons in a 2x2 keyboard, one-time 20% referral wording, no
+  profit promises and no withdrawal minimum (`services/MarketingContent.js`).
+- Durable queue, control row (paused + dry_run), consent store, send audit,
+  service_role-only RLS (`supabase/migrations/038_marketing_broadcast.sql`).
+- Lease-based claim/reclaim, fenced finish/block, send-audit reconciliation
+  (`043_marketing_claim_lease.sql`, `services/MarketingWorker.js`).
+- Content guard re-run immediately before delivery (`services/ContentGuard.js`).
+- Admin API: status, preview, queue, calendar seed, start-here, pin, approve,
+  retry, cancel/unschedule, sends history.
+
+### Gaps closed in this pass
+1. Channel cannot reuse the group id (`services/TelegramBroadcast.js`).
+   `resolveMarketingConfig` now disables the CHANNEL (fail closed) when
+   `TELEGRAM_ANNOUNCEMENT_CHAT_ID === TELEGRAM_MARKETING_CHAT_ID`, keeps the group
+   working, and reports `channelConflictsWithGroup` in `describeMarketingConfig`
+   and in `GET /api/admin/marketing/status`.
+2. Channel copy linked registration and support but NOT How It Works. Added the
+   localized `howItWorks` label and the How It Works line to `buildLinksBlock`,
+   so channel-intro and channel weekly posts now carry registration, How It
+   Works and support. Verified per locale; a missing URL drops only its line.
+3. Operator could not tell a running publisher from a dead one. Migration
+   `044_marketing_worker_heartbeat.sql` adds `worker_heartbeat_at`, `worker_id`,
+   `worker_version` to `telegram_marketing_control` (additive, idempotent,
+   self-checking, never touches paused/dry_run, no money object). The worker
+   writes it at the top of EVERY tick (before the gates, so paused/dry-run
+   workers also prove liveness) via `MarketingStore.heartbeat`, best effort -
+   a heartbeat failure is logged once and never blocks a publish.
+   `workerHealth()` (TelegramBroadcast, `WORKER_HEARTBEAT_STALE_MS = 180000`)
+   is surfaced as `worker.heartbeat` in the admin status route.
+4. Admin status showed neither liveness nor queue depth. It now returns
+   `queue` counts for all nine statuses and `testSend` capabilities. An
+   unreadable queue reports null (not a misleading zero).
+5. Duplicate-publication risk: `approve` accepted any status, so approving a
+   PUBLISHED post set it back to `scheduled` and the worker would publish it
+   again. `approve` is now limited to draft/awaiting_approval/approved/scheduled
+   (a failed post uses retry, which resets the attempt budget); cancel only from
+   a non-terminal state; unschedule only from scheduled/approved. Every
+   transition also clears `claimed_by`/`lease_expires_at` so a dead claim cannot
+   keep a row unclaimable; the store retries without those columns when
+   migration 043 is absent.
+6. Controlled delivery test (Phase 5 preparation): new admin-only
+   `GET /api/admin/marketing/test-message` (renders the fixed test copy, sends
+   nothing) and `POST /api/admin/marketing/test-send` requiring
+   `confirm: "SEND TEST"`. It sends only the approved, guarded test copy to the
+   configured destination, queues nothing and never touches paused/dry_run, so
+   delivery can be proven while live publishing stays disabled.
+7. Telegram 429 handling: the transport now attaches `retryAfter`, `httpStatus`
+   and `errorCode` to the thrown error, so the publisher's backoff uses
+   `retry_after` directly instead of parsing the message text.
+8. Deployment foot-gun: the worker accepted only `SUPABASE_SERVICE_KEY`; it now
+   also accepts `SUPABASE_SERVICE_ROLE_KEY` (the Supabase dashboard name for the
+   same credential), with the same fail-closed behaviour when neither is set.
+9. New read-only operator tool `scripts/check-marketing-readiness.js`
+   (getMe/getChat/getChatMember only): reports token validity, whether the bot
+   can post and pin in the group, whether it can post in the channel, a
+   group==channel conflict, and the inert defaults. Never prints the token or a
+   full chat id; exit 0/2/3.
+10. `docs/TELEGRAM_MARKETING_DEPLOYMENT.md`: full runbook (gates, migrations,
+    Render Background Worker, liveness, queue operations, controlled test,
+    go-live checklist, rollback, troubleshooting, deliberate limits).
+
+### Verification
+- `npm test` = 2574 tests, 2573 pass, 1 fail. The single failure is the
+  PRE-EXISTING `tests/how_it_works_video.test.js` master-asset check (the
+  untracked `build/` master is absent in this clone); identical before this pass.
+- New suites: `tests/marketing_worker_health.test.js` (38) and
+  `tests/marketing_readiness_script.test.js` (16).
+- REAL PostgreSQL 16 (throwaway docker container, since removed; never staging or
+  production), roles anon/authenticated/service_role created first: 038 -> 043 ->
+  044 applied cleanly, all three re-applied as no-ops. Behaviour verified:
+  heartbeat columns present; a heartbeat update leaves `paused`/`dry_run` TRUE;
+  a scheduled post claimed by `w1` then finished published with
+  `telegram_message_id = 4242` and the claim cleared; anon AND authenticated are
+  denied on the control row and the queue, service_role is allowed.
+- Local server (dev, forged dev JWT, database deliberately unreachable):
+  unauthenticated status 401; admin status 200 with `controlError:
+  control-unreadable`, `queue: null`, `worker.heartbeat.healthy: false`;
+  test-message preview 200 with the guarded channel copy; test-send without the
+  confirmation token 400 and no send.
+- Worker startup matrix: default -> `worker_disabled`, exit 0; enabled without a
+  service key -> `worker_misconfigured`, exit 1; enabled with credentials but an
+  unreachable database -> `control-unreadable`, exit 1 (fail closed);
+  `SUPABASE_SERVICE_ROLE_KEY` alone reaches the same database gate.
+- Production (read-only HTTP only): /api/health 200; /api/admin/marketing/status,
+  /posts and /sends all 401 JSON (routes exist, admin-gated) while
+  /api/admin/marketing/not-a-route returns the SPA HTML, proving the marketing
+  admin API is in the deployed build (1456c47); /api/telegram/status 401; / and
+  /reset-password.html and /partners 200.
+
+### Not verifiable from this environment (owner-only)
+- No `TELEGRAM_BOT_TOKEN`, no Render API key, `ADMIN_JWT` rejected (401) and the
+  Supabase host does not resolve from this sandbox, so Render environment
+  variables, the Background Worker service, the real control-row state and
+  Telegram delivery could NOT be checked. `scripts/check-marketing-readiness.js`
+  plus the two controlled test sends cover that ground for the owner.
+- Migration 044 must be applied before the heartbeat is visible; without it the
+  heartbeat write fails soft (logged `heartbeat_failed`) and publishing is
+  unaffected.
+
+### Live publishing remains disabled
+`TELEGRAM_MARKETING_ENABLED` was not set anywhere and the control row is
+untouched (paused + dry_run by default). No message was published, no queue row
+was created and no Telegram write call was executed in this pass.

@@ -38,11 +38,16 @@ const LABELS = {
     partnerSupport: 'Partner payment support',
     announcements: 'Official announcements',
     register: 'Create your account',
+    howItWorks: 'Learn how it works',
     channel: 'Official channel',
     learnHowItWorks: '🎓 Learn how it works:',
     openRegister: '👉',
     supportLine: '💬 Customer support:',
     partnerSupportLine: '💳 Partner payment support:',
+    testGroupTitle: '\u{1F9EA} DELIVERY TEST \u2014 PARTNER GROUP',
+    testGroupBody: 'This is a delivery test for the Arbitrix partner group. No action is needed.',
+    testChannelTitle: '\u{1F9EA} DELIVERY TEST \u2014 OFFICIAL CHANNEL',
+    testChannelBody: 'This is a delivery test for the official Arbitrix announcement channel. No action is needed.',
     buttons: {
       register: '🚀 Create Account',
       howItWorks: '🎓 How It Works',
@@ -67,11 +72,16 @@ const LABELS = {
     partnerSupport: 'Suporte de pagamentos a parceiros',
     announcements: 'Avisos oficiais',
     register: 'Criar sua conta',
+    howItWorks: 'Veja como funciona',
     channel: 'Canal oficial',
     learnHowItWorks: '🎓 Veja como funciona:',
     openRegister: '👉',
     supportLine: '💬 Suporte ao cliente:',
     partnerSupportLine: '💳 Suporte de pagamentos a parceiros:',
+    testGroupTitle: '\u{1F9EA} TESTE DE ENTREGA \u2014 GRUPO DE PARCEIROS',
+    testGroupBody: 'Este \u00e9 um teste de entrega para o grupo de parceiros da Arbitrix. Nenhuma a\u00e7\u00e3o \u00e9 necess\u00e1ria.',
+    testChannelTitle: '\u{1F9EA} TESTE DE ENTREGA \u2014 CANAL OFICIAL',
+    testChannelBody: 'Este \u00e9 um teste de entrega para o canal oficial de an\u00fancios da Arbitrix. Nenhuma a\u00e7\u00e3o \u00e9 necess\u00e1ria.',
     buttons: {
       register: '🚀 Criar conta',
       howItWorks: '🎓 Como funciona',
@@ -94,11 +104,16 @@ const LABELS = {
     partnerSupport: 'دعم مدفوعات الشركاء',
     announcements: 'الإعلانات الرسمية',
     register: 'أنشئ حسابك',
+    howItWorks: '\u062a\u0639\u0631\u0651\u0641 \u0639\u0644\u0649 \u0643\u064a\u0641\u064a\u0629 \u0627\u0644\u0639\u0645\u0644',
     channel: 'القناة الرسمية',
     learnHowItWorks: '🎓 تعرّف على كيفية العمل:',
     openRegister: '👉',
     supportLine: '💬 دعم العملاء:',
     partnerSupportLine: '💳 دعم مدفوعات الشركاء:',
+    testGroupTitle: '\u{1F9EA} \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u2014 \u0645\u062c\u0645\u0648\u0639\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u0621',
+    testGroupBody: '\u0647\u0630\u0627 \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0641\u064a Arbitrix. \u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u0623\u064a \u0625\u062c\u0631\u0627\u0621.',
+    testChannelTitle: '\u{1F9EA} \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u2014 \u0627\u0644\u0642\u0646\u0627\u0629 \u0627\u0644\u0631\u0633\u0645\u064a\u0629',
+    testChannelBody: '\u0647\u0630\u0627 \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u0644\u0644\u0642\u0646\u0627\u0629 \u0627\u0644\u0631\u0633\u0645\u064a\u0629 \u0644\u0644\u0625\u0639\u0644\u0627\u0646\u0627\u062a \u0641\u064a Arbitrix. \u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u0623\u064a \u0625\u062c\u0631\u0627\u0621.',
     buttons: {
       register: '🚀 إنشاء حساب',
       howItWorks: '🎓 كيف يعمل',
@@ -763,6 +778,7 @@ function buildLinksBlock(locale, ctx) {
   const c = ctx || {};
   const lines = [];
   if (c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
+  if (c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
   if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
   if (c.partnerSupportUrl) lines.push(labels.partnerSupport + ': ' + c.partnerSupportUrl);
   if (c.announcementUrl) lines.push(labels.announcements + ': ' + c.announcementUrl);
@@ -961,6 +977,40 @@ function render(kind, locale, ctx) {
   };
 }
 
+/**
+ * The approved copy for a controlled single-shot delivery test.
+ *
+ * It carries NO figures, no claims and no CTA beyond the configured links, so
+ * the content guard passes it and nothing promotional is published by a test.
+ * Only configured URLs are rendered - a missing value drops its own line.
+ */
+function renderTestMessage(audience, locale, ctx) {
+  const lang = normalizeLocale(locale);
+  const labels = labelsFor(lang);
+  const c = ctx || {};
+  const isChannel = audience === 'channel';
+  const lines = [
+    isChannel ? labels.testChannelTitle : labels.testGroupTitle,
+    '',
+    isChannel ? labels.testChannelBody : labels.testGroupBody,
+    ''
+  ];
+  // The group test stays short: only the two support contacts. The channel test
+  // doubles as a link check, so it carries registration and How It Works too.
+  if (isChannel && c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
+  if (isChannel && c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
+  if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
+  if (!isChannel && c.partnerSupportUrl) lines.push(labels.partnerSupport + ': ' + c.partnerSupportUrl);
+  return {
+    kind: 'test',
+    audience: isChannel ? 'channel' : 'group',
+    locale: lang,
+    text: lines.join('\n').trim(),
+    buttons: [],
+    replyMarkup: null
+  };
+}
+
 function weeklyKinds() {
   return WEEKLY_THEMES.slice();
 }
@@ -985,5 +1035,6 @@ module.exports = {
   toReplyMarkup,
   interpolate,
   render,
+  renderTestMessage,
   weeklyKinds
 };

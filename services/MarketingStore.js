@@ -47,6 +47,28 @@ function createMarketingStore(options) {
       return { ok: true, data };
     },
 
+    /**
+     * Record worker liveness. Best effort by design: a heartbeat failure must
+     * never stop a publisher from publishing, so the caller treats `ok: false`
+     * as a warning. It never touches paused/dry_run, so a live worker can never
+     * resume publishing by writing a heartbeat.
+     */
+    async heartbeat({ workerId, version } = {}) {
+      const { data, error } = await admin
+        .from(CONTROL)
+        .update({
+          worker_heartbeat_at: new Date().toISOString(),
+          worker_id: workerId ? String(workerId).slice(0, 100) : null,
+          worker_version: version ? String(version).slice(0, 60) : null
+        })
+        .eq('id', 1)
+        .select('worker_heartbeat_at, worker_id, worker_version')
+        .maybeSingle();
+      if (error) return fail('heartbeat-failed', error);
+      if (!data) return { ok: false, reason: 'control-missing', error: 'control row 1 not found' };
+      return { ok: true, data };
+    },
+
     async setControl({ paused, dryRun, updatedBy }) {
       const patch = { updated_at: new Date().toISOString(), updated_by: updatedBy || null };
       if (typeof paused === 'boolean') patch.paused = paused;
@@ -122,6 +144,31 @@ function createMarketingStore(options) {
       return { ok: true, sent: Boolean(row), messageId: row ? row.telegram_message_id : null };
     },
 
+    /** Counts per queue status for the admin status view. */
+    async countByStatus() {
+      const statuses = ['draft', 'awaiting_approval', 'approved', 'scheduled',
+        'sending', 'published', 'failed', 'blocked', 'cancelled'];
+      const results = await Promise.all(statuses.map(async (status) => {
+        const { count, error } = await admin
+          .from(POSTS)
+          .select('id', { count: 'exact', head: true })
+          .eq('status', status);
+        return {
+          status,
+          count: error ? null : (count || 0),
+          errored: Boolean(error),
+          message: error ? String(error.message || error.code || 'error') : null
+        };
+      }));
+      // An unreadable queue must be reported as unreadable, not as zero posts:
+      // a misleading "0 scheduled" is worse than no number at all.
+      const failed = results.filter((r) => r.errored);
+      if (failed.length) return fail('count-by-status-failed', failed.map((r) => r.message).join('; '));
+      const counts = {};
+      for (const row of results) counts[row.status] = row.count;
+      return { ok: true, data: counts };
+    },
+
     /** Count of posts that are due right now (used by dry-run reporting). */
     async countDue({ now } = {}) {
       const at = now || new Date().toISOString();
@@ -177,14 +224,31 @@ function createMarketingStore(options) {
     },
 
     async updatePost(id, patch) {
-      const { data, error } = await admin
+      const run = (payload) => admin
         .from(POSTS)
-        .update(Object.assign({ updated_at: new Date().toISOString() }, patch))
+        .update(Object.assign({ updated_at: new Date().toISOString() }, payload))
         .eq('id', id)
         .select()
         .maybeSingle();
-      if (error) return fail('update-failed', error);
-      return { ok: true, data };
+
+      const { data, error } = await run(patch);
+      if (!error) return { ok: true, data };
+
+      // Migration 043 adds claimed_by / lease_expires_at. If an admin action
+      // passes them on a deployment that has not applied 043, drop only those
+      // keys and retry instead of failing the whole transition.
+      const text = String(error.message || '');
+      const missingLeaseColumns = (error.code === '42703' || error.code === 'PGRST204') &&
+        /claimed_by|lease_expires_at/.test(text + ' ' + JSON.stringify(patch));
+      if (missingLeaseColumns) {
+        const fallback = Object.assign({}, patch);
+        delete fallback.claimed_by;
+        delete fallback.lease_expires_at;
+        const retried = await run(fallback);
+        if (!retried.error) return { ok: true, data: retried.data };
+        return fail('update-failed', retried.error);
+      }
+      return fail('update-failed', error);
     },
 
     async recordSend(row) {

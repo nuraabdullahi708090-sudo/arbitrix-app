@@ -51,8 +51,11 @@ const { createTelegramAccountLinks } = require('./services/TelegramAccountLinks'
 const {
   resolveMarketingConfig,
   describeMarketingConfig,
-  validateDestination
+  validateDestination,
+  chatIdForAudience,
+  workerHealth
 } = require('./services/TelegramBroadcast');
+const { renderTestMessage } = require('./services/MarketingContent');
 const { createMarketingStore } = require('./services/MarketingStore');
 const {
   createOnboarding,
@@ -4908,6 +4911,10 @@ app.post('/api/telegram/set-webhook', authMiddleware, adminMiddleware, async (re
 
 const MARKETING_TEMPLATE_KINDS = ['welcome', 'startHere', 'channelIntro', 'weekly'];
 const MARKETING_AUDIENCES = ['group', 'channel'];
+// Exact token required by the single-shot delivery test. It is deliberately a
+// phrase an operator cannot send by accident, and it is NOT the same as
+// enabling the queue.
+const MARKETING_TEST_CONFIRM = 'SEND TEST';
 
 function marketingIsoDate(value) {
   if (!value) return new Date().toISOString();
@@ -4928,18 +4935,36 @@ app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (r
     const control = await marketingStore.getControl();
     const due = await marketingStore.countDue();
     const recent = await marketingStore.listPosts({ limit: 10 });
+    const counts = typeof marketingStore.countByStatus === 'function'
+      ? await marketingStore.countByStatus()
+      : { ok: false, reason: 'counts-unavailable' };
+    // Liveness comes from the heartbeat column (migration 044). It is reported
+    // even when the worker is disabled, so an operator can tell "switched off"
+    // from "switched on but not running".
+    const health = workerHealth(control.ok ? control.data : null);
     res.json({
       success: true,
       config: describeMarketingConfig(marketingConfig),
       facts: MARKETING_FACTS,
       control: control.ok ? { paused: control.data.paused, dryRun: control.data.dry_run } : null,
       controlError: control.ok ? null : control.reason,
+      queue: counts.ok ? counts.data : null,
       dueNow: due.ok ? due.count : null,
       recentPosts: recent.ok ? recent.data : [],
       worker: {
         entrypoint: 'marketing-worker.js',
         enabled: marketingConfig.enabled,
+        heartbeat: health,
         note: 'Publishing requires TELEGRAM_MARKETING_ENABLED=true, control.paused=false and control.dry_run=false.'
+      },
+      // A single controlled test message can be sent without enabling the queue.
+      // The destination must be configured and the caller must send the exact
+      // confirmation token; nothing is queued by that action.
+      testSend: {
+        confirmation: MARKETING_TEST_CONFIRM,
+        groupConfigured: Boolean(marketingConfig.groupChatId),
+        channelConfigured: Boolean(marketingConfig.channelChatId),
+        channelConflictsWithGroup: Boolean(marketingConfig.channelConflictsWithGroup)
       }
     });
   } catch (error) {
@@ -5116,13 +5141,32 @@ app.patch('/api/admin/marketing/posts/:id', authMiddleware, adminMiddleware, asy
     const action = String((req.body && req.body.action) || '');
     const when = marketingIsoDate(req.body && req.body.scheduledFor);
 
+    // Terminal / in-flight states must never be resurrected by an admin action:
+    // re-approving a published post would queue a duplicate publication.
     if (action === 'cancel') {
-      const updated = await marketingStore.updatePost(id, { status: 'cancelled', scheduled_for: null });
+      const cancellable = ['draft', 'awaiting_approval', 'approved', 'scheduled', 'failed', 'blocked'];
+      if (!cancellable.includes(post.status)) {
+        return res.status(400).json({ success: false, error: 'A ' + post.status + ' post cannot be cancelled' });
+      }
+      const updated = await marketingStore.updatePost(id, {
+        status: 'cancelled',
+        scheduled_for: null,
+        claimed_by: null,
+        lease_expires_at: null
+      });
       return res.json({ success: updated.ok, post: updated.data });
     }
 
     if (action === 'unschedule') {
-      const updated = await marketingStore.updatePost(id, { status: 'approved', scheduled_for: null });
+      if (!['scheduled', 'approved'].includes(post.status)) {
+        return res.status(400).json({ success: false, error: 'Only a scheduled or approved post can be unscheduled' });
+      }
+      const updated = await marketingStore.updatePost(id, {
+        status: 'approved',
+        scheduled_for: null,
+        claimed_by: null,
+        lease_expires_at: null
+      });
       return res.json({ success: updated.ok, post: updated.data });
     }
 
@@ -5138,12 +5182,27 @@ app.patch('/api/admin/marketing/posts/:id', authMiddleware, adminMiddleware, asy
         status: 'scheduled',
         attempts: 0,
         scheduled_for: when,
-        last_error: null
+        last_error: null,
+        // A retry must not inherit a dead claim: a stale lease would make the
+        // row look worker-owned to the claim RPC.
+        claimed_by: null,
+        lease_expires_at: null
       });
       return res.json({ success: updated.ok, post: updated.data });
     }
 
     if (action === 'approve') {
+      // Only a post that has NOT been published (and is not in flight) may be
+      // approved. Without this guard, approving a published row would set it
+      // back to 'scheduled' and the worker would publish it a second time.
+      // A failed post uses `retry` instead, which resets the attempt budget.
+      const approvable = ['draft', 'awaiting_approval', 'approved', 'scheduled'];
+      if (!approvable.includes(post.status)) {
+        return res.status(400).json({
+          success: false,
+          error: 'A ' + post.status + ' post cannot be approved; use retry for a failed post'
+        });
+      }
       const guard = marketingGuardReport(post.content, post.locale);
       if (guard.blocked) {
         return res.status(400).json({ success: false, error: 'Content is blocked and must be rewritten', guard });
@@ -5153,6 +5212,8 @@ app.patch('/api/admin/marketing/posts/:id', authMiddleware, adminMiddleware, asy
         scheduled_for: post.scheduled_for || when,
         approved_by: req.user.id,
         approved_at: new Date().toISOString(),
+        claimed_by: null,
+        lease_expires_at: null,
         guard
       });
       return res.json({ success: updated.ok, post: updated.data, guard });
@@ -5285,6 +5346,90 @@ app.post('/api/admin/marketing/control', authMiddleware, adminMiddleware, async 
   }
 });
 
+
+/**
+ * Approved copy for the single-shot delivery test. Renders only; sends nothing.
+ */
+app.get('/api/admin/marketing/test-message', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const audience = req.query.audience === 'channel' ? 'channel' : 'group';
+    const msg = renderTestMessage(audience, req.query.locale || marketingConfig.locale, marketingConfig);
+    const guard = marketingGuardReport(msg.text, msg.locale);
+    const target = chatIdForAudience(audience, marketingConfig);
+    res.json({
+      success: true,
+      audience,
+      locale: msg.locale,
+      text: msg.text,
+      guard,
+      destinationConfigured: Boolean(target.chatId),
+      destinationReason: target.chatId ? null : (target.reason || 'missing-chat-id'),
+      note: 'This endpoint renders the copy only. POST the same audience with confirmation "SEND TEST" to deliver it.'
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error && error.message ? error.message : 'Failed to render the test message' });
+  }
+});
+
+/**
+ * Send ONE approved test message to the configured group or channel.
+ *
+ * Deliberately independent of the publishing gates: its purpose is to prove
+ * delivery BEFORE the queue is enabled. It can only send the fixed, guarded test
+ * copy to the configured destination, it requires the exact confirmation token,
+ * and it queues nothing - so it can never become a general broadcaster.
+ */
+app.post('/api/admin/marketing/test-send', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    if (String(body.confirm || '').trim().toUpperCase() !== MARKETING_TEST_CONFIRM) {
+      return res.status(400).json({
+        success: false,
+        error: 'Set confirm to "' + MARKETING_TEST_CONFIRM + '" to send a real test message'
+      });
+    }
+    const audience = body.audience === 'channel' ? 'channel' : 'group';
+    const msg = renderTestMessage(audience, body.locale || marketingConfig.locale, marketingConfig);
+    const guard = marketingGuardReport(msg.text, msg.locale);
+    if (guard.blocked) {
+      return res.status(400).json({ success: false, error: 'Test copy blocked by the safety guard', guard });
+    }
+    const target = chatIdForAudience(audience, marketingConfig);
+    const valid = target.chatId
+      ? validateDestination(target.chatId, marketingConfig)
+      : { ok: false, chatId: '', reason: target.reason || 'missing-chat-id' };
+    if (!valid.ok) {
+      return res.status(400).json({
+        success: false,
+        error: (audience === 'channel' ? 'Announcement channel' : 'Marketing group') +
+          ' is not configured (' + valid.reason + ')'
+      });
+    }
+    try {
+      const sent = await marketingTransport.sendMessage(valid.chatId, msg.text, { disable_web_page_preview: true });
+      const messageId = sent && sent.message_id ? sent.message_id : null;
+      await marketingStore.recordSend({
+        postId: null, audience, chatId: valid.chatId, status: 'sent', attempt: 1, messageId
+      });
+      return res.json({
+        success: true,
+        audience,
+        locale: msg.locale,
+        messageId,
+        text: msg.text,
+        note: 'Single controlled test message. Queued publishing is NOT enabled by this action.'
+      });
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error).slice(0, 300);
+      await marketingStore.recordSend({
+        postId: null, audience, chatId: valid.chatId, status: 'failed', attempt: 1, error: message
+      });
+      return res.status(502).json({ success: false, error: message });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to send the test message' });
+  }
+});
 
 /**
  * Q8QPay invoice status (for frontend polling / manual check).

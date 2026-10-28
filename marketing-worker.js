@@ -54,10 +54,16 @@ async function main() {
   }
 
   const url = String(process.env.SUPABASE_URL || '').trim();
-  const serviceKey = String(process.env.SUPABASE_SERVICE_KEY || '').trim();
+  // The project standard name is SUPABASE_SERVICE_KEY; the Supabase dashboard
+  // calls the same value SUPABASE_SERVICE_ROLE_KEY. Accept either so a
+  // background worker created from the dashboard template is not silently
+  // misconfigured. Both are the same service-role credential.
+  const serviceKey = String(
+    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  ).trim();
   if (!url || !serviceKey) {
     logEvent('worker_misconfigured', {
-      reason: 'SUPABASE_URL and SUPABASE_SERVICE_KEY are required',
+      reason: 'SUPABASE_URL and SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) are required',
       urlPresent: Boolean(url),
       serviceKeyPresent: Boolean(serviceKey)
     });
@@ -93,6 +99,7 @@ async function main() {
     // Migration 043: the claimant identity and lease that make a crashed claim
     // recoverable by another worker instead of stranded in 'sending'.
     workerId: config.workerId,
+    workerVersion: WORKER_VERSION,
     leaseSeconds: config.leaseSeconds,
     config: Object.assign({}, config, { facts })
   });
@@ -113,8 +120,10 @@ async function main() {
     dryRun: Boolean(control.data.dry_run),
     tickMs: config.tickMs,
     workerId: config.workerId,
+    workerVersion: WORKER_VERSION,
     leaseSeconds: config.leaseSeconds,
-    tokenPresent: Boolean(process.env.TELEGRAM_BOT_TOKEN)
+    tokenPresent: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    heartbeat: 'telegram_marketing_control.worker_heartbeat_at (migration 044)'
   });
 
   const runner = worker.run();

@@ -66,8 +66,15 @@ function createMarketingWorker(options) {
     skipped: 0,
     lastTickAt: null,
     lastResult: null,
-    lastError: null
+    lastError: null,
+    // Liveness: written to telegram_marketing_control on every tick so an
+    // operator (and the admin status route) can tell a running worker from one
+    // that stopped. Best effort - it never blocks a publish.
+    lastHeartbeatAt: null,
+    lastHeartbeatError: null
   };
+
+  const workerVersion = opts.workerVersion || config.workerVersion || 'marketing-worker/1';
 
   const facts = config.facts || {};
   const guardOptions = {
@@ -88,6 +95,32 @@ function createMarketingWorker(options) {
    * claimant, so if the row was reclaimed while we worked it returns no row and
    * we must NOT overwrite the new owner's outcome - we only record the fact.
    */
+  /**
+   * Write (and report) this worker's heartbeat. Failures are warnings only: an
+   * unreachable control row is already handled by the fail-closed gate in tick(),
+   * and a heartbeat must never turn a healthy publish into a failure.
+   */
+  async function recordHeartbeat() {
+    if (typeof store.heartbeat !== 'function') return null;
+    try {
+      const result = await store.heartbeat({ workerId, version: workerVersion });
+      if (result && result.ok) {
+        stats.lastHeartbeatAt = new Date(clock()).toISOString();
+        stats.lastHeartbeatError = null;
+        return result;
+      }
+      const reason = (result && (result.reason || result.error)) || 'heartbeat-failed';
+      if (stats.lastHeartbeatError !== reason) report('heartbeat_failed', { reason });
+      stats.lastHeartbeatError = reason;
+      return result;
+    } catch (error) {
+      const reason = scrub(error && error.message ? error.message : error);
+      if (stats.lastHeartbeatError !== reason) report('heartbeat_failed', { reason });
+      stats.lastHeartbeatError = reason;
+      return { ok: false, reason };
+    }
+  }
+
   async function finishOwned(post, payload) {
     const result = await store.finish(Object.assign({ id: post.id, workerId }, payload || {}));
     if (result && result.ok && !result.data) {
@@ -279,6 +312,10 @@ function createMarketingWorker(options) {
     stats.ticks += 1;
     stats.lastTickAt = new Date().toISOString();
 
+    // Heartbeat FIRST, before any gate: a paused or dry-run worker is still a
+    // live worker, and the operator needs to see that distinction.
+    await recordHeartbeat();
+
     if (!config.enabled) {
       stats.lastResult = 'disabled';
       return { skipped: 'disabled' };
@@ -417,6 +454,7 @@ function createMarketingWorker(options) {
       dryRun: Boolean(config.dryRun),
       tickMs: Number(config.tickMs) || 60000,
       workerId,
+      workerVersion,
       leaseSeconds
     })
   };

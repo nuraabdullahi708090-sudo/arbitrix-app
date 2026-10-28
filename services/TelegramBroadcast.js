@@ -87,13 +87,21 @@ const OFFICIAL_LINKS = Object.freeze({
 function resolveMarketingConfig(env) {
   const e = env || {};
   const baseUrl = firstString(e.BASE_URL).replace(/\/+$/, '');
+  const groupChatId = canonicalizeTelegramChatId(e.TELEGRAM_MARKETING_CHAT_ID) || '';
+  const rawChannelChatId = canonicalizeTelegramChatId(e.TELEGRAM_ANNOUNCEMENT_CHAT_ID) || '';
+  // A channel is a different chat. If both variables hold the same id, the
+  // operator almost certainly pasted the group twice, so the CHANNEL destination
+  // is disabled (fail closed) instead of publishing announcement copy into the
+  // partner group. The group keeps working.
+  const channelConflictsWithGroup = Boolean(groupChatId) && rawChannelChatId === groupChatId;
   const registerUrl = httpUrl(e.TELEGRAM_MARKETING_REGISTER_URL) ||
     (baseUrl ? baseUrl + '/?action=create-account' : OFFICIAL_LINKS.registerUrl);
   return {
     enabled: boolFromEnv(e.TELEGRAM_MARKETING_ENABLED, false),
     dryRun: boolFromEnv(e.TELEGRAM_MARKETING_DRY_RUN, true),
-    groupChatId: canonicalizeTelegramChatId(e.TELEGRAM_MARKETING_CHAT_ID) || '',
-    channelChatId: canonicalizeTelegramChatId(e.TELEGRAM_ANNOUNCEMENT_CHAT_ID) || '',
+    groupChatId,
+    channelChatId: channelConflictsWithGroup ? '' : rawChannelChatId,
+    channelConflictsWithGroup,
     locale: normalizeLocale(e.TELEGRAM_MARKETING_LOCALE || DEFAULT_LOCALE),
     timezone: firstString(e.TELEGRAM_MARKETING_TIMEZONE) || 'UTC',
     tickMs: intFromEnv(e.TELEGRAM_MARKETING_TICK_MS, 60000, 15000, 900000),
@@ -123,6 +131,8 @@ function describeMarketingConfig(config) {
     dryRun: Boolean(c.dryRun),
     groupConfigured: Boolean(c.groupChatId),
     channelConfigured: Boolean(c.channelChatId),
+    // Both variables holding the same id: the channel is disabled on purpose.
+    channelConflictsWithGroup: Boolean(c.channelConflictsWithGroup),
     locale: normalizeLocale(c.locale),
     timezone: c.timezone || 'UTC',
     registerUrlConfigured: Boolean(c.registerUrl),
@@ -155,6 +165,53 @@ function chatIdForAudience(audience, config) {
   if (a === 'channel') return { audience: a, chatId: (config && config.channelChatId) || '', reason: 'announcement-channel-not-configured' };
   if (a === 'subscribers') return { audience: a, chatId: '', reason: null };
   return { audience: a, chatId: (config && config.groupChatId) || '', reason: 'marketing-group-not-configured' };
+}
+
+/**
+ * How long a worker may go without writing a heartbeat before an operator should
+ * treat it as dead. Three default tick intervals (60s), so one slow tick or one
+ * deploy bounce does not raise a false alarm.
+ */
+const WORKER_HEARTBEAT_STALE_MS = 180000;
+
+/**
+ * Evaluate worker liveness from the control row.
+ *
+ * Returns counts and timestamps only - no chat id, no token, no message text.
+ * A missing heartbeat is reported as unhealthy rather than guessed at.
+ *
+ * @param {object} control telegram_marketing_control row (snake_case columns)
+ * @param {{now?:number, staleMs?:number}} options
+ */
+function workerHealth(control, options) {
+  const opts = options || {};
+  const staleMs = Number.isFinite(Number(opts.staleMs)) && Number(opts.staleMs) > 0
+    ? Number(opts.staleMs)
+    : WORKER_HEARTBEAT_STALE_MS;
+  const now = Number.isFinite(Number(opts.now)) ? Number(opts.now) : Date.now();
+  const raw = control && control.worker_heartbeat_at ? String(control.worker_heartbeat_at) : '';
+  const at = raw ? Date.parse(raw) : NaN;
+  if (!raw || !Number.isFinite(at)) {
+    return {
+      heartbeatAt: null,
+      ageMs: null,
+      staleAfterMs: staleMs,
+      healthy: false,
+      workerId: (control && control.worker_id) || null,
+      version: (control && control.worker_version) || null,
+      note: 'no heartbeat recorded - the worker has never run or cannot reach the database'
+    };
+  }
+  const ageMs = Math.max(now - at, 0);
+  return {
+    heartbeatAt: new Date(at).toISOString(),
+    ageMs,
+    staleAfterMs: staleMs,
+    healthy: ageMs <= staleMs,
+    workerId: (control && control.worker_id) || null,
+    version: (control && control.worker_version) || null,
+    note: ageMs <= staleMs ? null : 'heartbeat is older than the stale window'
+  };
 }
 
 /**
@@ -212,9 +269,11 @@ function retryAfterMs(error) {
 
 module.exports = {
   CHANNEL_ID_FORMAT,
+  WORKER_HEARTBEAT_STALE_MS,
   AUDIENCES,
   resolveMarketingConfig,
   describeMarketingConfig,
+  workerHealth,
   validateDestination,
   chatIdForAudience,
   createRateLimiter,
