@@ -1,45 +1,63 @@
 {
-  "voice": "en-US-AriaNeural",
+  "voice": "en-US-AndrewNeural",
+  "voiceFallback": "en-US-GuyNeural",
+  "note": "Male narration by default. Any en-US male voice works: pass --voice. Title is the on-screen step chip; caption is the burned subtitle; focus is the element the highlight ring is drawn around.",
   "scenes": [
     {
       "id": 1,
-      "caption": "1. Your dashboard starts in Demo Mode",
-      "say": "This is the Arbitrix dashboard. You start in Demo Mode, with one thousand dollars of virtual funds, so you can practise the whole platform without risking any money."
+      "title": "Your dashboard starts in Demo Mode",
+      "caption": "You start in Demo Mode with $1,000 of virtual funds.",
+      "say": "This is your Arbitrix dashboard. You start in Demo Mode, with one thousand dollars of virtual funds, so you can practise the whole platform without risking any money.",
+      "focus": "#demoTab"
     },
     {
       "id": 2,
-      "caption": "2. Switch to Live Mode when you are ready",
-      "say": "When you are ready, switch to Live Mode. Live uses real funds, and only your Live balance can be traded and withdrawn."
+      "title": "Switch to Live Mode",
+      "caption": "Live Mode uses real funds - only the Live balance can be traded or withdrawn.",
+      "say": "When you are ready, switch to Live Mode. Live uses real funds, and only your Live balance can be traded and withdrawn.",
+      "focus": "#liveTab"
     },
     {
       "id": 3,
-      "caption": "3. Open the deposit window",
-      "say": "To fund your Live balance, open the deposit window. The minimum deposit is one hundred US dollars."
+      "title": "Open the deposit window",
+      "caption": "Open the deposit window. The minimum deposit is $100.",
+      "say": "To fund your Live balance, open the deposit window. The minimum deposit is one hundred US dollars.",
+      "focus": "#depositMinNotice"
     },
     {
       "id": 4,
-      "caption": "4. Enter the amount and generate payment",
-      "say": "Enter the amount you want to deposit, then press Generate Payment. Arbitrix creates a unique payment address for that exact amount."
+      "title": "Enter the amount",
+      "caption": "Enter the amount you want to deposit, then press Generate Payment.",
+      "say": "Enter the amount you want to deposit, then press Generate Payment. Arbitrix creates a unique payment address for that exact amount.",
+      "focus": "#liveDepositAmount"
     },
     {
       "id": 5,
-      "caption": "5. Send USDT on TRON (TRC20)",
-      "say": "Send USDT on the TRON network, T R C twenty, to this address. Use the exact amount shown, and scan the QR code if your wallet supports it. Sending on another network can lose your funds."
+      "title": "Send USDT on TRON (TRC20)",
+      "caption": "Send USDT on TRON (TRC20) to this address, for the exact amount shown.",
+      "say": "Send USDT on the TRON network, T R C twenty, to this address. Use the exact amount shown, and scan the QR code if your wallet supports it. Sending on another network can lose your funds.",
+      "focus": "#walletAddressContainer"
     },
     {
       "id": 6,
-      "caption": "6. Watch the status change to credited",
-      "say": "Arbitrix watches the blockchain for you. The status moves from waiting, to detected, to credited, usually a few minutes after the first confirmation."
+      "title": "Wait for the confirmation",
+      "caption": "Arbitrix watches the blockchain: the status moves to credited after confirmation.",
+      "say": "Arbitrix watches the blockchain for you. The status moves from waiting, to detected, to credited, usually a few minutes after the first confirmation.",
+      "focus": "#currentStatusBox"
     },
     {
       "id": 7,
-      "caption": "7. Your Live balance is funded",
-      "say": "The funds are now in your Live balance. From here you can start automated trading, and you can always see the balance on your dashboard."
+      "title": "Your Live balance is funded",
+      "caption": "The funds are in your Live balance, ready to trade.",
+      "say": "The funds are now in your Live balance. From here you can start automated trading, and you can always see the balance on your dashboard.",
+      "focus": "#balanceValue"
     },
     {
       "id": 8,
-      "caption": "8. Help is one message away",
-      "say": "If anything is unclear, our support team is one message away, at t dot me slash Arbitrix Support Bot."
+      "title": "Help is one message away",
+      "caption": "Questions? Message the Arbitrix support team any time.",
+      "say": "If anything is unclear, our support team is one message away, at t dot me slash Arbitrix Support Bot.",
+      "focus": "#supportTelegramBtn"
     }
   ]
 }

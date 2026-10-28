@@ -145,22 +145,31 @@ function createStubServer() {
 
 // ---- overlay -------------------------------------------------------------
 const OVERLAY_CSS = `
-  #recCaption{position:fixed;left:0;right:0;bottom:0;z-index:2147483000;
-    background:linear-gradient(180deg,rgba(9,14,26,0),rgba(9,14,26,.92) 28%);
-    padding:34px 40px 22px;font:600 20px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;
-    color:#fff;text-align:center;letter-spacing:.2px;pointer-events:none;
-    text-shadow:0 2px 10px rgba(0,0,0,.65)}
-  #recCaption .recStep{display:block;font:700 13px/1 -apple-system,Segoe UI,Roboto,sans-serif;
-    letter-spacing:1.6px;text-transform:uppercase;color:#F0B90B;margin-bottom:8px}
-  #recBrand{position:fixed;right:18px;bottom:18px;z-index:2147483000;
-    font:700 12px/1 -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:2px;
-    color:rgba(255,255,255,.45);pointer-events:none}
-  #recDisclosure{position:fixed;left:18px;top:18px;z-index:2147483000;
-    display:flex;align-items:center;gap:8px;background:rgba(240,185,11,.14);
-    border:1px solid rgba(240,185,11,.55);color:#F0B90B;border-radius:999px;
-    padding:7px 14px;font:700 11px/1 -apple-system,Segoe UI,Roboto,sans-serif;
+  #recStep{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:2147483000;
+    display:flex;align-items:center;gap:12px;max-width:min(92vw,760px);
+    background:rgba(9,14,26,.92);border:1px solid rgba(240,185,11,.45);border-radius:999px;
+    padding:9px 20px 9px 12px;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  #recStep .chip{background:#F0B90B;color:#070B14;border-radius:999px;padding:4px 10px;
+    font:800 11px/1 -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:1.4px;white-space:nowrap}
+  #recStep .label{color:#fff;font:600 14px/1.25 -apple-system,Segoe UI,Roboto,sans-serif;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #recBrand{position:fixed;right:18px;bottom:16px;z-index:2147483000;
+    font:800 11px/1 -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:2.4px;
+    color:rgba(255,255,255,.40);pointer-events:none}
+  #recDisclosure{position:fixed;left:16px;top:16px;z-index:2147483000;
+    background:rgba(240,185,11,.14);border:1px solid rgba(240,185,11,.55);color:#F0B90B;
+    border-radius:999px;padding:7px 13px;font:800 10px/1 -apple-system,Segoe UI,Roboto,sans-serif;
     letter-spacing:1.1px;text-transform:uppercase;pointer-events:none}
+  .recDim{position:fixed;background:rgba(4,8,16,.55);z-index:2147482200;pointer-events:none;
+    transition:all .18s ease-out}
+  #recFocus{position:fixed;z-index:2147482400;pointer-events:none;border-radius:14px;
+    box-shadow:0 0 0 3px #F0B90B,0 0 34px 8px rgba(240,185,11,.40);opacity:0;
+    transition:opacity .22s ease-out}
+  #recFocus.on{opacity:1;animation:recPulse 1.9s ease-in-out infinite}
+  @keyframes recPulse{0%,100%{box-shadow:0 0 0 3px #F0B90B,0 0 26px 4px rgba(240,185,11,.32)}
+    50%{box-shadow:0 0 0 4px #FCD535,0 0 44px 12px rgba(240,185,11,.50)}}
 `;
+
 
 // ---- recording -----------------------------------------------------------
 async function main() {
@@ -211,11 +220,19 @@ async function main() {
       localStorage.setItem('arbi_user', JSON.stringify({ id: 4242, email: 'tutorial@example.invalid', name: 'Alex Morgan' }));
       localStorage.setItem('arbi_lang', lang);
       localStorage.setItem('arbi_mode_4242', 'demo');
+      // The post-registration funnel is shown once per account; a returning user
+      // (the persona this tutorial teaches) has already answered it. Without this
+      // the funnel modal sits on top of the deposit modal.
+      localStorage.setItem('arbi_onboarding_4242', 'demo');
     }, args.lang);
   }
 
   let pageErrors = 0;
   page.on('pageerror', () => { pageErrors += 1; });
+  // Surface a failing call immediately instead of waiting for a selector timeout.
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') console.warn('[page error]', String(msg.text()).slice(0, 240));
+  });
 
   await page.goto(baseUrl + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForFunction(() => typeof window.initApp === 'function', { timeout: 30000 });
@@ -226,6 +243,20 @@ async function main() {
     console.warn('initApp threw:', error.message);
   }
   await sleep(2500);
+
+  // Never let the one-time funnel cover the flow being demonstrated: the recorder
+  // dismisses it and records the funnel as already answered for this account.
+  const onboardingBlocking = await page.evaluate(() => {
+    const modal = document.getElementById('onboardingModal');
+    if (!modal || !modal.classList.contains('open')) return false;
+    modal.classList.remove('open');
+    try {
+      const user = JSON.parse(localStorage.getItem('arbi_user') || '{}');
+      if (user && user.id) localStorage.setItem('arbi_onboarding_' + user.id, 'demo');
+    } catch (error) { /* storage is optional for the recording */ }
+    return true;
+  });
+  if (onboardingBlocking) console.log('dismissed the one-time onboarding funnel');
 
   if (args.mode === 'live') {
     const loggedIn = await page.evaluate(() => Boolean(document.getElementById('mainApp') && document.getElementById('mainApp').offsetParent !== null));
@@ -243,10 +274,23 @@ async function main() {
 
   await page.addStyleTag({ content: OVERLAY_CSS });
   await page.evaluate((disclosure) => {
-    const bar = document.createElement('div');
-    bar.id = 'recCaption';
-    bar.innerHTML = '<span class="recStep"></span><span class="recText"></span>';
-    document.body.appendChild(bar);
+    const step = document.createElement('div');
+    step.id = 'recStep';
+    step.innerHTML = '<span class="chip"></span><span class="label"></span>';
+    document.body.appendChild(step);
+
+    for (const side of ['T', 'B', 'L', 'R']) {
+      const panel = document.createElement('div');
+      panel.className = 'recDim';
+      panel.id = 'recDim' + side;
+      panel.style.width = '0px';
+      panel.style.height = '0px';
+      document.body.appendChild(panel);
+    }
+
+    const ring = document.createElement('div');
+    ring.id = 'recFocus';
+    document.body.appendChild(ring);
 
     const brand = document.createElement('div');
     brand.id = 'recBrand';
@@ -263,14 +307,81 @@ async function main() {
 
   const frames = [];
   const marks = [];
+  const focusLog = [];
   const started = Date.now();
 
-  const setCaption = (step, text) => page.evaluate((s, t) => {
-    const bar = document.getElementById('recCaption');
+  const setStep = (chip, label) => page.evaluate((c, l) => {
+    const bar = document.getElementById('recStep');
     if (!bar) return;
-    bar.querySelector('.recStep').textContent = s;
-    bar.querySelector('.recText').textContent = t;
-  }, step, text);
+    bar.querySelector('.chip').textContent = c;
+    bar.querySelector('.label').textContent = l;
+  }, chip, label);
+
+  // Highlight: four dim panels around the target plus a pulsing gold ring, so the
+  // eye lands on the exact control being described without hiding the context.
+  async function focusOn(selector) {
+    if (!selector) return;
+    // Bring the target into view inside its own scroll container first: a modal
+    // can be taller than the window, and a ring drawn off-screen teaches nothing.
+    await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }, selector);
+    await sleep(220);
+
+    const box = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      // Clamp so a tall panel (a whole modal section) cannot produce a ring that
+      // runs off the viewport or covers the screen.
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = Math.min(r.width, vw * 0.9);
+      const h = Math.min(r.height, vh * 0.62);
+      const x = Math.max(0, Math.min(r.x, vw - w));
+      const y = Math.max(0, Math.min(r.y, vh - h));
+      return { x, y, w, h };
+    }, selector);
+    if (!box) { console.warn('focus target not visible:', selector); return; }
+    focusLog.push({ selector, x: Math.round(box.x), y: Math.round(box.y), w: Math.round(box.w), h: Math.round(box.h) });
+    await page.evaluate((b) => {
+      const pad = 10;
+      const x = Math.max(b.x - pad, 0);
+      const y = Math.max(b.y - pad, 0);
+      const w = b.w + pad * 2;
+      const h = b.h + pad * 2;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const ring = document.getElementById('recFocus');
+      ring.style.left = x + 'px'; ring.style.top = y + 'px';
+      ring.style.width = w + 'px'; ring.style.height = h + 'px';
+      ring.classList.add('on');
+
+      const place = (id, left, top, width, height) => {
+        const el = document.getElementById(id);
+        el.style.left = left + 'px'; el.style.top = top + 'px';
+        el.style.width = Math.max(width, 0) + 'px'; el.style.height = Math.max(height, 0) + 'px';
+      };
+      place('recDimT', 0, 0, vw, y);
+      place('recDimB', 0, y + h, vw, vh - (y + h));
+      place('recDimL', 0, y, x, h);
+      place('recDimR', x + w, y, vw - (x + w), h);
+    }, box);
+  }
+
+  async function clearFocus() {
+    await page.evaluate(() => {
+      const ring = document.getElementById('recFocus');
+      if (ring) ring.classList.remove('on');
+      for (const side of ['T', 'B', 'L', 'R']) {
+        const el = document.getElementById('recDim' + side);
+        if (el) { el.style.width = '0px'; el.style.height = '0px'; }
+      }
+    });
+  }
 
   async function shoot() {
     const file = path.join(frameDir, `frame-${String(frames.length + 1).padStart(5, '0')}.png`);
@@ -294,62 +405,103 @@ async function main() {
   );
 
   const actions = {
-    1: async () => setCaption('Step 1 of 8', 'Your dashboard starts in Demo Mode'),
-    2: async () => {
-      await setCaption('Step 2 of 8', 'Switch to Live Mode');
+    1: async (scene) => {
+      await setStep('STEP 1 OF 8', scene.title);
+      await focusOn(scene.focus);
+    },
+    2: async (scene) => {
+      await setStep('STEP 2 OF 8', scene.title);
       await page.evaluate(() => window.setMode && window.setMode('live'));
+      await sleep(350);
+      await focusOn(scene.focus);
     },
-    3: async () => {
-      await setCaption('Step 3 of 8', 'Open the deposit window');
+    3: async (scene) => {
+      await setStep('STEP 3 OF 8', scene.title);
       await page.evaluate(() => window.openDepositModal && window.openDepositModal());
+      await sleep(450);
+      await focusOn(scene.focus);
     },
-    4: async () => {
-      await setCaption('Step 4 of 8', 'Enter the amount and generate payment');
+    4: async (scene) => {
+      await setStep('STEP 4 OF 8', scene.title);
       await page.waitForSelector('#liveDepositAmount', { visible: true, timeout: 15000 });
+      // Guard: an overlay on top of the field would swallow the click and, worse,
+      // silently change the app state (a stray click on a modal option does).
+      const hit = await page.evaluate(() => {
+        const el = document.getElementById('liveDepositAmount');
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return top ? (top.id || top.tagName) : null;
+      });
+      if (hit !== 'liveDepositAmount') {
+        throw new Error('the amount field is covered by "' + hit + '" - a modal is in the way');
+      }
       await page.click('#liveDepositAmount');
       await page.keyboard.down('Control'); await page.keyboard.press('KeyA'); await page.keyboard.up('Control');
       await page.keyboard.type('100', { delay: 90 });
-      const value = await page.$eval('#liveDepositAmount', (el) => el.value);
-      if (value !== '100') throw new Error('amount field is "' + value + '", expected 100');
+      const typed = await page.$eval('#liveDepositAmount', (el) => el.value);
+      if (typed !== '100') throw new Error('amount field is "' + typed + '", expected 100');
+      const mode = await page.evaluate(() => APP.mode);
+      if (mode !== 'live') throw new Error('app left Live Mode while typing (mode=' + mode + ')');
+      await focusOn(scene.focus);
     },
-    5: async () => {
-      await setCaption('Step 5 of 8', 'Send USDT on TRON (TRC20) to this address');
+    5: async (scene) => {
+      await setStep('STEP 5 OF 8', scene.title);
       // Same call the button makes; a click is brittle while frames are captured.
       await page.evaluate(() => window.requestDepositAddress && window.requestDepositAddress());
-      await page.waitForFunction(() => {
-        const s = document.getElementById('depositPaymentSection');
-        return Boolean(s && s.offsetParent !== null);
-      }, { timeout: 25000 });
+      try {
+        await page.waitForFunction(() => {
+          const s = document.getElementById('depositPaymentSection');
+          return Boolean(s && s.offsetParent !== null);
+        }, { timeout: 25000 });
+      } catch (error) {
+        const diag = await page.evaluate(() => ({
+          mode: typeof APP !== 'undefined' ? APP.mode : 'n/a',
+          amount: (document.getElementById('liveDepositAmount') || {}).value,
+          inputDisplay: (document.getElementById('depositInputSection') || {}).style.display,
+          paymentDisplay: (document.getElementById('depositPaymentSection') || {}).style.display,
+          lastStatus: (document.getElementById('depositStatusText') || {}).textContent
+        }));
+        throw new Error('payment section never appeared: ' + JSON.stringify(diag));
+      }
+      await sleep(300);
+      await focusOn(scene.focus);
     },
-    6: async () => {
-      await setCaption('Step 6 of 8', 'Watch the status change to credited');
+    6: async (scene) => {
+      await setStep('STEP 6 OF 8', scene.title);
       if (stub) {
         await page.evaluate(() => fetch('/api/_credit', { method: 'POST' }).catch(() => {}));
         await waitCredited(9000);
       } else {
-        // A real sandbox credits on its own schedule; the tutorial illustrates the
+        // A real sandbox credits on its own schedule; the tutorial shows the
         // waiting state when it has not happened yet. Nothing is forced.
         await waitCredited(30000).catch(() => console.warn('not credited within 30s - recording the waiting state'));
       }
+      await focusOn(scene.focus);
     },
-    7: async () => {
-      await setCaption('Step 7 of 8', 'Your Live balance is funded');
+    7: async (scene) => {
+      await setStep('STEP 7 OF 8', scene.title);
       await page.evaluate(() => window.closeDepositModal && window.closeDepositModal());
+      await sleep(700);
+      await focusOn(scene.focus);
     },
-    8: async () => {
-      await setCaption('Step 8 of 8', 'Help is one message away');
+    8: async (scene) => {
+      await setStep('STEP 8 OF 8', scene.title);
       await page.evaluate(() => window.openSupportModal && window.openSupportModal());
+      await sleep(450);
+      await focusOn(scene.focus);
     }
   };
 
   for (const scene of scenes) {
     const ms = (timeline.find((t) => t.id === scene.id) || {}).ms || 8000;
     const startMs = Date.now() - started;
-    await captureFor(ms, actions[scene.id]);
+    await clearFocus();
+    console.log('[scene ' + scene.id + '/' + scenes.length + '] mode=' + await page.evaluate(() => (typeof APP !== 'undefined' ? APP.mode : 'n/a')) + ' - ' + scene.title);
+    await captureFor(ms, () => actions[scene.id](scene));
     if (scene.id === 6 && Date.now() - started - startMs < 10500) {
       while (Date.now() - started - startMs < 10500) await shoot();
     }
-    marks.push({ id: scene.id, startMs, endMs: Date.now() - started });
+    marks.push({ id: scene.id, startMs, endMs: Date.now() - started, focus: scene.focus || null });
   }
   await shoot();
 
@@ -360,6 +512,7 @@ async function main() {
     count: frames.length,
     timestamps: frames,
     marks,
+    focusLog,
     totalMs: frames[frames.length - 1],
     pageErrors
   }, null, 2));

@@ -4,11 +4,24 @@ Records the customer deposit journey (Demo -> Live -> deposit -> credited) from 
 **shipped** `public/index.html`, narrates it, and produces a share-ready MP4.
 Everything here is a working tool: it is not imported by the app or by any test.
 
+## What the recording contains
+
+- **Male narration** by default (`en-US-AndrewNeural`, fallback `en-US-GuyNeural`),
+  written for a first-time customer: no jargon, no promises, no earnings claims.
+- **A step chip** at the top of every scene (`STEP 3 OF 8 - Open the deposit window`).
+- **A highlight ring**: the page dims around the exact control being described
+  (the amount field, the address block, the status box, the support button) with a
+  pulsing gold ring. The ring is clamped to the viewport so a tall panel can never
+  produce a full-screen box, and the target is scrolled into view first.
+- **Burned-in subtitles** in one cue per scene, plus `subtitles.srt` as a sidecar
+  for players, re-edits and translations.
+
 ## Pipeline
 
 ```bash
 # 1. narration + timing plan (writes <out>/audio/scene-*.mp3 and <out>/timeline.json)
-node scripts/tutorial/narrate.js
+node scripts/tutorial/narrate.js            # add --force after changing the voice
+node scripts/tutorial/narrate.js --voice en-US-GuyNeural --force   # alternative male voice
 
 # 2. screen recording (writes <out>/frames/*.png and <out>/frames.json)
 node scripts/tutorial/record.js
@@ -52,6 +65,16 @@ disclosure badge: YES`, so a draft can never be mistaken for a sandbox recording
 3. Nothing else: the sandbox has no KYC, no minimum withdrawal and a simulated
    deposit pipeline, so no real funds are involved.
 
+## Two things the recorder deliberately controls
+
+- The **one-time onboarding funnel** is dismissed and marked answered for the
+  account before recording: the tutorial teaches the deposit journey to a
+  returning user, and the funnel modal would otherwise sit on top of the deposit
+  modal (a stray click on it even switches the app back to Demo Mode).
+- The **amount field** is verified before and after typing. If any overlay covers
+  it, the recorder throws `the amount field is covered by "<element>"` instead of
+  recording a video in which nothing was actually typed.
+
 ## Safety rules the recorder follows
 
 - It never submits a payment. In live mode it stops at the payment screen and
@@ -72,7 +95,12 @@ check fails:
 - video is h264/yuv420p and an AAC audio stream is present;
 - the duration matches the recorded timeline within 2 s;
 - **narration is audible in every scene** (mean volume above -60 dB);
-- **every scene still is visually distinct** (8 unique images).
+- **every scene still is visually distinct** (8 unique images);
+- **subtitles are written, well formed, and actually render** (a one-frame
+  libass probe proves the font and style work before the encode is trusted).
+
+The MP4 also carries `subtitles.srt` beside it, and `--share` copies it next to
+the WhatsApp/Telegram versions.
 
 ## Sharing (WhatsApp / Telegram)
 

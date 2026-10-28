@@ -5,7 +5,10 @@
  * timing plan the recorder follows, so the picture always matches the voice.
  *
  *   node scripts/tutorial/narrate.js
- *   node scripts/tutorial/narrate.js --voice en-GB-SoniaNeural --out build/video/deposit-tutorial
+ *   node scripts/tutorial/narrate.js --voice en-US-GuyNeural --force
+ *
+ * The narration is male by default (en-US-AndrewNeural); --force re-synthesises
+ * even when files already exist, which is what a voice change needs.
  *
  * Writes <out>/audio/scene-<id>.mp3 and <out>/timeline.json.
  * Requires the optional dev tool: npm i --no-save msedge-tts
@@ -35,12 +38,13 @@ const FFMPEG = bin('FFMPEG_PATH', 'ffmpeg-static', 'ffmpeg');
 const FFPROBE = bin('FFPROBE_PATH', 'ffprobe-static', 'ffprobe');
 
 function parseArgs(argv) {
-  const args = { out: path.join(ROOT, 'build', 'video', 'deposit-tutorial'), voice: '', planOnly: false };
+  const args = { out: path.join(ROOT, 'build', 'video', 'deposit-tutorial'), voice: '', planOnly: false, force: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--out') args.out = path.resolve(argv[++i]);
     else if (a === '--voice') args.voice = argv[++i];
     else if (a === '--plan-only') args.planOnly = true;
+    else if (a === '--force') args.force = true;
     else if (a === '--help' || a === '-h') args.help = true;
   }
   return args;
@@ -88,7 +92,9 @@ async function synthesize(scenes, voice, audioDir) {
   const audioDir = path.join(args.out, 'audio');
   fs.mkdirSync(audioDir, { recursive: true });
 
-  const missing = config.scenes.filter((s) => !fs.existsSync(path.join(audioDir, `scene-${s.id}.mp3`)));
+  const missing = args.force
+    ? config.scenes.slice()
+    : config.scenes.filter((s) => !fs.existsSync(path.join(audioDir, `scene-${s.id}.mp3`)));
   if (missing.length && args.planOnly) {
     console.error('missing narration for scenes: ' + missing.map((s) => s.id).join(', '));
     return 2;
