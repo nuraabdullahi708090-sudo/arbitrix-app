@@ -11,7 +11,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { buildReport, maskId } = require('../scripts/check-marketing-readiness');
+const { buildReport, verdictLine, maskId } = require('../scripts/check-marketing-readiness');
 
 const ROOT = path.join(__dirname, '..');
 const GROUP = '-1001111111111';
@@ -339,4 +339,61 @@ test('the database section is skipped when no client is supplied', async () => {
   const report = await buildReport(baseEnv(), fakeFetch(healthyRoutes()));
   assert.strictEqual(report.database, null);
   assert.strictEqual(report.verdict, 'READY');
+});
+
+// ---------------------------------------------------------------------------
+// --db-only mode: database credentials without a bot token
+// ---------------------------------------------------------------------------
+
+const NEVER_CALLED = async () => {
+  throw new Error('Telegram must not be contacted in --db-only mode');
+};
+
+test('--db-only reports READY from a healthy control row without a bot token', async () => {
+  const admin = fakeAdmin({ control: HEALTHY_CONTROL, counts: { scheduled: 1 } });
+  const report = await buildReport(baseEnv({ TELEGRAM_BOT_TOKEN: '' }), NEVER_CALLED, { admin, dbOnly: true });
+  assert.strictEqual(report.dbOnly, true);
+  assert.strictEqual(report.verdict, 'READY');
+  assert.deepStrictEqual(report.issues, []);
+  assert.strictEqual(report.token.ok, undefined, 'Telegram was never called');
+  assert.match(verdictLine(report), /database only/);
+});
+
+test('--db-only downgrades a stale heartbeat to READY_WITH_WARNINGS', async () => {
+  const control = Object.assign({}, HEALTHY_CONTROL, {
+    worker_heartbeat_at: new Date(Date.now() - 3600 * 1000).toISOString()
+  });
+  const report = await buildReport(baseEnv({ TELEGRAM_BOT_TOKEN: '' }), NEVER_CALLED, {
+    admin: fakeAdmin({ control }),
+    dbOnly: true
+  });
+  assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
+  assert.strictEqual(report.database.heartbeat.healthy, false);
+  assert.ok(report.warnings.some((w) => /Background Worker running/.test(w)));
+  assert.match(verdictLine(report), /with warnings/);
+});
+
+test('--db-only downgrades a missing 044 to READY_WITH_WARNINGS', async () => {
+  const control = Object.assign({}, HEALTHY_CONTROL);
+  delete control.worker_heartbeat_at;
+  const report = await buildReport(baseEnv({ TELEGRAM_BOT_TOKEN: '' }), NEVER_CALLED, {
+    admin: fakeAdmin({ control }),
+    dbOnly: true
+  });
+  assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
+  assert.ok(report.warnings.some((w) => /migration 044 is not applied/.test(w)));
+});
+
+test('--db-only without credentials is NOT_READY and never calls Telegram', async () => {
+  const report = await buildReport(baseEnv({ TELEGRAM_BOT_TOKEN: '' }), NEVER_CALLED, { admin: null, dbOnly: true });
+  assert.strictEqual(report.verdict, 'NOT_READY');
+  assert.ok(report.issues.some((i) => /required for --db-only/.test(i)));
+});
+
+test('--db-only with an unreadable control row is NOT_READY', async () => {
+  const report = await buildReport(baseEnv({ TELEGRAM_BOT_TOKEN: '' }), NEVER_CALLED, {
+    admin: fakeAdmin({ controlError: { message: 'nope', code: 'PGRST301' } }),
+    dbOnly: true
+  });
+  assert.strictEqual(report.verdict, 'NOT_READY');
 });

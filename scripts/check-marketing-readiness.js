@@ -17,6 +17,7 @@
  *   node scripts/check-marketing-readiness.js           # human readable
  *   node scripts/check-marketing-readiness.js --json    # machine readable
  *   node scripts/check-marketing-readiness.js --no-db   # skip the database read
+ *   node scripts/check-marketing-readiness.js --db-only # database only, no bot token needed
  *
  * SAFETY
  *   * Never prints the bot token or any Supabase key.
@@ -140,8 +141,9 @@ async function checkDatabase(admin) {
  *
  * @param {object} env environment-shaped object
  * @param {Function} fetchImpl injected fetch
- * @param {{admin?: object}} deps optional service-role client for the read-only
- *   database section; omitted by tests so nothing leaves the process
+ * @param {{admin?: object, dbOnly?: boolean}} deps optional service-role client
+ *   for the read-only database section (omitted by tests so nothing leaves the
+ *   process) and a flag to skip the Telegram checks entirely
  */
 async function buildReport(env, fetchImpl, deps) {
   const e = env || {};
@@ -159,6 +161,7 @@ async function buildReport(env, fetchImpl, deps) {
     channel: Object.assign(describeId(channelId), { reachable: null, type: null, botStatus: null, canPost: null, canPin: null }),
     sameChatConfigured: Boolean(groupId) && groupId === channelId,
     database: null,
+    dbOnly: Boolean(deps && deps.dbOnly),
     issues,
     warnings
   };
@@ -183,6 +186,26 @@ async function buildReport(env, fetchImpl, deps) {
         'migration 044 is not applied - the worker cannot record a heartbeat, so liveness is invisible'
       );
     }
+  }
+
+  // --db-only: an operator with database credentials but no bot token can still
+  // verify the publisher state. Telegram is not contacted at all.
+  if (deps && deps.dbOnly) {
+    if (!deps.admin) {
+      issues.push('SUPABASE_URL and a service key are required for --db-only');
+    }
+    const db = report.database;
+    const workerAlive = Boolean(db && db.ok && db.heartbeat && db.heartbeat.healthy);
+    if (db && db.ok && !workerAlive) {
+      warnings.push(
+        'worker heartbeat is not healthy (' + (db.heartbeat ? db.heartbeat.note : 'unknown') +
+        ') - is the Background Worker running against this database?'
+      );
+    }
+    report.verdict = !db || !db.ok
+      ? 'NOT_READY'
+      : (db.migration044 && workerAlive ? 'READY' : 'READY_WITH_WARNINGS');
+    return report;
   }
 
   if (!token) {
@@ -291,6 +314,15 @@ async function buildReport(env, fetchImpl, deps) {
 }
 
 function verdictLine(report) {
+  if (report.dbOnly) {
+    if (report.verdict === 'READY') {
+      return 'READY (database only) - control, heartbeat and queue verified; Telegram was not checked.';
+    }
+    if (report.verdict === 'READY_WITH_WARNINGS') {
+      return 'READY (database only) with warnings - review them before enabling publishing.';
+    }
+    return 'NOT READY - resolve the issues above.';
+  }
   if (report.verdict === 'READY') return 'READY - the bot can post to every configured destination.';
   if (report.verdict === 'READY_WITH_WARNINGS') {
     return 'READY - destinations work; review the warnings above before enabling publishing.';
@@ -358,13 +390,14 @@ function printHuman(report) {
 
 async function main() {
   const json = process.argv.includes('--json');
-  const skipDb = process.argv.includes('--no-db');
+  const dbOnly = process.argv.includes('--db-only');
+  const skipDb = process.argv.includes('--no-db') || dbOnly;
   const url = String(process.env.SUPABASE_URL || '').trim();
   const key = String(
     process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
   ).trim();
   let admin = null;
-  if (!skipDb && url && key) {
+  if ((dbOnly || !skipDb) && url && key) {
     try {
       const { createClient } = require('@supabase/supabase-js');
       admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -372,7 +405,7 @@ async function main() {
       admin = null;
     }
   }
-  const report = await buildReport(process.env, undefined, { admin });
+  const report = await buildReport(process.env, undefined, { admin, dbOnly });
   if (json) console.log(JSON.stringify(report, null, 2));
   else printHuman(report);
 

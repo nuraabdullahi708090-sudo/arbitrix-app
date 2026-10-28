@@ -102,8 +102,19 @@ publisher state and prints it - no admin JWT needed:
 * the worker heartbeat (healthy / stale / never) with worker id and version,
 * the queue counts per status.
 
-That section only issues SELECTs (pinned by tests). Add `--no-db` to skip it,
+That section only issues SELECTs (pinned by tests). Add `--no-db` to skip it
 and `--json` for machine-readable output.
+
+If the service has database credentials but no bot token, use:
+
+```bash
+node scripts/check-marketing-readiness.js --db-only
+```
+
+It skips Telegram entirely and reports READY / READY_WITH_WARNINGS / NOT_READY
+from the control row, the worker heartbeat and the queue alone. A stale or
+missing heartbeat is reported as a warning (the publisher would not be running),
+never as a silent pass.
 
 ### 3.3 Environment variables
 
