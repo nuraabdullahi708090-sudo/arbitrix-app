@@ -55,8 +55,10 @@ Apply in this order. All are additive and idempotent.
 | `supabase/migrations/043_marketing_claim_lease.sql` | Claim lease + fencing + crash recovery |
 | `supabase/migrations/044_marketing_worker_heartbeat.sql` | Worker liveness columns (`worker_heartbeat_at`, `worker_id`, `worker_version`) |
 
-`docs/sql/telegram_db_readiness.sql` is a read-only verifier for 038-043. Re-run
-it, then check section 044 manually or with:
+`docs/sql/telegram_db_readiness.sql` is a read-only verifier for 038-044. Run it
+first: its `verdict` rows say APPLIED / NOT APPLIED / PARTIAL per migration, and
+section 10b reports the worker heartbeat age (OK / STALE / NEVER / MISSING). If
+you prefer a direct check of 044:
 
 ```sql
 select column_name
@@ -91,6 +93,17 @@ node scripts/check-marketing-readiness.js
 It prints `READY`, `READY_WITH_WARNINGS` or `NOT_READY` plus the exact issue,
 and never prints the bot token or a full chat id. Exit codes: `0` ready,
 `2` not ready, `3` no bot token on that service.
+
+When `SUPABASE_URL` and a service-role key are present it also READS the
+publisher state and prints it - no admin JWT needed:
+
+* whether migration 044 is applied,
+* `telegram_marketing_control.paused` and `dry_run`,
+* the worker heartbeat (healthy / stale / never) with worker id and version,
+* the queue counts per status.
+
+That section only issues SELECTs (pinned by tests). Add `--no-db` to skip it,
+and `--json` for machine-readable output.
 
 ### 3.3 Environment variables
 

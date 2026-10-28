@@ -227,3 +227,116 @@ test('the script contains no write call to Telegram', () => {
   }
   assert.ok(source.includes('getChatMember'));
 });
+
+// ---------------------------------------------------------------------------
+// Database section (read-only control row, heartbeat and queue counts)
+// ---------------------------------------------------------------------------
+
+function fakeAdmin(opts) {
+  const o = opts || {};
+  const calls = [];
+  function table(name) {
+    const q = {
+      _status: null,
+      select(cols, options) {
+        calls.push({ op: 'select', table: name, cols: String(cols), options: options || null });
+        return q;
+      },
+      eq(col, value) {
+        if (col === 'status') q._status = value;
+        return q;
+      },
+      async maybeSingle() {
+        return {
+          data: Object.prototype.hasOwnProperty.call(o, 'control') ? o.control : null,
+          error: o.controlError || null
+        };
+      },
+      then(resolve) {
+        resolve({
+          count: (o.counts && o.counts[q._status]) || 0,
+          error: o.countsError || null
+        });
+      }
+    };
+    return q;
+  }
+  return {
+    calls,
+    from(name) {
+      calls.push({ op: 'from', table: name });
+      return table(name);
+    }
+  };
+}
+
+const HEALTHY_CONTROL = {
+  id: 1,
+  paused: true,
+  dry_run: true,
+  updated_at: '2026-10-28T21:00:00Z',
+  worker_heartbeat_at: new Date().toISOString(),
+  worker_id: 'marketing-worker',
+  worker_version: 'marketing-worker/1'
+};
+
+test('the database section reports gates, heartbeat, queue and 044', async () => {
+  const admin = fakeAdmin({ control: HEALTHY_CONTROL, counts: { scheduled: 2, published: 4 } });
+  const report = await buildReport(baseEnv(), fakeFetch(healthyRoutes()), { admin });
+  assert.strictEqual(report.database.ok, true);
+  assert.strictEqual(report.database.migration044, true);
+  assert.strictEqual(report.database.control.paused, true);
+  assert.strictEqual(report.database.control.dryRun, true);
+  assert.strictEqual(report.database.heartbeat.healthy, true);
+  assert.strictEqual(report.database.heartbeat.workerId, 'marketing-worker');
+  assert.strictEqual(report.database.queue.scheduled, 2);
+  assert.strictEqual(report.database.queue.published, 4);
+  assert.strictEqual(report.verdict, 'READY');
+});
+
+test('a control row without worker_heartbeat_at means 044 is not applied', async () => {
+  const control = Object.assign({}, HEALTHY_CONTROL);
+  delete control.worker_heartbeat_at;
+  delete control.worker_id;
+  delete control.worker_version;
+  const report = await buildReport(baseEnv(), fakeFetch(healthyRoutes()), {
+    admin: fakeAdmin({ control })
+  });
+  assert.strictEqual(report.database.migration044, false);
+  assert.ok(report.warnings.some((w) => /migration 044 is not applied/.test(w)));
+  assert.strictEqual(report.verdict, 'READY_WITH_WARNINGS');
+});
+
+test('an unreadable control row is an issue, not a crash', async () => {
+  const report = await buildReport(baseEnv(), fakeFetch(healthyRoutes()), {
+    admin: fakeAdmin({ controlError: { message: '', code: 'PGRST301' } })
+  });
+  assert.strictEqual(report.database.ok, false);
+  assert.strictEqual(report.database.reason, 'control-unreadable');
+  assert.ok(report.issues.some((i) => /publisher database/.test(i)));
+  assert.strictEqual(report.verdict, 'NOT_READY');
+});
+
+test('a missing control row is reported distinctly', async () => {
+  const report = await buildReport(baseEnv(), fakeFetch(healthyRoutes()), {
+    admin: fakeAdmin({ control: null })
+  });
+  assert.strictEqual(report.database.ok, false);
+  assert.strictEqual(report.database.reason, 'control-row-missing');
+});
+
+test('the database section issues selects only', async () => {
+  const admin = fakeAdmin({ control: HEALTHY_CONTROL, counts: {} });
+  await buildReport(baseEnv(), fakeFetch(healthyRoutes()), { admin });
+  const ops = new Set(admin.calls.map((c) => c.op));
+  assert.deepStrictEqual([...ops].sort(), ['from', 'select']);
+  for (const forbidden of ['update', 'insert', 'delete', 'upsert', 'rpc']) {
+    assert.ok(!ops.has(forbidden), 'must never call ' + forbidden);
+  }
+});
+
+test('the database section is skipped when no client is supplied', async () => {
+  const report = await buildReport(baseEnv(), fakeFetch(healthyRoutes()));
+  assert.strictEqual(report.database, null);
+  assert.strictEqual(report.verdict, 'READY');
+});

@@ -1,8 +1,8 @@
 -- ============================================================================
 -- Arbitrix - Telegram production database readiness check
 -- ============================================================================
--- READ-ONLY verification for migrations 038, 039, 040 and 041.
--- Answers: "is this database ready for the four undeployed commits, and what
+-- READ-ONLY verification for migrations 038-044.
+-- Answers: "is this database ready for the Telegram marketing stack, and what
 -- exactly is missing if not?"
 --
 -- SAFETY
@@ -30,7 +30,11 @@
 --                                   (013); its reminder RPC also needs 038 and
 --                                   039 tables at runtime
 --   041 legacy deposit credit     : needs 040 + deposits/wallets/transactions
---   Apply 038 -> 039 -> (040 + 041 together).
+--   042 provider credit marker    : re-creates a 021 function (021 required)
+--   043 marketing claim lease     : needs 038
+--   044 marketing worker heartbeat: needs 038 (adds three columns to the
+--                                   control row; never touches paused/dry_run)
+--   Apply 038 -> 039 -> (040 + 041 together) -> 042 -> 043 -> 044.
 -- ============================================================================
 
 
@@ -499,6 +503,47 @@ from ctl;
 
 
 -- ----------------------------------------------------------------------------
+-- 10b. Worker heartbeat (migration 044)
+--      The publisher writes worker_heartbeat_at on every tick, before it reads
+--      any gate, so a paused or dry-run worker still proves it is alive.
+--      A heartbeat older than 3 tick intervals (180s) means the worker is not
+--      running against THIS database.
+-- ----------------------------------------------------------------------------
+with hb as (
+  select case
+           when to_regclass('public.telegram_marketing_control') is null then null
+           when not exists (
+             select 1 from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'telegram_marketing_control'
+                and column_name = 'worker_heartbeat_at'
+           ) then null
+           else query_to_xml(
+                  'select coalesce(max(worker_heartbeat_at)::text, '''') as at,
+                          coalesce(max(worker_id), '''') as worker_id,
+                          coalesce(max(worker_version), '''') as version,
+                          coalesce(round(extract(epoch from (now() - max(worker_heartbeat_at))))::text, '''') as age_s
+                     from public.telegram_marketing_control',
+                  false, true, '')
+         end as x
+)
+select 'worker-heartbeat' as check_type,
+       'telegram_marketing_control.worker_heartbeat_at' as object_name,
+       case when x is null then 'MISSING'
+            when coalesce((xpath('/row/at/text()', x))[1]::text, '') = '' then 'NEVER'
+            when coalesce((xpath('/row/age_s/text()', x))[1]::text, '999999')::numeric > 180 then 'STALE'
+            else 'OK' end as status,
+       case when x is null
+              then '(migration 044 not applied - the worker cannot report liveness)'
+            else 'heartbeat=' || coalesce(nullif((xpath('/row/at/text()', x))[1]::text, ''), 'never')
+              || ' / age_s='  || coalesce(nullif((xpath('/row/age_s/text()', x))[1]::text, ''), 'n/a')
+              || ' / worker_id=' || coalesce(nullif((xpath('/row/worker_id/text()', x))[1]::text, ''), 'n/a')
+              || ' / version='   || coalesce(nullif((xpath('/row/version/text()', x))[1]::text, ''), 'n/a')
+       end as detail
+from hb;
+
+
+-- ----------------------------------------------------------------------------
 -- 11. Queue volume by status (counts only - no content, no chat ids)
 -- ----------------------------------------------------------------------------
 with q as (
@@ -645,7 +690,11 @@ with probe as (
       where table_schema = 'public' and table_name = 'telegram_marketing_posts'
         and column_name in ('claimed_by', 'lease_expires_at', 'last_attempt_at')) as n_lease_cols,
     (to_regprocedure('public.claim_marketing_posts(timestamp with time zone, integer, text, integer)') is not null) as f_claim_lease,
-    (to_regprocedure('public.finish_marketing_post(bigint, boolean, bigint, text, timestamp with time zone, text)') is not null) as f_finish_lease
+    (to_regprocedure('public.finish_marketing_post(bigint, boolean, bigint, text, timestamp with time zone, text)') is not null) as f_finish_lease,
+    -- 044: the worker liveness columns on the control row.
+    (select count(*) from information_schema.columns
+      where table_schema = 'public' and table_name = 'telegram_marketing_control'
+        and column_name in ('worker_heartbeat_at', 'worker_id', 'worker_version')) as n_hb_cols
 )
 select 'verdict' as check_type, '038 marketing broadcast' as object_name,
        case when t_posts and t_control and t_sends and t_subs and f_claim then 'APPLIED'
@@ -691,6 +740,13 @@ select 'verdict', '043 marketing claim lease',
        'claimed_by/lease_expires_at/last_attempt_at + the 4-arg claim and 6-arg fenced finish'
 from probe
 union all
+select 'verdict', '044 marketing worker heartbeat',
+       case when n_hb_cols = 3 then 'APPLIED'
+            when n_hb_cols = 0 then 'NOT APPLIED'
+            else 'PARTIAL' end,
+       'worker_heartbeat_at/worker_id/worker_version on telegram_marketing_control'
+from probe
+union all
 select 'verdict', 'NEXT ACTION',
        case
          when not (t_posts or t_links or t_events)
@@ -711,8 +767,10 @@ select 'verdict', 'NEXT ACTION',
            then 'Re-apply 043 (the lease claim signature is missing)'
          when m_marker and n_lease_cols = 3 and f_claim_lease and not f_finish_lease
            then 'Re-apply 043 (the fenced finish signature is missing)'
-         when t_posts and t_links and t_events and c_deposits_credited and f_backfill and m_marker and n_lease_cols = 3
-           then 'No migration work required for 038-043'
+         when m_marker and n_lease_cols = 3 and f_finish_lease and n_hb_cols <> 3
+           then 'Apply 044 (the worker cannot report liveness)'
+         when t_posts and t_links and t_events and c_deposits_credited and f_backfill and m_marker and n_lease_cols = 3 and n_hb_cols = 3
+           then 'No migration work required for 038-044'
          else 'Review the individual rows above'
        end,
        'derived from the object probes above'

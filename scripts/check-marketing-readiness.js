@@ -7,13 +7,16 @@
  * ANSWERS ONE QUESTION: can the bot deliver the approved posts to the configured
  * destinations, and can it pin the Start Here guide?
  *
- * It sends NOTHING. Every call is a Bot API read (getMe, getChat,
- * getChatMember) and the database is never touched. Run it in the host shell
+ * It sends NOTHING. Telegram calls are reads only (getMe, getChat,
+ * getChatMember). When a service-role credential is present it also READS the
+ * publisher control row, the worker heartbeat and the queue counts - never a
+ * write, never a chat id, never a message body. Run it in the host shell
  * (Render: Shell tab) so it reads the SAME environment the deploy loaded.
  *
  * Usage:
  *   node scripts/check-marketing-readiness.js           # human readable
  *   node scripts/check-marketing-readiness.js --json    # machine readable
+ *   node scripts/check-marketing-readiness.js --no-db   # skip the database read
  *
  * SAFETY
  *   * Never prints the bot token or any Supabase key.
@@ -27,6 +30,8 @@
  */
 
 const { probeTelegramMethod } = require('../services/TelegramSupportService');
+const { workerHealth } = require('../services/TelegramBroadcast');
+const { createMarketingStore } = require('../services/MarketingStore');
 
 const CHANNEL_ID_FORMAT = /^-100\d{6,}$/;
 
@@ -82,13 +87,63 @@ function pinningRight(member) {
 }
 
 /**
+ * Read the publisher control row, the worker heartbeat and the queue counts.
+ *
+ * READ-ONLY by construction: this function only issues selects. It never calls
+ * .update(), .insert(), .delete() or .rpc(), so running it can not change a gate,
+ * a post or a consent row.
+ *
+ * @param {object} admin service-role Supabase client
+ */
+async function checkDatabase(admin) {
+  if (!admin) return { ok: false, reason: 'no-client' };
+  try {
+    const control = await admin
+      .from('telegram_marketing_control')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    if (control.error) {
+      return { ok: false, reason: 'control-unreadable', errorCode: control.error.code || null };
+    }
+    if (!control.data) return { ok: false, reason: 'control-row-missing' };
+
+    const row = control.data;
+    const migration044 = Object.prototype.hasOwnProperty.call(row, 'worker_heartbeat_at');
+    const store = createMarketingStore({ admin, logger: { warn() {} } });
+    const counts = await store.countByStatus();
+
+    return {
+      ok: true,
+      migration044,
+      control: {
+        paused: row.paused === true,
+        dryRun: row.dry_run === true,
+        updatedAt: row.updated_at || null
+      },
+      heartbeat: workerHealth(row),
+      queue: counts.ok ? counts.data : null,
+      queueError: counts.ok ? null : counts.reason
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'db-error',
+      errorCode: error && error.code ? String(error.code) : null
+    };
+  }
+}
+
+/**
  * Build the report. Pure with respect to `fetchImpl`, so tests never touch the
  * network.
  *
  * @param {object} env environment-shaped object
  * @param {Function} fetchImpl injected fetch
+ * @param {{admin?: object}} deps optional service-role client for the read-only
+ *   database section; omitted by tests so nothing leaves the process
  */
-async function buildReport(env, fetchImpl) {
+async function buildReport(env, fetchImpl, deps) {
   const e = env || {};
   const token = String(e.TELEGRAM_BOT_TOKEN || '').trim();
   const groupId = String(e.TELEGRAM_MARKETING_CHAT_ID || '').trim();
@@ -103,9 +158,32 @@ async function buildReport(env, fetchImpl) {
     group: Object.assign(describeId(groupId), { reachable: null, type: null, botStatus: null, canPost: null, canPin: null }),
     channel: Object.assign(describeId(channelId), { reachable: null, type: null, botStatus: null, canPost: null, canPin: null }),
     sameChatConfigured: Boolean(groupId) && groupId === channelId,
+    database: null,
     issues,
     warnings
   };
+
+  // The database section is READ-ONLY and optional: it runs before the Telegram
+  // checks so an operator still sees control/heartbeat/queue state on a service
+  // that has no bot token configured.
+  if (deps && deps.admin) {
+    const db = await checkDatabase(deps.admin);
+    report.database = db;
+    if (!db.ok) {
+      issues.push(
+        'publisher database: ' +
+        (db.reason === 'control-unreadable'
+          ? 'the control row is unreadable - is migration 038 applied and is the service key correct?'
+          : db.reason === 'control-row-missing'
+            ? 'the control row does not exist - re-apply migration 038'
+            : 'the database could not be read (' + db.reason + ')')
+      );
+    } else if (!db.migration044) {
+      warnings.push(
+        'migration 044 is not applied - the worker cannot record a heartbeat, so liveness is invisible'
+      );
+    }
+  }
 
   if (!token) {
     issues.push('TELEGRAM_BOT_TOKEN is not set on this service');
@@ -252,6 +330,21 @@ function printHuman(report) {
   console.log('chat type                  :', report.channel.type || 'n/a');
   console.log('bot status                 :', report.channel.botStatus || 'n/a');
   console.log('bot can post               :', yesNo(report.channel.canPost));
+  if (report.database) {
+    const db = report.database;
+    console.log('--- publisher database (read-only) ---');
+    if (!db.ok) {
+      console.log('readable                   : no (' + db.reason + ')');
+    } else {
+      console.log('migration 044 (heartbeat)  :', db.migration044);
+      console.log('control paused / dry run   :', db.control.paused, '/', db.control.dryRun);
+      console.log('worker heartbeat           :', db.heartbeat.healthy ? 'healthy' : 'unhealthy');
+      console.log('heartbeat note             :', db.heartbeat.note);
+      if (db.heartbeat.ageMs !== null) console.log('heartbeat age (ms)         :', db.heartbeat.ageMs);
+      console.log('worker id / version        :', (db.heartbeat.workerId || 'n/a') + ' / ' + (db.heartbeat.version || 'n/a'));
+      console.log('queue by status            :', db.queue ? JSON.stringify(db.queue) : 'unreadable (' + (db.queueError || '?') + ')');
+    }
+  }
   if (report.issues.length) {
     console.log('--- issues ---');
     for (const issue of report.issues) console.log('-', issue);
@@ -265,7 +358,21 @@ function printHuman(report) {
 
 async function main() {
   const json = process.argv.includes('--json');
-  const report = await buildReport(process.env);
+  const skipDb = process.argv.includes('--no-db');
+  const url = String(process.env.SUPABASE_URL || '').trim();
+  const key = String(
+    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  ).trim();
+  let admin = null;
+  if (!skipDb && url && key) {
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    } catch (error) {
+      admin = null;
+    }
+  }
+  const report = await buildReport(process.env, undefined, { admin });
   if (json) console.log(JSON.stringify(report, null, 2));
   else printHuman(report);
 
@@ -280,4 +387,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildReport, verdictLine, maskId, describeId, postingRight, pinningRight };
+module.exports = { buildReport, checkDatabase, verdictLine, maskId, describeId, postingRight, pinningRight };
