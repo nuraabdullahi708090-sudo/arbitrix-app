@@ -59,7 +59,7 @@ function post(over) {
 
 function fakeStore(options) {
   const o = options || {};
-  const calls = { claim: 0, countDue: 0, finish: [], block: [], sends: [], control: 0 };
+  const calls = { claim: 0, countDue: 0, finish: [], block: [], sends: [], control: 0, claimArgs: [], sentChecks: [] };
   const claims = o.claims ? o.claims.slice() : [o.claim || []];
   return {
     calls,
@@ -71,19 +71,29 @@ function fakeStore(options) {
       calls.countDue += 1;
       return o.due ? { ok: true, count: o.due } : { ok: true, count: 0 };
     },
-    async claimDue() {
+    async claimDue(args) {
       calls.claim += 1;
+      calls.claimArgs.push(args || {});
       if (o.claimError) return { ok: false, reason: 'claim-failed', error: 'boom' };
       const next = claims.length ? claims.shift() : [];
       return { ok: true, data: next };
     },
     async finish(args) {
       calls.finish.push(args);
-      return { ok: true, data: {} };
+      // A fenced finish (lease reclaimed by another worker) returns no row.
+      return { ok: true, data: o.finishRefused ? null : {} };
     },
-    async block(id, reason) {
-      calls.block.push({ id, reason });
-      return { ok: true };
+    async block(id, reason, workerId) {
+      calls.block.push({ id, reason, workerId });
+      return { ok: true, data: o.blockRefused ? null : {} };
+    },
+    // Migration 043: the worker reconciles against the send audit before
+    // re-publishing a reclaimed post.
+    async hasSentRecord({ postId } = {}) {
+      calls.sentChecks.push(postId);
+      if (o.sentError) return { ok: false, reason: 'send-audit-unreadable', error: 'boom' };
+      const hit = (o.sentRecords || {})[postId];
+      return hit ? { ok: true, sent: true, messageId: hit } : { ok: true, sent: false, messageId: null };
     },
     async recordSend(row) {
       calls.sends.push(row);

@@ -205,13 +205,17 @@ test('no new environment variable or migration was added for assets', () => {
   // 001..037 existed before the asset-universe change; 038 is the separately
   // approved Telegram marketing queue, 039 the Telegram account-link table,
   // 040 the conversion-events outbox and 041 the atomic legacy deposit credit.
+  // 042 records the deposit-credit audit marker and 043 adds the marketing
+  // claim lease (see docs/TELEGRAM_RECOVERY_AUDIT.md, sections 17 and 19).
   // The asset universe itself is display metadata and needs no schema change,
-  // which the next assertion still proves.
-  assert.strictEqual(migrations.length, 41, 'only approved migrations may be added');
+  // which the next assertions still prove.
+  assert.strictEqual(migrations.length, 43, 'only approved migrations may be added');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');
   assert.ok(migrations.includes('041_legacy_deposit_atomic_credit.sql'), '041 is the legacy credit fix');
+  assert.ok(migrations.includes('042_confirm_payment_credit_marker.sql'), '042 is the credit-marker fix');
+  assert.ok(migrations.includes('043_marketing_claim_lease.sql'), '043 is the marketing claim lease');
   assert.ok(!migrations.some((f) => /trading.?assets?/i.test(f)), 'no asset-allow-list migration should exist');
 });
 

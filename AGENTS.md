@@ -7361,3 +7361,116 @@ The server never accepts a chat id, price, percentage or recipient list from the
   which 041 creates, so they belong in the same batch; shipping code first is
   safe (a missing RPC falls back to the previous behaviour; a status-only flip
   still notifies nothing).
+- Telegram recovery + deployment readiness (2026-10-28): `docs/TELEGRAM_RECOVERY_AUDIT.md` (deployment state, D1/D2 defects, rollout plan) and a read-only DB check `docs/sql/telegram_db_readiness.sql` (verifies migrations 038-041; run it in the Supabase SQL editor before deploying the four pending commits).
+
+
+## Telegram/marketing recovery follow-up: migrations 042 + 043 (2026-10-28, NOT applied, NOT deployed)
+- Delivers the two fixes the read-only audit specified, plus the operator runbook.
+  No commit, no push, no deploy, no migration applied to production; every production
+  interaction this session was read-only (HTTP probes only).
+- `supabase/migrations/042_confirm_payment_credit_marker.sql` - fixes D1: the provider
+  credit path `confirm_payment_with_credit()` never set `payment_invoices.credited`, so
+  the 040 trigger wrote no `deposit_confirmed` event and the customer got no Telegram
+  notification (money was correct). The file re-creates the 021 body BYTE-IDENTICALLY
+  plus exactly one line (`credited = TRUE,` after `status = 'confirmed',`), refuses to run
+  without 021, keeps grants service_role-only, has no backfill and self-checks in a DO
+  block. Proven on real PostgreSQL 16: one event per confirmed invoice, replay is
+  `duplicate` with no second credit, referral award fires once.
+- `supabase/migrations/043_marketing_claim_lease.sql` - fixes the marketing queue leak:
+  `claim_marketing_posts()` only ever looked at `status='scheduled'`, so a worker that
+  died mid-send stranded the post in `sending` forever. Adds `claimed_by` /
+  `lease_expires_at` / `last_attempt_at` + a partial index, reclaims ONLY expired leases,
+  marks a claim `failed` (`last_error='lease_expired'`) once attempts are exhausted,
+  fences `finish_marketing_post`/`block_marketing_post` on the current claimant, and
+  never mass-resets `sending` rows (that would double-post with two workers).
+- Worker code: `services/MarketingStore` passes `p_worker_id`/`p_lease_seconds` and gained
+  `hasSentRecord()`; `services/MarketingWorker` carries a claimant id + lease, reconciles
+  a reclaimed post against the send audit before re-sending (a `sent` row is finished as
+  published, never posted twice), fails CLOSED when the audit is unreadable, and reports
+  `post_reconciled` / `post_lease_lost` with `stats.reconciled` / `stats.leaseLost`.
+  `TELEGRAM_MARKETING_LEASE_SECONDS` (30..900, default 180) documented in `.env.example`.
+- Deployment coupling (important): 043 DROPS the 038 2/5/2-argument RPC signatures, so it
+  must not be applied while a worker using the old ones runs. Publishing is off
+  (`TELEGRAM_MARKETING_ENABLED` unset, control row paused + dry_run), so the worker exits
+  at its first gate and the swap is safe.
+- `docs/sql/telegram_db_readiness.sql` now verifies 042 and 043 (sections 3c, 4, 4b, 6, 9
+  and 14). Verified on a real PostgreSQL: 169 OK / 0 problems when fully migrated, and the
+  `NEXT ACTION` row walks correctly through nothing -> 038-041 -> +042 -> +043
+  ("Apply 040 + 041 together" -> "Apply 042" -> "Apply 043" -> "No migration work
+  required for 038-043"). The script stays SELECT-only.
+- `docs/TELEGRAM_RECOVERY_AUDIT.md`: sections 17.4/17.5 and 19.2/19.5 now say IMPLEMENTED
+  (they previously said "prepared, not written"); new section 21 is the exact production
+  runbook (backup, per-file order, 040+041 in one transaction, 042, 043, verification
+  queries, per-migration rollback, and what 038-043 still do NOT fix).
+- Tests: `tests/migration_042_payment_credit_marker.test.js` (14 - the body diff must be
+  exactly one inserted line, locking/idempotency/referral/grants/no-backfill pinned) and
+  `tests/marketing_lease_recovery.test.js` (18 - SQL contract, store wiring, and the worker
+  behaviour: crash recovery, stale claimant, already-sent reconciliation, unreadable audit
+  fails closed, two workers stay apart). `tests/marketing_publishing.test.js` fake store
+  now models `hasSentRecord`/fenced finish; `tests/trading_assets.test.js` migration-count
+  pin 41 -> 43. `npm test` = 2520 tests, 2519 pass, 1 fail (the PRE-EXISTING
+  how_it_works_video master-asset fixture; identical before this work).
+- LESSON (scripted edits): a blanket `sed`-style replacement of `await store.block(post.id,`
+  also rewrote the body of the new `blockOwned()` helper into a recursive self-call.
+  When introducing a wrapper, define it AFTER the global replace, or exclude the helper
+  definition. Caught by `node --check`? No - it is syntactically valid; it was caught by
+  reading the helper and fixed immediately. Always re-read a generated wrapper.
+
+
+## Production backup procedure before migrations 038-043 (2026-10-28, prepared, NOT executed)
+- Free Plan has no scheduled backups and no PITR, so a manual dump is the only restore
+  point for the deployment window. `docs/BACKUP_BEFORE_038_043.md` is the procedure;
+  `scripts/backup-supabase-db.sh` is a guarded helper.
+- INVENTORY FINDING that shapes the procedure: 13 tables the application reads/writes
+  are NOT declared in any migration - users, wallets, transactions, deposits,
+  withdrawals, referrals, referral_config, referral_config_audit_log, audit_logs,
+  bot_sessions, email_2fa_attempts, email_verification_codes, feature_flags. The schema
+  therefore cannot be rebuilt by replaying supabase/migrations (no baseline for the
+  money tables), so the dump is both the restore point and the only true inventory of
+  production objects. 43 migrations declare 41 tables / 57 functions / 20 triggers /
+  42 policies / 86 indexes; 038-043 add 7 tables / 16 functions / 4 triggers /
+  7 policies / 14 indexes. Functions that move money are captured by the dump only.
+- SCOPE GAP recorded: pg_dump does not copy Supabase Storage files. KYC documents live
+  in the private `kyc-documents` bucket (services/KYCService.js), so they need a
+  separate bucket export; the manifest states whether that was done.
+- PROCEDURE: `.pgpass` (0600) + PGHOST/PGPORT/PGUSER/PGDATABASE/PGSSLMODE only; direct
+  connection or SESSION pooler (5432), never the transaction pooler (6543); two dumps
+  (`-Fc --no-owner` for fidelity, plain `--no-owner --no-privileges` for portability),
+  sha256, TOC validation, restore into a scratch database, row/object comparison.
+- THREE PITFALLS reproduced while writing this, all now encoded in the doc/script:
+  1. `pg_dump ... | tail` reports the exit status of `tail`, so a failed dump looks
+     successful and leaves a 0-byte file whose sha256 is the hash of empty
+     (e3b0c442...). Check pg_dump's own status, file size and the TOC.
+  2. A dump contains `CREATE SCHEMA public`, so restoring into a database that already
+     has `public` fails on the first statement under ON_ERROR_STOP. Drop schema public
+     cascade in the SCRATCH target first (documented; never in production).
+  3. A bare `grep -c FUNCTION` on `pg_restore --list` over-counts (34 vs 17) because
+     ACL and COMMENT rows also contain the word. Use the anchored
+     `^[0-9]+; [0-9]+ [0-9]+ FUNCTION ` form.
+- REHEARSED END TO END on local PostgreSQL 16 with 038-043 applied (never staging or
+  production): script RC=0, custom 100-103 KB + plain 71-73 KB dumps, TOC 15 TABLE DATA
+  / 17 FUNCTION / 4 TRIGGER / 7 POLICY, MANIFEST + SHA256SUMS written, restore into a
+  separate database rc=0, and every row count plus sum(live_balance) identical before
+  and after.
+- NOT DONE HERE and NOT CLAIMED: no production backup exists. This sandbox has no
+  pg_dump/pg_restore/psql, no database password (SUPABASE_SERVICE_ROLE_KEY is an API
+  key, not a DB credential) and the project host does not resolve, so the operator must
+  run sections 2-8 on a machine with the client tools and network access.
+
+- BACKUP TOOLING ADDENDUM (2026-10-28): `scripts/backup-supabase-db.sh` was hardened for
+  non-expert use - portable SHA-256 (sha256sum/shasum/openssl, aborts if none, so no empty
+  SHA256SUMS), portable file mode (stat -c then stat -f), a client/server major-version
+  guard, and the data-entry expectation now counts `pg_class.relkind='r'` instead of
+  information_schema.tables (partitioned parents carry no data entry, which would have
+  produced a false failure). NEW `scripts/verify-backup-restore.sh` performs the restore
+  test with only Docker: throwaway postgres:16 container, no published port, restores the
+  dump, diffs counts against reference-counts.txt, prints PASS (0) / REVIEW (2), and
+  refuses any `--target-url` that is a Supabase or non-local host. Two findings from its
+  rehearsal, both fixed and documented: a Supabase dump's RLS policies reference
+  anon/authenticated/service_role, which do not exist on vanilla PostgreSQL (the helper
+  now pre-creates them, otherwise --exit-on-error aborts with a false negative); and the
+  helper originally wrote restore.log/counts/diff into the caller's cwd (now a mktemp dir
+  removed on exit, with one combined EXIT trap because bash keeps only one).
+  docs/BACKUP_BEFORE_038_043.md was rewritten as a quick-start procedure. Rehearsed end
+  to end on local PostgreSQL 16: backup rc=0, verify PASS, caller directory untouched, no
+  stray containers. Still NOT executed against production and no production backup exists.

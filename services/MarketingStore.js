@@ -61,10 +61,14 @@ function createMarketingStore(options) {
      * Atomically claim due posts. The RPC uses FOR UPDATE SKIP LOCKED, so two
      * workers can never claim (and therefore never send) the same post.
      */
-    async claimDue({ now, limit } = {}) {
+    async claimDue({ now, limit, workerId, leaseSeconds } = {}) {
       const { data, error } = await admin.rpc('claim_marketing_posts', {
         p_now: now || new Date().toISOString(),
-        p_limit: Math.min(Math.max(Number(limit) || 5, 1), 25)
+        p_limit: Math.min(Math.max(Number(limit) || 5, 1), 25),
+        // Migration 043: the claimant + lease that make a crashed claim
+        // recoverable. A NULL lease falls back to the SQL default (180s).
+        p_worker_id: workerId || null,
+        p_lease_seconds: Number.isFinite(Number(leaseSeconds)) ? Number(leaseSeconds) : null
       });
       if (error) {
         // A missing table/function means migration 038 has not been applied.
@@ -74,25 +78,48 @@ function createMarketingStore(options) {
       return { ok: true, data: data || [] };
     },
 
-    async finish({ id, ok, messageId, error, retryAt }) {
+    async finish({ id, ok, messageId, error, retryAt, workerId }) {
       const { data, error: rpcError } = await admin.rpc('finish_marketing_post', {
         p_id: id,
         p_ok: Boolean(ok),
         p_message_id: messageId || null,
         p_error: error ? scrub(error) : null,
-        p_retry_at: retryAt || null
+        p_retry_at: retryAt || null,
+        // Fenced on the current claimant: a worker whose lease was reclaimed
+        // gets null back instead of overwriting the new owner's outcome.
+        p_worker_id: workerId || null
       });
       if (rpcError) return fail('finish-failed', rpcError);
       return { ok: true, data: Array.isArray(data) ? data[0] : data };
     },
 
-    async block(id, reason) {
+    async block(id, reason, workerId) {
       const { data, error } = await admin.rpc('block_marketing_post', {
         p_id: id,
-        p_reason: reason ? scrub(reason) : null
+        p_reason: reason ? scrub(reason) : null,
+        p_worker_id: workerId || null
       });
       if (error) return fail('block-failed', error);
       return { ok: true, data: Array.isArray(data) ? data[0] : data };
+    },
+
+    /**
+     * Has this post already been delivered? A reclaimed post may have been sent
+     * by the worker that died, so the next owner reconciles instead of posting
+     * a duplicate. Unreadable audit => { ok: false } and the caller must NOT
+     * send (fail closed: a duplicate channel post is worse than a delay).
+     */
+    async hasSentRecord({ postId } = {}) {
+      if (!postId) return { ok: true, sent: false, messageId: null };
+      const { data, error } = await admin
+        .from(SENDS)
+        .select('telegram_message_id')
+        .eq('post_id', postId)
+        .eq('status', 'sent')
+        .limit(1);
+      if (error) return fail('send-audit-unreadable', error);
+      const row = Array.isArray(data) ? data[0] : null;
+      return { ok: true, sent: Boolean(row), messageId: row ? row.telegram_message_id : null };
     },
 
     /** Count of posts that are due right now (used by dry-run reporting). */

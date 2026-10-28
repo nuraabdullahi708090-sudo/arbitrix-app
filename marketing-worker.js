@@ -90,6 +90,10 @@ async function main() {
   const worker = createMarketingWorker({
     store,
     transport,
+    // Migration 043: the claimant identity and lease that make a crashed claim
+    // recoverable by another worker instead of stranded in 'sending'.
+    workerId: config.workerId,
+    leaseSeconds: config.leaseSeconds,
     config: Object.assign({}, config, { facts })
   });
 
@@ -108,6 +112,8 @@ async function main() {
     paused: Boolean(control.data.paused),
     dryRun: Boolean(control.data.dry_run),
     tickMs: config.tickMs,
+    workerId: config.workerId,
+    leaseSeconds: config.leaseSeconds,
     tokenPresent: Boolean(process.env.TELEGRAM_BOT_TOKEN)
   });
 

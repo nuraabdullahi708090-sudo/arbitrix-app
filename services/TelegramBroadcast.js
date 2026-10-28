@@ -98,6 +98,9 @@ function resolveMarketingConfig(env) {
     timezone: firstString(e.TELEGRAM_MARKETING_TIMEZONE) || 'UTC',
     tickMs: intFromEnv(e.TELEGRAM_MARKETING_TICK_MS, 60000, 15000, 900000),
     workerId: firstString(e.TELEGRAM_MARKETING_WORKER_ID) || 'marketing-worker',
+    // Migration 043: how long a claim is owned before another worker may
+    // recover it. Bounded 30..900s; the default is far longer than one send.
+    leaseSeconds: intFromEnv(e.TELEGRAM_MARKETING_LEASE_SECONDS, 180, 30, 900),
     registerUrl,
     howItWorksUrl: httpUrl(e.TELEGRAM_MARKETING_HOW_IT_WORKS_URL) ||
       (baseUrl ? baseUrl + '/how-it-works' : OFFICIAL_LINKS.howItWorksUrl),

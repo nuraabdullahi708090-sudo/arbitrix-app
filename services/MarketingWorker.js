@@ -45,10 +45,22 @@ function createMarketingWorker(options) {
   if (!transport) throw new Error('createMarketingWorker requires a transport');
 
   const limiter = opts.rateLimiter || createRateLimiter({ maxPerMinute: 15 });
+
+  // Migration 043: every claim is owned by a named worker for a bounded lease,
+  // so a claim that dies (crash, deploy, hung call) can be recovered instead of
+  // sitting in 'sending' forever.
+  const workerId = opts.workerId || config.workerId || 'marketing-worker';
+  const leaseSeconds = (() => {
+    const raw = Number(opts.leaseSeconds || config.leaseSeconds);
+    return Number.isFinite(raw) && raw >= 30 && raw <= 900 ? Math.round(raw) : 180;
+  })();
+
   const stats = {
     ticks: 0,
     claimed: 0,
     sent: 0,
+    reconciled: 0,
+    leaseLost: 0,
     failed: 0,
     blocked: 0,
     skipped: 0,
@@ -71,10 +83,61 @@ function createMarketingWorker(options) {
     }
   }
 
+  /**
+   * finish() carrying this worker's id. The RPC is fenced on the current
+   * claimant, so if the row was reclaimed while we worked it returns no row and
+   * we must NOT overwrite the new owner's outcome - we only record the fact.
+   */
+  async function finishOwned(post, payload) {
+    const result = await store.finish(Object.assign({ id: post.id, workerId }, payload || {}));
+    if (result && result.ok && !result.data) {
+      stats.leaseLost += 1;
+      report('post_lease_lost', { postId: post.id, action: 'finish' });
+    }
+    return result;
+  }
+
+  async function blockOwned(post, reason) {
+    const result = await store.block(post.id, reason, workerId);
+    if (result && result.ok && !result.data) {
+      stats.leaseLost += 1;
+      report('post_lease_lost', { postId: post.id, action: 'block' });
+    }
+    return result;
+  }
+
+  /**
+   * A reclaimed post may already have been delivered by the worker that died.
+   * Reconcile against the send audit before publishing again; an unreadable
+   * audit fails CLOSED (retry later) rather than risk a duplicate post.
+   * Returns 'sent' | 'unknown' | null.
+   */
+  async function alreadyDelivered(post) {
+    const prior = await store.hasSentRecord({ postId: post.id });
+    if (!prior.ok) {
+      await finishOwned(post, {
+        ok: false,
+        error: 'send-audit-unreadable',
+        retryAt: new Date(clock() + backoffMs(post.attempts)).toISOString()
+      });
+      stats.failed += 1;
+      report('post_reconcile_failed', { postId: post.id, reason: prior.reason });
+      return 'unknown';
+    }
+    if (!prior.sent) return null;
+    await finishOwned(post, { ok: true, messageId: prior.messageId });
+    stats.reconciled += 1;
+    report('post_reconciled', { postId: post.id, messageId: prior.messageId || null });
+    return 'sent';
+  }
+
   async function sendOne(post, chatId) {
+    const reconciled = await alreadyDelivered(post);
+    if (reconciled) return reconciled === 'sent' ? 'reconciled' : 'failed';
+
     const guard = checkContent(post.content, Object.assign({ locale: post.locale }, guardOptions));
     if (guard.blocked) {
-      await store.block(post.id, guard.violations.map((v) => v.code).join(','));
+      await blockOwned(post, guard.violations.map((v) => v.code).join(','));
       await store.recordSend({
         postId: post.id,
         audience: post.audience,
@@ -90,7 +153,7 @@ function createMarketingWorker(options) {
 
     const slot = limiter.take(chatId);
     if (!slot.ok) {
-      await store.finish({
+      await finishOwned(post, {
         id: post.id,
         ok: false,
         error: 'rate-limited',
@@ -108,7 +171,7 @@ function createMarketingWorker(options) {
     try {
       const message = await transport.sendMessage(chatId, post.content, replyMarkup ? { reply_markup: replyMarkup } : undefined);
       const messageId = message && message.message_id ? message.message_id : null;
-      await store.finish({ id: post.id, ok: true, messageId });
+      await finishOwned(post, { id: post.id, ok: true, messageId });
       await store.recordSend({
         postId: post.id,
         audience: post.audience,
@@ -123,7 +186,7 @@ function createMarketingWorker(options) {
     } catch (error) {
       const retryMs = retryAfterMs(error) || backoffMs(post.attempts, { baseMs: 60000, maxMs: 3600000 });
       const messageText = scrub(error && error.message ? error.message : error);
-      await store.finish({
+      await finishOwned(post, {
         id: post.id,
         ok: false,
         error: messageText,
@@ -144,9 +207,12 @@ function createMarketingWorker(options) {
   }
 
   async function sendToSubscribers(post) {
+    const reconciled = await alreadyDelivered(post);
+    if (reconciled) return reconciled === 'sent' ? 'reconciled' : 'failed';
+
     const guard = checkContent(post.content, Object.assign({ locale: post.locale }, guardOptions));
     if (guard.blocked) {
-      await store.block(post.id, guard.violations.map((v) => v.code).join(','));
+      await blockOwned(post, guard.violations.map((v) => v.code).join(','));
       stats.blocked += 1;
       report('post_blocked', { postId: post.id, codes: guard.violations.map((v) => v.code) });
       return 'blocked';
@@ -154,14 +220,14 @@ function createMarketingWorker(options) {
 
     const subscribers = await store.listSubscribers({ limit: 500 });
     if (!subscribers.ok) {
-      await store.finish({ id: post.id, ok: false, error: 'subscribers-unreadable' });
+      await finishOwned(post, { id: post.id, ok: false, error: 'subscribers-unreadable' });
       stats.failed += 1;
       return 'failed';
     }
     if (!subscribers.data.length) {
       // Nothing to send to. Publish the queue item with a skipped audit row so
       // it does not retry forever.
-      await store.finish({ id: post.id, ok: true });
+      await finishOwned(post, { id: post.id, ok: true });
       await store.recordSend({
         postId: post.id,
         audience: 'subscribers',
@@ -202,7 +268,7 @@ function createMarketingWorker(options) {
         });
       }
     }
-    await store.finish({ id: post.id, ok: true });
+    await finishOwned(post, { id: post.id, ok: true });
     stats.sent += delivered;
     report('post_delivered_to_subscribers', { postId: post.id, delivered });
     return 'sent';
@@ -239,7 +305,12 @@ function createMarketingWorker(options) {
       return { skipped: 'dry-run', due: due.ok ? due.count : null };
     }
 
-    const claimed = await store.claimDue({ now: new Date(clock()).toISOString(), limit: 5 });
+    const claimed = await store.claimDue({
+      now: new Date(clock()).toISOString(),
+      limit: 5,
+      workerId,
+      leaseSeconds
+    });
     if (!claimed.ok) {
       stats.lastResult = 'claim-failed';
       stats.lastError = claimed.reason;
@@ -270,7 +341,7 @@ function createMarketingWorker(options) {
       if (!valid.ok) {
         // A configuration problem is retryable (an operator may fix the env
         // var), but it is never a reason to pick a different chat.
-        await store.finish({
+        await finishOwned(post, {
           id: post.id,
           ok: false,
           error: 'destination: ' + valid.reason,
@@ -344,7 +415,9 @@ function createMarketingWorker(options) {
     config: () => ({
       enabled: Boolean(config.enabled),
       dryRun: Boolean(config.dryRun),
-      tickMs: Number(config.tickMs) || 60000
+      tickMs: Number(config.tickMs) || 60000,
+      workerId,
+      leaseSeconds
     })
   };
 }
