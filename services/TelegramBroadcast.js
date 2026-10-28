@@ -81,14 +81,35 @@ const OFFICIAL_LINKS = Object.freeze({
 });
 
 /**
+ * Classify a chat id that was supplied but could not be canonicalized.
+ *
+ * A @username (or a t.me link, or any non-numeric value) is a common paste: the
+ * Bot API resolves it for getChat, but the publisher addresses destinations by
+ * numeric id only, so such a value silently becomes "not configured". Keeping
+ * the reason lets the worker log it and the readiness check explain it instead
+ * of leaving an operator with a channel that quietly never publishes.
+ */
+function describeInvalidChatId(raw) {
+  const value = firstString(raw);
+  if (!value) return null;
+  if (/^@/.test(value)) return 'username-not-supported';
+  if (/^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(value)) return 'username-not-supported';
+  return 'malformed-chat-id';
+}
+
+/**
  * Resolve the whole marketing configuration from an env-shaped object.
  * Presence booleans only - never a token or a secret.
  */
 function resolveMarketingConfig(env) {
   const e = env || {};
   const baseUrl = firstString(e.BASE_URL).replace(/\/+$/, '');
-  const groupChatId = canonicalizeTelegramChatId(e.TELEGRAM_MARKETING_CHAT_ID) || '';
-  const rawChannelChatId = canonicalizeTelegramChatId(e.TELEGRAM_ANNOUNCEMENT_CHAT_ID) || '';
+  const rawGroupId = firstString(e.TELEGRAM_MARKETING_CHAT_ID);
+  const rawChannelId = firstString(e.TELEGRAM_ANNOUNCEMENT_CHAT_ID);
+  const groupChatId = canonicalizeTelegramChatId(rawGroupId) || '';
+  const rawChannelChatId = canonicalizeTelegramChatId(rawChannelId) || '';
+  const groupChatIdInvalid = groupChatId ? null : describeInvalidChatId(rawGroupId);
+  const channelChatIdInvalid = rawChannelChatId ? null : describeInvalidChatId(rawChannelId);
   // A channel is a different chat. If both variables hold the same id, the
   // operator almost certainly pasted the group twice, so the CHANNEL destination
   // is disabled (fail closed) instead of publishing announcement copy into the
@@ -102,6 +123,10 @@ function resolveMarketingConfig(env) {
     groupChatId,
     channelChatId: channelConflictsWithGroup ? '' : rawChannelChatId,
     channelConflictsWithGroup,
+    // Set only when a value was supplied that is not a numeric chat id, so the
+    // worker and the readiness check can say why the destination is empty.
+    groupChatIdInvalid,
+    channelChatIdInvalid,
     locale: normalizeLocale(e.TELEGRAM_MARKETING_LOCALE || DEFAULT_LOCALE),
     timezone: firstString(e.TELEGRAM_MARKETING_TIMEZONE) || 'UTC',
     tickMs: intFromEnv(e.TELEGRAM_MARKETING_TICK_MS, 60000, 15000, 900000),
@@ -133,6 +158,10 @@ function describeMarketingConfig(config) {
     channelConfigured: Boolean(c.channelChatId),
     // Both variables holding the same id: the channel is disabled on purpose.
     channelConflictsWithGroup: Boolean(c.channelConflictsWithGroup),
+    // 'username-not-supported' / 'malformed-chat-id' when a value was supplied
+    // that the publisher cannot address, otherwise null.
+    groupChatIdInvalid: c.groupChatIdInvalid || null,
+    channelChatIdInvalid: c.channelChatIdInvalid || null,
     locale: normalizeLocale(c.locale),
     timezone: c.timezone || 'UTC',
     registerUrlConfigured: Boolean(c.registerUrl),

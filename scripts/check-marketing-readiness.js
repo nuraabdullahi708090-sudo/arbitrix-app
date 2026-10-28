@@ -18,6 +18,9 @@
  *   node scripts/check-marketing-readiness.js --json    # machine readable
  *   node scripts/check-marketing-readiness.js --no-db   # skip the database read
  *   node scripts/check-marketing-readiness.js --db-only # database only, no bot token needed
+ *   node scripts/check-marketing-readiness.js --resolve-chat @ChannelName
+ *                                                       # print the numeric chat id
+ *                                                       # the publisher requires
  *
  * SAFETY
  *   * Never prints the bot token or any Supabase key.
@@ -166,6 +169,30 @@ async function buildReport(env, fetchImpl, deps) {
     warnings
   };
 
+  // A supplied value that is not a numeric chat id resolves to NO destination in
+  // resolveMarketingConfig(), so getChat would happily succeed on a @username
+  // while the publisher silently publishes only to the other chat. Flag the
+  // format before any probe and never let it look reachable-and-fine.
+  const usernameShaped = (value) => /^@/.test(value) || /^(https?:\/\/)?(t\.me|telegram\.me)\//i.test(value);
+  if (groupId && !report.group.formatValid) {
+    issues.push(
+      'TELEGRAM_MARKETING_CHAT_ID is not a numeric chat id (-100...) - the publisher cannot address it' +
+      (usernameShaped(groupId)
+        ? '; a @username or link is not accepted. Resolve the numeric id with: ' +
+          'node scripts/check-marketing-readiness.js --resolve-chat ' + groupId
+        : '')
+    );
+  }
+  if (channelId && !report.channel.formatValid) {
+    issues.push(
+      'TELEGRAM_ANNOUNCEMENT_CHAT_ID is not a numeric chat id (-100...) - the publisher cannot address it' +
+      (usernameShaped(channelId)
+        ? '; a @username or link is not accepted. Resolve the numeric id with: ' +
+          'node scripts/check-marketing-readiness.js --resolve-chat ' + channelId
+        : '')
+    );
+  }
+
   // The database section is READ-ONLY and optional: it runs before the Telegram
   // checks so an operator still sees control/heartbeat/queue state on a service
   // that has no bot token configured.
@@ -244,6 +271,9 @@ async function buildReport(env, fetchImpl, deps) {
 
   async function inspect(targetId, label, state, expectType) {
     if (!targetId || report.sameChatConfigured) return;
+    // Metadata-only probe would answer for a @username while the publisher
+    // rejects it, so an invalid format is reported and left unprobed.
+    if (state.formatValid === false) return;
     const chat = await probeTelegramMethod({
       token,
       method: 'getChat',
@@ -388,7 +418,55 @@ function printHuman(report) {
   console.log('VERDICT:', verdictLine(report));
 }
 
+/**
+ * Resolve a destination to the numeric id the publisher requires.
+ *
+ * Read-only: one getChat call, no message, no membership change. This is the
+ * only place the tool prints a full chat id, because its entire purpose is to
+ * hand the operator the value to paste into TELEGRAM_ANNOUNCEMENT_CHAT_ID.
+ * Use it deliberately, from the host shell.
+ */
+async function resolveChat(target, fetchImpl) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (!token) {
+    console.error('TELEGRAM_BOT_TOKEN is not set, so the chat cannot be resolved');
+    return 3;
+  }
+  const chat = await probeTelegramMethod({
+    token,
+    method: 'getChat',
+    payload: { chat_id: target },
+    fetchImpl
+  });
+  if (!chat.ok) {
+    console.error(
+      'getChat failed for ' + maskId(target) + ' (' + (chat.httpStatus || 'no http status') + '): ' +
+      (chat.description || 'unknown error')
+    );
+    return 2;
+  }
+  const result = chat.result || {};
+  console.log(JSON.stringify({
+    resolved: true,
+    id: result.id === undefined ? null : String(result.id),
+    type: result.type || null,
+    title: result.title || null,
+    username: result.username || null,
+    note: 'Paste `id` into the destination variable. The publisher needs this numeric id.'
+  }, null, 2));
+  return 0;
+}
+
 async function main() {
+  const resolveIdx = process.argv.indexOf('--resolve-chat');
+  if (resolveIdx > -1) {
+    const target = String(process.argv[resolveIdx + 1] || '').trim();
+    if (!target || target.startsWith('--')) {
+      console.error('usage: node scripts/check-marketing-readiness.js --resolve-chat @ChannelName');
+      return 2;
+    }
+    return resolveChat(target, undefined);
+  }
   const json = process.argv.includes('--json');
   const dbOnly = process.argv.includes('--db-only');
   const skipDb = process.argv.includes('--no-db') || dbOnly;
@@ -409,15 +487,16 @@ async function main() {
   if (json) console.log(JSON.stringify(report, null, 2));
   else printHuman(report);
 
-  if (report.verdict === 'TOKEN_MISSING') process.exit(3);
-  process.exit(report.verdict === 'NOT_READY' ? 2 : 0);
+  return report.verdict === 'TOKEN_MISSING' ? 3 : (report.verdict === 'NOT_READY' ? 2 : 0);
 }
 
 if (require.main === module) {
-  main().catch((error) => {
-    console.error('readiness check failed:', error && error.message ? error.message : error);
-    process.exit(2);
-  });
+  main()
+    .then((code) => process.exit(Number.isFinite(code) ? code : 0))
+    .catch((error) => {
+      console.error('readiness check failed:', error && error.message ? error.message : error);
+      process.exit(2);
+    });
 }
 
-module.exports = { buildReport, checkDatabase, verdictLine, maskId, describeId, postingRight, pinningRight };
+module.exports = { buildReport, checkDatabase, verdictLine, maskId, describeId, postingRight, pinningRight, resolveChat };

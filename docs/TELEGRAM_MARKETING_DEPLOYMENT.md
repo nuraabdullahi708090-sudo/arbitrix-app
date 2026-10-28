@@ -83,6 +83,18 @@ Three rows means the heartbeat migration is applied.
    `TELEGRAM_ANNOUNCEMENT_CHAT_ID` equals `TELEGRAM_MARKETING_CHAT_ID`, the
    channel destination is disabled on purpose and
    `config.channelConflictsWithGroup` reports `true`.
+5. Both ids MUST be the numeric chat id (a `-100...` value). A `@username` or a
+   `t.me` link is NOT accepted: the publisher addresses chats by id only, so
+   such a value resolves to "not configured". `getChat` would still succeed on a
+   username, which is why this is checked explicitly. The worker logs
+   `worker_config_warning` (`username-not-supported`), the readiness check
+   reports it as an issue, and this command prints the numeric id to use:
+
+   ```bash
+   node scripts/check-marketing-readiness.js --resolve-chat @ArbitrixAnnouncements
+   ```
+
+   It performs one read-only `getChat`; it sends and changes nothing.
 
 Verify every Telegram-side requirement without sending anything:
 
@@ -144,8 +156,8 @@ Required for the worker:
 | Variable | Notes |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | Same bot as the support bot |
-| `TELEGRAM_MARKETING_CHAT_ID` | Partner group (-100...) |
-| `TELEGRAM_ANNOUNCEMENT_CHAT_ID` | Announcement channel (-100...), different from the group |
+| `TELEGRAM_MARKETING_CHAT_ID` | Partner group, NUMERIC id (-100...). A @username is rejected |
+| `TELEGRAM_ANNOUNCEMENT_CHAT_ID` | Announcement channel, NUMERIC id (-100...), different from the group |
 | `SUPABASE_URL` | Same project as the web app |
 | `SUPABASE_SERVICE_KEY` | Service-role key. `SUPABASE_SERVICE_ROLE_KEY` is also accepted (same credential) |
 
@@ -362,6 +374,11 @@ triggered by a customer.
 ---
 
 ## 10. Deliberate limits
+
+* Destinations are numeric chat ids only. Usernames are not resolved at
+  runtime: one guided `--resolve-chat` call is preferred over a Telegram
+  dependency on every worker boot.
+
 
 * No live arbitrage signal feed. `services/MarketOpportunities.js` is simulated
   metadata and the content guard blocks presenting it as a live signal.

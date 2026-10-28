@@ -70,9 +70,29 @@ async function main() {
     return 1;
   }
 
+  // A value that was supplied but is not a numeric chat id is NOT "unset": it
+  // resolves to no destination, so without this line the channel would silently
+  // never publish while the group kept working.
+  for (const [variable, reason] of [
+    ['TELEGRAM_MARKETING_CHAT_ID', config.groupChatIdInvalid],
+    ['TELEGRAM_ANNOUNCEMENT_CHAT_ID', config.channelChatIdInvalid]
+  ]) {
+    if (!reason) continue;
+    logEvent('worker_config_warning', {
+      variable,
+      reason,
+      hint: 'the publisher addresses chats by numeric id (-100...); a @username or a t.me link cannot be used'
+    });
+  }
+
   if (!config.groupChatId && !config.channelChatId) {
+    const invalid = config.groupChatIdInvalid
+      ? 'TELEGRAM_MARKETING_CHAT_ID=' + config.groupChatIdInvalid
+      : (config.channelChatIdInvalid ? 'TELEGRAM_ANNOUNCEMENT_CHAT_ID=' + config.channelChatIdInvalid : '');
     logEvent('worker_misconfigured', {
-      reason: 'neither TELEGRAM_MARKETING_CHAT_ID nor TELEGRAM_ANNOUNCEMENT_CHAT_ID is set',
+      reason: invalid
+        ? 'no usable destination: ' + invalid
+        : 'neither TELEGRAM_MARKETING_CHAT_ID nor TELEGRAM_ANNOUNCEMENT_CHAT_ID is set',
       config: describeMarketingConfig(config)
     });
     return 1;
