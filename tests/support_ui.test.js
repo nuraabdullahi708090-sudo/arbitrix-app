@@ -222,11 +222,17 @@ test('support is available from the payment pending/failed state with invoice re
     // block for token references (e.g. #8896B5 -> var(--text-secondary) and the
     // brand/red alpha values for var(--brand-*) / var(--on-brand)); the markup
     // and every assertion are unchanged.
-    const win = elementWindow('paymentSupportHelp', 1900);
+    // The window grew because the card now offers TWO contacts: the payment
+    // partner (deposit questions) and the official support action (everything
+    // else). Both live inside this block.
+    const win = elementWindow('paymentSupportHelp', 2800);
     assert.ok(/openSupportModal\(\)/.test(win), 'payment help should link to support');
     assert.ok(/id="depositInvoiceRef"/.test(win), 'invoice reference is displayed');
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');
     assert.ok(/support\.contactOfficial/.test(win), 'official support CTA');
+    // Payment assistance is the partner; official support stays separate.
+    assert.ok(/js-payment-partner/.test(win), 'payment-partner CTA');
+    assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept beside it');
 
     // The status-driven guidance maps the observed status to the right key.
     const fn = extractFunction('updatePaymentSupportHelp');

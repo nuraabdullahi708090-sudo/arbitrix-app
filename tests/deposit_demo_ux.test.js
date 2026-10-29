@@ -204,7 +204,6 @@ test('Demo user CAN open the deposit modal (production)', async () => {
     // cards, no network banner/amount form, none of the route panels.
     assert.strictEqual(sb.els.depositOptions.style.display, 'none', 'funding-method cards hidden in Demo');
     assert.strictEqual(sb.els.depositCryptoFlow.style.display, 'none', 'deposit form hidden in Demo');
-    assert.strictEqual(sb.els.depositWalletPanel.style.display, 'none', 'external purchase panel hidden in Demo');
     assert.strictEqual(sb.els.depositPartnerPanel.style.display, 'none', 'partner panel hidden in Demo');
     assert.strictEqual(sb.toasts.length, 0, 'opening the modal must NOT show the "switch to LIVE" toast');
     assert.strictEqual(sb.fetchCalls.length, 0, 'opening the modal must not make any request');
@@ -327,7 +326,7 @@ test('production provider safeguards are unchanged', () => {
 test('i18n parity: new keys exist and key sets are identical across 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1625, 'expected 1625 keys per locale');
+    assert.strictEqual(enKeys.length, 1600, 'expected 1600 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of enKeys) assert.ok(String(dict[k]).length > 0, `${lang}.${k} empty`);

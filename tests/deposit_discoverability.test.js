@@ -422,19 +422,23 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
     assert.ok(/APP\.mode === 'demo'/.test(fn), 'the demo-mode guard is preserved');
     assert.ok(/MIN_DEPOSIT_AMOUNT = APP\.MIN_DEPOSIT/.test(fn), 'the minimum still comes from APP.MIN_DEPOSIT');
 
-    // The three-route funding menu and the partner directory are intact.
-    for (const id of ['depositOptions', 'depositOptionWallet', 'depositOptionPartner', 'depositOptionCrypto',
-        'depositPartnerPanel', 'depositPartnerList', 'depositPartnerEmpty', 'depositBuyCryptoLink',
-        'depositWalletPanel', 'depositCryptoFlow']) {
+    // The two-route funding menu and the partner directory are intact. The
+    // external-purchase route was removed by product decision, so its link must
+    // NOT come back.
+    for (const id of ['depositOptions', 'depositOptionPartner', 'depositOptionCrypto',
+        'depositPartnerPanel', 'depositPartnerList', 'depositPartnerEmpty',
+        'depositPaymentPartnerBtn', 'depositCryptoFlow']) {
         assert.ok(INDEX.indexOf('id="' + id + '"') > 0, id + ' must still exist');
     }
     assert.ok(/function selectDepositOption\(/.test(INDEX), 'option selection preserved');
     assert.ok(/function renderDepositPartners\(/.test(INDEX), 'partner rendering preserved');
     assert.ok(/function loadDepositOptions\(/.test(INDEX), 'options loading preserved');
-    // The card route stays behind the single configurable destination meta and
-    // stays disabled by default - this change never enables card payments.
-    const metas = INDEX.match(/<meta name="arbitrix-buy-crypto" content="[^"]*">/g) || [];
-    assert.strictEqual(metas.length, 1, 'exactly one configurable outward destination');
+    // The external-purchase destination meta is retired with the route it served;
+    // the only configurable outward destination in the deposit flow is now the
+    // payment partner. Card payments are never claimed to be available.
+    assert.ok(!INDEX.includes('arbitrix-buy-crypto'), 'the external-purchase destination is retired');
+    const partnerMetas = INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="[^"]*">/g) || [];
+    assert.strictEqual(partnerMetas.length, 1, 'exactly one configurable payment-partner destination');
     assert.ok(!/card payments? (are|is) (now )?available/i.test(INDEX), 'no claim that card payments are live');
 });
 
