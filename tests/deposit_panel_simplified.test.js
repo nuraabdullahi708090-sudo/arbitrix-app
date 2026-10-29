@@ -45,32 +45,31 @@ function fn(name) {
 
 // ------------------------------------------------------------ 1. introduction
 
-test('the heading stays "Verified Partners" with two short paragraphs', () => {
+test('the heading is "Verified Payment Partners" with one short paragraph', () => {
     const T = dict();
-    assert.strictEqual(T.en['deposit.partner.title'], 'Verified Partners');
+    assert.strictEqual(T.en['deposit.partner.title'], 'Verified Payment Partners');
     assert.strictEqual(T.en['deposit.partner.intro'],
-        'Contact a partner on Telegram. Partners help you obtain cryptocurrency.');
-    assert.strictEqual(T.en['deposit.partner.servicesIntro'],
-        'Partners may offer direct USDT sales, guided purchasing assistance, or both.');
+        'Need help obtaining USDT or funding your Arbitrix account? Contact one of our payment partners for assistance.');
     const p = panel();
     const titleAt = p.indexOf('data-i18n="deposit.partner.title"');
     const introAt = p.indexOf('data-i18n="deposit.partner.intro"');
-    const servicesAt = p.indexOf('data-i18n="deposit.partner.servicesIntro"');
-    const btnAt = p.indexOf('id="depositPaymentPartnerBtn"');
-    assert.ok(titleAt > 0 && titleAt < introAt && introAt < servicesAt && servicesAt < btnAt,
-        'heading -> paragraph -> paragraph -> button');
+    const contactsAt = p.indexOf('id="depositPartnerContacts"');
+    assert.ok(titleAt > 0 && titleAt < introAt && introAt < contactsAt,
+        'heading -> paragraph -> partner contacts');
     // The other introductory explanations are gone.
     assert.ok(!p.includes('deposit.partner.modelNote'), 'long model paragraph retired');
     assert.ok(!p.includes('depositPaymentPartnerNote'), 'note beside the button retired');
-    assert.strictEqual((p.match(/data-i18n="deposit\.partner\.(intro|servicesIntro)"/g) || []).length, 2,
-        'exactly two intro paragraphs');
+    assert.strictEqual((p.match(/data-i18n="deposit\.partner\.intro"/g) || []).length, 1,
+        'exactly one intro paragraph');
 });
 
-test('the payment-partner button and its destination are unchanged', () => {
-    assert.match(panel(), /data-i18n="deposit\.partner\.contactPaymentPartner">Contact Payment Partner</);
+test('the partner contacts are rendered from the configured partners', () => {
+    assert.match(panel(), /id="depositPartnerContacts" class="payment-partner-list"/);
     assert.strictEqual((INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/) || [])[1],
-        '@Arbitrix_CSA1');
-    assert.strictEqual(dict().en['deposit.partner.contactPaymentPartner'], 'Contact Payment Partner');
+        '@AlexArbitrix');
+    assert.strictEqual((INDEX.match(/<meta name="arbitrix-partner-support-telegram-2" content="([^"]*)">/) || [])[1],
+        '@OliviaArbitrix');
+    assert.strictEqual(dict().en['deposit.partner.contactName'], 'Contact {{name}}');
 });
 
 // -------------------------------------------------------- 2. empty partner msg
@@ -116,7 +115,7 @@ test('the reference box is now "How to Fund Your Account" guidance', () => {
     const T = dict();
     assert.strictEqual(T.en['deposit.partner.refTitle'], 'How to Fund Your Account');
     assert.strictEqual(T.en['deposit.partner.refHint'],
-        'Open Deposit Funds and generate your USDT (TRC20) deposit address. Share that address with the Payment Partner if you need help funding your account.');
+        'Open Deposit Funds and generate your USDT (TRC20) deposit address. Share that address with a payment partner if you need help funding your account.');
     assert.ok(!('deposit.partner.refNone' in T.en), 'the "Not created yet" placeholder is retired');
     assert.ok(!/Generate a payment in the deposit form/i.test(INDEX), 'old guidance removed');
     // The partner must send to the customer's own generated address.
@@ -206,7 +205,7 @@ test('Recent Deposits keeps its heading, count, list and empty state', () => {
 test('all six locales carry the simplified copy and match key sets', () => {
     const T = dict();
     assert.deepStrictEqual(Object.keys(T).sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
-    const keys = ['deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.servicesIntro',
+    const keys = ['deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.contactName',
         'deposit.partner.refTitle', 'deposit.partner.refHint', 'deposit.partner.safety.1',
         'deposit.partner.safety.2', 'deposit.partner.safety.3'];
     const sizes = Object.keys(T).map((l) => Object.keys(T[l]).length);
