@@ -113,7 +113,9 @@ function buildLinkContext(config, greetingName) {
     registerUrl: config.registerUrl,
     howItWorksUrl: config.howItWorksUrl,
     supportUrl: config.supportUrl,
-    partnerSupportUrl: config.partnerSupportUrl,
+    // Both payment partners; official support stays a separate contact above.
+    partnerSupportAlexUrl: config.partnerSupportAlexUrl,
+    partnerSupportOliviaUrl: config.partnerSupportOliviaUrl,
     announcementUrl: config.announcementUrl,
     minDeposit: config.facts && config.facts.minDeposit,
     referralPercent: config.facts && config.facts.referralPercent,

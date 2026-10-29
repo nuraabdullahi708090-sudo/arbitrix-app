@@ -49,7 +49,8 @@ const CONFIG = {
   registerUrl: 'https://arbitrix.pro/?action=create-account',
   howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1',
+  partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
+  partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix',
   announcementUrl: 'https://t.me/ArbitrixChannel',
   facts: { minDeposit: 100, referralPercent: 20, promoCredit: 50 }
 };
@@ -355,7 +356,8 @@ test('the approved test copy passes the guard in every locale and audience', () 
 test('the group test copy links support, the channel copy links registration/how-it-works', () => {
   const group = renderTestMessage('group', 'en', CONFIG);
   assert.ok(group.text.includes(CONFIG.supportUrl));
-  assert.ok(group.text.includes(CONFIG.partnerSupportUrl));
+  assert.ok(group.text.includes(CONFIG.partnerSupportAlexUrl), 'Alex listed');
+  assert.ok(group.text.includes(CONFIG.partnerSupportOliviaUrl), 'Olivia listed');
   assert.ok(!group.text.includes(CONFIG.howItWorksUrl), 'the group test stays minimal');
 
   const channel = renderTestMessage('channel', 'en', CONFIG);

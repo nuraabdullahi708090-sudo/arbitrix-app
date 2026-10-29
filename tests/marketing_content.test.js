@@ -28,7 +28,8 @@ const CTX = {
   registerUrl: 'https://arbitrix.pro/?action=create-account',
   howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1',
+  partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
+  partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix',
   announcementUrl: 'https://t.me/ArbitrixChannel',
   minDeposit: 100,
   referralPercent: 20
@@ -116,34 +117,36 @@ test('links and buttons are omitted, never invented, when configuration is missi
   assert.strictEqual(bare.replyMarkup, null);
 
   const full = render('welcome', 'en', CTX);
-  assert.strictEqual(full.buttons.length, 4);
-  assert.deepStrictEqual(full.replyMarkup.inline_keyboard.map((row) => row.length), [2, 2]);
+  assert.strictEqual(full.buttons.length, 5, 'official support + BOTH payment partners + 2 top links');
+  assert.deepStrictEqual(full.replyMarkup.inline_keyboard.map((row) => row.length), [2, 2, 1]);
   for (const button of full.buttons) {
     assert.match(button.url, /^https:\/\/t\.me\/|^https:\/\/arbitrix\.pro\//);
   }
 });
 
-test('the partner welcome and Start Here use the four approved buttons in two rows', () => {
+test('the partner welcome and Start Here offer official support and BOTH payment partners', () => {
   const expected = [
     ['\u{1F680} Create Account', 'https://arbitrix.pro/?action=create-account'],
     ['\u{1F393} How It Works', 'https://arbitrix.pro/how-it-works'],
     ['\u{1F4AC} Customer Support', 'https://t.me/ArbitrixSupportBot'],
-    ['\u{1F4B3} Partner Payment Support', 'https://t.me/Arbitrix_CSA1']
+    ['\u{1F4B3} Contact Alex', 'https://t.me/AlexArbitrix'],
+    ['\u{1F4B3} Contact Olivia', 'https://t.me/OliviaArbitrix']
   ];
   for (const kind of ['welcome', 'startHere']) {
     const out = render(kind, 'en', CTX);
     const rows = out.replyMarkup.inline_keyboard;
-    assert.strictEqual(rows.length, 2, `${kind} must render two rows`);
-    assert.deepStrictEqual(rows.map((row) => row.length), [2, 2], `${kind} must render 2x2`);
+    assert.strictEqual(rows.length, 3, `${kind} must render three rows`);
+    assert.deepStrictEqual(rows.map((row) => row.length), [2, 2, 1], `${kind} must render 2x2 + 1`);
     assert.deepStrictEqual(rows[0].map((b) => [b.text, b.url]), [expected[0], expected[1]]);
     assert.deepStrictEqual(rows[1].map((b) => [b.text, b.url]), [expected[2], expected[3]]);
+    assert.deepStrictEqual(rows[2].map((b) => [b.text, b.url]), [expected[4]]);
   }
 });
 
 test('a missing URL drops only its own button, never the row layout', () => {
   const partial = render('welcome', 'en', Object.assign({}, CTX, { howItWorksUrl: '' }));
-  assert.strictEqual(partial.buttons.length, 3);
-  assert.deepStrictEqual(partial.replyMarkup.inline_keyboard.map((row) => row.length), [1, 2]);
+  assert.strictEqual(partial.buttons.length, 4);
+  assert.deepStrictEqual(partial.replyMarkup.inline_keyboard.map((row) => row.length), [1, 2, 1]);
   assert.ok(!partial.buttons.some((b) => /how-it-works/.test(b.url)));
 });
 

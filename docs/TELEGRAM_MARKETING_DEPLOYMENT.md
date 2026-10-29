@@ -180,7 +180,8 @@ Publishing gates and behaviour:
 | `TELEGRAM_MARKETING_HOW_IT_WORKS_URL` | `${BASE_URL}/how-it-works` | Optional override |
 | `TELEGRAM_ANNOUNCEMENT_CHANNEL_URL` / `_USERNAME` | none | Adds the "official channel" link/button |
 | `TELEGRAM_SUPPORT_USERNAME` | `ArbitrixSupportBot` | Customer support destination |
-| `TELEGRAM_PARTNER_SUPPORT_USERNAME` | `Arbitrix_CSA1` | Partner payment support destination |
+| `TELEGRAM_PARTNER_SUPPORT_USERNAME` | `AlexArbitrix` | Payment partner 1 (Alex) |
+| `TELEGRAM_PARTNER_SUPPORT_USERNAME_2` | `OliviaArbitrix` | Payment partner 2 (Olivia) |
 
 ---
 

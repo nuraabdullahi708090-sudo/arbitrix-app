@@ -23,7 +23,9 @@ that no action is needed, and makes no earnings or performance claim.
 This is a delivery test for the Arbitrix partner group. No action is needed.
 
 Customer support: https://t.me/ArbitrixSupportBot
-Partner payment support: https://t.me/Arbitrix_CSA1
+Partner payment support:
+• Alex: https://t.me/AlexArbitrix
+• Olivia: https://t.me/OliviaArbitrix
 ```
 
 **Announcement channel** — also doubles as a link check for the two conversion

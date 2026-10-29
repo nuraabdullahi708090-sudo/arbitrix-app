@@ -46,7 +46,8 @@ const CONFIG = {
   registerUrl: 'https://arbitrix.pro/?action=create-account',
   howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1'
+  partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
+  partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix'
 };
 
 const APPROVED = [

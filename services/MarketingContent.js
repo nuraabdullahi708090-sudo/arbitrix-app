@@ -36,6 +36,8 @@ const LABELS = {
     greetingAnon: '👋 Welcome to the Arbitrix Partners Community!',
     support: 'Customer support',
     partnerSupport: 'Partner payment support',
+    partnerAlex: 'Contact Alex (payment support)',
+    partnerOlivia: 'Contact Olivia (payment support)',
     announcements: 'Official announcements',
     register: 'Create your account',
     howItWorks: 'Learn how it works',
@@ -52,7 +54,9 @@ const LABELS = {
       register: '🚀 Create Account',
       howItWorks: '🎓 How It Works',
       support: '💬 Customer Support',
-      partnerSupport: '💳 Partner Payment Support'
+      partnerSupport: '💳 Partner Payment Support',
+      partnerAlex: '💳 Contact Alex',
+      partnerOlivia: '💳 Contact Olivia'
     },
     // The approved wording: the member logs in and opens the Referral page. It
     // never suggests that a personal link is sent to them automatically.
@@ -70,6 +74,8 @@ const LABELS = {
     greetingAnon: '👋 Boas-vindas à Comunidade de Parceiros Arbitrix!',
     support: 'Suporte ao cliente',
     partnerSupport: 'Suporte de pagamentos a parceiros',
+    partnerAlex: 'Falar com Alex (pagamentos)',
+    partnerOlivia: 'Falar com Olivia (pagamentos)',
     announcements: 'Avisos oficiais',
     register: 'Criar sua conta',
     howItWorks: 'Veja como funciona',
@@ -86,7 +92,9 @@ const LABELS = {
       register: '🚀 Criar conta',
       howItWorks: '🎓 Como funciona',
       support: '💬 Suporte ao cliente',
-      partnerSupport: '💳 Suporte de pagamentos a parceiros'
+      partnerSupport: '💳 Suporte de pagamentos a parceiros',
+      partnerAlex: '💳 Falar com Alex',
+      partnerOlivia: '💳 Falar com Olivia'
     },
     referralIntro: 'Depois do cadastro, entre na sua conta e abra a seção Indicações. Ali você encontra seu link de indicação pessoal e seu código de indicação.',
     referralSteps: [
@@ -102,6 +110,8 @@ const LABELS = {
     greetingAnon: '👋 مرحبًا بك في مجتمع شركاء Arbitrix!',
     support: 'دعم العملاء',
     partnerSupport: 'دعم مدفوعات الشركاء',
+    partnerAlex: 'تواصل مع Alex (المدفوعات)',
+    partnerOlivia: 'تواصل مع Olivia (المدفوعات)',
     announcements: 'الإعلانات الرسمية',
     register: 'أنشئ حسابك',
     howItWorks: '\u062a\u0639\u0631\u0651\u0641 \u0639\u0644\u0649 \u0643\u064a\u0641\u064a\u0629 \u0627\u0644\u0639\u0645\u0644',
@@ -118,7 +128,9 @@ const LABELS = {
       register: '🚀 إنشاء حساب',
       howItWorks: '🎓 كيف يعمل',
       support: '💬 دعم العملاء',
-      partnerSupport: '💳 دعم مدفوعات الشركاء'
+      partnerSupport: '💳 دعم مدفوعات الشركاء',
+      partnerAlex: '💳 تواصل مع Alex',
+      partnerOlivia: '💳 تواصل مع Olivia'
     },
     referralIntro: 'بعد إنشاء الحساب، سجّل الدخول إلى حسابك وافتح قسم الإحالات. ستجد هناك رابط الإحالة الخاص بك ورمز الإحالة.',
     referralSteps: [
@@ -773,6 +785,19 @@ function labelsFor(locale) {
  * Build the localized "links" block from configured URLs.
  * Missing URLs are omitted entirely - no placeholder text, no invented handle.
  */
+/**
+ * The two approved payment partners, one bullet per configured contact. A
+ * partner line is omitted when its URL is unconfigured, so nothing is invented;
+ * official support is a different contact and is never listed here.
+ */
+function partnerSupportLines(labels, c) {
+  const bullets = [];
+  if (c.partnerSupportAlexUrl) bullets.push('\u2022 Alex: ' + c.partnerSupportAlexUrl);
+  else if (c.partnerSupportUrl) bullets.push('\u2022 Alex: ' + c.partnerSupportUrl);
+  if (c.partnerSupportOliviaUrl) bullets.push('\u2022 Olivia: ' + c.partnerSupportOliviaUrl);
+  return bullets.length ? labels.partnerSupportLine + '\n' + bullets.join('\n') : '';
+}
+
 function buildLinksBlock(locale, ctx) {
   const labels = labelsFor(locale);
   const c = ctx || {};
@@ -780,7 +805,8 @@ function buildLinksBlock(locale, ctx) {
   if (c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
   if (c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
   if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
-  if (c.partnerSupportUrl) lines.push(labels.partnerSupport + ': ' + c.partnerSupportUrl);
+  const partnerLines = partnerSupportLines(labels, c);
+  if (partnerLines) lines.push(partnerLines);
   if (c.announcementUrl) lines.push(labels.announcements + ': ' + c.announcementUrl);
   return lines.join('\n');
 }
@@ -799,9 +825,7 @@ function buildStepLines(locale, ctx) {
     learnLine: c.howItWorksUrl ? labels.learnHowItWorks + '\n' + c.howItWorksUrl : '',
     createLine: c.registerUrl ? labels.openRegister + ' ' + c.registerUrl : '',
     supportLine: c.supportUrl ? labels.supportLine + ' ' + c.supportUrl : '',
-    partnerSupportLine: c.partnerSupportUrl
-      ? labels.partnerSupportLine + ' ' + c.partnerSupportUrl
-      : ''
+    partnerSupportLine: partnerSupportLines(labels, c)
   };
 }
 
@@ -813,11 +837,12 @@ function buildStepLines(locale, ctx) {
 function partnerButtons(locale, ctx) {
   const b = labelsFor(locale).buttons;
   const c = ctx || {};
-  const rows = [[], []];
+  const rows = [[], [], []];
   if (c.registerUrl) rows[0].push({ text: b.register, url: c.registerUrl, row: 0 });
   if (c.howItWorksUrl) rows[0].push({ text: b.howItWorks, url: c.howItWorksUrl, row: 0 });
   if (c.supportUrl) rows[1].push({ text: b.support, url: c.supportUrl, row: 1 });
-  if (c.partnerSupportUrl) rows[1].push({ text: b.partnerSupport, url: c.partnerSupportUrl, row: 1 });
+  if (c.partnerSupportAlexUrl) rows[1].push({ text: b.partnerAlex, url: c.partnerSupportAlexUrl, row: 1 });
+  if (c.partnerSupportOliviaUrl) rows[2].push({ text: b.partnerOlivia, url: c.partnerSupportOliviaUrl, row: 2 });
   return rows.reduce((all, row) => all.concat(row), []);
 }
 
@@ -825,12 +850,14 @@ function partnerButtons(locale, ctx) {
 function buildButtons(locale, ctx, kind) {
   if (kind === 'welcome' || kind === 'startHere') return partnerButtons(locale, ctx);
   const labels = labelsFor(locale);
+  const b = labels.buttons;
   const c = ctx || {};
   const buttons = [];
   if (c.registerUrl) buttons.push({ text: labels.register, url: c.registerUrl });
   if (c.announcementUrl) buttons.push({ text: labels.channel, url: c.announcementUrl });
   if (c.supportUrl) buttons.push({ text: labels.support, url: c.supportUrl });
-  if (c.partnerSupportUrl) buttons.push({ text: labels.partnerSupport, url: c.partnerSupportUrl });
+  if (c.partnerSupportAlexUrl) buttons.push({ text: b.partnerAlex, url: c.partnerSupportAlexUrl });
+  if (c.partnerSupportOliviaUrl) buttons.push({ text: b.partnerOlivia, url: c.partnerSupportOliviaUrl });
   return buttons;
 }
 
@@ -1000,7 +1027,8 @@ function renderTestMessage(audience, locale, ctx) {
   if (isChannel && c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
   if (isChannel && c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
   if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
-  if (!isChannel && c.partnerSupportUrl) lines.push(labels.partnerSupport + ': ' + c.partnerSupportUrl);
+  const partnerLines = !isChannel ? partnerSupportLines(labels, c) : '';
+  if (partnerLines) lines.push(partnerLines);
   return {
     kind: 'test',
     audience: isChannel ? 'channel' : 'group',

@@ -271,7 +271,8 @@ test('the referral copy never invents a personal link or a referral URL', () => 
           'https://arbitrix.pro/?action=create-account',
           'https://arbitrix.pro/how-it-works',
           'https://t.me/ArbitrixSupportBot',
-          'https://t.me/Arbitrix_CSA1'
+          'https://t.me/AlexArbitrix',
+          'https://t.me/OliviaArbitrix'
         ].includes(url.replace(/[.,]$/, '')), locale + '/' + kind + ' contains an unapproved URL: ' + url);
       }
     }
@@ -331,20 +332,22 @@ test('localisation covers all three languages for the greeting and the walkthrou
   }
 });
 
-test('the personalised welcome keeps the four buttons in two rows of two', async () => {
+test('the personalised welcome keeps official support and both partners', async () => {
   const URLs = [
     ['https://arbitrix.pro/?action=create-account', 'https://arbitrix.pro/how-it-works'],
-    ['https://t.me/ArbitrixSupportBot', 'https://t.me/Arbitrix_CSA1']
+    ['https://t.me/ArbitrixSupportBot', 'https://t.me/AlexArbitrix'],
+    ['https://t.me/OliviaArbitrix']
   ];
   const enLabels = [
     ['\u{1F680} Create Account', '\u{1F393} How It Works'],
-    ['\u{1F4AC} Customer Support', '\u{1F4B3} Partner Payment Support']
+    ['\u{1F4AC} Customer Support', '\u{1F4B3} Contact Alex'],
+    ['\u{1F4B3} Contact Olivia']
   ];
   for (const locale of LOCALES) {
     const { sent } = await runJoin({ members: [human({ id: 950 + LOCALES.indexOf(locale), first_name: 'Ana' })], locale });
     const rows = sent[0].options.reply_markup.inline_keyboard;
-    assert.strictEqual(rows.length, 2, locale + ' must have two rows');
-    assert.deepStrictEqual(rows.map((r) => r.length), [2, 2], locale + ' must be 2x2');
+    assert.strictEqual(rows.length, 3, locale + ' must have three rows');
+    assert.deepStrictEqual(rows.map((r) => r.length), [2, 2, 1], locale + ' must be 2x2 + 1');
     assert.deepStrictEqual(rows.map((r) => r.map((b) => b.url)), URLs, locale + ' URLs');
     if (locale === 'en') {
       assert.deepStrictEqual(rows.map((r) => r.map((b) => b.text)), enLabels);
