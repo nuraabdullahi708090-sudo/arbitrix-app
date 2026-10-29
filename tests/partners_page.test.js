@@ -45,7 +45,7 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 84;
+const EXPECTED_KEYS = 87;
 
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
@@ -68,6 +68,10 @@ const EXPECTED_KEYS = 84;
 const INDEX_SHA256 = '00050fd9cffb39dbd7f2b0b1977f9943cab8cc777e7fe87079eb1cf8e693854d';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
+const PARTNER_HANDLE_2 = '@OliviaArbitrix';
+const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';
+const META_1 = 'arbitrix-partner-support-telegram';
+const META_2 = 'arbitrix-partner-support-telegram-2';
 const DEMO_FLOW_STEPS = [
     'Partner', 'Referral', '$100 qualifying deposit', '$20 reward', 'Request payout',
     'USDT / TRC20', 'Under review', 'Admin processing', 'Paid', 'Payout history'
@@ -112,6 +116,52 @@ function extractScript(html) {
     return m ? m[1] : '';
 }
 
+/**
+ * The smallest DOM element the page touches: class/attributes/text and children.
+ * Assigning textContent = '' clears the children, which is what the renderer does
+ * when it rebuilds the contact list.
+ */
+function fakeEl(tag) {
+    const el = {
+        tagName: tag,
+        children: [],
+        attrs: {},
+        _text: '',
+        set textContent(v) { this._text = String(v); if (this._text === '') this.children.length = 0; },
+        get textContent() { return this._text; },
+        appendChild(child) { this.children.push(child); return child; },
+        setAttribute(k, v) { this.attrs[k] = String(v); },
+        getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; },
+        removeAttribute(k) { delete this.attrs[k]; }
+    };
+    return el;
+}
+
+/** Read one rendered partner card into a plain object. */
+function readCard(card) {
+    const byClass = (cls) => card.children.find((c) => c.className === cls);
+    const link = byClass('btn btn-secondary js-partner-support');
+    const label = link && link.children.find((c) => c.tagName === 'span');
+    const icon = link && link.children.find((c) => c.tagName === 'i');
+    const handle = byClass('support-handle');
+    const handleValue = handle && handle.children.find((c) => c.className === 'support-handle-value');
+    return {
+        partner: card.getAttribute('data-partner'),
+        name: (byClass('partner-name') || {}).textContent,
+        role: (byClass('partner-role') || {}).textContent,
+        href: link && link.getAttribute('href'),
+        target: link && link.getAttribute('target'),
+        rel: link && link.getAttribute('rel'),
+        label: label && label.textContent,
+        handle: handleValue && handleValue.textContent,
+        iconHidden: icon && icon.getAttribute('aria-hidden')
+    };
+}
+
+function renderedCards(sandbox) {
+    return sandbox.__cards.children.map(readCard);
+}
+
 /** Run the page's inline script in a vm sandbox with a fake DOM. */
 function runPage(opts) {
     opts = opts || {};
@@ -122,21 +172,36 @@ function runPage(opts) {
     sandbox.localStorage = { getItem: () => (opts.storedLang || lang), setItem: () => {} };
     sandbox.sessionStorage = { setItem: () => {} };
     sandbox.console = console;
+    const cards = fakeEl('div');
+    const fallback = fakeEl('p');
     sandbox.document = {
         documentElement: {},
         title: '',
         querySelectorAll: () => [],
-        querySelector: (sel) => (String(sel).indexOf('arbitrix-partner-support-telegram') !== -1
-            ? { getAttribute: () => (opts.metaContent !== undefined ? opts.metaContent : PARTNER_HANDLE) }
-            : null),
-        getElementById: () => null
+        querySelector: (sel) => {
+            const m = /meta\[name="([^"]+)"\]/.exec(String(sel));
+            if (!m) return null;
+            if (m[1] === META_1) {
+                return { getAttribute: () => (opts.metaContent !== undefined ? opts.metaContent : PARTNER_HANDLE) };
+            }
+            if (m[1] === META_2) {
+                return { getAttribute: () => (opts.metaContent2 !== undefined ? opts.metaContent2 : PARTNER_HANDLE_2) };
+            }
+            return null;
+        },
+        createElement: (tag) => fakeEl(tag),
+        getElementById: (id) => (id === 'partnerSupportContacts' ? cards : (id === 'partnerSupportFallback' ? fallback : null))
     };
     sandbox.window = sandbox;
     if (opts.overrideUrl !== undefined) sandbox.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL = opts.overrideUrl;
     vm.createContext(sandbox);
     vm.runInContext(
         script + ';globalThis.__T=TRANSLATIONS;globalThis.__t=t;globalThis.__lang=currentLang;' +
-        'globalThis.__url=getPartnerSupportTelegramUrl();',
+        'globalThis.__url=getPartnerSupportTelegramUrl();' +
+        'globalThis.__contacts=getPartnerSupportContacts();' +
+        'globalThis.__cards=document.getElementById("partnerSupportContacts");' +
+        'globalThis.__fallback=document.getElementById("partnerSupportFallback");' +
+        'globalThis.__apply=applyPartnerSupport;',
         sandbox
     );
     return sandbox;
@@ -536,16 +601,105 @@ test('7h. no internal sandbox wording on the partner page', () => {
 /* ------------------------------------------------------------------ *
  * 8. Support: single source of truth handle
  * ------------------------------------------------------------------ */
-test('8. the partner support handle is @AlexArbitrix and matches the app', () => {
-    const idxMeta = INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/);
-    const pageMeta = PAGE.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/);
-    assert.ok(idxMeta, 'the app must define the partner support meta');
-    assert.ok(pageMeta, 'the page must define the partner support meta');
-    assert.strictEqual(pageMeta[1], PARTNER_HANDLE, 'the page handle must be ' + PARTNER_HANDLE);
-    assert.strictEqual(idxMeta[1], pageMeta[1], 'the page handle must MATCH the existing app single source of truth');
-    // The handle literal appears exactly once (the meta) - never duplicated.
+test('8. the recruitment contact is Alex, from the app\'s first meta slot', () => {
+    const metaOf = (html, name) => {
+        const m = html.match(new RegExp('<meta name="' + name + '" content="([^"]*)">'));
+        return m ? m[1] : null;
+    };
+    // The page configures ONLY the first slot, and matches the app exactly.
+    assert.strictEqual(metaOf(PAGE, META_1), PARTNER_HANDLE, 'the page must configure Alex');
+    assert.strictEqual(metaOf(INDEX, META_1), PARTNER_HANDLE, 'the app must configure Alex');
+    assert.strictEqual(metaOf(PAGE, META_1), metaOf(INDEX, META_1),
+        'the two pages must not drift');
+    // Business decision: Olivia is a PAYMENT partner, not a recruitment contact.
+    assert.strictEqual(metaOf(PAGE, META_2), null, 'the recruitment page must not configure Olivia');
+    assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 0,
+        'Olivia must not appear on the recruitment page at all');
+    // The app DOES keep both, for the payment surfaces.
+    assert.strictEqual(metaOf(INDEX, META_2), PARTNER_HANDLE_2,
+        'the app must still configure Olivia for the payment surfaces');
+    // The handle literal appears exactly once (its meta) - never duplicated.
     assert.strictEqual(PAGE.split(PARTNER_HANDLE).length - 1, 1,
-        'the handle literal must appear exactly once (in the meta)');
+        'the handle literal must appear exactly once (in its meta)');
+});
+
+test('8d. both partners are rendered as clearly labelled, safe contact buttons', () => {
+    const sb = runPage({ lang: 'en', storedLang: 'en' });
+    const cards = renderedCards(sb);
+    assert.strictEqual(cards.length, 1, 'the recruitment contact is Alex only');
+    assert.strictEqual(cards[0].partner, 'Alex');
+    assert.strictEqual(cards[0].name, 'Alex');
+    assert.strictEqual(cards[0].label, 'Contact Alex', 'clearly labelled button');
+    assert.strictEqual(cards[0].href, 'https://t.me/AlexArbitrix', 'the button opens Alex profile');
+    cards.forEach((c) => {
+        assert.strictEqual(c.target, '_blank', c.partner + ' opens in a new tab');
+        assert.strictEqual(c.rel, 'noopener noreferrer', c.partner + ' carries safe rel attributes');
+        assert.strictEqual(c.role, 'Referral Partner', 'the recruitment role label is shown');
+        assert.strictEqual(c.handle, '@AlexArbitrix', 'the handle is shown under the button');
+        assert.match(c.iconHidden || '', /true/, 'the decorative icon is hidden from screen readers');
+    });
+    // The fallback note is hidden while contacts are configured.
+    assert.strictEqual(sb.__fallback.getAttribute('hidden'), '', 'the fallback must be hidden');
+});
+
+test('8e. the contact labels are localized in all six languages', () => {
+    const expected = {
+        en: ['Contact Alex', 'Referral Partner'],
+        es: ['Contactar con Alex', 'Socio de referidos'],
+        pt: ['Falar com Alex', 'Parceiro de indica\u00e7\u00f5es'],
+        fr: ['Contacter Alex', 'Partenaire de parrainage'],
+        ar: ['\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex', '\u0634\u0631\u064a\u0643 \u0625\u062d\u0627\u0644\u0629'],
+        zh: ['\u8054\u7cfb Alex', '\u63a8\u8350\u5408\u4f5c\u4f19\u4f34']
+    };
+    LANGS.forEach((lang) => {
+        const sb = runPage({ lang: lang, storedLang: lang });
+        const cards = renderedCards(sb);
+        assert.strictEqual(cards.length, 1, lang + ' must still offer the recruitment contact');
+        assert.deepStrictEqual([cards[0].label, cards[0].role], expected[lang],
+            lang + ' labels must be translated');
+        // Names are proper nouns and never translated.
+        assert.strictEqual(cards[0].name, 'Alex', lang + ' name stays as-is');
+        // The URL never changes with the language.
+        assert.strictEqual(cards[0].href, 'https://t.me/AlexArbitrix', lang + ' link is stable');
+    });
+    // Arabic keeps RTL with the partner cards.
+    assert.match(PAGE, /html\[dir="rtl"\]/);
+});
+
+test('8f. an unconfigured contact is skipped, and the empty state is explained', () => {
+    const none = runPage({ metaContent: '' });
+    assert.strictEqual(renderedCards(none).length, 0, 'no contact may be invented');
+    assert.strictEqual(none.__fallback.getAttribute('hidden'), null, 'the fallback note is shown');
+
+    // A non-Telegram destination is refused.
+    assert.strictEqual(renderedCards(runPage({ metaContent: 'https://example.com/pay' })).length, 0);
+    assert.strictEqual(runPage({ metaContent: 'https://example.com/pay' }).__url, '');
+
+    // A blank second slot never adds a second card.
+    const withSecond = runPage({ metaContent2: PARTNER_HANDLE_2 });
+    assert.deepStrictEqual(renderedCards(withSecond).map((c) => c.partner), ['Alex'],
+        'the page renders one recruitment contact regardless of any other handle');
+});
+
+test('8g. official Arbitrix Support stays separate and the retired handle is gone', () => {
+    assert.ok(!PAGE.includes(OFFICIAL_SUPPORT), 'the partner page must not present official support as a partner');
+    assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must not appear');
+    assert.ok(!PAGE.includes('Olivia'), 'Olivia must not be presented as a recruitment contact');
+    assert.ok(!/Arbitrix_CSA1/.test(JSON.stringify(runPage({ lang: 'en' }).__contacts)), 'nor be rendered');
+    // Official support is untouched in the app.
+    assert.ok(INDEX.includes('https://t.me/ArbitrixSupportBot'), 'the official support destination is unchanged');
+    assert.ok(INDEX.includes('js-official-telegram'), 'the official support entry points are unchanged');
+});
+
+test('8h. the two-contact layout is responsive and accessible on small screens', () => {
+    assert.match(PAGE, /\.support-cards\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(230px,\s*1fr\)\)/,
+        'the cards must use an auto-fit grid so they stack on narrow screens');
+    assert.match(PAGE, /\.support-card\s*\{[^}]*min-width:\s*0/, 'cards must be allowed to shrink');
+    assert.match(PAGE, /\.support-card \.btn\s*\{[^}]*width:\s*100%/, 'each button fills its card');
+    assert.match(PAGE, /overflow-wrap:\s*anywhere/, 'long translated labels must wrap');
+    // The container is a labelled section, and the buttons are real anchors.
+    assert.match(PAGE, /aria-labelledby="supportHeading"/);
+    assert.ok(!/id="partnerSupportBtn"/.test(PAGE), 'the old single-contact anchor is gone');
 });
 
 test('8b. the page invents no other Telegram destination or group link', () => {
@@ -553,8 +707,10 @@ test('8b. the page invents no other Telegram destination or group link', () => {
     assert.ok(!/joinchat/i.test(PAGE), 'no joinchat link');
     assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
         'only the single programmatic t.me builder may exist');
-    assert.ok(!PAGE.includes('https://t.me/' + PARTNER_HANDLE.replace('@', '')),
-        'the full support URL must be built at runtime, not hardcoded');
+    for (const handle of [PARTNER_HANDLE, PARTNER_HANDLE_2]) {
+        assert.ok(!PAGE.includes('https://t.me/' + handle.replace('@', '')),
+            'the full URL for ' + handle + ' must be built at runtime, not hardcoded');
+    }
 });
 
 test('8c. the runtime builds the correct https://t.me URL from the meta handle', () => {
@@ -569,6 +725,38 @@ test('8c. the runtime builds the correct https://t.me URL from the meta handle',
     // Empty config resolves to '' (the caller then leaves the link inert).
     const empty = runPage({ metaContent: '' });
     assert.strictEqual(empty.__url, '');
+});
+
+
+test('8i. payment surfaces keep both partners while recruitment shows Alex alone', () => {
+    // Payment-specific surfaces in the app keep BOTH configured partners.
+    ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts'].forEach((id) => {
+        assert.ok(INDEX.includes('id="' + id + '"'), id + ' must exist');
+    });
+    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the payment surfaces render both partners');
+    assert.match(INDEX, /<meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">/,
+        'the app configures the second payment partner');
+    assert.ok(INDEX.indexOf("name: 'Alex'") < INDEX.indexOf("name: 'Olivia'"),
+        'the payment contact list keeps Alex first, so the referral resolver picks Alex');
+    // The in-app referral / partner-support CTA resolves to the FIRST contact
+    // (Alex), so referral support can never point at a payment partner.
+    const resolverDefs = INDEX.split('function getPartnerSupportTelegramUrl()');
+    assert.ok(resolverDefs.length >= 2, 'the referral resolver must exist');
+    assert.match(resolverDefs[resolverDefs.length - 1].slice(0, 240), /contacts\[0\]/,
+        'the effective resolver must use the first configured contact (Alex)');
+    assert.match(INDEX, /function openPartnerSupport\(\)[\s\S]{0,220}?getPartnerSupportTelegramUrl\(\)/,
+        'the referral partner-support button uses that single-contact resolver');
+    assert.ok(INDEX.includes('data-i18n="referral.partner.contactSupport"'),
+        'the referral support button is still present');
+});
+
+test('8j. no other recruitment surface points at a payment partner', () => {
+    // The retirement/deposit docs and tests keep @Arbitrix_CSA1 only as fixtures.
+    const outreach = ['partners.html'];
+    outreach.forEach((file) => {
+        const html = fs.readFileSync(path.join(ROOT, 'public', file), 'utf8');
+        assert.ok(!html.includes('@OliviaArbitrix'), file + ' must not offer Olivia as a recruitment contact');
+    });
 });
 
 /* ------------------------------------------------------------------ *

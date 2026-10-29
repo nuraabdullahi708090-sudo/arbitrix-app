@@ -21,10 +21,12 @@
     <meta name="twitter:title" content="Become an Arbitrix Referral Partner">
     <meta name="twitter:description" content="Earn 20% of a referred user's first qualifying deposit of $100 or more. No trading required. No minimum payout.">
     <meta name="twitter:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 630'%3E%3Crect width='1200' height='630' fill='%23070B14'/%3E%3Ctext x='600' y='315' font-family='Arial' font-size='104' font-weight='900' text-anchor='middle' fill='%23F0B90B'%3EArbitrix%3C/text%3E%3Ctext x='600' y='415' font-family='Arial' font-size='52' font-weight='700' text-anchor='middle' fill='%23E8EDF5'%3EReferral Partners%3C/text%3E%3C/svg%3E">
-    <!-- Referral Partner support contact: the SAME single-source-of-truth handle
-         used by the app (public/index.html). Do not hardcode a different handle,
-         and never invent a community/group URL. Empty = fall back to the in-app
-         Support Center link on the homepage. Public link only. -->
+    <!-- Referral / partner-recruitment support contact: Alex only. It reads the
+         SAME first meta slot the app (public/index.html) uses, so the two pages
+         cannot drift. Payment partners are listed on the PAYMENT surfaces in
+         the app, not on this recruitment page. Do not
+         hardcode a different handle and never invent a community/group URL. An
+         empty value is simply not rendered. Public link only. -->
     <meta name="arbitrix-partner-support-telegram" content="@AlexArbitrix">
     <link rel="icon" href="data:image/svg+xml,">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -208,8 +210,20 @@
             display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bg-card);
             border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; text-align: center;
         }
+        .support-cards {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px;
+            min-width: 0;
+        }
+        .support-card { min-width: 0; overflow-wrap: anywhere; }
+        .support-card .btn { width: 100%; }
+        .partner-name { font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+        .partner-role {
+            font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-secondary); margin-top: -6px; overflow-wrap: anywhere;
+        }
         .support-handle { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
-        #partnerSupportHandle { color: var(--brand); font-weight: 700; }
+        .support-handle .support-handle-value { color: var(--brand); font-weight: 700; }
+        .support-fallback { font-size: 13.5px; color: var(--text-secondary); text-align: center; overflow-wrap: anywhere; }
         .faq { display: flex; flex-direction: column; gap: 8px; }
         .faq-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0 14px; }
         .faq-item summary {
@@ -384,13 +398,10 @@
         <section class="section" aria-labelledby="supportHeading">
             <h2 id="supportHeading" data-i18n="partners.supportTitle">Partner Support</h2>
             <p class="section-sub" data-i18n="partners.supportDesc">Questions about the partner program? Contact our partner support team on Telegram.</p>
-            <div class="support-card">
-                <a class="btn btn-secondary js-partner-support" id="partnerSupportBtn" href="#" target="_blank" rel="noopener noreferrer">
-                    <i class="fab fa-telegram" aria-hidden="true"></i>
-                    <span data-i18n="partners.supportCta">Contact Partner Support</span>
-                </a>
-                <p class="support-handle"><span data-i18n="partners.supportHandleLabel">Telegram</span>: <span id="partnerSupportHandle"></span></p>
-            </div>
+            <!-- One card per configured partner, built by applyPartnerSupport()
+                 so the handles live only in the meta tags above. -->
+            <div class="support-cards" id="partnerSupportContacts"></div>
+            <p class="support-fallback" id="partnerSupportFallback" hidden data-i18n="partners.supportFallback">Partner contacts are being confirmed. Use the Arbitrix Support Center on the main site in the meantime.</p>
         </section>
 
         <section class="section" aria-labelledby="faqHeading">
@@ -493,6 +504,9 @@
                 "partners.supportDesc": "Questions about the partner program? Contact our partner support team on Telegram.",
                 "partners.supportCta": "Contact Partner Support",
                 "partners.supportHandleLabel": "Telegram",
+                "partners.contactAlex": "Contact Alex",
+                "partners.partnerRole": "Referral Partner",
+                "partners.supportFallback": "Partner contacts are being confirmed. Use the Arbitrix Support Center on the main site in the meantime.",
                 "partners.faqTitle": "Frequently Asked Questions",
                 "partners.faq1q": "How much is the referral reward?",
                 "partners.faq1a": "You earn 20% of the referred user's first qualifying deposit of $100 or more.",
@@ -579,6 +593,9 @@
                 "partners.supportDesc": "¿Tienes preguntas sobre el programa de socios? Contacta a nuestro equipo de soporte para socios en Telegram.",
                 "partners.supportCta": "Contactar Soporte para Socios",
                 "partners.supportHandleLabel": "Telegram",
+                "partners.contactAlex": "Contactar con Alex",
+                "partners.partnerRole": "Socio de referidos",
+                "partners.supportFallback": "Se están confirmando los contactos de socios. Mientras tanto, utiliza el Centro de Soporte de Arbitrix en el sitio principal.",
                 "partners.faqTitle": "Preguntas Frecuentes",
                 "partners.faq1q": "¿Cuánto es la recompensa por referido?",
                 "partners.faq1a": "Ganas el 20% del primer depósito válido de $100 o más del usuario referido.",
@@ -665,6 +682,9 @@
                 "partners.supportDesc": "Dúvidas sobre o programa de parceiros? Fale com nossa equipe de suporte a parceiros no Telegram.",
                 "partners.supportCta": "Falar com o Suporte a Parceiros",
                 "partners.supportHandleLabel": "Telegram",
+                "partners.contactAlex": "Falar com Alex",
+                "partners.partnerRole": "Parceiro de indicações",
+                "partners.supportFallback": "Os contactos de parceiros estão a ser confirmados. Entretanto, utiliza o Centro de Suporte da Arbitrix no site principal.",
                 "partners.faqTitle": "Perguntas Frequentes",
                 "partners.faq1q": "Qual é o valor da recompensa por indicação?",
                 "partners.faq1a": "Você ganha 20% do primeiro depósito qualificado de $100 ou mais do usuário indicado.",
@@ -751,6 +771,9 @@
                 "partners.supportDesc": "Des questions sur le programme partenaire ? Contactez notre équipe de support partenaire sur Telegram.",
                 "partners.supportCta": "Contacter le Support Partenaire",
                 "partners.supportHandleLabel": "Telegram",
+                "partners.contactAlex": "Contacter Alex",
+                "partners.partnerRole": "Partenaire de parrainage",
+                "partners.supportFallback": "Les contacts partenaires sont en cours de confirmation. En attendant, utilisez le Centre d'aide Arbitrix sur le site principal.",
                 "partners.faqTitle": "Questions Fréquentes",
                 "partners.faq1q": "Quel est le montant de la récompense de parrainage ?",
                 "partners.faq1a": "Vous gagnez 20% du premier dépôt admissible de $100 ou plus de l'utilisateur parrainé.",
@@ -837,6 +860,9 @@
                 "partners.supportDesc": "هل لديك أسئلة حول برنامج الشركاء؟ تواصل مع فريق دعم الشركاء عبر تيليجرام.",
                 "partners.supportCta": "تواصل مع دعم الشركاء",
                 "partners.supportHandleLabel": "تيليجرام",
+                "partners.contactAlex": "تواصل مع Alex",
+                "partners.partnerRole": "شريك إحالة",
+                "partners.supportFallback": "يجري تأكيد جهات اتصال الشركاء. في هذه الأثناء، استخدم مركز دعم Arbitrix على الموقع الرئيسي.",
                 "partners.faqTitle": "الأسئلة الشائعة",
                 "partners.faq1q": "كم تبلغ مكافأة الإحالة؟",
                 "partners.faq1a": "تربح 20% من أول إيداع مؤهل بقيمة $100 أو أكثر للمستخدم المُحال.",
@@ -923,6 +949,9 @@
                 "partners.supportDesc": "对合作伙伴计划有疑问？请通过 Telegram 联系我们的合作伙伴支持团队。",
                 "partners.supportCta": "联系合作伙伴支持",
                 "partners.supportHandleLabel": "Telegram",
+                "partners.contactAlex": "联系 Alex",
+                "partners.partnerRole": "推荐合作伙伴",
+                "partners.supportFallback": "合作伙伴联系人正在确认中。在此期间，请使用主站上的 Arbitrix 支持中心。",
                 "partners.faqTitle": "常见问题",
                 "partners.faq1q": "推荐奖励是多少？",
                 "partners.faq1a": "您可以获得被推荐用户首次符合条件的 $100 或以上存款的 20%。",
@@ -949,7 +978,6 @@
         }
 };
 
-        var SUPPORT_META_NAME = 'arbitrix-partner-support-telegram';
         var SUPPORTED_LANGS = ['es', 'pt', 'fr', 'ar', 'zh', 'en'];
 
         function detectBrowserLanguage() {
@@ -992,36 +1020,115 @@
             } catch (e) { if (window.console) console.error('applyTranslations error:', e); }
         }
 
-        // Partner support contact: reads the SAME single-source meta used by the
-        // app. A bare @username or a full https URL is accepted; the handle is
-        // never duplicated elsewhere in the page.
-        function partnerSupportRaw() {
+        // Referral / partner-recruitment support: Alex is the sole contact for
+        // this page (business decision). The handle comes from the SAME first
+        // meta slot the app uses; a bare @username or a full https URL is
+        // accepted, and an empty, malformed or non-Telegram value is skipped so
+        // nothing is invented and no dead link is shown. Payment partners are
+        // listed on the PAYMENT surfaces inside the app, not here.
+        var SUPPORT_META_NAMES = [
+            'arbitrix-partner-support-telegram'
+        ];
+        var SUPPORT_CONTACTS = [
+            { slot: 0, name: 'Alex', ctaKey: 'partners.contactAlex' }
+        ];
+
+        function partnerSupportRaw(slot) {
+            var i = (typeof slot === 'number' && slot >= 0) ? slot : 0;
             var raw = '';
-            try { if (window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL) raw = String(window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL); } catch (e) {}
+            // The window override applies to the FIRST slot only, as in the app.
+            if (i === 0) {
+                try { if (window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL) raw = String(window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL); } catch (e) {}
+            }
             if (!raw) {
-                var meta = document.querySelector('meta[name="' + SUPPORT_META_NAME + '"]');
+                var meta = document.querySelector('meta[name="' + SUPPORT_META_NAMES[i] + '"]');
                 if (meta) raw = meta.getAttribute('content') || '';
             }
             return raw.trim();
         }
 
-        function getPartnerSupportTelegramUrl() {
-            var raw = partnerSupportRaw();
+        // Only a Telegram destination is accepted; anything else is dropped.
+        function telegramUrlFromRaw(raw) {
             if (!raw) return '';
-            if (/^https?:\/\//i.test(raw)) return raw;
+            if (/^https?:\/\//i.test(raw)) {
+                return /^https?:\/\/(t\.me|telegram\.me)\//i.test(raw) ? raw : '';
+            }
             var handle = raw.charAt(0) === '@' ? raw.slice(1) : raw;
             if (!/^[A-Za-z0-9_]{3,}$/.test(handle)) return '';
             return 'https://t.me/' + handle;
         }
 
-        function applyPartnerSupport() {
-            var url = getPartnerSupportTelegramUrl();
-            var links = document.querySelectorAll('.js-partner-support');
-            for (var i = 0; i < links.length; i++) {
-                if (url) links[i].setAttribute('href', url);
+        // First configured partner; kept for callers that expect a single value.
+        function getPartnerSupportTelegramUrl() {
+            return telegramUrlFromRaw(partnerSupportRaw(0));
+        }
+
+        function getPartnerSupportContacts() {
+            var out = [];
+            for (var i = 0; i < SUPPORT_CONTACTS.length; i++) {
+                var raw = partnerSupportRaw(SUPPORT_CONTACTS[i].slot);
+                var url = telegramUrlFromRaw(raw);
+                if (!url) continue;
+                out.push({ name: SUPPORT_CONTACTS[i].name, ctaKey: SUPPORT_CONTACTS[i].ctaKey, url: url, handle: raw });
             }
-            var handleEl = document.getElementById('partnerSupportHandle');
-            if (handleEl) handleEl.textContent = partnerSupportRaw();
+            return out;
+        }
+
+        function buildPartnerCard(contact) {
+            var card = document.createElement('div');
+            card.className = 'support-card';
+            card.setAttribute('data-partner', contact.name);
+
+            var name = document.createElement('p');
+            name.className = 'partner-name';
+            name.textContent = contact.name;
+
+            var role = document.createElement('p');
+            role.className = 'partner-role';
+            role.textContent = t('partners.partnerRole');
+
+            var link = document.createElement('a');
+            link.className = 'btn btn-secondary js-partner-support';
+            link.setAttribute('href', contact.url);
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+            var icon = document.createElement('i');
+            icon.className = 'fab fa-telegram';
+            icon.setAttribute('aria-hidden', 'true');
+            var label = document.createElement('span');
+            label.textContent = t(contact.ctaKey);
+            link.appendChild(icon);
+            link.appendChild(label);
+
+            var handle = document.createElement('p');
+            handle.className = 'support-handle';
+            var handleLabel = document.createElement('span');
+            handleLabel.textContent = t('partners.supportHandleLabel') + ': ';
+            var handleValue = document.createElement('span');
+            handleValue.className = 'support-handle-value';
+            handleValue.textContent = contact.handle;
+            handle.appendChild(handleLabel);
+            handle.appendChild(handleValue);
+
+            card.appendChild(name);
+            card.appendChild(role);
+            card.appendChild(link);
+            card.appendChild(handle);
+            return card;
+        }
+
+        function applyPartnerSupport() {
+            var container = document.getElementById('partnerSupportContacts');
+            var fallback = document.getElementById('partnerSupportFallback');
+            var contacts = getPartnerSupportContacts();
+            if (container) {
+                container.textContent = '';
+                for (var i = 0; i < contacts.length; i++) container.appendChild(buildPartnerCard(contacts[i]));
+            }
+            if (fallback) {
+                if (contacts.length) fallback.setAttribute('hidden', '');
+                else fallback.removeAttribute('hidden');
+            }
         }
 
         // ============ Partner walkthrough video localization ============
@@ -1148,6 +1255,7 @@
             currentLang = lang;
             try { localStorage.setItem('arbi_lang', lang); } catch (e) {}
             applyTranslations();
+            applyPartnerSupport();
             applyPartnerVideo();
             updatePartnerLangUI();
             closePartnerLangMenu();
