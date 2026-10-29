@@ -1,8 +1,10 @@
 'use strict';
 
 /**
- * Telegram marketing fixtures: the payment-partner contacts are Alex and
- * Olivia, and Official Arbitrix Support stays a separate contact.
+ * Telegram marketing fixtures and the partner-contact POLICY:
+ *   - referral / partner-recruitment enquiries: ALEX ONLY (business decision);
+ *   - payment assistance: both payment partners (Alex and Olivia);
+ *   - Official Arbitrix Support stays a separate contact, never a partner.
  *
  * The obsolete @Arbitrix_CSA1 handle must not be rendered by any marketing
  * template, button, link block or stored-post round trip.
@@ -61,25 +63,30 @@ test('a configured handle still wins, per slot and independently', () => {
     assert.strictEqual(cfg.supportUrl, OFFICIAL);
 });
 
-test('both partners appear as buttons in the welcome and Start Here', () => {
+test('the recruitment keyboard offers official support and Alex only', () => {
     for (const locale of LOCALES) {
         for (const kind of ['welcome', 'startHere']) {
             const rows = render(kind, locale, CTX).replyMarkup.inline_keyboard;
             const urls = rows.flat().map((b) => b.url);
             assert.ok(urls.includes(ALEX), locale + ' ' + kind + ' links Alex');
-            assert.ok(urls.includes(OLIVIA), locale + ' ' + kind + ' links Olivia');
+            assert.ok(!urls.includes(OLIVIA), locale + ' ' + kind + ' must not offer a payment partner');
             assert.ok(urls.includes(OFFICIAL), locale + ' ' + kind + ' keeps official support');
             assert.strictEqual(urls.filter((u) => u === OFFICIAL).length, 1, 'official support once');
+            assert.deepStrictEqual(rows.map((row) => row.length), [2, 2], locale + ' ' + kind + ' stays 2x2');
         }
     }
 });
 
-test('the announcement/channel copy links both partners and official support', () => {
+test('the channel copy keeps official support, offers Alex, and lists both partners for payments', () => {
     const channel = render('channelIntro', 'en', CTX);
     const urls = channel.buttons.map((b) => b.url);
-    assert.ok(urls.includes(ALEX) && urls.includes(OLIVIA), 'both partners offered');
+    assert.ok(urls.includes(ALEX), 'Alex is the recruitment contact');
+    assert.ok(!urls.includes(OLIVIA), 'a payment partner is not a recruitment button');
     assert.ok(urls.includes(OFFICIAL), 'official support kept');
-    assert.ok(channel.text.includes(ALEX) && channel.text.includes(OLIVIA), 'both partner lines in the copy');
+    // Payment help is a payment-specific block: BOTH partners appear there.
+    assert.match(channel.text, /Payment help:/);
+    assert.ok(channel.text.includes(ALEX) && channel.text.includes(OLIVIA), 'both payment partners listed');
+    assert.ok(channel.text.indexOf(OFFICIAL) < channel.text.indexOf(ALEX), 'official support listed first');
 });
 
 test('no template renders the retired @Arbitrix_CSA1 handle in any locale or kind', () => {
@@ -90,11 +97,28 @@ test('no template renders the retired @Arbitrix_CSA1 handle in any locale or kin
     }
 });
 
-test('the partner line lists both contacts, official support separately', () => {
+test('the partner line lists Alex alone, official support separately', () => {
     const out = render('startHere', 'en', CTX);
+    assert.match(out.text, new RegExp('Partner support:'));
     assert.match(out.text, new RegExp('Alex: ' + ALEX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.match(out.text, new RegExp('Olivia: ' + OLIVIA.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.ok(!out.text.includes(OLIVIA), 'Olivia must not appear in a recruitment message');
     assert.ok(out.text.indexOf(OFFICIAL) < out.text.indexOf(ALEX), 'official support is listed first, as its own line');
+});
+
+test('only payment-specific copy mentions Olivia, never a recruitment message', () => {
+    for (const locale of LOCALES) {
+        for (const kind of ['welcome', 'startHere', 'weekly']) {
+            const out = render(kind, locale, Object.assign({}, CTX, { theme: 'mon' }));
+            const blob = out.text + ' ' + JSON.stringify(out.buttons);
+            assert.ok(!blob.includes(OLIVIA), `${locale}/${kind} is a recruitment message and must list Alex only`);
+        }
+        // ...while the payment block in the channel intro keeps both.
+        const channel = render('channelIntro', locale, CTX);
+        assert.ok(channel.text.includes(ALEX) && channel.text.includes(OLIVIA),
+            locale + '/channelIntro payment help lists both payment partners');
+        assert.ok(!JSON.stringify(channel.buttons).includes(OLIVIA),
+            locale + '/channelIntro does not turn a payment partner into a recruitment button');
+    }
 });
 
 test('an unconfigured partner is omitted instead of inventing a contact', () => {
@@ -110,36 +134,45 @@ test('an unconfigured partner is omitted instead of inventing a contact', () => 
     assert.ok(empty.buttons.some((b) => b.url === OFFICIAL), 'official support still offered');
 });
 
-test('the Start Here stored buttons keep both partners through the queue round trip', () => {
+test('the Start Here stored buttons keep the recruitment contact through the queue round trip', () => {
     const built = buildStartHereRow({ config: CONFIG, scheduledFor: '2026-10-29T09:00:00Z' });
     const stored = JSON.parse(JSON.stringify(built.content.buttons));
     const urls = groupButtons(stored).flat().map((b) => b.url);
     assert.deepStrictEqual(urls, [
         'https://arbitrix.pro/?action=create-account',
         'https://arbitrix.pro/how-it-works',
-        OFFICIAL, ALEX, OLIVIA
+        OFFICIAL, ALEX
     ]);
+    assert.ok(!JSON.stringify(stored).includes(OLIVIA), 'no payment partner is queued as a recruitment button');
 });
 
-test('the labels are localized, labelled per partner and never reuse English', () => {
+test('the labels are localized per purpose and never reuse English', () => {
     for (const locale of LOCALES) {
         const b = LABELS[locale].buttons;
-        for (const key of ['partnerAlex', 'partnerOlivia', 'support']) {
+        const l = LABELS[locale];
+        // Buttons are the recruitment keyboard: official support + Alex.
+        for (const key of ['partnerAlex', 'support']) {
             assert.ok(String(b[key] || '').trim(), locale + ' missing buttons.' + key);
             assert.match(b[key], /^\p{Extended_Pictographic}\s/u, locale + ' ' + key + ' needs an icon');
             assert.ok(b[key].length <= 64, locale + ' ' + key + ' must fit Telegram limits');
         }
         assert.match(b.partnerAlex, /Alex/);
-        assert.match(b.partnerOlivia, /Olivia/);
-        assert.ok(!/Arbitrix_CSA1/.test(JSON.stringify(LABELS[locale])));
+        assert.strictEqual(b.partnerOlivia, undefined, locale + ' must not ship an Olivia recruitment button');
+        // Payment labels exist for the payment-specific block only.
+        assert.match(l.paymentAlex, /Alex/);
+        assert.match(l.paymentOlivia, /Olivia/);
+        assert.ok(String(l.paymentSupportLine || '').trim(), locale + ' missing paymentSupportLine');
+        assert.ok(String(l.partnerSupportLine || '').trim(), locale + ' missing partnerSupportLine');
+        assert.ok(!/Arbitrix_CSA1/.test(JSON.stringify(l)));
         if (locale !== 'en') {
             assert.notStrictEqual(b.partnerAlex, LABELS.en.buttons.partnerAlex, locale + ' Alex label untranslated');
-            assert.notStrictEqual(b.partnerOlivia, LABELS.en.buttons.partnerOlivia, locale + ' Olivia label untranslated');
+            assert.notStrictEqual(l.paymentOlivia, LABELS.en.paymentOlivia, locale + ' Olivia payment label untranslated');
+            assert.notStrictEqual(l.partnerSupportLine, LABELS.en.partnerSupportLine, locale + ' partner line untranslated');
         }
     }
     // Names are proper nouns: they survive the translation.
     assert.match(LABELS.ar.buttons.partnerAlex, /Alex/);
-    assert.match(LABELS.pt.buttons.partnerOlivia, /Olivia/);
+    assert.match(LABELS.pt.paymentOlivia, /Olivia/);
 });
 
 test('no marketing service source still carries the retired handle', () => {

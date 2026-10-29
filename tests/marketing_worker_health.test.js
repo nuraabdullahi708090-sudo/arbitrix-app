@@ -356,8 +356,9 @@ test('the approved test copy passes the guard in every locale and audience', () 
 test('the group test copy links support, the channel copy links registration/how-it-works', () => {
   const group = renderTestMessage('group', 'en', CONFIG);
   assert.ok(group.text.includes(CONFIG.supportUrl));
-  assert.ok(group.text.includes(CONFIG.partnerSupportAlexUrl), 'Alex listed');
-  assert.ok(group.text.includes(CONFIG.partnerSupportOliviaUrl), 'Olivia listed');
+  assert.ok(group.text.includes(CONFIG.partnerSupportAlexUrl), 'Alex listed (recruitment contact)');
+  assert.ok(!group.text.includes(CONFIG.partnerSupportOliviaUrl),
+    'a payment partner is not a recruitment contact');
   assert.ok(!group.text.includes(CONFIG.howItWorksUrl), 'the group test stays minimal');
 
   const channel = renderTestMessage('channel', 'en', CONFIG);

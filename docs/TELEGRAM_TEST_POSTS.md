@@ -23,10 +23,13 @@ that no action is needed, and makes no earnings or performance claim.
 This is a delivery test for the Arbitrix partner group. No action is needed.
 
 Customer support: https://t.me/ArbitrixSupportBot
-Partner payment support:
+Partner support:
 • Alex: https://t.me/AlexArbitrix
-• Olivia: https://t.me/OliviaArbitrix
 ```
+
+The partner group is a **recruitment** audience, so it lists Alex alone. Olivia
+appears only where the copy is specifically about payments (the channel intro's
+"Payment help" block).
 
 **Announcement channel** — also doubles as a link check for the two conversion
 links:

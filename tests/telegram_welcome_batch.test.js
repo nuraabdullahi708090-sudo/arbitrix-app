@@ -454,9 +454,10 @@ test('every supported language greets a batch with its own generic copy', async 
     const urls = transport.sent[0].options.reply_markup.inline_keyboard.map((row) => row.map((b) => b.url));
     assert.deepStrictEqual(urls, [
       [DESTINATIONS.register, DESTINATIONS.howItWorks],
-      [DESTINATIONS.support, DESTINATIONS.partnerAlex],
-      [DESTINATIONS.partnerOlivia]
+      [DESTINATIONS.support, DESTINATIONS.partnerAlex]
     ], locale + ' keyboard');
+    assert.ok(!JSON.stringify(urls).includes(DESTINATIONS.partnerOlivia),
+      locale + ' must not offer a payment partner');
   }
 });
 
@@ -466,13 +467,14 @@ test('the personalised and batch welcomes both keep the partner keyboard and pas
     const { transport } = await deliver(joinUpdate(members));
     const message = transport.sent[0];
     const rows = message.options.reply_markup.inline_keyboard;
-    assert.strictEqual(rows.length, 3);
-    assert.deepStrictEqual(rows.map((r) => r.length), [2, 2, 1]);
+    assert.strictEqual(rows.length, 2);
+    assert.deepStrictEqual(rows.map((r) => r.length), [2, 2]);
     assert.deepStrictEqual(rows.map((r) => r.map((b) => b.url)), [
       [DESTINATIONS.register, DESTINATIONS.howItWorks],
-      [DESTINATIONS.support, DESTINATIONS.partnerAlex],
-      [DESTINATIONS.partnerOlivia]
+      [DESTINATIONS.support, DESTINATIONS.partnerAlex]
     ]);
+    assert.ok(!JSON.stringify(rows).includes(DESTINATIONS.partnerOlivia),
+      'a payment partner is never offered as a recruitment contact');
     const guard = checkContent(message.text, Object.assign({ locale: 'en' }, FACTS));
     assert.strictEqual(guard.blocked, false);
     assert.strictEqual(guard.requiresApproval, false);

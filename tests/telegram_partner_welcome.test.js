@@ -102,10 +102,13 @@ test('the pinned Start Here guide matches the welcome and walks through the Refe
   for (const line of required) {
     assert.ok(text.includes(line), 'Start Here is missing: ' + line);
   }
-  // All four confirmed destinations appear in the guide's own text.
-  for (const url of Object.values(DESTINATIONS)) {
+  // The recruitment destinations appear in the guide's own text. Olivia is a
+  // PAYMENT partner and must not be offered in a recruitment message.
+  for (const url of [DESTINATIONS.register, DESTINATIONS.howItWorks, DESTINATIONS.support, DESTINATIONS.partnerAlex]) {
     assert.ok(text.includes(url), 'Start Here is missing the destination ' + url);
   }
+  assert.ok(!text.includes(DESTINATIONS.partnerOlivia),
+    'Start Here must not list a payment partner');
 });
 
 test('the approved Referral-page sentence is localized, not copied from English', () => {
@@ -194,25 +197,25 @@ test('no personal referral URL is invented: the copy points at the Referral page
 // 2. Inline buttons
 // ---------------------------------------------------------------------------
 
-test('the welcome keyboard offers official support and BOTH payment partners', () => {
+test('the welcome keyboard offers official support and Alex only', () => {
   for (const locale of LOCALES) {
     const keyboard = render('welcome', locale, CTX).replyMarkup.inline_keyboard;
-    assert.strictEqual(keyboard.length, 3, locale + ' must render three rows');
-    assert.deepStrictEqual(keyboard.map((row) => row.length), [2, 2, 1], locale + ' must render 2x2 + 1');
+    assert.strictEqual(keyboard.length, 2, locale + ' must render two rows');
+    assert.deepStrictEqual(keyboard.map((row) => row.length), [2, 2], locale + ' must render 2x2');
     assert.deepStrictEqual(keyboard[0].map((b) => b.url), [DESTINATIONS.register, DESTINATIONS.howItWorks]);
     assert.deepStrictEqual(keyboard[1].map((b) => b.url), [DESTINATIONS.support, DESTINATIONS.partnerAlex],
       locale + ' official support sits beside Alex and is a different contact');
-    assert.deepStrictEqual(keyboard[2].map((b) => b.url), [DESTINATIONS.partnerOlivia]);
+    assert.ok(!JSON.stringify(keyboard).includes(DESTINATIONS.partnerOlivia),
+      locale + ' must not offer a payment partner in a recruitment message');
   }
 });
 
-test('the Start Here keyboard carries the same five destinations', () => {
+test('the Start Here keyboard carries the same four destinations', () => {
   for (const locale of LOCALES) {
     const keyboard = render('startHere', locale, CTX).replyMarkup.inline_keyboard;
     assert.deepStrictEqual(keyboard.map((row) => row.map((b) => b.url)), [
       [DESTINATIONS.register, DESTINATIONS.howItWorks],
-      [DESTINATIONS.support, DESTINATIONS.partnerAlex],
-      [DESTINATIONS.partnerOlivia]
+      [DESTINATIONS.support, DESTINATIONS.partnerAlex]
     ]);
   }
 });
@@ -220,12 +223,11 @@ test('the Start Here keyboard carries the same five destinations', () => {
 test('button labels are localized, carry an icon and never reuse the English label', () => {
   const buttons = {
     en: ['\u{1F680} Create Account', '\u{1F393} How It Works', '\u{1F4AC} Customer Support',
-      '\u{1F4B3} Contact Alex', '\u{1F4B3} Contact Olivia'],
+      '\u{1F4B3} Contact Alex'],
     pt: ['\u{1F680} Criar conta', '\u{1F393} Como funciona', '\u{1F4AC} Suporte ao cliente',
-      '\u{1F4B3} Falar com Alex', '\u{1F4B3} Falar com Olivia'],
+      '\u{1F4B3} Falar com Alex'],
     ar: ['\u{1F680} \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628', '\u{1F393} \u0643\u064a\u0641 \u064a\u0639\u0645\u0644',
-      '\u{1F4AC} \u062f\u0639\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621', '\u{1F4B3} \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex',
-      '\u{1F4B3} \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Olivia']
+      '\u{1F4AC} \u062f\u0639\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621', '\u{1F4B3} \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex']
   };
   for (const locale of LOCALES) {
     const texts = render('welcome', locale, CTX).buttons.map((b) => b.text);
@@ -243,9 +245,10 @@ test('the row layout survives the queue round trip used by the publisher', () =>
   const stored = JSON.parse(JSON.stringify(built.content.buttons));
   assert.deepStrictEqual(groupButtons(stored).map((row) => row.map((b) => b.url)), [
     [DESTINATIONS.register, DESTINATIONS.howItWorks],
-    [DESTINATIONS.support, DESTINATIONS.partnerAlex],
-    [DESTINATIONS.partnerOlivia]
+    [DESTINATIONS.support, DESTINATIONS.partnerAlex]
   ]);
+  assert.ok(!JSON.stringify(stored).includes(DESTINATIONS.partnerOlivia),
+    'a payment partner is never queued as a recruitment button');
 });
 
 // ---------------------------------------------------------------------------
@@ -286,14 +289,17 @@ test('the localized messages keep the Referral page instruction and the one-time
 });
 
 test('the URLs stay unchanged in every language', () => {
+  const recruitment = [DESTINATIONS.register, DESTINATIONS.howItWorks, DESTINATIONS.support, DESTINATIONS.partnerAlex];
   for (const locale of LOCALES) {
     for (const kind of ['welcome', 'startHere']) {
       const out = render(kind, locale, CTX);
-      for (const url of Object.values(DESTINATIONS)) {
+      for (const url of recruitment) {
         const inText = out.text.includes(url);
         const inButton = out.buttons.some((b) => b.url === url);
         assert.ok(inText || inButton, locale + '/' + kind + ' is missing ' + url);
       }
+      assert.ok(!JSON.stringify(out.buttons).includes(DESTINATIONS.partnerOlivia),
+        locale + '/' + kind + ' must not offer a payment partner');
     }
   }
 });
@@ -345,8 +351,7 @@ test('a new member receives the approved welcome and the working keyboard end to
   const keyboard = sent[0].options.reply_markup.inline_keyboard;
   assert.deepStrictEqual(keyboard.map((row) => row.map((b) => b.url)), [
     [DESTINATIONS.register, DESTINATIONS.howItWorks],
-    [DESTINATIONS.support, DESTINATIONS.partnerAlex],
-    [DESTINATIONS.partnerOlivia]
+    [DESTINATIONS.support, DESTINATIONS.partnerAlex]
   ]);
 });
 
