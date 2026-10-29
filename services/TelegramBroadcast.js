@@ -77,7 +77,9 @@ const OFFICIAL_LINKS = Object.freeze({
   registerUrl: 'https://arbitrix.pro/?action=create-account',
   howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1'
+  // The two current payment partners. Official support above is NOT a partner.
+  partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
+  partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix'
 });
 
 /**
@@ -142,8 +144,14 @@ function resolveMarketingConfig(env) {
         ? telegramProfileUrl(e.TELEGRAM_ANNOUNCEMENT_CHANNEL_USERNAME)
         : ''),
     supportUrl: telegramProfileUrl(e.TELEGRAM_SUPPORT_USERNAME) || OFFICIAL_LINKS.supportUrl,
+    partnerSupportAlexUrl: telegramProfileUrl(e.TELEGRAM_PARTNER_SUPPORT_USERNAME) ||
+      OFFICIAL_LINKS.partnerSupportAlexUrl,
+    partnerSupportOliviaUrl: telegramProfileUrl(e.TELEGRAM_PARTNER_SUPPORT_USERNAME_2) ||
+      OFFICIAL_LINKS.partnerSupportOliviaUrl,
+    // Kept as the primary partner for callers that still treat it as one value
+    // (stored posts and the readiness summary); the renderers use both above.
     partnerSupportUrl: telegramProfileUrl(e.TELEGRAM_PARTNER_SUPPORT_USERNAME) ||
-      OFFICIAL_LINKS.partnerSupportUrl,
+      OFFICIAL_LINKS.partnerSupportAlexUrl,
     baseUrl
   };
 }
@@ -168,7 +176,8 @@ function describeMarketingConfig(config) {
     howItWorksUrlConfigured: Boolean(c.howItWorksUrl),
     announcementUrlConfigured: Boolean(c.announcementUrl),
     supportUrlConfigured: Boolean(c.supportUrl),
-    partnerSupportUrlConfigured: Boolean(c.partnerSupportUrl)
+    partnerSupportUrlConfigured: Boolean(c.partnerSupportAlexUrl),
+    partnerSupportOliviaUrlConfigured: Boolean(c.partnerSupportOliviaUrl)
   };
 }
 
@@ -297,6 +306,7 @@ function retryAfterMs(error) {
 }
 
 module.exports = {
+  OFFICIAL_LINKS,
   CHANNEL_ID_FORMAT,
   WORKER_HEARTBEAT_STALE_MS,
   AUDIENCES,

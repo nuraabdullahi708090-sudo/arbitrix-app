@@ -29,7 +29,8 @@ const DESTINATIONS = {
   register: 'https://arbitrix.pro/?action=create-account',
   howItWorks: 'https://arbitrix.pro/how-it-works',
   support: 'https://t.me/ArbitrixSupportBot',
-  partnerSupport: 'https://t.me/Arbitrix_CSA1'
+  partnerAlex: 'https://t.me/AlexArbitrix',
+  partnerOlivia: 'https://t.me/OliviaArbitrix'
 };
 
 const FACTS = { minDeposit: 100, referralPercent: 20 };
@@ -101,10 +102,13 @@ test('the pinned Start Here guide matches the welcome and walks through the Refe
   for (const line of required) {
     assert.ok(text.includes(line), 'Start Here is missing: ' + line);
   }
-  // All four confirmed destinations appear in the guide's own text.
-  for (const url of Object.values(DESTINATIONS)) {
+  // The recruitment destinations appear in the guide's own text. Olivia is a
+  // PAYMENT partner and must not be offered in a recruitment message.
+  for (const url of [DESTINATIONS.register, DESTINATIONS.howItWorks, DESTINATIONS.support, DESTINATIONS.partnerAlex]) {
     assert.ok(text.includes(url), 'Start Here is missing the destination ' + url);
   }
+  assert.ok(!text.includes(DESTINATIONS.partnerOlivia),
+    'Start Here must not list a payment partner');
 });
 
 test('the approved Referral-page sentence is localized, not copied from English', () => {
@@ -193,13 +197,16 @@ test('no personal referral URL is invented: the copy points at the Referral page
 // 2. Inline buttons
 // ---------------------------------------------------------------------------
 
-test('the welcome keyboard is two rows of two buttons, in the approved order', () => {
+test('the welcome keyboard offers official support and Alex only', () => {
   for (const locale of LOCALES) {
     const keyboard = render('welcome', locale, CTX).replyMarkup.inline_keyboard;
     assert.strictEqual(keyboard.length, 2, locale + ' must render two rows');
     assert.deepStrictEqual(keyboard.map((row) => row.length), [2, 2], locale + ' must render 2x2');
     assert.deepStrictEqual(keyboard[0].map((b) => b.url), [DESTINATIONS.register, DESTINATIONS.howItWorks]);
-    assert.deepStrictEqual(keyboard[1].map((b) => b.url), [DESTINATIONS.support, DESTINATIONS.partnerSupport]);
+    assert.deepStrictEqual(keyboard[1].map((b) => b.url), [DESTINATIONS.support, DESTINATIONS.partnerAlex],
+      locale + ' official support sits beside Alex and is a different contact');
+    assert.ok(!JSON.stringify(keyboard).includes(DESTINATIONS.partnerOlivia),
+      locale + ' must not offer a payment partner in a recruitment message');
   }
 });
 
@@ -208,17 +215,19 @@ test('the Start Here keyboard carries the same four destinations', () => {
     const keyboard = render('startHere', locale, CTX).replyMarkup.inline_keyboard;
     assert.deepStrictEqual(keyboard.map((row) => row.map((b) => b.url)), [
       [DESTINATIONS.register, DESTINATIONS.howItWorks],
-      [DESTINATIONS.support, DESTINATIONS.partnerSupport]
+      [DESTINATIONS.support, DESTINATIONS.partnerAlex]
     ]);
   }
 });
 
 test('button labels are localized, carry an icon and never reuse the English label', () => {
   const buttons = {
-    en: ['\u{1F680} Create Account', '\u{1F393} How It Works', '\u{1F4AC} Customer Support', '\u{1F4B3} Partner Payment Support'],
-    pt: ['\u{1F680} Criar conta', '\u{1F393} Como funciona', '\u{1F4AC} Suporte ao cliente', '\u{1F4B3} Suporte de pagamentos a parceiros'],
+    en: ['\u{1F680} Create Account', '\u{1F393} How It Works', '\u{1F4AC} Customer Support',
+      '\u{1F4B3} Contact Alex'],
+    pt: ['\u{1F680} Criar conta', '\u{1F393} Como funciona', '\u{1F4AC} Suporte ao cliente',
+      '\u{1F4B3} Falar com Alex'],
     ar: ['\u{1F680} \u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628', '\u{1F393} \u0643\u064a\u0641 \u064a\u0639\u0645\u0644',
-      '\u{1F4AC} \u062f\u0639\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621', '\u{1F4B3} \u062f\u0639\u0645 \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0627\u0644\u0634\u0631\u0643\u0627\u0621']
+      '\u{1F4AC} \u062f\u0639\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621', '\u{1F4B3} \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex']
   };
   for (const locale of LOCALES) {
     const texts = render('welcome', locale, CTX).buttons.map((b) => b.text);
@@ -236,8 +245,10 @@ test('the row layout survives the queue round trip used by the publisher', () =>
   const stored = JSON.parse(JSON.stringify(built.content.buttons));
   assert.deepStrictEqual(groupButtons(stored).map((row) => row.map((b) => b.url)), [
     [DESTINATIONS.register, DESTINATIONS.howItWorks],
-    [DESTINATIONS.support, DESTINATIONS.partnerSupport]
+    [DESTINATIONS.support, DESTINATIONS.partnerAlex]
   ]);
+  assert.ok(!JSON.stringify(stored).includes(DESTINATIONS.partnerOlivia),
+    'a payment partner is never queued as a recruitment button');
 });
 
 // ---------------------------------------------------------------------------
@@ -278,14 +289,17 @@ test('the localized messages keep the Referral page instruction and the one-time
 });
 
 test('the URLs stay unchanged in every language', () => {
+  const recruitment = [DESTINATIONS.register, DESTINATIONS.howItWorks, DESTINATIONS.support, DESTINATIONS.partnerAlex];
   for (const locale of LOCALES) {
     for (const kind of ['welcome', 'startHere']) {
       const out = render(kind, locale, CTX);
-      for (const url of Object.values(DESTINATIONS)) {
+      for (const url of recruitment) {
         const inText = out.text.includes(url);
         const inButton = out.buttons.some((b) => b.url === url);
         assert.ok(inText || inButton, locale + '/' + kind + ' is missing ' + url);
       }
+      assert.ok(!JSON.stringify(out.buttons).includes(DESTINATIONS.partnerOlivia),
+        locale + '/' + kind + ' must not offer a payment partner');
     }
   }
 });
@@ -299,7 +313,8 @@ test('the confirmed destinations are the defaults when the environment is empty'
   assert.strictEqual(cfg.registerUrl, DESTINATIONS.register);
   assert.strictEqual(cfg.howItWorksUrl, DESTINATIONS.howItWorks);
   assert.strictEqual(cfg.supportUrl, DESTINATIONS.support);
-  assert.strictEqual(cfg.partnerSupportUrl, DESTINATIONS.partnerSupport);
+  assert.strictEqual(cfg.partnerSupportAlexUrl, DESTINATIONS.partnerAlex);
+  assert.strictEqual(cfg.partnerSupportOliviaUrl, DESTINATIONS.partnerOlivia);
 });
 
 test('a configured value still wins over the default destination', () => {
@@ -336,7 +351,7 @@ test('a new member receives the approved welcome and the working keyboard end to
   const keyboard = sent[0].options.reply_markup.inline_keyboard;
   assert.deepStrictEqual(keyboard.map((row) => row.map((b) => b.url)), [
     [DESTINATIONS.register, DESTINATIONS.howItWorks],
-    [DESTINATIONS.support, DESTINATIONS.partnerSupport]
+    [DESTINATIONS.support, DESTINATIONS.partnerAlex]
   ]);
 });
 

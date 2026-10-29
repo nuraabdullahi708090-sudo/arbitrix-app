@@ -28,7 +28,8 @@ const CTX = {
   registerUrl: 'https://arbitrix.pro/?action=create-account',
   howItWorksUrl: 'https://arbitrix.pro/how-it-works',
   supportUrl: 'https://t.me/ArbitrixSupportBot',
-  partnerSupportUrl: 'https://t.me/Arbitrix_CSA1',
+  partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
+  partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix',
   announcementUrl: 'https://t.me/ArbitrixChannel',
   minDeposit: 100,
   referralPercent: 20
@@ -116,19 +117,20 @@ test('links and buttons are omitted, never invented, when configuration is missi
   assert.strictEqual(bare.replyMarkup, null);
 
   const full = render('welcome', 'en', CTX);
-  assert.strictEqual(full.buttons.length, 4);
+  assert.strictEqual(full.buttons.length, 4, 'two top links + official support + Alex (recruitment)');
   assert.deepStrictEqual(full.replyMarkup.inline_keyboard.map((row) => row.length), [2, 2]);
   for (const button of full.buttons) {
     assert.match(button.url, /^https:\/\/t\.me\/|^https:\/\/arbitrix\.pro\//);
   }
 });
 
-test('the partner welcome and Start Here use the four approved buttons in two rows', () => {
+test('the partner welcome and Start Here offer official support and Alex only', () => {
+  // Business decision: Alex is the sole referral / partner-recruitment contact.
   const expected = [
     ['\u{1F680} Create Account', 'https://arbitrix.pro/?action=create-account'],
     ['\u{1F393} How It Works', 'https://arbitrix.pro/how-it-works'],
     ['\u{1F4AC} Customer Support', 'https://t.me/ArbitrixSupportBot'],
-    ['\u{1F4B3} Partner Payment Support', 'https://t.me/Arbitrix_CSA1']
+    ['\u{1F4B3} Contact Alex', 'https://t.me/AlexArbitrix']
   ];
   for (const kind of ['welcome', 'startHere']) {
     const out = render(kind, 'en', CTX);
@@ -137,6 +139,7 @@ test('the partner welcome and Start Here use the four approved buttons in two ro
     assert.deepStrictEqual(rows.map((row) => row.length), [2, 2], `${kind} must render 2x2`);
     assert.deepStrictEqual(rows[0].map((b) => [b.text, b.url]), [expected[0], expected[1]]);
     assert.deepStrictEqual(rows[1].map((b) => [b.text, b.url]), [expected[2], expected[3]]);
+    assert.ok(!JSON.stringify(rows).includes('Olivia'), `${kind} must not offer a payment partner`);
   }
 });
 

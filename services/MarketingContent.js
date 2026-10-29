@@ -35,7 +35,13 @@ const LABELS = {
     greeting: '👋 Welcome to the Arbitrix Partners Community, {{name}}!',
     greetingAnon: '👋 Welcome to the Arbitrix Partners Community!',
     support: 'Customer support',
-    partnerSupport: 'Partner payment support',
+    // Alex is the sole contact for referral / partner-recruitment enquiries.
+    partnerSupport: 'Partner support',
+    partnerAlex: 'Contact Alex (partner support)',
+    // Payment assistance is a different purpose and lists both payment partners.
+    paymentSupport: 'Payment help',
+    paymentAlex: 'Contact Alex (payment support)',
+    paymentOlivia: 'Contact Olivia (payment support)',
     announcements: 'Official announcements',
     register: 'Create your account',
     howItWorks: 'Learn how it works',
@@ -43,7 +49,8 @@ const LABELS = {
     learnHowItWorks: '🎓 Learn how it works:',
     openRegister: '👉',
     supportLine: '💬 Customer support:',
-    partnerSupportLine: '💳 Partner payment support:',
+    partnerSupportLine: '💳 Partner support:',
+    paymentSupportLine: '💳 Payment help:',
     testGroupTitle: '\u{1F9EA} DELIVERY TEST \u2014 PARTNER GROUP',
     testGroupBody: 'This is a delivery test for the Arbitrix partner group. No action is needed.',
     testChannelTitle: '\u{1F9EA} DELIVERY TEST \u2014 OFFICIAL CHANNEL',
@@ -52,7 +59,8 @@ const LABELS = {
       register: '🚀 Create Account',
       howItWorks: '🎓 How It Works',
       support: '💬 Customer Support',
-      partnerSupport: '💳 Partner Payment Support'
+      partnerSupport: '💳 Partner Support',
+      partnerAlex: '💳 Contact Alex'
     },
     // The approved wording: the member logs in and opens the Referral page. It
     // never suggests that a personal link is sent to them automatically.
@@ -69,7 +77,11 @@ const LABELS = {
     greeting: '👋 Boas-vindas à Comunidade de Parceiros Arbitrix, {{name}}!',
     greetingAnon: '👋 Boas-vindas à Comunidade de Parceiros Arbitrix!',
     support: 'Suporte ao cliente',
-    partnerSupport: 'Suporte de pagamentos a parceiros',
+    partnerSupport: 'Suporte a parceiros',
+    partnerAlex: 'Falar com Alex (suporte a parceiros)',
+    paymentSupport: 'Ajuda com pagamentos',
+    paymentAlex: 'Falar com Alex (pagamentos)',
+    paymentOlivia: 'Falar com Olivia (pagamentos)',
     announcements: 'Avisos oficiais',
     register: 'Criar sua conta',
     howItWorks: 'Veja como funciona',
@@ -77,7 +89,8 @@ const LABELS = {
     learnHowItWorks: '🎓 Veja como funciona:',
     openRegister: '👉',
     supportLine: '💬 Suporte ao cliente:',
-    partnerSupportLine: '💳 Suporte de pagamentos a parceiros:',
+    partnerSupportLine: '💳 Suporte a parceiros:',
+    paymentSupportLine: '💳 Ajuda com pagamentos:',
     testGroupTitle: '\u{1F9EA} TESTE DE ENTREGA \u2014 GRUPO DE PARCEIROS',
     testGroupBody: 'Este \u00e9 um teste de entrega para o grupo de parceiros da Arbitrix. Nenhuma a\u00e7\u00e3o \u00e9 necess\u00e1ria.',
     testChannelTitle: '\u{1F9EA} TESTE DE ENTREGA \u2014 CANAL OFICIAL',
@@ -86,7 +99,8 @@ const LABELS = {
       register: '🚀 Criar conta',
       howItWorks: '🎓 Como funciona',
       support: '💬 Suporte ao cliente',
-      partnerSupport: '💳 Suporte de pagamentos a parceiros'
+      partnerSupport: '💳 Suporte a parceiros',
+      partnerAlex: '💳 Falar com Alex'
     },
     referralIntro: 'Depois do cadastro, entre na sua conta e abra a seção Indicações. Ali você encontra seu link de indicação pessoal e seu código de indicação.',
     referralSteps: [
@@ -101,7 +115,11 @@ const LABELS = {
     greeting: '👋 مرحبًا بك في مجتمع شركاء Arbitrix، {{name}}!',
     greetingAnon: '👋 مرحبًا بك في مجتمع شركاء Arbitrix!',
     support: 'دعم العملاء',
-    partnerSupport: 'دعم مدفوعات الشركاء',
+    partnerSupport: 'دعم الشركاء',
+    partnerAlex: 'تواصل مع Alex (دعم الشركاء)',
+    paymentSupport: 'المساعدة في المدفوعات',
+    paymentAlex: 'تواصل مع Alex (المدفوعات)',
+    paymentOlivia: 'تواصل مع Olivia (المدفوعات)',
     announcements: 'الإعلانات الرسمية',
     register: 'أنشئ حسابك',
     howItWorks: '\u062a\u0639\u0631\u0651\u0641 \u0639\u0644\u0649 \u0643\u064a\u0641\u064a\u0629 \u0627\u0644\u0639\u0645\u0644',
@@ -109,7 +127,8 @@ const LABELS = {
     learnHowItWorks: '🎓 تعرّف على كيفية العمل:',
     openRegister: '👉',
     supportLine: '💬 دعم العملاء:',
-    partnerSupportLine: '💳 دعم مدفوعات الشركاء:',
+    partnerSupportLine: '💳 دعم الشركاء:',
+    paymentSupportLine: '💳 المساعدة في المدفوعات:',
     testGroupTitle: '\u{1F9EA} \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u2014 \u0645\u062c\u0645\u0648\u0639\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u0621',
     testGroupBody: '\u0647\u0630\u0627 \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0641\u064a Arbitrix. \u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u0623\u064a \u0625\u062c\u0631\u0627\u0621.',
     testChannelTitle: '\u{1F9EA} \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u2014 \u0627\u0644\u0642\u0646\u0627\u0629 \u0627\u0644\u0631\u0633\u0645\u064a\u0629',
@@ -118,7 +137,8 @@ const LABELS = {
       register: '🚀 إنشاء حساب',
       howItWorks: '🎓 كيف يعمل',
       support: '💬 دعم العملاء',
-      partnerSupport: '💳 دعم مدفوعات الشركاء'
+      partnerSupport: '💳 دعم الشركاء',
+      partnerAlex: '💳 تواصل مع Alex'
     },
     referralIntro: 'بعد إنشاء الحساب، سجّل الدخول إلى حسابك وافتح قسم الإحالات. ستجد هناك رابط الإحالة الخاص بك ورمز الإحالة.',
     referralSteps: [
@@ -233,6 +253,7 @@ const EN = {
     '',
     'Assistance',
     '{{links}}',
+    '{{paymentSupportLine}}',
     '',
     'Trading involves risk and profits are not guaranteed. Nothing published here is financial advice.'
   ].join('\n'),
@@ -441,6 +462,7 @@ const PT = {
     '',
     'Assistência',
     '{{links}}',
+    '{{paymentSupportLine}}',
     '',
     'Negociar envolve risco e os lucros não são garantidos. Nada publicado aqui é aconselhamento financeiro.'
   ].join('\n'),
@@ -649,6 +671,7 @@ const AR = {
     '',
     'المساعدة',
     '{{links}}',
+    '{{paymentSupportLine}}',
     '',
     'التداول ينطوي على مخاطر والأرباح غير مضمونة. لا شيء يُنشر هنا يُعد نصيحة مالية.'
   ].join('\n'),
@@ -773,6 +796,30 @@ function labelsFor(locale) {
  * Build the localized "links" block from configured URLs.
  * Missing URLs are omitted entirely - no placeholder text, no invented handle.
  */
+/**
+ * Referral / partner-recruitment support: ALEX ONLY (business decision). Olivia
+ * is an authorised payment partner, not a recruitment contact, so she is never
+ * listed here. A line is omitted when the URL is unconfigured, so nothing is
+ * invented; official support is a different contact and is never listed here.
+ */
+function partnerSupportLines(labels, c) {
+  const url = c.partnerSupportAlexUrl || c.partnerSupportUrl;
+  if (!url) return '';
+  return labels.partnerSupportLine + '\n\u2022 Alex: ' + url;
+}
+
+/**
+ * Payment assistance: BOTH payment partners, one bullet per configured contact.
+ * Only messages that are specifically about payments use this block; a missing
+ * URL simply drops its bullet.
+ */
+function paymentSupportLines(labels, c) {
+  const bullets = [];
+  if (c.partnerSupportAlexUrl) bullets.push('\u2022 ' + labels.paymentAlex + ': ' + c.partnerSupportAlexUrl);
+  if (c.partnerSupportOliviaUrl) bullets.push('\u2022 ' + labels.paymentOlivia + ': ' + c.partnerSupportOliviaUrl);
+  return bullets.length ? labels.paymentSupportLine + '\n' + bullets.join('\n') : '';
+}
+
 function buildLinksBlock(locale, ctx) {
   const labels = labelsFor(locale);
   const c = ctx || {};
@@ -780,7 +827,6 @@ function buildLinksBlock(locale, ctx) {
   if (c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
   if (c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
   if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
-  if (c.partnerSupportUrl) lines.push(labels.partnerSupport + ': ' + c.partnerSupportUrl);
   if (c.announcementUrl) lines.push(labels.announcements + ': ' + c.announcementUrl);
   return lines.join('\n');
 }
@@ -799,9 +845,8 @@ function buildStepLines(locale, ctx) {
     learnLine: c.howItWorksUrl ? labels.learnHowItWorks + '\n' + c.howItWorksUrl : '',
     createLine: c.registerUrl ? labels.openRegister + ' ' + c.registerUrl : '',
     supportLine: c.supportUrl ? labels.supportLine + ' ' + c.supportUrl : '',
-    partnerSupportLine: c.partnerSupportUrl
-      ? labels.partnerSupportLine + ' ' + c.partnerSupportUrl
-      : ''
+    partnerSupportLine: partnerSupportLines(labels, c),
+    paymentSupportLine: paymentSupportLines(labels, c)
   };
 }
 
@@ -817,7 +862,9 @@ function partnerButtons(locale, ctx) {
   if (c.registerUrl) rows[0].push({ text: b.register, url: c.registerUrl, row: 0 });
   if (c.howItWorksUrl) rows[0].push({ text: b.howItWorks, url: c.howItWorksUrl, row: 0 });
   if (c.supportUrl) rows[1].push({ text: b.support, url: c.supportUrl, row: 1 });
-  if (c.partnerSupportUrl) rows[1].push({ text: b.partnerSupport, url: c.partnerSupportUrl, row: 1 });
+  // Recruitment support is Alex alone; payment partners are not offered here.
+  const alexUrl = c.partnerSupportAlexUrl || c.partnerSupportUrl;
+  if (alexUrl) rows[1].push({ text: b.partnerAlex, url: alexUrl, row: 1 });
   return rows.reduce((all, row) => all.concat(row), []);
 }
 
@@ -825,12 +872,14 @@ function partnerButtons(locale, ctx) {
 function buildButtons(locale, ctx, kind) {
   if (kind === 'welcome' || kind === 'startHere') return partnerButtons(locale, ctx);
   const labels = labelsFor(locale);
+  const b = labels.buttons;
   const c = ctx || {};
   const buttons = [];
   if (c.registerUrl) buttons.push({ text: labels.register, url: c.registerUrl });
   if (c.announcementUrl) buttons.push({ text: labels.channel, url: c.announcementUrl });
   if (c.supportUrl) buttons.push({ text: labels.support, url: c.supportUrl });
-  if (c.partnerSupportUrl) buttons.push({ text: labels.partnerSupport, url: c.partnerSupportUrl });
+  const alexUrl = c.partnerSupportAlexUrl || c.partnerSupportUrl;
+  if (alexUrl) buttons.push({ text: b.partnerAlex, url: alexUrl });
   return buttons;
 }
 
@@ -955,7 +1004,8 @@ function render(kind, locale, ctx) {
     ? interpolate(labels.greeting, { name: greetingName })
     : labels.greetingAnon;
 
-  const rendered = interpolate(text, Object.assign({
+  const steps = buildStepLines(lang, c);
+  let rendered = interpolate(text, Object.assign({
     greeting,
     minDeposit: c.minDeposit,
     referralPercent: c.referralPercent,
@@ -964,7 +1014,12 @@ function render(kind, locale, ctx) {
     referralIntro: labels.referralIntro || '',
     referralSteps: buildReferralSteps(lang),
     referralReminder: labels.referralReminder || ''
-  }, buildStepLines(lang, c))).replace(/\n{3,}/g, '\n\n').trim();
+  }, steps)).replace(/\n{3,}/g, '\n\n').trim();
+  // Weekly posts carry the recruitment contact (Alex only); other kinds already
+  // place it explicitly in their approved copy.
+  if (kind === 'weekly' && steps.partnerSupportLine) {
+    rendered = (rendered + '\n\n' + steps.partnerSupportLine).replace(/\n{3,}/g, '\n\n').trim();
+  }
 
   const buttons = buildButtons(lang, c, kind);
   return {
@@ -1000,7 +1055,8 @@ function renderTestMessage(audience, locale, ctx) {
   if (isChannel && c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
   if (isChannel && c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
   if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
-  if (!isChannel && c.partnerSupportUrl) lines.push(labels.partnerSupport + ': ' + c.partnerSupportUrl);
+  const partnerLines = !isChannel ? partnerSupportLines(labels, c) : '';
+  if (partnerLines) lines.push(partnerLines);
   return {
     kind: 'test',
     audience: isChannel ? 'channel' : 'group',
