@@ -7592,3 +7592,35 @@ migration 044 is NOT applied to production.
 `TELEGRAM_MARKETING_ENABLED` was not set anywhere and the control row is
 untouched (paused + dry_run by default). No message was published, no queue row
 was created and no Telegram write call was executed in this pass.
+
+## Deposit tutorial: highlights/subtitles + gated Telegram delivery (2026-10-28)
+
+- Commits: da4d09a (tutorial pipeline: male narration en-US-AndrewNeural, step chip,
+  highlight ring + dim, burned subtitles via libass + subtitles.srt sidecar) and
+  bd9553d (session-file guards) - both PUSHED. This note also covers the gated
+  Telegram delivery committed right after.
+- The tutorial is still a STUB recording (labelled "Simulated data"): no sandbox
+  account/session exists in this environment, so no real credit was ever filmed.
+  Draft at build/video/deposit-tutorial/ (untracked). public/video/ untouched.
+- Pipeline lessons encoded in the tools: the one-time onboarding funnel used to sit
+  on top of the deposit modal and a stray click on it silently switched the app to
+  Demo Mode (the recorder now marks the funnel answered and dismisses it); the old
+  "amount is 100" assertion passed on the input's default value (now guarded by
+  elementFromPoint + a Live-Mode assertion); tall panels produced off-screen or
+  full-screen rings (now scrollIntoView + clamp to 62% viewport height).
+- Verification is pixel-based, not assumed: gold ring present in 8/8 scenes, step
+  chip + subtitle text present in 8/8, and build.js fails unless libass can actually
+  render the subtitle style.
+- Telegram deposit tutorial: TELEGRAM_DEPOSIT_TUTORIAL_URL is a NEW, DISABLED-BY-
+  DEFAULT gate (server.js passes it to createTelegramSupportBot). Unset/blank/
+  non-https => replies byte-identical to today. When set, a question answered from
+  the `deposits` knowledge category gets the existing text answer FIRST and then
+  ONE sendVideo (caption localized en/pt/ar as `tutorialCaption`); a video failure
+  leaves the text answer standing and never 500s the update. Transport gained
+  sendVideo(); resolveDepositTutorialUrl()/isDepositAnswer() are exported.
+  tests/telegram_deposit_tutorial.test.js = 13 tests, no network.
+- Session files for the live shoot are never committed: .gitignore covers
+  sandbox-session*.json / storage-state*.json, and record.js refuses a state file
+  with no jwt_token and warns when it lives inside the repo.
+- Not done: no publishing to public/video, no publisher unpause, no dry-run change,
+  no real Telegram send, no Render worker claim.

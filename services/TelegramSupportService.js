@@ -1036,6 +1036,16 @@ function createTelegramTransport({ token, fetchImpl } = {}) {
         options || {}
       ));
     },
+    /**
+     * Send a video. Added for the optional deposit walkthrough; the caption is
+     * truncated by Telegram's own limit, so callers pass short text.
+     */
+    sendVideo(chatId, video, options) {
+      return call('sendVideo', Object.assign(
+        { chat_id: chatId, video, supports_streaming: true },
+        options || {}
+      ));
+    },
     setWebhook(params) {
       return call('setWebhook', params || {});
     },
@@ -1220,8 +1230,37 @@ function planWebhookRegistration(webhookSummary, expectedUrl) {
  * @param {function} [deps.unlinkAccount] - OPTIONAL async ({ chatId,
  *   telegramUserId }) => { ok, removed }. Revokes the link for that chat.
  */
+/**
+ * Resolve the optional deposit-tutorial video URL.
+ *
+ * Disabled by default: an unset, blank, relative or non-https value keeps the bot
+ * byte-identical to the text-only behaviour. Only an absolute https URL enables it,
+ * so a typo can never make the bot send a broken or draft asset.
+ */
+function resolveDepositTutorialUrl(raw) {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (!value) return { url: null, enabled: false, reason: 'unset' };
+  let parsed = null;
+  try {
+    parsed = new URL(value);
+  } catch (error) {
+    return { url: null, enabled: false, reason: 'invalid-url' };
+  }
+  if (parsed.protocol !== 'https:') return { url: null, enabled: false, reason: 'not-https' };
+  if (!parsed.hostname) return { url: null, enabled: false, reason: 'invalid-url' };
+  return { url: value, enabled: true, reason: null };
+}
+
+/** True when the answered knowledge entry is a deposit question. */
+function isDepositAnswer(reply) {
+  if (!reply || typeof reply !== 'object') return false;
+  if (reply.category === 'deposits') return true;
+  return typeof reply.entryId === 'string' && reply.entryId.indexOf('deposits.') === 0;
+}
+
 function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI,
-                                  translator, onNewMembers, marketing, linkAccount, unlinkAccount }) {
+                                  translator, onNewMembers, marketing, linkAccount, unlinkAccount,
+                                  depositTutorialUrl }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -1238,6 +1277,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // 'admins' (default) delivers one private message per TELEGRAM_ADMIN_IDS id;
   // 'group' is the legacy support-group path kept for revert.
   const notifyTarget = resolveNotifyTarget(cfg.notifyTarget);
+  // Optional deposit walkthrough video. OFF unless an absolute https URL is
+  // configured; every reply path stays byte-identical while it is off (see
+  // sendDepositTutorial).
+  const depositTutorial = resolveDepositTutorialUrl(depositTutorialUrl);
   const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null, notifyTarget };
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
   const forwarded = threadMap || createLimitedMap({ max: 500 });
@@ -1266,6 +1309,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     ignored: 0,
     repliesSent: 0,
     storageFailures: 0,
+    // Optional deposit walkthrough video: counts only, never the URL.
+    tutorialsSent: 0,
+    tutorialsFailed: 0,
     // Notification outcomes (customer messages + escalations). Counted
     // separately from repliesSent because they go to the OPERATORS, not to the
     // customer, and because "skipped" is a silent failure mode that must be
@@ -1613,6 +1659,36 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * pure function of the incoming update. A database problem (missing
    * table/column, RLS/service-key, outage) must never make the bot silent.
    */
+  /**
+   * Optionally deliver the deposit walkthrough video AFTER the text answer.
+   *
+   * Deliberately additive: the existing text guidance has already been sent by the
+   * caller, so a missing URL, a Telegram rejection or a transport without sendVideo
+   * can never remove, replace or delay a reply. Off unless an https URL is
+   * configured (see resolveDepositTutorialUrl), which keeps an unset environment
+   * byte-identical to the text-only behaviour.
+   */
+  async function sendDepositTutorial(conversation, language, reply) {
+    if (!depositTutorial.enabled) return { sent: false, skipped: true, reason: 'disabled' };
+    if (!isDepositAnswer(reply)) return { sent: false, skipped: true, reason: 'not-deposit' };
+    if (typeof transport.sendVideo !== 'function') return { sent: false, skipped: true, reason: 'unsupported' };
+    try {
+      markStage('sendDepositTutorial');
+      const sent = await transport.sendVideo(
+        conversation.telegram_chat_id,
+        depositTutorial.url,
+        { caption: tCustomer(normalizeLanguage(language), 'tutorialCaption') }
+      );
+      stats.tutorialsSent += 1;
+      return { sent: true, skipped: false, messageId: sent && sent.message_id };
+    } catch (error) {
+      // A failed video must never turn a delivered answer into a 500/redelivery.
+      stats.tutorialsFailed += 1;
+      warn(`deposit tutorial video failed; the text answer was already sent: ${scrub(error && error.message ? error.message : error)}`);
+      return { sent: false, skipped: false, error: 'send-failed' };
+    }
+  }
+
   async function replyToChat(chatId, body, { stage = 'sendMessage' } = {}) {
     // `stage: null` keeps the CURRENT stage, which is what the storage-degraded
     // acknowledgement needs: it must not overwrite the storage stage that is the
@@ -1762,7 +1838,12 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         if (result && typeof result.answer === 'string' && result.answer.trim().length > 0) {
           stats.aiReplies += 1;
           if (result.needsHuman) stats.aiHandoffs += 1;
-          return { text: result.answer.trim(), confident: result.needsHuman !== true };
+          return {
+            text: result.answer.trim(),
+            confident: result.needsHuman !== true,
+            entryId: result.entryId || null,
+            category: result.category || null
+          };
         }
         stats.aiFailures += 1;
       } catch (error) {
@@ -1812,7 +1893,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         // so a model that ignored the language directive is caught, not sent. No
         // heuristic Portuguese-vs-English detection is attempted (see the
         // documented limitation in SupportGuidelines).
-        if (SupportGuidelines.hasExpectedScript(answer, lang)) return { text: answer, confident };
+        if (SupportGuidelines.hasExpectedScript(answer, lang)) {
+          return { text: answer, confident, entryId: outcome.entryId || null, category: outcome.category || null };
+        }
         stats.aiLanguageMisses += 1;
         warn('support AI answered outside the selected language (' + lang + '); handing off instead');
         return { text: uncertainCustomerReply(lang), confident: false };
@@ -1821,7 +1904,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // APPROVED English text whose language we cannot verify: localize it, or fall
       // back to the localized safe message rather than sending English.
       const localized = await translateForCustomer(answer, lang);
-      if (localized) return { text: localized, confident };
+      if (localized) {
+        return { text: localized, confident, entryId: outcome.entryId || null, category: outcome.category || null };
+      }
       stats.aiLanguageMisses += 1;
       return { text: uncertainCustomerReply(lang), confident: false };
     }
@@ -2356,6 +2441,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // never be reported to an admin as "BOT REPLIED".
     const reply = await composeCustomerReply(language, text);
     await sendOutbound(conversation, reply.text);
+    // Additive and best-effort: the answer above is already delivered, so this can
+    // only ever add a video for a deposit question, never change the reply.
+    await sendDepositTutorial(conversation, language, reply);
 
     // Notify the operators through the single direct-delivery path. This
     // runs AFTER the customer's reply above and can never throw, so a broken,
@@ -3193,6 +3281,8 @@ module.exports = {
   CUSTOMER_GUIDE_TEXT,
   SUPPORT_AI_MAX_QUESTION_CHARS,
   ESCALATION_ACK,
+  resolveDepositTutorialUrl,
+  isDepositAnswer,
   ADMIN_HELP_TEXT,
   ADMIN_HELP_TEXT_PRIVATE,
   parseAdminIds,

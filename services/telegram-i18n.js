@@ -11,7 +11,7 @@
  * the strings it actually sends.
  *
  * WHAT IS LOCALIZED HERE (customer-facing)
- *   help, acknowledgement, escalationAck, textOnly, chatId, languagePrompt,
+ *   help, acknowledgement, tutorialCaption, escalationAck, textOnly, chatId, languagePrompt,
  *   languageSet, languageUnsupported, and the fixed AI-layer fallbacks
  *   (uncertain, humanHandoff, secretRefusal, secretShared, paymentStatus,
  *   aiDisabled, promptForQuestion).
@@ -160,6 +160,7 @@ const CUSTOMER_STRINGS = Object.freeze({
       '/unlink - disconnect this chat from your Arbitrix account'
     ].join('\n'),
     acknowledgement: 'Thanks for contacting Arbitrix Support. Please describe your issue, and a support agent will assist you here. You can also use /language to change your language, or /escalate to request a human agent.',
+    tutorialCaption: 'Prefer to watch it? Here is a short walkthrough of the deposit process.',
     escalationAck: 'Your request has been flagged for a human agent. A member of the support team will follow up in this chat.',
     textOnly: 'Please send a text message so our support team can help.',
     chatId: 'Your chat ID is: {{id}}',
@@ -201,6 +202,7 @@ const CUSTOMER_STRINGS = Object.freeze({
       '/unlink - desvincular esta conversa da sua conta Arbitrix'
     ].join('\n'),
     acknowledgement: 'Obrigado por entrar em contato com o Suporte Arbitrix. Descreva o seu problema e um agente de suporte vai ajudar você por aqui. Você também pode usar /language para alterar o idioma ou /escalate para falar com um atendente humano.',
+    tutorialCaption: 'Prefere assistir? Aqui está um passo a passo curto do processo de depósito.',
     escalationAck: 'Seu pedido foi encaminhado para um atendente humano. Um membro da equipe de suporte vai responder nesta conversa.',
     textOnly: 'Por favor, envie uma mensagem de texto para que a nossa equipe de suporte possa ajudar.',
     chatId: 'O ID desta conversa é: {{id}}',
@@ -242,6 +244,7 @@ const CUSTOMER_STRINGS = Object.freeze({
       '/unlink - إلغاء ربط هذه المحادثة بحسابك في Arbitrix'
     ].join('\n'),
     acknowledgement: 'شكرًا لتواصلك مع دعم Arbitrix. يُرجى وصف مشكلتك، وسيساعدك أحد موظفي الدعم هنا. يمكنك أيضًا استخدام /language لتغيير اللغة، أو /escalate لطلب التحدث مع موظف دعم بشري.',
+    tutorialCaption: 'هل تفضّل المشاهدة؟ إليك شرحًا قصيرًا لعملية الإيداع.',
     escalationAck: 'تم تحويل طلبك إلى موظف دعم بشري. سيتابع معك أحد أعضاء فريق الدعم في هذه المحادثة.',
     textOnly: 'يُرجى إرسال رسالة نصية حتى يتمكن فريق الدعم من مساعدتك.',
     chatId: 'معرّف هذه المحادثة هو: {{id}}',

@@ -61,23 +61,58 @@ was copied there and nothing was published. After review:
 cp build/video/deposit-tutorial-live/arbitrix-deposit-tutorial-en.mp4 public/video/
 ```
 
-## Telegram integration (designed, NOT wired)
+## Getting the session file (precise checklist)
 
-Deliberately not implemented yet: it depends on an approved, published video. The
-plan, so it can be done in one small change:
+The recorder needs a MARKETING_SANDBOX account already logged in, exported as a
+Playwright/Puppeteer storage-state file. It does **not** need a password, an admin
+JWT or a service key.
 
-1. Host the approved MP4 at a public HTTPS URL (the `public/video/` path above),
-   or upload it once and store the returned Telegram `file_id`.
-2. In `services/TelegramSupportService.js`, the deposit intent already exists in
-   `replyFor()`/the keyword table. Add one reply that keeps the existing text
-   guidance and appends a `sendVideo` with the tutorial (caption localized in
-   `services/telegram-i18n.js`: en/pt/ar), rather than replacing the text.
-3. Add a transport method `sendVideo(chatId, video, { caption })` next to
-   `sendMessage` in the existing transport, reusing its error/retry handling.
-4. Gate it behind its own env flag (e.g. `TELEGRAM_DEPOSIT_TUTORIAL_URL`) so an
-   unset value keeps today's behaviour exactly.
-5. Tests: extend `tests/telegram_support_bot.test.js` for the new intent reply and
-   assert that with the flag unset the reply is byte-identical to today's.
+1. An administrator creates the sandbox account (`POST /api/admin/sandbox/accounts`).
+   Public registration always produces a PRODUCTION account, so there is no other way.
+2. In that browser profile, log in to the target environment and confirm the
+   "PREVIEW" badge is visible (proof it is the sandbox account, not a customer).
+3. Open DevTools -> Console on `https://arbitrix.pro` and run:
+
+```js
+(() => {
+  const origins = [{ origin: location.origin,
+    localStorage: Object.keys(localStorage).map((name) => ({ name, value: localStorage.getItem(name) })) }];
+  const blob = new Blob([JSON.stringify({ cookies: [], origins }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sandbox-session.json';
+  a.click();
+})();
+```
+
+4. Move the file **outside the repository** (e.g. `~/arbitrix-sandbox-session.json`)
+   and `chmod 600` it. It contains the account's login token, so treat it like a
+   password: never commit it, never paste it into a chat or an issue.
+5. Run the two commands above. The recorder refuses a file with no `jwt_token`
+   and warns if the file sits inside the repo.
+
+`cookies: []` is correct for this app: the session lives in `localStorage`
+(`jwt_token`), not in an httpOnly cookie. Adding cookies does no harm.
+
+## Telegram integration (implemented, DISABLED by default)
+
+The plumbing ships now, switched off. `TELEGRAM_DEPOSIT_TUTORIAL_URL` unset (or any
+non-https value) leaves every reply byte-identical to the text-only behaviour.
+
+1. Only after the video is approved AND published, set
+   `TELEGRAM_DEPOSIT_TUTORIAL_URL` to its absolute https URL on the web service.
+2. Then a customer question answered from the `deposits` knowledge category gets
+   the existing text answer first, followed by ONE video with a localized caption
+   (en/pt/ar, `tutorialCaption`). Non-deposit questions never get it.
+3. The video is best-effort: if Telegram rejects it, the text answer stands and
+   the update still succeeds (no 500, no redelivery, no duplicate reply).
+4. Verified by `tests/telegram_deposit_tutorial.test.js` (13 tests): disabled
+   default, https-only gate, deposit-intent matching, text-first ordering, one
+   video per message, non-deposit silence, send failure tolerance, transport
+   without `sendVideo`, AI-off behaviour, and caption localization.
+
+Do NOT point the variable at the draft: it is a labelled stub and `public/video/`
+is untouched.
 
 ## Verification performed on the draft
 

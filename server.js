@@ -4699,6 +4699,10 @@ const telegramBot = createTelegramSupportBot({
   transport: createTelegramTransport({ token: telegramConfig.token }),
   supportAI: createSupportAIServiceSafely(supportTranslator),
   translator: supportTranslator,
+  // Optional deposit walkthrough video, sent AFTER the text answer. Disabled
+  // unless TELEGRAM_DEPOSIT_TUTORIAL_URL is an absolute https URL, so an unset
+  // variable keeps every reply exactly as it is today.
+  depositTutorialUrl: process.env.TELEGRAM_DEPOSIT_TUTORIAL_URL || '',
   // Join-triggered partner welcome (only for the configured marketing group) and
   // the /subscribe + /unsubscribe consent store.
   onNewMembers: (event) => marketingOnboarding.handleNewMembers(event),
