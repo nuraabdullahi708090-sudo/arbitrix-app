@@ -1,13 +1,11 @@
 'use strict';
 
 /**
- * Deposit interface after the external-purchase removal:
- *   - exactly two funding options (verified partner / existing crypto);
- *   - payment assistance and general customer support are SEPARATE contacts;
- *   - the pending-payment screen keeps its safe invoice-reference guidance.
+ * Payment partners: Alex (@AlexArbitrix) and Olivia (@OliviaArbitrix) are the
+ * only two partners, and every deposit entry point offers BOTH of them.
  *
- * The link wiring is exercised by RUNNING the real functions in a vm sandbox
- * with a fake document, so the assertions are about behaviour, not strings.
+ * The real configuration + renderer are executed in a vm sandbox with a fake
+ * DOM, so the assertions follow what the page actually renders.
  */
 
 const { test } = require('node:test');
@@ -17,260 +15,238 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-
-function extractFunction(name) {
-    let start = INDEX.indexOf('function ' + name + '(');
-    assert.ok(start >= 0, name + ' should exist in public/index.html');
-    let i = INDEX.indexOf('{', start);
-    let depth = 0;
-    let end = -1;
-    for (; i < INDEX.length; i++) {
-        if (INDEX[i] === '{') depth++;
-        else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
-    }
-    assert.ok(end > 0, name + ' should be brace-matchable');
-    return INDEX.slice(start, end + 1);
-}
+const ALEX = 'https://t.me/AlexArbitrix';
+const OLIVIA = 'https://t.me/OliviaArbitrix';
 
 function dict() {
-    const tIdx = INDEX.indexOf('const TRANSLATIONS');
-    let i = INDEX.indexOf('{', tIdx);
-    let depth = 0, end = -1;
+    const i0 = INDEX.indexOf('const TRANSLATIONS');
+    let i = INDEX.indexOf('{', i0), depth = 0, end = -1;
     for (; i < INDEX.length; i++) {
         if (INDEX[i] === '{') depth++;
         else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
     }
     const ctx = {};
     vm.createContext(ctx);
-    vm.runInContext(INDEX.slice(tIdx, end + 1) + '; this.T = TRANSLATIONS;', ctx);
+    vm.runInContext(INDEX.slice(i0, end + 1) + '; this.T = TRANSLATIONS;', ctx);
     return ctx.T;
 }
 
-/** Runs the real link-resolution functions against a fake DOM. */
-function runLinkWiring(metas = {}) {
+function fn(name) {
+    const start = INDEX.indexOf('function ' + name + '(');
+    assert.ok(start >= 0, name + ' should exist');
+    let i = INDEX.indexOf('{', start), depth = 0, end = -1;
+    for (; i < INDEX.length; i++) {
+        if (INDEX[i] === '{') depth++;
+        else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    return INDEX.slice(start, end + 1);
+}
+
+/** Builds the fake DOM the wiring touches and runs the real functions. */
+function render(metas, opts = {}) {
     const nodes = {};
-    const makeNode = (id, isPartnerCard) => {
-        const n = {
-            id, style: {}, attrs: {},
-            classList: { contains: (c) => (isPartnerCard ? c === 'deposit-payment-partner' : false) },
-            setAttribute: (k, v) => { n.attrs[k] = String(v); },
-            getAttribute: (k) => (k in n.attrs ? n.attrs[k] : null),
-            removeAttribute: (k) => { delete n.attrs[k]; },
-        };
+    const container = (id) => {
+        const n = { id, style: {}, innerHTML: '' };
         nodes[id] = n;
         return n;
     };
-    const partnerBtn = makeNode('paymentPartnerBtn', false);
-    const partnerCard = makeNode('depositPaymentPartnerBtn', true);
-    const officialLink = makeNode('officialTelegramLink', false);
-    const fallback = makeNode('paymentSupportFallbackBtn', false);
-
+    ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts'].forEach(container);
+    nodes.paymentSupportFallbackBtn = { style: {} };
+    nodes.depositCryptoPartnerHelp = { style: {} };
     const sandbox = {
+        window: opts.window || {},
         document: {
             getElementById: (id) => nodes[id] || null,
             querySelector: (sel) => {
                 const m = /name="([^"]+)"/.exec(sel);
-                const name = m ? m[1] : '';
-                return (name in metas) ? { content: metas[name] } : null;
-            },
-            querySelectorAll: (sel) => {
-                if (sel === '.js-payment-partner') return [partnerBtn, partnerCard];
-                if (sel === '.js-official-telegram') return [officialLink];
-                return [];
+                if (!m || !(m[1] in metas)) return null;
+                return { content: metas[m[1]] };
             },
         },
-        window: {},
-        openSupportModal: () => {},
+        escapeHtml: (v) => String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+        t: (k, vars) => {
+            const raw = dict().en[k] || k;
+            return String(raw).replace(/\{\{(\w+)\}\}/g, (m0, g) => (vars && vars[g] != null ? vars[g] : m0));
+        },
         console: { log() {}, warn() {}, error() {} },
     };
     vm.createContext(sandbox);
     vm.runInContext([
-        extractFunction('getPartnerSupportTelegramUrl'),
-        extractFunction('getOfficialSupportTelegramUrl'),
-        extractFunction('updatePaymentPartnerLinks'),
-        extractFunction('updateSupportLinks'),
+        'const PAYMENT_PARTNER_SLOTS = ' + JSON.stringify([
+            { id: 'alex', name: 'Alex', meta: 'arbitrix-partner-support-telegram', overrideWindow: true },
+            { id: 'olivia', name: 'Olivia', meta: 'arbitrix-partner-support-telegram-2', overrideWindow: false },
+        ]) + ';',
+        fn('normalisePartnerTelegramUrl'),
+        fn('getPaymentPartnerContacts'),
+        fn('getPartnerSupportTelegramUrl'),
+        fn('renderPaymentPartnerContacts'),
+        fn('updatePaymentPartnerLinks'),
+        'updatePaymentPartnerLinks();',
+        'this.contacts = getPaymentPartnerContacts(); this.primary = getPartnerSupportTelegramUrl();',
     ].join('\n'), sandbox);
-    vm.runInContext('updatePaymentPartnerLinks(); updateSupportLinks();', sandbox);
-    return { nodes, partnerBtn, partnerCard, officialLink, fallback };
+    return { nodes, contacts: sandbox.contacts, primary: sandbox.primary };
 }
 
-// ------------------------------------------------------------------ two routes
+const BOTH = {
+    'arbitrix-partner-support-telegram': '@AlexArbitrix',
+    'arbitrix-partner-support-telegram-2': '@OliviaArbitrix',
+};
 
-test('the funding menu offers exactly the two intended options', () => {
-    const start = INDEX.indexOf('id="depositOptions"');
-    const end = INDEX.indexOf('id="depositCryptoFlow"');
-    assert.ok(start > 0 && end > start);
-    const menu = INDEX.slice(start, end);
-    const cards = menu.match(/id="depositOption(?:Partner|Crypto|Card|Wallet)"/g) || [];
-    assert.deepStrictEqual(cards, ['id="depositOptionPartner"', 'id="depositOptionCrypto"']);
-    assert.match(menu, /data-i18n="deposit\.choose\.partner\.title"/);
-    assert.match(menu, /data-i18n="deposit\.choose\.crypto\.title"/);
+// ------------------------------------------------------------------ config
+
+test('exactly two partners are configured, in order, from one meta each', () => {
+    assert.strictEqual((INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/) || [])[1],
+        '@AlexArbitrix');
+    assert.strictEqual((INDEX.match(/<meta name="arbitrix-partner-support-telegram-2" content="([^"]*)">/) || [])[1],
+        '@OliviaArbitrix');
+    const { contacts, primary } = render(BOTH);
+    assert.deepStrictEqual(Array.from(contacts, (c) => c.name), ['Alex', 'Olivia']);
+    assert.deepStrictEqual(Array.from(contacts, (c) => c.url), [ALEX, OLIVIA]);
+    assert.strictEqual(primary, ALEX, 'the single-contact helper returns the first partner');
 });
 
-test('the external purchase option is gone from the whole interface', () => {
-    for (const gone of [
-        'depositOptionWallet', 'depositWalletPanel', 'depositBuyCryptoLink',
-        'depositWalletAddress', 'depositWalletGenerateBtn', 'arbitrix-buy-crypto',
-        'resolveBuyCryptoUrl', 'updateDepositWalletPanel', 'focusDepositAmount',
-    ]) {
-        assert.strictEqual(INDEX.indexOf(gone), -1, gone + ' must be fully removed');
+test('a partner value may be a full Telegram URL and junk is ignored', () => {
+    assert.strictEqual(render(BOTH).contacts.length, 2);
+    const urlsOnly = render({
+        'arbitrix-partner-support-telegram': 'https://t.me/AlexArbitrix',
+        'arbitrix-partner-support-telegram-2': 'https://evil.example.com/olivia',
+    }).contacts;
+    assert.deepStrictEqual(Array.from(urlsOnly, (c) => c.url), [ALEX], 'non-Telegram destinations are dropped');
+    const junk = render({
+        'arbitrix-partner-support-telegram': 'not a username',
+        'arbitrix-partner-support-telegram-2': '@OliviaArbitrix',
+    }).contacts;
+    assert.deepStrictEqual(Array.from(junk, (c) => c.url), [OLIVIA]);
+});
+
+test('a window override replaces slot 1 only', () => {
+    const { contacts } = render(BOTH, { window: { ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL: '@AlexBackup' } });
+    assert.deepStrictEqual(Array.from(contacts, (c) => c.url), ['https://t.me/AlexBackup', OLIVIA]);
+});
+
+// ----------------------------------------------------------------- render
+
+test('both partners are rendered in every deposit entry point', () => {
+    const { nodes } = render(BOTH);
+    for (const id of ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts']) {
+        const html = nodes[id].innerHTML;
+        assert.ok(html.includes('href="' + ALEX + '"'), id + ' links to Alex');
+        assert.ok(html.includes('href="' + OLIVIA + '"'), id + ' links to Olivia');
+        assert.ok(html.includes('data-partner="alex"') && html.includes('data-partner="olivia"'), id + ' is per-partner');
+        assert.ok(html.includes('>Contact Alex<') && html.includes('>Contact Olivia<'), id + ' labelled buttons');
+        assert.ok(html.includes('Payment Partner'), id + ' states the role');
+        assert.strictEqual(html.split('data-partner=').length - 1, 2, id + ' shows exactly two partners');
+        assert.notStrictEqual(nodes[id].style.display, 'none', id + ' visible when configured');
     }
-    // No customer-facing "coming soon"/external-purchase messages survive either.
-    assert.ok(!/External purchase coming soon/i.test(INDEX));
+});
+
+test('every partner button opens Telegram in a new tab safely', () => {
+    const { nodes } = render(BOTH);
+    const html = nodes.depositPartnerContacts.innerHTML;
+    assert.strictEqual((html.match(/target="_blank"/g) || []).length, 2);
+    assert.strictEqual((html.match(/rel="noopener noreferrer"/g) || []).length, 2);
+    assert.ok(html.includes('deposit-payment-partner'), 'shared yellow button styling');
+    assert.ok(!/https?:\/\/(?!t\.me\/)/.test(html.replace(/https:\/\/t\.me\/[A-Za-z0-9_]+/g, '')),
+        'no non-Telegram URL reaches the markup');
+});
+
+test('an unconfigured pair hides the lists and restores official support', () => {
+    const { nodes } = render({});
+    for (const id of ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts']) {
+        assert.strictEqual(nodes[id].style.display, 'none', id + ' hidden');
+        assert.strictEqual(nodes[id].innerHTML, '', id + ' renders nothing');
+    }
+    assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex');
+    assert.strictEqual(nodes.depositCryptoPartnerHelp.style.display, 'none');
+});
+
+test('one configured partner is enough to show the list', () => {
+    const { nodes } = render({ 'arbitrix-partner-support-telegram-2': '@OliviaArbitrix' });
+    const html = nodes.depositPartnerContacts.innerHTML;
+    assert.ok(html.includes(OLIVIA) && !html.includes(ALEX));
+    assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'none');
+});
+
+// ------------------------------------------------------------------ copy
+
+test('the section heading and copy are the approved wording', () => {
+    const T = dict();
+    assert.strictEqual(T.en['deposit.partner.title'], 'Verified Payment Partners');
+    assert.strictEqual(T.en['deposit.partner.intro'],
+        'Need help obtaining USDT or funding your Arbitrix account? Contact one of our payment partners for assistance.');
+    assert.strictEqual(T.en['deposit.partner.contactName'], 'Contact {{name}}');
+    assert.strictEqual(T.en['deposit.partner.role'], 'Payment Partner');
+    // The single-partner labels are retired.
+    assert.ok(!('deposit.partner.contactPaymentPartner' in T.en));
+    assert.ok(!('deposit.partner.servicesIntro' in T.en));
+});
+
+test('the partnership never claims a manual credit, direct sale or verification', () => {
     const T = dict();
     for (const locale of Object.keys(T)) {
-        const stale = Object.keys(T[locale]).filter(
-            (k) => k.indexOf('deposit.wallet.') === 0 || k.indexOf('deposit.choose.wallet') === 0);
-        assert.deepStrictEqual(stale, [], locale + ' must carry no external-purchase copy');
+        const copy = ['deposit.partner.intro', 'deposit.partner.refHint', 'deposit.partner.refReady',
+            'deposit.crypto.partnerHelp', 'deposit.crypto.partnerNote', 'support.paymentHelp.pending']
+            .map((k) => String(T[locale][k] || '')).join(' ');
+        assert.ok(copy.trim().length > 100, locale + ' copy missing');
+        assert.ok(!/direct sale|sells usdt|guaranteed|will credit|credits instantly|verified identity/i.test(copy),
+            locale + ' must not promise a sale, a credit or identity verification');
     }
+    // The safeguards are still stated.
+    assert.match(T.en['deposit.partner.refHint'], /deposit address/);
+    assert.match(T.en['deposit.crypto.partnerNote'], /never credits your account/);
+    assert.match(T.en['deposit.crypto.partnerNote'], /only after verifying the transfer/);
 });
 
-// ------------------------------------------------- payment partner vs. support
-
-test('the payment partner button opens the configured t.me/Arbitrix_CSA1 link', () => {
-    const wiring = runLinkWiring({ 'arbitrix-partner-support-telegram': '@Arbitrix_CSA1' });
-    assert.strictEqual(wiring.partnerBtn.attrs.href, 'https://t.me/Arbitrix_CSA1');
-    assert.notStrictEqual(wiring.partnerBtn.style.display, 'none', 'the pending-screen action is visible');
-    assert.strictEqual(wiring.partnerCard.attrs.href, 'https://t.me/Arbitrix_CSA1');
-    assert.strictEqual(wiring.partnerCard.style.display, 'block', 'the partner-panel action is visible');
-});
-
-test('official customer support stays on its own, unchanged destination', () => {
-    const meta = (INDEX.match(/<meta name="arbitrix-support-telegram" content="([^"]*)">/) || [])[1];
-    assert.strictEqual(meta, 'https://t.me/ArbitrixSupportBot', 'the official support profile is untouched');
-    const wiring = runLinkWiring({
-        'arbitrix-support-telegram': meta,
-        'arbitrix-partner-support-telegram': '@Arbitrix_CSA1',
-    });
-    assert.strictEqual(wiring.officialLink.attrs.href, 'https://t.me/ArbitrixSupportBot');
-    assert.notStrictEqual(wiring.officialLink.style.display, 'none', 'the official action stays available');
-    // The two contacts can never collapse into one another.
-    assert.notStrictEqual(wiring.officialLink.attrs.href, wiring.partnerBtn.attrs.href);
-});
-
-test('payment assistance is never labelled as official general support', () => {
+test('no locale hard-codes a partner handle or the retired account', () => {
     const T = dict();
-    const partnerLabels = ['deposit.partner.title', 'deposit.partner.intro',
-        'deposit.partner.contactPaymentPartner'];
     for (const locale of Object.keys(T)) {
-        for (const key of partnerLabels) {
+        for (const key of Object.keys(T[locale])) {
             const value = String(T[locale][key]);
-            assert.ok(value.trim(), locale + ' missing ' + key);
-            assert.ok(!/official/i.test(value), locale + ' ' + key + ' must not claim official support status');
+            assert.ok(!/Arbitrix_CSA1/.test(value), locale + ' ' + key + ' must not name the retired account');
+            assert.ok(!/t\.me\//.test(value), locale + ' ' + key + ' must not embed a Telegram URL');
         }
     }
-    // And the partner is not presented as able to move money.
-    const allPartnerCopy = Object.keys(T.en)
-        .filter((k) => k.indexOf('deposit.partner.') === 0)
-        .map((k) => String(T.en[k])).join(' | ');
-    assert.match(allPartnerCopy, /credited after Arbitrix verifies/i);
-    assert.ok(!/credit your account instantly|we will credit/i.test(allPartnerCopy));
+    assert.ok(!/Arbitrix_CSA1/.test(INDEX), 'the old partner account is gone from the page');
 });
 
-test('an unconfigured payment partner hides the actions instead of breaking', () => {
-    const wiring = runLinkWiring({ 'arbitrix-partner-support-telegram': '' });
-    assert.strictEqual(wiring.partnerBtn.style.display, 'none');
-    assert.strictEqual(wiring.partnerCard.style.display, 'none');
-    assert.ok(!('href' in wiring.partnerBtn.attrs), 'no href when nothing is configured');
-    assert.notStrictEqual(wiring.fallback.style.display, 'none', 'the official support action remains reachable');
-});
-
-test('the configured value is a single source: a full URL or a bare @username', () => {
-    const fromHandle = runLinkWiring({ 'arbitrix-partner-support-telegram': '@Arbitrix_CSA1' });
-    const fromUrl = runLinkWiring({ 'arbitrix-partner-support-telegram': 'https://t.me/Arbitrix_CSA1' });
-    assert.strictEqual(fromHandle.partnerBtn.attrs.href, 'https://t.me/Arbitrix_CSA1');
-    assert.strictEqual(fromUrl.partnerBtn.attrs.href, 'https://t.me/Arbitrix_CSA1');
-    const meta = (INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/g) || []);
-    assert.strictEqual(meta.length, 1, 'the destination is configured in exactly one place');
-    assert.strictEqual((INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/) || [])[1],
-        '@Arbitrix_CSA1');
-    assert.strictEqual((INDEX.match(/t\.me\/Arbitrix_CSA1/g) || []).length, 0,
-        'the handle is never hard-coded as a link anywhere else');
-});
-
-test('both actions are rendered in the deposit flows that need them', () => {
-    // Partner panel: the payment-partner call to action leads the directory.
-    const panel = INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'), INDEX.indexOf('id="depositCryptoFlow"'));
-    assert.ok(panel.includes('class="btn btn-primary js-payment-partner deposit-payment-partner"'));
-    assert.ok(panel.indexOf('depositPaymentPartnerBtn') < panel.indexOf('id="depositPartnerList"'),
-        'the payment partner is offered before the directory');
-    // Pending-payment screen: partner action + the separate official action.
-    const pending = INDEX.slice(INDEX.indexOf('id="paymentSupportHelp"'), INDEX.indexOf('id="depositSuccessSection"'));
-    assert.match(pending, /id="paymentPartnerBtn"[^>]*js-payment-partner/);
-    assert.match(pending, /data-i18n="deposit\.partner\.contactPaymentPartner"/);
-    assert.match(pending, /class="btn btn-secondary js-official-telegram"/);
-    assert.match(pending, /data-i18n="support\.officialTelegram"/);
-    assert.ok(pending.indexOf('paymentPartnerBtn') < pending.indexOf('js-official-telegram'),
-        'payment assistance is offered first, official support stays beside it');
-});
-
-// ------------------------------------------------------ pending screen safety
-
-test('the pending screen keeps its safe invoice-reference guidance', () => {
-    const pending = INDEX.slice(INDEX.indexOf('id="paymentSupportHelp"'), INDEX.indexOf('id="depositSuccessSection"'));
-    assert.match(pending, /id="depositInvoiceRef"/, 'invoice reference still shown');
-    assert.match(pending, /data-i18n="deposit\.copyInvoiceRef"/, 'copy action still offered');
-    assert.match(pending, /data-i18n="deposit\.referenceExplain"/, 'reference explanation kept');
-    const T = dict();
-    for (const locale of Object.keys(T)) {
-        const help = ['support.paymentHelp.pending', 'support.paymentHelp.detected', 'support.paymentHelp.failed']
-            .map((k) => String(T[locale][k])).join(' | ');
-        assert.ok(help.trim(), locale + ' payment help missing');
-        // Facts a customer may share, and the secrets that are never requested.
-        assert.match(help, /invoice reference|referência|referencia|facture|فاتورة|发票/i,
-            locale + ' must tell the customer to share the invoice reference');
-        assert.ok(!/password|otp|private key|seed phrase|recovery phrase|contraseña|carteira|chave privada/i.test(help),
-            locale + ' must never ask for credentials');
-        assert.ok(!/will credit your account manually|manual credit/i.test(help),
-            locale + ' must not promise manual crediting');
-    }
-    // Nothing in the pending card collects input at all.
-    assert.ok(!/<input|<textarea|contenteditable/i.test(pending), 'no secrets can be typed into this card');
-});
-
-// --------------------------------------------------------------- i18n + mobile
-
-test('all six locales carry the payment-partner copy', () => {
+test('all six locales carry the partner keys and keep identical key sets', () => {
     const T = dict();
     assert.deepStrictEqual(Object.keys(T).sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
-    const keys = ['deposit.partner.title', 'deposit.partner.intro',
-        'deposit.partner.contactPaymentPartner', 'deposit.partner.safety.3'];
     const sizes = Object.keys(T).map((l) => Object.keys(T[l]).length);
-    assert.strictEqual(new Set(sizes).size, 1, 'identical key counts across locales');
+    assert.strictEqual(new Set(sizes).size, 1, 'identical key counts');
     for (const locale of Object.keys(T)) {
-        for (const key of keys) {
+        for (const key of ['deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.contactName',
+            'deposit.partner.role', 'deposit.crypto.partnerHelp']) {
             assert.ok(String(T[locale][key] || '').trim(), locale + ' missing ' + key);
             if (locale !== 'en') {
-                assert.notStrictEqual(T[locale][key], T.en[key], locale + ' ' + key + ' is still English');
+                assert.notStrictEqual(T[locale][key], T.en[key], locale + ' ' + key + ' untranslated');
             }
         }
     }
 });
 
-test('the payment actions stay usable on narrow screens', () => {
-    assert.match(INDEX, /\.payment-help-actions\{[^}]*flex-wrap:wrap/);
-    assert.match(INDEX, /\.payment-help-actions > \*\{[^}]*min-width:0/);
-    assert.match(INDEX, /@media \(max-width:420px\)\{\s*\.payment-help-actions\{flex-direction:column;\}/);
-    assert.match(INDEX, /\.deposit-payment-partner\{[^}]*min-height:44px/);
+// ------------------------------------------------------- support separation
+
+test('official Arbitrix Support stays separate and unchanged', () => {
+    assert.strictEqual((INDEX.match(/<meta name="arbitrix-support-telegram" content="([^"]*)">/) || [])[1],
+        'https://t.me/ArbitrixSupportBot');
+    assert.ok(INDEX.includes('id="supportModal"'), 'Support Center intact');
+    assert.ok(/function openSupportModal/.test(INDEX));
+    assert.ok(INDEX.includes('support.contactOfficial'), 'official support CTA kept');
+    assert.ok(INDEX.includes('js-official-telegram'), 'official Telegram actions kept');
+    assert.ok(!/t\.me\/ArbitrixSupportBot/.test(INDEX.split('id="depositPartnerContacts"')[1] || ''),
+        'the partner block never carries the official support destination');
 });
 
-// --------------------------------------------------------------- safeguards
-
-test('deposit verification and crediting safeguards are untouched', () => {
-    assert.match(INDEX, /MIN_DEPOSIT:\s*100/);
-    assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/);
-    const cryptoFlow = INDEX.slice(INDEX.indexOf('id="depositCryptoFlow"'),
-        INDEX.indexOf('id="depositPaymentSection"'));
-    assert.match(cryptoFlow, /TRON \(TRC20\)/, 'the only credited network is unchanged');
-
+test('deposit rules and safeguards are untouched', () => {
     const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
     assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 100/);
-    assert.match(server, /credit_payment_safe/);
-    assert.match(server, /record_trade_safe/);
     assert.match(server, /MIN_WITHDRAWAL_USD = 700/);
-
-    // The payment contact is contact-only: the new code adds no write path.
-    const wiring = extractFunction('updatePaymentPartnerLinks');
-    assert.ok(!/fetch\(|credit|record_trade|post\(/i.test(wiring), 'contact wiring performs no writes');
-    assert.ok(!/openSupportModal\(\)/.test(wiring), 'the partner link never degrades into a support ticket flow');
+    assert.match(server, /credit_payment_safe/);
+    assert.match(INDEX, /MIN_DEPOSIT:\s*100/);
+    assert.match(INDEX, /TRON \(TRC20\)/);
+    // The partner UI cannot create a deposit, an invoice or a credit.
+    assert.ok(!/create-invoice/.test(fn('renderPaymentPartnerContacts')));
+    assert.ok(!/fetch\(/.test(fn('renderPaymentPartnerContacts')));
 });

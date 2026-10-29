@@ -425,7 +425,7 @@ test('10. the page stays static and session-free (no API / fetch / form)', () =>
 });
 
 test('10b. the support single-source handle is untouched', () => {
-    assert.strictEqual(PAGE.split('@Arbitrix_CSA1').length - 1, 1,
+    assert.strictEqual(PAGE.split('@AlexArbitrix').length - 1, 1,
         'the partner support handle literal must still appear exactly once');
     assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
         'only the single programmatic t.me builder may exist');

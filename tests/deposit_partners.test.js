@@ -293,10 +293,10 @@ test('all new UI copy exists in all six locales', () => {
 
   const required = [
     'deposit.choose.title',
-    'deposit.partner.contactPaymentPartner', 'deposit.partner.servicesIntro',
+    'deposit.partner.contactName', 'deposit.partner.role',
     'deposit.choose.partner.title', 'deposit.choose.partner.desc',
     'deposit.choose.crypto.title', 'deposit.choose.crypto.desc',
-    'deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.servicesIntro',
+    'deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.contactName',
     'deposit.partner.chat', 'deposit.partner.verified', 'deposit.partner.refTitle',
     'deposit.partner.refHint', 'deposit.partner.refReady',
     'admin.tab.partners', 'admin.partner.help', 'admin.partner.migration'
@@ -372,10 +372,10 @@ test('the partner option uses the approved label and never implies a guaranteed 
   }
 });
 
-test('the partner panel explains the model in two short paragraphs', () => {
+test('the partner panel explains the model in one short paragraph', () => {
   const panel = INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'), INDEX.indexOf('id="depositCryptoFlow"'));
   assert.ok(panel.includes('data-i18n="deposit.partner.intro"'), 'intro rendered');
-  assert.ok(panel.includes('data-i18n="deposit.partner.servicesIntro"'), 'service sentence rendered');
+  assert.ok(panel.includes('id="depositPartnerContacts"'), 'partner contact list rendered');
   // The long explanatory paragraph and the note beside the button are retired.
   assert.ok(!panel.includes('deposit.partner.modelNote'), 'model note retired');
   assert.ok(!panel.includes('depositPaymentPartnerNote'), 'note beside the button retired');
@@ -561,7 +561,7 @@ test('every locale covers the service model with consistent keys', () => {
   vm.runInContext(INDEX.slice(tIdx, end + 1) + '; this.T = TRANSLATIONS;', ctx);
   const T = ctx.T;
   const keys = [
-    'deposit.partner.servicesIntro', 'deposit.partner.service.direct', 'deposit.partner.service.guided',
+    'deposit.partner.role', 'deposit.partner.service.direct', 'deposit.partner.service.guided',
     'deposit.partner.worldwide', 'deposit.partner.serves', 'deposit.partner.methodsDepend',
     'admin.partner.services', 'admin.partner.serviceDirect', 'admin.partner.serviceGuided',
     'admin.partner.servicesHint', 'admin.partner.servicesRequired', 'admin.partner.worldwide',
@@ -576,6 +576,10 @@ test('every locale covers the service model with consistent keys', () => {
       assert.ok(typeof value === 'string' && value.trim().length > 0, locale + ' missing ' + key);
       assert.ok(!/\{\{/.test(value), locale + ' ' + key + ' must not carry a placeholder');
     }
+  }
+  // The per-partner CTA label is the only placeholder-bearing key here.
+  for (const locale of locales) {
+    assert.match(T[locale]['deposit.partner.contactName'], /\{\{name\}\}/, locale + ' contactName placeholder');
   }
   // identical key sets across locales
   const base = Object.keys(T.en).sort().join('|');

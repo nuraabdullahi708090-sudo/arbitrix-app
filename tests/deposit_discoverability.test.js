@@ -427,7 +427,7 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
     // NOT come back.
     for (const id of ['depositOptions', 'depositOptionPartner', 'depositOptionCrypto',
         'depositPartnerPanel', 'depositPartnerList',
-        'depositPaymentPartnerBtn', 'depositCryptoFlow']) {
+        'depositPartnerContacts', 'depositCryptoPartnerContacts', 'depositCryptoFlow']) {
         assert.ok(INDEX.indexOf('id="' + id + '"') > 0, id + ' must still exist');
     }
     assert.ok(/function selectDepositOption\(/.test(INDEX), 'option selection preserved');

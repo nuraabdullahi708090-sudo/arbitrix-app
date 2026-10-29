@@ -21,7 +21,7 @@
  *     simulated-demo disclosure, with NO separate explanatory copy above it;
  *   - NO fabricated screenshots / transactions / earnings / customer data and
  *     NO video element is shipped before the real recording exists;
- *   - the partner support handle is the single source of truth (@Arbitrix_CSA1);
+ *   - the partner support handle is the single source of truth (@AlexArbitrix);
  *   - public/index.html (the customer funnel) is byte-for-byte unchanged BY THIS
  *     FEATURE and the page is not linked from the homepage navigation. (The
  *     baseline hash is re-pinned when a separately-approved change edits the
@@ -65,9 +65,9 @@ const EXPECTED_KEYS = 84;
 // invoice errors), and again for the withdrawal-discoverability change (an
 // Available-card Withdraw action sharing that row). Each re-pin was an approved
 // homepage change, not /partners drift.
-const INDEX_SHA256 = '23b3437d8cd651b1c1bac1e365d8ff9685bbe777db401cff5f437557b449bb56';
+const INDEX_SHA256 = '00050fd9cffb39dbd7f2b0b1977f9943cab8cc777e7fe87079eb1cf8e693854d';
 
-const PARTNER_HANDLE = '@Arbitrix_CSA1';
+const PARTNER_HANDLE = '@AlexArbitrix';
 const DEMO_FLOW_STEPS = [
     'Partner', 'Referral', '$100 qualifying deposit', '$20 reward', 'Request payout',
     'USDT / TRC20', 'Under review', 'Admin processing', 'Paid', 'Payout history'
@@ -536,7 +536,7 @@ test('7h. no internal sandbox wording on the partner page', () => {
 /* ------------------------------------------------------------------ *
  * 8. Support: single source of truth handle
  * ------------------------------------------------------------------ */
-test('8. the partner support handle is @Arbitrix_CSA1 and matches the app', () => {
+test('8. the partner support handle is @AlexArbitrix and matches the app', () => {
     const idxMeta = INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/);
     const pageMeta = PAGE.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/);
     assert.ok(idxMeta, 'the app must define the partner support meta');
@@ -559,7 +559,7 @@ test('8b. the page invents no other Telegram destination or group link', () => {
 
 test('8c. the runtime builds the correct https://t.me URL from the meta handle', () => {
     const sb = runPage({ lang: 'en', storedLang: 'en' });
-    assert.strictEqual(sb.__url, 'https://t.me/Arbitrix_CSA1', 'the handle must resolve to the official t.me URL');
+    assert.strictEqual(sb.__url, 'https://t.me/AlexArbitrix', 'the handle must resolve to the official t.me URL');
     // A full URL override is honoured.
     const ovr = runPage({ overrideUrl: 'https://t.me/SomePartner' });
     assert.strictEqual(ovr.__url, 'https://t.me/SomePartner');

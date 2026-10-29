@@ -212,8 +212,8 @@ test('the deposit modal directs DEPOSIT help to the payment partner', () => {
     // Deposit questions belong to the payment partner; official support is
     // reached from the Support Center (covered by the other tests here).
     const win = elementWindow('safetyWarning', 2600);
-    assert.ok(/id="depositCryptoPartnerBtn"/.test(win), 'payment-partner button rendered');
-    assert.ok(/js-payment-partner/.test(win), 'it uses the shared partner link wiring');
+    assert.ok(/id="depositCryptoPartnerContacts"/.test(win), 'payment-partner contacts rendered');
+    assert.ok(/payment-partner-list/.test(win), 'it uses the shared partner contact list');
     assert.ok(/deposit\.crypto\.partnerHelp/.test(win), 'localized deposit-help wording');
     assert.ok(/deposit\.crypto\.partnerNote/.test(win), 'no-crediting note rendered');
     assert.ok(!/support\.needHelpDeposit/.test(INDEX), 'the old support link is retired');
@@ -236,7 +236,7 @@ test('support is available from the payment pending/failed state with invoice re
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');
     assert.ok(/support\.contactOfficial/.test(win), 'official support CTA');
     // Payment assistance is the partner; official support stays separate.
-    assert.ok(/js-payment-partner/.test(win), 'payment-partner CTA');
+    assert.ok(/id="paymentPartnerContacts"/.test(win), 'payment-partner contacts');
     assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept beside it');
 
     // The status-driven guidance maps the observed status to the right key.

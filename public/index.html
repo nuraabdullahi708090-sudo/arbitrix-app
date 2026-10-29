@@ -26,7 +26,8 @@
          window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL. This is the SINGLE source
          of truth - never hard-code the account anywhere else in the UI. Empty =
          fall back to the in-app Support Center. Public link only. -->
-    <meta name="arbitrix-partner-support-telegram" content="@Arbitrix_CSA1">
+    <meta name="arbitrix-partner-support-telegram" content="@AlexArbitrix">
+    <meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">
     <!-- Open Graph / social sharing -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Arbitrix AI">
@@ -1327,6 +1328,12 @@
         .payment-help-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
         .payment-help-actions > *{flex:1 1 150px;min-width:0;}
         .deposit-payment-partner{display:block;width:100%;text-align:center;min-height:44px;}
+        .payment-partner-list{display:grid;grid-template-columns:1fr;gap:8px;min-width:0;}
+        .payment-partner-card{display:flex;flex-direction:column;gap:6px;min-width:0;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:10px;}
+        .payment-partner-name{font-size:12px;font-weight:700;color:var(--text-primary);overflow-wrap:anywhere;}
+        .payment-partner-role{display:block;font-size:10px;font-weight:600;color:#F0B90B;text-transform:uppercase;letter-spacing:0.4px;margin-top:2px;}
+        .payment-partner-card .deposit-payment-partner{margin:0;min-height:44px;}
+        @media (min-width:420px){.payment-partner-list{grid-template-columns:1fr 1fr;}}
         @media (max-width:420px){
             .payment-help-actions{flex-direction:column;}
             .payment-help-actions > *{width:100%;}
@@ -7649,13 +7656,13 @@ function toggleFaq(btn) {
           </button>
         </div>
         <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.intro">Contact a partner on Telegram. Partners help you obtain cryptocurrency.</p>
-        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.servicesIntro">Partners may offer direct USDT sales, guided purchasing assistance, or both.</p>
 
-        <!-- Direct line to the configured PAYMENT partner (deposit questions,
-             payment follow-ups, transaction checks). Contact details only: the
-             partner cannot credit a balance or approve a deposit. Hidden when no
-             destination is configured, so a broken link is never rendered. -->
-        <a id="depositPaymentPartnerBtn" href="#" class="btn btn-primary js-payment-partner deposit-payment-partner" style="display:none;width:100%;text-align:center;margin:0 0 10px;padding:11px;font-size:12px;" target="_blank" rel="noopener noreferrer" data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</a>
+        <!-- Configured PAYMENT partners (deposit questions, payment follow-ups,
+             transaction checks). Contact details only: a partner cannot credit a
+             balance or approve a deposit. Rendered by
+             renderPaymentPartnerContacts(); hidden when none is configured, so a
+             broken link is never shown. -->
+        <div id="depositPartnerContacts" class="payment-partner-list"></div>
 
         <div id="depositPartnerList"></div>
 
@@ -7760,9 +7767,7 @@ function toggleFaq(btn) {
            Support Center for general account questions. -->
       <div id="depositCryptoPartnerHelp" style="margin:16px 0 4px;padding:12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;">
         <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.crypto.partnerHelp">Need help with your deposit? Contact our Payment Partner on Telegram.</p>
-        <a id="depositCryptoPartnerBtn" href="#" class="btn btn-primary js-payment-partner deposit-payment-partner" style="display:none;width:100%;text-align:center;padding:11px;font-size:12px;font-weight:600;text-decoration:none;margin:0 0 8px;" target="_blank" rel="noopener noreferrer">
-          <i class="fab fa-telegram" style="margin-right:6px;"></i><span data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</span>
-        </a>
+        <div id="depositCryptoPartnerContacts" class="payment-partner-list" style="margin:0 0 8px;"></div>
         <p style="font-size:10px;color:var(--text-muted);line-height:1.6;margin:0;" data-i18n="deposit.crypto.partnerNote">Contacting the partner never credits your account. Arbitrix credits your deposit only after verifying the transfer.</p>
       </div>
       </div>
@@ -7887,9 +7892,7 @@ function toggleFaq(btn) {
         <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:6px;" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.</div>
         <div id="paymentSupportHelpText" style="font-size:11px;color:var(--text-secondary);line-height:1.6;">Need help with your payment? Contact the Arbitrix Payment Partner.</div>
         <div class="payment-help-actions" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <a id="paymentPartnerBtn" href="#" class="btn btn-primary js-payment-partner" style="display:none;flex:1;min-width:150px;text-align:center;" target="_blank" rel="noopener noreferrer">
-            <i class="fas fa-handshake"></i> <span data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</span>
-          </a>
+          <div id="paymentPartnerContacts" class="payment-partner-list" style="flex:1 1 100%;"></div>
           <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-primary" style="flex:1;min-width:150px;">
             <i class="fas fa-headset"></i> <span data-i18n="support.contactOfficial">Contact official Arbitrix Support</span>
           </button>
@@ -9455,12 +9458,12 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Contact a verified partner who can help you obtain USDT for your deposit.',
         'deposit.choose.crypto.title': 'I Already Have Crypto',
         'deposit.choose.crypto.desc': 'Deposit USDT on TRON (TRC20) directly to your Arbitrix address.',
-        'deposit.partner.title': 'Verified Partners',
-        'deposit.crypto.partnerHelp': 'Need help with your deposit? Contact our Payment Partner on Telegram.',
+        'deposit.partner.title': 'Verified Payment Partners',
+        'deposit.partner.contactName': 'Contact {{name}}',
+        'deposit.partner.role': 'Payment Partner',
+        'deposit.crypto.partnerHelp': 'Need help obtaining USDT or funding your Arbitrix account? Contact one of our payment partners for assistance.',
         'deposit.crypto.partnerNote': 'Contacting the partner never credits your account. Arbitrix credits your deposit only after verifying the transfer.',
-        'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency.',
-        'deposit.partner.contactPaymentPartner': 'Contact Payment Partner',
-        'deposit.partner.servicesIntro': 'Partners may offer direct USDT sales, guided purchasing assistance, or both.',
+        'deposit.partner.intro': 'Need help obtaining USDT or funding your Arbitrix account? Contact one of our payment partners for assistance.',
         'deposit.partner.service.direct': 'Direct USDT sale',
         'deposit.partner.service.guided': 'Guided purchasing assistance',
         'deposit.partner.worldwide': 'Serves customers worldwide',
@@ -9472,8 +9475,8 @@ const TRANSLATIONS = {
         'deposit.partner.countries': 'Countries served',
         'deposit.partner.methods': 'Payment methods',
         'deposit.partner.refTitle': 'How to Fund Your Account',
-        'deposit.partner.refHint': 'Open Deposit Funds and generate your USDT (TRC20) deposit address. Share that address with the Payment Partner if you need help funding your account.',
-        'deposit.partner.refReady': 'Share this reference with your partner, together with the exact {{asset}} ({{network}}) address and amount from your payment screen.',
+        'deposit.partner.refHint': 'Open Deposit Funds and generate your USDT (TRC20) deposit address. Share that address with a payment partner if you need help funding your account.',
+        'deposit.partner.refReady': 'Share this reference with a payment partner, together with the exact {{asset}} ({{network}}) address and amount from your payment screen.',
         'deposit.partner.refCopied': 'Deposit reference copied',
         'deposit.partner.copyRef': 'Copy reference',
         'deposit.partner.safety.title': 'Stay safe',
@@ -9774,9 +9777,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contact Support',
         'deposit.invoiceRef': 'Invoice Reference',
         'deposit.copyInvoiceRef': 'Copy invoice reference',
-        'support.paymentHelp.pending': 'Need help with your payment? Contact the Payment Partner and share only your invoice reference, payment amount, network, and transaction hash.',
-        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, contact the Payment Partner with your invoice reference and transaction hash.',
-        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or contact the Payment Partner with your invoice reference and transaction hash.',
+        'support.paymentHelp.pending': 'Need help with your payment? Contact one of our payment partners and share only your invoice reference, payment amount, network, and transaction hash.',
+        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, contact one of our payment partners with your invoice reference and transaction hash.',
+        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or contact one of our payment partners with your invoice reference.',
         'deposit.copyInvoiceRefSuccess': 'Invoice reference copied',
         'deposit.copyInvoiceRefFailed': 'Could not copy the invoice reference',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> earned <span class="ticker-amount green">+${{amount}}</span> on {{asset}}',
@@ -11067,12 +11070,12 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Contacta con un socio verificado que pueda ayudarte a obtener USDT para tu dep\u00f3sito.',
         'deposit.choose.crypto.title': 'Ya tengo criptomonedas',
         'deposit.choose.crypto.desc': 'Deposita USDT en TRON (TRC20) directamente en tu dirección de Arbitrix.',
-        'deposit.partner.title': 'Socios verificados',
-        'deposit.crypto.partnerHelp': '\u00bfNecesitas ayuda con tu dep\u00f3sito? Contacta con nuestro socio de pagos en Telegram.',
+        'deposit.partner.title': 'Socios de pago verificados',
+        'deposit.partner.contactName': 'Contactar con {{name}}',
+        'deposit.partner.role': 'Socio de pagos',
+        'deposit.crypto.partnerHelp': '\u00bfNecesitas ayuda para obtener USDT o financiar tu cuenta de Arbitrix? Contacta con uno de nuestros socios de pago.',
         'deposit.crypto.partnerNote': 'Contactar con el socio no acredita tu cuenta. Arbitrix acredita tu dep\u00f3sito solo despu\u00e9s de verificar la transferencia.',
-        'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas.',
-        'deposit.partner.contactPaymentPartner': 'Contactar al socio de pagos',
-        'deposit.partner.servicesIntro': 'Los socios pueden ofrecer venta directa de USDT, asistencia guiada para la compra, o ambas.',
+        'deposit.partner.intro': '\u00bfNecesitas ayuda para obtener USDT o financiar tu cuenta de Arbitrix? Contacta con uno de nuestros socios de pago.',
         'deposit.partner.service.direct': 'Venta directa de USDT',
         'deposit.partner.service.guided': 'Asistencia guiada para comprar',
         'deposit.partner.worldwide': 'Atiende a clientes en todo el mundo',
@@ -11084,8 +11087,8 @@ const TRANSLATIONS = {
         'deposit.partner.countries': 'Países atendidos',
         'deposit.partner.methods': 'Métodos de pago',
         'deposit.partner.refTitle': 'C\u00f3mo financiar tu cuenta',
-        'deposit.partner.refHint': 'Abre Depositar fondos y genera tu direcci\u00f3n de dep\u00f3sito USDT (TRC20). Comparte esa direcci\u00f3n con el socio de pagos si necesitas ayuda para financiar tu cuenta.',
-        'deposit.partner.refReady': 'Comparte esta referencia con tu socio, junto con la dirección exacta de {{asset}} ({{network}}) y el importe de tu pantalla de pago.',
+        'deposit.partner.refHint': 'Abre Depositar fondos y genera tu direcci\u00f3n de dep\u00f3sito USDT (TRC20). Comparte esa direcci\u00f3n con un socio de pago si necesitas ayuda para financiar tu cuenta.',
+        'deposit.partner.refReady': 'Comparte esta referencia con un socio de pago, junto con la direcci\u00f3n y el importe exactos de {{asset}} ({{network}}) de tu pantalla de pago.',
         'deposit.partner.refCopied': 'Referencia de depósito copiada',
         'deposit.partner.copyRef': 'Copiar referencia',
         'deposit.partner.safety.title': 'Mantente seguro',
@@ -11386,9 +11389,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contactar a soporte',
         'deposit.invoiceRef': 'Referencia de la factura',
         'deposit.copyInvoiceRef': 'Copiar referencia de la factura',
-        'support.paymentHelp.pending': '\u00bfNecesitas ayuda con tu pago? Contacta con el socio de pagos y comparte solo tu referencia de factura, el monto, la red y el hash de la transacci\u00f3n.',
-        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmaci\u00f3n, contacta con el socio de pagos con tu referencia de factura y el hash de la transacci\u00f3n.',
-        'support.paymentHelp.failed': 'Esta factura expir\u00f3 o fue cancelada y no se acredit\u00f3. Genera una nueva factura o contacta con el socio de pagos con tu referencia de factura y el hash de la transacci\u00f3n.',
+        'support.paymentHelp.pending': '\u00bfNecesitas ayuda con tu pago? Contacta con uno de nuestros socios de pago y comparte solo la referencia de tu factura, el importe, la red y el hash de la transacci\u00f3n.',
+        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmaci\u00f3n, contacta con uno de nuestros socios de pago con la referencia de tu factura y el hash de la transacci\u00f3n.',
+        'support.paymentHelp.failed': 'Esta factura caduc\u00f3 o se cancel\u00f3 y no se acredit\u00f3. Genera una nueva factura o contacta con uno de nuestros socios de pago con la referencia de tu factura.',
         'deposit.copyInvoiceRefSuccess': 'Referencia de la factura copiada',
         'deposit.copyInvoiceRefFailed': 'No se pudo copiar la referencia de la factura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganó <span class="ticker-amount green">+${{amount}}</span> en {{asset}}',
@@ -12680,12 +12683,12 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Fale com um parceiro verificado que possa ajudar voc\u00ea a obter USDT para o seu dep\u00f3sito.',
         'deposit.choose.crypto.title': 'Já tenho criptomoedas',
         'deposit.choose.crypto.desc': 'Deposite USDT na TRON (TRC20) diretamente no seu endereço da Arbitrix.',
-        'deposit.partner.title': 'Parceiros verificados',
-        'deposit.crypto.partnerHelp': 'Precisa de ajuda com seu dep\u00f3sito? Fale com o nosso parceiro de pagamentos no Telegram.',
+        'deposit.partner.title': 'Parceiros de pagamento verificados',
+        'deposit.partner.contactName': 'Falar com {{name}}',
+        'deposit.partner.role': 'Parceiro de pagamento',
+        'deposit.crypto.partnerHelp': 'Precisa de ajuda para obter USDT ou financiar sua conta Arbitrix? Fale com um dos nossos parceiros de pagamento.',
         'deposit.crypto.partnerNote': 'Falar com o parceiro n\u00e3o credita sua conta. A Arbitrix credita seu dep\u00f3sito apenas ap\u00f3s verificar a transfer\u00eancia.',
-        'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam voc\u00ea a obter criptomoedas.',
-        'deposit.partner.contactPaymentPartner': 'Falar com o parceiro de pagamentos',
-        'deposit.partner.servicesIntro': 'Os parceiros podem oferecer venda direta de USDT, assist\u00eancia guiada na compra, ou ambas.',
+        'deposit.partner.intro': 'Precisa de ajuda para obter USDT ou financiar sua conta Arbitrix? Fale com um dos nossos parceiros de pagamento.',
         'deposit.partner.service.direct': 'Venda direta de USDT',
         'deposit.partner.service.guided': 'Assist\u00eancia guiada para comprar',
         'deposit.partner.worldwide': 'Atende clientes no mundo todo',
@@ -12697,8 +12700,8 @@ const TRANSLATIONS = {
         'deposit.partner.countries': 'Países atendidos',
         'deposit.partner.methods': 'Métodos de pagamento',
         'deposit.partner.refTitle': 'Como financiar sua conta',
-        'deposit.partner.refHint': 'Abra Depositar fundos e gere seu endere\u00e7o de dep\u00f3sito USDT (TRC20). Compartilhe esse endere\u00e7o com o parceiro de pagamentos se precisar de ajuda para financiar sua conta.',
-        'deposit.partner.refReady': 'Compartilhe esta referência com seu parceiro, junto com o endereço exato de {{asset}} ({{network}}) e o valor da sua tela de pagamento.',
+        'deposit.partner.refHint': 'Abra Depositar fundos e gere seu endere\u00e7o de dep\u00f3sito USDT (TRC20). Compartilhe esse endere\u00e7o com um parceiro de pagamento se precisar de ajuda para financiar sua conta.',
+        'deposit.partner.refReady': 'Compartilhe esta refer\u00eancia com um parceiro de pagamento, junto com o endere\u00e7o e o valor exatos de {{asset}} ({{network}}) da sua tela de pagamento.',
         'deposit.partner.refCopied': 'Referência de depósito copiada',
         'deposit.partner.copyRef': 'Copiar referência',
         'deposit.partner.safety.title': 'Fique seguro',
@@ -12999,9 +13002,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Falar com o suporte',
         'deposit.invoiceRef': 'Referência da fatura',
         'deposit.copyInvoiceRef': 'Copiar referência da fatura',
-        'support.paymentHelp.pending': 'Precisa de ajuda com o pagamento? Fale com o parceiro de pagamentos e compartilhe apenas a refer\u00eancia da fatura, o valor, a rede e o hash da transa\u00e7\u00e3o.',
-        'support.paymentHelp.detected': 'Pagamento detectado. Se n\u00e3o for creditado ap\u00f3s a confirma\u00e7\u00e3o, fale com o parceiro de pagamentos com a refer\u00eancia da fatura e o hash da transa\u00e7\u00e3o.',
-        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e n\u00e3o foi creditada. Gere uma nova fatura ou fale com o parceiro de pagamentos com a refer\u00eancia da fatura e o hash da transa\u00e7\u00e3o.',
+        'support.paymentHelp.pending': 'Precisa de ajuda com seu pagamento? Fale com um dos nossos parceiros de pagamento e compartilhe apenas a refer\u00eancia da fatura, o valor, a rede e o hash da transa\u00e7\u00e3o.',
+        'support.paymentHelp.detected': 'Pagamento detectado. Se n\u00e3o for creditado ap\u00f3s a confirma\u00e7\u00e3o, fale com um dos nossos parceiros de pagamento com a refer\u00eancia da fatura e o hash da transa\u00e7\u00e3o.',
+        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e n\u00e3o foi creditada. Gere uma nova fatura ou fale com um dos nossos parceiros de pagamento com a refer\u00eancia da fatura.',
         'deposit.copyInvoiceRefSuccess': 'Referência da fatura copiada',
         'deposit.copyInvoiceRefFailed': 'Não foi possível copiar a referência da fatura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganhou <span class="ticker-amount green">+${{amount}}</span> em {{asset}}',
@@ -14293,12 +14296,12 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Contactez un partenaire v\u00e9rifi\u00e9 qui peut vous aider \u00e0 obtenir de l\u2019USDT pour votre d\u00e9p\u00f4t.',
         'deposit.choose.crypto.title': 'J’ai déjà de la crypto',
         'deposit.choose.crypto.desc': 'Déposez de l’USDT sur TRON (TRC20) directement sur votre adresse Arbitrix.',
-        'deposit.partner.title': 'Partenaires vérifiés',
-        'deposit.crypto.partnerHelp': 'Besoin d\'aide pour votre d\u00e9p\u00f4t ? Contactez notre partenaire de paiement sur Telegram.',
+        'deposit.partner.title': 'Partenaires de paiement v\u00e9rifi\u00e9s',
+        'deposit.partner.contactName': 'Contacter {{name}}',
+        'deposit.partner.role': 'Partenaire de paiement',
+        'deposit.crypto.partnerHelp': 'Besoin d\'aide pour obtenir de l\'USDT ou alimenter votre compte Arbitrix ? Contactez l\'un de nos partenaires de paiement.',
         'deposit.crypto.partnerNote': 'Contacter le partenaire ne cr\u00e9dite pas votre compte. Arbitrix cr\u00e9dite votre d\u00e9p\u00f4t uniquement apr\u00e8s v\u00e9rification du transfert.',
-        'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident \u00e0 obtenir de la cryptomonnaie.',
-        'deposit.partner.contactPaymentPartner': 'Contacter le partenaire de paiement',
-        'deposit.partner.servicesIntro': 'Les partenaires peuvent proposer la vente directe d\'USDT, une assistance guid\u00e9e \u00e0 l\'achat, ou les deux.',
+        'deposit.partner.intro': 'Besoin d\'aide pour obtenir de l\'USDT ou alimenter votre compte Arbitrix ? Contactez l\'un de nos partenaires de paiement.',
         'deposit.partner.service.direct': 'Vente directe d\u2019USDT',
         'deposit.partner.service.guided': 'Assistance guid\u00e9e pour l\u2019achat',
         'deposit.partner.worldwide': 'Sert des clients dans le monde entier',
@@ -14310,8 +14313,8 @@ const TRANSLATIONS = {
         'deposit.partner.countries': 'Pays desservis',
         'deposit.partner.methods': 'Moyens de paiement',
         'deposit.partner.refTitle': 'Comment alimenter votre compte',
-        'deposit.partner.refHint': 'Ouvrez D\u00e9poser des fonds et g\u00e9n\u00e9rez votre adresse de d\u00e9p\u00f4t USDT (TRC20). Partagez cette adresse avec le partenaire de paiement si vous avez besoin d\'aide pour alimenter votre compte.',
-        'deposit.partner.refReady': 'Partagez cette référence avec votre partenaire, avec l’adresse exacte {{asset}} ({{network}}) et le montant affichés sur votre écran de paiement.',
+        'deposit.partner.refHint': 'Ouvrez D\u00e9poser des fonds et g\u00e9n\u00e9rez votre adresse de d\u00e9p\u00f4t USDT (TRC20). Partagez cette adresse avec un partenaire de paiement si vous avez besoin d\'aide pour alimenter votre compte.',
+        'deposit.partner.refReady': 'Partagez cette r\u00e9f\u00e9rence avec un partenaire de paiement, avec l\'adresse et le montant exacts de {{asset}} ({{network}}) affich\u00e9s sur votre \u00e9cran de paiement.',
         'deposit.partner.refCopied': 'Référence de dépôt copiée',
         'deposit.partner.copyRef': 'Copier la référence',
         'deposit.partner.safety.title': 'Restez prudent',
@@ -14612,9 +14615,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contacter le support',
         'deposit.invoiceRef': 'Référence de la facture',
         'deposit.copyInvoiceRef': 'Copier la référence de la facture',
-        'support.paymentHelp.pending': 'Besoin d\'aide avec votre paiement ? Contactez le partenaire de paiement et partagez uniquement votre r\u00e9f\u00e9rence de facture, le montant, le r\u00e9seau et le hash de transaction.',
-        'support.paymentHelp.detected': 'Paiement d\u00e9tect\u00e9. S\'il n\'est pas cr\u00e9dit\u00e9 apr\u00e8s confirmation, contactez le partenaire de paiement avec votre r\u00e9f\u00e9rence de facture et le hash de transaction.',
-        'support.paymentHelp.failed': 'Cette facture a expir\u00e9 ou a \u00e9t\u00e9 annul\u00e9e et n\'a pas \u00e9t\u00e9 cr\u00e9dit\u00e9e. G\u00e9n\u00e9rez une nouvelle facture ou contactez le partenaire de paiement avec votre r\u00e9f\u00e9rence de facture et le hash de transaction.',
+        'support.paymentHelp.pending': 'Besoin d\'aide pour votre paiement ? Contactez l\'un de nos partenaires de paiement et ne partagez que la r\u00e9f\u00e9rence de votre facture, le montant, le r\u00e9seau et le hash de la transaction.',
+        'support.paymentHelp.detected': 'Paiement d\u00e9tect\u00e9. S\'il n\'est pas cr\u00e9dit\u00e9 apr\u00e8s confirmation, contactez l\'un de nos partenaires de paiement avec la r\u00e9f\u00e9rence de votre facture et le hash de la transaction.',
+        'support.paymentHelp.failed': 'Cette facture a expir\u00e9 ou a \u00e9t\u00e9 annul\u00e9e et n\'a pas \u00e9t\u00e9 cr\u00e9dit\u00e9e. G\u00e9n\u00e9rez une nouvelle facture ou contactez l\'un de nos partenaires de paiement avec la r\u00e9f\u00e9rence de votre facture.',
         'deposit.copyInvoiceRefSuccess': 'Référence de la facture copiée',
         'deposit.copyInvoiceRefFailed': 'Impossible de copier la référence de la facture',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> a gagné <span class="ticker-amount green">+${{amount}}</span> sur {{asset}}',
@@ -15906,12 +15909,12 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0645\u0648\u062b\u0651\u0642 \u064a\u0645\u0643\u0646\u0647 \u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0644\u0625\u064a\u062f\u0627\u0639\u0643.',
         'deposit.choose.crypto.title': 'لدي عملات رقمية بالفعل',
         'deposit.choose.crypto.desc': 'أودع USDT على شبكة TRON (TRC20) مباشرة إلى عنوان Arbitrix الخاص بك.',
-        'deposit.partner.title': 'الشركاء الموثّقون',
-        'deposit.crypto.partnerHelp': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u0625\u064a\u062f\u0627\u0639\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0639\u0628\u0631 \u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645.',
+        'deposit.partner.title': '\u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0627\u0644\u0645\u0648\u062b\u0651\u0642\u0648\u0646',
+        'deposit.partner.contactName': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 {{name}}',
+        'deposit.partner.role': '\u0634\u0631\u064a\u0643 \u062f\u0641\u0639',
+        'deposit.crypto.partnerHelp': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0623\u0648 \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Arbitrix\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639.',
         'deposit.crypto.partnerNote': '\u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0634\u0631\u064a\u0643 \u0644\u0627 \u064a\u0636\u064a\u0641 \u0627\u0644\u0645\u0628\u0644\u063a \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643. \u062a\u064f\u0636\u064a\u0641 Arbitrix \u0625\u064a\u062f\u0627\u0639\u0643 \u0641\u0642\u0637 \u0628\u0639\u062f \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
-        'deposit.partner.intro': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0639\u0644\u0649 \u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645. \u064a\u0633\u0627\u0639\u062f\u0643 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629.',
-        'deposit.partner.contactPaymentPartner': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639',
-        'deposit.partner.servicesIntro': '\u0642\u062f \u064a\u0642\u062f\u0651\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629\u064b\u060c \u0623\u0648 \u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0641\u064a \u0627\u0644\u0634\u0631\u0627\u0621\u060c \u0623\u0648 \u0643\u0644\u064a\u0647\u0645\u0627.',
+        'deposit.partner.intro': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0623\u0648 \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Arbitrix\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639.',
         'deposit.partner.service.direct': '\u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629',
         'deposit.partner.service.guided': '\u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621',
         'deposit.partner.worldwide': '\u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u062d\u0648\u0644 \u0627\u0644\u0639\u0627\u0644\u0645',
@@ -15923,8 +15926,8 @@ const TRANSLATIONS = {
         'deposit.partner.countries': 'الدول التي يخدمها',
         'deposit.partner.methods': 'طرق الدفع',
         'deposit.partner.refTitle': '\u0643\u064a\u0641\u064a\u0629 \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643',
-        'deposit.partner.refHint': '\u0627\u0641\u062a\u062d \u0625\u064a\u062f\u0627\u0639 \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0648\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0625\u064a\u062f\u0627\u0639 USDT (TRC20) \u0627\u0644\u062e\u0627\u0635 \u0628\u0643. \u0634\u0627\u0631\u0643 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0625\u0630\u0627 \u0627\u062d\u062a\u062c\u062a \u0625\u0644\u0649 \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643.',
-        'deposit.partner.refReady': 'شارك هذا المرجع مع شريكك، مع عنوان {{asset}} ({{network}}) الدقيق والمبلغ الظاهر في شاشة الدفع.',
+        'deposit.partner.refHint': '\u0627\u0641\u062a\u062d \u0625\u064a\u062f\u0627\u0639 \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0648\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0625\u064a\u062f\u0627\u0639 USDT (TRC20) \u0627\u0644\u062e\u0627\u0635 \u0628\u0643. \u0634\u0627\u0631\u0643 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0645\u0639 \u0634\u0631\u064a\u0643 \u062f\u0641\u0639 \u0625\u0630\u0627 \u0627\u062d\u062a\u062c\u062a \u0625\u0644\u0649 \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643.',
+        'deposit.partner.refReady': '\u0634\u0627\u0631\u0643 \u0647\u0630\u0627 \u0627\u0644\u0645\u0631\u062c\u0639 \u0645\u0639 \u0634\u0631\u064a\u0643 \u062f\u0641\u0639\u060c \u0645\u0639 \u0639\u0646\u0648\u0627\u0646 \u0648\u0645\u0628\u0644\u063a {{asset}} ({{network}}) \u0627\u0644\u062f\u0642\u064a\u0642\u064a\u0646 \u0645\u0646 \u0634\u0627\u0634\u0629 \u0627\u0644\u062f\u0641\u0639.',
         'deposit.partner.refCopied': 'تم نسخ مرجع الإيداع',
         'deposit.partner.copyRef': 'نسخ المرجع',
         'deposit.partner.safety.title': 'ابق آمناً',
@@ -16225,9 +16228,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'تواصل مع الدعم',
         'deposit.invoiceRef': 'مرجع الفاتورة',
         'deposit.copyInvoiceRef': 'نسخ مرجع الفاتورة',
-        'support.paymentHelp.pending': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u062f\u0641\u0639\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0648\u0634\u0627\u0631\u0643 \u0641\u0642\u0637 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0627\u0644\u0634\u0628\u0643\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629.',
-        'support.paymentHelp.detected': '\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0627\u0644\u062f\u0641\u0639. \u0625\u0630\u0627 \u0644\u0645 \u064a\u064f\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0631\u0635\u064a\u062f \u0628\u0639\u062f \u0627\u0644\u062a\u0623\u0643\u064a\u062f\u060c \u0641\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629.',
-        'support.paymentHelp.failed': '\u0627\u0646\u062a\u0647\u062a \u0635\u0644\u0627\u062d\u064a\u0629 \u0647\u0630\u0647 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0623\u0648 \u062a\u0645 \u0625\u0644\u063a\u0627\u0624\u0647\u0627 \u0648\u0644\u0645 \u062a\u064f\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0631\u0635\u064a\u062f. \u0623\u0646\u0634\u0626 \u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629 \u0623\u0648 \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629.',
+        'support.paymentHelp.pending': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u062f\u0641\u0639\u0643\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0648\u0634\u0627\u0631\u0643 \u0641\u0642\u0637 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0627\u0644\u0634\u0628\u0643\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
+        'support.paymentHelp.detected': '\u062a\u0645 \u0631\u0635\u062f \u0627\u0644\u062f\u0641\u0639. \u0625\u0630\u0627 \u0644\u0645 \u064a\u064f\u0636\u0641 \u0628\u0639\u062f \u0627\u0644\u062a\u0623\u0643\u064a\u062f\u060c \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
+        'support.paymentHelp.failed': '\u0627\u0646\u062a\u0647\u062a \u0635\u0644\u0627\u062d\u064a\u0629 \u0647\u0630\u0647 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0623\u0648 \u062a\u0645 \u0625\u0644\u063a\u0627\u0624\u0647\u0627 \u0648\u0644\u0645 \u064a\u064f\u0636\u0641 \u0627\u0644\u0645\u0628\u0644\u063a. \u0623\u0646\u0634\u0626 \u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629 \u0623\u0648 \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629.',
         'deposit.copyInvoiceRefSuccess': 'تم نسخ مرجع الفاتورة',
         'deposit.copyInvoiceRefFailed': 'تعذر نسخ مرجع الفاتورة',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ربح <span class="ticker-amount green">+${{amount}}</span> على {{asset}}',
@@ -17519,12 +17522,12 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': '\u8054\u7cfb\u53ef\u534f\u52a9\u60a8\u83b7\u53d6 USDT \u7528\u4e8e\u5145\u503c\u7684\u5df2\u8ba4\u8bc1\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.choose.crypto.title': '我已有加密货币',
         'deposit.choose.crypto.desc': '直接向你的 Arbitrix 地址充值 TRON (TRC20) 上的 USDT。',
-        'deposit.partner.title': '已认证合作伙伴',
-        'deposit.crypto.partnerHelp': '\u5165\u91d1\u9700\u8981\u5e2e\u52a9\uff1f\u8bf7\u901a\u8fc7 Telegram \u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
+        'deposit.partner.title': '\u5df2\u8ba4\u8bc1\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34',
+        'deposit.partner.contactName': '\u8054\u7cfb {{name}}',
+        'deposit.partner.role': '\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34',
+        'deposit.crypto.partnerHelp': '\u9700\u8981\u5e2e\u52a9\u83b7\u53d6 USDT \u6216\u4e3a Arbitrix \u8d26\u6237\u5145\u503c\uff1f\u8bf7\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.crypto.partnerNote': '\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u4e0d\u4f1a\u4e3a\u60a8\u7684\u8d26\u6237\u5165\u8d26\u3002Arbitrix \u4ec5\u5728\u9a8c\u8bc1\u8f6c\u8d26\u540e\u624d\u4e3a\u60a8\u7684\u5165\u91d1\u5165\u8d26\u3002',
-        'deposit.partner.intro': '\u5728 Telegram \u4e0a\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u3002\u5408\u4f5c\u4f19\u4f34\u53ef\u5e2e\u52a9\u60a8\u83b7\u53d6\u52a0\u5bc6\u8d27\u5e01\u3002',
-        'deposit.partner.contactPaymentPartner': '\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34',
-        'deposit.partner.servicesIntro': '\u5408\u4f5c\u4f19\u4f34\u53ef\u63d0\u4f9b USDT \u76f4\u63a5\u51fa\u552e\u3001\u534f\u52a9\u6307\u5bfc\u8d2d\u4e70\uff0c\u6216\u4e24\u8005\u517c\u6709\u3002',
+        'deposit.partner.intro': '\u9700\u8981\u5e2e\u52a9\u83b7\u53d6 USDT \u6216\u4e3a Arbitrix \u8d26\u6237\u5145\u503c\uff1f\u8bf7\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.partner.service.direct': '\u76f4\u63a5\u51fa\u552e USDT',
         'deposit.partner.service.guided': '\u6307\u5bfc\u8d2d\u4e70',
         'deposit.partner.worldwide': '\u670d\u52a1\u5168\u7403\u5ba2\u6237',
@@ -17537,7 +17540,7 @@ const TRANSLATIONS = {
         'deposit.partner.methods': '支付方式',
         'deposit.partner.refTitle': '\u5982\u4f55\u4e3a\u8d26\u6237\u5145\u503c',
         'deposit.partner.refHint': '\u6253\u5f00\u201c\u5b58\u5165\u8d44\u91d1\u201d\u5e76\u751f\u6210\u60a8\u7684 USDT (TRC20) \u5165\u91d1\u5730\u5740\u3002\u5982\u9700\u5e2e\u52a9\u4e3a\u8d26\u6237\u5145\u503c\uff0c\u8bf7\u5c06\u8be5\u5730\u5740\u5206\u4eab\u7ed9\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
-        'deposit.partner.refReady': '请将此参考号连同付款页面上的确切 {{asset}}（{{network}}）地址和金额一起分享给合作伙伴。',
+        'deposit.partner.refReady': '\u8bf7\u5c06\u6b64\u53c2\u8003\u53f7\u4e0e\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u5206\u4eab\uff0c\u5e76\u9644\u4e0a\u60a8\u652f\u4ed8\u9875\u9762\u4e0a\u7684\u51c6\u786e {{asset}}\uff08{{network}}\uff09\u5730\u5740\u548c\u91d1\u989d\u3002',
         'deposit.partner.refCopied': '已复制入金参考号',
         'deposit.partner.copyRef': '复制参考号',
         'deposit.partner.safety.title': '注意安全',
@@ -17838,9 +17841,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': '联系支持',
         'deposit.invoiceRef': '发票参考号',
         'deposit.copyInvoiceRef': '复制发票参考号',
-        'support.paymentHelp.pending': '\u652f\u4ed8\u9700\u8981\u5e2e\u52a9\uff1f\u8bf7\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\uff0c\u5e76\u4ec5\u63d0\u4f9b\u60a8\u7684\u53d1\u7968\u53c2\u8003\u53f7\u3001\u652f\u4ed8\u91d1\u989d\u3001\u7f51\u7edc\u548c\u4ea4\u6613\u54c8\u5e0c\u3002',
-        'support.paymentHelp.detected': '\u5df2\u68c0\u6d4b\u5230\u4ed8\u6b3e\u3002\u5982\u679c\u786e\u8ba4\u540e\u4ecd\u672a\u5165\u8d26\uff0c\u8bf7\u643a\u5e26\u53d1\u7968\u53c2\u8003\u53f7\u548c\u4ea4\u6613\u54c8\u5e0c\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
-        'support.paymentHelp.failed': '\u8be5\u53d1\u7968\u5df2\u8fc7\u671f\u6216\u88ab\u53d6\u6d88\uff0c\u672a\u5165\u8d26\u3002\u8bf7\u751f\u6210\u65b0\u53d1\u7968\uff1b\u5982\u679c\u8d44\u91d1\u5df2\u4ece\u60a8\u7684\u94b1\u5305\u8f6c\u51fa\uff0c\u8bf7\u643a\u5e26\u53d1\u7968\u53c2\u8003\u53f7\u548c\u4ea4\u6613\u54c8\u5e0c\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
+        'support.paymentHelp.pending': '\u652f\u4ed8\u9700\u8981\u5e2e\u52a9\uff1f\u8bf7\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\uff0c\u4ec5\u9700\u63d0\u4f9b\u53d1\u7968\u53c2\u8003\u53f7\u3001\u91d1\u989d\u3001\u7f51\u7edc\u548c\u4ea4\u6613\u54c8\u5e0c\u3002',
+        'support.paymentHelp.detected': '\u5df2\u68c0\u6d4b\u5230\u4ed8\u6b3e\u3002\u82e5\u786e\u8ba4\u540e\u4ecd\u672a\u5165\u8d26\uff0c\u8bf7\u643a\u53d1\u7968\u53c2\u8003\u53f7\u548c\u4ea4\u6613\u54c8\u5e0c\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
+        'support.paymentHelp.failed': '\u6b64\u53d1\u7968\u5df2\u8fc7\u671f\u6216\u5df2\u53d6\u6d88\uff0c\u5e76\u672a\u5165\u8d26\u3002\u8bf7\u751f\u6210\u65b0\u53d1\u7968\uff0c\u6216\u643a\u53d1\u7968\u53c2\u8003\u53f7\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.copyInvoiceRefSuccess': '已复制发票参考号',
         'deposit.copyInvoiceRefFailed': '无法复制发票参考号',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> 在 {{asset}} 赚取 <span class="ticker-amount green">+${{amount}}</span>',
@@ -18849,6 +18852,8 @@ function updateDynamicTranslations() {
         // Official support links + the payment-problem guidance are dynamic
         // (config-driven href / status-driven text), so re-apply them here.
         if (typeof updateSupportLinks === 'function') updateSupportLinks();
+        // Partner cards are rendered by JS (name + localized labels).
+        if (typeof renderPaymentPartnerContacts === 'function') renderPaymentPartnerContacts();
         // The profit-pause prompt body is rendered by JS (it interpolates the
         // server's threshold and is deliberately not a data-i18n node), so it is
         // re-rendered here while the pop-up is open.
@@ -19595,33 +19600,109 @@ function getPartnerSupportTelegramUrl() {
 }
 
 /**
- * Payment partner (deposit questions, payment follow-ups, transaction checks).
- * Destination comes from the ONE configured value
- * (window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL or
- * <meta name="arbitrix-partner-support-telegram">) and is always rendered as a
- * t.me link. When it is unset the payment-partner buttons stay hidden and the
- * official support action remains, so no broken or invented link is ever shown.
- * The partner is contact-only: nothing here can credit a balance or approve a
- * deposit.
+ * PAYMENT PARTNERS (deposit questions, obtaining USDT, payment follow-ups).
+ *
+ * Each slot reads its Telegram account from ONE meta tag, so no URL is
+ * hard-coded in markup or JS and adding a partner is one line here plus one
+ * meta tag:
+ *   slot 1 -> <meta name="arbitrix-partner-support-telegram">
+ *   slot 2 -> <meta name="arbitrix-partner-support-telegram-2">
+ * window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL still overrides slot 1.
+ *
+ * Partners are CONTACT ONLY: nothing here can credit a balance, approve a
+ * deposit or stand in for Arbitrix's server-side verification.
+ */
+const PAYMENT_PARTNER_SLOTS = [
+    { id: 'alex', name: 'Alex', meta: 'arbitrix-partner-support-telegram', overrideWindow: true },
+    { id: 'olivia', name: 'Olivia', meta: 'arbitrix-partner-support-telegram-2', overrideWindow: false }
+];
+
+/** Turns a configured value (full Telegram URL or bare @username) into a t.me URL. */
+function normalisePartnerTelegramUrl(raw) {
+    const value = String(raw == null ? '' : raw).trim();
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value)) {
+        // Only Telegram destinations are accepted; anything else is ignored.
+        return /^https:\/\/(www\.)?(t\.me|telegram\.me)\/[A-Za-z0-9_+\-]+$/i.test(value) ? value : '';
+    }
+    const username = value.replace(/^@/, '');
+    return /^[A-Za-z0-9_]{4,32}$/.test(username) ? 'https://t.me/' + username : '';
+}
+
+/** Configured partners in display order; unconfigured or invalid slots are dropped. */
+function getPaymentPartnerContacts() {
+    const contacts = [];
+    const seen = {};
+    for (let i = 0; i < PAYMENT_PARTNER_SLOTS.length; i++) {
+        const slot = PAYMENT_PARTNER_SLOTS[i];
+        let raw = '';
+        try {
+            if (slot.overrideWindow && typeof window !== 'undefined' && window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL) {
+                raw = String(window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL);
+            } else {
+                const meta = document.querySelector('meta[name="' + slot.meta + '"]');
+                if (meta && meta.content) raw = String(meta.content);
+            }
+        } catch (e) { /* treat as unconfigured */ }
+        const url = normalisePartnerTelegramUrl(raw);
+        if (!url || seen[url]) continue;
+        seen[url] = true;
+        contacts.push({
+            id: slot.id,
+            name: slot.name,
+            username: url.replace(/^https:\/\/(www\.)?(t\.me|telegram\.me)\//i, '').replace(/^@/, ''),
+            url: url
+        });
+    }
+    return contacts;
+}
+
+/** Primary partner link, kept for the existing single-contact call sites. */
+function getPartnerSupportTelegramUrl() {
+    const contacts = getPaymentPartnerContacts();
+    return contacts.length ? contacts[0].url : '';
+}
+
+/**
+ * Renders one tappable card + button per configured partner into every deposit
+ * container. Re-run on language switch so the labels follow the locale.
+ */
+function renderPaymentPartnerContacts() {
+    const contacts = getPaymentPartnerContacts();
+    const containers = ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts'];
+    for (let i = 0; i < containers.length; i++) {
+        const box = document.getElementById(containers[i]);
+        if (!box) continue;
+        box.style.display = contacts.length ? 'grid' : 'none';
+        if (!contacts.length) { box.innerHTML = ''; continue; }
+        box.innerHTML = contacts.map(function (c) {
+            return '<div class="payment-partner-card">' +
+                '<div class="payment-partner-name">' + escapeHtml(c.name) +
+                    '<span class="payment-partner-role">' + escapeHtml(t('deposit.partner.role')) + '</span>' +
+                '</div>' +
+                '<a class="btn btn-primary deposit-payment-partner payment-partner-btn" href="' + escapeHtml(c.url) + '"' +
+                    ' target="_blank" rel="noopener noreferrer" data-partner="' + escapeHtml(c.id) + '">' +
+                    '<i class="fab fa-telegram"></i> ' +
+                    '<span>' + escapeHtml(t('deposit.partner.contactName', { name: c.name })) + '</span>' +
+                '</a>' +
+            '</div>';
+        }).join('');
+    }
+}
+
+/**
+ * Applies the partner configuration to the deposit UI. With no partner
+ * configured every partner container stays hidden and the official support
+ * action remains, so no broken or invented link is ever shown.
  */
 function updatePaymentPartnerLinks() {
-    const url = (typeof getPartnerSupportTelegramUrl === 'function') ? getPartnerSupportTelegramUrl() : '';
-    const targets = document.querySelectorAll('.js-payment-partner');
-    for (let i = 0; i < targets.length; i++) {
-        const el = targets[i];
-        if (url) {
-            el.setAttribute('href', url);
-            el.style.display = el.classList.contains('deposit-payment-partner') ? 'block' : 'flex';
-        } else {
-            el.removeAttribute('href');
-            el.style.display = 'none';
-        }
-    }
+    renderPaymentPartnerContacts();
+    const hasPartner = getPaymentPartnerContacts().length > 0;
     const fallback = document.getElementById('paymentSupportFallbackBtn');
-    if (fallback) fallback.style.display = url ? 'none' : 'inline-flex';
+    if (fallback) fallback.style.display = hasPartner ? 'none' : 'inline-flex';
     // The direct-crypto help block makes no sense without a destination.
     const cryptoHelp = document.getElementById('depositCryptoPartnerHelp');
-    if (cryptoHelp) cryptoHelp.style.display = url ? 'block' : 'none';
+    if (cryptoHelp) cryptoHelp.style.display = hasPartner ? 'block' : 'none';
 }
 
 function openPartnerSupport() {
