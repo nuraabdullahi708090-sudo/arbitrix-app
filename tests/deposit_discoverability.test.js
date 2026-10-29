@@ -186,6 +186,8 @@ test('openDepositModal() opens at the top and focuses without scrolling (runtime
         resetDepositModal: () => {},
         updateDepositMinNotice: () => {},
         refreshDepositModeNotice: () => {},
+        applyDepositModeVisibility: () => {},
+        loadDepositOptions: () => {},
         selectDepositOption: () => {},
         loadDepositOptions: () => {},
         updateFirstDepositCta: () => {},

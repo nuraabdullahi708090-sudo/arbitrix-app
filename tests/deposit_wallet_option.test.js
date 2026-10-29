@@ -173,7 +173,7 @@ test('every locale carries the wallet route copy', () => {
   vm.runInContext(INDEX.slice(tIdx, end + 1) + '; this.T = TRANSLATIONS;', ctx);
   const T = ctx.T;
   const keys = Object.keys(T.en).filter((k) => k.indexOf('deposit.wallet.') === 0);
-  assert.strictEqual(keys.length, 21, '21 wallet keys');
+  assert.strictEqual(keys.length, 25, '25 wallet keys');
   for (const locale of Object.keys(T)) {
     for (const key of keys) {
       assert.ok(String(T[locale][key] || '').trim(), locale + ' missing ' + key);
@@ -265,15 +265,20 @@ test('every locale names all three options and never claims country availability
   }
 });
 
-test('the journey puts the Arbitrix address before the external link', () => {
+test('the purchase pathway leads and the destination is explained as conditional', () => {
   const panel = sliceBetween('id="depositWalletPanel"', 'THE EXISTING CRYPTO DEPOSIT FLOW');
+  const providerAt = panel.indexOf('id="depositWalletProviderReady"');
   const addressAt = panel.indexOf('id="depositWalletAddress"');
   const stepsAt = panel.indexOf('deposit-wallet-steps');
-  const linkAt = panel.indexOf('id="depositBuyCryptoLink"');
-  assert.ok(addressAt > 0 && stepsAt > 0 && linkAt > 0);
-  assert.ok(addressAt < stepsAt, 'address first');
-  assert.ok(stepsAt < linkAt, 'instructions before the external link');
-  // Step 1 is the Arbitrix invoice, not the provider purchase.
+  assert.ok(providerAt > 0 && addressAt > 0 && stepsAt > 0);
+  // The provider state is what makes this a PURCHASE route rather than a second
+  // copy of the direct deposit form.
+  assert.ok(providerAt < addressAt, 'provider state leads the panel');
+  // The destination is introduced (with its condition) before the address itself.
+  assert.ok(addressAt < stepsAt, 'destination block precedes the step list');
+  assert.match(TRANSLATIONS.en['deposit.wallet.destinationTitle'], /recipient/i);
+  assert.match(TRANSLATIONS.en['deposit.wallet.destinationBody'], /only use this address if/i);
+  // Step 1 is still the Arbitrix address, not the provider purchase.
   assert.match(TRANSLATIONS.en['deposit.wallet.step1'], /generate the deposit address/i);
   assert.match(TRANSLATIONS.en['deposit.wallet.step3'], /TRON \(TRC20\)/);
   assert.match(TRANSLATIONS.en['deposit.wallet.step4'], /exact address/i);
@@ -326,13 +331,22 @@ test('the wallet route names no provider anywhere in customer copy (6 locales)',
   }
 });
 
-test('the neutral route keeps the address-first journey and the network warnings', () => {
+test('an unconfigured destination renders an explicit unavailable state, never a broken link', () => {
   const panel = sliceBetween('<div id="depositWalletPanel"', '<!-- THE EXISTING CRYPTO DEPOSIT FLOW');
-  // address before the (optional) outward link
-  assert.ok(panel.indexOf('depositWalletAddress') < panel.indexOf('depositBuyCryptoLink'));
-  // still hidden until a verified destination resolves
-  assert.match(panel, /id="depositBuyCryptoLink"[^>]*style="display:none/);
-  // the two warnings that make the neutral route safe
+  // An explicit "coming soon" block exists and carries localized copy.
+  assert.match(panel, /id="depositWalletUnavailable"/);
+  assert.match(panel, /data-i18n="deposit\.wallet\.unavailable\.title"/);
+  assert.match(TRANSLATIONS.en['deposit.wallet.unavailable.title'], /coming soon/i);
+  assert.match(TRANSLATIONS.en['deposit.wallet.unavailable.body'], /not available yet/i);
+  assert.match(TRANSLATIONS.en['deposit.wallet.unavailable.body'], /other options/i);
+  // The outward link lives inside the ready block and starts hidden, so an
+  // unconfigured provider can never render an href.
+  const ready = sliceBetween('<div id="depositWalletProviderReady"', '<div class="deposit-wallet-address">');
+  assert.match(ready, /id="depositBuyCryptoLink"[^>]*style="display:none/);
+  assert.match(ready, /id="depositBuyCryptoLink"[^>]*href="#"/);
+  // The panel never silently degrades into the direct deposit form.
+  assert.ok(!/requestDepositAddress/.test(panel), 'the purchase route never creates an invoice itself');
+  // the two warnings that make the route safe
   assert.match(panel, /TRON \(TRC20\) network only/);
   assert.ok(/does not credit your Arbitrix account/i.test(panel));
   assert.ok(/not proof of payment/i.test(panel));
