@@ -21,13 +21,13 @@
     <meta name="twitter:title" content="Become an Arbitrix Referral Partner">
     <meta name="twitter:description" content="Earn 20% of a referred user's first qualifying deposit of $100 or more. No trading required. No minimum payout.">
     <meta name="twitter:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 630'%3E%3Crect width='1200' height='630' fill='%23070B14'/%3E%3Ctext x='600' y='315' font-family='Arial' font-size='104' font-weight='900' text-anchor='middle' fill='%23F0B90B'%3EArbitrix%3C/text%3E%3Ctext x='600' y='415' font-family='Arial' font-size='52' font-weight='700' text-anchor='middle' fill='%23E8EDF5'%3EReferral Partners%3C/text%3E%3C/svg%3E">
-    <!-- Referral Partner support contacts: the SAME two single-source-of-truth
-         handles used by the app (public/index.html) - Alex in the first slot and
-         Olivia in the "-2" slot. Do not hardcode a different handle, and never
-         invent a community/group URL. An empty slot is simply not rendered.
-         Public links only. -->
+    <!-- Referral / partner-recruitment support contact: Alex only. It reads the
+         SAME first meta slot the app (public/index.html) uses, so the two pages
+         cannot drift. Payment partners are listed on the PAYMENT surfaces in
+         the app, not on this recruitment page. Do not
+         hardcode a different handle and never invent a community/group URL. An
+         empty value is simply not rendered. Public link only. -->
     <meta name="arbitrix-partner-support-telegram" content="@AlexArbitrix">
-    <meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">
     <link rel="icon" href="data:image/svg+xml,">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -505,8 +505,7 @@
                 "partners.supportCta": "Contact Partner Support",
                 "partners.supportHandleLabel": "Telegram",
                 "partners.contactAlex": "Contact Alex",
-                "partners.contactOlivia": "Contact Olivia",
-                "partners.partnerRole": "Payment Partner",
+                "partners.partnerRole": "Referral Partner",
                 "partners.supportFallback": "Partner contacts are being confirmed. Use the Arbitrix Support Center on the main site in the meantime.",
                 "partners.faqTitle": "Frequently Asked Questions",
                 "partners.faq1q": "How much is the referral reward?",
@@ -595,8 +594,7 @@
                 "partners.supportCta": "Contactar Soporte para Socios",
                 "partners.supportHandleLabel": "Telegram",
                 "partners.contactAlex": "Contactar con Alex",
-                "partners.contactOlivia": "Contactar con Olivia",
-                "partners.partnerRole": "Socio de pagos",
+                "partners.partnerRole": "Socio de referidos",
                 "partners.supportFallback": "Se están confirmando los contactos de socios. Mientras tanto, utiliza el Centro de Soporte de Arbitrix en el sitio principal.",
                 "partners.faqTitle": "Preguntas Frecuentes",
                 "partners.faq1q": "¿Cuánto es la recompensa por referido?",
@@ -685,8 +683,7 @@
                 "partners.supportCta": "Falar com o Suporte a Parceiros",
                 "partners.supportHandleLabel": "Telegram",
                 "partners.contactAlex": "Falar com Alex",
-                "partners.contactOlivia": "Falar com Olivia",
-                "partners.partnerRole": "Parceiro de pagamentos",
+                "partners.partnerRole": "Parceiro de indicações",
                 "partners.supportFallback": "Os contactos de parceiros estão a ser confirmados. Entretanto, utiliza o Centro de Suporte da Arbitrix no site principal.",
                 "partners.faqTitle": "Perguntas Frequentes",
                 "partners.faq1q": "Qual é o valor da recompensa por indicação?",
@@ -775,8 +772,7 @@
                 "partners.supportCta": "Contacter le Support Partenaire",
                 "partners.supportHandleLabel": "Telegram",
                 "partners.contactAlex": "Contacter Alex",
-                "partners.contactOlivia": "Contacter Olivia",
-                "partners.partnerRole": "Partenaire de paiement",
+                "partners.partnerRole": "Partenaire de parrainage",
                 "partners.supportFallback": "Les contacts partenaires sont en cours de confirmation. En attendant, utilisez le Centre d'aide Arbitrix sur le site principal.",
                 "partners.faqTitle": "Questions Fréquentes",
                 "partners.faq1q": "Quel est le montant de la récompense de parrainage ?",
@@ -865,8 +861,7 @@
                 "partners.supportCta": "تواصل مع دعم الشركاء",
                 "partners.supportHandleLabel": "تيليجرام",
                 "partners.contactAlex": "تواصل مع Alex",
-                "partners.contactOlivia": "تواصل مع Olivia",
-                "partners.partnerRole": "شريك مدفوعات",
+                "partners.partnerRole": "شريك إحالة",
                 "partners.supportFallback": "يجري تأكيد جهات اتصال الشركاء. في هذه الأثناء، استخدم مركز دعم Arbitrix على الموقع الرئيسي.",
                 "partners.faqTitle": "الأسئلة الشائعة",
                 "partners.faq1q": "كم تبلغ مكافأة الإحالة؟",
@@ -955,8 +950,7 @@
                 "partners.supportCta": "联系合作伙伴支持",
                 "partners.supportHandleLabel": "Telegram",
                 "partners.contactAlex": "联系 Alex",
-                "partners.contactOlivia": "联系 Olivia",
-                "partners.partnerRole": "支付合作伙伴",
+                "partners.partnerRole": "推荐合作伙伴",
                 "partners.supportFallback": "合作伙伴联系人正在确认中。在此期间，请使用主站上的 Arbitrix 支持中心。",
                 "partners.faqTitle": "常见问题",
                 "partners.faq1q": "推荐奖励是多少？",
@@ -1026,18 +1020,17 @@
             } catch (e) { if (window.console) console.error('applyTranslations error:', e); }
         }
 
-        // Partner support contacts: read the SAME two single-source meta slots the
-        // app uses (Alex in slot 1, Olivia in slot 2). A bare @username or a full
-        // https URL is accepted; an empty, malformed or non-Telegram slot is
-        // skipped, so nothing is invented and no dead link is shown. The handles
-        // are never duplicated in markup or in JavaScript.
+        // Referral / partner-recruitment support: Alex is the sole contact for
+        // this page (business decision). The handle comes from the SAME first
+        // meta slot the app uses; a bare @username or a full https URL is
+        // accepted, and an empty, malformed or non-Telegram value is skipped so
+        // nothing is invented and no dead link is shown. Payment partners are
+        // listed on the PAYMENT surfaces inside the app, not here.
         var SUPPORT_META_NAMES = [
-            'arbitrix-partner-support-telegram',
-            'arbitrix-partner-support-telegram-2'
+            'arbitrix-partner-support-telegram'
         ];
         var SUPPORT_CONTACTS = [
-            { slot: 0, name: 'Alex', ctaKey: 'partners.contactAlex' },
-            { slot: 1, name: 'Olivia', ctaKey: 'partners.contactOlivia' }
+            { slot: 0, name: 'Alex', ctaKey: 'partners.contactAlex' }
         ];
 
         function partnerSupportRaw(slot) {

@@ -45,7 +45,7 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 88;
+const EXPECTED_KEYS = 87;
 
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
@@ -601,40 +601,41 @@ test('7h. no internal sandbox wording on the partner page', () => {
 /* ------------------------------------------------------------------ *
  * 8. Support: single source of truth handle
  * ------------------------------------------------------------------ */
-test('8. both partner handles live in the app\'s two meta slots and match it exactly', () => {
+test('8. the recruitment contact is Alex, from the app\'s first meta slot', () => {
     const metaOf = (html, name) => {
         const m = html.match(new RegExp('<meta name="' + name + '" content="([^"]*)">'));
         return m ? m[1] : null;
     };
-    // The app (single source of truth) and this page agree on BOTH slots.
-    for (const [name, handle] of [[META_1, PARTNER_HANDLE], [META_2, PARTNER_HANDLE_2]]) {
-        assert.strictEqual(metaOf(PAGE, name), handle, 'the page must configure ' + name);
-        assert.strictEqual(metaOf(INDEX, name), handle, 'the app must configure ' + name);
-        assert.strictEqual(metaOf(PAGE, name), metaOf(INDEX, name),
-            name + ' must MATCH the app, so the two pages cannot drift');
-    }
-    // Each handle literal appears exactly once (its meta) - never duplicated.
-    for (const handle of [PARTNER_HANDLE, PARTNER_HANDLE_2]) {
-        assert.strictEqual(PAGE.split(handle).length - 1, 1,
-            handle + ' must appear exactly once (in its meta)');
-    }
+    // The page configures ONLY the first slot, and matches the app exactly.
+    assert.strictEqual(metaOf(PAGE, META_1), PARTNER_HANDLE, 'the page must configure Alex');
+    assert.strictEqual(metaOf(INDEX, META_1), PARTNER_HANDLE, 'the app must configure Alex');
+    assert.strictEqual(metaOf(PAGE, META_1), metaOf(INDEX, META_1),
+        'the two pages must not drift');
+    // Business decision: Olivia is a PAYMENT partner, not a recruitment contact.
+    assert.strictEqual(metaOf(PAGE, META_2), null, 'the recruitment page must not configure Olivia');
+    assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 0,
+        'Olivia must not appear on the recruitment page at all');
+    // The app DOES keep both, for the payment surfaces.
+    assert.strictEqual(metaOf(INDEX, META_2), PARTNER_HANDLE_2,
+        'the app must still configure Olivia for the payment surfaces');
+    // The handle literal appears exactly once (its meta) - never duplicated.
+    assert.strictEqual(PAGE.split(PARTNER_HANDLE).length - 1, 1,
+        'the handle literal must appear exactly once (in its meta)');
 });
 
 test('8d. both partners are rendered as clearly labelled, safe contact buttons', () => {
     const sb = runPage({ lang: 'en', storedLang: 'en' });
     const cards = renderedCards(sb);
-    assert.strictEqual(cards.length, 2, 'both partners must be offered');
-    assert.deepStrictEqual(cards.map((c) => c.partner), ['Alex', 'Olivia'], 'stable order');
-    assert.deepStrictEqual(cards.map((c) => c.name), ['Alex', 'Olivia']);
-    assert.deepStrictEqual(cards.map((c) => c.label), ['Contact Alex', 'Contact Olivia'], 'clearly labelled buttons');
-    assert.deepStrictEqual(cards.map((c) => c.href),
-        ['https://t.me/AlexArbitrix', 'https://t.me/OliviaArbitrix'], 'each button opens its own profile');
+    assert.strictEqual(cards.length, 1, 'the recruitment contact is Alex only');
+    assert.strictEqual(cards[0].partner, 'Alex');
+    assert.strictEqual(cards[0].name, 'Alex');
+    assert.strictEqual(cards[0].label, 'Contact Alex', 'clearly labelled button');
+    assert.strictEqual(cards[0].href, 'https://t.me/AlexArbitrix', 'the button opens Alex profile');
     cards.forEach((c) => {
         assert.strictEqual(c.target, '_blank', c.partner + ' opens in a new tab');
         assert.strictEqual(c.rel, 'noopener noreferrer', c.partner + ' carries safe rel attributes');
-        assert.strictEqual(c.role, 'Payment Partner', 'the role label is shown');
-        assert.strictEqual(c.handle, '@' + (c.partner === 'Alex' ? 'AlexArbitrix' : 'OliviaArbitrix'),
-            'the handle is shown under the button');
+        assert.strictEqual(c.role, 'Referral Partner', 'the recruitment role label is shown');
+        assert.strictEqual(c.handle, '@AlexArbitrix', 'the handle is shown under the button');
         assert.match(c.iconHidden || '', /true/, 'the decorative icon is hidden from screen readers');
     });
     // The fallback note is hidden while contacts are configured.
@@ -643,47 +644,47 @@ test('8d. both partners are rendered as clearly labelled, safe contact buttons',
 
 test('8e. the contact labels are localized in all six languages', () => {
     const expected = {
-        en: ['Contact Alex', 'Contact Olivia', 'Payment Partner'],
-        es: ['Contactar con Alex', 'Contactar con Olivia', 'Socio de pagos'],
-        pt: ['Falar com Alex', 'Falar com Olivia', 'Parceiro de pagamentos'],
-        fr: ['Contacter Alex', 'Contacter Olivia', 'Partenaire de paiement'],
-        ar: ['\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex', '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Olivia', '\u0634\u0631\u064a\u0643 \u0645\u062f\u0641\u0648\u0639\u0627\u062a'],
-        zh: ['\u8054\u7cfb Alex', '\u8054\u7cfb Olivia', '\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34']
+        en: ['Contact Alex', 'Referral Partner'],
+        es: ['Contactar con Alex', 'Socio de referidos'],
+        pt: ['Falar com Alex', 'Parceiro de indica\u00e7\u00f5es'],
+        fr: ['Contacter Alex', 'Partenaire de parrainage'],
+        ar: ['\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex', '\u0634\u0631\u064a\u0643 \u0625\u062d\u0627\u0644\u0629'],
+        zh: ['\u8054\u7cfb Alex', '\u63a8\u8350\u5408\u4f5c\u4f19\u4f34']
     };
     LANGS.forEach((lang) => {
         const sb = runPage({ lang: lang, storedLang: lang });
         const cards = renderedCards(sb);
-        assert.strictEqual(cards.length, 2, lang + ' must still offer both partners');
-        assert.deepStrictEqual([cards[0].label, cards[1].label, cards[0].role], expected[lang],
+        assert.strictEqual(cards.length, 1, lang + ' must still offer the recruitment contact');
+        assert.deepStrictEqual([cards[0].label, cards[0].role], expected[lang],
             lang + ' labels must be translated');
         // Names are proper nouns and never translated.
-        assert.deepStrictEqual(cards.map((c) => c.name), ['Alex', 'Olivia'], lang + ' names stay as-is');
-        // The URLs never change with the language.
-        assert.deepStrictEqual(cards.map((c) => c.href),
-            ['https://t.me/AlexArbitrix', 'https://t.me/OliviaArbitrix'], lang + ' links are stable');
+        assert.strictEqual(cards[0].name, 'Alex', lang + ' name stays as-is');
+        // The URL never changes with the language.
+        assert.strictEqual(cards[0].href, 'https://t.me/AlexArbitrix', lang + ' link is stable');
     });
     // Arabic keeps RTL with the partner cards.
     assert.match(PAGE, /html\[dir="rtl"\]/);
 });
 
-test('8f. an unconfigured partner is skipped, and the empty state is explained', () => {
-    const onlyAlex = runPage({ metaContent2: '' });
-    assert.deepStrictEqual(renderedCards(onlyAlex).map((c) => c.partner), ['Alex'],
-        'a blank second slot must not invent a contact');
-    assert.strictEqual(onlyAlex.__fallback.getAttribute('hidden'), '', 'the fallback stays hidden');
-
-    const none = runPage({ metaContent: '', metaContent2: '' });
-    assert.strictEqual(renderedCards(none).length, 0, 'no contacts may be invented');
+test('8f. an unconfigured contact is skipped, and the empty state is explained', () => {
+    const none = runPage({ metaContent: '' });
+    assert.strictEqual(renderedCards(none).length, 0, 'no contact may be invented');
     assert.strictEqual(none.__fallback.getAttribute('hidden'), null, 'the fallback note is shown');
 
-    // A non-Telegram destination is refused for either slot.
-    assert.deepStrictEqual(renderedCards(runPage({ metaContent2: 'https://example.com/pay' })).map((c) => c.partner), ['Alex']);
-    assert.strictEqual(renderedCards(runPage({ metaContent: 'https://example.com/pay', metaContent2: '' })).length, 0);
+    // A non-Telegram destination is refused.
+    assert.strictEqual(renderedCards(runPage({ metaContent: 'https://example.com/pay' })).length, 0);
+    assert.strictEqual(runPage({ metaContent: 'https://example.com/pay' }).__url, '');
+
+    // A blank second slot never adds a second card.
+    const withSecond = runPage({ metaContent2: PARTNER_HANDLE_2 });
+    assert.deepStrictEqual(renderedCards(withSecond).map((c) => c.partner), ['Alex'],
+        'the page renders one recruitment contact regardless of any other handle');
 });
 
 test('8g. official Arbitrix Support stays separate and the retired handle is gone', () => {
     assert.ok(!PAGE.includes(OFFICIAL_SUPPORT), 'the partner page must not present official support as a partner');
     assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must not appear');
+    assert.ok(!PAGE.includes('Olivia'), 'Olivia must not be presented as a recruitment contact');
     assert.ok(!/Arbitrix_CSA1/.test(JSON.stringify(runPage({ lang: 'en' }).__contacts)), 'nor be rendered');
     // Official support is untouched in the app.
     assert.ok(INDEX.includes('https://t.me/ArbitrixSupportBot'), 'the official support destination is unchanged');
@@ -724,6 +725,38 @@ test('8c. the runtime builds the correct https://t.me URL from the meta handle',
     // Empty config resolves to '' (the caller then leaves the link inert).
     const empty = runPage({ metaContent: '' });
     assert.strictEqual(empty.__url, '');
+});
+
+
+test('8i. payment surfaces keep both partners while recruitment shows Alex alone', () => {
+    // Payment-specific surfaces in the app keep BOTH configured partners.
+    ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts'].forEach((id) => {
+        assert.ok(INDEX.includes('id="' + id + '"'), id + ' must exist');
+    });
+    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the payment surfaces render both partners');
+    assert.match(INDEX, /<meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">/,
+        'the app configures the second payment partner');
+    assert.ok(INDEX.indexOf("name: 'Alex'") < INDEX.indexOf("name: 'Olivia'"),
+        'the payment contact list keeps Alex first, so the referral resolver picks Alex');
+    // The in-app referral / partner-support CTA resolves to the FIRST contact
+    // (Alex), so referral support can never point at a payment partner.
+    const resolverDefs = INDEX.split('function getPartnerSupportTelegramUrl()');
+    assert.ok(resolverDefs.length >= 2, 'the referral resolver must exist');
+    assert.match(resolverDefs[resolverDefs.length - 1].slice(0, 240), /contacts\[0\]/,
+        'the effective resolver must use the first configured contact (Alex)');
+    assert.match(INDEX, /function openPartnerSupport\(\)[\s\S]{0,220}?getPartnerSupportTelegramUrl\(\)/,
+        'the referral partner-support button uses that single-contact resolver');
+    assert.ok(INDEX.includes('data-i18n="referral.partner.contactSupport"'),
+        'the referral support button is still present');
+});
+
+test('8j. no other recruitment surface points at a payment partner', () => {
+    // The retirement/deposit docs and tests keep @Arbitrix_CSA1 only as fixtures.
+    const outreach = ['partners.html'];
+    outreach.forEach((file) => {
+        const html = fs.readFileSync(path.join(ROOT, 'public', file), 'utf8');
+        assert.ok(!html.includes('@OliviaArbitrix'), file + ' must not offer Olivia as a recruitment contact');
+    });
 });
 
 /* ------------------------------------------------------------------ *

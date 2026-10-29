@@ -36,7 +36,7 @@ const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 88;
+const EXPECTED_KEYS = 87;
 
 const VIDEO_BASE = '/video/';
 const EN_VIDEO = '/video/arbitrix-partner-payout-demo.mp4';
@@ -424,11 +424,11 @@ test('10. the page stays static and session-free (no API / fetch / form)', () =>
     assert.ok(!/<form\b/i.test(PAGE), 'the page must not contain a form');
 });
 
-test('10b. the two support single-source handles are untouched', () => {
+test('10b. the recruitment support handle is Alex alone', () => {
     assert.strictEqual(PAGE.split('@AlexArbitrix').length - 1, 1,
-        'the first partner handle literal must appear exactly once (its meta)');
-    assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 1,
-        'the second partner handle literal must appear exactly once (its meta)');
+        'the recruitment handle literal must appear exactly once (its meta)');
+    assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 0,
+        'Olivia is a payment partner and must not appear on the recruitment page');
     assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must never return');
     assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
         'only the single programmatic t.me builder may exist');
