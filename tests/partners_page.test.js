@@ -65,7 +65,7 @@ const EXPECTED_KEYS = 84;
 // invoice errors), and again for the withdrawal-discoverability change (an
 // Available-card Withdraw action sharing that row). Each re-pin was an approved
 // homepage change, not /partners drift.
-const INDEX_SHA256 = '7e952b13c009823fa987c06bf1d2a4a02b864cf8b66167cf7d7d257db57dfde6';
+const INDEX_SHA256 = '23b3437d8cd651b1c1bac1e365d8ff9685bbe777db401cff5f437557b449bb56';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [

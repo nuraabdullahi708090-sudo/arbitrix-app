@@ -94,7 +94,7 @@ const SUPPORT_KEYS = [
     'support.safeInfo.screenshot', 'support.faq.title', 'support.faq.depositPending.q',
     'support.faq.depositPending.a', 'support.faq.depositFailed.q',
     'support.faq.depositFailed.a', 'support.faq.withdrawal.q', 'support.faq.withdrawal.a',
-    'support.faq.security.q', 'support.faq.security.a', 'support.needHelpDeposit',
+    'support.faq.security.q', 'support.faq.security.a', 'deposit.crypto.partnerHelp',
     'support.needHelpWithdraw', 'support.contactOfficial', 'support.contactShort',
     'support.openCenter', 'support.verificationNotRequired', 'support.paymentHelp.pending',
     'support.paymentHelp.detected', 'support.paymentHelp.failed',
@@ -208,10 +208,15 @@ test('updateSupportLinks applies the configured URL and degrades safely when uns
     assert.strictEqual(unset.els.supportNotConfigured.style.display, 'block');
 });
 
-test('support is available from the deposit modal (instructions area)', () => {
-    const win = elementWindow('safetyWarning', 1800);
-    assert.ok(/openSupportModal\(\)/.test(win), 'deposit instructions should link to support');
-    assert.ok(/support\.needHelpDeposit/.test(win), 'localized deposit-help wording');
+test('the deposit modal directs DEPOSIT help to the payment partner', () => {
+    // Deposit questions belong to the payment partner; official support is
+    // reached from the Support Center (covered by the other tests here).
+    const win = elementWindow('safetyWarning', 2600);
+    assert.ok(/id="depositCryptoPartnerBtn"/.test(win), 'payment-partner button rendered');
+    assert.ok(/js-payment-partner/.test(win), 'it uses the shared partner link wiring');
+    assert.ok(/deposit\.crypto\.partnerHelp/.test(win), 'localized deposit-help wording');
+    assert.ok(/deposit\.crypto\.partnerNote/.test(win), 'no-crediting note rendered');
+    assert.ok(!/support\.needHelpDeposit/.test(INDEX), 'the old support link is retired');
 });
 
 test('support is available from the payment pending/failed state with invoice reference', () => {
