@@ -21,17 +21,17 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1600;
-// 1600 keys/locale now = 1574 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1591;
+// 1591 keys/locale now = 1565 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
-// (1574 + 24 + 2 = 1600). The most recent additions are the 5 deposit funding-option keys
+// (1565 + 24 + 2 = 1591). The most recent additions are the 5 deposit funding-option keys
 // (demo afterSwitch + external-purchase unavailable/destination copy), after the 50 deposit-page
 // funding-option / verified-partner keys (deposit.choose.*, deposit.partner.*,
 // admin.partner.*, admin.tab.partners). Earlier additions: the +15
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1574;
+const BASE_OUTSIDE_TESTIMONIALS = 1565;
 
 function loadTranslations() {
     const tIdx = INDEX.indexOf('const TRANSLATIONS');
