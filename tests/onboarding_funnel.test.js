@@ -67,6 +67,7 @@ const ONBOARDING_FNS = [
     'updateAvailableDepositButton', 'isFirstDepositCtaDismissed', 'firstDepositDismissKey',
     'dismissDemoDepositCta',
     'updateDepositMinNotice', 'refreshDepositModeNotice', 'setExactAmountInstruction',
+    'applyDepositModeVisibility', 'selectDepositOption', 'focusWithoutScroll',
     'resetDepositModal',
     'openDepositModal', 'switchToLiveAndContinueDeposit',
     'depositInvoiceError', 'showDepositInvoiceError', 'clearDepositInvoiceError',
@@ -154,6 +155,7 @@ function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = fals
         'var FIRST_DEPOSIT_DISMISS_PREFIX = "arbi_firstdeposit_dismissed_";',
         'var DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;',
         'let paymentPollingInterval = null; let countdownInterval = null; let currentInvoiceId = null; let currentCurrency = "USDT"; let currentNetwork = "TRC20";',
+        'let depositOptionState = { partners: [], partnersAvailable: true, crypto: null, selected: "crypto" };',
         ...ONBOARDING_FNS.map(extractFunction),
     ].join('\n');
     vm.runInContext(src, sandbox);
@@ -365,7 +367,7 @@ test('i18n parity across 6 locales for the onboarding keys', () => {
         'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
         'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1620, 'expected 1620 keys per locale');
+    assert.strictEqual(enKeys.length, 1625, 'expected 1625 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {

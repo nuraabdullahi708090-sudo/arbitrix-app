@@ -7596,6 +7596,7 @@ function toggleFaq(btn) {
           <span id="depositDemoReqText"></span>
         </div>
 
+        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;" data-i18n="deposit.demoNotice.afterSwitch">Funding methods and the deposit form appear after you switch to Live Mode.</p>
         <button type="button" onclick="switchToLiveAndContinueDeposit()" class="btn btn-primary btn-block" style="width:100%;background:#10B981;border:#10B981;color:var(--on-brand);padding:14px;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;">
           <i class="fas fa-fire"></i> <span data-i18n="deposit.demoNotice.switchCta">Switch to Live &amp; Continue</span>
         </button>
@@ -7706,10 +7707,29 @@ function toggleFaq(btn) {
         </div>
         <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.wallet.intro">Two steps: buy USDT with a service, then send it to the Arbitrix address generated here. Arbitrix does not process card payments itself.</p>
 
-        <!-- The address comes FIRST because the journey starts with an invoice:
-             nothing here can create one, and the value always comes from the
-             server-generated invoice shown in the deposit form. -->
+        <!-- PROVIDER STATE. This route is a PURCHASE pathway, never the direct
+             deposit form: with no approved provider configured the panel says so
+             plainly, shows no link and does not fall back to the crypto flow.
+             The destination stays configurable in ONE place
+             (<meta name="arbitrix-buy-crypto"> or window.ARBITRIX_BUY_CRYPTO_URL). -->
+        <div id="depositWalletUnavailable" style="display:none;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:14px;margin:0 0 12px;">
+          <p style="font-size:12px;font-weight:700;color:#F0B90B;margin:0 0 6px;overflow-wrap:anywhere;"><i class="fas fa-clock"></i> <span data-i18n="deposit.wallet.unavailable.title">External purchase coming soon</span></p>
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0;" data-i18n="deposit.wallet.unavailable.body">Buying USDT with a card or a bank transfer through a third-party service is not available yet. Every provider sets its own payment methods, identity checks and supported countries, so this route is switched on only once a provider is confirmed for Arbitrix. Use one of the other options below in the meantime.</p>
+        </div>
+
+        <div id="depositWalletProviderReady" style="display:none;">
+          <a id="depositBuyCryptoLink" class="btn btn-primary" style="display:none;width:100%;text-align:center;margin:12px 0;padding:11px;font-size:12px;" href="#" target="_blank" rel="noopener noreferrer">
+            <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="deposit.wallet.open">Open the USDT purchase page</span>
+          </a>
+          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:0 0 10px;" data-i18n="deposit.wallet.providersNote">Availability, fees, minimums and identity checks are set by each service and differ by country. Confirm them inside the service, and make sure it supports USDT on the TRON (TRC20) network, before you buy.</p>
+        </div>
+
+        <!-- DESTINATION. Only relevant when the chosen service can send USDT to
+             an address the customer controls; the value always comes from the
+             server-generated invoice, never from the customer or a partner. -->
         <div class="deposit-wallet-address">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;overflow-wrap:anywhere;" data-i18n="deposit.wallet.destinationTitle">Use your Arbitrix address as the recipient</div>
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.wallet.destinationBody">Only use this address if the service explicitly supports sending USDT to an external wallet address. If it only delivers to a wallet the service hosts, buy there first and then send the USDT to this address on TRON (TRC20).</p>
           <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="deposit.wallet.addressLabel">Your Arbitrix USDT (TRC20) address</div>
           <div id="depositWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">-</div>
           <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;" data-i18n="deposit.wallet.addressHint">Generate this first. The address belongs to your own deposit.</p>
@@ -7729,11 +7749,6 @@ function toggleFaq(btn) {
           <li data-i18n="deposit.wallet.step3">Buy USDT. If the service asks which network, choose TRON (TRC20).</li>
           <li data-i18n="deposit.wallet.step4">Send it to the exact address above, on the TRON (TRC20) network only.</li>
         </ol>
-
-        <a id="depositBuyCryptoLink" class="btn btn-primary" style="display:none;width:100%;text-align:center;margin:12px 0;padding:11px;font-size:12px;" href="#" target="_blank" rel="noopener noreferrer">
-          <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="deposit.wallet.open">Open the USDT purchase page</span>
-        </a>
-        <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:0 0 10px;" data-i18n="deposit.wallet.providersNote">Availability, fees, minimums and identity checks are set by each service and differ by country. Confirm them inside the service before you buy.</p>
 
         <div class="deposit-wallet-help">
           <p style="font-size:11px;font-weight:700;color:var(--text-primary);margin:0 0 6px;overflow-wrap:anywhere;" data-i18n="deposit.wallet.help.title">Which situation is yours?</p>
@@ -9481,6 +9496,7 @@ const TRANSLATIONS = {
         'deposit.demoNotice.requirementsTitle': 'Deposit requirements',
         'deposit.demoNotice.req': 'Minimum deposit: ${{min}} \u2022 USDT on TRON (TRC20) only \u2022 Credited to your LIVE balance',
         'deposit.demoNotice.switchCta': 'Switch to Live &amp; Continue',
+        'deposit.demoNotice.afterSwitch': 'Funding methods and the deposit form appear after you switch to Live Mode.',
         'deposit.liveNotice.title': 'Depositing to your LIVE balance',
         'deposit.liveNotice.body': 'This deposit is added to your LIVE / real balance. It is separate from demo funds and from your promotional credit.',
         'onboarding.title': 'Welcome to Arbitrix',
@@ -9523,6 +9539,10 @@ const TRANSLATIONS = {
         'deposit.choose.wallet.desc': 'Buy USDT from an external service you trust, then send it to your Arbitrix address.',
         'deposit.wallet.title': 'Buy USDT with an External Service',
         'deposit.wallet.intro': 'Two steps: buy USDT with a service, then send it to the Arbitrix address generated here. Arbitrix does not process card payments itself.',
+        'deposit.wallet.unavailable.title': 'External purchase coming soon',
+        'deposit.wallet.unavailable.body': 'Buying USDT with a card or bank transfer through a third-party service is not available yet. Each provider sets its own payment methods, identity checks and supported countries, so this route is enabled only once a provider is confirmed for Arbitrix. The other options work today.',
+        'deposit.wallet.destinationTitle': 'Use your Arbitrix address as the recipient',
+        'deposit.wallet.destinationBody': 'Only use this address if the service explicitly supports sending USDT to an external wallet address. If it only delivers to a wallet the service hosts, buy there first, then send the USDT to this address on TRON (TRC20).',
         'deposit.wallet.step1': 'Enter your amount and generate the deposit address in this page.',
         'deposit.wallet.step2': 'Open the external service and complete its identity checks.',
         'deposit.wallet.step3': 'Buy USDT. If the service asks which network, choose TRON (TRC20).',
@@ -11121,6 +11141,7 @@ const TRANSLATIONS = {
         'deposit.demoNotice.requirementsTitle': 'Requisitos de dep\u00f3sito',
         'deposit.demoNotice.req': 'Dep\u00f3sito m\u00ednimo: ${{min}} \u2022 Solo USDT en TRON (TRC20) \u2022 Acreditado en tu saldo LIVE',
         'deposit.demoNotice.switchCta': 'Cambiar a Live y continuar',
+        'deposit.demoNotice.afterSwitch': 'Los m\u00e9todos de fondeo y el formulario de dep\u00f3sito aparecen al cambiar a modo Live.',
         'deposit.liveNotice.title': 'Depositando en tu saldo LIVE',
         'deposit.liveNotice.body': 'Este dep\u00f3sito se a\u00f1ade a tu saldo LIVE / real. Es independiente de los fondos demo y de tu cr\u00e9dito promocional.',
         'onboarding.title': 'Bienvenido a Arbitrix',
@@ -11163,6 +11184,10 @@ const TRANSLATIONS = {
         'deposit.choose.wallet.desc': 'Compra USDT en un servicio externo de confianza y env\u00edalo a tu direcci\u00f3n de Arbitrix.',
         'deposit.wallet.title': 'Comprar USDT con un servicio externo',
         'deposit.wallet.intro': 'Dos pasos: compra USDT con un servicio y env\u00edalo a la direcci\u00f3n de Arbitrix generada aqu\u00ed. Arbitrix no procesa pagos con tarjeta.',
+        'deposit.wallet.unavailable.title': 'Compra externa pr\u00f3ximamente',
+        'deposit.wallet.unavailable.body': 'Comprar USDT con tarjeta o transferencia bancaria mediante un servicio externo a\u00fan no est\u00e1 disponible. Cada proveedor define sus m\u00e9todos de pago, verificaciones y pa\u00edses admitidos, as\u00ed que esta opci\u00f3n se activa solo cuando un proveedor est\u00e9 confirmado para Arbitrix. Las otras opciones funcionan hoy.',
+        'deposit.wallet.destinationTitle': 'Usa tu direcci\u00f3n de Arbitrix como destinatario',
+        'deposit.wallet.destinationBody': 'Usa esta direcci\u00f3n solo si el servicio admite expl\u00edcitamente enviar USDT a una direcci\u00f3n de cartera externa. Si solo entrega a una cartera del propio servicio, compra all\u00ed primero y luego env\u00eda el USDT a esta direcci\u00f3n en TRON (TRC20).',
         'deposit.wallet.step1': 'Introduce el importe y genera la direcci\u00f3n de dep\u00f3sito en esta p\u00e1gina.',
         'deposit.wallet.step2': 'Abre el servicio externo y completa sus verificaciones de identidad.',
         'deposit.wallet.step3': 'Compra USDT. Si el servicio pregunta por la red, elige TRON (TRC20).',
@@ -12762,6 +12787,7 @@ const TRANSLATIONS = {
         'deposit.demoNotice.requirementsTitle': 'Requisitos de dep\u00f3sito',
         'deposit.demoNotice.req': 'Dep\u00f3sito m\u00ednimo: ${{min}} \u2022 Somente USDT na TRON (TRC20) \u2022 Creditado no seu saldo LIVE',
         'deposit.demoNotice.switchCta': 'Mudar para Live e continuar',
+        'deposit.demoNotice.afterSwitch': 'Os m\u00e9todos de dep\u00f3sito e o formul\u00e1rio aparecem depois que voc\u00ea muda para o modo Live.',
         'deposit.liveNotice.title': 'Depositando no seu saldo LIVE',
         'deposit.liveNotice.body': 'Este dep\u00f3sito \u00e9 adicionado ao seu saldo LIVE / real. \u00c9 separado dos fundos demo e do seu cr\u00e9dito promocional.',
         'onboarding.title': 'Bem-vindo à Arbitrix',
@@ -12804,6 +12830,10 @@ const TRANSLATIONS = {
         'deposit.choose.wallet.desc': 'Compre USDT em um servi\u00e7o externo de confian\u00e7a e envie para o seu endere\u00e7o da Arbitrix.',
         'deposit.wallet.title': 'Comprar USDT com um servi\u00e7o externo',
         'deposit.wallet.intro': 'Dois passos: compre USDT com um servi\u00e7o e envie para o endere\u00e7o da Arbitrix gerado aqui. A Arbitrix n\u00e3o processa pagamentos com cart\u00e3o.',
+        'deposit.wallet.unavailable.title': 'Compra externa em breve',
+        'deposit.wallet.unavailable.body': 'Comprar USDT com cart\u00e3o ou transfer\u00eancia banc\u00e1ria por um servi\u00e7o externo ainda n\u00e3o est\u00e1 dispon\u00edvel. Cada provedor define seus m\u00e9todos de pagamento, verifica\u00e7\u00f5es e pa\u00edses atendidos, por isso esta op\u00e7\u00e3o s\u00f3 \u00e9 ativada quando um provedor estiver confirmado para a Arbitrix. As outras op\u00e7\u00f5es funcionam hoje.',
+        'deposit.wallet.destinationTitle': 'Use o seu endere\u00e7o Arbitrix como destinat\u00e1rio',
+        'deposit.wallet.destinationBody': 'Use este endere\u00e7o apenas se o servi\u00e7o permitir explicitamente enviar USDT para uma carteira externa. Se ele entregar somente em uma carteira do pr\u00f3prio servi\u00e7o, compre l\u00e1 primeiro e depois envie o USDT para este endere\u00e7o na rede TRON (TRC20).',
         'deposit.wallet.step1': 'Informe o valor e gere o endere\u00e7o de dep\u00f3sito nesta p\u00e1gina.',
         'deposit.wallet.step2': 'Abra o servi\u00e7o externo e conclua as verifica\u00e7\u00f5es de identidade dele.',
         'deposit.wallet.step3': 'Compre USDT. Se o servi\u00e7o perguntar a rede, escolha TRON (TRC20).',
@@ -14403,6 +14433,7 @@ const TRANSLATIONS = {
         'deposit.demoNotice.requirementsTitle': 'Conditions de d\u00e9p\u00f4t',
         'deposit.demoNotice.req': 'D\u00e9p\u00f4t minimum : ${{min}} \u2022 USDT sur TRON (TRC20) uniquement \u2022 Cr\u00e9dit\u00e9 sur votre solde LIVE',
         'deposit.demoNotice.switchCta': 'Passer en Live et continuer',
+        'deposit.demoNotice.afterSwitch': 'Les m\u00e9thodes de financement et le formulaire de d\u00e9p\u00f4t apparaissent apr\u00e8s le passage en mode Live.',
         'deposit.liveNotice.title': 'D\u00e9p\u00f4t sur votre solde LIVE',
         'deposit.liveNotice.body': 'Ce d\u00e9p\u00f4t est ajout\u00e9 \u00e0 votre solde LIVE / r\u00e9el. Il est distinct des fonds d\u00e9mo et de votre cr\u00e9dit promotionnel.',
         'onboarding.title': 'Bienvenue sur Arbitrix',
@@ -14445,6 +14476,10 @@ const TRANSLATIONS = {
         'deposit.choose.wallet.desc': 'Achetez de l\u2019USDT aupr\u00e8s d\u2019un service externe de confiance, puis envoyez-le \u00e0 votre adresse Arbitrix.',
         'deposit.wallet.title': 'Acheter de l\u2019USDT avec un service externe',
         'deposit.wallet.intro': 'Deux \u00e9tapes : achetez de l\u2019USDT avec un service, puis envoyez-le \u00e0 l\u2019adresse Arbitrix g\u00e9n\u00e9r\u00e9e ici. Arbitrix ne traite pas les paiements par carte.',
+        'deposit.wallet.unavailable.title': 'Achat externe bient\u00f4t disponible',
+        'deposit.wallet.unavailable.body': 'Acheter de l\'USDT par carte ou virement via un service tiers n\'est pas encore disponible. Chaque fournisseur d\u00e9finit ses moyens de paiement, ses v\u00e9rifications et ses pays pris en charge : cette option ne sera activ\u00e9e qu\'une fois un fournisseur confirm\u00e9 pour Arbitrix. Les autres options fonctionnent d\u00e9j\u00e0.',
+        'deposit.wallet.destinationTitle': 'Utilisez votre adresse Arbitrix comme destinataire',
+        'deposit.wallet.destinationBody': 'N\'utilisez cette adresse que si le service permet explicitement d\'envoyer de l\'USDT vers une adresse de portefeuille externe. S\'il ne livre que vers un portefeuille h\u00e9berg\u00e9 par le service, achetez d\'abord, puis envoyez l\'USDT \u00e0 cette adresse sur TRON (TRC20).',
         'deposit.wallet.step1': 'Saisissez votre montant et g\u00e9n\u00e9rez l\u2019adresse de d\u00e9p\u00f4t sur cette page.',
         'deposit.wallet.step2': 'Ouvrez le service externe et effectuez ses v\u00e9rifications d\u2019identit\u00e9.',
         'deposit.wallet.step3': 'Achetez de l\u2019USDT. Si le service demande le r\u00e9seau, choisissez TRON (TRC20).',
@@ -16044,6 +16079,7 @@ const TRANSLATIONS = {
         'deposit.demoNotice.requirementsTitle': '\u0645\u062a\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0625\u064a\u062f\u0627\u0639',
         'deposit.demoNotice.req': '\u0627\u0644\u062d\u062f \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0625\u064a\u062f\u0627\u0639: ${{min}} \u2022 USDT \u0639\u0644\u0649 TRON (TRC20) \u0641\u0642\u0637 \u2022 \u064a\u064f\u0636\u0627\u0641 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE',
         'deposit.demoNotice.switchCta': '\u0627\u0644\u062a\u0628\u062f\u064a\u0644 \u0625\u0644\u0649 Live \u0648\u0627\u0644\u0645\u062a\u0627\u0628\u0639\u0629',
+        'deposit.demoNotice.afterSwitch': '\u062a\u0638\u0647\u0631 \u0637\u0631\u0642 \u0627\u0644\u062a\u0645\u0648\u064a\u0644 \u0648\u0646\u0645\u0648\u0630\u062c \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0628\u0639\u062f \u0627\u0644\u062a\u0628\u062f\u064a\u0644 \u0625\u0644\u0649 \u0648\u0636\u0639 Live.',
         'deposit.liveNotice.title': '\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0631\u0635\u064a\u062f\u0643 LIVE',
         'deposit.liveNotice.body': '\u064a\u064f\u0636\u0627\u0641 \u0647\u0630\u0627 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE / \u0627\u0644\u062d\u0642\u064a\u0642\u064a. \u0648\u0647\u0648 \u0645\u0646\u0641\u0635\u0644 \u0639\u0646 \u0623\u0645\u0648\u0627\u0644 Demo \u0648\u0639\u0646 \u0631\u0635\u064a\u062f\u0643 \u0627\u0644\u062a\u0631\u0648\u064a\u062c\u064a.',
         'onboarding.title': 'مرحبًا بك في Arbitrix',
@@ -16086,6 +16122,10 @@ const TRANSLATIONS = {
         'deposit.choose.wallet.desc': '\u0627\u0634\u062a\u0631\u0650 USDT \u0645\u0646 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629 \u062a\u062b\u0642 \u0628\u0647\u0627 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643.',
         'deposit.wallet.title': '\u0634\u0631\u0627\u0621 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629',
         'deposit.wallet.intro': '\u062e\u0637\u0648\u062a\u0627\u0646: \u0627\u0634\u062a\u0631\u0650 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u0630\u064a \u062a\u0645 \u0625\u0646\u0634\u0627\u0624\u0647 \u0647\u0646\u0627. \u0644\u0627 \u062a\u0639\u0627\u0644\u062c Arbitrix \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0627\u0644\u0628\u0637\u0627\u0642\u0627\u062a \u0628\u0646\u0641\u0633\u0647\u0627.',
+        'deposit.wallet.unavailable.title': '\u0627\u0644\u0634\u0631\u0627\u0621 \u0627\u0644\u062e\u0627\u0631\u062c\u064a \u0642\u0631\u064a\u0628\u064b\u0627',
+        'deposit.wallet.unavailable.body': '\u0634\u0631\u0627\u0621 USDT \u0628\u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0623\u0648 \u0628\u0627\u0644\u062a\u062d\u0648\u064a\u0644 \u0627\u0644\u0628\u0646\u0643\u064a \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629 \u063a\u064a\u0631 \u0645\u062a\u0627\u062d \u0628\u0639\u062f. \u0643\u0644 \u0645\u0632\u0648\u0651\u062f \u064a\u062d\u062f\u062f \u0637\u0631\u0642 \u0627\u0644\u062f\u0641\u0639 \u0648\u0627\u0644\u062a\u062d\u0642\u0642 \u0648\u0627\u0644\u062f\u0648\u0644 \u0627\u0644\u0645\u062f\u0639\u0648\u0645\u0629\u060c \u0644\u0630\u0627 \u064a\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062e\u064a\u0627\u0631 \u0641\u0642\u0637 \u0628\u0639\u062f \u062a\u0623\u0643\u064a\u062f \u0645\u0632\u0648\u0651\u062f \u0644\u0640 Arbitrix. \u0627\u0644\u062e\u064a\u0627\u0631\u0627\u062a \u0627\u0644\u0623\u062e\u0631\u0649 \u062a\u0639\u0645\u0644 \u0627\u0644\u0622\u0646.',
+        'deposit.wallet.destinationTitle': '\u0627\u0633\u062a\u062e\u062f\u0645 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643 \u0643\u0645\u0633\u062a\u0644\u0645',
+        'deposit.wallet.destinationBody': '\u0627\u0633\u062a\u062e\u062f\u0645 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0641\u0642\u0637 \u0625\u0630\u0627 \u0643\u0627\u0646\u062a \u0627\u0644\u062e\u062f\u0645\u0629 \u062a\u062f\u0639\u0645 \u0635\u0631\u0627\u062d\u0629 \u0625\u0631\u0633\u0627\u0644 USDT \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 \u0645\u062d\u0641\u0638\u0629 \u062e\u0627\u0631\u062c\u064a\u0629. \u0625\u0630\u0627 \u0643\u0627\u0646\u062a \u062a\u0633\u0644\u0651\u0645 \u0641\u0642\u0637 \u0625\u0644\u0649 \u0645\u062d\u0641\u0638\u0629 \u062a\u0633\u062a\u0636\u064a\u0641\u0647\u0627 \u0627\u0644\u062e\u062f\u0645\u0629\u060c \u0641\u0627\u0634\u062a\u0631\u0650 \u0647\u0646\u0627\u0643 \u0623\u0648\u0644\u064b\u0627 \u062b\u0645 \u0623\u0631\u0633\u0644 USDT \u0625\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20).',
         'deposit.wallet.step1': '\u0623\u062f\u062e\u0644 \u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629.',
         'deposit.wallet.step2': '\u0627\u0641\u062a\u062d \u0627\u0644\u062e\u062f\u0645\u0629 \u0627\u0644\u062e\u0627\u0631\u062c\u064a\u0629 \u0648\u0623\u0643\u0645\u0644 \u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u062f\u064a\u0647\u0627.',
         'deposit.wallet.step3': '\u0627\u0634\u062a\u0631\u0650 USDT. \u0625\u0630\u0627 \u0633\u0623\u0644\u062a \u0627\u0644\u062e\u062f\u0645\u0629 \u0639\u0646 \u0627\u0644\u0634\u0628\u0643\u0629 \u0641\u0627\u062e\u062a\u0631 TRON (TRC20).',
@@ -17685,6 +17725,7 @@ const TRANSLATIONS = {
         'deposit.demoNotice.requirementsTitle': '\u5165\u91d1\u8981\u6c42',
         'deposit.demoNotice.req': '\u6700\u4f4e\u5165\u91d1\uff1a${{min}} \u2022 \u4ec5\u9650 TRON (TRC20) \u7f51\u7edc\u4e0a\u7684 USDT \u2022 \u8ba1\u5165\u60a8\u7684 LIVE \u4f59\u989d',
         'deposit.demoNotice.switchCta': '\u5207\u6362\u5230 Live \u5e76\u7ee7\u7eed',
+        'deposit.demoNotice.afterSwitch': '\u5207\u6362\u5230\u5b9e\u76d8\u6a21\u5f0f\u540e\u4f1a\u663e\u793a\u5165\u91d1\u65b9\u5f0f\u548c\u5b58\u6b3e\u8868\u5355\u3002',
         'deposit.liveNotice.title': '\u5165\u91d1\u81f3\u60a8\u7684 LIVE \u4f59\u989d',
         'deposit.liveNotice.body': '\u8be5\u5165\u91d1\u4f1a\u6dfb\u52a0\u5230\u60a8\u7684 LIVE / \u771f\u5b9e\u4f59\u989d\uff0c\u4e0e\u6f14\u793a\u8d44\u91d1\u548c\u4fc3\u9500\u989d\u5ea6\u76f8\u4e92\u72ec\u7acb\u3002',
         'onboarding.title': '欢迎来到 Arbitrix',
@@ -17727,6 +17768,10 @@ const TRANSLATIONS = {
         'deposit.choose.wallet.desc': '\u901a\u8fc7\u60a8\u4fe1\u4efb\u7684\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT\uff0c\u7136\u540e\u53d1\u9001\u5230\u60a8\u7684 Arbitrix \u5730\u5740\u3002',
         'deposit.wallet.title': '\u901a\u8fc7\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT',
         'deposit.wallet.intro': '\u4e24\u6b65\uff1a\u901a\u8fc7\u670d\u52a1\u8d2d\u4e70 USDT\uff0c\u7136\u540e\u53d1\u9001\u5230\u6b64\u5904\u751f\u6210\u7684 Arbitrix \u5730\u5740\u3002Arbitrix \u672c\u8eab\u4e0d\u5904\u7406\u94f6\u884c\u5361\u4ed8\u6b3e\u3002',
+        'deposit.wallet.unavailable.title': '\u5916\u90e8\u8d2d\u4e70\u529f\u80fd\u5373\u5c06\u4e0a\u7ebf',
+        'deposit.wallet.unavailable.body': '\u901a\u8fc7\u7b2c\u4e09\u65b9\u670d\u52a1\u4f7f\u7528\u94f6\u884c\u5361\u6216\u94f6\u884c\u8f6c\u8d26\u8d2d\u4e70 USDT \u7684\u529f\u80fd\u5c1a\u672a\u5f00\u653e\u3002\u5404\u670d\u52a1\u5546\u81ea\u884c\u89c4\u5b9a\u652f\u4ed8\u65b9\u5f0f\u3001\u8eab\u4efd\u9a8c\u8bc1\u548c\u652f\u6301\u7684\u56fd\u5bb6\uff0c\u56e0\u6b64\u53ea\u6709\u786e\u8ba4 Arbitrix \u7684\u670d\u52a1\u5546\u540e\u624d\u4f1a\u542f\u7528\u6b64\u9009\u9879\u3002\u5176\u4ed6\u65b9\u5f0f\u76ee\u524d\u53ef\u7528\u3002',
+        'deposit.wallet.destinationTitle': '\u4f7f\u7528\u4f60\u7684 Arbitrix \u5730\u5740\u4f5c\u4e3a\u6536\u6b3e\u5730\u5740',
+        'deposit.wallet.destinationBody': '\u4ec5\u5f53\u8be5\u670d\u52a1\u660e\u786e\u652f\u6301\u5411\u5916\u90e8\u94b1\u5305\u5730\u5740\u53d1\u9001 USDT \u65f6\u624d\u4f7f\u7528\u6b64\u5730\u5740\u3002\u5982\u679c\u8be5\u670d\u52a1\u53ea\u80fd\u53d1\u9001\u5230\u5176\u6258\u7ba1\u7684\u94b1\u5305\uff0c\u8bf7\u5148\u5728\u8be5\u670d\u52a1\u8d2d\u4e70\uff0c\u518d\u5c06 USDT \u901a\u8fc7 TRON (TRC20) \u7f51\u7edc\u53d1\u9001\u5230\u6b64\u5730\u5740\u3002',
         'deposit.wallet.step1': '\u8f93\u5165\u91d1\u989d\u5e76\u5728\u672c\u9875\u751f\u6210\u5145\u503c\u5730\u5740\u3002',
         'deposit.wallet.step2': '\u6253\u5f00\u5916\u90e8\u670d\u52a1\u5e76\u5b8c\u6210\u5176\u8eab\u4efd\u9a8c\u8bc1\u3002',
         'deposit.wallet.step3': '\u8d2d\u4e70 USDT\u3002\u82e5\u670d\u52a1\u8981\u6c42\u9009\u62e9\u7f51\u7edc\uff0c\u8bf7\u9009\u62e9 TRON (TRC20)\u3002',
@@ -22560,7 +22605,7 @@ function updateDepositMinNotice() {
 // Selecting a route is DISPLAY-ONLY: no invoice is created, nothing is credited,
 // and the partner/wallet panels only ever show details of an invoice the
 // existing crypto flow already created.
-let depositOptionState = { partners: [], partnersAvailable: true, crypto: null };
+let depositOptionState = { partners: [], partnersAvailable: true, crypto: null, selected: 'crypto' };
 let depositOptionsLoaded = false;
 let depositOptionsLoading = false;
 
@@ -22579,6 +22624,7 @@ function selectDepositOption(which) {
   });
   const target = document.getElementById(ids[which] || ids.crypto);
   if (target) target.classList.add('is-selected');
+  depositOptionState.selected = ids[which] ? which : 'crypto';
 
   if (which === 'wallet') {
     if (flow) flow.style.display = 'none';
@@ -22622,8 +22668,13 @@ function resolveBuyCryptoUrl() {
 
 function updateDepositWalletPanel() {
   const link = document.getElementById('depositBuyCryptoLink');
+  const providerUrl = resolveBuyCryptoUrl();
+  const unavailableEl = document.getElementById('depositWalletUnavailable');
+  const readyEl = document.getElementById('depositWalletProviderReady');
+  if (unavailableEl) unavailableEl.style.display = providerUrl ? 'none' : 'block';
+  if (readyEl) readyEl.style.display = providerUrl ? 'block' : 'none';
   if (link) {
-    const url = resolveBuyCryptoUrl();
+    const url = providerUrl;
     if (url) {
       link.setAttribute('href', url);
       link.style.display = 'block';
@@ -22796,12 +22847,12 @@ function openDepositModal() {
   // provider; a failed request simply leaves the crypto flow available.
   const depositOptionsEl = document.getElementById('depositOptions');
   if (depositOptionsEl) {
-    const hideDepositOptions = (typeof APP !== 'undefined' && APP.environment === 'MARKETING_SANDBOX');
-    depositOptionsEl.style.display = hideDepositOptions ? 'none' : 'block';
-    if (!hideDepositOptions) {
-      if (typeof selectDepositOption === 'function') selectDepositOption('crypto');
-      if (typeof loadDepositOptions === 'function') loadDepositOptions(false);
+    // Load the routes (partners/providers) once; visibility is mode-aware, so
+    // Demo shows none of them and Live restores the selected route.
+    if (APP.environment !== 'MARKETING_SANDBOX' && typeof loadDepositOptions === 'function') {
+      loadDepositOptions(false);
     }
+    applyDepositModeVisibility();
   }
   document.getElementById('depositModal').classList.add('open');
   // Always open at the top of the panel so the sticky header (title + close)
@@ -22846,6 +22897,27 @@ function focusWithoutScroll(el) {
 // "Switch to Live & Continue" action. The balance breakdown distinguishes
 // demo/virtual funds, live/real funds, actual deposited funds and the
 // promotional credit (server-authoritative booleans; no amounts are invented).
+// Funding routes are a Live concept. In Demo mode the dialog renders ONLY the
+// explanation and the switch action: no funding cards, no network details, no
+// amount field and no generate button, so nothing can imply that a real deposit
+// funds a demo balance. MARKETING_SANDBOX keeps its simulated flow (no cards).
+// Live mode restores whichever route the user had selected, so opening,
+// closing, reopening or switching modes never loses the choice.
+function applyDepositModeVisibility() {
+  const isDemo = (typeof APP !== 'undefined') && APP.mode === 'demo';
+  const isSandbox = (typeof APP !== 'undefined') && APP.environment === 'MARKETING_SANDBOX';
+  const optionsEl = document.getElementById('depositOptions');
+  if (optionsEl) optionsEl.style.display = (!isDemo && !isSandbox) ? 'block' : 'none';
+  if (isDemo) {
+    ['depositCryptoFlow', 'depositPartnerPanel', 'depositWalletPanel'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    return;
+  }
+  selectDepositOption(isSandbox ? 'crypto' : (depositOptionState.selected || 'crypto'));
+}
+
 function refreshDepositModeNotice() {
   const isDemo = (typeof APP !== 'undefined') && APP.mode === 'demo';
   const demoNotice = document.getElementById('depositDemoNotice');
@@ -22854,6 +22926,7 @@ function refreshDepositModeNotice() {
   if (demoNotice) demoNotice.style.display = isDemo ? 'block' : 'none';
   if (liveNotice) liveNotice.style.display = isDemo ? 'none' : 'block';
   if (genBtn) genBtn.style.display = isDemo ? 'none' : 'block';
+  applyDepositModeVisibility();
   if (!isDemo) return;
 
   const demoBal = document.getElementById('depositDemoBalance');
@@ -22884,7 +22957,7 @@ function switchToLiveAndContinueDeposit() {
   const modal = document.getElementById('depositModal');
   if (modal && !modal.classList.contains('open')) modal.classList.add('open');
   const amountInput = document.getElementById('liveDepositAmount');
-  if (amountInput) amountInput.focus();
+  if (amountInput) focusWithoutScroll(amountInput);
 }
 
 // ==================== POST-REGISTRATION ONBOARDING ====================
