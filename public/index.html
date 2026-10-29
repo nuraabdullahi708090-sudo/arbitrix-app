@@ -1352,7 +1352,6 @@
         .deposit-partner-safety{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.22);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
         .deposit-partner-safety ul{margin:6px 0 0;padding-inline-start:18px;}
         .deposit-partner-safety li{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;overflow-wrap:anywhere;}
-        .deposit-partner-disclaimer{font-size:10px;color:var(--text-muted);line-height:1.6;margin-top:8px;overflow-wrap:anywhere;}
         .deposit-wallet-steps{margin:0 0 12px;padding-inline-start:18px;}
         .deposit-wallet-steps li{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:5px;overflow-wrap:anywhere;}
         .deposit-wallet-address{background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:12px;margin:0 0 12px;min-width:0;}
@@ -7649,29 +7648,21 @@ function toggleFaq(btn) {
             <i class="fas fa-arrow-left"></i> <span data-i18n="deposit.partner.back">Back</span>
           </button>
         </div>
-        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.intro">Contact a partner on Telegram. Partners help you obtain cryptocurrency; they cannot add funds to your account.</p>
-        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.servicesIntro">Partners may offer direct USDT sales, guided purchasing assistance, or both. Each card below shows what that partner offers, where they serve customers, and how to reach them.</p>
-        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:10px;" data-i18n="deposit.partner.modelNote">Partners help you obtain USDT yourself. Whether a partner sells USDT or guides you through buying it depends on that partner. Either way you send the USDT to the Arbitrix address generated for your own deposit, and paying a partner never credits your Arbitrix account.</p>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.intro">Contact a partner on Telegram. Partners help you obtain cryptocurrency.</p>
+        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.servicesIntro">Partners may offer direct USDT sales, guided purchasing assistance, or both.</p>
 
         <!-- Direct line to the configured PAYMENT partner (deposit questions,
              payment follow-ups, transaction checks). Contact details only: the
              partner cannot credit a balance or approve a deposit. Hidden when no
              destination is configured, so a broken link is never rendered. -->
         <a id="depositPaymentPartnerBtn" href="#" class="btn btn-primary js-payment-partner deposit-payment-partner" style="display:none;width:100%;text-align:center;margin:0 0 10px;padding:11px;font-size:12px;" target="_blank" rel="noopener noreferrer" data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</a>
-        <p id="depositPaymentPartnerNote" style="display:none;font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;" data-i18n="deposit.partner.paymentPartnerNote">Payment questions, deposit follow-ups and transaction checks: contact the Arbitrix Payment Partner.</p>
 
         <div id="depositPartnerList"></div>
-        <div id="depositPartnerEmpty" style="display:none;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:8px;">
-          <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.empty">No verified partners are listed right now. You can still deposit cryptocurrency directly.</p>
-          <button type="button" onclick="openSupportModal()" class="btn btn-secondary" style="width:100%;padding:10px;font-size:12px;">
-            <i class="fas fa-headset"></i> <span data-i18n="deposit.partner.supportCta">Contact Support</span>
-          </button>
-        </div>
 
         <div class="deposit-ref-box">
-          <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.partner.refTitle">Your deposit reference</div>
-          <div class="deposit-ref-value" id="depositRefValue">-</div>
-          <div style="font-size:11px;color:var(--text-secondary);line-height:1.6;" id="depositRefHint" data-i18n="deposit.partner.refHint">Generate a payment in the deposit form to get a reference, amount and address to share with your partner.</div>
+          <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.partner.refTitle">How to Fund Your Account</div>
+          <div class="deposit-ref-value" id="depositRefValue"></div>
+          <div style="font-size:11px;color:var(--text-secondary);line-height:1.6;" id="depositRefHint" data-i18n="deposit.partner.refHint">Open Deposit Funds and generate your USDT (TRC20) deposit address. Share that address with the Payment Partner if you need help funding your account.</div>
           <button type="button" id="depositRefCopyBtn" onclick="copyDepositReference()" class="btn btn-secondary" style="display:none;margin-top:8px;padding:8px 12px;font-size:11px;min-height:32px;">
             <i class="fas fa-copy"></i> <span data-i18n="deposit.partner.copyRef">Copy reference</span>
           </button>
@@ -7680,15 +7671,11 @@ function toggleFaq(btn) {
         <div class="deposit-partner-safety">
           <strong style="font-size:11px;color:#EF4444;" data-i18n="deposit.partner.safety.title">Stay safe</strong>
           <ul>
-            <li data-i18n="deposit.partner.safety.1">Only contact partners listed here, and check the Telegram username before you message.</li>
-            <li data-i18n="deposit.partner.safety.2">Never share your password, one-time codes (OTP) or private wallet keys.</li>
-            <li data-i18n="deposit.partner.safety.3">Confirm the asset, network and destination address before you send anything.</li>
-            <li data-i18n="deposit.partner.safety.4">A partner can help you obtain crypto, but a partner cannot add funds to your Arbitrix account.</li>
-            <li data-i18n="deposit.partner.safety.5">Your balance is credited only after Arbitrix verifies the incoming transfer.</li>
-            <li data-i18n="deposit.partner.safety.6">Contact Arbitrix support if a transfer is delayed.</li>
+            <li data-i18n="deposit.partner.safety.1">Contact the correct Telegram partner and verify the username.</li>
+            <li data-i18n="deposit.partner.safety.2">Never share your password, OTP, or private wallet keys.</li>
+            <li data-i18n="deposit.partner.safety.3">Check the USDT network and address before sending funds. Your balance is credited after Arbitrix verifies the transfer.</li>
           </ul>
         </div>
-        <p class="deposit-partner-disclaimer" data-i18n="deposit.partner.disclaimer">The Verified Partner badge means Arbitrix has reviewed the partner internally. It is not a guarantee of any transaction and it is not a regulatory licence.</p>
       </div>
 
       <!-- THE EXISTING CRYPTO DEPOSIT FLOW (unchanged) -->
@@ -9463,37 +9450,28 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'I Already Have Crypto',
         'deposit.choose.crypto.desc': 'Deposit USDT on TRON (TRC20) directly to your Arbitrix address.',
         'deposit.partner.title': 'Verified Partners',
-        'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency; they cannot add funds to your account. Arbitrix does not process card payments itself.',
+        'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency.',
         'deposit.partner.contactPaymentPartner': 'Contact Payment Partner',
-        'deposit.partner.paymentPartnerNote': 'Payment questions, deposit follow-ups and transaction checks: contact the Arbitrix Payment Partner.',
-        'deposit.partner.modelNote': 'Partners help you obtain USDT yourself. Whether a partner sells USDT or guides you through buying it depends on that partner. Either way you send the USDT to the Arbitrix address generated for your own deposit, and paying a partner never credits your Arbitrix account.',
-        'deposit.partner.servicesIntro': 'Partners may offer direct USDT sales, guided purchasing assistance, or both. Each card below shows what that partner offers, where they serve customers, and how to reach them.',
+        'deposit.partner.servicesIntro': 'Partners may offer direct USDT sales, guided purchasing assistance, or both.',
         'deposit.partner.service.direct': 'Direct USDT sale',
         'deposit.partner.service.guided': 'Guided purchasing assistance',
         'deposit.partner.worldwide': 'Serves customers worldwide',
         'deposit.partner.serves': 'Serves',
         'deposit.partner.methodsDepend': 'Payment methods depend on the external service you use.',
         'deposit.partner.back': 'Back',
-        'deposit.partner.empty': 'No verified partners are listed right now. You can still deposit cryptocurrency directly.',
-        'deposit.partner.supportCta': 'Contact Support',
         'deposit.partner.verified': 'Verified Partner',
         'deposit.partner.chat': 'Chat on Telegram',
         'deposit.partner.countries': 'Countries served',
         'deposit.partner.methods': 'Payment methods',
-        'deposit.partner.refTitle': 'Your deposit reference',
-        'deposit.partner.refNone': 'Not created yet',
-        'deposit.partner.refHint': 'Generate a payment in the deposit form to get a reference, amount and address to share with your partner.',
+        'deposit.partner.refTitle': 'How to Fund Your Account',
+        'deposit.partner.refHint': 'Open Deposit Funds and generate your USDT (TRC20) deposit address. Share that address with the Payment Partner if you need help funding your account.',
         'deposit.partner.refReady': 'Share this reference with your partner, together with the exact {{asset}} ({{network}}) address and amount from your payment screen.',
         'deposit.partner.refCopied': 'Deposit reference copied',
         'deposit.partner.copyRef': 'Copy reference',
         'deposit.partner.safety.title': 'Stay safe',
-        'deposit.partner.safety.1': 'Only contact partners listed here, and check the Telegram username before you message.',
-        'deposit.partner.safety.2': 'Never share your password, one-time codes (OTP) or private wallet keys.',
-        'deposit.partner.safety.3': 'Confirm the asset, network and destination address before you send anything.',
-        'deposit.partner.safety.4': 'A partner can help you obtain crypto, but a partner cannot add funds to your Arbitrix account.',
-        'deposit.partner.safety.5': 'Your balance is credited only after Arbitrix verifies the incoming transfer.',
-        'deposit.partner.safety.6': 'Contact Arbitrix support if a transfer is delayed.',
-        'deposit.partner.disclaimer': 'The Verified Partner badge means Arbitrix has reviewed the partner internally. It is not a guarantee of any transaction and it is not a regulatory licence.',
+        'deposit.partner.safety.1': 'Contact the correct Telegram partner and verify the username.',
+        'deposit.partner.safety.2': 'Never share your password, OTP, or private wallet keys.',
+        'deposit.partner.safety.3': 'Check the USDT network and address before sending funds. Your balance is credited after Arbitrix verifies the transfer.',
         'admin.tab.partners': 'Partners',
         'admin.partner.help': 'Verified human partners shown on the Deposit page. Only partners that are both active and verified are visible to customers. A partner can never credit an account.',
         'admin.partner.addTitle': 'Add a partner',
@@ -11083,37 +11061,28 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'Ya tengo criptomonedas',
         'deposit.choose.crypto.desc': 'Deposita USDT en TRON (TRC20) directamente en tu dirección de Arbitrix.',
         'deposit.partner.title': 'Socios verificados',
-        'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas; no pueden añadir fondos a tu cuenta. Arbitrix no procesa pagos con tarjeta por s\u00ed misma.',
+        'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas.',
         'deposit.partner.contactPaymentPartner': 'Contactar al socio de pagos',
-        'deposit.partner.paymentPartnerNote': 'Dudas sobre pagos, seguimiento de dep\u00f3sitos y comprobaciones de transacciones: contacta con el socio de pagos de Arbitrix.',
-        'deposit.partner.modelNote': 'Los socios te ayudan a obtener USDT por tu cuenta. Que un socio venda USDT o te gu\u00ede para comprarlo depende de cada socio. En ambos casos env\u00edas el USDT a la direcci\u00f3n de Arbitrix generada para tu propio dep\u00f3sito, y pagar a un socio nunca acredita tu cuenta de Arbitrix.',
-        'deposit.partner.servicesIntro': 'Los socios pueden ofrecer venta directa de USDT, asistencia guiada para comprar, o ambas. Cada tarjeta muestra qu\u00e9 ofrece ese socio, d\u00f3nde atiende y c\u00f3mo contactarlo.',
+        'deposit.partner.servicesIntro': 'Los socios pueden ofrecer venta directa de USDT, asistencia guiada para la compra, o ambas.',
         'deposit.partner.service.direct': 'Venta directa de USDT',
         'deposit.partner.service.guided': 'Asistencia guiada para comprar',
         'deposit.partner.worldwide': 'Atiende a clientes en todo el mundo',
         'deposit.partner.serves': 'Atiende',
         'deposit.partner.methodsDepend': 'Los m\u00e9todos de pago dependen del servicio externo que utilices.',
         'deposit.partner.back': 'Volver',
-        'deposit.partner.empty': 'Ahora mismo no hay socios verificados publicados. Puedes depositar criptomonedas directamente.',
-        'deposit.partner.supportCta': 'Contactar con soporte',
         'deposit.partner.verified': 'Socio verificado',
         'deposit.partner.chat': 'Chatear en Telegram',
         'deposit.partner.countries': 'Países atendidos',
         'deposit.partner.methods': 'Métodos de pago',
-        'deposit.partner.refTitle': 'Tu referencia de depósito',
-        'deposit.partner.refNone': 'Todavía no creada',
-        'deposit.partner.refHint': 'Genera un pago en el formulario de depósito para obtener una referencia, un importe y una dirección que compartir con tu socio.',
+        'deposit.partner.refTitle': 'C\u00f3mo financiar tu cuenta',
+        'deposit.partner.refHint': 'Abre Depositar fondos y genera tu direcci\u00f3n de dep\u00f3sito USDT (TRC20). Comparte esa direcci\u00f3n con el socio de pagos si necesitas ayuda para financiar tu cuenta.',
         'deposit.partner.refReady': 'Comparte esta referencia con tu socio, junto con la dirección exacta de {{asset}} ({{network}}) y el importe de tu pantalla de pago.',
         'deposit.partner.refCopied': 'Referencia de depósito copiada',
         'deposit.partner.copyRef': 'Copiar referencia',
         'deposit.partner.safety.title': 'Mantente seguro',
-        'deposit.partner.safety.1': 'Contacta solo con los socios que aparecen aquí y revisa el usuario de Telegram antes de escribir.',
-        'deposit.partner.safety.2': 'Nunca compartas tu contraseña, códigos de un solo uso (OTP) ni claves privadas de tu monedero.',
-        'deposit.partner.safety.3': 'Confirma el activo, la red y la dirección de destino antes de enviar nada.',
-        'deposit.partner.safety.4': 'Un socio puede ayudarte a obtener cripto, pero no puede añadir fondos a tu cuenta de Arbitrix.',
-        'deposit.partner.safety.5': 'Tu saldo se abona solo después de que Arbitrix verifique la transferencia recibida.',
-        'deposit.partner.safety.6': 'Contacta con el soporte de Arbitrix si una transferencia se retrasa.',
-        'deposit.partner.disclaimer': 'La insignia de socio verificado significa que Arbitrix ha revisado al socio internamente. No garantiza ninguna transacción ni constituye una licencia reguladora.',
+        'deposit.partner.safety.1': 'Contacta con el socio correcto en Telegram y verifica el nombre de usuario.',
+        'deposit.partner.safety.2': 'Nunca compartas tu contrase\u00f1a, tus c\u00f3digos OTP ni las claves privadas de tu billetera.',
+        'deposit.partner.safety.3': 'Verifica la red y la direcci\u00f3n de USDT antes de enviar fondos. Tu saldo se acredita despu\u00e9s de que Arbitrix verifique la transferencia.',
         'admin.tab.partners': 'Socios',
         'admin.partner.help': 'Socios humanos verificados que se muestran en la página de depósito. Solo los socios activos y verificados son visibles para los clientes. Un socio nunca puede abonar una cuenta.',
         'admin.partner.addTitle': 'Añadir un socio',
@@ -12704,37 +12673,28 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'Já tenho criptomoedas',
         'deposit.choose.crypto.desc': 'Deposite USDT na TRON (TRC20) diretamente no seu endereço da Arbitrix.',
         'deposit.partner.title': 'Parceiros verificados',
-        'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam você a obter criptomoedas; eles não podem adicionar fundos à sua conta. A Arbitrix n\u00e3o processa pagamentos com cart\u00e3o por conta pr\u00f3pria.',
+        'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam voc\u00ea a obter criptomoedas.',
         'deposit.partner.contactPaymentPartner': 'Falar com o parceiro de pagamentos',
-        'deposit.partner.paymentPartnerNote': 'D\u00favidas sobre pagamentos, acompanhamento de dep\u00f3sitos e verifica\u00e7\u00f5es de transa\u00e7\u00f5es: fale com o parceiro de pagamentos da Arbitrix.',
-        'deposit.partner.modelNote': 'Os parceiros ajudam voc\u00ea a obter USDT por conta pr\u00f3pria. Se um parceiro vende USDT ou orienta a compra depende de cada parceiro. De qualquer forma, voc\u00ea envia o USDT para o endere\u00e7o da Arbitrix gerado para o seu pr\u00f3prio dep\u00f3sito, e pagar a um parceiro nunca credita a sua conta na Arbitrix.',
-        'deposit.partner.servicesIntro': 'Os parceiros podem oferecer venda direta de USDT, assist\u00eancia guiada para comprar, ou ambos. Cada cart\u00e3o mostra o que aquele parceiro oferece, onde atende e como falar com ele.',
+        'deposit.partner.servicesIntro': 'Os parceiros podem oferecer venda direta de USDT, assist\u00eancia guiada na compra, ou ambas.',
         'deposit.partner.service.direct': 'Venda direta de USDT',
         'deposit.partner.service.guided': 'Assist\u00eancia guiada para comprar',
         'deposit.partner.worldwide': 'Atende clientes no mundo todo',
         'deposit.partner.serves': 'Atende',
         'deposit.partner.methodsDepend': 'Os m\u00e9todos de pagamento dependem do servi\u00e7o externo que voc\u00ea usar.',
         'deposit.partner.back': 'Voltar',
-        'deposit.partner.empty': 'Nenhum parceiro verificado está listado agora. Você ainda pode depositar criptomoedas diretamente.',
-        'deposit.partner.supportCta': 'Falar com o suporte',
         'deposit.partner.verified': 'Parceiro verificado',
         'deposit.partner.chat': 'Conversar no Telegram',
         'deposit.partner.countries': 'Países atendidos',
         'deposit.partner.methods': 'Métodos de pagamento',
-        'deposit.partner.refTitle': 'Sua referência de depósito',
-        'deposit.partner.refNone': 'Ainda não criada',
-        'deposit.partner.refHint': 'Gere um pagamento no formulário de depósito para obter uma referência, um valor e um endereço para compartilhar com seu parceiro.',
+        'deposit.partner.refTitle': 'Como financiar sua conta',
+        'deposit.partner.refHint': 'Abra Depositar fundos e gere seu endere\u00e7o de dep\u00f3sito USDT (TRC20). Compartilhe esse endere\u00e7o com o parceiro de pagamentos se precisar de ajuda para financiar sua conta.',
         'deposit.partner.refReady': 'Compartilhe esta referência com seu parceiro, junto com o endereço exato de {{asset}} ({{network}}) e o valor da sua tela de pagamento.',
         'deposit.partner.refCopied': 'Referência de depósito copiada',
         'deposit.partner.copyRef': 'Copiar referência',
         'deposit.partner.safety.title': 'Fique seguro',
-        'deposit.partner.safety.1': 'Fale apenas com os parceiros listados aqui e confira o usuário do Telegram antes de enviar mensagem.',
-        'deposit.partner.safety.2': 'Nunca compartilhe sua senha, códigos de uso único (OTP) ou chaves privadas da carteira.',
-        'deposit.partner.safety.3': 'Confirme o ativo, a rede e o endereço de destino antes de enviar qualquer valor.',
-        'deposit.partner.safety.4': 'Um parceiro pode ajudar você a obter cripto, mas não pode adicionar fundos à sua conta Arbitrix.',
-        'deposit.partner.safety.5': 'Seu saldo só é creditado depois que a Arbitrix verifica a transferência recebida.',
-        'deposit.partner.safety.6': 'Fale com o suporte da Arbitrix se uma transferência atrasar.',
-        'deposit.partner.disclaimer': 'O selo de parceiro verificado significa que a Arbitrix avaliou o parceiro internamente. Não é garantia de qualquer transação e não é uma licença regulatória.',
+        'deposit.partner.safety.1': 'Fale com o parceiro correto no Telegram e verifique o nome de usu\u00e1rio.',
+        'deposit.partner.safety.2': 'Nunca compartilhe sua senha, c\u00f3digos OTP ou chaves privadas da sua carteira.',
+        'deposit.partner.safety.3': 'Verifique a rede e o endere\u00e7o USDT antes de enviar fundos. Seu saldo \u00e9 creditado depois que a Arbitrix verifica a transfer\u00eancia.',
         'admin.tab.partners': 'Parceiros',
         'admin.partner.help': 'Parceiros humanos verificados exibidos na página de depósito. Apenas parceiros ativos e verificados ficam visíveis para os clientes. Um parceiro nunca pode creditar uma conta.',
         'admin.partner.addTitle': 'Adicionar um parceiro',
@@ -14325,37 +14285,28 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'J’ai déjà de la crypto',
         'deposit.choose.crypto.desc': 'Déposez de l’USDT sur TRON (TRC20) directement sur votre adresse Arbitrix.',
         'deposit.partner.title': 'Partenaires vérifiés',
-        'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident à obtenir de la crypto ; ils ne peuvent pas ajouter de fonds à votre compte. Arbitrix ne traite pas lui-m\u00eame les paiements par carte.',
+        'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident \u00e0 obtenir de la cryptomonnaie.',
         'deposit.partner.contactPaymentPartner': 'Contacter le partenaire de paiement',
-        'deposit.partner.paymentPartnerNote': 'Questions sur les paiements, suivi des d\u00e9p\u00f4ts et v\u00e9rifications de transactions : contactez le partenaire de paiement Arbitrix.',
-        'deposit.partner.modelNote': 'Les partenaires vous aident \u00e0 obtenir de l\u2019USDT vous-m\u00eame. Qu\u2019un partenaire vende de l\u2019USDT ou vous guide pour l\u2019acheter d\u00e9pend du partenaire. Dans les deux cas, vous envoyez l\u2019USDT \u00e0 l\u2019adresse Arbitrix g\u00e9n\u00e9r\u00e9e pour votre propre d\u00e9p\u00f4t, et payer un partenaire ne cr\u00e9dite jamais votre compte Arbitrix.',
-        'deposit.partner.servicesIntro': 'Les partenaires peuvent proposer la vente directe d\u2019USDT, une assistance guid\u00e9e pour l\u2019achat, ou les deux. Chaque fiche indique ce que propose le partenaire, sa zone de service et comment le contacter.',
+        'deposit.partner.servicesIntro': 'Les partenaires peuvent proposer la vente directe d\'USDT, une assistance guid\u00e9e \u00e0 l\'achat, ou les deux.',
         'deposit.partner.service.direct': 'Vente directe d\u2019USDT',
         'deposit.partner.service.guided': 'Assistance guid\u00e9e pour l\u2019achat',
         'deposit.partner.worldwide': 'Sert des clients dans le monde entier',
         'deposit.partner.serves': 'Sert',
         'deposit.partner.methodsDepend': 'Les moyens de paiement d\u00e9pendent du service externe que vous utilisez.',
         'deposit.partner.back': 'Retour',
-        'deposit.partner.empty': 'Aucun partenaire vérifié n’est listé pour le moment. Vous pouvez toujours déposer de la crypto directement.',
-        'deposit.partner.supportCta': 'Contacter le support',
         'deposit.partner.verified': 'Partenaire vérifié',
         'deposit.partner.chat': 'Discuter sur Telegram',
         'deposit.partner.countries': 'Pays desservis',
         'deposit.partner.methods': 'Moyens de paiement',
-        'deposit.partner.refTitle': 'Votre référence de dépôt',
-        'deposit.partner.refNone': 'Pas encore créée',
-        'deposit.partner.refHint': 'Générez un paiement dans le formulaire de dépôt pour obtenir une référence, un montant et une adresse à partager avec votre partenaire.',
+        'deposit.partner.refTitle': 'Comment alimenter votre compte',
+        'deposit.partner.refHint': 'Ouvrez D\u00e9poser des fonds et g\u00e9n\u00e9rez votre adresse de d\u00e9p\u00f4t USDT (TRC20). Partagez cette adresse avec le partenaire de paiement si vous avez besoin d\'aide pour alimenter votre compte.',
         'deposit.partner.refReady': 'Partagez cette référence avec votre partenaire, avec l’adresse exacte {{asset}} ({{network}}) et le montant affichés sur votre écran de paiement.',
         'deposit.partner.refCopied': 'Référence de dépôt copiée',
         'deposit.partner.copyRef': 'Copier la référence',
         'deposit.partner.safety.title': 'Restez prudent',
-        'deposit.partner.safety.1': 'Contactez uniquement les partenaires listés ici et vérifiez le nom Telegram avant d’écrire.',
-        'deposit.partner.safety.2': 'Ne partagez jamais votre mot de passe, vos codes à usage unique (OTP) ou vos clés privées.',
-        'deposit.partner.safety.3': 'Confirmez l’actif, le réseau et l’adresse de destination avant tout envoi.',
-        'deposit.partner.safety.4': 'Un partenaire peut vous aider à obtenir de la crypto, mais il ne peut pas ajouter de fonds à votre compte Arbitrix.',
-        'deposit.partner.safety.5': 'Votre solde est crédité uniquement après vérification du transfert reçu par Arbitrix.',
-        'deposit.partner.safety.6': 'Contactez le support Arbitrix si un transfert est retardé.',
-        'deposit.partner.disclaimer': 'Le badge Partenaire vérifié signifie qu’Arbitrix a examiné le partenaire en interne. Ce n’est pas une garantie de transaction ni une licence réglementaire.',
+        'deposit.partner.safety.1': 'Contactez le bon partenaire Telegram et v\u00e9rifiez le nom d\'utilisateur.',
+        'deposit.partner.safety.2': 'Ne partagez jamais votre mot de passe, vos codes OTP ou les cl\u00e9s priv\u00e9es de votre portefeuille.',
+        'deposit.partner.safety.3': 'V\u00e9rifiez le r\u00e9seau et l\'adresse USDT avant d\'envoyer des fonds. Votre solde est cr\u00e9dit\u00e9 apr\u00e8s v\u00e9rification du transfert par Arbitrix.',
         'admin.tab.partners': 'Partenaires',
         'admin.partner.help': 'Partenaires humains vérifiés affichés sur la page de dépôt. Seuls les partenaires actifs et vérifiés sont visibles des clients. Un partenaire ne peut jamais créditer un compte.',
         'admin.partner.addTitle': 'Ajouter un partenaire',
@@ -15946,37 +15897,28 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'لدي عملات رقمية بالفعل',
         'deposit.choose.crypto.desc': 'أودع USDT على شبكة TRON (TRC20) مباشرة إلى عنوان Arbitrix الخاص بك.',
         'deposit.partner.title': 'الشركاء الموثّقون',
-        'deposit.partner.intro': 'تواصل مع شريك على تيليجرام. يساعدك الشركاء في الحصول على العملات الرقمية، لكنهم لا يستطيعون إضافة أموال إلى حسابك. \u0648\u0644\u0627 \u064a\u064f\u0639\u0627\u0644\u062c Arbitrix \u0627\u0644\u062f\u0641\u0639 \u0628\u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0628\u0646\u0641\u0633\u0647.',
+        'deposit.partner.intro': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0639\u0644\u0649 \u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645. \u064a\u0633\u0627\u0639\u062f\u0643 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629.',
         'deposit.partner.contactPaymentPartner': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639',
-        'deposit.partner.paymentPartnerNote': '\u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u062f\u0641\u0639 \u0648\u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0648\u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062a: \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0641\u064a Arbitrix.',
-        'deposit.partner.modelNote': '\u064a\u0633\u0627\u0639\u062f\u0643 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0639\u0644\u0649 \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0628\u0646\u0641\u0633\u0643. \u0648\u0645\u0627 \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0634\u0631\u064a\u0643 \u064a\u0628\u064a\u0639 USDT \u0623\u0648 \u064a\u0631\u0634\u062f\u0643 \u0644\u0634\u0631\u0627\u0626\u0647 \u064a\u0639\u062a\u0645\u062f \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u064a\u0643. \u0641\u064a \u0627\u0644\u062d\u0627\u0644\u062a\u064a\u0646 \u062a\u0631\u0633\u0644 USDT \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u0645\u064f\u0646\u0634\u0623 \u0644\u0625\u064a\u062f\u0627\u0639\u0643 \u0623\u0646\u062a\u060c \u0648\u0627\u0644\u062f\u0641\u0639 \u0644\u0634\u0631\u064a\u0643 \u0644\u0627 \u064a\u0636\u064a\u0641 \u0631\u0635\u064a\u062f\u0627\u064b \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Arbitrix.',
-        'deposit.partner.servicesIntro': '\u0642\u062f \u064a\u0642\u062f\u0651\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629\u060c \u0623\u0648 \u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621\u060c \u0623\u0648 \u0627\u0644\u0627\u062b\u0646\u064a\u0646 \u0645\u0639\u0627\u064b. \u062a\u0648\u0636\u062d \u0643\u0644 \u0628\u0637\u0627\u0642\u0629 \u0645\u0627 \u064a\u0642\u062f\u0651\u0645\u0647 \u0627\u0644\u0634\u0631\u064a\u0643 \u0648\u0623\u064a\u0646 \u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0648\u0643\u064a\u0641 \u062a\u062a\u0648\u0627\u0635\u0644 \u0645\u0639\u0647.',
+        'deposit.partner.servicesIntro': '\u0642\u062f \u064a\u0642\u062f\u0651\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629\u064b\u060c \u0623\u0648 \u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0641\u064a \u0627\u0644\u0634\u0631\u0627\u0621\u060c \u0623\u0648 \u0643\u0644\u064a\u0647\u0645\u0627.',
         'deposit.partner.service.direct': '\u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629',
         'deposit.partner.service.guided': '\u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621',
         'deposit.partner.worldwide': '\u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u062d\u0648\u0644 \u0627\u0644\u0639\u0627\u0644\u0645',
         'deposit.partner.serves': '\u064a\u062e\u062f\u0645',
         'deposit.partner.methodsDepend': '\u062a\u0639\u062a\u0645\u062f \u0637\u0631\u0642 \u0627\u0644\u062f\u0641\u0639 \u0639\u0644\u0649 \u0627\u0644\u062e\u062f\u0645\u0629 \u0627\u0644\u062e\u0627\u0631\u062c\u064a\u0629 \u0627\u0644\u062a\u064a \u062a\u0633\u062a\u062e\u062f\u0645\u0647\u0627.',
         'deposit.partner.back': 'رجوع',
-        'deposit.partner.empty': 'لا يوجد شركاء موثّقون حالياً. يمكنك إيداع العملات الرقمية مباشرة.',
-        'deposit.partner.supportCta': 'تواصل مع الدعم',
         'deposit.partner.verified': 'شريك موثّق',
         'deposit.partner.chat': 'المحادثة على تيليجرام',
         'deposit.partner.countries': 'الدول التي يخدمها',
         'deposit.partner.methods': 'طرق الدفع',
-        'deposit.partner.refTitle': 'مرجع الإيداع الخاص بك',
-        'deposit.partner.refNone': 'لم يُنشأ بعد',
-        'deposit.partner.refHint': 'أنشئ عملية دفع في نموذج الإيداع للحصول على مرجع ومبلغ وعنوان لمشاركتها مع شريكك.',
+        'deposit.partner.refTitle': '\u0643\u064a\u0641\u064a\u0629 \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643',
+        'deposit.partner.refHint': '\u0627\u0641\u062a\u062d \u0625\u064a\u062f\u0627\u0639 \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0648\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0625\u064a\u062f\u0627\u0639 USDT (TRC20) \u0627\u0644\u062e\u0627\u0635 \u0628\u0643. \u0634\u0627\u0631\u0643 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0625\u0630\u0627 \u0627\u062d\u062a\u062c\u062a \u0625\u0644\u0649 \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u0643.',
         'deposit.partner.refReady': 'شارك هذا المرجع مع شريكك، مع عنوان {{asset}} ({{network}}) الدقيق والمبلغ الظاهر في شاشة الدفع.',
         'deposit.partner.refCopied': 'تم نسخ مرجع الإيداع',
         'deposit.partner.copyRef': 'نسخ المرجع',
         'deposit.partner.safety.title': 'ابق آمناً',
-        'deposit.partner.safety.1': 'تواصل فقط مع الشركاء المذكورين هنا، وتحقق من اسم تيليجرام قبل المراسلة.',
-        'deposit.partner.safety.2': 'لا تشارك كلمة المرور أو رموز الاستخدام لمرة واحدة (OTP) أو مفاتيح المحفظة الخاصة.',
-        'deposit.partner.safety.3': 'تأكد من الأصل والشبكة وعنوان الوجهة قبل إرسال أي شيء.',
-        'deposit.partner.safety.4': 'يمكن للشريك مساعدتك في الحصول على العملات، لكنه لا يستطيع إضافة أموال إلى حسابك في Arbitrix.',
-        'deposit.partner.safety.5': 'لا يُضاف الرصيد إلى حسابك إلا بعد تحقق Arbitrix من التحويل الوارد.',
-        'deposit.partner.safety.6': 'تواصل مع دعم Arbitrix إذا تأخر التحويل.',
-        'deposit.partner.disclaimer': 'تعني شارة الشريك الموثّق أن Arbitrix راجعت الشريك داخلياً. وهي ليست ضماناً لأي معاملة وليست ترخيصاً تنظيمياً.',
+        'deposit.partner.safety.1': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645 \u0627\u0644\u0635\u062d\u064a\u062d \u0648\u062a\u062d\u0642\u0651\u0642 \u0645\u0646 \u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645.',
+        'deposit.partner.safety.2': '\u0644\u0627 \u062a\u0634\u0627\u0631\u0643 \u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631 \u0623\u0648 \u0631\u0645\u0648\u0632 OTP \u0623\u0648 \u0627\u0644\u0645\u0641\u0627\u062a\u064a\u062d \u0627\u0644\u062e\u0627\u0635\u0629 \u0644\u0645\u062d\u0641\u0638\u062a\u0643.',
+        'deposit.partner.safety.3': '\u062a\u062d\u0642\u0651\u0642 \u0645\u0646 \u0634\u0628\u0643\u0629 USDT \u0648\u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0642\u0628\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0623\u0645\u0648\u0627\u0644. \u064a\u064f\u0636\u0627\u0641 \u0627\u0644\u0645\u0628\u0644\u063a \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 \u0628\u0639\u062f \u0623\u0646 \u062a\u062a\u062d\u0642\u0642 Arbitrix \u0645\u0646 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
         'admin.tab.partners': 'الشركاء',
         'admin.partner.help': 'شركاء بشريون موثّقون يظهرون في صفحة الإيداع. لا يظهر للعملاء إلا الشركاء النشطون والموثّقون. لا يمكن لأي شريك إضافة رصيد إلى حساب.',
         'admin.partner.addTitle': 'إضافة شريك',
@@ -17567,37 +17509,28 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': '我已有加密货币',
         'deposit.choose.crypto.desc': '直接向你的 Arbitrix 地址充值 TRON (TRC20) 上的 USDT。',
         'deposit.partner.title': '已认证合作伙伴',
-        'deposit.partner.intro': '在 Telegram 上联系合作伙伴。合作伙伴可协助你获取加密货币，但不能为你的账户添加资金。 Arbitrix \u672c\u8eab\u4e0d\u5904\u7406\u5361\u652f\u4ed8\u3002',
+        'deposit.partner.intro': '\u5728 Telegram \u4e0a\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u3002\u5408\u4f5c\u4f19\u4f34\u53ef\u5e2e\u52a9\u60a8\u83b7\u53d6\u52a0\u5bc6\u8d27\u5e01\u3002',
         'deposit.partner.contactPaymentPartner': '\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34',
-        'deposit.partner.paymentPartnerNote': '\u652f\u4ed8\u95ee\u9898\u3001\u5165\u91d1\u8ddf\u8fdb\u548c\u4ea4\u6613\u6838\u67e5\uff1a\u8bf7\u8054\u7cfb Arbitrix \u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
-        'deposit.partner.modelNote': '\u5408\u4f5c\u4f19\u4f34\u534f\u52a9\u60a8\u81ea\u884c\u83b7\u53d6 USDT\u3002\u5408\u4f5c\u4f19\u4f34\u662f\u76f4\u63a5\u51fa\u552e USDT\uff0c\u8fd8\u662f\u6307\u5bfc\u60a8\u8d2d\u4e70\uff0c\u53d6\u51b3\u4e8e\u8be5\u5408\u4f5c\u4f19\u4f34\u3002\u65e0\u8bba\u54ea\u79cd\u65b9\u5f0f\uff0c\u60a8\u90fd\u9700\u8981\u628a USDT \u53d1\u9001\u5230\u4e3a\u60a8\u81ea\u5df1\u7684\u5145\u503c\u751f\u6210\u7684 Arbitrix \u5730\u5740\uff0c\u5411\u5408\u4f5c\u4f19\u4f34\u4ed8\u6b3e\u7edd\u4e0d\u4e3a\u60a8\u7684 Arbitrix \u8d26\u6237\u5165\u8d26\u3002',
-        'deposit.partner.servicesIntro': '\u5408\u4f5c\u4f19\u4f34\u53ef\u80fd\u63d0\u4f9b\u76f4\u63a5\u51fa\u552e USDT\u3001\u6307\u5bfc\u8d2d\u4e70\uff0c\u6216\u4e24\u8005\u517c\u6709\u3002\u4e0b\u65b9\u6bcf\u5f20\u5361\u7247\u4f1a\u8bf4\u660e\u8be5\u5408\u4f5c\u4f19\u4f34\u7684\u670d\u52a1\u5185\u5bb9\u3001\u670d\u52a1\u5730\u533a\u4ee5\u53ca\u8054\u7cfb\u65b9\u5f0f\u3002',
+        'deposit.partner.servicesIntro': '\u5408\u4f5c\u4f19\u4f34\u53ef\u63d0\u4f9b USDT \u76f4\u63a5\u51fa\u552e\u3001\u534f\u52a9\u6307\u5bfc\u8d2d\u4e70\uff0c\u6216\u4e24\u8005\u517c\u6709\u3002',
         'deposit.partner.service.direct': '\u76f4\u63a5\u51fa\u552e USDT',
         'deposit.partner.service.guided': '\u6307\u5bfc\u8d2d\u4e70',
         'deposit.partner.worldwide': '\u670d\u52a1\u5168\u7403\u5ba2\u6237',
         'deposit.partner.serves': '\u670d\u52a1\u5730\u533a',
         'deposit.partner.methodsDepend': '\u4ed8\u6b3e\u65b9\u5f0f\u53d6\u51b3\u4e8e\u60a8\u4f7f\u7528\u7684\u5916\u90e8\u670d\u52a1\u3002',
         'deposit.partner.back': '返回',
-        'deposit.partner.empty': '目前没有已认证合作伙伴。你仍然可以直接充值加密货币。',
-        'deposit.partner.supportCta': '联系客服',
         'deposit.partner.verified': '已认证合作伙伴',
         'deposit.partner.chat': '在 Telegram 聊天',
         'deposit.partner.countries': '服务国家',
         'deposit.partner.methods': '支付方式',
-        'deposit.partner.refTitle': '你的入金参考号',
-        'deposit.partner.refNone': '尚未创建',
-        'deposit.partner.refHint': '在入金表单中生成付款，即可获得参考号、金额和地址并与合作伙伴分享。',
+        'deposit.partner.refTitle': '\u5982\u4f55\u4e3a\u8d26\u6237\u5145\u503c',
+        'deposit.partner.refHint': '\u6253\u5f00\u201c\u5b58\u5165\u8d44\u91d1\u201d\u5e76\u751f\u6210\u60a8\u7684 USDT (TRC20) \u5165\u91d1\u5730\u5740\u3002\u5982\u9700\u5e2e\u52a9\u4e3a\u8d26\u6237\u5145\u503c\uff0c\u8bf7\u5c06\u8be5\u5730\u5740\u5206\u4eab\u7ed9\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.partner.refReady': '请将此参考号连同付款页面上的确切 {{asset}}（{{network}}）地址和金额一起分享给合作伙伴。',
         'deposit.partner.refCopied': '已复制入金参考号',
         'deposit.partner.copyRef': '复制参考号',
         'deposit.partner.safety.title': '注意安全',
-        'deposit.partner.safety.1': '只联系此处列出的合作伙伴，并在联系前核对 Telegram 用户名。',
-        'deposit.partner.safety.2': '切勿分享密码、一次性验证码（OTP）或钱包私钥。',
-        'deposit.partner.safety.3': '转账前请确认资产、网络和收款地址。',
-        'deposit.partner.safety.4': '合作伙伴可以协助你获取加密货币，但不能为你的 Arbitrix 账户添加资金。',
-        'deposit.partner.safety.5': '只有在 Arbitrix 核实到账转账后，你的余额才会入账。',
-        'deposit.partner.safety.6': '如果转账延迟，请联系 Arbitrix 客服。',
-        'deposit.partner.disclaimer': '已认证合作伙伴标识表示 Arbitrix 已对该合作伙伴进行内部审核。它不构成任何交易的担保，也不代表监管牌照。',
+        'deposit.partner.safety.1': '\u8bf7\u8054\u7cfb\u6b63\u786e\u7684 Telegram \u5408\u4f5c\u4f19\u4f34\u5e76\u6838\u5bf9\u7528\u6237\u540d\u3002',
+        'deposit.partner.safety.2': '\u8bf7\u52ff\u5206\u4eab\u5bc6\u7801\u3001OTP \u6216\u94b1\u5305\u79c1\u94a5\u3002',
+        'deposit.partner.safety.3': '\u53d1\u9001\u8d44\u91d1\u524d\u8bf7\u6838\u5bf9 USDT \u7f51\u7edc\u548c\u5730\u5740\u3002\u53ea\u6709\u5728 Arbitrix \u9a8c\u8bc1\u8be5\u7b14\u8f6c\u8d26\u540e\uff0c\u60a8\u7684\u8d26\u6237\u624d\u4f1a\u5165\u8d26\u3002',
         'admin.tab.partners': '合作伙伴',
         'admin.partner.help': '显示在入金页面的已认证真人合作伙伴。只有同时启用且已认证的合作伙伴才对客户可见。合作伙伴永远不能为账户入账。',
         'admin.partner.addTitle': '添加合作伙伴',
@@ -19672,8 +19605,6 @@ function updatePaymentPartnerLinks() {
             el.style.display = 'none';
         }
     }
-    const note = document.getElementById('depositPaymentPartnerNote');
-    if (note) note.style.display = url ? 'block' : 'none';
     const fallback = document.getElementById('paymentSupportFallbackBtn');
     if (fallback) fallback.style.display = url ? 'none' : 'inline-flex';
 }
@@ -22445,17 +22376,16 @@ function selectDepositOption(which) {
 
 function renderDepositPartners(partners) {
   const listEl = document.getElementById('depositPartnerList');
-  const emptyEl = document.getElementById('depositPartnerEmpty');
-  if (!listEl || !emptyEl) return;
+  if (!listEl) return;
   const rows = (Array.isArray(partners) ? partners : []).filter(function (p) {
     return p && typeof p.telegramUrl === 'string' && /^https:\/\/t\.me\/[A-Za-z0-9_]+$/.test(p.telegramUrl);
   });
   if (!rows.length) {
+    // No directory entries: render nothing. The payment-partner button above
+    // stays available, so the customer is never left without a route.
     listEl.innerHTML = '';
-    emptyEl.style.display = 'block';
     return;
   }
-  emptyEl.style.display = 'none';
   listEl.innerHTML = rows.map(function (p) {
     // Capabilities come from the server projection, never from a guess about
     // the partner: the card states exactly what the administrator recorded.
@@ -22516,10 +22446,13 @@ function updateDepositReferenceBox() {
   const crypto = depositOptionState.crypto || { asset: 'USDT', network: 'TRC20' };
   if (currentInvoiceId) {
     valueEl.textContent = String(currentInvoiceId);
+    valueEl.style.display = '';
     if (hintEl) hintEl.textContent = t('deposit.partner.refReady', { asset: crypto.asset, network: crypto.network });
     if (copyBtn) copyBtn.style.display = 'inline-flex';
   } else {
-    valueEl.textContent = t('deposit.partner.refNone');
+    // No deposit yet: show the how-to-fund guidance only, no placeholder value.
+    valueEl.textContent = '';
+    valueEl.style.display = 'none';
     if (hintEl) hintEl.textContent = t('deposit.partner.refHint');
     if (copyBtn) copyBtn.style.display = 'none';
   }

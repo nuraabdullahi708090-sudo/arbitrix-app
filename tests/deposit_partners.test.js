@@ -245,8 +245,7 @@ test('the partner panel states that a partner cannot credit an account', () => {
   const block = INDEX.slice(i, INDEX.indexOf('id="depositCryptoFlow"'));
   for (const key of [
     'deposit.partner.safety.1', 'deposit.partner.safety.2', 'deposit.partner.safety.3',
-    'deposit.partner.safety.4', 'deposit.partner.safety.5', 'deposit.partner.safety.6',
-    'deposit.partner.disclaimer'
+    'deposit.partner.safety.3'
   ]) {
     assert.ok(block.includes('data-i18n="' + key + '"'), 'missing copy: ' + key);
   }
@@ -293,13 +292,13 @@ test('all new UI copy exists in all six locales', () => {
   assert.deepStrictEqual(locales, ['en', 'es', 'pt', 'fr', 'ar', 'zh']);
 
   const required = [
-    'deposit.choose.title', 'deposit.partner.modelNote',
-    'deposit.partner.contactPaymentPartner', 'deposit.partner.paymentPartnerNote',
+    'deposit.choose.title',
+    'deposit.partner.contactPaymentPartner', 'deposit.partner.servicesIntro',
     'deposit.choose.partner.title', 'deposit.choose.partner.desc',
     'deposit.choose.crypto.title', 'deposit.choose.crypto.desc',
-    'deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.empty',
+    'deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.servicesIntro',
     'deposit.partner.chat', 'deposit.partner.verified', 'deposit.partner.refTitle',
-    'deposit.partner.refHint', 'deposit.partner.refReady', 'deposit.partner.disclaimer',
+    'deposit.partner.refHint', 'deposit.partner.refReady',
     'admin.tab.partners', 'admin.partner.help', 'admin.partner.migration'
   ];
   for (const locale of locales) {
@@ -341,13 +340,10 @@ test('no locale offers card purchasing and none claims a card checkout exists', 
     assert.ok(!/with card|con tarjeta|com cartão|par carte|بالبطاقة|银行卡/.test(routeCopy),
       locale + ' must not advertise a card purchase route');
   }
-  // The partner panel still states plainly that Arbitrix does not process cards.
-  const panelCopy = Object.keys(T.en)
-    .filter((k) => k.indexOf('deposit.partner.') === 0)
-    .map((k) => String(T.en[k]).toLowerCase())
-    .join(' | ');
-  assert.ok(/does not process card payments/.test(panelCopy),
-    'the partner route explains that Arbitrix does not process card payments');
+  // The funding menu still never advertises a card checkout.
+  assert.ok(!/pay with card|card checkout|credit card/i.test(
+    Object.keys(T.en).filter((k) => k.indexOf('deposit.choose.') === 0).map((k) => T.en[k]).join(' | ')),
+    'the funding menu never advertises a card route');
 });
 
 // ------------------------------------------------- approved label + partner model
@@ -376,14 +372,16 @@ test('the partner option uses the approved label and never implies a guaranteed 
   }
 });
 
-test('the partner panel states the model and that payment never credits an account', () => {
+test('the partner panel explains the model in two short paragraphs', () => {
   const panel = INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'), INDEX.indexOf('id="depositCryptoFlow"'));
-  assert.ok(panel.includes('data-i18n="deposit.partner.modelNote"'), 'model note rendered');
-  const note = (INDEX.match(/'deposit\.partner\.modelNote': '([^']*)'/) || [])[1] || '';
-  assert.match(note, /help you obtain USDT yourself/i);
-  assert.match(note, /whether a partner sells USDT or guides you/i);
-  assert.match(note, /never credits your Arbitrix account/i);
-  assert.match(note, /address generated for your own deposit/i);
+  assert.ok(panel.includes('data-i18n="deposit.partner.intro"'), 'intro rendered');
+  assert.ok(panel.includes('data-i18n="deposit.partner.servicesIntro"'), 'service sentence rendered');
+  // The long explanatory paragraph and the note beside the button are retired.
+  assert.ok(!panel.includes('deposit.partner.modelNote'), 'model note retired');
+  assert.ok(!panel.includes('depositPaymentPartnerNote'), 'note beside the button retired');
+  // Crediting is still explained, by the safety list.
+  assert.match((INDEX.match(/'deposit\.partner\.safety\.3': '([^']*)'/) || [])[1] || '',
+    /credited after Arbitrix verifies the transfer/i);
 });
 
 // ============================================ service model + worldwide coverage

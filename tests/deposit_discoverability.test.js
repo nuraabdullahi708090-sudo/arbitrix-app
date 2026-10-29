@@ -426,7 +426,7 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
     // external-purchase route was removed by product decision, so its link must
     // NOT come back.
     for (const id of ['depositOptions', 'depositOptionPartner', 'depositOptionCrypto',
-        'depositPartnerPanel', 'depositPartnerList', 'depositPartnerEmpty',
+        'depositPartnerPanel', 'depositPartnerList',
         'depositPaymentPartnerBtn', 'depositCryptoFlow']) {
         assert.ok(INDEX.indexOf('id="' + id + '"') > 0, id + ' must still exist');
     }
