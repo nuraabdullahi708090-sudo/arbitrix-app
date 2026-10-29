@@ -56,8 +56,16 @@ const EXPECTED_KEYS = 84;
 // non-empty transaction reference in the admin UI), and again for the
 // partner-funnel attribution fix (a 1-hour localStorage fallback + a
 // ?src=partners signal on the partner Apply CTAs; still additive: no
-// partner-page logic injected into the app shell).
-const INDEX_SHA256 = 'f8bbdeef1cba70add51a66b575f4041f2b92cce86b851b5c68254fc282d2654b';
+// partner-page logic injected into the app shell), and once more for the
+// deposit funding-options change (three routes + the verified-partner panel on
+// the Deposit page, which is a deliberately approved homepage edit; the pin
+// still fails if any FUTURE /partners work touches the homepage silently), and
+// once more for the deposit-discoverability change (an Available-card Deposit
+// action, a sticky deposit-dialog header, live-wallet wording and actionable
+// invoice errors), and again for the withdrawal-discoverability change (an
+// Available-card Withdraw action sharing that row). Each re-pin was an approved
+// homepage change, not /partners drift.
+const INDEX_SHA256 = '55b94751f3adfd4870350ebd3f9353d7ca2c4a551e68e1e724682c06e5fd6680';
 
 const PARTNER_HANDLE = '@Arbitrix_CSA1';
 const DEMO_FLOW_STEPS = [

@@ -7624,3 +7624,446 @@ was created and no Telegram write call was executed in this pass.
   with no jwt_token and warns when it lives inside the repo.
 - Not done: no publishing to public/video, no publisher unpause, no dry-run change,
   no real Telegram send, no Render worker claim.
+
+
+## Deposit funding options: verified human partner directory + card on-ramp switch (2026-10-29, NOT committed)
+- Frontend + server + ONE new migration + tests. NO change to deposit creation, address
+  generation, blockchain monitoring, status transitions, balance crediting, minimum
+  deposit ($100), KYC, withdrawals, trading/worker, subscription, referral or Telegram
+  logic. No deploy, no push, no migration applied, no provider integrated.
+- PART A audit (confirmed from code): customer clicks Deposit -> openDepositModal() ->
+  POST /api/payment/create-invoice (authenticated, provider createInvoice, USDT/TRC20) ->
+  showPaymentSection(invoice) starts polling GET /api/payment/status -> crediting happens
+  in Postgres only (credit_payment_safe / provider confirm_payment_with_credit, plus
+  confirm_legacy_deposit_safe for legacy rows) with an idempotency key, a wallet
+  FOR UPDATE lock, a post-lock double check and a `credited` marker. Minimum deposit is
+  PLATFORM_MIN_DEPOSIT_USD = 100 on the server and APP.MIN_DEPOSIT on the client.
+  A transfer is attributed to a customer by the per-invoice deposit ADDRESS, not by a
+  memo/reference the customer types.
+- NEW services/DepositPartners.js (pure, offline): normalizeTelegramUsername (@name,
+  name, t.me/x, https://t.me/x -> lowercase handle), telegramProfileUrl (links are BUILT
+  here, never taken from input), sanitizeDisplayName, sanitizeList, parseDisplayOrder,
+  isCustomerVisible (is_active AND is_verified), toPublicPartner/List (drops every
+  admin field, sorts by display_order).
+- NEW services/CardPayments.js: resolveCardPaymentConfig() returns
+  {enabled, provider, asset:'USDT', network:'TRC20', reason}. APPROVED_CARD_PROVIDERS is
+  EMPTY, so `CARD_PAYMENTS_ENABLED=true` alone can never surface a card option
+  (reason='provider-not-approved'). No key, no URL, no provider call in the module.
+- NEW supabase/migrations/045_deposit_partners.sql (additive, idempotent, self-checking,
+  NOT applied): public.deposit_partners (display_name, telegram_username with a CHECK
+  regex ^[a-z][a-z0-9_]{4,31}$, countries[], payment_methods[], is_active default false,
+  is_verified default false, display_order, timestamps), UNIQUE telegram_username, a
+  partial index for the visible rows, RLS ENABLED with a service_role-only policy, and
+  REVOKE from PUBLIC/anon/authenticated. The DO block raises (and rolls back) unless RLS
+  is on, the service_role policy exists, no anon/authenticated policy exists and no
+  anon/authenticated grant remains.
+- server.js (pure addition): GET /api/deposit/options (authMiddleware; card + ACTIVE+
+  VERIFIED partners + crypto config with minDeposit; Cache-Control no-store; read-only,
+  no invoice/RPC/provider; degrades to partnersAvailable:false when 045 is absent) and
+  the admin CRUD GET/POST/PUT/DELETE /api/admin/deposit-partners (authMiddleware +
+  adminMiddleware; the Telegram handle is re-validated server-side; a new partner is
+  created is_active=false/is_verified=false; 409 on a duplicate handle; 503 with
+  migrationRequired when 045 is absent).
+- public/index.html: a "Choose how to fund" block at the top of the deposit modal with
+  the three approved routes (Buy Crypto with Card ALWAYS rendered disabled with an
+  "unavailable" note; Get Help from a Verified Partner; I Already Have Crypto). The
+  existing crypto flow is wrapped in #depositCryptoFlow and is unchanged; the partner
+  panel (#depositPartnerPanel) shows only server-provided active+verified partners,
+  builds no address, reuses currentInvoiceId as the shareable deposit reference and
+  carries 6 safety statements + the "internally vetted, not a licence" disclaimer.
+  Hidden entirely for MARKETING_SANDBOX. 50 new i18n keys x6 locales
+  (1573 keys/locale; parity, placeholder and data-i18n refs verified).
+- Admin UI: a new "Partners" tab (9th) with an add form (name, username, countries,
+  methods, order, active, verified), inline active/verified toggles and delete. Every
+  action calls the admin routes; hiding the UI is not the control.
+- Tests: NEW tests/deposit_partners.test.js (22). Updated for the intentional change:
+  dictionary pins 1523 -> 1573 in 15 files (landing_testimonials BASE_OUTSIDE 1497 ->
+  1547), admin_nav_visibility (9 tabs, Partners last), trading_assets migration count
+  44 -> 45 (+ explicit 045 assertion), partners_page INDEX_SHA256 re-pinned (its own
+  comment allows a separately approved homepage change). npm test = 2666 tests, 2665
+  pass, 1 fail - the PRE-EXISTING how_it_works_video master-asset check (the approved
+  master lives only in the untracked build/ workspace, absent in this clone).
+- Browser verification (puppeteer-core + /usr/bin/chromium, stub API, local static
+  server) = 54/54: card route disabled, two of three stub partners rendered (a
+  javascript: row is dropped), every link https://t.me/<handle> with rel=noopener,
+  6 safety items, no reference before an invoice, no invoice POSTed by any option
+  interaction, language switch re-renders the JS-built cards, MARKETING_SANDBOX hides
+  the options and keeps the crypto flow, 0 horizontal overflow at 320/390, ar renders.
+- NOT DONE ON PURPOSE: no card provider integrated or enabled, no KYC/KYB bypass, no new
+  network, no partner payout/escrow/rating, no production migration, no deploy.
+
+- FOLLOW-UP (same session): the long-standing `tests/how_it_works_video.test.js`
+  failure ("served MP4 is a byte-identical copy of the approved master") was a
+  REPOSITORY defect, not an environment quirk: the approved master lives only in
+  the untracked `build/` workspace, so EVERY fresh clone failed. Fixed WITHOUT
+  committing generated media and WITHOUT weakening the assertion: the master's own
+  sha256 (b48c72ed...901a) and byte size (9243462) are now committed constants, and
+  when `build/` IS present the test still compares against the real file too. Final
+  suite: `npm test` = 2666 tests, 2666 pass, 0 fail (exit 0).
+
+
+## Deposit funding routes finalised: external wallet + verified partner + crypto (2026-10-29, NOT committed)
+- Supersedes the card-route slice of the previous note. Card-to-crypto merchant
+  integrations are POSTPONED (KYB/onboarding would delay launch), so the deposit menu
+  now offers three AVAILABLE routes and never advertises card purchasing.
+  Frontend + server comment + tests. No change to deposit creation, address
+  generation, confirmation, crediting, minimum deposit ($100), KYC, withdrawals,
+  trading, subscription, referral or Telegram code. No deploy, no push, no migration.
+- ROUTE 1 (new): "Buy Crypto with an External Wallet" (#depositOptionWallet +
+  #depositWalletPanel). Guidance only - a 4-step journey, the SERVER-generated
+  address mirrored read-only from #liveWalletAddress, copy/generate actions, and ONE
+  outward link. No embedded widget, no deep link, no partner of record. The
+  destination is configured in exactly one place: <meta name="arbitrix-buy-crypto">
+  (default https://trustwallet.com/download; window.ARBITRIX_BUY_CRYPTO_URL
+  overrides). resolveBuyCryptoUrl() accepts a plain https URL ONLY - javascript:,
+  http:, data:, spaces, bare handles and an empty value hide the button instead of
+  rendering a broken or unsafe destination. The panel makes NO request, creates NO
+  invoice, polls nothing and cannot credit anything; the copy states that a purchase
+  is not a deposit and that a receipt or screenshot is not proof of payment.
+- ROUTE 2 (existing, unchanged behaviour): verified human partner. Visibility is
+  active AND verified, links are built from a validated handle, 6 safety statements
+  and the "internally vetted, not a licence" disclaimer, empty state until real
+  partners exist. Migration 045 still has no seed rows.
+- ROUTE 3 (unchanged): the existing USDT/TRC20 flow inside #depositCryptoFlow,
+  including the network warning, server-side address generation and the
+  idempotent/row-locked crediting path.
+- CARD SCAFFOLDING RETAINED, UNREACHABLE: services/CardPayments.js keeps
+  APPROVED_CARD_PROVIDERS empty and is still wired into GET /api/deposit/options
+  (the field is documented as postponed). The customer UI no longer renders or reads
+  it, so a flag alone can never surface a card offer. Rationale for retaining:
+  the module is the switch an approved integration would need, has no network code,
+  and costs nothing at runtime; deleting it would only have to be rewritten.
+- i18n: 1573 -> 1586 keys/locale (removed the 4 retired deposit.choose.card.* keys,
+  added 17 deposit.choose.wallet.* + deposit.wallet.* keys x6 locales). Parity,
+  placeholder parity, 0 empty, 0 U+FFFD, all 8 inline script blocks parse.
+- Tests: NEW tests/deposit_wallet_option.test.js (11) and the card-route assertions
+  in tests/deposit_partners.test.js rewritten for the postponement (three available
+  routes, no card copy in any locale, scaffolding unreachable from the UI, the
+  wallet route cannot credit). Dictionary pins 1573 -> 1586 / 1547 -> 1560 across
+  15 files; partners_page INDEX_SHA256 re-pinned. npm test = 2677 tests, 2677 pass,
+  0 fail.
+- Browser verification (puppeteer-core + /usr/bin/chromium, stub API) = 76/76:
+  three options and no card option or card wording in the menu (en/es/ar), wallet
+  panel shows four steps + the https outward link with target=_blank and
+  rel=noopener noreferrer, no address before an invoice, the address mirrors the
+  server value once an invoice exists (copy shown, generate hidden), the partner
+  panel still renders only safe partners with t.me links, an unsafe destination
+  hides the link, MARKETING_SANDBOX hides the whole menu and keeps the crypto flow,
+  and no invoice was created by any interaction.
+- RESEARCH (recorded, no integration): Trust Wallet's official site states it is a
+  self-custody wallet supporting TRON among 100+ chains and offers "buy crypto with
+  your local currency", while its card + Apple Pay wording is US-specific - so
+  purchase availability in Nigeria/South Africa is NOT claimed anywhere in the UI.
+  MetaMask's docs advertise "Request access to EVM, Solana, and future ecosystems"
+  and its networks page names no TRON support (checked 2026-10-29, case-insensitive
+  scan: only 'strong' false positives), so it is not offered for TRC20. The earlier
+  "EVM-only" shorthand is out of date on MetaMask's side. Binance was left out pending an official statement on
+  Nigeria availability. Only category (A) plain external links are implemented;
+  no deep link (B) and no embedded widget (C).
+- MEDIA 404 GUARD (added the same session): a request for an unpublished
+  /video/<name>.mp4 used to fall through to the SPA fallback and answer
+  HTTP 200 + ~1.7 MB of HTML, so a status-code health check looked fine while
+  Telegram sendVideo would reject the body. server.js now has
+  `app.use('/video', (req,res)=>res.status(404).json({success:false,error:'Not found'}))`
+  between express.static and the SPA fallback. Verified on a local boot: missing
+  media 404 JSON, existing media 206 video/mp4, SPA routes still 200 HTML.
+  Pinned by a new test in tests/telegram_deposit_tutorial.test.js. This is the
+  check to run before ever setting TELEGRAM_DEPOSIT_TUTORIAL_URL.
+
+
+## Deposit funding menu finalised + provider research (2026-10-29, NOT committed)
+- Final customer-facing labels (used verbatim, all 6 locales, markup defaults and
+  dictionary agree): "Buy USDT with an External Service", "Buy from a Verified
+  Partner", "I Already Have Crypto". Menu offers exactly these three; card
+  purchasing remains absent from the customer UI.
+- OPTION A restructured around the required journey order: generate the Arbitrix
+  address FIRST (#depositWalletAddress + addressHint), then the 4 numbered steps,
+  then ONE outward link, then the provider-limitation note, then three
+  situation-specific instruction blocks (new to crypto / already use a wallet /
+  already hold USDT), then the safety notes.
+  * Default outward destination changed from the Trust Wallet download page to the
+    official USDT purchase page: <meta name="arbitrix-buy-crypto"
+    content="https://trustwallet.com/buy-crypto/usdt">. resolveBuyCryptoUrl() is
+    unchanged (https-only, hidden for anything else).
+  * New keys: deposit.wallet.addressHint, deposit.wallet.providersNote,
+    deposit.wallet.help.title/new/existing/hold/delivery,
+    deposit.partner.modelNote. Retired: deposit.wallet.anyWallet (superseded by
+    help.delivery). Dictionary 1586 -> 1593 keys/locale x6, parity clean.
+- OPTION B keeps the mandated label but the panel now states the model explicitly
+  (deposit.partner.modelNote): partners help you obtain USDT yourself, whether a
+  partner sells or guides depends on the partner, you send to the address
+  generated for YOUR deposit, and paying a partner never credits an account.
+  No partner records were created; migration 045 remains unapplied.
+- OPTION C (existing USDT/TRC20 flow) untouched; the network banner and
+  safetyWarning remain, and the $100 minimum is unchanged.
+- PROVIDER RESEARCH (verified 2026-10-29 from official pages; recorded, not
+  integrated - no account, no contact, no code):
+  * Trust Wallet https://trustwallet.com/buy-crypto/usdt - sells USDT with
+    card/mobile/bank via MoonPay, Simplex, Banxa, Mercuryo, Ramp, Transak;
+    "as little as $10 USD equivalent or less"; KYC handled by those partners;
+    card 2.5-4%, bank 0.5-1.5%; the purchase lands in the Trust Wallet YOU
+    control, so reaching Arbitrix is a SECOND step (send to the quoted address).
+  * MoonPay https://www.moonpay.com/buy/usdt - buy USDT on "Ethereum, Solana,
+    Binance Smart Chain, Polygon, Tron, and more", step 3 is "Enter your USDT
+    wallet address", TRC-20 listed at checkout, minimum $20, KYC tiers by limit.
+  * Transak https://transak.com/buy-usdt - "Select the chain onto which you want
+    to buy Tether" incl. a Tron section, and "Input your Tether-supported wallet
+    address". Its public fiat API lists 81 country codes and contains NEITHER NG
+    NOR ZA, so country availability is UNVERIFIED.
+  * Paybis https://paybis.com/buy-tether/ - "Buy to any external wallet", "Up to
+    $1000 without verification"; TRC20 and NG/ZA availability UNVERIFIED.
+  * NOT VERIFIED, therefore NOT claimed anywhere in the UI: Nigeria/South Africa
+    availability for any provider, and any guarantee that a provider delivers
+    straight to an Arbitrix address. The UI says availability/fees/minimums/KYC
+    are set by each service and differ by country, and that the customer must
+    confirm inside the service before buying.
+- Tutorial delivery unchanged and still gated by TELEGRAM_DEPOSIT_TUTORIAL_URL
+  (unset here). NEW verified constraint for enabling it later: the transport
+  sends sendVideo with a URL, and the official Bot API says sending by URL is
+  "5 MB max size for photos and 20 MB max for other types of content", while a
+  normal upload allows 50 MB; MP4 is the format Telegram clients play. So the
+  published file must be MP4/H.264 served directly over public HTTPS at <= 20 MB
+  (or the transport must be changed to upload the file for up to 50 MB).
+- Tests: dictionary pins 1586 -> 1593 / 1560 -> 1567; new assertions for the
+  verbatim labels, no country/availability claims in any locale, journey order
+  (address -> steps -> link), the three instruction blocks, the no-secrets rule
+  and the partner model note. npm test = 2685 tests, 2684 pass, 1 fail (the
+  partners_page homepage hash, re-pinned after the last edit).
+- Browser verification (local, stub API) = 127/127 across 390/320/es/ar/1280:
+  three options with the approved labels, no card wording, address block before
+  the steps and the link, 4 steps, 3 situation blocks, provider limitation text,
+  official USDT URL with target=_blank + rel=noopener, no address before an
+  invoice, address mirrors the server value afterwards (copy shown, generate
+  hidden), partner model note + only t.me links, unsafe destination hides the
+  link, 0 overflow, 0 raw keys, 0 invoices created.
+
+
+## Verified partner directory: service model + worldwide coverage (2026-10-29, NOT committed)
+- Partner records now describe WHAT a partner does and WHERE, instead of implying
+  everyone sells everywhere.
+- Schema (migration 045, still NOT applied, edited in place because it has never
+  run anywhere and it is written to be re-runnable):
+  * `services TEXT[]` - a subset of {direct_sale, guided_assistance} enforced by
+    the `deposit_partners_services_valid` CHECK; a partner may have BOTH.
+  * `serves_worldwide BOOLEAN` - TRUE means no country restriction and the
+    countries list is ignored.
+  * `countries TEXT[]` (existing) - coverage/limitation list, displayed verbatim
+    when not worldwide. Multiple countries are allowed; there is no single-country
+    restriction.
+  * `payment_methods` (existing) - now explicitly "methods accepted for a DIRECT
+    sale"; guided-only partners leave it empty.
+  * Both columns are added with ADD COLUMN IF NOT EXISTS, and the self-check block
+    asserts the columns and the constraint, so a partially applied migration still
+    rolls back.
+- VISIBILITY RULE (deliberate tightening, `isCustomerVisible`): active AND
+  verified AND at least one valid service AND disclosed coverage (worldwide OR a
+  non-empty country list). Rationale: with no service the card cannot say what
+  the partner does, and with no coverage statement the only honest reading would
+  be "unrestricted", which we must not claim. Existing test fixtures were updated
+  to carry services/coverage - the assertions themselves were not weakened.
+- Server: `/api/deposit/options` selects and returns the new fields; the admin
+  payload accepts `services` (array or comma string, case/space tolerant) and
+  `servesWorldwide`, REJECTS unknown services (`services`) and empty services
+  (`services-required`), and defaults `serves_worldwide:false` on create.
+- Public projection (`toPublicPartner`) adds `services`, `directSale`,
+  `guidedAssistance`, `servesWorldwide`, `paymentMethodsApplyToDirectSale`,
+  `paymentMethodsDependOnExternalService`, and drops `countries` when worldwide.
+  It still exposes no administrative field, and the t.me URL is still BUILT from
+  the validated handle.
+- Customer card: capability chips ("Direct USDT sale" gold / "Guided purchasing
+  assistance" blue), coverage line ("Serves customers worldwide" or "Serves: ..."),
+  payment methods only when they apply to a direct sale, and the explicit
+  "Payment methods depend on the external service you use." line whenever the
+  partner guides. A new `deposit.partner.servicesIntro` explains that partners may
+  sell, guide, or both before the cards render.
+- Admin: two service checkboxes (at least one required, enforced client-side
+  before the request AND server-side), a "Serves customers worldwide" checkbox
+  that disables/clears the country input, hints for countries and methods, and two
+  new table columns (Services, Coverage) which flag "No service set" in red.
+- i18n: 1593 -> 1609 keys/locale x6 (16 new: deposit.partner.servicesIntro /
+  service.direct / service.guided / worldwide / serves / methodsDepend + ten
+  admin.partner.* labels). Identical key sets, 0 empty, 0 duplicate keys,
+  0 placeholder issues; ar RTL intact.
+- Tests: tests/deposit_partners.test.js 24 -> 37 (direct / guided / both /
+  worldwide / multi-country limitations / payment-method handling / strict service
+  parsing / visibility / migration columns+CHECK / admin payload / card renderer /
+  admin form+table / "no money" scans over the partner module and routes /
+  6-locale key parity). Dictionary pins 1593 -> 1609 and 1567 -> 1583;
+  partners_page homepage hash re-pinned. npm test = 2698 tests, 2698 pass, 0 fail.
+- Browser verification (local, stub API) = 161/161 across 390/320/es/ar/1280:
+  three partner shapes render the right chips, coverage and method lines; guided
+  partners never show invented methods; worldwide is explicit; only t.me links
+  with rel="noopener noreferrer"; the six safety statements and the deposit
+  reference box are intact; the admin controls exist, worldwide disables the
+  country input, and creating a partner with no service makes NO request;
+  0 overflow, 0 raw keys, 0 invoices created, 0 page errors.
+- Still required before any partner can appear: apply migration 045, create the
+  record, have an administrator tick Verified + Active. No partner records were
+  created and nothing was applied or deployed.
+
+
+## Migration 045 hardening - sequence guard, exact-type assertions, scoped constraint (2026-10-29, NOT applied)
+- Three hardening changes only. No application, frontend, partner-behaviour or
+  financial code was touched in this pass; migration 045 remains UNAPPLIED and
+  nothing was committed, pushed, deployed or sent.
+- (A) SEQUENCE PRIVILEGES now mirror migration 039: a DO block checks
+  pg_class for `deposit_partners_id_seq` (relkind='S', schema public) and only
+  then EXECUTEs `REVOKE ALL ... FROM PUBLIC, anon, authenticated` and
+  `GRANT USAGE, SELECT ... TO service_role`. Previously a bare GRANT would abort
+  the whole migration when the table pre-existed with a different key design.
+  Verified: with the sequence absent the block runs as a silent no-op; with it
+  present, anon/authenticated hold NO sequence privilege and service_role does.
+- (B) SELF-CHECK is now exact: `services` must be `data_type='ARRAY'` AND
+  `udt_name='_text'` AND `is_nullable='NO'` AND a non-null default containing
+  '{}'; `serves_worldwide` must be `boolean`/`bool`, NOT NULL, default false.
+  Previously `data_type='ARRAY'` alone would also have accepted integer[]/uuid[]
+  (and ADD COLUMN IF NOT EXISTS would have silently kept a wrong-typed column).
+- (C) The constraint probe is scoped through pg_constraint -> pg_class ->
+  pg_namespace with `n.nspname='public'`, `t.relname='deposit_partners'`,
+  `c.contype='c'`, so a same-named constraint on another table cannot satisfy it.
+- (D) The services CHECK now also rejects NULL elements and duplicates:
+  `services <@ ARRAY[...] AND array_position(services, NULL) IS NULL AND
+  cardinality(services) = (present direct_sale) + (present guided_assistance)`.
+  Reason: a CHECK only fails on FALSE, and `services <@ ...` returns NULL when the
+  array holds NULL, so the subset predicate alone ACCEPTED `{direct_sale,NULL}`.
+  Duplicate detection uses the two-value domain (a DISTINCT subquery is illegal in
+  a CHECK). '{}' still passes (0 = 0) and stays schema-legal but invisible, and
+  direct_sale / guided_assistance / both all pass.
+- EMPIRICAL VERIFICATION on a throwaway Docker PostgreSQL 16 (container removed
+  afterwards; production never contacted):
+  * final bytes apply cleanly to an empty database and re-apply as a no-op;
+  * a row inserted before the re-apply survived unchanged (constraint rebuild did
+    not damage data);
+  * CHECK truth table: '{}' / direct / guided / both ACCEPTED; duplicate, NULL
+    element and unknown capability REJECTED by deposit_partners_services_valid;
+  * assertion B fires as designed: after deliberately drifting the column to
+    varchar[], the self-check raised "deposit_partners.services must be TEXT[]
+    NOT NULL DEFAULT '{}'";
+  * assertion C fires as designed: with a same-named constraint planted on an
+    unrelated table and the real one dropped, the self-check raised "...
+    constraint is missing from public.deposit_partners";
+  * a pre-existing `services TEXT` column now fails loudly with
+    "operator does not exist: text <@ text[]" (transaction rolls back) - the
+    documented ADD COLUMN IF NOT EXISTS caveat, demonstrated rather than assumed.
+- Two comment-only corrections so the docs match the enforced schema: the header
+  no longer calls services "non-empty" (empty is legal, just invisible) and the
+  COMMENT ON COLUMN states the no-NULL/no-duplicate rule.
+- Tests: tests/deposit_partners.test.js 37 -> 41 (guarded sequence + revoke list;
+  exact-type/nullability/default assertions; scoped constraint probe; NULL and
+  duplicate rejection with a JS mirror of the truth table). Two pre-existing
+  assertions were updated to the new, stricter self-check messages - not weakened.
+  npm test = 2702 tests, 2702 pass, 0 fail.
+- Remaining production assumptions (unchanged): the table/sequence do not already
+  exist, `anon`/`authenticated`/`service_role` exist, and the migration is applied
+  by a privileged role (Supabase SQL editor) so RLS/policy/grant DDL succeeds.
+
+## Deposit discoverability + mobile deposit dialog (2026-10-29, public/index.html + tests, frontend-only)
+- NEW audit finding: the only *visible* way into the deposit flow on a phone was the
+  off-canvas sidebar -> Deposit link (the drawer is closed on load), so a new customer
+  had to know to open a menu. The dialog's own header also scrolled out of view at
+  320px and the floating support launcher sat over its amount field.
+- What shipped (display/navigation only - NO deposit API, crediting, minimum, network,
+  partner or reconciliation change):
+  * `#availableDepositBtn` in the "Available" stat card -> `openDepositModal()`. Label
+    `stats.depositCta` (6 locales), icon + text, 44px tall, full card width. Shows for
+    every non-sandbox account (a funded user may legitimately want more).
+  * Onboarding now offers `onboardingDepositBtn` ("I want to fund my Live account")
+    next to Explore Demo / Review Live. It only opens the deposit dialog; no invoice,
+    no balance change, no forced mode switch.
+  * The first-deposit reminder is no longer gated on demo activity
+    (`DEMO_CTA_MIN_TRADES` removed): it is immediate, dismissible per account
+    (`arbi_firstdeposit_dismissed_<id>`), suppressed while a deposit is in flight, and
+    still rate limited to one raise per 10 minutes (so closing the dialog without paying
+    does not re-nag inside that window).
+  * `closeDepositModal()` now ALWAYS clears `depositInvoiceError`, so a stale
+    "Amount is below the $100 minimum"-style banner can never reappear on the next open.
+  * Deposit dialog: single scroll container with a STICKY header
+    (`#depositModal .deposit-modal-head{position:sticky;top:0}` + `min-height:0` on the
+    scroll area), explicit `scrollTop = 0` on open, title/amount focused with
+    `preventScroll`, and `.deposit-modal{z-index:10000}` so it sits above the support
+    launcher; the launcher is additionally hidden while the dialog is open
+    (`body:has(#depositModal.open) .support-widget{display:none}`).
+  * Live card retitled "Live Wallet" (`wallet.liveTitle`), balance row "Live Balance"
+    + `wallet.liveReal` explanation of what counts toward withdrawal, and the
+    unfunded status now reads "Live - Not funded yet" instead of "Pending Deposit"
+    (value of the existing `status.livePending` key; no key removed).
+  * Invoice failure box is actionable: a translated message from `DEPOSIT_ERROR_KEYS`
+    (`deposit.errMin`, `deposit.errNetwork`, `deposit.errUnavailable`, `deposit.errGeneric`),
+    a Retry button only when `create-invoice` failed, and a "Contact Support" button.
+    Only `data.code` / the HTTP status are inspected - raw server sentences are never
+    rendered.
+- NARROW-SCREEN DENSITY (needed for the action to be on the first screen): at
+  `max-width:379px` the stat grid stays 2 columns (was a tall single stack),
+  `.stats-grid .card-body{padding:8px 10px}` and `.stat-value{font-size:16px}`.
+  Measured: the Available action is fully visible at 320x700 in all 6 locales
+  (it was ~62px below the fold in es/pt with the old single-column stack).
+- Two helpers call `updateFirstDepositCta()` behind a `typeof === 'function'` guard so
+  existing unit harnesses that load `openDepositModal`/`closeDepositModal` in
+  isolation keep working (same pattern as `selectDepositOption`).
+- Tests: NEW `tests/deposit_discoverability.test.js` (19) - single entry point, no new
+  address/QR generation, single configurable outward link, error mapping, sticky
+  header, reduced-motion + sticky combination, narrow-grid contract, live-wallet
+  wording, i18n parity at 1620 keys x 6. `tests/demo_live_reminder.test.js` rewritten
+  for the immediate-prompt contract; `onboarding_funnel` / `deposit_demo_ux` harnesses
+  gained `appReady` + the three deposit-error helpers; dictionary pins 1609 -> 1620 in
+  the 17 files that pin the count; `partners_page` homepage hash re-pinned (its own
+  comment allows this for approved homepage edits).
+- Verification: `npm test` = 2735 pass / 0 fail. Headless Chromium (real page, stubbed
+  API) = 512/512 (6 locales x 320/360/390/412: action visible+44px+above the fold,
+  dialog opens at the top with the header pinned and the close button hittable, FAB
+  hidden, Escape closes, onboarding action opens the dialog, 0 overflow, 0 page
+  errors) + 312/312 stat-card clipping sweep (320/360/390/412 x 6 locales) +
+  25/25 scenario sweep (LIVE-mode dialog, `deposit/options` 500 fallback, funded
+  account).
+- NOT committed / NOT pushed / NOT deployed. Migration 045 (deposit partners) remains
+  UNAPPLIED; the partner panel fails safe and card payments stay disabled.
+
+## Withdrawal discoverability (2026-10-29, public/index.html + tests, UI-only)
+- AUDIT: the withdrawal interface had three entry points - the sidebar link
+  (`#withdrawSidebarLink`, off-canvas on mobile), a quick button inside the Live
+  Wallet card (`#withdrawLiveBtn`, far below the chart and hidden entirely in Demo
+  mode, where `#liveWalletSection` is display:none), and nothing at all on the
+  first screen. A phone user had to open the drawer (or scroll) to find it.
+- CHANGE (navigation only): `#availableWithdrawBtn` sits beside
+  `#availableDepositBtn` in the Available stat card, inside one shared
+  `.stat-actions` row, wired to the EXISTING `openWithdrawModal()`. Deposit stays
+  the primary (gold) action; Withdraw is the outlined secondary so the two are
+  never confused. The label reuses the existing `sidebar.withdraw` key (same word
+  as the nav item) - NO new i18n keys, dictionary stays 1620 x 6.
+- Responsive tiers (measured at 320/360/390/412/768/900/1024/1280 x 6 locales):
+  * <=430px and 1024-1150px: icons dropped + 11px labels so both words fit a
+    ~56-66px button without wrapping or clipping;
+  * 768-1023px (four-up stat grid, ~114px of card content): the row wraps and the
+    two actions stack full width (ample vertical room there);
+  * >=1151px: icons plus the normal 12px label.
+  Both buttons are always >=44px tall, never overlap, and never cause horizontal
+  page overflow. On a funded live account both are on the first screen at every
+  width (bottom 397-522px of a 700px viewport).
+- Display parity: `updateAvailableDepositButton()` now applies the same rule to
+  both ids, so MARKETING_SANDBOX still hides the pair and the recorder screens are
+  unchanged.
+- NOT touched (verified by diff): `openWithdrawModal` and everything it calls,
+  `submitWithdraw`, `submitWithdrawAPI`, the withdraw modal markup/inputs
+  (`#withdrawAmountInput`, `#withdrawAddressInput`), `MIN_WITHDRAWAL` (700), the
+  `/api/withdraw/*` endpoints, eligibility/security checks, statuses, schema and
+  the `withdrawals` table. The only withdrawal-related added lines are the CSS for
+  the new button, the button markup and the display-rule line.
+- Tests: NEW `tests/withdraw_discoverability.test.js` (11) - action present beside
+  Deposit, reuses `openWithdrawModal()` (defined once), no new flow/endpoint/state,
+  existing sidebar + live-wallet entry points and dialog ids intact, flex-row
+  layout contract (44px, min-width:0, no absolute positioning), compact/stacked
+  tiers, sandbox display parity (runtime vm), business-rule source pins, locale
+  parity of the shared label, keyboard reachability. Homepage hash re-pinned in
+  `tests/partners_page.test.js` (its own comment allows this).
+- Verification: `npm test` = 2746 pass / 0 fail. Headless Chromium (real page,
+  stubbed API only) = 756/756: 6 locales x 6 widths x 2 modes - the action exists,
+  is labelled, opens the EXISTING modal with its form for an eligible live user,
+  is topmost, keeps the KYC block hidden when approved, and in Demo mode still
+  produces the pre-existing "switch to Live" toast without opening anything.
+  Deposit UX re-verified at 512/512 (no regression).
+- PRE-EXISTING DEFECT FOUND, DELIBERATELY NOT FIXED (out of scope):
+  `APP.liveData.hasTradingActivity` is only set in-session when a trade executes
+  (index.html:21309) and is never hydrated from `/api/auth/me`. A returning user
+  who completed a trade in an earlier session is therefore told "Complete at least
+  1 trade before withdrawing" by the existing gate. Documented, not changed.
+- NOT committed / NOT pushed / NOT deployed; migration 045 remains unapplied.
