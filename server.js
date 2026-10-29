@@ -72,6 +72,12 @@ const { ENGINE_ASSETS: TRADING_ASSETS } = require('./services/tradingAssets');
 // Simulated, read-only arbitrage opportunities for the landing-page notification
 // card. Derived from the canonical registry above; moves no money.
 const { buildOpportunities: buildMarketOpportunities } = require('./services/MarketOpportunities');
+// Deposit-page funding options. `DepositPartners` validates/projects the
+// admin-curated verified-partner directory; `CardPayments` is the
+// disabled-by-default switch for card-to-crypto (no provider is approved yet).
+// Neither module moves money or reaches a payment provider.
+const depositPartners = require('./services/DepositPartners');
+const { resolveCardPaymentConfig } = require('./services/CardPayments');
 // TEMPORARY management test: platform-wide bot profit pause (see the module).
 const {
   resolveProfitPauseUsd,
@@ -4103,6 +4109,234 @@ app.get('/api/payment/history', authMiddleware, async (req, res) => {
       success: false, 
       error: 'Failed to get payment history' 
     });
+  }
+});
+
+/**
+ * Deposit funding options for the authenticated customer.
+ *
+ * Returns the three funding paths the Deposit page renders:
+ *   - card    : DISABLED unless an approved provider is configured (see
+ *               services/CardPayments.js). Never contains a key or a URL.
+ *   - partners: ACTIVE + VERIFIED human partners only, that also declare at
+ *               least one service (direct_sale / guided_assistance) and an
+ *               honest coverage (worldwide or an explicit country list).
+ *   - crypto  : the existing deposit flow (USDT / TRC20), unchanged.
+ *
+ * READ-ONLY: creates no invoice, credits nothing and never contacts a provider.
+ * A missing/unauthorised directory table degrades to an empty list so the
+ * deposit page keeps working before migration 045 is applied.
+ */
+app.get('/api/deposit/options', authMiddleware, async (req, res) => {
+  const cardConfig = resolveCardPaymentConfig();
+  let partners = [];
+  let partnersAvailable = true;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('deposit_partners')
+      .select('id, display_name, telegram_username, services, serves_worldwide, countries, payment_methods, is_active, is_verified, display_order')
+      .eq('is_active', true)
+      .eq('is_verified', true)
+      .order('display_order', { ascending: true });
+    if (error) throw error;
+    partners = depositPartners.toPublicPartnerList(data || []);
+  } catch (error) {
+    // Directory not migrated yet (or unreadable): keep the other options.
+    partnersAvailable = false;
+    console.warn('[deposit/options] partner directory unavailable:', error.message);
+  }
+
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    success: true,
+    // Card-to-crypto purchasing is POSTPONED. The field is kept so an approved
+    // integration can be switched on server-side later, but the customer UI no
+    // longer renders a card route at all, so this value can never advertise a
+    // feature that is not available.
+    card: {
+      enabled: cardConfig.enabled,
+      provider: cardConfig.provider,
+      asset: cardConfig.asset,
+      network: cardConfig.network,
+      reason: cardConfig.reason
+    },
+    partners,
+    partnersAvailable,
+    crypto: {
+      enabled: true,
+      asset: 'USDT',
+      network: 'TRC20',
+      minDeposit: PLATFORM_MIN_DEPOSIT_USD
+    }
+  });
+});
+
+// ---------- ADMIN: DEPOSIT PARTNER DIRECTORY ----------
+// Every route below is authMiddleware + adminMiddleware. Authorization is
+// enforced HERE (server-side); the admin UI merely reflects it. The database
+// additionally denies anon/authenticated entirely (migration 045).
+
+/**
+ * Normalize an admin payload into a partial partner row.
+ * @param {object} body
+ * @param {boolean} partial - true for PUT (only supplied fields are updated)
+ * @returns {{ok: boolean, values: object, errors: string[]}}
+ */
+function buildDepositPartnerPayload(body, partial) {
+  const source = body && typeof body === 'object' ? body : {};
+  const values = {};
+  const errors = [];
+  const has = (key) => Object.prototype.hasOwnProperty.call(source, key);
+
+  if (!partial || has('displayName')) {
+    const name = depositPartners.sanitizeDisplayName(source.displayName);
+    if (!name.ok) errors.push('display_name');
+    else values.display_name = name.value;
+  }
+
+  if (!partial || has('telegramUsername')) {
+    const handle = depositPartners.normalizeTelegramUsername(source.telegramUsername);
+    if (!handle.ok) errors.push('telegram_username');
+    else values.telegram_username = handle.username;
+  }
+
+  if (has('services') || !partial) {
+    // A partner must declare what they actually do. An unknown value is an
+    // error, never a silent drop: the customer card can only describe known
+    // capabilities.
+    const services = depositPartners.sanitizeServices(source.services);
+    if (!services.ok) errors.push('services');
+    else if (services.services.length === 0) errors.push('services-required');
+    else values.services = services.services;
+  }
+
+  if (has('servesWorldwide')) values.serves_worldwide = source.servesWorldwide === true;
+
+  if (has('countries')) {
+    const list = depositPartners.sanitizeList(source.countries);
+    if (!list.ok) errors.push('countries');
+    else values.countries = list.items;
+  }
+
+  if (has('paymentMethods')) {
+    const list = depositPartners.sanitizeList(source.paymentMethods);
+    if (!list.ok) errors.push('payment_methods');
+    else values.payment_methods = list.items;
+  }
+
+  if (has('displayOrder')) values.display_order = depositPartners.parseDisplayOrder(source.displayOrder);
+  if (has('isActive')) values.is_active = source.isActive === true;
+  if (has('isVerified')) values.is_verified = source.isVerified === true;
+
+  if (partial && Object.keys(values).length === 0) errors.push('no-fields');
+
+  return { ok: errors.length === 0, values, errors };
+}
+
+app.get('/api/admin/deposit-partners', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('deposit_partners')
+      .select('*')
+      .order('display_order', { ascending: true })
+      .order('display_name', { ascending: true });
+    if (error) throw error;
+    // The customer-visibility badge is computed HERE, with the same helper the
+    // public listing uses, so the admin view can never contradict the server.
+    const partners = (data || []).map((row) => Object.assign({}, row, {
+      visibleToCustomers: depositPartners.isCustomerVisible(row)
+    }));
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, partners });
+  } catch (error) {
+    // Almost always: migration 045 not applied in this environment.
+    console.error('[admin/deposit-partners] read failed:', error.message);
+    res.status(503).json({
+      success: false,
+      error: 'Partner directory unavailable',
+      migrationRequired: '045_deposit_partners.sql'
+    });
+  }
+});
+
+app.post('/api/admin/deposit-partners', authMiddleware, adminMiddleware, async (req, res) => {
+  const payload = buildDepositPartnerPayload(req.body, false);
+  if (!payload.ok) {
+    return res.status(400).json({ success: false, error: 'Invalid partner details', fields: payload.errors });
+  }
+  // A new partner is never customer-visible until an administrator explicitly
+  // activates AND verifies it.
+  const row = Object.assign({
+    countries: [],
+    serves_worldwide: false,
+    payment_methods: [],
+    is_active: false,
+    is_verified: false,
+    display_order: 100,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }, payload.values);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('deposit_partners')
+      .insert(row)
+      .select('*')
+      .single();
+    if (error) throw error;
+    res.status(201).json({ success: true, partner: data });
+  } catch (error) {
+    const duplicate = error && (error.code === '23505' || /duplicate key/i.test(error.message || ''));
+    console.error('[admin/deposit-partners] create failed:', error.message);
+    res.status(duplicate ? 409 : 503).json({
+      success: false,
+      error: duplicate ? 'That Telegram username is already listed' : 'Partner directory unavailable'
+    });
+  }
+});
+
+app.put('/api/admin/deposit-partners/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid partner id' });
+  }
+  const payload = buildDepositPartnerPayload(req.body, true);
+  if (!payload.ok) {
+    return res.status(400).json({ success: false, error: 'Invalid partner details', fields: payload.errors });
+  }
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('deposit_partners')
+      .update(Object.assign({ updated_at: new Date().toISOString() }, payload.values))
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, error: 'Partner not found' });
+    res.json({ success: true, partner: data });
+  } catch (error) {
+    const missing = error && (error.code === 'PGRST116' || /no rows/i.test(error.message || ''));
+    const duplicate = error && (error.code === '23505' || /duplicate key/i.test(error.message || ''));
+    console.error('[admin/deposit-partners] update failed:', error.message);
+    res.status(missing ? 404 : (duplicate ? 409 : 503)).json({
+      success: false,
+      error: missing ? 'Partner not found'
+        : (duplicate ? 'That Telegram username is already listed' : 'Partner directory unavailable')
+    });
+  }
+});
+
+app.delete('/api/admin/deposit-partners/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid partner id' });
+  }
+  try {
+    const { error } = await supabaseAdmin.from('deposit_partners').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[admin/deposit-partners] delete failed:', error.message);
+    res.status(503).json({ success: false, error: 'Partner directory unavailable' });
   }
 });
 
@@ -10811,6 +11045,15 @@ app.get('/ref/:code', (req, res) => {
   } else {
     res.redirect('/');
   }
+});
+
+// Media assets must 404 when the file is missing. Without this, a request for an
+// unpublished /video/<name>.mp4 falls through to the SPA fallback and is answered
+// with HTTP 200 + 1.7 MB of HTML, which looks healthy to a status-code check while
+// still failing wherever the media is actually consumed (e.g. Telegram sendVideo).
+// express.static above has already served every file that exists.
+app.use('/video', (req, res) => {
+  res.status(404).json({ success: false, error: 'Not found' });
 });
 
 // Fallback – uses app.use, which does NOT cause the PathError

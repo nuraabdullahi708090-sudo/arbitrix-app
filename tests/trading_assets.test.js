@@ -207,10 +207,10 @@ test('no new environment variable or migration was added for assets', () => {
   // 040 the conversion-events outbox and 041 the atomic legacy deposit credit.
   // 042 records the deposit-credit audit marker and 043 adds the marketing
   // claim lease (see docs/TELEGRAM_RECOVERY_AUDIT.md, sections 17 and 19).
-  // 044 adds the marketing worker heartbeat columns. The asset universe itself
-  // is display metadata and needs no schema change, which the next assertions
-  // still prove.
-  assert.strictEqual(migrations.length, 44, 'only approved migrations may be added');
+  // 044 adds the marketing worker heartbeat columns and 045 the deposit partner
+  // directory. The asset universe itself is display metadata and needs no
+  // schema change, which the next assertions still prove.
+  assert.strictEqual(migrations.length, 45, 'only approved migrations may be added');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');
@@ -218,6 +218,7 @@ test('no new environment variable or migration was added for assets', () => {
   assert.ok(migrations.includes('042_confirm_payment_credit_marker.sql'), '042 is the credit-marker fix');
   assert.ok(migrations.includes('043_marketing_claim_lease.sql'), '043 is the marketing claim lease');
   assert.ok(migrations.includes('044_marketing_worker_heartbeat.sql'), '044 is the worker heartbeat');
+  assert.ok(migrations.includes('045_deposit_partners.sql'), '045 is the deposit partner directory');
   assert.ok(!migrations.some((f) => /trading.?assets?/i.test(f)), 'no asset-allow-list migration should exist');
 });
 
