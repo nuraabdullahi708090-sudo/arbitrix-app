@@ -298,6 +298,17 @@ test('with AI off the standard acknowledgement is unchanged and no video is sent
   assert.strictEqual(transport.calls.filter((c) => c.method === 'sendMessage').length, 1);
 });
 
+test('the draft video is not published and no production URL is configured', () => {
+  const publicVideo = path.join(ROOT, 'public', 'video');
+  const assets = fs.readdirSync(publicVideo);
+  assert.strictEqual(
+    assets.filter((f) => f.indexOf('deposit-tutorial') !== -1).length, 0,
+    'the draft must not be copied into public/video'
+  );
+  assert.ok(!/TELEGRAM_DEPOSIT_TUTORIAL_URL\s*=\s*\S/.test(ENV_EXAMPLE.replace(/^#.*$/gm, '')),
+    'the example env must not enable the gate');
+});
+
 test('the localized caption exists in every supported language and makes no claims', () => {
   for (const language of TELEGRAM_LANGUAGES) {
     const caption = getCustomerString(language, 'tutorialCaption');

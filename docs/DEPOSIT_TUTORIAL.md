@@ -31,47 +31,63 @@ payment" badge, invoice `DEMO-INVOICE-0001`, address
 `TDEMONSTRATIONONLYDONOTSEND...`, and `build.js` prints
 `recording mode: stub, disclosure badge: YES`.
 
-## What is needed to finish it
+## Administrator: create the sandbox account (step 1 of 2)
 
-1. A **MARKETING_SANDBOX** account on the target environment. It can only be
-   created by an administrator (`POST /api/admin/sandbox/accounts`); public
-   registration always produces a PRODUCTION account.
-2. A **saved browser session** for that account: cookies + `localStorage` for the
-   site, exported as JSON. No password and no service key is needed or accepted.
-3. The two commands:
+Sandbox accounts are admin-only. Public registration always produces a PRODUCTION
+account, so there is no other route and none should be invented.
 
 ```bash
-npm i --no-save puppeteer-core msedge-tts ffmpeg-static ffprobe-static
-node scripts/tutorial/record.js --live --url https://arbitrix.pro \
-     --storage-state ./sandbox-session.json --out build/video/deposit-tutorial-live
-node scripts/tutorial/build.js --out build/video/deposit-tutorial-live --share
+# <admin JWT> is an administrator session token. Pass it, never print it.
+curl -X POST https://arbitrix.pro/api/admin/sandbox/accounts \
+  -H "Authorization: Bearer <admin JWT>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Tutorial recording"}'
 ```
 
-In live mode the recorder stops at the payment screen, waits for the sandbox to
-credit on its own (30 s), and records the waiting state if it does not. It never
-submits a payment, never deposits funds and never touches production data. It
-creates at most one sandbox invoice, which is the step being demonstrated.
+Response (the password is shown ONCE - hand it to the operator over a secure
+channel, do not paste it into a ticket or a chat log):
 
-## Publishing (not done, needs approval)
+```json
+{ "success": true,
+  "account": { "id": 123, "name": "Tutorial recording",
+               "email": "marketing-demo+xxxx@sandbox.arbitrix.invalid",
+               "environment": "MARKETING_SANDBOX" },
+  "credentials": { "email": "...", "password": "..." } }
+```
 
-The repository keeps shipped videos in `public/video/` and commits them. Nothing
-was copied there and nothing was published. After review:
+Optional body fields: `email` (a fixed address instead of the generated one),
+`referralCode` (attribute the account to an existing sandbox partner).
+
+## What "genuine credit" means here (read before recording)
+
+A MARKETING_SANDBOX account is a real account row whose money is simulated: the
+deposit flow, the invoice, the status progression and the wallet credit are the
+**real application code** running against `sandbox_*` tables, with no blockchain
+payment behind them. So the recording must be:
+
+- **genuine** in the sense that it is the real UI, the real API and a real sandbox
+  credit event - not a mocked screen and not a hand-edited video; and
+- **labelled**, because no USDT was actually sent anywhere.
+
+Pass the disclosure so the video says so on screen:
 
 ```bash
-cp build/video/deposit-tutorial-live/arbitrix-deposit-tutorial-en.mp4 public/video/
+--disclosure "Sandbox demo account - simulated credit"
 ```
 
-## Getting the session file (precise checklist)
+Do not describe a sandbox credit as a real payment, and do not claim a deposit was
+made if the status never reaches `credited`.
 
-The recorder needs a MARKETING_SANDBOX account already logged in, exported as a
-Playwright/Puppeteer storage-state file. It does **not** need a password, an admin
-JWT or a service key.
+## Operator: export the browser session (step 2 of 2)
 
-1. An administrator creates the sandbox account (`POST /api/admin/sandbox/accounts`).
-   Public registration always produces a PRODUCTION account, so there is no other way.
-2. In that browser profile, log in to the target environment and confirm the
-   "PREVIEW" badge is visible (proof it is the sandbox account, not a customer).
-3. Open DevTools -> Console on `https://arbitrix.pro` and run:
+1. Log in to `https://arbitrix.pro` **as the sandbox account** in a private window.
+2. Confirm the **PREVIEW** badge is visible. That badge is the proof you are on a
+   sandbox account and not a customer account; if it is not there, stop.
+3. Export the session from DevTools -> Console (the app keeps its JWT in
+   `localStorage`; there is no httpOnly cookie to capture):
+
+`cookies: []` is correct for this app: the session lives in `localStorage`
+(`jwt_token`), not in an httpOnly cookie; adding cookies does no harm.
 
 ```js
 (() => {
@@ -85,14 +101,56 @@ JWT or a service key.
 })();
 ```
 
-4. Move the file **outside the repository** (e.g. `~/arbitrix-sandbox-session.json`)
-   and `chmod 600` it. It contains the account's login token, so treat it like a
-   password: never commit it, never paste it into a chat or an issue.
-5. Run the two commands above. The recorder refuses a file with no `jwt_token`
-   and warns if the file sits inside the repo.
+4. Move it **outside the repository** and lock it down:
+   `mv ~/Downloads/sandbox-session.json ~/arbitrix-sandbox-session.json && chmod 600 ~/arbitrix-sandbox-session.json`
+5. Record:
 
-`cookies: []` is correct for this app: the session lives in `localStorage`
-(`jwt_token`), not in an httpOnly cookie. Adding cookies does no harm.
+```bash
+npm i --no-save puppeteer-core msedge-tts ffmpeg-static ffprobe-static
+node scripts/tutorial/record.js --live --url https://arbitrix.pro \
+     --storage-state ~/arbitrix-sandbox-session.json \
+     --disclosure "Sandbox demo account - simulated credit" \
+     --out build/video/deposit-tutorial-live
+node scripts/tutorial/build.js --out build/video/deposit-tutorial-live --share
+```
+
+The recorder refuses a state file with no `jwt_token` (it would otherwise shoot
+the login page) and warns if the file sits inside the repo. `.gitignore` already
+blocks `sandbox-session*.json` / `storage-state*.json`.
+
+In live mode it creates at most one sandbox invoice - the step being demonstrated -
+then waits up to 30 s for the sandbox to credit on its own and records the waiting
+state if it does not. It never submits a payment, never funds anything and never
+touches a production account.
+
+## Session hygiene (after the recording)
+
+- The file is a login credential: treat it like a password. Never commit, paste,
+  screenshot or attach it.
+- Delete it once the recording is done: `rm -f ~/arbitrix-sandbox-session.json`.
+- Log the sandbox account out (or change its password) so the exported token stops
+  working, then reset the sandbox account before the next recording.
+- Never export a customer's session, and never use a real user's account.
+
+## What the finished video must show (review checklist)
+
+1. Dashboard in Demo Mode, then the switch to Live Mode.
+2. The deposit window with the minimum deposit visible.
+3. The amount typed, then the generated payment screen.
+4. The address / QR / exact amount instructions exactly as the app renders them.
+5. The status moving to **credited** for **that** invoice, on camera.
+6. The Live balance matching the deposited amount afterwards.
+7. The support screen as the last scene.
+8. The disclosure on screen for the whole video.
+
+## Publishing (not done, needs approval)
+
+The repository keeps shipped videos in `public/video/` and commits them. Nothing
+was copied there and nothing was published. After review:
+
+```bash
+cp build/video/deposit-tutorial-live/arbitrix-deposit-tutorial-en.mp4 public/video/
+```
 
 ## Telegram integration (implemented, DISABLED by default)
 
