@@ -21,20 +21,6 @@
          link and show the in-app support guidance instead. Public link only -
          never put tokens, secrets, or credentials here. -->
     <meta name="arbitrix-support-telegram" content="https://t.me/ArbitrixSupportBot">
-    <!-- Option 1 destination: ONE configurable outward link to an external
-         service that sells USDT. Empty (the current state) or non-https content
-         hides the button entirely while the route stays usable through its
-         instructions - no broken, invented or unverified destination is shown.
-         WHY EMPTY: checked 2026-10-29 against the formerly linked vendor's own
-         "buy USDT" page. It states that third-party providers handle KYC and
-         payment, and that "the USDT is sent directly to the address you control"
-         (i.e. the purchase lands in that provider's wallet), and it names NO
-         network at all - zero mentions of TRC20/TRON in the purchase flow. Since
-         Arbitrix credits USDT on TRON (TRC20) only, recommending it by default
-         could leave a beginner holding USDT on another network. Set this value
-         only after confirming, for that exact destination, that the customer can
-         obtain USDT on TRON (TRC20) and send it to an address they supply. -->
-    <meta name="arbitrix-buy-crypto" content="">
     <!-- Referral Partner support/manager contact. Set the Telegram username
          here (e.g. @ArbitrixPartners) or a full https://t.me/... URL, or via
          window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL. This is the SINGLE source
@@ -1336,6 +1322,15 @@
         /* Mobile Bottom Sheet Modals */
         /* Deposit funding options (three routes) + verified partner cards */
         .deposit-option-list{display:flex;flex-direction:column;gap:8px;}
+        /* Payment partner vs. official support: two equal actions that stack on
+           narrow screens instead of squeezing their labels. */
+        .payment-help-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+        .payment-help-actions > *{flex:1 1 150px;min-width:0;}
+        .deposit-payment-partner{display:block;width:100%;text-align:center;min-height:44px;}
+        @media (max-width:420px){
+            .payment-help-actions{flex-direction:column;}
+            .payment-help-actions > *{width:100%;}
+        }
         .deposit-option{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:start;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:12px;cursor:pointer;color:inherit;font:inherit;min-width:0;}
         .deposit-option:hover{border-color:var(--border-hover);}
         .deposit-option.is-selected{border-color:#F0B90B;box-shadow:0 0 0 1px rgba(240,185,11,0.35) inset;}
@@ -7614,21 +7609,17 @@ function toggleFaq(btn) {
         </div>
       </div>
 
-      <!-- FUNDING OPTIONS: three available routes. Card-to-crypto purchasing is
-           POSTPONED and is deliberately absent from this menu, so the interface
-           never advertises a feature that cannot be used. Selecting a route is
-           display-only: it never creates an invoice and never credits a balance.
-           Hidden entirely for MARKETING_SANDBOX accounts. -->
+      <!-- FUNDING OPTIONS: exactly two routes.
+             1) Buy from a Verified Partner - a human partner helps the customer
+                obtain USDT (contact only; a partner can never credit a balance).
+             2) I Already Have Crypto - the direct USDT (TRC20) deposit form.
+           There is deliberately NO external purchase / card route: no provider
+           is approved, so none is advertised. Selecting a route is display-only:
+           it never creates an invoice and never credits a balance. Hidden
+           entirely for MARKETING_SANDBOX accounts. -->
       <div id="depositOptions" style="margin:16px 0;">
         <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;" data-i18n="deposit.choose.title">Choose how to fund</div>
         <div class="deposit-option-list">
-          <button type="button" id="depositOptionWallet" class="deposit-option" onclick="selectDepositOption('wallet')">
-            <span class="deposit-option-icon"><i class="fas fa-arrow-up-right-from-square"></i></span>
-            <span class="deposit-option-body">
-              <span class="deposit-option-title" data-i18n="deposit.choose.wallet.title">Buy USDT with an External Service</span>
-              <span class="deposit-option-desc" data-i18n="deposit.choose.wallet.desc">Buy USDT with a service such as Trust Wallet, then send it to your Arbitrix address.</span>
-            </span>
-          </button>
           <button type="button" id="depositOptionPartner" class="deposit-option" onclick="selectDepositOption('partner')">
             <span class="deposit-option-icon"><i class="fas fa-user-shield"></i></span>
             <span class="deposit-option-body">
@@ -7662,6 +7653,13 @@ function toggleFaq(btn) {
         <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.servicesIntro">Partners may offer direct USDT sales, guided purchasing assistance, or both. Each card below shows what that partner offers, where they serve customers, and how to reach them.</p>
         <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:10px;" data-i18n="deposit.partner.modelNote">Partners help you obtain USDT yourself. Whether a partner sells USDT or guides you through buying it depends on that partner. Either way you send the USDT to the Arbitrix address generated for your own deposit, and paying a partner never credits your Arbitrix account.</p>
 
+        <!-- Direct line to the configured PAYMENT partner (deposit questions,
+             payment follow-ups, transaction checks). Contact details only: the
+             partner cannot credit a balance or approve a deposit. Hidden when no
+             destination is configured, so a broken link is never rendered. -->
+        <a id="depositPaymentPartnerBtn" href="#" class="btn btn-primary js-payment-partner deposit-payment-partner" style="display:none;width:100%;text-align:center;margin:0 0 10px;padding:11px;font-size:12px;" target="_blank" rel="noopener noreferrer" data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</a>
+        <p id="depositPaymentPartnerNote" style="display:none;font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;" data-i18n="deposit.partner.paymentPartnerNote">Payment questions, deposit follow-ups and transaction checks: contact the Arbitrix Payment Partner.</p>
+
         <div id="depositPartnerList"></div>
         <div id="depositPartnerEmpty" style="display:none;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:8px;">
           <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.empty">No verified partners are listed right now. You can still deposit cryptocurrency directly.</p>
@@ -7691,80 +7689,6 @@ function toggleFaq(btn) {
           </ul>
         </div>
         <p class="deposit-partner-disclaimer" data-i18n="deposit.partner.disclaimer">The Verified Partner badge means Arbitrix has reviewed the partner internally. It is not a guarantee of any transaction and it is not a regulatory licence.</p>
-      </div>
-
-      <!-- EXTERNAL WALLET PANEL (Option 1). Guidance plus ONE outward link.
-           There is no embedded checkout and no deep link, and nothing here can
-           credit an account: a purchase inside a wallet only becomes a deposit
-           when the USDT reaches the Arbitrix address and the existing payment
-           pipeline verifies it. -->
-      <div id="depositWalletPanel" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 8px;">
-          <strong style="font-size:13px;color:#F0B90B;"><i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="deposit.wallet.title">Buy USDT with an External Service</span></strong>
-          <button type="button" onclick="selectDepositOption('crypto')" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;min-height:32px;">
-            <i class="fas fa-arrow-left"></i> <span data-i18n="deposit.partner.back">Back</span>
-          </button>
-        </div>
-        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.wallet.intro">Two steps: buy USDT with a service, then send it to the Arbitrix address generated here. Arbitrix does not process card payments itself.</p>
-
-        <!-- PROVIDER STATE. This route is a PURCHASE pathway, never the direct
-             deposit form: with no approved provider configured the panel says so
-             plainly, shows no link and does not fall back to the crypto flow.
-             The destination stays configurable in ONE place
-             (<meta name="arbitrix-buy-crypto"> or window.ARBITRIX_BUY_CRYPTO_URL). -->
-        <div id="depositWalletUnavailable" style="display:none;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:14px;margin:0 0 12px;">
-          <p style="font-size:12px;font-weight:700;color:#F0B90B;margin:0 0 6px;overflow-wrap:anywhere;"><i class="fas fa-clock"></i> <span data-i18n="deposit.wallet.unavailable.title">External purchase coming soon</span></p>
-          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0;" data-i18n="deposit.wallet.unavailable.body">Buying USDT with a card or a bank transfer through a third-party service is not available yet. Every provider sets its own payment methods, identity checks and supported countries, so this route is switched on only once a provider is confirmed for Arbitrix. Use one of the other options below in the meantime.</p>
-        </div>
-
-        <div id="depositWalletProviderReady" style="display:none;">
-          <a id="depositBuyCryptoLink" class="btn btn-primary" style="display:none;width:100%;text-align:center;margin:12px 0;padding:11px;font-size:12px;" href="#" target="_blank" rel="noopener noreferrer">
-            <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="deposit.wallet.open">Open the USDT purchase page</span>
-          </a>
-          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:0 0 10px;" data-i18n="deposit.wallet.providersNote">Availability, fees, minimums and identity checks are set by each service and differ by country. Confirm them inside the service, and make sure it supports USDT on the TRON (TRC20) network, before you buy.</p>
-        </div>
-
-        <!-- DESTINATION. Only relevant when the chosen service can send USDT to
-             an address the customer controls; the value always comes from the
-             server-generated invoice, never from the customer or a partner. -->
-        <div class="deposit-wallet-address">
-          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;overflow-wrap:anywhere;" data-i18n="deposit.wallet.destinationTitle">Use your Arbitrix address as the recipient</div>
-          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.wallet.destinationBody">Only use this address if the service explicitly supports sending USDT to an external wallet address. If it only delivers to a wallet the service hosts, buy there first and then send the USDT to this address on TRON (TRC20).</p>
-          <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="deposit.wallet.addressLabel">Your Arbitrix USDT (TRC20) address</div>
-          <div id="depositWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">-</div>
-          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;" data-i18n="deposit.wallet.addressHint">Generate this first. The address belongs to your own deposit.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-            <button type="button" id="depositWalletGenerateBtn" onclick="focusDepositAmount()" class="btn btn-secondary" style="flex:1;min-width:140px;padding:9px;font-size:11px;">
-              <i class="fas fa-qrcode"></i> <span data-i18n="deposit.wallet.generate">Generate my address</span>
-            </button>
-            <button type="button" id="depositWalletCopyBtn" onclick="copyWalletAddress()" class="btn btn-secondary" style="display:none;flex:1;min-width:140px;padding:9px;font-size:11px;">
-              <i class="fas fa-copy"></i> <span data-i18n="deposit.wallet.copy">Copy address</span>
-            </button>
-          </div>
-        </div>
-
-        <ol class="deposit-wallet-steps">
-          <li data-i18n="deposit.wallet.step1">Enter your amount and generate the deposit address in this page.</li>
-          <li data-i18n="deposit.wallet.step2">Open the external service and complete its identity checks.</li>
-          <li data-i18n="deposit.wallet.step3">Buy USDT. If the service asks which network, choose TRON (TRC20).</li>
-          <li data-i18n="deposit.wallet.step4">Send it to the exact address above, on the TRON (TRC20) network only.</li>
-        </ol>
-
-        <div class="deposit-wallet-help">
-          <p style="font-size:11px;font-weight:700;color:var(--text-primary);margin:0 0 6px;overflow-wrap:anywhere;" data-i18n="deposit.wallet.help.title">Which situation is yours?</p>
-          <ul>
-            <li data-i18n="deposit.wallet.help.new">New to crypto: install a wallet app or create an exchange account, complete its identity checks, then buy USDT.</li>
-            <li data-i18n="deposit.wallet.help.existing">You already use a wallet or exchange: skip setup, buy USDT there and send it here.</li>
-            <li data-i18n="deposit.wallet.help.hold">You already own USDT: skip buying, send it from your existing wallet on TRON (TRC20).</li>
-          </ul>
-          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;" data-i18n="deposit.wallet.help.delivery">Some services deliver USDT to a wallet they provide; others let you enter an external address at checkout. Either is fine - the transfer must be USDT on TRON (TRC20) to the address above.</p>
-        </div>
-
-        <div class="deposit-wallet-notes">
-          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 8px;" data-i18n="deposit.wallet.feesNote">On TRON the sender pays the network fee, so keep a little TRX in the sending wallet.</p>
-          <p style="font-size:11px;color:#EF4444;line-height:1.6;margin:0 0 8px;" data-i18n="deposit.wallet.notCredited">Buying crypto does not credit your Arbitrix account. Only USDT that arrives at your Arbitrix address is credited, and only after Arbitrix verifies it on-chain.</p>
-          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:0;" data-i18n="deposit.wallet.noProof">A receipt, screenshot or message from anyone is not proof of payment.</p>
-        </div>
       </div>
 
       <!-- THE EXISTING CRYPTO DEPOSIT FLOW (unchanged) -->
@@ -7968,9 +7892,12 @@ function toggleFaq(btn) {
           <i class="fas fa-copy"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
         </button>
         <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:6px;" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.</div>
-        <div id="paymentSupportHelpText" style="font-size:11px;color:var(--text-secondary);line-height:1.6;">Need help with your payment? Contact official Arbitrix Support.</div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button type="button" onclick="openSupportModal()" class="btn btn-primary" style="flex:1;min-width:150px;">
+        <div id="paymentSupportHelpText" style="font-size:11px;color:var(--text-secondary);line-height:1.6;">Need help with your payment? Contact the Arbitrix Payment Partner.</div>
+        <div class="payment-help-actions" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <a id="paymentPartnerBtn" href="#" class="btn btn-primary js-payment-partner" style="display:none;flex:1;min-width:150px;text-align:center;" target="_blank" rel="noopener noreferrer">
+            <i class="fas fa-handshake"></i> <span data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</span>
+          </a>
+          <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-primary" style="flex:1;min-width:150px;">
             <i class="fas fa-headset"></i> <span data-i18n="support.contactOfficial">Contact official Arbitrix Support</span>
           </button>
           <a href="#" class="btn btn-secondary js-official-telegram" style="display:none;flex:1;min-width:150px;text-align:center;" target="_blank" rel="noopener noreferrer" data-i18n="support.officialTelegram">Official Telegram Support</a>
@@ -9535,35 +9462,10 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Contact a verified partner who can help you obtain USDT for your deposit.',
         'deposit.choose.crypto.title': 'I Already Have Crypto',
         'deposit.choose.crypto.desc': 'Deposit USDT on TRON (TRC20) directly to your Arbitrix address.',
-        'deposit.choose.wallet.title': 'Buy USDT with an External Service',
-        'deposit.choose.wallet.desc': 'Buy USDT from an external service you trust, then send it to your Arbitrix address.',
-        'deposit.wallet.title': 'Buy USDT with an External Service',
-        'deposit.wallet.intro': 'Two steps: buy USDT with a service, then send it to the Arbitrix address generated here. Arbitrix does not process card payments itself.',
-        'deposit.wallet.unavailable.title': 'External purchase coming soon',
-        'deposit.wallet.unavailable.body': 'Buying USDT with a card or bank transfer through a third-party service is not available yet. Each provider sets its own payment methods, identity checks and supported countries, so this route is enabled only once a provider is confirmed for Arbitrix. The other options work today.',
-        'deposit.wallet.destinationTitle': 'Use your Arbitrix address as the recipient',
-        'deposit.wallet.destinationBody': 'Only use this address if the service explicitly supports sending USDT to an external wallet address. If it only delivers to a wallet the service hosts, buy there first, then send the USDT to this address on TRON (TRC20).',
-        'deposit.wallet.step1': 'Enter your amount and generate the deposit address in this page.',
-        'deposit.wallet.step2': 'Open the external service and complete its identity checks.',
-        'deposit.wallet.step3': 'Buy USDT. If the service asks which network, choose TRON (TRC20).',
-        'deposit.wallet.step4': 'Send it to the exact address above, on the TRON (TRC20) network only.',
-        'deposit.wallet.addressLabel': 'Your Arbitrix USDT (TRC20) address',
-        'deposit.wallet.addressNone': 'Generate your deposit address first',
-        'deposit.wallet.generate': 'Generate my address',
-        'deposit.wallet.copy': 'Copy address',
-        'deposit.wallet.addressHint': 'Generate this first. The address belongs to your own deposit.',
-        'deposit.wallet.providersNote': 'Availability, fees, minimums and identity checks are set by each service and differ by country. Confirm them inside the service, and make sure it supports USDT on the TRON (TRC20) network, before you buy.',
-        'deposit.wallet.help.title': 'Which situation is yours?',
-        'deposit.wallet.help.new': 'New to crypto: install a wallet app or create an exchange account, complete its identity checks, then buy USDT.',
-        'deposit.wallet.help.existing': 'You already use a wallet or exchange: skip setup, buy USDT there and send it here.',
-        'deposit.wallet.help.hold': 'You already own USDT: skip buying, send it from your existing wallet on TRON (TRC20).',
-        'deposit.wallet.help.delivery': 'Some services deliver USDT to a wallet they provide; others let you enter an external address at checkout. Either is fine - the transfer must be USDT on TRON (TRC20) to the address above.',
-        'deposit.wallet.open': 'Open the USDT purchase page',
-        'deposit.wallet.feesNote': 'On TRON the sender pays the network fee, so keep a little TRX in the sending wallet.',
-        'deposit.wallet.notCredited': 'Buying crypto does not credit your Arbitrix account. Only USDT that arrives at your Arbitrix address is credited, and only after Arbitrix verifies it on-chain.',
-        'deposit.wallet.noProof': 'A receipt, screenshot or message from anyone is not proof of payment.',
         'deposit.partner.title': 'Verified Partners',
-        'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency; they cannot add funds to your account.',
+        'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency; they cannot add funds to your account. Arbitrix does not process card payments itself.',
+        'deposit.partner.contactPaymentPartner': 'Contact Payment Partner',
+        'deposit.partner.paymentPartnerNote': 'Payment questions, deposit follow-ups and transaction checks: contact the Arbitrix Payment Partner.',
         'deposit.partner.modelNote': 'Partners help you obtain USDT yourself. Whether a partner sells USDT or guides you through buying it depends on that partner. Either way you send the USDT to the Arbitrix address generated for your own deposit, and paying a partner never credits your Arbitrix account.',
         'deposit.partner.servicesIntro': 'Partners may offer direct USDT sales, guided purchasing assistance, or both. Each card below shows what that partner offers, where they serve customers, and how to reach them.',
         'deposit.partner.service.direct': 'Direct USDT sale',
@@ -9887,9 +9789,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contact Support',
         'deposit.invoiceRef': 'Invoice Reference',
         'deposit.copyInvoiceRef': 'Copy invoice reference',
-        'support.paymentHelp.pending': 'Need help with your payment? Contact official Arbitrix Support and share only your invoice reference, payment amount, network, and transaction hash.',
-        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, contact official Arbitrix Support with your invoice reference and transaction hash.',
-        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or contact official Arbitrix Support with your invoice reference and transaction hash if funds left your wallet.',
+        'support.paymentHelp.pending': 'Need help with your payment? Contact the Payment Partner and share only your invoice reference, payment amount, network, and transaction hash.',
+        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, contact the Payment Partner with your invoice reference and transaction hash.',
+        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or contact the Payment Partner with your invoice reference and transaction hash.',
         'deposit.copyInvoiceRefSuccess': 'Invoice reference copied',
         'deposit.copyInvoiceRefFailed': 'Could not copy the invoice reference',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> earned <span class="ticker-amount green">+${{amount}}</span> on {{asset}}',
@@ -11180,35 +11082,10 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Contacta con un socio verificado que pueda ayudarte a obtener USDT para tu dep\u00f3sito.',
         'deposit.choose.crypto.title': 'Ya tengo criptomonedas',
         'deposit.choose.crypto.desc': 'Deposita USDT en TRON (TRC20) directamente en tu dirección de Arbitrix.',
-        'deposit.choose.wallet.title': 'Comprar USDT con un servicio externo',
-        'deposit.choose.wallet.desc': 'Compra USDT en un servicio externo de confianza y env\u00edalo a tu direcci\u00f3n de Arbitrix.',
-        'deposit.wallet.title': 'Comprar USDT con un servicio externo',
-        'deposit.wallet.intro': 'Dos pasos: compra USDT con un servicio y env\u00edalo a la direcci\u00f3n de Arbitrix generada aqu\u00ed. Arbitrix no procesa pagos con tarjeta.',
-        'deposit.wallet.unavailable.title': 'Compra externa pr\u00f3ximamente',
-        'deposit.wallet.unavailable.body': 'Comprar USDT con tarjeta o transferencia bancaria mediante un servicio externo a\u00fan no est\u00e1 disponible. Cada proveedor define sus m\u00e9todos de pago, verificaciones y pa\u00edses admitidos, as\u00ed que esta opci\u00f3n se activa solo cuando un proveedor est\u00e9 confirmado para Arbitrix. Las otras opciones funcionan hoy.',
-        'deposit.wallet.destinationTitle': 'Usa tu direcci\u00f3n de Arbitrix como destinatario',
-        'deposit.wallet.destinationBody': 'Usa esta direcci\u00f3n solo si el servicio admite expl\u00edcitamente enviar USDT a una direcci\u00f3n de cartera externa. Si solo entrega a una cartera del propio servicio, compra all\u00ed primero y luego env\u00eda el USDT a esta direcci\u00f3n en TRON (TRC20).',
-        'deposit.wallet.step1': 'Introduce el importe y genera la direcci\u00f3n de dep\u00f3sito en esta p\u00e1gina.',
-        'deposit.wallet.step2': 'Abre el servicio externo y completa sus verificaciones de identidad.',
-        'deposit.wallet.step3': 'Compra USDT. Si el servicio pregunta por la red, elige TRON (TRC20).',
-        'deposit.wallet.step4': 'Env\u00edalo a la direcci\u00f3n exacta de arriba, solo por la red TRON (TRC20).',
-        'deposit.wallet.addressLabel': 'Tu direcci\u00f3n USDT (TRC20) de Arbitrix',
-        'deposit.wallet.addressNone': 'Primero genera tu direcci\u00f3n de dep\u00f3sito',
-        'deposit.wallet.generate': 'Generar mi direcci\u00f3n',
-        'deposit.wallet.copy': 'Copiar direcci\u00f3n',
-        'deposit.wallet.addressHint': 'Genera esto primero. La direcci\u00f3n corresponde a tu propio dep\u00f3sito.',
-        'deposit.wallet.providersNote': 'La disponibilidad, las comisiones, los m\u00ednimos y las verificaciones las define cada servicio y var\u00edan seg\u00fan el pa\u00eds. Conf\u00edrmalos dentro del servicio y aseg\u00farate de que admite USDT en la red TRON (TRC20) antes de comprar.',
-        'deposit.wallet.help.title': '\u00bfCu\u00e1l es tu situaci\u00f3n?',
-        'deposit.wallet.help.new': 'Nuevo en cripto: instala una cartera o crea una cuenta en un exchange, completa sus verificaciones y luego compra USDT.',
-        'deposit.wallet.help.existing': 'Ya usas una cartera o un exchange: omite la configuraci\u00f3n, compra USDT all\u00ed y env\u00edalo aqu\u00ed.',
-        'deposit.wallet.help.hold': 'Ya tienes USDT: omite la compra y env\u00edalo desde tu cartera en TRON (TRC20).',
-        'deposit.wallet.help.delivery': 'Algunos servicios entregan el USDT en una cartera suya; otros permiten indicar una direcci\u00f3n externa al pagar. Ambos sirven: la transferencia debe ser USDT en TRON (TRC20) a la direcci\u00f3n de arriba.',
-        'deposit.wallet.open': 'Abrir la p\u00e1gina de compra de USDT',
-        'deposit.wallet.feesNote': 'En TRON la comisi\u00f3n de red la paga quien env\u00eda, as\u00ed que deja un poco de TRX en la billetera de origen.',
-        'deposit.wallet.notCredited': 'Comprar cripto no acredita tu cuenta de Arbitrix. Solo se acredita el USDT que llega a tu direcci\u00f3n de Arbitrix, y solo despu\u00e9s de que Arbitrix lo verifique en la cadena.',
-        'deposit.wallet.noProof': 'Un recibo, una captura de pantalla o un mensaje de cualquier persona no es prueba de pago.',
         'deposit.partner.title': 'Socios verificados',
-        'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas; no pueden añadir fondos a tu cuenta.',
+        'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas; no pueden añadir fondos a tu cuenta. Arbitrix no procesa pagos con tarjeta por s\u00ed misma.',
+        'deposit.partner.contactPaymentPartner': 'Contactar al socio de pagos',
+        'deposit.partner.paymentPartnerNote': 'Dudas sobre pagos, seguimiento de dep\u00f3sitos y comprobaciones de transacciones: contacta con el socio de pagos de Arbitrix.',
         'deposit.partner.modelNote': 'Los socios te ayudan a obtener USDT por tu cuenta. Que un socio venda USDT o te gu\u00ede para comprarlo depende de cada socio. En ambos casos env\u00edas el USDT a la direcci\u00f3n de Arbitrix generada para tu propio dep\u00f3sito, y pagar a un socio nunca acredita tu cuenta de Arbitrix.',
         'deposit.partner.servicesIntro': 'Los socios pueden ofrecer venta directa de USDT, asistencia guiada para comprar, o ambas. Cada tarjeta muestra qu\u00e9 ofrece ese socio, d\u00f3nde atiende y c\u00f3mo contactarlo.',
         'deposit.partner.service.direct': 'Venta directa de USDT',
@@ -11532,9 +11409,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contactar a soporte',
         'deposit.invoiceRef': 'Referencia de la factura',
         'deposit.copyInvoiceRef': 'Copiar referencia de la factura',
-        'support.paymentHelp.pending': '¿Necesitas ayuda con tu pago? Contacta al soporte oficial de Arbitrix y comparte solo tu referencia de factura, monto, red y hash de la transacción.',
-        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmación, contacta al soporte oficial de Arbitrix con tu referencia de factura y el hash de la transacción.',
-        'support.paymentHelp.failed': 'Esta factura expiró o fue cancelada y no se acreditó. Genera una nueva factura o contacta al soporte oficial de Arbitrix con tu referencia de factura y el hash de la transacción si los fondos salieron de tu cartera.',
+        'support.paymentHelp.pending': '\u00bfNecesitas ayuda con tu pago? Contacta con el socio de pagos y comparte solo tu referencia de factura, el monto, la red y el hash de la transacci\u00f3n.',
+        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmaci\u00f3n, contacta con el socio de pagos con tu referencia de factura y el hash de la transacci\u00f3n.',
+        'support.paymentHelp.failed': 'Esta factura expir\u00f3 o fue cancelada y no se acredit\u00f3. Genera una nueva factura o contacta con el socio de pagos con tu referencia de factura y el hash de la transacci\u00f3n.',
         'deposit.copyInvoiceRefSuccess': 'Referencia de la factura copiada',
         'deposit.copyInvoiceRefFailed': 'No se pudo copiar la referencia de la factura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganó <span class="ticker-amount green">+${{amount}}</span> en {{asset}}',
@@ -12826,35 +12703,10 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Fale com um parceiro verificado que possa ajudar voc\u00ea a obter USDT para o seu dep\u00f3sito.',
         'deposit.choose.crypto.title': 'Já tenho criptomoedas',
         'deposit.choose.crypto.desc': 'Deposite USDT na TRON (TRC20) diretamente no seu endereço da Arbitrix.',
-        'deposit.choose.wallet.title': 'Comprar USDT com um servi\u00e7o externo',
-        'deposit.choose.wallet.desc': 'Compre USDT em um servi\u00e7o externo de confian\u00e7a e envie para o seu endere\u00e7o da Arbitrix.',
-        'deposit.wallet.title': 'Comprar USDT com um servi\u00e7o externo',
-        'deposit.wallet.intro': 'Dois passos: compre USDT com um servi\u00e7o e envie para o endere\u00e7o da Arbitrix gerado aqui. A Arbitrix n\u00e3o processa pagamentos com cart\u00e3o.',
-        'deposit.wallet.unavailable.title': 'Compra externa em breve',
-        'deposit.wallet.unavailable.body': 'Comprar USDT com cart\u00e3o ou transfer\u00eancia banc\u00e1ria por um servi\u00e7o externo ainda n\u00e3o est\u00e1 dispon\u00edvel. Cada provedor define seus m\u00e9todos de pagamento, verifica\u00e7\u00f5es e pa\u00edses atendidos, por isso esta op\u00e7\u00e3o s\u00f3 \u00e9 ativada quando um provedor estiver confirmado para a Arbitrix. As outras op\u00e7\u00f5es funcionam hoje.',
-        'deposit.wallet.destinationTitle': 'Use o seu endere\u00e7o Arbitrix como destinat\u00e1rio',
-        'deposit.wallet.destinationBody': 'Use este endere\u00e7o apenas se o servi\u00e7o permitir explicitamente enviar USDT para uma carteira externa. Se ele entregar somente em uma carteira do pr\u00f3prio servi\u00e7o, compre l\u00e1 primeiro e depois envie o USDT para este endere\u00e7o na rede TRON (TRC20).',
-        'deposit.wallet.step1': 'Informe o valor e gere o endere\u00e7o de dep\u00f3sito nesta p\u00e1gina.',
-        'deposit.wallet.step2': 'Abra o servi\u00e7o externo e conclua as verifica\u00e7\u00f5es de identidade dele.',
-        'deposit.wallet.step3': 'Compre USDT. Se o servi\u00e7o perguntar a rede, escolha TRON (TRC20).',
-        'deposit.wallet.step4': 'Envie para o endere\u00e7o exato acima, apenas na rede TRON (TRC20).',
-        'deposit.wallet.addressLabel': 'Seu endere\u00e7o USDT (TRC20) da Arbitrix',
-        'deposit.wallet.addressNone': 'Gere primeiro o seu endere\u00e7o de dep\u00f3sito',
-        'deposit.wallet.generate': 'Gerar meu endere\u00e7o',
-        'deposit.wallet.copy': 'Copiar endere\u00e7o',
-        'deposit.wallet.addressHint': 'Gere isto primeiro. O endere\u00e7o pertence ao seu pr\u00f3prio dep\u00f3sito.',
-        'deposit.wallet.providersNote': 'Disponibilidade, taxas, m\u00ednimos e verifica\u00e7\u00f5es s\u00e3o definidos por cada servi\u00e7o e variam por pa\u00eds. Confirme dentro do servi\u00e7o e verifique se ele aceita USDT na rede TRON (TRC20) antes de comprar.',
-        'deposit.wallet.help.title': 'Qual \u00e9 a sua situa\u00e7\u00e3o?',
-        'deposit.wallet.help.new': 'Novo em cripto: instale uma carteira ou crie uma conta em uma exchange, conclua as verifica\u00e7\u00f5es e depois compre USDT.',
-        'deposit.wallet.help.existing': 'Voc\u00ea j\u00e1 usa uma carteira ou exchange: pule a configura\u00e7\u00e3o, compre USDT l\u00e1 e envie para c\u00e1.',
-        'deposit.wallet.help.hold': 'Voc\u00ea j\u00e1 tem USDT: pule a compra e envie da sua carteira na TRON (TRC20).',
-        'deposit.wallet.help.delivery': 'Alguns servi\u00e7os entregam o USDT em uma carteira deles; outros permitem informar um endere\u00e7o externo no checkout. Os dois servem: a transfer\u00eancia deve ser USDT na TRON (TRC20) para o endere\u00e7o acima.',
-        'deposit.wallet.open': 'Abrir a p\u00e1gina de compra de USDT',
-        'deposit.wallet.feesNote': 'Na TRON a taxa de rede \u00e9 paga por quem envia, ent\u00e3o mantenha um pouco de TRX na carteira de origem.',
-        'deposit.wallet.notCredited': 'Comprar cripto n\u00e3o credita a sua conta da Arbitrix. Apenas o USDT que chega ao seu endere\u00e7o da Arbitrix \u00e9 creditado, e s\u00f3 depois que a Arbitrix o verifica na rede.',
-        'deposit.wallet.noProof': 'Um recibo, uma captura de tela ou uma mensagem de qualquer pessoa n\u00e3o \u00e9 prova de pagamento.',
         'deposit.partner.title': 'Parceiros verificados',
-        'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam você a obter criptomoedas; eles não podem adicionar fundos à sua conta.',
+        'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam você a obter criptomoedas; eles não podem adicionar fundos à sua conta. A Arbitrix n\u00e3o processa pagamentos com cart\u00e3o por conta pr\u00f3pria.',
+        'deposit.partner.contactPaymentPartner': 'Falar com o parceiro de pagamentos',
+        'deposit.partner.paymentPartnerNote': 'D\u00favidas sobre pagamentos, acompanhamento de dep\u00f3sitos e verifica\u00e7\u00f5es de transa\u00e7\u00f5es: fale com o parceiro de pagamentos da Arbitrix.',
         'deposit.partner.modelNote': 'Os parceiros ajudam voc\u00ea a obter USDT por conta pr\u00f3pria. Se um parceiro vende USDT ou orienta a compra depende de cada parceiro. De qualquer forma, voc\u00ea envia o USDT para o endere\u00e7o da Arbitrix gerado para o seu pr\u00f3prio dep\u00f3sito, e pagar a um parceiro nunca credita a sua conta na Arbitrix.',
         'deposit.partner.servicesIntro': 'Os parceiros podem oferecer venda direta de USDT, assist\u00eancia guiada para comprar, ou ambos. Cada cart\u00e3o mostra o que aquele parceiro oferece, onde atende e como falar com ele.',
         'deposit.partner.service.direct': 'Venda direta de USDT',
@@ -13178,9 +13030,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Falar com o suporte',
         'deposit.invoiceRef': 'Referência da fatura',
         'deposit.copyInvoiceRef': 'Copiar referência da fatura',
-        'support.paymentHelp.pending': 'Precisa de ajuda com seu pagamento? Fale com o suporte oficial da Arbitrix e compartilhe apenas a referência da fatura, o valor, a rede e o hash da transação.',
-        'support.paymentHelp.detected': 'Pagamento detectado. Se não for creditado após a confirmação, fale com o suporte oficial da Arbitrix com a referência da fatura e o hash da transação.',
-        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e não foi creditada. Gere uma nova fatura ou fale com o suporte oficial da Arbitrix com a referência da fatura e o hash da transação se os fundos saíram da sua carteira.',
+        'support.paymentHelp.pending': 'Precisa de ajuda com o pagamento? Fale com o parceiro de pagamentos e compartilhe apenas a refer\u00eancia da fatura, o valor, a rede e o hash da transa\u00e7\u00e3o.',
+        'support.paymentHelp.detected': 'Pagamento detectado. Se n\u00e3o for creditado ap\u00f3s a confirma\u00e7\u00e3o, fale com o parceiro de pagamentos com a refer\u00eancia da fatura e o hash da transa\u00e7\u00e3o.',
+        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e n\u00e3o foi creditada. Gere uma nova fatura ou fale com o parceiro de pagamentos com a refer\u00eancia da fatura e o hash da transa\u00e7\u00e3o.',
         'deposit.copyInvoiceRefSuccess': 'Referência da fatura copiada',
         'deposit.copyInvoiceRefFailed': 'Não foi possível copiar a referência da fatura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganhou <span class="ticker-amount green">+${{amount}}</span> em {{asset}}',
@@ -14472,35 +14324,10 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': 'Contactez un partenaire v\u00e9rifi\u00e9 qui peut vous aider \u00e0 obtenir de l\u2019USDT pour votre d\u00e9p\u00f4t.',
         'deposit.choose.crypto.title': 'J’ai déjà de la crypto',
         'deposit.choose.crypto.desc': 'Déposez de l’USDT sur TRON (TRC20) directement sur votre adresse Arbitrix.',
-        'deposit.choose.wallet.title': 'Acheter de l\u2019USDT avec un service externe',
-        'deposit.choose.wallet.desc': 'Achetez de l\u2019USDT aupr\u00e8s d\u2019un service externe de confiance, puis envoyez-le \u00e0 votre adresse Arbitrix.',
-        'deposit.wallet.title': 'Acheter de l\u2019USDT avec un service externe',
-        'deposit.wallet.intro': 'Deux \u00e9tapes : achetez de l\u2019USDT avec un service, puis envoyez-le \u00e0 l\u2019adresse Arbitrix g\u00e9n\u00e9r\u00e9e ici. Arbitrix ne traite pas les paiements par carte.',
-        'deposit.wallet.unavailable.title': 'Achat externe bient\u00f4t disponible',
-        'deposit.wallet.unavailable.body': 'Acheter de l\'USDT par carte ou virement via un service tiers n\'est pas encore disponible. Chaque fournisseur d\u00e9finit ses moyens de paiement, ses v\u00e9rifications et ses pays pris en charge : cette option ne sera activ\u00e9e qu\'une fois un fournisseur confirm\u00e9 pour Arbitrix. Les autres options fonctionnent d\u00e9j\u00e0.',
-        'deposit.wallet.destinationTitle': 'Utilisez votre adresse Arbitrix comme destinataire',
-        'deposit.wallet.destinationBody': 'N\'utilisez cette adresse que si le service permet explicitement d\'envoyer de l\'USDT vers une adresse de portefeuille externe. S\'il ne livre que vers un portefeuille h\u00e9berg\u00e9 par le service, achetez d\'abord, puis envoyez l\'USDT \u00e0 cette adresse sur TRON (TRC20).',
-        'deposit.wallet.step1': 'Saisissez votre montant et g\u00e9n\u00e9rez l\u2019adresse de d\u00e9p\u00f4t sur cette page.',
-        'deposit.wallet.step2': 'Ouvrez le service externe et effectuez ses v\u00e9rifications d\u2019identit\u00e9.',
-        'deposit.wallet.step3': 'Achetez de l\u2019USDT. Si le service demande le r\u00e9seau, choisissez TRON (TRC20).',
-        'deposit.wallet.step4': 'Envoyez-la \u00e0 l\u2019adresse exacte ci-dessus, uniquement sur le r\u00e9seau TRON (TRC20).',
-        'deposit.wallet.addressLabel': 'Votre adresse USDT (TRC20) Arbitrix',
-        'deposit.wallet.addressNone': 'G\u00e9n\u00e9rez d\u2019abord votre adresse de d\u00e9p\u00f4t',
-        'deposit.wallet.generate': 'G\u00e9n\u00e9rer mon adresse',
-        'deposit.wallet.copy': 'Copier l\u2019adresse',
-        'deposit.wallet.addressHint': 'G\u00e9n\u00e9rez-la d\u2019abord. Cette adresse correspond \u00e0 votre propre d\u00e9p\u00f4t.',
-        'deposit.wallet.providersNote': 'La disponibilit\u00e9, les frais, les minimums et les v\u00e9rifications sont d\u00e9finis par chaque service et varient selon le pays. V\u00e9rifiez-les dans le service et assurez-vous qu\u2019il prend en charge l\u2019USDT sur le r\u00e9seau TRON (TRC20) avant d\u2019acheter.',
-        'deposit.wallet.help.title': 'Quelle est votre situation ?',
-        'deposit.wallet.help.new': 'Nouveau dans la crypto : installez un portefeuille ou cr\u00e9ez un compte sur un exchange, effectuez ses v\u00e9rifications, puis achetez de l\u2019USDT.',
-        'deposit.wallet.help.existing': 'Vous utilisez d\u00e9j\u00e0 un portefeuille ou un exchange : passez la configuration, achetez-y de l\u2019USDT et envoyez-le ici.',
-        'deposit.wallet.help.hold': 'Vous poss\u00e9dez d\u00e9j\u00e0 de l\u2019USDT : passez l\u2019achat et envoyez-le depuis votre portefeuille sur TRON (TRC20).',
-        'deposit.wallet.help.delivery': 'Certains services livrent l\u2019USDT sur un portefeuille qu\u2019ils fournissent ; d\u2019autres permettent d\u2019indiquer une adresse externe au paiement. Les deux conviennent : le transfert doit \u00eatre de l\u2019USDT sur TRON (TRC20) vers l\u2019adresse ci-dessus.',
-        'deposit.wallet.open': 'Ouvrir la page d\u2019achat d\u2019USDT',
-        'deposit.wallet.feesNote': 'Sur TRON, les frais de r\u00e9seau sont pay\u00e9s par l\u2019exp\u00e9diteur : gardez un peu de TRX dans le portefeuille d\u2019envoi.',
-        'deposit.wallet.notCredited': 'Acheter de la crypto ne cr\u00e9dite pas votre compte Arbitrix. Seul l\u2019USDT arriv\u00e9 \u00e0 votre adresse Arbitrix est cr\u00e9dit\u00e9, et uniquement apr\u00e8s v\u00e9rification par Arbitrix sur la cha\u00eene.',
-        'deposit.wallet.noProof': 'Un re\u00e7u, une capture d\u2019\u00e9cran ou un message, quelle qu\u2019en soit l\u2019origine, ne prouve pas un paiement.',
         'deposit.partner.title': 'Partenaires vérifiés',
-        'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident à obtenir de la crypto ; ils ne peuvent pas ajouter de fonds à votre compte.',
+        'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident à obtenir de la crypto ; ils ne peuvent pas ajouter de fonds à votre compte. Arbitrix ne traite pas lui-m\u00eame les paiements par carte.',
+        'deposit.partner.contactPaymentPartner': 'Contacter le partenaire de paiement',
+        'deposit.partner.paymentPartnerNote': 'Questions sur les paiements, suivi des d\u00e9p\u00f4ts et v\u00e9rifications de transactions : contactez le partenaire de paiement Arbitrix.',
         'deposit.partner.modelNote': 'Les partenaires vous aident \u00e0 obtenir de l\u2019USDT vous-m\u00eame. Qu\u2019un partenaire vende de l\u2019USDT ou vous guide pour l\u2019acheter d\u00e9pend du partenaire. Dans les deux cas, vous envoyez l\u2019USDT \u00e0 l\u2019adresse Arbitrix g\u00e9n\u00e9r\u00e9e pour votre propre d\u00e9p\u00f4t, et payer un partenaire ne cr\u00e9dite jamais votre compte Arbitrix.',
         'deposit.partner.servicesIntro': 'Les partenaires peuvent proposer la vente directe d\u2019USDT, une assistance guid\u00e9e pour l\u2019achat, ou les deux. Chaque fiche indique ce que propose le partenaire, sa zone de service et comment le contacter.',
         'deposit.partner.service.direct': 'Vente directe d\u2019USDT',
@@ -14824,9 +14651,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contacter le support',
         'deposit.invoiceRef': 'Référence de la facture',
         'deposit.copyInvoiceRef': 'Copier la référence de la facture',
-        'support.paymentHelp.pending': 'Besoin d\'aide avec votre paiement ? Contactez le support officiel Arbitrix et partagez uniquement votre référence de facture, le montant, le réseau et le hash de transaction.',
-        'support.paymentHelp.detected': 'Paiement détecté. S\'il n\'est pas crédité après confirmation, contactez le support officiel Arbitrix avec votre référence de facture et le hash de transaction.',
-        'support.paymentHelp.failed': 'Cette facture a expiré ou a été annulée et n\'a pas été créditée. Générez une nouvelle facture ou contactez le support officiel Arbitrix avec votre référence de facture et le hash de transaction si les fonds ont quitté votre portefeuille.',
+        'support.paymentHelp.pending': 'Besoin d\'aide avec votre paiement ? Contactez le partenaire de paiement et partagez uniquement votre r\u00e9f\u00e9rence de facture, le montant, le r\u00e9seau et le hash de transaction.',
+        'support.paymentHelp.detected': 'Paiement d\u00e9tect\u00e9. S\'il n\'est pas cr\u00e9dit\u00e9 apr\u00e8s confirmation, contactez le partenaire de paiement avec votre r\u00e9f\u00e9rence de facture et le hash de transaction.',
+        'support.paymentHelp.failed': 'Cette facture a expir\u00e9 ou a \u00e9t\u00e9 annul\u00e9e et n\'a pas \u00e9t\u00e9 cr\u00e9dit\u00e9e. G\u00e9n\u00e9rez une nouvelle facture ou contactez le partenaire de paiement avec votre r\u00e9f\u00e9rence de facture et le hash de transaction.',
         'deposit.copyInvoiceRefSuccess': 'Référence de la facture copiée',
         'deposit.copyInvoiceRefFailed': 'Impossible de copier la référence de la facture',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> a gagné <span class="ticker-amount green">+${{amount}}</span> sur {{asset}}',
@@ -16118,35 +15945,10 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0645\u0648\u062b\u0651\u0642 \u064a\u0645\u0643\u0646\u0647 \u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0644\u0625\u064a\u062f\u0627\u0639\u0643.',
         'deposit.choose.crypto.title': 'لدي عملات رقمية بالفعل',
         'deposit.choose.crypto.desc': 'أودع USDT على شبكة TRON (TRC20) مباشرة إلى عنوان Arbitrix الخاص بك.',
-        'deposit.choose.wallet.title': '\u0634\u0631\u0627\u0621 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629',
-        'deposit.choose.wallet.desc': '\u0627\u0634\u062a\u0631\u0650 USDT \u0645\u0646 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629 \u062a\u062b\u0642 \u0628\u0647\u0627 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643.',
-        'deposit.wallet.title': '\u0634\u0631\u0627\u0621 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629',
-        'deposit.wallet.intro': '\u062e\u0637\u0648\u062a\u0627\u0646: \u0627\u0634\u062a\u0631\u0650 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u0630\u064a \u062a\u0645 \u0625\u0646\u0634\u0627\u0624\u0647 \u0647\u0646\u0627. \u0644\u0627 \u062a\u0639\u0627\u0644\u062c Arbitrix \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0627\u0644\u0628\u0637\u0627\u0642\u0627\u062a \u0628\u0646\u0641\u0633\u0647\u0627.',
-        'deposit.wallet.unavailable.title': '\u0627\u0644\u0634\u0631\u0627\u0621 \u0627\u0644\u062e\u0627\u0631\u062c\u064a \u0642\u0631\u064a\u0628\u064b\u0627',
-        'deposit.wallet.unavailable.body': '\u0634\u0631\u0627\u0621 USDT \u0628\u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0623\u0648 \u0628\u0627\u0644\u062a\u062d\u0648\u064a\u0644 \u0627\u0644\u0628\u0646\u0643\u064a \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629 \u063a\u064a\u0631 \u0645\u062a\u0627\u062d \u0628\u0639\u062f. \u0643\u0644 \u0645\u0632\u0648\u0651\u062f \u064a\u062d\u062f\u062f \u0637\u0631\u0642 \u0627\u0644\u062f\u0641\u0639 \u0648\u0627\u0644\u062a\u062d\u0642\u0642 \u0648\u0627\u0644\u062f\u0648\u0644 \u0627\u0644\u0645\u062f\u0639\u0648\u0645\u0629\u060c \u0644\u0630\u0627 \u064a\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062e\u064a\u0627\u0631 \u0641\u0642\u0637 \u0628\u0639\u062f \u062a\u0623\u0643\u064a\u062f \u0645\u0632\u0648\u0651\u062f \u0644\u0640 Arbitrix. \u0627\u0644\u062e\u064a\u0627\u0631\u0627\u062a \u0627\u0644\u0623\u062e\u0631\u0649 \u062a\u0639\u0645\u0644 \u0627\u0644\u0622\u0646.',
-        'deposit.wallet.destinationTitle': '\u0627\u0633\u062a\u062e\u062f\u0645 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643 \u0643\u0645\u0633\u062a\u0644\u0645',
-        'deposit.wallet.destinationBody': '\u0627\u0633\u062a\u062e\u062f\u0645 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0641\u0642\u0637 \u0625\u0630\u0627 \u0643\u0627\u0646\u062a \u0627\u0644\u062e\u062f\u0645\u0629 \u062a\u062f\u0639\u0645 \u0635\u0631\u0627\u062d\u0629 \u0625\u0631\u0633\u0627\u0644 USDT \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 \u0645\u062d\u0641\u0638\u0629 \u062e\u0627\u0631\u062c\u064a\u0629. \u0625\u0630\u0627 \u0643\u0627\u0646\u062a \u062a\u0633\u0644\u0651\u0645 \u0641\u0642\u0637 \u0625\u0644\u0649 \u0645\u062d\u0641\u0638\u0629 \u062a\u0633\u062a\u0636\u064a\u0641\u0647\u0627 \u0627\u0644\u062e\u062f\u0645\u0629\u060c \u0641\u0627\u0634\u062a\u0631\u0650 \u0647\u0646\u0627\u0643 \u0623\u0648\u0644\u064b\u0627 \u062b\u0645 \u0623\u0631\u0633\u0644 USDT \u0625\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20).',
-        'deposit.wallet.step1': '\u0623\u062f\u062e\u0644 \u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629.',
-        'deposit.wallet.step2': '\u0627\u0641\u062a\u062d \u0627\u0644\u062e\u062f\u0645\u0629 \u0627\u0644\u062e\u0627\u0631\u062c\u064a\u0629 \u0648\u0623\u0643\u0645\u0644 \u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u062f\u064a\u0647\u0627.',
-        'deposit.wallet.step3': '\u0627\u0634\u062a\u0631\u0650 USDT. \u0625\u0630\u0627 \u0633\u0623\u0644\u062a \u0627\u0644\u062e\u062f\u0645\u0629 \u0639\u0646 \u0627\u0644\u0634\u0628\u0643\u0629 \u0641\u0627\u062e\u062a\u0631 TRON (TRC20).',
-        'deposit.wallet.step4': '\u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0623\u0639\u0644\u0627\u0647 \u062a\u062d\u062f\u064a\u062f\u0627\u064b\u060c \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20) \u0641\u0642\u0637.',
-        'deposit.wallet.addressLabel': '\u0639\u0646\u0648\u0627\u0646 USDT (TRC20) \u0627\u0644\u062e\u0627\u0635 \u0628\u0643 \u0641\u064a Arbitrix',
-        'deposit.wallet.addressNone': '\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0623\u0648\u0644\u0627\u064b',
-        'deposit.wallet.generate': '\u0625\u0646\u0634\u0627\u0621 \u0639\u0646\u0648\u0627\u0646\u064a',
-        'deposit.wallet.copy': '\u0646\u0633\u062e \u0627\u0644\u0639\u0646\u0648\u0627\u0646',
-        'deposit.wallet.addressHint': '\u0623\u0646\u0634\u0626 \u0647\u0630\u0627 \u0623\u0648\u0644\u0627\u064b. \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u062e\u0627\u0635 \u0628\u0625\u064a\u062f\u0627\u0639\u0643 \u0623\u0646\u062a.',
-        'deposit.wallet.providersNote': '\u0627\u0644\u062a\u0648\u0641\u0631 \u0648\u0627\u0644\u0631\u0633\u0648\u0645 \u0648\u0627\u0644\u062d\u062f\u0648\u062f \u0627\u0644\u062f\u0646\u064a\u0627 \u0648\u0627\u0644\u062a\u062d\u0642\u0642 \u062a\u062d\u062f\u062f\u0647\u0627 \u0643\u0644 \u062e\u062f\u0645\u0629 \u0648\u062a\u062e\u062a\u0644\u0641 \u0628\u062d\u0633\u0628 \u0627\u0644\u0628\u0644\u062f. \u062a\u0623\u0643\u062f \u0645\u0646\u0647\u0627 \u062f\u0627\u062e\u0644 \u0627\u0644\u062e\u062f\u0645\u0629\u060c \u0648\u062a\u0623\u0643\u062f \u0645\u0646 \u0623\u0646\u0647\u0627 \u062a\u062f\u0639\u0645 USDT \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20)\u060c \u0642\u0628\u0644 \u0627\u0644\u0634\u0631\u0627\u0621.',
-        'deposit.wallet.help.title': '\u0645\u0627 \u0647\u0648 \u0648\u0636\u0639\u0643\u061f',
-        'deposit.wallet.help.new': '\u062c\u062f\u064a\u062f \u0641\u064a \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629: \u062b\u0628\u0651\u062a \u0645\u062d\u0641\u0638\u0629 \u0623\u0648 \u0623\u0646\u0634\u0626 \u062d\u0633\u0627\u0628\u0627\u064b \u0641\u064a \u0645\u0646\u0635\u0629\u060c \u0648\u0623\u0643\u0645\u0644 \u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u062a\u062d\u0642\u0642 \u062b\u0645 \u0627\u0634\u062a\u0631\u0650 USDT.',
-        'deposit.wallet.help.existing': '\u062a\u0633\u062a\u062e\u062f\u0645 \u0628\u0627\u0644\u0641\u0639\u0644 \u0645\u062d\u0641\u0638\u0629 \u0623\u0648 \u0645\u0646\u0635\u0629: \u062a\u062e\u0637\u064e\u0651 \u0627\u0644\u0625\u0639\u062f\u0627\u062f \u0648\u0627\u0634\u062a\u0631\u0650 USDT \u0647\u0646\u0627\u0643 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0647\u0646\u0627.',
-        'deposit.wallet.help.hold': '\u0644\u062f\u064a\u0643 USDT \u0628\u0627\u0644\u0641\u0639\u0644: \u062a\u062e\u0637\u064e\u0651 \u0627\u0644\u0634\u0631\u0627\u0621 \u0648\u0623\u0631\u0633\u0644\u0647 \u0645\u0646 \u0645\u062d\u0641\u0638\u062a\u0643 \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20).',
-        'deposit.wallet.help.delivery': '\u0628\u0639\u0636 \u0627\u0644\u062e\u062f\u0645\u0627\u062a \u062a\u0633\u0644\u0651\u0645 USDT \u0625\u0644\u0649 \u0645\u062d\u0641\u0638\u0629 \u062a\u0648\u0641\u0631\u0647\u0627\u060c \u0648\u0623\u062e\u0631\u0649 \u062a\u062a\u064a\u062d \u0625\u062f\u062e\u0627\u0644 \u0639\u0646\u0648\u0627\u0646 \u062e\u0627\u0631\u062c\u064a \u0639\u0646\u062f \u0627\u0644\u062f\u0641\u0639. \u0643\u0644\u0627\u0647\u0645\u0627 \u0645\u0642\u0628\u0648\u0644: \u064a\u062c\u0628 \u0623\u0646 \u064a\u0643\u0648\u0646 \u0627\u0644\u062a\u062d\u0648\u064a\u0644 USDT \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20) \u0625\u0644\u0649 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0623\u0639\u0644\u0627\u0647.',
-        'deposit.wallet.open': '\u0641\u062a\u062d \u0635\u0641\u062d\u0629 \u0634\u0631\u0627\u0621 USDT',
-        'deposit.wallet.feesNote': '\u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON \u064a\u062f\u0641\u0639 \u0627\u0644\u0645\u0631\u0633\u0644 \u0631\u0633\u0648\u0645 \u0627\u0644\u0634\u0628\u0643\u0629\u060c \u0644\u0630\u0627 \u0627\u062d\u062a\u0641\u0638 \u0628\u0642\u0644\u064a\u0644 \u0645\u0646 TRX \u0641\u064a \u0627\u0644\u0645\u062d\u0641\u0638\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629.',
-        'deposit.wallet.notCredited': '\u0634\u0631\u0627\u0621 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0644\u0627 \u064a\u064f\u0636\u0627\u0641 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 \u0641\u064a Arbitrix. \u064a\u064f\u0636\u0627\u0641 \u0641\u0642\u0637 USDT \u0627\u0644\u0630\u064a \u064a\u0635\u0644 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643\u060c \u0648\u0628\u0639\u062f \u0623\u0646 \u062a\u062a\u062d\u0642\u0642 \u0645\u0646\u0647 Arbitrix \u0639\u0644\u0649 \u0627\u0644\u0634\u0628\u0643\u0629.',
-        'deposit.wallet.noProof': '\u0627\u0644\u0625\u064a\u0635\u0627\u0644 \u0623\u0648 \u0644\u0642\u0637\u0629 \u0627\u0644\u0634\u0627\u0634\u0629 \u0623\u0648 \u0631\u0633\u0627\u0644\u0629 \u0645\u0646 \u0623\u064a \u0634\u062e\u0635 \u0644\u064a\u0633\u062a \u062f\u0644\u064a\u0644\u0627\u064b \u0639\u0644\u0649 \u0627\u0644\u062f\u0641\u0639.',
         'deposit.partner.title': 'الشركاء الموثّقون',
-        'deposit.partner.intro': 'تواصل مع شريك على تيليجرام. يساعدك الشركاء في الحصول على العملات الرقمية، لكنهم لا يستطيعون إضافة أموال إلى حسابك.',
+        'deposit.partner.intro': 'تواصل مع شريك على تيليجرام. يساعدك الشركاء في الحصول على العملات الرقمية، لكنهم لا يستطيعون إضافة أموال إلى حسابك. \u0648\u0644\u0627 \u064a\u064f\u0639\u0627\u0644\u062c Arbitrix \u0627\u0644\u062f\u0641\u0639 \u0628\u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0628\u0646\u0641\u0633\u0647.',
+        'deposit.partner.contactPaymentPartner': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639',
+        'deposit.partner.paymentPartnerNote': '\u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u062f\u0641\u0639 \u0648\u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0648\u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062a: \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0641\u064a Arbitrix.',
         'deposit.partner.modelNote': '\u064a\u0633\u0627\u0639\u062f\u0643 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0639\u0644\u0649 \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0628\u0646\u0641\u0633\u0643. \u0648\u0645\u0627 \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0634\u0631\u064a\u0643 \u064a\u0628\u064a\u0639 USDT \u0623\u0648 \u064a\u0631\u0634\u062f\u0643 \u0644\u0634\u0631\u0627\u0626\u0647 \u064a\u0639\u062a\u0645\u062f \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u064a\u0643. \u0641\u064a \u0627\u0644\u062d\u0627\u0644\u062a\u064a\u0646 \u062a\u0631\u0633\u0644 USDT \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u0645\u064f\u0646\u0634\u0623 \u0644\u0625\u064a\u062f\u0627\u0639\u0643 \u0623\u0646\u062a\u060c \u0648\u0627\u0644\u062f\u0641\u0639 \u0644\u0634\u0631\u064a\u0643 \u0644\u0627 \u064a\u0636\u064a\u0641 \u0631\u0635\u064a\u062f\u0627\u064b \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Arbitrix.',
         'deposit.partner.servicesIntro': '\u0642\u062f \u064a\u0642\u062f\u0651\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629\u060c \u0623\u0648 \u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621\u060c \u0623\u0648 \u0627\u0644\u0627\u062b\u0646\u064a\u0646 \u0645\u0639\u0627\u064b. \u062a\u0648\u0636\u062d \u0643\u0644 \u0628\u0637\u0627\u0642\u0629 \u0645\u0627 \u064a\u0642\u062f\u0651\u0645\u0647 \u0627\u0644\u0634\u0631\u064a\u0643 \u0648\u0623\u064a\u0646 \u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0648\u0643\u064a\u0641 \u062a\u062a\u0648\u0627\u0635\u0644 \u0645\u0639\u0647.',
         'deposit.partner.service.direct': '\u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629',
@@ -16470,9 +16272,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'تواصل مع الدعم',
         'deposit.invoiceRef': 'مرجع الفاتورة',
         'deposit.copyInvoiceRef': 'نسخ مرجع الفاتورة',
-        'support.paymentHelp.pending': 'هل تحتاج مساعدة في الدفع؟ تواصل مع دعم Arbitrix الرسمي وشارك فقط مرجع الفاتورة والمبلغ والشبكة وهاش المعاملة.',
-        'support.paymentHelp.detected': 'تم اكتشاف الدفع. إذا لم يُضف إلى الرصيد بعد التأكيد، فتواصل مع دعم Arbitrix الرسمي مع مرجع الفاتورة وهاش المعاملة.',
-        'support.paymentHelp.failed': 'انتهت صلاحية هذه الفاتورة أو تم إلغاؤها ولم تُضف إلى الرصيد. أنشئ فاتورة جديدة أو تواصل مع دعم Arbitrix الرسمي مع مرجع الفاتورة وهاش المعاملة إذا خرجت الأموال من محفظتك.',
+        'support.paymentHelp.pending': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u062f\u0641\u0639\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0648\u0634\u0627\u0631\u0643 \u0641\u0642\u0637 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0627\u0644\u0634\u0628\u0643\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629.',
+        'support.paymentHelp.detected': '\u062a\u0645 \u0627\u0643\u062a\u0634\u0627\u0641 \u0627\u0644\u062f\u0641\u0639. \u0625\u0630\u0627 \u0644\u0645 \u064a\u064f\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0631\u0635\u064a\u062f \u0628\u0639\u062f \u0627\u0644\u062a\u0623\u0643\u064a\u062f\u060c \u0641\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629.',
+        'support.paymentHelp.failed': '\u0627\u0646\u062a\u0647\u062a \u0635\u0644\u0627\u062d\u064a\u0629 \u0647\u0630\u0647 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0623\u0648 \u062a\u0645 \u0625\u0644\u063a\u0627\u0624\u0647\u0627 \u0648\u0644\u0645 \u062a\u064f\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0631\u0635\u064a\u062f. \u0623\u0646\u0634\u0626 \u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629 \u0623\u0648 \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629.',
         'deposit.copyInvoiceRefSuccess': 'تم نسخ مرجع الفاتورة',
         'deposit.copyInvoiceRefFailed': 'تعذر نسخ مرجع الفاتورة',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ربح <span class="ticker-amount green">+${{amount}}</span> على {{asset}}',
@@ -17764,35 +17566,10 @@ const TRANSLATIONS = {
         'deposit.choose.partner.desc': '\u8054\u7cfb\u53ef\u534f\u52a9\u60a8\u83b7\u53d6 USDT \u7528\u4e8e\u5145\u503c\u7684\u5df2\u8ba4\u8bc1\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.choose.crypto.title': '我已有加密货币',
         'deposit.choose.crypto.desc': '直接向你的 Arbitrix 地址充值 TRON (TRC20) 上的 USDT。',
-        'deposit.choose.wallet.title': '\u901a\u8fc7\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT',
-        'deposit.choose.wallet.desc': '\u901a\u8fc7\u60a8\u4fe1\u4efb\u7684\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT\uff0c\u7136\u540e\u53d1\u9001\u5230\u60a8\u7684 Arbitrix \u5730\u5740\u3002',
-        'deposit.wallet.title': '\u901a\u8fc7\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT',
-        'deposit.wallet.intro': '\u4e24\u6b65\uff1a\u901a\u8fc7\u670d\u52a1\u8d2d\u4e70 USDT\uff0c\u7136\u540e\u53d1\u9001\u5230\u6b64\u5904\u751f\u6210\u7684 Arbitrix \u5730\u5740\u3002Arbitrix \u672c\u8eab\u4e0d\u5904\u7406\u94f6\u884c\u5361\u4ed8\u6b3e\u3002',
-        'deposit.wallet.unavailable.title': '\u5916\u90e8\u8d2d\u4e70\u529f\u80fd\u5373\u5c06\u4e0a\u7ebf',
-        'deposit.wallet.unavailable.body': '\u901a\u8fc7\u7b2c\u4e09\u65b9\u670d\u52a1\u4f7f\u7528\u94f6\u884c\u5361\u6216\u94f6\u884c\u8f6c\u8d26\u8d2d\u4e70 USDT \u7684\u529f\u80fd\u5c1a\u672a\u5f00\u653e\u3002\u5404\u670d\u52a1\u5546\u81ea\u884c\u89c4\u5b9a\u652f\u4ed8\u65b9\u5f0f\u3001\u8eab\u4efd\u9a8c\u8bc1\u548c\u652f\u6301\u7684\u56fd\u5bb6\uff0c\u56e0\u6b64\u53ea\u6709\u786e\u8ba4 Arbitrix \u7684\u670d\u52a1\u5546\u540e\u624d\u4f1a\u542f\u7528\u6b64\u9009\u9879\u3002\u5176\u4ed6\u65b9\u5f0f\u76ee\u524d\u53ef\u7528\u3002',
-        'deposit.wallet.destinationTitle': '\u4f7f\u7528\u4f60\u7684 Arbitrix \u5730\u5740\u4f5c\u4e3a\u6536\u6b3e\u5730\u5740',
-        'deposit.wallet.destinationBody': '\u4ec5\u5f53\u8be5\u670d\u52a1\u660e\u786e\u652f\u6301\u5411\u5916\u90e8\u94b1\u5305\u5730\u5740\u53d1\u9001 USDT \u65f6\u624d\u4f7f\u7528\u6b64\u5730\u5740\u3002\u5982\u679c\u8be5\u670d\u52a1\u53ea\u80fd\u53d1\u9001\u5230\u5176\u6258\u7ba1\u7684\u94b1\u5305\uff0c\u8bf7\u5148\u5728\u8be5\u670d\u52a1\u8d2d\u4e70\uff0c\u518d\u5c06 USDT \u901a\u8fc7 TRON (TRC20) \u7f51\u7edc\u53d1\u9001\u5230\u6b64\u5730\u5740\u3002',
-        'deposit.wallet.step1': '\u8f93\u5165\u91d1\u989d\u5e76\u5728\u672c\u9875\u751f\u6210\u5145\u503c\u5730\u5740\u3002',
-        'deposit.wallet.step2': '\u6253\u5f00\u5916\u90e8\u670d\u52a1\u5e76\u5b8c\u6210\u5176\u8eab\u4efd\u9a8c\u8bc1\u3002',
-        'deposit.wallet.step3': '\u8d2d\u4e70 USDT\u3002\u82e5\u670d\u52a1\u8981\u6c42\u9009\u62e9\u7f51\u7edc\uff0c\u8bf7\u9009\u62e9 TRON (TRC20)\u3002',
-        'deposit.wallet.step4': '\u4ec5\u901a\u8fc7 TRON (TRC20) \u7f51\u7edc\u53d1\u9001\u5230\u4e0a\u65b9\u7684\u786e\u5207\u5730\u5740\u3002',
-        'deposit.wallet.addressLabel': '\u60a8\u7684 Arbitrix USDT (TRC20) \u5730\u5740',
-        'deposit.wallet.addressNone': '\u8bf7\u5148\u751f\u6210\u60a8\u7684\u5145\u503c\u5730\u5740',
-        'deposit.wallet.generate': '\u751f\u6210\u6211\u7684\u5730\u5740',
-        'deposit.wallet.copy': '\u590d\u5236\u5730\u5740',
-        'deposit.wallet.addressHint': '\u8bf7\u5148\u751f\u6210\u5730\u5740\u3002\u8be5\u5730\u5740\u5c5e\u4e8e\u60a8\u81ea\u5df1\u7684\u5145\u503c\u3002',
-        'deposit.wallet.providersNote': '\u53ef\u7528\u6027\u3001\u8d39\u7528\u3001\u6700\u4f4e\u9650\u989d\u548c\u8eab\u4efd\u9a8c\u8bc1\u7531\u5404\u670d\u52a1\u81ea\u884c\u8bbe\u5b9a\uff0c\u5e76\u56e0\u56fd\u5bb6\u800c\u5f02\u3002\u8d2d\u4e70\u524d\u8bf7\u5728\u8be5\u670d\u52a1\u5185\u786e\u8ba4\u8fd9\u4e9b\u4fe1\u606f\uff0c\u5e76\u786e\u8ba4\u5b83\u652f\u6301 TRON\uff08TRC20\uff09\u7f51\u7edc\u4e0a\u7684 USDT\u3002',
-        'deposit.wallet.help.title': '\u60a8\u5c5e\u4e8e\u54ea\u79cd\u60c5\u51b5\uff1f',
-        'deposit.wallet.help.new': '\u521a\u63a5\u89e6\u52a0\u5bc6\u8d27\u5e01\uff1a\u5b89\u88c5\u94b1\u5305\u5e94\u7528\u6216\u6ce8\u518c\u4ea4\u6613\u6240\u8d26\u6237\uff0c\u5b8c\u6210\u8eab\u4efd\u9a8c\u8bc1\uff0c\u7136\u540e\u8d2d\u4e70 USDT\u3002',
-        'deposit.wallet.help.existing': '\u60a8\u5df2\u7ecf\u5728\u4f7f\u7528\u94b1\u5305\u6216\u4ea4\u6613\u6240\uff1a\u65e0\u9700\u91cd\u65b0\u8bbe\u7f6e\uff0c\u76f4\u63a5\u5728\u90a3\u91cc\u8d2d\u4e70 USDT \u5e76\u53d1\u9001\u5230\u8fd9\u91cc\u3002',
-        'deposit.wallet.help.hold': '\u60a8\u5df2\u7ecf\u6301\u6709 USDT\uff1a\u65e0\u9700\u8d2d\u4e70\uff0c\u76f4\u63a5\u4ece\u73b0\u6709\u94b1\u5305\u901a\u8fc7 TRON (TRC20) \u53d1\u9001\u3002',
-        'deposit.wallet.help.delivery': '\u90e8\u5206\u670d\u52a1\u4f1a\u628a USDT \u4ea4\u4ed8\u5230\u5176\u63d0\u4f9b\u7684\u94b1\u5305\uff0c\u53e6\u4e00\u4e9b\u5141\u8bb8\u5728\u4ed8\u6b3e\u65f6\u586b\u5199\u5916\u90e8\u5730\u5740\u3002\u4e24\u8005\u7686\u53ef\uff1a\u8f6c\u8d26\u5fc5\u987b\u662f TRON (TRC20) \u4e0a\u7684 USDT \u5e76\u53d1\u9001\u5230\u4e0a\u65b9\u5730\u5740\u3002',
-        'deposit.wallet.open': '\u6253\u5f00 USDT \u8d2d\u4e70\u9875\u9762',
-        'deposit.wallet.feesNote': '\u5728 TRON \u4e0a\u7f51\u7edc\u624b\u7eed\u8d39\u7531\u53d1\u9001\u65b9\u652f\u4ed8\uff0c\u56e0\u6b64\u8bf7\u5728\u53d1\u9001\u94b1\u5305\u4e2d\u4fdd\u7559\u5c11\u91cf TRX\u3002',
-        'deposit.wallet.notCredited': '\u8d2d\u4e70\u52a0\u5bc6\u8d27\u5e01\u4e0d\u4f1a\u4e3a\u60a8\u7684 Arbitrix \u8d26\u6237\u5165\u8d26\u3002\u53ea\u6709\u5230\u8fbe\u60a8 Arbitrix \u5730\u5740\u7684 USDT \u624d\u4f1a\u5165\u8d26\uff0c\u5e76\u4e14\u9700\u7ecf Arbitrix \u5728\u94fe\u4e0a\u6838\u5b9e\u3002',
-        'deposit.wallet.noProof': '\u4efb\u4f55\u4eba\u7684\u6536\u636e\u3001\u622a\u56fe\u6216\u6d88\u606f\u90fd\u4e0d\u6784\u6210\u4ed8\u6b3e\u8bc1\u660e\u3002',
         'deposit.partner.title': '已认证合作伙伴',
-        'deposit.partner.intro': '在 Telegram 上联系合作伙伴。合作伙伴可协助你获取加密货币，但不能为你的账户添加资金。',
+        'deposit.partner.intro': '在 Telegram 上联系合作伙伴。合作伙伴可协助你获取加密货币，但不能为你的账户添加资金。 Arbitrix \u672c\u8eab\u4e0d\u5904\u7406\u5361\u652f\u4ed8\u3002',
+        'deposit.partner.contactPaymentPartner': '\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34',
+        'deposit.partner.paymentPartnerNote': '\u652f\u4ed8\u95ee\u9898\u3001\u5165\u91d1\u8ddf\u8fdb\u548c\u4ea4\u6613\u6838\u67e5\uff1a\u8bf7\u8054\u7cfb Arbitrix \u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.partner.modelNote': '\u5408\u4f5c\u4f19\u4f34\u534f\u52a9\u60a8\u81ea\u884c\u83b7\u53d6 USDT\u3002\u5408\u4f5c\u4f19\u4f34\u662f\u76f4\u63a5\u51fa\u552e USDT\uff0c\u8fd8\u662f\u6307\u5bfc\u60a8\u8d2d\u4e70\uff0c\u53d6\u51b3\u4e8e\u8be5\u5408\u4f5c\u4f19\u4f34\u3002\u65e0\u8bba\u54ea\u79cd\u65b9\u5f0f\uff0c\u60a8\u90fd\u9700\u8981\u628a USDT \u53d1\u9001\u5230\u4e3a\u60a8\u81ea\u5df1\u7684\u5145\u503c\u751f\u6210\u7684 Arbitrix \u5730\u5740\uff0c\u5411\u5408\u4f5c\u4f19\u4f34\u4ed8\u6b3e\u7edd\u4e0d\u4e3a\u60a8\u7684 Arbitrix \u8d26\u6237\u5165\u8d26\u3002',
         'deposit.partner.servicesIntro': '\u5408\u4f5c\u4f19\u4f34\u53ef\u80fd\u63d0\u4f9b\u76f4\u63a5\u51fa\u552e USDT\u3001\u6307\u5bfc\u8d2d\u4e70\uff0c\u6216\u4e24\u8005\u517c\u6709\u3002\u4e0b\u65b9\u6bcf\u5f20\u5361\u7247\u4f1a\u8bf4\u660e\u8be5\u5408\u4f5c\u4f19\u4f34\u7684\u670d\u52a1\u5185\u5bb9\u3001\u670d\u52a1\u5730\u533a\u4ee5\u53ca\u8054\u7cfb\u65b9\u5f0f\u3002',
         'deposit.partner.service.direct': '\u76f4\u63a5\u51fa\u552e USDT',
@@ -18116,9 +17893,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': '联系支持',
         'deposit.invoiceRef': '发票参考号',
         'deposit.copyInvoiceRef': '复制发票参考号',
-        'support.paymentHelp.pending': '支付需要帮助？请联系官方 Arbitrix 支持，并仅提供您的发票参考号、支付金额、网络和交易哈希。',
-        'support.paymentHelp.detected': '已检测到付款。如果确认后仍未入账，请携带发票参考号和交易哈希联系官方 Arbitrix 支持。',
-        'support.paymentHelp.failed': '该发票已过期或被取消，未入账。请生成新发票；如果资金已从您的钱包转出，请携带发票参考号和交易哈希联系官方 Arbitrix 支持。',
+        'support.paymentHelp.pending': '\u652f\u4ed8\u9700\u8981\u5e2e\u52a9\uff1f\u8bf7\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\uff0c\u5e76\u4ec5\u63d0\u4f9b\u60a8\u7684\u53d1\u7968\u53c2\u8003\u53f7\u3001\u652f\u4ed8\u91d1\u989d\u3001\u7f51\u7edc\u548c\u4ea4\u6613\u54c8\u5e0c\u3002',
+        'support.paymentHelp.detected': '\u5df2\u68c0\u6d4b\u5230\u4ed8\u6b3e\u3002\u5982\u679c\u786e\u8ba4\u540e\u4ecd\u672a\u5165\u8d26\uff0c\u8bf7\u643a\u5e26\u53d1\u7968\u53c2\u8003\u53f7\u548c\u4ea4\u6613\u54c8\u5e0c\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
+        'support.paymentHelp.failed': '\u8be5\u53d1\u7968\u5df2\u8fc7\u671f\u6216\u88ab\u53d6\u6d88\uff0c\u672a\u5165\u8d26\u3002\u8bf7\u751f\u6210\u65b0\u53d1\u7968\uff1b\u5982\u679c\u8d44\u91d1\u5df2\u4ece\u60a8\u7684\u94b1\u5305\u8f6c\u51fa\uff0c\u8bf7\u643a\u5e26\u53d1\u7968\u53c2\u8003\u53f7\u548c\u4ea4\u6613\u54c8\u5e0c\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
         'deposit.copyInvoiceRefSuccess': '已复制发票参考号',
         'deposit.copyInvoiceRefFailed': '无法复制发票参考号',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> 在 {{asset}} 赚取 <span class="ticker-amount green">+${{amount}}</span>',
@@ -19140,7 +18917,7 @@ function updateDynamicTranslations() {
         if (typeof renderDepositPartners === 'function' && typeof depositOptionState !== 'undefined') {
             renderDepositPartners(depositOptionState.partners);
             updateDepositReferenceBox();
-            updateDepositWalletPanel();
+            updatePaymentPartnerLinks();
         }
         // The landing opportunity card's dismiss aria-label is JS-set (the rest
         // of its labels are data-i18n), so re-apply it on language switch.
@@ -19870,6 +19647,35 @@ function getPartnerSupportTelegramUrl() {
     // Accept a full URL or a bare Telegram username (with or without "@").
     if (/^https?:\/\//i.test(raw)) return raw;
     return 'https://t.me/' + raw.replace(/^@/, '');
+}
+
+/**
+ * Payment partner (deposit questions, payment follow-ups, transaction checks).
+ * Destination comes from the ONE configured value
+ * (window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL or
+ * <meta name="arbitrix-partner-support-telegram">) and is always rendered as a
+ * t.me link. When it is unset the payment-partner buttons stay hidden and the
+ * official support action remains, so no broken or invented link is ever shown.
+ * The partner is contact-only: nothing here can credit a balance or approve a
+ * deposit.
+ */
+function updatePaymentPartnerLinks() {
+    const url = (typeof getPartnerSupportTelegramUrl === 'function') ? getPartnerSupportTelegramUrl() : '';
+    const targets = document.querySelectorAll('.js-payment-partner');
+    for (let i = 0; i < targets.length; i++) {
+        const el = targets[i];
+        if (url) {
+            el.setAttribute('href', url);
+            el.style.display = el.classList.contains('deposit-payment-partner') ? 'block' : 'flex';
+        } else {
+            el.removeAttribute('href');
+            el.style.display = 'none';
+        }
+    }
+    const note = document.getElementById('depositPaymentPartnerNote');
+    if (note) note.style.display = url ? 'block' : 'none';
+    const fallback = document.getElementById('paymentSupportFallbackBtn');
+    if (fallback) fallback.style.display = url ? 'none' : 'inline-flex';
 }
 
 function openPartnerSupport() {
@@ -21986,6 +21792,8 @@ function showPaymentSection(invoice, amountUSD) {
   // Hide input section, show payment section
   document.getElementById('depositInputSection').style.display = 'none';
   document.getElementById('depositPaymentSection').style.display = 'block';
+  // Resolve the payment-partner action before the customer can see it.
+  if (typeof updatePaymentPartnerLinks === 'function') updatePaymentPartnerLinks();
   document.getElementById('depositSuccessSection').style.display = 'none';
   
   // Update amount display
@@ -22612,9 +22420,7 @@ let depositOptionsLoading = false;
 function selectDepositOption(which) {
   const flow = document.getElementById('depositCryptoFlow');
   const partnerPanel = document.getElementById('depositPartnerPanel');
-  const walletPanel = document.getElementById('depositWalletPanel');
   const ids = {
-    wallet: 'depositOptionWallet',
     partner: 'depositOptionPartner',
     crypto: 'depositOptionCrypto'
   };
@@ -22626,81 +22432,15 @@ function selectDepositOption(which) {
   if (target) target.classList.add('is-selected');
   depositOptionState.selected = ids[which] ? which : 'crypto';
 
-  if (which === 'wallet') {
-    if (flow) flow.style.display = 'none';
-    if (partnerPanel) partnerPanel.style.display = 'none';
-    if (walletPanel) walletPanel.style.display = 'block';
-    if (typeof updateDepositWalletPanel === 'function') updateDepositWalletPanel();
-    return;
-  }
-
   if (which === 'partner') {
     if (flow) flow.style.display = 'none';
-    if (walletPanel) walletPanel.style.display = 'none';
     if (partnerPanel) partnerPanel.style.display = 'block';
     if (typeof updateDepositReferenceBox === 'function') updateDepositReferenceBox();
     return;
   }
 
-  if (walletPanel) walletPanel.style.display = 'none';
   if (partnerPanel) partnerPanel.style.display = 'none';
   if (flow) flow.style.display = 'block';
-}
-
-// The ONE outward destination for the external-wallet route. Read from
-// window.ARBITRIX_BUY_CRYPTO_URL, else the <meta name="arbitrix-buy-crypto">
-// element (the single configurable source). Only a plain https URL is accepted:
-// any other value hides the button rather than rendering a broken or unsafe
-// destination, and nothing about a purchase can credit an account.
-function resolveBuyCryptoUrl() {
-  let raw = '';
-  try {
-    if (typeof window !== 'undefined' && typeof window.ARBITRIX_BUY_CRYPTO_URL === 'string') {
-      raw = window.ARBITRIX_BUY_CRYPTO_URL.trim();
-    }
-    if (!raw) {
-      const meta = document.querySelector('meta[name="arbitrix-buy-crypto"]');
-      raw = meta && meta.getAttribute('content') ? String(meta.getAttribute('content')).trim() : '';
-    }
-  } catch (e) { raw = ''; }
-  return /^https:\/\/[^\s"'<>]+$/i.test(raw) ? raw : '';
-}
-
-function updateDepositWalletPanel() {
-  const link = document.getElementById('depositBuyCryptoLink');
-  const providerUrl = resolveBuyCryptoUrl();
-  const unavailableEl = document.getElementById('depositWalletUnavailable');
-  const readyEl = document.getElementById('depositWalletProviderReady');
-  if (unavailableEl) unavailableEl.style.display = providerUrl ? 'none' : 'block';
-  if (readyEl) readyEl.style.display = providerUrl ? 'block' : 'none';
-  if (link) {
-    const url = providerUrl;
-    if (url) {
-      link.setAttribute('href', url);
-      link.style.display = 'block';
-    } else {
-      link.removeAttribute('href');
-      link.style.display = 'none';
-    }
-  }
-
-  const addrEl = document.getElementById('depositWalletAddress');
-  const copyBtn = document.getElementById('depositWalletCopyBtn');
-  const genBtn = document.getElementById('depositWalletGenerateBtn');
-  const liveEl = document.getElementById('liveWalletAddress');
-  const address = liveEl ? String(liveEl.textContent || '').trim() : '';
-  const ready = !!currentInvoiceId && address.length >= 20 && address !== 'Loading...';
-  if (addrEl) addrEl.textContent = ready ? address : t('deposit.wallet.addressNone');
-  if (copyBtn) copyBtn.style.display = ready ? 'inline-flex' : 'none';
-  if (genBtn) genBtn.style.display = ready ? 'none' : 'inline-flex';
-}
-
-function focusDepositAmount() {
-  selectDepositOption('crypto');
-  const input = document.getElementById('liveDepositAmount');
-  if (input && typeof input.focus === 'function') {
-    try { input.focus(); } catch (e) { /* focus is best effort */ }
-  }
 }
 
 function renderDepositPartners(partners) {
@@ -22817,7 +22557,6 @@ async function loadDepositOptions(force) {
     depositOptionState.partnersAvailable = data.partnersAvailable !== false;
     depositOptionState.partners = Array.isArray(data.partners) ? data.partners : [];
     depositOptionsLoaded = true;
-    updateDepositWalletPanel();
     renderDepositPartners(depositOptionState.partners);
     updateDepositReferenceBox();
   } catch (e) {
@@ -22825,7 +22564,6 @@ async function loadDepositOptions(force) {
     depositOptionState.partners = [];
     depositOptionState.partnersAvailable = false;
     renderDepositPartners([]);
-    updateDepositWalletPanel();
   } finally {
     depositOptionsLoading = false;
   }
@@ -22909,7 +22647,7 @@ function applyDepositModeVisibility() {
   const optionsEl = document.getElementById('depositOptions');
   if (optionsEl) optionsEl.style.display = (!isDemo && !isSandbox) ? 'block' : 'none';
   if (isDemo) {
-    ['depositCryptoFlow', 'depositPartnerPanel', 'depositWalletPanel'].forEach(function (id) {
+    ['depositCryptoFlow', 'depositPartnerPanel'].forEach(function (id) {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -24341,6 +24079,9 @@ function updateSupportLinks() {
     });
     const notConfigured = document.getElementById('supportNotConfigured');
     if (notConfigured) notConfigured.style.display = valid ? 'none' : 'block';
+    // Payment assistance is a SEPARATE contact (the payment partner), resolved
+    // from its own configured value - never from the official support one.
+    if (typeof updatePaymentPartnerLinks === 'function') updatePaymentPartnerLinks();
 }
 
 // Resolve the official support links as soon as the page is ready. The landing

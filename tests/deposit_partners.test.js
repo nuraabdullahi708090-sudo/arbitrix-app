@@ -221,21 +221,23 @@ test('migration 045: RLS on, service_role only, anon/authenticated denied', () =
 
 // ---------------------------------------------------------------- frontend
 
-test('deposit page renders three AVAILABLE routes and no card route', () => {
+test('deposit page renders exactly TWO routes: verified partner and existing crypto', () => {
   const i = INDEX.indexOf('id="depositOptions"');
   assert.ok(i > 0, 'options block present');
-  const block = INDEX.slice(i, i + 6000);
-  assert.ok(block.includes('id="depositOptionWallet"'), 'external wallet route present');
-  assert.ok(block.includes('id="depositOptionPartner"'), 'partner route present');
-  assert.ok(block.includes('id="depositOptionCrypto"'), 'crypto route present');
-  assert.ok(block.includes('data-i18n="deposit.choose.wallet.desc"'));
-  // Card purchasing is postponed: the menu must not offer it at all, so the
-  // interface cannot advertise a feature that cannot be used.
-  const menu = INDEX.slice(i, INDEX.indexOf('id="depositWalletPanel"'));
-  assert.ok(!menu.includes('depositOptionCard'), 'no card route in the menu');
-  assert.ok(!/credit-card/.test(menu), 'no card icon in the menu');
-  assert.ok(!menu.includes('deposit.choose.card'), 'no card copy in the menu');
+  const block = INDEX.slice(i, INDEX.indexOf('id="depositCryptoFlow"'));
+  const cards = block.match(/id="depositOption(?:Partner|Crypto|Card|Wallet)"/g) || [];
+  assert.deepStrictEqual(cards, ['id="depositOptionPartner"', 'id="depositOptionCrypto"'],
+    'the menu offers the partner route and the direct crypto route, nothing else');
+  assert.ok(block.includes('data-i18n="deposit.choose.partner.title"'));
+  assert.ok(block.includes('data-i18n="deposit.choose.crypto.title"'));
+  // No card route, and no external-purchase route either. Neither is offered, so
+  // the interface never advertises a method the platform cannot deliver.
+  assert.ok(!block.includes('depositOptionCard'), 'no card route in the menu');
+  assert.ok(!block.includes('depositOptionWallet'), 'no external-purchase route in the menu');
+  assert.ok(!/credit-card/.test(block), 'no card icon in the menu');
   assert.ok(!INDEX.includes('deposit.choose.card'), 'the card copy is fully retired');
+  assert.ok(!INDEX.includes('deposit.choose.wallet'), 'the external-purchase menu copy is retired');
+  assert.ok(!INDEX.includes('deposit.wallet.'), 'the external-purchase panel copy is retired');
 });
 
 test('the partner panel states that a partner cannot credit an account', () => {
@@ -291,14 +293,8 @@ test('all new UI copy exists in all six locales', () => {
   assert.deepStrictEqual(locales, ['en', 'es', 'pt', 'fr', 'ar', 'zh']);
 
   const required = [
-    'deposit.choose.title', 'deposit.choose.wallet.title', 'deposit.choose.wallet.desc',
-    'deposit.wallet.title', 'deposit.wallet.intro', 'deposit.wallet.step1', 'deposit.wallet.step2',
-    'deposit.wallet.step3', 'deposit.wallet.step4', 'deposit.wallet.addressLabel',
-    'deposit.wallet.addressNone', 'deposit.wallet.addressHint', 'deposit.wallet.generate',
-    'deposit.wallet.copy', 'deposit.wallet.open', 'deposit.wallet.providersNote',
-    'deposit.wallet.feesNote', 'deposit.wallet.notCredited', 'deposit.wallet.noProof',
-    'deposit.wallet.help.title', 'deposit.wallet.help.new', 'deposit.wallet.help.existing',
-    'deposit.wallet.help.hold', 'deposit.wallet.help.delivery', 'deposit.partner.modelNote',
+    'deposit.choose.title', 'deposit.partner.modelNote',
+    'deposit.partner.contactPaymentPartner', 'deposit.partner.paymentPartnerNote',
     'deposit.choose.partner.title', 'deposit.choose.partner.desc',
     'deposit.choose.crypto.title', 'deposit.choose.crypto.desc',
     'deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.empty',
@@ -345,8 +341,13 @@ test('no locale offers card purchasing and none claims a card checkout exists', 
     assert.ok(!/with card|con tarjeta|com cartão|par carte|بالبطاقة|银行卡/.test(routeCopy),
       locale + ' must not advertise a card purchase route');
   }
-  // The external-wallet route states plainly that Arbitrix does not process cards.
-  assert.ok(/does not process card payments/i.test(T.en['deposit.wallet.intro']));
+  // The partner panel still states plainly that Arbitrix does not process cards.
+  const panelCopy = Object.keys(T.en)
+    .filter((k) => k.indexOf('deposit.partner.') === 0)
+    .map((k) => String(T.en[k]).toLowerCase())
+    .join(' | ');
+  assert.ok(/does not process card payments/.test(panelCopy),
+    'the partner route explains that Arbitrix does not process card payments');
 });
 
 // ------------------------------------------------- approved label + partner model
@@ -376,7 +377,7 @@ test('the partner option uses the approved label and never implies a guaranteed 
 });
 
 test('the partner panel states the model and that payment never credits an account', () => {
-  const panel = INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'), INDEX.indexOf('id="depositWalletPanel"'));
+  const panel = INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'), INDEX.indexOf('id="depositCryptoFlow"'));
   assert.ok(panel.includes('data-i18n="deposit.partner.modelNote"'), 'model note rendered');
   const note = (INDEX.match(/'deposit\.partner\.modelNote': '([^']*)'/) || [])[1] || '';
   assert.match(note, /help you obtain USDT yourself/i);
