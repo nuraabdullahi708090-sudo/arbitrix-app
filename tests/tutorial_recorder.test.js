@@ -75,6 +75,15 @@ test('the one-time onboarding funnel cannot cover the recorded flow', () => {
   assert.match(RECORD, /onboardingModal/);
 });
 
+test('a browser session file can never be committed and is validated before recording', () => {
+  const ignore = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
+  assert.match(ignore, /sandbox-session\*\.json/);
+  assert.match(ignore, /storage-state\*\.json/);
+  assert.match(RECORD, /storage state file not found/);
+  assert.match(RECORD, /no jwt_token/, 'a session without a login fails instead of shooting the login page');
+  assert.match(RECORD, /the session file is inside the repository/, 'warns when the token file sits in the repo');
+});
+
 test('subtitles are burned in and kept as a sidecar', () => {
   assert.match(BUILD, /function buildSrt/);
   assert.match(BUILD, /SUBTITLE_STYLE/);

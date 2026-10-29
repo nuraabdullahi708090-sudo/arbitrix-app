@@ -2,3 +2,9 @@ node_modules/
 *.log
 .env
 .DS_Store
+
+# Browser session files for the live tutorial recording. They contain a login
+# token and are NEVER committed.
+sandbox-session*.json
+storage-state*.json
+*.storage-state.json

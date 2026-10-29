@@ -203,11 +203,24 @@ async function main() {
   await page.setViewport({ width: args.width, height: args.height, deviceScaleFactor: 1 });
 
   if (args.storageState) {
-    const state = JSON.parse(fs.readFileSync(args.storageState, 'utf8'));
+    const sessionPath = path.resolve(args.storageState);
+    if (!fs.existsSync(sessionPath)) throw new Error('storage state file not found: ' + args.storageState);
+    // A session file carries a login token: it must never live inside the repo.
+    if (sessionPath.startsWith(ROOT + path.sep) && !/[\\/]build[\\/]/.test(sessionPath)) {
+      console.warn('WARNING: the session file is inside the repository. Move it outside (it holds a login token) ' +
+        'and keep it out of Git.');
+    }
+    const state = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
     if (Array.isArray(state.cookies)) await page.setCookie(...state.cookies);
     if (Array.isArray(state.origins)) {
       const origin = state.origins.find((o) => baseUrl.startsWith(o.origin));
       const local = origin ? origin.localStorage || [] : [];
+      // Without the app's own token the recording would quietly shoot the login
+      // page instead of the dashboard, which is worse than failing here.
+      if (!local.some((e) => e && e.name === 'jwt_token' && e.value)) {
+        throw new Error('storage state has no jwt_token for ' + baseUrl + ' - export cookies + localStorage ' +
+          'while logged in to the sandbox account');
+      }
       if (local.length) {
         await page.evaluateOnNewDocument((entries) => {
           for (const e of entries) localStorage.setItem(e.name, e.value);
