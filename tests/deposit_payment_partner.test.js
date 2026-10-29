@@ -63,7 +63,6 @@ function runLinkWiring(metas = {}) {
     const partnerBtn = makeNode('paymentPartnerBtn', false);
     const partnerCard = makeNode('depositPaymentPartnerBtn', true);
     const officialLink = makeNode('officialTelegramLink', false);
-    const note = makeNode('depositPaymentPartnerNote', false);
     const fallback = makeNode('paymentSupportFallbackBtn', false);
 
     const sandbox = {
@@ -92,7 +91,7 @@ function runLinkWiring(metas = {}) {
         extractFunction('updateSupportLinks'),
     ].join('\n'), sandbox);
     vm.runInContext('updatePaymentPartnerLinks(); updateSupportLinks();', sandbox);
-    return { nodes, partnerBtn, partnerCard, officialLink, note, fallback };
+    return { nodes, partnerBtn, partnerCard, officialLink, fallback };
 }
 
 // ------------------------------------------------------------------ two routes
@@ -134,7 +133,6 @@ test('the payment partner button opens the configured t.me/Arbitrix_CSA1 link', 
     assert.notStrictEqual(wiring.partnerBtn.style.display, 'none', 'the pending-screen action is visible');
     assert.strictEqual(wiring.partnerCard.attrs.href, 'https://t.me/Arbitrix_CSA1');
     assert.strictEqual(wiring.partnerCard.style.display, 'block', 'the partner-panel action is visible');
-    assert.notStrictEqual(wiring.note.style.display, 'none', 'the payment-partner note is shown');
 });
 
 test('official customer support stays on its own, unchanged destination', () => {
@@ -152,7 +150,8 @@ test('official customer support stays on its own, unchanged destination', () => 
 
 test('payment assistance is never labelled as official general support', () => {
     const T = dict();
-    const partnerLabels = ['deposit.partner.contactPaymentPartner', 'deposit.partner.paymentPartnerNote'];
+    const partnerLabels = ['deposit.partner.title', 'deposit.partner.intro',
+        'deposit.partner.modelNote', 'deposit.partner.contactPaymentPartner'];
     for (const locale of Object.keys(T)) {
         for (const key of partnerLabels) {
             const value = String(T[locale][key]);
@@ -164,7 +163,8 @@ test('payment assistance is never labelled as official general support', () => {
     const allPartnerCopy = Object.keys(T.en)
         .filter((k) => k.indexOf('deposit.partner.') === 0 && k !== 'deposit.partner.empty')
         .map((k) => String(T.en[k])).join(' | ');
-    assert.match(allPartnerCopy, /cannot credit your Arbitrix account|never credits your Arbitrix account/i);
+    assert.match(allPartnerCopy,
+        /credited only after Arbitrix verifies|cannot add funds to your Arbitrix account/i);
     assert.ok(!/credit your account instantly|we will credit/i.test(allPartnerCopy));
 });
 
@@ -172,7 +172,6 @@ test('an unconfigured payment partner hides the actions instead of breaking', ()
     const wiring = runLinkWiring({ 'arbitrix-partner-support-telegram': '' });
     assert.strictEqual(wiring.partnerBtn.style.display, 'none');
     assert.strictEqual(wiring.partnerCard.style.display, 'none');
-    assert.strictEqual(wiring.note.style.display, 'none');
     assert.ok(!('href' in wiring.partnerBtn.attrs), 'no href when nothing is configured');
     assert.notStrictEqual(wiring.fallback.style.display, 'none', 'the official support action remains reachable');
 });
@@ -235,7 +234,8 @@ test('the pending screen keeps its safe invoice-reference guidance', () => {
 test('all six locales carry the payment-partner copy', () => {
     const T = dict();
     assert.deepStrictEqual(Object.keys(T).sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
-    const keys = ['deposit.partner.contactPaymentPartner', 'deposit.partner.paymentPartnerNote'];
+    const keys = ['deposit.partner.title', 'deposit.partner.intro',
+        'deposit.partner.modelNote', 'deposit.partner.contactPaymentPartner'];
     const sizes = Object.keys(T).map((l) => Object.keys(T[l]).length);
     assert.strictEqual(new Set(sizes).size, 1, 'identical key counts across locales');
     for (const locale of Object.keys(T)) {
