@@ -209,7 +209,7 @@ test('F7: the removed sandbox-only keys are absent from every locale', () => {
     for (const k of SANDBOX_KEYS_REMOVED) {
       assert.strictEqual(T[lang][k], undefined, `${lang}.${k} must be removed`);
     }
-    assert.strictEqual(Object.keys(T[lang]).length, 1523, `${lang} must have 1523 keys`);
+    assert.strictEqual(Object.keys(T[lang]).length, 1620, `${lang} must have 1620 keys`);
   }
 });
 

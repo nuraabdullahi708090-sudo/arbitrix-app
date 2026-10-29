@@ -63,10 +63,14 @@ function extractFunction(name) {
 const ONBOARDING_FNS = [
     'currentCachedUser', 'onboardingKey', 'getOnboardingChoice', 'setOnboardingChoice',
     'onboardingNeeded', 'showOnboarding', 'maybeShowOnboardingForCurrentUser',
-    'chooseOnboarding', 'updateDemoFirstDepositCta', 'dismissDemoDepositCta',
+    'chooseOnboarding', 'updateDemoFirstDepositCta', 'updateFirstDepositCta',
+    'updateAvailableDepositButton', 'isFirstDepositCtaDismissed', 'firstDepositDismissKey',
+    'dismissDemoDepositCta',
     'updateDepositMinNotice', 'refreshDepositModeNotice', 'setExactAmountInstruction',
     'resetDepositModal',
-    'openDepositModal', 'switchToLiveAndContinueDeposit', 'requestDepositAddress',
+    'openDepositModal', 'switchToLiveAndContinueDeposit',
+    'depositInvoiceError', 'showDepositInvoiceError', 'clearDepositInvoiceError',
+    'requestDepositAddress',
 ];
 
 function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = false } = {}) {
@@ -142,8 +146,13 @@ function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = fals
     vm.createContext(sandbox);
 
     const src = [
+        // appReady mirrors the page-level flag: false here = a first-time entry,
+        // where initApp() (not chooseOnboarding) consumes the pending deposit flag.
+        'var appReady = false;',
         'var pendingOnboardingDeposit = false; var demoDepositCtaDismissed = false; var demoCtaLastShownAt = 0;',
-        'var DEMO_CTA_MIN_TRADES = 3; var DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;',
+        'var firstDepositCtaSuppressed = false;',
+        'var FIRST_DEPOSIT_DISMISS_PREFIX = "arbi_firstdeposit_dismissed_";',
+        'var DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;',
         'let paymentPollingInterval = null; let countdownInterval = null; let currentInvoiceId = null; let currentCurrency = "USDT"; let currentNetwork = "TRC20";',
         ...ONBOARDING_FNS.map(extractFunction),
     ].join('\n');
@@ -227,12 +236,11 @@ test('"Explore Demo" enters Demo mode without forcing a deposit', () => {
     assert.strictEqual(sb.fetchCalls.length, 0, 'demo path makes no request');
     assert.strictEqual(sb.APP.demoData.balance, before.demo, 'demo balance unchanged');
     assert.strictEqual(sb.APP.liveData.balance, before.live, 'live balance unchanged');
-    // The in-Demo CTA is deliberately restrained: it is withheld until the user
-    // has meaningful demo activity, so it is not raised on entering Demo.
-    assert.ok(sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA withheld until meaningful demo activity');
-    sb.APP.demoData.trades = 3;
+    // The first-deposit card no longer waits for demo activity: a new customer
+    // must be able to find the funding path immediately. It stays a dismissible
+    // banner and still makes no request of its own.
     vm.runInContext('updateDemoFirstDepositCta()', sb);
-    assert.ok(!sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA appears after meaningful demo activity');
+    assert.ok(!sb.els.demoFirstDepositCta.classList.contains('hidden'), 'the funding prompt is available immediately');
     assert.strictEqual(sb.fetchCalls.length, 0, 'showing the CTA makes no request');
     vm.runInContext('dismissDemoDepositCta()', sb);
     assert.ok(sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA can be dismissed');
@@ -357,7 +365,7 @@ test('i18n parity across 6 locales for the onboarding keys', () => {
         'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
         'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1523, 'expected 1523 keys per locale');
+    assert.strictEqual(enKeys.length, 1620, 'expected 1620 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {

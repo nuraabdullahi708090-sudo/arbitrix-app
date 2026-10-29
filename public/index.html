@@ -21,6 +21,20 @@
          link and show the in-app support guidance instead. Public link only -
          never put tokens, secrets, or credentials here. -->
     <meta name="arbitrix-support-telegram" content="https://t.me/ArbitrixSupportBot">
+    <!-- Option 1 destination: ONE configurable outward link to an external
+         service that sells USDT. Empty (the current state) or non-https content
+         hides the button entirely while the route stays usable through its
+         instructions - no broken, invented or unverified destination is shown.
+         WHY EMPTY: checked 2026-10-29 against the formerly linked vendor's own
+         "buy USDT" page. It states that third-party providers handle KYC and
+         payment, and that "the USDT is sent directly to the address you control"
+         (i.e. the purchase lands in that provider's wallet), and it names NO
+         network at all - zero mentions of TRC20/TRON in the purchase flow. Since
+         Arbitrix credits USDT on TRON (TRC20) only, recommending it by default
+         could leave a beginner holding USDT on another network. Set this value
+         only after confirming, for that exact destination, that the customer can
+         obtain USDT on TRON (TRC20) and send it to an address they supply. -->
+    <meta name="arbitrix-buy-crypto" content="">
     <!-- Referral Partner support/manager contact. Set the Telegram username
          here (e.g. @ArbitrixPartners) or a full https://t.me/... URL, or via
          window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL. This is the SINGLE source
@@ -1320,10 +1334,94 @@
         @keyframes toast-slide-in{from{transform:translateY(100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
         /* Mobile Bottom Sheet Modals */
+        /* Deposit funding options (three routes) + verified partner cards */
+        .deposit-option-list{display:flex;flex-direction:column;gap:8px;}
+        .deposit-option{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:start;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:12px;cursor:pointer;color:inherit;font:inherit;min-width:0;}
+        .deposit-option:hover{border-color:var(--border-hover);}
+        .deposit-option.is-selected{border-color:#F0B90B;box-shadow:0 0 0 1px rgba(240,185,11,0.35) inset;}
+        .deposit-option[aria-disabled="true"]{opacity:0.72;}
+        .deposit-option-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(240,185,11,0.12);color:#F0B90B;flex:0 0 auto;}
+        .deposit-option-body{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto;}
+        .deposit-option-title{font-size:13px;font-weight:700;color:var(--text-primary);overflow-wrap:anywhere;}
+        .deposit-option-desc{font-size:11px;color:var(--text-secondary);line-height:1.5;overflow-wrap:anywhere;}
+        .deposit-option-note{font-size:10px;color:#F59E0B;line-height:1.5;overflow-wrap:anywhere;}
+        .deposit-partner-card{background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:12px;margin-bottom:8px;min-width:0;}
+        .deposit-partner-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+        .deposit-partner-name{font-size:13px;font-weight:700;color:var(--text-primary);overflow-wrap:anywhere;min-width:0;}
+        .deposit-partner-badge{font-size:9px;font-weight:700;color:#10B981;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:20px;padding:2px 8px;white-space:nowrap;}
+        .deposit-partner-meta{font-size:11px;color:var(--text-secondary);line-height:1.5;overflow-wrap:anywhere;}
+        .deposit-partner-chat{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;text-decoration:none;}
+        .deposit-partner-handle{font-size:10px;color:var(--text-muted);margin-top:6px;overflow-wrap:anywhere;direction:ltr;unicode-bidi:isolate;}
+        .deposit-ref-box{background:rgba(240,185,11,0.06);border:1px solid var(--brand-border);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
+        .deposit-ref-value{font-family:monospace;font-size:12px;color:#F0B90B;overflow-wrap:anywhere;margin:4px 0 6px;}
+        .deposit-partner-safety{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.22);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
+        .deposit-partner-safety ul{margin:6px 0 0;padding-inline-start:18px;}
+        .deposit-partner-safety li{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;overflow-wrap:anywhere;}
+        .deposit-partner-disclaimer{font-size:10px;color:var(--text-muted);line-height:1.6;margin-top:8px;overflow-wrap:anywhere;}
+        .deposit-wallet-steps{margin:0 0 12px;padding-inline-start:18px;}
+        .deposit-wallet-steps li{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:5px;overflow-wrap:anywhere;}
+        .deposit-wallet-address{background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:12px;margin:0 0 12px;min-width:0;}
+        .deposit-wallet-notes{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
+        .deposit-wallet-help{background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:12px;margin:0 0 12px;min-width:0;}
+        .deposit-partner-services{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;min-width:0;}
+        .deposit-partner-service{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;background:var(--brand-weak);border:1px solid var(--gold-glow);color:#F0B90B;max-width:100%;overflow-wrap:anywhere;}
+        .deposit-partner-service.guided{color:#38BDF8;border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.08);}
+        .deposit-wallet-help ul{margin:6px 0 0;padding-inline-start:18px;}
+        .deposit-wallet-help li{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;overflow-wrap:anywhere;}
         .deposit-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:3000;align-items:flex-end;justify-content:center;padding:0;}
         .deposit-modal.open{display:flex;}
         .deposit-modal-content{background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border:1px solid var(--border-color);max-width:500px;width:100%;max-height:92vh;overflow-y:auto;padding:24px 20px;box-shadow:0 24px 64px rgba(0,0,0,0.9);position:relative;animation:modal-slide-up 0.3s ease;}
         .deposit-modal-content h3{font-size:var(--text-lg);font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+
+        /* Deposit dialog: a sticky header keeps the title and the close control
+           on screen while the (tall) form scrolls, which matters most on a
+           320px viewport. Scoped to #depositModal so the other dialogs that
+           reuse .deposit-modal are untouched. */
+        #depositModal .deposit-modal-content{display:flex;flex-direction:column;padding:0 20px 24px;max-height:92vh;max-height:92dvh;}
+        #depositModal .deposit-modal-head{position:sticky;top:0;z-index:15;flex:0 0 auto;background:var(--bg-card);padding:24px 46px 10px 0;margin:0 0 2px;}
+        #depositModal .deposit-modal-head h3{margin:0;}
+        @media(max-width:379px){
+            #depositModal .deposit-modal-content{padding:0 16px 20px;}
+            #depositModal .deposit-modal-head{padding:20px 44px 8px 0;}
+        }
+        /* The floating support launcher must never sit on top of the deposit
+           dialog's amount field or primary action. Same :has() pattern as the
+           Support Center rule below; the dialog carries its own help link. */
+        body:has(#depositModal.open) .support-widget{display:none;}
+        /* Deposit action inside the Available stat card: the only deposit entry
+           point that is on screen at every width without opening the drawer. */
+        .stat-deposit-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:44px;margin-top:10px;padding:8px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,#F0B90B,#FCD535);color:#070B14;font-size:12px;font-weight:700;cursor:pointer;line-height:1.2;white-space:normal;overflow-wrap:break-word;}
+        .stat-deposit-btn:hover{filter:brightness(1.04);}
+        .stat-deposit-btn:focus-visible{outline:2px solid #F0B90B;outline-offset:2px;}
+        /* Wallet actions on the Available card: Deposit stays the primary
+           (gold) action, Withdraw is the outlined secondary so the two are not
+           confusable. Sharing one row keeps both at the same height, so the
+           Withdraw entry point costs no extra vertical space. */
+        .stat-actions{display:flex;align-items:stretch;gap:6px;margin-top:10px;}
+        .stat-actions .stat-deposit-btn{margin-top:0;flex:1 1 0;min-width:0;}
+        .stat-withdraw-btn{background:var(--brand-weak);border:1px solid var(--gold-glow);color:#F0B90B;}
+        .stat-withdraw-btn:hover{background:rgba(240,185,11,0.18);filter:none;}
+        @media(max-width:430px), (min-width:1024px) and (max-width:1150px){
+            /* Two labels share a narrow card on a 320px phone and again on the
+               four-up grid just above the 1024px breakpoint: drop the icons and
+               tighten the type so neither label wraps awkwardly or clips, while
+               both stay 44px tall. */
+            .stat-actions{gap:5px;}
+            .stat-actions .stat-deposit-btn{font-size:11px;padding:8px 3px;gap:0;}
+            .stat-actions .stat-deposit-btn i{display:none;}
+        }
+        @media(min-width:768px) and (max-width:1023px){
+            /* The four-up stat grid makes each card too narrow for two labels,
+               so they stack (plenty of vertical room at these widths). */
+            .stat-actions{flex-wrap:wrap;}
+            .stat-actions .stat-deposit-btn{flex:1 1 100%;}
+        }
+        /* Inline, actionable invoice-creation error. Only translated strings are
+           ever rendered here - never a server message or provider detail. */
+        .deposit-error{display:none;margin-top:10px;padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.08);font-size:11.5px;line-height:1.55;color:var(--text-secondary);}
+        .deposit-error.show{display:block;}
+        .deposit-error .deposit-error-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+        .deposit-error .deposit-error-actions .btn{min-height:36px;font-size:11.5px;padding:6px 12px;flex:1 1 auto;}
 
         /* Compact, collapsed-by-default USDT/TRC20 explainer in the deposit
            modal. Replaces the previous always-visible paragraph so the amount
@@ -1725,8 +1823,15 @@
         }
 
         @media(max-width:379px){
-            .stats-grid{grid-template-columns:1fr;}
-            .stat-value{font-size:18px;}
+            /* Two compact columns (not a single stack) plus trimmed padding keep
+               the Available card and its Deposit action on the first screen of a
+               320px-wide phone in every locale - the single-column layout pushed
+               them below the fold. */
+            .stats-grid{grid-template-columns:repeat(2,1fr);}
+            .stats-grid .card-body{padding:8px 10px;}
+            /* 16px keeps a 2-column value ("$1.000,00" in es/pt) inside its card
+               at 320px; wider viewports keep the larger sizes below. */
+            .stat-value{font-size:16px;}
             .mode-tabs{width:100%;justify-content:center;}
             .mode-tab{flex:1;text-align:center;}
             .auth-container{padding:24px 18px;}
@@ -6358,7 +6463,7 @@ function toggleFaq(btn) {
 
         <div class="stats-grid" style="margin-bottom:16px;">
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div><div id="totalEquity" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.equity">Account value</div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.available">Ready to use</div></div></div>
+            <div class="card" id="availableStatCard"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.available">Ready to use</div><div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div></div></div>
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value" style="color:#10B981;">+$0.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.pnl">Today's trading profit/loss</div></div></div>
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#EF4444;" data-i18n="bot.offline">Offline</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.botStatus">Running or stopped</div></div></div>
         </div>
@@ -6369,12 +6474,13 @@ function toggleFaq(btn) {
         <div id="demoFirstDepositCta" class="hidden" style="background:linear-gradient(135deg, var(--gold-dim), var(--brand-weak));border:1px solid var(--brand-border);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
             <div style="flex:1;min-width:200px;">
                 <div style="font-size:13px;font-weight:700;color:#F0B90B;margin-bottom:4px;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.title">Ready for real trading?</span></div>
-                <div style="font-size:11px;color:var(--text-secondary);line-height:1.6;" data-i18n="demoCta.body">You're exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.</div>
+                <div id="demoCtaBodyDemo" style="font-size:11px;color:var(--text-secondary);line-height:1.6;" data-i18n="demoCta.body">You're exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.</div>
+                <div id="demoCtaBodyLive" style="display:none;font-size:11px;color:var(--text-secondary);line-height:1.6;" data-i18n="demoCta.liveBody">Your Live account is not funded yet. Make a deposit to trade with real funds. Demo Mode stays available and you can switch back at any time.</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;min-width:170px;">
                 <button type="button" onclick="openDepositModal()" class="btn btn-primary" style="background:linear-gradient(135deg,#F0B90B,#FCD535);border:none;color:#070B14;font-weight:700;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.button">Make My First Deposit</span></button>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button type="button" onclick="reviewLiveRequirements()" class="btn btn-secondary" style="font-size:11px;flex:1;min-width:120px;" data-i18n="demoCta.reviewLive">Review Live Requirements</button>
+                    <button type="button" id="demoCtaReviewBtn" onclick="reviewLiveRequirements()" class="btn btn-secondary" style="font-size:11px;flex:1;min-width:120px;" data-i18n="demoCta.reviewLive">Review Live Requirements</button>
                     <button type="button" onclick="dismissDemoDepositCta()" class="btn btn-secondary" style="font-size:11px;flex:1;min-width:90px;" data-i18n="demoCta.later">Maybe later</button>
                 </div>
             </div>
@@ -6457,9 +6563,9 @@ function toggleFaq(btn) {
         <div class="wallet-section" id="liveWalletSection" style="display:none;">
             <div class="two-col-grid" style="margin-bottom:16px;">
                 <div class="card" id="liveFunds">
-                    <div class="card-header"><span class="icon-bg gold"><i class="fas fa-circle-down"></i></span> <span data-i18n="deposit.title">Live Wallet</span></div>
+                    <div class="card-header"><span class="icon-bg gold"><i class="fas fa-circle-down"></i></span> <span data-i18n="wallet.liveTitle">Live Wallet</span></div>
                     <div class="card-body">
-                        <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:8px;"><span data-i18n="wallet.live">Live Balance</span><span id="liveBalanceDisplay">$50.00</span></div>
+                        <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:8px;"><span data-i18n="wallet.liveBalance">Live Balance</span><span id="liveBalanceDisplay">$50.00</span></div>
                         <div style="font-size:9px;color:#10B981;margin-bottom:8px;text-align:center;line-height:1.4;"><i class="fas fa-shield-halved"></i> <span data-i18n="wallet.liveReal">Real trading funds — separate from demo funds and promotional credit.</span></div>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
                             <button type="button" class="quick-amount-btn" onclick="openDepositModal()" data-i18n="deposit.title">💰 Deposit</button>
@@ -6616,6 +6722,7 @@ function toggleFaq(btn) {
                         <button type="button" class="mode-tab" onclick="showAdminTab('kyc')" id="adminTabKyc" data-i18n="admin.tab.kyc">KYC</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('subscriptions')" id="adminTabSubscriptions" data-i18n="admin.tab.subscriptions">Subscriptions</button>
                         <button type="button" class="mode-tab" onclick="showAdminTab('sandbox')" id="adminTabSandbox" data-i18n="admin.tab.sandbox">Sandbox</button>
+                        <button type="button" class="mode-tab" onclick="showAdminTab('partners')" id="adminTabPartners" data-i18n="admin.tab.partners">Partners</button>
                     </div>
                     
                     <!-- Operations Dashboard Tab -->
@@ -7074,6 +7181,61 @@ function toggleFaq(btn) {
                         </div>
                     </div>
 
+                    <!-- Deposit Partner Directory (verified human partners).
+                         Admin-only surface: every action calls /api/admin/deposit-partners,
+                         which re-checks authMiddleware + adminMiddleware server-side. -->
+                    <div id="adminTabContentPartners" class="hidden">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:0 0 12px 0;" data-i18n="admin.partner.help">Verified human partners shown on the Deposit page. Only partners that are both active and verified are visible to customers. A partner can never credit an account.</p>
+
+                        <div style="background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:12px;margin-bottom:12px;">
+                            <div style="font-size:11px;font-weight:700;color:#F0B90B;margin-bottom:8px;" data-i18n="admin.partner.addTitle">Add a partner</div>
+                            <input id="adminPartnerName" class="input-field" style="width:100%;margin-bottom:8px;" maxlength="60" data-i18n-placeholder="admin.partner.name" placeholder="Display name">
+                            <input id="adminPartnerTelegram" class="input-field" style="width:100%;margin-bottom:4px;" maxlength="64" data-i18n-placeholder="admin.partner.telegram" placeholder="Telegram username">
+                            <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:8px;" data-i18n="admin.partner.telegramHint">Enter the username only, without the @. The t.me link is built automatically.</div>
+                            <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="admin.partner.services">Services offered</div>
+                            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                                <label style="font-size:11px;display:flex;align-items:center;gap:6px;min-height:32px;"><input type="checkbox" id="adminPartnerServiceDirect"> <span data-i18n="admin.partner.serviceDirect">Direct USDT sales</span></label>
+                                <label style="font-size:11px;display:flex;align-items:center;gap:6px;min-height:32px;"><input type="checkbox" id="adminPartnerServiceGuided"> <span data-i18n="admin.partner.serviceGuided">Guided purchasing assistance</span></label>
+                            </div>
+                            <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:8px;" data-i18n="admin.partner.servicesHint">Select at least one. A partner with no service is never shown to customers.</div>
+                            <label style="font-size:11px;display:flex;align-items:center;gap:6px;min-height:32px;margin-bottom:6px;"><input type="checkbox" id="adminPartnerWorldwide" onchange="adminPartnerWorldwideChanged()"> <span data-i18n="admin.partner.worldwide">Serves customers worldwide</span></label>
+                            <input id="adminPartnerCountries" class="input-field" style="width:100%;margin-bottom:4px;" maxlength="200" data-i18n-placeholder="deposit.partner.countries" placeholder="Countries served">
+                            <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:8px;" data-i18n="admin.partner.countriesHint">Leave empty when the partner serves customers worldwide. Otherwise list the countries actually covered, separated by commas.</div>
+                            <input id="adminPartnerMethods" class="input-field" style="width:100%;margin-bottom:4px;" maxlength="200" data-i18n-placeholder="deposit.partner.methods" placeholder="Payment methods">
+                            <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:8px;" data-i18n="admin.partner.methodsHint">Payment methods the partner accepts for direct sales. Leave empty for guided-only partners.</div>
+                            <input id="adminPartnerOrder" type="number" class="input-field" style="width:100%;margin-bottom:8px;" value="100" min="0" max="10000" data-i18n-placeholder="admin.partner.order" placeholder="Display order">
+                            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+                                <label style="font-size:11px;display:flex;align-items:center;gap:6px;min-height:32px;"><input type="checkbox" id="adminPartnerActive"> <span data-i18n="admin.partner.active">Active</span></label>
+                                <label style="font-size:11px;display:flex;align-items:center;gap:6px;min-height:32px;"><input type="checkbox" id="adminPartnerVerified"> <span data-i18n="deposit.partner.verified">Verified Partner</span></label>
+                            </div>
+                            <button type="button" class="btn btn-primary" style="width:100%;padding:10px;font-size:12px;" onclick="adminCreatePartner()">
+                                <i class="fas fa-plus"></i> <span data-i18n="admin.partner.add">Add partner</span>
+                            </button>
+                        </div>
+
+                        <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+                            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
+                                    <tr style="border-bottom:1px solid var(--border);">
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.name">Display name</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.telegram">Telegram username</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.services">Services offered</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.coverage">Coverage</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.order">Display order</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.active">Active</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="deposit.partner.verified">Verified Partner</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.partner.visible">Visible to customers</th>
+                                        <th style="padding:8px;text-align:left;color:var(--text-secondary);" data-i18n="admin.col.actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminPartnersTableBody">
+                                    <tr><td colspan="9" style="padding:20px;text-align:center;color:var(--text-secondary);" data-i18n="common.loading">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="adminPartnerLog" style="font-size:10px;margin-top:8px;"></div>
+                    </div>
+
                     <!-- Marketing Sandbox Controls Tab -->
                     <div id="adminTabContentSandbox" class="hidden">
                         <p style="font-size:11px;color:var(--text-secondary);margin:0 0 12px 0;" data-i18n="sandbox.admin.help">Marketing sandbox controls operate only on MARKETING_SANDBOX accounts. Everything here is simulated — no real funds, wallets, blockchains, exchanges, payments, subscriptions, or production queues are ever involved.</p>
@@ -7385,9 +7547,11 @@ function toggleFaq(btn) {
 
 <!-- ==================== DEPOSIT MODAL (ENHANCED) ==================== -->
 <div class="deposit-modal" id="depositModal">
-  <div class="deposit-modal-content">
-    <button type="button" onclick="closeDepositModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
-    <h3><i class="fas fa-circle-down" style="color:#10B981;"></i> <span data-i18n="deposit.title">Deposit Funds</span></h3>
+  <div class="deposit-modal-content" id="depositModalContent">
+    <div class="deposit-modal-head">
+      <button type="button" onclick="closeDepositModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
+      <h3><i class="fas fa-circle-down" style="color:#10B981;"></i> <span data-i18n="deposit.title">Deposit Funds</span></h3>
+    </div>
     
     <!-- ============================================= -->
     <!-- STEP 1: INPUT SECTION (shown before invoice) -->
@@ -7449,6 +7613,147 @@ function toggleFaq(btn) {
         </div>
       </div>
 
+      <!-- FUNDING OPTIONS: three available routes. Card-to-crypto purchasing is
+           POSTPONED and is deliberately absent from this menu, so the interface
+           never advertises a feature that cannot be used. Selecting a route is
+           display-only: it never creates an invoice and never credits a balance.
+           Hidden entirely for MARKETING_SANDBOX accounts. -->
+      <div id="depositOptions" style="margin:16px 0;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;" data-i18n="deposit.choose.title">Choose how to fund</div>
+        <div class="deposit-option-list">
+          <button type="button" id="depositOptionWallet" class="deposit-option" onclick="selectDepositOption('wallet')">
+            <span class="deposit-option-icon"><i class="fas fa-arrow-up-right-from-square"></i></span>
+            <span class="deposit-option-body">
+              <span class="deposit-option-title" data-i18n="deposit.choose.wallet.title">Buy USDT with an External Service</span>
+              <span class="deposit-option-desc" data-i18n="deposit.choose.wallet.desc">Buy USDT with a service such as Trust Wallet, then send it to your Arbitrix address.</span>
+            </span>
+          </button>
+          <button type="button" id="depositOptionPartner" class="deposit-option" onclick="selectDepositOption('partner')">
+            <span class="deposit-option-icon"><i class="fas fa-user-shield"></i></span>
+            <span class="deposit-option-body">
+              <span class="deposit-option-title" data-i18n="deposit.choose.partner.title">Buy from a Verified Partner</span>
+              <span class="deposit-option-desc" data-i18n="deposit.choose.partner.desc">Contact a verified partner who can help you obtain USDT for your deposit.</span>
+            </span>
+          </button>
+          <button type="button" id="depositOptionCrypto" class="deposit-option is-selected" onclick="selectDepositOption('crypto')">
+            <span class="deposit-option-icon"><i class="fas fa-wallet"></i></span>
+            <span class="deposit-option-body">
+              <span class="deposit-option-title" data-i18n="deposit.choose.crypto.title">I Already Have Crypto</span>
+              <span class="deposit-option-desc" data-i18n="deposit.choose.crypto.desc">Deposit USDT on TRON (TRC20) directly to your Arbitrix address.</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- VERIFIED PARTNER PANEL (Option 2). Contact details only: a partner
+           cannot credit an account, and no Telegram message, screenshot or
+           partner confirmation is ever treated as proof of payment. The
+           reference shown here belongs to the SAME invoice the crypto flow
+           creates - this panel never generates an address. -->
+      <div id="depositPartnerPanel" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 8px;">
+          <strong style="font-size:13px;color:#F0B90B;"><i class="fas fa-user-shield"></i> <span data-i18n="deposit.partner.title">Verified Partners</span></strong>
+          <button type="button" onclick="selectDepositOption('crypto')" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;min-height:32px;">
+            <i class="fas fa-arrow-left"></i> <span data-i18n="deposit.partner.back">Back</span>
+          </button>
+        </div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.intro">Contact a partner on Telegram. Partners help you obtain cryptocurrency; they cannot add funds to your account.</p>
+        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.servicesIntro">Partners may offer direct USDT sales, guided purchasing assistance, or both. Each card below shows what that partner offers, where they serve customers, and how to reach them.</p>
+        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:10px;" data-i18n="deposit.partner.modelNote">Partners help you obtain USDT yourself. Whether a partner sells USDT or guides you through buying it depends on that partner. Either way you send the USDT to the Arbitrix address generated for your own deposit, and paying a partner never credits your Arbitrix account.</p>
+
+        <div id="depositPartnerList"></div>
+        <div id="depositPartnerEmpty" style="display:none;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:14px;margin-bottom:8px;">
+          <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.partner.empty">No verified partners are listed right now. You can still deposit cryptocurrency directly.</p>
+          <button type="button" onclick="openSupportModal()" class="btn btn-secondary" style="width:100%;padding:10px;font-size:12px;">
+            <i class="fas fa-headset"></i> <span data-i18n="deposit.partner.supportCta">Contact Support</span>
+          </button>
+        </div>
+
+        <div class="deposit-ref-box">
+          <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.partner.refTitle">Your deposit reference</div>
+          <div class="deposit-ref-value" id="depositRefValue">-</div>
+          <div style="font-size:11px;color:var(--text-secondary);line-height:1.6;" id="depositRefHint" data-i18n="deposit.partner.refHint">Generate a payment in the deposit form to get a reference, amount and address to share with your partner.</div>
+          <button type="button" id="depositRefCopyBtn" onclick="copyDepositReference()" class="btn btn-secondary" style="display:none;margin-top:8px;padding:8px 12px;font-size:11px;min-height:32px;">
+            <i class="fas fa-copy"></i> <span data-i18n="deposit.partner.copyRef">Copy reference</span>
+          </button>
+        </div>
+
+        <div class="deposit-partner-safety">
+          <strong style="font-size:11px;color:#EF4444;" data-i18n="deposit.partner.safety.title">Stay safe</strong>
+          <ul>
+            <li data-i18n="deposit.partner.safety.1">Only contact partners listed here, and check the Telegram username before you message.</li>
+            <li data-i18n="deposit.partner.safety.2">Never share your password, one-time codes (OTP) or private wallet keys.</li>
+            <li data-i18n="deposit.partner.safety.3">Confirm the asset, network and destination address before you send anything.</li>
+            <li data-i18n="deposit.partner.safety.4">A partner can help you obtain crypto, but a partner cannot add funds to your Arbitrix account.</li>
+            <li data-i18n="deposit.partner.safety.5">Your balance is credited only after Arbitrix verifies the incoming transfer.</li>
+            <li data-i18n="deposit.partner.safety.6">Contact Arbitrix support if a transfer is delayed.</li>
+          </ul>
+        </div>
+        <p class="deposit-partner-disclaimer" data-i18n="deposit.partner.disclaimer">The Verified Partner badge means Arbitrix has reviewed the partner internally. It is not a guarantee of any transaction and it is not a regulatory licence.</p>
+      </div>
+
+      <!-- EXTERNAL WALLET PANEL (Option 1). Guidance plus ONE outward link.
+           There is no embedded checkout and no deep link, and nothing here can
+           credit an account: a purchase inside a wallet only becomes a deposit
+           when the USDT reaches the Arbitrix address and the existing payment
+           pipeline verifies it. -->
+      <div id="depositWalletPanel" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 8px;">
+          <strong style="font-size:13px;color:#F0B90B;"><i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="deposit.wallet.title">Buy USDT with an External Service</span></strong>
+          <button type="button" onclick="selectDepositOption('crypto')" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;min-height:32px;">
+            <i class="fas fa-arrow-left"></i> <span data-i18n="deposit.partner.back">Back</span>
+          </button>
+        </div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.wallet.intro">Two steps: buy USDT with a service, then send it to the Arbitrix address generated here. Arbitrix does not process card payments itself.</p>
+
+        <!-- The address comes FIRST because the journey starts with an invoice:
+             nothing here can create one, and the value always comes from the
+             server-generated invoice shown in the deposit form. -->
+        <div class="deposit-wallet-address">
+          <div style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="deposit.wallet.addressLabel">Your Arbitrix USDT (TRC20) address</div>
+          <div id="depositWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:#F0B90B;line-height:1.5;">-</div>
+          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;" data-i18n="deposit.wallet.addressHint">Generate this first. The address belongs to your own deposit.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <button type="button" id="depositWalletGenerateBtn" onclick="focusDepositAmount()" class="btn btn-secondary" style="flex:1;min-width:140px;padding:9px;font-size:11px;">
+              <i class="fas fa-qrcode"></i> <span data-i18n="deposit.wallet.generate">Generate my address</span>
+            </button>
+            <button type="button" id="depositWalletCopyBtn" onclick="copyWalletAddress()" class="btn btn-secondary" style="display:none;flex:1;min-width:140px;padding:9px;font-size:11px;">
+              <i class="fas fa-copy"></i> <span data-i18n="deposit.wallet.copy">Copy address</span>
+            </button>
+          </div>
+        </div>
+
+        <ol class="deposit-wallet-steps">
+          <li data-i18n="deposit.wallet.step1">Enter your amount and generate the deposit address in this page.</li>
+          <li data-i18n="deposit.wallet.step2">Open the external service and complete its identity checks.</li>
+          <li data-i18n="deposit.wallet.step3">Buy USDT. If the service asks which network, choose TRON (TRC20).</li>
+          <li data-i18n="deposit.wallet.step4">Send it to the exact address above, on the TRON (TRC20) network only.</li>
+        </ol>
+
+        <a id="depositBuyCryptoLink" class="btn btn-primary" style="display:none;width:100%;text-align:center;margin:12px 0;padding:11px;font-size:12px;" href="#" target="_blank" rel="noopener noreferrer">
+          <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="deposit.wallet.open">Open the USDT purchase page</span>
+        </a>
+        <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:0 0 10px;" data-i18n="deposit.wallet.providersNote">Availability, fees, minimums and identity checks are set by each service and differ by country. Confirm them inside the service before you buy.</p>
+
+        <div class="deposit-wallet-help">
+          <p style="font-size:11px;font-weight:700;color:var(--text-primary);margin:0 0 6px;overflow-wrap:anywhere;" data-i18n="deposit.wallet.help.title">Which situation is yours?</p>
+          <ul>
+            <li data-i18n="deposit.wallet.help.new">New to crypto: install a wallet app or create an exchange account, complete its identity checks, then buy USDT.</li>
+            <li data-i18n="deposit.wallet.help.existing">You already use a wallet or exchange: skip setup, buy USDT there and send it here.</li>
+            <li data-i18n="deposit.wallet.help.hold">You already own USDT: skip buying, send it from your existing wallet on TRON (TRC20).</li>
+          </ul>
+          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;" data-i18n="deposit.wallet.help.delivery">Some services deliver USDT to a wallet they provide; others let you enter an external address at checkout. Either is fine - the transfer must be USDT on TRON (TRC20) to the address above.</p>
+        </div>
+
+        <div class="deposit-wallet-notes">
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 8px;" data-i18n="deposit.wallet.feesNote">On TRON the sender pays the network fee, so keep a little TRX in the sending wallet.</p>
+          <p style="font-size:11px;color:#EF4444;line-height:1.6;margin:0 0 8px;" data-i18n="deposit.wallet.notCredited">Buying crypto does not credit your Arbitrix account. Only USDT that arrives at your Arbitrix address is credited, and only after Arbitrix verifies it on-chain.</p>
+          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:0;" data-i18n="deposit.wallet.noProof">A receipt, screenshot or message from anyone is not proof of payment.</p>
+        </div>
+      </div>
+
+      <!-- THE EXISTING CRYPTO DEPOSIT FLOW (unchanged) -->
+      <div id="depositCryptoFlow">
       <!-- Supported Currencies Banner -->
       <div id="supportedCoinsInfo" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin:16px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -7497,6 +7802,18 @@ function toggleFaq(btn) {
             <i class="fas fa-qrcode"></i> <span data-i18n="deposit.btn.generatePayment">Generate Payment</span>
           </button>
         </div>
+
+        <!-- Actionable invoice-creation error. Text comes from the translation
+             dictionary only (mapped from the HTTP status); the server's own
+             message is never rendered. Retry and the existing support route are
+             offered here so the customer is never left at a dead end. -->
+        <div id="depositInvoiceError" class="deposit-error" role="alert" aria-live="polite">
+          <div id="depositInvoiceErrorText"></div>
+          <div class="deposit-error-actions">
+            <button type="button" id="depositRetryBtn" class="btn btn-secondary" onclick="requestDepositAddress()" data-i18n="deposit.retry">Try again</button>
+            <button type="button" class="btn btn-secondary" onclick="openSupportModal()" data-i18n="deposit.getHelp">Get help</button>
+          </div>
+        </div>
       </div>
 
       <!-- Safety Warning -->
@@ -7515,6 +7832,7 @@ function toggleFaq(btn) {
         <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;">
           <i class="fas fa-headset"></i> <span data-i18n="support.needHelpDeposit">Need help with your deposit?</span>
         </button>
+      </div>
       </div>
     </div>
 
@@ -7750,6 +8068,13 @@ function toggleFaq(btn) {
           <div style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin-top:2px;" data-i18n="onboarding.secondaryDesc">See the Live balance and what is required before you fund your account.</div>
         </div>
       </div>
+    </button>
+
+    <!-- TERTIARY: go straight to funding. Optional - Demo Mode stays the
+         primary, recommended choice; this only surfaces the path that already
+         exists behind Deposit. -->
+    <button type="button" id="onboardingDepositBtn" onclick="chooseOnboarding('deposit')" style="display:block;width:100%;background:none;border:none;color:#F0B90B;font-size:12px;font-weight:600;line-height:1.5;padding:6px 4px;margin:-2px 0 12px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">
+      <i class="fas fa-circle-down"></i> <span data-i18n="onboarding.fundLive">I want to fund my Live account</span>
     </button>
 
     <div style="background:rgba(7,11,20,0.35);border-radius:10px;padding:12px;margin-bottom:12px;">
@@ -8931,7 +9256,7 @@ const TRANSLATIONS = {
         'status.processing': 'Processing',
         'status.demoTrading': 'Demo Trading • Virtual Funds',
         'status.liveFunded': 'Live • Funded',
-        'status.livePending': 'Live • Pending Deposit',
+        'status.livePending': 'Live \u2022 Not funded yet',
         'ticker.live': 'LIVE ACTIVITY',
         'stats.equity': 'Total Equity',
         'stats.available': 'Available',
@@ -9189,6 +9514,92 @@ const TRANSLATIONS = {
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
+        'deposit.choose.title': 'Choose how to fund',
+        'deposit.choose.partner.title': 'Buy from a Verified Partner',
+        'deposit.choose.partner.desc': 'Contact a verified partner who can help you obtain USDT for your deposit.',
+        'deposit.choose.crypto.title': 'I Already Have Crypto',
+        'deposit.choose.crypto.desc': 'Deposit USDT on TRON (TRC20) directly to your Arbitrix address.',
+        'deposit.choose.wallet.title': 'Buy USDT with an External Service',
+        'deposit.choose.wallet.desc': 'Buy USDT from an external service you trust, then send it to your Arbitrix address.',
+        'deposit.wallet.title': 'Buy USDT with an External Service',
+        'deposit.wallet.intro': 'Two steps: buy USDT with a service, then send it to the Arbitrix address generated here. Arbitrix does not process card payments itself.',
+        'deposit.wallet.step1': 'Enter your amount and generate the deposit address in this page.',
+        'deposit.wallet.step2': 'Open the external service and complete its identity checks.',
+        'deposit.wallet.step3': 'Buy USDT. If the service asks which network, choose TRON (TRC20).',
+        'deposit.wallet.step4': 'Send it to the exact address above, on the TRON (TRC20) network only.',
+        'deposit.wallet.addressLabel': 'Your Arbitrix USDT (TRC20) address',
+        'deposit.wallet.addressNone': 'Generate your deposit address first',
+        'deposit.wallet.generate': 'Generate my address',
+        'deposit.wallet.copy': 'Copy address',
+        'deposit.wallet.addressHint': 'Generate this first. The address belongs to your own deposit.',
+        'deposit.wallet.providersNote': 'Availability, fees, minimums and identity checks are set by each service and differ by country. Confirm them inside the service, and make sure it supports USDT on the TRON (TRC20) network, before you buy.',
+        'deposit.wallet.help.title': 'Which situation is yours?',
+        'deposit.wallet.help.new': 'New to crypto: install a wallet app or create an exchange account, complete its identity checks, then buy USDT.',
+        'deposit.wallet.help.existing': 'You already use a wallet or exchange: skip setup, buy USDT there and send it here.',
+        'deposit.wallet.help.hold': 'You already own USDT: skip buying, send it from your existing wallet on TRON (TRC20).',
+        'deposit.wallet.help.delivery': 'Some services deliver USDT to a wallet they provide; others let you enter an external address at checkout. Either is fine - the transfer must be USDT on TRON (TRC20) to the address above.',
+        'deposit.wallet.open': 'Open the USDT purchase page',
+        'deposit.wallet.feesNote': 'On TRON the sender pays the network fee, so keep a little TRX in the sending wallet.',
+        'deposit.wallet.notCredited': 'Buying crypto does not credit your Arbitrix account. Only USDT that arrives at your Arbitrix address is credited, and only after Arbitrix verifies it on-chain.',
+        'deposit.wallet.noProof': 'A receipt, screenshot or message from anyone is not proof of payment.',
+        'deposit.partner.title': 'Verified Partners',
+        'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency; they cannot add funds to your account.',
+        'deposit.partner.modelNote': 'Partners help you obtain USDT yourself. Whether a partner sells USDT or guides you through buying it depends on that partner. Either way you send the USDT to the Arbitrix address generated for your own deposit, and paying a partner never credits your Arbitrix account.',
+        'deposit.partner.servicesIntro': 'Partners may offer direct USDT sales, guided purchasing assistance, or both. Each card below shows what that partner offers, where they serve customers, and how to reach them.',
+        'deposit.partner.service.direct': 'Direct USDT sale',
+        'deposit.partner.service.guided': 'Guided purchasing assistance',
+        'deposit.partner.worldwide': 'Serves customers worldwide',
+        'deposit.partner.serves': 'Serves',
+        'deposit.partner.methodsDepend': 'Payment methods depend on the external service you use.',
+        'deposit.partner.back': 'Back',
+        'deposit.partner.empty': 'No verified partners are listed right now. You can still deposit cryptocurrency directly.',
+        'deposit.partner.supportCta': 'Contact Support',
+        'deposit.partner.verified': 'Verified Partner',
+        'deposit.partner.chat': 'Chat on Telegram',
+        'deposit.partner.countries': 'Countries served',
+        'deposit.partner.methods': 'Payment methods',
+        'deposit.partner.refTitle': 'Your deposit reference',
+        'deposit.partner.refNone': 'Not created yet',
+        'deposit.partner.refHint': 'Generate a payment in the deposit form to get a reference, amount and address to share with your partner.',
+        'deposit.partner.refReady': 'Share this reference with your partner, together with the exact {{asset}} ({{network}}) address and amount from your payment screen.',
+        'deposit.partner.refCopied': 'Deposit reference copied',
+        'deposit.partner.copyRef': 'Copy reference',
+        'deposit.partner.safety.title': 'Stay safe',
+        'deposit.partner.safety.1': 'Only contact partners listed here, and check the Telegram username before you message.',
+        'deposit.partner.safety.2': 'Never share your password, one-time codes (OTP) or private wallet keys.',
+        'deposit.partner.safety.3': 'Confirm the asset, network and destination address before you send anything.',
+        'deposit.partner.safety.4': 'A partner can help you obtain crypto, but a partner cannot add funds to your Arbitrix account.',
+        'deposit.partner.safety.5': 'Your balance is credited only after Arbitrix verifies the incoming transfer.',
+        'deposit.partner.safety.6': 'Contact Arbitrix support if a transfer is delayed.',
+        'deposit.partner.disclaimer': 'The Verified Partner badge means Arbitrix has reviewed the partner internally. It is not a guarantee of any transaction and it is not a regulatory licence.',
+        'admin.tab.partners': 'Partners',
+        'admin.partner.help': 'Verified human partners shown on the Deposit page. Only partners that are both active and verified are visible to customers. A partner can never credit an account.',
+        'admin.partner.addTitle': 'Add a partner',
+        'admin.partner.name': 'Display name',
+        'admin.partner.telegram': 'Telegram username',
+        'admin.partner.telegramHint': 'Enter the username only, without the @. The t.me link is built automatically.',
+        'admin.partner.services': 'Services offered',
+        'admin.partner.serviceDirect': 'Direct USDT sales',
+        'admin.partner.serviceGuided': 'Guided purchasing assistance',
+        'admin.partner.servicesHint': 'Select at least one. A partner with no service is never shown to customers.',
+        'admin.partner.servicesRequired': 'Select at least one service.',
+        'admin.partner.worldwide': 'Serves customers worldwide',
+        'admin.partner.countriesHint': 'Leave empty when the partner serves customers worldwide. Otherwise list the countries actually covered, separated by commas.',
+        'admin.partner.methodsHint': 'Payment methods the partner accepts for direct sales. Leave empty for guided-only partners.',
+        'admin.partner.coverage': 'Coverage',
+        'admin.partner.noServices': 'No service set',
+        'admin.partner.order': 'Display order',
+        'admin.partner.active': 'Active',
+        'admin.partner.add': 'Add partner',
+        'admin.partner.save': 'Save',
+        'admin.partner.remove': 'Delete',
+        'admin.partner.empty': 'No partners yet.',
+        'admin.partner.saved': 'Partner saved',
+        'admin.partner.failed': 'Could not save partner',
+        'admin.partner.invalid': 'Check the partner details',
+        'admin.partner.removeConfirm': 'Delete this partner?',
+        'admin.partner.migration': 'The partner directory is not available yet. Migration 045 must be applied.',
+        'admin.partner.visible': 'Visible to customers',
         'deposit.success': '✅ ${{amount}} USDT deposited successfully!',
         'deposit.confirmed': 'Deposit Confirmed',
         'deposit.addedVia': '${{amount}} added to live wallet via {{network}}',
@@ -10226,6 +10637,17 @@ const TRANSLATIONS = {
         'sandbox.admin.dayOption': 'Day {{day}}',
 
         'sandbox.admin.noWithdrawals': 'No simulated withdrawals yet',
+        'wallet.liveTitle': 'Live Wallet',
+        'wallet.liveBalance': 'Live Balance',
+        'stats.depositCta': 'Deposit',
+        'onboarding.fundLive': 'I want to fund my Live account',
+        'demoCta.liveBody': 'Your Live account is not funded yet. Make a deposit to trade with real funds. Demo Mode stays available and you can switch back at any time.',
+        'deposit.retry': 'Try again',
+        'deposit.getHelp': 'Get help',
+        'deposit.errRateLimited': 'Too many deposit attempts. Please wait a minute and try again.',
+        'deposit.errUnavailable': 'The payment service is temporarily unavailable. Please try again in a few minutes.',
+        'deposit.errSession': 'Your session has expired. Please sign in again, then retry the deposit.',
+        'deposit.errInvalid': 'That amount could not be processed. Check the amount and try again.',
     },
     es: {
         'auth.subtitle': 'Trading de Arbitraje Multi-Activo',
@@ -10474,7 +10896,7 @@ const TRANSLATIONS = {
         'status.processing': 'Procesando',
         'status.demoTrading': 'Trading demo • Fondos virtuales',
         'status.liveFunded': 'Live • Fondos cargados',
-        'status.livePending': 'Live • Depósito pendiente',
+        'status.livePending': 'Live \u2022 A\u00fan sin fondos',
         'ticker.live': 'ACTIVIDAD EN VIVO',
         'stats.equity': 'Patrimonio total',
         'stats.available': 'Disponible',
@@ -10732,6 +11154,92 @@ const TRANSLATIONS = {
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
+        'deposit.choose.title': 'Elige cómo fondear',
+        'deposit.choose.partner.title': 'Comprar a un socio verificado',
+        'deposit.choose.partner.desc': 'Contacta con un socio verificado que pueda ayudarte a obtener USDT para tu dep\u00f3sito.',
+        'deposit.choose.crypto.title': 'Ya tengo criptomonedas',
+        'deposit.choose.crypto.desc': 'Deposita USDT en TRON (TRC20) directamente en tu dirección de Arbitrix.',
+        'deposit.choose.wallet.title': 'Comprar USDT con un servicio externo',
+        'deposit.choose.wallet.desc': 'Compra USDT en un servicio externo de confianza y env\u00edalo a tu direcci\u00f3n de Arbitrix.',
+        'deposit.wallet.title': 'Comprar USDT con un servicio externo',
+        'deposit.wallet.intro': 'Dos pasos: compra USDT con un servicio y env\u00edalo a la direcci\u00f3n de Arbitrix generada aqu\u00ed. Arbitrix no procesa pagos con tarjeta.',
+        'deposit.wallet.step1': 'Introduce el importe y genera la direcci\u00f3n de dep\u00f3sito en esta p\u00e1gina.',
+        'deposit.wallet.step2': 'Abre el servicio externo y completa sus verificaciones de identidad.',
+        'deposit.wallet.step3': 'Compra USDT. Si el servicio pregunta por la red, elige TRON (TRC20).',
+        'deposit.wallet.step4': 'Env\u00edalo a la direcci\u00f3n exacta de arriba, solo por la red TRON (TRC20).',
+        'deposit.wallet.addressLabel': 'Tu direcci\u00f3n USDT (TRC20) de Arbitrix',
+        'deposit.wallet.addressNone': 'Primero genera tu direcci\u00f3n de dep\u00f3sito',
+        'deposit.wallet.generate': 'Generar mi direcci\u00f3n',
+        'deposit.wallet.copy': 'Copiar direcci\u00f3n',
+        'deposit.wallet.addressHint': 'Genera esto primero. La direcci\u00f3n corresponde a tu propio dep\u00f3sito.',
+        'deposit.wallet.providersNote': 'La disponibilidad, las comisiones, los m\u00ednimos y las verificaciones las define cada servicio y var\u00edan seg\u00fan el pa\u00eds. Conf\u00edrmalos dentro del servicio y aseg\u00farate de que admite USDT en la red TRON (TRC20) antes de comprar.',
+        'deposit.wallet.help.title': '\u00bfCu\u00e1l es tu situaci\u00f3n?',
+        'deposit.wallet.help.new': 'Nuevo en cripto: instala una cartera o crea una cuenta en un exchange, completa sus verificaciones y luego compra USDT.',
+        'deposit.wallet.help.existing': 'Ya usas una cartera o un exchange: omite la configuraci\u00f3n, compra USDT all\u00ed y env\u00edalo aqu\u00ed.',
+        'deposit.wallet.help.hold': 'Ya tienes USDT: omite la compra y env\u00edalo desde tu cartera en TRON (TRC20).',
+        'deposit.wallet.help.delivery': 'Algunos servicios entregan el USDT en una cartera suya; otros permiten indicar una direcci\u00f3n externa al pagar. Ambos sirven: la transferencia debe ser USDT en TRON (TRC20) a la direcci\u00f3n de arriba.',
+        'deposit.wallet.open': 'Abrir la p\u00e1gina de compra de USDT',
+        'deposit.wallet.feesNote': 'En TRON la comisi\u00f3n de red la paga quien env\u00eda, as\u00ed que deja un poco de TRX en la billetera de origen.',
+        'deposit.wallet.notCredited': 'Comprar cripto no acredita tu cuenta de Arbitrix. Solo se acredita el USDT que llega a tu direcci\u00f3n de Arbitrix, y solo despu\u00e9s de que Arbitrix lo verifique en la cadena.',
+        'deposit.wallet.noProof': 'Un recibo, una captura de pantalla o un mensaje de cualquier persona no es prueba de pago.',
+        'deposit.partner.title': 'Socios verificados',
+        'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas; no pueden añadir fondos a tu cuenta.',
+        'deposit.partner.modelNote': 'Los socios te ayudan a obtener USDT por tu cuenta. Que un socio venda USDT o te gu\u00ede para comprarlo depende de cada socio. En ambos casos env\u00edas el USDT a la direcci\u00f3n de Arbitrix generada para tu propio dep\u00f3sito, y pagar a un socio nunca acredita tu cuenta de Arbitrix.',
+        'deposit.partner.servicesIntro': 'Los socios pueden ofrecer venta directa de USDT, asistencia guiada para comprar, o ambas. Cada tarjeta muestra qu\u00e9 ofrece ese socio, d\u00f3nde atiende y c\u00f3mo contactarlo.',
+        'deposit.partner.service.direct': 'Venta directa de USDT',
+        'deposit.partner.service.guided': 'Asistencia guiada para comprar',
+        'deposit.partner.worldwide': 'Atiende a clientes en todo el mundo',
+        'deposit.partner.serves': 'Atiende',
+        'deposit.partner.methodsDepend': 'Los m\u00e9todos de pago dependen del servicio externo que utilices.',
+        'deposit.partner.back': 'Volver',
+        'deposit.partner.empty': 'Ahora mismo no hay socios verificados publicados. Puedes depositar criptomonedas directamente.',
+        'deposit.partner.supportCta': 'Contactar con soporte',
+        'deposit.partner.verified': 'Socio verificado',
+        'deposit.partner.chat': 'Chatear en Telegram',
+        'deposit.partner.countries': 'Países atendidos',
+        'deposit.partner.methods': 'Métodos de pago',
+        'deposit.partner.refTitle': 'Tu referencia de depósito',
+        'deposit.partner.refNone': 'Todavía no creada',
+        'deposit.partner.refHint': 'Genera un pago en el formulario de depósito para obtener una referencia, un importe y una dirección que compartir con tu socio.',
+        'deposit.partner.refReady': 'Comparte esta referencia con tu socio, junto con la dirección exacta de {{asset}} ({{network}}) y el importe de tu pantalla de pago.',
+        'deposit.partner.refCopied': 'Referencia de depósito copiada',
+        'deposit.partner.copyRef': 'Copiar referencia',
+        'deposit.partner.safety.title': 'Mantente seguro',
+        'deposit.partner.safety.1': 'Contacta solo con los socios que aparecen aquí y revisa el usuario de Telegram antes de escribir.',
+        'deposit.partner.safety.2': 'Nunca compartas tu contraseña, códigos de un solo uso (OTP) ni claves privadas de tu monedero.',
+        'deposit.partner.safety.3': 'Confirma el activo, la red y la dirección de destino antes de enviar nada.',
+        'deposit.partner.safety.4': 'Un socio puede ayudarte a obtener cripto, pero no puede añadir fondos a tu cuenta de Arbitrix.',
+        'deposit.partner.safety.5': 'Tu saldo se abona solo después de que Arbitrix verifique la transferencia recibida.',
+        'deposit.partner.safety.6': 'Contacta con el soporte de Arbitrix si una transferencia se retrasa.',
+        'deposit.partner.disclaimer': 'La insignia de socio verificado significa que Arbitrix ha revisado al socio internamente. No garantiza ninguna transacción ni constituye una licencia reguladora.',
+        'admin.tab.partners': 'Socios',
+        'admin.partner.help': 'Socios humanos verificados que se muestran en la página de depósito. Solo los socios activos y verificados son visibles para los clientes. Un socio nunca puede abonar una cuenta.',
+        'admin.partner.addTitle': 'Añadir un socio',
+        'admin.partner.name': 'Nombre visible',
+        'admin.partner.telegram': 'Usuario de Telegram',
+        'admin.partner.telegramHint': 'Escribe solo el usuario, sin la @. El enlace de t.me se crea automáticamente.',
+        'admin.partner.services': 'Servicios ofrecidos',
+        'admin.partner.serviceDirect': 'Venta directa de USDT',
+        'admin.partner.serviceGuided': 'Asistencia guiada para comprar',
+        'admin.partner.servicesHint': 'Selecciona al menos uno. Un socio sin servicio nunca se muestra a los clientes.',
+        'admin.partner.servicesRequired': 'Selecciona al menos un servicio.',
+        'admin.partner.worldwide': 'Atiende a clientes en todo el mundo',
+        'admin.partner.countriesHint': 'D\u00e9jalo vac\u00edo si el socio atiende en todo el mundo. Si no, indica los pa\u00edses cubiertos separados por comas.',
+        'admin.partner.methodsHint': 'M\u00e9todos de pago que acepta el socio para ventas directas. D\u00e9jalo vac\u00edo si solo ofrece asistencia guiada.',
+        'admin.partner.coverage': 'Cobertura',
+        'admin.partner.noServices': 'Sin servicio configurado',
+        'admin.partner.order': 'Orden de visualización',
+        'admin.partner.active': 'Activo',
+        'admin.partner.add': 'Añadir socio',
+        'admin.partner.save': 'Guardar',
+        'admin.partner.remove': 'Eliminar',
+        'admin.partner.empty': 'Todavía no hay socios.',
+        'admin.partner.saved': 'Socio guardado',
+        'admin.partner.failed': 'No se pudo guardar el socio',
+        'admin.partner.invalid': 'Revisa los datos del socio',
+        'admin.partner.removeConfirm': '¿Eliminar este socio?',
+        'admin.partner.migration': 'El directorio de socios aún no está disponible. Debes aplicar la migración 045.',
+        'admin.partner.visible': 'Visible para los clientes',
         'deposit.success': '✅ ¡${{amount}} USDT depositados con éxito!',
         'deposit.confirmed': 'Depósito confirmado',
         'deposit.addedVia': '${{amount}} añadidos a la cartera Live vía {{network}}',
@@ -11770,6 +12278,17 @@ const TRANSLATIONS = {
         'sandbox.admin.dayOption': 'Día {{day}}',
 
         'sandbox.admin.noWithdrawals': 'Aún no hay retiros simulados',
+        'wallet.liveTitle': 'Cartera Live',
+        'wallet.liveBalance': 'Saldo Live',
+        'stats.depositCta': 'Depositar',
+        'onboarding.fundLive': 'Quiero fondear mi cuenta Live',
+        'demoCta.liveBody': 'Tu cuenta Live a\u00fan no est\u00e1 fondeada. Haz un dep\u00f3sito para operar con fondos reales. El Modo Demo sigue disponible y puedes volver cuando quieras.',
+        'deposit.retry': 'Reintentar',
+        'deposit.getHelp': 'Obtener ayuda',
+        'deposit.errRateLimited': 'Demasiados intentos de dep\u00f3sito. Espera un minuto e int\u00e9ntalo de nuevo.',
+        'deposit.errUnavailable': 'El servicio de pago no est\u00e1 disponible temporalmente. Int\u00e9ntalo de nuevo en unos minutos.',
+        'deposit.errSession': 'Tu sesi\u00f3n ha caducado. Inicia sesi\u00f3n de nuevo y reintenta el dep\u00f3sito.',
+        'deposit.errInvalid': 'No se pudo procesar ese importe. Revisa el importe e int\u00e9ntalo de nuevo.',
     },
     pt: {
         'auth.subtitle': 'Trading de Arbitragem Multi-Ativo',
@@ -12018,7 +12537,7 @@ const TRANSLATIONS = {
         'status.processing': 'Processando',
         'status.demoTrading': 'Trading demo • Fundos virtuais',
         'status.liveFunded': 'Live • Fundos disponíveis',
-        'status.livePending': 'Live • Depósito pendente',
+        'status.livePending': 'Live \u2022 Ainda sem fundos',
         'ticker.live': 'ATIVIDADE AO VIVO',
         'stats.equity': 'Patrimônio total',
         'stats.available': 'Disponível',
@@ -12276,6 +12795,92 @@ const TRANSLATIONS = {
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
+        'deposit.choose.title': 'Escolha como financiar',
+        'deposit.choose.partner.title': 'Comprar de um parceiro verificado',
+        'deposit.choose.partner.desc': 'Fale com um parceiro verificado que possa ajudar voc\u00ea a obter USDT para o seu dep\u00f3sito.',
+        'deposit.choose.crypto.title': 'Já tenho criptomoedas',
+        'deposit.choose.crypto.desc': 'Deposite USDT na TRON (TRC20) diretamente no seu endereço da Arbitrix.',
+        'deposit.choose.wallet.title': 'Comprar USDT com um servi\u00e7o externo',
+        'deposit.choose.wallet.desc': 'Compre USDT em um servi\u00e7o externo de confian\u00e7a e envie para o seu endere\u00e7o da Arbitrix.',
+        'deposit.wallet.title': 'Comprar USDT com um servi\u00e7o externo',
+        'deposit.wallet.intro': 'Dois passos: compre USDT com um servi\u00e7o e envie para o endere\u00e7o da Arbitrix gerado aqui. A Arbitrix n\u00e3o processa pagamentos com cart\u00e3o.',
+        'deposit.wallet.step1': 'Informe o valor e gere o endere\u00e7o de dep\u00f3sito nesta p\u00e1gina.',
+        'deposit.wallet.step2': 'Abra o servi\u00e7o externo e conclua as verifica\u00e7\u00f5es de identidade dele.',
+        'deposit.wallet.step3': 'Compre USDT. Se o servi\u00e7o perguntar a rede, escolha TRON (TRC20).',
+        'deposit.wallet.step4': 'Envie para o endere\u00e7o exato acima, apenas na rede TRON (TRC20).',
+        'deposit.wallet.addressLabel': 'Seu endere\u00e7o USDT (TRC20) da Arbitrix',
+        'deposit.wallet.addressNone': 'Gere primeiro o seu endere\u00e7o de dep\u00f3sito',
+        'deposit.wallet.generate': 'Gerar meu endere\u00e7o',
+        'deposit.wallet.copy': 'Copiar endere\u00e7o',
+        'deposit.wallet.addressHint': 'Gere isto primeiro. O endere\u00e7o pertence ao seu pr\u00f3prio dep\u00f3sito.',
+        'deposit.wallet.providersNote': 'Disponibilidade, taxas, m\u00ednimos e verifica\u00e7\u00f5es s\u00e3o definidos por cada servi\u00e7o e variam por pa\u00eds. Confirme dentro do servi\u00e7o e verifique se ele aceita USDT na rede TRON (TRC20) antes de comprar.',
+        'deposit.wallet.help.title': 'Qual \u00e9 a sua situa\u00e7\u00e3o?',
+        'deposit.wallet.help.new': 'Novo em cripto: instale uma carteira ou crie uma conta em uma exchange, conclua as verifica\u00e7\u00f5es e depois compre USDT.',
+        'deposit.wallet.help.existing': 'Voc\u00ea j\u00e1 usa uma carteira ou exchange: pule a configura\u00e7\u00e3o, compre USDT l\u00e1 e envie para c\u00e1.',
+        'deposit.wallet.help.hold': 'Voc\u00ea j\u00e1 tem USDT: pule a compra e envie da sua carteira na TRON (TRC20).',
+        'deposit.wallet.help.delivery': 'Alguns servi\u00e7os entregam o USDT em uma carteira deles; outros permitem informar um endere\u00e7o externo no checkout. Os dois servem: a transfer\u00eancia deve ser USDT na TRON (TRC20) para o endere\u00e7o acima.',
+        'deposit.wallet.open': 'Abrir a p\u00e1gina de compra de USDT',
+        'deposit.wallet.feesNote': 'Na TRON a taxa de rede \u00e9 paga por quem envia, ent\u00e3o mantenha um pouco de TRX na carteira de origem.',
+        'deposit.wallet.notCredited': 'Comprar cripto n\u00e3o credita a sua conta da Arbitrix. Apenas o USDT que chega ao seu endere\u00e7o da Arbitrix \u00e9 creditado, e s\u00f3 depois que a Arbitrix o verifica na rede.',
+        'deposit.wallet.noProof': 'Um recibo, uma captura de tela ou uma mensagem de qualquer pessoa n\u00e3o \u00e9 prova de pagamento.',
+        'deposit.partner.title': 'Parceiros verificados',
+        'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam você a obter criptomoedas; eles não podem adicionar fundos à sua conta.',
+        'deposit.partner.modelNote': 'Os parceiros ajudam voc\u00ea a obter USDT por conta pr\u00f3pria. Se um parceiro vende USDT ou orienta a compra depende de cada parceiro. De qualquer forma, voc\u00ea envia o USDT para o endere\u00e7o da Arbitrix gerado para o seu pr\u00f3prio dep\u00f3sito, e pagar a um parceiro nunca credita a sua conta na Arbitrix.',
+        'deposit.partner.servicesIntro': 'Os parceiros podem oferecer venda direta de USDT, assist\u00eancia guiada para comprar, ou ambos. Cada cart\u00e3o mostra o que aquele parceiro oferece, onde atende e como falar com ele.',
+        'deposit.partner.service.direct': 'Venda direta de USDT',
+        'deposit.partner.service.guided': 'Assist\u00eancia guiada para comprar',
+        'deposit.partner.worldwide': 'Atende clientes no mundo todo',
+        'deposit.partner.serves': 'Atende',
+        'deposit.partner.methodsDepend': 'Os m\u00e9todos de pagamento dependem do servi\u00e7o externo que voc\u00ea usar.',
+        'deposit.partner.back': 'Voltar',
+        'deposit.partner.empty': 'Nenhum parceiro verificado está listado agora. Você ainda pode depositar criptomoedas diretamente.',
+        'deposit.partner.supportCta': 'Falar com o suporte',
+        'deposit.partner.verified': 'Parceiro verificado',
+        'deposit.partner.chat': 'Conversar no Telegram',
+        'deposit.partner.countries': 'Países atendidos',
+        'deposit.partner.methods': 'Métodos de pagamento',
+        'deposit.partner.refTitle': 'Sua referência de depósito',
+        'deposit.partner.refNone': 'Ainda não criada',
+        'deposit.partner.refHint': 'Gere um pagamento no formulário de depósito para obter uma referência, um valor e um endereço para compartilhar com seu parceiro.',
+        'deposit.partner.refReady': 'Compartilhe esta referência com seu parceiro, junto com o endereço exato de {{asset}} ({{network}}) e o valor da sua tela de pagamento.',
+        'deposit.partner.refCopied': 'Referência de depósito copiada',
+        'deposit.partner.copyRef': 'Copiar referência',
+        'deposit.partner.safety.title': 'Fique seguro',
+        'deposit.partner.safety.1': 'Fale apenas com os parceiros listados aqui e confira o usuário do Telegram antes de enviar mensagem.',
+        'deposit.partner.safety.2': 'Nunca compartilhe sua senha, códigos de uso único (OTP) ou chaves privadas da carteira.',
+        'deposit.partner.safety.3': 'Confirme o ativo, a rede e o endereço de destino antes de enviar qualquer valor.',
+        'deposit.partner.safety.4': 'Um parceiro pode ajudar você a obter cripto, mas não pode adicionar fundos à sua conta Arbitrix.',
+        'deposit.partner.safety.5': 'Seu saldo só é creditado depois que a Arbitrix verifica a transferência recebida.',
+        'deposit.partner.safety.6': 'Fale com o suporte da Arbitrix se uma transferência atrasar.',
+        'deposit.partner.disclaimer': 'O selo de parceiro verificado significa que a Arbitrix avaliou o parceiro internamente. Não é garantia de qualquer transação e não é uma licença regulatória.',
+        'admin.tab.partners': 'Parceiros',
+        'admin.partner.help': 'Parceiros humanos verificados exibidos na página de depósito. Apenas parceiros ativos e verificados ficam visíveis para os clientes. Um parceiro nunca pode creditar uma conta.',
+        'admin.partner.addTitle': 'Adicionar um parceiro',
+        'admin.partner.name': 'Nome exibido',
+        'admin.partner.telegram': 'Usuário do Telegram',
+        'admin.partner.telegramHint': 'Informe apenas o usuário, sem o @. O link do t.me é criado automaticamente.',
+        'admin.partner.services': 'Servi\u00e7os oferecidos',
+        'admin.partner.serviceDirect': 'Venda direta de USDT',
+        'admin.partner.serviceGuided': 'Assist\u00eancia guiada para comprar',
+        'admin.partner.servicesHint': 'Selecione pelo menos um. Um parceiro sem servi\u00e7o nunca \u00e9 exibido aos clientes.',
+        'admin.partner.servicesRequired': 'Selecione pelo menos um servi\u00e7o.',
+        'admin.partner.worldwide': 'Atende clientes no mundo todo',
+        'admin.partner.countriesHint': 'Deixe vazio se o parceiro atende no mundo todo. Caso contr\u00e1rio, liste os pa\u00edses cobertos separados por v\u00edrgulas.',
+        'admin.partner.methodsHint': 'M\u00e9todos de pagamento aceitos pelo parceiro para vendas diretas. Deixe vazio para parceiros apenas de assist\u00eancia guiada.',
+        'admin.partner.coverage': 'Cobertura',
+        'admin.partner.noServices': 'Sem servi\u00e7o definido',
+        'admin.partner.order': 'Ordem de exibição',
+        'admin.partner.active': 'Ativo',
+        'admin.partner.add': 'Adicionar parceiro',
+        'admin.partner.save': 'Salvar',
+        'admin.partner.remove': 'Excluir',
+        'admin.partner.empty': 'Nenhum parceiro ainda.',
+        'admin.partner.saved': 'Parceiro salvo',
+        'admin.partner.failed': 'Não foi possível salvar o parceiro',
+        'admin.partner.invalid': 'Verifique os dados do parceiro',
+        'admin.partner.removeConfirm': 'Excluir este parceiro?',
+        'admin.partner.migration': 'O diretório de parceiros ainda não está disponível. A migração 045 precisa ser aplicada.',
+        'admin.partner.visible': 'Visível para os clientes',
         'deposit.success': '✅ ${{amount}} USDT depositados com sucesso!',
         'deposit.confirmed': 'Depósito confirmado',
         'deposit.addedVia': '${{amount}} adicionados à carteira Live via {{network}}',
@@ -13314,6 +13919,17 @@ const TRANSLATIONS = {
         'sandbox.admin.dayOption': 'Dia {{day}}',
 
         'sandbox.admin.noWithdrawals': 'Ainda não há saques simulados',
+        'wallet.liveTitle': 'Carteira Live',
+        'wallet.liveBalance': 'Saldo Live',
+        'stats.depositCta': 'Depositar',
+        'onboarding.fundLive': 'Quero financiar minha conta Live',
+        'demoCta.liveBody': 'Sua conta Live ainda n\u00e3o est\u00e1 financiada. Fa\u00e7a um dep\u00f3sito para negociar com fundos reais. O Modo Demo continua dispon\u00edvel e voc\u00ea pode voltar quando quiser.',
+        'deposit.retry': 'Tentar novamente',
+        'deposit.getHelp': 'Obter ajuda',
+        'deposit.errRateLimited': 'Muitas tentativas de dep\u00f3sito. Aguarde um minuto e tente novamente.',
+        'deposit.errUnavailable': 'O servi\u00e7o de pagamento est\u00e1 temporariamente indispon\u00edvel. Tente novamente em alguns minutos.',
+        'deposit.errSession': 'Sua sess\u00e3o expirou. Entre novamente e repita o dep\u00f3sito.',
+        'deposit.errInvalid': 'N\u00e3o foi poss\u00edvel processar esse valor. Verifique o valor e tente novamente.',
     },
     fr: {
         'auth.subtitle': 'Trading d’Arbitrage Multi-Actifs',
@@ -13562,7 +14178,7 @@ const TRANSLATIONS = {
         'status.processing': 'En traitement',
         'status.demoTrading': 'Trading démo • Fonds virtuels',
         'status.liveFunded': 'Live • Approvisionné',
-        'status.livePending': 'Live • Dépôt en attente',
+        'status.livePending': 'Live \u2022 Pas encore aliment\u00e9',
         'ticker.live': 'ACTIVITÉ EN DIRECT',
         'stats.equity': 'Capitaux propres totaux',
         'stats.available': 'Disponible',
@@ -13820,6 +14436,92 @@ const TRANSLATIONS = {
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
+        'deposit.choose.title': 'Choisissez votre financement',
+        'deposit.choose.partner.title': 'Acheter aupr\u00e8s d\u2019un partenaire v\u00e9rifi\u00e9',
+        'deposit.choose.partner.desc': 'Contactez un partenaire v\u00e9rifi\u00e9 qui peut vous aider \u00e0 obtenir de l\u2019USDT pour votre d\u00e9p\u00f4t.',
+        'deposit.choose.crypto.title': 'J’ai déjà de la crypto',
+        'deposit.choose.crypto.desc': 'Déposez de l’USDT sur TRON (TRC20) directement sur votre adresse Arbitrix.',
+        'deposit.choose.wallet.title': 'Acheter de l\u2019USDT avec un service externe',
+        'deposit.choose.wallet.desc': 'Achetez de l\u2019USDT aupr\u00e8s d\u2019un service externe de confiance, puis envoyez-le \u00e0 votre adresse Arbitrix.',
+        'deposit.wallet.title': 'Acheter de l\u2019USDT avec un service externe',
+        'deposit.wallet.intro': 'Deux \u00e9tapes : achetez de l\u2019USDT avec un service, puis envoyez-le \u00e0 l\u2019adresse Arbitrix g\u00e9n\u00e9r\u00e9e ici. Arbitrix ne traite pas les paiements par carte.',
+        'deposit.wallet.step1': 'Saisissez votre montant et g\u00e9n\u00e9rez l\u2019adresse de d\u00e9p\u00f4t sur cette page.',
+        'deposit.wallet.step2': 'Ouvrez le service externe et effectuez ses v\u00e9rifications d\u2019identit\u00e9.',
+        'deposit.wallet.step3': 'Achetez de l\u2019USDT. Si le service demande le r\u00e9seau, choisissez TRON (TRC20).',
+        'deposit.wallet.step4': 'Envoyez-la \u00e0 l\u2019adresse exacte ci-dessus, uniquement sur le r\u00e9seau TRON (TRC20).',
+        'deposit.wallet.addressLabel': 'Votre adresse USDT (TRC20) Arbitrix',
+        'deposit.wallet.addressNone': 'G\u00e9n\u00e9rez d\u2019abord votre adresse de d\u00e9p\u00f4t',
+        'deposit.wallet.generate': 'G\u00e9n\u00e9rer mon adresse',
+        'deposit.wallet.copy': 'Copier l\u2019adresse',
+        'deposit.wallet.addressHint': 'G\u00e9n\u00e9rez-la d\u2019abord. Cette adresse correspond \u00e0 votre propre d\u00e9p\u00f4t.',
+        'deposit.wallet.providersNote': 'La disponibilit\u00e9, les frais, les minimums et les v\u00e9rifications sont d\u00e9finis par chaque service et varient selon le pays. V\u00e9rifiez-les dans le service et assurez-vous qu\u2019il prend en charge l\u2019USDT sur le r\u00e9seau TRON (TRC20) avant d\u2019acheter.',
+        'deposit.wallet.help.title': 'Quelle est votre situation ?',
+        'deposit.wallet.help.new': 'Nouveau dans la crypto : installez un portefeuille ou cr\u00e9ez un compte sur un exchange, effectuez ses v\u00e9rifications, puis achetez de l\u2019USDT.',
+        'deposit.wallet.help.existing': 'Vous utilisez d\u00e9j\u00e0 un portefeuille ou un exchange : passez la configuration, achetez-y de l\u2019USDT et envoyez-le ici.',
+        'deposit.wallet.help.hold': 'Vous poss\u00e9dez d\u00e9j\u00e0 de l\u2019USDT : passez l\u2019achat et envoyez-le depuis votre portefeuille sur TRON (TRC20).',
+        'deposit.wallet.help.delivery': 'Certains services livrent l\u2019USDT sur un portefeuille qu\u2019ils fournissent ; d\u2019autres permettent d\u2019indiquer une adresse externe au paiement. Les deux conviennent : le transfert doit \u00eatre de l\u2019USDT sur TRON (TRC20) vers l\u2019adresse ci-dessus.',
+        'deposit.wallet.open': 'Ouvrir la page d\u2019achat d\u2019USDT',
+        'deposit.wallet.feesNote': 'Sur TRON, les frais de r\u00e9seau sont pay\u00e9s par l\u2019exp\u00e9diteur : gardez un peu de TRX dans le portefeuille d\u2019envoi.',
+        'deposit.wallet.notCredited': 'Acheter de la crypto ne cr\u00e9dite pas votre compte Arbitrix. Seul l\u2019USDT arriv\u00e9 \u00e0 votre adresse Arbitrix est cr\u00e9dit\u00e9, et uniquement apr\u00e8s v\u00e9rification par Arbitrix sur la cha\u00eene.',
+        'deposit.wallet.noProof': 'Un re\u00e7u, une capture d\u2019\u00e9cran ou un message, quelle qu\u2019en soit l\u2019origine, ne prouve pas un paiement.',
+        'deposit.partner.title': 'Partenaires vérifiés',
+        'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident à obtenir de la crypto ; ils ne peuvent pas ajouter de fonds à votre compte.',
+        'deposit.partner.modelNote': 'Les partenaires vous aident \u00e0 obtenir de l\u2019USDT vous-m\u00eame. Qu\u2019un partenaire vende de l\u2019USDT ou vous guide pour l\u2019acheter d\u00e9pend du partenaire. Dans les deux cas, vous envoyez l\u2019USDT \u00e0 l\u2019adresse Arbitrix g\u00e9n\u00e9r\u00e9e pour votre propre d\u00e9p\u00f4t, et payer un partenaire ne cr\u00e9dite jamais votre compte Arbitrix.',
+        'deposit.partner.servicesIntro': 'Les partenaires peuvent proposer la vente directe d\u2019USDT, une assistance guid\u00e9e pour l\u2019achat, ou les deux. Chaque fiche indique ce que propose le partenaire, sa zone de service et comment le contacter.',
+        'deposit.partner.service.direct': 'Vente directe d\u2019USDT',
+        'deposit.partner.service.guided': 'Assistance guid\u00e9e pour l\u2019achat',
+        'deposit.partner.worldwide': 'Sert des clients dans le monde entier',
+        'deposit.partner.serves': 'Sert',
+        'deposit.partner.methodsDepend': 'Les moyens de paiement d\u00e9pendent du service externe que vous utilisez.',
+        'deposit.partner.back': 'Retour',
+        'deposit.partner.empty': 'Aucun partenaire vérifié n’est listé pour le moment. Vous pouvez toujours déposer de la crypto directement.',
+        'deposit.partner.supportCta': 'Contacter le support',
+        'deposit.partner.verified': 'Partenaire vérifié',
+        'deposit.partner.chat': 'Discuter sur Telegram',
+        'deposit.partner.countries': 'Pays desservis',
+        'deposit.partner.methods': 'Moyens de paiement',
+        'deposit.partner.refTitle': 'Votre référence de dépôt',
+        'deposit.partner.refNone': 'Pas encore créée',
+        'deposit.partner.refHint': 'Générez un paiement dans le formulaire de dépôt pour obtenir une référence, un montant et une adresse à partager avec votre partenaire.',
+        'deposit.partner.refReady': 'Partagez cette référence avec votre partenaire, avec l’adresse exacte {{asset}} ({{network}}) et le montant affichés sur votre écran de paiement.',
+        'deposit.partner.refCopied': 'Référence de dépôt copiée',
+        'deposit.partner.copyRef': 'Copier la référence',
+        'deposit.partner.safety.title': 'Restez prudent',
+        'deposit.partner.safety.1': 'Contactez uniquement les partenaires listés ici et vérifiez le nom Telegram avant d’écrire.',
+        'deposit.partner.safety.2': 'Ne partagez jamais votre mot de passe, vos codes à usage unique (OTP) ou vos clés privées.',
+        'deposit.partner.safety.3': 'Confirmez l’actif, le réseau et l’adresse de destination avant tout envoi.',
+        'deposit.partner.safety.4': 'Un partenaire peut vous aider à obtenir de la crypto, mais il ne peut pas ajouter de fonds à votre compte Arbitrix.',
+        'deposit.partner.safety.5': 'Votre solde est crédité uniquement après vérification du transfert reçu par Arbitrix.',
+        'deposit.partner.safety.6': 'Contactez le support Arbitrix si un transfert est retardé.',
+        'deposit.partner.disclaimer': 'Le badge Partenaire vérifié signifie qu’Arbitrix a examiné le partenaire en interne. Ce n’est pas une garantie de transaction ni une licence réglementaire.',
+        'admin.tab.partners': 'Partenaires',
+        'admin.partner.help': 'Partenaires humains vérifiés affichés sur la page de dépôt. Seuls les partenaires actifs et vérifiés sont visibles des clients. Un partenaire ne peut jamais créditer un compte.',
+        'admin.partner.addTitle': 'Ajouter un partenaire',
+        'admin.partner.name': 'Nom affiché',
+        'admin.partner.telegram': 'Nom d’utilisateur Telegram',
+        'admin.partner.telegramHint': 'Saisissez uniquement le nom d’utilisateur, sans le @. Le lien t.me est créé automatiquement.',
+        'admin.partner.services': 'Services propos\u00e9s',
+        'admin.partner.serviceDirect': 'Vente directe d\u2019USDT',
+        'admin.partner.serviceGuided': 'Assistance guid\u00e9e pour l\u2019achat',
+        'admin.partner.servicesHint': 'S\u00e9lectionnez au moins un. Un partenaire sans service n\u2019est jamais affich\u00e9 aux clients.',
+        'admin.partner.servicesRequired': 'S\u00e9lectionnez au moins un service.',
+        'admin.partner.worldwide': 'Sert des clients dans le monde entier',
+        'admin.partner.countriesHint': 'Laissez vide si le partenaire sert le monde entier. Sinon, indiquez les pays couverts, s\u00e9par\u00e9s par des virgules.',
+        'admin.partner.methodsHint': 'Moyens de paiement accept\u00e9s par le partenaire pour les ventes directes. Laissez vide pour l\u2019assistance guid\u00e9e uniquement.',
+        'admin.partner.coverage': 'Couverture',
+        'admin.partner.noServices': 'Aucun service d\u00e9fini',
+        'admin.partner.order': 'Ordre d’affichage',
+        'admin.partner.active': 'Actif',
+        'admin.partner.add': 'Ajouter le partenaire',
+        'admin.partner.save': 'Enregistrer',
+        'admin.partner.remove': 'Supprimer',
+        'admin.partner.empty': 'Aucun partenaire pour le moment.',
+        'admin.partner.saved': 'Partenaire enregistré',
+        'admin.partner.failed': 'Impossible d’enregistrer le partenaire',
+        'admin.partner.invalid': 'Vérifiez les informations du partenaire',
+        'admin.partner.removeConfirm': 'Supprimer ce partenaire ?',
+        'admin.partner.migration': 'Le répertoire des partenaires n’est pas encore disponible. La migration 045 doit être appliquée.',
+        'admin.partner.visible': 'Visible par les clients',
         'deposit.success': '✅ ${{amount}} USDT déposés avec succès !',
         'deposit.confirmed': 'Dépôt confirmé',
         'deposit.addedVia': '${{amount}} ajoutés au portefeuille live via {{network}}',
@@ -14858,6 +15560,17 @@ const TRANSLATIONS = {
         'sandbox.admin.dayOption': 'Jour {{day}}',
 
         'sandbox.admin.noWithdrawals': 'Aucun retrait simulé pour le moment',
+        'wallet.liveTitle': 'Portefeuille live',
+        'wallet.liveBalance': 'Solde live',
+        'stats.depositCta': 'D\u00e9poser',
+        'onboarding.fundLive': 'Je veux alimenter mon compte live',
+        'demoCta.liveBody': 'Votre compte live n\'est pas encore aliment\u00e9. Faites un d\u00e9p\u00f4t pour trader avec des fonds r\u00e9els. Le mode d\u00e9mo reste disponible et vous pouvez y revenir \u00e0 tout moment.',
+        'deposit.retry': 'R\u00e9essayer',
+        'deposit.getHelp': 'Obtenir de l\'aide',
+        'deposit.errRateLimited': 'Trop de tentatives de d\u00e9p\u00f4t. Patientez une minute et r\u00e9essayez.',
+        'deposit.errUnavailable': 'Le service de paiement est temporairement indisponible. R\u00e9essayez dans quelques minutes.',
+        'deposit.errSession': 'Votre session a expir\u00e9. Reconnectez-vous, puis relancez le d\u00e9p\u00f4t.',
+        'deposit.errInvalid': 'Ce montant n\'a pas pu \u00eatre trait\u00e9. V\u00e9rifiez le montant et r\u00e9essayez.',
     },
     ar: {
         'auth.subtitle': 'تداول المراجحة متعدد الأصول',
@@ -15106,7 +15819,7 @@ const TRANSLATIONS = {
         'status.processing': 'قيد المعالجة',
         'status.demoTrading': 'تداول تجريبي • أموال افتراضية',
         'status.liveFunded': 'مباشر • مموّل',
-        'status.livePending': 'مباشر • إيداع معلّق',
+        'status.livePending': '\u0645\u0628\u0627\u0634\u0631 \u2022 \u063a\u064a\u0631 \u0645\u0645\u0648\u0644 \u0628\u0639\u062f',
         'ticker.live': 'نشاط مباشر',
         'stats.equity': 'إجمالي رأس المال',
         'stats.available': 'متاح',
@@ -15364,6 +16077,92 @@ const TRANSLATIONS = {
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
+        'deposit.choose.title': 'اختر طريقة التمويل',
+        'deposit.choose.partner.title': '\u0627\u0644\u0634\u0631\u0627\u0621 \u0645\u0646 \u0634\u0631\u064a\u0643 \u0645\u0648\u062b\u0651\u0642',
+        'deposit.choose.partner.desc': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0645\u0648\u062b\u0651\u0642 \u064a\u0645\u0643\u0646\u0647 \u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0644\u0625\u064a\u062f\u0627\u0639\u0643.',
+        'deposit.choose.crypto.title': 'لدي عملات رقمية بالفعل',
+        'deposit.choose.crypto.desc': 'أودع USDT على شبكة TRON (TRC20) مباشرة إلى عنوان Arbitrix الخاص بك.',
+        'deposit.choose.wallet.title': '\u0634\u0631\u0627\u0621 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629',
+        'deposit.choose.wallet.desc': '\u0627\u0634\u062a\u0631\u0650 USDT \u0645\u0646 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629 \u062a\u062b\u0642 \u0628\u0647\u0627 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643.',
+        'deposit.wallet.title': '\u0634\u0631\u0627\u0621 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062e\u0627\u0631\u062c\u064a\u0629',
+        'deposit.wallet.intro': '\u062e\u0637\u0648\u062a\u0627\u0646: \u0627\u0634\u062a\u0631\u0650 USDT \u0639\u0628\u0631 \u062e\u062f\u0645\u0629 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u0630\u064a \u062a\u0645 \u0625\u0646\u0634\u0627\u0624\u0647 \u0647\u0646\u0627. \u0644\u0627 \u062a\u0639\u0627\u0644\u062c Arbitrix \u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0627\u0644\u0628\u0637\u0627\u0642\u0627\u062a \u0628\u0646\u0641\u0633\u0647\u0627.',
+        'deposit.wallet.step1': '\u0623\u062f\u062e\u0644 \u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629.',
+        'deposit.wallet.step2': '\u0627\u0641\u062a\u062d \u0627\u0644\u062e\u062f\u0645\u0629 \u0627\u0644\u062e\u0627\u0631\u062c\u064a\u0629 \u0648\u0623\u0643\u0645\u0644 \u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0647\u0648\u064a\u0629 \u0644\u062f\u064a\u0647\u0627.',
+        'deposit.wallet.step3': '\u0627\u0634\u062a\u0631\u0650 USDT. \u0625\u0630\u0627 \u0633\u0623\u0644\u062a \u0627\u0644\u062e\u062f\u0645\u0629 \u0639\u0646 \u0627\u0644\u0634\u0628\u0643\u0629 \u0641\u0627\u062e\u062a\u0631 TRON (TRC20).',
+        'deposit.wallet.step4': '\u0623\u0631\u0633\u0644\u0647 \u0625\u0644\u0649 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0623\u0639\u0644\u0627\u0647 \u062a\u062d\u062f\u064a\u062f\u0627\u064b\u060c \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20) \u0641\u0642\u0637.',
+        'deposit.wallet.addressLabel': '\u0639\u0646\u0648\u0627\u0646 USDT (TRC20) \u0627\u0644\u062e\u0627\u0635 \u0628\u0643 \u0641\u064a Arbitrix',
+        'deposit.wallet.addressNone': '\u0623\u0646\u0634\u0626 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0623\u0648\u0644\u0627\u064b',
+        'deposit.wallet.generate': '\u0625\u0646\u0634\u0627\u0621 \u0639\u0646\u0648\u0627\u0646\u064a',
+        'deposit.wallet.copy': '\u0646\u0633\u062e \u0627\u0644\u0639\u0646\u0648\u0627\u0646',
+        'deposit.wallet.addressHint': '\u0623\u0646\u0634\u0626 \u0647\u0630\u0627 \u0623\u0648\u0644\u0627\u064b. \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u062e\u0627\u0635 \u0628\u0625\u064a\u062f\u0627\u0639\u0643 \u0623\u0646\u062a.',
+        'deposit.wallet.providersNote': '\u0627\u0644\u062a\u0648\u0641\u0631 \u0648\u0627\u0644\u0631\u0633\u0648\u0645 \u0648\u0627\u0644\u062d\u062f\u0648\u062f \u0627\u0644\u062f\u0646\u064a\u0627 \u0648\u0627\u0644\u062a\u062d\u0642\u0642 \u062a\u062d\u062f\u062f\u0647\u0627 \u0643\u0644 \u062e\u062f\u0645\u0629 \u0648\u062a\u062e\u062a\u0644\u0641 \u0628\u062d\u0633\u0628 \u0627\u0644\u0628\u0644\u062f. \u062a\u0623\u0643\u062f \u0645\u0646\u0647\u0627 \u062f\u0627\u062e\u0644 \u0627\u0644\u062e\u062f\u0645\u0629\u060c \u0648\u062a\u0623\u0643\u062f \u0645\u0646 \u0623\u0646\u0647\u0627 \u062a\u062f\u0639\u0645 USDT \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20)\u060c \u0642\u0628\u0644 \u0627\u0644\u0634\u0631\u0627\u0621.',
+        'deposit.wallet.help.title': '\u0645\u0627 \u0647\u0648 \u0648\u0636\u0639\u0643\u061f',
+        'deposit.wallet.help.new': '\u062c\u062f\u064a\u062f \u0641\u064a \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629: \u062b\u0628\u0651\u062a \u0645\u062d\u0641\u0638\u0629 \u0623\u0648 \u0623\u0646\u0634\u0626 \u062d\u0633\u0627\u0628\u0627\u064b \u0641\u064a \u0645\u0646\u0635\u0629\u060c \u0648\u0623\u0643\u0645\u0644 \u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u062a\u062d\u0642\u0642 \u062b\u0645 \u0627\u0634\u062a\u0631\u0650 USDT.',
+        'deposit.wallet.help.existing': '\u062a\u0633\u062a\u062e\u062f\u0645 \u0628\u0627\u0644\u0641\u0639\u0644 \u0645\u062d\u0641\u0638\u0629 \u0623\u0648 \u0645\u0646\u0635\u0629: \u062a\u062e\u0637\u064e\u0651 \u0627\u0644\u0625\u0639\u062f\u0627\u062f \u0648\u0627\u0634\u062a\u0631\u0650 USDT \u0647\u0646\u0627\u0643 \u062b\u0645 \u0623\u0631\u0633\u0644\u0647 \u0647\u0646\u0627.',
+        'deposit.wallet.help.hold': '\u0644\u062f\u064a\u0643 USDT \u0628\u0627\u0644\u0641\u0639\u0644: \u062a\u062e\u0637\u064e\u0651 \u0627\u0644\u0634\u0631\u0627\u0621 \u0648\u0623\u0631\u0633\u0644\u0647 \u0645\u0646 \u0645\u062d\u0641\u0638\u062a\u0643 \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20).',
+        'deposit.wallet.help.delivery': '\u0628\u0639\u0636 \u0627\u0644\u062e\u062f\u0645\u0627\u062a \u062a\u0633\u0644\u0651\u0645 USDT \u0625\u0644\u0649 \u0645\u062d\u0641\u0638\u0629 \u062a\u0648\u0641\u0631\u0647\u0627\u060c \u0648\u0623\u062e\u0631\u0649 \u062a\u062a\u064a\u062d \u0625\u062f\u062e\u0627\u0644 \u0639\u0646\u0648\u0627\u0646 \u062e\u0627\u0631\u062c\u064a \u0639\u0646\u062f \u0627\u0644\u062f\u0641\u0639. \u0643\u0644\u0627\u0647\u0645\u0627 \u0645\u0642\u0628\u0648\u0644: \u064a\u062c\u0628 \u0623\u0646 \u064a\u0643\u0648\u0646 \u0627\u0644\u062a\u062d\u0648\u064a\u0644 USDT \u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON (TRC20) \u0625\u0644\u0649 \u0627\u0644\u0639\u0646\u0648\u0627\u0646 \u0623\u0639\u0644\u0627\u0647.',
+        'deposit.wallet.open': '\u0641\u062a\u062d \u0635\u0641\u062d\u0629 \u0634\u0631\u0627\u0621 USDT',
+        'deposit.wallet.feesNote': '\u0639\u0644\u0649 \u0634\u0628\u0643\u0629 TRON \u064a\u062f\u0641\u0639 \u0627\u0644\u0645\u0631\u0633\u0644 \u0631\u0633\u0648\u0645 \u0627\u0644\u0634\u0628\u0643\u0629\u060c \u0644\u0630\u0627 \u0627\u062d\u062a\u0641\u0638 \u0628\u0642\u0644\u064a\u0644 \u0645\u0646 TRX \u0641\u064a \u0627\u0644\u0645\u062d\u0641\u0638\u0629 \u0627\u0644\u0645\u0631\u0633\u0644\u0629.',
+        'deposit.wallet.notCredited': '\u0634\u0631\u0627\u0621 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0644\u0627 \u064a\u064f\u0636\u0627\u0641 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 \u0641\u064a Arbitrix. \u064a\u064f\u0636\u0627\u0641 \u0641\u0642\u0637 USDT \u0627\u0644\u0630\u064a \u064a\u0635\u0644 \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u062e\u0627\u0635 \u0628\u0643\u060c \u0648\u0628\u0639\u062f \u0623\u0646 \u062a\u062a\u062d\u0642\u0642 \u0645\u0646\u0647 Arbitrix \u0639\u0644\u0649 \u0627\u0644\u0634\u0628\u0643\u0629.',
+        'deposit.wallet.noProof': '\u0627\u0644\u0625\u064a\u0635\u0627\u0644 \u0623\u0648 \u0644\u0642\u0637\u0629 \u0627\u0644\u0634\u0627\u0634\u0629 \u0623\u0648 \u0631\u0633\u0627\u0644\u0629 \u0645\u0646 \u0623\u064a \u0634\u062e\u0635 \u0644\u064a\u0633\u062a \u062f\u0644\u064a\u0644\u0627\u064b \u0639\u0644\u0649 \u0627\u0644\u062f\u0641\u0639.',
+        'deposit.partner.title': 'الشركاء الموثّقون',
+        'deposit.partner.intro': 'تواصل مع شريك على تيليجرام. يساعدك الشركاء في الحصول على العملات الرقمية، لكنهم لا يستطيعون إضافة أموال إلى حسابك.',
+        'deposit.partner.modelNote': '\u064a\u0633\u0627\u0639\u062f\u0643 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0639\u0644\u0649 \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 USDT \u0628\u0646\u0641\u0633\u0643. \u0648\u0645\u0627 \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0634\u0631\u064a\u0643 \u064a\u0628\u064a\u0639 USDT \u0623\u0648 \u064a\u0631\u0634\u062f\u0643 \u0644\u0634\u0631\u0627\u0626\u0647 \u064a\u0639\u062a\u0645\u062f \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u064a\u0643. \u0641\u064a \u0627\u0644\u062d\u0627\u0644\u062a\u064a\u0646 \u062a\u0631\u0633\u0644 USDT \u0625\u0644\u0649 \u0639\u0646\u0648\u0627\u0646 Arbitrix \u0627\u0644\u0645\u064f\u0646\u0634\u0623 \u0644\u0625\u064a\u062f\u0627\u0639\u0643 \u0623\u0646\u062a\u060c \u0648\u0627\u0644\u062f\u0641\u0639 \u0644\u0634\u0631\u064a\u0643 \u0644\u0627 \u064a\u0636\u064a\u0641 \u0631\u0635\u064a\u062f\u0627\u064b \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Arbitrix.',
+        'deposit.partner.servicesIntro': '\u0642\u062f \u064a\u0642\u062f\u0651\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629\u060c \u0623\u0648 \u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621\u060c \u0623\u0648 \u0627\u0644\u0627\u062b\u0646\u064a\u0646 \u0645\u0639\u0627\u064b. \u062a\u0648\u0636\u062d \u0643\u0644 \u0628\u0637\u0627\u0642\u0629 \u0645\u0627 \u064a\u0642\u062f\u0651\u0645\u0647 \u0627\u0644\u0634\u0631\u064a\u0643 \u0648\u0623\u064a\u0646 \u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0648\u0643\u064a\u0641 \u062a\u062a\u0648\u0627\u0635\u0644 \u0645\u0639\u0647.',
+        'deposit.partner.service.direct': '\u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629',
+        'deposit.partner.service.guided': '\u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621',
+        'deposit.partner.worldwide': '\u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u062d\u0648\u0644 \u0627\u0644\u0639\u0627\u0644\u0645',
+        'deposit.partner.serves': '\u064a\u062e\u062f\u0645',
+        'deposit.partner.methodsDepend': '\u062a\u0639\u062a\u0645\u062f \u0637\u0631\u0642 \u0627\u0644\u062f\u0641\u0639 \u0639\u0644\u0649 \u0627\u0644\u062e\u062f\u0645\u0629 \u0627\u0644\u062e\u0627\u0631\u062c\u064a\u0629 \u0627\u0644\u062a\u064a \u062a\u0633\u062a\u062e\u062f\u0645\u0647\u0627.',
+        'deposit.partner.back': 'رجوع',
+        'deposit.partner.empty': 'لا يوجد شركاء موثّقون حالياً. يمكنك إيداع العملات الرقمية مباشرة.',
+        'deposit.partner.supportCta': 'تواصل مع الدعم',
+        'deposit.partner.verified': 'شريك موثّق',
+        'deposit.partner.chat': 'المحادثة على تيليجرام',
+        'deposit.partner.countries': 'الدول التي يخدمها',
+        'deposit.partner.methods': 'طرق الدفع',
+        'deposit.partner.refTitle': 'مرجع الإيداع الخاص بك',
+        'deposit.partner.refNone': 'لم يُنشأ بعد',
+        'deposit.partner.refHint': 'أنشئ عملية دفع في نموذج الإيداع للحصول على مرجع ومبلغ وعنوان لمشاركتها مع شريكك.',
+        'deposit.partner.refReady': 'شارك هذا المرجع مع شريكك، مع عنوان {{asset}} ({{network}}) الدقيق والمبلغ الظاهر في شاشة الدفع.',
+        'deposit.partner.refCopied': 'تم نسخ مرجع الإيداع',
+        'deposit.partner.copyRef': 'نسخ المرجع',
+        'deposit.partner.safety.title': 'ابق آمناً',
+        'deposit.partner.safety.1': 'تواصل فقط مع الشركاء المذكورين هنا، وتحقق من اسم تيليجرام قبل المراسلة.',
+        'deposit.partner.safety.2': 'لا تشارك كلمة المرور أو رموز الاستخدام لمرة واحدة (OTP) أو مفاتيح المحفظة الخاصة.',
+        'deposit.partner.safety.3': 'تأكد من الأصل والشبكة وعنوان الوجهة قبل إرسال أي شيء.',
+        'deposit.partner.safety.4': 'يمكن للشريك مساعدتك في الحصول على العملات، لكنه لا يستطيع إضافة أموال إلى حسابك في Arbitrix.',
+        'deposit.partner.safety.5': 'لا يُضاف الرصيد إلى حسابك إلا بعد تحقق Arbitrix من التحويل الوارد.',
+        'deposit.partner.safety.6': 'تواصل مع دعم Arbitrix إذا تأخر التحويل.',
+        'deposit.partner.disclaimer': 'تعني شارة الشريك الموثّق أن Arbitrix راجعت الشريك داخلياً. وهي ليست ضماناً لأي معاملة وليست ترخيصاً تنظيمياً.',
+        'admin.tab.partners': 'الشركاء',
+        'admin.partner.help': 'شركاء بشريون موثّقون يظهرون في صفحة الإيداع. لا يظهر للعملاء إلا الشركاء النشطون والموثّقون. لا يمكن لأي شريك إضافة رصيد إلى حساب.',
+        'admin.partner.addTitle': 'إضافة شريك',
+        'admin.partner.name': 'الاسم المعروض',
+        'admin.partner.telegram': 'اسم مستخدم تيليجرام',
+        'admin.partner.telegramHint': 'أدخل اسم المستخدم فقط بدون @. يُنشأ رابط t.me تلقائياً.',
+        'admin.partner.services': '\u0627\u0644\u062e\u062f\u0645\u0627\u062a \u0627\u0644\u0645\u0642\u062f\u064e\u0651\u0645\u0629',
+        'admin.partner.serviceDirect': '\u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629',
+        'admin.partner.serviceGuided': '\u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0644\u0644\u0634\u0631\u0627\u0621',
+        'admin.partner.servicesHint': '\u0627\u062e\u062a\u0631 \u062e\u062f\u0645\u0629 \u0648\u0627\u062d\u062f\u0629 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644. \u0627\u0644\u0634\u0631\u064a\u0643 \u0628\u0644\u0627 \u062e\u062f\u0645\u0629 \u0644\u0627 \u064a\u0638\u0647\u0631 \u0644\u0644\u0639\u0645\u0644\u0627\u0621 \u0623\u0628\u062f\u0627\u064b.',
+        'admin.partner.servicesRequired': '\u0627\u062e\u062a\u0631 \u062e\u062f\u0645\u0629 \u0648\u0627\u062d\u062f\u0629 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644.',
+        'admin.partner.worldwide': '\u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u062d\u0648\u0644 \u0627\u0644\u0639\u0627\u0644\u0645',
+        'admin.partner.countriesHint': '\u0627\u062a\u0631\u0643\u0647 \u0641\u0627\u0631\u063a\u0627\u064b \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0634\u0631\u064a\u0643 \u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u062d\u0648\u0644 \u0627\u0644\u0639\u0627\u0644\u0645. \u0648\u0625\u0644\u0627 \u0641\u0627\u0630\u0643\u0631 \u0627\u0644\u062f\u0648\u0644 \u0627\u0644\u0645\u0634\u0645\u0648\u0644\u0629 \u0645\u0641\u0635\u0648\u0644\u0629 \u0628\u0641\u0648\u0627\u0635\u0644.',
+        'admin.partner.methodsHint': '\u0637\u0631\u0642 \u0627\u0644\u062f\u0641\u0639 \u0627\u0644\u062a\u064a \u064a\u0642\u0628\u0644\u0647\u0627 \u0627\u0644\u0634\u0631\u064a\u0643 \u0644\u0644\u0628\u064a\u0639 \u0627\u0644\u0645\u0628\u0627\u0634\u0631. \u0627\u062a\u0631\u0643\u0647 \u0641\u0627\u0631\u063a\u0627\u064b \u0644\u0644\u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u0630\u064a\u0646 \u064a\u0642\u062f\u0645\u0648\u0646 \u0627\u0644\u0645\u0633\u0627\u0639\u062f\u0629 \u0627\u0644\u0645\u0648\u062c\u0651\u0647\u0629 \u0641\u0642\u0637.',
+        'admin.partner.coverage': '\u0646\u0637\u0627\u0642 \u0627\u0644\u062e\u062f\u0645\u0629',
+        'admin.partner.noServices': '\u0644\u0645 \u062a\u064f\u062d\u062f\u062f \u062e\u062f\u0645\u0629',
+        'admin.partner.order': 'ترتيب العرض',
+        'admin.partner.active': 'نشط',
+        'admin.partner.add': 'إضافة الشريك',
+        'admin.partner.save': 'حفظ',
+        'admin.partner.remove': 'حذف',
+        'admin.partner.empty': 'لا يوجد شركاء بعد.',
+        'admin.partner.saved': 'تم حفظ الشريك',
+        'admin.partner.failed': 'تعذر حفظ الشريك',
+        'admin.partner.invalid': 'تحقق من بيانات الشريك',
+        'admin.partner.removeConfirm': 'حذف هذا الشريك؟',
+        'admin.partner.migration': 'دليل الشركاء غير متاح بعد. يجب تطبيق الترحيل 045.',
+        'admin.partner.visible': 'ظاهر للعملاء',
         'deposit.success': '✅ تم إيداع ${{amount}} USDT بنجاح!',
         'deposit.confirmed': 'تم تأكيد الإيداع',
         'deposit.addedVia': 'تمت إضافة ${{amount}} إلى المحفظة المباشرة عبر {{network}}',
@@ -16402,6 +17201,17 @@ const TRANSLATIONS = {
         'sandbox.admin.dayOption': 'اليوم {{day}}',
 
         'sandbox.admin.noWithdrawals': 'لا توجد عمليات سحب محاكاة بعد',
+        'wallet.liveTitle': '\u0645\u062d\u0641\u0638\u0629 \u0645\u0628\u0627\u0634\u0631\u0629',
+        'wallet.liveBalance': '\u0631\u0635\u064a\u062f \u0645\u0628\u0627\u0634\u0631',
+        'stats.depositCta': '\u0625\u064a\u062f\u0627\u0639',
+        'onboarding.fundLive': '\u0623\u0631\u064a\u062f \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u064a \u0627\u0644\u0645\u0628\u0627\u0634\u0631',
+        'demoCta.liveBody': '\u062d\u0633\u0627\u0628\u0643 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 \u063a\u064a\u0631 \u0645\u0645\u0648\u0644 \u0628\u0639\u062f. \u0642\u0645 \u0628\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0644\u0644\u062a\u062f\u0627\u0648\u0644 \u0628\u0623\u0645\u0648\u0627\u0644 \u062d\u0642\u064a\u0642\u064a\u0629. \u064a\u0628\u0642\u0649 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u062a\u062c\u0631\u064a\u0628\u064a \u0645\u062a\u0627\u062d\u064b\u0627 \u0648\u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u0639\u0648\u062f\u0629 \u0625\u0644\u064a\u0647 \u0641\u064a \u0623\u064a \u0648\u0642\u062a.',
+        'deposit.retry': '\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629',
+        'deposit.getHelp': '\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0639\u062f\u0629',
+        'deposit.errRateLimited': '\u0645\u062d\u0627\u0648\u0644\u0627\u062a \u0625\u064a\u062f\u0627\u0639 \u0643\u062b\u064a\u0631\u0629 \u062c\u062f\u064b\u0627. \u0627\u0646\u062a\u0638\u0631 \u062f\u0642\u064a\u0642\u0629 \u062b\u0645 \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.',
+        'deposit.errUnavailable': '\u062e\u062f\u0645\u0629 \u0627\u0644\u062f\u0641\u0639 \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629 \u0645\u0624\u0642\u062a\u064b\u0627. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649 \u0628\u0639\u062f \u0628\u0636\u0639 \u062f\u0642\u0627\u0626\u0642.',
+        'deposit.errSession': '\u0627\u0646\u062a\u0647\u062a \u062c\u0644\u0633\u062a\u0643. \u0633\u062c\u0651\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649 \u062b\u0645 \u0623\u0639\u062f \u0645\u062d\u0627\u0648\u0644\u0629 \u0627\u0644\u0625\u064a\u062f\u0627\u0639.',
+        'deposit.errInvalid': '\u062a\u0639\u0630\u0631 \u0645\u0639\u0627\u0644\u062c\u0629 \u0647\u0630\u0627 \u0627\u0644\u0645\u0628\u0644\u063a. \u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u0628\u0644\u063a \u0648\u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.',
     },
     zh: {
         'auth.subtitle': '多资产套利交易',
@@ -16650,7 +17460,7 @@ const TRANSLATIONS = {
         'status.processing': '处理中',
         'status.demoTrading': '模拟交易 • 虚拟资金',
         'status.liveFunded': '实盘 • 已入金',
-        'status.livePending': '实盘 • 待入金',
+        'status.livePending': '\u5b9e\u76d8 \u2022 \u5c1a\u672a\u5145\u503c',
         'ticker.live': '实时活动',
         'stats.equity': '总权益',
         'stats.available': '可用',
@@ -16908,6 +17718,92 @@ const TRANSLATIONS = {
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
+        'deposit.choose.title': '选择入金方式',
+        'deposit.choose.partner.title': '\u4ece\u5df2\u8ba4\u8bc1\u5408\u4f5c\u4f19\u4f34\u5904\u8d2d\u4e70',
+        'deposit.choose.partner.desc': '\u8054\u7cfb\u53ef\u534f\u52a9\u60a8\u83b7\u53d6 USDT \u7528\u4e8e\u5145\u503c\u7684\u5df2\u8ba4\u8bc1\u5408\u4f5c\u4f19\u4f34\u3002',
+        'deposit.choose.crypto.title': '我已有加密货币',
+        'deposit.choose.crypto.desc': '直接向你的 Arbitrix 地址充值 TRON (TRC20) 上的 USDT。',
+        'deposit.choose.wallet.title': '\u901a\u8fc7\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT',
+        'deposit.choose.wallet.desc': '\u901a\u8fc7\u60a8\u4fe1\u4efb\u7684\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT\uff0c\u7136\u540e\u53d1\u9001\u5230\u60a8\u7684 Arbitrix \u5730\u5740\u3002',
+        'deposit.wallet.title': '\u901a\u8fc7\u5916\u90e8\u670d\u52a1\u8d2d\u4e70 USDT',
+        'deposit.wallet.intro': '\u4e24\u6b65\uff1a\u901a\u8fc7\u670d\u52a1\u8d2d\u4e70 USDT\uff0c\u7136\u540e\u53d1\u9001\u5230\u6b64\u5904\u751f\u6210\u7684 Arbitrix \u5730\u5740\u3002Arbitrix \u672c\u8eab\u4e0d\u5904\u7406\u94f6\u884c\u5361\u4ed8\u6b3e\u3002',
+        'deposit.wallet.step1': '\u8f93\u5165\u91d1\u989d\u5e76\u5728\u672c\u9875\u751f\u6210\u5145\u503c\u5730\u5740\u3002',
+        'deposit.wallet.step2': '\u6253\u5f00\u5916\u90e8\u670d\u52a1\u5e76\u5b8c\u6210\u5176\u8eab\u4efd\u9a8c\u8bc1\u3002',
+        'deposit.wallet.step3': '\u8d2d\u4e70 USDT\u3002\u82e5\u670d\u52a1\u8981\u6c42\u9009\u62e9\u7f51\u7edc\uff0c\u8bf7\u9009\u62e9 TRON (TRC20)\u3002',
+        'deposit.wallet.step4': '\u4ec5\u901a\u8fc7 TRON (TRC20) \u7f51\u7edc\u53d1\u9001\u5230\u4e0a\u65b9\u7684\u786e\u5207\u5730\u5740\u3002',
+        'deposit.wallet.addressLabel': '\u60a8\u7684 Arbitrix USDT (TRC20) \u5730\u5740',
+        'deposit.wallet.addressNone': '\u8bf7\u5148\u751f\u6210\u60a8\u7684\u5145\u503c\u5730\u5740',
+        'deposit.wallet.generate': '\u751f\u6210\u6211\u7684\u5730\u5740',
+        'deposit.wallet.copy': '\u590d\u5236\u5730\u5740',
+        'deposit.wallet.addressHint': '\u8bf7\u5148\u751f\u6210\u5730\u5740\u3002\u8be5\u5730\u5740\u5c5e\u4e8e\u60a8\u81ea\u5df1\u7684\u5145\u503c\u3002',
+        'deposit.wallet.providersNote': '\u53ef\u7528\u6027\u3001\u8d39\u7528\u3001\u6700\u4f4e\u9650\u989d\u548c\u8eab\u4efd\u9a8c\u8bc1\u7531\u5404\u670d\u52a1\u81ea\u884c\u8bbe\u5b9a\uff0c\u5e76\u56e0\u56fd\u5bb6\u800c\u5f02\u3002\u8d2d\u4e70\u524d\u8bf7\u5728\u8be5\u670d\u52a1\u5185\u786e\u8ba4\u8fd9\u4e9b\u4fe1\u606f\uff0c\u5e76\u786e\u8ba4\u5b83\u652f\u6301 TRON\uff08TRC20\uff09\u7f51\u7edc\u4e0a\u7684 USDT\u3002',
+        'deposit.wallet.help.title': '\u60a8\u5c5e\u4e8e\u54ea\u79cd\u60c5\u51b5\uff1f',
+        'deposit.wallet.help.new': '\u521a\u63a5\u89e6\u52a0\u5bc6\u8d27\u5e01\uff1a\u5b89\u88c5\u94b1\u5305\u5e94\u7528\u6216\u6ce8\u518c\u4ea4\u6613\u6240\u8d26\u6237\uff0c\u5b8c\u6210\u8eab\u4efd\u9a8c\u8bc1\uff0c\u7136\u540e\u8d2d\u4e70 USDT\u3002',
+        'deposit.wallet.help.existing': '\u60a8\u5df2\u7ecf\u5728\u4f7f\u7528\u94b1\u5305\u6216\u4ea4\u6613\u6240\uff1a\u65e0\u9700\u91cd\u65b0\u8bbe\u7f6e\uff0c\u76f4\u63a5\u5728\u90a3\u91cc\u8d2d\u4e70 USDT \u5e76\u53d1\u9001\u5230\u8fd9\u91cc\u3002',
+        'deposit.wallet.help.hold': '\u60a8\u5df2\u7ecf\u6301\u6709 USDT\uff1a\u65e0\u9700\u8d2d\u4e70\uff0c\u76f4\u63a5\u4ece\u73b0\u6709\u94b1\u5305\u901a\u8fc7 TRON (TRC20) \u53d1\u9001\u3002',
+        'deposit.wallet.help.delivery': '\u90e8\u5206\u670d\u52a1\u4f1a\u628a USDT \u4ea4\u4ed8\u5230\u5176\u63d0\u4f9b\u7684\u94b1\u5305\uff0c\u53e6\u4e00\u4e9b\u5141\u8bb8\u5728\u4ed8\u6b3e\u65f6\u586b\u5199\u5916\u90e8\u5730\u5740\u3002\u4e24\u8005\u7686\u53ef\uff1a\u8f6c\u8d26\u5fc5\u987b\u662f TRON (TRC20) \u4e0a\u7684 USDT \u5e76\u53d1\u9001\u5230\u4e0a\u65b9\u5730\u5740\u3002',
+        'deposit.wallet.open': '\u6253\u5f00 USDT \u8d2d\u4e70\u9875\u9762',
+        'deposit.wallet.feesNote': '\u5728 TRON \u4e0a\u7f51\u7edc\u624b\u7eed\u8d39\u7531\u53d1\u9001\u65b9\u652f\u4ed8\uff0c\u56e0\u6b64\u8bf7\u5728\u53d1\u9001\u94b1\u5305\u4e2d\u4fdd\u7559\u5c11\u91cf TRX\u3002',
+        'deposit.wallet.notCredited': '\u8d2d\u4e70\u52a0\u5bc6\u8d27\u5e01\u4e0d\u4f1a\u4e3a\u60a8\u7684 Arbitrix \u8d26\u6237\u5165\u8d26\u3002\u53ea\u6709\u5230\u8fbe\u60a8 Arbitrix \u5730\u5740\u7684 USDT \u624d\u4f1a\u5165\u8d26\uff0c\u5e76\u4e14\u9700\u7ecf Arbitrix \u5728\u94fe\u4e0a\u6838\u5b9e\u3002',
+        'deposit.wallet.noProof': '\u4efb\u4f55\u4eba\u7684\u6536\u636e\u3001\u622a\u56fe\u6216\u6d88\u606f\u90fd\u4e0d\u6784\u6210\u4ed8\u6b3e\u8bc1\u660e\u3002',
+        'deposit.partner.title': '已认证合作伙伴',
+        'deposit.partner.intro': '在 Telegram 上联系合作伙伴。合作伙伴可协助你获取加密货币，但不能为你的账户添加资金。',
+        'deposit.partner.modelNote': '\u5408\u4f5c\u4f19\u4f34\u534f\u52a9\u60a8\u81ea\u884c\u83b7\u53d6 USDT\u3002\u5408\u4f5c\u4f19\u4f34\u662f\u76f4\u63a5\u51fa\u552e USDT\uff0c\u8fd8\u662f\u6307\u5bfc\u60a8\u8d2d\u4e70\uff0c\u53d6\u51b3\u4e8e\u8be5\u5408\u4f5c\u4f19\u4f34\u3002\u65e0\u8bba\u54ea\u79cd\u65b9\u5f0f\uff0c\u60a8\u90fd\u9700\u8981\u628a USDT \u53d1\u9001\u5230\u4e3a\u60a8\u81ea\u5df1\u7684\u5145\u503c\u751f\u6210\u7684 Arbitrix \u5730\u5740\uff0c\u5411\u5408\u4f5c\u4f19\u4f34\u4ed8\u6b3e\u7edd\u4e0d\u4e3a\u60a8\u7684 Arbitrix \u8d26\u6237\u5165\u8d26\u3002',
+        'deposit.partner.servicesIntro': '\u5408\u4f5c\u4f19\u4f34\u53ef\u80fd\u63d0\u4f9b\u76f4\u63a5\u51fa\u552e USDT\u3001\u6307\u5bfc\u8d2d\u4e70\uff0c\u6216\u4e24\u8005\u517c\u6709\u3002\u4e0b\u65b9\u6bcf\u5f20\u5361\u7247\u4f1a\u8bf4\u660e\u8be5\u5408\u4f5c\u4f19\u4f34\u7684\u670d\u52a1\u5185\u5bb9\u3001\u670d\u52a1\u5730\u533a\u4ee5\u53ca\u8054\u7cfb\u65b9\u5f0f\u3002',
+        'deposit.partner.service.direct': '\u76f4\u63a5\u51fa\u552e USDT',
+        'deposit.partner.service.guided': '\u6307\u5bfc\u8d2d\u4e70',
+        'deposit.partner.worldwide': '\u670d\u52a1\u5168\u7403\u5ba2\u6237',
+        'deposit.partner.serves': '\u670d\u52a1\u5730\u533a',
+        'deposit.partner.methodsDepend': '\u4ed8\u6b3e\u65b9\u5f0f\u53d6\u51b3\u4e8e\u60a8\u4f7f\u7528\u7684\u5916\u90e8\u670d\u52a1\u3002',
+        'deposit.partner.back': '返回',
+        'deposit.partner.empty': '目前没有已认证合作伙伴。你仍然可以直接充值加密货币。',
+        'deposit.partner.supportCta': '联系客服',
+        'deposit.partner.verified': '已认证合作伙伴',
+        'deposit.partner.chat': '在 Telegram 聊天',
+        'deposit.partner.countries': '服务国家',
+        'deposit.partner.methods': '支付方式',
+        'deposit.partner.refTitle': '你的入金参考号',
+        'deposit.partner.refNone': '尚未创建',
+        'deposit.partner.refHint': '在入金表单中生成付款，即可获得参考号、金额和地址并与合作伙伴分享。',
+        'deposit.partner.refReady': '请将此参考号连同付款页面上的确切 {{asset}}（{{network}}）地址和金额一起分享给合作伙伴。',
+        'deposit.partner.refCopied': '已复制入金参考号',
+        'deposit.partner.copyRef': '复制参考号',
+        'deposit.partner.safety.title': '注意安全',
+        'deposit.partner.safety.1': '只联系此处列出的合作伙伴，并在联系前核对 Telegram 用户名。',
+        'deposit.partner.safety.2': '切勿分享密码、一次性验证码（OTP）或钱包私钥。',
+        'deposit.partner.safety.3': '转账前请确认资产、网络和收款地址。',
+        'deposit.partner.safety.4': '合作伙伴可以协助你获取加密货币，但不能为你的 Arbitrix 账户添加资金。',
+        'deposit.partner.safety.5': '只有在 Arbitrix 核实到账转账后，你的余额才会入账。',
+        'deposit.partner.safety.6': '如果转账延迟，请联系 Arbitrix 客服。',
+        'deposit.partner.disclaimer': '已认证合作伙伴标识表示 Arbitrix 已对该合作伙伴进行内部审核。它不构成任何交易的担保，也不代表监管牌照。',
+        'admin.tab.partners': '合作伙伴',
+        'admin.partner.help': '显示在入金页面的已认证真人合作伙伴。只有同时启用且已认证的合作伙伴才对客户可见。合作伙伴永远不能为账户入账。',
+        'admin.partner.addTitle': '添加合作伙伴',
+        'admin.partner.name': '显示名称',
+        'admin.partner.telegram': 'Telegram 用户名',
+        'admin.partner.telegramHint': '只输入用户名，不带 @。系统会自动生成 t.me 链接。',
+        'admin.partner.services': '\u63d0\u4f9b\u7684\u670d\u52a1',
+        'admin.partner.serviceDirect': '\u76f4\u63a5\u51fa\u552e USDT',
+        'admin.partner.serviceGuided': '\u6307\u5bfc\u8d2d\u4e70',
+        'admin.partner.servicesHint': '\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u9879\u3002\u672a\u8bbe\u7f6e\u670d\u52a1\u7684\u5408\u4f5c\u4f19\u4f34\u4e0d\u4f1a\u5411\u5ba2\u6237\u663e\u793a\u3002',
+        'admin.partner.servicesRequired': '\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u9879\u670d\u52a1\u3002',
+        'admin.partner.worldwide': '\u670d\u52a1\u5168\u7403\u5ba2\u6237',
+        'admin.partner.countriesHint': '\u82e5\u5408\u4f5c\u4f19\u4f34\u670d\u52a1\u5168\u7403\u5ba2\u6237\u53ef\u7559\u7a7a\uff1b\u5426\u5219\u8bf7\u7528\u9017\u53f7\u5206\u9694\u5217\u51fa\u5b9e\u9645\u8986\u76d6\u7684\u56fd\u5bb6\u3002',
+        'admin.partner.methodsHint': '\u5408\u4f5c\u4f19\u4f34\u76f4\u63a5\u51fa\u552e\u65f6\u63a5\u53d7\u7684\u4ed8\u6b3e\u65b9\u5f0f\u3002\u4ec5\u63d0\u4f9b\u6307\u5bfc\u8d2d\u4e70\u7684\u5408\u4f5c\u4f19\u4f34\u53ef\u7559\u7a7a\u3002',
+        'admin.partner.coverage': '\u670d\u52a1\u8303\u56f4',
+        'admin.partner.noServices': '\u672a\u8bbe\u7f6e\u670d\u52a1',
+        'admin.partner.order': '显示顺序',
+        'admin.partner.active': '启用',
+        'admin.partner.add': '添加合作伙伴',
+        'admin.partner.save': '保存',
+        'admin.partner.remove': '删除',
+        'admin.partner.empty': '暂无合作伙伴。',
+        'admin.partner.saved': '合作伙伴已保存',
+        'admin.partner.failed': '无法保存合作伙伴',
+        'admin.partner.invalid': '请检查合作伙伴信息',
+        'admin.partner.removeConfirm': '删除此合作伙伴？',
+        'admin.partner.migration': '合作伙伴目录尚不可用。需要先执行迁移 045。',
+        'admin.partner.visible': '对客户可见',
         'deposit.success': '✅ 成功入金 ${{amount}} USDT！',
         'deposit.confirmed': '入金已确认',
         'deposit.addedVia': '已通过 {{network}} 向实盘钱包添加 ${{amount}}',
@@ -17946,6 +18842,17 @@ const TRANSLATIONS = {
         'sandbox.admin.dayOption': '第 {{day}} 天',
 
         'sandbox.admin.noWithdrawals': '暂无模拟提现',
+        'wallet.liveTitle': '\u5b9e\u76d8\u94b1\u5305',
+        'wallet.liveBalance': '\u5b9e\u76d8\u4f59\u989d',
+        'stats.depositCta': '\u5165\u91d1',
+        'onboarding.fundLive': '\u6211\u60f3\u4e3a\u5b9e\u76d8\u8d26\u6237\u5145\u503c',
+        'demoCta.liveBody': '\u60a8\u7684\u5b9e\u76d8\u8d26\u6237\u5c1a\u672a\u5145\u503c\u3002\u5145\u503c\u540e\u5373\u53ef\u4f7f\u7528\u771f\u5b9e\u8d44\u91d1\u4ea4\u6613\u3002\u6f14\u793a\u6a21\u5f0f\u4ecd\u7136\u53ef\u7528\uff0c\u60a8\u53ef\u4ee5\u968f\u65f6\u5207\u6362\u56de\u53bb\u3002',
+        'deposit.retry': '\u91cd\u8bd5',
+        'deposit.getHelp': '\u83b7\u53d6\u5e2e\u52a9',
+        'deposit.errRateLimited': '\u5165\u91d1\u5c1d\u8bd5\u8fc7\u4e8e\u9891\u7e41\u3002\u8bf7\u7b49\u5f85\u4e00\u5206\u949f\u540e\u518d\u8bd5\u3002',
+        'deposit.errUnavailable': '\u652f\u4ed8\u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528\u3002\u8bf7\u51e0\u5206\u949f\u540e\u91cd\u8bd5\u3002',
+        'deposit.errSession': '\u60a8\u7684\u4f1a\u8bdd\u5df2\u8fc7\u671f\u3002\u8bf7\u91cd\u65b0\u767b\u5f55\u540e\u518d\u8bd5\u5165\u91d1\u3002',
+        'deposit.errInvalid': '\u65e0\u6cd5\u5904\u7406\u8be5\u91d1\u989d\u3002\u8bf7\u68c0\u67e5\u91d1\u989d\u540e\u91cd\u8bd5\u3002',
     }
 };
 // Copy translations for other languages
@@ -18183,6 +19090,13 @@ function updateDynamicTranslations() {
             if (ppm && ppm.classList.contains('open')) renderProfitPauseBody();
         }
         if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
+        // Deposit funding options: partner cards and the reference sentence are
+        // JS-rendered, so rebuild them in the new language (no re-fetch).
+        if (typeof renderDepositPartners === 'function' && typeof depositOptionState !== 'undefined') {
+            renderDepositPartners(depositOptionState.partners);
+            updateDepositReferenceBox();
+            updateDepositWalletPanel();
+        }
         // The landing opportunity card's dismiss aria-label is JS-set (the rest
         // of its labels are data-i18n), so re-apply it on language switch.
         if (typeof renderArbOpportunityLabels === 'function') renderArbOpportunityLabels();
@@ -20892,6 +21806,7 @@ async function requestDepositAddress() {
   const btn = document.getElementById('getAddressBtn');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('deposit.btn.generating');
+  clearDepositInvoiceError();
 
   try {
     // Call API to create invoice
@@ -20911,13 +21826,15 @@ async function requestDepositAddress() {
     let invoice;
     if (response.ok) {
       const data = await response.json();
-      if (data.success) {
+      if (data.success && data.invoice) {
         invoice = data.invoice;
       } else {
-        throw new Error(translateBackendMessage(data.error, 'deposit.generateError'));
+        throw depositInvoiceError(response.status);
       }
     } else {
-      throw new Error(t('deposit.createInvoiceFailed'));
+      // The server's own message is NEVER rendered: the HTTP status alone picks
+      // a safe, translated message below.
+      throw depositInvoiceError(response.status);
     }
 
     currentInvoiceId = invoice.id;
@@ -20926,11 +21843,56 @@ async function requestDepositAddress() {
     showPaymentSection(invoice, amountUSD);
 
   } catch (error) {
+    // Full detail stays in the console for support; the customer only ever sees
+    // a translated message, with a retry (when retrying can help) and the
+    // existing support route.
     console.error('Deposit request error:', error);
-    showToast(t('deposit.generateError'), 'error');
+    showDepositInvoiceError(error);
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-qrcode"></i> ' + t('deposit.btn.generatePayment');
   }
+}
+
+// Map an invoice-creation failure to ONE safe message key. Only the HTTP status
+// is used: the response body (which may contain provider text) never reaches
+// the screen, a log line, or an analytics event.
+function depositInvoiceError(status) {
+  let messageKey = 'deposit.generateError';
+  let retryable = true;
+  if (status === 429) {
+    messageKey = 'deposit.errRateLimited';
+  } else if (status === 401 || status === 403) {
+    messageKey = 'deposit.errSession';
+    retryable = false;
+  } else if (status === 400) {
+    messageKey = 'deposit.errInvalid';
+  } else if (status >= 500) {
+    messageKey = 'deposit.errUnavailable';
+  }
+  const err = new Error(messageKey);
+  err.depositMessageKey = messageKey;
+  err.retryable = retryable;
+  return err;
+}
+
+function showDepositInvoiceError(error) {
+  const box = document.getElementById('depositInvoiceError');
+  if (!box) return;
+  const text = document.getElementById('depositInvoiceErrorText');
+  const key = (error && error.depositMessageKey) ? error.depositMessageKey : 'deposit.generateError';
+  if (text) text.textContent = t(key);
+  const retry = document.getElementById('depositRetryBtn');
+  // A retry is only offered when retrying can plausibly succeed (an expired
+  // session must be re-authenticated first).
+  if (retry) retry.style.display = (error && error.retryable === false) ? 'none' : '';
+  box.classList.add('show');
+}
+
+function clearDepositInvoiceError() {
+  const box = document.getElementById('depositInvoiceError');
+  if (box) box.classList.remove('show');
+  const text = document.getElementById('depositInvoiceErrorText');
+  if (text) text.textContent = '';
 }
 
 // Show/hide the "Send exactly N USDT" instruction.
@@ -20971,6 +21933,11 @@ function setExactAmountInstruction(exactAmount, displayedAmount) {
 
 // Show payment section after invoice creation
 function showPaymentSection(invoice, amountUSD) {
+  // The customer is now inside the deposit flow: never raise the first-deposit
+  // prompt over it (it also stays suppressed for the rest of the session).
+  firstDepositCtaSuppressed = true;
+  if (typeof updateFirstDepositCta === 'function') updateFirstDepositCta();
+
   // Hide input section, show payment section
   document.getElementById('depositInputSection').style.display = 'none';
   document.getElementById('depositPaymentSection').style.display = 'block';
@@ -21508,10 +22475,16 @@ function resetDepositModal() {
   currentCurrency = 'USDT';
   currentNetwork = 'TRC20';
   
+  // Clear any previous invoice-creation error.
+  if (typeof clearDepositInvoiceError === 'function') clearDepositInvoiceError();
+
   // Reset sections visibility
   document.getElementById('depositInputSection').style.display = 'block';
   document.getElementById('depositPaymentSection').style.display = 'none';
   document.getElementById('depositSuccessSection').style.display = 'none';
+  // Always reopen on the crypto route (the reference box resets with it).
+  if (typeof selectDepositOption === 'function') selectDepositOption('crypto');
+  if (typeof updateDepositReferenceBox === 'function') updateDepositReferenceBox();
   
   // Reset progress steps
   updatePaymentProgress('created');
@@ -21564,6 +22537,9 @@ function resetDepositModal() {
 function closeDepositModal() {
   document.getElementById('depositModal').classList.remove('open');
   resetDepositModal();
+  // Closing without paying brings the first-deposit prompt back (it is hidden
+  // while the dialog is open so it can never compete with the deposit form).
+  if (typeof updateFirstDepositCta === 'function') updateFirstDepositCta();
 }
 
 // Render the deposit minimum notice from APP.MIN_DEPOSIT (single frontend
@@ -21573,6 +22549,235 @@ function updateDepositMinNotice() {
     const el = document.getElementById('depositMinNotice');
     if (!el) return;
     el.textContent = t('deposit.minDeposit', { min: Number(APP.MIN_DEPOSIT) });
+}
+
+// ==================== DEPOSIT FUNDING OPTIONS ====================
+// Three AVAILABLE funding routes: an external wallet (guidance + one outward
+// link), a verified human partner (Telegram contact only) and the existing
+// USDT/TRC20 deposit flow. Card-to-crypto purchasing is postponed, so it is not
+// offered here at all - the interface must never advertise a feature that cannot
+// be used. services/CardPayments.js is retained but unreachable from the UI.
+// Selecting a route is DISPLAY-ONLY: no invoice is created, nothing is credited,
+// and the partner/wallet panels only ever show details of an invoice the
+// existing crypto flow already created.
+let depositOptionState = { partners: [], partnersAvailable: true, crypto: null };
+let depositOptionsLoaded = false;
+let depositOptionsLoading = false;
+
+function selectDepositOption(which) {
+  const flow = document.getElementById('depositCryptoFlow');
+  const partnerPanel = document.getElementById('depositPartnerPanel');
+  const walletPanel = document.getElementById('depositWalletPanel');
+  const ids = {
+    wallet: 'depositOptionWallet',
+    partner: 'depositOptionPartner',
+    crypto: 'depositOptionCrypto'
+  };
+  Object.keys(ids).forEach(function (k) {
+    const b = document.getElementById(ids[k]);
+    if (b) b.classList.remove('is-selected');
+  });
+  const target = document.getElementById(ids[which] || ids.crypto);
+  if (target) target.classList.add('is-selected');
+
+  if (which === 'wallet') {
+    if (flow) flow.style.display = 'none';
+    if (partnerPanel) partnerPanel.style.display = 'none';
+    if (walletPanel) walletPanel.style.display = 'block';
+    if (typeof updateDepositWalletPanel === 'function') updateDepositWalletPanel();
+    return;
+  }
+
+  if (which === 'partner') {
+    if (flow) flow.style.display = 'none';
+    if (walletPanel) walletPanel.style.display = 'none';
+    if (partnerPanel) partnerPanel.style.display = 'block';
+    if (typeof updateDepositReferenceBox === 'function') updateDepositReferenceBox();
+    return;
+  }
+
+  if (walletPanel) walletPanel.style.display = 'none';
+  if (partnerPanel) partnerPanel.style.display = 'none';
+  if (flow) flow.style.display = 'block';
+}
+
+// The ONE outward destination for the external-wallet route. Read from
+// window.ARBITRIX_BUY_CRYPTO_URL, else the <meta name="arbitrix-buy-crypto">
+// element (the single configurable source). Only a plain https URL is accepted:
+// any other value hides the button rather than rendering a broken or unsafe
+// destination, and nothing about a purchase can credit an account.
+function resolveBuyCryptoUrl() {
+  let raw = '';
+  try {
+    if (typeof window !== 'undefined' && typeof window.ARBITRIX_BUY_CRYPTO_URL === 'string') {
+      raw = window.ARBITRIX_BUY_CRYPTO_URL.trim();
+    }
+    if (!raw) {
+      const meta = document.querySelector('meta[name="arbitrix-buy-crypto"]');
+      raw = meta && meta.getAttribute('content') ? String(meta.getAttribute('content')).trim() : '';
+    }
+  } catch (e) { raw = ''; }
+  return /^https:\/\/[^\s"'<>]+$/i.test(raw) ? raw : '';
+}
+
+function updateDepositWalletPanel() {
+  const link = document.getElementById('depositBuyCryptoLink');
+  if (link) {
+    const url = resolveBuyCryptoUrl();
+    if (url) {
+      link.setAttribute('href', url);
+      link.style.display = 'block';
+    } else {
+      link.removeAttribute('href');
+      link.style.display = 'none';
+    }
+  }
+
+  const addrEl = document.getElementById('depositWalletAddress');
+  const copyBtn = document.getElementById('depositWalletCopyBtn');
+  const genBtn = document.getElementById('depositWalletGenerateBtn');
+  const liveEl = document.getElementById('liveWalletAddress');
+  const address = liveEl ? String(liveEl.textContent || '').trim() : '';
+  const ready = !!currentInvoiceId && address.length >= 20 && address !== 'Loading...';
+  if (addrEl) addrEl.textContent = ready ? address : t('deposit.wallet.addressNone');
+  if (copyBtn) copyBtn.style.display = ready ? 'inline-flex' : 'none';
+  if (genBtn) genBtn.style.display = ready ? 'none' : 'inline-flex';
+}
+
+function focusDepositAmount() {
+  selectDepositOption('crypto');
+  const input = document.getElementById('liveDepositAmount');
+  if (input && typeof input.focus === 'function') {
+    try { input.focus(); } catch (e) { /* focus is best effort */ }
+  }
+}
+
+function renderDepositPartners(partners) {
+  const listEl = document.getElementById('depositPartnerList');
+  const emptyEl = document.getElementById('depositPartnerEmpty');
+  if (!listEl || !emptyEl) return;
+  const rows = (Array.isArray(partners) ? partners : []).filter(function (p) {
+    return p && typeof p.telegramUrl === 'string' && /^https:\/\/t\.me\/[A-Za-z0-9_]+$/.test(p.telegramUrl);
+  });
+  if (!rows.length) {
+    listEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  listEl.innerHTML = rows.map(function (p) {
+    // Capabilities come from the server projection, never from a guess about
+    // the partner: the card states exactly what the administrator recorded.
+    const chips = [];
+    if (p.directSale === true) {
+      chips.push('<span class="deposit-partner-service"><i class="fas fa-hand-holding-dollar"></i> ' +
+        escapeHtml(t('deposit.partner.service.direct')) + '</span>');
+    }
+    if (p.guidedAssistance === true) {
+      chips.push('<span class="deposit-partner-service guided"><i class="fas fa-route"></i> ' +
+        escapeHtml(t('deposit.partner.service.guided')) + '</span>');
+    }
+    const services = chips.length
+      ? '<div class="deposit-partner-services">' + chips.join('') + '</div>' : '';
+
+    // Coverage: "worldwide" is only shown when the server says so, otherwise
+    // the recorded country list is displayed verbatim as the limitation.
+    let coverage = '';
+    if (p.servesWorldwide === true) {
+      coverage = '<div class="deposit-partner-meta"><i class="fas fa-globe"></i> ' +
+        escapeHtml(t('deposit.partner.worldwide')) + '</div>';
+    } else if (Array.isArray(p.countries) && p.countries.length) {
+      coverage = '<div class="deposit-partner-meta">' + escapeHtml(t('deposit.partner.serves')) + ': ' +
+        escapeHtml(p.countries.join(', ')) + '</div>';
+    }
+
+    // Payment methods describe a DIRECT sale. Guided assistance depends on the
+    // external service the customer picks, and that is stated rather than
+    // inventing a method list.
+    const methods = (p.paymentMethodsApplyToDirectSale === true &&
+        Array.isArray(p.paymentMethods) && p.paymentMethods.length)
+      ? '<div class="deposit-partner-meta">' + escapeHtml(t('deposit.partner.methods')) + ': ' +
+        escapeHtml(p.paymentMethods.join(', ')) + '</div>'
+      : '';
+    const depends = p.paymentMethodsDependOnExternalService === true
+      ? '<div class="deposit-partner-meta" style="color:var(--text-muted);">' +
+        escapeHtml(t('deposit.partner.methodsDepend')) + '</div>'
+      : '';
+
+    return '<div class="deposit-partner-card">' +
+      '<div class="deposit-partner-head">' +
+        '<span class="deposit-partner-name">' + escapeHtml(p.displayName || '') + '</span>' +
+        '<span class="deposit-partner-badge"><i class="fas fa-circle-check"></i> ' + escapeHtml(t('deposit.partner.verified')) + '</span>' +
+      '</div>' +
+      services + coverage + methods + depends +
+      '<a class="btn btn-primary deposit-partner-chat" href="' + escapeHtml(p.telegramUrl) + '" target="_blank" rel="noopener noreferrer">' +
+        '<i class="fab fa-telegram"></i> ' + escapeHtml(t('deposit.partner.chat')) + '</a>' +
+      '<div class="deposit-partner-handle">@' + escapeHtml(p.telegramUsername || '') + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function updateDepositReferenceBox() {
+  const valueEl = document.getElementById('depositRefValue');
+  const hintEl = document.getElementById('depositRefHint');
+  const copyBtn = document.getElementById('depositRefCopyBtn');
+  if (!valueEl) return;
+  const crypto = depositOptionState.crypto || { asset: 'USDT', network: 'TRC20' };
+  if (currentInvoiceId) {
+    valueEl.textContent = String(currentInvoiceId);
+    if (hintEl) hintEl.textContent = t('deposit.partner.refReady', { asset: crypto.asset, network: crypto.network });
+    if (copyBtn) copyBtn.style.display = 'inline-flex';
+  } else {
+    valueEl.textContent = t('deposit.partner.refNone');
+    if (hintEl) hintEl.textContent = t('deposit.partner.refHint');
+    if (copyBtn) copyBtn.style.display = 'none';
+  }
+}
+
+function copyDepositReference() {
+  if (!currentInvoiceId) return;
+  const text = String(currentInvoiceId);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        showToast(t('deposit.partner.refCopied'), 'success');
+      }).catch(function () {
+        showToast(text, 'info');
+      });
+      return;
+    }
+  } catch (e) { /* fall through to the visible value */ }
+  showToast(text, 'info');
+}
+
+async function loadDepositOptions(force) {
+  if (depositOptionsLoading) return;
+  if (depositOptionsLoaded && !force) return;
+  depositOptionsLoading = true;
+  try {
+    const token = localStorage.getItem('jwt_token');
+    const res = await fetch('/api/deposit/options', {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    });
+    if (!res.ok) throw new Error('options unavailable');
+    const data = await res.json();
+    if (!data || data.success !== true) throw new Error('options unavailable');
+    depositOptionState.crypto = data.crypto || { asset: 'USDT', network: 'TRC20' };
+    depositOptionState.partnersAvailable = data.partnersAvailable !== false;
+    depositOptionState.partners = Array.isArray(data.partners) ? data.partners : [];
+    depositOptionsLoaded = true;
+    updateDepositWalletPanel();
+    renderDepositPartners(depositOptionState.partners);
+    updateDepositReferenceBox();
+  } catch (e) {
+    // Never block a deposit on this: fall back to the crypto flow only.
+    depositOptionState.partners = [];
+    depositOptionState.partnersAvailable = false;
+    renderDepositPartners([]);
+    updateDepositWalletPanel();
+  } finally {
+    depositOptionsLoading = false;
+  }
 }
 
 function openDepositModal() {
@@ -21586,12 +22791,53 @@ function openDepositModal() {
   resetDepositModal();
   updateDepositMinNotice();
   refreshDepositModeNotice();
+  // Funding routes: hidden for MARKETING_SANDBOX so the simulated recorder flow
+  // is unchanged. The card route stays disabled until the server approves a
+  // provider; a failed request simply leaves the crypto flow available.
+  const depositOptionsEl = document.getElementById('depositOptions');
+  if (depositOptionsEl) {
+    const hideDepositOptions = (typeof APP !== 'undefined' && APP.environment === 'MARKETING_SANDBOX');
+    depositOptionsEl.style.display = hideDepositOptions ? 'none' : 'block';
+    if (!hideDepositOptions) {
+      if (typeof selectDepositOption === 'function') selectDepositOption('crypto');
+      if (typeof loadDepositOptions === 'function') loadDepositOptions(false);
+    }
+  }
   document.getElementById('depositModal').classList.add('open');
+  // Always open at the top of the panel so the sticky header (title + close)
+  // is on screen, including on a 320px viewport where the form is taller than
+  // the viewport.
+  const depositPanel = document.getElementById('depositModalContent');
+  if (depositPanel) depositPanel.scrollTop = 0;
   // Focus the amount field only when the real (Live) deposit form is active.
   // In Demo mode the user must switch to Live first via the notice CTA.
+  // preventScroll: a plain focus() scrolled the dialog past its own header on
+  // short screens, leaving the title and the close button outside the viewport.
   if (APP.mode !== 'demo') {
-    document.getElementById('liveDepositAmount').focus();
+    focusWithoutScroll(document.getElementById('liveDepositAmount'));
   }
+  if (typeof updateFirstDepositCta === 'function') updateFirstDepositCta();
+}
+
+// Escape closes the deposit dialog (keyboard accessibility). The Support
+// Center can be opened from inside it, so it gets Escape first. Backdrop clicks
+// deliberately do NOT close it: an accidental tap must not discard an invoice
+// that has already been generated.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape' && e.key !== 'Esc') return;
+  const modal = document.getElementById('depositModal');
+  if (!modal || !modal.classList.contains('open')) return;
+  const support = document.getElementById('supportModal');
+  if (support && support.classList.contains('open')) return;
+  closeDepositModal();
+});
+
+// Focus inside a scrollable dialog without letting the browser scroll the
+// dialog (or the page) to the element. Falls back to a plain focus() on
+// browsers that do not support the preventScroll option.
+function focusWithoutScroll(el) {
+  if (!el || typeof el.focus !== 'function') return;
+  try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} }
 }
 
 // Render the Demo-mode deposit notice + LIVE-mode disclosure. Pure display:
@@ -21649,11 +22895,13 @@ function switchToLiveAndContinueDeposit() {
 // nothing. MARKETING_SANDBOX accounts never see it.
 let pendingOnboardingDeposit = false;
 let demoDepositCtaDismissed = false;
-// Demo-to-Live reminder pacing (session only). The reminder is deliberately
-// restrained: it waits for meaningful demo activity, is suppressed while the
-// bot is trading, and once hidden it is not raised again until the interval has
-// elapsed - so it can never nag after every trade.
-const DEMO_CTA_MIN_TRADES = 3;
+// First-deposit reminder pacing. The reminder is deliberately restrained: it is
+// suppressed while the bot is trading and while the deposit flow is active, and
+// once hidden it is not raised again until the interval has elapsed. There is
+// intentionally NO trading-activity prerequisite any more - requiring demo
+// trades before showing a deposit prompt hid the funding path from exactly the
+// audience that needs it. Dismissal is per account (localStorage), so it also
+// cannot nag across reloads.
 const DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;
 let demoCtaLastShownAt = 0;
 
@@ -21737,8 +22985,18 @@ function chooseOnboarding(choice) {
     if (modal) modal.classList.remove('open');
 
     if (choice === 'deposit') {
-        pendingOnboardingDeposit = true;
+        // "I want to fund my Live account": hand off to the EXISTING deposit
+        // flow. No invoice is created here and nothing is credited.
+        const appWasReady = appReady;
         goToApp('onboarding_deposit');
+        if (appWasReady) {
+            // The app is already initialised for this session, so initApp()
+            // will never consume the pending flag: open the dialog directly.
+            pendingOnboardingDeposit = false;
+            openDepositModal();
+        } else {
+            pendingOnboardingDeposit = true;   // consumed by initApp() after the sync
+        }
         return;
     }
     pendingOnboardingDeposit = false;
@@ -21753,27 +23011,62 @@ function chooseOnboarding(choice) {
     updateDemoFirstDepositCta();
 }
 
-// Non-aggressive in-Demo prompt to make the first deposit. Shown only to
-// production accounts that are in Demo mode, have no confirmed deposit AND have
-// built up meaningful demo activity. Never modal, never blocking.
-function updateDemoFirstDepositCta() {
+// Dashboard first-deposit prompt. A small, dismissible banner (never a modal)
+// shown to PRODUCTION accounts that have no confirmed deposit yet - in BOTH
+// modes, because an unfunded LIVE account is the audience that most needs the
+// deposit path. Deliberately NOT gated on demo trading activity any more: a new
+// customer must be able to find funding immediately.
+// Excluded: MARKETING_SANDBOX, funded accounts, a running bot, and anything
+// already inside the deposit flow (dialog open or invoice generated).
+// Dismissal is remembered per account, so it cannot nag across reloads.
+const FIRST_DEPOSIT_DISMISS_PREFIX = 'arbi_firstdeposit_dismissed_';
+let firstDepositCtaSuppressed = false;
+
+function firstDepositDismissKey() {
+    const u = (typeof currentCachedUser === 'function') ? currentCachedUser() : null;
+    return (u && u.id) ? (FIRST_DEPOSIT_DISMISS_PREFIX + String(u.id)) : null;
+}
+
+function isFirstDepositCtaDismissed() {
+    if (demoDepositCtaDismissed) return true;
+    const key = firstDepositDismissKey();
+    if (!key) return false;
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+}
+
+// The Available-balance card carries the only deposit entry point that is on
+// screen at every width without opening the drawer. Hidden for MARKETING_SANDBOX
+// so the sandbox recorder screens are unchanged.
+function updateAvailableDepositButton() {
+    const isSandbox = (typeof APP !== 'undefined') && APP.environment === 'MARKETING_SANDBOX';
+    // Both wallet actions live in the same row and follow the same display rule.
+    ['availableDepositBtn', 'availableWithdrawBtn'].forEach(function (id) {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.style.display = isSandbox ? 'none' : 'flex';
+    });
+}
+
+function updateFirstDepositCta() {
+    updateAvailableDepositButton();
     const el = document.getElementById('demoFirstDepositCta');
     if (!el) return;
-    const isSandbox = APP.environment === 'MARKETING_SANDBOX';
-    const demo = APP.mode === 'demo';
+    const isSandbox = (typeof APP !== 'undefined') && APP.environment === 'MARKETING_SANDBOX';
     const funded = !!(APP.liveData && APP.liveData.hasRealDeposit);
-    const trades = Number((APP.demoData && APP.demoData.trades) || 0);
+    const depositModalOpen = !!(document.getElementById('depositModal')
+        && document.getElementById('depositModal').classList.contains('open'));
+    const invoiceActive = (typeof currentInvoiceId !== 'undefined') && !!currentInvoiceId;
+    const inDepositFlow = firstDepositCtaSuppressed || depositModalOpen || invoiceActive;
     const wasVisible = !el.classList.contains('hidden');
 
     let show = !isSandbox
-        && demo
         && !funded
-        && trades >= DEMO_CTA_MIN_TRADES
+        && !inDepositFlow
         && !APP.botRunning
-        && !demoDepositCtaDismissed;
+        && !isFirstDepositCtaDismissed();
 
     // Frequency limit: a reminder that has been hidden is not raised again
-    // until the interval elapses (i.e. never once per trade).
+    // until the interval elapses (i.e. never once per trade / per UI refresh).
     const now = Date.now();
     if (show && !wasVisible && demoCtaLastShownAt
         && (now - demoCtaLastShownAt) < DEMO_CTA_REMINDER_INTERVAL_MS) {
@@ -21781,11 +23074,28 @@ function updateDemoFirstDepositCta() {
     }
     if (show && !wasVisible) demoCtaLastShownAt = now;
     el.classList.toggle('hidden', !show);
+
+    // Mode-aware copy. Neither variant claims funding is required for Demo Mode.
+    const live = (typeof APP !== 'undefined') && APP.mode === 'live';
+    const bodyDemo = document.getElementById('demoCtaBodyDemo');
+    const bodyLive = document.getElementById('demoCtaBodyLive');
+    if (bodyDemo) bodyDemo.style.display = live ? 'none' : '';
+    if (bodyLive) bodyLive.style.display = live ? '' : 'none';
+    const reviewBtn = document.getElementById('demoCtaReviewBtn');
+    if (reviewBtn) reviewBtn.style.display = live ? 'none' : '';
+}
+
+// Kept as an alias: existing callers and tests use the original name.
+function updateDemoFirstDepositCta() {
+    updateFirstDepositCta();
 }
 
 function dismissDemoDepositCta() {
     demoDepositCtaDismissed = true;
-    updateDemoFirstDepositCta();
+    demoCtaLastShownAt = 0;
+    const key = firstDepositDismissKey();
+    if (key) { try { localStorage.setItem(key, '1'); } catch (e) {} }
+    updateFirstDepositCta();
 }
 
 // "Review Live Requirements" reuses the existing review-only Live entry - the
@@ -23999,6 +25309,7 @@ function showAdminTab(tab) {
     document.getElementById('adminTabContentKyc').classList.add('hidden');
     document.getElementById('adminTabContentSubscriptions').classList.add('hidden');
     document.getElementById('adminTabContentSandbox').classList.add('hidden');
+    document.getElementById('adminTabContentPartners').classList.add('hidden');
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
     
@@ -24015,6 +25326,11 @@ function showAdminTab(tab) {
     // Load subscriptions when tab is shown (read-only admin visibility)
     if (tab === 'subscriptions') {
         loadAdminSubscriptions();
+    }
+
+    // Load the deposit partner directory when the tab is shown
+    if (tab === 'partners') {
+        loadAdminPartners();
     }
 
     // Load marketing sandbox accounts when tab is shown
@@ -25739,6 +27055,179 @@ const SUBSCRIPTION_ADMIN_STATUS_LABELS = {
 function subscriptionAdminStatusLabel(rawStatus) {
     const key = SUBSCRIPTION_ADMIN_STATUS_LABELS[rawStatus];
     return key ? t(key) : (rawStatus || '');
+}
+
+// ============ DEPOSIT PARTNER DIRECTORY (admin) ============
+// Server-side authorization is authoritative: every call below hits
+// /api/admin/deposit-partners, which requires authMiddleware + adminMiddleware
+// and re-validates the Telegram username. Hiding these controls would not be a
+// security control on its own.
+function adminPartnerLog(msg, isError) {
+    const log = document.getElementById('adminPartnerLog');
+    if (!log) return;
+    const line = document.createElement('div');
+    line.style.color = isError ? '#EF4444' : '#10B981';
+    line.textContent = new Date().toLocaleTimeString(appLocale()) + ' - ' + msg;
+    log.prepend(line);
+}
+
+async function adminPartnerFetch(path, options) {
+    const token = localStorage.getItem('jwt_token');
+    const res = await fetch(path, Object.assign({
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+    }, options || {}));
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    return { ok: res.ok, status: res.status, data: data };
+}
+
+async function loadAdminPartners() {
+    const tbody = document.getElementById('adminPartnersTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--text-secondary);">' + t('common.loading') + '</td></tr>';
+    const result = await adminPartnerFetch('/api/admin/deposit-partners');
+    if (!result.ok) {
+        const message = (result.data && result.data.migrationRequired)
+            ? t('admin.partner.migration') : t('admin.partner.failed');
+        tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--text-muted);">' + escapeHtml(message) + '</td></tr>';
+        return;
+    }
+    renderAdminPartners((result.data && result.data.partners) || []);
+}
+
+function renderAdminPartners(partners) {
+    const tbody = document.getElementById('adminPartnersTableBody');
+    if (!tbody) return;
+    if (!partners || partners.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--text-muted);">' + t('admin.partner.empty') + '</td></tr>';
+        return;
+    }
+    const yes = '<span style="color:#10B981;">&#10003;</span>';
+    const no = '<span style="color:var(--text-muted);">&#8212;</span>';
+    tbody.innerHTML = partners.map(function (p) {
+        const id = Number(p.id);
+        // Authoritative: the server computes this with the SAME helper the
+        // public listing uses (services/DepositPartners.js isCustomerVisible),
+        // so the badge can never disagree with what a customer actually sees.
+        const visible = p.visibleToCustomers === true;
+        const serviceList = Array.isArray(p.services) ? p.services : [];
+        const serviceLabel = serviceList.length
+            ? serviceList.map(function (sv) {
+                return sv === 'direct_sale' ? t('admin.partner.serviceDirect') : t('admin.partner.serviceGuided');
+            }).join(' + ')
+            : '<span style="color:#EF4444;">' + escapeHtml(t('admin.partner.noServices')) + '</span>';
+        const coverageLabel = p.serves_worldwide === true
+            ? t('deposit.partner.worldwide')
+            : ((Array.isArray(p.countries) && p.countries.length) ? p.countries.join(', ') : '\u2014');
+        return '<tr style="border-bottom:1px solid var(--border);">' +
+            '<td style="padding:8px;">' + escapeHtml(p.display_name || '') + '</td>' +
+            '<td style="padding:8px;direction:ltr;unicode-bidi:isolate;">@' + escapeHtml(p.telegram_username || '') + '</td>' +
+            '<td style="padding:8px;overflow-wrap:anywhere;">' + serviceLabel + '</td>' +
+            '<td style="padding:8px;overflow-wrap:anywhere;">' + escapeHtml(coverageLabel) + '</td>' +
+            '<td style="padding:8px;">' + (Number(p.display_order) || 0) + '</td>' +
+            '<td style="padding:8px;"><input type="checkbox" ' + (p.is_active === true ? 'checked' : '') +
+                ' onchange="adminTogglePartner(' + id + ', &quot;isActive&quot;, this.checked)"></td>' +
+            '<td style="padding:8px;"><input type="checkbox" ' + (p.is_verified === true ? 'checked' : '') +
+                ' onchange="adminTogglePartner(' + id + ', &quot;isVerified&quot;, this.checked)"></td>' +
+            '<td style="padding:8px;">' + (visible ? yes : no) + '</td>' +
+            '<td style="padding:8px;"><button type="button" class="btn btn-secondary" style="padding:4px 8px;font-size:10px;min-height:28px;" onclick="adminDeletePartner(' + id + ')">' +
+                escapeHtml(t('admin.partner.remove')) + '</button></td>' +
+        '</tr>';
+    }).join('');
+}
+
+async function adminCreatePartner() {
+    const nameEl = document.getElementById('adminPartnerName');
+    const tgEl = document.getElementById('adminPartnerTelegram');
+    const countriesEl = document.getElementById('adminPartnerCountries');
+    const methodsEl = document.getElementById('adminPartnerMethods');
+    const orderEl = document.getElementById('adminPartnerOrder');
+    const activeEl = document.getElementById('adminPartnerActive');
+    const verifiedEl = document.getElementById('adminPartnerVerified');
+    const directEl = document.getElementById('adminPartnerServiceDirect');
+    const guidedEl = document.getElementById('adminPartnerServiceGuided');
+    const worldwideEl = document.getElementById('adminPartnerWorldwide');
+
+    const services = [];
+    if (directEl && directEl.checked) services.push('direct_sale');
+    if (guidedEl && guidedEl.checked) services.push('guided_assistance');
+    if (!services.length) {
+        adminPartnerLog(t('admin.partner.servicesRequired'), true);
+        showToast(t('admin.partner.servicesRequired'), 'error');
+        return;
+    }
+    const worldwide = !!(worldwideEl && worldwideEl.checked);
+
+    const body = {
+        displayName: nameEl ? nameEl.value.trim() : '',
+        telegramUsername: tgEl ? tgEl.value.trim() : '',
+        services: services,
+        servesWorldwide: worldwide,
+        // A worldwide partner has no country restriction to record.
+        countries: worldwide ? '' : (countriesEl ? countriesEl.value.trim() : ''),
+        paymentMethods: methodsEl ? methodsEl.value.trim() : '',
+        displayOrder: orderEl ? orderEl.value : 100,
+        isActive: !!(activeEl && activeEl.checked),
+        isVerified: !!(verifiedEl && verifiedEl.checked)
+    };
+
+    const result = await adminPartnerFetch('/api/admin/deposit-partners', {
+        method: 'POST',
+        body: JSON.stringify(body)
+    });
+    if (!result.ok) {
+        const message = (result.data && result.data.error) || t('admin.partner.failed');
+        adminPartnerLog(message, true);
+        showToast(t('admin.partner.invalid'), 'error');
+        return;
+    }
+    adminPartnerLog(t('admin.partner.saved'), false);
+    showToast(t('admin.partner.saved'), 'success');
+    [nameEl, tgEl, countriesEl, methodsEl].forEach(function (el) { if (el) el.value = ''; });
+    if (activeEl) activeEl.checked = false;
+    if (verifiedEl) verifiedEl.checked = false;
+    if (orderEl) orderEl.value = '100';
+    if (directEl) directEl.checked = false;
+    if (guidedEl) guidedEl.checked = false;
+    if (worldwideEl) { worldwideEl.checked = false; adminPartnerWorldwideChanged(); }
+    loadAdminPartners();
+}
+
+// A worldwide partner has no country restriction, so the country input is
+// disabled while that box is ticked (the server ignores it as well).
+function adminPartnerWorldwideChanged() {
+    const worldwideEl = document.getElementById('adminPartnerWorldwide');
+    const countriesEl = document.getElementById('adminPartnerCountries');
+    if (!countriesEl) return;
+    const worldwide = !!(worldwideEl && worldwideEl.checked);
+    countriesEl.disabled = worldwide;
+    if (worldwide) countriesEl.value = '';
+}
+
+async function adminTogglePartner(id, field, value) {
+    const body = {};
+    body[field] = value === true;
+    const result = await adminPartnerFetch('/api/admin/deposit-partners/' + Number(id), {
+        method: 'PUT',
+        body: JSON.stringify(body)
+    });
+    if (!result.ok) {
+        adminPartnerLog((result.data && result.data.error) || t('admin.partner.failed'), true);
+        showToast(t('admin.partner.failed'), 'error');
+    } else {
+        adminPartnerLog(t('admin.partner.saved'), false);
+    }
+    loadAdminPartners();
+}
+
+async function adminDeletePartner(id) {
+    if (!confirm(t('admin.partner.removeConfirm'))) return;
+    const result = await adminPartnerFetch('/api/admin/deposit-partners/' + Number(id), { method: 'DELETE' });
+    if (!result.ok) {
+        adminPartnerLog((result.data && result.data.error) || t('admin.partner.failed'), true);
+        showToast(t('admin.partner.failed'), 'error');
+    }
+    loadAdminPartners();
 }
 
 async function loadAdminSubscriptions() {
