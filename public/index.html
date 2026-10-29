@@ -7753,11 +7753,17 @@ function toggleFaq(btn) {
         </div>
       </div>
 
-      <!-- Deposit help: official support (display-only, opens the support modal) -->
-      <div style="text-align:center;margin-top:4px;">
-        <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;">
-          <i class="fas fa-headset"></i> <span data-i18n="support.needHelpDeposit">Need help with your deposit?</span>
-        </button>
+      <!-- Deposit help: the PAYMENT PARTNER (deposit questions, obtaining USDT,
+           payment follow-ups). Contact details only: a partner never credits an
+           account. Hidden when no destination is configured, so a broken link is
+           never rendered. Official Arbitrix support stays reachable from the
+           Support Center for general account questions. -->
+      <div id="depositCryptoPartnerHelp" style="margin:16px 0 4px;padding:12px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;">
+        <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:0 0 10px;" data-i18n="deposit.crypto.partnerHelp">Need help with your deposit? Contact our Payment Partner on Telegram.</p>
+        <a id="depositCryptoPartnerBtn" href="#" class="btn btn-primary js-payment-partner deposit-payment-partner" style="display:none;width:100%;text-align:center;padding:11px;font-size:12px;font-weight:600;text-decoration:none;margin:0 0 8px;" target="_blank" rel="noopener noreferrer">
+          <i class="fab fa-telegram" style="margin-right:6px;"></i><span data-i18n="deposit.partner.contactPaymentPartner">Contact Payment Partner</span>
+        </a>
+        <p style="font-size:10px;color:var(--text-muted);line-height:1.6;margin:0;" data-i18n="deposit.crypto.partnerNote">Contacting the partner never credits your account. Arbitrix credits your deposit only after verifying the transfer.</p>
       </div>
       </div>
     </div>
@@ -9450,6 +9456,8 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'I Already Have Crypto',
         'deposit.choose.crypto.desc': 'Deposit USDT on TRON (TRC20) directly to your Arbitrix address.',
         'deposit.partner.title': 'Verified Partners',
+        'deposit.crypto.partnerHelp': 'Need help with your deposit? Contact our Payment Partner on Telegram.',
+        'deposit.crypto.partnerNote': 'Contacting the partner never credits your account. Arbitrix credits your deposit only after verifying the transfer.',
         'deposit.partner.intro': 'Contact a partner on Telegram. Partners help you obtain cryptocurrency.',
         'deposit.partner.contactPaymentPartner': 'Contact Payment Partner',
         'deposit.partner.servicesIntro': 'Partners may offer direct USDT sales, guided purchasing assistance, or both.',
@@ -9757,7 +9765,6 @@ const TRANSLATIONS = {
         'support.faq.withdrawal.a': 'Withdrawals require a confirmed deposit, at least one completed trade, and any security checks that apply to your account. The withdrawal page always shows the current requirements.',
         'support.faq.security.q': 'Keeping your account safe',
         'support.faq.security.a': 'Arbitrix support only writes from official channels. Verify the destination before sharing anything, and never share the items listed in the security warning above.',
-        'support.needHelpDeposit': 'Need help with your deposit?',
         'support.needHelpWithdraw': 'Need help with a withdrawal?',
         'support.contactOfficial': 'Contact official Arbitrix Support',
         'support.contactShort': 'Contact Support',
@@ -11061,6 +11068,8 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'Ya tengo criptomonedas',
         'deposit.choose.crypto.desc': 'Deposita USDT en TRON (TRC20) directamente en tu dirección de Arbitrix.',
         'deposit.partner.title': 'Socios verificados',
+        'deposit.crypto.partnerHelp': '\u00bfNecesitas ayuda con tu dep\u00f3sito? Contacta con nuestro socio de pagos en Telegram.',
+        'deposit.crypto.partnerNote': 'Contactar con el socio no acredita tu cuenta. Arbitrix acredita tu dep\u00f3sito solo despu\u00e9s de verificar la transferencia.',
         'deposit.partner.intro': 'Contacta con un socio en Telegram. Los socios te ayudan a obtener criptomonedas.',
         'deposit.partner.contactPaymentPartner': 'Contactar al socio de pagos',
         'deposit.partner.servicesIntro': 'Los socios pueden ofrecer venta directa de USDT, asistencia guiada para la compra, o ambas.',
@@ -11368,7 +11377,6 @@ const TRANSLATIONS = {
         'support.faq.withdrawal.a': 'Los retiros requieren un depósito confirmado, al menos una operación completada y las verificaciones de seguridad aplicables a tu cuenta. La página de retiro siempre muestra los requisitos actuales.',
         'support.faq.security.q': 'Mantener tu cuenta segura',
         'support.faq.security.a': 'El soporte de Arbitrix solo escribe desde canales oficiales. Verifica el destino antes de compartir algo y nunca compartas los datos indicados en la advertencia de seguridad anterior.',
-        'support.needHelpDeposit': '¿Necesitas ayuda con tu depósito?',
         'support.needHelpWithdraw': '¿Necesitas ayuda con un retiro?',
         'support.contactOfficial': 'Contactar al soporte oficial de Arbitrix',
         'support.contactShort': 'Contactar a soporte',
@@ -12673,6 +12681,8 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'Já tenho criptomoedas',
         'deposit.choose.crypto.desc': 'Deposite USDT na TRON (TRC20) diretamente no seu endereço da Arbitrix.',
         'deposit.partner.title': 'Parceiros verificados',
+        'deposit.crypto.partnerHelp': 'Precisa de ajuda com seu dep\u00f3sito? Fale com o nosso parceiro de pagamentos no Telegram.',
+        'deposit.crypto.partnerNote': 'Falar com o parceiro n\u00e3o credita sua conta. A Arbitrix credita seu dep\u00f3sito apenas ap\u00f3s verificar a transfer\u00eancia.',
         'deposit.partner.intro': 'Fale com um parceiro no Telegram. Os parceiros ajudam voc\u00ea a obter criptomoedas.',
         'deposit.partner.contactPaymentPartner': 'Falar com o parceiro de pagamentos',
         'deposit.partner.servicesIntro': 'Os parceiros podem oferecer venda direta de USDT, assist\u00eancia guiada na compra, ou ambas.',
@@ -12980,7 +12990,6 @@ const TRANSLATIONS = {
         'support.faq.withdrawal.a': 'Os saques exigem um depósito confirmado, pelo menos uma operação concluída e as verificações de segurança aplicáveis à sua conta. A página de saque sempre mostra os requisitos atuais.',
         'support.faq.security.q': 'Mantendo sua conta segura',
         'support.faq.security.a': 'O suporte da Arbitrix só escreve por canais oficiais. Verifique o destino antes de compartilhar qualquer coisa e nunca compartilhe os itens listados no aviso de segurança acima.',
-        'support.needHelpDeposit': 'Precisa de ajuda com seu depósito?',
         'support.needHelpWithdraw': 'Precisa de ajuda com um saque?',
         'support.contactOfficial': 'Falar com o suporte oficial da Arbitrix',
         'support.contactShort': 'Falar com o suporte',
@@ -14285,6 +14294,8 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'J’ai déjà de la crypto',
         'deposit.choose.crypto.desc': 'Déposez de l’USDT sur TRON (TRC20) directement sur votre adresse Arbitrix.',
         'deposit.partner.title': 'Partenaires vérifiés',
+        'deposit.crypto.partnerHelp': 'Besoin d\'aide pour votre d\u00e9p\u00f4t ? Contactez notre partenaire de paiement sur Telegram.',
+        'deposit.crypto.partnerNote': 'Contacter le partenaire ne cr\u00e9dite pas votre compte. Arbitrix cr\u00e9dite votre d\u00e9p\u00f4t uniquement apr\u00e8s v\u00e9rification du transfert.',
         'deposit.partner.intro': 'Contactez un partenaire sur Telegram. Les partenaires vous aident \u00e0 obtenir de la cryptomonnaie.',
         'deposit.partner.contactPaymentPartner': 'Contacter le partenaire de paiement',
         'deposit.partner.servicesIntro': 'Les partenaires peuvent proposer la vente directe d\'USDT, une assistance guid\u00e9e \u00e0 l\'achat, ou les deux.',
@@ -14592,7 +14603,6 @@ const TRANSLATIONS = {
         'support.faq.withdrawal.a': 'Les retraits nécessitent un dépôt confirmé, au moins un trade clôturé et les vérifications de sécurité applicables à votre compte. La page de retrait affiche toujours les conditions actuelles.',
         'support.faq.security.q': 'Sécuriser votre compte',
         'support.faq.security.a': 'Le support Arbitrix n\'écrit que depuis des canaux officiels. Vérifiez la destination avant de partager quoi que ce soit et ne partagez jamais les éléments listés dans l\'avertissement de sécurité ci-dessus.',
-        'support.needHelpDeposit': 'Besoin d\'aide avec votre dépôt ?',
         'support.needHelpWithdraw': 'Besoin d\'aide avec un retrait ?',
         'support.contactOfficial': 'Contacter le support officiel Arbitrix',
         'support.contactShort': 'Contacter le support',
@@ -15897,6 +15907,8 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': 'لدي عملات رقمية بالفعل',
         'deposit.choose.crypto.desc': 'أودع USDT على شبكة TRON (TRC20) مباشرة إلى عنوان Arbitrix الخاص بك.',
         'deposit.partner.title': 'الشركاء الموثّقون',
+        'deposit.crypto.partnerHelp': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0627\u0644\u0625\u064a\u062f\u0627\u0639\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639 \u0639\u0628\u0631 \u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645.',
+        'deposit.crypto.partnerNote': '\u0627\u0644\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u0634\u0631\u064a\u0643 \u0644\u0627 \u064a\u0636\u064a\u0641 \u0627\u0644\u0645\u0628\u0644\u063a \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643. \u062a\u064f\u0636\u064a\u0641 Arbitrix \u0625\u064a\u062f\u0627\u0639\u0643 \u0641\u0642\u0637 \u0628\u0639\u062f \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
         'deposit.partner.intro': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0639\u0644\u0649 \u062a\u064a\u0644\u064a\u062c\u0631\u0627\u0645. \u064a\u0633\u0627\u0639\u062f\u0643 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0641\u064a \u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629.',
         'deposit.partner.contactPaymentPartner': '\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0634\u0631\u064a\u0643 \u0627\u0644\u062f\u0641\u0639',
         'deposit.partner.servicesIntro': '\u0642\u062f \u064a\u0642\u062f\u0651\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0628\u064a\u0639 USDT \u0645\u0628\u0627\u0634\u0631\u0629\u064b\u060c \u0623\u0648 \u0645\u0633\u0627\u0639\u062f\u0629 \u0645\u0648\u062c\u0651\u0647\u0629 \u0641\u064a \u0627\u0644\u0634\u0631\u0627\u0621\u060c \u0623\u0648 \u0643\u0644\u064a\u0647\u0645\u0627.',
@@ -16204,7 +16216,6 @@ const TRANSLATIONS = {
         'support.faq.withdrawal.a': 'يتطلب السحب إيداعًا مؤكدًا وعملية مكتملة واحدة على الأقل وأي فحوصات أمنية تنطبق على حسابك. تعرض صفحة السحب دائمًا المتطلبات الحالية.',
         'support.faq.security.q': 'الحفاظ على أمان حسابك',
         'support.faq.security.a': 'يتواصل دعم Arbitrix من القنوات الرسمية فقط. تحقق من الجهة قبل مشاركة أي شيء، ولا تشارك أبدًا العناصر المذكورة في تحذير الأمان أعلاه.',
-        'support.needHelpDeposit': 'هل تحتاج مساعدة في الإيداع؟',
         'support.needHelpWithdraw': 'هل تحتاج مساعدة في السحب؟',
         'support.contactOfficial': 'تواصل مع دعم Arbitrix الرسمي',
         'support.contactShort': 'تواصل مع الدعم',
@@ -17509,6 +17520,8 @@ const TRANSLATIONS = {
         'deposit.choose.crypto.title': '我已有加密货币',
         'deposit.choose.crypto.desc': '直接向你的 Arbitrix 地址充值 TRON (TRC20) 上的 USDT。',
         'deposit.partner.title': '已认证合作伙伴',
+        'deposit.crypto.partnerHelp': '\u5165\u91d1\u9700\u8981\u5e2e\u52a9\uff1f\u8bf7\u901a\u8fc7 Telegram \u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
+        'deposit.crypto.partnerNote': '\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u4e0d\u4f1a\u4e3a\u60a8\u7684\u8d26\u6237\u5165\u8d26\u3002Arbitrix \u4ec5\u5728\u9a8c\u8bc1\u8f6c\u8d26\u540e\u624d\u4e3a\u60a8\u7684\u5165\u91d1\u5165\u8d26\u3002',
         'deposit.partner.intro': '\u5728 Telegram \u4e0a\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u3002\u5408\u4f5c\u4f19\u4f34\u53ef\u5e2e\u52a9\u60a8\u83b7\u53d6\u52a0\u5bc6\u8d27\u5e01\u3002',
         'deposit.partner.contactPaymentPartner': '\u8054\u7cfb\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34',
         'deposit.partner.servicesIntro': '\u5408\u4f5c\u4f19\u4f34\u53ef\u63d0\u4f9b USDT \u76f4\u63a5\u51fa\u552e\u3001\u534f\u52a9\u6307\u5bfc\u8d2d\u4e70\uff0c\u6216\u4e24\u8005\u517c\u6709\u3002',
@@ -17816,7 +17829,6 @@ const TRANSLATIONS = {
         'support.faq.withdrawal.a': '出金需要已确认的入金、至少完成一笔交易，以及适用于您账户的任何安全检查。出金页面始终显示当前要求。',
         'support.faq.security.q': '保护您的账户安全',
         'support.faq.security.a': 'Arbitrix 支持只会通过官方渠道联系您。在分享任何信息前请核实对方身份，切勿分享上方安全警告中列出的内容。',
-        'support.needHelpDeposit': '入金需要帮助？',
         'support.needHelpWithdraw': '出金需要帮助？',
         'support.contactOfficial': '联系官方 Arbitrix 支持',
         'support.contactShort': '联系支持',
@@ -19607,6 +19619,9 @@ function updatePaymentPartnerLinks() {
     }
     const fallback = document.getElementById('paymentSupportFallbackBtn');
     if (fallback) fallback.style.display = url ? 'none' : 'inline-flex';
+    // The direct-crypto help block makes no sense without a destination.
+    const cryptoHelp = document.getElementById('depositCryptoPartnerHelp');
+    if (cryptoHelp) cryptoHelp.style.display = url ? 'block' : 'none';
 }
 
 function openPartnerSupport() {
