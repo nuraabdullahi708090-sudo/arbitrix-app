@@ -41,7 +41,10 @@ const CONFIG = Object.assign(
   { facts: FACTS, groupChatId: '-1001234567890', enabled: true, dryRun: false }
 );
 
-const CTX = Object.assign({}, CONFIG, FACTS);
+// The confirmed official channel is what the welcome now advertises.
+const CTX = Object.assign({}, CONFIG, FACTS, {
+  announcementUrl: 'https://t.me/ArbitrixAnnouncements'
+});
 
 // ---------------------------------------------------------------------------
 // 1. Approved English copy
@@ -71,7 +74,18 @@ test('the English welcome carries the approved copy', () => {
     'Earn a one-time reward equal to 20% of a referred user',
     'first qualifying deposit of $100 or more',
     '\u{1F4AC} NEED HELP?',
-    'Choose the appropriate support option below whenever you need assistance.',
+    'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
+    // Contacts block: the channel members are pointed to, official support, and
+    // the payment partners with their scope (Alex also owns referral).
+    '\u{1F4E3} OFFICIAL ANNOUNCEMENTS',
+    'Follow official Arbitrix announcements and platform updates in our channel:',
+    'https://t.me/ArbitrixAnnouncements',
+    '\u{1F4AC} OFFICIAL CUSTOMER SUPPORT',
+    'https://t.me/ArbitrixSupportBot',
+    '\u{1F4B3} PAYMENT SUPPORT PARTNERS',
+    '\u2022 Alex: https://t.me/AlexArbitrix (payments \u2022 referral and partner recruitment)',
+    '\u2022 Olivia: https://t.me/OliviaArbitrix (payments)',
+    'Alex is the only contact for referral and partner recruitment. Alex and Olivia both help with payments.',
     '\u{1F447} Choose an option below to get started!'
   ];
   for (const line of required) {

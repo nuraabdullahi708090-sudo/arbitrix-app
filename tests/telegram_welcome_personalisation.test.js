@@ -97,7 +97,9 @@ test('the joining member\'s own Telegram first name appears in the welcome', asy
 test('the bot name and the administrator name are never used for the greeting', async () => {
   const { sent } = await runJoin({ members: [human({ id: 777, first_name: 'Ana' })] });
   const text = sent[0].text;
-  assert.ok(!text.includes(BOT_NAME), 'the bot name must not appear in the greeting');
+  const greetingLine = text.split('\n')[0];
+  assert.ok(!greetingLine.includes(BOT_NAME), 'the bot name must not be used as the greeting name');
+  assert.ok(greetingLine !== '\u{1F44B} Welcome to the Arbitrix Partners Community, ' + BOT_NAME + '!');
   assert.ok(!text.startsWith('\u{1F44B} Welcome to the Arbitrix Partners Community, ' + ADMIN_FIRST_NAME),
     'the admin who triggered the service message must not be greeted');
   assert.ok(text.startsWith('\u{1F44B} Welcome to the Arbitrix Partners Community, Ana!'));

@@ -51,6 +51,18 @@ const LABELS = {
     supportLine: '💬 Customer support:',
     partnerSupportLine: '💳 Partner support:',
     paymentSupportLine: '💳 Payment help:',
+    // Welcome contacts block. The channel is where members follow official
+    // announcements; the payment partners are named with their scope, and the
+    // referral / partner-recruitment role belongs to Alex alone.
+    welcomeAnnounceTitle: '📣 OFFICIAL ANNOUNCEMENTS',
+    welcomeAnnounceBody: 'Follow official Arbitrix announcements and platform updates in our channel:',
+    welcomeSupportTitle: '💬 OFFICIAL CUSTOMER SUPPORT',
+    welcomePaymentTitle: '💳 PAYMENT SUPPORT PARTNERS',
+    welcomeAlexRole: 'payments • referral and partner recruitment',
+    welcomeOliviaRole: 'payments',
+    welcomeContactNote: 'Alex is the only contact for referral and partner recruitment. Alex and Olivia both help with payments.',
+    welcomeContactNoteAlex: 'Alex handles payment support, referral and partner recruitment.',
+    welcomeContactNoteOlivia: 'Olivia helps with payments. Referral and partner recruitment is handled by official support.',
     testGroupTitle: '\u{1F9EA} DELIVERY TEST \u2014 PARTNER GROUP',
     testGroupBody: 'This is a delivery test for the Arbitrix partner group. No action is needed.',
     testChannelTitle: '\u{1F9EA} DELIVERY TEST \u2014 OFFICIAL CHANNEL',
@@ -91,6 +103,15 @@ const LABELS = {
     supportLine: '💬 Suporte ao cliente:',
     partnerSupportLine: '💳 Suporte a parceiros:',
     paymentSupportLine: '💳 Ajuda com pagamentos:',
+    welcomeAnnounceTitle: '📣 ANÚNCIOS OFICIAIS',
+    welcomeAnnounceBody: 'Acompanhe os anúncios oficiais e as novidades da plataforma Arbitrix no nosso canal:',
+    welcomeSupportTitle: '💬 SUPORTE OFICIAL AO CLIENTE',
+    welcomePaymentTitle: '💳 PARCEIROS DE SUPORTE A PAGAMENTOS',
+    welcomeAlexRole: 'pagamentos • indicações e recrutamento de parceiros',
+    welcomeOliviaRole: 'pagamentos',
+    welcomeContactNote: 'Alex é o único contacto para indicações e recrutamento de parceiros. Tanto Alex como Olivia ajudam com pagamentos.',
+    welcomeContactNoteAlex: 'Alex trata do suporte a pagamentos, das indicações e do recrutamento de parceiros.',
+    welcomeContactNoteOlivia: 'Olivia ajuda com pagamentos. As indicações e o recrutamento de parceiros são tratados pelo suporte oficial.',
     testGroupTitle: '\u{1F9EA} TESTE DE ENTREGA \u2014 GRUPO DE PARCEIROS',
     testGroupBody: 'Este \u00e9 um teste de entrega para o grupo de parceiros da Arbitrix. Nenhuma a\u00e7\u00e3o \u00e9 necess\u00e1ria.',
     testChannelTitle: '\u{1F9EA} TESTE DE ENTREGA \u2014 CANAL OFICIAL',
@@ -129,6 +150,15 @@ const LABELS = {
     supportLine: '💬 دعم العملاء:',
     partnerSupportLine: '💳 دعم الشركاء:',
     paymentSupportLine: '💳 المساعدة في المدفوعات:',
+    welcomeAnnounceTitle: '📣 الإعلانات الرسمية',
+    welcomeAnnounceBody: 'تابع إعلانات Arbitrix الرسمية وتحديثات المنصة في قناتنا:',
+    welcomeSupportTitle: '💬 دعم العملاء الرسمي',
+    welcomePaymentTitle: '💳 شركاء دعم المدفوعات',
+    welcomeAlexRole: 'المدفوعات • الإحالات واستقطاب الشركاء',
+    welcomeOliviaRole: 'المدفوعات',
+    welcomeContactNote: 'Alex هو جهة الاتصال الوحيدة للإحالات واستقطاب الشركاء. يتولى Alex وOlivia معًا المساعدة في المدفوعات.',
+    welcomeContactNoteAlex: 'يتولى Alex دعم المدفوعات والإحالات واستقطاب الشركاء.',
+    welcomeContactNoteOlivia: 'تساعد Olivia في المدفوعات، بينما يتولى الدعم الرسمي الإحالات واستقطاب الشركاء.',
     testGroupTitle: '\u{1F9EA} \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u2014 \u0645\u062c\u0645\u0648\u0639\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u0621',
     testGroupBody: '\u0647\u0630\u0627 \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u0644\u0645\u062c\u0645\u0648\u0639\u0629 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0641\u064a Arbitrix. \u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u0623\u064a \u0625\u062c\u0631\u0627\u0621.',
     testChannelTitle: '\u{1F9EA} \u0627\u062e\u062a\u0628\u0627\u0631 \u062a\u0633\u0644\u064a\u0645 \u2014 \u0627\u0644\u0642\u0646\u0627\u0629 \u0627\u0644\u0631\u0633\u0645\u064a\u0629',
@@ -189,7 +219,7 @@ const EN = {
     '',
     'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
     '',
-    'Choose the appropriate support option below whenever you need assistance.',
+    '{{welcomeContacts}}',
     '',
     '👇 Choose an option below to get started!',
   ].join('\n'),
@@ -226,6 +256,8 @@ const EN = {
     '',
     '🤝 PROMOTE RESPONSIBLY',
     'Describe what the platform does. Never promise profits, and never describe trading as risk-free.',
+    '',
+    '{{announceSection}}',
     '',
     '💬 NEED HELP?',
     'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
@@ -398,7 +430,7 @@ const PT = {
     '',
     'Nossa equipe de suporte está disponível para ajudar você a começar, usar a plataforma e entender o Programa de Parceiros.',
     '',
-    'Escolha a opção de suporte adequada abaixo sempre que precisar.',
+    '{{welcomeContacts}}',
     '',
     '👇 Escolha uma opção abaixo para começar!',
   ].join('\n'),
@@ -435,6 +467,8 @@ const PT = {
     '',
     '🤝 DIVULGUE COM RESPONSABILIDADE',
     'Descreva o que a plataforma faz. Nunca prometa lucros e nunca diga que negociar não tem risco.',
+    '',
+    '{{announceSection}}',
     '',
     '💬 PRECISA DE AJUDA?',
     'Nossa equipe de suporte está disponível para ajudar você a começar, usar a plataforma e entender o Programa de Parceiros.',
@@ -607,7 +641,7 @@ const AR = {
     '',
     'فريق الدعم لدينا جاهز لمساعدتك على البدء واستخدام المنصة وفهم برنامج الشركاء.',
     '',
-    'اختر خيار الدعم المناسب أدناه متى احتجت إلى المساعدة.',
+    '{{welcomeContacts}}',
     '',
     '👇 اختر أحد الخيارات أدناه للبدء!',
   ].join('\n'),
@@ -644,6 +678,8 @@ const AR = {
     '',
     '🤝 رَوّج بمسؤولية',
     'اشرح ما تفعله المنصة. لا تعد بأرباح، ولا تصف التداول أبدًا بأنه بلا مخاطر.',
+    '',
+    '{{announceSection}}',
     '',
     '💬 تحتاج إلى مساعدة؟',
     'فريق الدعم لدينا جاهز لمساعدتك على البدء واستخدام المنصة وفهم برنامج الشركاء.',
@@ -820,6 +856,42 @@ function paymentSupportLines(labels, c) {
   return bullets.length ? labels.paymentSupportLine + '\n' + bullets.join('\n') : '';
 }
 
+/** The announcement-channel pointer: heading, one explanation line, the link. */
+function announceSection(labels, c) {
+  if (!c.announcementUrl) return '';
+  return [labels.welcomeAnnounceTitle, labels.welcomeAnnounceBody, c.announcementUrl].join('\n');
+}
+
+/**
+ * The welcome contacts block: the announcement channel, official customer
+ * support, and the payment partners with their scope.
+ *
+ * A section is emitted only when its URL is configured, so an unset value omits
+ * the whole section (heading included) instead of leaving a dangling label. The
+ * closing note states the role split: referral / partner recruitment is Alex
+ * alone, while payments are covered by both partners.
+ */
+function welcomeContactsBlock(labels, c) {
+  const sections = [];
+  const announce = announceSection(labels, c);
+  if (announce) sections.push(announce);
+  if (c.supportUrl) {
+    sections.push([labels.welcomeSupportTitle, c.supportUrl].join('\n'));
+  }
+  const alexUrl = c.partnerSupportAlexUrl || c.partnerSupportUrl;
+  const oliviaUrl = c.partnerSupportOliviaUrl;
+  if (alexUrl || oliviaUrl) {
+    const lines = [labels.welcomePaymentTitle];
+    if (alexUrl) lines.push('\u2022 Alex: ' + alexUrl + ' (' + labels.welcomeAlexRole + ')');
+    if (oliviaUrl) lines.push('\u2022 Olivia: ' + oliviaUrl + ' (' + labels.welcomeOliviaRole + ')');
+    lines.push(alexUrl && oliviaUrl
+      ? labels.welcomeContactNote
+      : (alexUrl ? labels.welcomeContactNoteAlex : labels.welcomeContactNoteOlivia));
+    sections.push(lines.join('\n'));
+  }
+  return sections.join('\n\n');
+}
+
 function buildLinksBlock(locale, ctx) {
   const labels = labelsFor(locale);
   const c = ctx || {};
@@ -846,7 +918,9 @@ function buildStepLines(locale, ctx) {
     createLine: c.registerUrl ? labels.openRegister + ' ' + c.registerUrl : '',
     supportLine: c.supportUrl ? labels.supportLine + ' ' + c.supportUrl : '',
     partnerSupportLine: partnerSupportLines(labels, c),
-    paymentSupportLine: paymentSupportLines(labels, c)
+    paymentSupportLine: paymentSupportLines(labels, c),
+    welcomeContacts: welcomeContactsBlock(labels, c),
+    announceSection: announceSection(labels, c)
   };
 }
 
