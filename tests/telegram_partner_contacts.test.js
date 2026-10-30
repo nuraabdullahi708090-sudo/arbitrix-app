@@ -18,6 +18,7 @@ const path = require('node:path');
 const {
     render, LABELS, LOCALES, KINDS, WEEKLY_THEMES, groupButtons
 } = require('../services/MarketingContent');
+const { checkContent } = require('../services/ContentGuard');
 const { buildStartHereRow } = require('../services/MarketingOnboarding');
 const { resolveMarketingConfig, OFFICIAL_LINKS } = require('../services/TelegramBroadcast');
 
@@ -30,7 +31,8 @@ const FACTS = { minDeposit: 100, referralPercent: 20 };
 const CONFIG = Object.assign(resolveMarketingConfig({ BASE_URL: 'https://arbitrix.pro' }), {
     facts: FACTS, groupChatId: '-1001234567890', enabled: true, dryRun: false
 });
-const CTX = Object.assign({}, CONFIG, FACTS);
+const CHANNEL = 'https://t.me/ArbitrixAnnouncements';
+const CTX = Object.assign({}, CONFIG, FACTS, { announcementUrl: CHANNEL });
 
 function allRenders() {
     const out = [];
@@ -105,20 +107,137 @@ test('the partner line lists Alex alone, official support separately', () => {
     assert.ok(out.text.indexOf(OFFICIAL) < out.text.indexOf(ALEX), 'official support is listed first, as its own line');
 });
 
-test('only payment-specific copy mentions Olivia, never a recruitment message', () => {
+test('Olivia appears only in payment-support copy, never as a recruitment contact', () => {
     for (const locale of LOCALES) {
-        for (const kind of ['welcome', 'startHere', 'weekly']) {
+        // Recruitment flows list Alex alone.
+        for (const kind of ['startHere', 'weekly']) {
             const out = render(kind, locale, Object.assign({}, CTX, { theme: 'mon' }));
             const blob = out.text + ' ' + JSON.stringify(out.buttons);
             assert.ok(!blob.includes(OLIVIA), `${locale}/${kind} is a recruitment message and must list Alex only`);
         }
-        // ...while the payment block in the channel intro keeps both.
+        // The group welcome names her, but only inside the payment-support block,
+        // and the role split is stated explicitly.
+        const welcome = render('welcome', locale, CTX);
+        assert.ok(welcome.text.includes(OLIVIA), locale + '/welcome lists the payment partner');
+        assert.ok(welcome.text.includes(LABELS[locale].welcomePaymentTitle));
+        assert.ok(welcome.text.includes(LABELS[locale].welcomeOliviaRole), locale + ' Olivia is labelled payment support');
+        assert.ok(welcome.text.includes(LABELS[locale].welcomeContactNote), locale + ' the role split is stated');
+        assert.strictEqual(welcome.text.split(OLIVIA).length - 1, 1, locale + ' Olivia appears exactly once');
+        // ...and the payment block in the channel intro keeps both.
         const channel = render('channelIntro', locale, CTX);
         assert.ok(channel.text.includes(ALEX) && channel.text.includes(OLIVIA),
             locale + '/channelIntro payment help lists both payment partners');
         assert.ok(!JSON.stringify(channel.buttons).includes(OLIVIA),
             locale + '/channelIntro does not turn a payment partner into a recruitment button');
     }
+});
+
+test('the welcome points members to the official announcement channel', () => {
+    for (const locale of LOCALES) {
+        const out = render('welcome', locale, CTX);
+        assert.ok(out.text.includes(CHANNEL), locale + ' welcome links the channel');
+        assert.ok(out.text.includes(LABELS[locale].welcomeAnnounceTitle), locale + ' channel heading');
+        assert.ok(out.text.includes(LABELS[locale].welcomeAnnounceBody), locale + ' channel explanation');
+        // The explanation must say it is where announcements/updates are published.
+        assert.ok(LABELS[locale].welcomeAnnounceBody.length > 20, locale + ' explanation is a real sentence');
+    }
+    // Unconfigured: the whole section is omitted, heading included (no dangling label).
+    const bare = render('welcome', 'en', Object.assign({}, CTX, { announcementUrl: '' }));
+    assert.ok(!bare.text.includes('OFFICIAL ANNOUNCEMENTS'), 'no heading without a channel link');
+    assert.ok(!bare.text.includes(CHANNEL), 'no channel link when unset');
+    assert.ok(!/OFFICIAL ANNOUNCEMENTS\s*$/.test(bare.text.trimEnd()), 'no dangling heading');
+});
+
+test('the pinned Start Here guide points at the channel without repeating the partners', () => {
+    for (const locale of LOCALES) {
+        const out = render('startHere', locale, CTX);
+        assert.ok(out.text.includes(CHANNEL), locale + ' Start Here links the channel');
+        assert.ok(out.text.includes(LABELS[locale].welcomeAnnounceTitle), locale + ' channel heading');
+        assert.ok(!out.text.includes(OLIVIA), locale + ' Start Here stays recruitment-only (Alex)');
+        assert.ok(out.text.includes(ALEX), locale + ' Alex stays the recruitment contact');
+        assert.ok(!/\n{3,}/.test(out.text), locale + ' no triple blank lines');
+    }
+    const bare = render('startHere', 'en', Object.assign({}, CTX, { announcementUrl: '' }));
+    assert.ok(!bare.text.includes('OFFICIAL ANNOUNCEMENTS'), 'no dangling channel heading when unset');
+});
+
+test('the welcome names both payment partners and keeps referral with Alex alone', () => {
+    for (const locale of LOCALES) {
+        const text = render('welcome', locale, CTX).text;
+        const alexLine = text.split('\n').find((l) => l.includes(ALEX) && l.includes('Alex'));
+        const oliviaLine = text.split('\n').find((l) => l.includes(OLIVIA) && l.includes('Olivia'));
+        assert.ok(alexLine, locale + ' welcome has an Alex bullet');
+        assert.ok(oliviaLine, locale + ' welcome has an Olivia bullet');
+        // Alex carries BOTH roles; Olivia is labelled payments only.
+        assert.ok(alexLine.includes(LABELS[locale].welcomeAlexRole), locale + ' Alex carries referral + payments');
+        assert.ok(oliviaLine.includes(LABELS[locale].welcomeOliviaRole), locale + ' Olivia is payment support');
+        assert.ok(!oliviaLine.includes(LABELS[locale].welcomeAlexRole), locale + ' Olivia is not given the referral role');
+        // Exactly one role-split note, naming Alex as the only referral contact.
+        assert.strictEqual(text.split(LABELS[locale].welcomeContactNote).length - 1, 1, locale + ' one role note');
+    }
+});
+
+test('the welcome keeps official support separate from the payment partners', () => {
+    for (const locale of LOCALES) {
+        const out = render('welcome', locale, CTX);
+        const text = out.text;
+        const supportAt = text.indexOf(OFFICIAL);
+        const paymentAt = text.indexOf(LABELS[locale].welcomePaymentTitle);
+        assert.ok(supportAt > -1, locale + ' official support link present');
+        assert.ok(paymentAt > -1, locale + ' payment heading present');
+        assert.ok(supportAt < paymentAt, locale + ' official support is listed before the partners');
+        assert.ok(text.includes(LABELS[locale].welcomeSupportTitle), locale + ' support has its own heading');
+        // Official support is never described as a partner.
+        const supportLine = text.slice(supportAt).split('\n')[0];
+        assert.ok(!/partner/i.test(supportLine), locale + ' official support line must not say partner');
+        assert.ok(out.buttons.some((b) => b.url === OFFICIAL), locale + ' support button kept');
+    }
+});
+
+test('the welcome keeps the existing links and the 2x2 keyboard', () => {
+    for (const locale of LOCALES) {
+        const out = render('welcome', locale, CTX);
+        for (const url of [CONFIG.registerUrl, CONFIG.howItWorksUrl, ALEX, OFFICIAL]) {
+            const inText = out.text.includes(url);
+            const inButtons = out.buttons.some((b) => b.url === url);
+            assert.ok(inText || inButtons, locale + ' keeps ' + url);
+        }
+        assert.deepStrictEqual(out.replyMarkup.inline_keyboard.map((r) => r.length), [2, 2],
+            locale + ' keyboard layout unchanged');
+        assert.ok(!JSON.stringify(out.buttons).includes(CHANNEL), 'the channel is linked in the copy, not as a button');
+    }
+});
+
+test('the welcome contacts block is fully localized and passes the content guard', () => {
+    for (const locale of LOCALES) {
+        const labels = LABELS[locale];
+        for (const key of ['welcomeAnnounceTitle', 'welcomeAnnounceBody', 'welcomeSupportTitle',
+            'welcomePaymentTitle', 'welcomeAlexRole', 'welcomeOliviaRole', 'welcomeContactNote']) {
+            assert.ok(String(labels[key] || '').trim(), locale + ' missing ' + key);
+            if (locale !== 'en') {
+                assert.notStrictEqual(labels[key], LABELS.en[key], locale + ' ' + key + ' is still English');
+            }
+        }
+        const out = render('welcome', locale, CTX);
+        const guard = checkContent(out.text, Object.assign({ locale }, FACTS));
+        assert.strictEqual(guard.blocked, false, locale + ' welcome blocked by the guard');
+        assert.strictEqual(guard.requiresApproval, false, locale + ' welcome needs approval');
+    }
+});
+
+test('the welcome omits the payment section and adapts the note when a partner is unconfigured', () => {
+    const alexOnly = Object.assign({}, CTX, { partnerSupportOliviaUrl: '' });
+    const text = render('welcome', 'en', alexOnly).text;
+    assert.ok(text.includes(ALEX) && !text.includes(OLIVIA), 'only the configured partner is listed');
+    assert.ok(text.includes(LABELS.en.welcomeContactNoteAlex), 'the note names Alex for both roles');
+    assert.ok(!text.includes(LABELS.en.welcomeContactNote), 'the two-partner note is not used');
+
+    const none = Object.assign({}, CTX, {
+        partnerSupportAlexUrl: '', partnerSupportUrl: '', partnerSupportOliviaUrl: ''
+    });
+    const bare = render('welcome', 'en', none).text;
+    assert.ok(!bare.includes(LABELS.en.welcomePaymentTitle), 'no payment heading without partners');
+    assert.ok(bare.includes(CHANNEL) && bare.includes(OFFICIAL), 'the channel and support blocks survive');
 });
 
 test('an unconfigured partner is omitted instead of inventing a contact', () => {
