@@ -151,10 +151,12 @@ test('start-here: queues through the real builder with the requested schedule', 
   assert.strictEqual(row.scheduled_for, '2026-10-31T10:00:00.000Z');
   assert.match(row.idempotency_key, /^starthere:group:en:\d{4}-\d{2}-\d{2}$/);
   assert.strictEqual(row.chat_id, null, 'destination must be resolved at send time');
-  assert.ok(row.content.includes('https://t.me/ArbitrixAnnouncements'));
+  // The pinned Start Here guide points at the community group, never at the channel.
+  assert.ok(row.content.includes('https://t.me/+CF9kWr61sqs1MTY0'));
+  assert.ok(!row.content.includes('https://t.me/ArbitrixAnnouncements'));
   assert.ok(row.content.includes('https://t.me/ArbitrixSupportBot'));
   assert.ok(row.content.includes('https://t.me/AlexArbitrix'));
-  assert.match(out, /channel link  : present/);
+  assert.match(out, /community link: present/);
 });
 
 test('start-here --dry builds but writes nothing', async () => {

@@ -112,7 +112,11 @@ test('the minimum deposit and referral percentage come from the call site', () =
 
 test('links and buttons are omitted, never invented, when configuration is missing', () => {
   const bare = render('welcome', 'en', { minDeposit: 100, referralPercent: 20 });
-  assert.ok(!/https?:\/\//.test(bare.text), 'no URL may appear without configuration');
+  // The community group invite is a FIXED official link (the group is the single
+  // community destination), not a value invented from an unset configuration, so
+  // it is the only URL allowed to survive an empty config.
+  const bareUrls = (bare.text.match(/https?:\/\/\S+/g) || []).map((u) => u.replace(/[.,]$/, ''));
+  assert.deepStrictEqual(bareUrls, ['https://t.me/+CF9kWr61sqs1MTY0'], 'only the fixed group invite may appear without configuration');
   assert.strictEqual(bare.buttons.length, 0);
   assert.strictEqual(bare.replyMarkup, null);
 

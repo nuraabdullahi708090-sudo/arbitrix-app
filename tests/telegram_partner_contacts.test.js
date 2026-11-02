@@ -32,6 +32,7 @@ const CONFIG = Object.assign(resolveMarketingConfig({ BASE_URL: 'https://arbitri
     facts: FACTS, groupChatId: '-1001234567890', enabled: true, dryRun: false
 });
 const CHANNEL = 'https://t.me/ArbitrixAnnouncements';
+const GROUP_INVITE = 'https://t.me/+CF9kWr61sqs1MTY0';
 const CTX = Object.assign({}, CONFIG, FACTS, { announcementUrl: CHANNEL });
 
 function allRenders() {
@@ -132,33 +133,44 @@ test('Olivia appears only in payment-support copy, never as a recruitment contac
     }
 });
 
-test('the welcome points members to the official announcement channel', () => {
+test('the welcome points members at the community group, never at the channel', () => {
     for (const locale of LOCALES) {
         const out = render('welcome', locale, CTX);
-        assert.ok(out.text.includes(CHANNEL), locale + ' welcome links the channel');
-        assert.ok(out.text.includes(LABELS[locale].welcomeAnnounceTitle), locale + ' channel heading');
-        assert.ok(out.text.includes(LABELS[locale].welcomeAnnounceBody), locale + ' channel explanation');
-        // The explanation must say it is where announcements/updates are published.
-        assert.ok(LABELS[locale].welcomeAnnounceBody.length > 20, locale + ' explanation is a real sentence');
+        // The group is the single community destination.
+        assert.ok(out.text.includes(GROUP_INVITE), locale + ' welcome shares the group invite');
+        assert.ok(out.text.includes(LABELS[locale].welcomeGroupTitle), locale + ' group heading');
+        assert.ok(out.text.includes(LABELS[locale].welcomeGroupBody), locale + ' group explanation');
+        // The configured channel is ignored: no link, no heading, no invitation.
+        assert.ok(!out.text.includes(CHANNEL), locale + ' welcome never links the channel');
+        assert.ok(!/OFFICIAL ANNOUNCEMENTS/i.test(out.text), locale + ' no channel heading');
+        assert.ok(!/(subscribe|follow).{0,30}channel/i.test(out.text), locale + ' no channel invitation');
     }
-    // Unconfigured: the whole section is omitted, heading included (no dangling label).
-    const bare = render('welcome', 'en', Object.assign({}, CTX, { announcementUrl: '' }));
-    assert.ok(!bare.text.includes('OFFICIAL ANNOUNCEMENTS'), 'no heading without a channel link');
-    assert.ok(!bare.text.includes(CHANNEL), 'no channel link when unset');
-    assert.ok(!/OFFICIAL ANNOUNCEMENTS\s*$/.test(bare.text.trimEnd()), 'no dangling heading');
+    // The channel section is not configuration-dependent any more: with or without
+    // announcementUrl the welcome is byte-identical.
+    const withChannel = render('welcome', 'en', CTX).text;
+    const withoutChannel = render('welcome', 'en', Object.assign({}, CTX, { announcementUrl: '' })).text;
+    assert.strictEqual(withoutChannel, withChannel, 'the welcome no longer depends on the channel URL');
+    assert.ok(!/OFFICIAL ANNOUNCEMENTS/.test(withChannel), 'no dangling channel heading');
 });
 
-test('the pinned Start Here guide points at the channel without repeating the partners', () => {
+test('the pinned Start Here guide points at the community group without repeating the partners', () => {
     for (const locale of LOCALES) {
         const out = render('startHere', locale, CTX);
-        assert.ok(out.text.includes(CHANNEL), locale + ' Start Here links the channel');
-        assert.ok(out.text.includes(LABELS[locale].welcomeAnnounceTitle), locale + ' channel heading');
+        // The group is the single community destination in BOTH community messages.
+        assert.ok(out.text.includes(GROUP_INVITE), locale + ' Start Here shares the group invite');
+        assert.ok(out.text.includes(LABELS[locale].welcomeGroupTitle), locale + ' group heading');
+        assert.ok(out.text.includes(LABELS[locale].welcomeGroupBody), locale + ' group explanation');
+        // The configured channel is ignored here too: no link, no heading.
+        assert.ok(!out.text.includes(CHANNEL), locale + ' Start Here never links the channel');
+        assert.ok(!/OFFICIAL ANNOUNCEMENTS/i.test(out.text), locale + ' no channel heading');
         assert.ok(!out.text.includes(OLIVIA), locale + ' Start Here stays recruitment-only (Alex)');
         assert.ok(out.text.includes(ALEX), locale + ' Alex stays the recruitment contact');
         assert.ok(!/\n{3,}/.test(out.text), locale + ' no triple blank lines');
     }
+    // Not configuration-dependent: the message is identical with or without the URL.
     const bare = render('startHere', 'en', Object.assign({}, CTX, { announcementUrl: '' }));
-    assert.ok(!bare.text.includes('OFFICIAL ANNOUNCEMENTS'), 'no dangling channel heading when unset');
+    assert.strictEqual(bare.text, render('startHere', 'en', CTX).text, 'Start Here no longer depends on the channel URL');
+    assert.ok(!/OFFICIAL ANNOUNCEMENTS/.test(bare.text), 'no dangling channel heading');
 });
 
 test('the welcome names both payment partners and keeps referral with Alex alone', () => {
@@ -204,14 +216,14 @@ test('the welcome keeps the existing links and the 2x2 keyboard', () => {
         }
         assert.deepStrictEqual(out.replyMarkup.inline_keyboard.map((r) => r.length), [2, 2],
             locale + ' keyboard layout unchanged');
-        assert.ok(!JSON.stringify(out.buttons).includes(CHANNEL), 'the channel is linked in the copy, not as a button');
+        assert.ok(!JSON.stringify(out.buttons).includes(CHANNEL), 'the channel is never a button (nor in the copy)');
     }
 });
 
 test('the welcome contacts block is fully localized and passes the content guard', () => {
     for (const locale of LOCALES) {
         const labels = LABELS[locale];
-        for (const key of ['welcomeAnnounceTitle', 'welcomeAnnounceBody', 'welcomeSupportTitle',
+        for (const key of ['welcomeGroupTitle', 'welcomeGroupBody', 'welcomeSupportTitle',
             'welcomePaymentTitle', 'welcomeAlexRole', 'welcomeOliviaRole', 'welcomeContactNote']) {
             assert.ok(String(labels[key] || '').trim(), locale + ' missing ' + key);
             if (locale !== 'en') {
@@ -237,7 +249,8 @@ test('the welcome omits the payment section and adapts the note when a partner i
     });
     const bare = render('welcome', 'en', none).text;
     assert.ok(!bare.includes(LABELS.en.welcomePaymentTitle), 'no payment heading without partners');
-    assert.ok(bare.includes(CHANNEL) && bare.includes(OFFICIAL), 'the channel and support blocks survive');
+    assert.ok(bare.includes(GROUP_INVITE) && bare.includes(OFFICIAL), 'the group and support blocks survive');
+    assert.ok(!bare.includes(CHANNEL), 'the channel is never referenced, even without partners');
 });
 
 test('an unconfigured partner is omitted instead of inventing a contact', () => {

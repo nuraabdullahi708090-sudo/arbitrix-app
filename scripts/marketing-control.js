@@ -382,7 +382,7 @@ async function cmdStartHere(store, config, args) {
   console.log('  audience      : ' + built.row.audience);
   console.log('  scheduled_for : ' + built.row.scheduled_for);
   console.log('  key           : ' + built.row.idempotency_key);
-  console.log('  channel link  : ' + (built.row.content.includes('https://t.me/ArbitrixAnnouncements') ? 'present' : 'MISSING'));
+  console.log('  community link: ' + (built.row.content.includes('https://t.me/+CF9kWr61sqs1MTY0') ? 'present' : 'MISSING'));
 
   if (args.dry) {
     console.log('');

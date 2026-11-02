@@ -30,6 +30,16 @@ const ARROW = '\u2192';
 const GREETING_NAME_MAX = 64;
 const WEEKLY_THEMES = Object.freeze(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
+/**
+ * The official community group.
+ *
+ * The announcement channel is no longer promoted in the group welcome message:
+ * the group is the single community destination, so the welcome invites people
+ * to this group instead of pointing them at a channel. The channel keeps its own
+ * separate configuration for the marketing publisher - nothing here disables it.
+ */
+const OFFICIAL_GROUP_INVITE_URL = 'https://t.me/+CF9kWr61sqs1MTY0';
+
 const LABELS = {
   en: {
     greeting: '👋 Welcome to the Arbitrix Partners Community, {{name}}!',
@@ -51,11 +61,11 @@ const LABELS = {
     supportLine: '💬 Customer support:',
     partnerSupportLine: '💳 Partner support:',
     paymentSupportLine: '💳 Payment help:',
-    // Welcome contacts block. The channel is where members follow official
-    // announcements; the payment partners are named with their scope, and the
-    // referral / partner-recruitment role belongs to Alex alone.
-    welcomeAnnounceTitle: '📣 OFFICIAL ANNOUNCEMENTS',
-    welcomeAnnounceBody: 'Follow official Arbitrix announcements and platform updates in our channel:',
+    // Welcome contacts block. The community group is the destination members are
+    // pointed at (never the announcement channel); the payment partners are named
+    // with their scope, and the referral / partner-recruitment role is Alex alone.
+    welcomeGroupTitle: '👥 OFFICIAL COMMUNITY',
+    welcomeGroupBody: 'Share this group with anyone interested in Arbitrix:',
     welcomeSupportTitle: '💬 OFFICIAL CUSTOMER SUPPORT',
     welcomePaymentTitle: '💳 PAYMENT SUPPORT PARTNERS',
     welcomeAlexRole: 'payments • referral and partner recruitment',
@@ -103,8 +113,8 @@ const LABELS = {
     supportLine: '💬 Suporte ao cliente:',
     partnerSupportLine: '💳 Suporte a parceiros:',
     paymentSupportLine: '💳 Ajuda com pagamentos:',
-    welcomeAnnounceTitle: '📣 ANÚNCIOS OFICIAIS',
-    welcomeAnnounceBody: 'Acompanhe os anúncios oficiais e as novidades da plataforma Arbitrix no nosso canal:',
+    welcomeGroupTitle: '👥 COMUNIDADE OFICIAL',
+    welcomeGroupBody: 'Compartilhe este grupo com quem se interessar pela Arbitrix:',
     welcomeSupportTitle: '💬 SUPORTE OFICIAL AO CLIENTE',
     welcomePaymentTitle: '💳 PARCEIROS DE SUPORTE A PAGAMENTOS',
     welcomeAlexRole: 'pagamentos • indicações e recrutamento de parceiros',
@@ -150,8 +160,8 @@ const LABELS = {
     supportLine: '💬 دعم العملاء:',
     partnerSupportLine: '💳 دعم الشركاء:',
     paymentSupportLine: '💳 المساعدة في المدفوعات:',
-    welcomeAnnounceTitle: '📣 الإعلانات الرسمية',
-    welcomeAnnounceBody: 'تابع إعلانات Arbitrix الرسمية وتحديثات المنصة في قناتنا:',
+    welcomeGroupTitle: '👥 المجتمع الرسمي',
+    welcomeGroupBody: 'شارك هذه المجموعة مع أي شخص مهتم بـ Arbitrix:',
     welcomeSupportTitle: '💬 دعم العملاء الرسمي',
     welcomePaymentTitle: '💳 شركاء دعم المدفوعات',
     welcomeAlexRole: 'المدفوعات • الإحالات واستقطاب الشركاء',
@@ -257,7 +267,7 @@ const EN = {
     '🤝 PROMOTE RESPONSIBLY',
     'Describe what the platform does. Never promise profits, and never describe trading as risk-free.',
     '',
-    '{{announceSection}}',
+    '{{communitySection}}',
     '',
     '💬 NEED HELP?',
     'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
@@ -468,7 +478,7 @@ const PT = {
     '🤝 DIVULGUE COM RESPONSABILIDADE',
     'Descreva o que a plataforma faz. Nunca prometa lucros e nunca diga que negociar não tem risco.',
     '',
-    '{{announceSection}}',
+    '{{communitySection}}',
     '',
     '💬 PRECISA DE AJUDA?',
     'Nossa equipe de suporte está disponível para ajudar você a começar, usar a plataforma e entender o Programa de Parceiros.',
@@ -679,7 +689,7 @@ const AR = {
     '🤝 رَوّج بمسؤولية',
     'اشرح ما تفعله المنصة. لا تعد بأرباح، ولا تصف التداول أبدًا بأنه بلا مخاطر.',
     '',
-    '{{announceSection}}',
+    '{{communitySection}}',
     '',
     '💬 تحتاج إلى مساعدة؟',
     'فريق الدعم لدينا جاهز لمساعدتك على البدء واستخدام المنصة وفهم برنامج الشركاء.',
@@ -856,15 +866,24 @@ function paymentSupportLines(labels, c) {
   return bullets.length ? labels.paymentSupportLine + '\n' + bullets.join('\n') : '';
 }
 
-/** The announcement-channel pointer: heading, one explanation line, the link. */
-function announceSection(labels, c) {
-  if (!c.announcementUrl) return '';
-  return [labels.welcomeAnnounceTitle, labels.welcomeAnnounceBody, c.announcementUrl].join('\n');
+/**
+ * The official community section: heading, one line, the group invite.
+ *
+ * The group is the single community destination and this is the ONLY place the
+ * invite is rendered, so the welcome and Start Here share one string and the
+ * link can never drift or be duplicated. The announcement channel is not part
+ * of it: nothing here reads `announcementUrl` any more.
+ */
+function communitySection(labels) {
+  return [labels.welcomeGroupTitle, labels.welcomeGroupBody, OFFICIAL_GROUP_INVITE_URL].join('\n');
 }
 
 /**
- * The welcome contacts block: the announcement channel, official customer
- * support, and the payment partners with their scope.
+ * The welcome contacts block: the community group, official customer support,
+ * and the payment partners with their scope.
+ *
+ * The announcement channel is deliberately ABSENT: the group is the only
+ * community destination, so the welcome never sends members to the channel.
  *
  * A section is emitted only when its URL is configured, so an unset value omits
  * the whole section (heading included) instead of leaving a dangling label. The
@@ -873,8 +892,9 @@ function announceSection(labels, c) {
  */
 function welcomeContactsBlock(labels, c) {
   const sections = [];
-  const announce = announceSection(labels, c);
-  if (announce) sections.push(announce);
+  // The group is the single community destination; the section is shared with
+  // Start Here so both messages render the identical block.
+  sections.push(communitySection(labels));
   if (c.supportUrl) {
     sections.push([labels.welcomeSupportTitle, c.supportUrl].join('\n'));
   }
@@ -920,7 +940,7 @@ function buildStepLines(locale, ctx) {
     partnerSupportLine: partnerSupportLines(labels, c),
     paymentSupportLine: paymentSupportLines(labels, c),
     welcomeContacts: welcomeContactsBlock(labels, c),
-    announceSection: announceSection(labels, c)
+    communitySection: communitySection(labels)
   };
 }
 
