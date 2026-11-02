@@ -108,6 +108,10 @@ function resolveMarketingConfig(env) {
   const baseUrl = firstString(e.BASE_URL).replace(/\/+$/, '');
   const rawGroupId = firstString(e.TELEGRAM_MARKETING_CHAT_ID);
   const rawChannelId = firstString(e.TELEGRAM_ANNOUNCEMENT_CHAT_ID);
+  // Group-only mode: the announcement channel is switched OFF by configuration.
+  // The channel code, its templates and every stored row stay untouched, so
+  // clearing this one variable reactivates the channel without a deploy.
+  const groupOnly = boolFromEnv(e.TELEGRAM_MARKETING_GROUP_ONLY, false);
   const groupChatId = canonicalizeTelegramChatId(rawGroupId) || '';
   const rawChannelChatId = canonicalizeTelegramChatId(rawChannelId) || '';
   const groupChatIdInvalid = groupChatId ? null : describeInvalidChatId(rawGroupId);
@@ -123,12 +127,13 @@ function resolveMarketingConfig(env) {
     enabled: boolFromEnv(e.TELEGRAM_MARKETING_ENABLED, false),
     dryRun: boolFromEnv(e.TELEGRAM_MARKETING_DRY_RUN, true),
     groupChatId,
-    channelChatId: channelConflictsWithGroup ? '' : rawChannelChatId,
+    groupOnly,
+    channelChatId: groupOnly || channelConflictsWithGroup ? '' : rawChannelChatId,
     channelConflictsWithGroup,
     // Set only when a value was supplied that is not a numeric chat id, so the
     // worker and the readiness check can say why the destination is empty.
     groupChatIdInvalid,
-    channelChatIdInvalid,
+    channelChatIdInvalid: groupOnly ? null : channelChatIdInvalid,
     locale: normalizeLocale(e.TELEGRAM_MARKETING_LOCALE || DEFAULT_LOCALE),
     timezone: firstString(e.TELEGRAM_MARKETING_TIMEZONE) || 'UTC',
     tickMs: intFromEnv(e.TELEGRAM_MARKETING_TICK_MS, 60000, 15000, 900000),
@@ -162,6 +167,7 @@ function describeMarketingConfig(config) {
   return {
     enabled: Boolean(c.enabled),
     dryRun: Boolean(c.dryRun),
+    groupOnly: Boolean(c.groupOnly),
     groupConfigured: Boolean(c.groupChatId),
     channelConfigured: Boolean(c.channelChatId),
     // Both variables holding the same id: the channel is disabled on purpose.
@@ -218,7 +224,11 @@ function describeQueueHealth(options) {
   const opts = options || {};
   const upcoming = opts.upcoming || {};
   const warnings = [];
-  if (!opts.channelConfigured) warnings.push('channel-not-configured');
+  // Group-only mode is a deliberate configuration, not a fault: no channel
+  // warning of any kind, and an empty channel queue is exactly what is wanted.
+  if (opts.groupOnly) {
+    // channel intentionally inactive
+  } else if (!opts.channelConfigured) warnings.push('channel-not-configured');
   else if (!(Number(upcoming.channel) > 0)) warnings.push('channel-configured-no-upcoming-posts');
   if (opts.groupConfigured && !(Number(upcoming.group) > 0)) {
     warnings.push('group-configured-no-upcoming-posts');

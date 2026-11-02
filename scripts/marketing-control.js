@@ -146,6 +146,7 @@ function printState(state, config) {
   console.log('  destinations               : group=' + Boolean(flags.groupConfigured) +
     ' channel=' + Boolean(flags.channelConfigured));
   console.log('  announcement link          : ' + Boolean(flags.announcementUrlConfigured));
+  console.log('  group-only mode            : ' + (flags.groupOnly ? 'ON (channel scheduling disabled)' : 'off'));
   console.log('');
   console.log('control row (telegram_marketing_control id=1)');
   console.log('  paused                     : ' + c.paused);
@@ -179,6 +180,7 @@ function printState(state, config) {
   const qh = describeQueueHealth({
     groupConfigured: Boolean(flags.groupConfigured),
     channelConfigured: Boolean(flags.channelConfigured),
+    groupOnly: Boolean(flags.groupOnly),
     upcoming: state.upcoming || {}
   });
   console.log('  queue health               : ' + (qh.warnings.length ? 'WARNING ' + qh.warnings.join(', ') : 'OK'));

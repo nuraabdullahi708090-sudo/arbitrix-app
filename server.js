@@ -5199,6 +5199,7 @@ app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (r
       queueHealth: describeQueueHealth({
         groupConfigured: Boolean(marketingConfig.groupChatId),
         channelConfigured: Boolean(marketingConfig.channelChatId),
+        groupOnly: Boolean(marketingConfig.groupOnly),
         upcoming: upcoming.ok ? upcoming.data : {}
       }),
       dueNow: due.ok ? due.count : null,
@@ -5561,7 +5562,9 @@ app.post('/api/admin/marketing/start-here', authMiddleware, adminMiddleware, asy
     if (!inserted.ok) return res.status(503).json({ success: false, error: inserted.reason });
 
     let intro = null;
-    if (body.includeChannelIntro) {
+    // Group-only mode: the channel is inactive, so an introduction for it must
+    // not be queued. The caller is told why instead of silently getting nothing.
+    if (body.includeChannelIntro && !marketingConfig.groupOnly) {
       const introBuilt = buildChannelIntroRow({
         config: marketingConfig,
         locale: body.locale || marketingConfig.locale,
@@ -5576,6 +5579,7 @@ app.post('/api/admin/marketing/start-here', authMiddleware, adminMiddleware, asy
       duplicate: Boolean(inserted.duplicate),
       post: inserted.data,
       channelIntro: intro && intro.ok ? intro.data : null,
+      channelIntroSkipped: body.includeChannelIntro && marketingConfig.groupOnly ? 'group-only-mode' : null,
       guard: built.guard,
       pinAvailable: Boolean(marketingConfig.groupChatId)
     });
