@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Arbitrix - Telegram production database readiness check
 -- ============================================================================
--- READ-ONLY verification for migrations 038-044.
+-- READ-ONLY verification for migrations 038-046.
 -- Answers: "is this database ready for the Telegram marketing stack, and what
 -- exactly is missing if not?"
 --
@@ -694,7 +694,23 @@ with probe as (
     -- 044: the worker liveness columns on the control row.
     (select count(*) from information_schema.columns
       where table_schema = 'public' and table_name = 'telegram_marketing_control'
-        and column_name in ('worker_heartbeat_at', 'worker_id', 'worker_version')) as n_hb_cols
+        and column_name in ('worker_heartbeat_at', 'worker_id', 'worker_version')) as n_hb_cols,
+    -- 046: the worker-reported destination columns.
+    (select count(*) from information_schema.columns
+      where table_schema = 'public' and table_name = 'telegram_marketing_control'
+        and column_name in ('worker_group_configured', 'worker_channel_configured', 'worker_config_warning')) as n_046_cols,
+    -- 046: the durable join-welcome ledger.
+    (to_regclass('public.telegram_welcome_deliveries') is not null) as t_welcome,
+    exists (
+      select 1 from pg_indexes
+      where schemaname = 'public' and tablename = 'telegram_welcome_deliveries'
+        and indexname = 'telegram_welcome_deliveries_key'
+    ) as i_welcome_key,
+    exists (
+      select 1 from pg_policies
+      where schemaname = 'public' and tablename = 'telegram_welcome_deliveries'
+        and policyname = 'welcome_deliveries_service_all'
+    ) as p_welcome
 )
 select 'verdict' as check_type, '038 marketing broadcast' as object_name,
        case when t_posts and t_control and t_sends and t_subs and f_claim then 'APPLIED'
@@ -747,6 +763,13 @@ select 'verdict', '044 marketing worker heartbeat',
        'worker_heartbeat_at/worker_id/worker_version on telegram_marketing_control'
 from probe
 union all
+select 'verdict', '046 telegram delivery durability',
+       case when n_046_cols = 3 and t_welcome and i_welcome_key and p_welcome then 'APPLIED'
+            when n_046_cols = 0 and not t_welcome then 'NOT APPLIED'
+            else 'PARTIAL' end,
+       'worker_group/channel_configured + worker_config_warning, telegram_welcome_deliveries + unique key + service_role policy'
+from probe
+union all
 select 'verdict', 'NEXT ACTION',
        case
          when not (t_posts or t_links or t_events)
@@ -769,8 +792,13 @@ select 'verdict', 'NEXT ACTION',
            then 'Re-apply 043 (the fenced finish signature is missing)'
          when m_marker and n_lease_cols = 3 and f_finish_lease and n_hb_cols <> 3
            then 'Apply 044 (the worker cannot report liveness)'
-         when t_posts and t_links and t_events and c_deposits_credited and f_backfill and m_marker and n_lease_cols = 3 and n_hb_cols = 3
-           then 'No migration work required for 038-044'
+         when n_hb_cols = 3 and n_046_cols <> 3
+           then 'Apply 046 (the worker cannot report its own destinations)'
+         when n_hb_cols = 3 and n_046_cols = 3 and not t_welcome
+           then 'Re-apply 046 (the welcome delivery ledger is missing)'
+         when t_posts and t_links and t_events and c_deposits_credited and f_backfill and m_marker
+              and n_lease_cols = 3 and n_hb_cols = 3 and n_046_cols = 3 and t_welcome and i_welcome_key
+           then 'No migration work required for 038-046'
          else 'Review the individual rows above'
        end,
        'derived from the object probes above'

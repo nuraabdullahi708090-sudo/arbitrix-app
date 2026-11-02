@@ -54,8 +54,10 @@ Apply in this order. All are additive and idempotent.
 | `supabase/migrations/038_marketing_broadcast.sql` | Queue, consent store, control row, send audit, claim RPCs |
 | `supabase/migrations/043_marketing_claim_lease.sql` | Claim lease + fencing + crash recovery |
 | `supabase/migrations/044_marketing_worker_heartbeat.sql` | Worker liveness columns (`worker_heartbeat_at`, `worker_id`, `worker_version`) |
+| `supabase/migrations/045_deposit_partners.sql` | Human deposit-partner directory (read by the deposit page) |
+| `supabase/migrations/046_telegram_delivery_durability.sql` | Worker-reported destination columns + the durable join-welcome ledger |
 
-`docs/sql/telegram_db_readiness.sql` is a read-only verifier for 038-044. Run it
+`docs/sql/telegram_db_readiness.sql` is a read-only verifier for 038-046. Run it
 first: its `verdict` rows say APPLIED / NOT APPLIED / PARTIAL per migration, and
 section 10b reports the worker heartbeat age (OK / STALE / NEVER / MISSING). If
 you prefer a direct check of 044:
@@ -69,6 +71,53 @@ where table_schema = 'public'
 ```
 
 Three rows means the heartbeat migration is applied.
+
+#### Applying 046 (safe, additive, reversible)
+
+046 only adds objects; it never alters an existing row's meaning and never
+touches `paused` / `dry_run`.
+
+1. Run `docs/sql/telegram_db_readiness.sql`. If the `046` verdict row is
+   `APPLIED`, skip the rest.
+2. Open `supabase/migrations/046_telegram_delivery_durability.sql` in the
+   Supabase SQL editor and run the **whole file** (it is wrapped in one
+   transaction and ends with a self-check that rolls the file back on any
+   mismatch).
+3. Re-run the readiness file: `046 telegram delivery durability` must read
+   `APPLIED`, and `NEXT ACTION` must not ask for 046.
+4. Restart the worker once so it starts writing `worker_group_configured` /
+   `worker_channel_configured`. Until it does, the status route reports
+   `worker.destinations: {group: null, channel: null}`.
+
+Direct checks if you prefer SQL:
+
+```sql
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'telegram_marketing_control'
+  and column_name in ('worker_group_configured','worker_channel_configured','worker_config_warning');
+-- three rows => worker columns applied
+
+select to_regclass('public.telegram_welcome_deliveries') as ledger;  -- non-null => applied
+```
+
+**Ordering note:** 046 may be applied before or after the code deploy. Without
+it the publisher behaves exactly as before (the heartbeat falls back to its
+pre-046 columns and the welcome falls back to in-memory de-duplication), so
+there is no outage window either way.
+
+**Rollback (safe at any time):**
+
+```sql
+drop table if exists public.telegram_welcome_deliveries;
+alter table public.telegram_marketing_control
+  drop column if exists worker_group_configured,
+  drop column if exists worker_channel_configured,
+  drop column if exists worker_config_warning;
+```
+
+Rolling back loses only the welcome ledger (a duplicate greeting becomes
+possible again) and the diagnostic columns. No queue row, post, schedule or
+publishing flag is affected.
 
 ### 3.2 Telegram
 
