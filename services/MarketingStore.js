@@ -259,6 +259,31 @@ function createMarketingStore(options) {
     },
 
     /**
+     * Scheduled posts still in the future, per audience.
+     *
+     * WHY: a configured destination with an empty queue is indistinguishable
+     * from a working one in every other number this API reports - the channel
+     * produced no posts for weeks precisely because nothing surfaced "0 channel
+     * posts scheduled". This is a read-only count; it changes no row.
+     */
+    async countUpcomingByAudience({ now } = {}) {
+      const at = now || new Date().toISOString();
+      const { data, error } = await admin
+        .from(POSTS)
+        .select('audience')
+        .eq('status', 'scheduled')
+        .gt('scheduled_for', at);
+      if (error) return fail('count-upcoming-failed', error);
+      const out = { group: 0, channel: 0 };
+      for (const row of data || []) {
+        const audience = row && row.audience;
+        if (audience === 'channel') out.channel += 1;
+        else if (audience === 'group') out.group += 1;
+      }
+      return { ok: true, data: out };
+    },
+
+    /**
      * Insert a post. `idempotency_key` is UNIQUE, so a repeated enqueue returns
      * the existing row instead of creating a duplicate.
      */

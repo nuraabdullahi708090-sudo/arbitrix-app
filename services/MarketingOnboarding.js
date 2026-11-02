@@ -174,6 +174,11 @@ function buildCalendarRows({ config, weeks, now, createdBy }) {
   const locale = normalizeLocale(config.locale);
 
   for (const slot of DEFAULT_SCHEDULE) {
+    // Group-only mode (TELEGRAM_MARKETING_GROUP_ONLY=true): the announcement
+    // channel is intentionally inactive, so a seeded calendar contains the group
+    // slots only. DEFAULT_SCHEDULE itself is untouched, so clearing the flag
+    // restores channel seeding exactly as before.
+    if (slot.audience === 'channel' && config && config.groupOnly) continue;
     for (let week = 0; week < span; week++) {
       const reference = new Date(after.getTime() + week * 7 * 24 * 60 * 60 * 1000);
       const when = nextSlot({

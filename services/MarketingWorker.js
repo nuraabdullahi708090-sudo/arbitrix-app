@@ -39,6 +39,11 @@ function scrub(message) {
  * heartbeat so the admin status route can explain a `channelConfigured: false`
  * without anyone reading the worker's environment.
  */
+// A parked channel row is rescheduled a year out: far beyond any retention
+// window, so the worker never retries it, and a reactivation only has to clear
+// TELEGRAM_MARKETING_GROUP_ONLY (the row is still 'scheduled').
+const GROUP_ONLY_PARK_MS = 365 * 24 * 60 * 60 * 1000;
+
 function destinationWarning(config) {
   const c = config || {};
   const parts = [];
@@ -386,6 +391,31 @@ function createMarketingWorker(options) {
     for (const post of posts) {
       if (post.audience === 'subscribers') {
         results.push({ id: post.id, result: await sendToSubscribers(post) });
+        continue;
+      }
+
+      // Group-only mode: the announcement channel is switched off. Park any row
+      // that still targets it instead of retrying a destination that cannot be
+      // reached: ONE attempt, then a far-future schedule. The row keeps its
+      // history and comes back the moment the flag is cleared.
+      if (config.groupOnly && post.audience === 'channel') {
+        await finishOwned(post, {
+          id: post.id,
+          ok: false,
+          error: 'group-only-mode: announcement channel inactive',
+          retryAt: new Date(clock() + GROUP_ONLY_PARK_MS).toISOString()
+        });
+        await store.recordSend({
+          postId: post.id,
+          audience: post.audience,
+          chatId: '',
+          status: 'skipped',
+          attempt: post.attempts,
+          error: 'group-only-mode'
+        });
+        stats.skipped += 1;
+        report('post_parked_group_only', { postId: post.id });
+        results.push({ id: post.id, result: 'parked-group-only' });
         continue;
       }
 

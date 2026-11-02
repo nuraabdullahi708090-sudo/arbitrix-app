@@ -51,6 +51,7 @@ const { createTelegramAccountLinks } = require('./services/TelegramAccountLinks'
 const {
   resolveMarketingConfig,
   describeMarketingConfig,
+  describeQueueHealth,
   validateDestination,
   chatIdForAudience,
   workerHealth
@@ -5176,6 +5177,13 @@ app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (r
     const counts = typeof marketingStore.countByStatus === 'function'
       ? await marketingStore.countByStatus()
       : { ok: false, reason: 'counts-unavailable' };
+    // A configured destination with an empty queue is the failure mode that kept
+    // the announcement channel silent while every other signal read "healthy".
+    // Count what is still in the future and let describeQueueHealth turn
+    // "0 channel posts scheduled" into an explicit, machine-readable warning.
+    const upcoming = typeof marketingStore.countUpcomingByAudience === 'function'
+      ? await marketingStore.countUpcomingByAudience()
+      : { ok: false, reason: 'upcoming-unavailable' };
     // Liveness comes from the heartbeat column (migration 044). It is reported
     // even when the worker is disabled, so an operator can tell "switched off"
     // from "switched on but not running".
@@ -5187,6 +5195,13 @@ app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (r
       control: control.ok ? { paused: control.data.paused, dryRun: control.data.dry_run } : null,
       controlError: control.ok ? null : control.reason,
       queue: counts.ok ? counts.data : null,
+      upcoming: upcoming.ok ? upcoming.data : null,
+      queueHealth: describeQueueHealth({
+        groupConfigured: Boolean(marketingConfig.groupChatId),
+        channelConfigured: Boolean(marketingConfig.channelChatId),
+        groupOnly: Boolean(marketingConfig.groupOnly),
+        upcoming: upcoming.ok ? upcoming.data : {}
+      }),
       dueNow: due.ok ? due.count : null,
       recentPosts: recent.ok ? recent.data : [],
       worker: {
@@ -5490,15 +5505,37 @@ app.post('/api/admin/marketing/calendar/seed', authMiddleware, adminMiddleware, 
     let inserted = 0;
     let duplicates = 0;
     let awaitingApproval = 0;
+    let channelSkipped = 0;
+    const created = { group: 0, channel: 0 };
     for (const built of rows) {
       if (built.row.status === 'blocked') continue;
+      const audience = built.row.audience === 'channel' ? 'channel' : 'group';
+      // Never queue a channel post while no channel is configured: such a row can
+      // only ever end as a retried 'skipped' entry in the delivery ledger. The
+      // skip is counted and returned so an operator sees it instead of guessing.
+      if (audience === 'channel' && !marketingConfig.channelChatId) {
+        channelSkipped += 1;
+        continue;
+      }
       if (built.row.status === 'awaiting_approval') awaitingApproval += 1;
       const result = await marketingStore.insertPost(built.row);
       if (!result.ok) return res.status(503).json({ success: false, error: result.reason, inserted });
       if (result.duplicate) duplicates += 1;
-      else inserted += 1;
+      else {
+        inserted += 1;
+        created[audience] += 1;
+      }
     }
-    res.json({ success: true, considered: rows.length, inserted, duplicates, awaitingApproval });
+    res.json({
+      success: true,
+      considered: rows.length,
+      inserted,
+      duplicates,
+      awaitingApproval,
+      created,
+      channelSkipped,
+      channelConfigured: Boolean(marketingConfig.channelChatId)
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error && error.message ? error.message : 'Failed to seed calendar' });
   }
@@ -5525,7 +5562,9 @@ app.post('/api/admin/marketing/start-here', authMiddleware, adminMiddleware, asy
     if (!inserted.ok) return res.status(503).json({ success: false, error: inserted.reason });
 
     let intro = null;
-    if (body.includeChannelIntro) {
+    // Group-only mode: the channel is inactive, so an introduction for it must
+    // not be queued. The caller is told why instead of silently getting nothing.
+    if (body.includeChannelIntro && !marketingConfig.groupOnly) {
       const introBuilt = buildChannelIntroRow({
         config: marketingConfig,
         locale: body.locale || marketingConfig.locale,
@@ -5540,6 +5579,7 @@ app.post('/api/admin/marketing/start-here', authMiddleware, adminMiddleware, asy
       duplicate: Boolean(inserted.duplicate),
       post: inserted.data,
       channelIntro: intro && intro.ok ? intro.data : null,
+      channelIntroSkipped: body.includeChannelIntro && marketingConfig.groupOnly ? 'group-only-mode' : null,
       guard: built.guard,
       pinAvailable: Boolean(marketingConfig.groupChatId)
     });
