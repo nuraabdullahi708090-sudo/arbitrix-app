@@ -206,6 +206,27 @@ function chatIdForAudience(audience, config) {
 }
 
 /**
+ * Diagnose the queue against the configured destinations.
+ *
+ * Returns stable CODES, not prose, so the admin API, the operator console and a
+ * browser can present the same fact in their own wording. A configured
+ * destination with no upcoming post is a WARNING, not an error: that is exactly
+ * the state that left the announcement channel silent for weeks while every
+ * other signal (enabled, paused=false, heartbeat healthy) said OK.
+ */
+function describeQueueHealth(options) {
+  const opts = options || {};
+  const upcoming = opts.upcoming || {};
+  const warnings = [];
+  if (!opts.channelConfigured) warnings.push('channel-not-configured');
+  else if (!(Number(upcoming.channel) > 0)) warnings.push('channel-configured-no-upcoming-posts');
+  if (opts.groupConfigured && !(Number(upcoming.group) > 0)) {
+    warnings.push('group-configured-no-upcoming-posts');
+  }
+  return { level: warnings.length ? 'warn' : 'ok', warnings };
+}
+
+/**
  * How long a worker may go without writing a heartbeat before an operator should
  * treat it as dead. Three default tick intervals (60s), so one slow tick or one
  * deploy bounce does not raise a false alarm.
@@ -312,6 +333,7 @@ module.exports = {
   AUDIENCES,
   resolveMarketingConfig,
   describeMarketingConfig,
+  describeQueueHealth,
   workerHealth,
   validateDestination,
   chatIdForAudience,

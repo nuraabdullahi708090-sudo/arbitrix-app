@@ -40,6 +40,7 @@
  */
 
 const { createMarketingStore } = require('../services/MarketingStore');
+const { describeQueueHealth } = require('../services/TelegramBroadcast');
 const {
   resolveMarketingConfig,
   describeMarketingConfig,
@@ -116,6 +117,9 @@ async function readState(store) {
   const counts = await store.countByStatus();
   const posts = await store.listPosts({ limit: 200 });
   const due = await store.countDue();
+  const upcoming = typeof store.countUpcomingByAudience === 'function'
+    ? await store.countUpcomingByAudience()
+    : { ok: false, reason: 'upcoming-unavailable' };
   if (!posts.ok) return { ok: false, reason: posts.reason };
 
   return {
@@ -125,6 +129,8 @@ async function readState(store) {
     counts: counts.ok ? counts.data : null,
     countsError: counts.ok ? null : counts.reason,
     due: due.ok ? due.count : null,
+    upcoming: upcoming.ok ? upcoming.data : null,
+    upcomingError: upcoming.ok ? null : upcoming.reason,
     scheduled: posts.data.filter((p) => p.status === 'scheduled'),
     startHere: posts.data.filter((p) => p.kind === 'startHere'),
     total: posts.data.length
@@ -165,6 +171,17 @@ function printState(state, config) {
     console.log('  by status                  : unreadable (' + state.countsError + ')');
   }
   console.log('  scheduled / due now        : ' + state.scheduled.length + ' / ' + (state.due === null ? 'unknown' : state.due));
+  if (state.upcoming) {
+    console.log('  upcoming (future, scheduled): group=' + state.upcoming.group + ' channel=' + state.upcoming.channel);
+  } else if (state.upcomingError) {
+    console.log('  upcoming (future, scheduled): unreadable (' + state.upcomingError + ')');
+  }
+  const qh = describeQueueHealth({
+    groupConfigured: Boolean(flags.groupConfigured),
+    channelConfigured: Boolean(flags.channelConfigured),
+    upcoming: state.upcoming || {}
+  });
+  console.log('  queue health               : ' + (qh.warnings.length ? 'WARNING ' + qh.warnings.join(', ') : 'OK'));
   console.log('  startHere rows             : ' + state.startHere.length);
   if (state.scheduled.length) {
     console.log('');
