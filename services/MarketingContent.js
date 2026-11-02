@@ -66,8 +66,6 @@ const LABELS = {
     // with their scope, and the referral / partner-recruitment role is Alex alone.
     welcomeGroupTitle: '👥 OFFICIAL COMMUNITY',
     welcomeGroupBody: 'Share this group with anyone interested in Arbitrix:',
-    welcomeAnnounceTitle: '📣 OFFICIAL ANNOUNCEMENTS',
-    welcomeAnnounceBody: 'Follow official Arbitrix announcements and platform updates in our channel:',
     welcomeSupportTitle: '💬 OFFICIAL CUSTOMER SUPPORT',
     welcomePaymentTitle: '💳 PAYMENT SUPPORT PARTNERS',
     welcomeAlexRole: 'payments • referral and partner recruitment',
@@ -117,8 +115,6 @@ const LABELS = {
     paymentSupportLine: '💳 Ajuda com pagamentos:',
     welcomeGroupTitle: '👥 COMUNIDADE OFICIAL',
     welcomeGroupBody: 'Compartilhe este grupo com quem se interessar pela Arbitrix:',
-    welcomeAnnounceTitle: '📣 ANÚNCIOS OFICIAIS',
-    welcomeAnnounceBody: 'Acompanhe os anúncios oficiais e as novidades da plataforma Arbitrix no nosso canal:',
     welcomeSupportTitle: '💬 SUPORTE OFICIAL AO CLIENTE',
     welcomePaymentTitle: '💳 PARCEIROS DE SUPORTE A PAGAMENTOS',
     welcomeAlexRole: 'pagamentos • indicações e recrutamento de parceiros',
@@ -166,8 +162,6 @@ const LABELS = {
     paymentSupportLine: '💳 المساعدة في المدفوعات:',
     welcomeGroupTitle: '👥 المجتمع الرسمي',
     welcomeGroupBody: 'شارك هذه المجموعة مع أي شخص مهتم بـ Arbitrix:',
-    welcomeAnnounceTitle: '📣 الإعلانات الرسمية',
-    welcomeAnnounceBody: 'تابع إعلانات Arbitrix الرسمية وتحديثات المنصة في قناتنا:',
     welcomeSupportTitle: '💬 دعم العملاء الرسمي',
     welcomePaymentTitle: '💳 شركاء دعم المدفوعات',
     welcomeAlexRole: 'المدفوعات • الإحالات واستقطاب الشركاء',
@@ -273,7 +267,7 @@ const EN = {
     '🤝 PROMOTE RESPONSIBLY',
     'Describe what the platform does. Never promise profits, and never describe trading as risk-free.',
     '',
-    '{{announceSection}}',
+    '{{communitySection}}',
     '',
     '💬 NEED HELP?',
     'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
@@ -484,7 +478,7 @@ const PT = {
     '🤝 DIVULGUE COM RESPONSABILIDADE',
     'Descreva o que a plataforma faz. Nunca prometa lucros e nunca diga que negociar não tem risco.',
     '',
-    '{{announceSection}}',
+    '{{communitySection}}',
     '',
     '💬 PRECISA DE AJUDA?',
     'Nossa equipe de suporte está disponível para ajudar você a começar, usar a plataforma e entender o Programa de Parceiros.',
@@ -695,7 +689,7 @@ const AR = {
     '🤝 رَوّج بمسؤولية',
     'اشرح ما تفعله المنصة. لا تعد بأرباح، ولا تصف التداول أبدًا بأنه بلا مخاطر.',
     '',
-    '{{announceSection}}',
+    '{{communitySection}}',
     '',
     '💬 تحتاج إلى مساعدة؟',
     'فريق الدعم لدينا جاهز لمساعدتك على البدء واستخدام المنصة وفهم برنامج الشركاء.',
@@ -872,10 +866,16 @@ function paymentSupportLines(labels, c) {
   return bullets.length ? labels.paymentSupportLine + '\n' + bullets.join('\n') : '';
 }
 
-/** The announcement-channel pointer: heading, one explanation line, the link. */
-function announceSection(labels, c) {
-  if (!c.announcementUrl) return '';
-  return [labels.welcomeAnnounceTitle, labels.welcomeAnnounceBody, c.announcementUrl].join('\n');
+/**
+ * The official community section: heading, one line, the group invite.
+ *
+ * The group is the single community destination and this is the ONLY place the
+ * invite is rendered, so the welcome and Start Here share one string and the
+ * link can never drift or be duplicated. The announcement channel is not part
+ * of it: nothing here reads `announcementUrl` any more.
+ */
+function communitySection(labels) {
+  return [labels.welcomeGroupTitle, labels.welcomeGroupBody, OFFICIAL_GROUP_INVITE_URL].join('\n');
 }
 
 /**
@@ -892,9 +892,9 @@ function announceSection(labels, c) {
  */
 function welcomeContactsBlock(labels, c) {
   const sections = [];
-  // The group is the single community destination. The invite is a fixed official
-  // link, so this section is always present and never points at the channel.
-  sections.push([labels.welcomeGroupTitle, labels.welcomeGroupBody, OFFICIAL_GROUP_INVITE_URL].join('\n'));
+  // The group is the single community destination; the section is shared with
+  // Start Here so both messages render the identical block.
+  sections.push(communitySection(labels));
   if (c.supportUrl) {
     sections.push([labels.welcomeSupportTitle, c.supportUrl].join('\n'));
   }
@@ -940,7 +940,7 @@ function buildStepLines(locale, ctx) {
     partnerSupportLine: partnerSupportLines(labels, c),
     paymentSupportLine: paymentSupportLines(labels, c),
     welcomeContacts: welcomeContactsBlock(labels, c),
-    announceSection: announceSection(labels, c)
+    communitySection: communitySection(labels)
   };
 }
 

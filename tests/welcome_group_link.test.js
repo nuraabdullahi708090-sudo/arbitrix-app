@@ -1,13 +1,14 @@
 'use strict';
 
 /**
- * The group welcome message points members at the COMMUNITY GROUP, never at the
+ * The two community messages - the join-triggered WELCOME and the pinned START
+ * HERE guide - point members at the community GROUP and never at the
  * announcement channel.
  *
- * Business decision: automated publishing now happens in the Telegram group only,
- * so the channel is no longer promoted in the join-triggered welcome. The channel
- * itself stays configured for the publisher - this file proves the welcome is
- * independent of that configuration rather than that the channel was removed.
+ * Business decision: automated publishing runs in the Telegram group only. The
+ * channel stays configured for the publisher (channelIntro / weekly posts keep
+ * their channel link), so these tests also prove that removing the promotion
+ * from the two community messages did not touch the publishing system.
  */
 
 const { test } = require('node:test');
@@ -18,11 +19,13 @@ const path = require('node:path');
 const { render, LABELS, LOCALES } = require('../services/MarketingContent');
 const { checkContent } = require('../services/ContentGuard');
 const { resolveMarketingConfig } = require('../services/TelegramBroadcast');
+const { buildStartHereRow } = require('../services/MarketingOnboarding');
 
 const GROUP_INVITE = 'https://t.me/+CF9kWr61sqs1MTY0';
 const CHANNEL = 'https://t.me/ArbitrixAnnouncements';
 const SUPPORT = 'https://t.me/ArbitrixSupportBot';
 const ROOT = path.join(__dirname, '..');
+const COMMUNITY_KINDS = ['welcome', 'startHere'];
 
 const FACTS = { minDeposit: 100, referralPercent: 20 };
 const CONFIG = Object.assign(resolveMarketingConfig({ BASE_URL: 'https://arbitrix.pro' }), {
@@ -31,49 +34,58 @@ const CONFIG = Object.assign(resolveMarketingConfig({ BASE_URL: 'https://arbitri
     enabled: true,
     dryRun: false
 });
-/** The channel is CONFIGURED here on purpose: the welcome must still ignore it. */
+/** The channel is CONFIGURED here on purpose: both messages must still ignore it. */
 const CTX = Object.assign({}, CONFIG, FACTS, { announcementUrl: CHANNEL });
 const CTX_NO_CHANNEL = Object.assign({}, CTX, { announcementUrl: '' });
 
 // ---------------------------------------------------------------------------
-// 1. The correct group link is present
+// 1. The group link is present where intended
 // ---------------------------------------------------------------------------
-test('the welcome shares the official community group link in every language', () => {
-    for (const locale of LOCALES) {
-        const text = render('welcome', locale, CTX).text;
-        assert.ok(text.includes(GROUP_INVITE), locale + ': welcome must share the group invite');
-        assert.ok(text.includes(LABELS[locale].welcomeGroupTitle), locale + ': group heading');
-        assert.ok(text.includes(LABELS[locale].welcomeGroupBody), locale + ': group explanation');
-        assert.strictEqual(text.split(GROUP_INVITE).length - 1, 1, locale + ': the invite appears exactly once');
+test('the welcome and Start Here share the official community group link in every language', () => {
+    for (const kind of COMMUNITY_KINDS) {
+        for (const locale of LOCALES) {
+            const text = render(kind, locale, CTX).text;
+            const label = locale + '/' + kind;
+            assert.ok(text.includes(GROUP_INVITE), label + ': must share the group invite');
+            assert.ok(text.includes(LABELS[locale].welcomeGroupTitle), label + ': group heading');
+            assert.ok(text.includes(LABELS[locale].welcomeGroupBody), label + ': group explanation');
+            assert.strictEqual(text.split(GROUP_INVITE).length - 1, 1, label + ': the invite appears exactly once');
+        }
     }
 });
 
-test('the group section is independent of any channel configuration', () => {
+test('the community section is identical in both messages and independent of the channel URL', () => {
     for (const locale of LOCALES) {
-        assert.strictEqual(
-            render('welcome', locale, CTX_NO_CHANNEL).text,
-            render('welcome', locale, CTX).text,
-            locale + ': the welcome must not change with or without the channel URL'
-        );
+        const section = [LABELS[locale].welcomeGroupTitle, LABELS[locale].welcomeGroupBody, GROUP_INVITE].join('\n');
+        for (const kind of COMMUNITY_KINDS) {
+            const text = render(kind, locale, CTX).text;
+            assert.ok(text.includes(section), locale + '/' + kind + ': renders the shared community block');
+            assert.strictEqual(
+                render(kind, locale, CTX_NO_CHANNEL).text,
+                text,
+                locale + '/' + kind + ': must not change with or without the channel URL'
+            );
+        }
     }
 });
 
 // ---------------------------------------------------------------------------
-// 2. The announcement channel is gone from the welcome
+// 2. The announcement channel is gone from both community messages
 // ---------------------------------------------------------------------------
-test('the welcome never contains the announcement channel link', () => {
-    for (const locale of LOCALES) {
-        const text = render('welcome', locale, CTX).text;
-        assert.ok(!text.includes(CHANNEL), locale + ': no channel URL');
-        assert.ok(!text.includes('ArbitrixAnnouncements'), locale + ': no channel handle');
-        assert.ok(!text.includes(LABELS[locale].welcomeAnnounceTitle), locale + ': no channel heading');
-        assert.ok(!text.includes(LABELS[locale].welcomeAnnounceBody), locale + ': no channel invitation');
-        // No wording that invites a subscription/follow to a channel.
-        assert.ok(!/(subscribe|follow).{0,30}channel/i.test(text), locale + ': no follow-the-channel wording');
+test('neither community message promotes the announcement channel', () => {
+    for (const kind of COMMUNITY_KINDS) {
+        for (const locale of LOCALES) {
+            const text = render(kind, locale, CTX).text;
+            const label = locale + '/' + kind;
+            assert.ok(!text.includes(CHANNEL), label + ': no channel URL');
+            assert.ok(!text.includes('ArbitrixAnnouncements'), label + ': no channel handle');
+            assert.ok(!/OFFICIAL ANNOUNCEMENTS/i.test(text), label + ': no channel heading');
+            assert.ok(!/(subscribe|follow).{0,30}channel/i.test(text), label + ': no follow-the-channel wording');
+        }
     }
 });
 
-test('no welcome render, in any language or shape, carries a channel link', () => {
+test('no render shape of either message carries a channel link', () => {
     const variants = [
         CTX,
         CTX_NO_CHANNEL,
@@ -81,19 +93,30 @@ test('no welcome render, in any language or shape, carries a channel link', () =
         Object.assign({}, CTX, { partnerSupportAlexUrl: '', partnerSupportUrl: '', partnerSupportOliviaUrl: '' }),
         Object.assign({}, CTX, { supportUrl: '' })
     ];
-    for (const locale of LOCALES) {
-        for (const ctx of variants) {
-            const out = render('welcome', locale, ctx);
-            assert.ok(!out.text.includes('ArbitrixAnnouncements'), locale + ': text is channel-free');
-            assert.ok(!JSON.stringify(out.buttons).includes('ArbitrixAnnouncements'), locale + ': buttons are channel-free');
+    for (const kind of COMMUNITY_KINDS) {
+        for (const locale of LOCALES) {
+            for (const ctx of variants) {
+                const out = render(kind, locale, ctx);
+                assert.ok(!out.text.includes('ArbitrixAnnouncements'), locale + '/' + kind + ': text is channel-free');
+                assert.ok(!JSON.stringify(out.buttons).includes('ArbitrixAnnouncements'), locale + '/' + kind + ': buttons are channel-free');
+            }
         }
     }
 });
 
+test('the queued Start Here row is channel-free end to end', () => {
+    const built = buildStartHereRow({ config: CTX, scheduledFor: '2026-11-04T09:00:00Z' });
+    const row = built.row;
+    assert.ok(row.content.includes(GROUP_INVITE), 'the stored post shares the group invite');
+    assert.ok(!row.content.includes('ArbitrixAnnouncements'), 'the stored post never links the channel');
+    assert.ok(!JSON.stringify(row.buttons).includes('ArbitrixAnnouncements'), 'no channel button is stored');
+    assert.strictEqual(row.status, 'scheduled', 'the row is still publishable without manual approval');
+});
+
 // ---------------------------------------------------------------------------
-// 3. Existing welcome functionality is intact
+// 3. Everything else is intact
 // ---------------------------------------------------------------------------
-test('the rest of the welcome is unchanged', () => {
+test('the welcome keeps its approved copy', () => {
     const text = render('welcome', 'en', CTX).text;
     const kept = [
         'Welcome to the Arbitrix Partners Community!',
@@ -102,7 +125,7 @@ test('the rest of the welcome is unchanged', () => {
         'EXPLORE ARBITRIX',
         'CREATE YOUR ACCOUNT',
         'DISCOVER THE PARTNER PROGRAMME',
-        "log into your account and open the Referral page",
+        'log into your account and open the Referral page',
         'REFERRAL REWARD',
         '20% of a referred user',
         'first qualifying deposit of $100 or more',
@@ -117,51 +140,81 @@ test('the rest of the welcome is unchanged', () => {
     for (const line of kept) {
         assert.ok(text.includes(line), 'welcome lost approved copy: ' + line);
     }
-    assert.ok(!/\n{3,}/.test(text), 'no triple blank lines after removing the channel block');
-    assert.ok(!text.trimEnd().endsWith(':'), 'no dangling label at the end');
+    assert.ok(!/\n{3,}/.test(text), 'no triple blank lines');
 });
 
-test('the welcome keyboard still offers registration, guide, support and the recruitment partner', () => {
-    const buttons = render('welcome', 'en', CTX).buttons;
-    const urls = buttons.map((b) => b.url);
-    assert.ok(urls.some((u) => u.includes('action=create-account')), 'Create Account');
-    assert.ok(urls.some((u) => u.includes('/how-it-works')), 'How It Works');
-    assert.ok(urls.includes(SUPPORT), 'Customer Support');
-    assert.ok(urls.includes('https://t.me/AlexArbitrix'), 'Contact Alex');
-    assert.ok(!urls.some((u) => u.includes('ArbitrixAnnouncements')), 'no channel button');
+test('Start Here keeps its guide, responsible-promotion note, support lines and keyboard', () => {
+    const text = render('startHere', 'en', CTX).text;
+    const kept = [
+        'START HERE',
+        'Welcome to the Arbitrix Partners Community!',
+        'YOUR NEXT STEPS',
+        'EXPLORE ARBITRIX',
+        'CREATE YOUR ACCOUNT',
+        'DISCOVER THE PARTNER PROGRAMME',
+        'PROMOTE RESPONSIBLY',
+        'Never promise profits',
+        'REFERRAL REWARD',
+        'NEED HELP?',
+        'Customer support: ' + SUPPORT,
+        'OFFICIAL COMMUNITY',
+        GROUP_INVITE,
+        'Choose an option below to get started!'
+    ];
+    for (const line of kept) {
+        assert.ok(text.includes(line), 'Start Here lost approved copy: ' + line);
+    }
+    // The community block sits where the channel block used to be: between the
+    // responsible-promotion note and the NEED HELP section.
+    assert.ok(text.indexOf('PROMOTE RESPONSIBLY') < text.indexOf('OFFICIAL COMMUNITY'), 'community block after the guidance');
+    assert.ok(text.indexOf('OFFICIAL COMMUNITY') < text.indexOf('NEED HELP?'), 'community block before support');
+    assert.ok(!/\n{3,}/.test(text), 'no triple blank lines');
+
+    const buttons = render('startHere', 'en', CTX).buttons;
+    assert.deepStrictEqual(buttons.map((b) => b.url), [
+        'https://arbitrix.pro/?action=create-account',
+        'https://arbitrix.pro/how-it-works',
+        SUPPORT,
+        'https://t.me/AlexArbitrix'
+    ], 'the four Start Here destinations are unchanged');
     assert.deepStrictEqual(buttons.map((b) => b.row), [0, 0, 1, 1], 'two rows of two');
 });
 
-test('the welcome is still publishable by the content guard', () => {
-    for (const locale of LOCALES) {
-        const out = render('welcome', locale, CTX);
-        const guard = checkContent(out.text, { locale, facts: FACTS });
-        assert.strictEqual(guard.blocked, false, locale + ': guard blocked the welcome: ' + JSON.stringify(guard.violations));
+test('both community messages stay publishable by the content guard', () => {
+    for (const kind of COMMUNITY_KINDS) {
+        for (const locale of LOCALES) {
+            const out = render(kind, locale, CTX);
+            const guard = checkContent(out.text, { locale, facts: FACTS });
+            assert.strictEqual(guard.blocked, false, locale + '/' + kind + ' blocked: ' + JSON.stringify(guard.violations));
+        }
     }
 });
 
 // ---------------------------------------------------------------------------
-// 4. Scope: only the welcome changed
+// 4. Scope: the publishing system is untouched
 // ---------------------------------------------------------------------------
-test('the announcement channel is still configured and still used by the other messages', () => {
+test('the announcement channel is still configured and still used by the publisher', () => {
     // Configuration is untouched: the channel URL still resolves from the env.
     const cfg = resolveMarketingConfig({ TELEGRAM_ANNOUNCEMENT_CHANNEL_URL: CHANNEL });
     assert.strictEqual(cfg.announcementUrl, CHANNEL, 'the channel URL is still configured');
 
-    // Start Here (a queued publisher post, not the welcome) is out of scope here.
-    const startHere = render('startHere', 'en', CTX).text;
-    assert.ok(startHere.includes(CHANNEL), 'Start Here keeps its channel reference (unchanged by this task)');
+    // Channel-audience content is NOT part of this change: the channel intro and
+    // the weekly posts keep their channel link through the links block.
+    const channelIntro = render('channelIntro', 'en', CTX).text;
+    const weekly = render('weekly', 'en', Object.assign({}, CTX, { theme: 'tue' })).text;
+    assert.ok(channelIntro.includes(CHANNEL), 'channelIntro keeps its channel link');
+    assert.ok(weekly.includes(CHANNEL), 'weekly posts keep their channel link');
 });
 
-test('the welcome builds its community block from the group constant, not from announceSection', () => {
+test('the two community messages no longer reference the retired channel section', () => {
     const src = fs.readFileSync(path.join(ROOT, 'services/MarketingContent.js'), 'utf8');
     assert.strictEqual((src.match(/const OFFICIAL_GROUP_INVITE_URL = 'https:\/\/t\.me\/\+CF9kWr61sqs1MTY0';/g) || []).length, 1,
         'the group invite is defined exactly once');
-
-    const start = src.indexOf('function welcomeContactsBlock');
-    const body = src.slice(start, src.indexOf('function buildLinksBlock', start));
-    assert.ok(body.includes('OFFICIAL_GROUP_INVITE_URL'), 'the welcome uses the group invite');
-    assert.ok(!body.includes('announceSection('), 'the welcome no longer renders the channel section');
+    assert.strictEqual((src.match(/function communitySection\(/g) || []).length, 1, 'one community builder');
+    assert.ok(!src.includes('function announceSection'), 'the channel section builder is gone');
+    assert.ok(!src.includes("'{{announceSection}}'"), 'no template still asks for the channel section');
+    assert.strictEqual((src.match(/'{{communitySection}}'/g) || []).length, 3, 'en, pt and ar Start Here all use it');
+    assert.ok(!/welcomeAnnounce(Title|Body)/.test(src), 'the channel labels are retired');
 });
 
 test('nothing here touches the publisher, the queue or the group-only switch', () => {
@@ -169,5 +222,5 @@ test('nothing here touches the publisher, the queue or the group-only switch', (
     assert.ok(worker.includes('GROUP_ONLY_PARK_MS'), 'group-only parking is untouched');
     const broadcast = fs.readFileSync(path.join(ROOT, 'services/TelegramBroadcast.js'), 'utf8');
     assert.ok(broadcast.includes('TELEGRAM_ANNOUNCEMENT_CHANNEL_URL'), 'the channel config still resolves');
-    assert.strictEqual(fs.existsSync(path.join(ROOT, 'supabase/migrations')), true);
+    assert.ok(fs.existsSync(path.join(ROOT, 'supabase/migrations')), 'migrations untouched');
 });
