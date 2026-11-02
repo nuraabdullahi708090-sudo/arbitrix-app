@@ -5196,6 +5196,16 @@ app.get('/api/admin/marketing/status', authMiddleware, adminMiddleware, async (r
         // this flag.
         enabled: marketingConfig.enabled,
         heartbeat: health,
+        // Migration 046: the destinations the WORKER process itself resolved,
+        // written with its heartbeat. null = the worker has not run since 046 was
+        // applied. This is what distinguishes "the worker has no channel id" from
+        // "only this web service lacks it".
+        destinations: control.ok ? {
+          group: control.data.worker_group_configured === undefined ? null : control.data.worker_group_configured,
+          channel: control.data.worker_channel_configured === undefined ? null : control.data.worker_channel_configured,
+          warning: control.data.worker_config_warning || null
+        } : null,
+        stalled: !health.healthy,
         note: 'enabled reflects this web service only; the worker service has its own TELEGRAM_MARKETING_ENABLED. ' +
           'Use heartbeat.healthy for liveness. Publishing requires TELEGRAM_MARKETING_ENABLED=true, ' +
           'control.paused=false and control.dry_run=false.'

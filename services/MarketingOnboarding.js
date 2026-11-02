@@ -387,6 +387,29 @@ function createOnboarding(options) {
       return { sent: false, skipped: 'duplicate', members: 0, bots: targets.bots.length };
     }
 
+    // Restart-durable guard (migration 046). The map above only protects one
+    // running process, so a Telegram redelivery after a restart used to greet the
+    // member again. The ledger survives restarts; a missing table leaves
+    // `claim.ok` false and we simply carry on with the in-memory guard.
+    const claimRows = targets.humans.map((member) => ({
+      chatId: String(e.chatId),
+      memberId: String(member.id),
+      messageId: String(e.messageId || '')
+    }));
+    let durableClaimed = [];
+    if (store && typeof store.claimWelcomes === 'function') {
+      try {
+        const claim = await store.claimWelcomes(claimRows);
+        if (claim && claim.ok) {
+          durableClaimed = (claim.data || []).map((row) => String(row.member_id));
+          if (!durableClaimed.length) {
+            report('welcome_skipped', { reason: 'duplicate', durable: true, received: targets.received });
+            return { sent: false, skipped: 'duplicate', members: 0, bots: targets.bots.length };
+          }
+        }
+      } catch (error) { /* fail open: the send must not depend on the ledger */ }
+    }
+
     // Personalise with the JOINING MEMBER's own Telegram first name - never the
     // bot's or an administrator's. Several humans in one service message share a
     // single welcome, so none of them is named.
@@ -406,6 +429,11 @@ function createOnboarding(options) {
       // if Telegram redelivers it: nothing was delivered.
       const detail = String(error && error.message ? error.message : error).slice(0, 200);
       release(keys);
+      if (durableClaimed.length && store && typeof store.releaseWelcomes === 'function') {
+        try {
+          await store.releaseWelcomes(claimRows.filter((row) => durableClaimed.includes(row.memberId)));
+        } catch (releaseError) { /* best effort */ }
+      }
       report('welcome_failed', { error: detail, members: keys.length, bots: targets.bots.length });
       await audit(destination.chatId, { status: 'failed', error: detail });
       return { sent: false, skipped: 'send-failed', error: detail };

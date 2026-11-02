@@ -34,6 +34,20 @@ function scrub(message) {
   return String(message === null || message === undefined ? '' : message).slice(0, 300);
 }
 
+/**
+ * Non-secret summary of why a destination was rejected, persisted with the
+ * heartbeat so the admin status route can explain a `channelConfigured: false`
+ * without anyone reading the worker's environment.
+ */
+function destinationWarning(config) {
+  const c = config || {};
+  const parts = [];
+  if (c.groupChatIdInvalid) parts.push('TELEGRAM_MARKETING_CHAT_ID:' + c.groupChatIdInvalid);
+  if (c.channelChatIdInvalid) parts.push('TELEGRAM_ANNOUNCEMENT_CHAT_ID:' + c.channelChatIdInvalid);
+  if (c.channelConflictsWithGroup) parts.push('TELEGRAM_ANNOUNCEMENT_CHAT_ID:same-as-group');
+  return parts.length ? parts.join('; ').slice(0, 200) : null;
+}
+
 function createMarketingWorker(options) {
   const opts = options || {};
   const store = opts.store;
@@ -103,7 +117,13 @@ function createMarketingWorker(options) {
   async function recordHeartbeat() {
     if (typeof store.heartbeat !== 'function') return null;
     try {
-      const result = await store.heartbeat({ workerId, version: workerVersion });
+      const result = await store.heartbeat({
+        workerId,
+        version: workerVersion,
+        groupConfigured: Boolean(config.groupChatId),
+        channelConfigured: Boolean(config.channelChatId),
+        configWarning: destinationWarning(config)
+      });
       if (result && result.ok) {
         stats.lastHeartbeatAt = new Date(clock()).toISOString();
         stats.lastHeartbeatError = null;
@@ -418,6 +438,14 @@ function createMarketingWorker(options) {
     const intervalMs = Math.max(Number(config.tickMs) || 60000, 15000);
     let stopped = false;
     let timer = null;
+
+    // Retention for the welcome ledger (migration 046): ids only, best effort,
+    // once per process start. A failure is irrelevant to publishing.
+    if (typeof store.pruneWelcomes === 'function' && !o.skipPrune) {
+      Promise.resolve()
+        .then(() => store.pruneWelcomes({ days: 30 }))
+        .catch(() => {});
+    }
 
     const loop = async () => {
       if (stopped) return;
