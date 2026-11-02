@@ -46,12 +46,13 @@ const {
   describeMarketingConfig,
   workerHealth
 } = require('../services/TelegramBroadcast');
-const { buildStartHereRow } = require('../services/MarketingOnboarding');
+const { buildStartHereRow, buildCalendarRows } = require('../services/MarketingOnboarding');
 
 const USAGE = [
-  'usage: node scripts/marketing-control.js <status|enable|pause|start-here> [options]',
+  'usage: node scripts/marketing-control.js <status|seed|enable|pause|start-here> [options]',
   '',
   '  status [--json]                    read-only: control row, queue, destinations',
+  '  seed [--weeks 2] [--confirm]        queue the weekly calendar (idempotent per date)',
   '  enable --confirm [--allow-backlog] live publishing (paused=false, dry_run=false)',
   '  pause                              stop publishing (paused=true)',
   '  start-here [--dry] [--locale en] [--scheduled-for ISO] [--created-by ID]',
@@ -82,6 +83,7 @@ function parseArgs(argv) {
     else if (token === '--locale') args.locale = argv[++i];
     else if (token === '--scheduled-for') args.scheduledFor = argv[++i];
     else if (token === '--created-by') args.createdBy = argv[++i];
+    else if (token === '--weeks') args.weeks = argv[++i];
     else args._.push(token);
   }
   return args;
@@ -270,6 +272,98 @@ async function cmdPause(store) {
   return 0;
 }
 
+/**
+ * Queue the weekly marketing calendar.
+ *
+ * WHY IN THE CONSOLE: the same rows are created by POST /api/admin/marketing/
+ * calendar/seed, which needs an admin browser session. The operator shell holds
+ * the service credential instead, so this command performs the SAME inserts
+ * through the SAME builders - no SQL, no new endpoint, no schema change.
+ *
+ * Idempotent per (audience, locale, theme, date): re-running inserts nothing new
+ * and never touches a published row.
+ */
+async function cmdSeed(store, config, args) {
+  const flags = describeMarketingConfig(config);
+  // Absent or non-numeric -> the documented default of 2; an explicit number is
+  // clamped into 1..8 so a typo cannot queue half a year of posts.
+  const rawWeeks = Number(args.weeks);
+  const weeks = Number.isFinite(rawWeeks) ? Math.min(Math.max(Math.floor(rawWeeks), 1), 8) : 2;
+  const rows = buildCalendarRows({
+    config: Object.assign({}, config, { facts: marketingFacts() }),
+    weeks,
+    now: new Date(),
+    createdBy: args.createdBy ? Number(args.createdBy) : null
+  });
+
+  const plan = [];
+  let skippedChannel = 0;
+  let blocked = 0;
+  for (const built of rows) {
+    const audience = built.row.audience === 'channel' ? 'channel' : 'group';
+    if (built.row.status === 'blocked') {
+      blocked += 1;
+      continue;
+    }
+    // Group-only mode, or a channel that is simply not configured: never queue
+    // a channel post. Same rule as the admin route, so the two cannot diverge.
+    if (audience === 'channel' && !config.channelChatId) {
+      skippedChannel += 1;
+      continue;
+    }
+    plan.push({ row: built.row, audience, status: built.row.status });
+  }
+
+  // Chronological, so the preview reads like the publishing order.
+  plan.sort((a, b) => String(a.row.scheduled_for).localeCompare(String(b.row.scheduled_for)));
+
+  const byAudience = { group: 0, channel: 0 };
+  for (const item of plan) byAudience[item.audience] += 1;
+
+  console.log('calendar plan (' + weeks + ' week(s))');
+  console.log('  group-only mode            : ' + (flags.groupOnly ? 'ON (channel scheduling disabled)' : 'off'));
+  console.log('  considered                 : ' + rows.length);
+  console.log('  would queue                : group=' + byAudience.group + ' channel=' + byAudience.channel);
+  if (skippedChannel) console.log('  channel skipped            : ' + skippedChannel + (flags.groupOnly ? ' (group-only mode)' : ' (channel not configured)'));
+  if (blocked) console.log('  blocked by the content guard: ' + blocked);
+  const upcoming = plan.slice(0, 5);
+  for (const item of upcoming) {
+    console.log('  next: ' + item.row.scheduled_for + '  ' + item.audience + '  ' + item.row.theme);
+  }
+  if (plan.length > upcoming.length) console.log('  ... ' + (plan.length - upcoming.length) + ' more');
+
+  if (!args.confirm) {
+    console.error('');
+    console.error('REFUSED: seeding writes real queue rows. Re-run with --confirm to insert them.');
+    return 2;
+  }
+
+  let inserted = 0;
+  let duplicates = 0;
+  let awaitingApproval = 0;
+  const created = { group: 0, channel: 0 };
+  for (const item of plan) {
+    if (item.status === 'awaiting_approval') awaitingApproval += 1;
+    const result = await store.insertPost(item.row);
+    if (!result.ok) {
+      console.error('ERROR: insert failed (' + result.reason + ') after ' + inserted + ' row(s).');
+      return 3;
+    }
+    if (result.duplicate) duplicates += 1;
+    else {
+      inserted += 1;
+      created[item.audience] += 1;
+    }
+  }
+
+  console.log('');
+  console.log('seeded: inserted=' + inserted + ' (group=' + created.group + ' channel=' + created.channel + ') duplicates=' + duplicates +
+    ' awaiting_approval=' + awaitingApproval + ' channel_skipped=' + skippedChannel);
+  if (created.channel === 0) console.log('no channel posts were queued.');
+  console.log('nothing is sent by this command: the worker publishes at each scheduled time.');
+  return 0;
+}
+
 async function cmdStartHere(store, config, args) {
   const built = buildStartHereRow({
     config: Object.assign({}, config, { facts: marketingFacts() }),
@@ -323,7 +417,7 @@ async function main(argv) {
     console.log(USAGE);
     return args.help ? 0 : 1;
   }
-  if (!['status', 'enable', 'pause', 'start-here'].includes(command)) {
+  if (!['status', 'seed', 'enable', 'pause', 'start-here'].includes(command)) {
     console.error('Unknown command: ' + command);
     console.log(USAGE);
     return 1;
@@ -340,6 +434,7 @@ async function main(argv) {
 
   try {
     if (command === 'status') return await cmdStatus(store, config, args);
+    if (command === 'seed') return await cmdSeed(store, config, args);
     if (command === 'enable') return await cmdEnable(store, config, args);
     if (command === 'pause') return await cmdPause(store);
     return await cmdStartHere(store, config, args);
@@ -366,5 +461,6 @@ module.exports = {
   cmdStatus,
   cmdEnable,
   cmdPause,
+  cmdSeed,
   cmdStartHere
 };
