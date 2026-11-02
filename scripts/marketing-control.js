@@ -147,6 +147,14 @@ function printState(state, config) {
   console.log('  updated_at                 : ' + c.updated_at);
   console.log('  worker heartbeat           : ' + (state.health.healthy ? 'healthy' : 'stale/absent') +
     (state.health.ageMs === null ? '' : ' (' + Math.round(state.health.ageMs / 1000) + 's ago)'));
+  // Migration 046: what the worker process itself resolved (null = pre-046).
+  const wg = c.worker_group_configured;
+  const wc = c.worker_channel_configured;
+  if (wg !== undefined || wc !== undefined) {
+    console.log('  worker destinations        : group=' + (wg === undefined ? 'unknown' : wg) +
+      ' channel=' + (wc === undefined ? 'unknown' : wc));
+    if (c.worker_config_warning) console.log('  worker warning             : ' + c.worker_config_warning);
+  }
   console.log('');
   console.log('queue');
   console.log('  rows                       : ' + state.total);

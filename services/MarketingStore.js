@@ -21,6 +21,7 @@ const POSTS = 'telegram_marketing_posts';
 const SUBS = 'telegram_marketing_subscriptions';
 const CONTROL = 'telegram_marketing_control';
 const SENDS = 'telegram_marketing_sends';
+const WELCOMES = 'telegram_welcome_deliveries';
 
 function scrub(message) {
   return String(message === null || message === undefined ? '' : message).slice(0, 300);
@@ -53,20 +54,96 @@ function createMarketingStore(options) {
      * as a warning. It never touches paused/dry_run, so a live worker can never
      * resume publishing by writing a heartbeat.
      */
-    async heartbeat({ workerId, version } = {}) {
-      const { data, error } = await admin
+    async heartbeat({ workerId, version, groupConfigured, channelConfigured, configWarning } = {}) {
+      const base = {
+        worker_heartbeat_at: new Date().toISOString(),
+        worker_id: workerId ? String(workerId).slice(0, 100) : null,
+        worker_version: version ? String(version).slice(0, 60) : null
+      };
+      // Migration 046: also record the destinations THIS process resolved, so the
+      // admin status route can show the worker's view instead of only the web
+      // service's environment.
+      const reportsDestinations = typeof groupConfigured === 'boolean' || typeof channelConfigured === 'boolean';
+      const payload = reportsDestinations
+        ? Object.assign({}, base, {
+            worker_group_configured: typeof groupConfigured === 'boolean' ? groupConfigured : null,
+            worker_channel_configured: typeof channelConfigured === 'boolean' ? channelConfigured : null,
+            worker_config_warning: configWarning ? String(configWarning).slice(0, 200) : null
+          })
+        : base;
+      const write = (patch) => admin
         .from(CONTROL)
-        .update({
-          worker_heartbeat_at: new Date().toISOString(),
-          worker_id: workerId ? String(workerId).slice(0, 100) : null,
-          worker_version: version ? String(version).slice(0, 60) : null
-        })
+        .update(patch)
         .eq('id', 1)
         .select('worker_heartbeat_at, worker_id, worker_version')
         .maybeSingle();
-      if (error) return fail('heartbeat-failed', error);
+
+      const { data, error } = await write(payload);
+      if (error) {
+        // Pre-046 schema: keep the plain heartbeat working rather than reporting
+        // a false failure that would look like a dead worker.
+        const text = String(error.message || '');
+        const missingDestinationColumns = (error.code === '42703' || error.code === 'PGRST204') &&
+          /worker_(group|channel)_configured|worker_config_warning/.test(text);
+        if (missingDestinationColumns) {
+          const retried = await write(base);
+          if (retried.error) return fail('heartbeat-failed', retried.error);
+          if (!retried.data) return { ok: false, reason: 'control-missing', error: 'control row 1 not found' };
+          return { ok: true, data: retried.data };
+        }
+        return fail('heartbeat-failed', error);
+      }
       if (!data) return { ok: false, reason: 'control-missing', error: 'control row 1 not found' };
       return { ok: true, data };
+    },
+
+    /**
+     * Durable join-welcome de-duplication (migration 046).
+     *
+     * Returns the members this call actually CLAIMED; a redelivered service
+     * message - including one delivered after a worker restart - claims nothing
+     * and the caller skips the send. Fails OPEN: a missing table (046 not
+     * applied) returns ok:false and the caller falls back to memory only.
+     */
+    async claimWelcomes(rows) {
+      const payload = (Array.isArray(rows) ? rows : [])
+        .filter((row) => row && row.chatId && row.memberId)
+        .map((row) => ({
+          chat_id: String(row.chatId),
+          member_id: String(row.memberId),
+          message_id: row.messageId === undefined || row.messageId === null ? '' : String(row.messageId)
+        }));
+      if (!payload.length) return { ok: true, data: [] };
+      const { data, error } = await admin
+        .from(WELCOMES)
+        .upsert(payload, { onConflict: 'chat_id,member_id,message_id', ignoreDuplicates: true })
+        .select('member_id');
+      if (error) return fail('welcome-claim-failed', error);
+      return { ok: true, data: data || [] };
+    },
+
+    /** Give a claim back when the send failed, so a redelivery can still greet. */
+    async releaseWelcomes(rows) {
+      const list = (Array.isArray(rows) ? rows : []).filter((row) => row && row.chatId && row.memberId);
+      for (const row of list) {
+        const { error } = await admin
+          .from(WELCOMES)
+          .delete()
+          .eq('chat_id', String(row.chatId))
+          .eq('member_id', String(row.memberId))
+          .eq('message_id', row.messageId === undefined || row.messageId === null ? '' : String(row.messageId));
+        if (error) return fail('welcome-release-failed', error);
+      }
+      return { ok: true };
+    },
+
+    /** Drop ledger rows older than the retention window (ids only, so cheap). */
+    async pruneWelcomes({ days } = {}) {
+      const keep = Number(days) > 0 ? Number(days) : 30;
+      const before = new Date(Date.now() - keep * 86400000).toISOString();
+      const { error } = await admin.from(WELCOMES).delete().lt('created_at', before);
+      if (error) return fail('welcome-prune-failed', error);
+      return { ok: true };
     },
 
     async setControl({ paused, dryRun, updatedBy }) {
