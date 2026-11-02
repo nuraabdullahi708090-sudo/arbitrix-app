@@ -41,10 +41,14 @@ const CONFIG = Object.assign(
   { facts: FACTS, groupChatId: '-1001234567890', enabled: true, dryRun: false }
 );
 
-// The confirmed official channel is what the welcome now advertises.
+// The announcement channel stays CONFIGURED on purpose: the welcome must ignore
+// it (the group is the single community destination), so a configured channel is
+// the stronger assertion.
 const CTX = Object.assign({}, CONFIG, FACTS, {
   announcementUrl: 'https://t.me/ArbitrixAnnouncements'
 });
+
+const GROUP_INVITE = 'https://t.me/+CF9kWr61sqs1MTY0';
 
 // ---------------------------------------------------------------------------
 // 1. Approved English copy
@@ -75,11 +79,12 @@ test('the English welcome carries the approved copy', () => {
     'first qualifying deposit of $100 or more',
     '\u{1F4AC} NEED HELP?',
     'Our support team is here to assist you with getting started, using the platform, and understanding the Partner Programme.',
-    // Contacts block: the channel members are pointed to, official support, and
-    // the payment partners with their scope (Alex also owns referral).
-    '\u{1F4E3} OFFICIAL ANNOUNCEMENTS',
-    'Follow official Arbitrix announcements and platform updates in our channel:',
-    'https://t.me/ArbitrixAnnouncements',
+    // Contacts block: the community GROUP members are pointed to, official
+    // support, and the payment partners with their scope (Alex also owns referral).
+    // The announcement channel is deliberately not mentioned.
+    '\u{1F465} OFFICIAL COMMUNITY',
+    'Share this group with anyone interested in Arbitrix:',
+    GROUP_INVITE,
     '\u{1F4AC} OFFICIAL CUSTOMER SUPPORT',
     'https://t.me/ArbitrixSupportBot',
     '\u{1F4B3} PAYMENT SUPPORT PARTNERS',

@@ -30,6 +30,16 @@ const ARROW = '\u2192';
 const GREETING_NAME_MAX = 64;
 const WEEKLY_THEMES = Object.freeze(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 
+/**
+ * The official community group.
+ *
+ * The announcement channel is no longer promoted in the group welcome message:
+ * the group is the single community destination, so the welcome invites people
+ * to this group instead of pointing them at a channel. The channel keeps its own
+ * separate configuration for the marketing publisher - nothing here disables it.
+ */
+const OFFICIAL_GROUP_INVITE_URL = 'https://t.me/+CF9kWr61sqs1MTY0';
+
 const LABELS = {
   en: {
     greeting: '👋 Welcome to the Arbitrix Partners Community, {{name}}!',
@@ -51,9 +61,11 @@ const LABELS = {
     supportLine: '💬 Customer support:',
     partnerSupportLine: '💳 Partner support:',
     paymentSupportLine: '💳 Payment help:',
-    // Welcome contacts block. The channel is where members follow official
-    // announcements; the payment partners are named with their scope, and the
-    // referral / partner-recruitment role belongs to Alex alone.
+    // Welcome contacts block. The community group is the destination members are
+    // pointed at (never the announcement channel); the payment partners are named
+    // with their scope, and the referral / partner-recruitment role is Alex alone.
+    welcomeGroupTitle: '👥 OFFICIAL COMMUNITY',
+    welcomeGroupBody: 'Share this group with anyone interested in Arbitrix:',
     welcomeAnnounceTitle: '📣 OFFICIAL ANNOUNCEMENTS',
     welcomeAnnounceBody: 'Follow official Arbitrix announcements and platform updates in our channel:',
     welcomeSupportTitle: '💬 OFFICIAL CUSTOMER SUPPORT',
@@ -103,6 +115,8 @@ const LABELS = {
     supportLine: '💬 Suporte ao cliente:',
     partnerSupportLine: '💳 Suporte a parceiros:',
     paymentSupportLine: '💳 Ajuda com pagamentos:',
+    welcomeGroupTitle: '👥 COMUNIDADE OFICIAL',
+    welcomeGroupBody: 'Compartilhe este grupo com quem se interessar pela Arbitrix:',
     welcomeAnnounceTitle: '📣 ANÚNCIOS OFICIAIS',
     welcomeAnnounceBody: 'Acompanhe os anúncios oficiais e as novidades da plataforma Arbitrix no nosso canal:',
     welcomeSupportTitle: '💬 SUPORTE OFICIAL AO CLIENTE',
@@ -150,6 +164,8 @@ const LABELS = {
     supportLine: '💬 دعم العملاء:',
     partnerSupportLine: '💳 دعم الشركاء:',
     paymentSupportLine: '💳 المساعدة في المدفوعات:',
+    welcomeGroupTitle: '👥 المجتمع الرسمي',
+    welcomeGroupBody: 'شارك هذه المجموعة مع أي شخص مهتم بـ Arbitrix:',
     welcomeAnnounceTitle: '📣 الإعلانات الرسمية',
     welcomeAnnounceBody: 'تابع إعلانات Arbitrix الرسمية وتحديثات المنصة في قناتنا:',
     welcomeSupportTitle: '💬 دعم العملاء الرسمي',
@@ -863,8 +879,11 @@ function announceSection(labels, c) {
 }
 
 /**
- * The welcome contacts block: the announcement channel, official customer
- * support, and the payment partners with their scope.
+ * The welcome contacts block: the community group, official customer support,
+ * and the payment partners with their scope.
+ *
+ * The announcement channel is deliberately ABSENT: the group is the only
+ * community destination, so the welcome never sends members to the channel.
  *
  * A section is emitted only when its URL is configured, so an unset value omits
  * the whole section (heading included) instead of leaving a dangling label. The
@@ -873,8 +892,9 @@ function announceSection(labels, c) {
  */
 function welcomeContactsBlock(labels, c) {
   const sections = [];
-  const announce = announceSection(labels, c);
-  if (announce) sections.push(announce);
+  // The group is the single community destination. The invite is a fixed official
+  // link, so this section is always present and never points at the channel.
+  sections.push([labels.welcomeGroupTitle, labels.welcomeGroupBody, OFFICIAL_GROUP_INVITE_URL].join('\n'));
   if (c.supportUrl) {
     sections.push([labels.welcomeSupportTitle, c.supportUrl].join('\n'));
   }

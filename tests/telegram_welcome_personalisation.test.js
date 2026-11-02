@@ -274,7 +274,9 @@ test('the referral copy never invents a personal link or a referral URL', () => 
           'https://arbitrix.pro/how-it-works',
           'https://t.me/ArbitrixSupportBot',
           'https://t.me/AlexArbitrix',
-          'https://t.me/OliviaArbitrix'
+          'https://t.me/OliviaArbitrix',
+          // The official community group - the welcome's community destination.
+          'https://t.me/+CF9kWr61sqs1MTY0'
         ].includes(url.replace(/[.,]$/, '')), locale + '/' + kind + ' contains an unapproved URL: ' + url);
       }
     }
