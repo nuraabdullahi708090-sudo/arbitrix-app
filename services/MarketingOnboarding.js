@@ -108,8 +108,11 @@ function nextSlot({ theme, hour, minute, timezone, after }) {
  * sanitises it and falls back to the generic greeting when it is missing or
  * unusable, so callers may pass null.
  */
-function buildLinkContext(config, greetingName) {
+function buildLinkContext(config, greetingName, audience) {
   return {
+    // Drives which community destination a {{links}} template promotes: channel
+    // content keeps the announcement channel, everything else the community group.
+    audience: audience === 'channel' ? 'channel' : 'group',
     registerUrl: config.registerUrl,
     howItWorksUrl: config.howItWorksUrl,
     supportUrl: config.supportUrl,
@@ -139,7 +142,7 @@ function guardOptions(config, locale) {
  */
 function buildPostRow({ kind, theme, audience, locale, config, scheduledFor, idempotencyKey, createdBy, name }) {
   const lang = normalizeLocale(locale || config.locale);
-  const content = render(kind, lang, buildLinkContext(config, name));
+  const content = render(kind, lang, buildLinkContext(config, name, audience));
   const guard = checkContent(content.text, guardOptions(config, lang));
 
   const status = guard.blocked

@@ -198,12 +198,16 @@ test('the announcement channel is still configured and still used by the publish
     const cfg = resolveMarketingConfig({ TELEGRAM_ANNOUNCEMENT_CHANNEL_URL: CHANNEL });
     assert.strictEqual(cfg.announcementUrl, CHANNEL, 'the channel URL is still configured');
 
-    // Channel-audience content is NOT part of this change: the channel intro and
-    // the weekly posts keep their channel link through the links block.
-    const channelIntro = render('channelIntro', 'en', CTX).text;
-    const weekly = render('weekly', 'en', Object.assign({}, CTX, { theme: 'tue' })).text;
+    // Channel-audience content is untouched by the community-link change: the
+    // channel intro and the channel weekly posts keep their channel link.
+    const channelIntro = render('channelIntro', 'en', Object.assign({}, CTX, { audience: 'channel' })).text;
+    const channelWeekly = render('weekly', 'en', Object.assign({}, CTX, { theme: 'tue', audience: 'channel' })).text;
     assert.ok(channelIntro.includes(CHANNEL), 'channelIntro keeps its channel link');
-    assert.ok(weekly.includes(CHANNEL), 'weekly posts keep their channel link');
+    assert.ok(channelWeekly.includes(CHANNEL), 'channel weekly posts keep their channel link');
+    // A GROUP weekly post promotes the community instead (see marketing_weekly_audience).
+    const groupWeekly = render('weekly', 'en', Object.assign({}, CTX, { theme: 'tue', audience: 'group' })).text;
+    assert.ok(groupWeekly.includes(GROUP_INVITE), 'group weekly posts carry the community invite');
+    assert.ok(!groupWeekly.includes(CHANNEL), 'group weekly posts never link the channel');
 });
 
 test('the two community messages no longer reference the retired channel section', () => {

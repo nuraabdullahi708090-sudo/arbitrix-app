@@ -52,6 +52,9 @@ const LABELS = {
     paymentSupport: 'Payment help',
     paymentAlex: 'Contact Alex (payment support)',
     paymentOlivia: 'Contact Olivia (payment support)',
+    community: 'Official community',
+    announcementScopeChannel: 'Official announcements come from this channel only.',
+    announcementScopeGroup: 'Official updates are posted in our community group.',
     announcements: 'Official announcements',
     register: 'Create your account',
     howItWorks: 'Learn how it works',
@@ -104,6 +107,9 @@ const LABELS = {
     paymentSupport: 'Ajuda com pagamentos',
     paymentAlex: 'Falar com Alex (pagamentos)',
     paymentOlivia: 'Falar com Olivia (pagamentos)',
+    community: 'Comunidade oficial',
+    announcementScopeChannel: 'Os avisos oficiais vêm apenas deste canal.',
+    announcementScopeGroup: 'As atualizações oficiais são publicadas no nosso grupo da comunidade.',
     announcements: 'Avisos oficiais',
     register: 'Criar sua conta',
     howItWorks: 'Veja como funciona',
@@ -151,6 +157,9 @@ const LABELS = {
     paymentSupport: 'المساعدة في المدفوعات',
     paymentAlex: 'تواصل مع Alex (المدفوعات)',
     paymentOlivia: 'تواصل مع Olivia (المدفوعات)',
+    community: 'المجتمع الرسمي',
+    announcementScopeChannel: 'الإعلانات الرسمية تصدر من هذه القناة فقط.',
+    announcementScopeGroup: 'تُنشر التحديثات الرسمية في مجموعة المجتمع الخاصة بنا.',
     announcements: 'الإعلانات الرسمية',
     register: 'أنشئ حسابك',
     howItWorks: '\u062a\u0639\u0631\u0651\u0641 \u0639\u0644\u0649 \u0643\u064a\u0641\u064a\u0629 \u0627\u0644\u0639\u0645\u0644',
@@ -376,7 +385,7 @@ const EN = {
     sat: [
       'STAYING SAFE WITH ARBITRIX',
       '',
-      '- Official announcements come from this channel only.',
+      '- {{announcementScope}}',
       '- Support never asks for your password, private keys, seed phrase or one-time codes.',
       '- We never ask you to send funds to a personal wallet.',
       '- We never promise guaranteed profit.',
@@ -587,7 +596,7 @@ const PT = {
     sat: [
       'SEGURANÇA NA ARBITRIX',
       '',
-      '- Os avisos oficiais vêm apenas deste canal.',
+      '- {{announcementScope}}',
       '- O suporte nunca pede sua senha, chaves privadas, frase de recuperação ou códigos de uso único.',
       '- Nunca pedimos que você envie fundos para uma carteira pessoal.',
       '- Nunca prometemos lucro garantido.',
@@ -798,7 +807,7 @@ const AR = {
     sat: [
       'السلامة مع Arbitrix',
       '',
-      '- الإعلانات الرسمية تصدر من هذه القناة فقط.',
+      '- {{announcementScope}}',
       '- الدعم لا يطلب أبدًا كلمة المرور أو المفاتيح الخاصة أو عبارة الاسترداد أو الرموز لمرة واحدة.',
       '- لا نطلب أبدًا إرسال الأموال إلى محفظة شخصية.',
       '- لا نعد أبدًا بأرباح مضمونة.',
@@ -912,6 +921,17 @@ function welcomeContactsBlock(labels, c) {
   return sections.join('\n\n');
 }
 
+/**
+ * The link lines shared by every `{{links}}` template.
+ *
+ * The AUDIENCE decides which community destination is promoted:
+ *   - `channel` (channel intro, channel weekly posts): the announcement channel,
+ *     exactly as before - channel publishing keeps its own content;
+ *   - everything else (group weekly posts): the official community group, so a
+ *     group post never sends members to the channel.
+ * The community link is a fixed official invite, so a group post always carries
+ * it even when no announcement URL is configured.
+ */
 function buildLinksBlock(locale, ctx) {
   const labels = labelsFor(locale);
   const c = ctx || {};
@@ -919,7 +939,11 @@ function buildLinksBlock(locale, ctx) {
   if (c.registerUrl) lines.push(labels.register + ': ' + c.registerUrl);
   if (c.howItWorksUrl) lines.push(labels.howItWorks + ': ' + c.howItWorksUrl);
   if (c.supportUrl) lines.push(labels.support + ': ' + c.supportUrl);
-  if (c.announcementUrl) lines.push(labels.announcements + ': ' + c.announcementUrl);
+  if (c.audience === 'channel') {
+    if (c.announcementUrl) lines.push(labels.announcements + ': ' + c.announcementUrl);
+  } else {
+    lines.push(labels.community + ': ' + OFFICIAL_GROUP_INVITE_URL);
+  }
   return lines.join('\n');
 }
 
@@ -940,7 +964,12 @@ function buildStepLines(locale, ctx) {
     partnerSupportLine: partnerSupportLines(labels, c),
     paymentSupportLine: paymentSupportLines(labels, c),
     welcomeContacts: welcomeContactsBlock(labels, c),
-    communitySection: communitySection(labels)
+    communitySection: communitySection(labels),
+    // Channel-audience content may say announcements live in the channel; a
+    // group post points at the community instead, so it never advertises it.
+    announcementScope: c.audience === 'channel'
+      ? labels.announcementScopeChannel
+      : labels.announcementScopeGroup
   };
 }
 
@@ -970,7 +999,9 @@ function buildButtons(locale, ctx, kind) {
   const c = ctx || {};
   const buttons = [];
   if (c.registerUrl) buttons.push({ text: labels.register, url: c.registerUrl });
-  if (c.announcementUrl) buttons.push({ text: labels.channel, url: c.announcementUrl });
+  // The channel button belongs to channel-audience content only: a group post must
+  // not offer a way into the channel it no longer promotes.
+  if (c.audience === 'channel' && c.announcementUrl) buttons.push({ text: labels.channel, url: c.announcementUrl });
   if (c.supportUrl) buttons.push({ text: labels.support, url: c.supportUrl });
   const alexUrl = c.partnerSupportAlexUrl || c.partnerSupportUrl;
   if (alexUrl) buttons.push({ text: b.partnerAlex, url: alexUrl });

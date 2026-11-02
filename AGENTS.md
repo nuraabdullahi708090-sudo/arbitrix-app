@@ -8067,3 +8067,45 @@ was created and no Telegram write call was executed in this pass.
   who completed a trade in an earlier session is therefore told "Complete at least
   1 trade before withdrawing" by the existing gate. Documented, not changed.
 - NOT committed / NOT pushed / NOT deployed; migration 045 remains unapplied.
+
+## Audience-specific community links in weekly posts (2026-11-02, branch feat/group-posts-community-link)
+- PR #158 fixed the WELCOME and START HERE messages but not the weekly calendar
+  posts: `buildLinksBlock()` still emitted `Official announcements:
+  https://t.me/ArbitrixAnnouncements` for EVERY audience, so a scheduled GROUP
+  weekly post kept promoting the channel.
+- FIX: the AUDIENCE now decides the community destination.
+  - `buildLinkContext(config, name, audience)` carries `audience` in the render
+    context (`'channel'` only when the caller says so, else `'group'`).
+  - `buildLinksBlock()`: `audience === 'channel'` -> the announcement-channel line
+    exactly as before; otherwise -> the official community group invite
+    (`OFFICIAL_GROUP_INVITE_URL`, always present, never config-dependent).
+  - `buildButtons()`: the `Official channel` button is emitted for
+    channel-audience content only, so a group post has no route into the channel.
+  - The `sat` weekly theme said "Official announcements come from this channel
+    only." in its BODY. That bullet is now `{{announcementScope}}`, resolved per
+    audience (channel keeps the sentence, group says "Official updates are posted
+    in our community group."), so no group render can carry channel wording.
+  - New labels (en/pt/ar): `community`, `announcementScopeChannel`,
+    `announcementScopeGroup`.
+- UNCHANGED: channelIntro copy and channel link, channel weekly content and the
+  channel button there, the 7-slot `DEFAULT_SCHEDULE`, idempotency keys, statuses,
+  `chat_id: null` (destination resolved at send time), group-only parking
+  (`group-only-mode: announcement channel inactive`), queue logic, ContentGuard,
+  economics and environment configuration.
+- Behaviour: a freshly seeded group post now reads
+  `Official community: https://t.me/+CF9kWr61sqs1MTY0`; a channel post still
+  reads `Official announcements: https://t.me/ArbitrixAnnouncements`.
+- KNOWN OPERATIONAL CONSEQUENCE: `telegram_marketing_posts.content` stores the
+  RENDERED text, so rows queued BEFORE this change keep whatever they were built
+  with (PR #158-era Start Here rows and weekly group rows still contain the
+  channel link). Re-seeding is date-keyed and does not rewrite existing rows;
+  affected rows must be cancelled/unscheduled and re-queued, which is a
+  deliberate operator action (documented, not automated).
+- Tests: new `tests/marketing_weekly_audience.test.js` (16) pins both audiences
+  across all locales and themes, the `sat` bullet, the buttons, the queue rows in
+  both group-only and full-schedule mode, and the worker's group-only parking.
+  `tests/welcome_group_link.test.js` / `tests/telegram_partner_contacts.test.js`
+  now render channel content with `audience: 'channel'` instead of relying on a
+  default. Full suite 2884/2885 (the single failure is the pre-existing
+  `how_it_works_video` master-asset check).
+- NOT merged, NOT deployed: requires approval.
