@@ -81,7 +81,7 @@ test('the recruitment keyboard offers official support and Alex only', () => {
 });
 
 test('the channel copy keeps official support, offers Alex, and lists both partners for payments', () => {
-    const channel = render('channelIntro', 'en', CTX);
+    const channel = render('channelIntro', 'en', Object.assign({}, CTX, { audience: 'channel' }));
     const urls = channel.buttons.map((b) => b.url);
     assert.ok(urls.includes(ALEX), 'Alex is the recruitment contact');
     assert.ok(!urls.includes(OLIVIA), 'a payment partner is not a recruitment button');
@@ -125,7 +125,7 @@ test('Olivia appears only in payment-support copy, never as a recruitment contac
         assert.ok(welcome.text.includes(LABELS[locale].welcomeContactNote), locale + ' the role split is stated');
         assert.strictEqual(welcome.text.split(OLIVIA).length - 1, 1, locale + ' Olivia appears exactly once');
         // ...and the payment block in the channel intro keeps both.
-        const channel = render('channelIntro', locale, CTX);
+        const channel = render('channelIntro', locale, Object.assign({}, CTX, { audience: 'channel' }));
         assert.ok(channel.text.includes(ALEX) && channel.text.includes(OLIVIA),
             locale + '/channelIntro payment help lists both payment partners');
         assert.ok(!JSON.stringify(channel.buttons).includes(OLIVIA),
