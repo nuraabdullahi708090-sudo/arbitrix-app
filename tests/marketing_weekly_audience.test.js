@@ -140,6 +140,22 @@ test('audience is the only thing that differs between a group and a channel post
     }
 });
 
+test('group content does not depend on the channel being configured', () => {
+    const withoutChannel = Object.assign({}, CONFIG, FACTS, { announcementUrl: '' });
+    for (const locale of LOCALES) {
+        for (const theme of WEEKLY_THEMES) {
+            const withUrl = render('weekly', locale, Object.assign({}, CONFIG, FACTS, { theme, audience: 'group' })).text;
+            const noUrl = render('weekly', locale, Object.assign({}, withoutChannel, { theme, audience: 'group' })).text;
+            assert.strictEqual(noUrl, withUrl, locale + '/' + theme + ': group output is configuration-independent');
+            assert.ok(noUrl.includes(GROUP), locale + '/' + theme + ': the community link is always present');
+        }
+        // Channel content keeps the old rule: no configured channel, no channel line.
+        const channelNoUrl = render('weekly', locale, Object.assign({}, withoutChannel, { theme: 'tue', audience: 'channel' }));
+        assert.ok(!channelNoUrl.text.includes(CHANNEL), locale + ': no dangling channel link');
+        assert.ok(!channelNoUrl.text.includes(GROUP), locale + ': the channel post still never promotes the group');
+    }
+});
+
 // ---------------------------------------------------------------------------
 // 4. channelIntro is unchanged
 // ---------------------------------------------------------------------------

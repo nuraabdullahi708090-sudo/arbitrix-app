@@ -8101,7 +8101,7 @@ was created and no Telegram write call was executed in this pass.
   channel link). Re-seeding is date-keyed and does not rewrite existing rows;
   affected rows must be cancelled/unscheduled and re-queued, which is a
   deliberate operator action (documented, not automated).
-- Tests: new `tests/marketing_weekly_audience.test.js` (16) pins both audiences
+- Tests: new `tests/marketing_weekly_audience.test.js` (17) pins both audiences
   across all locales and themes, the `sat` bullet, the buttons, the queue rows in
   both group-only and full-schedule mode, and the worker's group-only parking.
   `tests/welcome_group_link.test.js` / `tests/telegram_partner_contacts.test.js`
