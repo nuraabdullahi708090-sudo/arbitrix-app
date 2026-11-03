@@ -8224,3 +8224,92 @@ was created and no Telegram write call was executed in this pass.
 - KNOWN LIMITATION for management: the partner-programme copy states "20%" /
   "$100" as approved text; if `referral_config` is changed, the bot copy needs a
   matching update (the engine is deliberately dependency-free).
+
+
+## Deposit Tutorial Centre + In-App Tutorial Entry Points (2026-11-03, frontend + one static route)
+- Goal: give a customer who does not hold cryptocurrency a complete, honest path
+  from the deposit modal (and the withdrawal modal) to the official video
+  tutorials. Additive only: no deposit/withdrawal logic, no crediting, no schema,
+  no payment provider, no Telegram bot change.
+- NEW page `public/deposit-tutorials.html` (standalone, no session, no API call,
+  no invoice) served by `app.get('/deposit-tutorials', ...)` in server.js,
+  registered AFTER /how-it-works and BEFORE the SPA fallback (so the route does
+  not resolve to the app shell).
+  Content: "Don't Have Crypto Yet? Let's Get You Started." + supporting text,
+  3-step strip (choose a service -> buy USDT TRC20 -> send it to Arbitrix),
+  three tutorial cards, a third-party-services disclosure and a "Before you
+  send" safety block.
+- THE FOUR APPROVED LINKS (verbatim, and the ONLY destinations on the page):
+    Paybis        https://t.me/ArbitrixAnnouncements/17
+    Transak       https://t.me/ArbitrixAnnouncements/16
+    Trust Wallet  https://t.me/ArbitrixAnnouncements/18
+    Withdrawal    https://t.me/ArbitrixAnnouncements/19  (withdrawal modal only)
+- PLAYBACK FINDING (measured, not assumed): Telegram's official embed endpoint
+  (`https://t.me/<channel>/<id>?embed=1&mode=tme`) answers HTTP 200 with no
+  X-Frame-Options/CSP for all four posts, but in a real browser the widget
+  renders "Media is too big / VIEW IN TELEGRAM" instead of a player for these
+  files. Inline playback is therefore NOT reliable, so the cards use the
+  documented fallback: each card's "Watch Tutorial" is a plain anchor to the
+  original Telegram post (`target="_blank" rel="noopener noreferrer"`), with an
+  "Opens in Telegram" caption. No iframe, no third-party script, no fabricated
+  `.mp4` URL, and the page works with JavaScript disabled. The reason is
+  documented in the page comment so nobody re-adds an embed that cannot play.
+- The page has ONE bottom CTA ("Back to Arbitrix" -> `/`); the topbar repeats it.
+  There is deliberately no "Go to Deposit" button: `/` cannot open the deposit
+  modal directly (no deep link exists), so the page instead instructs the
+  customer in step 3 to open Deposit inside their account. The deposit-modal
+  CTA opens this page in a new tab, so the original deposit modal stays open.
+- LOCALIZATION of the new page: a self-contained dictionary (27 keys x 6 locales
+  en/es/pt/fr/ar/zh) using the app conventions - the shared `arbi_lang` key,
+  browser detection only when no choice is stored, and `dir=rtl` for Arabic.
+  The three service names are not translated.
+- DEPOSIT MODAL (public/index.html): `#depositTutorialsCard` sits inside
+  `#depositInputSection`, between the funding options and the verified-partner
+  panel. It states that a purchase is made through a supported third-party
+  service, names the three services as independent third parties, and its CTA
+  (`#depositTutorialsCta`, "Watch Deposit Tutorials") opens /deposit-tutorials in
+  a NEW TAB so the modal - and any invoice already generated - is never lost.
+  Display-only: no onclick, no input, no request, no invoice.
+- WITHDRAWAL MODAL: `#withdrawTutorialBox` inside `#withdrawForm` (between the
+  info box and the support link) offers "Watch Withdrawal Tutorial" ->
+  https://t.me/ArbitrixAnnouncements/19 plus a note that it opens in Telegram.
+  It never participates in the withdrawal request path.
+- i18n: 8 new app keys x 6 locales (`deposit.tutorials.title|body|cta|note`,
+  `withdraw.tutorial.title|body|cta|note`), inserted ASCII-safely with \uXXXX
+  escapes; the pre-existing non-ASCII code points were verified unchanged and
+  no U+FFFD was introduced. Dictionaries: 1592 -> 1600 keys/locale, identical
+  key sets, 0 empty, 0 duplicate keys, 0 placeholder-parity issues, 829
+  data-i18n references all defined.
+- TESTS: NEW `tests/deposit_tutorials_page.test.js` (20 tests): route + ordering
+  before the SPA fallback; page completeness (heading, supporting text, three
+  cards, exact post URLs, third-party disclosure, TRC20/secrets safety copy);
+  the honest-playback contract (no iframe, no embed URL, no fake MP4, reason
+  documented, anchors work without JS); page i18n parity (27 keys x6, RTL); the
+  eight app keys x6 and the 1600-key dictionary pin; the deposit CTA and the
+  withdrawal box placement, hrefs, target/rel and 44px tap targets; a
+  no-interference proof (the new markup contains no form control, no onclick
+  and no deposit/withdrawal call, and the withdrawal request handler never sees
+  the tutorial); the unchanged mechanics (amount/address inputs,
+  requestDepositAddress, submitWithdrawAPI, MIN_WITHDRAWAL 700,
+  PLATFORM_MIN_DEPOSIT_USD 100); and the mobile CSS contract.
+- PINS UPDATED for the intentional change: dictionary size 1592 -> 1600 in 15
+  test files; `landing_testimonials` BASE_OUTSIDE_TESTIMONIALS 1566 -> 1574;
+  `partners_page` INDEX_SHA256 re-pinned (its own comment allows this for an
+  approved homepage edit); `footer_support_contact` and `support_ui` now assert
+  that the SUPPORT bot URL is defined once, excluding the tutorial channel links
+  (a different destination) - the intent of both pins is unchanged.
+- VERIFICATION: `npm test` = 2949 tests, 2948 pass. The single failure is the
+  PRE-EXISTING `tests/how_it_works_video.test.js` "approved master is present"
+  check (the untracked build/ master is absent in this clone; identical before
+  this change). `node --check server.js` OK; all 8 inline index.html script
+  blocks and the new page script parse. Browser harness (puppeteer-core +
+  /usr/bin/chromium, real page, stubbed API) = 208/208 across en/es/ar/zh x
+  320/390/1280: one h1, three cards, three watch links per locale, no raw i18n
+  keys, 0 horizontal overflow, ar RTL, localized titles, no iframe, correct
+  absolute links opened in a new tab; plus the deposit modal (card visible,
+  correct href/target/rel/label) and the withdrawal box (href 19, no inputs),
+  with zero invoice/withdrawal requests made and no page errors.
+- DEPLOYMENT: no migration, no environment variable, no Render change. Just ship
+  the code (server.js + public/index.html + public/deposit-tutorials.html) and
+  the page is live at https://arbitrix.pro/deposit-tutorials.
+- NOT committed / NOT pushed / NOT deployed at the time of writing.

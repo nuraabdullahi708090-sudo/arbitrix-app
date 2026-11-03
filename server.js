@@ -11077,6 +11077,16 @@ app.get(['/business-registration', '/business-registration/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'business-registration.html'));
 });
 
+// Deposit tutorial centre: standalone page with the step-by-step video tutorials
+// for buying USDT through a supported third-party service (Paybis / Transak /
+// Trust Wallet) and sending it to an Arbitrix deposit address. Static content
+// only - it reads no session, touches no database and never creates an invoice.
+// Linked from the deposit modal and the withdrawal modal; registered BEFORE the
+// SPA fallback so /deposit-tutorials does not resolve to the app shell.
+app.get('/deposit-tutorials', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'deposit-tutorials.html'));
+});
+
 // Referral Partner acquisition page (Meta-ad landing): standalone, unlisted
 // marketing page. Static content only - it reads no session, touches no database
 // and exposes no customer data. The CTAs reuse the EXISTING ?action=create-account

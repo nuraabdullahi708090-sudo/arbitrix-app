@@ -7643,6 +7643,27 @@ function toggleFaq(btn) {
         </div>
       </div>
 
+      <!-- DEPOSIT TUTORIALS: third-party purchasing services.
+           For a customer who does not hold USDT yet. The CTA opens the
+           standalone tutorial centre (/deposit-tutorials) in a NEW TAB, so this
+           modal - and any invoice already generated - stays exactly as it is.
+           Display-only: it creates no invoice, sends no request and credits
+           nothing. Paybis / Transak / Trust Wallet are independent third-party
+           services; Arbitrix does not sell crypto or process card payments. -->
+      <div id="depositTutorialsCard" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:14px;margin:16px 0;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <i class="fas fa-graduation-cap" style="color:#3B82F6;font-size:16px;margin-top:2px;"></i>
+          <div style="min-width:0;">
+            <strong style="display:block;font-size:12px;color:#E8EDF5;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.title">Don't have cryptocurrency yet?</strong>
+            <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:6px 0 10px;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.body">You can purchase cryptocurrency through supported third-party services and transfer it to your Arbitrix account. New to crypto? Our video tutorials will guide you.</p>
+            <a id="depositTutorialsCta" class="btn btn-secondary" href="/deposit-tutorials" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 14px;font-size:12px;font-weight:700;text-decoration:none;border-radius:10px;">
+              <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="deposit.tutorials.cta">Watch Deposit Tutorials</span>
+            </a>
+            <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.note">Paybis, Transak and Trust Wallet are independent third-party services. Arbitrix does not sell cryptocurrency or process card payments directly.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- VERIFIED PARTNER PANEL (Option 2). Contact details only: a partner
            cannot credit an account, and no Telegram message, screenshot or
            partner confirmation is ever treated as proof of payment. The
@@ -8042,6 +8063,17 @@ function toggleFaq(btn) {
         <div id="withdrawForm">
             <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:12px;"><span data-i18n="withdraw.available">Available</span><span id="withdrawBalanceDisplay">$0.00</span></div>
             <div id="withdrawInfoBox" style="background:var(--warning-dim);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;"><i class="fas fa-info-circle"></i> <span id="withdrawInfoText" data-i18n="withdraw.info">Requires 1 trade completed | Withdrawal processing usually takes 15–30 minutes.</span></div>
+            <!-- WITHDRAWAL TUTORIAL: the same tutorial published in the
+                 official Telegram channel. Opens in a new tab. Display-only and
+                 never part of the withdrawal request path. -->
+            <div id="withdrawTutorialBox" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:12px;margin-bottom:12px;">
+                <strong style="display:block;font-size:11px;color:#E8EDF5;overflow-wrap:anywhere;" data-i18n="withdraw.tutorial.title">Need help withdrawing your funds?</strong>
+                <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:4px 0 8px;overflow-wrap:anywhere;" data-i18n="withdraw.tutorial.body">Watch our step-by-step Arbitrix withdrawal tutorial.</p>
+                <a id="withdrawTutorialCta" class="btn btn-secondary" href="https://t.me/ArbitrixAnnouncements/19" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 12px;font-size:12px;font-weight:700;text-decoration:none;border-radius:10px;">
+                    <i class="fab fa-telegram" aria-hidden="true"></i> <span data-i18n="withdraw.tutorial.cta">Watch Withdrawal Tutorial</span>
+                </a>
+                <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;overflow-wrap:anywhere;" data-i18n="withdraw.tutorial.note">The tutorial opens in Telegram in a new tab.</p>
+            </div>
             <div style="text-align:center;margin-bottom:12px;">
                 <button type="button" onclick="openSupportModal()" style="background:none;border:none;color:var(--text-secondary);font-size:11px;cursor:pointer;text-decoration:underline;">
                     <i class="fas fa-headset"></i> <span data-i18n="support.needHelpWithdraw">Need help with a withdrawal?</span>
@@ -9422,6 +9454,14 @@ const TRANSLATIONS = {
         'deposit.demoNotice.afterSwitch': 'Funding methods and the deposit form appear after you switch to Live Mode.',
         'deposit.liveNotice.title': 'Depositing to your LIVE balance',
         'deposit.liveNotice.body': 'This deposit is added to your LIVE / real balance. It is separate from demo funds and from your promotional credit.',
+        'deposit.tutorials.title': 'Don\'t have cryptocurrency yet?',
+        'deposit.tutorials.body': 'You can purchase cryptocurrency through supported third-party services and transfer it to your Arbitrix account. New to crypto? Our video tutorials will guide you.',
+        'deposit.tutorials.cta': 'Watch Deposit Tutorials',
+        'deposit.tutorials.note': 'Paybis, Transak and Trust Wallet are independent third-party services. Arbitrix does not sell cryptocurrency or process card payments directly.',
+        'withdraw.tutorial.title': 'Need help withdrawing your funds?',
+        'withdraw.tutorial.body': 'Watch our step-by-step Arbitrix withdrawal tutorial.',
+        'withdraw.tutorial.cta': 'Watch Withdrawal Tutorial',
+        'withdraw.tutorial.note': 'The tutorial opens in Telegram in a new tab.',
         'onboarding.title': 'Welcome to Arbitrix',
         'onboarding.subtitle': 'Here\'s how to get started.',
         'onboarding.primary': 'Explore Demo Mode',
@@ -11034,6 +11074,14 @@ const TRANSLATIONS = {
         'deposit.demoNotice.afterSwitch': 'Los m\u00e9todos de fondeo y el formulario de dep\u00f3sito aparecen al cambiar a modo Live.',
         'deposit.liveNotice.title': 'Depositando en tu saldo LIVE',
         'deposit.liveNotice.body': 'Este dep\u00f3sito se a\u00f1ade a tu saldo LIVE / real. Es independiente de los fondos demo y de tu cr\u00e9dito promocional.',
+        'deposit.tutorials.title': '\u00bfA\u00fan no tienes criptomonedas?',
+        'deposit.tutorials.body': 'Puedes comprar criptomonedas a trav\u00e9s de servicios externos compatibles y transferirlas a tu cuenta de Arbitrix. \u00bfEres nuevo en cripto? Nuestros tutoriales en v\u00eddeo te guiar\u00e1n.',
+        'deposit.tutorials.cta': 'Ver tutoriales de dep\u00f3sito',
+        'deposit.tutorials.note': 'Paybis, Transak y Trust Wallet son servicios independientes de terceros. Arbitrix no vende criptomonedas ni procesa pagos con tarjeta directamente.',
+        'withdraw.tutorial.title': '\u00bfNecesitas ayuda para retirar tus fondos?',
+        'withdraw.tutorial.body': 'Mira nuestro tutorial paso a paso para retirar en Arbitrix.',
+        'withdraw.tutorial.cta': 'Ver tutorial de retiro',
+        'withdraw.tutorial.note': 'El tutorial se abre en Telegram en una nueva pesta\u00f1a.',
         'onboarding.title': 'Bienvenido a Arbitrix',
         'onboarding.subtitle': 'Así puedes empezar.',
         'onboarding.primary': 'Explorar el Modo Demo',
@@ -12647,6 +12695,14 @@ const TRANSLATIONS = {
         'deposit.demoNotice.afterSwitch': 'Os m\u00e9todos de dep\u00f3sito e o formul\u00e1rio aparecem depois que voc\u00ea muda para o modo Live.',
         'deposit.liveNotice.title': 'Depositando no seu saldo LIVE',
         'deposit.liveNotice.body': 'Este dep\u00f3sito \u00e9 adicionado ao seu saldo LIVE / real. \u00c9 separado dos fundos demo e do seu cr\u00e9dito promocional.',
+        'deposit.tutorials.title': 'Ainda n\u00e3o tem criptomoedas?',
+        'deposit.tutorials.body': 'Voc\u00ea pode comprar criptomoedas por meio de servi\u00e7os de terceiros compat\u00edveis e transferi-las para a sua conta Arbitrix. Novo em cripto? Nossos tutoriais em v\u00eddeo v\u00e3o orientar voc\u00ea.',
+        'deposit.tutorials.cta': 'Ver tutoriais de dep\u00f3sito',
+        'deposit.tutorials.note': 'Paybis, Transak e Trust Wallet s\u00e3o servi\u00e7os independentes de terceiros. A Arbitrix n\u00e3o vende criptomoedas nem processa pagamentos com cart\u00e3o diretamente.',
+        'withdraw.tutorial.title': 'Precisa de ajuda para sacar seus fundos?',
+        'withdraw.tutorial.body': 'Assista ao nosso tutorial passo a passo de saque da Arbitrix.',
+        'withdraw.tutorial.cta': 'Ver tutorial de saque',
+        'withdraw.tutorial.note': 'O tutorial abre no Telegram em uma nova aba.',
         'onboarding.title': 'Bem-vindo à Arbitrix',
         'onboarding.subtitle': 'Veja como começar.',
         'onboarding.primary': 'Explorar o Modo Demo',
@@ -14260,6 +14316,14 @@ const TRANSLATIONS = {
         'deposit.demoNotice.afterSwitch': 'Les m\u00e9thodes de financement et le formulaire de d\u00e9p\u00f4t apparaissent apr\u00e8s le passage en mode Live.',
         'deposit.liveNotice.title': 'D\u00e9p\u00f4t sur votre solde LIVE',
         'deposit.liveNotice.body': 'Ce d\u00e9p\u00f4t est ajout\u00e9 \u00e0 votre solde LIVE / r\u00e9el. Il est distinct des fonds d\u00e9mo et de votre cr\u00e9dit promotionnel.',
+        'deposit.tutorials.title': 'Pas encore de cryptomonnaies ?',
+        'deposit.tutorials.body': 'Vous pouvez acheter des cryptomonnaies via des services tiers compatibles et les transf\u00e9rer sur votre compte Arbitrix. Vous d\u00e9butez ? Nos tutoriels vid\u00e9o vous guident.',
+        'deposit.tutorials.cta': 'Voir les tutoriels de d\u00e9p\u00f4t',
+        'deposit.tutorials.note': 'Paybis, Transak et Trust Wallet sont des services tiers ind\u00e9pendants. Arbitrix ne vend pas de cryptomonnaies et ne traite pas directement de paiements par carte.',
+        'withdraw.tutorial.title': 'Besoin d\'aide pour retirer vos fonds ?',
+        'withdraw.tutorial.body': 'Regardez notre tutoriel pas \u00e0 pas pour retirer sur Arbitrix.',
+        'withdraw.tutorial.cta': 'Voir le tutoriel de retrait',
+        'withdraw.tutorial.note': 'Le tutoriel s\'ouvre dans Telegram dans un nouvel onglet.',
         'onboarding.title': 'Bienvenue sur Arbitrix',
         'onboarding.subtitle': 'Voici comment commencer.',
         'onboarding.primary': 'Explorer le mode démo',
@@ -15873,6 +15937,14 @@ const TRANSLATIONS = {
         'deposit.demoNotice.afterSwitch': '\u062a\u0638\u0647\u0631 \u0637\u0631\u0642 \u0627\u0644\u062a\u0645\u0648\u064a\u0644 \u0648\u0646\u0645\u0648\u0630\u062c \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0628\u0639\u062f \u0627\u0644\u062a\u0628\u062f\u064a\u0644 \u0625\u0644\u0649 \u0648\u0636\u0639 Live.',
         'deposit.liveNotice.title': '\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0631\u0635\u064a\u062f\u0643 LIVE',
         'deposit.liveNotice.body': '\u064a\u064f\u0636\u0627\u0641 \u0647\u0630\u0627 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0625\u0644\u0649 \u0631\u0635\u064a\u062f\u0643 LIVE / \u0627\u0644\u062d\u0642\u064a\u0642\u064a. \u0648\u0647\u0648 \u0645\u0646\u0641\u0635\u0644 \u0639\u0646 \u0623\u0645\u0648\u0627\u0644 Demo \u0648\u0639\u0646 \u0631\u0635\u064a\u062f\u0643 \u0627\u0644\u062a\u0631\u0648\u064a\u062c\u064a.',
+        'deposit.tutorials.title': '\u0644\u064a\u0633 \u0644\u062f\u064a\u0643 \u0639\u0645\u0644\u0627\u062a \u0631\u0642\u0645\u064a\u0629 \u0628\u0639\u062f\u061f',
+        'deposit.tutorials.body': '\u064a\u0645\u0643\u0646\u0643 \u0634\u0631\u0627\u0621 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0639\u0628\u0631 \u062e\u062f\u0645\u0627\u062a \u062e\u0627\u0631\u062c\u064a\u0629 \u0645\u062f\u0639\u0648\u0645\u0629 \u0648\u062a\u062d\u0648\u064a\u0644\u0647\u0627 \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Arbitrix. \u0647\u0644 \u0623\u0646\u062a \u062c\u062f\u064a\u062f \u0641\u064a \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629\u061f \u0633\u062a\u0633\u0627\u0639\u062f\u0643 \u062f\u0631\u0648\u0633\u0646\u0627 \u0627\u0644\u0645\u0635\u0648\u0631\u0629.',
+        'deposit.tutorials.cta': '\u0645\u0634\u0627\u0647\u062f\u0629 \u062f\u0631\u0648\u0633 \u0627\u0644\u0625\u064a\u062f\u0627\u0639',
+        'deposit.tutorials.note': 'Paybis \u0648Transak \u0648Trust Wallet \u062e\u062f\u0645\u0627\u062a \u0645\u0633\u062a\u0642\u0644\u0629 \u062a\u0627\u0628\u0639\u0629 \u0644\u062c\u0647\u0627\u062a \u062e\u0627\u0631\u062c\u064a\u0629. \u0644\u0627 \u062a\u0628\u064a\u0639 Arbitrix \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0648\u0644\u0627 \u062a\u0639\u0627\u0644\u062c \u0627\u0644\u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0628\u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629.',
+        'withdraw.tutorial.title': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0633\u062d\u0628 \u0623\u0645\u0648\u0627\u0644\u0643\u061f',
+        'withdraw.tutorial.body': '\u0634\u0627\u0647\u062f \u062f\u0631\u0633\u0646\u0627 \u062e\u0637\u0648\u0629 \u0628\u062e\u0637\u0648\u0629 \u0644\u0633\u062d\u0628 \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0645\u0646 Arbitrix.',
+        'withdraw.tutorial.cta': '\u0645\u0634\u0627\u0647\u062f\u0629 \u062f\u0631\u0633 \u0627\u0644\u0633\u062d\u0628',
+        'withdraw.tutorial.note': '\u064a\u0641\u062a\u062d \u0627\u0644\u062f\u0631\u0633 \u0641\u064a Telegram \u0641\u064a \u0639\u0644\u0627\u0645\u0629 \u062a\u0628\u0648\u064a\u0628 \u062c\u062f\u064a\u062f\u0629.',
         'onboarding.title': 'مرحبًا بك في Arbitrix',
         'onboarding.subtitle': 'إليك كيف تبدأ.',
         'onboarding.primary': 'استكشاف الوضع التجريبي',
@@ -17486,6 +17558,14 @@ const TRANSLATIONS = {
         'deposit.demoNotice.afterSwitch': '\u5207\u6362\u5230\u5b9e\u76d8\u6a21\u5f0f\u540e\u4f1a\u663e\u793a\u5165\u91d1\u65b9\u5f0f\u548c\u5b58\u6b3e\u8868\u5355\u3002',
         'deposit.liveNotice.title': '\u5165\u91d1\u81f3\u60a8\u7684 LIVE \u4f59\u989d',
         'deposit.liveNotice.body': '\u8be5\u5165\u91d1\u4f1a\u6dfb\u52a0\u5230\u60a8\u7684 LIVE / \u771f\u5b9e\u4f59\u989d\uff0c\u4e0e\u6f14\u793a\u8d44\u91d1\u548c\u4fc3\u9500\u989d\u5ea6\u76f8\u4e92\u72ec\u7acb\u3002',
+        'deposit.tutorials.title': '\u8fd8\u6ca1\u6709\u52a0\u5bc6\u8d27\u5e01\uff1f',
+        'deposit.tutorials.body': '\u60a8\u53ef\u4ee5\u901a\u8fc7\u53d7\u652f\u6301\u7684\u7b2c\u4e09\u65b9\u670d\u52a1\u8d2d\u4e70\u52a0\u5bc6\u8d27\u5e01\uff0c\u5e76\u5c06\u5176\u8f6c\u5165\u60a8\u7684 Arbitrix \u8d26\u6237\u3002\u521a\u63a5\u89e6\u52a0\u5bc6\u8d27\u5e01\uff1f\u6211\u4eec\u7684\u89c6\u9891\u6559\u7a0b\u4f1a\u5f15\u5bfc\u60a8\u3002',
+        'deposit.tutorials.cta': '\u89c2\u770b\u5165\u91d1\u6559\u7a0b',
+        'deposit.tutorials.note': 'Paybis\u3001Transak \u548c Trust Wallet \u662f\u72ec\u7acb\u7684\u7b2c\u4e09\u65b9\u670d\u52a1\u3002Arbitrix \u4e0d\u76f4\u63a5\u51fa\u552e\u52a0\u5bc6\u8d27\u5e01\uff0c\u4e5f\u4e0d\u76f4\u63a5\u5904\u7406\u94f6\u884c\u5361\u652f\u4ed8\u3002',
+        'withdraw.tutorial.title': '\u9700\u8981\u63d0\u73b0\u5e2e\u52a9\u5417\uff1f',
+        'withdraw.tutorial.body': '\u89c2\u770b\u6211\u4eec\u7684 Arbitrix \u63d0\u73b0\u5206\u6b65\u6559\u7a0b\u3002',
+        'withdraw.tutorial.cta': '\u89c2\u770b\u63d0\u73b0\u6559\u7a0b',
+        'withdraw.tutorial.note': '\u6559\u7a0b\u5c06\u5728\u65b0\u6807\u7b7e\u9875\u4e2d\u6253\u5f00 Telegram\u3002',
         'onboarding.title': '欢迎来到 Arbitrix',
         'onboarding.subtitle': '您可以这样开始。',
         'onboarding.primary': '体验演示模式',
