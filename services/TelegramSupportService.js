@@ -2009,6 +2009,28 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * durable and timestamped: a LATER human reply starts a new handoff (see
    * isHumanHandlingConversation).
    */
+  /**
+   * A human replied: mark the conversation as under human control.
+   *
+   * Best effort and never throws - the operator's message has already been
+   * delivered by the time this runs.
+   */
+  async function markHumanActive(conversation) {
+    try {
+      const current = await loadConversationState(conversation);
+      await saveConversationState(conversation, Object.assign({}, current, {
+        humanActiveAt: new Date().toISOString(),
+        // A reply after a close starts a NEW takeover, so the previous
+        // resolution must no longer count as "resolved".
+        handoffResolvedAt: null,
+        handoffResolvedMessageId: null
+      }));
+    } catch (error) {
+      warn('human takeover could not be recorded: '
+        + scrub(error && error.message ? error.message : error));
+    }
+  }
+
   async function markHumanHandoffResolved(conversation) {
     try {
       const current = await loadConversationState(conversation);
@@ -2033,7 +2055,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         stage: 'closed',
         handoffRequestedAt: null,
         handoffResolvedAt: new Date().toISOString(),
-        handoffResolvedMessageId: resolvedMessageId
+        handoffResolvedMessageId: resolvedMessageId,
+        humanActiveAt: null
       }));
     } catch (error) {
       warn('conversation handoff could not be marked resolved: '
@@ -2580,13 +2603,21 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     if (!store || typeof store.getLatestMessageByConversation !== 'function') return false;
     try {
       const latest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
+      const state = await loadConversationState(conversation);
+      
+      // A HUMAN TAKEOVER LASTS UNTIL IT IS CLOSED. `humanActiveAt` is written when
+      // an operator actually replies and cleared by `/close`, so the bot stays silent
+      // even after the customer sends several follow-up messages - the "latest
+      // message is from an agent" test alone only covered the first one. A close
+      // clears the flag, and a later human reply starts a new takeover.
+      if (state.humanActiveAt && !state.handoffResolvedAt) return true;
+      
       if (!latest || latest.direction !== DIRECTION_AGENT) return false;
       // Automation resumes after an operator closes the conversation
       // (`/close <conversation>` writes handoffResolvedAt). The resolution must be
       // NEWER than the last agent message: a later human reply starts a new
       // handoff and suppression applies again.
-      const state = await loadConversationState(conversation);
-      // Preferred test: MESSAGE IDENTITY. `markHumanHandoffResolved` records the
+// Preferred test: MESSAGE IDENTITY. `markHumanHandoffResolved` records the
       // last human message id at the moment of the close, so a later human reply
       // (a higher id) re-applies suppression and nothing else does - no clock
       // comparison, no skew, no "resumed but still silent" contradiction.
@@ -2874,6 +2905,33 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       };
     }
 
+    // Customer commands answered from the STORED conversation state. Placed AFTER
+    // the human-handoff branch on purpose: while a human is handling the chat the
+    // bot stays silent, commands included, so it can never talk over the operator.
+    if (command && (command.name === 'tutorial' || command.name === 'progress' || command.name === 'next')) {
+      let commandPlan = null;
+      try {
+        commandPlan = engine.planCommand(command.name, { state: priorState });
+      } catch (error) {
+        warn('conversation command failed; falling back to the normal reply: '
+          + scrub(error && error.message ? error.message : error));
+      }
+      if (commandPlan) {
+        const rendered = renderPlan(language, commandPlan);
+        if (rendered) {
+          markStage('reply:command-' + command.name);
+          await replyToChat(route.chatId, rendered);
+          const commandState = Object.assign({}, commandPlan.nextState, {
+            lastUpdateId: Number.isFinite(updateIdNum) ? updateIdNum : priorState.lastUpdateId
+          });
+          await saveConversationState(conversation, commandState);
+          if (commandPlan.tutorial) stats.tutorialLinksSent += 1;
+          markStage('done:command-' + command.name);
+          return { handled: true, action: 'command-' + command.name };
+        }
+      }
+    }
+
     // The dialogue layer decides the reply from the message AND the question the
     // bot asked before it. A plan can be "handled" (procedural reply), or it can
     // ask the approved-knowledge/AI layer to answer a factual question.
@@ -3121,6 +3179,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           const translated = await translateAdminReply(conversation, body);
           // A human operator typed this -> 'agent', never 'bot'.
           await sendOutbound(conversation, translated.text, DIRECTION_AGENT);
+          // Record the takeover so suppression lasts until an explicit `/close`, not
+          // just until the customer's next message (best effort: a state problem must
+          // never block the operator's reply).
+          await markHumanActive(conversation);
           await transport.sendMessage(route.chatId, translated.notice
             ? `Sent to chat ${conversation.telegram_chat_id}. ${translated.notice}`
             : `Sent to chat ${conversation.telegram_chat_id}.`);
