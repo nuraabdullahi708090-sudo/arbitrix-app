@@ -7714,27 +7714,6 @@ function toggleFaq(btn) {
         </div>
       </div>
 
-      <!-- DEPOSIT TUTORIALS: third-party purchasing services.
-           For a customer who does not hold USDT yet. The CTA opens the
-           standalone tutorial centre (/deposit-tutorials) in a NEW TAB, so this
-           modal - and any invoice already generated - stays exactly as it is.
-           Display-only: it creates no invoice, sends no request and credits
-           nothing. Paybis / Transak / Trust Wallet are independent third-party
-           services; Arbitrix does not sell crypto or process card payments. -->
-      <div id="depositTutorialsCard" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:14px;margin:16px 0;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <i class="fas fa-graduation-cap" style="color:#3B82F6;font-size:16px;margin-top:2px;"></i>
-          <div style="min-width:0;">
-            <strong style="display:block;font-size:12px;color:#E8EDF5;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.title">Don't have cryptocurrency yet?</strong>
-            <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:6px 0 10px;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.body">You can purchase cryptocurrency through supported third-party services and transfer it to your Arbitrix account. New to crypto? Our video tutorials will guide you.</p>
-            <a id="depositTutorialsCta" class="btn btn-secondary" href="/deposit-tutorials" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 14px;font-size:12px;font-weight:700;text-decoration:none;border-radius:10px;">
-              <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="deposit.tutorials.cta">Watch Deposit Tutorials</span>
-            </a>
-            <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.note">Paybis, Transak and Trust Wallet are independent third-party services. Arbitrix does not sell cryptocurrency or process card payments directly.</p>
-          </div>
-        </div>
-      </div>
-
       <!-- VERIFIED PARTNER PANEL (Option 2). Contact details only: a partner
            cannot credit an account, and no Telegram message, screenshot or
            partner confirmation is ever treated as proof of payment. The
@@ -8045,6 +8024,27 @@ function toggleFaq(btn) {
         <span id="depositHistoryCount" style="background:var(--border);padding:2px 8px;border-radius:10px;">0</span>
       </div>
       <div id="depositHistoryList" style="font-size:10px;text-align:center;color:var(--text-secondary);" data-i18n="deposit.noDeposits">No deposits yet</div>
+    </div>
+
+    <!-- DEPOSIT TUTORIALS: third-party purchasing services.
+         For a customer who does not hold USDT yet. The CTA opens the
+         standalone tutorial centre (/deposit-tutorials) in a NEW TAB, so this
+         modal - and any invoice already generated - stays exactly as it is.
+         Display-only: it creates no invoice, sends no request and credits
+         nothing. Paybis / Transak / Trust Wallet are independent third-party
+         services; Arbitrix does not sell crypto or process card payments. -->
+    <div id="depositTutorialsCard" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:14px;margin:16px 0;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <i class="fas fa-graduation-cap" style="color:#3B82F6;font-size:16px;margin-top:2px;"></i>
+        <div style="min-width:0;">
+          <strong style="display:block;font-size:12px;color:#E8EDF5;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.title">Don't have cryptocurrency yet?</strong>
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:6px 0 10px;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.body">You can purchase cryptocurrency through supported third-party services and transfer it to your Arbitrix account. New to crypto? Our video tutorials will guide you.</p>
+          <a id="depositTutorialsCta" class="btn btn-secondary" href="/deposit-tutorials" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 14px;font-size:12px;font-weight:700;text-decoration:none;border-radius:10px;">
+            <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="deposit.tutorials.cta">Watch Deposit Tutorials</span>
+          </a>
+          <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.note">Paybis, Transak and Trust Wallet are independent third-party services. Arbitrix does not sell cryptocurrency or process card payments directly.</p>
+        </div>
+      </div>
     </div>
 
     <!-- Hidden inputs -->
