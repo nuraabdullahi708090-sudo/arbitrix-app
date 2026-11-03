@@ -88,6 +88,18 @@ const NOTIFICATION_STATUS = Object.freeze({
  */
 const HANDOFF_CLOCK_SKEW_TOLERANCE_MS = 60000;
 
+/**
+ * How long a process may trust its own copy of the dialogue state before it
+ * re-reads the durable `context` row (migration 047).
+ *
+ * A cached copy makes a short reply fast, but it must not be authoritative
+ * forever: with more than one process (a rolling deploy, or a second replica) the
+ * process that did NOT handle `/close` would otherwise keep suppressing a
+ * conversation the operator has already resolved. 45s bounds that window without
+ * adding a database read to every message.
+ */
+const STATE_CACHE_TTL_MS = 45000;
+
 // NOTE (conversation status): this service does NOT write
 // telegram_support_conversations.status. The live table's CHECK rejected the
 // legacy 'escalated' literal with 23514 and its allowed values cannot be read
@@ -1276,7 +1288,7 @@ function isDepositAnswer(reply) {
 
 function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI,
                                   translator, onNewMembers, marketing, linkAccount, unlinkAccount,
-                                  depositTutorialUrl, conversationEngine }) {
+                                  depositTutorialUrl, conversationEngine, stateCacheTtlMs }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -1309,10 +1321,16 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // is the live copy for the current process and is also what keeps short replies
   // working in an environment where the migration has not been applied yet.
   const stateCache = createLimitedMap({ max: 1000 });
+  // Tests pass 0 to force a durable re-read on every load; production uses the
+  // module default. An invalid value falls back to the default.
+  const stateTtlMs = Number.isFinite(Number(stateCacheTtlMs)) && Number(stateCacheTtlMs) >= 0
+    ? Number(stateCacheTtlMs)
+    : STATE_CACHE_TTL_MS;
   const engine = conversationEngine && typeof conversationEngine.planTurn === 'function'
     ? conversationEngine
     : ConversationEngine;
   let contextPersistenceDisabled = false;
+  let stateRefreshWarned = false;
 
   // Secret-free delivery telemetry: enough to locate the exact failing stage of
   // a delivery without ever recording a token, secret, JWT or message text.
@@ -1389,7 +1407,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     tutorialLinksSent: 0,
     // True while the durable context column is writable; false means migration
     // 047 is absent (or the write failed) and state lives in this process only.
-    conversationStatePersisted: true
+    conversationStatePersisted: true,
+    // Durable re-reads after the cache expired (and skipped stale writes), so an
+    // operator can tell a stale-cache problem from a storage problem.
+    stateRefreshes: 0,
+    staleStateWritesSkipped: 0
   };
 
   // Removes the bot token AND any account-linking payload (`lk_...`) from a log
@@ -1824,28 +1846,120 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     return 'chat:' + String(conversation && conversation.telegram_chat_id ? conversation.telegram_chat_id : '');
   }
 
+  function isContextObject(value) {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  /**
+   * The durable copy of the state, or `undefined` when it cannot be read.
+   *
+   * `undefined` (as opposed to `null`) is deliberate: it means "no answer", which
+   * is what lets the caller keep a valid cached copy instead of wiping it. A row
+   * without a `context` column (migration 047 not applied) also resolves to
+   * `undefined`, so the feature keeps working from the cache alone.
+   */
+  async function readDurableState(conversation) {
+    const chatId = conversation && conversation.telegram_chat_id;
+    if (chatId !== undefined && chatId !== null
+        && store && typeof store.getConversationByChatId === 'function') {
+      try {
+        const row = await store.getConversationByChatId(chatId);
+        if (row && isContextObject(row.context)) return row.context;
+      } catch (error) {
+        // Keep the cached copy: a storage blip must not reset a live conversation.
+        if (!stateRefreshWarned) {
+          stateRefreshWarned = true;
+          warn('conversation state could not be refreshed from the database; '
+            + 'keeping the in-process copy: ' + scrub(error && error.message ? error.message : error));
+        }
+      }
+    }
+    // The row this request already loaded (it is fetched once per update).
+    if (conversation && isContextObject(conversation.context)) return conversation.context;
+    return undefined;
+  }
+
   /**
    * Read the conversation's dialogue state.
    *
-   * The in-process cache wins while this process holds it (it is always at least
-   * as new as the row it wrote), and the stored `context` column is the durable
-   * fallback - which is what makes the state survive a restart or a redelivery
-   * after a deploy. Before migration 047 is applied only the cache exists, so the
-   * feature keeps working without the column.
+   * A FRESH cache entry is authoritative (fast path, no database read). Once it
+   * is older than the TTL the durable `context` row is re-read, which is what
+   * makes a resolution written by ANOTHER process visible here; and the stored
+   * row is also what makes the state survive a restart or a deploy. A failed
+   * re-read keeps the cached copy in use.
    * Never throws: a malformed payload resolves to an empty state.
    */
   async function loadConversationState(conversation) {
-    const cached = stateCache.get(stateKey(conversation));
-    if (cached) return engine.normalizeState(cached);
-    const rowContext = conversation && conversation.context
-      && typeof conversation.context === 'object' && !Array.isArray(conversation.context)
-      ? conversation.context
-      : null;
-    return engine.normalizeState(rowContext);
+    const key = stateKey(conversation);
+    const cached = stateCache.get(key);
+    const cachedAt = cached ? Number(cached.cachedAt) : NaN;
+    if (cached && Number.isFinite(cachedAt) && (Date.now() - cachedAt) < stateTtlMs) {
+      return engine.normalizeState(cached.state);
+    }
+
+    const durable = await readDurableState(conversation);
+    if (durable !== undefined) {
+      // The row is the SHARED source of truth, so it wins on refresh. Note this is
+      // deliberately NOT filtered against the cached copy: an operator `/close`
+      // keeps the conversation's `lastUpdateId` (it starts no new update), so the
+      // resolution can legitimately carry an id equal to or lower than this
+      // process's last message - rejecting it here would keep the customer silent.
+      const normalized = engine.normalizeState(durable);
+      stateCache.set(key, { state: normalized, cachedAt: Date.now() });
+      stats.stateRefreshes += 1;
+      return normalized;
+    }
+
+    if (cached) return engine.normalizeState(cached.state);
+    return engine.emptyState();
+  }
+
+  /** Numeric `lastUpdateId` of a state, or null when it is missing/invalid. */
+  function stateUpdateId(state) {
+    const value = state && state.lastUpdateId;
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  /** True when `candidate` is an OLDER snapshot than `reference`. */
+  function isOlderState(candidate, reference) {
+    const candidateId = stateUpdateId(candidate);
+    const referenceId = stateUpdateId(reference);
+    if (candidateId === null || referenceId === null) return false;
+    return candidateId < referenceId;
+  }
+
+  // One promise chain per conversation, so two saves for the same conversation
+  // are decided AND written in a defined order. Without it the guard alone is not
+  // enough: two saves can both pass the check and then reach the database out of
+  // order, letting the older snapshot land last.
+  const stateSaveChains = new Map();
+
+  function withStateSaveLock(key, task) {
+    const previous = stateSaveChains.get(key) || Promise.resolve();
+    // `then(task, task)` so a failed earlier save never blocks the next one.
+    const result = previous.then(task, task);
+    const tail = result.then(() => {}, () => {});
+    stateSaveChains.set(key, tail);
+    tail.then(() => {
+      if (stateSaveChains.get(key) === tail) stateSaveChains.delete(key);
+    });
+    return result;
   }
 
   /**
    * Persist the dialogue state.
+   *
+   * MONOTONIC AND SERIALIZED. Two updates for the same conversation can be
+   * handled concurrently (each webhook call is independent), so a slower EARLIER
+   * update can finish last. Writing it blindly would rewind the conversation -
+   * lose the deposit method the customer chose in the newer update, and move
+   * `lastUpdateId` backwards so a redelivery is processed twice. Saves for one
+   * conversation therefore run one at a time, and a save whose `lastUpdateId` is
+   * lower than the newest state already applied is skipped. Equal ids are still
+   * written (the idempotent retry / `/close` path), and a state without a usable
+   * id is always written.
    *
    * Best effort by design: the customer reply must never fail because the state
    * column is missing (migration 047 not applied) or the write errored. The first
@@ -1853,8 +1967,23 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * cache keeps the conversation coherent meanwhile.
    */
   async function saveConversationState(conversation, nextState) {
+    const key = stateKey(conversation);
     const normalized = engine.normalizeState(nextState);
-    stateCache.set(stateKey(conversation), normalized);
+    return withStateSaveLock(key, () => persistConversationState(conversation, key, normalized));
+  }
+
+  async function persistConversationState(conversation, key, normalized) {
+    const cached = stateCache.get(key);
+    const baseline = cached
+      ? cached.state
+      : engine.normalizeState(conversation && conversation.context);
+    if (isOlderState(normalized, baseline)) {
+      stats.staleStateWritesSkipped += 1;
+      markStage('state:stale-write-skipped');
+      return engine.normalizeState(baseline);
+    }
+
+    stateCache.set(key, { state: normalized, cachedAt: Date.now() });
     if (!conversation || conversation.id === undefined || conversation.id === null) {
       return normalized;
     }

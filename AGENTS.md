@@ -8420,3 +8420,60 @@ was created and no Telegram write call was executed in this pass.
   inserting a 25 ms delay (65/66); passes in isolation on both trees. Not related
   to this work and not fixed here.
 - NOT pushed, NOT deployed, migration 047 NOT applied.
+
+
+## Telegram conversational support - M1/L1/L2 review follow-up (2026-11-03, local commit only)
+- Implements the three findings of the final branch review of b1c8eb6. Same two
+  source files, one test file updated, one new test file. No T2 file touched
+  (`public/`, `server.js`, `supabase/` = 0-line diff), migration 047 still NOT
+  applied, nothing pushed/deployed.
+- M1 (state cache TTL): the in-process conversation cache used to be authoritative
+  forever, so a second process (rolling deploy / second replica) never saw a human
+  handoff resolved by the first one and kept the customer silent (measured:
+  instance B answered=false after instance A closed). The cache now stores
+  `{ state, cachedAt }` and `loadConversationState()` re-reads the durable row once
+  the entry is older than `STATE_CACHE_TTL_MS` (45s). A fresh entry keeps the fast
+  path (no database read). The refresh uses `store.getConversationByChatId()` and
+  falls back to the row this request already loaded; a read failure keeps the
+  cached copy (warning logged once per process), and a row without a `context`
+  column (migration 047 absent) resolves to "no answer" so the cache keeps driving
+  the conversation. The refreshed state is passed through `engine.normalizeState`.
+  The durable row WINS on refresh - deliberately NOT filtered against the cache,
+  because `/close` starts no new update and its resolution can carry an id equal to
+  or lower than this process's last message; rejecting it would re-silence the
+  customer. New counters: `stateRefreshes`, `staleStateWritesSkipped`.
+  `createTelegramSupportBot({ stateCacheTtlMs })` allows tests to force the
+  expired path deterministically (0 = always refresh).
+- L1 (monotonic saves): a comparison against the cache alone was NOT sufficient -
+  two concurrent saves could both pass the guard and then reach the database out of
+  order, so the older snapshot still landed last (reproduced: `method` lost,
+  `lastUpdateId` rewound to 2002). Saves for one conversation now run through a
+  per-conversation promise chain (`withStateSaveLock`) AND skip a snapshot whose
+  `lastUpdateId` is lower than the newest already applied. Equal ids are still
+  written (the `/close` idempotent path), and a state without a usable id is
+  always written.
+- L2 (test title): `tests/telegram_deposit_tutorial.test.js` title corrected to
+  "with AI off a deposit question gets the guided reply and the configured
+  walkthrough video" - the assertions are untouched (a video IS expected when the
+  walkthrough URL is configured).
+- Tests: NEW `tests/telegram_conversation_state_cache.test.js` (13) - two bot
+  instances over one shared database, a controllable clock, cache hit (no extra
+  read), TTL refresh (shared row wins), a handoff closed by another instance being
+  answered after the TTL, a failed read keeping the cached state, no-column
+  degraded mode, plus the L1 matrix (older update skipped, slow older save cannot
+  land last, both messages answered, equal ids written, missing id still persists,
+  sequential flow, handoff resume). Deterministic: 5/5 identical runs. 8 of the 13
+  fail on the pre-fix code with the expected behavioural messages.
+- Verification: `npm test` = 3000 tests, 2999 pass, 1 fail - the PRE-EXISTING
+  how_it_works_video master-asset check. Telegram/support suites 950/950;
+  conversation flow + regressions (C1/H1/H2/N1-N3) 94/94. `node --check` and
+  `git diff --check` clean.
+- KNOWN LIMITATION (documented, not fixed here): a whole-state column is
+  last-writer-wins, so a stale instance that handles a customer message while a
+  handoff is closed elsewhere can write its own (unresolved) copy back. The closure
+  is still in the other instance's cache, and its next TTL refresh adopts the row,
+  so the conversation can oscillate only in the multi-instance window; a true fix
+  means either a per-field merge (carry an existing resolution forward) or a
+  database-side CAS, both beyond this follow-up. Single-instance deployment (the
+  documented topology) is unaffected.
+- NOT pushed, NOT deployed, migration 047 NOT applied.

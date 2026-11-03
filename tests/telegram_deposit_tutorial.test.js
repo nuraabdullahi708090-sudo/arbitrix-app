@@ -290,7 +290,7 @@ test('a transport without sendVideo is tolerated', async () => {
   assert.strictEqual(transport.calls.filter((c) => c.method === 'sendMessage').length, 1);
 });
 
-test('with AI off the standard acknowledgement is unchanged and no video is sent', async () => {
+test('with AI off a deposit question gets the guided reply and the configured walkthrough video', async () => {
   const disabledAI = { isEnabled: () => false, ask: async () => { throw new Error('should not be called'); } };
   const { bot, transport } = createBot({
     ai: disabledAI,
