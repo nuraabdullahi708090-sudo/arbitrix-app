@@ -49,6 +49,15 @@
  * Short replies are ONLY interpreted through `state.pending` (the expected answer
  * type of the question the bot actually asked). With no pending question a bare
  * "yes" is never guessed at: the engine asks a clarifying question instead.
+ *
+ * SOCIAL CONVERSATION
+ * Acknowledgements ("ok", "got it"), positive feedback ("good", "great"),
+ * gratitude ("thank you") and polite closures ("you're welcome") are recognised
+ * over the WHOLE message and answered with one short courtesy. They are only
+ * read as courtesies when the bot is not waiting on a real step (see
+ * isCourtesyState): inside a live workflow "ok" is still a confirmation. A
+ * courtesy never re-opens a question the customer has finished with, so
+ * completed exchanges end cleanly instead of replaying a stale prompt.
  */
 
 const TUTORIALS = Object.freeze({
@@ -219,6 +228,210 @@ const ACK_RE = tokenRe([
   '\u062d\u0633\u0646\u0627', '\u062d\u0633\u0646\u064b\u0627', '\u0641\u0647\u0645\u062a',
   '\u062a\u0645\u0627\u0645', '\u0645\u0648\u0627\u0641\u0642'
 ]);
+// ------------------------------------------------------ social conversation ---
+
+/**
+ * Ordinary social conversation: acknowledgements ("ok", "got it"), positive
+ * feedback ("good", "great"), gratitude ("thank you", "thanks a lot") and
+ * polite closures ("you're welcome").
+ *
+ * WHY THIS IS SEPARATE FROM `affirm` / `ack`
+ * `affirm` answers a yes/no question and `ack` is the LENIENT prefix match a
+ * pending question accepts as a confirmation ("ok, sure"). Neither can decide
+ * what to do when the bot is NOT waiting for a real answer: there "ok" and
+ * "good" are courtesies, not instructions. Treating them as affirmations is what
+ * produced the three reported symptoms - "ok" opened the help menu, "good" fell
+ * through to the generic clarification fallback, and "thank you" replayed that
+ * fallback after a "you're welcome".
+ *
+ * The match is FULLY ANCHORED over the whole message (after stripping
+ * punctuation, symbols and emoji), so a question that merely CONTAINS one of the
+ * words - "is trust wallet good?", "ok so how do I deposit?" - is never misread
+ * as a courtesy. Combinations ("ok thanks", "great, thank you") are recognised.
+ */
+const SOCIAL_FLAVORS = Object.freeze({
+  NEUTRAL: 'neutral',
+  UNDERSTOOD: 'understood',
+  POSITIVE: 'positive',
+  GREAT: 'great',
+  THANKS: 'thanks',
+  THANKS_BIG: 'thanksBig',
+  RECIPROCAL: 'reciprocal'
+});
+
+/**
+ * Phrase lists per flavour. Each phrase belongs to exactly ONE bucket so the
+ * reply is deterministic. pt is Brazilian Portuguese, ar is Modern Standard
+ * Arabic; the Arabic and accented words are written as \u escapes to keep this
+ * file ASCII (the repository's encoding rule).
+ */
+const SOCIAL_PHRASES = Object.freeze({
+  neutral: Object.freeze([
+    'ok', 'okay', 'okey', 'okie', 'alright', 'all right', 'alright then', 'ok then',
+    'okay then', 'that is all', "that's all", 'thats all', 'that is it', "that's it",
+    'thats it', 'we are done', "we're done", 'im done', "i'm done", 'noted',
+    'certo', 'beleza', 'ta bom', 't\u00e1 bom', 'tudo certo', 'combinado', 'blz',
+    'ta certo', 't\u00e1 certo',
+    '\u062d\u0633\u0646\u0627', '\u062d\u0633\u0646\u064b\u0627', '\u0637\u064a\u0628',
+    '\u062a\u0645\u0627\u0645', '\u0643\u0648\u064a\u0633', '\u0623\u0648\u0643\u064a',
+    '\u0627\u0648\u0643\u064a'
+  ]),
+  understood: Object.freeze([
+    'understood', 'i understand', 'i understood', 'got it', 'i got it', "i've got it",
+    'ive got it', 'i see', 'makes sense', 'that makes sense', 'that is clear',
+    "that's clear", 'thats clear', 'clear', 'understood thanks',
+    'entendi', 'entendido', 'compreendi', 'compreendido', 'faz sentido', 'entendi tudo',
+    '\u0641\u0647\u0645\u062a', '\u0641\u0647\u0645\u062a\u0647\u0627', '\u0645\u0641\u0647\u0648\u0645',
+    '\u0645\u0641\u0647\u0648\u0645\u0629', '\u0648\u0627\u0636\u062d', '\u0648\u0627\u0636\u062d\u0629',
+    '\u0645\u0646\u0637\u0642\u064a'
+  ]),
+  positive: Object.freeze([
+    'good', 'very good', "that's good", 'thats good', 'that is good', 'sounds good',
+    'nice', "that's nice", 'thats nice', 'perfect', "that's perfect", 'thats perfect',
+    'excellent', 'helpful', "that's helpful", 'thats helpful', 'that is helpful',
+    'it helps', 'that helps', 'great job',
+    'bom', 'boa', 'muito bom', 'legal', 'show', 'bacana', 'joia', 'j\u00f3ia',
+    'perfeito', 'excelente',
+    '\u062c\u064a\u062f', '\u062c\u064a\u062f\u0627', '\u062c\u064a\u062f\u064b\u0627',
+    '\u0645\u0645\u062a\u0627\u0632', '\u0623\u062d\u0633\u0646\u062a', '\u0627\u062d\u0633\u0646\u062a',
+    '\u062c\u064a\u062f \u062c\u062f\u0627'
+  ]),
+  great: Object.freeze([
+    'great', "that's great", 'thats great', 'that is great', 'wonderful', 'amazing',
+    'awesome', 'brilliant', 'superb', 'fantastic', 'cool', 'lovely', 'splendid',
+    'very nice', 'very helpful',
+    '\u00f3timo', 'otimo', 'maravilha', 'maravilhoso', 'incr\u00edvel', 'incrivel',
+    'fant\u00e1stico', 'fantastico', 'show de bola',
+    '\u0631\u0627\u0626\u0639', '\u0639\u0638\u064a\u0645', '\u0645\u0630\u0647\u0644',
+    '\u0631\u0647\u064a\u0628', '\u0645\u0645\u062a\u0627\u0632 \u062c\u062f\u0627',
+    '\u0639\u0638\u064a\u0645 \u062c\u062f\u0627'
+  ]),
+  thanks: Object.freeze([
+    'thanks', 'thank you', 'thank u', 'thankyou', 'thx', 'ty', 'cheers',
+    'appreciate it', 'appreciate that', 'i appreciate it', 'much appreciated',
+    'we appreciate it', 'thanks for the help', 'thanks for your help',
+    'obrigado', 'obrigada', 'valeu', 'agradeco', 'agrade\u00e7o', 'grato', 'grata',
+    '\u0634\u0643\u0631\u0627', '\u0634\u0643\u0631\u064b\u0627', '\u0623\u0634\u0643\u0631\u0643',
+    '\u0627\u0634\u0643\u0631\u0643', '\u0645\u0634\u0643\u0648\u0631',
+    '\u0634\u0643\u0631\u0627 \u0644\u0643'
+  ]),
+  thanksBig: Object.freeze([
+    'thanks a lot', 'thanks so much', 'thank you so much', 'thank you very much',
+    'many thanks', 'thanks very much', 'much thanks', 'really appreciate it',
+    'truly appreciate it', 'i really appreciate it', 'thank you all', 'thanks a ton',
+    'muito obrigado', 'muito obrigada', 'obrigado mesmo', 'obrigada mesmo',
+    'valeu mesmo', 'agradeco muito', 'agrade\u00e7o muito', 'muito grato', 'muito grata',
+    '\u0634\u0643\u0631\u0627 \u062c\u0632\u064a\u0644\u0627',
+    '\u0634\u0643\u0631\u064b\u0627 \u062c\u0632\u064a\u0644\u064b\u0627',
+    '\u0634\u0643\u0631\u0627 \u0644\u0643 \u062c\u062f\u0627',
+    '\u0623\u0634\u0643\u0631\u0643 \u062c\u062f\u0627',
+    '\u0627\u0634\u0643\u0631\u0643 \u062c\u062f\u0627',
+    '\u0634\u0643\u0631\u0627 \u0645\u0646 \u0627\u0644\u0642\u0644\u0628'
+  ]),
+  reciprocal: Object.freeze([
+    "you're welcome", 'you are welcome', 'your welcome', 'anytime', 'my pleasure',
+    'it was my pleasure', 'happy to help', 'glad i could help', 'glad to help',
+    'de nada', 'por nada', 'nao foi nada', 'n\u00e3o foi nada', 'imagina',
+    'as ordens', '\u00e0s ordens', 'disponha',
+    '\u0639\u0644\u0649 \u0627\u0644\u0631\u062d\u0628 \u0648\u0627\u0644\u0633\u0639\u0629',
+    '\u0644\u0627 \u0645\u0634\u0643\u0644\u0629', '\u0644\u0627 \u0645\u0634\u0627\u0643\u0644',
+    '\u0628\u0643\u0644 \u0633\u0631\u0648\u0631', '\u0627\u0644\u0639\u0641\u0648'
+  ])
+});
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Longest first, so "thank you so much" is tried before "thank you". */
+function alternation(phrases) {
+  return phrases.slice().sort((a, b) => b.length - a.length).map(escapeRegExp).join('|');
+}
+
+const SOCIAL_MATCHERS = (() => {
+  const p = SOCIAL_PHRASES;
+  const ackish = alternation([].concat(p.neutral, p.understood, p.positive, p.great));
+  const thanksAlt = alternation([].concat(p.thanks, p.thanksBig));
+  const big = alternation(p.thanksBig);
+  const whole = (body) => new RegExp('^(?:' + body + ')$');
+  const ackGroup = '(?:' + ackish + ')';
+  const thanksGroup = '(?:' + thanksAlt + ')';
+  return Object.freeze({
+    thanksBig: whole(big),
+    ackThenThanksBig: whole(ackGroup + ' (?:' + big + ')'),
+    thanksBigThenAck: whole('(?:' + big + ') ' + ackGroup),
+    thanks: whole(thanksAlt),
+    ackThenThanks: whole(ackGroup + ' ' + thanksGroup),
+    thanksThenAck: whole(thanksGroup + ' ' + ackGroup),
+    reciprocal: whole(alternation(p.reciprocal)),
+    understood: whole(alternation(p.understood)),
+    positive: whole(alternation(p.positive)),
+    great: whole(alternation(p.great)),
+    neutral: whole(alternation(p.neutral))
+  });
+})();
+
+/** Evaluation order. "Thanks" wins over the acknowledgement it is paired with. */
+const SOCIAL_ORDER = Object.freeze([
+  { matcher: 'thanksBig', flavor: SOCIAL_FLAVORS.THANKS_BIG },
+  { matcher: 'ackThenThanksBig', flavor: SOCIAL_FLAVORS.THANKS_BIG },
+  { matcher: 'thanksBigThenAck', flavor: SOCIAL_FLAVORS.THANKS_BIG },
+  { matcher: 'thanks', flavor: SOCIAL_FLAVORS.THANKS },
+  { matcher: 'ackThenThanks', flavor: SOCIAL_FLAVORS.THANKS },
+  { matcher: 'thanksThenAck', flavor: SOCIAL_FLAVORS.THANKS },
+  { matcher: 'reciprocal', flavor: SOCIAL_FLAVORS.RECIPROCAL },
+  { matcher: 'understood', flavor: SOCIAL_FLAVORS.UNDERSTOOD },
+  { matcher: 'positive', flavor: SOCIAL_FLAVORS.POSITIVE },
+  { matcher: 'great', flavor: SOCIAL_FLAVORS.GREAT },
+  { matcher: 'neutral', flavor: SOCIAL_FLAVORS.NEUTRAL }
+]);
+
+/**
+ * Classify one message as ordinary social conversation, or null.
+ *
+ * Punctuation, symbols and emoji are stripped first ("Ok!" -> "ok"), then the
+ * whole remaining text must equal a known phrase. The word limit is a second
+ * guard: a courtesy is short, so a sentence that happens to contain "good" is
+ * never swallowed by this classifier.
+ */
+function classifySocial(normalized) {
+  const text = String(normalized || '')
+    .toLowerCase()
+    // Keep letters, digits, combining marks, spaces and apostrophes. The marks
+    // matter for Arabic: a word carrying a tanween must not have it split off
+    // into its own token.
+    .replace(/[^\p{L}\p{M}\p{N}\s']/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return null;
+  if (text.split(' ').length > 6) return null;
+  for (const entry of SOCIAL_ORDER) {
+    const matcher = SOCIAL_MATCHERS[entry.matcher];
+    if (matcher && matcher.test(text)) {
+      return { flavor: entry.flavor, thanks: entry.flavor === SOCIAL_FLAVORS.THANKS
+        || entry.flavor === SOCIAL_FLAVORS.THANKS_BIG };
+    }
+  }
+  return null;
+}
+
+/**
+ * Unambiguous "yes".
+ *
+ * Needed wherever an acknowledgement ("ok", "fine") and a confirmation ("yes")
+ * must be told apart: answering "Is there anything else I can help you with?"
+ * with "ok" means "no thanks, we're done", while "yes" means "there is". The
+ * overlapping words (ok / alright / sure-adjacent / perfect / great / good /
+ * cool) are deliberately NOT here - they are acknowledgements.
+ */
+const EXPLICIT_AFFIRM_RE = tokenRe([
+  'yes', 'yeah', 'yep', 'yup', 'sure', 'of course', 'definitely', 'absolutely',
+  'certainly', 'correct', 'indeed', 'go ahead', 'please do', 'why not', 'please',
+  'sim', 'pode ser', 'com certeza', 'correto', 'isso', 'vamos', 'claro',
+  '\u0646\u0639\u0645', '\u0623\u062c\u0644', '\u0628\u0627\u0644\u062a\u0623\u0643\u064a\u062f',
+  '\u0635\u062d\u064a\u062d', '\u0637\u0628\u0639\u0627', '\u0623\u0643\u064a\u062f'
+]);
+
 const GREETING_RE = tokenRe([
   'hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings',
   'ol\u00e1', 'ola', 'oi', 'bom dia', 'boa tarde', 'boa noite',
@@ -570,6 +783,68 @@ function topicsCompatible(a, b) {
   return aList.some((t) => bList.indexOf(t) !== -1);
 }
 
+/**
+ * States in which the bot is NOT waiting for a real answer.
+ *
+ *   null             - nothing was ever asked (or the exchange was closed)
+ *   anything_else    - the conversation is at rest ("is there anything else?")
+ *   clarify          - the bot's own fallback question, which is not a request
+ *   withdraw.help    - a courtesy offer made AFTER the withdrawal guidance was
+ *                      already delivered ("would you like help with a specific
+ *                      problem?"), not a step the customer must complete
+ *
+ * Every other pending value is a genuine step ("Have you made your first
+ * deposit yet?", "Which method: Paybis, Transak or Trust Wallet?"). There "ok"
+ * is a confirmation, so it must keep flowing through answerPending.
+ */
+function isCourtesyState(pending) {
+  return !pending
+    || pending === PENDING.ANYTHING_ELSE
+    || pending === PENDING.CLARIFY
+    || pending === PENDING.WITHDRAW_HELP;
+}
+
+/** Which localized line answers each social flavour. */
+const SOCIAL_LINE_KEYS = Object.freeze({
+  neutral: 'socialAck',
+  understood: 'socialUnderstood',
+  positive: 'socialPositive',
+  great: 'socialGreat',
+  thanks: 'socialThanks',
+  thanksBig: 'socialThanksBig',
+  reciprocal: 'socialReciprocal'
+});
+
+/**
+ * Answer ordinary social conversation.
+ *
+ * Two deliberate properties:
+ *   1. The reply never repeats a question the customer just finished with. The
+ *      old pending question is replaced by the neutral "anything else" state, so
+ *      a later "yes" still works but the obsolete prompt is gone.
+ *   2. A second courtesy in a row gets ONE short closing line instead of the
+ *      same sentence again, so "ok" ... "ok" cannot ping-pong.
+ */
+function socialReply(a, prev, next) {
+  const flavor = a && a.social && SOCIAL_LINE_KEYS[a.social.flavor]
+    ? a.social.flavor
+    : SOCIAL_FLAVORS.NEUTRAL;
+  // The SAME courtesy twice in a row gets one short closing line instead of the
+  // same sentence again ("thank you" ... "thank you" cannot ping-pong). A
+  // different courtesy still gets its own natural reply, which is what makes the
+  // "ok / good / thank you" sequence read like a conversation.
+  const previous = String(prev.stage || '').indexOf('social') === 0 ? prev.socialFlavor : null;
+  next.socialFlavor = flavor;
+  if (previous && previous === flavor) {
+    next.pending = null;
+    next.stage = 'social.closed';
+    return makeReply('social', [line('socialClosing')], next);
+  }
+  next.pending = PENDING.ANYTHING_ELSE;
+  next.stage = 'social';
+  return makeReply('social', [line(SOCIAL_LINE_KEYS[flavor])], next);
+}
+
 function emptyState() {
   return {
     v: STATE_VERSION,
@@ -592,6 +867,9 @@ function emptyState() {
     // Set when a human operator actually replies, cleared by `/close`: the bot
     // must stay silent for the WHOLE takeover, not only the first message.
     humanActiveAt: null,
+    // Which courtesy the bot last acknowledged ("neutral", "positive", "thanks"
+    // ...). Used only to avoid repeating the identical line twice in a row.
+    socialFlavor: null,
     updatedAt: null
   };
 }
@@ -658,6 +936,7 @@ function normalizeState(raw) {
   base.handoffResolvedAt = asString(value.handoffResolvedAt, 40);
   base.handoffResolvedMessageId = asMessageId(value.handoffResolvedMessageId);
   base.humanActiveAt = asString(value.humanActiveAt, 40);
+  base.socialFlavor = asString(value.socialFlavor, 20);
   base.updatedAt = asString(value.updatedAt, 40);
   return base;
 }
@@ -707,6 +986,11 @@ function analyze(raw) {
   const deny = DENY_RE.test(normalized) && words.length <= 8;
   const thanks = THANKS_RE.test(normalized);
   const ack = ACK_RE.test(normalized) && words.length <= 5;
+  // Ordinary social conversation, matched over the WHOLE message (see
+  // classifySocial). Kept apart from `ack`/`affirm`, which answer questions.
+  const social = classifySocial(normalized);
+  // "yes" as opposed to "ok": only used where the two meanings differ.
+  const explicitAffirm = EXPLICIT_AFFIRM_RE.test(normalized) && words.length <= 5;
   const greeting = GREETING_RE.test(normalized);
   const how = HOW_RE.test(bare);
   const really = REALLY_RE.test(bare);
@@ -746,6 +1030,8 @@ function analyze(raw) {
     deny,
     thanks,
     ack,
+    social,
+    explicitAffirm,
     greeting,
     how,
     really,
@@ -930,8 +1216,10 @@ function planTurn({ text, state } = {}) {
   if (greetingOnly && !a.primary && !a.method) {
     const first = !prev.greeted;
     next.greeted = true;
-    if (prev.pending) {
-      // Never restart an open question: greet and repeat it once.
+    // A greeting repeats the OPEN question once - but never the bot's own
+    // clarification fallback, which is not a question the customer owes an answer
+    // to (re-sending it here is the same stale replay as after a courtesy).
+    if (prev.pending && prev.pending !== PENDING.CLARIFY) {
       return makeReply('greeting', [
         line(first ? 'greetingFresh' : 'greetingAgain'),
         line(QUESTION_KEYS[prev.pending] || 'anythingElse')
@@ -979,6 +1267,22 @@ function planTurn({ text, state } = {}) {
     next.pending = PENDING.CLARIFY;
     next.stage = 'clarify';
     return makeReply('next', [line('clarifyHelp')], next);
+  }
+
+  // --- 3c. ordinary social conversation ----------------------------------
+  // A courtesy reply ("ok", "got it", "good", "thank you") is only read as a
+  // courtesy when the bot is NOT waiting on a real step (see isCourtesyState).
+  // Inside a live workflow "ok" is an answer, and step 4 keeps handling it as
+  // one - so "ok" to "Have you made your first deposit yet?" still means yes.
+  //
+  // This runs BEFORE the pending-answer step, which is what stops a courtesy
+  // from being escalated into the help menu, the generic clarification fallback
+  // or a replay of the question the customer just finished with.
+  if (a.social && !a.deny && !a.primary && !a.method && !a.how && !a.really
+      && !a.more && !a.next && !a.completed && !a.checked && !a.arrived
+      && !a.pendingStill && !a.notReceived && !a.problem
+      && isCourtesyState(prev.pending)) {
+    return socialReply(a, prev, next);
   }
 
   // --- 4. a short reply answers the pending question ---------------------
@@ -1608,7 +1912,17 @@ function answerPending(prev, a, next) {
     case PENDING.GUIDE_OFFER:
       // "Yes" to "Would you like a quick guide on how Arbitrix works?" continues
       // into the platform explanation instead of asking what they want again.
-      if (a.affirm || a.ack) return platformReply('guide_offer', next);
+      if (a.affirm || a.ack) {
+        // EXCEPT when the explanation was the message that just closed with this
+        // offer: replaying the whole explanation because the customer said "good"
+        // is the same stale repetition as the clarify fallback. An explicit "yes"
+        // / "sure" still continues (they asked for more), an acknowledgement is
+        // answered as the courtesy it is.
+        if (prev.stage === 'platform' && !a.explicitAffirm) {
+          return socialReply(a, prev, next);
+        }
+        return platformReply('guide_offer', next);
+      }
       if (a.deny) {
         next.pending = PENDING.ANYTHING_ELSE;
         next.stage = 'closed';
@@ -1622,13 +1936,19 @@ function answerPending(prev, a, next) {
         next.stage = 'closed';
         return makeReply('close', [line('thanksClose')], next);
       }
-      if (a.affirm || a.ack) {
+      // "Ok" / "Good" / "Thank you" here is a courtesy, not a request for the
+      // help menu: only an explicit "yes" means "I do want something else".
+      if (a.social) return socialReply(a, prev, next);
+      if (a.explicitAffirm) {
         // "Yes" to "anything else?" means the customer DOES want something else -
         // offer the topics rather than implying we failed to understand.
         next.pending = PENDING.CLARIFY;
         next.stage = 'clarify';
         return makeReply('more_help', [line('clarifyHelp')], next);
       }
+      // Any other acknowledgement-shaped reply ("fine", "ok cool") is still a
+      // courtesy, never a request to restart the conversation.
+      if (a.ack || a.affirm) return socialReply(a, prev, next);
       return repeatQuestion(prev, next);
 
     case PENDING.CLARIFY:
@@ -1636,6 +1956,16 @@ function answerPending(prev, a, next) {
         next.pending = null;
         next.stage = 'closed';
         return makeReply('close', [line('thanksClose')], next);
+      }
+      // Repeating the same "I may not have understood" text after a courtesy is
+      // exactly the stale-fallback replay this branch used to produce.
+      if (a.social) return socialReply(a, prev, next);
+      if (a.explicitAffirm || a.ack || a.affirm) {
+        // A "yes" here cannot answer the fallback question, so offer the topics
+        // once instead of asking the same thing again.
+        next.pending = PENDING.CLARIFY;
+        next.stage = 'clarify';
+        return makeReply('help', [line('clarifyHelp')], next);
       }
       next.pending = PENDING.CLARIFY;
       return makeReply('clarify', [line('clarifyTopic')], next, { confident: false });
@@ -1724,9 +2054,13 @@ module.exports = {
   INTENT_RULES,
   NON_METHOD_INTENTS,
   METHOD_SELECTION_INTENTS,
+  SOCIAL_FLAVORS,
+  SOCIAL_PHRASES,
   emptyState,
   normalizeState,
   analyze,
+  classifySocial,
+  isCourtesyState,
   isMethodSelection,
   planTurn,
   planCommand

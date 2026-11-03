@@ -8726,3 +8726,55 @@ was created and no Telegram write call was executed in this pass.
   localized answer instead of a machine translation), telegram_multilingual 28
   (dictionary bound 90 -> 130). npm test = 3120 pass / 0 fail.
 - NOT merged, NOT deployed; no migration applied; no production configuration changed.
+
+
+## Telegram support - social acknowledgements and conversation cleanup (2026-11-03, branch only)
+
+- Frontend-free, server-side dialogue change: `services/support/ConversationEngine.js`,
+  `services/telegram-i18n.js`, `services/TelegramSupportService.js` + tests. NO change to
+  webhook configuration, credentials, the database schema, migrations, deposits,
+  withdrawals, trading, the trading worker, subscriptions, referrals, KYC, payments or
+  the marketing publisher. `public/index.html` and `server.js` are byte-identical.
+- REPORTED: after the bot answered a withdrawal question and the customer replied
+  "Checked", the following courtesies misbehaved - "Ok" opened the help menu, "Good"
+  produced the generic clarification fallback, and "Thank you" produced "You're
+  welcome! Just to continue where we left off:" followed by that same fallback again.
+- ROOT CAUSE (three layers, all in the engine):
+  1. `PENDING.ANYTHING_ELSE` treated `ack` exactly like `affirm`, so "ok" meant "yes,
+     I want something else" and returned `clarifyHelp` (the help menu).
+  2. `PENDING.CLARIFY` ignored acknowledgements entirely, so "good" re-emitted
+     `clarifyTopic`.
+  3. The gratitude branch re-asked `QUESTION_KEYS[pending]`; when the stale pending was
+     the bot's own `CLARIFY` fallback it replayed the fallback text. The fallback was
+     still stored because the service replaced the reply with `clarifyTopic` but
+     persisted the PREVIOUS plan's pending state.
+- FIX: a dedicated `classifySocial()` layer (FULLY ANCHORED over the whole message, so a
+  question containing "good"/"ok" is never a courtesy) with flavours neutral /
+  understood / positive / great / thanks / thanksBig / reciprocal. It is consulted
+  BEFORE the pending-answer step and ONLY when `isCourtesyState(pending)` (null,
+  anything_else, clarify, withdraw.help - states where no real answer is owed). Inside a
+  live workflow ("Have you made your first deposit yet?") "ok" is still a confirmation.
+  A courtesy replaces the stale prompt with the neutral `anything_else` state, so nothing
+  is re-asked; the same courtesy twice gets a short closing line instead of a repeat.
+  `PENDING.CLARIFY` now offers the topics on a "yes" instead of repeating itself, and a
+  greeting no longer re-sends the clarification fallback.
+- CONTEXT CLEANUP: `nextState.pending='clarify'` is persisted whenever the service
+  actually sends the clarification fallback, so the stored state matches the message the
+  customer received (requirement: no stale prompts survive a completed exchange).
+- PRESERVED: all genuine pending workflows (deposit/withdrawal troubleshooting, trust
+  verification, platform explanation, onboarding, partner offer, `guide.offer`), the
+  human takeover suppression + `/close`, `/tutorial` `/progress` `/next` `/help`,
+  duplicate/out-of-order update handling, and every existing intent and tutorial.
+- i18n: 103 -> 111 keys per locale (8 new: socialAck / socialUnderstood / socialPositive
+  / socialGreat / socialThanks / socialThanksBig / socialReciprocal / socialClosing) in
+  en / pt-BR / ar, identical key sets, 0 empty. Arabic is native MSA script (RTL safe).
+- TESTS: NEW `tests/telegram_social_acknowledgements.test.js` (36) - the exact screenshot
+  sequence, every listed variation, courtesies after trust/platform/earnings/withdrawal,
+  new questions after an acknowledgement, pending continuity, en/pt/ar, Arabic script,
+  human takeover + `/close`, duplicate and out-of-order updates, commands, classifier
+  pins and the "no fallback replay" invariant.
+  4 existing pins updated for the intentional change (their INTENT is preserved, the
+  wording/mechanism moved): `telegram_conversation_flow` #8 (gratitude at rest),
+  `telegram_trust_conversation` C9 / C11 / D3 (gratitude after withdrawal, gratitude at
+  rest, acknowledgement after the platform explanation).
+- `npm test` = 3156 pass / 0 fail. NOT merged, NOT deployed.

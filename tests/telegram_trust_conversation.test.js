@@ -610,7 +610,11 @@ test('C9. "Not yet" then "Thank you" closes the conversation', async () => {
   await h.say('Not yet.');
   assert.strictEqual(h.last(), t('anythingElse'));
   await h.say('Thank you');
-  assert.strictEqual(h.last(), t('thanksClose'));
+  // Updated intentionally (social acknowledgements): at rest a thank-you gets the
+  // warm one-line courtesy instead of "if you need anything else, just send a
+  // message here" - same closing intent, one consistent reply everywhere.
+  assert.strictEqual(h.last(), t('socialThanks'));
+  assert.strictEqual(h.context().pending, 'anything_else');
 });
 
 test('C10. an unrelated message mid-withdrawal still routes to its own intent', async () => {
@@ -625,8 +629,14 @@ test('C11. a withdrawal already explained is not restarted by "thanks"', async (
   const h = createHarness();
   await h.say('What about withdrawing funds');
   await h.say('thanks');
-  assert.strictEqual(h.last(), t('thanksOpen') + '\n\n' + t('withdrawHelpPrompt'));
-  assert.strictEqual(h.context().pending, 'withdraw.help');
+  // Updated intentionally (social acknowledgements): the withdrawal guidance was
+  // already delivered, so a thank-you gets ONE courtesy instead of "Just to
+  // continue where we left off:" plus the same withdrawal question again. The
+  // flow is still not restarted - it is simply finished and left at rest.
+  assert.strictEqual(h.last(), t('socialThanks'));
+  assert.ok(!h.last().includes(t('withdrawHelpPrompt')), 'the old question is not re-asked');
+  assert.ok(!h.last().includes(t('withdrawIntro')), 'the guidance is not repeated');
+  assert.strictEqual(h.context().pending, 'anything_else');
 });
 
 // ======================================================== D. general continuity
@@ -645,12 +655,32 @@ test('D2. "No" after the guide offer closes politely', async () => {
   assert.strictEqual(h.last(), t('anythingElse'));
 });
 
-test('D3. "Okay" / "Got it" after the platform explanation continue the offer', async () => {
-  for (const word of ['Okay', 'Got it', 'Alright', 'Sure']) {
+test('D3. after the platform explanation an acknowledgement is a courtesy, an explicit yes still continues', async () => {
+  // Updated intentionally (social acknowledgements): the explanation ENDS with
+  // "would you like to know how to get started?", so answering "okay" repeated
+  // the entire explanation. An acknowledgement is now answered as the courtesy it
+  // is; an explicit "yes" / "sure" still continues the conversation.
+  const courtesies = [
+    ['Okay', 'socialAck'],
+    ['Got it', 'socialUnderstood'],
+    ['Alright', 'socialAck'],
+    ['Good', 'socialPositive']
+  ];
+  for (const [word, key] of courtesies) {
     const h = createHarness();
     await h.say('How does Arbitrix work?');
     await h.say(word);
-    assert.ok(h.last().includes(t('platformIntro')), '"' + word + '" must continue into the guide');
+    assert.ok(!h.last().includes(t('platformIntro')), '"' + word + '" must not replay the explanation');
+    assert.ok(!h.last().includes(t('clarifyTopic')), '"' + word + '" must not fall into the fallback');
+    assert.strictEqual(h.last(), t(key), '"' + word + '" gets its own courtesy');
+    assert.strictEqual(h.context().pending, 'anything_else');
+  }
+
+  for (const word of ['Sure', 'Yes']) {
+    const h = createHarness();
+    await h.say('How does Arbitrix work?');
+    await h.say(word);
+    assert.ok(h.last().includes(t('platformIntro')), '"' + word + '" asked for more and gets it');
   }
 });
 
@@ -686,7 +716,11 @@ test('D7. "Thanks" mid-flow keeps the flow, "Thanks" at rest closes it', async (
 
   const atRest = createHarness();
   await atRest.say('Thanks');
-  assert.strictEqual(atRest.last(), t('thanksClose'));
+  // Updated intentionally (social acknowledgements): at rest a thank-you gets the
+  // same warm courtesy it gets anywhere else, rather than a second wording of the
+  // same closing line.
+  assert.strictEqual(atRest.last(), t('socialThanks'));
+  assert.strictEqual(atRest.context().pending, 'anything_else');
 });
 
 test('D8. a bare "Yes" with no history never guesses', async () => {
