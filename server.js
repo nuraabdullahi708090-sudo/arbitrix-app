@@ -11116,6 +11116,21 @@ app.use('/video', (req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
+// Unknown API paths answer a JSON 404 instead of the SPA shell. Without this, a
+// missing or mistyped endpoint returned index.html with HTTP 200, which hides
+// wiring mistakes from monitoring, from the browser console and from whoever is
+// reading the logs while diagnosing an integration (the /video guard above solves
+// the same problem for media). Registered AFTER every API route and BEFORE the
+// fallback, so real endpoints are untouched.
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Not found',
+    method: req.method,
+    path: String(req.originalUrl || '').split('?')[0]
+  });
+});
+
 // Fallback – uses app.use, which does NOT cause the PathError
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
