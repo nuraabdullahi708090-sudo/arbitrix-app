@@ -284,7 +284,12 @@ test('REGRESSION: a Portuguese message reaches the operator with its English tra
   assert.ok(notice.includes(ENGLISH), 'the English translation is present');
   assert.ok(!notice.includes(i18n.t('operator', 'notifyNoTranslation')),
     'the notice must NOT claim the translation is unavailable: ' + JSON.stringify(notice));
-  assert.strictEqual(requests.length, 1, 'exactly one translation request');
+  // The message is translated BOTH for English knowledge retrieval and for the
+  // operator notice, so more than one request is expected now - what matters is
+  // that the reverse translation was actually made (and not reported unavailable).
+  assert.ok(requests.length >= 1, 'the message was sent for translation');
+  assert.ok(requests.some((r) => JSON.stringify(r.body).includes(PT_MESSAGE)),
+    'a request carried the customer\'s message');
 });
 
 test('REGRESSION: an Arabic message reaches the operator with its English translation', async () => {

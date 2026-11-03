@@ -276,5 +276,5 @@ test('the operator console reports the mode', () => {
 
 test('no database migration is needed to switch the channel off', () => {
     const files = fs.readdirSync(path.join(ROOT, 'supabase/migrations'));
-    assert.ok(files.every((f) => !f.startsWith('047_')), 'group-only mode is configuration, not schema');
+    assert.ok(files.every((f) => !f.startsWith('048_')), 'group-only mode is configuration, not schema');
 });

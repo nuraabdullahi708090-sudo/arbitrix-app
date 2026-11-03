@@ -55,6 +55,8 @@ const {
   DIRECTION_AGENT
 } = require('../services/TelegramSupportService');
 const { createTelegramSupportStore, numeric, ALLOWED_DIRECTIONS, CONFIRMED_CONVERSATION_STATUSES } = require('../services/TelegramSupportStore');
+const telegramI18n = require('../services/telegram-i18n');
+const { TUTORIALS } = require('../services/support/ConversationEngine');
 
 const TOKEN = '123456:TEST-BOT-TOKEN';
 const WEBHOOK_SECRET = 'test-webhook-secret';
@@ -467,9 +469,11 @@ test('user message is stored, forwarded to the group and acknowledged', async ()
   assert.ok(forward.text.includes(`/reply ${conversation.id} `), 'the reply hint uses the conversation handle');
 
   const receipt = transport.calls.find((c) => c.chatId === USER_CHAT_ID);
-  assert.ok(receipt, 'the message is acknowledged');
-  assert.strictEqual(receipt.text, CUSTOMER_GUIDE_TEXT, 'acknowledgement + guidance');
-  assert.ok(receipt.text.includes('/escalate'), 'the reply points at /escalate');
+  assert.ok(receipt, 'the message is answered');
+  // "my deposit is stuck" is an account-specific problem, so the contextual reply
+  // hands it to a human - it is no longer the old one-size-fits-all acknowledgement.
+  assert.strictEqual(receipt.text, telegramI18n.t('en', 'humanHandoff'));
+  assert.match(receipt.text, /support team/i);
 });
 
 test('a redelivered update is not forwarded twice', async () => {
@@ -503,8 +507,11 @@ test('without a support group every message is stored and acknowledged', async (
   assert.strictEqual(second.action, 'stored-without-group');
   assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 2);
   const replies = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
-  assert.strictEqual(replies.length, 2, 'each ordinary message is acknowledged');
-  assert.ok(replies.every((c) => c.text === CUSTOMER_GUIDE_TEXT));
+  assert.strictEqual(replies.length, 2, 'each ordinary message is answered');
+  // Each reply now reflects its own message: an unknown question gets ONE natural
+  // clarifying question, a greeting gets a greeting (never the same canned text).
+  assert.strictEqual(replies[0].text, telegramI18n.t('en', 'clarifyTopic'));
+  assert.strictEqual(replies[1].text, telegramI18n.t('en', 'greetingFresh'));
 });
 
 test('a message in a PRE-EXISTING conversation is acknowledged (the reported bug)', async () => {
@@ -520,9 +527,9 @@ test('a message in a PRE-EXISTING conversation is acknowledged (the reported bug
 
   assert.strictEqual(result.action, 'forwarded');
   const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
-  assert.strictEqual(toUser.length, 1, 'acknowledged even though the conversation already existed');
-  assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
-  assert.ok(toUser[0].text.includes('/escalate'), 'the reply guides the customer to /escalate');
+  assert.strictEqual(toUser.length, 1, 'answered even though the conversation already existed');
+  assert.strictEqual(toUser[0].text, telegramI18n.t('en', 'clarifyTopic'),
+    'an unclear question gets a natural clarifying question with concrete options');
   assert.ok(store.state.messages.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === 'How do i chat them'));
   assert.strictEqual(transport.calls.filter((c) => c.chatId === SUPPORT_CHAT_ID).length, 1, 'still forwarded');
 });
@@ -534,15 +541,16 @@ test('an ordinary message with an active human escalation is still acknowledged'
   const escalated = await bot.handleUpdate(userUpdate({ text: '/escalate deposit stuck', updateId: 78602 }));
   transport.calls.length = 0;
 
-  // A human escalation is already open - the bot must not go silent.
+  // An escalation RECORD is not a human reply: no agent has spoken in the thread
+  // yet, so automation continues and the follow-up is still answered.
   const followUp = await bot.handleUpdate(userUpdate({ text: 'What can i do next', updateId: 78603 }));
 
   assert.strictEqual(first.action, 'forwarded');
   assert.strictEqual(escalated.action, 'escalate');
   assert.strictEqual(followUp.action, 'forwarded');
   const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
-  assert.strictEqual(toUser.length, 1, 'the follow-up is acknowledged too');
-  assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(toUser.length, 1, 'the follow-up is answered too');
+  assert.strictEqual(toUser[0].text, telegramI18n.t('en', 'clarifyTopic'));
   assert.strictEqual(store.state.escalations.length, 1, 'the escalation itself is untouched');
 });
 
@@ -758,8 +766,8 @@ test('a customer is acknowledged even when the support-group forward fails', asy
 
   assert.strictEqual(result.action, 'forward-failed');
   const toUser = transport.calls.filter((c) => c.chatId === USER_CHAT_ID);
-  assert.strictEqual(toUser.length, 1, 'the customer is acknowledged');
-  assert.strictEqual(toUser[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(toUser.length, 1, 'the customer is answered');
+  assert.strictEqual(toUser[0].text, telegramI18n.t('en', 'humanHandoff'));
   // The inbound message is still stored, and the failure is logged with the real
   // reason so it can actually be diagnosed.
   assert.strictEqual(store.state.messages.filter((m) => m.direction === 'customer').length, 1);
@@ -910,7 +918,7 @@ test('end-to-end: an ordinary customer message is answered (webhook 200, reply, 
 
   const reply = transport.calls.find((c) => c.chatId === USER_CHAT_ID);
   assert.ok(reply, 'the customer is answered');
-  assert.strictEqual(reply.text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(reply.text, telegramI18n.t('en', 'clarifyTopic'));
 
   const stats = bot.getStats();
   assert.strictEqual(stats.lastAction, 'forwarded', 'the message is still forwarded to the group');
@@ -1236,8 +1244,10 @@ test('service: customer message stores customer and the automated acknowledgemen
 
   const inbound = store.state.messages.find((m) => m.body === 'where is my withdrawal?');
   assert.strictEqual(inbound.direction, DIRECTION_CUSTOMER, 'inbound customer message -> customer');
-  const receipt = store.state.messages.find((m) => m.body === CUSTOMER_GUIDE_TEXT);
-  assert.strictEqual(receipt.direction, DIRECTION_BOT, 'automated acknowledgement -> bot');
+  const receipt = store.state.messages.find((m) => m.direction === DIRECTION_BOT);
+  assert.ok(receipt, 'the automated reply is stored as a bot message');
+  assert.strictEqual(receipt.direction, DIRECTION_BOT, 'automated reply -> bot');
+  assert.ok(receipt.body.includes(TUTORIALS.withdrawal.url), 'the withdrawal tutorial link is in the stored reply');
   assert.ok(store.state.messages.every((m) => ALLOWED_DIRECTIONS.includes(m.direction)));
 });
 

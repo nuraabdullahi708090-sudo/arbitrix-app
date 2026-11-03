@@ -367,6 +367,17 @@ test('B10. guardrail behaviour is unchanged for both English and Portuguese', as
 
 // ======================= 5. no knowledge answer can reach a non-English customer
 
+// A reply is allowed when every paragraph matches one of the locale's own
+// templates (placeholders wildcarded). This permits the conversational replies
+// added by the dialogue layer while still proving no English sentence leaked.
+function matchesLocalizedReply(reply, language) {
+  const templates = Object.values(i18n.CUSTOMER_STRINGS[language]).map((t) => {
+    const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('^' + escaped.replace(/\{\{[a-zA-Z]+\}\}/g, '[\\s\\S]+') + '$');
+  });
+  return String(reply).split('\n\n').every((chunk) => templates.some((re) => re.test(chunk)));
+}
+
 test('B11. no approved English knowledge answer reaches a pt/ar customer, for any question', async () => {
   const questions = [
     PT_QUESTION,
@@ -388,8 +399,8 @@ test('B11. no approved English knowledge answer reaches a pt/ar customer, for an
     replies.forEach((reply, index) => {
       assert.ok(!englishAnswers.some((english) => reply.includes(english)),
         'reply ' + index + ' (' + language + ') leaked English knowledge text: ' + reply.slice(0, 80));
-      assert.ok(reply === i18n.t(language, 'uncertain') || reply === i18n.t(language, 'acknowledgement'),
-        'reply ' + index + ' (' + language + ') must be one of the localized strings');
+      assert.ok(matchesLocalizedReply(reply, language),
+        'reply ' + index + ' (' + language + ') must be built only from localized strings: ' + reply);
     });
   }
 });

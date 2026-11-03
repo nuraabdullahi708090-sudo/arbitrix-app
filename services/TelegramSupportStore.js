@@ -176,6 +176,48 @@ function createTelegramSupportStore(supabaseClient) {
   }
 
   /**
+   * Persist the bot's conversational state for one conversation.
+   *
+   * Stored in the EXISTING `context` JSONB column added by migration 047. The
+   * caller passes a small, already-validated object (see
+   * services/support/ConversationEngine.js normalizeState); this store only
+   * writes it.
+   *
+   * A 0-row UPDATE is raised as a storage failure, never returned as "nothing":
+   * PostgREST answers 200 with an empty body for an UPDATE that matches no row,
+   * and a silently dropped state write would make the next short reply ("yes",
+   * "okay") lose the question it was answering.
+   *
+   * @returns {Promise<{id: number|string, context: object}>} the updated row.
+   * @throws {Error} when the write errors OR matches no conversation row.
+   */
+  async function setConversationContext({ conversationId, context }) {
+    if (conversationId === undefined || conversationId === null) {
+      throw new Error('setConversationContext requires a conversationId');
+    }
+    if (!context || typeof context !== 'object' || Array.isArray(context)) {
+      throw new Error('setConversationContext requires a plain object context');
+    }
+    const { data, error } = await supabaseClient
+      .from(CONVERSATIONS)
+      .update({ context, updated_at: new Date().toISOString() })
+      .eq('id', numeric(conversationId))
+      .select('id, context')
+      .limit(1);
+    if (error) throw storageError('conversation context update', error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      throw storageError('conversation context update', {
+        code: 'no-row-returned',
+        message: `the update matched no conversation row for id ${conversationId}`,
+        details: 'PostgREST answers 200 with an empty body for an UPDATE that matches no row',
+        hint: 'verify the conversation still exists and that the client may update it (RLS / service key / id)'
+      });
+    }
+    return row;
+  }
+
+  /**
    * Find-or-create the conversation for a Telegram chat.
    *
    * NOTE: the update branch deliberately does NOT write `language`, so a routine
@@ -343,6 +385,7 @@ function createTelegramSupportStore(supabaseClient) {
     getConversationByChatId,
     upsertConversation,
     setConversationLanguage,
+    setConversationContext,
     insertMessage,
     getLatestMessageByConversation,
     setConversationStatus,

@@ -29,6 +29,7 @@ const {
   DIRECTION_BOT,
   DIRECTION_AGENT
 } = require('../services/TelegramSupportService');
+const telegramI18n = require('../services/telegram-i18n');
 
 const TOKEN = '123456789:TEST-TOKEN-NOT-A-CREDENTIAL';
 // Synthetic ids - production values are never embedded in a test file.
@@ -296,7 +297,7 @@ test('a Telegram rejection never breaks the customer response', async () => {
   assert.strictEqual(result.action, 'forward-failed');
   const toCustomer = h.toCustomer();
   assert.strictEqual(toCustomer.length, 1, 'the customer still receives exactly one reply');
-  assert.strictEqual(toCustomer[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(toCustomer[0].text, telegramI18n.t('en', 'clarifyTopic'));
   assert.strictEqual(h.store.state.messages.filter((m) => m.direction === DIRECTION_CUSTOMER).length, 1,
     'the customer message is still stored');
 });

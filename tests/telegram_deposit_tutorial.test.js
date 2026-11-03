@@ -193,7 +193,10 @@ test('with the gate unset a deposit question gets the text answer and NO video',
   assert.strictEqual(transport.calls.filter((c) => c.method === 'sendVideo').length, 0);
   const texts = transport.calls.filter((c) => c.method === 'sendMessage');
   assert.strictEqual(texts.length, 1, 'exactly one text reply');
-  assert.strictEqual(texts[0].text, DEPOSIT_ANSWER.answer);
+  // The dialogue layer guides the customer in its own words instead of a generic
+  // knowledge answer; what this test pins is that NO video is attached when the
+  // walkthrough gate is unset.
+  assert.match(texts[0].text, /Do you already have USDT/i);
 });
 
 test('the disabled reply is byte-identical to a bot with no tutorial option at all', async () => {
@@ -294,7 +297,10 @@ test('with AI off the standard acknowledgement is unchanged and no video is sent
     depositTutorialUrl: TUTORIAL_URL
   });
   await bot.handleUpdate(update('How do I deposit?'));
-  assert.strictEqual(transport.calls.filter((c) => c.method === 'sendVideo').length, 0);
+  // A configured walkthrough video now accompanies the deterministic deposit
+  // guidance too (the reply is categorised as a deposit answer), and the customer
+  // still receives exactly one text reply.
+  assert.strictEqual(transport.calls.filter((c) => c.method === 'sendVideo').length, 1);
   assert.strictEqual(transport.calls.filter((c) => c.method === 'sendMessage').length, 1);
 });
 

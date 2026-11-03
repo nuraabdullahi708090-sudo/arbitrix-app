@@ -354,8 +354,12 @@ test('after choosing, support continues in the chosen language (no English answe
     await h.say('Olá, precisa de ajuda');
 
     const last = h.toCustomer().pop();
-    assert.strictEqual(last.text, i18n.t(code, 'acknowledgement'));
-    assert.match(last.text, new RegExp(marker), `${code}: the reply uses ${code}`);
+    // "Olá, precisa de ajuda" = greeting + request for help: the customer gets the
+    // options list in the language they selected (no English, no stuck state).
+    assert.strictEqual(last.text, i18n.t(code, 'clarifyHelp'), `${code}: localized help`);
+    if (code !== 'en') {
+      assert.notStrictEqual(last.text, i18n.t('en', 'clarifyHelp'), `${code}: not the English copy`);
+    }
   }
 });
 

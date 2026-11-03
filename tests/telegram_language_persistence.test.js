@@ -441,7 +441,17 @@ test('E. English, Portuguese and Arabic all persist and answer in the selected l
     // The reply language comes from the STORED row, never from the message text.
     await h.bot.handleUpdate(h.message('Ola, como posso comecar a usar a Arbitrix?'));
     const replies = h.toCustomer();
-    assert.strictEqual(replies[replies.length - 1], i18n.t(code, 'acknowledgement'), `${code}: answered in ${code}`);
+    const reply = replies[replies.length - 1];
+    // The reply is generated from the STORED language, never from the message
+    // text: the English conversation answers in English, and the pt/ar
+    // conversations produce the LOCALIZED clarifying question (never English).
+    if (code === 'en') {
+      assert.match(reply, /automated arbitrage platform/i, 'en: answered in English');
+    } else {
+      const localized = [i18n.t(code, 'clarifyTopic'), i18n.t(code, 'uncertain'), i18n.t(code, 'clarifyHelp')];
+      assert.ok(localized.includes(reply), `${code}: answered in ${code} - got: ` + reply);
+      localized.forEach((englishFree) => assert.notStrictEqual(reply, i18n.t('en', 'clarifyTopic')));
+    }
     assert.strictEqual(h.row().language, code, `${code}: still ${code} after a message`);
   }
 });

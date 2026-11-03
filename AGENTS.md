@@ -8109,3 +8109,118 @@ was created and no Telegram write call was executed in this pass.
   default. Full suite 2884/2885 (the single failure is the pre-existing
   `how_it_works_video` master-asset check).
 - NOT merged, NOT deployed: requires approval.
+
+
+## Conversational Telegram support engine + durable state (2026-11-03, branch feat/telegram-conversational-support, NOT pushed)
+- Scope: the EXISTING Telegram support bot only. No new bot, service, backend,
+  webhook, queue or outbox. No change to deposits, withdrawals, trading, the
+  trading worker, subscriptions, KYC, referrals, payments, marketing, the
+  sandbox, or any machine-readable status value. public/index.html and server.js
+  are UNTOUCHED.
+- ROOT CAUSES of the poor conversation (measured, not guessed):
+  1. Every message was interpreted independently. `yes`/`no`/`okay`/`thanks`
+     matched no keyword, so the customer got the generic acknowledgement (AI off)
+     or "I do not have an approved answer" (AI on) - the meaning of a short reply
+     lives in the QUESTION the bot just asked, and nothing stored that question.
+  2. Nothing was persisted between webhook invocations: the previous reply/topic
+     was not available on the next update, so the bot could not remember that the
+     customer had picked Paybis two messages earlier.
+  3. With AI off the bot had no way to answer a factual question at all (the
+     approved knowledge base existed but was only reachable through the AI
+     service), so a known answer degraded to a hand-off.
+  4. The unrecognised path was one canned sentence repeated forever, with no
+     clarifying question and no way forward.
+- NEW `services/support/ConversationEngine.js` (pure: no I/O, clock, randomness,
+  network or database; 1200 lines incl. docs). It owns DIALOGUE, not facts:
+  * `planTurn({ text, state })` returns { handled, lines[{key,vars}], tutorial,
+    knowledge, confident, humanRequested, nextState }.
+  * Short replies are ONLY interpreted through `state.pending` (the expected
+    answer type of the question the bot actually asked). With no pending
+    question a bare "yes"/"no" is never guessed: the engine asks one natural
+    clarifying question instead.
+  * Recognises (en + pt + ar): greetings, thanks, acknowledgements, yes/no with
+    Portuguese/Arabic words, "not yet", "I understand", "how?", "really?",
+    "done/completed", deposit methods (Paybis/Transak/Trust Wallet, any case,
+    mid-sentence), deposit/withdrawal/registration/KYC/referral/demo/live/
+    subscription/promo/human/account-problem/status-check intents and a broad
+    set of phrasings ("fund my account", "add money", "putting money into").
+  * Procedural replies are built from localized keys only; factual questions are
+    returned as a canonical English query for the existing approved-knowledge /
+    AI layer, so there is ONE source of truth for product facts.
+  * Totality: every branch returns a plan; malformed state normalizes to empty.
+- TUTORIALS (exact links, one at a time - never all four):
+  Paybis https://t.me/ArbitrixAnnouncements/17,
+  Transak https://t.me/ArbitrixAnnouncements/16,
+  Trust Wallet https://t.me/ArbitrixAnnouncements/18,
+  withdrawal https://t.me/ArbitrixAnnouncements/19.
+  A method is only offered AFTER "do you already have USDT?" -> "no"; the link is
+  sent only for the chosen method. "How?" after a tutorial explains the steps
+  instead of re-sending the link.
+- DURABLE STATE: migration `047_telegram_conversation_state.sql` (additive,
+  idempotent, self-checking, NOT applied) adds
+  `telegram_support_conversations.context JSONB NOT NULL DEFAULT '{}'` with a
+  `jsonb_typeof(context) = 'object'` CHECK. No new table, no other object, no
+  data rewrite. The service writes via `store.setConversationContext`, WHICH IS
+  BEST-EFFORT: a missing column/failed write disables durable writes for the
+  process, logs ONCE, and keeps the conversation coherent in a bounded
+  (max 1000) in-process cache, so shipping the code before the migration is
+  safe. The cache is cache-FIRST with the row as the durable fallback (a stale
+  row can never win over a newer in-process state; a restart still restores).
+  The stored state is ids/enums/flags/timestamps only - no message text, no
+  PII beyond what the messages table already holds, no secrets.
+- ORDERING / IDEMPOTENCY: the state is persisted only AFTER the reply was
+  delivered. If sendMessage throws (HTTP 500 -> Telegram redelivers), the state
+  does NOT advance, so a retry cannot apply the customer's answer twice. The
+  persisted `lastUpdateId` additionally rejects a redelivered or out-of-order
+  update (`stale-update-ignored`) even after a restart, when the in-process
+  deduper is empty.
+- HUMAN HANDOFF (preserved and tightened): a human was the last to speak ->
+  NO automated reply at all (the message is still stored and the operator still
+  notified with status HUMAN_CONVERSATION). `/close <conversation>` writes a
+  durable `handoffResolvedAt` and automation resumes; a LATER human reply starts
+  a new handoff. An explicit "I want a human" now notifies as HUMAN REQUESTED
+  (it used to be reported as HUMAN NEEDED), while a problem the bot cannot
+  answer stays HUMAN NEEDED. `resolveNotificationStatus` reads
+  `reply.humanRequested`.
+- KNOWLEDGE WITHOUT AI: `answerFromKnowledge()` loads the SAME approved
+  `arbitrix-knowledge.json` (offline, lazy, never at require time) and answers a
+  factual question when the AI provider is off or failed. For pt/ar it
+  translates the QUESTION to English for retrieval (mirroring
+  SupportAIService.englishForRetrieval) and the ANSWER back through the existing
+  translator; with no translator the customer gets the localized safe fallback,
+  never English. The canonical query is used only for ENGLISH customers - for
+  pt/ar the customer's original wording is passed to the AI layer, because
+  handing it an already-English string made it translate the wrong thing.
+- NATURAL FALLBACK: an unrecognised message gets ONE clarifying question
+  ("Sorry, I may not have understood that. Are you asking about making a
+  deposit, starting a trade, or withdrawing funds?") with no invented figures,
+  and is still forwarded to the operators. "Yes" to "anything else?" now offers
+  the topic list (clarifyHelp) instead of implying a failure.
+- i18n: `services/telegram-i18n.js` grew 66 -> 69 keys per locale (en/pt/ar),
+  identical key sets, 0 empty. All new copy is natural, one question at a time,
+  and never claims to be a human.
+- TESTS: NEW `tests/telegram_conversation_flow.test.js` (43 tests) drives the
+  REAL bot + REAL engine + REAL knowledge base with only the store and transport
+  faked: short replies in context, okay/alright/sure, greetings (not repeated),
+  gratitude (mid-flow vs closing), how/really, deposit phrasings, method
+  selection (one tutorial only), withdrawal + tutorial, human handoff and
+  resumption, FAQ routing ($100 / $7 / $50), unknown questions, state across a
+  restart, fail-open writes, malformed state, redelivery, late replies, failed
+  delivery, pt/ar guidance, no-secret guarantee, no financial side effects, and
+  the migration contract (+ no ad-hoc reply strings outside the dictionary).
+  EXISTING pins updated for the INTENTIONAL behaviour change: support_ai_telegram,
+  telegram_multilingual, telegram_support_bot, telegram_bot_response_status,
+  telegram_language_persistence, telegram_first_contact_language,
+  telegram_private_admin_notifications, telegram_support_group_forwarding,
+  telegram_deposit_tutorial, marketing_bot_wiring, support_language_provenance,
+  support_translation_provider_prompt, marketing_channel_visibility,
+  marketing_group_only, trading_assets (migration count 46 -> 47).
+  `npm test` = 2929 tests / 2928 pass / 1 fail, where the single failure is the
+  PRE-EXISTING `how_it_works_video` master-asset check (baseline 2886 / 2885 / 1).
+  node --check clean; non-ASCII integrity verified (only intended additions).
+- NOT DONE ON PURPOSE: no migration applied, no deploy, no push, no environment
+  variable set, no change to the website (its deposit UX was already covered by
+  earlier phases) and no change to marketing.
+- KNOWN LIMITATION for management: the partner-programme copy states "20%" /
+  "$100" as approved text; if `referral_config` is changed, the bot copy needs a
+  matching update (the engine is deliberately dependency-free).

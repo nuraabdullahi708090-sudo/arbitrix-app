@@ -264,7 +264,7 @@ test('unsubscribing never changes support behaviour', async () => {
   // messages addressed to the customer chat are inspected here.
   const toCustomer = transport.sent.filter((m) => String(m.chatId) === '42');
   assert.ok(toCustomer.length >= 2, 'the support reply must still be sent');
-  assert.match(toCustomer[toCustomer.length - 1].text, /Arbitrix Support/i);
+  assert.match(toCustomer[toCustomer.length - 1].text, /I can help with/i);
 });
 
 // ---------------------------------------------------------------------------

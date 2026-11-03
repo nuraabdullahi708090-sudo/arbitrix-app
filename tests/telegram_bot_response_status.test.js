@@ -280,7 +280,10 @@ test('no-answer / uncertain outcome sends HUMAN NEEDED and never quotes an answe
   });
   await h.bot.handleUpdate(customerMessage('Something I made up entirely'));
 
-  assert.strictEqual(h.toCustomer()[0].text, UNCERTAIN_EN, 'the customer gets the safe uncertain text');
+  // "Something I made up entirely" matches nothing, so the customer gets the
+  // natural clarifying question (never an invented answer).
+  assert.strictEqual(h.toCustomer()[0].text, i18n.t('en', 'clarifyTopic'),
+    'the customer gets a helpful clarifying question');
   const admin = h.notificationText();
   assert.ok(admin.includes('\u26a0\ufe0f HUMAN NEEDED'));
   assert.ok(!admin.includes('\u{1F916} BOT REPLIED'));
@@ -311,13 +314,15 @@ test('with no translator at all, a pt question with an approved answer is HUMAN 
   assert.strictEqual(h.lastNotify().status, NOTIFICATION_STATUS.HUMAN_NEEDED);
 });
 
-test('with AI off the standard acknowledgement is HUMAN NEEDED, not BOT REPLIED', async () => {
+test('with AI off a greeting is a real, confident answer (BOT REPLIED)', async () => {
   const h = createHarness({ language: 'en' });
   await h.bot.handleUpdate(customerMessage('hello there'));
 
-  assert.strictEqual(h.toCustomer()[0].text, CUSTOMER_GUIDE_TEXT);
-  assert.ok(h.notificationText().includes('\u26a0\ufe0f HUMAN NEEDED'));
-  assert.strictEqual(h.lastNotify().status, NOTIFICATION_STATUS.HUMAN_NEEDED);
+  assert.strictEqual(h.toCustomer()[0].text, i18n.t('en', 'greetingFresh'));
+  // The greeting is a genuine reply to this message, so the operator notice says
+  // the bot answered rather than asking a human to duplicate it.
+  assert.ok(h.notificationText().includes('\u{1F916} BOT REPLIED'));
+  assert.strictEqual(h.lastNotify().status, NOTIFICATION_STATUS.BOT_REPLIED);
 });
 
 // --------------------------------------------------- explicit /escalate -> human ---
@@ -375,15 +380,27 @@ test('after an admin replies, the next customer message is HUMAN CONVERSATION', 
   assert.strictEqual(h.lastNotify().status, NOTIFICATION_STATUS.HUMAN_CONVERSATION);
 });
 
-test('the bot still answers the customer while a human is handling (behaviour unchanged)', async () => {
+test('an active human handoff suppresses automated replies, and /close resumes them', async () => {
   const h = createHarness({ language: 'en', ai: stubAI({ en: approvedAnswer(KB_ANSWER_EN) }) });
-  await h.bot.handleUpdate(customerMessage('first'));
+  await h.bot.handleUpdate(customerMessage('What is the minimum deposit?'));
   await h.bot.handleUpdate(adminMessage(`/reply ${CONVERSATION_ID} on it`));
-  await h.bot.handleUpdate(customerMessage('second'));
 
-  // The customer chat also received the human reply, so count the BOT answers.
-  const botAnswers = h.toCustomer().filter((c) => c.text === KB_ANSWER_EN);
-  assert.strictEqual(botAnswers.length, 2, 'the customer reply path is untouched');
+  const before = h.toCustomer().length;
+  await h.bot.handleUpdate(customerMessage('What is the minimum deposit?'));
+
+  // The bot must not talk over the human who is handling the thread.
+  const automatedDuringHandoff = h.toCustomer().slice(before).filter((c) => c.text === KB_ANSWER_EN);
+  assert.strictEqual(automatedDuringHandoff.length, 0, 'no automated reply during a human handoff');
+  assert.strictEqual(h.bot.getStats().automationSuppressed, 1);
+  assert.ok(h.notificationText().includes('HUMAN CONVERSATION'),
+    'the operator is told a human already owns the conversation');
+
+  // `/close` resolves the handoff, so automation resumes on the next message.
+  await h.bot.handleUpdate(adminMessage(`/close ${CONVERSATION_ID}`));
+  const afterClose = h.toCustomer().length;
+  await h.bot.handleUpdate(customerMessage('What is the minimum deposit?'));
+  const resumed = h.toCustomer().slice(afterClose).filter((c) => c.text === KB_ANSWER_EN);
+  assert.strictEqual(resumed.length, 1, 'automation resumes after the handoff is closed');
 });
 
 // ------------------------------------------------------ Telegram send failure ---
