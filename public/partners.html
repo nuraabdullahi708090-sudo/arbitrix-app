@@ -124,6 +124,20 @@
         .btn-primary:hover { background: var(--brand-hover); transform: translateY(-2px); box-shadow: 0 8px 28px var(--gold-glow); }
         .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border-color); }
         .btn-secondary:hover { border-color: var(--brand); color: var(--brand); }
+        /* Supporting line under the primary community CTA (hero + final). */
+        .cta-note { max-width: 560px; margin: 12px auto 0; font-size: 13px; line-height: 1.6;
+            color: var(--text-secondary); text-align: center; overflow-wrap: anywhere; }
+        /* Secondary, deliberately subordinate registration option under the primary
+           community CTA. A text link, not a button, but still a 44px tap target. */
+        .cta-register { margin: 10px auto 0; max-width: 560px; text-align: center; overflow-wrap: anywhere; }
+        .cta-register-link {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-height: 44px; padding: 0 6px; font-size: 13px; font-weight: 600;
+            color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px;
+            border-radius: 8px; max-width: 100%; overflow-wrap: anywhere; text-align: center;
+        }
+        .cta-register-link:hover { color: var(--brand); }
+        .cta-register-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; color: var(--brand); }
         .hero { width: 100%; text-align: center; margin-bottom: 36px; }
         .badge {
             display: inline-flex; align-items: center; gap: 8px; background: var(--brand-weak);
@@ -250,6 +264,9 @@
             .topbar { justify-content: center; text-align: center; }
             .top-actions { width: 100%; justify-content: center; }
             .top-actions .btn { flex: 1 1 45%; }
+            .cta-note { font-size: 12.5px; margin-top: 10px; }
+            .cta-register { margin-top: 6px; }
+            .cta-register-link { font-size: 12.5px; min-height: 44px; }
             h1 { font-size: 26px; }
         }
         @media (min-width: 900px) {
@@ -269,7 +286,7 @@
             </a>
             <div class="top-actions">
                 <a class="btn btn-secondary" href="/?action=sign-in" data-i18n="partners.signIn">Sign In</a>
-                <a class="btn btn-primary js-apply-cta" href="/?action=create-account&src=partners" data-i18n="partners.cta.apply">Apply to Become a Partner</a>
+                <a class="btn btn-primary js-apply-cta js-community-cta" href="https://t.me/+CF9kWr61sqs1MTY0" target="_blank" rel="noopener noreferrer" data-partner-entry="telegram_community"><i class="fab fa-telegram" aria-hidden="true"></i><span data-i18n="partners.cta.joinCommunity">Join Our Telegram Community</span></a>
                 <div class="language-selector">
                     <button type="button" class="lang-trigger" id="partnerLangBtn" aria-haspopup="true" aria-expanded="false" aria-label="Language: English" onclick="togglePartnerLangMenu()">
                         <i class="fas fa-globe" aria-hidden="true"></i>
@@ -298,9 +315,11 @@
                 <li class="chip"><i class="fas fa-coins" aria-hidden="true"></i><span data-i18n="partners.chip.asset">USDT / TRC20</span></li>
             </ul>
             <div class="hero-actions">
-                <a class="btn btn-primary js-apply-cta" id="applyCta" href="/?action=create-account&src=partners"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
+                <a class="btn btn-primary js-apply-cta js-community-cta" id="applyCta" href="https://t.me/+CF9kWr61sqs1MTY0" target="_blank" rel="noopener noreferrer" data-partner-entry="telegram_community"><i class="fab fa-telegram" aria-hidden="true"></i><span data-i18n="partners.cta.joinCommunity">Join Our Telegram Community</span></a>
                 <a class="btn btn-secondary" href="#demo"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.demo">Watch Partner Payout Demo</span></a>
             </div>
+            <p class="cta-register"><a class="cta-register-link js-apply-cta" href="/?action=create-account&amp;src=partners" data-partner-entry="signup" data-i18n="partners.cta.registerNote">Already ready to join? Create an account</a></p>
+            <p class="cta-note" data-i18n="partners.cta.communityNote">Learn how Arbitrix referrals work, get step-by-step guidance and discover how to earn commissions by referring new users.</p>
         </header>
 
         <section class="section" aria-labelledby="howHeading">
@@ -424,9 +443,11 @@
         </section>
 
         <div class="bottom-cta">
-            <a class="btn btn-primary js-apply-cta" href="/?action=create-account&src=partners"><i class="fas fa-handshake" aria-hidden="true"></i><span data-i18n="partners.cta.apply">Apply to Become a Partner</span></a>
+            <a class="btn btn-primary js-apply-cta js-community-cta" href="https://t.me/+CF9kWr61sqs1MTY0" target="_blank" rel="noopener noreferrer" data-partner-entry="telegram_community"><i class="fab fa-telegram" aria-hidden="true"></i><span data-i18n="partners.cta.joinCommunity">Join Our Telegram Community</span></a>
             <a class="btn btn-secondary" href="/how-it-works"><i class="fas fa-circle-play" aria-hidden="true"></i><span data-i18n="partners.cta.how">See How It Works</span></a>
         </div>
+            <p class="cta-register"><a class="cta-register-link js-apply-cta" href="/?action=create-account&amp;src=partners" data-partner-entry="signup" data-i18n="partners.cta.registerNote">Already ready to join? Create an account</a></p>
+            <p class="cta-note" data-i18n="partners.cta.communityNote">Learn how Arbitrix referrals work, get step-by-step guidance and discover how to earn commissions by referring new users.</p>
 
         <footer class="site-footer">
             <a href="/" data-i18n="partners.footerHome">Home</a>
@@ -451,7 +472,9 @@
                 "partners.chip.noTrading": "No trading required",
                 "partners.chip.noMinimum": "No minimum payout",
                 "partners.chip.asset": "USDT / TRC20",
-                "partners.cta.apply": "Apply to Become a Partner",
+                "partners.cta.joinCommunity": "Join Our Telegram Community",
+                "partners.cta.communityNote": "Learn how Arbitrix referrals work, get step-by-step guidance and discover how to earn commissions by referring new users.",
+                "partners.cta.registerNote": "Already ready to join? Create an account",
                 "partners.cta.how": "See How It Works",
                 "partners.cta.demo": "Watch Partner Payout Demo",
                 "partners.signIn": "Sign In",
@@ -540,7 +563,9 @@
                 "partners.chip.noTrading": "No requiere operar",
                 "partners.chip.noMinimum": "Sin pago mínimo",
                 "partners.chip.asset": "USDT / TRC20",
-                "partners.cta.apply": "Solicita ser Socio",
+                "partners.cta.joinCommunity": "Únete a nuestra comunidad de Telegram",
+                "partners.cta.communityNote": "Descubre cómo funcionan las referencias de Arbitrix, recibe una guía paso a paso y aprende a ganar comisiones refiriendo nuevos usuarios.",
+                "partners.cta.registerNote": "¿Ya estás listo para unirte? Crea una cuenta",
                 "partners.cta.how": "Ver Cómo Funciona",
                 "partners.cta.demo": "Ver Demo de Pago a Socios",
                 "partners.signIn": "Iniciar Sesión",
@@ -629,7 +654,9 @@
                 "partners.chip.noTrading": "Não é preciso operar",
                 "partners.chip.noMinimum": "Sem valor mínimo de pagamento",
                 "partners.chip.asset": "USDT / TRC20",
-                "partners.cta.apply": "Candidate-se a Parceiro",
+                "partners.cta.joinCommunity": "Entre na nossa comunidade do Telegram",
+                "partners.cta.communityNote": "Saiba como funcionam as indicações da Arbitrix, receba orientação passo a passo e descubra como ganhar comissões indicando novos usuários.",
+                "partners.cta.registerNote": "Já está pronto para entrar? Crie uma conta",
                 "partners.cta.how": "Veja Como Funciona",
                 "partners.cta.demo": "Ver Demonstração de Pagamento a Parceiros",
                 "partners.signIn": "Entrar",
@@ -718,7 +745,9 @@
                 "partners.chip.noTrading": "Aucun trading requis",
                 "partners.chip.noMinimum": "Aucun paiement minimum",
                 "partners.chip.asset": "USDT / TRC20",
-                "partners.cta.apply": "Devenir Partenaire",
+                "partners.cta.joinCommunity": "Rejoignez notre communauté Telegram",
+                "partners.cta.communityNote": "Découvrez le fonctionnement des parrainages Arbitrix, obtenez un accompagnement pas à pas et apprenez à gagner des commissions en parrainant de nouveaux utilisateurs.",
+                "partners.cta.registerNote": "Déjà prêt à rejoindre ? Créez un compte",
                 "partners.cta.how": "Voir Comment Ça Marche",
                 "partners.cta.demo": "Voir la Démo de Paiement Partenaire",
                 "partners.signIn": "Se Connecter",
@@ -807,7 +836,9 @@
                 "partners.chip.noTrading": "لا حاجة للتداول",
                 "partners.chip.noMinimum": "لا حد أدنى للدفع",
                 "partners.chip.asset": "USDT / TRC20",
-                "partners.cta.apply": "تقدّم لتصبح شريكًا",
+                "partners.cta.joinCommunity": "انضم إلى مجتمعنا على تيليجرام",
+                "partners.cta.communityNote": "تعرّف على كيفية عمل الإحالات في Arbitrix، واحصل على إرشاد خطوة بخطوة، واكتشف كيف تكسب عمولات من إحالة مستخدمين جدد.",
+                "partners.cta.registerNote": "مستعد للانضمام بالفعل؟ أنشئ حسابًا",
                 "partners.cta.how": "شاهد كيف يعمل",
                 "partners.cta.demo": "شاهد عرض دفع الشركاء",
                 "partners.signIn": "تسجيل الدخول",
@@ -896,7 +927,9 @@
                 "partners.chip.noTrading": "无需交易",
                 "partners.chip.noMinimum": "无最低提现额",
                 "partners.chip.asset": "USDT / TRC20",
-                "partners.cta.apply": "申请成为合作伙伴",
+                "partners.cta.joinCommunity": "加入我们的 Telegram 社区",
+                "partners.cta.communityNote": "了解 Arbitrix 推荐机制，获取分步指导，并了解如何通过推荐新用户赚取佣金。",
+                "partners.cta.registerNote": "已经准备好加入？创建账户",
                 "partners.cta.how": "了解运作方式",
                 "partners.cta.demo": "观看合作伙伴提现演示",
                 "partners.signIn": "登录",
@@ -1277,13 +1310,19 @@
         // ?action= behaviour; no new authentication system.
         try { sessionStorage.setItem('arbi_auth_entry', window.location.search || '/partners'); } catch (e) {}
 
-        // Partner-funnel attribution is ARMED ON THE APPLY CTA CLICK ONLY - never on
-        // page load - so merely visiting this page can never attribute a later,
-        // ordinary customer signup. Both markers are written synchronously before the
-        // navigation is followed. The Apply CTAs additionally carry ?src=partners as
-        // a storage-independent fallback (new tab / storage unavailable).
+        // Partner-funnel attribution is ARMED ON A PARTNER-FUNNEL CTA CLICK ONLY -
+        // never on page load - so merely visiting this page can never attribute a
+        // later, ordinary customer signup. Both markers are written synchronously
+        // before the navigation is followed.
         //   1. sessionStorage 'arbi_partner_entry' = '1'         (same tab)
         //   2. localStorage   'arbi_partner_entry' = <epoch ms>  (cross tab, 1h TTL)
+        // The primary CTAs now open the Telegram community in a new tab, so the old
+        // ?src=partners URL fallback cannot travel with them (Telegram invite links
+        // carry no query parameters). These two storage markers preserve the funnel
+        // attribution when the prospect returns to Arbitrix and registers inside the
+        // existing 1-hour window. The .js-apply-cta class is kept on the community
+        // CTAs deliberately: it is the funnel-CTA selector the attribution contract
+        // (and its tests) are built on.
         function markPartnerEntry() {
             try { sessionStorage.setItem('arbi_partner_entry', '1'); } catch (e) {}
             try { localStorage.setItem('arbi_partner_entry', String(Date.now())); } catch (e) {}

@@ -148,11 +148,24 @@ test('partners.html: writes BOTH the session marker and a timestamped localStora
     });
 });
 
-test('partners.html: all three Apply CTAs carry src=partners (survives tab boundaries without storage)', () => {
-    const ctas = PARTNERS.match(/href="\/\?action=create-account[^"]*"/g) || [];
-    assert.strictEqual(ctas.length, 3, 'topbar + hero + bottom Apply CTAs');
-    ctas.forEach((h) => assert.match(h, /[?&]src=partners"/, 'each Apply CTA must carry src=partners: ' + h));
+test('partners.html: the three funnel CTAs are the Telegram community CTA and still arm the markers', () => {
+    // The primary CTA now opens the Telegram community, so the old ?src=partners URL
+    // fallback cannot travel with it (invite links carry no query parameters).
+    // Attribution therefore rests on the two storage markers, armed by the SAME click
+    // handler on the SAME three CTAs - the contract below is unchanged on purpose.
+    const ctas = PARTNERS.match(/<a class="btn btn-primary js-apply-cta js-community-cta"[^>]*>/g) || [];
+    assert.strictEqual(ctas.length, 3, 'topbar + hero + bottom funnel CTAs');
+    ctas.forEach((a) => assert.ok(a.indexOf('href="https://t.me/+CF9kWr61sqs1MTY0"') !== -1,
+        'each funnel CTA must open the approved group: ' + a));
+    // Registration is offered only through the small secondary link, never a
+    // primary button, so the community remains the headline step.
+    const registerLinks = PARTNERS.match(/<p class="cta-register"><a[^>]*>/g) || [];
+    assert.strictEqual(registerLinks.length, 2, 'the two secondary registration links');
+    assert.strictEqual((PARTNERS.match(/\/\?action=create-account/g) || []).length, 2,
+        'no other link may go straight to registration');
     assert.ok(!/action=sign-in[^"]*src=partners/.test(PARTNERS), 'the Sign In deep link must not be changed');
+    assert.match(PARTNERS, /querySelectorAll\('\.js-apply-cta'\)/,
+        'the funnel-CTA selector the attribution contract is built on must be preserved');
 });
 
 test('partners.html: the legacy arbi_auth_entry behaviour is preserved verbatim', () => {

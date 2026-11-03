@@ -45,7 +45,12 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 87;
+const EXPECTED_KEYS = 89;
+
+// The approved referral-community destination, and the ONLY external anchor the
+// page may carry: a prospective partner joins the Telegram group, and registration
+// stays on Arbitrix (reached from the group, not from a direct CTA on this page).
+const COMMUNITY_URL = 'https://t.me/+CF9kWr61sqs1MTY0';
 
 // Current approved baseline of public/index.html. The /partners feature itself
 // does not modify the homepage funnel; this hash was updated once for the
@@ -264,11 +269,30 @@ test('2. the page carries SEO + social metadata and a canonical URL', () => {
 /* ------------------------------------------------------------------ *
  * 3. CTAs reuse the EXISTING flows (no bespoke registration)
  * ------------------------------------------------------------------ */
-test('3. the primary CTA "Apply to Become a Partner" uses /?action=create-account', () => {
-    const apply = (PAGE.match(/href="\/\?action=create-account(&src=partners)?"/g) || []).length;
-    assert.ok(apply >= 3, 'the apply CTA must appear in the topbar, hero and bottom CTA (got ' + apply + ')');
-    assert.match(PAGE, /data-i18n="partners\.cta\.apply"/, 'the apply CTA must be localized');
+test('3. the primary CTA joins the Arbitrix Telegram community (exact invite)', () => {
+    const ctas = PAGE.match(/<a class="btn btn-primary js-apply-cta js-community-cta"[^>]*>/g) || [];
+    assert.strictEqual(ctas.length, 3, 'topbar + hero + bottom share the one primary CTA');
+    ctas.forEach((a) => {
+        assert.ok(a.indexOf('href="' + COMMUNITY_URL + '"') !== -1, 'exact Telegram invite: ' + a);
+        assert.match(a, /target="_blank"/, 'must open in a new tab: ' + a);
+        assert.match(a, /rel="noopener noreferrer"/, 'must carry the safe rel attributes: ' + a);
+        assert.match(a, /data-partner-entry="telegram_community"/, 'must be marked as the funnel entry');
+    });
+    assert.match(PAGE, /data-i18n="partners\.cta\.joinCommunity"/, 'the CTA must be localized');
+    assert.match(PAGE, /<i class="fab fa-telegram" aria-hidden="true"><\/i>/,
+        'a recognisable Telegram icon is required');
+    // ...and the only registration route on the page is the SMALL secondary link
+    // below the primary CTA (never a primary button).
+    const register = PAGE.match(/<p class="cta-register"><a class="cta-register-link[^>]*>/g) || [];
+    assert.strictEqual(register.length, 2, 'hero + final CTA carry the secondary registration link');
+    register.forEach((a) => {
+        assert.ok(a.indexOf('href="/?action=create-account&amp;src=partners"') !== -1,
+            'the secondary link must use the existing registration deep link: ' + a);
+        assert.ok(!/btn-primary/.test(a), 'registration must never be the primary button: ' + a);
+    });
+    // The app still performs registration and sign-in exactly as before.
     assert.match(INDEX, /action=create-account/, 'the app shell must still handle the create-account action');
+    assert.match(INDEX, /action=sign-in/, 'the app shell must still handle the sign-in action');
 });
 
 test('3b. the topbar/bottom secondary CTA still uses the existing /how-it-works page', () => {
@@ -302,16 +326,21 @@ test('3c. the Sign In link uses the existing /?action=sign-in deep link', () => 
     assert.match(INDEX, /action=sign-in/, 'the app shell must still handle the sign-in action');
 });
 
-test('3d. no new authentication system or external destination is introduced', () => {
+test('3d. no bespoke auth system; the approved Telegram invite is the ONLY external anchor', () => {
     const hrefs = anchorHrefs(PAGE);
     const authLinks = hrefs.filter((h) => h.includes('action='));
-    assert.ok(authLinks.length >= 4, 'the page must expose the two auth entry points');
-    authLinks.forEach((h) => assert.ok(h === '/?action=create-account&src=partners' || h === '/?action=sign-in',
-        'unexpected auth link ' + h));
+    assert.deepStrictEqual(authLinks.slice().sort(), [
+        '/?action=create-account&amp;src=partners',
+        '/?action=create-account&amp;src=partners',
+        '/?action=sign-in'
+    ], 'Sign In (dashboard) plus the two secondary registration links, nothing else');
+    const external = hrefs.filter((h) => /^https?:/i.test(h));
+    assert.deepStrictEqual(external, [COMMUNITY_URL, COMMUNITY_URL, COMMUNITY_URL],
+        'the Telegram invite is the single external destination (topbar + hero + bottom)');
     hrefs.forEach((h) => {
-        // Same-page fragments (#demo) are allowed: they cannot leave the page.
-        assert.ok(h.startsWith('/') || h.startsWith('#'),
-            'no external anchor may exist on the page: ' + h);
+        // Same-page fragments (#demo) and root-relative links cannot leave the site.
+        assert.ok(h.startsWith('/') || h.startsWith('#') || h === COMMUNITY_URL,
+            'unexpected anchor ' + h);
     });
     assert.ok(!/signup\s*\(|login\s*\(|\/api\/auth/i.test(PAGE), 'no bespoke auth logic on the page');
 });
@@ -376,15 +405,15 @@ test('4d. Arabic is RTL and the locale wiring is intact', () => {
     assert.match(PAGE, /html\[dir="rtl"\]/, 'an RTL stylesheet rule must exist');
     assert.match(PAGE, /localStorage\.getItem\('arbi_lang'\)/, 'the page must reuse the shared arbi_lang key');
     assert.match(PAGE, /localStorage\.setItem\('arbi_lang'/, 'detected language must persist to arbi_lang');
-    assert.ok(T.ar['partners.cta.apply'] !== T.en['partners.cta.apply'], 'Arabic must be translated');
+    assert.ok(T.ar['partners.cta.joinCommunity'] !== T.en['partners.cta.joinCommunity'], 'Arabic must be translated');
 });
 
 test('4e. the runtime resolves each locale correctly', () => {
-    const cases = { en: 'partners.cta.apply', es: 'partners.cta.apply', pt: 'partners.cta.apply', fr: 'partners.cta.apply', ar: 'partners.cta.apply', zh: 'partners.cta.apply' };
+    const cases = { en: 'partners.cta.joinCommunity', es: 'partners.cta.joinCommunity', pt: 'partners.cta.joinCommunity', fr: 'partners.cta.joinCommunity', ar: 'partners.cta.joinCommunity', zh: 'partners.cta.joinCommunity' };
     Object.keys(cases).forEach((lang) => {
         const sb = runPage({ lang: lang, storedLang: lang });
         assert.strictEqual(sb.__lang, lang, 'currentLang must resolve to ' + lang);
-        assert.strictEqual(sb.__t('partners.cta.apply'), T[lang]['partners.cta.apply'],
+        assert.strictEqual(sb.__t('partners.cta.joinCommunity'), T[lang]['partners.cta.joinCommunity'],
             'the ' + lang + ' string must be used');
     });
     // Unknown/unsupported locale falls back to English.
@@ -702,11 +731,12 @@ test('8h. the two-contact layout is responsive and accessible on small screens',
     assert.ok(!/id="partnerSupportBtn"/.test(PAGE), 'the old single-contact anchor is gone');
 });
 
-test('8b. the page invents no other Telegram destination or group link', () => {
-    assert.ok(!PAGE.includes('t.me/+'), 'no Telegram invite/group link');
+test('8b. the only Telegram destination the page adds is the approved community invite', () => {
+    assert.strictEqual((PAGE.match(/t\.me\/\+/g) || []).length, 3,
+        'the community invite appears on the three primary CTAs and nowhere else');
     assert.ok(!/joinchat/i.test(PAGE), 'no joinchat link');
-    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
-        'only the single programmatic t.me builder may exist');
+    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 4,
+        'three invite CTAs plus the single programmatic partner-handle builder');
     for (const handle of [PARTNER_HANDLE, PARTNER_HANDLE_2]) {
         assert.ok(!PAGE.includes('https://t.me/' + handle.replace('@', '')),
             'the full URL for ' + handle + ' must be built at runtime, not hardcoded');
