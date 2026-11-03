@@ -60,13 +60,27 @@ test('the retired explainer, its poster and the CDN fallback are gone', () => {
 // ---------------------------------------------------------------------------
 // 2. the asset is the approved master, unmodified
 // ---------------------------------------------------------------------------
+// The approved master lives in the build/ workspace, which is deliberately NOT
+// committed (it is a 9 MB duplicate of the served file). A fresh clone therefore
+// has no copy to compare against, which used to fail this suite for everyone.
+// The master's digest and byte size are pinned here instead: any re-encode or
+// swap of the served asset breaks these assertions exactly as before, and when
+// build/ IS present the byte-for-byte comparison still runs as well.
+const APPROVED_MASTER_SHA256 = 'b48c72edd63b2436bc62b9f3eaecefba26946c784a9a6210d6a089f27e42901a';
+const APPROVED_MASTER_BYTES = 9243462;
+
 test('the served MP4 is a byte-identical copy of the approved master (no re-encode)', () => {
-    assert.ok(fs.existsSync(path.join(ROOT, MASTER_REL)), 'approved master is present for comparison');
+    assert.ok(fs.existsSync(path.join(ROOT, VIDEO_REL)), 'served video asset exists');
     const served = fs.readFileSync(path.join(ROOT, VIDEO_REL));
-    const master = fs.readFileSync(path.join(ROOT, MASTER_REL));
-    assert.strictEqual(sha256(path.join(ROOT, VIDEO_REL)), sha256(path.join(ROOT, MASTER_REL)),
+    assert.strictEqual(sha256(path.join(ROOT, VIDEO_REL)), APPROVED_MASTER_SHA256,
         'served bytes equal the approved master');
-    assert.strictEqual(served.length, master.length, 'no re-encode (same size)');
+    assert.strictEqual(served.length, APPROVED_MASTER_BYTES, 'no re-encode (same size)');
+    if (fs.existsSync(path.join(ROOT, MASTER_REL))) {
+        const master = fs.readFileSync(path.join(ROOT, MASTER_REL));
+        assert.strictEqual(sha256(path.join(ROOT, VIDEO_REL)), sha256(path.join(ROOT, MASTER_REL)),
+            'served bytes equal the build/ master');
+        assert.strictEqual(served.length, master.length, 'no re-encode (same size as the build/ master)');
+    }
     // ISO base media file format + ftyp box, i.e. a real MP4 container
     assert.strictEqual(served.slice(4, 8).toString('ascii'), 'ftyp', 'valid MP4 container');
 });

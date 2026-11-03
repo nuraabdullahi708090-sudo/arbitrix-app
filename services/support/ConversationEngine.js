@@ -478,6 +478,9 @@ function emptyState() {
     handoffRequestedAt: null,
     handoffResolvedAt: null,
     handoffResolvedMessageId: null,
+    // Set when a human operator actually replies, cleared by `/close`: the bot
+    // must stay silent for the WHOLE takeover, not only the first message.
+    humanActiveAt: null,
     updatedAt: null
   };
 }
@@ -543,6 +546,7 @@ function normalizeState(raw) {
   base.handoffRequestedAt = asString(value.handoffRequestedAt, 40);
   base.handoffResolvedAt = asString(value.handoffResolvedAt, 40);
   base.handoffResolvedMessageId = asMessageId(value.handoffResolvedMessageId);
+  base.humanActiveAt = asString(value.humanActiveAt, 40);
   base.updatedAt = asString(value.updatedAt, 40);
   return base;
 }
@@ -1290,6 +1294,58 @@ function repeatQuestion(prev, next) {
   ], next);
 }
 
+/**
+ * Customer commands that depend on the CONVERSATION STATE.
+ *
+ * `/tutorial`, `/progress` and `/next` are answered from the same stored state as
+ * an ordinary message, so a customer can ask "where was I?" at any point. They
+ * are informational: none of them clears the pending question, changes the topic
+ * or invents account data - `/next` restates what the bot is waiting for, and
+ * `/progress` reports only what the customer told this chat.
+ */
+function planCommand(name, { state } = {}) {
+  const prev = normalizeState(state);
+  const next = Object.assign({}, prev, {
+    turns: prev.turns + 1,
+    lastIntent: 'command:' + name,
+    updatedAt: new Date().toISOString()
+  });
+
+  if (name === 'tutorial') {
+    const lines = [line('tutorialMenu')];
+    DEPOSIT_METHODS.forEach((id) => lines.push(tutorialLine(id)));
+    lines.push(tutorialLine('withdrawal'));
+    return makeReply('command:tutorial', lines, next, { tutorial: true });
+  }
+
+  if (name === 'progress') {
+    const questionKey = prev.pending ? QUESTION_KEYS[prev.pending] : null;
+    const method = DEPOSIT_METHODS.indexOf(prev.method) !== -1 ? prev.method : null;
+    if (!questionKey && !method) {
+      return makeReply('command:progress', [line('progressEmpty')], next);
+    }
+    const lines = [line('progressTitle')];
+    if (method) lines.push(line('progressMethod', { method: TUTORIALS[method].label }));
+    if (questionKey) {
+      lines.push(line('progressWaiting'));
+      lines.push(line(questionKey));
+    }
+    return makeReply('command:progress', lines, next);
+  }
+
+  if (name === 'next') {
+    const questionKey = prev.pending ? QUESTION_KEYS[prev.pending] : null;
+    if (!questionKey) return makeReply('command:next', [line('nextTopics')], next);
+    const lines = [line('nextStepTitle')];
+    const method = DEPOSIT_METHODS.indexOf(prev.method) !== -1 ? prev.method : null;
+    if (method) lines.push(line('progressMethod', { method: TUTORIALS[method].label }));
+    lines.push(line(questionKey));
+    return makeReply('command:next', lines, next);
+  }
+
+  return null;
+}
+
 module.exports = {
   TUTORIALS,
   PENDING,
@@ -1304,5 +1360,6 @@ module.exports = {
   normalizeState,
   analyze,
   isMethodSelection,
-  planTurn
+  planTurn,
+  planCommand
 };

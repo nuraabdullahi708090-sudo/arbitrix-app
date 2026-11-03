@@ -8477,3 +8477,34 @@ was created and no Telegram write call was executed in this pass.
   database-side CAS, both beyond this follow-up. Single-instance deployment (the
   documented topology) is unaffected.
 - NOT pushed, NOT deployed, migration 047 NOT applied.
+
+## Conversational support completion: state commands + whole-takeover suppression (2026-11-03)
+- Two production gaps closed on top of PR #160 (`efcb754`):
+  1. Customer commands `/tutorial`, `/progress` and `/next` did not exist, so the
+     deployed bot answered them with the generic "may not have understood" reply.
+     `ConversationEngine.planCommand()` now renders them from the STORED state
+     (`services/support/ConversationEngine.js`), localized in en/pt/ar via new
+     `tutorialMenu`, `progressTitle`, `progressWaiting`, `progressMethod`,
+     `progressEmpty`, `nextStepTitle`, `nextTopics` keys; `/help` advertises all
+     three. `/tutorial` sends the four approved tutorial links (17/16/18/19),
+     `/progress` reports only what the customer said in this chat, `/next`
+     restates the pending question (or offers the main topics). None of them
+     clears the pending question or touches money.
+  2. Human takeover suppression lasted exactly ONE customer message: it keyed on
+     "the latest message is from an agent", so from the customer's second message
+     the bot spoke over the human. The conversation state gained `humanActiveAt`
+     (set by an operator `/reply`, cleared by `/close`, with `handoffResolvedAt`
+     cleared on a new takeover) and `isHumanHandlingConversation()` treats an
+     active takeover as silence until the close. `markHumanActive()` is best
+     effort so a state problem never blocks an operator reply.
+- Files: services/support/ConversationEngine.js, services/TelegramSupportService.js,
+  services/telegram-i18n.js; tests/telegram_support_commands.test.js (18 tests:
+  the three commands, localization, in-flight state preservation, the whole-
+  takeover silence, `/close` resumption, re-suppression after a new human reply,
+  no operator page for self-service commands, no financial references).
+- Video test: `tests/how_it_works_video.test.js` used to require the untracked
+  `build/` master copy, so it failed in every fresh clone. It now pins the
+  approved master sha256 `b48c72ed...901a` and size 9243462 (and still compares
+  byte-for-byte when `build/` exists) - same protection, no committed 9 MB
+  duplicate.
+- `npm test` = 3018 pass / 0 fail.
