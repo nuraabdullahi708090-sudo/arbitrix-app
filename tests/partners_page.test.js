@@ -70,8 +70,10 @@ const COMMUNITY_URL = 'https://t.me/+CF9kWr61sqs1MTY0';
 // invoice errors), and again for the withdrawal-discoverability change (an
 // Available-card Withdraw action sharing that row), and once more for the
 // mobile full-screen deposit dialog (a markup nesting fix plus the <=640px
-// dialog layout). Each re-pin was an approved homepage change, not /partners drift.
-const INDEX_SHA256 = 'fe53bd6f065a4fe24de8a50433c876e0a7a0c2905fee9a3933aeacbbe4a0e5fa';
+// dialog layout), and once more for the deposit-dialog section reorder that
+// moved the tutorials card to the bottom of the panel. Each re-pin was an
+// approved homepage change, not /partners drift.
+const INDEX_SHA256 = 'd09e95fb23b0e004ef2ed41c592af9bdf5c48921aa3ba8165361dabb6293d75d';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';

@@ -290,11 +290,16 @@ test('13. the deposit modal shows the tutorial CTA, opening the page in a new ta
     const cardStart = INDEX.indexOf('id="depositTutorialsCard"');
     assert.ok(cardStart > 0, 'the deposit modal must contain the tutorial card');
 
-    const inputSection = INDEX.indexOf('id="depositInputSection"');
-    const cryptoFlow = INDEX.indexOf('id="depositCryptoFlow"');
-    assert.ok(inputSection < cardStart && cardStart < cryptoFlow, 'the card belongs to step 1 of the deposit modal');
+    // Moved to the very bottom of the dialog so the deposit form (amount ->
+    // Generate Payment) comes first for users who already hold crypto.
+    const history = INDEX.indexOf('class="deposit-history"');
+    const hiddenInputs = INDEX.indexOf('<!-- Hidden inputs -->', cardStart);
+    const panelStart = INDEX.indexOf('id="depositModalContent"');
+    assert.ok(panelStart > 0 && panelStart < cardStart, 'the card belongs to the deposit panel');
+    assert.ok(history < cardStart, 'the card sits below the Recent Deposits block');
+    assert.ok(hiddenInputs > cardStart, 'the card is the last content block of the dialog');
 
-    const block = INDEX.slice(cardStart, INDEX.indexOf('<!-- VERIFIED PARTNER PANEL', cardStart));
+    const block = INDEX.slice(cardStart, hiddenInputs);
     assert.ok(block.includes('href="/deposit-tutorials"'));
     assert.ok(/target="_blank"/.test(block) && /rel="noopener noreferrer"/.test(block));
     assert.match(block, /data-i18n="deposit\.tutorials\.title"/);
@@ -353,7 +358,8 @@ test('16. every data-i18n reference on the page and in the app is defined', () =
 // --------------------------------------------------------- 6. no interference ---
 
 test('17. the tutorial UI cannot create an invoice or a withdrawal', () => {
-    const cardBlock = INDEX.slice(INDEX.indexOf('id="depositTutorialsCard"'), INDEX.indexOf('<!-- VERIFIED PARTNER PANEL'));
+    const cardStart = INDEX.indexOf('id="depositTutorialsCard"');
+    const cardBlock = INDEX.slice(cardStart, INDEX.indexOf('<!-- Hidden inputs -->', cardStart));
     const withdrawStart = INDEX.indexOf('id="withdrawTutorialBox"');
     const withdrawBlock = INDEX.slice(withdrawStart,
         INDEX.indexOf('<div style="text-align:center;margin-bottom:12px;">', withdrawStart));
@@ -389,9 +395,14 @@ test('19. the deposit modal structure keeps its single scroll container and opti
     assert.match(INDEX, /id="depositOptions"/);
     assert.match(INDEX, /id="depositCryptoFlow"/);
     assert.match(INDEX, /id="depositPartnerPanel"/);
-    // The new card sits between the funding options and the partner panel.
-    assert.ok(INDEX.indexOf('id="depositOptions"') < INDEX.indexOf('id="depositTutorialsCard"'));
-    assert.ok(INDEX.indexOf('id="depositTutorialsCard"') < INDEX.indexOf('id="depositPartnerPanel"'));
+    // The card now follows Recent Deposits: options -> partner panel -> crypto
+    // flow -> history -> tutorials (the form must come before the tutorials).
+    const at = (needle) => INDEX.indexOf(needle);
+    assert.ok(at('id="depositOptions"') < at('id="depositPartnerPanel"'));
+    assert.ok(at('id="depositPartnerPanel"') < at('id="depositCryptoFlow"'));
+    assert.ok(at('id="depositCryptoFlow"') < at('id="getAddressBtn"'));
+    assert.ok(at('class="deposit-history"') < at('id="depositTutorialsCard"'));
+    assert.ok(at('id="depositTutorialsCard"') < at('<!-- Hidden inputs -->'));
 });
 
 // ---------------------------------------------------------------- 7. mobile ---

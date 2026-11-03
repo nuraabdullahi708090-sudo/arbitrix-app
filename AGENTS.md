@@ -8808,3 +8808,18 @@ was created and no Telegram write call was executed in this pass.
 - NOTE: `overflow:hidden` on body blocks USER scrolling only; programmatic
   `window.scrollBy` still moves the page. Verify scroll locking with a real
   gesture (`page.mouse.wheel`) in the browser harness, not `scrollTo`.
+
+## Deposit dialog section order (2026-11-03)
+- CONTRACT: `#depositModalContent` reads heading -> `#depositOptions` ->
+  `#supportedCoinsInfo` -> `#depositUsdtHelp` -> amount + presets ->
+  `#getAddressBtn` -> `#safetyWarning` -> `.deposit-history` ->
+  `#depositTutorialsCard` -> hidden inputs. The tutorials card sits OUTSIDE
+  `#depositInputSection`, so it stays visible (at the bottom) through the
+  payment and success steps as well.
+- WHY: the card used to sit between the funding options and the crypto form,
+  which pushed Generate Payment to y=986 on a 390x844 viewport (below the fold).
+  At the bottom the same button sits at y=739 and is reachable without scrolling.
+- Pinned by `tests/deposit_tutorials_position.test.js` (8 tests; 4 fail on the
+  pre-move markup). The 13/17/19 pins in `tests/deposit_tutorials_page.test.js`
+  were updated to the new positions, and `tests/partners_page.test.js`'s homepage
+  hash was re-pinned per its own comment.
