@@ -357,11 +357,14 @@ test('B9. the Arabic script verification is KEPT: a model that answers in Englis
 test('B10. guardrail behaviour is unchanged for both English and Portuguese', async () => {
   const ai = knowledgeAI();
   const en = buildBot({ ai: knowledgeAI(), language: 'en' });
-  await en.bot.handleUpdate(textUpdate('Is the profit guaranteed?'));
+  // A question the dialogue engine hands to the knowledge layer. ("Is the profit
+  // guaranteed?" is now answered by the engine's own earnings explanation, which
+  // carries the same promise-free wording and the risk disclosure.)
+  await en.bot.handleUpdate(textUpdate('Will I make a profit?'));
   assert.strictEqual(en.replies()[0], GUARANTEE_ENTRY.answer, 'English customers still get the approved text');
 
   const pt = buildBot({ ai, language: 'pt' });
-  await pt.bot.handleUpdate(textUpdate('Is the profit guaranteed?'));
+  await pt.bot.handleUpdate(textUpdate('Will I make a profit?'));
   assert.strictEqual(pt.replies()[0], i18n.t('pt', 'uncertain'), 'no English guardrail text leaks');
 });
 

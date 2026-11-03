@@ -218,30 +218,38 @@ function customerUpdate(text) {
     return { update_id: updateSeq, message: { message_id: 1, from: { id: 555111, username: 'ana' }, chat: { id: 555111, type: 'private' }, text } };
 }
 
-test('8. a Portuguese customer receives the translated approved answer (URL + number intact)', async () => {
+test('8. a Portuguese customer receives the approved answer in Portuguese (URL + number intact)', async () => {
     const translator = makeTranslator(PT_ANSWER);
     const h = createHarness('pt', translator);
     await h.bot.handleUpdate(customerUpdate('Qual \u00e9 o n\u00famero KVK da Arbitrix?'));
 
-    assert.strictEqual(h.customerTexts()[0], PT_ANSWER, 'the customer must receive the translated answer');
-    assert.ok(h.customerTexts()[0].includes(PAGE_URL), 'the URL must survive translation');
-    assert.ok(h.customerTexts()[0].includes(KVK_NUMBER), 'the KVK number must survive translation');
-    assert.strictEqual(translator.calls.fromEnglish, 1, 'the existing translation layer must be used');
-    // A confident answer: the full approved content was delivered, not the
-    // localized uncertain/handoff fallback.
-    assert.ok(!/approved answer/i.test(h.customerTexts()[0]), 'must not be the uncertain fallback');
+    // The registration answer is now NATIVE Portuguese copy in the dialogue
+    // dictionary (services/telegram-i18n.js) instead of a machine translation of
+    // the English entry: the same facts, with no translation step that could
+    // drift. The knowledge entry still exists and still backs the AI layer.
+    const reply = h.customerTexts()[0];
+    assert.ok(reply, 'the customer must receive an answer');
+    assert.ok(reply.includes(PAGE_URL), 'the registration URL must be present');
+    assert.ok(reply.includes(KVK_NUMBER), 'the KVK number must be present');
+    assert.ok(reply.includes(LEGAL_NAME), 'the exact legal name must be present');
+    assert.match(reply, /C\u00e2mara de Com\u00e9rcio/, 'the answer is Portuguese');
+    assert.strictEqual(translator.calls.fromEnglish, 0, 'a native answer needs no translation');
+    assert.ok(!/approved answer/i.test(reply), 'must not be the uncertain fallback');
 });
 
-test('9. an Arabic customer receives the translated approved answer (URL + number intact)', async () => {
+test('9. an Arabic customer receives the approved answer in Arabic (URL + number intact)', async () => {
     const translator = makeTranslator(AR_ANSWER);
     const h = createHarness('ar', translator);
     await h.bot.handleUpdate(customerUpdate('\u0645\u0627 \u0647\u0648 \u0631\u0642\u0645 KVK\u061f'));
 
-    assert.strictEqual(h.customerTexts()[0], AR_ANSWER, 'the customer must receive the translated answer');
-    assert.ok(h.customerTexts()[0].includes(PAGE_URL), 'the URL must survive translation');
-    assert.ok(h.customerTexts()[0].includes(KVK_NUMBER), 'the KVK number must survive translation');
-    assert.strictEqual(translator.calls.fromEnglish, 1);
-    assert.ok(!/approved answer/i.test(h.customerTexts()[0]), 'must not be the uncertain fallback');
+    const reply = h.customerTexts()[0];
+    assert.ok(reply, 'the customer must receive an answer');
+    assert.ok(reply.includes(PAGE_URL), 'the registration URL must be present');
+    assert.ok(reply.includes(KVK_NUMBER), 'the KVK number must be present');
+    assert.ok(reply.includes(LEGAL_NAME), 'the exact legal name must be present');
+    assert.match(reply, /\u063a\u0631\u0641\u0629 \u0627\u0644\u062a\u062c\u0627\u0631\u0629/, 'the answer is Arabic');
+    assert.strictEqual(translator.calls.fromEnglish, 0, 'a native answer needs no translation');
+    assert.ok(!/approved answer/i.test(reply), 'must not be the uncertain fallback');
 });
 
 test('9b. translation fidelity: an answer that drops the URL or number is withheld', () => {

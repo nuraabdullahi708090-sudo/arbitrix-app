@@ -1544,9 +1544,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * every automated call site relies on) and DIRECTION_AGENT for a reply typed
    * by a human support agent. Returns Telegram's result.
    */
-  async function sendOutbound(conversation, body, direction = DIRECTION_BOT) {
+  async function sendOutbound(conversation, body, direction = DIRECTION_BOT, options) {
     markStage('sendMessage');
-    const sent = await transport.sendMessage(conversation.telegram_chat_id, body);
+    const sent = await transport.sendMessage(conversation.telegram_chat_id, body, options);
     stats.repliesSent += 1;
     await store.insertMessage({
       conversationId: conversation.id,
@@ -2161,6 +2161,27 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         : tCustomer(language, 'depositTutorialLink', { method: tutorial.label, url: tutorial.url }));
     }
     return parts.join('\n\n');
+  }
+
+  /**
+   * Render a dialogue plan's inline keyboard, if it has one.
+   *
+   * Only URL buttons are supported here: a URL button cannot run any logic, so a
+   * keyboard can never introduce a second human-handoff mechanism or a callback
+   * payload that some other handler has to learn. The labels are localized
+   * (`btnBusiness` / `btnHowItWorks`); the URLs come from the engine constants so
+   * the two published pages are defined exactly once.
+   */
+  function renderPlanKeyboard(language, plan) {
+    const buttons = plan && Array.isArray(plan.keyboard) ? plan.keyboard : [];
+    const row = [];
+    for (const button of buttons) {
+      if (!button || !button.key || !/^https:\/\//i.test(String(button.url || ''))) continue;
+      const text = tCustomer(language, button.key);
+      if (!text || text === button.key) continue;
+      row.push({ text, url: button.url });
+    }
+    return row.length ? { inline_keyboard: [row] } : null;
   }
 
   /**
@@ -2962,7 +2983,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           reason: plan.intent || null,
           entryId: null,
           category: depositPlan ? 'deposits' : null,
-          humanRequested: plan.humanRequested === true
+          humanRequested: plan.humanRequested === true,
+          // Inline buttons on a trust answer (registration / how it works).
+          replyMarkup: renderPlanKeyboard(language, plan)
         };
         stats.conversationalReplies += 1;
         if (plan.tutorial) stats.tutorialLinksSent += 1;
@@ -3009,7 +3032,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // customer actually received the reply. If it throws, this function propagates
     // (HTTP 500) and NO notification is produced, so a Telegram send failure can
     // never be reported to an admin as "BOT REPLIED".
-    await sendOutbound(conversation, reply.text);
+    await sendOutbound(conversation, reply.text, DIRECTION_BOT,
+      reply.replyMarkup ? { reply_markup: reply.replyMarkup } : undefined);
     // Additive and best-effort: the answer above is already delivered, so this can
     // only ever add a video for a deposit question, never change the reply.
     await sendDepositTutorial(conversation, language, reply);
