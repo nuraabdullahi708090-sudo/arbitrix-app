@@ -288,8 +288,12 @@ test('7. a bare "No" with no pending question also asks for clarification', asyn
 test('8. gratitude closes the conversation politely when nothing is pending', async () => {
   const h = createHarness();
   await h.say('Thanks');
-  assert.strictEqual(h.last(), t('thanksClose'));
-  assert.strictEqual(h.conversation().context.pending, null);
+  // Updated intentionally (social acknowledgements): a thank-you is answered with
+  // ONE warm courtesy, never with "You're welcome! Just to continue where we left
+  // off:" followed by a question the customer has already finished with.
+  assert.strictEqual(h.last(), t('socialThanks'));
+  assert.strictEqual(h.conversation().context.pending, 'anything_else',
+    'the conversation rests on a neutral offer, not on an old question');
 });
 
 test('9. gratitude mid-flow keeps the pending question (does not reset the flow)', async () => {

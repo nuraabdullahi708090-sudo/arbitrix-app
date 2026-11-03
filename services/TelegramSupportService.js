@@ -3025,6 +3025,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           category: null
         };
         stats.clarifications += 1;
+        // Persist what was ACTUALLY sent. The planned state can still describe an
+        // offer the customer never received (for example "anything else?"), and a
+        // stored offer that does not match the last message is what let a later
+        // "thank you" replay the abandoned question. Recording the fallback state
+        // keeps the stored context honest.
+        nextState.pending = (engine.PENDING && engine.PENDING.CLARIFY) || 'clarify';
+        nextState.stage = 'clarify';
       }
     }
 
