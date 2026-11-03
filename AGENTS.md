@@ -8567,3 +8567,73 @@ was created and no Telegram write call was executed in this pass.
   hrefs/icons/target/rel, labels, no raw keys, ar RTL, Generate Payment still posts
   create-invoice and opens the payment step, no overflow, no page errors.
 - NOT a deploy: migration state unchanged (none needed).
+
+
+## Deposit modal partner contacts + WhatsApp priority DEPLOYED (2026-11-03)
+- Deployment commit: baba8994ff026e6e90d1e48d92344ff941d35b9c
+  ("Merge pull request #163 ... feat/deposit-partner-whatsapp-priority",
+  feature commit 276bcd1), pushed onto main and auto-deployed by Render.
+- The served https://arbitrix.pro/ public/index.html is BYTE-IDENTICAL to the
+  committed file (sha256 fa11be4d079fb5ed6bd3db493c26d1f987ec8223f0ddf6ea48d492589f2dc7ff).
+- Endpoints after deploy: / 200, /api/health 200, /partners 200,
+  /deposit-tutorials 200, /how-it-works 200, /reset-password.html 200.
+- Live markers: "wa.me/17828027841" 1 (single constant), deposit.partner.
+  primaryLabel / alexNote 7 each (6 locales + call sites), "Need help getting
+  USDT" 2, renderDepositPartnerAssistance 4, and ZERO occurrences of
+  depositCryptoPartnerContacts / deposit.crypto.partnerHelp.
+- Production smoke (headless Chromium, live site, deployed functions):
+  20/20 at 1280 and 390 - the renderer is present; Olivia (WhatsApp) renders
+  before Alex (Telegram); the destinations are https://wa.me/17828027841 and
+  https://t.me/AlexArbitrix with the right icons; the labels are PRIMARY/
+  BACKUP CONTACT; Olivia's Telegram is never offered; the partner route shows
+  the contacts while the crypto route hides them with zero visible partner
+  nodes and no partner markup in #depositCryptoFlow; 0 horizontal overflow;
+  0 unexpected page errors.
+- NOT verifiable anonymously: a real customer deposit (address generation and
+  crediting) needs a logged-in account; that path is unchanged and remains
+  covered by the local suite (3032 pass / 0 fail) and the local browser run.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does
+  not trigger a second Render rebuild (AGENTS.md therefore shows as modified).
+
+
+## Referral partner landing page - Telegram-community primary CTA (2026-11-03, public/partners.html + docs + tests)
+- Frontend/content only. NO server.js, services, migrations, auth, deposit, withdrawal,
+  trading, referral-logic or commission change (diff scope: public/partners.html,
+  tests, docs, AGENTS.md). Not merged, not deployed.
+- WHY: the /partners page (the referral-recruitment ad landing page) sent prospective
+  partners straight to registration. The Telegram community is now the education /
+  onboarding entry point; registration, referral links, tracking and commission
+  payment all stay on Arbitrix.
+- CTA: the three primary CTAs (topbar, hero, final block) are now
+  "Join Our Telegram Community" -> https://t.me/+CF9kWr61sqs1MTY0, target=_blank,
+  rel="noopener noreferrer", Font Awesome Telegram icon, plus the approved
+  supporting line (partners.cta.communityNote) under the hero CTA and the final CTA.
+  The old /?action=create-account&src=partners links are GONE from the page; the
+  app-shell deep links themselves are untouched.
+- PRESERVED: "Sign In" (/?action=sign-in) so an existing partner still reaches the
+  dashboard; the informational secondary CTAs (#demo anchor, /how-it-works); the
+  payout walkthrough video; the locale selector; the meta-driven partner support
+  cards (Alex only on the recruitment page).
+- ATTRIBUTION: the funnel markers are unchanged and still arm on a CTA click -
+  markPartnerEntry() writes sessionStorage arbi_partner_entry='1' + timestamped
+  localStorage (1h TTL) on the same .js-apply-cta selector, so a prospect who joins
+  Telegram and registers within the window is still attributed. The query string
+  (UTM/fbclid) is still captured into sessionStorage arbi_auth_entry on load.
+  Telegram invite links cannot carry query parameters, so the old ?src=partners URL
+  fallback no longer travels with the CTA; the two storage markers replace it.
+- i18n: 87 -> 88 keys/locale (joinCommunity + communityNote added, the retired
+  partners.cta.apply removed) in en/es/pt/fr/ar/zh; identical key sets, 0 empty.
+- Tests: NEW tests/partners_telegram_cta.test.js (16) and
+  tests/telegram_referral_onboarding_doc.test.js (7); updated partners_page (CTA +
+  external-anchor + t.me-count + key pins), partners_video_locale (key count and the
+  single-t.me-builder pin), partner_lead_event (the three funnel CTAs are now the
+  community CTA; the marker contract is unchanged). npm test = 3055 pass / 0 fail.
+- Browser: 234/234 (3 widths x 6 locales): three CTAs visible, exact href/new-tab/
+  rel, icon rendered, localized label, supporting line visible at hero + final,
+  topbar CTA above the fold everywhere (320px/es hero CTA is one short scroll),
+  Sign In intact, 0 horizontal overflow, 0 raw keys, ar RTL.
+- Telegram onboarding (separate deliverable, NOT published): docs/
+  telegram-referral-onboarding.md proposes the pinned message covering the ten
+  required points, verified against the real ContentGuard (blocked=false,
+  requiresApproval=false) and against the live constants (20% one-time, $100
+  minimum). Pinning stays an explicit admin action; nothing was queued or sent.
