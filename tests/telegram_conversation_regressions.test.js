@@ -123,9 +123,19 @@ function createStore() {
   };
 }
 
-function createHarness({ language = 'en' } = {}) {
+function createHarness({ language = 'en', failingReads = null } = {}) {
   const state = createStore();
   const sent = [];
+
+  // N1: simulate a transient database read failure (the store throws on every
+  // getLatestMessageByConversation call while `failingReads.on` is true).
+  if (failingReads) {
+    const original = state.store.getLatestMessageByConversation;
+    state.store.getLatestMessageByConversation = async function (arg) {
+      if (failingReads.on) throw new Error('supabase read timeout');
+      return original.call(this, arg);
+    };
+  }
 
   state.conversations.set(CUSTOMER, {
     id: 1,
@@ -595,5 +605,176 @@ test('L7: deposit-network questions are still answered', () => {
   ['which network should I use', 'what network do I send USDT on', 'do I use TRC20'].forEach((text) => {
     const plan = engine.planTurn({ text, state: engine.emptyState() });
     assert.strictEqual(plan.intent, 'deposit_asset', 'expected the deposit-asset answer for: ' + text);
+  });
+});
+
+// --------------------------- N1: transient read failure at /close (review) ---
+
+test('N1: a null resolved id stays null (never becomes id 0)', () => {
+  const engineState = engine.normalizeState({
+    handoffResolvedAt: '2026-11-03T10:00:00.000Z',
+    handoffResolvedMessageId: null
+  });
+  assert.strictEqual(engineState.handoffResolvedMessageId, null, 'null must not coerce to 0');
+  assert.strictEqual(engine.normalizeState({}).handoffResolvedMessageId, null);
+  assert.strictEqual(engine.normalizeState({ handoffResolvedMessageId: '' }).handoffResolvedMessageId, null);
+  assert.strictEqual(engine.normalizeState({ handoffResolvedMessageId: 'abc' }).handoffResolvedMessageId, null);
+  assert.strictEqual(engine.normalizeState({ handoffResolvedMessageId: 0 }).handoffResolvedMessageId, null);
+  assert.strictEqual(engine.normalizeState({ handoffResolvedMessageId: -3 }).handoffResolvedMessageId, null);
+  // A real id survives, including the string form a JSON round trip may produce.
+  assert.strictEqual(engine.normalizeState({ handoffResolvedMessageId: 12 }).handoffResolvedMessageId, 12);
+  assert.strictEqual(engine.normalizeState({ handoffResolvedMessageId: '12' }).handoffResolvedMessageId, 12);
+});
+
+test('N1: a transient read failure at /close cannot silence the conversation', async () => {
+  const failingReads = { on: false };
+  const h = createHarness({ failingReads });
+  await h.say('I need a human');
+  await h.adminSay('/reply 1 investigating');
+
+  failingReads.on = true; // the snapshot read at close time fails
+  await h.adminSay('/close 1');
+
+  assert.strictEqual(h.conversation().context.handoffResolvedMessageId, null,
+    'no id may be invented when the read failed');
+  assert.match(h.lastAdmin(), /Automated replies are enabled again/,
+    'the operator is told the truth: the timestamp fallback resumes');
+
+  failingReads.on = false; // the database recovers
+  const before = h.toCustomer().length;
+  await h.say('any update?');
+  assert.ok(h.toCustomer().length > before, 'the customer is answered after recovery');
+  assert.notStrictEqual(h.last(), 'investigating', 'the customer got a real reply, not silence');
+});
+
+test('N1: a read failure at close followed by a second close still resumes', async () => {
+  const failingReads = { on: false };
+  const h = createHarness({ failingReads });
+  await h.say('I need a human');
+  await h.adminSay('/reply 1 investigating');
+
+  failingReads.on = true;
+  await h.adminSay('/close 1');
+  failingReads.on = false;
+
+  await h.adminSay('/close 1'); // idempotent operator retry
+  assert.ok(Number.isFinite(h.conversation().context.handoffResolvedMessageId),
+    'the retry records the message id');
+
+  const before = h.toCustomer().length;
+  await h.say('hello?');
+  assert.ok(h.toCustomer().length > before);
+});
+
+test('N1: a close that could read no id still resumes after a customer message', async () => {
+  // The snapshot returns a row without an id (a store that does not select it).
+  const h = createHarness();
+  const original = h.state.store.getLatestMessageByConversation;
+  let strip = true;
+  h.state.store.getLatestMessageByConversation = async function (arg) {
+    const latest = await original.call(this, arg);
+    if (strip && latest) { strip = false; return Object.assign({}, latest, { id: undefined }); }
+    return latest;
+  };
+
+  await h.say('I need a human');
+  await h.adminSay('/reply 1 investigating');
+  await h.adminSay('/close 1');
+  assert.strictEqual(h.conversation().context.handoffResolvedMessageId, null);
+
+  const before = h.toCustomer().length;
+  await h.say('any update?');
+  assert.ok(h.toCustomer().length > before, 'the timestamp fallback resumes');
+});
+
+test('N1: suppression still returns for a human reply newer than the close', async () => {
+  const h = createHarness();
+  await handoffWithAgentReply(h);
+  await h.adminSay('/close 1');
+  await h.adminSay('/reply 1 one more thing');
+
+  const before = h.toCustomer().length;
+  await h.say('second message');
+  assert.strictEqual(h.toCustomer().length, before, 'a newer human reply re-applies suppression');
+});
+
+// ------------------------- N2: positive deposit statements are not problems ---
+
+test('N2: a positive "it still shows" statement is not a deposit problem', () => {
+  const benign = [
+    'I deposited yesterday and it still shows in my balance',
+    'I deposited and it shows in my balance',
+    'I deposited and it still shows',
+    'my deposit arrived and shows in my balance'
+  ];
+  benign.forEach((text) => {
+    const plan = engine.planTurn({ text, state: engine.emptyState() });
+    assert.notStrictEqual(plan.intent, 'deposit_problem', 'false escalation for: ' + text);
+  });
+});
+
+test('N2: genuine deposit problems still escalate', async () => {
+  const cases = [
+    'I deposited but nothing shows',
+    'my deposit is still pending',
+    'I sent 100 USDT from trust wallet and it has not been credited',
+    'I paid with transak but the balance is still zero',
+    'my deposit has not arrived',
+    'I deposited and it still shows nothing',
+    'my payment failed',
+    'the deposit is stuck'
+  ];
+  cases.forEach((text) => {
+    const plan = engine.planTurn({ text, state: engine.emptyState() });
+    assert.strictEqual(plan.intent, 'deposit_problem', 'not escalated: ' + text);
+  });
+
+  const h = createHarness();
+  await h.say('I deposited yesterday and it still shows in my balance');
+  assert.notStrictEqual(h.last(), t('humanHandoff'), 'the positive statement is answered, not escalated');
+  assert.ok(!/t\.me\//.test(h.last()), 'and no tutorial is attached');
+});
+
+// ------------------------------- N3: the handoff instructions are actionable ---
+
+test('N3: every instruction the bot gives is recognised as a handoff', () => {
+  const instructions = [
+    // Exactly the words the deposit copy tells the customer to use, per locale.
+    ['en', 'human'], ['pt', 'humano'], ['ar', 'بشري'],
+    // Punctuation and quoting tolerated.
+    ['en', 'Human.'], ['en', 'human!'], ['en', '"human"'], ['en', 'human?'],
+    ['pt', 'Humano.'], ['pt', 'humano!'], ['ar', 'بشري.'],
+    // The other natural short forms.
+    ['en', 'human please'], ['en', 'agent'], ['en', 'operator'],
+    ['en', 'I need help from a human'], ['en', 'help from a human'],
+    ['pt', 'atendente'], ['pt', 'quero falar com um atendente']
+  ];
+
+  instructions.forEach(([locale, text]) => {
+    const plan = engine.planTurn({ text, state: engine.emptyState() });
+    assert.strictEqual(plan.intent, 'human', 'not recognised as a handoff (' + locale + '): ' + text);
+    assert.strictEqual(plan.humanRequested, true, 'the handoff flag is set for: ' + text);
+  });
+});
+
+test('N3: the copy no longer promises a word the bot ignores', () => {
+  // The words quoted by the deposit copy must be the words the engine accepts.
+  const quoted = {
+    en: i18n.CUSTOMER_STRINGS.en.depositCreditedYes.match(/say "([^"]+)"/),
+    pt: i18n.CUSTOMER_STRINGS.pt.depositCreditedYes.match(/escreva "([^"]+)"/),
+    ar: i18n.CUSTOMER_STRINGS.ar.depositCreditedYes.match(/"([^"]+)"/)
+  };
+  ['en', 'pt', 'ar'].forEach((locale) => {
+    assert.ok(quoted[locale], 'the copy must quote the word to use (' + locale + ')');
+    const word = quoted[locale][1];
+    const plan = engine.planTurn({ text: word, state: engine.emptyState() });
+    assert.strictEqual(plan.intent, 'human', locale + ' copy says "' + word + '" but the bot does not escalate it');
+  });
+});
+
+test('N3: a statement that merely contains the word "human" is not a handoff', () => {
+  ['the bot is not human', 'I am not a human', 'is this a human or a bot'].forEach((text) => {
+    const plan = engine.planTurn({ text, state: engine.emptyState() });
+    assert.notStrictEqual(plan.intent, 'human', 'false handoff for: ' + text);
   });
 });

@@ -8368,3 +8368,55 @@ was created and no Telegram write call was executed in this pass.
   baseline (2949/2948 before these fixes). node --check clean, git diff --check
   clean, 0 U+FFFD.
 - NOT pushed, NOT deployed, migration 047 NOT applied.
+
+
+## Telegram conversational support - N1/N2/N3 review fixes (2026-11-03, local commit only)
+- Follow-up to 4410f1a, implementing the three findings from its independent review.
+  Same branch and files of concern: `services/support/ConversationEngine.js` and
+  `services/TelegramSupportService.js` (plus the regression suite). No T2 file was
+  touched (`public/`, `server.js`, `supabase/` = 0-line diff) and migration 047 is
+  still NOT applied.
+- N1 (HIGH): `normalizeState` used `Number.isFinite(Number(v))`, and
+  `Number(null) === 0` is finite, so "no message id recorded" became id 0 -
+  which reads as a resolved-but-silenced conversation. A transient Supabase read
+  failure at `/close` therefore left the thread silent forever while the operator
+  was told automation had resumed. Fix: new `asMessageId()` helper (only a POSITIVE
+  finite number is an id; null/undefined/''/0/negative/junk -> null), used by
+  `normalizeState`, plus `resolvedMessageId > 0` in `isHumanHandlingConversation`
+  and in the close snapshot. With a null id the state falls through to the
+  timestamp fallback, which RESUMES. `markHumanHandoffResolved` now logs a warning
+  when the snapshot read fails, so a persistent store problem is visible.
+  Verified end to end: transient failure at close -> stored id null, close message
+  truthful, customer answered after recovery; a second /close records the id; a
+  store that returns no id still resumes; a genuinely newer human reply still
+  re-applies suppression.
+- N2 (LOW/MED): the widened `deposit_problem` treated a bare "still" as a negative
+  marker, so the positive "I deposited yesterday and it still shows in my balance"
+  escalated. Removed bare `still`; added `doesn't` to the negative group (the
+  original missed it) and an explicit still+negative alternative
+  (`\bstill\b[^?]{0,20}\b(?:nothing|zero|empty|not|never)\b|\bstill\s+no\b`).
+  Genuine cases still escalate ("deposited but nothing shows", "still pending",
+  "has not been credited", "balance is still zero", "still shows nothing",
+  "still does not show", "still hasn't arrived", "payment failed", "stuck").
+- N3 (MED): `depositCreditedYes` tells the customer to say "human" / "humano" /
+  "بشري", but none of those bare words was recognised (only phrases), so following
+  the instruction produced the generic clarifying question. The human intent now
+  accepts anchored, punctuation/quote-tolerant bare words
+  (human|agent|operator|representative|humano|atendente and the Arabic word),
+  "human please" and "help/assistance from a human". Anchored on purpose so
+  "the bot is not human" stays unmatched (verified). The copy was NOT changed - it
+  is now actionable as written, and a test derives the quoted word from each
+  locale's copy and asserts the engine escalates it.
+- Tests: `tests/telegram_conversation_regressions.test.js` 28 -> 38 tests (N1
+  normaliser matrix + transient-failure/resume/second-close/no-id/newer-reply,
+  N2 positive-vs-genuine matrix, N3 word matrix + copy-derived words + no false
+  handoff). Full suite: 2987 tests, 2986 pass, 1 fail - the PRE-EXISTING
+  how_it_works_video master-asset check. Telegram/support suites 937/937.
+- FLAKE FOUND (pre-existing, NOT touched): `tests/conversion_events.test.js`
+  "eligibility: a missing event or payload id fails closed" builds
+  `next_attempt_at` from `new Date()` while the fake store compares against its own
+  captured clock, so under parallel load the row is briefly not claimable and the
+  test fails intermittently. Reproduced on the UNMODIFIED 4410f1a baseline by
+  inserting a 25 ms delay (65/66); passes in isolation on both trees. Not related
+  to this work and not fixed here.
+- NOT pushed, NOT deployed, migration 047 NOT applied.

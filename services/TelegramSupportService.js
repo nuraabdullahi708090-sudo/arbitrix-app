@@ -1889,9 +1889,15 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       let resolvedMessageId = null;
       try {
         const latest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
-        if (latest && Number.isFinite(Number(latest.id))) resolvedMessageId = Number(latest.id);
+        const latestId = latest ? Number(latest.id) : NaN;
+        if (Number.isFinite(latestId) && latestId > 0) resolvedMessageId = latestId;
       } catch (error) {
-        // best effort: the timestamp fallback below still applies
+        // Best effort: the state keeps a null id and the timestamp fallback in
+        // isHumanHandlingConversation decides - which resumes rather than
+        // silencing the conversation. Logged so a persistent store problem is
+        // visible instead of looking like a normal close.
+        warn('handoff close could not read the last message id; using the timestamp fallback: '
+          + scrub(error && error.message ? error.message : error));
       }
       await saveConversationState(conversation, Object.assign({}, current, {
         pending: null,
@@ -2455,8 +2461,14 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // last human message id at the moment of the close, so a later human reply
       // (a higher id) re-applies suppression and nothing else does - no clock
       // comparison, no skew, no "resumed but still silent" contradiction.
+      //
+      // ONLY a positive id is trusted: when the close could not read one it
+      // stores null, and treating that as id 0 would make every conversation
+      // look resolved-but-silenced. Null falls through to the timestamp
+      // fallback below, which resumes.
       const resolvedMessageId = state.handoffResolvedMessageId;
-      if (Number.isFinite(resolvedMessageId) && Number.isFinite(Number(latest.id))) {
+      if (Number.isFinite(resolvedMessageId) && resolvedMessageId > 0
+          && Number.isFinite(Number(latest.id))) {
         return Number(latest.id) > resolvedMessageId;
       }
       if (state.handoffResolvedAt) {

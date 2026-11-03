@@ -215,7 +215,11 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'human',
     topic: 'human',
-    re: /\b(?:talk|speak|chat)\s+(?:to\s+)?(?:a\s+)?(?:human|person|agent|someone|representative)\b|\breal\s+(?:human|person)\b|\bhuman\s+(?:support|agent|help)\b|\bconnect\s+me\s+(?:to|with)\b|\bi\s+(?:want|need)\s+(?:a\s+)?(?:human|agent|real\s+person)\b|\b(?:atendente|pessoa\s+real|suporte\s+humano)\b|\u0645\u0648\u0638\u0641|\u0634\u062e\u0635\s+\u062d\u0642\u064a\u0642\u064a|\u062f\u0639\u0645\s+\u0628\u0634\u0631\u064a/
+    // The last two alternatives are ANCHORED on purpose: a bare "human" /
+    // "humano" / "بشري" is how the bot tells the customer to ask for a person
+    // (see depositCreditedYes), so it must be recognised - including with
+    // punctuation or quotes around it - while "the bot is not human" must not.
+    re: /\b(?:talk|speak|chat)\s+(?:to\s+)?(?:a\s+)?(?:human|person|agent|someone|representative)\b|\breal\s+(?:human|person)\b|\bhuman\s+(?:support|agent|help|please)\b|\b(?:help|assistance)\s+from\s+(?:a\s+)?human\b|\bconnect\s+me\s+(?:to|with)\b|\bi\s+(?:want|need)\s+(?:a\s+)?(?:human|agent|real\s+person)\b|\b(?:atendente|pessoa\s+real|suporte\s+humano)\b|\u0645\u0648\u0638\u0641|\u0634\u062e\u0635\s+\u062d\u0642\u064a\u0642\u064a|\u062f\u0639\u0645\s+\u0628\u0634\u0631\u064a|^[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*(?:human|agent|operator|representative|humano|atendente)\s*[.!?]*[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*$|^[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*\u0628\u0634\u0631\u064a\s*[.!?]*[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*$/
   },
   {
     // Fraud / lost funds. These must reach a human, never a procedural answer.
@@ -242,7 +246,7 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'deposit_problem',
     topic: 'deposit',
-    re: /\bdeposit(?:ed|ing|s)?\b[^?]{0,50}\b(?:not|never|did\s?n[o']?t|has\s?n[o']?t|have\s?n[o']?t|nothing|no|still)\b[^?]{0,30}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*|balance|confirm\w*)\b|\b(?:deposit|payment)\b[^?]{0,40}\b(?:stuck|pending|missing|fail\w*|problem|issue|delay\w*|expired|not\s+working)\b|\b(?:sent|transferred|paid)\b[^?]{0,50}\b(?:not|never|has\s?n[o']?t|have\s?n[o']?t|did\s?n[o']?t)\b[^?]{0,25}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*|confirm\w*)\b|\bbalance\s+(?:is\s+|was\s+)?(?:still\s+)?(?:zero|empty)\b|\bstill\s+(?:zero|empty|nothing)\b/
+    re: /\bdeposit(?:ed|ing|s)?\b[^?]{0,50}\b(?:not|never|did\s?n[o']?t|does\s?n[o']?t|has\s?n[o']?t|have\s?n[o']?t|nothing|no)\b[^?]{0,30}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*|balance|confirm\w*)\b|\b(?:deposit|payment)\b[^?]{0,40}\b(?:stuck|pending|missing|fail\w*|problem|issue|delay\w*|expired|not\s+working)\b|\b(?:sent|transferred|paid)\b[^?]{0,50}\b(?:not|never|has\s?n[o']?t|have\s?n[o']?t|did\s?n[o']?t)\b[^?]{0,25}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*|confirm\w*)\b|\bbalance\s+(?:is\s+|was\s+)?(?:still\s+)?(?:zero|empty)\b|\bstill\b[^?]{0,20}\b(?:nothing|zero|empty|not|never)\b|\bstill\s+no\b/
   },
   {
     intent: 'wrong_network',
@@ -489,6 +493,21 @@ function asString(value, max) {
 }
 
 /**
+ * A stored message id, or null when there is no usable one.
+ *
+ * `Number(null)` and `Number('')` are both 0, which is finite - so a plain
+ * Number.isFinite check turns "no id was recorded" into id 0. Downstream that
+ * reads as a real, already-resolved message and suppresses the bot forever.
+ * Message ids are positive, so anything else is treated as absent and the
+ * timestamp fallback applies instead.
+ */
+function asMessageId(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+/**
  * Turn ANY persisted value into a valid state.
  *
  * The column is JSONB, so a row could contain anything written by an older
@@ -523,9 +542,7 @@ function normalizeState(raw) {
   base.lastUpdateId = Number.isFinite(Number(value.lastUpdateId)) ? Number(value.lastUpdateId) : null;
   base.handoffRequestedAt = asString(value.handoffRequestedAt, 40);
   base.handoffResolvedAt = asString(value.handoffResolvedAt, 40);
-  base.handoffResolvedMessageId = Number.isFinite(Number(value.handoffResolvedMessageId))
-    ? Number(value.handoffResolvedMessageId)
-    : null;
+  base.handoffResolvedMessageId = asMessageId(value.handoffResolvedMessageId);
   base.updatedAt = asString(value.updatedAt, 40);
   return base;
 }
