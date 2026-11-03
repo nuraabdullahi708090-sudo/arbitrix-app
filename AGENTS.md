@@ -8778,3 +8778,33 @@ was created and no Telegram write call was executed in this pass.
   `telegram_trust_conversation` C9 / C11 / D3 (gratitude after withdrawal, gratitude at
   rest, acknowledgement after the platform explanation).
 - `npm test` = 3156 pass / 0 fail. NOT merged, NOT deployed.
+
+
+## Deposit Funds dialog markup nesting (2026-11-03)
+- TRAP: `#depositModal` markup used to close `#depositModalContent` (and
+  `#depositInputSection`) BEFORE step 2, because of one stray `</div>` in the
+  closers right after `#safetyWarning` / `#depositCryptoFlow`. The browser
+  parses that as: `#depositPaymentSection`, `#depositSuccessSection`,
+  `#depositActionButtons`, `.deposit-history` and the two hidden inputs become
+  SIBLINGS of the panel inside the `.deposit-modal` flex row.
+- SYMPTOMS it caused (looked like a pure CSS bug): `.deposit-history` is
+  visible, so it took ~77px of the row - the panel measured 312.75px at a 390px
+  viewport and sat at x=0 with the page showing beside it; once a payment
+  invoice was generated the panel collapsed to 42px wide (mobile) / 89px tall
+  (desktop). ALWAYS verify `#depositModalContent` children before styling this
+  dialog: it must contain the head, `#depositInputSection`,
+  `#depositPaymentSection`, `#depositSuccessSection`, `#depositActionButtons`,
+  `.deposit-history` and the two hidden inputs.
+- FIX (PR #167): removed the stray closer and added the `<=640px` full-screen
+  block (`100vw x 100dvh`, `align-items:stretch`, safe-area insets, squared
+  corners, internal scroll + sticky head), the
+  `body:has(#depositModal.open){overflow:hidden}` background lock, and the
+  `DepositViewport` helper that mirrors `visualViewport.height` into
+  `--deposit-vh` so the on-screen keyboard cannot cover the amount field.
+  Desktop (>=641px) keeps the identical 500px bottom sheet.
+- Pinned by `tests/deposit_mobile_modal.test.js` (12 tests; 9 fail on the
+  pre-fix markup). `tests/partners_page.test.js`'s homepage hash was re-pinned
+  per its own comment.
+- NOTE: `overflow:hidden` on body blocks USER scrolling only; programmatic
+  `window.scrollBy` still moves the page. Verify scroll locking with a real
+  gesture (`page.mouse.wheel`) in the browser harness, not `scrollTo`.

@@ -1396,6 +1396,70 @@
            dialog's amount field or primary action. Same :has() pattern as the
            Support Center rule below; the dialog carries its own help link. */
         body:has(#depositModal.open) .support-widget{display:none;}
+
+        /* Background scroll lock while the deposit dialog is open. Keyed off the
+           dialog's own `.open` class, so it is released automatically on close
+           (and stays in force while a nested dialog such as the Support Center
+           is open on top of it). The dialog scrolls internally instead. */
+        body:has(#depositModal.open){overflow:hidden;}
+
+        /* Deposit dialog on phones: TRUE full screen. The panel covers the whole
+           visual viewport (100vw x 100dvh) so no part of the dashboard shows
+           beside or below it, and it clears the notch and the home indicator.
+           `align-items:stretch` replaces the desktop bottom-sheet `flex-end` so
+           the panel owns the full height while keeping its own scroll, which is
+           what keeps the sticky title + close control reachable. Desktop
+           (>=641px) keeps the existing centred bottom sheet untouched.
+           `--deposit-vh` is set from visualViewport in JS so an on-screen
+           keyboard cannot cover the amount field or the primary action; the
+           100dvh fallback covers browsers without that hook. */
+        @media(max-width:640px){
+            #depositModal{
+                width:100vw;
+                max-width:100vw;
+                top:0;
+                left:0;
+                right:0;
+                bottom:0;
+                height:100vh;
+                height:100dvh;
+                max-height:100vh;
+                max-height:100dvh;
+                height:var(--deposit-vh, 100dvh);
+                max-height:var(--deposit-vh, 100dvh);
+                margin:0;
+                padding:0;
+                align-items:stretch;
+                justify-content:flex-start;
+                overflow:hidden;
+            }
+            #depositModal .deposit-modal-content{
+                width:100%;
+                max-width:100%;
+                height:100%;
+                max-height:100%;
+                margin:0;
+                border-radius:0;
+                border-left:0;
+                border-right:0;
+                border-top:0;
+                padding:0 calc(16px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+                overflow-x:hidden;
+                overscroll-behavior:contain;
+                -webkit-overflow-scrolling:touch;
+                /* Keep a focused field clear of the sticky header and of the
+                   on-screen keyboard when the browser scrolls it into view. */
+                scroll-padding-top:72px;
+                scroll-padding-bottom:96px;
+            }
+            /* Sticky title + close control: the notch clearance lives on the
+               header (which paints its own background) so the panel's top edge
+               scrolls cleanly underneath it. */
+            #depositModal .deposit-modal-head{
+                padding-top:calc(20px + env(safe-area-inset-top, 0px));
+                padding-right:44px;
+            }
+        }
         /* Deposit action inside the Available stat card: the only deposit entry
            point that is on screen at every width without opening the drawer. */
         .stat-deposit-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:44px;margin-top:10px;padding:8px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,#F0B90B,#FCD535);color:#070B14;font-size:12px;font-weight:700;cursor:pointer;line-height:1.2;white-space:normal;overflow-wrap:break-word;}
@@ -7791,7 +7855,6 @@ function toggleFaq(btn) {
         </div>
       </div>
 
-      </div>
       </div>
     </div>
 
@@ -22575,6 +22638,9 @@ function resetDepositModal() {
 
 function closeDepositModal() {
   document.getElementById('depositModal').classList.remove('open');
+  // Drop the visual-viewport height so the next open starts from the CSS
+  // default instead of a stale (possibly keyboard-sized) value.
+  if (typeof DepositViewport !== 'undefined') DepositViewport.sync();
   resetDepositModal();
   // Closing without paying brings the first-deposit prompt back (it is hidden
   // while the dialog is open so it can never compete with the deposit form).
@@ -22781,6 +22847,9 @@ function openDepositModal() {
     applyDepositModeVisibility();
   }
   document.getElementById('depositModal').classList.add('open');
+  // Size the panel to the current visual viewport before the first paint of
+  // the open dialog (mobile full-screen layout; no-op on desktop).
+  if (typeof DepositViewport !== 'undefined') DepositViewport.sync();
   // Always open at the top of the panel so the sticky header (title + close)
   // is on screen, including on a 320px viewport where the form is taller than
   // the viewport.
@@ -22816,6 +22885,38 @@ function focusWithoutScroll(el) {
   if (!el || typeof el.focus !== 'function') return;
   try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} }
 }
+
+// Mobile viewport tracking for the full-screen deposit dialog. On a phone the
+// visual viewport shrinks when the on-screen keyboard opens, while a fixed
+// element keeps the layout-viewport height, so the amount field and the
+// primary action can end up behind the keyboard. Publishing the visual height
+// as --deposit-vh (consumed only inside the <=640px media query) keeps the
+// dialog exactly as tall as the visible area. Desktop and other dialogs are
+// untouched: the variable is removed whenever the dialog is closed.
+const DepositViewport = {
+  sync() {
+    const root = document.documentElement;
+    if (!root) return;
+    const modal = document.getElementById('depositModal');
+    const open = !!(modal && modal.classList.contains('open'));
+    const vv = window.visualViewport;
+    if (!open || !vv || !vv.height) {
+      root.style.removeProperty('--deposit-vh');
+      return;
+    }
+    root.style.setProperty('--deposit-vh', Math.round(vv.height) + 'px');
+  },
+  init() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    // Resize covers the keyboard; scroll covers iOS shifting the visual
+    // viewport while a field is focused.
+    vv.addEventListener('resize', DepositViewport.sync);
+    vv.addEventListener('scroll', DepositViewport.sync);
+    window.addEventListener('resize', DepositViewport.sync);
+  }
+};
+DepositViewport.init();
 
 // Render the Demo-mode deposit notice + LIVE-mode disclosure. Pure display:
 // never creates an invoice and never mutates a balance. When in Demo mode the
