@@ -36,7 +36,7 @@ const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 88;
+const EXPECTED_KEYS = 89;
 
 const VIDEO_BASE = '/video/';
 const EN_VIDEO = '/video/arbitrix-partner-payout-demo.mp4';

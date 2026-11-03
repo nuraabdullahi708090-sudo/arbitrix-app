@@ -88,11 +88,25 @@ test('1. every primary CTA points at the exact Telegram group invite', () => {
         'no query string may be appended to the invite (Telegram would reject it)');
 });
 
-test('2. no CTA sends a prospect straight to registration any more', () => {
-    assert.ok(!/\/\?action=create-account/.test(PAGE),
-        'the page must not link directly to registration: the community is the entry point');
-    assert.ok(!/js-apply-cta[^>]*action=create-account/.test(PAGE),
-        'no legacy apply CTA may survive');
+test('2. registration is offered only as a small secondary link', () => {
+    const blocks = PAGE.match(/<p class="cta-register"><a[^>]*>[^<]*<\/a><\/p>/g) || [];
+    assert.strictEqual(blocks.length, 2,
+        'exactly two secondary registration links: under the hero CTA and the final CTA');
+    blocks.forEach((b) => {
+        assert.ok(b.indexOf('href="/?action=create-account&amp;src=partners"') !== -1,
+            'must use the existing registration deep link: ' + b);
+        assert.match(b, /class="cta-register-link js-apply-cta"/,
+            'must be a text link that also arms the funnel attribution');
+        assert.ok(!/btn/.test(b), 'must not be a button: ' + b);
+        assert.match(b, /data-i18n="partners\.cta\.registerNote"/, 'must be localized');
+    });
+    // No primary/CTA button may point at registration.
+    const primary = PAGE.match(/<a class="btn btn-primary[^"]*"[^>]*>/g) || [];
+    assert.strictEqual(primary.length, 3);
+    primary.forEach((a) => assert.ok(a.indexOf('action=create-account') === -1,
+        'a primary button must never go straight to registration: ' + a));
+    // The secondary also carries the storage-independent funnel signal.
+    assert.strictEqual((PAGE.match(/action=create-account&amp;src=partners/g) || []).length, 2);
 });
 
 /* ==================================================================== *
@@ -115,7 +129,15 @@ test('4. the label and the supporting line are translated in all six locales', (
         const note = T[lang]['partners.cta.communityNote'];
         assert.ok(typeof label === 'string' && label.trim(), lang + ' needs a joinCommunity label');
         assert.ok(typeof note === 'string' && note.trim(), lang + ' needs a communityNote line');
-        assert.ok(/telegram|تيليجرام/i.test(label), lang + ' must name Telegram in the button label');
+        const register = T[lang]['partners.cta.registerNote'];
+        assert.ok(typeof register === 'string' && register.trim(),
+            lang + ' needs a registerNote label for the secondary link');
+        if (lang !== 'en') {
+            assert.notStrictEqual(register, T.en['partners.cta.registerNote'],
+                lang + ' secondary label must be translated');
+        }
+        assert.ok(/telegram|تيليجرام/i.test(label),
+            lang + ' must name Telegram in the button label');
         if (lang !== 'en') {
             assert.notStrictEqual(label, T.en['partners.cta.joinCommunity'], lang + ' must not fall back to English');
             assert.notStrictEqual(note, T.en['partners.cta.communityNote'], lang + ' note must be translated');
@@ -165,6 +187,15 @@ test('7. the CTA stays prominent on mobile and desktop', () => {
     assert.match(PAGE, /\.cta-note \{[^}]*overflow-wrap:\s*anywhere/, 'the supporting line must wrap safely');
     assert.match(PAGE, /@media \(max-width:\s*640px\)[\s\S]{0,600}?\.cta-note \{[^}]*font-size:\s*12\.5px/,
         'the supporting line must scale down on phones');
+    // The secondary registration link wraps instead of overflowing and keeps a
+    // comfortable tap target while staying visually subordinate.
+    assert.match(PAGE, /\.cta-register-link \{[^}]*min-height:\s*44px/, 'secondary link tap target >= 44px');
+    assert.match(PAGE, /\.cta-register-link \{[^}]*font-size:\s*13px/, 'secondary link is smaller than the button');
+    assert.match(PAGE, /\.cta-register-link \{[^}]*text-decoration:\s*underline/, 'secondary reads as a link');
+    assert.match(PAGE, /\.cta-register-link \{[^}]*overflow-wrap:\s*anywhere/, 'secondary text wraps safely');
+    assert.match(PAGE, /\.cta-register-link:focus-visible \{[^}]*outline:/, 'secondary link has a focus ring');
+    assert.match(PAGE, /@media \(max-width:\s*640px\)[\s\S]{0,900}?\.cta-register-link \{[^}]*font-size:\s*12\.5px/,
+        'secondary link scales down on phones');
     // Nothing may hide the primary CTA on any breakpoint.
     assert.ok(!/js-community-cta[^{]*\{[^}]*display:\s*none/.test(PAGE),
         'the community CTA must never be hidden by CSS');
@@ -184,6 +215,9 @@ test('8. the registration and sign-in deep links still work in the app shell', (
     // The page still offers the dashboard route for existing partners.
     assert.match(PAGE, /<a class="btn btn-secondary" href="\/\?action=sign-in"[^>]*data-i18n="partners\.signIn"/,
         'Sign In must remain on the page');
+    // The secondary registration link targets that same app-shell intent.
+    assert.match(PAGE, /href="\/\?action=create-account&amp;src=partners"/,
+        'the secondary link must use the supported registration deep link, not an invented /signup route');
 });
 
 test('9. partner-dashboard access is untouched', () => {
@@ -213,6 +247,10 @@ test('11. the funnel markers are still armed by a CTA click', () => {
     assert.match(PAGE, /addEventListener\('click', markPartnerEntry\)/);
     assert.strictEqual((PAGE.match(/setItem\('arbi_partner_entry'/g) || []).length, 2,
         'exactly the two existing marker writes (session + timestamped localStorage)');
+    // The selector now covers the three community CTAs AND the two secondary
+    // registration links, so BOTH routes into the funnel are attributed.
+    assert.strictEqual((PAGE.match(/class="[^"]*js-apply-cta[^"]*"/g) || []).length, 5,
+        '3 community CTAs + 2 secondary registration links');
     // The app shell still reads those markers with the same 1-hour window.
     assert.match(INDEX, /PARTNER_ENTRY_TTL_MS\s*=\s*60\s*\*\s*60\s*\*\s*1000/);
     assert.match(INDEX, /function isPartnerFunnelEntry\(\)/);
@@ -242,9 +280,9 @@ test('12. clicking the community CTA arms both markers, and loading the page arm
         localStorage,
         document: {
             querySelectorAll: (sel) => (sel === '.js-apply-cta'
-                ? [{ addEventListener: (t, fn) => { if (t === 'click') bound.push(fn); } },
-                   { addEventListener: (t, fn) => { if (t === 'click') bound.push(fn); } },
-                   { addEventListener: (t, fn) => { if (t === 'click') bound.push(fn); } }]
+                ? [0, 1, 2, 3, 4].map(() => ({
+                    addEventListener: (t, fn) => { if (t === 'click') bound.push(fn); }
+                }))
                 : []),
         },
         window: { location: { search: '?utm_source=facebook&utm_campaign=partners&fbclid=abc' } },
@@ -252,7 +290,7 @@ test('12. clicking the community CTA arms both markers, and loading the page arm
     vm.createContext(sandbox);
     vm.runInContext(src, sandbox);
 
-    assert.strictEqual(bound.length, 3, 'all three community CTAs must be armed');
+    assert.strictEqual(bound.length, 5, '3 community CTAs + 2 registration links must be armed');
     assert.deepStrictEqual(sessionStorage.dump(), {}, 'loading the page must arm nothing');
     assert.deepStrictEqual(localStorage.dump(), {}, 'loading the page must arm nothing');
 
@@ -261,6 +299,15 @@ test('12. clicking the community CTA arms both markers, and loading the page arm
     const ts = Number(localStorage.dump().arbi_partner_entry);
     assert.ok(Number.isFinite(ts) && Math.abs(Date.now() - ts) < 60000,
         'the click arms the timestamped cross-tab marker');
+
+    // The secondary registration link must arm the SAME markers (direct path).
+    sessionStorage.removeItem('arbi_partner_entry');
+    localStorage.removeItem('arbi_partner_entry');
+    bound[3]();
+    assert.strictEqual(sessionStorage.dump().arbi_partner_entry, '1',
+        'the registration link arms the session marker too');
+    assert.ok(Number.isFinite(Number(localStorage.dump().arbi_partner_entry)),
+        'the registration link arms the timestamped marker too');
 });
 
 /* ==================================================================== *
@@ -318,8 +365,22 @@ test('16. all six locales keep identical, complete key sets', () => {
             assert.ok(typeof T[l][k] === 'string' && T[l][k].trim(), l + '/' + k + ' must be non-empty');
         });
     });
+    assert.strictEqual(T.en['partners.cta.registerNote'], 'Already ready to join? Create an account',
+        'the secondary label must match the approved English copy');
     assert.strictEqual(T.en['partners.cta.apply'], undefined,
         'the retired apply CTA label must not linger in any locale');
     LANGS.forEach((l) => assert.strictEqual(T[l]['partners.cta.apply'], undefined,
         l + ' must not carry the retired apply label'));
+});
+
+test('17. no partner referral code is hardcoded on the page', () => {
+    // Attribution is passive: the page never bakes in one partner's code, because
+    // that would attribute every visitor to that partner.
+    assert.ok(!/ARBI-[A-Z0-9]{4,8}/.test(PAGE), 'no referral-code literal may appear on the page');
+    assert.ok(!/[?&]ref=/.test(PAGE), 'the registration link must not carry a ref parameter');
+    assert.ok(!/[?&]referral=/.test(PAGE), 'no referral parameter either');
+    // The app shell still honours real referral links (?ref=, ?referral=, /ref/<code>).
+    assert.match(INDEX, /urlParams\.get\('ref'\)/, '?ref= capture must remain');
+    assert.match(INDEX, /urlParams\.get\('referral'\)/, '?referral= capture must remain');
+    assert.match(INDEX, /pathname\.match\(\/\\\/ref\\\//, '/ref/<code> capture must remain');
 });

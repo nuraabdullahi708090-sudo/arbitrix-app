@@ -45,7 +45,7 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 88;
+const EXPECTED_KEYS = 89;
 
 // The approved referral-community destination, and the ONLY external anchor the
 // page may carry: a prospective partner joins the Telegram group, and registration
@@ -281,9 +281,16 @@ test('3. the primary CTA joins the Arbitrix Telegram community (exact invite)', 
     assert.match(PAGE, /data-i18n="partners\.cta\.joinCommunity"/, 'the CTA must be localized');
     assert.match(PAGE, /<i class="fab fa-telegram" aria-hidden="true"><\/i>/,
         'a recognisable Telegram icon is required');
-    // The old direct-to-website application CTA is gone from the page...
-    assert.ok(!/action=create-account/.test(PAGE), 'no CTA sends a prospect straight to registration');
-    // ...while the app still performs registration and sign-in exactly as before.
+    // ...and the only registration route on the page is the SMALL secondary link
+    // below the primary CTA (never a primary button).
+    const register = PAGE.match(/<p class="cta-register"><a class="cta-register-link[^>]*>/g) || [];
+    assert.strictEqual(register.length, 2, 'hero + final CTA carry the secondary registration link');
+    register.forEach((a) => {
+        assert.ok(a.indexOf('href="/?action=create-account&amp;src=partners"') !== -1,
+            'the secondary link must use the existing registration deep link: ' + a);
+        assert.ok(!/btn-primary/.test(a), 'registration must never be the primary button: ' + a);
+    });
+    // The app still performs registration and sign-in exactly as before.
     assert.match(INDEX, /action=create-account/, 'the app shell must still handle the create-account action');
     assert.match(INDEX, /action=sign-in/, 'the app shell must still handle the sign-in action');
 });
@@ -322,8 +329,11 @@ test('3c. the Sign In link uses the existing /?action=sign-in deep link', () => 
 test('3d. no bespoke auth system; the approved Telegram invite is the ONLY external anchor', () => {
     const hrefs = anchorHrefs(PAGE);
     const authLinks = hrefs.filter((h) => h.includes('action='));
-    assert.deepStrictEqual(authLinks, ['/?action=sign-in'],
-        'Sign In stays the only app deep link, so existing partners still reach their dashboard');
+    assert.deepStrictEqual(authLinks.slice().sort(), [
+        '/?action=create-account&amp;src=partners',
+        '/?action=create-account&amp;src=partners',
+        '/?action=sign-in'
+    ], 'Sign In (dashboard) plus the two secondary registration links, nothing else');
     const external = hrefs.filter((h) => /^https?:/i.test(h));
     assert.deepStrictEqual(external, [COMMUNITY_URL, COMMUNITY_URL, COMMUNITY_URL],
         'the Telegram invite is the single external destination (topbar + hero + bottom)');

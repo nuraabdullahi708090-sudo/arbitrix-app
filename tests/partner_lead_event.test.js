@@ -157,8 +157,12 @@ test('partners.html: the three funnel CTAs are the Telegram community CTA and st
     assert.strictEqual(ctas.length, 3, 'topbar + hero + bottom funnel CTAs');
     ctas.forEach((a) => assert.ok(a.indexOf('href="https://t.me/+CF9kWr61sqs1MTY0"') !== -1,
         'each funnel CTA must open the approved group: ' + a));
-    assert.ok(!/\/\?action=create-account/.test(PARTNERS),
-        'no direct registration link may bypass the community step');
+    // Registration is offered only through the small secondary link, never a
+    // primary button, so the community remains the headline step.
+    const registerLinks = PARTNERS.match(/<p class="cta-register"><a[^>]*>/g) || [];
+    assert.strictEqual(registerLinks.length, 2, 'the two secondary registration links');
+    assert.strictEqual((PARTNERS.match(/\/\?action=create-account/g) || []).length, 2,
+        'no other link may go straight to registration');
     assert.ok(!/action=sign-in[^"]*src=partners/.test(PARTNERS), 'the Sign In deep link must not be changed');
     assert.match(PARTNERS, /querySelectorAll\('\.js-apply-cta'\)/,
         'the funnel-CTA selector the attribution contract is built on must be preserved');

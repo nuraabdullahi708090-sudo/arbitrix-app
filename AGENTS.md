@@ -8637,3 +8637,30 @@ was created and no Telegram write call was executed in this pass.
   required points, verified against the real ContentGuard (blocked=false,
   requiresApproval=false) and against the live constants (20% one-time, $100
   minimum). Pinning stays an explicit admin action; nothing was queued or sent.
+
+### Follow-up (same day): secondary registration CTA restored
+- The Telegram CTA stays primary and unchanged. A smaller, subordinate text link
+  sits directly under it in the hero and in the final CTA block:
+  "Already ready to join? Create an account" -> the EXISTING registration deep link
+  `/?action=create-account&src=partners`.
+- DELIBERATELY NOT the suggested `https://arbitrix.pro/signup?ref=ARBI-YE9TUN`:
+  there is no `/signup` route in server.js, and hard-coding one partner's code would
+  attribute every visitor to that partner. The app already accepts `?ref=` /
+  `?referral=` / `/ref/<code>` on any auth entry (populateReferralFromURL), so a
+  per-partner link can be added later by serving this page (or a copy) with its own
+  `&ref=` - no code change needed. A test pins that no referral code is hardcoded.
+- Styling: `.cta-register` / `.cta-register-link` - 13px (12.5px on phones), underlined,
+  muted, transparent (never a button), 44px tap target, focus-visible ring, wraps
+  safely, centred. Not added to the topbar (kept compact: Sign In + primary CTA).
+- Attribution now covers BOTH paths: the register links also carry `js-apply-cta`, so
+  a click arms the same session + timestamped localStorage markers, and the URL keeps
+  `src=partners` as the storage-independent signal. Verified by clicking each link in
+  a real browser (markers armed, nothing armed on page load).
+- i18n: 88 -> 89 keys/locale (partners.cta.registerNote) in en/es/pt/fr/ar/zh.
+- Tests: partners_telegram_cta 16 -> 17 (secondary link contract, subordinate styling,
+  both destinations, both attribution paths, no hardcoded code); partners_page and
+  partner_lead_event assertions updated for the intentional change (the primary-CTA
+  and attribution pins are unchanged). npm test = 3056 pass / 0 fail.
+- Browser: 272/272 (1280/390/320 x 6 locales) for the CTA stack + 234/234 re-run of
+  the original CTA harness; geometry measured (centred, below the primary, note after,
+  0 overflow, 44px).
