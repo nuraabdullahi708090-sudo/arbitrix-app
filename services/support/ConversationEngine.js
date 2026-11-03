@@ -218,6 +218,18 @@ const INTENT_RULES = Object.freeze([
     re: /\b(?:talk|speak|chat)\s+(?:to\s+)?(?:a\s+)?(?:human|person|agent|someone|representative)\b|\breal\s+(?:human|person)\b|\bhuman\s+(?:support|agent|help)\b|\bconnect\s+me\s+(?:to|with)\b|\bi\s+(?:want|need)\s+(?:a\s+)?(?:human|agent|real\s+person)\b|\b(?:atendente|pessoa\s+real|suporte\s+humano)\b|\u0645\u0648\u0638\u0641|\u0634\u062e\u0635\s+\u062d\u0642\u064a\u0642\u064a|\u062f\u0639\u0645\s+\u0628\u0634\u0631\u064a/
   },
   {
+    // Fraud / lost funds. These must reach a human, never a procedural answer.
+    intent: 'fraud',
+    topic: 'account',
+    re: /\b(?:hacked|hijacked|compromised|unauthori[sz]ed|someone\s+else\s+(?:has\s+)?(?:accessed|logged\s+in|used))\b|\baccount\s+(?:was\s+|is\s+|got\s+)?(?:hacked|stolen|compromised)\b|\bmy\s+(?:money|funds|balance|usdt)\s+(?:is\s+|was\s+)?(?:gone|missing|stolen|disappeared)\b|\b(?:lost|stole)\s+my\s+(?:money|funds|usdt)\b|\bi\s+(?:want|need)\s+my\s+(?:money|funds)\s+back\b|\bmoney\s+(?:is\s+)?gone\b/
+  },
+  {
+    // A cancellation request cannot be executed by the bot, so it escalates.
+    intent: 'withdrawal_cancel',
+    topic: 'withdrawal',
+    re: /\b(?:cancel|stop|reverse|undo|revert)\b[^?]{0,30}\b(?:withdraw\w*|payout)\b|\b(?:withdraw\w*|payout)\b[^?]{0,30}\b(?:cancel\w*|revers\w*|undo)\b/
+  },
+  {
     intent: 'withdrawal_problem',
     topic: 'withdrawal',
     re: /\bwithdraw\w*\b[^?]{0,50}\b(?:stuck|pending|not\s+(?:arriv\w*|receiv\w*)|did\s?n[o']?t|has\s?n[o']?t|fail\w*|missing|delay\w*|problem|issue|reject\w*)\b/
@@ -230,7 +242,7 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'deposit_problem',
     topic: 'deposit',
-    re: /\b(?:deposit|payment)\b[^?]{0,50}\b(?:not|never|did\s?n[o']?t|has\s?n[o']?t|still)\b[^?]{0,30}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*)\b|\b(?:deposit|payment)\b[^?]{0,40}\b(?:stuck|pending|missing|fail\w*|problem|issue|delay\w*|expired)\b/
+    re: /\bdeposit(?:ed|ing|s)?\b[^?]{0,50}\b(?:not|never|did\s?n[o']?t|has\s?n[o']?t|have\s?n[o']?t|nothing|no|still)\b[^?]{0,30}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*|balance|confirm\w*)\b|\b(?:deposit|payment)\b[^?]{0,40}\b(?:stuck|pending|missing|fail\w*|problem|issue|delay\w*|expired|not\s+working)\b|\b(?:sent|transferred|paid)\b[^?]{0,50}\b(?:not|never|has\s?n[o']?t|have\s?n[o']?t|did\s?n[o']?t)\b[^?]{0,25}\b(?:credit\w*|arriv\w*|receiv\w*|show\w*|appear\w*|reflect\w*|confirm\w*)\b|\bbalance\s+(?:is\s+|was\s+)?(?:still\s+)?(?:zero|empty)\b|\bstill\s+(?:zero|empty|nothing)\b/
   },
   {
     intent: 'wrong_network',
@@ -240,12 +252,18 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'account_problem',
     topic: 'account',
-    re: /\b(?:locked\s+out|can\s?not\s+access\s+my\s+account|can\s?t\s+access\s+my\s+account|account\s+(?:is\s+)?(?:problem|issue|access|locked|hacked|compromised))\b/
+    re: /\b(?:locked\s+out|can\s?not\s+access\s+my\s+account|can\s?t\s+access\s+my\s+account|account\s+(?:is\s+)?(?:problem|issue|access|locked|hacked|compromised|suspended|banned|disabled|closed))\b|\baccount\b[^?]{0,25}\b(?:suspended|banned|disabled|closed|blocked)\b|\b(?:suspended|banned)\b[^?]{0,25}\baccount\b/
   },
   {
     intent: 'kyc',
     topic: 'kyc',
     re: /\b(?:kyc|identity|verify|verification|id\s+(?:check|document)|documents?)\b/
+  },
+  {
+    // A provider is named in a complaint: that is not a method selection.
+    intent: 'service_problem',
+    topic: 'deposit',
+    re: /\b(?:paybis|transak|trust\s?wallet)\b[^?]{0,45}\b(?:not\s+working|does\s?n[o']?t\s+work|is\s?n[o']?t\s+working|fail\w*|error\w*|problem\w*|issue\w*|declin\w*|reject\w*|stuck|blocked|scam\w*)\b|\b(?:problem|issue|error|fail\w*|trouble)\b[^?]{0,30}\b(?:paybis|transak|trust\s?wallet)\b/
   },
   {
     intent: 'deposit_method',
@@ -265,7 +283,7 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'deposit_asset',
     topic: 'deposit',
-    re: /\b(?:usdt|trc\s?-?20|trc20|tron|network|wallet\s+address|which\s+(?:coin|crypto|currency|cryptocurrency))\b/
+    re: /\b(?:usdt|trc\s?-?20|trc20|tron)\b|\bwallet\s+address\b|\bwhich\s+(?:coin|crypto|currency|cryptocurrency|network|asset)\b|\bnetwork\s+(?:should|do|to|for)\b|\b(?:deposit|send|sending)\b[^?]{0,24}\bnetwork\b/
   },
   {
     intent: 'deposit_minimum',
@@ -394,6 +412,25 @@ const INTENT_RULES = Object.freeze([
   }
 ]);
 
+/**
+ * Intents that must NEVER be answered with a provider tutorial.
+ *
+ * A provider name (Paybis / Transak / Trust Wallet) inside a complaint, a
+ * withdrawal question or an account problem is a MENTION, not a selection. This
+ * list is the guard that prevents "my deposit from paybis is missing" from being
+ * answered with the Paybis tutorial and reported to the operator as BOT REPLIED.
+ */
+const NON_METHOD_INTENTS = Object.freeze([
+  'withdrawal_problem', 'withdrawal_cancel', 'status_check', 'deposit_problem',
+  'account_problem', 'fraud', 'wrong_network', 'withdrawal', 'withdrawal_timing', 'human'
+]);
+
+/** Intents that legitimately mean "I want the tutorial for this method". */
+const METHOD_SELECTION_INTENTS = Object.freeze(['deposit', 'buy_crypto', 'deposit_method']);
+
+/** A message that opens with a question word is a question, not a selection. */
+const QUESTION_OPENER_RE = /^(?:is|are|was|were|does|do|did|can|could|should|would|will|why|what|when|where|which|who|how)\b/;
+
 /** Topic groups that answer the same pending question (onboarding asks about deposits). */
 const COMPATIBLE_TOPICS = Object.freeze({
   onboarding: ['onboarding', 'deposit'],
@@ -436,6 +473,7 @@ function emptyState() {
     lastUpdateId: null,
     handoffRequestedAt: null,
     handoffResolvedAt: null,
+    handoffResolvedMessageId: null,
     updatedAt: null
   };
 }
@@ -485,6 +523,9 @@ function normalizeState(raw) {
   base.lastUpdateId = Number.isFinite(Number(value.lastUpdateId)) ? Number(value.lastUpdateId) : null;
   base.handoffRequestedAt = asString(value.handoffRequestedAt, 40);
   base.handoffResolvedAt = asString(value.handoffResolvedAt, 40);
+  base.handoffResolvedMessageId = Number.isFinite(Number(value.handoffResolvedMessageId))
+    ? Number(value.handoffResolvedMessageId)
+    : null;
   base.updatedAt = asString(value.updatedAt, 40);
   return base;
 }
@@ -492,6 +533,26 @@ function normalizeState(raw) {
 /** Does this message read as an answer to the question the bot just asked? */
 function isShortAnswer(a) {
   return a.words.length > 0 && a.words.length <= 8;
+}
+
+/**
+ * Does this message actually SELECT a deposit method?
+ *
+ * "Paybis", "I want to deposit with paybis" and "use trust wallet please" select
+ * it. "My deposit from paybis is missing", "my trust wallet is not working",
+ * "I want to withdraw to my trust wallet" and "is paybis safe?" only mention it,
+ * and must be routed by their real intent (usually a human handoff).
+ */
+function isMethodSelection(a) {
+  if (!a || !a.method) return false;
+  const intents = a.intents || [];
+  // Any complaint / withdrawal / account / fraud / trading intent wins.
+  if (intents.some((intent) => NON_METHOD_INTENTS.indexOf(intent) !== -1)) return false;
+  // A message that also carries an unrelated intent is not a plain selection.
+  const others = intents.filter((intent) => METHOD_SELECTION_INTENTS.indexOf(intent) === -1 && intent !== 'help');
+  if (others.length > 0) return false;
+  if (QUESTION_OPENER_RE.test(a.normalized)) return false;
+  return !a.primary || METHOD_SELECTION_INTENTS.indexOf(a.primary) !== -1;
 }
 
 /**
@@ -644,7 +705,19 @@ function planTurn({ text, state } = {}) {
     return explainCurrentTopic(prev, next);
   }
   if (a.really) {
-    return makeReply('reassure', [line('reassure')], next);
+    // "Really?" can only confirm a CLAIM the bot actually made. After a question
+    // there is nothing to confirm, so explain/re-ask instead of asserting "yes"
+    // - and with no history at all ask what the customer needs.
+    if (prev.pending === PENDING.ANYTHING_ELSE) {
+      next.pending = PENDING.ANYTHING_ELSE;
+      return makeReply('reassure', [line('reassure'), line('anythingElse')], next);
+    }
+    if (prev.pending) {
+      return explainCurrentTopic(prev, next);
+    }
+    next.pending = PENDING.CLARIFY;
+    next.stage = 'clarify';
+    return makeReply('reallyUnknown', [line('clarifyTopic')], next, { confident: false });
   }
 
   // --- 4. a short reply answers the pending question ---------------------
@@ -658,8 +731,9 @@ function planTurn({ text, state } = {}) {
     return answerPending(prev, a, next);
   }
 
-  // --- 5. a named deposit method always selects that tutorial ------------
-  if (a.method) {
+  // --- 5. a named deposit method selects that tutorial ONLY when the message
+  //        really is a selection (see isMethodSelection) -------------------
+  if (isMethodSelection(a)) {
     return sendMethodTutorial(a.method, next);
   }
 
@@ -722,8 +796,11 @@ function handleIntent(a, prev, next) {
       });
 
     case 'withdrawal_problem':
+    case 'withdrawal_cancel':
     case 'deposit_problem':
+    case 'service_problem':
     case 'account_problem':
+    case 'fraud':
       next.topic = a.primaryTopic || 'account';
       next.pending = PENDING.ANYTHING_ELSE;
       next.stage = 'problem';
@@ -749,8 +826,16 @@ function handleIntent(a, prev, next) {
         line('depositMethodPrompt')
       ], next);
 
-    case 'deposit_method':
-      return sendMethodTutorial(a.method || 'paybis', next);
+    case 'deposit_method': {
+      // A question about a provider ("is paybis safe?") or a message that only
+      // mentions one is answered by its real intent - never with a tutorial.
+      if (a.method && isMethodSelection(a)) return sendMethodTutorial(a.method, next);
+      const other = (a.intents || []).find((intent) => intent !== 'deposit_method' && intent !== 'deposit');
+      if (other) return handleIntent(Object.assign({}, a, { primary: other }), prev, next);
+      next.topic = 'deposit';
+      next.pending = PENDING.ANYTHING_ELSE;
+      return knowledgeReply('deposit_method', a.text, next);
+    }
 
     case 'deposit':
       next.topic = 'deposit';
@@ -1196,8 +1281,11 @@ module.exports = {
   DEPOSIT_METHODS,
   KNOWLEDGE_QUERIES,
   INTENT_RULES,
+  NON_METHOD_INTENTS,
+  METHOD_SELECTION_INTENTS,
   emptyState,
   normalizeState,
   analyze,
+  isMethodSelection,
   planTurn
 };

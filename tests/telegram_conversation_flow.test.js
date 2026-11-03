@@ -321,12 +321,21 @@ test('11. "How?" after a tutorial explains the steps instead of resending the li
   assert.ok(!h.last().includes('https://'), 'the link is not duplicated');
 });
 
-test('12. "Really?" is answered with reassurance, not an error', async () => {
-  const h = createHarness();
-  await h.say('I want to deposit');
-  await h.say('Really?');
-  assert.strictEqual(h.last(), t('reassure'));
-  assert.strictEqual(h.conversation().context.pending, 'deposit.has_crypto', 'the flow is preserved');
+test('12. "Really?" only affirms a claim, and re-asks after a question', async () => {
+  // After a QUESTION there is no claim to confirm, so the bot must not say
+  // "yes - that is correct"; it repeats the question and keeps the flow.
+  const asked = createHarness();
+  await asked.say('I want to deposit');
+  await asked.say('Really?');
+  assert.strictEqual(asked.last(), t('depositIntro'));
+  assert.ok(!/That is correct/i.test(asked.last()), 'a question is not a claim');
+  assert.strictEqual(asked.conversation().context.pending, 'deposit.has_crypto', 'the flow is preserved');
+
+  // After a real ANSWER the reassurance is allowed.
+  const answered = createHarness();
+  await answered.say('What is the minimum deposit?');
+  await answered.say('Really?');
+  assert.match(answered.last(), /That is correct/i);
 });
 
 test('13. "Yes" to "anything else?" offers the topics instead of claiming confusion', async () => {
@@ -641,10 +650,14 @@ test('39. the dialogue engine has no financial or network side effects', () => {
 
 test('40. every reply is built from the approved dictionary (no ad-hoc English)', async () => {
   const h = createHarness();
-  const transcript = ['hello', 'yes', 'thanks', 'how?', 'really?', 'I want to deposit', 'No', 'Paybis', 'How?'];
+  // The registration branch is included on purpose: it used to render a key that
+  // was missing from the dictionary, and this check is what proves the whole
+  // transcript resolves to approved copy.
+  const transcript = ['hello', 'yes', 'thanks', 'how?', 'really?', 'I want to register',
+    'I want to deposit', 'No', 'Paybis', 'How?'];
   for (const text of transcript) await h.say(text);
 
-  const allowed = new Set(Object.values(engine.LABELS || {}));
+  assert.ok(h.toCustomer().length >= transcript.length - 2, 'the transcript produced replies');
   for (const reply of h.toCustomer()) {
     if (!reply) continue;
     // Every line must exist in the dictionary (with placeholders filled) - this
@@ -662,7 +675,8 @@ test('40. every reply is built from the approved dictionary (no ad-hoc English)'
       assert.ok(known, 'unexpected reply line (not in the dictionary): ' + JSON.stringify(line));
     }
   }
-  assert.ok(allowed);
+  assert.ok(!h.toCustomer().some((reply) => /onboardCreateAccount/.test(reply)),
+    'no raw dictionary key reaches the customer');
 });
 
 // ------------------------------------------------------ 8. migration contract ---

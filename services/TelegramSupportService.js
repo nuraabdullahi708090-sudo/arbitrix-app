@@ -74,6 +74,20 @@ const NOTIFICATION_STATUS = Object.freeze({
   HUMAN_CONVERSATION: 'human-conversation'
 });
 
+/**
+ * Tolerance for the LEGACY fallback in `isHumanHandlingConversation`, used only
+ * when a conversation was closed by a build that stored `handoffResolvedAt` but
+ * no `handoffResolvedMessageId`.
+ *
+ * That fallback compares `handoffResolvedAt` (this process clock) with a stored
+ * message timestamp (the database clock). Without a tolerance, ordinary clock
+ * skew between the web process and Postgres keeps a closed conversation
+ * suppressed - and the operator is told automation resumed while the customer
+ * still gets silence. New closes use message identity instead and never look at
+ * a clock.
+ */
+const HANDOFF_CLOCK_SKEW_TOLERANCE_MS = 60000;
+
 // NOTE (conversation status): this service does NOT write
 // telegram_support_conversations.status. The live table's CHECK rejected the
 // legacy 'escalated' literal with 23514 and its allowed values cannot be read
@@ -1869,11 +1883,22 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   async function markHumanHandoffResolved(conversation) {
     try {
       const current = await loadConversationState(conversation);
+      // Remember WHICH message was the last human reply at the moment of the
+      // close. Suppression then resumes by comparing message ids, so it no longer
+      // depends on two different clocks agreeing (see isHumanHandlingConversation).
+      let resolvedMessageId = null;
+      try {
+        const latest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
+        if (latest && Number.isFinite(Number(latest.id))) resolvedMessageId = Number(latest.id);
+      } catch (error) {
+        // best effort: the timestamp fallback below still applies
+      }
       await saveConversationState(conversation, Object.assign({}, current, {
         pending: null,
         stage: 'closed',
         handoffRequestedAt: null,
-        handoffResolvedAt: new Date().toISOString()
+        handoffResolvedAt: new Date().toISOString(),
+        handoffResolvedMessageId: resolvedMessageId
       }));
     } catch (error) {
       warn('conversation handoff could not be marked resolved: '
@@ -2410,6 +2435,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * so no new state and no schema change is needed. Read-only and fail-open: a
    * lookup that errors or is unavailable is treated as "no human handling", so a
    * status problem can never break a customer reply.
+   *
+   * Resumption after `/close` is decided by MESSAGE IDENTITY (the id of the last
+   * human reply at close time) with a timestamp tolerance only as a fallback for
+   * state written by an earlier build, so it never depends on two clocks.
    */
   async function isHumanHandlingConversation(conversation) {
     if (!conversation || conversation.id === undefined || conversation.id === null) return false;
@@ -2422,10 +2451,22 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       // NEWER than the last agent message: a later human reply starts a new
       // handoff and suppression applies again.
       const state = await loadConversationState(conversation);
+      // Preferred test: MESSAGE IDENTITY. `markHumanHandoffResolved` records the
+      // last human message id at the moment of the close, so a later human reply
+      // (a higher id) re-applies suppression and nothing else does - no clock
+      // comparison, no skew, no "resumed but still silent" contradiction.
+      const resolvedMessageId = state.handoffResolvedMessageId;
+      if (Number.isFinite(resolvedMessageId) && Number.isFinite(Number(latest.id))) {
+        return Number(latest.id) > resolvedMessageId;
+      }
       if (state.handoffResolvedAt) {
         const resolvedAt = Date.parse(state.handoffResolvedAt);
         const agentAt = latest.created_at ? Date.parse(latest.created_at) : NaN;
-        if (Number.isFinite(resolvedAt) && (!Number.isFinite(agentAt) || resolvedAt >= agentAt)) {
+        // FALLBACK for state written by an earlier build (no message id): compare
+        // timestamps with a tolerance, because `handoffResolvedAt` comes from this
+        // process clock while the message timestamp comes from the database clock.
+        if (Number.isFinite(resolvedAt)
+            && (!Number.isFinite(agentAt) || resolvedAt + HANDOFF_CLOCK_SKEW_TOLERANCE_MS >= agentAt)) {
           return false;
         }
       }
@@ -2961,7 +3002,13 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           // 047 is applied), which is what lets the bot speak to the customer
           // again without inventing a status literal.
           await markHumanHandoffResolved(conversation);
-          await transport.sendMessage(route.chatId, `Conversation #${conversation.id} closed. Automated replies are enabled again.`);
+          // Only claim that automation resumed when suppression is genuinely
+          // cleared. If a newer human reply arrived after the snapshot the close
+          // took, automated replies stay paused and the operator is told so.
+          const stillSuppressed = await isHumanHandlingConversation(conversation);
+          await transport.sendMessage(route.chatId, stillSuppressed
+            ? `Conversation #${conversation.id} closed, but a newer agent message keeps automated replies paused. Run /close again after your last reply.`
+            : `Conversation #${conversation.id} closed. Automated replies are enabled again.`);
           return { handled: true, action: 'close' };
         }
         case 'escalate': {

@@ -8313,3 +8313,58 @@ was created and no Telegram write call was executed in this pass.
   the code (server.js + public/index.html + public/deposit-tutorials.html) and
   the page is live at https://arbitrix.pro/deposit-tutorials.
 - NOT committed / NOT pushed / NOT deployed at the time of writing.
+
+
+## Telegram conversational support - review fixes C1/H1/H2 + related (2026-11-03, local commit only)
+- Implements the fixes from the independent production-readiness review of T1
+  (439f3b2) and T2 (3a73c8a). No T2 file was touched: public/, server.js and
+  supabase/ are byte-identical, and migration 047 is STILL NOT APPLIED.
+- C1 (CRITICAL, regression vs main): a provider name inside a complaint was
+  answered with that provider's DEPOSIT tutorial and the operator notification was
+  marked BOT REPLIED, so nobody was alerted. Root cause: planTurn step 5 treated
+  ANY `a.method` mention as a selection, before the intent handlers. Fix:
+  `isMethodSelection()` (ConversationEngine) requires the message to carry no
+  NON_METHOD_INTENTS (withdrawal_problem/withdrawal_cancel/status_check/
+  deposit_problem/account_problem/fraud/wrong_network/withdrawal/withdrawal_timing/
+  human), no unrelated intent, and no question opener; step 5 and the
+  `deposit_method` intent case both use it, and that case now delegates to the real
+  intent instead of falling through to a tutorial. New intents: `fraud`
+  (hacked / money gone / money back) and `withdrawal_cancel`; `deposit_problem`
+  covers "deposited but nothing shows", "sent ... has not been credited",
+  "balance is still zero"; `service_problem` covers "my trust wallet is not
+  working". Verified end to end: every brief phrasing now returns humanHandoff
+  with the operator at HUMAN NEEDED (main produced HUMAN NEEDED too - the branch
+  had made it BOT REPLIED), and "I want to withdraw to my trust wallet" yields the
+  WITHDRAWAL flow. Genuine selections still send exactly one tutorial.
+- H1 (HIGH): `line('onboardCreateAccount')` had no dictionary entry, so "how do I
+  get started" / "I want to register" / "sign up" / "create an account" sent the
+  literal key to the customer AND the operator notice. Added en/pt/ar
+  (CUSTOMER_STRINGS 69 -> 70 keys, identical key sets) and two completeness tests
+  that scan `line('key')` in the engine and `tCustomer(...)`/`t('en',...)` in the
+  service and require every key in all three locales.
+- H2 (HIGH): `isHumanHandlingConversation` compared `handoffResolvedAt` (process
+  clock) with `created_at` (database clock), so skew kept a closed thread
+  suppressed while `/close` announced "Automated replies are enabled again".
+  Fix: `/close` now records `handoffResolvedMessageId` (state field, JSONB only,
+  no migration) and resumption is decided by MESSAGE IDENTITY (latest.id >
+  resolvedMessageId); the timestamp comparison survives only as a legacy fallback
+  with a 60s tolerance. The close message is now verified: if suppression is still
+  in force (a human reply landed after the snapshot) the operator is told
+  "keeps automated replies paused" instead of the false claim.
+- Related improvements: M1 thanks mid-flow uses a continuation opener (no
+  "anything else?" before re-asking the pending question); M2 "Really?" only
+  affirms after an actual answer, otherwise re-asks/asks; M3 the credited step is
+  conditional ("If the deposit is showing ... say "human"") instead of asserting
+  a credit on the customer's word; M4 the KB `trading_bot.risk` answer no longer
+  opens with "Yes." (it was read as a safety guarantee for "is my money safe");
+  M5 fraud/account-suspension phrasings escalate; L7 `deposit_asset` no longer
+  matches a bare "network" (so "network error on my withdrawal" is a withdrawal).
+- Tests: NEW tests/telegram_conversation_regressions.test.js (28 end-to-end
+  tests covering C1/H1/H2/M1-M5/L7). Updated pins for the intentional changes:
+  telegram_conversation_flow test 12 (new "Really?" contract) and test 40 (the
+  dead `engine.LABELS` assertion replaced; the transcript now includes a
+  registration message). Full suite: 2977 tests, 2976 pass, 1 fail - the
+  PRE-EXISTING how_it_works_video master-asset check, identical to the review
+  baseline (2949/2948 before these fixes). node --check clean, git diff --check
+  clean, 0 U+FFFD.
+- NOT pushed, NOT deployed, migration 047 NOT applied.
