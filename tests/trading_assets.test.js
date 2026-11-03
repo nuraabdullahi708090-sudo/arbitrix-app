@@ -211,7 +211,7 @@ test('no new environment variable or migration was added for assets', () => {
   // directory and 046 the worker-reported destination state plus the durable
   // join-welcome ledger. The asset universe itself is display metadata and needs
   // no schema change, which the next assertions still prove.
-  assert.strictEqual(migrations.length, 46, 'only approved migrations may be added');
+  assert.strictEqual(migrations.length, 47, 'only approved migrations may be added');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');
@@ -220,6 +220,7 @@ test('no new environment variable or migration was added for assets', () => {
   assert.ok(migrations.includes('043_marketing_claim_lease.sql'), '043 is the marketing claim lease');
   assert.ok(migrations.includes('044_marketing_worker_heartbeat.sql'), '044 is the worker heartbeat');
   assert.ok(migrations.includes('046_telegram_delivery_durability.sql'), '046 is the delivery durability fix');
+  assert.ok(migrations.includes('047_telegram_conversation_state.sql'), '047 is the Telegram conversation state');
   assert.ok(migrations.includes('045_deposit_partners.sql'), '045 is the deposit partner directory');
   assert.ok(!migrations.some((f) => /trading.?assets?/i.test(f)), 'no asset-allow-list migration should exist');
 });

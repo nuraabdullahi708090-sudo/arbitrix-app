@@ -255,6 +255,10 @@ const PT_QUESTION = 'Posso fazer um depósito de $500?';
 const PT_TRANSLATION = 'Can I make a $500 deposit?';
 const PT_REPLY = 'Sim, você pode fazer um depósito de $500. Avise-me se precisar de ajuda.';
 const AR_QUESTION = 'كيف يمكنني سحب أموالي؟';
+// Questions deliberately NOT routed by the deterministic dialogue layer, so the
+// AI-language plumbing below is exercised (the engine now answers the two above).
+const PT_OPEN_QUESTION = 'Como funciona a plataforma?';
+const AR_OPEN_QUESTION = 'هل هذا آمن؟';
 const AR_TRANSLATION = 'How can I withdraw my money?';
 
 // ===================================================== 1. /language command ===
@@ -506,7 +510,7 @@ test('14. the customer AI response uses the selected language and the AI receive
     }
   };
   const h = createHarness({ language: 'pt', supportAI: ai });
-  await h.bot.handleUpdate(customerMessage(PT_QUESTION));
+  await h.bot.handleUpdate(customerMessage(PT_OPEN_QUESTION));
 
   assert.strictEqual(ai.calls.length, 1);
   assert.strictEqual(ai.calls[0].language, 'pt', 'the conversation language is passed to the AI');
@@ -520,7 +524,7 @@ test('14b. an AI answer outside the selected language is NOT sent to an Arabic c
     async ask() { return { kind: 'answer', answer: 'You can withdraw anytime.', needsHuman: false, source: 'provider', modelGenerated: true }; }
   };
   const h = createHarness({ language: 'ar', supportAI: ai });
-  await h.bot.handleUpdate(customerMessage(AR_QUESTION));
+  await h.bot.handleUpdate(customerMessage(AR_OPEN_QUESTION));
 
   assert.strictEqual(h.toCustomer()[0], i18n.t('ar', 'uncertain'), 'the localized Arabic fallback is used');
   assert.strictEqual(h.bot.getStats().aiLanguageMisses, 1);
@@ -559,26 +563,36 @@ test('14d. without a translator, approved English is replaced by a localized fal
 
 // ================================================= 15-16. AI-off localizations ===
 
-test('15. with AI off, a Portuguese customer gets the localized acknowledgement', async () => {
+test('15. with AI off, a Portuguese greeting is answered naturally in Portuguese', async () => {
   const h = createHarness({ language: 'pt', supportAI: null });
   const result = await h.bot.handleUpdate(customerMessage('Olá, preciso de ajuda'));
 
   assert.strictEqual(result.action, 'forwarded');
-  assert.strictEqual(h.toCustomer()[0], i18n.t('pt', 'acknowledgement'));
-  assert.ok(!/Thanks for contacting/.test(h.toCustomer()[0]), 'never the English guide text');
+  // "Olá, preciso de ajuda" is understood as a greeting plus a request for help, so
+  // the reply offers the help topics in Portuguese - not the old generic
+  // acknowledgement and not English.
+  assert.strictEqual(h.toCustomer()[0], i18n.t('pt', 'clarifyHelp'));
+  assert.ok(!/Thanks for contacting|acknowledgement/.test(h.toCustomer()[0]), 'never the English guide text');
 });
 
-test('16. with AI off, an Arabic customer gets the localized acknowledgement', async () => {
+test('16. with AI off, an Arabic withdrawal question gets the localized withdrawal guidance', async () => {
   const h = createHarness({ language: 'ar', supportAI: null });
   await h.bot.handleUpdate(customerMessage(AR_QUESTION));
-  assert.strictEqual(h.toCustomer()[0], i18n.t('ar', 'acknowledgement'));
+  const reply = h.toCustomer()[0];
+  // Arabic intent keywords ("سحب") are recognised, so the customer gets the same
+  // guided withdrawal flow as an English customer - in Arabic, with the tutorial.
+  assert.ok(reply.includes(i18n.t('ar', 'withdrawIntro')), 'the withdrawal guidance is localized');
+  assert.ok(reply.includes(i18n.t('ar', 'withdrawHelpPrompt')));
+  assert.ok(reply.includes('https://t.me/ArbitrixAnnouncements/19'), 'the withdrawal tutorial is included');
+  assert.ok(!reply.includes(i18n.t('en', 'withdrawIntro')), 'the English guidance is never sent');
+  assert.ok(!reply.includes(i18n.t('en', 'withdrawHelpPrompt')), 'the English prompt is never sent');
 });
 
 test('16b. an AI service that is present but DISABLED behaves like AI off', async () => {
   const ai = { isEnabled: () => false, ask: async () => { throw new Error('must not be called'); } };
   const h = createHarness({ language: 'ar', supportAI: ai });
   await h.bot.handleUpdate(customerMessage(AR_QUESTION));
-  assert.strictEqual(h.toCustomer()[0], i18n.t('ar', 'acknowledgement'));
+  assert.ok(h.toCustomer()[0].includes(i18n.t('ar', 'withdrawIntro')));
 });
 
 test('16c. the other localized fixed replies are used where they apply', async () => {
@@ -861,9 +875,11 @@ test('28. the dictionary is small, complete in all three locales, and localized'
   const locales = Object.keys(i18n.CUSTOMER_STRINGS);
   assert.deepStrictEqual(locales.sort(), ['ar', 'en', 'pt']);
   const keys = Object.keys(i18n.CUSTOMER_STRINGS.en).sort();
-  assert.ok(keys.length >= 15 && keys.length <= 40, 'a small Telegram-specific dictionary, got ' + keys.length);
-  // The web app has ~1,400 keys; this must NOT be a copy of it.
-  assert.ok(keys.length < 50, 'must not duplicate the web dictionary');
+  // The conversational engine added a bounded set of dialogue strings (greetings,
+  // clarifying questions, guided deposit/withdrawal steps) - still a small,
+  // Telegram-specific dictionary, never a copy of the web app's ~1,400 keys.
+  assert.ok(keys.length >= 15 && keys.length <= 90, 'a small Telegram-specific dictionary, got ' + keys.length);
+  assert.ok(keys.length < 100, 'must not duplicate the web dictionary');
 
   locales.forEach((locale) => {
     assert.deepStrictEqual(Object.keys(i18n.CUSTOMER_STRINGS[locale]).sort(), keys,
@@ -1026,11 +1042,11 @@ test('30d. an empty customer message still gets a localized reply', async () => 
 
 test('16d. with AI off the operator workflow still translates (AI-off requirement)', async () => {
   // No supportAI at all, but a translator present: the customer gets a localized
-  // acknowledgement AND the operator's English reply is still translated.
+  // conversational reply AND the operator's English reply is still translated.
   const translator = createTranslatorStub({ 'en->pt': { ok: true, text: PT_REPLY } });
   const h = createHarness({ language: 'pt', supportAI: null, translator });
   await h.bot.handleUpdate(customerMessage(PT_QUESTION));
-  assert.strictEqual(h.toCustomer()[0], i18n.t('pt', 'acknowledgement'));
+  assert.strictEqual(h.toCustomer()[0], i18n.t('pt', 'depositIntro'));
 
   const notificationId = h.toChat(ADMIN_A)[0].messageId;
   const result = await h.bot.handleUpdate(adminMessage('Yes, that is possible.', { replyTo: notificationId }));

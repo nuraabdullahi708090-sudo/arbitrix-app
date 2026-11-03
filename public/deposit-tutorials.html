@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Deposit Tutorials | Buy Crypto and Fund Arbitrix</title>
+    <meta name="description" content="New to crypto? Watch step-by-step Paybis, Transak and Trust Wallet video tutorials and learn how to buy USDT and transfer it to your Arbitrix deposit address.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://arbitrix.pro/deposit-tutorials">
+    <meta name="theme-color" content="#070B14">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Arbitrix AI">
+    <meta property="og:title" content="Deposit Tutorials | Buy Crypto and Fund Arbitrix">
+    <meta property="og:description" content="Step-by-step video tutorials for buying USDT with Paybis, Transak or Trust Wallet and sending it to your Arbitrix account.">
+    <meta property="og:url" content="https://arbitrix.pro/deposit-tutorials">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Deposit Tutorials | Arbitrix">
+    <meta name="twitter:description" content="Step-by-step video tutorials for buying USDT and funding your Arbitrix account.">
+    <link rel="icon" href="data:image/svg+xml,">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #070B14;
+            --bg-card: #0F1629;
+            --bg-input: #141C2E;
+            --brand: #F0B90B;
+            --brand-hover: #FCD535;
+            --brand-weak: rgba(240,185,11,0.08);
+            --brand-border: rgba(240,185,11,0.32);
+            --text-primary: #E8EDF5;
+            --text-secondary: #8896B5;
+            --text-muted: #7E8CAB;
+            --border: #24314A;
+            --success: #10B981;
+            --radius: 16px;
+            --shadow: 0 12px 48px rgba(0,0,0,0.5);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        a { color: var(--brand); }
+        .page { flex: 1; width: 100%; max-width: 1000px; margin: 0 auto; padding: 20px 16px 56px; }
+
+        /* ------------------------------- top bar ------------------------------ */
+        .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+        .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 800; font-size: 20px; letter-spacing: -0.5px; }
+        .logo i { color: var(--brand); font-size: 22px; }
+        .logo em { color: var(--brand); font-style: normal; }
+        .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .lang-select {
+            background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: inherit; min-height: 40px; cursor: pointer;
+        }
+        .lang-select:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+        /* -------------------------------- hero -------------------------------- */
+        .hero { text-align: center; padding: 8px 0 24px; }
+        .badge {
+            display: inline-flex; align-items: center; gap: 8px; background: var(--brand-weak);
+            border: 1px solid var(--brand-border); color: var(--brand); font-size: 11px; font-weight: 700;
+            letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; margin-bottom: 16px;
+        }
+        .hero h1 { font-size: clamp(26px, 6vw, 42px); line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 14px; overflow-wrap: anywhere; }
+        .hero h1 em { color: var(--brand); font-style: normal; }
+        .hero p { color: var(--text-secondary); font-size: clamp(14px, 3.6vw, 17px); max-width: 720px; margin: 0 auto; overflow-wrap: anywhere; }
+        .hero-note { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+
+        /* ------------------------------- steps -------------------------------- */
+        .steps { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 28px 0 8px; }
+        .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; min-width: 0; }
+        .step-num {
+            width: 30px; height: 30px; border-radius: 50%; background: var(--brand-weak); border: 1px solid var(--brand-border);
+            color: var(--brand); font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px;
+        }
+        .step h3 { font-size: 14px; margin-bottom: 4px; overflow-wrap: anywhere; }
+        .step p { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+        /* ------------------------------ tutorials ----------------------------- */
+        .section-title { font-size: clamp(20px, 5vw, 26px); letter-spacing: -0.01em; margin: 32px 0 6px; }
+        .section-sub { color: var(--text-secondary); font-size: 14px; margin-bottom: 18px; overflow-wrap: anywhere; }
+        .cards { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .tcard {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            overflow: hidden; display: flex; flex-direction: column; min-width: 0; box-shadow: var(--shadow);
+        }
+        .tcard-media {
+            position: relative; width: 100%; background:
+                radial-gradient(120% 120% at 20% 0%, rgba(240,185,11,0.22) 0%, rgba(240,185,11,0.04) 45%, rgba(7,11,20,0) 70%),
+                linear-gradient(160deg, #101a30 0%, #0a1020 60%, #070b14 100%);
+            border-bottom: 1px solid var(--border);
+        }
+        .tcard-media.is-playing { background: #000; }
+        .tcard-poster { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 34px 16px; text-align: center; }
+        .tcard-poster .brand-mark { font-size: 12px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text-secondary); }
+        .play-mark {
+            width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--brand-border);
+            background: rgba(240,185,11,0.14); color: var(--brand); display: inline-flex; align-items: center; justify-content: center;
+            font-size: 20px; transition: background 0.15s ease;
+        }
+        .tcard:hover .play-mark { background: rgba(240,185,11,0.24); }
+        .tcard-source { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
+        .tcard-source i { color: #2AABEE; }
+        .tcard-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
+        .tcard-body h3 { font-size: 17px; overflow-wrap: anywhere; }
+        .tcard-body p { font-size: 13px; color: var(--text-secondary); flex: 1; overflow-wrap: anywhere; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+            min-height: 46px; padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
+            font-family: inherit; text-decoration: none; cursor: pointer; border: 1px solid transparent;
+            white-space: normal; overflow-wrap: anywhere; text-align: center;
+        }
+        .btn-primary { background: var(--brand); color: #070B14; }
+        .btn-primary:hover { background: var(--brand-hover); }
+        .btn-ghost { background: transparent; color: var(--text-primary); border-color: var(--border); }
+        .btn-ghost:hover { border-color: var(--brand-border); color: var(--brand); }
+        .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+        /* ------------------------------- notices ------------------------------ */
+        .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-top: 28px; min-width: 0; }
+        .panel h2 { font-size: 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+        .panel p { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .panel.warn { border-color: rgba(240,185,11,0.28); background: rgba(240,185,11,0.06); }
+        .panel.warn h2 { color: var(--brand); }
+        .panel ul { margin: 8px 0 0 18px; }
+        .panel li { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; overflow-wrap: anywhere; }
+
+        .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+        .cta-row .btn { width: auto; flex: 1 1 220px; }
+        .footer { text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+
+        @media (min-width: 760px) {
+            .steps { grid-template-columns: repeat(3, 1fr); }
+            .cards { grid-template-columns: repeat(3, 1fr); }
+            .tcard-media iframe { height: 420px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .play-mark { transition: none; }
+        }
+        html[dir="rtl"] .panel ul { margin: 8px 18px 0 0; }
+        html[dir="rtl"] body { font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="topbar">
+        <a class="logo" href="/"><i class="fas fa-chart-line"></i> <span>Arbitrix <em>AI</em></span></a>
+        <div class="top-actions">
+            <label class="sr-only" for="langSelect" data-i18n="lang.label" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Language</label>
+            <select id="langSelect" class="lang-select">
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+                <option value="ar">العربية</option>
+                <option value="zh">中文</option>
+            </select>
+            <a class="btn btn-ghost" style="width:auto;min-height:40px;padding:8px 14px;" href="/" data-i18n="cta.back">Back to Arbitrix</a>
+        </div>
+    </div>
+
+    <header class="hero">
+        <div class="badge"><i class="fas fa-video"></i> <span data-i18n="badge">Deposit tutorials</span></div>
+        <h1 data-i18n="hero.title">Don't Have Crypto Yet? Let's Get You Started.</h1>
+        <p data-i18n="hero.subtitle">New to cryptocurrency? Follow our step-by-step video tutorials to learn how to purchase cryptocurrency and transfer it to your Arbitrix account.</p>
+        <p class="hero-note" data-i18n="hero.note">Videos play from our official Telegram channel. No account is needed to watch them.</p>
+    </header>
+
+    <section aria-labelledby="stepsTitle">
+        <h2 class="section-title" id="stepsTitle" data-i18n="steps.title">How it works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <h3 data-i18n="step1.title">Choose a service</h3>
+                <p data-i18n="step1.desc">Buy USDT with a card or bank transfer through one of the supported services below.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <h3 data-i18n="step2.title">Buy USDT (TRC20)</h3>
+                <p data-i18n="step2.desc">Purchase USDT and make sure the network is TRON (TRC20).</p>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <h3 data-i18n="step3.title">Send it to Arbitrix</h3>
+                <p data-i18n="step3.desc">Open Deposit in your Arbitrix account, copy your address and send the USDT there.</p>
+            </div>
+        </div>
+    </section>
+
+    <section aria-labelledby="tutorialsTitle">
+        <h2 class="section-title" id="tutorialsTitle" data-i18n="tutorials.title">Video tutorials</h2>
+        <p class="section-sub" data-i18n="tutorials.subtitle">Pick the service you want to use. Each tutorial shows the exact steps.</p>
+
+        <div class="cards">
+
+            <!-- PAYBIS -->
+            <article class="tcard" id="tutorial-paybis">
+                <div class="tcard-media" id="media-paybis" aria-hidden="true">
+                    <div class="tcard-poster">
+                        <span class="brand-mark">Paybis</span>
+                        <span class="play-mark"><i class="fas fa-play"></i></span>
+                    </div>
+                </div>
+                <div class="tcard-body">
+                    <h3>Paybis</h3>
+                    <p data-i18n="card.desc">Buy USDT with a card or bank transfer, then send it to your Arbitrix deposit address.</p>
+                    <a class="btn btn-primary js-watch" href="https://t.me/ArbitrixAnnouncements/17" target="_blank" rel="noopener noreferrer" data-tutorial="paybis">
+                        <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="watch">Watch Tutorial</span>
+                    </a>
+                    <span class="tcard-source"><i class="fab fa-telegram" aria-hidden="true"></i> <span data-i18n="openInTelegram">Opens in Telegram</span></span>
+                </div>
+            </article>
+
+            <!-- TRANSAK -->
+            <article class="tcard" id="tutorial-transak">
+                <div class="tcard-media" id="media-transak" aria-hidden="true">
+                    <div class="tcard-poster">
+                        <span class="brand-mark">Transak</span>
+                        <span class="play-mark"><i class="fas fa-play"></i></span>
+                    </div>
+                </div>
+                <div class="tcard-body">
+                    <h3>Transak</h3>
+                    <p data-i18n="card.desc">Buy USDT with a card or bank transfer, then send it to your Arbitrix deposit address.</p>
+                    <a class="btn btn-primary js-watch" href="https://t.me/ArbitrixAnnouncements/16" target="_blank" rel="noopener noreferrer" data-tutorial="transak">
+                        <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="watch">Watch Tutorial</span>
+                    </a>
+                    <span class="tcard-source"><i class="fab fa-telegram" aria-hidden="true"></i> <span data-i18n="openInTelegram">Opens in Telegram</span></span>
+                </div>
+            </article>
+
+            <!-- TRUST WALLET -->
+            <article class="tcard" id="tutorial-trustwallet">
+                <div class="tcard-media" id="media-trustwallet" aria-hidden="true">
+                    <div class="tcard-poster">
+                        <span class="brand-mark">Trust Wallet</span>
+                        <span class="play-mark"><i class="fas fa-play"></i></span>
+                    </div>
+                </div>
+                <div class="tcard-body">
+                    <h3>Trust Wallet</h3>
+                    <p data-i18n="card.desc">Buy USDT with a card or bank transfer, then send it to your Arbitrix deposit address.</p>
+                    <a class="btn btn-primary js-watch" href="https://t.me/ArbitrixAnnouncements/18" target="_blank" rel="noopener noreferrer" data-tutorial="trustwallet">
+                        <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="watch">Watch Tutorial</span>
+                    </a>
+                    <span class="tcard-source"><i class="fab fa-telegram" aria-hidden="true"></i> <span data-i18n="openInTelegram">Opens in Telegram</span></span>
+                </div>
+            </article>
+
+        </div>
+        <p class="hero-note" data-i18n="embedNote">Each tutorial opens in Telegram in a new tab.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="thirdPartyTitle">
+        <h2 id="thirdPartyTitle"><i class="fas fa-circle-info" style="color:#3B82F6;" aria-hidden="true"></i> <span data-i18n="thirdParty.title">About third-party services</span></h2>
+        <p data-i18n="thirdParty.body">Paybis, Transak and Trust Wallet are independent third-party services, not part of Arbitrix. Arbitrix does not sell cryptocurrency or process card payments directly. Availability, payment methods, fees and identity checks are set by each provider and vary by country.</p>
+    </section>
+
+    <section class="panel warn" aria-labelledby="safetyTitle">
+        <h2 id="safetyTitle"><i class="fas fa-shield-halved" aria-hidden="true"></i> <span data-i18n="safety.title">Before you send</span></h2>
+        <ul>
+            <li data-i18n="safety.1">Send USDT only on the TRON (TRC20) network.</li>
+            <li data-i18n="safety.2">Always copy the deposit address from your own Arbitrix account.</li>
+            <li data-i18n="safety.3">Never share your password, OTP, seed phrase or private keys.</li>
+        </ul>
+    </section>
+
+    <div class="cta-row">
+        <a class="btn btn-primary" href="/" data-i18n="cta.back">Back to Arbitrix</a>
+    </div>
+
+    <p class="footer"><span data-i18n="footer.note">Trading involves risk. Nothing on this page is financial advice.</span> &middot; Arbitrix AI</p>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Localization only.
+
+   PLAYBACK FINDING (measured, 2026-11-03): Telegram's official embed endpoint
+   (https://t.me/<channel>/<id>?embed=1&mode=tme) answers HTTP 200 for these
+   four posts and renders the post - but for these files it shows
+   "Media is too big / VIEW IN TELEGRAM" instead of an inline player, so
+   embedding is NOT reliable playback here. The cards therefore open the
+   original Telegram post in a new tab, which is the documented fallback.
+
+   No iframe is loaded and no third-party script runs on page load. These are
+   Telegram message links, not MP4 files: the page never fabricates a .mp4 URL
+   and never claims the video plays inline.
+
+   Localization uses the app-wide convention: the shared 'arbi_lang' key, a
+   browser-language guess only when the visitor has not chosen a language, and
+   dir=rtl for Arabic.
+--------------------------------------------------------------------------- */
+(function () {
+    'use strict';
+
+    var TRANSLATIONS = {
+        en: {
+            'meta.title': 'Deposit Tutorials | Buy Crypto and Fund Arbitrix',
+            'lang.label': 'Language',
+            'badge': 'Deposit tutorials',
+            'hero.title': "Don't Have Crypto Yet? Let's Get You Started.",
+            'hero.subtitle': 'New to cryptocurrency? Follow our step-by-step video tutorials to learn how to purchase cryptocurrency and transfer it to your Arbitrix account.',
+            'hero.note': 'Videos play from our official Telegram channel. No account is needed to watch them.',
+            'steps.title': 'How it works',
+            'step1.title': 'Choose a service',
+            'step1.desc': 'Buy USDT with a card or bank transfer through one of the supported services below.',
+            'step2.title': 'Buy USDT (TRC20)',
+            'step2.desc': 'Purchase USDT and make sure the network is TRON (TRC20).',
+            'step3.title': 'Send it to Arbitrix',
+            'step3.desc': 'Open Deposit in your Arbitrix account, copy your address and send the USDT there.',
+            'tutorials.title': 'Video tutorials',
+            'tutorials.subtitle': 'Pick the service you want to use. Each tutorial shows the exact steps.',
+            'card.desc': 'Buy USDT with a card or bank transfer, then send it to your Arbitrix deposit address.',
+            'watch': 'Watch Tutorial',
+            'openInTelegram': 'Opens in Telegram',
+            'embedNote': 'Each tutorial opens in Telegram in a new tab.',
+            'thirdParty.title': 'About third-party services',
+            'thirdParty.body': 'Paybis, Transak and Trust Wallet are independent third-party services, not part of Arbitrix. Arbitrix does not sell cryptocurrency or process card payments directly. Availability, payment methods, fees and identity checks are set by each provider and vary by country.',
+            'safety.title': 'Before you send',
+            'safety.1': 'Send USDT only on the TRON (TRC20) network.',
+            'safety.2': 'Always copy the deposit address from your own Arbitrix account.',
+            'safety.3': 'Never share your password, OTP, seed phrase or private keys.',
+            'cta.back': 'Back to Arbitrix',
+            'footer.note': 'Trading involves risk. Nothing on this page is financial advice.'
+        },
+        es: {
+            'meta.title': "Tutoriales de dep\u00f3sito | Compra cripto y financia Arbitrix",
+            'lang.label': 'Idioma',
+            'badge': 'Tutoriales de depósito',
+            'hero.title': '¿Aún no tienes criptomonedas? Empecemos.',
+            'hero.subtitle': '¿Eres nuevo en las criptomonedas? Sigue nuestros tutoriales en vídeo paso a paso para aprender a comprar criptomonedas y transferirlas a tu cuenta de Arbitrix.',
+            'hero.note': 'Los vídeos se reproducen desde nuestro canal oficial de Telegram. No necesitas cuenta para verlos.',
+            'steps.title': 'Cómo funciona',
+            'step1.title': 'Elige un servicio',
+            'step1.desc': 'Compra USDT con tarjeta o transferencia bancaria a través de uno de los servicios compatibles.',
+            'step2.title': 'Compra USDT (TRC20)',
+            'step2.desc': 'Compra USDT y asegúrate de que la red sea TRON (TRC20).',
+            'step3.title': 'Envíalo a Arbitrix',
+            'step3.desc': 'Abre Depósito en tu cuenta de Arbitrix, copia tu dirección y envía allí el USDT.',
+            'tutorials.title': 'Tutoriales en vídeo',
+            'tutorials.subtitle': 'Elige el servicio que quieres usar. Cada tutorial muestra los pasos exactos.',
+            'card.desc': 'Compra USDT con tarjeta o transferencia bancaria y envíalo a tu dirección de depósito de Arbitrix.',
+            'watch': 'Ver tutorial',
+            'openInTelegram': 'Se abre en Telegram',
+            'embedNote': 'Cada tutorial se abre en Telegram en una nueva pestaña.',
+            'thirdParty.title': 'Sobre los servicios externos',
+            'thirdParty.body': 'Paybis, Transak y Trust Wallet son servicios independientes de terceros y no forman parte de Arbitrix. Arbitrix no vende criptomonedas ni procesa pagos con tarjeta directamente. La disponibilidad, los métodos de pago, las comisiones y la verificación de identidad los define cada proveedor y varían según el país.',
+            'safety.title': 'Antes de enviar',
+            'safety.1': 'Envía solo USDT en la red TRON (TRC20).',
+            'safety.2': 'Copia siempre la dirección de depósito desde tu propia cuenta de Arbitrix.',
+            'safety.3': 'Nunca compartas tu contraseña, código OTP, frase semilla ni claves privadas.',
+            'cta.back': 'Volver a Arbitrix',
+            'footer.note': 'Operar conlleva riesgo. Nada de lo aquí mostrado es asesoramiento financiero.'
+        },
+        pt: {
+            'meta.title': "Tutoriais de dep\u00f3sito | Compre cripto e financie a Arbitrix",
+            'lang.label': 'Idioma',
+            'badge': 'Tutoriais de depósito',
+            'hero.title': 'Ainda não tem criptomoedas? Vamos começar.',
+            'hero.subtitle': 'Novo em criptomoedas? Siga nossos tutoriais em vídeo passo a passo para aprender a comprar criptomoedas e transferi-las para a sua conta Arbitrix.',
+            'hero.note': 'Os vídeos são reproduzidos no nosso canal oficial do Telegram. Não é necessária uma conta para assistir.',
+            'steps.title': 'Como funciona',
+            'step1.title': 'Escolha um serviço',
+            'step1.desc': 'Compre USDT com cartão ou transferência bancária por meio de um dos serviços compatíveis.',
+            'step2.title': 'Compre USDT (TRC20)',
+            'step2.desc': 'Compre USDT e confirme que a rede é TRON (TRC20).',
+            'step3.title': 'Envie para a Arbitrix',
+            'step3.desc': 'Abra Depósito na sua conta Arbitrix, copie o seu endereço e envie o USDT para lá.',
+            'tutorials.title': 'Tutoriais em vídeo',
+            'tutorials.subtitle': 'Escolha o serviço que deseja usar. Cada tutorial mostra os passos exatos.',
+            'card.desc': 'Compre USDT com cartão ou transferência bancária e envie para o seu endereço de depósito da Arbitrix.',
+            'watch': 'Ver tutorial',
+            'openInTelegram': 'Abre no Telegram',
+            'embedNote': 'Cada tutorial abre no Telegram em uma nova aba.',
+            'thirdParty.title': 'Sobre serviços de terceiros',
+            'thirdParty.body': 'Paybis, Transak e Trust Wallet são serviços independentes de terceiros e não fazem parte da Arbitrix. A Arbitrix não vende criptomoedas nem processa pagamentos com cartão diretamente. Disponibilidade, métodos de pagamento, taxas e verificação de identidade são definidos por cada provedor e variam por país.',
+            'safety.title': 'Antes de enviar',
+            'safety.1': 'Envie apenas USDT na rede TRON (TRC20).',
+            'safety.2': 'Sempre copie o endereço de depósito da sua própria conta Arbitrix.',
+            'safety.3': 'Nunca compartilhe sua senha, código OTP, frase-semente ou chaves privadas.',
+            'cta.back': 'Voltar para a Arbitrix',
+            'footer.note': 'Negociar envolve risco. Nada aqui é aconselhamento financeiro.'
+        },
+        fr: {
+            'meta.title': "Tutoriels de d\u00e9p\u00f4t | Acheter de la crypto et financer Arbitrix",
+            'lang.label': 'Langue',
+            'badge': 'Tutoriels de dépôt',
+            'hero.title': 'Pas encore de cryptomonnaies ? Commençons.',
+            'hero.subtitle': 'Vous débutez en cryptomonnaies ? Suivez nos tutoriels vidéo pas à pas pour apprendre à acheter des cryptomonnaies et à les transférer sur votre compte Arbitrix.',
+            'hero.note': 'Les vidéos sont lues depuis notre canal Telegram officiel. Aucun compte n’est nécessaire pour les regarder.',
+            'steps.title': 'Comment ça marche',
+            'step1.title': 'Choisissez un service',
+            'step1.desc': 'Achetez de l’USDT par carte ou virement bancaire via l’un des services compatibles ci-dessous.',
+            'step2.title': 'Achetez de l’USDT (TRC20)',
+            'step2.desc': 'Achetez de l’USDT et vérifiez que le réseau est TRON (TRC20).',
+            'step3.title': 'Envoyez-le à Arbitrix',
+            'step3.desc': 'Ouvrez Dépôt dans votre compte Arbitrix, copiez votre adresse et envoyez-y l’USDT.',
+            'tutorials.title': 'Tutoriels vidéo',
+            'tutorials.subtitle': 'Choisissez le service que vous souhaitez utiliser. Chaque tutoriel montre les étapes exactes.',
+            'card.desc': 'Achetez de l’USDT par carte ou virement bancaire, puis envoyez-le à votre adresse de dépôt Arbitrix.',
+            'watch': 'Voir le tutoriel',
+            'openInTelegram': 'S\u2019ouvre dans Telegram',
+            'embedNote': 'Chaque tutoriel s’ouvre dans Telegram dans un nouvel onglet.',
+            'thirdParty.title': 'À propos des services tiers',
+            'thirdParty.body': 'Paybis, Transak et Trust Wallet sont des services tiers indépendants et ne font pas partie d’Arbitrix. Arbitrix ne vend pas de cryptomonnaies et ne traite pas directement de paiements par carte. La disponibilité, les moyens de paiement, les frais et la vérification d’identité sont définis par chaque prestataire et varient selon le pays.',
+            'safety.title': 'Avant d’envoyer',
+            'safety.1': 'Envoyez uniquement de l’USDT sur le réseau TRON (TRC20).',
+            'safety.2': 'Copiez toujours l’adresse de dépôt depuis votre propre compte Arbitrix.',
+            'safety.3': 'Ne partagez jamais votre mot de passe, code OTP, phrase de récupération ou clés privées.',
+            'cta.back': 'Retour à Arbitrix',
+            'footer.note': 'Le trading comporte des risques. Rien ici ne constitue un conseil financier.'
+        },
+        ar: {
+            'meta.title': "\u062f\u0631\u0648\u0633 \u0627\u0644\u0625\u064a\u062f\u0627\u0639 | \u0634\u0631\u0627\u0621 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0648\u062a\u0645\u0648\u064a\u0644 Arbitrix",
+            'lang.label': 'اللغة',
+            'badge': 'دروس الإيداع',
+            'hero.title': 'ليس لديك عملات رقمية بعد؟ لنبدأ.',
+            'hero.subtitle': 'هل أنت جديد في العملات الرقمية؟ اتبع دروسنا المصورة خطوة بخطوة لتتعلم كيفية شراء العملات الرقمية وتحويلها إلى حسابك في Arbitrix.',
+            'hero.note': 'تُعرض الفيديوهات من قناة Telegram الرسمية الخاصة بنا. لا تحتاج إلى حساب لمشاهدتها.',
+            'steps.title': 'كيف يعمل',
+            'step1.title': 'اختر خدمة',
+            'step1.desc': 'اشترِ USDT بالبطاقة أو التحويل البنكي عبر إحدى الخدمات المدعومة أدناه.',
+            'step2.title': 'اشترِ USDT (TRC20)',
+            'step2.desc': 'اشترِ USDT وتأكد من أن الشبكة هي TRON (TRC20).',
+            'step3.title': 'أرسله إلى Arbitrix',
+            'step3.desc': 'افتح الإيداع في حسابك في Arbitrix، وانسخ عنوانك، ثم أرسل USDT إليه.',
+            'tutorials.title': 'دروس مصورة',
+            'tutorials.subtitle': 'اختر الخدمة التي تريد استخدامها. يوضح كل درس الخطوات بالتفصيل.',
+            'card.desc': 'اشترِ USDT بالبطاقة أو التحويل البنكي ثم أرسله إلى عنوان الإيداع الخاص بك في Arbitrix.',
+            'watch': 'مشاهدة الدرس',
+            'openInTelegram': 'يفتح في Telegram',
+            'embedNote': 'يفتح كل درس في Telegram في علامة تبويب جديدة.',
+            'thirdParty.title': 'حول الخدمات الخارجية',
+            'thirdParty.body': 'Paybis وTransak وTrust Wallet خدمات مستقلة تابعة لجهات خارجية وليست جزءًا من Arbitrix. لا تبيع Arbitrix العملات الرقمية ولا تعالج المدفوعات بالبطاقة مباشرة. يحدد كل مزود التوفر وطرق الدفع والرسوم والتحقق من الهوية، وهي تختلف حسب البلد.',
+            'safety.title': 'قبل الإرسال',
+            'safety.1': 'أرسل USDT فقط على شبكة TRON (TRC20).',
+            'safety.2': 'انسخ عنوان الإيداع دائمًا من حسابك في Arbitrix.',
+            'safety.3': 'لا تشارك كلمة المرور أو رمز OTP أو عبارة الاسترداد أو المفاتيح الخاصة أبدًا.',
+            'cta.back': 'العودة إلى Arbitrix',
+            'footer.note': 'التداول ينطوي على مخاطر. لا شيء هنا نصيحة مالية.'
+        },
+        zh: {
+            'meta.title': "\u5165\u91d1\u6559\u7a0b | \u8d2d\u4e70\u52a0\u5bc6\u8d27\u5e01\u5e76\u4e3a Arbitrix \u5145\u503c",
+            'lang.label': '语言',
+            'badge': '入金教程',
+            'hero.title': '还没有加密货币？让我们开始吧。',
+            'hero.subtitle': '刚接触加密货币？按照我们的分步视频教程，学习如何购买加密货币并将其转入您的 Arbitrix 账户。',
+            'hero.note': '视频从我们的官方 Telegram 频道播放，观看无需账户。',
+            'steps.title': '操作步骤',
+            'step1.title': '选择服务',
+            'step1.desc': '通过以下受支持的服务之一，使用银行卡或银行转账购买 USDT。',
+            'step2.title': '购买 USDT (TRC20)',
+            'step2.desc': '购买 USDT，并确认网络为 TRON (TRC20)。',
+            'step3.title': '转入 Arbitrix',
+            'step3.desc': '在您的 Arbitrix 账户中打开“入金”，复制您的地址并将 USDT 转入该地址。',
+            'tutorials.title': '视频教程',
+            'tutorials.subtitle': '选择您想使用的服务。每个教程都会演示具体步骤。',
+            'card.desc': '使用银行卡或银行转账购买 USDT，然后转入您的 Arbitrix 入金地址。',
+            'watch': '观看教程',
+            'openInTelegram': '在 Telegram 中打开',
+            'embedNote': '每个教程都会在新标签页中打开 Telegram。',
+            'thirdParty.title': '关于第三方服务',
+            'thirdParty.body': 'Paybis、Transak 和 Trust Wallet 是独立的第三方服务，不属于 Arbitrix。Arbitrix 不直接出售加密货币，也不直接处理银行卡支付。可用性、支付方式、费用和身份验证由各服务商决定，并因国家/地区而异。',
+            'safety.title': '发送前请注意',
+            'safety.1': '仅通过 TRON (TRC20) 网络发送 USDT。',
+            'safety.2': '务必从您自己的 Arbitrix 账户复制入金地址。',
+            'safety.3': '切勿分享您的密码、OTP 验证码、助记词或私钥。',
+            'cta.back': '返回 Arbitrix',
+            'footer.note': '交易存在风险。此处内容不构成财务建议。'
+        }
+
+    };
+
+    var SUPPORTED = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
+    var currentLang = 'en';
+
+    function translate(key) {
+        var table = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+        if (table && table[key]) return table[key];
+        return (TRANSLATIONS.en && TRANSLATIONS.en[key]) || key;
+    }
+
+    function detectBrowserLanguage() {
+        var candidates = [];
+        if (navigator.languages && navigator.languages.length) candidates = candidates.concat(navigator.languages);
+        if (navigator.language) candidates.push(navigator.language);
+        for (var i = 0; i < candidates.length; i += 1) {
+            var code = String(candidates[i] || '').toLowerCase().split('-')[0];
+            if (SUPPORTED.indexOf(code) !== -1) return code;
+        }
+        return 'en';
+    }
+
+    function applyTranslations() {
+        document.documentElement.lang = currentLang;
+        document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+        document.querySelectorAll('[data-i18n]').forEach(function (el) {
+            el.textContent = translate(el.getAttribute('data-i18n'));
+        });
+        document.title = translate('meta.title');
+        var select = document.getElementById('langSelect');
+        if (select) select.value = currentLang;
+    }
+
+    function setLanguage(lang) {
+        currentLang = SUPPORTED.indexOf(lang) === -1 ? 'en' : lang;
+        try { localStorage.setItem('arbi_lang', currentLang); } catch (error) { /* private mode */ }
+        applyTranslations();
+    }
+
+    var stored = null;
+    try { stored = localStorage.getItem('arbi_lang'); } catch (error) { stored = null; }
+    currentLang = SUPPORTED.indexOf(stored) !== -1 ? stored : detectBrowserLanguage();
+    var select = document.getElementById('langSelect');
+    if (select) {
+        select.addEventListener('change', function () { setLanguage(select.value); });
+    }
+    applyTranslations();
+})();
+</script>
+</body>
+</html>

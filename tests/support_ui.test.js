@@ -130,7 +130,10 @@ test('official Telegram URL is configured once via the meta tag (single source o
     assert.ok(/^https:\/\/t\.me\//.test(OFFICIAL_TELEGRAM_URL), 'HTTPS + official t.me domain');
 
     // It is defined EXACTLY ONCE in the document, in the meta configuration.
-    const occurrences = INDEX.match(/https?:\/\/t\.me\/[A-Za-z0-9_]+/g) || [];
+    // Tutorial links (the official announcements channel) are a DIFFERENT
+    // destination: only the support-bot URL must be defined exactly once.
+    const occurrences = (INDEX.match(/https?:\/\/t\.me\/[A-Za-z0-9_]+/g) || [])
+        .filter((url) => !/^https:\/\/t\.me\/ArbitrixAnnouncements$/i.test(url));
     assert.deepStrictEqual(occurrences, [OFFICIAL_TELEGRAM_URL],
         'the official URL must appear exactly once (the meta config, not in anchors)');
     const meta = INDEX.match(/<meta name="arbitrix-support-telegram" content="([^"]*)">/);

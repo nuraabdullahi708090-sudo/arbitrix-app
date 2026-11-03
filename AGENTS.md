@@ -8109,3 +8109,371 @@ was created and no Telegram write call was executed in this pass.
   default. Full suite 2884/2885 (the single failure is the pre-existing
   `how_it_works_video` master-asset check).
 - NOT merged, NOT deployed: requires approval.
+
+
+## Conversational Telegram support engine + durable state (2026-11-03, branch feat/telegram-conversational-support, NOT pushed)
+- Scope: the EXISTING Telegram support bot only. No new bot, service, backend,
+  webhook, queue or outbox. No change to deposits, withdrawals, trading, the
+  trading worker, subscriptions, KYC, referrals, payments, marketing, the
+  sandbox, or any machine-readable status value. public/index.html and server.js
+  are UNTOUCHED.
+- ROOT CAUSES of the poor conversation (measured, not guessed):
+  1. Every message was interpreted independently. `yes`/`no`/`okay`/`thanks`
+     matched no keyword, so the customer got the generic acknowledgement (AI off)
+     or "I do not have an approved answer" (AI on) - the meaning of a short reply
+     lives in the QUESTION the bot just asked, and nothing stored that question.
+  2. Nothing was persisted between webhook invocations: the previous reply/topic
+     was not available on the next update, so the bot could not remember that the
+     customer had picked Paybis two messages earlier.
+  3. With AI off the bot had no way to answer a factual question at all (the
+     approved knowledge base existed but was only reachable through the AI
+     service), so a known answer degraded to a hand-off.
+  4. The unrecognised path was one canned sentence repeated forever, with no
+     clarifying question and no way forward.
+- NEW `services/support/ConversationEngine.js` (pure: no I/O, clock, randomness,
+  network or database; 1200 lines incl. docs). It owns DIALOGUE, not facts:
+  * `planTurn({ text, state })` returns { handled, lines[{key,vars}], tutorial,
+    knowledge, confident, humanRequested, nextState }.
+  * Short replies are ONLY interpreted through `state.pending` (the expected
+    answer type of the question the bot actually asked). With no pending
+    question a bare "yes"/"no" is never guessed: the engine asks one natural
+    clarifying question instead.
+  * Recognises (en + pt + ar): greetings, thanks, acknowledgements, yes/no with
+    Portuguese/Arabic words, "not yet", "I understand", "how?", "really?",
+    "done/completed", deposit methods (Paybis/Transak/Trust Wallet, any case,
+    mid-sentence), deposit/withdrawal/registration/KYC/referral/demo/live/
+    subscription/promo/human/account-problem/status-check intents and a broad
+    set of phrasings ("fund my account", "add money", "putting money into").
+  * Procedural replies are built from localized keys only; factual questions are
+    returned as a canonical English query for the existing approved-knowledge /
+    AI layer, so there is ONE source of truth for product facts.
+  * Totality: every branch returns a plan; malformed state normalizes to empty.
+- TUTORIALS (exact links, one at a time - never all four):
+  Paybis https://t.me/ArbitrixAnnouncements/17,
+  Transak https://t.me/ArbitrixAnnouncements/16,
+  Trust Wallet https://t.me/ArbitrixAnnouncements/18,
+  withdrawal https://t.me/ArbitrixAnnouncements/19.
+  A method is only offered AFTER "do you already have USDT?" -> "no"; the link is
+  sent only for the chosen method. "How?" after a tutorial explains the steps
+  instead of re-sending the link.
+- DURABLE STATE: migration `047_telegram_conversation_state.sql` (additive,
+  idempotent, self-checking, NOT applied) adds
+  `telegram_support_conversations.context JSONB NOT NULL DEFAULT '{}'` with a
+  `jsonb_typeof(context) = 'object'` CHECK. No new table, no other object, no
+  data rewrite. The service writes via `store.setConversationContext`, WHICH IS
+  BEST-EFFORT: a missing column/failed write disables durable writes for the
+  process, logs ONCE, and keeps the conversation coherent in a bounded
+  (max 1000) in-process cache, so shipping the code before the migration is
+  safe. The cache is cache-FIRST with the row as the durable fallback (a stale
+  row can never win over a newer in-process state; a restart still restores).
+  The stored state is ids/enums/flags/timestamps only - no message text, no
+  PII beyond what the messages table already holds, no secrets.
+- ORDERING / IDEMPOTENCY: the state is persisted only AFTER the reply was
+  delivered. If sendMessage throws (HTTP 500 -> Telegram redelivers), the state
+  does NOT advance, so a retry cannot apply the customer's answer twice. The
+  persisted `lastUpdateId` additionally rejects a redelivered or out-of-order
+  update (`stale-update-ignored`) even after a restart, when the in-process
+  deduper is empty.
+- HUMAN HANDOFF (preserved and tightened): a human was the last to speak ->
+  NO automated reply at all (the message is still stored and the operator still
+  notified with status HUMAN_CONVERSATION). `/close <conversation>` writes a
+  durable `handoffResolvedAt` and automation resumes; a LATER human reply starts
+  a new handoff. An explicit "I want a human" now notifies as HUMAN REQUESTED
+  (it used to be reported as HUMAN NEEDED), while a problem the bot cannot
+  answer stays HUMAN NEEDED. `resolveNotificationStatus` reads
+  `reply.humanRequested`.
+- KNOWLEDGE WITHOUT AI: `answerFromKnowledge()` loads the SAME approved
+  `arbitrix-knowledge.json` (offline, lazy, never at require time) and answers a
+  factual question when the AI provider is off or failed. For pt/ar it
+  translates the QUESTION to English for retrieval (mirroring
+  SupportAIService.englishForRetrieval) and the ANSWER back through the existing
+  translator; with no translator the customer gets the localized safe fallback,
+  never English. The canonical query is used only for ENGLISH customers - for
+  pt/ar the customer's original wording is passed to the AI layer, because
+  handing it an already-English string made it translate the wrong thing.
+- NATURAL FALLBACK: an unrecognised message gets ONE clarifying question
+  ("Sorry, I may not have understood that. Are you asking about making a
+  deposit, starting a trade, or withdrawing funds?") with no invented figures,
+  and is still forwarded to the operators. "Yes" to "anything else?" now offers
+  the topic list (clarifyHelp) instead of implying a failure.
+- i18n: `services/telegram-i18n.js` grew 66 -> 69 keys per locale (en/pt/ar),
+  identical key sets, 0 empty. All new copy is natural, one question at a time,
+  and never claims to be a human.
+- TESTS: NEW `tests/telegram_conversation_flow.test.js` (43 tests) drives the
+  REAL bot + REAL engine + REAL knowledge base with only the store and transport
+  faked: short replies in context, okay/alright/sure, greetings (not repeated),
+  gratitude (mid-flow vs closing), how/really, deposit phrasings, method
+  selection (one tutorial only), withdrawal + tutorial, human handoff and
+  resumption, FAQ routing ($100 / $7 / $50), unknown questions, state across a
+  restart, fail-open writes, malformed state, redelivery, late replies, failed
+  delivery, pt/ar guidance, no-secret guarantee, no financial side effects, and
+  the migration contract (+ no ad-hoc reply strings outside the dictionary).
+  EXISTING pins updated for the INTENTIONAL behaviour change: support_ai_telegram,
+  telegram_multilingual, telegram_support_bot, telegram_bot_response_status,
+  telegram_language_persistence, telegram_first_contact_language,
+  telegram_private_admin_notifications, telegram_support_group_forwarding,
+  telegram_deposit_tutorial, marketing_bot_wiring, support_language_provenance,
+  support_translation_provider_prompt, marketing_channel_visibility,
+  marketing_group_only, trading_assets (migration count 46 -> 47).
+  `npm test` = 2929 tests / 2928 pass / 1 fail, where the single failure is the
+  PRE-EXISTING `how_it_works_video` master-asset check (baseline 2886 / 2885 / 1).
+  node --check clean; non-ASCII integrity verified (only intended additions).
+- NOT DONE ON PURPOSE: no migration applied, no deploy, no push, no environment
+  variable set, no change to the website (its deposit UX was already covered by
+  earlier phases) and no change to marketing.
+- KNOWN LIMITATION for management: the partner-programme copy states "20%" /
+  "$100" as approved text; if `referral_config` is changed, the bot copy needs a
+  matching update (the engine is deliberately dependency-free).
+
+
+## Deposit Tutorial Centre + In-App Tutorial Entry Points (2026-11-03, frontend + one static route)
+- Goal: give a customer who does not hold cryptocurrency a complete, honest path
+  from the deposit modal (and the withdrawal modal) to the official video
+  tutorials. Additive only: no deposit/withdrawal logic, no crediting, no schema,
+  no payment provider, no Telegram bot change.
+- NEW page `public/deposit-tutorials.html` (standalone, no session, no API call,
+  no invoice) served by `app.get('/deposit-tutorials', ...)` in server.js,
+  registered AFTER /how-it-works and BEFORE the SPA fallback (so the route does
+  not resolve to the app shell).
+  Content: "Don't Have Crypto Yet? Let's Get You Started." + supporting text,
+  3-step strip (choose a service -> buy USDT TRC20 -> send it to Arbitrix),
+  three tutorial cards, a third-party-services disclosure and a "Before you
+  send" safety block.
+- THE FOUR APPROVED LINKS (verbatim, and the ONLY destinations on the page):
+    Paybis        https://t.me/ArbitrixAnnouncements/17
+    Transak       https://t.me/ArbitrixAnnouncements/16
+    Trust Wallet  https://t.me/ArbitrixAnnouncements/18
+    Withdrawal    https://t.me/ArbitrixAnnouncements/19  (withdrawal modal only)
+- PLAYBACK FINDING (measured, not assumed): Telegram's official embed endpoint
+  (`https://t.me/<channel>/<id>?embed=1&mode=tme`) answers HTTP 200 with no
+  X-Frame-Options/CSP for all four posts, but in a real browser the widget
+  renders "Media is too big / VIEW IN TELEGRAM" instead of a player for these
+  files. Inline playback is therefore NOT reliable, so the cards use the
+  documented fallback: each card's "Watch Tutorial" is a plain anchor to the
+  original Telegram post (`target="_blank" rel="noopener noreferrer"`), with an
+  "Opens in Telegram" caption. No iframe, no third-party script, no fabricated
+  `.mp4` URL, and the page works with JavaScript disabled. The reason is
+  documented in the page comment so nobody re-adds an embed that cannot play.
+- The page has ONE bottom CTA ("Back to Arbitrix" -> `/`); the topbar repeats it.
+  There is deliberately no "Go to Deposit" button: `/` cannot open the deposit
+  modal directly (no deep link exists), so the page instead instructs the
+  customer in step 3 to open Deposit inside their account. The deposit-modal
+  CTA opens this page in a new tab, so the original deposit modal stays open.
+- LOCALIZATION of the new page: a self-contained dictionary (27 keys x 6 locales
+  en/es/pt/fr/ar/zh) using the app conventions - the shared `arbi_lang` key,
+  browser detection only when no choice is stored, and `dir=rtl` for Arabic.
+  The three service names are not translated.
+- DEPOSIT MODAL (public/index.html): `#depositTutorialsCard` sits inside
+  `#depositInputSection`, between the funding options and the verified-partner
+  panel. It states that a purchase is made through a supported third-party
+  service, names the three services as independent third parties, and its CTA
+  (`#depositTutorialsCta`, "Watch Deposit Tutorials") opens /deposit-tutorials in
+  a NEW TAB so the modal - and any invoice already generated - is never lost.
+  Display-only: no onclick, no input, no request, no invoice.
+- WITHDRAWAL MODAL: `#withdrawTutorialBox` inside `#withdrawForm` (between the
+  info box and the support link) offers "Watch Withdrawal Tutorial" ->
+  https://t.me/ArbitrixAnnouncements/19 plus a note that it opens in Telegram.
+  It never participates in the withdrawal request path.
+- i18n: 8 new app keys x 6 locales (`deposit.tutorials.title|body|cta|note`,
+  `withdraw.tutorial.title|body|cta|note`), inserted ASCII-safely with \uXXXX
+  escapes; the pre-existing non-ASCII code points were verified unchanged and
+  no U+FFFD was introduced. Dictionaries: 1592 -> 1600 keys/locale, identical
+  key sets, 0 empty, 0 duplicate keys, 0 placeholder-parity issues, 829
+  data-i18n references all defined.
+- TESTS: NEW `tests/deposit_tutorials_page.test.js` (20 tests): route + ordering
+  before the SPA fallback; page completeness (heading, supporting text, three
+  cards, exact post URLs, third-party disclosure, TRC20/secrets safety copy);
+  the honest-playback contract (no iframe, no embed URL, no fake MP4, reason
+  documented, anchors work without JS); page i18n parity (27 keys x6, RTL); the
+  eight app keys x6 and the 1600-key dictionary pin; the deposit CTA and the
+  withdrawal box placement, hrefs, target/rel and 44px tap targets; a
+  no-interference proof (the new markup contains no form control, no onclick
+  and no deposit/withdrawal call, and the withdrawal request handler never sees
+  the tutorial); the unchanged mechanics (amount/address inputs,
+  requestDepositAddress, submitWithdrawAPI, MIN_WITHDRAWAL 700,
+  PLATFORM_MIN_DEPOSIT_USD 100); and the mobile CSS contract.
+- PINS UPDATED for the intentional change: dictionary size 1592 -> 1600 in 15
+  test files; `landing_testimonials` BASE_OUTSIDE_TESTIMONIALS 1566 -> 1574;
+  `partners_page` INDEX_SHA256 re-pinned (its own comment allows this for an
+  approved homepage edit); `footer_support_contact` and `support_ui` now assert
+  that the SUPPORT bot URL is defined once, excluding the tutorial channel links
+  (a different destination) - the intent of both pins is unchanged.
+- VERIFICATION: `npm test` = 2949 tests, 2948 pass. The single failure is the
+  PRE-EXISTING `tests/how_it_works_video.test.js` "approved master is present"
+  check (the untracked build/ master is absent in this clone; identical before
+  this change). `node --check server.js` OK; all 8 inline index.html script
+  blocks and the new page script parse. Browser harness (puppeteer-core +
+  /usr/bin/chromium, real page, stubbed API) = 208/208 across en/es/ar/zh x
+  320/390/1280: one h1, three cards, three watch links per locale, no raw i18n
+  keys, 0 horizontal overflow, ar RTL, localized titles, no iframe, correct
+  absolute links opened in a new tab; plus the deposit modal (card visible,
+  correct href/target/rel/label) and the withdrawal box (href 19, no inputs),
+  with zero invoice/withdrawal requests made and no page errors.
+- DEPLOYMENT: no migration, no environment variable, no Render change. Just ship
+  the code (server.js + public/index.html + public/deposit-tutorials.html) and
+  the page is live at https://arbitrix.pro/deposit-tutorials.
+- NOT committed / NOT pushed / NOT deployed at the time of writing.
+
+
+## Telegram conversational support - review fixes C1/H1/H2 + related (2026-11-03, local commit only)
+- Implements the fixes from the independent production-readiness review of T1
+  (439f3b2) and T2 (3a73c8a). No T2 file was touched: public/, server.js and
+  supabase/ are byte-identical, and migration 047 is STILL NOT APPLIED.
+- C1 (CRITICAL, regression vs main): a provider name inside a complaint was
+  answered with that provider's DEPOSIT tutorial and the operator notification was
+  marked BOT REPLIED, so nobody was alerted. Root cause: planTurn step 5 treated
+  ANY `a.method` mention as a selection, before the intent handlers. Fix:
+  `isMethodSelection()` (ConversationEngine) requires the message to carry no
+  NON_METHOD_INTENTS (withdrawal_problem/withdrawal_cancel/status_check/
+  deposit_problem/account_problem/fraud/wrong_network/withdrawal/withdrawal_timing/
+  human), no unrelated intent, and no question opener; step 5 and the
+  `deposit_method` intent case both use it, and that case now delegates to the real
+  intent instead of falling through to a tutorial. New intents: `fraud`
+  (hacked / money gone / money back) and `withdrawal_cancel`; `deposit_problem`
+  covers "deposited but nothing shows", "sent ... has not been credited",
+  "balance is still zero"; `service_problem` covers "my trust wallet is not
+  working". Verified end to end: every brief phrasing now returns humanHandoff
+  with the operator at HUMAN NEEDED (main produced HUMAN NEEDED too - the branch
+  had made it BOT REPLIED), and "I want to withdraw to my trust wallet" yields the
+  WITHDRAWAL flow. Genuine selections still send exactly one tutorial.
+- H1 (HIGH): `line('onboardCreateAccount')` had no dictionary entry, so "how do I
+  get started" / "I want to register" / "sign up" / "create an account" sent the
+  literal key to the customer AND the operator notice. Added en/pt/ar
+  (CUSTOMER_STRINGS 69 -> 70 keys, identical key sets) and two completeness tests
+  that scan `line('key')` in the engine and `tCustomer(...)`/`t('en',...)` in the
+  service and require every key in all three locales.
+- H2 (HIGH): `isHumanHandlingConversation` compared `handoffResolvedAt` (process
+  clock) with `created_at` (database clock), so skew kept a closed thread
+  suppressed while `/close` announced "Automated replies are enabled again".
+  Fix: `/close` now records `handoffResolvedMessageId` (state field, JSONB only,
+  no migration) and resumption is decided by MESSAGE IDENTITY (latest.id >
+  resolvedMessageId); the timestamp comparison survives only as a legacy fallback
+  with a 60s tolerance. The close message is now verified: if suppression is still
+  in force (a human reply landed after the snapshot) the operator is told
+  "keeps automated replies paused" instead of the false claim.
+- Related improvements: M1 thanks mid-flow uses a continuation opener (no
+  "anything else?" before re-asking the pending question); M2 "Really?" only
+  affirms after an actual answer, otherwise re-asks/asks; M3 the credited step is
+  conditional ("If the deposit is showing ... say "human"") instead of asserting
+  a credit on the customer's word; M4 the KB `trading_bot.risk` answer no longer
+  opens with "Yes." (it was read as a safety guarantee for "is my money safe");
+  M5 fraud/account-suspension phrasings escalate; L7 `deposit_asset` no longer
+  matches a bare "network" (so "network error on my withdrawal" is a withdrawal).
+- Tests: NEW tests/telegram_conversation_regressions.test.js (28 end-to-end
+  tests covering C1/H1/H2/M1-M5/L7). Updated pins for the intentional changes:
+  telegram_conversation_flow test 12 (new "Really?" contract) and test 40 (the
+  dead `engine.LABELS` assertion replaced; the transcript now includes a
+  registration message). Full suite: 2977 tests, 2976 pass, 1 fail - the
+  PRE-EXISTING how_it_works_video master-asset check, identical to the review
+  baseline (2949/2948 before these fixes). node --check clean, git diff --check
+  clean, 0 U+FFFD.
+- NOT pushed, NOT deployed, migration 047 NOT applied.
+
+
+## Telegram conversational support - N1/N2/N3 review fixes (2026-11-03, local commit only)
+- Follow-up to 4410f1a, implementing the three findings from its independent review.
+  Same branch and files of concern: `services/support/ConversationEngine.js` and
+  `services/TelegramSupportService.js` (plus the regression suite). No T2 file was
+  touched (`public/`, `server.js`, `supabase/` = 0-line diff) and migration 047 is
+  still NOT applied.
+- N1 (HIGH): `normalizeState` used `Number.isFinite(Number(v))`, and
+  `Number(null) === 0` is finite, so "no message id recorded" became id 0 -
+  which reads as a resolved-but-silenced conversation. A transient Supabase read
+  failure at `/close` therefore left the thread silent forever while the operator
+  was told automation had resumed. Fix: new `asMessageId()` helper (only a POSITIVE
+  finite number is an id; null/undefined/''/0/negative/junk -> null), used by
+  `normalizeState`, plus `resolvedMessageId > 0` in `isHumanHandlingConversation`
+  and in the close snapshot. With a null id the state falls through to the
+  timestamp fallback, which RESUMES. `markHumanHandoffResolved` now logs a warning
+  when the snapshot read fails, so a persistent store problem is visible.
+  Verified end to end: transient failure at close -> stored id null, close message
+  truthful, customer answered after recovery; a second /close records the id; a
+  store that returns no id still resumes; a genuinely newer human reply still
+  re-applies suppression.
+- N2 (LOW/MED): the widened `deposit_problem` treated a bare "still" as a negative
+  marker, so the positive "I deposited yesterday and it still shows in my balance"
+  escalated. Removed bare `still`; added `doesn't` to the negative group (the
+  original missed it) and an explicit still+negative alternative
+  (`\bstill\b[^?]{0,20}\b(?:nothing|zero|empty|not|never)\b|\bstill\s+no\b`).
+  Genuine cases still escalate ("deposited but nothing shows", "still pending",
+  "has not been credited", "balance is still zero", "still shows nothing",
+  "still does not show", "still hasn't arrived", "payment failed", "stuck").
+- N3 (MED): `depositCreditedYes` tells the customer to say "human" / "humano" /
+  "بشري", but none of those bare words was recognised (only phrases), so following
+  the instruction produced the generic clarifying question. The human intent now
+  accepts anchored, punctuation/quote-tolerant bare words
+  (human|agent|operator|representative|humano|atendente and the Arabic word),
+  "human please" and "help/assistance from a human". Anchored on purpose so
+  "the bot is not human" stays unmatched (verified). The copy was NOT changed - it
+  is now actionable as written, and a test derives the quoted word from each
+  locale's copy and asserts the engine escalates it.
+- Tests: `tests/telegram_conversation_regressions.test.js` 28 -> 38 tests (N1
+  normaliser matrix + transient-failure/resume/second-close/no-id/newer-reply,
+  N2 positive-vs-genuine matrix, N3 word matrix + copy-derived words + no false
+  handoff). Full suite: 2987 tests, 2986 pass, 1 fail - the PRE-EXISTING
+  how_it_works_video master-asset check. Telegram/support suites 937/937.
+- FLAKE FOUND (pre-existing, NOT touched): `tests/conversion_events.test.js`
+  "eligibility: a missing event or payload id fails closed" builds
+  `next_attempt_at` from `new Date()` while the fake store compares against its own
+  captured clock, so under parallel load the row is briefly not claimable and the
+  test fails intermittently. Reproduced on the UNMODIFIED 4410f1a baseline by
+  inserting a 25 ms delay (65/66); passes in isolation on both trees. Not related
+  to this work and not fixed here.
+- NOT pushed, NOT deployed, migration 047 NOT applied.
+
+
+## Telegram conversational support - M1/L1/L2 review follow-up (2026-11-03, local commit only)
+- Implements the three findings of the final branch review of b1c8eb6. Same two
+  source files, one test file updated, one new test file. No T2 file touched
+  (`public/`, `server.js`, `supabase/` = 0-line diff), migration 047 still NOT
+  applied, nothing pushed/deployed.
+- M1 (state cache TTL): the in-process conversation cache used to be authoritative
+  forever, so a second process (rolling deploy / second replica) never saw a human
+  handoff resolved by the first one and kept the customer silent (measured:
+  instance B answered=false after instance A closed). The cache now stores
+  `{ state, cachedAt }` and `loadConversationState()` re-reads the durable row once
+  the entry is older than `STATE_CACHE_TTL_MS` (45s). A fresh entry keeps the fast
+  path (no database read). The refresh uses `store.getConversationByChatId()` and
+  falls back to the row this request already loaded; a read failure keeps the
+  cached copy (warning logged once per process), and a row without a `context`
+  column (migration 047 absent) resolves to "no answer" so the cache keeps driving
+  the conversation. The refreshed state is passed through `engine.normalizeState`.
+  The durable row WINS on refresh - deliberately NOT filtered against the cache,
+  because `/close` starts no new update and its resolution can carry an id equal to
+  or lower than this process's last message; rejecting it would re-silence the
+  customer. New counters: `stateRefreshes`, `staleStateWritesSkipped`.
+  `createTelegramSupportBot({ stateCacheTtlMs })` allows tests to force the
+  expired path deterministically (0 = always refresh).
+- L1 (monotonic saves): a comparison against the cache alone was NOT sufficient -
+  two concurrent saves could both pass the guard and then reach the database out of
+  order, so the older snapshot still landed last (reproduced: `method` lost,
+  `lastUpdateId` rewound to 2002). Saves for one conversation now run through a
+  per-conversation promise chain (`withStateSaveLock`) AND skip a snapshot whose
+  `lastUpdateId` is lower than the newest already applied. Equal ids are still
+  written (the `/close` idempotent path), and a state without a usable id is
+  always written.
+- L2 (test title): `tests/telegram_deposit_tutorial.test.js` title corrected to
+  "with AI off a deposit question gets the guided reply and the configured
+  walkthrough video" - the assertions are untouched (a video IS expected when the
+  walkthrough URL is configured).
+- Tests: NEW `tests/telegram_conversation_state_cache.test.js` (13) - two bot
+  instances over one shared database, a controllable clock, cache hit (no extra
+  read), TTL refresh (shared row wins), a handoff closed by another instance being
+  answered after the TTL, a failed read keeping the cached state, no-column
+  degraded mode, plus the L1 matrix (older update skipped, slow older save cannot
+  land last, both messages answered, equal ids written, missing id still persists,
+  sequential flow, handoff resume). Deterministic: 5/5 identical runs. 8 of the 13
+  fail on the pre-fix code with the expected behavioural messages.
+- Verification: `npm test` = 3000 tests, 2999 pass, 1 fail - the PRE-EXISTING
+  how_it_works_video master-asset check. Telegram/support suites 950/950;
+  conversation flow + regressions (C1/H1/H2/N1-N3) 94/94. `node --check` and
+  `git diff --check` clean.
+- KNOWN LIMITATION (documented, not fixed here): a whole-state column is
+  last-writer-wins, so a stale instance that handles a customer message while a
+  handoff is closed elsewhere can write its own (unresolved) copy back. The closure
+  is still in the other instance's cache, and its next TTL refresh adopts the row,
+  so the conversation can oscillate only in the multi-instance window; a true fix
+  means either a per-field merge (carry an existing resolution forward) or a
+  database-side CAS, both beyond this follow-up. Single-instance deployment (the
+  documented topology) is unaffected.
+- NOT pushed, NOT deployed, migration 047 NOT applied.

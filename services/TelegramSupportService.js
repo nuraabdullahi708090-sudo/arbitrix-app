@@ -32,6 +32,8 @@
 const crypto = require('crypto');
 
 const SupportGuidelines = require('./support/SupportGuidelines');
+const ConversationEngine = require('./support/ConversationEngine');
+const SupportKnowledge = require('./support/SupportKnowledge');
 const telegramI18n = require('./telegram-i18n');
 const {
   DEFAULT_LANGUAGE,
@@ -71,6 +73,32 @@ const NOTIFICATION_STATUS = Object.freeze({
   HUMAN_REQUESTED: 'human-requested',
   HUMAN_CONVERSATION: 'human-conversation'
 });
+
+/**
+ * Tolerance for the LEGACY fallback in `isHumanHandlingConversation`, used only
+ * when a conversation was closed by a build that stored `handoffResolvedAt` but
+ * no `handoffResolvedMessageId`.
+ *
+ * That fallback compares `handoffResolvedAt` (this process clock) with a stored
+ * message timestamp (the database clock). Without a tolerance, ordinary clock
+ * skew between the web process and Postgres keeps a closed conversation
+ * suppressed - and the operator is told automation resumed while the customer
+ * still gets silence. New closes use message identity instead and never look at
+ * a clock.
+ */
+const HANDOFF_CLOCK_SKEW_TOLERANCE_MS = 60000;
+
+/**
+ * How long a process may trust its own copy of the dialogue state before it
+ * re-reads the durable `context` row (migration 047).
+ *
+ * A cached copy makes a short reply fast, but it must not be authoritative
+ * forever: with more than one process (a rolling deploy, or a second replica) the
+ * process that did NOT handle `/close` would otherwise keep suppressing a
+ * conversation the operator has already resolved. 45s bounds that window without
+ * adding a database read to every message.
+ */
+const STATE_CACHE_TTL_MS = 45000;
 
 // NOTE (conversation status): this service does NOT write
 // telegram_support_conversations.status. The live table's CHECK rejected the
@@ -1260,7 +1288,7 @@ function isDepositAnswer(reply) {
 
 function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI,
                                   translator, onNewMembers, marketing, linkAccount, unlinkAccount,
-                                  depositTutorialUrl }) {
+                                  depositTutorialUrl, conversationEngine, stateCacheTtlMs }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -1287,6 +1315,22 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // Update ids already answered with the storage-degraded notice, so Telegram's
   // retries do not send the customer one apology per attempt.
   const degradedAcks = createUpdateDeduper({ max: 500 });
+
+  // Durable conversational state (migration 047: telegram_support_conversations.context).
+  // The row is the durable copy (it survives a restart/deploy); this bounded cache
+  // is the live copy for the current process and is also what keeps short replies
+  // working in an environment where the migration has not been applied yet.
+  const stateCache = createLimitedMap({ max: 1000 });
+  // Tests pass 0 to force a durable re-read on every load; production uses the
+  // module default. An invalid value falls back to the default.
+  const stateTtlMs = Number.isFinite(Number(stateCacheTtlMs)) && Number(stateCacheTtlMs) >= 0
+    ? Number(stateCacheTtlMs)
+    : STATE_CACHE_TTL_MS;
+  const engine = conversationEngine && typeof conversationEngine.planTurn === 'function'
+    ? conversationEngine
+    : ConversationEngine;
+  let contextPersistenceDisabled = false;
+  let stateRefreshWarned = false;
 
   // Secret-free delivery telemetry: enough to locate the exact failing stage of
   // a delivery without ever recording a token, secret, JWT or message text.
@@ -1354,7 +1398,20 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // Cases where the AI answered in the wrong language (Arabic script check) or
     // the approved English text could not be localized. Visible so a language
     // regression is observable rather than silent.
-    aiLanguageMisses: 0
+    aiLanguageMisses: 0,
+    // Conversational dialogue layer - counters only, never message content.
+    conversationalReplies: 0,
+    knowledgeAnswers: 0,
+    clarifications: 0,
+    automationSuppressed: 0,
+    tutorialLinksSent: 0,
+    // True while the durable context column is writable; false means migration
+    // 047 is absent (or the write failed) and state lives in this process only.
+    conversationStatePersisted: true,
+    // Durable re-reads after the cache expired (and skipped stale writes), so an
+    // operator can tell a stale-cache problem from a storage problem.
+    stateRefreshes: 0,
+    staleStateWritesSkipped: 0
   };
 
   // Removes the bot token AND any account-linking payload (`lk_...`) from a log
@@ -1778,6 +1835,311 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     }
   }
 
+  // ===========================================================================
+  // Conversational state + dialogue engine
+  // ===========================================================================
+
+  function stateKey(conversation) {
+    if (conversation && conversation.id !== undefined && conversation.id !== null) {
+      return 'id:' + conversation.id;
+    }
+    return 'chat:' + String(conversation && conversation.telegram_chat_id ? conversation.telegram_chat_id : '');
+  }
+
+  function isContextObject(value) {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  /**
+   * The durable copy of the state, or `undefined` when it cannot be read.
+   *
+   * `undefined` (as opposed to `null`) is deliberate: it means "no answer", which
+   * is what lets the caller keep a valid cached copy instead of wiping it. A row
+   * without a `context` column (migration 047 not applied) also resolves to
+   * `undefined`, so the feature keeps working from the cache alone.
+   */
+  async function readDurableState(conversation) {
+    const chatId = conversation && conversation.telegram_chat_id;
+    if (chatId !== undefined && chatId !== null
+        && store && typeof store.getConversationByChatId === 'function') {
+      try {
+        const row = await store.getConversationByChatId(chatId);
+        if (row && isContextObject(row.context)) return row.context;
+      } catch (error) {
+        // Keep the cached copy: a storage blip must not reset a live conversation.
+        if (!stateRefreshWarned) {
+          stateRefreshWarned = true;
+          warn('conversation state could not be refreshed from the database; '
+            + 'keeping the in-process copy: ' + scrub(error && error.message ? error.message : error));
+        }
+      }
+    }
+    // The row this request already loaded (it is fetched once per update).
+    if (conversation && isContextObject(conversation.context)) return conversation.context;
+    return undefined;
+  }
+
+  /**
+   * Read the conversation's dialogue state.
+   *
+   * A FRESH cache entry is authoritative (fast path, no database read). Once it
+   * is older than the TTL the durable `context` row is re-read, which is what
+   * makes a resolution written by ANOTHER process visible here; and the stored
+   * row is also what makes the state survive a restart or a deploy. A failed
+   * re-read keeps the cached copy in use.
+   * Never throws: a malformed payload resolves to an empty state.
+   */
+  async function loadConversationState(conversation) {
+    const key = stateKey(conversation);
+    const cached = stateCache.get(key);
+    const cachedAt = cached ? Number(cached.cachedAt) : NaN;
+    if (cached && Number.isFinite(cachedAt) && (Date.now() - cachedAt) < stateTtlMs) {
+      return engine.normalizeState(cached.state);
+    }
+
+    const durable = await readDurableState(conversation);
+    if (durable !== undefined) {
+      // The row is the SHARED source of truth, so it wins on refresh. Note this is
+      // deliberately NOT filtered against the cached copy: an operator `/close`
+      // keeps the conversation's `lastUpdateId` (it starts no new update), so the
+      // resolution can legitimately carry an id equal to or lower than this
+      // process's last message - rejecting it here would keep the customer silent.
+      const normalized = engine.normalizeState(durable);
+      stateCache.set(key, { state: normalized, cachedAt: Date.now() });
+      stats.stateRefreshes += 1;
+      return normalized;
+    }
+
+    if (cached) return engine.normalizeState(cached.state);
+    return engine.emptyState();
+  }
+
+  /** Numeric `lastUpdateId` of a state, or null when it is missing/invalid. */
+  function stateUpdateId(state) {
+    const value = state && state.lastUpdateId;
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  /** True when `candidate` is an OLDER snapshot than `reference`. */
+  function isOlderState(candidate, reference) {
+    const candidateId = stateUpdateId(candidate);
+    const referenceId = stateUpdateId(reference);
+    if (candidateId === null || referenceId === null) return false;
+    return candidateId < referenceId;
+  }
+
+  // One promise chain per conversation, so two saves for the same conversation
+  // are decided AND written in a defined order. Without it the guard alone is not
+  // enough: two saves can both pass the check and then reach the database out of
+  // order, letting the older snapshot land last.
+  const stateSaveChains = new Map();
+
+  function withStateSaveLock(key, task) {
+    const previous = stateSaveChains.get(key) || Promise.resolve();
+    // `then(task, task)` so a failed earlier save never blocks the next one.
+    const result = previous.then(task, task);
+    const tail = result.then(() => {}, () => {});
+    stateSaveChains.set(key, tail);
+    tail.then(() => {
+      if (stateSaveChains.get(key) === tail) stateSaveChains.delete(key);
+    });
+    return result;
+  }
+
+  /**
+   * Persist the dialogue state.
+   *
+   * MONOTONIC AND SERIALIZED. Two updates for the same conversation can be
+   * handled concurrently (each webhook call is independent), so a slower EARLIER
+   * update can finish last. Writing it blindly would rewind the conversation -
+   * lose the deposit method the customer chose in the newer update, and move
+   * `lastUpdateId` backwards so a redelivery is processed twice. Saves for one
+   * conversation therefore run one at a time, and a save whose `lastUpdateId` is
+   * lower than the newest state already applied is skipped. Equal ids are still
+   * written (the idempotent retry / `/close` path), and a state without a usable
+   * id is always written.
+   *
+   * Best effort by design: the customer reply must never fail because the state
+   * column is missing (migration 047 not applied) or the write errored. The first
+   * failure disables durable writes for the process and logs ONCE; the in-process
+   * cache keeps the conversation coherent meanwhile.
+   */
+  async function saveConversationState(conversation, nextState) {
+    const key = stateKey(conversation);
+    const normalized = engine.normalizeState(nextState);
+    return withStateSaveLock(key, () => persistConversationState(conversation, key, normalized));
+  }
+
+  async function persistConversationState(conversation, key, normalized) {
+    const cached = stateCache.get(key);
+    const baseline = cached
+      ? cached.state
+      : engine.normalizeState(conversation && conversation.context);
+    if (isOlderState(normalized, baseline)) {
+      stats.staleStateWritesSkipped += 1;
+      markStage('state:stale-write-skipped');
+      return engine.normalizeState(baseline);
+    }
+
+    stateCache.set(key, { state: normalized, cachedAt: Date.now() });
+    if (!conversation || conversation.id === undefined || conversation.id === null) {
+      return normalized;
+    }
+    if (contextPersistenceDisabled || typeof store.setConversationContext !== 'function') {
+      return normalized;
+    }
+    try {
+      markStage('storage:save-conversation-state');
+      await store.setConversationContext({ conversationId: conversation.id, context: normalized });
+    } catch (error) {
+      contextPersistenceDisabled = true;
+      stats.conversationStatePersisted = false;
+      warn('conversation state could not be persisted (continuing in-process): '
+        + scrub(error && error.message ? error.message : error));
+    }
+    return normalized;
+  }
+
+  /**
+   * Mark an agent-controlled conversation as resolved, so automation resumes.
+   *
+   * Called by the operator `/close <conversation>` command. The resolution is
+   * durable and timestamped: a LATER human reply starts a new handoff (see
+   * isHumanHandlingConversation).
+   */
+  async function markHumanHandoffResolved(conversation) {
+    try {
+      const current = await loadConversationState(conversation);
+      // Remember WHICH message was the last human reply at the moment of the
+      // close. Suppression then resumes by comparing message ids, so it no longer
+      // depends on two different clocks agreeing (see isHumanHandlingConversation).
+      let resolvedMessageId = null;
+      try {
+        const latest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
+        const latestId = latest ? Number(latest.id) : NaN;
+        if (Number.isFinite(latestId) && latestId > 0) resolvedMessageId = latestId;
+      } catch (error) {
+        // Best effort: the state keeps a null id and the timestamp fallback in
+        // isHumanHandlingConversation decides - which resumes rather than
+        // silencing the conversation. Logged so a persistent store problem is
+        // visible instead of looking like a normal close.
+        warn('handoff close could not read the last message id; using the timestamp fallback: '
+          + scrub(error && error.message ? error.message : error));
+      }
+      await saveConversationState(conversation, Object.assign({}, current, {
+        pending: null,
+        stage: 'closed',
+        handoffRequestedAt: null,
+        handoffResolvedAt: new Date().toISOString(),
+        handoffResolvedMessageId: resolvedMessageId
+      }));
+    } catch (error) {
+      warn('conversation handoff could not be marked resolved: '
+        + scrub(error && error.message ? error.message : error));
+    }
+  }
+
+  // ===========================================================================
+  // Approved knowledge without an AI provider
+  // ===========================================================================
+
+  // AI answering is optional (AI_SUPPORT_ENABLED). Knowledge retrieval is
+  // offline and deterministic, so factual questions can still be answered from
+  // the approved base when the provider is off - one source of truth for facts,
+  // and no invented answer. Loaded lazily and never at require time.
+  let knowledgeRetriever;
+
+  function getKnowledgeRetriever() {
+    if (knowledgeRetriever !== undefined) return knowledgeRetriever;
+    try {
+      knowledgeRetriever = SupportKnowledge.createRetriever(SupportKnowledge.readKnowledge(), { minScore: 2 });
+    } catch (error) {
+      knowledgeRetriever = null;
+      warn('approved knowledge could not be loaded; factual questions will be clarified: '
+        + scrub(error && error.message ? error.message : error));
+    }
+    return knowledgeRetriever;
+  }
+
+  /**
+   * Answer a factual question from the approved knowledge base.
+   *
+   * Returns null when nothing clears the retrieval threshold (the caller then
+   * asks a natural clarifying question). Approved text is ENGLISH by
+   * construction, so a non-English customer gets it through the existing
+   * translation layer - or the localized safe fallback, never English.
+   */
+  async function answerFromKnowledge(language, question) {
+    const retriever = getKnowledgeRetriever();
+    if (!retriever || !question) return null;
+    let retrievalText = question;
+    if (language !== DEFAULT_LANGUAGE && translate && typeof translate.toEnglish === 'function') {
+      try {
+        const available = typeof translate.isAvailable !== 'function' || translate.isAvailable();
+        if (available) {
+          const translated = await translate.toEnglish(question, language);
+          if (translated && translated.ok === true && typeof translated.text === 'string' && translated.text.trim()) {
+            retrievalText = translated.text.trim();
+          }
+        }
+      } catch (error) {
+        // Retrieval translation is an optimization: fall back to the original text.
+      }
+    }
+    let hits;
+    try {
+      hits = retriever.retrieve(retrievalText, { minScore: 2 });
+    } catch (error) {
+      return null;
+    }
+    if (!hits || hits.length === 0) return null;
+    const top = hits[0];
+    const approved = top.kind === 'info' ? top : (hits.find((h) => h.kind === 'info') || null);
+    const entry = approved || top;
+    if (!entry || !entry.answer) return null;
+    const confident = !(entry.kind === 'handoff');
+    if (language === DEFAULT_LANGUAGE) {
+      return {
+        text: entry.answer,
+        confident,
+        kind: entry.kind === 'handoff' ? 'handoff' : 'answer',
+        entryId: entry.id,
+        category: entry.category
+      };
+    }
+    const localized = await translateForCustomer(entry.answer, language);
+    if (localized) {
+      return {
+        text: localized,
+        confident,
+        kind: entry.kind === 'handoff' ? 'handoff' : 'answer',
+        entryId: entry.id,
+        category: entry.category
+      };
+    }
+    stats.aiLanguageMisses += 1;
+    return { text: uncertainCustomerReply(language), confident: false, kind: 'handoff' };
+  }
+
+  /** Render a dialogue plan into the exact text sent to the customer. */
+  function renderPlan(language, plan) {
+    const parts = [];
+    (plan.lines || []).forEach((l) => {
+      if (!l || !l.key) return;
+      const text = tCustomer(language, l.key, l.vars || {});
+      if (text) parts.push(text);
+    });
+    const tutorial = plan.tutorial && engine.TUTORIALS ? engine.TUTORIALS[plan.tutorial] : null;
+    if (tutorial) {
+      parts.push(plan.tutorial === 'withdrawal'
+        ? tCustomer(language, 'withdrawTutorialLink', { url: tutorial.url })
+        : tCustomer(language, 'depositTutorialLink', { method: tutorial.label, url: tutorial.url }));
+    }
+    return parts.join('\n\n');
+  }
+
   /**
    * Compose the reply to an ORDINARY (non-command) customer message.
    *
@@ -1827,10 +2189,10 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     //               notification status is derived from the SAME decision the
     //               customer reply was built from - not a second rule set.
     if (lang === DEFAULT_LANGUAGE) {
-      if (!ai) return { text: CUSTOMER_GUIDE_TEXT, confident: false };
+      if (!ai) return { text: CUSTOMER_GUIDE_TEXT, confident: false, kind: 'ai-off' };
       // A disabled service must never change customer-visible behaviour.
       if (typeof ai.isEnabled === 'function' && !ai.isEnabled()) {
-        return { text: CUSTOMER_GUIDE_TEXT, confident: false };
+        return { text: CUSTOMER_GUIDE_TEXT, confident: false, kind: 'ai-off' };
       }
       try {
         markStage('support-ai');
@@ -1841,6 +2203,8 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           return {
             text: result.answer.trim(),
             confident: result.needsHuman !== true,
+            kind: result.kind || null,
+            reason: result.reason || null,
             entryId: result.entryId || null,
             category: result.category || null
           };
@@ -1851,14 +2215,14 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         stats.aiFailures += 1;
         warn(`support AI failed; sending the standard acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
       }
-      return { text: CUSTOMER_GUIDE_TEXT, confident: false };
+      return { text: CUSTOMER_GUIDE_TEXT, confident: false, kind: 'ai-error' };
     }
 
     // ----- non-English customers ------------------------------------------
     if (!ai || (typeof ai.isEnabled === 'function' && !ai.isEnabled())) {
       // AI support is off/disabled: the localized fixed acknowledgement, never the
       // English guide text.
-      return { text: tCustomer(lang, 'acknowledgement'), confident: false };
+      return { text: tCustomer(lang, 'acknowledgement'), confident: false, kind: 'ai-off' };
     }
 
     let outcome = null;
@@ -1868,7 +2232,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     } catch (error) {
       stats.aiFailures += 1;
       warn(`support AI failed; sending the localized acknowledgement: ${scrub(error && error.message ? error.message : error)}`);
-      return { text: tCustomer(lang, 'acknowledgement'), confident: false };
+      return { text: tCustomer(lang, 'acknowledgement'), confident: false, kind: 'ai-error' };
     }
 
     if (outcome && typeof outcome.answer === 'string' && outcome.answer.trim().length > 0) {
@@ -1894,25 +2258,29 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
         // heuristic Portuguese-vs-English detection is attempted (see the
         // documented limitation in SupportGuidelines).
         if (SupportGuidelines.hasExpectedScript(answer, lang)) {
-          return { text: answer, confident, entryId: outcome.entryId || null, category: outcome.category || null };
+          return { text: answer, confident, kind: outcome.kind || null, reason: outcome.reason || null, entryId: outcome.entryId || null, category: outcome.category || null };
         }
         stats.aiLanguageMisses += 1;
         warn('support AI answered outside the selected language (' + lang + '); handing off instead');
-        return { text: uncertainCustomerReply(lang), confident: false };
+        return { text: uncertainCustomerReply(lang), confident: false, kind: 'handoff' };
       }
 
       // APPROVED English text whose language we cannot verify: localize it, or fall
       // back to the localized safe message rather than sending English.
       const localized = await translateForCustomer(answer, lang);
       if (localized) {
-        return { text: localized, confident, entryId: outcome.entryId || null, category: outcome.category || null };
+        return { text: localized, confident, kind: outcome.kind || null, reason: outcome.reason || null, entryId: outcome.entryId || null, category: outcome.category || null };
       }
       stats.aiLanguageMisses += 1;
-      return { text: uncertainCustomerReply(lang), confident: false };
+      return { text: uncertainCustomerReply(lang), confident: false, kind: 'handoff' };
     }
 
     stats.aiFailures += 1;
-    return { text: tCustomer(lang, localizedFallbackKey(outcome)), confident: false };
+    return {
+      text: tCustomer(lang, localizedFallbackKey(outcome)),
+      confident: false,
+      kind: (outcome && outcome.kind) || 'unknown'
+    };
   }
 
   /**
@@ -2202,13 +2570,48 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    * so no new state and no schema change is needed. Read-only and fail-open: a
    * lookup that errors or is unavailable is treated as "no human handling", so a
    * status problem can never break a customer reply.
+   *
+   * Resumption after `/close` is decided by MESSAGE IDENTITY (the id of the last
+   * human reply at close time) with a timestamp tolerance only as a fallback for
+   * state written by an earlier build, so it never depends on two clocks.
    */
   async function isHumanHandlingConversation(conversation) {
     if (!conversation || conversation.id === undefined || conversation.id === null) return false;
     if (!store || typeof store.getLatestMessageByConversation !== 'function') return false;
     try {
       const latest = await store.getLatestMessageByConversation({ conversationId: conversation.id });
-      return Boolean(latest && latest.direction === DIRECTION_AGENT);
+      if (!latest || latest.direction !== DIRECTION_AGENT) return false;
+      // Automation resumes after an operator closes the conversation
+      // (`/close <conversation>` writes handoffResolvedAt). The resolution must be
+      // NEWER than the last agent message: a later human reply starts a new
+      // handoff and suppression applies again.
+      const state = await loadConversationState(conversation);
+      // Preferred test: MESSAGE IDENTITY. `markHumanHandoffResolved` records the
+      // last human message id at the moment of the close, so a later human reply
+      // (a higher id) re-applies suppression and nothing else does - no clock
+      // comparison, no skew, no "resumed but still silent" contradiction.
+      //
+      // ONLY a positive id is trusted: when the close could not read one it
+      // stores null, and treating that as id 0 would make every conversation
+      // look resolved-but-silenced. Null falls through to the timestamp
+      // fallback below, which resumes.
+      const resolvedMessageId = state.handoffResolvedMessageId;
+      if (Number.isFinite(resolvedMessageId) && resolvedMessageId > 0
+          && Number.isFinite(Number(latest.id))) {
+        return Number(latest.id) > resolvedMessageId;
+      }
+      if (state.handoffResolvedAt) {
+        const resolvedAt = Date.parse(state.handoffResolvedAt);
+        const agentAt = latest.created_at ? Date.parse(latest.created_at) : NaN;
+        // FALLBACK for state written by an earlier build (no message id): compare
+        // timestamps with a tolerance, because `handoffResolvedAt` comes from this
+        // process clock while the message timestamp comes from the database clock.
+        if (Number.isFinite(resolvedAt)
+            && (!Number.isFinite(agentAt) || resolvedAt + HANDOFF_CLOCK_SKEW_TOLERANCE_MS >= agentAt)) {
+          return false;
+        }
+      }
+      return true;
     } catch (error) {
       warn('could not check whether a human is handling conversation ' +
         conversation.id + '; assuming not: ' + scrub(error && error.message ? error.message : error));
@@ -2226,6 +2629,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    */
   function resolveNotificationStatus(humanHandling, reply) {
     if (humanHandling) return NOTIFICATION_STATUS.HUMAN_CONVERSATION;
+    // An explicit "I want a human" is not a failed answer - the customer asked for
+    // exactly this, so the operator sees HUMAN REQUESTED (not HUMAN NEEDED).
+    if (reply && reply.humanRequested === true) return NOTIFICATION_STATUS.HUMAN_REQUESTED;
     return reply && reply.confident === true
       ? NOTIFICATION_STATUS.BOT_REPLIED
       : NOTIFICATION_STATUS.HUMAN_NEEDED;
@@ -2403,6 +2809,22 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
     // Read-only and fail-open (see isHumanHandlingConversation).
     const humanHandling = await isHumanHandlingConversation(conversation);
 
+    // Durable idempotency AND ordering. The in-process deduper above is empty
+    // after a restart, so a redelivered update would otherwise answer (and
+    // store) the customer twice; a late/out-of-order update would otherwise
+    // overwrite newer conversational state. The last processed Telegram
+    // update_id is persisted with the state, and update ids are monotonic per
+    // bot. Missing ids (tests, unusual payloads) are simply not checked.
+    const priorState = await loadConversationState(conversation);
+    const updateIdNum = Number(update && update.update_id);
+    if (priorState.lastUpdateId !== null && Number.isFinite(updateIdNum)
+        && updateIdNum <= Number(priorState.lastUpdateId)) {
+      stats.duplicateUpdates += 1;
+      stats.lastAction = 'stale-update-ignored';
+      markStage('done:stale-update-ignored');
+      return { handled: true, action: 'stale-update-ignored' };
+    }
+
     try {
       markStage('storage:insert-message');
       await store.insertMessage({
@@ -2418,32 +2840,126 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
       throw error;
     }
 
-    // Acknowledge AND guide the customer on EVERY ordinary message, BEFORE any
-    // forwarding. This is the fix for "normal messages are silent": the reply
-    // used to be gated on `created`, so a customer whose conversation already
-    // existed (created by /chatid, /start or /escalate) - and every message
-    // after their first - received no reply at all.
-    //
-    // Stage 2: when the AI support layer is enabled, composeCustomerReply returns
-    // its (already safety-checked) answer instead of the generic guide text. The
-    // message is still PERSISTED and still FORWARDED below either way, so the
-    // human support system keeps the full record and /escalate is unaffected.
-    //
-    // A send failure propagates (HTTP 500) so Telegram redelivers instead of
-    // dropping the message; a successfully processed update is recorded in the
-    // deduper, so a redelivery can never duplicate this reply.
-    // The conversation language is authoritative for the reply; it comes from the
-    // stored row (never from the message text, so an English word cannot switch it).
     const language = languageOf(conversation);
+
+    // ACTIVE HUMAN HANDOFF: a human was the last to speak in this thread, so no
+    // automated reply is produced. The message is still stored and still
+    // notified (status HUMAN_CONVERSATION), so the operator keeps the full
+    // history and the customer never receives a bot message that contradicts
+    // the human who is handling them. Automation resumes when an operator runs
+    // `/close <conversation>` (see isHumanHandlingConversation).
+    if (humanHandling) {
+      stats.automationSuppressed += 1;
+      await saveConversationState(conversation, Object.assign({}, priorState, {
+        lastUpdateId: Number.isFinite(updateIdNum) ? updateIdNum : priorState.lastUpdateId
+      }));
+      markStage('notifyOperators');
+      const notice = await notifySupport({
+        conversation,
+        kind: 'customer-message',
+        status: NOTIFICATION_STATUS.HUMAN_CONVERSATION,
+        text: buildForwardText(conversation, conversation.telegram_chat_id, customerLabel(conversation, from), text,
+          Object.assign(await operatorNoticeExtras(text, language), {
+            status: NOTIFICATION_STATUS.HUMAN_CONVERSATION,
+            answer: null
+          }))
+      });
+      if (notice.sent) {
+        for (const messageId of notice.messageIds) forwarded.set(messageId, conversation.telegram_chat_id);
+        return { handled: true, action: 'human-handoff-active' };
+      }
+      return {
+        handled: true,
+        action: notice.skipped ? 'human-handoff-stored' : 'human-handoff-notify-failed'
+      };
+    }
+
+    // The dialogue layer decides the reply from the message AND the question the
+    // bot asked before it. A plan can be "handled" (procedural reply), or it can
+    // ask the approved-knowledge/AI layer to answer a factual question.
+    let plan = null;
+    try {
+      plan = engine.planTurn({ text, state: priorState });
+    } catch (error) {
+      warn('conversation engine failed; falling back to a single-turn reply: '
+        + scrub(error && error.message ? error.message : error));
+    }
+
+    const nextState = plan && plan.nextState ? Object.assign({}, plan.nextState) : Object.assign({}, priorState);
+    if (Number.isFinite(updateIdNum)) nextState.lastUpdateId = updateIdNum;
+
+    let reply = null;
+    if (plan && plan.handled === true) {
+      const rendered = renderPlan(language, plan);
+      if (rendered) {
+        // A deposit-guidance reply carries the deposits category so the EXISTING
+        // optional walkthrough video (TELEGRAM_DEPOSIT_TUTORIAL_URL) still fires
+        // when it is configured. Unset (the default) sends nothing extra.
+        const depositPlan = plan.intent === 'deposit' || plan.intent === 'buy_crypto'
+          || plan.intent === 'deposit_method';
+        reply = {
+          text: rendered,
+          confident: plan.confident !== false,
+          kind: 'conversation',
+          reason: plan.intent || null,
+          entryId: null,
+          category: depositPlan ? 'deposits' : null,
+          humanRequested: plan.humanRequested === true
+        };
+        stats.conversationalReplies += 1;
+        if (plan.tutorial) stats.tutorialLinksSent += 1;
+      }
+    }
+
+    if (!reply) {
+      const plannedQuery = plan && plan.knowledge ? plan.knowledge : text;
+      const query = language === DEFAULT_LANGUAGE ? plannedQuery : text;
+      reply = await composeCustomerReply(language, query);
+      const aiActive = Boolean(ai && (typeof ai.isEnabled !== 'function' || ai.isEnabled()));
+      // With AI answering off, the approved knowledge base can still answer a
+      // factual question - deterministically, offline and from the same source of
+      // truth. This is what replaces the old one-size-fits-all acknowledgement.
+      const knowledgeEligible = !aiActive || reply.kind === 'ai-error';
+      if (!reply.confident && knowledgeEligible) {
+        const kb = await answerFromKnowledge(language, query);
+        if (kb) {
+          reply = kb;
+          stats.knowledgeAnswers += 1;
+        }
+      }
+      // Nothing matched and no approved answer exists: ask ONE natural clarifying
+      // question instead of reporting an unrecognised message. Handoff/refusal/
+      // guardrail answers are authoritative and are kept as they are.
+      const unhelpful = !reply.confident
+        && (!reply.kind || reply.kind === 'unknown' || reply.kind === 'generic'
+          || reply.kind === 'disabled' || reply.kind === 'ai-off' || reply.kind === 'ai-error'
+          || reply.kind === 'clarify');
+      if (unhelpful) {
+        reply = {
+          text: tCustomer(language, 'clarifyTopic'),
+          confident: false,
+          kind: 'clarify',
+          reason: 'no-match',
+          entryId: null,
+          category: null
+        };
+        stats.clarifications += 1;
+      }
+    }
+
     // SEND FIRST, then decide: the awaited sendMessage is the proof that the
     // customer actually received the reply. If it throws, this function propagates
     // (HTTP 500) and NO notification is produced, so a Telegram send failure can
     // never be reported to an admin as "BOT REPLIED".
-    const reply = await composeCustomerReply(language, text);
     await sendOutbound(conversation, reply.text);
     // Additive and best-effort: the answer above is already delivered, so this can
     // only ever add a video for a deposit question, never change the reply.
     await sendDepositTutorial(conversation, language, reply);
+
+    // PERSIST ONLY AFTER THE REPLY WAS DELIVERED. If sendMessage throws, the state
+    // must not advance: Telegram redelivers the same update, and re-playing it
+    // against an already-advanced state would apply the customer's answer twice.
+    await saveConversationState(conversation, nextState);
 
     // Notify the operators through the single direct-delivery path. This
     // runs AFTER the customer's reply above and can never throw, so a broken,
@@ -2623,7 +3139,17 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
           }
           // Conversation status is deliberately NOT written (live CHECK
           // vocabulary unconfirmed) - see CONFIRMED_CONVERSATION_STATUSES.
-          await transport.sendMessage(route.chatId, `Conversation #${conversation.id} closed.`);
+          // The dialogue state records the resolution (durably, when migration
+          // 047 is applied), which is what lets the bot speak to the customer
+          // again without inventing a status literal.
+          await markHumanHandoffResolved(conversation);
+          // Only claim that automation resumed when suppression is genuinely
+          // cleared. If a newer human reply arrived after the snapshot the close
+          // took, automated replies stay paused and the operator is told so.
+          const stillSuppressed = await isHumanHandlingConversation(conversation);
+          await transport.sendMessage(route.chatId, stillSuppressed
+            ? `Conversation #${conversation.id} closed, but a newer agent message keeps automated replies paused. Run /close again after your last reply.`
+            : `Conversation #${conversation.id} closed. Automated replies are enabled again.`);
           return { handled: true, action: 'close' };
         }
         case 'escalate': {

@@ -39,6 +39,7 @@ const {
   NOTIFY_TARGET_ADMINS,
   NOTIFY_TARGET_GROUP
 } = require('../services/TelegramSupportService');
+const telegramI18n = require('../services/telegram-i18n');
 
 const TOKEN = '123456789:TEST-TOKEN-NOT-A-CREDENTIAL';
 // Synthetic ids - production values are never embedded in a test file.
@@ -241,7 +242,7 @@ test('the customer acknowledgement is still sent BEFORE the notification', async
   const toCustomer = h.toChat(CUSTOMER_CHAT_ID);
   const toAdmin = h.toChat(ADMIN_A);
   assert.strictEqual(toCustomer.length, 1);
-  assert.strictEqual(toCustomer[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(toCustomer[0].text, telegramI18n.t('en', 'clarifyTopic'));
   assert.ok(h.calls.indexOf(toCustomer[0]) < h.calls.indexOf(toAdmin[0]),
     'the customer is answered before any operator notification');
 
@@ -386,7 +387,7 @@ test('a stranger DMing the bot is still handled as a customer conversation', asy
   // acknowledgement. (The fake store returns one canned conversation, so that
   // reply is delivered to that conversation's chat id.)
   assert.strictEqual(h.toChat(CUSTOMER_CHAT_ID).length, 1);
-  assert.strictEqual(h.toChat(CUSTOMER_CHAT_ID)[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(h.toChat(CUSTOMER_CHAT_ID)[0].text, telegramI18n.t('en', 'clarifyTopic'));
   assert.strictEqual(h.toChat(ADMIN_A).length, 1, 'the admin is notified about it');
 });
 
@@ -522,7 +523,7 @@ test('a notification failure never breaks the customer reply', async () => {
 
   assert.strictEqual(result.action, 'forward-failed');
   assert.strictEqual(h.toChat(CUSTOMER_CHAT_ID).length, 1, 'the customer is still answered');
-  assert.strictEqual(h.toChat(CUSTOMER_CHAT_ID)[0].text, CUSTOMER_GUIDE_TEXT);
+  assert.strictEqual(h.toChat(CUSTOMER_CHAT_ID)[0].text, telegramI18n.t('en', 'clarifyTopic'));
   assert.strictEqual(
     h.store.state.messages.filter((m) => m.direction === DIRECTION_CUSTOMER).length, 1);
   assert.ok(h.lines.some((l) => l.includes('FAILED for 2/2')));

@@ -243,7 +243,7 @@
         {
           "id": "trading_bot.risk",
           "question": "Is trading risky?",
-          "answer": "Yes. Trading involves risk and results vary - you can lose money as well as gain. Arbitrix does not promise profits or guaranteed returns, and nothing here is financial advice.",
+          "answer": "Trading involves risk and results vary - you can lose money as well as gain. Arbitrix does not promise profits or guaranteed returns, and nothing here is financial advice.",
           "keywords": ["risk", "risky", "lose money", "losses", "is it safe", "can i lose"],
           "kind": "guardrail",
           "source": "platform risk disclosure (landing)"

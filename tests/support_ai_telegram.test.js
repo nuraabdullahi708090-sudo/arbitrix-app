@@ -33,6 +33,7 @@ const {
 } = require('../services/TelegramSupportService');
 
 const { createSupportAIService, resolveSupportAIConfig } = require('../services/support/SupportAIService');
+const i18n = require('../services/telegram-i18n');
 const S = require('../services/support/SupportKnowledge');
 const G = require('../services/support/SupportGuidelines');
 
@@ -185,28 +186,38 @@ test('AI answering is OFF by default and never constructed unless enabled', () =
 
 // --------------------------------------------------- AI disabled: unchanged --
 
-test('AI disabled: ordinary messages keep the exact previous behaviour', async () => {
+test('AI disabled: a factual question is answered from approved knowledge, not a canned acknowledgement', async () => {
   const h = createHarness({ supportAI: null });
   const question = 'How does Arbitrix work?';
   const result = await h.bot.handleUpdate(customerUpdate({ text: question }));
 
   assert.strictEqual(result.action, 'forwarded');
-  assert.deepStrictEqual(repliesToCustomer(h), [CUSTOMER_GUIDE_TEXT]);
+  const replies = repliesToCustomer(h);
+  assert.strictEqual(replies.length, 1);
+  // The approved knowledge base is offline and deterministic, so it answers even
+  // with AI_SUPPORT_ENABLED off. This is the deliberate replacement for the old
+  // one-size-fits-all acknowledgement.
+  assert.match(replies[0], /automated arbitrage platform/i);
+  assert.notStrictEqual(replies[0], CUSTOMER_GUIDE_TEXT);
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === question));
-  assert.ok(h.stored.some((m) => m.direction === DIRECTION_BOT && m.body === CUSTOMER_GUIDE_TEXT));
+  assert.ok(h.stored.some((m) => m.direction === DIRECTION_BOT && m.body === replies[0]));
   assert.strictEqual(forwarded(h).length, 1);
   assert.match(forwarded(h)[0], /How does Arbitrix work\?/);
   assert.strictEqual(h.bot.status().supportAIEnabled, false);
+  assert.strictEqual(h.bot.getStats().knowledgeAnswers, 1);
 });
 
-test('AI disabled: an injected but DISABLED service changes nothing', async () => {
+test('AI disabled: an injected but DISABLED service behaves exactly like AI off', async () => {
   const disabled = createSupportAIService({
     config: resolveSupportAIConfig({ AI_SUPPORT_ENABLED: 'false' }),
     knowledge: KB
   });
   const h = createHarness({ supportAI: disabled });
   await h.bot.handleUpdate(customerUpdate({ text: 'How does Arbitrix work?' }));
-  assert.deepStrictEqual(repliesToCustomer(h), [CUSTOMER_GUIDE_TEXT]);
+  const replies = repliesToCustomer(h);
+  assert.strictEqual(replies.length, 1);
+  assert.match(replies[0], /automated arbitrage platform/i);
+  assert.strictEqual(h.bot.getStats().knowledgeAnswers, 1);
 });
 
 // ------------------------------------------------------- AI enabled: known --
@@ -244,15 +255,18 @@ test('AI enabled: the customer keeps getting a reply when the conversation alrea
 
 // ----------------------------------------------------- AI enabled: hand-off --
 
-test('AI enabled: an unknown question hands off to a human instead of guessing', async () => {
+test('AI enabled: an unknown question asks ONE natural clarifying question and still reaches the team', async () => {
   const h = createHarness({ supportAI: enabledAIService() });
   await h.bot.handleUpdate(customerUpdate({ text: 'what is the weather in paris tomorrow' }));
 
   const reply = repliesToCustomer(h)[0];
-  assert.match(reply, /do not have an approved answer|support/i);
+  // Still never guesses and never invents facts - but the reply is a helpful
+  // follow-up question rather than "I do not recognise that".
+  assert.strictEqual(reply, i18n.t('en', 'clarifyTopic'));
   assert.ok(!/\$|\d/.test(reply), 'an unknown answer must not invent figures: ' + reply);
   assert.strictEqual(forwarded(h).length, 1, 'the human team must still receive the message');
   assert.strictEqual(h.bot.getStats().aiHandoffs, 1);
+  assert.strictEqual(h.bot.getStats().clarifications, 1);
 });
 
 test('AI enabled: the unresolved 14-day free period still hands off to a human', async () => {
@@ -320,23 +334,28 @@ test('/start shows the first-contact language picker and /help still works with 
 
 // ------------------------------------------------ failure => human fallback --
 
-test('AI/provider failure falls back to the standard human-support flow', async () => {
+test('AI/provider failure falls back to APPROVED knowledge instead of a blank acknowledgement', async () => {
   const broken = { isEnabled: () => true, async ask() { throw new Error('provider exploded'); } };
   const h = createHarness({ supportAI: broken });
   const text = 'How does Arbitrix work?';
   await h.bot.handleUpdate(customerUpdate({ text }));
 
-  assert.deepStrictEqual(repliesToCustomer(h), [CUSTOMER_GUIDE_TEXT]);
+  const replies = repliesToCustomer(h);
+  assert.strictEqual(replies.length, 1);
+  assert.match(replies[0], /automated arbitrage platform/i, 'a provider outage must not degrade a known answer');
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === text));
   assert.strictEqual(forwarded(h).length, 1);
   assert.strictEqual(h.bot.getStats().aiFailures, 1);
+  assert.strictEqual(h.bot.getStats().knowledgeAnswers, 1);
 });
 
-test('an empty AI answer also falls back instead of sending nothing', async () => {
+test('an empty AI answer also falls back to approved knowledge instead of sending nothing', async () => {
   const empty = { isEnabled: () => true, async ask() { return { answer: '   ' }; } };
   const h = createHarness({ supportAI: empty });
   await h.bot.handleUpdate(customerUpdate({ text: 'How does Arbitrix work?' }));
-  assert.deepStrictEqual(repliesToCustomer(h), [CUSTOMER_GUIDE_TEXT]);
+  const replies = repliesToCustomer(h);
+  assert.strictEqual(replies.length, 1);
+  assert.match(replies[0], /automated arbitrage platform/i);
   assert.strictEqual(forwarded(h).length, 1);
 });
 
@@ -407,8 +426,11 @@ test('sensitive account topics are handed to a human, never answered as fact', a
   const before = repliesToCustomer(h).length;
   await h.bot.handleUpdate(customerUpdate({ text: 'did my withdrawal go through?' }));
   const reply = repliesToCustomer(h)[before];
+  // The dialogue layer recognises a status question before any AI call and uses
+  // the approved "I cannot confirm status from here" wording.
+  assert.strictEqual(reply, i18n.t('en', 'paymentStatus'));
   assert.match(reply, /cannot confirm|support team/i);
-  assert.ok(h.bot.getStats().aiHandoffs >= 1);
+  assert.match(forwarded(h)[0], /HUMAN NEEDED/, 'the operator is told a human is needed');
 });
 
 // --------------------------------------------------- webhook security ------

@@ -183,7 +183,7 @@ test('the operator console prints the same diagnosis', () => {
 // ---------------------------------------------------------------------------
 test('no new migration and no publishing-path change', () => {
     const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations')).filter((f) => f.endsWith('.sql'));
-    assert.ok(migrations.every((f) => !/047_/.test(f)), 'no new migration is required for a read-only count');
+    assert.ok(migrations.every((f) => !/^048_/.test(f)), 'no new migration is required for a read-only count');
 
     const worker = read('services/MarketingWorker.js');
     assert.ok(!/countUpcomingByAudience/.test(worker), 'the worker must not depend on the diagnostic');
