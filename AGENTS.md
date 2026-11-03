@@ -8664,3 +8664,65 @@ was created and no Telegram write call was executed in this pass.
 - Browser: 272/272 (1280/390/320 x 6 locales) for the CTA stack + 234/234 re-run of
   the original CTA harness; geometry measured (centred, below the primary, note after,
   0 overflow, 44px).
+
+
+## Telegram support - trust, legitimacy & conversation intelligence (2026-11-03, branch only)
+
+- Extends the EXISTING dialogue engine (`services/support/ConversationEngine.js`),
+  the Telegram dictionary (`services/telegram-i18n.js`) and the existing bot; no
+  second bot, no new provider, no schema change, no migration, no webhook change.
+- ROOT CAUSES addressed: (1) short replies were only interpreted through the pending
+  question, so replies like "Checked" / "still pending" / "I have a problem" fell to the
+  generic fallback; (2) `security` owned the word "scam" and `kyc` owned "verify", so
+  legitimacy questions were misrouted; (3) there was NO earnings/performance intent, so
+  "How much can I make in a day" fell through to the clarifying fallback; (4) the
+  business-registration answer existed only as an English knowledge entry, so a pt/ar
+  customer depended on the translation layer (or got the uncertain fallback).
+- NEW DIALOGUE SUBJECTS (deterministic, localized, no invented facts):
+  * `trust_scam` (scam / legit / genuine / trust / real company / trustworthy, incl.
+    misspellings such as "scamm" and "Arbtirix"),
+  * `trust_registration` (registered / registration / certificate / KVK / how to verify),
+  * `trust_general` (why use Arbitrix / how long have you been operating),
+  * `earnings` (how much can I make / daily profit / is profit guaranteed / per $100),
+  * `platform` ("how does Arbitrix work" / what is multi-asset arbitrage / tell me more).
+  Ordering is documented in the rules: trust before kyc/security/business/what_is;
+  earnings before deposit/trading_bot/minimum_balance/subscription.
+- ANSWERS: the approved trust copy (intro, "registered business" statement, the four
+  ✅ points, both official URLs, the human route, the walkthrough question); a SHORT
+  verification answer inside an existing trust conversation (legal name "Arbitrix
+  Trading", KVK 72923513, https://arbitrix.pro/business-registration) that does NOT
+  repeat the script; a certificate line only when a document is asked for; an honest
+  limit + human handoff for details the page does not publish (address, phone, tax).
+  The earnings answer states no fixed daily income, no guaranteed profit and the risk
+  disclosure, and never quotes a figure. The platform answer names the official page
+  and the walkthrough video.
+- VERIFIED AGAINST PRODUCTION: https://arbitrix.pro/business-registration publishes
+  "Arbitrix is operated by Arbitrix Trading, registered with the Netherlands Chamber of
+  Commerce (KVK)" + "KVK Number: 72923513" + the certificate image, and no external
+  registry link, so none is invented or claimed. Registration is never described as a
+  financial-services licence.
+- INLINE KEYBOARD: trust answers carry two URL buttons (business registration / how it
+  works) through the existing transport `reply_markup` path. URL buttons only - no
+  callback payload, so no second handoff mechanism. The human route stays the existing
+  `human`/`/escalate` path, named in the message.
+- CONTINUITY: new pending `guide.offer` ("Would you like a quick guide...?") so "yes"
+  continues into the platform explanation; new signals `checked`, `arrived`,
+  `still pending`, `not received`, `problem`, `more` ("tell me more"), `next` ("what
+  next?"). The four transaction signals are ONLY used while a deposit/withdrawal
+  follow-up is pending, so an unrelated "still pending" cannot hijack a conversation.
+  "Checked" never claims the withdrawal completed; a missing payment goes to the
+  existing human handoff.
+- PRESERVED: human handoff (`/reply`, `/close`, suppression, history, single
+  notification per message), `/tutorial` `/progress` `/next` `/help`, tutorial links,
+  deposit flow, marketing worker separation, all financial/trading logic, webhook
+  configuration and credentials. No new dependency.
+- i18n: 77 -> 103 keys/locale (26 new x en/pt/ar), identical key sets, 0 empty,
+  0 placeholder mismatches.
+- TESTS: NEW tests/telegram_trust_conversation.test.js (64 tests) covering the brief's
+  A-H scenarios end to end (real bot + real engine + real dictionary). Updated for the
+  intentional behaviour changes only: support_ai_telegram (the platform question is now
+  answered by the engine, so the knowledge-fallback tests use a factual deposit
+  question), support_language_provenance B10, support_business_registration 8/9 (native
+  localized answer instead of a machine translation), telegram_multilingual 28
+  (dictionary bound 90 -> 130). npm test = 3120 pass / 0 fail.
+- NOT merged, NOT deployed; no migration applied; no production configuration changed.

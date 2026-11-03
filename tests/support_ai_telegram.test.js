@@ -188,7 +188,10 @@ test('AI answering is OFF by default and never constructed unless enabled', () =
 
 test('AI disabled: a factual question is answered from approved knowledge, not a canned acknowledgement', async () => {
   const h = createHarness({ supportAI: null });
-  const question = 'How does Arbitrix work?';
+  // A factual question the dialogue engine hands to the knowledge layer. ("How
+  // does Arbitrix work?" is answered by the engine's own platform explanation -
+  // see tests/telegram_trust_conversation.test.js.)
+  const question = 'What is the minimum deposit?';
   const result = await h.bot.handleUpdate(customerUpdate({ text: question }));
 
   assert.strictEqual(result.action, 'forwarded');
@@ -197,12 +200,12 @@ test('AI disabled: a factual question is answered from approved knowledge, not a
   // The approved knowledge base is offline and deterministic, so it answers even
   // with AI_SUPPORT_ENABLED off. This is the deliberate replacement for the old
   // one-size-fits-all acknowledgement.
-  assert.match(replies[0], /automated arbitrage platform/i);
+  assert.match(replies[0], /minimum deposit is \$100/i);
   assert.notStrictEqual(replies[0], CUSTOMER_GUIDE_TEXT);
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === question));
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_BOT && m.body === replies[0]));
   assert.strictEqual(forwarded(h).length, 1);
-  assert.match(forwarded(h)[0], /How does Arbitrix work\?/);
+  assert.match(forwarded(h)[0], /What is the minimum deposit\?/);
   assert.strictEqual(h.bot.status().supportAIEnabled, false);
   assert.strictEqual(h.bot.getStats().knowledgeAnswers, 1);
 });
@@ -213,10 +216,10 @@ test('AI disabled: an injected but DISABLED service behaves exactly like AI off'
     knowledge: KB
   });
   const h = createHarness({ supportAI: disabled });
-  await h.bot.handleUpdate(customerUpdate({ text: 'How does Arbitrix work?' }));
+  await h.bot.handleUpdate(customerUpdate({ text: 'What is the minimum deposit?' }));
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
-  assert.match(replies[0], /automated arbitrage platform/i);
+  assert.match(replies[0], /minimum deposit is \$100/i);
   assert.strictEqual(h.bot.getStats().knowledgeAnswers, 1);
 });
 
@@ -337,12 +340,12 @@ test('/start shows the first-contact language picker and /help still works with 
 test('AI/provider failure falls back to APPROVED knowledge instead of a blank acknowledgement', async () => {
   const broken = { isEnabled: () => true, async ask() { throw new Error('provider exploded'); } };
   const h = createHarness({ supportAI: broken });
-  const text = 'How does Arbitrix work?';
+  const text = 'What is the minimum deposit?';
   await h.bot.handleUpdate(customerUpdate({ text }));
 
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
-  assert.match(replies[0], /automated arbitrage platform/i, 'a provider outage must not degrade a known answer');
+  assert.match(replies[0], /minimum deposit is \$100/i, 'a provider outage must not degrade a known answer');
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === text));
   assert.strictEqual(forwarded(h).length, 1);
   assert.strictEqual(h.bot.getStats().aiFailures, 1);
@@ -352,10 +355,10 @@ test('AI/provider failure falls back to APPROVED knowledge instead of a blank ac
 test('an empty AI answer also falls back to approved knowledge instead of sending nothing', async () => {
   const empty = { isEnabled: () => true, async ask() { return { answer: '   ' }; } };
   const h = createHarness({ supportAI: empty });
-  await h.bot.handleUpdate(customerUpdate({ text: 'How does Arbitrix work?' }));
+  await h.bot.handleUpdate(customerUpdate({ text: 'What is the minimum deposit?' }));
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
-  assert.match(replies[0], /automated arbitrage platform/i);
+  assert.match(replies[0], /minimum deposit is \$100/i);
   assert.strictEqual(forwarded(h).length, 1);
 });
 
@@ -369,7 +372,7 @@ test('the AI receives only the message text - no ids, tokens or account data', a
     async ask(arg) { received.push(arg); return { answer: 'Hello, happy to help.' }; }
   };
   const h = createHarness({ supportAI: spyAI });
-  const text = 'How does Arbitrix work?';
+  const text = 'What is the minimum deposit?';
   await h.bot.handleUpdate(customerUpdate({ text }));
 
   assert.strictEqual(received.length, 1);

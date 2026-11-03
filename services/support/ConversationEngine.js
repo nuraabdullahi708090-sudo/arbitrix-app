@@ -30,11 +30,21 @@
  *     lines:    [{ key, vars }] - localized keys resolved by telegram-i18n
  *     tutorial: 'paybis' | 'transak' | 'trustwallet' | 'withdrawal' | null
  *     knowledge: string | null  - canonical question for the knowledge layer
+ *     keyboard: [{ key, url }]  - optional inline URL buttons (trust answers)
  *     confident: boolean  - whether the reply is a real answer (drives the
  *                           operator notification status)
  *     humanRequested: boolean - the customer explicitly asked for a person
  *     nextState: object   - what to persist for the next turn
  *   }
+ *
+ * SUBJECTS THE DIALOGUE OWNS (the rest goes to the knowledge/AI layer):
+ *   deposits, withdrawals, onboarding, referrals/partners, deposits tutorials,
+ *   TRUST & LEGITIMACY (scam / legit / registered / verify the registration),
+ *   the platform explanation, TRADING PERFORMANCE (returns, daily profit,
+ *   guarantees) and the short conversational replies that follow any of them.
+ *   Facts are never invented here: the trust answer only states what the
+ *   published business-registration page shows, and the performance answer
+ *   quotes no figure at all.
  *
  * Short replies are ONLY interpreted through `state.pending` (the expected answer
  * type of the question the bot actually asked). With no pending question a bare
@@ -64,6 +74,24 @@ const TUTORIALS = Object.freeze({
   })
 });
 
+/**
+ * Official pages. These are the ONLY destinations the trust/legitimacy answers
+ * point at, and both are published pages of this application (no external
+ * registry link exists on them, so none is invented here).
+ */
+const BUSINESS_REGISTRATION_URL = 'https://arbitrix.pro/business-registration';
+const HOW_IT_WORKS_URL = 'https://arbitrix.pro/how-it-works';
+
+/** Inline-keyboard buttons offered under a trust answer (URL buttons only). */
+const TRUST_KEYBOARD = Object.freeze([
+  Object.freeze({ key: 'btnBusiness', url: BUSINESS_REGISTRATION_URL }),
+  Object.freeze({ key: 'btnHowItWorks', url: HOW_IT_WORKS_URL })
+]);
+
+const HOW_KEYBOARD = Object.freeze([
+  Object.freeze({ key: 'btnHowItWorks', url: HOW_IT_WORKS_URL })
+]);
+
 /** Questions the bot can ask. `pending` is the expected answer type. */
 const PENDING = Object.freeze({
   REGISTERED: 'onboarding.registered',
@@ -76,6 +104,10 @@ const PENDING = Object.freeze({
   CREDITED: 'deposit.credited',
   WITHDRAW_HELP: 'withdraw.help',
   PARTNER_INTEREST: 'partner.interest',
+  // "Would you like a quick guide on how Arbitrix works?" - asked after the
+  // trust/legitimacy answer and after the earnings answer, so a bare "yes"
+  // continues into the platform explanation instead of being guessed at.
+  GUIDE_OFFER: 'guide.offer',
   ANYTHING_ELSE: 'anything_else',
   CLARIFY: 'clarify'
 });
@@ -84,7 +116,11 @@ const PENDING_VALUES = Object.freeze(Object.keys(PENDING).map((k) => PENDING[k])
 
 const TOPICS = Object.freeze([
   'deposit', 'withdrawal', 'onboarding', 'partner', 'referral',
-  'kyc', 'trading', 'account', 'human', 'general'
+  'kyc', 'trading', 'account', 'human', 'general',
+  // Legitimacy/registration conversations and trading-performance questions keep
+  // their own topic so their follow-ups ("how do I verify?", "how?") continue the
+  // right subject instead of restarting the whole answer.
+  'trust', 'earnings'
 ]);
 
 const DEPOSIT_METHODS = Object.freeze(['paybis', 'transak', 'trustwallet']);
@@ -107,6 +143,7 @@ const QUESTION_KEYS = Object.freeze({
   [PENDING.CREDITED]: 'depositCreditedQuestion',
   [PENDING.WITHDRAW_HELP]: 'withdrawHelpPrompt',
   [PENDING.PARTNER_INTEREST]: 'partnerOffer',
+  [PENDING.GUIDE_OFFER]: 'guideOfferQuestion',
   [PENDING.ANYTHING_ELSE]: 'anythingElse',
   [PENDING.CLARIFY]: 'clarifyTopic'
 });
@@ -201,6 +238,39 @@ const COMPLETED_RE = new RegExp('(?:^|[\\s!?.,;:()\\[\\]\"\'\u2019])(?:'
     '\u062a\u0645', '\u0623\u0646\u062c\u0632\u062a', '\u0623\u0631\u0633\u0644\u062a',
     '\u062d\u0648\u0644\u062a'].join('|') + ')' + TOKEN_END);
 
+/**
+ * "I checked" - the answer a customer actually sends after the bot asks
+ * "Would you like help with a specific withdrawal problem?".
+ *
+ * It is NOT an answer to a yes/no question (it neither confirms nor denies a
+ * withdrawal problem), so it is interpreted separately and only inside a
+ * transaction follow-up. It must never be read as "the withdrawal completed".
+ */
+const CHECKED_RE = /(?:^|[\s!?.,;:()"'’])(?:checked|i\s+checked|i\s+have\s+checked|i've\s+checked|yes\s+checked|already\s+checked|checked\s+it|i\s+did\s+check|verified|i\s+verified|verifiquei|j\u00e1\s+verifiquei|ja\s+verifiquei|checado|conferi|\u062a\u062d\u0642\u0642\u062a|\u0631\u0627\u062c\u0639\u062a|\u062a\u0645\s+\u0627\u0644\u062a\u062d\u0642\u0642)(?=[\s!?.,;:()"'’]|$)/;
+
+/** The funds arrived / the customer already received them. */
+const ARRIVED_RE = /(?:^|[\s!?.,;:()"'\u2019])(?:it\s+)?(?:has\s+|had\s+)?(?:arrived|received\s+it|i\s+(?:have\s+|got\s+)?received|funds?\s+(?:have\s+)?arrived|got\s+the\s+(?:money|funds)|already\s+received|j\u00e1\s+chegou|ja\s+chegou|chegou|j\u00e1\s+recebi|ja\s+recebi|recebi|j\u00e1\s+caiu|ja\s+caiu|\u0648\u0635\u0644\u062a|\u0648\u0635\u0644|\u0627\u0633\u062a\u0644\u0645\u062a|\u062a\u0645 \u0627\u0644\u0627\u0633\u062a\u0644\u0627\u0645)(?=[\s!?.,;:()"'\u2019]|$)/;
+
+const NEGATION_RE = /(?:\bnot\b|\bnever\b|\bn't\b|\bno\b|\bn\u00e3o\b|\bnao\b|\u0644\u0645\b|\u0644\u0627\b|\u063a\u064a\u0631)/i;
+
+/** "I have a problem" - a reported issue, not a yes/no answer. */
+const PROBLEM_RE = /(?:^|[\s!?.,;:()"'’])(?:i\s+have\s+(?:a\s+|an\s+)?(?:problem|issue)|there\s+is\s+a\s+problem|something\s+is\s+wrong|something\s+went\s+wrong|it\s+is\s+not\s+working|it\s+does\s?n'?o?t\s+work|not\s+working|problem|issue|trouble|tenho\s+um\s+problema|problema|deu\s+errado|\u0644\u062f\u064a\s+\u0645\u0634\u0643\u0644\u0629|\u0645\u0634\u0643\u0644\u0629)(?=[\s!?.,;:()"'’]|$)/;
+
+/** Registration details that are NOT published on the registration page. */
+const UNPUBLISHED_DETAIL_RE = /\baddress\b|\bphone\b|\btelephone\b|\bcontact\s+number\b|\btax\b|\bvat\b|\bemployees?\b|\bendere[c\u00e7]o\b|\btelefone\b|\u0639\u0646\u0648\u0627\u0646|\u0647\u0627\u062a\u0641/;
+/** "Tell me more" - continue what the bot was explaining. */
+const MORE_RE = /^(?:tell\s+me\s+more|more\s+details?|more\s+info(?:rmation)?|go\s+on|continue|and\s+then|explain\s+more|saber\s+mais|mais\s+detalhes|continue|\u0627\u0644\u0645\u0632\u064a\u062f|\u0623\u062e\u0628\u0631\u0646\u064a\s+\u0628\u0627\u0644\u0645\u0632\u064a\u062f)\s*[.!?]*$/;
+
+/** "What next?" - the /next command said in words. */
+const NEXT_RE = /^(?:what(?:'s|\s+is)?\s+next|what\s+now|and\s+next|next\s+step|next|e\s+agora|pr[o\u00f3]xim[oa]\s+passo|\u0645\u0627\s+\u0627\u0644\u062a\u0627\u0644\u064a|\u0627\u0644\u062e\u0637\u0648\u0629\s+\u0627\u0644\u062a\u0627\u0644\u064a\u0629)\s*[.!?]*$/;
+
+/** Still processing - normal inside the published window, a problem after it. */
+const STILL_PENDING_RE = /(?:^|[\s!?.,;:()"'\u2019])(?:still\s+pending|still\s+processing|still\s+waiting|pending|processing|in\s+progress|not\s+yet\s+arrived|waiting|ainda\s+(?:pendente|processando)|pendente|em\s+processamento|\u0645\u0639\u0644\u0642|\u0645\u0639\u0644\u0642\u0629|\u0642\u064a\u062f \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629|\u0644\u0645 \u064a\u0635\u0644 \u0628\u0639\u062f)(?=[\s!?.,;:()"'\u2019]|$)/;
+
+/** The customer reports that the money never arrived - needs a human. */
+const NOT_RECEIVED_RE = /(?:^|[\s!?.,;:()"'\u2019])(?:not\s+(?:arrived|received)|haven'?t\s+received|have\s+not\s+received|did\s?n'?t\s+(?:arrive|receive)|did\s+not\s+(?:arrive|receive)|never\s+arrived|never\s+received|has\s?n'?o?t\s+arrived|no\s+funds|missing|n\u00e3o\s+(?:chegou|recebi)|nao\s+(?:chegou|recebi)|ainda\s+n\u00e3o\s+(?:chegou|recebi)|\u0644\u0645\s+\u064a\u0635\u0644|\u0644\u0645\s+\u0623\u0633\u062a\u0644\u0645|\u0644\u0645\s+\u0623\u0633\u062a\u0644\u0645\u0647\u0627|\u0645\u0641\u0642\u0648\u062f\u0629)(?=[\s!?.,;:()"'\u2019]|$)/;
+
+
 const METHOD_RES = Object.freeze([
   { id: 'paybis', re: /\bpaybis\b/i },
   { id: 'transak', re: /\btransak\b/i },
@@ -225,7 +295,7 @@ const INTENT_RULES = Object.freeze([
     // Fraud / lost funds. These must reach a human, never a procedural answer.
     intent: 'fraud',
     topic: 'account',
-    re: /\b(?:hacked|hijacked|compromised|unauthori[sz]ed|someone\s+else\s+(?:has\s+)?(?:accessed|logged\s+in|used))\b|\baccount\s+(?:was\s+|is\s+|got\s+)?(?:hacked|stolen|compromised)\b|\bmy\s+(?:money|funds|balance|usdt)\s+(?:is\s+|was\s+)?(?:gone|missing|stolen|disappeared)\b|\b(?:lost|stole)\s+my\s+(?:money|funds|usdt)\b|\bi\s+(?:want|need)\s+my\s+(?:money|funds)\s+back\b|\bmoney\s+(?:is\s+)?gone\b/
+    re: /\b(?:hacked|hijacked|compromised|unauthori[sz]ed|someone\s+else\s+(?:has\s+)?(?:accessed|logged\s+in|used))\b|\baccount\s+(?:was\s+|is\s+|got\s+)?(?:hacked|stolen|compromised)\b|\bmy\s+(?:money|funds|balance|usdt)\s+(?:is\s+|was\s+)?(?:gone|missing|stolen|disappeared)\b|\b(?:lost|stole)\s+my\s+(?:money|funds|usdt)\b|\bi\s+(?:want|need)\s+my\s+(?:money|funds)\s+back\b|\bmoney\s+(?:is\s+)?gone\b|\b(?:i\s+was|i've\s+been|i\s+have\s+been|they|someone)\s+scammed\b|\bscammed\s+me\b|\bme\s+enganaram\b|\bme\s+aplicaram\s+um\s+golpe\b|\u062a\u0639\u0631\u0636\u062a\s+\u0644\u0644\u0646\u0635\u0628/
   },
   {
     // A cancellation request cannot be executed by the bot, so it escalates.
@@ -257,6 +327,38 @@ const INTENT_RULES = Object.freeze([
     intent: 'account_problem',
     topic: 'account',
     re: /\b(?:locked\s+out|can\s?not\s+access\s+my\s+account|can\s?t\s+access\s+my\s+account|account\s+(?:is\s+)?(?:problem|issue|access|locked|hacked|compromised|suspended|banned|disabled|closed))\b|\baccount\b[^?]{0,25}\b(?:suspended|banned|disabled|closed|blocked)\b|\b(?:suspended|banned)\b[^?]{0,25}\baccount\b/
+  },
+  {
+    // ---------------------------------------------------- trust / legitimacy --
+    // Ordered BEFORE kyc / deposit / trading / security / business / what_is:
+    // "is arbitrix a scam" must answer the legitimacy question, not the account
+    // safety FAQ, and "how do I verify your registration" must not be read as a
+    // KYC question (the old `kyc` rule matched any "verify").
+    //
+    // The vocabulary is deliberately narrow: a bare "business", "money",
+    // "company" or "registered" is NOT enough (see the false-positive tests).
+    intent: 'trust_scam',
+    topic: 'trust',
+    re: /\bscam\w*\b|\blegit(?:imate)?\b|\bgenuine\b|\btrustworthy\b|\b(?:can|could|should)\s+i\s+trust\b|\btrust\s+(?:this|you|arbitrix|your\s+platform|the\s+platform)\b|\bnot\s+(?:a\s+)?(?:scam|fake)\b|\bfake\s+(?:platform|company|site|website|bot|app)\b|\b(?:are|is)\s+(?:you|arbitrix|this|it)\s+(?:a\s+)?(?:scam|real|genuine|legit|legitimate|safe)\b|\breal\s+(?:company|platform|business)\b|\bgolpe\b|\bconfi[aá]vel\b|\bposso\s+confiar\b|\bverdadeir[oa]s?\b|\bn\u00e3o\s+[e\u00e9]\s+golpe\b|\u0646\u0635\u0628|\u0627\u062d\u062a\u064a\u0627\u0644|\u0645\u0648\u062b\u0648\u0642|\u0623\u062b\u0642|\u0645\u0646\u0635\u0629\s+\u062d\u0642\u064a\u0642\u064a\u0629|\u0647\u0644\s+\u0623\u0646\u062a\u0645\s+\u0645\u0648\u062b\u0648\u0642\u0648\u0646/
+  },
+  {
+    intent: 'trust_registration',
+    topic: 'trust',
+    re: /\b(?:are|is)\s+(?:you|arbitrix|this|it)\s+(?:a\s+)?registered\b|\bregistered\s+(?:company|business|entity|in\s+the)\b|\b(?:your|the)\s+registration\b|\bregistration\s+(?:number|details|certificate|documents?|papers?)\b|\bbusiness\s+(?:registration|certificate|licen[cs]e|details)\b|\bcompany\s+(?:registration|details|number|certificate)\b|\bcan\s+i\s+(?:verify|check|confirm|see)\b[^?]{0,45}\b(?:registration|company|business|certificate|details)\b|\bhow\s+(?:can|do)\s+i\s+(?:verify|check|confirm)\b[^?]{0,35}\b(?:you|arbitrix|company|business|registration)\b|\b(?:show|send)\s+me\s+(?:your|the)\s+(?:registration|certificate|documents?|licen[cs]e)\b|\bdo\s+you\s+have\s+(?:a\s+)?(?:business\s+)?(?:registration|certificate|licen[cs]e)\b|\bwhere\s+(?:is|are)\s+(?:your|you)\s+(?:company\s+)?registered\b|\bregistered\s+address\b|\bcompany\s+address\b|\bcompany\s+phone\b|\bkvk\b|\bchamber\s+of\s+commerce\b|\bregistrad[ao]\b|\bregistro\s+(?:da\s+|empresarial|comercial)\b|\bcomo\s+(?:eu\s+)?(?:posso\s+)?(?:verificar|confirmar)\b|\bcertificado\s+(?:da\s+)?empresa\b|\u0645\u0633\u062c\u0644\u0629|\u0633\u062c\u0644\s+\u062a\u062c\u0627\u0631\u064a|\u0634\u0647\u0627\u062f\u0629\s+\u0627\u0644\u062a\u0633\u062c\u064a\u0644|\u063a\u0631\u0641\u0629\s+\u0627\u0644\u062a\u062c\u0627\u0631\u0629|\u062a\u062d\u0642\u0642|\u0627\u0644\u062a\u0633\u062c\u064a\u0644\s+\u0627\u0644\u062a\u062c\u0627\u0631\u064a|\u0634\u0647\u0627\u062f\u0629/
+  },
+  {
+    intent: 'trust_general',
+    topic: 'trust',
+    re: /\bwhy\s+should\s+i\s+(?:use|choose|trust)\b|\bwhat\s+makes\s+(?:you|arbitrix)\s+different\b|\bhow\s+long\s+(?:have|has)\s+(?:you|arbitrix)\b|\bsince\s+when\b|\bwhat\s+exactly\s+does\s+arbitrix\s+do\b|\bhow\s+(?:can|do)\s+i\s+know\b[^?]{0,25}\b(?:real|genuine|legit|legitimate|true)\b|\bpor\s+que\s+devo\s+(?:usar|escolher)\b|\bh[a\u00e1]\s+quanto\s+tempo\b|\u0644\u0645\u0627\u0630\u0627\s+\u064a\u062c\u0628|\u0645\u0646\u0630\s+\u0645\u062a\u0649/
+  },
+  {
+    // -------------------------------------------------- earnings / returns --
+    // Before deposit / trading_bot / minimum_balance / subscription: "how much
+    // can I make?" must never be read as a deposit question, and "how much does
+    // the bot make?" must not hit the trading-bot FAQ.
+    intent: 'earnings',
+    topic: 'earnings',
+    re: /\bhow\s+much\s+(?:can|could|will|would|do|does|did)\s+(?:i|you|we|it|the\s+bot)\s+(?:make|earn|generate|profit)\b|\bhow\s+much\s+(?:profit|income|money)\b|\b(?:daily|monthly|weekly|yearly|annual)\s+(?:profit|return|income|earning)s?\b|\b(?:profit|return|income|earning)s?\s+(?:per|a|each)\s+(?:day|week|month|year)\b|\b(?:what|which)\s+(?:is|are)\s+the\s+(?:daily|expected|average|typical)\s+(?:profit|return|income|earnings|yield)\b|\bexpected\s+(?:profit|return|income|earnings)\b|\bis\s+(?:the\s+)?(?:profit|return|income)\s+guaranteed\b|\bguaranteed\s+(?:profit|returns?|income|earnings)\b|\bcan\s+i\s+earn\s+(?:every\s+day|daily|monthly|every\s+month)\b|\b(?:what|how\s+much)\s+percentage\b|\bquanto\s+(?:posso|vou|d[aá]\s+para)\s+(?:ganhar|lucrar)\b|\bquanto\s+(?:de\s+)?lucro\b|\blucro\s+(?:di[aá]rio|garantido|mensal)\b|\bganhar\s+(?:por\s+dia|todo\s+dia)\b|\bretorno\s+(?:di[aá]rio|mensal|garantido)\b|\u0643\u0645\s+\u0623\u0631\u0628\u0627\u062d|\u0643\u0645\s+\u064a\u0645\u0643\u0646\s+\u0623\u0646\s+\u0623\u0631\u0628\u062d|\u0627\u0644\u0631\u0628\u062d\s+\u0627\u0644\u064a\u0648\u0645\u064a|\u0623\u0631\u0628\u0627\u062d\s+\u0645\u0636\u0645\u0648\u0646\u0629|\u0627\u0644\u0631\u0628\u062d\s+\u0645\u0636\u0645\u0648\u0646|\u0645\u0636\u0645\u0648\u0646\u0629|\u0627\u0644\u0639\u0627\u0626\u062f\s+\u0627\u0644\u064a\u0648\u0645\u064a/
   },
   {
     intent: 'kyc',
@@ -380,6 +482,15 @@ const INTENT_RULES = Object.freeze([
     re: /\b(?:close|closing|closed)\s+(?:the\s+)?(?:app|tab|browser)\b|\bkeep\s+trading\b|\boffline\b|\bbrowser\s+closed\b/
   },
   {
+    // The plain "what is this platform / how does it work" explanation. Ordered
+    // before `arbitrage` and `trading_bot` so "how does Arbitrix work" and
+    // "what is multi-asset arbitrage" get the full explanation rather than a
+    // keyword-specific FAQ entry.
+    intent: 'platform',
+    topic: 'general',
+    re: /\bwhat\s+is\s+arbitrix\b|\bwhat\s+does\s+arbitrix\s+do\b|\bhow\s+does\s+arbitrix\s+work\b|\bhow\s+does\s+(?:the\s+)?(?:arbitrage|platform|arbitrix\s+bot)\s+work\b|\bmulti-?asset\s+arbitrage\b|\btell\s+me\s+(?:more|about)\b[^?]{0,25}\b(?:platform|arbitrix|arbitrage)\b|\babout\s+arbitrix\b|\bcomo\s+(?:a\s+)?arbitrix\s+funciona\b|\bo\s+que\s+[e\u00e9]\s+a\s+arbitrix\b|\bo\s+que\s+a\s+arbitrix\s+faz\b|\bme\s+fale\s+mais\b|\u0643\u064a\u0641\s+\u062a\u0639\u0645\u0644\s+arbitrix|\u0645\u0627\s+\u0647\u064a\s+arbitrix|\u0645\u0627\u0630\u0627\s+\u062a\u0641\u0639\u0644\s+arbitrix/
+  },
+  {
     intent: 'arbitrage',
     topic: 'general',
     re: /\barbitrage\b/
@@ -407,7 +518,7 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'security',
     topic: 'account',
-    re: /\b(?:keep\s+(?:my\s+)?account\s+safe|account\s+security|phishing|scam)\b/
+    re: /\b(?:keep\s+(?:my\s+)?account\s+safe|account\s+security|phishing)\b/
   },
   {
     intent: 'help',
@@ -600,6 +711,21 @@ function analyze(raw) {
   const how = HOW_RE.test(bare);
   const really = REALLY_RE.test(bare);
   const completed = COMPLETED_RE.test(normalized);
+  // Transaction follow-ups. These four are NOT yes/no answers: they are only
+  // interpreted when the bot is waiting on a deposit/withdrawal follow-up, and
+  // the guards in planTurn limit them to short messages.
+  const shortReply = words.length > 0 && words.length <= 8;
+  const checked = shortReply && CHECKED_RE.test(normalized);
+  const pendingStill = shortReply && STILL_PENDING_RE.test(normalized);
+  const notReceived = shortReply && NOT_RECEIVED_RE.test(normalized);
+  // "not yet arrived" / "I haven't received it" CONTAIN the positive words, so a
+  // positive match only counts when the message carries no negation at all.
+  const arrivals = shortReply && ARRIVED_RE.test(normalized);
+  const arrived = arrivals && !notReceived && !NEGATION_RE.test(normalized);
+  // "no problem" is a DENIAL, not a reported problem.
+  const problem = shortReply && PROBLEM_RE.test(normalized) && !DENY_RE.test(normalized);
+  const more = MORE_RE.test(bare);
+  const next = NEXT_RE.test(bare);
 
   let method = null;
   for (const candidate of METHOD_RES) {
@@ -624,6 +750,13 @@ function analyze(raw) {
     how,
     really,
     completed,
+    checked,
+    arrived,
+    pendingStill,
+    notReceived,
+    problem,
+    more,
+    next,
     method,
     matches,
     primary: primary ? primary.intent : null,
@@ -671,6 +804,94 @@ function tutorialLine(id) {
       method: TUTORIALS[id].label,
       url: TUTORIALS[id].url
     });
+}
+
+/**
+ * The approved trust / legitimacy answer.
+ *
+ * Every claim in it is supported by the published registration page: the company
+ * name, the KVK number and the certificate are on
+ * https://arbitrix.pro/business-registration. It deliberately never says the
+ * registration is a financial-services licence, never promises returns and never
+ * pressures the customer to deposit.
+ */
+function trustReply(intent, next) {
+  next.topic = 'trust';
+  next.pending = PENDING.GUIDE_OFFER;
+  next.stage = 'trust';
+  return makeReply(intent, [
+    line('trustIntro'),
+    line('trustWhatWeDo'),
+    line('trustExploreIntro'),
+    line('trustPoints'),
+    line('trustLinksIntro'),
+    line('trustLinks'),
+    line('trustClose'),
+    // The third next step from the brief: a human, through the EXISTING handoff
+    // (the "human" keyword), never a second mechanism.
+    line('trustSupportLine'),
+    line('trustQuestion')
+  ], next, { keyboard: TRUST_KEYBOARD });
+}
+
+/**
+ * The SHORT answer used for a follow-up inside an existing trust conversation
+ * ("How do I verify the registration?", "Can you show me the certificate?").
+ * Repeating the long answer here is what makes a bot feel scripted.
+ */
+function trustFollowupReply(intent, normalized, next) {
+  next.topic = 'trust';
+  next.pending = PENDING.ANYTHING_ELSE;
+  next.stage = 'trust.followup';
+  // Details the published page does NOT show (address, phone, tax numbers) are
+  // never guessed: the bot says so and offers the team.
+  if (UNPUBLISHED_DETAIL_RE.test(normalized || '')) {
+    next.stage = 'trust.limit';
+    next.handoffRequestedAt = next.updatedAt;
+    return makeReply(intent, [line('trustLimits')], next, {
+      confident: false,
+      humanRequested: true
+    });
+  }
+  const lines = [line('trustVerify')];
+  // Only offer the certificate path when the customer actually asked for a
+  // document: "show me the certificate" / "send me the documents".
+  if (/certificat|document|paper|certid|\u0634\u0647\u0627\u062f|\u0648\u062b\u064a\u0642/.test(normalized || '')) {
+    lines.push(line('trustCertificate'));
+  }
+  return makeReply(intent, lines, next, { keyboard: TRUST_KEYBOARD });
+}
+
+/** The "how does the platform work" explanation, with the official page. */
+function platformReply(intent, next) {
+  next.topic = 'general';
+  next.pending = PENDING.GUIDE_OFFER;
+  next.stage = 'platform';
+  return makeReply(intent, [
+    line('platformIntro'),
+    line('platformBullets'),
+    line('platformLink'),
+    line('platformQuestion')
+  ], next, { keyboard: HOW_KEYBOARD });
+}
+
+/**
+ * Trading-performance questions.
+ *
+ * There is no fixed daily figure, no historical return and no percentage to
+ * quote, so the answer explains what drives the result, says plainly that
+ * nothing is guaranteed, and points at Demo Mode - never at a projection.
+ */
+function earningsReply(intent, next) {
+  next.topic = 'earnings';
+  next.pending = PENDING.GUIDE_OFFER;
+  next.stage = 'earnings';
+  return makeReply(intent, [
+    line('earningsIntro'),
+    line('earningsVaries'),
+    line('earningsDemo'),
+    line('earningsQuestion')
+  ], next);
 }
 
 function planTurn({ text, state } = {}) {
@@ -741,6 +962,25 @@ function planTurn({ text, state } = {}) {
     return makeReply('reallyUnknown', [line('clarifyTopic')], next, { confident: false });
   }
 
+  // --- 3b. "tell me more" / "what next?" continue the CURRENT subject -----
+  // Neither is a new question: they mean "keep going" or "what do I do now", so
+  // they are answered from the topic/pending state instead of being classified.
+  if (a.more) {
+    if (prev.topic === 'trust' || prev.topic === 'earnings' || prev.pending === PENDING.GUIDE_OFFER) {
+      return platformReply('more', next);
+    }
+    if (prev.topic && prev.topic !== 'general') return explainCurrentTopic(prev, next);
+    return knowledgeReply('more', a.text, next);
+  }
+  if (a.next) {
+    // "What next?" after an offer of the walkthrough is a yes to that offer.
+    if (prev.pending === PENDING.GUIDE_OFFER) return platformReply('next', next);
+    if (prev.pending) return makeReply('next', [line(QUESTION_KEYS[prev.pending])], next);
+    next.pending = PENDING.CLARIFY;
+    next.stage = 'clarify';
+    return makeReply('next', [line('clarifyHelp')], next);
+  }
+
   // --- 4. a short reply answers the pending question ---------------------
   const pendingTopic = topicOfPending(prev.pending);
   const switchesTopic = a.primaryTopic
@@ -748,7 +988,19 @@ function planTurn({ text, state } = {}) {
     && !topicsCompatible(pendingTopic, a.primaryTopic)
     && !['deposit', 'onboarding'].includes(a.primaryTopic);
 
-  if (prev.pending && (a.affirm || a.deny || a.ack || a.completed) && !switchesTopic) {
+  // The four transaction follow-up signals ("checked", "it arrived", "still
+  // pending", "not received") are ONLY meaningful while the bot is waiting on a
+  // deposit/withdrawal follow-up. In any other context they fall through to
+  // their own intent or to the knowledge layer, so "still pending" can never
+  // hijack an unrelated conversation.
+  const transactionFollowup = (a.checked || a.arrived || a.pendingStill || a.notReceived || a.problem)
+    && (prev.pending === PENDING.WITHDRAW_HELP
+      || prev.pending === PENDING.CREDITED
+      || prev.pending === PENDING.TRANSFER_DONE
+      || prev.pending === PENDING.TUTORIAL_FOLLOWUP);
+
+  if (prev.pending && (a.affirm || a.deny || a.ack || a.completed || transactionFollowup)
+      && !switchesTopic) {
     return answerPending(prev, a, next);
   }
 
@@ -807,6 +1059,36 @@ function planTurn({ text, state } = {}) {
 
 function handleIntent(a, prev, next) {
   switch (a.primary) {
+    // ------------------------------------------------ trust / legitimacy --
+    // "Is Arbitrix a scam?" is answered once with the full approved response;
+    // the follow-ups inside that conversation get the short answers instead of
+    // the whole script again.
+    case 'trust_scam':
+      return trustReply('trust_scam', next);
+
+    case 'trust_registration': {
+      // A question that asks for the registration NUMBER, the certificate or
+      // how to verify it gets the short, precise answer (the number is on the
+      // page). A general "are you registered?" gets the trust overview once.
+      const wantsDetail = prev.topic === 'trust'
+        || /\bkvk\b|registration\s+number|company\s+number|n[u\u00fa]mero|certificat|certid|document|verif|confirm|check|\u0634\u0647\u0627\u062f|\u0631\u0642\u0645|\u0627\u0644\u062a\u062d\u0642\u0642/.test(a.normalized);
+      return wantsDetail
+        ? trustFollowupReply('trust_registration', a.normalized, next)
+        : trustReply('trust_registration', next);
+    }
+
+    case 'trust_general':
+      return prev.topic === 'trust'
+        ? platformReply('trust_general', next)
+        : trustReply('trust_general', next);
+
+    // -------------------------------------------- earnings / performance --
+    case 'earnings':
+      return earningsReply('earnings', next);
+
+    case 'platform':
+      return platformReply('platform', next);
+
     case 'status_check':
       next.topic = 'deposit';
       next.pending = PENDING.ANYTHING_ELSE;
@@ -1059,6 +1341,10 @@ function depositCompleted(prev, next) {
 
 function explainCurrentTopic(prev, next) {
   const method = prev.method;
+  // "How?" after the bot OFFERED the walkthrough is a yes, not a new topic.
+  if (prev.pending === PENDING.GUIDE_OFFER) return platformReply('how', next);
+  if (prev.topic === 'trust') return trustFollowupReply('how', '', next);
+  if (prev.topic === 'earnings') return earningsReply('how', next);
   switch (prev.topic) {
     case 'deposit':
       if (method) {
@@ -1189,6 +1475,19 @@ function answerPending(prev, a, next) {
       return makeReply('tutorial_followup', [line('depositAfterAck')], next);
 
     case PENDING.TRANSFER_DONE:
+      // "It has not arrived" / "still pending" about a DEPOSIT is an account
+      // question the bot cannot answer from here: same guidance and handoff as
+      // the existing status_check/deposit_problem intents.
+      if (a.notReceived || a.pendingStill || a.problem) {
+        next.topic = 'deposit';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'problem';
+        next.handoffRequestedAt = next.updatedAt;
+        return makeReply('transfer_not_received', [line('paymentStatus')], next, {
+          confident: false,
+          humanRequested: true
+        });
+      }
       if (a.affirm || a.ack || a.completed) {
         next.transferred = true;
         next.pending = PENDING.CREDITED;
@@ -1206,6 +1505,16 @@ function answerPending(prev, a, next) {
       return repeatQuestion(prev, next);
 
     case PENDING.CREDITED:
+      if (a.notReceived || a.pendingStill || a.problem) {
+        next.topic = 'deposit';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'problem';
+        next.handoffRequestedAt = next.updatedAt;
+        return makeReply('credited_still_pending', [line('paymentStatus')], next, {
+          confident: false,
+          humanRequested: true
+        });
+      }
       if (a.affirm || a.ack) {
         next.credited = true;
         next.pending = PENDING.ANYTHING_ELSE;
@@ -1221,6 +1530,50 @@ function answerPending(prev, a, next) {
       return repeatQuestion(prev, next);
 
     case PENDING.WITHDRAW_HELP:
+      // The replies customers actually send here are not all yes/no answers.
+      // "Checked" is the common one and it neither confirms nor denies a
+      // problem, so it is acknowledged WITHOUT claiming the withdrawal
+      // completed. A reported missing payment goes to the existing handoff.
+      if (a.notReceived) {
+        next.topic = 'withdrawal';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'withdraw.problem';
+        next.handoffRequestedAt = next.updatedAt;
+        return makeReply('withdraw_not_received', [line('paymentStatus')], next, {
+          confident: false,
+          humanRequested: true
+        });
+      }
+      if (a.pendingStill) {
+        next.topic = 'withdrawal';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'withdraw.pending';
+        return makeReply('withdraw_still_pending', [line('withdrawStillPending')], next, {
+          confident: false
+        });
+      }
+      if (a.arrived) {
+        next.topic = 'withdrawal';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'closed';
+        return makeReply('withdraw_arrived', [line('withdrawArrived')], next);
+      }
+      if (a.checked) {
+        next.topic = 'withdrawal';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'closed';
+        return makeReply('withdraw_checked', [line('withdrawChecked')], next);
+      }
+      if (a.problem) {
+        next.topic = 'withdrawal';
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'problem';
+        next.handoffRequestedAt = next.updatedAt;
+        return makeReply('withdraw_problem', [line('humanHandoff')], next, {
+          confident: false,
+          humanRequested: true
+        });
+      }
       if (a.affirm || a.ack) {
         next.topic = 'withdrawal';
         next.pending = PENDING.ANYTHING_ELSE;
@@ -1249,6 +1602,17 @@ function answerPending(prev, a, next) {
         next.pending = PENDING.ANYTHING_ELSE;
         next.stage = 'closed';
         return makeReply('partner_no', [line('partnerDecline')], next);
+      }
+      return repeatQuestion(prev, next);
+
+    case PENDING.GUIDE_OFFER:
+      // "Yes" to "Would you like a quick guide on how Arbitrix works?" continues
+      // into the platform explanation instead of asking what they want again.
+      if (a.affirm || a.ack) return platformReply('guide_offer', next);
+      if (a.deny) {
+        next.pending = PENDING.ANYTHING_ELSE;
+        next.stage = 'closed';
+        return makeReply('guide_offer_no', [line('anythingElse')], next);
       }
       return repeatQuestion(prev, next);
 
@@ -1348,6 +1712,10 @@ function planCommand(name, { state } = {}) {
 
 module.exports = {
   TUTORIALS,
+  BUSINESS_REGISTRATION_URL,
+  HOW_IT_WORKS_URL,
+  TRUST_KEYBOARD,
+  HOW_KEYBOARD,
   PENDING,
   PENDING_VALUES,
   TOPICS,

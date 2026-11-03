@@ -878,8 +878,11 @@ test('28. the dictionary is small, complete in all three locales, and localized'
   // The conversational engine added a bounded set of dialogue strings (greetings,
   // clarifying questions, guided deposit/withdrawal steps) - still a small,
   // Telegram-specific dictionary, never a copy of the web app's ~1,400 keys.
-  assert.ok(keys.length >= 15 && keys.length <= 90, 'a small Telegram-specific dictionary, got ' + keys.length);
-  assert.ok(keys.length < 100, 'must not duplicate the web dictionary');
+  // Still small and Telegram-specific: the trust/legitimacy, platform and
+  // earnings conversations added a bounded set of sentences (3 locales each),
+  // never a copy of the web app's ~1,400 keys.
+  assert.ok(keys.length >= 15 && keys.length <= 130, 'a small Telegram-specific dictionary, got ' + keys.length);
+  assert.ok(keys.length < 150, 'must not duplicate the web dictionary');
 
   locales.forEach((locale) => {
     assert.deepStrictEqual(Object.keys(i18n.CUSTOMER_STRINGS[locale]).sort(), keys,
