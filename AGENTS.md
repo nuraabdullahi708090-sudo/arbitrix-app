@@ -8508,3 +8508,18 @@ was created and no Telegram write call was executed in this pass.
   byte-for-byte when `build/` exists) - same protection, no committed 9 MB
   duplicate.
 - `npm test` = 3018 pass / 0 fail.
+
+## Unknown /api paths now answer JSON 404 (2026-11-03)
+- The SPA fallback is `app.use(...)`, which catches every method and path, so a
+  missing or mistyped API endpoint was answered with index.html and HTTP 200.
+  That hides wiring mistakes from monitoring and from anyone reading logs while
+  diagnosing an integration (the `/video` guard already solved it for media).
+- `app.use('/api', ...)` now returns `{success:false,error:'Not found',method,path}`
+  with 404, registered AFTER every API route and BEFORE the SPA fallback. Query
+  strings are never echoed back. Non-API paths still serve the app.
+- tests/api_404_contract.test.js (10 tests) boots the REAL server with the
+  offline Supabase stub and pins: unknown GET/POST 404 JSON, the removed
+  `/api/telegram/diagnose` reporting 404, no HTML/oversized bodies, the webhook
+  still failing closed, SPA + `/deposit-tutorials` still 200, the media guard,
+  and the middleware order.
+- `npm test` = 3028 pass / 0 fail.
