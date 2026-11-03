@@ -8523,3 +8523,47 @@ was created and no Telegram write call was executed in this pass.
   still failing closed, SPA + `/deposit-tutorials` still 200, the media guard,
   and the middleware order.
 - `npm test` = 3028 pass / 0 fail.
+
+
+## Deposit modal - conditional partner contacts + WhatsApp priority (2026-11-03, public/index.html + tests)
+- Frontend-only (public/index.html). NO server.js, services, migrations, auth, deposit
+  creation, address generation, crediting, KYC, withdrawal, trading or Telegram changes.
+- ROOT PROBLEM: the deposit form showed payment-partner contacts to EVERY user, including
+  those who already hold crypto (who only need the deposit address). And the partner
+  contacts were two Telegram accounts, with no WhatsApp route.
+- SHIPPED:
+  * "I Already Have Crypto" now shows the USDT/TRC20 form ONLY. The in-form partner
+    block (#depositCryptoPartnerHelp + #depositCryptoPartnerContacts) is REMOVED, so no
+    partner contact, WhatsApp link or Telegram link can appear on that route.
+  * "Buy from a Verified Partner" owns the partner section (#depositPartnerPanel ->
+    #depositPartnerContacts) and renders it in PRIORITY ORDER via the new
+    renderDepositPartnerAssistance(): Olivia FIRST on WhatsApp
+    (https://wa.me/17828027841, single constant PARTNER_PRIMARY_WHATSAPP_URL, WhatsApp
+    icon, PRIMARY CONTACT label), then Alex on Telegram as the BACKUP
+    (existing @AlexArbitrix meta, BACKUP CONTACT label, "If you cannot reach Olivia on
+    WhatsApp, contact Alex on Telegram for assistance."). Alex is resolved BY SLOT, so a
+    missing slot 1 can never relabel Olivia's Telegram as "Alex"; with no destination the
+    Alex card is not rendered at all.
+  * Heading/description rewritten: "Need help getting USDT?" / "Our payment partners can
+    help you obtain USDT and fund your Arbitrix account." Partner safety line 1 now
+    covers WhatsApp OR Telegram ("verify the WhatsApp number or Telegram username").
+  * CSS: WhatsApp button uses the conventional #25D366, .deposit-partner-note wraps;
+    the shared .payment-partner-list keeps 1 column < 420px and 2 columns above
+    (verified: stacked at 360/390, side-by-side at 500/900, buttons >= 44px).
+- UNCHANGED: requestDepositAddress()/create-invoice, the $100 minimum, the TRC20 warning,
+  Generate Payment, polling, crediting, the withdrawal/payment surface
+  (paymentPartnerContacts still renders both Telegram partners), referral partner
+  support (getPartnerSupportTelegramUrl -> Alex), the Support Center.
+- i18n: 1600 -> 1603 keys/locale (5 new: deposit.partner.primaryLabel/backupLabel/
+  oliviaBtn/alexBtn/alexNote; 2 removed: deposit.crypto.partnerHelp/partnerNote;
+  title/intro/safety.1 rewritten). Identical key sets, 0 empty, all 6 locales; AR RTL ok.
+- Tests: NEW tests/deposit_partner_priority.test.js (11, runs the real renderers and
+  selectDepositOption() in a vm sandbox); tests/deposit_crypto_partner.test.js REMOVED
+  (its contract is inverted); updated deposit_payment_partner (14), deposit_panel_simplified,
+  support_ui, deposit_discoverability, partners_page (8i + re-pinned homepage hash) and the
+  dictionary pins 1600 -> 1603 (16 files) / BASE_OUTSIDE_TESTIMONIALS 1574 -> 1577.
+- Verified: npm test = 3032 pass / 0 fail. Headless Chromium = 59/59 (desktop 1280,
+  390, 320 + es/ar/pt/fr/zh): route isolation, Olivia-before-Alex, wa.me + Telegram
+  hrefs/icons/target/rel, labels, no raw keys, ar RTL, Generate Payment still posts
+  create-invoice and opens the payment step, no overflow, no page errors.
+- NOT a deploy: migration state unchanged (none needed).

@@ -45,11 +45,11 @@ function fn(name) {
 
 // ------------------------------------------------------------ 1. introduction
 
-test('the heading is "Verified Payment Partners" with one short paragraph', () => {
+test('the heading is "Need help getting USDT?" with one short paragraph', () => {
     const T = dict();
-    assert.strictEqual(T.en['deposit.partner.title'], 'Verified Payment Partners');
+    assert.strictEqual(T.en['deposit.partner.title'], 'Need help getting USDT?');
     assert.strictEqual(T.en['deposit.partner.intro'],
-        'Need help obtaining USDT or funding your Arbitrix account? Contact one of our payment partners for assistance.');
+        'Our payment partners can help you obtain USDT and fund your Arbitrix account.');
     const p = panel();
     const titleAt = p.indexOf('data-i18n="deposit.partner.title"');
     const introAt = p.indexOf('data-i18n="deposit.partner.intro"');
@@ -167,7 +167,8 @@ test('the Stay Safe block keeps three points and drops the disclaimer', () => {
         'deposit.partner.safety.6', 'deposit.partner.disclaimer']) {
         assert.ok(!(key in T.en), key + ' must be retired');
     }
-    assert.strictEqual(T.en['deposit.partner.safety.1'], 'Contact the correct Telegram partner and verify the username.');
+    assert.strictEqual(T.en['deposit.partner.safety.1'],
+        'Contact the correct partner and verify the WhatsApp number or Telegram username before sending funds.');
     assert.strictEqual(T.en['deposit.partner.safety.2'], 'Never share your password, OTP, or private wallet keys.');
     assert.match(T.en['deposit.partner.safety.3'], /Check the USDT network and address before sending funds/);
     assert.match(T.en['deposit.partner.safety.3'], /credited after Arbitrix verifies the transfer/);

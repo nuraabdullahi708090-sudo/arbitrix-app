@@ -65,7 +65,7 @@ const EXPECTED_KEYS = 87;
 // invoice errors), and again for the withdrawal-discoverability change (an
 // Available-card Withdraw action sharing that row). Each re-pin was an approved
 // homepage change, not /partners drift.
-const INDEX_SHA256 = '7b811e818c6d2e19e74a9af6cb9ceb47cab000002e415381836abaa9cfdbe887';
+const INDEX_SHA256 = 'fa11be4d079fb5ed6bd3db493c26d1f987ec8223f0ddf6ea48d492589f2dc7ff';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
@@ -730,10 +730,18 @@ test('8c. the runtime builds the correct https://t.me URL from the meta handle',
 
 test('8i. payment surfaces keep both partners while recruitment shows Alex alone', () => {
     // Payment-specific surfaces in the app keep BOTH configured partners.
-    ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts'].forEach((id) => {
+    // The deposit modal renders Olivia on WhatsApp (primary) + Alex on Telegram
+    // (backup) through renderDepositPartnerAssistance(); the withdrawal/payment
+    // surface keeps the shared Telegram cards. The crypto-only route deliberately
+    // carries no partner contact at all, so its old container is gone.
+    ['depositPartnerContacts', 'paymentPartnerContacts'].forEach((id) => {
         assert.ok(INDEX.includes('id="' + id + '"'), id + ' must exist');
     });
-    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the payment surfaces render both partners');
+    assert.ok(!INDEX.includes('id="depositCryptoPartnerContacts"'),
+        'the crypto-only route no longer lists partners');
+    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the payment surface renders both partners');
+    assert.ok(INDEX.includes('renderDepositPartnerAssistance'), 'the deposit section renders Olivia then Alex');
+    assert.match(INDEX, /https:\/\/wa\.me\/17828027841/, 'Olivia is reached on WhatsApp');
     assert.match(INDEX, /<meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">/,
         'the app configures the second payment partner');
     assert.ok(INDEX.indexOf("name: 'Alex'") < INDEX.indexOf("name: 'Olivia'"),
