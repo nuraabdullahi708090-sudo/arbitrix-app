@@ -68,9 +68,10 @@ const COMMUNITY_URL = 'https://t.me/+CF9kWr61sqs1MTY0';
 // once more for the deposit-discoverability change (an Available-card Deposit
 // action, a sticky deposit-dialog header, live-wallet wording and actionable
 // invoice errors), and again for the withdrawal-discoverability change (an
-// Available-card Withdraw action sharing that row). Each re-pin was an approved
-// homepage change, not /partners drift.
-const INDEX_SHA256 = 'fa11be4d079fb5ed6bd3db493c26d1f987ec8223f0ddf6ea48d492589f2dc7ff';
+// Available-card Withdraw action sharing that row), and once more for the
+// mobile full-screen deposit dialog (a markup nesting fix plus the <=640px
+// dialog layout). Each re-pin was an approved homepage change, not /partners drift.
+const INDEX_SHA256 = 'fe53bd6f065a4fe24de8a50433c876e0a7a0c2905fee9a3933aeacbbe4a0e5fa';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
