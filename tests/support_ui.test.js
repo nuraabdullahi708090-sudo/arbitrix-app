@@ -94,7 +94,9 @@ const SUPPORT_KEYS = [
     'support.safeInfo.screenshot', 'support.faq.title', 'support.faq.depositPending.q',
     'support.faq.depositPending.a', 'support.faq.depositFailed.q',
     'support.faq.depositFailed.a', 'support.faq.withdrawal.q', 'support.faq.withdrawal.a',
-    'support.faq.security.q', 'support.faq.security.a', 'deposit.crypto.partnerHelp',
+    'support.faq.security.q', 'support.faq.security.a', 'deposit.partner.primaryLabel',
+    'deposit.partner.backupLabel', 'deposit.partner.oliviaBtn', 'deposit.partner.alexBtn',
+    'deposit.partner.alexNote',
     'support.needHelpWithdraw', 'support.contactOfficial', 'support.contactShort',
     'support.openCenter', 'support.verificationNotRequired', 'support.paymentHelp.pending',
     'support.paymentHelp.detected', 'support.paymentHelp.failed',
@@ -211,14 +213,18 @@ test('updateSupportLinks applies the configured URL and degrades safely when uns
     assert.strictEqual(unset.els.supportNotConfigured.style.display, 'block');
 });
 
-test('the deposit modal directs DEPOSIT help to the payment partner', () => {
+test('partner contacts live only in the partner route of the deposit modal', () => {
     // Deposit questions belong to the payment partner; official support is
     // reached from the Support Center (covered by the other tests here).
-    const win = elementWindow('safetyWarning', 2600);
-    assert.ok(/id="depositCryptoPartnerContacts"/.test(win), 'payment-partner contacts rendered');
-    assert.ok(/payment-partner-list/.test(win), 'it uses the shared partner contact list');
-    assert.ok(/deposit\.crypto\.partnerHelp/.test(win), 'localized deposit-help wording');
-    assert.ok(/deposit\.crypto\.partnerNote/.test(win), 'no-crediting note rendered');
+    // The "I Already Have Crypto" route must show NO partner contact at all,
+    // so the old in-form partner block is gone for good.
+    assert.ok(!/id="depositCryptoPartnerContacts"/.test(INDEX), 'no partner list in the crypto route');
+    assert.ok(!/id="depositCryptoPartnerHelp"/.test(INDEX), 'no partner help block in the crypto route');
+    assert.ok(!/deposit\.crypto\.partnerHelp/.test(INDEX), 'the retired copy is gone');
+    assert.ok(/id="depositPartnerContacts"/.test(INDEX), 'the partner route still has the section');
+    assert.ok(/deposit\.partner\.oliviaBtn/.test(INDEX), 'Olivia is offered on WhatsApp');
+    assert.ok(/wa\.me\/17828027841/.test(INDEX), 'the WhatsApp destination exists');
+    assert.ok(/deposit\.partner\.alexBtn/.test(INDEX), 'Alex remains the Telegram backup');
     assert.ok(!/support\.needHelpDeposit/.test(INDEX), 'the old support link is retired');
 });
 

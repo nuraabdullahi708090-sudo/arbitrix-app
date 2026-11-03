@@ -50,9 +50,8 @@ function render(metas, opts = {}) {
         nodes[id] = n;
         return n;
     };
-    ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts'].forEach(container);
-    nodes.paymentSupportFallbackBtn = { style: {} };
-    nodes.depositCryptoPartnerHelp = { style: {} };
+      ['depositPartnerContacts', 'paymentPartnerContacts'].forEach(container);
+      nodes.paymentSupportFallbackBtn = { style: {} };
     const sandbox = {
         window: opts.window || {},
         document: {
@@ -80,7 +79,9 @@ function render(metas, opts = {}) {
         fn('normalisePartnerTelegramUrl'),
         fn('getPaymentPartnerContacts'),
         fn('getPartnerSupportTelegramUrl'),
+        "const PARTNER_PRIMARY_WHATSAPP_URL = '" + (INDEX.match(/const PARTNER_PRIMARY_WHATSAPP_URL = '([^']+)';/) || [])[1] + "';",
         fn('renderPaymentPartnerContacts'),
+        fn('renderDepositPartnerAssistance'),
         fn('updatePaymentPartnerLinks'),
         'updatePaymentPartnerLinks();',
         'this.contacts = getPaymentPartnerContacts(); this.primary = getPartnerSupportTelegramUrl();',
@@ -127,23 +128,31 @@ test('a window override replaces slot 1 only', () => {
 
 // ----------------------------------------------------------------- render
 
-test('both partners are rendered in every deposit entry point', () => {
-    const { nodes } = render(BOTH);
-    for (const id of ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts']) {
-        const html = nodes[id].innerHTML;
-        assert.ok(html.includes('href="' + ALEX + '"'), id + ' links to Alex');
-        assert.ok(html.includes('href="' + OLIVIA + '"'), id + ' links to Olivia');
-        assert.ok(html.includes('data-partner="alex"') && html.includes('data-partner="olivia"'), id + ' is per-partner');
-        assert.ok(html.includes('>Contact Alex<') && html.includes('>Contact Olivia<'), id + ' labelled buttons');
-        assert.ok(html.includes('Payment Partner'), id + ' states the role');
-        assert.strictEqual(html.split('data-partner=').length - 1, 2, id + ' shows exactly two partners');
-        assert.notStrictEqual(nodes[id].style.display, 'none', id + ' visible when configured');
-    }
-});
+  test('the payment/withdrawal surface renders both configured partners', () => {
+      const { nodes } = render(BOTH);
+      const html = nodes.paymentPartnerContacts.innerHTML;
+      assert.ok(html.includes('href="' + ALEX + '"'), 'links to Alex');
+      assert.ok(html.includes('href="' + OLIVIA + '"'), 'links to Olivia');
+      assert.ok(html.includes('data-partner="alex"') && html.includes('data-partner="olivia"'), 'is per-partner');
+      assert.ok(html.includes('>Contact Alex<') && html.includes('>Contact Olivia<'), 'labelled buttons');
+      assert.ok(html.includes('Payment Partner'), 'states the role');
+      assert.strictEqual(html.split('data-partner=').length - 1, 2, 'shows exactly two partners');
+      assert.notStrictEqual(nodes.paymentPartnerContacts.style.display, 'none', 'visible when configured');
+  });
 
-test('every partner button opens Telegram in a new tab safely', () => {
-    const { nodes } = render(BOTH);
-    const html = nodes.depositPartnerContacts.innerHTML;
+  test('the deposit partner section is its own surface: Olivia on WhatsApp, Alex on Telegram', () => {
+      const { nodes } = render(BOTH);
+      const html = nodes.depositPartnerContacts.innerHTML;
+      assert.ok(html.includes('href="https://wa.me/17828027841"'), 'Olivia is reached on WhatsApp');
+      assert.match(html, /fab fa-whatsapp/, 'WhatsApp icon');
+      assert.ok(html.includes('href="' + ALEX + '"'), 'Alex stays on Telegram');
+      assert.ok(html.indexOf('data-partner="olivia"') < html.indexOf('data-partner="alex"'), 'Olivia first');
+      assert.ok(!html.includes(OLIVIA), 'Olivia Telegram is never offered in the deposit flow');
+  });
+
+  test('every partner button opens its app in a new tab safely', () => {
+      const { nodes } = render(BOTH);
+      const html = nodes.paymentPartnerContacts.innerHTML;
     assert.strictEqual((html.match(/target="_blank"/g) || []).length, 2);
     assert.strictEqual((html.match(/rel="noopener noreferrer"/g) || []).length, 2);
     assert.ok(html.includes('deposit-payment-partner'), 'shared yellow button styling');
@@ -151,19 +160,21 @@ test('every partner button opens Telegram in a new tab safely', () => {
         'no non-Telegram URL reaches the markup');
 });
 
-test('an unconfigured pair hides the lists and restores official support', () => {
-    const { nodes } = render({});
-    for (const id of ['depositPartnerContacts', 'depositCryptoPartnerContacts', 'paymentPartnerContacts']) {
-        assert.strictEqual(nodes[id].style.display, 'none', id + ' hidden');
-        assert.strictEqual(nodes[id].innerHTML, '', id + ' renders nothing');
-    }
-    assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex');
-    assert.strictEqual(nodes.depositCryptoPartnerHelp.style.display, 'none');
-});
+  test('an unconfigured pair hides the payment list and restores official support', () => {
+      const { nodes } = render({});
+      assert.strictEqual(nodes.paymentPartnerContacts.style.display, 'none', 'payment list hidden');
+      assert.strictEqual(nodes.paymentPartnerContacts.innerHTML, '', 'payment list renders nothing');
+      assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex');
+      // Olivia is a FIXED contact, not a meta-configured one: a missing meta can
+      // never remove the primary, and it must not invent an Alex button either.
+      assert.ok(nodes.depositPartnerContacts.innerHTML.includes('https://wa.me/17828027841'));
+      assert.ok(!/data-partner="alex"/.test(nodes.depositPartnerContacts.innerHTML),
+          'no broken Alex button without a destination');
+  });
 
-test('one configured partner is enough to show the list', () => {
-    const { nodes } = render({ 'arbitrix-partner-support-telegram-2': '@OliviaArbitrix' });
-    const html = nodes.depositPartnerContacts.innerHTML;
+  test('one configured partner is enough to show the payment list', () => {
+      const { nodes } = render({ 'arbitrix-partner-support-telegram-2': '@OliviaArbitrix' });
+      const html = nodes.paymentPartnerContacts.innerHTML;
     assert.ok(html.includes(OLIVIA) && !html.includes(ALEX));
     assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'none');
 });
@@ -172,9 +183,9 @@ test('one configured partner is enough to show the list', () => {
 
 test('the section heading and copy are the approved wording', () => {
     const T = dict();
-    assert.strictEqual(T.en['deposit.partner.title'], 'Verified Payment Partners');
-    assert.strictEqual(T.en['deposit.partner.intro'],
-        'Need help obtaining USDT or funding your Arbitrix account? Contact one of our payment partners for assistance.');
+      assert.strictEqual(T.en['deposit.partner.title'], 'Need help getting USDT?');
+      assert.strictEqual(T.en['deposit.partner.intro'],
+          'Our payment partners can help you obtain USDT and fund your Arbitrix account.');
     assert.strictEqual(T.en['deposit.partner.contactName'], 'Contact {{name}}');
     assert.strictEqual(T.en['deposit.partner.role'], 'Payment Partner');
     // The single-partner labels are retired.
@@ -185,8 +196,8 @@ test('the section heading and copy are the approved wording', () => {
 test('the partnership never claims a manual credit, direct sale or verification', () => {
     const T = dict();
     for (const locale of Object.keys(T)) {
-        const copy = ['deposit.partner.intro', 'deposit.partner.refHint', 'deposit.partner.refReady',
-            'deposit.crypto.partnerHelp', 'deposit.crypto.partnerNote', 'support.paymentHelp.pending']
+          const copy = ['deposit.partner.intro', 'deposit.partner.refHint', 'deposit.partner.refReady',
+              'deposit.partner.alexNote', 'support.paymentHelp.pending']
             .map((k) => String(T[locale][k] || '')).join(' ');
         assert.ok(copy.trim().length > 100, locale + ' copy missing');
         assert.ok(!/direct sale|sells usdt|guaranteed|will credit|credits instantly|verified identity/i.test(copy),
@@ -194,8 +205,9 @@ test('the partnership never claims a manual credit, direct sale or verification'
     }
     // The safeguards are still stated.
     assert.match(T.en['deposit.partner.refHint'], /deposit address/);
-    assert.match(T.en['deposit.crypto.partnerNote'], /never credits your account/);
-    assert.match(T.en['deposit.crypto.partnerNote'], /only after verifying the transfer/);
+      // The crypto route carries no partner copy at all any more.
+      assert.ok(!('deposit.crypto.partnerNote' in T.en));
+      assert.ok(!('deposit.crypto.partnerHelp' in T.en));
 });
 
 test('no locale hard-codes a partner handle or the retired account', () => {
@@ -217,7 +229,8 @@ test('all six locales carry the partner keys and keep identical key sets', () =>
     assert.strictEqual(new Set(sizes).size, 1, 'identical key counts');
     for (const locale of Object.keys(T)) {
         for (const key of ['deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.contactName',
-            'deposit.partner.role', 'deposit.crypto.partnerHelp']) {
+            'deposit.partner.role', 'deposit.partner.primaryLabel', 'deposit.partner.backupLabel',
+            'deposit.partner.oliviaBtn', 'deposit.partner.alexBtn', 'deposit.partner.alexNote']) {
             assert.ok(String(T[locale][key] || '').trim(), locale + ' missing ' + key);
             if (locale !== 'en') {
                 assert.notStrictEqual(T[locale][key], T.en[key], locale + ' ' + key + ' untranslated');

@@ -427,9 +427,15 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
     // NOT come back.
     for (const id of ['depositOptions', 'depositOptionPartner', 'depositOptionCrypto',
         'depositPartnerPanel', 'depositPartnerList',
-        'depositPartnerContacts', 'depositCryptoPartnerContacts', 'depositCryptoFlow']) {
+        'depositPartnerContacts', 'depositCryptoFlow']) {
         assert.ok(INDEX.indexOf('id="' + id + '"') > 0, id + ' must still exist');
     }
+    // The crypto-only route carries NO partner contact: the section belongs to
+    // the partner route, where Olivia (WhatsApp) precedes Alex (Telegram).
+    assert.ok(!INDEX.includes('id="depositCryptoPartnerContacts"'),
+        'the crypto route no longer lists partner contacts');
+    assert.ok(/function renderDepositPartnerAssistance\(/.test(INDEX), 'the partner section renders Olivia + Alex');
+    assert.ok(/https:\/\/wa\.me\/17828027841/.test(INDEX), 'Olivia is reached on WhatsApp');
     assert.ok(/function selectDepositOption\(/.test(INDEX), 'option selection preserved');
     assert.ok(/function renderDepositPartners\(/.test(INDEX), 'partner rendering preserved');
     assert.ok(/function loadDepositOptions\(/.test(INDEX), 'options loading preserved');
