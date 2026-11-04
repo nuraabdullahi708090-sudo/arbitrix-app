@@ -8823,3 +8823,55 @@ was created and no Telegram write call was executed in this pass.
   pre-move markup). The 13/17/19 pins in `tests/deposit_tutorials_page.test.js`
   were updated to the new positions, and `tests/partners_page.test.js`'s homepage
   hash was re-pinned per its own comment.
+
+
+## Zernio WhatsApp automation (en / pt-BR) - 2026-11-04, NOT merged/deployed
+- NEW `services/whatsapp/` (Languages, LanguageResolver, WhatsAppContent,
+  WhatsAppTemplates, ZernioClient, ContactPreferences, FollowUpRouter,
+  WhatsAppAutomation, ZernioWebhook, index) + `scripts/zernio-setup.js` +
+  `docs/ZERNIO_WHATSAPP.md`. No new npm dependency, no migration, no second
+  database: the preference lives on Zernio contact custom fields.
+- `server.js`: optional factory (`null` without `ZERNIO_API_KEY`, so nothing
+  changes in environments that do not run WhatsApp) + three routes:
+  `POST /api/zernio/webhook` (signed), `GET /api/whatsapp/status` (admin),
+  `POST /api/whatsapp/followups/evaluate` (admin, dry run, sends nothing).
+  The webhook MUST stay at `/api/zernio/webhook`: the generic
+  `app.post('/api/webhook/:provider')` is registered earlier and shadows it.
+- Resolver priority: explicit > persisted > confident detection > campaign >
+  English. Content-free messages (yes/no/ok/emoji/numbers) NEVER change the
+  language; below `WHATSAPP_LANGUAGE_CONFIDENCE_THRESHOLD` (0.6) the customer is
+  asked (1 English / 2 Portugues) instead of being switched. Ambiguous first
+  contact is NOT persisted; the English fallback sequence is enrolled so the
+  6h/1d/3d funnel is not lost.
+- Persistence: `arbitrix_language`, `_language_source`, `_language_confirmed`,
+  `_language_prompt_at`, `_opt_out`, `_human_handoff`, `_registered`,
+  `_deposited`, `_welcomed`, `_sequence_language`, `_followup_6h|1d|3d`.
+- Templates: `arbitrix_welcome[_pt_br]`, `arbitrix_followup_6h[_pt_br]`,
+  `_1d`, `_3d`; category MARKETING; Meta locale `en` / `pt_BR`. Bodies contain
+  NO variables (the personalised `{{1}}` is only for the free-form in-window
+  reply), so there is no variableMapping to get wrong. Only `APPROVED` may be
+  sent (`assertSendableTemplate`); provisioning is idempotent and never edits or
+  deletes an existing template.
+- The setup script creates sequences as DRAFT and only activates them with
+  `--activate-sequences`, which refuses unless every template for that language
+  is APPROVED. It never sends a message and never prints a key or a secret.
+- Human takeover: a human request, `message.sent` with `sentVia:"human"`, or
+  `conversation.control_changed` (owner != app) sets `arbitrix_human_handoff`
+  and unenrolls; returning control clears it and keeps the language.
+- Webhook: hex HMAC-SHA256 of `req.rawBody` (`X-Zernio-Signature`, timing-safe),
+  dedupe on `X-Zernio-Event-Id` (released when processing failed so a retry is
+  processed), 503 on a missing secret, 401 on a bad signature, 200 on a
+  duplicate/disabled event, 500 when the reply was not delivered. Every reply
+  carries `Idempotency-Key: wa_<eventId>_<suffix>`.
+- COPY POLICY: no guaranteed profit / risk-free claim; $100 minimum deposit,
+  $50 promotional credit with eligibility/withdrawal conditions, one-time 20%
+  referral reward on a qualifying initial deposit of at least $100 with no
+  recurring commission, simulated demo funds, multi-asset (not crypto-only).
+- Tests: NEW `tests/whatsapp_multilingual.test.js` (71),
+  `tests/whatsapp_webhook_e2e.test.js` (7, boots the real server with a fake
+  Zernio transport), `tests/zernio_setup_script.test.js` (5) plus
+  `tests/helpers/fake-zernio-preload.js`. `npm test` = 3257 pass / 0 fail
+  (the pre-existing `conversion_events` timing flake passed on this run; it is
+  unrelated and documented above).
+- NOT enabled: `WHATSAPP_AUTOMATION_ENABLED` is unset and no Zernio credential
+  is deployed. Templates still need Meta approval and sequences activation.

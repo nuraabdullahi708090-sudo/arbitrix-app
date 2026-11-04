@@ -101,6 +101,15 @@ const {
   resolveTranslationConfig
 } = require('./services/support/SupportTranslator');
 
+// Zernio WhatsApp automation (en / pt-BR, future es). Fully optional: with no
+// ZERNIO_API_KEY the factory returns null and the server behaves exactly as
+// before. No database of its own - the language preference lives on the Zernio
+// contact, and the existing 6h/1d/3d follow-up timing is preserved.
+const {
+  createWhatsAppIntegrationSafely,
+  describeWhatsAppConfig
+} = require('./services/whatsapp');
+
 // Feature flag cache (refreshes every 5 minutes)
 let featureFlagCache = {
     '2fa_type': 'email' // Default to email 2FA
@@ -4979,6 +4988,91 @@ console.log('[Telegram] Marketing publisher: '
   + '; the queue is also gated by telegram_marketing_control (paused + dry_run)');
 
 app.post('/api/telegram/webhook', createTelegramWebhookHandler({ bot: telegramBot }));
+
+// ============================================
+// ZERNIO WHATSAPP AUTOMATION (en / pt-BR)
+// ============================================
+// The webhook path is /api/zernio/webhook on purpose: the generic
+// app.post('/api/webhook/:provider') above shadows every /api/webhook/* path, so
+// a WhatsApp webhook under /api/webhook/zernio would never be reached.
+//
+// Security:
+//  - X-Zernio-Signature is the hex HMAC-SHA256 of the RAW body (req.rawBody,
+//    captured by the global express.json verify hook). Compared with
+//    timingSafeEqual BEFORE parsing or acting.
+//  - X-Zernio-Event-Id is the dedupe key, stable across retries.
+//  - An unconfigured secret answers 503 (fail closed), never 200.
+//  - A processing failure answers 500 so Zernio retries; the dedupe key is
+//    released, so the retry is processed rather than swallowed.
+//  - The API key and the webhook secret are never logged or returned.
+const whatsappIntegration = createWhatsAppIntegrationSafely({ logger: console });
+if (whatsappIntegration) {
+  const describe = whatsappIntegration.describe();
+  console.log(
+    `[WhatsApp] Zernio integration ready; automation=${describe.enabled ? 'enabled' : 'DISABLED'}`
+    + `; languages=${describe.languages.map((entry) => entry.code).join(', ')}`
+    + `; webhookSecret=${describe.webhookSecretConfigured ? 'configured' : 'NOT CONFIGURED'}`
+  );
+}
+
+app.post('/api/zernio/webhook', async (req, res) => {
+  if (!whatsappIntegration) {
+    return res.status(503).json({ ok: false, error: 'not_configured' });
+  }
+  try {
+    const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}), 'utf8');
+    const result = await whatsappIntegration.webhook.handle({
+      headers: req.headers,
+      rawBody,
+      body: req.body || {}
+    });
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    // The handler already converts expected failures into a status; this is the
+    // last line of defence so a webhook can never crash the process.
+    console.error('[WhatsApp] Webhook handler threw', { code: error && error.code });
+    res.status(500).json({ ok: false, error: 'processing_failed' });
+  }
+});
+
+// Read-only operational status (admin). Never returns a key, a secret, a phone
+// number or a message body.
+app.get('/api/whatsapp/status', authMiddleware, adminMiddleware, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const description = whatsappIntegration ? whatsappIntegration.describe() : describeWhatsAppConfig();
+  res.json({
+    configured: Boolean(whatsappIntegration),
+    ...description,
+    stats: whatsappIntegration ? whatsappIntegration.automation.stats : null
+  });
+});
+
+// Dry-run follow-up decision for one contact. Sends NOTHING; it exists so an
+// operator can confirm why a scheduled step would or would not go out.
+app.post('/api/whatsapp/followups/evaluate', authMiddleware, adminMiddleware, async (req, res) => {
+  if (!whatsappIntegration) {
+    return res.status(503).json({ error: 'not_configured' });
+  }
+  const body = req.body || {};
+  const contactId = body.contactId ? String(body.contactId).trim() : '';
+  const stage = body.stage ? String(body.stage).trim() : '';
+  if (!contactId || !stage) {
+    return res.status(400).json({ error: 'contactId and stage are required' });
+  }
+  try {
+    const decision = await whatsappIntegration.automation.decideFollowUp({
+      contactId,
+      stage,
+      enrolledAt: body.enrolledAt === undefined ? null : Number(body.enrolledAt),
+      lastInboundAt: body.lastInboundAt === undefined ? null : Number(body.lastInboundAt)
+    });
+    res.set('Cache-Control', 'no-store');
+    res.json(decision);
+  } catch (error) {
+    console.error('[WhatsApp] Follow-up evaluation failed', { code: error && error.code });
+    res.status(500).json({ error: 'evaluation_failed' });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Telegram account linking (Phase 1)
