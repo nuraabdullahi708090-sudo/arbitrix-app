@@ -8867,10 +8867,10 @@ was created and no Telegram write call was executed in this pass.
   $50 promotional credit with eligibility/withdrawal conditions, one-time 20%
   referral reward on a qualifying initial deposit of at least $100 with no
   recurring commission, simulated demo funds, multi-asset (not crypto-only).
-- Tests: NEW `tests/whatsapp_multilingual.test.js` (71),
+- Tests: NEW `tests/whatsapp_multilingual.test.js` (72),
   `tests/whatsapp_webhook_e2e.test.js` (7, boots the real server with a fake
   Zernio transport), `tests/zernio_setup_script.test.js` (5) plus
-  `tests/helpers/fake-zernio-preload.js`. `npm test` = 3257 pass / 0 fail
+  `tests/helpers/fake-zernio-preload.js`. `npm test` = 3260 pass / 0 fail
   (the pre-existing `conversion_events` timing flake passed on this run; it is
   unrelated and documented above).
 - NOT enabled: `WHATSAPP_AUTOMATION_ENABLED` is unset and no Zernio credential

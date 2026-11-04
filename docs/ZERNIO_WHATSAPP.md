@@ -218,7 +218,7 @@ to `true` only when this integration replaces that welcome.
 ## 11. Tests
 
 ```
-node --test tests/whatsapp_multilingual.test.js      # 71 tests, no network
+node --test tests/whatsapp_multilingual.test.js      # 72 tests, no network
 node --test tests/whatsapp_webhook_e2e.test.js       # real server + fake Zernio
 node --test tests/zernio_setup_script.test.js        # provisioning safety
 ```
