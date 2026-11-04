@@ -43,6 +43,7 @@ function describeWhatsAppConfig(overrides) {
     plannedLanguages: Object.keys(LANGUAGES).filter((code) => !LANGUAGES[code].active),
     confidenceThreshold: config.confidenceThreshold,
     campaignLanguage: config.campaignLanguage || null,
+    sendWelcome: config.sendWelcome !== false,
     promptTtlHours: Math.round(config.promptTtlMs / (60 * 60 * 1000)),
     sequences: Object.keys(config.sequenceIds || {}).reduce((accumulator, language) => {
       accumulator[language] = Boolean(config.sequenceIds[language]);

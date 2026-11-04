@@ -637,6 +637,17 @@ test('first contact in Brazilian Portuguese receives the Portuguese welcome and 
   assert.deepStrictEqual(client.enrollments.map((entry) => entry.sequenceId), ['seq-pt']);
 });
 
+test('the welcome can be disabled when the existing Zernio automation already sends one', async () => {
+  const { client, automation } = buildHarness({ config: { sendWelcome: false } });
+  const result = await automation.handleInbound(inbound({ text: 'Hello, I need help with my account' }));
+
+  assert.strictEqual(result.action, 'answered');
+  assert.strictEqual(client.messages.length, 1);
+  assert.ok(!/welcome to Arbitrix/i.test(client.messages[0].message));
+  assert.match(client.messages[0].message, /help/i);
+  assert.strictEqual(client.contacts.get('contact-1').customFields[FIELDS.language.slug], 'en');
+});
+
 test('returning English contact keeps receiving English', async () => {
   const { client, automation } = buildHarness({
     seed: {

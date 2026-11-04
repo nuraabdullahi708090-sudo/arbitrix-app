@@ -152,7 +152,13 @@ BASE_URL=https://arbitrix.pro
 
 Optional: `ZERNIO_BASE_URL` (default `https://zernio.com/api`),
 `ZERNIO_TIMEOUT_MS`, `WHATSAPP_LANGUAGE_CONFIDENCE_THRESHOLD`,
-`WHATSAPP_CAMPAIGN_LANGUAGE`, `WHATSAPP_LANGUAGE_PROMPT_TTL_HOURS`.
+`WHATSAPP_CAMPAIGN_LANGUAGE`, `WHATSAPP_LANGUAGE_PROMPT_TTL_HOURS`,
+`WHATSAPP_SEND_WELCOME`.
+
+`WHATSAPP_SEND_WELCOME=false` is the setting to use while the EXISTING Zernio
+automation still sends the immediate welcome. The first inbound message is then
+answered (and the language stored) instead of producing a second welcome. Set it
+to `true` only when this integration replaces that welcome.
 
 ## 8. Deployment procedure
 

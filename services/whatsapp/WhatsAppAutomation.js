@@ -65,6 +65,12 @@ function resolveAutomationConfig(overrides) {
     campaignLanguage: input.campaignLanguage !== undefined
       ? input.campaignLanguage
       : env.WHATSAPP_CAMPAIGN_LANGUAGE || '',
+    // The EXISTING Zernio automation already sends an immediate welcome. When
+    // it is kept, set WHATSAPP_SEND_WELCOME=false so the first inbound message
+    // is answered instead of producing a second welcome.
+    sendWelcome: input.sendWelcome !== undefined
+      ? Boolean(input.sendWelcome)
+      : envBoolean(env.WHATSAPP_SEND_WELCOME, true),
     promptTtlMs: input.promptTtlMs !== undefined
       ? input.promptTtlMs
       : (Number.isFinite(promptHours) && promptHours > 0 ? promptHours : 168) * 60 * 60 * 1000,
@@ -306,6 +312,10 @@ function createWhatsAppAutomation(options) {
 
     const persisted = prefs.language;
     const campaignLanguage = prefs.campaignLanguage || config.campaignLanguage || null;
+    // Duplicate-message guard: the app only sends its own welcome when that is
+    // enabled. Otherwise `alreadyWelcomed` is true so the first message is
+    // answered by the intent handler and no second welcome is produced.
+    const alreadyWelcomed = prefs.welcomed || config.sendWelcome === false;
 
     function resolveFor(input) {
       return resolveLanguage({
@@ -384,7 +394,7 @@ function createWhatsAppAutomation(options) {
     if (numeric && isActiveLanguage(numeric)) {
       await persist(numeric, 'explicit', true);
       stats.languageSelections += 1;
-      const welcomed = prefs.welcomed;
+      const welcomed = alreadyWelcomed;
       const delivered = await sendText({
         accountId,
         conversationId,
@@ -423,7 +433,7 @@ function createWhatsAppAutomation(options) {
       stats.languageSelections += 1;
 
       let delivered;
-      if (!prefs.welcomed) {
+      if (!alreadyWelcomed) {
         delivered = await sendText({
           accountId,
           conversationId,
@@ -511,7 +521,7 @@ function createWhatsAppAutomation(options) {
     }
 
     // 10. First welcome ----------------------------------------------------
-    if (!prefs.welcomed) {
+    if (!alreadyWelcomed) {
       const delivered = await sendText({
         accountId,
         conversationId,
