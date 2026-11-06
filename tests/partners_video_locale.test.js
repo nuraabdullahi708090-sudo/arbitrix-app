@@ -36,7 +36,7 @@ const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 89;
+const EXPECTED_KEYS = 88;
 
 const VIDEO_BASE = '/video/';
 const EN_VIDEO = '/video/arbitrix-partner-payout-demo.mp4';
@@ -430,8 +430,8 @@ test('10b. the recruitment support handle is Alex alone', () => {
     assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 0,
         'Olivia is a payment partner and must not appear on the recruitment page');
     assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must never return');
-    assert.strictEqual((PAGE.match(/t\.me\/\+CF9kWr61sqs1MTY0/g) || []).length, 3,
-        'the approved community invite is the only group link, on the three primary CTAs');
-    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 4,
-        'three community CTAs plus the single programmatic partner-handle builder');
+    assert.strictEqual((PAGE.match(/t\.me\/\+CF9kWr61sqs1MTY0/g) || []).length, 0,
+        'the Telegram community CTA must not appear on the page');
+    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
+        'only the single programmatic partner-handle builder may construct a t.me URL');
 });
