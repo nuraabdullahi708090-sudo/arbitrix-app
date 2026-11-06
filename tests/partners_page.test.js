@@ -45,7 +45,7 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 88;
+const EXPECTED_KEYS = 87;
 
 // The application destination every primary CTA uses: the EXISTING account
 // creation deep link. No bespoke registration and no external redirect.
@@ -279,14 +279,14 @@ test('3. the primary CTA applies to become a partner via the existing signup lin
         assert.ok(!/target="_blank"/.test(a), 'the application CTA must stay in the same tab: ' + a);
         assert.ok(!/js-community-cta/.test(a), 'the Telegram community CTA must be gone: ' + a);
     });
-    // Original labels: the topbar and hero read "Apply to Become a Partner" from the
-    // original partners.cta.apply key; the final CTA reads "Apply Now".
-    assert.strictEqual((PAGE.match(/data-i18n="partners\.cta\.apply"/g) || []).length, 2,
-        'the topbar and hero CTAs use the original apply key');
-    assert.strictEqual(PAGE.split('<span data-i18n="partners.cta.applyNow">Apply Now</span>').length - 1, 1,
-        'the final CTA must read "Apply Now"');
+    // Original label everywhere: all three CTAs use the original partners.cta.apply
+    // key and read "Apply to Become a Partner" (the exact pre-#164 implementation).
+    assert.strictEqual((PAGE.match(/data-i18n="partners\.cta\.apply"/g) || []).length, 3,
+        'all three CTAs use the original apply key');
+    assert.strictEqual(PAGE.split('<span data-i18n="partners.cta.apply">Apply to Become a Partner</span>').length - 1, 2,
+        'the hero and final CTAs read "Apply to Become a Partner"');
     assert.strictEqual(T.en['partners.cta.apply'], 'Apply to Become a Partner');
-    assert.strictEqual(T.en['partners.cta.applyNow'], 'Apply Now');
+    assert.strictEqual(PAGE.indexOf('partners.cta.applyNow'), -1, 'the superseded key must be gone');
     // The retired Telegram-community CTA and its supporting copy are gone.
     assert.ok(!/js-community-cta/.test(PAGE), 'no community CTA may remain');
     assert.ok(!/partners\.cta\.joinCommunity/.test(PAGE), 'the community key must be retired');

@@ -2,20 +2,22 @@
  * Referral partner landing page (/partners) - application CTA.
  *
  * PR #164 replaced the application CTA with a Telegram-community CTA. This suite
- * pins the restored behaviour: every primary CTA on the page applies to become a
- * partner through the EXISTING account-creation deep link, and the Telegram
- * community button is gone from the page.
+ * pins the historical behaviour that was restored afterwards: all three primary
+ * CTAs (topbar + hero + final block) apply to become a partner through the
+ * EXISTING account-creation deep link, under the original partners.cta.apply key.
  *
  * What this suite pins:
- *   1. the exact destination on all three primary CTAs (topbar + hero + final)
- *   2. the exact CTA text ("Apply to Become a Partner" / final "Apply Now")
- *   3. the original translation key partners.cta.apply, restored in all six locales
+ *   1. the exact destination on all three primary CTAs, with no invisible
+ *      characters (zero-width spaces, joiners, NBSP, BOM, control codes)
+ *   2. the exact text - "Apply to Become a Partner" in every placement
+ *   3. the original translation key partners.cta.apply, present in all six locales
  *   4. a real language switch re-renders the CTA (runtime, not just the dictionary)
- *   5. the Telegram-community CTA and its supporting copy are fully removed
- *   6. the page carries no external anchor and keeps Sign In / how-it-works / demo
- *   7. the partner-funnel attribution markers are still armed by a CTA click
- *   8. no primary CTA is hidden or clipped by CSS
- *   9. referral/commission rules and the registration flow are untouched
+ *   5. the superseded partners.cta.applyNow key is gone
+ *   6. the Telegram-community CTA and its supporting copy are gone
+ *   7. the page carries no external anchor and keeps Sign In / how-it-works / demo
+ *   8. the partner-funnel attribution markers are still armed by a CTA click
+ *   9. no primary CTA is hidden or clipped by CSS
+ *  10. referral/commission rules and the registration flow are untouched
  */
 
 'use strict';
@@ -33,10 +35,9 @@ const PAGE = read('public/partners.html');
 const INDEX = read('public/index.html');
 const SERVER = read('server.js');
 
-// The ORIGINAL application destination, unchanged since the page was created.
+// The ORIGINAL application destination and label, unchanged since the page existed.
 const APPLY_URL = '/?action=create-account&src=partners';
 const APPLY_LABEL = 'Apply to Become a Partner';
-const APPLY_NOW_LABEL = 'Apply Now';
 const RETIRED_COMMUNITY_URL = 'https://t.me/+CF9kWr61sqs1MTY0';
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 
@@ -51,6 +52,21 @@ function externalAnchors(html) {
     }
     return out;
 }
+
+/** Anchor destinations exactly as written in the markup. */
+function anchorHrefs(html) {
+    const out = [];
+    const re = /<a\b[^>]*\bhref\s*=\s*"([^"]*)"/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) out.push(m[1]);
+    return out;
+}
+
+/**
+ * Characters that must never appear inside a destination: C0/C1 controls, plus
+ * the invisible/format code points that can hide inside a URL.
+ */
+const INVISIBLE = /[\u0000-\u001F\u007F-\u009F\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/;
 
 /** The page's inline translation dictionary, evaluated from the real source. */
 function loadTranslations() {
@@ -79,16 +95,14 @@ function extractScript(html) {
 }
 
 /**
- * Run the REAL inline script against a fake DOM whose two CTA nodes are the
+ * Run the REAL inline script against a fake DOM whose three CTA nodes are the
  * elements applyTranslations() would rewrite, then read them back.
  */
 function renderCta(lang) {
-    const nodes = [
-        { key: 'partners.cta.apply', innerHTML: APPLY_LABEL },
-        { key: 'partners.cta.applyNow', innerHTML: APPLY_NOW_LABEL }
-    ];
+    const nodes = [0, 1, 2].map(() => ({ key: 'partners.cta.apply', innerHTML: APPLY_LABEL }));
     const sandbox = {};
-    sandbox.navigator = { languages: [lang === 'en' ? 'en-US' : lang], language: lang === 'en' ? 'en-US' : lang };
+    const browserLang = lang === 'en' ? 'en-US' : lang;
+    sandbox.navigator = { languages: [browserLang], language: browserLang };
     sandbox.localStorage = { getItem: () => lang, setItem: () => {} };
     sandbox.sessionStorage = { setItem: () => {} };
     sandbox.console = { log: () => {}, error: () => {}, warn: () => {} };
@@ -109,7 +123,7 @@ function renderCta(lang) {
     sandbox.window = sandbox;
     vm.createContext(sandbox);
     vm.runInContext(extractScript(PAGE) + ';globalThis.__lang = currentLang;', sandbox);
-    return { lang: sandbox.__lang, apply: nodes[0].innerHTML, applyNow: nodes[1].innerHTML };
+    return { lang: sandbox.__lang, labels: nodes.map((n) => n.innerHTML) };
 }
 
 /* ==================================================================== *
@@ -119,8 +133,13 @@ test('1. all three primary CTAs use the existing account-creation deep link', ()
     const ctas = PAGE.match(/<a class="btn btn-primary js-apply-cta"[^>]*>/g) || [];
     assert.strictEqual(ctas.length, 3, 'topbar + hero + final CTA');
     ctas.forEach((a) => {
-        assert.ok(a.indexOf('href="' + APPLY_URL + '"') !== -1,
-            'exact application destination expected: ' + a);
+        const href = /href="([^"]*)"/.exec(a);
+        assert.ok(href, 'every primary CTA needs an href: ' + a);
+        assert.strictEqual(href[1], APPLY_URL, 'exact application destination expected: ' + a);
+        assert.ok(!INVISIBLE.test(href[1]),
+            'the destination must not carry zero-width/invisible characters: ' + a);
+        assert.strictEqual(href[1].length, APPLY_URL.length,
+            'the destination must match byte-for-byte: ' + a);
         assert.ok(!/target="_blank"/.test(a), 'the application CTA must stay in the same tab');
         assert.ok(!/rel="noopener/.test(a), 'no external-link rel is needed for an in-app destination');
         assert.ok(!/js-community-cta/.test(a), 'the community CTA class must be gone');
@@ -130,69 +149,90 @@ test('1. all three primary CTAs use the existing account-creation deep link', ()
     assert.match(SERVER, /app\.get\(\['\/partners', '\/partners\/'\]/, 'the /partners route must still exist');
 });
 
+test('1b. no anchor destination on the page hides an invisible character', () => {
+    const hrefs = anchorHrefs(PAGE);
+    assert.ok(hrefs.length > 0, 'the page must carry anchors');
+    hrefs.forEach((h) => {
+        assert.ok(!INVISIBLE.test(h), 'invisible character in href: ' + JSON.stringify(h));
+        assert.strictEqual(h, h.trim(), 'no leading/trailing whitespace in href: ' + JSON.stringify(h));
+    });
+    // The application destination appears exactly three times, identically.
+    const applies = hrefs.filter((h) => h.indexOf('action=create-account') !== -1);
+    assert.strictEqual(applies.length, 3, 'three application links');
+    assert.strictEqual(new Set(applies).size, 1, 'all three application links are identical');
+    assert.strictEqual(applies[0], APPLY_URL);
+});
+
 /* ==================================================================== *
  * 2. Text
  * ==================================================================== */
-test('2. the CTA text is "Apply to Become a Partner" and the final CTA is "Apply Now"', () => {
+test('2. every primary CTA reads "Apply to Become a Partner"', () => {
+    // All three CTAs are driven by the one original key.
+    assert.strictEqual((PAGE.match(/data-i18n="partners\.cta\.apply"/g) || []).length, 3,
+        'all three CTAs use the original apply key');
+    // The hero and final CTAs wrap their label in a span; the topbar labels the anchor.
     assert.strictEqual(
-        (PAGE.match(/data-i18n="partners\.cta\.apply"/g) || []).length, 2,
-        'the topbar and hero CTAs use the original key');
-    assert.strictEqual(PAGE.split('<span data-i18n="partners.cta.apply">' + APPLY_LABEL + '</span>').length - 1, 1,
-        'the hero CTA carries the original label');
-    assert.strictEqual(PAGE.split('>' + APPLY_LABEL + '</a>').length - 1, 1,
-        'the topbar CTA carries the original label as its visible text');
-    assert.strictEqual(PAGE.split('<span data-i18n="partners.cta.applyNow">' + APPLY_NOW_LABEL + '</span>').length - 1, 1,
-        'the final CTA reads "Apply Now"');
+        PAGE.split('<span data-i18n="partners.cta.apply">' + APPLY_LABEL + '</span>').length - 1, 2,
+        'the hero and final CTAs carry the label in a span');
+    assert.strictEqual(PAGE.split('data-i18n="partners.cta.apply">' + APPLY_LABEL + '</a>').length - 1, 1,
+        'the topbar CTA carries the label as its visible text');
     assert.strictEqual(T.en['partners.cta.apply'], APPLY_LABEL);
-    assert.strictEqual(T.en['partners.cta.applyNow'], APPLY_NOW_LABEL);
 });
 
 /* ==================================================================== *
  * 3. Translations
  * ==================================================================== */
-test('3. both CTA keys exist in all six locales and are translated', () => {
+test('3. partners.cta.apply exists in all six locales and is translated', () => {
     assert.deepStrictEqual(Object.keys(T).sort(), LANGS.slice().sort(), 'the six locales must exist');
 
     const keySets = LANGS.map((l) => Object.keys(T[l]).sort().join('|'));
     assert.strictEqual(new Set(keySets).size, 1, 'identical key sets across locales');
 
     LANGS.forEach((lang) => {
-        ['partners.cta.apply', 'partners.cta.applyNow'].forEach((key) => {
-            const value = T[lang][key];
-            assert.ok(typeof value === 'string' && value.trim(), lang + ' needs ' + key);
-            if (lang !== 'en') {
-                assert.notStrictEqual(value, T.en[key], lang + '/' + key + ' must be translated');
-            }
-        });
+        const value = T[lang]['partners.cta.apply'];
+        assert.ok(typeof value === 'string' && value.trim(), lang + ' needs partners.cta.apply');
+        if (lang !== 'en') {
+            assert.notStrictEqual(value, T.en['partners.cta.apply'],
+                lang + ' must translate the CTA');
+        }
         assert.ok(Object.keys(T[lang]).every((k) => k.indexOf('partners.') === 0),
             lang + ' may only carry partners.* keys');
     });
 
     assert.ok(/[\u0600-\u06FF]/.test(T.ar['partners.cta.apply']), 'Arabic CTA must be in Arabic script');
-    assert.ok(/[\u0600-\u06FF]/.test(T.ar['partners.cta.applyNow']), 'Arabic final CTA must be in Arabic script');
     assert.ok(/[\u4e00-\u9FFF]/.test(T.zh['partners.cta.apply']), 'Chinese CTA must be in Chinese script');
-    assert.ok(/[\u4e00-\u9FFF]/.test(T.zh['partners.cta.applyNow']), 'Chinese final CTA must be in Chinese script');
 });
 
-test('4. a real language switch re-renders the CTA text', () => {
+test('4. a real language switch re-renders every CTA text', () => {
     LANGS.forEach((lang) => {
         const out = renderCta(lang);
         assert.strictEqual(out.lang, lang, 'currentLang must resolve to ' + lang);
-        assert.strictEqual(out.apply, T[lang]['partners.cta.apply'],
-            lang + ' must render its own apply label');
-        assert.strictEqual(out.applyNow, T[lang]['partners.cta.applyNow'],
-            lang + ' must render its own final label');
+        assert.strictEqual(out.labels.length, 3, 'three CTAs are rendered');
+        out.labels.forEach((label, i) => assert.strictEqual(label, T[lang]['partners.cta.apply'],
+            lang + ' CTA ' + (i + 1) + ' must render its own apply label'));
     });
     // An unsupported stored language falls back to English.
     const fallback = renderCta('de');
     assert.strictEqual(fallback.lang, 'en', 'an unsupported language must fall back to English');
-    assert.strictEqual(fallback.apply, APPLY_LABEL);
+    assert.deepStrictEqual(fallback.labels, [APPLY_LABEL, APPLY_LABEL, APPLY_LABEL]);
 });
 
 /* ==================================================================== *
- * 4. The Telegram community CTA is gone
+ * 4. Superseded / retired keys and CTAs
  * ==================================================================== */
-test('5. the Telegram-community CTA and its supporting copy are removed', () => {
+test('5. the superseded partners.cta.applyNow key is fully removed', () => {
+    assert.strictEqual(PAGE.indexOf('partners.cta.applyNow'), -1, 'the key must not remain in the page');
+    assert.strictEqual(PAGE.indexOf('Apply Now'), -1, 'the "Apply Now" label must not remain');
+    LANGS.forEach((lang) => {
+        assert.strictEqual(T[lang]['partners.cta.applyNow'], undefined,
+            lang + ' must not define partners.cta.applyNow');
+    });
+    // Every locale carries exactly the same key set, so the removal is symmetric.
+    const counts = new Set(LANGS.map((l) => Object.keys(T[l]).length));
+    assert.strictEqual(counts.size, 1, 'all locales keep the same key count');
+});
+
+test('6. the Telegram-community CTA and its supporting copy are removed', () => {
     assert.strictEqual(PAGE.indexOf('js-community-cta'), -1, 'no community CTA class may remain');
     assert.strictEqual(PAGE.indexOf(RETIRED_COMMUNITY_URL), -1, 'the group invite must not remain');
     assert.strictEqual(PAGE.indexOf('data-partner-entry'), -1, 'the community entry marker must be gone');
@@ -215,7 +255,7 @@ test('5. the Telegram-community CTA and its supporting copy are removed', () => 
 /* ==================================================================== *
  * 5. Everything else is preserved
  * ==================================================================== */
-test('6. the page carries no external anchor and keeps the secondary CTAs', () => {
+test('7. the page carries no external anchor and keeps the secondary CTAs', () => {
     assert.deepStrictEqual(externalAnchors(PAGE), [],
         'every CTA is the existing in-app deep link');
 
@@ -231,7 +271,7 @@ test('6. the page carries no external anchor and keeps the secondary CTAs', () =
     assert.match(PAGE, /arbitrix-partner-support-telegram/, 'the support meta must remain');
 });
 
-test('7. the partner-funnel attribution markers are still armed by a CTA click', () => {
+test('8. the partner-funnel attribution markers are still armed by a CTA click', () => {
     const from = PAGE.indexOf('function markPartnerEntry()');
     assert.ok(from !== -1, 'the attribution helper must remain');
     const src = PAGE.slice(from, PAGE.indexOf('applyTranslations();', from));
@@ -276,7 +316,7 @@ test('7. the partner-funnel attribution markers are still armed by a CTA click',
 /* ==================================================================== *
  * 6. Layout + business rules untouched
  * ==================================================================== */
-test('8. no primary CTA is hidden, clipped or pinned to an external layout', () => {
+test('9. no primary CTA is hidden, clipped or pinned to an external layout', () => {
     assert.ok(!/\.js-apply-cta[^{]*\{[^}]*display:\s*none/.test(PAGE),
         'the primary CTA must never be hidden by CSS');
     assert.ok(!/\.btn-primary[^{]*\{[^}]*visibility:\s*hidden/.test(PAGE),
@@ -287,7 +327,7 @@ test('8. no primary CTA is hidden, clipped or pinned to an external layout', () 
         'the CTA rows still wrap on small screens');
 });
 
-test('9. the referral/commission terms and the registration flow are unchanged', () => {
+test('10. the referral/commission terms and the registration flow are unchanged', () => {
     // Published business rules (one-time 20% of the first $100+ deposit).
     assert.match(PAGE, /20% of their first qualifying deposit of \$100 or more/,
         'the reward statement must stay exact');
