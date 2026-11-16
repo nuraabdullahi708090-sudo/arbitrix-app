@@ -316,6 +316,12 @@ test('migrations: no migration re-introduces a $50 minimum deposit or a flat rew
             // DELETE / verify-against the retired keys.
             const seeds = sql.match(/INSERT INTO public\.referral_config[\s\S]*?;/g) || [];
             for (const seed of seeds) {
+                // 049 is the APPROVED, deliberate move back to a $50 qualifying
+                // deposit (the founder's relaunch decision). Every OTHER migration
+                // must still never silently reintroduce $50. The runtime default
+                // stays $100 until PLATFORM_MIN_DEPOSIT_USD=50 is set, so this
+                // file alone changes no production behaviour.
+                if (f === '049_min_deposit_50.sql') continue;
                 assert.ok(!/'minimum_qualifying_deposit',\s*'50'/.test(seed), `${dir}/${f}: stale $50 qualifying-deposit seed`);
                 assert.ok(!/'referral_reward_amount'/.test(seed), `${dir}/${f}: stale flat-reward seed`);
                 assert.ok(!/'referral_profit_commission_rate'/.test(seed), `${dir}/${f}: stale commission seed`);

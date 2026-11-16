@@ -193,7 +193,12 @@ test('the minimum-withdrawal amount is disclosed ONLY by the withdraw pop-up key
             assert.ok(!/700/.test(T[l][k]), l + '/' + k + ' must not hardcode the amount');
         });
         // Nothing else may carry the figure or the interpolation.
-        const leaking = Object.keys(T[l]).filter((k) => !POPUP.includes(k)
+        // `live.withdrawStatus.notDeposited` states the DEPOSIT minimum ("make a
+        // minimum deposit of $X to enable withdrawals"), which is a different
+        // number from the withdrawal minimum and must follow PLATFORM_MIN_DEPOSIT.
+        // It is therefore excluded from the withdrawal-minimum leak check.
+        const DEPOSIT_MIN_KEYS = ['live.withdrawStatus.notDeposited', 'deposit.min100'];
+        const leaking = Object.keys(T[l]).filter((k) => !POPUP.includes(k) && !DEPOSIT_MIN_KEYS.includes(k)
             && (/\$\{\{min\}\}/.test(T[l][k]) && /withdraw|retir|saque|سحب|提现/i.test(T[l][k])));
         assert.deepStrictEqual(leaking, [], l + ' leaks the minimum: ' + leaking.join(','));
     });
@@ -215,7 +220,7 @@ test('the neutral sidebar prompt quotes no threshold and needs no interpolation'
  * ------------------------------------------------------------------ */
 test('the neutral key is localized in all 6 locales (no interpolation needed)', () => {
     assert.strictEqual(new Set(LANGS.map((l) => Object.keys(T[l]).sort().join('|'))).size, 1, 'identical key sets');
-    assert.strictEqual(Object.keys(T.en).length, 1605, 'dictionary size pinned');
+    assert.strictEqual(Object.keys(T.en).length, 1616, 'dictionary size pinned');
     assert.strictEqual(T.en[NEUTRAL_KEY], '\u{1F4C8} Keep trading to grow your eligible balance');
     LANGS.forEach((l) => {
         assert.ok(typeof T[l][NEUTRAL_KEY] === 'string' && T[l][NEUTRAL_KEY].trim(), l + ' must define the key');

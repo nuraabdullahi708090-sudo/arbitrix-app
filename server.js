@@ -67,6 +67,17 @@ const {
 } = require('./services/MarketingOnboarding');
 const { checkContent } = require('./services/ContentGuard');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
+// BRAND: single source of the customer-visible product name (see services/brand.js
+// for the deny-list of identifiers that must never follow a rename).
+const { BRAND, emailSender } = require('./services/brand');
+// Payhip one-time Live Mode activation (Option A). Records verified sales and
+// lets an account claim exactly one entitlement. Moves NO money: funding stays a
+// separate Q8Pay deposit.
+const {
+  resolvePayhipConfig,
+  describePayhipConfig,
+  createPayhipEntitlements
+} = require('./services/PayhipEntitlements');
 // Canonical multi-asset universe (display metadata). SINGLE SOURCE OF TRUTH for
 // the engine draw list; the browser keeps a parity-pinned inline copy.
 const { ENGINE_ASSETS: TRADING_ASSETS } = require('./services/tradingAssets');
@@ -123,7 +134,9 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 // Email configuration (use environment variables in production)
 const EMAIL_CONFIG = {
   apiKey: process.env.RESEND_API_KEY || '',
-  from: process.env.EMAIL_FROM || 'Arbitrix AI <noreply@arbitrix.ai>'
+  // Display name follows BRAND; the ADDRESS stays on the verified mail domain
+  // until its SPF/DKIM records are in place (a separate, approved change).
+  from: process.env.EMAIL_FROM || emailSender()
 };
 
 // ---------- PRODUCTION STARTUP GUARD ----------
@@ -284,6 +297,72 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // service_role bypasses RLS, so this works both before and after RLS is
 // enabled on the remaining tables (later phase).
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// PAYHIP LIVE ACTIVATION (Option A). Inert by default: resolvePayhipConfig()
+// reports usable=false until PAYHIP_ENABLED, PAYHIP_WEBHOOK_TOKEN and at least
+// one PAYHIP_PRODUCTS entry are configured. Activation credits NO capital.
+const PAYHIP_CONFIG = resolvePayhipConfig();
+const payhipEntitlements = createPayhipEntitlements({
+  admin: supabaseAdmin,
+  config: PAYHIP_CONFIG
+});
+
+/**
+ * Is Live Mode unlocked for this account?
+ *
+ * Three ways to be unlocked:
+ *   1. the requirement is switched off (PAYHIP_ACTIVATION_REQUIRED is unset -
+ *      the default, so shipping this code changes behaviour for nobody), or
+ *   2. the account already holds a confirmed deposit - it was trading before the
+ *      activation model existed and is GRANDFATHERED, so a rollout can never lock
+ *      an existing customer out of their own funded account, or
+ *   3. it holds a claimed, paid, unrevoked Payhip activation entitlement.
+ *
+ * Returns { activated, reason, activationRequired, exempt } so callers can report
+ * precisely why. Fails OPEN on an unreadable entitlement store: an infrastructure
+ * blip must never block a funded customer from trading.
+ */
+async function getLiveActivationState(userId) {
+  if (!PAYHIP_CONFIG.activationRequired) {
+    return { activated: true, reason: 'not-required', activationRequired: false, exempt: true };
+  }
+  if (!userId) {
+    return { activated: false, reason: 'not-authenticated', activationRequired: true, exempt: false };
+  }
+  // MARKETING_SANDBOX uses simulated accounts and is exempt by construction.
+  try {
+    const { data: envRow } = await supabaseAdmin
+      .from('users').select('environment').eq('id', userId).single();
+    if (envRow && envRow.environment === ENV_MARKETING_SANDBOX) {
+      return { activated: true, reason: 'sandbox', activationRequired: true, exempt: true };
+    }
+  } catch (e) { /* fall through to the normal checks */ }
+
+  const deposited = await hasConfirmedDeposit(userId).catch(() => null);
+  if (deposited === true) {
+    return { activated: true, reason: 'grandfathered-deposit', activationRequired: true, exempt: true };
+  }
+
+  const held = await payhipEntitlements.hasActivation(userId);
+  if (held === true) {
+    return { activated: true, reason: 'licensed', activationRequired: true, exempt: false };
+  }
+  if (held === null) {
+    // Entitlement store unreadable: fail open rather than strand the customer.
+    return { activated: true, reason: 'unknown-fail-open', activationRequired: true, exempt: true };
+  }
+  return { activated: false, reason: 'activation-required', activationRequired: true, exempt: false };
+}
+
+/** Machine-readable 403 body, shared by every Live Mode gate. */
+const LIVE_ACTIVATION_CODE = 'LIVE_ACTIVATION_REQUIRED';
+function liveActivationBody(extra) {
+  return Object.assign({
+    error: 'Live Mode activation required',
+    code: LIVE_ACTIVATION_CODE,
+    activationRequired: true
+  }, extra || {});
+}
 
 // ============================================
 // TEMPORARY MANAGEMENT TEST - BOT PROFIT PAUSE
@@ -3715,6 +3794,12 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       promoClassificationUnknown: false,
       promoRealizedProfit: 0,
       promoLimitReached: false,
+      // MARKETING_SANDBOX never needs a Payhip activation: the accounts are
+      // simulated and must stay demonstrable without a purchase.
+      activationRequired: false,
+      liveActivated: true,
+      activationReason: 'sandbox',
+      activationPurchasable: false,
     });
   }
   // getUser and getWallet are independent (both keyed by the same user id),
@@ -3744,11 +3829,25 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   const promoCreditFunded = promoFunding === true;
   const promoClassificationUnknown = promoFunding === null;
   const promoProfit = promoCreditFunded ? await getPromoRealizedProfit(user.id).catch(() => 0) : 0;
+  // Payhip Live Mode activation, resolved once for this response. Inert (always
+  // activated) unless the operator turns the requirement on.
+  const _liveActivation = await getLiveActivationState(user.id).catch(() => ({
+    activated: true, reason: 'unknown-fail-open', activationRequired: false, exempt: true
+  }));
   res.json({
     user,
     wallet,
     hasRealDeposit: !!funded,
     todayRealizedPnl: Number(todayPnl) || 0,
+    // Payhip Live Mode activation (server-authoritative; the frontend never
+    // infers it from localStorage). activationRequired is false unless the
+    // operator enables the requirement, and liveActivated is true for funded and
+    // grandfathered accounts.
+    activationRequired: _liveActivation.activationRequired === true,
+    liveActivated: _liveActivation.activated === true,
+    activationReason: _liveActivation.reason,
+    activationPurchasable: !!(PAYHIP_CONFIG.usable && PAYHIP_CONFIG.storeUrl),
+    activationStoreUrl: PAYHIP_CONFIG.usable ? (PAYHIP_CONFIG.storeUrl || '') : '',
     environment: ENV_PRODUCTION,
     // Single runtime source of the platform minimum deposit. The frontend adopts
     // this into APP.MIN_DEPOSIT so the deposit validation, the min-amount notice
@@ -7057,6 +7156,16 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // a missing/unexpected client mode is treated as live-style trading. The
   // balance is read from the server wallet, never from the request.
   const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
+  // PAYHIP ACTIVATION GATE (Live Mode only). Demo Mode stays available to every
+  // registered user. Inert unless PAYHIP_ACTIVATION_REQUIRED is set, and funded
+  // accounts are grandfathered. Runs BEFORE any session write, so a locked
+  // account can never create a running bot row.
+  if (mode === 'live') {
+    const activation = await getLiveActivationState(userId);
+    if (!activation.activated) {
+      return res.status(403).json(liveActivationBody({ reason: activation.reason }));
+    }
+  }
   const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
   // PROMOTIONAL-CREDIT TRADING CAP (production-only): only a user whose
   // non-deposited Live capital IS the $50 promotional credit (authoritative
@@ -7312,6 +7421,14 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
   if (await sandboxHandled(req, res, handleSandboxTrade)) return;
   try {
     const userId = req.user.id;
+    // PAYHIP ACTIVATION GATE. A trade is a Live Mode action, so an unactivated
+    // account cannot trade. Checked before any balance read or ledger write.
+    {
+      const activation = await getLiveActivationState(userId);
+      if (!activation.activated) {
+        return res.status(403).json(liveActivationBody({ reason: activation.reason }));
+      }
+    }
     const { amount, asset, detail, idempotencyKey } = req.body;
 
     if (typeof amount !== 'number' || !isFinite(amount) || amount === 0) {
@@ -11171,6 +11288,213 @@ app.use('/video', (req, res) => {
 // reading the logs while diagnosing an integration (the /video guard above solves
 // the same problem for media). Registered AFTER every API route and BEFORE the
 // fallback, so real endpoints are untouched.
+// ============================================================
+// PAYHIP LIVE ACTIVATION (Option A) - one-time software entitlement
+// ============================================================
+// A Payhip purchase grants an activation entitlement. It credits NO capital:
+// funding remains a separate Q8Pay deposit, and every existing gate (minimum
+// deposit, minimum withdrawal, completed trade, KYC) still applies.
+//
+// TRUST: Payhip's `signature` field has no documented shared secret, so it cannot
+// be verified like an HMAC. The webhook URL therefore carries a secret token
+// (PAYHIP_WEBHOOK_TOKEN), compared in constant time, and the sale is accepted
+// only for an allow-listed product. Optional independent re-verification is
+// available through PAYHIP_VERIFY_URL. A licence key ALONE never activates an
+// account: it must match a recorded, still-paid sale, and only one account can
+// ever claim it (row lock inside redeem_payhip_entitlement_safe).
+//
+// NOTE ON THE PATH: this is /api/payhip/webhook, not /api/webhook/payhip,
+// because the generic app.post('/api/webhook/:provider') registered earlier
+// shadows every /api/webhook/* path.
+app.post('/api/payhip/webhook', async (req, res) => {
+  const provided = String(
+    (req.query && req.query.token) || req.headers['x-payhip-token'] || ''
+  );
+  if (!PAYHIP_CONFIG.usable) {
+    return res.status(503).json({ ok: false, error: 'payhip-not-configured', reason: PAYHIP_CONFIG.reason });
+  }
+  if (!payhipEntitlements.tokenMatches(provided)) {
+    return res.status(401).json({ ok: false, error: 'invalid_token' });
+  }
+  try {
+    const result = await payhipEntitlements.handleWebhook(req.body);
+    console.log('[Payhip] webhook: ' + JSON.stringify({ outcome: result.outcome }));
+    // Always 200 for a processed payload so Payhip stops retrying; a rejected
+    // payload is reported in the body, and never touches a balance.
+    return res.json({ ok: true, outcome: result.outcome });
+  } catch (e) {
+    console.error('[Payhip] webhook error: ' + (e && e.message ? e.message : 'unknown'));
+    return res.status(500).json({ ok: false, error: 'processing_failed' });
+  }
+});
+
+// Customer: is Live Mode unlocked, and how do I unlock it?
+app.get('/api/live/activation', authMiddleware, async (req, res) => {
+  try {
+    const state = await getLiveActivationState(req.user.id);
+    return res.json({
+      success: true,
+      activationRequired: state.activationRequired,
+      activated: state.activated,
+      reason: state.reason,
+      exempt: state.exempt,
+      // Only what the browser needs to render a checkout button. Never a key,
+      // never the webhook token, never a product price invented server-side.
+      purchase: {
+        available: PAYHIP_CONFIG.usable && !!PAYHIP_CONFIG.storeUrl,
+        storeUrl: PAYHIP_CONFIG.storeUrl || null,
+        returnUrl: PAYHIP_CONFIG.checkoutReturnUrl || null
+      }
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'activation_status_unavailable' });
+  }
+});
+
+// Customer: redeem a licence key (the manual path; checkout can also carry the
+// account id so no typing is needed).
+app.post('/api/live/activate', authMiddleware, async (req, res) => {
+  if (!PAYHIP_CONFIG.usable) {
+    return res.status(503).json({
+      success: false,
+      error: 'Activation is not available yet.',
+      code: 'ACTIVATION_UNAVAILABLE'
+    });
+  }
+  const licenceKey = req.body && req.body.licenceKey;
+  if (!licenceKey || typeof licenceKey !== 'string' || !licenceKey.trim()) {
+    return res.status(400).json({ success: false, error: 'Licence key required', code: 'LICENCE_REQUIRED' });
+  }
+  // The account ALWAYS comes from the JWT, never from the body.
+  const result = await payhipEntitlements.redeem(req.user.id, licenceKey);
+  if (result.success) {
+    const state = await getLiveActivationState(req.user.id);
+    return res.json({ success: true, alreadyClaimed: !!result.duplicate, activated: state.activated });
+  }
+  const status = result.reason === 'invalid-licence' ? 404 : 409;
+  const messages = {
+    'invalid-licence': 'That licence key is not valid.',
+    'claimed_by_other_account': 'That licence key has already been redeemed by another account.',
+    'purchase_not_active': 'That purchase is no longer active.',
+    'entitlement_revoked': 'That activation has been revoked.',
+    'not-authenticated': 'Please sign in again.',
+    'unavailable': 'Activation is temporarily unavailable. Please try again.'
+  };
+  return res.status(status).json({
+    success: false,
+    error: messages[result.reason] || 'That licence key could not be redeemed.',
+    code: 'ACTIVATION_FAILED',
+    reason: result.reason
+  });
+});
+
+// ============================================================
+// Q8PAY RECONCILIATION QUEUE (read-only)
+// ============================================================
+// The Q8Pay webhook answers HTTP 200 with {error:'Amount mismatch'} when the
+// confirmed on-chain amount does not match the exact amount the invoice asked
+// for, so Q8Pay stops retrying and the customer's transfer sits in our payout
+// address with no automatic credit. Nothing is credited on a mismatch - that is
+// correct - but the mismatch must become VISIBLE rather than a log line.
+//
+// This route turns the two silent failure modes into an operator queue:
+//   1. an invoice still 'pending' well past its expiry (the customer may have
+//      paid a rounded amount, or paid after expiry);
+//   2. a legacy deposit row marked confirmed but never marked credited.
+// It performs no writes and credits nothing: reconciliation stays a human act.
+app.get('/api/admin/deposits/reconciliation', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const hours = Math.min(Math.max(parseInt(req.query.hours, 10) || 2, 1), 168);
+    const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+
+    const [invoices, deposits] = await Promise.all([
+      supabaseAdmin
+        .from('payment_invoices')
+        .select('id, user_id, amount_usd, amount_crypto, currency, status, credited, created_at, expires_at')
+        .eq('status', 'pending')
+        .lt('created_at', cutoff)
+        .limit(200),
+      supabaseAdmin
+        .from('deposits')
+        .select('id, user_id, amount, status, credited, created_at')
+        .eq('status', 'confirmed')
+        .or('credited.is.null,credited.eq.false')
+        .limit(200)
+    ]);
+
+    const stalePending = (invoices.error ? [] : (invoices.data || [])).map(function (i) {
+      return {
+        id: i.id,
+        userId: i.user_id,
+        amountUsd: Number(i.amount_usd),
+        // The EXACT on-chain amount the customer was asked to send. A mismatch
+        // here is the most likely cause of a "I paid and got nothing" ticket.
+        amountCrypto: i.amount_crypto != null ? Number(i.amount_crypto) : null,
+        currency: i.currency,
+        status: i.status,
+        credited: !!i.credited,
+        createdAt: i.created_at,
+        expiresAt: i.expires_at,
+        ageHours: Math.round((Date.now() - Date.parse(i.created_at)) / 3600000)
+      };
+    });
+
+    const uncreditedConfirmed = (deposits.error ? [] : (deposits.data || [])).map(function (d) {
+      return {
+        id: d.id,
+        userId: d.user_id,
+        amount: Number(d.amount),
+        status: d.status,
+        credited: d.credited === true,
+        createdAt: d.created_at
+      };
+    });
+
+    res.json({
+      success: true,
+      windowHours: hours,
+      counts: { stalePending: stalePending.length, uncreditedConfirmed: uncreditedConfirmed.length },
+      stalePending: stalePending,
+      uncreditedConfirmed: uncreditedConfirmed,
+      note: 'Read-only. Nothing here is credited automatically: a mismatched or stale payment must be verified against the chain and an invoice reference before any manual credit.'
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'reconciliation_unavailable' });
+  }
+});
+
+// Admin: secret-free status, so an operator can see why it is inert.
+app.get('/api/admin/payhip/status', authMiddleware, adminMiddleware, (req, res) => {
+  res.json({ success: true, payhip: describePayhipConfig(PAYHIP_CONFIG) });
+});
+
+// Admin: purchase + entitlement history.
+app.get('/api/admin/payhip/purchases', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const rows = await payhipEntitlements.listPurchases(200);
+    res.json({ success: true, purchases: rows });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'load_failed' });
+  }
+});
+
+// Admin: revoke a sale (refund handling when the webhook was missed).
+app.post('/api/admin/payhip/purchases/:saleId/revoke', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('revoke_payhip_entitlement_safe', {
+      p_sale_id: String(req.params.saleId),
+      p_status: 'voided',
+      p_amount_refunded_cents: null,
+      p_reason: 'admin-revoke:' + String(req.user.id)
+    });
+    if (error) return res.status(500).json({ success: false, error: 'revoke_failed' });
+    if (!data || !data.success) return res.status(404).json({ success: false, error: 'unknown_sale' });
+    res.json({ success: true, revoked: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'revoke_failed' });
+  }
+});
+
 app.use('/api', (req, res) => {
   res.status(404).json({
     success: false,

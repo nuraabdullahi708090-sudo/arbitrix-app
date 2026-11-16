@@ -8901,3 +8901,46 @@ My first attempt at the disclosure used class `arb-opp-note` and the copy
 var STRING itself (`const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT'`); the
 env var must stay `PLATFORM_MIN_DEPOSIT_USD`. Verify the env var name after any
 such sweep.
+
+
+## Relaunch branch: brand switch, $50 knob, Payhip Live activation (2026-11-16, NOT deployed)
+- Branch `relaunch/rebrand-payment-commercial` (cut from main @ 7910db6). Nothing
+  pushed, nothing deployed, no migration applied, no env var set, no customer
+  balance touched. Baseline was 3198/3198; now 3236/3236.
+- BRAND: `services/brand.js` + a `BRAND` block near the top of public/index.html own
+  the product name. t() swaps `BRAND.source` ('Arbitrix') for `BRAND.name` AT RENDER
+  TIME, so the dictionaries keep the literal and 300+ existing copy pins stay valid.
+  Do NOT tokenize the dictionaries with `{{brand}}`: that was tried and it broke 15
+  copy pins plus markup/dictionary parity. Add `source` when adding languages.
+  KALDERIX is recorded as `candidate` only (never applied). `scripts/rebrand.js
+  --to <Name>` is a DRY RUN by default (802 hits / 12 files for Kalderix).
+  Never rename: arbitrix.pro, arbitrix.ai, the Telegram handles, the group invite,
+  'Arbitrix Trading' or KVK 72923513.
+- MIN DEPOSIT: `PLATFORM_MIN_DEPOSIT_USD` (default 100) is read via
+  `resolvePlatformMinDeposit()`; the frontend adopts `minDeposit` from /api/auth/me.
+  $50 is one env var. `live.withdrawStatus.notDeposited` and `deposit.min100` now
+  interpolate `${{min}}` in all 6 locales. Migration 049 syncs
+  referral_config.minimum_qualifying_deposit - apply it TOGETHER with the env var.
+- PAYHIP (Option A): a purchase grants a ONE-TIME Live Mode activation entitlement
+  and credits NO capital; funding stays a Q8Pay deposit. `services/
+  PayhipEntitlements.js` + migration 050 (payhip_products/purchases/entitlements/
+  events, RLS service_role-only, row-locked one-time claim). Webhook lives at
+  `/api/payhip/webhook?token=` (NOT /api/webhook/payhip - the generic route shadows
+  it); Payhip documents no shared secret for its `signature` field, so the URL token
+  is the credential. Licence keys are stored as SHA-256 only AND the stored
+  raw_payload is REDACTED (redactPayload) - without that the hash is pointless.
+  Gates: /api/bot/start (live) + /api/trade refuse with 403 LIVE_ACTIVATION_REQUIRED
+  before any write. `PAYHIP_ACTIVATION_REQUIRED` defaults to false; funded accounts
+  are grandfathered and MARKETING_SANDBOX is exempt.
+- Q8PAY: the decimal discriminator stays (it is the attribution mechanism and the
+  webhook refuses to credit on a mismatch). The blind spot was visibility, so
+  `GET /api/admin/deposits/reconciliation` lists stale pending invoices (with the
+  exact amount asked for) and confirmed-but-uncredited deposits. Read-only.
+- Tests: new tests/brand_token.test.js (8), tests/live_activation_entitlement.test.js
+  (25), tests/deposit_reconciliation.test.js (5). Pins updated 1605->1616 dictionary,
+  47->49 migrations, the noreply sender (moved to services/brand.js), 049 whitelisted
+  in the no-$50-migration guard, deposit-min keys exempted from the WITHDRAWAL-minimum
+  leak check, homepage hash re-pin.
+- Verified rendering in headless Chromium (`--dump-dom` on the real page): activation
+  elements present, 0 syntax/reference errors, no raw placeholder outside <script>.
+  No puppeteer in this sandbox, so interactive click-through is NOT claimed.

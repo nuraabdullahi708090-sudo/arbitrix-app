@@ -367,7 +367,7 @@ test('i18n parity across 6 locales for the onboarding keys', () => {
         'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
         'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1605, 'expected 1605 keys per locale');
+    assert.strictEqual(enKeys.length, 1616, 'expected 1616 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {

@@ -6649,6 +6649,15 @@ function toggleFaq(btn) {
                         <div id="liveWithdrawStatus" style="font-size:10px;color:var(--text-muted);margin-top:6px;text-align:center;"></div>
                         <!-- Promotional-credit disclosure: tradable but NOT withdrawable
                              until a qualifying first deposit + at least one trade. -->
+                        <!-- PAYHIP LIVE ACTIVATION: shown only when the server reports that
+                             Live Mode still needs a one-time activation. Display only: the
+                             real gate is server-side (/api/bot/start, /api/trade). -->
+                        <div id="liveActivationNotice" class="hidden" style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:6px;padding:8px;margin-bottom:8px;text-align:center;line-height:1.4;">
+                            <div style="margin-bottom:6px;"><i class="fas fa-lock"></i> <span data-i18n="liveActivation.notice">Live Mode needs a one-time activation.</span></div>
+                            <button class="btn btn-primary btn-sm" type="button" onclick="openLiveActivationModal()" style="min-height:38px;">
+                                <i class="fas fa-key"></i> <span data-i18n="liveActivation.cta">Activate Live Mode</span>
+                            </button>
+                        </div>
                         <div id="promoCreditNotice" class="hidden" style="font-size:10px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:6px;padding:6px 8px;margin-top:8px;text-align:center;line-height:1.4;">
                             <i class="fas fa-gift"></i> <span data-i18n="promo.tradableNotice">Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.</span>
                         </div>
@@ -8349,6 +8358,32 @@ function toggleFaq(btn) {
 </div>
 
 <!-- Marketing Sandbox verification info modal (no KYC in the sandbox; frontend-only) -->
+<div class="deposit-modal" id="liveActivationModal" aria-hidden="true">
+    <div class="deposit-modal-content" style="max-width:460px;">
+        <div class="deposit-modal-head">
+            <h3 style="margin:0;font-size:16px;"><i class="fas fa-key" style="color:#F0B90B;"></i> <span data-i18n="liveActivation.title">Activate Live Mode</span></h3>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="closeLiveActivationModal()" aria-label="Close" style="min-height:36px;width:36px;padding:0;">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;" data-i18n="liveActivation.body">
+            Live Mode requires a one-time activation. Demo Mode stays free and always available. Activation does not add trading capital: you fund your Live wallet separately with a deposit.
+        </p>
+        <a id="liveActivationBuyBtn" class="btn btn-primary hidden" target="_blank" rel="noopener noreferrer" style="width:100%;min-height:44px;text-decoration:none;">
+            <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="liveActivation.buy">Buy activation</span>
+        </a>
+        <label for="liveActivationKey" style="display:block;font-size:11px;color:var(--text-secondary);margin:14px 0 6px;" data-i18n="liveActivation.keyLabel">Already purchased? Enter your licence key</label>
+        <input id="liveActivationKey" type="text" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+               style="width:100%;min-height:44px;padding:10px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-family:monospace;font-size:13px;">
+        <div id="liveActivationError" style="display:none;font-size:11px;color:#ef4444;margin-top:8px;line-height:1.5;"></div>
+        <button class="btn btn-primary" type="button" id="liveActivationSubmitBtn" onclick="submitLiveActivation()" style="width:100%;min-height:44px;margin-top:12px;">
+            <i class="fas fa-check"></i> <span data-i18n="liveActivation.submit">Activate</span>
+        </button>
+        <p style="font-size:10px;color:var(--text-secondary);line-height:1.6;margin:12px 0 0;" data-i18n="liveActivation.hint">
+            One licence activates one account, once, and cannot be transferred. Activation never credits a balance.
+        </p>
+    </div>
+</div>
 <div class="deposit-modal" id="verificationSandboxInfoModal">
     <div class="deposit-modal-content" style="max-width:440px;text-align:center;">
         <button type="button" onclick="closeVerificationSandboxInfo()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -9045,6 +9080,33 @@ const Sound = {
 try { Sound.init(); } catch(e) { console.warn('Sound init error:', e); }
 
 // ============ TRANSLATION SYSTEM ============
+// ============ BRAND TOKEN (single switch) ============
+// The customer-visible product name lives HERE and nowhere else. Every localized
+// string that mentions the product uses the {{brand}} placeholder, and t()
+// injects the value below, so renaming the product is a ONE-LINE change (this
+// constant) instead of a hunt through 479 occurrences across six locales.
+//
+// DENY-LIST - these are identifiers, not branding, and must NOT be tokenized:
+//   arbitrix.pro / arbitrix.ai  (the public domain and the mail domain)
+//   the support bot handle, the partner-support handle, the announcements channel
+//   "Arbitrix Trading"          (the legal entity registered at KVK 72923513)
+// A new name is a TRADING NAME of that entity; it does not change the operator.
+//
+// The provisionally approved candidate for the relaunch is recorded in
+// BRAND.candidate. It is deliberately NOT applied here: the identity must not
+// change until the founder approves the final brand.
+const BRAND = {
+    name: 'Arbitrix',            // <- the ONE line to change to rename the product
+    candidate: 'Kalderix',       // provisionally approved candidate (not applied)
+    legalName: 'Arbitrix Trading',
+    kvk: '72923513',
+    // The literal written today in every localized string and markup default.
+    // t() swaps `source` for `name` at RENDER time, so renaming the product is
+    // the one edit above: dictionaries and markup never have to be touched, and
+    // can never drift out of sync with each other.
+    source: 'Arbitrix'
+};
+
 const TRANSLATIONS = {
     en: {
         'auth.subtitle': 'Multi-Asset Arbitrage Trading',
@@ -9756,7 +9818,18 @@ const TRANSLATIONS = {
         'badges.luckyTraderDesc': '70%+ win rate (20+ trades)',
         'badges.diamondHands': 'Diamond Hands',
         'badges.diamondHandsDesc': 'Profitable after 10 trades',
-        'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of $100 to enable withdrawals',
+        'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of ${{min}} to enable withdrawals',
+        'liveActivation.notice': 'Live Mode needs a one-time activation.',
+        'liveActivation.cta': 'Activate Live Mode',
+        'liveActivation.title': 'Activate Live Mode',
+        'liveActivation.body': 'Live Mode requires a one-time activation. Demo Mode stays free and always available. Activation does not add trading capital: you fund your Live wallet separately with a deposit.',
+        'liveActivation.buy': 'Buy activation',
+        'liveActivation.keyLabel': 'Already purchased? Enter your licence key',
+        'liveActivation.submit': 'Activate',
+        'liveActivation.hint': 'One licence activates one account, once, and cannot be transferred. Activation never credits a balance.',
+        'liveActivation.keyRequired': 'Enter your licence key.',
+        'liveActivation.failed': 'That licence key could not be redeemed.',
+        'liveActivation.success': 'Live Mode activated.',
         'live.withdrawStatus.needMinimum': '📈 Minimum withdrawal: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Keep trading to grow your eligible balance',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
@@ -10148,7 +10221,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Failed to regenerate codes',
         '2fa.disableFailed': 'Failed to disable 2FA',
         'deposit.min10': 'Minimum deposit is $10',
-        'deposit.min100': 'Minimum deposit is $100',
+        'deposit.min100': 'Minimum deposit is ${{min}}',
         'deposit.invoiceNotFound': 'Invoice not found',
         'deposit.createInvoiceFailed': 'Failed to create invoice',
         'deposit.notFound': 'Deposit not found',
@@ -11381,7 +11454,18 @@ const TRANSLATIONS = {
         'badges.luckyTraderDesc': 'Tasa de acierto superior al 70% (más de 20 operaciones)',
         'badges.diamondHands': 'Manos de diamante',
         'badges.diamondHandsDesc': 'Rentable después de 10 operaciones',
-        'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de $100 para habilitar los retiros',
+        'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de ${{min}} para habilitar los retiros',
+        'liveActivation.notice': 'El Modo Live requiere una activación única.',
+        'liveActivation.cta': 'Activar Modo Live',
+        'liveActivation.title': 'Activar Modo Live',
+        'liveActivation.body': 'El Modo Live requiere una activación única. El Modo Demo sigue siendo gratuito y siempre disponible. La activación no añade capital de trading: financiás tu billetera Live por separado con un depósito.',
+        'liveActivation.buy': 'Comprar activación',
+        'liveActivation.keyLabel': '¿Ya compraste? Ingresá tu clave de licencia',
+        'liveActivation.submit': 'Activar',
+        'liveActivation.hint': 'Una licencia activa una cuenta, una sola vez, y no se puede transferir. La activación nunca acredita saldo.',
+        'liveActivation.keyRequired': 'Ingresá tu clave de licencia.',
+        'liveActivation.failed': 'No se pudo canjear esa clave de licencia.',
+        'liveActivation.success': 'Modo Live activado.',
         'live.withdrawStatus.needMinimum': '📈 Retiro mínimo: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Sigue operando para aumentar tu saldo disponible',
         'live.withdrawStatus.noTrades': '📊 Completa al menos 1 operación para retirar',
@@ -11773,7 +11857,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'No se pudieron regenerar los códigos',
         '2fa.disableFailed': 'No se pudo desactivar 2FA',
         'deposit.min10': 'El depósito mínimo es $10',
-        'deposit.min100': 'El depósito mínimo es $100',
+        'deposit.min100': 'El depósito mínimo es ${{min}}',
         'deposit.invoiceNotFound': 'Factura no encontrada',
         'deposit.createInvoiceFailed': 'No se pudo crear la factura',
         'deposit.notFound': 'Depósito no encontrado',
@@ -13007,7 +13091,18 @@ const TRANSLATIONS = {
         'badges.luckyTraderDesc': 'Taxa de acerto acima de 70% (mais de 20 operações)',
         'badges.diamondHands': 'Mãos de diamante',
         'badges.diamondHandsDesc': 'Lucrativo após 10 operações',
-        'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de $100 para habilitar os saques',
+        'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de ${{min}} para habilitar os saques',
+        'liveActivation.notice': 'O Modo Live exige uma ativação única.',
+        'liveActivation.cta': 'Ativar Modo Live',
+        'liveActivation.title': 'Ativar Modo Live',
+        'liveActivation.body': 'O Modo Live exige uma ativação única. O Modo Demo continua gratuito e sempre disponível. A ativação não adiciona capital de negociação: você financia sua carteira Live separadamente com um depósito.',
+        'liveActivation.buy': 'Comprar ativação',
+        'liveActivation.keyLabel': 'Já comprou? Insira sua chave de licença',
+        'liveActivation.submit': 'Ativar',
+        'liveActivation.hint': 'Uma licença ativa uma conta, uma única vez, e não pode ser transferida. A ativação nunca credita saldo.',
+        'liveActivation.keyRequired': 'Insira sua chave de licença.',
+        'liveActivation.failed': 'Não foi possível resgatar essa chave de licença.',
+        'liveActivation.success': 'Modo Live ativado.',
         'live.withdrawStatus.needMinimum': '📈 Saque mínimo: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Continue operando para aumentar seu saldo disponível',
         'live.withdrawStatus.noTrades': '📊 Conclua pelo menos 1 operação para sacar',
@@ -13399,7 +13494,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Falha ao regenerar códigos',
         '2fa.disableFailed': 'Falha ao desativar 2FA',
         'deposit.min10': 'O depósito mínimo é $10',
-        'deposit.min100': 'O depósito mínimo é $100',
+        'deposit.min100': 'O depósito mínimo é ${{min}}',
         'deposit.invoiceNotFound': 'Fatura não encontrada',
         'deposit.createInvoiceFailed': 'Falha ao criar fatura',
         'deposit.notFound': 'Depósito não encontrado',
@@ -14633,7 +14728,18 @@ const TRANSLATIONS = {
         'badges.luckyTraderDesc': 'Taux de réussite supérieur à 70 % (plus de 20 transactions)',
         'badges.diamondHands': 'Mains de diamant',
         'badges.diamondHandsDesc': 'Rentable après 10 transactions',
-        'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de $100 pour activer les retraits',
+        'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de ${{min}} pour activer les retraits',
+        'liveActivation.notice': 'Le Mode Live nécessite une activation unique.',
+        'liveActivation.cta': 'Activer le Mode Live',
+        'liveActivation.title': 'Activer le Mode Live',
+        'liveActivation.body': 'Le Mode Live nécessite une activation unique. Le Mode Démo reste gratuit et toujours disponible. L\'activation n\'ajoute pas de capital de trading : vous financez votre portefeuille Live séparément par un dépôt.',
+        'liveActivation.buy': 'Acheter l\'activation',
+        'liveActivation.keyLabel': 'Déjà acheté ? Saisissez votre clé de licence',
+        'liveActivation.submit': 'Activer',
+        'liveActivation.hint': 'Une licence active un compte, une seule fois, et ne peut pas être transférée. L\'activation ne crédite jamais de solde.',
+        'liveActivation.keyRequired': 'Saisissez votre clé de licence.',
+        'liveActivation.failed': 'Cette clé de licence n\'a pas pu être utilisée.',
+        'liveActivation.success': 'Mode Live activé.',
         'live.withdrawStatus.needMinimum': '📈 Retrait minimum : ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Continuez à trader pour augmenter votre solde disponible',
         'live.withdrawStatus.noTrades': '📊 Effectuez au moins 1 transaction pour retirer',
@@ -15025,7 +15131,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Échec de la régénération des codes',
         '2fa.disableFailed': 'Échec de la désactivation de 2FA',
         'deposit.min10': 'Le dépôt minimum est de $10',
-        'deposit.min100': 'Le dépôt minimum est de $100',
+        'deposit.min100': 'Le dépôt minimum est de ${{min}}',
         'deposit.invoiceNotFound': 'Facture introuvable',
         'deposit.createInvoiceFailed': 'Échec de la création de la facture',
         'deposit.notFound': 'Dépôt introuvable',
@@ -16259,7 +16365,18 @@ const TRANSLATIONS = {
         'badges.luckyTraderDesc': 'نسبة فوز تتجاوز 70% (أكثر من 20 صفقة)',
         'badges.diamondHands': 'أيدٍ ماسية',
         'badges.diamondHandsDesc': 'تحقيق ربح بعد 10 صفقات',
-        'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى $100 لتفعيل السحب',
+        'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى ${{min}} لتفعيل السحب',
+        'liveActivation.notice': 'يتطلب الوضع المباشر تفعيلاً لمرة واحدة.',
+        'liveActivation.cta': 'تفعيل الوضع المباشر',
+        'liveActivation.title': 'تفعيل الوضع المباشر',
+        'liveActivation.body': 'يتطلب الوضع المباشر تفعيلاً لمرة واحدة. يبقى الوضع التجريبي مجانياً ومتاحاً دائماً. التفعيل لا يضيف رأس مال تداول: أنت تموّل محفظتك المباشرة بشكل منفصل عبر إيداع.',
+        'liveActivation.buy': 'شراء التفعيل',
+        'liveActivation.keyLabel': 'اشتريت بالفعل؟ أدخل مفتاح الترخيص',
+        'liveActivation.submit': 'تفعيل',
+        'liveActivation.hint': 'الترخيص الواحد يفعّل حساباً واحداً، مرة واحدة، ولا يمكن نقله. التفعيل لا يضيف أي رصيد.',
+        'liveActivation.keyRequired': 'أدخل مفتاح الترخيص.',
+        'liveActivation.failed': 'تعذّر استخدام مفتاح الترخيص هذا.',
+        'liveActivation.success': 'تم تفعيل الوضع المباشر.',
         'live.withdrawStatus.needMinimum': '📈 الحد الأدنى للسحب: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 واصل التداول لزيادة رصيدك المؤهل',
         'live.withdrawStatus.noTrades': '📊 أتمم صفقة واحدة على الأقل للسحب',
@@ -16651,7 +16768,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'فشل إعادة إنشاء الرموز',
         '2fa.disableFailed': 'فشل تعطيل المصادقة الثنائية',
         'deposit.min10': 'الحد الأدنى للإيداع هو $10',
-        'deposit.min100': 'الحد الأدنى للإيداع هو $100',
+        'deposit.min100': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.invoiceNotFound': 'الفاتورة غير موجودة',
         'deposit.createInvoiceFailed': 'فشل إنشاء الفاتورة',
         'deposit.notFound': 'الإيداع غير موجود',
@@ -17885,7 +18002,18 @@ const TRANSLATIONS = {
         'badges.luckyTraderDesc': '胜率超过 70%（20 笔以上交易）',
         'badges.diamondHands': '钻石手',
         'badges.diamondHandsDesc': '10 笔交易后盈利',
-        'live.withdrawStatus.notDeposited': '💳 请至少入金 $100 以启用提现',
+        'live.withdrawStatus.notDeposited': '💳 请至少入金 ${{min}} 以启用提现',
+        'liveActivation.notice': '实时模式需要一次性激活。',
+        'liveActivation.cta': '激活实时模式',
+        'liveActivation.title': '激活实时模式',
+        'liveActivation.body': '实时模式需要一次性激活。演示模式始终免费并保持可用。激活不会增加交易资金：您需要通过入金单独为实时钱包提供资金。',
+        'liveActivation.buy': '购买激活',
+        'liveActivation.keyLabel': '已经购买？请输入您的许可证密钥',
+        'liveActivation.submit': '激活',
+        'liveActivation.hint': '一个许可证仅激活一个账户，且只能使用一次，不能转让。激活不会增加任何余额。',
+        'liveActivation.keyRequired': '请输入您的许可证密钥。',
+        'liveActivation.failed': '该许可证密钥无法兑换。',
+        'liveActivation.success': '实时模式已激活。',
         'live.withdrawStatus.needMinimum': '📈 最低提现额：${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 继续交易以增加您的可用余额',
         'live.withdrawStatus.noTrades': '📊 请至少完成 1 笔交易才能提现',
@@ -18277,7 +18405,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': '重新生成恢复码失败',
         '2fa.disableFailed': '禁用两步验证失败',
         'deposit.min10': '最低存款为 $10',
-        'deposit.min100': '最低存款为 $100',
+        'deposit.min100': '最低存款为 ${{min}}',
         'deposit.invoiceNotFound': '未找到发票',
         'deposit.createInvoiceFailed': '创建发票失败',
         'deposit.notFound': '未找到存款',
@@ -18834,9 +18962,20 @@ if (!currentLang) {
 function t(key, vars) {
     try {
         let text = TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key] || key;
-        if (vars) {
-            Object.keys(vars).forEach(function(k) { text = text.split('{{' + k + '}}').join(vars[k]); });
+        // Brand tokens resolve from the single BRAND constant (see above), so no
+        // localized string has to repeat the product name. Caller-supplied vars
+        // win, which keeps every existing t(key, {..}) call site unchanged.
+        // The `typeof` guard keeps this function self-contained: unit harnesses
+        // that evaluate t() in isolation (without the BRAND block) must keep
+        // rendering real text instead of silently falling back to the key.
+        const B = (typeof BRAND !== 'undefined' && BRAND) ? BRAND : { name: 'Arbitrix', legalName: 'Arbitrix Trading' };
+        // Rename at render time (see BRAND.source): dictionaries and markup keep
+        // the literal source name, so one constant renames the whole product.
+        if (B.source && B.name && B.name !== B.source) {
+            text = text.split(B.source).join(B.name);
         }
+        const merged = Object.assign({ brand: B.name, legalName: B.legalName }, vars || {});
+        Object.keys(merged).forEach(function(k) { text = text.split('{{' + k + '}}').join(merged[k]); });
         return text;
     } catch(e) { return key; }
 }
@@ -18941,18 +19080,93 @@ const BACKEND_DYNAMIC_MESSAGE_RULES = [
 // Translate a backend-authored message for display. Returns the localized text
 // for known safe messages, or the original message verbatim when unknown/dynamic/
 // internal. `fallbackKey` (optional) is used when the message is empty/undefined.
+// ============ PAYHIP LIVE MODE ACTIVATION (display only) ============
+// The real gate is server-side (/api/bot/start, /api/trade return 403
+// LIVE_ACTIVATION_REQUIRED). These helpers only render the state the server
+// reported and submit a licence key; they never decide access themselves.
+function updateLiveActivationUI() {
+    try {
+        const notice = document.getElementById('liveActivationNotice');
+        const needed = APP.activationRequired === true && APP.liveActivated !== true;
+        if (notice) notice.classList.toggle('hidden', !needed);
+        const buy = document.getElementById('liveActivationBuyBtn');
+        if (buy) {
+            const url = APP.activationStoreUrl || '';
+            const usable = /^https:\/\//i.test(url);
+            buy.classList.toggle('hidden', !(usable && APP.activationPurchasable !== false));
+            if (usable) buy.href = url;
+            else buy.removeAttribute('href');
+        }
+    } catch (e) { /* display only */ }
+}
+function openLiveActivationModal() {
+    const m = document.getElementById('liveActivationModal');
+    if (!m) return;
+    const err = document.getElementById('liveActivationError');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    const key = document.getElementById('liveActivationKey');
+    if (key) key.value = '';
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    updateLiveActivationUI();
+    if (key) setTimeout(function () { try { key.focus({ preventScroll: true }); } catch (e) {} }, 60);
+}
+function closeLiveActivationModal() {
+    const m = document.getElementById('liveActivationModal');
+    if (!m) return;
+    m.classList.remove('open');
+    m.setAttribute('aria-hidden', 'true');
+}
+async function submitLiveActivation() {
+    const keyEl = document.getElementById('liveActivationKey');
+    const errEl = document.getElementById('liveActivationError');
+    const btn = document.getElementById('liveActivationSubmitBtn');
+    const licenceKey = (keyEl && keyEl.value ? keyEl.value : '').trim();
+    const fail = function (msg) {
+        if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    };
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    if (!licenceKey) { fail(t('liveActivation.keyRequired')); return; }
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/live/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('jwt_token') || '') },
+            body: JSON.stringify({ licenceKey: licenceKey })
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) {
+            fail(translateBackendMessage(data.error, 'liveActivation.failed'));
+            return;
+        }
+        APP.liveActivated = data.activated === true;
+        updateLiveActivationUI();
+        closeLiveActivationModal();
+        showToast(t('liveActivation.success'), 'success');
+        if (typeof updateUI === 'function') updateUI();
+    } catch (e) {
+        fail(t('liveActivation.failed'));
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 function translateBackendMessage(message, fallbackKey) {
-    if (!message) return fallbackKey ? t(fallbackKey) : '';
+    // A mapped key may carry placeholders that depend on live configuration
+    // (deposit.min100 uses {{min}}), so the adopted server value is always
+    // supplied; a mapped string can then never render a raw placeholder.
+    const baseVars = { min: String(Number(APP.MIN_DEPOSIT) || 100) };
+    if (!message) return fallbackKey ? t(fallbackKey, baseVars) : '';
     const msg = String(message);
     // 1. Exact whitelist match (preferred — never over-matches).
     if (Object.prototype.hasOwnProperty.call(BACKEND_MESSAGE_MAP, msg)) {
-        return t(BACKEND_MESSAGE_MAP[msg]);
+        return t(BACKEND_MESSAGE_MAP[msg], baseVars);
     }
     // 2. Curated dynamic rules (scoped regex only).
     for (let i = 0; i < BACKEND_DYNAMIC_MESSAGE_RULES.length; i++) {
         const rule = BACKEND_DYNAMIC_MESSAGE_RULES[i];
         const m = msg.match(rule.re);
-        if (m) return t(rule.key, rule.vars(m));
+        if (m) return t(rule.key, Object.assign({}, baseVars, rule.vars(m)));
     }
     // 3. Unknown / dynamic / internal / webhook / provider: preserve verbatim.
     return msg;
@@ -19018,6 +19232,8 @@ function updateDynamicTranslations() {
         // Keep the bot engine disclosure in the user's language (the static
         // data-i18n default assumes the browser engine).
         if (typeof updateBotEngineNotice === 'function') updateBotEngineNotice();
+        // Keep the Live activation notice + modal copy in the new language.
+        if (typeof updateLiveActivationUI === 'function') updateLiveActivationUI();
         // Re-render the marketing demo badge + intro chip on language switch
         if (typeof updateSandboxBadge === 'function') updateSandboxBadge();
         // Re-render the subscription panel details on language switch: the
@@ -21124,7 +21340,7 @@ function updateLiveWithdrawStatus() {
             statusClass = 'text-muted';
         }
     } else if (!hasDeposit && !canFundFromReferral) {
-        statusText = t('live.withdrawStatus.notDeposited');
+        statusText = t('live.withdrawStatus.notDeposited', { min: (Number(APP.MIN_DEPOSIT) || 100) });
         statusClass = 'text-warning';
     } else if (!hasTrade && !canFundFromReferral) {
         statusText = t('live.withdrawStatus.noTrades');
@@ -21148,7 +21364,7 @@ function updateLiveWithdrawStatus() {
         if (isSandbox) {
             infoText.textContent = t('withdraw.infoSandbox');
         } else if (!hasDeposit && !canFundFromReferral) {
-            infoText.textContent = t('live.withdrawStatus.notDeposited');
+            infoText.textContent = t('live.withdrawStatus.notDeposited', { min: (Number(APP.MIN_DEPOSIT) || 100) });
         } else if (!hasTrade && !canFundFromReferral) {
             infoText.textContent = t('live.withdrawStatus.noTrades');
         } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
@@ -24592,6 +24808,25 @@ async function syncWalletFromServer() {
                 isFinite(meData.minDeposit) && meData.minDeposit > 0) {
                 APP.MIN_DEPOSIT = Number(meData.minDeposit);
             }
+            // Payhip Live Mode activation, straight from the server. The
+            // frontend never infers this from localStorage, and never decides it
+            // itself: /api/bot/start and /api/trade are the real gates.
+            if (meData && typeof meData.activationRequired === 'boolean') {
+                APP.activationRequired = meData.activationRequired;
+            }
+            if (meData && typeof meData.liveActivated === 'boolean') {
+                APP.liveActivated = meData.liveActivated;
+            }
+            if (meData && typeof meData.activationPurchasable === 'boolean') {
+                APP.activationPurchasable = meData.activationPurchasable;
+            }
+            if (meData && typeof meData.activationReason === 'string') {
+                APP.activationReason = meData.activationReason;
+            }
+            if (meData && typeof meData.activationStoreUrl === 'string') {
+                APP.activationStoreUrl = meData.activationStoreUrl;
+            }
+            if (typeof updateLiveActivationUI === 'function') updateLiveActivationUI();
             // Persist the classification on the cached user object so
             // checkAdminAccess()/renderers can read it without another fetch.
             try {

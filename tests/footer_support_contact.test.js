@@ -210,5 +210,13 @@ test('the Telegram bot architecture, admin ids and outbound mailer are unchanged
     assert.ok(SERVER.includes('TELEGRAM_BOT_TOKEN'), 'bot token config preserved');
     assert.ok(SERVER.includes('@ArbitrixSupportBot'), 'official bot handle preserved in the backend');
     // The transactional sender is not a support contact and is intentionally kept.
-    assert.ok(SERVER.includes('noreply@arbitrix.ai'), 'noreply@ sender untouched');
+    // The sender moved into the single BRAND module (the display name follows
+    // the brand, the ADDRESS stays on the verified mail domain). Assert the
+    // address survives in whichever file owns it now.
+    const brandSrc = fs.readFileSync(path.join(ROOT, 'services', 'brand.js'), 'utf8');
+    assert.ok(
+        SERVER.includes('noreply@arbitrix.ai') || brandSrc.includes("noreply@' + BRAND.mailDomain") || brandSrc.includes('noreply@'),
+        'noreply@ sender untouched'
+    );
+    assert.ok(brandSrc.includes("mailDomain: 'arbitrix.ai'"), 'the mail domain is unchanged');
 });
