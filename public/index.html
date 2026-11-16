@@ -20806,7 +20806,19 @@ function txTypeLabel(rawType) {
  * rename does not show the old name in its history. The period suffix is kept
  * verbatim because it is a date, not copy.
  */
-const SUBSCRIPTION_DETAIL_PREFIXES = ['Arbitrix Pro Subscription', 'Kalderix Pro Subscription'];
+const SUBSCRIPTION_DETAIL_PREFIXES = (function () {
+    // DERIVED, never spelled out. A literal list here would be rewritten by the
+    // next rename and collapse into two identical entries, silently dropping the
+    // era that predates it - which is how a history row goes back to showing the
+    // old name. BRAND.source is the pre-rename name by definition, so it survives.
+    // No literal fallback: a hard-coded pair is rewritten by the next rename and
+    // collapses into one entry, which is the same silent failure this function
+    // exists to prevent. With no identity the detail is shown as stored.
+    if (typeof BRAND === 'undefined' || !BRAND || !BRAND.name) return [];
+    return [BRAND.name, BRAND.source].filter(Boolean)
+        .filter(function (b, i, a) { return a.indexOf(b) === i; })
+        .map(function (b) { return b + ' Pro Subscription'; });
+})();
 function txDetailLabel(rawDetail) {
     if (!rawDetail) return '';
     const key = TX_DETAIL_LABELS[rawDetail];

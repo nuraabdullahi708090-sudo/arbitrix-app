@@ -152,7 +152,9 @@ class Q8QPayProvider extends ProviderInterface {
         if (this.returnUrl) {
             requestBody.returnUrl = this.returnUrl;
         }
-        requestBody.title = 'Arbitrix Deposit';
+        // The provider shows this on its own hosted page and receipts, so it
+        // follows the identity rather than a literal.
+        requestBody.title = require('../brand').BRAND.name + ' Deposit';
         requestBody.description = `USDT (TRC20) deposit ${orderId}`;
 
         try {

@@ -71,8 +71,11 @@ const APPLY_URL = '/?action=create-account&src=partners';
 // mobile full-screen deposit dialog (a markup nesting fix plus the <=640px
 // dialog layout), and once more for the deposit-dialog section reorder that
 // moved the tutorials card to the bottom of the panel. Each re-pin was an
-// approved homepage change, not /partners drift.
-const INDEX_SHA256 = 'f8e8d1f062a0a3cdc331c32cfb1b200f4f676aacc2d80ea97b7aae0ebb2a1d7b';
+// approved homepage change, not /partners drift. Re-pinned once more for the
+// relaunch: the subscription history prefixes are now DERIVED from BRAND, so a
+// rename cannot collapse the pre-rename era into the current one. That change is
+// 13 lines inside txDetailLabel's helpers and touches no funnel markup.
+const INDEX_SHA256 = '2a06285098be7f378010579e7172ab8c800d8c93734a2ef858d40188f0a126a3';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';

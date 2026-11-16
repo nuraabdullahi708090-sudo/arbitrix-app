@@ -7,7 +7,10 @@ const crypto = require('crypto');
 
 // TOTP Configuration
 const CONFIG = {
-    ISSUER: 'Arbitrix',
+    // Derived so a rename does not leave the old name inside every customer's
+    // authenticator app. The issuer is a display label; it is not part of the
+    // secret, so changing it never invalidates an existing entry.
+    ISSUER: require('./brand').BRAND.name,
     ALGORITHM: 'SHA1',
     DIGITS: 6,
     PERIOD: 30, // seconds

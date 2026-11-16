@@ -31,12 +31,29 @@ const { buildMap } = require('../scripts/retheme');
 
 const ID = BRAND.candidateIdentity;
 
-test('1. the candidate is recorded but not applied', () => {
+/**
+ * The suite has to hold in BOTH states, because it is the release gate:
+ *   APPLIED = false  -> the candidate is recorded and inert
+ *   APPLIED = true   -> the candidate is in force and the override is live
+ * Anything that is only true in one state is written against `APPLIED` rather
+ * than against a name, so approving the rename cannot turn a green gate red.
+ */
+const APPLIED = BRAND.name === ID.name;
+
+test('1. the candidate is recorded, and applied or not as a pair', () => {
   assert.strictEqual(ID.name, 'Kalderix');
   assert.strictEqual(ID.mark, 'K');
-  assert.strictEqual(BRAND.name, BRAND.source,
-    'the shipped build still presents the name in `source`');
-  assert.strictEqual(activeIdentity().applied, false, 'no candidate palette is in force');
+  assert.ok(BRAND.name === BRAND.source || BRAND.name === ID.name,
+    'the live name is either the source name or the approved candidate - never a third value');
+  assert.strictEqual(activeIdentity().applied, APPLIED,
+    'the palette is active exactly when the name is');
+  if (APPLIED) {
+    assert.strictEqual(activeIdentity().palette.accent, ID.palette.accent,
+      'the active palette is the candidate palette');
+  } else {
+    assert.strictEqual(activeIdentity().palette, null,
+      'no palette is active while the name is unchanged');
+  }
 });
 
 test('2. the identity assets are complete, self-contained and use the candidate palette', () => {
@@ -49,7 +66,10 @@ test('2. the identity assets are complete, self-contained and use the candidate 
     assert.strictEqual(onDisk.trim(), svg.trim(), file + ' on disk must match the generator');
     assert.ok(svg.startsWith('<svg'), file + ' is an SVG');
     assert.ok(svg.includes(ID.palette.accent), file + ' uses the identity accent');
-    assert.ok(!/Arbitrix/.test(svg), file + ' must not carry the old name');
+    if (BRAND.source !== ID.name) {
+      assert.ok(!svg.includes(BRAND.source), file + ' must not carry the old name');
+    }
+    assert.ok(svg.includes(ID.name), file + ' names the candidate');
     // No external references, no embedded fonts, no raster data: an icon that
     // needs a network fetch renders blank in an e-mail or an offline browser.
     assert.strictEqual(/href=|xlink:|@font-face|base64/i.test(svg), false, file + ' is self-contained');
@@ -80,7 +100,7 @@ test('4. applyBrandAssets is a no-op for the shipped identity', () => {
   assert.ok(/if \(BRAND\.name === BRAND\.source\) return;/.test(fnBody),
     'the function returns before touching anything while the name is unchanged');
 
-  // Run it for real against a fake document: nothing may be mutated.
+  // Run it for real against a fake document.
   const writes = [];
   const el = (sel) => ({ setAttribute: (k, v) => writes.push(sel + ' ' + k + '=' + v) });
   const ctx = {
@@ -93,8 +113,12 @@ test('4. applyBrandAssets is a no-op for the shipped identity', () => {
   };
   vm.createContext(ctx);
   vm.runInContext(fnBody + ';applyBrandAssets();', ctx);
-  assert.deepStrictEqual(writes, [], 'no attribute is written while the name is unchanged');
-  assert.strictEqual(ctx.document.title, 'unchanged');
+  if (APPLIED) {
+    assert.ok(writes.some((w) => w.startsWith('html data-brand=kalderix')), 'the palette attribute is applied');
+  } else {
+    assert.deepStrictEqual(writes, [], 'no attribute is written while the name is unchanged');
+    assert.strictEqual(ctx.document.title, 'unchanged');
+  }
 });
 
 test('5. approving the name updates the title, the social card and the icons from BRAND', () => {
@@ -149,7 +173,7 @@ test('7. setField edits only inside the BRAND object', () => {
 });
 
 test('8. the retheme map comes from the identity and refuses unknown names', () => {
-  const map = buildMap('kalderix');
+  const map = buildMap(ID.name);
   assert.ok(Array.isArray(map), 'the candidate has a map');
   const pairs = Object.fromEntries(map);
   assert.strictEqual(pairs['#F0B90B'], ID.palette.accent);
@@ -162,16 +186,27 @@ test('8. the retheme map comes from the identity and refuses unknown names', () 
 test('9. the database-written subscription detail is rebrand-safe in the UI', () => {
   const start = INDEX.indexOf('const TX_DETAIL_LABELS');
   const end = INDEX.indexOf('function updateTransactionLog', start);
-  const ctx = { t: (k) => k, console };
+  const ctx = { t: (k) => k, console, BRAND };
   vm.createContext(ctx);
   vm.runInContext(INDEX.slice(start, end) + ';globalThis.f = txDetailLabel;', ctx);
 
-  assert.strictEqual(ctx.f('Arbitrix Pro Subscription'), 'tx.detail.subscription',
+  assert.strictEqual(ctx.f(BRAND.source + ' Pro Subscription'), 'tx.detail.subscription',
     'a charge written before the rename reads as the localized label, not the old name');
-  assert.strictEqual(ctx.f('Kalderix Pro Subscription'), 'tx.detail.subscription',
+  assert.strictEqual(ctx.f(BRAND.name + ' Pro Subscription'), 'tx.detail.subscription',
     'a charge written after the rename reads the same');
-  assert.strictEqual(ctx.f('Arbitrix Pro Subscription - 2026-11'),
+  assert.strictEqual(ctx.f(BRAND.source + ' Pro Subscription - 2026-11'),
     'tx.detail.subscription - 2026-11', 'the period suffix (a date) is preserved');
+  // Both eras must survive ANY rename, so the prefixes are derived at runtime
+  // rather than spelled out: a literal list collapses into duplicates the moment
+  // the rename rewrites it, and the older era silently stops mapping.
+  const block = INDEX.slice(INDEX.indexOf('const SUBSCRIPTION_DETAIL_PREFIXES'));
+  const blockEnd = block.indexOf('})();');
+  assert.ok(/\[BRAND\.name, BRAND\.source\]/.test(block.slice(0, blockEnd)),
+    'the prefix list is built from BRAND.name + BRAND.source');
+  assert.ok(!/'[A-Za-z]+ Pro Subscription'/.test(block.slice(0, blockEnd)),
+    'no literal brand may appear in the prefix list');
+  assert.ok(/if \(typeof BRAND === 'undefined'/.test(block.slice(0, blockEnd)),
+    'with no identity it maps nothing instead of falling back to a literal pair');
   assert.strictEqual(ctx.f('Demo Funds'), 'tx.detail.demoFunds', 'existing mappings still work');
   assert.strictEqual(ctx.f('Some custom detail'), 'Some custom detail', 'unknown details pass through');
   assert.strictEqual(ctx.f(''), '', 'empty stays empty');
@@ -192,8 +227,8 @@ test('10. migration 051 changes exactly one literal and no money behaviour', () 
   assert.strictEqual(a.length, b.length, 'same number of lines (no statement added or removed)');
   const diffs = a.map((line, i) => [i, line, b[i]]).filter(([, x, y]) => x !== y);
   assert.strictEqual(diffs.length, 1, 'exactly one line differs');
-  assert.ok(/Arbitrix Pro Subscription/.test(diffs[0][1]) && /Kalderix Pro Subscription/.test(diffs[0][2]),
-    'the one difference is the brand literal');
+  assert.ok(diffs[0][1].includes(BRAND.source + ' Pro Subscription'), 'the old literal is what was replaced');
+  assert.ok(diffs[0][2].includes(ID.name + ' Pro Subscription'), 'the approved name is what replaced it');
 
   // The money guards must survive verbatim.
   for (const guard of ['idempotency_key', 'FOR UPDATE', 'live_balance <', 'v_new_balance']) {
@@ -209,7 +244,7 @@ test('10. migration 051 changes exactly one literal and no money behaviour', () 
 test('11. the shipped build presents one name consistently', () => {
   // The dictionaries keep the source literal (t() swaps it at render time) and
   // the static markup was rebranded at the last rename, so both must agree.
-  assert.strictEqual(BRAND.name, BRAND.source,
+  assert.ok(APPLIED || BRAND.name === BRAND.source,
     'a half-applied rename would render two names on the same page');
   const title = INDEX.match(/<title>([^<]*)<\/title>/)[1];
   assert.ok(title.includes(BRAND.name), 'the page title names the product');
@@ -217,4 +252,17 @@ test('11. the shipped build presents one name consistently', () => {
   assert.ok(og.includes(BRAND.name), 'the social card names the product');
   // And the tagline used for metadata is the one in the constant.
   assert.ok(INDEX.includes(BRAND.tagline), 'the tagline in the markup matches BRAND.tagline');
+});
+
+test('12. the $50 release is documented as one coordinated step', () => {
+  const env = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
+  const block = env.slice(env.indexOf('MINIMUM DEPOSIT FLOOR'));
+  const section = block.slice(0, block.indexOf('PAYHIP LIVE MODE'));
+  assert.ok(section.includes('PLATFORM_MIN_DEPOSIT_USD'), 'the knob is documented');
+  assert.ok(section.includes('049_min_deposit_50.sql'),
+    'the doc names the migration that must accompany it - applied alone, the two halves disagree');
+  assert.ok(/WITHOUT it a \$50 deposit would succeed while referral qualification/i.test(section),
+    'the failure mode is stated, not just the pairing');
+  assert.ok(section.includes('no deploy'), 'the rollback is documented as immediate');
+  assert.ok(fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '049_min_deposit_50.sql')));
 });

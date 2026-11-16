@@ -35,6 +35,10 @@ const TESTS = path.join(ROOT, 'tests');
 /**
  * Files that must NOT follow the rename.
  *   brand_token          - verifies the mechanism with a synthetic name.
+ *   kalderix_identity    - asserts the STATE of the switch (pre- and post-
+ *                          approval) and the palette mechanics, so its literals
+ *                          are the thing under test; rewriting them would make
+ *                          it assert its own output.
  *   phase5_cleanup       - pins the QUARANTINED legacy SQL file, whose retained
  *                          header is a historical record and intentionally keeps
  *                          the original name (that is what the pin is for).
@@ -44,6 +48,7 @@ const TESTS = path.join(ROOT, 'tests');
  */
 const SKIP = [
   'brand_token.test.js',
+  'kalderix_identity.test.js',
   'phase5_cleanup.test.js',
   'marketing_rehearsal_guard.test.js',
   'telegram_referral_onboarding_doc.test.js'
