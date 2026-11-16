@@ -8944,3 +8944,58 @@ such sweep.
 - Verified rendering in headless Chromium (`--dump-dom` on the real page): activation
   elements present, 0 syntax/reference errors, no raw placeholder outside <script>.
   No puppeteer in this sandbox, so interactive click-through is NOT claimed.
+
+
+## Kalderix relaunch - final rehearsal and release preparation (2026-11-16, NOT deployed)
+
+- The founder approved Kalderix as the customer-facing brand (legal operator stays
+  Arbitrix Trading, KVK 72923513), the $50 minimum deposit, Payhip Option A
+  (activation only, no wallet crediting), keeping the Q8Pay decimal identification,
+  and Brazil as the first target market. Nothing was pushed, deployed, applied or
+  configured; the branch is local only.
+- The rehearsal found TWO real defects of the same class - a literal that the rename
+  itself rewrites, silently:
+  1. `SUBSCRIPTION_DETAIL_PREFIXES` was `['Arbitrix Pro Subscription', 'Kalderix Pro
+     Subscription']`. The rename rewrote the first entry, so both became identical and
+     the PRE-rename era stopped mapping: a customer billed before the rename would see
+     the raw old name in their history again. Now derived from `BRAND.name` +
+     `BRAND.source` (source is the pre-rename name by definition). The literal fallback
+     I first wrote collapsed the same way; it is gone - with no identity the map is
+     empty and the detail renders as stored.
+  2. `services/TOTPService.js` ISSUER and the q8pay invoice title were literals; both
+     now follow `BRAND` so they cannot be left behind. The issuer is a display label
+     (not part of the secret), so existing authenticator entries keep working.
+- `tests/kalderix_identity.test.js` asserted the PRE-APPROVAL state ("candidate
+  recorded but not applied"), so approving the rename turned 7 of its tests red. It is
+  now state-aware (`APPLIED = BRAND.name === ID.name`) and passes in BOTH states, which
+  is what a release gate has to do. It is also on the `rebrand-tests` SKIP list: it
+  asserts the state and the palette mechanics, so rewriting its literals made it assert
+  its own output (`!/Arbitrix/` became `!/Kalderix/`).
+- NEW `scripts/verify-rebrand.js`: the release gate for the rename. Checks the identity,
+  all six locales (no old name in any dictionary value, product named in each), the
+  protected identifiers (legal name, KVK, mail domain, t.me handles, arbitrix.pro,
+  `arbitrix-knowledge.json`), the named surfaces (title, og:site_name, apple title,
+  manifest, icon, TOTP issuer read from the real module, q8pay title, AI prompts),
+  BOTH transaction eras, and that every remaining reference is a protected identifier
+  (classified by CONTEXT - a token sliced out of `%3EArbitrix%3C` or `\u3002Arbitrix`
+  matches no identifier regex).
+- Rehearsal (clean copies /tmp/kx9 -> /tmp/kx12, each a full copy of the branch):
+  final run = `ALL CHECKS PASSED` + **3271/3271** tests. The real branch = 3271/3271.
+- `docs/relaunch/13-RELEASE-CHECKLIST-KALDERIX.md`: the master sequence (backup ->
+  readiness probe -> code -> $50 as ONE coordinated step -> rebrand -> Payhip last),
+  per-step verification, a rollback matrix, and the open external dependencies.
+  Two corrections found while writing it: **this repo has NO backup script** (the
+  `scripts/backup-supabase-db.sh` / `docs/BACKUP_*` referenced by earlier notes do not
+  exist on `main` or on this branch), so the doc carries a self-contained `pg_dump`
+  procedure with the three checks that catch a silent empty dump; and
+  `docs/sql/telegram_db_readiness.sql` only knows migrations 038-046, so the doc adds a
+  short SELECT-only probe for 049/050/051. That probe was executed against a throwaway
+  PostgreSQL 16.16 in both states (three NOT APPLIED, then three APPLIED).
+- Migration 051 was executed against the real migration-011 body on the same container:
+  applies cleanly, changes exactly one literal, re-apply is a byte-identical no-op, and
+  its guard refuses a body that lost the idempotency or `live_balance <` check.
+- `public/index.html` hash re-pinned in `tests/partners_page.test.js` (2a062850...), per
+  that test's own instruction for approved homepage edits; the diff is 13 lines inside
+  the txDetailLabel helpers and touches no funnel markup.
+- Pre-existing `tests/how_it_works_video.test.js` no longer fails: it pins the approved
+  master by sha256 + size instead of requiring the untracked `build/` copy.
