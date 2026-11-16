@@ -85,7 +85,7 @@ function translations() {
 
 test('min deposit: single server source of truth is $100', () => {
     assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/, 'platform minimum deposit constant must be $100');
-    assert.match(SERVER, /const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT_USD;/, 'production invoice route uses the constant');
+    assert.match(SERVER, /const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT;/, 'production invoice route uses the constant');
     assert.ok(!/const MIN_DEPOSIT_AMOUNT = 50;/.test(SERVER), 'no stale $50 production minimum');
 });
 
@@ -98,14 +98,14 @@ test('min deposit: production invoice validation rejects < $100 and accepts $100
 test('min deposit: sandbox simulated deposits enforce the same $100 floor', () => {
     for (const name of ['handleSandboxDepositRequest', 'handleSandboxInvoiceCreate']) {
         const body = fnSource(name);
-        assert.match(body, /amt < PLATFORM_MIN_DEPOSIT_USD/, `${name} must enforce the platform minimum`);
+        assert.match(body, /amt < PLATFORM_MIN_DEPOSIT/, `${name} must enforce the platform minimum`);
     }
-    assert.match(SERVER, /const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;/,
+    assert.match(SERVER, /const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT;/,
         'sandbox referral qualifying deposit mirrors the platform minimum');
 });
 
 test('min deposit: referral config fallbacks are the platform minimum (no stale 50)', () => {
-    assert.match(SERVER, /minimum_qualifying_deposit: \{ value: String\(PLATFORM_MIN_DEPOSIT_USD\)/);
+    assert.match(SERVER, /minimum_qualifying_deposit: \{ value: String\(PLATFORM_MIN_DEPOSIT\)/);
     assert.ok(!/getReferralConfig\('minimum_qualifying_deposit', '50'\)/.test(SERVER), 'no $50 referral-min fallback left');
     assert.match(M021, /v_min DECIMAL := 100;/, 'production helper fallback is $100');
     assert.match(M022, /v_min DECIMAL := 100;/, 'sandbox config fallback is $100');
@@ -274,7 +274,7 @@ test('MTA: fully removed from production and still absent from the sandbox', () 
 
 test('sandbox: reward percent / minimum deposit mirror production', () => {
     assert.match(SERVER, /const SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20;/);
-    assert.match(SERVER, /const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;/);
+    assert.match(SERVER, /const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT;/);
     assert.ok(!/SANDBOX_REFERRAL_COMMISSION_RATE/.test(SERVER), 'no sandbox commission rate');
     assert.match(M022, /'minimum_deposit', COALESCE\(v_min, 100\)/);
     assert.match(M022, /'reward_percent', COALESCE\(v_percent, 20\)/);

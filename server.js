@@ -648,6 +648,46 @@ const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 // deposit and must never be derived from this constant.
 const PLATFORM_MIN_DEPOSIT_USD = 100;
 
+// EFFECTIVE PLATFORM MINIMUM DEPOSIT (single runtime knob).
+//
+// The constant above is the built-in default and the value every existing test
+// pins. The EFFECTIVE value is resolved once at boot from the optional env var
+// PLATFORM_MIN_DEPOSIT_USD, so the platform minimum can be changed WITHOUT a code
+// change and WITHOUT a redeploy of new code (a Render env change + restart).
+//
+// Every runtime consumer (invoice creation, sandbox simulated deposits, the
+// referral qualifying-deposit fallback, MARKETING_FACTS and the /api/auth/me
+// `minDeposit` field the frontend adopts) reads PLATFORM_MIN_DEPOSIT, never the
+// raw default. With the env var unset the effective value IS the default, so
+// behaviour is byte-identical to before this change.
+//
+// CHANGING IT REQUIRES APPROVAL *and* two coordinated steps, because the
+// qualifying-deposit amount also lives in the referral_config table and the
+// marketing copy is interpolated from these same values:
+//   1. set PLATFORM_MIN_DEPOSIT_USD=50 on the service
+//   2. apply the matching config migration (see docs/MIN_DEPOSIT_50_PLAN.md)
+// Nothing is changed by shipping this code alone.
+const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT_USD';
+const MIN_DEPOSIT_FLOOR_USD = 10;
+const MIN_DEPOSIT_CEILING_USD = 10000;
+
+function resolvePlatformMinDeposit(env = process.env) {
+  const raw = String((env && env[MIN_DEPOSIT_ENV_VAR]) || '').trim();
+  if (!raw) return PLATFORM_MIN_DEPOSIT_USD;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) ||
+      n < MIN_DEPOSIT_FLOOR_USD || n > MIN_DEPOSIT_CEILING_USD) {
+    console.warn(`[Config] ${MIN_DEPOSIT_ENV_VAR}="${raw}" is invalid (expected an integer ${MIN_DEPOSIT_FLOOR_USD}-${MIN_DEPOSIT_CEILING_USD}); using $${PLATFORM_MIN_DEPOSIT_USD}`);
+    return PLATFORM_MIN_DEPOSIT_USD;
+  }
+  if (n !== PLATFORM_MIN_DEPOSIT_USD) {
+    console.log(`[Config] Platform minimum deposit overridden: $${n} (built-in default $${PLATFORM_MIN_DEPOSIT_USD})`);
+  }
+  return n;
+}
+
+const PLATFORM_MIN_DEPOSIT = resolvePlatformMinDeposit();
+
 // Conversion minimum for referral earnings into tradable Live capital. FINAL
 // management model: referral earnings have NO conversion minimum — a single
 // qualifying referral at the $100 platform minimum earns exactly $20, and
@@ -703,7 +743,7 @@ const WITHDRAWAL_REQUIRES_VERIFICATION =
 // truth); these constants are only the fallbacks used when the config row is
 // missing/unreadable. There is NO downline commission in the final model.
 const SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20;
-const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;
+const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT;
 
 // Simulated "$50 promotional credit" seed for a new MARKETING_SANDBOX wallet,
 // mirroring the production new-user seed (getWallet inserts live_balance: 50).
@@ -1023,8 +1063,8 @@ async function handleSandboxDepositRequest(req, res) {
   const amt = Number(amount);
   // Platform minimum deposit ($100) - applies to the sandbox too (management
   // decision). This is the deposit floor, NOT the $50 promotional credit.
-  if (!amt || amt < PLATFORM_MIN_DEPOSIT_USD) {
-    return res.status(400).json({ error: 'Min $' + PLATFORM_MIN_DEPOSIT_USD });
+  if (!amt || amt < PLATFORM_MIN_DEPOSIT) {
+    return res.status(400).json({ error: 'Min $' + PLATFORM_MIN_DEPOSIT });
   }
   const net = network || 'TRC20';
   const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
@@ -1053,8 +1093,8 @@ async function handleSandboxInvoiceCreate(req, res) {
   const amt = Number(amount);
   // Platform minimum deposit ($100) - applies to the sandbox too (management
   // decision). This is the deposit floor, NOT the $50 promotional credit.
-  if (!amt || amt < PLATFORM_MIN_DEPOSIT_USD) {
-    return res.status(400).json({ success: false, error: 'Min $' + PLATFORM_MIN_DEPOSIT_USD });
+  if (!amt || amt < PLATFORM_MIN_DEPOSIT) {
+    return res.status(400).json({ success: false, error: 'Min $' + PLATFORM_MIN_DEPOSIT });
   }
   const net = network || 'TRC20';
   const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
@@ -1661,7 +1701,7 @@ async function requireSandboxTargetUser(req, res) {
 
 // Referral reward (FINAL management model): a ONE-TIME reward equal to this
 // percentage of the referred user's INITIAL QUALIFYING DEPOSIT — the platform's
-// minimum required deposit (see PLATFORM_MIN_DEPOSIT_USD). The live value is
+// minimum required deposit (see PLATFORM_MIN_DEPOSIT). The live value is
 // stored in referral_config('referral_reward_percent') and always overrides
 // this default (see getReferralConfig). This constant is the fallback used only
 // when the config row is missing/unreadable.
@@ -1736,7 +1776,7 @@ async function getReferralConfigAll() {
 function getDefaultReferralConfig() {
   return {
     rewards_enabled: { value: 'true', description: 'Enable or disable referral rewards system-wide' },
-    minimum_qualifying_deposit: { value: String(PLATFORM_MIN_DEPOSIT_USD), description: 'Minimum deposit amount required (USD)' },
+    minimum_qualifying_deposit: { value: String(PLATFORM_MIN_DEPOSIT), description: 'Minimum deposit amount required (USD)' },
     referral_reward_percent: { value: String(REFERRAL_REWARD_PERCENT_DEFAULT), description: 'Referral reward as a percentage of the referred user\'s initial qualifying deposit' },
     first_deposit_required: { value: 'true', description: 'Whether referral requires first deposit to qualify' },
     max_rewards_per_user: { value: '0', description: 'Maximum rewards per user (0 = unlimited)' }
@@ -1987,7 +2027,7 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     const config = {
       rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
       rewardPercent: parseConfigValue(await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))),
-      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT_USD))),
+      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT))),
       firstDepositRequired: parseConfigValue(await getReferralConfig('first_deposit_required', 'true')),
       maxRewardsPerUser: parseConfigValue(await getReferralConfig('max_rewards_per_user', '0'))
     };
@@ -3657,6 +3697,10 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       hasRealDeposit: !!funded,
       todayRealizedPnl: Number(todayPnl) || 0,
       environment: ENV_MARKETING_SANDBOX,
+      // Single runtime source of the platform minimum deposit (see
+      // resolvePlatformMinDeposit). Display only: the sandbox deposit routes
+      // enforce the same value server-side.
+      minDeposit: PLATFORM_MIN_DEPOSIT,
       introDay: wallet.intro_day,
       badgeHidden: wallet.badge_hidden,
       // MARKETING_SANDBOX has NO MTA: 0 means "no minimum trading amount", so
@@ -3706,6 +3750,11 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     hasRealDeposit: !!funded,
     todayRealizedPnl: Number(todayPnl) || 0,
     environment: ENV_PRODUCTION,
+    // Single runtime source of the platform minimum deposit. The frontend adopts
+    // this into APP.MIN_DEPOSIT so the deposit validation, the min-amount notice
+    // and the onboarding copy can never disagree with the server's enforcement
+    // (see resolvePlatformMinDeposit at the top of this file).
+    minDeposit: PLATFORM_MIN_DEPOSIT,
     // Server-authoritative promotional-credit cap state (frontend mirrors it
     // for display only; enforcement is server-side in /api/trade + /api/bot/start).
     promoCreditFunded,
@@ -3884,7 +3933,7 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
     const { amount, currency, network } = req.body;
     // Platform minimum deposit ($100, single source of truth). This is the
     // deposit floor — it is NOT the $50 promotional credit.
-    const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT_USD;
+    const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT;
     
     if (!amount || typeof amount !== 'number' || amount < MIN_DEPOSIT_AMOUNT) {
       return res.status(400).json({ 
@@ -4167,7 +4216,7 @@ app.get('/api/deposit/options', authMiddleware, async (req, res) => {
       enabled: true,
       asset: 'USDT',
       network: 'TRC20',
-      minDeposit: PLATFORM_MIN_DEPOSIT_USD
+      minDeposit: PLATFORM_MIN_DEPOSIT
     }
   });
 });
@@ -4905,7 +4954,7 @@ const telegramConfig = resolveTelegramConfig(process.env);
 // Facts injected into marketing copy. They come from the SAME constants the
 // application enforces, so a template can never advertise a different amount.
 const MARKETING_FACTS = {
-  minDeposit: PLATFORM_MIN_DEPOSIT_USD,
+  minDeposit: PLATFORM_MIN_DEPOSIT,
   referralPercent: REFERRAL_REWARD_PERCENT_DEFAULT,
   promoCredit: 50 // new-user promotional credit seeded on the Live wallet
 };
@@ -8139,7 +8188,7 @@ app.get('/api/referral/config', async (req, res) => {
     // No internal details, descriptions, or metadata exposed
     res.json({
       rewardsEnabled: config.rewards_enabled?.value === 'true',
-      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || String(PLATFORM_MIN_DEPOSIT_USD)),
+      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || String(PLATFORM_MIN_DEPOSIT)),
       rewardPercent: parseConfigValue(config.referral_reward_percent?.value || String(REFERRAL_REWARD_PERCENT_DEFAULT)),
       firstDepositRequired: config.first_deposit_required?.value === 'true',
       maxRewardsPerUser: parseConfigValue(config.max_rewards_per_user?.value || '0')
@@ -8149,7 +8198,7 @@ app.get('/api/referral/config', async (req, res) => {
     // Return defaults on error - do NOT expose internal error details
     res.json({
       rewardsEnabled: true,
-      minimumDeposit: PLATFORM_MIN_DEPOSIT_USD,
+      minimumDeposit: PLATFORM_MIN_DEPOSIT,
       rewardPercent: REFERRAL_REWARD_PERCENT_DEFAULT,
       firstDepositRequired: true,
       maxRewardsPerUser: 0
@@ -8382,7 +8431,7 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const config = {
     rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
     rewardPercent: parseConfigValue(await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))),
-    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT_USD))),
+    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT))),
   };
   
   res.json({ 

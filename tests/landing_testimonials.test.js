@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1603;
+const DICT_SIZE = 1605;
 // 1600 keys/locale now = 1574 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
@@ -34,7 +34,7 @@ const DICT_SIZE = 1603;
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1577; // +3: the deposit partner section now
+const BASE_OUTSIDE_TESTIMONIALS = 1579; // +3: the deposit partner section now
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 

@@ -328,7 +328,7 @@ test('the bot is constructed with onboarding and the subscription store', () => 
 });
 
 test('marketing facts come from the application constants', () => {
-  assert.match(SERVER, /minDeposit: PLATFORM_MIN_DEPOSIT_USD/);
+  assert.match(SERVER, /minDeposit: PLATFORM_MIN_DEPOSIT/);
   assert.match(SERVER, /referralPercent: REFERRAL_REWARD_PERCENT_DEFAULT/);
 });
 

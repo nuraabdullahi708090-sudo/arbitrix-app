@@ -131,7 +131,7 @@ test('sandbox RPCs are service-role only', () => {
 // ---------------------------------------------------------------------------
 test('server mirrors the percent model for the sandbox', () => {
     assert.match(SERVER, /const SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20;/);
-    assert.match(SERVER, /const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;/);
+    assert.match(SERVER, /const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT;/);
     assert.ok(!/SANDBOX_REFERRAL_REWARD_DEFAULT_USD|SANDBOX_REFERRAL_COMMISSION_RATE/.test(SERVER), 'no retired sandbox reward/commission constants');
     assert.ok(!/creditSandboxDownlineCommission|simulateSandboxDownlineProfit/.test(SERVER), 'no sandbox commission code');
 });

@@ -167,7 +167,7 @@ test('sandbox deposit records store the requested amount rounded to 2dp', () => 
     for (const name of ['handleSandboxDepositRequest', 'handleSandboxInvoiceCreate']) {
         const body = fnBody(name);
         assert.match(body, /amount:\s*Math\.round\(amt \* 100\) \/ 100/, `${name} must insert 2dp amount`);
-        assert.match(body, /amt < PLATFORM_MIN_DEPOSIT_USD/, `${name} must enforce the platform minimum deposit ($100)`);
+        assert.match(body, /amt < PLATFORM_MIN_DEPOSIT/, `${name} must enforce the platform minimum deposit ($100)`);
     }
 });
 

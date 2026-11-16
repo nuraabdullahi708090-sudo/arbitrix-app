@@ -1781,6 +1781,8 @@
         .arb-opp-metric-value{font-size:14px;font-weight:800;}
         .arb-opp-metric-value.green{color:var(--green);}
         .arb-opp-metric-value.gold{color:var(--gold);}
+        .arb-opp-tag{margin-inline-start:6px;padding:1px 6px;border-radius:999px;border:1px solid var(--brand-border, var(--border-color));font-size:9px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;color:var(--text-secondary);background:var(--bg-input);white-space:nowrap;}
+        .arb-opp-disclosure{margin:9px 0 0;font-size:9.5px;line-height:1.45;color:var(--text-muted);overflow-wrap:anywhere;}
         html[dir="rtl"] .arb-opp-card{left:auto;right:16px;}
         @media(max-width:640px){.arb-opp-card{left:12px;right:12px;width:auto;}html[dir="rtl"] .arb-opp-card{left:12px;right:12px;}}
         /* Overlay precedence: yield the corner rather than cover a control. */
@@ -5936,7 +5938,7 @@ console.log('🔐 Auth script loaded successfully');
          spread; nothing is executed and no money moves. -->
     <aside id="arbOpportunityCard" class="arb-opp-card" role="status" aria-live="polite" aria-atomic="true" aria-labelledby="arbOppTitle">
         <div class="arb-opp-head">
-            <span class="arb-opp-badge"><span class="arb-opp-dot" aria-hidden="true"></span><span id="arbOppTitle" data-i18n="arbOpp.title">Arbitrage opportunity</span></span>
+            <span class="arb-opp-badge"><span class="arb-opp-dot" aria-hidden="true"></span><span id="arbOppTitle" data-i18n="arbOpp.title">Arbitrage opportunity</span><span class="arb-opp-tag" id="arbOppTag" data-i18n="arbOpp.exampleTag">Illustrative</span></span>
             <button type="button" class="arb-opp-dismiss" id="arbOppDismiss" aria-label="Dismiss notification"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         </div>
         <div class="arb-opp-asset">
@@ -5958,6 +5960,7 @@ console.log('🔐 Auth script loaded successfully');
                 <span class="arb-opp-metric-value gold" id="arbOppNet"></span>
             </div>
         </div>
+        <p class="arb-opp-disclosure" id="arbOppDisclosure" data-i18n="arbOpp.disclosure">Example data only - these are not live market prices. Not financial advice and no profit is guaranteed.</p>
     </aside>
 </div>
 
@@ -10506,6 +10509,8 @@ const TRANSLATIONS = {
         'landing.assets.metalsDesc': 'e.g. XAU/USD (gold), XAG/USD (silver)',
         'landing.assets.note': 'Availability of specific instruments is determined by the platform and is not a guarantee of execution on any specific asset.',
         'arbOpp.title': 'Arbitrage opportunity',
+        'arbOpp.exampleTag': 'Illustrative',
+        'arbOpp.disclosure': 'Example data only - these are not live market prices. Not financial advice and no profit is guaranteed.',
         'arbOpp.observed': 'Observed spread',
         'arbOpp.net': 'Est. net spread',
         'arbOpp.dismiss': 'Dismiss notification',
@@ -12129,6 +12134,8 @@ const TRANSLATIONS = {
         'landing.assets.metalsDesc': 'p. ej. XAU/USD (oro), XAG/USD (plata)',
         'landing.assets.note': 'La disponibilidad de instrumentos específicos la determina la plataforma y no garantiza la ejecución sobre ningún activo en particular.',
         'arbOpp.title': 'Oportunidad de arbitraje',
+        'arbOpp.exampleTag': 'Ilustrativo',
+        'arbOpp.disclosure': 'Solo es un ejemplo ilustrativo: no son precios en vivo, no es una oferta para operar ni una garantía de beneficios.',
         'arbOpp.observed': 'Spread observado',
         'arbOpp.net': 'Spread neto est.',
         'arbOpp.dismiss': 'Descartar notificación',
@@ -13753,6 +13760,8 @@ const TRANSLATIONS = {
         'landing.assets.metalsDesc': 'ex. XAU/USD (ouro), XAG/USD (prata)',
         'landing.assets.note': 'A disponibilidade de instrumentos específicos é determinada pela plataforma e não garante execução sobre nenhum ativo específico.',
         'arbOpp.title': 'Oportunidade de arbitragem',
+        'arbOpp.exampleTag': 'Ilustrativo',
+        'arbOpp.disclosure': 'Apenas um exemplo ilustrativo: não são preços ao vivo, não é uma oferta para negociar nem uma garantia de lucro.',
         'arbOpp.observed': 'Spread observado',
         'arbOpp.net': 'Spread líquido est.',
         'arbOpp.dismiss': 'Dispensar notificação',
@@ -15377,6 +15386,8 @@ const TRANSLATIONS = {
         'landing.assets.metalsDesc': 'ex. XAU/USD (or), XAG/USD (argent)',
         'landing.assets.note': 'La disponibilité d\'instruments spécifiques est déterminée par la plateforme et ne garantit pas l\'exécution sur un actif particulier.',
         'arbOpp.title': 'Opportunité d\'arbitrage',
+        'arbOpp.exampleTag': 'Illustratif',
+        'arbOpp.disclosure': 'Exemple illustratif uniquement : pas de prix en direct, pas une offre de transaction et pas une garantie de profit.',
         'arbOpp.observed': 'Spread observé',
         'arbOpp.net': 'Spread net est.',
         'arbOpp.dismiss': 'Ignorer la notification',
@@ -17001,6 +17012,8 @@ const TRANSLATIONS = {
         'landing.assets.metalsDesc': 'مثال XAU/USD (ذهب)، XAG/USD (فضة)',
         'landing.assets.note': 'تحدد المنصة توافر الأدوات المحددة ولا يوجد ضمان للتنفيذ على أي أصل محدد.',
         'arbOpp.title': 'فرصة مراجحة',
+        'arbOpp.exampleTag': 'توضيحي',
+        'arbOpp.disclosure': 'مثال توضيحي فقط: ليست أسعارًا مباشرة، ولا عرضًا للتداول، ولا ضمانًا للربح.',
         'arbOpp.observed': 'الفرق الملحوظ',
         'arbOpp.net': 'صافي الفرق المتوقع',
         'arbOpp.dismiss': 'تجاهل الإشعار',
@@ -18625,6 +18638,8 @@ const TRANSLATIONS = {
         'landing.assets.metalsDesc': '例如 XAU/USD（黄金）、XAG/USD（白银）',
         'landing.assets.note': '特定工具的可用性由平台决定，不保证对任何特定资产的执行。',
         'arbOpp.title': '套利机会',
+        'arbOpp.exampleTag': '示意',
+        'arbOpp.disclosure': '仅为示意示例：并非实时价格，不构成交易邀约，也不保证盈利。',
         'arbOpp.observed': '观测价差',
         'arbOpp.net': '预估净价差',
         'arbOpp.dismiss': '关闭通知',
@@ -24566,6 +24581,16 @@ async function syncWalletFromServer() {
             } else {
                 APP.environment = 'PRODUCTION';
                 APP.sandboxBadgeHidden = false;
+            }
+            // Server-authoritative platform minimum deposit. APP.MIN_DEPOSIT is
+            // the single frontend source (deposit validation, the min-amount
+            // notice, the onboarding copy and the deposit modal prompts), so
+            // adopting the server value keeps the customer-facing number in step
+            // with what the server actually enforces. An absent/invalid value
+            // keeps the built-in default (offline-tolerant).
+            if (meData && typeof meData.minDeposit === 'number' &&
+                isFinite(meData.minDeposit) && meData.minDeposit > 0) {
+                APP.MIN_DEPOSIT = Number(meData.minDeposit);
             }
             // Persist the classification on the cached user object so
             // checkAdminAccess()/renderers can read it without another fetch.

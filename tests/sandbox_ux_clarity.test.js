@@ -131,7 +131,7 @@ test('F5: notice re-renders on language switch (hook present)', () => {
 
 test('F5: server-side minimum-deposit validation is unchanged', () => {
   assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
-  assert.match(SERVER, /amt < PLATFORM_MIN_DEPOSIT_USD/);
+  assert.match(SERVER, /amt < PLATFORM_MIN_DEPOSIT/);
 });
 
 // ===========================================================================
@@ -209,7 +209,7 @@ test('F7: the removed sandbox-only keys are absent from every locale', () => {
     for (const k of SANDBOX_KEYS_REMOVED) {
       assert.strictEqual(T[lang][k], undefined, `${lang}.${k} must be removed`);
     }
-    assert.strictEqual(Object.keys(T[lang]).length, 1603, `${lang} must have 1603 keys`);
+    assert.strictEqual(Object.keys(T[lang]).length, 1605, `${lang} must have 1605 keys`);
   }
 });
 
@@ -221,7 +221,7 @@ test('F7: the demo preview disclosure outside the referral area is preserved', (
 
 test('F7: referral calculation/business rules are unchanged', () => {
   assert.match(SERVER, /SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20/);
-  assert.match(SERVER, /SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD/);
+  assert.match(SERVER, /SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT/);
   assert.match(SERVER, /REFERRAL_REWARD_PERCENT_DEFAULT = 20/);
   // The sandbox reward RPC/percent logic is untouched by this display change.
   assert.match(SERVER, /sandbox_record_referral|sandbox_apply_referral|reward_percent/);

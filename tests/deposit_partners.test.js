@@ -147,7 +147,7 @@ test('the customer options route is authenticated and never touches money', () =
   assert.ok(!route.includes('paymentService'), 'must not reach a provider');
   assert.ok(!route.includes('rpc('), 'must not call a credit RPC');
   assert.ok(route.includes("res.set('Cache-Control', 'no-store')"), 'no caching of per-user options');
-  assert.ok(route.includes('PLATFORM_MIN_DEPOSIT_USD'), 'minimum comes from the single source');
+  assert.ok(route.includes('PLATFORM_MIN_DEPOSIT'), 'minimum comes from the single source');
 });
 
 test('every admin partner route requires auth AND admin', () => {
