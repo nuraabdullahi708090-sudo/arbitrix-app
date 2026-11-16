@@ -348,8 +348,22 @@ async function getLiveActivationState(userId) {
     return { activated: true, reason: 'licensed', activationRequired: true, exempt: false };
   }
   if (held === null) {
-    // Entitlement store unreadable: fail open rather than strand the customer.
-    return { activated: true, reason: 'unknown-fail-open', activationRequired: true, exempt: true };
+    // We cannot READ the entitlement, so we cannot PROVE one. An unproven
+    // entitlement is a refusal for anyone who has not already passed the
+    // grandfather branch above: granting here would let a database blip unlock
+    // Live Mode for every account. Reported as retryable (503) so the UI says
+    // "try again", never "buy a licence you may already own".
+    //
+    // The ordering is what protects existing customers: the confirmed-deposit
+    // check runs BEFORE this one and never touches Payhip, so a Payhip outage
+    // cannot lock a funded account out.
+    return {
+      activated: false,
+      reason: 'activation-unavailable',
+      activationRequired: true,
+      exempt: false,
+      retryable: true
+    };
   }
   return { activated: false, reason: 'activation-required', activationRequired: true, exempt: false };
 }
@@ -362,6 +376,28 @@ function liveActivationBody(extra) {
     code: LIVE_ACTIVATION_CODE,
     activationRequired: true
   }, extra || {});
+}
+
+/**
+ * Refuse a Live Mode action. 503 when the decision could not be MADE (retry),
+ * 403 when it was made and the answer is no. Both carry the same activation
+ * marker so the client renders one prompt either way.
+ */
+function sendActivationRefusal(res, activation) {
+  const state = activation || {};
+  if (state.retryable === true) {
+    return res.status(503).json(Object.assign(liveActivationBody({
+      reason: state.reason || 'activation-unavailable',
+      retryable: true
+    }), {
+      error: 'Live Mode activation could not be verified. Please try again.',
+      code: 'ACTIVATION_UNAVAILABLE'
+    }));
+  }
+  return res.status(403).json(liveActivationBody({
+    reason: state.reason || 'activation-required',
+    retryable: false
+  }));
 }
 
 // ============================================
@@ -766,6 +802,39 @@ function resolvePlatformMinDeposit(env = process.env) {
 }
 
 const PLATFORM_MIN_DEPOSIT = resolvePlatformMinDeposit();
+
+/**
+ * The deposit floor lives in TWO places by necessity: this constant (used to
+ * validate every invoice) and referral_config.minimum_qualifying_deposit (used
+ * by the referral award helper, in SQL, since migration 021). If they disagree,
+ * a deposit can succeed while the referral attached to it never qualifies - a
+ * silent half-applied state.
+ *
+ * Migration 049 writes the row; this check PROVES the two agree at runtime
+ * instead of assuming it. Read-only: it never rewrites configuration.
+ */
+async function checkMinDepositSync() {
+  try {
+    const raw = await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT));
+    const configured = Number(raw);
+    if (!Number.isFinite(configured)) {
+      return { ok: null, reason: 'unreadable', effective: PLATFORM_MIN_DEPOSIT, configured: null };
+    }
+    const ok = configured === PLATFORM_MIN_DEPOSIT;
+    if (!ok) {
+      console.warn(
+        '[Config] MISMATCH: referral_config.minimum_qualifying_deposit=' + configured +
+        ' but the platform minimum deposit is ' + PLATFORM_MIN_DEPOSIT +
+        '. Deposits of ' + Math.min(configured, PLATFORM_MIN_DEPOSIT) + '-' +
+        Math.max(configured, PLATFORM_MIN_DEPOSIT) + ' would behave inconsistently. ' +
+        'Apply migration 049_min_deposit_50.sql, or set ' + MIN_DEPOSIT_ENV_VAR + '.'
+      );
+    }
+    return { ok, effective: PLATFORM_MIN_DEPOSIT, configured };
+  } catch (e) {
+    return { ok: null, reason: 'unreadable', effective: PLATFORM_MIN_DEPOSIT, configured: null };
+  }
+}
 
 // Conversion minimum for referral earnings into tradable Live capital. FINAL
 // management model: referral earnings have NO conversion minimum — a single
@@ -3832,7 +3901,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   // Payhip Live Mode activation, resolved once for this response. Inert (always
   // activated) unless the operator turns the requirement on.
   const _liveActivation = await getLiveActivationState(user.id).catch(() => ({
-    activated: true, reason: 'unknown-fail-open', activationRequired: false, exempt: true
+    // If the resolver itself throws, report "unknown" - never "activated". The
+    // real gates are authoritative either way; this only decides which prompt the
+    // dashboard renders.
+    activated: false,
+    reason: 'activation-unavailable',
+    activationRequired: PAYHIP_CONFIG.activationRequired,
+    exempt: false,
+    retryable: true
   }));
   res.json({
     user,
@@ -7163,7 +7239,22 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   if (mode === 'live') {
     const activation = await getLiveActivationState(userId);
     if (!activation.activated) {
-      return res.status(403).json(liveActivationBody({ reason: activation.reason }));
+      return sendActivationRefusal(res, activation);
+    }
+    // FUNDING GATE. Activation buys permission; it never buys capital. A Live
+    // account with nothing in it has nothing to trade, so refuse the entry with a
+    // funding prompt instead of starting a session that cannot execute.
+    // This is a PRESENCE check (balance > 0), not a minimum trading amount: no
+    // threshold is re-introduced and the $50 promotional credit still qualifies.
+    const fundingWallet = await getWallet(userId).catch(() => null);
+    const liveBalance = fundingWallet ? (Number(fundingWallet.live_balance) || 0) : 0;
+    if (liveBalance <= 0) {
+      return res.status(403).json({
+        error: 'Add funds to your Live balance before starting Live trading.',
+        code: 'LIVE_FUNDING_REQUIRED',
+        fundingRequired: true,
+        activationRequired: false
+      });
     }
   }
   const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
@@ -7426,7 +7517,7 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     {
       const activation = await getLiveActivationState(userId);
       if (!activation.activated) {
-        return res.status(403).json(liveActivationBody({ reason: activation.reason }));
+        return sendActivationRefusal(res, activation);
       }
     }
     const { amount, asset, detail, idempotencyKey } = req.body;
@@ -10050,7 +10141,10 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
   const { count: activeBots } = await supabaseAdmin.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
   const { data: wallets } = await supabaseAdmin.from('wallets').select('live_balance');
   const totalLiveBalance = wallets.reduce((s, w) => s + w.live_balance, 0);
-  res.json({ totalUsers: totalUsers||0, totalDeposits, totalWithdrawals, totalVolume, activeBots: activeBots||0, totalLiveBalance });
+  // Operations visibility: does the enforced deposit floor match the referral
+  // qualifying amount stored in the database? (Read-only; never writes config.)
+  const minDepositSync = await checkMinDepositSync();
+  res.json({ totalUsers: totalUsers||0, totalDeposits, totalWithdrawals, totalVolume, activeBots: activeBots||0, totalLiveBalance, minDeposit: PLATFORM_MIN_DEPOSIT, minDepositSync });
 });
 
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
@@ -11295,13 +11389,17 @@ app.use('/video', (req, res) => {
 // funding remains a separate Q8Pay deposit, and every existing gate (minimum
 // deposit, minimum withdrawal, completed trade, KYC) still applies.
 //
-// TRUST: Payhip's `signature` field has no documented shared secret, so it cannot
-// be verified like an HMAC. The webhook URL therefore carries a secret token
-// (PAYHIP_WEBHOOK_TOKEN), compared in constant time, and the sale is accepted
-// only for an allow-listed product. Optional independent re-verification is
-// available through PAYHIP_VERIFY_URL. A licence key ALONE never activates an
-// account: it must match a recorded, still-paid sale, and only one account can
-// ever claim it (row lock inside redeem_payhip_entitlement_safe).
+// TRUST (two layers, and neither is "trust the body"):
+//   1. The webhook must carry Payhip's documented signature, sha256(store API
+//      key). It authenticates the SENDER. Because that digest is identical for
+//      every payload it does NOT bind the body, so it is a trigger, not proof.
+//   2. REDEMPTION verifies the licence against Payhip's licence API using the
+//      product secret (server-side only) and requires enabled === true plus an
+//      allow-listed product. That is the evidence a Live Mode unlock rests on.
+// The URL token (PAYHIP_WEBHOOK_TOKEN) is kept as an optional extra gate. A
+// licence key ALONE never activates an account: it must verify with the provider
+// AND match a recorded, still-paid sale, and only one account can ever claim it
+// (row lock inside redeem_payhip_entitlement_safe).
 //
 // NOTE ON THE PATH: this is /api/payhip/webhook, not /api/webhook/payhip,
 // because the generic app.post('/api/webhook/:provider') registered earlier
@@ -11319,6 +11417,11 @@ app.post('/api/payhip/webhook', async (req, res) => {
   try {
     const result = await payhipEntitlements.handleWebhook(req.body);
     console.log('[Payhip] webhook: ' + JSON.stringify({ outcome: result.outcome }));
+    if (result.outcome === 'signature-invalid') {
+      // Not from Payhip (or the configured API key is wrong). Answering 401 makes
+      // it visible instead of silently "succeeding"; nothing is recorded either way.
+      return res.status(401).json({ ok: false, error: 'invalid_signature' });
+    }
     // Always 200 for a processed payload so Payhip stops retrying; a rejected
     // payload is reported in the body, and never touches a balance.
     return res.json({ ok: true, outcome: result.outcome });
@@ -11354,7 +11457,9 @@ app.get('/api/live/activation', authMiddleware, async (req, res) => {
 // Customer: redeem a licence key (the manual path; checkout can also carry the
 // account id so no typing is needed).
 app.post('/api/live/activate', authMiddleware, async (req, res) => {
-  if (!PAYHIP_CONFIG.usable) {
+  if (!PAYHIP_CONFIG.redeemUsable) {
+    // Without a configured product secret we cannot verify a licence, so we must
+    // not accept one. Configuration state, not a customer error.
     return res.status(503).json({
       success: false,
       error: 'Activation is not available yet.',
@@ -11371,13 +11476,20 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
     const state = await getLiveActivationState(req.user.id);
     return res.json({ success: true, alreadyClaimed: !!result.duplicate, activated: state.activated });
   }
-  const status = result.reason === 'invalid-licence' ? 404 : 409;
+  const status = result.reason === 'invalid-licence' ? 404
+    : result.reason === 'unavailable' ? 503
+      : result.reason === 'too-many-attempts' ? 429
+        : 409;
+  if (result.retryAfterMs) res.set('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
   const messages = {
     'invalid-licence': 'That licence key is not valid.',
+    'licence-disabled': 'That licence has been disabled or refunded.',
+    'wrong-product': 'That licence is not for a Live Mode activation product.',
     'claimed_by_other_account': 'That licence key has already been redeemed by another account.',
     'purchase_not_active': 'That purchase is no longer active.',
     'entitlement_revoked': 'That activation has been revoked.',
     'not-authenticated': 'Please sign in again.',
+    'too-many-attempts': 'Too many attempts. Please wait a minute and try again.',
     'unavailable': 'Activation is temporarily unavailable. Please try again.'
   };
   return res.status(status).json({
@@ -11550,9 +11662,17 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json(errorResponse);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   console.log(`📊 Admin panel at http://0.0.0.0:${PORT}/admin`);
+  // Deposit-floor consistency: the enforced minimum and the referral qualifying
+  // amount live in different places, so prove they agree on every boot.
+  // Guarded, so it can never delay or prevent startup.
+  try {
+    await checkMinDepositSync();
+  } catch (e) {
+    /* the warning path is best-effort; never fail a boot over telemetry */
+  }
 });
 
 // Reconcile the Telegram webhook registration on boot (non-blocking, no secrets).

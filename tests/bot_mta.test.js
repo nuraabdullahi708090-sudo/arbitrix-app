@@ -69,8 +69,14 @@ function localeBlock(lang) {
 // ---------------------------------------------------------------------------
 // Pure-JS mirror: with the MTA removed, any mode may start the bot.
 // ---------------------------------------------------------------------------
-function botStartMirror(rawMode) {
+function botStartMirror(rawMode, balance = 250) {
     const mode = rawMode === 'demo' ? 'demo' : 'live'; // still default-deny
+    // PAYHIP/FUNDING era: Live Mode needs a funded account. This is a PRESENCE
+    // check (is there any money at all), not a minimum trading amount - the point
+    // of MTA removal is preserved exactly. Demo Mode is never gated.
+    if (mode === 'live' && !(Number(balance) > 0)) {
+        return { result: 'funding-required', sessionWritten: false, mode };
+    }
     return { result: 'started', sessionWritten: true, mode };
 }
 
@@ -128,13 +134,33 @@ test('sandbox bot start touches no production tables/RPCs', () => {
 // ---------------------------------------------------------------------------
 // 3. Behavior matrix (pure-JS mirror of the new no-gate semantics)
 // ---------------------------------------------------------------------------
-test('production: every balance can start the bot (no minimum trading amount)', () => {
+test('production: no minimum trading amount - every POSITIVE balance starts the bot', () => {
     for (const m of ['live', 'demo']) {
-        for (const b of [0, 0.01, 50, 199.99, 200, 10000]) {
-            void b; // balance is irrelevant by design — captured for readability
-            assert.strictEqual(botStartMirror(m).result, 'started', `${m} @ ${b} must start`);
+        for (const b of [0.01, 1, 50, 143, 199.99, 200, 10000]) {
+            assert.strictEqual(botStartMirror(m, b).result, 'started', `${m} @ ${b} must start`);
         }
     }
+});
+
+test('production: a zero Live balance is refused at the funding gate (presence, not a threshold)', () => {
+    for (const b of [0, -1, -250]) {
+        const live = botStartMirror('live', b);
+        assert.strictEqual(live.result, 'funding-required', `live @ ${b} must not start`);
+        assert.strictEqual(live.sessionWritten, false, 'no session row for an unfunded account');
+    }
+    // Demo Mode is untouched: no balance is required to explore.
+    assert.strictEqual(botStartMirror('demo', 0).result, 'started');
+});
+
+test('server: the funding gate runs after activation and before the session upsert', () => {
+    const body = routeBody('post', '/api/bot/start');
+    const actIdx = body.indexOf('getLiveActivationState');
+    const fundIdx = body.indexOf('LIVE_FUNDING_REQUIRED');
+    const upsertIdx = body.indexOf("from('bot_sessions')");
+    assert.ok(actIdx > 0 && fundIdx > 0 && upsertIdx > 0, 'all three must exist');
+    assert.ok(actIdx < fundIdx, 'activation is decided before funding');
+    assert.ok(fundIdx < upsertIdx, 'funding is decided before any session write');
+    assert.ok(!/liveBalance\s*<\s*\d/.test(body), 'no numeric minimum may reappear');
 });
 
 test('production: mode normalization is unchanged (client mode cannot change the outcome, but stays default-deny)', () => {

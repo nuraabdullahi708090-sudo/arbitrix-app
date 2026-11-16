@@ -9829,6 +9829,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'One licence activates one account, once, and cannot be transferred. Activation never credits a balance.',
         'liveActivation.keyRequired': 'Enter your licence key.',
         'liveActivation.failed': 'That licence key could not be redeemed.',
+        'liveActivation.retryLater': 'Activation is temporarily unavailable. Please try again in a moment.',
         'liveActivation.success': 'Live Mode activated.',
         'live.withdrawStatus.needMinimum': '📈 Minimum withdrawal: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Keep trading to grow your eligible balance',
@@ -11465,6 +11466,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'Una licencia activa una cuenta, una sola vez, y no se puede transferir. La activación nunca acredita saldo.',
         'liveActivation.keyRequired': 'Ingresá tu clave de licencia.',
         'liveActivation.failed': 'No se pudo canjear esa clave de licencia.',
+        'liveActivation.retryLater': 'La activación no está disponible temporalmente. Inténtalo de nuevo en un momento.',
         'liveActivation.success': 'Modo Live activado.',
         'live.withdrawStatus.needMinimum': '📈 Retiro mínimo: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Sigue operando para aumentar tu saldo disponible',
@@ -13102,6 +13104,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'Uma licença ativa uma conta, uma única vez, e não pode ser transferida. A ativação nunca credita saldo.',
         'liveActivation.keyRequired': 'Insira sua chave de licença.',
         'liveActivation.failed': 'Não foi possível resgatar essa chave de licença.',
+        'liveActivation.retryLater': 'A ativação está temporariamente indisponível. Tente novamente em instantes.',
         'liveActivation.success': 'Modo Live ativado.',
         'live.withdrawStatus.needMinimum': '📈 Saque mínimo: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Continue operando para aumentar seu saldo disponível',
@@ -14739,6 +14742,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'Une licence active un compte, une seule fois, et ne peut pas être transférée. L\'activation ne crédite jamais de solde.',
         'liveActivation.keyRequired': 'Saisissez votre clé de licence.',
         'liveActivation.failed': 'Cette clé de licence n\'a pas pu être utilisée.',
+        'liveActivation.retryLater': 'L\'activation est temporairement indisponible. Réessayez dans un instant.',
         'liveActivation.success': 'Mode Live activé.',
         'live.withdrawStatus.needMinimum': '📈 Retrait minimum : ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Continuez à trader pour augmenter votre solde disponible',
@@ -16376,6 +16380,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'الترخيص الواحد يفعّل حساباً واحداً، مرة واحدة، ولا يمكن نقله. التفعيل لا يضيف أي رصيد.',
         'liveActivation.keyRequired': 'أدخل مفتاح الترخيص.',
         'liveActivation.failed': 'تعذّر استخدام مفتاح الترخيص هذا.',
+        'liveActivation.retryLater': 'التفعيل غير متاح مؤقتًا. حاول مرة أخرى بعد قليل.',
         'liveActivation.success': 'تم تفعيل الوضع المباشر.',
         'live.withdrawStatus.needMinimum': '📈 الحد الأدنى للسحب: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 واصل التداول لزيادة رصيدك المؤهل',
@@ -18013,6 +18018,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': '一个许可证仅激活一个账户，且只能使用一次，不能转让。激活不会增加任何余额。',
         'liveActivation.keyRequired': '请输入您的许可证密钥。',
         'liveActivation.failed': '该许可证密钥无法兑换。',
+        'liveActivation.retryLater': '激活暂时不可用，请稍后再试。',
         'liveActivation.success': '实时模式已激活。',
         'live.withdrawStatus.needMinimum': '📈 最低提现额：${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 继续交易以增加您的可用余额',
@@ -19136,7 +19142,13 @@ async function submitLiveActivation() {
         });
         const data = await res.json().catch(function () { return {}; });
         if (!res.ok || !data.success) {
-            fail(translateBackendMessage(data.error, 'liveActivation.failed'));
+            // A retryable failure means "we could not check right now", which must
+            // never be reported as a bad key: the customer may have paid and their
+            // licence may be perfectly valid.
+            const retryable = data.reason === 'unavailable' || data.reason === 'too-many-attempts';
+            fail(retryable
+                ? t('liveActivation.retryLater')
+                : translateBackendMessage(data.error, 'liveActivation.failed'));
             return;
         }
         APP.liveActivated = data.activated === true;

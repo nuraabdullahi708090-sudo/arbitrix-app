@@ -12,23 +12,30 @@
  *   minimum, completed trade, KYC all still apply).
  *
  * TRUST MODEL (read this before changing anything)
- *   Payhip's webhook payload carries a `signature` field but its documentation
- *   names neither a shared secret nor a signing algorithm, so a body signature
- *   CANNOT be verified the way an HMAC over raw bytes can. This module therefore
- *   does not pretend to verify it. Instead:
+ *   Payhip documents two independent things, and they are NOT equivalent:
  *
- *     1. The webhook URL itself carries a secret token (PAYHIP_WEBHOOK_TOKEN),
- *        compared in constant time. Without it nothing is processed. Treat the
- *        URL as a credential: anyone who knows it can post sales.
- *     2. The sale is accepted only if its product is on the operator's
- *        allow-list (PAYHIP_PRODUCTS). Nothing is credited here, so the blast
- *        radius of a forged post is a bogus entitlement, not money.
- *     3. If the operator supplies PAYHIP_VERIFY_URL (a documented Payhip
- *        endpoint template containing {sale_id}), every sale is re-fetched and
- *        compared before an entitlement is created. Recommended for production.
- *     4. A licence key alone is never enough to activate: the claim must match a
- *        recorded sale that is still `paid`, and only one account can ever claim
- *        it (enforced by a row lock inside the database function).
+ *   1. WEBHOOK AUTHENTICITY. The `signature` field is compared against
+ *      `hash('sha256', $apiKey)` (Payhip's Webhooks article). Note what this
+ *      actually proves: the value is a CONSTANT digest of the store's API key,
+ *      identical for every payload. It authenticates the SENDER but it does not
+ *      bind the body, so it cannot detect a modified amount or product. Treat the
+ *      webhook as a TRIGGER, never as proof of payment.
+ *
+ *   2. LICENCE STATE. `GET https://payhip.com/api/v2/license/verify` with the
+ *      product-specific `product-secret-key` header returns the licence's own
+ *      authoritative record: enabled, product_link, buyer_email, uses, date.
+ *      Payhip disables a licence automatically when its transaction is refunded.
+ *      This is the evidence we act on, and it is read server-side only.
+ *
+ *   Therefore:
+ *    - the webhook is accepted only with a valid signature (and, optionally, the
+ *      URL token as a second layer);
+ *    - REDEMPTION verifies the licence against Payhip before granting anything,
+ *      so a forged webhook cannot mint access;
+ *    - a licence that is disabled or refunded is refused;
+ *    - the claim is one account / one time, enforced by a row lock in the
+ *      database function;
+ *    - nothing here moves money: there is no wallet, ledger or balance code.
  *
  * NOTHING here moves money. There is deliberately no wallet, ledger or balance
  * code in this file.
@@ -76,20 +83,87 @@ function resolvePayhipConfig(env = process.env) {
     activationRequired: get('PAYHIP_ACTIVATION_REQUIRED', '').toLowerCase() === 'true',
     webhookToken: get('PAYHIP_WEBHOOK_TOKEN', ''),
     verifyUrlTemplate: get('PAYHIP_VERIFY_URL', ''),
+    // The store API key whose SHA-256 is the documented webhook signature.
     apiKey: get('PAYHIP_API_KEY', ''),
     storeUrl: get('PAYHIP_STORE_URL', ''),
     checkoutReturnUrl: get('PAYHIP_RETURN_URL', ''),
-    products
+    // Licence API (v2). Overridable only so tests never touch the network.
+    licenseApiBase: get('PAYHIP_LICENSE_API_BASE', 'https://payhip.com/api/v2'),
+    licenseTimeoutMs: Math.min(Math.max(Number(get('PAYHIP_LICENSE_TIMEOUT_MS', '8000')) || 8000, 1000), 20000),
+    products,
+    // Product-specific secrets for the licence API. The secret is per product, so
+    // several may be configured; verification tries each (bounded by the list).
+    productSecrets: resolveProductSecrets(env, products)
   };
 
-  // Why the feature is not usable, if it is not. Never includes a secret.
+  // Why the WEBHOOK is not usable. Never includes a secret.
   if (!config.enabled) config.reason = 'disabled';
-  else if (!config.webhookToken) config.reason = 'missing-webhook-token';
   else if (config.products.size === 0) config.reason = 'no-products-configured';
+  else if (!config.apiKey) config.reason = 'missing-api-key';
   else config.reason = null;
 
   config.usable = config.reason === null;
+
+  // Redemption additionally needs a product secret, because it must verify the
+  // licence against Payhip before granting anything.
+  config.redeemUsable = config.enabled && config.products.size > 0 && config.productSecrets.size > 0;
   return config;
+}
+
+/**
+ * Parse the product-secret configuration.
+ *
+ * Accepted forms:
+ *   PAYHIP_PRODUCT_SECRET=abc                 (single product)
+ *   PAYHIP_PRODUCT_SECRETS="mVT0=abc,RGsF=def" (one per allow-listed link)
+ *   PAYHIP_PRODUCT_SECRETS="abc,def"          (order-less list, tried in turn)
+ *
+ * The secret is NEVER logged, returned by describe() or exposed to the client.
+ */
+function resolveProductSecrets(env = process.env, products = new Set()) {
+  const out = new Map();
+  const single = env.PAYHIP_PRODUCT_SECRET;
+  if (typeof single === 'string' && single.trim() !== '') {
+    out.set('*', single.trim());
+  }
+  const many = env.PAYHIP_PRODUCT_SECRETS;
+  if (typeof many === 'string' && many.trim() !== '') {
+    for (const entry of many.split(',')) {
+      const part = entry.trim();
+      if (!part) continue;
+      const eq = part.indexOf('=');
+      if (eq > 0) {
+        const link = part.slice(0, eq).trim().toLowerCase();
+        const secret = part.slice(eq + 1).trim();
+        if (secret) out.set(link || '*', secret);
+      } else {
+        out.set('*' + out.size, part);
+      }
+    }
+  }
+  // A configured product-specific secret takes precedence; keep insertion order.
+  void products;
+  return out;
+}
+
+/**
+ * The documented webhook signature: sha256(apiKey) as lowercase hex.
+ * Returns null when no API key is configured, which callers treat as
+ * "cannot authenticate" rather than "authenticated".
+ */
+function expectedWebhookSignature(apiKey) {
+  if (!apiKey) return null;
+  return crypto.createHash('sha256').update(String(apiKey)).digest('hex');
+}
+
+/**
+ * Verify a webhook signature. Fails CLOSED: an unconfigured key, a missing
+ * signature or a mismatch all return false. The comparison is constant time.
+ */
+function verifyWebhookSignature(apiKey, provided) {
+  const expected = expectedWebhookSignature(apiKey);
+  if (!expected || typeof provided !== 'string' || !provided) return false;
+  return tokenMatches(expected, provided.trim().toLowerCase());
 }
 
 /** Secret-free description for logs, the admin status route and tests. */
@@ -101,8 +175,14 @@ function describePayhipConfig(config) {
     activationRequired: config.activationRequired,
     productCount: config.products.size,
     webhookTokenConfigured: config.webhookToken.length > 0,
-    independentVerification: config.verifyUrlTemplate ? 'configured' : 'not-configured',
+    // The documented sha256(apiKey) signature. "not-configured" means the
+    // webhook is refused outright, never that it is accepted unverified.
+    signatureVerification: config.apiKey ? 'configured' : 'not-configured',
     apiKeyConfigured: config.apiKey.length > 0,
+    productSecretCount: config.productSecrets ? config.productSecrets.size : 0,
+    redeemUsable: !!config.redeemUsable,
+    licenseApi: config.licenseApiBase || null,
+    independentVerification: config.verifyUrlTemplate ? 'configured' : 'not-configured',
     storeUrlConfigured: config.storeUrl.length > 0,
     returnUrlConfigured: config.checkoutReturnUrl.length > 0
   };
@@ -124,6 +204,15 @@ function tokenMatches(expected, provided) {
 /** SHA-256 hex of a licence key. The raw key is never stored or logged. */
 function hashLicenceKey(key) {
   return crypto.createHash('sha256').update(String(key || '').trim()).digest('hex');
+}
+
+/** Extract the permalink code ("RGsF") from a Payhip item. */
+function productLinkOf(item) {
+  if (!item || typeof item !== 'object') return null;
+  if (item.product_key) return String(item.product_key);
+  const permalink = item.product_permalink ? String(item.product_permalink) : '';
+  const tail = permalink.split('/').filter(Boolean).pop();
+  return tail ? tail : null;
 }
 
 /**
@@ -148,7 +237,11 @@ function parseSale(payload) {
     amountRefundedCents: Number.isFinite(Number(payload.amount_refunded))
       ? Number(payload.amount_refunded)
       : null,
+    // Two identifiers, deliberately: `productKey` is Payhip's numeric product id
+    // and `productLink` is the permalink code (e.g. "RGsF"). The licence API
+    // reports product_link, so the allow-list must understand both.
     productKey: first.product_id ? String(first.product_id) : null,
+    productLink: productLinkOf(first),
     productName: first.product_name ? String(first.product_name) : null,
     licenceKey
   };
@@ -210,6 +303,118 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     }
   }
 
+  // ---------------------------------------------------------------- licence API
+  // Per-account throttle on verification attempts. A licence key is a bearer
+  // secret; without this an authenticated account could enumerate keys through
+  // our server and use the latency/outcome as an oracle.
+  const attemptWindowMs = 60 * 1000;
+  const maxAttemptsPerWindow = 10;
+  const attempts = new Map();
+  function throttle(userId) {
+    const now = Date.now();
+    const key = String(userId);
+    const entry = attempts.get(key);
+    if (!entry || now - entry.start > attemptWindowMs) {
+      attempts.set(key, { start: now, count: 1 });
+      if (attempts.size > 5000) attempts.clear();
+      return { allowed: true };
+    }
+    entry.count += 1;
+    if (entry.count > maxAttemptsPerWindow) {
+      return { allowed: false, retryAfterMs: Math.max(1000, attemptWindowMs - (now - entry.start)) };
+    }
+    return { allowed: true };
+  }
+
+  /**
+   * One authenticated call to Payhip's licence API.
+   * Returns {kind:'ok', data} | {kind:'empty'} | {kind:'unavailable', reason}.
+   * 'empty' is Payhip's documented "verification failed" response, which means
+   * the key is not a real licence - it is NOT the same as an outage.
+   */
+  async function callLicenceApi(path, secret) {
+    if (!doFetch) return { kind: 'unavailable', reason: 'no-fetch-available' };
+    const base = String(cfg.licenseApiBase || '').replace(/\/+$/, '');
+    if (!base) return { kind: 'unavailable', reason: 'no-api-base' };
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), cfg.licenseTimeoutMs) : null;
+    try {
+      const res = await doFetch(base + path, {
+        method: 'GET',
+        headers: { 'product-secret-key': secret, Accept: 'application/json' },
+        signal: controller ? controller.signal : undefined
+      });
+      if (!res) return { kind: 'unavailable', reason: 'no-response' };
+      if (res.status === 404) return { kind: 'empty' };
+      if (!res.ok) return { kind: 'unavailable', reason: 'http-' + res.status };
+      const body = await res.json().catch(() => null);
+      const data = body && typeof body === 'object' ? body.data : null;
+      if (!data || typeof data !== 'object') return { kind: 'empty' };
+      return { kind: 'ok', data };
+    } catch (e) {
+      // Abort (timeout) and network failures are indistinguishable here, and both
+      // must be treated as "we do not know" rather than "invalid".
+      return { kind: 'unavailable', reason: 'network' };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /** True when a licence's product_record matches the operator allow-list. */
+  function productAllowed(link) {
+    if (!link) return false;
+    return cfg.products.has(String(link).toLowerCase());
+  }
+
+  /**
+   * Verify a licence key server-side against Payhip.
+   *
+   * @returns {{status:'valid'|'invalid'|'unavailable', enabled?:boolean,
+   *            productLink?:string|null, buyerEmail?:string|null, uses?:number,
+   *            reason?:string}}
+   *
+   * 'unavailable' means we could not obtain an answer. Callers MUST NOT treat it
+   * as valid: for a new account that is a refusal, not a grant.
+   */
+  async function verifyLicence(licenceKey) {
+    const key = String(licenceKey || '').trim();
+    if (!key) return { status: 'invalid', reason: 'empty' };
+    if (!cfg.productSecrets || cfg.productSecrets.size === 0) {
+      return { status: 'unavailable', reason: 'no-product-secret-configured' };
+    }
+    let sawUnavailable = null;
+    for (const secret of cfg.productSecrets.values()) {
+      const r = await callLicenceApi('/license/verify?license_key=' + encodeURIComponent(key), secret);
+      if (r.kind === 'unavailable') { sawUnavailable = r.reason || 'unavailable'; continue; }
+      if (r.kind === 'empty') continue;
+      return {
+        status: 'valid',
+        enabled: r.data.enabled === true,
+        productLink: r.data.product_link ? String(r.data.product_link) : null,
+        buyerEmail: r.data.buyer_email ? String(r.data.buyer_email).toLowerCase() : null,
+        uses: Number.isFinite(Number(r.data.uses)) ? Number(r.data.uses) : null,
+        issuedAt: r.data.date || null
+      };
+    }
+    if (sawUnavailable) return { status: 'unavailable', reason: sawUnavailable };
+    return { status: 'invalid', reason: 'not-found' };
+  }
+
+  /**
+   * Best-effort usage increment so the seller can see a key was redeemed.
+   * The DATABASE remains authoritative for one-time redemption; a failure here
+   * never fails the redemption and never grants anything.
+   */
+  async function recordLicenceUsage(licenceKey) {
+    if (!cfg.productSecrets || cfg.productSecrets.size === 0) return false;
+    for (const secret of cfg.productSecrets.values()) {
+      const r = await callLicenceApi('/license/usage?license_key=' + encodeURIComponent(licenceKey), secret);
+      if (r.kind === 'ok') return true;
+      if (r.kind === 'empty') continue;
+    }
+    return false;
+  }
+
   /** Create the catalogue row if a verified sale names a product we allow. */
   async function ensureProduct(productKey, name) {
     if (!productKey) return;
@@ -262,6 +467,18 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     if (!cfg.usable) {
       return { handled: false, outcome: cfg.reason || 'not-configured' };
     }
+    // Payhip's documented signature: sha256(store API key). It authenticates the
+    // sender only (the digest is the same for every payload), so it is checked
+    // here and the LICENCE is verified separately at redemption.
+    if (!verifyWebhookSignature(cfg.apiKey, payload && payload.signature)) {
+      const probe = payload && typeof payload === 'object' ? parseSale(payload) : null;
+      await recordEvent(probe ? probe.type : null, probe ? probe.saleId : null, 'signature-invalid');
+      return {
+        handled: false,
+        outcome: 'signature-invalid',
+        saleId: probe ? probe.saleId : null
+      };
+    }
     const sale = parseSale(payload);
     if (!sale || !sale.saleId) {
       return { handled: false, outcome: 'invalid-payload' };
@@ -275,7 +492,10 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
       return { handled: true, outcome: 'ignored:' + (sale.type || 'unknown'), saleId: sale.saleId };
     }
 
-    if (!sale.productKey || !cfg.products.has(sale.productKey.toLowerCase())) {
+    const saleAllowed =
+      (sale.productKey && cfg.products.has(sale.productKey.toLowerCase())) ||
+      (sale.productLink && cfg.products.has(sale.productLink.toLowerCase()));
+    if (!saleAllowed) {
       await recordEvent('paid', sale.saleId, 'product-not-allowed');
       return { handled: true, outcome: 'product-not-allowed', saleId: sale.saleId };
     }
@@ -332,20 +552,65 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     return { handled: true, outcome: out.success ? 'revoked' : out.reason, saleId: sale.saleId };
   }
 
-  /** Claim an entitlement for an account. Never throws. */
+  /**
+   * Claim an entitlement for an account. Never throws.
+   *
+   * The licence is verified SERVER-SIDE against Payhip before the claim, so a
+   * forged or replayed webhook can never grant access, and a refunded/disabled
+   * licence is refused. 'unavailable' is reported as retryable and never grants.
+   */
   async function redeem(userId, licenceKey) {
     if (!userId) return { success: false, reason: 'not-authenticated' };
     const key = String(licenceKey || '').trim();
     if (!key) return { success: false, reason: 'invalid-licence' };
+
+    const gate = throttle(userId);
+    if (!gate.allowed) {
+      return { success: false, reason: 'too-many-attempts', retryAfterMs: gate.retryAfterMs };
+    }
+    if (!cfg.redeemUsable) {
+      // No product secret configured => we cannot verify => we cannot grant.
+      return { success: false, reason: 'unavailable', retryable: true, detail: 'not-configured' };
+    }
+
+    const verification = await verifyLicence(key);
+    if (verification.status === 'unavailable') {
+      await recordEvent('redeem', null, 'licence-api-unavailable', { reason: verification.reason });
+      return {
+        success: false,
+        reason: 'unavailable',
+        retryable: true,
+        detail: verification.reason || 'licence-api-unavailable'
+      };
+    }
+    if (verification.status === 'invalid') {
+      await recordEvent('redeem', null, 'invalid-licence');
+      return { success: false, reason: 'invalid-licence' };
+    }
+    if (verification.enabled !== true) {
+      // Payhip disables a licence automatically when its sale is refunded.
+      await recordEvent('redeem', null, 'licence-disabled');
+      return { success: false, reason: 'licence-disabled' };
+    }
+    if (!productAllowed(verification.productLink)) {
+      await recordEvent('redeem', null, 'wrong-product');
+      return { success: false, reason: 'wrong-product' };
+    }
+
     const { data, error } = await admin.rpc('redeem_payhip_entitlement_safe', {
       p_user_id: userId,
       p_licence_hash: hashLicenceKey(key)
     });
     if (error) {
-      return { success: false, reason: 'unavailable' };
+      return { success: false, reason: 'unavailable', retryable: true };
     }
     const out = data || { success: false, reason: 'unavailable' };
     await recordEvent('redeem', null, out.success ? (out.duplicate ? 'already-claimed' : 'claimed') : out.reason);
+
+    // Best effort, and never part of the decision: the seller's `uses` counter.
+    if (out.success && !out.duplicate) {
+      recordLicenceUsage(key).catch(() => {});
+    }
     return out;
   }
 
@@ -372,6 +637,9 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     config: cfg,
     describe: () => describePayhipConfig(cfg),
     tokenMatches: (provided) => tokenMatches(cfg.webhookToken, provided),
+    verifyWebhookSignature: (provided) => verifyWebhookSignature(cfg.apiKey, provided),
+    verifyLicence,
+    productAllowed,
     handleWebhook,
     redeem,
     hasActivation,
@@ -382,6 +650,10 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
 
 module.exports = {
   redactPayload,
+  productLinkOf,
+  resolveProductSecrets,
+  expectedWebhookSignature,
+  verifyWebhookSignature,
   resolvePayhipConfig,
   describePayhipConfig,
   createPayhipEntitlements,

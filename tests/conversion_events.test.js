@@ -633,7 +633,12 @@ test('eligibility: a missing event or payload id fails closed', async () => {
   noEvent.store.state.notifications.push({
     id: 99, event_id: 12345, event_type: 'deposit_confirmed', category: 'transactional',
     user_id: USER_ID, status: 'pending', attempts: 0, max_attempts: 5,
-    next_attempt_at: new Date().toISOString(), created_at: new Date().toISOString()
+    // Backdated: the fake store compares against its own captured clock, so a
+    // wall-clock "now" can sit microseconds in the future and the row would not
+    // be claimed at all (a flake, not a behaviour change). The assertion below is
+    // about what happens AFTER the row is claimed, so make it reliably due.
+    next_attempt_at: new Date(Date.now() - 60000).toISOString(),
+    created_at: new Date(Date.now() - 60000).toISOString()
   });
   noEvent.store.state.links[USER_ID] = CHAT_ID;
   await noEvent.worker.tick();
