@@ -8823,3 +8823,81 @@ was created and no Telegram write call was executed in this pass.
   pre-move markup). The 13/17/19 pins in `tests/deposit_tutorials_page.test.js`
   were updated to the new positions, and `tests/partners_page.test.js`'s homepage
   hash was re-pinned per its own comment.
+
+
+## Relaunch branch - disclosure fix, minimum-deposit knob, and the critical finding (2026-11-16)
+
+Branch `relaunch/rebrand-payment-commercial`, from `main` @ 7910db6. Baseline
+`npm test` = 3170 pass / 0 fail; after this work = **3198 pass / 0 fail**.
+No push, no deploy, no migration applied, no environment variable changed.
+
+### CRITICAL FINDING (documented in docs/relaunch/01-BASELINE.md)
+There is no trading engine and no market data. `server.js` contains no `fetch()`
+at all; `services/tradingAssets.js` is a catalogue of 47 DISPLAY labels whose
+`detail` field names venue pairs that nothing connects to. The P&L is
+`balance * 0.5 * (rand*2.4/100) * (win ? +1 : -0.5)` in BOTH `executeBotTrade()`
+(browser) and `TradingWorker.computeTradeAmount()` - a 65%-win coin with an
+expected value of **+0.285% of balance per trade**, every 8s. A $100 balance
+compounds to about $303 in one hour and $1,103 in two. Because the balance is
+withdrawable once the $700 minimum is met, every funded account is a liability
+that grows by construction. This governs the relaunch: it makes "$50 vs $100"
+a non-trading question, makes the Payhip credit-and-withdraw packages
+negative-LTV, makes Google Ads ineligible (unlicensed provider + crypto trading
+prohibition), and means a rebrand executed first would carry an unsubstantiated
+claim onto a name with no history.
+
+### 1. Landing opportunity card disclosure (public/index.html)
+`/api/market/opportunities` is generated from `Math.random()` bands, but the card
+presented "Arbitrage opportunity / Observed spread 0.35%" with NO qualifier.
+Added a visible localized "Illustrative" tag (`#arbOppTag`) and a disclosure
+(`#arbOppDisclosure`) in all 6 locales. IMPORTANT: an older management decision
+pinned the removal of a note here, and `tests/arbitrage_notifications.test.js`
+asserts `arb-opp-note` / `arbOppNote` / `arbOpp.note` and the copy
+"Illustrative example" / "not an offer" stay gone. The new disclosure therefore
+uses DIFFERENT names (`arb-opp-disclosure`, `arbOppDisclosure`,
+`arbOpp.disclosure`) and different wording, and those bans still pass. Do not
+reuse the old identifiers for a note on this card.
+
+### 2. Minimum deposit is now ONE switchable value (server.js)
+`PLATFORM_MIN_DEPOSIT_USD = 100` remains the built-in default (every existing
+test pin is unchanged). New `resolvePlatformMinDeposit()` reads the optional env
+var `PLATFORM_MIN_DEPOSIT_USD` (integer 10..10000; invalid -> default + warning)
+into `PLATFORM_MIN_DEPOSIT`, and all 17 runtime consumers now read the resolved
+value: invoice creation, both sandbox deposit doors, `SANDBOX_REFERRAL_MIN_DEPOSIT`,
+the `CONFIG_VALIDATION` default, the three `getReferralConfig` fallbacks,
+`MARKETING_FACTS.minDeposit`, and the deposit-options/referral responses.
+`/api/auth/me` publishes `minDeposit` in BOTH the production and the
+MARKETING_SANDBOX branch, and `syncWalletFromServer()` adopts it into
+`APP.MIN_DEPOSIT`. **With the env var unset the effective minimum is exactly $100
+and behaviour is byte-identical.** Moving to $50 remains approval-gated and ALSO
+needs a `referral_config.minimum_qualifying_deposit` sync migration plus a ~46
+string copy sweep across 6 locales (see docs/relaunch/03-MIN-DEPOSIT-50.md).
+
+### 3. Tests
+NEW `tests/landing_opportunity_disclosure.test.js` (13) and
+`tests/min_deposit_config.test.js` (15 - it executes the REAL resolver from
+server.js in a vm against an env matrix, and asserts no consumer reads the raw
+default). 23 existing files updated for intentional changes: dictionary pins
+1603 -> 1605 (16 files, `BASE_OUTSIDE_TESTIMONIALS` 1577 -> 1579) and symbol pins
+`PLATFORM_MIN_DEPOSIT_USD` -> `PLATFORM_MIN_DEPOSIT` in the sandbox/min-deposit/
+marketing suites; `tests/partners_page.test.js` homepage hash re-pinned per its
+own documented rule for approved homepage edits.
+
+### 4. Research deliverables
+`docs/relaunch/` (9 files): baseline, brand (20 names, Kalderix recommended,
+1741 measured `Arbitrix` occurrences), the $50 plan, Payhip (NOT eligible as
+designed; 9.5% loss at credit), payments (Q8Pay decimal discriminator confirmed
+live + unique-address fix recommended; Trunkay does NOT EXIST - every TLD
+NXDOMAIN; Card2Crypto DO NOT USE - transaction laundering, unnamed operator),
+markets (Google Ads prohibits crypto trading promotion and requires a licensed
+advertiser; Brazil first because pt-BR localisation and support already exist),
+localization/assets (0 executable assets, 47 display labels; add an `execution`
+capability flag), and the ordered action plan.
+
+### Trap to avoid
+My first attempt at the disclosure used class `arb-opp-note` and the copy
+"not an offer", which collided with the pinned cleanup. Also note that a blanket
+`PLATFORM_MIN_DEPOSIT_USD` -> `PLATFORM_MIN_DEPOSIT` replacement renamed the env
+var STRING itself (`const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT'`); the
+env var must stay `PLATFORM_MIN_DEPOSIT_USD`. Verify the env var name after any
+such sweep.
