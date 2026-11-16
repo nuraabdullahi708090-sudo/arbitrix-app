@@ -8999,3 +8999,58 @@ such sweep.
   the txDetailLabel helpers and touches no funnel markup.
 - Pre-existing `tests/how_it_works_video.test.js` no longer fails: it pins the approved
   master by sha256 + size instead of requiring the untracked `build/` copy.
+
+
+## Relaunch gate - production smoke rehearsal (2026-11-16, branch relaunch/rebrand-payment-commercial)
+
+- T8 of the Kalderix relaunch is CLOSED. The rehearsal ran the REAL `server.js`
+  (from a disposable copy) against a REAL PostgreSQL 16 with the release chain
+  (`008 -> 011 -> 049 -> 050 -> 051`) and 45 behavioural checks: **45/45 pass, 0
+  server errors**. Evidence, scope limits and approval gates:
+  `docs/relaunch/14-PRODUCTION-SMOKE-REHEARSAL.md`. Reproducible kit:
+  `docs/relaunch/rehearsal/` (`build-db.sh`, `shim.js`, `payhip-stub.js`,
+  `harness.js`, `server.env.example`, README). Verified by running the ported kit
+  from the repo, not just the /tmp scratch copy.
+- Coverage: existing funded customer is grandfathered and keeps Live + Demo +
+  balance (also during a Payhip outage); new customer cannot reach Live Mode
+  before activation (403 LIVE_ACTIVATION_REQUIRED) while Demo still works;
+  webhook signature/token, product allow-list, idempotent replay, hash-only key
+  storage, one-time claim across accounts, refund revocation, sandbox exemption;
+  activating credits $0; `$50` floor at runtime + `minDepositSync.ok=true`; a $50
+  deposit qualifies a referral and pays 20% ($10) exactly once; a new
+  subscription charge writes `Kalderix Pro Subscription` while pre-rebrand rows
+  survive; the $700 withdrawal minimum is untouched.
+- NEGATIVE CONTROLS (the harness is not vacuous): with
+  `PAYHIP_ACTIVATION_REQUIRED=false` 6 checks fail (C1 returns 200 instead of 403);
+  with `PLATFORM_MIN_DEPOSIT_USD=100` 3 fail, incl. `minDepositSync {ok:false,
+  effective:100, configured:50}` - the half-applied state 049 exists to prevent.
+- TWO REAL DEFECTS FIXED (both in release material, not product):
+  1. `049_min_deposit_50.sql` assumed a `(key, value)` referral_config. Production
+     is `(config_key, config_value, description, ...)`. Rewritten to introspect the
+     shape, prefer `config_key/config_value`, fall back to `key/value`, and
+     preserve a customised operator value (left at 75 when pre-set). Proven on
+     both shapes.
+  2. The release checklist's readiness probe had the same assumption
+     (`WHERE key = ...`), which fails on production. Replaced with a
+     schema-agnostic `DO` block printing one NOTICE per migration; executed
+     against both shapes (production shape -> `049: APPLIED (50)`; alternative
+     shape with a stale 100 -> `NOT APPLIED (currently 100)`).
+- TEST SUITE both ways: branch as-is 3271/3271; the same tree with the rebrand
+  applied (`relaunch-brand.js --write --with-tests`) 3271/3271 and
+  `verify-rebrand.js --expect Kalderix` = ALL CHECKS PASSED. An intermediate
+  15-failure run in the rebranded copy was traced to THIS session's own
+  credential guard in the server copy refusing the dummy `https://example.
+  supabase.co` URL that `api_404_contract` / `deposit_partners_degradation` boot
+  with - not the rebrand (pristine copy passes). Recorded in the report.
+- FIXTURE LESSONS (rehearsal only, not product): a PostgREST shim must (a) wrap
+  data-modifying statements in a CTE (derived tables are illegal), (b) honour
+  `Prefer: return=representation` on PATCH (the referral exactly-once guard keys
+  on the returned rows), (c) coerce 0/1 for boolean columns, (d) expand
+  `alias:table!fk(cols)` embedding. Each gap produced a misleading
+  "already activated" / "already charged" style failure before it was fixed.
+  `build-db.sh` must wait for a REAL query, not `pg_isready`.
+- NOT DONE / NOT AUTHORISED: no production migration, no env var, no deploy, no
+  push to main, no customer balance, no advertising. Still gated on the founder:
+  T10 (apply 049+050+051 and set `PLATFORM_MIN_DEPOSIT_USD=50` together), step 5
+  (apply the rebrand), step 6 (Payhip flags after one live test-mode purchase),
+  T1 (trademark clearance) and Payhip merchant eligibility.
