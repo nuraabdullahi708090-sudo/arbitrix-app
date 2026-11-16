@@ -228,3 +228,80 @@ tests/deposit_reconciliation.test.js  new
    can be pointed at another entitlement vendor without touching trading code.
 4. **Applying migrations 049 and 050.** Both are additive and change no
    behaviour on their own.
+
+---
+
+# Addendum — Payhip activation finalized against the documented API (2026-11-16)
+
+Founder approved: Kalderix **as a provisional candidate only**, the $50 minimum for
+release preparation, Payhip **Option A** (entitlement only, never credits capital),
+Trunkay removed from scope, Card2Crypto rejected, Q8Pay retained as the deposit rail.
+
+## Two corrections to the previous design
+
+**1. The webhook CAN be authenticated, and the earlier note saying otherwise was wrong.**
+Payhip's Webhooks article documents the signature as `hash('sha256', $apiKey)`. The
+previous implementation used only a URL token because I believed no signature existed.
+That comment is gone; the signature is now mandatory and the token is optional.
+
+The important nuance, which is why nothing is granted from a webhook: that digest is a
+**constant for every payload**. It proves the sender knows the store API key. It does
+not bind the body, so it cannot detect a modified amount or product.
+
+**2. Redemption was trusting a recorded sale; it now verifies the licence itself.**
+`GET https://payhip.com/api/v2/license/verify` with the product-specific
+`product-secret-key` header returns the licence's own record — `enabled`,
+`product_link`, `buyer_email`, `uses`, `date`. Payhip disables a key automatically on
+refund, so this single call covers disabled and refunded licences too. A forged
+webhook can no longer mint access because the claim is gated on that answer.
+
+Third, smaller: an **unprovable entitlement now fails closed**. `hasActivation()`
+returning `null` used to mean "activated" — a database blip would have unlocked Live
+Mode for every account. It now refuses with `503 ACTIVATION_UNAVAILABLE` (retryable),
+and the funded-customer guarantee is provided by ordering instead: the confirmed-deposit
+branch runs first and never touches Payhip, so a Payhip outage cannot lock out a funded
+account, while an unproven account is never granted.
+
+## Access-control matrix (executed, not asserted)
+
+`tests/live_activation_entitlement.test.js` extracts the **real**
+`getLiveActivationState` from `server.js` and runs it in a VM with injected
+dependencies, so the matrix is behaviour:
+
+| Scenario | Result |
+|---|---|
+| New user, no activation | `403 LIVE_ACTIVATION_REQUIRED` |
+| Activation, no funding | `403 LIVE_FUNDING_REQUIRED` (activation is not funding) |
+| Activation + funded | allowed |
+| Funded, no activation | allowed (`grandfathered-deposit`) |
+| Funded + Payhip unavailable | allowed (Payhip never consulted) |
+| Unfunded + entitlement store unreadable | **denied**, `503`, retryable |
+| Invalid licence | denied, nothing claimed |
+| Reused licence | denied by the DB row lock |
+| Disabled/refunded licence | denied (`licence-disabled`) |
+| Licence for another product | denied (`wrong-product`) |
+| Payhip outage at redemption | denied, retryable, nothing claimed |
+| Sandbox account | exempt |
+
+`npm test` → **3250 pass / 0 fail**.
+
+## Deliberate additions and their reasons
+
+- **Funding presence gate** on `/api/bot/start` (live only): `live_balance > 0`. This is
+  a presence check, not a reinstated minimum — the MTA removal stands, and the $50
+  promotional credit still qualifies. A captured cost model for the first $50 cohort
+  says to watch loss-to-deposit, not to gate it.
+- **Per-account verification throttle** (10/min). A licence key is a bearer secret; the
+  server must not become an enumeration oracle.
+- **`license/usage` on a fresh claim**, best-effort, so the seller sees the redemption.
+  The database remains authoritative for one-time use.
+- **`liveActivation.retryLater`** in six locales, selected by `data.reason`, so an
+  outage is never reported as "your key is invalid".
+
+## Verification boundary, stated honestly
+
+`payhip.com` refuses connections from this sandbox (`ERR_BLOCKED_BY_RESPONSE`), so the
+licence API has **never been exercised against the live service**. Everything up to the
+network boundary is tested (request shape, headers, response parsing, every failure
+mode). The first real call must be made by hand before the gate is switched on —
+`10-RELEASE-CHECKLIST.md` §4.2 gives the exact `curl`.
