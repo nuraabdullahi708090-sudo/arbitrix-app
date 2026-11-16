@@ -20,9 +20,10 @@
  *   - localStorage keys (jwt_token, arbi_*) - renaming logs every user out
  *   - DB tables, columns and enum values (MARKETING_SANDBOX, PRODUCTION)
  *
- * The new identity is NOT applied here. `candidate` records the provisionally
- * approved name so that approving it is a one-line change to `name`, and
- * `isCandidate` tells tests which state the build is in.
+ * STATE: the relaunch candidate is RECORDED but NOT APPLIED. Approving it means
+ * changing `name` and `mark` here and the same two fields in
+ * public/index.html; everything else (favicon, PWA manifest, page title, social
+ * card, all six dictionaries) derives from them.
  */
 
 const BRAND = {
@@ -39,10 +40,59 @@ const BRAND = {
   /** Transactional mail domain. Changing it requires SPF/DKIM re-verification. */
   mailDomain: 'arbitrix.ai',
   /** The literal currently written in localized strings and markup defaults. */
-  source: 'Arbitrix'
+  source: 'Arbitrix',
+  /** Monogram used by the favicon, the app icon and the sign-in mark. */
+  mark: 'A',
+  /** The monogram the candidate uses. */
+  candidateMark: 'K',
+  /** Positioning line, used in metadata and the social share card. */
+  tagline: 'Automated Arbitrage. Made Simple.',
+  /** The installed-app (PWA) name. Follows a rename; today it keeps the suffix. */
+  appName: 'Arbitrix AI',
+  /** Accent colour. Follows the identity palette when one is applied. */
+  accent: '#F0B90B'
 };
 
-/** True while the build still shows the pre-relaunch name. */
+/**
+ * The candidate identity as data. Nothing here is applied: the values exist so
+ * approval cannot introduce a colour picked in a hurry, and so the assets in
+ * public/brand/ can be regenerated from the same numbers.
+ */
+BRAND.candidateIdentity = {
+  name: 'Kalderix',
+  mark: 'K',
+  palette: {
+    /** Primary accent; replaces the gold the current identity uses. */
+    accent: '#7C5CFF',
+    accentHover: '#9B85FF',
+    accentPressed: '#6344E8',
+    /** Secondary accent for "verified" and "opportunity" highlights. */
+    secondary: '#2ED3B7',
+    /** Surfaces are deliberately unchanged so contrast work carries over. */
+    surface: '#070B14',
+    surfaceRaised: '#0C1220',
+    textPrimary: '#E8EDF7',
+    textSecondary: '#8896B5'
+  },
+  typography: {
+    display: "system-ui, 'Inter', -apple-system, 'Segoe UI', sans-serif",
+    numeric: "'JetBrains Mono', 'SFMono-Regular', ui-monospace, monospace",
+    note: 'No size changes: the current scale is tuned for dashboard density.'
+  },
+  rationale: {
+    accent: 'Violet reads as technology rather than as a currency logo, which is '
+      + 'what the current gold does. It stays legible as the 3px active-item '
+      + 'indicator on the dark surface.',
+    secondary: 'A cool teal gives opportunity and verified states a signal that '
+      + 'cannot be confused with the green/red profit colours.',
+    surfaces: 'Unchanged on purpose: every contrast ratio and chart colour was '
+      + 'tuned against them.',
+    mark: 'One letterform works at 16px (favicon) and at 340px (app icon), so a '
+      + 'single asset serves both without a second lockup.'
+  }
+};
+
+/** True once the candidate name is the name in force. */
 BRAND.isCandidate = BRAND.name === BRAND.candidate;
 
 /**
@@ -67,4 +117,23 @@ function emailSender() {
   return BRAND.name + ' <noreply@' + BRAND.mailDomain + '>';
 }
 
-module.exports = { BRAND, brandize, emailSender };
+/**
+ * The identity in force. The candidate palette/typography are returned ONLY when
+ * the candidate name has actually been applied, so a half-finished rename cannot
+ * ship a new colour with an old name.
+ */
+function activeIdentity() {
+  const applied = BRAND.name === BRAND.candidate;
+  if (!applied) {
+    return { name: BRAND.name, mark: BRAND.mark, palette: null, typography: null, applied: false };
+  }
+  return {
+    name: BRAND.name,
+    mark: BRAND.mark,
+    palette: BRAND.candidateIdentity.palette,
+    typography: BRAND.candidateIdentity.typography,
+    applied: true
+  };
+}
+
+module.exports = { BRAND, brandize, emailSender, activeIdentity };

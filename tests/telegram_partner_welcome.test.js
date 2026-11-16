@@ -339,11 +339,11 @@ test('the confirmed destinations are the defaults when the environment is empty'
 test('a configured value still wins over the default destination', () => {
   const cfg = resolveMarketingConfig({
     BASE_URL: 'https://arbitrix.pro',
-    TELEGRAM_SUPPORT_USERNAME: '@ArbitrixHelp',
+    TELEGRAM_SUPPORT_USERNAME: '@ExampleHelp',
     TELEGRAM_MARKETING_HOW_IT_WORKS_URL: 'https://arbitrix.pro/walkthrough'
   });
   assert.strictEqual(cfg.howItWorksUrl, 'https://arbitrix.pro/walkthrough');
-  assert.strictEqual(cfg.supportUrl, 'https://t.me/ArbitrixHelp');
+  assert.strictEqual(cfg.supportUrl, 'https://t.me/ExampleHelp');
 });
 
 test('a new member receives the approved welcome and the working keyboard end to end', async () => {

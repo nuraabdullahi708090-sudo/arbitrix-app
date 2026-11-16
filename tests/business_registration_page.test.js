@@ -222,7 +222,11 @@ test('7e. the page does not read like a government/regulator site', () => {
  * ------------------------------------------------------------------ */
 test('8. the page is mobile-first and matches the Arbitrix palette', () => {
     assert.match(PAGE, /<meta name="viewport" content="width=device-width, initial-scale=1\.0">/);
-    assert.match(PAGE, /--brand:\s*#F0B90B/);
+    // The accent is the identity's, not a literal: a retheme must not break
+    // this page while the palette is being changed.
+    const { BRAND } = require('../services/brand');
+    assert.match(PAGE, new RegExp('--brand:\\s*' + BRAND.accent),
+      'the page carries the current identity accent');
     assert.match(PAGE, /--bg-primary:\s*#070B14/);
     assert.match(PAGE, /@media \(max-width: 640px\)/, 'a mobile breakpoint must exist');
     // The certificate is readable on mobile: full-width, and a scrollable viewer.
@@ -265,7 +269,7 @@ test('9c. the i18n key was removed from all six locales (no dead key)', () => {
         assert.ok(!Object.prototype.hasOwnProperty.call(T[l], 'landing.footer.businessRegistration'),
             l + ' must not define landing.footer.businessRegistration any more');
     });
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1617, l + ' must have 1617 keys'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1618, l + ' must have 1618 keys'));
 });
 
 /* ------------------------------------------------------------------ *

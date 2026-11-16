@@ -22,7 +22,7 @@
          never put tokens, secrets, or credentials here. -->
     <meta name="arbitrix-support-telegram" content="https://t.me/ArbitrixSupportBot">
     <!-- Referral Partner support/manager contact. Set the Telegram username
-         here (e.g. @ArbitrixPartners) or a full https://t.me/... URL, or via
+         here (e.g. @YourPartnersHandle) or a full https://t.me/... URL, or via
          window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL. This is the SINGLE source
          of truth - never hard-code the account anywhere else in the UI. Empty =
          fall back to the in-app Support Center. Public link only. -->
@@ -244,6 +244,40 @@
     <style>
         html.i18n-pending body { visibility: hidden; }
         html.i18n-pending { background: #070B14; }
+
+    /* ============================================================
+       KALDERIX IDENTITY OVERRIDE - CANDIDATE, INERT BY DEFAULT
+       ------------------------------------------------------------
+       Applies only when <html data-brand="kalderix"> is present, which the
+       approval step sets. Nothing here changes the shipped build.
+
+       Why an override rather than editing every declaration: the accent is
+       already a token wherever it matters (--brand*, --gold*, --brand-rgb), so
+       the surfaces that use tokens follow automatically. The two substring
+       rules below catch the hand-written inline gold that predates the token
+       system; scripts/retheme.js sweeps the remaining literals (CSS rules, SVG
+       fills, chart colours) at approval and prints exactly what it changed.
+       ============================================================ */
+    html[data-brand="kalderix"]{
+        --brand:#7C5CFF;
+        --brand-rgb:124,92,255;
+        --brand-hover:#9B85FF;
+        --brand-weak:rgb(124,92,255 / 0.08);
+        --brand-soft:rgb(124,92,255 / 0.16);
+        --brand-border:rgb(124,92,255 / 0.32);
+        --brand-strong:rgb(124,92,255 / 0.55);
+        --gold-dim:rgb(124,92,255 / 0.12);
+        --gold-glow:rgb(124,92,255 / 0.20);
+        --brand-secondary:#2ED3B7;
+    }
+    /* Inline "color:#F0B90B" was hand-written before the tokens existed. The
+       attribute selector is scoped to the candidate attribute, so it cannot
+       affect the current build. */
+    html[data-brand="kalderix"] [style*="color:#F0B90B"],
+    html[data-brand="kalderix"] [style*="color: #F0B90B"]{
+        color:var(--brand) !important;
+    }
+
     </style>
     <script>
     (function () {
@@ -304,22 +338,33 @@
             
             /* Brand Colors */
             --gold:var(--brand);
-            --gold-dim:rgba(240,185,11,0.12);
+            --gold-dim:rgb(var(--brand-rgb) / 0.12);
             --gold-light:var(--brand-hover);
-            --gold-glow:rgba(240,185,11,0.2);
+            --gold-glow:rgb(var(--brand-rgb) / 0.2);
 
     /* ---- Direction B (Institutional Trust) - approved palette, Stage 1 ---- */
     --bg-elevated:#0A1020;
+    /* The accent as an R,G,B triplet so translucent surfaces can follow a theme
+       change without rewriting every rgba() literal. */
+    --brand-rgb:240,185,11;
     --brand:#F0B90B;
     --brand-hover:#FCD535;
-    --brand-weak:rgba(240,185,11,0.08);
-    --brand-soft:rgba(240,185,11,0.16);
-    --brand-border:rgba(240,185,11,0.32);
-    --brand-strong:rgba(240,185,11,0.55);
+    --brand-weak:rgb(var(--brand-rgb) / 0.08);
+    --brand-soft:rgb(var(--brand-rgb) / 0.16);
+    --brand-border:rgb(var(--brand-rgb) / 0.32);
+    --brand-strong:rgb(var(--brand-rgb) / 0.55);
     --on-brand:#070B14;
     --border:#24314A;
     --border-strong:#2A3852;
     --success:#10B981;
+    /* ---- Kalderix identity (CANDIDATE) ----------------------------------
+       INERT: nothing below applies until <html data-brand="kalderix"> is set,
+       which only the approval step does. Keeping it in the stylesheet (rather
+       than in a branch) means the identity is reviewable today and switching
+       is one attribute, not a redesign. Surfaces and the semantic green/red
+       profit colours are untouched on purpose: every contrast ratio and chart
+       colour was tuned against them. */
+    --brand-secondary:#2ED3B7; /* only referenced by the override block below */
     --success-dim:rgba(16,185,129,0.10);
     --success-border:rgba(16,185,129,0.30);
     --warning:#F59E0B;
@@ -1347,9 +1392,9 @@
         }
         .deposit-option{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:start;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:12px;cursor:pointer;color:inherit;font:inherit;min-width:0;}
         .deposit-option:hover{border-color:var(--border-hover);}
-        .deposit-option.is-selected{border-color:#F0B90B;box-shadow:0 0 0 1px rgba(240,185,11,0.35) inset;}
+        .deposit-option.is-selected{border-color:#F0B90B;box-shadow:0 0 0 1px rgb(var(--brand-rgb) / 0.35) inset;}
         .deposit-option[aria-disabled="true"]{opacity:0.72;}
-        .deposit-option-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(240,185,11,0.12);color:#F0B90B;flex:0 0 auto;}
+        .deposit-option-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgb(var(--brand-rgb) / 0.12);color:#F0B90B;flex:0 0 auto;}
         .deposit-option-body{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto;}
         .deposit-option-title{font-size:13px;font-weight:700;color:var(--text-primary);overflow-wrap:anywhere;}
         .deposit-option-desc{font-size:11px;color:var(--text-secondary);line-height:1.5;overflow-wrap:anywhere;}
@@ -1361,7 +1406,7 @@
         .deposit-partner-meta{font-size:11px;color:var(--text-secondary);line-height:1.5;overflow-wrap:anywhere;}
         .deposit-partner-chat{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;text-decoration:none;}
         .deposit-partner-handle{font-size:10px;color:var(--text-muted);margin-top:6px;overflow-wrap:anywhere;direction:ltr;unicode-bidi:isolate;}
-        .deposit-ref-box{background:rgba(240,185,11,0.06);border:1px solid var(--brand-border);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
+        .deposit-ref-box{background:rgb(var(--brand-rgb) / 0.06);border:1px solid var(--brand-border);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
         .deposit-ref-value{font-family:monospace;font-size:12px;color:#F0B90B;overflow-wrap:anywhere;margin:4px 0 6px;}
         .deposit-partner-safety{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.22);border-radius:10px;padding:12px;margin:12px 0;min-width:0;}
         .deposit-partner-safety ul{margin:6px 0 0;padding-inline-start:18px;}
@@ -1472,7 +1517,7 @@
         .stat-actions{display:flex;align-items:stretch;gap:6px;margin-top:10px;}
         .stat-actions .stat-deposit-btn{margin-top:0;flex:1 1 0;min-width:0;}
         .stat-withdraw-btn{background:var(--brand-weak);border:1px solid var(--gold-glow);color:#F0B90B;}
-        .stat-withdraw-btn:hover{background:rgba(240,185,11,0.18);filter:none;}
+        .stat-withdraw-btn:hover{background:rgb(var(--brand-rgb) / 0.18);filter:none;}
         @media(max-width:430px), (min-width:1024px) and (max-width:1150px){
             /* Two labels share a narrow card on a 320px phone and again on the
                four-up grid just above the 1024px breakpoint: drop the icons and
@@ -1509,7 +1554,7 @@
         .deposit-usdt-help-body{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-top:8px;overflow-wrap:anywhere;word-break:break-word;}
         
         /* Upload Area */
-        .upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;border:2px dashed var(--border-color);border-radius:12px;cursor:pointer;transition:all 0.2s ease;background:rgba(240,185,11,0.02);}
+        .upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;border:2px dashed var(--border-color);border-radius:12px;cursor:pointer;transition:all 0.2s ease;background:rgb(var(--brand-rgb) / 0.02);}
         .upload-area:hover{border-color:var(--gold);background:var(--brand-weak);}
         .upload-area.dragover{border-color:var(--gold);background:var(--brand-weak);}
         .upload-area.uploading{opacity:0.6;pointer-events:none;}
@@ -1640,7 +1685,7 @@
         .app-header-brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .app-header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
-        .ticker-wrapper{background:linear-gradient(90deg,var(--brand-weak),rgba(240,185,11,0.02),var(--brand-weak));border:1px solid var(--brand-soft);border-radius:12px;margin-bottom:14px;padding:8px 12px;display:flex;align-items:center;gap:10px;overflow:hidden;position:relative;}
+        .ticker-wrapper{background:linear-gradient(90deg,var(--brand-weak),rgb(var(--brand-rgb) / 0.02),var(--brand-weak));border:1px solid var(--brand-soft);border-radius:12px;margin-bottom:14px;padding:8px 12px;display:flex;align-items:center;gap:10px;overflow:hidden;position:relative;}
         .ticker-label{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;padding-right:10px;border-right:1px solid var(--gold-glow);flex-shrink:0;}
         .ticker-label .live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;animation:pulse 1.2s infinite;box-shadow:0 0 8px var(--red);}
         .ticker-track{flex:1;overflow:hidden;position:relative;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);}
@@ -1727,7 +1772,7 @@
         .badge-item:hover{transform:translateY(-2px);border-color:var(--brand-border);}
         .badge-item.locked{opacity:0.5;filter:grayscale(0.8);}
         .badge-item.locked:hover{opacity:0.7;}
-        .badge-item.unlocked{background:linear-gradient(145deg,var(--brand-weak),rgba(240,185,11,0.02));border-color:var(--brand-border);box-shadow:0 4px 16px var(--brand-weak);}
+        .badge-item.unlocked{background:linear-gradient(145deg,var(--brand-weak),rgb(var(--brand-rgb) / 0.02));border-color:var(--brand-border);box-shadow:0 4px 16px var(--brand-weak);}
         .badge-item.just-unlocked{animation:badgeUnlock 0.8s ease;}
         @keyframes badgeUnlock{0%{transform:scale(1);}30%{transform:scale(1.15);box-shadow:0 0 30px var(--brand-strong);}60%{transform:scale(0.95);}100%{transform:scale(1);}}
         .badge-icon{font-size:28px;margin-bottom:6px;display:block;line-height:1;}
@@ -3140,7 +3185,7 @@
         /* Pricing */
         .landing-price-card {
             max-width:480px; margin:0 auto 20px; padding:28px 24px; border-radius:18px; text-align:center;
-            background:linear-gradient(135deg, var(--brand-weak), rgba(240,185,11,0.02));
+            background:linear-gradient(135deg, var(--brand-weak), rgb(var(--brand-rgb) / 0.02));
             border:1px solid var(--brand-border);
         }
         .landing-price-label { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--gold); margin-bottom:8px; }
@@ -3288,7 +3333,7 @@
         .ref-payout-row{display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0;}
         .ref-payout-amount{font-weight:700;color:#fff;}
         .ref-payout-status{font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;white-space:normal;}
-        .ref-payout-status.pending{background:rgba(240,185,11,0.12);color:#F0B90B;}
+        .ref-payout-status.pending{background:rgb(var(--brand-rgb) / 0.12);color:#F0B90B;}
         .ref-payout-status.review{background:rgba(59,130,246,0.15);color:#60A5FA;}
         .ref-payout-status.paid{background:rgba(16,185,129,0.12);color:#10B981;}
         .ref-payout-status.rejected{background:rgba(239,68,68,0.12);color:#EF4444;}
@@ -8407,7 +8452,7 @@ function toggleFaq(btn) {
 <div class="deposit-modal" id="profitPauseModal">
     <div class="deposit-modal-content" style="max-width:440px;text-align:center;">
         <button type="button" onclick="closeProfitPauseModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
-        <div style="width:72px;height:72px;background:rgba(240,185,11,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <div style="width:72px;height:72px;background:rgb(var(--brand-rgb) / 0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
             <i class="fas fa-gas-pump" style="font-size:30px;color:#F0B90B;"></i>
         </div>
         <h3 style="font-size:16px;font-weight:700;color:#E8EDF5;margin-bottom:8px;" data-i18n="profitPause.title">Bot Trading Paused</h3>
@@ -9104,8 +9149,80 @@ const BRAND = {
     // t() swaps `source` for `name` at RENDER time, so renaming the product is
     // the one edit above: dictionaries and markup never have to be touched, and
     // can never drift out of sync with each other.
-    source: 'Arbitrix'
+    source: 'Arbitrix',
+    // Monogram used by the favicon, the app icon and the sign-in mark. Follows
+    // `name` at approval time so the icons cannot keep the old letter.
+    mark: 'A',
+    candidateMark: 'K',
+    tagline: 'Automated Arbitrage. Made Simple.',
+    // The installed-app name and the accent colour track `name`. Today they
+    // reproduce the shipped identity exactly; a rename moves both.
+    appName: 'Arbitrix AI',
+    accent: '#F0B90B'
 };
+
+/**
+ * Bring the head metadata and the icons in line with BRAND.
+ *
+ * A no-op while the shipped name is in force, which is why the current build is
+ * byte-identical to before this function existed. When a rename lands, the
+ * static tags rewritten by scripts/rebrand.js are the pre-JS values and this
+ * function is the single place that keeps title, social card, favicon and app
+ * icon consistent at runtime - including for the installed PWA, which reads the
+ * manifest this page generates.
+ *
+ * The accent is data-driven: `BRAND.accent` is the live gold today and becomes
+ * the candidate violet when the identity is applied.
+ */
+function applyBrandAssets() {
+    try {
+        if (BRAND.name === BRAND.source) return;      // shipped identity: no-op
+        const accent = BRAND.accent || '#F0B90B';
+        const dark = '#070B14';
+        const muted = '#8896B5';
+        const svg = function (inner, w, h) {
+            return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + w + " " + h + "'>" + inner + '</svg>';
+        };
+        // Encoded once, here: a raw '#' inside a data URI starts a fragment and
+        // truncates the image, which is exactly the kind of bug that shows up as
+        // a blank social card and nowhere else.
+        const dataUri = function (markup) { return 'data:image/svg+xml,' + encodeURIComponent(markup); };
+        const iconMarkup = function (size, rx, fontSize, y) {
+            return svg("<rect width='" + size + "' height='" + size + "' rx='" + rx + "' fill='" + dark + "'/>"
+                + "<text " + (size >= 512 ? '' : "x='" + (size / 2) + "' ") + "y='" + y + "' font-family='Arial'"
+                + " font-size='" + fontSize + "' font-weight='900' text-anchor='middle' fill='" + accent + "'>"
+                + BRAND.mark + '</text>', size, size);
+        };
+        const cardMarkup = function () {
+            return svg("<rect width='1200' height='630' fill='" + dark + "'/>"
+                + "<text x='600' y='340' font-family='Arial' font-size='120' font-weight='900' text-anchor='middle' fill='" + accent + "'>" + BRAND.name + '</text>'
+                + "<text x='600' y='430' font-family='Arial' font-size='42' font-weight='400' text-anchor='middle' fill='" + muted + "'>" + BRAND.tagline + '</text>', 1200, 630);
+        };
+        const setMeta = function (selector, value) {
+            const el = document.querySelector(selector);
+            if (el) el.setAttribute('content', value);
+        };
+
+        document.title = BRAND.name + ' | Automated Arbitrage Trading Platform';
+        setMeta('meta[property="og:site_name"]', BRAND.name);
+        setMeta('meta[property="og:title"]', BRAND.name + ' \u2014 ' + BRAND.tagline);
+        setMeta('meta[name="twitter:title"]', BRAND.name + ' \u2014 ' + BRAND.tagline);
+        setMeta('meta[property="og:image"]', dataUri(cardMarkup()));
+        setMeta('meta[name="twitter:image"]', dataUri(cardMarkup()));
+
+        const apple = document.querySelector('link[rel="apple-touch-icon"]');
+        if (apple) apple.setAttribute('href', dataUri(iconMarkup(512, 96, 340, 340)));
+        const fav = document.querySelector('link[rel="icon"]');
+        if (fav) fav.setAttribute('href', dataUri(iconMarkup(100, 20, 60, 68)));
+
+        // The candidate palette is a stylesheet override keyed off this
+        // attribute, so the identity and the colours can never disagree.
+        if (BRAND.name === BRAND.candidate) {
+            document.documentElement.setAttribute('data-brand', String(BRAND.candidate).toLowerCase());
+        }
+    } catch (e) { /* display-only: never break the app over metadata */ }
+}
+applyBrandAssets();
 
 const TRANSLATIONS = {
     en: {
@@ -10141,6 +10258,7 @@ const TRANSLATIONS = {
         'admin.empty.noSubscriptions': 'No subscriptions found',
         'tx.detail.botStarted': 'Started',
         'tx.detail.botPaused': 'Paused',
+        'tx.detail.subscription': 'Pro subscription',
         'common.minutesAgo': '{{n}}m ago',
         'common.hoursAgo': '{{n}}h ago',
         'common.daysAgo': '{{n}}d ago',
@@ -11778,6 +11896,7 @@ const TRANSLATIONS = {
         'admin.empty.noSubscriptions': 'No se encontraron suscripciones',
         'tx.detail.botStarted': 'Iniciado',
         'tx.detail.botPaused': 'Pausado',
+        'tx.detail.subscription': 'Suscripci\u00f3n Pro',
         'common.minutesAgo': 'hace {{n}}m',
         'common.hoursAgo': 'hace {{n}}h',
         'common.daysAgo': 'hace {{n}}d',
@@ -13416,6 +13535,7 @@ const TRANSLATIONS = {
         'admin.empty.noSubscriptions': 'Nenhuma assinatura encontrada',
         'tx.detail.botStarted': 'Iniciado',
         'tx.detail.botPaused': 'Pausado',
+        'tx.detail.subscription': 'Assinatura Pro',
         'common.minutesAgo': 'há {{n}}min',
         'common.hoursAgo': 'há {{n}}h',
         'common.daysAgo': 'há {{n}}d',
@@ -15054,6 +15174,7 @@ const TRANSLATIONS = {
         'admin.empty.noSubscriptions': 'Aucun abonnement trouvé',
         'tx.detail.botStarted': 'Démarré',
         'tx.detail.botPaused': 'En pause',
+        'tx.detail.subscription': 'Abonnement Pro',
         'common.minutesAgo': 'il y a {{n}} min',
         'common.hoursAgo': 'il y a {{n}} h',
         'common.daysAgo': 'il y a {{n}} j',
@@ -16692,6 +16813,7 @@ const TRANSLATIONS = {
         'admin.empty.noSubscriptions': 'لم يتم العثور على اشتراكات',
         'tx.detail.botStarted': 'بدأ',
         'tx.detail.botPaused': 'متوقف مؤقتًا',
+        'tx.detail.subscription': '\u0627\u0634\u062a\u0631\u0627\u0643 \u0628\u0631\u0648',
         'common.minutesAgo': 'منذ {{n}} د',
         'common.hoursAgo': 'منذ {{n}} س',
         'common.daysAgo': 'منذ {{n}} ي',
@@ -18330,6 +18452,7 @@ const TRANSLATIONS = {
         'admin.empty.noSubscriptions': '未找到订阅',
         'tx.detail.botStarted': '已启动',
         'tx.detail.botPaused': '已暂停',
+        'tx.detail.subscription': '\u4e13\u4e1a\u7248\u8ba2\u9605',
         'common.minutesAgo': '{{n}}分钟前',
         'common.hoursAgo': '{{n}}小时前',
         'common.daysAgo': '{{n}}天前',
@@ -19428,9 +19551,12 @@ console.log('🌍 i18n system loaded. Current language:', currentLang);
 
 // ============ MAIN APP LOGIC ============
 try {
-    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#070B14"/><text y="340" font-family="Arial" font-size="340" font-weight="900" text-anchor="middle" fill="#F0B90B">A</text></svg>';
+    // Icon letter and app name come from BRAND, so a rename cannot leave an
+    // old monogram on the home screen. The accent tracks the themed token when
+    // the candidate identity is active.
+    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#070B14"/><text y="340" font-family="Arial" font-size="340" font-weight="900" text-anchor="middle" fill="' + BRAND.accent + '">' + BRAND.mark + '</text></svg>';
     const iconDataUri = 'data:image/svg+xml;base64,' + btoa(iconSvg);
-    const manifest = { name: 'Arbitrix AI', short_name: 'Arbitrix AI', description: 'Intelligent arbitrage trading platform', start_url: './', scope: './', display: 'standalone', orientation: 'portrait', background_color: '#070B14', theme_color: '#070B14', icons: [ { src: iconDataUri, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' }, { src: iconDataUri, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' } ] };
+    const manifest = { name: BRAND.appName, short_name: BRAND.appName, description: 'Intelligent arbitrage trading platform', start_url: './', scope: './', display: 'standalone', orientation: 'portrait', background_color: '#070B14', theme_color: '#070B14', icons: [ { src: iconDataUri, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' }, { src: iconDataUri, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' } ] };
     const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
     document.getElementById('manifest-link').href = URL.createObjectURL(blob);
 } catch(e) {}
@@ -20487,7 +20613,7 @@ function renderPendingReferralsList(pending) {
                 <div style="font-size:9px;color:var(--text-secondary);">${r.joinedAt ? new Date(r.joinedAt).toLocaleDateString(appLocale()) : 'Recently'}</div>
             </div>
             <div style="text-align:right;">
-                <span style="font-size:9px;color:#F0B90B;background:rgba(240,185,11,0.1);padding:2px 6px;border-radius:4px;">${t('referral.awaitingDeposit')}</span>
+                <span style="font-size:9px;color:#F0B90B;background:rgb(var(--brand-rgb) / 0.1);padding:2px 6px;border-radius:4px;">${t('referral.awaitingDeposit')}</span>
             </div>
         </div>
     `).join('');
@@ -20673,10 +20799,27 @@ function txTypeLabel(rawType) {
     const key = TX_TYPE_LABELS[rawType];
     return key ? t(key) : rawType;
 }
+/**
+ * The subscription's transaction detail is written by the database, so it
+ * carries whichever brand was in force on the day the charge ran. Both eras map
+ * to one localized label, which is why an account that was billed before a
+ * rename does not show the old name in its history. The period suffix is kept
+ * verbatim because it is a date, not copy.
+ */
+const SUBSCRIPTION_DETAIL_PREFIXES = ['Arbitrix Pro Subscription', 'Kalderix Pro Subscription'];
 function txDetailLabel(rawDetail) {
     if (!rawDetail) return '';
     const key = TX_DETAIL_LABELS[rawDetail];
-    return key ? t(key) : rawDetail;
+    if (key) return t(key);
+    for (let i = 0; i < SUBSCRIPTION_DETAIL_PREFIXES.length; i++) {
+        const prefix = SUBSCRIPTION_DETAIL_PREFIXES[i];
+        if (rawDetail.indexOf(prefix) === 0) {
+            const rest = rawDetail.slice(prefix.length).replace(/^\s*-\s*/, '');
+            const label = t('tx.detail.subscription');
+            return rest ? label + ' - ' + rest : label;
+        }
+    }
+    return rawDetail;
 }
 
 // ============ ACTIVITY / ALERTS / AUDIT (render-only mapping) ============
@@ -22510,7 +22653,7 @@ function updateDepositStatus(type, message) {
   statusEl.innerHTML = `<i class="fas ${icons[type] || icons.info}" style="color:${colors[type] || colors.info};"></i> <span style="color:${colors[type] || colors.info};">${message}</span>`;
   statusEl.style.background = type === 'error' ? 'rgba(239,68,68,0.1)' : 
                                type === 'success' ? 'rgba(16,185,129,0.1)' : 
-                               'rgba(240,185,11,0.05)';
+                               'rgb(var(--brand-rgb) / 0.05)';
 }
 
 function showProgressBar(show, message) {

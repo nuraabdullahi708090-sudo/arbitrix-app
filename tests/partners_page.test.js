@@ -72,7 +72,7 @@ const APPLY_URL = '/?action=create-account&src=partners';
 // dialog layout), and once more for the deposit-dialog section reorder that
 // moved the tutorials card to the bottom of the panel. Each re-pin was an
 // approved homepage change, not /partners drift.
-const INDEX_SHA256 = '6eba522435665f927dbb0d94ca90d6da463ff08c60b944014131be11c729d9ec';
+const INDEX_SHA256 = 'f8e8d1f062a0a3cdc331c32cfb1b200f4f676aacc2d80ea97b7aae0ebb2a1d7b';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';

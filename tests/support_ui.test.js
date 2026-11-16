@@ -230,7 +230,7 @@ test('partner contacts live only in the partner route of the deposit modal', () 
 
 test('support is available from the payment pending/failed state with invoice reference', () => {
     // Window must fit the whole 'support.contactOfficial' occurrence, so it needs
-    // to reach at least its offset + its length (currently 1594 + 23 = 1617).
+    // to reach at least its offset + its length (currently 1594 + 23 = 1618).
     // It stays inside the block, which ends at the next top-level comment (~1965).
     // The window grew only because Stage 1 swapped inline hex colours in this
     // block for token references (e.g. #8896B5 -> var(--text-secondary) and the
