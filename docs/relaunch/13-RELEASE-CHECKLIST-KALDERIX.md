@@ -124,28 +124,47 @@ they were written after it - so run the short probe below for the three migratio
 this release actually needs. Also SELECT-only; paste both into the SQL editor.
 
 ```sql
-select '049 min deposit 50' as migration,
-       case when (select value from public.referral_config
-                   where key = 'minimum_qualifying_deposit') = '50'
-            then 'APPLIED (50)'
-            else 'NOT APPLIED (currently '
-                 || coalesce((select value from public.referral_config
-                               where key = 'minimum_qualifying_deposit'), 'no row') || ')' end as status
-union all
-select '050 payhip live activation',
-       case when to_regclass('public.payhip_purchases') is not null
-             and to_regclass('public.payhip_entitlements') is not null
-             and to_regclass('public.payhip_products') is not null
-            then 'APPLIED' else 'NOT APPLIED' end
-union all
-select '051 rebrand subscription detail',
-       case when exists (select 1 from pg_proc p
-                           join pg_namespace n on n.oid = p.pronamespace
-                          where n.nspname = 'public'
-                            and p.proname = 'charge_subscription_safe'
-                            and p.prosrc like '%Pro Subscription%'
-                            and p.prosrc not like '%' || 'Arbitrix' || ' Pro Subscription%')
-            then 'APPLIED' else 'NOT APPLIED (or still writes the pre-rename literal)' end;
+-- READ-ONLY. Production's referral_config is (config_key, config_value,
+-- description, ...), while some environments use (key, value). A literal
+-- "WHERE key = ..." therefore FAILS on production, so this probe discovers the
+-- column names first and prints one NOTICE per migration.
+do $$
+declare
+  kcol text := case when exists (select 1 from information_schema.columns
+                                  where table_schema = 'public'
+                                    and table_name = 'referral_config'
+                                    and column_name = 'config_key')
+                    then 'config_key' else 'key' end;
+  vcol text := case when exists (select 1 from information_schema.columns
+                                  where table_schema = 'public'
+                                    and table_name = 'referral_config'
+                                    and column_name = 'config_value')
+                    then 'config_value' else 'value' end;
+  v text;
+  ok boolean;
+begin
+  execute format('select %I from public.referral_config where %I = %L',
+                 vcol, kcol, 'minimum_qualifying_deposit') into v;
+  raise notice '049 min deposit 50          : %',
+    case when v = '50' then 'APPLIED (50)'
+         else 'NOT APPLIED (currently ' || coalesce(v, 'no row') || ')' end;
+
+  select to_regclass('public.payhip_purchases') is not null
+     and to_regclass('public.payhip_entitlements') is not null
+     and to_regclass('public.payhip_products') is not null into ok;
+  raise notice '050 payhip live activation  : %',
+    case when ok then 'APPLIED' else 'NOT APPLIED' end;
+
+  select exists (select 1 from pg_proc p
+                   join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public'
+                    and p.proname = 'charge_subscription_safe'
+                    and p.prosrc like '%Pro Subscription%'
+                    and p.prosrc not like '%' || 'Arbitrix' || ' Pro Subscription%') into ok;
+  raise notice '051 rebrand sub. detail     : %',
+    case when ok then 'APPLIED'
+         else 'NOT APPLIED (or still writes the pre-rename literal)' end;
+end $$;
 ```
 
 Read every row before proceeding. If 049 already returns `APPLIED (50)`, skip 4a.
@@ -185,7 +204,7 @@ Rollback: `git revert <merge>` and push. Nothing external has changed yet.
 
 | Order | Action | Verification |
 |---|---|---|
-| 4a | Apply `supabase/migrations/049_min_deposit_50.sql` | `SELECT value FROM referral_config WHERE key='minimum_qualifying_deposit';` → `50` |
+| 4a | Apply `supabase/migrations/049_min_deposit_50.sql` | re-run the step-2 probe → `049 min deposit 50 : APPLIED (50)` (the probe is schema-agnostic; a literal `WHERE key = ...` fails on production, whose columns are `config_key`/`config_value`) |
 | 4b | Render → Environment → add `PLATFORM_MIN_DEPOSIT_USD=50` → save (restart) | `/api/health` 200; the deposit modal shows a $50 floor |
 
 Why together: the environment variable governs invoice validation and the sandbox
