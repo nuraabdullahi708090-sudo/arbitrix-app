@@ -1,8 +1,14 @@
 # 12 - KALDERIX IDENTITY
 
-Prepared for approval. **Nothing in this document is applied.** The shipped build
-still presents the current name; the candidate is recorded as data in
-`services/brand.js` and can be switched on in one command.
+**APPLIED** on `relaunch/rebrand-payment-commercial` (approved; legal/trademark
+clearance is the founder's external step). The identity lives in
+`services/brand.js` and the mirror in `public/index.html`; the one-command tool
+that applied it is `scripts/relaunch-brand.js`, and `scripts/verify-rebrand.js`
+is the release gate (it now prints ALL CHECKS PASSED on this branch).
+
+What a rename cannot change - and this build does not change - is in section 5:
+the domain, the mail domain, the Telegram handles, the legal operator and the
+KVK number. Kalderix is a TRADING NAME of Arbitrix Trading.
 
 ---
 
@@ -10,8 +16,8 @@ still presents the current name; the candidate is recorded as data in
 
 | Piece | Where | State |
 |---|---|---|
-| Name, monogram, tagline, app name, accent | `services/brand.js` + the mirror in `public/index.html` | recorded, not applied |
-| Palette and typography (with rationale) | `BRAND.candidateIdentity` | recorded, not applied |
+| Name, monogram, tagline, app name, accent | `services/brand.js` + the mirror in `public/index.html` | APPLIED (Kalderix / K / violet) |
+| Palette and typography (with rationale) | `BRAND.candidateIdentity` | applied; also the source the assets are regenerated from |
 | Logo / favicon / wordmark / social card | `public/brand/kalderix-*.svg` | generated, referenced by nothing |
 | Stylesheet override | `public/index.html` (`html[data-brand="kalderix"]`) | inert until the attribute is set |
 | Static-literal rewrite | `scripts/rebrand.js` | dry run verified, 860 tokens across 29 files |

@@ -89,21 +89,35 @@ const DOC_TARGETS = ['AGENTS.md'];
 //     suffix), so dropping it closes a hole rather than opening one.
 const PREV = '(?<![@\\w.-])';
 // (b) never rewrite these suffixes: domains, handles, the legal entity name
-const NEXT = '(?!\\.(?:pro|ai|org|com|io|app)|SupportBot|_CSA1|Announcements| Trading)';
+// (?=[A-Z]) protects camelCase/PascalCase IDENTIFIERS that merely start with the
+// brand ("arbitrixUserId", the q8pay metadata keys) - a rename must not change a
+// provider-facing field name.
+const NEXT = '(?!\\.(?:pro|ai|org|com|io|app)|SupportBot|_CSA1|Announcements| Trading|(?=[A-Z]))';
 const TOKEN = new RegExp(PREV + 'Arbitrix' + NEXT, 'g');
 // "Arbitrix AI" - the marketing compound - collapses to the new name alone.
 const COMPOUND = new RegExp(PREV + 'Arbitrix AI' + NEXT, 'g');
 // Lower-case references (normalized query text, cache keys, log strings).
 // The guard blocks domains, handles, e-mail and kebab-case file/attribute names
 // such as arbitrix-knowledge.json or arbitrix-support-telegram.
-const LOWER = /(?<![@\w./-])arbitrix(?![.\-_/@]|[a-z]*\.(?:pro|ai))/g;
+const LOWER = /(?<![@\w./-])arbitrix(?![.\-_/@]|[A-Z]|[a-z]*\.(?:pro|ai))/g;
 // URL-encoded data-URI occurrences.
 const ENCODED_NAME = /%3EArbitrix%3C/g;
 // Non-ASCII copy is stored as \uXXXX escapes, so the character before the brand
 // in those strings is a hex digit and the word-boundary guard above would refuse
 // to rewrite it (it cannot tell "。Arbitrix" from "xArbitrix"). A complete
-// escape immediately before the name IS a boundary, so handle that case first.
-const ESCAPED_BEFORE = /(\\u[0-9a-fA-F]{4})Arbitrix(?![A-Za-z])/g;
+// escape immediately before the name IS a boundary, so those occurrences are
+// handled explicitly.
+//
+// The suffix guards are REPEATED here on purpose. An escaped-boundary match used
+// to accept any following text, which renamed the LEGAL ENTITY in Arabic copy
+// ("\u00abArbitrix Trading\u00bb" -> "\u00abKalderix Trading\u00bb") and kept the old
+// descriptor in "\u00abArbitrix AI\u00bb" -> "\u00abKalderix AI\u00bb". Both are
+// identifiers/copy errors the guards exist to prevent, so the escaped forms are
+// held to the same rules as the plain ones.
+const ESCAPED_COMPOUND = /(\\u[0-9a-fA-F]{4})Arbitrix AI(?![\w.])/g;
+const ESCAPED_BEFORE = /(\\u[0-9a-fA-F]{4})Arbitrix(?!\.(?:pro|ai|org|com|io|app)|SupportBot|_CSA1|Announcements| Trading| AI|[A-Za-z]|(?=[A-Z]))/g;
+// Lower-case references after an escape get the same treatment as the plain form.
+const ESCAPED_LOWER = /(\\u[0-9a-fA-F]{4})arbitrix(?![.\-_/@]|[A-Z]|[a-z]*\.(?:pro|ai))/g;
 const ENCODED_MARK = /%3EA%3C/g;
 
 // Anything in this list appearing as <NewName><suffix> after a write is a bug.
@@ -121,12 +135,14 @@ const PROTECTED = [
 function rebrand(text, to, mark) {
   const letter = mark || (to ? to.charAt(0).toUpperCase() : 'X');
   return text
+    .replace(ESCAPED_COMPOUND, '$1' + to)
     .replace(ESCAPED_BEFORE, '$1' + to)
     .replace(COMPOUND, to)
     .replace(ENCODED_NAME, '%3E' + to + '%3C')
     .replace(ENCODED_MARK, '%3E' + letter + '%3C')
     .replace(TOKEN, to)
-    .replace(LOWER, String(to).toLowerCase());
+    .replace(LOWER, String(to).toLowerCase())
+    .replace(ESCAPED_LOWER, '$1' + String(to).toLowerCase());
 }
 
 /**

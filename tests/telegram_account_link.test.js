@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Phase 1 - secure Telegram <-> Arbitrix account linking.
+ * Phase 1 - secure Telegram <-> Kalderix account linking.
  *
  * These tests exercise the REAL service (services/TelegramAccountLinks.js) and
  * the REAL bot (services/TelegramSupportService.js) against:

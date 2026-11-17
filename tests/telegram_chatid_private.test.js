@@ -116,7 +116,7 @@ function createHarness({ adminIds = [ADMIN], supportChatId = SUPPORT_GROUP, fail
   };
 }
 
-function groupUpdate({ chatId = PARTNER_GROUP, type = 'supergroup', fromId = ADMIN, text = '/chatid', username = 'operator', title = 'Arbitrix Partners', updateId } = {}) {
+function groupUpdate({ chatId = PARTNER_GROUP, type = 'supergroup', fromId = ADMIN, text = '/chatid', username = 'operator', title = 'Kalderix Partners', updateId } = {}) {
   return {
     update_id: updateId === undefined ? nextUpdateId() : updateId,
     message: {
@@ -140,7 +140,7 @@ test('an operator gets the id privately from a group the bot does not serve', as
   assert.ok(dm, 'the operator received a private message');
   assert.match(dm.text, new RegExp(`Chat ID: ${PARTNER_GROUP}`));
   assert.match(dm.text, /Chat type: supergroup/);
-  assert.match(dm.text, /Chat title: Arbitrix Partners/);
+  assert.match(dm.text, /Chat title: Kalderix Partners/);
   assert.match(dm.text, new RegExp(`Your user ID: ${ADMIN}`));
   assert.match(dm.text, /TELEGRAM_MARKETING_CHAT_ID/);
   assert.deepStrictEqual(h.toChat(PARTNER_GROUP), [], 'nothing was posted into the group');

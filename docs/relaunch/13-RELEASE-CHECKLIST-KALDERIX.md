@@ -31,22 +31,15 @@ before step 5 if timing allows.
 git checkout main && git merge --ff-only origin/main     # confirm the base
 git checkout relaunch/rebrand-payment-commercial
 git status --porcelain                                   # must be empty
-npm test                                                 # expect 3271 pass, 0 fail
+node scripts/verify-rebrand.js --expect Kalderix         # expect: ALL CHECKS PASSED
+npm test                                                 # expect 3311 pass, 0 fail
 ```
 
-Then run the rehearsal proving the rebrand on a copy, not on the branch:
-
-```bash
-rsync -a --exclude node_modules --exclude .git ./ /tmp/rehearsal/
-ln -s "$PWD/node_modules" /tmp/rehearsal/node_modules
-cd /tmp/rehearsal
-node scripts/relaunch-brand.js --to kalderix --with-tests --write
-node scripts/verify-rebrand.js --expect Kalderix    # expect: ALL CHECKS PASSED
-npm test                                            # expect: 3270 pass, 0 fail
-```
-
-Last rehearsal result (this branch): **ALL CHECKS PASSED** and **3271/3271**.
-Keep the transcript; it is the evidence that step 5 is mechanical.
+The identity is ALREADY APPLIED on this branch, so the verifier runs against the
+real tree rather than a rehearsal copy - it is read-only and takes a second. Do
+NOT run `scripts/relaunch-brand.js --write` again on `main`: it would only rewrite
+what is already rewritten. Last run on this branch: **ALL CHECKS PASSED** and
+**3311/3311**; keep the transcript, it is the evidence that step 5 is mechanical.
 
 ---
 
@@ -57,7 +50,7 @@ step 1  backup                     <- nothing is reversible without this
 step 2  readiness probe            <- know what is already applied
 step 3  (optional) commit + push   <- code only; the app runs unchanged
 step 4  $50: migration 049 + env   <- coordinated, one minute apart at most
-step 5  rebrand: apply + deploy    <- one command, then verify
+step 5  rebrand: already in code   <- verify, deploy, expose
 step 6  Payhip: 050, flags, gate   <- last, because it is the only gate that
                                        can lock a customer out of Live Mode
 ```
@@ -234,18 +227,29 @@ UPDATE public.referral_config SET value = '100'
 
 ## 7. Step 5 - the Kalderix rebrand
 
-### 7.1 Apply
+### 7.1 What is left to DO
+
+The code in this release commit already carries the identity (this branch was
+renamed with `scripts/relaunch-brand.js --to kalderix --with-tests --write`), so
+there is nothing to apply at release time:
 
 ```bash
-node scripts/relaunch-brand.js --to kalderix --with-tests --write
 node scripts/verify-rebrand.js --expect Kalderix     # must print ALL CHECKS PASSED
-npm test                                             # must be 3270/3270
-git add -A && git commit -m "feat: rebrand to Kalderix"
-git push origin main
+npm test                                             # must be 3311/3311
 ```
 
-The script is idempotent and prints what it changed. Review `git diff --stat`; the
-only files it may not touch are the protected identifiers in 7.3.
+Then deploy as normal (step 3) and run the browser checks in 7.3. Only two things
+remain outside the code:
+
+| Item | Action | Approval |
+|---|---|---|
+| Transactional sender name | if production sets `EMAIL_FROM` explicitly, change its display name to `Kalderix <noreply@arbitrix.ai>`; the code default (`services/brand.js` `emailSender()`) already says Kalderix | needs the founder (env change) |
+| Migration 051 | apply AFTER the code is live (7.4) | needs the founder |
+
+Deliberately NOT part of this release: the domain (`arbitrix.pro`), the mail
+domain (`arbitrix.ai`), the Telegram handles, the legal operator and the KVK
+number. Kalderix is a trading name of Arbitrix Trading; changing any of the
+above is a separate, founder-owned decision.
 
 ### 7.2 Assets (already generated, unchanged by the command)
 

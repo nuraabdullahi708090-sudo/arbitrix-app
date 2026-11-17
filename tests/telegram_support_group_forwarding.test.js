@@ -168,7 +168,7 @@ const groupCommand = (text) => ({
     message_id: nextUpdateId(),
     date: 1700000000,
     text,
-    chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Arbitrix Support' },
+    chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Kalderix Support' },
     from: { id: 900001, first_name: 'Agent' }
   }
 });
@@ -178,12 +178,12 @@ const groupCommand = (text) => ({
 test('a customer message is delivered to the configured support group', async () => {
   const h = createHarness({ bot: undefined });
 
-  const result = await h.bot.handleUpdate(customerMessage('Hello, I need help with Arbitrix.'));
+  const result = await h.bot.handleUpdate(customerMessage('Hello, I need help with Kalderix.'));
 
   assert.strictEqual(result.action, 'forwarded');
   const group = h.toGroup();
   assert.strictEqual(group.length, 1, 'exactly ONE message into the group');
-  assert.match(group[0].text, /Hello, I need help with Arbitrix\./);
+  assert.match(group[0].text, /Hello, I need help with Kalderix\./);
 });
 
 test('the group notification uses the CONFIGURED chat id, never the customer chat', async () => {
@@ -202,14 +202,14 @@ test('the group notification uses the CONFIGURED chat id, never the customer cha
 
 test('the notification carries the conversation, the customer and the message', async () => {
   const h = createHarness();
-  await h.bot.handleUpdate(customerMessage('Hello, I need help with Arbitrix.'));
+  await h.bot.handleUpdate(customerMessage('Hello, I need help with Kalderix.'));
 
   const text = h.toGroup()[0].text;
   assert.match(text, /🔔 New Customer Message/);
   assert.match(text, /Customer: @john/, 'the @username is shown when Telegram provides one');
   assert.match(text, new RegExp('Conversation: #' + CONVERSATION_ID));
   assert.match(text, new RegExp('Chat ID: ' + CUSTOMER_CHAT_ID), 'the raw chat id is shown for /reply');
-  assert.match(text, /Message:\nHello, I need help with Arbitrix\./);
+  assert.match(text, /Message:\nHello, I need help with Kalderix\./);
   assert.match(text, new RegExp('/reply ' + CONVERSATION_ID + ' <message>'));
 });
 
@@ -377,7 +377,7 @@ test('an unconfigured group is loud, never a silent no-op', async () => {
 
 test('/reply <conversation number> reaches the correct customer', async () => {
   const h = createHarness();
-  await h.bot.handleUpdate(customerMessage('Hello, I need help with Arbitrix.'));
+  await h.bot.handleUpdate(customerMessage('Hello, I need help with Kalderix.'));
 
   const result = await h.bot.handleUpdate(groupCommand(
     `/reply ${CONVERSATION_ID} The minimum deposit is $100. Let me know if you need help with the deposit process.`
@@ -472,7 +472,7 @@ test('group commands stay admin-only', async () => {
       message_id: nextUpdateId(),
       date: 1700000000,
       text: `/reply ${CONVERSATION_ID} hello`,
-      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Arbitrix Support' },
+      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Kalderix Support' },
       from: { id: 424242, first_name: 'Stranger' }
     }
   };

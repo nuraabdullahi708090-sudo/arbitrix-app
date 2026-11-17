@@ -3,7 +3,7 @@
 /**
  * REFERRAL PARTNER acquisition page (/partners) tests.
  *
- * A standalone, unlisted marketing landing page for the Arbitrix Referral
+ * A standalone, unlisted marketing landing page for the Kalderix Referral
  * Partner program, reached from a Meta ad. Scope guards pinned here:
  *   - the route /partners (+ /partners/) serves the page and is registered
  *     BEFORE the SPA fallback (so it never resolves to the app shell);
@@ -75,7 +75,7 @@ const APPLY_URL = '/?action=create-account&src=partners';
 // relaunch: the subscription history prefixes are now DERIVED from BRAND, so a
 // rename cannot collapse the pre-rename era into the current one. That change is
 // 13 lines inside txDetailLabel's helpers and touches no funnel markup.
-const INDEX_SHA256 = 'a73fd2151cadf1be585aaa8c21a0a7149158d2aa258a6eed640401704bbd4ca4';
+const INDEX_SHA256 = 'f26aa7b43a0c59b2ee9544b0542f7096af1875ac92801572715b9be01c605a17';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
@@ -715,7 +715,7 @@ test('8f. an unconfigured contact is skipped, and the empty state is explained',
         'the page renders one recruitment contact regardless of any other handle');
 });
 
-test('8g. official Arbitrix Support stays separate and the retired handle is gone', () => {
+test('8g. official Kalderix Support stays separate and the retired handle is gone', () => {
     assert.ok(!PAGE.includes(OFFICIAL_SUPPORT), 'the partner page must not present official support as a partner');
     assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must not appear');
     assert.ok(!PAGE.includes('Olivia'), 'Olivia must not be presented as a recruitment contact');

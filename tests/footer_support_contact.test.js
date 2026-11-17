@@ -183,7 +183,7 @@ test('the legal pages publish the platform domain and official channel only', ()
     // arbitrix.ai reference, and no mailbox on it, may remain in a legal page.
     for (const [name, page] of [['terms-of-service.html', TERMS], ['privacy-policy.html', PRIVACY]]) {
         assert.ok(!/arbitrix\.ai/i.test(page), name + ' must not reference the third-party arbitrix.ai domain');
-        assert.ok(!/mailto:[^"]*arbitrix\.ai/i.test(page), name + ' must not publish a mailbox on arbitrix.ai');
+        assert.ok(!/mailto:[^"]*kalderix\.ai/i.test(page), name + ' must not publish a mailbox on arbitrix.ai');
         assert.match(page, /https:\/\/arbitrix\.pro/, name + ' must publish the platform domain');
         assert.match(page, /https:\/\/t\.me\/ArbitrixSupportBot/, name + ' must publish the official support channel');
         // Requested cleanup: the verbose inline "Operator: ..." line is gone, so
@@ -193,7 +193,7 @@ test('the legal pages publish the platform domain and official channel only', ()
     }
     // The Privacy Policy (the page that defines "we") still names the operator
     // entity in its opening sentence.
-    assert.match(PRIVACY, /Arbitrix AI, operated by Arbitrix Trading/,
+    assert.match(PRIVACY, /Kalderix, operated by Arbitrix Trading/,
         'the Privacy Policy must still name the operator entity');
 });
 

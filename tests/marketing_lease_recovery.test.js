@@ -51,7 +51,7 @@ const CONFIG = {
 };
 
 const APPROVED = [
-  'Arbitrix is an automated multi-asset arbitrage platform.',
+  'Kalderix is an automated multi-asset arbitrage platform.',
   'A referral reward is a one-time 20% of a referred user\'s first qualifying deposit of $100 or more.'
 ].join('\n\n');
 

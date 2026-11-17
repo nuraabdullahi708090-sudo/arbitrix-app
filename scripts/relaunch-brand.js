@@ -151,6 +151,19 @@ function main() {
       text = markText;
     }
 
+    // `source` is NOT branding: it is the literal the dictionaries were written
+    // with, and it is what maps a transaction detail recorded BEFORE this rename
+    // ("<source> Pro Subscription") to the localized label. Re-asserting it after
+    // the rewrite keeps both eras readable - without this the rebrand pass itself
+    // rewrites the page mirror's `source` (public/index.html is a rebrand target),
+    // the prefix list collapses to one entry, and every pre-rename subscription
+    // row goes back to showing raw English.
+    if (rel === FILES.brand || rel === FILES.page) {
+      const sourceField = setField(text, 'const BRAND = {', 'source', BRAND.source);
+      if (!sourceField) { console.error('source field missing in ' + rel); process.exit(1); }
+      text = sourceField;
+    }
+
     // Both mirrors carry appName/accent, and both must move together: the page
     // renders them, the server reports them in the app's own metadata.
     if (rel === FILES.brand || rel === FILES.page) {

@@ -73,12 +73,51 @@ Two honest options are laid out in `08-ACTION-PLAN.md` §2.
 
 ## 2. Rebranding implementation status
 
-**Not started - deliberately.** No name is approved, and renaming before the
-product claim is fixed would carry an unsubstantiated claim onto a name with no
-history. The full 9-step inventory (identity assets -> copy -> support ->
-marketing -> emails -> domain -> legal -> video -> tests) is in `02-BRAND.md`.
-A new trade name does **not** change the legal operator: `Arbitrix Trading`
-(KVK 72923513) remains the contracting party and must stay visible.
+**Applied on the release branch.** Kalderix is approved, so the identity is no
+longer a candidate: `services/brand.js` and the mirror in `public/index.html`
+carry `name: 'Kalderix'`, monogram `K`, app name `Kalderix` and the violet
+accent, and every static surface follows (all six locale dictionaries, page
+title and social card, PWA manifest and icons, the standalone pages, the support
+bot, marketing copy, transactional notifications, the TOTP issuer, the Q8Pay
+invoice title and the asset registry).
+
+The evidence is the repository's own release gate, not a grep:
+
+```
+node scripts/verify-rebrand.js --expect Kalderix   ->  ALL CHECKS PASSED
+npm test                                           ->  3311 pass, 0 fail
+```
+
+What the rename does **not** touch, by design: the public domain
+(`arbitrix.pro`), the mail domain (`arbitrix.ai`), the three Telegram handles,
+the seeded admin login, `localStorage` keys, database identifiers and applied
+migrations. Above all it does not change the legal operator: `Arbitrix Trading`
+(KVK 72923513) remains the contracting party and stays visible on
+`/business-registration`.
+
+Three defects were found while applying it, and fixed:
+
+1. The rebrand tool's ESCAPED-BOUNDARY rule bypassed the suffix guards, so an
+   Arabic fixture briefly read "Kalderix Trading" (the legal entity) and an
+   escaped "Arbitrix AI" kept its old descriptor. The guards are now repeated for
+   escaped forms (`scripts/rebrand.js`) and pinned by cases in
+   `tests/brand_token.test.js`.
+2. Applying the tool rewrote the page mirror's `source` literal, which collapsed
+   the two subscription-detail eras into one - every pre-rename charge would have
+   rendered raw English instead of the localized label. `source` is now
+   re-asserted by the tool and pinned by `tests/kalderix_identity.test.js` (which
+   now evaluates the PAGE's mirror rather than the server module's copy).
+3. After the rename the support bot answered "who is Kalderix" but NOT
+   "who is Arbitrix", even though customers still type the domain name and the
+   legal entity carries it. Both the knowledge base and the dialogue engine now
+   fold the legacy name onto the current one for MATCHING only, derived from
+   `BRAND` - so a future rename keeps both spellings working
+   (`tests/legacy_brand_alias.test.js`).
+
+The remaining external steps are the founder's, not code: trademark clearance,
+and - only if production overrides it - the `EMAIL_FROM` display name in the
+Render environment. Migration 051 (the subscription detail written by SQL) is
+still applied AFTER the code is live, per section 7.4 of the release checklist.
 
 ### 2b. Promotional credit visibility (implemented)
 

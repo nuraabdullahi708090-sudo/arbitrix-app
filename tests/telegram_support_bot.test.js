@@ -251,7 +251,7 @@ function groupUpdate({
   messageId = 10,
   updateId,
   replyTo = null,
-  title = 'Arbitrix Support'
+  title = 'Kalderix Support'
 } = {}) {
   const update = {
     update_id: updateId === undefined ? updateSeq++ : updateId,
@@ -415,7 +415,7 @@ test('routeUpdate: the configured support group is accepted', () => {
   const route = routeUpdate(groupUpdate({ text: '/chatid' }), { adminIds: [ADMIN_ID], supportChatId: SUPPORT_CHAT_ID });
   assert.strictEqual(route.kind, 'group');
   assert.strictEqual(route.isAdmin, true);
-  assert.strictEqual(route.chatTitle, 'Arbitrix Support');
+  assert.strictEqual(route.chatTitle, 'Kalderix Support');
 });
 
 test('routeUpdate: other groups are ignored even for admins', () => {

@@ -46,7 +46,7 @@ test('telegram handles: @name, name, t.me/... and full URLs normalize to one val
 test('telegram handles: arbitrary URLs, paths, schemes and junk are rejected', () => {
   const bad = [
     '', '   ', null, undefined, 42,
-    'https://evil.example.com/Arbitrix', 'http://t.me.evil.com/x',
+    'https://evil.example.com/Kalderix', 'http://t.me.evil.com/x',
     't.me/ab', 'a'.repeat(40), 'has space', 'user-name', 't.me/name?x=1',
     'javascript:alert(1)', '@', 'name<'
   ];
@@ -381,7 +381,7 @@ test('the partner panel explains the model in one short paragraph', () => {
   assert.ok(!panel.includes('depositPaymentPartnerNote'), 'note beside the button retired');
   // Crediting is still explained, by the safety list.
   assert.match((INDEX.match(/'deposit\.partner\.safety\.3': '([^']*)'/) || [])[1] || '',
-    /credited after Arbitrix verifies the transfer/i);
+    /credited after Kalderix verifies the transfer/i);
 });
 
 // ============================================ service model + worldwide coverage

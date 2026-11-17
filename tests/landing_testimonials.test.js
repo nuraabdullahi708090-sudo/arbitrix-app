@@ -296,6 +296,6 @@ test('the change touches no application logic', () => {
     // the section is display-only: no auth, payment, wallet or API usage added
     assert.strictEqual(/fetch\(|localStorage|Authorization/.test(SECTION), false);
     // and the existing translated sections are untouched
-    assert.match(T.en['landing.faq.q1'], /Arbitrix/i);
+    assert.match(T.en['landing.faq.q1'], /Kalderix/i);
     assert.match(T.en['landing.compare.live.tag'], /Live/);
 });

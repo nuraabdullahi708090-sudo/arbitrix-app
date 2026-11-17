@@ -98,7 +98,7 @@ test('merges ALL transaction types into the Transaction Log (not only Deposit)',
         { id: 1, type: 'Deposit', amount: 50, detail: 'USDT (TRC20)', created_at: '2026-08-22T10:00:00Z' },
         { id: 2, type: 'Trade Executed', amount: -0.28, detail: 'BTC/USDT Binance->Bybit', created_at: '2026-08-22T10:01:00Z' },
         { id: 3, type: 'Withdraw', amount: -20, detail: 'To TRJdD9...', created_at: '2026-08-22T10:02:00Z' },
-        { id: 4, type: 'Subscription', amount: -7, detail: 'Arbitrix Pro Subscription', created_at: '2026-08-22T10:03:00Z' },
+        { id: 4, type: 'Subscription', amount: -7, detail: 'Kalderix Pro Subscription', created_at: '2026-08-22T10:03:00Z' },
     ];
     const out = buildMergeHarness(txs, []);
     const types = out.history.map(h => h.type);

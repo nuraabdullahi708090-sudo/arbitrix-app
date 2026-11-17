@@ -246,7 +246,7 @@ test('/start still replies when the whole store is broken', async () => {
 
   assert.strictEqual(res.statusCode, 200, 'a command does not depend on storage');
   assert.strictEqual(sent.length, 1);
-  assert.match(sent[0].text, /Arbitrix Support/);
+  assert.match(sent[0].text, /Kalderix Support/);
   assert.strictEqual(bot.getStats().lastAction, 'help');
 });
 

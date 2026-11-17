@@ -203,8 +203,8 @@ test('no marketing template can state a withdrawal minimum', () => {
   const ctx = {
     registerUrl: 'https://arbitrix.pro/?action=create-account',
     supportUrl: 'https://t.me/ArbitrixSupportBot',
-    partnerSupportUrl: 'https://t.me/ArbitrixPayments',
-    announcementUrl: 'https://t.me/ArbitrixChannel',
+    partnerSupportUrl: 'https://t.me/KalderixPayments',
+    announcementUrl: 'https://t.me/KalderixChannel',
     minDeposit: 100,
     referralPercent: 20
   };

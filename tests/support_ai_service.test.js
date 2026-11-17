@@ -79,7 +79,7 @@ test('a disabled service does not retrieve or generate anything', async () => {
     retriever
   });
 
-  const result = await service.ask('How does Arbitrix work?');
+  const result = await service.ask('How does Kalderix work?');
   assert.strictEqual(result.enabled, false);
   assert.strictEqual(result.answered, false);
   assert.strictEqual(result.needsHuman, true);
@@ -92,7 +92,7 @@ test('a disabled service does not retrieve or generate anything', async () => {
 test('known beginner questions are answered from the approved knowledge', async () => {
   const service = makeService();
   const cases = [
-    ['How does Arbitrix work?', /arbitrage/i],
+    ['How does Kalderix work?', /arbitrage/i],
     ['How do I get started?', /create your account/i],
     ['What is the minimum deposit?', /\$100/],
     ['Can I use Demo Mode?', /\$1,000/],
@@ -116,7 +116,7 @@ test('known beginner questions are answered from the approved knowledge', async 
 test('answers never contain stale MTA figures or invented amounts', async () => {
   const service = makeService();
   const questions = [
-    'How does Arbitrix work?', 'How do I get started?', 'What is the minimum deposit?',
+    'How does Kalderix work?', 'How do I get started?', 'What is the minimum deposit?',
     'Can I use Demo Mode?', 'How do withdrawals work?', 'What is the minimum withdrawal?',
     'What is the referral program?', 'What is the $50 promotional credit?', 'How much is the subscription?'
   ];
@@ -228,7 +228,7 @@ test('provider configuration is env-driven and never exposes the key', () => {
 
 test('generated answers are capped by AI_SUPPORT_MAX_ANSWER_CHARS', async () => {
   const service = makeService({ maxAnswerChars: 60 });
-  const result = await service.ask('How does Arbitrix work?');
+  const result = await service.ask('How does Kalderix work?');
   assert.ok(result.answer.length <= 60, 'answer exceeded the configured cap: ' + result.answer.length);
   assert.ok(result.answer.endsWith('\u2026'));
 });

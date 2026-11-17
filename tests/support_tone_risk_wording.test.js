@@ -29,7 +29,7 @@ const kb = S.readKnowledge();
 const entry = (id) => S.createRetriever(kb, { minScore: 2 }).getEntry(id);
 
 const PREFERRED_ARBITRIX_ANSWER =
-  'Arbitrix is an automated arbitrage platform. It looks for arbitrage opportunities across supported markets ' +
+  'Kalderix is an automated arbitrage platform. It looks for arbitrage opportunities across supported markets ' +
   'and places trades for you automatically. You can start with Demo Mode using virtual funds, then switch to ' +
   "Live Mode when you're ready.";
 
@@ -53,7 +53,7 @@ function service(over) {
 
 test('the neutral questions named in the brief get clean, direct answers', () => {
   // These are the exact questions the brief lists as "neutral".
-  ['How does Arbitrix work?', 'What is the minimum deposit?', 'How do I deposit?',
+  ['How does Kalderix work?', 'What is the minimum deposit?', 'How do I deposit?',
     'How do withdrawals work?', 'How do referrals work?']
     .forEach((q) => {
       const hits = S.createRetriever(kb, { minScore: 2 }).retrieve(q);
@@ -65,7 +65,7 @@ test('the neutral questions named in the brief get clean, direct answers', () =>
 test('no ordinary informational answer carries loss wording', async () => {
   const ai = service();
   const ordinary = [
-    'How does Arbitrix work?', 'What is the minimum deposit?', 'How do I deposit?',
+    'How does Kalderix work?', 'What is the minimum deposit?', 'How do I deposit?',
     'How do withdrawals work?', 'How do referrals work?', 'What is the minimum withdrawal?',
     'How long does a withdrawal take?', 'How do I use my referral earnings?',
     'What network do I use to deposit USDT?', 'What is the promotional credit?',
@@ -79,8 +79,8 @@ test('no ordinary informational answer carries loss wording', async () => {
   }
 });
 
-test('"How does Arbitrix work?" returns the preferred, encouraging answer', async () => {
-  const result = await service().ask('How does Arbitrix work?');
+test('"How does Kalderix work?" returns the preferred, encouraging answer', async () => {
+  const result = await service().ask('How does Kalderix work?');
   assert.strictEqual(result.answer, PREFERRED_ARBITRIX_ANSWER);
   assert.strictEqual(result.entryId, 'what_is_arbitrix.overview');
   assert.strictEqual(result.answered, true);
@@ -163,7 +163,7 @@ test('a model that still invents a promise is replaced by the approved answer', 
     knowledge: kb,
     provider
   });
-  const result = await ai.ask('How does Arbitrix work?');
+  const result = await ai.ask('How does Kalderix work?');
   assert.strictEqual(result.filtered, true, 'the promise must be filtered');
   assert.strictEqual(result.answer, PREFERRED_ARBITRIX_ANSWER, 'falls back to the approved, calm answer');
   assert.ok(!/guaranteed returns/i.test(result.answer));
@@ -190,7 +190,7 @@ test('the instruction change did not drop a hard rule', () => {
     'payment-status rule');
   assert.ok(text.indexOf('hand off to a human') !== -1, 'human hand-off rule');
   assert.ok(text.indexOf('if information is uncertain or unavailable') !== -1, 'uncertainty rule');
-  assert.ok(text.indexOf('only from the approved arbitrix knowledge') !== -1, 'no-invention rule');
+  assert.ok(text.indexOf('only from the approved kalderix knowledge') !== -1, 'no-invention rule');
 });
 
 test('the instructions no longer state the risk sentence unconditionally', () => {

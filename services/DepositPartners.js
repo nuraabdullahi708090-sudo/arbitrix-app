@@ -2,13 +2,13 @@
  * Deposit partner directory - validation and public projection.
  *
  * A "partner" is a human who may help a customer obtain cryptocurrency off
- * platform and send it to the customer's own Arbitrix deposit address. Arbitrix
+ * platform and send it to the customer's own Kalderix deposit address. Kalderix
  * never accepts a partner confirmation, screenshot or Telegram message as proof
  * of payment: only the existing deposit-verification path credits a balance.
  *
  * SERVICE MODEL (two independent capabilities, a partner may offer both):
  *   direct_sale        - the partner sells USDT and can arrange its transfer to
- *                        the customer's Arbitrix deposit address.
+ *                        the customer's Kalderix deposit address.
  *   guided_assistance  - the partner helps the customer buy USDT through an
  *                        external exchange/wallet/service and guides them
  *                        through depositing it.

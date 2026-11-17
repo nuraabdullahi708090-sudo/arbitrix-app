@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "lastUpdated": "2026-09-22",
-  "description": "Approved, customer-facing Arbitrix support knowledge. Every answer is derived from the current repository (server.js constants/routes, services/*, public/index.html copy). This file is the single approved source for the SupportAIService: the AI layer may ONLY answer from these entries and must hand off to a human when the answer is not present, is marked handoff, or is listed in conflicts.",
+  "description": "Approved, customer-facing Kalderix support knowledge. Every answer is derived from the current repository (server.js constants/routes, services/*, public/index.html copy). This file is the single approved source for the SupportAIService: the AI layer may ONLY answer from these entries and must hand off to a human when the answer is not present, is marked handoff, or is listed in conflicts.",
   "sources": {
     "wallet_seed": "server.js:451 (getWallet inserts demo_balance: 1000, live_balance: 50, bonus_balance: 0)",
     "min_deposit": "server.js:489 PLATFORM_MIN_DEPOSIT_USD = 100 (enforced server.js:3556-3563)",
@@ -77,7 +77,7 @@
       "status": "UNRESOLVED - flagged to owner",
       "summary": "The deposit UI says USDT (TRC20) only; the legacy deposit endpoint accepts a wider list.",
       "values": [
-        "public/index.html deposit modal: 'Arbitrix accepts USDT on TRON (TRC20) only.'",
+        "public/index.html deposit modal: 'Kalderix accepts USDT on TRON (TRC20) only.'",
         "server.js:3568-3580 legacy /api/payment/create-invoice accepts USDT/BTC/ETH and TRC20/ERC20/BEP20/BTC/ETH"
       ],
       "note": "The bot states USDT on TRON (TRC20) (the customer-facing path) and does not enumerate the legacy list."
@@ -86,20 +86,20 @@
   "categories": [
     {
       "id": "what_is_arbitrix",
-      "title": "What Arbitrix is",
+      "title": "What Kalderix is",
       "entries": [
         {
           "id": "what_is_arbitrix.overview",
-          "question": "How does Arbitrix work?",
-          "answer": "Arbitrix is an automated arbitrage platform. It looks for arbitrage opportunities across supported markets and places trades for you automatically. You can start with Demo Mode using virtual funds, then switch to Live Mode when you're ready.",
-          "keywords": ["arbitrix", "how does arbitrix work", "what is arbitrix", "how it works", "works", "platform", "about arbitrix"],
+          "question": "How does Kalderix work?",
+          "answer": "Kalderix is an automated arbitrage platform. It looks for arbitrage opportunities across supported markets and places trades for you automatically. You can start with Demo Mode using virtual funds, then switch to Live Mode when you're ready.",
+          "keywords": ["kalderix", "how does kalderix work", "what is kalderix", "how it works", "works", "platform", "about kalderix"],
           "kind": "info",
           "source": "public/index.html landing ('Automated Arbitrage. Made Simple.'); server.js trading routes"
         },
         {
           "id": "what_is_arbitrix.arbitrage",
           "question": "What is arbitrage?",
-          "answer": "Arbitrage means taking advantage of a price difference for the same asset between markets - buying where it is cheaper and selling where it is more expensive. Arbitrix automates that process for you.",
+          "answer": "Arbitrage means taking advantage of a price difference for the same asset between markets - buying where it is cheaper and selling where it is more expensive. Kalderix automates that process for you.",
           "keywords": ["arbitrage", "what is arbitrage", "price difference", "buy low sell high"],
           "kind": "info",
           "source": "public/index.html landing FAQ"
@@ -113,7 +113,7 @@
         {
           "id": "demo_mode.can_i_use",
           "question": "Can I use Demo Mode?",
-          "answer": "Yes. Demo Mode lets you try Arbitrix with virtual funds so you can see how it works without using real money. A new Demo account starts with $1,000 in virtual funds. Demo funds are not real and cannot be withdrawn.",
+          "answer": "Yes. Demo Mode lets you try Kalderix with virtual funds so you can see how it works without using real money. A new Demo account starts with $1,000 in virtual funds. Demo funds are not real and cannot be withdrawn.",
           "keywords": ["demo", "demo mode", "virtual funds", "practice", "try it", "can i use demo", "test mode"],
           "kind": "info",
           "source": "server.js:451 demo_balance: 1000; public/index.html demo copy"
@@ -143,7 +143,7 @@
         {
           "id": "live_mode.overview",
           "question": "How does Live Mode work?",
-          "answer": "In Live Mode Arbitrix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $100) and then start the bot to trade automatically.",
+          "answer": "In Live Mode Kalderix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $100) and then start the bot to trade automatically.",
           "keywords": ["live mode", "live", "real funds", "real money", "real trading"],
           "kind": "info",
           "source": "server.js:489 minimum deposit; public/index.html live mode copy"
@@ -243,7 +243,7 @@
         {
           "id": "trading_bot.risk",
           "question": "Is trading risky?",
-          "answer": "Trading involves risk and results vary - you can lose money as well as gain. Arbitrix does not promise profits or guaranteed returns, and nothing here is financial advice.",
+          "answer": "Trading involves risk and results vary - you can lose money as well as gain. Kalderix does not promise profits or guaranteed returns, and nothing here is financial advice.",
           "keywords": ["risk", "risky", "lose money", "losses", "is it safe", "can i lose"],
           "kind": "guardrail",
           "source": "platform risk disclosure (landing)"
@@ -297,7 +297,7 @@
         {
           "id": "kyc_security.required",
           "question": "Do I need to verify my identity?",
-          "answer": "No. Arbitrix does not require identity verification (KYC) - you can deposit, trade and withdraw without submitting identity documents.",
+          "answer": "No. Kalderix does not require identity verification (KYC) - you can deposit, trade and withdraw without submitting identity documents.",
           "keywords": ["kyc", "verify identity", "verification", "id check", "identity", "do i need to verify", "kyc required"],
           "kind": "info",
           "source": "management decision (no KYC); server.js WITHDRAWAL_REQUIRES_VERIFICATION default false and MARKETING_SANDBOX has no KYC"
@@ -305,7 +305,7 @@
         {
           "id": "kyc_security.documents",
           "question": "What documents do I need for verification?",
-          "answer": "You do not need to submit any documents. Identity verification is not required on Arbitrix.",
+          "answer": "You do not need to submit any documents. Identity verification is not required on Kalderix.",
           "keywords": ["documents", "what documents", "passport", "national id", "selfie", "id upload"],
           "kind": "info",
           "source": "management decision (no KYC)"
@@ -313,7 +313,7 @@
         {
           "id": "kyc_security.account_safety",
           "question": "How do I keep my account safe?",
-          "answer": "Never share your password, private key, seed phrase, or one-time codes with anyone - Arbitrix support will never ask you for them. Always use official channels and check the address and network before you send funds.",
+          "answer": "Never share your password, private key, seed phrase, or one-time codes with anyone - Kalderix support will never ask you for them. Always use official channels and check the address and network before you send funds.",
           "keywords": ["keep account safe", "security", "protect my account", "scam", "phishing", "stay safe"],
           "kind": "info",
           "source": "public/index.html security warning; support policy"
@@ -371,8 +371,8 @@
         {
           "id": "subscription.price",
           "question": "How much is the subscription?",
-          "answer": "Arbitrix Pro is $7 per month. It is deducted from your available Live balance when due, and no card is required. If your balance is too low when it is due, the subscription is marked as due and retried - it does not create a debt.",
-          "keywords": ["subscription", "arbitrix pro", "pro plan", "7 per month", "monthly", "platform fee", "pricing"],
+          "answer": "Kalderix Pro is $7 per month. It is deducted from your available Live balance when due, and no card is required. If your balance is too low when it is due, the subscription is marked as due and retried - it does not create a debt.",
+          "keywords": ["subscription", "kalderix pro", "pro plan", "7 per month", "monthly", "platform fee", "pricing"],
           "kind": "info",
           "source": "server.js:1470 SUBSCRIPTION_PRO_DEFAULT_PRICE = 7; charge_subscription_safe"
         },
@@ -400,9 +400,9 @@
       "entries": [
         {
           "id": "supported_countries.availability",
-          "question": "Which countries can use Arbitrix?",
-          "answer": "I do not have a verified list of supported countries here, so I do not want to guess. Arbitrix is used through the web app and deposits are made in USDT (TRC20). Please contact support and we will confirm this for your country.",
-          "keywords": ["which countries", "country", "available in", "supported countries", "my country", "region", "is arbitrix available"],
+          "question": "Which countries can use Kalderix?",
+          "answer": "I do not have a verified list of supported countries here, so I do not want to guess. Kalderix is used through the web app and deposits are made in USDT (TRC20). Please contact support and we will confirm this for your country.",
+          "keywords": ["which countries", "country", "available in", "supported countries", "my country", "region", "is kalderix available"],
           "kind": "handoff",
           "source": "no country-restriction logic found in the repository"
         },
@@ -422,9 +422,9 @@
       "entries": [
         {
           "id": "business_registration.kvk",
-          "question": "Is Arbitrix a registered company / can I see your registration?",
-          "answer": "Arbitrix is operated by Arbitrix Trading, registered with the Netherlands Chamber of Commerce (KVK) under KVK number 72923513. You can see the business registration certificate here: https://arbitrix.pro/business-registration",
-          "keywords": ["licence", "license", "registration", "registered", "business registration", "company registration", "certificate", "company certificate", "kvk", "kvk number", "chamber of commerce", "are you registered", "what company operates arbitrix", "who operates arbitrix", "legal entity", "company details", "registered company"],
+          "question": "Is Kalderix a registered company / can I see your registration?",
+          "answer": "Kalderix is operated by Arbitrix Trading, registered with the Netherlands Chamber of Commerce (KVK) under KVK number 72923513. You can see the business registration certificate here: https://arbitrix.pro/business-registration",
+          "keywords": ["licence", "license", "registration", "registered", "business registration", "company registration", "certificate", "company certificate", "kvk", "kvk number", "chamber of commerce", "are you registered", "what company operates kalderix", "who operates kalderix", "legal entity", "company details", "registered company"],
           "kind": "info",
           "source": "KVK Business Register extract (customer-provided certificate): legal name Arbitrix Trading, KVK number 72923513; page public/business-registration.html"
         }
@@ -485,7 +485,7 @@
         {
           "id": "guardrails.no_guarantee",
           "question": "Will I make a profit?",
-          "answer": "No one can promise that. Arbitrix does not guarantee profits or returns and trading involves risk - you can lose money as well as gain. Past results do not predict future results. This is general information, not financial advice.",
+          "answer": "No one can promise that. Kalderix does not guarantee profits or returns and trading involves risk - you can lose money as well as gain. Past results do not predict future results. This is general information, not financial advice.",
           "keywords": ["will i make profit", "guaranteed", "guarantee", "risk free", "risk-free", "how much will i earn", "assured returns", "safe profit", "can i make money"],
           "kind": "guardrail",
           "source": "platform risk disclosure; support policy"
@@ -493,7 +493,7 @@
         {
           "id": "guardrails.no_advice",
           "question": "Should I invest or deposit more?",
-          "answer": "I cannot give personalized financial or trading advice and I will not tell you how much to invest. I can explain how Arbitrix works so you can decide what is right for you. For anything specific to your situation, please speak with our support team.",
+          "answer": "I cannot give personalized financial or trading advice and I will not tell you how much to invest. I can explain how Kalderix works so you can decide what is right for you. For anything specific to your situation, please speak with our support team.",
           "keywords": ["should i invest", "should i deposit", "financial advice", "what should i buy", "good investment", "how much should i invest"],
           "kind": "guardrail",
           "offerHuman": true,

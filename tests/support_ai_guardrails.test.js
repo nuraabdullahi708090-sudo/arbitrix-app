@@ -39,7 +39,7 @@ test('the support instructions contain every hard rule', () => {
     'missing the payment-status rule');
   assert.ok(text.indexOf('hand off to a human') !== -1, 'missing the human hand-off rule');
   assert.ok(text.indexOf('if information is uncertain or unavailable') !== -1, 'missing the uncertainty rule');
-  assert.ok(text.indexOf('only from the approved arbitrix knowledge') !== -1, 'missing the no-invention rule');
+  assert.ok(text.indexOf('only from the approved kalderix knowledge') !== -1, 'missing the no-invention rule');
 });
 
 test('assertSafeAnswer flags profit/return promises', () => {
@@ -50,7 +50,7 @@ test('assertSafeAnswer flags profit/return promises', () => {
 });
 
 test('assertSafeAnswer is negation-aware for disclaimers', () => {
-  assert.deepStrictEqual(G.assertSafeAnswer('Arbitrix does not guarantee profits or returns.'), []);
+  assert.deepStrictEqual(G.assertSafeAnswer('Kalderix does not guarantee profits or returns.'), []);
   assert.deepStrictEqual(G.assertSafeAnswer('We never promise guaranteed returns and you can lose money.'), []);
   assert.deepStrictEqual(G.assertSafeAnswer('Never share your password with anyone.'), []);
 });
@@ -168,14 +168,14 @@ test('redactSecrets removes secret-shaped values for logging', () => {
 });
 
 test('containsLikelySecret distinguishes secrets from normal questions', () => {
-  assert.strictEqual(G.containsLikelySecret('How does Arbitrix work?'), false);
+  assert.strictEqual(G.containsLikelySecret('How does Kalderix work?'), false);
   assert.strictEqual(G.containsLikelySecret('my key is ' + 'a'.repeat(64)), true);
   assert.strictEqual(G.containsLikelySecret('apple banana cherry dog eagle forest grape house iris jungle kite lemon'), true);
 });
 
 test('classify() reports the intent without any account access', () => {
   const service = enabledService();
-  assert.strictEqual(service.classify('How does Arbitrix work?').intent, 'question');
+  assert.strictEqual(service.classify('How does Kalderix work?').intent, 'question');
   assert.strictEqual(service.classify('Will I make a profit?').intent, 'profit');
   assert.strictEqual(service.classify('Should I invest more?').intent, 'advice');
   assert.strictEqual(service.classify("I can't log in").intent, 'sensitive');

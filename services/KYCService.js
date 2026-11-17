@@ -1,5 +1,5 @@
 /**
- * KYC Verification Service - Arbitrix AI
+ * KYC Verification Service - Kalderix
  * 
  * This service handles all KYC (Know Your Customer) verification operations.
  * It provides secure document handling, status management, and admin review.
@@ -13,7 +13,7 @@
  * - Access control via RLS policies
  * - Audit logging for all admin actions
  * 
- * @author Arbitrix AI
+ * @author Kalderix
  * @version 2.0.0
  */
 

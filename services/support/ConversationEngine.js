@@ -78,7 +78,7 @@ const TUTORIALS = Object.freeze({
   }),
   withdrawal: Object.freeze({
     id: 'withdrawal',
-    label: 'Arbitrix withdrawal',
+    label: 'Kalderix withdrawal',
     url: 'https://t.me/ArbitrixAnnouncements/19'
   })
 });
@@ -113,7 +113,7 @@ const PENDING = Object.freeze({
   CREDITED: 'deposit.credited',
   WITHDRAW_HELP: 'withdraw.help',
   PARTNER_INTEREST: 'partner.interest',
-  // "Would you like a quick guide on how Arbitrix works?" - asked after the
+  // "Would you like a quick guide on how Kalderix works?" - asked after the
   // trust/legitimacy answer and after the earnings answer, so a bare "yes"
   // continues into the platform explanation instead of being guessed at.
   GUIDE_OFFER: 'guide.offer',
@@ -178,14 +178,14 @@ const KNOWLEDGE_QUERIES = Object.freeze({
   deposit_asset: 'Which cryptocurrency can I deposit?',
   payment_methods: 'What payment methods are supported?',
   subscription: 'How much is the subscription?',
-  what_is: 'How does Arbitrix work?',
+  what_is: 'How does Kalderix work?',
   arbitrage: 'What is arbitrage?',
   wrong_network: 'I sent funds to the wrong address or network',
   deposit_pending: 'My deposit is still pending',
   deposit_expired: 'My payment failed or expired',
   security: 'How do I keep my account safe?',
-  countries: 'Which countries can use Arbitrix?',
-  business: 'Is Arbitrix a registered company / can I see your registration?'
+  countries: 'Which countries can use Kalderix?',
+  business: 'Is Kalderix a registered company / can I see your registration?'
 });
 
 // ---------------------------------------------------------------- analysis ---
@@ -544,7 +544,7 @@ const INTENT_RULES = Object.freeze([
   {
     // ---------------------------------------------------- trust / legitimacy --
     // Ordered BEFORE kyc / deposit / trading / security / business / what_is:
-    // "is arbitrix a scam" must answer the legitimacy question, not the account
+    // "is kalderix a scam" must answer the legitimacy question, not the account
     // safety FAQ, and "how do I verify your registration" must not be read as a
     // KYC question (the old `kyc` rule matched any "verify").
     //
@@ -552,17 +552,17 @@ const INTENT_RULES = Object.freeze([
     // "company" or "registered" is NOT enough (see the false-positive tests).
     intent: 'trust_scam',
     topic: 'trust',
-    re: /\bscam\w*\b|\blegit(?:imate)?\b|\bgenuine\b|\btrustworthy\b|\b(?:can|could|should)\s+i\s+trust\b|\btrust\s+(?:this|you|arbitrix|your\s+platform|the\s+platform)\b|\bnot\s+(?:a\s+)?(?:scam|fake)\b|\bfake\s+(?:platform|company|site|website|bot|app)\b|\b(?:are|is)\s+(?:you|arbitrix|this|it)\s+(?:a\s+)?(?:scam|real|genuine|legit|legitimate|safe)\b|\breal\s+(?:company|platform|business)\b|\bgolpe\b|\bconfi[aá]vel\b|\bposso\s+confiar\b|\bverdadeir[oa]s?\b|\bn\u00e3o\s+[e\u00e9]\s+golpe\b|\u0646\u0635\u0628|\u0627\u062d\u062a\u064a\u0627\u0644|\u0645\u0648\u062b\u0648\u0642|\u0623\u062b\u0642|\u0645\u0646\u0635\u0629\s+\u062d\u0642\u064a\u0642\u064a\u0629|\u0647\u0644\s+\u0623\u0646\u062a\u0645\s+\u0645\u0648\u062b\u0648\u0642\u0648\u0646/
+    re: /\bscam\w*\b|\blegit(?:imate)?\b|\bgenuine\b|\btrustworthy\b|\b(?:can|could|should)\s+i\s+trust\b|\btrust\s+(?:this|you|kalderix|your\s+platform|the\s+platform)\b|\bnot\s+(?:a\s+)?(?:scam|fake)\b|\bfake\s+(?:platform|company|site|website|bot|app)\b|\b(?:are|is)\s+(?:you|kalderix|this|it)\s+(?:a\s+)?(?:scam|real|genuine|legit|legitimate|safe)\b|\breal\s+(?:company|platform|business)\b|\bgolpe\b|\bconfi[aá]vel\b|\bposso\s+confiar\b|\bverdadeir[oa]s?\b|\bn\u00e3o\s+[e\u00e9]\s+golpe\b|\u0646\u0635\u0628|\u0627\u062d\u062a\u064a\u0627\u0644|\u0645\u0648\u062b\u0648\u0642|\u0623\u062b\u0642|\u0645\u0646\u0635\u0629\s+\u062d\u0642\u064a\u0642\u064a\u0629|\u0647\u0644\s+\u0623\u0646\u062a\u0645\s+\u0645\u0648\u062b\u0648\u0642\u0648\u0646/
   },
   {
     intent: 'trust_registration',
     topic: 'trust',
-    re: /\b(?:are|is)\s+(?:you|arbitrix|this|it)\s+(?:a\s+)?registered\b|\bregistered\s+(?:company|business|entity|in\s+the)\b|\b(?:your|the)\s+registration\b|\bregistration\s+(?:number|details|certificate|documents?|papers?)\b|\bbusiness\s+(?:registration|certificate|licen[cs]e|details)\b|\bcompany\s+(?:registration|details|number|certificate)\b|\bcan\s+i\s+(?:verify|check|confirm|see)\b[^?]{0,45}\b(?:registration|company|business|certificate|details)\b|\bhow\s+(?:can|do)\s+i\s+(?:verify|check|confirm)\b[^?]{0,35}\b(?:you|arbitrix|company|business|registration)\b|\b(?:show|send)\s+me\s+(?:your|the)\s+(?:registration|certificate|documents?|licen[cs]e)\b|\bdo\s+you\s+have\s+(?:a\s+)?(?:business\s+)?(?:registration|certificate|licen[cs]e)\b|\bwhere\s+(?:is|are)\s+(?:your|you)\s+(?:company\s+)?registered\b|\bregistered\s+address\b|\bcompany\s+address\b|\bcompany\s+phone\b|\bkvk\b|\bchamber\s+of\s+commerce\b|\bregistrad[ao]\b|\bregistro\s+(?:da\s+|empresarial|comercial)\b|\bcomo\s+(?:eu\s+)?(?:posso\s+)?(?:verificar|confirmar)\b|\bcertificado\s+(?:da\s+)?empresa\b|\u0645\u0633\u062c\u0644\u0629|\u0633\u062c\u0644\s+\u062a\u062c\u0627\u0631\u064a|\u0634\u0647\u0627\u062f\u0629\s+\u0627\u0644\u062a\u0633\u062c\u064a\u0644|\u063a\u0631\u0641\u0629\s+\u0627\u0644\u062a\u062c\u0627\u0631\u0629|\u062a\u062d\u0642\u0642|\u0627\u0644\u062a\u0633\u062c\u064a\u0644\s+\u0627\u0644\u062a\u062c\u0627\u0631\u064a|\u0634\u0647\u0627\u062f\u0629/
+    re: /\b(?:are|is)\s+(?:you|kalderix|this|it)\s+(?:a\s+)?registered\b|\bregistered\s+(?:company|business|entity|in\s+the)\b|\b(?:your|the)\s+registration\b|\bregistration\s+(?:number|details|certificate|documents?|papers?)\b|\bbusiness\s+(?:registration|certificate|licen[cs]e|details)\b|\bcompany\s+(?:registration|details|number|certificate)\b|\bcan\s+i\s+(?:verify|check|confirm|see)\b[^?]{0,45}\b(?:registration|company|business|certificate|details)\b|\bhow\s+(?:can|do)\s+i\s+(?:verify|check|confirm)\b[^?]{0,35}\b(?:you|kalderix|company|business|registration)\b|\b(?:show|send)\s+me\s+(?:your|the)\s+(?:registration|certificate|documents?|licen[cs]e)\b|\bdo\s+you\s+have\s+(?:a\s+)?(?:business\s+)?(?:registration|certificate|licen[cs]e)\b|\bwhere\s+(?:is|are)\s+(?:your|you)\s+(?:company\s+)?registered\b|\bregistered\s+address\b|\bcompany\s+address\b|\bcompany\s+phone\b|\bkvk\b|\bchamber\s+of\s+commerce\b|\bregistrad[ao]\b|\bregistro\s+(?:da\s+|empresarial|comercial)\b|\bcomo\s+(?:eu\s+)?(?:posso\s+)?(?:verificar|confirmar)\b|\bcertificado\s+(?:da\s+)?empresa\b|\u0645\u0633\u062c\u0644\u0629|\u0633\u062c\u0644\s+\u062a\u062c\u0627\u0631\u064a|\u0634\u0647\u0627\u062f\u0629\s+\u0627\u0644\u062a\u0633\u062c\u064a\u0644|\u063a\u0631\u0641\u0629\s+\u0627\u0644\u062a\u062c\u0627\u0631\u0629|\u062a\u062d\u0642\u0642|\u0627\u0644\u062a\u0633\u062c\u064a\u0644\s+\u0627\u0644\u062a\u062c\u0627\u0631\u064a|\u0634\u0647\u0627\u062f\u0629/
   },
   {
     intent: 'trust_general',
     topic: 'trust',
-    re: /\bwhy\s+should\s+i\s+(?:use|choose|trust)\b|\bwhat\s+makes\s+(?:you|arbitrix)\s+different\b|\bhow\s+long\s+(?:have|has)\s+(?:you|arbitrix)\b|\bsince\s+when\b|\bwhat\s+exactly\s+does\s+arbitrix\s+do\b|\bhow\s+(?:can|do)\s+i\s+know\b[^?]{0,25}\b(?:real|genuine|legit|legitimate|true)\b|\bpor\s+que\s+devo\s+(?:usar|escolher)\b|\bh[a\u00e1]\s+quanto\s+tempo\b|\u0644\u0645\u0627\u0630\u0627\s+\u064a\u062c\u0628|\u0645\u0646\u0630\s+\u0645\u062a\u0649/
+    re: /\bwhy\s+should\s+i\s+(?:use|choose|trust)\b|\bwhat\s+makes\s+(?:you|kalderix)\s+different\b|\bhow\s+long\s+(?:have|has)\s+(?:you|kalderix)\b|\bsince\s+when\b|\bwhat\s+exactly\s+does\s+kalderix\s+do\b|\bhow\s+(?:can|do)\s+i\s+know\b[^?]{0,25}\b(?:real|genuine|legit|legitimate|true)\b|\bpor\s+que\s+devo\s+(?:usar|escolher)\b|\bh[a\u00e1]\s+quanto\s+tempo\b|\u0644\u0645\u0627\u0630\u0627\s+\u064a\u062c\u0628|\u0645\u0646\u0630\s+\u0645\u062a\u0649/
   },
   {
     // -------------------------------------------------- earnings / returns --
@@ -687,7 +687,7 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'subscription',
     topic: 'account',
-    re: /\b(?:subscription|arbitrix\s+pro|pro\s+plan|monthly\s+(?:fee|price|plan|payment))\b/
+    re: /\b(?:subscription|kalderix\s+pro|pro\s+plan|monthly\s+(?:fee|price|plan|payment))\b/
   },
   {
     intent: 'bot_offline',
@@ -696,12 +696,12 @@ const INTENT_RULES = Object.freeze([
   },
   {
     // The plain "what is this platform / how does it work" explanation. Ordered
-    // before `arbitrage` and `trading_bot` so "how does Arbitrix work" and
+    // before `arbitrage` and `trading_bot` so "how does Kalderix work" and
     // "what is multi-asset arbitrage" get the full explanation rather than a
     // keyword-specific FAQ entry.
     intent: 'platform',
     topic: 'general',
-    re: /\bwhat\s+is\s+arbitrix\b|\bwhat\s+does\s+arbitrix\s+do\b|\bhow\s+does\s+arbitrix\s+work\b|\bhow\s+does\s+(?:the\s+)?(?:arbitrage|platform|arbitrix\s+bot)\s+work\b|\bmulti-?asset\s+arbitrage\b|\btell\s+me\s+(?:more|about)\b[^?]{0,25}\b(?:platform|arbitrix|arbitrage)\b|\babout\s+arbitrix\b|\bcomo\s+(?:a\s+)?arbitrix\s+funciona\b|\bo\s+que\s+[e\u00e9]\s+a\s+arbitrix\b|\bo\s+que\s+a\s+arbitrix\s+faz\b|\bme\s+fale\s+mais\b|\u0643\u064a\u0641\s+\u062a\u0639\u0645\u0644\s+arbitrix|\u0645\u0627\s+\u0647\u064a\s+arbitrix|\u0645\u0627\u0630\u0627\s+\u062a\u0641\u0639\u0644\s+arbitrix/
+    re: /\bwhat\s+is\s+kalderix\b|\bwhat\s+does\s+kalderix\s+do\b|\bhow\s+does\s+kalderix\s+work\b|\bhow\s+does\s+(?:the\s+)?(?:arbitrage|platform|kalderix\s+bot)\s+work\b|\bmulti-?asset\s+arbitrage\b|\btell\s+me\s+(?:more|about)\b[^?]{0,25}\b(?:platform|kalderix|arbitrage)\b|\babout\s+kalderix\b|\bcomo\s+(?:a\s+)?kalderix\s+funciona\b|\bo\s+que\s+[e\u00e9]\s+a\s+kalderix\b|\bo\s+que\s+a\s+kalderix\s+faz\b|\bme\s+fale\s+mais\b|\u0643\u064a\u0641\s+\u062a\u0639\u0645\u0644\s+kalderix|\u0645\u0627\s+\u0647\u064a\s+kalderix|\u0645\u0627\u0630\u0627\s+\u062a\u0641\u0639\u0644\s+kalderix/
   },
   {
     intent: 'arbitrage',
@@ -716,7 +716,7 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'what_is',
     topic: 'general',
-    re: /\b(?:what\s+is\s+arbitrix|how\s+does\s+arbitrix\s+work|about\s+arbitrix|how\s+it\s+works)\b/
+    re: /\b(?:what\s+is\s+kalderix|how\s+does\s+kalderix\s+work|about\s+kalderix|how\s+it\s+works)\b/
   },
   {
     intent: 'countries',
@@ -972,13 +972,39 @@ function isMethodSelection(a) {
  * `normalized` keeps apostrophes (needed for "don't"), strips the punctuation
  * that changes a match, and lowercases. `words` is only used for length checks.
  */
+/**
+ * The product was renamed (see services/brand.js). Customers still type the
+ * domain name they signed up on, and the legal operator carries the old name, so
+ * the legacy name is folded onto the current one BEFORE matching. Derived from
+ * BRAND - never a literal pair - so a later rename keeps both spellings working
+ * without editing a single intent pattern.
+ *
+ * Only the normalized copy used for matching is rewritten: the customer's own
+ * text, the reply copy and the stored state are untouched.
+ */
+const BRAND_ALIAS = (function () {
+  try {
+    const { BRAND } = require('../brand');
+    const from = String(BRAND.source || '').toLowerCase();
+    const to = String(BRAND.name || '').toLowerCase();
+    if (!from || !to || from === to) return null;
+    if (!/^[a-z0-9]+$/.test(from) || !/^[a-z0-9]+$/.test(to)) return null;
+    return { re: new RegExp('\\b' + from + '\\b', 'g'), to };
+  } catch (e) {
+    return null;
+  }
+})();
+function legacyBrandToCurrent(text) {
+  return BRAND_ALIAS ? String(text).replace(BRAND_ALIAS.re, BRAND_ALIAS.to) : String(text);
+}
+
 function analyze(raw) {
   const text = String(raw === null || raw === undefined ? '' : raw).trim().slice(0, MAX_TEXT);
-  const normalized = text
+  const normalized = legacyBrandToCurrent(text
     .toLowerCase()
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim());
   const bare = normalized.replace(/[!?.,;:~*_"()[\]]/g, ' ').replace(/\s+/g, ' ').trim();
   const words = bare ? bare.split(' ').filter(Boolean) : [];
 
@@ -1364,7 +1390,7 @@ function planTurn({ text, state } = {}) {
 function handleIntent(a, prev, next) {
   switch (a.primary) {
     // ------------------------------------------------ trust / legitimacy --
-    // "Is Arbitrix a scam?" is answered once with the full approved response;
+    // "Is Kalderix a scam?" is answered once with the full approved response;
     // the follow-ups inside that conversation get the short answers instead of
     // the whole script again.
     case 'trust_scam':
@@ -1910,7 +1936,7 @@ function answerPending(prev, a, next) {
       return repeatQuestion(prev, next);
 
     case PENDING.GUIDE_OFFER:
-      // "Yes" to "Would you like a quick guide on how Arbitrix works?" continues
+      // "Yes" to "Would you like a quick guide on how Kalderix works?" continues
       // into the platform explanation instead of asking what they want again.
       if (a.affirm || a.ack) {
         // EXCEPT when the explanation was the message that just closed with this

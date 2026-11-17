@@ -49,7 +49,7 @@ test('the heading is "Need help getting USDT?" with one short paragraph', () => 
     const T = dict();
     assert.strictEqual(T.en['deposit.partner.title'], 'Need help getting USDT?');
     assert.strictEqual(T.en['deposit.partner.intro'],
-        'Our payment partners can help you obtain USDT and fund your Arbitrix account.');
+        'Our payment partners can help you obtain USDT and fund your Kalderix account.');
     const p = panel();
     const titleAt = p.indexOf('data-i18n="deposit.partner.title"');
     const introAt = p.indexOf('data-i18n="deposit.partner.intro"');
@@ -171,7 +171,7 @@ test('the Stay Safe block keeps three points and drops the disclaimer', () => {
         'Contact the correct partner and verify the WhatsApp number or Telegram username before sending funds.');
     assert.strictEqual(T.en['deposit.partner.safety.2'], 'Never share your password, OTP, or private wallet keys.');
     assert.match(T.en['deposit.partner.safety.3'], /Check the USDT network and address before sending funds/);
-    assert.match(T.en['deposit.partner.safety.3'], /credited after Arbitrix verifies the transfer/);
+    assert.match(T.en['deposit.partner.safety.3'], /credited after Kalderix verifies the transfer/);
     assert.ok((p.match(/<li /g) || []).length === 3, 'exactly three list items');
 });
 

@@ -57,8 +57,8 @@ const DESTINATIONS = {
   partnerOlivia: 'https://t.me/OliviaArbitrix'
 };
 
-const GENERIC_EN = '\u{1F44B} Welcome to the Arbitrix Partners Community!';
-const namedEn = (name) => '\u{1F44B} Welcome to the Arbitrix Partners Community, ' + name + '!';
+const GENERIC_EN = '\u{1F44B} Welcome to the Kalderix Partners Community!';
+const namedEn = (name) => '\u{1F44B} Welcome to the Kalderix Partners Community, ' + name + '!';
 
 // --- harness ---------------------------------------------------------------
 
@@ -95,7 +95,7 @@ function joinUpdate(members, over) {
     update_id: 500,
     message: {
       message_id: 77,
-      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Arbitrix Partners' },
+      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Kalderix Partners' },
       from: { id: ADMIN_ID, first_name: ADMIN_FIRST_NAME, is_bot: false },
       new_chat_members: members
     }
@@ -438,8 +438,8 @@ test('a join in another group is ignored even with humans in the batch', async (
 test('every supported language greets a batch with its own generic copy', async () => {
   const expected = {
     en: GENERIC_EN,
-    pt: '\u{1F44B} Boas-vindas \u00e0 Comunidade de Parceiros Arbitrix!',
-    ar: '\u{1F44B} \u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Arbitrix!'
+    pt: '\u{1F44B} Boas-vindas \u00e0 Comunidade de Parceiros Kalderix!',
+    ar: '\u{1F44B} \u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Kalderix!'
   };
   for (const [locale, greeting] of Object.entries(expected)) {
     const transport = recordingTransport();

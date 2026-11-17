@@ -164,7 +164,7 @@ test('the product-demo video is embedded near How It Works', () => {
 test('Referral Partner section: copy, 5-step flow, CTA and disclosure', () => {
     assert.match(INDEX, /id="referral-partner"/, 'partner section present');
     assert.strictEqual(T.en['landing.partner.subtitle'],
-        'Introduce new users to Arbitrix and earn a 20% referral reward on their first qualifying deposit of $100 or more.');
+        'Introduce new users to Kalderix and earn a 20% referral reward on their first qualifying deposit of $100 or more.');
     assert.strictEqual(T.en['landing.partner.cta'], 'Become a Referral Partner');
     assert.match(INDEX, /class="landing-partner-actions"[\s\S]{0,240}openAuthScreen\('signup'\)/, 'partner CTA starts signup');
     assert.match(T.en['landing.partner.disclosure'], /misleading promotion/i, 'disclosure covers misleading promotion');

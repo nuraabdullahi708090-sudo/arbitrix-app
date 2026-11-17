@@ -26,7 +26,7 @@ const KB = S.readKnowledge();
 const FAKE_KEY = 'TEST-PLACEHOLDER-KEY-NOT-A-REAL-CREDENTIAL';
 
 const QUESTIONS = Object.freeze([
-  'How does Arbitrix work?',
+  'How does Kalderix work?',
   'What is the minimum deposit?',
   'Can I withdraw $200?',
   'Do I get 14 days free?',
@@ -231,7 +231,7 @@ test('the model is never consulted where the knowledge base decides', async () =
 
 test('an invented deposit/withdrawal requirement is rejected for every question', async () => {
   const poisoned = {
-    'How does Arbitrix work?': 'Arbitrix is an automated arbitrage platform. The minimum deposit is $500 and you must keep $1,000 to start.',
+    'How does Kalderix work?': 'Kalderix is an automated arbitrage platform. The minimum deposit is $500 and you must keep $1,000 to start.',
     'What is the minimum deposit?': 'The minimum deposit is $500 and you must deposit at least $1,000 to start.',
     'Can I withdraw $200?': 'Your withdrawal has been processed and the funds were sent to your wallet.',
     'How long does withdrawal take?': 'Withdrawals are guaranteed within 5 minutes.',
@@ -261,7 +261,7 @@ test('an invented deposit/withdrawal requirement is rejected for every question'
 
 test('a promised or guaranteed return can never reach the customer', async () => {
   const { fetchImpl } = stubFetch(() => okResponse('You are guaranteed 3% daily profit with no risk.'));
-  const result = await makeService({ fetchImpl }).ask('How does Arbitrix work?');
+  const result = await makeService({ fetchImpl }).ask('How does Kalderix work?');
   assert.strictEqual(result.filtered, true);
   assert.ok(!/guaranteed|no risk|3%/i.test(result.answer), 'the promise must not survive: ' + result.answer);
   assert.deepStrictEqual(G.assertSafeAnswer(result.answer), []);
@@ -316,7 +316,7 @@ test('the seven evaluation questions behave correctly against a stubbed DeepSeek
   const byQuestion = {};
   report.forEach((row) => { byQuestion[row.question] = row; });
 
-  assert.strictEqual(byQuestion['How does Arbitrix work?'].outcome, 'auto-answer');
+  assert.strictEqual(byQuestion['How does Kalderix work?'].outcome, 'auto-answer');
   assert.strictEqual(byQuestion['What is the minimum deposit?'].outcome, 'auto-answer');
   assert.strictEqual(byQuestion['Can I withdraw $200?'].outcome, 'auto-answer');
   assert.strictEqual(byQuestion['Do I get 14 days free?'].outcome, 'hand-off', 'the free period stays a hand-off');

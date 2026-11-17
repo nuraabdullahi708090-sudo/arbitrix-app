@@ -200,7 +200,7 @@ test('probeTelegramMethod returns the result only on ok and never includes the t
     method: 'getMe',
     fetchImpl: async () => jsonResponse(200, {
       ok: true,
-      result: { id: 123456789, is_bot: true, first_name: 'Arbitrix Support', username: 'ArbitrixSupportBot' }
+      result: { id: 123456789, is_bot: true, first_name: 'Kalderix Support', username: 'ArbitrixSupportBot' }
     })
   });
   assert.strictEqual(out.httpStatus, 200);

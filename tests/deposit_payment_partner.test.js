@@ -185,7 +185,7 @@ test('the section heading and copy are the approved wording', () => {
     const T = dict();
       assert.strictEqual(T.en['deposit.partner.title'], 'Need help getting USDT?');
       assert.strictEqual(T.en['deposit.partner.intro'],
-          'Our payment partners can help you obtain USDT and fund your Arbitrix account.');
+          'Our payment partners can help you obtain USDT and fund your Kalderix account.');
     assert.strictEqual(T.en['deposit.partner.contactName'], 'Contact {{name}}');
     assert.strictEqual(T.en['deposit.partner.role'], 'Payment Partner');
     // The single-partner labels are retired.
@@ -241,7 +241,7 @@ test('all six locales carry the partner keys and keep identical key sets', () =>
 
 // ------------------------------------------------------- support separation
 
-test('official Arbitrix Support stays separate and unchanged', () => {
+test('official Kalderix Support stays separate and unchanged', () => {
     assert.strictEqual((INDEX.match(/<meta name="arbitrix-support-telegram" content="([^"]*)">/) || [])[1],
         'https://t.me/ArbitrixSupportBot');
     assert.ok(INDEX.includes('id="supportModal"'), 'Support Center intact');

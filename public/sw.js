@@ -1,5 +1,5 @@
 /*
- * Arbitrix AI service worker.
+ * Kalderix service worker.
  *
  * Minimal, conservative offline support for the app shell only:
  *   - Same-origin GET *navigation* requests are network-first, so an online

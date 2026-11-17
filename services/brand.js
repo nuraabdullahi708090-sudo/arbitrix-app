@@ -20,16 +20,19 @@
  *   - localStorage keys (jwt_token, arbi_*) - renaming logs every user out
  *   - DB tables, columns and enum values (MARKETING_SANDBOX, PRODUCTION)
  *
- * STATE: the relaunch candidate is RECORDED but NOT APPLIED. Approving it means
- * changing `name` and `mark` here and the same two fields in
- * public/index.html; everything else (favicon, PWA manifest, page title, social
- * card, all six dictionaries) derives from them.
+ * STATE: the relaunch identity is APPLIED on the release branch - `name`, `mark`,
+ * `appName` and `accent` above are Kalderix. `source` deliberately keeps the
+ * pre-rename literal: it is what maps a transaction detail written before the
+ * rename, and what the support knowledge base uses as a query alias, so both
+ * spellings keep working. A FUTURE rename is still one command
+ * (scripts/relaunch-brand.js) and it re-asserts `source` for exactly that reason.
  */
 
 const BRAND = {
   /** The name the product presents to customers today. ONE line to change. */
-  name: 'Arbitrix',
-  /** Provisionally approved relaunch candidate. NOT applied until approval. */
+  name: 'Kalderix',
+  /** The approved identity. Compared with `name` to prove the palette and the
+   *  name ship together, never one before the other. */
   candidate: 'Kalderix',
   /** The legal operator. Never changes with a rebrand. */
   legalName: 'Arbitrix Trading',
@@ -39,24 +42,25 @@ const BRAND = {
   domain: 'arbitrix.pro',
   /** Transactional mail domain. Changing it requires SPF/DKIM re-verification. */
   mailDomain: 'arbitrix.ai',
-  /** The literal currently written in localized strings and markup defaults. */
+  /** The pre-rename literal. NEVER rewritten: pre-rename transaction details map
+   *  through it, and the support bot accepts it as an alias of `name`. */
   source: 'Arbitrix',
   /** Monogram used by the favicon, the app icon and the sign-in mark. */
-  mark: 'A',
+  mark: 'K',
   /** The monogram the candidate uses. */
   candidateMark: 'K',
   /** Positioning line, used in metadata and the social share card. */
   tagline: 'Automated Arbitrage. Made Simple.',
-  /** The installed-app (PWA) name. Follows a rename; today it keeps the suffix. */
-  appName: 'Arbitrix AI',
+  /** The installed-app (PWA) name. Follows a rename. */
+  appName: 'Kalderix',
   /** Accent colour. Follows the identity palette when one is applied. */
-  accent: '#F0B90B'
+  accent: '#7C5CFF'
 };
 
 /**
- * The candidate identity as data. Nothing here is applied: the values exist so
- * approval cannot introduce a colour picked in a hurry, and so the assets in
- * public/brand/ can be regenerated from the same numbers.
+ * The identity as data. The name and the accent above are live; these values are
+ * the source the assets in public/brand/ are regenerated from, so a future
+ * identity change cannot introduce a colour picked in a hurry.
  */
 BRAND.candidateIdentity = {
   name: 'Kalderix',

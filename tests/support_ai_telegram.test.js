@@ -189,7 +189,7 @@ test('AI answering is OFF by default and never constructed unless enabled', () =
 test('AI disabled: a factual question is answered from approved knowledge, not a canned acknowledgement', async () => {
   const h = createHarness({ supportAI: null });
   // A factual question the dialogue engine hands to the knowledge layer. ("How
-  // does Arbitrix work?" is answered by the engine's own platform explanation -
+  // does Kalderix work?" is answered by the engine's own platform explanation -
   // see tests/telegram_trust_conversation.test.js.)
   const question = 'What is the minimum deposit?';
   const result = await h.bot.handleUpdate(customerUpdate({ text: question }));
@@ -443,13 +443,13 @@ test('Telegram webhook authentication is unchanged with the AI enabled', async (
   const handler = createTelegramWebhookHandler({ bot: h.bot, logger: silentLogger });
 
   const missing = makeRes();
-  await handler(webhookReq(customerUpdate({ text: 'How does Arbitrix work?' }), { includeSecret: false }), missing);
+  await handler(webhookReq(customerUpdate({ text: 'How does Kalderix work?' }), { includeSecret: false }), missing);
   assert.strictEqual(missing.statusCode, 401);
   assert.strictEqual(missing.body.error, 'invalid_secret');
   assert.strictEqual(missing.body.secretProvided, false);
 
   const wrong = makeRes();
-  await handler(webhookReq(customerUpdate({ text: 'How does Arbitrix work?' }), { secret: 'nope' }), wrong);
+  await handler(webhookReq(customerUpdate({ text: 'How does Kalderix work?' }), { secret: 'nope' }), wrong);
   assert.strictEqual(wrong.statusCode, 401);
 
   assert.strictEqual(repliesToCustomer(h).length, 0, 'a rejected delivery must not reach the customer');

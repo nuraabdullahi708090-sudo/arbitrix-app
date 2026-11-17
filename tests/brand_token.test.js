@@ -95,23 +95,37 @@ test('2. the legal operator and the mail domain never follow the brand', () => {
     'the display name follows the brand, the address does not');
 });
 
-test('3. renaming is ONE line and the dictionaries are untouched', () => {
+test('3. renaming is ONE line, and every localized string follows', () => {
   const ctx = loadPageI18n();
-  const before = ctx.t('landing.hero.subtitle');
-  const beforeFooter = ctx.t('landing.footer.copyright');
 
+  // STATE-INDEPENDENT: before approval the dictionaries store BRAND.source and t()
+  // swaps it at render time; after approval they store BRAND.name directly.
+  // "Renaming is one line" therefore has to mean "the render shows the name in
+  // force", not "the stored string contains a particular literal".
+  const rendered = ctx.t('landing.hero.subtitle');
+  assert.ok(rendered.includes(ctx.BRAND.name), 'the current render names the product');
+  if (ctx.BRAND.source !== ctx.BRAND.name) {
+    assert.ok(!rendered.includes(ctx.BRAND.source), 'and never shows the pre-rename name');
+  }
+
+  // The swap itself still works, so a string written before a rename (or a
+  // dictionary entry that was never rewritten) cannot leak the old name into the
+  // UI after the next one. Driven with a synthetic entry so it holds in every
+  // state of the repo.
+  ctx.T.en['test.brandSwap'] = 'Welcome to ' + ctx.BRAND.source + ' - trade on ' + ctx.BRAND.source;
   ctx.BRAND.name = SYNTHETIC;
-  const after = ctx.t('landing.hero.subtitle');
-  const afterFooter = ctx.t('landing.footer.copyright');
+  const swapped = ctx.t('test.brandSwap');
+  assert.ok(swapped.includes(SYNTHETIC), 'the renamed render uses the new name');
+  assert.ok(!swapped.includes(ctx.BRAND.source), 'no stale name survives the swap');
+  assert.strictEqual(swapped.split(SYNTHETIC).length - 1, 2, 'every occurrence follows, not just the first');
 
-  assert.ok(before.includes(ctx.BRAND.source), 'the current render names the product');
-  assert.ok(after.includes(SYNTHETIC), 'the renamed render uses the new name');
-  assert.ok(!new RegExp(ctx.BRAND.source, 'g').test(after), 'no stale name survives the swap');
-  assert.ok(beforeFooter !== afterFooter, 'every localized string follows, not just one');
-
-  // Changing BRAND.name must not require editing any dictionary value.
-  assert.ok(ctx.T.en['landing.hero.subtitle'].includes(ctx.BRAND.source),
-    'the stored string keeps the source literal (no drift, no token)');
+  // ...but the identifiers that merely contain the name survive the swap.
+  ctx.T.en['test.brandIds'] = ctx.BRAND.source + ' Trading (KVK 72923513) - '
+    + 'https://' + ctx.BRAND.source.toLowerCase() + '.pro - @' + ctx.BRAND.source + 'SupportBot';
+  const ids = ctx.t('test.brandIds');
+  assert.ok(ids.includes('Arbitrix Trading'), 'the legal entity is not branding');
+  assert.ok(ids.includes('arbitrix.pro'), 'the domain is not branding');
+  assert.ok(ids.includes('@ArbitrixSupportBot'), 'the support handle is not branding');
 });
 
 test('4. every locale renames together, and the key sets stay identical', () => {
@@ -167,7 +181,26 @@ test('6. the rebrand script never rewrites a protected identifier', () => {
     ['%3EA%3C', '%3E' + SYNTHETIC_MARK + '%3C'],
     // Non-ASCII copy is stored as \uXXXX escapes; a preceding escape is a
     // boundary, not part of a word.
-    ['\\u3002Arbitrix now', '\\u3002' + SYNTHETIC + ' now']
+    ['\\u3002Arbitrix now', '\\u3002' + SYNTHETIC + ' now'],
+    // ...but an escaped boundary must not weaken the suffix guards. Renaming the
+    // legal entity or keeping the old descriptor in that position is the bug
+    // these two cases pin (it happened: an Arabic fixture briefly read
+    // "Kalderix Trading").
+    ['\\u00abArbitrix Trading\\u00bb', '\\u00abArbitrix Trading\\u00bb'],
+    ['\\u00abArbitrix AI\\u00bb', '\\u00ab' + SYNTHETIC + '\\u00bb'],
+    ['\\u00abArbitrixSupportBot\\u00bb', '\\u00abArbitrixSupportBot\\u00bb'],
+    ['\\u00abarbitrix.pro\\u00bb', '\\u00abarbitrix.pro\\u00bb'],
+    ['\\u00abarbitrix-support-telegram', '\\u00abarbitrix-support-telegram'],
+    // A lower-case reference after an escape follows the name too.
+    ['\\u00abarbitrix works', '\\u00ab' + SYNTHETIC.toLowerCase() + ' works'],
+    // Identifiers that merely START with the brand are field/class names, not
+    // branding. The q8pay metadata keys are the real case that caught this: a
+    // rename turned arbitrixUserId into kalderixUserId and changed the payload
+    // the provider echoes back.
+    ['arbitrixUserId: 1', 'arbitrixUserId: 1'],
+    ['{ arbitrixDepositRef: id, arbitrixInvoiceId: id }', '{ arbitrixDepositRef: id, arbitrixInvoiceId: id }'],
+    ['ArbitrixPro plan', 'ArbitrixPro plan'],
+    ['\\u00abarbitrixUserId', '\\u00abarbitrixUserId']
   ];
   for (const [input, expected] of cases) {
     assert.strictEqual(rebrand(input, SYNTHETIC, SYNTHETIC_MARK), expected, 'unexpected rewrite: ' + input);

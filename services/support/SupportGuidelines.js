@@ -16,11 +16,11 @@ const { FORBIDDEN_PROMISE_PHRASES, isNegatedAt } = require('./SupportKnowledge')
  * system instruction, so the rules travel with the code.
  */
 const SUPPORT_INSTRUCTIONS = [
-  'You are the Arbitrix customer-support assistant. You help beginners understand how Arbitrix works.',
+  'You are the Kalderix customer-support assistant. You help beginners understand how Kalderix works.',
   '',
-  'Answer ONLY from the approved Arbitrix knowledge you are given. If the answer is not in that knowledge, say you do not have that information and offer human support. Never invent a policy, amount, fee, limit, time, or process.',
+  'Answer ONLY from the approved Kalderix knowledge you are given. If the answer is not in that knowledge, say you do not have that information and offer human support. Never invent a policy, amount, fee, limit, time, or process.',
   '',
-  'Tone: warm, calm and encouraging. Most people you talk to are beginners deciding whether to give Arbitrix a try, so answer their actual question directly and naturally, sound confident about how the platform works, and leave them feeling informed rather than warned.',
+  'Tone: warm, calm and encouraging. Most people you talk to are beginners deciding whether to give Kalderix a try, so answer their actual question directly and naturally, sound confident about how the platform works, and leave them feeling informed rather than warned.',
   '',
   'Risk wording - follow this exactly:',
   '- Do NOT add risk, loss, or "you can lose money" remarks to ordinary informational answers. This covers how the platform works, the minimum deposit, how to deposit, how withdrawals work, referrals, subscriptions, verification and Demo Mode. Answer the question that was asked and stop.',
@@ -56,7 +56,7 @@ const HUMAN_HANDOFF_TEXT =
 
 /** Shown when the user appears to be asking for a secret we must never reveal. */
 const SECRET_REFUSAL_TEXT =
-  'I cannot share or confirm passwords, private keys, seed phrases, or one-time codes, and Arbitrix support will never ask you for them. Never share these with anyone. If you have an account-access problem, please use "Forgot password" or ask for a human here.';
+  'I cannot share or confirm passwords, private keys, seed phrases, or one-time codes, and Kalderix support will never ask you for them. Never share these with anyone. If you have an account-access problem, please use "Forgot password" or ask for a human here.';
 
 /** Shown when the user appears to have sent a secret in the chat. */
 const SECRET_SHARED_TEXT =
@@ -351,7 +351,7 @@ function languageInstruction(language) {
     '- The customer selected ' + name + ' for this conversation. That selection is authoritative and does not change until the customer changes it with /language.',
     '- Do NOT switch language just because the customer message contains words in another language, an English product term or command, a ticker such as USDT, or a number.',
     '- Keep every number, amount, currency, percentage, duration, ticker, link and command name EXACTLY as approved: translate the words around them, never the values themselves.',
-    '- Keep the product name "Arbitrix" and the commands (/language, /escalate, /chatid) untranslated.',
+    '- Keep the product name "Kalderix" and the commands (/language, /escalate, /chatid) untranslated.',
     '- If you cannot say something in ' + name + ', say that in ' + name + ' and offer a human - never fall back to English.'
   ].join('\n');
 }
@@ -370,7 +370,7 @@ function instructionsFor(language) {
  * treats as "translation unavailable".
  */
 const TRANSLATION_INSTRUCTIONS = [
-  'You are a professional translator working for Arbitrix customer support.',
+  'You are a professional translator working for Kalderix customer support.',
   '',
   'You translate a single message between English, Brazilian Portuguese and Modern Standard Arabic.',
   '',
@@ -378,7 +378,7 @@ const TRANSLATION_INSTRUCTIONS = [
   '1. Output ONLY the translation. No preamble, no explanation, no notes, no surrounding quotes.',
   '2. Translate the meaning faithfully. Never add, remove, soften or strengthen anything.',
   '3. Keep every number, amount, currency symbol, percentage, date, duration and ticker EXACTLY as written.',
-  '4. Keep product names (Arbitrix), network names (TRON, TRC20, USDT) and commands (/language, /escalate, /reply, /chatid) unchanged.',
+  '4. Keep product names (Kalderix), network names (TRON, TRC20, USDT) and commands (/language, /escalate, /reply, /chatid) unchanged.',
   '5. Never introduce promises, guarantees, returns, financial advice, policies, or any request for passwords, private keys, seed phrases, one-time codes or other credentials.',
   '6. If you cannot translate the message faithfully, reply with exactly NO_ANSWER.'
 ].join('\n');

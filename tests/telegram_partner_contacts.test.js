@@ -4,7 +4,7 @@
  * Telegram marketing fixtures and the partner-contact POLICY:
  *   - referral / partner-recruitment enquiries: ALEX ONLY (business decision);
  *   - payment assistance: both payment partners (Alex and Olivia);
- *   - Official Arbitrix Support stays a separate contact, never a partner.
+ *   - Official Kalderix Support stays a separate contact, never a partner.
  *
  * The obsolete @Arbitrix_CSA1 handle must not be rendered by any marketing
  * template, button, link block or stored-post round trip.

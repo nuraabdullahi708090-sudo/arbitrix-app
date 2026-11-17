@@ -121,7 +121,7 @@ function createDom() {
 
     const created = [];
     const document = {
-        title: 'Deposit Tutorials | Arbitrix',
+        title: 'Deposit Tutorials | Kalderix',
         documentElement: { lang: 'en', dir: 'ltr' },
         getElementById: (id) => (byId.has(id) ? byId.get(id) : (media.get(id) || null)),
         querySelectorAll: (selector) => (selector === '.js-watch, .play-btn[data-url]' ? buttons : []),
@@ -179,7 +179,7 @@ test('2. the page is a standalone document (no app shell, no API calls)', () => 
 
 test('3. the page carries the required heading, supporting text and three tutorials', () => {
     assert.match(PAGE, /Don't Have Crypto Yet\? Let's Get You Started\./);
-    assert.match(PAGE, /New to cryptocurrency\? Follow our step-by-step video tutorials to learn how to purchase cryptocurrency and transfer it to your Arbitrix account\./);
+    assert.match(PAGE, /New to cryptocurrency\? Follow our step-by-step video tutorials to learn how to purchase cryptocurrency and transfer it to your Kalderix account\./);
 
     for (const [method, url] of Object.entries({ paybis: URLS.paybis, transak: URLS.transak, trustwallet: URLS.trustwallet })) {
         assert.ok(PAGE.includes('id="tutorial-' + method + '"'), method + ' card must exist');
@@ -206,12 +206,12 @@ test('4. every card has a Watch Tutorial link that opens the Telegram post', () 
     });
 });
 
-test('5. third-party services are clearly distinguished from Arbitrix', () => {
-    assert.match(PAGE, /independent third-party services, not part of Arbitrix/i);
+test('5. third-party services are clearly distinguished from Kalderix', () => {
+    assert.match(PAGE, /independent third-party services, not part of Kalderix/i);
     assert.match(PAGE, /does not sell cryptocurrency or process card payments directly/i);
     assert.match(PAGE, /set by each provider and vary by country/i);
-    assert.ok(!/Arbitrix (?:card payment|accepts card|processes card)/i.test(PAGE.replace(/does not[^.]*\./g, '')),
-        'the page must not claim Arbitrix processes card payments');
+    assert.ok(!/Kalderix (?:card payment|accepts card|processes card)/i.test(PAGE.replace(/does not[^.]*\./g, '')),
+        'the page must not claim Kalderix processes card payments');
 });
 
 test('6. safety guidance names the TRC20 network and secrets', () => {
@@ -278,9 +278,9 @@ test('11. Arabic sets RTL and the shared language key is reused', () => {
 
 test('12. the page title is localized from the dictionary', () => {
     const dom = createDom();
-    assert.strictEqual(dom.document.title, 'Deposit Tutorials | Buy Crypto and Fund Arbitrix');
+    assert.strictEqual(dom.document.title, 'Deposit Tutorials | Buy Crypto and Fund Kalderix');
     const T = loadPageTranslations();
-    assert.strictEqual(T.ar['meta.title'].includes('Arbitrix'), true);
+    assert.strictEqual(T.ar['meta.title'].includes('Kalderix'), true);
     assert.notStrictEqual(T.zh['meta.title'], T.en['meta.title']);
 });
 

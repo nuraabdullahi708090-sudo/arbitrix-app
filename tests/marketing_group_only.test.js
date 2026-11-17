@@ -34,7 +34,7 @@ const CONFIG = {
     registerUrl: 'https://arbitrix.pro/?action=create-account',
     howItWorksUrl: 'https://arbitrix.pro/how-it-works',
     supportUrl: 'https://t.me/ArbitrixSupportBot',
-    partnerSupportAlexUrl: 'https://t.me/ArbitrixCSA1',
+    partnerSupportAlexUrl: 'https://t.me/KalderixCSA1',
     partnerSupportOliviaUrl: '',
     announcementUrl: 'https://t.me/ArbitrixAnnouncements',
     facts: { minDeposit: 100, referralPercent: 20, promoCredit: 50 }

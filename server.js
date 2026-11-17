@@ -41,7 +41,7 @@ const {
   isValidTelegramWebhookSecret
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
-// Account linking (Phase 1): one-to-one Telegram <-> Arbitrix association with
+// Account linking (Phase 1): one-to-one Telegram <-> Kalderix association with
 // single-use, hashed, 10-minute tokens. Requires migration 039; until it is
 // applied every call fails closed ("temporarily unavailable").
 const { createTelegramAccountLinks } = require('./services/TelegramAccountLinks');
@@ -1966,7 +1966,7 @@ function getDefaultReferralConfig() {
   };
 }
 
-// ---------- Arbitrix Pro Subscription ----------
+// ---------- Kalderix Pro Subscription ----------
 // The subscription is an INTERNAL server-side debit of the user's genuinely
 // available Live balance (wallets.live_balance). It is NOT a deposit/payment
 // method; the deposit/q8qpay/NOWPayments/Paymento/webhook/crediting systems
@@ -3017,7 +3017,7 @@ async function sendResetEmail(email, token) {
     console.log('📧 PASSWORD RESET EMAIL (Development Mode - No API Key Configured)');
     console.log('═══════════════════════════════════════════════════════════');
     console.log(`To: ${email}`);
-    console.log(`Subject: Password Reset Request - Arbitrix AI`);
+    console.log(`Subject: Password Reset Request - Kalderix`);
     console.log(`Reset Link: ${resetLink}`);
     console.log(`Token (for debugging): ${token}`);
     console.log(`Expires in: 1 hour`);
@@ -3032,20 +3032,20 @@ async function sendResetEmail(email, token) {
     const { data, error } = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: email,
-      subject: 'Password Reset Request - Arbitrix AI',
+      subject: 'Password Reset Request - Kalderix',
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Password Reset - Arbitrix AI</title>
+          <title>Password Reset - Kalderix</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
             <tr>
               <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Kalderix</h1>
                 <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
               </td>
             </tr>
@@ -3053,7 +3053,7 @@ async function sendResetEmail(email, token) {
               <td style="background-color: #ffffff; padding: 40px 30px;">
                 <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px;">Password Reset Request</h2>
                 <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                  You requested a password reset for your Arbitrix AI account. Click the button below to reset your password:
+                  You requested a password reset for your Kalderix account. Click the button below to reset your password:
                 </p>
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
@@ -3082,7 +3082,7 @@ async function sendResetEmail(email, token) {
             <tr>
               <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0; color: #6b7280; font-size: 12px;">
-                  This is an automated message from Arbitrix AI.<br>
+                  This is an automated message from Kalderix.<br>
                   Please do not reply to this email.
                 </p>
               </td>
@@ -3091,9 +3091,9 @@ async function sendResetEmail(email, token) {
         </body>
         </html>
       `,
-      text: `Password Reset Request - Arbitrix AI
+      text: `Password Reset Request - Kalderix
 
-You requested a password reset for your Arbitrix AI account.
+You requested a password reset for your Kalderix account.
 
 Click the link below to reset your password:
 ${resetLink}
@@ -3103,7 +3103,7 @@ This link will expire in 1 hour.
 If you didn't request this password reset, please ignore this email.
 
 ---
-This is an automated message from Arbitrix AI.`
+This is an automated message from Kalderix.`
     });
     
     if (error) {
@@ -3652,7 +3652,7 @@ async function sendEmailChangeCodeEmail(newEmail, code) {
       await resend.emails.send({
         from: EMAIL_CONFIG.from,
         to: newEmail,
-        subject: 'Confirm your new email - Arbitrix AI',
+        subject: 'Confirm your new email - Kalderix',
         html: generateEmailChangeTemplate(code)
       });
     } catch (e) {
@@ -3673,24 +3673,24 @@ function generateEmailChangeTemplate(code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirm your new email - Arbitrix AI</title>
+  <title>Confirm your new email - Kalderix</title>
 </head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f4f4f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;padding:40px 20px;">
     <tr><td style="background:linear-gradient(135deg,#0d1117 0%,#1a2332 100%);border-radius:16px 16px 0 0;padding:40px 30px;text-align:center;">
-      <h1 style="margin:0;color:#ffd700;font-size:28px;font-weight:700;">Arbitrix AI</h1>
+      <h1 style="margin:0;color:#ffd700;font-size:28px;font-weight:700;">Kalderix</h1>
       <p style="margin:8px 0 0;color:#8b949e;font-size:14px;">Multi-Asset Arbitrage Platform</p>
     </td></tr>
     <tr><td style="background-color:#ffffff;padding:40px 30px;">
       <h2 style="margin:0 0 20px;color:#1f2937;font-size:24px;">Confirm Your New Email</h2>
-      <p style="margin:0 0 20px;color:#4b5563;font-size:16px;line-height:1.6;">You requested an email change for your Arbitrix AI account. Use the verification code below to confirm your new email address. This code expires in 10 minutes.</p>
+      <p style="margin:0 0 20px;color:#4b5563;font-size:16px;line-height:1.6;">You requested an email change for your Kalderix account. Use the verification code below to confirm your new email address. This code expires in 10 minutes.</p>
       <div style="text-align:center;margin:30px 0;">
         <div style="display:inline-block;background:#0d1117;color:#ffd700;font-size:32px;font-weight:700;letter-spacing:8px;padding:16px 32px;border-radius:8px;">${code}</div>
       </div>
       <p style="margin:20px 0 0;color:#6b7280;font-size:14px;line-height:1.6;">If you did not request this change, you can safely ignore this email. Your account email will not change until you complete verification.</p>
     </td></tr>
     <tr><td style="background-color:#f9fafb;padding:24px 30px;border-radius:0 0 16px 16px;text-align:center;">
-      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; Arbitrix AI. All rights reserved.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; Kalderix. All rights reserved.</p>
     </td></tr>
   </table>
 </body>
@@ -4945,7 +4945,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     const paymentData = q8qpayProvider.parsePaymentData(payload);
     const {
-      invoiceId,             // our Arbitrix reference (invoice_reference)
+      invoiceId,             // our Kalderix reference (invoice_reference)
       providerInvoiceId,     // q8qpay UUID
       walletAddress,
       amount,
@@ -4957,7 +4957,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     console.log(`[Q8QPay Webhook] Ref: ${invoiceId}, Q8QId: ${providerInvoiceId}, Status: ${status}, Type: ${type}`);
 
-    // Find our invoice by the Arbitrix reference we passed as `reference`
+    // Find our invoice by the Kalderix reference we passed as `reference`
     const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from('payment_invoices')
       .select('*')
@@ -5018,7 +5018,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
     //    amountUsdtExact exactly, so we compare the confirmed q8qpay amount
     //    against the authoritative amount_crypto we stored at invoice creation
     //    (== q8qpay amountUsdtExact), NOT amount_usd (the user's requested USD,
-    //    which is what gets credited to the Arbitrix balance).
+    //    which is what gets credited to the Kalderix balance).
     if (invoice.amount_crypto == null) {
       console.error(`[Q8QPay Webhook] Missing amount_crypto on invoice ${invoiceId} - cannot verify paid amount (fail-closed)`);
       return res.status(200).json({ error: 'Missing stored amount' });
@@ -6933,13 +6933,13 @@ app.post('/api/kyc/submit', authMiddleware, async (req, res) => {
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Submitted - Arbitrix AI',
+          subject: 'KYC Verification Submitted - Kalderix',
           html: `
             <h2>Verification Submitted</h2>
             <p>Dear ${user.name || 'User'},</p>
             <p>Your identity verification has been submitted and is now pending review.</p>
             <p>Our team will review your documents within 24-48 hours. You'll receive an email notification once the review is complete.</p>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -7154,14 +7154,14 @@ app.post('/api/admin/kyc/verification/:id/approve', authMiddleware, adminMiddlew
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Approved - Arbitrix AI',
+          subject: 'KYC Verification Approved - Kalderix',
           html: `
             <h2>Verification Approved</h2>
             <p>Dear ${user.name || 'User'},</p>
             <p>Great news! Your identity verification has been approved.</p>
             <p>You can now proceed with your withdrawals and access all platform features.</p>
             <p>Thank you for completing the verification process.</p>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -7199,7 +7199,7 @@ app.post('/api/admin/kyc/verification/:id/reject', authMiddleware, adminMiddlewa
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Rejected - Arbitrix AI',
+          subject: 'KYC Verification Rejected - Kalderix',
           html: `
             <h2>Verification Rejected</h2>
             <p>Dear ${user.name || 'User'},</p>
@@ -7211,7 +7211,7 @@ app.post('/api/admin/kyc/verification/:id/reject', authMiddleware, adminMiddlewa
               <li>All information matches your submitted details</li>
               <li>Selfie clearly shows your face holding the ID</li>
             </ul>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -7249,14 +7249,14 @@ app.post('/api/admin/kyc/verification/:id/resubmission', authMiddleware, adminMi
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Resubmission Required - Arbitrix AI',
+          subject: 'KYC Resubmission Required - Kalderix',
           html: `
             <h2>Additional Information Required</h2>
             <p>Dear ${user.name || 'User'},</p>
             <p>We need additional information to complete your identity verification.</p>
             <p><strong>Details:</strong> ${reason}</p>
             <p>Please log in to the Verification Center to submit the requested documents.</p>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -7717,7 +7717,7 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   res.json(data);
 });
 
-// ---------- Arbitrix Pro Subscription ----------
+// ---------- Kalderix Pro Subscription ----------
 // All subscription endpoints derive the user id from the authenticated request
 // (authMiddleware sets req.user from the verified JWT). The client NEVER
 // supplies userId, price, balance, billing date, or subscription status. The
@@ -9282,7 +9282,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
             await resend.emails.send({
                 from: EMAIL_CONFIG.from,
                 to: email,
-                subject: 'Your Arbitrix AI Verification Code',
+                subject: 'Your Kalderix Verification Code',
                 html: generateEmailVerificationTemplate(code)
             });
             console.log(`[EMAIL 2FA] Verification code sent to ${email}`);
@@ -9311,13 +9311,13 @@ function generateEmailVerificationTemplate(code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification Code - Arbitrix AI</title>
+  <title>Verification Code - Kalderix</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
     <tr>
       <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-        <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+        <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Kalderix</h1>
         <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
       </td>
     </tr>
@@ -9343,7 +9343,7 @@ function generateEmailVerificationTemplate(code) {
     <tr>
       <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 20px 30px; text-align: center;">
         <p style="margin: 0; color: #6b7280; font-size: 12px;">
-          © ${new Date().getFullYear()} Arbitrix AI. All rights reserved.
+          © ${new Date().getFullYear()} Kalderix. All rights reserved.
         </p>
       </td>
     </tr>
@@ -10229,7 +10229,7 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
   res.json(users);
 });
 
-// Admin subscription visibility (read-only). Lists each user's Arbitrix Pro
+// Admin subscription visibility (read-only). Lists each user's Kalderix Pro
 // subscription state. No balance alteration is possible through this endpoint.
 app.get('/api/admin/subscriptions', authMiddleware, adminMiddleware, async (req, res) => {
   const { data, error } = await supabaseAdmin.from('subscriptions')
@@ -10749,7 +10749,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
             timestamp: r.activated_at,
             amount: r.bonus_earned,
             icon: 'gift',
-            color: '#F0B90B'
+            color: '#7C5CFF'
           });
         }
       });
@@ -11398,7 +11398,7 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Marketing onboarding page: standalone branded "How Arbitrix Works" page
+// Marketing onboarding page: standalone branded "How Kalderix Works" page
 // with the explainer video + primary CTAs to the existing registration/login flow.
 app.get('/how-it-works', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'how-it-works.html'));
@@ -11414,7 +11414,7 @@ app.get(['/business-registration', '/business-registration/'], (req, res) => {
 
 // Deposit tutorial centre: standalone page with the step-by-step video tutorials
 // for buying USDT through a supported third-party service (Paybis / Transak /
-// Trust Wallet) and sending it to an Arbitrix deposit address. Static content
+// Trust Wallet) and sending it to an Kalderix deposit address. Static content
 // only - it reads no session, touches no database and never creates an invoice.
 // Linked from the deposit modal and the withdrawal modal; registered BEFORE the
 // SPA fallback so /deposit-tutorials does not resolve to the app shell.

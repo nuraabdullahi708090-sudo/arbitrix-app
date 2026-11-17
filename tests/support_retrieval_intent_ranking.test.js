@@ -216,7 +216,7 @@ test('existing routing is unchanged for a representative question set', () => {
   // deposits.how_to and subscription.price respectively) - see
   // tests/support_knowledge_gaps.test.js.
   const expected = {
-    'How does Arbitrix work?': 'what_is_arbitrix.overview',
+    'How does Kalderix work?': 'what_is_arbitrix.overview',
     'What is the minimum deposit?': 'deposits.minimum',
     'Do I get 14 days free?': 'subscription.free_period',
     'How long does withdrawal take?': 'withdrawals.timing',

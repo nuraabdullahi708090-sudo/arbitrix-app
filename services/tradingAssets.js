@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * CANONICAL MULTI-ASSET UNIVERSE for the Arbitrix arbitrage engine.
+ * CANONICAL MULTI-ASSET UNIVERSE for the Kalderix arbitrage engine.
  *
  * WHY THIS IS SAFE TO EXPAND
  *   The engine is asset-AGNOSTIC. `executeBotTrade` (public/index.html) and the

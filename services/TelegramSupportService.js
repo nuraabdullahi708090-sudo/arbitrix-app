@@ -230,7 +230,7 @@ const USER_HELP_TEXT = tCustomer(DEFAULT_LANGUAGE, 'help');
  * no second language-selection system.
  */
 const FIRST_CONTACT_TEXT = [
-  'Welcome to Arbitrix Support 👋',
+  'Welcome to Kalderix Support 👋',
   'Choose your preferred language:',
   'Escolha seu idioma / اختر لغتك'
 ].join('\n');
@@ -251,7 +251,7 @@ const ESCALATION_ACK = tCustomer(DEFAULT_LANGUAGE, 'escalationAck');
 const SUPPORT_AI_MAX_QUESTION_CHARS = 2000;
 
 const ADMIN_HELP_TEXT = [
-  'Arbitrix support group commands',
+  'Kalderix support group commands',
   '',
   'Reply directly to a forwarded message to answer that user, or:',
   '/reply <chat_id> <message> - send a reply to a user',
@@ -261,7 +261,7 @@ const ADMIN_HELP_TEXT = [
 ].join('\n');
 
 const ADMIN_HELP_TEXT_PRIVATE = [
-  'Arbitrix support notifications',
+  'Kalderix support notifications',
   '',
   'Reply directly to a notification to answer that customer, or:',
   '/reply <conversation number or chat id> <message> - send a reply to a user',
@@ -3353,7 +3353,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // -------------------------------------------------------------------------
   // Account linking (Phase 1)
   //
-  // A Telegram chat may be linked to an Arbitrix account ONLY by presenting a
+  // A Telegram chat may be linked to an Kalderix account ONLY by presenting a
   // single-use token the user minted from an authenticated web session. The
   // identity bound is the one Telegram authenticated for THIS update: the chat
   // id (and, for a private chat, the same value as the sender id). A username,

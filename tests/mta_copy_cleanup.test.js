@@ -58,7 +58,7 @@ const FUNDED = {
 };
 
 const NEW_EN_SECONDARY = "See the Live balance and what is required before you fund your account.";
-const NEW_EN_FAQ = "Switch to Live Mode in the dashboard, fund your Live account with USDT (TRC20), and start the bot once your account is funded and you meet the applicable eligibility requirements. Arbitrix then automates eligible trades with your real funds.";
+const NEW_EN_FAQ = "Switch to Live Mode in the dashboard, fund your Live account with USDT (TRC20), and start the bot once your account is funded and you meet the applicable eligibility requirements. Kalderix then automates eligible trades with your real funds.";
 const TOS_OLD = "Live trading requires meeting minimum balance requirements";
 const TOS_NEW = "Live trading is subject to the platform\u2019s funding and eligibility requirements disclosed in the app.";
 

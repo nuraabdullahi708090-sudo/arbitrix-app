@@ -186,9 +186,22 @@ test('8. the retheme map comes from the identity and refuses unknown names', () 
 test('9. the database-written subscription detail is rebrand-safe in the UI', () => {
   const start = INDEX.indexOf('const TX_DETAIL_LABELS');
   const end = INDEX.indexOf('function updateTransactionLog', start);
-  const ctx = { t: (k) => k, console, BRAND };
+  // Evaluate with the PAGE's own BRAND mirror, not the server module: the two are
+  // separate literals, and a rebrand run that rewrites the page's `source` used to
+  // collapse the prefix list to one era while this test (which borrowed the
+  // module's BRAND) still passed.
+  const pageBrandStart = INDEX.indexOf('const BRAND = {');
+  const pageBrandEnd = INDEX.indexOf('};', pageBrandStart) + 2;
+  const ctx = { t: (k) => k, console };
   vm.createContext(ctx);
+  vm.runInContext(INDEX.slice(pageBrandStart, pageBrandEnd)
+    + ';globalThis.PAGE_BRAND = BRAND;', ctx);
   vm.runInContext(INDEX.slice(start, end) + ';globalThis.f = txDetailLabel;', ctx);
+
+  assert.strictEqual(ctx.PAGE_BRAND.source, 'Arbitrix',
+    'the page mirror keeps the pre-rename literal that historical rows were written with');
+  assert.notStrictEqual(ctx.PAGE_BRAND.source, ctx.PAGE_BRAND.name,
+    'a rename must not collapse the two eras into one');
 
   assert.strictEqual(ctx.f(BRAND.source + ' Pro Subscription'), 'tx.detail.subscription',
     'a charge written before the rename reads as the localized label, not the old name');
