@@ -354,74 +354,176 @@ at all. I will not recommend disguising the model to pass review.
 
 ## 15. Files changed
 
+The branch carries 18 commits against `main` and touches 159 files
+(+13156 / -1324). The release-critical ones:
+
 ```
-A  docs/relaunch/01-BASELINE.md
-A  docs/relaunch/02-BRAND.md
-A  docs/relaunch/03-MIN-DEPOSIT-50.md
-A  docs/relaunch/04-PAYHIP.md
-A  docs/relaunch/05-PAYMENTS.md
-A  docs/relaunch/06-MARKETS.md
-A  docs/relaunch/07-LOCALIZATION-ASSETS.md
-A  docs/relaunch/08-ACTION-PLAN.md
-A  docs/relaunch/README.md
-A  tests/landing_opportunity_disclosure.test.js
-A  tests/min_deposit_config.test.js
-M  public/index.html                         (disclosure markup/CSS + 12 locale
-                                              strings; minDeposit adoption)
-M  server.js                                  (min-deposit resolver; minDeposit
-                                              in both /api/auth/me branches)
-M  tests/*.test.js  (23 files)                (dictionary pins 1603->1605,
-                                              symbol pins -> resolved value,
-                                              homepage hash re-pin)
-M  AGENTS.md                                  (session note)
+A  docs/relaunch/*.md                              (baseline, brand, min deposit,
+                                                    Payhip, payments, markets,
+                                                    localisation, action plan,
+                                                    implementation, release
+                                                    checklists, smoke rehearsal)
+A  supabase/migrations/049_min_deposit_50.sql      ($50 minimum knob, UNAPPLIED)
+A  supabase/migrations/050_payhip_live_activation.sql
+                                                   (purchase + entitlement
+                                                    tables and the row-locked
+                                                    claim function, UNAPPLIED)
+A  supabase/migrations/051_subscription_detail_rebrand.sql
+                                                   (the SQL-written detail
+                                                    string, UNAPPLIED)
+A  services/brand.js                               (one identity source)
+A  services/PayhipEntitlements.js                  (Option A: verify, redeem)
+A  services/ProfitPause.js                         (the $400 pause, unchanged)
+A  scripts/rebrand.js, scripts/verify-rebrand.js    (one-command rename + gate)
+A  .github/workflows/ci.yml                        (test-only CI)
+A  scripts/validate-workflows.js                   (structural workflow linter)
+A  tests/kalderix_identity.test.js, tests/legacy_brand_alias.test.js,
+   tests/brand_token.test.js, tests/payhip_*.test.js,
+   tests/live_activation_entitlement.test.js,
+   tests/admin_reconciliation_panel.test.js,
+   tests/security_headers.test.js, tests/ci_workflow.test.js
+M  public/index.html                               (brand palette/mirror, live
+                                                    activation UI, deposit
+                                                    funding routes, landing
+                                                    notifications, reconciliation
+                                                    panel, promo card)
+M  server.js                                       (min-deposit resolver, Payhip
+                                                    routes, security headers,
+                                                    reconciliation route)
+M  services/*.js, public/*.html, docs/*, tests/* (35 files)
+                                                   (brand strings, guardrails)
 ```
 
 ## 16. Git commits
 
 ```
 964c755  fix: disclose illustrative landing data and unify the minimum-deposit knob
-         (public/index.html, server.js, 23 test files, 2 new test files)
-<this>   docs: relaunch research, audits and the ordered action plan
+bdfb514  docs: relaunch research, audits and the ordered action plan
+9ebe5f3  feat: single-switch brand, $50 deposit knob, Payhip Live activation
+08a357d  feat(payhip): verify licences against Payhip's API and fail closed
+5d94d46  docs(relaunch): the exact Payhip release sequence, rollback and inquiry
+be992d8  feat(brand): centralise the identity and make the rename one command
+785a5e9  feat(db): rebrand the subscription transaction detail (UNAPPLIED)
+1427374  docs(relaunch): the Kalderix identity, the approval command and its limits
+be3683c  fix(brand): derive the identity strings a rename would otherwise break
+5b92b1d  test(relaunch): add the release verifier the rename must pass
+50e7b15  docs(relaunch): master release checklist, the $50 knob, rehearsal evidence
+1d6a2cd  fix(db): make the $50 release migration and probe schema-agnostic
+5ea563b  test(relaunch): close the production smoke gate with 45 passing checks
+10e3f04  feat: show the $50 promotional credit on the dashboard before activation
+26a19ad  ci: test-only GitHub Actions workflow with a structural linter
+701d4e2  feat(brand): apply the Kalderix identity across every customer surface
+314fe6e  fix(payhip): name an unrecorded-but-real licence honestly, and surface
+         the deposit queue
+d2dc74f  feat(security): baseline security headers on every response
 ```
 
 ## 17. Tests
 
 - **Baseline before any change:** 3170 pass / 0 fail.
-- **Now:** **3198 pass / 0 fail** (two new suites, 13 + 15 tests).
-- No test was suppressed, skipped or weakened. 23 existing files were updated
-  because the changes intentionally moved a symbol or a dictionary size; each
-  update preserves the original intent (verified case by case) and
-  `tests/partners_page.test.js` was re-pinned per its own documented rule for
-  approved homepage edits.
-- **Latest (promotional-credit visibility step):** 3288 pass / 0 fail; the
-  dictionary is 1625 keys x 6 locales with identical key sets and 0 empty values.
-- Earlier verifications: all 8 inline `<script>` blocks parse
-  (`vm.Script`); the dictionary is verified by evaluating the real `TRANSLATIONS`
-  object (1605 keys x 6 locales, identical key sets, 0 empty, 0 duplicate keys);
-  0 U+FFFD in `index.html`; `node --check server.js` clean.
+- **Now: 3327 pass / 0 fail** (`npm test`, run locally on every commit).
+- The dictionary is **1631 keys x 6 locales**, identical key sets, 0 empty
+  values, placeholder parity intact; all 8 inline `index.html` script blocks
+  parse (`vm.Script`); `node --check server.js` is clean; 0 U+FFFD.
+- No test was suppressed, skipped or weakened. Files were updated only where a
+  change intentionally moved a symbol, a dictionary size or a pinned string, and
+  each was reviewed to keep its original intent.
+- **CI now enforces this on GitHub**: `.github/workflows/ci.yml` runs the suite
+  on every push and pull request with `contents: read` and no secrets, plus a
+  structural linter that fails the build if the workflow ever gains a deploy
+  step, a `push --force`, a database command or an injected secret. Both runs on
+  the rebrand commit concluded **success** - the first automated verification
+  this repository has had.
+- `tests/partners_page.test.js` no longer hashes all of `index.html`. It pins the
+  anonymous funnel slice (landing markup .. app shell), so an approved homepage
+  edit elsewhere no longer forces a meaningless re-pin while a /partners change
+  to the funnel still fails.
 
 ## 18. Production changes awaiting approval
 
-Nothing on this branch changes production behaviour. Specifically gated:
+Nothing on this branch changes production behaviour until an operator acts.
+Specifically gated:
 
-1. Set `PLATFORM_MIN_DEPOSIT_USD=50` (+ referral-config migration + copy sweep)
-   -> **changes a production deposit requirement**.
-2. Any new payment rail (Payhip / card) -> **changes live payment routing**.
-3. Rebrancing and any domain/DNS change -> **operator identity**.
-4. Applying the referral-config migration.
-5. Enabling any of the three background workers (trading, conversion, marketing)
-   - all still disabled by env.
-
-The disclosure change is safe to deploy on its own at any time.
+1. **Apply migrations 049, 050, 051** (Supabase SQL editor). 049 and 050 must be
+   applied before `PAYHIP_ENABLED` is set; 051 after the new code is live.
+2. **Set `PAYHIP_*`** (store, products, API key, product secret, webhook token,
+   public base) and then `PAYHIP_ENABLED=true` -> turns on a new purchase rail.
+3. **Set `PLATFORM_MIN_DEPOSIT_USD=50`** -> changes a production deposit
+   requirement (the referral config `minimum_qualifying_deposit` should move to
+   50 in the same window).
+4. **Merge PR #171 to `main`** -> Render deploys it.
+5. Enable any of the three background workers (trading, conversion, marketing) -
+   all still disabled by env.
+6. Trademark clearance for Kalderix (legal, not code) and, only if production
+   overrides it, the `EMAIL_FROM` display name.
 
 ## 19. Remaining founder decisions
 
-1. **The product model** (highest priority - see `08-ACTION-PLAN.md` §2): keep the
-   current claim and stop withdrawals, or restate the product as a simulation /
-   strategy tool. Everything else follows from this.
-2. Approve a brand (Kalderix recommended) and the trading-name wording.
-3. Approve the $50 minimum bundle, or keep $100.
-4. Approve or reject the Payhip rail (recommendation: reject as designed).
-5. Supply the real Trunkay URL.
-6. Accept that paid search is closed; endorse the organic/community plan.
-7. Approve Brazil-first, and whether to fund the Spanish bot for Mexico.
+1. **Payment rail**: Payhip as designed (activation only, funding stays Q8Pay),
+   or the rejected alternative (one purchase that also credits trading capital -
+   `05-PAYMENTS.md` explains why it cannot be funded safely after fees).
+2. **Apply the migrations** and enable the rail, or hold.
+3. **$50 minimum**: adopt it (migration 049 + `PLATFORM_MIN_DEPOSIT_USD=50`) or
+   keep $100. `03-MIN-DEPOSIT-50.md` shows a $50 balance can trade under the
+   current engine, but the promo cap and the $400 pause interact with it.
+4. **Kalderix trademark clearance** - required before the name is promoted.
+5. **Paid search**: closed for this product category (`06-MARKETS.md`); endorse
+   the organic/community plan instead.
+6. Whether a lost-webhook purchase should self-heal from the licence API (it
+   would create a purchase row with no price or fee data and pollute
+   reconciliation - currently refused, with the buyer told the truth instead).
+7. Supply the real Trunkay URL if that investigation is still wanted.
+
+## 20. Verification performed in this session (beyond the report)
+
+### 20.1 Migration review, static (049 / 050 / 051)
+
+Read line by line. `050` creates `payhip_purchases` and
+`payhip_entitlements`, both with RLS enabled and a service-role policy only, a
+UNIQUE `licence_key_hash` and a UNIQUE `payhip_sale_id`, and the claim function
+`redeem_payhip_entitlement_safe` which is `SECURITY DEFINER`, takes
+`FOR UPDATE` on both rows, re-checks after the lock, refuses a second account and
+is granted to `service_role` only. It never writes a wallet - activation is a
+permission, not money. `051` touches exactly one string in
+`charge_subscription_safe` and fails loudly if either the old or the new text is
+absent, so it cannot silently no-op.
+
+**Not executed here.** No PostgreSQL server and no Docker are available in this
+environment (checked: `docker` absent, `pgserver` / `postgresql-wheel` /
+`pg_embed` unavailable from the index), so no migration was applied and nothing
+was rehearsed against a live schema in this session. `docs/relaunch/rehearsal/`
+carries the bootstrap SQL and `14-PRODUCTION-SMOKE-REHEARSAL.md` the procedure.
+
+### 20.2 Payment friction, fixed
+
+1. **A real licence with an unrecorded sale is no longer called invalid.** The
+   licence API is the evidence, the database is the authority on redemption; when
+   the provider confirms a licence the database has no sale row for (webhook lost
+   or deferred), the claim function answers `invalid_licence` and the buyer used
+   to be told their key was not valid. It is now `not-recorded`, retryable, logged
+   to `payhip_events` and shown in the buyer's language.
+2. **The deposit reconciliation queue is now visible.** The read-only admin route
+   existed with no UI, so a rounded or late payment and a confirmed-but-uncredited
+   deposit were invisible to an operator. Both queues now have a panel in the
+   Deposits tab with the exact on-chain amount; it credits nothing (pinned).
+
+### 20.3 Security headers
+
+The application sent none. One middleware now adds `nosniff`, `frame-ancestors
+'none'`, `X-Frame-Options: DENY` and `strict-origin-when-cross-origin` to every
+response, and HSTS only when the request actually arrived over TLS. A full
+resource CSP is deliberately not set: the app depends on a charting library,
+Google Fonts and a QR image service, and a wrong policy breaks them silently - it
+belongs in its own change with a report-only rollout. Six tests boot the real
+server and assert all of it.
+
+### 20.4 What was re-verified and left alone
+
+`charge_subscription_safe` (011) vs 051 - money behaviour identical, only the
+label moves. The Q8Pay amount comparison - the webhook compares the confirmed
+amount to the stored `amount_crypto` (the provider's own `amountUsdtExact`), not
+to the buyer's round USD figure, and the UI shows that exact 4-decimal amount in
+the amount, the copy button and the QR. `PLATFORM_MIN_DEPOSIT_USD` (100),
+`MIN_WITHDRAWAL_USD` (700), the promo credit (50), the promo profit cap (20), the
+profit pause (400, env-overridable) and the referral percentage (20) are
+unchanged by this branch.
