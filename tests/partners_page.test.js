@@ -75,7 +75,7 @@ const APPLY_URL = '/?action=create-account&src=partners';
 // relaunch: the subscription history prefixes are now DERIVED from BRAND, so a
 // rename cannot collapse the pre-rename era into the current one. That change is
 // 13 lines inside txDetailLabel's helpers and touches no funnel markup.
-const INDEX_SHA256 = '2a06285098be7f378010579e7172ab8c800d8c93734a2ef858d40188f0a126a3';
+const INDEX_SHA256 = 'a73fd2151cadf1be585aaa8c21a0a7149158d2aa258a6eed640401704bbd4ca4';
 
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';

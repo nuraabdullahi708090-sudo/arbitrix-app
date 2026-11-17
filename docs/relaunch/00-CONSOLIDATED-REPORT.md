@@ -80,6 +80,29 @@ marketing -> emails -> domain -> legal -> video -> tests) is in `02-BRAND.md`.
 A new trade name does **not** change the legal operator: `Arbitrix Trading`
 (KVK 72923513) remains the contracting party and must stay visible.
 
+### 2b. Promotional credit visibility (implemented)
+
+A new account is seeded with a $50 promotional Live balance, but it used to be
+invisible on first login - and a Payhip-gated account saw only "Activation
+required". The dashboard now carries one card that shows the amount, a Live Mode
+status and one approved explanatory sentence, in all six locales:
+
+| Situation | Card |
+|---|---|
+| Registered, not activated | `$50.00 - Promotional Credit` + `Activation required` + Activate |
+| Activated, nothing funded | `Activated - funding required` |
+| Activated with the credit intact | `$50.00 - Promotional Credit` + `Live Mode available` |
+| Funded existing customer | hidden - their dashboard is unchanged |
+| MARKETING_SANDBOX | hidden - simulated accounts have no credit |
+
+`services/LiveModeStatus.js` derives the label from facts `server.js` already
+computes and the values are published as `liveMode` on `/api/auth/me`,
+`/api/live/activation` and `/api/live/activate`. Nothing else moved: no wallet
+write, no second credit, the credit is still **not** a qualifying deposit (the
+first-deposit rule before a withdrawal is untouched), and the Payhip gate, the
+minimum deposit, the withdrawal minimum and the $20 promotional profit cap are
+unchanged. 17 regression tests pin exactly those properties.
+
 ## 3. $50 deposit feasibility
 
 - Full inventory of every location the $100 appears (server 17 reads, 1 DB config
@@ -331,7 +354,9 @@ M  AGENTS.md                                  (session note)
   update preserves the original intent (verified case by case) and
   `tests/partners_page.test.js` was re-pinned per its own documented rule for
   approved homepage edits.
-- Verifications beyond the suite: all 8 inline `<script>` blocks parse
+- **Latest (promotional-credit visibility step):** 3288 pass / 0 fail; the
+  dictionary is 1625 keys x 6 locales with identical key sets and 0 empty values.
+- Earlier verifications: all 8 inline `<script>` blocks parse
   (`vm.Script`); the dictionary is verified by evaluating the real `TRANSLATIONS`
   object (1605 keys x 6 locales, identical key sets, 0 empty, 0 duplicate keys);
   0 U+FFFD in `index.html`; `node --check server.js` clean.

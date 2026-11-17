@@ -9054,3 +9054,57 @@ such sweep.
   T10 (apply 049+050+051 and set `PLATFORM_MIN_DEPOSIT_USD=50` together), step 5
   (apply the rebrand), step 6 (Payhip flags after one live test-mode purchase),
   T1 (trademark clearance) and Payhip merchant eligibility.
+
+
+## Promotional credit visible immediately after registration (2026-11-16, branch relaunch/rebrand-payment-commercial)
+
+- PROBLEM: a new account is seeded with a $50 promotional Live balance but the
+  dashboard showed nothing about it on first login, and a Payhip-gated account
+  saw only "Activation required". The customer had to infer that the money in
+  their Live wallet was promotional credit, and why it could not be withdrawn.
+- CHANGED (display only; no money moves):
+  * NEW `services/LiveModeStatus.js` - PURE module deriving
+    `status` (activation_required | funding_required | available), `promoCredit`,
+    `withdrawalFundingRequired` and the activation facts. No I/O, no writes.
+  * `server.js`: `getLiveModeStatus(userId, known)` reuses facts the caller
+    already loaded. `/api/auth/me` publishes `liveMode`; `POST /api/auth/register`
+    now also returns `wallet` + `liveMode` (read-only: the single `$50` seed stays
+    inside `getWallet()`, and a payload failure is caught so it can never fail a
+    completed registration); `/api/live/activation` and `/api/live/activate`
+    return the post-change state so the UI never guesses.
+  * `public/index.html`: one dashboard card (`#liveModeCard`) above the chart -
+    `$50.00 - Promotional Credit`, a status chip, the approved explanation
+    (interpolated `{{amount}}`, never a data-i18n target - a placeholder would
+    print literally), and the existing Activate CTA only when gated.
+    `renderLiveModeCard()` renders the SERVER object verbatim; it is re-run by
+    `updateDynamicTranslations()` (language switch) and reads nothing else.
+  * Hidden for: funded customers with no credit (their dashboard is unchanged)
+    and MARKETING_SANDBOX (no credit, never gated).
+  * i18n: 1618 -> 1625 keys/locale (7 new x 6 locales: promo.creditTitle /
+    creditBadge / creditExplain, liveMode.fundingNote + the three status labels).
+- TRUTHFULNESS DECISION (documented): the brief expected "activated but no
+  deposit -> Live Mode remains LOCKED". That is not the shipped rule - a
+  promotional-credit account CAN trade after activation (it is the approved $50
+  credit model, capped at $20 realised profit). The card therefore reports
+  `available` when the account really is usable and states the withdrawal rule
+  separately (`withdrawalFundingRequired`), instead of asserting a restriction
+  the platform does not apply. Locking Live Mode behind a deposit would remove a
+  capability from licence buyers and change a trading safeguard, so it was NOT
+  done. Flagged for management if the stricter model is actually wanted.
+- UNCHANGED (pinned by `tests/promo_credit_display.test.js`, 18 tests): no wallet
+  write in any new path, no second credit, the credit is NOT a qualifying deposit,
+  Payhip gates / $50 minimum deposit / $700 withdrawal minimum / completed-trade
+  rule / $20 promo profit cap all untouched.
+- VERIFICATION: full suite 3289 pass / 0 fail. Browser harness (puppeteer-core +
+  chromium, real page, stubbed API) 30/30 product checks across the five
+  account states + ar RTL + 1280px; the only failure is the harness's own
+  blocked-CDN "TradingView is not defined", identical on the baseline.
+  Non-ASCII integrity vs HEAD: 0 removed character classes, 95 added, 0 U+FFFD.
+- Docs: `docs/relaunch/13-RELEASE-CHECKLIST-KALDERIX.md` section 8b (what the
+  customer sees + how to verify after deploy) and section 2b of the consolidated
+  report.
+- LESSON: `scripts/verify-rebrand.js` reports 17 FAILs, but it fails IDENTICALLY
+  on HEAD (rebrand step 5 is still pending) - compare against a worktree before
+  treating it as a regression.
+- NOT committed / NOT pushed / NOT deployed at the time of writing; no migration,
+  no production data touched.

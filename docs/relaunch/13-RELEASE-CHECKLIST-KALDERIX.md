@@ -325,6 +325,64 @@ keep their entitlement rows; nothing is refunded or deleted automatically.
 
 ---
 
+## 8b. Step 6b - the customer must SEE the promotional credit
+
+A new account is seeded with a $50 promotional Live balance. Before this step that
+money existed but was invisible until the customer worked out where to look, and a
+Payhip-gated account saw only "Activation required". The dashboard now shows it
+immediately, on the first screen, **without changing what the account can do**.
+
+What a new customer sees (dashboard card, above the chart):
+
+| Situation | Card |
+|---|---|
+| Registered, not activated | `$50.00 - Promotional Credit` + `Activation required` + an Activate button |
+| Activated, nothing funded | no credit row + `Activated - funding required` |
+| Activated with the credit intact | `$50.00 - Promotional Credit` + `Live Mode available` |
+| Funded existing customer (no credit, activated) | card hidden - their dashboard is unchanged |
+| MARKETING_SANDBOX | card hidden - simulated accounts have no credit |
+
+The explanation under the amount is the approved sentence and states the two things
+a customer must not learn the hard way: activation does not add trading capital, and
+the promotional credit is subject to the platform's trading and withdrawal
+conditions.
+
+**Where the numbers come from.** `services/LiveModeStatus.js` derives them from facts
+`server.js` already computes, and they are returned as a `liveMode` object by
+`GET /api/auth/me`, `GET /api/live/activation` and `POST /api/live/activate`. The
+browser renders that object verbatim (`renderLiveModeCard()`); it never derives
+eligibility itself, so a tampered client can only change what the card *says*.
+
+**What is deliberately unchanged** (pinned by `tests/promo_credit_display.test.js`):
+
+* No wallet write, no RPC, no credit, no second entitlement: `/api/auth/me` stays a
+  read-only GET, and the `$50` seed still exists only in wallet creation.
+* The credit is **not** a qualifying deposit. `withdrawalFundingRequired` stays true
+  for a promo-funded account, so the first-deposit rule before a withdrawal is
+  untouched.
+* The Payhip gate, the $50 minimum deposit, the $700 withdrawal minimum, the
+  completed-trade rule and the $20 promotional profit cap are all untouched - the
+  gates remain `/api/bot/start`, `/api/trade` and `/api/withdraw/request`.
+* The amount displayed is the **remaining** promotional Live balance (so a customer
+  who lost part of it sees the remainder, not a stale $50).
+
+Verify after the deploy, with a fresh test account (no purchase, no deposit):
+
+```bash
+# 1. the server reports the credit and the gate
+curl -s -H "Authorization: Bearer $JWT" https://arbitrix.pro/api/auth/me \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['liveMode'])"
+# expect: status activation_required, promoCredit 50, withdrawalFundingRequired true
+
+# 2. the card renders it (browser, signed in, 390px):
+#    "$50.00 - Promotional Credit", chip "Activation required", Activate button,
+#    and no "{{amount}}" placeholder anywhere.
+```
+
+Regression suite: `node --test tests/promo_credit_display.test.js` (17 checks).
+
+---
+
 ## 9. Environment variables, in one table
 
 | Variable | This release | Effect if set alone | Undo |

@@ -90,6 +90,10 @@ const { buildOpportunities: buildMarketOpportunities } = require('./services/Mar
 // Neither module moves money or reaches a payment provider.
 const depositPartners = require('./services/DepositPartners');
 const { resolveCardPaymentConfig } = require('./services/CardPayments');
+// Live Mode display state (read-only). Derives the dashboard's
+// "promo credit / activation required / funding required / available" label from
+// facts this file already computes; it never decides access or moves money.
+const { buildLiveModeStatus } = require('./services/LiveModeStatus');
 // TEMPORARY management test: platform-wide bot profit pause (see the module).
 const {
   resolveProfitPauseUsd,
@@ -366,6 +370,37 @@ async function getLiveActivationState(userId) {
     };
   }
   return { activated: false, reason: 'activation-required', activationRequired: true, exempt: false };
+}
+
+/**
+ * Read-only Live Mode status for the dashboard (see services/LiveModeStatus).
+ *
+ * Callers that already computed the facts pass them in `known` so a login does
+ * not repeat the same queries. Anything missing is read here. It NEVER writes:
+ * the gates stay /api/bot/start, /api/trade and /api/withdraw/request.
+ */
+async function getLiveModeStatus(userId, known) {
+  const k = known || {};
+  const activation = k.activation || await getLiveActivationState(userId).catch(() => ({
+    activated: false,
+    reason: 'activation-unavailable',
+    activationRequired: PAYHIP_CONFIG.activationRequired,
+    exempt: false,
+    retryable: true
+  }));
+  const wallet = k.wallet || await getWallet(userId).catch(() => null);
+  const funded = typeof k.hasConfirmedDeposit === 'boolean'
+    ? k.hasConfirmedDeposit
+    : await hasConfirmedDeposit(userId).catch(() => false);
+  const promoFunding = typeof k.promoFunding === 'boolean' || k.promoFunding === null
+    ? k.promoFunding
+    : await isPromoCreditFunded(userId, !!funded).catch(() => null);
+  return buildLiveModeStatus({
+    activation,
+    liveBalance: wallet ? wallet.live_balance : 0,
+    hasConfirmedDeposit: !!funded,
+    promoFunding
+  });
 }
 
 /** Machine-readable 403 body, shared by every Live Mode gate. */
@@ -3268,9 +3303,30 @@ app.post('/api/auth/register', async (req, res) => {
   }
   
   const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
+  // The customer's promotional credit must be visible IMMEDIATELY after
+  // registration, so the account payload carries the wallet and the server-derived
+  // Live Mode label instead of leaving the dashboard blank until the first
+  // /api/auth/me. READ-ONLY on the balance: getWallet() seeds the new wallet
+  // exactly as it would on the next request (the single $50 promotional seed),
+  // and nothing here credits a second time. A failure here must never fail a
+  // registration the user has already completed - the client falls back to
+  // /api/auth/me.
+  let wallet = null;
+  let liveMode = null;
+  try {
+    wallet = await getWallet(user.id);
+    liveMode = await getLiveModeStatus(user.id, { wallet, hasConfirmedDeposit: false });
+  } catch (e) {
+    console.warn('[auth/register] account payload incomplete:', e && e.message ? e.message : e);
+  }
   // Public registration always creates a PRODUCTION account. MARKETING_SANDBOX
   // accounts can only be created via POST /api/admin/sandbox/accounts (admin).
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: ENV_PRODUCTION } });
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: ENV_PRODUCTION },
+    wallet,
+    liveMode
+  });
 });
 
 // Login
@@ -3869,6 +3925,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       liveActivated: true,
       activationReason: 'sandbox',
       activationPurchasable: false,
+      // Simulated account: nothing is promotional credit, and Live Mode is a
+      // demo of the customer experience - never gated, never real.
+      liveMode: buildLiveModeStatus({
+        activation: { activated: true, reason: 'sandbox', activationRequired: false, exempt: true },
+        liveBalance: wallet ? wallet.live_balance : 0,
+        hasConfirmedDeposit: !!funded,
+        promoFunding: false
+      }),
     });
   }
   // getUser and getWallet are independent (both keyed by the same user id),
@@ -3910,10 +3974,21 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     exempt: false,
     retryable: true
   }));
+  // Read-only Live Mode display state, derived from the values above so this
+  // adds no queries to the login path. The gates themselves are unchanged.
+  const _liveMode = await getLiveModeStatus(user.id, {
+    activation: _liveActivation,
+    wallet,
+    hasConfirmedDeposit: !!funded,
+    promoFunding
+  });
   res.json({
     user,
     wallet,
     hasRealDeposit: !!funded,
+    // Authoritative Live Mode label + promotional-credit amount for the
+    // dashboard. Display only: nothing here can unlock trading or credit money.
+    liveMode: _liveMode,
     todayRealizedPnl: Number(todayPnl) || 0,
     // Payhip Live Mode activation (server-authoritative; the frontend never
     // infers it from localStorage). activationRequired is false unless the
@@ -11441,6 +11516,10 @@ app.get('/api/live/activation', authMiddleware, async (req, res) => {
       activated: state.activated,
       reason: state.reason,
       exempt: state.exempt,
+      // Same read-only payload /api/auth/me returns, so the dashboard can
+      // re-render its Live Mode label immediately after an activation without
+      // a second round trip (and without the client guessing the new state).
+      liveMode: await getLiveModeStatus(req.user.id, { activation: state }),
       // Only what the browser needs to render a checkout button. Never a key,
       // never the webhook token, never a product price invented server-side.
       purchase: {
@@ -11474,7 +11553,14 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
   const result = await payhipEntitlements.redeem(req.user.id, licenceKey);
   if (result.success) {
     const state = await getLiveActivationState(req.user.id);
-    return res.json({ success: true, alreadyClaimed: !!result.duplicate, activated: state.activated });
+    return res.json({
+      success: true,
+      alreadyClaimed: !!result.duplicate,
+      activated: state.activated,
+      // Post-activation state, so the dashboard's promotional-credit / Live Mode
+      // card updates from the server's own answer instead of a client guess.
+      liveMode: await getLiveModeStatus(req.user.id, { activation: state })
+    });
   }
   const status = result.reason === 'invalid-licence' ? 404
     : result.reason === 'unavailable' ? 503
