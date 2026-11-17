@@ -9108,3 +9108,41 @@ such sweep.
   treating it as a regression.
 - NOT committed / NOT pushed / NOT deployed at the time of writing; no migration,
   no production data touched.
+
+
+## Phase 40 - Kalderix relaunch verification pass (2026-11-16/17)
+
+- Branch `relaunch/rebrand-payment-commercial` (PR #171). LOCAL + PUSHED, NOT merged,
+  NOT deployed, no migration applied, no env var set.
+- Brand applied (not just recorded): `services/brand.js` + the `public/index.html`
+  mirror drive all six locales, titles/social cards, PWA manifest + sw.js, standalone
+  pages, emails, support bot, TOTP issuer, Q8Pay invoice title and asset registry.
+  `node scripts/verify-rebrand.js --expect Kalderix` passes. Legal operator stays
+  `Arbitrix Trading` / KVK 72923513. Provider API identifiers were NOT renamed (they
+  are API keys).
+- Tests: `npm test` = 3327 pass / 0 fail (main baseline 3170). Dictionary 1631 keys
+  x 6 locales, identical key sets. CI (`.github/workflows/ci.yml`, added this branch)
+  is GREEN on every commit - first automated verification in the repo.
+- Migration audit 049/050/051: read line by line, NOT executed (no PostgreSQL and no
+  Docker in this environment; `pgserver`/`postgresql-wheel`/`pg_embed` unavailable).
+  050 creates `payhip_purchases` + `payhip_entitlements` (RLS on, service_role-only,
+  UNIQUE licence hash + sale id) and `redeem_payhip_entitlement_safe` (SECURITY
+  DEFINER, FOR UPDATE, double-check, one account). It never writes a wallet.
+- Payhip friction fix: a licence the provider confirms but the DB has no sale row for
+  (lost/deferred webhook) was reported as `invalid-licence`. It is now
+  `not-recorded` (retryable, `payhip_events`, localized `liveActivation.confirming`).
+  Nothing is granted; recovery is still a manual Payhip replay.
+- Admin: deposit reconciliation panel in the Deposits tab using the pre-existing
+  read-only `/api/admin/deposits/reconciliation` (2h/24h/7d, exact on-chain amount,
+  nothing is credited). Pinned read-only by `tests/admin_reconciliation_panel.test.js`.
+- Security headers: `nosniff`, `frame-ancestors 'none'`, `X-Frame-Options: DENY`,
+  `strict-origin-when-cross-origin`, HSTS only over TLS. Full resource CSP
+  deliberately NOT set (charting lib, Google Fonts, QR service). Pinned by
+  `tests/security_headers.test.js` (boots the real server).
+- `tests/partners_page.test.js` now pins the FUNNEL SLICE of index.html
+  (`<div id="landingPage">` .. `id="mainApp"`), not the whole file: ten approved
+  homepage edits had forced re-pins and buried the test's actual question.
+- Gated (need approval): apply 049+050 then 051; set PAYHIP_*; set
+  PLATFORM_MIN_DEPOSIT_USD=50 (+ referral config minimum_qualifying_deposit); merge
+  PR #171 (Render auto-deploys on main); enable any worker; Kalderix trademark
+  clearance.
