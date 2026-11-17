@@ -152,13 +152,13 @@ test('production: a zero Live balance is refused at the funding gate (presence, 
     assert.strictEqual(botStartMirror('demo', 0).result, 'started');
 });
 
-test('server: the funding gate runs after activation and before the session upsert', () => {
+test('server: eligibility (activation + deposit) is decided before funding and any session write', () => {
     const body = routeBody('post', '/api/bot/start');
-    const actIdx = body.indexOf('getLiveActivationState');
+    const eligIdx = body.indexOf('getLiveModeEligibility');
     const fundIdx = body.indexOf('LIVE_FUNDING_REQUIRED');
     const upsertIdx = body.indexOf("from('bot_sessions')");
-    assert.ok(actIdx > 0 && fundIdx > 0 && upsertIdx > 0, 'all three must exist');
-    assert.ok(actIdx < fundIdx, 'activation is decided before funding');
+    assert.ok(eligIdx > 0 && fundIdx > 0 && upsertIdx > 0, 'all three must exist');
+    assert.ok(eligIdx < fundIdx, 'activation AND the qualifying deposit are decided before funding');
     assert.ok(fundIdx < upsertIdx, 'funding is decided before any session write');
     assert.ok(!/liveBalance\s*<\s*\d/.test(body), 'no numeric minimum may reappear');
 });

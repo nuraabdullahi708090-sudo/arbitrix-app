@@ -6625,6 +6625,9 @@ function toggleFaq(btn) {
                 <button type="button" id="liveModeActivateBtn" class="btn btn-primary btn-sm hidden" onclick="openLiveActivationModal()" style="margin-top:8px;min-height:40px;">
                     <i class="fas fa-key"></i> <span data-i18n="liveActivation.cta">Activate Live Mode</span>
                 </button>
+                <button type="button" id="liveModeDepositBtn" class="btn btn-primary btn-sm hidden" onclick="openDepositModal()" style="margin-top:8px;min-height:40px;">
+                    <i class="fas fa-circle-down"></i> <span data-i18n="liveActivation.depositCta">Make your deposit</span>
+                </button>
             </div>
         </div>
 
@@ -9738,6 +9741,8 @@ const TRANSLATIONS = {
         'promo.creditBadge': 'Promotional Credit',
         'promo.creditExplain': 'Your account includes ${{amount}} in promotional trading credit. Purchase a Live Mode activation to unlock access to live trading. Activation does not add trading capital to your account. Promotional credit is subject to the platform\'s trading and withdrawal conditions.',
         'liveMode.fundingNote': 'Live Mode is activated. Make a deposit to fund your Live balance and start trading.',
+        'liveMode.status.depositRequired': 'Deposit required',
+        'liveMode.depositNote': 'Live Mode also needs a confirmed deposit of at least ${{min}}. Make your deposit to finish setting up.',
         'liveMode.status.activationRequired': 'Activation required',
         'liveMode.status.fundingRequired': 'Activated — funding required',
         'liveMode.status.available': 'Live Mode available',
@@ -10017,6 +10022,7 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of ${{min}} to enable withdrawals',
         'liveActivation.notice': 'Live Mode needs a one-time activation.',
         'liveActivation.cta': 'Activate Live Mode',
+        'liveActivation.depositCta': 'Make your deposit',
         'liveActivation.title': 'Activate Live Mode',
         'liveActivation.body': 'Live Mode requires a one-time activation. Demo Mode stays free and always available. Activation does not add trading capital: you fund your Live wallet separately with a deposit.',
         'liveActivation.buy': 'Buy activation',
@@ -11389,6 +11395,8 @@ const TRANSLATIONS = {
         'promo.creditBadge': 'Crédito promocional',
         'promo.creditExplain': 'Tu cuenta incluye ${{amount}} en crédito promocional de trading. Comprá una activación de Modo Live para desbloquear el trading en vivo. La activación no agrega capital de trading a tu cuenta. El crédito promocional está sujeto a las condiciones de trading y retiro de la plataforma.',
         'liveMode.fundingNote': 'El Modo Live está activado. Hacé un depósito para financiar tu billetera Live y comenzar a operar.',
+        'liveMode.status.depositRequired': 'Depósito requerido',
+        'liveMode.depositNote': 'El Modo Live también requiere un depósito confirmado de al menos ${{min}}. Realiza tu depósito para terminar la configuración.',
         'liveMode.status.activationRequired': 'Activación requerida',
         'liveMode.status.fundingRequired': 'Activado — requiere fondos',
         'liveMode.status.available': 'Modo Live disponible',
@@ -11668,6 +11676,7 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de ${{min}} para habilitar los retiros',
         'liveActivation.notice': 'El Modo Live requiere una activación única.',
         'liveActivation.cta': 'Activar Modo Live',
+        'liveActivation.depositCta': 'Realizar mi depósito',
         'liveActivation.title': 'Activar Modo Live',
         'liveActivation.body': 'El Modo Live requiere una activación única. El Modo Demo sigue siendo gratuito y siempre disponible. La activación no añade capital de trading: financiás tu billetera Live por separado con un depósito.',
         'liveActivation.buy': 'Comprar activación',
@@ -13041,6 +13050,8 @@ const TRANSLATIONS = {
         'promo.creditBadge': 'Crédito promocional',
         'promo.creditExplain': 'Sua conta inclui ${{amount}} em crédito promocional de trading. Compre uma ativação do Modo Live para liberar o trading ao vivo. A ativação não adiciona capital de trading à sua conta. O crédito promocional está sujeito às condições de trading e saque da plataforma.',
         'liveMode.fundingNote': 'O Modo Live está ativado. Faça um depósito para financiar sua carteira Live e começar a operar.',
+        'liveMode.status.depositRequired': 'Depósito necessário',
+        'liveMode.depositNote': 'O Modo Live também exige um depósito confirmado de pelo menos ${{min}}. Faça seu depósito para concluir a configuração.',
         'liveMode.status.activationRequired': 'Ativação necessária',
         'liveMode.status.fundingRequired': 'Ativado — requer fundos',
         'liveMode.status.available': 'Modo Live disponível',
@@ -13320,6 +13331,7 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de ${{min}} para habilitar os saques',
         'liveActivation.notice': 'O Modo Live exige uma ativação única.',
         'liveActivation.cta': 'Ativar Modo Live',
+        'liveActivation.depositCta': 'Fazer meu depósito',
         'liveActivation.title': 'Ativar Modo Live',
         'liveActivation.body': 'O Modo Live exige uma ativação única. O Modo Demo continua gratuito e sempre disponível. A ativação não adiciona capital de negociação: você financia sua carteira Live separadamente com um depósito.',
         'liveActivation.buy': 'Comprar ativação',
@@ -14693,6 +14705,8 @@ const TRANSLATIONS = {
         'promo.creditBadge': 'Crédit promotionnel',
         'promo.creditExplain': 'Votre compte inclut ${{amount}} de crédit promotionnel de trading. Achetez une activation du Mode Live pour débloquer le trading en direct. L\'activation n\'ajoute pas de capital de trading à votre compte. Le crédit promotionnel est soumis aux conditions de trading et de retrait de la plateforme.',
         'liveMode.fundingNote': 'Le Mode Live est activé. Effectuez un dépôt pour financer votre portefeuille Live et commencer à trader.',
+        'liveMode.status.depositRequired': 'Dépôt requis',
+        'liveMode.depositNote': 'Le Mode Live exige aussi un dépôt confirmé d\'au moins ${{min}}. Effectuez votre dépôt pour terminer la configuration.',
         'liveMode.status.activationRequired': 'Activation requise',
         'liveMode.status.fundingRequired': 'Activé — financement requis',
         'liveMode.status.available': 'Mode Live disponible',
@@ -14972,6 +14986,7 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de ${{min}} pour activer les retraits',
         'liveActivation.notice': 'Le Mode Live nécessite une activation unique.',
         'liveActivation.cta': 'Activer le Mode Live',
+        'liveActivation.depositCta': 'Effectuer mon dépôt',
         'liveActivation.title': 'Activer le Mode Live',
         'liveActivation.body': 'Le Mode Live nécessite une activation unique. Le Mode Démo reste gratuit et toujours disponible. L\'activation n\'ajoute pas de capital de trading : vous financez votre portefeuille Live séparément par un dépôt.',
         'liveActivation.buy': 'Acheter l\'activation',
@@ -16345,6 +16360,8 @@ const TRANSLATIONS = {
         'promo.creditBadge': 'رصيد ترويجي',
         'promo.creditExplain': 'يتضمن حسابك ${{amount}} كرصيد ترويجي للتداول. اشترِ تفعيل الوضع المباشر لفتح التداول المباشر. التفعيل لا يضيف رأس مال تداول إلى حسابك. يخضع الرصيد الترويجي لشروط التداول والسحب في المنصة.',
         'liveMode.fundingNote': 'الوضع المباشر مُفعّل. قم بإيداع لتمويل محفظتك المباشرة وبدء التداول.',
+        'liveMode.status.depositRequired': 'الإيداع مطلوب',
+        'liveMode.depositNote': 'يتطلب الوضع المباشر أيضًا إيداعًا مؤكدًا لا يقل عن ${{min}}. قم بإيداعك لإكمال الإعداد.',
         'liveMode.status.activationRequired': 'التفعيل مطلوب',
         'liveMode.status.fundingRequired': 'مُفعّل — التمويل مطلوب',
         'liveMode.status.available': 'الوضع المباشر متاح',
@@ -16624,6 +16641,7 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى ${{min}} لتفعيل السحب',
         'liveActivation.notice': 'يتطلب الوضع المباشر تفعيلاً لمرة واحدة.',
         'liveActivation.cta': 'تفعيل الوضع المباشر',
+        'liveActivation.depositCta': 'إتمام الإيداع',
         'liveActivation.title': 'تفعيل الوضع المباشر',
         'liveActivation.body': 'يتطلب الوضع المباشر تفعيلاً لمرة واحدة. يبقى الوضع التجريبي مجانياً ومتاحاً دائماً. التفعيل لا يضيف رأس مال تداول: أنت تموّل محفظتك المباشرة بشكل منفصل عبر إيداع.',
         'liveActivation.buy': 'شراء التفعيل',
@@ -17997,6 +18015,8 @@ const TRANSLATIONS = {
         'promo.creditBadge': '促销信用',
         'promo.creditExplain': '您的账户包含 ${{amount}} 促销交易信用。购买实时模式激活以解锁实盘交易。激活不会为您的账户增加交易资金。促销信用受平台交易与提现条件约束。',
         'liveMode.fundingNote': '实时模式已激活。请入金为您的实盘钱包充值并开始交易。',
+        'liveMode.status.depositRequired': '需要入金',
+        'liveMode.depositNote': '实时模式除激活外，还需要至少 ${{min}} 的已确认入金。请完成入金以完成设置。',
         'liveMode.status.activationRequired': '需要激活',
         'liveMode.status.fundingRequired': '已激活 — 需要入金',
         'liveMode.status.available': '实时模式可用',
@@ -18276,6 +18296,7 @@ const TRANSLATIONS = {
         'live.withdrawStatus.notDeposited': '💳 请至少入金 ${{min}} 以启用提现',
         'liveActivation.notice': '实时模式需要一次性激活。',
         'liveActivation.cta': '激活实时模式',
+        'liveActivation.depositCta': '完成我的入金',
         'liveActivation.title': '激活实时模式',
         'liveActivation.body': '实时模式需要一次性激活。演示模式始终免费并保持可用。激活不会增加交易资金：您需要通过入金单独为实时钱包提供资金。',
         'liveActivation.buy': '购买激活',
@@ -19372,6 +19393,7 @@ const BACKEND_DYNAMIC_MESSAGE_RULES = [
 // this card SAYS, never what the account can do.
 const LIVE_MODE_STATUS_VIEW = {
     activation_required: { key: 'liveMode.status.activationRequired', badge: 'pending' },
+    deposit_required: { key: 'liveMode.status.depositRequired', badge: 'pending' },
     funding_required: { key: 'liveMode.status.fundingRequired', badge: 'demo' },
     available: { key: 'liveMode.status.available', badge: 'funded' }
 };
@@ -19398,7 +19420,8 @@ function renderLiveModeCard() {
         }
         const amount = Number(info.promoCredit) || 0;
         const status = String(info.status || '');
-        const relevant = amount > 0 || status === 'activation_required' || status === 'funding_required';
+        const relevant = amount > 0 || status === 'activation_required'
+            || status === 'deposit_required' || status === 'funding_required';
         // A funded, activated account with no promotional credit keeps the
         // dashboard it has today: no extra card.
         card.style.display = relevant ? 'block' : 'none';
@@ -19416,14 +19439,24 @@ function renderLiveModeCard() {
         }
         const explain = document.getElementById('promoCreditExplain');
         if (explain) {
-            // {{amount}} is interpolated here (never via data-i18n, which would
-            // print the raw placeholder). The dollar sign lives in the template.
-            explain.textContent = amount > 0
-                ? t('promo.creditExplain', { amount: String(Number(amount)) })
-                : t('liveMode.fundingNote');
+            // Placeholders are interpolated here (never via data-i18n, which would
+            // print them raw). The dollar sign lives in the template.
+            let text;
+            if (status === 'deposit_required') {
+                text = t('liveMode.depositNote', { min: String(Number(APP.MIN_DEPOSIT) || 0) });
+            } else if (amount > 0) {
+                text = t('promo.creditExplain', { amount: String(Number(amount)) });
+            } else {
+                text = t('liveMode.fundingNote');
+            }
+            explain.textContent = text;
         }
         const btn = document.getElementById('liveModeActivateBtn');
         if (btn) btn.classList.toggle('hidden', status !== 'activation_required');
+        // Activation is done but the qualifying deposit is not: the next step is a
+        // deposit, not another licence. Display only - the gates are server-side.
+        const depBtn = document.getElementById('liveModeDepositBtn');
+        if (depBtn) depBtn.classList.toggle('hidden', status !== 'deposit_required');
     } catch (e) { /* display only: a render failure must never break the dashboard */ }
 }
 

@@ -9146,3 +9146,35 @@ such sweep.
   PLATFORM_MIN_DEPOSIT_USD=50 (+ referral config minimum_qualifying_deposit); merge
   PR #171 (Render auto-deploys on main); enable any worker; Kalderix trademark
   clearance.
+
+
+## C1 - Live Mode requires BOTH activation and a deposit (2026-11-17, PR #171)
+- Approved model: Live Mode = a valid Payhip activation ($50, one-time) AND a
+  confirmed deposit of at least the platform minimum ($100). Neither substitutes
+  for the other. Demo Mode stays free.
+- `getLiveActivationState()` answers ACTIVATION ONLY. The deposit-based branch
+  (`reason: 'grandfathered-deposit'`) is DELETED, with no date/cutoff
+  replacement: a deposit must never satisfy activation.
+- `getConfirmedDepositTotal()` sums confirmed `deposits.amount` and
+  `payment_invoices.amount_usd` and returns `{ok,total}`; because a provider
+  invoice also writes a legacy `deposits` row, it takes the MAX of the two (never
+  a SUM) so one payment is never counted twice. Unreadable -> `ok:false`.
+- `getLiveModeEligibility()` combines both facts; `sendLiveModeRefusal()` names
+  the missing one: 403 `LIVE_ACTIVATION_REQUIRED`, 403 `LIVE_DEPOSIT_REQUIRED`
+  (+`minDeposit`,`depositTotal`), 503 `ACTIVATION_UNAVAILABLE`, 503
+  `LIVE_DEPOSIT_CHECK_UNAVAILABLE` (both retryable).
+- Gates: `POST /api/bot/start` (live) and `POST /api/trade` (before any wallet
+  read/ledger write). `/api/live/activation`, `/api/live/activate` and
+  `/api/auth/me` report `eligible` + the deposit facts; the dashboard card shows
+  `deposit_required` with a "Make your deposit" action (3 new i18n keys x 6
+  locales; dictionary 1634).
+- Inert by default: with `PAYHIP_ACTIVATION_REQUIRED` unset, eligibility is true
+  (only the deposit facts are reported). Nothing changes until the operator sets
+  the flag.
+- Tests: `tests/live_mode_eligibility.test.js` (22, real HTTP via
+  `tests/helpers/fake-supabase-live-mode.js`, no source-string assertions);
+  `npm test` = 3349 pass / 0 fail.
+- Consequence to confirm: the $50 promotional credit can no longer be traded
+  without activation + a $100 deposit (follows from the required matrix).
+  Pre-existing running bot sessions are not retroactively stopped.
+- Report: `docs/relaunch/C1-ACTIVATION-ENFORCEMENT-REPORT.md`.

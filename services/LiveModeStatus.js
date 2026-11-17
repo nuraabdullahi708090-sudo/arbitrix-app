@@ -18,6 +18,12 @@
 const LIVE_MODE_STATUS = Object.freeze({
   /** Live Mode is refused until a Payhip activation entitlement exists. */
   ACTIVATION_REQUIRED: 'activation_required',
+  /**
+   * Activated, but the account has not yet made a confirmed deposit of at least
+   * the platform minimum. Live Mode needs BOTH: activation never funds the
+   * wallet, and a deposit never satisfies activation.
+   */
+  DEPOSIT_REQUIRED: 'deposit_required',
   /** Activated, but the Live balance is zero: there is nothing to trade with. */
   FUNDING_REQUIRED: 'funding_required',
   /** Activated and funded: Live Mode is usable now. */
@@ -57,6 +63,10 @@ function deriveLiveModeStatus(options) {
   const balance = Number(opts.liveBalance);
   const liveBalance = Number.isFinite(balance) && balance > 0 ? balance : 0;
   if (!activated) return LIVE_MODE_STATUS.ACTIVATION_REQUIRED;
+  // `depositSatisfied === false` means the qualifying-deposit requirement is
+  // demonstrably unmet. `null`/undefined means it was not evaluated (the feature
+  // is switched off), so it must never invent a restriction.
+  if (opts.depositSatisfied === false) return LIVE_MODE_STATUS.DEPOSIT_REQUIRED;
   if (liveBalance <= 0) return LIVE_MODE_STATUS.FUNDING_REQUIRED;
   return LIVE_MODE_STATUS.AVAILABLE;
 }
@@ -79,7 +89,11 @@ function buildLiveModeStatus(facts) {
   const promoCredit = promoCreditFromBalance(liveBalance, promoFunding);
   const funded = f.hasConfirmedDeposit === true;
   return {
-    status: deriveLiveModeStatus({ activated: activation.activated, liveBalance }),
+    status: deriveLiveModeStatus({
+      activated: activation.activated,
+      liveBalance,
+      depositSatisfied: f.depositSatisfied === false ? false : (f.depositSatisfied === true ? true : null)
+    }),
     activationRequired: activation.activationRequired === true,
     activated: activation.activated === true,
     reason: activation.reason || null,
@@ -90,6 +104,13 @@ function buildLiveModeStatus(facts) {
     promoCreditFunded: promoFunding === true,
     promoClassificationUnknown: promoFunding === null,
     hasConfirmedDeposit: funded,
+    // The second requirement, reported separately so the dashboard can name the
+    // missing step. null = not evaluated (requirement switched off).
+    eligible: f.eligible === true ? true : (f.eligible === false ? false : null),
+    depositRequired: f.depositSatisfied === false,
+    depositSatisfied: f.depositSatisfied === true ? true : (f.depositSatisfied === false ? false : null),
+    depositTotal: Number.isFinite(Number(f.depositTotal)) ? Math.round(Number(f.depositTotal) * 100) / 100 : null,
+    minDeposit: Number.isFinite(Number(f.minDeposit)) ? Number(f.minDeposit) : null,
     // Promotional credit can be traded but never withdrawn, and it does not
     // count as a deposit: a promo-funded account still needs a qualifying first
     // deposit before a withdrawal is allowed.

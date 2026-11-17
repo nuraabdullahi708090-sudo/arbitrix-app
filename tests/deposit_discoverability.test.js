@@ -457,11 +457,11 @@ test('no new deposit entry point bypasses the existing dialog', () => {
         const tag = INDEX.slice(at, INDEX.indexOf('>', at) + 1);
         assert.ok(!/requestDepositAddress|fetch\(|window\.open/.test(tag), id + ' never calls the API or opens a URL');
     }
-    // Exactly the pre-existing two controls (live-wallet button + first-deposit
-    // card) plus the new Available-card action; the sidebar and onboarding use
-    // the same function from JS.
+    // The pre-existing two controls (live-wallet button + first-deposit card),
+    // the Available-card action, and the Live Mode "deposit required" prompt: all
+    // four open the SAME dialog; the sidebar and onboarding call it from JS.
     const callSites = (INDEX.match(/onclick="openDepositModal\(\)"/g) || []).length;
-    assert.strictEqual(callSites, 3, 'one deposit dialog, now reachable from the Available card too');
+    assert.strictEqual(callSites, 4, 'one deposit dialog, now reachable from the Available card and the Live Mode prompt');
     assert.ok(/id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/.test(INDEX), 'the new action is one of them');
 });
 

@@ -419,19 +419,25 @@ test('20b. valid activation AND a qualifying deposit is allowed', async () => {
   assert.ok(['licensed', 'grandfathered-deposit'].includes(state.reason));
 });
 
-test('21. an existing funded customer is grandfathered without any entitlement', async () => {
+test('21. a confirmed deposit NEVER satisfies activation (no grandfathering)', async () => {
+  // Approved model: the $50 activation and the $100 deposit are independent.
+  // A deposit must not unlock Live Mode, so a funded account with no
+  // entitlement is refused - there is no deposit-based branch left to hit.
   const state = await runActivation({ hasActivation: false, hasDeposit: true });
-  assert.strictEqual(state.activated, true);
-  assert.strictEqual(state.reason, 'grandfathered-deposit');
-  assert.strictEqual(state.exempt, true);
+  assert.strictEqual(state.activated, false);
+  assert.strictEqual(state.reason, 'activation-required');
+  assert.strictEqual(state.exempt, false);
+  assert.ok(!SERVER.includes('grandfathered-deposit'), 'the exemption must be gone from the resolver');
 });
 
-test('22. an existing funded customer is NOT locked out by a Payhip outage', async () => {
-  // hasActivation() never decides for a funded account: the deposit branch returns
-  // first, so an entitlement-store failure cannot lock them out.
+test('22. a Payhip outage FAILS CLOSED, for funded accounts too', async () => {
+  // With no deposit branch to bypass the lookup, an unreadable entitlement store
+  // is an unproven entitlement - a retryable refusal, never an unlock. The deposit
+  // fact is irrelevant to this decision by design.
   const state = await runActivation({ hasActivation: null, hasDeposit: true });
-  assert.strictEqual(state.activated, true);
-  assert.strictEqual(state.reason, 'grandfathered-deposit');
+  assert.strictEqual(state.activated, false);
+  assert.strictEqual(state.reason, 'activation-unavailable');
+  assert.strictEqual(state.retryable, true);
 });
 
 test('23. an UNREADABLE entitlement store denies a new user (no fail-open)', async () => {
@@ -620,14 +626,14 @@ test('33. with the requirement off, nothing is gated at all', async () => {
 
 test('34. both Live Mode gates run before any write', () => {
   const bot = SERVER.indexOf("app.post('/api/bot/start'");
-  const botGate = SERVER.indexOf('const activation = await getLiveActivationState(userId)', bot);
+  const botGate = SERVER.indexOf('const eligibility = await getLiveModeEligibility(userId)', bot);
   const botUpsert = SERVER.indexOf("from('bot_sessions')", bot);
-  assert.ok(botGate > bot && botUpsert > botGate, 'activation gate precedes the session write');
+  assert.ok(botGate > bot && botUpsert > botGate, 'eligibility gate precedes the session write');
 
   const trade = SERVER.indexOf("app.post('/api/trade'");
-  const tradeGate = SERVER.indexOf('const activation = await getLiveActivationState(userId)', trade);
+  const tradeGate = SERVER.indexOf('const eligibility = await getLiveModeEligibility(userId)', trade);
   const walletRead = SERVER.indexOf('const wallet = await getWallet(userId)', trade);
-  assert.ok(tradeGate > trade && tradeGate < walletRead, 'activation gate precedes the balance read');
+  assert.ok(tradeGate > trade && tradeGate < walletRead, 'eligibility gate precedes the balance read');
 });
 
 test('35. a rejected webhook answers 401 rather than a silent 200', () => {

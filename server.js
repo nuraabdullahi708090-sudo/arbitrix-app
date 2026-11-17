@@ -312,19 +312,28 @@ const payhipEntitlements = createPayhipEntitlements({
 });
 
 /**
- * Is Live Mode unlocked for this account?
+ * Is the PAYHIP ACTIVATION requirement satisfied for this account?
  *
- * Three ways to be unlocked:
- *   1. the requirement is switched off (PAYHIP_ACTIVATION_REQUIRED is unset -
- *      the default, so shipping this code changes behaviour for nobody), or
- *   2. the account already holds a confirmed deposit - it was trading before the
- *      activation model existed and is GRANDFATHERED, so a rollout can never lock
- *      an existing customer out of their own funded account, or
- *   3. it holds a claimed, paid, unrevoked Payhip activation entitlement.
+ * ACTIVATION ONLY. This answers one question - does the account hold a paid,
+ * unrevoked activation entitlement? - and it never looks at deposits. The
+ * approved rule is that activation and funding are INDEPENDENT: the $50 buys
+ * permission to use Live Mode and never funds the wallet, and a deposit never
+ * unlocks Live Mode. The combined decision lives in getLiveModeEligibility().
  *
- * Returns { activated, reason, activationRequired, exempt } so callers can report
- * precisely why. Fails OPEN on an unreadable entitlement store: an infrastructure
- * blip must never block a funded customer from trading.
+ * There is deliberately NO grandfathering, no deposit-based exemption and no
+ * cutoff date: a confirmed deposit must never satisfy this requirement.
+ *
+ * Outcomes:
+ *   not-required           the switch is off (PAYHIP_ACTIVATION_REQUIRED unset,
+ *                          the default) - shipping this code changes access for
+ *                          nobody;
+ *   sandbox                MARKETING_SANDBOX accounts are simulated by design;
+ *   licensed               a claimed, paid, unrevoked entitlement exists;
+ *   activation-required    no entitlement;
+ *   activation-unavailable the entitlement store could not be read. FAIL CLOSED:
+ *                          an unproven entitlement is a refusal, reported
+ *                          retryable so the UI says "try again" rather than
+ *                          "buy a licence you may already own".
  */
 async function getLiveActivationState(userId) {
   if (!PAYHIP_CONFIG.activationRequired) {
@@ -342,25 +351,11 @@ async function getLiveActivationState(userId) {
     }
   } catch (e) { /* fall through to the normal checks */ }
 
-  const deposited = await hasConfirmedDeposit(userId).catch(() => null);
-  if (deposited === true) {
-    return { activated: true, reason: 'grandfathered-deposit', activationRequired: true, exempt: true };
-  }
-
   const held = await payhipEntitlements.hasActivation(userId);
   if (held === true) {
     return { activated: true, reason: 'licensed', activationRequired: true, exempt: false };
   }
   if (held === null) {
-    // We cannot READ the entitlement, so we cannot PROVE one. An unproven
-    // entitlement is a refusal for anyone who has not already passed the
-    // grandfather branch above: granting here would let a database blip unlock
-    // Live Mode for every account. Reported as retryable (503) so the UI says
-    // "try again", never "buy a licence you may already own".
-    //
-    // The ordering is what protects existing customers: the confirmed-deposit
-    // check runs BEFORE this one and never touches Payhip, so a Payhip outage
-    // cannot lock a funded account out.
     return {
       activated: false,
       reason: 'activation-unavailable',
@@ -381,13 +376,22 @@ async function getLiveActivationState(userId) {
  */
 async function getLiveModeStatus(userId, known) {
   const k = known || {};
-  const activation = k.activation || await getLiveActivationState(userId).catch(() => ({
+  // One resolver decides access; the display derives from it. Callers that
+  // already computed eligibility pass it in, so a login does not repeat the work.
+  const eligibility = k.eligibility || await getLiveModeEligibility(userId).catch(() => null);
+  const activation = eligibility ? {
+    activated: eligibility.activated === true,
+    reason: eligibility.reason,
+    activationRequired: eligibility.activationRequired === true,
+    exempt: eligibility.exempt === true,
+    retryable: eligibility.retryable === true
+  } : (k.activation || {
     activated: false,
     reason: 'activation-unavailable',
     activationRequired: PAYHIP_CONFIG.activationRequired,
     exempt: false,
     retryable: true
-  }));
+  });
   const wallet = k.wallet || await getWallet(userId).catch(() => null);
   const funded = typeof k.hasConfirmedDeposit === 'boolean'
     ? k.hasConfirmedDeposit
@@ -399,7 +403,11 @@ async function getLiveModeStatus(userId, known) {
     activation,
     liveBalance: wallet ? wallet.live_balance : 0,
     hasConfirmedDeposit: !!funded,
-    promoFunding
+    promoFunding,
+    eligible: eligibility ? eligibility.eligible : null,
+    depositSatisfied: eligibility ? eligibility.depositSatisfied : null,
+    depositTotal: eligibility ? eligibility.depositTotal : null,
+    minDeposit: eligibility ? eligibility.minDeposit : PLATFORM_MIN_DEPOSIT
   });
 }
 
@@ -433,6 +441,108 @@ function sendActivationRefusal(res, activation) {
     reason: state.reason || 'activation-required',
     retryable: false
   }));
+}
+
+/**
+ * THE LIVE MODE DECISION: activation AND a qualifying deposit.
+ *
+ * Approved commercial rule: Live Mode requires BOTH a valid Payhip activation
+ * ($50, one-time) AND a confirmed deposit of at least the platform minimum
+ * ($100). Neither substitutes for the other. The $50 never credits the wallet,
+ * and a deposit never creates or satisfies an activation.
+ *
+ * Inert when PAYHIP_ACTIVATION_REQUIRED is unset: eligibility is true and the
+ * deposit facts are still reported for display, so shipping this code changes
+ * access for nobody until the operator turns the switch on.
+ *
+ * Fails CLOSED when a fact cannot be established (unreadable entitlement or
+ * deposit tables): a retryable refusal, never an unlock.
+ */
+async function getLiveModeEligibility(userId) {
+  const activation = await getLiveActivationState(userId).catch(() => ({
+    activated: false,
+    reason: 'activation-unavailable',
+    activationRequired: true,
+    exempt: false,
+    retryable: true
+  }));
+  const minDeposit = PLATFORM_MIN_DEPOSIT;
+
+  if (activation.activationRequired !== true) {
+    return {
+      eligible: true, reason: 'not-required', activationRequired: false, activated: true,
+      exempt: true, depositRequired: false, depositSatisfied: true, depositTotal: null,
+      minDeposit, retryable: false
+    };
+  }
+  if (activation.reason === 'sandbox') {
+    return {
+      eligible: true, reason: 'sandbox', activationRequired: true, activated: true,
+      exempt: true, depositRequired: false, depositSatisfied: true, depositTotal: null,
+      minDeposit, retryable: false
+    };
+  }
+
+  const read = await getConfirmedDepositTotal(userId);
+  const depositSatisfied = read.ok && read.total >= minDeposit;
+  const base = {
+    activationRequired: true,
+    activated: activation.activated === true,
+    exempt: false,
+    depositRequired: true,
+    depositSatisfied,
+    depositTotal: read.ok ? read.total : null,
+    minDeposit
+  };
+  // Activation is checked FIRST so the prompt names the step that is actually
+  // missing; an unreadable entitlement is retryable, an absent one is actionable.
+  if (activation.activated !== true) {
+    return Object.assign(base, {
+      eligible: false,
+      reason: activation.reason || 'activation-required',
+      retryable: activation.retryable === true
+    });
+  }
+  if (!read.ok) {
+    return Object.assign(base, { eligible: false, reason: 'deposit-check-unavailable', retryable: true });
+  }
+  if (!depositSatisfied) {
+    return Object.assign(base, { eligible: false, reason: 'deposit-required', retryable: false });
+  }
+  return Object.assign(base, { eligible: true, reason: 'eligible', retryable: false });
+}
+
+/**
+ * Refuse a Live Mode action, naming the requirement that is actually missing.
+ * 503 when the decision could not be MADE (retry); 403 when it was made and the
+ * answer is no. Every body carries a machine-readable code so the client renders
+ * the right prompt without parsing prose.
+ */
+function sendLiveModeRefusal(res, state) {
+  const s = state || {};
+  if (s.retryable === true) {
+    if (s.reason === 'deposit-check-unavailable') {
+      return res.status(503).json({
+        error: 'Your deposit status could not be verified. Please try again.',
+        code: 'LIVE_DEPOSIT_CHECK_UNAVAILABLE',
+        reason: s.reason,
+        retryable: true
+      });
+    }
+    return sendActivationRefusal(res, s);
+  }
+  if (s.activated !== true) {
+    return sendActivationRefusal(res, s);
+  }
+  return res.status(403).json({
+    error: 'A confirmed deposit of at least $' + s.minDeposit + ' is required for Live Mode.',
+    code: 'LIVE_DEPOSIT_REQUIRED',
+    reason: s.reason || 'deposit-required',
+    depositRequired: true,
+    minDeposit: s.minDeposit,
+    depositTotal: s.depositTotal,
+    activationRequired: false
+  });
 }
 
 // ============================================
@@ -2485,6 +2595,47 @@ async function hasConfirmedDeposit(userId) {
 }
 
 /**
+ * TOTAL CONFIRMED DEPOSIT (USD) - the funding half of Live Mode eligibility.
+ *
+ * A provider invoice also writes a legacy `deposits` row keyed by invoice_id, so
+ * one payment can appear in BOTH tables. SUM would double-count it; MAX cannot:
+ * when both tables hold the same payments they agree, and a partial write leaves
+ * the larger (correct) figure. Read-only - this never writes an amount.
+ *
+ * Returns { ok, total }. `ok:false` means the fact could not be ESTABLISHED, so
+ * the caller fails closed instead of pretending the account is funded (which
+ * would unlock Live Mode on a database blip) or unfunded (which would be a false
+ * statement about the customer).
+ */
+async function getConfirmedDepositTotal(userId) {
+  const [legacy, provider] = await Promise.all([
+    supabaseAdmin
+      .from('deposits')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('status', 'confirmed')
+      .limit(1000),
+    supabaseAdmin
+      .from('payment_invoices')
+      .select('amount_usd')
+      .eq('user_id', userId)
+      .eq('status', 'confirmed')
+      .limit(1000)
+  ]);
+  if (legacy.error || provider.error) {
+    console.log('[getConfirmedDepositTotal] error:', (legacy.error || provider.error).message);
+    return { ok: false, total: 0 };
+  }
+  const sum = (rows, field) => (rows || []).reduce((acc, row) => {
+    const n = Number(row && row[field]);
+    return Number.isFinite(n) && n > 0 ? acc + n : acc;
+  }, 0);
+  const legacyTotal = Math.round(sum(legacy.data, 'amount') * 100) / 100;
+  const providerTotal = Math.round(sum(provider.data, 'amount_usd') * 100) / 100;
+  return { ok: true, total: Math.max(legacyTotal, providerTotal) };
+}
+
+/**
  * Sum of realized trading P&L actually persisted via record_trade_safe() for
  * the current UTC day. Reads the append-only `trades` ledger (signed amounts),
  * so this can NEVER include deposits, withdrawals, referral bonuses, or other
@@ -3989,22 +4140,32 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   const promoCreditFunded = promoFunding === true;
   const promoClassificationUnknown = promoFunding === null;
   const promoProfit = promoCreditFunded ? await getPromoRealizedProfit(user.id).catch(() => 0) : 0;
-  // Payhip Live Mode activation, resolved once for this response. Inert (always
-  // activated) unless the operator turns the requirement on.
-  const _liveActivation = await getLiveActivationState(user.id).catch(() => ({
-    // If the resolver itself throws, report "unknown" - never "activated". The
-    // real gates are authoritative either way; this only decides which prompt the
-    // dashboard renders.
+  // Live Mode eligibility (activation AND qualifying deposit), resolved once for
+  // this response. Inert (always eligible) unless the operator turns the
+  // activation requirement on; the deposit half is still reported for display.
+  const _liveEligibility = await getLiveModeEligibility(user.id).catch(() => ({
+    eligible: false,
+    activationRequired: PAYHIP_CONFIG.activationRequired,
     activated: false,
     reason: 'activation-unavailable',
-    activationRequired: PAYHIP_CONFIG.activationRequired,
     exempt: false,
-    retryable: true
+    retryable: true,
+    depositRequired: true,
+    depositSatisfied: false,
+    depositTotal: null,
+    minDeposit: PLATFORM_MIN_DEPOSIT
   }));
+  const _liveActivation = {
+    activated: _liveEligibility.activated,
+    reason: _liveEligibility.reason,
+    activationRequired: _liveEligibility.activationRequired,
+    exempt: _liveEligibility.exempt,
+    retryable: _liveEligibility.retryable
+  };
   // Read-only Live Mode display state, derived from the values above so this
   // adds no queries to the login path. The gates themselves are unchanged.
   const _liveMode = await getLiveModeStatus(user.id, {
-    activation: _liveActivation,
+    eligibility: _liveEligibility,
     wallet,
     hasConfirmedDeposit: !!funded,
     promoFunding
@@ -4017,13 +4178,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     // dashboard. Display only: nothing here can unlock trading or credit money.
     liveMode: _liveMode,
     todayRealizedPnl: Number(todayPnl) || 0,
-    // Payhip Live Mode activation (server-authoritative; the frontend never
-    // infers it from localStorage). activationRequired is false unless the
-    // operator enables the requirement, and liveActivated is true for funded and
-    // grandfathered accounts.
+    // Live Mode eligibility (server-authoritative; the frontend never infers it
+    // from localStorage). activationRequired is false unless the operator enables
+    // the requirement. Live Mode needs BOTH halves, so the deposit facts are
+    // reported separately: a customer must be told which step is missing.
     activationRequired: _liveActivation.activationRequired === true,
     liveActivated: _liveActivation.activated === true,
     activationReason: _liveActivation.reason,
+    liveEligible: _liveEligibility.eligible === true,
+    liveDepositRequired: _liveEligibility.depositRequired === true,
+    liveDepositSatisfied: _liveEligibility.depositSatisfied === true,
+    liveDepositTotal: _liveEligibility.depositTotal,
+    liveMinDeposit: _liveEligibility.minDeposit,
     activationPurchasable: !!(PAYHIP_CONFIG.usable && PAYHIP_CONFIG.storeUrl),
     activationStoreUrl: PAYHIP_CONFIG.usable ? (PAYHIP_CONFIG.storeUrl || '') : '',
     environment: ENV_PRODUCTION,
@@ -7334,14 +7500,15 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // a missing/unexpected client mode is treated as live-style trading. The
   // balance is read from the server wallet, never from the request.
   const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
-  // PAYHIP ACTIVATION GATE (Live Mode only). Demo Mode stays available to every
-  // registered user. Inert unless PAYHIP_ACTIVATION_REQUIRED is set, and funded
-  // accounts are grandfathered. Runs BEFORE any session write, so a locked
+  // LIVE MODE ELIGIBILITY GATE. Demo Mode stays available to every registered
+  // user. Live needs BOTH a valid Payhip activation AND a confirmed deposit of
+  // at least the platform minimum - neither substitutes for the other, and there
+  // is no grandfathering. Runs BEFORE any session write, so an ineligible
   // account can never create a running bot row.
   if (mode === 'live') {
-    const activation = await getLiveActivationState(userId);
-    if (!activation.activated) {
-      return sendActivationRefusal(res, activation);
+    const eligibility = await getLiveModeEligibility(userId);
+    if (!eligibility.eligible) {
+      return sendLiveModeRefusal(res, eligibility);
     }
     // FUNDING GATE. Activation buys permission; it never buys capital. A Live
     // account with nothing in it has nothing to trade, so refuse the entry with a
@@ -7614,12 +7781,15 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
   if (await sandboxHandled(req, res, handleSandboxTrade)) return;
   try {
     const userId = req.user.id;
-    // PAYHIP ACTIVATION GATE. A trade is a Live Mode action, so an unactivated
-    // account cannot trade. Checked before any balance read or ledger write.
+    // LIVE MODE ELIGIBILITY GATE. A trade is a Live Mode action, so it needs the
+    // SAME two facts as /api/bot/start: a valid Payhip activation AND a confirmed
+    // deposit of at least the platform minimum. Enforced here as well because a
+    // direct API call must not be able to skip the bot screen. Checked before any
+    // balance read or ledger write.
     {
-      const activation = await getLiveActivationState(userId);
-      if (!activation.activated) {
-        return sendActivationRefusal(res, activation);
+      const eligibility = await getLiveModeEligibility(userId);
+      if (!eligibility.eligible) {
+        return sendLiveModeRefusal(res, eligibility);
       }
     }
     const { amount, asset, detail, idempotencyKey } = req.body;
@@ -11536,17 +11706,31 @@ app.post('/api/payhip/webhook', async (req, res) => {
 // Customer: is Live Mode unlocked, and how do I unlock it?
 app.get('/api/live/activation', authMiddleware, async (req, res) => {
   try {
-    const state = await getLiveActivationState(req.user.id);
+    const eligibility = await getLiveModeEligibility(req.user.id);
+    const state = {
+      activated: eligibility.activated,
+      reason: eligibility.reason,
+      activationRequired: eligibility.activationRequired,
+      exempt: eligibility.exempt,
+      retryable: eligibility.retryable
+    };
     return res.json({
       success: true,
       activationRequired: state.activationRequired,
       activated: state.activated,
       reason: state.reason,
       exempt: state.exempt,
+      // The second half of the decision, so the dashboard can say which step is
+      // missing instead of showing one generic "activation required" prompt.
+      eligible: eligibility.eligible,
+      depositRequired: eligibility.depositRequired,
+      depositSatisfied: eligibility.depositSatisfied,
+      depositTotal: eligibility.depositTotal,
+      minDeposit: eligibility.minDeposit,
       // Same read-only payload /api/auth/me returns, so the dashboard can
       // re-render its Live Mode label immediately after an activation without
       // a second round trip (and without the client guessing the new state).
-      liveMode: await getLiveModeStatus(req.user.id, { activation: state }),
+      liveMode: await getLiveModeStatus(req.user.id, { eligibility }),
       // Only what the browser needs to render a checkout button. Never a key,
       // never the webhook token, never a product price invented server-side.
       purchase: {
@@ -11579,14 +11763,21 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
   // The account ALWAYS comes from the JWT, never from the body.
   const result = await payhipEntitlements.redeem(req.user.id, licenceKey);
   if (result.success) {
-    const state = await getLiveActivationState(req.user.id);
+    // Post-redemption state, computed by the SAME resolver as the gates, so the
+    // dashboard cannot be told something the server would refuse. `activated`
+    // means "entitlement present"; `eligible` is the full two-part decision and
+    // is false until the $100 deposit is also confirmed.
+    const eligibility = await getLiveModeEligibility(req.user.id);
     return res.json({
       success: true,
       alreadyClaimed: !!result.duplicate,
-      activated: state.activated,
-      // Post-activation state, so the dashboard's promotional-credit / Live Mode
-      // card updates from the server's own answer instead of a client guess.
-      liveMode: await getLiveModeStatus(req.user.id, { activation: state })
+      activated: eligibility.activated,
+      eligible: eligibility.eligible,
+      depositRequired: eligibility.depositRequired,
+      depositSatisfied: eligibility.depositSatisfied,
+      depositTotal: eligibility.depositTotal,
+      minDeposit: eligibility.minDeposit,
+      liveMode: await getLiveModeStatus(req.user.id, { eligibility })
     });
   }
   const status = result.reason === 'invalid-licence' ? 404

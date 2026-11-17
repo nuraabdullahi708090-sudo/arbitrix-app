@@ -168,7 +168,7 @@ test('4. /api/auth/me reports liveMode and reads it from data it already loaded'
     'it is derived once, inside the handler');
   const call = SERVER.slice(SERVER.indexOf('const _liveMode = await getLiveModeStatus(user.id, {'));
   const body = call.slice(0, 400);
-  ['activation: _liveActivation', 'wallet,', 'hasConfirmedDeposit: !!funded', 'promoFunding']
+  ['eligibility: _liveEligibility', 'wallet,', 'hasConfirmedDeposit: !!funded', 'promoFunding']
     .forEach((arg) => assert.ok(body.includes(arg),
       'must reuse the already-loaded ' + arg + ' (no duplicate queries on login)'));
 });
@@ -194,8 +194,10 @@ test('4b. registration returns the wallet + liveMode so the credit is visible im
 });
 
 test('5. every activation surface returns the same shape so the UI never guesses', () => {
-  assert.strictEqual((SERVER.match(/liveMode: await getLiveModeStatus\(req\.user\.id, \{ activation: state \}\)/g) || []).length, 2,
-    '/api/live/activation and /api/live/activate both return it after a state change');
+  // Both surfaces derive their payload from the SAME resolver (eligibility), so
+  // the dashboard can never be told something the gates would refuse.
+  assert.strictEqual((SERVER.match(/liveMode: await getLiveModeStatus\(req\.user\.id, \{ eligibility \}\)/g) || []).length, 2,
+    '/api/live/activation and /api/live/activate both report the resolver state');
   assert.match(SERVER, /liveMode: buildLiveModeStatus\(\{/,
     'the MARKETING_SANDBOX branch reports its own (never gated, never promo) state');
 });
@@ -263,8 +265,13 @@ test('9. the card shows the amount, the explanation and a real status chip', () 
   // data-i18n binding would print the raw placeholder (Phase 3H lesson).
   assert.ok(!/data-i18n="promo\.creditExplain"/.test(INDEX),
     'promo.creditExplain must not be a data-i18n target');
-  assert.match(INDEX, /explain\.textContent = amount > 0\s*\n?\s*\? t\('promo\.creditExplain', \{ amount:/,
+  // The explainer is now chosen per status (deposit_required / amount / plain),
+  // and each branch still goes through t() with its own placeholders.
+  assert.match(INDEX, /text = t\('promo\.creditExplain', \{ amount: String\(Number\(amount\)\) \}\);/,
     'the explanation is interpolated with the server amount');
+  assert.match(INDEX, /text = t\('liveMode\.depositNote', \{ min: String\(Number\(APP\.MIN_DEPOSIT\) \|\| 0\) \}\);/,
+    'the deposit-required state explains the second requirement with the server minimum');
+  assert.match(INDEX, /explain\.textContent = text;/, 'the chosen string is written as text');
 });
 
 test('10. the renderer writes text, never HTML, and never touches a balance', () => {
