@@ -219,3 +219,16 @@ parse; 0 U+FFFD.
 6. **No production verification was possible** from this environment: no
    PostgreSQL, no Payhip credentials, no deploy. The migrations were not
    executed; the tests substitute the database and the licence API.
+
+---
+
+## 9. Repository verification log
+
+* Commit `aee5a90` on `relaunch/rebrand-payment-commercial` (PR #171, still a
+  draft; base `main` = `7910db6`).
+* GitHub Actions for `aee5a90`: **static checks passed, `npm test` passed (both
+  matrix legs)**.
+* Local: `npm test` = 3349 pass / 0 fail / 0 skipped; `node --check` clean;
+  8/8 inline `index.html` script blocks parse; 0 U+FFFD.
+* `docs/relaunch/FINAL-INDEPENDENT-REVIEW.md` is deliberately left untracked
+  (review artefact, not part of this change).
