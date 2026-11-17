@@ -605,6 +605,18 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
       return { success: false, reason: 'unavailable', retryable: true };
     }
     const out = data || { success: false, reason: 'unavailable' };
+
+    // The provider already said this licence is real, enabled and allow-listed, so
+    // reaching here means Payhip knows a sale we have no record of: its webhook
+    // never landed (Payhip retries for 3 hours) or the database was down when it
+    // did. That is NOT an invalid key, and telling the buyer so sends them to
+    // support with the wrong question. Nothing is granted - the row lock simply
+    // has nothing to lock - the outcome is just named honestly and retryable.
+    if (!out.success && out.reason === 'invalid_licence') {
+      await recordEvent('redeem', null, 'not-recorded');
+      return { success: false, reason: 'not-recorded', retryable: true, detail: 'no-recorded-sale' };
+    }
+
     await recordEvent('redeem', null, out.success ? (out.duplicate ? 'already-claimed' : 'claimed') : out.reason);
 
     // Best effort, and never part of the decision: the seller's `uses` counter.

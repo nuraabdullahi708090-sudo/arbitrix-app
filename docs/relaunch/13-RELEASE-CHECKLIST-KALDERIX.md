@@ -169,15 +169,22 @@ apply it here "because it is on the list" - each of those has its own prerequisi
 
 ---
 
-## 5. Step 3 - ship the code (no behaviour change)
+## 5. Step 3 - ship the code
 
 ```bash
 git push origin relaunch/rebrand-payment-commercial:main
 ```
 
-Render rebuilds. Expected effect on customers: **none**. Every knob is off:
-`PAYHIP_*` unset (feature inert), `PLATFORM_MIN_DEPOSIT_USD` unset (floor $100),
-identity not applied (the candidate is data, `applyBrandAssets()` returns early).
+Render rebuilds. **This deploy DOES change what customers see: the product is
+renamed to Kalderix** - the identity is in the code, not a release-time switch
+(section 7.1). Everything financial stays inert because its knobs are off:
+`PAYHIP_*` unset (activation gate and webhook inert) and
+`PLATFORM_MIN_DEPOSIT_USD` unset (floor still $100 until step 4). Balances,
+deposits, withdrawals, trading, referrals and the sandbox are unchanged.
+
+Read section 7.3 straight after this deploy: it is the two-minute browser check of
+the new identity (title, six locales, TOTP issuer, transaction labels, support
+bot).
 
 Verify:
 

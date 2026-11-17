@@ -51,32 +51,27 @@ const EXPECTED_KEYS = 87;
 // creation deep link. No bespoke registration and no external redirect.
 const APPLY_URL = '/?action=create-account&src=partners';
 
-// Current approved baseline of public/index.html. The /partners feature itself
-// does not modify the homepage funnel; this hash was updated once for the
-// separately-approved removal of the sandbox "simulated" callouts from the
-// referral area (Option A), again for the separately-approved landing-video
-// repoint to the product-demo asset (arbitrix-how-it-works-product-demo-en.mp4),
-// again for the referral-payout audit fix (a PAID payout now requires a
-// non-empty transaction reference in the admin UI), and again for the
-// partner-funnel attribution fix (a 1-hour localStorage fallback + a
-// ?src=partners signal on the partner Apply CTAs; still additive: no
-// partner-page logic injected into the app shell), and once more for the
-// deposit funding-options change (three routes + the verified-partner panel on
-// the Deposit page, which is a deliberately approved homepage edit; the pin
-// still fails if any FUTURE /partners work touches the homepage silently), and
-// once more for the deposit-discoverability change (an Available-card Deposit
-// action, a sticky deposit-dialog header, live-wallet wording and actionable
-// invoice errors), and again for the withdrawal-discoverability change (an
-// Available-card Withdraw action sharing that row), and once more for the
-// mobile full-screen deposit dialog (a markup nesting fix plus the <=640px
-// dialog layout), and once more for the deposit-dialog section reorder that
-// moved the tutorials card to the bottom of the panel. Each re-pin was an
-// approved homepage change, not /partners drift. Re-pinned once more for the
-// relaunch: the subscription history prefixes are now DERIVED from BRAND, so a
-// rename cannot collapse the pre-rename era into the current one. That change is
-// 13 lines inside txDetailLabel's helpers and touches no funnel markup.
-const INDEX_SHA256 = 'f26aa7b43a0c59b2ee9544b0542f7096af1875ac92801572715b9be01c605a17';
-
+// Tamper pin for the ANONYMOUS FUNNEL ONLY: everything from the landing page
+// markup up to the app shell (`<div id="landingPage">` .. `id="mainApp"`).
+//
+// This used to hash all of public/index.html, which meant every approved
+// homepage edit - ten of them, listed below - forced a re-pin, and the pin's
+// real question ("did /partners work touch the funnel?") was buried in noise.
+// Scoping it to the funnel keeps the signal: a /partners change that alters the
+// landing page, the auth screen or the loader still fails here, while a change
+// elsewhere in the app does not.
+//
+// Re-pin ONLY when an approved change edits this slice. The /partners feature
+// itself never has.
+const FUNNEL_START = '<div id="landingPage"';
+const FUNNEL_END = 'id="mainApp"';
+function funnelSlice() {
+    const a = INDEX.indexOf(FUNNEL_START);
+    const b = INDEX.indexOf(FUNNEL_END, a);
+    assert.ok(a > 0 && b > a, 'the funnel slice must be locatable');
+    return INDEX.slice(a, b);
+}
+const FUNNEL_SHA256 = '4a2628d841ed5628c45da4e5cc25d8a6b74dde3f81f90658a7c0fa4d3146bfa6';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';
@@ -805,10 +800,14 @@ test('8j. no other recruitment surface points at a payment partner', () => {
 /* ------------------------------------------------------------------ *
  * 9. Unlisted: the homepage funnel is untouched
  * ------------------------------------------------------------------ */
-test('9. public/index.html is byte-for-byte unchanged', () => {
-    const sha = crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'public', 'index.html'))).digest('hex');
-    assert.strictEqual(sha, INDEX_SHA256,
-        'public/index.html must match the approved baseline (the /partners feature must not modify the homepage funnel)');
+test('9. the homepage funnel is unchanged', () => {
+    const sha = crypto.createHash('sha256').update(funnelSlice(), 'utf8').digest('hex');
+    assert.strictEqual(sha, FUNNEL_SHA256,
+        'the landing/auth funnel must match the approved baseline (the /partners feature must not modify it)');
+    // and the slice really is the funnel, not an empty string
+    const slice = funnelSlice();
+    assert.match(slice, /id="authPage"/, 'the auth screen is inside the pinned slice');
+    assert.ok(slice.length > 50000, 'the slice covers the real landing + auth markup');
 });
 
 test('9b. the page is not added to the homepage navigation', () => {

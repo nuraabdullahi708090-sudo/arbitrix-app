@@ -457,6 +457,39 @@ test('24. invalid licence: redemption denied and nothing is claimed', async () =
     'an unverified key must never reach the claim function');
 });
 
+test('25a. a REAL licence we have no sale record for is not called "invalid"', async () => {
+  // Payhip verified the key (enabled, allow-listed) but the database has no
+  // entitlement - i.e. the paid webhook never landed (Payhip retries for 3 hours)
+  // or the DB was down when it did. The buyer must be told the truth: retry.
+  const a = makeAdmin({
+    rpcResults: { redeem_payhip_entitlement_safe: { success: false, reason: 'invalid_licence' } }
+  });
+  const svc = P.createPayhipEntitlements({
+    admin: a.api, config: CFG(), fetchImpl: licenceFetch({ body: validLicence() })
+  });
+  const out = await svc.redeem(42, 'AAAA-BBBB-CCCC-DDDD');
+  assert.strictEqual(out.success, false, 'nothing is granted without a recorded sale');
+  assert.strictEqual(out.reason, 'not-recorded');
+  assert.strictEqual(out.retryable, true, 'a later retry can succeed once the webhook lands');
+  assert.ok(a.calls.some((c) => c.name === 'redeem_payhip_entitlement_safe'),
+    'the claim function was still consulted (it is the authority)');
+  const event = a.inserted.find((i) => i.table === 'payhip_events' && i.payload.outcome === 'not-recorded');
+  assert.ok(event, 'operators can see this in payhip_events instead of a misleading refusal');
+  // and the customer-facing string explains what to do
+  assert.match(SERVER, /'not-recorded': '[^']*confirming your purchase/);
+  assert.ok(!/\bnot-recorded\b[^\n]*invalid/i.test(SERVER), 'never described as an invalid key');
+});
+
+test('25b. an unknown key is still reported as invalid, and reaches no claim', async () => {
+  const a = makeAdmin({ rpcResults: { redeem_payhip_entitlement_safe: { success: true } } });
+  const svc = P.createPayhipEntitlements({
+    admin: a.api, config: CFG(), fetchImpl: licenceFetch({ body: {} })
+  });
+  const out = await svc.redeem(42, 'NOPE-NOPE');
+  assert.strictEqual(out.reason, 'invalid-licence', 'the provider says this key does not exist');
+  assert.ok(!a.calls.some((c) => c.name === 'redeem_payhip_entitlement_safe'));
+});
+
 test('25. a reused licence is refused for the second account by the database', async () => {
   const a = makeAdmin({
     rpcResults: { redeem_payhip_entitlement_safe: { success: false, reason: 'claimed_by_other_account' } }
@@ -470,6 +503,32 @@ test('25. a reused licence is refused for the second account by the database', a
   // The one-account rule is a row lock in migration 050, not a service check.
   assert.match(MIGRATION, /FOR UPDATE/);
   assert.match(MIGRATION, /claimed_by_other_account/);
+});
+
+test('25c. the browser tells a real-but-unconfirmed buyer the truth, in their language', () => {
+  // The refusal is rendered from the reason, not from the English server string:
+  // every locale has its own sentence.
+  assert.match(INDEX, /const confirming = data\.reason === 'not-recorded';/);
+  assert.match(INDEX, /confirming\s*\n\s*\? t\('liveActivation\.confirming'\)/);
+
+  const i = INDEX.indexOf('const TRANSLATIONS');
+  const start = INDEX.indexOf('{', i);
+  let depth = 0;
+  let end = -1;
+  for (let k = start; k < INDEX.length; k++) {
+    if (INDEX[k] === '{') depth++;
+    else if (INDEX[k] === '}') { depth--; if (depth === 0) { end = k; break; } }
+  }
+  const sb = {};
+  vm.createContext(sb);
+  vm.runInContext('this.T = ' + INDEX.slice(start, end + 1), sb);
+  const T = sb.T;
+  for (const lang of ['en', 'es', 'pt', 'fr', 'ar', 'zh']) {
+    const v = T[lang] && T[lang]['liveActivation.confirming'];
+    assert.ok(typeof v === 'string' && v.trim().length > 20, lang + ' has a confirming message');
+    assert.ok(!/not valid/i.test(v), lang + ' never calls a real purchase invalid');
+    if (lang === 'ar') assert.match(v, /[\u0600-\u06FF]/, 'Arabic is written in Arabic script');
+  }
 });
 
 test('26. a disabled or refunded licence is refused', async () => {

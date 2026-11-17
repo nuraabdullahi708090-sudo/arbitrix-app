@@ -11569,6 +11569,9 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
   if (result.retryAfterMs) res.set('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
   const messages = {
     'invalid-licence': 'That licence key is not valid.',
+      // A real, enabled licence that Payhip knows about but we have no sale record
+      // for yet (webhook still retrying). Retrying works; support can replay it.
+      'not-recorded': 'We are still confirming your purchase. Please try again in a few minutes, or contact support with your Payhip receipt.',
     'licence-disabled': 'That licence has been disabled or refunded.',
     'wrong-product': 'That licence is not for a Live Mode activation product.',
     'claimed_by_other_account': 'That licence key has already been redeemed by another account.',

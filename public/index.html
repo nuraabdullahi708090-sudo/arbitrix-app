@@ -7122,6 +7122,38 @@ function toggleFaq(btn) {
                     
                     <!-- Deposits Tab -->
                     <div id="adminTabContentDeposits" class="hidden">
+                        <!-- Deposit reconciliation (read-only). A rounded payment or a
+                             late payment shows up here instead of in a support ticket. -->
+                        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                                <div style="min-width:0;">
+                                    <h4 style="margin:0 0 2px;font-size:13px;font-weight:600;color:var(--text-primary);" data-i18n="admin.reconciliation.title">Deposit reconciliation</h4>
+                                    <p style="margin:0;font-size:11px;line-height:1.5;color:var(--text-secondary);" data-i18n="admin.reconciliation.desc">Read-only. Nothing here is credited automatically - verify the payment on-chain and against its invoice first.</p>
+                                </div>
+                                <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+                                    <select id="reconciliationWindow" onchange="loadDepositReconciliation()" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--on-brand);font-size:11px;">
+                                        <option value="2">2h</option>
+                                        <option value="24">24h</option>
+                                        <option value="168">7d</option>
+                                    </select>
+                                    <button type="button" onclick="loadDepositReconciliation()" style="background:var(--border);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:#7C5CFF;font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span></button>
+                                </div>
+                            </div>
+                            <div id="reconciliationSummary" style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;"></div>
+                            <div class="table-wrap" style="max-height:200px;overflow-y:auto;">
+                                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                                    <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
+                                        <tr style="border-bottom:1px solid var(--border);">
+                                            <th style="padding:6px;text-align:left;color:var(--text-secondary);" data-i18n="admin.col.id">ID</th>
+                                            <th style="padding:6px;text-align:left;color:var(--text-secondary);" data-i18n="admin.col.user">User</th>
+                                            <th style="padding:6px;text-align:left;color:var(--text-secondary);" data-i18n="admin.col.amount">Amount</th>
+                                            <th style="padding:6px;text-align:left;color:var(--text-secondary);" data-i18n="admin.col.date">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reconciliationTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
                         <div class="table-wrap" style="max-height:300px;overflow-y:auto;">
                             <table style="width:100%;font-size:11px;border-collapse:collapse;">
                                 <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1;">
@@ -9993,6 +10025,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'One licence activates one account, once, and cannot be transferred. Activation never credits a balance.',
         'liveActivation.keyRequired': 'Enter your licence key.',
         'liveActivation.failed': 'That licence key could not be redeemed.',
+        'liveActivation.confirming': 'We are still confirming your purchase. Please try again in a few minutes, or contact support with your Payhip receipt.',
         'liveActivation.retryLater': 'Activation is temporarily unavailable. Please try again in a moment.',
         'liveActivation.success': 'Live Mode activated.',
         'live.withdrawStatus.needMinimum': '📈 Minimum withdrawal: ${{min}}',
@@ -10579,6 +10612,11 @@ const TRANSLATIONS = {
         'admin.ops.audit': 'Audit',
         'admin.ops.reports': 'Reports',
         'admin.refresh': 'Refresh',
+        'admin.reconciliation.title': 'Deposit reconciliation',
+        'admin.reconciliation.desc': 'Read-only. Nothing here is credited automatically - verify the payment on-chain and against its invoice first.',
+        'admin.reconciliation.stale': '{{count}} pending invoice(s)',
+        'admin.reconciliation.uncredited': '{{count}} confirmed but uncredited',
+        'admin.reconciliation.empty': 'Nothing to reconcile in this window.',
         'admin.viewActivity': 'View Activity',
         'admin.checkHealth': 'Check Health',
         'admin.recentActivity': 'Recent Activity',
@@ -11638,6 +11676,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'Una licencia activa una cuenta, una sola vez, y no se puede transferir. La activación nunca acredita saldo.',
         'liveActivation.keyRequired': 'Ingresá tu clave de licencia.',
         'liveActivation.failed': 'No se pudo canjear esa clave de licencia.',
+        'liveActivation.confirming': 'Todavía estamos confirmando tu compra. Vuelve a intentarlo en unos minutos o contacta con soporte con tu recibo de Payhip.',
         'liveActivation.retryLater': 'La activación no está disponible temporalmente. Inténtalo de nuevo en un momento.',
         'liveActivation.success': 'Modo Live activado.',
         'live.withdrawStatus.needMinimum': '📈 Retiro mínimo: ${{min}}',
@@ -12224,6 +12263,11 @@ const TRANSLATIONS = {
         'admin.ops.audit': 'Auditoría',
         'admin.ops.reports': 'Informes',
         'admin.refresh': 'Actualizar',
+        'admin.reconciliation.title': 'Conciliación de depósitos',
+        'admin.reconciliation.desc': 'Solo lectura. Aquí no se acredita nada automáticamente: verifica primero el pago en la cadena y con su factura.',
+        'admin.reconciliation.stale': '{{count}} factura(s) pendiente(s)',
+        'admin.reconciliation.uncredited': '{{count}} confirmado(s) sin acreditar',
+        'admin.reconciliation.empty': 'Nada que conciliar en este periodo.',
         'admin.viewActivity': 'Ver actividad',
         'admin.checkHealth': 'Comprobar salud',
         'admin.recentActivity': 'Actividad reciente',
@@ -13284,6 +13328,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'Uma licença ativa uma conta, uma única vez, e não pode ser transferida. A ativação nunca credita saldo.',
         'liveActivation.keyRequired': 'Insira sua chave de licença.',
         'liveActivation.failed': 'Não foi possível resgatar essa chave de licença.',
+        'liveActivation.confirming': 'Ainda estamos confirmando sua compra. Tente novamente em alguns minutos ou fale com o suporte com o recibo da Payhip.',
         'liveActivation.retryLater': 'A ativação está temporariamente indisponível. Tente novamente em instantes.',
         'liveActivation.success': 'Modo Live ativado.',
         'live.withdrawStatus.needMinimum': '📈 Saque mínimo: ${{min}}',
@@ -13870,6 +13915,11 @@ const TRANSLATIONS = {
         'admin.ops.audit': 'Auditoria',
         'admin.ops.reports': 'Relatórios',
         'admin.refresh': 'Atualizar',
+        'admin.reconciliation.title': 'Conciliação de depósitos',
+        'admin.reconciliation.desc': 'Somente leitura. Nada é creditado automaticamente aqui - verifique o pagamento on-chain e pela fatura primeiro.',
+        'admin.reconciliation.stale': '{{count}} fatura(s) pendente(s)',
+        'admin.reconciliation.uncredited': '{{count}} confirmado(s) sem crédito',
+        'admin.reconciliation.empty': 'Nada para conciliar neste período.',
         'admin.viewActivity': 'Ver atividade',
         'admin.checkHealth': 'Verificar saúde',
         'admin.recentActivity': 'Atividade recente',
@@ -14930,6 +14980,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'Une licence active un compte, une seule fois, et ne peut pas être transférée. L\'activation ne crédite jamais de solde.',
         'liveActivation.keyRequired': 'Saisissez votre clé de licence.',
         'liveActivation.failed': 'Cette clé de licence n\'a pas pu être utilisée.',
+        'liveActivation.confirming': 'Nous sommes en train de confirmer votre achat. Réessayez dans quelques minutes ou contactez le support avec votre reçu Payhip.',
         'liveActivation.retryLater': 'L\'activation est temporairement indisponible. Réessayez dans un instant.',
         'liveActivation.success': 'Mode Live activé.',
         'live.withdrawStatus.needMinimum': '📈 Retrait minimum : ${{min}}',
@@ -15516,6 +15567,11 @@ const TRANSLATIONS = {
         'admin.ops.audit': 'Audit',
         'admin.ops.reports': 'Rapports',
         'admin.refresh': 'Actualiser',
+        'admin.reconciliation.title': 'Rapprochement des dépôts',
+        'admin.reconciliation.desc': 'Lecture seule. Rien n’est crédité automatiquement ici : vérifiez d’abord le paiement on-chain et sa facture.',
+        'admin.reconciliation.stale': '{{count}} facture(s) en attente',
+        'admin.reconciliation.uncredited': '{{count}} confirmé(s) non crédité(s)',
+        'admin.reconciliation.empty': 'Rien à rapprocher sur cette période.',
         'admin.viewActivity': 'Voir l\'activité',
         'admin.checkHealth': 'Vérifier la santé',
         'admin.recentActivity': 'Activité récente',
@@ -16576,6 +16632,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': 'الترخيص الواحد يفعّل حساباً واحداً، مرة واحدة، ولا يمكن نقله. التفعيل لا يضيف أي رصيد.',
         'liveActivation.keyRequired': 'أدخل مفتاح الترخيص.',
         'liveActivation.failed': 'تعذّر استخدام مفتاح الترخيص هذا.',
+        'liveActivation.confirming': 'ما زلنا نتحقق من عملية الشراء. حاول مرة أخرى بعد بضع دقائق، أو تواصل مع الدعم مع إيصال Payhip.',
         'liveActivation.retryLater': 'التفعيل غير متاح مؤقتًا. حاول مرة أخرى بعد قليل.',
         'liveActivation.success': 'تم تفعيل الوضع المباشر.',
         'live.withdrawStatus.needMinimum': '📈 الحد الأدنى للسحب: ${{min}}',
@@ -17162,6 +17219,11 @@ const TRANSLATIONS = {
         'admin.ops.audit': 'التدقيق',
         'admin.ops.reports': 'التقارير',
         'admin.refresh': 'تحديث',
+        'admin.reconciliation.title': 'تسوية الإيداعات',
+        'admin.reconciliation.desc': 'للعرض فقط. لا يُضاف أي رصيد تلقائيًا هنا: تحقق من الدفعة على الشبكة ومن فاتورتها أولًا.',
+        'admin.reconciliation.stale': '{{count}} فاتورة معلّقة',
+        'admin.reconciliation.uncredited': '{{count}} مؤكدة دون إضافة رصيد',
+        'admin.reconciliation.empty': 'لا توجد عمليات للتسوية في هذه الفترة.',
         'admin.viewActivity': 'عرض النشاط',
         'admin.checkHealth': 'فحص الصحة',
         'admin.recentActivity': 'النشاط الأخير',
@@ -18222,6 +18284,7 @@ const TRANSLATIONS = {
         'liveActivation.hint': '一个许可证仅激活一个账户，且只能使用一次，不能转让。激活不会增加任何余额。',
         'liveActivation.keyRequired': '请输入您的许可证密钥。',
         'liveActivation.failed': '该许可证密钥无法兑换。',
+        'liveActivation.confirming': '我们仍在确认您的购买。请几分钟后再试，或携带 Payhip 收据联系客服。',
         'liveActivation.retryLater': '激活暂时不可用，请稍后再试。',
         'liveActivation.success': '实时模式已激活。',
         'live.withdrawStatus.needMinimum': '📈 最低提现额：${{min}}',
@@ -18808,6 +18871,11 @@ const TRANSLATIONS = {
         'admin.ops.audit': '审计',
         'admin.ops.reports': '报表',
         'admin.refresh': '刷新',
+        'admin.reconciliation.title': '充值核对',
+        'admin.reconciliation.desc': '只读。此处不会自动入账——请先在链上核对该笔付款及其发票。',
+        'admin.reconciliation.stale': '{{count}} 张待处理发票',
+        'admin.reconciliation.uncredited': '{{count}} 笔已确认但未入账',
+        'admin.reconciliation.empty': '此时间范围内无需核对的项目。',
         'admin.viewActivity': '查看活动',
         'admin.checkHealth': '检查健康',
         'admin.recentActivity': '近期活动',
@@ -19419,9 +19487,15 @@ async function submitLiveActivation() {
             // never be reported as a bad key: the customer may have paid and their
             // licence may be perfectly valid.
             const retryable = data.reason === 'unavailable' || data.reason === 'too-many-attempts';
-            fail(retryable
-                ? t('liveActivation.retryLater')
-                : translateBackendMessage(data.error, 'liveActivation.failed'));
+            // 'not-recorded' means Payhip confirmed the licence but the paid sale
+            // has not reached us yet (its webhook is still retrying). Saying "not
+            // valid" there would be wrong and would hide a real purchase.
+            const confirming = data.reason === 'not-recorded';
+            fail(confirming
+                ? t('liveActivation.confirming')
+                : (retryable
+                    ? t('liveActivation.retryLater')
+                    : translateBackendMessage(data.error, 'liveActivation.failed')));
             return;
         }
         APP.liveActivated = data.activated === true;
@@ -26012,6 +26086,11 @@ function showAdminTab(tab) {
     const content = document.getElementById('adminTabContent' + tab.charAt(0).toUpperCase() + tab.slice(1));
     if (content) content.classList.remove('hidden');
     
+    // Load the deposit reconciliation queue when the Deposits tab opens
+    if (tab === 'deposits' && typeof loadDepositReconciliation === 'function') {
+        loadDepositReconciliation();
+    }
+
     // Load KYC data if tab is KYC
     if (tab === 'kyc') {
         loadKYCVerifications();
@@ -26156,6 +26235,7 @@ const I18N_RERENDER_CACHE = {
     adminUsers: null,
     adminDeposits: null,
     adminWithdrawals: null,
+    adminReconciliation: null,
     kycVerifications: null
 };
 
@@ -26175,6 +26255,11 @@ function rerenderDynamicSurfaces() {
         // Activity timeline
         if (I18N_RERENDER_CACHE.activityTimeline !== null && typeof renderActivityTimeline === 'function') {
             renderActivityTimeline(I18N_RERENDER_CACHE.activityTimeline);
+        }
+
+        // Deposit reconciliation (admin)
+        if (I18N_RERENDER_CACHE.adminReconciliation !== null && typeof renderAdminReconciliation === 'function') {
+            renderAdminReconciliation(I18N_RERENDER_CACHE.adminReconciliation);
         }
 
         // Alerts
@@ -27685,6 +27770,71 @@ function renderAdminUsers(users) {
             '<td style="padding:8px;">' + kycBadge + '</td>' +
         '</tr>';
     }).join('');
+}
+
+// Deposit reconciliation (admin, read-only). Turns the two silent failure modes
+// into a queue: a pending invoice the customer may have paid (rounded amount,
+// paid after expiry) and a confirmed deposit that was never credited. Nothing
+// here credits anything - reconciliation stays a human act.
+async function loadDepositReconciliation() {
+    const tbody = document.getElementById('reconciliationTable');
+    const summary = document.getElementById('reconciliationSummary');
+    const token = localStorage.getItem('jwt_token');
+    if (!tbody || !token) return;
+    const sel = document.getElementById('reconciliationWindow');
+    const hours = sel && sel.value ? sel.value : '2';
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--text-muted);">' + t('common.loading') + '</td></tr>';
+    try {
+        const res = await fetch('/api/admin/deposits/reconciliation?hours=' + encodeURIComponent(hours), {
+            headers: { Authorization: 'Bearer ' + token }
+        });
+        const data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error('reconciliation failed');
+        I18N_RERENDER_CACHE.adminReconciliation = data;
+        renderAdminReconciliation(data);
+    } catch (e) {
+        I18N_RERENDER_CACHE.adminReconciliation = null;
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:#ef4444;">' + t('admin.empty.loadActivityFailed') + '</td></tr>';
+        if (summary) summary.textContent = '';
+    }
+}
+
+function renderAdminReconciliation(data) {
+    const tbody = document.getElementById('reconciliationTable');
+    const summary = document.getElementById('reconciliationSummary');
+    if (!tbody || !data) return;
+    const esc = function (v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+    const stale = data.stalePending || [];
+    const uncredited = data.uncreditedConfirmed || [];
+    if (summary) {
+        summary.textContent = t('admin.reconciliation.stale', { count: stale.length }) + ' | ' +
+            t('admin.reconciliation.uncredited', { count: uncredited.length });
+    }
+    if (!stale.length && !uncredited.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--text-muted);">' + t('admin.reconciliation.empty') + '</td></tr>';
+        return;
+    }
+    const rows = [];
+    stale.forEach(function (i) {
+        const exact = i.amountCrypto == null ? '' : ' <span style="color:var(--text-muted);">(' + Number(i.amountCrypto).toFixed(4) + ' USDT)</span>';
+        rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+            '<td style="padding:6px;">INV #' + esc(i.id) + '</td>' +
+            '<td style="padding:6px;">' + esc(i.userId) + '</td>' +
+            '<td style="padding:6px;">$' + Number(i.amountUsd || 0).toFixed(2) + exact + '</td>' +
+            '<td style="padding:6px;">' + esc(formatTime(i.createdAt)) + '</td></tr>');
+    });
+    uncredited.forEach(function (d) {
+        rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+            '<td style="padding:6px;">DEP #' + esc(d.id) + '</td>' +
+            '<td style="padding:6px;">' + esc(d.userId) + '</td>' +
+            '<td style="padding:6px;">$' + Number(d.amount || 0).toFixed(2) + ' <span style="color:#f59e0b;">(uncredited)</span></td>' +
+            '<td style="padding:6px;">' + esc(formatTime(d.createdAt)) + '</td></tr>');
+    });
+    tbody.innerHTML = rows.join('');
 }
 
 function renderAdminDeposits(deposits) {

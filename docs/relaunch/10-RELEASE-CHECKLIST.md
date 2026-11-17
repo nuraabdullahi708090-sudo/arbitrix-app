@@ -244,9 +244,14 @@ needs no clawback.
   nothing is granted from a webhook: the licence is verified against the licence API
   at redemption, and the claim itself is row-locked in Postgres.
 - **A missed webhook blocks redemption for that sale.** Payhip retries hourly for 3
-  hours; after that the purchase row is absent and the customer sees that the licence
-  could not be redeemed. Recovery is a manual replay from Payhip's dashboard. Documented
-  rather than silently papered over.
+  hours; after that the purchase row is absent. The refusal is reported as
+  `not-recorded`, NOT as an invalid key: the provider already confirmed the licence is
+  real, enabled and allow-listed, so the customer is told the purchase is still being
+  confirmed and can retry, and the operator sees `not-recorded` in `payhip_events`.
+  Recovery remains a manual replay from Payhip's dashboard. (A self-healing path that
+  creates the purchase row from the licence API's own record is deliberately NOT
+  implemented: that row would carry no price or fee data and would pollute
+  reconciliation. It is listed as a founder decision in the consolidated report.)
 - **`uses` is informational.** One-time redemption is enforced by our unique
   `licence_key_hash` and the row lock, not by Payhip's counter.
 - **A full database outage refuses everyone**, including funded customers. Correct:
