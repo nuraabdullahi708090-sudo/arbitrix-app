@@ -532,6 +532,33 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
+// ---------- SECURITY HEADERS ----------
+// Sent on every response (pages, API, static assets, 404s). Deliberately the
+// headers that cannot break a feature:
+//   nosniff          stops a browser from re-interpreting a JSON/asset response
+//                    as script or HTML;
+//   frame-ancestors  the app is never framed, so clickjacking gets no surface
+//                    (X-Frame-Options is the same rule for older browsers);
+//   Referrer-Policy  a full URL (which can contain an invoice id) is never sent
+//                    to a third party - only the origin crosses a boundary;
+//   HSTS             only over TLS, and only from a request that actually
+//                    arrived over TLS, so local/dev http is never pinned.
+// A full resource CSP is intentionally NOT set here: the app loads a charting
+// library, Google Fonts and a QR image service, and a wrong policy would break
+// them silently. Narrowing that belongs in its own change with a report-only
+// rollout.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  const proto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+  if (req.secure || proto.split(',')[0].trim() === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
 // Parse JSON bodies for all routes. The `verify` hook stashes the RAW body bytes
 // on req.rawBody so webhook routes (q8qpay) can compute HMAC-SHA256 signatures
 // over the exact bytes received. This is additive: req.body behaves exactly as
