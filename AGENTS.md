@@ -9178,3 +9178,38 @@ such sweep.
   without activation + a $100 deposit (follows from the required matrix).
   Pre-existing running bot sessions are not retroactively stopped.
 - Report: `docs/relaunch/C1-ACTIVATION-ENFORCEMENT-REPORT.md`.
+
+
+## Security closure - M2 verified in production + migration 053 (2026-11-16, PR #171)
+- M2 (`public.charge_subscription_safe` reachable by anon/authenticated/PUBLIC) is
+  CLOSED in production: an operator applied the correction through the Supabase SQL
+  Editor and verified anon/authenticated/PUBLIC = false, service_role = true,
+  search_path = public, pg_temp, signature and owner unchanged. No migration recorded
+  that change. Historical exploitation remains UNKNOWN (no logs); no claim either way.
+  Recorded in docs/security/PRODUCTION-M2-SECURITY-AUDIT.md section A.1 (the original
+  verdict is kept as A.2) and in docs/security/FINAL-SECURITY-CLOSURE-REPORT.md.
+- Recommendation of record: apply `052_charge_subscription_safe_privileges.sql` so the
+  fix exists in the migration chain (011 would otherwise recreate the vulnerable
+  function in any fresh environment). 051 is the rebrand migration and is a separate,
+  release-timed decision; the two converge in either order.
+- NEW `supabase/migrations/053_financial_rpc_privilege_lockdown.sql` (NOT applied):
+  revokes PUBLIC/anon/authenticated, grants service_role and pins search_path on the 10
+  money-adjacent RPCs that 014/051/052 did not cover.
+  * CONFIRMED (low): `paymento_check_duplicate_webhook(text,bigint)` returned another
+    customer's user_id / amount / settlement_address / provider_tx_hash /
+    confirmations for an enumerable provider_payment_id; demonstrated as `anon` on
+    PostgreSQL 16.16. No application caller exists.
+  * Benign: `mark_expired_invoices()` (time-guarded housekeeping, no callers).
+  * No production impact: the 8 `sandbox_*` money functions are already guarded by
+    `assert_sandbox_user()`; locked anyway for defence in depth.
+  * The real-money RPCs were NOT touched - they are already service_role-only. Their
+    unpinned search_path is recorded as residual hardening (no exploit path without
+    service_role) and left for a later migration.
+- Process lesson: the new test file was first written to `tests/financial_rpc_lockdown.test.js`,
+  which ALREADY existed for migration 014, silently replacing 27 tests. Caught by
+  comparing the suite total against a worktree baseline (3395 vs 3409 instead of 3422);
+  the original file was restored from HEAD and the new suite renamed to
+  `tests/financial_rpc_privileges_053.test.js`. Always check that a new test filename
+  does not already exist, and compare totals against a `git worktree` baseline.
+- Tests: `npm test` = 3422 pass / 0 fail (baseline 3409). `verify-rebrand --expect
+  Kalderix` PASS; `node --check` clean. C1/Payhip behavioural suites 101/101.

@@ -6,22 +6,61 @@ Branch: `relaunch/rebrand-payment-commercial` (PR #171, still DRAFT)
 Head at the start of this audit: `30722c8`
 Production project: `jmhgreazilmmvuqnghgt` (Supabase, PostgreSQL)
 
-**No production SQL was executed, no migration was applied, no privilege, function,
-balance, transaction or configuration was changed, nothing was deployed, and PR #171
-was not merged or promoted.**
+**Status (updated 2026-11-16, later the same day).** This audit was produced WITHOUT
+production access. An authorised operator has since applied the correction directly in
+the production SQL Editor and supplied the verification results recorded in section
+A.1. The agent that authored this document executed **no** production SQL, applied no
+migration, changed no privilege, balance or transaction, deployed nothing and did not
+merge or promote PR #171.
 
 ---
 
 ## A. Executive verdict
 
+### A.1 Production status: `CLOSED - CORRECTION VERIFIED` (operator-supplied)
+
+The operator ran the correction through the production SQL Editor and reported the
+before/after states below. This is the authoritative record of the production change.
+
+| Fact | Value | Status |
+|---|---|---|
+| BEFORE, `anon` could EXECUTE | yes | **VERIFIED** (operator) |
+| BEFORE, `authenticated` could EXECUTE | yes | **VERIFIED** (operator) |
+| BEFORE, `PUBLIC` could EXECUTE | yes | **VERIFIED** (operator) |
+| BEFORE, `search_path` | null (unpinned) | **VERIFIED** (operator) |
+| AFTER, `anon` can EXECUTE | **false** | **VERIFIED** (operator) |
+| AFTER, `authenticated` can EXECUTE | **false** | **VERIFIED** (operator) |
+| AFTER, `PUBLIC` can EXECUTE | **false** | **VERIFIED** (operator) |
+| AFTER, `service_role` can EXECUTE | **true** | **VERIFIED** (operator) |
+| AFTER, `search_path` | `public, pg_temp` | **VERIFIED** (operator) |
+| Function signature unchanged | `charge_subscription_safe(bigint,numeric,text,text,text)` | **VERIFIED** (operator) |
+| Function owner unchanged | `postgres` | **VERIFIED** (operator) |
+| How it was applied | production SQL Editor, direct | **VERIFIED** (operator) |
+| Migration applied as part of the correction | none | **VERIFIED** (operator) |
+| Was migration 051 already applied before the correction? | no - the pre-fix state showed `search_path` null, and 051 sets it in the definition | **INFERRED** (from the operator's before-state; not separately queried) |
+| Is 052/053 recorded in the migration history? | no - the correction was manual | **INFERRED** (no migration was applied) |
+| Was the exposure ever exploited? | unknown - no API/database logs were available | **UNKNOWN** |
+| Which script produced the after-state? | consistent with `docs/security/hotfix-charge-subscription-safe.sql` (its postcondition is exactly this state), but not proven | **INFERRED** |
+
+What this establishes: the vulnerability described in this document **is no longer
+reachable in production** - the three roles that could invoke the debit RPC no longer
+can, the pinned `search_path` removes the object-resolution half, and the only
+legitimate caller (`service_role`) retained its grant.
+
+What it does not establish: whether the exposure was exercised between the moment
+migration 011 was applied and the moment of the correction. No log or table was
+available to this audit, and **no claim is made either way** (section E).
+
+### A.2 Historical assessment (the state this audit was originally asked to verify)
+
 ### `INCONCLUSIVE - ACCESS OR EVIDENCE UNAVAILABLE`
 
-The defect is **confirmed in the code** and **confirmed exploitable** on a reproduction
-of the production schema, but **whether it is live in production could not be
-verified** because no production read-only access was available from this environment
-(section B). That is a statement about the evidence, not about the risk: if migration
-011 has been applied and the function has not since been locked down, the exposure is
-real and severe.
+The defect was **confirmed in the code** and **confirmed exploitable** on a
+reproduction of the production schema, but **whether it was live in production could
+not be verified** at audit time because no production read-only access was available
+from this environment (section B). That was a statement about the evidence, not about
+the risk: with migration 011 applied and the function not locked down, the exposure was
+real and severe - which section A.1 now confirms it was.
 
 | Question | Answer | Basis |
 |---|---|---|
@@ -29,11 +68,12 @@ real and severe.
 | Did migration 014 lock it down? | NO | 014 lists only `record_trade_safe`, `credit_payment_safe`, `paymento_credit_user_safe` (x2 signatures) |
 | Can `anon` execute it on a fresh 011 database? | YES, confirmed by execution | section G, TEST 2 |
 | Can that debit another user's balance? | YES, confirmed by execution | section G, TEST 2 ($500.00 -> $399.98) |
-| Is it exposed in PRODUCTION today? | UNKNOWN | no production access (section B) |
+| Was it exposed in PRODUCTION? | YES, until the operator applied the correction | section A.1 (verified before/after) |
+| Is it exposed in PRODUCTION today? | NO - anon/authenticated/PUBLIC revoked, search_path pinned | section A.1 (verified) |
 | Has it been exploited in production? | UNKNOWN - no logs available | section E |
 
-Nothing in this document asserts that production is safe, and nothing asserts that it
-is compromised.
+Nothing in this document asserts that the historical window was clean, and nothing
+asserts that it was abused.
 
 ---
 
@@ -167,9 +207,17 @@ runs, or that runs against the wrong signature, changes nothing.
 
 Supabase exposes the `public` schema through PostgREST and grants `anon`/`authenticated`
 USAGE on it. `anon` needs no table privilege at all, because a SECURITY DEFINER function
-runs with the owner's rights and bypasses RLS - **EXECUTE is the only requirement**. The
-publishable (`anon`) key ships in the browser bundle, so the caller does not need an
-account:
+runs with the owner's rights and bypasses RLS - **EXECUTE is the only requirement**.
+
+WHO COULD ACTUALLY REACH IT (checked against this repository, not assumed): this
+application does NOT ship a Supabase key in `public/` - it authenticates with its own
+JWT and every database call is made server-side (`server.js` comments that the frontend
+"never talks to Supabase directly", and `supabaseAdmin` is the only data client).
+Reaching the RPC therefore required possession of the project's publishable `anon` key
+or of a Supabase-issued JWT. That narrows the population but does not remove the risk:
+the anon key is, by Supabase's design, a shareable credential, and the `authenticated`
+role is reachable by anyone the project issues a Supabase JWT to. The correction in
+section A.1 closes both paths regardless:
 
 ```
 POST https://<project>.supabase.co/rest/v1/rpc/charge_subscription_safe
@@ -189,9 +237,11 @@ Confirmed on the reproduction (section G, TEST 2): with the pre-fix catalog stat
 `{"success": true, ...}` and debited the victim's `live_balance`.
 
 ### D.2 Authenticated callers
-Identical (the function does not look at the caller), and in practice every registered
-customer is `authenticated` - so the population of potential attackers is "anyone who
-can read the frontend bundle".
+Identical in effect (the function never looks at the caller), but the reach differs: this
+application issues its own JWTs and does not hand out Supabase ones, so the
+`authenticated` role was relevant only for a caller holding a Supabase JWT (for example
+a leaked service or anon key used with PostgREST). Both roles are now revoked
+(section A.1), so the distinction is historical.
 
 ### D.3 Caller-controlled parameters
 * `p_user_id` chooses the victim - no ownership check exists.

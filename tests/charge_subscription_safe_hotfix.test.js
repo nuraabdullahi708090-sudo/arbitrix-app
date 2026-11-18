@@ -174,6 +174,18 @@ test('the only legitimate caller is the service-role client', () => {
   }
 });
 
+test('the billing client is the service-role client in production (never the anon key)', () => {
+  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  // supabaseAdmin must be built from the service key ...
+  assert.match(server, /const supabaseAdmin = createClient\(supabaseUrl, supabaseServiceKey\)/);
+  // ... and production must refuse to start without it, so billing can never
+  // silently run as anon once anon/authenticated lose EXECUTE.
+  const guard = server.slice(server.indexOf('let supabaseServiceKey'), server.indexOf('const supabaseAdmin'));
+  assert.match(guard, /process\.env\.NODE_ENV === 'production'/);
+  assert.match(guard, /process\.exit\(1\)/);
+  assert.match(guard, /SUPABASE_SERVICE_KEY is required in production/);
+});
+
 test('nothing in the application applies the hotfix or the migration automatically', () => {
   for (const rel of ['server.js', 'worker.js', 'conversion-worker.js', 'marketing-worker.js']) {
     const p = path.join(ROOT, rel);
@@ -184,13 +196,41 @@ test('nothing in the application applies the hotfix or the migration automatical
   }
 });
 
-test('the audit document states its verdict and that production was not changed', () => {
+test('the audit document records the operator-applied correction and the historical verdict', () => {
   assert.ok(fs.existsSync(AUDIT), 'docs/security/PRODUCTION-M2-SECURITY-AUDIT.md must exist');
   const doc = read(AUDIT);
-  assert.match(doc, /INCONCLUSIVE|CONFIRMED PRODUCTION EXPOSURE|PRODUCTION NOT EXPOSED/,
-    'the executive verdict must be one of the three allowed values');
-  assert.match(doc, /no production (change|SQL)|No production change|nothing was applied/i,
-    'the document must record that no production change was made');
+
+  // Current production status: the operator applied the correction manually.
+  assert.match(doc, /A\.1 Production status: `CLOSED - CORRECTION VERIFIED`/,
+    'the verified production status must be recorded');
+  for (const fact of [
+    'BEFORE, `anon` could EXECUTE',
+    'AFTER, `anon` can EXECUTE | **false**',
+    'AFTER, `authenticated` can EXECUTE | **false**',
+    'AFTER, `PUBLIC` can EXECUTE | **false**',
+    'AFTER, `service_role` can EXECUTE | **true**',
+    'AFTER, `search_path` | `public, pg_temp`',
+    'Function signature unchanged',
+    'Function owner unchanged',
+    'production SQL Editor'
+  ]) {
+    assert.ok(doc.includes(fact), 'the production record must state: ' + fact);
+  }
+
+  // Verified vs inferred vs unknown must stay separated.
+  assert.match(doc, /\*\*VERIFIED\*\* \(operator\)/, 'operator facts must be marked VERIFIED');
+  assert.match(doc, /\*\*INFERRED\*\*/, 'inferences must be marked INFERRED');
+  assert.match(doc, /Was the exposure ever exploited\? \| unknown/,
+    'the exploitation history must stay UNKNOWN - no claim either way');
+  assert.match(doc, /no claim is made either way/, 'the document must refuse to claim exploitation');
+
+  // The historical assessment stays on the record.
+  assert.match(doc, /A\.2 Historical assessment/);
+  assert.match(doc, /INCONCLUSIVE - ACCESS OR EVIDENCE UNAVAILABLE/);
+
+  // And the authoring agent still never touched production.
+  assert.match(doc, /executed \*\*no\*\* production SQL/,
+    'the document must record that the agent executed no production SQL');
   assert.match(doc, /migration 011/, 'it must discuss the migration state');
   assert.match(doc, /rehears/i, 'it must record the rehearsal');
 });
