@@ -213,7 +213,7 @@ test('no new environment variable or migration was added for assets', () => {
   // no schema change, which the next assertions still prove.
   // 048 does not exist; 049 syncs referral_config for the approved $50 minimum
   // deposit and 050 adds the Payhip Live Mode activation entitlement.
-  assert.strictEqual(migrations.length, 50, 'only approved migrations may be added');
+  assert.strictEqual(migrations.length, 51, 'only approved migrations may be added (052 = charge_subscription_safe privileges)');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');
