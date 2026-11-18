@@ -237,8 +237,17 @@ test('10. migration 051 changes exactly one literal and no money behaviour', () 
   };
   const a = fnOf(orig);
   const b = fnOf(mig);
-  assert.strictEqual(a.length, b.length, 'same number of lines (no statement added or removed)');
-  const diffs = a.map((line, i) => [i, line, b[i]]).filter(([, x, y]) => x !== y);
+
+  // The review (M2) added ONE declaration line: the pinned search_path. Remove
+  // exactly that line before diffing, so the "one literal changed" guarantee
+  // still has to hold for everything else.
+  const pathLine = 'SET search_path = public, pg_temp';
+  const pathLines = b.filter((l) => l.trim() === pathLine);
+  assert.strictEqual(pathLines.length, 1, 'exactly one pinned search_path line');
+  const bWithoutPath = b.filter((l) => l.trim() !== pathLine);
+
+  assert.strictEqual(a.length, bWithoutPath.length, 'no statement added or removed besides search_path');
+  const diffs = a.map((line, i) => [i, line, bWithoutPath[i]]).filter(([, x, y]) => x !== y);
   assert.strictEqual(diffs.length, 1, 'exactly one line differs');
   assert.ok(diffs[0][1].includes(BRAND.source + ' Pro Subscription'), 'the old literal is what was replaced');
   assert.ok(diffs[0][2].includes(ID.name + ' Pro Subscription'), 'the approved name is what replaced it');
@@ -248,8 +257,13 @@ test('10. migration 051 changes exactly one literal and no money behaviour', () 
     assert.ok(mig.includes(guard), 'migration 051 lost the guard: ' + guard);
   }
   assert.ok(/EXCEPTION\s+WHEN OTHERS THEN/.test(mig), 'migration 051 lost the exception handler');
-  assert.ok(!/GRANT|REVOKE/.test(mig.replace(/--[^\n]*/g, '')),
-    'no ACL change: CREATE OR REPLACE preserves the lockdown from migration 014');
+
+  // M2: migration 014 never covered this function, so the RECREATED body must
+  // carry its own lockdown. The ACL statements are the only privilege change.
+  const acl = mig.replace(/--[^\n]*/g, '').split('\n').filter((l) => /\b(GRANT|REVOKE)\b/.test(l));
+  assert.strictEqual(acl.length, 4, 'four ACL statements: three REVOKEs and one GRANT');
+  assert.ok(acl.every((l) => l.includes('charge_subscription_safe')), 'the ACL targets only this function');
+  assert.ok(acl.some((l) => /GRANT EXECUTE .* TO service_role/.test(l)), 'service_role keeps the server path');
   assert.ok(/RAISE EXCEPTION 'migration 011/.test(mig), 'it refuses to run without 011');
   assert.ok(/Kalderix Pro Subscription' IN v_src/.test(mig), 'it verifies its own effect');
 });
@@ -267,15 +281,17 @@ test('11. the shipped build presents one name consistently', () => {
   assert.ok(INDEX.includes(BRAND.tagline), 'the tagline in the markup matches BRAND.tagline');
 });
 
-test('12. the $50 release is documented as one coordinated step', () => {
+test('12. the $100 minimum is documented as one coordinated step', () => {
   const env = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
   const block = env.slice(env.indexOf('MINIMUM DEPOSIT FLOOR'));
   const section = block.slice(0, block.indexOf('PAYHIP LIVE MODE'));
   assert.ok(section.includes('PLATFORM_MIN_DEPOSIT_USD'), 'the knob is documented');
-  assert.ok(section.includes('049_min_deposit_50.sql'),
-    'the doc names the migration that must accompany it - applied alone, the two halves disagree');
-  assert.ok(/WITHOUT it a \$50 deposit would succeed while referral qualification/i.test(section),
-    'the failure mode is stated, not just the pairing');
-  assert.ok(section.includes('no deploy'), 'the rollback is documented as immediate');
-  assert.ok(fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '049_min_deposit_50.sql')));
+  assert.ok(section.includes('049_min_deposit_100.sql'),
+    'the doc names the migration that asserts the matching referral row');
+  assert.ok(/referral qualifying deposit/i.test(section),
+    'the two halves that must agree are named');
+  assert.ok(/approved/i.test(section), 'the approved value is stated');
+  assert.ok(fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '049_min_deposit_100.sql')));
+  assert.ok(!fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '049_min_deposit_50.sql')),
+    'the superseded $50 migration must not come back');
 });

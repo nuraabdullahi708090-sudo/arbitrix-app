@@ -45,6 +45,23 @@ const crypto = require('crypto');
 
 const DEFAULT_PRODUCT_KIND = 'live_activation';
 
+/**
+ * Minimum length of PAYHIP_WEBHOOK_TOKEN.
+ *
+ * The token is the URL secret that gates the public webhook endpoint, so a
+ * guessable value is a real admission risk. Payhip documents it as an optional
+ * second factor ON TOP of the sha256(apiKey) signature; this platform requires
+ * both (see resolvePayhipConfig) because a webhook we cannot authenticate must
+ * not be able to record a purchase we would later honour.
+ */
+const WEBHOOK_TOKEN_MIN_LENGTH = 16;
+
+/** A token is usable when it is long enough and contains no whitespace. */
+function isValidWebhookToken(token) {
+  const t = String(token || '');
+  return t.length >= WEBHOOK_TOKEN_MIN_LENGTH && !/\s/.test(t);
+}
+
 function envStr(name, fallback = '') {
   const v = process.env[name];
   return typeof v === 'string' && v.trim() !== '' ? v.trim() : fallback;
@@ -82,6 +99,9 @@ function resolvePayhipConfig(env = process.env) {
     enabled: enabledFlag === 'true' || enabledFlag === '1',
     activationRequired: get('PAYHIP_ACTIVATION_REQUIRED', '').toLowerCase() === 'true',
     webhookToken: get('PAYHIP_WEBHOOK_TOKEN', ''),
+    // Kept separate from `webhookToken.length > 0` so the reason can distinguish
+    // "not configured" from "configured but too weak".
+    webhookTokenValid: isValidWebhookToken(get('PAYHIP_WEBHOOK_TOKEN', '')),
     verifyUrlTemplate: get('PAYHIP_VERIFY_URL', ''),
     // The store API key whose SHA-256 is the documented webhook signature.
     apiKey: get('PAYHIP_API_KEY', ''),
@@ -97,12 +117,28 @@ function resolvePayhipConfig(env = process.env) {
   };
 
   // Why the WEBHOOK is not usable. Never includes a secret.
+  //
+  // A webhook is only usable when ALL of the following hold, because each one is
+  // required to authenticate a delivery:
+  //   1. the feature is enabled;
+  //   2. at least one product is allow-listed;
+  //   3. PAYHIP_API_KEY exists - its sha256 is the documented signature;
+  //   4. PAYHIP_WEBHOOK_TOKEN exists, is >= 16 chars and has no whitespace.
+  //
+  // Requiring the token (previously optional) closes a contradiction that could
+  // take money without granting access: the status surface said "usable" while
+  // the route rejected every delivery with 401.
   if (!config.enabled) config.reason = 'disabled';
   else if (config.products.size === 0) config.reason = 'no-products-configured';
   else if (!config.apiKey) config.reason = 'missing-api-key';
+  else if (!config.webhookToken) config.reason = 'missing-webhook-token';
+  else if (!config.webhookTokenValid) config.reason = 'weak-webhook-token';
   else config.reason = null;
 
   config.usable = config.reason === null;
+  // Explicit alias: the ROUTE gates on this, the dashboard gates on `usable`.
+  // One definition, two names for readability at the call sites.
+  config.webhookUsable = config.usable;
 
   // Redemption additionally needs a product secret, because it must verify the
   // licence against Payhip before granting anything.
@@ -175,6 +211,8 @@ function describePayhipConfig(config) {
     activationRequired: config.activationRequired,
     productCount: config.products.size,
     webhookTokenConfigured: config.webhookToken.length > 0,
+    webhookTokenValid: config.webhookTokenValid === true,
+    webhookUsable: config.webhookUsable === true,
     // The documented sha256(apiKey) signature. "not-configured" means the
     // webhook is refused outright, never that it is accepted unverified.
     signatureVerification: config.apiKey ? 'configured' : 'not-configured',
@@ -593,8 +631,12 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
       return { success: false, reason: 'licence-disabled' };
     }
     if (!productAllowed(verification.productLink)) {
+      // M4: the provider told US this licence is real but belongs to another
+      // product. Telling the caller that would confirm the key exists and leak
+      // which catalogue it belongs to, so the public answer is identical to an
+      // invalid key. The distinction is kept where it belongs - the audit event.
       await recordEvent('redeem', null, 'wrong-product');
-      return { success: false, reason: 'wrong-product' };
+      return { success: false, reason: 'invalid-licence' };
     }
 
     const { data, error } = await admin.rpc('redeem_payhip_entitlement_safe', {
@@ -626,6 +668,36 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     return out;
   }
 
+  /**
+   * Which configured products are OFFERED FOR SALE (payhip_products.is_active).
+   *
+   * `is_active` is a catalogue flag: migration 050 creates it FALSE with the
+   * comment "FALSE until the founder enables checkout", and nothing read it
+   * before this method existed, so flipping it did nothing. It now gates the
+   * customer-facing purchase button (see /api/live/activation). It deliberately
+   * does NOT invalidate an entitlement that was already paid for, and it does
+   * not refuse a completed sale: a customer who has paid is honoured, and the
+   * anomaly is recorded instead.
+   *
+   * Fails CLOSED for the OFFER (an unreadable catalogue must not advertise a
+   * product we cannot confirm is on sale) while never affecting redemption.
+   */
+  async function productsOnSale() {
+    const keys = Array.from(cfg.products);
+    if (keys.length === 0) return { ok: true, configured: 0, active: 0, onSale: false, reason: 'no-products-configured' };
+    try {
+      const { data, error } = await admin
+        .from('payhip_products')
+        .select('product_key, is_active')
+        .in('product_key', keys);
+      if (error) return { ok: false, configured: keys.length, active: 0, onSale: false, reason: 'catalogue-unreadable' };
+      const active = (data || []).filter((r) => r && r.is_active === true).length;
+      return { ok: true, configured: keys.length, active, onSale: active > 0 };
+    } catch (e) {
+      return { ok: false, configured: keys.length, active: 0, onSale: false, reason: 'catalogue-unreadable' };
+    }
+  }
+
   /** True when the account holds an active, paid, unrevoked activation. */
   async function hasActivation(userId) {
     if (!userId) return false;
@@ -652,6 +724,7 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     verifyWebhookSignature: (provided) => verifyWebhookSignature(cfg.apiKey, provided),
     verifyLicence,
     productAllowed,
+    productsOnSale,
     handleWebhook,
     redeem,
     hasActivation,
@@ -666,6 +739,8 @@ module.exports = {
   resolveProductSecrets,
   expectedWebhookSignature,
   verifyWebhookSignature,
+  isValidWebhookToken,
+  WEBHOOK_TOKEN_MIN_LENGTH,
   resolvePayhipConfig,
   describePayhipConfig,
   createPayhipEntitlements,

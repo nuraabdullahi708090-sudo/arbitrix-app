@@ -311,6 +311,21 @@ const payhipEntitlements = createPayhipEntitlements({
   config: PAYHIP_CONFIG
 });
 
+// Startup validation (report, never a crash): an operator who enables Payhip but
+// leaves a required secret out gets ONE unambiguous line naming the reason. The
+// process keeps running - taking the whole platform down for a payment
+// misconfiguration would be worse - and every Payhip surface reports itself
+// unusable in the meantime, so no customer can be charged against a rail that
+// cannot record the sale.
+if (PAYHIP_CONFIG.enabled && !PAYHIP_CONFIG.usable) {
+  console.error(
+    '[Payhip] CONFIGURATION ERROR: PAYHIP_ENABLED=true but the integration is unusable (' +
+    PAYHIP_CONFIG.reason + '). The webhook answers 503 until this is fixed, so a ' +
+    'completed purchase could not be recorded. Required: PAYHIP_PRODUCTS, ' +
+    'PAYHIP_API_KEY and PAYHIP_WEBHOOK_TOKEN (>=' + 16 + ' chars, no whitespace).'
+  );
+}
+
 /**
  * Is the PAYHIP ACTIVATION requirement satisfied for this account?
  *
@@ -952,7 +967,8 @@ const PLATFORM_MIN_DEPOSIT_USD = 100;
 // qualifying-deposit amount also lives in the referral_config table and the
 // marketing copy is interpolated from these same values:
 //   1. set PLATFORM_MIN_DEPOSIT_USD=50 on the service
-//   2. apply the matching config migration (see docs/MIN_DEPOSIT_50_PLAN.md)
+//   2. apply the matching config migration (supabase/migrations/049_min_deposit_100.sql
+//      asserts the approved $100 row)
 // Nothing is changed by shipping this code alone.
 const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT_USD';
 const MIN_DEPOSIT_FLOOR_USD = 10;
@@ -999,7 +1015,8 @@ async function checkMinDepositSync() {
         ' but the platform minimum deposit is ' + PLATFORM_MIN_DEPOSIT +
         '. Deposits of ' + Math.min(configured, PLATFORM_MIN_DEPOSIT) + '-' +
         Math.max(configured, PLATFORM_MIN_DEPOSIT) + ' would behave inconsistently. ' +
-        'Apply migration 049_min_deposit_50.sql, or set ' + MIN_DEPOSIT_ENV_VAR + '.'
+        'Apply migration 049_min_deposit_100.sql (it asserts the $100 row), or set ' +
+        MIN_DEPOSIT_ENV_VAR + ' to the same value as referral_config.'
       );
     }
     return { ok, effective: PLATFORM_MIN_DEPOSIT, configured };
@@ -4155,6 +4172,16 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     depositTotal: null,
     minDeposit: PLATFORM_MIN_DEPOSIT
   }));
+  // M3: the purchase button is only offered when a configured product is
+  // actually ON SALE (payhip_products.is_active). Read once here so the
+  // dashboard and /api/live/activation can never disagree; an unreadable
+  // catalogue fails closed (no offer) rather than advertising a product whose
+  // availability we cannot confirm.
+  const _purchaseOnSale = PAYHIP_CONFIG.usable
+    ? await payhipEntitlements.productsOnSale()
+        .then((r) => r && r.onSale === true)
+        .catch(() => false)
+    : false;
   const _liveActivation = {
     activated: _liveEligibility.activated,
     reason: _liveEligibility.reason,
@@ -4190,7 +4217,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     liveDepositSatisfied: _liveEligibility.depositSatisfied === true,
     liveDepositTotal: _liveEligibility.depositTotal,
     liveMinDeposit: _liveEligibility.minDeposit,
-    activationPurchasable: !!(PAYHIP_CONFIG.usable && PAYHIP_CONFIG.storeUrl),
+    activationPurchasable: !!(PAYHIP_CONFIG.usable && PAYHIP_CONFIG.storeUrl && _purchaseOnSale),
     activationStoreUrl: PAYHIP_CONFIG.usable ? (PAYHIP_CONFIG.storeUrl || '') : '',
     environment: ENV_PRODUCTION,
     // Single runtime source of the platform minimum deposit. The frontend adopts
@@ -11611,7 +11638,7 @@ app.get(['/business-registration', '/business-registration/'], (req, res) => {
 
 // Deposit tutorial centre: standalone page with the step-by-step video tutorials
 // for buying USDT through a supported third-party service (Paybis / Transak /
-// Trust Wallet) and sending it to an Kalderix deposit address. Static content
+// Trust Wallet) and sending it to a Kalderix deposit address. Static content
 // only - it reads no session, touches no database and never creates an invoice.
 // Linked from the deposit modal and the withdrawal modal; registered BEFORE the
 // SPA fallback so /deposit-tutorials does not resolve to the app shell.
@@ -11680,7 +11707,10 @@ app.post('/api/payhip/webhook', async (req, res) => {
   const provided = String(
     (req.query && req.query.token) || req.headers['x-payhip-token'] || ''
   );
-  if (!PAYHIP_CONFIG.usable) {
+  // 503 (not 401) when the integration itself is not configured: the reason tells
+  // the operator what is missing, while an unauthenticated DELIVERY still gets
+  // 401 below. Both refuse; neither is ever accepted unverified.
+  if (!PAYHIP_CONFIG.webhookUsable) {
     return res.status(503).json({ ok: false, error: 'payhip-not-configured', reason: PAYHIP_CONFIG.reason });
   }
   if (!payhipEntitlements.tokenMatches(provided)) {
@@ -11707,6 +11737,7 @@ app.post('/api/payhip/webhook', async (req, res) => {
 app.get('/api/live/activation', authMiddleware, async (req, res) => {
   try {
     const eligibility = await getLiveModeEligibility(req.user.id);
+    const _onSale = await payhipEntitlements.productsOnSale().catch(() => ({ ok: false, onSale: false, reason: 'catalogue-unreadable' }));
     const state = {
       activated: eligibility.activated,
       reason: eligibility.reason,
@@ -11734,7 +11765,13 @@ app.get('/api/live/activation', authMiddleware, async (req, res) => {
       // Only what the browser needs to render a checkout button. Never a key,
       // never the webhook token, never a product price invented server-side.
       purchase: {
-        available: PAYHIP_CONFIG.usable && !!PAYHIP_CONFIG.storeUrl,
+        // M3: payhip_products.is_active is the catalogue's "offered for sale"
+        // flag. It is FALSE by default (the founder enables checkout) and it was
+        // previously unread, so flipping it did nothing. An unreadable catalogue
+        // fails CLOSED here - we never advertise a product we cannot confirm.
+        available: PAYHIP_CONFIG.usable && !!PAYHIP_CONFIG.storeUrl && _onSale.onSale === true,
+        onSale: _onSale.onSale === true,
+        onSaleReason: _onSale.reason || null,
         storeUrl: PAYHIP_CONFIG.storeUrl || null,
         returnUrl: PAYHIP_CONFIG.checkoutReturnUrl || null
       }
@@ -11791,7 +11828,6 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
       // for yet (webhook still retrying). Retrying works; support can replay it.
       'not-recorded': 'We are still confirming your purchase. Please try again in a few minutes, or contact support with your Payhip receipt.',
     'licence-disabled': 'That licence has been disabled or refunded.',
-    'wrong-product': 'That licence is not for a Live Mode activation product.',
     'claimed_by_other_account': 'That licence key has already been redeemed by another account.',
     'purchase_not_active': 'That purchase is no longer active.',
     'entitlement_revoked': 'That activation has been revoked.',
@@ -11883,8 +11919,13 @@ app.get('/api/admin/deposits/reconciliation', authMiddleware, adminMiddleware, a
 });
 
 // Admin: secret-free status, so an operator can see why it is inert.
-app.get('/api/admin/payhip/status', authMiddleware, adminMiddleware, (req, res) => {
-  res.json({ success: true, payhip: describePayhipConfig(PAYHIP_CONFIG) });
+app.get('/api/admin/payhip/status', authMiddleware, adminMiddleware, async (req, res) => {
+  // Read-only. `products` proves the catalogue flag is wired, so an operator can
+  // see WHY the purchase button is hidden (no product marked active) instead of
+  // flipping is_active and wondering whether anything happened.
+  const products = await payhipEntitlements.productsOnSale()
+    .catch(() => ({ ok: false, onSale: false, reason: 'catalogue-unreadable' }));
+  res.json({ success: true, payhip: describePayhipConfig(PAYHIP_CONFIG), products });
 });
 
 // Admin: purchase + entitlement history.

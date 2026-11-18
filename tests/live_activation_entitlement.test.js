@@ -548,14 +548,17 @@ test('26. a disabled or refunded licence is refused', async () => {
   assert.ok(!a.calls.some((c) => c.name === 'redeem_payhip_entitlement_safe'));
 });
 
-test('27. a licence for a different product is refused', async () => {
+test('27. a licence for a different product is refused, indistinguishably from an invalid one', async () => {
+  // M4: telling the caller "this key is real but for another product" confirms
+  // the key exists and leaks the catalogue. The public reason is therefore the
+  // same as an invalid key; the distinction survives in the audit event.
   const a = makeAdmin();
   const svc = P.createPayhipEntitlements({
     admin: a.api, config: CFG(), fetchImpl: licenceFetch({ body: validLicence({ product_link: 'OTHER' }) })
   });
   const out = await svc.redeem(42, 'AAAA-BBBB-CCCC-DDDD');
-  assert.strictEqual(out.reason, 'wrong-product');
-  assert.ok(!a.calls.some((c) => c.name === 'redeem_payhip_entitlement_safe'));
+  assert.strictEqual(out.reason, 'invalid-licence', 'must not reveal that the key exists');
+  assert.ok(!a.calls.some((c) => c.name === 'redeem_payhip_entitlement_safe'), 'nothing is claimed');
 });
 
 test('28. a Payhip outage during redemption denies, retryably, and claims nothing', async () => {

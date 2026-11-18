@@ -71,7 +71,11 @@ function funnelSlice() {
     assert.ok(a > 0 && b > a, 'the funnel slice must be locatable');
     return INDEX.slice(a, b);
 }
-const FUNNEL_SHA256 = '4a2628d841ed5628c45da4e5cc25d8a6b74dde3f81f90658a7c0fa4d3146bfa6';
+// Re-pinned 2026-11-18 for the APPROVED branding fix inside the funnel:
+// 'Become an Kalderix Referral Partner' -> 'Become a Kalderix Referral Partner'
+// (landing partner heading + its dictionary default). Nothing else in the
+// funnel changed; the /partners feature still touches no homepage markup.
+const FUNNEL_SHA256 = 'e9cf4b3a0b1766c6be173a3bff4e675f2787705daa16173b60534c5d24a7a1c4';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';

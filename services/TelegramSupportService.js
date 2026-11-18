@@ -3353,7 +3353,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // -------------------------------------------------------------------------
   // Account linking (Phase 1)
   //
-  // A Telegram chat may be linked to an Kalderix account ONLY by presenting a
+  // A Telegram chat may be linked to a Kalderix account ONLY by presenting a
   // single-use token the user minted from an authenticated web session. The
   // identity bound is the one Telegram authenticated for THIS update: the chat
   // id (and, for a private chat, the same value as the sender id). A username,

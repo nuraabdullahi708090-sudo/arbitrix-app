@@ -17,10 +17,14 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const lint = require('./lib/rebrand-lint');
 
 const ROOT = path.join(__dirname, '..');
 const argv = process.argv.slice(2);
-const EXPECT = (argv[argv.indexOf('--expect') + 1] || 'Kalderix');
+/** `--expect <Name>`; defaults to the shipped brand. A missing flag used to read
+ *  argv[0] (e.g. "--self-test") as the brand name. */
+const expectIdx = argv.indexOf('--expect');
+const EXPECT = expectIdx >= 0 && argv[expectIdx + 1] ? argv[expectIdx + 1] : 'Kalderix';
 
 let failures = 0;
 function check(label, ok, detail) {
@@ -31,6 +35,25 @@ function section(name) { console.log('\n' + name); }
 
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const exists = (rel) => fs.existsSync(path.join(ROOT, rel));
+
+// ---------------------------------------------------------------------------
+// 0. Self-test: prove the DETECTORS still work before trusting the release gate
+// ---------------------------------------------------------------------------
+// Each fixture is a defect the previous gate missed (or a legitimate string it
+// must not flag). If a detector regresses, this fails even on a clean tree.
+if (argv.includes('--self-test')) {
+  const { runFixtures } = require('./lib/rebrand-fixtures');
+  console.log('0. Detector self-test');
+  const r = runFixtures(lint, EXPECT);
+  for (const x of r.results) console.log((x.ok ? '  PASS  ' : '  FAIL  ') + x.label + '  -  ' + x.detail);
+  console.log('');
+  if (r.failed) {
+    console.log(r.failed + ' FIXTURE(S) MISCLASSIFIED - the gate cannot be trusted.');
+    process.exit(1);
+  }
+  console.log(r.passed + '/' + r.results.length + ' fixtures behaved as expected.');
+  process.exit(0);
+}
 
 const INDEX = read('public/index.html');
 const SERVER = read('server.js');
@@ -48,18 +71,6 @@ check('the source name is retained for the pre-rename era', BRAND.source === 'Ar
 // 2. Six locales, no old name anywhere in any dictionary
 // ---------------------------------------------------------------------------
 section('2. Locales');
-const PROTECTED_IN_COPY = [
-  /https?:\/\/(?:[a-z0-9-]+\.)?arbitrix\.(?:pro|ai)[^\s"']*/gi,
-  /@?(?:Alex|Olivia)?Arbitrix[A-Za-z0-9_]*/g,
-  /arbitrix[-_][a-z-]+/gi,
-  /Arbitrix Trading/g
-];
-function unprotected(text) {
-  let rest = text;
-  for (const re of PROTECTED_IN_COPY) rest = rest.replace(re, '\u0000');
-  return /Arbitrix/.test(rest);
-}
-
 const ti = INDEX.indexOf('const TRANSLATIONS');
 let depth = 0, end = -1;
 for (let k = INDEX.indexOf('{', ti); k < INDEX.length; k++) {
@@ -76,12 +87,46 @@ check('every locale has the same key count',
   new Set(locales.map((l) => Object.keys(T[l]).length)).size === 1,
   Object.keys(T[locales[0]]).length + ' keys');
 
+// The shared detector covers what the old scan missed: identical KEY SETS (not
+// just counts), empty translations, placeholder parity, old-brand spellings in
+// ANY script, and article/grammar defects around the new name.
+const localeDefects = lint.detectLocaleDefects(T, { brand: EXPECT });
+check('locale dictionaries are complete and consistent', localeDefects.length === 0,
+  localeDefects.slice(0, 4).map((d) => d.locale + '/' + d.key + ': ' + d.reason).join(' | '));
+
 for (const l of locales) {
-  const leaks = Object.entries(T[l]).filter(([, v]) => unprotected(String(v)));
-  check(l + ': no old-brand copy', leaks.length === 0,
-    leaks.slice(0, 3).map(([k, v]) => k + '="' + String(v).slice(0, 40) + '"').join(' | '));
   const mentions = Object.values(T[l]).filter((v) => String(v).includes(EXPECT)).length;
   check(l + ': names the product', mentions > 0, mentions + ' strings');
+}
+
+// ---------------------------------------------------------------------------
+// 2b. Metadata: what a search result and a social card actually show
+// ---------------------------------------------------------------------------
+section('2b. Page metadata');
+const PUBLIC_PAGES = ['public/index.html', 'public/partners.html', 'public/how-it-works.html',
+  'public/business-registration.html', 'public/deposit-tutorials.html',
+  'public/privacy-policy.html', 'public/terms-of-service.html', 'public/reset-password.html'];
+for (const page of PUBLIC_PAGES.filter(exists)) {
+  const html = read(page);
+  const defects = lint.detectMetadataDefects(html, { brand: EXPECT, requireBrand: page === 'public/index.html' });
+  check(page + ': metadata is clean', defects.length === 0,
+    defects.slice(0, 3).map((d) => d.tag + '="' + String(d.value).slice(0, 50) + '" ' + d.reason).join(' | '));
+}
+
+// ---------------------------------------------------------------------------
+// 2c. Service-side customer copy (support bot, marketing, notifications)
+// ---------------------------------------------------------------------------
+section('2c. Service copy');
+const SERVICE_COPY = ['services/telegram-i18n.js', 'services/TelegramSupportService.js',
+  'services/MarketingContent.js', 'services/conversion-i18n.js', 'services/support/SupportGuidelines.js'];
+for (const file of SERVICE_COPY.filter(exists)) {
+  const text = read(file);
+  const oldHits = lint.detectOldBrand(text);
+  check(file + ': no old brand', oldHits.length === 0,
+    oldHits.slice(0, 3).map((h) => h.match + ' @' + h.index).join(', '));
+  const article = lint.detectArticleDefects(text, EXPECT);
+  check(file + ': no article defect', article.length === 0,
+    article.slice(0, 3).map((a) => a.match).join(', '));
 }
 
 // ---------------------------------------------------------------------------
@@ -159,38 +204,16 @@ const GLOBS = ['public/index.html', 'public/partners.html', 'public/how-it-works
   'public/privacy-policy.html', 'public/terms-of-service.html', 'public/reset-password.html'];
 
 /**
- * Classify by CONTEXT, not by token. Slicing a token out of
- * '...%3EArbitrix%3C...' or '\u3002Arbitrix' produces fragments that no regex
- * for the identifier itself would recognise, so the window around the match is
- * what gets tested.
+ * The shared detector classifies by CONTEXT (domains, mailboxes, handles,
+ * technical identifiers, the legal operator) and covers the old brand in every
+ * script, so a fragment like '...%3EArbitrix%3C...' or an Arabic transliteration
+ * is caught here too.
  */
-const ALLOW_CONTEXT = [
-  [/https?:\/\/(?:[a-z0-9-]+\.)?arbitrix\.(?:pro|ai)/i, 'public domain'],
-  [/[a-z0-9._%+-]+@arbitrix\./i, 'mailbox'],
-  [/@(?:[A-Za-z]+)?Arbitrix[A-Za-z0-9_]*/, 'Telegram handle'],
-  [/t\.me\/(?:[A-Za-z_+0-9]*)?Arbitrix/, 'Telegram destination'],
-  [/arbitrix[-_][a-z-]+/i, 'technical identifier (meta name, filename, env var)'],
-  [/Arbitrix Trading/, 'legal operator'],
-  [/data-brand|brand-|source:/, 'brand configuration']
-];
-function contextOf(text, index) {
-  return text.slice(Math.max(0, index - 40), index + 40);
-}
 function unexplainedIn(file) {
-  const text = read(file);
-  const out = [];
-  let from = 0;
-  for (;;) {
-    const i = text.indexOf('Arbitrix', from);
-    if (i < 0) break;
-    from = i + 1;
-    const ctx = contextOf(text, i);
-    if (!ALLOW_CONTEXT.some(([re]) => re.test(ctx))) {
-      const line = text.slice(text.lastIndexOf('\n', i) + 1, text.indexOf('\n', i));
-      out.push(file + ': ' + line.trim().slice(0, 90));
-    }
-  }
-  return out;
+  return lint.detectOldBrand(read(file)).map((hit) => {
+    const line = read(file).slice(hit.index - 40, hit.index + 40).replace(/\s+/g, ' ').trim();
+    return file + ': ' + line;
+  });
 }
 const leftovers = GLOBS.filter(exists).flatMap(unexplainedIn);
 check('every remaining reference is a protected identifier', leftovers.length === 0,

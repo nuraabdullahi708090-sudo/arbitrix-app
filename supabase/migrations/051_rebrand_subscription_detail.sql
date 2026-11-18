@@ -16,6 +16,23 @@
 --   money path and no changed money behaviour, which is why this can be applied
 --   without a billing review.
 --
+-- ALSO FIXES A GENUINE PRIVILEGE DEFECT (M2)
+--   charge_subscription_safe was created by migration 011 and was NEVER added to
+--   migration 014's EXECUTE lockdown (014 covers record_trade_safe,
+--   credit_payment_safe and paymento_credit_user_safe only). PostgreSQL grants
+--   EXECUTE on a new function to PUBLIC by default, so this SECURITY DEFINER
+--   function - which debits wallets.live_balance for any p_user_id at any
+--   p_price the caller chooses - was callable by `anon` and `authenticated`
+--   through PostgREST. The body also ran with no pinned search_path, so an
+--   unqualified reference (wallets, subscriptions, transactions) could be
+--   hijacked from a schema earlier in the path.
+--
+--   This file therefore also:
+--     - pins SET search_path = public, pg_temp;
+--     - REVOKEs EXECUTE from PUBLIC, anon and authenticated;
+--     - GRANTs EXECUTE to service_role only (the server path);
+--     - self-checks BOTH properties so a re-run cannot silently regress them.
+--
 -- WHAT IT DOES NOT CHANGE
 --   Historical rows keep the text they were written with. A rename is not a
 --   reason to rewrite a customer's past statements, and the frontend maps both
@@ -49,6 +66,7 @@ CREATE OR REPLACE FUNCTION public.charge_subscription_safe(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_wallet wallets%ROWTYPE;
@@ -208,9 +226,14 @@ EXCEPTION
 END;
 $$;
 
--- No REVOKE/GRANT here on purpose: CREATE OR REPLACE preserves the existing
--- function ACL, and migration 014 is the one that locked this RPC down. Adding a
--- grant would either duplicate or silently widen that decision.
+-- EXECUTE lockdown (M2). Migration 014 does NOT cover this function; its default
+-- PUBLIC grant is still in place, so it is revoked here explicitly. The signature
+-- is spelled out exactly (DECIMAL -> numeric) so the statement targets THIS
+-- function and no other overload.
+REVOKE EXECUTE ON FUNCTION public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT) TO service_role;
 
 DO $check$
 DECLARE
@@ -233,5 +256,28 @@ BEGIN
     -- gate are the two statements whose absence would be a billing bug.
     IF position('idempotency_key' IN v_src) = 0 OR position('live_balance <' IN v_src) = 0 THEN
         RAISE EXCEPTION 'the function body lost its idempotency or balance guard';
+    END IF;
+
+    -- M2: the hardening must actually be in effect, not just written down.
+    IF position('search_path' IN v_src) = 0 THEN
+        RAISE EXCEPTION 'charge_subscription_safe does not pin search_path';
+    END IF;
+
+    IF to_regrole('anon') IS NOT NULL
+       AND has_function_privilege('anon',
+            'public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'anon can still EXECUTE charge_subscription_safe';
+    END IF;
+
+    IF to_regrole('authenticated') IS NOT NULL
+       AND has_function_privilege('authenticated',
+            'public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'authenticated can still EXECUTE charge_subscription_safe';
+    END IF;
+
+    IF to_regrole('service_role') IS NOT NULL
+       AND NOT has_function_privilege('service_role',
+            'public.charge_subscription_safe(BIGINT, DECIMAL, TEXT, TEXT, TEXT)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'service_role lost EXECUTE on charge_subscription_safe - billing would break';
     END IF;
 END $check$;
