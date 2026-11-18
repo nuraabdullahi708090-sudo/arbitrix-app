@@ -137,6 +137,10 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Every function below is SECURITY DEFINER. search_path pins public FIRST and
+-- pg_temp LAST, so a temp schema cannot shadow a table these bodies touch
+-- (the same rule migration 053 applies to the other financial RPCs).
+
 -- --------------------------------------------------------- record a purchase
 -- Idempotent on the Payhip sale id. Creates the entitlement in the same
 -- transaction, with the hashed licence key. NEVER credits anything.
@@ -151,7 +155,7 @@ CREATE OR REPLACE FUNCTION public.record_payhip_purchase_safe(
   p_licence_hash  TEXT,
   p_payload       JSONB DEFAULT NULL
 ) RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   v_purchase_id BIGINT;
   v_entitlement_id BIGINT;
@@ -205,7 +209,7 @@ CREATE OR REPLACE FUNCTION public.redeem_payhip_entitlement_safe(
   p_user_id      BIGINT,
   p_licence_hash TEXT
 ) RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   v_row    payhip_entitlements%ROWTYPE;
   v_status TEXT;
@@ -269,7 +273,7 @@ CREATE OR REPLACE FUNCTION public.revoke_payhip_entitlement_safe(
   p_amount_refunded_cents INTEGER DEFAULT NULL,
   p_reason  TEXT DEFAULT NULL
 ) RETURNS JSONB
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   v_purchase_id BIGINT;
   v_entitlement_id BIGINT;
@@ -303,7 +307,7 @@ END $$;
 -- ---------------------------------------------------------------- activation
 CREATE OR REPLACE FUNCTION public.payhip_has_live_activation(p_user_id BIGINT)
 RETURNS BOOLEAN
-LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT EXISTS (
     SELECT 1
       FROM payhip_entitlements e

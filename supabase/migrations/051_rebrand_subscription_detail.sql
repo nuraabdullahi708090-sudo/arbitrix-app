@@ -45,6 +45,11 @@
 -- product still presents the old name would make new transactions inconsistent
 -- with the UI.
 
+-- ATOMIC: one transaction, like 050/052/053. The function replacement, the ACL
+-- re-assertion and the self-check either all land or none do, so a failure cannot
+-- leave a replaced body with an unverified privilege state.
+begin;
+
 DO $pre$
 BEGIN
     IF NOT EXISTS (
@@ -281,3 +286,5 @@ BEGIN
         RAISE EXCEPTION 'service_role lost EXECUTE on charge_subscription_safe - billing would break';
     END IF;
 END $check$;
+
+commit;

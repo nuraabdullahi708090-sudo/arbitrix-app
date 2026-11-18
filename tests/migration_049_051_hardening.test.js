@@ -106,6 +106,17 @@ test('M2: 051 still changes exactly one customer-visible string and no money log
   assert.match(sql, /live_balance </);
 });
 
+test('M2: 051 runs in ONE transaction, so a failure cannot half-apply', () => {
+  const sql = read(M051).replace(/--[^\n]*/g, '');
+  const begin = sql.search(/(^|\n)\s*begin\s*;/i);
+  const commit = sql.search(/(^|\n)\s*commit\s*;/i);
+  assert.ok(begin >= 0, 'the migration must open a transaction');
+  assert.ok(commit > begin, 'the migration must commit after it opens');
+  // begin must precede the first statement, commit must follow the last one.
+  assert.ok(begin < sql.search(/DO \$pre\$/), 'begin must come before the precondition block');
+  assert.ok(commit > sql.search(/END \$check\$;/), 'commit must come after the self-check');
+});
+
 test('M2: migration 011 itself never locked the function down (the defect premise)', () => {
   const sql = read('011_subscription_pro.sql');
   assert.ok(!/REVOKE EXECUTE ON FUNCTION public\.charge_subscription_safe/.test(sql),
