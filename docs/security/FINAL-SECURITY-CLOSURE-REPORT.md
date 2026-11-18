@@ -78,6 +78,13 @@ Why not apply 051 now: 051 changes customer-visible transaction text
 rebrand release decision, not to security closure, and 051 does not undo 052 in either
 order. Applying 052 alone leaves production's ledger text unchanged.
 
+**Migration history could not be read from this environment** (the management API
+token is rejected and the database host does not resolve - see the M2 audit, section B),
+so "which versions are recorded" is UNVERIFIED here, and the two inferences above come
+from the operator's before-state rather than from the history table. The recommendation
+does not depend on it: whatever the history says, 052 is the only committed file that
+recreates the correction in a fresh environment, and applying it is idempotent.
+
 **Migration-history reconciliation: not needed.** No manual history surgery is
 required - applying 052 records it normally. Do not re-run 011, and do not hand-edit
 `supabase_migrations.schema_migrations`.
