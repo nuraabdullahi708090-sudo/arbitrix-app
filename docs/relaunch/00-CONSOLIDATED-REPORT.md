@@ -1,8 +1,26 @@
 # Arbitrix relaunch - consolidated report
 
-Date: 2026-11-16
+Date: 2026-11-16 (partially superseded - see the note below)
 Branch: `relaunch/rebrand-payment-commercial` (from `main` @ 7910db6)
-Test status: **3198 pass / 0 fail** (`npm test`)
+Test status at the time of writing: **3198 pass / 0 fail** (`npm test`)
+
+> **SUPERSEDED DECISIONS (later management decisions - read these first)**
+>
+> 1. **The minimum deposit stays $100.** The $50 change was proposed, analysed
+>    here and then WITHDRAWN. `049_min_deposit_50.sql` no longer exists; the file
+>    is now `049_min_deposit_100.sql`, which only asserts/repairs the $100 floor.
+>    Everything in this report that treats "$50" as a pending decision, or lists
+>    "apply 049 + `PLATFORM_MIN_DEPOSIT_USD=50`", is historical. Do not apply it.
+> 2. **Payhip Option A stands** (activation only, no capital), and the production
+>    product is `dLXuU` - a one-time **$50** Live Mode activation
+>    (`https://payhip.com/b/dLXuU`). The $50 is the price of PERMISSION; funding is
+>    still a separate $100 qualifying deposit.
+> 3. The deferred point about funding a package after fees (section 5 of
+>    `05-PAYMENTS.md`) is why Option A was chosen: never credit the advertised
+>    amount from a purchase that settles for less.
+>
+> Current, authoritative release sequence: `13-RELEASE-CHECKLIST-KALDERIX.md`.
+> Current migrations state: its section 2.1.
 
 Detailed evidence lives in the numbered documents in this folder:
 
@@ -363,7 +381,7 @@ A  docs/relaunch/*.md                              (baseline, brand, min deposit
                                                     localisation, action plan,
                                                     implementation, release
                                                     checklists, smoke rehearsal)
-A  supabase/migrations/049_min_deposit_50.sql      ($50 minimum knob, UNAPPLIED)
+A  supabase/migrations/049_min_deposit_100.sql     ($100 floor assertion - SUPERSEDES the $50 knob; satisfied in production)
 A  supabase/migrations/050_payhip_live_activation.sql
                                                    (purchase + entitlement
                                                     tables and the row-locked
@@ -463,9 +481,10 @@ Specifically gated:
    or the rejected alternative (one purchase that also credits trading capital -
    `05-PAYMENTS.md` explains why it cannot be funded safely after fees).
 2. **Apply the migrations** and enable the rail, or hold.
-3. **$50 minimum**: adopt it (migration 049 + `PLATFORM_MIN_DEPOSIT_USD=50`) or
-   keep $100. `03-MIN-DEPOSIT-50.md` shows a $50 balance can trade under the
-   current engine, but the promo cap and the $400 pause interact with it.
+3. ~~**$50 minimum**: adopt it (migration 049 + `PLATFORM_MIN_DEPOSIT_USD=50`) or
+   keep $100.~~ **DECIDED: keep $100.** `03-MIN-DEPOSIT-50.md` remains the
+   feasibility record; no change is applied and `PLATFORM_MIN_DEPOSIT_USD` stays
+   unset. See `13-RELEASE-CHECKLIST-KALDERIX.md` section 2.1.
 4. **Kalderix trademark clearance** - required before the name is promoted.
 5. **Paid search**: closed for this product category (`06-MARKETS.md`); endorse
    the organic/community plan instead.

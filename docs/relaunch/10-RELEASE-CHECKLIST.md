@@ -49,56 +49,73 @@ booleans and counts, never a secret.
 
 ## 3. Migration sequence
 
-Both are additive. **Neither changes behaviour without the flags in section 2.**
+One migration is required (**050**) and one is retired (**049**).
+**050 changes no behaviour without the flags in section 2.**
+
+Already applied in production by the operator and NOT part of this sequence:
+`052_charge_subscription_safe_privileges.sql` and
+`053_financial_rpc_privilege_lockdown.sql` (security only). Do not re-run them.
 
 ### 3.1 `050_payhip_live_activation.sql` (required)
 
 Creates `payhip_products`, `payhip_purchases`, `payhip_entitlements`, `payhip_events`
 plus four service-role-only functions. RLS enabled, no anon/authenticated policy.
 Self-checking: a `DO` block raises (and rolls back) if any object, constraint or
-policy is missing.
+policy is missing. Every function pins `search_path = public, pg_temp`.
 
-```sql
--- Supabase SQL editor, one file, in one transaction (the file has its own BEGIN/COMMIT)
-\i supabase/migrations/050_payhip_live_activation.sql
-```
+Run it in three steps, all in the Supabase SQL editor:
 
-Verify afterwards:
+1. **Before** - paste `docs/sql/payhip_050_readiness.sql` (SELECT-only). It verifies
+   the things that would otherwise abort the migration: `public.users` exists, its
+   `id` is `BIGINT` (050 declares `user_id BIGINT REFERENCES users(id)`), the three
+   roles exist, and no `payhip_*` object is present. Read the `NEXT ACTION` row:
+   `READY` is the only green light; `PARTIAL APPLY` means inspect by hand.
+2. **Apply** - paste the whole of
+   `supabase/migrations/050_payhip_live_activation.sql` (single file, one
+   transaction, its own `BEGIN`/`COMMIT`). It is safe to re-run.
+3. **After** - paste `docs/sql/payhip_050_postcheck.sql`. Every row must be `OK`;
+   the final `NEXT ACTION` row prints the catalogue statement that puts the product
+   on sale (see 3.3). Do not enable `PAYHIP_ENABLED` while any row is `FAIL`.
 
-```sql
-SELECT count(*) FROM information_schema.tables
- WHERE table_schema='public'
-   AND table_name IN ('payhip_products','payhip_purchases','payhip_entitlements','payhip_events');
--- expect 4
+The two scripts encode the checks that used to be listed here as ad-hoc SQL
+(table count, function list, service_role-only policies, plus sequence privileges,
+`search_path`, wallet-reference and idempotency-key assertions).
 
-SELECT proname FROM pg_proc
- WHERE proname IN ('record_payhip_purchase_safe','redeem_payhip_entitlement_safe',
-                   'revoke_payhip_entitlement_safe','payhip_has_live_activation');
--- expect 4
+### 3.2 `049_min_deposit_100.sql` (retired - do NOT apply a $50 change)
 
-SELECT tablename, policyname, roles FROM pg_policies WHERE tablename LIKE 'payhip_%';
--- every row must be service_role only. Any anon/authenticated row is a defect.
-```
+The $50 proposal was withdrawn. The approved floor is **$100**: the server constant
+`PLATFORM_MIN_DEPOSIT_USD` defaults to 100, production's
+`referral_config.minimum_qualifying_deposit` is already `100`, and `049` exists only
+to ASSERT/repair that state. There is nothing to apply and nothing to set.
 
-### 3.2 `049_min_deposit_50.sql` (only with the $50 decision)
-
-**Couple it to the environment variable.** Applying 049 alone sets the referral
-qualifying amount to 50 while deposits still require 100 — inconsistent, not
-dangerous. Setting `PLATFORM_MIN_DEPOSIT_USD=50` alone leaves referrals requiring
-100 — a $50 deposit would fund the account but never qualify its referrer.
-
-```sql
-\i supabase/migrations/049_min_deposit_50.sql
-```
-
-Then set `PLATFORM_MIN_DEPOSIT_USD=50` in the same window. The server now checks the
-two values on every boot and in `GET /api/admin/stats` (`minDepositSync`); a mismatch logs:
+`PLATFORM_MIN_DEPOSIT_USD` must stay unset. Setting `50` would reopen the exact
+mismatch 049 exists to prevent (a $50 deposit funds an account whose referrer never
+qualifies). The boot check (`minDepositSync`) would log:
 
 ```
 [Config] MISMATCH: referral_config.minimum_qualifying_deposit=100 but the platform minimum deposit is 50 ...
 ```
 
-Confirm `minDepositSync.ok === true` after restarting.
+If the probe ever shows a value other than 100, re-apply
+`supabase/migrations/049_min_deposit_100.sql`; it is idempotent and self-checking.
+
+### 3.3 Put the product on sale (required for the buy button)
+
+050 creates catalogue rows as `is_active = FALSE` on purpose, and `productsOnSale()`
+only counts `is_active = TRUE`. Without this statement the API reports
+`onSale: false` and the "Buy activation" button stays hidden even though every flag
+is correct:
+
+```sql
+INSERT INTO public.payhip_products (product_key, name, price_cents, is_active)
+VALUES ('dlxuu', 'Kalderix Live Mode activation', 5000, TRUE)
+ON CONFLICT (product_key) DO UPDATE SET is_active = TRUE;
+```
+
+The catalogue key is the **link code** (`dLXuU`, lowercased), not Payhip's numeric
+product id, because that is what redemption and the licence API compare. If a real
+webhook records `product-not-allowed`, read `productKey`/`productLink` in
+`payhip_events.detail` and add that identifier to `PAYHIP_PRODUCTS`.
 
 ## 4. Activation walkthrough (do this before flipping the gate)
 
@@ -196,15 +213,21 @@ there; after the drop the only record is Payhip's own.
 COPY (SELECT * FROM public.payhip_entitlements) TO STDOUT WITH CSV HEADER;
 ```
 
-### 5.5 Revert the deposit minimum
+### 5.5 The deposit minimum has nothing to revert
+
+There is no $50 change in this release, so there is nothing to undo. If a previous
+attempt left the value at 50, restore the approved floor (idempotent):
 
 ```sql
+-- column names differ between environments: (key, value) here, (config_key,
+-- config_value) in production. Check information_schema.columns first.
 UPDATE public.referral_config
    SET value = '100', updated_at = NOW()
- WHERE key = 'minimum_qualifying_deposit';
+ WHERE key = 'minimum_qualifying_deposit' AND value <> '100';
 ```
 
-and unset `PLATFORM_MIN_DEPOSIT_USD` (the built-in default is 100).
+and make sure `PLATFORM_MIN_DEPOSIT_USD` is UNSET (the built-in default is 100).
+Re-run `supabase/migrations/049_min_deposit_100.sql` afterwards to assert it.
 
 ## 6. Post-release monitoring (first 72 hours)
 
