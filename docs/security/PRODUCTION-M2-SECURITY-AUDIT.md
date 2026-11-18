@@ -72,8 +72,11 @@ Run in the Supabase SQL editor. It answers "which migrations are recorded" and "
 the catalogs actually say" in one pass. It is read-only.
 
 ```sql
--- (1) migration history, if the project records it
-select version, name, inserted_at
+-- (1) migration history, if the project records it. Only `version` is selected
+--     because the other columns differ between Supabase CLI versions. If this
+--     raises "relation does not exist", the project does not record migrations -
+--     use query (2) alone, it is the ground truth.
+select version
 from supabase_migrations.schema_migrations
 where version in ('011', '014', '051', '052')
 order by version;
@@ -277,19 +280,24 @@ left join public.wallets w on w.user_id = s.user_id
 where s.status = 'payment_due'
 order by s.updated_at desc;
 
--- (d) ledger rows whose detail does not match the normal period label
+-- (d) ledger rows whose detail is not the normal (optionally period-suffixed) label.
+--     The function writes 'Arbitrix Pro Subscription' (011) or 'Kalderix Pro Subscription'
+--     (051), optionally followed by ' - <YYYY-MM>', so match by PREFIX.
 select user_id, created_at, amount, detail
 from public.transactions
 where type = 'Subscription'
-  and detail not in ('Arbitrix Pro Subscription', 'Kalderix Pro Subscription')
+  and detail not like 'Arbitrix Pro Subscription%'
+  and detail not like 'Kalderix Pro Subscription%'
 order by created_at desc
 limit 200;
 
--- (e) charges that do not line up with the server's billing key namespace
---     (the server derives sub_<userId>_<kind>_<YYYY-MM>; anything else was NOT the app)
+-- (e) charges that do not line up with the server's billing key namespace.
+--     server.js: subscriptionBillingKey() -> `sub_<userId>_<kind>_<YYYY-MM>` where
+--     kind is exactly one of: monthly (recurring), activate (first charge),
+--     demo (admin sandbox). Anything else was NOT produced by the application.
 select user_id, idempotency_key, price, created_at
 from public.subscription_charges
-where idempotency_key !~ '^sub_[0-9]+_(monthly|annual|initial)_[0-9]{4}-[0-9]{2}$'
+where idempotency_key !~ '^sub_[0-9]+_(monthly|activate|demo)_[0-9]{4}-[0-9]{2}$'
 order by created_at desc
 limit 200;
 
@@ -301,8 +309,11 @@ where s.query ilike '%charge_subscription_safe%';
 ```
 
 Reading (e) is the most decisive: the application always builds an internal
-`sub_<userId>_<kind>_<YYYY-MM>` key. **Any other key is either a manual admin action or a
-third-party call** and should be traced. In the reproduction, the attacker's keys
+`sub_<userId>_<kind>_<YYYY-MM>` key, with `kind` in `{monthly, activate, demo}`
+(`subscriptionBillingKey()` in `server.js`). **Any other key is either a manual admin
+action or a third-party call** and should be traced. Keys written by migration 011's own
+test/rehearsal data or by an operator running the RPC by hand will also appear here, so
+correlate before concluding misuse. In the reproduction, the attacker's keys
 (`attacker-1`, `attacker-2`, `attacker-3`, `search-path-hijack`) would appear there
 immediately.
 
