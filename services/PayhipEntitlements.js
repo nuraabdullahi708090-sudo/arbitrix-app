@@ -453,14 +453,22 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     return false;
   }
 
-  /** Create the catalogue row if a verified sale names a product we allow. */
+  /**
+   * Create the catalogue row if a verified sale names a product we allow.
+   *
+   * The PERMALINK code is preferred over the numeric id: the allow-list, and the
+   * licence API's `product_link`, both use the permalink, so storing the numeric
+   * id here would leave the catalogue unable to match the product the operator
+   * actually configured (and `productsOnSale` would then hide the buy button).
+   */
   async function ensureProduct(productKey, name) {
     if (!productKey) return;
+    const key = String(productKey).toLowerCase();
     try {
       await admin
         .from('payhip_products')
         .upsert(
-          { product_key: productKey, name: name || productKey, kind: DEFAULT_PRODUCT_KIND },
+          { product_key: key, name: name || key, kind: DEFAULT_PRODUCT_KIND },
           { onConflict: 'product_key', ignoreDuplicates: true }
         );
     } catch (e) {
@@ -534,7 +542,13 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
       (sale.productKey && cfg.products.has(sale.productKey.toLowerCase())) ||
       (sale.productLink && cfg.products.has(sale.productLink.toLowerCase()));
     if (!saleAllowed) {
-      await recordEvent('paid', sale.saleId, 'product-not-allowed');
+      // The identifiers are recorded (never a secret): an operator bringing a new
+      // product up can read which key Payhip actually sent and complete the
+      // allow-list without guessing between the permalink and the numeric id.
+      await recordEvent('paid', sale.saleId, 'product-not-allowed', {
+        productKey: sale.productKey,
+        productLink: sale.productLink
+      });
       return { handled: true, outcome: 'product-not-allowed', saleId: sale.saleId };
     }
     if (!sale.licenceKey) {
@@ -548,11 +562,16 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
       return { handled: true, outcome: 'verification-failed', saleId: sale.saleId };
     }
 
-    await ensureProduct(sale.productKey, sale.productName);
+    // The permalink code is what the allow-list and the licence API use, so it is
+    // the better catalogue key when Payhip sends both identifiers. The SAME key is
+    // passed to the RPC: record_payhip_purchase_safe rejects a product_key that is
+    // not in the catalogue, so the two must not diverge.
+    const catalogueKey = sale.productLink || sale.productKey;
+    await ensureProduct(catalogueKey, sale.productName);
 
     const { data, error } = await admin.rpc('record_payhip_purchase_safe', {
       p_sale_id: sale.saleId,
-      p_product_key: sale.productKey,
+      p_product_key: catalogueKey ? String(catalogueKey).toLowerCase() : null,
       p_buyer_email: sale.email,
       p_price_cents: sale.priceCents,
       p_currency: sale.currency,
@@ -686,12 +705,17 @@ function createPayhipEntitlements({ admin, config, fetchImpl, log } = {}) {
     const keys = Array.from(cfg.products);
     if (keys.length === 0) return { ok: true, configured: 0, active: 0, onSale: false, reason: 'no-products-configured' };
     try {
+      // No `.in(...)` filter: PostgreSQL compares those case-sensitively, so a
+      // catalogue row stored as 'dLXuU' would never match an allow-list entry
+      // normalised to 'dlxuu' and the buy button would stay hidden. The catalogue
+      // is a handful of rows, so filtering here is the robust choice.
       const { data, error } = await admin
         .from('payhip_products')
-        .select('product_key, is_active')
-        .in('product_key', keys);
+        .select('product_key, is_active');
       if (error) return { ok: false, configured: keys.length, active: 0, onSale: false, reason: 'catalogue-unreadable' };
-      const active = (data || []).filter((r) => r && r.is_active === true).length;
+      const allowed = new Set(keys);
+      const rows = (data || []).filter((r) => r && allowed.has(String(r.product_key || '').toLowerCase()));
+      const active = rows.filter((r) => r.is_active === true).length;
       return { ok: true, configured: keys.length, active, onSale: active > 0 };
     } catch (e) {
       return { ok: false, configured: keys.length, active: 0, onSale: false, reason: 'catalogue-unreadable' };
