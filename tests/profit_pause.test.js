@@ -16,19 +16,21 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
-const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
-const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
-const WORKER_JS = fs.readFileSync(path.join(ROOT, 'worker.js'), 'utf8');
-const TRADING_WORKER = fs.readFileSync(path.join(ROOT, 'services', 'TradingWorker.js'), 'utf8');
-const MODULE_SRC = fs.readFileSync(path.join(ROOT, 'services', 'ProfitPause.js'), 'utf8');
-const MIGRATION = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '033_bot_profit_pause.sql'), 'utf8');
-const KNOWLEDGE = fs.readFileSync(path.join(ROOT, 'services', 'support', 'arbitrix-knowledge.json'), 'utf8');
+const INDEX = readLf(path.join(ROOT, 'public', 'index.html'));
+const SERVER = readLf(path.join(ROOT, 'server.js'));
+const WORKER_JS = readLf(path.join(ROOT, 'worker.js'));
+const TRADING_WORKER = readLf(path.join(ROOT, 'services', 'TradingWorker.js'));
+const MODULE_SRC = readLf(path.join(ROOT, 'services', 'ProfitPause.js'));
+const MIGRATION = readLf(path.join(ROOT, 'supabase', 'migrations', '033_bot_profit_pause.sql'));
+const KNOWLEDGE = readLf(path.join(ROOT, 'services', 'support', 'arbitrix-knowledge.json'));
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 
 const MOD = require('../services/ProfitPause');

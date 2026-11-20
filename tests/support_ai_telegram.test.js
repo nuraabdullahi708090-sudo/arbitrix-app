@@ -17,6 +17,8 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
@@ -171,7 +173,7 @@ test('AI answering is OFF by default and never constructed unless enabled', () =
   assert.strictEqual(resolveSupportAIConfig({ AI_SUPPORT_ENABLED: 'false' }).enabled, false);
   assert.strictEqual(resolveSupportAIConfig({ AI_SUPPORT_ENABLED: '1' }).enabled, false);
 
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = readLf(path.join(ROOT, 'server.js'));
   assert.match(server, /resolveSupportAIConfig\(process\.env\)/, 'server must read the existing flag');
   assert.match(server, /if \(!supportAIConfig\.enabled\) return null;/, 'server must skip construction when disabled');
   // The translator instance is handed to BOTH layers: the AI layer needs it to make
@@ -181,7 +183,7 @@ test('AI answering is OFF by default and never constructed unless enabled', () =
   assert.match(server, /translator: supportTranslator/, 'the bot must receive the translator');
   assert.match(server, /catch \(error\)[\s\S]{0,200}return null;/, 'AI init failure must degrade to the human flow');
 
-  assert.match(fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8'), /^AI_SUPPORT_ENABLED=false$/m);
+  assert.match(readLf(path.join(ROOT, '.env.example')), /^AI_SUPPORT_ENABLED=false$/m);
 });
 
 // --------------------------------------------------- AI disabled: unchanged --
@@ -469,7 +471,7 @@ test('the AI layer has no database, trading, withdrawal or account access', () =
   ];
   const forbidden = [/supabase/i, /record_trade_safe/i, /charge_subscription_safe/i, /sandbox_/i, /insertMessage/i, /createEscalation/i];
   files.forEach((file) => {
-    const source = fs.readFileSync(path.join(ROOT, 'services', 'support', file), 'utf8');
+    const source = readLf(path.join(ROOT, 'services', 'support', file));
     forbidden.forEach((re) => {
       assert.ok(!re.test(source), file + ' must not reference ' + re);
     });
@@ -478,7 +480,7 @@ test('the AI layer has no database, trading, withdrawal or account access', () =
   // The bot hands the AI a string (plus the selected conversation language) and
   // receives text back - nothing else. Only ask/isEnabled/providerName are ever
   // called on it.
-  const telegram = fs.readFileSync(path.join(ROOT, 'services', 'TelegramSupportService.js'), 'utf8');
+  const telegram = readLf(path.join(ROOT, 'services', 'TelegramSupportService.js'));
   assert.match(telegram, /const result = await ai\.ask\(question, \{ language: DEFAULT_LANGUAGE \}\);/);
   const allowed = new Set(['ai.ask(', 'ai.isEnabled(', 'ai.providerName(']);
   const aiCalls = telegram.match(/\bai\.[a-zA-Z]+\(/g) || [];
