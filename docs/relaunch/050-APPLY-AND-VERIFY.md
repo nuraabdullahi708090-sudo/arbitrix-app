@@ -225,6 +225,26 @@ never on the production one.
 
 ---
 
+## 6.5 Known behaviour worth telling support
+
+**Deleting a user who holds a CLAIMED licence will fail.** The schema declares
+`payhip_entitlements.user_id ... ON DELETE SET NULL`, but the table also requires
+`claimed_at IS NOT NULL => user_id IS NOT NULL`, so PostgreSQL cannot null the
+column on a claimed row: the `DELETE` aborts with a check-constraint violation.
+Nothing is lost and no licence changes hands (the hash stays UNIQUE and the row
+stays claimed) - it simply refuses. Two coherent designs, for a decision:
+
+| Option | Change | Trade-off |
+|---|---|---|
+| keep the block (today) | none | an admin must revoke/refund first; the paid record cannot be orphaned by accident |
+| retain the audit record | `ON DELETE RESTRICT` + relax the CHECK so a claimed row may keep a NULL owner | customer deletion succeeds, the purchase is preserved for reconciliation |
+
+Until one is chosen, an operator deleting a customer with a paid activation should
+expect the error and revoke the entitlement first (`/api/admin/payhip/purchases`
+then revoke), which is the safe path anyway.
+
+---
+
 ## 7. Rollback
 
 | Goal | Action |
