@@ -141,13 +141,40 @@ PAYHIP_ACTIVATION_REQUIRED=true        <- the only behaviour change, set LAST
 Then in Payhip's dashboard point the webhook at
 `https://arbitrix.pro/api/payhip/webhook?token=<PAYHIP_WEBHOOK_TOKEN>`.
 
-### 6.2 The endpoints answer
+### 6.2 The endpoints answer - one command
+
+```bash
+node scripts/check-payhip-readiness.js --base https://arbitrix.pro
+```
+
+It prints which `PAYHIP_*` variables are present (booleans only - never a value),
+the health + activation status, and one verdict line with the single next action.
+Exit codes: `0` ready, `2` not deployed, `3` configured but not usable, `4` the
+probe failed.
+
+How to read the webhook probe, which is an empty `POST` with **no** token (a
+refused delivery - it can never record a purchase):
+
+| Answer | Meaning | Action |
+|---|---|---|
+| `404` | the route is not in the running build | deploy the branch; Payhip deliveries fail until then |
+| `503 payhip-not-configured` | deployed, but configuration is incomplete; `reason` names it (`disabled`, `no-products-configured`, `missing-api-key`, `missing-webhook-token`, `weak-webhook-token`) | set the named variable |
+| `401 invalid_token` | deployed and configured; the probe was correctly refused | register `https://<host>/api/payhip/webhook?token=<PAYHIP_WEBHOOK_TOKEN>` in Payhip |
+| `200` | an unauthenticated delivery was accepted | stop - investigate before enabling anything |
+
+Manual equivalent:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://arbitrix.pro/api/live/activation   # 401 without a session
-curl -s -X POST 'https://arbitrix.pro/api/payhip/webhook?token=wrong' \
-     -H 'content-type: application/json' -d '{}' | head -c 120                     # {"ok":false,"error":"invalid_token"}
+curl -s -X POST https://arbitrix.pro/api/payhip/webhook \
+     -H 'content-type: application/json' -d '{}' | head -c 160                     # 503 + reason, or 401 invalid_token
 ```
+
+**Measured on 2026-11-18, before the deploy:** `/api/health` 200,
+`/api/live/activation` **404** and `POST /api/payhip/webhook` **404** - the
+relaunch build is not deployed, so any webhook registered in Payhip today points
+at a missing route. That is safe (nothing is recorded) but it means the dashboard
+entry must be re-checked after the deploy, and the URL must include `?token=`.
 
 ### 6.3 Prove the licence API answers (the one thing the repo cannot test)
 

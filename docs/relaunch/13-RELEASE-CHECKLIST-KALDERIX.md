@@ -365,17 +365,24 @@ order, because it is the part that can lock someone out:
    VALUES ('dlxuu', 'Kalderix Live Mode activation', 5000, TRUE)
    ON CONFLICT (product_key) DO UPDATE SET is_active = TRUE;
    ```
-5. Set configuration in the order listed in doc 10 section 2. The product is
+5. **Before** setting anything, run
+   `node scripts/check-payhip-readiness.js --base https://arbitrix.pro` after the
+   deploy: it prints which variables are present and the single next action. On
+   the pre-deploy build it correctly reports `NOT DEPLOYED` (the Payhip routes
+   answer 404 until this branch is live), and after the deploy it distinguishes
+   `503 + reason` (configuration incomplete) from `401 invalid_token` (configured;
+   the URL registered in Payhip must carry `?token=`).
+6. Set configuration in the order listed in doc 10 section 2. The product is
    `dLXuU` (`https://payhip.com/b/dLXuU`, one-time $50 activation):
    `PAYHIP_PRODUCTS=dLXuU`, `PAYHIP_STORE_URL=https://payhip.com/b/dLXuU`.
    Each row alone is safe; the behaviour change is the **last** row,
    `PAYHIP_ACTIVATION_REQUIRED=true`.
-6. Before flipping that last row, run doc 10 section 4: prove the licence API
+7. Before flipping that last row, run doc 10 section 4: prove the licence API
    answers with one real key, and walk one test account through purchase →
    redeem → Live Mode entry.
-7. Flip the gate. **Funded accounts are grandfathered; the sandbox is exempt** -
+8. Flip the gate. **Funded accounts are grandfathered; the sandbox is exempt** -
    verify both before announcing anything.
-8. `051_rebrand_subscription_detail.sql` belongs to the rebrand, not to Payhip:
+9. `051_rebrand_subscription_detail.sql` belongs to the rebrand, not to Payhip:
    apply it only once the Kalderix build is live (step 7.4), so a subscription
    charge cannot write a brand the UI no longer shows.
 
