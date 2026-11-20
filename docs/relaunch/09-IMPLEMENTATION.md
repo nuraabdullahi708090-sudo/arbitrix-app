@@ -51,7 +51,7 @@ domain, DNS, trademark or deployment action was taken.
 
 ---
 
-## 2. Minimum deposit: $50, server-authoritative
+## 2. Minimum deposit: $100, server-authoritative
 
 **Problem.** The minimum was a literal `100` repeated in the server, the
 frontend, six locales of copy and several tests. Changing it meant editing
@@ -233,9 +233,10 @@ tests/deposit_reconciliation.test.js  new
 
 # Addendum — Payhip activation finalized against the documented API (2026-11-16)
 
-Founder approved: Kalderix **as a provisional candidate only**, the $50 minimum for
-release preparation, Payhip **Option A** (entitlement only, never credits capital),
-Trunkay removed from scope, Card2Crypto rejected, Q8Pay retained as the deposit rail.
+Founder approved: Kalderix **as a provisional candidate only**, Payhip **Option A**
+(entitlement only, never credits capital), Trunkay removed from scope, Card2Crypto
+rejected, Q8Pay retained as the deposit rail. The **$50 minimum was later rejected**:
+the live floor stays $100 (see `03-MIN-DEPOSIT-50.md`, now marked superseded).
 
 ## Two corrections to the previous design
 

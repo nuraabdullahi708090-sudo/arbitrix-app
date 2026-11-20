@@ -49,7 +49,7 @@ Section by section:
 | A. Brand / identity | 3 | the served page is Kalderix, "Arbitrix AI" is gone, and the legal operator page still names **Arbitrix Trading, KVK 72923513** |
 | B. Existing funded customer | 5 | a pre-release customer is grandfathered, trades Live, keeps Demo, and keeps their balance - even while Payhip is unreachable |
 | C. Payhip activation | 21 | the whole activation contract: gate before purchase, refusal codes, webhook signature, idempotency, one-time claim, no capital credited, refund revocation, sandbox exemption |
-| D. $50 minimum deposit | 8 | the floor is $50 at runtime, the referral config agrees with it, a $49 invoice is refused, and a $50 deposit qualifies a referral and pays 20% exactly once |
+| D. $100 minimum deposit | 8 | the floor is $100 at runtime, the referral config agrees with it, a $99.99 invoice is refused, and a $100 deposit qualifies a referral and pays 20% exactly once |
 | E. Subscription detail | 4 | a new charge writes `Kalderix Pro Subscription`, a pre-rebrand row is preserved, and both map to one label |
 | F. Withdrawal rules | 1 | the internal $700 minimum is untouched by the relaunch |
 | G. Collateral damage | 3 | balances, Live access and real-deposit reporting are unchanged at the end |
@@ -105,14 +105,14 @@ it does not. The release therefore carries a runtime self-check
 it:
 
 ```
-minDeposit: 50
-minDepositSync: { ok: true, effective: 50, configured: 50 }
+minDeposit: 100
+minDepositSync: { ok: true, effective: 100, configured: 100 }
 ```
 
-The behavioural half was proven end to end, not by reading constants: a $49
-invoice is refused with "minimum deposit is $50"; a $50 deposit confirmed through
+The behavioural half was proven end to end, not by reading constants: a $99.99
+invoice is refused with "minimum deposit is $100"; a $100 deposit confirmed through
 the real admin path flips the referral `pending -> active`, credits the referrer
-**$10** (20% of $50 exactly) and writes exactly one `Referral Bonus` transaction;
+**$20** (20% of $100 exactly) and writes exactly one `Referral Bonus` transaction;
 re-confirming the same deposit awards nothing.
 
 ---
@@ -179,7 +179,7 @@ Stated plainly, because the release decision depends on knowing the edges.
   **One live purchase in test mode is still required** before switching
   `PAYHIP_ACTIVATION_REQUIRED` on.
 - **Q8Pay is not called.** The deposit floor was proven at the validation layer
-  (a $49 invoice is refused, a $50 invoice is accepted) but no provider invoice
+  (a $99.99 invoice is refused, a $100 invoice is accepted) but no provider invoice
   was created and no blockchain payment was made. The decimal-amount
   identification behaviour is unchanged by this release and untested here.
 - **The trading worker was not enabled.** It is inert in this configuration.

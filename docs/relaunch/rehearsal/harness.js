@@ -215,29 +215,29 @@ async function main() {
     sandboxAct.json.activated === true && sandboxAct.json.reason === 'sandbox', sandboxAct.json);
 
   // ------------------------------------------------------------- D. min deposit
-  section('D. T5d - $50 minimum deposit and referral sync');
+  section('D. T5d - $100 minimum deposit and referral sync');
   const admin = await newUser('ops.admin', { admin: true });
   const stats = await api('GET', '/api/admin/stats', { token: admin.token });
-  check('D1 the runtime minimum deposit is $50', stats.json && stats.json.minDeposit === 50, stats.json && stats.json.minDeposit);
+  check('D1 the runtime minimum deposit is $100', stats.json && stats.json.minDeposit === 100, stats.json && stats.json.minDeposit);
   check('D2 the runtime detects referral_config and the floor agree',
     stats.json && stats.json.minDepositSync && stats.json.minDepositSync.ok === true, stats.json && stats.json.minDepositSync);
 
-  const belowMin = await api('POST', '/api/payment/create-invoice', { token: buyer.token, body: { amount: 49, currency: 'USDT', network: 'TRC20' } });
-  check('D3 a $49 invoice is refused at the new floor',
-    belowMin.status === 400 && /\$50/.test(belowMin.json.error || ''), belowMin.json);
-  const atMin = await api('POST', '/api/payment/create-invoice', { token: buyer.token, body: { amount: 50, currency: 'USDT', network: 'TRC20' } });
+  const belowMin = await api('POST', '/api/payment/create-invoice', { token: buyer.token, body: { amount: 99.99, currency: 'USDT', network: 'TRC20' } });
+  check('D3 a $99.99 invoice is refused at the floor',
+    belowMin.status === 400 && /\$100/.test(belowMin.json.error || ''), belowMin.json);
+  const atMin = await api('POST', '/api/payment/create-invoice', { token: buyer.token, body: { amount: 100, currency: 'USDT', network: 'TRC20' } });
 
-  // Referral qualification at $50: drive the REAL admin-confirm path.
+  // Referral qualification at $100: drive the REAL admin-confirm path.
   const referrer = await newUser('ref.partner');
   const referred = await newUser('ref.downline', { live: 0 });
   sql(`insert into referrals (referrer_id, referred_id, status, bonus_earned) values (${referrer.id}, ${referred.id}, 'pending', 0);`);
-  const pendingDeposit = seedConfirmedDeposit(referred.id, 50, { status: 'pending', credited: false, ageDays: 0 });
+  const pendingDeposit = seedConfirmedDeposit(referred.id, 100, { status: 'pending', credited: false, ageDays: 0 });
   const confirm = await api('PUT', `/api/admin/deposits/${pendingDeposit}/confirm`, { token: admin.token, body: {} });
   const bonus = Number(sql(`select bonus_balance from wallets where user_id=${referrer.id};`));
   const refStatus = sql(`select status || '|' || bonus_earned from referrals where referred_id=${referred.id};`);
-  check('D4 a $50 deposit confirms through the real admin path', confirm.status === 200, confirm.json);
-  check('D5 the $50 deposit qualifies the referral', refStatus.startsWith('active'), refStatus);
-  check('D6 the referrer earns 20% of the $50 deposit ($10)', Math.abs(bonus - 10) < 0.001, { bonus });
+  check('D4 a $100 deposit confirms through the real admin path', confirm.status === 200, confirm.json);
+  check('D5 the $100 deposit qualifies the referral', refStatus.startsWith('active'), refStatus);
+  check('D6 the referrer earns 20% of the $100 deposit ($20)', Math.abs(bonus - 20) < 0.001, { bonus });
   check('D7 exactly one referral bonus transaction was written',
     sql(`select count(*) from transactions where user_id=${referrer.id} and type='Referral Bonus';`) === '1');
   const doubleConfirm = await api('PUT', `/api/admin/deposits/${pendingDeposit}/confirm`, { token: admin.token, body: {} });

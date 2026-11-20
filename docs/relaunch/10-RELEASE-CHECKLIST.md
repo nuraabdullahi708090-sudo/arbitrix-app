@@ -93,7 +93,7 @@ mismatch 049 exists to prevent (a $50 deposit funds an account whose referrer ne
 qualifies). The boot check (`minDepositSync`) would log:
 
 ```
-[Config] MISMATCH: referral_config.minimum_qualifying_deposit=100 but the platform minimum deposit is 50 ...
+[Config] MISMATCH: referral_config.minimum_qualifying_deposit=100 but the platform minimum deposit is <other value> ...
 ```
 
 If the probe ever shows a value other than 100, re-apply

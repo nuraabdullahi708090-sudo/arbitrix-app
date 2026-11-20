@@ -1,8 +1,11 @@
 # Workstream B - Reducing the minimum deposit from $100 to $50
 
 Date: 2026-11-16
-Status: **knob implemented (no behaviour change). The $50 move itself is NOT
-applied - it changes a production deposit requirement and needs approval.**
+Status: **SUPERSEDED - the $50 minimum was NOT adopted. Management kept the $100
+floor, so nothing in this document is live.** It is retained as the feasibility
+record only: `PLATFORM_MIN_DEPOSIT_USD` stays unset (default 100), migration 049
+asserts 100, and the decision is recorded in `00-CONSOLIDATED-REPORT.md` section 19
+and `13-RELEASE-CHECKLIST-KALDERIX.md` section 2.1.
 
 ---
 

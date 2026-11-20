@@ -9,7 +9,7 @@ Date: 2026-11-16
 | Blocked item | Blocked on |
 |---|---|
 | Rebrand implementation | brand approval + the product-claim decision (doing it first is the wrong order) |
-| $50 minimum going live | approval (it is a production deposit requirement) + referral-config migration |
+| ~~$50 minimum going live~~ | **not proceeding** - management kept the $100 floor; this row is history |
 | Payhip rail | eligibility (likely refused) + the unit economics in `04-PAYHIP.md` §3 |
 | Card rails | acquirer approval of the product; Card2Crypto is disqualified |
 | Trunkay assessment | the correct URL (the name does not exist on any TLD) |

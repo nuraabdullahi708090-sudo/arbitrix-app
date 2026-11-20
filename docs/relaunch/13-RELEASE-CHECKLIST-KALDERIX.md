@@ -433,7 +433,7 @@ eligibility itself, so a tampered client can only change what the card *says*.
 * The credit is **not** a qualifying deposit. `withdrawalFundingRequired` stays true
   for a promo-funded account, so the first-deposit rule before a withdrawal is
   untouched.
-* The Payhip gate, the $50 minimum deposit, the $700 withdrawal minimum, the
+* The Payhip gate, the $100 minimum deposit, the $700 withdrawal minimum, the
   completed-trade rule and the $20 promotional profit cap are all untouched - the
   gates remain `/api/bot/start`, `/api/trade` and `/api/withdraw/request`.
 * The amount displayed is the **remaining** promotional Live balance (so a customer
