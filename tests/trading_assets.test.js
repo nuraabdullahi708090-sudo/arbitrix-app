@@ -212,8 +212,11 @@ test('no new environment variable or migration was added for assets', () => {
   // join-welcome ledger. The asset universe itself is display metadata and needs
   // no schema change, which the next assertions still prove.
   // 048 does not exist; 049 syncs referral_config for the approved $50 minimum
-  // deposit and 050 adds the Payhip Live Mode activation entitlement.
-  assert.strictEqual(migrations.length, 52, 'only approved migrations may be added (052/053 = financial RPC privileges)');
+  // deposit, 050 adds the Payhip Live Mode activation entitlement and 052/053
+  // lock down financial RPC privileges. 054 adds the FROZEN grandfathering
+  // snapshot plus the complimentary-entitlement source columns; it changes no
+  // money and is not executed by the application.
+  assert.strictEqual(migrations.length, 53, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering)');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');
