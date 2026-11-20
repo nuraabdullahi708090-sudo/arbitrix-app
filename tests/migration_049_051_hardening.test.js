@@ -29,6 +29,7 @@ const read = (f) => fs.readFileSync(path.join(MIGRATIONS, f), 'utf8');
 
 const M049 = '049_min_deposit_100.sql';
 const M051 = '051_rebrand_subscription_detail.sql';
+const M052 = '052_charge_subscription_safe_privileges.sql';
 
 test('H2: the superseded $50 migration is gone', () => {
   assert.ok(fs.existsSync(path.join(MIGRATIONS, M049)), M049 + ' must exist');
@@ -104,6 +105,23 @@ test('M2: 051 still changes exactly one customer-visible string and no money log
   // The money guards survive the replace.
   assert.match(sql, /idempotency_key/);
   assert.match(sql, /live_balance </);
+});
+
+test('M2: 051 re-asserts exactly the ACL 052 applied (no weakening, no drift)', () => {
+  const norm = (sql) => sql
+    .replace(/--[^\n]*/g, '')
+    .split('\n')
+    .map((l) => l.replace(/\s+/g, ' ').trim().replace(/;\s*$/, '').toLowerCase())
+    // decimal and numeric are the same type; on a function the only privilege
+    // is EXECUTE, so `revoke all` and `revoke execute` are the same statement.
+    .map((l) => l.replace(/\bdecimal\b/g, 'numeric').replace(/^revoke all /, 'revoke execute '))
+    .filter((l) => /^(revoke|grant) /.test(l));
+
+  const a051 = norm(read(M051));
+  const a052 = norm(read(M052));
+  assert.ok(a051.length >= 4, '051 must revoke from PUBLIC, anon, authenticated and grant to service_role');
+  assert.deepStrictEqual(a051.sort(), a052.sort(),
+    '051 and 052 must assert the same privilege state - a divergence would mean one of them silently changes the security fix');
 });
 
 test('M2: 051 runs in ONE transaction, so a failure cannot half-apply', () => {
