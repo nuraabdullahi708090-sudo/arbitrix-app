@@ -1,6 +1,12 @@
 # 13 - KALDERIX RELAUNCH: MASTER RELEASE CHECKLIST
 
-Status: **PARTIALLY EXECUTED - READ THIS FIRST.**
+Status: **CODE MERGED AND DEPLOYED; DATABASE + PAYHIP STEPS PENDING - READ THIS FIRST.**
+
+Deployed commit `3ee2c667` (PR #171) went live ~45 s after the merge. Branding,
+routes and pages were verified against production and are recorded, with the raw
+outputs, in `15-RELEASE-EXECUTION-LOG.md`. What remains: migrations `050`/`051`
+(no database credential in the build environment) and the Payhip variables plus
+the webhook registration.
 
 Applied in production already (confirmed by the operator):
 
