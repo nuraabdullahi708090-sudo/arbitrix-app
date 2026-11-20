@@ -75,19 +75,67 @@ CREATE TABLE IF NOT EXISTS public.payhip_entitlements (
   licence_key_hash TEXT NOT NULL UNIQUE,
   user_id          BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
   claimed_at       TIMESTAMPTZ,
+  -- Stamped when the owning account is deleted (the FK nulls user_id). The
+  -- licence stays CLAIMED - so nobody else can ever use it - while the purchase
+  -- evidence survives for reconciliation. See the three-state CHECK below.
+  owner_detached_at TIMESTAMPTZ,
   revoked_at       TIMESTAMPTZ,
   revoke_reason    TEXT,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  -- a claimed entitlement always has an owner; an unclaimed one never does
-  CONSTRAINT payhip_entitlement_claim_shape
-    CHECK ((claimed_at IS NULL AND user_id IS NULL) OR (claimed_at IS NOT NULL AND user_id IS NOT NULL))
+  -- Exactly three legal states:
+  --   unclaimed  -> no owner, no claim, no detach
+  --   claimed    -> owner, claim, no detach
+  --   detached   -> claim, no owner, detach stamp (the account was deleted)
+  CONSTRAINT payhip_entitlement_claim_shape CHECK (
+    (claimed_at IS NULL     AND user_id IS NULL     AND owner_detached_at IS NULL)
+    OR (claimed_at IS NOT NULL AND user_id IS NOT NULL AND owner_detached_at IS NULL)
+    OR (claimed_at IS NOT NULL AND user_id IS NULL     AND owner_detached_at IS NOT NULL)
+  )
 );
 
 CREATE INDEX IF NOT EXISTS payhip_entitlements_user_idx
   ON public.payhip_entitlements (user_id);
 
+-- Converge a draft that created the table without the detach column/constraint.
+ALTER TABLE public.payhip_entitlements
+  ADD COLUMN IF NOT EXISTS owner_detached_at TIMESTAMPTZ;
+
+ALTER TABLE public.payhip_entitlements
+  DROP CONSTRAINT IF EXISTS payhip_entitlement_claim_shape;
+ALTER TABLE public.payhip_entitlements
+  ADD CONSTRAINT payhip_entitlement_claim_shape CHECK (
+    (claimed_at IS NULL     AND user_id IS NULL     AND owner_detached_at IS NULL)
+    OR (claimed_at IS NOT NULL AND user_id IS NOT NULL AND owner_detached_at IS NULL)
+    OR (claimed_at IS NOT NULL AND user_id IS NULL     AND owner_detached_at IS NOT NULL)
+  );
+
+-- Deleting an account runs the FK's ON DELETE SET NULL as a normal UPDATE, so a
+-- BEFORE trigger can record WHY the owner disappeared. Without this the updated
+-- row would violate the CHECK above and the account deletion would fail.
+-- The licence itself is untouched: claimed_at stays set, the hash stays UNIQUE,
+-- and redeem_payhip_entitlement_safe already refuses a claimed row whose owner
+-- differs (NULL IS DISTINCT FROM p_user_id), so a detached licence can never be
+-- claimed again by anyone.
+CREATE OR REPLACE FUNCTION public.payhip_entitlement_note_detach()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  IF OLD.user_id IS NOT NULL AND NEW.user_id IS NULL AND NEW.owner_detached_at IS NULL THEN
+    NEW.owner_detached_at := NOW();
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS payhip_entitlement_detach_note ON public.payhip_entitlements;
+CREATE TRIGGER payhip_entitlement_detach_note
+  BEFORE UPDATE OF user_id ON public.payhip_entitlements
+  FOR EACH ROW EXECUTE FUNCTION public.payhip_entitlement_note_detach();
+
 COMMENT ON COLUMN public.payhip_entitlements.licence_key_hash IS
   'SHA-256 hex of the Payhip licence key. The raw key is never stored.';
+
+COMMENT ON COLUMN public.payhip_entitlements.owner_detached_at IS
+  'Set when the owning account was deleted. The licence stays claimed and unusable; the purchase record is retained.';
 
 -- ------------------------------------------------------------------- events
 CREATE TABLE IF NOT EXISTS public.payhip_events (
@@ -327,7 +375,8 @@ BEGIN
     'public.record_payhip_purchase_safe(text,text,text,integer,text,integer,integer,text,jsonb)',
     'public.redeem_payhip_entitlement_safe(bigint,text)',
     'public.revoke_payhip_entitlement_safe(text,text,integer,text)',
-    'public.payhip_has_live_activation(bigint)'
+    'public.payhip_has_live_activation(bigint)',
+    'public.payhip_entitlement_note_detach()'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', f);
@@ -355,6 +404,16 @@ BEGIN
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'payhip_purchases'
             AND relnamespace = 'public'::regnamespace) THEN
     missing := missing || ' rls:purchases';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'payhip_entitlements'
+                    AND column_name = 'owner_detached_at') THEN
+    missing := missing || ' col:owner_detached_at';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'payhip_entitlement_detach_note' AND NOT tgisinternal) THEN
+    missing := missing || ' trg:detach';
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies

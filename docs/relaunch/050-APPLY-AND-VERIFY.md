@@ -225,23 +225,33 @@ never on the production one.
 
 ---
 
-## 6.5 Known behaviour worth telling support
+## 6.5 Deleting a customer who holds a claimed licence
 
-**Deleting a user who holds a CLAIMED licence will fail.** The schema declares
-`payhip_entitlements.user_id ... ON DELETE SET NULL`, but the table also requires
-`claimed_at IS NOT NULL => user_id IS NOT NULL`, so PostgreSQL cannot null the
-column on a claimed row: the `DELETE` aborts with a check-constraint violation.
-Nothing is lost and no licence changes hands (the hash stays UNIQUE and the row
-stays claimed) - it simply refuses. Two coherent designs, for a decision:
+**Resolved in this revision of 050.** Deleting an account now succeeds and keeps
+the paid record:
 
-| Option | Change | Trade-off |
+| | Before | After |
 |---|---|---|
-| keep the block (today) | none | an admin must revoke/refund first; the paid record cannot be orphaned by accident |
-| retain the audit record | `ON DELETE RESTRICT` + relax the CHECK so a claimed row may keep a NULL owner | customer deletion succeeds, the purchase is preserved for reconciliation |
+| `DELETE FROM users WHERE id = <holder>` | aborted: the FK's `SET NULL` produced a row that violated the claim CHECK | succeeds |
+| entitlement row | n/a | survives: `claimed_at` kept, `user_id` NULL, `owner_detached_at` stamped |
+| licence reusable by someone else | n/a | **no** - `redeem_payhip_entitlement_safe` refuses a claimed row whose owner differs (`NULL IS DISTINCT FROM p_user_id` → `claimed_by_other_account`) |
+| purchase evidence | n/a | untouched (`payhip_purchases` has no user FK) |
 
-Until one is chosen, an operator deleting a customer with a paid activation should
-expect the error and revoke the entitlement first (`/api/admin/payhip/purchases`
-then revoke), which is the safe path anyway.
+How: `payhip_entitlements.owner_detached_at` plus a `BEFORE UPDATE OF user_id`
+trigger (`payhip_entitlement_detach_note`) stamps the moment the FK nulls the
+owner; the CHECK then allows exactly three states - unclaimed, claimed, detached.
+Nothing is deleted and no constraint is relaxed: a detached licence is permanently
+consumed.
+
+Verified on PostgreSQL 16 (fresh apply + re-apply): `record` → `redeem` (user A) →
+`DELETE` user A (`DELETE 1`) → row `user=NULL claimed=true detached=true` →
+user B redeem attempts → `claimed_by_other_account` → purchase still `sale-1 paid
+5000`. The postcheck now reports it as row 11.
+
+Operational note: after a detach, support can still see the purchase and the claim
+date from `payhip_entitlements` + `payhip_purchases`, but the owner link is gone by
+design. Export `payhip_entitlements` before any bulk user cleanup if you need the
+mapping afterwards.
 
 ---
 

@@ -410,8 +410,15 @@ test('migration 050 is FK-compatible, idempotent and service-role only', () => {
     assert.match(MIGRATION_050, new RegExp('CREATE OR REPLACE FUNCTION public\\.' + fn), fn + ' must be (re)created');
   }
   // Defence in depth: public first, pg_temp LAST, on every SECURITY DEFINER body.
-  assert.strictEqual((MIGRATION_050.match(/SET search_path = public, pg_temp/g) || []).length, 4,
-    'all four functions must pin search_path with pg_temp last (the 053 rule)');
+  // Count FUNCTION DEFINITIONS, not the prose that mentions them.
+  const defs = MIGRATION_050.match(/LANGUAGE (?:plpgsql|sql) SECURITY DEFINER[^\n]*/g) || [];
+  const pinned = (MIGRATION_050.match(/SET search_path = public, pg_temp/g) || []).length;
+  assert.ok(defs.length >= 4, 'the migration defines at least the four Payhip functions');
+  assert.strictEqual(pinned, defs.length,
+    'every SECURITY DEFINER body must pin search_path with pg_temp last (the 053 rule)');
+  for (const line of defs) {
+    assert.match(line, /SET search_path = public, pg_temp AS \$\$$/, line.slice(0, 90));
+  }
   assert.match(MIGRATION_050, /REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated/);
   assert.match(MIGRATION_050, /GRANT EXECUTE ON FUNCTION %s TO service_role/);
   assert.match(MIGRATION_050, /payhip_sale_id\s+TEXT NOT NULL UNIQUE/, 'the sale id is the idempotency anchor');

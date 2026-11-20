@@ -82,6 +82,11 @@ facts as (
       join pg_namespace n2 on n2.oid = t2.relnamespace
       where n2.nspname = 'public' and t2.relname in ('payhip_purchases','payhip_entitlements')
         and c.contype in ('u','p'))                                                  as keys,
+    (select count(*) from information_schema.columns
+      where table_schema = 'public' and table_name = 'payhip_entitlements'
+        and column_name = 'owner_detached_at')                                        as detach_col,
+    (select count(*) from pg_trigger
+      where tgname = 'payhip_entitlement_detach_note' and not tgisinternal)          as detach_trg,
     (select count(*) from payhip_products where lower(product_key) = 'dlxuu')        as catalogue_rows,
     (select count(*) from payhip_products where lower(product_key) = 'dlxuu' and is_active) as catalogue_active
 )
@@ -126,17 +131,23 @@ select * from (
          case when f.keys >= 2 then 'OK' else 'FAIL' end,
          f.keys || ' unique/primary keys on the two anchors' from facts f
   union all
-  select 11, 'product dlxuu in the catalogue',
+  select 11, 'deleting an account stamps the detach marker',
+         case when f.detach_col = 1 and f.detach_trg = 1 then 'OK' else 'FAIL' end,
+         'column=' || f.detach_col || ' trigger=' || f.detach_trg ||
+         ' (a paid licence survives account deletion, stays claimed and cannot be reused)'
+    from facts f
+  union all
+  select 12, 'product dlxuu in the catalogue',
          case when f.catalogue_rows > 0 then 'OK' else 'ACTION' end,
          case when f.catalogue_rows > 0 then 'row present'
               else 'missing - run the activation SQL under NEXT ACTION' end from facts f
   union all
-  select 12, 'product dlxuu is ON SALE',
+  select 13, 'product dlxuu is ON SALE',
          case when f.catalogue_active > 0 then 'OK' else 'ACTION' end,
          case when f.catalogue_active > 0 then 'is_active = TRUE, the buy button can render'
               else 'is_active = FALSE, checkout stays hidden by design' end from facts f
   union all
-  select 13, 'NEXT ACTION', 'INFO',
+  select 14, 'NEXT ACTION', 'INFO',
          case
            when (select tables from facts) <> 4
              or (select rls_tables from facts) <> 4
@@ -144,6 +155,8 @@ select * from (
              or (select open_policies from facts) <> 0
              or (select functions from facts) <> 4
              or (select pinned from facts) <> 4
+             or (select detach_col from facts) <> 1
+             or (select detach_trg from facts) <> 1
              or (select open_functions from facts) <> '(none)'
              or (select wallet_refs from facts) <> 0
              then 'FAIL - 050 is not correctly applied; do not enable PAYHIP_ENABLED'
