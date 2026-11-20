@@ -805,3 +805,28 @@ test('safety: the browser loop was NOT silently en-route disabled for live users
   // startBot(). The disclosure marks the limitation instead.
   assert.match(INDEX, /APP\.botInterval = setInterval\(executeBotTrade, 8000\)/);
 });
+
+// ==========================================================================
+// SHUTDOWN: a stop must be a hard fence, not a suggestion
+// ==========================================================================
+test('after stop(), a queued tick executes nothing and writes no trade', async () => {
+  const { worker, admin } = makeWorker();
+  await worker.stop(); // as the signal handler does
+
+  const res = await worker.runOnce();
+  assert.strictEqual(res.skipped, true, 'a post-stop tick must be skipped');
+  assert.strictEqual(res.reason, 'shutting_down');
+  assert.deepStrictEqual(res.results, []);
+  // Not even a read: the tick must return before readControl().
+  assert.deepStrictEqual(admin._calls.rpcs, [], 'no RPC may run after stop()');
+});
+
+test('stop() is idempotent and still reports worker_stopped once per call', async () => {
+  const logger = collectingLogger();
+  const { worker, admin } = makeWorker({ logger });
+  await worker.stop();
+  await worker.stop(); // a second signal must not throw or double-release
+  assert.deepStrictEqual(admin._calls.rpcs, [], 'stopping an idle worker writes nothing');
+  const stopped = logger.lines.filter((l) => /"event":"worker_stopped"/.test(l));
+  assert.strictEqual(stopped.length, 2, 'each stop logs its own terminal record');
+});

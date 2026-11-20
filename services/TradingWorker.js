@@ -320,6 +320,10 @@ function createTradingWorker({
   const cfg = { ...DEFAULT_LIMITS, ...limits };
   const rpc = callRpc || ((name, args) => admin.rpc(name, args));
   let timer = null;
+  // Set the moment stop() is called. runOnce() and the pre-write fence below
+  // consult it, so a signal that arrives while a tick is mid-flight cannot be
+  // followed by a NEW ledger row (a shutdown is a hard stop, not a suggestion).
+  let stopping = false;
   let started = false;
   const stats = {
     ticks: 0, trades: 0, duplicates: 0, blocked: 0, stopped: 0, errors: 0,
@@ -845,6 +849,15 @@ function createTradingWorker({
       return { userId, action: 'dry_run', amount };
     }
 
+    // SHUTDOWN FENCE - the last check before the only money-moving call. Every
+    // risk limit has already passed, so from here the sole remaining effect is a
+    // ledger row: refusing here is what makes "no trades after SIGTERM" true for
+    // a tick that was already running when the signal arrived.
+    if (stopping) {
+      log('trade_skipped', { userId, reason: 'shutting_down' });
+      return { userId, action: 'stopped', code: 'SHUTTING_DOWN' };
+    }
+
     let res;
     try {
       res = await withRetry(
@@ -908,6 +921,11 @@ function createTradingWorker({
 
   /** One pass over every running session. Never throws. */
   async function runOnce() {
+    if (stopping) {
+      // A timer callback queued just before clearInterval() must execute nothing.
+      log('tick_skipped', { reason: 'shutting_down' });
+      return { tick: stats.ticks, skipped: true, reason: 'shutting_down', results: [] };
+    }
     stats.ticks++;
     const startedAt = clock();
     const control = await readControl();
@@ -946,6 +964,9 @@ function createTradingWorker({
   async function start() {
     if (started) return;
     started = true;
+    // A fresh lifecycle: start() is the only thing that may lift the shutdown
+    // fence, so an explicit restart (tests, or a future supervisor) trades again.
+    stopping = false;
     const reconciled = await reconcileStaleSessions();
     log('worker_started', {
       tickMs: cfg.tickMs,
@@ -972,6 +993,9 @@ function createTradingWorker({
   }
 
   async function stop() {
+    // FIRST: fence new work before anything is awaited, so a tick in flight
+    // sees the flag by the time it reaches the money write.
+    stopping = true;
     started = false;
     if (timer) clearInterval(timer);
     timer = null;

@@ -76,9 +76,50 @@ function startStub() {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, state, port: server.address().port })));
 }
 
-async function runWorkerFor(ms, env = {}) {
+/**
+ * Ask the worker to shut down the way a supervisor would ON THIS PLATFORM.
+ *
+ * POSIX: SIGTERM, which the worker handles.
+ * Windows: the OS cannot deliver SIGTERM to another process - `kill()` there is
+ * an unconditional TerminateProcess, so no handler runs and the clean-shutdown
+ * contract could never be observed. The worker therefore also accepts an IPC
+ * message (this child is spawned with an 'ipc' stdio slot on every platform),
+ * which is the portable equivalent. Both triggers run the SAME shutdown path,
+ * so the assertions below are identical on both.
+ */
+function requestShutdown(child, via) {
+  const mode = via || (process.platform === 'win32' ? 'ipc' : 'signal');
+  if (mode === 'ipc') {
+    try {
+      child.send({ type: 'shutdown' });
+    } catch (e) {
+      child.kill();
+    }
+    return 'ipc';
+  }
+  child.kill('SIGTERM');
+  return 'SIGTERM';
+}
+
+function waitForExit(child, ms) {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null) return resolve(child.exitCode);
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } };
+    const timer = setTimeout(() => {
+      // Do not leave an orphan behind if graceful shutdown did not finish.
+      try { child.kill('SIGKILL'); } catch (e) { /* already gone */ }
+      finish('timeout');
+    }, ms);
+    child.once('exit', (code) => finish(code));
+  });
+}
+
+async function runWorkerFor(ms, env = {}, options = {}) {
   const { server, state, port } = await startStub();
-  const child = spawn('node', [path.join(ROOT, 'worker.js')], {
+  // process.execPath, not 'node': the test must not depend on PATH (on Windows a
+  // bare 'node' is resolved through PATHEXT and can be a different install).
+  const child = spawn(process.execPath, [path.join(ROOT, 'worker.js')], {
     env: Object.assign({}, process.env, {
       SUPABASE_URL: 'http://127.0.0.1:' + port,
       SUPABASE_SERVICE_KEY: 'stub-key-not-a-secret',
@@ -86,17 +127,18 @@ async function runWorkerFor(ms, env = {}) {
       TRADING_WORKER_TICK_MS: '120',
       TRADING_WORKER_DEBUG: 'true',
     }, env),
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
   let out = '';
   child.stdout.on('data', (d) => { out += d; });
   child.stderr.on('data', (d) => { out += d; });
+  child.on('error', (e) => { out += '\n[spawn error] ' + ((e && e.message) || String(e)); });
   await new Promise((r) => setTimeout(r, ms));
   const aliveAfterWindow = child.exitCode === null;
-  child.kill('SIGTERM');
-  const exitCode = await new Promise((r) => { child.on('exit', (code) => r(code)); setTimeout(() => r('timeout'), 3000); });
+  const trigger = requestShutdown(child, options.stopVia);
+  const exitCode = await waitForExit(child, 5000);
   server.close();
-  return { out, state, aliveAfterWindow, exitCode };
+  return { out, state, aliveAfterWindow, exitCode, trigger };
 }
 
 test('worker process stays alive after start and keeps ticking (regression: timer.unref() made it exit immediately)', async () => {
@@ -119,10 +161,28 @@ test('trading needs NO browser: ticks and trades accumulate with no client attac
   assert.ok(/"event":"trade_recorded"/.test(out), 'no trade was recorded');
 });
 
-test('SIGTERM shuts the worker down cleanly (exit 0) and logs it', async () => {
+test('the shutdown signal (SIGTERM / IPC) stops the worker cleanly (exit 0) and logs it', async () => {
   const { out, exitCode } = await runWorkerFor(900);
   assert.strictEqual(exitCode, 0, 'exit code was ' + exitCode + '; log:\n' + out.slice(0, 600));
   assert.match(out, /"event":"worker_shutdown"|"event":"worker_stopped"/);
+  // The terminal record must exist too, so an operator can tell a clean stop
+  // from a crash without reading the absence of errors.
+  assert.match(out, /"event":"worker_stopped"/, 'stop() must log worker_stopped');
+  assert.match(out, /"event":"worker_exit"/, 'the process must log worker_exit');
+  assert.match(out, /"forced":false/, 'this shutdown should not have needed the deadline');
+});
+
+test('the IPC stop path works (the only graceful trigger Windows can deliver)', async () => {
+  // Windows terminates a process on kill('SIGTERM') without running handlers, so
+  // a supervisor there uses this channel. Exercised on EVERY platform so the
+  // Windows behaviour cannot rot while the suite only ever runs on Linux.
+  const { out, exitCode, trigger } = await runWorkerFor(900, {}, { stopVia: 'ipc' });
+  assert.strictEqual(trigger, 'ipc');
+  assert.strictEqual(exitCode, 0, 'exit code was ' + exitCode + '; log:\n' + out.slice(0, 600));
+  assert.match(out, /"event":"worker_shutdown","trigger":"ipc"/);
+  assert.match(out, /"event":"worker_stopped"/);
+  assert.match(out, /"event":"worker_exit"/);
+  assert.match(out, /"forced":false/);
 });
 
 test('the worker never keeps trading once the process is signalled to stop', async () => {
@@ -131,6 +191,8 @@ test('the worker never keeps trading once the process is signalled to stop', asy
   await new Promise((r) => setTimeout(r, 600));
   assert.strictEqual(state.rpcs, rpcsAtStop, 'RPCs continued after shutdown');
   assert.match(out, /worker_shutdown|worker_stopped/);
+  assert.ok(!/"event":"trade_recorded"/.test(out.split('"event":"worker_shutdown"')[1] || ''),
+    'a trade was recorded AFTER the shutdown log line');
 });
 
 test('worker.js has no unref() on its tick timer and logs start + shutdown', () => {
@@ -138,6 +200,31 @@ test('worker.js has no unref() on its tick timer and logs start + shutdown', () 
   assert.ok(!/timer\.unref/.test(svc), 'unref() lets the event loop drain and the worker exit immediately');
   assert.match(WORKER_PROCESS_SRC, /event: 'worker_shutdown'/);
   assert.match(WORKER_PROCESS_SRC, /process\.on\('SIGTERM'/);
+  // Portable triggers: Windows cannot deliver SIGTERM, so the same shutdown must
+  // be reachable through SIGBREAK/SIGINT and an IPC message.
+  assert.match(WORKER_PROCESS_SRC, /process\.on\('SIGINT'/);
+  assert.match(WORKER_PROCESS_SRC, /process\.on\('SIGBREAK'/);
+  assert.match(WORKER_PROCESS_SRC, /process\.on\('message'/);
+  assert.match(WORKER_PROCESS_SRC, /typeof process\.send === 'function'/,
+    'the IPC channel must only be used when the parent actually provided one');
+});
+
+test('shutdown fences new work: no tick starts and no trade is written after stop()', () => {
+  const svc = fs.readFileSync(path.join(ROOT, 'services/TradingWorker.js'), 'utf8');
+  // stop() must fence FIRST, before any awaited cleanup.
+  const stopBody = svc.slice(svc.indexOf('async function stop()'), svc.indexOf("log('worker_stopped'"));
+  assert.match(stopBody, /stopping = true;/, 'stop() must set the fence before awaiting');
+  assert.ok(stopBody.indexOf('stopping = true') < stopBody.indexOf('releaseLease'),
+    'the fence must precede the lease release awaits');
+  // runOnce() refuses a pass once stopping.
+  const runOnce = svc.slice(svc.indexOf('async function runOnce()'), svc.indexOf('async function start()'));
+  assert.match(runOnce, /if \(stopping\)/, 'runOnce must refuse to start after shutdown');
+  assert.match(runOnce, /shutting_down/);
+  // The money write is preceded by the fence.
+  const writeAt = svc.indexOf("rpc('record_trade_safe'");
+  const fenceAt = svc.lastIndexOf('if (stopping)', writeAt);
+  assert.ok(fenceAt > 0 && fenceAt < writeAt, 'the fence must precede record_trade_safe');
+  assert.ok(svc.slice(fenceAt, writeAt).includes('SHUTTING_DOWN'));
 });
 
 test('dry run (process level): the REAL worker writes nothing at all', async () => {
