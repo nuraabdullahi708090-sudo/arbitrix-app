@@ -7,7 +7,29 @@ touched. This document is the evidence for release steps 4, 5 and 6 of
 founder's to open.
 
 Reproduce with `docs/relaunch/rehearsal/README.md`. The scenario harness is
-`docs/relaunch/rehearsal/harness.js` (45 checks).
+`docs/relaunch/rehearsal/harness.js` (45 checks when this ran; 46 after the
+2026-11-20 correction described in section 0).
+
+---
+
+## 0. Superseded in part - re-run on 2026-11-20 (46/46)
+
+Two approved changes landed after the run below, so four of its assertions
+described behaviour that no longer exists. The harness was corrected and re-run
+against a fresh database; **46/46 checks passed**. Sections 2, 7 and 8 below are
+kept as the historical record of the 2026-11-16 run.
+
+| Change | Effect on this report |
+|---|---|
+| **C1** (`aee5a90`, merged in #171): Live Mode requires a paid activation **and** a qualifying deposit, with **no grandfathering**, no cutoff date and no deposit-based exception | Section B used to prove a funded customer was grandfathered. It now proves the opposite - that customer is refused Live Mode until they activate, and that the deposit still satisfies the funding half only. G2/G2b prove the activation gate is the *only* thing blocking them. |
+| **M4** (`fb85bcf`): a licence belonging to another product is answered exactly like an invalid key | C6 now expects `404 invalid-licence` (the distinction lives in the `payhip_events` audit row, never in the response) and C7/C8 still prove nothing was granted. |
+
+Re-run environment, for honesty about what this proves: PostgreSQL **17.11**
+installed locally (the original used PostgreSQL 16 in a container), the
+repository's own `server.js` pointed at the shim, the Payhip stub on **5433**
+because the local PostgreSQL already owns 5432, migrations `008 -> 011 -> 049 ->
+050 -> 051` applied in order and re-applied cleanly. Nothing reached production
+and no provider was called.
 
 ---
 
