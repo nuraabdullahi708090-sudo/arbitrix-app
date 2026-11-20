@@ -9213,3 +9213,65 @@ such sweep.
   does not already exist, and compare totals against a `git worktree` baseline.
 - Tests: `npm test` = 3422 pass / 0 fail (baseline 3409). `verify-rebrand --expect
   Kalderix` PASS; `node --check` clean. C1/Payhip behavioural suites 101/101.
+
+
+## Test-suite portability repair (2026-11-16, tests only + worker shutdown)
+
+Symptom: `npm test` was green on Linux but failed on a Windows working tree with
+hash pins (028/029, 001/014-018, the legacy RLS file), `$`-anchored source
+assertions, and all five process-level trading-worker tests (liveness, dry run,
+shutdown, "no trading after stop").
+
+Root causes, each reproduced before changing anything:
+1. LINE ENDINGS. `core.autocrlf=true` rewrites LF to CRLF in the working tree, so
+   every byte pin and every `/...$/m` assertion failed while the committed content
+   was unchanged. Reproduced on a plain Linux CRLF copy (no Windows needed):
+   27 failures on the pre-fix tree, including all 9 migration/SQL pins.
+2. SIGTERM ON WINDOWS. The OS cannot deliver SIGTERM to another process -
+   `child.kill('SIGTERM')` there is an unconditional TerminateProcess, so the
+   graceful shutdown handler never ran and `worker.js` had no portable stop path.
+3. `spawn('node')` resolved through PATH/PATHEXT instead of `process.execPath`.
+
+Fixes:
+* `.gitattributes`: `* text=auto eol=lf`, binaries marked `binary`, `*.sh` forced
+  LF. A fresh clone is now byte-identical on every platform.
+* `tests/helpers/text.js` (`toLf`/`readLf`/`sha256TextLf`/`byteLengthLf`) and
+  `tests/helpers/lf-preload.js`, loaded by `npm test` via `--require`, which folds
+  CRLF/CR to LF on UTF-8 text reads only (Buffers/binary untouched). This covers
+  files nobody has thought about yet; 12 suites that pin source text were also
+  converted to `readLf` explicitly.
+* `tests/line_endings.test.js`: proves the tolerance cannot hide an edit (same pin
+  passes for a CRLF copy, fails for a one-character mutation and for an inserted
+  byte) and asserts the committed blobs are LF via `git ls-files --eol i/lf`.
+* `scripts/validate-workflows.js`: rejects MIXED CRLF/LF and lone CR (real
+  malformations) instead of any CRLF; a uniformly-CRLF checkout is now accepted,
+  and the committed LF invariant is asserted by the test above.
+* `worker.js`: portable graceful shutdown. SIGTERM/SIGINT/SIGBREAK and an IPC
+  `{type:'shutdown'}` message all funnel into ONE idempotent `shutdown()` that
+  logs `worker_shutdown` (trigger, workerId, dryRun), awaits `worker.stop()`,
+  logs `worker_exit` (forced, exitCode, durationMs, stats) and exits 0, with a
+  `TRADING_WORKER_SHUTDOWN_TIMEOUT_MS` (default 5000) deadline so a wedged RPC
+  cannot hang until SIGKILL. The IPC listener is installed only when the parent
+  provided a channel (`process.send`).
+* `services/TradingWorker.js`: the shutdown is a FENCE, not a suggestion. `stop()`
+  sets `stopping` before any await; `runOnce()` refuses a queued pass; and the
+  last check before `record_trade_safe` returns `SHUTTING_DOWN`, so a signal that
+  arrives mid-tick cannot be followed by a new ledger row. `start()` lifts it.
+* `tests/trading_worker_process.test.js`: uses `process.execPath`, an `ipc` stdio
+  slot and a platform-aware stop helper, plus a new test that exercises the IPC
+  stop path on EVERY platform (so the Windows behaviour cannot rot while CI only
+  runs Linux); `tests/trading_worker.test.js` gained two behavioural fence tests.
+
+Verification:
+* `npm test` on the normal LF tree: 3477 pass / 0 fail.
+* Full suite on a CRLF replica of the same tree: 3477 pass / 0 fail, exit 0
+  (pre-fix: 27 failures). Same tree, same tests, only the line endings differ.
+* The worker shutdown/deadline/fence code paths run for real in the process-level
+  tests (SIGTERM on POSIX, IPC everywhere) - the log assertions cover
+  `worker_shutdown`, `worker_stopped`, `worker_exit`, `forced:false` and the
+  absence of any `trade_recorded` after the shutdown line.
+
+Scope: tests, one repo validator, `.gitattributes`, `package.json` (test script),
+`worker.js`, `services/TradingWorker.js` and `AGENTS.md`. No server.js, no
+migration, no schema, no money path, no business constant and no production
+configuration was modified. No merge and no deploy.
