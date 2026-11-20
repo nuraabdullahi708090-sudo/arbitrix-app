@@ -117,34 +117,39 @@ async function main() {
     legal.status === 200 && /Arbitrix Trading/.test(legal.text) && /72923513/.test(legal.text), legal.status);
 
   // ------------------------------------------------------- B. existing customer
-  section('B. T5b - an existing funded customer keeps access');
+  // C1 (approved): there is NO grandfathering, no cutoff date and no
+  // deposit-based exception. An account that was funded before the lock existed
+  // must buy an activation like everybody else - a confirmed deposit satisfies
+  // the FUNDING half only. This section pins that rule from the existing
+  // customer's side; the earlier "grandfathered" expectations recorded here
+  // described the behaviour before C1 and would now pass by testing nothing.
+  section('B. T5b - an existing funded customer must activate (C1: no grandfathering)');
   const legacy = await newUser('legacy.funded');
   setLive(legacy.id, 120);
   seedConfirmedDeposit(legacy.id, 100, { ageDays: 120 });
   const legacyBefore = { live: liveOf(legacy.id), me: (await api('GET', '/api/auth/me', { token: legacy.token })).json };
 
   const act = await api('GET', '/api/live/activation', { token: legacy.token });
-  check('B1 funded customer is grandfathered (no purchase, no licence)',
-    act.status === 200 && act.json.activated === true && act.json.reason === 'grandfathered-deposit', act.json);
+  check('B1 a funded customer with no licence is NOT activated (no grandfathering)',
+    act.status === 200 && act.json.activated === false && act.json.reason === 'activation-required' && act.json.exempt === false,
+    act.json);
   const startLive = await api('POST', '/api/bot/start', { token: legacy.token, body: { mode: 'live' } });
-  check('B2 funded customer starts Live Mode (no activation prompt)', startLive.status === 200, { s: startLive.status, j: startLive.json });
+  check('B2 the funded customer is refused Live Mode until they activate',
+    startLive.status === 403 && startLive.json.code === 'LIVE_ACTIVATION_REQUIRED',
+    { s: startLive.status, j: startLive.json });
   await api('POST', '/api/bot/stop', { token: legacy.token, body: {} });
   const startDemo = await api('POST', '/api/bot/start', { token: legacy.token, body: { mode: 'demo' } });
   check('B3 Demo Mode still works for the same customer', startDemo.status === 200, startDemo.json);
   await api('POST', '/api/bot/stop', { token: legacy.token, body: {} });
   check('B4 balance is unchanged by the activation checks', liveOf(legacy.id) === 120);
 
-  // Payhip unavailable: the grandfathered path must not depend on it.
-  sh("pkill -f payhip-stub.js");
-  await new Promise((r) => setTimeout(r, 400));
-  const actDuringOutage = await api('GET', '/api/live/activation', { token: legacy.token });
-  const startDuringOutage = await api('POST', '/api/bot/start', { token: legacy.token, body: { mode: 'live' } });
-  check('B5 Payhip outage does not affect a grandfathered account',
-    actDuringOutage.json.activated === true && startDuringOutage.status === 200,
-    { act: actDuringOutage.json, start: startDuringOutage.status });
-  await api('POST', '/api/bot/stop', { token: legacy.token, body: {} });
-  sh(`cd ${__dirname} && nohup node payhip-stub.js > payhip.log 2>&1 &`);
-  await new Promise((r) => setTimeout(r, 1200));
+  // The two halves stay INDEPENDENT: the deposit never unlocks Live Mode, and
+  // it is not forgotten either - the funding requirement is already satisfied.
+  const actAfterDeposit = act.json || {};
+  check('B5 the deposit satisfies funding but never the activation requirement',
+    actAfterDeposit.depositSatisfied === true && actAfterDeposit.activationRequired === true &&
+    actAfterDeposit.activated === false,
+    actAfterDeposit);
 
   // ------------------------------------------------------------ C. activation
   section('C. T5c - Payhip Live Mode activation rules');
@@ -163,7 +168,13 @@ async function main() {
   const disabled = await api('POST', '/api/live/activate', { token: buyer.token, body: { licenceKey: 'KAL-DISABLED' } });
   check('C5 a disabled/refunded licence is rejected', disabled.status === 409 && disabled.json.reason === 'licence-disabled', disabled.json);
   const wrong = await api('POST', '/api/live/activate', { token: buyer.token, body: { licenceKey: 'KAL-WRONG' } });
-  check('C6 a licence for another product is rejected', wrong.status === 409 && wrong.json.reason === 'wrong-product', wrong.json);
+  // M4 (deliberate): the provider told US the licence is real but belongs to
+  // another product. Repeating that to the caller would confirm the key exists
+  // and leak its catalogue, so the public answer is identical to an invalid key;
+  // the distinction is kept in the audit event ('wrong-product'), not in the
+  // response. Nothing is granted, which C7/C8 then prove.
+  check('C6 a licence for another product is rejected without disclosing why',
+    wrong.status === 404 && wrong.json.reason === 'invalid-licence', wrong.json);
   check('C7 no failed attempt created an entitlement', sql('select count(*) from payhip_entitlements;') === '0');
   check('C8 none of the failed attempts activated the account',
     (await api('GET', '/api/live/activation', { token: buyer.token })).json.activated === false);
@@ -268,9 +279,14 @@ async function main() {
 
   // ------------------------------------------------------------ G. final state
   section('G. No collateral damage');
-  check('G1 the grandfathered customer balance is still $120', liveOf(legacy.id) === 120);
-  check('G2 the grandfathered customer still has live trading access',
-    (await api('POST', '/api/bot/start', { token: legacy.token, body: { mode: 'live' } })).status === 200);
+  check('G1 the funded customer balance is still $120', liveOf(legacy.id) === 120);
+  // The refusal must be the activation gate and nothing else: the trading
+  // mechanics, the session rows and the balance are untouched by the lock.
+  const gLive = await api('POST', '/api/bot/start', { token: legacy.token, body: { mode: 'live' } });
+  check('G2 the only thing blocking live trading is the activation gate',
+    gLive.status === 403 && gLive.json.code === 'LIVE_ACTIVATION_REQUIRED', { s: gLive.status, j: gLive.json });
+  const gDemo = await api('POST', '/api/bot/start', { token: legacy.token, body: { mode: 'demo' } });
+  check('G2b demo trading still starts for that account', gDemo.status === 200, gDemo.json);
   await api('POST', '/api/bot/stop', { token: legacy.token, body: {} });
   const meAfter = (await api('GET', '/api/auth/me', { token: legacy.token })).json;
   check('G3 the account still reports its real deposit', meAfter && meAfter.hasRealDeposit === true, meAfter && meAfter.hasRealDeposit);
