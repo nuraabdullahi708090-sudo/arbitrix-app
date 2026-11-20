@@ -28,6 +28,7 @@ const { createTradingWorker, DEFAULT_LIMITS } = require('./services/TradingWorke
 const { createPromoCheck } = require('./services/PromoCheck');
 const { resolveProfitPauseUsd, createProfitPauseCheck } = require('./services/ProfitPause');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
+const { createActivationCheck, resolveActivationRequired } = require('./services/PayhipActivation');
 
 const WORKER_VERSION = 'trading-worker/1';
 
@@ -110,11 +111,18 @@ async function main() {
     threshold: resolveProfitPauseUsd(),
     log: (e) => logger.log(JSON.stringify(e)),
   });
+  // LIVE MODE ACTIVATION (Payhip). Mirrors the web service's
+  // PAYHIP_ACTIVATION_REQUIRED; the check itself is the SAME database function
+  // the /api/trade gate uses, so the two executors cannot disagree about who
+  // holds a licence. Unset here => false => this process behaves exactly as
+  // before (see .env.example: set it on BOTH services, or on neither).
+  const activation = createActivationCheck({ admin, required: resolveActivationRequired() });
 
   const worker = createTradingWorker({
     admin,
     promo,
     profitPause,
+    activation,
     logger,
     enabled: true,
     envEmergencyStop,
@@ -157,6 +165,22 @@ async function main() {
   }
 
   await worker.start();
+
+  // Make the worker's OWN view of the activation requirement visible at boot.
+  // A worker without this flag would keep trading for unlicensed accounts while
+  // the web service refuses them, so the mismatch must be greppable.
+  logger.log(
+    JSON.stringify({
+      event: 'worker_activation_gate',
+      component: 'TradingWorker',
+      version: WORKER_VERSION,
+      required: activation.required,
+      source: 'payhip_has_live_activation',
+      note: activation.required
+        ? 'sessions without a claimed, unrevoked Payhip entitlement are stopped'
+        : 'PAYHIP_ACTIVATION_REQUIRED is not true for this process; no activation gate is applied here',
+    })
+  );
 
   // ---------------------------------------------------------------------
   // GRACEFUL SHUTDOWN (portable)

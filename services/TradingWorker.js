@@ -293,6 +293,10 @@ function createTradingWorker({
   // TEMPORARY management test: platform-wide profit pause. Optional collaborator
   // exposing `isPaused(userId)`; when absent the rule is simply not applied.
   profitPause = null,
+  // LIVE MODE ACTIVATION (Payhip entitlement, migration 050). Optional
+  // collaborator exposing `required` and `check(userId)`; absent or
+  // required=false means the worker behaves exactly as it did before.
+  activation = null,
   limits = DEFAULT_LIMITS,
   logger = console,
   clock = () => Date.now(),
@@ -329,7 +333,10 @@ function createTradingWorker({
     ticks: 0, trades: 0, duplicates: 0, blocked: 0, stopped: 0, errors: 0,
     claimed: 0, released: 0, fenceRejections: 0, leaseErrors: 0,
     dryRunTrades: 0, dryRunBlockedWrites: 0,
+    activationBlocked: 0, activationUnknown: 0,
   };
+  // One 'activation_unverified' line per user per outage, not one per 8s tick.
+  const activationWarned = new Set();
   // Sessions this process currently holds a lease for: userId -> { generation }.
   const held = new Map();
 
@@ -785,6 +792,40 @@ function createTradingWorker({
         });
         return { userId, action: 'fenced', code: lease.code };
       }
+    }
+
+    // LIVE MODE ACTIVATION GATE (Payhip). The browser path is already covered by
+    // /api/bot/start and /api/trade; this process calls record_trade_safe
+    // directly, so without this branch a session created before the requirement
+    // (or one whose licence was refunded mid-flight) would keep trading.
+    //   true  -> continue
+    //   false -> stop the session ('activation_required'); a phantom "running"
+    //            bot that never trades is worse than a stopped one
+    //   null  -> trade nothing this tick, KEEP the session and retry, because an
+    //            unreadable store must never be treated as "not licensed"
+    if (activation && activation.required === true) {
+      let entitled;
+      try {
+        entitled = await activation.check(userId);
+      } catch (e) {
+        entitled = null;
+      }
+      if (entitled === false) {
+        stats.activationBlocked++;
+        log('activation_blocked', { userId, code: 'ACTIVATION_REQUIRED', source: 'payhip_entitlement' });
+        await stopSession(userId, 'activation_required');
+        return { userId, action: 'stopped', code: 'ACTIVATION_REQUIRED' };
+      }
+      if (entitled !== true) {
+        stats.activationUnknown++;
+        if (!activationWarned.has(String(userId))) {
+          activationWarned.add(String(userId));
+          log('activation_unverified', { userId, retryInMs: cfg.tickMs, note: 'entitlement store unreadable; no trade this tick' });
+        }
+        await heartbeat(userId);
+        return { userId, action: 'skipped', code: 'ACTIVATION_UNAVAILABLE' };
+      }
+      activationWarned.delete(String(userId));
     }
 
     const inputs = await loadSessionInputs(userId);
