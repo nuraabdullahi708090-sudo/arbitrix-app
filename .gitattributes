@@ -1,0 +1,27 @@
+# Line endings and binary safety.
+#
+# Several tests pin the exact bytes of reviewed artifacts (migration 028/029,
+# the legacy RLS file, the tutorial video) and others assert source ORDER with
+# line-anchored regexes. A Windows checkout with core.autocrlf=true rewrites LF
+# to CRLF, which changes those hashes and byte counts and made the suite fail on
+# Windows while passing on Linux. Normalising the checkout to LF removes that
+# class of false failure without touching the reviewed content.
+* text=auto eol=lf
+
+# Never let Git "normalise" real binary assets - that corrupts them.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.mp4  binary
+*.mp3  binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+
+# Shell scripts must keep LF even when checked out on Windows.
+*.sh text eol=lf

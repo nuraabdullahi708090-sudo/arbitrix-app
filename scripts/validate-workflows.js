@@ -19,8 +19,17 @@
  *      against an explicit deny-list.
  *
  * Real YAML well-formedness is proven by GitHub parsing the file when the
- * workflow runs; this script additionally rejects tabs and CRLF, which are the
- * two encoding mistakes YAML parsers reject with a confusing message.
+ * workflow runs; this script additionally rejects tabs and inconsistent line
+ * endings, which are the two encoding mistakes YAML parsers reject with a
+ * confusing message.
+ *
+ * LINE ENDINGS: the rule is "consistent endings", not "LF in this working tree".
+ * A Windows checkout with core.autocrlf=true converts the whole file to CRLF
+ * without changing a single character of the committed content - that is a
+ * local transport artefact, not a defect. What IS a defect is a file that mixes
+ * CRLF and LF lines (or carries a lone CR), which no checkout produces. The
+ * committed bytes are kept LF by .gitattributes (`* text=auto eol=lf`) and
+ * asserted separately by tests/line_endings.test.js via `git ls-files --eol`.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -94,10 +103,20 @@ function blockBodies(lines) {
 }
 
 function checkWorkflow(file) {
-  const raw = fs.readFileSync(file, 'utf8');
+  const onDisk = fs.readFileSync(file, 'utf8');
   const name = path.basename(file);
 
-  if (raw.includes('\r')) fail(`${name}: contains CRLF line endings (use LF)`);
+  // Consistent endings only (see the header): mixed CRLF/LF or a lone CR is a
+  // real malformation; a uniformly-CRLF file is just a Windows checkout.
+  const crlfCount = (onDisk.match(/\r\n/g) || []).length;
+  const lfCount = (onDisk.match(/(?<!\r)\n/g) || []).length;
+  if (crlfCount > 0 && lfCount > 0) {
+    fail(`${name}: mixes CRLF and LF line endings (${crlfCount} CRLF, ${lfCount} LF)`);
+  }
+  if (/\r(?!\n)/.test(onDisk)) fail(`${name}: contains a lone carriage return`);
+  // Everything below inspects content, so it runs on the normalised text.
+  const raw = crlfCount > 0 ? onDisk.replace(/\r\n/g, '\n') : onDisk;
+
   if (/^\s*\t/m.test(raw)) fail(`${name}: contains a tab character (YAML forbids tabs for indentation)`);
 
   const lines = raw.split('\n');

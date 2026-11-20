@@ -12,6 +12,8 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -29,9 +31,9 @@ const { render, renderTestMessage } = require('../services/MarketingContent');
 const { checkContent } = require('../services/ContentGuard');
 
 const ROOT = path.join(__dirname, '..');
-const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
-const MIGRATION_044 = fs.readFileSync(
-  path.join(ROOT, 'supabase/migrations/044_marketing_worker_heartbeat.sql'), 'utf8');
+const SERVER = readLf(path.join(ROOT, 'server.js'));
+const MIGRATION_044 = readLf(
+  path.join(ROOT, 'supabase/migrations/044_marketing_worker_heartbeat.sql'));
 
 const GROUP = '-1001234567890';
 const CHANNEL = '-1009876543210';

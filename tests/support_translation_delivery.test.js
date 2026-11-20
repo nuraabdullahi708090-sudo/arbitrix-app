@@ -39,6 +39,8 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 
 const {
@@ -759,7 +761,7 @@ test('K. a secret in the customer\'s OWN message is still caught when translatio
 test('the wiring hands ONE translator instance to both the AI layer and the bot', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const server = readLf(path.join(__dirname, '..', 'server.js'));
 
   assert.match(server, /const supportTranslator = createSupportTranslatorSafely\(\);/);
   assert.ok(
@@ -774,7 +776,7 @@ test('the wiring hands ONE translator instance to both the AI layer and the bot'
   // layer's existing flag/provider mechanism.
   const translator = require('../services/support/SupportTranslator');
   assert.strictEqual(translator.TRANSLATION_ENABLED_ENV, 'SUPPORT_TRANSLATION_ENABLED');
-  const env = fs.readFileSync(path.join(__dirname, '..', '.env.example'), 'utf8');
+  const env = readLf(path.join(__dirname, '..', '.env.example'));
   assert.match(env, /^SUPPORT_TRANSLATION_ENABLED=true$/m);
   assert.ok(!/SUPPORT_QUESTION_TRANSLATION/.test(env), 'no extra flag is added for the retrieval step');
   assert.ok(!/SUPPORT_QUESTION_TRANSLATION/.test(server), 'no extra flag is added for the retrieval step');

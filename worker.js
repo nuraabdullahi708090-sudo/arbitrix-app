@@ -158,16 +158,94 @@ async function main() {
 
   await worker.start();
 
+  // ---------------------------------------------------------------------
+  // GRACEFUL SHUTDOWN (portable)
+  //
+  // POSIX: SIGTERM is the orchestration signal (Render sends it before a deploy
+  // or scale-down). Windows: the OS CANNOT deliver SIGTERM to a process -
+  // child.kill('SIGTERM') there is an unconditional TerminateProcess - so a
+  // supervisor uses one of the two portable paths instead:
+  //   * an IPC message { type: 'shutdown' } (spawn with an 'ipc' stdio slot), or
+  //   * Ctrl+Break / console close, delivered as SIGBREAK / SIGINT.
+  // All of them funnel into the same idempotent shutdown(), so the behaviour
+  // (stop taking work, release leases, log, exit 0) is identical everywhere.
+  //
+  // The shutdown state is a hard fence: TradingWorker.stop() sets a flag that
+  // runOnce() and the pre-write check in tickSession() consult, so a tick that
+  // is already in flight cannot record a trade after the signal arrived.
+  // ---------------------------------------------------------------------
   let shuttingDown = false;
-  const shutdown = async (signal) => {
-    if (shuttingDown) return;
+  const shutdownDeadlineMs = envNumber('TRADING_WORKER_SHUTDOWN_TIMEOUT_MS', 5000);
+  const shutdown = async (trigger) => {
+    if (shuttingDown) return; // a second signal must not stop/log twice
     shuttingDown = true;
-    logger.log(JSON.stringify({ event: 'worker_shutdown', signal, component: 'TradingWorker' }));
-    await worker.stop();
+    const startedAt = Date.now();
+    // Logged FIRST so a hung release still leaves evidence of a clean intent.
+    logger.log(
+      JSON.stringify({
+        event: 'worker_shutdown',
+        trigger,
+        component: 'TradingWorker',
+        version: WORKER_VERSION,
+        workerId,
+        dryRun,
+        message: 'stopping: no further trades will be recorded',
+      })
+    );
+    // Bounded: a wedged RPC must not hang the process until the supervisor
+    // escalates to SIGKILL (which would lose the terminal log line).
+    const deadline = setTimeout(() => {
+      logger.log(
+        JSON.stringify({
+          event: 'worker_exit',
+          trigger,
+          forced: true,
+          exitCode: 0,
+          component: 'TradingWorker',
+          message: 'shutdown deadline exceeded; exiting without waiting for leases',
+        })
+      );
+      process.exit(0);
+    }, shutdownDeadlineMs);
+    try {
+      await worker.stop();
+    } catch (e) {
+      logger.log(
+        JSON.stringify({
+          event: 'worker_shutdown_error',
+          trigger,
+          component: 'TradingWorker',
+          message: (e && e.message) || String(e),
+        })
+      );
+    }
+    clearTimeout(deadline);
+    logger.log(
+      JSON.stringify({
+        event: 'worker_exit',
+        trigger,
+        forced: false,
+        exitCode: 0,
+        durationMs: Date.now() - startedAt,
+        stats: worker.stats,
+        component: 'TradingWorker',
+      })
+    );
     process.exit(0);
   };
+
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+  // Windows console close / Ctrl+Break.
+  process.on('SIGBREAK', () => shutdown('SIGBREAK'));
+  // Portable parent -> child control channel. Present only when the parent
+  // spawned us with an 'ipc' stdio slot; a plain `node worker.js` never has it.
+  if (typeof process.send === 'function') {
+    process.on('message', (m) => {
+      const type = m && typeof m === 'object' ? m.type : m;
+      if (type === 'shutdown' || type === 'stop') shutdown('ipc');
+    });
+  }
   process.on('unhandledRejection', (e) => {
     logger.log(
       JSON.stringify({

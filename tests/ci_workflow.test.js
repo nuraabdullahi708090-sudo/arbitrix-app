@@ -11,6 +11,8 @@
  * proven by GitHub running the file on push.
  */
 const { test } = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -21,7 +23,7 @@ const ROOT = path.join(__dirname, '..');
 const WORKFLOWS_DIR = path.join(ROOT, '.github', 'workflows');
 const WORKFLOW = path.join(WORKFLOWS_DIR, 'ci.yml');
 const VALIDATOR = path.join(ROOT, 'scripts', 'validate-workflows.js');
-const SRC = fs.readFileSync(WORKFLOW, 'utf8');
+const SRC = readLf(WORKFLOW);
 
 function runValidator(dir) {
   const result = spawnSync(process.execPath, [VALIDATOR, ...(dir ? [dir] : [])], {
@@ -82,7 +84,7 @@ test('Node 24 from the lockfile, with dependency caching', () => {
 test('the Node major matches what the project actually runs', () => {
   // The suite is developed on Node 24; a mismatch here is how CI starts failing
   // for reasons unrelated to the change under review.
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const pkg = JSON.parse(readLf(path.join(ROOT, 'package.json')));
   assert.ok(pkg.dependencies.express, 'express is the runtime, as expected');
   assert.ok(!pkg.engines || !pkg.engines.node || /24/.test(pkg.engines.node),
     'if an engines field is added it must agree with the workflow');
@@ -202,4 +204,42 @@ test('no local path or machine-specific value leaked into the workflow', () => {
   assert.ok(!/self-hosted/.test(SRC), 'hosted runners only');
   assert.ok(!/continue-on-error:\s*true/.test(SRC), 'a failing step must fail the run');
   assert.ok(!/if:\s*always\(\)/.test(SRC), 'no step that runs past a failure in the test job');
+});
+
+// ---------------------------------------------------------------------------
+// Line endings: a Windows checkout must not read as a repository defect.
+// `.gitattributes` keeps the committed file LF (tests/line_endings.test.js
+// asserts the index via `git ls-files --eol`), so the validator only has to
+// reject endings that no checkout can produce: MIXED CRLF/LF, or a lone CR.
+// ---------------------------------------------------------------------------
+function withRawFixture(name, content) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-eol-'));
+  fs.writeFileSync(path.join(dir, name), content, 'utf8');
+  return dir;
+}
+
+test('a uniformly-CRLF workflow (a Windows checkout) is accepted', () => {
+  const dir = withRawFixture('ci.yml', SRC.replace(/\n/g, '\r\n'));
+  const { code, out } = runValidator(dir);
+  assert.strictEqual(code, 0, out);
+  assert.match(out, /workflow validation passed: ci\.yml/);
+});
+
+test('a workflow that MIXES CRLF and LF is rejected', () => {
+  const lines = SRC.split('\n');
+  // Convert only the tail: the first half stays LF, so the file is malformed.
+  const mixed = lines.slice(0, 10).join('\n') + '\n' + lines.slice(10).join('\r\n');
+  const dir = withRawFixture('ci.yml', mixed);
+  const { code, out } = runValidator(dir);
+  assert.notStrictEqual(code, 0, out);
+  assert.match(out, /mixes CRLF and LF/);
+});
+
+test('a lone carriage return is rejected', () => {
+  // Inserted mid-line on purpose: replacing a "\n" can accidentally produce a
+  // CRLF pair when the next character is also a newline (a blank line).
+  const dir = withRawFixture('ci.yml', SRC.replace('name: ', 'name:\r '));
+  const { code, out } = runValidator(dir);
+  assert.notStrictEqual(code, 0, out);
+  assert.match(out, /lone carriage return/);
 });

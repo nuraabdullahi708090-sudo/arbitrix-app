@@ -28,12 +28,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Hash the LF-normalised text so a Windows (core.autocrlf) checkout cannot fail
+// these byte pins while the committed content is unchanged. See helpers/text.js.
+const { toLf, sha256TextLf } = require('./helpers/text');
+
 const ROOT = path.join(__dirname, '..');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
-const LEGACY_SQL = fs.readFileSync(path.join(ROOT, 'supabase_rls_policies.sql'), 'utf8');
+const LEGACY_SQL = toLf(fs.readFileSync(path.join(ROOT, 'supabase_rls_policies.sql'), 'utf8'));
 
 function sha256(s) {
-  return crypto.createHash('sha256').update(s).digest('hex');
+  return sha256TextLf(s);
 }
 
 function listFiles(dir) {
@@ -173,9 +177,14 @@ const PINNED_MIGRATIONS = {
 
 for (const [file, expected] of Object.entries(PINNED_MIGRATIONS)) {
   test(`migration untouched (sha256 pinned): ${file}`, () => {
-    const content = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    assert.strictEqual(sha256(content), expected,
+    const raw = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    assert.strictEqual(sha256(raw), expected,
       `${file} must not be modified by this cleanup`);
+    // The normalised hash is content-exact, so an edit is still caught whatever
+    // the checkout's line endings: a changed byte changes the folded text too.
+    // (Normalisation folds CRLF/CR to LF; it does not drop or merge content.)
+    assert.strictEqual(toLf(raw).replace(/\r/g, ''), toLf(raw),
+      `${file} must contain no stray carriage returns after folding`);
   });
 }
 

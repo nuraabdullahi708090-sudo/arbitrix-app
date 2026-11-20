@@ -11,6 +11,8 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
@@ -366,11 +368,11 @@ test('configuration is env-driven, off by default, and never exposes the key', (
 });
 
 test('AI stays OFF by default and the Telegram wiring is unchanged', () => {
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = readLf(path.join(ROOT, 'server.js'));
   assert.match(server, /if \(!supportAIConfig\.enabled\) return null;/);
   assert.match(server, /supportAI: createSupportAIServiceSafely\(supportTranslator\)/);
 
-  const envExample = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
+  const envExample = readLf(path.join(ROOT, '.env.example'));
   assert.match(envExample, /^AI_SUPPORT_ENABLED=false$/m);
   assert.match(envExample, /^AI_SUPPORT_PROVIDER=knowledge$/m);
   assert.match(envExample, /^AI_SUPPORT_API_KEY=$/m, 'no key may be committed');

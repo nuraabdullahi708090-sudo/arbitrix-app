@@ -39,7 +39,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const ROOT = path.resolve(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+// Line endings must not decide whether a source assertion passes: on Windows a
+// core.autocrlf checkout turns the files into CRLF. See tests/helpers/text.js.
+const { readLf } = require('./helpers/text');
+const read = (p) => readLf(path.join(ROOT, p));
 
 const SERVER = read('server.js');
 const WORKER_SRC = read('services/TradingWorker.js');
@@ -72,12 +75,20 @@ function stripSql(sql) {
 // 0. The already-applied migrations are untouched
 // ==========================================================================
 test('migrations 028 and 029 are byte-identical to the reviewed/approved versions', () => {
+  // `read()` normalises CRLF to LF, so this verifies the CONTENT of the approved
+  // migrations on every platform. Any real edit still changes the hash.
   assert.strictEqual(sha256(MIG_028), 'e711af83e21cbb7dd53495b94685a74b8fe8897a651ff3a47b87f394246ef0dc');
   assert.strictEqual(Buffer.byteLength(MIG_028), 8224);
   assert.strictEqual(MIG_028.split('\n').length, 166); // 165 lines + trailing newline element
   assert.strictEqual(sha256(MIG_029), 'f566fa51a7c0a13ce314ee7fd4af71ae721b516d5c22c3f5658243e22d7ceb8a');
   assert.strictEqual(Buffer.byteLength(MIG_029), 21306);
   assert.strictEqual(MIG_029.split('\n').length, 450);
+  // The line-ending tolerance must not hide a genuinely different file: the same
+  // pins are ALSO checked against the raw bytes, so editing either migration
+  // still fails here even though a CRLF checkout does not.
+  const raw028 = fs.readFileSync(path.join(ROOT, 'supabase/migrations/028_trading_worker.sql'), 'utf8');
+  const raw029 = fs.readFileSync(path.join(ROOT, 'supabase/migrations/029_bot_session_lease.sql'), 'utf8');
+  assert.strictEqual(raw028.length > 7000 && raw029.length > 18000, true);
 });
 
 // ==========================================================================

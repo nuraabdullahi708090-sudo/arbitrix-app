@@ -14,6 +14,8 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -409,9 +411,9 @@ test('the pinned Start Here guide keeps the responsible-promotion guidance', () 
 });
 
 test('the Start Here guide is never pinned as a side effect of queueing it', () => {
-  const onboarding = fs.readFileSync(path.join(ROOT, 'services', 'MarketingOnboarding.js'), 'utf8');
+  const onboarding = readLf(path.join(ROOT, 'services', 'MarketingOnboarding.js'));
   assert.ok(!/pinChatMessage/.test(onboarding), 'the onboarding module must not pin anything');
-  assert.ok(!/pinChatMessage/.test(fs.readFileSync(path.join(ROOT, 'services', 'MarketingContent.js'), 'utf8')));
+  assert.ok(!/pinChatMessage/.test(readLf(path.join(ROOT, 'services', 'MarketingContent.js'))));
   assert.ok(!/autoPin|pin:\s*true/i.test(onboarding), 'no automatic pin flag may exist');
 
   const built = buildStartHereRow({ config: CONFIG, scheduledFor: '2026-10-28T09:00:00Z' });
@@ -420,7 +422,7 @@ test('the Start Here guide is never pinned as a side effect of queueing it', () 
   assert.strictEqual(built.row.chat_id, null, 'a destination is never stored on the row');
 
   // Pinning stays an explicit, admin-only action guarded by an existing message.
-  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const server = readLf(path.join(ROOT, 'server.js'));
   const pinRoute = server.slice(server.indexOf("app.post('/api/admin/marketing/pin'"));
   const routeBody = pinRoute.slice(0, pinRoute.indexOf('app.post(', 10));
   assert.match(routeBody, /authMiddleware, adminMiddleware/);
@@ -444,7 +446,7 @@ test('the keyboard is valid for the Telegram Bot API on every client', () => {
 });
 
 test('the welcome templates contain no secret and no money-moving reference', () => {
-  const source = fs.readFileSync(path.join(ROOT, 'services', 'MarketingContent.js'), 'utf8');
+  const source = readLf(path.join(ROOT, 'services', 'MarketingContent.js'));
   assert.ok(!/record_trade_safe|credit_payment_safe|charge_subscription_safe/.test(source));
   assert.ok(!/TELEGRAM_BOT_TOKEN\s*[:=]\s*['"][^'"]+['"]/.test(source));
   assert.ok(!/https:\/\/t\.me\/[A-Za-z0-9_]+s$/m.test(source), 'no invented handle');

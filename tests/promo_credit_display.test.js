@@ -16,14 +16,16 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
-const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
-const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const INDEX = readLf(path.join(ROOT, 'public', 'index.html'));
+const SERVER = readLf(path.join(ROOT, 'server.js'));
 const {
   LIVE_MODE_STATUS,
   promoCreditFromBalance,
@@ -211,7 +213,7 @@ test('6. the status helper is READ-ONLY: no write, no RPC, no credit', () => {
     .forEach((forbidden) => {
       assert.ok(!body.includes(forbidden), 'getLiveModeStatus must not contain ' + forbidden);
     });
-  const moduleSrc = fs.readFileSync(path.join(ROOT, 'services', 'LiveModeStatus.js'), 'utf8');
+  const moduleSrc = readLf(path.join(ROOT, 'services', 'LiveModeStatus.js'));
   ['supabase', 'fetch(', 'require(\'http', 'Date.now'].forEach((forbidden) => {
     assert.ok(!moduleSrc.includes(forbidden), 'LiveModeStatus must stay pure (no ' + forbidden + ')');
   });
@@ -239,7 +241,7 @@ test('7. the code cannot issue a second promotional credit', () => {
   assert.ok(!/\.update\(|\.insert\(|updateWallet/.test(body),
     'the status helper never writes a balance');
   // And the module never mentions money being written.
-  const moduleSrc = fs.readFileSync(path.join(ROOT, 'services', 'LiveModeStatus.js'), 'utf8');
+  const moduleSrc = readLf(path.join(ROOT, 'services', 'LiveModeStatus.js'));
   assert.ok(!/insert|update\s*\(|upsert/i.test(moduleSrc), 'the module cannot write a balance');
 });
 

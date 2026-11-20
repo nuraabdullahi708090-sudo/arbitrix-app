@@ -14,13 +14,15 @@
  */
 
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
-const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+const read = (rel) => readLf(path.join(ROOT, rel));
 
 const SERVER = read('server.js');
 const INDEX = read('public/index.html');

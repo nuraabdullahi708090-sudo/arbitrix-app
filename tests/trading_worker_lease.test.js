@@ -12,6 +12,8 @@
  * untouched and migration 029 is not applied.
  */
 const test = require('node:test');
+// LF-normalised reads: Windows checkouts must not change what these assertions see.
+const { readLf } = require('./helpers/text');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -25,7 +27,7 @@ const {
 } = require('../services/TradingWorker');
 
 const ROOT = path.join(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+const read = (p) => readLf(path.join(ROOT, p));
 const SERVICE_SRC = read('services/TradingWorker.js');
 const WORKER_ENTRY = read('worker.js');
 const SERVER = read('server.js');
