@@ -20,9 +20,11 @@ const {
 } = require(SCRIPT);
 
 const SECRETS = {
-  PAYHIP_API_KEY: 'sk_live_' + 'A'.repeat(24),
-  PAYHIP_PRODUCT_SECRET: 'psec_' + 'B'.repeat(24),
-  PAYHIP_WEBHOOK_TOKEN: 'tok_' + 'C'.repeat(24)
+  // Synthetic values built from repeated letters - never a real credential, and
+  // shaped so no secret scanner mistakes the fixture for one.
+  PAYHIP_API_KEY: 'test-api-key-' + 'A'.repeat(24),
+  PAYHIP_PRODUCT_SECRET: 'test-product-secret-' + 'B'.repeat(24),
+  PAYHIP_WEBHOOK_TOKEN: 'test-webhook-token-' + 'C'.repeat(24)
 };
 
 test('a 404 means the route is not in the running build', () => {
