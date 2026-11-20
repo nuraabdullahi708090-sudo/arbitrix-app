@@ -1,0 +1,99 @@
+name: CI
+
+# Test-only CI. It runs the repository's own suite (`npm test` -> node --test
+# tests/*.test.js) and nothing else: no deploy step, no hosting action, no
+# production secret. Deployment stays a manual, approved operation (Render follows
+# `main`, and this workflow never touches it).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, relaunch/rebrand-payment-commercial]
+  workflow_dispatch:
+
+# Least privilege: the default GITHUB_TOKEN gets read-only repo content and
+# nothing more. The job needs no write scope at all.
+permissions:
+  contents: read
+
+# A newer commit on the same ref cancels the older run: PRs get a fresh result
+# instead of a queue of stale ones.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: npm test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          # The suite never pushes; do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Matches local development and the Express 5 runtime (Node 24.x).
+          node-version: '24'
+          # Dependency caching keyed on the lockfile.
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Show toolchain versions
+        run: |
+          node -v
+          npm -v
+
+      - name: Install dependencies from the lockfile
+        # `npm ci` fails if package.json and package-lock.json disagree, so the
+        # lockfile is enforced rather than silently regenerated.
+        run: npm ci --no-audit --no-fund
+
+      - name: Run the test suite
+        # No environment variables are supplied on purpose: the suite must pass
+        # with no database, no payment-provider key and no other secret, which is
+        # what proves the fail-closed paths still work after a change.
+        run: npm test
+
+  syntax:
+    name: static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Parse every JavaScript file
+        # Catches a syntax error in a file the tests do not import (the worker
+        # entrypoints, scripts, the service worker) without installing
+        # dependencies first. Driven by git so nested service directories are
+        # covered too - a hand-written glob list silently misses them.
+        run: |
+          set -eu
+          files=$(git ls-files '*.js' | grep -vE '^(tests|node_modules)/' || true)
+          count=0
+          for f in $files; do
+            node --check "$f"
+            count=$((count + 1))
+          done
+          echo "parsed $count file(s)"
+
+      - name: Validate the workflow files
+        # Structural guard: the workflow must stay YAML, must not add a
+        # deployment action, and must keep least-privilege permissions.
+        run: node scripts/validate-workflows.js

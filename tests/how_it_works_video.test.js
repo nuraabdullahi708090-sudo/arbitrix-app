@@ -136,7 +136,7 @@ test('the player contract is preserved (controls, playsinline, responsive 9:16)'
 
 test('the page structure, CTAs and copy are untouched', () => {
     assert.match(PAGE, /id="explainerVideo"/, 'player id unchanged (no JS breakage)');
-    assert.match(PAGE, /<h1>How Arbitrix Works<\/h1>/, 'heading kept');
+    assert.match(PAGE, /<h1>How Kalderix Works<\/h1>/, 'heading kept');
     assert.match(PAGE, /href="\/\?action=create-account" id="createAccountCta"/, 'signup CTA kept');
     assert.match(PAGE, /href="\/\?action=sign-in" id="signInCta"/, 'sign-in CTA kept');
     assert.match(PAGE, /arbi_auth_entry/, 'existing auth entry contract kept');

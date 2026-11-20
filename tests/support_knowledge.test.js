@@ -141,7 +141,7 @@ test('no approved answer promises profits, returns or safety from loss', () => {
 
 test('retrieval maps the required beginner questions to the approved entries', () => {
   const cases = [
-    ['How does Arbitrix work?', 'what_is_arbitrix.overview'],
+    ['How does Kalderix work?', 'what_is_arbitrix.overview'],
     ['How do I get started?', 'getting_started.steps'],
     ['What is the minimum deposit?', 'deposits.minimum'],
     ['Can I use Demo Mode?', 'demo_mode.can_i_use'],
@@ -170,7 +170,7 @@ test('retrieval returns nothing for questions the knowledge base does not cover'
 test('topics with unresolved conflicts resolve to a human hand-off entry', () => {
   const conflicted = [
     'Do I get 14 days free?',
-    'Which countries can use Arbitrix?'
+    'Which countries can use Kalderix?'
   ];
   conflicted.forEach((question) => {
     const hits = retriever.retrieve(question);
@@ -186,8 +186,8 @@ test('retrieval is deterministic and keyword-driven', () => {
 });
 
 test('normalize/tokenize drop stopwords and punctuation', () => {
-  assert.strictEqual(S.normalize('How does Arbitrix work?'), 'how does arbitrix work');
-  assert.deepStrictEqual(S.tokenize('How does Arbitrix work?'), ['arbitrix', 'work']);
+  assert.strictEqual(S.normalize('How does Kalderix work?'), 'how does kalderix work');
+  assert.deepStrictEqual(S.tokenize('How does Kalderix work?'), ['kalderix', 'work']);
   assert.deepStrictEqual(S.tokenize('What is the $50 promotional credit?'), ['50', 'promotional', 'credit']);
 });
 

@@ -100,7 +100,7 @@ class NOWPaymentsProvider extends ProviderInterface {
                     order_id: orderId,
                     // Fixed addresses mode
                     is_fixed_rate: true,
-                    order_description: `Arbitrix AI Deposit - Order ${orderId}`
+                    order_description: `Kalderix Deposit - Order ${orderId}`
                 })
             });
 

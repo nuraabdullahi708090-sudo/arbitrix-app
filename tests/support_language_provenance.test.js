@@ -35,7 +35,7 @@ const S = require('../services/support/SupportKnowledge');
 
 const CUSTOMER_CHAT_ID = '555111';
 const OVERVIEW_ID = 'what_is_arbitrix.overview';
-const PT_QUESTION = 'Olá, como posso começar a usar a Arbitrix?';
+const PT_QUESTION = 'Olá, como posso começar a usar a Kalderix?';
 
 const KB = S.readKnowledge();
 const ENTRIES = S.flattenEntries(KB);
@@ -263,7 +263,7 @@ test('B1. PRODUCTION BUG: pt + knowledge + the what_is_arbitrix.overview answer'
   assert.match(replies[0], /Português/, 'the language confirmation is (still) localized');
   const answer = replies[replies.length - 1];
   assert.notStrictEqual(answer, OVERVIEW_ANSWER, 'THE BUG: the English knowledge answer must NEVER be sent');
-  assert.ok(!answer.includes('Arbitrix is an automated arbitrage platform'), 'no English leak');
+  assert.ok(!answer.includes('Kalderix is an automated arbitrage platform'), 'no English leak');
   assert.strictEqual(answer, i18n.t('pt', 'uncertain'), 'the localized Portuguese fallback is used');
   assert.strictEqual(h.bot.getStats().aiLanguageMisses, 1, 'the language miss is counted');
   assert.strictEqual(h.bot.getStats().aiReplies, 1, 'the AI layer did answer - it was the language that failed');

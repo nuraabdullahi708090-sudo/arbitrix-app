@@ -260,7 +260,7 @@ test('a quoted support chat id no longer makes the support group unrecognizable'
     update_id: 1,
     message: {
       message_id: 1,
-      chat: { id: Number(SUPPORT_CHAT_ID), type: 'supergroup', title: 'Arbitrix Support' },
+      chat: { id: Number(SUPPORT_CHAT_ID), type: 'supergroup', title: 'Kalderix Support' },
       from: { id: Number(ADMIN_ID), first_name: 'Agent' },
       text: '/chatid'
     }

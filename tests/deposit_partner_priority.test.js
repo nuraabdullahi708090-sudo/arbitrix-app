@@ -159,7 +159,7 @@ test('6. the approved heading and wording are used', () => {
   const T = dict();
   assert.strictEqual(T.en['deposit.partner.title'], 'Need help getting USDT?');
   assert.strictEqual(T.en['deposit.partner.intro'],
-    'Our payment partners can help you obtain USDT and fund your Arbitrix account.');
+    'Our payment partners can help you obtain USDT and fund your Kalderix account.');
   assert.strictEqual(T.en['deposit.partner.primaryLabel'], 'PRIMARY CONTACT \u2014 WHATSAPP');
   assert.strictEqual(T.en['deposit.partner.backupLabel'], 'BACKUP CONTACT \u2014 TELEGRAM');
   assert.strictEqual(T.en['deposit.partner.oliviaBtn'], 'Contact Olivia on WhatsApp');

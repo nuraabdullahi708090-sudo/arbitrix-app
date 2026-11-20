@@ -119,7 +119,7 @@ test('the queued Start Here row is channel-free end to end', () => {
 test('the welcome keeps its approved copy', () => {
     const text = render('welcome', 'en', CTX).text;
     const kept = [
-        'Welcome to the Arbitrix Partners Community!',
+        'Welcome to the Kalderix Partners Community!',
         'automated multi-asset arbitrage platform',
         'YOUR NEXT STEPS',
         'EXPLORE ARBITRIX',
@@ -147,7 +147,7 @@ test('Start Here keeps its guide, responsible-promotion note, support lines and 
     const text = render('startHere', 'en', CTX).text;
     const kept = [
         'START HERE',
-        'Welcome to the Arbitrix Partners Community!',
+        'Welcome to the Kalderix Partners Community!',
         'YOUR NEXT STEPS',
         'EXPLORE ARBITRIX',
         'CREATE YOUR ACCOUNT',

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Phase 8 — Arbitrix Pro Subscription contract tests.
+ * Phase 8 — Kalderix Pro Subscription contract tests.
  *
  * server.js is a single Express app that binds a port on require (app.listen),
  * so these tests do NOT import it (same constraint as withdraw_gating.test.js
@@ -100,7 +100,7 @@ function chargeSubscriptionSafe(state, { userId, price, idempotencyKey, periodLa
 
     // User-facing transaction row, NEW type 'Subscription' (existing types unchanged).
     state.transactions.push({ user_id: userId, type: 'Subscription', amount: -p,
-        detail: 'Arbitrix Pro Subscription' + (periodLabel ? ' - ' + periodLabel : '') });
+        detail: 'Kalderix Pro Subscription' + (periodLabel ? ' - ' + periodLabel : '') });
 
     // Advance billing + activate.
     sub.status = 'active';
@@ -310,7 +310,7 @@ test('10. successful charge writes a Subscription transaction row', () => {
     const tx = s.transactions[0];
     assert.strictEqual(tx.type, 'Subscription');
     assert.strictEqual(tx.amount, -7);
-    assert.ok(String(tx.detail).includes('Arbitrix Pro Subscription'));
+    assert.ok(String(tx.detail).includes('Kalderix Pro Subscription'));
 });
 
 // ---------------------------------------------------------------------------

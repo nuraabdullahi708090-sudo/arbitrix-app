@@ -248,9 +248,9 @@ function assertNoUnsupportedClaims(reply) {
 
 // ======================================================= A. trust & legitimacy
 
-test('A1. "Is Arbitrix a scam?" receives the approved, factually supported answer', async () => {
+test('A1. "Is Kalderix a scam?" receives the approved, factually supported answer', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
 
   const reply = h.last();
   assert.ok(reply.includes(t('trustIntro')), 'the approved intro is used');
@@ -271,18 +271,18 @@ test('A1. "Is Arbitrix a scam?" receives the approved, factually supported answe
 
 test('A2. every scam / legitimacy phrasing in the brief is recognised', async () => {
   const phrases = [
-    'Is Arbitrix a scam?',
+    'Is Kalderix a scam?',
     "Hope this isn't a scam.",
     'Is this a scam platform?',
-    'Is Arbitrix legit?',
-    'Is Arbitrix legitimate?',
+    'Is Kalderix legit?',
+    'Is Kalderix legitimate?',
     'Is this genuine?',
     'Is your platform genuine?',
-    'Can I trust Arbitrix?',
+    'Can I trust Kalderix?',
     'How do I know this is real?',
     'Are you guys legit?',
     'Is this a real company?',
-    'Is Arbitrix trustworthy?'
+    'Is Kalderix trustworthy?'
   ];
   for (const phrase of phrases) {
     const h = createHarness();
@@ -294,7 +294,7 @@ test('A2. every scam / legitimacy phrasing in the brief is recognised', async ()
 
 test('A3. misspellings, punctuation and mixed case still reach the trust answer', async () => {
   const phrases = [
-    'is arbitrix a scamm?',
+    'is kalderix a scamm?',
     'IS ARBITRIX LEGIT???',
     'Is Arbtirix legit?',
     'is it a scam or not',
@@ -310,7 +310,7 @@ test('A3. misspellings, punctuation and mixed case still reach the trust answer'
 test('A4. registration questions are recognised separately from general trust', async () => {
   const cases = [
     'Are you registered?',
-    'Is Arbitrix a registered company?',
+    'Is Kalderix a registered company?',
     'Where is your company registered?',
     'Do you have a business certificate?',
     'How can I check your company details?',
@@ -326,7 +326,7 @@ test('A4. registration questions are recognised separately from general trust', 
 });
 
 test('A5. general trust questions are answered without inventing history', async () => {
-  for (const phrase of ['Why should I use Arbitrix?', 'What makes Arbitrix different?', 'How long have you been operating?']) {
+  for (const phrase of ['Why should I use Kalderix?', 'What makes Kalderix different?', 'How long have you been operating?']) {
     const h = createHarness();
     await h.say(phrase);
     const reply = h.last();
@@ -360,7 +360,7 @@ test('A7. asking for the certificate adds the document instructions, never a doc
 
 test('A8. the scam answer follows up with a SHORT verification answer (no script repeat)', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   await h.say('How do I verify the registration?');
 
   const reply = h.last();
@@ -371,7 +371,7 @@ test('A8. the scam answer follows up with a SHORT verification answer (no script
 
 test('A9. an unpublished company detail is refused honestly and handed to a human', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix registered?');
+  await h.say('Is Kalderix registered?');
   await h.say('What is your company address?');
 
   const reply = h.last();
@@ -382,7 +382,7 @@ test('A9. an unpublished company detail is refused honestly and handed to a huma
 
 test('A10. the trust answer offers inline buttons with the exact official URLs', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
 
   const options = h.lastOptions();
   assert.ok(options && options.reply_markup, 'an inline keyboard is attached');
@@ -401,7 +401,7 @@ test('A11. plain deposit/withdrawal answers carry no keyboard', async () => {
 
 test('A12. the registration statement never becomes a licence claim', async () => {
   const h = createHarness();
-  for (const phrase of ['Are you registered?', 'Is Arbitrix legit?', 'What is your KVK number?']) {
+  for (const phrase of ['Are you registered?', 'Is Kalderix legit?', 'What is your KVK number?']) {
     await h.say(phrase);
     const reply = h.last();
     assertNoUnsupportedClaims(reply);
@@ -411,7 +411,7 @@ test('A12. the registration statement never becomes a licence claim', async () =
 
 test('A13. trust state survives a process restart (the conversation is persisted)', async () => {
   const first = createHarness();
-  await first.say('Is Arbitrix a scam?');
+  await first.say('Is Kalderix a scam?');
 
   // A new bot instance over the SAME store: nothing lives in module memory.
   const second = createHarness({ state: first.state });
@@ -668,7 +668,7 @@ test('D3. after the platform explanation an acknowledgement is a courtesy, an ex
   ];
   for (const [word, key] of courtesies) {
     const h = createHarness();
-    await h.say('How does Arbitrix work?');
+    await h.say('How does Kalderix work?');
     await h.say(word);
     assert.ok(!h.last().includes(t('platformIntro')), '"' + word + '" must not replay the explanation');
     assert.ok(!h.last().includes(t('clarifyTopic')), '"' + word + '" must not fall into the fallback');
@@ -678,7 +678,7 @@ test('D3. after the platform explanation an acknowledgement is a courtesy, an ex
 
   for (const word of ['Sure', 'Yes']) {
     const h = createHarness();
-    await h.say('How does Arbitrix work?');
+    await h.say('How does Kalderix work?');
     await h.say(word);
     assert.ok(h.last().includes(t('platformIntro')), '"' + word + '" asked for more and gets it');
   }
@@ -686,7 +686,7 @@ test('D3. after the platform explanation an acknowledgement is a courtesy, an ex
 
 test('D4. "Tell me more" continues the current subject', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   await h.say('Tell me more');
   assert.ok(h.last().includes(t('platformIntro')));
   assert.ok(!h.last().includes(t('trustIntro')), 'the trust script is not repeated');
@@ -694,7 +694,7 @@ test('D4. "Tell me more" continues the current subject', async () => {
 
 test('D5. "What next?" after the platform explanation shows the guide, not a reset', async () => {
   const h = createHarness();
-  await h.say('How does Arbitrix work?');
+  await h.say('How does Kalderix work?');
   await h.say('What next?');
   assert.ok(h.last().includes(t('platformIntro')));
   assert.ok(h.last().includes(t('platformQuestion')));
@@ -709,7 +709,7 @@ test('D6. "I understand" mid-conversation keeps the pending question', async () 
 
 test('D7. "Thanks" mid-flow keeps the flow, "Thanks" at rest closes it', async () => {
   const mid = createHarness();
-  await mid.say('Is Arbitrix a scam?');
+  await mid.say('Is Kalderix a scam?');
   await mid.say('Thanks');
   assert.ok(mid.last().startsWith(t('thanksOpen')));
   assert.strictEqual(mid.context().pending, 'guide.offer', 'the offer is not lost');
@@ -733,7 +733,7 @@ test('D8. a bare "Yes" with no history never guesses', async () => {
 
 test('E1. the trust answer is native Portuguese, with the same facts and URLs', async () => {
   const h = createHarness({ language: 'pt' });
-  await h.say('A Arbitrix é um golpe?');
+  await h.say('A Kalderix é um golpe?');
 
   const reply = h.last();
   assert.ok(reply.includes(t('trustIntro', 'pt')));
@@ -745,7 +745,7 @@ test('E1. the trust answer is native Portuguese, with the same facts and URLs', 
 
 test('E2. the trust answer is native Arabic and the facts stay in Latin script where required', async () => {
   const h = createHarness({ language: 'ar' });
-  await h.say('هل Arbitrix منصة حقيقية؟');
+  await h.say('هل Kalderix منصة حقيقية؟');
 
   const reply = h.last();
   assert.ok(reply.includes(t('trustIntro', 'ar')));
@@ -793,7 +793,7 @@ test('E5. withdrawal follow-ups are localized', async () => {
 
 test('E6. the Arabic conversation stays Arabic across a follow-up', async () => {
   const h = createHarness({ language: 'ar' });
-  await h.say('هل Arbitrix منصة حقيقية؟');
+  await h.say('هل Kalderix منصة حقيقية؟');
   await h.say('كيف أتحقق من التسجيل؟');
   const reply = h.last();
   assert.ok(/[\u0600-\u06FF]/.test(reply), 'Arabic script');
@@ -809,7 +809,7 @@ test('F1. an active human handoff suppresses the new intents too', async () => {
   await h.adminSay('/reply 1 On it.');
   const before = h.toCustomer().length;
 
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   assert.strictEqual(h.toCustomer().length, before, 'the bot must not talk over the operator');
   assert.match(h.lastAdmin(), /HUMAN CONVERSATION/);
 });
@@ -818,13 +818,13 @@ test('F2. /close restores automation for the new intents', async () => {
   const h = createHarness();
   await h.say('I need a human');
   await h.adminSay('/close 1');
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   assert.ok(h.last().includes(t('trustIntro')), 'automation resumes');
 });
 
 test('F3. the handoff marks the conversation as human and keeps the history', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   await h.say('I need a human');
   // The handoff deliberately owns the topic while it is active: nothing the
   // dialogue layer does may overwrite it with an ordinary conversation state.
@@ -832,7 +832,7 @@ test('F3. the handoff marks the conversation as human and keeps the history', as
   assert.strictEqual(h.context().stage, 'human-requested');
 
   await h.adminSay('/close 1');
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   assert.strictEqual(h.context().topic, 'trust', 'automation takes the topic back after /close');
   const bodies = h.state.messages.map((m) => m.body);
   assert.ok(bodies.includes('I need a human'), 'the handoff request is still in the history');
@@ -841,7 +841,7 @@ test('F3. the handoff marks the conversation as human and keeps the history', as
 test('F4. exactly one operator notification per customer message (no duplicates)', async () => {
   const h = createHarness();
   const before = h.toAdmin().length;
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   assert.strictEqual(h.toAdmin().length, before + 1, 'one notification, never two');
   await h.say('How do I verify the registration?');
   assert.strictEqual(h.toAdmin().length, before + 2, 'still one per message');
@@ -849,7 +849,7 @@ test('F4. exactly one operator notification per customer message (no duplicates)
 
 test('F5. operator reply-to-notification still works after a trust answer', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   const noticeId = h.transport.sent.filter((m) => m.chatId === ADMIN).pop().message_id;
   const result = await h.adminSay(String(noticeId)); // not a command: ignored
   assert.ok(result);
@@ -860,10 +860,10 @@ test('F5. operator reply-to-notification still works after a trust answer', asyn
 
 test('F6. history is preserved for the operator', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   await h.say('How do I verify the registration?');
   const bodies = h.state.messages.map((m) => m.body);
-  assert.ok(bodies.includes('Is Arbitrix a scam?'));
+  assert.ok(bodies.includes('Is Kalderix a scam?'));
   assert.ok(bodies.includes('How do I verify the registration?'));
   assert.ok(h.state.messages.some((m) => m.direction === DIRECTION_BOT));
   assert.ok(h.state.messages.every((m) => m.direction === DIRECTION_CUSTOMER || m.direction === DIRECTION_BOT || m.direction === DIRECTION_AGENT));
@@ -959,9 +959,9 @@ test('H5. the deposit walkthrough video hook is untouched by the trust answers',
 test('H6. a redelivered trust message is answered once', async () => {
   const h = createHarness();
   const id = nextUpdateId();
-  await h.say('Is Arbitrix a scam?', { updateId: id });
+  await h.say('Is Kalderix a scam?', { updateId: id });
   const before = h.toCustomer().length;
-  const duplicate = await h.say('Is Arbitrix a scam?', { updateId: id });
+  const duplicate = await h.say('Is Kalderix a scam?', { updateId: id });
   assert.strictEqual(h.toCustomer().length, before, 'no second reply');
   assert.strictEqual(duplicate.action, 'duplicate');
 });
@@ -969,7 +969,7 @@ test('H6. a redelivered trust message is answered once', async () => {
 test('H7. an out-of-order (older) update does not rewind the conversation', async () => {
   const h = createHarness();
   const older = nextUpdateId();
-  await h.say('Is Arbitrix a scam?', { updateId: older + 5 });
+  await h.say('Is Kalderix a scam?', { updateId: older + 5 });
   await h.say('How do I verify the registration?', { updateId: older + 6 });
   const stage = h.context().stage;
   const before = h.toCustomer().length;

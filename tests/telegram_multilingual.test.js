@@ -535,23 +535,23 @@ test('14c. approved English knowledge is TRANSLATED for a non-English customer',
     isEnabled: () => true,
     async ask() {
       // kind 'guardrail' carries APPROVED English policy text.
-      return { kind: 'guardrail', answer: 'Arbitrix does not guarantee profits or returns.', needsHuman: false };
+      return { kind: 'guardrail', answer: 'Kalderix does not guarantee profits or returns.', needsHuman: false };
     }
   };
   const translator = createTranslatorStub({
-    'en->pt': { ok: true, text: 'A Arbitrix não garante lucros nem retornos.' }
+    'en->pt': { ok: true, text: 'A Kalderix não garante lucros nem retornos.' }
   });
   const h = createHarness({ language: 'pt', supportAI: ai, translator });
   await h.bot.handleUpdate(customerMessage('e os lucros?'));
 
   assert.deepStrictEqual(translator.calls.fromEnglish.map((c) => c.language), ['pt']);
-  assert.strictEqual(h.toCustomer()[0], 'A Arbitrix não garante lucros nem retornos.');
+  assert.strictEqual(h.toCustomer()[0], 'A Kalderix não garante lucros nem retornos.');
 });
 
 test('14d. without a translator, approved English is replaced by a localized fallback', async () => {
   const ai = {
     isEnabled: () => true,
-    async ask() { return { kind: 'guardrail', answer: 'Arbitrix does not guarantee profits or returns.', needsHuman: false }; }
+    async ask() { return { kind: 'guardrail', answer: 'Kalderix does not guarantee profits or returns.', needsHuman: false }; }
   };
   const h = createHarness({ language: 'pt', supportAI: ai, translator: null });
   await h.bot.handleUpdate(customerMessage('e os lucros?'));
@@ -1028,7 +1028,7 @@ test('30c. the multilingual safety denylist does not fire on denials, and is lan
   assert.ok(SupportGuidelines.assertSafeAnswer('ربح مضمون للجميع', { language: 'ar' }).length > 0);
   // English behavior is byte-identical when no language is passed.
   assert.deepStrictEqual(
-    SupportGuidelines.assertSafeAnswer('Arbitrix does not guarantee profits or returns.'), []);
+    SupportGuidelines.assertSafeAnswer('Kalderix does not guarantee profits or returns.'), []);
   // The pt/ar patterns never fire on English text.
   assert.deepStrictEqual(SupportGuidelines.assertSafeAnswer('Your profit is not guaranteed.', { language: 'pt' }), []);
 });
@@ -1107,8 +1107,8 @@ test('29g. every required customer-facing string exists in all three locales', (
   });
   // /start and /help are the same stored string (Telegram sends /start).
   assert.strictEqual(i18n.t('en', 'help'), i18n.t('en', 'help'));
-  assert.match(i18n.t('en', 'help'), /^Arbitrix Support/);
-  assert.match(i18n.t('ar', 'help'), /^دعم Arbitrix/);
+  assert.match(i18n.t('en', 'help'), /^Kalderix Support/);
+  assert.match(i18n.t('ar', 'help'), /^دعم Kalderix/);
 });
 
 test('7b. a language callback works end-to-end through the real webhook handler', async () => {

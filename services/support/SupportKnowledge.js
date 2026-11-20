@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Customer-support knowledge base: load, validate and retrieve approved Arbitrix
+ * Customer-support knowledge base: load, validate and retrieve approved Kalderix
  * answers from arbitrix-knowledge.json.
  *
  * This module is the ONLY source the support AI layer may answer from. It is
@@ -42,12 +42,42 @@ const FORBIDDEN_PROMISE_PHRASES = Object.freeze([
 ]);
 
 /** Lowercase, strip punctuation (keeping alphanumerics), collapse whitespace. */
+/**
+ * The product was renamed (see services/brand.js). Customers still type the
+ * domain name they signed up on, and the legal operator is named after the old
+ * brand, so the legacy name is treated as an ALIAS of the current one on both
+ * sides of a match. Without this, "who is <old name>" returns no approved answer
+ * at all after the rename while "who is <new name>" answers.
+ *
+ * Derived from BRAND, never spelled out: a later rename must not turn the alias
+ * into a pair of literals that silently stop matching (the rename tool rewrites
+ * brand literals in this file).
+ */
+function brandAliases() {
+  let source = '';
+  let name = '';
+  try {
+    // Required lazily so this module stays usable (and testable) without the
+    // brand module present, exactly like the rest of the knowledge base.
+    const { BRAND } = require('../brand');
+    source = String(BRAND.source || '').toLowerCase();
+    name = String(BRAND.name || '').toLowerCase();
+  } catch (e) {
+    return null;
+  }
+  if (!source || !name || source === name) return null;
+  if (!/^[a-z0-9]+$/.test(source) || !/^[a-z0-9]+$/.test(name)) return null;
+  return { source, name, re: new RegExp('\\b' + source + '\\b', 'g') };
+}
+
 function normalize(text) {
-  return String(text === null || text === undefined ? '' : text)
+  const base = String(text === null || text === undefined ? '' : text)
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  const alias = brandAliases();
+  return alias ? base.replace(alias.re, alias.name) : base;
 }
 
 /** Significant (non-stopword) tokens for a piece of text. */

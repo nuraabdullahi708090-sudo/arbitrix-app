@@ -86,8 +86,8 @@ test('1. the page exists and /business-registration is routed to it', () => {
 test('1b. the page is complete, self-contained HTML with the requested title', () => {
     assert.match(PAGE, /^<!DOCTYPE html>/i);
     assert.match(PAGE, /<html lang="en">/);
-    assert.match(PAGE, /<title>Arbitrix Business Registration - Arbitrix AI<\/title>/);
-    assert.match(PAGE, /<h1[^>]*>\s*Arbitrix Business Registration\s*<\/h1>/);
+    assert.match(PAGE, /<title>Kalderix Business Registration - Kalderix<\/title>/);
+    assert.match(PAGE, /<h1[^>]*>\s*Kalderix Business Registration\s*<\/h1>/);
     assert.ok(PAGE.trim().endsWith('</html>'), 'the document must be complete');
     // Static content: no server data, no auth calls, no credential collection.
     assert.ok(!/\/api\//.test(PAGE), 'the page must not call any API');
@@ -101,7 +101,7 @@ test('1b. the page is complete, self-contained HTML with the requested title', (
 test('2. the exact legal company name appears verbatim', () => {
     assert.ok(PAGE.includes(LEGAL_NAME), 'the legal name must appear');
     assert.ok(
-        PAGE.includes('Arbitrix is operated by ' + LEGAL_NAME + ', registered with the Netherlands Chamber of Commerce (KVK).'),
+        PAGE.includes('Kalderix is operated by ' + LEGAL_NAME + ', registered with the Netherlands Chamber of Commerce (KVK).'),
         'the requested wording must appear verbatim'
     );
 });
@@ -220,9 +220,13 @@ test('7e. the page does not read like a government/regulator site', () => {
 /* ------------------------------------------------------------------ *
  * 8. Design: mobile-first, readable, clean
  * ------------------------------------------------------------------ */
-test('8. the page is mobile-first and matches the Arbitrix palette', () => {
+test('8. the page is mobile-first and matches the Kalderix palette', () => {
     assert.match(PAGE, /<meta name="viewport" content="width=device-width, initial-scale=1\.0">/);
-    assert.match(PAGE, /--brand:\s*#F0B90B/);
+    // The accent is the identity's, not a literal: a retheme must not break
+    // this page while the palette is being changed.
+    const { BRAND } = require('../services/brand');
+    assert.match(PAGE, new RegExp('--brand:\\s*' + BRAND.accent),
+      'the page carries the current identity accent');
     assert.match(PAGE, /--bg-primary:\s*#070B14/);
     assert.match(PAGE, /@media \(max-width: 640px\)/, 'a mobile breakpoint must exist');
     // The certificate is readable on mobile: full-width, and a scrollable viewer.
@@ -265,7 +269,7 @@ test('9c. the i18n key was removed from all six locales (no dead key)', () => {
         assert.ok(!Object.prototype.hasOwnProperty.call(T[l], 'landing.footer.businessRegistration'),
             l + ' must not define landing.footer.businessRegistration any more');
     });
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1603, l + ' must have 1603 keys'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1634, l + ' must have 1634 keys'));
 });
 
 /* ------------------------------------------------------------------ *

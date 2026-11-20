@@ -374,7 +374,7 @@ test('B4. a different courtesy still gets its own reply', async () => {
 
 test('C1. courtesy after a TRUST response', async () => {
   const h = createHarness();
-  await h.say('Is Arbitrix a scam?');
+  await h.say('Is Kalderix a scam?');
   assert.ok(h.last().includes(t('trustIntro')));
   await h.say('No');
   assert.strictEqual(h.last(), t('anythingElse'));
@@ -385,7 +385,7 @@ test('C1. courtesy after a TRUST response', async () => {
 
 test('C2. courtesy after a PLATFORM explanation', async () => {
   const h = createHarness();
-  await h.say('How does Arbitrix work?');
+  await h.say('How does Kalderix work?');
   assert.ok(h.last().includes(t('platformIntro')));
   await h.say('No');
   await h.say('Good');
@@ -625,7 +625,7 @@ test('I1. /tutorial, /progress, /next and /help still answer', async () => {
   assert.ok(h.last().includes(t('nextStepTitle')) || h.last().includes(t('nextTopics')));
 
   await h.say('/help');
-  assert.ok(h.last().includes('Arbitrix Support'));
+  assert.ok(h.last().includes('Kalderix Support'));
 });
 
 test('I2. a courtesy does not disturb an operator notice', async () => {

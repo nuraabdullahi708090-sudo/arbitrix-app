@@ -3,7 +3,7 @@
  *
  * Q8QPay is a non-custodial USDT payment gateway that supports white-label
  * (hosted-by-merchant) checkouts. We use the white-label flow so the customer
- * never leaves the Arbitrix UI: we display the payoutAddress (TRC20), the exact
+ * never leaves the Kalderix UI: we display the payoutAddress (TRC20), the exact
  * amount (amountUsdtExact), a QR code, and an expiry countdown.
  *
  * Documentation: https://q8qpay.com/docs  |  Developers: https://q8qpay.com/developers
@@ -43,7 +43,7 @@ const STATUS_MAP = {
     cancelled: 'cancelled'
 };
 
-// Only USDT_TRC20 is used for Arbitrix deposits (per integration requirements)
+// Only USDT_TRC20 is used for Kalderix deposits (per integration requirements)
 const SUPPORTED_ASSETS = [
     { code: 'USDT_TRC20', currency: 'USDT', network: 'TRC20', networkLabel: 'Tron (TRC20)' },
     { code: 'USDT_ERC20', currency: 'USDT', network: 'ERC20', networkLabel: 'Ethereum (ERC20)' },
@@ -87,16 +87,16 @@ class Q8QPayProvider extends ProviderInterface {
     /**
      * Create a white-label invoice via POST /api/v1/invoices.
      *
-     * The Arbitrix invoice_id (orderId) is passed as the q8qpay `reference`
-     * (unique deposit reference). Arbitrix user/deposit identifiers are passed
+     * The Kalderix invoice_id (orderId) is passed as the q8qpay `reference`
+     * (unique deposit reference). Kalderix user/deposit identifiers are passed
      * through `metadata` and echoed back in the webhook.
      *
      * @param {object} params
-     * @param {string} params.orderId - Arbitrix invoice_id (unique deposit reference)
+     * @param {string} params.orderId - Kalderix invoice_id (unique deposit reference)
      * @param {number} params.amount - Amount in USD (== USDT at 1:1)
      * @param {string} [params.currency] - Ignored; always USDT
      * @param {string} [params.network] - Ignored; always TRC20 (assetCode USDT_TRC20)
-     * @param {string} [params.userId] - Arbitrix user id (stored in metadata)
+     * @param {string} [params.userId] - Kalderix user id (stored in metadata)
      * @param {string} [params.callbackUrl] - Per-invoice override webhook URL
      * @param {number} [params.expirySeconds] - Invoice validity (300-7200)
      * @returns {Promise<object>} Normalized invoice with payoutAddress + amountUsdtExact
@@ -115,7 +115,7 @@ class Q8QPayProvider extends ProviderInterface {
             throw new Error('Q8QPay API key not configured');
         }
         if (!orderId) {
-            throw new Error('orderId (Arbitrix deposit reference) is required');
+            throw new Error('orderId (Kalderix deposit reference) is required');
         }
         if (!amount || amount <= 0) {
             throw new Error('amount is required and must be > 0');
@@ -129,7 +129,7 @@ class Q8QPayProvider extends ProviderInterface {
             throw new Error('Q8QPay callbackUrl not configured (set Q8QPAY_CALLBACK_URL or pass callbackUrl)');
         }
 
-        // Arbitrix user/deposit identifiers carried through metadata to the webhook
+        // Kalderix user/deposit identifiers carried through metadata to the webhook
         const metadata = {
             arbitrixUserId: String(userId || ''),
             arbitrixDepositRef: orderId,
@@ -140,7 +140,7 @@ class Q8QPayProvider extends ProviderInterface {
         const requestBody = {
             amountUsdt,
             assetCode: 'USDT_TRC20',
-            reference: orderId,          // unique Arbitrix deposit reference
+            reference: orderId,          // unique Kalderix deposit reference
             callbackUrl: callback,       // per-invoice webhook URL
             useWhiteLabel: true,         // white-label: we render our own UI
             metadata
@@ -152,7 +152,9 @@ class Q8QPayProvider extends ProviderInterface {
         if (this.returnUrl) {
             requestBody.returnUrl = this.returnUrl;
         }
-        requestBody.title = 'Arbitrix Deposit';
+        // The provider shows this on its own hosted page and receipts, so it
+        // follows the identity rather than a literal.
+        requestBody.title = require('../brand').BRAND.name + ' Deposit';
         requestBody.description = `USDT (TRC20) deposit ${orderId}`;
 
         try {
@@ -388,7 +390,7 @@ class Q8QPayProvider extends ProviderInterface {
      */
     parsePaymentData(payload) {
         return {
-            invoiceId: payload.invoice_reference,     // our Arbitrix reference
+            invoiceId: payload.invoice_reference,     // our Kalderix reference
             providerInvoiceId: payload.invoice_id,    // q8qpay UUID
             walletAddress: payload.payout_address,    // customer TRC20 destination
             amount: payload.amount_usdt_exact,        // exact amount paid

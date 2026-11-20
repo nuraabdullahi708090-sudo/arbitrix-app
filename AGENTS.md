@@ -8823,3 +8823,393 @@ was created and no Telegram write call was executed in this pass.
   pre-move markup). The 13/17/19 pins in `tests/deposit_tutorials_page.test.js`
   were updated to the new positions, and `tests/partners_page.test.js`'s homepage
   hash was re-pinned per its own comment.
+
+
+## Relaunch branch - disclosure fix, minimum-deposit knob, and the critical finding (2026-11-16)
+
+Branch `relaunch/rebrand-payment-commercial`, from `main` @ 7910db6. Baseline
+`npm test` = 3170 pass / 0 fail; after this work = **3198 pass / 0 fail**.
+No push, no deploy, no migration applied, no environment variable changed.
+
+### CRITICAL FINDING (documented in docs/relaunch/01-BASELINE.md)
+There is no trading engine and no market data. `server.js` contains no `fetch()`
+at all; `services/tradingAssets.js` is a catalogue of 47 DISPLAY labels whose
+`detail` field names venue pairs that nothing connects to. The P&L is
+`balance * 0.5 * (rand*2.4/100) * (win ? +1 : -0.5)` in BOTH `executeBotTrade()`
+(browser) and `TradingWorker.computeTradeAmount()` - a 65%-win coin with an
+expected value of **+0.285% of balance per trade**, every 8s. A $100 balance
+compounds to about $303 in one hour and $1,103 in two. Because the balance is
+withdrawable once the $700 minimum is met, every funded account is a liability
+that grows by construction. This governs the relaunch: it makes "$50 vs $100"
+a non-trading question, makes the Payhip credit-and-withdraw packages
+negative-LTV, makes Google Ads ineligible (unlicensed provider + crypto trading
+prohibition), and means a rebrand executed first would carry an unsubstantiated
+claim onto a name with no history.
+
+### 1. Landing opportunity card disclosure (public/index.html)
+`/api/market/opportunities` is generated from `Math.random()` bands, but the card
+presented "Arbitrage opportunity / Observed spread 0.35%" with NO qualifier.
+Added a visible localized "Illustrative" tag (`#arbOppTag`) and a disclosure
+(`#arbOppDisclosure`) in all 6 locales. IMPORTANT: an older management decision
+pinned the removal of a note here, and `tests/arbitrage_notifications.test.js`
+asserts `arb-opp-note` / `arbOppNote` / `arbOpp.note` and the copy
+"Illustrative example" / "not an offer" stay gone. The new disclosure therefore
+uses DIFFERENT names (`arb-opp-disclosure`, `arbOppDisclosure`,
+`arbOpp.disclosure`) and different wording, and those bans still pass. Do not
+reuse the old identifiers for a note on this card.
+
+### 2. Minimum deposit is now ONE switchable value (server.js)
+`PLATFORM_MIN_DEPOSIT_USD = 100` remains the built-in default (every existing
+test pin is unchanged). New `resolvePlatformMinDeposit()` reads the optional env
+var `PLATFORM_MIN_DEPOSIT_USD` (integer 10..10000; invalid -> default + warning)
+into `PLATFORM_MIN_DEPOSIT`, and all 17 runtime consumers now read the resolved
+value: invoice creation, both sandbox deposit doors, `SANDBOX_REFERRAL_MIN_DEPOSIT`,
+the `CONFIG_VALIDATION` default, the three `getReferralConfig` fallbacks,
+`MARKETING_FACTS.minDeposit`, and the deposit-options/referral responses.
+`/api/auth/me` publishes `minDeposit` in BOTH the production and the
+MARKETING_SANDBOX branch, and `syncWalletFromServer()` adopts it into
+`APP.MIN_DEPOSIT`. **With the env var unset the effective minimum is exactly $100
+and behaviour is byte-identical.** Moving to $50 remains approval-gated and ALSO
+needs a `referral_config.minimum_qualifying_deposit` sync migration plus a ~46
+string copy sweep across 6 locales (see docs/relaunch/03-MIN-DEPOSIT-50.md).
+
+### 3. Tests
+NEW `tests/landing_opportunity_disclosure.test.js` (13) and
+`tests/min_deposit_config.test.js` (15 - it executes the REAL resolver from
+server.js in a vm against an env matrix, and asserts no consumer reads the raw
+default). 23 existing files updated for intentional changes: dictionary pins
+1603 -> 1605 (16 files, `BASE_OUTSIDE_TESTIMONIALS` 1577 -> 1579) and symbol pins
+`PLATFORM_MIN_DEPOSIT_USD` -> `PLATFORM_MIN_DEPOSIT` in the sandbox/min-deposit/
+marketing suites; `tests/partners_page.test.js` homepage hash re-pinned per its
+own documented rule for approved homepage edits.
+
+### 4. Research deliverables
+`docs/relaunch/` (9 files): baseline, brand (20 names, Kalderix recommended,
+1741 measured `Arbitrix` occurrences), the $50 plan, Payhip (NOT eligible as
+designed; 9.5% loss at credit), payments (Q8Pay decimal discriminator confirmed
+live + unique-address fix recommended; Trunkay does NOT EXIST - every TLD
+NXDOMAIN; Card2Crypto DO NOT USE - transaction laundering, unnamed operator),
+markets (Google Ads prohibits crypto trading promotion and requires a licensed
+advertiser; Brazil first because pt-BR localisation and support already exist),
+localization/assets (0 executable assets, 47 display labels; add an `execution`
+capability flag), and the ordered action plan.
+
+### Trap to avoid
+My first attempt at the disclosure used class `arb-opp-note` and the copy
+"not an offer", which collided with the pinned cleanup. Also note that a blanket
+`PLATFORM_MIN_DEPOSIT_USD` -> `PLATFORM_MIN_DEPOSIT` replacement renamed the env
+var STRING itself (`const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT'`); the
+env var must stay `PLATFORM_MIN_DEPOSIT_USD`. Verify the env var name after any
+such sweep.
+
+
+## Relaunch branch: brand switch, $50 knob, Payhip Live activation (2026-11-16, NOT deployed)
+- Branch `relaunch/rebrand-payment-commercial` (cut from main @ 7910db6). Nothing
+  pushed, nothing deployed, no migration applied, no env var set, no customer
+  balance touched. Baseline was 3198/3198; now 3236/3236.
+- BRAND: `services/brand.js` + a `BRAND` block near the top of public/index.html own
+  the product name. t() swaps `BRAND.source` ('Arbitrix') for `BRAND.name` AT RENDER
+  TIME, so the dictionaries keep the literal and 300+ existing copy pins stay valid.
+  Do NOT tokenize the dictionaries with `{{brand}}`: that was tried and it broke 15
+  copy pins plus markup/dictionary parity. Add `source` when adding languages.
+  KALDERIX is recorded as `candidate` only (never applied). `scripts/rebrand.js
+  --to <Name>` is a DRY RUN by default (802 hits / 12 files for Kalderix).
+  Never rename: arbitrix.pro, arbitrix.ai, the Telegram handles, the group invite,
+  'Arbitrix Trading' or KVK 72923513.
+- MIN DEPOSIT: `PLATFORM_MIN_DEPOSIT_USD` (default 100) is read via
+  `resolvePlatformMinDeposit()`; the frontend adopts `minDeposit` from /api/auth/me.
+  $50 is one env var. `live.withdrawStatus.notDeposited` and `deposit.min100` now
+  interpolate `${{min}}` in all 6 locales. Migration 049 syncs
+  referral_config.minimum_qualifying_deposit - apply it TOGETHER with the env var.
+- PAYHIP (Option A): a purchase grants a ONE-TIME Live Mode activation entitlement
+  and credits NO capital; funding stays a Q8Pay deposit. `services/
+  PayhipEntitlements.js` + migration 050 (payhip_products/purchases/entitlements/
+  events, RLS service_role-only, row-locked one-time claim). Webhook lives at
+  `/api/payhip/webhook?token=` (NOT /api/webhook/payhip - the generic route shadows
+  it); Payhip documents no shared secret for its `signature` field, so the URL token
+  is the credential. Licence keys are stored as SHA-256 only AND the stored
+  raw_payload is REDACTED (redactPayload) - without that the hash is pointless.
+  Gates: /api/bot/start (live) + /api/trade refuse with 403 LIVE_ACTIVATION_REQUIRED
+  before any write. `PAYHIP_ACTIVATION_REQUIRED` defaults to false; funded accounts
+  are grandfathered and MARKETING_SANDBOX is exempt.
+- Q8PAY: the decimal discriminator stays (it is the attribution mechanism and the
+  webhook refuses to credit on a mismatch). The blind spot was visibility, so
+  `GET /api/admin/deposits/reconciliation` lists stale pending invoices (with the
+  exact amount asked for) and confirmed-but-uncredited deposits. Read-only.
+- Tests: new tests/brand_token.test.js (8), tests/live_activation_entitlement.test.js
+  (25), tests/deposit_reconciliation.test.js (5). Pins updated 1605->1616 dictionary,
+  47->49 migrations, the noreply sender (moved to services/brand.js), 049 whitelisted
+  in the no-$50-migration guard, deposit-min keys exempted from the WITHDRAWAL-minimum
+  leak check, homepage hash re-pin.
+- Verified rendering in headless Chromium (`--dump-dom` on the real page): activation
+  elements present, 0 syntax/reference errors, no raw placeholder outside <script>.
+  No puppeteer in this sandbox, so interactive click-through is NOT claimed.
+
+
+## Kalderix relaunch - final rehearsal and release preparation (2026-11-16, NOT deployed)
+
+- The founder approved Kalderix as the customer-facing brand (legal operator stays
+  Arbitrix Trading, KVK 72923513), the $50 minimum deposit, Payhip Option A
+  (activation only, no wallet crediting), keeping the Q8Pay decimal identification,
+  and Brazil as the first target market. Nothing was pushed, deployed, applied or
+  configured; the branch is local only.
+- The rehearsal found TWO real defects of the same class - a literal that the rename
+  itself rewrites, silently:
+  1. `SUBSCRIPTION_DETAIL_PREFIXES` was `['Arbitrix Pro Subscription', 'Kalderix Pro
+     Subscription']`. The rename rewrote the first entry, so both became identical and
+     the PRE-rename era stopped mapping: a customer billed before the rename would see
+     the raw old name in their history again. Now derived from `BRAND.name` +
+     `BRAND.source` (source is the pre-rename name by definition). The literal fallback
+     I first wrote collapsed the same way; it is gone - with no identity the map is
+     empty and the detail renders as stored.
+  2. `services/TOTPService.js` ISSUER and the q8pay invoice title were literals; both
+     now follow `BRAND` so they cannot be left behind. The issuer is a display label
+     (not part of the secret), so existing authenticator entries keep working.
+- `tests/kalderix_identity.test.js` asserted the PRE-APPROVAL state ("candidate
+  recorded but not applied"), so approving the rename turned 7 of its tests red. It is
+  now state-aware (`APPLIED = BRAND.name === ID.name`) and passes in BOTH states, which
+  is what a release gate has to do. It is also on the `rebrand-tests` SKIP list: it
+  asserts the state and the palette mechanics, so rewriting its literals made it assert
+  its own output (`!/Arbitrix/` became `!/Kalderix/`).
+- NEW `scripts/verify-rebrand.js`: the release gate for the rename. Checks the identity,
+  all six locales (no old name in any dictionary value, product named in each), the
+  protected identifiers (legal name, KVK, mail domain, t.me handles, arbitrix.pro,
+  `arbitrix-knowledge.json`), the named surfaces (title, og:site_name, apple title,
+  manifest, icon, TOTP issuer read from the real module, q8pay title, AI prompts),
+  BOTH transaction eras, and that every remaining reference is a protected identifier
+  (classified by CONTEXT - a token sliced out of `%3EArbitrix%3C` or `\u3002Arbitrix`
+  matches no identifier regex).
+- Rehearsal (clean copies /tmp/kx9 -> /tmp/kx12, each a full copy of the branch):
+  final run = `ALL CHECKS PASSED` + **3271/3271** tests. The real branch = 3271/3271.
+- `docs/relaunch/13-RELEASE-CHECKLIST-KALDERIX.md`: the master sequence (backup ->
+  readiness probe -> code -> $50 as ONE coordinated step -> rebrand -> Payhip last),
+  per-step verification, a rollback matrix, and the open external dependencies.
+  Two corrections found while writing it: **this repo has NO backup script** (the
+  `scripts/backup-supabase-db.sh` / `docs/BACKUP_*` referenced by earlier notes do not
+  exist on `main` or on this branch), so the doc carries a self-contained `pg_dump`
+  procedure with the three checks that catch a silent empty dump; and
+  `docs/sql/telegram_db_readiness.sql` only knows migrations 038-046, so the doc adds a
+  short SELECT-only probe for 049/050/051. That probe was executed against a throwaway
+  PostgreSQL 16.16 in both states (three NOT APPLIED, then three APPLIED).
+- Migration 051 was executed against the real migration-011 body on the same container:
+  applies cleanly, changes exactly one literal, re-apply is a byte-identical no-op, and
+  its guard refuses a body that lost the idempotency or `live_balance <` check.
+- `public/index.html` hash re-pinned in `tests/partners_page.test.js` (2a062850...), per
+  that test's own instruction for approved homepage edits; the diff is 13 lines inside
+  the txDetailLabel helpers and touches no funnel markup.
+- Pre-existing `tests/how_it_works_video.test.js` no longer fails: it pins the approved
+  master by sha256 + size instead of requiring the untracked `build/` copy.
+
+
+## Relaunch gate - production smoke rehearsal (2026-11-16, branch relaunch/rebrand-payment-commercial)
+
+- T8 of the Kalderix relaunch is CLOSED. The rehearsal ran the REAL `server.js`
+  (from a disposable copy) against a REAL PostgreSQL 16 with the release chain
+  (`008 -> 011 -> 049 -> 050 -> 051`) and 45 behavioural checks: **45/45 pass, 0
+  server errors**. Evidence, scope limits and approval gates:
+  `docs/relaunch/14-PRODUCTION-SMOKE-REHEARSAL.md`. Reproducible kit:
+  `docs/relaunch/rehearsal/` (`build-db.sh`, `shim.js`, `payhip-stub.js`,
+  `harness.js`, `server.env.example`, README). Verified by running the ported kit
+  from the repo, not just the /tmp scratch copy.
+- Coverage: existing funded customer is grandfathered and keeps Live + Demo +
+  balance (also during a Payhip outage); new customer cannot reach Live Mode
+  before activation (403 LIVE_ACTIVATION_REQUIRED) while Demo still works;
+  webhook signature/token, product allow-list, idempotent replay, hash-only key
+  storage, one-time claim across accounts, refund revocation, sandbox exemption;
+  activating credits $0; `$50` floor at runtime + `minDepositSync.ok=true`; a $50
+  deposit qualifies a referral and pays 20% ($10) exactly once; a new
+  subscription charge writes `Kalderix Pro Subscription` while pre-rebrand rows
+  survive; the $700 withdrawal minimum is untouched.
+- NEGATIVE CONTROLS (the harness is not vacuous): with
+  `PAYHIP_ACTIVATION_REQUIRED=false` 6 checks fail (C1 returns 200 instead of 403);
+  with `PLATFORM_MIN_DEPOSIT_USD=100` 3 fail, incl. `minDepositSync {ok:false,
+  effective:100, configured:50}` - the half-applied state 049 exists to prevent.
+- TWO REAL DEFECTS FIXED (both in release material, not product):
+  1. `049_min_deposit_50.sql` assumed a `(key, value)` referral_config. Production
+     is `(config_key, config_value, description, ...)`. Rewritten to introspect the
+     shape, prefer `config_key/config_value`, fall back to `key/value`, and
+     preserve a customised operator value (left at 75 when pre-set). Proven on
+     both shapes.
+  2. The release checklist's readiness probe had the same assumption
+     (`WHERE key = ...`), which fails on production. Replaced with a
+     schema-agnostic `DO` block printing one NOTICE per migration; executed
+     against both shapes (production shape -> `049: APPLIED (50)`; alternative
+     shape with a stale 100 -> `NOT APPLIED (currently 100)`).
+- TEST SUITE both ways: branch as-is 3271/3271; the same tree with the rebrand
+  applied (`relaunch-brand.js --write --with-tests`) 3271/3271 and
+  `verify-rebrand.js --expect Kalderix` = ALL CHECKS PASSED. An intermediate
+  15-failure run in the rebranded copy was traced to THIS session's own
+  credential guard in the server copy refusing the dummy `https://example.
+  supabase.co` URL that `api_404_contract` / `deposit_partners_degradation` boot
+  with - not the rebrand (pristine copy passes). Recorded in the report.
+- FIXTURE LESSONS (rehearsal only, not product): a PostgREST shim must (a) wrap
+  data-modifying statements in a CTE (derived tables are illegal), (b) honour
+  `Prefer: return=representation` on PATCH (the referral exactly-once guard keys
+  on the returned rows), (c) coerce 0/1 for boolean columns, (d) expand
+  `alias:table!fk(cols)` embedding. Each gap produced a misleading
+  "already activated" / "already charged" style failure before it was fixed.
+  `build-db.sh` must wait for a REAL query, not `pg_isready`.
+- NOT DONE / NOT AUTHORISED: no production migration, no env var, no deploy, no
+  push to main, no customer balance, no advertising. Still gated on the founder:
+  T10 (apply 049+050+051 and set `PLATFORM_MIN_DEPOSIT_USD=50` together), step 5
+  (apply the rebrand), step 6 (Payhip flags after one live test-mode purchase),
+  T1 (trademark clearance) and Payhip merchant eligibility.
+
+
+## Promotional credit visible immediately after registration (2026-11-16, branch relaunch/rebrand-payment-commercial)
+
+- PROBLEM: a new account is seeded with a $50 promotional Live balance but the
+  dashboard showed nothing about it on first login, and a Payhip-gated account
+  saw only "Activation required". The customer had to infer that the money in
+  their Live wallet was promotional credit, and why it could not be withdrawn.
+- CHANGED (display only; no money moves):
+  * NEW `services/LiveModeStatus.js` - PURE module deriving
+    `status` (activation_required | funding_required | available), `promoCredit`,
+    `withdrawalFundingRequired` and the activation facts. No I/O, no writes.
+  * `server.js`: `getLiveModeStatus(userId, known)` reuses facts the caller
+    already loaded. `/api/auth/me` publishes `liveMode`; `POST /api/auth/register`
+    now also returns `wallet` + `liveMode` (read-only: the single `$50` seed stays
+    inside `getWallet()`, and a payload failure is caught so it can never fail a
+    completed registration); `/api/live/activation` and `/api/live/activate`
+    return the post-change state so the UI never guesses.
+  * `public/index.html`: one dashboard card (`#liveModeCard`) above the chart -
+    `$50.00 - Promotional Credit`, a status chip, the approved explanation
+    (interpolated `{{amount}}`, never a data-i18n target - a placeholder would
+    print literally), and the existing Activate CTA only when gated.
+    `renderLiveModeCard()` renders the SERVER object verbatim; it is re-run by
+    `updateDynamicTranslations()` (language switch) and reads nothing else.
+  * Hidden for: funded customers with no credit (their dashboard is unchanged)
+    and MARKETING_SANDBOX (no credit, never gated).
+  * i18n: 1618 -> 1625 keys/locale (7 new x 6 locales: promo.creditTitle /
+    creditBadge / creditExplain, liveMode.fundingNote + the three status labels).
+- TRUTHFULNESS DECISION (documented): the brief expected "activated but no
+  deposit -> Live Mode remains LOCKED". That is not the shipped rule - a
+  promotional-credit account CAN trade after activation (it is the approved $50
+  credit model, capped at $20 realised profit). The card therefore reports
+  `available` when the account really is usable and states the withdrawal rule
+  separately (`withdrawalFundingRequired`), instead of asserting a restriction
+  the platform does not apply. Locking Live Mode behind a deposit would remove a
+  capability from licence buyers and change a trading safeguard, so it was NOT
+  done. Flagged for management if the stricter model is actually wanted.
+- UNCHANGED (pinned by `tests/promo_credit_display.test.js`, 18 tests): no wallet
+  write in any new path, no second credit, the credit is NOT a qualifying deposit,
+  Payhip gates / $50 minimum deposit / $700 withdrawal minimum / completed-trade
+  rule / $20 promo profit cap all untouched.
+- VERIFICATION: full suite 3289 pass / 0 fail. Browser harness (puppeteer-core +
+  chromium, real page, stubbed API) 30/30 product checks across the five
+  account states + ar RTL + 1280px; the only failure is the harness's own
+  blocked-CDN "TradingView is not defined", identical on the baseline.
+  Non-ASCII integrity vs HEAD: 0 removed character classes, 95 added, 0 U+FFFD.
+- Docs: `docs/relaunch/13-RELEASE-CHECKLIST-KALDERIX.md` section 8b (what the
+  customer sees + how to verify after deploy) and section 2b of the consolidated
+  report.
+- LESSON: `scripts/verify-rebrand.js` reports 17 FAILs, but it fails IDENTICALLY
+  on HEAD (rebrand step 5 is still pending) - compare against a worktree before
+  treating it as a regression.
+- NOT committed / NOT pushed / NOT deployed at the time of writing; no migration,
+  no production data touched.
+
+
+## Phase 40 - Kalderix relaunch verification pass (2026-11-16/17)
+
+- Branch `relaunch/rebrand-payment-commercial` (PR #171). LOCAL + PUSHED, NOT merged,
+  NOT deployed, no migration applied, no env var set.
+- Brand applied (not just recorded): `services/brand.js` + the `public/index.html`
+  mirror drive all six locales, titles/social cards, PWA manifest + sw.js, standalone
+  pages, emails, support bot, TOTP issuer, Q8Pay invoice title and asset registry.
+  `node scripts/verify-rebrand.js --expect Kalderix` passes. Legal operator stays
+  `Arbitrix Trading` / KVK 72923513. Provider API identifiers were NOT renamed (they
+  are API keys).
+- Tests: `npm test` = 3327 pass / 0 fail (main baseline 3170). Dictionary 1631 keys
+  x 6 locales, identical key sets. CI (`.github/workflows/ci.yml`, added this branch)
+  is GREEN on every commit - first automated verification in the repo.
+- Migration audit 049/050/051: read line by line, NOT executed (no PostgreSQL and no
+  Docker in this environment; `pgserver`/`postgresql-wheel`/`pg_embed` unavailable).
+  050 creates `payhip_purchases` + `payhip_entitlements` (RLS on, service_role-only,
+  UNIQUE licence hash + sale id) and `redeem_payhip_entitlement_safe` (SECURITY
+  DEFINER, FOR UPDATE, double-check, one account). It never writes a wallet.
+- Payhip friction fix: a licence the provider confirms but the DB has no sale row for
+  (lost/deferred webhook) was reported as `invalid-licence`. It is now
+  `not-recorded` (retryable, `payhip_events`, localized `liveActivation.confirming`).
+  Nothing is granted; recovery is still a manual Payhip replay.
+- Admin: deposit reconciliation panel in the Deposits tab using the pre-existing
+  read-only `/api/admin/deposits/reconciliation` (2h/24h/7d, exact on-chain amount,
+  nothing is credited). Pinned read-only by `tests/admin_reconciliation_panel.test.js`.
+- Security headers: `nosniff`, `frame-ancestors 'none'`, `X-Frame-Options: DENY`,
+  `strict-origin-when-cross-origin`, HSTS only over TLS. Full resource CSP
+  deliberately NOT set (charting lib, Google Fonts, QR service). Pinned by
+  `tests/security_headers.test.js` (boots the real server).
+- `tests/partners_page.test.js` now pins the FUNNEL SLICE of index.html
+  (`<div id="landingPage">` .. `id="mainApp"`), not the whole file: ten approved
+  homepage edits had forced re-pins and buried the test's actual question.
+- Gated (need approval): apply 049+050 then 051; set PAYHIP_*; set
+  PLATFORM_MIN_DEPOSIT_USD=50 (+ referral config minimum_qualifying_deposit); merge
+  PR #171 (Render auto-deploys on main); enable any worker; Kalderix trademark
+  clearance.
+
+
+## C1 - Live Mode requires BOTH activation and a deposit (2026-11-17, PR #171)
+- Approved model: Live Mode = a valid Payhip activation ($50, one-time) AND a
+  confirmed deposit of at least the platform minimum ($100). Neither substitutes
+  for the other. Demo Mode stays free.
+- `getLiveActivationState()` answers ACTIVATION ONLY. The deposit-based branch
+  (`reason: 'grandfathered-deposit'`) is DELETED, with no date/cutoff
+  replacement: a deposit must never satisfy activation.
+- `getConfirmedDepositTotal()` sums confirmed `deposits.amount` and
+  `payment_invoices.amount_usd` and returns `{ok,total}`; because a provider
+  invoice also writes a legacy `deposits` row, it takes the MAX of the two (never
+  a SUM) so one payment is never counted twice. Unreadable -> `ok:false`.
+- `getLiveModeEligibility()` combines both facts; `sendLiveModeRefusal()` names
+  the missing one: 403 `LIVE_ACTIVATION_REQUIRED`, 403 `LIVE_DEPOSIT_REQUIRED`
+  (+`minDeposit`,`depositTotal`), 503 `ACTIVATION_UNAVAILABLE`, 503
+  `LIVE_DEPOSIT_CHECK_UNAVAILABLE` (both retryable).
+- Gates: `POST /api/bot/start` (live) and `POST /api/trade` (before any wallet
+  read/ledger write). `/api/live/activation`, `/api/live/activate` and
+  `/api/auth/me` report `eligible` + the deposit facts; the dashboard card shows
+  `deposit_required` with a "Make your deposit" action (3 new i18n keys x 6
+  locales; dictionary 1634).
+- Inert by default: with `PAYHIP_ACTIVATION_REQUIRED` unset, eligibility is true
+  (only the deposit facts are reported). Nothing changes until the operator sets
+  the flag.
+- Tests: `tests/live_mode_eligibility.test.js` (22, real HTTP via
+  `tests/helpers/fake-supabase-live-mode.js`, no source-string assertions);
+  `npm test` = 3349 pass / 0 fail.
+- Consequence to confirm: the $50 promotional credit can no longer be traded
+  without activation + a $100 deposit (follows from the required matrix).
+  Pre-existing running bot sessions are not retroactively stopped.
+- Report: `docs/relaunch/C1-ACTIVATION-ENFORCEMENT-REPORT.md`.
+
+
+## Security closure - M2 verified in production + migration 053 (2026-11-16, PR #171)
+- M2 (`public.charge_subscription_safe` reachable by anon/authenticated/PUBLIC) is
+  CLOSED in production: an operator applied the correction through the Supabase SQL
+  Editor and verified anon/authenticated/PUBLIC = false, service_role = true,
+  search_path = public, pg_temp, signature and owner unchanged. No migration recorded
+  that change. Historical exploitation remains UNKNOWN (no logs); no claim either way.
+  Recorded in docs/security/PRODUCTION-M2-SECURITY-AUDIT.md section A.1 (the original
+  verdict is kept as A.2) and in docs/security/FINAL-SECURITY-CLOSURE-REPORT.md.
+- Recommendation of record: apply `052_charge_subscription_safe_privileges.sql` so the
+  fix exists in the migration chain (011 would otherwise recreate the vulnerable
+  function in any fresh environment). 051 is the rebrand migration and is a separate,
+  release-timed decision; the two converge in either order.
+- NEW `supabase/migrations/053_financial_rpc_privilege_lockdown.sql` (NOT applied):
+  revokes PUBLIC/anon/authenticated, grants service_role and pins search_path on the 10
+  money-adjacent RPCs that 014/051/052 did not cover.
+  * CONFIRMED (low): `paymento_check_duplicate_webhook(text,bigint)` returned another
+    customer's user_id / amount / settlement_address / provider_tx_hash /
+    confirmations for an enumerable provider_payment_id; demonstrated as `anon` on
+    PostgreSQL 16.16. No application caller exists.
+  * Benign: `mark_expired_invoices()` (time-guarded housekeeping, no callers).
+  * No production impact: the 8 `sandbox_*` money functions are already guarded by
+    `assert_sandbox_user()`; locked anyway for defence in depth.
+  * The real-money RPCs were NOT touched - they are already service_role-only. Their
+    unpinned search_path is recorded as residual hardening (no exploit path without
+    service_role) and left for a later migration.
+- Process lesson: the new test file was first written to `tests/financial_rpc_lockdown.test.js`,
+  which ALREADY existed for migration 014, silently replacing 27 tests. Caught by
+  comparing the suite total against a worktree baseline (3395 vs 3409 instead of 3422);
+  the original file was restored from HEAD and the new suite renamed to
+  `tests/financial_rpc_privileges_053.test.js`. Always check that a new test filename
+  does not already exist, and compare totals against a `git worktree` baseline.
+- Tests: `npm test` = 3422 pass / 0 fail (baseline 3409). `verify-rebrand --expect
+  Kalderix` PASS; `node --check` clean. C1/Payhip behavioural suites 101/101.

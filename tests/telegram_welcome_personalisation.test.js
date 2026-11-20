@@ -64,7 +64,7 @@ async function runJoin({ members, locale = 'en', messageId = '900' }) {
     update_id: 1,
     message: {
       message_id: Number(messageId),
-      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Arbitrix Partners' },
+      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Kalderix Partners' },
       from: { id: 42, first_name: ADMIN_FIRST_NAME, is_bot: false },
       new_chat_members: members
     }
@@ -90,7 +90,7 @@ test('the joining member\'s own Telegram first name appears in the welcome', asy
   assert.strictEqual(route.members[0].name, 'Ana Silva');
 
   assert.strictEqual(sent.length, 1);
-  assert.strictEqual(sent[0].text.split('\n')[0], '\u{1F44B} Welcome to the Arbitrix Partners Community, Ana!');
+  assert.strictEqual(sent[0].text.split('\n')[0], '\u{1F44B} Welcome to the Kalderix Partners Community, Ana!');
   assert.ok(!sent[0].text.includes('Silva'), 'only the first name is used');
 });
 
@@ -99,10 +99,10 @@ test('the bot name and the administrator name are never used for the greeting', 
   const text = sent[0].text;
   const greetingLine = text.split('\n')[0];
   assert.ok(!greetingLine.includes(BOT_NAME), 'the bot name must not be used as the greeting name');
-  assert.ok(greetingLine !== '\u{1F44B} Welcome to the Arbitrix Partners Community, ' + BOT_NAME + '!');
-  assert.ok(!text.startsWith('\u{1F44B} Welcome to the Arbitrix Partners Community, ' + ADMIN_FIRST_NAME),
+  assert.ok(greetingLine !== '\u{1F44B} Welcome to the Kalderix Partners Community, ' + BOT_NAME + '!');
+  assert.ok(!text.startsWith('\u{1F44B} Welcome to the Kalderix Partners Community, ' + ADMIN_FIRST_NAME),
     'the admin who triggered the service message must not be greeted');
-  assert.ok(text.startsWith('\u{1F44B} Welcome to the Arbitrix Partners Community, Ana!'));
+  assert.ok(text.startsWith('\u{1F44B} Welcome to the Kalderix Partners Community, Ana!'));
 });
 
 test('a bot joining the group is never welcomed in the member\'s place', async () => {
@@ -128,7 +128,7 @@ test('a member with no usable first name gets the friendly generic greeting', as
   for (const firstName of variants) {
     const { sent } = await runJoin({ members: [human({ id: 778, first_name: firstName })] });
     const firstLine = sent[0].text.split('\n')[0];
-    assert.strictEqual(firstLine, '\u{1F44B} Welcome to the Arbitrix Partners Community!',
+    assert.strictEqual(firstLine, '\u{1F44B} Welcome to the Kalderix Partners Community!',
       'generic greeting expected for ' + JSON.stringify(firstName));
     assert.ok(!/undefined|null|NaN|,\s*!/.test(firstLine), 'no placeholder artifacts');
   }
@@ -139,7 +139,7 @@ test('several people joining in one service message get the generic greeting', a
     members: [human({ id: 801, first_name: 'Ana' }), human({ id: 802, first_name: 'Ben' })]
   });
   assert.strictEqual(result.sent, true);
-  assert.strictEqual(result.text.split('\n')[0], '\u{1F44B} Welcome to the Arbitrix Partners Community!');
+  assert.strictEqual(result.text.split('\n')[0], '\u{1F44B} Welcome to the Kalderix Partners Community!');
   assert.strictEqual(sent.length, 1, 'one welcome for the service message');
 });
 
@@ -235,7 +235,7 @@ test('the welcome points at the Referral page in one sentence; the guide walks t
   const intro = "After registering, log into your account and open the Referral page. "
     + "There, you'll find your personal referral link and code.";
   const steps = [
-    'Log in to your Arbitrix account.',
+    'Log in to your Kalderix account.',
     'Open your account dashboard.',
     'Scroll down to the Referral section.',
     'Copy the link and share it with the people you invite.'
@@ -324,9 +324,9 @@ test('the instructions match the real dashboard, which is where the Referral car
 
 test('localisation covers all three languages for the greeting and the walkthrough', async () => {
   const expected = {
-    en: 'Welcome to the Arbitrix Partners Community, Ana!',
-    pt: 'Boas-vindas \u00e0 Comunidade de Parceiros Arbitrix, Ana!',
-    ar: '\u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Arbitrix\u060c Ana!'
+    en: 'Welcome to the Kalderix Partners Community, Ana!',
+    pt: 'Boas-vindas \u00e0 Comunidade de Parceiros Kalderix, Ana!',
+    ar: '\u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Kalderix\u060c Ana!'
   };
   for (const locale of LOCALES) {
     const { sent } = await runJoin({ members: [human({ id: 900 + LOCALES.indexOf(locale), first_name: 'Ana' })], locale });

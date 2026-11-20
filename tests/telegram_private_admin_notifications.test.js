@@ -428,7 +428,7 @@ test('an admin private /help describes notifications, not group commands', async
 
   assert.strictEqual(result.action, 'help');
   const help = h.textTo(ADMIN_A);
-  assert.ok(help.includes('Arbitrix support notifications'));
+  assert.ok(help.includes('Kalderix support notifications'));
   assert.ok(!/support group commands/i.test(help));
   assert.ok(help.includes('/reply'));
   assert.ok(help.includes('/escalate'));

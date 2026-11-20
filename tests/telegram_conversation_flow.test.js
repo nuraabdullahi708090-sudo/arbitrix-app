@@ -360,7 +360,7 @@ test('14. every natural deposit phrasing reaches the deposit guidance', async ()
     'How do I fund my account?',
     'I want to deposit',
     'How can I add money?',
-    'I need help putting money into Arbitrix',
+    'I need help putting money into Kalderix',
     'deposit'
   ];
   for (const text of phrasings) {

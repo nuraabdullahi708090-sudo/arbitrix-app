@@ -1,10 +1,10 @@
 'use strict';
 
 /**
- * Telegram <-> Arbitrix account linking (Phase 1).
+ * Telegram <-> Kalderix account linking (Phase 1).
  *
  * SECURITY MODEL
- *   - A linking token is minted ONLY from an authenticated Arbitrix session and
+ *   - A linking token is minted ONLY from an authenticated Kalderix session and
  *     is bound server-side to that user id. Nothing the client sends can choose
  *     the account.
  *   - The token is 32 cryptographically secure random bytes, base64url encoded,

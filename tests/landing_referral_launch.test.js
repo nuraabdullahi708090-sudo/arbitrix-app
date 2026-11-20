@@ -54,9 +54,9 @@ const NEW_KEYS = [
 // ---------------------------------------------------------------------------
 // i18n structure
 // ---------------------------------------------------------------------------
-test('dictionary: 1603 keys/locale and an identical key set across all 6 locales', () => {
+test('dictionary: 1634 keys/locale and an identical key set across all 6 locales', () => {
     const base = Object.keys(T.en).sort();
-    assert.strictEqual(base.length, 1603, 'expected 1603 keys per locale');
+    assert.strictEqual(base.length, 1634, 'expected 1634 keys per locale');
     LANGS.forEach((l) => {
         assert.ok(T[l], l + ' locale must exist');
         assert.deepStrictEqual(Object.keys(T[l]).sort(), base, l + ' key set must match en');
@@ -164,7 +164,7 @@ test('the product-demo video is embedded near How It Works', () => {
 test('Referral Partner section: copy, 5-step flow, CTA and disclosure', () => {
     assert.match(INDEX, /id="referral-partner"/, 'partner section present');
     assert.strictEqual(T.en['landing.partner.subtitle'],
-        'Introduce new users to Arbitrix and earn a 20% referral reward on their first qualifying deposit of $100 or more.');
+        'Introduce new users to Kalderix and earn a 20% referral reward on their first qualifying deposit of $100 or more.');
     assert.strictEqual(T.en['landing.partner.cta'], 'Become a Referral Partner');
     assert.match(INDEX, /class="landing-partner-actions"[\s\S]{0,240}openAuthScreen\('signup'\)/, 'partner CTA starts signup');
     assert.match(T.en['landing.partner.disclosure'], /misleading promotion/i, 'disclosure covers misleading promotion');

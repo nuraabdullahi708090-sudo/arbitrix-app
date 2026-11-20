@@ -34,7 +34,7 @@ const CONFIG = {
   supportUrl: 'https://t.me/ArbitrixSupportBot',
   partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
   partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix',
-  announcementUrl: 'https://t.me/ArbitrixChannel',
+  announcementUrl: 'https://t.me/KalderixChannel',
   facts: { minDeposit: 100, referralPercent: 20, promoCredit: 50 }
 };
 
@@ -426,7 +426,7 @@ test('the welcome uses the configured locale', async () => {
     members: [{ id: '1', name: 'Ana', isBot: false }],
     messageId: '1'
   });
-  assert.match(transport.sent[0].text, /Comunidade de Parceiros Arbitrix/);
+  assert.match(transport.sent[0].text, /Comunidade de Parceiros Kalderix/);
 });
 
 // ---------------------------------------------------------------------------

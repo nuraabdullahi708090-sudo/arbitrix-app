@@ -57,7 +57,7 @@ const GROUP_INVITE = 'https://t.me/+CF9kWr61sqs1MTY0';
 test('the English welcome carries the approved copy', () => {
   const text = render('welcome', 'en', CTX).text;
   const required = [
-    '\u{1F44B} Welcome to the Arbitrix Partners Community!',
+    '\u{1F44B} Welcome to the Kalderix Partners Community!',
     "We're happy to have you here!",
     'automated multi-asset arbitrage platform',
     'identify price differences for the same instruments across different trading venues',
@@ -69,7 +69,7 @@ test('the English welcome carries the approved copy', () => {
     '2\uFE0F\u20E3 CREATE YOUR ACCOUNT',
     'Ready to get started? Create your account here:',
     '3\uFE0F\u20E3 DISCOVER THE PARTNER PROGRAMME',
-    'Want to introduce others to Arbitrix?',
+    'Want to introduce others to Kalderix?',
     // Approved final copy: ONE sentence, and it never implies the personal link
     // is sent to the member automatically.
     "After registering, log into your account and open the Referral page. "
@@ -83,7 +83,7 @@ test('the English welcome carries the approved copy', () => {
     // support, and the payment partners with their scope (Alex also owns referral).
     // The announcement channel is deliberately not mentioned.
     '\u{1F465} OFFICIAL COMMUNITY',
-    'Share this group with anyone interested in Arbitrix:',
+    'Share this group with anyone interested in Kalderix:',
     GROUP_INVITE,
     '\u{1F4AC} OFFICIAL CUSTOMER SUPPORT',
     'https://t.me/ArbitrixSupportBot',
@@ -106,10 +106,10 @@ test('the pinned Start Here guide matches the welcome and walks through the Refe
     '1\uFE0F\u20E3 EXPLORE ARBITRIX',
     '2\uFE0F\u20E3 CREATE YOUR ACCOUNT',
     '3\uFE0F\u20E3 DISCOVER THE PARTNER PROGRAMME',
-    'Want to introduce others to Arbitrix?',
+    'Want to introduce others to Kalderix?',
     "After registering, log into your account and open the Referral page. "
       + "There, you'll find your personal referral link and code.",
-    '\u2022 Log in to your Arbitrix account.',
+    '\u2022 Log in to your Kalderix account.',
     '\u2022 Scroll down to the Referral section.',
     '\u2022 Copy the link and share it with the people you invite.',
     '4\uFE0F\u20E3 REFERRAL REWARD',
@@ -282,9 +282,9 @@ test('every supported language has its own welcome and Start Here copy', () => {
   assert.notStrictEqual(render('startHere', 'pt', CTX).text, englishStart);
   assert.notStrictEqual(render('startHere', 'ar', CTX).text, englishStart);
 
-  assert.ok(render('welcome', 'pt', CTX).text.includes('Comunidade de Parceiros Arbitrix'));
+  assert.ok(render('welcome', 'pt', CTX).text.includes('Comunidade de Parceiros Kalderix'));
   assert.ok(render('startHere', 'pt', CTX).text.includes('COMECE AQUI'));
-  assert.ok(render('welcome', 'ar', CTX).text.includes('\u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Arbitrix'));
+  assert.ok(render('welcome', 'ar', CTX).text.includes('\u0645\u062c\u062a\u0645\u0639 \u0634\u0631\u0643\u0627\u0621 Kalderix'));
   assert.ok(render('startHere', 'ar', CTX).text.includes('\u0627\u0628\u062f\u0623 \u0645\u0646 \u0647\u0646\u0627'));
 });
 
@@ -339,11 +339,11 @@ test('the confirmed destinations are the defaults when the environment is empty'
 test('a configured value still wins over the default destination', () => {
   const cfg = resolveMarketingConfig({
     BASE_URL: 'https://arbitrix.pro',
-    TELEGRAM_SUPPORT_USERNAME: '@ArbitrixHelp',
+    TELEGRAM_SUPPORT_USERNAME: '@ExampleHelp',
     TELEGRAM_MARKETING_HOW_IT_WORKS_URL: 'https://arbitrix.pro/walkthrough'
   });
   assert.strictEqual(cfg.howItWorksUrl, 'https://arbitrix.pro/walkthrough');
-  assert.strictEqual(cfg.supportUrl, 'https://t.me/ArbitrixHelp');
+  assert.strictEqual(cfg.supportUrl, 'https://t.me/ExampleHelp');
 });
 
 test('a new member receives the approved welcome and the working keyboard end to end', async () => {
@@ -366,7 +366,7 @@ test('a new member receives the approved welcome and the working keyboard end to
   });
   assert.strictEqual(result.sent, true);
   assert.strictEqual(sent.length, 1);
-  assert.ok(sent[0].text.includes('Welcome to the Arbitrix Partners Community!'));
+  assert.ok(sent[0].text.includes('Welcome to the Kalderix Partners Community!'));
   const keyboard = sent[0].options.reply_markup.inline_keyboard;
   assert.deepStrictEqual(keyboard.map((row) => row.map((b) => b.url)), [
     [DESTINATIONS.register, DESTINATIONS.howItWorks],

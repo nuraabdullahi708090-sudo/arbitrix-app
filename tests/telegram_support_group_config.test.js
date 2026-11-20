@@ -125,7 +125,7 @@ const groupMessage = (text, fromId = ADMIN_ID, chatId = GROUP_ID) => ({
     message_id: updateSeq,
     date: 1700000000,
     text,
-    chat: { id: Number(chatId), type: 'supergroup', title: 'Arbitrix Support' },
+    chat: { id: Number(chatId), type: 'supergroup', title: 'Kalderix Support' },
     from: { id: Number(fromId), first_name: 'Agent' }
   }
 });
@@ -302,7 +302,7 @@ test('a human operator can also reply to the forwarded message', async () => {
       message_id: ++updateSeq,
       date: 1700000000,
       text: 'Checking this for you now.',
-      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Arbitrix Support' },
+      chat: { id: Number(GROUP_ID), type: 'supergroup', title: 'Kalderix Support' },
       from: { id: Number(ADMIN_ID), first_name: 'Agent' },
       // the real id the transport returned for the forwarded message
       reply_to_message: { message_id: forwarded.messageId }

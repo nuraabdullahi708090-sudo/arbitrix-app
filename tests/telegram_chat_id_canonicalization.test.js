@@ -351,7 +351,7 @@ test('a mangled configured id still matches a real Telegram update', () => {
     update_id: 1,
     message: {
       message_id: 2,
-      chat: { id: Number(GROUP), type: 'supergroup', title: 'Arbitrix Support' },
+      chat: { id: Number(GROUP), type: 'supergroup', title: 'Kalderix Support' },
       from: { id: Number(ADMIN) },
       text: '/chatid'
     }

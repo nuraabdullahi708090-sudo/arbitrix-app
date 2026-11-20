@@ -51,7 +51,7 @@ const CONFIG = {
   supportUrl: 'https://t.me/ArbitrixSupportBot',
   partnerSupportAlexUrl: 'https://t.me/AlexArbitrix',
   partnerSupportOliviaUrl: 'https://t.me/OliviaArbitrix',
-  announcementUrl: 'https://t.me/ArbitrixChannel',
+  announcementUrl: 'https://t.me/KalderixChannel',
   facts: { minDeposit: 100, referralPercent: 20, promoCredit: 50 }
 };
 

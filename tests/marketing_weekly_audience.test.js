@@ -167,7 +167,7 @@ test('channelIntro still introduces the channel and links it', () => {
         assert.ok(out.buttons.some((b) => b.url === CHANNEL), locale + ': channel button');
     }
     // The intro copy itself is untouched.
-    assert.ok(/official Arbitrix channel/i.test(render('channelIntro', 'en', Object.assign({}, CONFIG, { audience: 'channel' })).text));
+    assert.ok(/official Kalderix channel/i.test(render('channelIntro', 'en', Object.assign({}, CONFIG, { audience: 'channel' })).text));
 });
 
 test('channelIntro through the real row builder is explicit about its audience', () => {

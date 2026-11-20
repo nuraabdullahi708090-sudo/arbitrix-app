@@ -94,7 +94,7 @@ test('6. every listed customer question retrieves the business-registration answ
         'Show me your business registration.',
         'Can I see your company certificate?',
         'What is your KVK number?',
-        'What company operates Arbitrix?'
+        'What company operates Kalderix?'
     ];
     questions.forEach((q) => {
         const hits = retriever.retrieve(q);
@@ -117,7 +117,7 @@ test('6b. existing questions are unchanged by the new entry (no hijack)', () => 
         'Can I use Demo Mode?': 'demo_mode.can_i_use',
         'What is the referral program?': 'referrals.program',
         'How much is the subscription?': 'subscription.price',
-        'Which countries can use Arbitrix?': 'supported_countries.availability',
+        'Which countries can use Kalderix?': 'supported_countries.availability',
         'I cannot log in': 'troubleshooting.login',
         'Will I make a profit?': 'guardrails.no_guarantee',
         'What is arbitrage?': 'what_is_arbitrix.arbitrage',
@@ -146,8 +146,8 @@ test('7. an English customer receives the approved answer with the URL', async (
 /* ------------------------------------------------------------------ *
  * 8/9. Portuguese + Arabic through the EXISTING translation system
  * ------------------------------------------------------------------ */
-const PT_ANSWER = 'A Arbitrix \u00e9 operada pela Arbitrix Trading, registada na C\u00e2mara de Com\u00e9rcio dos Pa\u00edses Baixos (KVK) com o n\u00famero KVK 72923513. Pode ver o certificado de registo comercial aqui: ' + PAGE_URL;
-const AR_ANSWER = '\u062a\u062f\u0627\u0631 \u0627\u0644\u0627\u0633\u0645 \u00abArbitrix Trading\u00bb \u0645\u0646\u0635\u0629 Arbitrix\u060c \u0648\u0647\u064a \u0645\u0633\u062c\u0644\u0629 \u0644\u062f\u0649 \u063a\u0631\u0641\u0629 \u062a\u062c\u0627\u0631\u0629 \u0647\u0648\u0644\u0646\u062f\u0627 (KVK) \u0628\u0631\u0642\u0645 KVK 72923513. \u064a\u0645\u0643\u0646\u0643 \u0645\u0634\u0627\u0647\u062f\u0629 \u0634\u0647\u0627\u062f\u0629 \u0627\u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062a\u062c\u0627\u0631\u064a \u0647\u0646\u0627: ' + PAGE_URL;
+const PT_ANSWER = 'A Kalderix \u00e9 operada pela Arbitrix Trading, registada na C\u00e2mara de Com\u00e9rcio dos Pa\u00edses Baixos (KVK) com o n\u00famero KVK 72923513. Pode ver o certificado de registo comercial aqui: ' + PAGE_URL;
+const AR_ANSWER = '\u062a\u062f\u0627\u0631 \u0627\u0644\u0627\u0633\u0645 \u00abArbitrix Trading\u00bb \u0645\u0646\u0635\u0629 Kalderix\u060c \u0648\u0647\u064a \u0645\u0633\u062c\u0644\u0629 \u0644\u062f\u0649 \u063a\u0631\u0641\u0629 \u062a\u062c\u0627\u0631\u0629 \u0647\u0648\u0644\u0646\u062f\u0627 (KVK) \u0628\u0631\u0642\u0645 KVK 72923513. \u064a\u0645\u0643\u0646\u0643 \u0645\u0634\u0627\u0647\u062f\u0629 \u0634\u0647\u0627\u062f\u0629 \u0627\u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062a\u062c\u0627\u0631\u064a \u0647\u0646\u0627: ' + PAGE_URL;
 
 function createFakeStore(language) {
     const conversation = {
@@ -221,7 +221,7 @@ function customerUpdate(text) {
 test('8. a Portuguese customer receives the approved answer in Portuguese (URL + number intact)', async () => {
     const translator = makeTranslator(PT_ANSWER);
     const h = createHarness('pt', translator);
-    await h.bot.handleUpdate(customerUpdate('Qual \u00e9 o n\u00famero KVK da Arbitrix?'));
+    await h.bot.handleUpdate(customerUpdate('Qual \u00e9 o n\u00famero KVK da Kalderix?'));
 
     // The registration answer is now NATIVE Portuguese copy in the dialogue
     // dictionary (services/telegram-i18n.js) instead of a machine translation of

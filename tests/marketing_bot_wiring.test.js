@@ -27,7 +27,7 @@ function joinUpdate(over) {
     update_id: 100,
     message: {
       message_id: 9,
-      chat: { id: Number(GROUP), type: 'supergroup', title: 'Arbitrix Partners' },
+      chat: { id: Number(GROUP), type: 'supergroup', title: 'Kalderix Partners' },
       from: { id: 5, first_name: 'Operator' },
       new_chat_members: [{ id: 777, first_name: 'Ana', is_bot: false }]
     }
@@ -92,7 +92,7 @@ test('new_chat_members routes as a join event, before text parsing', () => {
   const route = routeUpdate(joinUpdate(), { adminIds: [], supportChatId: null });
   assert.strictEqual(route.kind, 'join');
   assert.strictEqual(route.chatId, GROUP);
-  assert.strictEqual(route.chatTitle, 'Arbitrix Partners');
+  assert.strictEqual(route.chatTitle, 'Kalderix Partners');
   assert.strictEqual(route.messageId, '9');
   assert.deepStrictEqual(route.members, [{ id: '777', firstName: 'Ana', name: 'Ana', isBot: false }]);
 });
@@ -328,7 +328,7 @@ test('the bot is constructed with onboarding and the subscription store', () => 
 });
 
 test('marketing facts come from the application constants', () => {
-  assert.match(SERVER, /minDeposit: PLATFORM_MIN_DEPOSIT_USD/);
+  assert.match(SERVER, /minDeposit: PLATFORM_MIN_DEPOSIT/);
   assert.match(SERVER, /referralPercent: REFERRAL_REWARD_PERCENT_DEFAULT/);
 });
 

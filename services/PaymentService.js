@@ -1,5 +1,5 @@
 /**
- * Payment Service Layer - Arbitrix AI
+ * Payment Service Layer - Kalderix
  * 
  * This is the central service that handles all payment operations.
  * The application communicates ONLY with this service, never directly with providers.
@@ -18,7 +18,7 @@
  * - PAYMENTO_API_KEY: Paymento API key
  * - PAYMENTO_SECRET_KEY: Paymento webhook secret
  * 
- * @author Arbitrix AI
+ * @author Kalderix
  * @version 1.1.0 (Added Paymento support)
  */
 

@@ -1,7 +1,7 @@
 {
   "name": "arbitrix-app",
   "version": "1.0.0",
-  "description": "Arbitrix AI - Multi-Asset Arbitrage Platform",
+  "description": "Kalderix - Multi-Asset Arbitrage Platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

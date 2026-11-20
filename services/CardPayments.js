@@ -10,9 +10,9 @@
  *   3. the requested asset/network is supported (USDT on TRC20 only)
  *
  * APPROVED_CARD_PROVIDERS is empty on purpose: no provider has completed KYB /
- * merchant onboarding for Arbitrix, so no provider may be offered to customers.
+ * merchant onboarding for Kalderix, so no provider may be offered to customers.
  * Adding a provider here is a deliberate, reviewed code change made only AFTER
- * the provider has approved the Arbitrix account and the integration has been
+ * the provider has approved the Kalderix account and the integration has been
  * implemented and tested. Setting an environment variable alone can never
  * enable card payments.
  *
@@ -22,7 +22,7 @@
  */
 
 // Intentionally empty. A provider is added only after written approval of the
-// Arbitrix merchant account plus a completed, tested integration.
+// Kalderix merchant account plus a completed, tested integration.
 const APPROVED_CARD_PROVIDERS = Object.freeze([]);
 
 const SUPPORTED_CARD_ASSET = 'USDT';
@@ -64,7 +64,7 @@ function resolveCardPaymentConfig(env) {
 
 /**
  * Whether a specific asset/network pair may be offered for card purchase.
- * Arbitrix has approved USDT/TRC20 only; adding another network is a business
+ * Kalderix has approved USDT/TRC20 only; adding another network is a business
  * decision that must be reviewed, not a query parameter.
  *
  * @param {string} asset

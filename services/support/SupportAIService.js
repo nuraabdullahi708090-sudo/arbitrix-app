@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * SupportAIService - the AI customer-support layer for Arbitrix (Stage 1).
+ * SupportAIService - the AI customer-support layer for Kalderix (Stage 1).
  *
  * Contract:
  *   - receive a customer question

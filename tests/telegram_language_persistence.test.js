@@ -47,7 +47,7 @@ const CUSTOMER_ID = Number(CUSTOMER_CHAT_ID);
 const CONVERSATION_ID = 41;
 
 // The bot, as Telegram reports it on ITS OWN message that carries the keyboard.
-const BOT_FROM = { id: 777000, is_bot: true, first_name: 'Arbitrix Support', username: 'ArbitrixSupportBot' };
+const BOT_FROM = { id: 777000, is_bot: true, first_name: 'Kalderix Support', username: 'ArbitrixSupportBot' };
 // The customer, as Telegram reports the person who pressed the button.
 const CUSTOMER_FROM = { id: CUSTOMER_ID, is_bot: false, first_name: 'John', username: 'john' };
 
@@ -439,7 +439,7 @@ test('E. English, Portuguese and Arabic all persist and answer in the selected l
     assert.strictEqual(h.row().language, code, `${code}: persisted`);
 
     // The reply language comes from the STORED row, never from the message text.
-    await h.bot.handleUpdate(h.message('Ola, como posso comecar a usar a Arbitrix?'));
+    await h.bot.handleUpdate(h.message('Ola, como posso comecar a usar a Kalderix?'));
     const replies = h.toCustomer();
     const reply = replies[replies.length - 1];
     // The reply is generated from the STORED language, never from the message
@@ -464,13 +464,13 @@ test('F. after a persisted Portuguese selection the notice says Portuguese, not 
   const h = createHarness();
 
   await h.bot.handleUpdate(h.languageCallback('lang:pt'));
-  await h.bot.handleUpdate(h.message('Olá, como posso começar a usar a Arbitrix?'));
+  await h.bot.handleUpdate(h.message('Olá, como posso começar a usar a Kalderix?'));
 
   const notice = h.toAdmin().pop();
   assert.ok(notice, 'the operator was notified');
   assert.ok(notice.includes('Language: Portuguese'), notice);
   assert.ok(!notice.includes('Language: English'), 'must not report English');
-  assert.ok(notice.includes('Olá, como posso começar a usar a Arbitrix?'), 'the original message is preserved');
+  assert.ok(notice.includes('Olá, como posso começar a usar a Kalderix?'), 'the original message is preserved');
 });
 
 test('F. a customer who never chose is still reported as English', async () => {

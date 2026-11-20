@@ -36,7 +36,7 @@ const CUSTOMER_CHAT_ID = '4242';
 const CUSTOMER_ID = Number(CUSTOMER_CHAT_ID);
 
 const CUSTOMER_FROM = { id: CUSTOMER_ID, is_bot: false, first_name: 'Ana', username: 'ana' };
-const BOT_FROM = { id: 777000, is_bot: true, first_name: 'Arbitrix Support', username: 'ArbitrixSupportBot' };
+const BOT_FROM = { id: 777000, is_bot: true, first_name: 'Kalderix Support', username: 'ArbitrixSupportBot' };
 
 let updateSeq = 3000;
 const nextUpdateId = () => ++updateSeq;
@@ -247,7 +247,7 @@ test('new customer /start shows the welcome and the existing language picker', a
   assert.strictEqual(replies.length, 1, 'exactly one message: the picker, no support/AI content');
   assert.strictEqual(replies[0].text, FIRST_CONTACT_TEXT);
   assert.deepStrictEqual(replies[0].text.split('\n'), [
-    'Welcome to Arbitrix Support 👋',
+    'Welcome to Kalderix Support 👋',
     'Choose your preferred language:',
     'Escolha seu idioma / اختر لغتك'
   ]);

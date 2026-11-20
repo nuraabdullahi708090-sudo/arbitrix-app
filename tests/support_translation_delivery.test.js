@@ -582,7 +582,7 @@ test('I. the first-contact language picker is unchanged by this work', async () 
 
   const welcome = h.calls.find((c) => c.chatId === NEWCOMER && c.replyMarkup);
   assert.ok(welcome, '/start still sends the language picker');
-  assert.match(welcome.text, /Welcome to Arbitrix Support/);
+  assert.match(welcome.text, /Welcome to Kalderix Support/);
   const payloads = welcome.replyMarkup.inline_keyboard.flat().map((b) => b.callback_data);
   assert.deepStrictEqual(payloads, ['lang:en', 'lang:pt', 'lang:ar']);
   assert.deepStrictEqual(h.store.state.languageWrites, [], 'first contact must not write a language');

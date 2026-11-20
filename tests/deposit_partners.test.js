@@ -46,7 +46,7 @@ test('telegram handles: @name, name, t.me/... and full URLs normalize to one val
 test('telegram handles: arbitrary URLs, paths, schemes and junk are rejected', () => {
   const bad = [
     '', '   ', null, undefined, 42,
-    'https://evil.example.com/Arbitrix', 'http://t.me.evil.com/x',
+    'https://evil.example.com/Kalderix', 'http://t.me.evil.com/x',
     't.me/ab', 'a'.repeat(40), 'has space', 'user-name', 't.me/name?x=1',
     'javascript:alert(1)', '@', 'name<'
   ];
@@ -147,7 +147,7 @@ test('the customer options route is authenticated and never touches money', () =
   assert.ok(!route.includes('paymentService'), 'must not reach a provider');
   assert.ok(!route.includes('rpc('), 'must not call a credit RPC');
   assert.ok(route.includes("res.set('Cache-Control', 'no-store')"), 'no caching of per-user options');
-  assert.ok(route.includes('PLATFORM_MIN_DEPOSIT_USD'), 'minimum comes from the single source');
+  assert.ok(route.includes('PLATFORM_MIN_DEPOSIT'), 'minimum comes from the single source');
 });
 
 test('every admin partner route requires auth AND admin', () => {
@@ -381,7 +381,7 @@ test('the partner panel explains the model in one short paragraph', () => {
   assert.ok(!panel.includes('depositPaymentPartnerNote'), 'note beside the button retired');
   // Crediting is still explained, by the safety list.
   assert.match((INDEX.match(/'deposit\.partner\.safety\.3': '([^']*)'/) || [])[1] || '',
-    /credited after Arbitrix verifies the transfer/i);
+    /credited after Kalderix verifies the transfer/i);
 });
 
 // ============================================ service model + worldwide coverage

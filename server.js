@@ -41,7 +41,7 @@ const {
   isValidTelegramWebhookSecret
 } = require('./services/TelegramSupportService');
 const { createTelegramSupportStore } = require('./services/TelegramSupportStore');
-// Account linking (Phase 1): one-to-one Telegram <-> Arbitrix association with
+// Account linking (Phase 1): one-to-one Telegram <-> Kalderix association with
 // single-use, hashed, 10-minute tokens. Requires migration 039; until it is
 // applied every call fails closed ("temporarily unavailable").
 const { createTelegramAccountLinks } = require('./services/TelegramAccountLinks');
@@ -67,6 +67,17 @@ const {
 } = require('./services/MarketingOnboarding');
 const { checkContent } = require('./services/ContentGuard');
 const { resolveStaleHeartbeatMs } = require('./services/WorkerConfig');
+// BRAND: single source of the customer-visible product name (see services/brand.js
+// for the deny-list of identifiers that must never follow a rename).
+const { BRAND, emailSender } = require('./services/brand');
+// Payhip one-time Live Mode activation (Option A). Records verified sales and
+// lets an account claim exactly one entitlement. Moves NO money: funding stays a
+// separate Q8Pay deposit.
+const {
+  resolvePayhipConfig,
+  describePayhipConfig,
+  createPayhipEntitlements
+} = require('./services/PayhipEntitlements');
 // Canonical multi-asset universe (display metadata). SINGLE SOURCE OF TRUTH for
 // the engine draw list; the browser keeps a parity-pinned inline copy.
 const { ENGINE_ASSETS: TRADING_ASSETS } = require('./services/tradingAssets');
@@ -79,6 +90,10 @@ const { buildOpportunities: buildMarketOpportunities } = require('./services/Mar
 // Neither module moves money or reaches a payment provider.
 const depositPartners = require('./services/DepositPartners');
 const { resolveCardPaymentConfig } = require('./services/CardPayments');
+// Live Mode display state (read-only). Derives the dashboard's
+// "promo credit / activation required / funding required / available" label from
+// facts this file already computes; it never decides access or moves money.
+const { buildLiveModeStatus } = require('./services/LiveModeStatus');
 // TEMPORARY management test: platform-wide bot profit pause (see the module).
 const {
   resolveProfitPauseUsd,
@@ -123,7 +138,9 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 // Email configuration (use environment variables in production)
 const EMAIL_CONFIG = {
   apiKey: process.env.RESEND_API_KEY || '',
-  from: process.env.EMAIL_FROM || 'Arbitrix AI <noreply@arbitrix.ai>'
+  // Display name follows BRAND; the ADDRESS stays on the verified mail domain
+  // until its SPF/DKIM records are in place (a separate, approved change).
+  from: process.env.EMAIL_FROM || emailSender()
 };
 
 // ---------- PRODUCTION STARTUP GUARD ----------
@@ -285,6 +302,264 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // enabled on the remaining tables (later phase).
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
+// PAYHIP LIVE ACTIVATION (Option A). Inert by default: resolvePayhipConfig()
+// reports usable=false until PAYHIP_ENABLED, PAYHIP_WEBHOOK_TOKEN and at least
+// one PAYHIP_PRODUCTS entry are configured. Activation credits NO capital.
+const PAYHIP_CONFIG = resolvePayhipConfig();
+const payhipEntitlements = createPayhipEntitlements({
+  admin: supabaseAdmin,
+  config: PAYHIP_CONFIG
+});
+
+// Startup validation (report, never a crash): an operator who enables Payhip but
+// leaves a required secret out gets ONE unambiguous line naming the reason. The
+// process keeps running - taking the whole platform down for a payment
+// misconfiguration would be worse - and every Payhip surface reports itself
+// unusable in the meantime, so no customer can be charged against a rail that
+// cannot record the sale.
+if (PAYHIP_CONFIG.enabled && !PAYHIP_CONFIG.usable) {
+  console.error(
+    '[Payhip] CONFIGURATION ERROR: PAYHIP_ENABLED=true but the integration is unusable (' +
+    PAYHIP_CONFIG.reason + '). The webhook answers 503 until this is fixed, so a ' +
+    'completed purchase could not be recorded. Required: PAYHIP_PRODUCTS, ' +
+    'PAYHIP_API_KEY and PAYHIP_WEBHOOK_TOKEN (>=' + 16 + ' chars, no whitespace).'
+  );
+}
+
+/**
+ * Is the PAYHIP ACTIVATION requirement satisfied for this account?
+ *
+ * ACTIVATION ONLY. This answers one question - does the account hold a paid,
+ * unrevoked activation entitlement? - and it never looks at deposits. The
+ * approved rule is that activation and funding are INDEPENDENT: the $50 buys
+ * permission to use Live Mode and never funds the wallet, and a deposit never
+ * unlocks Live Mode. The combined decision lives in getLiveModeEligibility().
+ *
+ * There is deliberately NO grandfathering, no deposit-based exemption and no
+ * cutoff date: a confirmed deposit must never satisfy this requirement.
+ *
+ * Outcomes:
+ *   not-required           the switch is off (PAYHIP_ACTIVATION_REQUIRED unset,
+ *                          the default) - shipping this code changes access for
+ *                          nobody;
+ *   sandbox                MARKETING_SANDBOX accounts are simulated by design;
+ *   licensed               a claimed, paid, unrevoked entitlement exists;
+ *   activation-required    no entitlement;
+ *   activation-unavailable the entitlement store could not be read. FAIL CLOSED:
+ *                          an unproven entitlement is a refusal, reported
+ *                          retryable so the UI says "try again" rather than
+ *                          "buy a licence you may already own".
+ */
+async function getLiveActivationState(userId) {
+  if (!PAYHIP_CONFIG.activationRequired) {
+    return { activated: true, reason: 'not-required', activationRequired: false, exempt: true };
+  }
+  if (!userId) {
+    return { activated: false, reason: 'not-authenticated', activationRequired: true, exempt: false };
+  }
+  // MARKETING_SANDBOX uses simulated accounts and is exempt by construction.
+  try {
+    const { data: envRow } = await supabaseAdmin
+      .from('users').select('environment').eq('id', userId).single();
+    if (envRow && envRow.environment === ENV_MARKETING_SANDBOX) {
+      return { activated: true, reason: 'sandbox', activationRequired: true, exempt: true };
+    }
+  } catch (e) { /* fall through to the normal checks */ }
+
+  const held = await payhipEntitlements.hasActivation(userId);
+  if (held === true) {
+    return { activated: true, reason: 'licensed', activationRequired: true, exempt: false };
+  }
+  if (held === null) {
+    return {
+      activated: false,
+      reason: 'activation-unavailable',
+      activationRequired: true,
+      exempt: false,
+      retryable: true
+    };
+  }
+  return { activated: false, reason: 'activation-required', activationRequired: true, exempt: false };
+}
+
+/**
+ * Read-only Live Mode status for the dashboard (see services/LiveModeStatus).
+ *
+ * Callers that already computed the facts pass them in `known` so a login does
+ * not repeat the same queries. Anything missing is read here. It NEVER writes:
+ * the gates stay /api/bot/start, /api/trade and /api/withdraw/request.
+ */
+async function getLiveModeStatus(userId, known) {
+  const k = known || {};
+  // One resolver decides access; the display derives from it. Callers that
+  // already computed eligibility pass it in, so a login does not repeat the work.
+  const eligibility = k.eligibility || await getLiveModeEligibility(userId).catch(() => null);
+  const activation = eligibility ? {
+    activated: eligibility.activated === true,
+    reason: eligibility.reason,
+    activationRequired: eligibility.activationRequired === true,
+    exempt: eligibility.exempt === true,
+    retryable: eligibility.retryable === true
+  } : (k.activation || {
+    activated: false,
+    reason: 'activation-unavailable',
+    activationRequired: PAYHIP_CONFIG.activationRequired,
+    exempt: false,
+    retryable: true
+  });
+  const wallet = k.wallet || await getWallet(userId).catch(() => null);
+  const funded = typeof k.hasConfirmedDeposit === 'boolean'
+    ? k.hasConfirmedDeposit
+    : await hasConfirmedDeposit(userId).catch(() => false);
+  const promoFunding = typeof k.promoFunding === 'boolean' || k.promoFunding === null
+    ? k.promoFunding
+    : await isPromoCreditFunded(userId, !!funded).catch(() => null);
+  return buildLiveModeStatus({
+    activation,
+    liveBalance: wallet ? wallet.live_balance : 0,
+    hasConfirmedDeposit: !!funded,
+    promoFunding,
+    eligible: eligibility ? eligibility.eligible : null,
+    depositSatisfied: eligibility ? eligibility.depositSatisfied : null,
+    depositTotal: eligibility ? eligibility.depositTotal : null,
+    minDeposit: eligibility ? eligibility.minDeposit : PLATFORM_MIN_DEPOSIT
+  });
+}
+
+/** Machine-readable 403 body, shared by every Live Mode gate. */
+const LIVE_ACTIVATION_CODE = 'LIVE_ACTIVATION_REQUIRED';
+function liveActivationBody(extra) {
+  return Object.assign({
+    error: 'Live Mode activation required',
+    code: LIVE_ACTIVATION_CODE,
+    activationRequired: true
+  }, extra || {});
+}
+
+/**
+ * Refuse a Live Mode action. 503 when the decision could not be MADE (retry),
+ * 403 when it was made and the answer is no. Both carry the same activation
+ * marker so the client renders one prompt either way.
+ */
+function sendActivationRefusal(res, activation) {
+  const state = activation || {};
+  if (state.retryable === true) {
+    return res.status(503).json(Object.assign(liveActivationBody({
+      reason: state.reason || 'activation-unavailable',
+      retryable: true
+    }), {
+      error: 'Live Mode activation could not be verified. Please try again.',
+      code: 'ACTIVATION_UNAVAILABLE'
+    }));
+  }
+  return res.status(403).json(liveActivationBody({
+    reason: state.reason || 'activation-required',
+    retryable: false
+  }));
+}
+
+/**
+ * THE LIVE MODE DECISION: activation AND a qualifying deposit.
+ *
+ * Approved commercial rule: Live Mode requires BOTH a valid Payhip activation
+ * ($50, one-time) AND a confirmed deposit of at least the platform minimum
+ * ($100). Neither substitutes for the other. The $50 never credits the wallet,
+ * and a deposit never creates or satisfies an activation.
+ *
+ * Inert when PAYHIP_ACTIVATION_REQUIRED is unset: eligibility is true and the
+ * deposit facts are still reported for display, so shipping this code changes
+ * access for nobody until the operator turns the switch on.
+ *
+ * Fails CLOSED when a fact cannot be established (unreadable entitlement or
+ * deposit tables): a retryable refusal, never an unlock.
+ */
+async function getLiveModeEligibility(userId) {
+  const activation = await getLiveActivationState(userId).catch(() => ({
+    activated: false,
+    reason: 'activation-unavailable',
+    activationRequired: true,
+    exempt: false,
+    retryable: true
+  }));
+  const minDeposit = PLATFORM_MIN_DEPOSIT;
+
+  if (activation.activationRequired !== true) {
+    return {
+      eligible: true, reason: 'not-required', activationRequired: false, activated: true,
+      exempt: true, depositRequired: false, depositSatisfied: true, depositTotal: null,
+      minDeposit, retryable: false
+    };
+  }
+  if (activation.reason === 'sandbox') {
+    return {
+      eligible: true, reason: 'sandbox', activationRequired: true, activated: true,
+      exempt: true, depositRequired: false, depositSatisfied: true, depositTotal: null,
+      minDeposit, retryable: false
+    };
+  }
+
+  const read = await getConfirmedDepositTotal(userId);
+  const depositSatisfied = read.ok && read.total >= minDeposit;
+  const base = {
+    activationRequired: true,
+    activated: activation.activated === true,
+    exempt: false,
+    depositRequired: true,
+    depositSatisfied,
+    depositTotal: read.ok ? read.total : null,
+    minDeposit
+  };
+  // Activation is checked FIRST so the prompt names the step that is actually
+  // missing; an unreadable entitlement is retryable, an absent one is actionable.
+  if (activation.activated !== true) {
+    return Object.assign(base, {
+      eligible: false,
+      reason: activation.reason || 'activation-required',
+      retryable: activation.retryable === true
+    });
+  }
+  if (!read.ok) {
+    return Object.assign(base, { eligible: false, reason: 'deposit-check-unavailable', retryable: true });
+  }
+  if (!depositSatisfied) {
+    return Object.assign(base, { eligible: false, reason: 'deposit-required', retryable: false });
+  }
+  return Object.assign(base, { eligible: true, reason: 'eligible', retryable: false });
+}
+
+/**
+ * Refuse a Live Mode action, naming the requirement that is actually missing.
+ * 503 when the decision could not be MADE (retry); 403 when it was made and the
+ * answer is no. Every body carries a machine-readable code so the client renders
+ * the right prompt without parsing prose.
+ */
+function sendLiveModeRefusal(res, state) {
+  const s = state || {};
+  if (s.retryable === true) {
+    if (s.reason === 'deposit-check-unavailable') {
+      return res.status(503).json({
+        error: 'Your deposit status could not be verified. Please try again.',
+        code: 'LIVE_DEPOSIT_CHECK_UNAVAILABLE',
+        reason: s.reason,
+        retryable: true
+      });
+    }
+    return sendActivationRefusal(res, s);
+  }
+  if (s.activated !== true) {
+    return sendActivationRefusal(res, s);
+  }
+  return res.status(403).json({
+    error: 'A confirmed deposit of at least $' + s.minDeposit + ' is required for Live Mode.',
+    code: 'LIVE_DEPOSIT_REQUIRED',
+    reason: s.reason || 'deposit-required',
+    depositRequired: true,
+    minDeposit: s.minDeposit,
+    depositTotal: s.depositTotal,
+    activationRequired: false
+  });
+}
+
 // ============================================
 // TEMPORARY MANAGEMENT TEST - BOT PROFIT PAUSE
 // ============================================
@@ -381,6 +656,33 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// ---------- SECURITY HEADERS ----------
+// Sent on every response (pages, API, static assets, 404s). Deliberately the
+// headers that cannot break a feature:
+//   nosniff          stops a browser from re-interpreting a JSON/asset response
+//                    as script or HTML;
+//   frame-ancestors  the app is never framed, so clickjacking gets no surface
+//                    (X-Frame-Options is the same rule for older browsers);
+//   Referrer-Policy  a full URL (which can contain an invoice id) is never sent
+//                    to a third party - only the origin crosses a boundary;
+//   HSTS             only over TLS, and only from a request that actually
+//                    arrived over TLS, so local/dev http is never pinned.
+// A full resource CSP is intentionally NOT set here: the app loads a charting
+// library, Google Fonts and a QR image service, and a wrong policy would break
+// them silently. Narrowing that belongs in its own change with a report-only
+// rollout.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  const proto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+  if (req.secure || proto.split(',')[0].trim() === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 
 // Parse JSON bodies for all routes. The `verify` hook stashes the RAW body bytes
 // on req.rawBody so webhook routes (q8qpay) can compute HMAC-SHA256 signatures
@@ -648,6 +950,81 @@ const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 // deposit and must never be derived from this constant.
 const PLATFORM_MIN_DEPOSIT_USD = 100;
 
+// EFFECTIVE PLATFORM MINIMUM DEPOSIT (single runtime knob).
+//
+// The constant above is the built-in default and the value every existing test
+// pins. The EFFECTIVE value is resolved once at boot from the optional env var
+// PLATFORM_MIN_DEPOSIT_USD, so the platform minimum can be changed WITHOUT a code
+// change and WITHOUT a redeploy of new code (a Render env change + restart).
+//
+// Every runtime consumer (invoice creation, sandbox simulated deposits, the
+// referral qualifying-deposit fallback, MARKETING_FACTS and the /api/auth/me
+// `minDeposit` field the frontend adopts) reads PLATFORM_MIN_DEPOSIT, never the
+// raw default. With the env var unset the effective value IS the default, so
+// behaviour is byte-identical to before this change.
+//
+// CHANGING IT REQUIRES APPROVAL *and* two coordinated steps, because the
+// qualifying-deposit amount also lives in the referral_config table and the
+// marketing copy is interpolated from these same values:
+//   1. set PLATFORM_MIN_DEPOSIT_USD=50 on the service
+//   2. apply the matching config migration (supabase/migrations/049_min_deposit_100.sql
+//      asserts the approved $100 row)
+// Nothing is changed by shipping this code alone.
+const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT_USD';
+const MIN_DEPOSIT_FLOOR_USD = 10;
+const MIN_DEPOSIT_CEILING_USD = 10000;
+
+function resolvePlatformMinDeposit(env = process.env) {
+  const raw = String((env && env[MIN_DEPOSIT_ENV_VAR]) || '').trim();
+  if (!raw) return PLATFORM_MIN_DEPOSIT_USD;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) ||
+      n < MIN_DEPOSIT_FLOOR_USD || n > MIN_DEPOSIT_CEILING_USD) {
+    console.warn(`[Config] ${MIN_DEPOSIT_ENV_VAR}="${raw}" is invalid (expected an integer ${MIN_DEPOSIT_FLOOR_USD}-${MIN_DEPOSIT_CEILING_USD}); using $${PLATFORM_MIN_DEPOSIT_USD}`);
+    return PLATFORM_MIN_DEPOSIT_USD;
+  }
+  if (n !== PLATFORM_MIN_DEPOSIT_USD) {
+    console.log(`[Config] Platform minimum deposit overridden: $${n} (built-in default $${PLATFORM_MIN_DEPOSIT_USD})`);
+  }
+  return n;
+}
+
+const PLATFORM_MIN_DEPOSIT = resolvePlatformMinDeposit();
+
+/**
+ * The deposit floor lives in TWO places by necessity: this constant (used to
+ * validate every invoice) and referral_config.minimum_qualifying_deposit (used
+ * by the referral award helper, in SQL, since migration 021). If they disagree,
+ * a deposit can succeed while the referral attached to it never qualifies - a
+ * silent half-applied state.
+ *
+ * Migration 049 writes the row; this check PROVES the two agree at runtime
+ * instead of assuming it. Read-only: it never rewrites configuration.
+ */
+async function checkMinDepositSync() {
+  try {
+    const raw = await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT));
+    const configured = Number(raw);
+    if (!Number.isFinite(configured)) {
+      return { ok: null, reason: 'unreadable', effective: PLATFORM_MIN_DEPOSIT, configured: null };
+    }
+    const ok = configured === PLATFORM_MIN_DEPOSIT;
+    if (!ok) {
+      console.warn(
+        '[Config] MISMATCH: referral_config.minimum_qualifying_deposit=' + configured +
+        ' but the platform minimum deposit is ' + PLATFORM_MIN_DEPOSIT +
+        '. Deposits of ' + Math.min(configured, PLATFORM_MIN_DEPOSIT) + '-' +
+        Math.max(configured, PLATFORM_MIN_DEPOSIT) + ' would behave inconsistently. ' +
+        'Apply migration 049_min_deposit_100.sql (it asserts the $100 row), or set ' +
+        MIN_DEPOSIT_ENV_VAR + ' to the same value as referral_config.'
+      );
+    }
+    return { ok, effective: PLATFORM_MIN_DEPOSIT, configured };
+  } catch (e) {
+    return { ok: null, reason: 'unreadable', effective: PLATFORM_MIN_DEPOSIT, configured: null };
+  }
+}
+
 // Conversion minimum for referral earnings into tradable Live capital. FINAL
 // management model: referral earnings have NO conversion minimum — a single
 // qualifying referral at the $100 platform minimum earns exactly $20, and
@@ -703,7 +1080,7 @@ const WITHDRAWAL_REQUIRES_VERIFICATION =
 // truth); these constants are only the fallbacks used when the config row is
 // missing/unreadable. There is NO downline commission in the final model.
 const SANDBOX_REFERRAL_REWARD_PERCENT_DEFAULT = 20;
-const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT_USD;
+const SANDBOX_REFERRAL_MIN_DEPOSIT = PLATFORM_MIN_DEPOSIT;
 
 // Simulated "$50 promotional credit" seed for a new MARKETING_SANDBOX wallet,
 // mirroring the production new-user seed (getWallet inserts live_balance: 50).
@@ -1023,8 +1400,8 @@ async function handleSandboxDepositRequest(req, res) {
   const amt = Number(amount);
   // Platform minimum deposit ($100) - applies to the sandbox too (management
   // decision). This is the deposit floor, NOT the $50 promotional credit.
-  if (!amt || amt < PLATFORM_MIN_DEPOSIT_USD) {
-    return res.status(400).json({ error: 'Min $' + PLATFORM_MIN_DEPOSIT_USD });
+  if (!amt || amt < PLATFORM_MIN_DEPOSIT) {
+    return res.status(400).json({ error: 'Min $' + PLATFORM_MIN_DEPOSIT });
   }
   const net = network || 'TRC20';
   const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
@@ -1053,8 +1430,8 @@ async function handleSandboxInvoiceCreate(req, res) {
   const amt = Number(amount);
   // Platform minimum deposit ($100) - applies to the sandbox too (management
   // decision). This is the deposit floor, NOT the $50 promotional credit.
-  if (!amt || amt < PLATFORM_MIN_DEPOSIT_USD) {
-    return res.status(400).json({ success: false, error: 'Min $' + PLATFORM_MIN_DEPOSIT_USD });
+  if (!amt || amt < PLATFORM_MIN_DEPOSIT) {
+    return res.status(400).json({ success: false, error: 'Min $' + PLATFORM_MIN_DEPOSIT });
   }
   const net = network || 'TRC20';
   const invoiceId = 'sbx_inv_' + Date.now() + '_' + userId;
@@ -1661,7 +2038,7 @@ async function requireSandboxTargetUser(req, res) {
 
 // Referral reward (FINAL management model): a ONE-TIME reward equal to this
 // percentage of the referred user's INITIAL QUALIFYING DEPOSIT — the platform's
-// minimum required deposit (see PLATFORM_MIN_DEPOSIT_USD). The live value is
+// minimum required deposit (see PLATFORM_MIN_DEPOSIT). The live value is
 // stored in referral_config('referral_reward_percent') and always overrides
 // this default (see getReferralConfig). This constant is the fallback used only
 // when the config row is missing/unreadable.
@@ -1736,14 +2113,14 @@ async function getReferralConfigAll() {
 function getDefaultReferralConfig() {
   return {
     rewards_enabled: { value: 'true', description: 'Enable or disable referral rewards system-wide' },
-    minimum_qualifying_deposit: { value: String(PLATFORM_MIN_DEPOSIT_USD), description: 'Minimum deposit amount required (USD)' },
+    minimum_qualifying_deposit: { value: String(PLATFORM_MIN_DEPOSIT), description: 'Minimum deposit amount required (USD)' },
     referral_reward_percent: { value: String(REFERRAL_REWARD_PERCENT_DEFAULT), description: 'Referral reward as a percentage of the referred user\'s initial qualifying deposit' },
     first_deposit_required: { value: 'true', description: 'Whether referral requires first deposit to qualify' },
     max_rewards_per_user: { value: '0', description: 'Maximum rewards per user (0 = unlimited)' }
   };
 }
 
-// ---------- Arbitrix Pro Subscription ----------
+// ---------- Kalderix Pro Subscription ----------
 // The subscription is an INTERNAL server-side debit of the user's genuinely
 // available Live balance (wallets.live_balance). It is NOT a deposit/payment
 // method; the deposit/q8qpay/NOWPayments/Paymento/webhook/crediting systems
@@ -1987,7 +2364,7 @@ async function activateReferralOnQualification(userId, qualificationType = 'firs
     const config = {
       rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
       rewardPercent: parseConfigValue(await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))),
-      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT_USD))),
+      minDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT))),
       firstDepositRequired: parseConfigValue(await getReferralConfig('first_deposit_required', 'true')),
       maxRewardsPerUser: parseConfigValue(await getReferralConfig('max_rewards_per_user', '0'))
     };
@@ -2232,6 +2609,47 @@ async function hasConfirmedDeposit(userId) {
     return false;
   }
   return ((legacyCount || 0) + (providerCount || 0)) > 0;
+}
+
+/**
+ * TOTAL CONFIRMED DEPOSIT (USD) - the funding half of Live Mode eligibility.
+ *
+ * A provider invoice also writes a legacy `deposits` row keyed by invoice_id, so
+ * one payment can appear in BOTH tables. SUM would double-count it; MAX cannot:
+ * when both tables hold the same payments they agree, and a partial write leaves
+ * the larger (correct) figure. Read-only - this never writes an amount.
+ *
+ * Returns { ok, total }. `ok:false` means the fact could not be ESTABLISHED, so
+ * the caller fails closed instead of pretending the account is funded (which
+ * would unlock Live Mode on a database blip) or unfunded (which would be a false
+ * statement about the customer).
+ */
+async function getConfirmedDepositTotal(userId) {
+  const [legacy, provider] = await Promise.all([
+    supabaseAdmin
+      .from('deposits')
+      .select('amount')
+      .eq('user_id', userId)
+      .eq('status', 'confirmed')
+      .limit(1000),
+    supabaseAdmin
+      .from('payment_invoices')
+      .select('amount_usd')
+      .eq('user_id', userId)
+      .eq('status', 'confirmed')
+      .limit(1000)
+  ]);
+  if (legacy.error || provider.error) {
+    console.log('[getConfirmedDepositTotal] error:', (legacy.error || provider.error).message);
+    return { ok: false, total: 0 };
+  }
+  const sum = (rows, field) => (rows || []).reduce((acc, row) => {
+    const n = Number(row && row[field]);
+    return Number.isFinite(n) && n > 0 ? acc + n : acc;
+  }, 0);
+  const legacyTotal = Math.round(sum(legacy.data, 'amount') * 100) / 100;
+  const providerTotal = Math.round(sum(provider.data, 'amount_usd') * 100) / 100;
+  return { ok: true, total: Math.max(legacyTotal, providerTotal) };
 }
 
 /**
@@ -2794,7 +3212,7 @@ async function sendResetEmail(email, token) {
     console.log('📧 PASSWORD RESET EMAIL (Development Mode - No API Key Configured)');
     console.log('═══════════════════════════════════════════════════════════');
     console.log(`To: ${email}`);
-    console.log(`Subject: Password Reset Request - Arbitrix AI`);
+    console.log(`Subject: Password Reset Request - Kalderix`);
     console.log(`Reset Link: ${resetLink}`);
     console.log(`Token (for debugging): ${token}`);
     console.log(`Expires in: 1 hour`);
@@ -2809,20 +3227,20 @@ async function sendResetEmail(email, token) {
     const { data, error } = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: email,
-      subject: 'Password Reset Request - Arbitrix AI',
+      subject: 'Password Reset Request - Kalderix',
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Password Reset - Arbitrix AI</title>
+          <title>Password Reset - Kalderix</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
             <tr>
               <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Kalderix</h1>
                 <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
               </td>
             </tr>
@@ -2830,7 +3248,7 @@ async function sendResetEmail(email, token) {
               <td style="background-color: #ffffff; padding: 40px 30px;">
                 <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px;">Password Reset Request</h2>
                 <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                  You requested a password reset for your Arbitrix AI account. Click the button below to reset your password:
+                  You requested a password reset for your Kalderix account. Click the button below to reset your password:
                 </p>
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
@@ -2859,7 +3277,7 @@ async function sendResetEmail(email, token) {
             <tr>
               <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0; color: #6b7280; font-size: 12px;">
-                  This is an automated message from Arbitrix AI.<br>
+                  This is an automated message from Kalderix.<br>
                   Please do not reply to this email.
                 </p>
               </td>
@@ -2868,9 +3286,9 @@ async function sendResetEmail(email, token) {
         </body>
         </html>
       `,
-      text: `Password Reset Request - Arbitrix AI
+      text: `Password Reset Request - Kalderix
 
-You requested a password reset for your Arbitrix AI account.
+You requested a password reset for your Kalderix account.
 
 Click the link below to reset your password:
 ${resetLink}
@@ -2880,7 +3298,7 @@ This link will expire in 1 hour.
 If you didn't request this password reset, please ignore this email.
 
 ---
-This is an automated message from Arbitrix AI.`
+This is an automated message from Kalderix.`
     });
     
     if (error) {
@@ -3080,9 +3498,30 @@ app.post('/api/auth/register', async (req, res) => {
   }
   
   const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
+  // The customer's promotional credit must be visible IMMEDIATELY after
+  // registration, so the account payload carries the wallet and the server-derived
+  // Live Mode label instead of leaving the dashboard blank until the first
+  // /api/auth/me. READ-ONLY on the balance: getWallet() seeds the new wallet
+  // exactly as it would on the next request (the single $50 promotional seed),
+  // and nothing here credits a second time. A failure here must never fail a
+  // registration the user has already completed - the client falls back to
+  // /api/auth/me.
+  let wallet = null;
+  let liveMode = null;
+  try {
+    wallet = await getWallet(user.id);
+    liveMode = await getLiveModeStatus(user.id, { wallet, hasConfirmedDeposit: false });
+  } catch (e) {
+    console.warn('[auth/register] account payload incomplete:', e && e.message ? e.message : e);
+  }
   // Public registration always creates a PRODUCTION account. MARKETING_SANDBOX
   // accounts can only be created via POST /api/admin/sandbox/accounts (admin).
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: ENV_PRODUCTION } });
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: ENV_PRODUCTION },
+    wallet,
+    liveMode
+  });
 });
 
 // Login
@@ -3408,7 +3847,7 @@ async function sendEmailChangeCodeEmail(newEmail, code) {
       await resend.emails.send({
         from: EMAIL_CONFIG.from,
         to: newEmail,
-        subject: 'Confirm your new email - Arbitrix AI',
+        subject: 'Confirm your new email - Kalderix',
         html: generateEmailChangeTemplate(code)
       });
     } catch (e) {
@@ -3429,24 +3868,24 @@ function generateEmailChangeTemplate(code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirm your new email - Arbitrix AI</title>
+  <title>Confirm your new email - Kalderix</title>
 </head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f4f4f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;padding:40px 20px;">
     <tr><td style="background:linear-gradient(135deg,#0d1117 0%,#1a2332 100%);border-radius:16px 16px 0 0;padding:40px 30px;text-align:center;">
-      <h1 style="margin:0;color:#ffd700;font-size:28px;font-weight:700;">Arbitrix AI</h1>
+      <h1 style="margin:0;color:#ffd700;font-size:28px;font-weight:700;">Kalderix</h1>
       <p style="margin:8px 0 0;color:#8b949e;font-size:14px;">Multi-Asset Arbitrage Platform</p>
     </td></tr>
     <tr><td style="background-color:#ffffff;padding:40px 30px;">
       <h2 style="margin:0 0 20px;color:#1f2937;font-size:24px;">Confirm Your New Email</h2>
-      <p style="margin:0 0 20px;color:#4b5563;font-size:16px;line-height:1.6;">You requested an email change for your Arbitrix AI account. Use the verification code below to confirm your new email address. This code expires in 10 minutes.</p>
+      <p style="margin:0 0 20px;color:#4b5563;font-size:16px;line-height:1.6;">You requested an email change for your Kalderix account. Use the verification code below to confirm your new email address. This code expires in 10 minutes.</p>
       <div style="text-align:center;margin:30px 0;">
         <div style="display:inline-block;background:#0d1117;color:#ffd700;font-size:32px;font-weight:700;letter-spacing:8px;padding:16px 32px;border-radius:8px;">${code}</div>
       </div>
       <p style="margin:20px 0 0;color:#6b7280;font-size:14px;line-height:1.6;">If you did not request this change, you can safely ignore this email. Your account email will not change until you complete verification.</p>
     </td></tr>
     <tr><td style="background-color:#f9fafb;padding:24px 30px;border-radius:0 0 16px 16px;text-align:center;">
-      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; Arbitrix AI. All rights reserved.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; Kalderix. All rights reserved.</p>
     </td></tr>
   </table>
 </body>
@@ -3657,6 +4096,10 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       hasRealDeposit: !!funded,
       todayRealizedPnl: Number(todayPnl) || 0,
       environment: ENV_MARKETING_SANDBOX,
+      // Single runtime source of the platform minimum deposit (see
+      // resolvePlatformMinDeposit). Display only: the sandbox deposit routes
+      // enforce the same value server-side.
+      minDeposit: PLATFORM_MIN_DEPOSIT,
       introDay: wallet.intro_day,
       badgeHidden: wallet.badge_hidden,
       // MARKETING_SANDBOX has NO MTA: 0 means "no minimum trading amount", so
@@ -3671,6 +4114,20 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       promoClassificationUnknown: false,
       promoRealizedProfit: 0,
       promoLimitReached: false,
+      // MARKETING_SANDBOX never needs a Payhip activation: the accounts are
+      // simulated and must stay demonstrable without a purchase.
+      activationRequired: false,
+      liveActivated: true,
+      activationReason: 'sandbox',
+      activationPurchasable: false,
+      // Simulated account: nothing is promotional credit, and Live Mode is a
+      // demo of the customer experience - never gated, never real.
+      liveMode: buildLiveModeStatus({
+        activation: { activated: true, reason: 'sandbox', activationRequired: false, exempt: true },
+        liveBalance: wallet ? wallet.live_balance : 0,
+        hasConfirmedDeposit: !!funded,
+        promoFunding: false
+      }),
     });
   }
   // getUser and getWallet are independent (both keyed by the same user id),
@@ -3700,12 +4157,74 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   const promoCreditFunded = promoFunding === true;
   const promoClassificationUnknown = promoFunding === null;
   const promoProfit = promoCreditFunded ? await getPromoRealizedProfit(user.id).catch(() => 0) : 0;
+  // Live Mode eligibility (activation AND qualifying deposit), resolved once for
+  // this response. Inert (always eligible) unless the operator turns the
+  // activation requirement on; the deposit half is still reported for display.
+  const _liveEligibility = await getLiveModeEligibility(user.id).catch(() => ({
+    eligible: false,
+    activationRequired: PAYHIP_CONFIG.activationRequired,
+    activated: false,
+    reason: 'activation-unavailable',
+    exempt: false,
+    retryable: true,
+    depositRequired: true,
+    depositSatisfied: false,
+    depositTotal: null,
+    minDeposit: PLATFORM_MIN_DEPOSIT
+  }));
+  // M3: the purchase button is only offered when a configured product is
+  // actually ON SALE (payhip_products.is_active). Read once here so the
+  // dashboard and /api/live/activation can never disagree; an unreadable
+  // catalogue fails closed (no offer) rather than advertising a product whose
+  // availability we cannot confirm.
+  const _purchaseOnSale = PAYHIP_CONFIG.usable
+    ? await payhipEntitlements.productsOnSale()
+        .then((r) => r && r.onSale === true)
+        .catch(() => false)
+    : false;
+  const _liveActivation = {
+    activated: _liveEligibility.activated,
+    reason: _liveEligibility.reason,
+    activationRequired: _liveEligibility.activationRequired,
+    exempt: _liveEligibility.exempt,
+    retryable: _liveEligibility.retryable
+  };
+  // Read-only Live Mode display state, derived from the values above so this
+  // adds no queries to the login path. The gates themselves are unchanged.
+  const _liveMode = await getLiveModeStatus(user.id, {
+    eligibility: _liveEligibility,
+    wallet,
+    hasConfirmedDeposit: !!funded,
+    promoFunding
+  });
   res.json({
     user,
     wallet,
     hasRealDeposit: !!funded,
+    // Authoritative Live Mode label + promotional-credit amount for the
+    // dashboard. Display only: nothing here can unlock trading or credit money.
+    liveMode: _liveMode,
     todayRealizedPnl: Number(todayPnl) || 0,
+    // Live Mode eligibility (server-authoritative; the frontend never infers it
+    // from localStorage). activationRequired is false unless the operator enables
+    // the requirement. Live Mode needs BOTH halves, so the deposit facts are
+    // reported separately: a customer must be told which step is missing.
+    activationRequired: _liveActivation.activationRequired === true,
+    liveActivated: _liveActivation.activated === true,
+    activationReason: _liveActivation.reason,
+    liveEligible: _liveEligibility.eligible === true,
+    liveDepositRequired: _liveEligibility.depositRequired === true,
+    liveDepositSatisfied: _liveEligibility.depositSatisfied === true,
+    liveDepositTotal: _liveEligibility.depositTotal,
+    liveMinDeposit: _liveEligibility.minDeposit,
+    activationPurchasable: !!(PAYHIP_CONFIG.usable && PAYHIP_CONFIG.storeUrl && _purchaseOnSale),
+    activationStoreUrl: PAYHIP_CONFIG.usable ? (PAYHIP_CONFIG.storeUrl || '') : '',
     environment: ENV_PRODUCTION,
+    // Single runtime source of the platform minimum deposit. The frontend adopts
+    // this into APP.MIN_DEPOSIT so the deposit validation, the min-amount notice
+    // and the onboarding copy can never disagree with the server's enforcement
+    // (see resolvePlatformMinDeposit at the top of this file).
+    minDeposit: PLATFORM_MIN_DEPOSIT,
     // Server-authoritative promotional-credit cap state (frontend mirrors it
     // for display only; enforcement is server-side in /api/trade + /api/bot/start).
     promoCreditFunded,
@@ -3884,7 +4403,7 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
     const { amount, currency, network } = req.body;
     // Platform minimum deposit ($100, single source of truth). This is the
     // deposit floor — it is NOT the $50 promotional credit.
-    const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT_USD;
+    const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT;
     
     if (!amount || typeof amount !== 'number' || amount < MIN_DEPOSIT_AMOUNT) {
       return res.status(400).json({ 
@@ -4167,7 +4686,7 @@ app.get('/api/deposit/options', authMiddleware, async (req, res) => {
       enabled: true,
       asset: 'USDT',
       network: 'TRC20',
-      minDeposit: PLATFORM_MIN_DEPOSIT_USD
+      minDeposit: PLATFORM_MIN_DEPOSIT
     }
   });
 });
@@ -4646,7 +5165,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     const paymentData = q8qpayProvider.parsePaymentData(payload);
     const {
-      invoiceId,             // our Arbitrix reference (invoice_reference)
+      invoiceId,             // our Kalderix reference (invoice_reference)
       providerInvoiceId,     // q8qpay UUID
       walletAddress,
       amount,
@@ -4658,7 +5177,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     console.log(`[Q8QPay Webhook] Ref: ${invoiceId}, Q8QId: ${providerInvoiceId}, Status: ${status}, Type: ${type}`);
 
-    // Find our invoice by the Arbitrix reference we passed as `reference`
+    // Find our invoice by the Kalderix reference we passed as `reference`
     const { data: invoice, error: invoiceError } = await supabaseAdmin
       .from('payment_invoices')
       .select('*')
@@ -4719,7 +5238,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
     //    amountUsdtExact exactly, so we compare the confirmed q8qpay amount
     //    against the authoritative amount_crypto we stored at invoice creation
     //    (== q8qpay amountUsdtExact), NOT amount_usd (the user's requested USD,
-    //    which is what gets credited to the Arbitrix balance).
+    //    which is what gets credited to the Kalderix balance).
     if (invoice.amount_crypto == null) {
       console.error(`[Q8QPay Webhook] Missing amount_crypto on invoice ${invoiceId} - cannot verify paid amount (fail-closed)`);
       return res.status(200).json({ error: 'Missing stored amount' });
@@ -4905,7 +5424,7 @@ const telegramConfig = resolveTelegramConfig(process.env);
 // Facts injected into marketing copy. They come from the SAME constants the
 // application enforces, so a template can never advertise a different amount.
 const MARKETING_FACTS = {
-  minDeposit: PLATFORM_MIN_DEPOSIT_USD,
+  minDeposit: PLATFORM_MIN_DEPOSIT,
   referralPercent: REFERRAL_REWARD_PERCENT_DEFAULT,
   promoCredit: 50 // new-user promotional credit seeded on the Live wallet
 };
@@ -6634,13 +7153,13 @@ app.post('/api/kyc/submit', authMiddleware, async (req, res) => {
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Submitted - Arbitrix AI',
+          subject: 'KYC Verification Submitted - Kalderix',
           html: `
             <h2>Verification Submitted</h2>
             <p>Dear ${user.name || 'User'},</p>
             <p>Your identity verification has been submitted and is now pending review.</p>
             <p>Our team will review your documents within 24-48 hours. You'll receive an email notification once the review is complete.</p>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -6855,14 +7374,14 @@ app.post('/api/admin/kyc/verification/:id/approve', authMiddleware, adminMiddlew
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Approved - Arbitrix AI',
+          subject: 'KYC Verification Approved - Kalderix',
           html: `
             <h2>Verification Approved</h2>
             <p>Dear ${user.name || 'User'},</p>
             <p>Great news! Your identity verification has been approved.</p>
             <p>You can now proceed with your withdrawals and access all platform features.</p>
             <p>Thank you for completing the verification process.</p>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -6900,7 +7419,7 @@ app.post('/api/admin/kyc/verification/:id/reject', authMiddleware, adminMiddlewa
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Rejected - Arbitrix AI',
+          subject: 'KYC Verification Rejected - Kalderix',
           html: `
             <h2>Verification Rejected</h2>
             <p>Dear ${user.name || 'User'},</p>
@@ -6912,7 +7431,7 @@ app.post('/api/admin/kyc/verification/:id/reject', authMiddleware, adminMiddlewa
               <li>All information matches your submitted details</li>
               <li>Selfie clearly shows your face holding the ID</li>
             </ul>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -6950,14 +7469,14 @@ app.post('/api/admin/kyc/verification/:id/resubmission', authMiddleware, adminMi
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Resubmission Required - Arbitrix AI',
+          subject: 'KYC Resubmission Required - Kalderix',
           html: `
             <h2>Additional Information Required</h2>
             <p>Dear ${user.name || 'User'},</p>
             <p>We need additional information to complete your identity verification.</p>
             <p><strong>Details:</strong> ${reason}</p>
             <p>Please log in to the Verification Center to submit the requested documents.</p>
-            <p>Best regards,<br>Arbitrix AI Team</p>
+            <p>Best regards,<br>Kalderix Team</p>
           `
         });
       } catch (emailError) {
@@ -7008,6 +7527,32 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // a missing/unexpected client mode is treated as live-style trading. The
   // balance is read from the server wallet, never from the request.
   const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
+  // LIVE MODE ELIGIBILITY GATE. Demo Mode stays available to every registered
+  // user. Live needs BOTH a valid Payhip activation AND a confirmed deposit of
+  // at least the platform minimum - neither substitutes for the other, and there
+  // is no grandfathering. Runs BEFORE any session write, so an ineligible
+  // account can never create a running bot row.
+  if (mode === 'live') {
+    const eligibility = await getLiveModeEligibility(userId);
+    if (!eligibility.eligible) {
+      return sendLiveModeRefusal(res, eligibility);
+    }
+    // FUNDING GATE. Activation buys permission; it never buys capital. A Live
+    // account with nothing in it has nothing to trade, so refuse the entry with a
+    // funding prompt instead of starting a session that cannot execute.
+    // This is a PRESENCE check (balance > 0), not a minimum trading amount: no
+    // threshold is re-introduced and the $50 promotional credit still qualifies.
+    const fundingWallet = await getWallet(userId).catch(() => null);
+    const liveBalance = fundingWallet ? (Number(fundingWallet.live_balance) || 0) : 0;
+    if (liveBalance <= 0) {
+      return res.status(403).json({
+        error: 'Add funds to your Live balance before starting Live trading.',
+        code: 'LIVE_FUNDING_REQUIRED',
+        fundingRequired: true,
+        activationRequired: false
+      });
+    }
+  }
   const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
   // PROMOTIONAL-CREDIT TRADING CAP (production-only): only a user whose
   // non-deposited Live capital IS the $50 promotional credit (authoritative
@@ -7263,6 +7808,17 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
   if (await sandboxHandled(req, res, handleSandboxTrade)) return;
   try {
     const userId = req.user.id;
+    // LIVE MODE ELIGIBILITY GATE. A trade is a Live Mode action, so it needs the
+    // SAME two facts as /api/bot/start: a valid Payhip activation AND a confirmed
+    // deposit of at least the platform minimum. Enforced here as well because a
+    // direct API call must not be able to skip the bot screen. Checked before any
+    // balance read or ledger write.
+    {
+      const eligibility = await getLiveModeEligibility(userId);
+      if (!eligibility.eligible) {
+        return sendLiveModeRefusal(res, eligibility);
+      }
+    }
     const { amount, asset, detail, idempotencyKey } = req.body;
 
     if (typeof amount !== 'number' || !isFinite(amount) || amount === 0) {
@@ -7385,7 +7941,7 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   res.json(data);
 });
 
-// ---------- Arbitrix Pro Subscription ----------
+// ---------- Kalderix Pro Subscription ----------
 // All subscription endpoints derive the user id from the authenticated request
 // (authMiddleware sets req.user from the verified JWT). The client NEVER
 // supplies userId, price, balance, billing date, or subscription status. The
@@ -8139,7 +8695,7 @@ app.get('/api/referral/config', async (req, res) => {
     // No internal details, descriptions, or metadata exposed
     res.json({
       rewardsEnabled: config.rewards_enabled?.value === 'true',
-      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || String(PLATFORM_MIN_DEPOSIT_USD)),
+      minimumDeposit: parseConfigValue(config.minimum_qualifying_deposit?.value || String(PLATFORM_MIN_DEPOSIT)),
       rewardPercent: parseConfigValue(config.referral_reward_percent?.value || String(REFERRAL_REWARD_PERCENT_DEFAULT)),
       firstDepositRequired: config.first_deposit_required?.value === 'true',
       maxRewardsPerUser: parseConfigValue(config.max_rewards_per_user?.value || '0')
@@ -8149,7 +8705,7 @@ app.get('/api/referral/config', async (req, res) => {
     // Return defaults on error - do NOT expose internal error details
     res.json({
       rewardsEnabled: true,
-      minimumDeposit: PLATFORM_MIN_DEPOSIT_USD,
+      minimumDeposit: PLATFORM_MIN_DEPOSIT,
       rewardPercent: REFERRAL_REWARD_PERCENT_DEFAULT,
       firstDepositRequired: true,
       maxRewardsPerUser: 0
@@ -8382,7 +8938,7 @@ app.get('/api/referral/stats', authMiddleware, async (req, res) => {
   const config = {
     rewardsEnabled: parseConfigValue(await getReferralConfig('rewards_enabled', 'true')),
     rewardPercent: parseConfigValue(await getReferralConfig('referral_reward_percent', String(REFERRAL_REWARD_PERCENT_DEFAULT))),
-    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT_USD))),
+    minimumDeposit: parseConfigValue(await getReferralConfig('minimum_qualifying_deposit', String(PLATFORM_MIN_DEPOSIT))),
   };
   
   res.json({ 
@@ -8950,7 +9506,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
             await resend.emails.send({
                 from: EMAIL_CONFIG.from,
                 to: email,
-                subject: 'Your Arbitrix AI Verification Code',
+                subject: 'Your Kalderix Verification Code',
                 html: generateEmailVerificationTemplate(code)
             });
             console.log(`[EMAIL 2FA] Verification code sent to ${email}`);
@@ -8979,13 +9535,13 @@ function generateEmailVerificationTemplate(code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification Code - Arbitrix AI</title>
+  <title>Verification Code - Kalderix</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
     <tr>
       <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-        <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Arbitrix AI</h1>
+        <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Kalderix</h1>
         <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
       </td>
     </tr>
@@ -9011,7 +9567,7 @@ function generateEmailVerificationTemplate(code) {
     <tr>
       <td style="background-color: #f9fafb; border-radius: 0 0 16px 16px; padding: 20px 30px; text-align: center;">
         <p style="margin: 0; color: #6b7280; font-size: 12px;">
-          © ${new Date().getFullYear()} Arbitrix AI. All rights reserved.
+          © ${new Date().getFullYear()} Kalderix. All rights reserved.
         </p>
       </td>
     </tr>
@@ -9884,7 +10440,10 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
   const { count: activeBots } = await supabaseAdmin.from('bot_sessions').select('*', { count: 'exact', head: true }).eq('is_running', 1);
   const { data: wallets } = await supabaseAdmin.from('wallets').select('live_balance');
   const totalLiveBalance = wallets.reduce((s, w) => s + w.live_balance, 0);
-  res.json({ totalUsers: totalUsers||0, totalDeposits, totalWithdrawals, totalVolume, activeBots: activeBots||0, totalLiveBalance });
+  // Operations visibility: does the enforced deposit floor match the referral
+  // qualifying amount stored in the database? (Read-only; never writes config.)
+  const minDepositSync = await checkMinDepositSync();
+  res.json({ totalUsers: totalUsers||0, totalDeposits, totalWithdrawals, totalVolume, activeBots: activeBots||0, totalLiveBalance, minDeposit: PLATFORM_MIN_DEPOSIT, minDepositSync });
 });
 
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
@@ -9894,7 +10453,7 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
   res.json(users);
 });
 
-// Admin subscription visibility (read-only). Lists each user's Arbitrix Pro
+// Admin subscription visibility (read-only). Lists each user's Kalderix Pro
 // subscription state. No balance alteration is possible through this endpoint.
 app.get('/api/admin/subscriptions', authMiddleware, adminMiddleware, async (req, res) => {
   const { data, error } = await supabaseAdmin.from('subscriptions')
@@ -10414,7 +10973,7 @@ app.get('/api/admin/dashboard/activity', authMiddleware, adminMiddleware, async 
             timestamp: r.activated_at,
             amount: r.bonus_earned,
             icon: 'gift',
-            color: '#F0B90B'
+            color: '#7C5CFF'
           });
         }
       });
@@ -11063,7 +11622,7 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Marketing onboarding page: standalone branded "How Arbitrix Works" page
+// Marketing onboarding page: standalone branded "How Kalderix Works" page
 // with the explainer video + primary CTAs to the existing registration/login flow.
 app.get('/how-it-works', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'how-it-works.html'));
@@ -11079,7 +11638,7 @@ app.get(['/business-registration', '/business-registration/'], (req, res) => {
 
 // Deposit tutorial centre: standalone page with the step-by-step video tutorials
 // for buying USDT through a supported third-party service (Paybis / Transak /
-// Trust Wallet) and sending it to an Arbitrix deposit address. Static content
+// Trust Wallet) and sending it to a Kalderix deposit address. Static content
 // only - it reads no session, touches no database and never creates an invoice.
 // Linked from the deposit modal and the withdrawal modal; registered BEFORE the
 // SPA fallback so /deposit-tutorials does not resolve to the app shell.
@@ -11122,6 +11681,280 @@ app.use('/video', (req, res) => {
 // reading the logs while diagnosing an integration (the /video guard above solves
 // the same problem for media). Registered AFTER every API route and BEFORE the
 // fallback, so real endpoints are untouched.
+// ============================================================
+// PAYHIP LIVE ACTIVATION (Option A) - one-time software entitlement
+// ============================================================
+// A Payhip purchase grants an activation entitlement. It credits NO capital:
+// funding remains a separate Q8Pay deposit, and every existing gate (minimum
+// deposit, minimum withdrawal, completed trade, KYC) still applies.
+//
+// TRUST (two layers, and neither is "trust the body"):
+//   1. The webhook must carry Payhip's documented signature, sha256(store API
+//      key). It authenticates the SENDER. Because that digest is identical for
+//      every payload it does NOT bind the body, so it is a trigger, not proof.
+//   2. REDEMPTION verifies the licence against Payhip's licence API using the
+//      product secret (server-side only) and requires enabled === true plus an
+//      allow-listed product. That is the evidence a Live Mode unlock rests on.
+// The URL token (PAYHIP_WEBHOOK_TOKEN) is kept as an optional extra gate. A
+// licence key ALONE never activates an account: it must verify with the provider
+// AND match a recorded, still-paid sale, and only one account can ever claim it
+// (row lock inside redeem_payhip_entitlement_safe).
+//
+// NOTE ON THE PATH: this is /api/payhip/webhook, not /api/webhook/payhip,
+// because the generic app.post('/api/webhook/:provider') registered earlier
+// shadows every /api/webhook/* path.
+app.post('/api/payhip/webhook', async (req, res) => {
+  const provided = String(
+    (req.query && req.query.token) || req.headers['x-payhip-token'] || ''
+  );
+  // 503 (not 401) when the integration itself is not configured: the reason tells
+  // the operator what is missing, while an unauthenticated DELIVERY still gets
+  // 401 below. Both refuse; neither is ever accepted unverified.
+  if (!PAYHIP_CONFIG.webhookUsable) {
+    return res.status(503).json({ ok: false, error: 'payhip-not-configured', reason: PAYHIP_CONFIG.reason });
+  }
+  if (!payhipEntitlements.tokenMatches(provided)) {
+    return res.status(401).json({ ok: false, error: 'invalid_token' });
+  }
+  try {
+    const result = await payhipEntitlements.handleWebhook(req.body);
+    console.log('[Payhip] webhook: ' + JSON.stringify({ outcome: result.outcome }));
+    if (result.outcome === 'signature-invalid') {
+      // Not from Payhip (or the configured API key is wrong). Answering 401 makes
+      // it visible instead of silently "succeeding"; nothing is recorded either way.
+      return res.status(401).json({ ok: false, error: 'invalid_signature' });
+    }
+    // Always 200 for a processed payload so Payhip stops retrying; a rejected
+    // payload is reported in the body, and never touches a balance.
+    return res.json({ ok: true, outcome: result.outcome });
+  } catch (e) {
+    console.error('[Payhip] webhook error: ' + (e && e.message ? e.message : 'unknown'));
+    return res.status(500).json({ ok: false, error: 'processing_failed' });
+  }
+});
+
+// Customer: is Live Mode unlocked, and how do I unlock it?
+app.get('/api/live/activation', authMiddleware, async (req, res) => {
+  try {
+    const eligibility = await getLiveModeEligibility(req.user.id);
+    const _onSale = await payhipEntitlements.productsOnSale().catch(() => ({ ok: false, onSale: false, reason: 'catalogue-unreadable' }));
+    const state = {
+      activated: eligibility.activated,
+      reason: eligibility.reason,
+      activationRequired: eligibility.activationRequired,
+      exempt: eligibility.exempt,
+      retryable: eligibility.retryable
+    };
+    return res.json({
+      success: true,
+      activationRequired: state.activationRequired,
+      activated: state.activated,
+      reason: state.reason,
+      exempt: state.exempt,
+      // The second half of the decision, so the dashboard can say which step is
+      // missing instead of showing one generic "activation required" prompt.
+      eligible: eligibility.eligible,
+      depositRequired: eligibility.depositRequired,
+      depositSatisfied: eligibility.depositSatisfied,
+      depositTotal: eligibility.depositTotal,
+      minDeposit: eligibility.minDeposit,
+      // Same read-only payload /api/auth/me returns, so the dashboard can
+      // re-render its Live Mode label immediately after an activation without
+      // a second round trip (and without the client guessing the new state).
+      liveMode: await getLiveModeStatus(req.user.id, { eligibility }),
+      // Only what the browser needs to render a checkout button. Never a key,
+      // never the webhook token, never a product price invented server-side.
+      purchase: {
+        // M3: payhip_products.is_active is the catalogue's "offered for sale"
+        // flag. It is FALSE by default (the founder enables checkout) and it was
+        // previously unread, so flipping it did nothing. An unreadable catalogue
+        // fails CLOSED here - we never advertise a product we cannot confirm.
+        available: PAYHIP_CONFIG.usable && !!PAYHIP_CONFIG.storeUrl && _onSale.onSale === true,
+        onSale: _onSale.onSale === true,
+        onSaleReason: _onSale.reason || null,
+        storeUrl: PAYHIP_CONFIG.storeUrl || null,
+        returnUrl: PAYHIP_CONFIG.checkoutReturnUrl || null
+      }
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'activation_status_unavailable' });
+  }
+});
+
+// Customer: redeem a licence key (the manual path; checkout can also carry the
+// account id so no typing is needed).
+app.post('/api/live/activate', authMiddleware, async (req, res) => {
+  if (!PAYHIP_CONFIG.redeemUsable) {
+    // Without a configured product secret we cannot verify a licence, so we must
+    // not accept one. Configuration state, not a customer error.
+    return res.status(503).json({
+      success: false,
+      error: 'Activation is not available yet.',
+      code: 'ACTIVATION_UNAVAILABLE'
+    });
+  }
+  const licenceKey = req.body && req.body.licenceKey;
+  if (!licenceKey || typeof licenceKey !== 'string' || !licenceKey.trim()) {
+    return res.status(400).json({ success: false, error: 'Licence key required', code: 'LICENCE_REQUIRED' });
+  }
+  // The account ALWAYS comes from the JWT, never from the body.
+  const result = await payhipEntitlements.redeem(req.user.id, licenceKey);
+  if (result.success) {
+    // Post-redemption state, computed by the SAME resolver as the gates, so the
+    // dashboard cannot be told something the server would refuse. `activated`
+    // means "entitlement present"; `eligible` is the full two-part decision and
+    // is false until the $100 deposit is also confirmed.
+    const eligibility = await getLiveModeEligibility(req.user.id);
+    return res.json({
+      success: true,
+      alreadyClaimed: !!result.duplicate,
+      activated: eligibility.activated,
+      eligible: eligibility.eligible,
+      depositRequired: eligibility.depositRequired,
+      depositSatisfied: eligibility.depositSatisfied,
+      depositTotal: eligibility.depositTotal,
+      minDeposit: eligibility.minDeposit,
+      liveMode: await getLiveModeStatus(req.user.id, { eligibility })
+    });
+  }
+  const status = result.reason === 'invalid-licence' ? 404
+    : result.reason === 'unavailable' ? 503
+      : result.reason === 'too-many-attempts' ? 429
+        : 409;
+  if (result.retryAfterMs) res.set('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
+  const messages = {
+    'invalid-licence': 'That licence key is not valid.',
+      // A real, enabled licence that Payhip knows about but we have no sale record
+      // for yet (webhook still retrying). Retrying works; support can replay it.
+      'not-recorded': 'We are still confirming your purchase. Please try again in a few minutes, or contact support with your Payhip receipt.',
+    'licence-disabled': 'That licence has been disabled or refunded.',
+    'claimed_by_other_account': 'That licence key has already been redeemed by another account.',
+    'purchase_not_active': 'That purchase is no longer active.',
+    'entitlement_revoked': 'That activation has been revoked.',
+    'not-authenticated': 'Please sign in again.',
+    'too-many-attempts': 'Too many attempts. Please wait a minute and try again.',
+    'unavailable': 'Activation is temporarily unavailable. Please try again.'
+  };
+  return res.status(status).json({
+    success: false,
+    error: messages[result.reason] || 'That licence key could not be redeemed.',
+    code: 'ACTIVATION_FAILED',
+    reason: result.reason
+  });
+});
+
+// ============================================================
+// Q8PAY RECONCILIATION QUEUE (read-only)
+// ============================================================
+// The Q8Pay webhook answers HTTP 200 with {error:'Amount mismatch'} when the
+// confirmed on-chain amount does not match the exact amount the invoice asked
+// for, so Q8Pay stops retrying and the customer's transfer sits in our payout
+// address with no automatic credit. Nothing is credited on a mismatch - that is
+// correct - but the mismatch must become VISIBLE rather than a log line.
+//
+// This route turns the two silent failure modes into an operator queue:
+//   1. an invoice still 'pending' well past its expiry (the customer may have
+//      paid a rounded amount, or paid after expiry);
+//   2. a legacy deposit row marked confirmed but never marked credited.
+// It performs no writes and credits nothing: reconciliation stays a human act.
+app.get('/api/admin/deposits/reconciliation', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const hours = Math.min(Math.max(parseInt(req.query.hours, 10) || 2, 1), 168);
+    const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+
+    const [invoices, deposits] = await Promise.all([
+      supabaseAdmin
+        .from('payment_invoices')
+        .select('id, user_id, amount_usd, amount_crypto, currency, status, credited, created_at, expires_at')
+        .eq('status', 'pending')
+        .lt('created_at', cutoff)
+        .limit(200),
+      supabaseAdmin
+        .from('deposits')
+        .select('id, user_id, amount, status, credited, created_at')
+        .eq('status', 'confirmed')
+        .or('credited.is.null,credited.eq.false')
+        .limit(200)
+    ]);
+
+    const stalePending = (invoices.error ? [] : (invoices.data || [])).map(function (i) {
+      return {
+        id: i.id,
+        userId: i.user_id,
+        amountUsd: Number(i.amount_usd),
+        // The EXACT on-chain amount the customer was asked to send. A mismatch
+        // here is the most likely cause of a "I paid and got nothing" ticket.
+        amountCrypto: i.amount_crypto != null ? Number(i.amount_crypto) : null,
+        currency: i.currency,
+        status: i.status,
+        credited: !!i.credited,
+        createdAt: i.created_at,
+        expiresAt: i.expires_at,
+        ageHours: Math.round((Date.now() - Date.parse(i.created_at)) / 3600000)
+      };
+    });
+
+    const uncreditedConfirmed = (deposits.error ? [] : (deposits.data || [])).map(function (d) {
+      return {
+        id: d.id,
+        userId: d.user_id,
+        amount: Number(d.amount),
+        status: d.status,
+        credited: d.credited === true,
+        createdAt: d.created_at
+      };
+    });
+
+    res.json({
+      success: true,
+      windowHours: hours,
+      counts: { stalePending: stalePending.length, uncreditedConfirmed: uncreditedConfirmed.length },
+      stalePending: stalePending,
+      uncreditedConfirmed: uncreditedConfirmed,
+      note: 'Read-only. Nothing here is credited automatically: a mismatched or stale payment must be verified against the chain and an invoice reference before any manual credit.'
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'reconciliation_unavailable' });
+  }
+});
+
+// Admin: secret-free status, so an operator can see why it is inert.
+app.get('/api/admin/payhip/status', authMiddleware, adminMiddleware, async (req, res) => {
+  // Read-only. `products` proves the catalogue flag is wired, so an operator can
+  // see WHY the purchase button is hidden (no product marked active) instead of
+  // flipping is_active and wondering whether anything happened.
+  const products = await payhipEntitlements.productsOnSale()
+    .catch(() => ({ ok: false, onSale: false, reason: 'catalogue-unreadable' }));
+  res.json({ success: true, payhip: describePayhipConfig(PAYHIP_CONFIG), products });
+});
+
+// Admin: purchase + entitlement history.
+app.get('/api/admin/payhip/purchases', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const rows = await payhipEntitlements.listPurchases(200);
+    res.json({ success: true, purchases: rows });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'load_failed' });
+  }
+});
+
+// Admin: revoke a sale (refund handling when the webhook was missed).
+app.post('/api/admin/payhip/purchases/:saleId/revoke', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('revoke_payhip_entitlement_safe', {
+      p_sale_id: String(req.params.saleId),
+      p_status: 'voided',
+      p_amount_refunded_cents: null,
+      p_reason: 'admin-revoke:' + String(req.user.id)
+    });
+    if (error) return res.status(500).json({ success: false, error: 'revoke_failed' });
+    if (!data || !data.success) return res.status(404).json({ success: false, error: 'unknown_sale' });
+    res.json({ success: true, revoked: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'revoke_failed' });
+  }
+});
+
 app.use('/api', (req, res) => {
   res.status(404).json({
     success: false,
@@ -11177,9 +12010,17 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json(errorResponse);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   console.log(`📊 Admin panel at http://0.0.0.0:${PORT}/admin`);
+  // Deposit-floor consistency: the enforced minimum and the referral qualifying
+  // amount live in different places, so prove they agree on every boot.
+  // Guarded, so it can never delay or prevent startup.
+  try {
+    await checkMinDepositSync();
+  } catch (e) {
+    /* the warning path is best-effort; never fail a boot over telemetry */
+  }
 });
 
 // Reconcile the Telegram webhook registration on boot (non-blocking, no secrets).
