@@ -229,8 +229,10 @@ test('9. the candidate identity is data, and it only applies when the name does'
   for (const key of ['accent', 'secondary', 'surfaces', 'mark']) {
     assert.ok(id.rationale[key] && id.rationale[key].length > 30, 'rationale.' + key + ' must explain the choice');
   }
-  // The surfaces are unchanged on purpose; a retheme must not touch contrast.
-  assert.strictEqual(id.palette.surface, '#070B14');
+  // The surfaces ship with the accent (a brighter emerald needs a neutral
+  // near-black ramp, not the old blue-tinted navy), and every contrast ratio in
+  // tests/contrast.test.js is measured against these values.
+  assert.strictEqual(id.palette.surface, '#0A0C0F');
 
   const live = activeIdentity();
   assert.strictEqual(live.applied, BRAND.name === BRAND.candidate);

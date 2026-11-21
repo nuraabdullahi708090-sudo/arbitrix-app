@@ -227,7 +227,7 @@ test('8. the page is mobile-first and matches the Kalderix palette', () => {
     const { BRAND } = require('../services/brand');
     assert.match(PAGE, new RegExp('--brand:\\s*' + BRAND.accent),
       'the page carries the current identity accent');
-    assert.match(PAGE, /--bg-primary:\s*#070B14/);
+    assert.match(PAGE, /--bg-primary:\s*#0A0C0F/);
     assert.match(PAGE, /@media \(max-width: 640px\)/, 'a mobile breakpoint must exist');
     // The certificate is readable on mobile: full-width, and a scrollable viewer.
     assert.match(PAGE, /\.lightbox-scroll\s*\{[^}]*overflow:\s*auto/);
@@ -269,7 +269,7 @@ test('9c. the i18n key was removed from all six locales (no dead key)', () => {
         assert.ok(!Object.prototype.hasOwnProperty.call(T[l], 'landing.footer.businessRegistration'),
             l + ' must not define landing.footer.businessRegistration any more');
     });
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1645, l + ' must have 1645 keys'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1646, l + ' must have 1646 keys'));
 });
 
 /* ------------------------------------------------------------------ *

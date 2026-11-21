@@ -135,8 +135,8 @@ test('the two actions share a wrapping-free flex row with 44px targets', () => {
     assert.ok(/\.stat-actions \.stat-deposit-btn\{[^}]*margin-top:0/.test(INDEX), 'the row owns the spacing');
     // The withdraw button inherits the deposit button geometry (which is 44px).
     assert.ok(/\.stat-deposit-btn\{[^}]*min-height:44px/.test(INDEX), 'shared 44px minimum height');
-    assert.ok(/\.stat-withdraw-btn\{[^}]*color:#7C5CFF/.test(INDEX), 'secondary styling, not the primary fill');
-    assert.ok(!/\.stat-withdraw-btn\{[^}]*linear-gradient/.test(INDEX), 'the withdraw action is not the primary button');
+    assert.ok(/\.stat-withdraw-btn\s*\{[^}]*color:var\(--kx-text\)/.test(INDEX), 'secondary styling, not the primary fill');
+    assert.ok(!/\.stat-withdraw-btn\s*\{[^}]*linear-gradient/.test(INDEX), 'the withdraw action is not the primary button');
     // Nothing is positioned absolutely, so the actions cannot overlap.
     assert.ok(!/\.stat-actions\{[^}]*position:\s*absolute/.test(INDEX), 'no absolute positioning');
     assert.ok(!/\.stat-withdraw-btn\{[^}]*position:\s*absolute/.test(INDEX), 'no absolute positioning on the button');
@@ -221,5 +221,5 @@ test('the action is keyboard reachable and announces as a button', () => {
     const btn = buttonBlock('availableWithdrawBtn');
     assert.ok(/<button\b/.test(btn), 'rendered as a real button element');
     assert.ok(/type="button"/.test(btn), 'not part of a form submission');
-    assert.ok(/\.stat-deposit-btn:focus-visible\{outline:2px solid #7C5CFF/.test(INDEX), 'visible focus ring');
+    assert.ok(/\.stat-deposit-btn:focus-visible\{outline:2px solid var\(--brand\)/.test(INDEX), 'visible focus ring');
 });

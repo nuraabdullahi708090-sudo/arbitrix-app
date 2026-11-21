@@ -54,7 +54,7 @@ const BRAND = {
   /** The installed-app (PWA) name. Follows a rename. */
   appName: 'Kalderix',
   /** Accent colour. Follows the identity palette when one is applied. */
-  accent: '#7C5CFF'
+  accent: '#0ECB81'
 };
 
 /**
@@ -67,16 +67,16 @@ BRAND.candidateIdentity = {
   mark: 'K',
   palette: {
     /** Primary accent; replaces the gold the current identity uses. */
-    accent: '#7C5CFF',
-    accentHover: '#9B85FF',
-    accentPressed: '#6344E8',
-    /** Secondary accent for "verified" and "opportunity" highlights. */
-    secondary: '#2ED3B7',
-    /** Surfaces are deliberately unchanged so contrast work carries over. */
-    surface: '#070B14',
-    surfaceRaised: '#0C1220',
-    textPrimary: '#E8EDF7',
-    textSecondary: '#8896B5'
+    accent: '#0ECB81',
+    accentHover: '#12D98B',
+    accentPressed: '#0BB273',
+    /** Secondary accent for "verified" and "information" highlights. */
+    secondary: '#38BDF8',
+    /** Neutral near-black surfaces: a brighter accent needs less blue undertone. */
+    surface: '#0A0C0F',
+    surfaceRaised: '#12161B',
+    textPrimary: '#EAF0F6',
+    textSecondary: '#AEB9C6'
   },
   typography: {
     display: "system-ui, 'Inter', -apple-system, 'Segoe UI', sans-serif",
@@ -84,13 +84,15 @@ BRAND.candidateIdentity = {
     note: 'No size changes: the current scale is tuned for dashboard density.'
   },
   rationale: {
-    accent: 'Violet reads as technology rather than as a currency logo, which is '
-      + 'what the current gold does. It stays legible as the 3px active-item '
-      + 'indicator on the dark surface.',
-    secondary: 'A cool teal gives opportunity and verified states a signal that '
-      + 'cannot be confused with the green/red profit colours.',
-    surfaces: 'Unchanged on purpose: every contrast ratio and chart colour was '
-      + 'tuned against them.',
+    accent: 'Emerald reads as an active, modern exchange rather than a legacy '
+      + 'bank, and it measures 9.21:1 on the base surface, so unlike the violet it '
+      + 'is legible as text as well as a fill. Dark ink (#04140D) on the fill '
+      + 'measures 8.89:1.',
+    secondary: 'A cool sky blue gives verified and informational states a signal '
+      + 'that cannot be confused with the green/red profit colours next to a '
+      + 'green accent.',
+    surfaces: 'Near-black neutrals with a lighter surface ramp, so cards separate '
+      + 'from the page without relying on borders alone.',
     mark: 'One letterform works at 16px (favicon) and at 340px (app icon), so a '
       + 'single asset serves both without a second lockup.'
   }

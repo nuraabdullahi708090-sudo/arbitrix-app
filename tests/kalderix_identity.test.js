@@ -83,7 +83,10 @@ test('3. the stylesheet override is scoped to the brand attribute (now enabled s
   const css = block.slice(0, block.indexOf('</style>'));
   assert.ok(/html\[data-brand="kalderix"\]\{/.test(css), 'the override is scoped to the attribute');
   assert.ok(css.includes('--brand:' + ID.palette.accent), 'the override carries the candidate accent');
-  assert.ok(css.includes('--brand-rgb:124,92,255'), 'the translucency triplet follows');
+  // The translucency triplet is derived from the palette, not hardcoded, so a
+  // future accent change cannot leave rgba() tints on the previous hue.
+  const triplet = [1, 3, 5].map((i) => parseInt(ID.palette.accent.slice(i, i + 2), 16)).join(',');
+  assert.ok(css.includes('--brand-rgb:' + triplet), 'the translucency triplet follows the accent');
   // Kalderix is the approved identity (BRAND.name === BRAND.candidate), so the
   // attribute is declared statically: applyBrandAssets() sets it at runtime
   // anyway, and declaring it here removes the pre-JS flash of the old palette.

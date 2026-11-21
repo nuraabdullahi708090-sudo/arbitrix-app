@@ -53,13 +53,20 @@ test('1. body text meets 4.5:1 on every surface', () => {
     });
 });
 
-test('2. the accent is never used as small text: --kx-accent-text carries that role', () => {
-    const accent = ratio(hex('kx-accent'), hex('kx-surface'));
-    assert.ok(accent < 4.5, `--kx-accent on a surface is ${accent.toFixed(2)}:1, so it must not be text`);
+test('2. the accent reads as text as well as a fill (emerald accent)', () => {
+    // The violet accent could not be used as small text (4.11:1), which is why
+    // --kx-accent-text existed. The emerald accent clears AA on every surface on
+    // its own, so both roles are legible and the text token stays the documented
+    // choice for anything under 16px.
     SURFACES.forEach((bg) => {
+        const accent = ratio(hex('kx-accent'), hex(bg));
+        assert.ok(accent >= 4.5, `kx-accent on ${bg} is ${accent.toFixed(2)}:1 (needs 4.5)`);
         const r = ratio(hex('kx-accent-text'), hex(bg));
         assert.ok(r >= 4.5, `kx-accent-text on ${bg} is ${r.toFixed(2)}:1`);
     });
+    // Ink on an accent fill must also pass, because primary buttons use it.
+    const onAccent = ratio(hex('kx-on-accent'), hex('kx-accent'));
+    assert.ok(onAccent >= 4.5, `kx-on-accent on kx-accent is ${onAccent.toFixed(2)}:1`);
     // And the rules really route accent TEXT through the text token.
     ['a { color: var(--kx-accent-text); }',
         '.ticker-item .ticker-amount,',
