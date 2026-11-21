@@ -99,6 +99,34 @@ test('1b. no page still ships the previous violet/navy palette', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * 1e. the promotional-credit restriction is a warning, not fine print
+ * ------------------------------------------------------------------ */
+test('1e. the promo-credit restriction renders as a red alert on the first screen', () => {
+    // Reported twice: "the promo credit warning is still not visible". It used
+    // to be 10px centred text in the brand tint, inside the Live wallet card,
+    // which is not even rendered while a promo-funded account sits in Demo.
+    const empty = (INDEX.match(/<div id="promoCreditNotice"[^>]*>/g) || [])[0] || '';
+    assert.match(empty, /kx-alert kx-alert-danger/, 'the wallet-card notice uses the alert component');
+    const banner = (INDEX.match(/<div id="promoCreditBanner"[^>]*>/g) || [])[0] || '';
+    assert.match(banner, /kx-alert kx-alert-danger/, 'a first-screen banner exists too');
+    assert.ok(INDEX.indexOf('id="promoCreditBanner"') < INDEX.indexOf('id="startHereCard"'),
+        'the banner sits above the onboarding card, i.e. on the first screen');
+    // One decision drives both, so they cannot disagree.
+    const start = INDEX.indexOf("const showPromoNotice");
+    const fn = INDEX.slice(start, INDEX.indexOf("updateDemoFirstDepositCta", start));
+    assert.match(fn, /promoNotice\.classList\.toggle\('hidden', !showPromoNotice\)/);
+    assert.match(fn, /promoBanner\.classList\.toggle\('hidden', !showPromoNotice\)/);
+    // The component itself: semantic red, body-size text, left aligned.
+    const rule = CSS.slice(CSS.indexOf('.kx-alert {'), CSS.indexOf('.kx-alert.kx-alert-warning'));
+    assert.match(rule, /background:var\(--kx-danger-weak\)/, 'a red-tinted background');
+    assert.match(rule, /border:1px solid var\(--kx-danger-border\)/, 'a red border');
+    assert.match(rule, /color:var\(--kx-danger-text\)/, 'readable red text');
+    assert.match(rule, /font-size:12px/, 'body size, not 10px fine print');
+    assert.match(rule, /text-align:left/, 'left aligned, so it reads as a notice');
+    assert.match(CSS, /\.kx-alert\.hidden \{ display:none; \}|\.hidden\{display:none!important/, 'it can still be hidden');
+});
+
+/* ------------------------------------------------------------------ *
  * 2. one toolbar instead of three wrapped rows
  * ------------------------------------------------------------------ */
 test('2. the header is a single grid toolbar with no fixed height', () => {
