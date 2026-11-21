@@ -75,7 +75,7 @@ function funnelSlice() {
 // 'Become an Kalderix Referral Partner' -> 'Become a Kalderix Referral Partner'
 // (landing partner heading + its dictionary default). Nothing else in the
 // funnel changed; the /partners feature still touches no homepage markup.
-const FUNNEL_SHA256 = 'e9cf4b3a0b1766c6be173a3bff4e675f2787705daa16173b60534c5d24a7a1c4';
+const FUNNEL_SHA256 = 'f9a58cf2417e9e05e79929562a1f5179f3745aa344b8bea8ef2f478e2cb60c9c';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';

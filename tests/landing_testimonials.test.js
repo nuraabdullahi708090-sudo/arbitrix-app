@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1634;
+const DICT_SIZE = 1645;
 // 1600 keys/locale now = 1574 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
@@ -260,7 +260,12 @@ test('i18n parity: identical key sets, no empties, all testimonials keys present
 test('this change only added landing.testimonials.* keys', () => {
     // Phase 31 added the two server-engine disclosure variants (bot.*). Any
     // OTHER key outside landing.testimonials.* still fails this test.
-    const ALLOWED_EXTRA = ['bot.engineNoticeWorker', 'bot.workerManaged'];
+    const ALLOWED_EXTRA = ['bot.engineNoticeWorker', 'bot.workerManaged',
+    // Live Mode journey disclosures (activation / capital / deposit clarity)
+    'liveActivation.blockedToast', 'liveDeposit.blockedToast', 'liveActivation.supportCta',
+    'liveActivation.purchaseUnavailable', 'liveActivation.nextStep', 'startHere.live.step0',
+    'startHere.live.step3', 'deposit.activationNote', 'demoCta.activationNote',
+    'landing.faq.q10', 'landing.faq.a10'];
     LANGS.forEach((l) => {
         const outside = Object.keys(T[l]).filter((k) => !k.startsWith('landing.testimonials.') && !ALLOWED_EXTRA.includes(k));
         assert.strictEqual(outside.length, BASE_OUTSIDE_TESTIMONIALS, l + ': no key outside landing.testimonials.* was added or removed');

@@ -326,15 +326,15 @@
         :root{
             /* Base Colors */
             --bg-primary:#070B14;
-            --bg-card:#0F1629;
+            --bg-card:#101828;
             --bg-input:#141C2E;
             --border-color:var(--border);
             --border-hover:var(--brand-border);
             
             /* Text Colors - Improved contrast */
             --text-primary:#E8EDF5;
-            --text-secondary:#8896B5;
-            --text-muted:#7E8CAB;
+            --text-secondary:#9AA8C6;
+            --text-muted:#8C9AB8;
             
             /* Brand Colors */
             --gold:var(--brand);
@@ -354,7 +354,7 @@
     --brand-border:rgb(var(--brand-rgb) / 0.32);
     --brand-strong:rgb(var(--brand-rgb) / 0.55);
     --on-brand:#070B14;
-    --border:#24314A;
+    --border:#26344F;
     --border-strong:#2A3852;
     --success:#10B981;
     /* ---- Kalderix identity (CANDIDATE) ----------------------------------
@@ -2279,7 +2279,6 @@
             text-align: center;
             max-width: 100%;
             overflow-wrap: anywhere;
-        }
         .landing-startfree-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -5387,7 +5386,7 @@ console.log('🔐 Auth script loaded successfully');
         <div class="landing-nav-container">
             <a href="/" class="landing-logo">
                 <i class="fas fa-arrows-spin"></i>
-                <span>Arbi<span>trix</span> AI</span>
+                <span>Kal<span>derix</span></span>
             </a>
             <div class="landing-nav-links">
                 <a href="#what-is" data-i18n="landing.nav.whatIs">What is Kalderix</a>
@@ -5465,7 +5464,7 @@ console.log('🔐 Auth script loaded successfully');
                     </button>
                 </div>
                 <div class="landing-hero-promo">
-                    <i class="fas fa-gift"></i><span data-i18n="landing.hero.promo">Eligible new users can start with a $50 promotional trading credit.</span>
+                    <i class="fas fa-gift"></i><span data-i18n="landing.hero.promo">Explore Demo Mode for free. Eligible new users also receive $50 in promotional trading credit. Live trading requires a one-time $50 activation and at least $100 in trading capital.</span>
                 </div>
                 <div class="landing-hero-trust" data-i18n="landing.hero.trustLine">
                     Demo → Live → 14 Days → $7/month
@@ -5918,6 +5917,12 @@ console.log('🔐 Auth script loaded successfully');
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
+                        <span data-i18n="landing.faq.q10">I deposited but still cannot start Live trading. Why?</span><i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="landing-faq-answer"><p data-i18n="landing.faq.a10">Live Mode has two separate steps: a one-time $50 activation unlocks live trading, and at least $100 in trading capital funds it. If your deposit is confirmed but trading is still locked, the activation is the missing step.</p></div>
+                </div>
+                <div class="landing-faq-item">
+                    <button class="landing-faq-question" onclick="toggleFaq(this)">
                         <span data-i18n="landing.faq.q9">How do withdrawals work?</span><i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="landing-faq-answer"><p data-i18n="landing.faq.a9">You can withdraw to your own wallet address whenever eligible. Withdrawal processing usually takes 15–30 minutes, and applicable verification/security checks may apply.</p></div>
@@ -5955,7 +5960,7 @@ console.log('🔐 Auth script loaded successfully');
                 <div class="landing-footer-brand">
                     <a href="/" class="landing-logo">
                         <i class="fas fa-arrows-spin"></i>
-                        <span>Arbi<span>trix</span> AI</span>
+                        <span>Kal<span>derix</span></span>
                     </a>
                     <p data-i18n="landing.footer.tagline">Automated multi-asset arbitrage trading platform.</p>
                 </div>
@@ -6077,7 +6082,7 @@ function toggleFaq(btn) {
             <div class="auth-brand-content">
                 <div class="auth-brand-logo">
                     <i class="fas fa-arrows-spin"></i>
-                    <span>Arbi<em>trix</em> AI</span>
+                    <span>Kal<em>derix</em></span>
                 </div>
                 <h2 class="auth-brand-title" data-i18n="auth.brand.title">Automated Arbitrage. Made Simple.</h2>
                 <p class="auth-brand-subtitle" data-i18n="auth.brand.subtitle">Kalderix monitors supported markets for price discrepancies and automates eligible arbitrage trades. Explore the strategy in Demo Mode first — no card required to create an account.</p>
@@ -6129,7 +6134,7 @@ function toggleFaq(btn) {
                 <!-- Logo Mobile -->
                 <div class="auth-logo-mobile">
                     <i class="fas fa-arrows-spin"></i>
-                    <h1>Arbi<em>trix</em> AI</h1>
+                    <h1>Kal<em>derix</em></h1>
                     <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin:8px 0 0;" data-i18n="auth.mobileTagline">Multi-asset automated arbitrage. Start in Demo Mode.</p>
                 </div>
                 
@@ -6472,7 +6477,7 @@ function toggleFaq(btn) {
 
     <div class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div style="display:flex;align-items:center;gap:8px;"><i class="fas fa-arrows-spin" style="color:#7C5CFF;font-size:18px;"></i><span style="color:white;font-weight:bold;">Arbi<span style="color:#7C5CFF;">trix</span> AI</span></div>
+            <div style="display:flex;align-items:center;gap:8px;"><i class="fas fa-arrows-spin" style="color:#7C5CFF;font-size:18px;"></i><span style="color:white;font-weight:bold;">Kal<span style="color:#7C5CFF;">derix</span></span></div>
             <div style="font-size:10px;color:var(--text-muted);" data-i18n="sidebar.tagline">Multi-Asset Arbitrage</div>
         </div>
         <a class="sidebar-link active" data-section="mainContent"><i class="fas fa-gauge-high"></i> <span data-i18n="sidebar.dashboard">Dashboard</span></a>
@@ -6505,7 +6510,7 @@ function toggleFaq(btn) {
         <div class="app-header">
             <div class="app-header-brand">
                 <i class="fas fa-arrows-spin" style="color:#7C5CFF;font-size:20px;"></i>
-                <span style="font-size:18px;font-weight:bold;color:white;">Arbi<span style="color:#7C5CFF;">trix</span> AI</span>
+                <span style="font-size:18px;font-weight:bold;color:white;">Kal<span style="color:#7C5CFF;">derix</span></span>
                 <div class="mode-tabs">
                     <div id="demoTab" class="mode-tab active" onclick="setMode('demo')" data-i18n="mode.demo">📘 DEMO</div>
                     <div id="liveTab" class="mode-tab" onclick="setMode('live')" data-i18n="mode.live">🔥 LIVE</div>
@@ -6639,6 +6644,7 @@ function toggleFaq(btn) {
                 <div style="font-size:13px;font-weight:700;color:#7C5CFF;margin-bottom:4px;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.title">Ready for real trading?</span></div>
                 <div id="demoCtaBodyDemo" style="font-size:11px;color:var(--text-secondary);line-height:1.6;" data-i18n="demoCta.body">You're exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.</div>
                 <div id="demoCtaBodyLive" style="display:none;font-size:11px;color:var(--text-secondary);line-height:1.6;" data-i18n="demoCta.liveBody">Your Live account is not funded yet. Make a deposit to trade with real funds. Demo Mode stays available and you can switch back at any time.</div>
+                <div id="demoCtaActivationNote" style="font-size:11px;color:#F0B90B;line-height:1.55;margin-top:6px;" data-i18n="demoCta.activationNote">Live trading needs a one-time $50 activation plus at least $100 in trading capital.</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;min-width:170px;">
                 <button type="button" onclick="openDepositModal()" class="btn btn-primary" style="background:linear-gradient(135deg,#7C5CFF,#9B85FF);border:none;color:#070B14;font-weight:700;"><i class="fas fa-circle-down"></i> <span data-i18n="demoCta.button">Make My First Deposit</span></button>
@@ -7921,6 +7927,11 @@ function toggleFaq(btn) {
              updateDepositMinNotice() from APP.MIN_DEPOSIT so the number has a
              single source (no duplicated hard-coded value). -->
         <div id="depositMinNotice" style="font-size:11px;color:var(--text-secondary);margin-top:6px;"></div>
+        <!-- A deposit is CAPITAL, never activation: stating it here prevents the
+             "I funded my account, why is Live still locked?" dead end. -->
+        <div id="depositActivationNote" style="font-size:11px;color:#F0B90B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.55;">
+            <i class="fas fa-key"></i> <span data-i18n="deposit.activationNote">This deposit is trading capital. Live trading also needs a separate one-time $50 activation - a deposit does not activate your account.</span>
+        </div>
         <div style="position:relative;margin-top:8px;">
           <span class="deposit-amount-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-secondary);font-size:18px;">$</span>
           <input type="number" id="liveDepositAmount" placeholder="100.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="100">
@@ -8492,6 +8503,11 @@ function toggleFaq(btn) {
         <a id="liveActivationBuyBtn" class="btn btn-primary hidden" target="_blank" rel="noopener noreferrer" style="width:100%;min-height:44px;text-decoration:none;">
             <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="liveActivation.buy">Buy activation</span>
         </a>
+        <!-- Shown only when purchasing is genuinely unavailable: the buy button is
+             hidden then, so the customer must be told why and given a route. -->
+        <div id="liveActivationUnavailable" class="hidden" style="font-size:12px;color:#F0B90B;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;margin-top:4px;line-height:1.6;">
+            <i class="fas fa-circle-info"></i> <span data-i18n="liveActivation.purchaseUnavailable">Activation purchase is temporarily unavailable. Contact support and we will complete it with you.</span>
+        </div>
         <label for="liveActivationKey" style="display:block;font-size:11px;color:var(--text-secondary);margin:14px 0 6px;" data-i18n="liveActivation.keyLabel">Already purchased? Enter your licence key</label>
         <input id="liveActivationKey" type="text" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
                style="width:100%;min-height:44px;padding:10px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-family:monospace;font-size:13px;">
@@ -8502,6 +8518,11 @@ function toggleFaq(btn) {
         <p style="font-size:10px;color:var(--text-secondary);line-height:1.6;margin:12px 0 0;" data-i18n="liveActivation.hint">
             One licence activates one account, once, and cannot be transferred. Activation never credits a balance.
         </p>
+        <!-- Paid but not activated? The receipt guidance has to lead somewhere. -->
+        <button type="button" class="btn btn-secondary" onclick="closeLiveActivationModal(); openSupportModal();"
+                style="width:100%;min-height:44px;margin-top:10px;font-size:12px;">
+            <i class="fas fa-headset"></i> <span data-i18n="liveActivation.supportCta">Contact support</span>
+        </button>
     </div>
 </div>
 <div class="deposit-modal" id="verificationSandboxInfoModal">
@@ -9651,15 +9672,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Request payout',
         'landing.partner.cta': 'Become a Referral Partner',
         'landing.partner.disclosure': 'Self-referrals, duplicate accounts, fraudulent activity, and misleading promotion are not eligible for referral rewards.',
-        'landing.hero.promo': 'Eligible new users can start with a $50 promotional trading credit.',
+        'landing.hero.promo': 'Explore Demo Mode for free. Eligible new users also receive $50 in promotional trading credit. Live trading requires a one-time $50 activation and at least $100 in trading capital.',
         'landing.startFree.tag': 'Get Started',
-        'landing.startFree.title': 'START FREE IN 3 STEPS',
+        'landing.startFree.title': 'START FREE, GO LIVE IN 3 STEPS',
         'landing.startFree.step1.title': 'Create Your Account',
         'landing.startFree.step1.desc': 'Create a free Kalderix account.',
-        'landing.startFree.step2.title': 'Explore Demo + Promotional Experience',
-        'landing.startFree.step2.desc': 'Explore Demo Mode and, where eligible, access the $50 promotional trading credit.',
-        'landing.startFree.step3.title': 'Fund Your Account When Ready',
-        'landing.startFree.step3.desc': 'When ready for live trading, fund your account and continue using Kalderix.',
+        'landing.startFree.step2.title': 'Activate Live Mode Once',
+        'landing.startFree.step2.desc': 'A one-time $50 activation unlocks live trading. Demo Mode stays free.',
+        'landing.startFree.step3.title': 'Fund With $100+',
+        'landing.startFree.step3.desc': 'Add at least $100 of trading capital. Your $50 promotional credit (where eligible) is separate and stays promotional.',
         'landing.video.tag': 'Explainer',
         'landing.video.title': 'See Kalderix in Action',
         'landing.video.subtitle': 'A short overview of how Kalderix automates eligible arbitrage.',
@@ -9804,7 +9825,8 @@ const TRANSLATIONS = {
         'onboarding.noObligation': 'You can switch between Demo and Live anytime — Demo is always available.',
         'onboarding.explainer': 'Kalderix is a multi-asset trading platform with Demo Mode and Live Mode. Start by exploring Demo Mode to understand the platform, then review Live Mode when you are ready.',
         'demoCta.title': 'Ready for real trading?',
-        'demoCta.body': 'You\'re exploring with virtual funds. Make your first deposit to fund your Live balance. Demo funds stay virtual and cannot be withdrawn.',
+        'demoCta.body': 'You\'re exploring with virtual funds. Live trading needs a one-time $50 activation plus at least $100 in trading capital. Demo funds stay virtual and cannot be withdrawn.',
+        'demoCta.activationNote': 'Live trading needs a one-time $50 activation plus at least $100 in trading capital.',
         'demoCta.reviewLive': 'Review Live Requirements',
         'demoCta.reviewLiveToast': 'Live Mode shown. A deposit is required before you can trade real funds.',
         'demoCta.button': 'Make My First Deposit',
@@ -9819,7 +9841,9 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Dismiss',
         'startHere.live.title': 'Live Mode Guide',
         'startHere.live.subtitle': 'You\'re in Live Mode. Trades use real funds.',
-        'startHere.live.step1': 'Deposit at least ${{min}} to activate Live funding',
+        'startHere.live.step0': 'Complete the one-time $50 Live activation',
+        'startHere.live.step1': 'Deposit at least ${{min}} in trading capital',
+        'startHere.live.step3': 'Complete your first Live trade',
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds — separate from demo funds and promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
@@ -10024,10 +10048,15 @@ const TRANSLATIONS = {
         'liveActivation.cta': 'Activate Live Mode',
         'liveActivation.depositCta': 'Make your deposit',
         'liveActivation.title': 'Activate Live Mode',
-        'liveActivation.body': 'Live Mode requires a one-time activation. Demo Mode stays free and always available. Activation does not add trading capital: you fund your Live wallet separately with a deposit.',
+        'liveActivation.body': 'Live Mode requires a one-time activation. Demo Mode stays free and always available. Activation unlocks live trading - it does not add trading capital: you fund your Live wallet separately with a deposit of at least the platform minimum.',
         'liveActivation.buy': 'Buy activation',
         'liveActivation.keyLabel': 'Already purchased? Enter your licence key',
         'liveActivation.submit': 'Activate',
+        'liveActivation.blockedToast': 'Live trading is locked until you activate. It is a one-time step and takes about a minute.',
+        'liveDeposit.blockedToast': 'Add at least ${{min}} in trading capital to start Live trading.',
+        'liveActivation.supportCta': 'Contact support',
+        'liveActivation.purchaseUnavailable': 'Activation purchase is temporarily unavailable. Contact support and we will complete it with you.',
+        'liveActivation.nextStep': 'Live Mode is active. Next: add at least ${{min}} in trading capital to start trading.',
         'liveActivation.hint': 'One licence activates one account, once, and cannot be transferred. Activation never credits a balance.',
         'liveActivation.keyRequired': 'Enter your licence key.',
         'liveActivation.failed': 'That licence key could not be redeemed.',
@@ -10426,6 +10455,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Failed to regenerate codes',
         '2fa.disableFailed': 'Failed to disable 2FA',
         'deposit.min10': 'Minimum deposit is $10',
+        'deposit.activationNote': 'This deposit is trading capital. Live trading also needs a separate one-time $50 activation - a deposit does not activate your account.',
         'deposit.min100': 'Minimum deposit is ${{min}}',
         'deposit.invoiceNotFound': 'Invoice not found',
         'deposit.createInvoiceFailed': 'Failed to create invoice',
@@ -10853,7 +10883,9 @@ const TRANSLATIONS = {
         'landing.faq.a7': 'Once you fund your Live account, you get 14 days of free Live trading at no subscription cost. After those 14 days, the $7/month subscription applies to keep using the platform.',
         'landing.faq.q8': 'How much is Kalderix Pro?',
         'landing.faq.a8': 'The Kalderix Pro subscription is $7/month, deducted from your available trading balance when due. Based on the current product model, there are no additional platform fees.',
+        'landing.faq.q10': 'I deposited but still cannot start Live trading. Why?',
         'landing.faq.q9': 'How do withdrawals work?',
+        'landing.faq.a10': 'Live Mode has two separate steps: a one-time $50 activation unlocks live trading, and at least $100 in trading capital funds it. If your deposit is confirmed but trading is still locked, the activation is the missing step - you can activate it from the Live wallet card.',
         'landing.faq.a9': 'You can withdraw to your own wallet address whenever eligible. Withdrawal processing usually takes 15–30 minutes, and applicable verification/security checks may apply.',
         'auth.brand.demoLabel': 'Demo',
         'auth.brand.noCard': 'No card',
@@ -10946,7 +10978,7 @@ const TRANSLATIONS = {
         'wallet.liveBalance': 'Live Balance',
         'stats.depositCta': 'Deposit',
         'onboarding.fundLive': 'I want to fund my Live account',
-        'demoCta.liveBody': 'Your Live account is not funded yet. Make a deposit to trade with real funds. Demo Mode stays available and you can switch back at any time.',
+        'demoCta.liveBody': 'Your Live account is not funded yet. Add at least $100 in trading capital to trade with real funds - if you have not activated Live Mode yet, that one-time $50 step comes first. Demo Mode stays available.',
         'deposit.retry': 'Try again',
         'deposit.getHelp': 'Get help',
         'deposit.errRateLimited': 'Too many deposit attempts. Please wait a minute and try again.',
@@ -11305,15 +11337,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Solicita el pago',
         'landing.partner.cta': 'Convertirme en socio de referidos',
         'landing.partner.disclosure': 'Las autorreferencias, las cuentas duplicadas, la actividad fraudulenta y la promoción engañosa no son elegibles para recompensas por referidos.',
-        'landing.hero.promo': 'Los usuarios nuevos elegibles pueden empezar con un crédito de trading promocional de $50.',
+        'landing.hero.promo': 'Explora el Modo Demo gratis. Los nuevos usuarios elegibles también reciben $50 en crédito de trading promocional. El trading real requiere una activación única de $50 y al menos $100 de capital de trading.',
         'landing.startFree.tag': 'Empezar',
-        'landing.startFree.title': 'EMPIEZA GRATIS EN 3 PASOS',
+        'landing.startFree.title': 'EMPIEZA GRATIS Y PASA A LIVE EN 3 PASOS',
         'landing.startFree.step1.title': 'Crea tu cuenta',
         'landing.startFree.step1.desc': 'Crea una cuenta gratuita en Kalderix.',
-        'landing.startFree.step2.title': 'Explora la demo + experiencia promocional',
-        'landing.startFree.step2.desc': 'Explora el Modo Demo y, si cumples los requisitos, accede al crédito de trading promocional de $50.',
-        'landing.startFree.step3.title': 'Financia tu cuenta cuando quieras',
-        'landing.startFree.step3.desc': 'Cuando estés listo para operar en vivo, financia tu cuenta y sigue usando Kalderix.',
+        'landing.startFree.step2.title': 'Activa el Modo Live una vez',
+        'landing.startFree.step2.desc': 'Una activación única de $50 desbloquea el trading real. El Modo Demo sigue siendo gratis.',
+        'landing.startFree.step3.title': 'Fondea con $100 o más',
+        'landing.startFree.step3.desc': 'Agrega al menos $100 de capital de trading. Tu crédito promocional de $50 (donde aplica) es aparte y sigue siendo promocional.',
         'landing.video.tag': 'Explicativo',
         'landing.video.title': 'Descubre Kalderix en acción',
         'landing.video.subtitle': 'Un breve resumen de cómo Kalderix automatiza el arbitraje elegible.',
@@ -11458,7 +11490,8 @@ const TRANSLATIONS = {
         'onboarding.noObligation': 'Puedes cambiar entre Demo y Live cuando quieras — la Demo siempre está disponible.',
         'onboarding.explainer': 'Kalderix es una plataforma de trading multi-activo con Modo Demo y Modo Live. Empieza explorando el Modo Demo para conocer la plataforma y revisa el Modo Live cuando estés listo.',
         'demoCta.title': '¿Listo para operar de verdad?',
-        'demoCta.body': 'Estás explorando con fondos virtuales. Haz tu primer depósito para financiar tu saldo LIVE. Los fondos demo siguen siendo virtuales y no se pueden retirar.',
+        'demoCta.body': 'Estás explorando con fondos virtuales. El trading real necesita una activación única de $50 y al menos $100 de capital de trading. Los fondos Demo siguen siendo virtuales y no se pueden retirar.',
+        'demoCta.activationNote': 'El trading real necesita una activación única de $50 y al menos $100 de capital de trading.',
         'demoCta.reviewLive': 'Ver requisitos de Live',
         'demoCta.reviewLiveToast': 'Modo Live mostrado. Se requiere un depósito antes de operar con fondos reales.',
         'demoCta.button': 'Hacer mi primer depósito',
@@ -11473,7 +11506,9 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Descartar',
         'startHere.live.title': 'Guía del Modo Live',
         'startHere.live.subtitle': 'Estás en Modo Live. Las operaciones usan fondos reales.',
-        'startHere.live.step1': 'Deposita al menos ${{min}} para activar los fondos de Live',
+        'startHere.live.step0': 'Completa la activación única de $50 para Live',
+        'startHere.live.step1': 'Deposita al menos ${{min}} de capital de trading',
+        'startHere.live.step3': 'Completa tu primera operación en Live',
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading — independientes de los fondos demo y del crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
@@ -11678,10 +11713,15 @@ const TRANSLATIONS = {
         'liveActivation.cta': 'Activar Modo Live',
         'liveActivation.depositCta': 'Realizar mi depósito',
         'liveActivation.title': 'Activar Modo Live',
-        'liveActivation.body': 'El Modo Live requiere una activación única. El Modo Demo sigue siendo gratuito y siempre disponible. La activación no añade capital de trading: financiás tu billetera Live por separado con un depósito.',
+        'liveActivation.body': 'El Modo Live requiere una activación única. El Modo Demo sigue siendo gratuito y siempre disponible. La activación desbloquea el trading real, pero no añade capital: fondeas tu billetera Live por separado con un depósito de al menos el mínimo de la plataforma.',
         'liveActivation.buy': 'Comprar activación',
         'liveActivation.keyLabel': '¿Ya compraste? Ingresá tu clave de licencia',
         'liveActivation.submit': 'Activar',
+        'liveActivation.blockedToast': 'El trading real está bloqueado hasta que actives. Es un paso único y toma alrededor de un minuto.',
+        'liveDeposit.blockedToast': 'Agrega al menos ${{min}} de capital de trading para empezar a operar en Live.',
+        'liveActivation.supportCta': 'Contactar soporte',
+        'liveActivation.purchaseUnavailable': 'La compra de la activación no está disponible temporalmente. Contacta a soporte y la completamos contigo.',
+        'liveActivation.nextStep': 'El Modo Live está activo. Siguiente paso: agrega al menos ${{min}} de capital de trading para empezar a operar.',
         'liveActivation.hint': 'Una licencia activa una cuenta, una sola vez, y no se puede transferir. La activación nunca acredita saldo.',
         'liveActivation.keyRequired': 'Ingresá tu clave de licencia.',
         'liveActivation.failed': 'No se pudo canjear esa clave de licencia.',
@@ -12080,6 +12120,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'No se pudieron regenerar los códigos',
         '2fa.disableFailed': 'No se pudo desactivar 2FA',
         'deposit.min10': 'El depósito mínimo es $10',
+        'deposit.activationNote': 'Este depósito es capital de trading. El trading real también necesita una activación única de $50 aparte; un depósito no activa tu cuenta.',
         'deposit.min100': 'El depósito mínimo es ${{min}}',
         'deposit.invoiceNotFound': 'Factura no encontrada',
         'deposit.createInvoiceFailed': 'No se pudo crear la factura',
@@ -12507,7 +12548,9 @@ const TRANSLATIONS = {
         'landing.faq.a7': 'Una vez fondeas tu cuenta Live, obtienes 14 días de trading Live gratis sin coste de suscripción. Tras esos 14 días, la suscripción de $7/mes aplica para seguir usando la plataforma.',
         'landing.faq.q8': '¿Cuánto cuesta Kalderix Pro?',
         'landing.faq.a8': 'La suscripción a Kalderix Pro es de $7/mes, debitados de tu saldo de trading disponible cuando se deben. Según el modelo actual, no hay tarifas adicionales de plataforma.',
+        'landing.faq.q10': '¿Deposité y aún no puedo operar en Live? ¿Por qué?',
         'landing.faq.q9': '¿Cómo funcionan los retiros?',
+        'landing.faq.a10': 'El Modo Live tiene dos pasos separados: una activación única de $50 desbloquea el trading real, y al menos $100 de capital de trading lo fondean. Si tu depósito está confirmado pero el trading sigue bloqueado, falta la activación: puedes activarla desde la tarjeta de la billetera Live.',
         'landing.faq.a9': 'Puedes retirar a tu propia dirección de billetera cuando seas elegible. El procesamiento del retiro suele tardar entre 15 y 30 minutos y pueden aplicar verificaciones/controles de seguridad.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Demo',
@@ -12601,7 +12644,7 @@ const TRANSLATIONS = {
         'wallet.liveBalance': 'Saldo Live',
         'stats.depositCta': 'Depositar',
         'onboarding.fundLive': 'Quiero fondear mi cuenta Live',
-        'demoCta.liveBody': 'Tu cuenta Live a\u00fan no est\u00e1 fondeada. Haz un dep\u00f3sito para operar con fondos reales. El Modo Demo sigue disponible y puedes volver cuando quieras.',
+        'demoCta.liveBody': 'Tu cuenta Live aún no está fondeada. Agrega al menos $100 de capital de trading para operar con fondos reales; si aún no activaste el Modo Live, ese paso único de $50 va primero. El Modo Demo sigue disponible.',
         'deposit.retry': 'Reintentar',
         'deposit.getHelp': 'Obtener ayuda',
         'deposit.errRateLimited': 'Demasiados intentos de dep\u00f3sito. Espera un minuto e int\u00e9ntalo de nuevo.',
@@ -12960,15 +13003,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Solicite o pagamento',
         'landing.partner.cta': 'Torne-se um parceiro de indicações',
         'landing.partner.disclosure': 'Autoindicações, contas duplicadas, atividade fraudulenta e promoção enganosa não são elegíveis para recompensas de indicação.',
-        'landing.hero.promo': 'Usuários novos elegíveis podem começar com um crédito de negociação promocional de $50.',
+        'landing.hero.promo': 'Explore o Modo Demo gratuitamente. Novos usuários elegíveis também recebem $50 em crédito de negociação promocional. A negociação real exige uma ativação única de $50 e pelo menos $100 em capital de negociação.',
         'landing.startFree.tag': 'Começar',
-        'landing.startFree.title': 'COMECE GRÁTIS EM 3 PASSOS',
+        'landing.startFree.title': 'COMECE GRÁTIS E VÁ PARA O LIVE EM 3 PASSOS',
         'landing.startFree.step1.title': 'Crie sua conta',
         'landing.startFree.step1.desc': 'Crie uma conta gratuita na Kalderix.',
-        'landing.startFree.step2.title': 'Explore a demo + experiência promocional',
-        'landing.startFree.step2.desc': 'Explore o Modo Demo e, se elegível, acesse o crédito de negociação promocional de $50.',
-        'landing.startFree.step3.title': 'Financie sua conta quando estiver pronto',
-        'landing.startFree.step3.desc': 'Quando estiver pronto para negociar ao vivo, financie sua conta e continue usando a Kalderix.',
+        'landing.startFree.step2.title': 'Ative o Modo Live uma vez',
+        'landing.startFree.step2.desc': 'Uma ativação única de $50 libera a negociação real. O Modo Demo continua grátis.',
+        'landing.startFree.step3.title': 'Fundeie com $100 ou mais',
+        'landing.startFree.step3.desc': 'Adicione pelo menos $100 em capital de negociação. Seu crédito promocional de $50 (quando elegível) é separado e continua promocional.',
         'landing.video.tag': 'Explicativo',
         'landing.video.title': 'Veja a Kalderix em ação',
         'landing.video.subtitle': 'Uma breve visão geral de como a Kalderix automatiza a arbitragem elegível.',
@@ -13113,7 +13156,8 @@ const TRANSLATIONS = {
         'onboarding.noObligation': 'Você pode alternar entre Demo e Live quando quiser — a Demo está sempre disponível.',
         'onboarding.explainer': 'A Kalderix é uma plataforma de negociação multi-ativo com Modo Demo e Modo Live. Comece explorando o Modo Demo para entender a plataforma e veja o Modo Live quando estiver pronto.',
         'demoCta.title': 'Pronto para negociar de verdade?',
-        'demoCta.body': 'Você está explorando com fundos virtuais. Faça seu primeiro depósito para financiar seu saldo LIVE. Os fundos demo continuam virtuais e não podem ser sacados.',
+        'demoCta.body': 'Você está explorando com fundos virtuais. A negociação real exige uma ativação única de $50 e pelo menos $100 em capital de negociação. Os fundos Demo continuam virtuais e não podem ser sacados.',
+        'demoCta.activationNote': 'A negociação real exige uma ativação única de $50 e pelo menos $100 em capital de negociação.',
         'demoCta.reviewLive': 'Ver requisitos do Live',
         'demoCta.reviewLiveToast': 'Modo Live exibido. É necessário um depósito antes de negociar com fundos reais.',
         'demoCta.button': 'Fazer meu primeiro depósito',
@@ -13128,7 +13172,9 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Dispensar',
         'startHere.live.title': 'Guia do Modo Live',
         'startHere.live.subtitle': 'Você está no Modo Live. As operações usam fundos reais.',
-        'startHere.live.step1': 'Deposite pelo menos ${{min}} para ativar o financiamento do Live',
+        'startHere.live.step0': 'Conclua a ativação única de $50 do Live',
+        'startHere.live.step1': 'Deposite pelo menos ${{min}} em capital de negociação',
+        'startHere.live.step3': 'Conclua sua primeira operação no Live',
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação — separados dos fundos demo e do crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
@@ -13333,10 +13379,15 @@ const TRANSLATIONS = {
         'liveActivation.cta': 'Ativar Modo Live',
         'liveActivation.depositCta': 'Fazer meu depósito',
         'liveActivation.title': 'Ativar Modo Live',
-        'liveActivation.body': 'O Modo Live exige uma ativação única. O Modo Demo continua gratuito e sempre disponível. A ativação não adiciona capital de negociação: você financia sua carteira Live separadamente com um depósito.',
+        'liveActivation.body': 'O Modo Live exige uma ativação única. O Modo Demo continua grátis e sempre disponível. A ativação libera a negociação real, mas não adiciona capital: você fundeia sua carteira Live separadamente com um depósito de pelo menos o mínimo da plataforma.',
         'liveActivation.buy': 'Comprar ativação',
         'liveActivation.keyLabel': 'Já comprou? Insira sua chave de licença',
         'liveActivation.submit': 'Ativar',
+        'liveActivation.blockedToast': 'A negociação real fica bloqueada até você ativar. É um passo único e leva cerca de um minuto.',
+        'liveDeposit.blockedToast': 'Adicione pelo menos ${{min}} em capital de negociação para começar a operar no Live.',
+        'liveActivation.supportCta': 'Falar com o suporte',
+        'liveActivation.purchaseUnavailable': 'A compra da ativação está temporariamente indisponível. Fale com o suporte e concluiremos com você.',
+        'liveActivation.nextStep': 'O Modo Live está ativo. Próximo passo: adicione pelo menos ${{min}} em capital de negociação para começar a operar.',
         'liveActivation.hint': 'Uma licença ativa uma conta, uma única vez, e não pode ser transferida. A ativação nunca credita saldo.',
         'liveActivation.keyRequired': 'Insira sua chave de licença.',
         'liveActivation.failed': 'Não foi possível resgatar essa chave de licença.',
@@ -13735,6 +13786,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Falha ao regenerar códigos',
         '2fa.disableFailed': 'Falha ao desativar 2FA',
         'deposit.min10': 'O depósito mínimo é $10',
+        'deposit.activationNote': 'Este depósito é capital de negociação. A negociação real também exige uma ativação única de $50 à parte; um depósito não ativa sua conta.',
         'deposit.min100': 'O depósito mínimo é ${{min}}',
         'deposit.invoiceNotFound': 'Fatura não encontrada',
         'deposit.createInvoiceFailed': 'Falha ao criar fatura',
@@ -14162,7 +14214,9 @@ const TRANSLATIONS = {
         'landing.faq.a7': 'Assim que você fundeia sua conta Live, ganha 14 dias de negociação Live grátis sem custo de assinatura. Após esses 14 dias, a assinatura de $7/mês se aplica para continuar usando a plataforma.',
         'landing.faq.q8': 'Quanto custa o Kalderix Pro?',
         'landing.faq.a8': 'A assinatura do Kalderix Pro é de $7/mês, debitada do seu saldo de negociação disponível quando vence. Com base no modelo atual, não há tarifas adicionais de plataforma.',
+        'landing.faq.q10': 'Depositei mas ainda não consigo operar no Live. Por quê?',
         'landing.faq.q9': 'Como funcionam os saques?',
+        'landing.faq.a10': 'O Modo Live tem duas etapas separadas: uma ativação única de $50 libera a negociação real, e pelo menos $100 em capital de negociação a financia. Se o seu depósito está confirmado mas a negociação continua bloqueada, falta a ativação: você pode ativá-la no cartão da carteira Live.',
         'landing.faq.a9': 'Você pode sacar para seu próprio endereço de carteira quando elegível. O processamento do saque geralmente leva de 15 a 30 minutos e verificações/controles de segurança aplicáveis podem se aplicar.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Demo',
@@ -14256,7 +14310,7 @@ const TRANSLATIONS = {
         'wallet.liveBalance': 'Saldo Live',
         'stats.depositCta': 'Depositar',
         'onboarding.fundLive': 'Quero financiar minha conta Live',
-        'demoCta.liveBody': 'Sua conta Live ainda n\u00e3o est\u00e1 financiada. Fa\u00e7a um dep\u00f3sito para negociar com fundos reais. O Modo Demo continua dispon\u00edvel e voc\u00ea pode voltar quando quiser.',
+        'demoCta.liveBody': 'Sua conta Live ainda não está fundeada. Adicione pelo menos $100 em capital de negociação para operar com fundos reais; se ainda não ativou o Modo Live, esse passo único de $50 vem primeiro. O Modo Demo continua disponível.',
         'deposit.retry': 'Tentar novamente',
         'deposit.getHelp': 'Obter ajuda',
         'deposit.errRateLimited': 'Muitas tentativas de dep\u00f3sito. Aguarde um minuto e tente novamente.',
@@ -14615,15 +14669,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Demandez le paiement',
         'landing.partner.cta': 'Devenir partenaire de parrainage',
         'landing.partner.disclosure': 'L\'auto-parrainage, les comptes en double, les activités frauduleuses et la promotion trompeuse ne donnent pas droit aux récompenses de parrainage.',
-        'landing.hero.promo': 'Les nouveaux utilisateurs éligibles peuvent commencer avec un crédit de trading promotionnel de $50.',
+        'landing.hero.promo': 'Explorez le Mode Démo gratuitement. Les nouveaux utilisateurs éligibles reçoivent également $50 de crédit de trading promotionnel. Le trading réel nécessite une activation unique de $50 et au moins $100 de capital de trading.',
         'landing.startFree.tag': 'Commencer',
-        'landing.startFree.title': 'COMMENCEZ GRATUITEMENT EN 3 ÉTAPES',
+        'landing.startFree.title': 'COMMENCEZ GRATUITEMENT, PASSEZ EN LIVE EN 3 ÉTAPES',
         'landing.startFree.step1.title': 'Créez votre compte',
         'landing.startFree.step1.desc': 'Créez un compte Kalderix gratuit.',
-        'landing.startFree.step2.title': 'Explorez la démo + l\'expérience promotionnelle',
-        'landing.startFree.step2.desc': 'Étudiez le mode démo et, si vous êtes éligible, accédez au crédit de trading promotionnel de $50.',
-        'landing.startFree.step3.title': 'Financez votre compte quand vous êtes prêt',
-        'landing.startFree.step3.desc': 'Quand vous êtes prêt pour le trading en direct, financez votre compte et continuez d\'utiliser Kalderix.',
+        'landing.startFree.step2.title': 'Activez le Mode Live une fois',
+        'landing.startFree.step2.desc': 'Une activation unique de $50 débloque le trading réel. Le Mode Démo reste gratuit.',
+        'landing.startFree.step3.title': 'Financez avec $100 ou plus',
+        'landing.startFree.step3.desc': 'Ajoutez au moins $100 de capital de trading. Votre crédit promotionnel de $50 (selon éligibilité) est distinct et reste promotionnel.',
         'landing.video.tag': 'Explicatif',
         'landing.video.title': 'Découvrez Kalderix en action',
         'landing.video.subtitle': 'Un bref aperçu de la façon dont Kalderix automatise l\'arbitrage éligible.',
@@ -14768,7 +14822,8 @@ const TRANSLATIONS = {
         'onboarding.noObligation': 'Vous pouvez passer d\'un mode à l\'autre à tout moment — la démo reste toujours disponible.',
         'onboarding.explainer': 'Kalderix est une plateforme de trading multi-actifs avec un mode démo et un mode Live. Commencez par explorer le mode démo pour découvrir la plateforme, puis découvrez le mode Live quand vous serez prêt.',
         'demoCta.title': 'Prêt à trader réellement ?',
-        'demoCta.body': 'Vous explorez avec des fonds virtuels. Faites votre premier dépôt pour alimenter votre solde LIVE. Les fonds démo restent virtuels et ne peuvent pas être retirés.',
+        'demoCta.body': 'Vous explorez avec des fonds virtuels. Le trading réel nécessite une activation unique de $50 et au moins $100 de capital de trading. Les fonds Démo restent virtuels et ne peuvent pas être retirés.',
+        'demoCta.activationNote': 'Le trading réel nécessite une activation unique de $50 et au moins $100 de capital de trading.',
         'demoCta.reviewLive': 'Voir les conditions Live',
         'demoCta.reviewLiveToast': 'Mode Live affiché. Un dépôt est requis avant de trader avec des fonds réels.',
         'demoCta.button': 'Faire mon premier dépôt',
@@ -14783,7 +14838,9 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Ignorer',
         'startHere.live.title': 'Guide du mode Live',
         'startHere.live.subtitle': 'Vous êtes en mode Live. Les transactions utilisent des fonds réels.',
-        'startHere.live.step1': 'Déposez au moins ${{min}} pour activer le financement Live',
+        'startHere.live.step0': 'Effectuez l’activation unique de $50 pour le Live',
+        'startHere.live.step1': 'Déposez au moins ${{min}} de capital de trading',
+        'startHere.live.step3': 'Réalisez votre premier trade en Live',
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels — distincts des fonds démo et du crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
@@ -14988,10 +15045,15 @@ const TRANSLATIONS = {
         'liveActivation.cta': 'Activer le Mode Live',
         'liveActivation.depositCta': 'Effectuer mon dépôt',
         'liveActivation.title': 'Activer le Mode Live',
-        'liveActivation.body': 'Le Mode Live nécessite une activation unique. Le Mode Démo reste gratuit et toujours disponible. L\'activation n\'ajoute pas de capital de trading : vous financez votre portefeuille Live séparément par un dépôt.',
+        'liveActivation.body': 'Le Mode Live nécessite une activation unique. Le Mode Démo reste gratuit et toujours disponible. L’activation débloque le trading réel, mais n’ajoute pas de capital : vous financez votre portefeuille Live séparément par un dépôt d’au moins le minimum de la plateforme.',
         'liveActivation.buy': 'Acheter l\'activation',
         'liveActivation.keyLabel': 'Déjà acheté ? Saisissez votre clé de licence',
         'liveActivation.submit': 'Activer',
+        'liveActivation.blockedToast': 'Le trading réel reste verrouillé jusqu’à l’activation. C’est une étape unique qui prend environ une minute.',
+        'liveDeposit.blockedToast': 'Ajoutez au moins ${{min}} de capital de trading pour commencer à trader en Live.',
+        'liveActivation.supportCta': 'Contacter le support',
+        'liveActivation.purchaseUnavailable': 'L’achat de l’activation est temporairement indisponible. Contactez le support et nous le finaliserons avec vous.',
+        'liveActivation.nextStep': 'Le Mode Live est actif. Étape suivante : ajoutez au moins ${{min}} de capital de trading pour commencer à trader.',
         'liveActivation.hint': 'Une licence active un compte, une seule fois, et ne peut pas être transférée. L\'activation ne crédite jamais de solde.',
         'liveActivation.keyRequired': 'Saisissez votre clé de licence.',
         'liveActivation.failed': 'Cette clé de licence n\'a pas pu être utilisée.',
@@ -15390,6 +15452,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Échec de la régénération des codes',
         '2fa.disableFailed': 'Échec de la désactivation de 2FA',
         'deposit.min10': 'Le dépôt minimum est de $10',
+        'deposit.activationNote': 'Ce dépôt est du capital de trading. Le trading réel nécessite aussi une activation unique de $50 distincte ; un dépôt n’active pas votre compte.',
         'deposit.min100': 'Le dépôt minimum est de ${{min}}',
         'deposit.invoiceNotFound': 'Facture introuvable',
         'deposit.createInvoiceFailed': 'Échec de la création de la facture',
@@ -15817,7 +15880,9 @@ const TRANSLATIONS = {
         'landing.faq.a7': 'Une fois que vous approvisionnez votre compte Live, vous bénéficiez de 14 jours de trading Live gratuit sans coût d\'abonnement. Après ces 14 jours, l\'abonnement de 7 $/mois s\'applique pour continuer à utiliser la plateforme.',
         'landing.faq.q8': 'Combien coûte Kalderix Pro ?',
         'landing.faq.a8': 'L\'abonnement Kalderix Pro est de 7 $/mois, déduit de votre solde de trading disponible lorsqu\'il est dû. Selon le modèle actuel, il n\'y a pas de frais de plateforme supplémentaires.',
+        'landing.faq.q10': 'J’ai déposé mais je ne peux toujours pas trader en Live. Pourquoi ?',
         'landing.faq.q9': 'Comment fonctionnent les retraits ?',
+        'landing.faq.a10': 'Le Mode Live comporte deux étapes distinctes : une activation unique de $50 débloque le trading réel, et au moins $100 de capital de trading le finance. Si votre dépôt est confirmé mais que le trading reste verrouillé, l’activation est l’étape manquante : vous pouvez l’activer depuis la carte du portefeuille Live.',
         'landing.faq.a9': 'Vous pouvez retirer vers votre propre adresse de portefeuille lorsque vous êtes éligible. Le traitement du retrait prend généralement 15 à 30 minutes et des vérifications/contrôles de sécurité applicables peuvent s\'appliquer.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'Démo',
@@ -15911,7 +15976,7 @@ const TRANSLATIONS = {
         'wallet.liveBalance': 'Solde live',
         'stats.depositCta': 'D\u00e9poser',
         'onboarding.fundLive': 'Je veux alimenter mon compte live',
-        'demoCta.liveBody': 'Votre compte live n\'est pas encore aliment\u00e9. Faites un d\u00e9p\u00f4t pour trader avec des fonds r\u00e9els. Le mode d\u00e9mo reste disponible et vous pouvez y revenir \u00e0 tout moment.',
+        'demoCta.liveBody': 'Votre compte Live n’est pas encore financé. Ajoutez au moins $100 de capital de trading pour trader avec des fonds réels ; si vous n’avez pas encore activé le Mode Live, cette étape unique de $50 vient d’abord. Le Mode Démo reste disponible.',
         'deposit.retry': 'R\u00e9essayer',
         'deposit.getHelp': 'Obtenir de l\'aide',
         'deposit.errRateLimited': 'Trop de tentatives de d\u00e9p\u00f4t. Patientez une minute et r\u00e9essayez.',
@@ -16270,15 +16335,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'اطلب الدفع',
         'landing.partner.cta': 'كن شريك إحالة',
         'landing.partner.disclosure': 'الإحالة الذاتية والحسابات المكررة والنشاط الاحتيالي والترويج المضلل غير مؤهلة لمكافآت الإحالة.',
-        'landing.hero.promo': 'يمكن للمستخدمين الجدد المؤهلين البدء برصيد تداول ترويجي بقيمة $50.',
+        'landing.hero.promo': 'استكشف الوضع التجريبي مجانًا. ويحصل المستخدمون الجدد المؤهلون أيضًا على رصيد تداول ترويجي بقيمة $50. ويتطلب التداول الحقيقي تفعيلًا واحدًا بقيمة $50 وما لا يقل عن $100 كرأس مال تداول.',
         'landing.startFree.tag': 'ابدأ',
-        'landing.startFree.title': 'ابدأ مجانًا في 3 خطوات',
+        'landing.startFree.title': 'ابدأ مجانًا وانتقل إلى الوضع المباشر في 3 خطوات',
         'landing.startFree.step1.title': 'أنشئ حسابك',
         'landing.startFree.step1.desc': 'أنشئ حساب Kalderix مجانًا.',
-        'landing.startFree.step2.title': 'استكشف التجريبي + التجربة الترويجية',
-        'landing.startFree.step2.desc': 'استكشف الوضع التجريبي، وعند الأهلية، احصل على رصيد التداول الترويجي بقيمة $50.',
-        'landing.startFree.step3.title': 'موّل حسابك عندما تكون جاهزًا',
-        'landing.startFree.step3.desc': 'عندما تصبح جاهزًا للتداول المباشر، موّل حسابك وتابع استخدام Kalderix.',
+        'landing.startFree.step2.title': 'فعّل الوضع المباشر مرة واحدة',
+        'landing.startFree.step2.desc': 'تفعيل واحد بقيمة 50 دولارًا يفتح التداول الحقيقي، والوضع التجريبي يبقى مجانيًا.',
+        'landing.startFree.step3.title': 'موّل بـ 100 دولار أو أكثر',
+        'landing.startFree.step3.desc': 'أضف 100 دولار على الأقل كرأس مال تداول. رصيدك الترويجي بقيمة 50 دولارًا (عند الاستحقاق) منفصل ويبقى ترويجيًا.',
         'landing.video.tag': 'شرح',
         'landing.video.title': 'شاهد Kalderix أثناء العمل',
         'landing.video.subtitle': 'نظرة موجزة على كيفية أتمتة Kalderix للمراجحة المؤهلة.',
@@ -16423,7 +16488,8 @@ const TRANSLATIONS = {
         'onboarding.noObligation': 'يمكنك التبديل بين Demo وLIVE في أي وقت — الوضع التجريبي متاح دائمًا.',
         'onboarding.explainer': 'Kalderix منصة تداول متعددة الأصول تتضمن الوضع التجريبي ووضع LIVE. ابدأ باستكشاف الوضع التجريبي لفهم المنصة، ثم راجع وضع LIVE عندما تكون مستعدًا.',
         'demoCta.title': 'مستعد للتداول الحقيقي؟',
-        'demoCta.body': 'أنت تستكشف بأموال افتراضية. أجرِ أول إيداع لك لتمويل رصيدك LIVE. تبقى أموال Demo افتراضية ولا يمكن سحبها.',
+        'demoCta.body': 'أنت تستكشف بأموال افتراضية. التداول الحقيقي يحتاج تفعيلًا لمرة واحدة بقيمة 50 دولارًا وألا يقل رأس مال التداول عن 100 دولار. أموال الوضع التجريبي تبقى افتراضية ولا يمكن سحبها.',
+        'demoCta.activationNote': 'يحتاج التداول الحقيقي إلى تفعيل لمرة واحدة بقيمة 50 دولارًا وإلى 100 دولار على الأقل كرأس مال تداول.',
         'demoCta.reviewLive': 'مراجعة متطلبات Live',
         'demoCta.reviewLiveToast': 'تم عرض وضع Live. يلزم إجراء إيداع قبل التداول بأموال حقيقية.',
         'demoCta.button': 'إجراء أول إيداع لي',
@@ -16438,7 +16504,9 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'تجاهل',
         'startHere.live.title': 'دليل وضع LIVE',
         'startHere.live.subtitle': 'أنت في وضع LIVE. تتم التداولات بأموال حقيقية.',
-        'startHere.live.step1': 'أودع ما لا يقل عن ${{min}} لتفعيل تمويل وضع LIVE',
+        'startHere.live.step0': 'أكمل تفعيل الوضع المباشر لمرة واحدة بقيمة 50 دولارًا',
+        'startHere.live.step1': 'أودع {{min}} دولارًا على الأقل كرأس مال تداول',
+        'startHere.live.step3': 'نفّذ أول عملية تداول مباشرة لك',
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية — منفصلة عن أموال Demo والرصيد الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
@@ -16643,10 +16711,15 @@ const TRANSLATIONS = {
         'liveActivation.cta': 'تفعيل الوضع المباشر',
         'liveActivation.depositCta': 'إتمام الإيداع',
         'liveActivation.title': 'تفعيل الوضع المباشر',
-        'liveActivation.body': 'يتطلب الوضع المباشر تفعيلاً لمرة واحدة. يبقى الوضع التجريبي مجانياً ومتاحاً دائماً. التفعيل لا يضيف رأس مال تداول: أنت تموّل محفظتك المباشرة بشكل منفصل عبر إيداع.',
+        'liveActivation.body': 'يتطلب الوضع المباشر تفعيلًا لمرة واحدة. ويبقى الوضع التجريبي مجانيًا ومتاحًا دائمًا. التفعيل يفتح التداول الحقيقي ولا يضيف رأس مال تداول: تموّل محفظتك المباشرة بشكل منفصل بإيداع لا يقل عن الحد الأدنى للمنصة.',
         'liveActivation.buy': 'شراء التفعيل',
         'liveActivation.keyLabel': 'اشتريت بالفعل؟ أدخل مفتاح الترخيص',
         'liveActivation.submit': 'تفعيل',
+        'liveActivation.blockedToast': 'التداول الحقيقي مقفل حتى تفعّل حسابك. خطوة واحدة تستغرق حوالي دقيقة.',
+        'liveDeposit.blockedToast': 'أضف {{min}} دولارًا على الأقل كرأس مال تداول لبدء التداول المباشر.',
+        'liveActivation.supportCta': 'تواصل مع الدعم',
+        'liveActivation.purchaseUnavailable': 'شراء التفعيل غير متاح مؤقتًا. تواصل مع الدعم وسنكمله معك.',
+        'liveActivation.nextStep': 'تم تفعيل الوضع المباشر. الخطوة التالية: أضف {{min}} دولارًا على الأقل كرأس مال تداول لبدء التداول.',
         'liveActivation.hint': 'الترخيص الواحد يفعّل حساباً واحداً، مرة واحدة، ولا يمكن نقله. التفعيل لا يضيف أي رصيد.',
         'liveActivation.keyRequired': 'أدخل مفتاح الترخيص.',
         'liveActivation.failed': 'تعذّر استخدام مفتاح الترخيص هذا.',
@@ -17045,6 +17118,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'فشل إعادة إنشاء الرموز',
         '2fa.disableFailed': 'فشل تعطيل المصادقة الثنائية',
         'deposit.min10': 'الحد الأدنى للإيداع هو $10',
+        'deposit.activationNote': 'هذا الإيداع هو رأس مال تداول. ويحتاج التداول الحقيقي أيضًا إلى تفعيل منفصل لمرة واحدة بقيمة 50 دولارًا؛ فالإيداع وحده لا يفعّل حسابك.',
         'deposit.min100': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.invoiceNotFound': 'الفاتورة غير موجودة',
         'deposit.createInvoiceFailed': 'فشل إنشاء الفاتورة',
@@ -17472,7 +17546,9 @@ const TRANSLATIONS = {
         'landing.faq.a7': 'بمجرد تمويل حسابك المباشر، تحصل على 14 يومًا من التداول المباشر المجاني بدون رسوم اشتراك. بعد تلك الـ 14 يومًا، يطبق اشتراك 7$/شهريًا للاستمرار في استخدام المنصة.',
         'landing.faq.q8': 'كم سعر Kalderix Pro؟',
         'landing.faq.a8': 'اشتراك Kalderix Pro هو 7$/شهريًا، يُخصم من رصيد التداول المتاح عند الاستحقاق. بناءً على النموذج الحالي، لا توجد رسوم منصة إضافية.',
+        'landing.faq.q10': 'أودعت ولكنني لا أستطيع بدء التداول المباشر بعد. لماذا؟',
         'landing.faq.q9': 'كيف تعمل السحوبات؟',
+        'landing.faq.a10': 'يتكون الوضع المباشر من خطوتين منفصلتين: تفعيل لمرة واحدة بقيمة 50 دولارًا يفتح التداول الحقيقي، وما لا يقل عن 100 دولار كرأس مال تداول يموّله. إذا كان إيداعك مؤكدًا ولكن التداول ما زال مقفلًا، فالناقص هو التفعيل: يمكنك تفعيله من بطاقة المحفظة المباشرة.',
         'landing.faq.a9': 'يمكنك السحب إلى عنوان محفظتك الخاصة عند الأهلية. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة وقد تنطبق تدابير التحقق/الأمن.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': 'تجريبي',
@@ -17566,7 +17642,7 @@ const TRANSLATIONS = {
         'wallet.liveBalance': '\u0631\u0635\u064a\u062f \u0645\u0628\u0627\u0634\u0631',
         'stats.depositCta': '\u0625\u064a\u062f\u0627\u0639',
         'onboarding.fundLive': '\u0623\u0631\u064a\u062f \u062a\u0645\u0648\u064a\u0644 \u062d\u0633\u0627\u0628\u064a \u0627\u0644\u0645\u0628\u0627\u0634\u0631',
-        'demoCta.liveBody': '\u062d\u0633\u0627\u0628\u0643 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 \u063a\u064a\u0631 \u0645\u0645\u0648\u0644 \u0628\u0639\u062f. \u0642\u0645 \u0628\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0644\u0644\u062a\u062f\u0627\u0648\u0644 \u0628\u0623\u0645\u0648\u0627\u0644 \u062d\u0642\u064a\u0642\u064a\u0629. \u064a\u0628\u0642\u0649 \u0627\u0644\u0648\u0636\u0639 \u0627\u0644\u062a\u062c\u0631\u064a\u0628\u064a \u0645\u062a\u0627\u062d\u064b\u0627 \u0648\u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u0639\u0648\u062f\u0629 \u0625\u0644\u064a\u0647 \u0641\u064a \u0623\u064a \u0648\u0642\u062a.',
+        'demoCta.liveBody': 'لم يتم تمويل حسابك المباشر بعد. أضف 100 دولار على الأقل كرأس مال تداول للتداول بأموال حقيقية؛ وإن لم تكن قد فعّلت الوضع المباشر بعد، فإن خطوة التفعيل الواحدة بقيمة 50 دولارًا تأتي أولًا. ويبقى الوضع التجريبي متاحًا.',
         'deposit.retry': '\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629',
         'deposit.getHelp': '\u0627\u0644\u062d\u0635\u0648\u0644 \u0639\u0644\u0649 \u0627\u0644\u0645\u0633\u0627\u0639\u062f\u0629',
         'deposit.errRateLimited': '\u0645\u062d\u0627\u0648\u0644\u0627\u062a \u0625\u064a\u062f\u0627\u0639 \u0643\u062b\u064a\u0631\u0629 \u062c\u062f\u064b\u0627. \u0627\u0646\u062a\u0638\u0631 \u062f\u0642\u064a\u0642\u0629 \u062b\u0645 \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.',
@@ -17925,15 +18001,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': '申请提现',
         'landing.partner.cta': '成为推荐合作伙伴',
         'landing.partner.disclosure': '自我推荐、重复账户、欺诈活动以及误导性推广不符合推荐奖励资格。',
-        'landing.hero.promo': '符合条件的新用户可获得 $50 促销交易赠金作为起步。',
+        'landing.hero.promo': '免费体验演示模式。符合条件的新用户还可获得 $50 促销交易信用。实时交易需要一次性 $50 激活，并至少 $100 交易资金。',
         'landing.startFree.tag': '开始使用',
-        'landing.startFree.title': '三步免费开始',
+        'landing.startFree.title': '免费开始，三步进入实时模式',
         'landing.startFree.step1.title': '创建账户',
         'landing.startFree.step1.desc': '免费创建 Kalderix 账户。',
-        'landing.startFree.step2.title': '体验演示 + 促销体验',
-        'landing.startFree.step2.desc': '体验演示模式，并在符合条件时获取 $50 促销交易赠金。',
-        'landing.startFree.step3.title': '准备就绪后入金',
-        'landing.startFree.step3.desc': '准备好进行实盘交易时，为账户入金并继续使用 Kalderix。',
+        'landing.startFree.step2.title': '一次性激活实时模式',
+        'landing.startFree.step2.desc': '一次性 $50 激活即可解锁真实交易，演示模式始终免费。',
+        'landing.startFree.step3.title': '以 $100 或以上资金入金',
+        'landing.startFree.step3.desc': '至少存入 $100 交易资金。您的 $50 促销信用（适用时）是独立的，仅作促销用途。',
         'landing.video.tag': '说明',
         'landing.video.title': '观看 Kalderix 实际运作',
         'landing.video.subtitle': '简要了解 Kalderix 如何自动执行符合条件的套利。',
@@ -18078,7 +18154,8 @@ const TRANSLATIONS = {
         'onboarding.noObligation': '您可以随时在演示和 LIVE 之间切换——演示模式始终可用。',
         'onboarding.explainer': 'Kalderix 是一个多资产交易平台，提供演示模式和 LIVE 模式。请先体验演示模式来了解平台，准备好后再查看 LIVE 模式。',
         'demoCta.title': '准备好进行真实交易了吗？',
-        'demoCta.body': '您正在使用虚拟资金体验。进行首次入金可为您的 LIVE 余额充值。演示资金始终保持虚拟且无法提取。',
+        'demoCta.body': '您正在用虚拟资金探索。真实交易需要一次性 $50 激活，且需至少 $100 交易资金。演示资金始终为虚拟，无法提现。',
+        'demoCta.activationNote': '实时交易需要一次性 $50 激活，并至少 $100 交易资金。',
         'demoCta.reviewLive': '查看实盘要求',
         'demoCta.reviewLiveToast': '已显示实盘模式。在进行真实资金交易前需要先充值。',
         'demoCta.button': '进行我的首次入金',
@@ -18093,7 +18170,9 @@ const TRANSLATIONS = {
         'startHere.dismiss': '忽略',
         'startHere.live.title': '实盘模式指南',
         'startHere.live.subtitle': '您已进入实盘模式。交易使用真实资金。',
-        'startHere.live.step1': '入金至少 ${{min}} 以激活实盘资金',
+        'startHere.live.step0': '完成一次性 $50 实时模式激活',
+        'startHere.live.step1': '存入至少 ${{min}} 交易资金',
+        'startHere.live.step3': '完成您的第一笔实时交易',
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 — 与演示资金和促销额度相互独立。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
@@ -18298,10 +18377,15 @@ const TRANSLATIONS = {
         'liveActivation.cta': '激活实时模式',
         'liveActivation.depositCta': '完成我的入金',
         'liveActivation.title': '激活实时模式',
-        'liveActivation.body': '实时模式需要一次性激活。演示模式始终免费并保持可用。激活不会增加交易资金：您需要通过入金单独为实时钱包提供资金。',
+        'liveActivation.body': '实时模式需要一次性激活。演示模式始终免费且随时可用。激活只是解锁真实交易，不包含交易资金：您需另行以不低于平台最低金额的入金为实时钱包提供资金。',
         'liveActivation.buy': '购买激活',
         'liveActivation.keyLabel': '已经购买？请输入您的许可证密钥',
         'liveActivation.submit': '激活',
+        'liveActivation.blockedToast': '实时交易在激活前保持锁定。这是一次性步骤，约需一分钟。',
+        'liveDeposit.blockedToast': '请至少存入 ${{min}} 交易资金以开始实时交易。',
+        'liveActivation.supportCta': '联系客服',
+        'liveActivation.purchaseUnavailable': '激活购买暂时不可用。请联系客服，我们将协助您完成。',
+        'liveActivation.nextStep': '实时模式已激活。下一步：至少存入 ${{min}} 交易资金即可开始交易。',
         'liveActivation.hint': '一个许可证仅激活一个账户，且只能使用一次，不能转让。激活不会增加任何余额。',
         'liveActivation.keyRequired': '请输入您的许可证密钥。',
         'liveActivation.failed': '该许可证密钥无法兑换。',
@@ -18700,6 +18784,7 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': '重新生成恢复码失败',
         '2fa.disableFailed': '禁用两步验证失败',
         'deposit.min10': '最低存款为 $10',
+        'deposit.activationNote': '本次入金为交易资金。实时交易还需要另行完成一次性 $50 激活——仅仅入金并不会激活账户。',
         'deposit.min100': '最低存款为 ${{min}}',
         'deposit.invoiceNotFound': '未找到发票',
         'deposit.createInvoiceFailed': '创建发票失败',
@@ -19127,7 +19212,9 @@ const TRANSLATIONS = {
         'landing.faq.a7': '为实盘账户充值后，您可获得 14 天免费实盘交易，无需订阅费。14 天后，$7/月订阅生效以继续使用平台。',
         'landing.faq.q8': 'Kalderix Pro 多少钱？',
         'landing.faq.a8': 'Kalderix Pro 订阅为 $7/月，到期时从您的可用交易余额中扣除。根据当前产品模型，没有额外的平台费用。',
+        'landing.faq.q10': '我已经入金，但仍无法开始实时交易，为什么？',
         'landing.faq.q9': '提现如何运作？',
+        'landing.faq.a10': '实时模式包含两个独立步骤：一次性 $50 激活解锁真实交易，至少 $100 交易资金为其提供资金。如果入金已确认但交易仍处于锁定状态，说明欠缺激活步骤——您可以在实时钱包卡片中完成激活。',
         'landing.faq.a9': '符合条件时，您可以提现到自己的钱包地址。提现处理通常需要 15–30 分钟，可能适用验证/安全检查。',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.demoLabel': '演示',
@@ -19221,7 +19308,7 @@ const TRANSLATIONS = {
         'wallet.liveBalance': '\u5b9e\u76d8\u4f59\u989d',
         'stats.depositCta': '\u5165\u91d1',
         'onboarding.fundLive': '\u6211\u60f3\u4e3a\u5b9e\u76d8\u8d26\u6237\u5145\u503c',
-        'demoCta.liveBody': '\u60a8\u7684\u5b9e\u76d8\u8d26\u6237\u5c1a\u672a\u5145\u503c\u3002\u5145\u503c\u540e\u5373\u53ef\u4f7f\u7528\u771f\u5b9e\u8d44\u91d1\u4ea4\u6613\u3002\u6f14\u793a\u6a21\u5f0f\u4ecd\u7136\u53ef\u7528\uff0c\u60a8\u53ef\u4ee5\u968f\u65f6\u5207\u6362\u56de\u53bb\u3002',
+        'demoCta.liveBody': '您的实时账户尚未入金。请至少存入 $100 交易资金以使用真实资金交易；如果您尚未激活实时模式，请先完成那一次性的 $50 激活。演示模式仍可使用。',
         'deposit.retry': '\u91cd\u8bd5',
         'deposit.getHelp': '\u83b7\u53d6\u5e2e\u52a9',
         'deposit.errRateLimited': '\u5165\u91d1\u5c1d\u8bd5\u8fc7\u4e8e\u9891\u7e41\u3002\u8bf7\u7b49\u5f85\u4e00\u5206\u949f\u540e\u518d\u8bd5\u3002',
@@ -19470,13 +19557,18 @@ function updateLiveActivationUI() {
         const needed = APP.activationRequired === true && APP.liveActivated !== true;
         if (notice) notice.classList.toggle('hidden', !needed);
         const buy = document.getElementById('liveActivationBuyBtn');
+        const unavailable = document.getElementById('liveActivationUnavailable');
+        const url = APP.activationStoreUrl || '';
+        const usable = /^https:\/\//i.test(url);
+        const canBuy = usable && APP.activationPurchasable !== false;
         if (buy) {
-            const url = APP.activationStoreUrl || '';
-            const usable = /^https:\/\//i.test(url);
-            buy.classList.toggle('hidden', !(usable && APP.activationPurchasable !== false));
+            buy.classList.toggle('hidden', !canBuy);
             if (usable) buy.href = url;
             else buy.removeAttribute('href');
         }
+        // Never a silent dead end: when there is no purchase route, say so and
+        // point at support (the button below the hint).
+        if (unavailable) unavailable.classList.toggle('hidden', canBuy);
     } catch (e) { /* display only */ }
 }
 function openLiveActivationModal() {
@@ -19539,6 +19631,10 @@ async function submitLiveActivation() {
         if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
         closeLiveActivationModal();
         showToast(t('liveActivation.success'), 'success');
+        // Activation buys permission, not capital - say what is still missing.
+        setTimeout(function () {
+            showToast(t('liveActivation.nextStep', { min: String(Number(APP.MIN_DEPOSIT) || 100) }), 'info', 8000);
+        }, 900);
         if (typeof updateUI === 'function') updateUI();
     } catch (e) {
         fail(t('liveActivation.failed'));
@@ -21634,6 +21730,10 @@ function renderBadges() {
 }
 
 function checkBadges() {
+    // A live trade is only "activity" once the server has recorded it. While a
+    // submitted trade is in flight the optimistic counters are held back, so a
+    // rejected trade can never unlock a badge (see executeBotTrade).
+    if (APP.suppressBadges) return;
     const wallet = APP.currentWallet === 'live' ? 'live' : 'demo';
     const data = getCurrentData();
     const unlocked = APP.unlockedBadges[wallet] || [];
@@ -22055,6 +22155,21 @@ function executeBotTrade() {
     // was never recorded server-side.
     const preBalance = data.balance;
     const prePnl = data.pnl || 0;
+    // Every counter mutated optimistically below is snapshotted too, so a
+    // rejected trade is undone COMPLETELY - not just the balance. Without this a
+    // refused trade still left trades/wins/streak/history behind, which unlocked
+    // the "First Trade" badge for a trade the server never recorded.
+    const preCounters = {
+        trades: data.trades,
+        wins: data.wins,
+        streak: data.streak,
+        maxStreak: data.maxStreak,
+        bestTrade: data.bestTrade,
+        worstTrade: data.worstTrade,
+        tradeAmountsLength: (data.tradeAmounts || []).length,
+        historyLength: (data.history || []).length,
+        hasTradingActivity: APP.liveData.hasTradingActivity
+    };
 
     // Optimistic local update for instant UI (reconciled to server for live).
     data.balance = Math.max(0, data.balance + profit);
@@ -22075,12 +22190,23 @@ function executeBotTrade() {
     data.history.unshift({type:'Trade Executed', detail:asset.symbol + ' ' + asset.detail, amount:profit, time:new Date().toLocaleTimeString(), timestamp: Date.now()});
     if (APP.mode === 'live') {
         APP.liveData.hasTradingActivity = true;
-        persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePnl);
+        // Badges evaluate PERSISTED activity: hold the evaluation until the
+        // server has accepted (or rejected) this trade, then restore it.
+        APP.suppressBadges = true;
+        Promise.resolve(persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePnl, preCounters))
+            .catch(function () {})
+            .then(function () { APP.suppressBadges = false; updateUI(); });
     } else {
         saveData();
+        // Demo Mode is simulated by design: its result is real within the demo.
+        announceTradeResult(profit, asset);
     }
     updateUI();
     updateChart();
+}
+
+/** Announce a trade result (toast + sound) to the customer. */
+function announceTradeResult(profit, asset) {
     showToast((profit>=0?'✅':'❌') + ' ' + asset.symbol + ': ' + formatCurrency(profit), profit>=0 ? 'success' : 'error');
     try { profit > 0 ? Sound.tradeWin() : Sound.tradeLoss(); } catch(e) {}
 }
@@ -22092,10 +22218,25 @@ function executeBotTrade() {
 // never shows a profit that was not recorded server-side. On failure we roll
 // back the optimistic balance/pnl update using the pre-trade snapshots passed
 // in from executeBotTrade, so a failed /api/trade cannot inflate P&L/balance.
-async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePnl) {
+async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePnl, preCounters) {
     const rollback = function () {
         APP.liveData.balance = preBalance;
         APP.liveData.pnl = prePnl;
+        // Undo the optimistic counters too: a trade that was not recorded must
+        // not count towards achievements, streaks, history or "has traded".
+        const d = APP.liveData;
+        const c = preCounters || null;
+        if (c) {
+            d.trades = c.trades;
+            d.wins = c.wins;
+            d.streak = c.streak;
+            d.maxStreak = c.maxStreak;
+            d.bestTrade = c.bestTrade;
+            d.worstTrade = c.worstTrade;
+            if (Array.isArray(d.tradeAmounts)) d.tradeAmounts.length = c.tradeAmountsLength;
+            if (Array.isArray(d.history)) d.history.length = c.historyLength;
+            d.hasTradingActivity = c.hasTradingActivity;
+        }
         saveData();
         updateUI();
         // A failed/rolled-back live trade must not leave the chart's latest
@@ -22154,6 +22295,15 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
                     maybeShowProfitPauseModal({ profitPaused: true, profitPauseThreshold: errBody.profitPauseThreshold });
                     return;
                 }
+                // Live Mode access refusals. The server refused BEFORE any ledger
+                // write, so the optimistic trade must be undone, the bot stopped
+                // and the customer sent to the step that is actually missing -
+                // never a silent rollback with no explanation.
+                if (isLiveAccessRefusal(errBody)) {
+                    rollback();
+                    handleLiveAccessRefusal(errBody);
+                    return;
+                }
                 if (errBody && errBody.code === 'PROMO_TRADING_LIMIT_REACHED') {
                     APP.liveData.promoLimitReached = true;
                     if (typeof errBody.promoRealizedProfit === 'number') {
@@ -22196,6 +22346,9 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
             }
             saveData();
             updateUI();
+            // Only a PERSISTED trade is announced: a refused trade must never
+            // produce a fake result toast, win sound or badge.
+            announceTradeResult(profit, asset);
             // The authoritative balance may differ from the optimistic value
             // pushed in executeBotTrade (e.g. loss clamped at 0). Record the
             // reconciled live balance as a new chart point (idempotent: if it
@@ -22408,6 +22561,13 @@ function startBot() {
     // its previous handling.
     syncBotSessionWithServer('start')
         .then(function (res) {
+            // Live Mode access refusals (activation / funding). The server refused
+            // BEFORE creating a session, so the UI must not claim a start: no
+            // running state, no "Bot started" toast, no history row, no sound.
+            if (res && isLiveAccessRefusal(res.body)) {
+                handleLiveAccessRefusal(res.body);
+                return;
+            }
             if (res && isProfitPausePayload(res.body)) {
                 showProfitPauseStartBlocked(res.body);
                 return;
@@ -23920,8 +24080,13 @@ function updateStartHere() {
 // can never drift from the configuration.
 function startHereLiveSteps() {
     const num = function (v, fallback) { const n = Number(v); return (isFinite(n) && n > 0) ? n : fallback; };
+    // The REAL prerequisites, in the order the server enforces them: activation
+    // (a one-time purchase) unlocks Live, a deposit of at least the platform
+    // minimum funds it, and only then can a trade be placed.
     return [
+        { key: 'startHere.live.step0' },
         { key: 'startHere.live.step1', vars: { min: num(APP.MIN_DEPOSIT, 100) } },
+        { key: 'startHere.live.step3' },
     ];
 }
 
@@ -23931,6 +24096,9 @@ function startHereLiveSteps() {
 function startHereLiveComplete() {
     const d = (typeof APP !== 'undefined' && APP.liveData) ? APP.liveData : null;
     if (!d) return false;
+    // While the activation requirement is on, an unactivated account is never
+    // "ready", however funded it looks.
+    if (APP.activationRequired === true && APP.liveActivated !== true) return false;
     return !!(d.hasRealDeposit && d.hasTradingActivity);
 }
 
@@ -24324,6 +24492,43 @@ function rememberProfitPauseThreshold(body) {
  * wording changes can never re-route this UX (and the promo $20 cap, which sends
  * promoLimitReached/depositRequired but neither code, is never mistaken for it).
  */
+/**
+ * True for every server refusal that means "this account may not trade Live yet".
+ * The codes come from sendLiveModeRefusal()/sendActivationRefusal() in server.js.
+ */
+function isLiveAccessRefusal(body) {
+    if (!body || typeof body !== 'object') return false;
+    return body.code === 'LIVE_ACTIVATION_REQUIRED'
+        || body.code === 'LIVE_DEPOSIT_REQUIRED'
+        || body.code === 'ACTIVATION_UNAVAILABLE'
+        || body.code === 'LIVE_DEPOSIT_CHECK_UNAVAILABLE';
+}
+
+/**
+ * Truthful handling of a Live access refusal: stop whatever the UI may have
+ * optimistically started, restore the stopped state, tell the customer which
+ * step is actually missing, and open that step's modal.
+ */
+function handleLiveAccessRefusal(body) {
+    if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
+    APP.botRunning = false;
+    try { if (typeof stopWorkerSyncLoop === 'function') stopWorkerSyncLoop(); } catch (e) {}
+    try { updateStatus(false); } catch (e) {}
+    const code = body && body.code;
+    const min = String(Number(APP.MIN_DEPOSIT) || 100);
+    if (code === 'LIVE_DEPOSIT_REQUIRED') {
+        showToast(t('liveDeposit.blockedToast', { min: min }), 'error', 7000);
+        try { openDepositModal(); } catch (e) {}
+        return;
+    }
+    if (code === 'LIVE_DEPOSIT_CHECK_UNAVAILABLE') {
+        showToast(t('liveActivation.retryLater'), 'error', 7000);
+        return;
+    }
+    showToast(t('liveActivation.blockedToast'), 'error', 7000);
+    try { openLiveActivationModal(); } catch (e) {}
+}
+
 function isProfitPausePayload(body) {
     if (!body || typeof body !== 'object') return false;
     return body.code === 'BOT_PROFIT_PAUSED'
