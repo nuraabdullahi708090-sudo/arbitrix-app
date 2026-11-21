@@ -121,3 +121,70 @@ test('the button design is untouched apart from the icon slot', () => {
   // the Font Awesome sheet stays: other icons in the app still use it
   assert.ok(INDEX.includes('font-awesome/6.0.0-beta3/css/all.min.css'));
 });
+
+/**
+ * COLOUR: the WhatsApp button keeps its green.
+ *
+ * `.btn-primary` is declared three times in the sheet (twice as a palette rule and
+ * once scoped to dialog content for the glow). The original single-class
+ * `.payment-partner-whatsapp` rule therefore lost the cascade and the button
+ * rendered azure - the green was in the source but never on screen. These tests
+ * pin the selector STRENGTH (so ordering cannot break it again), the exact colours
+ * and their measured contrast.
+ */
+const WA_RULE = INDEX.match(/\.btn\.payment-partner-whatsapp\.payment-partner-btn\{([^}]+)\}/);
+const WA_HOVER = INDEX.match(/\.btn\.payment-partner-whatsapp\.payment-partner-btn:hover\{([^}]+)\}/);
+const WA_ACTIVE = INDEX.match(/\.btn\.payment-partner-whatsapp\.payment-partner-btn:active\{([^}]+)\}/);
+
+test('the WhatsApp variant is selected with enough specificity to survive the palette rules', () => {
+  assert.ok(WA_RULE, 'the compound WhatsApp rule is missing');
+  // 3 class selectors (0,3,0) beats `.btn-primary` (0,1,0) and
+  // `.deposit-modal-content .btn-primary` (0,2,0) regardless of source order.
+  const classes = (WA_RULE[0].match(/\.[a-z-]+/gi) || []).length;
+  assert.ok(classes >= 3, 'expected at least 3 classes in the selector, saw ' + classes);
+  assert.equal(/!important/.test(WA_RULE[1]), false, 'no !important needed');
+  assert.equal(/!important/.test((WA_HOVER || ['', ''])[1]), false, 'no !important on hover either');
+});
+
+test('the three states use the intended greens and a near-black label', () => {
+  assert.ok(/background:#25D366/.test(WA_RULE[1]), 'rest background must be #25D366');
+  assert.ok(/border-color:#25D366/.test(WA_RULE[1]), 'rest border must match the fill');
+  assert.ok(/color:#04150B/.test(WA_RULE[1]), 'rest label/icon must be the near-black');
+  assert.ok(WA_HOVER && /background:#1FB457/.test(WA_HOVER[1]), 'hover darkens to #1FB457');
+  assert.ok(WA_ACTIVE && /background:#1AA34E/.test(WA_ACTIVE[1]), 'active darkens further to #1AA34E');
+  for (const rule of [WA_RULE[1], WA_HOVER[1], WA_ACTIVE[1]]) {
+    assert.ok(/color:#04150B/.test(rule), 'every state keeps the same label colour');
+  }
+});
+
+test('the glow follows the button colour instead of leaking the azure brand', () => {
+  assert.ok(/box-shadow:[^;]*rgba\(37,211,102/.test(WA_RULE[1]), 'rest glow is green-tinted');
+  assert.equal(/rgba\(94,160,255/.test(WA_RULE[1]), false, 'no azure glow on the WhatsApp button');
+});
+
+test('every state clears WCAG AA against the label colour', () => {
+  const lum = (hex) => {
+    const n = hex.replace('#', '');
+    const ch = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255);
+    const f = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    return 0.2126 * f(ch[0]) + 0.7152 * f(ch[1]) + 0.0722 * f(ch[2]);
+  };
+  const ratio = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  for (const bg of ['#25D366', '#1FB457', '#1AA34E']) {
+    assert.ok(ratio(bg, '#04150B') >= 4.5, bg + ' must reach 4.5:1, got ' + ratio(bg, '#04150B').toFixed(2));
+  }
+});
+
+test('no other button picked up the green', () => {
+  // the compound class appears only on the WhatsApp state rules
+  const occurrences = (INDEX.match(/\.btn\.payment-partner-whatsapp\.payment-partner-btn/g) || []).length;
+  assert.strictEqual(occurrences, 3, 'expected exactly rest + hover + active');
+  // the generic primary rules are untouched
+  assert.ok(/\.btn-primary \{\s*background:var\(--kx-accent\)/.test(INDEX), '.btn-primary keeps the azure accent');
+  assert.ok(/\.deposit-modal-content \.btn-primary \{\s*box-shadow/.test(INDEX), 'the dialog glow rule is intact');
+  // and the old single-class rule is gone, so nothing can shadow the new one
+  assert.equal(/\.payment-partner-whatsapp\{/.test(INDEX), false, 'the losing single-class rule must be gone');
+});

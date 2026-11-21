@@ -224,8 +224,10 @@ test('8. the partner buttons and copy stay mobile-friendly', () => {
     'two columns on wider screens');
   assert.match(INDEX, /\.deposit-partner-note\{font-size:10\.5px;color:var\(--text-secondary\);line-height:1\.5;margin:0;overflow-wrap:anywhere;\}/,
     'the backup note wraps instead of overflowing');
-  assert.match(INDEX, /\.payment-partner-whatsapp\{background:#25D366;border-color:#25D366;color:#04150B;\}/,
-    'WhatsApp is visually distinct');
+  // Compound on purpose: `.btn-primary` is re-declared later in the sheet, so a
+  // single-class rule loses on cascade order and the button renders azure.
+  assert.match(INDEX, /\.btn\.payment-partner-whatsapp\.payment-partner-btn\{background:#25D366;border-color:#25D366;color:#04150B;/,
+    'WhatsApp is visually distinct and out-specifies .btn-primary');
   assert.match(INDEX, /\.payment-partner-name\{font-size:12px;font-weight:700;color:var\(--text-primary\);overflow-wrap:anywhere;\}/,
     'names wrap');
 });

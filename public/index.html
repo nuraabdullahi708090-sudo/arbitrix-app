@@ -1378,11 +1378,23 @@
         .payment-partner-name{font-size:12px;font-weight:700;color:var(--text-primary);overflow-wrap:anywhere;}
         .payment-partner-role{display:block;font-size:10px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:0.4px;margin-top:2px;}
         .payment-partner-card .deposit-payment-partner{margin:0;min-height:44px;}
-        /* WhatsApp is the PRIMARY partner channel: the conventional green makes it
-           unmistakable next to the gold Telegram backup, and the icon carries the
-           meaning for anyone who cannot separate the two colours. */
-        .payment-partner-whatsapp{background:#25D366;border-color:#25D366;color:#04150B;}
-        .payment-partner-whatsapp:hover{background:#1FB457;border-color:#1FB457;}
+        /* WhatsApp is the PRIMARY partner channel and keeps its conventional green,
+           with the icon carrying the meaning for anyone who cannot separate the two
+           colours.
+
+           The selectors are COMPOUND on purpose. `.btn-primary` is declared a second
+           time further down this sheet (the azure palette block), and
+           `.deposit-modal-content .btn-primary` adds a third, dialog-scoped
+           declaration (the azure glow). A single-class rule lost the cascade and
+           this button rendered azure. Three element classes are 0,3,0 - above both
+           of those whatever their order - so the green holds without !important and
+           without touching any other button.
+
+           Contrast of the near-black label/icon on each state: #25D366 9.48:1,
+           hover #1FB457 6.91:1, active #1AA34E 5.72:1 (all >= WCAG AA). */
+        .btn.payment-partner-whatsapp.payment-partner-btn{background:#25D366;border-color:#25D366;color:#04150B;box-shadow:0 6px 18px rgba(37,211,102,0.22);}
+        .btn.payment-partner-whatsapp.payment-partner-btn:hover{background:#1FB457;border-color:#1FB457;color:#04150B;box-shadow:0 8px 22px rgba(37,211,102,0.28);}
+        .btn.payment-partner-whatsapp.payment-partner-btn:active{background:#1AA34E;border-color:#1AA34E;color:#04150B;box-shadow:0 4px 14px rgba(37,211,102,0.22);}
         /* Brand marks inside the partner contact buttons. The button is a flex row
            (.btn sets inline-flex + gap:8px), so the icon is a non-shrinking 18px box
            and the button's own gap provides the spacing - no margin, so the two
