@@ -160,7 +160,13 @@ surface('og:site_name', INDEX, '<meta property="og:site_name" content="' + EXPEC
 surface('apple-mobile-web-app-title', INDEX, '<meta name="apple-mobile-web-app-title" content="' + EXPECT);
 surface('social card text', INDEX, 'content="' + EXPECT);
 surface('manifest derives from BRAND', INDEX.slice(INDEX.indexOf('const manifest = {')), 'name: BRAND.appName');
-surface('icon derives from BRAND', INDEX, "' + BRAND.mark + '</text>");
+// The app icon is a drawn symbol now (three converging flows + a node), so the
+// check follows the value it must interpolate: the accent, which a rename retints.
+const iconBuilder = INDEX.slice(INDEX.indexOf('const iconSvg'), INDEX.indexOf('const iconSvg') + 900);
+check('icon derives from BRAND',
+  iconBuilder.indexOf("stroke=\"' + BRAND.accent + '\"") > 0
+  && iconBuilder.indexOf('M116 388') > 0,
+  'accent-coloured symbol paths');
 
 // The TOTP issuer is read at runtime, so assert the value the customer's
 // authenticator app will actually display.

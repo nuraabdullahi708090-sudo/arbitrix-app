@@ -356,7 +356,7 @@
     --on-brand:#06121F;
     --border:#26344F;
     --border-strong:#2A3852;
-    --success:#5EA0FF;
+    --success:var(--kx-success);
     /* ---- Kalderix identity (CANDIDATE) ----------------------------------
        INERT: nothing below applies until <html data-brand="kalderix"> is set,
        which only the approval step does. Keeping it in the stylesheet (rather
@@ -4187,7 +4187,9 @@
 
     /* --- toasts ------------------------------------------------------------- */
     .toast {
-        bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:12px; right:12px;
+        /* lifted clear of the floating support launcher (48px + 16px margin) so
+           the two never overlap, plus the device safe area */
+        bottom:calc(80px + env(safe-area-inset-bottom, 0px)); left:12px; right:12px;
         max-width:520px; margin:0 auto; padding:11px 12px 11px 14px;
         border-radius:var(--kx-r); font-size:13px; font-weight:600;
         align-items:flex-start; gap:10px;
@@ -4211,26 +4213,33 @@
        withdrawal requirements, subscription due, expired invoice), so it wears
        the red skin the owner asked for; amber is reserved for the inline
        .kx-alert-warning variant. */
+    /* SOLID surfaces. A translucent panel let the dashboard read through the
+       notification, which made every message look like a rendering glitch; a
+       toast is an overlay and must occlude what is behind it. */
     .toast-success {
-        background:rgba(46,189,133,0.14);
-        border-color:var(--kx-success-border);
-        color:var(--kx-success-text);
-        box-shadow:0 12px 32px rgba(46,189,133,0.16);
+        background:#0E2A22;
+        border-color:#21795A;
+        color:#9DEDC9;
+        box-shadow:0 18px 44px rgba(0,0,0,0.55), 0 0 0 1px rgba(33,121,90,0.35);
     }
     .toast-error, .toast-warning {
-        background:rgba(229,72,77,0.16);
-        border-color:var(--kx-danger-border);
-        color:var(--kx-danger-text);
-        box-shadow:0 12px 32px rgba(229,72,77,0.20);
+        background:#33161A;
+        border-color:#8E3A42;
+        color:#FFBFC3;
+        box-shadow:0 18px 44px rgba(0,0,0,0.55), 0 0 0 1px rgba(142,58,66,0.40);
     }
-    .toast-success .toast-icon { color:var(--kx-success-text); }
-    .toast-error .toast-icon, .toast-warning .toast-icon { color:var(--kx-danger-text); }
-    .toast-info { background:var(--kx-elevated); border-color:var(--kx-border-strong); }
+    .toast-badge {
+        background:#2A2110;
+        border-color:#8A6A1F;
+        color:#F5D98B;
+    }
+    .toast-success .toast-icon { color:#4FD1A0; }
+    .toast-error .toast-icon, .toast-warning .toast-icon { color:#FF9AA1; }
+    .toast-info { background:#232F3F; border-color:#3D4E63; color:var(--kx-text); }
     .toast-info .toast-icon { color:var(--kx-accent-text); }
-    /* the dismiss control must stay visible on the tinted surfaces */
-    .toast-error .toast-close, .toast-warning .toast-close, .toast-success .toast-close {
-        color:inherit; opacity:0.75;
-    }
+    /* the dismiss control must stay visible on every surface */
+    .toast .toast-close { color:inherit; opacity:0.72; }
+    .toast .toast-close:hover { background:rgba(255,255,255,0.10); opacity:1; }
 
     /* --- language menu ------------------------------------------------------ */
     .language-dropdown {
@@ -4292,7 +4301,9 @@
         .ticker-wrapper { height:32px; min-height:32px; padding:0 4px 0 10px; }
         .ticker-item { font-size:11px; }
         .ticker-label { font-size:9.5px; padding-right:8px; }
-        .toast { bottom:calc(12px + env(safe-area-inset-bottom, 0px)); font-size:12.5px; }
+        /* same launcher clearance as the base rule (48px button + 16px margin
+           + 16px gap): a toast must never sit on the support launcher */
+        .toast { bottom:calc(80px + env(safe-area-inset-bottom, 0px)); font-size:12.5px; }
         .sidebar-link { min-height:44px; }
     }
     /* ---- blocking dialogs -------------------------------------------------
@@ -4311,6 +4322,120 @@
     }
     #profitPauseModal [data-i18n="profitPause.title"] { color:var(--kx-danger-text) !important; }
     #withdrawKycRequired [data-i18n="withdraw.kycRequiredTitle"] { color:var(--kx-danger-text) !important; }
+
+    /* ---- transaction log ---------------------------------------------------
+       A ledger row reads left-to-right: what happened, then what it was worth.
+       The result carries the money colour, the instrument and the timestamp stay
+       secondary, and the figures use tabular numerals so amounts line up down
+       the column instead of drifting with the digits. */
+    .tx-entry {
+        display:flex; align-items:flex-start; gap:12px;
+        padding:11px 14px;
+        border-bottom:1px solid var(--kx-divider);
+    }
+    .tx-entry:last-child { border-bottom:none; }
+    .tx-main { min-width:0; flex:1 1 auto; }
+    .tx-figure { flex:0 0 auto; text-align:right; margin-left:auto; }
+    .tx-type { font-size:12.5px; font-weight:650; color:var(--kx-text); line-height:1.35; }
+    .tx-detail { font-size:11px; font-weight:500; color:var(--kx-text-3); line-height:1.4; margin-top:1px; overflow-wrap:anywhere; }
+    .tx-amount {
+        font-size:13.5px; font-weight:800; letter-spacing:-0.01em;
+        font-variant-numeric:tabular-nums; line-height:1.3;
+        white-space:nowrap;
+    }
+    .tx-amount.positive, .tx-amount.negative, .tx-amount.neutral { color:inherit; }
+    .tx-time { font-size:10px; font-weight:600; color:var(--kx-text-3); margin-top:2px; white-space:nowrap; }
+
+    /* ---- dashboard rhythm --------------------------------------------------
+       Two deliberate tiers: the chrome at the top of the dashboard (toolbar,
+       ticker) sits on a 12px rhythm because it is one continuous strip of
+       context, and the content cards sit on 16px so each block reads as its own
+       unit. Before this the gaps ran 10 / 12 / 16 / 12 with no rule behind them. */
+    #appToolbar, .app-header { margin-bottom:12px; }
+    #activityTicker, .ticker-wrapper { margin-bottom:12px; }
+    #walletTabsWrapper, .wallet-tabs-wrapper { margin-bottom:16px; }
+    #mainContent > .card, #mainContent > .stats-grid { margin-bottom:16px; }
+    #mainContent > .card:last-child { margin-bottom:0; }
+
+    /* ---- bot control panel -------------------------------------------------
+       The panel has to answer three questions at a glance: is the scanner on,
+       is the bot running, and what does the button do. A state pill in the card
+       header, a framed control row and a Stop that reads as Stop (not as a
+       second Start) do that without touching the trading logic. */
+    .kx-state-pill {
+        display:inline-flex; align-items:center; gap:6px;
+        margin-left:auto; padding:3px 9px 3px 7px;
+        border-radius:999px; border:1px solid var(--kx-border-strong);
+        background:rgba(255,255,255,0.03);
+        font-size:10.5px; font-weight:700; letter-spacing:0.02em;
+        color:var(--kx-text-2); white-space:nowrap;
+    }
+    .kx-state-pill .kx-dot {
+        width:6px; height:6px; border-radius:50%;
+        background:var(--kx-text-3); flex:0 0 auto;
+    }
+    .kx-state-pill[data-state="running"] {
+        color:var(--kx-success-text);
+        border-color:var(--kx-success-border);
+        background:rgba(46,189,133,0.10);
+    }
+    .kx-state-pill[data-state="running"] .kx-dot {
+        background:var(--kx-success); box-shadow:0 0 0 3px rgba(46,189,133,0.18);
+        animation:kx-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes kx-pulse { 0%,100% { opacity:1 } 50% { opacity:0.45 } }
+    @media (prefers-reduced-motion: reduce) {
+        .kx-state-pill[data-state="running"] .kx-dot { animation:none; }
+    }
+    .kx-control-row {
+        padding:9px 11px; margin-bottom:8px;
+        border:1px solid var(--kx-border); border-radius:var(--kx-r);
+        background:rgba(255,255,255,0.02);
+    }
+    .kx-control-label { font-size:12.5px; font-weight:600; color:var(--kx-text-2); }
+    .kx-hint { font-size:11px; line-height:1.5; color:var(--kx-text-3); margin-bottom:10px; }
+    .kx-hint-tight { margin-bottom:9px; }
+    .kx-bot-action { min-height:44px; font-size:13px; letter-spacing:0.01em; }
+    .kx-bot-action.kx-bot-stop {
+        background:var(--kx-danger-weak);
+        border-color:var(--kx-danger-border);
+        color:var(--kx-danger-text);
+        box-shadow:none;
+    }
+    .kx-bot-action.kx-bot-stop:hover { background:rgba(229,72,77,0.20); }
+    .kx-bot-status { font-size:11px; color:var(--kx-text-3); margin-top:9px; text-align:center; line-height:1.45; }
+
+    /* ---- live activity ticker ----------------------------------------------
+       The strip is ambient context, not headline news: it sits in its own
+       muted band, scrolls slowly, and can be dismissed. */
+    .ticker-wrapper { opacity:0.92; }
+    .ticker-label {
+        font-size:10px; font-weight:800; letter-spacing:0.08em;
+        text-transform:uppercase; color:var(--kx-text-3);
+    }
+    .ticker-content { font-size:11.5px; color:var(--kx-text-2); }
+
+    /* ---- brand mark -------------------------------------------------------
+       The symbol is an inline SVG so it inherits the page's colours, scales
+       without a raster and needs no network request. */
+    .kx-logo-mark { display:block; flex:0 0 auto; }
+    .kx-logo .kx-logo-mark { width:19px; height:19px; }
+    .auth-brand-logo .kx-logo-mark { width:30px; height:30px; }
+    .auth-logo-mobile .kx-logo-mark { width:26px; height:26px; margin-bottom:6px; }
+    .landing-logo .kx-logo-mark { width:24px; height:24px; }
+    @media (max-width:400px) { .landing-logo .kx-logo-mark { width:22px; height:22px; } }
+
+    /* ---- financial semantics ----------------------------------------------
+       The brand colour describes INTERACTION; money describes OUTCOME. Positive
+       and negative results therefore have their own reusable classes instead of
+       borrowing the accent (which is how a "+$40.00" ended up blue).
+       Neutral account values (equity, available, deposits) stay neutral: a
+       balance is not a result. */
+    .fin-positive { color:var(--kx-success-text) !important; }
+    .fin-negative { color:var(--kx-danger-text) !important; }
+    .fin-neutral  { color:var(--kx-text) !important; }
+    .fin-zero     { color:var(--kx-text-2) !important; }
+    #pnlValue { font-variant-numeric:tabular-nums; }
 
     /* ---- inline alerts ----------------------------------------------------
        The promotional-credit restriction used to be 10px centred text in the
@@ -6440,7 +6565,7 @@ console.log('🔐 Auth script loaded successfully');
     <nav class="landing-nav">
         <div class="landing-nav-container">
             <a href="/" class="landing-logo">
-                <i class="fas fa-arrows-spin"></i>
+                <svg class="kx-logo-mark" viewBox="0 0 512 512" width="24" height="24" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg>
                 <span>Kal<span>derix</span></span>
             </a>
             <div class="landing-nav-links">
@@ -7014,7 +7139,7 @@ console.log('🔐 Auth script loaded successfully');
             <div class="landing-footer-grid">
                 <div class="landing-footer-brand">
                     <a href="/" class="landing-logo">
-                        <i class="fas fa-arrows-spin"></i>
+                        <svg class="kx-logo-mark" viewBox="0 0 512 512" width="24" height="24" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg>
                         <span>Kal<span>derix</span></span>
                     </a>
                     <p data-i18n="landing.footer.tagline">Automated multi-asset arbitrage trading platform.</p>
@@ -7136,7 +7261,7 @@ function toggleFaq(btn) {
         <div class="auth-brand-panel">
             <div class="auth-brand-content">
                 <div class="auth-brand-logo">
-                    <i class="fas fa-arrows-spin"></i>
+                    <svg class="kx-logo-mark" viewBox="0 0 512 512" width="30" height="30" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg>
                     <span>Kal<em>derix</em></span>
                 </div>
                 <h2 class="auth-brand-title" data-i18n="auth.brand.title">Automated Arbitrage. Made Simple.</h2>
@@ -7188,7 +7313,7 @@ function toggleFaq(btn) {
             <div class="auth-container">
                 <!-- Logo Mobile -->
                 <div class="auth-logo-mobile">
-                    <i class="fas fa-arrows-spin"></i>
+                    <svg class="kx-logo-mark" viewBox="0 0 512 512" width="26" height="26" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg>
                     <h1>Kal<em>derix</em></h1>
                     <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin:8px 0 0;" data-i18n="auth.mobileTagline">Multi-asset automated arbitrage. Start in Demo Mode.</p>
                 </div>
@@ -7530,7 +7655,7 @@ function toggleFaq(btn) {
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div style="display:flex;align-items:center;gap:8px;"><i class="fas fa-arrows-spin" style="color:var(--brand);font-size:18px;"></i><span style="color:white;font-weight:bold;">Kal<span style="color:var(--brand);">derix</span></span></div>
+            <div style="display:flex;align-items:center;gap:9px;"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="26" height="26" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg><span style="color:white;font-weight:800;letter-spacing:-0.01em;">Kal<span style="color:var(--brand);">derix</span></span></div>
             <div style="font-size:10px;color:var(--text-muted);" data-i18n="sidebar.tagline">Multi-Asset Arbitrage</div>
         </div>
         <a class="sidebar-link active" data-section="mainContent"><i class="fas fa-gauge-high"></i> <span data-i18n="sidebar.dashboard">Dashboard</span></a>
@@ -7563,7 +7688,7 @@ function toggleFaq(btn) {
         <div class="app-header" id="appToolbar">
             <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
             <div class="app-header-brand">
-                <span class="kx-logo" aria-hidden="true"><i class="fas fa-arrows-spin"></i></span>
+                <span class="kx-logo" aria-hidden="true"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="19" height="19" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg></span>
                 <span class="kx-wordmark">Kal<span>derix</span></span>
             </div>
             <div class="kx-toolbar-sub">
@@ -7666,7 +7791,7 @@ function toggleFaq(btn) {
         <div class="stats-grid" style="margin-bottom:16px;">
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div><div id="totalEquity" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.equity">Account value</div></div></div>
             <div class="card" id="availableStatCard"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.available">Ready to use</div><div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value" style="color:#5EA0FF;">+$0.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.pnl">Today's trading profit/loss</div></div></div>
+            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value fin-zero">$0.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.pnl">Today's trading profit/loss</div></div></div>
             <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#E5484D;" data-i18n="bot.offline">Offline</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.botStatus">Running or stopped</div></div></div>
         </div>
 
@@ -7822,13 +7947,15 @@ function toggleFaq(btn) {
                     </div>
                 </div>
                 <div class="card" id="liveBotCard">
-                    <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> <span data-i18n="bot.title">Kalderix Bot</span></div>
+                    <div class="card-header"><span class="icon-bg gold"><i class="fas fa-robot"></i></span> <span data-i18n="bot.title">Kalderix Bot</span>
+                        <span class="kx-state-pill" id="botStatePillLive" data-state="idle"><span class="kx-dot" aria-hidden="true"></span><span class="kx-state-pill-text"></span></span>
+                    </div>
                     <div class="card-body">
-                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;line-height:1.5;" data-i18n="hint.bot">Scans supported markets and trades automatically when running</div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:10px;"><span style="font-size:12px;" data-i18n="bot.enableScanner">Enable Scanner</span><label class="toggle-switch"><input type="checkbox" id="botToggleLive"><span class="toggle-slider"></span></label></div>
-                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;" data-i18n="hint.scanner">Market scanning</div>
-                        <button type="button" id="startStopBtnLive" class="btn btn-primary btn-block" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
-                        <div id="botStatusMsgLive" style="font-size:10px;color:var(--text-muted);margin-top:8px;text-align:center;" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
+                        <div class="kx-hint" data-i18n="hint.bot">Scans supported markets and trades automatically when running</div>
+                        <div class="kx-control-row" style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><span class="kx-control-label" data-i18n="bot.enableScanner">Enable Scanner</span><label class="toggle-switch"><input type="checkbox" id="botToggleLive"><span class="toggle-slider"></span></label></div>
+                        <div class="kx-hint kx-hint-tight" data-i18n="hint.scanner">Market scanning</div>
+                        <button type="button" id="startStopBtnLive" class="btn btn-primary btn-block kx-bot-action" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
+                        <div id="botStatusMsgLive" class="kx-bot-status" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
                         <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Your bot runs automatically and keeps trading even when you're offline.</div>
                     </div>
                 </div>
@@ -10357,6 +10484,7 @@ function applyBrandAssets() {
         const accent = BRAND.accent || '#5EA0FF';
         const dark = '#0E141C';
         const muted = 'var(--text-muted)';
+        const light = '#A9C7FF';
         const svg = function (inner, w, h) {
             return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + w + " " + h + "'>" + inner + '</svg>';
         };
@@ -10364,11 +10492,16 @@ function applyBrandAssets() {
         // truncates the image, which is exactly the kind of bug that shows up as
         // a blank social card and nowhere else.
         const dataUri = function (markup) { return 'data:image/svg+xml,' + encodeURIComponent(markup); };
-        const iconMarkup = function (size, rx, fontSize, y) {
+        const iconMarkup = function (size, rx) {
+            // The drawn symbol, scaled into whatever square the caller needs.
+            const k = size / 512;
             return svg("<rect width='" + size + "' height='" + size + "' rx='" + rx + "' fill='" + dark + "'/>"
-                + "<text " + (size >= 512 ? '' : "x='" + (size / 2) + "' ") + "y='" + y + "' font-family='Arial'"
-                + " font-size='" + fontSize + "' font-weight='900' text-anchor='middle' fill='" + accent + "'>"
-                + BRAND.mark + '</text>', size, size);
+                + "<g transform='scale(" + k + ")' fill='none' stroke-width='62' stroke-linecap='round'>"
+                + "<path d='M116 388 L246 258' stroke='" + accent + "'/>"
+                + "<path d='M116 128 L246 258' stroke='" + accent + "'/>"
+                + "<path d='M246 258 L398 106' stroke='" + light + "'/></g>"
+                + "<path d='M248 196 L310 258 L248 320 L186 258 Z' transform='scale(" + k + ")' fill='#E9EFF7'/>"
+                , size, size);
         };
         const cardMarkup = function () {
             return svg("<rect width='1200' height='630' fill='" + dark + "'/>"
@@ -21008,7 +21141,11 @@ try {
     // Icon letter and app name come from BRAND, so a rename cannot leave an
     // old monogram on the home screen. The accent tracks the themed token when
     // the candidate identity is active.
-    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#0E141C"/><text y="340" font-family="Arial" font-size="340" font-weight="900" text-anchor="middle" fill="' + BRAND.accent + '">' + BRAND.mark + '</text></svg>';
+    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#0E141C"/>'
+        + '<path d="M116 388 L246 258" fill="none" stroke="' + BRAND.accent + '" stroke-width="62" stroke-linecap="round"/>'
+        + '<path d="M116 128 L246 258" fill="none" stroke="' + BRAND.accent + '" stroke-width="62" stroke-linecap="round"/>'
+        + '<path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/>'
+        + '<path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg>';
     const iconDataUri = 'data:image/svg+xml;base64,' + btoa(iconSvg);
     const manifest = { name: BRAND.appName, short_name: BRAND.appName, description: 'Intelligent arbitrage trading platform', start_url: './', scope: './', display: 'standalone', orientation: 'portrait', background_color: '#0E141C', theme_color: '#0E141C', icons: [ { src: iconDataUri, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' }, { src: iconDataUri, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' } ] };
     const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
@@ -21238,22 +21375,52 @@ const getEl = function(id) { return document.getElementById(id); };
 
 const TOAST_ICONS = { success: 'fa-circle-check', error: 'fa-circle-exclamation',
     warning: 'fa-triangle-exclamation', info: 'fa-circle-info' };
+// Toast queue. One message is on screen at a time; a second event waits its turn
+// instead of replacing (or stacking on top of) the first, so nothing is lost and
+// the overlay never becomes a wall of boxes. Identical messages collapse.
+const TOAST_QUEUE = { items: [], visible: false, lastMsg: '', lastAt: 0 };
+const TOAST_QUEUE_MAX = 3;
+
 function showToast(msg, type, duration) {
     type = type || 'info';
     duration = duration || 3000;
-    const old = document.querySelector('.toast');
-    if (old) old.remove();
+    msg = String(msg == null ? '' : msg);
+    if (!msg) return;
+    const now = Date.now();
+    const duplicate = (msg === TOAST_QUEUE.lastMsg && now - TOAST_QUEUE.lastAt < 1500)
+        || TOAST_QUEUE.items.some(function (q) { return q.msg === msg; });
+    if (duplicate) return;
+    if (TOAST_QUEUE.visible) {
+        if (TOAST_QUEUE.items.length >= TOAST_QUEUE_MAX) TOAST_QUEUE.items.shift();
+        TOAST_QUEUE.items.push({ msg: msg, type: type, duration: duration });
+        return;
+    }
+    renderToast({ msg: msg, type: type, duration: duration });
+}
+
+function dismissToast(el) {
+    if (el && el.parentNode) el.remove();
+    TOAST_QUEUE.visible = false;
+    const next = TOAST_QUEUE.items.shift();
+    if (next) renderToast(next);
+}
+
+function renderToast(item) {
+    const type = item.type || 'info';
+    TOAST_QUEUE.visible = true;
+    TOAST_QUEUE.lastMsg = item.msg;
+    TOAST_QUEUE.lastAt = Date.now();
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
     // A restriction or a failure is announced immediately; a confirmation is not.
     el.setAttribute('role', (type === 'error' || type === 'warning') ? 'alert' : 'status');
     el.innerHTML = '<span class="toast-icon" aria-hidden="true"><i class="fas ' + (TOAST_ICONS[type] || TOAST_ICONS.info) + '"></i></span>'
-        + '<span class="toast-msg">' + msg + '</span>'
+        + '<span class="toast-msg">' + item.msg + '</span>'
         + '<button type="button" class="toast-close" aria-label="' + t('common.close') + '">&times;</button>';
+    const timer = setTimeout(function () { dismissToast(el); }, item.duration);
     const close = el.querySelector('.toast-close');
-    if (close) close.addEventListener('click', function () { clearTimeout(timer); el.remove(); });
+    if (close) close.addEventListener('click', function () { clearTimeout(timer); dismissToast(el); });
     document.body.appendChild(el);
-    const timer = setTimeout(function () { el.remove(); }, duration);
 }
 
 // Button Loading State Helpers
@@ -22454,6 +22621,10 @@ function toggleTransactionView() {
     updateDynamicTranslations();
 }
 
+// The ledger stores a mix of money movements and trading results. Only the
+// results carry a P&L sign, so only they get a financial colour.
+const TX_RESULT_TYPES = { 'Trade Executed': true };
+
 function updateTransactionLog() {
     const data = getCurrentData();
     const fullHistory = (data && Array.isArray(data.history)) ? data.history : [];
@@ -22483,13 +22654,20 @@ function updateTransactionLog() {
         if (entry.amount > 0) { amountClass = 'positive'; prefix = '+'; }
         else if (entry.amount < 0) { amountClass = 'negative'; prefix = '-'; }
 
+        // Only a REALIZED RESULT is coloured. A deposit, a withdrawal or a
+        // subscription charge moves the customer's own money: painting those
+        // green would read as profit.
+        const isResult = TX_RESULT_TYPES[entry.type] === true;
+        const finClass = !isResult ? ' fin-neutral'
+            : amountClass === 'positive' ? ' fin-positive'
+            : amountClass === 'negative' ? ' fin-negative' : ' fin-zero';
         html += '<div class="tx-entry">' +
-                '<div style="min-width:0;flex:1;">' +
+                '<div class="tx-main">' +
                     '<div class="tx-type">' + txTypeLabel(entry.type) + '</div>' +
                     '<div class="tx-detail">' + txDetailLabel(entry.detail) + '</div>' +
                 '</div>' +
-                '<div style="text-align:right;flex-shrink:0;">' +
-                    '<div class="tx-amount ' + amountClass + '">' + prefix + formatCurrency(Math.abs(entry.amount)) + '</div>' +
+                '<div class="tx-figure">' +
+                    '<div class="tx-amount ' + amountClass + finClass + '">' + prefix + formatCurrency(Math.abs(entry.amount)) + '</div>' +
                     '<div class="tx-time">' + entry.time + '</div>' +
                 '</div>' +
             '</div>';
@@ -23020,8 +23198,11 @@ function updateUI() {
     getEl('totalEquity').textContent = formatCurrency(data.balance);
     getEl('balanceValue').textContent = formatCurrency(data.balance);
     const pnl = data.pnl || 0;
-    getEl('pnlValue').textContent = (pnl>=0?'+':'') + formatCurrency(pnl);
-    getEl('pnlValue').style.color = pnl >= 0 ? '#5EA0FF' : '#E5484D';
+    const pnlEl = getEl('pnlValue');
+    pnlEl.textContent = (pnl > 0 ? '+' : pnl < 0 ? '-' : '') + formatCurrency(Math.abs(pnl));
+    pnlEl.classList.remove('fin-positive', 'fin-negative', 'fin-zero');
+    pnlEl.classList.add(pnl > 0 ? 'fin-positive' : pnl < 0 ? 'fin-negative' : 'fin-zero');
+    pnlEl.style.color = '';
     getEl('depositBalanceDisplay').textContent = formatCurrency(APP.demoData.balance);
     getEl('liveBalanceDisplay').textContent = formatCurrency(APP.liveData.balance);
     getEl('bonusBalanceDisplay').textContent = formatCurrency(APP.bonusData.balance);
@@ -23038,8 +23219,16 @@ function updateUI() {
     // Promo banner removed - no need to show/hide
     const botBtn = getEl('startStopBtn');
     const botBtnLive = getEl('startStopBtnLive');
+    const botPill = getEl('botStatePillLive');
     const botMsg = getEl('botStatusMsg');
     const botMsgLive = getEl('botStatusMsgLive');
+    if (botPill) {
+        // Presentation of the state the app already holds - never an invented one.
+        const running = !!APP.botRunning;
+        botPill.dataset.state = running ? 'running' : 'idle';
+        const pillText = botPill.querySelector('.kx-state-pill-text');
+        if (pillText) pillText.textContent = t(running ? 'bot.running' : 'bot.offline');
+    }
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     // Promo-credit disclosure: shown only while the SERVER classifies the
     // account as funded by the $50 promotional credit (authoritative source of
