@@ -494,7 +494,7 @@ test('all six locales define the same keys and every new key is non-empty', () =
         assert.deepStrictEqual(extra, [], l + ' unexpected keys');
     }
     const added = ['wallet.liveTitle', 'wallet.liveBalance', 'stats.depositCta', 'onboarding.fundLive',
-        'demoCta.liveBody', 'deposit.retry', 'deposit.getHelp', 'deposit.errRateLimited',
+        'deposit.retry', 'deposit.getHelp', 'deposit.errRateLimited',
         'deposit.errUnavailable', 'deposit.errSession', 'deposit.errInvalid'];
     for (const l of LOCALES) {
         for (const k of added) {

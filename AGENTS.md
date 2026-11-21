@@ -9510,3 +9510,61 @@ configuration was modified. No merge and no deploy.
 - EXTERNAL (not done, no code): BotFather display name/About/description/photo,
   group + channel titles, Payhip store/product names, Q8Pay merchant display name, and
   the future domain migration (docs section 7).
+
+
+## Dashboard Messaging & UI Cleanup (2026-11-21, public/index.html + tests, presentation-only)
+- Five presentation/copy items. NO change to server.js, services, migrations, deposits,
+  withdrawals, trading, promotional-credit ENFORCEMENT (the $20 realised-profit cap and
+  the first-deposit withdrawal rule are server-side and untouched), subscriptions, KYC,
+  referrals or the sandbox. Dictionary: 1646 -> 1640 keys/locale (six keys retired).
+
+1. TOP PROMOTIONAL-CREDIT NOTICE
+   - Copy is now "Your promotional credit can be used for trading. You can withdraw when
+     you make a qualifying first deposit and a trade." in all 6 locales (the $50 figure is
+     no longer baked into the sentence; the amount is still shown on the promo card).
+   - Restyled from `kx-alert-danger` to the EXISTING `kx-alert-warning` (amber) variant.
+     The base `.kx-alert` stays red for real errors, so an account limitation is no longer
+     painted like a fault. Placement/visibility logic unchanged (still the first screen,
+     still driven by the server's `promoCreditFunded` classification).
+
+2. LIVE MODE GUIDE
+   - `startHereLiveSteps()` now returns TWO steps: activation, then the first Live trade.
+     The deposit instruction (`startHere.live.step1`) is gone from the guide and from all
+     six dictionaries; the card therefore quotes no funding amount at all.
+   - DEMO checklist is byte-identical.
+
+3. PROMOTIONAL CREDIT CARD
+   - `promo.creditExplain` is now the two approved sentences only (amount still
+     interpolated from the wallet). The "Activation does not add trading capital" and
+     "subject to ... withdrawal conditions" sentences were removed in all 6 locales.
+     `Activate Live Mode` and the rest of `renderLiveModeCard()` are unchanged.
+
+4. "Ready for real trading?" CARD
+   - Heading kept; body is ONE paragraph ("You are exploring with virtual funds. Activate
+     live trading to start with real funds.") in 6 locales; the mode-swapped live variant
+     and the activation note were removed with their keys.
+   - "Review Live Requirements" and "Maybe later" buttons removed (and
+     `reviewLiveRequirements()`). "Make My First Deposit" is kept and still calls the
+     existing `openDepositModal()` (no invoice).
+   - DELIBERATE CONSEQUENCE: the card is now DEMO-ONLY, because its copy is only true
+     there. A Live-but-unfunded account keeps its Live Wallet card, the Available-card
+     Deposit button and the activation notice - verified in the browser.
+   - A dismissal flag stored by an earlier build is still honoured (`isFirstDepositCtaDismissed`);
+     `dismissDemoDepositCta()` is retained only as the writer of that flag.
+
+5. LIVE WALLET CARD
+   - The duplicate `#promoCreditNotice` element and its `updateUI()` toggle were removed,
+     leaving exactly one notice on the dashboard. No empty gap remains (measured 16px,
+     the normal card margin).
+
+VERIFICATION: `npm test` = 3631 pass / 0 fail (one test deleted with the removed
+review-only handler; every other pin was updated for the intentional change, not
+weakened). Headless Chromium (puppeteer-core + /usr/bin/chromium, inert API stubs,
+CDN requests aborted) = 154/154 across en/es/pt/fr/ar/zh x 320/390/1280 plus item
+scenarios (exact EN copy, amber computed colour rgb(247,192,140), one notice element,
+2 guide steps, no `$` amount in the guide, 1 paragraph + 1 button on the demo card,
+CTA opens the deposit dialog without an invoice, ar RTL, 0 horizontal overflow, 0 page
+errors) and 8/8 supplementary checks (live prompt intact, wallet-card spacing, sandbox
+parity). Encoding verified against HEAD: 0 U+FFFD, and the non-ASCII delta is exactly
+the removed/added copy.
+- NOT merged/deployed at the time of writing (PR open, awaiting instruction).

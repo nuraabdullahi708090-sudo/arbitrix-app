@@ -101,28 +101,33 @@ test('1b. no page still ships the previous violet/navy palette', () => {
 /* ------------------------------------------------------------------ *
  * 1e. the promotional-credit restriction is a warning, not fine print
  * ------------------------------------------------------------------ */
-test('1e. the promo-credit restriction renders as a red alert on the first screen', () => {
+test('1e. the promo-credit restriction renders as a single amber notice on the first screen', () => {
     // Reported twice: "the promo credit warning is still not visible". It used
     // to be 10px centred text in the brand tint, inside the Live wallet card,
     // which is not even rendered while a promo-funded account sits in Demo.
-    const empty = (INDEX.match(/<div id="promoCreditNotice"[^>]*>/g) || [])[0] || '';
-    assert.match(empty, /kx-alert kx-alert-danger/, 'the wallet-card notice uses the alert component');
+    // There is now exactly ONE notice, on the first screen, in the amber
+    // restriction skin - red is reserved for errors and destructive states.
+    assert.strictEqual((INDEX.match(/id="promoCreditNotice"/g) || []).length, 0,
+        'the duplicate notice inside the Live Wallet card is gone');
     const banner = (INDEX.match(/<div id="promoCreditBanner"[^>]*>/g) || [])[0] || '';
-    assert.match(banner, /kx-alert kx-alert-danger/, 'a first-screen banner exists too');
+    assert.match(banner, /kx-alert kx-alert-warning/, 'the first-screen banner uses the amber variant');
+    assert.ok(!/kx-alert-danger/.test(banner), 'a restriction is not painted as an error');
     assert.ok(INDEX.indexOf('id="promoCreditBanner"') < INDEX.indexOf('id="startHereCard"'),
         'the banner sits above the onboarding card, i.e. on the first screen');
-    // One decision drives both, so they cannot disagree.
-    const start = INDEX.indexOf("const showPromoNotice");
-    const fn = INDEX.slice(start, INDEX.indexOf("updateDemoFirstDepositCta", start));
-    assert.match(fn, /promoNotice\.classList\.toggle\('hidden', !showPromoNotice\)/);
+    // One decision drives the single banner.
+    const start = INDEX.indexOf('const promoBanner = document.getElementById');
+    assert.ok(start > 0, 'the visibility decision reads the banner element');
+    const fn = INDEX.slice(start, INDEX.indexOf('updateDemoFirstDepositCta', start));
     assert.match(fn, /promoBanner\.classList\.toggle\('hidden', !showPromoNotice\)/);
-    // The component itself: semantic red, body-size text, left aligned.
+    // The component itself: body-size text, left aligned, and the amber tokens.
     const rule = CSS.slice(CSS.indexOf('.kx-alert {'), CSS.indexOf('.kx-alert.kx-alert-warning'));
-    assert.match(rule, /background:var\(--kx-danger-weak\)/, 'a red-tinted background');
-    assert.match(rule, /border:1px solid var\(--kx-danger-border\)/, 'a red border');
-    assert.match(rule, /color:var\(--kx-danger-text\)/, 'readable red text');
+    assert.match(rule, /background:var\(--kx-danger-weak\)/, 'the base skin stays red for errors');
     assert.match(rule, /font-size:12px/, 'body size, not 10px fine print');
     assert.match(rule, /text-align:left/, 'left aligned, so it reads as a notice');
+    const warn = CSS.slice(CSS.indexOf('.kx-alert.kx-alert-warning'), CSS.indexOf('.kx-alert.hidden'));
+    assert.match(warn, /background:var\(--kx-warning-weak\)/, 'amber background for a restriction');
+    assert.match(warn, /border-color:var\(--kx-warning-border\)/, 'amber border');
+    assert.match(warn, /color:var\(--kx-warning-text\)/, 'readable amber text');
     assert.match(CSS, /\.kx-alert\.hidden \{ display:none; \}|\.hidden\{display:none!important/, 'it can still be hidden');
 });
 
