@@ -78,16 +78,17 @@ test('2. the identity assets are complete, self-contained and use the candidate 
     'the generator is deterministic (re-running it changes nothing)');
 });
 
-test('3. the stylesheet override is inert until the candidate attribute is present', () => {
+test('3. the stylesheet override is scoped to the brand attribute (now enabled statically)', () => {
   const block = INDEX.slice(INDEX.indexOf('KALDERIX IDENTITY OVERRIDE'));
   const css = block.slice(0, block.indexOf('</style>'));
   assert.ok(/html\[data-brand="kalderix"\]\{/.test(css), 'the override is scoped to the attribute');
   assert.ok(css.includes('--brand:' + ID.palette.accent), 'the override carries the candidate accent');
   assert.ok(css.includes('--brand-rgb:124,92,255'), 'the translucency triplet follows');
-  // Nothing may set the attribute unconditionally, or the shipped build would
-  // silently render the candidate palette.
+  // Kalderix is the approved identity (BRAND.name === BRAND.candidate), so the
+  // attribute is declared statically: applyBrandAssets() sets it at runtime
+  // anyway, and declaring it here removes the pre-JS flash of the old palette.
   const rootTag = INDEX.slice(INDEX.indexOf('<html'), INDEX.indexOf('>', INDEX.indexOf('<html')) + 1);
-  assert.ok(!/data-brand=/.test(rootTag), 'the attribute is not in the static root tag');
+  assert.ok(/data-brand="kalderix"/.test(rootTag), 'the approved identity is declared on the static root tag');
   const fn = INDEX.slice(INDEX.indexOf('function applyBrandAssets()'));
   const fnBody = fn.slice(0, fn.indexOf('\napplyBrandAssets();'));
   assert.ok(/if \(BRAND\.name === BRAND\.candidate\)/.test(fnBody),
