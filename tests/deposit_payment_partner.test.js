@@ -15,6 +15,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+
+// The partner contact icons are module-scope constants: the harnesses below run
+// single functions in isolation, so the constants have to travel with them.
+const PARTNER_ICONS_SRC = INDEX.slice(INDEX.indexOf('const PARTNER_ICON_WHATSAPP'),
+  INDEX.indexOf("';", INDEX.indexOf('const PARTNER_ICON_TELEGRAM')) + 2);
 const ALEX = 'https://t.me/AlexArbitrix';
 const OLIVIA = 'https://t.me/OliviaArbitrix';
 
@@ -72,6 +77,7 @@ function render(metas, opts = {}) {
     };
     vm.createContext(sandbox);
     vm.runInContext([
+        PARTNER_ICONS_SRC,
         'const PAYMENT_PARTNER_SLOTS = ' + JSON.stringify([
             { id: 'alex', name: 'Alex', meta: 'arbitrix-partner-support-telegram', overrideWindow: true },
             { id: 'olivia', name: 'Olivia', meta: 'arbitrix-partner-support-telegram-2', overrideWindow: false },
@@ -144,7 +150,7 @@ test('a window override replaces slot 1 only', () => {
       const { nodes } = render(BOTH);
       const html = nodes.depositPartnerContacts.innerHTML;
       assert.ok(html.includes('href="https://wa.me/17828027841"'), 'Olivia is reached on WhatsApp');
-      assert.match(html, /fab fa-whatsapp/, 'WhatsApp icon');
+      assert.match(html, /<svg class="partner-btn-icon"[^>]*viewBox="0 0 24 24"/, 'WhatsApp brand icon');
       assert.ok(html.includes('href="' + ALEX + '"'), 'Alex stays on Telegram');
       assert.ok(html.indexOf('data-partner="olivia"') < html.indexOf('data-partner="alex"'), 'Olivia first');
       assert.ok(!html.includes(OLIVIA), 'Olivia Telegram is never offered in the deposit flow');
