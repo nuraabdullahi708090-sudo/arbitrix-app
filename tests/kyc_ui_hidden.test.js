@@ -101,12 +101,12 @@ test('the approved "verification is not required" wording is displayed and local
     assert.ok(/additional checks may still be required/i.test(T.en['support.verificationNotRequired']));
 });
 
-test('openVerificationModal keeps its sandbox/demo/live behavior intact', () => {
+test('openVerificationModal keeps its sandbox/live behavior intact', () => {
     const fn = extractFunction('openVerificationModal');
     assert.ok(/MARKETING_SANDBOX/.test(fn), 'sandbox short-circuit preserved');
     assert.ok(/verificationSandboxInfoModal/.test(fn), 'sandbox info modal preserved');
-    assert.ok(/APP\.mode === 'demo'/.test(fn), 'demo short-circuit preserved');
-    assert.ok(/verificationDemoInfoModal/.test(fn), 'demo info modal preserved');
+    assert.ok(!/APP\.mode/.test(fn), 'no demo-mode branch survives');
+    assert.ok(!/verificationDemoInfoModal/.test(fn), 'the demo info modal is gone');
     assert.ok(/getElementById\('verificationModal'\)\.classList\.add\('open'\)/.test(fn),
         'live path still opens the real KYC form (withdrawal-triggered)');
 });

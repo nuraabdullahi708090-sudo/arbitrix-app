@@ -1,402 +1,225 @@
 'use strict';
-
 /**
- * POST-REGISTRATION ONBOARDING FUNNEL — tests.
+ * Post-registration onboarding - single-mode contract.
  *
- * Business goal: Demo is an optional product preview; the primary onboarding
- * path guides users to their first real deposit. Pins:
- *   - a new user sees two choices: primary "Make My First Deposit" and
- *     secondary "Explore Demo";
- *   - "Make My First Deposit" opens the deposit flow (demo notice + switch);
- *   - "Explore Demo" enters Demo mode (never forced to deposit);
- *   - no invoice is created and no balance is credited by showing/choosing the
- *     onboarding or switching modes;
- *   - returning users (and sandbox accounts) are never re-onboarded;
- *   - demo / promotional / real deposited balances stay clearly separated.
- *
- * Run: npm test
+ * Demo Mode was retired, so the funnel no longer asks the customer to pick a
+ * mode. It presents the two real funding paths (start on the $50 promotional
+ * credit, or deposit) and is shown at most once per account.
  */
-
 const test = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require('fs');
+const path = require('path');
 const vm = require('node:vm');
 
-const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-const SERVER = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+const ROOT = path.join(__dirname, '..');
+const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 
 function loadTranslations() {
-    const blocks = [...INDEX.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-    const blk = blocks.find((b) => b.includes('const TRANSLATIONS'));
-    assert.ok(blk, 'TRANSLATIONS block should exist');
-    const start = blk.indexOf('const TRANSLATIONS');
-    let i = blk.indexOf('{', start);
-    let depth = 0;
-    let end = -1;
-    for (; i < blk.length; i++) {
-        if (blk[i] === '{') depth++;
-        else if (blk[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
-    }
-    assert.ok(end > 0, 'TRANSLATIONS object should be brace-matchable');
-    const sandbox = {};
-    vm.createContext(sandbox);
-    vm.runInContext('this.T = ' + blk.slice(blk.indexOf('{', start), end + 1), sandbox);
-    return sandbox.T;
+  const tIdx = INDEX.indexOf('const TRANSLATIONS');
+  let i = INDEX.indexOf('{', tIdx);
+  let depth = 0;
+  let end = -1;
+  for (; i < INDEX.length; i++) {
+    if (INDEX[i] === '{') depth++;
+    else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(INDEX.slice(tIdx, end + 1) + ';globalThis.__T = TRANSLATIONS;', sandbox);
+  return sandbox.__T;
 }
 
 function extractFunction(name) {
-    let start = INDEX.indexOf('function ' + name + '(');
-    assert.ok(start >= 0, name + ' should exist');
-    if (INDEX.slice(Math.max(0, start - 6), start) === 'async ') start -= 6;
-    let i = INDEX.indexOf('{', start);
-    let depth = 0;
-    let end = -1;
-    for (; i < INDEX.length; i++) {
-        if (INDEX[i] === '{') depth++;
-        else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+  const at = INDEX.indexOf('function ' + name);
+  assert.ok(at > 0, name + ' must exist');
+  let depth = 0;
+  let started = false;
+  for (let i = at; i < INDEX.length; i++) {
+    if (INDEX[i] === '{') { depth++; started = true; }
+    else if (INDEX[i] === '}') {
+      depth--;
+      if (started && depth === 0) return INDEX.slice(at, i + 1);
     }
-    assert.ok(end > 0, name + ' should be brace-matchable');
-    return INDEX.slice(start, end + 1);
+  }
+  throw new Error('unterminated ' + name);
 }
 
-const ONBOARDING_FNS = [
-    'currentCachedUser', 'onboardingKey', 'getOnboardingChoice', 'setOnboardingChoice',
-    'onboardingNeeded', 'showOnboarding', 'maybeShowOnboardingForCurrentUser',
-    'chooseOnboarding', 'updateDemoFirstDepositCta', 'updateFirstDepositCta',
-    'updateAvailableDepositButton', 'isFirstDepositCtaDismissed', 'firstDepositDismissKey',
-    'dismissDemoDepositCta',
-    'updateDepositMinNotice', 'refreshDepositModeNotice', 'setExactAmountInstruction',
-    'applyDepositModeVisibility', 'selectDepositOption', 'focusWithoutScroll',
-    'resetDepositModal',
-    'openDepositModal', 'switchToLiveAndContinueDeposit',
-    'depositInvoiceError', 'showDepositInvoiceError', 'clearDepositInvoiceError',
-    'requestDepositAddress',
-];
+const T = loadTranslations();
 
-function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = false } = {}) {
-    const els = {};
-    const fetchCalls = [];
-    const toasts = [];
-    const goToAppCalls = [];
-    const setModeCalls = [];
-    const store = {};
-    function makeEl(id) {
-        const node = {
-            id, style: {}, dataset: {}, value: '', textContent: '', innerHTML: '',
-            disabled: false, classes: new Set(), focus: () => {}, dispatchEvent: () => {},
-        };
-        node.classList = {
-            add: (c) => node.classes.add(c),
-            remove: (c) => node.classes.delete(c),
-            contains: (c) => node.classes.has(c),
-            toggle: (c, force) => {
-                const on = (force === undefined) ? !node.classes.has(c) : !!force;
-                if (on) node.classes.add(c); else node.classes.delete(c);
-            },
-        };
-        return node;
-    }
-    const el = (id) => (els[id] || (els[id] = makeEl(id)));
-
-    const APP = {
-        mode, environment,
-        demoData: { balance: 1000 },
-        liveData: { balance: 50, hasRealDeposit: funded, promoCreditFunded: true },
-        bonusData: { balance: 0 },
-        MIN_DEPOSIT: 100, MTA: 200,
-    };
-
-    const sandbox = {
-        APP, els, fetchCalls, toasts, goToAppCalls, setModeCalls, store, el,
-        console: { log: () => {}, warn: () => {}, error: () => {} },
-        window: {},
-        localStorage: {
-            getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
-            setItem: (k, v) => { store[k] = String(v); },
-            removeItem: (k) => { delete store[k]; },
-        },
-        clearInterval: () => {},
-        setInterval: () => {},
-        document: { getElementById: el, querySelectorAll: () => [] },
-        getEl: el,
-        // Interpolating t() mock so {{min}} substitution can be asserted.
-        t: (k, vars) => {
-            let s = k;
-            if (vars) for (const [kk, vv] of Object.entries(vars)) s += ':' + kk + '=' + vv;
-            return s;
-        },
-        formatCurrency: (n) => '$' + Number(n || 0).toFixed(2),
-        showToast: (...a) => toasts.push(a),
-        translateBackendMessage: (m, fb) => fb || m,
-        updatePaymentProgress: () => {},
-        updateCurrentStatus: () => {},
-        showPaymentSection: () => {},
-        updateUI: () => {},
-        switchChartWallet: () => {},
-        trackMetaConversion: () => {},
-        stopBot: () => {},
-        fetch: async (url) => {
-            fetchCalls.push(String(url));
-            return { ok: true, json: async () => ({ success: true, invoice: { id: 'inv_test' } }) };
-        },
-        setButtonLoading: () => {},
-        goToApp: (src) => { goToAppCalls.push(src); },
-        setMode: (m) => { setModeCalls.push(m); APP.mode = m; },
-    };
-    vm.createContext(sandbox);
-
-    const src = [
-        // appReady mirrors the page-level flag: false here = a first-time entry,
-        // where initApp() (not chooseOnboarding) consumes the pending deposit flag.
-        'var appReady = false;',
-        'var pendingOnboardingDeposit = false; var demoDepositCtaDismissed = false; var demoCtaLastShownAt = 0;',
-        'var firstDepositCtaSuppressed = false;',
-        'var FIRST_DEPOSIT_DISMISS_PREFIX = "arbi_firstdeposit_dismissed_";',
-        'var DEMO_CTA_REMINDER_INTERVAL_MS = 10 * 60 * 1000;',
-        'let paymentPollingInterval = null; let countdownInterval = null; let currentInvoiceId = null; let currentCurrency = "USDT"; let currentNetwork = "TRC20";',
-        'let depositOptionState = { partners: [], partnersAvailable: true, crypto: null, selected: "crypto" };',
-        ...ONBOARDING_FNS.map(extractFunction),
-    ].join('\n');
-    vm.runInContext(src, sandbox);
-    return sandbox;
+function makeEl(id) {
+  const el = {
+    id,
+    style: {},
+    textContent: '',
+    innerHTML: '',
+    classes: new Set(),
+    classList: {
+      add: (c) => el.classes.add(c),
+      remove: (c) => el.classes.delete(c),
+      contains: (c) => el.classes.has(c),
+      toggle: (c, on) => { if (on) el.classes.add(c); else el.classes.delete(c); },
+    },
+    setAttribute() {},
+    addEventListener() {},
+  };
+  return el;
 }
 
-test('New user sees the two onboarding choices (primary demo + secondary live)', () => {
-    // Static wiring: both CTAs exist and the safe (no real money) choice is
-    // visually primary so a beginner is never pushed straight into depositing.
-    const primaryIdx = INDEX.indexOf('onclick="chooseOnboarding(\'demo\')"');
-    const secondaryIdx = INDEX.indexOf('onclick="chooseOnboarding(\'live\')"');
-    assert.ok(primaryIdx > 0, 'primary demo CTA must exist');
-    assert.ok(secondaryIdx > 0, 'secondary live CTA must exist');
-    assert.ok(primaryIdx < secondaryIdx, 'the demo CTA must come first (primary position)');
-    const primaryBtn = INDEX.slice(INDEX.lastIndexOf('<button', primaryIdx), INDEX.indexOf('>', primaryIdx) + 1);
-    const secondaryBtn = INDEX.slice(INDEX.lastIndexOf('<button', secondaryIdx), INDEX.indexOf('>', secondaryIdx) + 1);
-    assert.ok(/btn-primary/.test(primaryBtn), 'Explore Demo Mode must be a primary button');
-    assert.ok(/btn-secondary/.test(secondaryBtn), 'Review Live Mode must be a secondary button');
+function buildSandbox({ environment = 'PRODUCTION', user = { id: 7 }, stored = null, appWasReady = false } = {}) {
+  const els = { onboardingModal: makeEl('onboardingModal') };
+  const store = {};
+  if (stored) store['arbi_onboarding_' + user.id] = stored;
+  const calls = { goToApp: [], deposit: 0, fetches: [] };
+  const sandbox = {
+    els,
+    calls,
+    APP: { environment, user, liveData: {}, minDeposit: 100 },
+    console: { log() {}, warn() {}, error() {} },
+    localStorage: {
+      getItem: (k) => (k in store ? store[k] : null),
+      setItem: (k, v) => { store[k] = String(v); },
+      removeItem: (k) => { delete store[k]; },
+    },
+    document: { getElementById: (id) => els[id] || (els[id] = makeEl(id)), querySelectorAll: () => [] },
+    currentCachedUser: () => user,
+    goToApp: (src) => calls.goToApp.push(src),
+    openDepositModal: () => { calls.deposit += 1; },
+    fetch: (...args) => { calls.fetches.push(args); return Promise.resolve({ ok: true, json: async () => ({}) }); },
+    appReady: appWasReady,
+    pendingOnboardingDeposit: false,
+    t: (k) => T.en[k] || k,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext([
+    extractFunction('onboardingKey'),
+    extractFunction('getOnboardingChoice'),
+    extractFunction('setOnboardingChoice'),
+    extractFunction('onboardingNeeded'),
+    extractFunction('chooseOnboarding'),
+  ].join('\n'), sandbox);
+  return sandbox;
+}
 
-    // The modal explains the platform in plain language before the choice.
-    const at = INDEX.indexOf('id="onboardingModal"');
-    const block = INDEX.slice(at, INDEX.indexOf('id="withdrawModal"', at));
-    assert.ok(/onboarding\.explainer/.test(block), 'onboarding must explain the platform');
-    assert.ok(/data-i18n="onboarding\.primaryDesc"/.test(block), 'primary outcome text is a localized span');
-
-    // Behavioral: showOnboarding opens the modal and makes no request.
-    const sb = buildSandbox();
-    const shown = vm.runInContext('showOnboarding({ id: 1, name: "A" })', sb);
-    assert.strictEqual(shown, true);
-    assert.ok(sb.el('onboardingModal').classList.contains('open'), 'onboarding modal must open');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'showing onboarding must not make any request');
+// ---------------------------------------------------------------------------
+// 1. Markup: two funding paths, no mode choice
+// ---------------------------------------------------------------------------
+test('1. the modal offers a credit path and a deposit path, with no mode picker', () => {
+  const at = INDEX.indexOf('id="onboardingModal"');
+  assert.ok(at > 0, 'the onboarding modal must exist');
+  const modal = INDEX.slice(at, INDEX.indexOf('id="withdrawModal"', at));
+  assert.ok(/id="onboardingPrimaryBtn"[^>]*onclick="chooseOnboarding\('credit'\)"/.test(modal),
+    'the primary action starts on the credit');
+  assert.ok(/id="onboardingSecondaryBtn"[^>]*onclick="chooseOnboarding\('deposit'\)"/.test(modal),
+    'the secondary action opens the deposit flow');
+  assert.ok(!/chooseOnboarding\('(demo|live)'\)/.test(modal), 'no mode choice remains');
+  for (const k of ['onboarding.title', 'onboarding.subtitle', 'onboarding.explainer',
+    'onboarding.primary', 'onboarding.primaryDesc', 'onboarding.secondary',
+    'onboarding.secondaryDesc', 'onboarding.realNote', 'onboarding.promoNote']) {
+    assert.ok(modal.includes('data-i18n="' + k + '"'), k + ' must be rendered');
+  }
+  assert.ok(modal.includes('data-i18n="onboarding.realNote"') && modal.includes('data-i18n="onboarding.promoNote"'),
+    'deposited funds and the credit are described separately');
 });
 
-test('"Review Live Mode" enters Live mode without depositing or creating an invoice', () => {
-    const sb = buildSandbox({ mode: 'demo' });
-    sb.store['arbi_user'] = JSON.stringify({ id: 12 });
-    vm.runInContext('chooseOnboarding("live")', sb);
-    assert.strictEqual(sb.store['arbi_onboarding_12'], 'live', 'live choice persisted per account');
-    assert.deepStrictEqual(sb.goToAppCalls, ['onboarding_live'], 'live path enters the app');
-    assert.strictEqual(sb.APP.mode, 'live', 'user is switched to Live for review');
-    assert.strictEqual(sb.pendingOnboardingDeposit, false, 'live preview never queues a deposit');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'live preview makes no request');
-    assert.ok(!sb.el('onboardingModal').classList.contains('open'), 'onboarding closes after choosing');
+// ---------------------------------------------------------------------------
+// 2. Shown once per account, never for the sandbox
+// ---------------------------------------------------------------------------
+test('2. onboarding is shown at most once per account and never for the sandbox', () => {
+  const first = buildSandbox({});
+  assert.strictEqual(first.onboardingNeeded({ id: 7 }), true, 'a new account needs it');
+
+  const seen = buildSandbox({ stored: 'credit' });
+  assert.strictEqual(seen.onboardingNeeded({ id: 7 }), false, 'a recorded choice suppresses it');
+
+  const sandbox = buildSandbox({ environment: 'MARKETING_SANDBOX' });
+  assert.strictEqual(sandbox.onboardingNeeded({ id: 7 }), false, 'the sandbox never sees it');
+
+  assert.strictEqual(buildSandbox({}).onboardingNeeded(null), false, 'no user, no prompt');
+  const scoped = extractFunction('onboardingKey');
+  assert.match(scoped, /arbi_onboarding_/, 'the flag is per account');
 });
 
-test('"Make My First Deposit" opens the deposit flow (no invoice yet)', () => {
-    const sb = buildSandbox();
-    sb.store['arbi_user'] = JSON.stringify({ id: 7, name: 'A' });
-    vm.runInContext('showOnboarding({ id: 7 })', sb);
-    vm.runInContext('chooseOnboarding("deposit")', sb);
-
-    assert.strictEqual(sb.store['arbi_onboarding_7'], 'deposit', 'choice must be persisted per account');
-    assert.ok(!sb.el('onboardingModal').classList.contains('open'), 'onboarding closes after choosing');
-    assert.deepStrictEqual(sb.goToAppCalls, ['onboarding_deposit'], 'deposit path enters the app');
-    assert.strictEqual(sb.pendingOnboardingDeposit, true, 'initApp consumes the pending deposit flag');
-
-    // Simulate initApp's consumption (mode settled, then open the deposit flow).
-    vm.runInContext('if (pendingOnboardingDeposit) { pendingOnboardingDeposit = false; openDepositModal(); }', sb);
-    assert.ok(sb.el('depositModal').classList.contains('open'), 'deposit modal opens immediately');
-    assert.strictEqual(sb.els.depositDemoNotice.style.display, 'block', 'demo funds -> notice shown');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'no invoice created before the user confirms');
-    assert.strictEqual(sb.pendingOnboardingDeposit, false, 'flag consumed');
-    // Source: initApp really consumes the flag and re-checks returning users.
-    const init = extractFunction('initApp');
-    assert.ok(init.includes('if (pendingOnboardingDeposit)'), 'initApp must consume the pending deposit flag');
-    assert.ok(init.includes('maybeShowOnboardingForCurrentUser();'), 'initApp must check returning-user onboarding');
+// ---------------------------------------------------------------------------
+// 3. The credit path enters the app without creating anything
+// ---------------------------------------------------------------------------
+test('3. the credit path enters the app and creates no invoice', () => {
+  const sb = buildSandbox({});
+  sb.chooseOnboarding('credit');
+  assert.strictEqual(JSON.stringify(sb.calls.goToApp), JSON.stringify(['onboarding_credit']));
+  assert.strictEqual(sb.calls.deposit, 0, 'the deposit dialog is not forced open');
+  assert.strictEqual(sb.calls.fetches.length, 0, 'no request is made');
+  assert.strictEqual(sb.els.onboardingModal.classList.contains('open'), false, 'the modal closes');
+  assert.strictEqual(sb.getOnboardingChoice(7), 'credit', 'the choice is recorded');
 });
 
-test('"Explore Demo" enters Demo mode without forcing a deposit', () => {
-    const sb = buildSandbox();
-    sb.store['arbi_user'] = JSON.stringify({ id: 8, name: 'B' });
-    vm.runInContext('showOnboarding({ id: 8 })', sb);
-    const before = { demo: sb.APP.demoData.balance, live: sb.APP.liveData.balance };
-    vm.runInContext('chooseOnboarding("demo")', sb);
+// ---------------------------------------------------------------------------
+// 4. The deposit path hands off to the EXISTING dialog
+// ---------------------------------------------------------------------------
+test('4. the deposit path reuses the existing deposit dialog', () => {
+  const ready = buildSandbox({ appWasReady: true });
+  ready.chooseOnboarding('deposit');
+  assert.strictEqual(ready.calls.deposit, 1, 'the existing dialog opens immediately');
+  assert.strictEqual(ready.calls.fetches.length, 0, 'opening it creates no invoice');
+  assert.strictEqual(ready.getOnboardingChoice(7), 'deposit');
 
-    assert.strictEqual(sb.store['arbi_onboarding_8'], 'demo');
-    assert.deepStrictEqual(sb.goToAppCalls, ['onboarding_demo']);
-    assert.strictEqual(sb.APP.mode, 'demo', 'user stays in Demo');
-    assert.strictEqual(sb.pendingOnboardingDeposit, false, 'demo path never queues a deposit');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'demo path makes no request');
-    assert.strictEqual(sb.APP.demoData.balance, before.demo, 'demo balance unchanged');
-    assert.strictEqual(sb.APP.liveData.balance, before.live, 'live balance unchanged');
-    // The first-deposit card no longer waits for demo activity: a new customer
-    // must be able to find the funding path immediately. It stays a dismissible
-    // banner and still makes no request of its own.
-    vm.runInContext('updateDemoFirstDepositCta()', sb);
-    assert.ok(!sb.els.demoFirstDepositCta.classList.contains('hidden'), 'the funding prompt is available immediately');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'showing the CTA makes no request');
-    vm.runInContext('dismissDemoDepositCta()', sb);
-    assert.ok(sb.els.demoFirstDepositCta.classList.contains('hidden'), 'in-demo CTA can be dismissed');
-    // Clicking it opens the deposit flow (demo notice + switch), never an invoice.
-    vm.runInContext('openDepositModal()', sb);
-    assert.ok(sb.el('depositModal').classList.contains('open'));
-    assert.strictEqual(sb.fetchCalls.length, 0);
+  const cold = buildSandbox({ appWasReady: false });
+  cold.chooseOnboarding('deposit');
+  assert.strictEqual(cold.pendingOnboardingDeposit, true, 'a cold start defers to initApp');
+  assert.strictEqual(cold.calls.deposit, 0);
 });
 
-test('Switching to Live from the onboarding deposit flow preserves the deposit', async () => {
-    const sb = buildSandbox();
-    sb.store['arbi_user'] = JSON.stringify({ id: 9 });
-    vm.runInContext('chooseOnboarding("deposit")', sb);
-    vm.runInContext('if (pendingOnboardingDeposit) { pendingOnboardingDeposit = false; openDepositModal(); }', sb);
-    assert.ok(sb.el('depositModal').classList.contains('open'));
-
-    vm.runInContext('switchToLiveAndContinueDeposit()', sb);
-    assert.strictEqual(sb.APP.mode, 'live');
-    assert.ok(sb.el('depositModal').classList.contains('open'), 'modal stays open after switching');
-    assert.strictEqual(sb.els.depositDemoNotice.style.display, 'none');
-    assert.strictEqual(sb.els.getAddressBtn.style.display, 'block', 'invoice button enabled after switching');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'switching alone creates no invoice');
-
-    // Only the explicit generate action creates the invoice.
-    sb.els.liveDepositAmount.value = '150';
-    const p = vm.runInContext('requestDepositAddress()', sb);
-    if (p && typeof p.then === 'function') await p;
-    assert.strictEqual(sb.fetchCalls.length, 1, 'invoice created only after user confirms');
+// ---------------------------------------------------------------------------
+// 5. It is a funnel prompt, never a gate
+// ---------------------------------------------------------------------------
+test('5. the funnel is never a gate: the app is reachable without choosing', () => {
+  const body = extractFunction('chooseOnboarding');
+  assert.ok(!/return\s+false|throw/.test(body), 'no path blocks the app');
+  assert.ok(/goToApp\(/.test(body), 'both paths enter the app');
+  // No server-side dependency was introduced for the prompt.
+  assert.ok(!/\/api\/onboarding/.test(SERVER), 'no onboarding endpoint was added');
 });
 
-test('Returning users are not repeatedly shown onboarding', () => {
-    // A stored choice suppresses onboarding for that account.
-    const sb = buildSandbox();
-    sb.store['arbi_user'] = JSON.stringify({ id: 42 });
-    sb.store['arbi_onboarding_42'] = 'demo';
-    assert.strictEqual(vm.runInContext('showOnboarding({ id: 42 })', sb), false);
-    assert.ok(!sb.el('onboardingModal').classList.contains('open'), 'returning user must not see onboarding');
-    vm.runInContext('maybeShowOnboardingForCurrentUser()', sb);
-    assert.ok(!sb.el('onboardingModal').classList.contains('open'));
-
-    // Even a "shown but not chosen" marker prevents an every-login nag.
-    const sb2 = buildSandbox();
-    sb2.store['arbi_user'] = JSON.stringify({ id: 43 });
-    sb2.store['arbi_onboarding_43'] = 'shown';
-    vm.runInContext('maybeShowOnboardingForCurrentUser()', sb2);
-    assert.ok(!sb2.el('onboardingModal').classList.contains('open'), 'shown marker must suppress re-show');
-
-    // A funded account is never prompted, even with no marker.
-    const sb3 = buildSandbox({ funded: true });
-    sb3.store['arbi_user'] = JSON.stringify({ id: 44 });
-    vm.runInContext('maybeShowOnboardingForCurrentUser()', sb3);
-    assert.ok(!sb3.el('onboardingModal').classList.contains('open'), 'funded users are never prompted');
-
-    // First-time, unfunded account IS prompted once.
-    const sb4 = buildSandbox();
-    sb4.store['arbi_user'] = JSON.stringify({ id: 45 });
-    vm.runInContext('maybeShowOnboardingForCurrentUser()', sb4);
-    assert.ok(sb4.el('onboardingModal').classList.contains('open'), 'new unfunded user is prompted');
-    assert.strictEqual(sb4.store['arbi_onboarding_45'], 'shown', 'shown marker stored immediately');
-
-    // Signup shows it explicitly.
-    assert.ok(/showOnboarding\(data\.user\)/.test(extractFunction('handleSignup')), 'signup must show onboarding');
-});
-
-test('MARKETING_SANDBOX behavior is unchanged', () => {
-    const sb = buildSandbox({ environment: 'MARKETING_SANDBOX' });
-    sb.store['arbi_user'] = JSON.stringify({ id: 77 });
-    assert.strictEqual(vm.runInContext('showOnboarding({ id: 77 })', sb), false, 'sandbox is never onboarded');
-    vm.runInContext('maybeShowOnboardingForCurrentUser()', sb);
-    assert.ok(!sb.el('onboardingModal').classList.contains('open'));
-    assert.strictEqual(sb.store['arbi_onboarding_77'], undefined, 'no onboarding marker written for sandbox');
-
-    const sb2 = buildSandbox({ mode: 'demo', environment: 'MARKETING_SANDBOX' });
-    vm.runInContext('openDepositModal()', sb2);
-    assert.ok(!sb2.el('depositModal').classList.contains('open'), 'sandbox demo keeps the old toast, no modal');
-    assert.strictEqual(sb2.toasts.at(-1)[0], 'deposit.switchToLive');
-
-    // The sandbox server branch + provider safeguards are untouched.
-    assert.ok(SERVER.includes('handleSandboxInvoiceCreate'));
-    assert.ok(/const PLATFORM_MIN_DEPOSIT_USD = 100;/.test(SERVER));
-});
-
-test('Demo, promotional and real deposited balances stay clearly separated', () => {
-    const T = loadTranslations();
-    const en = T.en;
-    assert.ok(/virtual/i.test(en['onboarding.virtualNote']), 'demo label must say virtual');
-    assert.ok(/real trading/i.test(en['onboarding.realNote']), 'live label must say real trading');
-    assert.ok(/\$50/.test(en['onboarding.promoNote']) && /separate/i.test(en['onboarding.promoNote']),
-        'promo must be labelled separate from deposits');
-    // The card now states the virtual/real distinction in that exact pair of
-    // sentences; the withdrawal restriction is disclosed once, in the
-    // promotional-credit notice, rather than repeated on every surface.
-    assert.ok(/virtual/i.test(en['demoCta.body']) && /real funds/i.test(en['demoCta.body']),
-        'the demo CTA must separate virtual funds from real funds');
-    assert.ok(!/cannot be withdrawn/i.test(en['demoCta.body']),
-        'the CTA no longer repeats the withdrawal rule');
-    assert.ok(/real/i.test(en['wallet.liveReal']) && /separate/i.test(en['wallet.liveReal']),
-        'live wallet label must say real + separate');
-    // Existing demo label retained.
-    assert.ok(en['demo.virtualOnly'], 'existing demo virtual-only label retained');
-    // No misleading earnings / guarantee claims in the new copy.
-    const suspicious = /guarantee|guaranteed|risk-?free|earn \$|profit guaranteed/i;
-    for (const k of ['onboarding.primaryDesc', 'onboarding.secondaryDesc', 'onboarding.virtualNote',
-        'onboarding.realNote', 'onboarding.promoNote', 'demoCta.body', 'wallet.liveReal']) {
-        assert.ok(!suspicious.test(en[k]), `misleading claim in ${k}`);
+// ---------------------------------------------------------------------------
+// 6. Copy never claims a demo balance or a guaranteed return
+// ---------------------------------------------------------------------------
+test('6. the copy describes the credit honestly and claims nothing else', () => {
+  assert.match(T.en['onboarding.primary'], /\$50/);
+  assert.match(T.en['onboarding.primaryDesc'], /\$30/, 'the profit cap is disclosed');
+  assert.match(T.en['onboarding.secondary'], /deposit/i);
+  assert.match(T.en['onboarding.promoNote'], /separate/i);
+  const banned = /guarantee|risk-free|guaranteed (profit|return)|free money/i;
+  for (const lang of LANGS) {
+    for (const k of Object.keys(T[lang]).filter((x) => x.startsWith('onboarding.'))) {
+      assert.ok(!banned.test(String(T[lang][k])), lang + '.' + k + ' makes a guarantee claim');
     }
+  }
 });
 
-test('Onboarding never credits a balance and creates no invoice', () => {
-    const sb = buildSandbox();
-    sb.store['arbi_user'] = JSON.stringify({ id: 100 });
-    const before = { demo: sb.APP.demoData.balance, live: sb.APP.liveData.balance, bonus: sb.APP.bonusData.balance };
-    vm.runInContext('showOnboarding({ id: 100 })', sb);
-    vm.runInContext('chooseOnboarding("deposit")', sb);
-    vm.runInContext('openDepositModal()', sb);
-    vm.runInContext('switchToLiveAndContinueDeposit()', sb);
-    assert.strictEqual(sb.APP.demoData.balance, before.demo);
-    assert.strictEqual(sb.APP.liveData.balance, before.live);
-    assert.strictEqual(sb.APP.bonusData.balance, before.bonus);
-    assert.strictEqual(sb.fetchCalls.length, 0, 'no request at all during onboarding/modal/switch');
-});
-
-test('i18n parity across 6 locales for the onboarding keys', () => {
-    const T = loadTranslations();
-    const keys = ['onboarding.title', 'onboarding.subtitle', 'onboarding.primary', 'onboarding.primaryDesc',
-        'onboarding.secondary', 'onboarding.secondaryDesc', 'onboarding.explainer', 'onboarding.virtualNote',
-        'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
-        'demoCta.button', 'wallet.liveReal'];
-    const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1640, 'expected 1640 keys per locale');
-    for (const [lang, dict] of Object.entries(T)) {
-        assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
-        for (const k of keys) {
-            assert.ok(dict[k], `${lang}.${k} missing`);
-            assert.ok(String(dict[k]).length > 0, `${lang}.${k} empty`);
-        }
+// ---------------------------------------------------------------------------
+// 7. i18n parity across the six locales
+// ---------------------------------------------------------------------------
+test('7. every onboarding key exists in all six locales', () => {
+  const keys = Object.keys(T.en).filter((k) => k.startsWith('onboarding.'));
+  assert.ok(keys.length >= 10, 'the onboarding copy set exists');
+  for (const lang of LANGS) {
+    assert.deepStrictEqual(Object.keys(T[lang]).sort(), Object.keys(T.en).sort(), lang + ' key set differs');
+    for (const k of keys) {
+      assert.ok(String(T[lang][k] || '').trim().length > 0, lang + '.' + k + ' is empty');
     }
+  }
 });
 
-test('the support / KYC-hide change does not touch the onboarding funnel', () => {
-    // Onboarding + deposit-entry functions must remain unrelated to the new
-    // support UI and to the (hidden) standalone KYC form.
-    for (const name of ['showOnboarding', 'chooseOnboarding', 'openDepositModal', 'switchToLiveAndContinueDeposit']) {
-        const src = extractFunction(name);
-        assert.ok(!/openSupportModal|supportModal|openVerificationModal/.test(src),
-            `${name} must not reference support or KYC UI`);
-    }
-    // The onboarding modal still offers exactly the two choices and no KYC step.
-    const at = INDEX.indexOf('id="onboardingModal"');
-    assert.ok(at > 0, 'onboarding modal should exist');
-    const boundary = INDEX.indexOf('id="withdrawModal"', at);
-    const block = INDEX.slice(at, boundary > at ? boundary : at + 900);
-    assert.ok(/onboarding\.primary/.test(block) && /onboarding\.secondary/.test(block),
-        'primary deposit + secondary demo choices preserved');
-    assert.ok(!/verification|kyc/i.test(block), 'no standalone verification step in onboarding');
+// ---------------------------------------------------------------------------
+// 8. No demo-mode leftovers in the funnel
+// ---------------------------------------------------------------------------
+test('8. no demo-mode wording or handler survives in the funnel', () => {
+  const at = INDEX.indexOf('id="onboardingModal"');
+  const modal = INDEX.slice(at, INDEX.indexOf('id="withdrawModal"', at));
+  assert.ok(!/demo/i.test(modal.replace(/data-i18n="[^"]*"/g, '')), 'no demo markup');
+  assert.ok(!/chooseOnboarding\('demo'\)/.test(INDEX));
+  assert.ok(!INDEX.includes("onboarding.primaryDemo"));
+  assert.ok(!INDEX.includes("onboarding.secondaryLive"));
 });
-

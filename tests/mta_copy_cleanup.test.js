@@ -57,7 +57,7 @@ const FUNDED = {
     zh: "\u8d26\u6237\u8d44\u91d1\u5230\u4f4d\u5e76\u7b26\u5408\u9002\u7528\u8d44\u683c\u8981\u6c42\u540e\u5373\u53ef\u542f\u52a8\u673a\u5668\u4eba",
 };
 
-const NEW_EN_SECONDARY = "See the Live balance and what is required before you fund your account.";
+const NEW_EN_SECONDARY = "Fund your Live balance with USDT to trade beyond the promotional credit.";
 const NEW_EN_FAQ = "Switch to Live Mode in the dashboard, fund your Live account with USDT (TRC20), and start the bot once your account is funded and you meet the applicable eligibility requirements. Kalderix then automates eligible trades with your real funds.";
 const TOS_OLD = "Live trading requires meeting minimum balance requirements";
 const TOS_NEW = "Live trading is subject to the platform\u2019s funding and eligibility requirements disclosed in the app.";

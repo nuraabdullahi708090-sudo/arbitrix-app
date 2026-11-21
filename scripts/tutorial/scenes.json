@@ -5,17 +5,17 @@
   "scenes": [
     {
       "id": 1,
-      "title": "Your dashboard starts in Demo Mode",
-      "caption": "You start in Demo Mode with $1,000 of virtual funds.",
-      "say": "This is your Kalderix dashboard. You start in Demo Mode, with one thousand dollars of virtual funds, so you can practise the whole platform without risking any money.",
-      "focus": "#demoTab"
+      "title": "Your account starts with $50 promotional credit",
+      "caption": "New accounts start with $50 in promotional trading credit.",
+      "say": "This is your Kalderix dashboard. Your account starts with fifty dollars in promotional trading credit, so the bot can trade before you deposit anything.",
+      "focus": "#startHereCard"
     },
     {
       "id": 2,
-      "title": "Switch to Live Mode",
-      "caption": "Live Mode uses real funds - only the Live balance can be traded or withdrawn.",
-      "say": "When you are ready, switch to Live Mode. Live uses real funds, and only your Live balance can be traded and withdrawn.",
-      "focus": "#liveTab"
+      "title": "Deposit to fund Live trading",
+      "caption": "Deposited funds are your own capital and can be traded and withdrawn.",
+      "say": "When you are ready, open the deposit window. Deposited funds are your own capital: they can be traded, and they can be withdrawn.",
+      "focus": "#availableDepositBtn"
     },
     {
       "id": 3,

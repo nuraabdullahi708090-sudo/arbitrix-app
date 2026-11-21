@@ -279,7 +279,7 @@ test('the financial constants are exactly what they were', () => {
   assert.ok(/MIN_WITHDRAWAL_USD\s*=\s*700/.test(SERVER));
   assert.ok(/REFERRAL_REWARD_PERCENT_DEFAULT\s*=\s*20/.test(SERVER));
   assert.ok(/BOT_PROFIT_PAUSE_USD/.test(read('services/ProfitPause.js')));
-  assert.ok(/PROMO_PROFIT_CAP_USD\s*=\s*20/.test(SERVER));
+  assert.ok(/PROMO_PROFIT_CAP_USD\s*=\s*30/.test(SERVER));
 });
 
 test('the money-moving routes are still present', () => {
@@ -288,12 +288,12 @@ test('the money-moving routes are still present', () => {
   }
 });
 
-test('this audit adds no migration', () => {
+test('this audit adds no migration (055 predates it)', () => {
   // 051 was applied BEFORE this audit (a subscription-detail label rename that
   // back-fills existing rows). A product rename must never need new DDL, so the
   // count and the single pre-existing rebrand-named file are pinned here.
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations'));
-  assert.equal(migrations.length, 53, 'migration count changed - was a file added?');
+  assert.equal(migrations.length, 54, 'migration count changed - was a file added?');
   const rebrandNamed = migrations.filter((m) => /rebrand|kalderix/i.test(m));
   assert.deepEqual(rebrandNamed, ['051_rebrand_subscription_detail.sql']);
   // and the pre-existing one rewrites a DISPLAY string, not a balance rule

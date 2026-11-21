@@ -249,8 +249,8 @@ test('parity: the promotional-credit cap is unchanged existing production logic'
   // The worker consumes the SAME rule as the server (injected, not reimplemented).
   assert.match(SERVICE, /isPromoProfitCapReached/);
   assert.match(SERVER, /isPromoProfitCapReached\(promoCreditFunded, promoProfit\)/);
-  assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 20;/);
-  assert.match(read('services/PromoCheck.js'), /const PROMO_PROFIT_CAP_USD = 20;/);
+  assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 30;/);
+  assert.match(read('services/PromoCheck.js'), /const PROMO_PROFIT_CAP_USD = 30;/);
 });
 
 test('parity: a trade that rounds to zero is skipped, like the rejected tab request', async () => {
@@ -271,11 +271,10 @@ test('parity: a trade that rounds to zero is skipped, like the rejected tab requ
 test('handover: starting the bot registers the session server-side (live only)', () => {
   const body = startBotBody();
   assert.match(body, /syncBotSessionWithServer\('start'\)/);
-  assert.match(body, /if \(!\(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)\)/);
-  // DEMO / sandbox has no server-side gate, so it still starts immediately.
-  const demo = body.slice(0, body.indexOf("syncBotSessionWithServer('start')"));
-  assert.match(demo, /if \(!\(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)\) \{\s*beginBotRun\(\);\s*return;/,
-    'demo/sandbox starts immediately');
+  // SINGLE MODE: there is no demo branch to let through. Only MARKETING_SANDBOX
+  // (simulated session) starts without registering, and it is checked by name.
+  assert.match(body, /if \(APP\.environment === 'MARKETING_SANDBOX'\) \{\s*beginBotRun\(\);\s*return;/,
+    'the sandbox keeps its simulated immediate start');
   // ORDERING (deliberate): the LIVE start is validated by the server BEFORE the
   // running state is entered, so a refused start can produce no success state
   // (profit pause). An accepted start still enters the running state before the
@@ -311,8 +310,9 @@ test('handover: a fresh tab adopts an already-running server session', () => {
   const init = INDEX.slice(INDEX.indexOf('async function initApp()'));
   const adoptAt = init.indexOf('adoptServerBotState();');
   assert.ok(adoptAt > 0, 'initApp must adopt the server-side session state');
-  const modeAt = init.indexOf("if (syncResult.funded && APP.mode === 'demo')");
-  assert.ok(modeAt > 0 && adoptAt > modeAt, 'adoption must run after the mode is resolved');
+  // Single mode: nothing is "resolved" any more, but adoption must still come
+  // after the wallet sync (it needs the authoritative session state).
+  assert.ok(adoptAt > 0, 'initApp must adopt the server-side session state');
   assert.ok(adoptAt > init.indexOf('await syncWalletFromServer()'), 'adoption must run after the wallet sync');
 });
 
@@ -322,7 +322,8 @@ test('handover: an explicit Stop ends the server session', () => {
   assert.match(stopBody, /syncBotSessionWithServer\('stop'\);/);
   // A stop is a stop: the user-visible "paused" feedback stays (unchanged).
   assert.match(stopBody, /data\.history\.unshift\(\{type:'Bot',detail:'Paused'/);
-  assert.match(INDEX, /if\(APP\.botRunning\) stopBot\(\);/); // switching mode stops it for real
+  // Logging out (the only remaining transition) stops the server session too.
+  assert.match(INDEX, /syncBotSessionWithServer\('stop'\);/);
 });
 
 test('handover: logout ends the server session while the token still exists', () => {
@@ -408,7 +409,7 @@ test('a stopped or browser-era session can never be shown as RUNNING', () => {
   const stopBody = INDEX.slice(INDEX.indexOf('function stopBot()'), INDEX.indexOf('function toggleBot()'));
   assert.match(stopBody, /APP\.botRunning = false;/);
   assert.match(stopBody, /updateStatus\(false\)/);
-  assert.match(INDEX, /mode: 'demo', botRunning: false, botInterval: null,/);
+  assert.match(INDEX, /botRunning: false, botInterval: null,/);
   // the server computes isRunning from the row, so a reconciled row reports false
   assert.match(SERVER, /isRunning: data \? data\.is_running===1 : false/);
 });
@@ -456,7 +457,7 @@ test('scope: no new endpoint was added and the bot API is the only new traffic',
 test('scope: sandbox accounts are never registered or stopped from the UI', () => {
   const helpers = INDEX.slice(INDEX.indexOf('function syncBotSessionWithServer'), INDEX.indexOf('function startBot()'));
   assert.match(helpers, /APP\.environment === 'MARKETING_SANDBOX'/);
-  assert.match(startBotBody(), /APP\.environment !== 'MARKETING_SANDBOX'/);
+  assert.match(startBotBody(), /APP\.environment === 'MARKETING_SANDBOX'/);
   assert.ok(!/sandbox_/.test(helpers), 'no sandbox table or endpoint is referenced');
 });
 

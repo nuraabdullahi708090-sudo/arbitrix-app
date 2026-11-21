@@ -73,9 +73,9 @@ test('authorization gate preserved: admin panel hidden by default, sidebar link 
     'server-side adminMiddleware must remain the source of truth');
 });
 
-test('other mode-tabs pills are untouched by the fix', () => {
+test('the demo/live pills are gone; the admin pill keeps its wrap fix', () => {
   const pills = [...INDEX.matchAll(/<div class="mode-tabs"[^>]*>/g)].map(m => m[0]);
-  assert.strictEqual(pills.length, 3, 'expected 3 mode-tabs pills');
+  assert.strictEqual(pills.length, 2, 'only the admin sub-tab rows may keep a mode-tabs class');
   const wrapped = pills.filter(t => /flex-wrap\s*:\s*wrap/.test(t));
   assert.strictEqual(wrapped.length, 1, 'only the admin pill may get flex-wrap:wrap');
   assert.ok(/adminTabOperations/.test(INDEX.slice(INDEX.indexOf(wrapped[0]), INDEX.indexOf(wrapped[0]) + 400)));

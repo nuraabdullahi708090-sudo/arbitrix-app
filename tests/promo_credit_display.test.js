@@ -382,8 +382,9 @@ test('15. the card claims neither a guarantee nor a restriction the platform doe
   // The restriction that IS real for a promo account is stated exactly once, on
   // the dashboard notice - not on this card.
   const T = i18n.T;
-  assert.match(T.en['promo.tradableNotice'],
-    /You can withdraw when you make a qualifying first deposit and a trade\./);
+  assert.match(T.en['promo.tradableNotice'], /promotional credit is tradable/i);
+  assert.match(T.en['promo.tradableNotice'], /\$30/, 'the profit cap is disclosed');
+  assert.match(T.en['promo.tradableNotice'], /first deposit/i, 'the way out is stated');
 });
 
 /* --------------------------------------------- 16. nothing else moved */
@@ -403,14 +404,11 @@ test('16. Live Mode gates, the withdrawal rules and the promo cap are untouched'
   assert.match(SERVER, /depositRequired: true/);
 });
 
-test('17. Demo Mode is untouched by this feature', () => {
-  // The card lives in the dashboard, not inside the demo wallet section.
+test('17. the card belongs to the single Live wallet view', () => {
   const cardAt = INDEX.indexOf('id="liveModeCard"');
-  const demoSection = INDEX.indexOf('id="demoWalletSection"');
-  const liveSection = INDEX.indexOf('id="liveWalletSection"');
-  assert.ok(cardAt > 0 && demoSection > 0 && liveSection > 0);
-  assert.ok(cardAt < demoSection, 'the card is above the wallet sections (always-visible dashboard)');
-  // Nothing in the renderer switches modes or toggles the demo wallet.
+  assert.ok(cardAt > 0, 'the card exists');
+  assert.strictEqual(INDEX.indexOf('id="demoWalletSection"'), -1, 'the demo wallet section is gone');
+  assert.ok(INDEX.indexOf('id="liveWalletSection"') > 0, 'the Live wallet section remains');
   const start = INDEX.indexOf('// ============ PROMOTIONAL CREDIT + LIVE MODE STATUS');
   const src = INDEX.slice(start, INDEX.indexOf('// ============ PAYHIP LIVE MODE ACTIVATION'));
   assert.ok(!/setMode\(|APP\.mode\s*=/.test(src), 'the card must not switch modes');

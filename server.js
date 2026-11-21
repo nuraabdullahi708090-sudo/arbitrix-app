@@ -1065,7 +1065,7 @@ const WITHDRAWAL_REQUIRES_VERIFICATION =
 // `MTA_AMOUNT` env var, the `BOT_MIN_TRADING_BALANCE` constant and the
 // `getEffectiveMta()` helper are all gone, together with the production
 // /api/bot/start gate, the MTA dashboard card/badge and the MTA references in
-// the withdrawal UX. The promotional-credit $20 realized-profit cap is a
+// the withdrawal UX. The promotional-credit $30 realized-profit cap is a
 // SEPARATE rule and is unchanged (see isPromoCreditFunded below). MTA was never
 // a withdrawal requirement.
 //
@@ -1098,15 +1098,15 @@ const SANDBOX_PROMO_CREDIT = 50;
 //
 // NOTE: this is NOT the promotional-credit classifier. "No deposit + positive
 // balance" does NOT mean the balance IS the $50 promotional credit — it may be
-// converted referral earnings. The production $20 promotional-credit trading cap
+// converted referral earnings. The production $30 promotional-credit trading cap
 // therefore uses isPromoCreditFunded() (authoritative source-of-funds
 // classification) below.
 //
 // PROMOTIONAL-CREDIT TRADING CAP (production-only, management decision). The
 // cap targets users whose non-deposited Live capital IS the $50 promotional
 // credit grant. The cumulative NET realized profit from trading that credit is
-// capped at $20.00. The lock is INCLUSIVE: it applies as soon as the ledger sum
-// is >= $20.00 (exactly $20.00 locks). At that point the bot is stopped and BOTH
+// capped at $30.00. The lock is INCLUSIVE: it applies as soon as the ledger sum
+// is >= $30.00 (exactly $30.00 locks). At that point the bot is stopped and BOTH
 // /api/trade and /api/bot/start refuse further trading until a confirmed deposit
 // exists (the cap is computed live from hasConfirmedDeposit, so the deposit
 // itself unlocks trading again).
@@ -1124,7 +1124,7 @@ const SANDBOX_PROMO_CREDIT = 50;
 // credit users. MARKETING_SANDBOX trades (sandbox_trades) can never reach it:
 // sandbox routes branch before this code, the classifier returns false for
 // sandbox accounts, and migration 026's trigger skips them.
-const PROMO_PROFIT_CAP_USD = 20;
+const PROMO_PROFIT_CAP_USD = 30;
 const PROMO_LIMIT_CODE = 'PROMO_TRADING_LIMIT_REACHED';
 const PROMO_LIMIT_MESSAGE = 'You have reached the promotional trading limit. Make your first deposit to continue trading.';
 
@@ -3052,7 +3052,7 @@ function logPromoClassificationUnknown(userId, fields = {}) {
 // account while it has no confirmed deposit. ANY referral-earnings conversion —
 // however small — moves genuine referral capital into wallets.live_balance, so
 // the account's Live balance is no longer composed solely of the $50
-// promotional grant and the user must never be subject to the $20 promotional-
+// promotional grant and the user must never be subject to the $30 promotional-
 // credit cap again. We deliberately do NOT attempt proportional attribution of
 // converted-referral capital vs promotional principal: the wallet is
 // commingled, and inventing a split would risk wrongly capping genuine referral
@@ -4107,7 +4107,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       // all). Nothing is silently substituted for the MTA.
       mta: 0,
       // MARKETING_SANDBOX has NO promotional-credit trading cap: the sandbox
-      // reports zero/never-locked so the production-only $20 rule can never be
+      // reports zero/never-locked so the production-only $30 rule can never be
       // surfaced for a sandbox account. It is also never classified as a
       // promotional-credit user (and never "unknown" — it is definitively exempt).
       promoCreditFunded: false,
@@ -7523,63 +7523,59 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated bot session only.
   if (await sandboxHandled(req, res, handleSandboxBotStart)) return;
   const userId = req.user.id;
-  // Server-authoritative: only an explicit 'demo' request gets demo behavior;
-  // a missing/unexpected client mode is treated as live-style trading. The
-  // balance is read from the server wallet, never from the request.
-  const mode = req.body && req.body.mode === 'demo' ? 'demo' : 'live';
-  // LIVE MODE ELIGIBILITY GATE. Demo Mode stays available to every registered
-  // user. Live needs BOTH a valid Payhip activation AND a confirmed deposit of
-  // at least the platform minimum - neither substitutes for the other, and there
-  // is no grandfathering. Runs BEFORE any session write, so an ineligible
-  // account can never create a running bot row.
-  if (mode === 'live') {
-    const eligibility = await getLiveModeEligibility(userId);
-    if (!eligibility.eligible) {
-      return sendLiveModeRefusal(res, eligibility);
-    }
-    // FUNDING GATE. Activation buys permission; it never buys capital. A Live
-    // account with nothing in it has nothing to trade, so refuse the entry with a
-    // funding prompt instead of starting a session that cannot execute.
-    // This is a PRESENCE check (balance > 0), not a minimum trading amount: no
-    // threshold is re-introduced and the $50 promotional credit still qualifies.
-    const fundingWallet = await getWallet(userId).catch(() => null);
-    const liveBalance = fundingWallet ? (Number(fundingWallet.live_balance) || 0) : 0;
-    if (liveBalance <= 0) {
-      return res.status(403).json({
-        error: 'Add funds to your Live balance before starting Live trading.',
-        code: 'LIVE_FUNDING_REQUIRED',
-        fundingRequired: true,
-        activationRequired: false
-      });
-    }
+  // SINGLE MODE: trading is Live-only. The former client-supplied 'demo' mode is
+  // gone, so no request value can skip the gates below. The balance is read from
+  // the server wallet, never from the request.
+  const mode = 'live';   // one trading mode; kept for the session row + response
+  // LIVE ELIGIBILITY GATE. Live needs BOTH a valid Payhip activation AND a
+  // confirmed deposit of at least the platform minimum - neither substitutes for
+  // the other, and there is no grandfathering. Runs BEFORE any session write, so
+  // an ineligible account can never create a running bot row.
+  const eligibility = await getLiveModeEligibility(userId);
+  if (!eligibility.eligible) {
+    return sendLiveModeRefusal(res, eligibility);
+  }
+  // FUNDING GATE. Activation buys permission; it never buys capital. A Live
+  // account with nothing in it has nothing to trade, so refuse the entry with a
+  // funding prompt instead of starting a session that cannot execute.
+  // This is a PRESENCE check (balance > 0), not a minimum trading amount: no
+  // threshold is re-introduced and the $50 promotional credit still qualifies.
+  const fundingWallet = await getWallet(userId).catch(() => null);
+  const liveBalance = fundingWallet ? (Number(fundingWallet.live_balance) || 0) : 0;
+  if (liveBalance <= 0) {
+    return res.status(403).json({
+      error: 'Add funds to your Live balance before starting Live trading.',
+      code: 'LIVE_FUNDING_REQUIRED',
+      fundingRequired: true,
+      activationRequired: false
+    });
   }
   const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);
   // PROMOTIONAL-CREDIT TRADING CAP (production-only): only a user whose
   // non-deposited Live capital IS the $50 promotional credit (authoritative
-  // source-of-funds classification) may not (re)start the bot once $20.00 net
+  // source-of-funds classification) may not (re)start the bot once $30.00 net
   // realized profit is reached. Referral-funded users and deposited users are
   // NOT promotional-credit users and are never blocked here. A restart is just
   // another start request, so this path closes the bot-restart bypass.
   const promoCreditFunded = await isPromoCreditFunded(userId, hasDeposit);
-  if (mode === 'live' && promoCreditFunded === true) {
+  if (promoCreditFunded === true) {
     const promoProfit = await getPromoRealizedProfit(userId).catch(() => 0);
     if (isPromoProfitCapReached(promoCreditFunded, promoProfit)) {
       await stopBotSessionForPromoLimit(userId);
       return res.status(403).json(promoLimitBody({ promoRealizedProfit: promoProfit }));
     }
   }
-  // TEMPORARY management test: platform-wide profit pause (LIVE trading only;
-  // demo sessions are not server-executed). A restart is just another start
-  // request, so this path closes the bot-restart bypass, and the session is
-  // fenced stopped so nothing keeps trading in the background.
-  if (mode === 'live' && await isProfitPausedForUser(userId)) {
+  // TEMPORARY management test: platform-wide profit pause. A restart is just
+  // another start request, so this path closes the bot-restart bypass, and the
+  // session is fenced stopped so nothing keeps trading in the background.
+  if (await isProfitPausedForUser(userId)) {
     await stopBotSessionForProfitPause(userId);
     return res.status(403).json(profitPauseBody());
   }
   // NO minimum trading balance: the MTA gate was removed by management decision
   // (there was only ever one, and it is gone). Any positive balance may start
   // the bot; the only trading restriction that remains is the separate
-  // promotional-credit $20 realized-profit cap enforced above.
+  // promotional-credit $30 realized-profit cap enforced above.
   // PLATFORM EMERGENCY STOP: while the kill switch is ENGAGED no session may be
   // started. A start request would otherwise create a session that the worker
   // immediately stops, and would leave a phantom "running" row in the admin view.
@@ -7711,7 +7707,7 @@ app.get('/api/bot/status', authMiddleware, async (req, res) => {
   const profitPaused = await isProfitPausedForUser(req.user.id);
   res.json({
     isRunning: data ? data.is_running===1 : false,
-    mode: data ? data.mode : 'demo',
+    mode: (data && data.mode) || 'live',
     startedAt: data ? data.started_at : null,
     heartbeatAt,
     heartbeatAgeMs,
@@ -7908,7 +7904,7 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     // total. record_trade_safe() itself is unchanged; this is a read-only sum.
     const todayRealizedPnl = await getTodayRealizedPnl(userId).catch(() => 0);
     // Promotional-credit cap state AFTER this (idempotent) write. When the trade
-    // that reached $20.00 lands, the bot is stopped immediately and the response
+    // that reached $30.00 lands, the bot is stopped immediately and the response
     // tells the client to keep it stopped; a confirmed deposit clears it again.
     const promoProfitAfter = promoCreditFunded === true ? await getPromoRealizedProfit(userId).catch(() => 0) : 0;
     const promoLimitReached = isPromoProfitCapReached(promoCreditFunded, promoProfitAfter);

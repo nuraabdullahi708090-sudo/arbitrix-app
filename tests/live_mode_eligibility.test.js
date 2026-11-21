@@ -261,10 +261,13 @@ test('10b. an unreadable DEPOSIT store also fails closed', async () => {
 // 11-12. Demo and sandbox stay free
 // ---------------------------------------------------------------------------
 
-test('11. Demo Mode needs neither activation nor a deposit', async () => {
+test('11. a forged demo mode is treated as a normal Live start', async () => {
+  // Demo Mode was retired. The client can no longer ask for it, and if an old
+  // client sends mode:'demo' the server must NOT grant a free session.
   setScenario({ activation: false, deposits: [], balance: 0 });
   const res = await call('POST', '/api/bot/start', { mode: 'demo' });
-  assert.strictEqual(res.status, 200, 'demo must stay free: ' + res.text);
+  assert.notStrictEqual(res.status, 200, 'a demo-flagged request must not be accepted: ' + res.text);
+  assert.ok(/activation/i.test(res.text), 'it is refused by the Live eligibility gate: ' + res.text);
 });
 
 test('12. MARKETING_SANDBOX is unaffected', async () => {

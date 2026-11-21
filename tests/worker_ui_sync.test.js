@@ -141,11 +141,11 @@ test('the loop is wired to start on a bot start and stop on stopBot/logout', () 
     assert.ok(INDEX.slice(logoutIdx - 1200, logoutIdx).includes('stopWorkerSyncLoop()'), 'logout clears the sync loop');
 });
 
-test('overlap guard and authenticated/live gating are present in source', () => {
+test('overlap guard and authenticated/sandbox gating are present in source', () => {
     assert.ok(extractFunction('runWorkerSyncTick').includes('APP.workerSyncInFlight'), 'in-flight guard');
     assert.ok(extractFunction('stopWorkerSyncLoop').includes('workerSyncInFlight'), 'stop resets the guard');
     const start = extractFunction('startWorkerSyncLoop');
-    assert.ok(start.includes("APP.mode !== 'live'"), 'live-only');
+    assert.ok(!/APP\.mode/.test(start), 'no demo-mode gate remains (single mode)');
     assert.ok(start.includes("jwt_token"), 'authenticated-only');
     assert.ok(start.includes("MARKETING_SANDBOX"), 'sandbox excluded');
 });
@@ -167,11 +167,7 @@ test('startWorkerSyncLoop: live + authenticated starts an 8s interval', () => {
     assert.ok(sb.APP.workerSyncInterval, 'interval handle stored');
 });
 
-test('startWorkerSyncLoop: demo / sandbox / unauthenticated are no-ops', () => {
-    const demo = buildSandbox({ mode: 'demo' });
-    demo.startWorkerSyncLoop();
-    assert.deepStrictEqual(demo.calls.intervals, []);
-
+test('startWorkerSyncLoop: sandbox / unauthenticated are no-ops', () => {
     const sandbox = buildSandbox({ environment: 'MARKETING_SANDBOX' });
     sandbox.startWorkerSyncLoop();
     assert.deepStrictEqual(sandbox.calls.intervals, []);

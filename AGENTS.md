@@ -9612,3 +9612,30 @@ the removed/added copy.
   `npm test` = 3653 pass / 0 fail.
 - Deployment notes: `/manifest.webmanifest` is served by `express.static` as
   `application/manifest+json` (verified on a real boot); no route or env change.
+
+## PWA branding + button fit DEPLOYED TO PRODUCTION (2026-11-21)
+- PR #188 merged: merge commit e57d637 ("Merge pull request #188 from
+  nuraabdullahi708090-sudo/fix/pwa-branding-and-button-fit", feature commit 10ee0ef),
+  base was main@da2a790. CI on the head commit: "static checks" and "npm test" both
+  success. `npm test` on the merged main = 3653 pass / 0 fail.
+- Render auto-deployed on push (header x-render-origin-server: Render). The served
+  public/index.html is BYTE-IDENTICAL to the repo (sha256 2db696f3d4655260c2836d3b1e825d
+  9bb3ef9294468277278e10c3d939d9fa4c), and /manifest.webmanifest answers 200 with
+  `application/manifest+json`.
+- Live evidence: all six icons + both brand SVGs return 200 image/png|svg with byte
+  sizes identical to the repo; the manifest carries name/short_name Kalderix, id "/",
+  start_url/scope "/", standalone and the four icons. Headless Chromium on
+  https://arbitrix.pro at 390px and 1280px = 26/26: `Page.getAppManifest` with 0 parse
+  errors, `Page.getInstallabilityErrors` = [], exactly one static manifest link,
+  apple-touch-icon = /icons/apple-touch-icon-180.png (180x180), svg+png favicons,
+  theme-color matches the manifest, every icon decodes, 0 horizontal overflow,
+  0 page errors, 0 failed requests.
+- Served-markup checks: the removed runtime Blob builder (`manifest-link`,
+  `JSON.stringify(manifest)`, `const iconSvg`) is absent, and `.input-action-row`,
+  `.kx-support-link`, `@media(max-width:360px)` and `overflow-wrap:break-word` are
+  present - both workstreams are live.
+- EXPECTED / NOT A REGRESSION: a device that already installed the old app keeps its
+  old home-screen icon until the platform refreshes the install metadata (Chrome picks
+  it up on its next manifest check; iOS only on re-add). Nothing to fix in code.
+- This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a
+  second Render rebuild (the working tree shows AGENTS.md modified - documentation only).

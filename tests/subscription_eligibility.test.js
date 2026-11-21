@@ -70,20 +70,15 @@ describe('source wiring contract', () => {
     assert.ok(gateIdx < rpcIdx);
     assert.ok(fn.includes("status: 'payment_due'"), 'blocked recurring marks payment_due');
   });
-  test('frontend Demo-mode guard blocks before server call', () => {
+  test('frontend no longer gates activation on a client-side mode', () => {
     const fn = indexSrc.match(/async function activateSubscription\(\)[\s\S]*?\n}/)[0];
-    assert.ok(fn.includes("APP.mode !== 'live'"));
-    assert.ok(fn.indexOf("APP.mode !== 'live'") < fn.indexOf("fetch('/api/subscription/activate'"));
+    assert.ok(!/APP\.mode/.test(fn), 'the demo-mode gate is gone with the mode');
+    assert.ok(/deposit_required/.test(fn), 'the server deposit requirement is surfaced');
+    assert.ok(/insufficient_balance/.test(fn), 'the server balance requirement is surfaced');
   });
-  test('frontend maps deposit_required + insufficient_balance messages', () => {
-    const fn = indexSrc.match(/async function activateSubscription\(\)[\s\S]*?\n}/)[0];
-    assert.ok(fn.includes("data.reason === 'deposit_required'"));
-    assert.ok(fn.includes("data.reason === 'insufficient_balance'"));
-    assert.ok(fn.includes("t('subscription.depositRequired')"));
-    assert.ok(fn.includes("t('subscription.depositMore')"));
-  });
+
   test('new i18n keys exist in all 6 locales', () => {
-    for (const key of ['subscription.switchToLive', 'subscription.depositRequired', 'subscription.depositMore']) {
+    for (const key of ['subscription.depositRequired', 'subscription.depositMore']) {
       const found = indexSrc.match(new RegExp(`'${key}':`, 'g'));
       assert.ok(found && found.length >= 6, `${key} should be defined in all 6 locales`);
     }

@@ -17,7 +17,7 @@
  * does too.
  *
  * BOUNDARIES ASSERTED (management brief):
- *   - the $20 promo profit cap is unchanged;
+ *   - the $30 promo profit cap is unchanged;
  *   - the $100 qualifying-deposit / referral rule is unchanged;
  *   - transactions.type='Deposit' is NOT an eligibility source;
  *   - no deposit/payment records are written (read-only gate).
@@ -199,19 +199,20 @@ test('unreadable conversion state -> isPromoCreditFunded null (fail-open, unchan
 });
 
 // ---------------------------------------------------------------------------
-// 3. $20 CAP — unchanged
+// 3. $30 CAP — authoritative
 // ---------------------------------------------------------------------------
-test('the $20 promo profit cap is unchanged (inclusive, deposited users never capped)', () => {
-  assert.equal(PROMO_PROFIT_CAP_USD, 20);
+test('the $30 promo profit cap is unchanged (inclusive, deposited users never capped)', () => {
+  assert.equal(PROMO_PROFIT_CAP_USD, 30);
   assert.equal(isPromoProfitCapReached(false, 1000), false, 'non-promo users are never capped');
-  assert.equal(isPromoProfitCapReached(true, 19.99), false);
-  assert.equal(isPromoProfitCapReached(true, 20), true, 'exactly $20 blocks');
-  assert.match(PROMO_CHECK, /const PROMO_PROFIT_CAP_USD = 20;/);
+  assert.equal(isPromoProfitCapReached(true, 29.99), false);
+  assert.equal(isPromoProfitCapReached(true, 30), true, 'exactly $30 blocks (inclusive)');
+  assert.equal(isPromoProfitCapReached(true, 30.01), true, 'above the cap blocks');
+  assert.match(PROMO_CHECK, /const PROMO_PROFIT_CAP_USD = 30;/);
   assert.match(PROMO_CHECK, /Number\(promoProfit\) >= PROMO_PROFIT_CAP_USD/);
 });
 
 // ---------------------------------------------------------------------------
-// 4. SOURCE CONTRACT — matches server.js + migration 026, read-only, no ledger
+// 4. SOURCE CONTRACT — matches server.js + migration 055, read-only, no ledger
 // ---------------------------------------------------------------------------
 test('PromoCheck.hasConfirmedDeposit reads BOTH tables with status=confirmed, mirroring server.js', () => {
   const start = PROMO_CHECK.indexOf('async function hasConfirmedDeposit(');

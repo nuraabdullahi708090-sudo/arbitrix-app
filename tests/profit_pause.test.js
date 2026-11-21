@@ -327,10 +327,10 @@ test('4b. /api/trade refuses a paused account BEFORE the money write', () => {
     assert.ok(route.includes('profitPauseBody()'));
 });
 
-test('4c. /api/bot/start refuses (live only) and stops the session', () => {
+test('4c. /api/bot/start refuses and stops the session', () => {
     const route = sliceBetween(SERVER, "app.post('/api/bot/start'", "app.post('/api/bot/stop'");
-    assert.ok(/if \(mode === 'live' && await isProfitPausedForUser\(userId\)\)/.test(route),
-        'live-gated so demo starts are not blocked');
+    // Single mode: the pause applies to every start, with no mode condition.
+    assert.ok(/if \(await isProfitPausedForUser\(userId\)\)/.test(route), 'the pause is unconditional');
     assert.ok(route.includes('stopBotSessionForProfitPause(userId)'));
     assert.ok(route.includes('profitPauseBody()'));
 });
@@ -530,7 +530,7 @@ test('7a. the pop-up copy exists in all 6 locales with full parity', () => {
     const T = loadTranslations();
     assert.deepStrictEqual(Object.keys(T).sort(), LANGS.slice().sort());
     LANGS.forEach((l) => {
-        assert.strictEqual(Object.keys(T[l]).length, 1640, l + ' key count');
+        assert.strictEqual(Object.keys(T[l]).length, 1588, l + ' key count');
     });
     const sets = LANGS.map((l) => Object.keys(T[l]).sort().join('|'));
     assert.strictEqual(new Set(sets).size, 1, 'identical key sets across locales');

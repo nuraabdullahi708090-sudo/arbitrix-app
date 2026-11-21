@@ -13,7 +13,7 @@
  *     reached' response, and no server-side balance read for gating
  *   - client-supplied mode is still normalized default-deny (only an explicit
  *     'demo' request is demo), but demo/live no longer differ by any threshold
- *   - the promotional-credit $20 realized-profit cap (a SEPARATE rule) is still
+ *   - the promotional-credit $30 realized-profit cap (a SEPARATE rule) is still
  *     enforced BEFORE the bot_session upsert
  *
  *   MARKETING_SANDBOX handleSandboxBotStart:
@@ -99,10 +99,10 @@ test('server: /api/bot/start has NO MTA gate and no balance-based threshold', ()
     assert.ok(!/live_balance\s*</.test(body), 'no balance threshold may remain');
 });
 
-test('server: /api/bot/start still normalizes mode with default-deny', () => {
+test('server: /api/bot/start ignores the client mode entirely', () => {
     const body = routeBody('post', '/api/bot/start');
-    assert.ok(body.includes("req.body.mode === 'demo' ? 'demo' : 'live'"),
-        'missing/unexpected client mode must be treated as live (default deny)');
+    assert.ok(!body.includes('req.body.mode'), 'the client must not be able to supply a mode');
+    assert.ok(body.includes("const mode = 'live';"), 'the server fixes the single trading mode');
 });
 
 test('server: the promotional-credit cap is still enforced BEFORE the session upsert', () => {

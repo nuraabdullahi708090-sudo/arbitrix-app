@@ -84,14 +84,13 @@ test('server: sandbox handlers never touch the production KYC surfaces', () => {
 test('frontend: openVerificationModal short-circuits MARKETING_SANDBOX before any KYC path', () => {
     const fn = extractFunction(INDEX, 'openVerificationModal');
     const sbxIdx = fn.indexOf("APP.environment === 'MARKETING_SANDBOX'");
-    const demoIdx = fn.indexOf("APP.mode === 'demo'");
-    const liveIdx = fn.indexOf("APP.mode === 'live'");
     const formIdx = fn.indexOf("getElementById('verificationModal').classList.add('open')");
     assert.ok(sbxIdx > 0, 'sandbox branch must exist');
-    assert.ok(sbxIdx < demoIdx && sbxIdx < liveIdx && sbxIdx < formIdx, 'sandbox must be checked FIRST');
+    assert.ok(sbxIdx < formIdx, 'sandbox must be checked FIRST');
     assert.ok(fn.includes("getElementById('verificationSandboxInfoModal')"), 'sandbox shows the info modal');
-    const sbxBlock = fn.slice(sbxIdx, demoIdx);
+    const sbxBlock = fn.slice(sbxIdx, sbxIdx + 400);
     assert.ok(sbxBlock.includes('return;'), 'sandbox branch must return before the KYC form');
+    assert.ok(!/APP\.mode/.test(fn), 'no demo-mode branch remains');
 });
 
 test('frontend: openVerificationModal runtime behavior per environment/mode', () => {
@@ -116,24 +115,18 @@ test('frontend: openVerificationModal runtime behavior per environment/mode', ()
         return { opened, toasts };
     }
 
-    // Sandbox (any mode): info modal only — never the KYC form, no status fetch.
-    for (const mode of ['demo', 'live']) {
-        for (const traded of [false, true]) {
-            const r = run('MARKETING_SANDBOX', mode, traded);
-            assert.deepStrictEqual(r.opened, ['sandboxInfo:open'], `sandbox ${mode}/${traded} must only open the info modal`);
-            assert.deepStrictEqual(r.toasts, [], 'sandbox must not prompt for a trade');
-        }
+    // Sandbox (either trading state): info modal only - never the KYC form.
+    for (const traded of [false, true]) {
+        const r = run('MARKETING_SANDBOX', 'live', traded);
+        assert.deepStrictEqual(r.opened, ['sandboxInfo:open'], `sandbox traded=${traded} must only open the info modal`);
+        assert.deepStrictEqual(r.toasts, [], 'sandbox must not prompt for a trade');
     }
 
-    // Production demo: unchanged demo info modal.
-    let r = run('PRODUCTION', 'demo', false);
-    assert.deepStrictEqual(r.opened, ['demoInfo:open']);
-
-    // Production live without a trade: unchanged toast, no form.
-    r = run('PRODUCTION', 'live', false);
+    // Production without a trade: unchanged toast, no form.
+    let r = run('PRODUCTION', 'live', false);
     assert.ok(r.toasts.length === 1 && r.opened.length === 0, 'production trade prompt unchanged');
 
-    // Production live with a trade: unchanged KYC form + status load.
+    // Production with a trade: unchanged KYC form + status load.
     r = run('PRODUCTION', 'live', true);
     assert.deepStrictEqual(r.opened, ['kycForm:open', 'loadVerificationStatus']);
 });

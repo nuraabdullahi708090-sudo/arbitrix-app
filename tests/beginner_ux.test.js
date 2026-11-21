@@ -68,8 +68,7 @@ const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 const NEW_KEYS = [
     'auth.mobileTagline', 'auth.explainer.body', 'auth.explainer.demo', 'auth.explainer.live', 'auth.explainer.firstStep',
     'onboarding.explainer',
-    'startHere.title', 'startHere.subtitle', 'startHere.step1', 'startHere.step2', 'startHere.step3', 'startHere.step4',
-    'startHere.step5', 'startHere.dismiss',
+    'startHere.live.title', 'startHere.live.subtitle', 'startHere.dismiss',
     'hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus', 'hint.bot', 'hint.scanner', 'hint.txLog',
     'ticker.live', 'markets.advancedChart',
     'badge.rarity.common', 'badge.rarity.rare', 'badge.rarity.epic', 'badge.rarity.legendary',
@@ -85,7 +84,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1640, 'expected 1640 keys per locale');
+    assert.strictEqual(enKeys.length, 1588, 'expected 1588 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -183,7 +182,7 @@ test('deposit modal explains USDT/TRC20, address, reference and next step', () =
 
 test('"Start Here" checklist is dismissible, per account, and hidden for sandbox', () => {
     assert.ok(/id="startHereCard"/.test(INDEX), 'checklist card must exist');
-    for (const k of ['startHere.title', 'startHere.step1', 'startHere.step5', 'startHere.dismiss']) {
+    for (const k of ['startHere.live.title', 'startHere.live.subtitle', 'startHere.dismiss']) {
         assert.ok(INDEX.includes('data-i18n="' + k + '"'), `${k} must be rendered`);
     }
     const fn = extractFunction('updateStartHere');

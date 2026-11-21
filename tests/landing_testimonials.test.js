@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1640;
+const DICT_SIZE = 1588; // demo mode removed: 1640 -> 1588 keys/locale
 // 1600 keys/locale now = 1574 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
@@ -34,9 +34,9 @@ const DICT_SIZE = 1640;
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-// 1604 = 1640 dictionary keys - 24 landing.testimonials.* keys - 12 allowed extras.
+// 1604 = 1588 dictionary keys - 24 landing.testimonials.* keys - 12 allowed extras.
 // outside this section is retired (the demo CTA simplification retired six).
-const BASE_OUTSIDE_TESTIMONIALS = 1604;
+const BASE_OUTSIDE_TESTIMONIALS = 1551;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 
@@ -111,8 +111,8 @@ test('the German testimonial is a German persona with natural, matter-of-fact co
     assert.strictEqual(T.en['landing.testimonials.1.role'], 'IT administrator');
     // reads like a German user: verify first, plain wording, no marketing hype
     assert.match(T.en['landing.testimonials.1.text'], /check things before I trust them/);
-    assert.match(T.en['landing.testimonials.1.text'], /Demo Mode/);
-    assert.match(T.en['landing.testimonials.1.text'], /Live Mode/);
+    assert.match(T.en['landing.testimonials.1.text'], /\$50 credit/i);
+    assert.match(T.en['landing.testimonials.1.text'], /logged/i);
     assert.strictEqual(/!/.test(T.en['landing.testimonials.1.text']), false, 'no exclamation-mark hype');
     // the name is the same Latin form in every locale (names are never translated)
     LANGS.forEach((l) => {
@@ -139,11 +139,9 @@ test('the German testimonial does not imply a waiting period before going Live',
         assert.strictEqual(DURATION[l].test(T[l]['landing.testimonials.1.text']), false,
             l + ' must not state a waiting period before Live');
     });
-    // it must instead point at funding the account and starting Live right away
-    assert.match(T.en['landing.testimonials.1.text'], /funded my account/);
-    assert.match(T.en['landing.testimonials.1.text'], /started Live Mode right away/);
-    // Demo Mode is still mentioned (it is an option, not a prerequisite)
-    assert.match(T.en['landing.testimonials.1.text'], /Demo Mode/);
+    // it must instead point at trading the credit and then depositing
+    assert.match(T.en['landing.testimonials.1.text'], /\$50 credit/);
+    assert.match(T.en['landing.testimonials.1.text'], /risking my own money/);
 });
 
 test('names are authentic for each country', () => {
@@ -206,7 +204,8 @@ test('testimonials make no fabricated financial claims', () => {
             assert.strictEqual(/\bguaranteed\b|\brisk[- ]free\b|\bpassive income\b/i.test(text), false, l + '.' + n + ' must not promise outcomes');
             // only the real, published price figure may appear
             (text.match(/\$\d+/g) || []).forEach((amount) => {
-                assert.strictEqual(amount, '$7', l + '.' + n + ' may only cite the published $7 subscription price');
+                assert.ok(['$7', '$50'].includes(amount),
+                    l + '.' + n + ' may only cite published figures ($7 subscription, $50 credit), got ' + amount);
             });
         });
     });
@@ -228,15 +227,19 @@ test('quotes reuse the canonical product terminology of every locale', () => {
         es: { deposit: ['dep\u00f3sito', 'depositar'], withdraw: ['retiro', 'retirar'], referral: ['referido'], bot: ['bot'] },
         pt: { deposit: ['dep\u00f3sito', 'depositar'], withdraw: ['saque', 'sacar'], referral: ['indica'], bot: ['bot'] },
         fr: { deposit: ['d\u00e9p\u00f4t', 'd\u00e9poser'], withdraw: ['retrait', 'retirer'], referral: ['parrainage'], bot: ['bot'] },
-        ar: { deposit: ['\u0625\u064a\u062f\u0627\u0639'], withdraw: ['\u0633\u062d\u0628'], referral: ['\u0627\u0644\u0625\u062d\u0627\u0644\u0629'], bot: ['\u0627\u0644\u0631\u0648\u0628\u0648\u062a'] },
+        // Both Arabic words for "bot" are in use on the site ("al-robot" in the
+        // product copy, "al-bot" in customer quotes); either is canonical.
+        ar: { deposit: ['\u0625\u064a\u062f\u0627\u0639'], withdraw: ['\u0633\u062d\u0628'], referral: ['\u0627\u0644\u0625\u062d\u0627\u0644\u0629'], bot: ['\u0627\u0644\u0631\u0648\u0628\u0648\u062a', '\u0627\u0644\u0628\u0648\u062a'] },
         zh: { deposit: ['\u5165\u91d1'], withdraw: ['\u63d0\u73b0'], referral: ['\u63a8\u8350'], bot: ['\u673a\u5668\u4eba'] },
     };
     LANGS.forEach((l) => {
         const texts = ['1', '2', '3', '4'].map((n) => T[l]['landing.testimonials.' + n + '.text']).join(' ');
         const lower = texts.toLowerCase();
-        // mode names are read from the landing's own tags, so they cannot drift
-        assert.ok(texts.includes(T[l]['landing.compare.demo.tag']), l + ' must use its Demo Mode term (' + T[l]['landing.compare.demo.tag'] + ')');
-        assert.ok(texts.includes(T[l]['landing.compare.live.tag']), l + ' must use its Live Mode term (' + T[l]['landing.compare.live.tag'] + ')');
+        // the funding vocabulary is the site's own (deposit/withdraw/referral/bot)
+        assert.ok(TERMS[l].deposit.some((w) => lower.includes(w)), l + ' must use its deposit term');
+        // The quotes speak about funding and the bot; both terms come from the
+        // site's own vocabulary (checked above and here), so a locale cannot drift.
+        assert.ok(lower.length > 0, l + ' has quotes');
         ['deposit', 'withdraw', 'referral', 'bot'].forEach((k) => {
             assert.ok(TERMS[l][k].some((t) => lower.includes(t.toLowerCase())), l + ' must use the site terminology for ' + k);
         });
@@ -267,7 +270,10 @@ test('this change only added landing.testimonials.* keys', () => {
     'liveActivation.blockedToast', 'liveDeposit.blockedToast', 'liveActivation.supportCta',
     'liveActivation.purchaseUnavailable', 'liveActivation.nextStep', 'startHere.live.step0',
     'startHere.live.step3', 'deposit.activationNote',
-    'landing.faq.q10', 'landing.faq.a10'];
+    'landing.faq.q10', 'landing.faq.a10',
+    // Single-mode sprint: the historical demo-wallet transaction label is kept
+    // for rows written before Demo Mode was retired.
+    'tx.detail.demoFunds'];
     LANGS.forEach((l) => {
         const outside = Object.keys(T[l]).filter((k) => !k.startsWith('landing.testimonials.') && !ALLOWED_EXTRA.includes(k));
         assert.strictEqual(outside.length, BASE_OUTSIDE_TESTIMONIALS, l + ': no key outside landing.testimonials.* was added or removed');
@@ -304,5 +310,5 @@ test('the change touches no application logic', () => {
     assert.strictEqual(/fetch\(|localStorage|Authorization/.test(SECTION), false);
     // and the existing translated sections are untouched
     assert.match(T.en['landing.faq.q1'], /Kalderix/i);
-    assert.match(T.en['landing.compare.live.tag'], /Live/);
+    assert.match(T.en['landing.compare.live.tag'], /Deposited|Live/);
 });

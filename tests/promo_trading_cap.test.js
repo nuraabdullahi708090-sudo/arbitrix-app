@@ -1,13 +1,13 @@
 'use strict';
 
 /**
- * Promotional-credit trading cap ($20 net realized profit) — production-only
+ * Promotional-credit trading cap ($30 net realized profit) — production-only
  * contract tests (Rule B).
  *
  * server.js binds a port on require, so (per repo convention) these tests do
  * NOT import it. They pin, via source contracts + pure-JS mirrors:
  *
- *   - the cap value/constant and the inclusive lock (>= $20.00);
+ *   - the cap value/constant and the inclusive lock (>= $30.00);
  *   - getPromoRealizedProfit() reads the authoritative `trades` ledger for the
  *     user (never sandbox_trades, never deposits);
  *   - /api/trade refuses further trading (403, machine-readable code) BEFORE the
@@ -17,7 +17,8 @@
  *   - a confirmed deposit lifts the restriction automatically;
  *   - MARKETING_SANDBOX is untouched (no cap constant in the sandbox handlers,
  *     sandbox /api/auth/me reports false/0);
- *   - migration 026 adds the defence-in-depth trigger (not applied).
+ *   - migration 055 re-creates the defence-in-depth trigger at the $30
+ *     threshold (026 is the historical $30 version; 055 is authoritative).
  *
  * Run: npm test
  */
@@ -32,10 +33,11 @@ const ROOT = path.join(__dirname, '..');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const M026 = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '026_promo_trading_cap.sql'), 'utf8');
+const M055 = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '055_promo_trading_cap_30.sql'), 'utf8');
 
-const CAP = 20;
+const CAP = 30;
 const CODE = 'PROMO_TRADING_LIMIT_REACHED';
-const MESSAGE = 'You have reached the promotional trading limit. Make your first deposit to continue trading.';
+const MESSAGE = 'You reached the $30 promotional profit limit. Make your first deposit to continue trading.';
 
 function stripFullLineComments(s) {
     return s.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
@@ -89,7 +91,7 @@ function extractFunction(src, name) {
 
 // The cap applies ONLY to a promotional-credit user by AUTHORITATIVE SOURCE OF
 // FUNDS: no confirmed deposit AND no referral-earnings conversion into Live
-// balance. It locks INCLUSIVELY at >= $20.00 NET realized profit. Deposited
+// balance. It locks INCLUSIVELY at >= $30.00 NET realized profit. Deposited
 // users, referral-funded users and sandbox accounts are never locked. The
 // balance amount is never consulted.
 function isPromoCreditFundedMirror({ hasDeposit, referralFunded, sandbox }) {
@@ -123,8 +125,8 @@ function botStartAllowed({ hasDeposit, referralFunded, promoProfit, sandbox, mod
 // 1. Constants + helper
 // ---------------------------------------------------------------------------
 
-test('the production cap is $20 (inclusive) at a single documented constant', () => {
-    assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 20;/);
+test('the production cap is $30 (inclusive) at a single documented constant', () => {
+    assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 30;/);
     assert.match(SERVER, /const PROMO_LIMIT_CODE = 'PROMO_TRADING_LIMIT_REACHED';/);
     assert.match(SERVER, /const PROMO_LIMIT_MESSAGE = 'You have reached the promotional trading limit/);
     // Inclusive lock at >= the cap, gated on the authoritative source-of-funds
@@ -195,9 +197,10 @@ test('/api/bot/start refuses a restart at the cap BEFORE creating a session', ()
     assert.match(body, /stopBotSessionForPromoLimit\(userId\)/);
 });
 
-test('/api/bot/start has no MTA gate and keeps the promo cap + default-deny mode', () => {
+test('/api/bot/start has no MTA gate, no client mode and keeps the promo cap', () => {
     const body = routeBody('post', '/api/bot/start');
-    assert.ok(body.includes("req.body.mode === 'demo' ? 'demo' : 'live'"));
+    assert.ok(!/req\.body\.mode/.test(body), 'single mode: no client-supplied mode');
+    assert.ok(!/'demo'/.test(body), 'no demo branch remains');
     const code = body.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
     assert.ok(!code.includes('MTA'), 'the MTA gate must be gone');
     assert.ok(!code.includes('getEffectiveMta'), 'no MTA helper may be consulted');
@@ -280,11 +283,11 @@ test('the cap classifier is the authoritative source-of-funds rule (no MTA-exemp
 // 5. Behaviour matrix (pure mirror)
 // ---------------------------------------------------------------------------
 
-test('below $20 profit can keep trading; exactly/above $20 is locked', () => {
+test('below $30 profit can keep trading; exactly/above $30 is locked', () => {
     assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 0 }), true);
-    assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 19.99 }), true);
-    assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 20 }), false, 'exactly $20 locks (inclusive)');
-    assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 20.01 }), false);
+    assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 29.99 }), true);
+    assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 30 }), false, 'exactly $30 locks (inclusive)');
+    assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 30.01 }), false);
     assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: 500 }), false);
 });
 
@@ -293,20 +296,20 @@ test('a real deposited user is never treated as promo-credit-only', () => {
     assert.strictEqual(botStartAllowed({ hasDeposit: true, promoProfit: 5000, mode: 'live' }).started, true);
 });
 
-test('$50 promotional-credit user: below / exactly / above $20 (inclusive lock)', () => {
+test('$50 promotional-credit user: below / exactly / above $30 (inclusive lock)', () => {
     const promo = { hasDeposit: false, referralFunded: false };
     assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 0 }), true, 'no profit can trade');
-    assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 19.99 }), true, 'below the cap can trade');
-    assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 20 }), false, 'exactly $20 locks (inclusive)');
-    assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 20.01 }), false, 'above the cap is locked');
-    assert.strictEqual(botStartAllowed({ ...promo, promoProfit: 20, mode: 'live' }).started, false);
-    assert.strictEqual(botStartAllowed({ ...promo, promoProfit: 20.01, mode: 'live' }).started, false);
+    assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 29.99 }), true, 'below the cap can trade');
+    assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 30 }), false, 'exactly $30 locks (inclusive)');
+    assert.strictEqual(tradeAllowed({ ...promo, promoProfit: 30.01 }), false, 'above the cap is locked');
+    assert.strictEqual(botStartAllowed({ ...promo, promoProfit: 30, mode: 'live' }).started, false);
+    assert.strictEqual(botStartAllowed({ ...promo, promoProfit: 30.01, mode: 'live' }).started, false);
 });
 
 test('referral-funded user with no deposit is NOT capped (authoritative source of funds)', () => {
     const referral = { hasDeposit: false, referralFunded: true };
-    assert.strictEqual(tradeAllowed({ ...referral, promoProfit: 19.99 }), true);
-    assert.strictEqual(tradeAllowed({ ...referral, promoProfit: 20 }), true, 'converted referral capital is never capped');
+    assert.strictEqual(tradeAllowed({ ...referral, promoProfit: 29.99 }), true);
+    assert.strictEqual(tradeAllowed({ ...referral, promoProfit: 30 }), true, 'converted referral capital is never capped');
     assert.strictEqual(tradeAllowed({ ...referral, promoProfit: 1000 }), true);
     assert.strictEqual(botStartAllowed({ ...referral, promoProfit: 1000, mode: 'live' }).started, true);
 });
@@ -325,7 +328,7 @@ test('ANY referral-earnings conversion PERMANENTLY exempts the cap (documented d
     // And it holds behaviourally: exempt at any profit level, with no deposit.
     assert.strictEqual(isPromoCreditFundedMirror({ hasDeposit: false, referralFunded: true }), false);
     assert.strictEqual(tradeAllowed({ hasDeposit: false, referralFunded: true, promoProfit: 0.01 }), true);
-    assert.strictEqual(tradeAllowed({ hasDeposit: false, referralFunded: true, promoProfit: 20 }), true);
+    assert.strictEqual(tradeAllowed({ hasDeposit: false, referralFunded: true, promoProfit: 30 }), true);
     assert.strictEqual(tradeAllowed({ hasDeposit: false, referralFunded: true, promoProfit: 999999 }), true);
     assert.strictEqual(botStartAllowed({ hasDeposit: false, referralFunded: true, promoProfit: 999999, mode: 'live' }).started, true);
 });
@@ -339,36 +342,38 @@ test('classification does not depend on the balance amount', () => {
     assert.strictEqual(isPromoCreditFundedMirror({ sandbox: true, hasDeposit: false, referralFunded: false }), false);
 });
 
-test('the sandbox is never restricted by the $20 rule', () => {
+test('the sandbox is never restricted by the $30 rule', () => {
     assert.strictEqual(tradeAllowed({ sandbox: true, hasDeposit: false, promoProfit: 1000 }), true);
     assert.strictEqual(botStartAllowed({ sandbox: true, promoProfit: 1000, mode: 'live' }).started, true);
 });
 
 test('bot start is blocked at/above the cap; restart cannot bypass; below the cap it starts', () => {
-    assert.strictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 19.99, mode: 'live' }).started, true);
-    assert.deepStrictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 20, mode: 'live' }),
+    assert.strictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 29.99, mode: 'live' }).started, true);
+    assert.deepStrictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 30, mode: 'live' }),
         { started: false, code: CODE });
     // A restart is just another start request: still blocked.
-    assert.strictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 20, mode: 'live' }).started, false);
-    // Demo mode is not server-gated (client-side demo).
-    assert.strictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 20, mode: 'demo' }).started, true);
+    assert.strictEqual(botStartAllowed({ hasDeposit: false, promoProfit: 30, mode: 'live' }).started, false);
+    // There is no second mode: a spoofed client mode cannot skip the gate.
+    const start = routeBody('post', '/api/bot/start');
+    assert.ok(!/req\.body\s*&&\s*req\.body\.mode/.test(start), 'the route no longer reads a client mode');
+    assert.ok(!/'demo'/.test(start), 'the bot-start route has no demo branch');
 });
 
 test('a confirmed deposit unlocks trading/bot again regardless of prior promo profit', () => {
-    assert.strictEqual(tradeAllowed({ hasDeposit: true, promoProfit: 20 }), true);
-    assert.strictEqual(botStartAllowed({ hasDeposit: true, promoProfit: 25, mode: 'live' }).started, true);
+    assert.strictEqual(tradeAllowed({ hasDeposit: true, promoProfit: 30 }), true);
+    assert.strictEqual(botStartAllowed({ hasDeposit: true, promoProfit: 35, mode: 'live' }).started, true);
 });
 
 test('duplicate/replayed trades add no profit (idempotent ledger) so cannot bypass the cap', () => {
     // record_trade_safe() returns the already-applied amount without inserting a
     // second `trades` row, so the ledger sum (the cap basis) is unchanged.
-    const ledger = [5, 7, 8]; // net 20 -> locked
+    const ledger = [10, 12, 8]; // net 30 -> locked
     const profit = ledger.reduce((s, x) => s + x, 0);
-    assert.strictEqual(profit, 20);
+    assert.strictEqual(profit, 30);
     assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: profit }), false);
     // A replayed duplicate would not append a row; simulate that:
     const afterReplay = ledger.slice();
-    assert.strictEqual(afterReplay.reduce((s, x) => s + x, 0), 20);
+    assert.strictEqual(afterReplay.reduce((s, x) => s + x, 0), 30);
     assert.strictEqual(tradeAllowed({ hasDeposit: false, promoProfit: afterReplay.reduce((s, x) => s + x, 0) }), false);
 });
 
@@ -427,25 +432,33 @@ test('i18n: bot.promoLimitReached exists in all 6 locales and matches the server
 // 7. Migration 026 (defence in depth; NOT applied)
 // ---------------------------------------------------------------------------
 
-test('migration 026 adds a fail-open, sandbox-skipping trades trigger at $20', () => {
-    assert.match(M026, /CREATE OR REPLACE FUNCTION public\.enforce_promo_trade_cap\(\)/);
-    assert.match(M026, /BEFORE INSERT ON public\.trades/);
-    assert.match(M026, /RAISE EXCEPTION 'PROMO_TRADING_LIMIT_REACHED'/);
-    assert.match(M026, /v_promo_profit >= 20/);
-    assert.match(M026, /IF v_env = 'MARKETING_SANDBOX' THEN\s*\n\s*RETURN NEW;/);
-    assert.match(M026, /EXCEPTION WHEN OTHERS THEN\s*\n\s*RETURN NEW;/);
-    assert.match(M026, /COALESCE\(SUM\(t\.amount\), 0\)/, 'R7: realized P&L is SUM(trades.amount)');
-    assert.match(M026, /t\.mode = 'live'/, "R7: only live-engine trades count");
-    assert.match(M026, /IF v_promo_profit >= 20 THEN/, 'R6: inclusive threshold');
-    assert.match(M026, /R1 confirmed deposit .*EXEMPT|--   R1 confirmed deposit/);
-    assert.match(M026, /FROM public\.deposits d|FROM public\.payment_invoices pi/);
-    assert.match(M026, /DROP TRIGGER IF EXISTS trg_enforce_promo_trade_cap/);
-    // additive / idempotent / self-checking
-    assert.match(M026, /CREATE OR REPLACE FUNCTION/);
-    assert.ok(!/ALTER TABLE public\.trades/.test(M026), 'must not alter the trades table');
-    assert.ok(!/DROP TABLE|TRUNCATE|DELETE FROM|UPDATE public\.(trades|wallets|deposits)/.test(M026), 'no data mutation');
-    assert.match(M026, /RAISE EXCEPTION 'migration 026/);
+test('migration 055 raises the fail-open, sandbox-skipping trades trigger to $30', () => {
+    assert.match(M055, /CREATE OR REPLACE FUNCTION public\.enforce_promo_trade_cap\(\)/);
+    assert.match(M055, /BEFORE INSERT ON public\.trades/);
+    assert.match(M055, /RAISE EXCEPTION 'PROMO_TRADING_LIMIT_REACHED'/);
+    assert.match(M055, /v_promo_profit >= 30/, 'R6: inclusive $30 threshold');
+    assert.match(M055, /EXCEPTION WHEN OTHERS THEN\s*\n\s*RETURN NEW;/, 'fail open');
+    assert.match(M055, /v_env = 'MARKETING_SANDBOX'/, 'sandbox skipped');
+    assert.match(M055, /mode = 'live'/, 'realized-P&L basis is the live ledger');
+    assert.ok(!/v_promo_profit >= 20/.test(M055), 'no $20 threshold left');
+    // 026 stays as the historical revision; 055 is authoritative and says so.
+    assert.match(M026, /v_promo_profit >= 20/, '026 is unchanged history');
+    assert.match(M055, /SUPERSEDES the \$20 threshold in 026/);
+    // Apply-order guard: the self-check reads the LIVE function body.
+    assert.match(M055, /pg_get_functiondef/);
+    assert.match(M055, /IF v_body NOT LIKE '%>= 30%' THEN/);
+    // Everything except the threshold lines must match 026 byte-for-byte.
+    const norm = (t) => t
+        .replace(/>= \$30\.00/g, '>= $20.00')
+        .replace(/exactly \$30\.00/g, 'exactly $20.00')
+        .replace(/\$30 promotional-credit/g, '$20 promotional-credit')
+        .replace(/v_promo_profit >= 30/g, 'v_promo_profit >= 20');
+    const body055 = M055.slice(M055.indexOf('-- 1. GUARD FUNCTION'));
+    const body026 = M026.slice(M026.indexOf('-- 1. GUARD FUNCTION'), M026.indexOf('-- ============================================\n-- 4.'));
+    assert.strictEqual(norm(body055).slice(0, body026.length).replace(/\s+$/, ''), body026.replace(/\s+$/, ''),
+        'the guard function/trigger body is identical to 026 apart from the threshold');
 });
+
 
 test('migration 026 enforces the SAME source-of-funds classification as server.js', () => {
     // Deposited users are exempt...
