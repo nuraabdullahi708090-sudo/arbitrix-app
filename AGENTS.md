@@ -9275,3 +9275,66 @@ Scope: tests, one repo validator, `.gitattributes`, `package.json` (test script)
 `worker.js`, `services/TradingWorker.js` and `AGENTS.md`. No server.js, no
 migration, no schema, no money path, no business constant and no production
 configuration was modified. No merge and no deploy.
+
+## Live Mode customer journey fixes + brand consistency (2026-11-16, branch feat/journey-fixes)
+
+- Frontend-only (public/index.html + public/reset-password.html + tests). No server.js,
+  services, migrations, DB, payment/webhook or eligibility change. No deploy, no merge.
+
+### P0 - truthful refusals (the customer was told a bot started when the server refused)
+- `isLiveAccessRefusal(body)` / `handleLiveAccessRefusal(body)` (near `isProfitPausePayload`)
+  recognise LIVE_ACTIVATION_REQUIRED, LIVE_DEPOSIT_REQUIRED, ACTIVATION_UNAVAILABLE and
+  LIVE_DEPOSIT_CHECK_UNAVAILABLE.
+- `startBot()` branches on the refusal BEFORE `beginBotRun()`: no running state, no
+  "Bot started" toast, no history row, no sound; the status is reset to stopped and the
+  modal for the MISSING step is opened (activation modal, or the deposit dialog).
+- `persistLiveTrade()` handles the same codes explicitly: rollback + the same handler
+  (previously any non-ok body fell through to a silent `rollback(); return;`).
+
+### P0 - badge integrity (a refused trade could unlock "First Trade")
+- `checkBadges()` returns early while `APP.suppressBadges` is set.
+- `executeBotTrade()` snapshots EVERY optimistic counter (trades/wins/streak/maxStreak/
+  best/worst/tradeAmounts length/history length/hasTradingActivity) and passes it to
+  `persistLiveTrade(..., preCounters)`; `rollback()` restores all of them, so a rejected
+  trade cannot leave a badge, a streak, a history row or "has traded" behind.
+- Live trades are announced (toast + sound) ONLY after the server persisted them
+  (`announceTradeResult` called on success); Demo keeps its immediate announcement.
+
+### Activation edge cases
+- The activation modal shows `#liveActivationUnavailable` (explains that purchasing is
+  unavailable and points at support) whenever `activationPurchasable === false` or no
+  https store URL exists - previously the buy button just vanished.
+- A "Contact support" action was added to the modal (a customer who paid but cannot
+  redeem has a route).
+- After a successful activation the next step is stated explicitly
+  (`liveActivation.nextStep` with the configured minimum deposit).
+- The LIVE "Start Here" checklist is now the three REAL prerequisites, in server order:
+  activation -> deposit (APP.MIN_DEPOSIT) -> first Live trade. `startHereLiveComplete()`
+  never reports "ready" while activation is outstanding.
+- New key name `startHere.live.step3` (step2 stays retired by the MTA-removal pin).
+
+### Disclosures
+- Landing: hero promo, 3-step strip (activation / $100+ funding), a new FAQ entry
+  ("I deposited but still cannot start Live trading. Why?") and the in-demo CTA now state
+  the $50 one-time activation AND the $100 trading capital as separate steps.
+- Deposit dialog: `#depositActivationNote` states that a deposit is capital, not
+  activation.
+- The withdrawal threshold ($700) is still disclosed ONLY in the withdrawal pop-up; the
+  only shipped literal is the `'Min $700'` BACKEND_MESSAGE_MAP key.
+
+### Brand consistency
+- The split wordmarks now render "Kalderix" (index.html x5 + reset-password.html x1);
+  `BRAND`/`{{brand}}` already supplied the name in copy.
+
+### Palette
+- `--text-secondary` #8896B5 -> #9AA8C6, `--text-muted` #7E8CAB -> #8C9AB8,
+  `--bg-card` #0F1629 -> #101828, `--border` #24314A -> #26344F (readability only).
+
+### Tests
+- NEW tests/live_access_refusal_ui.test.js (11): refusal matrix at start, complete
+  rollback, persisted-only announcement, First Trade badge cannot unlock from a refused
+  trade (and still does from persisted activity), suppression, source pins.
+- Updated pins for the intentional changes: dictionary 1634 -> 1645 (16 files),
+  startHere 3-step model, landing title/promo, partners FUNNEL_SHA256, landing_testimonials
+  allowed keys, profit-pause sandbox collaborators.
+- `npm test` = 3536 pass / 0 fail. Browser harness (/tmp/audit/ux8.js) = 37/37.

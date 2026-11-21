@@ -54,9 +54,9 @@ const NEW_KEYS = [
 // ---------------------------------------------------------------------------
 // i18n structure
 // ---------------------------------------------------------------------------
-test('dictionary: 1634 keys/locale and an identical key set across all 6 locales', () => {
+test('dictionary: 1645 keys/locale and an identical key set across all 6 locales', () => {
     const base = Object.keys(T.en).sort();
-    assert.strictEqual(base.length, 1634, 'expected 1634 keys per locale');
+    assert.strictEqual(base.length, 1645, 'expected 1645 keys per locale');
     LANGS.forEach((l) => {
         assert.ok(T[l], l + ' locale must exist');
         assert.deepStrictEqual(Object.keys(T[l]).sort(), base, l + ' key set must match en');
@@ -130,12 +130,12 @@ test('demo CTA wording says an account is required (no "Try Demo Mode")', () => 
 // ---------------------------------------------------------------------------
 test('START FREE IN 3 STEPS strip is present below the hero', () => {
     assert.match(INDEX, /id="start-free"/, 'strip section present');
-    assert.strictEqual(T.en['landing.startFree.title'], 'START FREE IN 3 STEPS');
+    assert.strictEqual(T.en['landing.startFree.title'], 'START FREE, GO LIVE IN 3 STEPS');
     ['step1.title', 'step2.title', 'step3.title'].forEach((s) => {
         assert.match(INDEX, new RegExp('data-i18n="landing\\.startFree\\.' + s.replace('.', '\\.') + '"'), 'wired ' + s);
     });
     // The strip must not promise the credit to everyone.
-    assert.match(T.en['landing.startFree.step2.desc'], /where eligible/i, 'step 2 states eligibility');
+    assert.match(T.en['landing.startFree.step3.desc'], /where eligible/i, 'the promotional credit states eligibility');
     LANGS.forEach((l) => assert.ok(T[l]['landing.startFree.title'].trim().length > 0, l + ' title present'));
 });
 

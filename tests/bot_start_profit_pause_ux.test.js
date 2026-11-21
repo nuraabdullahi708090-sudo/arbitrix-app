@@ -64,6 +64,7 @@ function extractFn(name) {
 }
 
 const FN_NAMES = ['startBot', 'beginBotRun', 'showProfitPauseStartBlocked',
+  'isLiveAccessRefusal', 'handleLiveAccessRefusal',
   'syncBotSessionWithServer', 'isProfitPausePayload', 'rememberProfitPauseThreshold',
   'renderProfitPauseBody', 'openProfitPauseModal', 'closeProfitPauseModal',
   'maybeShowProfitPauseModal', 'profitPauseDeposit'];
