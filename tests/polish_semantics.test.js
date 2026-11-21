@@ -186,10 +186,28 @@ test('13. the header, the landing page and the icons all use it', () => {
     assert.ok(!/kx-logo-mark[^>]*role="img"/.test(INDEX), 'the header glyph is decorative');
 });
 
-test('14. the runtime icons (favicon + PWA) draw the same symbol', () => {
-    const icon = INDEX.slice(INDEX.indexOf('const iconSvg'), INDEX.indexOf('const iconSvg') + 900);
-    assert.match(icon, /M116 388 L246 258/, 'the app icon uses the symbol geometry');
-    assert.match(icon, /stroke="' \+ BRAND\.accent \+ '"/, 'and follows BRAND.accent');
+test('14. the icons are real files drawn from the same symbol', () => {
+    // Icons used to be SVG data URIs generated at runtime. iOS ignores SVG for
+    // Add to Home Screen and the platform re-fetches these URLs at install
+    // time, so every icon link must now point at a real file on disk.
+    const head = INDEX.slice(0, INDEX.indexOf('</head>'));
+    assert.ok(!/rel="(?:icon|apple-touch-icon|manifest)"[^>]*href="data:/.test(head),
+        'no icon or manifest link is a data URI');
+    assert.match(head, /<link rel="icon" type="image\/svg\+xml" href="\/brand\/kalderix-favicon\.svg">/,
+        'the favicon is the brand SVG file');
+    assert.match(head, /<link rel="icon" type="image\/png" sizes="32x32" href="\/icons\/favicon-32\.png">/,
+        'a PNG favicon backs up the SVG');
+    assert.match(head, /<link rel="apple-touch-icon" sizes="180x180" href="\/icons\/apple-touch-icon-180\.png">/,
+        'iOS reads a real PNG');
+    for (const rel of ['public/brand/kalderix-favicon.svg', 'public/brand/kalderix-icon-maskable.svg']) {
+        const svg = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+        assert.match(svg, /M116 388 L246 258/, rel + ' uses the symbol geometry');
+        assert.ok(!/<text/.test(svg), rel + ' draws no monogram');
+    }
+    for (const png of ['icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png', 'apple-touch-icon-180.png', 'favicon-32.png']) {
+        const buf = fs.readFileSync(path.join(ROOT, 'public', 'icons', png));
+        assert.strictEqual(buf.subarray(1, 4).toString('latin1'), 'PNG', png + ' is a real PNG');
+    }
     assert.ok(!/BRAND\.mark \+ '<\/text>/.test(INDEX), 'no icon types the monogram any more');
 });
 

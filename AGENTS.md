@@ -9568,3 +9568,47 @@ errors) and 8/8 supplementary checks (live prompt intact, wallet-card spacing, s
 parity). Encoding verified against HEAD: 0 U+FFFD, and the non-ASCII delta is exactly
 the removed/added copy.
 - NOT merged/deployed at the time of writing (PR open, awaiting instruction).
+
+## Kalderix PWA branding + multilingual button fit (2026-11-21, frontend + gate)
+- Two workstreams, one PR. NO server.js / migration / auth / wallet / trading /
+  deposit / withdrawal / KYC / referral / subscription change.
+- PWA: the manifest was generated at runtime with `URL.createObjectURL(new Blob(...))`
+  and the icons were SVG data URIs. A Blob URL cannot be re-fetched by the platform at
+  install time, and iOS ignores an SVG `apple-touch-icon`, so the installed app could
+  fall back to a generic icon. Replaced with real files:
+  `public/manifest.webmanifest` (id "/", name/short_name "Kalderix", start_url/scope "/",
+  standalone, theme+background #0E141C) and `public/icons/` PNGs rendered from the
+  approved mark by Chromium (no SVG rasteriser available here): icon-192/512 (purpose
+  any, transparent corners), maskable-192/512 (full-bleed, artwork within the 40%
+  safe radius), apple-touch-icon-180 (opaque), favicon-32. `public/brand/
+  kalderix-icon-maskable.svg` is the maskable composition. `applyBrandAssets()` no
+  longer writes data URIs over the icon links (it runs because BRAND.name !==
+  BRAND.source, so it was overwriting the PNG on every load). Service worker
+  unchanged (network-first navigations, cache name kept for existing installs).
+  Chromium `Page.getAppManifest` = 0 parse errors, `Page.getInstallabilityErrors`
+  = [] (fully installable before AND after; the difference is that the install
+  surface now resolves real, correct assets).
+- Buttons: the Demo Funds row was an unstyled flex row holding `.input-field`
+  (width:100%) plus the Add button, so the button was crushed and its translated
+  label split mid-word in every locale. New reusable `.input-action-row` (grid:
+  `minmax(96px,1fr) auto`, action `min-width:72px; white-space:nowrap` — flex was not
+  enough because `.input-field{width:100%}` claimed the whole line). Base `.btn`
+  changed `overflow-wrap:anywhere` -> `break-word` (+`word-break:normal`): `anywhere`
+  also shrank the intrinsic minimum to one character, which is what allowed the
+  crushing. Available card actions: `padding:8px 6px` (was 3px, which clipped), labels
+  may wrap, and a new `@media(max-width:360px)` stacks the two actions full width.
+  Small controls: `.kx-support-link` (three 10px bare-text support buttons were
+  32x10 tap targets) and a 36x44 Start Here dismiss. `.ref-share-actions` uses
+  `repeat(auto-fit,minmax(150px,1fr))` so "Compartilhar no X" wraps between words.
+- Measured: puppeteer-core + /usr/bin/chromium, 6 locales x 320/360/390/768/1280 x
+  14 customer surfaces. Baseline 48 small + 40 clipped + 31 mid-word splits (119
+  offenders) -> 0. A separate harness asserts input/button geometry and that clicking
+  Add still credits the demo wallet (515 checks, 0 failed).
+- Tests: new `tests/pwa_branding.test.js` (11, includes a dependency-free PNG decoder
+  asserting maskable opacity and the safe-zone radius) and `tests/button_fit.test.js`
+  (11). Updated for the intentional change: `tests/kalderix_identity.test.js` (5),
+  `tests/polish_semantics.test.js` (14) and `scripts/verify-rebrand.js` (the gate now
+  verifies the static manifest + real icons on disk instead of the Blob builder).
+  `npm test` = 3653 pass / 0 fail.
+- Deployment notes: `/manifest.webmanifest` is served by `express.static` as
+  `application/manifest+json` (verified on a real boot); no route or env change.
