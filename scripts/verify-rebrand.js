@@ -205,9 +205,28 @@ check('unrelated details are untouched', tctx.f('Demo Funds') === 'tx.detail.dem
 // 6. No old name left in a customer-facing surface
 // ---------------------------------------------------------------------------
 section('6. Leftovers');
-const GLOBS = ['public/index.html', 'public/partners.html', 'public/how-it-works.html',
+/**
+ * Two tiers, because a rename has two ways to leak:
+ *
+ *   PAGES  - shipped HTML. A duplicate of the old name here is a customer-visible
+ *            label, a page title or an OG card.
+ *   COPY   - the text that is NOT in a page: support-bot replies, partner-group
+ *            marketing posts, the support knowledge base, and the tutorial
+ *            narration/closing card that a future recording would burn in.
+ *
+ * The copy tier was missing until 2026-11-16: the gate passed while the partner
+ * group was still told "1. EXPLORE ARBITRIX" and the tutorial generator still
+ * spoke the old name. Both tiers now run through the same context-aware detector.
+ */
+const PAGE_GLOBS = ['public/index.html', 'public/partners.html', 'public/how-it-works.html',
   'public/business-registration.html', 'public/deposit-tutorials.html',
   'public/privacy-policy.html', 'public/terms-of-service.html', 'public/reset-password.html'];
+const COPY_GLOBS = ['services/telegram-i18n.js', 'services/MarketingContent.js',
+  'services/TelegramBroadcast.js', 'services/TelegramSupportService.js',
+  'services/support/ConversationEngine.js', 'services/support/SupportKnowledge.js',
+  'services/support/arbitrix-knowledge.json', 'scripts/tutorial/scenes.json',
+  'scripts/tutorial/build.js', 'scripts/tutorial/record.js'];
+const GLOBS = PAGE_GLOBS.concat(COPY_GLOBS);
 
 /**
  * The shared detector classifies by CONTEXT (domains, mailboxes, handles,
@@ -221,9 +240,37 @@ function unexplainedIn(file) {
     return file + ': ' + line;
   });
 }
-const leftovers = GLOBS.filter(exists).flatMap(unexplainedIn);
+const pageLeftovers = PAGE_GLOBS.filter(exists).flatMap(unexplainedIn);
+const copyLeftovers = COPY_GLOBS.filter(exists).flatMap(unexplainedIn);
+const leftovers = pageLeftovers.concat(copyLeftovers);
 check('every remaining reference is a protected identifier', leftovers.length === 0,
   leftovers.slice(0, 4).join(' | '));
+check('customer-facing copy modules are covered by the scan', copyLeftovers.length === 0 &&
+  COPY_GLOBS.filter(exists).length >= 8, copyLeftovers.slice(0, 3).join(' | '));
+
+// ---------------------------------------------------------------------------
+section('7. Transactional email');
+
+/**
+ * Email is the one surface a customer reads outside the product, so the name and
+ * the palette both have to be right. The templates are inline in server.js; the
+ * gold-on-black values were the pre-rename identity and left every OTP and reset
+ * message looking like the old brand.
+ */
+const serverSrc = read('server.js');
+const LEGACY_EMAIL_COLOURS = ['#ffd700', '#ffb700', '#0d1117', '#1a2332'];
+const legacyColoursFound = LEGACY_EMAIL_COLOURS.filter((c) =>
+  serverSrc.toLowerCase().includes(c));
+check('email templates carry no legacy gold/black brand colours',
+  legacyColoursFound.length === 0, legacyColoursFound.join(', '));
+const brandSrc = read('services/brand.js');
+check('email sender derives from BRAND (display name) and keeps the verified mail domain',
+  /BRAND\.name \+ ' <noreply@' \+ BRAND\.mailDomain/.test(brandSrc),
+  'emailSender() in services/brand.js');
+check('email subjects derive from BRAND, not a literal',
+  serverSrc.includes("subject: 'Password Reset Request - ' + BRAND.name") &&
+  serverSrc.includes("subject: 'Your ' + BRAND.name + ' Verification Code'"),
+  'reset + verification code subjects');
 
 // ---------------------------------------------------------------------------
 console.log('');

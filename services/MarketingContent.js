@@ -212,7 +212,7 @@ const EN = {
     '',
     '🚀 YOUR NEXT STEPS',
     '',
-    '1️⃣ EXPLORE ARBITRIX',
+    '1️⃣ EXPLORE KALDERIX',
     '',
     'Discover how the platform works and explore Demo Mode using virtual funds before funding a live account.',
     '',
@@ -252,7 +252,7 @@ const EN = {
     '',
     '🚀 YOUR NEXT STEPS',
     '',
-    '1️⃣ EXPLORE ARBITRIX',
+    '1️⃣ EXPLORE KALDERIX',
     'Discover how the platform works and explore Demo Mode using virtual funds before funding a live account.',
     '',
     '{{learnLine}}',
@@ -325,7 +325,7 @@ const EN = {
     ].join('\n'),
 
     tue: [
-      'HOW TO DESCRIBE ARBITRIX ACCURATELY',
+      'HOW TO DESCRIBE KALDERIX ACCURATELY',
       '',
       'Say this:',
       '- Kalderix is automated arbitrage software that records each execution in the user\'s account.',
@@ -383,7 +383,7 @@ const EN = {
     ].join('\n'),
 
     sat: [
-      'STAYING SAFE WITH ARBITRIX',
+      'STAYING SAFE WITH KALDERIX',
       '',
       '- {{announcementScope}}',
       '- Support never asks for your password, private keys, seed phrase or one-time codes.',
@@ -423,7 +423,7 @@ const PT = {
     '',
     '🚀 SEUS PRÓXIMOS PASSOS',
     '',
-    '1️⃣ CONHEÇA A ARBITRIX',
+    '1️⃣ CONHEÇA A KALDERIX',
     '',
     'Veja como a plataforma funciona e explore o Modo Demo com fundos virtuais antes de depositar em uma conta real.',
     '',
@@ -463,7 +463,7 @@ const PT = {
     '',
     '🚀 SEUS PRÓXIMOS PASSOS',
     '',
-    '1️⃣ CONHEÇA A ARBITRIX',
+    '1️⃣ CONHEÇA A KALDERIX',
     'Veja como a plataforma funciona e explore o Modo Demo com fundos virtuais antes de depositar em uma conta real.',
     '',
     '{{learnLine}}',
@@ -536,7 +536,7 @@ const PT = {
     ].join('\n'),
 
     tue: [
-      'COMO DESCREVER A ARBITRIX COM PRECISÃO',
+      'COMO DESCREVER A KALDERIX COM PRECISÃO',
       '',
       'Diga isto:',
       '- A Kalderix é um software automatizado de arbitragem que registra cada execução na conta do usuário.',
@@ -594,7 +594,7 @@ const PT = {
     ].join('\n'),
 
     sat: [
-      'SEGURANÇA NA ARBITRIX',
+      'SEGURANÇA NA KALDERIX',
       '',
       '- {{announcementScope}}',
       '- O suporte nunca pede sua senha, chaves privadas, frase de recuperação ou códigos de uso único.',

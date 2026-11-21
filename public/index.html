@@ -5700,7 +5700,7 @@ function openSubscriptionModal() {
     loadSubscriptionStatus();
 }
 
-// ============ ARBITRIX PRO SUBSCRIPTION ============
+// ============ KALDERIX PRO SUBSCRIPTION ============
 // The frontend NEVER sends price/balance/billing-date/status to the server. It
 // only reflects server state and sends activate/cancel. The server derives the
 // user id from the JWT, the price from payment_config, and the billing period
@@ -9924,7 +9924,7 @@ function toggleFaq(btn) {
         <div class="form-group"><label data-i18n="profile.name">Display Name</label><input type="text" id="profileDisplayName" class="input-field" value="Trader"></div>
         <div class="form-group">
             <label data-i18n="profile.email">Email</label>
-            <input type="email" id="profileEmail" class="input-field" value="trader@arbitrix.ai" readonly style="opacity:0.75;cursor:not-allowed;" aria-readonly="true">
+            <input type="email" id="profileEmail" class="input-field" value="you@example.com" readonly style="opacity:0.75;cursor:not-allowed;" aria-readonly="true">
             <div id="emailChangePending" style="display:none;margin-top:8px;font-size:12px;color:var(--gold);background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px 10px;line-height:1.4;"></div>
             <button type="button" class="btn btn-secondary btn-block" id="changeEmailBtn" onclick="openChangeEmailModal()" style="margin-top:8px;">
                 <i class="fas fa-envelope-pen"></i> <span data-i18n="emailChange.changeButton">Change Email</span>
@@ -9966,7 +9966,7 @@ function toggleFaq(btn) {
                 <i class="fas fa-play"></i> <span data-i18n="profile.testSound">Test Sound</span>
             </button>
         </div>
-        <!-- ARBITRIX PRO SUBSCRIPTION (compact summary; the full panel lives in
+        <!-- KALDERIX PRO SUBSCRIPTION (compact summary; the full panel lives in
              #subscriptionModal, opened via the sidebar Subscription entry or the
              Manage button below). No duplicated UI: the single panel is shared. -->
         <div class="subscription-profile-card" id="subscriptionProfileCard" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--gold-glow);border-radius:10px;padding:12px 16px;margin-top:16px;">
@@ -10034,7 +10034,7 @@ function toggleFaq(btn) {
     </div>
 </div>
 
-<!-- ARBITRIX PRO SUBSCRIPTION MODAL (dedicated entry from the sidebar) -->
+<!-- KALDERIX PRO SUBSCRIPTION MODAL (dedicated entry from the sidebar) -->
 <!-- Internal server-side debit of the available Live balance. No card /
      payment form. The server is the sole authority on price, status, and
      billing; the UI only reflects server state and sends activate/cancel. -->

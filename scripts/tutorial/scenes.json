@@ -7,7 +7,7 @@
       "id": 1,
       "title": "Your dashboard starts in Demo Mode",
       "caption": "You start in Demo Mode with $1,000 of virtual funds.",
-      "say": "This is your Arbitrix dashboard. You start in Demo Mode, with one thousand dollars of virtual funds, so you can practise the whole platform without risking any money.",
+      "say": "This is your Kalderix dashboard. You start in Demo Mode, with one thousand dollars of virtual funds, so you can practise the whole platform without risking any money.",
       "focus": "#demoTab"
     },
     {
@@ -28,7 +28,7 @@
       "id": 4,
       "title": "Enter the amount",
       "caption": "Enter the amount you want to deposit, then press Generate Payment.",
-      "say": "Enter the amount you want to deposit, then press Generate Payment. Arbitrix creates a unique payment address for that exact amount.",
+      "say": "Enter the amount you want to deposit, then press Generate Payment. Kalderix creates a unique payment address for that exact amount.",
       "focus": "#liveDepositAmount"
     },
     {
@@ -41,8 +41,8 @@
     {
       "id": 6,
       "title": "Wait for the confirmation",
-      "caption": "Arbitrix watches the blockchain: the status moves to credited after confirmation.",
-      "say": "Arbitrix watches the blockchain for you. The status moves from waiting, to detected, to credited, usually a few minutes after the first confirmation.",
+      "caption": "Kalderix watches the blockchain: the status moves to credited after confirmation.",
+      "say": "Kalderix watches the blockchain for you. The status moves from waiting, to detected, to credited, usually a few minutes after the first confirmation.",
       "focus": "#currentStatusBox"
     },
     {
@@ -55,8 +55,8 @@
     {
       "id": 8,
       "title": "Help is one message away",
-      "caption": "Questions? Message the Arbitrix support team any time.",
-      "say": "If anything is unclear, our support team is one message away, at t dot me slash Arbitrix Support Bot.",
+      "caption": "Questions? Message the Kalderix support team any time.",
+      "say": "If anything is unclear, our support team is one message away, through the official support bot on Telegram.",
       "focus": "#supportTelegramBtn"
     }
   ]

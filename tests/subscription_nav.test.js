@@ -107,7 +107,7 @@ test('exactly one #subscriptionPanel exists and it lives inside #subscriptionMod
 // 3. Profile Settings: compact summary card, no full panel
 // ---------------------------------------------------------------------------
 test('Profile Settings contains only the compact summary card (no full panel)', () => {
-    const profile = elementBlock('profileModal', '<!-- ARBITRIX PRO SUBSCRIPTION MODAL');
+    const profile = elementBlock('profileModal', '<!-- KALDERIX PRO SUBSCRIPTION MODAL');
     assert.ok(!profile.includes('id="subscriptionPanel"'), 'profile modal must NOT contain the full panel');
     assert.ok(!profile.includes('id="subscriptionActivateBtn"'), 'profile modal must NOT contain the activate button');
     assert.match(profile, /id="subscriptionProfileCard"/, 'compact summary card missing');

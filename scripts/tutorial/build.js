@@ -283,7 +283,7 @@ function verify(args, capture, master) {
     // Ready-to-paste caption. No profit or return claims: the video explains a
     // deposit, it does not sell an outcome.
     const caption = [
-      'How to fund your Arbitrix Live balance',
+      'How to fund your Kalderix Live balance',
       '',
       'A 90-second walkthrough: Demo Mode, switching to Live, and the deposit step -',
       'the amount, the TRON (TRC20) address, the QR code and the confirmation.',

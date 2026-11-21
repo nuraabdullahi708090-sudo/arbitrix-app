@@ -9454,3 +9454,59 @@ configuration was modified. No merge and no deploy.
 - Verification: no horizontal overflow at 320/360/390/430/768/1280 x en/pt/es/ar/zh,
   the toast never overlaps the support launcher, one toast node in the DOM at a time,
   the queue advances on dismiss, and every logo placement renders real ink.
+
+
+## Rebrand completion audit - Arbitrix leftovers (2026-11-16, copy/identity only)
+- Full inventory: docs/REBRAND_COMPLETION_AUDIT.md. Gate and tests:
+  `node scripts/verify-rebrand.js --expect Kalderix` and tests/rebrand_audit.test.js.
+- FIVE real defects were still shipping the old name, all invisible to the gate:
+  1. services/MarketingContent.js - the partner-group/announcement posts still said
+     "1. EXPLORE ARBITRIX", "HOW TO DESCRIBE ARBITRIX ACCURATELY", "STAYING SAFE WITH
+     ARBITRIX" and the PT equivalents ("CONHECA A ARBITRIX", ...). Now KALDERIX.
+  2. scripts/tutorial/{scenes.json,build.js,record.js} - the narration said "your
+     Arbitrix dashboard" / "Arbitrix creates..." / "the Arbitrix support team", the
+     closing card said "How to fund your Arbitrix Live balance", and record.js stamped
+     an on-screen chip reading ARBITRIX into every recording. Now Kalderix; the
+     narration describes "the official support bot on Telegram" instead of spelling a
+     handle that could change.
+  3. server.js email templates still used the PRE-rename palette (#ffd700 gold
+     wordmark/code/button, #0d1117 black header and code chip). Now azure/slate:
+     #5EA0FF wordmark, #101A26 -> #1B2A3A header, #8CBBFF -> #3F7BE0 button with
+     #0B111A label (worst-case contrast 4.62:1, measured in tests). Rendered and
+     screenshot-verified: 1386 azure pixels in the header band, 0 gold.
+  4. Email subjects/titles/wordmarks were literal 'Kalderix' strings in server.js
+     (drift risk: the next rename leaves eight hidden stale strings). They now derive
+     from BRAND.name. Rendered check: 3/3 templates contain Kalderix, the code
+     interpolates, no unresolved ${, no legacy colour.
+  5. Stale surface copy: `ARBITRIX PRO SUBSCRIPTION` comments (index.html x3,
+     .env.example), the customer-visible download filename
+     arbitrix-kvk-business-registration.jpg, the profile placeholder
+     trader@arbitrix.ai (a fake mailbox on the old domain -> you@example.com), and
+     docs/telegram-referral-onboarding.md - the pinned partner-group message an
+     operator would paste, which still said Arbitrix in 9 sentences.
+- WHY THE GATE MISSED IT: scripts/lib/rebrand-lint.js used a case-SENSITIVE indexOf,
+  so "EXPLORE ARBITRIX" was never a hit, and verify-rebrand.js scanned only
+  public/*.html. Both fixed: ARBITRIX is an alias; the gate now scans TWO tiers -
+  PAGES (shipped HTML) and COPY (telegram-i18n.js, MarketingContent.js,
+  TelegramBroadcast.js, TelegramSupportService.js, ConversationEngine.js,
+  SupportKnowledge.js, arbitrix-knowledge.json, tutorial scenes/build/record) - plus
+  a new section 7 that fails on a legacy email colour or a literal email subject.
+  New allow-rules keep the widen from crying wolf: quoted bot handle, ARBITRIX_* config
+  names, camelCase integration fields.
+- PRESERVED (pinned by tests): legalName 'Arbitrix Trading' + KVK 72923513, the
+  arbitrix.pro / arbitrix.ai domains, @ArbitrixSupportBot + @ArbitrixAnnouncements/*
+  + @AlexArbitrix/@OliviaArbitrix/@Arbitrix_CSA1 handles, admin@arbitrix.ai, the
+  jwt_token/arbi_* localStorage keys, `arbitrix:mode-changed`, `arbitrix-shell-v1`,
+  the arbitrix-support-telegram meta names and ARBITRIX_* window hooks, the q8qpay
+  payload fields (arbitrixUserId/DepositRef/InvoiceId), arbitrix-knowledge.json and
+  its what_is_arbitrix ids, package.json name, and the published /video filenames.
+  Also untouched: every migration (051 already handled the subscription DETAIL label
+  forward-only), historical rows, and all financial constants/routes.
+- Verified: 27 new tests (rebrand_audit) - 3618 pass / 0 fail; gate ALL PASS; the
+  rendered-page scan reports 9 visible mentions and 0 unexplained across 7 public
+  pages; the app scan reports 0 unexplained across the dashboard + support, deposit,
+  profile, subscription, verification and withdrawal modals; non-ASCII byte counts
+  identical in all 15 changed files (0 U+FFFD).
+- EXTERNAL (not done, no code): BotFather display name/About/description/photo,
+  group + channel titles, Payhip store/product names, Q8Pay merchant display name, and
+  the future domain migration (docs section 7).
