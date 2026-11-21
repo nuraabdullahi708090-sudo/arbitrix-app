@@ -54,9 +54,9 @@ const NEW_KEYS = [
 // ---------------------------------------------------------------------------
 // i18n structure
 // ---------------------------------------------------------------------------
-test('dictionary: 1587 keys/locale and an identical key set across all 6 locales', () => {
+test('dictionary: 1588 keys/locale and an identical key set across all 6 locales', () => {
     const base = Object.keys(T.en).sort();
-    assert.strictEqual(base.length, 1587, 'expected 1587 keys per locale');
+    assert.strictEqual(base.length, 1588, 'expected 1588 keys per locale');
     LANGS.forEach((l) => {
         assert.ok(T[l], l + ' locale must exist');
         assert.deepStrictEqual(Object.keys(T[l]).sort(), base, l + ' key set must match en');
@@ -88,12 +88,13 @@ test('hero title communicates automated arbitrage across multiple markets', () =
 test('the $50 promotional credit is visible in the hero', () => {
     assert.match(INDEX, /class="landing-hero-promo"/, 'hero promo pill present');
     assert.match(INDEX, /data-i18n="landing\.hero\.promo"/, 'promo pill is localized');
-    LANGS.forEach((l) => assert.match(T[l]['landing.hero.promo'], /\$50/, l + ' promo mentions $50'));
+    // "$50" or the locale's own style ("50 $") - the amount must be explicit.
+    LANGS.forEach((l) => assert.ok(/50/.test(T[l]['landing.hero.promo']), l + ' promo mentions the $50 amount'));
     // Primary CTA also carries the credit and points at account creation.
     assert.match(INDEX, /class="btn btn-primary landing-hero-btn js-landing-auth-cta">[\s\S]{0,160}data-i18n="landing\.hero\.ctaPrimary"/,
         'hero primary CTA present');
     assert.match(INDEX, /onclick="openAuthScreen\('signup'\)"[\s\S]{0,200}landing\.hero\.ctaPrimary/, 'hero primary CTA starts signup');
-    LANGS.forEach((l) => assert.match(T[l]['landing.hero.ctaPrimary'], /\$50/, l + ' primary CTA mentions $50'));
+    LANGS.forEach((l) => assert.ok(/50/.test(T[l]['landing.hero.ctaPrimary']), l + ' primary CTA mentions the $50 amount'));
 });
 
 test('hero CTAs: signup + See How It Works, and no competing hero Sign In', () => {
@@ -216,34 +217,36 @@ test('the referral-partner payout surfaces are wired', () => {
 //   - Live activation    -> one-time $50, paid
 //   - Trading capital    -> at least $100, deposited separately
 // ---------------------------------------------------------------------------
-test('the hero promo never fuses Demo Mode with the $50 promotional credit', () => {
-    assert.strictEqual(T.en['landing.hero.promo'],
-        'Explore Demo Mode for free. Eligible new users also receive $50 in promotional '
-        + 'trading credit. Live trading requires a one-time $50 activation and at least '
-        + '$100 in trading capital.');
+test('the hero promo describes the credit and the Live requirements, with no demo offer', () => {
+    // Single mode: the hero describes the credit and what Live needs, and never
+    // presents a demo experience as the way in.
+    assert.match(T.en['landing.hero.promo'], /\$50 in promotional trading credit/);
+    assert.match(T.en['landing.hero.promo'], /one-time \$50 activation/);
+    assert.match(T.en['landing.hero.promo'], /at least \$100 in trading capital/);
+    assert.ok(!/demo/i.test(T.en['landing.hero.promo']), 'no demo experience is offered');
 
     const DEMO = {
         en: /demo/i, es: /demo/i, pt: /demo/i, fr: /d\u00e9mo/i,
         ar: /\u062a\u062c\u0631\u064a\u0628\u064a/, zh: /\u6f14\u793a/,
     };
-    const ELIGIBLE = /eligib|elegibl|eleg\u00edv|\u00e9ligibles|\u0645\u0624\u0647\u0644|\u6761\u4ef6/i;
-    const CLAUSE = /[.!?\u3002\uff01\uff1f]/;
+    const NEW_ACCOUNT = {
+        en: /new accounts/i, es: /cuentas nuevas/i, pt: /novas contas|contas novas/i,
+        fr: /nouveaux comptes/i, ar: /\u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a \u0627\u0644\u062c\u062f\u064a\u062f\u0629/, zh: /\u65b0\u8d26\u6237/,
+    };
 
     LANGS.forEach((l) => {
         const v = String(T[l]['landing.hero.promo']);
-        assert.ok(DEMO[l].test(v), l + ': the promo must name Demo Mode');
+        // The protection this test has always carried: a demo experience must
+        // never be sold as coming with, or as a substitute for, the real credit.
+        assert.ok(!DEMO[l].test(v), l + ': the promo must not offer a demo experience');
         assert.ok(/50/.test(v), l + ': the promo must name the $50 credit/activation');
         assert.ok(/100/.test(v), l + ': the promo must name the $100 trading capital');
-        assert.ok(ELIGIBLE.test(v), l + ': the credit must be scoped to eligible users');
-
-        // Demo Mode and the promotional credit must never share a sentence.
-        v.split(CLAUSE).map((x) => x.trim()).filter(Boolean).forEach((sentence) => {
-            assert.ok(!(DEMO[l].test(sentence) && /50/.test(sentence)),
-                l + ': Demo Mode and the $50 credit must be separate sentences -> ' + sentence);
-        });
+        // Single mode scopes the credit to NEW accounts (the old 'eligible users'
+        // wording went with the demo-era eligibility matrix).
+        assert.ok(NEW_ACCOUNT[l].test(v), l + ': the credit must be scoped to new accounts');
     });
 
-    // The old conflation ("free on Demo WITH a $50 promotional credit") is gone.
+    // And the retired conflation cannot come back through a locale edit.
     LANGS.forEach((l) => {
         assert.ok(!/demo[^.!?\u3002]{0,24}(with|con|com|avec|\u0645\u0639)\s*\$?50/i
             .test(String(T[l]['landing.hero.promo'])),

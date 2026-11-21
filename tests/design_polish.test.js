@@ -163,17 +163,17 @@ test('2c. the toolbar sticks on phones only, above the content and below the dra
 /* ------------------------------------------------------------------ *
  * 3. the mode switch reads as a segmented control
  * ------------------------------------------------------------------ */
-test('3. the mode switch is a segmented control, not two emoji labels', () => {
-    assert.match(CSS, /\.mode-tabs \{[^}]*border-radius:var\(--kx-r-pill\)/, 'the group is a pill');
-    assert.match(CSS, /\.mode-tab \{[^}]*height:28px/, 'each segment is a fixed-height pill');
-    assert.match(CSS, /\.mode-tab\.active \{[^}]*background:var\(--kx-accent\); color:var\(--kx-on-accent\)/,
-        'the active segment uses the accent fill and readable ink');
-    const tabs = INDEX.slice(INDEX.indexOf('id="demoTab"'), INDEX.indexOf('id="liveTab"') + 200);
-    assert.ok(!/📘|🔥/.test(tabs), 'no emoji inside the switch');
-    LANGS.forEach((l) => {
-        assert.ok(!/📘|🔥/.test(T[l]['mode.demo']), l + ': mode.demo must not carry an emoji');
-        assert.ok(!/📘|🔥/.test(T[l]['mode.live']), l + ': mode.live must not carry an emoji');
-    });
+test('3. the account-status chip is a pill, and no emoji mode switch remains', () => {
+    // Single mode: the two-segment Demo/Live switch is gone, so the status is a
+    // single pill. The design tokens it must use are unchanged.
+    assert.match(CSS, /\.kx-status \{[^}]*border-radius:var\(--kx-r-pill\)/, 'the chip is a pill');
+    assert.match(CSS, /\.kx-status\.is-live \{[^}]*background:var\(--kx-accent-weak\)/,
+        'the live state uses the accent fill family');
+    assert.ok(!INDEX.includes('id="demoTab"'), 'the demo segment is gone');
+    assert.ok(!INDEX.includes('id="liveTab"'), 'the live segment is gone');
+    const header = INDEX.slice(INDEX.indexOf('class="app-header'), INDEX.indexOf('id="tickerWrapper"') > 0
+        ? INDEX.indexOf('id="tickerWrapper"') : INDEX.indexOf('class="app-header') + 4000);
+    assert.ok(!/\u{1F4D8}|\u{1F525}/u.test(header), 'no emoji-labelled mode switch in the header');
 });
 
 /* ------------------------------------------------------------------ *
@@ -242,7 +242,7 @@ test('6b. blocked actions surface as a red toast, not a neutral one', () => {
         "showToast(t('withdraw.firstDeposit'),'error')",
         "showToast(t('withdraw.needTrade'),'error')",
         "showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL",
-        "showToast(t('demo.noFunds'),'warning')",
+        "",
         "showToast(t('subscription.paymentDue'), 'warning')",
     ];
     sites.forEach((n) => assert.ok(INDEX.includes(n), 'missing: ' + n.slice(0, 62)));

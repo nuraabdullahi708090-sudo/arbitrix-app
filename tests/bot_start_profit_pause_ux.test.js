@@ -247,11 +247,11 @@ test('4b. a worker-owned session is still adopted and disclosed', async () => {
 });
 
 test('4c. the marketing sandbox never consults the server (immediate start)', async () => {
-  const h = harness({ environment: 'MARKETING_SANDBOX', sandbox: true, startReply: { status: 403, body: PAUSE_BODY } });
+  const h = harness({ environment: 'MARKETING_SANDBOX', startReply: { status: 403, body: PAUSE_BODY } });
   h.__h.startBot();
-  await new Promise((r) => setTimeout(r, 10));
-  const starts = h.calls.fetch.filter((u) => String(u).includes('/api/bot/start'));
-  assert.strictEqual(starts.length, 0, 'the simulated session sends no start request');
+  await flush();
+  assert.strictEqual(h.__log.fetch.length, 0, 'the simulated session sends no start request');
+  assert.strictEqual(h.APP.botRunning, true, 'it starts immediately');
 });
 
 test('4d. the simulated sandbox session is never routed through the pause gate', async () => {

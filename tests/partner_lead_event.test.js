@@ -417,13 +417,15 @@ test('the existing Meta events and their call sites are unchanged', () => {
         CompleteRegistration: 1,
         Login: 1,
         ViewContent: 3,
-        StartDemo: 2,
         LiveAccountActivated: 1,
     };
     for (const [name, expected] of Object.entries(events)) {
         const n = (INDEX.match(new RegExp("trackMetaConversion\\('" + name + "'\\)", 'g')) || []).length;
         assert.strictEqual(n, expected, name + ' call sites changed');
     }
+    // Demo Mode was retired, so its funnel event must not exist any more.
+    assert.strictEqual((INDEX.match(/trackMetaConversion\('StartDemo'\)/g) || []).length, 0,
+        'the demo event is gone with the mode');
     assert.ok(INDEX.includes("fbq('track', 'PageView')"), 'PageView init path intact');
     assert.ok(INDEX.includes('trackMetaPageView()'), 'PageView SPA path intact');
     assert.ok(INDEX.includes('function trackMetaInit()'), 'init helper intact');

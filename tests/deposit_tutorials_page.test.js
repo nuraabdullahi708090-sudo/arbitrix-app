@@ -341,8 +341,8 @@ test('15. the eight new app keys exist in all six locales', () => {
             assert.ok(String(T[lang][key]).trim().length > 0, lang + '.' + key + ' is empty');
         });
     });
-    assert.strictEqual(Object.keys(T.en).length, 1587, 'dictionary size pinned at 1587 keys/locale');
-    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1587));
+    assert.strictEqual(Object.keys(T.en).length, 1588, 'dictionary size pinned at 1588 keys/locale');
+    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1588));
 });
 
 test('16. every data-i18n reference on the page and in the app is defined', () => {
