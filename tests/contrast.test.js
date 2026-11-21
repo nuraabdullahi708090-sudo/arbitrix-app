@@ -53,11 +53,9 @@ test('1. body text meets 4.5:1 on every surface', () => {
     });
 });
 
-test('2. the accent reads as text as well as a fill (emerald accent)', () => {
-    // The violet accent could not be used as small text (4.11:1), which is why
-    // --kx-accent-text existed. The emerald accent clears AA on every surface on
-    // its own, so both roles are legible and the text token stays the documented
-    // choice for anything under 16px.
+test('2. the accent reads as text as well as a fill (gold accent)', () => {
+    // The accent must hold AA in both roles: as a fill and as text. --kx-accent-text
+    // carries a lighter tint of the same hue for small text on tinted panels.
     SURFACES.forEach((bg) => {
         const accent = ratio(hex('kx-accent'), hex(bg));
         assert.ok(accent >= 4.5, `kx-accent on ${bg} is ${accent.toFixed(2)}:1 (needs 4.5)`);
@@ -79,7 +77,7 @@ test('2. the accent reads as text as well as a fill (emerald accent)', () => {
     ].forEach((needle) => assert.ok(CSS.includes(needle), 'missing: ' + needle.trim()));
 });
 
-test('3. text on a violet fill meets 4.5:1', () => {
+test('3. text on an accent fill meets 4.5:1', () => {
     const r = ratio(hex('kx-on-accent'), hex('kx-accent'));
     assert.ok(r >= 4.5, `--kx-on-accent on --kx-accent is ${r.toFixed(2)}:1`);
     // Every filled control must use the token, not a hard-coded dark.

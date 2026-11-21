@@ -9359,3 +9359,41 @@ configuration was modified. No merge and no deploy.
 - `npm test` = 3537 pass / 0 fail. Promo harness 62/62 (6 locales x 320/390);
   journey harness 37/37.
 - No server.js / services / migrations / worker / .env change; no business rule touched.
+
+
+## Phase 32 DEPLOYED TO PRODUCTION - Kalderix visual overhaul + language-switch fix (2026-11-21)
+- Merge commit eb2d7b8396aba42fd03be0cfb629da452d4f02d7 ("Merge pull request #179
+  from nuraabdullahi708090-sudo/feat/ux-visual-overhaul", feature commit 5d82e19),
+  merged via gh (PR was a draft; marked ready first). Render auto-deployed in ~30s
+  (x-render-origin-server: Render, behind Cloudflare); the served public/index.html is
+  BYTE-IDENTICAL to the committed file (sha256 ee8a782a34087f91a3274c2425a4ec016e0b26dded4b8354c825d1ab54af6e96,
+  1,907,515 bytes). /api/health {"status":"ok"}.
+- LANGUAGE BUG ROOT CAUSE: the delegated [data-lang] click guard compared against
+  window.currentLang, which does not exist (currentLang is a script-scope let). It now
+  compares document.documentElement.lang; plus a delegated fallback, aria-expanded,
+  viewport clamping and a ?lang=xx deep link. Live proof (headless Chromium against
+  arbitrix.pro, 390px): click pt -> <html lang=pt> + stored, ar -> dir=rtl, back to en,
+  es persists across a real reload, ?lang=en overrides a stored es. 10/10.
+- PALETTE: accent violet #7C5CFF -> emerald #0ECB81 (9.21:1 on surface vs 4.11:1 for the
+  violet, so the accent is legible as text too), ink on fill #04140D (8.89:1), neutral
+  near-black surfaces, brighter text ramp. Legacy violet/navy literals removed from EVERY
+  page (index, partners, how-it-works, deposit-tutorials, business-registration,
+  reset-password, privacy, terms) and from the generated brand SVGs (services/brand.js
+  palette + scripts/build-brand-assets.js). Chart/Chart.js colours migrated as LITERALS
+  because a CSS var cannot resolve inside a canvas.
+- MOBILE: header 185px -> 98px at 390px (58px desktop) as ONE sticky toolbar (hamburger +
+  brand + actions, then segmented DEMO/LIVE + status chip); stats 1-column -> 2x2 (4-up
+  from 1024px) with tabular figures and 44px actions; ticker 32-34px with a remembered
+  dismiss; toasts gained a state icon, close button and role=status; demo CTA 253->209px.
+- Served markers verified: --kx-accent:#0ECB81 x1, kx-toolbar-sub x5, tickerDismissBtn x2,
+  TOAST_ICONS x2, applyLangFromUrl x2, data-brand="kalderix" x6, #7C5CFF x0.
+  Routes /, /partners, /how-it-works, /deposit-tutorials, /business-registration,
+  /reset-password.html, /api/health all 200; /api/telegram/webhook 401 (fail-closed);
+  unknown /api path -> 404 JSON.
+- TESTS: npm test 3570 pass / 0 fail (3554 baseline + 16 in the new
+  tests/design_polish.test.js). CI on the PR: npm test + static checks both green.
+  Browser matrix: 0 overflow, 0 clipped labels, 0 overlaps, 0 page errors across 6 locales
+  x 320/360/390/430/768/1280 (landing + dashboard, LTR + RTL).
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger
+  a second Render rebuild (the working tree shows AGENTS.md as modified - documentation
+  only).

@@ -54,7 +54,7 @@ const BRAND = {
   /** The installed-app (PWA) name. Follows a rename. */
   appName: 'Kalderix',
   /** Accent colour. Follows the identity palette when one is applied. */
-  accent: '#0ECB81'
+  accent: '#5EA0FF'
 };
 
 /**
@@ -67,16 +67,33 @@ BRAND.candidateIdentity = {
   mark: 'K',
   palette: {
     /** Primary accent; replaces the gold the current identity uses. */
-    accent: '#0ECB81',
-    accentHover: '#12D98B',
-    accentPressed: '#0BB273',
+    accent: '#5EA0FF',
+    accentHover: '#7DB4FF',
+    accentPressed: '#3F87F0',
     /** Secondary accent for "verified" and "information" highlights. */
     secondary: '#38BDF8',
     /** Neutral near-black surfaces: a brighter accent needs less blue undertone. */
-    surface: '#0A0C0F',
-    surfaceRaised: '#12161B',
-    textPrimary: '#EAF0F6',
-    textSecondary: '#AEB9C6'
+    surface: '#0E141C',
+    surfaceRaised: '#161E29',
+    textPrimary: '#E9EFF7',
+    textSecondary: '#A9B7C7'
+  },
+  typography: {
+    display: "system-ui, 'Inter', -apple-system, 'Segoe UI', sans-serif",
+    numeric: "'JetBrains Mono', 'SFMono-Regular', ui-monospace, monospace",
+    note: 'No size changes: the current scale is tuned for dashboard density.'
+  },
+  rationale: {
+    accent: 'Azure is the trust signal of finance and the only hue that cannot be '
+      + 'confused with the profit/loss colours, which a green or gold brand accent '
+      + 'collides with. It measures 7.00:1 on the page surface and 5.13:1 on the '
+      + 'elevated dialog surface; ink #06121F on the fill measures 6.8:1.',
+    secondary: '#38BDF8',
+    /** Neutral near-black surfaces: a brighter accent needs less blue undertone. */
+    surface: '#0E141C',
+    surfaceRaised: '#161E29',
+    textPrimary: '#E9EFF7',
+    textSecondary: '#A9B7C7'
   },
   typography: {
     display: "system-ui, 'Inter', -apple-system, 'Segoe UI', sans-serif",
@@ -86,13 +103,14 @@ BRAND.candidateIdentity = {
   rationale: {
     accent: 'Emerald reads as an active, modern exchange rather than a legacy '
       + 'bank, and it measures 9.21:1 on the base surface, so unlike the violet it '
-      + 'is legible as text as well as a fill. Dark ink (#04140D) on the fill '
+      + 'is legible as text as well as a fill. Dark ink (#06121F) on the fill '
       + 'measures 8.89:1.',
     secondary: 'A cool sky blue gives verified and informational states a signal '
       + 'that cannot be confused with the green/red profit colours next to a '
       + 'green accent.',
-    surfaces: 'Near-black neutrals with a lighter surface ramp, so cards separate '
-      + 'from the page without relying on borders alone.',
+    surfaces: 'A slate navy ramp (#0E141C page to #232F3F dialogs) instead of flat '
+      + 'black, so cards separate from the page and a dialog reads as a layer above '
+      + 'it rather than as more of the same surface.',
     mark: 'One letterform works at 16px (favicon) and at 340px (app icon), so a '
       + 'single asset serves both without a second lockup.'
   }

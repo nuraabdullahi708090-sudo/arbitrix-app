@@ -227,7 +227,7 @@ test('8. the page is mobile-first and matches the Kalderix palette', () => {
     const { BRAND } = require('../services/brand');
     assert.match(PAGE, new RegExp('--brand:\\s*' + BRAND.accent),
       'the page carries the current identity accent');
-    assert.match(PAGE, /--bg-primary:\s*#0A0C0F/);
+    assert.match(PAGE, /--bg-primary:\s*#0E141C/);
     assert.match(PAGE, /@media \(max-width: 640px\)/, 'a mobile breakpoint must exist');
     // The certificate is readable on mobile: full-width, and a scrollable viewer.
     assert.match(PAGE, /\.lightbox-scroll\s*\{[^}]*overflow:\s*auto/);
