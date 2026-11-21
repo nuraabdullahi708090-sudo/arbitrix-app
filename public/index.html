@@ -4275,6 +4275,28 @@
         .toast { bottom:calc(12px + env(safe-area-inset-bottom, 0px)); font-size:12.5px; }
         .sidebar-link { min-height:44px; }
     }
+    /* ---- inline alerts ----------------------------------------------------
+       The promotional-credit restriction used to be 10px centred text in the
+       brand tint, which a customer reads as decoration. A restriction the
+       customer must not miss is a warning: red-tinted panel, red border, a
+       warning icon and body-size text, never centred fine print. */
+    .kx-alert {
+        display:flex; align-items:flex-start; gap:8px;
+        padding:9px 11px; margin-top:8px; border-radius:10px;
+        font-size:12px; line-height:1.5; text-align:left;
+        background:var(--kx-danger-weak);
+        border:1px solid var(--kx-danger-border);
+        color:var(--kx-danger-text);
+    }
+    .kx-alert > i { flex:0 0 auto; margin-top:2px; font-size:12px; }
+    .kx-alert > span { min-width:0; overflow-wrap:anywhere; }
+    .kx-alert.kx-alert-warning {
+        background:var(--kx-warning-weak);
+        border-color:var(--kx-warning-border);
+        color:var(--kx-warning-text);
+    }
+    .kx-alert.hidden { display:none; }
+
     /* ---- dialogs: the surface a customer must see first -------------------
        A dialog that shares the page surface reads as "nothing happened", which
        is the most common complaint about dark trading UIs. modals use the
@@ -7563,6 +7585,13 @@ function toggleFaq(btn) {
         </div>
 
         <!-- "Start Here" beginner orientation checklist (dismissible; display only) -->
+        <!-- Promotional-credit restriction: shown on the first screen, in ANY
+             mode, because a promo-funded account starts in Demo where the Live
+             wallet card (and its own copy of this warning) is not rendered. -->
+        <div id="promoCreditBanner" class="hidden kx-alert kx-alert-danger" role="note" style="margin:0 0 16px;">
+            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+            <span data-i18n="promo.tradableNotice">Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.</span>
+        </div>
         <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
             <div class="card-body">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -7750,8 +7779,8 @@ function toggleFaq(btn) {
                                 <i class="fas fa-key"></i> <span data-i18n="liveActivation.cta">Activate Live Mode</span>
                             </button>
                         </div>
-                        <div id="promoCreditNotice" class="hidden" style="font-size:10px;color:var(--brand);background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:6px;padding:6px 8px;margin-top:8px;text-align:center;line-height:1.4;">
-                            <i class="fas fa-gift"></i> <span data-i18n="promo.tradableNotice">Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.</span>
+                        <div id="promoCreditNotice" class="hidden kx-alert kx-alert-danger" role="note">
+                            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i> <span data-i18n="promo.tradableNotice">Your $50 promotional credit can be used for trading, but it is not withdrawable until you make a qualifying first deposit and complete at least one trade.</span>
                         </div>
                     </div>
                 </div>
@@ -22987,6 +23016,11 @@ function updateUI() {
             // disclosure — an unknown classification is never shown as promo.
             : (APP.liveData.promoCreditFunded === true && APP.liveData.promoClassificationUnknown !== true);
         promoNotice.classList.toggle('hidden', !showPromoNotice);
+        // The same restriction is repeated at the top of the dashboard: a
+        // promo-funded account starts in Demo Mode, where the Live wallet card
+        // (and therefore the notice above) is not rendered at all.
+        const promoBanner = document.getElementById('promoCreditBanner');
+        if (promoBanner) promoBanner.classList.toggle('hidden', !showPromoNotice);
     }
     // In-Demo "Make My First Deposit" CTA (non-aggressive funnel prompt).
     updateDemoFirstDepositCta();
