@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1646;
+const DICT_SIZE = 1640;
 // 1600 keys/locale now = 1574 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
@@ -34,7 +34,9 @@ const DICT_SIZE = 1646;
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-const BASE_OUTSIDE_TESTIMONIALS = 1609; // +7: promo.* / liveMode.* (promotional-credit card)
+// 1604 = 1640 dictionary keys - 24 landing.testimonials.* keys - 12 allowed extras.
+// outside this section is retired (the demo CTA simplification retired six).
+const BASE_OUTSIDE_TESTIMONIALS = 1604;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 
@@ -264,7 +266,7 @@ test('this change only added landing.testimonials.* keys', () => {
     // Live Mode journey disclosures (activation / capital / deposit clarity)
     'liveActivation.blockedToast', 'liveDeposit.blockedToast', 'liveActivation.supportCta',
     'liveActivation.purchaseUnavailable', 'liveActivation.nextStep', 'startHere.live.step0',
-    'startHere.live.step3', 'deposit.activationNote', 'demoCta.activationNote',
+    'startHere.live.step3', 'deposit.activationNote',
     'landing.faq.q10', 'landing.faq.a10'];
     LANGS.forEach((l) => {
         const outside = Object.keys(T[l]).filter((k) => !k.startsWith('landing.testimonials.') && !ALLOWED_EXTRA.includes(k));

@@ -332,8 +332,13 @@ test('Demo, promotional and real deposited balances stay clearly separated', () 
     assert.ok(/real trading/i.test(en['onboarding.realNote']), 'live label must say real trading');
     assert.ok(/\$50/.test(en['onboarding.promoNote']) && /separate/i.test(en['onboarding.promoNote']),
         'promo must be labelled separate from deposits');
-    assert.ok(/virtual/i.test(en['demoCta.body']) && /cannot be withdrawn/i.test(en['demoCta.body']),
-        'demo CTA must explain virtual funds cannot be withdrawn');
+    // The card now states the virtual/real distinction in that exact pair of
+    // sentences; the withdrawal restriction is disclosed once, in the
+    // promotional-credit notice, rather than repeated on every surface.
+    assert.ok(/virtual/i.test(en['demoCta.body']) && /real funds/i.test(en['demoCta.body']),
+        'the demo CTA must separate virtual funds from real funds');
+    assert.ok(!/cannot be withdrawn/i.test(en['demoCta.body']),
+        'the CTA no longer repeats the withdrawal rule');
     assert.ok(/real/i.test(en['wallet.liveReal']) && /separate/i.test(en['wallet.liveReal']),
         'live wallet label must say real + separate');
     // Existing demo label retained.
@@ -365,9 +370,9 @@ test('i18n parity across 6 locales for the onboarding keys', () => {
     const keys = ['onboarding.title', 'onboarding.subtitle', 'onboarding.primary', 'onboarding.primaryDesc',
         'onboarding.secondary', 'onboarding.secondaryDesc', 'onboarding.explainer', 'onboarding.virtualNote',
         'onboarding.realNote', 'onboarding.promoNote', 'onboarding.noObligation', 'demoCta.title', 'demoCta.body',
-        'demoCta.button', 'demoCta.later', 'wallet.liveReal'];
+        'demoCta.button', 'wallet.liveReal'];
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1646, 'expected 1646 keys per locale');
+    assert.strictEqual(enKeys.length, 1640, 'expected 1640 keys per locale');
     for (const [lang, dict] of Object.entries(T)) {
         assert.deepStrictEqual(new Set(Object.keys(dict)), new Set(enKeys), `${lang} key set differs`);
         for (const k of keys) {

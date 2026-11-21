@@ -8,18 +8,19 @@
  *
  * Contract pinned here:
  *   - production accounts only (never MARKETING_SANDBOX), never once funded;
- *   - shown in BOTH modes: an unfunded LIVE account is the audience that most
- *     needs the deposit path (this replaces the old Demo-only gate);
- *   - NO demo-trading prerequisite any more: requiring trades hid the funding
- *     path from exactly the customers who never trade first;
+ *   - DEMO MODE ONLY: the card's copy talks about exploring with virtual funds,
+ *     which is only true there. A Live-but-unfunded account is prompted by its
+ *     own wallet card (balance, Deposit Funds, activation notice);
+ *   - NO demo-trading prerequisite: requiring trades hid the funding path from
+ *     exactly the customers who never trade first;
  *   - never while the bot is trading, and never while the deposit flow is
  *     active (dialog open or an invoice already generated);
- *   - dismissal is respected for the session AND remembered per account, so it
- *     cannot nag across reloads;
+ *   - a per-account dismissal recorded by an earlier build is still honoured, so
+ *     nobody who already dismissed the card sees it again;
  *   - a hidden reminder is rate limited before it can reappear;
- *   - the reminder is a dismissible banner, never a modal, and by itself it
- *     starts no deposit, invoice, trade or mode change;
- *   - the copy is mode-aware and never claims funding is required for Demo.
+ *   - the card is a passive banner, never a modal, and by itself it starts no
+ *     deposit, invoice, trade or mode change;
+ *   - ONE paragraph of copy and ONE action (the deposit CTA).
  *
  * Run: npm test
  */
@@ -117,21 +118,37 @@ function buildSandbox({ mode = 'demo', environment = 'PRODUCTION', funded = fals
         extractFunction('updateFirstDepositCta'),
         extractFunction('updateDemoFirstDepositCta'),
         extractFunction('dismissDemoDepositCta'),
-        extractFunction('reviewLiveRequirements'),
     ].join('\n'), sandbox);
     return sandbox;
 }
 
 const visible = (sb) => !sb.els.demoFirstDepositCta.classes.has('hidden');
 
-test('the reminder appears for an unfunded PRODUCTION account in BOTH modes', () => {
+/** The card's own markup, bounded by the next dashboard section. */
+function carCard() {
+    const at = INDEX.indexOf('id="demoFirstDepositCta"');
+    assert.ok(at > 0, 'the card must exist');
+    // The card is immediately followed by the equity chart section.
+    const end = INDEX.indexOf('class="chart-card"', at);
+    assert.ok(end > at, 'the card slice must be bounded');
+    return INDEX.slice(at, end);
+}
+
+function extractFunctionSafely(name) {
+    const at = INDEX.indexOf('function ' + name + '(');
+    return at < 0 ? undefined : INDEX.slice(at, at + 200);
+}
+
+test('the reminder appears for an unfunded PRODUCTION account in DEMO mode', () => {
     const demo = buildSandbox({ mode: 'demo' });
     vm.runInContext('updateFirstDepositCta()', demo);
     assert.ok(visible(demo), 'shown in Demo (no trading prerequisite)');
 
+    // Demo-only by design: the copy is about virtual funds. Live keeps its own
+    // wallet-card prompt, which this card must not duplicate.
     const live = buildSandbox({ mode: 'live' });
     vm.runInContext('updateFirstDepositCta()', live);
-    assert.ok(visible(live), 'shown for an unfunded Live account too');
+    assert.ok(!visible(live), 'not shown in Live Mode');
 
     const sandbox = buildSandbox({ environment: 'MARKETING_SANDBOX' });
     vm.runInContext('updateFirstDepositCta()', sandbox);
@@ -139,11 +156,9 @@ test('the reminder appears for an unfunded PRODUCTION account in BOTH modes', ()
 });
 
 test('the reminder is withheld once the account is funded', () => {
-    for (const mode of ['demo', 'live']) {
-        const sb = buildSandbox({ mode, funded: true, trades: 25 });
-        vm.runInContext('updateFirstDepositCta()', sb);
-        assert.ok(!visible(sb), 'no reminder needed after a confirmed deposit (' + mode + ')');
-    }
+    const sb = buildSandbox({ mode: 'demo', funded: true, trades: 25 });
+    vm.runInContext('updateFirstDepositCta()', sb);
+    assert.ok(!visible(sb), 'no reminder needed after a confirmed deposit');
 });
 
 test('no demo-trading prerequisite: a brand new account sees it immediately', () => {
@@ -189,28 +204,23 @@ test('the reminder never competes with an in-progress deposit', () => {
     assert.ok(!visible(suppressed), 'suppressed once the customer entered the flow');
 });
 
-test('dismissal is respected for the session AND remembered per account', () => {
-    const sb = buildSandbox({ trades: 10 });
-    vm.runInContext('updateFirstDepositCta()', sb);
-    assert.ok(visible(sb), 'precondition: visible');
-
-    vm.runInContext('dismissDemoDepositCta()', sb);
-    assert.ok(!visible(sb), 'dismiss hides it');
-    assert.strictEqual(sb.store['arbi_firstdeposit_dismissed_4242'], '1', 'dismissal is persisted per account');
-
-    sb.APP.demoData.trades = 40;
-    vm.runInContext('updateFirstDepositCta()', sb);
-    assert.ok(!visible(sb), 'more activity must not re-raise a dismissed reminder');
-
-    // A reload constructs a fresh sandbox: the stored flag must keep it hidden.
+test('a dismissal recorded earlier is still honoured, and stays per account', () => {
+    // The card no longer offers a dismiss control (product decision), but the
+    // flag it used to write must keep hiding the card for anyone who dismissed
+    // it under an earlier build - otherwise the change would nag them again.
     const reloaded = buildSandbox({ storedDismissed: true });
     vm.runInContext('updateFirstDepositCta()', reloaded);
-    assert.ok(!visible(reloaded), 'a dismissed reminder stays dismissed after a reload');
+    assert.ok(!visible(reloaded), 'a previously dismissed reminder stays dismissed');
 
-    // A different account is unaffected by another account's dismissal.
+    const fresh = buildSandbox({});
+    vm.runInContext('updateFirstDepositCta()', fresh);
+    assert.ok(visible(fresh), 'an account with no stored flag still sees it');
+
+    // The key is scoped to the account id.
     const other = buildSandbox({});
     vm.runInContext('currentCachedUser = () => ({ id: 9999 }); updateFirstDepositCta();', other);
-    assert.ok(visible(other), 'dismissal is scoped to the account');
+    assert.ok(visible(other), 'another account is unaffected by someone else\'s dismissal');
+    assert.strictEqual(other.store['arbi_firstdeposit_dismissed_4242'], undefined, 'nothing written for them');
 });
 
 test('a hidden reminder is rate limited before it can reappear', () => {
@@ -235,32 +245,24 @@ test('a hidden reminder is rate limited before it can reappear', () => {
     assert.strictEqual(vm.runInContext('DEMO_CTA_REMINDER_INTERVAL_MS', sb), 600000, 'interval is 10 minutes');
 });
 
-test('the copy is mode-aware and never claims funding is required for Demo', () => {
-    const demo = buildSandbox({ mode: 'demo' });
-    vm.runInContext('updateFirstDepositCta()', demo);
-    assert.notStrictEqual(demo.els.demoCtaBodyDemo.style.display, 'none', 'demo copy shown in Demo');
-    assert.strictEqual(demo.els.demoCtaBodyLive.style.display, 'none', 'live copy hidden in Demo');
-    assert.notStrictEqual(demo.els.demoCtaReviewBtn.style.display, 'none', 'review action kept in Demo');
-
-    const live = buildSandbox({ mode: 'live' });
-    vm.runInContext('updateFirstDepositCta()', live);
-    assert.strictEqual(live.els.demoCtaBodyDemo.style.display, 'none', 'demo copy hidden in Live');
-    assert.notStrictEqual(live.els.demoCtaBodyLive.style.display, 'none', 'live copy shown in Live');
-    assert.strictEqual(live.els.demoCtaReviewBtn.style.display, 'none', 'review action is redundant in Live');
-
+test('the copy is one paragraph, states no condition, and is localised', () => {
     const T = loadTranslations();
-    for (const l of ['en', 'es', 'pt', 'fr', 'ar', 'zh']) {
-        const body = String(T[l]['demoCta.liveBody'] || '');
-        assert.ok(body.trim().length > 0, 'demoCta.liveBody missing for ' + l);
-        assert.ok(!/guarantee|guaranteed profit|risk-free/i.test(body), 'no profit promise for ' + l);
-        // Each locale must still say Demo Mode stays available - checked in that
-        // locale's own spelling (FR uses "démo", AR/ ZH do not use Latin text).
-        const demoWord = { en: /demo/i, es: /demo/i, pt: /demo/i, fr: /d[ée]mo/i, ar: /تجريب/, zh: /演示/ }[l];
-        assert.ok(demoWord.test(body), 'the live copy still mentions that Demo Mode stays available (' + l + ')');
+    const locales = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
+    assert.strictEqual(T.en['demoCta.body'],
+        'You are exploring with virtual funds. Activate live trading to start with real funds.');
+    for (const l of locales) {
+        const body = String(T[l]['demoCta.body'] || '');
+        assert.ok(body.trim().length > 0, 'demoCta.body missing for ' + l);
+        assert.ok(!/guarantee|risk-free/i.test(body), 'no profit promise for ' + l);
+        // The removed second paragraph and the mode-swapped variant are retired.
+        assert.strictEqual(T[l]['demoCta.liveBody'], undefined, 'demoCta.liveBody must be retired for ' + l);
+        assert.strictEqual(T[l]['demoCta.activationNote'], undefined, 'demoCta.activationNote must be retired for ' + l);
     }
+    // No amount, condition or requirement is stated on the card any more.
+    assert.ok(!/\$\d/.test(T.en['demoCta.body']), 'the body quotes no amount');
 });
 
-test('the reminder is a dismissible banner and never acts on its own', () => {
+test('the reminder is a passive banner with one action and never acts on its own', () => {
     const sb = buildSandbox({ trades: 10 });
     vm.runInContext('updateFirstDepositCta()', sb);
     assert.strictEqual(sb.fetchCalls.length, 0, 'rendering makes no request');
@@ -274,22 +276,22 @@ test('the reminder is a dismissible banner and never acts on its own', () => {
     assert.ok(/class="hidden"/.test(tag), 'starts hidden');
     assert.ok(!/modal-overlay/.test(tag), 'must not be a blocking modal');
 
-    // The banner explains demo funds are virtual and cannot be withdrawn.
-    // The former second paragraph ("Live Mode uses real funds...") was removed
-    // by an approved UI change and must not come back.
-    const block = INDEX.slice(at, INDEX.indexOf('</div>', INDEX.indexOf('demoCta.later', at)));
+    // The card carries ONE paragraph and ONE action.
+    const block = carCard();
     assert.ok(!/data-i18n="demoCta\.risk"/.test(block), 'removed risk paragraph must not return');
-    assert.ok(/data-i18n="demoCta\.body"/.test(block), 'virtual-funds paragraph present');
-    assert.ok(/data-i18n="demoCta\.liveBody"/.test(block), 'live-unfunded paragraph present');
+    assert.ok(!/data-i18n="demoCta\.liveBody"/.test(block), 'the mode-swapped paragraph is gone');
+    assert.ok(!/data-i18n="demoCta\.activationNote"/.test(block), 'the activation note is gone');
+    assert.ok(/data-i18n="demoCta\.body"/.test(block), 'the single explanation is present');
     assert.ok(/data-i18n="demoCta\.title"/.test(block), 'heading present');
     assert.ok(/data-i18n="demoCta\.button"/.test(block), 'primary deposit action present');
-    assert.ok(/data-i18n="demoCta\.reviewLive"/.test(block), 'review action present');
-    assert.ok(/onclick="dismissDemoDepositCta\(\)"/.test(block), 'dismiss action present');
+    // The two secondary buttons were removed by product decision.
+    assert.ok(!/data-i18n="demoCta\.reviewLive"/.test(block), 'no Review Live Requirements button');
+    assert.ok(!/data-i18n="demoCta\.later"/.test(block), 'no Maybe later button');
+    assert.strictEqual((block.match(/<button\b/g) || []).length, 1, 'exactly one button remains');
 });
 
 test('the primary action opens the EXISTING deposit flow', () => {
-    const at = INDEX.indexOf('id="demoFirstDepositCta"');
-    const block = INDEX.slice(at, INDEX.indexOf('</div>', INDEX.indexOf('demoCta.later', at)));
+    const block = carCard();
     assert.ok(/onclick="openDepositModal\(\)"/.test(block), 'reuses openDepositModal()');
     assert.ok(!/requestDepositAddress|create-invoice/.test(block), 'never creates an invoice directly');
 });
@@ -303,25 +305,19 @@ test('removed risk paragraph is retired in all 6 locales; card copy intact', () 
         assert.ok(T[l], 'missing locale ' + l);
         assert.strictEqual(T[l]['demoCta.risk'], undefined, 'demoCta.risk must be retired for ' + l);
     }
-    // The retained copy still tells the beginner what demo funds are.
-    assert.ok(/virtual/i.test(T.en['demoCta.body']), 'EN body must clarify demo funds are virtual');
-    assert.ok(/cannot be withdrawn/i.test(T.en['demoCta.body']), 'EN body must say demo funds cannot be withdrawn');
+    // The retained copy still says the funds are virtual (the withdrawal rule is
+    // stated in the promotional-credit notice, not repeated here).
+    assert.ok(/virtual/i.test(T.en['demoCta.body']), 'EN body must clarify the funds are virtual');
     for (const l of locales) {
-        for (const k of ['demoCta.title', 'demoCta.body', 'demoCta.liveBody', 'demoCta.button', 'demoCta.reviewLive', 'demoCta.reviewLiveToast', 'demoCta.later']) {
+        for (const k of ['demoCta.title', 'demoCta.body', 'demoCta.button']) {
             assert.ok(String(T[l][k] || '').trim().length > 0, k + ' missing for ' + l);
         }
+        // Retired with their buttons; a stale key would invite them back.
+        for (const k of ['demoCta.reviewLive', 'demoCta.reviewLiveToast', 'demoCta.later',
+                         'demoCta.liveBody', 'demoCta.activationNote']) {
+            assert.strictEqual(T[l][k], undefined, k + ' must be retired for ' + l);
+        }
     }
-});
-
-test('"Review Live Requirements" only shows the Live view - no deposit, no invoice', () => {
-    const sb = buildSandbox({ trades: 10 });
-    vm.runInContext('reviewLiveRequirements()', sb);
-    assert.deepStrictEqual(sb.setModeCalls, ['live'], 'reuses the existing review-only Live entry');
-    assert.strictEqual(sb.fetchCalls.length, 0, 'makes no request');
-    assert.strictEqual(sb.toasts.length, 1, 'explains what happened');
-    assert.strictEqual(sb.toasts[0][0], 'demoCta.reviewLiveToast');
-
-    const fn = extractFunction('reviewLiveRequirements');
-    assert.ok(!/openDepositModal|requestDepositAddress|submitWithdraw/.test(fn), 'must not start a money flow');
-    assert.ok(!/\bAPP\.(liveData|demoData)\b/.test(fn), 'must not touch balances');
+    assert.strictEqual(typeof extractFunctionSafely('reviewLiveRequirements'), 'undefined',
+        'the review-only handler is retired with its button');
 });

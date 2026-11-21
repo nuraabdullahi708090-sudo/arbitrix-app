@@ -29,9 +29,10 @@ const vm = require('node:vm');
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 const NEW_KEYS = ['startHere.live.title', 'startHere.live.subtitle', 'startHere.live.step0',
-    'startHere.live.step1', 'startHere.live.step3',
-    'startHere.live.ready'];
-const REMOVED_KEYS = ['startHere.live.step2', 'startHere.live.step4'];
+    'startHere.live.step3', 'startHere.live.ready'];
+// step1 (the deposit step) and step2/step4 (the retired MTA + withdrawal steps)
+// are all gone: the guide states activation and the first trade only.
+const REMOVED_KEYS = ['startHere.live.step1', 'startHere.live.step2', 'startHere.live.step4'];
 
 function extractFunction(name) {
     let start = INDEX.indexOf('function ' + name + '(');
@@ -149,23 +150,24 @@ test('1. markup ships the demo checklist unchanged plus dedicated live container
     assert.ok(/id="startHereStepsLiveReady"[^>]*display:none/.test(INDEX), 'completion line ships hidden');
 });
 
-test('2. the live checklist shows the three real prerequisites, in order', () => {
+test('2. the live checklist shows two steps: activation, then the first trade', () => {
     const steps = extractFunction('startHereLiveSteps');
-    // The server enforces activation -> funding -> trading; the card must say so.
     assert.ok(steps.includes("'startHere.live.step0'"), 'the activation step comes first');
-    assert.ok(steps.includes("'startHere.live.step1'"), 'the funding step is present');
-    assert.ok(steps.includes("'startHere.live.step3'"), 'the first-trade step is present');
+    assert.ok(steps.includes("'startHere.live.step3'"), 'the first-trade step comes second');
+    const zero = steps.indexOf("'startHere.live.step0'");
+    const three = steps.indexOf("'startHere.live.step3'");
+    assert.ok(zero < three, 'activation precedes the first trade');
+    // The deposit instruction was removed from the guide by product decision: a
+    // funding amount is stated where it is actionable (the deposit dialog), not
+    // as a prerequisite list on the dashboard.
+    assert.ok(!steps.includes("'startHere.live.step1'"), 'the deposit step is gone from the guide');
+    assert.ok(!steps.includes('APP.MIN_DEPOSIT'), 'the card no longer quotes a deposit minimum');
     assert.ok(!steps.includes("'startHere.live.step2'"), 'the retired MTA step stays removed');
     assert.ok(!steps.includes("'startHere.live.step4'"), 'the retired withdrawal step stays removed');
-    const zero = steps.indexOf("'startHere.live.step0'");
-    const one = steps.indexOf("'startHere.live.step1'");
-    const three = steps.indexOf("'startHere.live.step3'");
-    assert.ok(zero < one && one < three, 'activation precedes funding, which precedes trading');
-    assert.ok(steps.includes('APP.MIN_DEPOSIT'), 'the funding step uses the platform minimum deposit');
     assert.ok(!steps.includes('APP.MTA'), 'the MTA is no longer part of the card');
     assert.ok(!steps.includes('MIN_WITHDRAWAL'), 'the withdrawal minimum is no longer part of the card');
     assert.ok(!steps.includes('MIN_BONUS') && !steps.includes('BONUS_MIN_WITHDRAW'), 'no invented bonus requirement');
-    assert.strictEqual((steps.match(/startHere\.live\.step/g) || []).length, 3, 'exactly three step entries');
+    assert.strictEqual((steps.match(/startHere\.live\.step/g) || []).length, 2, 'exactly two step entries');
     ['startHere.step1', 'startHere.step2', 'startHere.step3', 'startHere.step4', 'startHere.step5']
         .forEach((k) => assert.ok(!steps.includes("'" + k + "'"), 'live steps must not reuse demo key ' + k));
 });
@@ -195,15 +197,14 @@ test('5. dictionaries: 7 new keys in all 6 locales, EN exact, no demo wording', 
     }));
     assert.strictEqual(T.en['startHere.live.title'], 'Live Mode Guide');
     assert.strictEqual(T.en['startHere.live.subtitle'], "You're in Live Mode. Trades use real funds.");
-    assert.strictEqual(T.en['startHere.live.step1'], 'Deposit at least ${{min}} in trading capital');
     // the removed LIVE steps must not exist in ANY locale
     LANGS.forEach((l) => REMOVED_KEYS.forEach((k) => {
         assert.ok(!(k in T[l]), l + ' must not keep the removed key ' + k);
     }));
     assert.strictEqual(T.en['startHere.live.ready'], "You're ready for Live Mode. Review your settings before starting your bot.");
     // localised values are real translations (spot checks via code points)
-    assert.strictEqual(T.zh['startHere.live.step1'], '\u5b58\u5165\u81f3\u5c11 ${{min}} \u4ea4\u6613\u8d44\u91d1');
-    assert.ok(T.ar['startHere.live.step1'].length > 0, 'ar keeps a translated funding step');
+    assert.ok(T.zh['startHere.live.step0'].length > 0, 'zh keeps a translated activation step');
+    assert.ok(T.ar['startHere.live.step3'].length > 0, 'ar keeps a translated first-trade step');
     assert.ok(T.es['startHere.live.title'].includes('\u00ed'), 'es keeps the accented copy');
     assert.ok(T.fr['startHere.live.subtitle'].includes('\u00e9'), 'fr keeps the accented copy');
     // no demo wording anywhere in the live keys
@@ -250,20 +251,20 @@ test('8. LIVE mode hides the demo instructions and shows the live checklist', ()
     assert.ok(!v.liveHtml.includes('Start the demo bot'), 'no demo step text');
     assert.ok(!v.liveHtml.includes('Watch how demo activity'), 'no demo step text');
     assert.ok(!v.liveHtml.includes('Switch to Live Mode when ready'), 'no outdated sentence');
-    // live steps render with the configured amounts interpolated
+    // the two remaining steps render
     ['Complete the one-time $50 Live activation',
-     'Deposit at least $100 in trading capital',
      'Complete your first Live trade']
         .forEach((frag) => assert.ok(v.liveHtml.includes(frag), 'live checklist must contain: ' + frag));
+    assert.ok(!v.liveHtml.includes('Deposit at least'), 'the deposit step is not part of the guide');
     ['Minimum trading balance', 'Verify your account to withdraw', '$700', 'wmin'].forEach((frag) => {
         assert.ok(!v.liveHtml.includes(frag), 'removed LIVE step copy must not render: ' + frag);
     });
     assert.ok(INDEX.includes('data-i18n="startHere.live.title">Live Mode Guide<'), 'live header carries the guide title');
     const nums = v.liveHtml.match(/class="sh-num">(\d)</g) || [];
-    assert.strictEqual(nums.length, 3, 'three numbered live steps');
+    assert.strictEqual(nums.length, 2, 'two numbered live steps');
     assert.ok(v.liveHtml.includes('class="sh-num">1</span>'), 'numbering starts at 1');
-    assert.ok(v.liveHtml.includes('class="sh-num">3</span>'), 'the third step is numbered');
-    assert.ok(!v.liveHtml.includes('class="sh-num">4</span>'), 'no fourth step');
+    assert.ok(v.liveHtml.includes('class="sh-num">2</span>'), 'the second step is renumbered 1 -> 2, not 3');
+    assert.ok(!v.liveHtml.includes('class="sh-num">3</span>'), 'no third step');
 });
 
 test('9. LIVE completion state shows the compact line instead of the checklist', () => {
@@ -326,29 +327,36 @@ test('12. MARKETING_SANDBOX accounts never see the card', () => {
 test('13. live steps localise on language switch and fall back to EN', () => {
     const { sandbox, els } = runCard({ APP: { mode: 'live' } });
     vm.runInContext('__upd()', sandbox);
-    assert.ok(els.startHereStepsLive.innerHTML.includes('Deposit at least $100 in trading capital'), 'en by default');
+    assert.ok(els.startHereStepsLive.innerHTML.includes(T.en['startHere.live.step0']), 'en activation step by default');
+    assert.ok(els.startHereStepsLive.innerHTML.includes(T.en['startHere.live.step3']), 'en first-trade step by default');
 
     vm.runInContext('__setLang("es")', sandbox);
-    assert.ok(els.startHereStepsLive.innerHTML.includes(T.es['startHere.live.step1'].replace('{{min}}', '100')), 'es after switch');
+    assert.ok(els.startHereStepsLive.innerHTML.includes(T.es['startHere.live.step0']), 'es after switch');
 
     vm.runInContext('__setLang("ar")', sandbox);
-    assert.ok(els.startHereStepsLive.innerHTML.includes(T.ar['startHere.live.step1'].replace('{{min}}', '100')), 'ar after switch');
+    assert.ok(els.startHereStepsLive.innerHTML.includes(T.ar['startHere.live.step3']), 'ar after switch');
 
     vm.runInContext('__setLang("zh")', sandbox);
-    assert.ok(els.startHereStepsLive.innerHTML.includes(T.zh['startHere.live.step1'].replace('{{min}}', '100')), 'zh after switch');
+    assert.ok(els.startHereStepsLive.innerHTML.includes(T.zh['startHere.live.step0']), 'zh after switch');
 
     vm.runInContext('__setLang("de")', sandbox); // unsupported locale -> EN fallback
-    assert.ok(els.startHereStepsLive.innerHTML.includes('Deposit at least $100 in trading capital'), 'EN fallback for unknown locale');
+    assert.ok(els.startHereStepsLive.innerHTML.includes(T.en['startHere.live.step0']), 'EN fallback for unknown locale');
     assert.ok(!els.startHereStepsLive.innerHTML.includes('startHere.live.'), 'no raw keys rendered');
 });
 
-test('14. amounts follow the configured constants (not hardcoded copy)', () => {
+test('14. the guide quotes no amounts at all (nothing to drift from the config)', () => {
     const { sandbox, els } = runCard({
         APP: { mode: 'live', MIN_DEPOSIT: 250, MIN_WITHDRAWAL: 900 },
     });
     vm.runInContext('__upd()', sandbox);
     const html = els.startHereStepsLive.innerHTML;
-    assert.ok(html.includes('Deposit at least $250'), 'minimum deposit follows APP.MIN_DEPOSIT');
+    // No deposit minimum: the funding amount lives in the deposit dialog, which
+    // reads APP.MIN_DEPOSIT directly, so this card cannot quote a stale figure.
+    assert.ok(!html.includes('$250'), 'the deposit minimum is not quoted on the card');
     assert.ok(!html.includes('$900'), 'the withdrawal minimum is not part of the card');
+    // The only figure left is the ONE-TIME ACTIVATION PRICE, which is a product
+    // price rather than a configurable funding amount.
+    const amounts = html.match(/\$\d+/g) || [];
+    assert.deepStrictEqual(amounts, ['$50'], 'only the activation price appears');
     assert.ok(!/MTA|minimum trading balance/i.test(html), 'no MTA copy remains');
 });

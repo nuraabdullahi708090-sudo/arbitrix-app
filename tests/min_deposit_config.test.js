@@ -163,8 +163,10 @@ test('the frontend adopts the server value into APP.MIN_DEPOSIT', () => {
 });
 
 test('APP.MIN_DEPOSIT remains the single frontend source', () => {
-    // deposit validation, the min-amount notice and the onboarding step all read it
+    // Deposit validation and the min-amount notice read it. The Live Mode guide
+    // no longer quotes a funding amount (product decision), so there is one less
+    // place for the figure to drift - not one more copy of it.
     assert.match(INDEX, /const MIN_DEPOSIT_AMOUNT = APP\.MIN_DEPOSIT;/);
     assert.match(INDEX, /t\('deposit\.minDeposit', \{ min: Number\(APP\.MIN_DEPOSIT\) \}\)/);
-    assert.match(INDEX, /startHere\.live\.step1', vars: \{ min: num\(APP\.MIN_DEPOSIT, 100\) \}/);
+    assert.ok(!/startHere\.live\.step1/.test(INDEX), 'the guide no longer interpolates the minimum');
 });

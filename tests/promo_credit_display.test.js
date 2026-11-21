@@ -348,10 +348,15 @@ test('14. the approved explanation is localized in all six locales with the amou
   const langs = Object.keys(i18n.T);
   assert.deepStrictEqual(langs.sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
   const en = i18n.T.en['promo.creditExplain'];
+  // Deliberately two sentences: the purchase explanation only. The former
+  // trailing sentences ("Activation does not add trading capital..." and the
+  // withdrawal-conditions line) were removed by product decision, and the
+  // withdrawal rule is stated in the promotional-credit notice instead.
   assert.strictEqual(en,
-    "Your account includes ${{amount}} in promotional trading credit. Purchase a Live Mode activation " +
-    'to unlock access to live trading. Activation does not add trading capital to your account. ' +
-    "Promotional credit is subject to the platform's trading and withdrawal conditions.");
+    'Your account includes ${{amount}} in promotional trading credit. ' +
+    'Purchase a Live Mode activation to unlock access to live trading.');
+  assert.ok(!/withdrawal conditions/i.test(en), 'the conditions sentence is not repeated here');
+  assert.ok(!/does not add trading capital/i.test(en), 'the activation caveat sentence is gone');
   const keys = ['promo.creditTitle', 'promo.creditBadge', 'promo.creditExplain', 'liveMode.fundingNote',
     'liveMode.status.activationRequired', 'liveMode.status.fundingRequired', 'liveMode.status.available'];
   langs.forEach((lang) => {
@@ -374,8 +379,11 @@ test('15. the card claims neither a guarantee nor a restriction the platform doe
   ['guaranteed', 'risk-free', 'guaranteed profit', 'withdraw immediately'].forEach((bad) => {
     assert.ok(!all.toLowerCase().includes(bad), 'copy must not promise ' + bad);
   });
-  // The one restriction that IS real for a promo account is stated.
-  assert.match(i18n.T.en['promo.creditExplain'], /withdrawal conditions/);
+  // The restriction that IS real for a promo account is stated exactly once, on
+  // the dashboard notice - not on this card.
+  const T = i18n.T;
+  assert.match(T.en['promo.tradableNotice'],
+    /You can withdraw when you make a qualifying first deposit and a trade\./);
 });
 
 /* --------------------------------------------- 16. nothing else moved */
