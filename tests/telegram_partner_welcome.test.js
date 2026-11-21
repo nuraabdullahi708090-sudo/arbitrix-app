@@ -65,7 +65,7 @@ test('the English welcome carries the approved copy', () => {
     'identify price differences for the same instruments across different trading venues',
     "Whether you're here to explore the platform, learn how it works, or grow through referrals",
     '\u{1F680} YOUR NEXT STEPS',
-    '1\uFE0F\u20E3 EXPLORE ARBITRIX',
+    '1\uFE0F\u20E3 EXPLORE KALDERIX',
     'explore Demo Mode using virtual funds before funding a live account',
     '\u{1F393} Learn how it works:',
     '2\uFE0F\u20E3 CREATE YOUR ACCOUNT',
@@ -105,7 +105,7 @@ test('the pinned Start Here guide matches the welcome and walks through the Refe
   const required = [
     '\u{1F4CC} START HERE',
     '\u{1F680} YOUR NEXT STEPS',
-    '1\uFE0F\u20E3 EXPLORE ARBITRIX',
+    '1\uFE0F\u20E3 EXPLORE KALDERIX',
     '2\uFE0F\u20E3 CREATE YOUR ACCOUNT',
     '3\uFE0F\u20E3 DISCOVER THE PARTNER PROGRAMME',
     'Want to introduce others to Kalderix?',

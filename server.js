@@ -3227,21 +3227,21 @@ async function sendResetEmail(email, token) {
     const { data, error } = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: email,
-      subject: 'Password Reset Request - Kalderix',
+      subject: 'Password Reset Request - ' + BRAND.name,
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Password Reset - Kalderix</title>
+          <title>Password Reset - ${BRAND.name}</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
             <tr>
-              <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-                <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Kalderix</h1>
-                <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
+              <td style="background: linear-gradient(135deg, #101A26 0%, #1B2A3A 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
+                <h1 style="margin: 0; color: #5EA0FF; font-size: 28px; font-weight: 700;">${BRAND.name}</h1>
+                <p style="margin: 8px 0 0; color: #A9B7C7; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
               </td>
             </tr>
             <tr>
@@ -3253,7 +3253,7 @@ async function sendResetEmail(email, token) {
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td style="text-align: center; padding: 30px 0;">
-                      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%); color: #0d1117; text-decoration: none; font-weight: 600; font-size: 16px; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);">
+                      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #8CBBFF 0%, #3F7BE0 100%); color: #0B111A; text-decoration: none; font-weight: 600; font-size: 16px; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(94, 160, 255, 0.30);">
                         Reset Password
                       </a>
                     </td>
@@ -3847,7 +3847,7 @@ async function sendEmailChangeCodeEmail(newEmail, code) {
       await resend.emails.send({
         from: EMAIL_CONFIG.from,
         to: newEmail,
-        subject: 'Confirm your new email - Kalderix',
+        subject: 'Confirm your new email - ' + BRAND.name,
         html: generateEmailChangeTemplate(code)
       });
     } catch (e) {
@@ -3868,24 +3868,24 @@ function generateEmailChangeTemplate(code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirm your new email - Kalderix</title>
+  <title>Confirm your new email - ${BRAND.name}</title>
 </head>
 <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f4f4f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;padding:40px 20px;">
-    <tr><td style="background:linear-gradient(135deg,#0d1117 0%,#1a2332 100%);border-radius:16px 16px 0 0;padding:40px 30px;text-align:center;">
-      <h1 style="margin:0;color:#ffd700;font-size:28px;font-weight:700;">Kalderix</h1>
-      <p style="margin:8px 0 0;color:#8b949e;font-size:14px;">Multi-Asset Arbitrage Platform</p>
+    <tr><td style="background:linear-gradient(135deg,#101A26 0%,#1B2A3A 100%);border-radius:16px 16px 0 0;padding:40px 30px;text-align:center;">
+      <h1 style="margin:0;color:#5EA0FF;font-size:28px;font-weight:700;">${BRAND.name}</h1>
+      <p style="margin:8px 0 0;color:#A9B7C7;font-size:14px;">Multi-Asset Arbitrage Platform</p>
     </td></tr>
     <tr><td style="background-color:#ffffff;padding:40px 30px;">
       <h2 style="margin:0 0 20px;color:#1f2937;font-size:24px;">Confirm Your New Email</h2>
       <p style="margin:0 0 20px;color:#4b5563;font-size:16px;line-height:1.6;">You requested an email change for your Kalderix account. Use the verification code below to confirm your new email address. This code expires in 10 minutes.</p>
       <div style="text-align:center;margin:30px 0;">
-        <div style="display:inline-block;background:#0d1117;color:#ffd700;font-size:32px;font-weight:700;letter-spacing:8px;padding:16px 32px;border-radius:8px;">${code}</div>
+        <div style="display:inline-block;background:#101A26;color:#5EA0FF;font-size:32px;font-weight:700;letter-spacing:8px;padding:16px 32px;border-radius:8px;">${code}</div>
       </div>
       <p style="margin:20px 0 0;color:#6b7280;font-size:14px;line-height:1.6;">If you did not request this change, you can safely ignore this email. Your account email will not change until you complete verification.</p>
     </td></tr>
     <tr><td style="background-color:#f9fafb;padding:24px 30px;border-radius:0 0 16px 16px;text-align:center;">
-      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; Kalderix. All rights reserved.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;">&copy; ${BRAND.name}. All rights reserved.</p>
     </td></tr>
   </table>
 </body>
@@ -7153,7 +7153,7 @@ app.post('/api/kyc/submit', authMiddleware, async (req, res) => {
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Submitted - Kalderix',
+          subject: 'KYC Verification Submitted - ' + BRAND.name,
           html: `
             <h2>Verification Submitted</h2>
             <p>Dear ${user.name || 'User'},</p>
@@ -7374,7 +7374,7 @@ app.post('/api/admin/kyc/verification/:id/approve', authMiddleware, adminMiddlew
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Approved - Kalderix',
+          subject: 'KYC Verification Approved - ' + BRAND.name,
           html: `
             <h2>Verification Approved</h2>
             <p>Dear ${user.name || 'User'},</p>
@@ -7419,7 +7419,7 @@ app.post('/api/admin/kyc/verification/:id/reject', authMiddleware, adminMiddlewa
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Verification Rejected - Kalderix',
+          subject: 'KYC Verification Rejected - ' + BRAND.name,
           html: `
             <h2>Verification Rejected</h2>
             <p>Dear ${user.name || 'User'},</p>
@@ -7469,7 +7469,7 @@ app.post('/api/admin/kyc/verification/:id/resubmission', authMiddleware, adminMi
         await getResendClient().emails.send({
           from: EMAIL_CONFIG.from,
           to: user.email,
-          subject: 'KYC Resubmission Required - Kalderix',
+          subject: 'KYC Resubmission Required - ' + BRAND.name,
           html: `
             <h2>Additional Information Required</h2>
             <p>Dear ${user.name || 'User'},</p>
@@ -9506,7 +9506,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
             await resend.emails.send({
                 from: EMAIL_CONFIG.from,
                 to: email,
-                subject: 'Your Kalderix Verification Code',
+                subject: 'Your ' + BRAND.name + ' Verification Code',
                 html: generateEmailVerificationTemplate(code)
             });
             console.log(`[EMAIL 2FA] Verification code sent to ${email}`);
@@ -9535,14 +9535,14 @@ function generateEmailVerificationTemplate(code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification Code - Kalderix</title>
+  <title>Verification Code - ${BRAND.name}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
     <tr>
-      <td style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
-        <h1 style="margin: 0; color: #ffd700; font-size: 28px; font-weight: 700;">Kalderix</h1>
-        <p style="margin: 8px 0 0; color: #8b949e; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
+      <td style="background: linear-gradient(135deg, #101A26 0%, #1B2A3A 100%); border-radius: 16px 16px 0 0; padding: 40px 30px; text-align: center;">
+        <h1 style="margin: 0; color: #5EA0FF; font-size: 28px; font-weight: 700;">${BRAND.name}</h1>
+        <p style="margin: 8px 0 0; color: #A9B7C7; font-size: 14px;">Multi-Asset Arbitrage Platform</p>
       </td>
     </tr>
     <tr>
@@ -9551,8 +9551,8 @@ function generateEmailVerificationTemplate(code) {
         <p style="margin: 0 0 30px; color: #4b5563; font-size: 16px; line-height: 1.6; text-align: center;">
           Enter the following code to complete your login:
         </p>
-        <div style="background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-          <span style="font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-size: 36px; font-weight: 700; color: #ffd700; letter-spacing: 8px;">${code}</span>
+        <div style="background: linear-gradient(135deg, #101A26 0%, #1B2A3A 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+          <span style="font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-size: 36px; font-weight: 700; color: #5EA0FF; letter-spacing: 8px;">${code}</span>
         </div>
         <div style="background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 20px;">
           <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">

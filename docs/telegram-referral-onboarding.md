@@ -72,20 +72,20 @@ The draft was checked against the real content guard
 can change independently of this document.
 
 ```text
-📌 ARBITRIX REFERRAL PROGRAMME — START HERE
+📌 KALDERIX REFERRAL PROGRAMME — START HERE
 
-👋 Welcome to the Arbitrix referral community.
-Arbitrix is an automated multi-asset arbitrage platform. This group is where
+👋 Welcome to the Kalderix referral community.
+Kalderix is an automated multi-asset arbitrage platform. This group is where
 referral partners learn how the programme works, ask questions and get guidance
 on referring new users.
 
 1️⃣ HOW THE PROGRAMME WORKS
-You introduce a new user to Arbitrix with your personal referral link. When
+You introduce a new user to Kalderix with your personal referral link. When
 their first deposit of $100 or more is confirmed, you earn a one-time reward of
 20% of that deposit. Later deposits do not earn again.
 
 2️⃣ HOW TO REGISTER AS A PARTNER
-Create your Arbitrix account at https://arbitrix.pro. A separate partner
+Create your Kalderix account at https://arbitrix.pro. A separate partner
 account is not needed — every account can refer. Register first so your referral
 link is issued to your own account.
 
@@ -94,7 +94,7 @@ Log in, open your account dashboard and scroll to the Referral section. Your
 referral code and your referral link are shown there, with copy buttons.
 
 4️⃣ HOW TO SHARE YOUR LINK
-Share it with people who genuinely want to use Arbitrix. Describe what the
+Share it with people who genuinely want to use Kalderix. Describe what the
 platform does. Never promise profits and never describe trading as risk-free.
 Self-referrals, duplicate accounts, fraudulent activity and misleading promotion
 are not eligible for rewards.
@@ -127,7 +127,7 @@ Ask here in the group. For account-specific issues, contact partner support:
 https://t.me/AlexArbitrix
 
 ⚠️ Partners provide marketing and introductions only. Partners are not
-authorized to provide investment or trading advice on behalf of Arbitrix.
+authorized to provide investment or trading advice on behalf of Arbitrix Trading.
 Trading involves risk; referral rewards are not guaranteed earnings.
 ```
 

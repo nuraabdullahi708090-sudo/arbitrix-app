@@ -23,6 +23,10 @@
 /** Old-brand spellings per script. Extend this list when a new transliteration appears. */
 const OLD_BRAND_ALIASES = [
   'Arbitrix',            // Latin
+  'ARBITRIX',            // ALL CAPS - how it appears in headings, post titles and
+                         // shouty CTA copy. The detector used a case-SENSITIVE
+                         // indexOf, so "EXPLORE ARBITRIX" passed a green gate
+                         // while every lowercase check passed. Caught 2026-11-16.
   '\u0623\u0631\u0628\u064a\u062a\u0631\u064a\u0643\u0633', // Arabic: أربيتريكس
   '\u0627\u0631\u0628\u064a\u062a\u0631\u064a\u0643\u0633', // Arabic, no hamza: اربيتريكس
   '\u0623\u0631\u0628\u064a\u062a\u0631\u0643\u0633'        // Arabic variant: أربيتركس
@@ -37,7 +41,10 @@ const ALLOW_CONTEXT = [
   [/[a-z0-9._%+-]+@arbitrix\./i, 'mailbox'],
   [/@(?:[A-Za-z]+)?Arbitrix[A-Za-z0-9_]*/, 'Telegram handle'],
   [/t\.me\/(?:[A-Za-z_+0-9]*)?Arbitrix/, 'Telegram destination'],
+  [/['"]@?ArbitrixSupportBot['"]/, 'Telegram bot handle used to build a link'],
   [/arbitrix[-_][a-z-]+/i, 'technical identifier (meta name, filename, env var)'],
+  [/ARBITRIX_[A-Z0-9_]+/, 'uppercase configuration/override name'],
+  [/Arbitrix[A-Z][A-Za-z0-9]*/, 'camelCase identifier (window hook, API field)'],
   [/Arbitrix Trading/, 'legal operator'],
   [/data-brand|brand-|source:/, 'brand configuration'],
   [/%3EArbitrix|Arbitrix%3C/i, 'URL-encoded identifier']

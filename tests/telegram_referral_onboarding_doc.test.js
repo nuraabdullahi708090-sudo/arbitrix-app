@@ -42,7 +42,7 @@ test('1. the document is an unpublished proposal, not a record of a live post', 
 test('2. the draft covers the ten required onboarding points', () => {
     assert.ok(MESSAGE, 'the document must contain a ```text message block');
     const required = [
-        /welcome to the arbitrix referral community/i,          // 1 welcome
+        /welcome to the kalderix referral community/i,          // 1 welcome
         /how the programme works/i,                             // 2 how it works
         /how to register as a partner/i,                        // 3 registration
         /personal referral link/i,                              // 4 referral link

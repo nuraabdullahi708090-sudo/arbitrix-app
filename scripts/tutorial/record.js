@@ -307,7 +307,7 @@ async function main() {
 
     const brand = document.createElement('div');
     brand.id = 'recBrand';
-    brand.textContent = 'ARBITRIX';
+    brand.textContent = 'KALDERIX';
     document.body.appendChild(brand);
 
     if (disclosure) {
