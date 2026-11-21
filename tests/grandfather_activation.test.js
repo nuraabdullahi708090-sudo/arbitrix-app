@@ -45,14 +45,45 @@ const mod = require('../scripts/grandfather-activation.js');
 
 // ------------------------------------------------------------------ schema
 
+// The footer marker. The header carries a DIFFERENT sentence that also starts
+// with "-- ROLLBACK" ("-- ROLLBACK (see the end of the file): ..."), so a bare
+// split on '-- ROLLBACK' truncates the slice at line ~46 and the destructive
+// statement assertions below then pass vacuously. Split on the footer form only.
+const ROLLBACK_SPLIT = '\n-- ROLLBACK (in this order';
+
 test('054 is an additive, transactional migration', () => {
   assert.match(MIGRATION, /^-- 054_grandfather_activation\.sql/m);
   assert.match(MIGRATION, /\nBEGIN;/);
   assert.match(MIGRATION, /\nCOMMIT;/);
+
+  const body = MIGRATION.split(ROLLBACK_SPLIT)[0];
+
+  // Prove the slice really IS the executable body. Without this the negative
+  // assertions below would pass against a truncated stub - the original defect.
+  assert.ok(body.split('\n').length > 400,
+    'body slice looks truncated: ' + body.split('\n').length + ' lines');
+  assert.match(body, /\nBEGIN;/);
+  assert.match(body, /CREATE TABLE IF NOT EXISTS public\.activation_grandfather_snapshots/);
+  assert.match(body, /CREATE OR REPLACE FUNCTION public\.revoke_grandfathered_entitlement_safe/);
+  assert.doesNotMatch(body, /DROP FUNCTION IF EXISTS/i);
+
   // Additive only: no table or column is removed in the executable body.
-  const body = MIGRATION.split('\n-- ROLLBACK')[0];
   assert.doesNotMatch(body, /DROP TABLE/i);
   assert.doesNotMatch(body, /DROP COLUMN/i);
+});
+
+test('the rollback delimiter matches the footer only, never the header', () => {
+  // Exactly one footer marker.
+  assert.strictEqual(MIGRATION.split(ROLLBACK_SPLIT).length, 2);
+  // The header's different sentence must not be a split point.
+  assert.match(MIGRATION, /-- ROLLBACK \(see the end of the file\)/);
+  const headerSpan = MIGRATION.split('\n-- ROLLBACK (see the end')[0];
+  assert.ok(!headerSpan.includes('COMMIT;'), 'the header mention must precede COMMIT;');
+  // The destructive clean-up lives in the rollback block and must stay outside
+  // the body slice.
+  const rollback = MIGRATION.split(ROLLBACK_SPLIT)[1] || '';
+  assert.match(rollback, /DROP FUNCTION IF EXISTS public\.revoke_grandfathered_entitlement_safe/);
+  assert.match(rollback, /DROP TABLE IF EXISTS public\.activation_grandfather_candidates/);
 });
 
 test('the entitlement table gains an explicit source, not a parallel mechanism', () => {
