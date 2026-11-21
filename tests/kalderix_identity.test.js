@@ -133,13 +133,23 @@ test('5. approving the name updates the title, the social card and the icons fro
   assert.ok(/BRAND\.accent/.test(fnBody), 'the icons use the accent');
   assert.ok(/data-brand/.test(fnBody), 'the palette attribute is applied');
 
-  // The PWA manifest and the icon are built from BRAND, so a rename cannot
-  // leave an old letter on the home screen.
-  const manifest = INDEX.slice(INDEX.indexOf('const manifest = {'), INDEX.indexOf('const blob = new Blob'));
-  assert.ok(manifest.includes('name: BRAND.appName'), 'manifest name follows BRAND');
-  // The icon is a drawn symbol now, not a letterform, but it still follows
-  // BRAND: the leg colour is interpolated from BRAND.accent.
-  assert.ok(INDEX.includes("stroke=\"' + BRAND.accent + '\""), 'the icon symbol follows BRAND');
+  // The installed app reads a STATIC manifest and real PNG icons now: a
+  // runtime Blob manifest cannot be re-fetched by the platform at install
+  // time, and iOS ignores an SVG apple-touch-icon. A rename therefore ships
+  // files in these paths instead of rewriting them in the browser.
+  assert.ok(!/const manifest = \{/.test(INDEX), 'no runtime manifest is generated');
+  assert.ok(!/id="manifest-link"/.test(INDEX), 'no runtime-written manifest link');
+  assert.ok(!/JSON\.stringify\(manifest\)/.test(INDEX), 'no blob manifest payload');
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'public', 'manifest.webmanifest'), 'utf8'));
+  assert.strictEqual(manifest.name, 'Kalderix', 'manifest name');
+  assert.strictEqual(manifest.short_name, 'Kalderix', 'manifest short_name');
+  for (const icon of manifest.icons) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'public', icon.src)), 'icon exists: ' + icon.src);
+  }
+  assert.ok(manifest.icons.some((i) => i.purpose === 'maskable'), 'a maskable icon is declared');
+  // The artwork is still the approved brand mark, not a redrawn logo.
+  const mark = fs.readFileSync(path.join(ROOT, 'public', 'brand', 'kalderix-mark.svg'), 'utf8');
+  assert.ok(/M116 388/.test(mark), 'the icon symbol is the approved mark');
 });
 
 test('6. the approval command refuses identifiers it must never rewrite', () => {

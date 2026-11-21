@@ -159,14 +159,33 @@ surface('page title', INDEX.slice(INDEX.indexOf('<title>'), INDEX.indexOf('</tit
 surface('og:site_name', INDEX, '<meta property="og:site_name" content="' + EXPECT);
 surface('apple-mobile-web-app-title', INDEX, '<meta name="apple-mobile-web-app-title" content="' + EXPECT);
 surface('social card text', INDEX, 'content="' + EXPECT);
-surface('manifest derives from BRAND', INDEX.slice(INDEX.indexOf('const manifest = {')), 'name: BRAND.appName');
-// The app icon is a drawn symbol now (three converging flows + a node), so the
-// check follows the value it must interpolate: the accent, which a rename retints.
-const iconBuilder = INDEX.slice(INDEX.indexOf('const iconSvg'), INDEX.indexOf('const iconSvg') + 900);
-check('icon derives from BRAND',
-  iconBuilder.indexOf("stroke=\"' + BRAND.accent + '\"") > 0
-  && iconBuilder.indexOf('M116 388') > 0,
-  'accent-coloured symbol paths');
+// The manifest is a STATIC file now (a runtime Blob could not be re-fetched by
+// the platform at install time), so the gate reads the file the browser reads.
+if (exists('public/manifest.webmanifest')) {
+  let manifest = null;
+  try { manifest = JSON.parse(read('public/manifest.webmanifest')); } catch (e) { manifest = null; }
+  check('manifest parses', !!manifest);
+  check('manifest name', !!manifest && manifest.name === EXPECT, manifest && manifest.name);
+  check('manifest short_name', !!manifest && manifest.short_name === EXPECT, manifest && manifest.short_name);
+  check('manifest start_url and scope are the app root',
+    !!manifest && manifest.start_url === '/' && manifest.scope === '/',
+    manifest && manifest.start_url + ' / ' + manifest.scope);
+  const icons = (manifest && manifest.icons) || [];
+  check('every manifest icon is a real PNG on disk',
+    icons.length > 0 && icons.every((i) => i.type === 'image/png' && exists('public' + i.src)),
+    icons.map((i) => i.src).join(', '));
+  check('the manifest declares a maskable icon',
+    icons.some((i) => String(i.purpose || '').split(/\s+/).includes('maskable')));
+} else {
+  check('the static manifest exists', false, 'public/manifest.webmanifest');
+}
+check('the page links the static manifest',
+  INDEX.includes('<link rel="manifest" href="/manifest.webmanifest">'));
+check('the apple touch icon is a PNG file',
+  /<link rel="apple-touch-icon"[^>]*href="\/icons\/apple-touch-icon-180\.png"/.test(INDEX));
+check('the apple touch icon is drawn from the brand mark',
+  exists('public/brand/kalderix-icon-maskable.svg')
+  && read('public/brand/kalderix-icon-maskable.svg').includes('M116 388'));
 
 // The TOTP issuer is read at runtime, so assert the value the customer's
 // authenticator app will actually display.
