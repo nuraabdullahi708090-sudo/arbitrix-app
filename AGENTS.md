@@ -9639,3 +9639,42 @@ the removed/added copy.
   it up on its next manifest check; iOS only on re-add). Nothing to fix in code.
 - This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a
   second Render rebuild (the working tree shows AGENTS.md modified - documentation only).
+
+## Promo cap 055 - production DB verification BLOCKED (2026-11-24)
+
+- Task: verify whether production has migration 026 applied and whether the live
+  trigger still enforces $20, then apply 055 if needed.
+- OUTCOME: NOT verified and NOT applied. Production database access is unavailable
+  from this environment, for three independent reasons, each measured:
+  1. `SUPABASE_URL` points at project ref `jmhgreazilmmvuqnghgt`. The hostname does
+     not resolve: `getent hosts` fails, `curl` to `/rest/v1/` returns 000, and an
+     independent Cloudflare DoH lookup returns **Status 3 (NXDOMAIN)** with the
+     `supabase.co` SOA. DoH works for other names (`arbitrix.pro`, `supabase.co`
+     both return Status 0), so this is not a sandbox resolver block: that ref has no
+     public DNS record at all. Reconcile the project ref before any migration work.
+  2. `SUPABASE_ACCESS_TOKEN` (shape `sbp_...`) is rejected by the Management API:
+     `GET https://api.supabase.com/v1/projects` -> 401 `{"message":"Invalid access
+     token"}`.
+  3. No PostgreSQL client (`psql`, `pg_isready`), no Docker daemon (permission
+     denied), and no database password or pooler URL for this project in the
+     environment. `VERIDossier_DATABASE_URL` belongs to a DIFFERENT project and must
+     never be used for Arbitrix.
+- NOT DONE because of the above: no DDL was executed, no migration applied, no
+  balance/ledger/transaction read or write. Application code was not modified.
+- DELIVERED instead: `docs/sql/promo_cap_055_readiness.sql` - SELECT-only pre-flight
+  and post-check. Section A extracts the ACTIVE threshold from `pg_proc.prosrc`
+  (so a stale 026 install cannot be mistaken for 055), counts the triggers on
+  `public.trades`, flags duplicate cap functions, and prints a NEXT ACTION row
+  (DONE / APPLY 055 / INSPECT BY HAND). Section B asserts >= 30, no residual >= 20,
+  one trigger, the fail-open handler, the sandbox exemption and that the function
+  writes no money. A SNAPSHOT block records wallets/trades counts and sums before
+  and after; the numbers must be identical, which is the evidence that the
+  migration changed no financial data.
+- SEVERITY IF 026 IS PRESENT AND 055 IS NOT: the DB trigger refuses between $20 and
+  $30 while the server allows up to $30. The trade path maps the trigger's
+  `PROMO_TRADING_LIMIT_REACHED` error to the same refusal body (server.js line ~7885),
+  so the user sees a clean promo-limit refusal, not a silent bypass - the only
+  consequence is a cap that bites $10 early.
+- REMAINING ACTION (founder, needs DB access): run the SNAPSHOT, run section A, apply
+  055 if NEXT ACTION says so, re-run A and B (all OK), re-run the SNAPSHOT and confirm
+  identical numbers.
