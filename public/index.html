@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="en" dir="ltr" data-brand="kalderix">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -346,7 +346,7 @@
     --bg-elevated:#0A1020;
     /* The accent as an R,G,B triplet so translucent surfaces can follow a theme
        change without rewriting every rgba() literal. */
-    --brand-rgb:240,185,11;
+    --brand-rgb:124,92,255;
     --brand:#7C5CFF;
     --brand-hover:#9B85FF;
     --brand-weak:rgb(var(--brand-rgb) / 0.08);
@@ -2279,6 +2279,7 @@
             text-align: center;
             max-width: 100%;
             overflow-wrap: anywhere;
+        }
         .landing-startfree-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -3345,6 +3346,698 @@
         @media (max-width: 420px) {
             .landing-partner-flow { grid-template-columns: 1fr; }
         }
+    </style>
+
+    <style id="kx-design-system">
+    /* ==========================================================================
+       KALDERIX DESIGN SYSTEM
+       One layer, loaded last, so it wins over the accumulated inline and
+       page-specific rules without rewriting 29k lines of markup. Everything
+       below is presentation only: no id, handler or data contract changes.
+       ========================================================================== */
+
+    :root {
+        /* ---- surfaces: layered instead of one flat black ---- */
+        --kx-bg:#0A0E17;
+        --kx-surface:#111726;
+        --kx-surface-2:#161D2E;
+        --kx-elevated:#1B2436;
+        --kx-border:#243049;
+        --kx-border-strong:#2F3D59;
+        --kx-divider:rgba(255,255,255,0.07);
+
+        /* ---- accent (violet), one accent only ----
+           --kx-accent            fill for buttons, borders, indicators
+           --kx-accent-text       the SAME hue lightened for small text/icons:
+                                  #7C5CFF as text on a dark surface measures
+                                  4.11-4.44:1 and fails WCAG AA (4.5:1).
+           --kx-on-accent         text ON a violet fill: #0B0F19 measured 4.41:1,
+                                  #05070C measures 4.64:1 and is visually identical. */
+        --kx-accent:#7C5CFF;
+        --kx-accent-text:#9B85FF;
+        --kx-accent-hover:#9179FF;
+        --kx-accent-press:#6b4bf0;
+        --kx-accent-weak:rgba(124,92,255,0.10);
+        --kx-accent-soft:rgba(124,92,255,0.18);
+        --kx-accent-border:rgba(124,92,255,0.34);
+        --kx-on-accent:#05070C;
+
+        /* ---- semantic ---- */
+        --kx-success:#10B981;
+        --kx-success-text:#6EE7B7;
+        --kx-success-weak:rgba(16,185,129,0.10);
+        --kx-success-border:rgba(16,185,129,0.28);
+        --kx-warning:#F59E0B;
+        --kx-warning-text:#FCD34D;
+        --kx-warning-weak:rgba(245,158,11,0.10);
+        --kx-warning-border:rgba(245,158,11,0.28);
+        --kx-danger:#EF4444;
+        --kx-danger-text:#F87171;
+        --kx-danger-weak:rgba(239,68,68,0.10);
+        --kx-danger-border:rgba(239,68,68,0.28);
+
+        /* ---- text ---- */
+        --kx-text:#E9EEF8;
+        --kx-text-2:#A7B4CC;
+        --kx-text-3:#8593AD;
+
+        /* ---- geometry ---- */
+        --kx-r-sm:8px;
+        --kx-r:12px;
+        --kx-r-lg:16px;
+        --kx-r-xl:20px;
+        --kx-r-pill:999px;
+
+        /* ---- spacing ---- */
+        --kx-s1:4px; --kx-s2:8px; --kx-s3:12px; --kx-s4:16px;
+        --kx-s5:20px; --kx-s6:24px; --kx-s8:32px; --kx-s10:40px;
+
+        /* ---- type ---- */
+        --kx-fs-caption:11px;
+        --kx-fs-xs:12px;
+        --kx-fs-sm:13px;
+        --kx-fs-base:14px;
+        --kx-fs-md:15px;
+        --kx-fs-lg:18px;
+        --kx-fs-xl:22px;
+        --kx-fs-2xl:28px;
+
+        /* ---- elevation ---- */
+        --kx-shadow-sm:0 1px 2px rgba(0,0,0,0.28);
+        --kx-shadow:0 8px 24px rgba(0,0,0,0.28);
+        --kx-shadow-lg:0 24px 64px rgba(0,0,0,0.45);
+        --kx-ring:0 0 0 3px rgba(124,92,255,0.35);
+    }
+
+    /* --------------------------------------------------------------------------
+       Foundations
+       -------------------------------------------------------------------------- */
+    body {
+        background:var(--kx-bg);
+        color:var(--kx-text);
+        font-size:var(--kx-fs-md);
+        line-height:1.6;
+    }
+    /* A readable floor. The legacy markup carries 9-10px labels; raising only
+       the sub-11px values keeps dense widgets dense without being unreadable. */
+    #mainContent [style*="font-size:9px"],
+    #mainContent [style*="font-size:9.5px"],
+    #mainContent [style*="font-size:10px"],
+    #mainContent [style*="font-size:10.5px"],
+    #mainContent [style*="font-size: 9px"],
+    #mainContent [style*="font-size: 10px"],
+    .modal-overlay [style*="font-size:9px"],
+    .modal-overlay [style*="font-size:10px"],
+    .deposit-modal [style*="font-size:9px"],
+    .deposit-modal [style*="font-size:10px"] {
+        font-size:12px !important;
+        line-height:1.5;
+    }
+    #mainContent [style*="font-size:11px"],
+    .modal-overlay [style*="font-size:11px"] {
+        font-size:12px !important;
+    }
+    .card, .card-body, .card-header, .modal-content, .deposit-modal-content {
+        color:var(--kx-text);
+    }
+    h1,h2,h3,h4,h5 { letter-spacing:-0.01em; line-height:1.25; }
+    p { line-height:1.65; }
+
+    ::selection { background:rgba(124,92,255,0.35); color:#fff; }
+    :focus-visible {
+        outline:2px solid var(--kx-accent);
+        outline-offset:2px;
+    }
+    a { color:var(--kx-accent-hover); }
+
+    /* Numeric values read as financial data, not as prose. */
+    .stat-value, .ref-metric-value, #totalEquity, #balanceValue, #pnlValue,
+    .ref-partner-value, #refTotalEarned, #refAvailableEarnings, #refQualifyingVolume {
+        font-variant-numeric:tabular-nums;
+        letter-spacing:-0.01em;
+    }
+
+    /* --------------------------------------------------------------------------
+       Shell: sidebar, header, ticker
+       -------------------------------------------------------------------------- */
+    .sidebar {
+        background:var(--kx-surface);
+        border-right:1px solid var(--kx-border);
+    }
+    .sidebar-brand {
+        padding:18px 16px 14px;
+        border-bottom:1px solid var(--kx-divider);
+    }
+    .sidebar-link {
+        min-height:44px;
+        margin:2px 8px;
+        padding:0 12px;
+        border-radius:var(--kx-r);
+        gap:10px;
+        font-size:var(--kx-fs-sm);
+        font-weight:500;
+        color:var(--kx-text-2);
+        transition:background var(--transition-fast), color var(--transition-fast);
+    }
+    .sidebar-link i { width:18px; text-align:center; font-size:14px; }
+    .sidebar-link:hover { background:rgba(255,255,255,0.04); color:var(--kx-text); }
+    .sidebar-link.active {
+        background:var(--kx-accent-weak);
+        color:#fff;
+        box-shadow:inset 2px 0 0 var(--kx-accent);
+    }
+    html[dir="rtl"] .sidebar-link.active { box-shadow:inset -2px 0 0 var(--kx-accent); }
+    .sidebar-status {
+        margin:12px 8px 8px;
+        padding:12px;
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r);
+        background:var(--kx-surface-2);
+    }
+
+    .app-header {
+        background:rgba(10,14,23,0.92);
+        border-bottom:1px solid var(--kx-border);
+        backdrop-filter:blur(12px);
+    }
+    .mode-tabs {
+        background:var(--kx-surface-2);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r-pill);
+        padding:3px;
+        gap:2px;
+    }
+    .mode-tab {
+        min-height:34px;
+        padding:0 16px;
+        border-radius:var(--kx-r-pill);
+        font-size:var(--kx-fs-xs);
+        font-weight:600;
+        letter-spacing:0.02em;
+        color:var(--kx-text-2);
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        white-space:nowrap;
+    }
+    .mode-tab.active {
+        background:var(--kx-accent);
+        color:var(--kx-on-accent);
+        box-shadow:var(--kx-shadow-sm);
+    }
+    .btn-icon {
+        width:40px;height:40px;
+        border-radius:var(--kx-r);
+        border:1px solid var(--kx-border);
+        background:var(--kx-surface-2);
+        color:var(--kx-text-2);
+        display:inline-flex;align-items:center;justify-content:center;
+        transition:background var(--transition-fast),color var(--transition-fast),border-color var(--transition-fast);
+    }
+    .btn-icon:hover { background:var(--kx-elevated); color:var(--kx-text); border-color:var(--kx-border-strong); }
+    .ticker-wrapper {
+        background:var(--kx-surface);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r);
+    }
+
+    /* --------------------------------------------------------------------------
+       Cards
+       -------------------------------------------------------------------------- */
+    .card {
+        background:var(--kx-surface);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r-lg);
+        box-shadow:var(--kx-shadow-sm);
+    }
+    .card-header {
+        padding:16px 20px;
+        border-bottom:1px solid var(--kx-divider);
+        font-size:var(--kx-fs-base);
+        font-weight:600;
+        color:var(--kx-text);
+        display:flex;align-items:center;gap:10px;
+    }
+    .card-body { padding:20px; }
+    .icon-bg {
+        width:32px;height:32px;border-radius:10px;
+        display:inline-flex;align-items:center;justify-content:center;
+        font-size:13px;flex-shrink:0;
+        background:var(--kx-accent-weak);color:var(--kx-accent-hover);
+    }
+    .icon-bg.gold { background:var(--kx-accent-weak); color:var(--kx-accent-hover); }
+    .icon-bg.green { background:var(--kx-success-weak); color:var(--kx-success); }
+    .icon-bg.red { background:var(--kx-danger-weak); color:var(--kx-danger); }
+
+    /* --------------------------------------------------------------------------
+       Buttons — one geometry, three weights, one accent
+       -------------------------------------------------------------------------- */
+    .btn {
+        min-height:44px;
+        padding:0 18px;
+        border-radius:var(--kx-r);
+        border:1px solid transparent;
+        font-size:var(--kx-fs-sm);
+        font-weight:600;
+        line-height:1.3;
+        gap:8px;
+        display:inline-flex;align-items:center;justify-content:center;
+        white-space:normal;
+        overflow-wrap:anywhere;
+        max-width:100%;
+        cursor:pointer;
+        transition:background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform 80ms ease;
+    }
+    .btn:active { transform:translateY(1px); }
+    .btn:disabled,.btn[disabled] { opacity:0.55; cursor:not-allowed; transform:none; }
+    .btn-primary {
+        background:var(--kx-accent);
+        color:var(--kx-on-accent);
+        border-color:transparent;
+        box-shadow:0 6px 18px rgba(124,92,255,0.24);
+    }
+    .btn-primary:hover { background:var(--kx-accent-hover); }
+    .btn-secondary {
+        background:var(--kx-accent-weak);
+        color:#CDBFFF;
+        border-color:var(--kx-accent-border);
+    }
+    .btn-secondary:hover { background:var(--kx-accent-soft); color:#fff; }
+    .btn-ghost {
+        background:transparent;
+        color:var(--kx-text-2);
+        border-color:var(--kx-border);
+    }
+    .btn-ghost:hover { background:var(--kx-surface-2); color:var(--kx-text); }
+    .btn-danger {
+        background:var(--kx-danger-weak);
+        color:#FCA5A5;
+        border-color:var(--kx-danger-border);
+    }
+    .btn-danger:hover { background:rgba(239,68,68,0.18); color:#fff; }
+    .btn-sm { min-height:36px; padding:0 14px; font-size:var(--kx-fs-xs); border-radius:10px; }
+    .btn-block, .btn[style*="width:100%"] { width:100%; }
+
+    /* --------------------------------------------------------------------------
+       Forms
+       -------------------------------------------------------------------------- */
+    .input-field, input[type="text"], input[type="email"], input[type="password"],
+    input[type="number"], select, textarea {
+        min-height:44px;
+        background:var(--kx-surface-2);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r);
+        color:var(--kx-text);
+        font-size:var(--kx-fs-base);
+        padding:10px 12px;
+        transition:border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .input-field:hover, input:hover, select:hover { border-color:var(--kx-border-strong); }
+    .input-field:focus, input:focus, select:focus, textarea:focus {
+        outline:none;
+        border-color:var(--kx-accent);
+        box-shadow:0 0 0 3px rgba(124,92,255,0.22);
+    }
+    input::placeholder, textarea::placeholder { color:var(--kx-text-3); }
+    label { color:var(--kx-text-2); font-size:var(--kx-fs-xs); }
+
+    /* --------------------------------------------------------------------------
+       Badges & status
+       -------------------------------------------------------------------------- */
+    .status-badge {
+        display:inline-flex;align-items:center;gap:6px;
+        min-height:24px;
+        padding:3px 10px;
+        border-radius:var(--kx-r-pill);
+        font-size:var(--kx-fs-caption);
+        font-weight:600;
+        letter-spacing:0.02em;
+        border:1px solid transparent;
+        white-space:normal;
+        overflow-wrap:anywhere;
+    }
+    .status-badge.demo, .status-badge.pending {
+        background:var(--kx-accent-weak); color:#CDBFFF; border-color:var(--kx-accent-border);
+    }
+    .status-badge.live, .status-badge.active, .status-badge.confirmed, .status-badge.approved, .status-badge.completed {
+        background:var(--kx-success-weak); color:var(--kx-success-text); border-color:var(--kx-success-border);
+    }
+    .status-badge.warning { background:var(--kx-warning-weak); color:var(--kx-warning-text); border-color:var(--kx-warning-border); }
+    .status-badge.rejected, .status-badge.failed, .status-badge.expired {
+        background:var(--kx-danger-weak); color:#FCA5A5; border-color:var(--kx-danger-border);
+    }
+
+    /* --------------------------------------------------------------------------
+       Modals
+       -------------------------------------------------------------------------- */
+    .modal-content, .deposit-modal-content {
+        background:var(--kx-surface);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r-xl);
+        box-shadow:var(--kx-shadow-lg);
+    }
+    .modal-header {
+        padding-bottom:12px;
+        border-bottom:1px solid var(--kx-divider);
+        margin-bottom:16px;
+    }
+    .modal-header h3 { font-size:var(--kx-fs-lg); font-weight:650; }
+    .modal-close {
+        width:36px;height:36px;border-radius:10px;
+        display:inline-flex;align-items:center;justify-content:center;
+        background:var(--kx-surface-2);border:1px solid var(--kx-border);
+        color:var(--kx-text-2);cursor:pointer;
+    }
+    .modal-close:hover { background:var(--kx-elevated); color:var(--kx-text); }
+
+    /* --------------------------------------------------------------------------
+       Tables — always scrollable, never clipped
+       -------------------------------------------------------------------------- */
+    .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--kx-r); }
+    .table-wrap table { min-width:max-content; width:100%; border-collapse:collapse; }
+    .table-wrap th {
+        position:sticky;top:0;
+        background:var(--kx-surface-2);
+        font-size:var(--kx-fs-caption);font-weight:600;
+        text-transform:uppercase;letter-spacing:0.06em;
+        color:var(--kx-text-3);
+        padding:10px 12px;
+        text-align:left;
+        border-bottom:1px solid var(--kx-border);
+        white-space:nowrap;
+    }
+    .table-wrap td {
+        padding:12px;
+        font-size:var(--kx-fs-sm);
+        border-bottom:1px solid var(--kx-divider);
+        color:var(--kx-text-2);
+        vertical-align:middle;
+    }
+    html[dir="rtl"] .table-wrap th { text-align:right; }
+
+    /* --------------------------------------------------------------------------
+       Feedback
+       -------------------------------------------------------------------------- */
+    .toast {
+        border-radius:var(--kx-r);
+        border:1px solid var(--kx-border);
+        background:var(--kx-elevated);
+        box-shadow:var(--kx-shadow);
+        font-size:var(--kx-fs-sm);
+    }
+    .empty-state, .kx-empty {
+        padding:28px 16px;
+        text-align:center;
+        color:var(--kx-text-3);
+        font-size:var(--kx-fs-sm);
+        border:1px dashed var(--kx-border);
+        border-radius:var(--kx-r);
+        background:rgba(255,255,255,0.015);
+    }
+
+    /* --------------------------------------------------------------------------
+       Dashboard summary
+       -------------------------------------------------------------------------- */
+    .stats-grid { gap:12px; }
+    .stats-grid .card { padding:0; }
+    .stat-label { font-size:var(--kx-fs-caption); font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:var(--kx-text-3); }
+    .stat-value { font-size:var(--kx-fs-xl); font-weight:700; color:var(--kx-text); }
+    @media (max-width:379px) { .stat-value { font-size:var(--kx-fs-lg); } }
+
+
+    /* --------------------------------------------------------------------------
+       Landing: the nav action group was squeezing three buttons into 208px on
+       phones ("Launch App" rendered 186px tall). Below the desktop breakpoint the
+       hamburger menu already carries all three, so the bar keeps brand + menu.
+       -------------------------------------------------------------------------- */
+    .landing-nav-actions { flex-wrap:nowrap; align-items:center; }
+    .landing-nav-actions .btn { flex:0 0 auto; white-space:nowrap; min-height:40px; padding:0 16px; font-size:var(--kx-fs-xs); }
+    .landing-cta-btn { min-height:48px !important; padding:0 24px !important; }
+    /* Below 768px the landing stylesheet already swaps the nav links/actions for
+       the hamburger menu, so no extra hiding rule is needed here; the buttons
+       only need to stop wrapping and keep a consistent height. */
+
+    /* --------------------------------------------------------------------------
+       Referral page
+       Hierarchy: headline -> performance -> earnings/payout -> share kit ->
+       explainer -> pending. One accent, one card style, tabular numerals.
+       -------------------------------------------------------------------------- */
+    .ref-page .card-body { padding:20px; }
+    .ref-body { display:grid; gap:16px; }
+    .ref-intro { text-align:center; padding:4px 0 2px; }
+    .ref-headline {
+        font-size:var(--kx-fs-lg);
+        font-weight:700;
+        line-height:1.35;
+        color:var(--kx-text);
+        margin:0 0 6px;
+        text-wrap:balance;
+    }
+    .ref-accent { color:var(--kx-accent-hover); }
+    .ref-sub { font-size:var(--kx-fs-sm); color:var(--kx-text-2); margin:0; line-height:1.6; }
+
+    .ref-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .ref-metric {
+        background:var(--kx-surface-2);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r);
+        padding:14px 10px;
+        text-align:center;
+        min-width:0;
+        display:flex; flex-direction:column; gap:2px;
+    }
+    .ref-metric-value {
+        font-size:clamp(16px,4.6vw,20px);
+        font-weight:700;
+        color:var(--kx-text);
+        font-variant-numeric:tabular-nums;
+        overflow-wrap:anywhere;
+        line-height:1.2;
+    }
+    .ref-metric-value.is-success { color:#6EE7B7; }
+    .ref-metric-value.is-earned { color:var(--kx-accent-hover); }
+    .ref-metric-label {
+        font-size:var(--kx-fs-caption);
+        font-weight:600;
+        letter-spacing:0.05em;
+        text-transform:uppercase;
+        color:var(--kx-text-3);
+        overflow-wrap:anywhere;
+    }
+
+    .ref-section {
+        background:var(--kx-surface-2);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r-lg);
+        padding:16px;
+        min-width:0;
+    }
+    .ref-section-title {
+        display:flex; align-items:center; gap:8px;
+        font-size:var(--kx-fs-caption);
+        font-weight:700;
+        letter-spacing:0.07em;
+        text-transform:uppercase;
+        color:var(--kx-text-3);
+        margin:0 0 12px;
+    }
+    .ref-section-title i { color:var(--kx-accent); font-size:12px; }
+    .ref-section-title-spaced { margin-top:18px; }
+    .ref-subtitle {
+        font-size:var(--kx-fs-xs); font-weight:600; color:var(--kx-text-2);
+        margin:16px 0 8px;
+    }
+    .ref-actions { display:grid; grid-template-columns:1fr; gap:8px; margin-top:4px; }
+    .ref-actions .btn { width:100%; }
+    .ref-note {
+        font-size:var(--kx-fs-xs);
+        color:var(--kx-text-3);
+        line-height:1.55;
+        margin:10px 0 0;
+        overflow-wrap:anywhere;
+    }
+    .ref-note.is-accent {
+        color:#CDBFFF; background:var(--kx-accent-weak);
+        border:1px solid var(--kx-accent-border);
+        border-radius:var(--kx-r-sm);
+        padding:8px 10px; margin-top:10px;
+    }
+
+    .ref-partner-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .ref-partner-stat {
+        background:var(--kx-surface);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r);
+        padding:12px 10px; min-width:0;
+    }
+    .ref-partner-value {
+        font-size:clamp(15px,4.2vw,18px); font-weight:700; color:var(--kx-text);
+        font-variant-numeric:tabular-nums; overflow-wrap:anywhere; line-height:1.25;
+    }
+    .ref-partner-value.is-earned { color:var(--kx-accent-hover); }
+    .ref-partner-label {
+        font-size:var(--kx-fs-caption); color:var(--kx-text-3); line-height:1.4;
+        margin-top:2px; overflow-wrap:anywhere;
+    }
+
+    .ref-field-row {
+        display:flex; align-items:center; gap:10px;
+        background:var(--kx-surface);
+        border:1px solid var(--kx-border);
+        border-radius:var(--kx-r);
+        padding:8px 10px;
+        min-width:0;
+    }
+    .ref-field-row-code { border-style:dashed; border-color:var(--kx-accent-border); }
+    .ref-code {
+        flex:1 1 auto; min-width:0;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+        font-size:15px; font-weight:700; letter-spacing:0.04em;
+        color:var(--kx-accent-hover);
+        overflow-wrap:anywhere;
+    }
+    .ref-link {
+        flex:1 1 auto; min-width:0;
+        font-size:var(--kx-fs-xs);
+        color:var(--kx-text-2);
+        overflow-wrap:anywhere;
+        word-break:break-all;
+        display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    .ref-copy { flex:0 0 auto; }
+    .ref-share-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+
+    .ref-steps { list-style:none; margin:0; padding:0; display:grid; gap:10px; counter-reset:none; }
+    .ref-step { display:flex; gap:10px; align-items:flex-start; font-size:var(--kx-fs-sm); color:var(--kx-text-2); line-height:1.5; }
+    .ref-step-num {
+        flex:0 0 auto;
+        width:22px; height:22px; border-radius:50%;
+        background:var(--kx-accent-weak); color:var(--kx-accent-hover);
+        border:1px solid var(--kx-accent-border);
+        display:inline-flex; align-items:center; justify-content:center;
+        font-size:11px; font-weight:700;
+    }
+    .ref-step-text { min-width:0; overflow-wrap:anywhere; }
+    .ref-chip {
+        display:inline-block; padding:1px 8px; border-radius:var(--kx-r-pill);
+        font-size:var(--kx-fs-caption); font-weight:600; line-height:1.6;
+    }
+    .ref-chip.is-pending { background:var(--kx-accent-weak); color:#CDBFFF; }
+    .ref-chip.is-active { background:var(--kx-success-weak); color:#6EE7B7; }
+    .ref-pending { padding:0; overflow:hidden; }
+
+    @media (max-width:380px) {
+        /* Long localized CTA labels otherwise wrap into a two-line button on the
+           smallest phones; tighten the type instead of clipping the text. */
+        .landing-cta .btn, .landing-hero .btn { font-size:13px !important; padding:0 16px !important; }
+        .ref-metrics { gap:8px; }
+        .ref-metric { padding:12px 6px; }
+        .ref-section { padding:14px; }
+        .ref-share-actions { grid-template-columns:1fr; }
+        .ref-headline { font-size:var(--kx-fs-base); }
+    }
+    @media (min-width:720px) {
+        .ref-partner-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+        .ref-actions { grid-template-columns:1fr 1fr; }
+        .ref-share-actions { grid-template-columns:auto auto; justify-content:start; }
+        .ref-share-actions .btn { min-width:170px; }
+    }
+
+
+    /* --------------------------------------------------------------------------
+       CONTRAST PASS
+       Every pair below was measured in the rendered page. Two classes of failure:
+       (a) the accent used as TEXT on dark surfaces (4.11-4.44:1), fixed by the
+           lighter --kx-accent-text; (b) dark text on a violet FILL (4.41:1),
+       fixed by --kx-on-accent. Fills keep the brand violet unchanged.
+       -------------------------------------------------------------------------- */
+
+    /* (a) accent as text */
+    a { color: var(--kx-accent-text); }
+    .ticker-item .ticker-amount,
+    .ticker-item .ticker-amount.gold,
+    .landing-section-tag,
+    .landing-compare-tag,
+    .landing-testimonial-avatar,
+    .landing-hero-promo,
+    .language-option.active { color: var(--kx-accent-text); }
+    .landing-section-tag { background: var(--kx-accent-weak); border: 1px solid var(--kx-accent-border); }
+
+    /* Inline "color:#7C5CFF" predates the tokens and is used for accent text all
+       over the app shell. Only dark-surface contexts are targeted, and never on a
+       control that paints its own violet fill. */
+    #mainContent [style*="color:#7C5CFF"]:not(.btn):not(.network-btn):not(.status-badge),
+    #mainContent [style*="color: #7C5CFF"]:not(.btn):not(.network-btn):not(.status-badge),
+    .landing-page [style*="color:#7C5CFF"]:not(.btn):not(.network-btn),
+    .landing-page [style*="color: #7C5CFF"]:not(.btn):not(.network-btn),
+    .modal-overlay [style*="color:#7C5CFF"]:not(.btn):not(.network-btn),
+    .deposit-modal [style*="color:#7C5CFF"]:not(.btn):not(.network-btn),
+    .sidebar [style*="color:#7C5CFF"]:not(.status-badge) { color: var(--kx-accent-text) !important; }
+
+    /* (b) dark text on a violet fill */
+    .btn-primary,
+    .mode-tab.active,
+    .network-btn.active,
+    .ios-step-num,
+    .landing-step-number { color: var(--kx-on-accent); }
+    /* The numbered circles sit on a dark card, so an outlined violet chip reads
+       better than a filled one (and matches .ref-step-num in the referral page). */
+    .landing-steps .landing-step-number,
+    .landing-steps-5 .landing-step-number,
+    .landing-step-number {
+        background: var(--kx-accent-weak) !important;
+        border: 1px solid var(--kx-accent-border);
+        color: var(--kx-accent-text) !important;
+    }
+
+    /* Safety text on tinted panels: #EF4444 on a red-tinted surface is 4.0:1. */
+    .deposit-modal strong[style*="color:#EF4444"],
+    .deposit-modal [style*="color:#EF4444"] { color: var(--kx-danger-text) !important; }
+
+    /* Small print that never reached the 11px floor. */
+    .ticker-label,
+    .badge-rarity { font-size: 11px; }
+    .badge-rarity.epic { color: #C4B5FD; }
+    .badge-rarity.rare { color: #93C5FD; }
+    .badge-rarity.legendary,
+    .badge-rarity.common { color: var(--kx-accent-text); }
+
+
+    /* Remaining measured pairs (each verified in the rendered page). */
+    .ticker-label { color: var(--kx-accent-text); font-size: 11px; }
+    .landing-compare-card.demo .landing-compare-tag { color: #93C5FD; }
+    .landing-compare-card.live .landing-compare-tag { color: var(--kx-accent-text); }
+    #authPage a { color: var(--kx-accent-text); }
+    #authPage .auth-tab.active { color: var(--kx-accent-text); background: var(--kx-accent-weak); }
+    .landing-lang .language-option { color: var(--kx-text-2); }
+    .landing-lang .language-option:hover { color: var(--kx-text); }
+    .landing-lang .language-option.active { color: var(--kx-accent-text); background: var(--kx-accent-weak); }
+
+
+    /* Stat-card actions: the deposit button carried a violet gradient with dark
+       text (4.41:1 at the dark end); flat accent + --kx-on-accent matches
+       .btn-primary and removes an unnecessary gradient. The outline variant
+       used the accent as text (4.11:1). */
+    .stat-deposit-btn { background: var(--kx-accent); color: var(--kx-on-accent); }
+    .stat-withdraw-btn { background: var(--kx-accent-weak); border-color: var(--kx-accent-border); color: var(--kx-accent-text); }
+    #authPage [style*="color:#7C5CFF"],
+    #authPage [style*="color: #7C5CFF"] { color: var(--kx-accent-text) !important; }
+
+    /* Selects render their option list with the control's colour; force a dark
+       surface so the options are never dark-on-dark. */
+    select, option { color: var(--kx-text); background-color: var(--kx-surface-2); }
+
+    /* --------------------------------------------------------------------------
+       Motion
+       -------------------------------------------------------------------------- */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration:0.001ms !important;
+            animation-iteration-count:1 !important;
+            transition-duration:0.001ms !important;
+            scroll-behavior:auto !important;
+        }
+    }
     </style>
 </head>
 <body>
@@ -7588,119 +8281,136 @@ function toggleFaq(btn) {
             </div>
 
             <!-- REFERRAL SECTION -->
-            <div class="card" id="referral">
-                <div class="card-header"><span class="icon-bg gold"><i class="fas fa-gift"></i></span> <span data-i18n="referral.title">Referral Program</span></div>
-                <div class="card-body">
-                    <div style="background:linear-gradient(145deg,var(--bg-card),var(--bg-input));border:1px solid var(--gold-dim);border-radius:16px;padding:16px;">
-                        <h4 style="font-size:14px;font-weight:700;text-align:center;"><span data-i18n="referral.invite">Invite Friends, Earn</span> <span id="refRewardPercent">20%</span> <span data-i18n="referral.ofFirstDeposit">of their first deposit</span></h4>
-                        <p style="font-size:10px;color:var(--text-secondary);text-align:center;margin-bottom:12px;" data-i18n="referral.shareEarn">Share your link. Earn when friends deposit!</p>
-                        
-                        <!-- Stats Grid -->
-                        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:16px;">
-                            <div style="background:var(--bg-input);border-radius:8px;padding:12px;text-align:center;">
-                                <div style="font-size:18px;font-weight:800;color:#10B981;" id="refActiveCount">0</div>
-                                <div style="font-size:9px;color:var(--text-secondary);" data-i18n="referral.active">Active</div>
-                            </div>
-                            <div style="background:var(--bg-input);border-radius:8px;padding:12px;text-align:center;">
-                                <div style="font-size:18px;font-weight:800;color:#7C5CFF;" id="refPendingCount">0</div>
-                                <div style="font-size:9px;color:var(--text-secondary);" data-i18n="referral.pending">Pending</div>
-                            </div>
-                            <div style="background:var(--bg-input);border-radius:8px;padding:12px;text-align:center;">
-                                <div style="font-size:18px;font-weight:800;color:#7C5CFF;" id="refTotalEarned">$0.00</div>
-                                <div style="font-size:9px;color:var(--text-secondary);" data-i18n="referral.earnedLabel">Earned</div>
-                            </div>
+            <div class="card ref-page" id="referral">
+                <div class="card-header">
+                    <span class="icon-bg gold"><i class="fas fa-gift"></i></span>
+                    <span data-i18n="referral.title">Referral Program</span>
+                </div>
+                <div class="card-body ref-body">
+
+                    <!-- 1. Headline: what the programme pays, in one sentence. -->
+                    <header class="ref-intro">
+                        <h3 class="ref-headline">
+                            <span data-i18n="referral.invite">Invite Friends, Earn</span>
+                            <span class="ref-accent" id="refRewardPercent">20%</span>
+                            <span data-i18n="referral.ofFirstDeposit">of their first deposit</span>
+                        </h3>
+                        <p class="ref-sub" data-i18n="referral.shareEarn">Share your link. Earn when friends deposit!</p>
+                    </header>
+
+                    <!-- 2. Performance at a glance. -->
+                    <div class="ref-metrics">
+                        <div class="ref-metric">
+                            <span class="ref-metric-value is-success" id="refActiveCount">0</span>
+                            <span class="ref-metric-label" data-i18n="referral.active">Active</span>
+                        </div>
+                        <div class="ref-metric">
+                            <span class="ref-metric-value" id="refPendingCount">0</span>
+                            <span class="ref-metric-label" data-i18n="referral.pending">Pending</span>
+                        </div>
+                        <div class="ref-metric">
+                            <span class="ref-metric-value is-earned" id="refTotalEarned">$0.00</span>
+                            <span class="ref-metric-label" data-i18n="referral.earnedLabel">Earned</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Earnings and payout (server-derived amounts, manual payout). -->
+                    <section class="ref-section" id="referralPartnerPanel">
+                        <h4 class="ref-section-title"><i class="fas fa-handshake" aria-hidden="true"></i> <span data-i18n="referral.partner.title">Referral Partner</span></h4>
+                        <div class="ref-partner-grid">
+                            <div class="ref-partner-stat"><div class="ref-partner-value" id="refTotalReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.totalReferrals">Total Referrals</div></div>
+                            <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifiedReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.qualified">Qualified Referrals</div></div>
+                            <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifyingVolume">$0.00</div><div class="ref-partner-label" data-i18n="referral.partner.volume">Qualifying Deposit Volume</div></div>
+                            <div class="ref-partner-stat"><div class="ref-partner-value is-earned" id="refAvailableEarnings">$0.00</div><div class="ref-partner-label" data-i18n="referral.partner.available">Available Earnings</div></div>
+                        </div>
+                        <div class="ref-actions">
+                            <button type="button" id="requestPayoutBtn" class="btn btn-primary" onclick="openReferralPayoutModal()">
+                                <i class="fas fa-money-bill-transfer" aria-hidden="true"></i> <span data-i18n="referral.partner.requestPayout">Request Payout</span>
+                            </button>
+                            <button type="button" id="partnerSupportBtn" class="btn btn-secondary" onclick="openPartnerSupport()">
+                                <i class="fab fa-telegram" aria-hidden="true"></i> <span data-i18n="referral.partner.contactSupport">Contact Partner Support</span>
+                            </button>
+                        </div>
+                        <p class="ref-note" data-i18n="referral.partner.noMinimumNote">No minimum payout. Referral earnings do not require trading.</p>
+                        <div id="referralPayoutOpenNote" class="ref-note is-accent hidden" data-i18n="referral.partner.alreadyOpen">A payout request is already in progress.</div>
+
+                        <div id="referralPendingPayoutsWrap" class="hidden">
+                            <h5 class="ref-subtitle" data-i18n="referral.partner.pendingPayouts">Pending Payout Requests</h5>
+                            <div id="referralPendingPayouts"></div>
                         </div>
 
-                        <p style="font-size:9px;color:var(--text-secondary);text-align:center;margin:-10px 0 14px;" data-i18n="referral.withdrawNote">Referral earnings are paid out separately from normal withdrawals - no minimum payout and no trading required.</p>
-                        
-                        <!-- Referral Partner dashboard + manual payout workflow.
-                             Amounts are always server-derived; payout is manual. -->
-                        <div id="referralPartnerPanel" style="border-top:1px solid var(--border-color);padding-top:14px;margin-bottom:14px;">
-                            <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:8px;"><i class="fas fa-handshake" style="color:#7C5CFF;"></i> <span data-i18n="referral.partner.title">Referral Partner</span></div>
-                            <div class="ref-partner-grid">
-                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refTotalReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.totalReferrals">Total Referrals</div></div>
-                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifiedReferrals">0</div><div class="ref-partner-label" data-i18n="referral.partner.qualified">Qualified Referrals</div></div>
-                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refQualifyingVolume">$0.00</div><div class="ref-partner-label" data-i18n="referral.partner.volume">Qualifying Deposit Volume</div></div>
-                                <div class="ref-partner-stat"><div class="ref-partner-value" id="refAvailableEarnings">$0.00</div><div class="ref-partner-label" data-i18n="referral.partner.available">Available Earnings</div></div>
-                            </div>
-                            <button type="button" id="requestPayoutBtn" class="btn btn-primary" style="width:100%;min-height:44px;" onclick="openReferralPayoutModal()">
-                                <i class="fas fa-money-bill-transfer"></i> <span data-i18n="referral.partner.requestPayout">Request Payout</span>
+                        <h5 class="ref-subtitle" data-i18n="referral.partner.history">Payout History</h5>
+                        <div id="referralPayoutHistory"></div>
+                    </section>
+
+                    <!-- 4-6. Share kit: code, link, share actions. -->
+                    <section class="ref-section ref-sharekit">
+                        <h4 class="ref-section-title"><i class="fas fa-share-nodes" aria-hidden="true"></i> <span data-i18n="referral.myCode">My Referral Code</span></h4>
+                        <div class="ref-field-row ref-field-row-code">
+                            <span class="ref-code" id="referralCodeDisplay">Loading...</span>
+                            <button type="button" id="copyReferralBtn" class="btn btn-sm btn-secondary ref-copy" title="Copy Code" data-i18n-title="referral.copyCode">
+                                <i class="fas fa-copy" aria-hidden="true"></i> <span data-i18n="common.copy">Copy</span>
                             </button>
-                            <div id="referralPayoutOpenNote" class="hidden" style="font-size:10px;color:#7C5CFF;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px;margin-top:8px;overflow-wrap:anywhere;" data-i18n="referral.partner.alreadyOpen">A payout request is already in progress.</div>
-                            <div style="font-size:10px;color:var(--text-secondary);line-height:1.5;margin-top:8px;" data-i18n="referral.partner.noMinimumNote">No minimum payout. Referral earnings do not require trading.</div>
-                            <button type="button" id="partnerSupportBtn" class="btn btn-secondary" style="width:100%;min-height:40px;margin-top:8px;" onclick="openPartnerSupport()">
-                                <i class="fab fa-telegram"></i> <span data-i18n="referral.partner.contactSupport">Contact Partner Support</span>
-                            </button>
-                            <div id="referralPendingPayoutsWrap" class="hidden">
-                                <div class="ref-partner-section-title" data-i18n="referral.partner.pendingPayouts">Pending Payout Requests</div>
-                                <div id="referralPendingPayouts"></div>
-                            </div>
-                            <div class="ref-partner-section-title" data-i18n="referral.partner.history">Payout History</div>
-                            <div id="referralPayoutHistory"></div>
                         </div>
 
-                        <!-- My Referral Code Section -->
-                        <div style="margin-bottom:12px;">
-                            <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;" data-i18n="referral.myCode">My Referral Code</div>
-                            <div style="background:var(--bg-input);border:1px dashed #7C5CFF;border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                                <span id="referralCodeDisplay" style="font-family:monospace;font-size:16px;font-weight:700;color:#7C5CFF;word-break:break-all;">Loading...</span>
-                                <button type="button" id="copyReferralBtn" class="copy-btn" style="background:#7C5CFF;color:#070B14;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Code" data-i18n-title="referral.copyCode">
-                                    <i class="fas fa-copy"></i> <span data-i18n="common.copy">Copy</span>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Referral Link Section -->
-                        <div style="margin-bottom:12px;">
-                            <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;" data-i18n="referral.linkLabel">Referral Link</div>
-                            <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                                <span id="referralLinkDisplay" style="font-size:10px;color:var(--text-secondary);flex:1;word-break:break-all;overflow:hidden;text-overflow:ellipsis;">Loading...</span>
-                                <button type="button" id="copyReferralLinkBtn" class="copy-btn" style="background:var(--border);color:#7C5CFF;border:none;padding:8px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" title="Copy Link" data-i18n-title="referral.copyLink">
-                                    <i class="fas fa-link"></i> <span data-i18n="common.copy">Copy</span>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Share Buttons -->
-                        <div style="display:flex;gap:8px;margin-bottom:12px;">
-                            <button type="button" id="shareReferralBtn" style="flex:1;background:#1DA1F2;color:var(--on-brand);border:none;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                                <i class="fab fa-twitter"></i> <span data-i18n="referral.shareOnX">Share on X</span>
+                        <h4 class="ref-section-title ref-section-title-spaced"><i class="fas fa-link" aria-hidden="true"></i> <span data-i18n="referral.linkLabel">Referral Link</span></h4>
+                        <div class="ref-field-row">
+                            <span class="ref-link" id="referralLinkDisplay">Loading...</span>
+                            <button type="button" id="copyReferralLinkBtn" class="btn btn-sm btn-ghost ref-copy" title="Copy Link" data-i18n-title="referral.copyLink">
+                                <i class="fas fa-link" aria-hidden="true"></i> <span data-i18n="common.copy">Copy</span>
                             </button>
-                            <button type="button" id="nativeShareBtn" style="flex:1;background:#10B981;color:var(--on-brand);border:none;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-                                <i class="fas fa-share-alt"></i> <span data-i18n="referral.moreOptions">More Options</span>
-                            </button>
-                        </div>
-                        
-                        <!-- Referral Lifecycle Info -->
-                        <div style="font-size:9px;color:var(--text-muted);text-align:left;padding:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;margin-bottom:8px;">
-                            <div style="font-weight:600;color:#10B981;margin-bottom:6px;"><i class="fas fa-info-circle"></i> <span data-i18n="referral.howItWorks">How it works:</span></div>
-                            <div style="margin-bottom:4px;"><span style="color:var(--text-secondary);">1.</span> <span data-i18n="referral.step1Text">Friend registers with your code</span> → <span style="color:#7C5CFF;" data-i18n="referral.pending">Pending</span></div>
-                            <div style="margin-bottom:4px;"><span style="color:var(--text-secondary);">2.</span> <span data-i18n="referral.step2Text">Friend deposits ≥</span><span id="refMinDeposit">$100</span> → <span style="color:#10B981;" data-i18n="referral.active">Active</span></div>
-                            <div><span style="color:var(--text-secondary);">3.</span> <span data-i18n="referral.step3Text">You earn</span> <strong style="color:#7C5CFF;"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> → <span id="refStep3Destination" data-i18n="referral.bonusWallet">Bonus Wallet</span></div>
                         </div>
 
-                        
-                        <!-- Pending Referrals - collapsible, collapsed by default.
-                             The summary row is a real <button> (large tap target,
-                             keyboard accessible) with aria-expanded/aria-controls;
-                             the list below is hidden until the user expands it. -->
-                        <div id="pendingReferralsSection" style="display:none;">
-                            <button type="button" id="pendingReferralsToggle" class="pending-ref-toggle"
-                                    aria-expanded="false" aria-controls="pendingReferralsList"
-                                    onclick="togglePendingReferrals()">
-                                <span class="pending-ref-head">
-                                    <span class="pending-ref-title" id="pendingReferralsTitle">Pending Referrals (0)</span>
-                                    <span class="pending-ref-sub" data-i18n="referral.pending.subtitle">Awaiting first deposit</span>
-                                </span>
-                                <span class="pending-ref-action">
-                                    <span class="pending-ref-hint" id="pendingRefTapHint">Tap to view</span>
-                                    <i class="fas fa-chevron-down pending-ref-chevron" aria-hidden="true"></i>
-                                </span>
-                                <span class="pending-ref-a11y" id="pendingRefA11yState">Expand pending referrals</span>
+                        <div class="ref-share-actions">
+                            <button type="button" id="shareReferralBtn" class="btn btn-secondary">
+                                <i class="fab fa-x-twitter" aria-hidden="true"></i> <span data-i18n="referral.shareOnX">Share on X</span>
                             </button>
-                            <div id="pendingReferralsList" class="pending-ref-list" hidden></div>
-                            <div id="pendingReferralsEmpty" class="pending-ref-empty" style="display:none;" data-i18n="referral.pending.empty">No pending referrals awaiting deposit.</div>
+                            <button type="button" id="nativeShareBtn" class="btn btn-ghost">
+                                <i class="fas fa-share-alt" aria-hidden="true"></i> <span data-i18n="referral.moreOptions">More Options</span>
+                            </button>
                         </div>
+                    </section>
+
+                    <!-- 7. Compact explainer. -->
+                    <section class="ref-section ref-explainer">
+                        <h4 class="ref-section-title"><i class="fas fa-circle-info" aria-hidden="true"></i> <span data-i18n="referral.howItWorks">How it works:</span></h4>
+                        <ol class="ref-steps">
+                            <li class="ref-step">
+                                <span class="ref-step-num" aria-hidden="true">1</span>
+                                <span class="ref-step-text"><span data-i18n="referral.step1Text">Friend registers with your code</span> <span class="ref-chip is-pending" data-i18n="referral.pending">Pending</span></span>
+                            </li>
+                            <li class="ref-step">
+                                <span class="ref-step-num" aria-hidden="true">2</span>
+                                <span class="ref-step-text"><span data-i18n="referral.step2Text">Friend deposits &ge;</span> <span id="refMinDeposit">$100</span> <span class="ref-chip is-active" data-i18n="referral.active">Active</span></span>
+                            </li>
+                            <li class="ref-step">
+                                <span class="ref-step-num" aria-hidden="true">3</span>
+                                <span class="ref-step-text"><span data-i18n="referral.step3Text">You earn</span> <strong class="ref-accent"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> &rarr; <span id="refStep3Destination" data-i18n="referral.bonusWallet">Bonus Wallet</span></span>
+                            </li>
+                        </ol>
+                        <p class="ref-note" data-i18n="referral.withdrawNote">Referral earnings are paid out separately from normal withdrawals - no minimum payout and no trading required.</p>
+                    </section>
+
+                    <!-- 8. Pending referrals (collapsible, collapsed by default).
+                         The summary row is a real <button> (large tap target,
+                         keyboard accessible) with aria-expanded/aria-controls;
+                         the list below is hidden until the user expands it. -->
+                    <div id="pendingReferralsSection" class="ref-section ref-pending" style="display:none;">
+                        <button type="button" id="pendingReferralsToggle" class="pending-ref-toggle"
+                                aria-expanded="false" aria-controls="pendingReferralsList"
+                                onclick="togglePendingReferrals()">
+                            <span class="pending-ref-head">
+                                <span class="pending-ref-title" id="pendingReferralsTitle">Pending Referrals (0)</span>
+                                <span class="pending-ref-sub" data-i18n="referral.pending.subtitle">Awaiting first deposit</span>
+                            </span>
+                            <span class="pending-ref-action">
+                                <span class="pending-ref-hint" id="pendingRefTapHint">Tap to view</span>
+                                <i class="fas fa-chevron-down pending-ref-chevron" aria-hidden="true"></i>
+                            </span>
+                            <span class="pending-ref-a11y" id="pendingRefA11yState">Expand pending referrals</span>
+                        </button>
+                        <div id="pendingReferralsList" class="pending-ref-list" hidden></div>
+                        <div id="pendingReferralsEmpty" class="pending-ref-empty" style="display:none;" data-i18n="referral.pending.empty">No pending referrals awaiting deposit.</div>
                     </div>
                 </div>
             </div>
