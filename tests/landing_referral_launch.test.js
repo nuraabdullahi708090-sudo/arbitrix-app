@@ -208,3 +208,45 @@ test('the referral-partner payout surfaces are wired', () => {
     assert.match(INDEX, /id="referralPayoutModal"/, 'payout modal present');
     assert.match(INDEX, /id="referralSubTabPayouts"/, 'admin payouts sub-tab present');
 });
+
+// ---------------------------------------------------------------------------
+// Promotional credit wording: four different things, never fused
+//   - Demo Mode          -> free, simulated
+//   - $50 credit         -> promotional, eligible users only
+//   - Live activation    -> one-time $50, paid
+//   - Trading capital    -> at least $100, deposited separately
+// ---------------------------------------------------------------------------
+test('the hero promo never fuses Demo Mode with the $50 promotional credit', () => {
+    assert.strictEqual(T.en['landing.hero.promo'],
+        'Explore Demo Mode for free. Eligible new users also receive $50 in promotional '
+        + 'trading credit. Live trading requires a one-time $50 activation and at least '
+        + '$100 in trading capital.');
+
+    const DEMO = {
+        en: /demo/i, es: /demo/i, pt: /demo/i, fr: /d\u00e9mo/i,
+        ar: /\u062a\u062c\u0631\u064a\u0628\u064a/, zh: /\u6f14\u793a/,
+    };
+    const ELIGIBLE = /eligib|elegibl|eleg\u00edv|\u00e9ligibles|\u0645\u0624\u0647\u0644|\u6761\u4ef6/i;
+    const CLAUSE = /[.!?\u3002\uff01\uff1f]/;
+
+    LANGS.forEach((l) => {
+        const v = String(T[l]['landing.hero.promo']);
+        assert.ok(DEMO[l].test(v), l + ': the promo must name Demo Mode');
+        assert.ok(/50/.test(v), l + ': the promo must name the $50 credit/activation');
+        assert.ok(/100/.test(v), l + ': the promo must name the $100 trading capital');
+        assert.ok(ELIGIBLE.test(v), l + ': the credit must be scoped to eligible users');
+
+        // Demo Mode and the promotional credit must never share a sentence.
+        v.split(CLAUSE).map((x) => x.trim()).filter(Boolean).forEach((sentence) => {
+            assert.ok(!(DEMO[l].test(sentence) && /50/.test(sentence)),
+                l + ': Demo Mode and the $50 credit must be separate sentences -> ' + sentence);
+        });
+    });
+
+    // The old conflation ("free on Demo WITH a $50 promotional credit") is gone.
+    LANGS.forEach((l) => {
+        assert.ok(!/demo[^.!?\u3002]{0,24}(with|con|com|avec|\u0645\u0639)\s*\$?50/i
+            .test(String(T[l]['landing.hero.promo'])),
+            l + ': Demo must not be described as coming with the credit');
+    });
+});

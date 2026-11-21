@@ -9338,3 +9338,24 @@ configuration was modified. No merge and no deploy.
   startHere 3-step model, landing title/promo, partners FUNNEL_SHA256, landing_testimonials
   allowed keys, profit-pause sandbox collaborators.
 - `npm test` = 3536 pass / 0 fail. Browser harness (/tmp/audit/ux8.js) = 37/37.
+
+## PR #177 finalization - promotional wording corrected (2026-11-16)
+
+- Copy-only change on the PR branch. `landing.hero.promo` conflated Demo Mode with the
+  promotional credit ("Start free on Demo with a $50 promotional trading credit"), which
+  read as if the demo came with the credit. It now separates the four distinct things:
+  Demo Mode (free, simulated), the $50 promotional credit (eligible new users only), the
+  one-time $50 Live activation, and at least $100 of separately deposited trading capital.
+  Rewritten in all 6 locales; the static markup default matches the EN value.
+- `tests/landing_referral_launch.test.js` gained a pin: EN exact string, `$50` and `$100`
+  present in every locale, an eligibility cue in every locale, Demo Mode and the credit
+  never in the SAME sentence, and the old "demo ... with $50" phrasing cannot return.
+- The promo pill was re-measured in all 6 locales at 320/390px: no horizontal overflow,
+  the text box stays inside the pill and the pill inside the hero. Arabic ink exceeds its
+  line box by ~3px (font ascent) but nothing is clipped (pill padding 8px, overflow
+  visible) - recorded so a future harness does not mistake it for a defect.
+- `tests/partners_page.test.js` FUNNEL_SHA256 re-pinned (the landing copy changed by
+  design; the test's own comment allows this).
+- `npm test` = 3537 pass / 0 fail. Promo harness 62/62 (6 locales x 320/390);
+  journey harness 37/37.
+- No server.js / services / migrations / worker / .env change; no business rule touched.
