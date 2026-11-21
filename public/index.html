@@ -3366,23 +3366,33 @@
         --kx-border-strong:#2F3D59;
         --kx-divider:rgba(255,255,255,0.07);
 
-        /* ---- accent (violet), one accent only ---- */
+        /* ---- accent (violet), one accent only ----
+           --kx-accent            fill for buttons, borders, indicators
+           --kx-accent-text       the SAME hue lightened for small text/icons:
+                                  #7C5CFF as text on a dark surface measures
+                                  4.11-4.44:1 and fails WCAG AA (4.5:1).
+           --kx-on-accent         text ON a violet fill: #0B0F19 measured 4.41:1,
+                                  #05070C measures 4.64:1 and is visually identical. */
         --kx-accent:#7C5CFF;
+        --kx-accent-text:#9B85FF;
         --kx-accent-hover:#9179FF;
         --kx-accent-press:#6b4bf0;
         --kx-accent-weak:rgba(124,92,255,0.10);
         --kx-accent-soft:rgba(124,92,255,0.18);
         --kx-accent-border:rgba(124,92,255,0.34);
-        --kx-on-accent:#0B0F19;
+        --kx-on-accent:#05070C;
 
         /* ---- semantic ---- */
         --kx-success:#10B981;
+        --kx-success-text:#6EE7B7;
         --kx-success-weak:rgba(16,185,129,0.10);
         --kx-success-border:rgba(16,185,129,0.28);
         --kx-warning:#F59E0B;
+        --kx-warning-text:#FCD34D;
         --kx-warning-weak:rgba(245,158,11,0.10);
         --kx-warning-border:rgba(245,158,11,0.28);
         --kx-danger:#EF4444;
+        --kx-danger-text:#F87171;
         --kx-danger-weak:rgba(239,68,68,0.10);
         --kx-danger-border:rgba(239,68,68,0.28);
 
@@ -3670,9 +3680,9 @@
         background:var(--kx-accent-weak); color:#CDBFFF; border-color:var(--kx-accent-border);
     }
     .status-badge.live, .status-badge.active, .status-badge.confirmed, .status-badge.approved, .status-badge.completed {
-        background:var(--kx-success-weak); color:#6EE7B7; border-color:var(--kx-success-border);
+        background:var(--kx-success-weak); color:var(--kx-success-text); border-color:var(--kx-success-border);
     }
-    .status-badge.warning { background:var(--kx-warning-weak); color:#FCD34D; border-color:var(--kx-warning-border); }
+    .status-badge.warning { background:var(--kx-warning-weak); color:var(--kx-warning-text); border-color:var(--kx-warning-border); }
     .status-badge.rejected, .status-badge.failed, .status-badge.expired {
         background:var(--kx-danger-weak); color:#FCA5A5; border-color:var(--kx-danger-border);
     }
@@ -3932,6 +3942,90 @@
         .ref-share-actions { grid-template-columns:auto auto; justify-content:start; }
         .ref-share-actions .btn { min-width:170px; }
     }
+
+
+    /* --------------------------------------------------------------------------
+       CONTRAST PASS
+       Every pair below was measured in the rendered page. Two classes of failure:
+       (a) the accent used as TEXT on dark surfaces (4.11-4.44:1), fixed by the
+           lighter --kx-accent-text; (b) dark text on a violet FILL (4.41:1),
+       fixed by --kx-on-accent. Fills keep the brand violet unchanged.
+       -------------------------------------------------------------------------- */
+
+    /* (a) accent as text */
+    a { color: var(--kx-accent-text); }
+    .ticker-item .ticker-amount,
+    .ticker-item .ticker-amount.gold,
+    .landing-section-tag,
+    .landing-compare-tag,
+    .landing-testimonial-avatar,
+    .landing-hero-promo,
+    .language-option.active { color: var(--kx-accent-text); }
+    .landing-section-tag { background: var(--kx-accent-weak); border: 1px solid var(--kx-accent-border); }
+
+    /* Inline "color:#7C5CFF" predates the tokens and is used for accent text all
+       over the app shell. Only dark-surface contexts are targeted, and never on a
+       control that paints its own violet fill. */
+    #mainContent [style*="color:#7C5CFF"]:not(.btn):not(.network-btn):not(.status-badge),
+    #mainContent [style*="color: #7C5CFF"]:not(.btn):not(.network-btn):not(.status-badge),
+    .landing-page [style*="color:#7C5CFF"]:not(.btn):not(.network-btn),
+    .landing-page [style*="color: #7C5CFF"]:not(.btn):not(.network-btn),
+    .modal-overlay [style*="color:#7C5CFF"]:not(.btn):not(.network-btn),
+    .deposit-modal [style*="color:#7C5CFF"]:not(.btn):not(.network-btn),
+    .sidebar [style*="color:#7C5CFF"]:not(.status-badge) { color: var(--kx-accent-text) !important; }
+
+    /* (b) dark text on a violet fill */
+    .btn-primary,
+    .mode-tab.active,
+    .network-btn.active,
+    .ios-step-num,
+    .landing-step-number { color: var(--kx-on-accent); }
+    /* The numbered circles sit on a dark card, so an outlined violet chip reads
+       better than a filled one (and matches .ref-step-num in the referral page). */
+    .landing-steps .landing-step-number,
+    .landing-steps-5 .landing-step-number,
+    .landing-step-number {
+        background: var(--kx-accent-weak) !important;
+        border: 1px solid var(--kx-accent-border);
+        color: var(--kx-accent-text) !important;
+    }
+
+    /* Safety text on tinted panels: #EF4444 on a red-tinted surface is 4.0:1. */
+    .deposit-modal strong[style*="color:#EF4444"],
+    .deposit-modal [style*="color:#EF4444"] { color: var(--kx-danger-text) !important; }
+
+    /* Small print that never reached the 11px floor. */
+    .ticker-label,
+    .badge-rarity { font-size: 11px; }
+    .badge-rarity.epic { color: #C4B5FD; }
+    .badge-rarity.rare { color: #93C5FD; }
+    .badge-rarity.legendary,
+    .badge-rarity.common { color: var(--kx-accent-text); }
+
+
+    /* Remaining measured pairs (each verified in the rendered page). */
+    .ticker-label { color: var(--kx-accent-text); font-size: 11px; }
+    .landing-compare-card.demo .landing-compare-tag { color: #93C5FD; }
+    .landing-compare-card.live .landing-compare-tag { color: var(--kx-accent-text); }
+    #authPage a { color: var(--kx-accent-text); }
+    #authPage .auth-tab.active { color: var(--kx-accent-text); background: var(--kx-accent-weak); }
+    .landing-lang .language-option { color: var(--kx-text-2); }
+    .landing-lang .language-option:hover { color: var(--kx-text); }
+    .landing-lang .language-option.active { color: var(--kx-accent-text); background: var(--kx-accent-weak); }
+
+
+    /* Stat-card actions: the deposit button carried a violet gradient with dark
+       text (4.41:1 at the dark end); flat accent + --kx-on-accent matches
+       .btn-primary and removes an unnecessary gradient. The outline variant
+       used the accent as text (4.11:1). */
+    .stat-deposit-btn { background: var(--kx-accent); color: var(--kx-on-accent); }
+    .stat-withdraw-btn { background: var(--kx-accent-weak); border-color: var(--kx-accent-border); color: var(--kx-accent-text); }
+    #authPage [style*="color:#7C5CFF"],
+    #authPage [style*="color: #7C5CFF"] { color: var(--kx-accent-text) !important; }
+
+    /* Selects render their option list with the control's colour; force a dark
+       surface so the options are never dark-on-dark. */
+    select, option { color: var(--kx-text); background-color: var(--kx-surface-2); }
 
     /* --------------------------------------------------------------------------
        Motion

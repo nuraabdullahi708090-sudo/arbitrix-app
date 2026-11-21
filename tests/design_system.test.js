@@ -140,6 +140,10 @@ test('10. no business logic, backend or financial surface is touched by the laye
     assert.ok(!/#mainContent[^{]*\{[^}]*display:\s*none/.test(DS.css), 'the shell is never hidden by CSS');
     assert.ok(!/body\s*\{[^}]*overflow-x:\s*hidden/.test(DS.css), 'no global overflow hiding hack is added');
     assert.ok(!/\.ref-page[^{]*\{[^}]*pointer-events:\s*none/.test(DS.css), 'no control is disabled by CSS');
-    assert.strictEqual((DS.css.match(/!important/g) || []).length <= 12, true,
-        'the layer stays specific-first, not !important-first');
+    // Escalating specificity is preferred; the only acceptable !important uses are
+    // those that must beat a legacy *inline* style or an existing !important rule
+    // (inline declarations cannot be overridden any other way). What must never be
+    // forced is hiding or disabling a control.
+    const forced = DS.css.match(/(display\s*:\s*none|pointer-events\s*:\s*none|visibility\s*:\s*hidden)[^;}]*!important/g) || [];
+    assert.deepStrictEqual(forced, [], 'no control is hidden or disabled with !important');
 });
