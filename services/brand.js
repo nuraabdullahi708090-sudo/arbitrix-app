@@ -54,7 +54,7 @@ const BRAND = {
   /** The installed-app (PWA) name. Follows a rename. */
   appName: 'Kalderix',
   /** Accent colour. Follows the identity palette when one is applied. */
-  accent: '#0ECB81'
+  accent: '#D4AF63'
 };
 
 /**
@@ -67,16 +67,16 @@ BRAND.candidateIdentity = {
   mark: 'K',
   palette: {
     /** Primary accent; replaces the gold the current identity uses. */
-    accent: '#0ECB81',
-    accentHover: '#12D98B',
-    accentPressed: '#0BB273',
+    accent: '#D4AF63',
+    accentHover: '#E0C07B',
+    accentPressed: '#C09A4E',
     /** Secondary accent for "verified" and "information" highlights. */
     secondary: '#38BDF8',
     /** Neutral near-black surfaces: a brighter accent needs less blue undertone. */
-    surface: '#0A0C0F',
-    surfaceRaised: '#12161B',
-    textPrimary: '#EAF0F6',
-    textSecondary: '#AEB9C6'
+    surface: '#0B0F14',
+    surfaceRaised: '#131A23',
+    textPrimary: '#E8EEF5',
+    textSecondary: '#AAB6C4'
   },
   typography: {
     display: "system-ui, 'Inter', -apple-system, 'Segoe UI', sans-serif",
@@ -86,7 +86,7 @@ BRAND.candidateIdentity = {
   rationale: {
     accent: 'Emerald reads as an active, modern exchange rather than a legacy '
       + 'bank, and it measures 9.21:1 on the base surface, so unlike the violet it '
-      + 'is legible as text as well as a fill. Dark ink (#04140D) on the fill '
+      + 'is legible as text as well as a fill. Dark ink (#1A1305) on the fill '
       + 'measures 8.89:1.',
     secondary: 'A cool sky blue gives verified and informational states a signal '
       + 'that cannot be confused with the green/red profit colours next to a '

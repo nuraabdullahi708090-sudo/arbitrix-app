@@ -72,11 +72,12 @@ function funnelSlice() {
     return INDEX.slice(a, b);
 }
 // Re-pinned 2026-11-21 for the APPROVED visual overhaul of the landing/auth
-// funnel: the emerald accent + neutral surface tokens (--brand, --brand-rgb,
-// --gold-* aliases), the mode-switch labels and the shared component layer.
+// funnel: the institutional gold accent + deep navy-graphite surface tokens
+// (--brand, --brand-rgb, --gold-* aliases), the mode-switch labels, the dialog
+// elevation layer and the shared component layer.
 // The /partners feature itself still touches no homepage markup; this pin keeps
 // protecting it, so any future homepage edit must be re-pinned deliberately.
-const FUNNEL_SHA256 = '349e78b6c4e7fe358e29b21bed0723a08f89d6150da98211e77245675b9ab4bb';
+const FUNNEL_SHA256 = '5e6849adae2587d741152edcbfa218b43c2a3b897dd80c2f3f564a4ff26bb686';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';
