@@ -4204,13 +4204,33 @@
         color:var(--kx-text-3); font-size:16px; line-height:1; cursor:pointer;
     }
     .toast-close:hover { background:var(--kx-surface-2); color:var(--kx-text); }
-    .toast-success { border-color:var(--kx-success-border); }
+    /* A toast only changed its border and icon before, so a blocked action
+       looked identical to a confirmation. Each variant now carries its own
+       surface: red for a restriction or a failure, green for a success.
+       NOTE: "warning" is the type every blocked action uses (promo limit,
+       withdrawal requirements, subscription due, expired invoice), so it wears
+       the red skin the owner asked for; amber is reserved for the inline
+       .kx-alert-warning variant. */
+    .toast-success {
+        background:rgba(46,189,133,0.14);
+        border-color:var(--kx-success-border);
+        color:var(--kx-success-text);
+        box-shadow:0 12px 32px rgba(46,189,133,0.16);
+    }
+    .toast-error, .toast-warning {
+        background:rgba(229,72,77,0.16);
+        border-color:var(--kx-danger-border);
+        color:var(--kx-danger-text);
+        box-shadow:0 12px 32px rgba(229,72,77,0.20);
+    }
     .toast-success .toast-icon { color:var(--kx-success-text); }
-    .toast-error { border-color:var(--kx-danger-border); }
-    .toast-error .toast-icon { color:var(--kx-danger-text); }
-    .toast-warning { border-color:var(--kx-warning-border); }
-    .toast-warning .toast-icon { color:var(--kx-warning-text); }
+    .toast-error .toast-icon, .toast-warning .toast-icon { color:var(--kx-danger-text); }
+    .toast-info { background:var(--kx-elevated); border-color:var(--kx-border-strong); }
     .toast-info .toast-icon { color:var(--kx-accent-text); }
+    /* the dismiss control must stay visible on the tinted surfaces */
+    .toast-error .toast-close, .toast-warning .toast-close, .toast-success .toast-close {
+        color:inherit; opacity:0.75;
+    }
 
     /* --- language menu ------------------------------------------------------ */
     .language-dropdown {
@@ -4275,6 +4295,23 @@
         .toast { bottom:calc(12px + env(safe-area-inset-bottom, 0px)); font-size:12.5px; }
         .sidebar-link { min-height:44px; }
     }
+    /* ---- blocking dialogs -------------------------------------------------
+       A panel that says "you cannot do this yet" must not be decorated in the
+       brand colour, or it reads as information. Blocking panels carry the red
+       tint and a red rule along the top edge. */
+    /* the id scopes out-rank the generic "brand colour inside a dialog" rule */
+    #profitPauseModal .kx-block-icon,
+    #withdrawKycRequired .kx-block-icon { background:var(--kx-danger-weak) !important; }
+    #profitPauseModal .kx-block-glyph,
+    #withdrawKycRequired .kx-block-glyph { color:var(--kx-danger-text) !important; }
+    #profitPauseModal .deposit-modal-content { position:relative; overflow:hidden; }
+    #profitPauseModal .deposit-modal-content::before {
+        content:''; position:absolute; top:0; left:0; right:0; height:3px;
+        background:var(--kx-danger);
+    }
+    #profitPauseModal [data-i18n="profitPause.title"] { color:var(--kx-danger-text) !important; }
+    #withdrawKycRequired [data-i18n="withdraw.kycRequiredTitle"] { color:var(--kx-danger-text) !important; }
+
     /* ---- inline alerts ----------------------------------------------------
        The promotional-credit restriction used to be 10px centred text in the
        brand tint, which a customer reads as decoration. A restriction the
@@ -9352,8 +9389,8 @@ function toggleFaq(btn) {
         <!-- KYC Verification Required Screen (shown when KYC is not verified) -->
         <div id="withdrawKycRequired" style="display:none;">
             <div style="text-align:center;padding:20px 0;">
-                <div style="width:80px;height:80px;background:var(--brand-weak);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
-                    <i class="fas fa-user-check" style="font-size:36px;color:var(--brand);"></i>
+                <div class="kx-block-icon" style="width:80px;height:80px;background:var(--brand-weak);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                    <i class="fas fa-user-check kx-block-glyph" style="font-size:36px;color:var(--brand);"></i>
                 </div>
                 <h4 style="font-size:16px;font-weight:700;color:var(--kx-text);margin-bottom:8px;" data-i18n="withdraw.kycRequiredTitle">Withdrawal Security Verification</h4>
                 <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;" data-i18n="withdraw.kycRequiredBody">
@@ -9592,8 +9629,8 @@ function toggleFaq(btn) {
 <div class="deposit-modal" id="profitPauseModal">
     <div class="deposit-modal-content" style="max-width:440px;text-align:center;">
         <button type="button" onclick="closeProfitPauseModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
-        <div style="width:72px;height:72px;background:rgb(var(--brand-rgb) / 0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-            <i class="fas fa-gas-pump" style="font-size:30px;color:var(--brand);"></i>
+        <div class="kx-block-icon" style="width:72px;height:72px;background:rgb(var(--brand-rgb) / 0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fas fa-gas-pump kx-block-glyph" style="font-size:30px;color:var(--brand);"></i>
         </div>
         <h3 style="font-size:16px;font-weight:700;color:var(--kx-text);margin-bottom:8px;" data-i18n="profitPause.title">Bot Trading Paused</h3>
         <p id="profitPauseBody" style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">Your account has reached the ${{amount}} profit-pause threshold. Make a new qualifying deposit to resume bot trading.</p>
@@ -21208,7 +21245,8 @@ function showToast(msg, type, duration) {
     if (old) old.remove();
     const el = document.createElement('div');
     el.className = 'toast toast-' + type;
-    el.setAttribute('role', 'status');
+    // A restriction or a failure is announced immediately; a confirmation is not.
+    el.setAttribute('role', (type === 'error' || type === 'warning') ? 'alert' : 'status');
     el.innerHTML = '<span class="toast-icon" aria-hidden="true"><i class="fas ' + (TOAST_ICONS[type] || TOAST_ICONS.info) + '"></i></span>'
         + '<span class="toast-msg">' + msg + '</span>'
         + '<button type="button" class="toast-close" aria-label="' + t('common.close') + '">&times;</button>';
@@ -25237,7 +25275,7 @@ function updateNetworkOptions(currency) {
 
 // ============ WITHDRAW ============
 async function openWithdrawModal() {
-    if(APP.mode === 'demo') { showToast(t('withdraw.switchToLive'),'info'); return; }
+    if(APP.mode === 'demo') { showToast(t('withdraw.switchToLive'),'warning'); return; }
 
     // MARKETING_SANDBOX: no identity verification exists in the sandbox, so the
     // KYC capability check AND the min-amount/deposit/trade-count gates are all
@@ -26985,7 +27023,7 @@ async function initApp() {
     
     const depositBtn = getEl('depositBtn');
     if(depositBtn) depositBtn.addEventListener('click', function() {
-        if(APP.mode !== 'demo') { showToast(t('demo.switchToDemo'),'info'); return; }
+        if(APP.mode !== 'demo') { showToast(t('demo.switchToDemo'),'warning'); return; }
         const amount = parseFloat(getEl('depositAmount').value);
         if(!amount || amount < 10) { showToast(t('demo.validAmount'),'error'); return; }
         const data = getCurrentData();
@@ -27004,8 +27042,8 @@ async function initApp() {
     const removeFundsBtn = getEl('removeFundsBtn');
     if(removeFundsBtn) removeFundsBtn.addEventListener('click', function() {
         const data = getCurrentData();
-        if(APP.mode !== 'demo') { showToast(t('demo.onlyDemo'),'info'); return; }
-        if(data.balance <= 0) { showToast(t('demo.noFunds'),'info'); return; }
+        if(APP.mode !== 'demo') { showToast(t('demo.onlyDemo'),'warning'); return; }
+        if(data.balance <= 0) { showToast(t('demo.noFunds'),'warning'); return; }
         if(confirm(t('demo.confirmRemove', {amount: formatCurrency(data.balance)}))) {
             data.balance = 0; data.pnl = 0; data.trades = 0; data.wins = 0;
             data.bestTrade = 0; data.worstTrade = 0; data.streak = 0; data.maxStreak = 0;
