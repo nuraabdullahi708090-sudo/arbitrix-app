@@ -53,21 +53,21 @@ const LANGS = Object.keys(T);
 /* ------------------------------------------------------------------ *
  * 1. the emerald identity
  * ------------------------------------------------------------------ */
-test('1. the shipped accent is the institutional gold identity, not a stray literal', () => {
-    assert.strictEqual(BRAND.accent, '#D4AF63', 'the server-side accent follows the palette');
-    assert.strictEqual(BRAND.candidateIdentity.palette.accent, '#D4AF63');
+test('1. the shipped accent is the institutional azure identity, not a stray literal', () => {
+    assert.strictEqual(BRAND.accent, '#5EA0FF', 'the server-side accent follows the palette');
+    assert.strictEqual(BRAND.candidateIdentity.palette.accent, '#5EA0FF');
     // the identity override lives in its own <style>, so check the whole page
-    assert.ok(INDEX.includes('--brand:#D4AF63'), 'the page carries the same accent');
-    assert.ok(INDEX.includes('--brand-rgb:212,175,99'), 'the rgba triplet follows the accent');
-    assert.ok(INDEX.includes('--on-brand:#1A1305'), 'ink on the fill is the dark token, not black');
-    // measured: 9.25:1 on the page, 7.17:1 on the elevated dialog surface
+    assert.ok(INDEX.includes('--brand:#5EA0FF'), 'the page carries the same accent');
+    assert.ok(INDEX.includes('--brand-rgb:94,160,255'), 'the rgba triplet follows the accent');
+    assert.ok(INDEX.includes('--on-brand:#06121F'), 'ink on the fill is the dark token, not black');
+    // measured: 7.00:1 on the page, 5.13:1 on the elevated dialog surface
 });
 
 test('1c. the accent never doubles as a P&L colour', () => {
-    // A green or red brand accent competes with profit/loss semantics; the gold
-    // accent is decorative and the semantic tokens keep their own hues.
+    // A green or gold brand accent competes with profit/loss (or warning)
+    // semantics; azure is decorative and the semantic tokens keep their hues.
     const tok = (n) => (CSS.match(new RegExp('--kx-' + n + ':(#[0-9A-Fa-f]{6})')) || [])[1];
-    assert.strictEqual(tok('accent'), '#D4AF63');
+    assert.strictEqual(tok('accent'), '#5EA0FF');
     assert.strictEqual(tok('success'), '#2EBD85', 'profit stays green');
     assert.strictEqual(tok('danger'), '#E5484D', 'loss stays red');
     assert.notStrictEqual(tok('accent'), tok('success'));
@@ -77,9 +77,9 @@ test('1c. the accent never doubles as a P&L colour', () => {
 test('1d. dialogs sit on their own elevated surface', () => {
     // "The pop-up does not stand out" is the failure this pins: a dialog that
     // reuses the page surface reads as if nothing opened.
-    assert.match(CSS, /\.modal-content, \.deposit-modal-content \{\s*background:linear-gradient\(180deg,#243040/,
+    assert.match(CSS, /\.modal-content, \.deposit-modal-content \{\s*background:linear-gradient\(180deg,#2B3A4E/,
         'the dialog uses the elevated gradient surface');
-    assert.match(CSS, /border:1px solid rgba\(212,175,99,0\.26\)/, 'an accent hairline marks the edge');
+    assert.match(CSS, /border:1px solid rgba\(94,160,255,0\.26\)/, 'an accent hairline marks the edge');
     assert.match(CSS, /box-shadow:0 40px 96px rgba\(0,0,0,0\.80\)/, 'a deep shadow lifts it off the page');
     assert.match(CSS, /\.modal-overlay, \.deposit-modal \{ background:rgba\(4,7,11,0\.82\)/, 'the backdrop dims the page');
     assert.match(CSS, /@keyframes kx-dialog-in/, 'the panel animates in');
