@@ -203,11 +203,50 @@ test('6. toasts carry an icon, a close button and a live region role', () => {
     const fn = INDEX.slice(INDEX.indexOf('const TOAST_ICONS'), INDEX.indexOf('function showToast') + 1200);
     assert.match(fn, /toast-icon/, 'an icon is rendered');
     assert.match(fn, /toast-close/, 'a close button is rendered');
-    assert.match(fn, /role', 'status'/, 'screen readers announce it');
+    assert.match(fn, /role', \(type === 'error' \|\| type === 'warning'\) \? 'alert' : 'status'/,
+        'a restriction is announced as an alert, a confirmation as a status');
     assert.match(fn, /clearTimeout\(timer\)/, 'closing cancels the auto-dismiss timer');
     assert.match(CSS, /\.toast-close \{[^}]*width:26px; height:26px/, 'the close target is real');
     assert.match(CSS, /\.toast \{[^}]*left:12px; right:12px/, 'it fits the phone width');
     assert.match(CSS, /\.toast \{[^}]*max-height:38vh; overflow:auto/, 'a long message cannot run off screen');
+});
+
+/* ------------------------------------------------------------------ *
+ * 6b. every blocked action looks like one
+ * ------------------------------------------------------------------ */
+test('6b. blocked actions surface as a red toast, not a neutral one', () => {
+    // The failure this pins (reported by the owner): pressing Start Bot at the
+    // promo limit, or Withdraw without a deposit or a trade, produced a toast
+    // that looked like any other message.
+    const block = CSS.slice(CSS.indexOf('.toast-error, .toast-warning {'), CSS.indexOf('.toast-error, .toast-warning .toast-close'));
+    assert.match(block, /background:rgba\(229,72,77,0\.16\)/, 'red-tinted surface');
+    assert.match(block, /border-color:var\(--kx-danger-border\)/, 'red border');
+    assert.match(block, /color:var\(--kx-danger-text\)/, 'readable red text');
+    const ok = CSS.slice(CSS.indexOf('.toast-success {'), CSS.indexOf('.toast-error, .toast-warning {'));
+    assert.match(ok, /background:rgba\(46,189,133,0\.14\)/, 'success keeps its own green surface');
+
+    // The call sites that block a customer action must use error/warning.
+    const sites = [
+        "showToast(t('bot.promoLimitReached'), 'error', 6000)",
+        "showToast(t('bot.promoLimitReached'),'error', 6000)",
+        "showToast(t('withdraw.firstDeposit'),'error',6000)",
+        "showToast(t('withdraw.firstDeposit'),'error')",
+        "showToast(t('withdraw.needTrade'),'error')",
+        "showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL",
+        "showToast(t('withdraw.switchToLive'),'warning')",
+        "showToast(t('demo.onlyDemo'),'warning')",
+        "showToast(t('demo.noFunds'),'warning')",
+        "showToast(t('subscription.paymentDue'), 'warning')",
+    ];
+    sites.forEach((n) => assert.ok(INDEX.includes(n), 'missing: ' + n.slice(0, 62)));
+
+    // Blocking dialogs are red too, not decorated in the brand colour.
+    assert.match(CSS, /#profitPauseModal \.kx-block-glyph[^}]*var\(--kx-danger-text\)/,
+        'the paused-bot glyph is red');
+    assert.match(CSS, /#profitPauseModal \.kx-block-icon[^}]*var\(--kx-danger-weak\)/,
+        'the paused-bot badge is red-tinted');
+    assert.match(CSS, /#withdrawKycRequired \[data-i18n="withdraw\.kycRequiredTitle"\] \{ color:var\(--kx-danger-text\)/,
+        'the verification-required title is red');
 });
 
 /* ------------------------------------------------------------------ *
