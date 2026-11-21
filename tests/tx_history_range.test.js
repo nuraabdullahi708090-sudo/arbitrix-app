@@ -93,6 +93,8 @@ function buildSandbox({ currentWallet = 'demo', demoHistory = [], liveHistory = 
     vm.runInContext([
         extractFunction('getCurrentData'),
         extractFunction('getRecentHistory'),
+        // the renderer now decides which rows are results from this map
+        INDEX.slice(INDEX.indexOf('const TX_RESULT_TYPES'), INDEX.indexOf('\n', INDEX.indexOf('const TX_RESULT_TYPES'))),
         extractFunction('updateTransactionLog'),
         extractFunction('updateTransactionRangeControls'),
         extractFunction('toggleTransactionRange'),

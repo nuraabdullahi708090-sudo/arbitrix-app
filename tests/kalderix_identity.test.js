@@ -129,7 +129,7 @@ test('5. approving the name updates the title, the social card and the icons fro
   const fn = INDEX.slice(INDEX.indexOf('function applyBrandAssets()'));
   const fnBody = fn.slice(0, fn.indexOf('\napplyBrandAssets();'));
   assert.ok(/BRAND\.tagline/.test(fnBody), 'the social card uses the tagline');
-  assert.ok(/BRAND\.mark/.test(fnBody), 'the icons use the monogram');
+  assert.ok(/BRAND\.symbol|BRAND\.accent/.test(fnBody), 'the icons use the brand symbol');
   assert.ok(/BRAND\.accent/.test(fnBody), 'the icons use the accent');
   assert.ok(/data-brand/.test(fnBody), 'the palette attribute is applied');
 
@@ -137,7 +137,9 @@ test('5. approving the name updates the title, the social card and the icons fro
   // leave an old letter on the home screen.
   const manifest = INDEX.slice(INDEX.indexOf('const manifest = {'), INDEX.indexOf('const blob = new Blob'));
   assert.ok(manifest.includes('name: BRAND.appName'), 'manifest name follows BRAND');
-  assert.ok(INDEX.includes("' + BRAND.mark + '</text>"), 'the icon letter follows BRAND');
+  // The icon is a drawn symbol now, not a letterform, but it still follows
+  // BRAND: the leg colour is interpolated from BRAND.accent.
+  assert.ok(INDEX.includes("stroke=\"' + BRAND.accent + '\""), 'the icon symbol follows BRAND');
 });
 
 test('6. the approval command refuses identifiers it must never rewrite', () => {

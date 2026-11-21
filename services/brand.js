@@ -49,6 +49,19 @@ const BRAND = {
   mark: 'K',
   /** The monogram the candidate uses. */
   candidateMark: 'K',
+  /**
+   * The Kalderix symbol: three 45-degree flows - two markets arriving from the
+   * left, one execution leaving to the upper right - converging on a single
+   * node. It reads as arbitrage rather than as a chart, a coin or a letter, and
+   * the geometry survives down to 16px because there are only four shapes.
+   * Coordinates share the 512x512 viewBox the generated assets use.
+   */
+  symbol: {
+    viewBox: '0 0 512 512',
+    strokeWidth: 62,
+    legs: ['M116 388 L246 258', 'M116 128 L246 258', 'M246 258 L398 106'],
+    node: 'M248 196 L310 258 L248 320 L186 258 Z'
+  },
   /** Positioning line, used in metadata and the social share card. */
   tagline: 'Automated Arbitrage. Made Simple.',
   /** The installed-app (PWA) name. Follows a rename. */
@@ -65,6 +78,8 @@ const BRAND = {
 BRAND.candidateIdentity = {
   name: 'Kalderix',
   mark: 'K',
+  /** Drawn symbol shared with BRAND.symbol (see its comment). */
+  symbol: BRAND.symbol,
   palette: {
     /** Primary accent; replaces the gold the current identity uses. */
     accent: '#5EA0FF',

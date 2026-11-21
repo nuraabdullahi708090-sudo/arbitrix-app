@@ -200,7 +200,8 @@ test('5. the activity ticker is compact and dismissible', () => {
  * 6. toasts can be dismissed and announce their state
  * ------------------------------------------------------------------ */
 test('6. toasts carry an icon, a close button and a live region role', () => {
-    const fn = INDEX.slice(INDEX.indexOf('const TOAST_ICONS'), INDEX.indexOf('function showToast') + 1200);
+    // showToast now delegates to renderToast (queue), so the slice covers both.
+    const fn = INDEX.slice(INDEX.indexOf('const TOAST_ICONS'), INDEX.indexOf('function renderToast') + 1800);
     assert.match(fn, /toast-icon/, 'an icon is rendered');
     assert.match(fn, /toast-close/, 'a close button is rendered');
     assert.match(fn, /role', \(type === 'error' \|\| type === 'warning'\) \? 'alert' : 'status'/,
@@ -215,15 +216,18 @@ test('6. toasts carry an icon, a close button and a live region role', () => {
  * 6b. every blocked action looks like one
  * ------------------------------------------------------------------ */
 test('6b. blocked actions surface as a red toast, not a neutral one', () => {
-    // The failure this pins (reported by the owner): pressing Start Bot at the
-    // promo limit, or Withdraw without a deposit or a trade, produced a toast
-    // that looked like any other message.
-    const block = CSS.slice(CSS.indexOf('.toast-error, .toast-warning {'), CSS.indexOf('.toast-error, .toast-warning .toast-close'));
-    assert.match(block, /background:rgba\(229,72,77,0\.16\)/, 'red-tinted surface');
-    assert.match(block, /border-color:var\(--kx-danger-border\)/, 'red border');
-    assert.match(block, /color:var\(--kx-danger-text\)/, 'readable red text');
+    // Reported by the owner: pressing Start Bot at the promo limit, or Withdraw
+    // without a deposit or a trade, produced a toast that looked like any other
+    // message. It now has to be BOTH red and opaque - a translucent panel let the
+    // dashboard read through it.
+    const block = CSS.slice(CSS.indexOf('.toast-error, .toast-warning {'), CSS.indexOf('.toast .toast-close {'));
+    assert.match(block, /background:#33161A/, 'solid red surface');
+    assert.match(block, /border-color:#8E3A42/, 'red border');
+    assert.match(block, /color:#FFBFC3/, 'readable red text');
+    assert.ok(!/background:rgba/.test(block), 'the surface is not translucent');
     const ok = CSS.slice(CSS.indexOf('.toast-success {'), CSS.indexOf('.toast-error, .toast-warning {'));
-    assert.match(ok, /background:rgba\(46,189,133,0\.14\)/, 'success keeps its own green surface');
+    assert.match(ok, /background:#0E2A22/, 'success keeps its own solid green surface');
+    assert.ok(!/background:rgba/.test(ok), 'success is not translucent either');
 
     // The call sites that block a customer action must use error/warning.
     const sites = [

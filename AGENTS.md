@@ -9397,3 +9397,60 @@ configuration was modified. No merge and no deploy.
 - This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger
   a second Render rebuild (the working tree shows AGENTS.md as modified - documentation
   only).
+
+
+## UI Polish pass: money colour semantics, notifications, Kalderix symbol, rhythm (2026-11-16, visual only)
+- Frontend-only. No server.js, services logic, migrations, wallet, trading, deposit,
+  withdrawal, KYC, referral, subscription or payment code was touched (diff proves it:
+  public/index.html + public/brand/*.svg + scripts/build-brand-assets.js +
+  scripts/verify-rebrand.js + services/brand.js (identity data) + tests).
+- FINANCIAL COLOUR BUG FOUND AND FIXED: `--success` had been set to the brand azure
+  (#5EA0FF), so every positive financial value (Today P&L, trade rows) rendered BLUE.
+  `--success` now resolves to `--kx-success` = #2EBD85 (money green); `--green` alias
+  follows it. `--danger`/`--red` are #E5484D. Positive #5FD3A6, negative #F58C90, both
+  >= 7:1 on the card surface (contrast is asserted in tests, not eyeballed).
+- Reusable financial classes: `.fin-positive` / `.fin-negative` / `.fin-neutral` /
+  `.fin-zero`. Applied to Today P&L by SIGN (zero is neutral, never green).
+- LEDGER RULE: only a REALIZED RESULT is coloured. `TX_RESULT_TYPES = {'Trade Executed': true}`
+  decides it; a deposit, a withdrawal, a subscription charge or a referral credit is a
+  movement of the customer's own money and renders neutral. Account balances
+  (#totalEquity, #balanceValue) are never coloured.
+- NOTIFICATIONS: toasts are now opaque, type-specific surfaces (error/warning #33161A,
+  success #0E2A22, info #232F3F) instead of a translucent panel that let the dashboard
+  read through. `role="alert"` for error/warning, `role="status"` + `aria-live=polite`
+  otherwise. A small queue (`TOAST_QUEUE`) shows ONE toast at a time: a second message
+  waits instead of replacing the first or stacking on top of it, duplicates collapse,
+  dismiss advances the queue, and closing cancels the auto-dismiss timer.
+  GEOMETRY: toasts sit 80px above the bottom (48px support launcher + 16px margin + 16px
+  gap) in BOTH the base rule and the <=640px override - the phone override used to reset
+  it to 12px, which is exactly how toasts ended up covering the launcher.
+- KALDERIX SYMBOL: `BRAND.symbol` (two inbound 45-degree flows + one outbound execution
+  flow into a diamond node) is now DRAWN, not typed. `BRAND.mark` is still the K for the
+  wordmark. The reference geometry in the asset generator is `M116 388 L246 258`,
+  `M116 128 L246 258`, `M246 258 L398 106`, node `M248 196 L310 258 L248 320 L186 258 Z`.
+  `public/brand/kalderix-mark.svg` and `kalderix-favicon.svg` are symbol-only (a favicon
+  cannot carry a wordmark); `kalderix-wordmark.svg` keeps the name as text.
+  The runtime favicon/PWA icon builder draws the same paths and tints them from
+  BRAND.accent, so a rename still retints the icon (pinned by
+  tests/kalderix_identity.test.js and scripts/verify-rebrand.js).
+- The "empty square" in the dashboard toolbar was `.kx-logo` containing a FontAwesome
+  glyph; the tile, the auth brand panel and the auth mobile logo now all hold the inline
+  `.kx-logo-mark` SVG (aria-hidden - the wordmark carries the accessible name).
+  Measured ink coverage is 16-19% at 16 / 19 / 24 / 26 / 30 / 32 / 64px, i.e. the mark
+  keeps its silhouette down to favicon size.
+- BOT PANEL: a state pill (`#botStatePillLive`, data-state idle/running/paused) driven by
+  `APP.botRunning` (never invented), state-aware Start/Stop styling where Stop is red,
+  and the market-scanner row framed under a rule. No handler or timing changed.
+- RHYTHM: two deliberate tiers - chrome (toolbar, ticker) on 12px, content cards on 16px.
+  The gaps used to run 10 / 12 / 16 / 12 with no rule behind them.
+- TESTS: new `tests/polish_semantics.test.js` (17) pins the money-colour resolution, the
+  result-only ledger rule, neutral balances, every surface/contrast value, the toast
+  queue + launcher clearance, the symbol geometry and its four placements, the pill and
+  the rhythm, plus a "no UI token leaked into server.js" guard. Intentional pin updates:
+  design_polish 6/6b (opaque surfaces are now the contract; the renderer split out of
+  showToast), kalderix_identity 5 (icons follow BRAND via the symbol), tx_history_range
+  (the sandbox now receives TX_RESULT_TYPES), partners_page funnel hash. Full suite:
+  3591 pass / 0 fail.
+- Verification: no horizontal overflow at 320/360/390/430/768/1280 x en/pt/es/ar/zh,
+  the toast never overlaps the support launcher, one toast node in the DOM at a time,
+  the queue advances on dismiss, and every logo placement renders real ink.
