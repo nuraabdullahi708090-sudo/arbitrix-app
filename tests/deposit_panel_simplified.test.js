@@ -16,6 +16,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+// The partner contact icons are module-scope constants: the harnesses below run
+// single functions in isolation, so the constants have to travel with them.
+const PARTNER_ICONS_SRC = INDEX.slice(INDEX.indexOf('const PARTNER_ICON_WHATSAPP'),
+  INDEX.indexOf("';", INDEX.indexOf('const PARTNER_ICON_TELEGRAM')) + 2);
+
 const panel = () => INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'),
     INDEX.indexOf('id="depositCryptoFlow"'));
 
@@ -98,7 +103,7 @@ test('renderDepositPartners renders cards and nothing when the directory is empt
             console: { log() {}, warn() {}, error() {} },
         };
         vm.createContext(sandbox);
-        vm.runInContext(fn('renderDepositPartners') + '\nrenderDepositPartners(' + JSON.stringify(partners) + ');', sandbox);
+        vm.runInContext(PARTNER_ICONS_SRC + '\n' + fn('renderDepositPartners') + '\nrenderDepositPartners(' + JSON.stringify(partners) + ');', sandbox);
         return listEl.innerHTML;
     }
     assert.strictEqual(run([]), '', 'nothing is rendered for an empty directory');

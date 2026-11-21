@@ -52,6 +52,12 @@ function fn(name) {
   return INDEX.slice(start, end + 1);
 }
 
+
+// The partner contact icons are module-scope constants: the harnesses below run
+// single functions in isolation, so the constants have to travel with them.
+const PARTNER_ICONS_SRC = INDEX.slice(INDEX.indexOf('const PARTNER_ICON_WHATSAPP'),
+  INDEX.indexOf("';", INDEX.indexOf('const PARTNER_ICON_TELEGRAM')) + 2);
+
 const cryptoFlow = () => INDEX.slice(INDEX.indexOf('id="depositCryptoFlow"'),
   INDEX.indexOf('id="depositPaymentSection"'));
 const partnerPanel = () => INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'),
@@ -83,6 +89,7 @@ function sandbox(locale, metas, nodes) {
   vm.runInContext([
     slots,
     wa,
+    PARTNER_ICONS_SRC,
     fn('normalisePartnerTelegramUrl'),
     fn('getPaymentPartnerContacts'),
     fn('getPartnerSupportTelegramUrl'),
@@ -136,7 +143,7 @@ test('3. Olivia (WhatsApp) is rendered before Alex (Telegram)', () => {
 test('4. Olivia\'s WhatsApp link is exactly https://wa.me/17828027841', () => {
   const { box } = renderPartner();
   assert.ok(box.innerHTML.includes('href="' + WHATSAPP + '"'), 'the wa.me link');
-  assert.match(box.innerHTML, /<i class="fab fa-whatsapp"[^>]*><\/i>/, 'WhatsApp icon');
+  assert.match(box.innerHTML, /<svg class="partner-btn-icon"[^>]*viewBox="0 0 24 24"[^>]*>/, 'WhatsApp brand icon (inline SVG)');
   assert.ok(/target="_blank"/.test(box.innerHTML), 'opens in a new tab/window');
   assert.ok(/rel="noopener noreferrer"/.test(box.innerHTML), 'safe rel');
   // Exactly one destination constant, and no other form of the number.
@@ -147,7 +154,7 @@ test('4. Olivia\'s WhatsApp link is exactly https://wa.me/17828027841', () => {
 test('5. Alex keeps his existing Telegram link and is labelled the backup', () => {
   const { box } = renderPartner();
   assert.ok(box.innerHTML.includes('href="' + ALEX + '"'), 'Alex keeps https://t.me/AlexArbitrix');
-  assert.match(box.innerHTML, /<i class="fab fa-telegram"[^>]*><\/i>/, 'Telegram icon');
+  assert.match(box.innerHTML, /<svg class="partner-btn-icon"[^>]*viewBox="3\.5 6\.2 15 12\.8"[^>]*>/, 'Telegram paper-plane icon (inline SVG)');
   assert.match(box.innerHTML, /BACKUP CONTACT/, 'labelled as the backup');
   assert.match(box.innerHTML, /If you cannot reach Olivia on WhatsApp/, 'backup explanation present');
   assert.ok(!/t\.me\/OliviaArbitrix/.test(box.innerHTML), 'Olivia\'s old Telegram is never offered');
