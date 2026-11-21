@@ -539,14 +539,14 @@ test('risk limits: repeated failures auto-stop the session', async () => {
   assert.equal(stopWrites, 1, 'session stopped once the failure budget is exhausted');
 });
 
-test('risk limits: the promo cap is INCLUSIVE at $20 and matches the server rule', () => {
-  assert.equal(PROMO_PROFIT_CAP_USD, 20);
-  assert.equal(isPromoProfitCapReached(true, 19.99), false);
-  assert.equal(isPromoProfitCapReached(true, 20), true, 'exactly $20 blocks');
-  assert.equal(isPromoProfitCapReached(true, 20.01), true);
+test('risk limits: the promo cap is INCLUSIVE at $30 and matches the server rule', () => {
+  assert.equal(PROMO_PROFIT_CAP_USD, 30);
+  assert.equal(isPromoProfitCapReached(true, 29.99), false);
+  assert.equal(isPromoProfitCapReached(true, 30), true, 'exactly $30 blocks');
+  assert.equal(isPromoProfitCapReached(true, 30.01), true);
   assert.equal(isPromoProfitCapReached(false, 1000), false, 'deposited users are never capped');
   // parity with the server's own table
-  assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 20;/);
+  assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 30;/);
   assert.match(SERVER, /Number\(promoProfit\) >= PROMO_PROFIT_CAP_USD/);
   assert.match(read('services/PromoCheck.js'), /Number\(promoProfit\) >= PROMO_PROFIT_CAP_USD/);
 });

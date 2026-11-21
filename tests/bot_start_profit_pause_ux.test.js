@@ -246,13 +246,12 @@ test('4b. a worker-owned session is still adopted and disclosed', async () => {
   assert.deepStrictEqual(h.__log.toast.map((x) => x.msg), [t('bot.startedLive'), t('bot.workerManaged')]);
 });
 
-test('4c. demo mode never consults the server (unchanged immediate start)', async () => {
-  const h = harness({ mode: 'demo', startReply: { status: 403, body: PAUSE_BODY } });
+test('4c. the marketing sandbox never consults the server (immediate start)', async () => {
+  const h = harness({ environment: 'MARKETING_SANDBOX', sandbox: true, startReply: { status: 403, body: PAUSE_BODY } });
   h.__h.startBot();
-  await flush();
-  assert.strictEqual(h.__log.fetch.length, 0, 'demo sends no start request');
-  assert.strictEqual(h.APP.botRunning, true);
-  assert.deepStrictEqual(h.__log.toast.map((x) => x.msg), [t('bot.startedDemo')]);
+  await new Promise((r) => setTimeout(r, 10));
+  const starts = h.calls.fetch.filter((u) => String(u).includes('/api/bot/start'));
+  assert.strictEqual(starts.length, 0, 'the simulated session sends no start request');
 });
 
 test('4d. the simulated sandbox session is never routed through the pause gate', async () => {
@@ -288,7 +287,7 @@ test('5. a server error, an auth error and an offline request all keep the old b
 // ---------------------------------------------------------------------------
 // 6. PROMO CAP
 // ---------------------------------------------------------------------------
-test('6. the promo $20 cap is never presented as the $400 profit pause', async () => {
+test('6. the promo $30 cap is never presented as the $400 profit pause', async () => {
   // The promo refusal body must not be recognised as a pause payload.
   const h = harness({ startReply: { status: 403, body: PROMO_BODY } });
   assert.strictEqual(h.__h.isProfitPausePayload(PROMO_BODY), false,

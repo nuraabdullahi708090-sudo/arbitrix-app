@@ -140,7 +140,7 @@ test('renderBadges still populates the moved panel (functional)', () => {
         console: { log: () => {}, warn: () => {}, error: () => {} },
         document: { getElementById: (id) => els[id] || null, querySelector: () => null, querySelectorAll: () => [] },
         t: (k) => k,
-        APP: { currentWallet: 'demo', unlockedBadges: { demo: ['first_trade', 'ten_trades'], live: [] } },
+        APP: { currentWallet: 'live', unlockedBadges: { live: ['first_trade', 'ten_trades'] } },
     };
     vm.createContext(sandbox);
     vm.runInContext([
@@ -167,7 +167,7 @@ test('renderBadges still populates the moved panel (functional)', () => {
 test('i18n is unchanged (no new keys, all locales intact)', () => {
     const T = loadTranslations();
     const keys = Object.keys(T.en);
-    assert.strictEqual(keys.length, 1640, 'dictionary size must match the current baseline');
+    assert.strictEqual(keys.length, 1587, 'dictionary size must match the current baseline');
     for (const lang of LANGS) {
         assert.deepStrictEqual(Object.keys(T[lang]).sort(), keys.slice().sort(), lang + ' key set must match EN');
         for (const k of ['achievements.title', 'achievements.unlocked', 'achievements.startTrading', 'achievements.allUnlocked', 'achievements.next']) {

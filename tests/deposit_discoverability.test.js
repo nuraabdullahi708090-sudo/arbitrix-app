@@ -285,14 +285,12 @@ test('an unfunded Live account is not described as a pending deposit', () => {
 
     // The wording is only used on the "no confirmed deposit" branch, and the
     // funded branch keeps its own key. Deposit-status logic is untouched.
-    const at = INDEX.indexOf("accountStatus.textContent = t('status.liveFunded')");
-    assert.ok(at > 0, 'the funded branch still exists');
-    const fn = INDEX.slice(at - 600, at + 200);
-    assert.ok(/if \(APP\.mode === 'demo'\) accountStatus\.textContent = t\('status\.demoTrading'\)/.test(fn),
-        'demo branch unchanged');
-    assert.ok(/else accountStatus\.textContent = t\('status\.livePending'\)/.test(fn),
-        'the unfunded branch still uses status.livePending');
-    assert.ok(/else if \(APP\.liveData\.hasRealDeposit\)/.test(fn), 'a confirmed deposit still switches the wording');
+    const at = INDEX.indexOf("accountStatus.textContent = APP.liveData.hasRealDeposit");
+    assert.ok(at > 0, 'the single account-status expression exists');
+    const fn = INDEX.slice(at - 100, at + 200);
+    assert.ok(/hasRealDeposit \? t\('status\.liveFunded'\) : t\('status\.livePending'\)/.test(fn),
+        'a confirmed deposit still switches the wording');
+    assert.ok(!/status\.demoTrading/.test(fn), 'no demo wording branch survives');
 });
 
 // ---------------------------------------------------------------------------
@@ -390,16 +388,14 @@ test('the new error keys exist in every locale and never expose technical detail
 // ---------------------------------------------------------------------------
 // 5. Onboarding path to funding
 // ---------------------------------------------------------------------------
-test('onboarding offers a fund-Live path without removing Demo Mode', () => {
+test('onboarding offers a credit-first path and a fund-Live path', () => {
     const onbAt = INDEX.indexOf('id="onboardingModal"');
-    const onb = INDEX.slice(onbAt, INDEX.indexOf('id="onboardingDepositBtn"', onbAt) + 400);
-    assert.ok(/id="onboardingDepositBtn"/.test(onb), 'the funding action exists');
-    assert.ok(/onclick="chooseOnboarding\('deposit'\)"/.test(onb), 'it uses the existing onboarding branch');
-    assert.ok(/data-i18n="onboarding\.fundLive"/.test(onb), 'label translated');
-
-    // Demo Mode stays the primary, and "Review Live Mode" is still offered.
-    assert.ok(/id="onboardingPrimaryBtn" onclick="chooseOnboarding\('demo'\)"/.test(INDEX), 'Demo stays the primary choice');
-    assert.ok(/id="onboardingSecondaryBtn" onclick="chooseOnboarding\('live'\)"/.test(INDEX), 'review-only Live kept');
+    const onb = INDEX.slice(onbAt, INDEX.indexOf('id="onboardingSecondaryBtn"', onbAt) + 400);
+    assert.ok(/id="onboardingPrimaryBtn"/.test(onb), 'the credit action exists');
+    assert.ok(/onclick="chooseOnboarding\('credit'\)"/.test(onb), 'it starts the account on its $50 credit');
+    assert.ok(/id="onboardingSecondaryBtn" onclick="chooseOnboarding\('deposit'\)"/.test(onb),
+        'the deposit path is the secondary action');
+    assert.ok(/data-i18n="onboarding\.primaryDesc"/.test(onb), 'the primary description is translated');
 
     // Choosing "deposit" hands off to the EXISTING dialog; it creates nothing.
     const fn = extractFunction('chooseOnboarding');
@@ -408,7 +404,7 @@ test('onboarding offers a fund-Live path without removing Demo Mode', () => {
 
     const T = loadTranslations();
     for (const l of LOCALES) {
-        assert.ok(String(T[l]['onboarding.fundLive'] || '').trim().length > 0, 'onboarding.fundLive missing for ' + l);
+        assert.ok(String(T[l]['onboarding.secondary'] || '').trim().length > 0, 'onboarding.secondary missing for ' + l);
     }
 });
 
@@ -419,7 +415,7 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
     // Same server-side invoice call and same guard rails.
     const fn = extractFunction('requestDepositAddress');
     assert.ok(/fetch\('\/api\/payment\/create-invoice'/.test(fn), 'the existing invoice endpoint is used');
-    assert.ok(/APP\.mode === 'demo'/.test(fn), 'the demo-mode guard is preserved');
+    assert.ok(!/APP\.mode === 'demo'/.test(fn), 'the demo-mode guard is gone with the mode');
     assert.ok(/MIN_DEPOSIT_AMOUNT = APP\.MIN_DEPOSIT/.test(fn), 'the minimum still comes from APP.MIN_DEPOSIT');
 
     // The two-route funding menu and the partner directory are intact. The
@@ -450,7 +446,7 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
 
 test('no new deposit entry point bypasses the existing dialog', () => {
     // Every new control opens openDepositModal(); nothing calls the API directly.
-    const btnIds = ['availableDepositBtn', 'onboardingDepositBtn'];
+    const btnIds = ['availableDepositBtn', 'onboardingSecondaryBtn'];
     for (const id of btnIds) {
         const at = INDEX.indexOf('id="' + id + '"');
         assert.ok(at > 0, id + ' exists');
@@ -461,7 +457,7 @@ test('no new deposit entry point bypasses the existing dialog', () => {
     // the Available-card action, and the Live Mode "deposit required" prompt: all
     // four open the SAME dialog; the sidebar and onboarding call it from JS.
     const callSites = (INDEX.match(/onclick="openDepositModal\(\)"/g) || []).length;
-    assert.strictEqual(callSites, 4, 'one deposit dialog, now reachable from the Available card and the Live Mode prompt');
+    assert.strictEqual(callSites, 3, 'one deposit dialog: the Available card, the Live card and the Live Mode prompt');
     assert.ok(/id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/.test(INDEX), 'the new action is one of them');
 });
 
@@ -493,7 +489,7 @@ test('all six locales define the same keys and every new key is non-empty', () =
         assert.deepStrictEqual(missing, [], l + ' missing keys');
         assert.deepStrictEqual(extra, [], l + ' unexpected keys');
     }
-    const added = ['wallet.liveTitle', 'wallet.liveBalance', 'stats.depositCta', 'onboarding.fundLive',
+    const added = ['wallet.liveTitle', 'wallet.liveBalance', 'stats.depositCta', 'onboarding.primaryDesc',
         'deposit.retry', 'deposit.getHelp', 'deposit.errRateLimited',
         'deposit.errUnavailable', 'deposit.errSession', 'deposit.errInvalid'];
     for (const l of LOCALES) {

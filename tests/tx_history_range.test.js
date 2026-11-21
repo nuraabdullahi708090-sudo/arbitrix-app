@@ -68,7 +68,7 @@ function entry(minutesAgo, amount, type) {
     };
 }
 
-function buildSandbox({ currentWallet = 'demo', demoHistory = [], liveHistory = [] } = {}) {
+function buildSandbox({ currentWallet = 'live', demoHistory = [], liveHistory = [] } = {}) {
     const els = {};
     const el = (id) => els[id] || (els[id] = makeEl(id));
     TX_IDS.forEach(el);
@@ -76,8 +76,7 @@ function buildSandbox({ currentWallet = 'demo', demoHistory = [], liveHistory = 
         currentWallet,
         txShowOlder: false,
         txViewExpanded: false,
-        demoData: { history: demoHistory },
-        liveData: { history: liveHistory },
+        liveData: { history: liveHistory, pnl: 0 },
         bonusData: { history: [] },
     };
     const sandbox = {
@@ -108,7 +107,7 @@ const renderCount = (sb) => (sb.els.tradeHistoryContainer.innerHTML.match(/class
 
 test('default view is still the short "Last 30 min" preview', () => {
     const demo = [entry(5, 12), entry(20, -4), entry(120, 9), entry(600, 30)];
-    const sb = buildSandbox({ demoHistory: demo });
+    const sb = buildSandbox({ liveHistory: demo });
     vm.runInContext('updateTransactionLog()', sb);
 
     assert.strictEqual(sb.APP.txShowOlder, false, 'preview is the default');
@@ -122,20 +121,20 @@ test('default view is still the short "Last 30 min" preview', () => {
 
 test('older entries are never deleted - they stay in the stored history', () => {
     const demo = [entry(5, 12), entry(120, 9), entry(600, 30)];
-    const sb = buildSandbox({ demoHistory: demo });
-    const before = sb.APP.demoData.history.length;
+    const sb = buildSandbox({ liveHistory: demo });
+    const before = sb.APP.liveData.history.length;
 
     vm.runInContext('updateTransactionLog()', sb);
     vm.runInContext('toggleTransactionRange()', sb);
     vm.runInContext('updateTransactionLog()', sb);
 
-    assert.strictEqual(sb.APP.demoData.history.length, before, 'history array must not be trimmed');
-    assert.deepStrictEqual(sb.APP.demoData.history.map((e) => e.timestamp), demo.map((e) => e.timestamp), 'entries and order preserved');
+    assert.strictEqual(sb.APP.liveData.history.length, before, 'history array must not be trimmed');
+    assert.deepStrictEqual(sb.APP.liveData.history.map((e) => e.timestamp), demo.map((e) => e.timestamp), 'entries and order preserved');
 });
 
 test('the "Older activity" switch reveals entries older than the preview', () => {
     const demo = [entry(5, 12), entry(120, 9), entry(600, 30)];
-    const sb = buildSandbox({ demoHistory: demo });
+    const sb = buildSandbox({ liveHistory: demo });
     vm.runInContext('updateTransactionLog()', sb);
     assert.strictEqual(renderCount(sb), 1, 'precondition: 1 recent entry');
 
@@ -155,7 +154,7 @@ test('the "Older activity" switch reveals entries older than the preview', () =>
 });
 
 test('the user can switch back to the recent preview', () => {
-    const sb = buildSandbox({ demoHistory: [entry(5, 12), entry(120, 9)] });
+    const sb = buildSandbox({ liveHistory: [entry(5, 12), entry(120, 9)] });
     vm.runInContext('toggleTransactionRange()', sb);
     assert.strictEqual(renderCount(sb), 2);
     vm.runInContext('toggleTransactionRange()', sb);
@@ -163,25 +162,23 @@ test('the user can switch back to the recent preview', () => {
     assert.strictEqual(sb.APP.txShowOlder, false);
 });
 
-test('demo activity and Live transactions stay separated in the history view', () => {
-    const demo = [entry(5, 12, 'Trade Executed')];
+test('there is one history: the Live wallet, with the Bonus ledger kept apart', () => {
     const live = [entry(5, 250, 'Deposit'), entry(200, -50, 'Withdraw')];
-    const sb = buildSandbox({ currentWallet: 'demo', demoHistory: demo, liveHistory: live });
+    const sb = buildSandbox({ liveHistory: live });
 
     vm.runInContext('updateTransactionLog()', sb);
-    assert.ok(/TYPE:Trade Executed/.test(sb.els.tradeHistoryContainer.innerHTML), 'demo view shows demo activity');
-    assert.ok(!/TYPE:Deposit/.test(sb.els.tradeHistoryContainer.innerHTML), 'demo view must not show Live records');
+    assert.strictEqual(renderCount(sb), 1, 'only the 30-minute window is previewed');
+    assert.ok(/TYPE:Deposit/.test(sb.els.tradeHistoryContainer.innerHTML), 'the Live ledger is shown');
 
-    sb.APP.currentWallet = 'live';
+    sb.APP.currentWallet = 'bonus';
     vm.runInContext('toggleTransactionRange()', sb);
     vm.runInContext('updateTransactionLog()', sb);
-    assert.ok(/TYPE:Deposit/.test(sb.els.tradeHistoryContainer.innerHTML), 'live view shows Live records');
-    assert.ok(!/TYPE:Trade Executed/.test(sb.els.tradeHistoryContainer.innerHTML), 'live view must not show demo activity');
-    assert.strictEqual(sb.APP.demoData.history.length, 1, 'the other wallet is untouched');
+    assert.strictEqual(renderCount(sb), 0, 'the Bonus ledger is a separate, empty list here');
+    assert.strictEqual(sb.APP.liveData.history.length, 2, 'the Live history is untouched');
 });
 
 test('an empty 30-minute window does not hide older records', () => {
-    const sb = buildSandbox({ demoHistory: [entry(300, 9), entry(900, 30)] });
+    const sb = buildSandbox({ liveHistory: [entry(300, 9), entry(900, 30)] });
     vm.runInContext('updateTransactionLog()', sb);
 
     assert.strictEqual(renderCount(sb), 0, 'nothing inside the preview window');
@@ -206,7 +203,7 @@ test('a fully empty history shows the "no transactions yet" state', () => {
 test('"View More" still expands within the currently displayed range', () => {
     const demo = [];
     for (let i = 1; i <= 8; i++) demo.push(entry(i, i));
-    const sb = buildSandbox({ demoHistory: demo });
+    const sb = buildSandbox({ liveHistory: demo });
     vm.runInContext('updateTransactionLog()', sb);
 
     assert.strictEqual(renderCount(sb), 5, 'first five rows by default');
@@ -222,11 +219,11 @@ test('"View More" still expands within the currently displayed range', () => {
 
 test('getRecentHistory is a pure read-only filter', () => {
     const demo = [entry(5, 12), entry(120, 9)];
-    const sb = buildSandbox({ demoHistory: demo });
-    const snapshot = JSON.stringify(sb.APP.demoData.history);
-    const out = vm.runInContext('getRecentHistory(APP.demoData.history, 30).length', sb);
+    const sb = buildSandbox({ liveHistory: demo });
+    const snapshot = JSON.stringify(sb.APP.liveData.history);
+    const out = vm.runInContext('getRecentHistory(APP.liveData.history, 30).length', sb);
     assert.strictEqual(out, 1, 'filters to the window');
-    assert.strictEqual(JSON.stringify(sb.APP.demoData.history), snapshot, 'input array is not mutated');
+    assert.strictEqual(JSON.stringify(sb.APP.liveData.history), snapshot, 'input array is not mutated');
 });
 
 test('the history view makes no requests and cannot move money', () => {

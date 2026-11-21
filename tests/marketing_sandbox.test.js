@@ -617,8 +617,8 @@ test('frontend sandbox gate skips are keyed on APP.environment (display only)', 
     // The sandbox is SIMULATED: it must never be routed through the production
     // start validation (which carries the profit pause), so it keeps starting
     // immediately through beginBotRun().
-    assert.match(startBotBody, /if \(!\(APP\.mode === 'live' && APP\.environment !== 'MARKETING_SANDBOX'\)\) \{\s*beginBotRun\(\);\s*return;/,
-        'the simulated sandbox session skips the production start gate');
+    assert.match(startBotBody, /if \(APP\.environment === 'MARKETING_SANDBOX'\) \{\s*beginBotRun\(\);\s*return;/,
+        'the simulated sandbox session keeps starting immediately');
 });
 
 test('frontend admin sandbox controls call only /api/admin/sandbox endpoints', () => {

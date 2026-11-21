@@ -101,26 +101,21 @@ test('frontend: all three funded-flag transitions gate LiveAccountActivated on f
     assert.ok(meSync.includes("depositTxs.length"), 'transactions fallback must confirm deposit rows before funding');
 });
 
-test('frontend: no fire on mode-tab click / invoice creation / page load / revisit', () => {
-    // setMode must NOT call the fire helper at all.
+test('frontend: no fire on invoice creation / page load / revisit', () => {
+    assert.strictEqual(INDEX.indexOf('function setMode('), -1, 'the mode switch is gone');
+    // The remaining call sites are the server-confirmed funding transitions only.
+    const calls = (INDEX.match(/window\.fireLiveAccountActivatedIfFirst\(\);/g) || []).length;
+    assert.ok(calls <= 3, 'only the server-confirmed transition calls remain, got ' + calls);
 
-    const setMode = INDEX.split('function setMode(')[1].split('// ==================== DEPOSIT SYSTEM FUNCTIONS')[0];
-    assert.ok(!setMode.includes('fireLiveAccountActivatedIfFirst'), 'setMode (live tab click) must never fire');
-    assert.ok(!setMode.includes("trackMetaConversion('LiveAccountActivated')"), 'setMode must never emit LiveAccountActivated');
-
-    // Invoice creation must NOT call it neither.
     const create = INDEX.split('async function requestDepositAddress')[1].split('// Show payment section after invoice creation')[0];
     assert.ok(!create.includes('fireLiveAccountActivatedIfFirst'), 'invoice creation must never fire');
 
-    // Page load / initApp must NOT call it directly (only the server-confirmed
-    // transition paths above — poll success auth/me sync transactions fallback —
-    // and all are transition-gated + server-claimed).
     const init = INDEX.split('async function initApp')[1].split('const botToggle =')[0];
     assert.ok(!init.includes('fireLiveAccountActivatedIfFirst'), 'initApp must never fire directly');
 });
 
 test('frontend: existing Meta events unchanged (PageView/ViewContent/Login/CompleteRegistration/StartDemo call sites intact)', () => {
-    for (const ev of ['PageView', 'ViewContent', 'Login', 'CompleteRegistration', 'StartDemo']) {
+    for (const ev of ['PageView', 'ViewContent', 'Login', 'CompleteRegistration']) {
         assert.ok(INDEX.includes("trackMetaConversion('" + ev + "')") || ev === 'PageView' || ev === 'ViewContent',
             ev + ' event site must remain');
     }

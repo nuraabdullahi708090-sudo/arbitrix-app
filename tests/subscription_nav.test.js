@@ -127,13 +127,12 @@ test('profile summary badge mirrors the panel badge (single source of truth)', (
 // ---------------------------------------------------------------------------
 // 4/5. Eligibility behavior unchanged (frontend pins; backend pinned elsewhere)
 // ---------------------------------------------------------------------------
-test('demo-mode activation still short-circuits to switch-to-Live BEFORE any fetch', () => {
-    const m = INDEX.match(/async function activateSubscription\(\) \{[\s\S]*?\n\}/);
+test('activation is server-authoritative for eligibility (no client mode gate)', () => {
+    const m = INDEX.match(/async function activateSubscription\(\) \{[\s\S]*?\n}/);
     assert.ok(m, 'activateSubscription missing');
     const fn = m[0];
-    assert.ok(fn.indexOf("APP.mode !== 'live'") !== -1, 'demo gate missing');
-    assert.ok(fn.indexOf("APP.mode !== 'live'") < fn.indexOf("fetch('/api/subscription/activate'"), 'demo gate must run before the network call');
-    assert.ok(fn.includes("t('subscription.switchToLive')"), 'switch-to-Live toast intact');
+    assert.ok(!/APP\.mode/.test(fn), 'no client-side mode gate survives');
+    assert.ok(fn.includes("'/api/subscription/activate'"), 'the existing endpoint is used');
 });
 
 test('live-without-deposit still surfaces the existing deposit-required toast', () => {

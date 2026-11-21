@@ -65,7 +65,7 @@ test('promo credit: the bot starts with any balance (no trading minimum)', () =>
     const botCode = BOT_START.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
     assert.ok(!botCode.includes('MTA'), 'the bot route must not gate on the MTA');
     assert.ok(!/balance\s*<\s*\d/.test(BOT_START), 'no balance threshold may remain');
-    assert.match(BOT_START, /req\.body\.mode === 'demo' \? 'demo' : 'live'/, 'default-deny mode normalisation');
+    assert.ok(!BOT_START.includes('req.body.mode'), 'the client cannot choose a mode any more');
     // the separate promo cap remains the only live-trading stop
     assert.match(BOT_START, /isPromoProfitCapReached/);
 });

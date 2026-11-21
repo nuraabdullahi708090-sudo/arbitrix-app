@@ -216,7 +216,7 @@ test('no new environment variable or migration was added for assets', () => {
   // lock down financial RPC privileges. 054 adds the FROZEN grandfathering
   // snapshot plus the complimentary-entitlement source columns; it changes no
   // money and is not executed by the application.
-  assert.strictEqual(migrations.length, 53, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering)');
+  assert.strictEqual(migrations.length, 54, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30)');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');

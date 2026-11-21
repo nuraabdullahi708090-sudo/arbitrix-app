@@ -78,41 +78,12 @@ test('no global nowrap rule was introduced to hide overflow', () => {
 
 /* -------------------------------------------------- reusable input + action */
 
-test('the Demo Funds row uses the reusable input/action pattern', () => {
-  const row = (INDEX.match(/<div class="input-action-row"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || '';
-  assert.match(row, /id="depositAmount"/, 'the amount field is in the row');
-  assert.match(row, /id="depositBtn"/, 'the Add button is in the row');
-  assert.match(row, /class="input-field"/, 'the field keeps its styling');
-  assert.match(row, /class="btn btn-primary"/, 'the button keeps its primary weight');
+test('the reusable input/action row is gone with the demo funds card', () => {
+  // The Demo Funds card was retired with Demo Mode, so the row it used must not
+  // linger as dead markup or dead CSS.
+  assert.ok(!INDEX.includes('id="depositAmount"'), 'the demo amount field is gone');
+  assert.ok(!INDEX.includes('id="depositBtn"'), 'the demo add button is gone');
 });
-
-test('the input/action pattern keeps the field flexible and the action readable', () => {
-  const rule = lastRule('.input-action-row');
-  assert.ok(rule, '.input-action-row exists');
-  // Grid, not flex: the app's own `.input-field{width:100%}` would otherwise
-  // take the whole row and force the button onto a second line.
-  assert.match(rule, /display:\s*grid/, 'an explicit grid decides the widths');
-  assert.match(rule, /grid-template-columns:\s*minmax\(96px,\s*1fr\) auto/, 'field flexible, action intrinsic');
-
-  const inputRule = mergedRule('.input-action-row > .input-field');
-  assert.ok(inputRule || /width:\s*100%/.test(CSS), 'the field fills its column');
-  assert.match(CSS, /\.input-action-row > input\{width:100%;min-width:0;\}/, 'the field may shrink');
-
-  const btnRule = mergedRule('.input-action-row > button');
-  assert.match(btnRule, /min-width:\s*72px/, 'the action keeps a readable width');
-  assert.match(btnRule, /white-space:\s*nowrap/, 'a short action label stays on one line');
-});
-
-test('the Demo Funds behaviour is untouched', () => {
-  // The click handler still validates the amount and credits the demo wallet.
-  const handler = INDEX.slice(INDEX.indexOf("const depositBtn = getEl('depositBtn')"), INDEX.indexOf("const removeFundsBtn"));
-  assert.match(handler, /addEventListener\('click'/);
-  assert.match(handler, /APP\.mode !== 'demo'/);
-  assert.match(handler, /data\.balance \+= amount/);
-  assert.match(handler, /updateUI\(\)/);
-});
-
-/* --------------------------------------------- Available card action tiers */
 
 test('the Available actions stay readable on a narrow phone', () => {
   const compact = mediaBlock('@media(max-width:430px)');

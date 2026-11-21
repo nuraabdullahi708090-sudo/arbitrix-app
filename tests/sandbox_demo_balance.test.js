@@ -134,9 +134,11 @@ test('/api/auth/me sandbox branch returns the getSandboxWallet shape', () => {
     assert.match(sandboxBranch, /res\.json\(\{[\s\S]*?wallet,[\s\S]*?\}\)/, 'wallet is returned to the client');
 });
 
-test('frontend adopts wallet.demo_balance into Demo Mode state (unchanged path)', () => {
-    const m = INDEX.match(/if \(typeof wallet\.demo_balance === 'number'\) \{\s*APP\.demoData\.balance = Number\(wallet\.demo_balance\) \|\| 0;/);
-    assert.ok(m, 'syncWalletFromServer must still adopt server demo_balance');
+test('the frontend no longer keeps a demo wallet to adopt into', () => {
+    assert.ok(!/APP\.demoData/.test(INDEX), 'the demo wallet object is gone');
+    assert.ok(!/demo_balance/.test(INDEX), 'the client does not read demo_balance');
+    // The server still seeds the legacy column; nothing reads it client-side.
+    assert.match(SERVER, /demo_balance: SANDBOX_DEMO_BALANCE/);
 });
 
 // ---------------------------------------------------------------------------

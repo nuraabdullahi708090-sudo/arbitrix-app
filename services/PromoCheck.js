@@ -12,7 +12,7 @@
  *
  * PARITY IS TESTED, NOT ASSUMED
  *   `tests/trading_worker.test.js` pins this module's decision table against the
- *   server's: same cap value ($20, INCLUSIVE), same source-of-funds precedence
+ *   server's: same cap value ($30, INCLUSIVE), same source-of-funds precedence
  *   (confirmed deposit > conversion > promo credit), and the same FAIL-OPEN
  *   behavior when a source cannot be read. Any divergence fails the build.
  *
@@ -27,7 +27,7 @@
  */
 
 /** Cumulative NET realized profit allowed while trading the $50 promo credit. */
-const PROMO_PROFIT_CAP_USD = 20;
+const PROMO_PROFIT_CAP_USD = 30;
 const PROMO_LIMIT_CODE = 'PROMO_TRADING_LIMIT_REACHED';
 const PROMO_LIMIT_MESSAGE =
   'You have reached the promotional trading limit. Make your first deposit to continue trading.';
@@ -44,7 +44,7 @@ function promoLimitBody(extra = {}) {
 }
 
 /**
- * INCLUSIVE cap test: `>= 20` blocks. Kept as a pure function so the boundary is
+ * INCLUSIVE cap test: `>= 30` blocks. Kept as a pure function so the boundary is
  * unit-testable without a database.
  */
 function isPromoProfitCapReached(isPromoCreditFunded, promoProfit) {

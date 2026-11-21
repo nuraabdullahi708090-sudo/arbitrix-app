@@ -242,8 +242,6 @@ test('6b. blocked actions surface as a red toast, not a neutral one', () => {
         "showToast(t('withdraw.firstDeposit'),'error')",
         "showToast(t('withdraw.needTrade'),'error')",
         "showToast(t('withdraw.minWithdrawal', {min: APP.MIN_WITHDRAWAL",
-        "showToast(t('withdraw.switchToLive'),'warning')",
-        "showToast(t('demo.onlyDemo'),'warning')",
         "showToast(t('demo.noFunds'),'warning')",
         "showToast(t('subscription.paymentDue'), 'warning')",
     ];
@@ -297,7 +295,8 @@ test('7d. aria labels are translatable (icon-only controls)', () => {
 test('8. the account-status chip has a shape indicator and a live state', () => {
     assert.match(CSS, /\.kx-status::before \{[^}]*border-radius:50%/, 'a dot carries the state');
     assert.match(CSS, /\.kx-status\.is-live \.kx-status::before|\.kx-status\.is-live \{/);
-    assert.match(INDEX, /accountStatus\.classList\.toggle\('is-live'/, 'the chip follows the mode');
+    assert.match(INDEX, /id="accountStatus"/, 'the chip exists');
+    assert.match(INDEX, /accountStatus\.textContent = APP\.liveData\.hasRealDeposit/, 'it reflects the funded state');
     assert.match(INDEX, /window\.syncToolbarStatus = function/);
 });
 

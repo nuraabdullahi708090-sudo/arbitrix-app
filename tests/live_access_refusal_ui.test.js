@@ -273,9 +273,8 @@ test('executeBotTrade defers badges to persistence and never announces a live tr
   const fn = extractFn('executeBotTrade');
   assert.ok(fn.includes('APP.suppressBadges = true'), 'badges are held during the request');
   assert.match(fn, /persistLiveTrade\([^)]*preCounters\)/, 'the counters snapshot is passed through');
-  const liveBlock = fn.slice(fn.indexOf("if (APP.mode === 'live')"), fn.indexOf('} else {', fn.indexOf("if (APP.mode === 'live')")));
-  assert.ok(!liveBlock.includes('announceTradeResult'), 'no optimistic result toast for a live trade');
-  assert.ok(fn.includes('announceTradeResult(profit, asset);'), 'demo keeps its immediate announcement');
+  assert.ok(!/APP\.mode/.test(fn), 'the demo/live branch is gone (single mode)');
+  assert.ok(!fn.includes('announceTradeResult('), 'no optimistic result toast: the persisted result is announced');
 });
 
 test('persistLiveTrade handles both Live access codes explicitly', () => {
