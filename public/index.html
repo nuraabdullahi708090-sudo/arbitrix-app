@@ -22315,6 +22315,17 @@ function addBadgeToTicker(badge) {
 function initChart() {
     const canvas = getEl('pnlChart');
     if(!canvas) return;
+    // Chart.js is loaded from a third-party CDN. When it is unavailable
+    // (ad-blocker, privacy extension, corporate firewall, offline, CDN outage)
+    // `new Chart(...)` threw, which aborted initApp() before the finally{} that
+    // dismisses the wallet-sync overlay - leaving a full-screen 90%-opaque
+    // element with pointer-events:auto over the app, so no sidebar link or
+    // button responded to a click. Degrade instead of throwing: the equity
+    // chart stays empty and the rest of the dashboard remains interactive.
+    if (typeof Chart === 'undefined') {
+        console.warn('[chart] Chart.js unavailable - equity chart disabled, dashboard stays interactive');
+        return;
+    }
     const ctx = canvas.getContext('2d');
     const gradient = ctx.createLinearGradient(0, 0, 0, 300);
     gradient.addColorStop(0, 'rgba(240, 185, 11, 0.35)');
@@ -26271,6 +26282,11 @@ async function initApp() {
         walletSyncRefreshBtn.onclick = function () { location.reload(); };
     }
 
+    // Everything below runs BEFORE the try/finally that dismisses the loader.
+    // Any exception here used to abort initApp() and leave the blocking overlay
+    // up for good, so the block is guarded: a failure degrades one feature, it
+    // never makes the whole platform unclickable.
+    try {
     loadData();
     resetChartForWallet('live');
     APP.currentWallet = 'live';
@@ -26306,6 +26322,11 @@ async function initApp() {
 
     // Fetch referral stats from API on load
     fetchReferralStats();
+    } catch (initError) {
+        // Non-fatal: report it and continue to the sync/finally below so the
+        // loader is always dismissed and the UI stays usable.
+        console.error('[initApp] non-fatal init error (dashboard stays interactive):', initError && initError.message);
+    }
 
     // Sync authoritative wallet balance + deposit history from the server so
     // the dashboard reflects what the DB actually holds (not the localStorage
