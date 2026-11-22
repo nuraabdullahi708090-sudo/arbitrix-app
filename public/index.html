@@ -24580,6 +24580,21 @@ function showOnboarding(user) {
     return true;
 }
 
+// The signed-in user as last cached by login/signup (localStorage 'arbi_user').
+// These onboarding helpers call it on the startup path, so it must never throw:
+// a missing, empty or malformed cache resolves to null and the callers degrade
+// to their 'anon' behaviour instead of aborting initApp().
+function currentCachedUser() {
+    try {
+        const raw = localStorage.getItem('arbi_user');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object') ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function maybeShowOnboardingForCurrentUser() {
     if (APP.environment === 'MARKETING_SANDBOX') return;
     if (APP.liveData && APP.liveData.hasRealDeposit) return;
