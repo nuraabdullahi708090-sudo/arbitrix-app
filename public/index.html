@@ -11092,6 +11092,7 @@ const TRANSLATIONS = {
         'common.back': 'Back',
         'common.of': 'of',
         'common.addressCopied': '✅ Address copied to clipboard',
+        'common.copyFailed': 'Copy failed. Select the text and copy it manually.',
         'common.codeCopied': '✅ Referral code copied!',
         'common.linkCopied': '✅ Referral link copied!',
         'notifications.title': 'Notifications',
@@ -12700,6 +12701,7 @@ const TRANSLATIONS = {
         'common.back': 'Atrás',
         'common.of': 'de',
         'common.addressCopied': '✅ Dirección copiada al portapapeles',
+        'common.copyFailed': 'No se pudo copiar. Selecciona el texto y c\u00f3pialo manualmente.',
         'common.codeCopied': '✅ ¡Código de referido copiado!',
         'common.linkCopied': '✅ ¡Enlace de referido copiado!',
         'notifications.title': 'Notificaciones',
@@ -14309,6 +14311,7 @@ const TRANSLATIONS = {
         'common.back': 'Voltar',
         'common.of': 'de',
         'common.addressCopied': '✅ Endereço copiado para a área de transferência',
+        'common.copyFailed': 'N\u00e3o foi poss\u00edvel copiar. Selecione o texto e copie manualmente.',
         'common.codeCopied': '✅ Código de indicação copiado!',
         'common.linkCopied': '✅ Link de indicação copiado!',
         'notifications.title': 'Notificações',
@@ -15918,6 +15921,7 @@ const TRANSLATIONS = {
         'common.back': 'Retour',
         'common.of': 'sur',
         'common.addressCopied': '✅ Adresse copiée dans le presse-papiers',
+        'common.copyFailed': 'Impossible de copier. S\u00e9lectionnez le texte et copiez-le manuellement.',
         'common.codeCopied': '✅ Code de parrainage copié !',
         'common.linkCopied': '✅ Lien de parrainage copié !',
         'notifications.title': 'Notifications',
@@ -17527,6 +17531,7 @@ const TRANSLATIONS = {
         'common.back': 'رجوع',
         'common.of': 'من',
         'common.addressCopied': '✅ تم نسخ العنوان إلى الحافظة',
+        'common.copyFailed': '\u062a\u0639\u0630\u0651\u0631 \u0627\u0644\u0646\u0633\u062e. \u062d\u062f\u0651\u062f \u0627\u0644\u0646\u0635 \u0648\u0627\u0646\u0633\u062e\u0647 \u064a\u062f\u0648\u064a\u064b\u0627.',
         'common.codeCopied': '✅ تم نسخ رمز الإحالة!',
         'common.linkCopied': '✅ تم نسخ رابط الإحالة!',
         'notifications.title': 'الإشعارات',
@@ -19136,6 +19141,7 @@ const TRANSLATIONS = {
         'common.back': '返回',
         'common.of': '中',
         'common.addressCopied': '✅ 地址已复制到剪贴板',
+        'common.copyFailed': '\u590d\u5236\u5931\u8d25\u3002\u8bf7\u9009\u4e2d\u6587\u672c\u5e76\u624b\u52a8\u590d\u5236\u3002',
         'common.codeCopied': '✅ 推荐码已复制！',
         'common.linkCopied': '✅ 推荐链接已复制！',
         'notifications.title': '通知',
@@ -24170,13 +24176,70 @@ async function cancelCurrentInvoice() {
   }
 }
 
+// Clipboard helper shared by every copy action on the page.
+// Resolves true only when the text really reached the clipboard, so callers can
+// show their success toast strictly AFTER a successful copy and an honest
+// failure message otherwise. Never throws.
+async function copyTextToClipboard(text) {
+  const value = text == null ? '' : String(text);
+  if (!value) return false;
+  // Preferred path. writeText rejects when the permission is denied, when the
+  // document is not focused, or where the API is missing (older Safari, http
+  // origins, some in-app webviews), so the call must be awaited and caught.
+  if (window.isSecureContext !== false && navigator.clipboard &&
+      typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (e) { /* fall through to the legacy path */ }
+  }
+  return legacyCopyText(value);
+}
+
+// Legacy fallback for browsers/origins without a usable async clipboard:
+// a temporary off-screen textarea plus document.execCommand('copy').
+function legacyCopyText(value) {
+  if (typeof document === 'undefined' || typeof document.execCommand !== 'function') return false;
+  let area = null;
+  let active = null;
+  let range = null;
+  try {
+    active = document.activeElement;
+    if (window.getSelection && window.getSelection().rangeCount) {
+      range = window.getSelection().getRangeAt(0);
+    }
+    area = document.createElement('textarea');
+    area.value = value;
+    area.setAttribute('readonly', '');
+    area.setAttribute('aria-hidden', 'true');
+    area.style.position = 'fixed';
+    area.style.top = '-1000px';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    if (typeof area.setSelectionRange === 'function') area.setSelectionRange(0, value.length);
+    return document.execCommand('copy') === true;
+  } catch (e) {
+    return false;
+  } finally {
+    // Always clean up: remove the temp node and restore focus/selection.
+    if (area && area.parentNode) area.parentNode.removeChild(area);
+    try { if (active && typeof active.focus === 'function') active.focus(); } catch (e) {}
+    try {
+      if (range && window.getSelection) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (e) {}
+  }
+}
+
 function copyWalletAddress() {
   const address = document.getElementById('liveWalletAddress').textContent;
   if (address && address !== 'Select currency & amount, then click "Get Payment Address"') {
-    navigator.clipboard.writeText(address).then(() => {
-      showToast(t('deposit.copyAddressSuccess'), 'success');
-    }).catch(() => {
-      showToast(t('deposit.copyAddressFailed'), 'error');
+    copyTextToClipboard(address).then((ok) => {
+      showToast(t(ok ? 'deposit.copyAddressSuccess' : 'deposit.copyAddressFailed'), ok ? 'success' : 'error');
     });
   }
 }
@@ -24184,10 +24247,8 @@ function copyWalletAddress() {
 function copyDepositAmount() {
   const amount = document.getElementById('liveDepositDisplayAmount').textContent;
   if (amount && amount !== '0.00') {
-    navigator.clipboard.writeText(amount).then(() => {
-      showToast(t('deposit.copyAmountSuccess'), 'success');
-    }).catch(() => {
-      showToast(t('deposit.copyAmountFailed'), 'error');
+    copyTextToClipboard(amount).then((ok) => {
+      showToast(t(ok ? 'deposit.copyAmountSuccess' : 'deposit.copyAmountFailed'), ok ? 'success' : 'error');
     });
   }
 }
@@ -24404,17 +24465,12 @@ function updateDepositReferenceBox() {
 function copyDepositReference() {
   if (!currentInvoiceId) return;
   const text = String(currentInvoiceId);
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () {
-        showToast(t('deposit.partner.refCopied'), 'success');
-      }).catch(function () {
-        showToast(text, 'info');
-      });
-      return;
-    }
-  } catch (e) { /* fall through to the visible value */ }
-  showToast(text, 'info');
+  // If the clipboard is unavailable the reference is shown so it can still be
+  // copied by hand - never a false "copied" confirmation.
+  copyTextToClipboard(text).then(function (ok) {
+    if (ok) showToast(t('deposit.partner.refCopied'), 'success');
+    else showToast(text, 'info');
+  });
 }
 
 async function loadDepositOptions(force) {
@@ -25879,13 +25935,9 @@ function copyInvoiceRef() {
     const ref = document.getElementById('depositInvoiceRef');
     const value = ref ? ref.textContent : '';
     if (!value || value === '---') return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(value).then(function () {
-            showToast(t('deposit.copyInvoiceRefSuccess'), 'success');
-        }).catch(function () {
-            showToast(t('deposit.copyInvoiceRefFailed'), 'error');
-        });
-    }
+    copyTextToClipboard(value).then(function (ok) {
+        showToast(t(ok ? 'deposit.copyInvoiceRefSuccess' : 'deposit.copyInvoiceRefFailed'), ok ? 'success' : 'error');
+    });
 }
 
 function toggleSupport() {
@@ -26635,9 +26687,9 @@ async function initApp() {
     }
     
     const copyLiveAddressBtn = getEl('copyLiveAddressBtn');
-    if(copyLiveAddressBtn) copyLiveAddressBtn.addEventListener('click', function() {
-        navigator.clipboard.writeText(getEl('liveWalletAddress').textContent);
-        showToast(t('common.addressCopied'),'success');
+    if(copyLiveAddressBtn) copyLiveAddressBtn.addEventListener('click', async function() {
+        const ok = await copyTextToClipboard(getEl('liveWalletAddress').textContent);
+        showToast(t(ok ? 'common.addressCopied' : 'common.copyFailed'), ok ? 'success' : 'error');
     });
     
     document.querySelectorAll('.deposit-network-select .net-option').forEach(function(opt) {
@@ -26665,19 +26717,19 @@ async function initApp() {
     if(supportInput) supportInput.addEventListener('keypress', function(e) { if(e.key === 'Enter') sendSupportMessage(); });
     
     const copyReferralBtn = getEl('copyReferralBtn');
-    if(copyReferralBtn) copyReferralBtn.addEventListener('click', function() {
+    if(copyReferralBtn) copyReferralBtn.addEventListener('click', async function() {
         if (!APP.referralCode) {
             showToast(t('referral.codeLoading'), 'info');
             return;
         }
-        navigator.clipboard.writeText(APP.referralCode);
-        showToast(t('common.codeCopied'),'success');
+        const ok = await copyTextToClipboard(APP.referralCode);
+        showToast(t(ok ? 'common.codeCopied' : 'common.copyFailed'), ok ? 'success' : 'error');
     });
     
     const copyReferralLinkBtn = getEl('copyReferralLinkBtn');
-    if(copyReferralLinkBtn) copyReferralLinkBtn.addEventListener('click', function() {
-        navigator.clipboard.writeText(getReferralLink());
-        showToast(t('common.linkCopied'),'success');
+    if(copyReferralLinkBtn) copyReferralLinkBtn.addEventListener('click', async function() {
+        const ok = await copyTextToClipboard(getReferralLink());
+        showToast(t(ok ? 'common.linkCopied' : 'common.copyFailed'), ok ? 'success' : 'error');
     });
     
     // Share referral on Twitter/X
@@ -26706,14 +26758,14 @@ async function initApp() {
                 // User cancelled or error
                 if (err.name !== 'AbortError') {
                     // Fallback to copying
-                    navigator.clipboard.writeText(referralLink);
-                    showToast(t('share.linkCopied'), 'success');
+                    const ok = await copyTextToClipboard(referralLink);
+                    showToast(t(ok ? 'share.linkCopied' : 'common.copyFailed'), ok ? 'success' : 'error');
                 }
             }
         } else {
             // Fallback to copying
-            navigator.clipboard.writeText(referralLink);
-            showToast(t('share.linkCopied'), 'success');
+            const ok = await copyTextToClipboard(referralLink);
+            showToast(t(ok ? 'share.linkCopied' : 'common.copyFailed'), ok ? 'success' : 'error');
         }
     });
     

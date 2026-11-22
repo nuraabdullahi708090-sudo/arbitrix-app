@@ -351,7 +351,13 @@ test('invoice reference is display-only: no confirmation or crediting in the pay
     const depositWin = elementWindow('depositPaymentSection', 12000);
     assert.ok(/id="depositInvoiceRef"/.test(depositWin), 'invoice ref shown inside the payment section');
     const copy = extractFunction('copyInvoiceRef');
-    assert.ok(/navigator\.clipboard\.writeText/.test(copy), 'uses the existing safe clipboard pattern');
+    // The copy now goes through the shared helper, which is the single place that
+    // touches the clipboard API (and awaits it).
+    assert.ok(/copyTextToClipboard\(/.test(copy), 'uses the shared clipboard helper');
+    const helper = extractFunction('copyTextToClipboard');
+    assert.ok(/navigator\.clipboard\.writeText/.test(helper), 'the helper still uses the standard clipboard API');
+    assert.ok(/execCommand/.test(extractFunction('legacyCopyText')), 'and keeps the legacy fallback');
+    assert.ok(/t\(ok \? .* : .*\)/.test(copy) || /ok \?/.test(copy), 'feedback reflects the real copy result');
     assert.ok(!/fetch\s*\(/.test(copy), 'copy performs no network call');
     const show = extractFunction('showPaymentSection');
     assert.ok(/invoice\.id \|\| currentInvoiceId/.test(show), 'reference derives from the current invoice id');
