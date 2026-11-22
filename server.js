@@ -4884,6 +4884,51 @@ app.get('/api/payment/health', async (req, res) => {
 // ---------- WEBHOOK ENDPOINTS ----------
 
 /**
+ * Uniform webhook failure semantics.
+ *
+ * BEFORE: every failure path answered 200 (either `success:false` or
+ * `{ error: 'Processing error' }`). Providers only retry on a non-2xx
+ * response, so a transient database failure - or a genuine Paymento IPN
+ * rejected because the generic handler read the wrong signature header - was
+ * acknowledged for good and the deposit was never credited nor retried.
+ *
+ * AFTER:
+ *   401  missing / invalid signature (security outcome, not a transient fault)
+ *   400  malformed payload (a retry would fail identically)
+ *   404  unknown provider (nothing will ever consume it)
+ *   500  processing / database failure (the provider SHOULD retry)
+ *
+ * The body never echoes internal error text; the detail stays in the server
+ * log. Replay protection is unchanged and remains the DATABASE idempotency in
+ * each provider's credit path, which is what makes retries safe.
+ */
+function webhookFailureResponse(res, error, provider) {
+  const message = String((error && error.message) || error || '');
+  if (/invalid webhook signature|missing signature|invalid signature/i.test(message)) {
+    console.error(`[Webhook] ${provider}: signature rejected`);
+    return res.status(401).json({ ok: false, error: 'invalid_signature' });
+  }
+  if (/^Unknown provider/.test(message)) {
+    console.error(`[Webhook] ${provider}: no such provider`);
+    return res.status(404).json({ ok: false, error: 'unknown_provider' });
+  }
+  if (error && error.name === 'SyntaxError') {
+    console.error(`[Webhook] ${provider}: malformed payload`);
+    return res.status(400).json({ ok: false, error: 'malformed_payload' });
+  }
+  console.error(`[Webhook] ${provider}: processing failure:`, message);
+  return res.status(500).json({ ok: false, error: 'processing_error' });
+}
+
+/** Parse a raw webhook body, reporting an absent/malformed payload as a 400. */
+function parseWebhookBody(rawBody) {
+  if (Buffer.isBuffer(rawBody)) return JSON.parse(rawBody.toString('utf8'));
+  if (typeof rawBody === 'string') return JSON.parse(rawBody);
+  if (rawBody && typeof rawBody === 'object') return rawBody;
+  throw new SyntaxError('Empty webhook body');
+}
+
+/**
  * NOWPayments Webhook Handler
  * Handles payment confirmations and status updates
  * 
@@ -4896,7 +4941,7 @@ app.get('/api/payment/health', async (req, res) => {
 app.post('/api/webhook/nowpayments', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
     const signature = req.headers['x-signature'];
-    const payload = JSON.parse(req.body);
+    const payload = parseWebhookBody(req.body);
     
     console.log('[Webhook] NOWPayments received:', JSON.stringify(payload).substring(0, 200));
 
@@ -4917,21 +4962,7 @@ app.post('/api/webhook/nowpayments', express.raw({ type: 'application/json' }), 
       result
     });
   } catch (error) {
-    console.error('[Webhook] NOWPayments error:', error);
-    
-    // Return 200 even on error to prevent retries for non-retryable errors
-    // Log the error but don't fail the webhook
-    if (error.message.includes('Invalid webhook signature')) {
-      res.status(401).json({ 
-        success: false, 
-        error: 'Invalid signature' 
-      });
-    } else {
-      res.status(200).json({ 
-        success: false, 
-        error: error.message 
-      });
-    }
+    return webhookFailureResponse(res, error, 'nowpayments');
   }
 });
 
@@ -4944,36 +4975,29 @@ app.post('/api/webhook/nowpayments', express.raw({ type: 'application/json' }), 
  * Paymento and other providers continue to be handled here (unchanged).
  */
 app.post('/api/webhook/:provider', express.raw({ type: 'application/json' }), async (req, res, next) => {
+  const { provider } = req.params;
   try {
-    const { provider } = req.params;
-
-    // Let the dedicated q8qpay route handle q8qpay webhooks
-    if (provider === 'q8qpay') {
-      return next();
-    }
+    // Providers that own a DEDICATED handler below must reach it instead of
+    // being consumed here. This route is registered first, so without next() it
+    // shadows them - which is what silently broke Paymento: it reads
+    // X-HMAC-SHA256-SIGNATURE, while this handler only looked at x-signature /
+    // x-signature-256, so every genuine IPN failed verification and was
+    // acknowledged with 200.
+    //   q8qpay    -> X-Webhook-Signature      (dedicated route, rawBody)
+    //   paymento  -> X-HMAC-SHA256-SIGNATURE  (dedicated route, rawBody)
+    if (provider === 'q8qpay' || provider === 'paymento') return next();
 
     const signature = req.headers['x-signature'] || req.headers['x-signature-256'];
-    const payload = JSON.parse(req.body);
+    const payload = parseWebhookBody(req.body);
 
-    console.log(`[Webhook] ${provider} received`);
+    const result = await paymentService.processWebhook(payload, signature, provider);
 
-    const result = await paymentService.processWebhook(
-      payload,
-      signature,
-      provider
-    );
-
-    res.json({
-      success: true,
-      message: 'Webhook processed',
-      result
-    });
+    res.json({ success: true, message: 'Webhook processed', result });
   } catch (error) {
-    console.error(`[Webhook] ${req.params.provider} error:`, error);
-    res.status(200).json({ 
-      success: false, 
-      error: error.message 
-    });
+    // 401 invalid signature | 404 unknown provider | 400 malformed payload |
+    // 500 transient failure (so a real provider retries instead of the failure
+    // being acknowledged and the deposit silently dropped).
+    return webhookFailureResponse(res, error, provider);
   }
 });
 
@@ -5091,7 +5115,7 @@ app.post('/api/webhook/paymento', express.raw({ type: 'application/json' }), asy
 
     if (creditResult.error) {
       console.error('[Paymento Webhook] Credit failed:', creditResult.error.message);
-      return res.status(200).json({ error: 'Credit failed' });
+      return res.status(500).json({ ok: false, error: 'processing_error' });
     }
 
     const creditData = creditResult.data;
@@ -5113,10 +5137,10 @@ app.post('/api/webhook/paymento', express.raw({ type: 'application/json' }), asy
     });
 
   } catch (error) {
-    console.error('[Paymento Webhook] Error:', error);
-    // Return 200 to prevent Paymento from retrying
-    // Log the error for investigation
-    res.status(200).json({ error: 'Processing error' });
+    // 500 so Paymento retries a transient failure. The signature was already
+    // verified above and the credit path is idempotent, so a retry can never
+    // double-credit.
+    return webhookFailureResponse(res, error, 'paymento');
   }
 });
 
@@ -5306,7 +5330,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     if (creditResult.error) {
       console.error('[Q8QPay Webhook] Credit failed:', creditResult.error.message);
-      return res.status(200).json({ error: 'Credit failed' });
+      return res.status(500).json({ ok: false, error: 'processing_error' });
     }
 
     const creditData = creditResult.data;
@@ -5317,7 +5341,7 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     if (!creditData.success) {
       console.error(`[Q8QPay Webhook] Credit function returned error: ${creditData.error}`);
-      return res.status(200).json({ error: 'Credit failed' });
+      return res.status(500).json({ ok: false, error: 'processing_error' });
     }
 
     console.log(`[Q8QPay Webhook] SUCCESS! User ${invoice.user_id} credited $${invoice.amount_usd}`);
@@ -5332,9 +5356,10 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[Q8QPay Webhook] Error:', error);
-    // Return 200 to prevent q8qpay from retrying; log for investigation
-    res.status(200).json({ error: 'Processing error' });
+    // 500 so q8qpay retries a transient failure. The signature was verified
+    // above and credit_payment_safe() is idempotent, so a retry cannot
+    // double-credit.
+    return webhookFailureResponse(res, error, 'q8qpay');
   }
 });
 
@@ -10534,7 +10559,13 @@ app.put('/api/admin/withdrawals/:id/approve', authMiddleware, adminMiddleware, a
   if (error || !withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
   if (withdrawal.status !== 'pending') return res.status(400).json({ error: 'Already ' + withdrawal.status });
   await supabaseAdmin.from('withdrawals').update({ status: 'approved' }).eq('id', id);
-  await addTransaction(withdrawal.user_id, 'Withdraw Approved', -withdrawal.amount, 'Approved withdrawal');
+  // NO ledger row here. The request already recorded the financial debit
+  // ('Withdraw', -amount) when the balance was deducted, so writing a second
+  // negative row on approval double-counted every payout in the transaction
+  // history and in any audit total that sums the ledger. The status transition
+  // on the withdrawals row (plus its amount/address/timestamps) is the audit
+  // record for the approval itself. Historical 'Withdraw Approved' rows are
+  // deliberately left in place - they are not rewritten or deleted here.
   res.json({ success: true });
 });
 
