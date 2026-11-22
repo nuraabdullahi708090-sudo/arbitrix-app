@@ -24580,6 +24580,21 @@ function showOnboarding(user) {
     return true;
 }
 
+// The signed-in user as last cached by login/signup/2FA (localStorage
+// 'arbi_user'). Several onboarding helpers call this on the startup path, so it
+// must never throw: a missing, empty or malformed cache resolves to null and the
+// callers fall back to their 'anon' behaviour instead of aborting initApp().
+function currentCachedUser() {
+    try {
+        const raw = localStorage.getItem('arbi_user');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object') ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function maybeShowOnboardingForCurrentUser() {
     if (APP.environment === 'MARKETING_SANDBOX') return;
     if (APP.liveData && APP.liveData.hasRealDeposit) return;
@@ -26401,15 +26416,11 @@ async function initApp() {
     // switched Demo -> Live must be adopted as Live, not skipped.
     adoptServerBotState();
 
-    // Onboarding: "Make My First Deposit" asked for the deposit flow, so open it
-    // now (mode is settled above). Then, for a returning account that has never
-    // seen the onboarding choice and has not funded yet, show it once. Neither
-    // creates an invoice nor credits anything.
-    if (pendingOnboardingDeposit) {
-        pendingOnboardingDeposit = false;
-        openDepositModal();
-    }
-    maybeShowOnboardingForCurrentUser();
+    // Onboarding is OPTIONAL and deliberately deferred: it now runs in the
+    // guarded block at the END of initApp, after every critical binding. Running
+    // it here (as it used to) meant a failure in this optional feature aborted
+    // the whole wiring block below - navigation, referral, wallet/chart and
+    // support controls all went inert for unfunded accounts.
 
     const botToggle = getEl('botToggle');
     if(botToggle) botToggle.addEventListener('change', toggleBot);
@@ -26720,6 +26731,24 @@ async function initApp() {
     
     window.addEventListener('resize', function() { if(APP.chartInstance) APP.chartInstance.resize(); });
     
+    // OPTIONAL ONBOARDING - runs last and in isolation on purpose.
+    // Every critical control is already bound at this point, so a failure here
+    // (bad cache, missing element, unexpected user state) degrades to "no
+    // onboarding shown" instead of leaving navigation, referral, wallet/chart or
+    // support controls unbound. The failure is reported, never silently swallowed.
+    try {
+        // "Make My First Deposit" asked for the deposit flow, so open it now
+        // (mode is settled above). Neither branch creates an invoice.
+        if (pendingOnboardingDeposit) {
+            pendingOnboardingDeposit = false;
+            openDepositModal();
+        }
+        // A returning, never-onboarded, still-unfunded account sees the choice once.
+        maybeShowOnboardingForCurrentUser();
+    } catch (e) {
+        console.error('[initApp] optional onboarding step failed; core UI is initialized:', e);
+    }
+
     // Check if user is admin and show admin panel
     checkAdminAccess();
     
