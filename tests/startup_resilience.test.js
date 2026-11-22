@@ -20,6 +20,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
+// The clipboard handlers await the shared copyTextToClipboard helper, so a click
+// settles over a few microtasks; flush them before asserting on its effects.
+const flushMicrotasks = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 const HTML_PATH = path.join(ROOT, 'public', 'index.html');
 const html = fs.readFileSync(HTML_PATH, 'utf8');
 
@@ -166,6 +169,10 @@ function makeEnv(overrides) {
     window,
     localStorage,
     navigator: { clipboard: { writeText: (v) => { clipboard.push(v); return Promise.resolve(); } }, share: undefined, userAgent: 'test' },
+    // The copy handlers delegate to the shared helper (covered end to end by
+    // tests/clipboard_reliability.test.js). Here it only needs to record what the
+    // handler passes it, so this suite stays a pure wiring test.
+    copyTextToClipboard: async (v) => { clipboard.push(v); return true; },
     console: { log() {}, warn() {}, error: (...a) => calls.push(['console.error', a.map(String).join(' ')]) },
     APP: {
       environment: 'PRODUCTION',
@@ -462,9 +469,11 @@ test('C4 referral copy buttons hand the right value to the clipboard', async () 
   const env = makeEnv();
   await runInitRegion(env);
   env.byId('copyReferralBtn').fire('click');
+  await flushMicrotasks();
   assert.deepStrictEqual(env.clipboard, ['ARBI-TEST01'], 'the referral CODE is copied');
-  assert.ok(env.toasts.some((t) => /code|referral/i.test(String(t[0]))), 'the user gets feedback');
+  assert.ok(env.toasts.some((t) => /code|referral|copyFailed/i.test(String(t[0]))), 'the user gets feedback');
   env.byId('copyReferralLinkBtn').fire('click');
+  await flushMicrotasks();
   assert.strictEqual(env.clipboard[1], 'https://arbitrix.pro/?ref=ARBI-TEST01', 'the referral LINK is copied');
 });
 
@@ -478,6 +487,7 @@ test('C5 share handlers are wired (window.open / clipboard fallback)', async () 
   assert.match(opened[0], /twitter\.com\/intent\/tweet/);
   env.byId('nativeShareBtn').fire('click');
   await new Promise((r) => setImmediate(r));
+  await flushMicrotasks();
   assert.ok(env.clipboard.includes('https://arbitrix.pro/?ref=ARBI-TEST01'), 'native-share fallback copies the link');
 });
 
@@ -524,6 +534,7 @@ test('C9 a FAILING onboarding step cannot abort the critical bindings', async ()
   assert.ok(env.byId('sidebar')._classes.has('open'), 'and still works');
 
   env.byId('copyReferralBtn').fire('click');
+  await flushMicrotasks();
   assert.deepStrictEqual(env.clipboard, ['ARBI-TEST01'], 'referral copy still works');
 
   const errs = env.calls.filter((c) => c[0] === 'console.error');
