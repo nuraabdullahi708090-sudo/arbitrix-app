@@ -1980,8 +1980,16 @@
         .bonus-info-box{background:var(--success-dim);border:1px solid var(--success-dim);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text-secondary);margin-top:8px;}
 
         @media(max-width:640px){
-            .notification-panel{position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;max-height:60vh;border-radius:16px 16px 0 0;transform:translateY(100%);opacity:1;}
-            .notification-panel.open{transform:translateY(0);}
+            /* Anchored to its bell, exactly like the desktop rule. position:absolute
+               resolves against .notification-wrapper, so the panel is independent of
+               the header: #appToolbar carries backdrop-filter:blur(12px), which makes
+               it the containing block for position:fixed descendants. With the old
+               position:fixed;bottom:0 sheet, bottom:0 resolved to the header's bottom
+               edge instead of the screen's, placing the panel 378-389px ABOVE the
+               viewport with unreachable items. max-height stays in viewport units and
+               the list scrolls inside, so the panel can never exceed the screen. */
+            .notification-panel{position:absolute;top:calc(100% + 8px);right:0;left:auto;bottom:auto;width:min(92vw,360px);max-width:calc(100vw - 24px);max-height:60vh;border-radius:16px;}
+            html[dir="rtl"] .notification-panel{right:auto;left:0;}
             .notification-list{max-height:440px;}
         }
 
@@ -2009,7 +2017,6 @@
             .badges-grid{grid-template-columns:repeat(2,1fr);}
             .badge-icon{font-size:24px;}
             .pwa-install-prompt{left:8px;right:8px;max-width:none;bottom:8px;}
-            .notification-panel{width:100%;}
             .tx-list-wrapper{max-height:200px;}
             /* Progress Steps Mobile */
             .progress-step .step-label{font-size:8px;}
