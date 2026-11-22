@@ -1657,6 +1657,18 @@
            modal's own .open class, so it holds no matter which of the many
            "Contact Support" buttons opened it or how it gets closed. */
         body:has(#supportModal.open) .support-widget{display:none;}
+        /* The cookie-consent banner shares the bottom-right corner at a higher
+           z-index (99999 vs 9998) and fully covered the support launcher:
+           measured at 1280px and 390px, the launcher's centre hit-tests as
+           button#metaConsentDecline, so tapping "Support" silently declined
+           cookies instead of opening support. While the banner exists, lift the
+           launcher clear of it (the banner is up to 155px tall on desktop and up
+           to 136px at 320px wide) rather than hiding the control; the banner node
+           is removed once consent is answered, so the offset reverts by itself. */
+        body:has(#metaConsentBanner) .support-widget{bottom:180px;}
+        @media (max-width:640px){
+            body:has(#metaConsentBanner) .support-widget{bottom:160px;}
+        }
         .support-panel-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border-color);}
         .support-panel-header h4{font-size:14px;font-weight:700;}
         .support-panel-body{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
@@ -6092,6 +6104,19 @@ async function load2FAStatus() {
 async function initiate2FASetup() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
+
+    // The 2FA panel is email-code based; the TOTP enrolment UI
+    // (#twofaTOTPSetupSection) is hidden and its QR elements were removed
+    // from the markup. These lookups used to be unguarded, so
+    // load2FAStatus() -> initiate2FASetup() threw "Cannot set properties of
+    // null" every time the 2FA panel opened and left is2FASetupInProgress
+    // stuck at true. Bail out when the UI is absent instead of throwing.
+    const qrPlaceholder = document.getElementById('twofaQRPlaceholder');
+    const manualKey = document.getElementById('twofaManualKey');
+    if (!qrPlaceholder || !manualKey) {
+        log2FAViewTransition('twofaSetupView1', 'twofaSetupView1', 'initiate2FASetup() skipped - TOTP UI not present');
+        return;
+    }
     
     log2FAViewTransition('twofaSetupView1', 'twofaSetupView1', 'initiate2FASetup() started - generating QR');
     
@@ -6112,8 +6137,8 @@ async function initiate2FASetup() {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + t('2fa.btn.generating');
     }
     
-    document.getElementById('twofaQRPlaceholder').innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>';
-    document.getElementById('twofaManualKey').textContent = t('2fa.btn.generating');
+    qrPlaceholder.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:40px;color:#ccc;"></i>';
+    manualKey.textContent = t('2fa.btn.generating');
     
     try {
         const response = await fetch('/api/2fa/setup', {
@@ -6146,12 +6171,14 @@ async function initiate2FASetup() {
         
         // Display QR code (convert otpauth URI to QR code)
         const qrCodeImg = document.getElementById('twofaQRCode');
-        qrCodeImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(data.qrCode);
-        qrCodeImg.style.display = 'block';
-        document.getElementById('twofaQRPlaceholder').style.display = 'none';
+        if (qrCodeImg) {
+            qrCodeImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(data.qrCode);
+            qrCodeImg.style.display = 'block';
+        }
+        qrPlaceholder.style.display = 'none';
         
         // Display manual key
-        document.getElementById('twofaManualKey').textContent = data.secret;
+        manualKey.textContent = data.secret;
         
         // Show recovery codes in the setup view
         const recoveryList = document.getElementById('twofaSetupRecoveryCodesList');
