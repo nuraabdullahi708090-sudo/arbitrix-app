@@ -167,8 +167,13 @@ test('reward: only confirmed-deposit paths invoke the award (registration does n
     assert.ok(registerIdx > 0);
     const registerBody = SERVER.slice(registerIdx, registerIdx + 3000);
     assert.ok(!/activateReferralOnQualification/.test(registerBody), 'registration never awards a referral reward');
+    // Definition + the two ADMIN confirmation paths. The customer-facing legacy
+    // status poll was removed from this list by security fix C1 (it credited on
+    // elapsed time and then awarded on that unaudited credit).
     const calls = (SERVER.match(/activateReferralOnQualification\(/g) || []).length;
-    assert.ok(calls >= 4, 'the confirmed-deposit paths still invoke the award');
+    assert.ok(calls >= 3, 'the confirmed-deposit paths still invoke the award');
+    assert.match(SERVER, /activateReferralOnQualification\(oldDeposit\.user_id, 'first_deposit'/);
+    assert.match(SERVER, /activateReferralOnQualification\(deposit\.user_id, 'first_deposit'/);
 });
 
 test('commission: the retired 10% architecture is absent from server.js', () => {

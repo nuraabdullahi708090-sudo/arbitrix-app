@@ -241,9 +241,11 @@ test('helper: an invalid RPC payload is treated as a refusal, not a success', as
 // B. Call-site wiring (source contract)
 // ===========================================================================
 
-test('wiring: all three legacy confirmation paths use the atomic helper', () => {
+test('wiring: both legacy confirmation paths use the atomic helper', () => {
   const calls = SERVER.match(/await confirmLegacyDeposit\((deposit|oldDeposit)\)/g) || [];
-  assert.strictEqual(calls.length, 3, 'customer polling + both admin routes');
+  // Security fix C1 removed the customer-facing polling path, which credited on
+  // elapsed time alone. Only the two ADMIN confirmation routes still credit.
+  assert.strictEqual(calls.length, 2, 'both admin routes (customer polling must not credit)');
 
   // The old, racy sequence must survive in exactly ONE place: the documented
   // fallback used only when migration 041 is not applied.
@@ -257,7 +259,7 @@ test('wiring: all three legacy confirmation paths use the atomic helper', () => 
 test('wiring: referral activation runs only for a FRESH credit', () => {
   // Each site guards activateReferralOnQualification behind confirmation.credited.
   const guarded = SERVER.match(/if \(confirmation\.credited\) \{[\s\S]{0,400}?activateReferralOnQualification/g) || [];
-  assert.strictEqual(guarded.length, 3, 'every site gates the referral on a fresh credit');
+  assert.strictEqual(guarded.length, 2, 'every remaining site gates the referral on a fresh credit');
 
   // And the referral helper itself is untouched (still exactly-once).
   assert.match(SERVER, /\.eq\('id', referral\.id\)\s*\n\s*\.eq\('status', 'pending'\)/);
@@ -267,7 +269,11 @@ test('wiring: referral activation runs only for a FRESH credit', () => {
 test('wiring: a failed confirmation is reported instead of silently succeeding', () => {
   assert.match(SERVER, /confirmation\.status\) return res\.status\(400\)\.json\(\{ error: 'Already ' \+ confirmation\.status \}\)/);
   assert.match(SERVER, /return res\.status\(500\)\.json\(\{ error: 'Confirmation failed' \}\)/);
-  assert.match(SERVER, /legacy confirmation not credited:/);
+  // Both admin routes log the reason instead of reporting a false success.
+  assert.match(SERVER, /\[admin\/payments\/confirm\] legacy deposit not credited:/);
+  assert.match(SERVER, /\[admin\/deposits\/confirm\] not credited:/);
+  // The customer poll has no failure path left, because it no longer credits.
+  assert.ok(!/\[deposit\/status\] legacy confirmation not credited:/.test(SERVER));
 });
 
 // ===========================================================================

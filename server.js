@@ -4288,64 +4288,92 @@ app.get('/api/tracking/claim-live-activated', authMiddleware, async (req, res) =
 });
 
 // ---------- Deposit ----------
+/**
+ * POST /api/deposit/request - RETIRED (security fix C1).
+ *
+ * WHAT IT USED TO DO: insert a `pending` row into `deposits` from a
+ * CLIENT-supplied `amount` against a SHARED static receive address (the same
+ * address for every user and every invoice), then return the invoice id. Two
+ * properties made that dangerous: the amount was whatever the caller asked for,
+ * and a shared address cannot attribute an on-chain payment to a customer, so
+ * the row could never carry real payment evidence. The customer-facing status
+ * endpoint then credited such a row after 15 seconds of elapsed time alone, so
+ * any authenticated user could mint an arbitrary balance for free.
+ *
+ * WHAT IT DOES NOW: nothing financial, and no row is written. It is kept
+ * (authenticated, explicit 410 Gone + machine-readable code) so an old client
+ * receives a precise answer instead of a silent 404. Deposits are created and
+ * credited only by the provider flow:
+ *   POST /api/payment/create-invoice -> provider invoice (per-invoice address)
+ *   -> verified provider webhook -> credit_payment_safe().
+ * The MARKETING_SANDBOX branch stays first and is unchanged: sandbox deposits
+ * are simulated and never touch production money.
+ */
 app.post('/api/deposit/request', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: simulated deposit only (no real invoice/address write).
   if (await sandboxHandled(req, res, handleSandboxDepositRequest)) return;
-  const { amount, network } = req.body;
-  if (!amount || amount < 10) return res.status(400).json({ error: 'Min $10' });
-  const userId = req.user.id;
-  const net = network || 'TRC20';
-  const invoiceId = 'inv_' + Date.now() + '_' + userId;
-  const addresses = { TRC20: 'TDQ2Ymmejp2MXxawBdbYkxqjZ7tTkMyMJR', ERC20: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e', BEP20: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e' };
-  const address = addresses[net] || addresses.TRC20;
-  await supabaseAdmin.from('deposits').insert({ user_id: userId, amount, network: net, address, invoice_id: invoiceId, status: 'pending' });
-  res.json({ id: invoiceId, address, cryptoAmount: (amount/1.0018).toFixed(6), usdValue: amount, expiresAt: new Date(Date.now()+3600000).toISOString(), network: net });
+  return res.status(410).json({
+    success: false,
+    code: 'LEGACY_DEPOSIT_RETIRED',
+    error: 'This deposit method has been retired. Please create your deposit from the Deposit dialog, which uses a payment provider and verifies the payment before your balance is credited.',
+    useEndpoint: '/api/payment/create-invoice'
+  });
 });
 
+/**
+ * GET /api/deposit/status/:invoiceId - READ-ONLY (security fix C1).
+ *
+ * WHAT IT USED TO DO: once the row was 15 seconds old it called
+ * confirmLegacyDeposit(), which credits the wallet and writes the ledger row,
+ * and then ran referral qualification off that unaudited credit. Elapsed time
+ * is not payment evidence, so combined with the (now retired) request route
+ * this endpoint was a self-service money printer: create a deposit, wait, poll,
+ * get credited.
+ *
+ * WHAT IT DOES NOW: reports the stored state and never writes money. Nothing
+ * reachable from here can credit a wallet. A legacy row can only be credited by
+ * an administrator who has verified the payment, through
+ * PUT /api/admin/deposits/:id/confirm or
+ * POST /api/admin/payments/:invoiceId/confirm - both behind adminMiddleware and
+ * both going through the atomic, idempotent confirm_legacy_deposit_safe() RPC.
+ *
+ * The response stays shape-compatible (`status`, `newBalance`, `creditedAmount`,
+ * `network`, `referralActivated`) and now derives credit from the DB credit
+ * marker instead of the status string: a bare `status='confirmed'` without
+ * `credited=true` (pre-migration-041 rows) reports creditedAmount 0, which is
+ * the fail-closed reading. `verified` / `requiresVerification` let a client tell
+ * "waiting for verification" apart from "credited".
+ */
 app.get('/api/deposit/status/:invoiceId', authMiddleware, async (req, res) => {
   // MARKETING_SANDBOX: reads/confirms simulated deposits only.
   if (await sandboxHandled(req, res, handleSandboxDepositStatus)) return;
   const { invoiceId } = req.params;
+  // Ownership is part of the lookup: another user's invoice is indistinguishable
+  // from a missing one (404), so this can never read or affect someone else's row.
   const { data: deposit, error } = await supabaseAdmin.from('deposits').select('*').eq('invoice_id', invoiceId).eq('user_id', req.user.id).single();
   if (error || !deposit) return res.status(404).json({ error: 'Invoice not found' });
   const elapsed = Date.now() - new Date(deposit.created_at).getTime();
-  
-  let referralActivated = null;
-  
-  if (elapsed > 15000 && deposit.status === 'pending') {
-    // Atomic confirmation: the wallet credit, the ledger row and the
-    // status/credit marker commit together, so the conversion trigger can only
-    // fire after the money actually moved (migration 041).
-    const confirmation = await confirmLegacyDeposit(deposit);
-    if (confirmation.credited) {
-      deposit.status = 'confirmed';
 
-      // Confirmed deposit -> attempt referral qualification (platform minimum,
-      // self-guarded exactly-once). Not limited to the literal first deposit,
-      // and only for a FRESH credit.
-      referralActivated = await activateReferralOnQualification(req.user.id, 'first_deposit', {
-        amount: deposit.amount,
-        network: deposit.network
-      });
-    } else if (confirmation.duplicate) {
-      deposit.status = confirmation.status || 'confirmed';
-    } else {
-      // Refused or failed: nothing was credited and nothing was marked, so the
-      // next poll retries.
-      console.error('[deposit/status] legacy confirmation not credited:', confirmation.error);
-    }
-  }
+  // The only state transition left here is the non-financial expiry of an unpaid
+  // invoice. No credit, no referral, no wallet write.
   if (elapsed > 3600000 && deposit.status === 'pending') {
     await supabaseAdmin.from('deposits').update({ status: 'expired' }).eq('id', deposit.id);
     deposit.status = 'expired';
   }
+
+  // Credit is proven by the marker the atomic credit writes - never by the
+  // status string alone and never by anything the client sent.
+  const isCredited = deposit.credited === true && deposit.status === 'confirmed';
   const wallet = await getWallet(req.user.id);
-  res.json({ 
-    status: deposit.status, 
-    newBalance: wallet.live_balance, 
-    creditedAmount: deposit.status==='confirmed' ? deposit.amount : 0, 
+  res.json({
+    status: deposit.status,
+    newBalance: wallet.live_balance,
+    creditedAmount: isCredited ? deposit.amount : 0,
     network: deposit.network,
-    referralActivated
+    referralActivated: null,
+    verified: isCredited,
+    credited: isCredited,
+    requiresVerification: deposit.status === 'pending'
   });
 });
 

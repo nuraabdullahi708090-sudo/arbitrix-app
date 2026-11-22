@@ -398,18 +398,19 @@ test('production subscription activate still uses charge_subscription_safe', () 
     assert.ok(afterBranch.includes("supabaseAdmin.rpc('charge_subscription_safe'"), 'production subscription charge path changed');
 });
 
-test('production deposit status still credits via production deposits table', () => {
+test('production deposit status reads the production deposits table and never credits', () => {
     const body = routeBody('get', '/api/deposit/status/:invoiceId');
     const afterBranch = body.slice(body.indexOf('handleSandboxDepositStatus)) return;'));
     assert.ok(afterBranch.includes("from('deposits')"), 'production deposit table read changed');
-    // The wallet credit is now ATOMIC (migration 041): the route confirms through
-    // the shared helper, which credits via confirm_legacy_deposit_safe so the
-    // conversion event cannot be recorded before the money moved. The previous
-    // `updateWallet` sequence survives only as the deploy-order fallback.
-    assert.ok(afterBranch.includes('confirmLegacyDeposit(deposit)'), 'production credit path changed');
-    assert.ok(/supabaseAdmin\.rpc\('confirm_legacy_deposit_safe'/.test(SERVER), 'the atomic credit RPC is not wired');
+    // SECURITY FIX C1: the customer-facing status endpoint is read-only. It used
+    // to credit a row once it was 15s old, which let any authenticated user mint
+    // a balance (elapsed time is not payment evidence). Credit is now reachable
+    // only from the admin confirmation routes, through the atomic RPC.
+    assert.ok(!afterBranch.includes('confirmLegacyDeposit'), 'customer polling must never credit a legacy deposit');
+    assert.ok(!afterBranch.includes('updateWallet'), 'customer polling must never write a wallet');
+    assert.ok(/supabaseAdmin\.rpc\('confirm_legacy_deposit_safe'/.test(SERVER), 'the atomic credit RPC is still wired (admin path)');
     assert.ok(SERVER.includes("updateWallet(deposit.user_id, 'live_balance', deposit.amount)"),
-        'the documented fallback credit was removed');
+        'the documented admin-path fallback credit was removed');
 });
 
 test('production admin stats read production tables only (no sandbox contamination)', () => {

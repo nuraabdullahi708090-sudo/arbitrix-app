@@ -80,13 +80,19 @@ test('onboarding / profile / KYC never award a referral reward', () => {
             i = SERVER.indexOf(marker, j < 0 ? SERVER.length : j);
         }
     }
-    // The ONLY server-side trigger is the confirmed-deposit path.
-    assert.ok(SERVER.includes('activateReferralOnQualification(req.user.id, \'first_deposit\''), 'award is wired to deposit confirmation');
+    // The only server-side triggers are the confirmed-deposit paths (the
+    // customer-facing legacy poll no longer credits - security fix C1).
+    assert.ok(/activateReferralOnQualification\((oldDeposit|deposit)\.user_id, 'first_deposit'/.test(SERVER),
+        'award is wired to a confirmed-deposit path');
 });
 
-test('deposit REQUEST creation never awards (pending only)', () => {
-    assert.match(DEPOSIT_REQ, /status: 'pending'/, 'the request row starts pending');
-    assert.ok(!/activateReferralOnQualification|award|bonus_balance|live_balance/.test(DEPOSIT_REQ), 'no crediting/award on request creation');
+test('deposit REQUEST creation cannot award (it creates nothing at all)', () => {
+    // Security fix C1 retired this endpoint: it no longer mints a pending row,
+    // so there is no deposit record to qualify and nothing to credit.
+    assert.ok(!/\.insert\(/.test(DEPOSIT_REQ), 'request creation writes no deposit row');
+    assert.ok(!/activateReferralOnQualification|award|bonus_balance|live_balance/.test(DEPOSIT_REQ),
+        'no crediting/award on request creation');
+    assert.match(DEPOSIT_REQ, /LEGACY_DEPOSIT_RETIRED/, 'the endpoint is explicitly retired');
 });
 
 // =========================================================================
