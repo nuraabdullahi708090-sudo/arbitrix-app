@@ -259,8 +259,10 @@ test('compatibility identifiers are untouched', () => {
   // the provider payload field names are reconciliation identifiers
   const q8 = read('services/providers/q8qpay.js');
   assert.ok(q8.includes('arbitrixUserId') && q8.includes('arbitrixDepositRef'));
-  // the seeded admin credential
-  assert.ok(SERVER.includes("admin@arbitrix.ai"));
+  // the legacy seeded admin identity: no longer in application code (the
+  // unconditional seed was removed), still documented for operator verification
+  assert.ok(!SERVER.includes("admin@arbitrix.ai"), 'no default admin credential in code');
+  assert.ok(read('docs/security/ADMIN_PROVISIONING.md').includes("admin@arbitrix.ai"));
   // the knowledge base filename is a path other code and tests resolve
   assert.ok(read('services/support/SupportKnowledge.js').includes('arbitrix-knowledge.json'));
 });

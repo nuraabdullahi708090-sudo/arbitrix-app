@@ -465,7 +465,7 @@ test('19. existing auth behavior remains intact: registration + login password c
     // Registration still rejects duplicate emails; login still verifies password.
     assert.ok(/app\.post\('\/api\/auth\/register'/.test(SERVER), 'register route present');
     assert.ok(/app\.post\('\/api\/auth\/login'/.test(SERVER), 'login route present');
-    assert.ok(/bcrypt\.compareSync\(password, user\.password_hash\)/.test(SERVER), 'login still uses bcrypt password compare');
+    assert.ok(/bcrypt\.compare\(password, user\.password_hash\)/.test(SERVER), 'login still uses bcrypt password compare');
     // Full sessions are signed through the single signSessionToken helper (which
     // adds a jti for server-side revocation) with the same id+email payload.
     assert.ok(/signSessionToken\(\{ id: user\.id, email: user\.email/.test(SERVER), 'login still signs a JWT session token with id+email');

@@ -50,21 +50,34 @@ async function api(method, path, { token, body, headers } = {}) {
   return { status: res.status, json, text };
 }
 
+/**
+ * Log in through the legacy alias, which now runs the same 2FA-aware flow as
+ * /api/2fa/login-initiate. A `requires2FA` answer means the rehearsal database
+ * still has the default email 2FA mode, not that the password is wrong.
+ */
+async function loginToken(email, label) {
+  const res = await api('POST', '/api/auth/login', { body: { email, password: PASSWORD } });
+  if (res.json && res.json.requires2FA) {
+    throw new Error('login for ' + label + ' requires a second factor; the rehearsal needs '
+      + 'feature_flags.2fa_type set to a non-2FA value (see 00_bootstrap.sql)');
+  }
+  if (!res.json || !res.json.token) throw new Error('login failed for ' + label + ': ' + res.text.slice(0, 200));
+  return res.json.token;
+}
+
 let seq = 0;
 async function newUser(label, { live = null, admin = false, sandbox = false } = {}) {
   seq += 1;
   const email = `${label}.${Date.now()}.${seq}@smoke.kalderix.test`;
   const reg = await api('POST', '/api/auth/register', { body: { name: label, email, password: PASSWORD } });
   if (reg.status !== 200 && reg.status !== 201) throw new Error('register failed for ' + label + ': ' + reg.status + ' ' + reg.text.slice(0, 200));
-  const login = await api('POST', '/api/auth/login', { body: { email, password: PASSWORD } });
-  if (!login.json || !login.json.token) throw new Error('login failed for ' + label + ': ' + login.text.slice(0, 200));
-  let token = login.json.token;
+  let token = await loginToken(email, label);
   const me = await api('GET', '/api/auth/me', { token });
   const id = me.json && (me.json.user ? me.json.user.id : me.json.id);
   if (!id) throw new Error('no user id for ' + label + ': ' + me.text.slice(0, 200));
   if (admin) {
     sql(`update users set is_admin=1 where id=${id};`);
-    token = (await api('POST', '/api/auth/login', { body: { email, password: PASSWORD } })).json.token;
+    token = await loginToken(email, label + ' (admin)');
   }
   if (sandbox) sql(`update users set environment='MARKETING_SANDBOX' where id=${id};`);
   if (live !== null) sql(`update wallets set live_balance=${live} where user_id=${id};`);

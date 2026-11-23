@@ -30,6 +30,10 @@ const Email2FAService = require('./services/Email2FAService');
 // Server-side JWT session revocation (jti denylist) for logout
 const TokenRevocation = require('./services/TokenRevocationService');
 
+// Authentication entry-point hardening: explicit-only administrator
+// provisioning and login/registration rate limiting (pure, dependency-free).
+const AuthEntry = require('./services/AuthEntry');
+
 // Telegram support bot (@ArbitrixSupportBot). Additive: the app boots with the
 // bot unconfigured and the /api/telegram/* routes fail closed until the
 // TELEGRAM_* env vars are set (see .env.example).
@@ -257,6 +261,46 @@ function checkForgotPasswordRateLimit(ip, email) {
     resetIn: 0
   };
 }
+
+// ---------------------------------------------------------------------------
+// AUTH ENTRY-POINT RATE LIMITING (login + registration)
+//
+// Separate from the password-reset limiter above on purpose: those windows are
+// tuned for "forgot password" (5 per 15 min) and would lock normal users out of
+// logging in. These counters follow the module defaults (60 login attempts per
+// IP per 15 min, 10 failed logins per account per 15 min, 20 registrations per
+// IP per hour) and are overridable through AUTH_RATE_LIMIT_* (see .env.example).
+//
+// Throttling answers are identical whether or not the account exists, so the
+// limiter cannot be used to enumerate accounts.
+// ---------------------------------------------------------------------------
+const authRateLimiter = AuthEntry.createAuthRateLimiter(AuthEntry.resolveAuthRateLimits(process.env));
+
+/**
+ * Best-effort client IP, matching the convention already used by the
+ * forgot-password and admin-audit routes (Cloudflare/Render set
+ * x-forwarded-for at the edge).
+ */
+function getClientIp(req) {
+  try {
+    const forwarded = req && req.headers && req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim();
+    }
+    return (req && (req.ip || (req.socket && req.socket.remoteAddress))) || 'unknown';
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
+function sendAuthRateLimited(res, retryAfter, message) {
+  const seconds = Math.max(1, Math.round(Number(retryAfter) || 1));
+  try { res.set('Retry-After', String(seconds)); } catch (e) { /* headers already sent */ }
+  return res.status(429).json({ error: message, retryAfter: seconds });
+}
+
+const LOGIN_RATE_LIMIT_MESSAGE = 'Too many login attempts. Please try again later.';
+const REGISTER_RATE_LIMIT_MESSAGE = 'Too many registration attempts. Please try again later.';
 
 // Create Resend client
 let resendClient = null;
@@ -3392,6 +3436,15 @@ app.post('/api/auth/register', async (req, res) => {
   const { name, email, password, referralCode } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password min 6 chars' });
+
+  // ACCOUNT-CREATION RATE LIMIT. Counted per client IP and applied BEFORE any
+  // database read, so registration cannot be used to hammer the users table.
+  // The same answer is returned regardless of the submitted address.
+  const registerLimit = authRateLimiter.checkRegister(getClientIp(req));
+  if (!registerLimit.allowed) {
+    return sendAuthRateLimited(res, registerLimit.retryAfter, REGISTER_RATE_LIMIT_MESSAGE);
+  }
+
   if (await getUserByEmail(email)) return res.status(400).json({ error: 'Email already registered' });
   
   const hash = bcrypt.hashSync(password, 10);
@@ -3525,13 +3578,12 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login
+// Legacy login entry point. Kept as an alias so older clients keep a working
+// URL, but it now runs the SAME flow as /api/2fa/login-initiate: a password can
+// never produce a full session token while a second factor is outstanding.
+// (See loginInitiateHandler below; function declarations are hoisted.)
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const user = await getUserByEmail(email);
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: user.environment || ENV_PRODUCTION } });
+  return loginInitiateHandler(req, res);
 });
 
 // Logout — server-side session revocation.
@@ -10099,12 +10151,25 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
 
 // POST /api/2fa/login-initiate - First step of 2FA login
 // Now uses Email 2FA by default (controlled by feature flag)
-app.post('/api/2fa/login-initiate', async (req, res) => {
+// Shared login initiation used by BOTH /api/2fa/login-initiate and the legacy
+// /api/auth/login alias. Credentials are verified here, then the second factor
+// decides what is returned: a full session token only when no second factor is
+// outstanding, otherwise a short-lived partial token for /api/2fa/login-verify.
+async function loginInitiateHandler(req, res) {
     try {
         const { email, password } = req.body;
         
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password required' });
+        }
+
+        // RATE LIMIT. The IP bucket counts every attempt; the account bucket
+        // counts failed attempts (cleared on success). The 429 is identical
+        // whether or not the address exists, so it reveals nothing.
+        const accountKey = AuthEntry.normalizeEmail(email);
+        const loginLimit = authRateLimiter.checkLogin(getClientIp(req), accountKey);
+        if (!loginLimit.allowed) {
+            return sendAuthRateLimited(res, loginLimit.retryAfter, LOGIN_RATE_LIMIT_MESSAGE);
         }
         
         // Verify credentials
@@ -10116,13 +10181,19 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         
         if (error || !user) {
             // Use same error to prevent email enumeration
+            authRateLimiter.recordLoginFailure(accountKey);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
         const passwordValid = await bcrypt.compare(password, user.password_hash);
         if (!passwordValid) {
+            authRateLimiter.recordLoginFailure(accountKey);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        // Credentials accepted: forget accumulated failures for this account so
+        // a user who mistyped twice and then succeeded is not penalised later.
+        authRateLimiter.clearLoginFailures(accountKey);
         
         // MARKETING_SANDBOX accounts use generated fictional emails that can
         // never receive a verification code. Skip the production email/TOTP
@@ -10143,6 +10214,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
                     referralCode: user.referral_code,
                     isAdmin: user.is_admin===1,
                     is_admin: !!user.is_admin,
+                    environment: user.environment || ENV_PRODUCTION,
                     is_verified: false // KYC verification not implemented yet
                 }
             });
@@ -10226,6 +10298,8 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
                 referralCode: user.referral_code,
                 isAdmin: user.is_admin===1,
                 is_admin: !!user.is_admin,
+                // Parity with the legacy alias response clients may still read.
+                environment: user.environment || ENV_PRODUCTION,
                 is_verified: false // KYC verification not implemented yet
             }
         });
@@ -10233,7 +10307,9 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         console.error('2FA login initiate error:', error);
         res.status(500).json({ error: 'Login failed' });
     }
-});
+}
+
+app.post('/api/2fa/login-initiate', loginInitiateHandler);
 
 // Helper: Mask email for display
 function maskEmail(email) {
@@ -11634,31 +11710,50 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
   }
 });
 
-// ---------- SEED ADMIN ----------
-(async function seedAdmin() {
+// ---------- ADMIN PROVISIONING (explicit, opt-in) ----------
+// NO default administrator is created and NO default password exists. An
+// operator must set BOTH ADMIN_PROVISION_EMAIL and ADMIN_PROVISION_PASSWORD to
+// explicit values (the password is validated for strength); see
+// docs/security/ADMIN_PROVISIONING.md. An existing account with that email is
+// NEVER modified - no password reset, no role change - so this can never lock
+// out a working administrator. A newly provisioned account receives an
+// explicitly zeroed wallet: operator accounts are not funded with promotional
+// money. Nothing here logs an email or a password.
+(async function initAdminProvisioning() {
   try {
-    const existing = await supabaseAdmin.from('users').select('id').eq('email', 'admin@arbitrix.ai').single();
-    if (!existing.data) {
-      const hash = bcrypt.hashSync('admin123', 10);
-      const { data: admin, error } = await supabaseAdmin.from('users').insert({
-        name: 'Admin',
-        email: 'admin@arbitrix.ai',
-        password_hash: hash,
-        referral_code: 'ARBI-ADMIN',
-        is_admin: 1
-      }).select().single();
-      if (admin) {
-        await supabaseAdmin.from('wallets').insert({
-          user_id: admin.id,
-          demo_balance: 10000,
-          live_balance: 5000,
-          bonus_balance: 0
-        });
-        console.log('✅ Admin created: admin@arbitrix.ai / admin123');
-      }
+    const result = await AuthEntry.provisionAdmin({
+      admin: supabaseAdmin,
+      env: process.env,
+      hashPassword: function (plain) { return bcrypt.hashSync(plain, 10); },
+      generateReferralCode: generateUniqueReferralCode
+    });
+
+    switch (result && result.status) {
+      case 'created':
+        console.log('[AdminProvisioning] administrator created (id=' + result.userId + ')' +
+          (result.walletCreated ? '' : ' - wallet NOT created; set its balances to 0 manually'));
+        break;
+      case 'exists':
+        console.log('[AdminProvisioning] configured account already exists; left unchanged');
+        break;
+      case 'incomplete':
+        console.warn('[AdminProvisioning] both ADMIN_PROVISION_EMAIL and ADMIN_PROVISION_PASSWORD are required; no administrator was created');
+        break;
+      case 'invalid-email':
+        console.warn('[AdminProvisioning] ADMIN_PROVISION_EMAIL is not a valid address; no administrator was created');
+        break;
+      case 'weak-password':
+        console.warn('[AdminProvisioning] ADMIN_PROVISION_PASSWORD rejected (' + (result.reason || 'weak') + '); no administrator was created');
+        break;
+      case 'error':
+        console.warn('[AdminProvisioning] provisioning failed (' + (result.reason || 'error') + '); no administrator was created');
+        break;
+      default:
+        // 'disabled' - nothing configured; normal startup stays silent.
+        break;
     }
   } catch (e) {
-    console.log('Admin check:', e.message);
+    console.warn('[AdminProvisioning] provisioning failed; no administrator was created');
   }
 })();
 

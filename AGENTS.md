@@ -9678,3 +9678,33 @@ the removed/added copy.
 - REMAINING ACTION (founder, needs DB access): run the SNAPSHOT, run section A, apply
   055 if NEXT ACTION says so, re-run A and B (all OK), re-run the SNAPSHOT and confirm
   identical numbers.
+
+## Auth Entry-Point Hardening (2026-11-23, branch fix/auth-entry-hardening)
+- Removed the unconditional `seedAdmin()`: no default administrator, no published
+  password (`admin123`), no auto-funded 5000 live balance. Replacement is
+  `services/AuthEntry.provisionAdmin()`, driven ONLY by an explicit
+  `ADMIN_PROVISION_EMAIL` + `ADMIN_PROVISION_PASSWORD` pair (validated for strength).
+  An existing account with that email is NEVER touched (no reset, no role change),
+  and a newly provisioned admin gets an explicitly zeroed wallet. Status-only
+  logging (id, never the email or password). Operator runbook:
+  `docs/security/ADMIN_PROVISIONING.md` (read-only SQL checks + transition steps);
+  none of it was executed against production.
+- `/api/auth/login` (legacy) is now an ALIAS that calls the same
+  `loginInitiateHandler` as `/api/2fa/login-initiate`, so a password alone can never
+  mint a full session while TOTP or email 2FA is outstanding. The response is a
+  superset of the old one (adds `success`, `requires2FA`, `partialToken`,
+  `twoFactorType`, `is_admin`, `environment`, `is_verified`).
+- Auth rate limiting (`services/AuthEntry.createAuthRateLimiter`): login per IP
+  (60/15min, every attempt) AND per account (10 failed/15min, cleared on success),
+  registration per IP (20/hour). All overridable via `AUTH_RATE_LIMIT_*`; 0 disables
+  a bucket. 429 + `Retry-After`; the answer never depends on whether the account
+  exists. The old forgot-password limiter is separate and unchanged on purpose.
+- Tests: NEW `tests/auth_entry_hardening.test.js` (24, unit + source pins) and
+  `tests/auth_entry_http.test.js` (10, boots the REAL server with
+  `tests/helpers/fake-supabase-auth.js`); pins updated for the intentional changes in
+  `auth_session_revocation` (5 token mints), `email_change` (async bcrypt compare) and
+  `marketing_sandbox` (handler extraction + limiter stubs + the `environment` field).
+  Full suite: 3798 tests, 3797 pass, 0 fail, 1 pre-existing skip (no Chromium).
+- The release rehearsal (`docs/relaunch/rehearsal/`) now pins
+  `feature_flags.2fa_type='disabled'` and disables the IP/registration buckets, since
+  it logs in via the legacy alias from a single IP with no mailer.

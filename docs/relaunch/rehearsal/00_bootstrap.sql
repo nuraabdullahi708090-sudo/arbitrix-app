@@ -181,3 +181,16 @@ create table if not exists public.trades (
   idempotency_key text unique,
   created_at timestamptz not null default now()
 );
+
+-- Feature flags. The application reads `2fa_type` (default 'email') from here.
+-- The rehearsal has no mailer, so it pins the value to a non-challenge value;
+-- this is a LOCAL container setting and has nothing to do with production.
+create table if not exists public.feature_flags (
+  flag_key text primary key,
+  flag_value text,
+  description text,
+  updated_at timestamptz not null default now()
+);
+insert into public.feature_flags (flag_key, flag_value, description)
+values ('2fa_type', 'disabled', 'Rehearsal only: no second factor (no mailer in the container)')
+on conflict (flag_key) do nothing;

@@ -111,7 +111,10 @@ test('server.js signs every full session through signSessionToken (jti source)',
   // Exactly the five full-session issuers use the helper; no full 7d jwt.sign
   // statement may remain (partial 2FA tokens stay 5m and are unaffected).
   const fullSigns = SERVER.match(/signSessionToken\(/g) || [];
-  assert.strictEqual(fullSigns.length, 6, 'expected 1 definition + 5 call sites');
+  // 1 definition + 4 call sites. The legacy /api/auth/login alias no longer
+  // mints a token itself - it delegates to the 2FA-aware handler, so a password
+  // alone can never produce a full session.
+  assert.strictEqual(fullSigns.length, 5, 'expected 1 definition + 4 call sites');
   assert.ok(!/jwt\.sign\(\s*\{[^}]*\}\s*,\s*JWT_SECRET\s*,\s*\{\s*expiresIn:\s*'7d'/.test(SERVER),
     'no full-session jwt.sign may bypass signSessionToken');
 });
