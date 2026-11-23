@@ -9897,3 +9897,56 @@ the removed/added copy.
   `.single()` request gets 406/PGRST116. Getting this wrong makes a "not found" look like a
   store failure.
 - supabase-js encodes operators INSIDE the value (`email=ilike.x@y`, not `ilike=x@y`).
+
+
+## UI redesign phase 1 - design system, hero and view router (2026-11-23, PR #204)
+
+Branch `design/kalderix-ui-redesign` off `main` @ 06a17c7. Frontend only: `public/index.html`,
+`tests/redesign_shell.test.js`, `docs/design/*`. No server.js / services / migrations / money
+path touched. NOT merged, NOT deployed.
+
+- **Append-only design layer.** A ~350-line block at the end of the stylesheet declares the
+  `--kx-*` tokens and restyles the existing components through them. Nothing above it was
+  deleted, so every legacy selector still resolves. The accent stays `--brand: #5EA0FF`
+  (asserted: no second brand colour).
+- **Hero.** The four equal KPI cards became `#kxHero` (`.kx-hero-eq/av/pnl/bot`) with grid
+  areas: one column on phones, 2x2 on tablets, an asymmetric two-row desktop composition.
+  `#totalEquity` / `#balanceValue` / `#pnlValue` / `#botStatus` and both action buttons keep
+  their ids; `#pnlValue` keeps `class="stat-value fin-zero"` because `polish_semantics` pins
+  that exact string.
+- **Cockpit.** `#kxCockpit` wraps `#chartCard` + `#tradingStatsCard` (stacked below 1100px,
+  1.9fr/1fr above).
+- **Grouped sidebar.** Five `nav.*` keys x 6 locales; dictionary 1593 -> 1598 (16 pin files
+  updated). Sidebar links keep ids, `data-section` attributes and handlers.
+- **View router.** `showView(name, opts)` is declared at MODULE scope next to
+  `navigateToAdmin` - putting it inside `initApp` (where the nav wiring lives) makes it
+  invisible to `navigateToAdmin` and to inline handlers. Views: `kxViewOverview` (container,
+  `hidden` attribute), `markets`, `history` (Activity), `referral`, `adminPanel`. It sets the
+  toolbar title (`#kxViewTitle`), `#view` hash, `data-kx-view` and the active link.
+- **Real bug fixed:** `navigateToAdmin()` hid every `.card, .wallet-section` in `#mainContent`
+  with inline styles and never restored them, so leaving Admin left a blank dashboard until a
+  reload. It now delegates to `showView('admin')`. `tests/admin_nav_visibility.test.js` was
+  rewritten for the new contract (it used to pin the hide loop).
+- **Mobile header trap:** an override that uses the `padding` SHORTHAND resets the base
+  `padding-top:44px` that reserves space for the fixed hamburger; at 390px the header collapsed
+  to 46px and sat under the menu button. The mobile rule now sets only the three sides, and
+  `redesign_shell` pins "no padding shorthand in the mobile header rule". `lastRule()` in
+  `mobile_nav_layout.test.js` reads only top-level rules (smallest indent), so a media-block
+  override can break the runtime while the test stays green - verify with measurement.
+- **Guard tests:** `tests/redesign_shell.test.js` (15) runs the REAL router in a vm (view
+  switching, title, hash, active link, unknown-name fallback, admin class handling) and pins
+  tokens, hero ids/order, cockpit grouping, nav i18n parity across 6 locales, breakpoints,
+  focus/reduced-motion, "no `!important` display:none in the layer", and the preserved money
+  constants. `ui_overlay_clickability`'s method-call heuristic now accepts `)`/`]` receivers
+  (`document.getElementById(...).scrollIntoView(...)`).
+- **Verification method (no screenshots):** headless Chromium with `puppeteer-core` installed
+  OUTSIDE the repo (`npm i puppeteer-core` in /tmp/tools), API stubbed via
+  `evaluateOnNewDocument(() => window.fetch = () => Promise.reject(...))`, then
+  `await initApp()` and force the app view. `createBrowserContext()` failed on this Chromium
+  build - use plain pages. Checks are DOM/computed-style based: geometry, colours, type sizes,
+  overflow, visibility. 338 layout checks + 33 increment checks + 25 modal checks, all green.
+- **Measured shell** (header / hero / document): 320: 134/529/2466; 390: 90/473/2394;
+  768: 132/319/2003; 1024: 54/267/1868; 1280: 54/207/1378.
+- **Follow-ups documented** in `docs/design/UX_AUDIT_2026-11.md` section 6: modal focus
+  trapping, tablet header height, landing token migration, unifying the two modal systems'
+  behaviour, onboarding "next step" copy.
