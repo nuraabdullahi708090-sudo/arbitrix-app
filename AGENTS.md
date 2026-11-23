@@ -9824,3 +9824,76 @@ the removed/added copy.
   `feature_flags.2fa_type` before rotating (the checklist spells out the safe order).
 - NOTHING WAS MERGED, DEPLOYED, APPLIED OR ROTATED while preparing this. Migration 056 is a
   FILE in this branch; it is applied by an operator, after a duplicate preflight.
+## Auth review closure (#201) + activation-truthfulness UX (#202) - 2026-11-23 (NOT merged, NOT deployed)
+
+### PR #201 reviewed, repaired, pushed (head 64083aa)
+- Verified the four hardening areas and fixed one defect class the PR had left half-done.
+  Findings and residual risks are posted on the PR; `npm test` = 3873 pass / 0 fail.
+- VERIFIED CORRECT: ClientIp never parses X-Forwarded-For (req.ip only) and refuses
+  blanket trust; bounded per-account lockout (10/15min, 15s->120s cooldown, cleared on
+  success) with SHARED_IP_DEFAULTS when the address is unattributable; forgot-password
+  answers BEFORE any address-dependent work (setImmediate + total error swallowing), so
+  body AND timing are uniform; revocation pruning deletes only expired rows and `has()`
+  filters on expires_at, so nothing can be revoked forever; authMiddleware fails OPEN on
+  a store outage (documented trade-off).
+- DEFECT FOUND (the application half of migration 056 was missing): the DB index makes
+  one row per lower(email), but the app still looked addresses up EXACTLY.
+  * login: `Foo@Bar.com` registered, `foo@bar.com` typed -> "Invalid credentials".
+  * forgot-password LOWER-CASED the address then queried exactly -> a mixed-case account
+    was never found, so no email was sent and the password could never be reset.
+  * register / email-change had no 23505 handling -> applying 056 turns a case-variant
+    signup into a 500.
+- FIX: `AuthEntry.findAccountByEmail(admin, email, {columns})` - exact match first (fast
+  path, uses the index), then ONE case-insensitive query compared on the normalised
+  address, returning `ambiguous: true` rather than choosing when two rows differ only in
+  case (possible only pre-056; logged as "ambiguous email lookup refused"). It tolerates
+  `.maybeSingle()`, `.limit()` or a bare thenable builder and skips the fallback when the
+  client has no `ilike`, so test doubles keep working. `getUserByEmail()` delegates to it,
+  covering login, registration, reset, email change, sandbox and admin creation in one
+  place. 23505 maps to the documented 400/409 answers. Reset records are matched by token
+  HASH with a case-insensitive address.
+- Tests: NEW `tests/auth_email_identity.test.js` (13; helper contract + real HTTP).
+  Updated pins: the provisioning stub (same helper) and one order assertion that now
+  accepts `getUserByEmail(`. `tests/helpers/fake-supabase-auth.js` gained `users` (array),
+  `ilike` matching and `insertError`, and now answers 200 [] (not 406) for an array miss.
+- SEQUENCING: #201 is a direct descendant of #200 (no commit unique to #200), so merge
+  #201 and close #200 as superseded.
+
+### PR #202 - activation-truthfulness UX (branch fix/onboarding-activation-ux)
+- Four surfaces claimed a paid Live activation was required even though
+  PAYHIP_ACTIVATION_REQUIRED is OFF by default:
+  * #depositActivationNote: hidden in the markup, shown only when activationPending();
+  * promo card: new `promo.creditExplainTradable` when no activation is outstanding or it
+    is already done;
+  * Start Here: the activation step appears only when required; subtitle follows the step
+    count (`startHere.live.subtitleNext`);
+  * onboarding modal: `onboarding.explainerActivation` / `primaryDescActivation`, rendered
+    by `renderOnboardingActivationCopy()` (JS, because it interpolates {{min}}), re-run by
+    updateDynamicTranslations + showOnboarding.
+- REAL WITHDRAWAL BLOCKER FIXED: `APP.liveData.hasTradingActivity` was only set in-session,
+  never hydrated, so a returning customer who had traded in an earlier session was told
+  "Complete at least 1 trade before withdrawing" and the form never opened. `/api/auth/me`
+  now returns `hasTradingActivity` (the same 'Trade Executed' ledger test the withdrawal
+  route enforces, run in the existing Promise.all and failing to false) and
+  syncWalletFromServer adopts it. The gate itself is unchanged.
+- Tests: NEW `tests/activation_copy_truthfulness.test.js` (7); starthere_mode_aware
+  rewritten for the activation-aware checklist; promo_credit_display gained the variant
+  pin; dictionary 1589 -> 1593. Full suite 3773 tests, 3772 pass, 1 skipped.
+- Browser (puppeteer-core + chromium, stubbed API, DOM assertions only - NO screenshots):
+  account-state matrix 26/26, and the same harness on the pre-fix tree fails 13 checks
+  (promo instruction, unconditional deposit note, always-two-step checklist, the false
+  "complete at least 1 trade" toast). Locale x width matrix 108/108 (6 locales x 320/390):
+  the onboarding explains the activation with an interpolated minimum, ar is RTL, no
+  horizontal overflow, no visible element renders its own i18n key.
+- Not touched: deposit creation/crediting, the $100 minimum, Q8Pay, withdrawals (only the
+  display source of an existing flag), trading/worker, promo cap, subscriptions, KYC,
+  referrals, the sandbox, the Payhip gates. No migration, no env var, no new route.
+
+### Harness lessons
+- `document.body.textContent` INCLUDES <script> text, so the in-page TRANSLATIONS literal
+  makes any "raw key visible" regex match. Scan visible [data-i18n] elements (compare their
+  rendered text with their key) instead.
+- The fake PostgREST helper must answer 200 [] for an ARRAY request with no rows; only a
+  `.single()` request gets 406/PGRST116. Getting this wrong makes a "not found" look like a
+  store failure.
+- supabase-js encodes operators INSIDE the value (`email=ilike.x@y`, not `ilike=x@y`).
