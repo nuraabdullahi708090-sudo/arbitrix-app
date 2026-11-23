@@ -154,7 +154,7 @@ and the referral-config audit trail. That address now comes from Express
 
 | Setting | Effect |
 |---|---|
-| (neither set) | **Trust nothing.** `req.ip` is the direct peer. Safe against spoofing, but behind a proxy every request shares the proxy's address, so the per-IP limits become a coarse shared limit. |
+| (neither set) | **Trust nothing.** `req.ip` is the direct peer. Safe against spoofing, but behind a proxy every request shares the proxy's address, so the per-IP buckets switch to the wider **shared-address budgets** described below instead of throttling every customer at once. |
 | `TRUST_PROXY=loopback,10.0.0.0/8,...` | Express trusts the listed ranges. Preferred when the ranges are known: it does not depend on counting hops. |
 | `TRUST_PROXY_HOPS=2` | Express trusts that many proxies immediately in front of the app. Correct only if the app cannot be reached directly (see below). |
 | `TRUST_PROXY=true` / `*` / `all` | **Refused.** The setting is ignored with a warning, because it would accept a client-supplied chain. |
@@ -183,12 +183,27 @@ restrict direct access.
 
 ## Rate limiting architecture
 
-| Bucket | Default | Counts |
-|---|---|---|
-| Login per IP | 60 per 15 min | every attempt |
-| Login per account | 10 failures per 15 min, then cooldowns | failed passwords only, cleared on success |
-| Registration per IP | 20 per hour | every attempt |
-| Forgot password | 5 per IP per 15 min, 3 per email per hour | pre-existing, unchanged |
+| Bucket | Default (address attributable) | Shared-address default | Counts |
+|---|---|---|---|
+| Login per IP | 60 per 15 min | 5,000 per 15 min | every attempt |
+| Login per account | 10 failures per 15 min, then cooldowns | unchanged | failed passwords only, cleared on success |
+| Registration per IP | 20 per hour | 200 per hour | every attempt |
+| Forgot password, per IP | 5 per 15 min | 200 per 15 min | every attempt |
+| Forgot password, per email | 3 per hour | unchanged | every attempt |
+
+**Why the two columns exist.** With no trusted proxy every visitor shares the
+edge address, so the per-client budgets would silently become *platform-wide*
+budgets: 60 logins per 15 minutes, 20 signups per hour and 5 password resets per
+15 minutes for the entire customer base. That is an outage dressed as a security
+control, so in that state the per-IP buckets fall back to the wider
+shared-address budgets, which bound a crude flood without throttling normal
+traffic. The per-account login limiter needs no address and keeps its full
+strength, so brute-forcing one account is still stopped.
+
+The same numbers are shown in `.env.example`. An **explicit** `AUTH_RATE_LIMIT_*`
+or `RATE_LIMIT_IP_MAX` value always wins, and the server warns at startup when an
+explicit per-IP cap is combined with an unattributable address, because those
+caps then apply to all customers combined.
 
 Characteristics to keep in mind:
 
@@ -226,9 +241,12 @@ Characteristics to keep in mind:
   handles the violation gracefully, and `supabase/migrations/056_users_email_unique.sql`
   now adds a guarded, case-insensitive unique index - **not applied yet**; follow
   its operator procedure. See `docs/security/AUTH_SESSION_HARDENING.md`.
-- Without a configured proxy trust, per-IP limits degrade to a shared limit. That
-  is a availability/config decision, not a spoofing hole: an unconfigured proxy
-  makes the limit stricter, never weaker.
+- Without a configured proxy trust, the per-IP buckets cannot tell customers
+  apart. That is not a spoofing hole (a client cannot supply its own address), but
+  it *is* a shared budget, so the code widens those defaults as described above
+  and logs `SHARED-ADDRESS mode` at startup. Configure `TRUST_PROXY_HOPS` or
+  `TRUST_PROXY` to get true per-client limits; until then the per-account login
+  limiter is the effective brute-force control.
 
 ## What this procedure deliberately does not do
 

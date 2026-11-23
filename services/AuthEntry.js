@@ -324,6 +324,30 @@ const DEFAULT_RATE_LIMITS = {
   sweepIntervalMs: 60 * 1000
 };
 
+/**
+ * Budgets used when the client address is NOT attributable to a single client.
+ *
+ * When no proxy is trusted (`TRUST_PROXY` / `TRUST_PROXY_HOPS` unset) the server
+ * sees the edge proxy's address for every visitor, so a per-address budget of
+ * "60 logins per 15 minutes" would be a GLOBAL budget: one busy hour would lock
+ * every customer out, and 20 registrations per hour for the whole platform would
+ * stop signups entirely. Using the per-client defaults in that situation is a
+ * self-inflicted outage, not a security control.
+ *
+ * The shared budgets below are therefore deliberately generous: they exist only
+ * to bound a crude flood, while the per-account login limiter - which does not
+ * depend on the address - keeps its normal strength. An explicit
+ * AUTH_RATE_LIMIT_* value always wins over these defaults, and they are never
+ * used once a proxy trust setting makes the address attributable.
+ */
+const SHARED_IP_DEFAULTS = {
+  loginIpMax: 5000,
+  // A password-reset request for one address is already limited per email; this
+  // is only the flood guard for the whole platform.
+  passwordResetIpMax: 200,
+  registerIpMax: 200
+};
+
 function parseCount(raw, fallback) {
   const n = parseInt(raw, 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
@@ -342,17 +366,26 @@ function parseSeconds(raw, fallback) {
 /**
  * Read the auth rate-limit configuration, with safe defaults. A maximum of 0
  * disables that bucket (useful for controlled local rehearsal runs only).
+ *
+ * `options.ipAttributable === false` means the server cannot see the real client
+ * address (no proxy trust configured), so a per-address budget would act as a
+ * platform-wide budget. The per-IP buckets then fall back to SHARED_IP_DEFAULTS
+ * unless the operator set an explicit value - see that constant for why.
  */
-function resolveAuthRateLimits(env) {
+function resolveAuthRateLimits(env, options) {
   const source = env || {};
+  const attributable = !(options && options.ipAttributable === false);
+  const sharedLoginIp = attributable ? DEFAULT_RATE_LIMITS.loginIpMax : SHARED_IP_DEFAULTS.loginIpMax;
+  const sharedRegisterIp = attributable ? DEFAULT_RATE_LIMITS.registerIpMax : SHARED_IP_DEFAULTS.registerIpMax;
   return {
-    loginIpMax: parseCount(source.AUTH_RATE_LIMIT_LOGIN_IP_MAX, DEFAULT_RATE_LIMITS.loginIpMax),
+    loginIpMax: parseCount(source.AUTH_RATE_LIMIT_LOGIN_IP_MAX, sharedLoginIp),
     loginIpWindowMs: parseMinutes(source.AUTH_RATE_LIMIT_LOGIN_IP_WINDOW_MIN, 15) * 60 * 1000,
     loginAccountMax: parseCount(source.AUTH_RATE_LIMIT_LOGIN_ACCOUNT_MAX, DEFAULT_RATE_LIMITS.loginAccountMax),
     loginAccountWindowMs: parseMinutes(source.AUTH_RATE_LIMIT_LOGIN_ACCOUNT_WINDOW_MIN, 15) * 60 * 1000,
     loginCooldownMaxMs: parseSeconds(source.AUTH_RATE_LIMIT_LOGIN_COOLDOWN_MAX_SEC, 120) * 1000,
-    registerIpMax: parseCount(source.AUTH_RATE_LIMIT_REGISTER_IP_MAX, DEFAULT_RATE_LIMITS.registerIpMax),
+    registerIpMax: parseCount(source.AUTH_RATE_LIMIT_REGISTER_IP_MAX, sharedRegisterIp),
     registerIpWindowMs: parseMinutes(source.AUTH_RATE_LIMIT_REGISTER_IP_WINDOW_MIN, 60) * 60 * 1000,
+    ipAttributable: attributable,
     maxEntries: DEFAULT_RATE_LIMITS.maxEntries,
     sweepIntervalMs: DEFAULT_RATE_LIMITS.sweepIntervalMs
   };
@@ -562,6 +595,7 @@ module.exports = {
   MAX_ADMIN_PASSWORD_BYTES: MAX_ADMIN_PASSWORD_BYTES,
   WEAK_ADMIN_PASSWORDS: WEAK_ADMIN_PASSWORDS,
   DEFAULT_RATE_LIMITS: DEFAULT_RATE_LIMITS,
+  SHARED_IP_DEFAULTS: SHARED_IP_DEFAULTS,
   normalizeEmail: normalizeEmail,
   validateAdminPassword: validateAdminPassword,
   resolveAdminProvisioning: resolveAdminProvisioning,

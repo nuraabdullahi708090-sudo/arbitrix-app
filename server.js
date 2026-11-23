@@ -196,24 +196,43 @@ const rateLimitStore = {
   email: new Map()
 };
 
-// Cleanup old entries periodically (every 5 minutes)
+// Cleanup old entries periodically (every 5 minutes). unref() so the timer can
+// never hold the process open on its own.
 setInterval(() => {
   const now = Date.now();
-  
+
   // Clean IP store
   for (const [key, data] of rateLimitStore.ip.entries()) {
     if (now - data.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
       rateLimitStore.ip.delete(key);
     }
   }
-  
+
   // Clean email store
   for (const [key, data] of rateLimitStore.email.entries()) {
     if (now - data.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
       rateLimitStore.email.delete(key);
     }
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
+
+/**
+ * The per-address budget for a password-reset request.
+ *
+ * When the client address is not attributable (no trusted proxy) every visitor
+ * shares the proxy's address, so 5 requests per 15 minutes would be a
+ * platform-wide budget and would block password resets for everybody. In that
+ * mode the wider shared budget applies unless the operator set an explicit
+ * RATE_LIMIT_IP_MAX. The per-EMAIL budget (3 per hour) keeps its normal value
+ * either way, so a single account cannot be flooded.
+ */
+function forgotPasswordIpMax() {
+  const configured = RATE_LIMIT_CONFIG.ip.maxRequests;
+  if (CLIENT_IP_ATTRIBUTABLE) return configured;
+  const explicit = Number.isFinite(parseInt(process.env.RATE_LIMIT_IP_MAX, 10));
+  if (explicit) return configured;
+  return Math.max(configured, AuthEntry.SHARED_IP_DEFAULTS.passwordResetIpMax);
+}
 
 /**
  * Check rate limit for forgot password endpoint
@@ -232,7 +251,8 @@ function checkForgotPasswordRateLimit(ip, email) {
     rateLimitStore.ip.set(ip, ipData);
   }
   
-  if (ipData.count >= RATE_LIMIT_CONFIG.ip.maxRequests) {
+  const ipMax = forgotPasswordIpMax();
+  if (ipData.count >= ipMax) {
     const resetIn = Math.ceil((ipData.windowStart + RATE_LIMIT_CONFIG.ip.windowMs - now) / 1000);
     return {
       allowed: false,
@@ -267,7 +287,7 @@ function checkForgotPasswordRateLimit(ip, email) {
   return {
     allowed: true,
     remaining: Math.min(
-      RATE_LIMIT_CONFIG.ip.maxRequests - ipData.count,
+      ipMax - ipData.count,
       RATE_LIMIT_CONFIG.email.maxRequests - emailData.count
     ),
     resetIn: 0
@@ -283,10 +303,31 @@ function checkForgotPasswordRateLimit(ip, email) {
 // IP per 15 min, 10 failed logins per account per 15 min, 20 registrations per
 // IP per hour) and are overridable through AUTH_RATE_LIMIT_* (see .env.example).
 //
+// When no proxy is trusted the address is the edge proxy for every visitor, so
+// the per-IP buckets degrade to a platform-wide budget. They then use the wider
+// shared-address defaults instead (see AuthEntry.SHARED_IP_DEFAULTS); the
+// per-account login limiter, which needs no address, stays at full strength.
+//
 // Throttling answers are identical whether or not the account exists, so the
 // limiter cannot be used to enumerate accounts.
 // ---------------------------------------------------------------------------
-const authRateLimiter = AuthEntry.createAuthRateLimiter(AuthEntry.resolveAuthRateLimits(process.env));
+const CLIENT_IP_ATTRIBUTABLE = proxyTrust.mode !== 'none';
+const authRateLimiter = AuthEntry.createAuthRateLimiter(
+  AuthEntry.resolveAuthRateLimits(process.env, { ipAttributable: CLIENT_IP_ATTRIBUTABLE })
+);
+
+// An explicit per-IP cap plus an unattributable address is almost always a
+// mistake: the operator meant "per client" but the budget is shared by every
+// visitor. Do not silently override the value - say it plainly once.
+if (!CLIENT_IP_ATTRIBUTABLE) {
+  const explicitPerIp = ['AUTH_RATE_LIMIT_LOGIN_IP_MAX', 'AUTH_RATE_LIMIT_REGISTER_IP_MAX', 'RATE_LIMIT_IP_MAX']
+    .filter(function (name) { return Number.isFinite(parseInt(process.env[name], 10)); });
+  if (explicitPerIp.length > 0) {
+    console.warn('[proxy] ' + explicitPerIp.join(', ') + ' set while no proxy is trusted: those caps apply to ' +
+      'ALL customers combined, not per client. Configure TRUST_PROXY_HOPS / TRUST_PROXY, or unset them to use ' +
+      'the shared-address defaults');
+  }
+}
 
 /**
  * The client IP the server trusts, used for rate limiting and audit records.
@@ -306,6 +347,13 @@ if (proxyTrust.warning) {
   console.warn('[proxy] ' + proxyTrust.warning);
 }
 console.log('[proxy] client IP trust: ' + proxyTrust.mode + ' (' + proxyTrust.source + ': ' + proxyTrust.detail + ')');
+if (!CLIENT_IP_ATTRIBUTABLE) {
+  // Not an error: it is the safe default. It does mean per-address budgets are
+  // shared, so they use wider defaults instead of throttling every customer.
+  console.warn('[proxy] per-IP auth limits run in SHARED-ADDRESS mode: no proxy is trusted, so every ' +
+    'visitor appears to come from the edge address. Set TRUST_PROXY_HOPS (or TRUST_PROXY CIDRs) to get ' +
+    'per-client limits; see docs/security/ADMIN_PROVISIONING.md');
+}
 
 function sendAuthRateLimited(res, retryAfter, message) {
   const seconds = Math.max(1, Math.round(Number(retryAfter) || 1));
@@ -315,6 +363,20 @@ function sendAuthRateLimited(res, retryAfter, message) {
 
 const LOGIN_RATE_LIMIT_MESSAGE = 'Too many login attempts. Please try again later.';
 const REGISTER_RATE_LIMIT_MESSAGE = 'Too many registration attempts. Please try again later.';
+
+/**
+ * Read a JSON request body without assuming one exists.
+ *
+ * `req.body` is `undefined` when the request carries no parsable body (for
+ * example a POST with no Content-Type). Destructuring it directly throws a
+ * TypeError, which surfaced as a 500 that echoed the internal message. A missing
+ * body is a client error, so handlers get `{}` and answer 400 from their own
+ * field validation.
+ */
+function readJsonBody(req) {
+  const body = req && req.body;
+  return (body && typeof body === 'object' && !Array.isArray(body)) ? body : {};
+}
 
 // Create Resend client
 let resendClient = null;
@@ -3478,7 +3540,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, referralCode } = req.body;
+  const { name, email, password, referralCode } = readJsonBody(req);
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password min 6 chars' });
 
@@ -9823,7 +9885,7 @@ app.post('/api/2fa/setup', authMiddleware, async (req, res) => {
 app.post('/api/2fa/verify-setup', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code } = req.body;
+        const { code } = readJsonBody(req);
         
         if (!code || !/^\d{6}$/.test(code)) {
             return res.status(400).json({ error: 'Invalid code format' });
@@ -9954,7 +10016,7 @@ app.post('/api/2fa/enable', authMiddleware, async (req, res) => {
 app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code, recoveryCode } = req.body;
+        const { code, recoveryCode } = readJsonBody(req);
         
         // Get profile
         const { data: profile, error } = await supabaseAdmin
@@ -10042,7 +10104,7 @@ app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
 app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code } = req.body;
+        const { code } = readJsonBody(req);
         
         // Get profile
         const { data: profile, error } = await supabaseAdmin
@@ -10093,7 +10155,7 @@ app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
 app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code, recoveryCode } = req.body;
+        const { code, recoveryCode } = readJsonBody(req);
         
         // Check rate limit
         const rateLimit = TOTPService.checkRateLimit(userId);
@@ -10376,7 +10438,7 @@ function maskEmail(email) {
 // Handles both Email and TOTP codes based on _2fa_type in partialToken
 app.post('/api/2fa/login-verify', async (req, res) => {
     try {
-        const { partialToken, code } = req.body;
+        const { partialToken, code } = readJsonBody(req);
         
         if (!partialToken) {
             return res.status(400).json({ error: 'Missing partial token' });
