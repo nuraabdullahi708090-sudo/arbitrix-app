@@ -112,7 +112,11 @@ statement from this document.
 2. Ask them to complete 2FA enrolment if it is not already enabled.
 3. If the account must not be used any more, demote it deliberately
    (`is_admin = 0`) and create a named administrator instead - that is an
-   approved operational change, not part of this fix.
+   approved operational change, not part of this fix. A demotion takes effect
+   within 60 seconds even for a session that is already signed in: administrative
+   authority is re-checked against `users.is_admin` (cached for at most a minute),
+   so the account loses the admin API immediately rather than at token expiry
+   (see `docs/security/AUTH_SESSION_HARDENING.md` section 8).
 4. Read `public.audit_logs` for activity by that account around and after the
    deployment. The route names and timestamps are enough to spot unexpected
    admin actions.

@@ -9785,3 +9785,8 @@ the removed/added copy.
   address answered in ~3.7 ms, a wrong password in ~75 ms). The unknown branch now runs
   a bcrypt compare against a throwaway hash (result ignored) - tests/auth_login_timing.test.js,
   fails on the pre-fix handler.
+- FURTHER FINDING in the same audit: adminMiddleware trusted the JWT `isAdmin` claim for
+  the whole 7-day session, so the runbook's own demotion step (is_admin = 0) had no effect
+  until re-login. It now also reads users.is_admin (60 s cache, bounded), refuses with 503
+  (retryable) when unverifiable, and keeps the claim as a required pre-check.
+  tests/admin_authorization_db_verified.test.js (9); HTTP case fails pre-fix.

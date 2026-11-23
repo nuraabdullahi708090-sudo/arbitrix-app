@@ -63,7 +63,18 @@ globalThis.fetch = async function fakeFetch(input, init) {
     return respond(200, onlyVisible ? ROWS.filter((r) => r.is_active === true && r.is_verified === true) : ROWS);
   }
 
-  // Anything else (revoked_tokens, users, ...) answers "no rows", which is what
+  // Administrative authorization is verified against users.is_admin rather than
+  // trusted from the token claim, so the admin token these tests use needs a
+  // matching row. Only id=1 (the administrator) is modelled; every other users
+  // query still answers "no rows", which is what authMiddleware treats as "this
+  // session is still valid".
+  if (parsed.pathname === '/rest/v1/users') {
+    const idMatch = /(?:^|&)id=eq\.(\d+)/.exec(parsed.search ? parsed.search.slice(1) : '');
+    if (idMatch && idMatch[1] === '1') return respond(200, [{ id: 1, is_admin: 1 }]);
+    return respond(200, []);
+  }
+
+  // Anything else (revoked_tokens, ...) answers "no rows", which is what
   // authMiddleware treats as "this session is still valid".
   return respond(200, []);
 };

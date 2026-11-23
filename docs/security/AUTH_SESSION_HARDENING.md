@@ -405,3 +405,33 @@ against input, and the branch returns before any token is issued.
 
 Pinned by `tests/auth_login_timing.test.js` (2 tests). The timing assertion **fails
 on the pre-fix handler** (measured 3.7 ms).
+
+## 8. Administrative authority is re-checked against the database
+
+`adminMiddleware` trusted the `isAdmin` claim inside the JWT, which is valid for the
+whole 7-day session. Two consequences, both real:
+
+- **Demotion did not take effect.** `docs/security/ADMIN_PROVISIONING.md` Procedure B
+  tells an operator to demote a compromised administrator with `is_admin = 0`. Under the
+  old middleware that account kept full administrative API access until its token
+  expired - up to seven days - so the runbook's own remedy did not work.
+- **A stolen admin token could not be demoted**, only revoked (which requires the
+  legitimate session to log out).
+
+`adminMiddleware` now requires BOTH:
+
+1. the `isAdmin` claim (a token without it never gains admin, and no database read
+   happens for those requests), and
+2. `users.is_admin = 1` read from the database, cached for `ADMIN_STATUS_TTL_MS`
+   (60 s, bounded to 500 entries).
+
+A failed or unreadable lookup answers **503 + Retry-After** (`retryable: true`). It is
+deliberately not a 403 - that would look like a permissions decision - and never an
+allow: an unverifiable claim is not a valid one. The customer session itself is
+unaffected; only the administrative authority is withdrawn.
+
+Verification: `tests/admin_authorization_db_verified.test.js` (9 tests) - a demoted admin
+is refused while their token still claims admin (the HTTP case **fails on the pre-fix
+middleware**), a non-admin claim never reaches the database, a missing account is
+refused, both failure shapes answer 503, the 60 s cache applies a demotion, the cache is
+bounded, and route registration keeps `authMiddleware` before `adminMiddleware`.

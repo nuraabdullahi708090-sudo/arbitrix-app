@@ -3654,9 +3654,71 @@ async function authMiddleware(req, res, next) {
   next();
 }
 
-function adminMiddleware(req, res, next) {
+// ---------- ADMIN AUTHORIZATION ----------
+// The JWT carries an `isAdmin` claim, and until this change adminMiddleware
+// trusted it for the token's whole 7-day life. Two consequences: demoting an
+// administrator did not take effect until they logged in again (their token was
+// minted while they were an admin), and a stolen admin token could not be
+// demoted at all - only revoked. Authorization is now re-checked against the
+// database, so `users.is_admin` is the source of truth and a demotion applies
+// within ADMIN_STATUS_TTL_MS.
+//
+// The claim is still required (cheap pre-check, and a token without it can never
+// gain admin), but it is no longer sufficient. A failed lookup answers 503
+// "retryable" rather than allowing the request: an unverifiable claim must not be
+// treated as a valid one.
+const ADMIN_STATUS_TTL_MS = 60 * 1000;
+const ADMIN_STATUS_CACHE_MAX = 500;
+const adminStatusCache = new Map(); // userId -> { isAdmin, at }
+
+function cacheAdminStatus(userId, isAdmin) {
+  adminStatusCache.set(String(userId), { isAdmin: isAdmin === true, at: Date.now() });
+  if (adminStatusCache.size > ADMIN_STATUS_CACHE_MAX) {
+    // Admins are a handful of rows; this only fires if something is wrong.
+    const oldest = adminStatusCache.keys().next().value;
+    adminStatusCache.delete(oldest);
+  }
+}
+
+/**
+ * Read the CURRENT administrative status of an account.
+ *
+ * @returns {Promise<{ok: boolean, isAdmin?: boolean}>} ok:false means "could not
+ *          verify", which callers must treat as a refusal, never as a grant.
+ */
+async function loadAdminStatus(userId) {
+  const key = String(userId);
+  const cached = adminStatusCache.get(key);
+  if (cached && (Date.now() - cached.at) < ADMIN_STATUS_TTL_MS) {
+    return { ok: true, isAdmin: cached.isAdmin };
+  }
+  try {
+    const query = supabaseAdmin.from('users').select('id, is_admin').eq('id', userId);
+    const single = (query && typeof query.maybeSingle === 'function') ? query.maybeSingle() : query;
+    const result = await single;
+    if (!result || result.error) return { ok: false };
+    const row = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (!row) return { ok: true, isAdmin: false };
+    const isAdmin = Number(row.is_admin) === 1 || row.is_admin === true;
+    cacheAdminStatus(key, isAdmin);
+    return { ok: true, isAdmin: isAdmin };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
+async function adminMiddleware(req, res, next) {
   if (!req.user || !req.user.isAdmin) return res.status(403).json({ error: 'Admin required' });
-  next();
+  const status = await loadAdminStatus(req.user.id);
+  if (!status.ok) {
+    res.set('Retry-After', '5');
+    return res.status(503).json({ error: 'Authorization check unavailable', retryable: true });
+  }
+  if (!status.isAdmin) {
+    console.warn('[auth] admin claim rejected: the account is no longer an administrator');
+    return res.status(403).json({ error: 'Admin required' });
+  }
+  return next();
 }
 
 // ---------- ROUTES ----------
