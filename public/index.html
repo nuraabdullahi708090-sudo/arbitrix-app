@@ -4887,6 +4887,36 @@
         }
         .modal-header h3,.deposit-modal-head h3{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;}
 
+        /* ---- Data density (transaction log, referral metrics) -------- */
+        .tx-entry{padding:11px 14px;border-bottom:1px solid var(--kx-line);}
+        .tx-entry:hover{background:var(--kx-surface-2);}
+        .tx-type{font-size:var(--kx-t-3);letter-spacing:-.005em;}
+        .tx-detail{font-size:var(--kx-t-1);color:var(--kx-text-3);}
+        .tx-amount{font-size:var(--kx-t-4);font-variant-numeric:tabular-nums;}
+        .tx-time{font-size:10px;color:var(--kx-text-3);}
+        .tx-list-wrapper{max-height:320px;}
+        .tx-view-more-btn{border-radius:var(--kx-r-2);border-color:var(--kx-line);color:var(--kx-text-2);}
+        .tx-view-more-btn:hover{background:var(--kx-surface-2);border-color:var(--brand-border);color:var(--kx-text);}
+        .ref-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--kx-s-2);}
+        .ref-metric{
+            display:flex;flex-direction:column;gap:2px;
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-2);padding:var(--kx-s-3);
+            min-width:0;
+        }
+        .ref-metric-value{font-size:var(--kx-t-6);font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;}
+        .ref-metric-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--kx-text-3);}
+        .ref-code,.ref-link{
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-2);padding:10px 12px;
+            font-size:var(--kx-t-3);overflow-wrap:anywhere;
+        }
+        .wallet-box{background:var(--kx-surface-2);border-color:var(--kx-line);border-radius:var(--kx-r-2);}
+        @media(max-width:640px){
+            .ref-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
+            .tx-list-wrapper{max-height:none;}
+        }
+
         /* ---- Accessibility + motion --------------------------------- */
         :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible{
             outline:2px solid var(--brand);
@@ -8419,7 +8449,7 @@ function toggleFaq(btn) {
         <div class="card" style="margin-bottom:16px;" id="markets">
             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-candlestick"></i></span> <span data-i18n="markets.advancedChart">Advanced Market Chart</span></div>
             <div class="card-body" style="padding:0;">
-                <div style="position:relative;width:100%;height:400px;background:#0A1020;border-radius:12px;overflow:hidden;">
+                <div class="kx-chart-host" style="position:relative;width:100%;height:clamp(300px,52vh,560px);background:var(--kx-surface-2);border-radius:12px;overflow:hidden;">
                     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
                     <script type="text/javascript">
                         new TradingView.widget({
