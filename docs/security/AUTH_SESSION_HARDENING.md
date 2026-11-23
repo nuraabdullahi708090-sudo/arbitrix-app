@@ -205,13 +205,17 @@ revocation on logout, and a 7-day token lifetime.
 
 ## Verification
 
-- `tests/session_abuse_hardening.test.js` (11 tests): the timing fix (asserted with
-  an artificial 600 ms stall on the token writes - 4 of the 11 tests fail against the
-  pre-fix code, the timing one at 1,533 ms), identical bodies for existing and unknown
-  addresses, background work still running, a failing lookup unable to change the
-  answer or crash the process, the prune helper against both stores (success, missing
-  store, unsupported store, database error), the schedule's `unref()`, the route
-  ordering, and migration 056's guards.
+- `tests/session_abuse_hardening.test.js` (15 tests). Against the two baselines this
+  fix replaces, **4 fail against the pre-hardening `server.js`** (the timing one at
+  1,530 ms) **and 2 fail against the previous migration revision** (the scope and the
+  blank/NULL reporting).
+  Covered: the timing fix (asserted with an artificial 600 ms stall on the token
+  writes), identical bodies for existing and unknown addresses, background work still
+  running, a failing lookup unable to change the answer or crash the process, the
+  prune helper against both stores (success, missing store, unsupported store,
+  database error), the schedule's `unref()`, the route ordering, the pre-flight's exact
+  scope, the NULL/blank reporting, the duplicate-rule matrix, the non-destructiveness
+  of the migration, and the verification tool's coverage without a new dependency.
 - Full suite and static checks are reported in the pull request.
 
 ## Not done here
