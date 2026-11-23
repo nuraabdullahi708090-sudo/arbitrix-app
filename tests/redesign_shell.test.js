@@ -229,6 +229,66 @@ test('the layer never hides a control with !important', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * 5b. Visual refinements (measured, then pinned)
+ * ------------------------------------------------------------------ */
+test('the account summary leads the page; the guidance card follows it', () => {
+  const hero = INDEX.indexOf('<div class="kx-hero" id="kxHero">');
+  const start = INDEX.indexOf('<div class="card" id="startHereCard"');
+  assert.ok(hero > 0 && start > 0);
+  assert.ok(start > hero, 'the money leads, the checklist follows');
+  const overview = INDEX.slice(INDEX.indexOf('id="kxViewOverview"'), INDEX.indexOf('id="kxCockpit"'));
+  assert.ok(overview.indexOf('id="startHereCard"') > overview.indexOf('id="kxHero"'), 'same order inside the view');
+});
+
+test('hero proportions give equity the lead and a narrow P&L/bot rail', () => {
+  assert.match(INDEX, /grid-template-columns:minmax\(0,1\.5fr\) minmax\(0,1\.05fr\) minmax\(0,\.85fr\)/);
+  assert.match(INDEX, /grid-template-areas:"eq av pnl" "eq av bot"/);
+});
+
+test('phones put P&L and bot state on one row', () => {
+  const layer = INDEX.slice(INDEX.indexOf('KALDERIX DESIGN SYSTEM v2'));
+  assert.match(layer, /grid-template-areas:"eq eq" "av av" "pnl bot"/);
+  assert.match(layer, /\.kx-hero-pnl \.kx-kpi-value,\.kx-hero-bot \.kx-kpi-value\{font-size:18px;\}/);
+});
+
+test('touch targets meet the 44px guideline where they matter', () => {
+  const layer = INDEX.slice(INDEX.indexOf('KALDERIX DESIGN SYSTEM v2'));
+  assert.match(INDEX, /\.sidebar-link\{[\s\S]{0,220}min-height:44px;/, 'navigation rows');
+  assert.match(layer, /\.app-header \.btn-icon\{width:40px;height:40px;\}/, 'header icons (desktop)');
+  assert.match(layer, /\.btn-icon,\.app-header \.btn-icon\{width:44px;height:44px;min-width:44px;\}/, 'header icons (touch)');
+  assert.match(layer, /#mobileMenuBtn\{width:44px;height:44px/, 'hamburger');
+  assert.match(layer, /\.modal-close,\.modal-close-btn\{width:40px;height:40px/, 'dialog close');
+  assert.match(layer, /\.modal-close,\.modal-close-btn\{width:44px;height:44px/, 'dialog close (touch)');
+  assert.match(layer, /min-height:38px;font-size:var\(--kx-t-2\);font-weight:600;/, 'deposit presets');
+  assert.match(layer, /\.quick-amount-btn\{min-height:42px;\}/, 'deposit presets (touch)');
+});
+
+test('the equity chart keeps a readable aspect ratio per breakpoint', () => {
+  const layer = INDEX.slice(INDEX.indexOf('KALDERIX DESIGN SYSTEM v2'));
+  assert.match(layer, /\.kx-cockpit \.chart-container\{height:300px;\}/);
+  assert.match(layer, /@media\(min-width:1280px\)\{\.kx-cockpit \.chart-container\{height:330px;\}\}/);
+  assert.match(layer, /@media\(max-width:640px\)\{\.kx-cockpit \.chart-container\{height:230px;\}\}/);
+});
+
+test('secondary numbers stay legible and the worst trade is not the alarm red', () => {
+  const layer = INDEX.slice(INDEX.indexOf('KALDERIX DESIGN SYSTEM v2'));
+  assert.match(layer, /\.kx-cockpit \.chart-stat-label\{font-size:10\.5px;color:var\(--kx-text-2\);\}/);
+  assert.match(layer, /\.kx-cockpit \.trading-stat-item \.stat-sub\{[\s\S]{0,140}font-size:10\.5px/);
+  assert.match(layer, /\.kx-cockpit \.trading-stat-item \.stat-main\.negative\{color:var\(--kx-danger-text\);\}/);
+});
+
+test('the deposit currency chips meet 4.5:1 on their tinted panel', () => {
+  const panel = INDEX.slice(INDEX.indexOf('id="supportedCoinsInfo"'), INDEX.indexOf('id="depositUsdtHelp"'));
+  assert.strictEqual((panel.match(/color:#9CC4FF/g) || []).length, 3, 'heading + both chips use the lighter brand tint');
+  // The decorative shield icon keeps the brand blue; no TEXT does.
+  assert.ok(!/<span[^>]*color:#5EA0FF/.test(panel), 'no chip text keeps the darker blue');
+});
+
+test('the account status stays pinned while the navigation scrolls', () => {
+  assert.match(INDEX, /\.sidebar-status\{[\s\S]{0,420}position:sticky;bottom:var\(--kx-s-2\);/);
+});
+
+/* ------------------------------------------------------------------ *
  * 6. Preservation
  * ------------------------------------------------------------------ */
 test('pre-existing behaviour surfaces are untouched by the redesign', () => {

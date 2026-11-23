@@ -4657,7 +4657,7 @@
         }
         .app-header-right{gap:var(--kx-s-2);}
         .btn-icon{
-            width:38px;height:38px;min-width:38px;border-radius:var(--kx-r-2);
+            width:40px;height:40px;min-width:40px;border-radius:var(--kx-r-2);
             border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);
             display:inline-flex;align-items:center;justify-content:center;
             transition:background var(--transition-fast),color var(--transition-fast),border-color var(--transition-fast);
@@ -4685,7 +4685,7 @@
             border-radius:var(--kx-r-2);
             margin:1px var(--kx-s-2);
             padding:0 var(--kx-s-3);
-            min-height:40px;
+            min-height:44px;
             font-size:var(--kx-t-3);font-weight:500;
             color:var(--kx-text-2);
             border-left:0 !important;
@@ -4706,6 +4706,9 @@
             padding:var(--kx-s-3);
             border:1px solid var(--kx-line);border-radius:var(--kx-r-2);
             background:var(--kx-surface-2);
+            /* The nav scrolls on short viewports; the account status must not. */
+            position:sticky;bottom:var(--kx-s-2);z-index:2;
+            box-shadow:0 -12px 20px -12px rgba(0,0,0,.55);
         }
         html[dir="rtl"] .sidebar-link{border-right:0 !important;}
         html[dir="rtl"] .sidebar-link.active{border-right-color:transparent;}
@@ -4790,6 +4793,18 @@
             margin-bottom:var(--kx-s-3);font-size:var(--kx-t-2);color:var(--kx-text-2);
         }
         .kx-notice-slim i{color:var(--brand);margin-top:2px;}
+        #startHereCard .card-body{padding:14px var(--kx-s-4);}
+        /* Header controls: square and comfortable to tap. */
+        .app-header .btn-icon{width:40px;height:40px;}
+        #tickerDismissBtn{width:32px;height:32px;min-width:32px;font-size:13px;}
+        .modal-close,.modal-close-btn{width:40px;height:40px;min-width:40px;min-height:40px;border-radius:var(--kx-r-2);}
+        @media(max-width:640px){
+            .btn-icon,.app-header .btn-icon{width:44px;height:44px;min-width:44px;}
+            #mobileMenuBtn{width:44px;height:44px;min-width:44px;min-height:44px;}
+            #tickerDismissBtn{width:44px;height:44px;min-width:44px;font-size:15px;}
+            .modal-close,.modal-close-btn{width:44px;height:44px;min-width:44px;min-height:44px;}
+            .quick-amount-btn{min-height:42px;}
+        }
 
         /* ---- Buttons ------------------------------------------------ */
         .btn{
@@ -4815,6 +4830,7 @@
             background:var(--kx-surface-2);border:1px solid var(--kx-line);
             border-radius:var(--kx-r-2);margin-bottom:var(--kx-s-3);
         }
+        .wallet-tabs-wrapper{margin-top:0;}
         .wallet-tab{
             min-height:34px;padding:0 var(--kx-s-4);border-radius:var(--kx-r-1);
             background:transparent;color:var(--kx-text-3);font-size:var(--kx-t-2);font-weight:600;
@@ -4837,6 +4853,16 @@
         .chart-stat-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--kx-text-3);display:block;}
         .chart-stat-value{font-size:var(--kx-t-3);font-weight:700;}
         .chart-container{padding:0 var(--kx-s-2) var(--kx-s-2);}
+        .kx-cockpit .chart-container{height:300px;}
+        @media(min-width:1280px){.kx-cockpit .chart-container{height:330px;}}
+        @media(max-width:640px){.kx-cockpit .chart-container{height:230px;}}
+        .kx-cockpit .chart-stat-label{font-size:10.5px;color:var(--kx-text-2);}
+        .kx-cockpit .trading-stat-item .stat-main{font-size:18px;font-variant-numeric:tabular-nums;}
+        .kx-cockpit .trading-stat-item .stat-main.negative{color:var(--kx-danger-text);}
+        .kx-cockpit .trading-stat-item .stat-sub{
+            font-size:10.5px;font-weight:600;letter-spacing:.04em;
+            text-transform:uppercase;color:var(--kx-text-2);
+        }
         .trading-stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kx-s-2);padding:var(--kx-s-3);}
         .trading-stat-item{border:1px solid var(--kx-line);border-radius:var(--kx-r-2);padding:var(--kx-s-3);background:var(--kx-surface-2);}
         .stat-sub{font-size:var(--kx-t-1);color:var(--kx-text-3);letter-spacing:.02em;text-transform:none;}
@@ -4848,7 +4874,12 @@
         /* ---- Wallet ------------------------------------------------- */
         .wallet-section .two-col-grid{gap:var(--kx-s-3);}
         .wallet-box{font-size:var(--kx-t-3);color:var(--kx-text-2);}
-        .quick-amount-btn{border-radius:var(--kx-r-1);border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);min-height:34px;font-size:var(--kx-t-1);}
+        .quick-amount-btn{
+            border-radius:var(--kx-r-1);border:1px solid var(--kx-line);
+            background:var(--kx-surface-2);color:var(--kx-text);
+            min-height:38px;font-size:var(--kx-t-2);font-weight:600;
+        }
+        .quick-amount-btn:hover{border-color:var(--brand-border);background:var(--kx-elevated);}
         .quick-amount-btn:hover{border-color:var(--brand-border);color:var(--kx-text);}
 
         /* ---- Tables ------------------------------------------------- */
@@ -4915,6 +4946,12 @@
         @media(max-width:640px){
             .ref-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
             .tx-list-wrapper{max-height:none;}
+            .kx-hero .stats-grid{
+                grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+                grid-template-areas:"eq eq" "av av" "pnl bot";
+            }
+            .kx-hero-pnl .kx-kpi-value,.kx-hero-bot .kx-kpi-value{font-size:18px;}
+            .kx-hero .card-body{padding:14px;}
         }
 
         /* ---- Accessibility + motion --------------------------------- */
@@ -4959,7 +4996,7 @@
         }
         @media(min-width:1100px){
             .kx-hero .stats-grid{
-                grid-template-columns:minmax(0,1.22fr) minmax(0,1fr) minmax(0,.92fr);
+                grid-template-columns:minmax(0,1.5fr) minmax(0,1.05fr) minmax(0,.85fr);
                 grid-template-areas:"eq av pnl" "eq av bot";
             }
             .kx-cockpit{grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);}
@@ -8208,27 +8245,6 @@ function toggleFaq(btn) {
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
             <span data-i18n="promo.tradableNotice">Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade.</span>
         </div>
-        <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
-            <div class="card-body">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-                    <div style="min-width:0;">
-                        <div id="startHereHeadLive">
-                            <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
-                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
-                        </div>
-                    </div>
-                    <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;min-height:36px;min-width:44px;flex:0 0 auto;" data-i18n="startHere.dismiss">Dismiss</button>
-                </div>
-                <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
-                     the amounts ({{min}}) are configuration-driven. -->
-                <div id="startHereStepsLive" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
-                <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
-                <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
-                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
-                </div>
-            </div>
-        </div>
-
         <div class="kx-hero" id="kxHero">
             <div class="stats-grid kx-hero-grid">
                 <div class="card kx-hero-eq">
@@ -8269,6 +8285,27 @@ function toggleFaq(btn) {
              marks a deposit or unlocks trading: the gates are /api/bot/start
              and /api/trade. Hidden for accounts with no promotional credit and
              no pending activation step, so funded dashboards are unchanged. -->
+        <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
+            <div class="card-body">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                    <div style="min-width:0;">
+                        <div id="startHereHeadLive">
+                            <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
+                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;min-height:36px;min-width:44px;flex:0 0 auto;" data-i18n="startHere.dismiss">Dismiss</button>
+                </div>
+                <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
+                     the amounts ({{min}}) are configuration-driven. -->
+                <div id="startHereStepsLive" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
+                <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
+                <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
+                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
+                </div>
+            </div>
+        </div>
+
         <div class="card" id="liveModeCard" style="display:none;margin-bottom:16px;">
             <div class="card-body">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
@@ -9484,12 +9521,12 @@ function toggleFaq(btn) {
       <div id="supportedCoinsInfo" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin:16px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <i class="fas fa-shield-alt" style="color:#5EA0FF;font-size:14px;"></i>
-          <span style="font-size:12px;font-weight:600;color:#5EA0FF;" data-i18n="deposit.currentlySupported">Currently Supported</span>
+          <span style="font-size:12px;font-weight:600;color:#9CC4FF;" data-i18n="deposit.currentlySupported">Currently Supported</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);">
-          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#5EA0FF;font-weight:600;">USDT</span>
+          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#9CC4FF;font-weight:600;">USDT</span>
           <span data-i18n="deposit.on">on</span>
-          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#5EA0FF;font-weight:600;">TRON (TRC20)</span>
+          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#9CC4FF;font-weight:600;">TRON (TRC20)</span>
         </div>
       </div>
 
