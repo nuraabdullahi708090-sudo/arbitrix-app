@@ -204,6 +204,18 @@ test('the cockpit and hero respond at the documented breakpoints', () => {
   assert.match(INDEX, /@media\(max-width:640px\)\{[\s\S]{0,600}\.kx-cockpit\{grid-template-columns:minmax\(0,1fr\);\}/, 'mobile stays stacked');
 });
 
+test('the mobile header override cannot cancel the hamburger clearance', () => {
+  // The base rule reserves 44px at the top for the fixed menu button. A `padding`
+  // shorthand in the mobile block silently resets padding-top, which put the header
+  // underneath the hamburger (caught by measurement, pinned here).
+  const layer = INDEX.slice(INDEX.indexOf('KALDERIX DESIGN SYSTEM v2'));
+  const mobile = layer.slice(layer.indexOf('@media(max-width:640px){'));
+  const rule = mobile.slice(mobile.indexOf('.app-header{'), mobile.indexOf('}', mobile.indexOf('.app-header{')));
+  assert.match(layer, /\.app-header\{[\s\S]{0,400}padding-top:44px;/, 'the base rule reserves the clearance');
+  assert.ok(!/(^|;)padding:/.test(rule), 'the mobile rule must not use the padding shorthand: ' + rule);
+  assert.match(rule, /padding-(left|right):/, 'it adjusts the sides only');
+});
+
 test('accessibility: visible focus ring and reduced-motion support', () => {
   assert.match(INDEX, /:focus-visible\{[\s\S]{0,120}outline:2px solid var\(--brand\)/);
   assert.match(INDEX, /@media\(prefers-reduced-motion:reduce\)/);
