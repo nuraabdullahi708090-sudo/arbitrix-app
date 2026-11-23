@@ -9708,3 +9708,29 @@ the removed/added copy.
 - The release rehearsal (`docs/relaunch/rehearsal/`) now pins
   `feature_flags.2fa_type='disabled'` and disables the IP/registration buckets, since
   it logs in via the legacy alias from a single IP with no mailer.
+
+
+## Auth hardening follow-up: shared-address rate limits + body validation (2026-11-23, branch fix/trusted-proxy-and-auth-hardening)
+- FOUND WHILE VERIFYING PR #201: with no trusted proxy (the safe default, and the
+  state production would run in after merge) `req.ip` is the edge proxy for every
+  visitor, so the per-IP budgets became PLATFORM-WIDE: 60 logins / 15 min, 20
+  signups / hour, 5 password resets / 15 min for the entire customer base. That is
+  an outage, not a control.
+- FIX: `AuthEntry.SHARED_IP_DEFAULTS` (5000 logins/15min, 200 registrations/hour,
+  200 resets/15min) apply ONLY when the address is not attributable.
+  `resolveAuthRateLimits(env, { ipAttributable })` selects them and records
+  `ipAttributable`; `forgotPasswordIpMax()` does the same for the pre-existing
+  reset limiter. An explicit `AUTH_RATE_LIMIT_*` / `RATE_LIMIT_IP_MAX` always wins,
+  and startup warns when such a cap is combined with an unattributable address.
+  The per-account login limiter and the per-email reset budget do not change, so
+  brute-forcing an account is still stopped. `[proxy] per-IP auth limits run in
+  SHARED-ADDRESS mode ...` is logged at startup.
+- FIX: `readJsonBody(req)` (server.js) - `req.body` is undefined when no parsable
+  body is sent, and destructuring it threw a TypeError that the error handler
+  returned as a 500 echoing the internal message. Registration and the five 2FA
+  entry points now answer 400 with their own message.
+- Tests: `tests/auth_shared_address_limits.test.js` (9; 6 fail on the pre-fix
+  tree). Full suite 3859 pass / 0 fail / 1 pre-existing skip.
+- STILL REQUIRED (operator, no code): set `TRUST_PROXY_HOPS` / `TRUST_PROXY` for the
+  real topology (Cloudflare -> Render) to restore true per-client limits. No
+  migration, no deploy, no production configuration touched.
