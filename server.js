@@ -1249,6 +1249,19 @@ async function getSandboxTodayRealizedPnl(userId) {
   return (data || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 }
 
+// ---------- MARKETING SANDBOX: simulated trading activity flag ----------
+// The production helper below reads the real ledger; a sandbox account has its
+// own simulated ledger, so it needs the equivalent question answered from
+// sandbox_trades. Display-only.
+async function hasSandboxTradingActivity(userId) {
+  const { count, error } = await supabaseAdmin
+    .from('sandbox_trades')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) return false;
+  return (Number(count) || 0) >= 1;
+}
+
 // ---------- MARKETING SANDBOX: referral program (PRODUCTION PARITY) ----------
 // Management decision (final): the sandbox referral program matches production
 // (one-time reward = 20% of the referred user's initial qualifying deposit at
@@ -2679,6 +2692,31 @@ async function getTodayRealizedPnl(userId) {
 }
 
 /**
+ * Has this user completed at least one Live trade?
+ *
+ * Uses EXACTLY the definition the withdrawal route enforces (a 'Trade Executed'
+ * ledger row), so the dashboard's "completed trade" state and the server's
+ * withdrawal gate can never disagree. Before this field existed the frontend
+ * only knew about trades placed in the CURRENT browser session, so a returning
+ * customer with a full trade history was told to "complete at least 1 trade"
+ * and could not reach the withdrawal form.
+ *
+ * Read-only and additive: it grants nothing and writes nothing.
+ */
+async function hasTradingActivity(userId) {
+  const { count, error } = await supabaseAdmin
+    .from('transactions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('type', 'Trade Executed');
+  if (error) {
+    console.log('[hasTradingActivity] error:', error.message);
+    return false;
+  }
+  return (Number(count) || 0) >= 1;
+}
+
+/**
  * Cumulative NET realized P&L for a production user, read from the append-only
  * `trades` ledger (signed amounts). Feeds the promotional-credit trading cap.
  *
@@ -4086,14 +4124,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       getUser(req.user.id),
       getSandboxWallet(req.user.id),
     ]);
-    const [funded, todayPnl] = await Promise.all([
+    const [funded, todayPnl, hasTraded] = await Promise.all([
       hasSandboxConfirmedDeposit(user.id).catch(() => false),
       getSandboxTodayRealizedPnl(user.id).catch(() => 0),
+      hasSandboxTradingActivity(user.id).catch(() => false),
     ]);
     return res.json({
       user,
       wallet,
       hasRealDeposit: !!funded,
+      // Sandbox equivalent of the production flag, so the shared dashboard code
+      // reads one field in both environments.
+      hasTradingActivity: !!hasTraded,
       todayRealizedPnl: Number(todayPnl) || 0,
       environment: ENV_MARKETING_SANDBOX,
       // Single runtime source of the platform minimum deposit (see
@@ -4142,9 +4184,13 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   //  - todayRealizedPnl: signed sum of trades persisted via record_trade_safe()
   //    for the current UTC day. Authoritative source for "Today's P&L" so the
   //    figure can never show a profit that was not recorded server-side.
-  const [funded, todayPnl] = await Promise.all([
+  //  - hasTradingActivity: at least one 'Trade Executed' ledger row, i.e. the
+  //    SAME test /api/withdraw/request applies. Without it the dashboard only
+  //    knew about trades from the current browser session.
+  const [funded, todayPnl, hasTraded] = await Promise.all([
     hasConfirmedDeposit(user.id).catch(() => false),
     getTodayRealizedPnl(user.id).catch(() => 0),
+    hasTradingActivity(user.id).catch(() => false),
   ]);
   // Promotional-credit trading cap (production-only): classify by the
   // AUTHORITATIVE source of funds. Only a user whose non-deposited Live capital
@@ -4201,6 +4247,10 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     user,
     wallet,
     hasRealDeposit: !!funded,
+    // Authoritative completed-trade flag (same definition as the withdrawal
+    // gate). Display/sync only: it unlocks nothing, it only stops the UI from
+    // telling a returning trader to complete a trade they already completed.
+    hasTradingActivity: !!hasTraded,
     // Authoritative Live Mode label + promotional-credit amount for the
     // dashboard. Display only: nothing here can unlock trading or credit money.
     liveMode: _liveMode,

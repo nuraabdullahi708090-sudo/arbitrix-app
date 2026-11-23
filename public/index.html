@@ -7839,7 +7839,7 @@ function toggleFaq(btn) {
                     <div style="min-width:0;">
                         <div id="startHereHeadLive">
                             <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
-                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
+                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
                         </div>
                     </div>
                     <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;min-height:36px;min-width:44px;flex:0 0 auto;" data-i18n="startHere.dismiss">Dismiss</button>
@@ -9102,7 +9102,11 @@ function toggleFaq(btn) {
         <div id="depositMinNotice" style="font-size:11px;color:var(--text-secondary);margin-top:6px;"></div>
         <!-- A deposit is CAPITAL, never activation: stating it here prevents the
              "I funded my account, why is Live still locked?" dead end. -->
-        <div id="depositActivationNote" style="font-size:11px;color:#E8973B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.55;">
+        <!-- Hidden unless the platform actually requires a paid activation
+             (updateLiveActivationUI decides). A deployment running without the
+             requirement must never tell a depositor their deposit will not
+             activate the account. -->
+        <div id="depositActivationNote" style="display:none;font-size:11px;color:#E8973B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.55;">
             <i class="fas fa-key"></i> <span data-i18n="deposit.activationNote">This deposit is trading capital. Live trading also needs a separate one-time $50 activation - a deposit does not activate your account.</span>
         </div>
         <div style="position:relative;margin-top:8px;">
@@ -10886,6 +10890,7 @@ const TRANSLATIONS = {
         'promo.creditTitle': 'Promotional Credit',
         'promo.creditBadge': 'Promotional Credit',
         'promo.creditExplain': 'Your account includes ${{amount}} in promotional trading credit. Purchase a Live Mode activation to unlock access to live trading.',
+        'promo.creditExplainTradable': 'Your account includes ${{amount}} in promotional trading credit. It can be used for trading; profit on it is capped at $30 until you make your first deposit.',
         'liveMode.fundingNote': 'Live Mode is activated. Make a deposit to fund your Live balance and start trading.',
         'liveMode.status.depositRequired': 'Deposit required',
         'liveMode.depositNote': 'Live Mode also needs a confirmed deposit of at least ${{min}}. Make your deposit to finish setting up.',
@@ -10925,15 +10930,18 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Here\'s how to get started.',
         'onboarding.primary': 'Start with my $50 credit',
         'onboarding.primaryDesc': 'Run the bot on your promotional credit. Profit on it is capped at $30 until you deposit.',
+        'onboarding.primaryDescActivation': 'Live trading needs a one-time activation and a deposit first. Your $50 promotional credit is already on your account.',
         'onboarding.secondary': 'I\'m ready to deposit',
         'onboarding.secondaryDesc': 'Fund your Live balance with USDT to trade beyond the promotional credit.',
         'onboarding.realNote': 'Deposited funds are your own capital and can be withdrawn.',
         'onboarding.promoNote': '$50 promotional credit is separate from your deposited funds.',
         'onboarding.noObligation': 'You can deposit whenever you are ready.',
         'onboarding.explainer': 'Kalderix trades multi-asset arbitrage automatically. Your account includes $50 in promotional credit, so you can run the bot before you deposit anything.',
+        'onboarding.explainerActivation': 'Kalderix trades multi-asset arbitrage automatically. Your account includes $50 in promotional credit. Live trading needs a one-time activation and a deposit of at least ${{min}}.',
         'startHere.dismiss': 'Dismiss',
         'startHere.live.title': 'Getting started',
         'startHere.live.subtitle': 'Set up Live trading in two steps.',
+        'startHere.live.subtitleNext': 'Your next step to start Live trading.',
         'startHere.live.step0': 'Complete the one-time $50 Live activation',
         'startHere.live.step3': 'Complete your first Live trade',
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
@@ -12495,6 +12503,7 @@ const TRANSLATIONS = {
         'promo.creditTitle': 'Crédito promocional',
         'promo.creditBadge': 'Crédito promocional',
         'promo.creditExplain': 'Tu cuenta incluye ${{amount}} en crédito promocional de trading. Comprá una activación de Modo Live para desbloquear el trading en vivo.',
+        'promo.creditExplainTradable': 'Tu cuenta incluye ${{amount}} en crédito promocional de trading. Sirve para operar; la ganancia está limitada a $30 hasta tu primer depósito.',
         'liveMode.fundingNote': 'El Modo Live está activado. Hacé un depósito para financiar tu billetera Live y comenzar a operar.',
         'liveMode.status.depositRequired': 'Depósito requerido',
         'liveMode.depositNote': 'El Modo Live también requiere un depósito confirmado de al menos ${{min}}. Realiza tu depósito para terminar la configuración.',
@@ -12534,15 +12543,18 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Así empiezas.',
         'onboarding.primary': 'Empezar con mi crédito de $50',
         'onboarding.primaryDesc': 'Activa el bot con tu crédito promocional. La ganancia está limitada a $30 hasta que deposites.',
+        'onboarding.primaryDescActivation': 'El trading Live necesita una activación única y un depósito primero. Tu crédito promocional de $50 ya está en tu cuenta.',
         'onboarding.secondary': 'Quiero depositar',
         'onboarding.secondaryDesc': 'Financia tu saldo Live con USDT para operar más allá del crédito promocional.',
         'onboarding.realNote': 'Los fondos depositados son tu capital y puedes retirarlos.',
         'onboarding.promoNote': 'El crédito promocional de $50 es independiente de tus fondos depositados.',
         'onboarding.noObligation': 'Puedes depositar cuando quieras.',
         'onboarding.explainer': 'Kalderix opera arbitraje multi-activo de forma automática. Tu cuenta incluye $50 en crédito promocional, así que puedes activar el bot antes de depositar.',
+        'onboarding.explainerActivation': 'Kalderix opera arbitraje multi-activo de forma automática. Tu cuenta incluye $50 en crédito promocional. El trading Live necesita una activación única y un depósito de al menos ${{min}}.',
         'startHere.dismiss': 'Descartar',
         'startHere.live.title': 'Primeros pasos',
         'startHere.live.subtitle': 'Configura tu trading Live en dos pasos.',
+        'startHere.live.subtitleNext': 'Tu siguiente paso para empezar a operar en Live.',
         'startHere.live.step0': 'Completa la activación única de $50 para Live',
         'startHere.live.step3': 'Completa tu primera operación en Live',
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
@@ -14105,6 +14117,7 @@ const TRANSLATIONS = {
         'promo.creditTitle': 'Crédito promocional',
         'promo.creditBadge': 'Crédito promocional',
         'promo.creditExplain': 'Sua conta inclui ${{amount}} em crédito promocional de trading. Compre uma ativação do Modo Live para desbloquear o trading ao vivo.',
+        'promo.creditExplainTradable': 'Sua conta inclui ${{amount}} em crédito promocional de negociação. Ele pode ser usado para operar; o lucro é limitado a $30 até seu primeiro depósito.',
         'liveMode.fundingNote': 'O Modo Live está ativado. Faça um depósito para financiar sua carteira Live e começar a operar.',
         'liveMode.status.depositRequired': 'Depósito necessário',
         'liveMode.depositNote': 'O Modo Live também exige um depósito confirmado de pelo menos ${{min}}. Faça seu depósito para concluir a configuração.',
@@ -14144,15 +14157,18 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Veja como começar.',
         'onboarding.primary': 'Começar com meu crédito de $50',
         'onboarding.primaryDesc': 'Rode o bot com seu crédito promocional. O lucro é limitado a $30 até você depositar.',
+        'onboarding.primaryDescActivation': 'A negociação Live exige uma ativação única e um depósito primeiro. Seu crédito promocional de $50 já está na sua conta.',
         'onboarding.secondary': 'Quero depositar',
         'onboarding.secondaryDesc': 'Financie seu saldo Live com USDT para operar além do crédito promocional.',
         'onboarding.realNote': 'Os fundos depositados são seu capital e podem ser sacados.',
         'onboarding.promoNote': 'O crédito promocional de $50 é separado dos seus fundos depositados.',
         'onboarding.noObligation': 'Você pode depositar quando quiser.',
         'onboarding.explainer': 'A Kalderix opera arbitragem multi-ativo automaticamente. Sua conta inclui $50 em crédito promocional, então você pode rodar o bot antes de depositar.',
+        'onboarding.explainerActivation': 'A Kalderix opera arbitragem multi-ativo automaticamente. Sua conta inclui $50 em crédito promocional. A negociação Live exige uma ativação única e um depósito de pelo menos ${{min}}.',
         'startHere.dismiss': 'Dispensar',
         'startHere.live.title': 'Primeiros passos',
         'startHere.live.subtitle': 'Configure seu trading Live em dois passos.',
+        'startHere.live.subtitleNext': 'Seu próximo passo para começar a operar no Live.',
         'startHere.live.step0': 'Conclua a ativação única de $50 do Live',
         'startHere.live.step3': 'Conclua sua primeira operação no Live',
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
@@ -15715,6 +15731,7 @@ const TRANSLATIONS = {
         'promo.creditTitle': 'Crédit promotionnel',
         'promo.creditBadge': 'Crédit promotionnel',
         'promo.creditExplain': 'Votre compte inclut ${{amount}} en crédit promotionnel de trading. Achetez une activation Mode Live pour débloquer le trading en direct.',
+        'promo.creditExplainTradable': 'Votre compte inclut ${{amount}} en crédit promotionnel de trading. Il est utilisable pour trader ; le gain est plafonné à $30 jusqu’à votre premier dépôt.',
         'liveMode.fundingNote': 'Le Mode Live est activé. Effectuez un dépôt pour financer votre portefeuille Live et commencer à trader.',
         'liveMode.status.depositRequired': 'Dépôt requis',
         'liveMode.depositNote': 'Le Mode Live exige aussi un dépôt confirmé d\'au moins ${{min}}. Effectuez votre dépôt pour terminer la configuration.',
@@ -15754,15 +15771,18 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Voici comment démarrer.',
         'onboarding.primary': 'Démarrer avec mon crédit de 50 $',
         'onboarding.primaryDesc': 'Lancez le bot avec votre crédit promotionnel. Le gain est plafonné à 30 $ jusqu\'à votre dépôt.',
+        'onboarding.primaryDescActivation': 'Le trading Live nécessite une activation unique et un dépôt au préalable. Votre crédit promotionnel de 50 $ est déjà sur votre compte.',
         'onboarding.secondary': 'Je veux déposer',
         'onboarding.secondaryDesc': 'Financez votre solde Live en USDT pour trader au-delà du crédit promotionnel.',
         'onboarding.realNote': 'Les fonds déposés sont votre capital et peuvent être retirés.',
         'onboarding.promoNote': 'Le crédit promotionnel de $50 est distinct de vos fonds déposés.',
         'onboarding.noObligation': 'Vous pouvez déposer quand vous voulez.',
         'onboarding.explainer': 'Kalderix exécute de l\'arbitrage multi-actifs automatiquement. Votre compte inclut 50 $ de crédit promotionnel : vous pouvez lancer le bot avant tout dépôt.',
+        'onboarding.explainerActivation': 'Kalderix pratique l’arbitrage multi-actifs automatiquement. Votre compte inclut 50 $ de crédit promotionnel. Le trading Live nécessite une activation unique et un dépôt d’au moins ${{min}}.',
         'startHere.dismiss': 'Ignorer',
         'startHere.live.title': 'Premiers pas',
         'startHere.live.subtitle': 'Configurez votre trading Live en deux étapes.',
+        'startHere.live.subtitleNext': 'Votre prochaine étape pour commencer à trader en Live.',
         'startHere.live.step0': 'Effectuez l’activation unique de $50 pour le Live',
         'startHere.live.step3': 'Réalisez votre premier trade en Live',
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
@@ -17325,6 +17345,7 @@ const TRANSLATIONS = {
         'promo.creditTitle': 'رصيد ترويجي',
         'promo.creditBadge': 'رصيد ترويجي',
         'promo.creditExplain': 'يتضمن حسابك ${{amount}} كرصيد ترويجي للتداول. اشترِ تفعيل الوضع المباشر لفتح التداول المباشر.',
+        'promo.creditExplainTradable': 'يتضمن حسابك ${{amount}} كرصيد تداول ترويجي. يمكن استخدامه للتداول؛ ويُحدّ الربح عند $30 حتى أول إيداع لك.',
         'liveMode.fundingNote': 'الوضع المباشر مُفعّل. قم بإيداع لتمويل محفظتك المباشرة وبدء التداول.',
         'liveMode.status.depositRequired': 'الإيداع مطلوب',
         'liveMode.depositNote': 'يتطلب الوضع المباشر أيضًا إيداعًا مؤكدًا لا يقل عن ${{min}}. قم بإيداعك لإكمال الإعداد.',
@@ -17364,15 +17385,18 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'إليك كيف تبدأ.',
         'onboarding.primary': 'ابدأ برصيدي الترويجي 50$',
         'onboarding.primaryDesc': 'شغّل البوت برصيدك الترويجي. الربح محدود بـ 30 دولارًا حتى تقوم بالإيداع.',
+        'onboarding.primaryDescActivation': 'يتطلب التداول المباشر تفعيلًا لمرة واحدة وإيداعًا أولًا. رصيدك الترويجي بقيمة $50 موجود بالفعل في حسابك.',
         'onboarding.secondary': 'أريد الإيداع',
         'onboarding.secondaryDesc': 'موّل رصيد Live بعملة USDT للتداول بما يتجاوز الرصيد الترويجي.',
         'onboarding.realNote': 'الأموال المودعة هي رأس مالك ويمكن سحبها.',
         'onboarding.promoNote': 'الرصيد الترويجي البالغ $50 منفصل عن أموالك المودعة.',
         'onboarding.noObligation': 'يمكنك الإيداع متى شئت.',
         'onboarding.explainer': 'تعمل Kalderix على المراجحة متعددة الأصول تلقائيًا. يتضمن حسابك رصيدًا ترويجيًا بقيمة 50 دولارًا، لذا يمكنك تشغيل البوت قبل الإيداع.',
+        'onboarding.explainerActivation': 'تقوم Kalderix بالتداول الآلي للتحكيم بين الأصول المتعددة. يتضمن حسابك رصيدًا ترويجيًا بقيمة $50. يتطلب التداول المباشر تفعيلًا لمرة واحدة وإيداعًا لا يقل عن ${{min}}.',
         'startHere.dismiss': 'تجاهل',
         'startHere.live.title': 'البدء السريع',
         'startHere.live.subtitle': 'جهّز تداولك المباشر في خطوتين.',
+        'startHere.live.subtitleNext': 'خطوتك التالية لبدء التداول المباشر.',
         'startHere.live.step0': 'أكمل تفعيل الوضع المباشر لمرة واحدة بقيمة 50 دولارًا',
         'startHere.live.step3': 'نفّذ أول عملية تداول مباشرة لك',
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
@@ -18935,6 +18959,7 @@ const TRANSLATIONS = {
         'promo.creditTitle': '促销信用',
         'promo.creditBadge': '促销信用',
         'promo.creditExplain': '您的账户包含 ${{amount}} 促销交易信用。购买实时模式激活即可解锁实时交易。',
+        'promo.creditExplainTradable': '您的账户包含 ${{amount}} 促销交易信用。该信用可用于交易；在您首次入金之前，其利润上限为 $30。',
         'liveMode.fundingNote': '实时模式已激活。请入金为您的实盘钱包充值并开始交易。',
         'liveMode.status.depositRequired': '需要入金',
         'liveMode.depositNote': '实时模式除激活外，还需要至少 ${{min}} 的已确认入金。请完成入金以完成设置。',
@@ -18974,15 +18999,18 @@ const TRANSLATIONS = {
         'onboarding.subtitle': '您可以这样开始。',
         'onboarding.primary': '用我的 50 美元信用开始',
         'onboarding.primaryDesc': '用促销信用运行机器人。在您入金之前，利润上限为 30 美元。',
+        'onboarding.primaryDescActivation': '实时交易需要先完成一次性激活并入金。您的 $50 促销信用已在账户中。',
         'onboarding.secondary': '我要入金',
         'onboarding.secondaryDesc': '用 USDT 为 Live 余额入金，突破促销信用的交易额度。',
         'onboarding.realNote': '入金属于您自己的资金，可以提取。',
         'onboarding.promoNote': '$50 促销额度与您的入金资金相互独立。',
         'onboarding.noObligation': '随时可以入金。',
         'onboarding.explainer': 'Kalderix 自动执行多资产套利。您的账户包含 50 美元促销信用，因此可以先运行机器人，再决定是否入金。',
+        'onboarding.explainerActivation': 'Kalderix 自动进行多资产套利交易。您的账户包含 $50 促销信用。实时交易需要一次性激活，以及至少 ${{min}} 的入金。',
         'startHere.dismiss': '忽略',
         'startHere.live.title': '快速开始',
         'startHere.live.subtitle': '两步设置 Live 交易。',
+        'startHere.live.subtitleNext': '开始实时交易的下一步。',
         'startHere.live.step0': '完成一次性 $50 实时模式激活',
         'startHere.live.step3': '完成您的第一笔实时交易',
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
@@ -20300,6 +20328,20 @@ function promoCreditText(amount) {
     if (!isFinite(n) || n <= 0) return '$0.00';
     return '$' + n.toFixed(2);
 }
+/**
+ * TRUE only while the platform actually REQUIRES a paid Live activation and this
+ * account has not completed it. Every activation-dependent sentence (promo card,
+ * start-here checklist, onboarding modal, deposit dialog) keys off this, so a
+ * deployment running with PAYHIP_ACTIVATION_REQUIRED off can never instruct a
+ * customer to buy something the platform does not apply.
+ */
+function activationPending() {
+    try {
+        return APP.activationRequired === true && APP.liveActivated !== true;
+    } catch (e) {
+        return false;
+    }
+}
 function renderLiveModeCard() {
     try {
         const card = document.getElementById('liveModeCard');
@@ -20337,7 +20379,13 @@ function renderLiveModeCard() {
             if (status === 'deposit_required') {
                 text = t('liveMode.depositNote', { min: String(Number(APP.MIN_DEPOSIT) || 0) });
             } else if (amount > 0) {
-                text = t('promo.creditExplain', { amount: String(Number(amount)) });
+                // The activation sentence is TRUE only while an activation is
+                // actually outstanding. An activated (or activation-free)
+                // account gets the plain tradability sentence instead of being
+                // told to purchase a licence it does not need.
+                text = activationPending()
+                    ? t('promo.creditExplain', { amount: String(Number(amount)) })
+                    : t('promo.creditExplainTradable', { amount: String(Number(amount)) });
             } else {
                 text = t('liveMode.fundingNote');
             }
@@ -20359,8 +20407,14 @@ function renderLiveModeCard() {
 function updateLiveActivationUI() {
     try {
         const notice = document.getElementById('liveActivationNotice');
-        const needed = APP.activationRequired === true && APP.liveActivated !== true;
+        const needed = activationPending();
         if (notice) notice.classList.toggle('hidden', !needed);
+        // The deposit dialog carries a "your deposit does not activate your
+        // account" note. It is only true while an activation is outstanding;
+        // showing it unconditionally told every depositor on an activation-free
+        // deployment that their deposit would not activate anything.
+        const depositNote = document.getElementById('depositActivationNote');
+        if (depositNote) depositNote.style.display = needed ? '' : 'none';
         const buy = document.getElementById('liveActivationBuyBtn');
         const unavailable = document.getElementById('liveActivationUnavailable');
         const url = APP.activationStoreUrl || '';
@@ -20374,6 +20428,10 @@ function updateLiveActivationUI() {
         // Never a silent dead end: when there is no purchase route, say so and
         // point at support (the button below the hint).
         if (unavailable) unavailable.classList.toggle('hidden', canBuy);
+        // The onboarding modal is shown BEFORE /api/auth/me resolves on a fresh
+        // signup, so its activation-dependent copy is refreshed here once the
+        // authoritative state is known (and on every language switch).
+        if (typeof renderOnboardingActivationCopy === 'function') renderOnboardingActivationCopy();
     } catch (e) { /* display only */ }
 }
 function openLiveActivationModal() {
@@ -24639,8 +24697,40 @@ function showOnboarding(user) {
     setOnboardingChoice(user.id, 'shown');
     const modal = document.getElementById('onboardingModal');
     if (!modal) return false;
+    if (typeof renderOnboardingActivationCopy === 'function') renderOnboardingActivationCopy();
     modal.classList.add('open');
     return true;
+}
+
+/**
+ * Onboarding copy that depends on whether Live Mode really requires a paid
+ * activation.
+ *
+ * The base text tells a new customer their $50 credit is enough to run the bot.
+ * That is true only while the activation requirement is OFF; with it ON the
+ * customer cannot trade before activating, so the modal states the real steps
+ * instead of promising something the platform does not deliver.
+ *
+ * Rendered by JS (not just data-i18n) because the activation variant embeds the
+ * configured minimum deposit, which applyTranslations() would print raw. Every
+ * language switch re-runs it from updateDynamicTranslations(), so the chosen key
+ * is also written to data-i18n and stays correct for later passes.
+ */
+function renderOnboardingActivationCopy() {
+    const pending = (typeof activationPending === 'function') && activationPending();
+    const min = String(Number((typeof APP !== 'undefined' && APP.MIN_DEPOSIT) || 100));
+    const explainer = document.getElementById('onboardingExplainer');
+    if (explainer) {
+        const key = pending ? 'onboarding.explainerActivation' : 'onboarding.explainer';
+        if (typeof explainer.setAttribute === 'function') explainer.setAttribute('data-i18n', key);
+        explainer.textContent = pending ? t(key, { min: min }) : t(key);
+    }
+    const desc = document.getElementById('onboardingPrimaryDesc');
+    if (desc) {
+        const key = pending ? 'onboarding.primaryDescActivation' : 'onboarding.primaryDesc';
+        if (typeof desc.setAttribute === 'function') desc.setAttribute('data-i18n', key);
+        desc.textContent = t(key);
+    }
 }
 
 // The signed-in user as last cached by login/signup/2FA (localStorage
@@ -24723,6 +24813,14 @@ function updateStartHere() {
     if (hidden || isSandbox) return;
     // Single mode: the checklist only ever describes Live requirements. No
     // balance, trading rule, invoice or session is touched here.
+    // The subtitle states how many steps apply to THIS account: the activation
+    // step is part of the checklist only when the platform requires it.
+    const sub = document.getElementById('startHereSubtitle');
+    if (sub) {
+        const subKey = startHereLiveSteps().length > 1 ? 'startHere.live.subtitle' : 'startHere.live.subtitleNext';
+        if (typeof sub.setAttribute === 'function') sub.setAttribute('data-i18n', subKey);
+        sub.textContent = t(subKey);
+    }
     const liveDone = startHereLiveComplete();
     const steps = document.getElementById('startHereStepsLive');
     const ready = document.getElementById('startHereStepsLiveReady');
@@ -24732,27 +24830,30 @@ function updateStartHere() {
 }
 
 // LIVE checklist: only requirements the current product actually enforces, in
-// the order the server enforces them - activation (a one-time purchase) unlocks
-// Live, and only then can a trade be placed. The guide deliberately stops there:
-// funding amounts are stated where they are actionable (the deposit dialog), not
-// as a prerequisite list on the dashboard.
+// the order the server enforces them - activation (a one-time purchase, ONLY
+// when the platform requires it) unlocks Live, and only then can a trade be
+// placed. The guide deliberately stops there: funding amounts are stated where
+// they are actionable (the deposit dialog), not as a prerequisite list on the
+// dashboard.
 function startHereLiveSteps() {
-    return [
-        { key: 'startHere.live.step0' },
-        { key: 'startHere.live.step3' },
-    ];
+    const steps = [];
+    if (typeof activationPending === 'function' && activationPending()) {
+        steps.push({ key: 'startHere.live.step0' });
+    }
+    steps.push({ key: 'startHere.live.step3' });
+    return steps;
 }
 
 // Completion state, driven ONLY by reliable server flags already adopted into
-// APP.liveData: a confirmed real deposit (hasRealDeposit) and at least one
-// completed trade (hasTradingActivity). No new/fake progress tracking.
+// APP.liveData. Every displayed step has to be satisfied: an outstanding
+// activation keeps the card open, otherwise a completed trade is the whole
+// checklist. (A trade can only exist on an activation-enabled deployment if the
+// qualifying deposit was made, so this is not a weaker condition there.)
 function startHereLiveComplete() {
     const d = (typeof APP !== 'undefined' && APP.liveData) ? APP.liveData : null;
     if (!d) return false;
-    // While the activation requirement is on, an unactivated account is never
-    // "ready", however funded it looks.
-    if (APP.activationRequired === true && APP.liveActivated !== true) return false;
-    return !!(d.hasRealDeposit && d.hasTradingActivity);
+    if (typeof activationPending === 'function' && activationPending()) return false;
+    return !!d.hasTradingActivity;
 }
 
 function renderStartHereLiveSteps() {
@@ -26148,6 +26249,13 @@ async function syncWalletFromServer() {
                     // Fallback only if the server omitted the field.
                     APP.liveData.hasRealDeposit = true;
                     fundedFromServer = true;
+                }
+                // Completed-trade state is server-authoritative too: adopt it so
+                // a returning customer is not told to "complete at least 1 trade"
+                // for a trade they made in an earlier session (the withdrawal
+                // gate and the verification prompt both read this flag).
+                if (typeof meData.hasTradingActivity === 'boolean') {
+                    APP.liveData.hasTradingActivity = meData.hasTradingActivity;
                 }
                 // The bot minimum trading balance (MTA) was removed by management
                 // decision, so there is no longer an MTA value to adopt from the
