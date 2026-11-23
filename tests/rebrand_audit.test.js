@@ -290,12 +290,13 @@ test('the money-moving routes are still present', () => {
   }
 });
 
-test('this audit adds no migration (055 predates it)', () => {
+test('the rebrand adds no migration (its only DDL predates the audit)', () => {
   // 051 was applied BEFORE this audit (a subscription-detail label rename that
   // back-fills existing rows). A product rename must never need new DDL, so the
   // count and the single pre-existing rebrand-named file are pinned here.
+  // 056 (users email uniqueness) is a separate security migration, not a rename.
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations'));
-  assert.equal(migrations.length, 54, 'migration count changed - was a file added?');
+  assert.equal(migrations.length, 55, 'migration count changed - was a file added?');
   const rebrandNamed = migrations.filter((m) => /rebrand|kalderix/i.test(m));
   assert.deepEqual(rebrandNamed, ['051_rebrand_subscription_detail.sql']);
   // and the pre-existing one rewrites a DISPLAY string, not a balance rule

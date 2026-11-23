@@ -3392,6 +3392,37 @@ This is an automated message from Kalderix.`
 // service-role Supabase client; table `revoked_tokens` (migration 025).
 const sessionRevocationStore = TokenRevocation.createSupabaseStore(supabaseAdmin);
 
+// Expired revocation rows are ignored by the lookup but were never deleted, so
+// `revoked_tokens` could only grow. Prune them daily (the RPC already exists in
+// migration 025 and is service-role only). Best effort: an environment without
+// the function keeps working, with one warning instead of a repeated one.
+const REVOKED_TOKEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let revocationPruneWarned = false;
+
+function pruneRevokedTokens() {
+  Promise.resolve()
+    .then(function () { return TokenRevocation.pruneExpired(sessionRevocationStore); })
+    .then(function (result) {
+      if (result && result.ok) {
+        if (Number(result.deleted) > 0) {
+          console.log('[auth] pruned ' + Number(result.deleted) + ' expired revocation record(s)');
+        }
+        return;
+      }
+      if (!revocationPruneWarned) {
+        revocationPruneWarned = true;
+        console.warn('[auth] revocation prune unavailable (' + ((result && result.reason) || 'error') +
+          '); expired rows are ignored at lookup time but will not be deleted');
+      }
+    })
+    .catch(function () { /* pruneExpired never rejects; guarded anyway */ });
+}
+
+// First pass shortly after boot (never blocking startup), then daily. unref()
+// so the timer can never hold the process open.
+setTimeout(pruneRevokedTokens, 60 * 1000).unref();
+setInterval(pruneRevokedTokens, REVOKED_TOKEN_PRUNE_INTERVAL_MS).unref();
+
 // Session TTL. Kept as the single source shared by every FULL token issuer
 // (register/login/2FA); partial 2FA tokens stay short-lived below.
 const SESSION_TTL = '7d';
@@ -3660,59 +3691,70 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     });
   }
   
-  try {
-    // Check if user exists (but don't reveal this information)
-    const user = await getUserByEmail(normalizedEmail);
-    
-    if (user) {
-      // Generate a cryptographically secure token
-      const resetToken = generateResetToken();
-      const tokenHash = hashToken(resetToken);
-      const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
-      
-      // Invalidate any existing reset tokens for this email (use admin client for RLS)
-      await supabaseAdmin
-        .from('password_reset_tokens')
-        .update({ used: true })
-        .eq('email', normalizedEmail)
-        .eq('used', false);
-      
-      // Store the hashed token with expiration and IP for auditing (use admin client for RLS)
-      const { error: insertError } = await supabaseAdmin
-        .from('password_reset_tokens')
-        .insert({
-          email: normalizedEmail,
-          token_hash: tokenHash,
-          expires_at: expiresAt,
-          used: false,
-          ip_address: clientIP
-        });
-      
-      if (insertError) {
-        console.error('Failed to insert reset token:', insertError);
-        // Don't reveal the error to the user
-      } else {
-        // Send the reset email
-        await sendResetEmail(normalizedEmail, resetToken);
-      }
-    }
-    
-    // Always return success, even if email doesn't exist
-    // This prevents email enumeration attacks
-    res.json({ 
-      success: true, 
-      message: 'If an account with that email exists, we have sent a password reset link.'
-    });
-    
-  } catch (e) {
-    console.error('Forgot password error:', e.message);
-    // Always return success to prevent email enumeration
-    res.json({ 
-      success: true, 
-      message: 'If an account with that email exists, we have sent a password reset link.'
-    });
-  }
+  // One uniform answer, sent BEFORE any address-dependent work. The lookup,
+  // token write and email below are detached, so neither the body nor the
+  // response time can reveal whether the address exists (the timing gap used to
+  // be the enumeration signal even though the body was already uniform).
+  res.json({
+    success: true,
+    message: 'If an account with that email exists, we have sent a password reset link.'
+  });
+
+  setImmediate(function () {
+    // Failures are logged inside; the trailing catch is belt-and-braces so this
+    // can never surface as an unhandled rejection either.
+    processPasswordResetRequest(normalizedEmail, clientIP).catch(function () { /* logged inside */ });
+  });
 });
+
+/**
+ * Account-side work for a password-reset request.
+ *
+ * Runs DETACHED from the response on purpose: doing it inline made an existing
+ * address measurably slower than an unknown one (database writes plus the mail
+ * provider call), which is an account-enumeration side channel.
+ *
+ * Swallows every error after logging it: the caller has already answered, and
+ * the client must not be able to distinguish outcomes.
+ */
+async function processPasswordResetRequest(normalizedEmail, clientIP) {
+  try {
+    const user = await getUserByEmail(normalizedEmail);
+    if (!user) return;
+
+    // Generate a cryptographically secure token
+    const resetToken = generateResetToken();
+    const tokenHash = hashToken(resetToken);
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
+
+    // Invalidate any existing reset tokens for this email (use admin client for RLS)
+    await supabaseAdmin
+      .from('password_reset_tokens')
+      .update({ used: true })
+      .eq('email', normalizedEmail)
+      .eq('used', false);
+
+    // Store the hashed token with expiration and IP for auditing (use admin client for RLS)
+    const { error: insertError } = await supabaseAdmin
+      .from('password_reset_tokens')
+      .insert({
+        email: normalizedEmail,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        used: false,
+        ip_address: clientIP
+      });
+
+    if (insertError) {
+      console.error('Failed to insert reset token:', insertError);
+      return;
+    }
+
+    await sendResetEmail(normalizedEmail, resetToken);
+  } catch (e) {
+    console.error('Forgot password error:', e && e.message);
+  }
+}
 
 /**
  * POST /api/auth/reset-password

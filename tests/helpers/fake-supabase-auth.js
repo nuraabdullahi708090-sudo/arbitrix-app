@@ -72,6 +72,13 @@ globalThis.fetch = async function fakeAuthFetch(input, init) {
   const single = wantsSingle(init);
   log(method + ' ' + table + (parsed.search || ''));
 
+  // Optional artificial latency, used to prove that a route does NOT wait for
+  // background database work before answering (scenario.delays = { table: ms }).
+  const delayMs = sc.delays && Number(sc.delays[table]);
+  if (delayMs > 0) {
+    await new Promise(function (resolve) { setTimeout(resolve, delayMs); });
+  }
+
   if (table === 'users') {
     if (method === 'GET') {
       if (sc.usersError) return json(500, { code: 'XX000', message: 'users store unavailable' });

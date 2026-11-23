@@ -220,12 +220,12 @@ Characteristics to keep in mind:
 
 ## Known limitations
 
-- There is no database-enforced uniqueness guarantee for `users.email` in the
-  migrations tracked by this repository (the table predates them). Provisioning
-  handles a uniqueness violation gracefully, but without the constraint two
-  concurrent cold starts in an environment where the account is missing could
-  create two rows. Verify the constraint exists; if it does not, add it through
-  the normal migration review.
+- `users.email` had no uniqueness guarantee in the migrations tracked by this
+  repository (the table predates them), so two concurrent cold starts in an
+  environment where the account is missing could create two rows. Provisioning
+  handles the violation gracefully, and `supabase/migrations/056_users_email_unique.sql`
+  now adds a guarded, case-insensitive unique index - **not applied yet**; follow
+  its operator procedure. See `docs/security/AUTH_SESSION_HARDENING.md`.
 - Without a configured proxy trust, per-IP limits degrade to a shared limit. That
   is a availability/config decision, not a spoofing hole: an unconfigured proxy
   makes the limit stricter, never weaker.

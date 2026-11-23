@@ -62,6 +62,24 @@ async function isTokenRevoked(store, jti) {
   return !!(await store.has(jti));
 }
 
+/**
+ * Delete revocation records whose token has already expired.
+ *
+ * Never throws: callers run this unattended, and a missing RPC / transient
+ * database error must not affect request handling. `{ok:false, reason}` tells the
+ * caller whether to warn (once) instead of retrying loudly.
+ */
+async function pruneExpired(store, nowMs) {
+  if (!store) return { ok: false, reason: 'no_store' };
+  if (typeof store.prune !== 'function') return { ok: false, reason: 'unsupported_store' };
+  try {
+    const deleted = await store.prune(nowMs);
+    return { ok: true, deleted: Number.isFinite(Number(deleted)) ? Number(deleted) : 0 };
+  } catch (e) {
+    return { ok: false, reason: 'prune_failed', error: (e && e.message) || 'unknown' };
+  }
+}
+
 // Supabase (production) store. Uses the service-role client; migration 025
 // restricts `revoked_tokens` to service_role, so the anon/authenticated roles
 // can never read or write it. Upsert keeps a double logout idempotent.
@@ -87,6 +105,14 @@ function createSupabaseStore(supabaseAdmin, table = TABLE) {
       if (error) throw error;
       return Array.isArray(data) && data.length > 0;
     },
+    // Delegates to the SECURITY DEFINER function created by migration 025.
+    // Returns the number of rows removed (0 when the function is absent -> error).
+    async prune() {
+      const { data, error } = await supabaseAdmin.rpc('prune_revoked_tokens');
+      if (error) throw error;
+      const deleted = Number(data);
+      return Number.isFinite(deleted) ? deleted : 0;
+    },
   };
 }
 
@@ -104,6 +130,14 @@ function createMemoryStore(now = () => Date.now()) {
       if (entry.expiresAt <= now()) { entries.delete(jti); return false; }
       return true;
     },
+    async prune() {
+      const t = now();
+      let deleted = 0;
+      for (const entry of entries) {
+        if (entry[1].expiresAt <= t) { entries.delete(entry[0]); deleted += 1; }
+      }
+      return deleted;
+    },
     _size() { return entries.size; },
   };
 }
@@ -116,6 +150,7 @@ module.exports = {
   expiresAtFromDecoded,
   revokeToken,
   isTokenRevoked,
+  pruneExpired,
   createSupabaseStore,
   createMemoryStore,
 };
