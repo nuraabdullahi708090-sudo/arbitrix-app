@@ -19,15 +19,28 @@
 --   Adds ONE unique expression index on lower(email). Nothing else: no column is
 --   added, no row is read out, no row is changed or deleted.
 --
+-- SCOPE OF THE CONSTRAINT (this is what the pre-flight must mirror exactly)
+--   The index is keyed on lower(email) for EVERY row. A unique B-tree treats NULL
+--   as distinct, so any number of rows with email IS NULL can coexist. Everything
+--   else - including an empty string '' and whitespace-only values such as '   ' -
+--   is an ordinary non-NULL key: two identical ones collide, and '' and '   ' do
+--   NOT collide with each other (they are different strings).
+--   An earlier revision of the pre-flight filtered out `btrim(email) <> ''`, so a
+--   pair of empty or identical whitespace-only addresses slipped past the guard
+--   and CREATE UNIQUE INDEX failed with a raw duplicate-key error instead of this
+--   migration's own explanation. The check below covers exactly the index's scope.
+--
 -- SAFETY
---   * PRE-FLIGHT: if two or more rows already share an address (case-insensitively)
---     the migration RAISES with the number of duplicated addresses and changes
---     NOTHING. Resolve those accounts first (usually a support decision), then
---     re-run.
+--   * PRE-FLIGHT: if two or more rows already share a key (case-insensitively)
+--     the migration RAISES with the count - and separately the count that are
+--     empty/whitespace-only - and changes NOTHING. Resolve those accounts first
+--     (usually a support decision), then re-run.
 --   * IDEMPOTENT: CREATE INDEX IF NOT EXISTS + a DROP/CREATE-free design, so a
 --     second run is a no-op.
 --   * NULL emails stay allowed and remain distinct (standard unique-index
 --     semantics), so accounts without an address are unaffected.
+--   * NON-DESTRUCTIVE: no row is inserted, updated, deleted or normalised. A
+--     duplicated blank address is refused, never cleaned up automatically.
 --
 -- OPERATIONAL NOTE
 --   A plain CREATE UNIQUE INDEX takes a SHARE lock that blocks writes to `users`
@@ -43,28 +56,56 @@
 -- ============================================
 DO $$
 DECLARE
-    duplicate_addresses integer;
+    duplicate_keys integer;
+    duplicate_blank_keys integer;
+    checked_addresses integer;
+    blank_addresses integer;
+    null_addresses integer;
 BEGIN
     IF to_regclass('public.users') IS NULL THEN
         RAISE EXCEPTION 'public.users does not exist in this database; refusing to continue';
     END IF;
 
-    SELECT count(*) INTO duplicate_addresses
+    -- The predicate below is EXACTLY the index scope: every non-NULL email.
+    -- Empty ('') and whitespace-only ('   ') values are deliberately NOT filtered
+    -- out - they are indexed like any other string, so excluding them here is what
+    -- previously let a duplicate blank pair reach CREATE UNIQUE INDEX and fail
+    -- with a raw error instead of this guard.
+    SELECT count(*) INTO duplicate_keys
     FROM (
         SELECT lower(email) AS address
         FROM public.users
-        WHERE email IS NOT NULL AND btrim(email) <> ''
+        WHERE email IS NOT NULL
         GROUP BY lower(email)
         HAVING count(*) > 1
     ) duplicates;
 
-    IF duplicate_addresses > 0 THEN
+    -- Same groups, restricted to keys that render as blank, so the message can
+    -- explain WHICH kind of duplicate was found (a blank address prints as
+    -- nothing in a log otherwise).
+    SELECT count(*) INTO duplicate_blank_keys
+    FROM (
+        SELECT lower(email) AS address
+        FROM public.users
+        WHERE email IS NOT NULL
+        GROUP BY lower(email)
+        HAVING count(*) > 1 AND btrim(lower(email)) = ''
+    ) blank_duplicates;
+
+    SELECT count(*) FILTER (WHERE email IS NULL),
+           count(*) FILTER (WHERE email IS NOT NULL),
+           count(*) FILTER (WHERE email IS NOT NULL AND btrim(email) = '')
+      INTO null_addresses, checked_addresses, blank_addresses
+    FROM public.users;
+
+    IF duplicate_keys > 0 THEN
         RAISE EXCEPTION
-            'cannot enforce uniqueness: % address(es) are shared by more than one account (case-insensitive). Resolve them first - nothing was changed.',
-            duplicate_addresses;
+            'cannot enforce uniqueness: % address(es) are shared by more than one account (case-insensitive), of which % are empty or whitespace-only. No row was changed. Run the read-only probe in docs/security/AUTH_SESSION_HARDENING.md, resolve the duplicates (a support decision), then re-run this migration.',
+            duplicate_keys, duplicate_blank_keys;
     END IF;
 
-    RAISE NOTICE '056 pre-flight: no duplicate addresses found';
+    RAISE NOTICE '056 pre-flight: % non-NULL address(es) checked, no duplicates. % of them are empty/whitespace-only (allowed once each), % are NULL (allowed any number of times).',
+        checked_addresses, blank_addresses, null_addresses;
 END $$;
 
 -- ============================================

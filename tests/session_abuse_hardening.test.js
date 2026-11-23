@@ -310,19 +310,131 @@ test('the detached work swallows its own failures', () => {
 
 // ---------------------------------------------------------------------------
 // 4. Migration 056 - case-insensitive uniqueness of users.email
+//
+// The pre-flight MUST cover exactly the scope of the index. The first revision
+// filtered out `btrim(email) <> ''`, so two empty (or two identical
+// whitespace-only) addresses passed the guard and CREATE UNIQUE INDEX then failed
+// with a raw duplicate-key error. These tests pin the aligned rule.
 // ---------------------------------------------------------------------------
 
-test('migration 056 is additive, guarded and idempotent', () => {
-  const sql = fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '056_users_email_unique.sql'), 'utf8');
+function migrationSql() {
+  return fs.readFileSync(path.join(ROOT, 'supabase', 'migrations', '056_users_email_unique.sql'), 'utf8');
+}
+
+function preflightBlock(sql) {
+  return sql.slice(sql.indexOf('-- 1. PRE-FLIGHT'), sql.indexOf('-- 2. THE CONSTRAINT'));
+}
+
+/**
+ * The rule the SQL implements, as a mirror so the semantics can be tested:
+ * NULL never participates; every other value is keyed by its lowercased string.
+ */
+function duplicateKeys(emails) {
+  const counts = new Map();
+  for (const email of emails) {
+    if (email === null || email === undefined) continue;
+    const key = String(email).toLowerCase();
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const duplicates = [];
+  for (const [key, count] of counts) if (count > 1) duplicates.push(key);
+  return duplicates;
+}
+
+test('the pre-flight scans exactly the scope of the index (every non-NULL email)', () => {
+  const preflight = preflightBlock(migrationSql());
+
+  // The old exclusion must never come back: it is what let a duplicate blank pair
+  // through to the index and produced a raw error instead of this guard.
+  assert.strictEqual(
+    /WHERE email IS NOT NULL\s*AND\s*btrim\(email\)\s*<>\s*''/i.test(preflight), false,
+    'the blank-email exclusion must not be reintroduced');
+
+  // Both duplicate queries must jump straight from `WHERE email IS NOT NULL` to the
+  // GROUP BY, i.e. no extra predicate may narrow the index scope.
+  const scopedQueries = preflight.match(/WHERE email IS NOT NULL\s*\n\s*GROUP BY lower\(email\)/g) || [];
+  assert.strictEqual(scopedQueries.length, 2, 'both duplicate queries scan every non-NULL row');
+
+  // Blank values may appear only in the reporting filters, never as a filter on
+  // the duplicate queries themselves.
+  const withoutFilters = preflight.replace(/count\(\*\) FILTER \(WHERE[^)]*\)/g, '');
+  assert.strictEqual(/btrim/i.test(withoutFilters.split('GROUP BY')[0]), false,
+    'the WHERE clause must not narrow the index scope');
+
+  assert.strictEqual((preflight.match(/GROUP BY lower\(email\)/g) || []).length, 2,
+    'duplicates are grouped by the indexed expression');
+  assert.strictEqual((preflight.match(/HAVING count\(\*\) > 1/g) || []).length, 2,
+    'a group of two or more is a duplicate');
+});
+
+test('the pre-flight names blank duplicates and counts NULL rows explicitly', () => {
+  const preflight = preflightBlock(migrationSql());
+
+  assert.match(preflight, /HAVING count\(\*\) > 1 AND btrim\(lower\(email\)\) = ''/,
+    'blank duplicate groups are counted separately so the message is legible');
+  assert.match(preflight, /FILTER \(WHERE email IS NULL\)/, 'NULL rows are counted');
+  assert.match(preflight, /FILTER \(WHERE email IS NOT NULL\)/, 'checked rows are counted');
+  assert.match(preflight, /FILTER \(WHERE email IS NOT NULL AND btrim\(email\) = ''\)/,
+    'blank values are counted');
+
+  assert.match(preflight, /of which % are empty or whitespace-only/, 'the message explains the blank case');
+  assert.match(preflight, /No row was changed/, 'the message states that nothing was modified');
+  assert.match(preflight, /docs\/security\/AUTH_SESSION_HARDENING\.md/, 'the operator is pointed at the probe');
+  assert.match(preflight, /% are NULL \(allowed any number of times\)/,
+    'the success notice states that NULL values are unrestricted');
+});
+
+test('the pre-flight rule refuses every duplicate the index would reject', () => {
+  // Mirrors the 14 cases executed against real PostgreSQL (scripts/verify-migration-056.js).
+  assert.deepStrictEqual(duplicateKeys(['', '']), [''], 'two empty strings collide');
+  assert.deepStrictEqual(duplicateKeys(['', '', '']), [''], 'three empty strings collide');
+  assert.deepStrictEqual(duplicateKeys(['   ', '   ']), ['   '], 'identical whitespace collides');
+  assert.deepStrictEqual(duplicateKeys([' A@x.test ', ' A@x.test ']), [' a@x.test '], 'identical padded values collide');
+  assert.deepStrictEqual(duplicateKeys(['A@x.test', 'a@x.test']), ['a@x.test'], 'case-only duplicates collide');
+  assert.deepStrictEqual(duplicateKeys(['', '', 'A@x.test', 'a@x.test']).sort(), ['', 'a@x.test'],
+    'blank and address duplicates are both found');
+
+  // ...and it stays aligned where the index allows coexistence.
+  assert.deepStrictEqual(duplicateKeys([null, null]), [], 'NULLs never conflict');
+  assert.deepStrictEqual(duplicateKeys(['', '   ']), [], "'' and '   ' are different strings");
+  assert.deepStrictEqual(duplicateKeys(['a@x.test', ' a@x.test']), [], 'padding changes the key');
+  assert.deepStrictEqual(duplicateKeys(['', null, 'a@x.test']), [], 'a single blank is allowed, as the index allows');
+  assert.deepStrictEqual(duplicateKeys(['a@x.test', 'b@x.test']), [], 'distinct addresses do not conflict');
+});
+
+test('migration 056 is additive, non-destructive and idempotent', () => {
+  const sql = migrationSql();
+  const preflight = preflightBlock(sql);
 
   assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique\s+ON public\.users \(lower\(email\)\)/,
     'the unique expression index is created idempotently');
-  assert.match(sql, /HAVING count\(\*\) > 1/, 'a duplicate pre-flight exists');
-  assert.match(sql, /RAISE EXCEPTION[\s\S]{0,220}Resolve them first - nothing was changed/, 'the guard refuses loudly');
-  assert.strictEqual(/DROP\s+TABLE/i.test(sql), false);
-  assert.strictEqual(/\bDELETE\s+FROM/i.test(sql), false, 'the migration never deletes rows');
-  assert.strictEqual(/\bUPDATE\s+public\.users/i.test(sql), false, 'the migration never rewrites accounts');
   assert.match(sql, /indisunique/, 'the self-check verifies uniqueness');
   assert.match(sql, /lower%email%/, 'the self-check verifies the expression index');
   assert.match(sql, /CONCURRENTLY/, 'the large-table alternative is documented');
+
+  assert.strictEqual(/DROP\s+TABLE/i.test(sql), false);
+  assert.strictEqual(/\bDELETE\s+FROM/i.test(sql), false, 'the migration never deletes rows');
+  assert.strictEqual(/\bUPDATE\s+public\.users/i.test(sql), false, 'the migration never rewrites accounts');
+  assert.strictEqual(/\bINSERT\s+INTO/i.test(sql), false, 'the migration never inserts rows');
+  assert.strictEqual(/\bSET\s+email\s*=/i.test(sql), false, 'no column is rewritten');
+  assert.strictEqual(/\bTRIM\s*\(\s*email\s*\)/i.test(sql), false, 'no value is normalised');
+});
+
+test('the optional verification tool exercises the blank and NULL cases without a new dependency', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const declared = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+  assert.strictEqual(declared.some(function (name) { return /pglite/i.test(name); }), false,
+    'the verification engine must not become a project dependency');
+
+  const tool = fs.readFileSync(path.join(ROOT, 'scripts', 'verify-migration-056.js'), 'utf8');
+  ['two empty-string addresses',
+    'three empty-string addresses',
+    'two identical whitespace-only addresses',
+    'two NULL addresses (never conflict)',
+    'apply twice (idempotency)'
+  ].forEach(function (name) {
+    assert.ok(tool.indexOf(name) !== -1, 'the tool covers: ' + name);
+  });
+  assert.ok(tool.indexOf("require('@electric-sql/pglite')") !== -1, 'it uses the WASM PostgreSQL engine');
+  assert.ok(tool.indexOf('npm install --no-save') !== -1, 'it documents the out-of-tree install');
 });

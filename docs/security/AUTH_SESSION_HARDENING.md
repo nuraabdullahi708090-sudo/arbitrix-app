@@ -104,22 +104,74 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique
 - On a large table, run the equivalent `CREATE UNIQUE INDEX CONCURRENTLY` outside a
   transaction instead (noted in the file).
 
+### What "duplicate" means here (scope, fixed after review)
+
+The index is keyed on `lower(email)` for **every row**. A unique B-tree treats `NULL`
+as distinct, so any number of rows with `email IS NULL` coexist. Everything else is an
+ordinary non-`NULL` key:
+
+| Value in `users.email` | Two rows with it | Why |
+|---|---|---|
+| `NULL` | allowed | `lower(NULL)` is NULL; NULLs never conflict |
+| `''` (empty string) | **refused** | an ordinary non-NULL key; two identical ones collide |
+| `'   '` (whitespace) | **refused** if identical | same rule |
+| `''` and `'   '` together | allowed | they are different strings |
+| `A@x.test` and `a@x.test` | **refused** | the index is on the lowercased value |
+| `A@x.test` and `' A@x.test '` | allowed | padding makes a different key |
+
+The first revision of the migration filtered the duplicate check with
+`btrim(email) <> ''`, so two empty or two identical whitespace-only addresses slipped
+past the guard and `CREATE UNIQUE INDEX` failed with a raw `could not create unique
+index` error instead of the migration's own explanation. The check now covers exactly
+the index's scope (every non-`NULL` row), counts blank duplicates separately so the
+message is legible, and reports how many `NULL`, checked and blank values it saw.
+
+The migration never normalises, merges or deletes anything: a duplicated blank value is
+**refused**, not repaired. Resolving it is an operator decision.
+
 ### Operator procedure
 
-1. Read-only pre-flight (safe at any time):
+1. Read-only pre-flight (safe at any time). It uses the same scope as the migration,
+   so a duplicate blank address is visible here too:
 
    ```sql
-   select lower(email) as address, count(*)
+   select case
+            when btrim(lower(email)) = '' then '<blank or whitespace>'
+            else lower(email)
+          end as address,
+          count(*)
    from public.users
-   where email is not null and btrim(email) <> ''
+   where email is not null
    group by lower(email)
-   having count(*) > 1;
+   having count(*) > 1
+   order by count(*) desc;
    ```
 
 2. If it returns rows, resolve those accounts first (support decision; do not delete).
+   Blank or whitespace-only duplicates are almost always data-entry junk - correct
+   them through the normal account process, never by hand-editing balances.
 3. Apply `056_users_email_unique.sql`. Re-running it is safe.
 4. The application needs no change: registration already rejects an existing address,
    and provisioning already reports `exists` when a concurrent insert wins.
+
+### Verifying the migration without a database server
+
+`scripts/verify-migration-056.js` executes the **real migration file** against
+PostgreSQL compiled to WebAssembly (PGlite) and checks 14 cases: no rows, idempotent
+re-apply, distinct addresses, two/three empty strings, identical whitespace, identical
+padded values, case-only duplicates, a mixed blank + address duplicate, plus the
+allowed coexistences (`NULL`s, `''` vs `'   '`, padded vs plain, a single blank).
+
+```bash
+npm install --no-save @electric-sql/pglite   # out of tree; no manifest change
+node scripts/verify-migration-056.js          # exit 0 = all cases behave
+```
+
+It is deliberately **not** a CI dependency: adding a WASM database engine to the
+project for one migration guard would be a supply-chain change with no runtime value.
+Against the pre-fix revision it reports **6 of 14 cases failed** (the blank/whitespace
+duplicates reached the raw index error, and a mixed case under-counted); against the
+current file it reports all 14 passing.
 
 ## 4. Correcting the record: logout was already authenticated
 
