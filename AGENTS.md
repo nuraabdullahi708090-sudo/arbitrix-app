@@ -9734,3 +9734,50 @@ the removed/added copy.
 - STILL REQUIRED (operator, no code): set `TRUST_PROXY_HOPS` / `TRUST_PROXY` for the
   real topology (Cloudflare -> Render) to restore true per-client limits. No
   migration, no deploy, no production configuration touched.
+
+
+## Pre-merge safety audit (2026-11-23, PR #201) - revocation store, rate-limit buckets, proxy validation
+- Scope: services/TokenRevocationService.js, services/AuthEntry.js, services/ClientIp.js,
+  server.js (authMiddleware / logout / forgot-password store), .env.example, two security
+  docs and three test files. No financial logic, no API shape change except the new
+  503 strict-mode answer, no migration, nothing deployed.
+
+### 1. Revocation store could fail open (FIXED)
+- BEFORE: authMiddleware swallowed a revoked_tokens error and allowed the request, so a
+  token revoked by logout was accepted again during an outage; POST /api/auth/logout
+  answered 500 and persisted nothing, so the session stayed valid after recovery.
+  Reproduced against the real server with a Supabase double whose revoked_tokens always
+  fails (pre-fix: logout 500, replay 200).
+- NOW: createResilientStore wraps the durable store. Local revocation is authoritative
+  (a logout rejects on the instance even if the write fails), unpersisted revocations are
+  queued (max 500) and flushed on recovery, a verified "not revoked" answer is cached
+  (AUTH_REVOCATION_CACHE_MS, default 10 s, 20k entries), a circuit breaker skips a failing
+  store for 10 s, every call has a timeout (AUTH_REVOCATION_TIMEOUT_MS, default 2000 ms),
+  and AUTH_REVOCATION_REQUIRE_STORE=true opts into 503 + Retry-After instead of allow.
+  Logout no longer 500s because the store is down.
+- RESIDUAL (documented): with strict mode off, a token revoked by a DIFFERENT instance and
+  not yet observed here can be used until the store recovers. Single-instance deployment
+  is unaffected.
+
+### 2. Rate-limit buckets: flood bypass + unbounded growth (FIXED)
+- BEFORE: oldest-first eviction let a flood of distinct account keys evict a victim's live
+  lockout; the per-entry failure array grew inside the window; rateLimitStore
+  (forgot-password) had no ceiling between 5-minute sweeps.
+- NOW: eviction ranks entries (2 locked, 1 counting, 0 inert) and spends the budget on
+  inert keys; failure history capped at loginAccountMax + 4; buckets trimmed immediately
+  after an insert that crosses maxEntries; forgot-password maps bounded at 20 000 with the
+  timer sweeping each bucket's OWN window (a zero-window regression pin exists);
+  stats() exposes maxEntries.
+- Proof: the flood and history-cap tests fail on the pre-fix limiter.
+
+### 3. Proxy trust validation could crash the boot (FIXED)
+- BEFORE: regex validation accepted 999.1.1.1, 1.2.3.4/99 and ::::, which proxy-addr
+  rejects inside app.set('trust proxy') during module load -> crash loop.
+- NOW: net.isIP + per-family prefix range; app.set guarded with a safe fallback to "trust
+  nothing"; unusually broad ranges warn at every boot; Cloudflare -> Render hop semantics
+  re-verified by execution (XFF: spoofed, customer, cf-edge with 2 hops -> customer).
+
+### Tests
+- NEW tests/auth_revocation_resilience.test.js (17), tests/auth_rate_limit_resilience.test.js
+  (13), 3 added to tests/trusted_proxy_ip.test.js (now 18). One intentional pin updated
+  (stats() gains maxEntries). npm test = 3906 pass / 0 fail (was 3873).

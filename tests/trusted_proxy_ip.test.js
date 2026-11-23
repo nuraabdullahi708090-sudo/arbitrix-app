@@ -155,6 +155,63 @@ test('an unrecognised trust entry disables trust rather than guessing', () => {
   assert.match(resolved.warning, /unsupported/i);
 });
 
+test('invalid addresses and out-of-range prefixes are refused, not passed to Express', () => {
+  // These used to pass the (regex) validator and then make `app.set('trust proxy')`
+  // throw while server.js was loading - an operator typo became a crash loop.
+  for (const bad of ['999.1.1.1', '1.2.3.4/99', '1.2.3.4/33', '::::', '2001:db8::/129',
+    'not-an-ip', '10.0.0.0/8/8', '1.2.3/24']) {
+    assert.strictEqual(ClientIp.isTrustToken(bad), false, bad + ' must be refused');
+    const resolved = ClientIp.resolveProxyTrust({ TRUST_PROXY: bad });
+    assert.strictEqual(resolved.mode, 'none', bad + ' disables trust instead of reaching Express');
+    assert.ok(resolved.warning, bad + ' warns');
+  }
+  // Valid forms, including per-family prefix maxima.
+  for (const good of ['loopback', '10.0.0.0/8', '1.2.3.4', '1.2.3.4/32',
+    '2001:db8::/32', '::1', 'fd00::/8']) {
+    assert.strictEqual(ClientIp.isTrustToken(good), true, good + ' must be accepted');
+  }
+});
+
+test('an unusually broad trust range is accepted but reported at startup', () => {
+  const broad = ClientIp.resolveProxyTrust({ TRUST_PROXY: '0.0.0.0/2' });
+  assert.strictEqual(broad.mode, 'list', 'still honoured: it may be a genuine private range');
+  assert.match(broad.warning || '', /unusually broad/i);
+
+  const v6 = ClientIp.resolveProxyTrust({ TRUST_PROXY: '2001:db8::/4' });
+  assert.match(v6.warning || '', /unusually broad/i);
+
+  // A /8 (IPv4) or /16 (IPv6) is the threshold and does not warn.
+  assert.ok(!ClientIp.resolveProxyTrust({ TRUST_PROXY: '10.0.0.0/8' }).warning);
+  assert.ok(!ClientIp.resolveProxyTrust({ TRUST_PROXY: '2001:db8::/16' }).warning);
+  assert.ok(!ClientIp.resolveProxyTrust({ TRUST_PROXY: '203.0.113.9' }).warning);
+});
+
+test('the Cloudflare -> Render chain: two trusted hops resolve to the customer', async () => {
+  // Simulates the documented production chain. Render's router appends the
+  // Cloudflare edge address, Cloudflare appends the customer, so the app sees
+  // "customer, cf-edge" and the socket peer is Render. With two trusted hops
+  // req.ip is the customer; a client-prepended value is ignored.
+  const server = await startServer({
+    TRUST_PROXY_HOPS: '2',
+    AUTH_RATE_LIMIT_LOGIN_IP_MAX: '5',
+    AUTH_RATE_LIMIT_LOGIN_ACCOUNT_MAX: '1000'
+  });
+  try {
+    let blockedAt = null;
+    for (let i = 1; i <= 12; i += 1) {
+      const res = await server.post('/api/auth/login',
+        { email: 'cf' + i + '@example.test', password: 'wrong' },
+        // Client-controlled prefix, then the REAL customer address, then the edge.
+        { 'X-Forwarded-For': '10.9.9.' + i + ', 203.0.113.50, 172.70.1.1' });
+      if (res.status === 429) { blockedAt = i; break; }
+    }
+    assert.strictEqual(blockedAt, 6, 'the two spoofed positions did not create new identities');
+    assert.match(server.output(), /\[proxy\] client IP trust: hops \(TRUST_PROXY_HOPS: 2\)/);
+  } finally {
+    await server.close();
+  }
+});
+
 test('TRUST_PROXY takes precedence over TRUST_PROXY_HOPS', () => {
   const resolved = ClientIp.resolveProxyTrust({ TRUST_PROXY: 'loopback', TRUST_PROXY_HOPS: '3' });
   assert.strictEqual(resolved.mode, 'list');

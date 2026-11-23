@@ -150,7 +150,16 @@ globalThis.fetch = async function fakeAuthFetch(input, init) {
     return json(201, []);
   }
 
-  if (table === 'revoked_tokens' || table === 'email_verification_codes') {
+  if (table === 'revoked_tokens') {
+    // `revokedTokensError` simulates the revocation store being unreachable, which
+    // is what the resilience tests need (logout must still revoke locally).
+    if (sc.revokedTokensError) {
+      return json(503, { code: '57P03', message: 'revocation store unavailable' });
+    }
+    return json(200, method === 'GET' ? [] : []);
+  }
+
+  if (table === 'email_verification_codes') {
     return json(200, method === 'GET' ? [] : []);
   }
 

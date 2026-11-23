@@ -181,6 +181,32 @@ example a public `*.onrender.com` hostname next to the proxied domain), a numeri
 hop count can be spoofed by using the direct route - use `TRUST_PROXY` CIDRs, or
 restrict direct access.
 
+### Validation and failure modes (hardened)
+
+- Entries are validated with Node's own address parser (`net.isIP`) plus a
+  per-family prefix range (32 for IPv4, 128 for IPv6). `999.1.1.1`, `1.2.3.4/99`
+  and `::::` are refused; the setting is disabled with a warning instead of being
+  handed to Express, where it used to throw during module load (a crash loop).
+- `app.set('trust proxy', ...)` is guarded too: anything Express still rejects
+  falls back to trusting nothing, with `[proxy] TRUST_PROXY/TRUST_PROXY_HOPS was
+  rejected by Express (...)` in the log. Failing in the safe direction, never a
+  crash.
+- A very broad range (IPv4 shorter than `/8`, IPv6 shorter than `/16`) is honoured
+  but warns at every boot: anyone inside it can choose their own
+  `X-Forwarded-For`.
+- Cloudflare -> Render, as implemented: the socket peer is Render's router, so
+  `TRUST_PROXY_HOPS=1` yields the Cloudflare edge and `2` yields the customer.
+  Verified by execution in `tests/trusted_proxy_ip.test.js` (a spoofed prefix
+  before the customer address does not create new identities).
+
+### Revocation-store resilience (related availability knob)
+
+Session revocation has its own documented trade-off; see
+`docs/security/AUTH_SESSION_HARDENING.md` section 4. Short version: a logout is
+enforced locally even if the database write fails, unpersisted revocations are
+retried, and `AUTH_REVOCATION_REQUIRE_STORE=true` switches from "stay available"
+to "refuse while unverifiable" (503 + Retry-After).
+
 ## Rate limiting architecture
 
 | Bucket | Default (address attributable) | Shared-address default | Counts |

@@ -463,6 +463,26 @@ function createAuthRateLimiter(options) {
     return t - failures[failures.length - 1] >= windowMs;
   }
 
+  /**
+   * How much a bucket entry is worth keeping when the bucket is full.
+   *
+   * 2 = actively protecting an account (a live lockout) - evicting it would let
+   *     the attacker who filled the bucket continue guessing that password;
+   * 1 = has recent failures, so it is still counting toward a cooldown;
+   * 0 = inert (a single successful attempt, or a window that has expired).
+   *
+   * An attacker can create unlimited DISTINCT account keys (one per attempted
+   * address), so plain oldest-first eviction let a flood push a victim's lockout
+   * out of the bucket. Ranking keeps the entries that carry protection and
+   * spends the eviction budget on the attacker's own inert keys instead.
+   */
+  function evictionRank(state, t) {
+    if (!state) return 0;
+    if (state.lockedUntil && t < state.lockedUntil) return 2;
+    if (state.failures && state.failures.length > 0) return 1;
+    return 0;
+  }
+
   function sweep(bucket, isExpired) {
     const t = clock();
     const entries = bucket.entries;
@@ -475,10 +495,17 @@ function createAuthRateLimiter(options) {
     if (entries.size > cfg.maxEntries) {
       // Evict in a batch so the next requests do not each re-trigger this path.
       const target = Math.floor(cfg.maxEntries * 0.9);
-      while (entries.size > target) {
-        const oldest = entries.keys().next();
-        if (oldest.done) break;
-        entries.delete(oldest.value);
+      const candidates = [];
+      for (const entry of entries) {
+        candidates.push([entry[0], evictionRank(entry[1], t)]);
+      }
+      // Stable sort: equal ranks keep insertion order, so the oldest inert entry
+      // goes first. This only runs while the bucket is over capacity, and the
+      // request rate that can create keys is itself rate limited.
+      candidates.sort(function (a, b) { return a[1] - b[1]; });
+      for (const candidate of candidates) {
+        if (entries.size <= target) break;
+        entries.delete(candidate[0]);
         counters.evictions += 1;
       }
     }
@@ -510,6 +537,8 @@ function createAuthRateLimiter(options) {
     let record = map.get(key);
     if (windowIsExpired(record, t, windowMs)) {
       record = { count: 0, start: t };
+      // Re-insert at the tail so eviction order approximates recency.
+      map.delete(key);
       map.set(key, record);
     }
     if (record.count >= max) {
@@ -520,6 +549,12 @@ function createAuthRateLimiter(options) {
       };
     }
     record.count += 1;
+    // The insert may have taken the bucket past its ceiling (a new key, a
+    // flood); trim immediately so the size never exceeds maxEntries between
+    // requests.
+    if (map.size > cfg.maxEntries) {
+      maybeSweep(bucket, function (rec, t) { return windowIsExpired(rec, t, windowMs); });
+    }
     return { allowed: true, remaining: Math.max(0, max - record.count) };
   }
 
@@ -585,6 +620,17 @@ function createAuthRateLimiter(options) {
 
       pruneFailures(state, t);
       state.failures.push(t);
+      // Bound the per-entry history. The cooldown doubles per failure above the
+      // threshold but is clamped by loginCooldownMaxMs, so a handful beyond the
+      // threshold carries all the state that matters; an unauthenticated caller
+      // cannot inflate one entry into an unbounded array this way.
+      const maxSamples = cfg.loginAccountMax + 4;
+      if (state.failures.length > maxSamples) {
+        state.failures = state.failures.slice(-maxSamples);
+      }
+      if (map.size > cfg.maxEntries) {
+        maybeSweep(loginAccount, function (st, t) { return accountIsExpired(st, t, cfg.loginAccountWindowMs); });
+      }
 
       let cooldownMs = 0;
       if (state.failures.length >= cfg.loginAccountMax) {
@@ -614,6 +660,7 @@ function createAuthRateLimiter(options) {
         loginIp: loginIp.entries.size,
         loginAccount: loginAccount.entries.size,
         registerIp: registerIp.entries.size,
+        maxEntries: cfg.maxEntries,
         sweeps: counters.sweeps,
         evictions: counters.evictions
       };
@@ -628,7 +675,17 @@ function createAuthRateLimiter(options) {
       registerIp.lastSweepAt = 0;
     },
 
-    config: cfg
+    config: cfg,
+
+    // Test hooks: observe internal state without exposing the maps themselves.
+    _accountState: function (accountKey) {
+      const state = loginAccount.entries.get(accountKey);
+      if (!state) return null;
+      return {
+        failures: (state.failures || []).length,
+        lockedUntil: state.lockedUntil || 0
+      };
+    }
   };
 }
 

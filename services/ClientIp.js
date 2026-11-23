@@ -28,29 +28,72 @@
  *                        proxy address and degrades to a coarse shared limit, but a
  *                        direct caller can never spoof an identity.
  *
+ * TOPOLOGY NOTE (Cloudflare -> Render, the documented production chain): the
+ * socket peer is Render's router, so N=1 makes `req.ip` the Cloudflare edge and
+ * N=2 makes it the customer. A hop count is only correct while the app is
+ * unreachable except through those proxies: the platform also serves a
+ * `*.onrender.com` hostname, and a caller hitting that directly can send its own
+ * X-Forwarded-For. Prefer CIDRs, or keep direct access closed.
+ *
  * A blanket `true` / `*` / `all` is REFUSED: it would trust a client-supplied
  * chain and reintroduce the bypass. See docs/security/ADMIN_PROVISIONING.md.
  */
+
+const net = require('net');
 
 const MAX_TRUST_HOPS = 10;
 
 // Accept only the shapes Express itself understands, so a typo cannot silently
 // disable the setting.
 const TRUST_KEYWORDS = ['loopback', 'linklocal', 'uniquelocal'];
-const IPV4_CIDR = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-const IPV6_CIDR = /^[0-9a-f:]+(\/\d{1,3})?$/i;
 
+// A prefix this wide is almost certainly a mistake: it trusts a large part of
+// the internet, so a caller can supply the X-Forwarded-For chain. It is not
+// refused (an operator could have a genuinely large private range), but it is
+// reported loudly at startup.
+const BROAD_PREFIX_V4 = 8;
+const BROAD_PREFIX_V6 = 16;
+
+/**
+ * Validate one entry of TRUST_PROXY against the real address parser.
+ *
+ * The previous regexes accepted `999.1.1.1`, `1.2.3.4/99` and `::::`. Express's
+ * `proxy-addr` rejects those, and `app.set('trust proxy', ...)` throws while the
+ * module is loading - i.e. an operator typo became a crash loop. `net.isIP`
+ * implements the actual address grammar, and the prefix is range-checked per
+ * family (32 for IPv4, 128 for IPv6).
+ */
 function isTrustToken(token) {
   if (!token) return false;
-  const value = token.trim().toLowerCase();
+  const value = String(token).trim().toLowerCase();
   if (TRUST_KEYWORDS.indexOf(value) !== -1) return true;
-  if (!IPV4_CIDR.test(value) && !IPV6_CIDR.test(value)) return false;
+
   const parts = value.split('/');
-  if (parts.length === 2) {
-    const bits = parseInt(parts[1], 10);
-    if (!Number.isFinite(bits) || bits < 0 || bits > 128) return false;
-  }
-  return true;
+  if (parts.length > 2) return false;
+  const family = net.isIP(parts[0]);
+  if (!family) return false;
+  if (parts.length === 1) return true;
+
+  if (!/^\d{1,3}$/.test(parts[1])) return false;
+  const bits = Number(parts[1]);
+  const maxBits = family === 4 ? 32 : 128;
+  return bits >= 0 && bits <= maxBits;
+}
+
+/**
+ * Human-readable reason an entry is unusually broad, or null.
+ * A bare address is a /32 (IPv4) or /128 (IPv6) and is never broad.
+ */
+function broadTrustReason(token) {
+  const value = String(token).trim().toLowerCase();
+  if (TRUST_KEYWORDS.indexOf(value) !== -1) return null;
+  const parts = value.split('/');
+  const family = net.isIP(parts[0]);
+  if (!family) return null;
+  const bits = parts.length === 2 ? Number(parts[1]) : (family === 4 ? 32 : 128);
+  if (family === 4 && bits < BROAD_PREFIX_V4) return value + ' trusts more than a /8 of the internet';
+  if (family === 6 && bits < BROAD_PREFIX_V6) return value + ' trusts more than a /16 of the internet';
+  return null;
 }
 
 /**
@@ -95,12 +138,20 @@ function resolveProxyTrust(env) {
         warning: 'TRUST_PROXY contains unsupported entries (' + invalid.join(', ') + '); proxy trust disabled'
       };
     }
-    return {
+    const broad = tokens.map(broadTrustReason).filter(Boolean);
+    const result = {
       mode: 'list',
       value: tokens.join(', '),
       source: 'TRUST_PROXY',
       detail: tokens.join(', ')
     };
+    if (broad.length > 0) {
+      // A warning, not a refusal: the ranges may be genuine. It is reported at
+      // every boot so it cannot be forgotten.
+      result.warning = 'TRUST_PROXY is unusually broad (' + broad.join('; ') +
+        '); a caller inside those ranges can choose its own X-Forwarded-For address';
+    }
+    return result;
   }
 
   const hopsProvided = rawHops != null && String(rawHops).trim() !== '';
@@ -163,7 +214,10 @@ function getClientIp(req) {
 
 module.exports = {
   MAX_TRUST_HOPS: MAX_TRUST_HOPS,
+  BROAD_PREFIX_V4: BROAD_PREFIX_V4,
+  BROAD_PREFIX_V6: BROAD_PREFIX_V6,
   isTrustToken: isTrustToken,
+  broadTrustReason: broadTrustReason,
   resolveProxyTrust: resolveProxyTrust,
   normalizeIp: normalizeIp,
   getClientIp: getClientIp

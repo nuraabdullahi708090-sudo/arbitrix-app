@@ -265,3 +265,123 @@ case variant, near-miss rejection, ambiguity, store error, empty input) and the 
 real HTTP (case-variant login, unknown address still 401, ambiguous login refused + logged,
 case-variant registration refused, `23505` race mapped to 400, reset request finds a
 mixed-case account and writes a token, unknown address writes nothing).
+
+
+## 4. Session revocation survives a store outage (and stops failing open silently)
+
+### The defect
+
+`authMiddleware` consulted `revoked_tokens` on every authenticated request and, on
+a store error, logged one line and let the request through. Two consequences,
+both real:
+
+1. A token that had been revoked (logout) was **accepted again** for as long as the
+   store was unreachable - signature and `exp` still valid, denylist unreadable.
+2. A logout issued during the outage **failed to persist at all**
+   (`POST /api/auth/logout` answered 500 and wrote nothing), so the session stayed
+   valid even after the database recovered. Reproduced against the real server with
+   a Supabase double whose `revoked_tokens` table always fails: pre-fix, logout
+   returned 500 and the replayed token returned 200 on `/api/auth/me`.
+
+Failing closed instead was not acceptable either: every authenticated request would
+fail platform-wide during a Supabase blip, including the dashboard of customers
+whose sessions were perfectly valid.
+
+### The fix (services/TokenRevocationService.js -> createResilientStore)
+
+The durable store is now wrapped, and `authMiddleware` keeps calling the same
+`isTokenRevoked(...)`:
+
+| Mechanism | Effect |
+|---|---|
+| **Local revocation is authoritative** | `revokeToken` records the jti in-process *before* attempting the durable write, so a replay is rejected by the instance that handled the logout even while the database is down (now 401, was 200). |
+| **Bounded retry queue** | An unpersisted revocation is queued (max 500) and flushed on the next successful store call, so a transient outage no longer loses it. |
+| **Short "not revoked" cache** | A verified answer is trusted for `AUTH_REVOCATION_CACHE_MS` (default 10 s, bounded to 20 000 entries) - the store is no longer read on every request, and a burst is survived without a per-request timeout. |
+| **Circuit breaker** | After 3 consecutive failures the store is skipped for a 10 s cooldown, so a request cannot stall for the full timeout each time. Recovery is logged once. |
+| **Per-call timeout** | `AUTH_REVOCATION_TIMEOUT_MS` (default 2 000 ms, clamped to 10 000). A hung store can never hang a request. |
+| **Opt-in strict mode** | `AUTH_REVOCATION_REQUIRE_STORE=true` answers **503 + Retry-After** (never 401, which would make clients discard a valid token) when the state cannot be verified. Off by default. |
+
+Logout no longer fails because of the store: the session is ended either way, and a
+non-durable revocation is logged (`revocation is not durable yet; it is enforced
+locally and queued for retry`).
+
+### Residual risk (documented, not hidden)
+
+With strict mode off, during an outage a token revoked by a **different** instance -
+and not yet observed by this one - can still be used until the store recovers. Local
+revocations and anything already seen as revoked are always enforced. The deployment
+is a single web instance, so this window requires a multi-instance topology, and
+strict mode is the answer for one.
+
+### Verification
+
+`tests/auth_revocation_resilience.test.js` (17): local enforcement with a failing
+store, retry-queue flush after recovery (observed through a second instance), cache
+TTL and `0`-disables, revocation invalidating a cached opinion, circuit open/half-open
+/recovery, a hanging store resolving inside the timeout, strict mode (typed error,
+503 over HTTP), bounded queues/caches, environment parsing, and the real HTTP proof
+that **logout still revokes while the store is down** and that strict mode answers
+503. Both HTTP cases **fail on the pre-fix code** (verified by reverting the two
+server files in place).
+
+## 5. Rate-limit buckets: a flood cannot buy a bypass, and nothing grows unbounded
+
+### The defect (two, both reachable unauthenticated)
+
+1. **Eviction was oldest-first**, and the account bucket is keyed by a
+   caller-supplied address. Anyone can mint unlimited distinct keys; filling the
+   bucket (20 000) pushed a **victim's live lockout** out of it and the password
+   guessing could continue. The flood itself is throttled by the per-IP budget
+   (60/15 min per address, 5 000/15 min shared), but 20 000 keys is ~334 addresses
+   - or four in shared-address mode.
+2. **The per-entry failure history was unbounded** inside the window: every failed
+   attempt appended a timestamp and every later attempt re-filtered the array, so a
+   single targeted account could accumulate thousands of samples (memory plus O(n)
+   work per attempt).
+3. `rateLimitStore` (forgot-password IP and per-address buckets) had **no ceiling
+   at all**; its 5-minute sweep was the only bound, so a burst of distinct
+   addresses inside one window grew the map freely.
+
+### The fix
+
+- Eviction now ranks entries: `2` = a live lockout, `1` = counting failures,
+  `0` = inert. Inert entries go first (oldest first), so a flood spends its budget
+  on the attacker's own keys. Sorting happens only while over capacity, and the
+  arrival rate of new keys is itself limited by the per-IP bucket.
+- The failure history is capped at `loginAccountMax + 4` samples. The cooldown
+  doubles per failure but is clamped at `loginCooldownMaxMs`, so the cap changes no
+  behaviour while bounding memory and per-attempt work.
+- Buckets are trimmed **immediately after an insert** that crosses the ceiling, so
+  `stats()` can never exceed `maxEntries`.
+- `checkForgotPasswordRateLimit` enforces `RATE_LIMIT_MAX_ENTRIES` (20 000) on
+  insert, and the 5-minute timer sweeps with **each bucket's own window** (a
+  regression pin exists for the zero-window mistake that would have wiped the map
+  every tick).
+- `stats()` exposes `maxEntries` next to the live sizes.
+
+### Verification
+
+`tests/auth_rate_limit_resilience.test.js` (13): the flood-vs-lockout case and the
+history cap **both fail on the pre-fix limiter**; plus eviction ordering, long-flood
+bounds, legitimate burst, cooldown expiry, IP-vs-account independence, the reset-map
+ceiling and sweep windows (executed from the real `server.js` in a vm), the normalised
+bucket key, and two real-HTTP cases (case variants share one budget; an unthrottled
+account still signs in).
+
+## 6. Proxy trust: invalid values can no longer crash the app
+
+`services/ClientIp.js` validated `TRUST_PROXY` with regexes, so `999.1.1.1`,
+`1.2.3.4/99` and `::::` passed the validator and then threw inside
+`app.set('trust proxy', ...)` while `server.js` was loading - an operator typo
+became a boot crash loop. Validation now uses `net.isIP` plus a per-family prefix
+range (32 / 128), and `app.set` is guarded: anything Express still rejects falls
+back to "trust nothing" with a loud warning, which is the safe direction.
+
+An unusually broad range (IPv4 shorter than /8, IPv6 shorter than /16) is honoured
+but reported at every boot, because a caller inside it can choose its own address.
+
+The Cloudflare -> Render chain was re-verified by execution (not assumed): with two
+trusted hops, `X-Forwarded-For: <spoofed>, <customer>, <cf-edge>` resolves to the
+customer, so rotating the client-controlled prefix does not create new identities.
+`tests/trusted_proxy_ip.test.js` (18) pins it, together with the invalid-value
+matrix and the broad-range warning.

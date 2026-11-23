@@ -141,7 +141,18 @@ const app = express();
 // Default: trust nothing, so a direct caller cannot spoof an identity with a
 // header. Behind a proxy, set TRUST_PROXY (CIDR list) or TRUST_PROXY_HOPS.
 const proxyTrust = ClientIp.resolveProxyTrust(process.env);
-app.set('trust proxy', proxyTrust.value);
+let proxyTrustMode = proxyTrust.mode;
+try {
+  app.set('trust proxy', proxyTrust.value);
+} catch (err) {
+  // proxy-addr rejects anything it cannot compile (an exotic-but-plausible
+  // string the validator let through). An operator typo must not become a crash
+  // loop: fall back to trusting nothing, which is the safe direction, and say so.
+  proxyTrustMode = 'none';
+  proxyTrust.warning = 'TRUST_PROXY/TRUST_PROXY_HOPS was rejected by Express (' +
+    ((err && err.message) || 'invalid value') + '); proxy trust disabled';
+  app.set('trust proxy', false);
+}
 
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-in-production';
@@ -196,24 +207,55 @@ const rateLimitStore = {
   email: new Map()
 };
 
+// Hard ceiling per bucket. The periodic cleanup below removes expired windows,
+// but that only runs every 5 minutes: within one window an attacker who can
+// submit many DISTINCT addresses (or arrives from many addresses) could still
+// grow a map without bound, and each key is attacker-chosen. The ceiling is
+// enforced on insert, so memory is bounded regardless of the cleanup cadence.
+// Real traffic is orders of magnitude below this (the per-IP budget allows 5
+// reset requests per 15 minutes), so eviction can only ever hit flood keys.
+const RATE_LIMIT_MAX_ENTRIES = 20000;
+
+/**
+ * Remove expired windows from a rate-limit map (full scan; timer only).
+ * Returns the number of entries removed.
+ */
+function sweepExpiredRateLimits(map, now, windowMs) {
+  let removed = 0;
+  for (const [key, data] of map.entries()) {
+    if (!data || now - data.windowStart > windowMs) { map.delete(key); removed += 1; }
+  }
+  return removed;
+}
+
+/**
+ * Enforce a map's hard ceiling. Cheap on purpose (no scan): it only runs when a
+ * new key pushed the map over the ceiling, which under normal traffic never
+ * happens. Deletes from the front, i.e. the oldest insertions.
+ */
+function evictToRateLimitCeiling(map, max) {
+  if (map.size <= max) return 0;
+  const target = Math.floor(max * 0.9);
+  let removed = 0;
+  while (map.size > target) {
+    const oldest = map.keys().next();
+    if (oldest.done) break;
+    map.delete(oldest.value);
+    removed += 1;
+  }
+  return removed;
+}
+
 // Cleanup old entries periodically (every 5 minutes). unref() so the timer can
 // never hold the process open on its own.
 setInterval(() => {
   const now = Date.now();
-
-  // Clean IP store
-  for (const [key, data] of rateLimitStore.ip.entries()) {
-    if (now - data.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
-      rateLimitStore.ip.delete(key);
-    }
-  }
-
-  // Clean email store
-  for (const [key, data] of rateLimitStore.email.entries()) {
-    if (now - data.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
-      rateLimitStore.email.delete(key);
-    }
-  }
+  // Expired windows are removed with each bucket's OWN window, then the ceiling
+  // is re-applied defensively.
+  sweepExpiredRateLimits(rateLimitStore.ip, now, RATE_LIMIT_CONFIG.ip.windowMs);
+  sweepExpiredRateLimits(rateLimitStore.email, now, RATE_LIMIT_CONFIG.email.windowMs);
+  evictToRateLimitCeiling(rateLimitStore.ip, RATE_LIMIT_MAX_ENTRIES);
+  evictToRateLimitCeiling(rateLimitStore.email, RATE_LIMIT_MAX_ENTRIES);
 }, 5 * 60 * 1000).unref();
 
 /**
@@ -283,6 +325,10 @@ function checkForgotPasswordRateLimit(ip, email) {
   // Increment counts
   ipData.count++;
   emailData.count++;
+
+  // Enforce the per-bucket ceiling (a no-op unless the bucket is under a flood).
+  evictToRateLimitCeiling(rateLimitStore.ip, RATE_LIMIT_MAX_ENTRIES);
+  evictToRateLimitCeiling(rateLimitStore.email, RATE_LIMIT_MAX_ENTRIES);
   
   return {
     allowed: true,
@@ -311,7 +357,7 @@ function checkForgotPasswordRateLimit(ip, email) {
 // Throttling answers are identical whether or not the account exists, so the
 // limiter cannot be used to enumerate accounts.
 // ---------------------------------------------------------------------------
-const CLIENT_IP_ATTRIBUTABLE = proxyTrust.mode !== 'none';
+const CLIENT_IP_ATTRIBUTABLE = proxyTrustMode !== 'none';
 const authRateLimiter = AuthEntry.createAuthRateLimiter(
   AuthEntry.resolveAuthRateLimits(process.env, { ipAttributable: CLIENT_IP_ATTRIBUTABLE })
 );
@@ -346,7 +392,7 @@ function getClientIp(req) {
 if (proxyTrust.warning) {
   console.warn('[proxy] ' + proxyTrust.warning);
 }
-console.log('[proxy] client IP trust: ' + proxyTrust.mode + ' (' + proxyTrust.source + ': ' + proxyTrust.detail + ')');
+console.log('[proxy] client IP trust: ' + proxyTrustMode + ' (' + proxyTrust.source + ': ' + proxyTrust.detail + ')');
 if (!CLIENT_IP_ATTRIBUTABLE) {
   // Not an error: it is the safe default. It does mean per-address budgets are
   // shared, so they use wider defaults instead of throttling every customer.
@@ -3496,7 +3542,34 @@ This is an automated message from Kalderix.`
 // ---------- AUTH MIDDLEWARE ----------
 // Server-side session revocation store (jti denylist). Backed by the
 // service-role Supabase client; table `revoked_tokens` (migration 025).
-const sessionRevocationStore = TokenRevocation.createSupabaseStore(supabaseAdmin);
+//
+// The durable store is wrapped so that (a) a logout is enforced locally even if
+// the write fails, (b) an unpersisted revocation is retried, (c) a failing store
+// is skipped for a short cooldown instead of stalling every request, and (d) a
+// "not revoked" answer is cached briefly. See
+// services/TokenRevocationService.js for the full rationale and the documented
+// residual risk. Options: AUTH_REVOCATION_TIMEOUT_MS, AUTH_REVOCATION_CACHE_MS,
+// AUTH_REVOCATION_REQUIRE_STORE (strict = 503 instead of allow).
+const sessionRevocationDurableStore = TokenRevocation.createSupabaseStore(supabaseAdmin);
+const sessionRevocationStore = TokenRevocation.createResilientStore(
+  sessionRevocationDurableStore,
+  TokenRevocation.resolveResilientOptions(process.env, {
+    onEvent: function (name, detail) {
+      if (name === 'store_open') {
+        console.warn('[auth] revocation store unavailable; requests are allowed without a verified ' +
+          'revocation state until it recovers (local revocations are still enforced)');
+      } else if (name === 'store_recovered') {
+        console.log('[auth] revocation store recovered');
+      } else if (name === 'pending_flushed') {
+        console.log('[auth] persisted ' + Number((detail && detail.count) || 0) +
+          ' queued revocation record(s) after the outage');
+      } else if (name === 'pending_dropped') {
+        console.warn('[auth] revocation retry queue is full; the oldest unpersisted revocation was dropped ' +
+          '(it is still enforced on this instance)');
+      }
+    }
+  })
+);
 
 // Expired revocation rows are ignored by the lookup but were never deleted, so
 // `revoked_tokens` could only grow. Prune them daily (the RPC already exists in
@@ -3565,9 +3638,16 @@ async function authMiddleware(req, res, next) {
         return res.status(401).json({ error: 'Session revoked' });
       }
     } catch (e) {
-      // Availability trade-off: a transient revocation-store error must not log
-      // every user out. Never log token material.
-      console.warn('[auth] revocation check unavailable:', e.message);
+      // The resilient store answers "allow" on its own when the database is
+      // unreachable (local revocations are still enforced), so this path only
+      // runs in the operator's opt-in strict mode
+      // (AUTH_REVOCATION_REQUIRE_STORE=true). Answer 503 - retryable - and never
+      // 401, which would make clients discard a perfectly valid token.
+      if (e && e.code === 'REVOCATION_UNAVAILABLE') {
+        res.set('Retry-After', '5');
+        return res.status(503).json({ error: 'Session verification unavailable', retryable: true });
+      }
+      console.warn('[auth] revocation check failed:', (e && e.message) || 'unknown');
     }
   }
   req.user = decoded;
@@ -3755,10 +3835,15 @@ app.post('/api/auth/logout', authMiddleware, async (req, res) => {
   try {
     const result = await TokenRevocation.revokeToken(sessionRevocationStore, req.user);
     // `revoked:false` only for legacy tokens without a jti (unrevocable) or a
-    // missing store; the session is still ended client-side.
+    // missing store; the session is still ended client-side. The resilient store
+    // records the jti locally even when the durable write fails, so the token is
+    // rejected on this instance immediately and persisted once the store is back.
+    if (result.revoked && result.durable === false) {
+      console.warn('[auth/logout] revocation is not durable yet; it is enforced locally and queued for retry');
+    }
     res.json({ success: true, revoked: result.revoked });
   } catch (err) {
-    console.error('[auth/logout]', err.message);
+    console.error('[auth/logout] (revocation store) ', err.message);
     res.status(500).json({ error: 'Logout failed' });
   }
 });

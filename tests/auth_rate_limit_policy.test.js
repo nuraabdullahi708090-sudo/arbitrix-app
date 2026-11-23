@@ -189,7 +189,9 @@ test('reset clears state and counters', () => {
 
   h.limiter.reset();
   assert.strictEqual(h.limiter.checkLogin('198.51.100.4', 'a@example.test').allowed, true);
+  // `maxEntries` was added so the configured ceiling is observable next to the
+  // live sizes (the flood tests assert against it).
   assert.deepStrictEqual(h.limiter.stats(), {
-    loginIp: 1, loginAccount: 0, registerIp: 0, sweeps: 0, evictions: 0
+    loginIp: 1, loginAccount: 0, registerIp: 0, maxEntries: 20000, sweeps: 0, evictions: 0
   });
 });
