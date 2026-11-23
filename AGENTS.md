@@ -9793,3 +9793,34 @@ the removed/added copy.
 - ADVISORY: productionGuard now warns (never fails) when JWT_SECRET /
   TOTP_ENCRYPTION_KEY are shorter than 32 chars; server.js logs it at boot.
   A short secret is a deploy-outage risk if enforced, so rotation stays operator work.
+
+
+## Integration preparation (2026-11-23, branch fix/trusted-proxy-and-auth-hardening)
+
+- Operator sequence for landing this branch and PR #202:
+  `docs/security/INTEGRATION_OPERATOR_CHECKLIST.md` (snapshot -> #201 -> close #200 ->
+  mark #202 ready -> merge -> migration 056 -> configuration -> smoke -> monitoring).
+  It contains no secret and asks for none.
+- MERGE ORDER MATTERS ONLY FOR #200: #201 contains every commit of #200, so merge #201 and
+  CLOSE #200 rather than merging it. #201 and #202 are independent otherwise.
+- ORDER INDEPENDENCE, PROVEN: rehearsed from `main` in both directions; the merged trees are
+  byte-identical, the only conflict is `AGENTS.md` (both branches append a doc section - keep
+  both), and `server.js` auto-merges with zero drift (composed file = #202's 43 added / 1
+  removed line(s) on top of #201; = #201's 465 added lines on top of #202).
+- COMPOSED SUITE: 3938 tests, 3937 pass, 0 fail, 1 skipped. Branch alone: 3929 / 3928 / 0 / 1.
+- TWO INTEGRATION DEFECTS FIXED HERE:
+  1. `.gitignore` ignored `node_modules/` but not a `node_modules` SYMLINK, which is exactly
+     what a rehearsal worktree that reuses the main checkout's dependencies creates - a
+     `git add -A` there stages the link (reproduced). `/node_modules` added.
+  2. A rate-limit bucket set to 0 is UNLIMITED. It must not fail the boot (incident lever;
+     the local rehearsal env file uses it), but in production it silently removes brute-force
+     protection, so `server.js` logs `[rate-limit] DISABLED in production (0 = unlimited)` and
+     `AuthEntry.findDisabledLimits()` classifies it (null/'' = "not configured", not zero).
+- DEPLOYMENT HAZARD FOR THE OPERATOR: `RATE_LIMIT_IP_MAX` / `AUTH_RATE_LIMIT_LOGIN_IP_MAX` /
+  `AUTH_RATE_LIMIT_REGISTER_IP_MAX` are commented out in `.env.example` now. If one is set in
+  the host while NO proxy is trusted, that budget is platform-wide (every customer shares the
+  edge address). Configure `TRUST_PROXY`/`TRUST_PROXY_HOPS` or unset them; never set 0.
+- `TOTP_ENCRYPTION_KEY` rotation is DESTRUCTIVE for enrolled authenticator users - check
+  `feature_flags.2fa_type` before rotating (the checklist spells out the safe order).
+- NOTHING WAS MERGED, DEPLOYED, APPLIED OR ROTATED while preparing this. Migration 056 is a
+  FILE in this branch; it is applied by an operator, after a duplicate preflight.
