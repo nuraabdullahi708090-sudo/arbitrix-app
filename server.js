@@ -34,6 +34,11 @@ const TokenRevocation = require('./services/TokenRevocationService');
 // provisioning and login/registration rate limiting (pure, dependency-free).
 const AuthEntry = require('./services/AuthEntry');
 
+// Trusted client IP identification (proxy trust + normalisation). The module
+// never parses X-Forwarded-For itself: Express does, using ONLY the proxies we
+// explicitly declare. See docs/security/ADMIN_PROVISIONING.md.
+const ClientIp = require('./services/ClientIp');
+
 // Telegram support bot (@ArbitrixSupportBot). Additive: the app boots with the
 // bot unconfigured and the /api/telegram/* routes fail closed until the
 // TELEGRAM_* env vars are set (see .env.example).
@@ -131,6 +136,13 @@ const FEATURE_FLAG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const TOTP_ENCRYPTION_KEY = process.env.TOTP_ENCRYPTION_KEY || 'default-kyc-encryption-key-change-in-prod';
 
 const app = express();
+
+// PROXY TRUST. Express derives req.ip from the socket address plus this setting.
+// Default: trust nothing, so a direct caller cannot spoof an identity with a
+// header. Behind a proxy, set TRUST_PROXY (CIDR list) or TRUST_PROXY_HOPS.
+const proxyTrust = ClientIp.resolveProxyTrust(process.env);
+app.set('trust proxy', proxyTrust.value);
+
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-in-production';
 const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
@@ -277,21 +289,23 @@ function checkForgotPasswordRateLimit(ip, email) {
 const authRateLimiter = AuthEntry.createAuthRateLimiter(AuthEntry.resolveAuthRateLimits(process.env));
 
 /**
- * Best-effort client IP, matching the convention already used by the
- * forgot-password and admin-audit routes (Cloudflare/Render set
- * x-forwarded-for at the edge).
+ * The client IP the server trusts, used for rate limiting and audit records.
+ *
+ * Delegates to services/ClientIp: `req.ip` only, never a raw header. When no
+ * proxy is trusted (the default) this is the socket peer; when TRUST_PROXY /
+ * TRUST_PROXY_HOPS is configured it is the address Express derives from the
+ * trusted chain. A client-supplied X-Forwarded-For prefix cannot influence it.
  */
 function getClientIp(req) {
-  try {
-    const forwarded = req && req.headers && req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.trim()) {
-      return forwarded.split(',')[0].trim();
-    }
-    return (req && (req.ip || (req.socket && req.socket.remoteAddress))) || 'unknown';
-  } catch (e) {
-    return 'unknown';
-  }
+  return ClientIp.getClientIp(req);
 }
+
+// One startup line so the effective trust decision is visible in the logs.
+// Contains no secret and no IP: only the mode and the configured value.
+if (proxyTrust.warning) {
+  console.warn('[proxy] ' + proxyTrust.warning);
+}
+console.log('[proxy] client IP trust: ' + proxyTrust.mode + ' (' + proxyTrust.source + ': ' + proxyTrust.detail + ')');
 
 function sendAuthRateLimited(res, retryAfter, message) {
   const seconds = Math.max(1, Math.round(Number(retryAfter) || 1));
@@ -3617,12 +3631,11 @@ app.post('/api/auth/logout', authMiddleware, async (req, res) => {
  *   to prevent email enumeration attacks.
  */
 app.post('/api/auth/forgot-password', async (req, res) => {
-  const { email } = req.body;
+  const { email } = (req.body && typeof req.body === 'object') ? req.body : {};
   
-  // Get client IP for rate limiting and security auditing
-  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
-    || req.socket?.remoteAddress 
-    || 'unknown';
+  // Client IP for rate limiting and security auditing: the address the server
+  // trusts (never a raw client-supplied header). See services/ClientIp.js.
+  const clientIP = getClientIp(req);
   
   // Validate email format
   if (!email || !email.includes('@')) {
@@ -3706,7 +3719,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
  * Reset password using a valid token
  */
 app.post('/api/auth/reset-password', async (req, res) => {
-  const { email, token, newPassword } = req.body;
+  const { email, token, newPassword } = (req.body && typeof req.body === 'object') ? req.body : {};
   
   // Validate all required fields
   if (!email || !token || !newPassword) {
@@ -4009,7 +4022,7 @@ app.post('/api/auth/email-change/request', authMiddleware, async (req, res) => {
   const code = generateEmailChangeCode();
   const codeHash = hashEmailChangeCode(code);
   const expiresAt = new Date(Date.now() + EMAIL_CHANGE_CONFIG.codeExpiryMs).toISOString();
-  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+  const clientIP = getClientIp(req);
 
   const { error: insertErr } = await supabaseAdmin.from('email_change_requests').insert({
     user_id: userId,
@@ -8980,7 +8993,7 @@ app.put('/api/referral/config/:key', authMiddleware, adminMiddleware, async (req
   try {
     const adminId = req.user.id;
     const adminEmail = req.user.email;
-    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
+    const ipAddress = getClientIp(req);
     const userAgent = req.headers['user-agent'] || null;
     
     await supabaseAdmin.rpc('log_referral_config_change', {
@@ -9591,14 +9604,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
             expires_at: expiresAt,
             used: false
         });
-    
-    // Get client info
-    const clientIP = req => {
-        return req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() 
-            || req?.socket?.remoteAddress 
-            || null;
-    };
-    
+
     // Send email (we'll construct the sending inline since we need the code)
     const resend = getResendClient();
     
@@ -10157,7 +10163,11 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
 // outstanding, otherwise a short-lived partial token for /api/2fa/login-verify.
 async function loginInitiateHandler(req, res) {
     try {
-        const { email, password } = req.body;
+        // A request with no body (or a non-object body) leaves req.body undefined;
+        // destructuring it would throw a TypeError and answer 500. Missing fields
+        // are a client error: 400.
+        const body = (req.body && typeof req.body === 'object') ? req.body : {};
+        const { email, password } = body;
         
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password required' });
@@ -10507,9 +10517,7 @@ async function verifyTOTPCode(userId, code, req) {
 // Helper: Log email 2FA verification attempt
 async function logEmail2FAAttempt(userId, email, success, failureReason, req) {
     try {
-        const clientIP = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() 
-            || req?.socket?.remoteAddress 
-            || null;
+        const clientIP = getClientIp(req);
         
         await supabaseAdmin.from('email_2fa_attempts').insert({
             user_id: userId,
@@ -11730,8 +11738,15 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
 
     switch (result && result.status) {
       case 'created':
-        console.log('[AdminProvisioning] administrator created (id=' + result.userId + ')' +
-          (result.walletCreated ? '' : ' - wallet NOT created; set its balances to 0 manually'));
+        console.log('[AdminProvisioning] administrator created (id=' + result.userId + ') with a zeroed wallet');
+        break;
+      case 'partial':
+        // The account exists but its wallet does not: NEVER report this as a
+        // success. Until the wallet is created explicitly, the first wallet read
+        // would lazily seed the promotional balance.
+        console.warn('[AdminProvisioning] PARTIAL: administrator account created (id=' + result.userId +
+          ') but its zeroed wallet could NOT be created (' + (result.reason || 'wallet-create-failed') +
+          '); create the wallet with 0 balances before using the account');
         break;
       case 'exists':
         console.log('[AdminProvisioning] configured account already exists; left unchanged');

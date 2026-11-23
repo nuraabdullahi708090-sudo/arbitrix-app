@@ -88,23 +88,47 @@ test('a ready configuration normalises the email and never changes it', () => {
 
 function makeAdminClient(options) {
   const opts = options || {};
-  const calls = { users: [], wallets: [] };
+  const calls = { users: [], wallets: [], lookups: [] };
+  let walletAttempts = 0;
+
+  // Mirrors the supabase-js query builder closely enough for this unit: the
+  // filter chain is thenable (a plain await returns { data: [...], error }) and
+  // maybeSingle()/single() return a single row.
+  function selectChain() {
+    const chain = {
+      eq: function (field, value) {
+        calls.lookups.push({ op: 'eq', field: field, value: value });
+        return chain;
+      },
+      ilike: function (field, value) {
+        calls.lookups.push({ op: 'ilike', field: field, value: value });
+        return chain;
+      },
+      limit: function (n) { chain.limitValue = n; return chain; },
+      maybeSingle: async function () {
+        if (opts.lookupError) return { data: null, error: opts.lookupError };
+        return { data: opts.existing || null, error: null };
+      },
+      single: async function () {
+        if (opts.lookupError) return { data: null, error: opts.lookupError };
+        return { data: opts.existing || null, error: null };
+      },
+      then: function (resolve, reject) {
+        if (opts.caseLookupError) {
+          return Promise.resolve({ data: null, error: opts.caseLookupError }).then(resolve, reject);
+        }
+        return Promise.resolve({ data: opts.caseInsensitiveMatches || [], error: null }).then(resolve, reject);
+      }
+    };
+    return chain;
+  }
+
   return {
     calls: calls,
     from: function (table) {
       if (table === 'users') {
         return {
-          select: function () {
-            return {
-              eq: function (field, value) {
-                calls.users.push({ op: 'select', field: field, value: value });
-                return {
-                  maybeSingle: async function () { return { data: opts.existing || null, error: opts.lookupError || null }; },
-                  single: async function () { return { data: opts.existing || null, error: opts.lookupError || null }; }
-                };
-              }
-            };
-          },
+          select: function () { return selectChain(); },
           insert: function (row) {
             calls.users.push({ op: 'insert', row: row });
             const chain = {
@@ -121,7 +145,11 @@ function makeAdminClient(options) {
         return {
           insert: async function (row) {
             calls.wallets.push({ op: 'insert', row: row });
-            return { error: opts.walletError || null };
+            walletAttempts += 1;
+            const persistent = opts.walletError || null;
+            const failFirst = Number(opts.walletFailAttempts || 0);
+            const fails = persistent || walletAttempts <= failFirst;
+            return { error: fails ? (persistent || { code: 'XX000' }) : null };
           }
         };
       }
@@ -199,7 +227,7 @@ test('a lookup failure or an insert failure creates nothing and throws nowhere',
   assert.deepStrictEqual(lookupResult, { status: 'error', reason: 'lookup-failed' });
   assert.strictEqual(lookupFail.calls.wallets.length, 0);
 
-  const insertFail = makeAdminClient({ insertError: { code: '23505' } });
+  const insertFail = makeAdminClient({ insertError: { code: '42P01' } });
   const insertResult = await AuthEntry.provisionAdmin({
     admin: insertFail,
     env: READY_ENV,
@@ -210,7 +238,28 @@ test('a lookup failure or an insert failure creates nothing and throws nowhere',
   assert.strictEqual(insertFail.calls.wallets.length, 0, 'no wallet for an account that was not created');
 });
 
-test('a wallet failure is reported without failing the account creation', async () => {
+test('a unique violation means another instance won the race, not a failure', async () => {
+  // Nothing was created by THIS process, and the account is now visible.
+  const raced = makeAdminClient({ insertError: { code: '23505' }, existing: { id: 91, email: 'ops@example.test' } });
+  const racedResult = await AuthEntry.provisionAdmin({
+    admin: raced, env: READY_ENV,
+    hashPassword: function () { return 'h'; },
+    generateReferralCode: async function () { return 'R'; }
+  });
+  assert.strictEqual(racedResult.status, 'exists');
+
+  // A 23505 with no visible row is still an error, never a silent success.
+  const orphan = makeAdminClient({ insertError: { code: '23505' } });
+  const orphanResult = await AuthEntry.provisionAdmin({
+    admin: orphan, env: READY_ENV,
+    hashPassword: function () { return 'h'; },
+    generateReferralCode: async function () { return 'R'; }
+  });
+  assert.deepStrictEqual(orphanResult, { status: 'error', reason: 'insert-conflict' });
+  assert.strictEqual(orphan.calls.wallets.length, 0);
+});
+
+test('a persistent wallet failure is reported as PARTIAL, never as created', async () => {
   const admin = makeAdminClient({ walletError: { code: 'XX000' } });
   const result = await AuthEntry.provisionAdmin({
     admin: admin,
@@ -218,8 +267,61 @@ test('a wallet failure is reported without failing the account creation', async 
     hashPassword: function () { return 'h'; },
     generateReferralCode: async function () { return 'R'; }
   });
-  assert.strictEqual(result.status, 'created');
+  assert.strictEqual(result.status, 'partial', 'an account without its wallet is not fully provisioned');
+  assert.strictEqual(result.userId, 77);
   assert.strictEqual(result.walletCreated, false);
+  assert.strictEqual(result.walletReady, false);
+  assert.strictEqual(result.reason, 'wallet-create-failed');
+  assert.strictEqual(admin.calls.wallets.length, 2, 'the insert is retried once before giving up');
+});
+
+test('a transient wallet failure recovers on the retry', async () => {
+  const admin = makeAdminClient({ walletFailAttempts: 1 });
+  const result = await AuthEntry.provisionAdmin({
+    admin: admin,
+    env: READY_ENV,
+    hashPassword: function () { return 'h'; },
+    generateReferralCode: async function () { return 'R'; }
+  });
+  assert.strictEqual(result.status, 'created');
+  assert.strictEqual(result.walletReady, true);
+  assert.strictEqual(admin.calls.wallets.length, 2);
+  assert.deepStrictEqual(admin.calls.wallets[1].row,
+    { user_id: 77, demo_balance: 0, live_balance: 0, bonus_balance: 0 });
+});
+
+test('an existing account is found even when its stored email differs in case', async () => {
+  const admin = makeAdminClient({
+    existing: null,
+    caseInsensitiveMatches: [{ id: 42, email: 'Ops@Example.Test' }]
+  });
+  const result = await AuthEntry.provisionAdmin({
+    admin: admin,
+    env: READY_ENV,
+    hashPassword: function () { throw new Error('must not rehash an existing account'); },
+    generateReferralCode: async function () { throw new Error('must not touch an existing account'); }
+  });
+  assert.strictEqual(result.status, 'exists');
+  const ilike = admin.calls.lookups.find(function (c) { return c.op === 'ilike'; });
+  assert.ok(ilike, 'a case-insensitive lookup is attempted after the exact one misses');
+  assert.strictEqual(admin.calls.users.length, 0, 'nothing is inserted');
+  assert.strictEqual(admin.calls.wallets.length, 0);
+});
+
+test('the case-insensitive lookup cannot match an unrelated address', async () => {
+  // ILIKE would treat "_" as a wildcard; the row returned here must be rejected
+  // because it is not the same address once normalised.
+  const admin = makeAdminClient({
+    caseInsensitiveMatches: [{ id: 43, email: 'opsXexample.test' }]
+  });
+  const result = await AuthEntry.provisionAdmin({
+    admin: admin,
+    env: READY_ENV,
+    hashPassword: function () { return 'h'; },
+    generateReferralCode: async function () { return 'R'; }
+  });
+  assert.strictEqual(result.status, 'created', 'no false match, so the account is created');
+  assert.strictEqual(admin.calls.wallets.length, 1);
 });
 
 test('provisioning never writes to the console (no credential logging)', async () => {

@@ -277,3 +277,74 @@ test('the throttle message never reveals whether an account exists', async funct
   assert.strictEqual(blocked.status, 429);
   assert.ok(!/not found|no account|unknown|does not exist|email/i.test(blocked.json.error), blocked.json.error);
 });
+
+// ---------------------------------------------------------------------------
+// Malformed request bodies
+//
+// A request with no body used to throw inside the shared login handler
+// (`Cannot destructure property 'email' of 'req.body'`) and answer 500. A missing
+// body is a client error: it must be 400, with no stack and no side effect.
+// ---------------------------------------------------------------------------
+
+test('a login request with no body at all answers 400, not 500', async function () {
+  const res = await fetch(base + '/api/auth/login', { method: 'POST' });
+  assert.strictEqual(res.status, 400);
+  const body = await res.json();
+  assert.match(String(body.error), /required/i);
+  assert.strictEqual(body.token, undefined);
+  assert.strictEqual(output.indexOf('Cannot destructure'), -1, 'no TypeError is raised');
+});
+
+test('an empty JSON body is rejected as a client error', async function () {
+  const res = await fetch(base + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: ''
+  });
+  assert.strictEqual(res.status, 400);
+});
+
+test('a JSON object with no credentials is rejected as a client error', async function () {
+  const res = await post('/api/auth/login', {});
+  assert.strictEqual(res.status, 400);
+  assert.match(String(res.json.error), /required/i);
+});
+
+test('half the credentials is still a client error, on both entry points', async function () {
+  const legacy = await post('/api/auth/login', { email: 'nobody@example.test' });
+  assert.strictEqual(legacy.status, 400);
+
+  const initiate = await post('/api/2fa/login-initiate', { password: 'irrelevant' });
+  assert.strictEqual(initiate.status, 400);
+  assert.strictEqual(initiate.json.token, undefined);
+});
+
+test('a non-object JSON body cannot break the handler', async function () {
+  for (const payload of ['null', '"a string"', '[]', '42']) {
+    const res = await fetch(base + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    });
+    assert.strictEqual(res.status, 400, 'payload ' + payload);
+  }
+});
+
+test('malformed JSON is a 400 with no server error', async function () {
+  const before = output.length;
+  const res = await fetch(base + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"email": '
+  });
+  assert.strictEqual(res.status, 400);
+  assert.strictEqual(output.slice(before).indexOf('Cannot destructure'), -1);
+});
+
+test('the other auth entry points also survive an absent body', async function () {
+  for (const route of ['/api/auth/forgot-password', '/api/auth/reset-password']) {
+    const res = await fetch(base + route, { method: 'POST' });
+    assert.strictEqual(res.status, 400, route);
+    assert.strictEqual(output.indexOf('Cannot destructure'), -1, route);
+  }
+});
