@@ -407,6 +407,38 @@ function parseSeconds(raw, fallback) {
 }
 
 /**
+ * Names of the limits that are DISABLED (resolved to 0) in this configuration.
+ *
+ * A maximum of 0 means "unlimited", which is a legitimate emergency lever and is
+ * what the local rehearsal env file uses - but shipping it to production removes
+ * brute-force protection silently. The server logs this list at startup in
+ * production; this function only classifies, so it stays side-effect free.
+ *
+ * @param {{loginIpMax?:number, loginAccountMax?:number, registerIpMax?:number, forgotPasswordIpMax?:number}} limits
+ * @returns {string[]} the configuration names that are disabled
+ */
+function findDisabledLimits(limits) {
+  const value = limits || {};
+  const map = [
+    ['AUTH_RATE_LIMIT_LOGIN_IP_MAX', value.loginIpMax],
+    ['AUTH_RATE_LIMIT_LOGIN_ACCOUNT_MAX', value.loginAccountMax],
+    ['AUTH_RATE_LIMIT_REGISTER_IP_MAX', value.registerIpMax],
+    ['RATE_LIMIT_IP_MAX', value.forgotPasswordIpMax]
+  ];
+  // Only an explicit zero counts. `Number(null)` and `Number('')` are 0, but
+  // those mean "not configured", and reporting them as disabled would be a false
+  // alarm on every deployment that leaves the variable unset.
+  function isDisabled(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string' && value.trim() === '') return false;
+    const n = Number(value);
+    return Number.isFinite(n) && n === 0;
+  }
+  return map.filter(function (entry) { return isDisabled(entry[1]); })
+    .map(function (entry) { return entry[0]; });
+}
+
+/**
  * Read the auth rate-limit configuration, with safe defaults. A maximum of 0
  * disables that bucket (useful for controlled local rehearsal runs only).
  *
@@ -703,5 +735,6 @@ module.exports = {
   resolveAdminProvisioning: resolveAdminProvisioning,
   provisionAdmin: provisionAdmin,
   resolveAuthRateLimits: resolveAuthRateLimits,
+  findDisabledLimits: findDisabledLimits,
   createAuthRateLimiter: createAuthRateLimiter
 };

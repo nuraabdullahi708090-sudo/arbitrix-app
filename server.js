@@ -363,9 +363,21 @@ function checkForgotPasswordRateLimit(ip, email) {
 // limiter cannot be used to enumerate accounts.
 // ---------------------------------------------------------------------------
 const CLIENT_IP_ATTRIBUTABLE = proxyTrustMode !== 'none';
-const authRateLimiter = AuthEntry.createAuthRateLimiter(
-  AuthEntry.resolveAuthRateLimits(process.env, { ipAttributable: CLIENT_IP_ATTRIBUTABLE })
-);
+const AUTH_RATE_LIMITS = AuthEntry.resolveAuthRateLimits(process.env, { ipAttributable: CLIENT_IP_ATTRIBUTABLE });
+const authRateLimiter = AuthEntry.createAuthRateLimiter(AUTH_RATE_LIMITS);
+// `0` disables a bucket (the local rehearsal env file uses it). It must not fail
+// the boot - an operator may need to lift limits during an incident - but in
+// production it silently removes brute-force protection, so say it loudly.
+const disabledLimits = AuthEntry.findDisabledLimits({
+  loginIpMax: AUTH_RATE_LIMITS.loginIpMax,
+  loginAccountMax: AUTH_RATE_LIMITS.loginAccountMax,
+  registerIpMax: AUTH_RATE_LIMITS.registerIpMax,
+  forgotPasswordIpMax: RATE_LIMIT_CONFIG.ip.maxRequests
+});
+if (disabledLimits.length > 0 && process.env.NODE_ENV === 'production') {
+  console.warn('[rate-limit] DISABLED in production (0 = unlimited): ' + disabledLimits.join(', ') +
+    '. Unset these unless the exception is deliberate; login brute-force protection is reduced.');
+}
 
 // An explicit per-IP cap plus an unattributable address is almost always a
 // mistake: the operator meant "per client" but the budget is shared by every
