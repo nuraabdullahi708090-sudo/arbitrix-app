@@ -4597,6 +4597,348 @@
     @media (prefers-reduced-motion:reduce) {
         .card, .mode-tab, .ticker-content { transition:none !important; animation:none !important; }
     }
+        /* ============================================================
+           KALDERIX DESIGN SYSTEM v2 - additive layer (2026-11)
+           Appended last on purpose: it refines the tokens and components
+           above by cascade. No earlier rule is deleted, so every legacy
+           selector keeps working and each override is reviewable here.
+           Palette unchanged: the accent is still --brand (#5EA0FF).
+           ============================================================ */
+        :root{
+            --kx-bg:#0E141C;
+            --kx-surface:#161E29;
+            --kx-surface-2:#1B2431;
+            --kx-elevated:#212C3A;
+            --kx-line:rgba(233,239,247,.085);
+            --kx-line-strong:rgba(233,239,247,.16);
+            --kx-text:#E9EFF7;
+            --kx-text-2:#A9B7C7;
+            --kx-text-3:#8B98A9;
+            --kx-r-1:6px; --kx-r-2:10px; --kx-r-3:14px; --kx-r-4:20px;
+            --kx-s-1:4px; --kx-s-2:8px; --kx-s-3:12px; --kx-s-4:16px;
+            --kx-s-5:24px; --kx-s-6:32px; --kx-s-7:48px;
+            --kx-t-1:11px; --kx-t-2:12px; --kx-t-3:13px; --kx-t-4:14px;
+            --kx-t-5:16px; --kx-t-6:20px; --kx-t-7:28px; --kx-t-8:36px;
+            --kx-e1:0 1px 2px rgba(0,0,0,.28);
+            --kx-e2:0 10px 30px rgba(0,0,0,.32);
+            --kx-e3:0 28px 70px rgba(0,0,0,.5);
+            --kx-ease:cubic-bezier(.22,.61,.36,1);
+            --kx-nav-w:244px;
+            --kx-content:1220px;
+            --kx-tap:44px;
+        }
+        html,body{background:var(--kx-bg);}
+        body{color:var(--kx-text);}
+        .kx-num,.kx-kpi-value,#totalEquity,#balanceValue,#pnlValue,#liveBalanceDisplay,#promoCreditAmount,
+        .chart-stat-value,.stat-value,.stat-main,.wallet-box span:last-child{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+
+        /* ---- Shell -------------------------------------------------- */
+        .main-content{padding:var(--kx-s-4) var(--kx-s-3) var(--kx-s-7);}
+        .main-content > *{max-width:var(--kx-content);margin-left:auto;margin-right:auto;}
+        .app-header{
+            position:sticky;top:0;z-index:900;
+            display:flex;align-items:center;flex-wrap:wrap;gap:var(--kx-s-3);
+            padding:0 var(--kx-s-3) var(--kx-s-2);padding-top:44px;
+            margin:0 auto var(--kx-s-4);
+            max-width:var(--kx-content);
+            border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-3);
+            background:var(--kx-surface);
+            background:color-mix(in srgb, var(--kx-surface) 90%, transparent);
+            -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+        }
+        .app-header-brand{min-width:0;}
+        .kx-toolbar-sub{display:flex;align-items:center;gap:8px;min-width:0;}
+        .kx-status{
+            display:inline-flex;align-items:center;gap:6px;
+            font-size:var(--kx-t-2);font-weight:600;color:var(--kx-text-2);
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            padding:4px 10px;border-radius:999px;white-space:normal;line-height:1.35;
+        }
+        .app-header-right{gap:var(--kx-s-2);}
+        .btn-icon{
+            width:38px;height:38px;min-width:38px;border-radius:var(--kx-r-2);
+            border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);
+            display:inline-flex;align-items:center;justify-content:center;
+            transition:background var(--transition-fast),color var(--transition-fast),border-color var(--transition-fast);
+        }
+        .btn-icon:hover{background:var(--kx-elevated);color:var(--kx-text);border-color:var(--kx-line-strong);}
+
+        /* ---- Sidebar ------------------------------------------------ */
+        .sidebar{
+            position:fixed;top:0;left:0;height:100%;z-index:1000;overflow-y:auto;
+            transform:translateX(-100%);
+            width:260px;max-width:78vw;
+            background:var(--kx-surface);
+            border-right:1px solid var(--kx-line);
+            padding:var(--kx-s-4) 0 var(--kx-s-3);
+            display:flex;flex-direction:column;gap:2px;
+        }
+        .sidebar-brand{padding:0 var(--kx-s-4) var(--kx-s-4);}
+        .kx-nav-group{
+            margin:var(--kx-s-3) var(--kx-s-4) var(--kx-s-1);
+            font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+            color:var(--kx-text-3);
+        }
+        .kx-nav-group:first-of-type{margin-top:var(--kx-s-1);}
+        .sidebar-link{
+            border-radius:var(--kx-r-2);
+            margin:1px var(--kx-s-2);
+            padding:0 var(--kx-s-3);
+            min-height:40px;
+            font-size:var(--kx-t-3);font-weight:500;
+            color:var(--kx-text-2);
+            border-left:0 !important;
+            border-right:0 !important;
+            position:relative;
+        }
+        .sidebar-link i{width:18px;text-align:center;font-size:13px;color:var(--kx-text-3);}
+        .sidebar-link:hover{background:var(--kx-surface-2);color:var(--kx-text);}
+        .sidebar-link:hover i{color:var(--kx-text-2);}
+        .sidebar-link.active{background:var(--brand-weak);color:var(--kx-text);font-weight:600;}
+        .sidebar-link.active i{color:var(--brand);}
+        .sidebar-link.active::before{
+            content:"";position:absolute;inset-inline-start:0;top:8px;bottom:8px;width:2px;
+            border-radius:2px;background:var(--brand);
+        }
+        .sidebar-status{
+            margin:auto var(--kx-s-2) 0;
+            padding:var(--kx-s-3);
+            border:1px solid var(--kx-line);border-radius:var(--kx-r-2);
+            background:var(--kx-surface-2);
+        }
+        html[dir="rtl"] .sidebar-link{border-right:0 !important;}
+        html[dir="rtl"] .sidebar-link.active{border-right-color:transparent;}
+
+        /* ---- Cards -------------------------------------------------- */
+        .card,.chart-card,.trading-stats-card{
+            background:var(--kx-surface);
+            border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-3);
+            box-shadow:none;
+        }
+        .card-body{padding:var(--kx-s-4);}
+        .card-header{
+            padding:var(--kx-s-3) var(--kx-s-4) 0;
+            font-size:var(--kx-t-1);letter-spacing:.08em;color:var(--kx-text-3);
+        }
+        .icon-bg{border-radius:var(--kx-r-1);}
+        .kx-section{margin:0 auto var(--kx-s-4);max-width:var(--kx-content);}
+        .kx-section-head{display:flex;align-items:baseline;gap:var(--kx-s-2);margin:var(--kx-s-5) 0 var(--kx-s-2);}
+        .kx-section-title{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;}
+        .kx-section-sub{font-size:var(--kx-t-2);color:var(--kx-text-3);}
+        .kx-view[hidden]{display:none;}
+        .kx-view-title{font-size:var(--kx-t-3);font-weight:700;color:var(--kx-text);white-space:nowrap;}
+        .kx-view-title[hidden]{display:none;}
+
+        /* ---- Hero (account summary + primary actions) --------------- */
+        .kx-hero{margin-bottom:var(--kx-s-4);}
+        .kx-hero .stats-grid{
+            display:grid;gap:var(--kx-s-3);
+            grid-template-columns:minmax(0,1fr);
+            grid-template-areas:"eq" "av" "pnl" "bot";
+        }
+        .kx-hero .card{
+            border-radius:var(--kx-r-3);
+            display:flex;flex-direction:column;justify-content:center;
+        }
+        .kx-hero-eq{grid-area:eq;background:
+            radial-gradient(120% 140% at 0% 0%, rgba(94,160,255,.10) 0%, rgba(94,160,255,0) 55%),
+            var(--kx-surface);}
+        .kx-hero-av{grid-area:av;}
+        .kx-hero-pnl{grid-area:pnl;}
+        .kx-hero-bot{grid-area:bot;}
+        .kx-kpi-label{
+            display:flex;align-items:center;gap:6px;
+            font-size:var(--kx-t-1);font-weight:600;letter-spacing:.09em;
+            text-transform:uppercase;color:var(--kx-text-3);margin-bottom:6px;
+        }
+        .kx-kpi-label i{color:var(--brand);font-size:11px;}
+        .kx-kpi-value{font-size:var(--kx-t-6);font-weight:700;letter-spacing:-.02em;line-height:1.15;}
+        /* Money colour comes from .fin-positive/.fin-negative/.fin-zero only. */
+        #pnlValue.fin-positive{color:var(--success);}
+        #pnlValue.fin-negative{color:var(--destructive);}
+        #pnlValue.fin-zero{color:var(--kx-text-2);}
+        .kx-kpi-xl{font-size:var(--kx-t-7);}
+        .kx-kpi-hint{font-size:var(--kx-t-1);color:var(--kx-text-3);margin-top:4px;line-height:1.45;}
+        .kx-hero-eq #totalEquity{font-size:var(--kx-t-8);}
+        .kx-hero-av #balanceValue{font-size:var(--kx-t-6);}
+        .kx-hero-pnl #pnlValue,.kx-hero-bot #botStatus{font-size:var(--kx-t-6);}
+        .kx-hero-bot #botStatus{display:inline-flex;align-items:center;gap:8px;}
+        .kx-hero .stat-actions{gap:var(--kx-s-2);margin-top:var(--kx-s-4);}
+        .kx-hero .stat-deposit-btn{
+            min-height:var(--kx-tap);border-radius:var(--kx-r-2);
+            font-size:var(--kx-t-3);font-weight:700;letter-spacing:0;
+        }
+        .kx-hero .stat-deposit-btn#availableDepositBtn{
+            background:var(--brand);color:var(--on-brand);border:1px solid var(--brand);
+        }
+        .kx-hero .stat-deposit-btn#availableDepositBtn:hover{background:var(--brand-hover);}
+        .kx-hero .stat-withdraw-btn{
+            background:transparent;color:var(--kx-text);
+            border:1px solid var(--kx-line-strong);
+        }
+        .kx-hero .stat-withdraw-btn:hover{background:var(--kx-surface-2);border-color:var(--brand-border);}
+
+        /* ---- Notices ------------------------------------------------ */
+        .kx-alert{border-radius:var(--kx-r-2);font-size:var(--kx-t-2);line-height:1.55;}
+        .kx-notice-slim{
+            display:flex;align-items:flex-start;gap:var(--kx-s-2);
+            padding:var(--kx-s-3) var(--kx-s-4);
+            background:var(--kx-surface-2);
+            border:1px solid var(--kx-line);border-radius:var(--kx-r-2);
+            margin-bottom:var(--kx-s-3);font-size:var(--kx-t-2);color:var(--kx-text-2);
+        }
+        .kx-notice-slim i{color:var(--brand);margin-top:2px;}
+
+        /* ---- Buttons ------------------------------------------------ */
+        .btn{
+            border-radius:var(--kx-r-2);
+            font-size:var(--kx-t-3);font-weight:600;letter-spacing:0;
+            min-height:40px;padding:0 var(--kx-s-4);
+            min-width:0;max-width:100%;height:auto;line-height:1.35;
+            white-space:normal;overflow-wrap:break-word;
+            display:inline-flex;align-items:center;justify-content:center;gap:8px;
+            transition:background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast);
+        }
+        .btn-primary{background:var(--brand);color:var(--on-brand);border:1px solid var(--brand);}
+        .btn-primary:hover{background:var(--brand-hover);}
+        .btn-secondary{background:var(--kx-surface-2);color:var(--kx-text);border:1px solid var(--kx-line-strong);}
+        .btn-secondary:hover{background:var(--kx-elevated);}
+        .btn:disabled,.btn[disabled]{opacity:.55;cursor:not-allowed;}
+        .btn-sm{min-height:34px;padding:0 var(--kx-s-3);font-size:var(--kx-t-2);}
+        .btn-block{width:100%;}
+
+        /* ---- Segmented controls (wallet / chart period) ------------- */
+        .wallet-tabs-wrapper{
+            display:inline-flex;gap:2px;padding:3px;
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-2);margin-bottom:var(--kx-s-3);
+        }
+        .wallet-tab{
+            min-height:34px;padding:0 var(--kx-s-4);border-radius:var(--kx-r-1);
+            background:transparent;color:var(--kx-text-3);font-size:var(--kx-t-2);font-weight:600;
+            border:0;
+        }
+        .wallet-tab.active{background:var(--kx-elevated);color:var(--kx-text);box-shadow:var(--kx-e1);}
+        .chart-period-tabs{display:inline-flex;gap:2px;padding:3px;background:var(--kx-surface-2);border:1px solid var(--kx-line);border-radius:var(--kx-r-2);}
+        .chart-period-tab{
+            min-height:30px;padding:0 var(--kx-s-3);border-radius:var(--kx-r-1);
+            font-size:var(--kx-t-1);font-weight:600;color:var(--kx-text-3);
+        }
+        .chart-period-tab.active{background:var(--kx-elevated);color:var(--kx-text);}
+
+        /* ---- Cockpit (chart + bot) ---------------------------------- */
+        .kx-cockpit{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kx-s-3);margin-bottom:var(--kx-s-4);}
+        .kx-cockpit .chart-card,.kx-cockpit .trading-stats-card,.kx-cockpit #liveBotCard{margin:0;height:100%;}
+        .chart-header{padding:var(--kx-s-3) var(--kx-s-4);border-bottom:1px solid var(--kx-line);}
+        .chart-title{font-size:var(--kx-t-3);font-weight:600;color:var(--kx-text);letter-spacing:0;}
+        .chart-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--kx-s-2);padding:var(--kx-s-3) var(--kx-s-4);}
+        .chart-stat-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--kx-text-3);display:block;}
+        .chart-stat-value{font-size:var(--kx-t-3);font-weight:700;}
+        .chart-container{padding:0 var(--kx-s-2) var(--kx-s-2);}
+        .trading-stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kx-s-2);padding:var(--kx-s-3);}
+        .trading-stat-item{border:1px solid var(--kx-line);border-radius:var(--kx-r-2);padding:var(--kx-s-3);background:var(--kx-surface-2);}
+        .stat-sub{font-size:var(--kx-t-1);color:var(--kx-text-3);letter-spacing:.02em;text-transform:none;}
+        .stat-main{font-size:var(--kx-t-5);font-weight:700;}
+        .kx-hint{font-size:var(--kx-t-2);color:var(--kx-text-3);line-height:1.55;margin:0 0 var(--kx-s-2);}
+        .kx-bot-action{min-height:var(--kx-tap);margin-top:var(--kx-s-2);}
+        #botEngineNotice{border-left-width:2px;border-left-color:var(--warning);border-radius:var(--kx-r-1);background:var(--kx-surface-2);}
+
+        /* ---- Wallet ------------------------------------------------- */
+        .wallet-section .two-col-grid{gap:var(--kx-s-3);}
+        .wallet-box{font-size:var(--kx-t-3);color:var(--kx-text-2);}
+        .quick-amount-btn{border-radius:var(--kx-r-1);border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);min-height:34px;font-size:var(--kx-t-1);}
+        .quick-amount-btn:hover{border-color:var(--brand-border);color:var(--kx-text);}
+
+        /* ---- Tables ------------------------------------------------- */
+        .table-wrap{border:1px solid var(--kx-line);border-radius:var(--kx-r-2);overflow-x:auto;}
+        .table-wrap table{font-size:var(--kx-t-2);min-width:max-content;}
+        .table-wrap th{
+            position:sticky;top:0;z-index:1;
+            background:var(--kx-surface-2);color:var(--kx-text-3);
+            font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+            padding:10px 12px;white-space:nowrap;
+        }
+        .table-wrap td{padding:10px 12px;border-top:1px solid var(--kx-line);}
+
+        /* ---- States ------------------------------------------------- */
+        .empty-state{padding:var(--kx-s-6) var(--kx-s-4);text-align:center;color:var(--kx-text-3);}
+        .empty-state i{font-size:22px;opacity:.6;margin-bottom:var(--kx-s-2);}
+        .empty-state p{font-size:var(--kx-t-2);}
+        .kx-skeleton{background:linear-gradient(90deg,var(--kx-surface-2) 25%,var(--kx-elevated) 50%,var(--kx-surface-2) 75%);background-size:200% 100%;animation:kx-shimmer 1.4s infinite linear;border-radius:var(--kx-r-1);height:12px;}
+        @keyframes kx-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+
+        /* ---- Modals: one visual language ---------------------------- */
+        .modal-overlay,.deposit-modal{
+            background:rgba(6,10,16,.72);
+            -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+        }
+        .modal-overlay .modal-content,
+        .deposit-modal .deposit-modal-content{
+            border:1px solid var(--kx-line-strong);
+            border-radius:var(--kx-r-4);
+            background:var(--kx-surface);
+            box-shadow:var(--kx-e3);
+        }
+        .modal-header,.deposit-modal-head{
+            border-bottom:1px solid var(--kx-line);
+            padding:var(--kx-s-4);
+        }
+        .modal-header h3,.deposit-modal-head h3{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;}
+
+        /* ---- Accessibility + motion --------------------------------- */
+        :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible{
+            outline:2px solid var(--brand);
+            outline-offset:2px;
+            border-radius:var(--kx-r-1);
+        }
+        .skip-link{
+            position:absolute;left:8px;top:-48px;z-index:2000;
+            background:var(--brand);color:var(--on-brand);
+            padding:10px 14px;border-radius:var(--kx-r-2);font-weight:700;
+            transition:top .15s var(--kx-ease);
+        }
+        .skip-link:focus{top:8px;}
+        ::-webkit-scrollbar{width:10px;height:10px;}
+        ::-webkit-scrollbar-track{background:var(--kx-bg);}
+        ::-webkit-scrollbar-thumb{background:var(--kx-elevated);border-radius:8px;border:2px solid var(--kx-bg);}
+        ::-webkit-scrollbar-thumb:hover{background:var(--kx-line-strong);}
+        *{scrollbar-width:thin;scrollbar-color:var(--kx-elevated) var(--kx-bg);}
+        @media(prefers-reduced-motion:reduce){
+            .kx-view-title,.btn,.card,.sidebar-link,.app-header,.kx-skeleton{transition:none !important;animation:none !important;}
+            html{scroll-behavior:auto;}
+        }
+
+        /* ---- Mobile ------------------------------------------------- */
+        @media(max-width:640px){
+            .main-content{padding:var(--kx-s-3) var(--kx-s-3) var(--kx-s-7);}
+            .app-header{padding:0 var(--kx-s-2) var(--kx-s-2);gap:var(--kx-s-2);border-radius:var(--kx-r-2);}
+            .kx-toolbar-sub{display:none;}
+            .kx-hero-eq #totalEquity{font-size:var(--kx-t-7);}
+            .kx-hero .stat-deposit-btn{min-height:48px;}
+            .chart-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+            .kx-cockpit{grid-template-columns:minmax(0,1fr);}
+            .modal-overlay .modal-content,
+            .deposit-modal .deposit-modal-content{
+                border-radius:var(--kx-r-4) var(--kx-r-4) 0 0;
+            }
+        }
+        @media(min-width:641px) and (max-width:1099px){
+            .kx-hero .stats-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"eq av" "pnl bot";}
+        }
+        @media(min-width:1100px){
+            .kx-hero .stats-grid{
+                grid-template-columns:minmax(0,1.22fr) minmax(0,1fr) minmax(0,.92fr);
+                grid-template-areas:"eq av pnl" "eq av bot";
+            }
+            .kx-cockpit{grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);}
+        }
+        @media(min-width:1024px){
+            .sidebar{transform:translateX(0);width:var(--kx-nav-w);}
+            .main-content{margin-left:var(--kx-nav-w);padding:var(--kx-s-5) var(--kx-s-6) var(--kx-s-7);}
+            .app-header{padding-top:var(--kx-s-2);}
+        }
 </style>
 </head>
 <body>
@@ -7741,25 +8083,26 @@ function toggleFaq(btn) {
             <div style="display:flex;align-items:center;gap:9px;"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="26" height="26" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg><span style="color:white;font-weight:800;letter-spacing:-0.01em;">Kal<span style="color:var(--brand);">derix</span></span></div>
             <div style="font-size:10px;color:var(--text-muted);" data-i18n="sidebar.tagline">Multi-Asset Arbitrage</div>
         </div>
+                <div class="kx-nav-group" data-i18n="nav.overview">Overview</div>
         <a class="sidebar-link active" data-section="mainContent"><i class="fas fa-gauge-high"></i> <span data-i18n="sidebar.dashboard">Dashboard</span></a>
-        <a class="sidebar-link" data-section="markets"><i class="fas fa-chart-line"></i> <span data-i18n="sidebar.markets">Markets</span></a>
+        <div class="kx-nav-group" data-i18n="nav.money">Money</div>
         <a class="sidebar-link" id="depositSidebarLink"><i class="fas fa-circle-down"></i> <span data-i18n="sidebar.deposit">Deposit</span></a>
         <a class="sidebar-link" id="withdrawSidebarLink"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></a>
-        <!-- Standalone verification/KYC entry is intentionally hidden for now
-             (UI-only). Withdrawal-triggered verification and every backend KYC
-             check remain fully intact. -->
-        <a class="sidebar-link hidden" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
-        <a class="sidebar-link" id="supportSidebarLink" onclick="openSupportModal()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
+        <div class="kx-nav-group" data-i18n="nav.trading">Trading</div>
+        <a class="sidebar-link" data-section="markets"><i class="fas fa-chart-line"></i> <span data-i18n="sidebar.markets">Markets</span></a>
         <a class="sidebar-link" data-section="history"><i class="fas fa-clock-rotate-left"></i> <span data-i18n="sidebar.history">Transaction Log</span></a>
+        <div class="kx-nav-group" data-i18n="nav.grow">Grow</div>
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
         <a class="sidebar-link" id="subscriptionSidebarLink" onclick="openSubscriptionModal()"><i class="fas fa-crown" style="color:var(--brand);"></i> <span data-i18n="sidebar.subscription">Subscription</span></a>
-        <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:var(--brand);"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
-        <div style="height:1px;background:var(--border);margin:8px 20px;"></div>
+        <div class="kx-nav-group" data-i18n="nav.account">Account</div>
+        <a class="sidebar-link hidden" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
+        <a class="sidebar-link" id="supportSidebarLink" onclick="openSupportModal()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
         <a class="sidebar-link" id="twofaLink" onclick="openTwoFAModal()"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
         <a class="sidebar-link" id="profileLink" onclick="openProfileModal()"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
         <a class="sidebar-link" id="pwaInstallSidebarLink"><i class="fas fa-download"></i> <span data-i18n="sidebar.install">Install App</span> <span style="margin-left:auto;background:var(--green);color:var(--on-brand);font-size:8px;padding:2px 6px;border-radius:8px;font-weight:700;" data-i18n="common.new">NEW</span></a>
+        <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:var(--brand);"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
         <a class="sidebar-link" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span data-i18n="sidebar.logout">Logout</span></a>
-        <div class="sidebar-status">
+<div class="sidebar-status">
             <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);"><span class="dot online"></span> <span data-i18n="sidebar.liveSync">Live Sync</span> <span id="pwaStatusDot" style="margin-left:auto;font-size:9px;color:var(--text-muted);">Web</span></div>
             <span class="status-badge pending" id="accountStatusBadge" data-i18n="status.pending">Pending</span>
             <div style="font-size:10px;color:var(--text-muted);margin-top:8px;"><i class="fas fa-user"></i> <span id="displayName">Trader</span></div>
@@ -7775,6 +8118,7 @@ function toggleFaq(btn) {
                 <span class="kx-wordmark">Kal<span>derix</span></span>
             </div>
             <div class="kx-toolbar-sub">
+                <span class="kx-view-title" id="kxViewTitle"></span>
                 <div class="kx-status" id="accountStatus" data-i18n="status.livePending">Live - Not funded yet</div>
             </div>
             <div class="app-header-right">
@@ -7829,6 +8173,7 @@ function toggleFaq(btn) {
         <!-- Promotional-credit restriction: the ONLY copy of it, shown on the
              first screen in ANY mode, because a promo-funded account starts in
              Demo where the Live wallet card is not rendered at all. -->
+        <div class="kx-view" data-view="overview" id="kxViewOverview">
         <div id="promoCreditBanner" class="hidden kx-alert kx-alert-warning" role="note" style="margin:0 0 16px;">
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
             <span data-i18n="promo.tradableNotice">Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade.</span>
@@ -7854,11 +8199,38 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <div class="stats-grid" style="margin-bottom:16px;">
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div><div id="totalEquity" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.equity">Account value</div></div></div>
-            <div class="card" id="availableStatCard"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.available">Ready to use</div><div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value fin-zero">$0.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.pnl">Today's trading profit/loss</div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#E5484D;" data-i18n="bot.offline">Offline</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.botStatus">Running or stopped</div></div></div>
+        <div class="kx-hero" id="kxHero">
+            <div class="stats-grid kx-hero-grid">
+                <div class="card kx-hero-eq">
+                    <div class="card-body">
+                        <div class="kx-kpi-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div>
+                        <div id="totalEquity" class="kx-kpi-value kx-kpi-xl">$1,000.00</div>
+                        <div class="kx-kpi-hint" data-i18n="hint.equity">Account value</div>
+                    </div>
+                </div>
+                <div class="card kx-hero-av" id="availableStatCard">
+                    <div class="card-body">
+                        <div class="kx-kpi-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div>
+                        <div id="balanceValue" class="kx-kpi-value">$1,000.00</div>
+                        <div class="kx-kpi-hint" data-i18n="hint.available">Ready to use</div>
+                        <div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div>
+                    </div>
+                </div>
+                <div class="card kx-hero-pnl">
+                    <div class="card-body">
+                        <div class="kx-kpi-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&amp;L</span></div>
+                        <div id="pnlValue" class="stat-value fin-zero">$0.00</div>
+                        <div class="kx-kpi-hint" data-i18n="hint.pnl">Today's trading profit/loss</div>
+                    </div>
+                </div>
+                <div class="card kx-hero-bot">
+                    <div class="card-body">
+                        <div class="kx-kpi-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div>
+                        <div id="botStatus" class="kx-kpi-value" style="color:#E5484D;" data-i18n="bot.offline">Offline</div>
+                        <div class="kx-kpi-hint" data-i18n="hint.botStatus">Running or stopped</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Promotional credit + Live Mode status (server-authoritative).
@@ -7891,7 +8263,9 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <div class="chart-card">
+        <!-- Cockpit: performance and statistics share one decision surface -->
+        <div class="kx-cockpit" id="kxCockpit">
+        <div class="chart-card" id="chartCard">
             <div class="chart-header">
                 <div class="chart-title"><span class="icon-bg gold"><i class="fas fa-chart-line"></i></span><span data-i18n="chart.title">Equity Performance</span></div>
                 <div class="chart-period-tabs">
@@ -7909,7 +8283,7 @@ function toggleFaq(btn) {
             <div class="chart-container"><canvas id="pnlChart"></canvas></div>
         </div>
 
-        <div class="trading-stats-card">
+        <div class="trading-stats-card" id="tradingStatsCard">
             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-pie"></i></span><span data-i18n="trading.title">Trading Statistics</span><span style="margin-left:auto;font-size:9px;color:var(--text-muted);" data-i18n="trading.session">Session Performance</span></div>
             <div class="trading-stats-grid">
                 <div class="trading-stat-item">
@@ -7928,6 +8302,8 @@ function toggleFaq(btn) {
         </div>
 
         <!-- WALLET TABS -->
+                </div>
+
         <div class="wallet-tabs-wrapper" id="walletTabsWrapper">
             <button type="button" class="wallet-tab active" data-wallet="live" data-i18n="wallet.live">Live Wallet</button>
             <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Bonus Wallet</button>
@@ -8004,6 +8380,8 @@ function toggleFaq(btn) {
         <!-- ============ PROMO BANNER REMOVED ============ -->
 
         <!-- TRANSACTION LOG -->
+                </div>
+
         <div class="card" style="margin-bottom:16px;" id="history">
             <div class="card-header">
                 <span class="icon-bg gold"><i class="fas fa-clock-rotate-left"></i></span> 
@@ -10691,6 +11069,11 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Your wallet is taking longer than usual to load. This can happen on a slow or unstable connection.',
         'walletSync.refresh': 'Refresh Account',
         'sidebar.tagline': 'Multi-Asset Arbitrage',
+        'nav.overview': 'Overview',
+        'nav.money': 'Money',
+        'nav.trading': 'Trading',
+        'nav.grow': 'Grow',
+        'nav.account': 'Account',
         'sidebar.dashboard': 'Dashboard',
         'sidebar.markets': 'Markets',
         'sidebar.deposit': 'Deposit',
@@ -12304,6 +12687,11 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Su billetera está tardando más de lo habitual en cargar. Esto puede ocurrir con una conexión lenta o inestable.',
         'walletSync.refresh': 'Actualizar cuenta',
         'sidebar.tagline': 'Arbitraje Multi-Activo',
+        'nav.overview': 'Resumen',
+        'nav.money': 'Dinero',
+        'nav.trading': 'Operación',
+        'nav.grow': 'Crecer',
+        'nav.account': 'Cuenta',
         'sidebar.dashboard': 'Panel',
         'sidebar.markets': 'Mercados',
         'sidebar.deposit': 'Depositar',
@@ -13918,6 +14306,11 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Sua carteira está demorando mais que o normal para carregar. Isso pode acontecer em uma conexão lenta ou instável.',
         'walletSync.refresh': 'Atualizar conta',
         'sidebar.tagline': 'Arbitragem Multi-Ativo',
+        'nav.overview': 'Visão geral',
+        'nav.money': 'Dinheiro',
+        'nav.trading': 'Negociação',
+        'nav.grow': 'Crescer',
+        'nav.account': 'Conta',
         'sidebar.dashboard': 'Painel',
         'sidebar.markets': 'Mercados',
         'sidebar.deposit': 'Depositar',
@@ -15532,6 +15925,11 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Votre portefeuille met plus de temps que d’habitude à charger. Cela peut arriver avec une connexion lente ou instable.',
         'walletSync.refresh': 'Actualiser le compte',
         'sidebar.tagline': 'Arbitrage Multi-Actifs',
+        'nav.overview': 'Vue d\'ensemble',
+        'nav.money': 'Argent',
+        'nav.trading': 'Trading',
+        'nav.grow': 'Croissance',
+        'nav.account': 'Compte',
         'sidebar.dashboard': 'Tableau de bord',
         'sidebar.markets': 'Marchés',
         'sidebar.deposit': 'Dépôt',
@@ -17146,6 +17544,11 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'يستغرق تحميل محفظتك وقتًا أطول من المعتاد. قد يحدث ذلك عند وجود اتصال بطيء أو غير مستقر.',
         'walletSync.refresh': 'تحديث الحساب',
         'sidebar.tagline': 'مراجحة متعددة الأصول',
+        'nav.overview': 'نظرة عامة',
+        'nav.money': 'الأموال',
+        'nav.trading': 'التداول',
+        'nav.grow': 'النمو',
+        'nav.account': 'الحساب',
         'sidebar.dashboard': 'لوحة التحكم',
         'sidebar.markets': 'الأسواق',
         'sidebar.deposit': 'إيداع',
@@ -18760,6 +19163,11 @@ const TRANSLATIONS = {
         'walletSync.slowBody': '您的钱包加载时间比平时长。这可能在网络缓慢或不稳定时发生。',
         'walletSync.refresh': '刷新账户',
         'sidebar.tagline': '多资产套利',
+        'nav.overview': '总览',
+        'nav.money': '资金',
+        'nav.trading': '交易',
+        'nav.grow': '增长',
+        'nav.account': '账户',
         'sidebar.dashboard': '仪表盘',
         'sidebar.markets': '市场',
         'sidebar.deposit': '存款',
@@ -26760,17 +27168,25 @@ async function initApp() {
         }
     });
     
+    var KX_SECTION_TO_VIEW = { mainContent: 'overview', markets: 'markets', history: 'activity', referral: 'referral' };
     document.querySelectorAll('.sidebar-link[data-section]').forEach(function(link) {
         link.addEventListener('click', function(e) {
             e.preventDefault();
-            document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
-            link.classList.add('active');
             const el = document.getElementById(link.dataset.section);
-            if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+            if (!el) return;
+            showView(KX_SECTION_TO_VIEW[link.dataset.section] || 'overview', { smooth: true });
             getEl('sidebar').classList.remove('open');
             getEl('sidebarOverlay').classList.remove('open');
         });
     });
+
+    // Deep links (#markets, #activity, #referral, #admin) and the initial view.
+    try {
+        window.addEventListener('hashchange', function() { showView(kxViewFromHash(), { silentHash: true }); });
+        showView(kxViewFromHash(), { silentHash: true, initial: true });
+    } catch (e) {
+        console.warn('view router init:', e && e.message);
+    }
     
     // Admin sidebar link handler
     const adminSidebarLink = document.getElementById('adminSidebarLink');
@@ -26937,6 +27353,90 @@ function checkAdminAccess() {
     }
 }
 
+// ============ VIEW ROUTER (Kalderix shell) ============
+// The product used to be one long scroll: sidebar links only called
+// scrollIntoView, and entering admin hid every card with inline styles that were
+// never restored (leaving a blank dashboard until a reload). Views now switch
+// explicitly. Every section keeps its id and handlers; only visibility changes.
+var KX_VIEW_HOSTS = {
+    overview: 'kxViewOverview',
+    markets: 'markets',
+    activity: 'history',
+    referral: 'referral',
+    admin: 'adminPanel'
+};
+var KX_VIEW_NAV_KEYS = {
+    overview: 'sidebar.dashboard',
+    markets: 'sidebar.markets',
+    activity: 'sidebar.history',
+    referral: 'sidebar.referral',
+    admin: 'sidebar.admin'
+};
+var KX_VIEW_LINKS = {
+    overview: '[data-section="mainContent"]',
+    markets: '[data-section="markets"]',
+    activity: '[data-section="history"]',
+    referral: '[data-section="referral"]',
+    admin: '#adminSidebarLink'
+};
+function kxNormalizeView(name) {
+    return Object.prototype.hasOwnProperty.call(KX_VIEW_HOSTS, name) ? name : 'overview';
+}
+function showView(name, opts) {
+    opts = opts || {};
+    var view = kxNormalizeView(name);
+
+    Object.keys(KX_VIEW_HOSTS).forEach(function (key) {
+        var el = document.getElementById(KX_VIEW_HOSTS[key]);
+        if (!el) return;
+        var active = key === view;
+        if (key === 'overview') {
+            el.hidden = !active;
+        } else if (key === 'admin') {
+            el.classList[active ? 'remove' : 'add']('hidden');
+            el.style.display = active ? 'block' : 'none';
+        } else {
+            el.style.display = active ? '' : 'none';
+        }
+    });
+
+    APP.kxView = view;
+    if (document.body && typeof document.body.setAttribute === 'function') {
+        document.body.setAttribute('data-kx-view', view);
+    }
+
+    var titleEl = document.getElementById('kxViewTitle');
+    if (titleEl) {
+        var key = KX_VIEW_NAV_KEYS[view];
+        titleEl.textContent = (typeof t === 'function' && key) ? t(key) : '';
+        titleEl.hidden = !titleEl.textContent;
+    }
+
+    if (typeof document.querySelectorAll === 'function') {
+        document.querySelectorAll('.sidebar-link').forEach(function (l) { l.classList.remove('active'); });
+    }
+    var activeLink = (typeof document.querySelector === 'function') ? document.querySelector(KX_VIEW_LINKS[view]) : null;
+    if (activeLink) activeLink.classList.add('active');
+
+    // Restores wallet-section visibility (updateUI owns it) when coming back.
+    if (view === 'overview' && !opts.initial && typeof updateUI === 'function' && APP.liveData) {
+        try { updateUI(); } catch (e) { console.warn('showView updateUI:', e && e.message); }
+    }
+
+    if (!opts.silentHash) {
+        try { history.replaceState(null, '', '#' + view); } catch (e) {}
+    }
+    if (!opts.initial) {
+        try { window.scrollTo({ top: 0, behavior: opts.smooth ? 'smooth' : 'auto' }); } catch (e) {}
+    }
+    return view;
+}
+
+function kxViewFromHash() {
+    var hash = (typeof location !== 'undefined' && location) ? location.hash : '';
+    return kxNormalizeView(String(hash || '').replace('#', ''));
+}
+
 function navigateToAdmin(e) {
     if (e) e.preventDefault();
     
@@ -26946,35 +27446,10 @@ function navigateToAdmin(e) {
     if (sidebar) sidebar.classList.remove('open');
     if (sidebarOverlay) sidebarOverlay.classList.remove('open');
     
-    // Hide all main content sections using scrollIntoView pattern
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        // Hide all cards and wallet sections within main content, but never
-        // cards nested inside the admin panel itself (its tabs/stat cards must
-        // stay visible)
-        mainContent.querySelectorAll('.card, .wallet-section').forEach(function(el) {
-            if (el.id !== 'adminPanel' && !el.closest('#adminPanel')) {
-                el.style.display = 'none';
-            }
-        });
-    }
-    
-    // Show admin panel
-    const adminPanel = document.getElementById('adminPanel');
-    if (adminPanel) {
-        adminPanel.classList.remove('hidden');
-        adminPanel.style.display = 'block';
-    }
-    
-    // Update sidebar active state
-    document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
-    const adminLink = document.getElementById('adminSidebarLink');
-    if (adminLink) {
-        adminLink.classList.add('active');
-    }
-    
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Admin is a view now. The previous implementation hid every card in
+    // mainContent with inline styles and never restored them, so leaving admin
+    // left a blank dashboard until a reload.
+    showView('admin');
     
     // Load admin data
     loadAdminData();

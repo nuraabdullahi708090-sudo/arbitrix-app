@@ -129,8 +129,10 @@ test('every inline event handler resolves to a defined function', () => {
   const missing = [];
   for (const name of calls) {
     if (builtins.test(name)) continue;
-    // method calls such as document.getElementById(...) are not free functions
-    if (new RegExp('[.\\w]\\s*\\.\\s*' + name + '\\s*\\(').test(HTML)) continue;
+    // method calls such as document.getElementById(...).scrollIntoView(...) are
+    // not free functions; the receiver may be an identifier, a call result or
+    // an indexed expression.
+    if (new RegExp('[.\\w)\\]]\\s*\\.\\s*' + name + '\\s*\\(').test(HTML)) continue;
     const defined =
       HTML.includes('function ' + name + '(') ||
       HTML.includes('function ' + name + ' (') ||
