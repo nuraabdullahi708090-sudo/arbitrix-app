@@ -45,10 +45,35 @@ function classify(env, key) {
  * @param {object} env - object shaped like process.env
  * @returns {{ ok: boolean, errors: string[] }} errors is empty when ok
  */
+// Minimum length below which a secret is reported as weak. Advisory only: the
+// guard WARNS rather than refusing to start, because failing here would turn a
+// short-but-working production secret into an outage on deploy. Rotating to a
+// long random value is an operator action (openssl rand -hex 32).
+const MIN_SECRET_LENGTH = 32;
+const LENGTH_CHECKED = ['JWT_SECRET', 'TOTP_ENCRYPTION_KEY'];
+
+/**
+ * Length/entropy observations for the secrets that sign or encrypt things.
+ * Never returns a value - only whether it is long enough.
+ *
+ * @returns {{key: string, length: number}[]} secrets shorter than MIN_SECRET_LENGTH
+ */
+function findWeakSecrets(env) {
+    const weak = [];
+    if (!env) return weak;
+    for (const key of LENGTH_CHECKED) {
+        const value = env[key];
+        if (typeof value !== 'string' || value.trim() === '') continue; // missing, reported elsewhere
+        if (value.length < MIN_SECRET_LENGTH) weak.push({ key: key, length: value.length });
+    }
+    return weak;
+}
+
 function validateProductionConfig(env) {
     const errors = [];
+    const warnings = [];
     if (!isProduction(env)) {
-        return { ok: true, errors };
+        return { ok: true, errors: errors, warnings: warnings };
     }
     const required = ['JWT_SECRET', 'TOTP_ENCRYPTION_KEY', 'SUPABASE_SERVICE_KEY', 'BASE_URL'];
     for (const key of required) {
@@ -59,12 +84,18 @@ function validateProductionConfig(env) {
             errors.push(key + ' is set to a known development default and cannot be used in production.');
         }
     }
-    return { ok: errors.length === 0, errors };
+    for (const item of findWeakSecrets(env)) {
+        warnings.push(item.key + ' is only ' + item.length + ' characters; use at least '
+            + MIN_SECRET_LENGTH + ' random characters (openssl rand -hex 32).');
+    }
+    return { ok: errors.length === 0, errors: errors, warnings: warnings };
 }
 
 module.exports = {
     validateProductionConfig,
     isProduction,
     classify,
+    findWeakSecrets,
+    MIN_SECRET_LENGTH,
     DEFAULT_SECRETS
 };

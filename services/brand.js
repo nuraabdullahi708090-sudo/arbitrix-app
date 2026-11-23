@@ -16,7 +16,8 @@
  *     @ArbitrixAnnouncements)
  *   - "Arbitrix Trading" - the legal entity registered at KVK 72923513. A new
  *     name is a TRADING NAME of that entity; it does not change the operator.
- *   - the seeded admin login (admin@arbitrix.ai) - that is a credential
+ *   - legacy operator addresses referenced by operational docs (the automatic
+ *     seeded administrator was removed; see docs/security/ADMIN_PROVISIONING.md)
  *   - localStorage keys (jwt_token, arbi_*) - renaming logs every user out
  *   - DB tables, columns and enum values (MARKETING_SANDBOX, PRODUCTION)
  *

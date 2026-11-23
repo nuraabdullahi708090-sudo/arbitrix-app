@@ -267,13 +267,34 @@ test('9. the card shows the amount, the explanation and a real status chip', () 
   // data-i18n binding would print the raw placeholder (Phase 3H lesson).
   assert.ok(!/data-i18n="promo\.creditExplain"/.test(INDEX),
     'promo.creditExplain must not be a data-i18n target');
-  // The explainer is now chosen per status (deposit_required / amount / plain),
-  // and each branch still goes through t() with its own placeholders.
-  assert.match(INDEX, /text = t\('promo\.creditExplain', \{ amount: String\(Number\(amount\)\) \}\);/,
-    'the explanation is interpolated with the server amount');
+  // The explainer is chosen per status (deposit_required / amount / plain) and
+  // per activation state, and each branch still goes through t() with its own
+  // placeholders.
+  assert.match(INDEX, /text = activationPending\(\)[\s\S]{0,140}t\('promo\.creditExplain', \{ amount: String\(Number\(amount\)\) \}\)[\s\S]{0,140}t\('promo\.creditExplainTradable', \{ amount: String\(Number\(amount\)\) \}\);/,
+    'the explanation is interpolated with the server amount, selected by activation state');
   assert.match(INDEX, /text = t\('liveMode\.depositNote', \{ min: String\(Number\(APP\.MIN_DEPOSIT\) \|\| 0\) \}\);/,
     'the deposit-required state explains the second requirement with the server minimum');
   assert.match(INDEX, /explain\.textContent = text;/, 'the chosen string is written as text');
+});
+
+test('9b. the promo sentence only asks for an activation while one is outstanding', () => {
+  const dict = dictionary();
+  const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
+  // The activation-free variant must not instruct a purchase, because a
+  // deployment with PAYHIP_ACTIVATION_REQUIRED off does not sell one.
+  LANGS.forEach((l) => {
+    const free = dict.T[l]['promo.creditExplainTradable'];
+    assert.ok(free && free.trim(), l + ' must define promo.creditExplainTradable');
+    assert.ok(free.includes('{{amount}}'), l + ' keeps the amount placeholder');
+    assert.ok(!/activation|ativa\u00e7\u00e3o|activaci\u00f3n|تفعيل|激活/i.test(free),
+      l + ': the activation-free sentence must not mention an activation');
+    assert.ok(/30/.test(free), l + ': the profit cap is still stated');
+  });
+  // The activation variant is unchanged and still names the purchase.
+  LANGS.forEach((l) => {
+    assert.ok(/activation|ativa\u00e7\u00e3o|activaci\u00f3n|تفعيل|激活/i.test(dict.T[l]['promo.creditExplain']),
+      l + ': the activation variant still asks for the activation');
+  });
 });
 
 test('10. the renderer writes text, never HTML, and never touches a balance', () => {

@@ -69,15 +69,15 @@ function makeEl(id) {
   return el;
 }
 
-function buildSandbox({ environment = 'PRODUCTION', liveData = {}, dismissed = false } = {}) {
+function buildSandbox({ environment = 'PRODUCTION', liveData = {}, dismissed = false, activationRequired = false, liveActivated = true } = {}) {
   const els = {};
   const el = (id) => els[id] || (els[id] = makeEl(id));
-  ['startHereCard', 'startHereStepsLive', 'startHereStepsLiveReady'].forEach(el);
+  ['startHereCard', 'startHereSubtitle', 'startHereStepsLive', 'startHereStepsLiveReady'].forEach(el);
   const store = {};
   if (dismissed) store['arbi_starthere_42'] = '1';
   const sandbox = {
     els,
-    APP: { environment, liveData, user: { id: 42 } },
+    APP: { environment, liveData, activationRequired, liveActivated, user: { id: 42 } },
     console: { log() {}, warn() {}, error() {} },
     localStorage: {
       getItem: (k) => (k in store ? store[k] : null),
@@ -100,6 +100,7 @@ function buildSandbox({ environment = 'PRODUCTION', liveData = {}, dismissed = f
   vm.createContext(sandbox);
   vm.runInContext([
     extractFunction('startHereKey'),
+    extractFunction('activationPending'),
     extractFunction('startHereLiveSteps'),
     extractFunction('startHereLiveComplete'),
     extractFunction('renderStartHereLiveSteps'),
@@ -124,19 +125,35 @@ test('1. the card ships a single Live header and one steps container', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. The checklist lists only enforced Live requirements
+// 2. The checklist lists only the requirements the platform actually enforces
 // ---------------------------------------------------------------------------
-test('2. the checklist is two Live steps with no demo wording', () => {
-  const steps = vm.runInNewContext(extractFunction('startHereLiveSteps') + ';startHereLiveSteps()', {});
-  assert.strictEqual(steps.length, 2, 'exactly two steps');
-  assert.strictEqual(JSON.stringify(steps.map((s) => s.key)), JSON.stringify(['startHere.live.step0', 'startHere.live.step3']));
-  for (const s of steps) {
+test('2. the activation step appears ONLY while the platform requires one', () => {
+  const withActivation = vm.runInNewContext(
+    extractFunction('activationPending') + extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
+    { APP: { activationRequired: true, liveActivated: false } });
+  assert.strictEqual(withActivation.length, 2, 'activation outstanding: two steps');
+  assert.strictEqual(JSON.stringify(withActivation.map((s) => s.key)),
+    JSON.stringify(['startHere.live.step0', 'startHere.live.step3']));
+
+  // Requirement OFF (the default deployment): the customer must never be told to
+  // buy an activation the platform does not apply.
+  const noActivation = vm.runInNewContext(
+    extractFunction('activationPending') + extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
+    { APP: { activationRequired: false, liveActivated: true } });
+  assert.strictEqual(noActivation.length, 1, 'no activation requirement: one step');
+  assert.strictEqual(JSON.stringify(noActivation.map((s) => s.key)), JSON.stringify(['startHere.live.step3']));
+
+  for (const s of withActivation.concat(noActivation)) {
     const value = T.en[s.key];
     assert.ok(value && value.trim().length > 0, s.key + ' must be non-empty');
     assert.ok(!/demo|virtual/i.test(value), s.key + ' must not mention demo funds');
   }
   assert.match(T.en['startHere.live.step0'], /activation/i);
   assert.match(T.en['startHere.live.step3'], /trade/i);
+  // The subtitle follows the step count, so it can never promise "two steps"
+  // to an account that has one.
+  assert.ok(T.en['startHere.live.subtitle'] && T.en['startHere.live.subtitleNext']);
+  assert.match(T.en['startHere.live.subtitle'], /two steps/i);
 });
 
 // ---------------------------------------------------------------------------
@@ -146,12 +163,26 @@ test('3. updateStartHere renders the steps without touching money', () => {
   const sb = buildSandbox({});
   sb.updateStartHere();
   assert.strictEqual(sb.els.startHereCard.style.display, 'block');
-  assert.strictEqual((sb.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 2, 'both steps rendered');
+  assert.strictEqual((sb.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 1, 'the single step rendered');
   assert.strictEqual(sb.els.startHereStepsLive.style.display, 'flex');
   assert.strictEqual(sb.els.startHereStepsLiveReady.style.display, 'none');
+  assert.strictEqual(sb.els.startHereSubtitle.textContent, T.en['startHere.live.subtitleNext']);
   const body = extractFunction('updateStartHere') + extractFunction('renderStartHereLiveSteps');
   assert.ok(!/fetch\(|requestDepositAddress|create-invoice|\/api\/|liveData\.balance\s*=/i.test(body),
     'display only: no request and no balance write');
+});
+
+test('3b. with the activation requirement ON the card shows both steps and their subtitle', () => {
+  const sb = buildSandbox({ activationRequired: true, liveActivated: false });
+  sb.updateStartHere();
+  assert.strictEqual((sb.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 2);
+  assert.ok(sb.els.startHereStepsLive.innerHTML.includes('activation'), 'the activation step is rendered');
+  assert.strictEqual(sb.els.startHereSubtitle.textContent, T.en['startHere.live.subtitle']);
+  // An unactivated account is never reported as complete.
+  assert.strictEqual(sb.els.startHereStepsLiveReady.style.display, 'none');
+  const done = buildSandbox({ activationRequired: true, liveActivated: true, liveData: { hasTradingActivity: true } });
+  done.updateStartHere();
+  assert.strictEqual(done.els.startHereStepsLiveReady.style.display, 'block', 'traded + activated: complete');
 });
 
 // ---------------------------------------------------------------------------

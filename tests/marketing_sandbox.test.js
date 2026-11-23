@@ -669,8 +669,11 @@ test('admin trade generation uses unique idempotency keys per demo trade', () =>
 // bcrypt/jwt/2FA helpers. Sandbox users must get a full token with no email
 // code; production users must keep the existing email-2FA flow exactly.
 function loginInitiateHandler() {
-    const start = SERVER.indexOf("app.post('/api/2fa/login-initiate'");
-    const end = SERVER.indexOf('// POST /api/2fa/login-verify');
+    // The handler is now a named function shared by /api/2fa/login-initiate and
+    // the legacy /api/auth/login alias, so extract the DECLARATION (not the
+    // registration line at the end of the block).
+    const start = SERVER.indexOf('async function loginInitiateHandler');
+    const end = SERVER.indexOf("app.post('/api/2fa/login-initiate', loginInitiateHandler);");
     assert.ok(start !== -1 && end > start, 'login-initiate source not found');
     return SERVER.slice(start, end);
 }
@@ -707,16 +710,37 @@ async function runLoginInitiate(user, body, spies) {
         Email2FAService: { checkResendRateLimit: async () => ({ allowed: true }) },
         sendEmailVerificationCode: async (...a) => { spies.emailCodes.push(a); },
         maskEmail: (e) => e,
+        // Auth entry-point hardening: pure helpers + the process-wide limiter.
+        // The limiter is stubbed as "allowed" here; its own behaviour is tested
+        // in auth_entry_hardening.test.js and auth_entry_http.test.js.
+        AuthEntry: { normalizeEmail: (v) => String(v == null ? '' : v).trim().toLowerCase() },
+        // The login handler resolves the account through getUserByEmail (a
+        // case-insensitive look-up); the vm needs that dependency supplied.
+        getUserByEmail: async (email) => {
+            const result = await supabase.from('users').select('*').eq('email', email).single();
+            return result.error ? null : result.data;
+        },
+        authRateLimiter: {
+            checkLogin: () => ({ allowed: true }),
+            recordLoginFailure: () => {},
+            clearLoginFailures: () => {}
+        },
+        getClientIp: () => '127.0.0.1',
+        sendAuthRateLimited: (res, retryAfter, message) => res.status(429).json({ error: message, retryAfter }),
+        LOGIN_RATE_LIMIT_MESSAGE: 'Too many login attempts. Please try again later.',
+        ENV_PRODUCTION: 'PRODUCTION',
         console,
     };
     ctx.app = { post: (p, h) => { ctx.__handler = h; } };
     vm.createContext(ctx);
-    vm.runInContext(loginInitiateHandler() + '\n__handler;', ctx);
+    // The extracted block is the function DECLARATION (the route registration
+    // now lives after it), so bind it explicitly instead of relying on app.post.
+    vm.runInContext(loginInitiateHandler() + '\n__handler = loginInitiateHandler;', ctx);
     await ctx.__handler({ body }, res);
     return res;
 }
 
-const NO_2FA_USER_KEYS = ['id', 'name', 'email', 'referralCode', 'isAdmin', 'is_admin', 'is_verified'];
+const NO_2FA_USER_KEYS = ['id', 'name', 'email', 'referralCode', 'isAdmin', 'is_admin', 'environment', 'is_verified'];
 
 test('sandbox user: valid credentials return full JWT, no 2FA, no email code', async () => {
     const user = { id: 42, name: 'Demo', email: 'marketing-demo+x@sandbox.arbitrix.invalid',
@@ -728,7 +752,8 @@ test('sandbox user: valid credentials return full JWT, no 2FA, no email code', a
     assert.ok(res.body.token && res.body.token.startsWith('signed:'), 'full JWT expected');
     assert.ok(!res.body.partialToken, 'no pending-2FA partial token');
     assert.deepStrictEqual(Object.keys(res.body.user), NO_2FA_USER_KEYS);
-    assert.strictEqual(res.body.user.environment, undefined, 'shape identical to no-2FA path');
+    assert.strictEqual(res.body.user.environment, 'MARKETING_SANDBOX',
+        'the server-stored environment is returned (same key shape as the no-2FA path)');
     assert.strictEqual(spies.get2faCalled, 0, 'get2FAType must not run for sandbox');
     assert.strictEqual(spies.emailCodes.length, 0, 'no email verification code may be sent');
     assert.ok(!spies.tables.includes('email_verification_codes'), 'no verification-code record');

@@ -30,6 +30,15 @@ const Email2FAService = require('./services/Email2FAService');
 // Server-side JWT session revocation (jti denylist) for logout
 const TokenRevocation = require('./services/TokenRevocationService');
 
+// Authentication entry-point hardening: explicit-only administrator
+// provisioning and login/registration rate limiting (pure, dependency-free).
+const AuthEntry = require('./services/AuthEntry');
+
+// Trusted client IP identification (proxy trust + normalisation). The module
+// never parses X-Forwarded-For itself: Express does, using ONLY the proxies we
+// explicitly declare. See docs/security/ADMIN_PROVISIONING.md.
+const ClientIp = require('./services/ClientIp');
+
 // Telegram support bot (@ArbitrixSupportBot). Additive: the app boots with the
 // bot unconfigured and the /api/telegram/* routes fail closed until the
 // TELEGRAM_* env vars are set (see .env.example).
@@ -127,6 +136,24 @@ const FEATURE_FLAG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const TOTP_ENCRYPTION_KEY = process.env.TOTP_ENCRYPTION_KEY || 'default-kyc-encryption-key-change-in-prod';
 
 const app = express();
+
+// PROXY TRUST. Express derives req.ip from the socket address plus this setting.
+// Default: trust nothing, so a direct caller cannot spoof an identity with a
+// header. Behind a proxy, set TRUST_PROXY (CIDR list) or TRUST_PROXY_HOPS.
+const proxyTrust = ClientIp.resolveProxyTrust(process.env);
+let proxyTrustMode = proxyTrust.mode;
+try {
+  app.set('trust proxy', proxyTrust.value);
+} catch (err) {
+  // proxy-addr rejects anything it cannot compile (an exotic-but-plausible
+  // string the validator let through). An operator typo must not become a crash
+  // loop: fall back to trusting nothing, which is the safe direction, and say so.
+  proxyTrustMode = 'none';
+  proxyTrust.warning = 'TRUST_PROXY/TRUST_PROXY_HOPS was rejected by Express (' +
+    ((err && err.message) || 'invalid value') + '); proxy trust disabled';
+  app.set('trust proxy', false);
+}
+
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-in-production';
 const RESET_TOKEN_EXPIRY = 3600000; // 1 hour in milliseconds
@@ -154,6 +181,11 @@ if (!_prodConfig.ok) {
   _prodConfig.errors.forEach(function (msg) { console.error('  - ' + msg); });
   process.exit(1);
 }
+if (_prodConfig.warnings && _prodConfig.warnings.length > 0) {
+  // Advisory: a short signing secret still works, so this must not stop the boot.
+  console.warn('⚠️  Production secret strength:');
+  _prodConfig.warnings.forEach(function (msg) { console.warn('  - ' + msg); });
+}
 
 // Rate limiting configuration
 // Limits explain:
@@ -180,24 +212,74 @@ const rateLimitStore = {
   email: new Map()
 };
 
-// Cleanup old entries periodically (every 5 minutes)
+// Hard ceiling per bucket. The periodic cleanup below removes expired windows,
+// but that only runs every 5 minutes: within one window an attacker who can
+// submit many DISTINCT addresses (or arrives from many addresses) could still
+// grow a map without bound, and each key is attacker-chosen. The ceiling is
+// enforced on insert, so memory is bounded regardless of the cleanup cadence.
+// Real traffic is orders of magnitude below this (the per-IP budget allows 5
+// reset requests per 15 minutes), so eviction can only ever hit flood keys.
+const RATE_LIMIT_MAX_ENTRIES = 20000;
+
+/**
+ * Remove expired windows from a rate-limit map (full scan; timer only).
+ * Returns the number of entries removed.
+ */
+function sweepExpiredRateLimits(map, now, windowMs) {
+  let removed = 0;
+  for (const [key, data] of map.entries()) {
+    if (!data || now - data.windowStart > windowMs) { map.delete(key); removed += 1; }
+  }
+  return removed;
+}
+
+/**
+ * Enforce a map's hard ceiling. Cheap on purpose (no scan): it only runs when a
+ * new key pushed the map over the ceiling, which under normal traffic never
+ * happens. Deletes from the front, i.e. the oldest insertions.
+ */
+function evictToRateLimitCeiling(map, max) {
+  if (map.size <= max) return 0;
+  const target = Math.floor(max * 0.9);
+  let removed = 0;
+  while (map.size > target) {
+    const oldest = map.keys().next();
+    if (oldest.done) break;
+    map.delete(oldest.value);
+    removed += 1;
+  }
+  return removed;
+}
+
+// Cleanup old entries periodically (every 5 minutes). unref() so the timer can
+// never hold the process open on its own.
 setInterval(() => {
   const now = Date.now();
-  
-  // Clean IP store
-  for (const [key, data] of rateLimitStore.ip.entries()) {
-    if (now - data.windowStart > RATE_LIMIT_CONFIG.ip.windowMs) {
-      rateLimitStore.ip.delete(key);
-    }
-  }
-  
-  // Clean email store
-  for (const [key, data] of rateLimitStore.email.entries()) {
-    if (now - data.windowStart > RATE_LIMIT_CONFIG.email.windowMs) {
-      rateLimitStore.email.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
+  // Expired windows are removed with each bucket's OWN window, then the ceiling
+  // is re-applied defensively.
+  sweepExpiredRateLimits(rateLimitStore.ip, now, RATE_LIMIT_CONFIG.ip.windowMs);
+  sweepExpiredRateLimits(rateLimitStore.email, now, RATE_LIMIT_CONFIG.email.windowMs);
+  evictToRateLimitCeiling(rateLimitStore.ip, RATE_LIMIT_MAX_ENTRIES);
+  evictToRateLimitCeiling(rateLimitStore.email, RATE_LIMIT_MAX_ENTRIES);
+}, 5 * 60 * 1000).unref();
+
+/**
+ * The per-address budget for a password-reset request.
+ *
+ * When the client address is not attributable (no trusted proxy) every visitor
+ * shares the proxy's address, so 5 requests per 15 minutes would be a
+ * platform-wide budget and would block password resets for everybody. In that
+ * mode the wider shared budget applies unless the operator set an explicit
+ * RATE_LIMIT_IP_MAX. The per-EMAIL budget (3 per hour) keeps its normal value
+ * either way, so a single account cannot be flooded.
+ */
+function forgotPasswordIpMax() {
+  const configured = RATE_LIMIT_CONFIG.ip.maxRequests;
+  if (CLIENT_IP_ATTRIBUTABLE) return configured;
+  const explicit = Number.isFinite(parseInt(process.env.RATE_LIMIT_IP_MAX, 10));
+  if (explicit) return configured;
+  return Math.max(configured, AuthEntry.SHARED_IP_DEFAULTS.passwordResetIpMax);
+}
 
 /**
  * Check rate limit for forgot password endpoint
@@ -216,7 +298,8 @@ function checkForgotPasswordRateLimit(ip, email) {
     rateLimitStore.ip.set(ip, ipData);
   }
   
-  if (ipData.count >= RATE_LIMIT_CONFIG.ip.maxRequests) {
+  const ipMax = forgotPasswordIpMax();
+  if (ipData.count >= ipMax) {
     const resetIn = Math.ceil((ipData.windowStart + RATE_LIMIT_CONFIG.ip.windowMs - now) / 1000);
     return {
       allowed: false,
@@ -247,15 +330,115 @@ function checkForgotPasswordRateLimit(ip, email) {
   // Increment counts
   ipData.count++;
   emailData.count++;
+
+  // Enforce the per-bucket ceiling (a no-op unless the bucket is under a flood).
+  evictToRateLimitCeiling(rateLimitStore.ip, RATE_LIMIT_MAX_ENTRIES);
+  evictToRateLimitCeiling(rateLimitStore.email, RATE_LIMIT_MAX_ENTRIES);
   
   return {
     allowed: true,
     remaining: Math.min(
-      RATE_LIMIT_CONFIG.ip.maxRequests - ipData.count,
+      ipMax - ipData.count,
       RATE_LIMIT_CONFIG.email.maxRequests - emailData.count
     ),
     resetIn: 0
   };
+}
+
+// ---------------------------------------------------------------------------
+// AUTH ENTRY-POINT RATE LIMITING (login + registration)
+//
+// Separate from the password-reset limiter above on purpose: those windows are
+// tuned for "forgot password" (5 per 15 min) and would lock normal users out of
+// logging in. These counters follow the module defaults (60 login attempts per
+// IP per 15 min, 10 failed logins per account per 15 min, 20 registrations per
+// IP per hour) and are overridable through AUTH_RATE_LIMIT_* (see .env.example).
+//
+// When no proxy is trusted the address is the edge proxy for every visitor, so
+// the per-IP buckets degrade to a platform-wide budget. They then use the wider
+// shared-address defaults instead (see AuthEntry.SHARED_IP_DEFAULTS); the
+// per-account login limiter, which needs no address, stays at full strength.
+//
+// Throttling answers are identical whether or not the account exists, so the
+// limiter cannot be used to enumerate accounts.
+// ---------------------------------------------------------------------------
+const CLIENT_IP_ATTRIBUTABLE = proxyTrustMode !== 'none';
+const AUTH_RATE_LIMITS = AuthEntry.resolveAuthRateLimits(process.env, { ipAttributable: CLIENT_IP_ATTRIBUTABLE });
+const authRateLimiter = AuthEntry.createAuthRateLimiter(AUTH_RATE_LIMITS);
+// `0` disables a bucket (the local rehearsal env file uses it). It must not fail
+// the boot - an operator may need to lift limits during an incident - but in
+// production it silently removes brute-force protection, so say it loudly.
+const disabledLimits = AuthEntry.findDisabledLimits({
+  loginIpMax: AUTH_RATE_LIMITS.loginIpMax,
+  loginAccountMax: AUTH_RATE_LIMITS.loginAccountMax,
+  registerIpMax: AUTH_RATE_LIMITS.registerIpMax,
+  forgotPasswordIpMax: RATE_LIMIT_CONFIG.ip.maxRequests
+});
+if (disabledLimits.length > 0 && process.env.NODE_ENV === 'production') {
+  console.warn('[rate-limit] DISABLED in production (0 = unlimited): ' + disabledLimits.join(', ') +
+    '. Unset these unless the exception is deliberate; login brute-force protection is reduced.');
+}
+
+// An explicit per-IP cap plus an unattributable address is almost always a
+// mistake: the operator meant "per client" but the budget is shared by every
+// visitor. Do not silently override the value - say it plainly once.
+if (!CLIENT_IP_ATTRIBUTABLE) {
+  const explicitPerIp = ['AUTH_RATE_LIMIT_LOGIN_IP_MAX', 'AUTH_RATE_LIMIT_REGISTER_IP_MAX', 'RATE_LIMIT_IP_MAX']
+    .filter(function (name) { return Number.isFinite(parseInt(process.env[name], 10)); });
+  if (explicitPerIp.length > 0) {
+    console.warn('[proxy] ' + explicitPerIp.join(', ') + ' set while no proxy is trusted: those caps apply to ' +
+      'ALL customers combined, not per client. Configure TRUST_PROXY_HOPS / TRUST_PROXY, or unset them to use ' +
+      'the shared-address defaults');
+  }
+}
+
+/**
+ * The client IP the server trusts, used for rate limiting and audit records.
+ *
+ * Delegates to services/ClientIp: `req.ip` only, never a raw header. When no
+ * proxy is trusted (the default) this is the socket peer; when TRUST_PROXY /
+ * TRUST_PROXY_HOPS is configured it is the address Express derives from the
+ * trusted chain. A client-supplied X-Forwarded-For prefix cannot influence it.
+ */
+function getClientIp(req) {
+  return ClientIp.getClientIp(req);
+}
+
+// One startup line so the effective trust decision is visible in the logs.
+// Contains no secret and no IP: only the mode and the configured value.
+if (proxyTrust.warning) {
+  console.warn('[proxy] ' + proxyTrust.warning);
+}
+console.log('[proxy] client IP trust: ' + proxyTrustMode + ' (' + proxyTrust.source + ': ' + proxyTrust.detail + ')');
+if (!CLIENT_IP_ATTRIBUTABLE) {
+  // Not an error: it is the safe default. It does mean per-address budgets are
+  // shared, so they use wider defaults instead of throttling every customer.
+  console.warn('[proxy] per-IP auth limits run in SHARED-ADDRESS mode: no proxy is trusted, so every ' +
+    'visitor appears to come from the edge address. Set TRUST_PROXY_HOPS (or TRUST_PROXY CIDRs) to get ' +
+    'per-client limits; see docs/security/ADMIN_PROVISIONING.md');
+}
+
+function sendAuthRateLimited(res, retryAfter, message) {
+  const seconds = Math.max(1, Math.round(Number(retryAfter) || 1));
+  try { res.set('Retry-After', String(seconds)); } catch (e) { /* headers already sent */ }
+  return res.status(429).json({ error: message, retryAfter: seconds });
+}
+
+const LOGIN_RATE_LIMIT_MESSAGE = 'Too many login attempts. Please try again later.';
+const REGISTER_RATE_LIMIT_MESSAGE = 'Too many registration attempts. Please try again later.';
+
+/**
+ * Read a JSON request body without assuming one exists.
+ *
+ * `req.body` is `undefined` when the request carries no parsable body (for
+ * example a POST with no Content-Type). Destructuring it directly throws a
+ * TypeError, which surfaced as a 500 that echoed the internal message. A missing
+ * body is a client error, so handlers get `{}` and answer 400 from their own
+ * field validation.
+ */
+function readJsonBody(req) {
+  const body = req && req.body;
+  return (body && typeof body === 'object' && !Array.isArray(body)) ? body : {};
 }
 
 // Create Resend client
@@ -704,10 +887,54 @@ async function getUser(id) {
   return data;
 }
 
+/**
+ * Look an account up by email.
+ *
+ * Account identity is CASE-INSENSITIVE (migration 056 keeps one row per
+ * lower(email)), so every caller has to resolve a case variant: a customer who
+ * registered as Foo@Bar.com and types foo@bar.com must be able to log in, and the
+ * password-reset flow must find that same row. Before this, an exact query was
+ * enough to log a customer out of their own account and to make a reset
+ * impossible. See AuthEntry.findAccountByEmail.
+ *
+ * An ambiguous result (two rows whose addresses differ only in case, possible only
+ * before the unique index exists) is reported as "no account": signing someone in
+ * with an arbitrary one of them would be worse than refusing.
+ */
 async function getUserByEmail(email) {
-  const { data, error } = await supabaseAdmin.from('users').select('id, name, email, password_hash, referral_code, is_admin, environment').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') throw error;
-  return data;
+  const result = await AuthEntry.findAccountByEmail(supabaseAdmin, email, {
+    columns: 'id, name, email, password_hash, referral_code, is_admin, environment'
+  });
+  if (!result.ok) throw new Error('users lookup failed');
+  if (result.ambiguous) {
+    console.warn('[auth] ambiguous email lookup refused: more than one account differs only in case');
+  }
+  return result.account;
+}
+
+/**
+ * Find an unused password-reset record by token.
+ *
+ * The look-up is keyed on the token HASH (the actual secret); the address is
+ * compared case-insensitively in JS afterwards, so a customer who types their
+ * address with different capitalisation at reset time is not stranded while a
+ * LIKE pattern cannot be used to prove equality.
+ *
+ * @returns {Promise<object|null>}
+ */
+async function findResetTokenRecord(email, tokenHash) {
+  const { data, error } = await supabaseAdmin
+    .from('password_reset_tokens')
+    .select('*')
+    .eq('token_hash', tokenHash)
+    .eq('used', false)
+    .limit(5);
+  if (error) throw error;
+  const wanted = String(email == null ? '' : email).trim().toLowerCase();
+  const rows = Array.isArray(data) ? data : [];
+  return rows.find(function (row) {
+    return row && String(row.email == null ? '' : row.email).trim().toLowerCase() === wanted;
+  }) || null;
 }
 
 // ---------- REFERRAL CODE HELPERS ----------
@@ -1247,6 +1474,19 @@ async function getSandboxTodayRealizedPnl(userId) {
     .lt('created_at', startOfNextDay.toISOString());
   if (error) return 0;
   return (data || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+}
+
+// ---------- MARKETING SANDBOX: simulated trading activity flag ----------
+// The production helper below reads the real ledger; a sandbox account has its
+// own simulated ledger, so it needs the equivalent question answered from
+// sandbox_trades. Display-only.
+async function hasSandboxTradingActivity(userId) {
+  const { count, error } = await supabaseAdmin
+    .from('sandbox_trades')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) return false;
+  return (Number(count) || 0) >= 1;
 }
 
 // ---------- MARKETING SANDBOX: referral program (PRODUCTION PARITY) ----------
@@ -2679,6 +2919,31 @@ async function getTodayRealizedPnl(userId) {
 }
 
 /**
+ * Has this user completed at least one Live trade?
+ *
+ * Uses EXACTLY the definition the withdrawal route enforces (a 'Trade Executed'
+ * ledger row), so the dashboard's "completed trade" state and the server's
+ * withdrawal gate can never disagree. Before this field existed the frontend
+ * only knew about trades placed in the CURRENT browser session, so a returning
+ * customer with a full trade history was told to "complete at least 1 trade"
+ * and could not reach the withdrawal form.
+ *
+ * Read-only and additive: it grants nothing and writes nothing.
+ */
+async function hasTradingActivity(userId) {
+  const { count, error } = await supabaseAdmin
+    .from('transactions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('type', 'Trade Executed');
+  if (error) {
+    console.log('[hasTradingActivity] error:', error.message);
+    return false;
+  }
+  return (Number(count) || 0) >= 1;
+}
+
+/**
  * Cumulative NET realized P&L for a production user, read from the append-only
  * `trades` ledger (signed amounts). Feeds the promotional-credit trading cap.
  *
@@ -3332,7 +3597,65 @@ This is an automated message from Kalderix.`
 // ---------- AUTH MIDDLEWARE ----------
 // Server-side session revocation store (jti denylist). Backed by the
 // service-role Supabase client; table `revoked_tokens` (migration 025).
-const sessionRevocationStore = TokenRevocation.createSupabaseStore(supabaseAdmin);
+//
+// The durable store is wrapped so that (a) a logout is enforced locally even if
+// the write fails, (b) an unpersisted revocation is retried, (c) a failing store
+// is skipped for a short cooldown instead of stalling every request, and (d) a
+// "not revoked" answer is cached briefly. See
+// services/TokenRevocationService.js for the full rationale and the documented
+// residual risk. Options: AUTH_REVOCATION_TIMEOUT_MS, AUTH_REVOCATION_CACHE_MS,
+// AUTH_REVOCATION_REQUIRE_STORE (strict = 503 instead of allow).
+const sessionRevocationDurableStore = TokenRevocation.createSupabaseStore(supabaseAdmin);
+const sessionRevocationStore = TokenRevocation.createResilientStore(
+  sessionRevocationDurableStore,
+  TokenRevocation.resolveResilientOptions(process.env, {
+    onEvent: function (name, detail) {
+      if (name === 'store_open') {
+        console.warn('[auth] revocation store unavailable; requests are allowed without a verified ' +
+          'revocation state until it recovers (local revocations are still enforced)');
+      } else if (name === 'store_recovered') {
+        console.log('[auth] revocation store recovered');
+      } else if (name === 'pending_flushed') {
+        console.log('[auth] persisted ' + Number((detail && detail.count) || 0) +
+          ' queued revocation record(s) after the outage');
+      } else if (name === 'pending_dropped') {
+        console.warn('[auth] revocation retry queue is full; the oldest unpersisted revocation was dropped ' +
+          '(it is still enforced on this instance)');
+      }
+    }
+  })
+);
+
+// Expired revocation rows are ignored by the lookup but were never deleted, so
+// `revoked_tokens` could only grow. Prune them daily (the RPC already exists in
+// migration 025 and is service-role only). Best effort: an environment without
+// the function keeps working, with one warning instead of a repeated one.
+const REVOKED_TOKEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let revocationPruneWarned = false;
+
+function pruneRevokedTokens() {
+  Promise.resolve()
+    .then(function () { return TokenRevocation.pruneExpired(sessionRevocationStore); })
+    .then(function (result) {
+      if (result && result.ok) {
+        if (Number(result.deleted) > 0) {
+          console.log('[auth] pruned ' + Number(result.deleted) + ' expired revocation record(s)');
+        }
+        return;
+      }
+      if (!revocationPruneWarned) {
+        revocationPruneWarned = true;
+        console.warn('[auth] revocation prune unavailable (' + ((result && result.reason) || 'error') +
+          '); expired rows are ignored at lookup time but will not be deleted');
+      }
+    })
+    .catch(function () { /* pruneExpired never rejects; guarded anyway */ });
+}
+
+// First pass shortly after boot (never blocking startup), then daily. unref()
+// so the timer can never hold the process open.
+setTimeout(pruneRevokedTokens, 60 * 1000).unref();
+setInterval(pruneRevokedTokens, REVOKED_TOKEN_PRUNE_INTERVAL_MS).unref();
 
 // Session TTL. Kept as the single source shared by every FULL token issuer
 // (register/login/2FA); partial 2FA tokens stay short-lived below.
@@ -3370,18 +3693,87 @@ async function authMiddleware(req, res, next) {
         return res.status(401).json({ error: 'Session revoked' });
       }
     } catch (e) {
-      // Availability trade-off: a transient revocation-store error must not log
-      // every user out. Never log token material.
-      console.warn('[auth] revocation check unavailable:', e.message);
+      // The resilient store answers "allow" on its own when the database is
+      // unreachable (local revocations are still enforced), so this path only
+      // runs in the operator's opt-in strict mode
+      // (AUTH_REVOCATION_REQUIRE_STORE=true). Answer 503 - retryable - and never
+      // 401, which would make clients discard a perfectly valid token.
+      if (e && e.code === 'REVOCATION_UNAVAILABLE') {
+        res.set('Retry-After', '5');
+        return res.status(503).json({ error: 'Session verification unavailable', retryable: true });
+      }
+      console.warn('[auth] revocation check failed:', (e && e.message) || 'unknown');
     }
   }
   req.user = decoded;
   next();
 }
 
-function adminMiddleware(req, res, next) {
+// ---------- ADMIN AUTHORIZATION ----------
+// The JWT carries an `isAdmin` claim, and until this change adminMiddleware
+// trusted it for the token's whole 7-day life. Two consequences: demoting an
+// administrator did not take effect until they logged in again (their token was
+// minted while they were an admin), and a stolen admin token could not be
+// demoted at all - only revoked. Authorization is now re-checked against the
+// database, so `users.is_admin` is the source of truth and a demotion applies
+// within ADMIN_STATUS_TTL_MS.
+//
+// The claim is still required (cheap pre-check, and a token without it can never
+// gain admin), but it is no longer sufficient. A failed lookup answers 503
+// "retryable" rather than allowing the request: an unverifiable claim must not be
+// treated as a valid one.
+const ADMIN_STATUS_TTL_MS = 60 * 1000;
+const ADMIN_STATUS_CACHE_MAX = 500;
+const adminStatusCache = new Map(); // userId -> { isAdmin, at }
+
+function cacheAdminStatus(userId, isAdmin) {
+  adminStatusCache.set(String(userId), { isAdmin: isAdmin === true, at: Date.now() });
+  if (adminStatusCache.size > ADMIN_STATUS_CACHE_MAX) {
+    // Admins are a handful of rows; this only fires if something is wrong.
+    const oldest = adminStatusCache.keys().next().value;
+    adminStatusCache.delete(oldest);
+  }
+}
+
+/**
+ * Read the CURRENT administrative status of an account.
+ *
+ * @returns {Promise<{ok: boolean, isAdmin?: boolean}>} ok:false means "could not
+ *          verify", which callers must treat as a refusal, never as a grant.
+ */
+async function loadAdminStatus(userId) {
+  const key = String(userId);
+  const cached = adminStatusCache.get(key);
+  if (cached && (Date.now() - cached.at) < ADMIN_STATUS_TTL_MS) {
+    return { ok: true, isAdmin: cached.isAdmin };
+  }
+  try {
+    const query = supabaseAdmin.from('users').select('id, is_admin').eq('id', userId);
+    const single = (query && typeof query.maybeSingle === 'function') ? query.maybeSingle() : query;
+    const result = await single;
+    if (!result || result.error) return { ok: false };
+    const row = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (!row) return { ok: true, isAdmin: false };
+    const isAdmin = Number(row.is_admin) === 1 || row.is_admin === true;
+    cacheAdminStatus(key, isAdmin);
+    return { ok: true, isAdmin: isAdmin };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
+async function adminMiddleware(req, res, next) {
   if (!req.user || !req.user.isAdmin) return res.status(403).json({ error: 'Admin required' });
-  next();
+  const status = await loadAdminStatus(req.user.id);
+  if (!status.ok) {
+    res.set('Retry-After', '5');
+    return res.status(503).json({ error: 'Authorization check unavailable', retryable: true });
+  }
+  if (!status.isAdmin) {
+    console.warn('[auth] admin claim rejected: the account is no longer an administrator');
+    return res.status(403).json({ error: 'Admin required' });
+  }
+  return next();
 }
 
 // ---------- ROUTES ----------
@@ -3389,9 +3781,18 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, referralCode } = req.body;
+  const { name, email, password, referralCode } = readJsonBody(req);
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password min 6 chars' });
+
+  // ACCOUNT-CREATION RATE LIMIT. Counted per client IP and applied BEFORE any
+  // database read, so registration cannot be used to hammer the users table.
+  // The same answer is returned regardless of the submitted address.
+  const registerLimit = authRateLimiter.checkRegister(getClientIp(req));
+  if (!registerLimit.allowed) {
+    return sendAuthRateLimited(res, registerLimit.retryAfter, REGISTER_RATE_LIMIT_MESSAGE);
+  }
+
   if (await getUserByEmail(email)) return res.status(400).json({ error: 'Email already registered' });
   
   const hash = bcrypt.hashSync(password, 10);
@@ -3406,8 +3807,14 @@ app.post('/api/auth/register', async (req, res) => {
     referral_code: userReferralCode, 
     is_admin: 0 
   }).select('id, name, email, referral_code, is_admin').single();
-  
-  if (error) throw error;
+
+  if (error) {
+    // 23505 = the case-insensitive uniqueness index (migration 056) rejected a
+    // second row for the same address, i.e. a concurrent registration the check
+    // above could not see. Answer exactly like the duplicate check, not a 500.
+    if (error.code === '23505') return res.status(400).json({ error: 'Email already registered' });
+    throw error;
+  }
   await getWallet(user.id);
   
   // Process referral if provided
@@ -3525,13 +3932,12 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login
+// Legacy login entry point. Kept as an alias so older clients keep a working
+// URL, but it now runs the SAME flow as /api/2fa/login-initiate: a password can
+// never produce a full session token while a second factor is outstanding.
+// (See loginInitiateHandler below; function declarations are hoisted.)
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const user = await getUserByEmail(email);
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = signSessionToken({ id: user.id, email: user.email, isAdmin: user.is_admin===1 });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, referralCode: user.referral_code, isAdmin: user.is_admin===1, environment: user.environment || ENV_PRODUCTION } });
+  return loginInitiateHandler(req, res);
 });
 
 // Logout — server-side session revocation.
@@ -3546,10 +3952,15 @@ app.post('/api/auth/logout', authMiddleware, async (req, res) => {
   try {
     const result = await TokenRevocation.revokeToken(sessionRevocationStore, req.user);
     // `revoked:false` only for legacy tokens without a jti (unrevocable) or a
-    // missing store; the session is still ended client-side.
+    // missing store; the session is still ended client-side. The resilient store
+    // records the jti locally even when the durable write fails, so the token is
+    // rejected on this instance immediately and persisted once the store is back.
+    if (result.revoked && result.durable === false) {
+      console.warn('[auth/logout] revocation is not durable yet; it is enforced locally and queued for retry');
+    }
     res.json({ success: true, revoked: result.revoked });
   } catch (err) {
-    console.error('[auth/logout]', err.message);
+    console.error('[auth/logout] (revocation store) ', err.message);
     res.status(500).json({ error: 'Logout failed' });
   }
 });
@@ -3565,12 +3976,11 @@ app.post('/api/auth/logout', authMiddleware, async (req, res) => {
  *   to prevent email enumeration attacks.
  */
 app.post('/api/auth/forgot-password', async (req, res) => {
-  const { email } = req.body;
+  const { email } = (req.body && typeof req.body === 'object') ? req.body : {};
   
-  // Get client IP for rate limiting and security auditing
-  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
-    || req.socket?.remoteAddress 
-    || 'unknown';
+  // Client IP for rate limiting and security auditing: the address the server
+  // trusts (never a raw client-supplied header). See services/ClientIp.js.
+  const clientIP = getClientIp(req);
   
   // Validate email format
   if (!email || !email.includes('@')) {
@@ -3595,66 +4005,81 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     });
   }
   
-  try {
-    // Check if user exists (but don't reveal this information)
-    const user = await getUserByEmail(normalizedEmail);
-    
-    if (user) {
-      // Generate a cryptographically secure token
-      const resetToken = generateResetToken();
-      const tokenHash = hashToken(resetToken);
-      const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
-      
-      // Invalidate any existing reset tokens for this email (use admin client for RLS)
-      await supabaseAdmin
-        .from('password_reset_tokens')
-        .update({ used: true })
-        .eq('email', normalizedEmail)
-        .eq('used', false);
-      
-      // Store the hashed token with expiration and IP for auditing (use admin client for RLS)
-      const { error: insertError } = await supabaseAdmin
-        .from('password_reset_tokens')
-        .insert({
-          email: normalizedEmail,
-          token_hash: tokenHash,
-          expires_at: expiresAt,
-          used: false,
-          ip_address: clientIP
-        });
-      
-      if (insertError) {
-        console.error('Failed to insert reset token:', insertError);
-        // Don't reveal the error to the user
-      } else {
-        // Send the reset email
-        await sendResetEmail(normalizedEmail, resetToken);
-      }
-    }
-    
-    // Always return success, even if email doesn't exist
-    // This prevents email enumeration attacks
-    res.json({ 
-      success: true, 
-      message: 'If an account with that email exists, we have sent a password reset link.'
-    });
-    
-  } catch (e) {
-    console.error('Forgot password error:', e.message);
-    // Always return success to prevent email enumeration
-    res.json({ 
-      success: true, 
-      message: 'If an account with that email exists, we have sent a password reset link.'
-    });
-  }
+  // One uniform answer, sent BEFORE any address-dependent work. The lookup,
+  // token write and email below are detached, so neither the body nor the
+  // response time can reveal whether the address exists (the timing gap used to
+  // be the enumeration signal even though the body was already uniform).
+  res.json({
+    success: true,
+    message: 'If an account with that email exists, we have sent a password reset link.'
+  });
+
+  setImmediate(function () {
+    // Failures are logged inside; the trailing catch is belt-and-braces so this
+    // can never surface as an unhandled rejection either.
+    processPasswordResetRequest(email, clientIP).catch(function () { /* logged inside */ });
+  });
 });
+
+/**
+ * Account-side work for a password-reset request.
+ *
+ * Runs DETACHED from the response on purpose: doing it inline made an existing
+ * address measurably slower than an unknown one (database writes plus the mail
+ * provider call), which is an account-enumeration side channel.
+ *
+ * Swallows every error after logging it: the caller has already answered, and
+ * the client must not be able to distinguish outcomes.
+ */
+async function processPasswordResetRequest(typedEmail, clientIP) {
+  try {
+    // Case-insensitive: the address IS the identity (migration 056). The token row
+    // is written against the account's STORED address, so the link works whichever
+    // capitalisation the customer typed in the request form.
+    const user = await getUserByEmail(typedEmail);
+    if (!user) return;
+    const normalizedEmail = user.email;
+
+    // Generate a cryptographically secure token
+    const resetToken = generateResetToken();
+    const tokenHash = hashToken(resetToken);
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY).toISOString();
+
+    // Invalidate any existing reset tokens for this email (use admin client for RLS)
+    await supabaseAdmin
+      .from('password_reset_tokens')
+      .update({ used: true })
+      .eq('email', normalizedEmail)
+      .eq('used', false);
+
+    // Store the hashed token with expiration and IP for auditing (use admin client for RLS)
+    const { error: insertError } = await supabaseAdmin
+      .from('password_reset_tokens')
+      .insert({
+        email: normalizedEmail,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        used: false,
+        ip_address: clientIP
+      });
+
+    if (insertError) {
+      console.error('Failed to insert reset token:', insertError);
+      return;
+    }
+
+    await sendResetEmail(normalizedEmail, resetToken);
+  } catch (e) {
+    console.error('Forgot password error:', e && e.message);
+  }
+}
 
 /**
  * POST /api/auth/reset-password
  * Reset password using a valid token
  */
 app.post('/api/auth/reset-password', async (req, res) => {
-  const { email, token, newPassword } = req.body;
+  const { email, token, newPassword } = (req.body && typeof req.body === 'object') ? req.body : {};
   
   // Validate all required fields
   if (!email || !token || !newPassword) {
@@ -3674,16 +4099,10 @@ app.post('/api/auth/reset-password', async (req, res) => {
     // Hash the provided token to compare with stored hash
     const tokenHash = hashToken(token);
     
-    // Find the reset token record (use admin client for RLS)
-    const { data: resetRecord, error: findError } = await supabaseAdmin
-      .from('password_reset_tokens')
-      .select('*')
-      .eq('email', email)
-      .eq('token_hash', tokenHash)
-      .eq('used', false)
-      .single();
-    
-    if (findError || !resetRecord) {
+    // Find the reset token record (case-insensitive address, exact token hash).
+    const resetRecord = await findResetTokenRecord(email, tokenHash);
+
+    if (!resetRecord) {
       return res.status(400).json({ 
         error: 'Invalid or expired reset token. Please request a new password reset.' 
       });
@@ -3759,16 +4178,11 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
   try {
     const tokenHash = hashToken(token);
     
-    // Use admin client for RLS-protected table
-    const { data: resetRecord, error } = await supabaseAdmin
-      .from('password_reset_tokens')
-      .select('*')
-      .eq('email', email)
-      .eq('token_hash', tokenHash)
-      .eq('used', false)
-      .single();
-    
-    if (error || !resetRecord) {
+    // The address is matched case-insensitively; the TOKEN HASH is the secret and
+    // is still compared exactly.
+    const resetRecord = await findResetTokenRecord(email, tokenHash);
+
+    if (!resetRecord) {
       return res.json({ 
         valid: false, 
         error: 'Invalid reset token' 
@@ -3957,7 +4371,7 @@ app.post('/api/auth/email-change/request', authMiddleware, async (req, res) => {
   const code = generateEmailChangeCode();
   const codeHash = hashEmailChangeCode(code);
   const expiresAt = new Date(Date.now() + EMAIL_CHANGE_CONFIG.codeExpiryMs).toISOString();
-  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+  const clientIP = getClientIp(req);
 
   const { error: insertErr } = await supabaseAdmin.from('email_change_requests').insert({
     user_id: userId,
@@ -4071,6 +4485,12 @@ app.post('/api/auth/email-change/verify', authMiddleware, async (req, res) => {
     .select('id, name, email, referral_code, is_admin, created_at')
     .single();
   if (updErr) {
+    // 23505 = the case-insensitive uniqueness index (migration 056) saw another
+    // account take this address after the re-check above (a race). Same answer as
+    // the explicit conflict, not a 500.
+    if (updErr.code === '23505') {
+      return res.status(409).json({ error: 'This email is already associated with another account' });
+    }
     console.error('[EMAIL CHANGE] users.email update failed:', updErr.code, updErr.message);
     return res.status(500).json({ error: 'Could not update email' });
   }
@@ -4086,14 +4506,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       getUser(req.user.id),
       getSandboxWallet(req.user.id),
     ]);
-    const [funded, todayPnl] = await Promise.all([
+    const [funded, todayPnl, hasTraded] = await Promise.all([
       hasSandboxConfirmedDeposit(user.id).catch(() => false),
       getSandboxTodayRealizedPnl(user.id).catch(() => 0),
+      hasSandboxTradingActivity(user.id).catch(() => false),
     ]);
     return res.json({
       user,
       wallet,
       hasRealDeposit: !!funded,
+      // Sandbox equivalent of the production flag, so the shared dashboard code
+      // reads one field in both environments.
+      hasTradingActivity: !!hasTraded,
       todayRealizedPnl: Number(todayPnl) || 0,
       environment: ENV_MARKETING_SANDBOX,
       // Single runtime source of the platform minimum deposit (see
@@ -4142,9 +4566,13 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   //  - todayRealizedPnl: signed sum of trades persisted via record_trade_safe()
   //    for the current UTC day. Authoritative source for "Today's P&L" so the
   //    figure can never show a profit that was not recorded server-side.
-  const [funded, todayPnl] = await Promise.all([
+  //  - hasTradingActivity: at least one 'Trade Executed' ledger row, i.e. the
+  //    SAME test /api/withdraw/request applies. Without it the dashboard only
+  //    knew about trades from the current browser session.
+  const [funded, todayPnl, hasTraded] = await Promise.all([
     hasConfirmedDeposit(user.id).catch(() => false),
     getTodayRealizedPnl(user.id).catch(() => 0),
+    hasTradingActivity(user.id).catch(() => false),
   ]);
   // Promotional-credit trading cap (production-only): classify by the
   // AUTHORITATIVE source of funds. Only a user whose non-deposited Live capital
@@ -4201,6 +4629,10 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     user,
     wallet,
     hasRealDeposit: !!funded,
+    // Authoritative completed-trade flag (same definition as the withdrawal
+    // gate). Display/sync only: it unlocks nothing, it only stops the UI from
+    // telling a returning trader to complete a trade they already completed.
+    hasTradingActivity: !!hasTraded,
     // Authoritative Live Mode label + promotional-credit amount for the
     // dashboard. Display only: nothing here can unlock trading or credit money.
     liveMode: _liveMode,
@@ -8928,7 +9360,7 @@ app.put('/api/referral/config/:key', authMiddleware, adminMiddleware, async (req
   try {
     const adminId = req.user.id;
     const adminEmail = req.user.email;
-    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
+    const ipAddress = getClientIp(req);
     const userAgent = req.headers['user-agent'] || null;
     
     await supabaseAdmin.rpc('log_referral_config_change', {
@@ -9539,14 +9971,7 @@ async function sendEmailVerificationCode(userId, email, purpose = 'login_2fa') {
             expires_at: expiresAt,
             used: false
         });
-    
-    // Get client info
-    const clientIP = req => {
-        return req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() 
-            || req?.socket?.remoteAddress 
-            || null;
-    };
-    
+
     // Send email (we'll construct the sending inline since we need the code)
     const resend = getResendClient();
     
@@ -9723,7 +10148,7 @@ app.post('/api/2fa/setup', authMiddleware, async (req, res) => {
 app.post('/api/2fa/verify-setup', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code } = req.body;
+        const { code } = readJsonBody(req);
         
         if (!code || !/^\d{6}$/.test(code)) {
             return res.status(400).json({ error: 'Invalid code format' });
@@ -9854,7 +10279,7 @@ app.post('/api/2fa/enable', authMiddleware, async (req, res) => {
 app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code, recoveryCode } = req.body;
+        const { code, recoveryCode } = readJsonBody(req);
         
         // Get profile
         const { data: profile, error } = await supabaseAdmin
@@ -9942,7 +10367,7 @@ app.post('/api/2fa/disable', authMiddleware, async (req, res) => {
 app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code } = req.body;
+        const { code } = readJsonBody(req);
         
         // Get profile
         const { data: profile, error } = await supabaseAdmin
@@ -9993,7 +10418,7 @@ app.post('/api/2fa/regenerate-recovery', authMiddleware, async (req, res) => {
 app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { code, recoveryCode } = req.body;
+        const { code, recoveryCode } = readJsonBody(req);
         
         // Check rate limit
         const rateLimit = TOTPService.checkRateLimit(userId);
@@ -10099,30 +10524,61 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
 
 // POST /api/2fa/login-initiate - First step of 2FA login
 // Now uses Email 2FA by default (controlled by feature flag)
-app.post('/api/2fa/login-initiate', async (req, res) => {
+// Shared login initiation used by BOTH /api/2fa/login-initiate and the legacy
+// /api/auth/login alias. Credentials are verified here, then the second factor
+// decides what is returned: a full session token only when no second factor is
+// outstanding, otherwise a short-lived partial token for /api/2fa/login-verify.
+// Cost equaliser for the "unknown address" branch below. A bcrypt hash of a
+// throwaway string: it is only ever COMPARED against submitted input, never
+// matched, so knowing it grants nothing. Its purpose is work, not secrecy.
+const LOGIN_TIMING_EQUALISER_HASH = '$2b$10$jwvVqF/dzvv6mIA1I67EIOw0E7CEDLranOSVVsX/QysiSyZlGjvva';
+
+async function loginInitiateHandler(req, res) {
     try {
-        const { email, password } = req.body;
+        // A request with no body (or a non-object body) leaves req.body undefined;
+        // destructuring it would throw a TypeError and answer 500. Missing fields
+        // are a client error: 400.
+        const body = (req.body && typeof req.body === 'object') ? req.body : {};
+        const { email, password } = body;
         
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password required' });
         }
+
+        // RATE LIMIT. The IP bucket counts every attempt; the account bucket
+        // counts failed attempts (cleared on success). The 429 is identical
+        // whether or not the address exists, so it reveals nothing.
+        const accountKey = AuthEntry.normalizeEmail(email);
+        const loginLimit = authRateLimiter.checkLogin(getClientIp(req), accountKey);
+        if (!loginLimit.allowed) {
+            return sendAuthRateLimited(res, loginLimit.retryAfter, LOGIN_RATE_LIMIT_MESSAGE);
+        }
         
-        // Verify credentials
-        const { data: user, error } = await supabaseAdmin
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-        
-        if (error || !user) {
-            // Use same error to prevent email enumeration
+        // Verify credentials. The look-up is case-insensitive (the address IS the
+        // identity, not its capitalisation), so typing an address in a different
+        // case than it was registered in still works.
+        const user = await getUserByEmail(email);
+
+        if (!user) {
+            // Same error AND approximately the same cost as a wrong password:
+            // without this comparison an unknown address answers in ~1 ms while a
+            // known one costs a full bcrypt verify (~75 ms), so the response time
+            // alone reveals whether the account exists. The comparison result is
+            // deliberately ignored.
+            await bcrypt.compare(password, LOGIN_TIMING_EQUALISER_HASH).catch(function () { /* ignore */ });
+            authRateLimiter.recordLoginFailure(accountKey);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
         const passwordValid = await bcrypt.compare(password, user.password_hash);
         if (!passwordValid) {
+            authRateLimiter.recordLoginFailure(accountKey);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        // Credentials accepted: forget accumulated failures for this account so
+        // a user who mistyped twice and then succeeded is not penalised later.
+        authRateLimiter.clearLoginFailures(accountKey);
         
         // MARKETING_SANDBOX accounts use generated fictional emails that can
         // never receive a verification code. Skip the production email/TOTP
@@ -10143,6 +10599,7 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
                     referralCode: user.referral_code,
                     isAdmin: user.is_admin===1,
                     is_admin: !!user.is_admin,
+                    environment: user.environment || ENV_PRODUCTION,
                     is_verified: false // KYC verification not implemented yet
                 }
             });
@@ -10226,6 +10683,8 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
                 referralCode: user.referral_code,
                 isAdmin: user.is_admin===1,
                 is_admin: !!user.is_admin,
+                // Parity with the legacy alias response clients may still read.
+                environment: user.environment || ENV_PRODUCTION,
                 is_verified: false // KYC verification not implemented yet
             }
         });
@@ -10233,7 +10692,9 @@ app.post('/api/2fa/login-initiate', async (req, res) => {
         console.error('2FA login initiate error:', error);
         res.status(500).json({ error: 'Login failed' });
     }
-});
+}
+
+app.post('/api/2fa/login-initiate', loginInitiateHandler);
 
 // Helper: Mask email for display
 function maskEmail(email) {
@@ -10248,7 +10709,7 @@ function maskEmail(email) {
 // Handles both Email and TOTP codes based on _2fa_type in partialToken
 app.post('/api/2fa/login-verify', async (req, res) => {
     try {
-        const { partialToken, code } = req.body;
+        const { partialToken, code } = readJsonBody(req);
         
         if (!partialToken) {
             return res.status(400).json({ error: 'Missing partial token' });
@@ -10431,9 +10892,7 @@ async function verifyTOTPCode(userId, code, req) {
 // Helper: Log email 2FA verification attempt
 async function logEmail2FAAttempt(userId, email, success, failureReason, req) {
     try {
-        const clientIP = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() 
-            || req?.socket?.remoteAddress 
-            || null;
+        const clientIP = getClientIp(req);
         
         await supabaseAdmin.from('email_2fa_attempts').insert({
             user_id: userId,
@@ -10534,7 +10993,12 @@ app.post('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =
   const hash = bcrypt.hashSync(password, 10);
   const userReferralCode = await generateUniqueReferralCode();
   const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email, password_hash: hash, referral_code: userReferralCode, is_admin: 0 }).select().single();
-  if (error) throw error;
+  if (error) {
+    // The case-insensitive uniqueness index rejects a second row for the same
+    // address; the duplicate check above cannot see a concurrent insert.
+    if (error.code === '23505') return res.status(400).json({ error: 'Email exists' });
+    throw error;
+  }
   await supabaseAdmin.from('wallets').insert({ user_id: user.id, demo_balance: demo_balance || 1000, live_balance: 50, bonus_balance: 0 });
   res.json({ success: true, user });
 });
@@ -11634,31 +12098,57 @@ app.get('/api/admin/users/:id/profile', authMiddleware, adminMiddleware, async (
   }
 });
 
-// ---------- SEED ADMIN ----------
-(async function seedAdmin() {
+// ---------- ADMIN PROVISIONING (explicit, opt-in) ----------
+// NO default administrator is created and NO default password exists. An
+// operator must set BOTH ADMIN_PROVISION_EMAIL and ADMIN_PROVISION_PASSWORD to
+// explicit values (the password is validated for strength); see
+// docs/security/ADMIN_PROVISIONING.md. An existing account with that email is
+// NEVER modified - no password reset, no role change - so this can never lock
+// out a working administrator. A newly provisioned account receives an
+// explicitly zeroed wallet: operator accounts are not funded with promotional
+// money. Nothing here logs an email or a password.
+(async function initAdminProvisioning() {
   try {
-    const existing = await supabaseAdmin.from('users').select('id').eq('email', 'admin@arbitrix.ai').single();
-    if (!existing.data) {
-      const hash = bcrypt.hashSync('admin123', 10);
-      const { data: admin, error } = await supabaseAdmin.from('users').insert({
-        name: 'Admin',
-        email: 'admin@arbitrix.ai',
-        password_hash: hash,
-        referral_code: 'ARBI-ADMIN',
-        is_admin: 1
-      }).select().single();
-      if (admin) {
-        await supabaseAdmin.from('wallets').insert({
-          user_id: admin.id,
-          demo_balance: 10000,
-          live_balance: 5000,
-          bonus_balance: 0
-        });
-        console.log('✅ Admin created: admin@arbitrix.ai / admin123');
-      }
+    const result = await AuthEntry.provisionAdmin({
+      admin: supabaseAdmin,
+      env: process.env,
+      hashPassword: function (plain) { return bcrypt.hashSync(plain, 10); },
+      generateReferralCode: generateUniqueReferralCode
+    });
+
+    switch (result && result.status) {
+      case 'created':
+        console.log('[AdminProvisioning] administrator created (id=' + result.userId + ') with a zeroed wallet');
+        break;
+      case 'partial':
+        // The account exists but its wallet does not: NEVER report this as a
+        // success. Until the wallet is created explicitly, the first wallet read
+        // would lazily seed the promotional balance.
+        console.warn('[AdminProvisioning] PARTIAL: administrator account created (id=' + result.userId +
+          ') but its zeroed wallet could NOT be created (' + (result.reason || 'wallet-create-failed') +
+          '); create the wallet with 0 balances before using the account');
+        break;
+      case 'exists':
+        console.log('[AdminProvisioning] configured account already exists; left unchanged');
+        break;
+      case 'incomplete':
+        console.warn('[AdminProvisioning] both ADMIN_PROVISION_EMAIL and ADMIN_PROVISION_PASSWORD are required; no administrator was created');
+        break;
+      case 'invalid-email':
+        console.warn('[AdminProvisioning] ADMIN_PROVISION_EMAIL is not a valid address; no administrator was created');
+        break;
+      case 'weak-password':
+        console.warn('[AdminProvisioning] ADMIN_PROVISION_PASSWORD rejected (' + (result.reason || 'weak') + '); no administrator was created');
+        break;
+      case 'error':
+        console.warn('[AdminProvisioning] provisioning failed (' + (result.reason || 'error') + '); no administrator was created');
+        break;
+      default:
+        // 'disabled' - nothing configured; normal startup stays silent.
+        break;
     }
   } catch (e) {
-    console.log('Admin check:', e.message);
+    console.warn('[AdminProvisioning] provisioning failed; no administrator was created');
   }
 })();
 

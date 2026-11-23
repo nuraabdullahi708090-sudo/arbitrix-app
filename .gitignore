@@ -1,4 +1,8 @@
 node_modules/
+# A worktree that reuses the main checkout's dependencies links node_modules (a
+# symlink, which "node_modules/" does not match). Without this, "git add -A" in
+# such a worktree stages the link itself.
+/node_modules
 *.log
 .env
 .DS_Store

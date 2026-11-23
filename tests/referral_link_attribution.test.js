@@ -295,8 +295,11 @@ test('11b. the code is never sent to the backend before the user submits', () =>
 // ============ scope: nothing else changed ============
 
 test('12. backend referral behaviour is untouched (reward, qualification, dashboard read)', () => {
-  // registration still reads referralCode and creates a PENDING referral row
-  assert.ok(/const \{ name, email, password, referralCode \} = req\.body;/.test(SERVER));
+  // registration still reads referralCode and creates a PENDING referral row.
+  // The body is read through readJsonBody() so a request with no body is a 400
+  // rather than a 500 that echoes an internal TypeError; the fields read are
+  // unchanged.
+  assert.ok(/const \{ name, email, password, referralCode \} = readJsonBody\(req\);/.test(SERVER));
   assert.ok(/status: 'pending'/.test(SERVER), 'referrals are still created pending');
   assert.ok(/bonus_earned: 0/.test(SERVER), 'no bonus at registration');
   // dashboard read unchanged

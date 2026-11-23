@@ -259,8 +259,10 @@ test('compatibility identifiers are untouched', () => {
   // the provider payload field names are reconciliation identifiers
   const q8 = read('services/providers/q8qpay.js');
   assert.ok(q8.includes('arbitrixUserId') && q8.includes('arbitrixDepositRef'));
-  // the seeded admin credential
-  assert.ok(SERVER.includes("admin@arbitrix.ai"));
+  // the legacy seeded admin identity: no longer in application code (the
+  // unconditional seed was removed), still documented for operator verification
+  assert.ok(!SERVER.includes("admin@arbitrix.ai"), 'no default admin credential in code');
+  assert.ok(read('docs/security/ADMIN_PROVISIONING.md').includes("admin@arbitrix.ai"));
   // the knowledge base filename is a path other code and tests resolve
   assert.ok(read('services/support/SupportKnowledge.js').includes('arbitrix-knowledge.json'));
 });
@@ -288,12 +290,13 @@ test('the money-moving routes are still present', () => {
   }
 });
 
-test('this audit adds no migration (055 predates it)', () => {
+test('the rebrand adds no migration (its only DDL predates the audit)', () => {
   // 051 was applied BEFORE this audit (a subscription-detail label rename that
   // back-fills existing rows). A product rename must never need new DDL, so the
   // count and the single pre-existing rebrand-named file are pinned here.
+  // 056 (users email uniqueness) is a separate security migration, not a rename.
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations'));
-  assert.equal(migrations.length, 54, 'migration count changed - was a file added?');
+  assert.equal(migrations.length, 55, 'migration count changed - was a file added?');
   const rebrandNamed = migrations.filter((m) => /rebrand|kalderix/i.test(m));
   assert.deepEqual(rebrandNamed, ['051_rebrand_subscription_detail.sql']);
   // and the pre-existing one rewrites a DISPLAY string, not a balance rule

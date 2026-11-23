@@ -9678,3 +9678,222 @@ the removed/added copy.
 - REMAINING ACTION (founder, needs DB access): run the SNAPSHOT, run section A, apply
   055 if NEXT ACTION says so, re-run A and B (all OK), re-run the SNAPSHOT and confirm
   identical numbers.
+
+## Auth Entry-Point Hardening (2026-11-23, branch fix/auth-entry-hardening)
+- Removed the unconditional `seedAdmin()`: no default administrator, no published
+  password (`admin123`), no auto-funded 5000 live balance. Replacement is
+  `services/AuthEntry.provisionAdmin()`, driven ONLY by an explicit
+  `ADMIN_PROVISION_EMAIL` + `ADMIN_PROVISION_PASSWORD` pair (validated for strength).
+  An existing account with that email is NEVER touched (no reset, no role change),
+  and a newly provisioned admin gets an explicitly zeroed wallet. Status-only
+  logging (id, never the email or password). Operator runbook:
+  `docs/security/ADMIN_PROVISIONING.md` (read-only SQL checks + transition steps);
+  none of it was executed against production.
+- `/api/auth/login` (legacy) is now an ALIAS that calls the same
+  `loginInitiateHandler` as `/api/2fa/login-initiate`, so a password alone can never
+  mint a full session while TOTP or email 2FA is outstanding. The response is a
+  superset of the old one (adds `success`, `requires2FA`, `partialToken`,
+  `twoFactorType`, `is_admin`, `environment`, `is_verified`).
+- Auth rate limiting (`services/AuthEntry.createAuthRateLimiter`): login per IP
+  (60/15min, every attempt) AND per account (10 failed/15min, cleared on success),
+  registration per IP (20/hour). All overridable via `AUTH_RATE_LIMIT_*`; 0 disables
+  a bucket. 429 + `Retry-After`; the answer never depends on whether the account
+  exists. The old forgot-password limiter is separate and unchanged on purpose.
+- Tests: NEW `tests/auth_entry_hardening.test.js` (24, unit + source pins) and
+  `tests/auth_entry_http.test.js` (10, boots the REAL server with
+  `tests/helpers/fake-supabase-auth.js`); pins updated for the intentional changes in
+  `auth_session_revocation` (5 token mints), `email_change` (async bcrypt compare) and
+  `marketing_sandbox` (handler extraction + limiter stubs + the `environment` field).
+  Full suite: 3798 tests, 3797 pass, 0 fail, 1 pre-existing skip (no Chromium).
+- The release rehearsal (`docs/relaunch/rehearsal/`) now pins
+  `feature_flags.2fa_type='disabled'` and disables the IP/registration buckets, since
+  it logs in via the legacy alias from a single IP with no mailer.
+
+
+## Auth hardening follow-up: shared-address rate limits + body validation (2026-11-23, branch fix/trusted-proxy-and-auth-hardening)
+- FOUND WHILE VERIFYING PR #201: with no trusted proxy (the safe default, and the
+  state production would run in after merge) `req.ip` is the edge proxy for every
+  visitor, so the per-IP budgets became PLATFORM-WIDE: 60 logins / 15 min, 20
+  signups / hour, 5 password resets / 15 min for the entire customer base. That is
+  an outage, not a control.
+- FIX: `AuthEntry.SHARED_IP_DEFAULTS` (5000 logins/15min, 200 registrations/hour,
+  200 resets/15min) apply ONLY when the address is not attributable.
+  `resolveAuthRateLimits(env, { ipAttributable })` selects them and records
+  `ipAttributable`; `forgotPasswordIpMax()` does the same for the pre-existing
+  reset limiter. An explicit `AUTH_RATE_LIMIT_*` / `RATE_LIMIT_IP_MAX` always wins,
+  and startup warns when such a cap is combined with an unattributable address.
+  The per-account login limiter and the per-email reset budget do not change, so
+  brute-forcing an account is still stopped. `[proxy] per-IP auth limits run in
+  SHARED-ADDRESS mode ...` is logged at startup.
+- FIX: `readJsonBody(req)` (server.js) - `req.body` is undefined when no parsable
+  body is sent, and destructuring it threw a TypeError that the error handler
+  returned as a 500 echoing the internal message. Registration and the five 2FA
+  entry points now answer 400 with their own message.
+- Tests: `tests/auth_shared_address_limits.test.js` (9; 6 fail on the pre-fix
+  tree). Full suite 3859 pass / 0 fail / 1 pre-existing skip.
+- STILL REQUIRED (operator, no code): set `TRUST_PROXY_HOPS` / `TRUST_PROXY` for the
+  real topology (Cloudflare -> Render) to restore true per-client limits. No
+  migration, no deploy, no production configuration touched.
+
+
+## Pre-merge safety audit (2026-11-23, PR #201) - revocation store, rate-limit buckets, proxy validation
+- Scope: services/TokenRevocationService.js, services/AuthEntry.js, services/ClientIp.js,
+  server.js (authMiddleware / logout / forgot-password store), .env.example, two security
+  docs and three test files. No financial logic, no API shape change except the new
+  503 strict-mode answer, no migration, nothing deployed.
+
+### 1. Revocation store could fail open (FIXED)
+- BEFORE: authMiddleware swallowed a revoked_tokens error and allowed the request, so a
+  token revoked by logout was accepted again during an outage; POST /api/auth/logout
+  answered 500 and persisted nothing, so the session stayed valid after recovery.
+  Reproduced against the real server with a Supabase double whose revoked_tokens always
+  fails (pre-fix: logout 500, replay 200).
+- NOW: createResilientStore wraps the durable store. Local revocation is authoritative
+  (a logout rejects on the instance even if the write fails), unpersisted revocations are
+  queued (max 500) and flushed on recovery, a verified "not revoked" answer is cached
+  (AUTH_REVOCATION_CACHE_MS, default 10 s, 20k entries), a circuit breaker skips a failing
+  store for 10 s, every call has a timeout (AUTH_REVOCATION_TIMEOUT_MS, default 2000 ms),
+  and AUTH_REVOCATION_REQUIRE_STORE=true opts into 503 + Retry-After instead of allow.
+  Logout no longer 500s because the store is down.
+- RESIDUAL (documented): with strict mode off, a token revoked by a DIFFERENT instance and
+  not yet observed here can be used until the store recovers. Single-instance deployment
+  is unaffected.
+
+### 2. Rate-limit buckets: flood bypass + unbounded growth (FIXED)
+- BEFORE: oldest-first eviction let a flood of distinct account keys evict a victim's live
+  lockout; the per-entry failure array grew inside the window; rateLimitStore
+  (forgot-password) had no ceiling between 5-minute sweeps.
+- NOW: eviction ranks entries (2 locked, 1 counting, 0 inert) and spends the budget on
+  inert keys; failure history capped at loginAccountMax + 4; buckets trimmed immediately
+  after an insert that crosses maxEntries; forgot-password maps bounded at 20 000 with the
+  timer sweeping each bucket's OWN window (a zero-window regression pin exists);
+  stats() exposes maxEntries.
+- Proof: the flood and history-cap tests fail on the pre-fix limiter.
+
+### 3. Proxy trust validation could crash the boot (FIXED)
+- BEFORE: regex validation accepted 999.1.1.1, 1.2.3.4/99 and ::::, which proxy-addr
+  rejects inside app.set('trust proxy') during module load -> crash loop.
+- NOW: net.isIP + per-family prefix range; app.set guarded with a safe fallback to "trust
+  nothing"; unusually broad ranges warn at every boot; Cloudflare -> Render hop semantics
+  re-verified by execution (XFF: spoofed, customer, cf-edge with 2 hops -> customer).
+
+### Tests
+- NEW tests/auth_revocation_resilience.test.js (17), tests/auth_rate_limit_resilience.test.js
+  (13), 3 added to tests/trusted_proxy_ip.test.js (now 18). One intentional pin updated
+  (stats() gains maxEntries). npm test = 3906 pass / 0 fail (was 3873).
+- FOLLOW-UP in the same audit: /api/auth/login had a TIMING enumeration oracle (unknown
+  address answered in ~3.7 ms, a wrong password in ~75 ms). The unknown branch now runs
+  a bcrypt compare against a throwaway hash (result ignored) - tests/auth_login_timing.test.js,
+  fails on the pre-fix handler.
+- FURTHER FINDING in the same audit: adminMiddleware trusted the JWT `isAdmin` claim for
+  the whole 7-day session, so the runbook's own demotion step (is_admin = 0) had no effect
+  until re-login. It now also reads users.is_admin (60 s cache, bounded), refuses with 503
+  (retryable) when unverifiable, and keeps the claim as a required pre-check.
+  tests/admin_authorization_db_verified.test.js (9); HTTP case fails pre-fix.
+- ADVISORY: productionGuard now warns (never fails) when JWT_SECRET /
+  TOTP_ENCRYPTION_KEY are shorter than 32 chars; server.js logs it at boot.
+  A short secret is a deploy-outage risk if enforced, so rotation stays operator work.
+
+
+## Integration preparation (2026-11-23, branch fix/trusted-proxy-and-auth-hardening)
+
+- Operator sequence for landing this branch and PR #202:
+  `docs/security/INTEGRATION_OPERATOR_CHECKLIST.md` (snapshot -> #201 -> close #200 ->
+  mark #202 ready -> merge -> migration 056 -> configuration -> smoke -> monitoring).
+  It contains no secret and asks for none.
+- MERGE ORDER MATTERS ONLY FOR #200: #201 contains every commit of #200, so merge #201 and
+  CLOSE #200 rather than merging it. #201 and #202 are independent otherwise.
+- ORDER INDEPENDENCE, PROVEN: rehearsed from `main` in both directions; the merged trees are
+  byte-identical, the only conflict is `AGENTS.md` (both branches append a doc section - keep
+  both), and `server.js` auto-merges with zero drift (composed file = #202's 43 added / 1
+  removed line(s) on top of #201; = #201's 465 added lines on top of #202).
+- COMPOSED SUITE: 3938 tests, 3937 pass, 0 fail, 1 skipped. Branch alone: 3929 / 3928 / 0 / 1.
+- TWO INTEGRATION DEFECTS FIXED HERE:
+  1. `.gitignore` ignored `node_modules/` but not a `node_modules` SYMLINK, which is exactly
+     what a rehearsal worktree that reuses the main checkout's dependencies creates - a
+     `git add -A` there stages the link (reproduced). `/node_modules` added.
+  2. A rate-limit bucket set to 0 is UNLIMITED. It must not fail the boot (incident lever;
+     the local rehearsal env file uses it), but in production it silently removes brute-force
+     protection, so `server.js` logs `[rate-limit] DISABLED in production (0 = unlimited)` and
+     `AuthEntry.findDisabledLimits()` classifies it (null/'' = "not configured", not zero).
+- DEPLOYMENT HAZARD FOR THE OPERATOR: `RATE_LIMIT_IP_MAX` / `AUTH_RATE_LIMIT_LOGIN_IP_MAX` /
+  `AUTH_RATE_LIMIT_REGISTER_IP_MAX` are commented out in `.env.example` now. If one is set in
+  the host while NO proxy is trusted, that budget is platform-wide (every customer shares the
+  edge address). Configure `TRUST_PROXY`/`TRUST_PROXY_HOPS` or unset them; never set 0.
+- `TOTP_ENCRYPTION_KEY` rotation is DESTRUCTIVE for enrolled authenticator users - check
+  `feature_flags.2fa_type` before rotating (the checklist spells out the safe order).
+- NOTHING WAS MERGED, DEPLOYED, APPLIED OR ROTATED while preparing this. Migration 056 is a
+  FILE in this branch; it is applied by an operator, after a duplicate preflight.
+## Auth review closure (#201) + activation-truthfulness UX (#202) - 2026-11-23 (NOT merged, NOT deployed)
+
+### PR #201 reviewed, repaired, pushed (head 64083aa)
+- Verified the four hardening areas and fixed one defect class the PR had left half-done.
+  Findings and residual risks are posted on the PR; `npm test` = 3873 pass / 0 fail.
+- VERIFIED CORRECT: ClientIp never parses X-Forwarded-For (req.ip only) and refuses
+  blanket trust; bounded per-account lockout (10/15min, 15s->120s cooldown, cleared on
+  success) with SHARED_IP_DEFAULTS when the address is unattributable; forgot-password
+  answers BEFORE any address-dependent work (setImmediate + total error swallowing), so
+  body AND timing are uniform; revocation pruning deletes only expired rows and `has()`
+  filters on expires_at, so nothing can be revoked forever; authMiddleware fails OPEN on
+  a store outage (documented trade-off).
+- DEFECT FOUND (the application half of migration 056 was missing): the DB index makes
+  one row per lower(email), but the app still looked addresses up EXACTLY.
+  * login: `Foo@Bar.com` registered, `foo@bar.com` typed -> "Invalid credentials".
+  * forgot-password LOWER-CASED the address then queried exactly -> a mixed-case account
+    was never found, so no email was sent and the password could never be reset.
+  * register / email-change had no 23505 handling -> applying 056 turns a case-variant
+    signup into a 500.
+- FIX: `AuthEntry.findAccountByEmail(admin, email, {columns})` - exact match first (fast
+  path, uses the index), then ONE case-insensitive query compared on the normalised
+  address, returning `ambiguous: true` rather than choosing when two rows differ only in
+  case (possible only pre-056; logged as "ambiguous email lookup refused"). It tolerates
+  `.maybeSingle()`, `.limit()` or a bare thenable builder and skips the fallback when the
+  client has no `ilike`, so test doubles keep working. `getUserByEmail()` delegates to it,
+  covering login, registration, reset, email change, sandbox and admin creation in one
+  place. 23505 maps to the documented 400/409 answers. Reset records are matched by token
+  HASH with a case-insensitive address.
+- Tests: NEW `tests/auth_email_identity.test.js` (13; helper contract + real HTTP).
+  Updated pins: the provisioning stub (same helper) and one order assertion that now
+  accepts `getUserByEmail(`. `tests/helpers/fake-supabase-auth.js` gained `users` (array),
+  `ilike` matching and `insertError`, and now answers 200 [] (not 406) for an array miss.
+- SEQUENCING: #201 is a direct descendant of #200 (no commit unique to #200), so merge
+  #201 and close #200 as superseded.
+
+### PR #202 - activation-truthfulness UX (branch fix/onboarding-activation-ux)
+- Four surfaces claimed a paid Live activation was required even though
+  PAYHIP_ACTIVATION_REQUIRED is OFF by default:
+  * #depositActivationNote: hidden in the markup, shown only when activationPending();
+  * promo card: new `promo.creditExplainTradable` when no activation is outstanding or it
+    is already done;
+  * Start Here: the activation step appears only when required; subtitle follows the step
+    count (`startHere.live.subtitleNext`);
+  * onboarding modal: `onboarding.explainerActivation` / `primaryDescActivation`, rendered
+    by `renderOnboardingActivationCopy()` (JS, because it interpolates {{min}}), re-run by
+    updateDynamicTranslations + showOnboarding.
+- REAL WITHDRAWAL BLOCKER FIXED: `APP.liveData.hasTradingActivity` was only set in-session,
+  never hydrated, so a returning customer who had traded in an earlier session was told
+  "Complete at least 1 trade before withdrawing" and the form never opened. `/api/auth/me`
+  now returns `hasTradingActivity` (the same 'Trade Executed' ledger test the withdrawal
+  route enforces, run in the existing Promise.all and failing to false) and
+  syncWalletFromServer adopts it. The gate itself is unchanged.
+- Tests: NEW `tests/activation_copy_truthfulness.test.js` (7); starthere_mode_aware
+  rewritten for the activation-aware checklist; promo_credit_display gained the variant
+  pin; dictionary 1589 -> 1593. Full suite 3773 tests, 3772 pass, 1 skipped.
+- Browser (puppeteer-core + chromium, stubbed API, DOM assertions only - NO screenshots):
+  account-state matrix 26/26, and the same harness on the pre-fix tree fails 13 checks
+  (promo instruction, unconditional deposit note, always-two-step checklist, the false
+  "complete at least 1 trade" toast). Locale x width matrix 108/108 (6 locales x 320/390):
+  the onboarding explains the activation with an interpolated minimum, ar is RTL, no
+  horizontal overflow, no visible element renders its own i18n key.
+- Not touched: deposit creation/crediting, the $100 minimum, Q8Pay, withdrawals (only the
+  display source of an existing flag), trading/worker, promo cap, subscriptions, KYC,
+  referrals, the sandbox, the Payhip gates. No migration, no env var, no new route.
+
+### Harness lessons
+- `document.body.textContent` INCLUDES <script> text, so the in-page TRANSLATIONS literal
+  makes any "raw key visible" regex match. Scan visible [data-i18n] elements (compare their
+  rendered text with their key) instead.
+- The fake PostgREST helper must answer 200 [] for an ARRAY request with no rows; only a
+  `.single()` request gets 406/PGRST116. Getting this wrong makes a "not found" look like a
+  store failure.
+- supabase-js encodes operators INSIDE the value (`email=ilike.x@y`, not `ilike=x@y`).

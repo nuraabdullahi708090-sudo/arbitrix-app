@@ -65,19 +65,44 @@ const SECRET = 'test-only-secret-not-a-real-key';
 const TTL_MATCH = SERVER.match(/const SESSION_TTL = '([^']+)'/);
 
 function makeVm() {
+  // Admin authorization now re-reads `users.is_admin`, so the vm needs the whole
+  // block (cache + loader + middleware) and a database double. This double
+  // reports the account as an administrator: the question under test here is
+  // whether a NON-admin claim is refused, which happens before any lookup.
+  const adminBlockStart = SERVER.indexOf('const ADMIN_STATUS_TTL_MS');
+  const adminBlockEnd = SERVER.indexOf('\n}\n', SERVER.indexOf('async function adminMiddleware'));
+  const adminBlock = SERVER.slice(adminBlockStart, adminBlockEnd + 3);
+
+  const adminDb = {
+    from: function () {
+      const builder = {
+        select: function () { return builder; },
+        eq: function () { return builder; },
+        maybeSingle: function () { return Promise.resolve({ data: { id: 1, is_admin: 1 }, error: null }); }
+      };
+      return builder;
+    }
+  };
+
   const ctx = {
     jwt,
     JWT_SECRET: SECRET,
     SESSION_TTL: TTL_MATCH ? TTL_MATCH[1] : '7d',
     TokenRevocation,
     sessionRevocationStore: TokenRevocation.createMemoryStore(),
+    supabaseAdmin: adminDb,
+    Map,
+    String,
+    Number,
+    Array,
+    Date,
     console,
   };
   vm.createContext(ctx);
   vm.runInContext(
     [extractFunction(SERVER, 'signSessionToken'),
      extractFunction(SERVER, 'authMiddleware'),
-     extractFunction(SERVER, 'adminMiddleware')].join('\n'),
+     adminBlock].join('\n'),
     ctx);
   return ctx;
 }
@@ -111,7 +136,10 @@ test('server.js signs every full session through signSessionToken (jti source)',
   // Exactly the five full-session issuers use the helper; no full 7d jwt.sign
   // statement may remain (partial 2FA tokens stay 5m and are unaffected).
   const fullSigns = SERVER.match(/signSessionToken\(/g) || [];
-  assert.strictEqual(fullSigns.length, 6, 'expected 1 definition + 5 call sites');
+  // 1 definition + 4 call sites. The legacy /api/auth/login alias no longer
+  // mints a token itself - it delegates to the 2FA-aware handler, so a password
+  // alone can never produce a full session.
+  assert.strictEqual(fullSigns.length, 5, 'expected 1 definition + 4 call sites');
   assert.ok(!/jwt\.sign\(\s*\{[^}]*\}\s*,\s*JWT_SECRET\s*,\s*\{\s*expiresIn:\s*'7d'/.test(SERVER),
     'no full-session jwt.sign may bypass signSessionToken');
 });
@@ -276,7 +304,7 @@ test('sandbox account token authenticates like any session; sandbox token is not
 
   const res = mockRes();
   let adminNext = false;
-  ctx.adminMiddleware(req, res, () => { adminNext = true; });
+  await ctx.adminMiddleware(req, res, () => { adminNext = true; });
   assert.strictEqual(adminNext, false, 'non-admin sandbox user must be blocked');
   assert.strictEqual(res.statusCode, 403);
   assert.strictEqual(res.body.error, 'Admin required');
@@ -290,12 +318,12 @@ test('admin access control: only isAdmin tokens pass adminMiddleware', async () 
 
   const res = mockRes();
   let adminNext = false;
-  ctx.adminMiddleware(req, res, () => { adminNext = true; });
-  assert.strictEqual(adminNext, true, 'admin token must pass');
+  await ctx.adminMiddleware(req, res, () => { adminNext = true; });
+  assert.strictEqual(adminNext, true, 'admin token must pass (the account is an administrator in the database)');
 
   const res2 = mockRes();
   let denied = false;
-  ctx.adminMiddleware({ user: undefined }, res2, () => { denied = true; });
+  await ctx.adminMiddleware({ user: undefined }, res2, () => { denied = true; });
   assert.strictEqual(denied, false);
   assert.strictEqual(res2.statusCode, 403);
 });

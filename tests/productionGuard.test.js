@@ -14,7 +14,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { validateProductionConfig, isProduction, classify, DEFAULT_SECRETS } = require('../productionGuard');
+const { validateProductionConfig, findWeakSecrets, MIN_SECRET_LENGTH, isProduction, classify, DEFAULT_SECRETS } = require('../productionGuard');
 
 const DEV_JWT = DEFAULT_SECRETS.JWT_SECRET;
 const DEV_TOTP = DEFAULT_SECRETS.TOTP_ENCRYPTION_KEY;
@@ -180,4 +180,49 @@ test('secrets are never returned by the validator', () => {
     const r2 = validateProductionConfig(env);
     assert.strictEqual(r2.ok, false);
     assert.ok(!JSON.stringify(r2.errors).includes('SUPER-SECRET-VALUE-X'));
+});
+
+test('prod: a short signing secret warns but never blocks the boot', () => {
+    const env = validProdEnv();
+    env.JWT_SECRET = 'short-secret';
+    const r = validateProductionConfig(env);
+    assert.strictEqual(r.ok, true, 'a short secret is a warning, not an outage');
+    assert.strictEqual(r.warnings.length, 1);
+    assert.ok(r.warnings[0].indexOf('JWT_SECRET') === 0);
+    assert.match(r.warnings[0], /only 12 characters/);
+    assert.ok(!r.warnings[0].includes(env.JWT_SECRET), 'the value itself is never echoed');
+});
+
+test('prod: a long random secret produces no warnings', () => {
+    const env = validProdEnv();
+    env.JWT_SECRET = 'a'.repeat(MIN_SECRET_LENGTH);
+    env.TOTP_ENCRYPTION_KEY = 'b'.repeat(MIN_SECRET_LENGTH);
+    const r = validateProductionConfig(env);
+    assert.strictEqual(r.ok, true);
+    assert.deepStrictEqual(r.warnings, []);
+});
+
+test('prod: both length-checked secrets are reported when both are short', () => {
+    const env = validProdEnv();
+    env.JWT_SECRET = 'x'.repeat(8);
+    env.TOTP_ENCRYPTION_KEY = 'y'.repeat(16);
+    const found = findWeakSecrets(env).map((w) => w.key + ':' + w.length);
+    assert.deepStrictEqual(found, ['JWT_SECRET:8', 'TOTP_ENCRYPTION_KEY:16']);
+    const r = validateProductionConfig(env);
+    assert.strictEqual(r.warnings.length, 2);
+});
+
+test('prod: an absent secret is reported as missing, not as weak', () => {
+    const env = validProdEnv();
+    env.JWT_SECRET = '';
+    const r = validateProductionConfig(env);
+    assert.strictEqual(r.ok, false, 'empty is still a hard failure');
+    assert.ok(r.errors.some((e) => e.indexOf('JWT_SECRET') === 0));
+    assert.strictEqual(r.warnings.length, 0, 'no duplicate advice for a missing value');
+});
+
+test('dev: warnings are never produced outside production', () => {
+    const r = validateProductionConfig({ NODE_ENV: 'development', JWT_SECRET: 'x' });
+    assert.strictEqual(r.ok, true);
+    assert.deepStrictEqual(r.warnings, []);
 });
