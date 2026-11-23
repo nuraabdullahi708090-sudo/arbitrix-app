@@ -9790,3 +9790,6 @@ the removed/added copy.
   until re-login. It now also reads users.is_admin (60 s cache, bounded), refuses with 503
   (retryable) when unverifiable, and keeps the claim as a required pre-check.
   tests/admin_authorization_db_verified.test.js (9); HTTP case fails pre-fix.
+- ADVISORY: productionGuard now warns (never fails) when JWT_SECRET /
+  TOTP_ENCRYPTION_KEY are shorter than 32 chars; server.js logs it at boot.
+  A short secret is a deploy-outage risk if enforced, so rotation stays operator work.

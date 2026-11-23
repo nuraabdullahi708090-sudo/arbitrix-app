@@ -181,6 +181,11 @@ if (!_prodConfig.ok) {
   _prodConfig.errors.forEach(function (msg) { console.error('  - ' + msg); });
   process.exit(1);
 }
+if (_prodConfig.warnings && _prodConfig.warnings.length > 0) {
+  // Advisory: a short signing secret still works, so this must not stop the boot.
+  console.warn('⚠️  Production secret strength:');
+  _prodConfig.warnings.forEach(function (msg) { console.warn('  - ' + msg); });
+}
 
 // Rate limiting configuration
 // Limits explain:

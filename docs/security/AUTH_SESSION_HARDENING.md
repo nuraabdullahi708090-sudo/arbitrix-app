@@ -435,3 +435,19 @@ is refused while their token still claims admin (the HTTP case **fails on the pr
 middleware**), a non-admin claim never reaches the database, a missing account is
 refused, both failure shapes answer 503, the 60 s cache applies a demotion, the cache is
 bounded, and route registration keeps `authMiddleware` before `adminMiddleware`.
+
+## 9. Signing-secret strength is reported at boot (advisory)
+
+`productionGuard` refused to start with a *missing* or *known development default*
+secret, but accepted any non-empty value - so a one-character `JWT_SECRET` was "valid".
+HMAC key length is the whole security of the token signature, so this is worth surfacing.
+
+Rather than fail the boot, the guard now reports a **warning** for `JWT_SECRET` and
+`TOTP_ENCRYPTION_KEY` shorter than `MIN_SECRET_LENGTH` (32) and `server.js` logs it
+(`⚠️  Production secret strength: ...`). The reason for a warning and not an error: a
+short-but-working production secret would turn a deploy into an outage, and the
+operator, not the process, has to rotate it (`openssl rand -hex 32`).
+
+Tests: `tests/productionGuard.test.js` (5 new - short secret warns, long secret is silent,
+both secrets reported, a missing secret is still a hard failure and is not double-reported
+as weak, and no warnings outside production).
