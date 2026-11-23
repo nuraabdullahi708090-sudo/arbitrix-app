@@ -9781,3 +9781,7 @@ the removed/added copy.
 - NEW tests/auth_revocation_resilience.test.js (17), tests/auth_rate_limit_resilience.test.js
   (13), 3 added to tests/trusted_proxy_ip.test.js (now 18). One intentional pin updated
   (stats() gains maxEntries). npm test = 3906 pass / 0 fail (was 3873).
+- FOLLOW-UP in the same audit: /api/auth/login had a TIMING enumeration oracle (unknown
+  address answered in ~3.7 ms, a wrong password in ~75 ms). The unknown branch now runs
+  a bcrypt compare against a throwaway hash (result ignored) - tests/auth_login_timing.test.js,
+  fails on the pre-fix handler.

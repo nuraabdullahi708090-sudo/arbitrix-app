@@ -10399,6 +10399,11 @@ app.post('/api/2fa/verify', authMiddleware, async (req, res) => {
 // /api/auth/login alias. Credentials are verified here, then the second factor
 // decides what is returned: a full session token only when no second factor is
 // outstanding, otherwise a short-lived partial token for /api/2fa/login-verify.
+// Cost equaliser for the "unknown address" branch below. A bcrypt hash of a
+// throwaway string: it is only ever COMPARED against submitted input, never
+// matched, so knowing it grants nothing. Its purpose is work, not secrecy.
+const LOGIN_TIMING_EQUALISER_HASH = '$2b$10$jwvVqF/dzvv6mIA1I67EIOw0E7CEDLranOSVVsX/QysiSyZlGjvva';
+
 async function loginInitiateHandler(req, res) {
     try {
         // A request with no body (or a non-object body) leaves req.body undefined;
@@ -10426,7 +10431,12 @@ async function loginInitiateHandler(req, res) {
         const user = await getUserByEmail(email);
 
         if (!user) {
-            // Use same error to prevent email enumeration
+            // Same error AND approximately the same cost as a wrong password:
+            // without this comparison an unknown address answers in ~1 ms while a
+            // known one costs a full bcrypt verify (~75 ms), so the response time
+            // alone reveals whether the account exists. The comparison result is
+            // deliberately ignored.
+            await bcrypt.compare(password, LOGIN_TIMING_EQUALISER_HASH).catch(function () { /* ignore */ });
             authRateLimiter.recordLoginFailure(accountKey);
             return res.status(401).json({ error: 'Invalid credentials' });
         }

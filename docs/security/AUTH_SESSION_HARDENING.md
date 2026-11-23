@@ -385,3 +385,23 @@ trusted hops, `X-Forwarded-For: <spoofed>, <customer>, <cf-edge>` resolves to th
 customer, so rotating the client-controlled prefix does not create new identities.
 `tests/trusted_proxy_ip.test.js` (18) pins it, together with the invalid-value
 matrix and the broad-range warning.
+
+
+## 7. Login response time no longer reveals whether an account exists
+
+Same class as the reset-timing defect in section 1, found during the pre-merge
+audit of the login handler.
+
+`/api/auth/login` (and `/api/2fa/login-initiate`) answered one 401 for both cases,
+but a KNOWN account ran `bcrypt.compare` (cost 10, ~75 ms) while an UNKNOWN address
+answered after a single failed lookup. Measured against the real server: **3.7 ms
+for an unknown address versus ~75 ms for a wrong password** - the duration alone
+answered "is this person a customer here?" for anyone willing to time the request.
+
+The unknown branch now compares the submitted password against a throwaway bcrypt
+hash (`LOGIN_TIMING_EQUALISER_HASH`) and ignores the result, so both branches do the
+same work. The constant is not a secret and grants nothing: it is only ever compared
+against input, and the branch returns before any token is issued.
+
+Pinned by `tests/auth_login_timing.test.js` (2 tests). The timing assertion **fails
+on the pre-fix handler** (measured 3.7 ms).
