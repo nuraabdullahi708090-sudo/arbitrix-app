@@ -223,3 +223,45 @@ revocation on logout, and a 7-day token lifetime.
 - No migration was applied, nothing was deployed, no environment variable was set.
 - No customer record, balance or withdrawal/deposit path was touched.
 - No password was reset and no credential was rotated.
+
+## Account identity is case-insensitive (migration 056 + the application half)
+
+Migration 056 adds a unique index on `lower(email)` because account identity is the
+address, not its capitalisation. That constraint is necessary but not sufficient: the
+application also has to *resolve* a case variant, otherwise the same customer is told
+their password is wrong (or, worse, can never reset it).
+
+What was wrong before:
+
+| Path | Behaviour | Consequence |
+|---|---|---|
+| `POST /api/auth/login` | exact `eq('email')` | `Foo@Bar.com` registered, `foo@bar.com` typed → "Invalid credentials" |
+| `POST /api/auth/register` | exact duplicate check, no `23505` handling | with the index applied, a case-variant signup answered **500** instead of "Email already registered" |
+| `POST /api/auth/forgot-password` | lower-cased the address, then exact `eq()` | a mixed-case account was NEVER found → no email was ever sent, so the password could not be reset |
+| `POST /api/auth/email-change/verify` | exact check, raw update | a race with the index surfaced as a 500 |
+
+Now:
+
+* `AuthEntry.findAccountByEmail(admin, email, {columns})` is the single look-up. It tries
+  the indexed exact match first (fast path, unchanged behaviour for every existing
+  account), then ONE case-insensitive query, and finally compares normalised addresses in
+  JS because a LIKE pattern cannot prove equality.
+* `ambiguous: true` is returned when two or more rows differ only in case (possible only
+  before the index is applied). Callers treat that as "no account" — signing a customer in
+  with an arbitrary one of them would be worse than refusing — and log
+  `ambiguous email lookup refused` for the operator.
+* `getUserByEmail()` delegates to it, so login, registration, password reset, email change
+  and the sandbox/admin creation paths all became case-insensitive at once.
+* `23505` (unique violation) is mapped to the documented duplicate answers
+  (`400 Email already registered`, `409 This email is already associated with another
+  account`) instead of a 500 — that is the concurrent-registration race the pre-check
+  cannot see.
+* Password-reset records are looked up by token HASH (the actual secret) with the address
+  compared case-insensitively, so a customer who types their address with different
+  capitalisation at reset time is not stranded.
+
+Tests: `tests/auth_email_identity.test.js` (13) — the helper's contract (exact fast path,
+case variant, near-miss rejection, ambiguity, store error, empty input) and the routes over
+real HTTP (case-variant login, unknown address still 401, ambiguous login refused + logged,
+case-variant registration refused, `23505` race mapped to 400, reset request finds a
+mixed-case account and writes a token, unknown address writes nothing).

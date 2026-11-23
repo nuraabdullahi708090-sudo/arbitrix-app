@@ -82,16 +82,38 @@ globalThis.fetch = async function fakeAuthFetch(input, init) {
   if (table === 'users') {
     if (method === 'GET') {
       if (sc.usersError) return json(500, { code: 'XX000', message: 'users store unavailable' });
-      const email = param(parsed, 'email');
-      const user = sc.user || null;
-      if (email && user && email === 'eq.' + user.email) {
-        return json(200, single ? user : [user]);
+      // `users` (array) models several accounts, e.g. the pre-index ambiguity of
+      // two addresses that differ only in case; `user` stays the single-account
+      // shorthand every existing scenario uses.
+      const accounts = Array.isArray(sc.users) ? sc.users : (sc.user ? [sc.user] : []);
+      // PostgREST puts the operator INSIDE the value: email=eq.x@y / email=ilike.x@y.
+      const filter = param(parsed, 'email');
+      const pattern = filter;
+      if (filter && filter.indexOf('eq.') === 0) {
+        const wanted = filter.slice(3);
+        const hit = accounts.filter(function (u) { return u && u.email === wanted; });
+        // PostgREST answers 200 [] for an array request with no rows; 406 is only
+        // for a `.single()` request. The helper layer relies on that distinction.
+        if (hit.length === 0) return single ? noRows() : json(200, []);
+        return json(200, single ? hit[0] : hit);
       }
-      // Unknown email, unknown referral code, or a listing query.
-      if (email || param(parsed, 'referral_code')) return noRows();
-      return json(200, []);
+      if (pattern && pattern.indexOf('ilike.') === 0) {
+        // The caller escapes SQL wildcards with a backslash; the tests use plain
+        // addresses, so a literal, case-insensitive comparison is faithful enough.
+        const wanted = pattern.slice(6).replace(/\\(.)/g, '$1').toLowerCase();
+        const hits = accounts.filter(function (u) {
+          return u && String(u.email).toLowerCase() === wanted;
+        });
+        return json(200, hits);
+      }
+      // Unknown referral code, or a listing query.
+      if (filter || param(parsed, 'referral_code')) return single ? noRows() : json(200, []);
+      return json(200, accounts);
     }
     if (method === 'POST') {
+      if (sc.insertError) {
+        return json(409, { code: sc.insertError.code || '23505', message: sc.insertError.message || 'duplicate key value' });
+      }
       let body = {};
       try { body = JSON.parse(init.body || '{}'); } catch (e) { body = {}; }
       const row = Object.assign({ id: 9001, environment: 'PRODUCTION' }, body);

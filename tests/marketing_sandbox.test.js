@@ -714,6 +714,12 @@ async function runLoginInitiate(user, body, spies) {
         // The limiter is stubbed as "allowed" here; its own behaviour is tested
         // in auth_entry_hardening.test.js and auth_entry_http.test.js.
         AuthEntry: { normalizeEmail: (v) => String(v == null ? '' : v).trim().toLowerCase() },
+        // The login handler resolves the account through getUserByEmail (a
+        // case-insensitive look-up); the vm needs that dependency supplied.
+        getUserByEmail: async (email) => {
+            const result = await supabase.from('users').select('*').eq('email', email).single();
+            return result.error ? null : result.data;
+        },
         authRateLimiter: {
             checkLogin: () => ({ allowed: true }),
             recordLoginFailure: () => {},

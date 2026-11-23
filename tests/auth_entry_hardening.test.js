@@ -523,8 +523,13 @@ test('throttling answers do not depend on whether the account exists', () => {
   const limiterIndex = limitBlock.indexOf('LOGIN_RATE_LIMIT_MESSAGE');
   assert.ok(limiterIndex !== -1);
   // The limiter runs before any user lookup, so the same answer is returned for
-  // an unknown address and an existing one.
-  assert.ok(handler.indexOf('checkLogin') < handler.indexOf(".from('users')"));
+  // an unknown address and an existing one. The lookup goes through getUserByEmail
+  // now (case-insensitive identity), so accept either form.
+  const lookupAt = handler.indexOf(".from('users')") !== -1
+    ? handler.indexOf(".from('users')")
+    : handler.indexOf('getUserByEmail(');
+  assert.ok(lookupAt !== -1, 'the handler must look the account up');
+  assert.ok(handler.indexOf('checkLogin') < lookupAt);
   // No user-existence hint in the throttle message itself.
   assert.ok(!/not found|no account|unknown user|email exists/i.test(SERVER.slice(SERVER.indexOf('LOGIN_RATE_LIMIT_MESSAGE'), SERVER.indexOf('LOGIN_RATE_LIMIT_MESSAGE') + 200)));
 });

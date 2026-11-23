@@ -824,10 +824,54 @@ async function getUser(id) {
   return data;
 }
 
+/**
+ * Look an account up by email.
+ *
+ * Account identity is CASE-INSENSITIVE (migration 056 keeps one row per
+ * lower(email)), so every caller has to resolve a case variant: a customer who
+ * registered as Foo@Bar.com and types foo@bar.com must be able to log in, and the
+ * password-reset flow must find that same row. Before this, an exact query was
+ * enough to log a customer out of their own account and to make a reset
+ * impossible. See AuthEntry.findAccountByEmail.
+ *
+ * An ambiguous result (two rows whose addresses differ only in case, possible only
+ * before the unique index exists) is reported as "no account": signing someone in
+ * with an arbitrary one of them would be worse than refusing.
+ */
 async function getUserByEmail(email) {
-  const { data, error } = await supabaseAdmin.from('users').select('id, name, email, password_hash, referral_code, is_admin, environment').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') throw error;
-  return data;
+  const result = await AuthEntry.findAccountByEmail(supabaseAdmin, email, {
+    columns: 'id, name, email, password_hash, referral_code, is_admin, environment'
+  });
+  if (!result.ok) throw new Error('users lookup failed');
+  if (result.ambiguous) {
+    console.warn('[auth] ambiguous email lookup refused: more than one account differs only in case');
+  }
+  return result.account;
+}
+
+/**
+ * Find an unused password-reset record by token.
+ *
+ * The look-up is keyed on the token HASH (the actual secret); the address is
+ * compared case-insensitively in JS afterwards, so a customer who types their
+ * address with different capitalisation at reset time is not stranded while a
+ * LIKE pattern cannot be used to prove equality.
+ *
+ * @returns {Promise<object|null>}
+ */
+async function findResetTokenRecord(email, tokenHash) {
+  const { data, error } = await supabaseAdmin
+    .from('password_reset_tokens')
+    .select('*')
+    .eq('token_hash', tokenHash)
+    .eq('used', false)
+    .limit(5);
+  if (error) throw error;
+  const wanted = String(email == null ? '' : email).trim().toLowerCase();
+  const rows = Array.isArray(data) ? data : [];
+  return rows.find(function (row) {
+    return row && String(row.email == null ? '' : row.email).trim().toLowerCase() === wanted;
+  }) || null;
 }
 
 // ---------- REFERRAL CODE HELPERS ----------
@@ -3566,8 +3610,14 @@ app.post('/api/auth/register', async (req, res) => {
     referral_code: userReferralCode, 
     is_admin: 0 
   }).select('id, name, email, referral_code, is_admin').single();
-  
-  if (error) throw error;
+
+  if (error) {
+    // 23505 = the case-insensitive uniqueness index (migration 056) rejected a
+    // second row for the same address, i.e. a concurrent registration the check
+    // above could not see. Answer exactly like the duplicate check, not a 500.
+    if (error.code === '23505') return res.status(400).json({ error: 'Email already registered' });
+    throw error;
+  }
   await getWallet(user.id);
   
   // Process referral if provided
@@ -3765,7 +3815,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   setImmediate(function () {
     // Failures are logged inside; the trailing catch is belt-and-braces so this
     // can never surface as an unhandled rejection either.
-    processPasswordResetRequest(normalizedEmail, clientIP).catch(function () { /* logged inside */ });
+    processPasswordResetRequest(email, clientIP).catch(function () { /* logged inside */ });
   });
 });
 
@@ -3779,10 +3829,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
  * Swallows every error after logging it: the caller has already answered, and
  * the client must not be able to distinguish outcomes.
  */
-async function processPasswordResetRequest(normalizedEmail, clientIP) {
+async function processPasswordResetRequest(typedEmail, clientIP) {
   try {
-    const user = await getUserByEmail(normalizedEmail);
+    // Case-insensitive: the address IS the identity (migration 056). The token row
+    // is written against the account's STORED address, so the link works whichever
+    // capitalisation the customer typed in the request form.
+    const user = await getUserByEmail(typedEmail);
     if (!user) return;
+    const normalizedEmail = user.email;
 
     // Generate a cryptographically secure token
     const resetToken = generateResetToken();
@@ -3843,16 +3897,10 @@ app.post('/api/auth/reset-password', async (req, res) => {
     // Hash the provided token to compare with stored hash
     const tokenHash = hashToken(token);
     
-    // Find the reset token record (use admin client for RLS)
-    const { data: resetRecord, error: findError } = await supabaseAdmin
-      .from('password_reset_tokens')
-      .select('*')
-      .eq('email', email)
-      .eq('token_hash', tokenHash)
-      .eq('used', false)
-      .single();
-    
-    if (findError || !resetRecord) {
+    // Find the reset token record (case-insensitive address, exact token hash).
+    const resetRecord = await findResetTokenRecord(email, tokenHash);
+
+    if (!resetRecord) {
       return res.status(400).json({ 
         error: 'Invalid or expired reset token. Please request a new password reset.' 
       });
@@ -3928,16 +3976,11 @@ app.get('/api/auth/verify-reset-token', async (req, res) => {
   try {
     const tokenHash = hashToken(token);
     
-    // Use admin client for RLS-protected table
-    const { data: resetRecord, error } = await supabaseAdmin
-      .from('password_reset_tokens')
-      .select('*')
-      .eq('email', email)
-      .eq('token_hash', tokenHash)
-      .eq('used', false)
-      .single();
-    
-    if (error || !resetRecord) {
+    // The address is matched case-insensitively; the TOKEN HASH is the secret and
+    // is still compared exactly.
+    const resetRecord = await findResetTokenRecord(email, tokenHash);
+
+    if (!resetRecord) {
       return res.json({ 
         valid: false, 
         error: 'Invalid reset token' 
@@ -4240,6 +4283,12 @@ app.post('/api/auth/email-change/verify', authMiddleware, async (req, res) => {
     .select('id, name, email, referral_code, is_admin, created_at')
     .single();
   if (updErr) {
+    // 23505 = the case-insensitive uniqueness index (migration 056) saw another
+    // account take this address after the re-check above (a race). Same answer as
+    // the explicit conflict, not a 500.
+    if (updErr.code === '23505') {
+      return res.status(409).json({ error: 'This email is already associated with another account' });
+    }
     console.error('[EMAIL CHANGE] users.email update failed:', updErr.code, updErr.message);
     return res.status(500).json({ error: 'Could not update email' });
   }
@@ -10286,14 +10335,12 @@ async function loginInitiateHandler(req, res) {
             return sendAuthRateLimited(res, loginLimit.retryAfter, LOGIN_RATE_LIMIT_MESSAGE);
         }
         
-        // Verify credentials
-        const { data: user, error } = await supabaseAdmin
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-        
-        if (error || !user) {
+        // Verify credentials. The look-up is case-insensitive (the address IS the
+        // identity, not its capitalisation), so typing an address in a different
+        // case than it was registered in still works.
+        const user = await getUserByEmail(email);
+
+        if (!user) {
             // Use same error to prevent email enumeration
             authRateLimiter.recordLoginFailure(accountKey);
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -10722,7 +10769,12 @@ app.post('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =
   const hash = bcrypt.hashSync(password, 10);
   const userReferralCode = await generateUniqueReferralCode();
   const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email, password_hash: hash, referral_code: userReferralCode, is_admin: 0 }).select().single();
-  if (error) throw error;
+  if (error) {
+    // The case-insensitive uniqueness index rejects a second row for the same
+    // address; the duplicate check above cannot see a concurrent insert.
+    if (error.code === '23505') return res.status(400).json({ error: 'Email exists' });
+    throw error;
+  }
   await supabaseAdmin.from('wallets').insert({ user_id: user.id, demo_balance: demo_balance || 1000, live_balance: 50, bonus_balance: 0 });
   res.json({ success: true, user });
 });

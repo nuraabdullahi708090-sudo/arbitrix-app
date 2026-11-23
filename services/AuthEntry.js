@@ -154,38 +154,81 @@ function escapeLikePattern(value) {
 /**
  * Find an account by email, tolerating case differences.
  *
- * The exact match is tried first (fast path). Only if that misses is a
- * case-insensitive lookup attempted, and its rows are then compared on the
- * normalised address, because a LIKE pattern cannot prove equality.
+ * Account identity is case-insensitive (migration 056 enforces one row per
+ * lower(email)), but an address is stored exactly as the customer typed it, so an
+ * exact query alone misses any case variant. The exact match is tried first - it
+ * is indexed and it is what every caller did before - and only then a
+ * case-insensitive query, whose rows are compared on the NORMALISED address
+ * because a LIKE pattern cannot prove equality.
  *
- * @returns {Promise<{ok: true, account: object|null} | {ok: false, reason: string}>}
+ * `ambiguous` reports the one case that must never be resolved silently: two or
+ * more rows whose addresses differ only in case. That can only exist before the
+ * uniqueness index is applied, and picking one would sign a customer into the
+ * wrong account, so callers treat it as "no account".
+ *
+ * @param {object} admin - Supabase client (service role)
+ * @param {string} email
+ * @param {{columns?: string}} [options]
+ * @returns {Promise<{ok: true, account: object|null, ambiguous?: boolean} | {ok: false, reason: string}>}
  */
-async function findExistingAccount(admin, email) {
+function rowsOf(result) {
+  if (!result) return [];
+  const data = result.data;
+  if (Array.isArray(data)) return data;
+  // A `.maybeSingle()` / `.single()` response carries the row as an object.
+  if (data && typeof data === 'object') return [data];
+  return [];
+}
+
+async function findAccountByEmail(admin, email, options) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return { ok: true, account: null };
+  const columns = (options && options.columns) || 'id, email';
+
   try {
-    const exact = admin.from('users').select('id, email').eq('email', email);
-    const exactQuery = typeof exact.maybeSingle === 'function' ? exact.maybeSingle() : exact;
-    const exactResult = await exactQuery;
-    if (exactResult && exactResult.error) return { ok: false, reason: 'lookup-failed' };
-    if (exactResult && exactResult.data) return { ok: true, account: exactResult.data };
+    const exactBuilder = admin.from('users').select(columns).eq('email', email);
+    // Use whichever single-row form the client offers; the array form is the
+    // documented default, and some callers/stubs expose only one of them.
+    let exactQuery = exactBuilder;
+    if (exactBuilder && typeof exactBuilder.maybeSingle === 'function') exactQuery = exactBuilder.maybeSingle();
+    else if (exactBuilder && typeof exactBuilder.limit === 'function') exactQuery = exactBuilder.limit(1);
+    const exact = await exactQuery;
+    if (exact && exact.error) return { ok: false, reason: 'lookup-failed' };
+    const exactRows = rowsOf(exact);
+    if (exactRows.length > 0) return { ok: true, account: exactRows[0] };
   } catch (e) {
     return { ok: false, reason: 'lookup-failed' };
   }
 
   try {
-    const pattern = escapeLikePattern(email);
-    let query = admin.from('users').select('id, email').ilike('email', pattern);
+    const builder = admin.from('users').select(columns);
+    // A client without `ilike` cannot express a case-insensitive query (some test
+    // doubles). Treat it as "no further match" rather than failing the look-up.
+    if (!builder || typeof builder.ilike !== 'function') return { ok: true, account: null };
+    const pattern = escapeLikePattern(String(email).trim());
+    let query = builder.ilike('email', pattern);
     if (query && typeof query.limit === 'function') query = query.limit(5);
     const result = await query;
     if (result && result.error) return { ok: false, reason: 'lookup-failed' };
 
-    const rows = Array.isArray(result && result.data) ? result.data : [];
-    const match = rows.find(function (row) {
-      return row && normalizeEmail(row.email) === email;
+    const rows = rowsOf(result).filter(function (row) {
+      return row && normalizeEmail(row.email) === normalized;
     });
-    return { ok: true, account: match || null };
+    if (rows.length === 0) return { ok: true, account: null };
+    if (rows.length > 1) return { ok: true, account: null, ambiguous: true };
+    return { ok: true, account: rows[0] };
   } catch (e) {
     return { ok: false, reason: 'lookup-failed' };
   }
+}
+
+/**
+ * The id/email-only form used by admin provisioning.
+ *
+ * @returns {Promise<{ok: true, account: object|null} | {ok: false, reason: string}>}
+ */
+async function findExistingAccount(admin, email) {
+  return findAccountByEmail(admin, email, { columns: 'id, email' });
 }
 
 async function createZeroWallet(admin, userId) {
@@ -597,6 +640,8 @@ module.exports = {
   DEFAULT_RATE_LIMITS: DEFAULT_RATE_LIMITS,
   SHARED_IP_DEFAULTS: SHARED_IP_DEFAULTS,
   normalizeEmail: normalizeEmail,
+  escapeLikePattern: escapeLikePattern,
+  findAccountByEmail: findAccountByEmail,
   validateAdminPassword: validateAdminPassword,
   resolveAdminProvisioning: resolveAdminProvisioning,
   provisionAdmin: provisionAdmin,
