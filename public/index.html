@@ -10101,7 +10101,7 @@ function toggleFaq(btn) {
         <i class="fas fa-bolt" style="font-size:20px;"></i>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:700;" data-i18n="onboarding.primary">Start with my $50 credit</div>
-          <div id="onboardingPrimaryDesc" style="font-size:11px;font-weight:500;opacity:0.85;line-height:1.5;margin-top:2px;" data-i18n="onboarding.primaryDesc">Run the bot on your promotional credit — no card or deposit needed. Profit on it is capped at $30 until you deposit.</div>
+          <div id="onboardingPrimaryDesc" style="font-size:11px;font-weight:500;opacity:0.85;line-height:1.5;margin-top:2px;" data-i18n="onboarding.primaryDesc">Run the bot on your promotional credit. Profit on it is capped at $30 until you deposit.</div>
         </div>
       </div>
     </button>
@@ -25423,6 +25423,8 @@ function chooseOnboarding(choice) {
         return;
     }
     pendingOnboardingDeposit = false;
+    // The promotional credit IS the entry state of this build (wallets.live_balance),
+    // so entering the app already shows it. No mode switch, no invoice, no credit.
     goToApp('onboarding_credit');
 }
 // ---- "Start Here" beginner checklist (dismissible, per account) -----------
