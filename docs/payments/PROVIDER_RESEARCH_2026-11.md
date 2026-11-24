@@ -26,6 +26,10 @@ and a second reconciliation path. That is more risk, not less, for a $50 floor.
 
 ## 2. Candidates
 
+> Superseded in part by `PROVIDER_INVESTIGATION_BCON_PAYMENTO_BTCPAY_2026-11.md`
+> (Bcon Global, Paymento and BTCPay Server were read from source documentation on
+> 2026-11-24; the BTCPay row below reflects that).
+
 Everything in the "verified" column was checked from this environment on
 2026-11-24; a dash means the claim could **not** be verified here and must not be
 treated as true.
@@ -37,7 +41,7 @@ treated as true.
 | Cryptomus | No | Documented as supported at large | Yes | Yes | Requires KYB | **Not verifiable** — docs host did not resolve |
 | OxaPay | No | Documented as supported | Yes | Yes | Requires account | **Not verifiable** — doc path returned 404 |
 | Plisio | No | Documented as supported | Yes | Yes | Requires account | **Not verifiable** — host did not resolve |
-| BTCPay Server (self-hosted) | No | No native TRON support | n/a | n/a | Self-hosted operations | Site reachable; TRON support not claimed |
+| BTCPay Server (self-hosted) | No | Yes, via the community USDt plugin | Yes - address pool, unique up to the pool size | HMAC-SHA256 (`BTCPay-Sig`) | Self-hosted operations | Verified 2026-11-24 - see `PROVIDER_INVESTIGATION_BCON_PAYMENTO_BTCPAY_2026-11.md` |
 
 Consequences of the unverified column:
 
