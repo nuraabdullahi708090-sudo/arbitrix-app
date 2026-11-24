@@ -110,6 +110,11 @@ const {
   PROFIT_PAUSE_CODE,
   PROFIT_PAUSE_MESSAGE,
 } = require('./services/ProfitPause');
+// In-app notification feed. Event-driven + idempotent: every row is keyed by a
+// business event and UNIQUE(user_id, event_key) (migration 058), so repeated
+// page loads / retries can never duplicate an event. Read-only for money:
+// this service only inserts and reads notification rows.
+const { createNotificationsService, journeyReminders } = require('./services/Notifications');
 
 // Stage 2: AI customer-support layer for the Telegram bot. Answering is OFF
 // unless AI_SUPPORT_ENABLED=true (see .env.example); with no key and no flag the
@@ -775,6 +780,84 @@ const profitPause = createProfitPauseCheck({
     threshold: PROFIT_PAUSE_USD,
     log: (e) => console.log(JSON.stringify(e)),
 });
+
+// ============================================
+// IN-APP NOTIFICATIONS
+// ============================================
+// One instance for the whole process. Fails soft: if migration 058 is not
+// applied every method reports ok:false and no request path is affected.
+const notifications = createNotificationsService({ supabase: supabaseAdmin });
+
+/** True when a deposit is awaiting confirmation (never counted as confirmed). */
+async function hasPendingDeposit(userId) {
+    try {
+        const [legacy, invoice] = await Promise.all([
+            supabaseAdmin.from('deposits').select('id', { count: 'exact', head: true })
+                .eq('user_id', userId).eq('status', 'pending'),
+            supabaseAdmin.from('payment_invoices').select('id', { count: 'exact', head: true })
+                .eq('user_id', userId).eq('status', 'pending'),
+        ]);
+        const legacyCount = Number((legacy && legacy.count) || 0);
+        const invoiceCount = Number((invoice && invoice.count) || 0);
+        return (legacyCount + invoiceCount) > 0;
+    } catch (e) {
+        // Fail soft: an unreadable state must not fabricate a reminder.
+        return false;
+    }
+}
+
+/**
+ * Record one notification. Fail-soft and log-once: a structural failure (for
+ * example migration 058 not applied) is reported a single time instead of on
+ * every call, and it never propagates into the caller's request.
+ */
+async function emitNotificationSafe(userId, eventKey, eventName, vars) {
+    if (!notifications || notificationCatalogueMissing || !userId) return { ok: false, created: false };
+    const result = await notifications.emit(userId, eventKey, eventName, vars);
+    if (result && result.ok === false && result.reason !== 'unknown-event' && !notificationCatalogueMissing) {
+        notificationCatalogueMissing = true;
+        console.warn('[notifications] writes disabled for this process:', result.reason,
+            (result.error || '').toString().slice(0, 200));
+    }
+    return result;
+}
+
+/**
+ * Evaluate the state-driven reminders for one account and record whichever are
+ * due. Idempotent by event key, so calling it on every session read can only
+ * ever produce each event once (or once per UTC day for the reminder).
+ * Never throws: notification bookkeeping must not break a dashboard load.
+ */
+async function evaluateJourneyNotifications(user, state) {
+    try {
+        if (!notifications || notificationCatalogueMissing) return;
+        const opts = state || {};
+        const reminders = journeyReminders({
+            hasConfirmedDeposit: opts.hasConfirmedDeposit === true,
+            hasTradingActivity: opts.hasTradingActivity === true,
+            promoCreditFunded: opts.promoCreditFunded === true,
+            hasPendingDeposit: opts.hasPendingDeposit === true,
+            accountAgeHours: accountAgeHours(user),
+            now: new Date(),
+        });
+        for (const r of reminders) {
+            await emitNotificationSafe(user && user.id, r.eventKey, r.event, r.vars);
+        }
+    } catch (e) {
+        console.warn('[notifications] journey evaluation skipped:', e && e.message ? e.message : e);
+    }
+}
+
+/** Hours since registration (0 when unknown), used by the one-time nudges. */
+function accountAgeHours(user) {
+    const created = user && user.created_at ? Date.parse(user.created_at) : NaN;
+    if (!Number.isFinite(created)) return 0;
+    return Math.max(0, (Date.now() - created) / 3600000);
+}
+
+// Set once a notification write fails for a structural reason (migration 058
+// absent), so the logs carry one diagnostic instead of one per request.
+let notificationCatalogueMissing = false;
 
 // ============================================
 // PAYMENT SERVICE INITIALIZATION
@@ -3983,6 +4066,12 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (e) {
     console.warn('[auth/register] account payload incomplete:', e && e.message ? e.message : e);
   }
+
+  // The ONLY place the welcome notification is created: account creation, once.
+  // The event key makes it idempotent, so a retried registration (or a second
+  // call through the same user id) can never produce a second welcome. Login and
+  // dashboard loads never emit it.
+  await emitNotificationSafe(user.id, 'welcome', 'welcome', {});
   // Public registration always creates a PRODUCTION account. MARKETING_SANDBOX
   // accounts can only be created via POST /api/admin/sandbox/accounts (admin).
   res.json({
@@ -4687,6 +4776,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     hasConfirmedDeposit: !!funded,
     promoFunding
   });
+  // Journey reminders are evaluated here because this endpoint is the one place
+  // that already loads the authoritative account state. Every write is keyed and
+  // idempotent (once ever, or once per UTC day for the reminder), so a dashboard
+  // load can never duplicate an event; nothing is emitted for an account with a
+  // confirmed deposit or a deposit awaiting confirmation.
+  await evaluateJourneyNotifications(user, {
+    hasConfirmedDeposit: !!funded,
+    hasTradingActivity: !!hasTraded,
+    promoCreditFunded,
+    hasPendingDeposit: !funded ? await hasPendingDeposit(user.id) : false,
+  });
+
   res.json({
     user,
     wallet,
@@ -4713,6 +4814,8 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     liveMinDeposit: _liveEligibility.minDeposit,
     activationPurchasable: !!(PAYHIP_CONFIG.usable && PAYHIP_CONFIG.storeUrl && _purchaseOnSale),
     activationStoreUrl: PAYHIP_CONFIG.usable ? (PAYHIP_CONFIG.storeUrl || '') : '',
+    // The notification reminder state is NOT part of this payload (nothing to
+    // learn from it on the client). It is evaluated just before responding.
     environment: ENV_PRODUCTION,
     // Single runtime source of the platform minimum deposit. The frontend adopts
     // this into APP.MIN_DEPOSIT so the deposit validation, the min-amount notice
@@ -8460,6 +8563,16 @@ app.post('/api/trade', authMiddleware, async (req, res) => {
     // Re-read today's realized P&L from the ledger after the (idempotent) write
     // so the client can reconcile "Today's P&L" to the exact server-persisted
     // total. record_trade_safe() itself is unchanged; this is a read-only sum.
+    // Event notifications, idempotent by key and fail-soft: the first completed
+    // trade is recorded once ever, and a promotional-credit account that has
+    // started trading (with no confirmed deposit) gets the one-time
+    // "make a deposit" nudge. Neither write can affect the trade just persisted.
+    if (!result.duplicate) {
+      await emitNotificationSafe(userId, 'first_trade', 'firstTrade', {});
+      if (promoCreditFunded === true) {
+        await emitNotificationSafe(userId, 'promo_first_trade', 'promoFirstTrade', {});
+      }
+    }
     const todayRealizedPnl = await getTodayRealizedPnl(userId).catch(() => 0);
     // Promotional-credit cap state AFTER this (idempotent) write. When the trade
     // that reached $30.00 lands, the bot is stopped immediately and the response
@@ -8493,6 +8606,66 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   const { data, error } = await supabaseAdmin.from('transactions').select('id, type, amount, detail, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
   res.json(data);
+});
+
+// ---------- In-app notifications ----------
+// The feed is written by business events only (registration, trades, deposits,
+// referral rewards - see migration 058 and services/Notifications.js). These
+// routes are READ + mark/clear on the caller's own rows: the user id always
+// comes from the verified JWT, so one account can never read or clear another's.
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    // MARKETING_SANDBOX accounts read only their simulated environment; they
+    // have no production notification feed.
+    if (await isMarketingSandboxUser(req.user.id)) {
+      return res.json({ notifications: [], unread: 0, environment: ENV_MARKETING_SANDBOX });
+    }
+    const out = await notifications.list(req.user.id, req.query.limit);
+    if (!out.ok) return res.status(503).json({ error: 'Notifications unavailable', notifications: [], unread: 0 });
+    res.set('Cache-Control', 'no-store');
+    res.json({ notifications: out.notifications, unread: out.unread });
+  } catch (e) {
+    console.error('[GET /api/notifications]', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/notifications/read-all', authMiddleware, async (req, res) => {
+  try {
+    if (await isMarketingSandboxUser(req.user.id)) return res.json({ success: true, unread: 0 });
+    const out = await notifications.markAllRead(req.user.id);
+    if (!out.ok) return res.status(503).json({ error: 'Notifications unavailable' });
+    res.json({ success: true, unread: 0 });
+  } catch (e) {
+    console.error('[POST /api/notifications/read-all]', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/notifications/:id/read', authMiddleware, async (req, res) => {
+  try {
+    if (await isMarketingSandboxUser(req.user.id)) return res.json({ success: true });
+    const out = await notifications.markRead(req.user.id, req.params.id);
+    if (!out.ok) return res.status(400).json({ error: 'Notification not updated' });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[POST /api/notifications/:id/read]', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Clear is a SOFT clear (cleared_at). The rows keep their event keys, so a
+// cleared event can never be recreated by a later trigger or session read.
+app.delete('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    if (await isMarketingSandboxUser(req.user.id)) return res.json({ success: true, cleared: 0 });
+    const out = await notifications.clearAll(req.user.id);
+    if (!out.ok) return res.status(503).json({ error: 'Notifications unavailable' });
+    res.json({ success: true, cleared: out.cleared });
+  } catch (e) {
+    console.error('[DELETE /api/notifications]', e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ---------- Kalderix Pro Subscription ----------
