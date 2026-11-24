@@ -86,12 +86,24 @@ const inInit = (needle, from = 0) => {
 
 test('initApp hides the loader in a finally, not only on the happy path', () => {
   const finallyAt = inInit('} finally {');
-  const hide = inInit("if (syncLoader) syncLoader.style.display = 'none';", finallyAt);
+  const hide = inInit('dismissWalletSyncLoader(', finallyAt);
   assert.ok(hide > finallyAt, 'the dismissal lives inside the finally block');
 });
 
+test('the dismissal helper is the single hide site and always runs', () => {
+  const helperAt = HTML.indexOf('function dismissWalletSyncLoader');
+  assert.ok(helperAt > 0, 'one dismissal helper');
+  const helper = HTML.slice(helperAt, HTML.indexOf('\n}', helperAt));
+  assert.match(helper, /style\.display = 'none'/, 'the helper hides the overlay');
+  // It is reached three ways: the sync resolved, a hard 1.2s cap, and a window error.
+  const inInitCap = INIT_APP.indexOf('dismissWalletSyncLoader(\'cap\')');
+  assert.ok(inInitCap > 0, 'a hard cap dismisses it even if the sync never settles');
+  assert.match(HTML, /addEventListener\('error', function \(\) \{ try \{ dismissWalletSyncLoader\('window-error'\)/,
+    'an uncaught error cannot leave the plate up');
+});
+
 test('the synchronous init that runs before the finally is itself guarded', () => {
-  const show = inInit("if (syncLoader) syncLoader.style.display = 'flex';");
+  const show = inInit("syncLoader.style.display = 'flex';");
   const guardStart = inInit('try {', show);
   assert.ok(guardStart > show, 'a try block starts after the overlay is shown');
   assert.ok(guardStart < inInit('loadData();'), 'it wraps the synchronous init');
@@ -105,9 +117,15 @@ test('the synchronous init that runs before the finally is itself guarded', () =
 
 test('showing and hiding the overlay are a single matched pair', () => {
   const shows = HTML.match(/syncLoader\.style\.display = 'flex'/g) || [];
-  const hides = HTML.match(/syncLoader\.style\.display = 'none'/g) || [];
   assert.strictEqual(shows.length, 1, 'exactly one place shows the blocking overlay');
-  assert.strictEqual(hides.length, 1, 'exactly one place hides it');
+  const helperAt = HTML.indexOf('function dismissWalletSyncLoader');
+  assert.ok(helperAt > 0, 'the dismissal helper exists');
+  const helperSrc = HTML.slice(helperAt, HTML.indexOf('\n}', helperAt));
+  assert.strictEqual((helperSrc.match(/el\.style\.display = 'none';/g) || []).length, 1,
+    'the helper is the single hide site');
+  assert.match(helperSrc, /style\.pointerEvents = 'none'/, 'a fading scrim cannot swallow clicks');
+  assert.ok(!/syncLoader\.style\.display = 'none'/.test(INIT_APP),
+    'initApp hides the scrim only through the helper, so the cap and the finally cannot disagree');
 });
 
 test('the overlay is display:none by default so it can never block an idle page', () => {

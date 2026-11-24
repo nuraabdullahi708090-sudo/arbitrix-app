@@ -9897,3 +9897,90 @@ the removed/added copy.
   `.single()` request gets 406/PGRST116. Getting this wrong makes a "not found" look like a
   store failure.
 - supabase-js encodes operators INSIDE the value (`email=ilike.x@y`, not `ilike=x@y`).
+
+
+## UI redesign phase 1 - design system, hero and view router (2026-11-23, PR #204)
+
+Branch `design/kalderix-ui-redesign` off `main` @ 06a17c7. Frontend only: `public/index.html`,
+`tests/redesign_shell.test.js`, `docs/design/*`. No server.js / services / migrations / money
+path touched. NOT merged, NOT deployed.
+
+- **Append-only design layer.** A ~350-line block at the end of the stylesheet declares the
+  `--kx-*` tokens and restyles the existing components through them. Nothing above it was
+  deleted, so every legacy selector still resolves. The accent stays `--brand: #5EA0FF`
+  (asserted: no second brand colour).
+- **Hero.** The four equal KPI cards became `#kxHero` (`.kx-hero-eq/av/pnl/bot`) with grid
+  areas: one column on phones, 2x2 on tablets, an asymmetric two-row desktop composition.
+  `#totalEquity` / `#balanceValue` / `#pnlValue` / `#botStatus` and both action buttons keep
+  their ids; `#pnlValue` keeps `class="stat-value fin-zero"` because `polish_semantics` pins
+  that exact string.
+- **Cockpit.** `#kxCockpit` wraps `#chartCard` + `#tradingStatsCard` (stacked below 1100px,
+  1.9fr/1fr above).
+- **Grouped sidebar.** Five `nav.*` keys x 6 locales; dictionary 1593 -> 1598 (16 pin files
+  updated). Sidebar links keep ids, `data-section` attributes and handlers.
+- **View router.** `showView(name, opts)` is declared at MODULE scope next to
+  `navigateToAdmin` - putting it inside `initApp` (where the nav wiring lives) makes it
+  invisible to `navigateToAdmin` and to inline handlers. Views: `kxViewOverview` (container,
+  `hidden` attribute), `markets`, `history` (Activity), `referral`, `adminPanel`. It sets the
+  toolbar title (`#kxViewTitle`), `#view` hash, `data-kx-view` and the active link.
+- **Real bug fixed:** `navigateToAdmin()` hid every `.card, .wallet-section` in `#mainContent`
+  with inline styles and never restored them, so leaving Admin left a blank dashboard until a
+  reload. It now delegates to `showView('admin')`. `tests/admin_nav_visibility.test.js` was
+  rewritten for the new contract (it used to pin the hide loop).
+- **Mobile header trap:** an override that uses the `padding` SHORTHAND resets the base
+  `padding-top:44px` that reserves space for the fixed hamburger; at 390px the header collapsed
+  to 46px and sat under the menu button. The mobile rule now sets only the three sides, and
+  `redesign_shell` pins "no padding shorthand in the mobile header rule". `lastRule()` in
+  `mobile_nav_layout.test.js` reads only top-level rules (smallest indent), so a media-block
+  override can break the runtime while the test stays green - verify with measurement.
+- **Guard tests:** `tests/redesign_shell.test.js` (15) runs the REAL router in a vm (view
+  switching, title, hash, active link, unknown-name fallback, admin class handling) and pins
+  tokens, hero ids/order, cockpit grouping, nav i18n parity across 6 locales, breakpoints,
+  focus/reduced-motion, "no `!important` display:none in the layer", and the preserved money
+  constants. `ui_overlay_clickability`'s method-call heuristic now accepts `)`/`]` receivers
+  (`document.getElementById(...).scrollIntoView(...)`).
+- **Verification method (no screenshots):** headless Chromium with `puppeteer-core` installed
+  OUTSIDE the repo (`npm i puppeteer-core` in /tmp/tools), API stubbed via
+  `evaluateOnNewDocument(() => window.fetch = () => Promise.reject(...))`, then
+  `await initApp()` and force the app view. `createBrowserContext()` failed on this Chromium
+  build - use plain pages. Checks are DOM/computed-style based: geometry, colours, type sizes,
+  overflow, visibility. 338 layout checks + 33 increment checks + 25 modal checks, all green.
+- **Measured shell** (header / hero / document): 320: 134/529/2466; 390: 90/473/2394;
+  768: 132/319/2003; 1024: 54/267/1868; 1280: 54/207/1378.
+- **Follow-ups documented** in `docs/design/UX_AUDIT_2026-11.md` section 6: modal focus
+  trapping, tablet header height, landing token migration, unifying the two modal systems'
+  behaviour, onboarding "next step" copy.
+
+
+## Kalderix redesign phase 2 - dashboard consolidation, bot state, honest copy (2026-11-24, public/index.html + tests + docs)
+- Second refinement pass after the owner rejected the first mobile render. Frontend-only:
+  NO server.js, services, migrations, money path, engine or API change. Full suite 3978
+  pass / 0 fail / 1 skipped (baseline 3953/1 skipped).
+- Root causes found by measurement (headless Chromium, `getBoundingClientRect`), not by
+  eye:
+  * 44px `padding-top` on `.app-header` cleared a hamburger that had become a
+    `position:static` grid item -> dead space; plus a two-row grid template and a
+    wrapping flex row at 641-1023px. Toolbar 98px -> **58px** at every width.
+  * `kxHero` was FOUR KPI cards re-printing the same balance (385px). Now ONE account
+    card (259px): equity leads, "Available" owns the Deposit/Withdraw actions, P&L and bot
+    state are compact metrics; >=1200px it becomes a 3-column band.
+  * `updateUI()` forced `#botStatusMsgLive = t('bot.readyToTrade')` unconditionally, so a
+    STOPPED bot claimed readiness. Replaced by ONE state machine
+    (`botUiState()` -> offline|ready|running|paused|error, from real flags only;
+    `renderBotState()` paints pill + account metric + card message).
+  * The tab-bound engine notice claimed "keeps trading even when you're offline" - false;
+    the loop dies with the tab. Rewritten in 6 locales: "Runs in this browser tab.
+    Trading pauses if you close or refresh the page." Worker copy keeps that claim.
+  * `renderLiveModeCard()` told a `funding_required` account to make a deposit but only
+    toggled the deposit button for `deposit_required` -> dead end, now both.
+- Added: Recent-trades footer in the statistics card (3 rows, sign-coloured, links to the
+  Activity view), wallet tabs moved inside `#kxWallets`, a 36px drawer close target,
+  support launcher yielding to its panel/dialogs, 54px completed checklist.
+- PINS: `tests/dashboard_phase2.test.js` (18) locks all of the above + "the presentation
+  layer never touches money". 22 existing suites updated for intentional contract changes
+  (header height/clearance, hero structure, pill source, engine copy, padding shorthand).
+- ENVIRONMENT LIMITATION for review: no screenshot/vision inspection was possible (the
+  adapter discards image content), so verification is DOM geometry + computed styles +
+  real interaction; subjective quality (shading, motion) is unverified.
+- Report: `docs/design/VISUAL_REVIEW_2026-11.md` "Phase 2" + "Onboarding / activation
+  audit" sections.

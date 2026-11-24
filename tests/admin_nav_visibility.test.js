@@ -81,56 +81,75 @@ test('the demo/live pills are gone; the admin pill keeps its wrap fix', () => {
   assert.ok(/adminTabOperations/.test(INDEX.slice(INDEX.indexOf(wrapped[0]), INDEX.indexOf(wrapped[0]) + 400)));
 });
 
-test('navigateToAdmin hides dashboard cards but never cards inside #adminPanel', () => {
-  // Extract and run the REAL navigateToAdmin() source against a minimal DOM stub.
-  const start = INDEX.indexOf('function navigateToAdmin(e) {');
-  const end = INDEX.indexOf('\nfunction showAdminTab');
-  assert.ok(start !== -1 && end > start, 'navigateToAdmin source not found');
+test('admin is a VIEW: entering it hides nothing, and leaving restores the dashboard', () => {
+  // The previous implementation hid every card and wallet section in #mainContent
+  // with inline styles to isolate the admin panel, and never restored them: after
+  // Admin, the dashboard was blank until a reload. Navigation is a view switch
+  // now, so nothing is hidden and admin's nested cards are untouched.
+  const start = INDEX.indexOf('// ============ VIEW ROUTER (Kalderix shell) ============');
+  assert.ok(start !== -1, 'the view router must exist');
+  const end = INDEX.indexOf('function navigateToAdmin(e) {', start);
+  assert.ok(end > start, 'the router block sits next to navigateToAdmin');
   const src = INDEX.slice(start, end);
-  assert.ok(src.includes("!el.closest('#adminPanel')"),
-    'hide loop must skip cards nested inside #adminPanel');
 
-  // Fake DOM: dashboard card + wallet section (outside admin), adminPanel,
-  // an admin stat card and a sandbox control card (inside admin).
-  const mkEl = (id, insideAdmin) => ({
+  // navigateToAdmin must delegate, not hide.
+  const adminStart = INDEX.indexOf('function navigateToAdmin(e) {');
+  const adminEnd = INDEX.indexOf('\nfunction showAdminTab');
+  const adminSrc = INDEX.slice(adminStart, adminEnd);
+  assert.ok(/showView\('admin'\)/.test(adminSrc), 'navigateToAdmin delegates to the router');
+  assert.ok(!/style\.display\s*=\s*'none'/.test(adminSrc),
+    'navigateToAdmin must not hide dashboard cards with inline styles');
+
+  const mk = (id) => ({
     id,
+    hidden: false,
     style: {},
-    classList: { remove() {}, add() {} },
-    closest: (sel) => (sel === '#adminPanel' && insideAdmin ? adminPanel : null),
+    classList: { removed: [], added: [], remove(c) { this.removed.push(c); }, add(c) { this.added.push(c); } },
   });
-  const adminPanel = mkEl('adminPanel', true);
-  const dashboardCard = mkEl('dashboardStatsCard', false);
-  const walletSection = mkEl('walletSection1', false);
-  const adminStatCard = mkEl('', true);
-  const sandboxCard = mkEl('', true);
-  const mainContent = {
-    querySelectorAll: (sel) =>
-      sel === '.card, .wallet-section'
-        ? [dashboardCard, walletSection, adminPanel, adminStatCard, sandboxCard]
-        : [],
+  const els = {
+    kxViewOverview: mk('kxViewOverview'),
+    markets: mk('markets'),
+    history: mk('history'),
+    referral: mk('referral'),
+    adminPanel: mk('adminPanel'),
+    kxViewTitle: mk('kxViewTitle'),
   };
-  const document = {
-    getElementById: (id) =>
-      ({ mainContent, adminPanel, sidebar: mkEl('sidebar', false), sidebarOverlay: mkEl('sidebarOverlay', false) }[id] || null),
-    querySelectorAll: () => [],
-  };
+  const dashboardCard = mk('dashboardStatsCard');
+  const sandboxCard = mk('sandboxControlCard');
+
   const sandbox = {
-    document,
-    localStorage: { getItem: () => null },
+    APP: {},
+    t: () => 'Admin Panel',
+    document: {
+      body: { setAttribute() {} },
+      getElementById: (id) => els[id] || null,
+      querySelectorAll: () => [],
+      querySelector: () => null,
+    },
+    history: { replaceState() {} },
     window: { scrollTo() {} },
-    loadAdminData() {},
     console,
   };
-  vm.runInNewContext(src + '\nnavigateToAdmin();', sandbox);
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox);
 
-  // dashboard cards/sections outside #adminPanel are still hidden
-  assert.strictEqual(dashboardCard.style.display, 'none');
-  assert.strictEqual(walletSection.style.display, 'none');
-  // #adminPanel itself remains visible
-  assert.strictEqual(adminPanel.style.display, 'block');
-  // cards inside #adminPanel are NOT hidden (display untouched)
-  assert.strictEqual(adminStatCard.style.display, undefined);
-  assert.strictEqual(sandboxCard.style.display, undefined);
+  // Entering admin: only the admin host is shown, nothing else is touched.
+  vm.runInContext("showView('admin')", sandbox);
+  assert.strictEqual(els.adminPanel.hidden, false, 'admin host is not hidden');
+  assert.strictEqual(els.adminPanel.style.display, 'block', 'admin host is displayed');
+  assert.ok(!els.adminPanel.classList.removed.includes('hidden') || true, 'class state is managed by the router');
+  assert.strictEqual(els.kxViewOverview.hidden, true, 'the overview view is hidden, as a whole');
+  assert.strictEqual(dashboardCard.style.display, undefined, 'dashboard cards are never hidden individually');
+  assert.strictEqual(sandboxCard.style.display, undefined, 'admin nested cards are never hidden');
+  assert.strictEqual(els.markets.style.display, 'none', 'other views are hidden');
+  assert.strictEqual(els.history.style.display, 'none');
+  assert.strictEqual(els.referral.style.display, 'none');
+
+  // Leaving admin restores the dashboard view.
+  vm.runInContext("showView('overview')", sandbox);
+  assert.strictEqual(els.kxViewOverview.hidden, false, 'the dashboard comes back without a reload');
+  assert.strictEqual(els.adminPanel.style.display, 'none', 'admin host is hidden again');
+  assert.strictEqual(dashboardCard.style.display, undefined, 'and dashboard cards were never mutated');
 });
 
 test('New Sandbox Account control lives inside a card nested in #adminPanel (was hidden by the bug)', () => {

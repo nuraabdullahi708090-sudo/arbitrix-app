@@ -285,8 +285,7 @@
     html[data-brand="kalderix"] [style*="color: var(--brand)"]{
         color:var(--brand) !important;
     }
-
-    </style>
+</style>
     <script>
     (function () {
         var SUPPORTED = ['es', 'pt', 'fr', 'ar', 'zh', 'en'];
@@ -1465,7 +1464,11 @@
         /* The floating support launcher must never sit on top of the deposit
            dialog's amount field or primary action. Same :has() pattern as the
            Support Center rule below; the dialog carries its own help link. */
+        /* Any open dialog (deposit, withdraw, activation, subscription, profile,
+           tutorials, pause notice) owns the screen, so the launcher steps out. */
         body:has(#depositModal.open) .support-widget{display:none;}
+        body:has(.deposit-modal.open) .support-widget{display:none;}
+        body:has(.modal-overlay.open) .support-widget{display:none;}
 
         /* Background scroll lock while the deposit dialog is open. Keyed off the
            dialog's own `.open` class, so it is released automatically on close
@@ -1643,7 +1646,10 @@
         .code-input{width:40px;height:48px;text-align:center;font-size:18px;font-weight:700;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;color:var(--text-primary);transition:all 0.2s;}
         .code-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--brand-weak);}
 
-        .support-widget{position:fixed;bottom:16px;right:16px;z-index:9998;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+        .support-widget{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom, 0px));right:16px;z-index:9998;display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition:opacity 0.18s ease,transform 0.18s ease;}
+        /* Content-aware launcher: it yields whenever it would sit on top of the
+           equity chart, the wallet card or a control (set from JS on scroll). */
+        .support-widget.kx-fab-away{opacity:0;pointer-events:none;transform:translateY(10px);}
         .support-toggle-btn{width:48px;height:48px;border-radius:50%;background:linear-gradient(145deg,var(--brand),var(--brand));border:none;cursor:pointer;box-shadow:0 8px 32px var(--brand-border);color:var(--on-brand);font-size:18px;position:relative;transition:transform 0.2s;}
         .support-toggle-btn:hover{transform:scale(1.05);}
         .support-toggle-btn .badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:var(--on-brand);font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
@@ -1725,7 +1731,7 @@
         .live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;display:inline-block;animation:pulse 1.5s infinite;}
         .live-dot{background:var(--green);}
 
-        .app-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-top:44px;}
+        .app-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-top:8px;}
         .app-header-brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .app-header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
@@ -4597,6 +4603,673 @@
     @media (prefers-reduced-motion:reduce) {
         .card, .mode-tab, .ticker-content { transition:none !important; animation:none !important; }
     }
+        /* ============================================================
+           KALDERIX DESIGN SYSTEM v2 - additive layer (2026-11)
+           Appended last on purpose: it refines the tokens and components
+           above by cascade. No earlier rule is deleted, so every legacy
+           selector keeps working and each override is reviewable here.
+           Palette unchanged: the accent is still --brand (#5EA0FF).
+           ============================================================ */
+        :root{
+            --kx-bg:#0E141C;
+            --kx-surface:#161E29;
+            --kx-surface-2:#1B2431;
+            --kx-elevated:#212C3A;
+            --kx-line:rgba(233,239,247,.085);
+            --kx-line-strong:rgba(233,239,247,.16);
+            --kx-text:#E9EFF7;
+            --kx-text-2:#A9B7C7;
+            --kx-text-3:#8B98A9;
+            --kx-r-1:6px; --kx-r-2:10px; --kx-r-3:14px; --kx-r-4:20px;
+            --kx-s-1:4px; --kx-s-2:8px; --kx-s-3:12px; --kx-s-4:16px;
+            --kx-s-5:24px; --kx-s-6:32px; --kx-s-7:48px;
+            --kx-t-1:11px; --kx-t-2:12px; --kx-t-3:13px; --kx-t-4:14px;
+            --kx-t-5:16px; --kx-t-6:20px; --kx-t-7:28px; --kx-t-8:36px;
+            --kx-e1:0 1px 2px rgba(0,0,0,.28);
+            --kx-e2:0 10px 30px rgba(0,0,0,.32);
+            --kx-e3:0 28px 70px rgba(0,0,0,.5);
+            --kx-ease:cubic-bezier(.22,.61,.36,1);
+            --kx-nav-w:244px;
+            --kx-content:1220px;
+            --kx-tap:44px;
+        }
+        html,body{background:var(--kx-bg);}
+        body{color:var(--kx-text);}
+        .kx-num,.kx-kpi-value,#totalEquity,#balanceValue,#pnlValue,#liveBalanceDisplay,#promoCreditAmount,
+        .chart-stat-value,.stat-value,.stat-main,.wallet-box span:last-child{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+
+        /* ---- Shell -------------------------------------------------- */
+        .main-content{padding:var(--kx-s-4) var(--kx-s-3) var(--kx-s-7);}
+        .main-content > *{max-width:var(--kx-content);margin-left:auto;margin-right:auto;}
+        .app-header{
+            position:sticky;top:0;z-index:900;
+            display:flex;align-items:center;flex-wrap:wrap;gap:var(--kx-s-3);
+            padding:0 var(--kx-s-3) var(--kx-s-2);padding-top:8px;
+            margin:0 auto var(--kx-s-4);
+            max-width:var(--kx-content);
+            border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-3);
+            background:var(--kx-surface);
+            background:color-mix(in srgb, var(--kx-surface) 90%, transparent);
+            -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+        }
+        .app-header-brand{min-width:0;}
+        .kx-toolbar-sub{display:flex;align-items:center;gap:8px;min-width:0;}
+        .kx-status{
+            display:inline-flex;align-items:center;gap:6px;
+            font-size:var(--kx-t-2);font-weight:600;color:var(--kx-text-2);
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            padding:4px 10px;border-radius:999px;white-space:normal;line-height:1.35;
+        }
+        .app-header-right{gap:var(--kx-s-2);}
+        .btn-icon{
+            width:40px;height:40px;min-width:40px;border-radius:var(--kx-r-2);
+            border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);
+            display:inline-flex;align-items:center;justify-content:center;
+            transition:background var(--transition-fast),color var(--transition-fast),border-color var(--transition-fast);
+        }
+        .btn-icon:hover{background:var(--kx-elevated);color:var(--kx-text);border-color:var(--kx-line-strong);}
+
+        /* ---- Sidebar ------------------------------------------------ */
+        .sidebar{
+            position:fixed;top:0;left:0;height:100%;z-index:1000;overflow-y:auto;
+            transform:translateX(-100%);
+            width:260px;max-width:78vw;
+            background:var(--kx-surface);
+            border-right:1px solid var(--kx-line);
+            padding:var(--kx-s-4) 0 var(--kx-s-3);
+            display:flex;flex-direction:column;gap:2px;
+        }
+        .sidebar-brand{padding:0 var(--kx-s-4) var(--kx-s-4);}
+        .kx-nav-group{
+            margin:var(--kx-s-3) var(--kx-s-4) var(--kx-s-1);
+            font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+            color:var(--kx-text-3);
+        }
+        .kx-nav-group:first-of-type{margin-top:var(--kx-s-1);}
+        .sidebar-link{
+            border-radius:var(--kx-r-2);
+            margin:1px var(--kx-s-2);
+            padding:0 var(--kx-s-3);
+            min-height:44px;
+            font-size:var(--kx-t-3);font-weight:500;
+            color:var(--kx-text-2);
+            border-left:0 !important;
+            border-right:0 !important;
+            position:relative;
+        }
+        .sidebar-link i{width:18px;text-align:center;font-size:13px;color:var(--kx-text-3);}
+        .sidebar-link:hover{background:var(--kx-surface-2);color:var(--kx-text);}
+        .sidebar-link:hover i{color:var(--kx-text-2);}
+        .sidebar-link.active{background:var(--brand-weak);color:var(--kx-text);font-weight:600;}
+        .sidebar-link.active i{color:var(--brand);}
+        .sidebar-link.active::before{
+            content:"";position:absolute;inset-inline-start:0;top:8px;bottom:8px;width:2px;
+            border-radius:2px;background:var(--brand);
+        }
+        .sidebar-status{
+            margin:auto var(--kx-s-2) 0;
+            padding:var(--kx-s-3);
+            border:1px solid var(--kx-line);border-radius:var(--kx-r-2);
+            background:var(--kx-surface-2);
+            /* The nav scrolls on short viewports; the account status must not. */
+            position:sticky;bottom:var(--kx-s-2);z-index:2;
+            box-shadow:0 -12px 20px -12px rgba(0,0,0,.55);
+        }
+        html[dir="rtl"] .sidebar-link{border-right:0 !important;}
+        html[dir="rtl"] .sidebar-link.active{border-right-color:transparent;}
+
+        /* ---- Cards -------------------------------------------------- */
+        .card,.chart-card,.trading-stats-card{
+            background:var(--kx-surface);
+            border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-3);
+            box-shadow:none;
+        }
+        .card-body{padding:var(--kx-s-4);}
+        .card-header{
+            padding:var(--kx-s-3) var(--kx-s-4) 0;
+            font-size:var(--kx-t-1);letter-spacing:.08em;color:var(--kx-text-3);
+        }
+        .icon-bg{border-radius:var(--kx-r-1);}
+        .kx-section{margin:0 auto var(--kx-s-4);max-width:var(--kx-content);}
+        .kx-section-head{display:flex;align-items:baseline;gap:var(--kx-s-2);margin:var(--kx-s-5) 0 var(--kx-s-2);}
+        .kx-section-title{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;}
+        .kx-section-sub{font-size:var(--kx-t-2);color:var(--kx-text-3);}
+        .kx-view[hidden]{display:none;}
+        .kx-view-title{font-size:var(--kx-t-3);font-weight:700;color:var(--kx-text);white-space:nowrap;}
+        .kx-view-title[hidden]{display:none;}
+
+        /* ---- Hero (account summary + primary actions) --------------- */
+        .kx-hero{margin-bottom:var(--kx-s-4);}
+        .kx-hero .stats-grid{
+            display:grid;gap:var(--kx-s-3);
+            grid-template-columns:minmax(0,1fr);
+            grid-template-areas:"eq" "av" "pnl" "bot";
+        }
+        .kx-hero .card{
+            border-radius:var(--kx-r-3);
+            display:flex;flex-direction:column;justify-content:center;
+        }
+        .kx-hero-eq{grid-area:eq;background:
+            radial-gradient(120% 140% at 0% 0%, rgba(94,160,255,.10) 0%, rgba(94,160,255,0) 55%),
+            var(--kx-surface);}
+        .kx-hero-av{grid-area:av;}
+        .kx-hero-pnl{grid-area:pnl;}
+        .kx-hero-bot{grid-area:bot;}
+        .kx-kpi-label{
+            display:flex;align-items:center;gap:6px;
+            font-size:var(--kx-t-1);font-weight:600;letter-spacing:.09em;
+            text-transform:uppercase;color:var(--kx-text-3);margin-bottom:6px;
+        }
+        .kx-kpi-label i{color:var(--brand);font-size:11px;}
+        .kx-kpi-value{font-size:var(--kx-t-6);font-weight:700;letter-spacing:-.02em;line-height:1.15;}
+        /* Money colour comes from .fin-positive/.fin-negative/.fin-zero only. */
+        #pnlValue.fin-positive{color:var(--success);}
+        #pnlValue.fin-negative{color:var(--destructive);}
+        #pnlValue.fin-zero{color:var(--kx-text-2);}
+        .kx-kpi-xl{font-size:var(--kx-t-7);}
+        .kx-kpi-hint{font-size:var(--kx-t-1);color:var(--kx-text-3);margin-top:3px;line-height:1.35;}
+        .kx-hero-eq #totalEquity{font-size:var(--kx-t-8);}
+        .kx-hero-av #balanceValue{font-size:var(--kx-t-6);}
+        .kx-hero-pnl #pnlValue,.kx-hero-bot #botStatus{font-size:var(--kx-t-6);}
+        .kx-hero-bot #botStatus{display:inline-flex;align-items:center;gap:8px;}
+        .kx-hero .stat-actions{gap:var(--kx-s-2);margin-top:var(--kx-s-4);}
+        .kx-hero .stat-deposit-btn{
+            min-height:var(--kx-tap);border-radius:var(--kx-r-2);
+            font-size:var(--kx-t-3);font-weight:700;letter-spacing:0;
+        }
+        .kx-hero .stat-deposit-btn#availableDepositBtn{
+            background:var(--brand);color:var(--on-brand);border:1px solid var(--brand);
+        }
+        .kx-hero .stat-deposit-btn#availableDepositBtn:hover{background:var(--brand-hover);}
+        .kx-hero .stat-withdraw-btn{
+            background:transparent;color:var(--kx-text);
+            border:1px solid var(--kx-line-strong);
+        }
+        .kx-hero .stat-withdraw-btn:hover{background:var(--kx-surface-2);border-color:var(--brand-border);}
+
+        /* ---- Notices ------------------------------------------------ */
+        .kx-alert{border-radius:var(--kx-r-2);font-size:var(--kx-t-2);line-height:1.55;}
+        .kx-notice-slim{
+            display:flex;align-items:flex-start;gap:var(--kx-s-2);
+            padding:var(--kx-s-3) var(--kx-s-4);
+            background:var(--kx-surface-2);
+            border:1px solid var(--kx-line);border-radius:var(--kx-r-2);
+            margin-bottom:var(--kx-s-3);font-size:var(--kx-t-2);color:var(--kx-text-2);
+        }
+        .kx-notice-slim i{color:var(--brand);margin-top:2px;}
+        #startHereCard .card-body{padding:14px var(--kx-s-4);}
+        /* Header controls: square and comfortable to tap. */
+        .app-header .btn-icon{width:40px;height:40px;}
+        #tickerDismissBtn{width:32px;height:32px;min-width:32px;font-size:13px;}
+        .modal-close,.modal-close-btn{width:40px;height:40px;min-width:40px;min-height:40px;border-radius:var(--kx-r-2);}
+        @media(max-width:640px){
+            .btn-icon,.app-header .btn-icon{width:44px;height:44px;min-width:44px;}
+            #mobileMenuBtn{width:44px;height:44px;min-width:44px;min-height:44px;}
+            #tickerDismissBtn{width:44px;height:44px;min-width:44px;font-size:15px;}
+            .modal-close,.modal-close-btn{width:44px;height:44px;min-width:44px;min-height:44px;}
+            .quick-amount-btn{min-height:42px;}
+        }
+
+        /* ---- Buttons ------------------------------------------------ */
+        .btn{
+            border-radius:var(--kx-r-2);
+            font-size:var(--kx-t-3);font-weight:600;letter-spacing:0;
+            min-height:40px;padding:0 var(--kx-s-4);
+            min-width:0;max-width:100%;height:auto;line-height:1.35;
+            white-space:normal;overflow-wrap:break-word;
+            display:inline-flex;align-items:center;justify-content:center;gap:8px;
+            transition:background var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast);
+        }
+        .btn-primary{background:var(--brand);color:var(--on-brand);border:1px solid var(--brand);}
+        .btn-primary:hover{background:var(--brand-hover);}
+        .btn-secondary{background:var(--kx-surface-2);color:var(--kx-text);border:1px solid var(--kx-line-strong);}
+        .btn-secondary:hover{background:var(--kx-elevated);}
+        .btn:disabled,.btn[disabled]{opacity:.55;cursor:not-allowed;}
+        .btn-sm{min-height:34px;padding:0 var(--kx-s-3);font-size:var(--kx-t-2);}
+        .btn-block{width:100%;}
+
+        /* ---- Segmented controls (wallet / chart period) ------------- */
+        .wallet-tabs-wrapper{
+            display:inline-flex;gap:2px;padding:3px;
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-2);margin-bottom:var(--kx-s-3);
+        }
+        .wallet-tabs-wrapper{margin-top:0;}
+        .wallet-tab{
+            min-height:34px;padding:0 var(--kx-s-4);border-radius:var(--kx-r-1);
+            background:transparent;color:var(--kx-text-3);font-size:var(--kx-t-2);font-weight:600;
+            border:0;
+        }
+        .wallet-tab.active{background:var(--kx-elevated);color:var(--kx-text);box-shadow:var(--kx-e1);}
+        .chart-period-tabs{display:inline-flex;gap:2px;padding:3px;background:var(--kx-surface-2);border:1px solid var(--kx-line);border-radius:var(--kx-r-2);}
+        .chart-period-tab{
+            min-height:30px;padding:0 var(--kx-s-3);border-radius:var(--kx-r-1);
+            font-size:var(--kx-t-1);font-weight:600;color:var(--kx-text-3);
+        }
+        .chart-period-tab.active{background:var(--kx-elevated);color:var(--kx-text);}
+
+        /* ---- Cockpit (chart + bot) ---------------------------------- */
+        .kx-cockpit{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kx-s-3);margin-bottom:var(--kx-s-4);}
+        .kx-cockpit .chart-card,.kx-cockpit .trading-stats-card,.kx-cockpit #liveBotCard{margin:0;height:100%;}
+        .chart-header{padding:var(--kx-s-3) var(--kx-s-4);border-bottom:1px solid var(--kx-line);}
+        .chart-title{font-size:var(--kx-t-3);font-weight:600;color:var(--kx-text);letter-spacing:0;}
+        .chart-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--kx-s-2);padding:var(--kx-s-3) var(--kx-s-4);}
+        .chart-stat-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--kx-text-3);display:block;}
+        .chart-stat-value{font-size:var(--kx-t-3);font-weight:700;}
+        .chart-container{padding:0 var(--kx-s-2) var(--kx-s-2);}
+        .kx-cockpit .chart-container{height:300px;}
+        @media(min-width:1280px){.kx-cockpit .chart-container{height:330px;}}
+        @media(max-width:640px){.kx-cockpit .chart-container{height:230px;}}
+        .kx-cockpit .chart-stat-label{font-size:10.5px;color:var(--kx-text-2);}
+        .kx-cockpit .trading-stat-item .stat-main{font-size:18px;font-variant-numeric:tabular-nums;}
+        .kx-cockpit .trading-stat-item .stat-main.negative{color:var(--kx-danger-text);}
+        .kx-cockpit .trading-stat-item .stat-sub{
+            font-size:10.5px;font-weight:600;letter-spacing:.04em;
+            text-transform:uppercase;color:var(--kx-text-2);
+        }
+        .trading-stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kx-s-2);padding:var(--kx-s-3);}
+        .trading-stat-item{border:1px solid var(--kx-line);border-radius:var(--kx-r-2);padding:var(--kx-s-3);background:var(--kx-surface-2);}
+        .stat-sub{font-size:var(--kx-t-1);color:var(--kx-text-3);letter-spacing:.02em;text-transform:none;}
+        .stat-main{font-size:var(--kx-t-5);font-weight:700;}
+        .kx-hint{font-size:var(--kx-t-2);color:var(--kx-text-3);line-height:1.55;margin:0 0 var(--kx-s-2);}
+        .kx-bot-action{min-height:var(--kx-tap);margin-top:var(--kx-s-2);}
+        #botEngineNotice{border-left-width:2px;border-left-color:var(--warning);border-radius:var(--kx-r-1);background:var(--kx-surface-2);}
+
+        /* ---- Wallet ------------------------------------------------- */
+        .wallet-section .two-col-grid{gap:var(--kx-s-3);}
+        .wallet-box{font-size:var(--kx-t-3);color:var(--kx-text-2);}
+        .quick-amount-btn{
+            border-radius:var(--kx-r-1);border:1px solid var(--kx-line);
+            background:var(--kx-surface-2);color:var(--kx-text);
+            min-height:38px;font-size:var(--kx-t-2);font-weight:600;
+        }
+        .quick-amount-btn:hover{border-color:var(--brand-border);background:var(--kx-elevated);}
+        .quick-amount-btn:hover{border-color:var(--brand-border);color:var(--kx-text);}
+
+        /* ---- Tables ------------------------------------------------- */
+        .table-wrap{border:1px solid var(--kx-line);border-radius:var(--kx-r-2);overflow-x:auto;}
+        .table-wrap table{font-size:var(--kx-t-2);min-width:max-content;}
+        .table-wrap th{
+            position:sticky;top:0;z-index:1;
+            background:var(--kx-surface-2);color:var(--kx-text-3);
+            font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+            padding:10px 12px;white-space:nowrap;
+        }
+        .table-wrap td{padding:10px 12px;border-top:1px solid var(--kx-line);}
+
+        /* ---- States ------------------------------------------------- */
+        .empty-state{padding:var(--kx-s-6) var(--kx-s-4);text-align:center;color:var(--kx-text-3);}
+        .empty-state i{font-size:22px;opacity:.6;margin-bottom:var(--kx-s-2);}
+        .empty-state p{font-size:var(--kx-t-2);}
+        .kx-skeleton{background:linear-gradient(90deg,var(--kx-surface-2) 25%,var(--kx-elevated) 50%,var(--kx-surface-2) 75%);background-size:200% 100%;animation:kx-shimmer 1.4s infinite linear;border-radius:var(--kx-r-1);height:12px;}
+        @keyframes kx-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+
+        /* ---- Modals: one visual language ---------------------------- */
+        .modal-overlay,.deposit-modal{
+            background:rgba(6,10,16,.72);
+            -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+        }
+        .modal-overlay .modal-content,
+        .deposit-modal .deposit-modal-content{
+            border:1px solid var(--kx-line-strong);
+            border-radius:var(--kx-r-4);
+            background:var(--kx-surface);
+            box-shadow:var(--kx-e3);
+        }
+        .modal-header,.deposit-modal-head{
+            border-bottom:1px solid var(--kx-line);
+            padding:var(--kx-s-4);
+        }
+        .modal-header h3,.deposit-modal-head h3{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;}
+
+        /* ---- Data density (transaction log, referral metrics) -------- */
+        .tx-entry{padding:11px 14px;border-bottom:1px solid var(--kx-line);}
+        .tx-entry:hover{background:var(--kx-surface-2);}
+        .tx-type{font-size:var(--kx-t-3);letter-spacing:-.005em;}
+        .tx-detail{font-size:var(--kx-t-1);color:var(--kx-text-3);}
+        .tx-amount{font-size:var(--kx-t-4);font-variant-numeric:tabular-nums;}
+        .tx-time{font-size:10px;color:var(--kx-text-3);}
+        .tx-list-wrapper{max-height:320px;}
+        .tx-view-more-btn{border-radius:var(--kx-r-2);border-color:var(--kx-line);color:var(--kx-text-2);}
+        .tx-view-more-btn:hover{background:var(--kx-surface-2);border-color:var(--brand-border);color:var(--kx-text);}
+        .ref-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--kx-s-2);}
+        .ref-metric{
+            display:flex;flex-direction:column;gap:2px;
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-2);padding:var(--kx-s-3);
+            min-width:0;
+        }
+        .ref-metric-value{font-size:var(--kx-t-6);font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;}
+        .ref-metric-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--kx-text-3);}
+        .ref-code,.ref-link{
+            background:var(--kx-surface-2);border:1px solid var(--kx-line);
+            border-radius:var(--kx-r-2);padding:10px 12px;
+            font-size:var(--kx-t-3);overflow-wrap:anywhere;
+        }
+        .wallet-box{background:var(--kx-surface-2);border-color:var(--kx-line);border-radius:var(--kx-r-2);}
+        @media(max-width:640px){
+            .ref-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
+            .tx-list-wrapper{max-height:none;}
+            .kx-hero .stats-grid{
+                grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+                grid-template-areas:"eq eq" "av av" "pnl bot";
+            }
+            .kx-hero-pnl .kx-kpi-value,.kx-hero-bot .kx-kpi-value{font-size:18px;}
+            .kx-hero .card-body{padding:14px;}
+        }
+
+        /* ---- Accessibility + motion --------------------------------- */
+        :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible{
+            outline:2px solid var(--brand);
+            outline-offset:2px;
+            border-radius:var(--kx-r-1);
+        }
+        .skip-link{
+            position:absolute;left:8px;top:-48px;z-index:2000;
+            background:var(--brand);color:var(--on-brand);
+            padding:10px 14px;border-radius:var(--kx-r-2);font-weight:700;
+            transition:top .15s var(--kx-ease);
+        }
+        .skip-link:focus{top:8px;}
+        ::-webkit-scrollbar{width:10px;height:10px;}
+        ::-webkit-scrollbar-track{background:var(--kx-bg);}
+        ::-webkit-scrollbar-thumb{background:var(--kx-elevated);border-radius:8px;border:2px solid var(--kx-bg);}
+        ::-webkit-scrollbar-thumb:hover{background:var(--kx-line-strong);}
+        *{scrollbar-width:thin;scrollbar-color:var(--kx-elevated) var(--kx-bg);}
+        @media(prefers-reduced-motion:reduce){
+            .kx-view-title,.btn,.card,.sidebar-link,.app-header,.kx-skeleton{transition:none !important;animation:none !important;}
+            html{scroll-behavior:auto;}
+        }
+
+        /* ---- Mobile ------------------------------------------------- */
+        @media(max-width:640px){
+            .main-content{padding:var(--kx-s-3) var(--kx-s-3) var(--kx-s-7);}
+            .app-header{padding-left:var(--kx-s-2);padding-right:var(--kx-s-2);padding-bottom:var(--kx-s-2);gap:var(--kx-s-2);border-radius:var(--kx-r-2);}
+            .kx-toolbar-sub{display:none;}
+            .kx-hero-eq #totalEquity{font-size:var(--kx-t-7);}
+            .kx-hero .stat-deposit-btn{min-height:48px;}
+            .chart-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+            .kx-cockpit{grid-template-columns:minmax(0,1fr);}
+            .modal-overlay .modal-content,
+            .deposit-modal .deposit-modal-content{
+                border-radius:var(--kx-r-4) var(--kx-r-4) 0 0;
+            }
+        }
+        @media(min-width:641px) and (max-width:1099px){
+            .kx-hero .stats-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"eq av" "pnl bot";}
+        }
+        @media(min-width:1100px){
+            .kx-hero .stats-grid{
+                grid-template-columns:minmax(0,1.5fr) minmax(0,1.05fr) minmax(0,.85fr);
+                grid-template-areas:"eq av pnl" "eq av bot";
+            }
+            .kx-cockpit{grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);}
+        }
+        @media(min-width:1024px){
+            .sidebar{transform:translateX(0);width:var(--kx-nav-w);}
+            .main-content{margin-left:var(--kx-nav-w);padding:var(--kx-s-5) var(--kx-s-6) var(--kx-s-7);}
+            .app-header{padding-top:var(--kx-s-2);}
+        }
+</style>
+<style id="kx-phase2">
+/* ===========================================================================
+   Phase 2 - compact dashboard
+   Header height, account consolidation, cockpit density, wallet grouping,
+   drawer, support FAB coordination. No financial/JS logic lives here.
+   =========================================================================== */
+
+/* --- chrome: one sticky row on phones ------------------------------------ */
+html{scroll-padding-top:72px;}
+@media (max-width:640px){
+    /* The hamburger is a static grid child, so the 44px top padding was dead
+       space: the bar measured ~98px on a 390px phone. */
+    .app-header{
+        padding:6px 10px !important;
+        gap:6px 8px !important;
+        border-radius:0 0 var(--kx-r-2) var(--kx-r-2);
+        margin-bottom:8px !important;
+        min-height:56px;
+        grid-template-columns:auto minmax(0,1fr) minmax(0,1fr) auto;
+        grid-template-areas:"burger brand sub right";
+        align-items:center;
+    }
+    .kx-toolbar-sub{display:flex;justify-content:flex-end;min-width:0;flex:0 1 auto;overflow:hidden;gap:6px;}
+    .kx-status{display:none;}
+    .kx-view-title{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;min-width:0;}
+    .app-header .btn-icon{width:38px;height:38px;min-width:38px;}
+    .app-header .mobile-menu-btn{width:38px;height:38px;min-width:38px;min-height:38px;}
+    #soundToggleBtn{display:none;}
+    .kx-wordmark{font-size:15px;}
+    .kx-logo{width:26px;height:26px;font-size:12px;}
+}
+@media (min-width:641px) and (max-width:1023px){
+    .app-header{padding-top:8px !important;}
+}
+@media (max-width:360px){
+    .kx-toolbar-sub{display:none;}
+    #appToolbar{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"burger brand right";}
+    .kx-wordmark{font-size:14px;}
+}
+
+/* tablet: the toolbar is a flex row again, so stop the sub-block from wrapping
+   the controls onto a second line (it measured 100px tall) */
+@media (min-width:641px) and (max-width:1023px){
+    #appToolbar{flex-wrap:nowrap;padding:8px 12px !important;gap:10px;min-height:56px;}
+    .kx-toolbar-sub{flex:0 1 auto;min-width:0;}
+    .app-header-right{flex:0 0 auto;}
+    .kx-view-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
+
+/* --- account card: equity leads, availability sits with its actions ------ */
+.kx-hero{margin-bottom:var(--kx-s-3);}
+.kx-hero .kx-account{display:block;padding:0;overflow:hidden;}
+.kx-account .card-body{padding:var(--kx-s-4);display:flex;flex-direction:column;gap:var(--kx-s-3);}
+.kx-acct-top{display:flex;flex-direction:column;gap:1px;}
+.kx-kpi-md{font-size:var(--kx-t-6);}
+.kx-acct-row{display:flex;align-items:center;justify-content:space-between;gap:var(--kx-s-3);flex-wrap:wrap;padding-top:var(--kx-s-3);border-top:1px solid var(--kx-line);}
+.kx-acct-av{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.kx-acct-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kx-s-3);padding-top:var(--kx-s-3);border-top:1px solid var(--kx-line);}
+.kx-metric{min-width:0;}
+.kx-metric-value{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;line-height:1.2;font-variant-numeric:tabular-nums;}
+.kx-hero .stat-actions{margin-top:0;}
+.kx-acct-row .stat-actions{flex:0 0 auto;}
+.kx-acct-row .stat-deposit-btn{min-height:40px;padding:0 14px;font-size:12px;}
+@media (max-width:380px){
+    .kx-acct-row{align-items:stretch;}
+    .kx-acct-row .stat-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+    .kx-acct-row .stat-deposit-btn{width:100%;}
+}
+
+/* Desktop: the same figures as one horizontal band, not three stacked rows. */
+@media (min-width:1200px){
+    .kx-account .card-body{
+        display:grid;
+        grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,1fr);
+        align-items:center;column-gap:var(--kx-s-6);
+    }
+    .kx-acct-top{grid-column:1;}
+    .kx-acct-row{grid-column:2;border-top:0;padding-top:0;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;}
+    .kx-acct-row .stat-actions{width:100%;}
+    .kx-acct-row .stat-deposit-btn{flex:1 1 0;}
+    .kx-acct-metrics{grid-column:3;border-top:0;padding-top:0;}
+}
+
+/* --- Getting started: a completed checklist is one line, not a card ------ */
+#startHereCard.kx-ready .card-body{padding:8px 12px;}
+#startHereCard.kx-ready #startHereHeadLive{display:none;}
+#startHereCard.kx-ready .kx-starthere-row{align-items:center !important;}
+#startHereCard.kx-ready #startHereStepsLiveReady{display:block;}
+#startHereCard.kx-ready #startHereStepsLiveReady > div{font-size:11.5px;line-height:1.35;align-items:center;}
+#startHereCard.kx-ready .btn{min-height:30px;padding:0 9px;font-size:10.5px;}
+#startHereCard{margin-bottom:var(--kx-s-3) !important;}
+
+/* --- cockpit: compact chart + one statistics block ----------------------- */
+.kx-cockpit{gap:var(--kx-s-3);margin-bottom:var(--kx-s-3);}
+.chart-header{padding:var(--kx-s-2) var(--kx-s-3);}
+.chart-stats{padding:var(--kx-s-2) var(--kx-s-3);}
+.chart-stat-label{font-size:10px;}
+.chart-stat-value{font-size:var(--kx-t-2);}
+@media (max-width:640px){
+    .kx-cockpit .chart-container{height:180px;}
+    .chart-header{gap:6px;flex-wrap:wrap;}
+    .chart-title{font-size:12px;}
+    .chart-stat-label{font-size:9px;letter-spacing:.04em;}
+    .chart-stat-value{font-size:11px;}
+}
+.trading-stats-card{padding-bottom:0;}
+.trading-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:0;}
+.trading-stat-item{
+    display:grid;grid-template-columns:auto minmax(0,1fr);
+    grid-template-areas:"icon value" "icon label";
+    align-items:center;column-gap:10px;row-gap:1px;
+    padding:10px 12px;border:0;border-radius:0;background:transparent;
+    border-bottom:1px solid var(--kx-line);border-right:1px solid var(--kx-line);
+}
+.trading-stat-item:nth-child(2n){border-right:0;}
+.trading-stat-item:nth-last-child(-n+2){border-bottom:0;}
+.trading-stat-item .stat-icon{grid-area:icon;width:26px;height:26px;min-width:26px;font-size:11px;margin:0;}
+.trading-stat-item .stat-main{grid-area:value;font-size:16px;margin:0;line-height:1.15;}
+.trading-stat-item .stat-sub{grid-area:label;font-size:10px;margin:0;letter-spacing:.03em;}
+.trading-stat-item .stat-trend{display:none;}
+.trading-stat-item .win-rate-circle{grid-area:icon;width:32px;height:32px;margin:0;}
+.win-rate-circle .center-text{font-size:9px;}
+.trading-stat-item:first-child{grid-template-areas:"icon label";}
+
+.kx-stats-recent{border-top:1px solid var(--kx-line);padding:8px 10px 9px;}
+.kx-stats-recent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
+.kx-stats-recent-title{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--kx-text-3);}
+.kx-stats-recent-link{font-size:11px;color:var(--brand);background:none;border:0;padding:4px 2px;cursor:pointer;min-height:32px;}
+.kx-recent-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:11.5px;padding:3px 0;}
+.kx-recent-asset{color:var(--kx-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kx-recent-time{color:var(--kx-text-3);font-variant-numeric:tabular-nums;}
+.kx-recent-row .fin-positive{color:var(--success);font-variant-numeric:tabular-nums;}
+.kx-recent-row .fin-negative{color:var(--destructive);font-variant-numeric:tabular-nums;}
+@media (max-width:640px){
+    .kx-cockpit .chart-container{height:170px;}
+    .kx-hint-tight{display:none;}
+    .trading-stats-card .card-header{padding:9px 12px;}
+    .trading-stats-card .card-header > span:last-child{display:none;}
+    .trading-stat-item{padding:7px 9px;column-gap:8px;}
+    .trading-stat-item .stat-icon{width:22px;height:22px;min-width:22px;font-size:9.5px;}
+    .trading-stat-item .stat-main{font-size:15px;}
+    .trading-stat-item .stat-sub{font-size:9px;}
+    .kx-recent-row{font-size:11px;padding:2px 0;}
+    .kx-account .card-body{padding:13px 14px;gap:10px;}
+    .kx-acct-row,.kx-acct-metrics{padding-top:10px;}
+    .kx-kpi-hint{font-size:9.5px;margin-top:2px;line-height:1.3;}
+    #liveBotCard .kx-hint{display:none;}
+    #liveFunds .card-body{padding-bottom:10px;}
+}
+
+/* --- wallets: the tab control belongs to the section it switches --------- */
+.kx-wallets{margin-bottom:var(--kx-s-4);}
+.kx-wallets-head{display:flex;align-items:center;justify-content:flex-start;margin-bottom:var(--kx-s-3);}
+.kx-wallets-head .wallet-tabs-wrapper{margin:0;}
+.kx-wallets .two-col-grid{margin-bottom:0 !important;}
+.kx-wallets .card{height:100%;}
+
+/* --- bot panel: state colours + tighter disclosure ----------------------- */
+.kx-state-pill[data-state="ready"]{color:var(--brand);border-color:var(--brand-border);background:var(--brand-weak);}
+.kx-state-pill[data-state="ready"] .kx-dot{background:var(--brand);}
+.kx-state-pill[data-state="paused"]{color:var(--kx-warning-text,#F7C08C);border-color:rgba(232,151,59,.4);background:rgba(232,151,59,.10);}
+.kx-state-pill[data-state="paused"] .kx-dot{background:var(--kx-warning,#E8973B);}
+.kx-state-pill[data-state="error"]{color:var(--kx-danger-text,#F58C90);border-color:rgba(229,72,77,.45);background:rgba(229,72,77,.10);}
+.kx-state-pill[data-state="error"] .kx-dot{background:var(--kx-danger,#E5484D);}
+#botEngineNotice{margin-top:8px !important;padding:7px 9px !important;font-size:10px !important;line-height:1.45 !important;}
+
+.support-panel button{min-height:36px;}
+.support-panel .support-panel-close{min-width:36px;min-height:36px;}
+.toast-close{min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;}
+
+/* --- support: the launcher never floats over an open chat panel ---------- */
+.support-widget:has(.support-panel.open) .support-toggle-btn{display:none;}
+.support-widget:has(.support-panel.open){bottom:12px;}
+.support-panel.open{bottom:12px;}
+
+/* --- drawer: smaller footprint, explicit close, tighter rhythm ----------- */
+.kx-drawer-close{
+    display:none;position:absolute;top:10px;right:10px;
+    width:36px;height:36px;border-radius:10px;
+    align-items:center;justify-content:center;
+    border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);
+    font-size:14px;cursor:pointer;
+}
+html[dir="rtl"] .kx-drawer-close{right:auto;left:10px;}
+@media (max-width:640px){
+    #sidebar{width:min(272px,74vw);padding:12px 0 8px;}
+    .sidebar-brand{padding:0 52px 10px 14px;margin-bottom:6px;}
+    .kx-drawer-close{display:inline-flex;}
+    .kx-nav-group{margin-top:10px;}
+    .sidebar-link{min-height:42px;padding:0 14px;font-size:13px;}
+    .sidebar-link i{width:18px;}
+    .sidebar-status{margin:auto 10px 8px;padding:10px 12px;}
+}
+
+/* ===== Final polish: dashboard rhythm, mobile clearance, floating launcher ====
+   Small spacing refinements only - no structural or colour changes. The account
+   card leads, the cock-pit follows, and the bottom of the page keeps enough
+   clearance that no card ever ends underneath the floating support launcher. */
+.kx-hero{margin-bottom:10px;}
+.kx-cockpit{margin-bottom:10px;}
+.main-content{padding-bottom:calc(88px + env(safe-area-inset-bottom, 0px));}
+
+/* ---- Return to the dashboard -------------------------------------------- */
+/* The brand already belongs to the product, so it doubles as the way home: a
+   real link (hash route) with the presentation unchanged. */
+.app-header-brand{text-decoration:none;color:inherit;}
+.kx-brand-link{border-radius:10px;}
+.kx-brand-link:hover .kx-wordmark{color:var(--kx-text);}
+.kx-brand-link:focus-visible{outline:2px solid var(--kx-accent);outline-offset:3px;}
+.kx-back-dash{
+    display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;
+    border-radius:999px;border:1px solid var(--kx-line);background:var(--kx-surface-2);
+    color:var(--kx-text-2);font-size:12px;font-weight:600;line-height:1;white-space:nowrap;
+    text-decoration:none;flex-shrink:0;transition:color .15s,border-color .15s,background .15s;
+}
+.kx-back-dash[hidden]{display:none;}
+.kx-back-dash:hover{color:var(--kx-text);border-color:var(--kx-line-strong);background:var(--kx-elevated);}
+.kx-back-dash:focus-visible{outline:2px solid var(--kx-accent);outline-offset:2px;}
+.kx-back-dash i{font-size:11px;}
+/* In RTL the arrow points to the start of the line, i.e. rightwards. */
+html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
+/* Below 480px an icon-only pill: "Dashboard" spelled out plus the view title
+   pushes the toolbar onto a second row (measured 102px at 431px). The label
+   stays in the accessibility tree and the title beside it says where you are. */
+@media (max-width:479px){
+    .kx-back-dash{width:32px;height:30px;justify-content:center;padding:0;gap:0;}
+    .kx-back-dash .kx-back-dash-label{
+        position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+        overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+    }
+}
+/* A secondary view adds the return control to the bar. On a phone the extra
+   ~32-101px would wrap the actions onto a second row (measured 102px tall), so
+   the bar keeps one row and the view title takes the ellipsis instead - it is
+   back in full the moment the row has space. The dashboard is untouched. */
+@media (max-width:640px){
+    body:not([data-kx-view="overview"]) #appToolbar{flex-wrap:nowrap;}
+    body:not([data-kx-view="overview"]) .kx-toolbar-sub{overflow:hidden;min-width:0;}
+}
+/* 320px is 1px short of fitting burger + brand + pill + actions, so the pill
+   and the brand gap give back a few pixels rather than the bar wrapping. */
+@media (max-width:340px){
+    .kx-back-dash{width:30px;height:28px;}
+    .app-header-brand{gap:8px;}
+}
+
+#startHereCard{margin-bottom:12px !important;border-color:var(--kx-border) !important;}
+#startHereCard .card-body{padding:12px 14px;}
+#startHereCard #startHereSubtitle{margin-top:3px;}
+#startHereCard #startHereStepsLive{gap:6px;}
+@media (max-width: 640px) {
+  .ticker-wrapper{margin-bottom:8px;}
+  .kx-cockpit{gap:10px;}
+  .main-content{padding-bottom:calc(76px + env(safe-area-inset-bottom, 0px));}
+  .support-widget{right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));}
+  .support-toggle-btn{width:44px;height:44px;font-size:16px;}
+}
 </style>
 </head>
 <body>
@@ -7720,7 +8393,7 @@ function toggleFaq(btn) {
          paints the default $50 / $1,000 static HTML before the authoritative
          server balance arrives. Dismissed in a finally{} after the sync
          (success OR offline-fallback). Frontend-only; no backend/DB/auth change. -->
-    <div id="walletSyncLoader" style="position:fixed;inset:0;background:rgba(7,11,20,0.9);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;">
+    <div id="walletSyncLoader" style="position:fixed;inset:0;background:rgba(7,11,20,0.82);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;transition:opacity 0.18s ease;">
         <i class="fas fa-circle-notch fa-spin" style="font-size:34px;color:var(--brand);"></i>
         <div style="color:var(--text-primary);font-size:14px;font-weight:500;" data-i18n="walletSync.loading">Loading wallet&hellip;</div>
         <!-- Watchdog recovery prompt: shown only if the initial wallet sync is
@@ -7737,29 +8410,31 @@ function toggleFaq(btn) {
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="sidebar" id="sidebar">
+        <button type="button" class="kx-drawer-close" id="drawerCloseBtn" onclick="closeMobileNav()" aria-label="Close menu" data-i18n-aria-label="common.close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         <div class="sidebar-brand">
             <div style="display:flex;align-items:center;gap:9px;"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="26" height="26" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg><span style="color:white;font-weight:800;letter-spacing:-0.01em;">Kal<span style="color:var(--brand);">derix</span></span></div>
             <div style="font-size:10px;color:var(--text-muted);" data-i18n="sidebar.tagline">Multi-Asset Arbitrage</div>
         </div>
+                <div class="kx-nav-group" data-i18n="nav.overview">Overview</div>
         <a class="sidebar-link active" data-section="mainContent"><i class="fas fa-gauge-high"></i> <span data-i18n="sidebar.dashboard">Dashboard</span></a>
-        <a class="sidebar-link" data-section="markets"><i class="fas fa-chart-line"></i> <span data-i18n="sidebar.markets">Markets</span></a>
+        <div class="kx-nav-group" data-i18n="nav.money">Money</div>
         <a class="sidebar-link" id="depositSidebarLink"><i class="fas fa-circle-down"></i> <span data-i18n="sidebar.deposit">Deposit</span></a>
         <a class="sidebar-link" id="withdrawSidebarLink"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></a>
-        <!-- Standalone verification/KYC entry is intentionally hidden for now
-             (UI-only). Withdrawal-triggered verification and every backend KYC
-             check remain fully intact. -->
-        <a class="sidebar-link hidden" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
-        <a class="sidebar-link" id="supportSidebarLink" onclick="openSupportModal()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
+        <div class="kx-nav-group" data-i18n="nav.trading">Trading</div>
+        <a class="sidebar-link" data-section="markets"><i class="fas fa-chart-line"></i> <span data-i18n="sidebar.markets">Markets</span></a>
         <a class="sidebar-link" data-section="history"><i class="fas fa-clock-rotate-left"></i> <span data-i18n="sidebar.history">Transaction Log</span></a>
+        <div class="kx-nav-group" data-i18n="nav.grow">Grow</div>
         <a class="sidebar-link" data-section="referral"><i class="fas fa-gift"></i> <span data-i18n="sidebar.referral">Referral</span></a>
         <a class="sidebar-link" id="subscriptionSidebarLink" onclick="openSubscriptionModal()"><i class="fas fa-crown" style="color:var(--brand);"></i> <span data-i18n="sidebar.subscription">Subscription</span></a>
-        <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:var(--brand);"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
-        <div style="height:1px;background:var(--border);margin:8px 20px;"></div>
+        <div class="kx-nav-group" data-i18n="nav.account">Account</div>
+        <a class="sidebar-link hidden" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
+        <a class="sidebar-link" id="supportSidebarLink" onclick="openSupportModal()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
         <a class="sidebar-link" id="twofaLink" onclick="openTwoFAModal()"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
         <a class="sidebar-link" id="profileLink" onclick="openProfileModal()"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
         <a class="sidebar-link" id="pwaInstallSidebarLink"><i class="fas fa-download"></i> <span data-i18n="sidebar.install">Install App</span> <span style="margin-left:auto;background:var(--green);color:var(--on-brand);font-size:8px;padding:2px 6px;border-radius:8px;font-weight:700;" data-i18n="common.new">NEW</span></a>
+        <a class="sidebar-link hidden" id="adminSidebarLink" onclick="navigateToAdmin()"><i class="fas fa-user-shield" style="color:var(--brand);"></i> <span data-i18n="sidebar.admin">Admin Panel</span></a>
         <a class="sidebar-link" id="logoutLink"><i class="fas fa-sign-out-alt"></i> <span data-i18n="sidebar.logout">Logout</span></a>
-        <div class="sidebar-status">
+<div class="sidebar-status">
             <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);"><span class="dot online"></span> <span data-i18n="sidebar.liveSync">Live Sync</span> <span id="pwaStatusDot" style="margin-left:auto;font-size:9px;color:var(--text-muted);">Web</span></div>
             <span class="status-badge pending" id="accountStatusBadge" data-i18n="status.pending">Pending</span>
             <div style="font-size:10px;color:var(--text-muted);margin-top:8px;"><i class="fas fa-user"></i> <span id="displayName">Trader</span></div>
@@ -7770,11 +8445,17 @@ function toggleFaq(btn) {
     <div class="main-content" id="mainContent">
         <div class="app-header" id="appToolbar">
             <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
-            <div class="app-header-brand">
+            <a class="app-header-brand kx-brand-link" id="kxToolbarBrand" href="#overview" onclick="return goToDashboard(event)" data-i18n-title="nav.backToDashboard">
                 <span class="kx-logo" aria-hidden="true"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="19" height="19" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg></span>
                 <span class="kx-wordmark">Kal<span>derix</span></span>
-            </div>
+            </a>
+            <a class="kx-back-dash" id="kxBackToDashboard" href="#overview" onclick="return goToDashboard(event)"
+               hidden data-i18n-title="nav.backToDashboard" data-i18n-aria-label="nav.backToDashboard">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                <span class="kx-back-dash-label" data-i18n="sidebar.dashboard">Dashboard</span>
+            </a>
             <div class="kx-toolbar-sub">
+                <span class="kx-view-title" id="kxViewTitle"></span>
                 <div class="kx-status" id="accountStatus" data-i18n="status.livePending">Live - Not funded yet</div>
             </div>
             <div class="app-header-right">
@@ -7829,36 +8510,44 @@ function toggleFaq(btn) {
         <!-- Promotional-credit restriction: the ONLY copy of it, shown on the
              first screen in ANY mode, because a promo-funded account starts in
              Demo where the Live wallet card is not rendered at all. -->
+        <div class="kx-view" data-view="overview" id="kxViewOverview">
         <div id="promoCreditBanner" class="hidden kx-alert kx-alert-warning" role="note" style="margin:0 0 16px;">
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
             <span data-i18n="promo.tradableNotice">Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade.</span>
         </div>
-        <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
-            <div class="card-body">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-                    <div style="min-width:0;">
-                        <div id="startHereHeadLive">
-                            <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
-                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
+        <div class="kx-hero" id="kxHero">
+            <!-- One account card: equity leads, availability sits with the actions it
+                 enables, and P&L + bot state are compact metrics. The previous four
+                 separate KPI cards repeated the same balance three times. -->
+            <div class="card kx-account">
+                <div class="card-body">
+                    <div class="kx-acct-top">
+                        <div class="kx-kpi-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div>
+                        <div id="totalEquity" class="kx-kpi-value kx-kpi-xl">$1,000.00</div>
+                        <div class="kx-kpi-hint" data-i18n="hint.equity">Account value</div>
+                    </div>
+                    <div class="kx-acct-row" id="availableStatCard">
+                        <div class="kx-acct-av">
+                            <div class="kx-kpi-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div>
+                            <div id="balanceValue" class="kx-kpi-value kx-kpi-md">$1,000.00</div>
+                            <div class="kx-kpi-hint" data-i18n="hint.available">Ready to use</div>
+                        </div>
+                        <div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div>
+                    </div>
+                    <div class="kx-acct-metrics">
+                        <div class="kx-metric">
+                            <div class="kx-kpi-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&amp;L</span></div>
+                            <div id="pnlValue" class="kx-metric-value fin-zero">$0.00</div>
+                            <div class="kx-kpi-hint" data-i18n="hint.pnl">Today's trading profit/loss</div>
+                        </div>
+                        <div class="kx-metric">
+                            <div class="kx-kpi-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div>
+                            <div id="botStatus" class="kx-metric-value" style="color:#E5484D;">Offline</div>
+                            <div class="kx-kpi-hint" id="botStatusHint" data-i18n="hint.botStatus">Running or stopped</div>
                         </div>
                     </div>
-                    <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;min-height:36px;min-width:44px;flex:0 0 auto;" data-i18n="startHere.dismiss">Dismiss</button>
-                </div>
-                <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
-                     the amounts ({{min}}) are configuration-driven. -->
-                <div id="startHereStepsLive" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
-                <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
-                <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
-                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
                 </div>
             </div>
-        </div>
-
-        <div class="stats-grid" style="margin-bottom:16px;">
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div><div id="totalEquity" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.equity">Account value</div></div></div>
-            <div class="card" id="availableStatCard"><div class="card-body"><div class="stat-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div><div id="balanceValue" class="stat-value">$1,000.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.available">Ready to use</div><div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&L</span></div><div id="pnlValue" class="stat-value fin-zero">$0.00</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.pnl">Today's trading profit/loss</div></div></div>
-            <div class="card"><div class="card-body"><div class="stat-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div><div id="botStatus" class="stat-value" style="color:#E5484D;" data-i18n="bot.offline">Offline</div><div class="stat-hint" style="font-size:10px;color:var(--text-muted);margin-top:2px;" data-i18n="hint.botStatus">Running or stopped</div></div></div>
         </div>
 
         <!-- Promotional credit + Live Mode status (server-authoritative).
@@ -7867,6 +8556,28 @@ function toggleFaq(btn) {
              marks a deposit or unlocks trading: the gates are /api/bot/start
              and /api/trade. Hidden for accounts with no promotional credit and
              no pending activation step, so funded dashboards are unchanged. -->
+        <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
+            <div class="card-body">
+                <div class="kx-starthere-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                    <div style="min-width:0;">
+                        <div id="startHereHeadLive">
+                            <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
+                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
+                        </div>
+                        <!-- Completion state: one line, inside the same row as Dismiss -->
+                        <div id="startHereStepsLiveReady" style="display:none;">
+                            <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;min-height:36px;min-width:44px;flex:0 0 auto;" data-i18n="startHere.dismiss">Dismiss</button>
+                </div>
+                <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
+                     the amounts ({{min}}) are configuration-driven. -->
+                <div id="startHereStepsLive" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
+
+            </div>
+        </div>
+
         <div class="card" id="liveModeCard" style="display:none;margin-bottom:16px;">
             <div class="card-body">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
@@ -7891,7 +8602,9 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <div class="chart-card">
+        <!-- Cockpit: performance and statistics share one decision surface -->
+        <div class="kx-cockpit" id="kxCockpit">
+        <div class="chart-card" id="chartCard">
             <div class="chart-header">
                 <div class="chart-title"><span class="icon-bg gold"><i class="fas fa-chart-line"></i></span><span data-i18n="chart.title">Equity Performance</span></div>
                 <div class="chart-period-tabs">
@@ -7909,7 +8622,7 @@ function toggleFaq(btn) {
             <div class="chart-container"><canvas id="pnlChart"></canvas></div>
         </div>
 
-        <div class="trading-stats-card">
+        <div class="trading-stats-card" id="tradingStatsCard">
             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-pie"></i></span><span data-i18n="trading.title">Trading Statistics</span><span style="margin-left:auto;font-size:9px;color:var(--text-muted);" data-i18n="trading.session">Session Performance</span></div>
             <div class="trading-stats-grid">
                 <div class="trading-stat-item">
@@ -7925,12 +8638,20 @@ function toggleFaq(btn) {
                 <div class="trading-stat-item"><div class="stat-icon red"><i class="fas fa-chart-line-down"></i></div><div class="stat-main negative" id="statWorstTrade">$0.00</div><div class="stat-sub" data-i18n="trading.worstTrade">Worst Trade</div></div>
                 <div class="trading-stat-item"><div class="stat-icon gold"><i class="fas fa-fire"></i></div><div class="stat-main" id="statStreak">0</div><div class="stat-sub" data-i18n="trading.streak">Win Streak</div><div class="stat-trend up" id="streakTrend" style="display:none;">🔥 HOT</div></div>
             </div>
+            <!-- Latest executed trades: real rows from the wallet ledger, so the
+                 statistics block and the activity view can never disagree. -->
+            <div class="kx-stats-recent" id="kxStatsRecent" hidden></div>
         </div>
 
         <!-- WALLET TABS -->
-        <div class="wallet-tabs-wrapper" id="walletTabsWrapper">
-            <button type="button" class="wallet-tab active" data-wallet="live" data-i18n="wallet.live">Live Wallet</button>
-            <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Bonus Wallet</button>
+                </div>
+
+        <div class="kx-wallets" id="kxWallets">
+        <div class="kx-wallets-head">
+            <div class="wallet-tabs-wrapper" id="walletTabsWrapper">
+                <button type="button" class="wallet-tab active" data-wallet="live" data-i18n="wallet.live">Live Wallet</button>
+                <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Bonus Wallet</button>
+            </div>
         </div>
 
         <!-- LIVE WALLET SECTION -->
@@ -7967,7 +8688,7 @@ function toggleFaq(btn) {
                         <div class="kx-hint kx-hint-tight" data-i18n="hint.scanner">Market scanning</div>
                         <button type="button" id="startStopBtnLive" class="btn btn-primary btn-block kx-bot-action" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
                         <div id="botStatusMsgLive" class="kx-bot-status" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
-                        <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Your bot runs automatically and keeps trading even when you're offline.</div>
+                        <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Runs in this browser tab. Trading pauses if you close or refresh the page.</div>
                     </div>
                 </div>
             </div>
@@ -8001,9 +8722,13 @@ function toggleFaq(btn) {
             </div>
         </div>
 
+        </div><!-- /kxWallets -->
+
         <!-- ============ PROMO BANNER REMOVED ============ -->
 
         <!-- TRANSACTION LOG -->
+                </div>
+
         <div class="card" style="margin-bottom:16px;" id="history">
             <div class="card-header">
                 <span class="icon-bg gold"><i class="fas fa-clock-rotate-left"></i></span> 
@@ -8041,7 +8766,7 @@ function toggleFaq(btn) {
         <div class="card" style="margin-bottom:16px;" id="markets">
             <div class="card-header"><span class="icon-bg gold"><i class="fas fa-chart-candlestick"></i></span> <span data-i18n="markets.advancedChart">Advanced Market Chart</span></div>
             <div class="card-body" style="padding:0;">
-                <div style="position:relative;width:100%;height:400px;background:#0A1020;border-radius:12px;overflow:hidden;">
+                <div class="kx-chart-host" style="position:relative;width:100%;height:clamp(300px,52vh,560px);background:var(--kx-surface-2);border-radius:12px;overflow:hidden;">
                     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
                     <script type="text/javascript">
                         new TradingView.widget({
@@ -9076,12 +9801,12 @@ function toggleFaq(btn) {
       <div id="supportedCoinsInfo" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin:16px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <i class="fas fa-shield-alt" style="color:#5EA0FF;font-size:14px;"></i>
-          <span style="font-size:12px;font-weight:600;color:#5EA0FF;" data-i18n="deposit.currentlySupported">Currently Supported</span>
+          <span style="font-size:12px;font-weight:600;color:#9CC4FF;" data-i18n="deposit.currentlySupported">Currently Supported</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);">
-          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#5EA0FF;font-weight:600;">USDT</span>
+          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#9CC4FF;font-weight:600;">USDT</span>
           <span data-i18n="deposit.on">on</span>
-          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#5EA0FF;font-weight:600;">TRON (TRC20)</span>
+          <span style="background:rgba(16,185,129,0.15);padding:3px 8px;border-radius:4px;color:#9CC4FF;font-weight:600;">TRON (TRC20)</span>
         </div>
       </div>
 
@@ -10691,6 +11416,12 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Your wallet is taking longer than usual to load. This can happen on a slow or unstable connection.',
         'walletSync.refresh': 'Refresh Account',
         'sidebar.tagline': 'Multi-Asset Arbitrage',
+        'nav.overview': 'Overview',
+        'nav.money': 'Money',
+        'nav.trading': 'Trading',
+        'nav.grow': 'Grow',
+        'nav.account': 'Account',
+        'nav.backToDashboard': 'Back to Dashboard',
         'sidebar.dashboard': 'Dashboard',
         'sidebar.markets': 'Markets',
         'sidebar.deposit': 'Deposit',
@@ -10719,7 +11450,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Account value',
         'hint.available': 'Ready to use',
         'hint.pnl': 'Today\'s trading profit/loss',
-        'hint.botStatus': 'Running or stopped',
+        'hint.botStatus': 'Idle - ready to start',
         'hint.bot': 'Scans supported markets and trades automatically when running',
         'hint.scanner': 'Market scanning',
         'hint.txLog': 'Your recent activity (last 30 minutes).',
@@ -10738,7 +11469,19 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Deposit Funds',
         'bot.promoLimitReached': 'You reached the $30 promotional profit limit. Make your first deposit to continue trading.',
         'bot.readyToTrade': '✅ Bot ready to trade',
-        'bot.engineNotice': "🤖 Your bot runs automatically and keeps trading even when you're offline.",
+        'bot.readyMsg': 'The bot is idle. Press Start Bot and it will scan supported markets and trade automatically.',
+        'bot.offlineMsg': 'The bot is not available in this view.',
+        'bot.pausedMsg': 'The bot is paused and is not trading. Resolve the notice above, then press Start Bot to resume.',
+        'bot.errorMsg': 'The bot stopped after an error. Press Start Bot to try again.',
+        'hint.botStatus.ready': 'Idle - ready to start',
+        'hint.botStatus.running': 'Scanning markets now',
+        'hint.botStatus.paused': 'Paused - not trading',
+        'hint.botStatus.error': 'Stopped after an error',
+        'bot.readyToStart': 'Ready to start',
+        'bot.pausedShort': 'Paused',
+        'bot.errorState': 'Error',
+        'bot.runningMsg': 'Scanning supported markets. New trades appear in the activity log below.',
+        'bot.engineNotice': "🤖 Runs in this browser tab. Trading pauses if you close or refresh the page.",
         'bot.engineNoticeWorker': "Your bot keeps running even when you close this page. Come back anytime to check your activity.",
         'bot.workerManaged': "🤖 Your bot now runs automatically. It will keep trading even when you're offline.",
         'chart.title': 'Equity Performance',
@@ -10756,6 +11499,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Best Trade',
         'trading.worstTrade': 'Worst Trade',
         'trading.streak': 'Win Streak',
+        'trading.recent': 'Recent trades',
         'achievements.title': 'Achievements',
         'badge.rarity.common': 'Common',
         'badge.rarity.rare': 'Rare',
@@ -12304,6 +13048,12 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Su billetera está tardando más de lo habitual en cargar. Esto puede ocurrir con una conexión lenta o inestable.',
         'walletSync.refresh': 'Actualizar cuenta',
         'sidebar.tagline': 'Arbitraje Multi-Activo',
+        'nav.overview': 'Resumen',
+        'nav.money': 'Dinero',
+        'nav.trading': 'Operación',
+        'nav.grow': 'Crecer',
+        'nav.account': 'Cuenta',
+        'nav.backToDashboard': 'Volver al panel',
         'sidebar.dashboard': 'Panel',
         'sidebar.markets': 'Mercados',
         'sidebar.deposit': 'Depositar',
@@ -12332,7 +13082,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Valor de la cuenta',
         'hint.available': 'Listo para usar',
         'hint.pnl': 'Ganancia/pérdida de hoy',
-        'hint.botStatus': 'En ejecución o detenido',
+        'hint.botStatus': 'Inactivo: listo para iniciar',
         'hint.bot': 'Analiza los mercados compatibles y opera automáticamente cuando está activo',
         'hint.scanner': 'Escaneo de mercado',
         'hint.txLog': 'Tu actividad reciente (últimos 30 minutos).',
@@ -12351,7 +13101,19 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Depositar fondos',
         'bot.promoLimitReached': 'Alcanzaste el límite de $30 de ganancia promocional. Haz tu primer depósito para seguir operando.',
         'bot.readyToTrade': '✅ Bot listo para operar',
-        'bot.engineNotice': "🤖 Tu bot se ejecuta automáticamente y sigue operando incluso cuando estás desconectado.",
+        'bot.readyMsg': 'El bot está inactivo. Pulsa "Iniciar bot" y escaneará los mercados compatibles y operará automáticamente.',
+        'bot.offlineMsg': 'El bot no está disponible en esta vista.',
+        'bot.pausedMsg': 'El bot está en pausa y no opera. Revisa el aviso de arriba y pulsa "Iniciar bot" para reanudar.',
+        'bot.errorMsg': 'El bot se detuvo tras un error. Pulsa "Iniciar bot" para intentarlo de nuevo.',
+        'hint.botStatus.ready': 'Inactivo: listo para iniciar',
+        'hint.botStatus.running': 'Escaneando mercados ahora',
+        'hint.botStatus.paused': 'En pausa: sin operar',
+        'hint.botStatus.error': 'Detenido tras un error',
+        'bot.readyToStart': 'Listo para iniciar',
+        'bot.pausedShort': 'En pausa',
+        'bot.errorState': 'Error',
+        'bot.runningMsg': 'Escaneando mercados compatibles. Las nuevas operaciones aparecen en el registro de actividad.',
+        'bot.engineNotice': "🤖 Se ejecuta en esta pestaña del navegador. El trading se detiene si cierras o actualizas la página.",
         'bot.engineNoticeWorker': "Tu bot sigue funcionando aunque cierres esta página. Vuelve cuando quieras para revisar tu actividad.",
         'bot.workerManaged': "🤖 Tu bot ahora se ejecuta automáticamente. Seguirá operando incluso cuando estés desconectado.",
         'chart.title': 'Rendimiento del patrimonio',
@@ -12369,6 +13131,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Mejor operación',
         'trading.worstTrade': 'Peor operación',
         'trading.streak': 'Racha de aciertos',
+        'trading.recent': 'Operaciones recientes',
         'achievements.title': 'Logros',
         'badge.rarity.common': 'Común',
         'badge.rarity.rare': 'Raro',
@@ -13918,6 +14681,12 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Sua carteira está demorando mais que o normal para carregar. Isso pode acontecer em uma conexão lenta ou instável.',
         'walletSync.refresh': 'Atualizar conta',
         'sidebar.tagline': 'Arbitragem Multi-Ativo',
+        'nav.overview': 'Visão geral',
+        'nav.money': 'Dinheiro',
+        'nav.trading': 'Negociação',
+        'nav.grow': 'Crescer',
+        'nav.account': 'Conta',
+        'nav.backToDashboard': 'Voltar ao painel',
         'sidebar.dashboard': 'Painel',
         'sidebar.markets': 'Mercados',
         'sidebar.deposit': 'Depositar',
@@ -13946,7 +14715,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Valor da conta',
         'hint.available': 'Pronto para usar',
         'hint.pnl': 'Lucro/prejuízo de hoje',
-        'hint.botStatus': 'Em execução ou parado',
+        'hint.botStatus': 'Inativo: pronto para iniciar',
         'hint.bot': 'Analisa os mercados compatíveis e negocia automaticamente quando ativo',
         'hint.scanner': 'Varredura de mercado',
         'hint.txLog': 'Sua atividade recente (últimos 30 minutos).',
@@ -13965,7 +14734,19 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Depositar fundos',
         'bot.promoLimitReached': 'Você atingiu o limite de $30 de lucro promocional. Faça seu primeiro depósito para continuar operando.',
         'bot.readyToTrade': '✅ Bot pronto para operar',
-        'bot.engineNotice': "🤖 Seu bot funciona automaticamente e continua operando mesmo quando você está offline.",
+        'bot.readyMsg': 'O bot está inativo. Toque em "Iniciar bot" para que analise os mercados compatíveis e opere automaticamente.',
+        'bot.offlineMsg': 'O bot não está disponível nesta vista.',
+        'bot.pausedMsg': 'O bot está pausado e não opera. Verifique o aviso acima e toque em "Iniciar bot" para retomar.',
+        'bot.errorMsg': 'O bot parou após um erro. Toque em "Iniciar bot" para tentar novamente.',
+        'hint.botStatus.ready': 'Inativo: pronto para iniciar',
+        'hint.botStatus.running': 'Analisando mercados agora',
+        'hint.botStatus.paused': 'Pausado: sem operar',
+        'hint.botStatus.error': 'Parado após um erro',
+        'bot.readyToStart': 'Pronto para iniciar',
+        'bot.pausedShort': 'Pausado',
+        'bot.errorState': 'Erro',
+        'bot.runningMsg': 'Verificando mercados compatíveis. As novas operações aparecem no registro de atividades.',
+        'bot.engineNotice': "🤖 Roda nesta aba do navegador. As negociações param se você fechar ou atualizar a página.",
         'bot.engineNoticeWorker': "Seu bot continua funcionando mesmo quando você fecha esta página. Volte quando quiser para ver sua atividade.",
         'bot.workerManaged': "🤖 Seu bot agora funciona automaticamente. Ele continuará operando mesmo quando você estiver offline.",
         'chart.title': 'Desempenho do patrimônio',
@@ -13983,6 +14764,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Melhor operação',
         'trading.worstTrade': 'Pior operação',
         'trading.streak': 'Sequência de acertos',
+        'trading.recent': 'Operações recentes',
         'achievements.title': 'Conquistas',
         'badge.rarity.common': 'Comum',
         'badge.rarity.rare': 'Raro',
@@ -15532,6 +16314,12 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'Votre portefeuille met plus de temps que d’habitude à charger. Cela peut arriver avec une connexion lente ou instable.',
         'walletSync.refresh': 'Actualiser le compte',
         'sidebar.tagline': 'Arbitrage Multi-Actifs',
+        'nav.overview': 'Vue d\'ensemble',
+        'nav.money': 'Argent',
+        'nav.trading': 'Trading',
+        'nav.grow': 'Croissance',
+        'nav.account': 'Compte',
+        'nav.backToDashboard': 'Retour au tableau de bord',
         'sidebar.dashboard': 'Tableau de bord',
         'sidebar.markets': 'Marchés',
         'sidebar.deposit': 'Dépôt',
@@ -15560,7 +16348,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Valeur du compte',
         'hint.available': 'Disponible',
         'hint.pnl': 'Profit/perte du jour',
-        'hint.botStatus': 'En cours ou arrêté',
+        'hint.botStatus': 'Inactif : prêt à démarrer',
         'hint.bot': 'Analyse les marchés pris en charge et trade automatiquement lorsqu\'il est actif',
         'hint.scanner': 'Analyse des marchés',
         'hint.txLog': 'Votre activité récente (30 dernières minutes).',
@@ -15579,7 +16367,19 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Déposer des fonds',
         'bot.promoLimitReached': 'Vous avez atteint la limite de 30 $ de gain promotionnel. Faites votre premier dépôt pour continuer à trader.',
         'bot.readyToTrade': '✅ Bot prêt à trader',
-        'bot.engineNotice': "🤖 Votre bot fonctionne automatiquement et continue à trader même lorsque vous êtes hors ligne.",
+        'bot.readyMsg': 'Le bot est inactif. Appuyez sur « Démarrer le bot » pour analyser les marchés pris en charge et trader automatiquement.',
+        'bot.offlineMsg': 'Le bot n’est pas disponible dans cette vue.',
+        'bot.pausedMsg': 'Le bot est en pause et ne trade pas. Consultez l’avis ci-dessus, puis appuyez sur « Démarrer le bot » pour reprendre.',
+        'bot.errorMsg': 'Le bot s’est arrêté après une erreur. Appuyez sur « Démarrer le bot » pour réessayer.',
+        'hint.botStatus.ready': 'Inactif : prêt à démarrer',
+        'hint.botStatus.running': 'Analyse des marchés en cours',
+        'hint.botStatus.paused': 'En pause : aucun trade',
+        'hint.botStatus.error': 'Arrêté après une erreur',
+        'bot.readyToStart': 'Prêt à démarrer',
+        'bot.pausedShort': 'En pause',
+        'bot.errorState': 'Erreur',
+        'bot.runningMsg': 'Analyse des marchés pris en charge. Les nouvelles transactions apparaissent dans le journal d\'activité.',
+        'bot.engineNotice': "🤖 Fonctionne dans cet onglet. Le trading s'arrête si vous fermez ou actualisez la page.",
         'bot.engineNoticeWorker': "Votre bot continue de fonctionner même lorsque vous fermez cette page. Revenez quand vous voulez pour consulter votre activité.",
         'bot.workerManaged': "🤖 Votre bot fonctionne maintenant automatiquement. Il continuera à trader même lorsque vous êtes hors ligne.",
         'chart.title': 'Performance des capitaux',
@@ -15597,6 +16397,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Meilleure transaction',
         'trading.worstTrade': 'Pire transaction',
         'trading.streak': 'Série de gains',
+        'trading.recent': 'Transactions récentes',
         'achievements.title': 'Trophées',
         'badge.rarity.common': 'Commune',
         'badge.rarity.rare': 'Rare',
@@ -17146,6 +17947,12 @@ const TRANSLATIONS = {
         'walletSync.slowBody': 'يستغرق تحميل محفظتك وقتًا أطول من المعتاد. قد يحدث ذلك عند وجود اتصال بطيء أو غير مستقر.',
         'walletSync.refresh': 'تحديث الحساب',
         'sidebar.tagline': 'مراجحة متعددة الأصول',
+        'nav.overview': 'نظرة عامة',
+        'nav.money': 'الأموال',
+        'nav.trading': 'التداول',
+        'nav.grow': 'النمو',
+        'nav.account': 'الحساب',
+        'nav.backToDashboard': '\u0627\u0644\u0639\u0648\u062f\u0629 \u0625\u0644\u0649 \u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645',
         'sidebar.dashboard': 'لوحة التحكم',
         'sidebar.markets': 'الأسواق',
         'sidebar.deposit': 'إيداع',
@@ -17174,7 +17981,7 @@ const TRANSLATIONS = {
         'hint.equity': 'قيمة الحساب',
         'hint.available': 'جاهز للاستخدام',
         'hint.pnl': 'ربح/خسارة تداولات اليوم',
-        'hint.botStatus': 'قيد التشغيل أو متوقف',
+        'hint.botStatus': 'متوقف: جاهز للبدء',
         'hint.bot': 'يفحص الأسواق المدعومة ويتداول تلقائيًا عند التشغيل',
         'hint.scanner': 'فحص السوق',
         'hint.txLog': 'نشاطك الأخير (آخر 30 دقيقة).',
@@ -17193,7 +18000,19 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'إيداع أموال',
         'bot.promoLimitReached': 'وصلت إلى حد الربح الترويجي 30 دولارًا. قم بأول إيداع لمتابعة التداول.',
         'bot.readyToTrade': '✅ الروبوت جاهز للتداول',
-        'bot.engineNotice': "🤖 روبوتك يعمل تلقائيًا ويستمر في التداول حتى عندما تكون غير متصل.",
+        'bot.readyMsg': 'الروبوت متوقف الآن. اضغط على «بدء الروبوت» ليبحث في الأسواق المدعومة ويتداول تلقائياً.',
+        'bot.offlineMsg': 'الروبوت غير متاح في هذا العرض.',
+        'bot.pausedMsg': 'الروبوت متوقف مؤقتاً ولا يتداول. راجع التنبيه أعلاه ثم اضغط على «بدء الروبوت» للمتابعة.',
+        'bot.errorMsg': 'توقف الروبوت بعد خطأ. اضغط على «بدء الروبوت» للمحاولة مرة أخرى.',
+        'hint.botStatus.ready': 'متوقف: جاهز للبدء',
+        'hint.botStatus.running': 'يبحث في الأسواق الآن',
+        'hint.botStatus.paused': 'متوقف مؤقتاً: لا تداول',
+        'hint.botStatus.error': 'توقف بعد خطأ',
+        'bot.readyToStart': 'جاهز للبدء',
+        'bot.pausedShort': 'متوقف مؤقتًا',
+        'bot.errorState': 'خطأ',
+        'bot.runningMsg': 'جارٍ فحص الأسواق المدعومة. تظهر العمليات الجديدة في سجل النشاط أدناه.',
+        'bot.engineNotice': "🤖 يعمل داخل هذا التبويب. تتوقف التداولات إذا أغلقت الصفحة أو حدّثتها.",
         'bot.engineNoticeWorker': "يستمر روبوتك في العمل حتى عند إغلاق هذه الصفحة. عُد في أي وقت للاطلاع على نشاطك.",
         'bot.workerManaged': "🤖 روبوتك يعمل الآن تلقائيًا. سيستمر في التداول حتى عندما تكون غير متصل.",
         'chart.title': 'أداء رأس المال',
@@ -17211,6 +18030,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'أفضل صفقة',
         'trading.worstTrade': 'أسوأ صفقة',
         'trading.streak': 'سلسلة الفوز',
+        'trading.recent': 'العمليات الأخيرة',
         'achievements.title': 'الإنجازات',
         'badge.rarity.common': 'شائع',
         'badge.rarity.rare': 'نادر',
@@ -18760,6 +19580,12 @@ const TRANSLATIONS = {
         'walletSync.slowBody': '您的钱包加载时间比平时长。这可能在网络缓慢或不稳定时发生。',
         'walletSync.refresh': '刷新账户',
         'sidebar.tagline': '多资产套利',
+        'nav.overview': '总览',
+        'nav.money': '资金',
+        'nav.trading': '交易',
+        'nav.grow': '增长',
+        'nav.account': '账户',
+        'nav.backToDashboard': '\u8fd4\u56de\u4eea\u8868\u76d8',
         'sidebar.dashboard': '仪表盘',
         'sidebar.markets': '市场',
         'sidebar.deposit': '存款',
@@ -18788,7 +19614,7 @@ const TRANSLATIONS = {
         'hint.equity': '账户价值',
         'hint.available': '可使用',
         'hint.pnl': '今日交易盈亏',
-        'hint.botStatus': '运行中或已停止',
+        'hint.botStatus': '空闲：可以开始',
         'hint.bot': '运行时自动扫描受支持市场并交易',
         'hint.scanner': '市场扫描',
         'hint.txLog': '您最近的活动（最近 30 分钟）。',
@@ -18807,7 +19633,19 @@ const TRANSLATIONS = {
         'profitPause.addFunds': '入金',
         'bot.promoLimitReached': '您已达到 30 美元促销利润上限。请先入金再继续交易。',
         'bot.readyToTrade': '✅ 机器人可交易',
-        'bot.engineNotice': "🤖 您的机器人会自动运行，即使您离线也会继续交易。",
+        'bot.readyMsg': '机器人当前空闲。点击“启动机器人”后会自动扫描支持的市场并交易。',
+        'bot.offlineMsg': '此视图中机器人不可用。',
+        'bot.pausedMsg': '机器人已暂停，不会交易。请先处理上方的提示，然后点击“启动机器人”继续。',
+        'bot.errorMsg': '机器人在出错后停止。点击“启动机器人”重试。',
+        'hint.botStatus.ready': '空闲：可以启动',
+        'hint.botStatus.running': '正在扫描市场',
+        'hint.botStatus.paused': '已暂停：未交易',
+        'hint.botStatus.error': '出错后已停止',
+        'bot.readyToStart': '可启动',
+        'bot.pausedShort': '已暂停',
+        'bot.errorState': '错误',
+        'bot.runningMsg': '正在扫描支持的市场。新的交易会显示在下方活动记录中。',
+        'bot.engineNotice': "🤖 在此浏览器标签页中运行。关闭或刷新页面后交易将暂停。",
         'bot.engineNoticeWorker': "即使您关闭此页面，您的机器人仍会继续运行。您可以随时回来查看您的活动。",
         'bot.workerManaged': "🤖 您的机器人现在会自动运行。即使您离线，它也会继续交易。",
         'chart.title': '权益表现',
@@ -18825,6 +19663,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': '最佳交易',
         'trading.worstTrade': '最差交易',
         'trading.streak': '连胜',
+        'trading.recent': '近期交易',
         'achievements.title': '成就',
         'badge.rarity.common': '普通',
         'badge.rarity.rare': '稀有',
@@ -20395,8 +21234,12 @@ function renderLiveModeCard() {
         if (btn) btn.classList.toggle('hidden', status !== 'activation_required');
         // Activation is done but the qualifying deposit is not: the next step is a
         // deposit, not another licence. Display only - the gates are server-side.
+        // `funding_required` is the same situation without a promotional credit,
+        // and BOTH must offer the action: telling a customer "make your deposit"
+        // without giving them the button is the dead end this audit found.
         const depBtn = document.getElementById('liveModeDepositBtn');
-        if (depBtn) depBtn.classList.toggle('hidden', status !== 'deposit_required');
+        const needsDeposit = status === 'deposit_required' || status === 'funding_required';
+        if (depBtn) depBtn.classList.toggle('hidden', !needsDeposit);
     } catch (e) { /* display only: a render failure must never break the dashboard */ }
 }
 
@@ -20636,6 +21479,7 @@ function updateDynamicTranslations() {
         // populateVerificationUI() when the modal opens, so behavior is
         // unchanged.
         if (typeof updateVerificationModalHeader === 'function') updateVerificationModalHeader();
+        if (typeof kxSyncDashboardNav === 'function') kxSyncDashboardNav(APP.kxView || 'overview');
         // Re-render the live withdraw status + withdraw modal info text on
         // language switch (dynamic text; the MARKETING_SANDBOX variants must
         // also re-apply after applyTranslations() refreshes data-i18n spans).
@@ -20689,6 +21533,10 @@ function updateDynamicTranslations() {
             if (icon) icon.className = isExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
         }
     } catch(e) { console.error('updateDynamicTranslations error:', e); }
+    // JS-rendered surfaces are rebuilt from t(), so they need an explicit
+    // re-render on a language switch (no data-i18n attribute owns their text).
+    try { if (typeof renderRecentTrades === 'function') renderRecentTrades(); } catch (e) {}
+    try { if (typeof renderBotState === 'function') renderBotState(); } catch (e) {}
 }
 // Stage 11: compact language menus for the landing + auth headers. They reuse the
 // existing setLanguage()/arbi_lang/applyTranslations() system; only opening,
@@ -22625,6 +23473,37 @@ function updateTradingStats() {
     const streakTrend = getEl('streakTrend');
     if(streak >= 3) { streakTrend.style.display = 'block'; streakTrend.textContent = '🔥 HOT'; }
     else { streakTrend.style.display = 'none'; }
+    renderRecentTrades();
+}
+
+/**
+ * The three most recent EXECUTED trades, straight from the wallet ledger.
+ * Display-only: same rows the activity view lists, so the summary and the
+ * detail cannot disagree. Hidden when there is nothing to show.
+ */
+function renderRecentTrades() {
+    const host = document.getElementById('kxStatsRecent');
+    if (!host) return;
+    const data = (typeof getCurrentData === 'function' ? getCurrentData() : null) || {};
+    const rows = (Array.isArray(data.history) ? data.history : [])
+        .filter(function (e) { return e && e.type === 'Trade Executed'; })
+        .slice(0, 3);
+    if (!rows.length) { host.hidden = true; host.innerHTML = ''; return; }
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : function (v) { return String(v); };
+    host.hidden = false;
+    host.innerHTML = '<div class="kx-stats-recent-head">'
+        + '<span class="kx-stats-recent-title">' + esc(t('trading.recent')) + '</span>'
+        + '<button type="button" class="kx-stats-recent-link" onclick="showView(\'activity\')">' + esc(t('history.allActivity')) + ' \u2192</button>'
+        + '</div>'
+        + rows.map(function (e) {
+            const amt = Number(e.amount) || 0;
+            const cls = amt > 0 ? 'fin-positive' : amt < 0 ? 'fin-negative' : '';
+            return '<div class="kx-recent-row">'
+                + '<span class="kx-recent-asset">' + esc(String(e.detail || '')) + '</span>'
+                + '<span class="' + cls + '">' + (amt >= 0 ? '+' : '') + formatCurrency(amt) + '</span>'
+                + '<span class="kx-recent-time">' + esc(String(e.time || '')) + '</span>'
+                + '</div>';
+        }).join('');
 }
 
 // ============ BADGES ============
@@ -22874,13 +23753,8 @@ function updateUI() {
     const botPill = getEl('botStatePillLive');
     const botMsg = getEl('botStatusMsg');
     const botMsgLive = getEl('botStatusMsgLive');
-    if (botPill) {
-        // Presentation of the state the app already holds - never an invented one.
-        const running = !!APP.botRunning;
-        botPill.dataset.state = running ? 'running' : 'idle';
-        const pillText = botPill.querySelector('.kx-state-pill-text');
-        if (pillText) pillText.textContent = t(running ? 'bot.running' : 'bot.offline');
-    }
+    // Pill + message + account metric all come from renderBotState().
+    renderBotState();
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     // Promo-credit restriction: ONE notice, at the top of the dashboard, because
     // a promo-funded account is never marked as funded, so the Live Wallet card
@@ -22909,13 +23783,8 @@ function updateUI() {
     // message explains the first-deposit requirement. Display mirror only - the
     // server refuses trades/starts regardless of the button state.
     const promoLimitReached = !!APP.liveData.promoLimitReached && !isSandbox;
-    if(promoLimitReached) {
-        if(botBtnLive) { botBtnLive.disabled = true; }
-        if(botMsgLive) botMsgLive.textContent = t('bot.promoLimitReached');
-    } else {
-        if(botBtnLive) { botBtnLive.disabled = false; }
-        if(botMsgLive) botMsgLive.textContent = t('bot.readyToTrade');
-    }
+    if(botBtnLive) { botBtnLive.disabled = promoLimitReached; }
+    renderBotState();
     if(botBtn) botBtn.style.display = 'none';
     if(botBtnLive) botBtnLive.style.display = 'flex';
     if(botMsg) botMsg.style.display = 'none';
@@ -22989,9 +23858,74 @@ function updateSandboxBadge() {
     }
 }
 
+/**
+ * ONE source of truth for the bot's visible state. Nothing here is invented:
+ * 'running' only from APP.botRunning, 'paused' only from a server-reported
+ * restriction, 'ready' only when the account is in Live mode, 'error' only
+ * after a failed start. The pill, the account-card metric and the card message
+ * all read this, so they can never contradict each other.
+ */
+function botUiState() {
+    if (APP.botRunning) return 'running';
+    if (APP.botPaused === true) return 'paused';
+    if (APP.liveData && APP.liveData.promoLimitReached) return 'paused';
+    if (APP.botError) return 'error';
+    // This build is single-mode: Live is the only wallet, so a stopped bot is
+    // READY to start. The old guard keyed on APP.mode, which nothing assigns any
+    // more, so 'ready' was unreachable and the pill sat on "Offline" while the
+    // bot could be started.
+    return 'ready';
+}
+
+function renderBotState() {
+    const state = botUiState();
+    const labelKey = {
+        offline: 'bot.offline',
+        ready: 'bot.readyToStart',
+        running: 'bot.running',
+        paused: 'bot.pausedShort',
+        error: 'bot.errorState'
+    }[state];
+    const msgKey = {
+        offline: 'bot.offlineMsg',
+        ready: 'bot.readyMsg',
+        running: 'bot.runningMsg',
+        paused: 'bot.pausedMsg',
+        error: 'bot.errorMsg'
+    }[state];
+    const hintKey = {
+        offline: 'hint.botStatus.ready',
+        ready: 'hint.botStatus.ready',
+        running: 'hint.botStatus.running',
+        paused: 'hint.botStatus.paused',
+        error: 'hint.botStatus.error'
+    }[state];
+    const pill = getEl('botStatePillLive');
+    if (pill) {
+        pill.dataset.state = state;
+        const txt = pill.querySelector('.kx-state-pill-text');
+        if (txt) txt.textContent = t(labelKey);
+    }
+    const msg = getEl('botStatusMsgLive');
+    if (msg) msg.textContent = t(msgKey);
+    // The metric hint described the toggle ("Running or stopped"); it now states
+    // what the bot IS doing right now, from the same state machine.
+    const hint = getEl('botStatusHint');
+    if (hint) hint.textContent = t(hintKey);
+    const metric = getEl('botStatus');
+    if (metric) {
+        metric.textContent = t(labelKey);
+        metric.style.color = state === 'running' ? 'var(--success)'
+            : state === 'paused' ? 'var(--warning, #E8973B)'
+            : state === 'error' ? 'var(--destructive)'
+            : state === 'ready' ? 'var(--brand)'
+            : 'var(--kx-text-2)';
+    }
+}
+
 function updateStatus(running) {
-    getEl('botStatus').textContent = running ? t('bot.running') : t('bot.offline');
-    getEl('botStatus').style.color = running ? '#5EA0FF' : '#E5484D';
+    if (running) APP.botError = false;
+    if (typeof renderBotState === 'function') renderBotState();
     const btn = getEl('startStopBtn');
     const btnLive = getEl('startStopBtnLive');
     const text = running ? t('bot.pauseBot') : t('bot.startBot');
@@ -23495,7 +24429,12 @@ function startBot() {
                 showToast(t('bot.workerManaged'), 'info', 6000);
             });
         })
-        .catch(function () {});
+        .catch(function () {
+            // The start request itself failed: say so in the card instead of
+            // leaving a "ready"/"offline" label that implies the bot is fine.
+            APP.botError = true;
+            if (typeof renderBotState === 'function') renderBotState();
+        });
 }
 
 /**
@@ -23506,6 +24445,8 @@ function startBot() {
 function beginBotRun() {
     if(APP.botInterval) clearInterval(APP.botInterval);
     APP.botRunning = true;
+    APP.botError = false;
+    APP.botPaused = false;
     APP.botInterval = setInterval(executeBotTrade, 8000);
     startWorkerSyncLoop();
     updateStatus(true);
@@ -23527,6 +24468,8 @@ function beginBotRun() {
 function showProfitPauseStartBlocked(body) {
     if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
     APP.botRunning = false;
+    APP.botPaused = true;
+    if (typeof renderBotState === 'function') renderBotState();
     stopWorkerSyncLoop();
     rememberProfitPauseThreshold(body);
     APP.profitPauseNoticeShown = true;
@@ -24826,6 +25769,8 @@ function updateStartHere() {
     const ready = document.getElementById('startHereStepsLiveReady');
     if (steps) steps.style.display = liveDone ? 'none' : 'flex';
     if (ready) ready.style.display = liveDone ? 'block' : 'none';
+    // A completed checklist is a one-line confirmation, not a card-sized panel.
+    el.classList.toggle('kx-ready', !!liveDone);
     if (!liveDone) renderStartHereLiveSteps();
 }
 
@@ -25290,6 +26235,8 @@ function maybeShowProfitPauseModal(status) {
     try {
         if (!status || status.profitPaused !== true) return;
         rememberProfitPauseThreshold(status);
+        APP.botPaused = true;
+        if (typeof renderBotState === 'function') renderBotState();
         if (APP.profitPauseNoticeShown === true) return;
         APP.profitPauseNoticeShown = true;
         openProfitPauseModal();
@@ -26053,6 +27000,43 @@ function toggleSupport() {
         panel.classList.toggle('open');
     } catch(e) {}
 }
+// Content-aware support launcher: it steps aside whenever it would sit on top of
+// the equity chart, the wallet card or a control. Pure hit-testing (no layout
+// side effects); re-evaluated on scroll/resize and after a view switch.
+var kxFabRaf = null;
+function kxFabAvoidOverlap() {
+    var wrap = document.querySelector('.support-widget');
+    var btn = document.getElementById('supportToggleBtn');
+    if (!wrap || !btn) return;
+    if (wrap.querySelector('.support-panel.open') || wrap.querySelector('.support-panel.is-open')) {
+        wrap.classList.remove('kx-fab-away');
+        return;
+    }
+    var r = btn.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2) || [];
+    var below = null;
+    for (var i = 0; i < stack.length; i++) {
+        if (!stack[i].closest || !stack[i].closest('.support-widget')) { below = stack[i]; break; }
+    }
+    var covered = !!(below && below.closest && below.closest('#pnlChart, .chart-period-tab, .wallet-tab, .btn, .kx-kpi-value, .chart-stat-value'));
+    wrap.classList.toggle('kx-fab-away', covered);
+}
+function kxFabSchedule() {
+    if (kxFabRaf) return;
+    kxFabRaf = requestAnimationFrame(function () {
+        kxFabRaf = null;
+        try { kxFabAvoidOverlap(); } catch (e) { /* display-only */ }
+    });
+}
+try {
+    window.addEventListener('scroll', kxFabSchedule, { passive: true });
+    window.addEventListener('resize', kxFabSchedule);
+    document.addEventListener('DOMContentLoaded', kxFabSchedule);
+    setTimeout(kxFabSchedule, 900);
+    setTimeout(kxFabSchedule, 2500);
+} catch (e) { /* display-only */ }
+
 
 function sendSupportMessage() {
     try {
@@ -26457,6 +27441,27 @@ async function syncSandboxWithdrawHistory() {
     }
 }
 
+/**
+ * Dismiss the first-paint sync veil. Called from the initial sync, from a hard
+ * cap, and from a window error failsafe, so no path can leave a dark plate with
+ * a spinner sitting over the dashboard (or the equity chart) for good.
+ */
+function dismissWalletSyncLoader(reason) {
+    var el = document.getElementById('walletSyncLoader');
+    var prompt = document.getElementById('walletSyncSlowPrompt');
+    if (prompt) prompt.style.display = 'none';
+    if (!el || el.style.display === 'none') return;
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0';
+    setTimeout(function () {
+        if (el.style.opacity === '0') el.style.display = 'none';
+    }, 200);
+    if (reason) console.debug('[initApp] wallet sync veil dismissed: ' + reason);
+}
+try {
+    window.addEventListener('error', function () { try { dismissWalletSyncLoader('window-error'); } catch (e) {} });
+} catch (e) { /* display-only */ }
+
 async function initApp() {
     if(appReady) return;
     appReady = true;
@@ -26469,7 +27474,11 @@ async function initApp() {
     // offline-fallback). All synchronous init (loadData, chart setup, etc.)
     // still runs underneath the overlay; only the painted default is hidden.
     const syncLoader = document.getElementById('walletSyncLoader');
-    if (syncLoader) syncLoader.style.display = 'flex';
+    if (syncLoader) { syncLoader.style.display = 'flex'; syncLoader.style.opacity = '1'; syncLoader.style.pointerEvents = 'auto'; }
+    // Hard cap: the veil covers the first paint only. If the session request is
+    // slow, the dashboard shows from cached state and the figures update when the
+    // sync lands - a blocking scrim must never outlive this.
+    const walletSyncCap = setTimeout(function () { dismissWalletSyncLoader('cap'); }, 1200);
 
     // Wallet-loading watchdog (frontend-only recovery UX): if the initial
     // syncWalletFromServer() is still pending after 8s — which only happens when
@@ -26559,8 +27568,8 @@ async function initApp() {
         // The authoritative balance/P&L is painted by updateUI() below
         // with the loader already gone, so the default $50 is never shown.
         if (walletSyncWatchdog) { clearTimeout(walletSyncWatchdog); walletSyncWatchdog = null; }
-        if (walletSyncSlowPrompt) walletSyncSlowPrompt.style.display = 'none';
-        if (syncLoader) syncLoader.style.display = 'none';
+        if (walletSyncCap) { clearTimeout(walletSyncCap); }
+        dismissWalletSyncLoader('synced');
     }
 
     // Anchor the live equity chart to the authoritative server balance that
@@ -26760,17 +27769,25 @@ async function initApp() {
         }
     });
     
+    var KX_SECTION_TO_VIEW = { mainContent: 'overview', markets: 'markets', history: 'activity', referral: 'referral' };
     document.querySelectorAll('.sidebar-link[data-section]').forEach(function(link) {
         link.addEventListener('click', function(e) {
             e.preventDefault();
-            document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
-            link.classList.add('active');
             const el = document.getElementById(link.dataset.section);
-            if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+            if (!el) return;
+            showView(KX_SECTION_TO_VIEW[link.dataset.section] || 'overview', { smooth: true });
             getEl('sidebar').classList.remove('open');
             getEl('sidebarOverlay').classList.remove('open');
         });
     });
+
+    // Deep links (#markets, #activity, #referral, #admin) and the initial view.
+    try {
+        window.addEventListener('hashchange', function() { showView(kxViewFromHash(), { silentHash: true }); });
+        showView(kxViewFromHash(), { silentHash: true, initial: true });
+    } catch (e) {
+        console.warn('view router init:', e && e.message);
+    }
     
     // Admin sidebar link handler
     const adminSidebarLink = document.getElementById('adminSidebarLink');
@@ -26937,6 +27954,152 @@ function checkAdminAccess() {
     }
 }
 
+// ============ VIEW ROUTER (Kalderix shell) ============
+// The product used to be one long scroll: sidebar links only called
+// scrollIntoView, and entering admin hid every card with inline styles that were
+// never restored (leaving a blank dashboard until a reload). Views now switch
+// explicitly. Every section keeps its id and handlers; only visibility changes.
+var KX_VIEW_HOSTS = {
+    overview: 'kxViewOverview',
+    markets: 'markets',
+    activity: 'history',
+    referral: 'referral',
+    admin: 'adminPanel'
+};
+var KX_VIEW_NAV_KEYS = {
+    overview: 'sidebar.dashboard',
+    markets: 'sidebar.markets',
+    activity: 'sidebar.history',
+    referral: 'sidebar.referral',
+    admin: 'sidebar.admin'
+};
+var KX_VIEW_LINKS = {
+    overview: '[data-section="mainContent"]',
+    markets: '[data-section="markets"]',
+    activity: '[data-section="history"]',
+    referral: '[data-section="referral"]',
+    admin: '#adminSidebarLink'
+};
+function kxNormalizeView(name) {
+    return Object.prototype.hasOwnProperty.call(KX_VIEW_HOSTS, name) ? name : 'overview';
+}
+function showView(name, opts) {
+    opts = opts || {};
+    var view = kxNormalizeView(name);
+
+    Object.keys(KX_VIEW_HOSTS).forEach(function (key) {
+        var el = document.getElementById(KX_VIEW_HOSTS[key]);
+        if (!el) return;
+        var active = key === view;
+        if (key === 'overview') {
+            el.hidden = !active;
+        } else if (key === 'admin') {
+            el.classList[active ? 'remove' : 'add']('hidden');
+            el.style.display = active ? 'block' : 'none';
+        } else {
+            el.style.display = active ? '' : 'none';
+        }
+    });
+
+    APP.kxView = view;
+    if (document.body && typeof document.body.setAttribute === 'function') {
+        document.body.setAttribute('data-kx-view', view);
+    }
+
+    var titleEl = document.getElementById('kxViewTitle');
+    if (titleEl) {
+        var key = KX_VIEW_NAV_KEYS[view];
+        titleEl.textContent = (typeof t === 'function' && key) ? t(key) : '';
+        titleEl.hidden = !titleEl.textContent;
+    }
+
+    if (typeof document.querySelectorAll === 'function') {
+        document.querySelectorAll('.sidebar-link').forEach(function (l) { l.classList.remove('active'); });
+    }
+    var activeLink = (typeof document.querySelector === 'function') ? document.querySelector(KX_VIEW_LINKS[view]) : null;
+    if (activeLink) activeLink.classList.add('active');
+
+    // Restores wallet-section visibility (updateUI owns it) when coming back.
+    if (view === 'overview' && !opts.initial && typeof updateUI === 'function' && APP.liveData) {
+        try { updateUI(); } catch (e) { console.warn('showView updateUI:', e && e.message); }
+    }
+
+    kxSyncDashboardNav(view);
+
+    // User-initiated navigation pushes an entry so the browser's Back button
+    // returns to the previous view (the boot render and hash reconciliation
+    // stay silent). Deep links keep working: they only change the hash.
+    if (!opts.silentHash) {
+        try {
+            var targetHash = '#' + view;
+            var currentHash = (typeof location !== 'undefined' && location) ? String(location.hash || '') : '';
+            if (currentHash !== targetHash) {
+                if (opts.replace === true) history.replaceState(null, '', targetHash);
+                else history.pushState(null, '', targetHash);
+            }
+        } catch (e) {}
+    }
+    if (!opts.initial) {
+        try { window.scrollTo({ top: 0, behavior: opts.smooth ? 'smooth' : 'auto' }); } catch (e) {}
+    }
+    return view;
+}
+
+// The dashboard is one tap away from anywhere: the brand, the toolbar control
+// and the sidebar all land on the same view, and any dialog opened on top of a
+// secondary view is closed first so the dashboard is actually visible.
+function kxCloseTransientSurfaces() {
+    var panel = document.getElementById('supportPanel');
+    if (panel) panel.classList.remove('open');
+    var bg = document.getElementById('supportBackdrop');
+    if (bg) bg.classList.remove('open');
+    ['languageDropdown', 'notificationPanel'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('open', 'show');
+    });
+    var sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('open');
+    var overlay = document.getElementById('sidebarOverlay');
+    if (overlay) overlay.classList.remove('open');
+    // Let each dialog run its own close handler (it stops polling, restores the
+    // body lock and so on); the class removal is only a backstop.
+    document.querySelectorAll('.modal-overlay.open, .deposit-modal.open').forEach(function (modal) {
+        var btn = modal.querySelector('.modal-close-btn, .modal-close');
+        if (btn && typeof btn.click === 'function') {
+            try { btn.click(); } catch (e) {}
+        }
+        modal.classList.remove('open');
+    });
+    if (document.body && document.body.style) document.body.style.overflow = '';
+}
+
+function kxSyncDashboardNav(view) {
+    var back = document.getElementById('kxBackToDashboard');
+    if (!back) return;
+    var secondary = view !== 'overview';
+    back.hidden = !secondary;
+    back.setAttribute('aria-hidden', secondary ? 'false' : 'true');
+    var title = (typeof t === 'function') ? t('nav.backToDashboard') : '';
+    if (title) {
+        back.setAttribute('aria-label', title);
+        back.setAttribute('title', title);
+        var brand = document.getElementById('kxToolbarBrand');
+        if (brand) brand.setAttribute('title', title);
+    }
+}
+
+function goToDashboard(ev) {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    kxCloseTransientSurfaces();
+    showView('overview', { smooth: true });
+    return false;
+}
+
+function kxViewFromHash() {
+    var hash = (typeof location !== 'undefined' && location) ? location.hash : '';
+    return kxNormalizeView(String(hash || '').replace('#', ''));
+}
+
 function navigateToAdmin(e) {
     if (e) e.preventDefault();
     
@@ -26946,35 +28109,10 @@ function navigateToAdmin(e) {
     if (sidebar) sidebar.classList.remove('open');
     if (sidebarOverlay) sidebarOverlay.classList.remove('open');
     
-    // Hide all main content sections using scrollIntoView pattern
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        // Hide all cards and wallet sections within main content, but never
-        // cards nested inside the admin panel itself (its tabs/stat cards must
-        // stay visible)
-        mainContent.querySelectorAll('.card, .wallet-section').forEach(function(el) {
-            if (el.id !== 'adminPanel' && !el.closest('#adminPanel')) {
-                el.style.display = 'none';
-            }
-        });
-    }
-    
-    // Show admin panel
-    const adminPanel = document.getElementById('adminPanel');
-    if (adminPanel) {
-        adminPanel.classList.remove('hidden');
-        adminPanel.style.display = 'block';
-    }
-    
-    // Update sidebar active state
-    document.querySelectorAll('.sidebar-link').forEach(function(l) { l.classList.remove('active'); });
-    const adminLink = document.getElementById('adminSidebarLink');
-    if (adminLink) {
-        adminLink.classList.add('active');
-    }
-    
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Admin is a view now. The previous implementation hid every card in
+    // mainContent with inline styles and never restored them, so leaving admin
+    // left a blank dashboard until a reload.
+    showView('admin');
     
     // Load admin data
     loadAdminData();

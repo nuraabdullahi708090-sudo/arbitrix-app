@@ -67,7 +67,9 @@ test('3. Today P&L is coloured by the SIGN of the value, not by the brand', () =
     assert.match(block, /fin-negative/, 'a negative value gets the negative class');
     assert.match(block, /fin-zero/, 'a zero value is neutral, not green');
     assert.ok(!/#5EA0FF/.test(block), 'the P&L no longer borrows the accent hex');
-    assert.match(INDEX, /<div id="pnlValue" class="stat-value fin-zero">/, 'the initial markup is neutral');
+    // PHASE 2: the KPI markup moved to the consolidated account card, so the
+    // class list changed - the INVARIANT (P&L starts neutral) did not.
+    assert.match(INDEX, /<div id="pnlValue" class="[^"]*fin-zero[^"]*">/, 'the initial markup is neutral');
     // the sign is rendered from the value, with the absolute amount formatted
     assert.match(block, /pnl > 0 \? '\+' : pnl < 0 \? '-' : ''/, 'the sign comes from the value');
 });
@@ -216,10 +218,15 @@ test('14. the icons are real files drawn from the same symbol', () => {
  * ------------------------------------------------------------------ */
 test('15. the bot panel reports the real state and offers a real Stop', () => {
     assert.match(INDEX, /id="botStatePillLive" data-state="idle"/, 'the pill starts idle');
-    const fn = INDEX.slice(INDEX.indexOf('const botPill = getEl'), INDEX.indexOf('const botPill = getEl') + 600);
-    assert.match(fn, /const running = !!APP\.botRunning;/, 'the pill reads the live state');
-    assert.match(fn, /data-state|dataset\.state/, 'the state drives the styling');
-    assert.match(fn, /bot\.running|bot\.offline/, 'it uses the existing translated labels');
+    // PHASE 2: the pill is driven by ONE state machine so the pill, the account
+    // metric and the card message can never disagree. 'running' still comes only
+    // from APP.botRunning, and every label is still translated.
+    const fn = INDEX.slice(INDEX.indexOf('function botUiState'), INDEX.indexOf('function renderBotState') + 1400);
+    assert.match(fn, /if \(APP\.botRunning\) return 'running';/, 'running comes only from the live flag');
+    assert.match(fn, /if \(APP\.botPaused === true\) return 'paused';/, 'a server pause is reported as paused');
+    assert.match(fn, /if \(APP\.botError\) return 'error';/, 'a failed start is reported as an error');
+    assert.match(fn, /pill\.dataset\.state = state/, 'the state drives the styling');
+    assert.match(fn, /t\(labelKey\)/, 'it uses translated labels (no hardcoded copy)');
     assert.match(CSS, /\.kx-bot-action\.kx-bot-stop\s*\{[^}]*var\(--kx-danger-weak\)/,
         'Stop reads as Stop');
     assert.match(CSS, /\.kx-control-row\s*\{/, 'the scanner row is framed');
