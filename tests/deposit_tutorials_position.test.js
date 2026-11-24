@@ -125,13 +125,13 @@ test('6. the four tutorial translations still exist in every locale', () => {
  * 3. Deposit behaviour is untouched
  * ------------------------------------------------------------------ */
 test('7. the deposit form, warning and history are unchanged', () => {
-    ['id="liveDepositAmount"', 'id="getAddressBtn"', 'onclick="setDepositAmount(100)"',
+    ['id="liveDepositAmount"', 'id="getAddressBtn"', 'onclick="setDepositAmount(50)"',
      'onclick="setDepositAmount(1000)"', 'id="depositMinNotice"', 'id="depositInvoiceError"',
      'id="safetyWarning"', 'id="depositHistoryList"', 'id="depositPaymentSection"',
      'id="depositSuccessSection"', 'id="depositActionButtons"']
         .forEach((marker) => assert.ok(INDEX.includes(marker), marker + ' must still exist'));
     assert.match(INDEX, /function requestDepositAddress\(/);
-    assert.match(INDEX, /MIN_DEPOSIT:\s*100/);
+    assert.match(INDEX, /MIN_DEPOSIT:\s*50/);
     assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/);
 });
 

@@ -109,7 +109,7 @@ test('every pre-existing keyword is still present (additive change only)', () =>
 test('customer-facing facts in the four entries are unchanged', () => {
   assert.match(entry('withdrawals.requirements').answer, /no minimum withdrawal/i);
   assert.match(entry('referrals.program').answer, /20%/);
-  assert.match(entry('referrals.program').answer, /\$100/);
+  assert.match(entry('referrals.program').answer, /\$50/);
   assert.match(entry('referrals.program').answer, /one-time/i);
   assert.match(entry('deposits.pending').answer, /TRC20/);
   assert.match(entry('subscription.cancel').answer, /not be charged again/i);

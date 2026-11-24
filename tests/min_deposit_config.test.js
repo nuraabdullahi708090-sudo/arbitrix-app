@@ -4,16 +4,15 @@
  * Platform minimum deposit: ONE runtime source.
  *
  * WHY
- *   The minimum deposit used to be a bare constant consumed in ~17 places. Before
- *   the business can consider moving it from $100 to $50 (a separate, approval-
- *   gated decision) the value had to become a single knob that every consumer
+ *   The minimum deposit used to be a bare constant consumed in ~17 places. The
+ *   business has now approved moving it from $100 to $50, and the value is a
+ *   single knob every consumer
  *   reads, otherwise a change would half-apply (invoice creation at $50, the
  *   sandbox at $100, the referral qualifying deposit at the value stored in
  *   `referral_config`, and the frontend copy still saying $100).
  *
  * WHAT THESE TESTS PIN
- *   1. With no env var the effective value is EXACTLY the built-in default, so
- *      shipping this code changes no behaviour (the $100 platform rule stands).
+ *   1. With no env var the effective value is EXACTLY the built-in default ($50).
  *   2. The env override is validated: a malformed or out-of-range value is
  *      rejected loudly and falls back to the default, never to a nonsense floor.
  *   3. Every runtime consumer reads the resolved value, not the raw default.
@@ -38,7 +37,7 @@ const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
  * fake environment, so the matrix exercises the shipped code rather than a copy.
  */
 function resolve(env) {
-    const start = SERVER.indexOf('const PLATFORM_MIN_DEPOSIT_USD = 100;');
+    const start = SERVER.search(/const PLATFORM_MIN_DEPOSIT_USD = \d+;/);
     const end = SERVER.indexOf('const PLATFORM_MIN_DEPOSIT = resolvePlatformMinDeposit();');
     assert.ok(start > 0 && end > start, 'the resolver block must exist in server.js');
     const src = SERVER.slice(start, end) +
@@ -58,10 +57,10 @@ function resolve(env) {
 /* ------------------------------------------------------------------ *
  * 1. No env var -> unchanged behaviour
  * ------------------------------------------------------------------ */
-test('with no env var the effective minimum is the built-in $100', () => {
+test('with no env var the effective minimum is the built-in $50', () => {
     const r = resolve({});
-    assert.strictEqual(r.PLATFORM_MIN_DEPOSIT_USD, 100, 'the pinned default must stay 100');
-    assert.strictEqual(r.PLATFORM_MIN_DEPOSIT, 100, 'effective value equals the default');
+    assert.strictEqual(r.PLATFORM_MIN_DEPOSIT_USD, 50, 'the pinned default is the approved $50');
+    assert.strictEqual(r.PLATFORM_MIN_DEPOSIT, 50, 'effective value equals the default');
     assert.deepStrictEqual(r.logs, [], 'no noise when nothing is overridden');
 });
 
@@ -71,7 +70,7 @@ test('the env var NAME is PLATFORM_MIN_DEPOSIT_USD', () => {
 
 test('an empty or whitespace-only value is treated as unset', () => {
     for (const v of ['', '   ', '\t']) {
-        assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: v }).PLATFORM_MIN_DEPOSIT, 100, JSON.stringify(v));
+        assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: v }).PLATFORM_MIN_DEPOSIT, 50, JSON.stringify(v));
     }
 });
 
@@ -79,21 +78,27 @@ test('an empty or whitespace-only value is treated as unset', () => {
  * 2. The override works and is validated
  * ------------------------------------------------------------------ */
 test('a valid override is applied and logged once', () => {
+    const r = resolve({ PLATFORM_MIN_DEPOSIT_USD: '75' });
+    assert.strictEqual(r.PLATFORM_MIN_DEPOSIT, 75);
+    assert.strictEqual(r.logs.length, 1);
+    assert.match(r.logs[0], /overridden: \$75/);
+});
+
+test('setting the override to the built-in default is silent', () => {
     const r = resolve({ PLATFORM_MIN_DEPOSIT_USD: '50' });
     assert.strictEqual(r.PLATFORM_MIN_DEPOSIT, 50);
-    assert.strictEqual(r.logs.length, 1);
-    assert.match(r.logs[0], /overridden: \$50/);
+    assert.deepStrictEqual(r.logs, []);
 });
 
 test('surrounding whitespace in the override is tolerated', () => {
-    assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '  50  ' }).PLATFORM_MIN_DEPOSIT, 50);
+    assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '  75  ' }).PLATFORM_MIN_DEPOSIT, 75);
 });
 
 test('invalid overrides fall back to the default and warn', () => {
     const cases = ['abc', '50.5', 'NaN', '-50', '0', '5', '9', '10001', '1e6', '50usd'];
     for (const v of cases) {
         const r = resolve({ PLATFORM_MIN_DEPOSIT_USD: v });
-        assert.strictEqual(r.PLATFORM_MIN_DEPOSIT, 100, 'value ' + JSON.stringify(v) + ' must fall back');
+        assert.strictEqual(r.PLATFORM_MIN_DEPOSIT, 50, 'value ' + JSON.stringify(v) + ' must fall back');
         assert.strictEqual(r.logs.length, 1, 'value ' + JSON.stringify(v) + ' must warn');
         assert.match(r.logs[0], /invalid/);
     }
@@ -102,8 +107,8 @@ test('invalid overrides fall back to the default and warn', () => {
 test('the accepted band is 10..10000 inclusive', () => {
     assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '10' }).PLATFORM_MIN_DEPOSIT, 10);
     assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '10000' }).PLATFORM_MIN_DEPOSIT, 10000);
-    assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '9' }).PLATFORM_MIN_DEPOSIT, 100);
-    assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '10001' }).PLATFORM_MIN_DEPOSIT, 100);
+    assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '9' }).PLATFORM_MIN_DEPOSIT, 50);
+    assert.strictEqual(resolve({ PLATFORM_MIN_DEPOSIT_USD: '10001' }).PLATFORM_MIN_DEPOSIT, 50);
 });
 
 /* ------------------------------------------------------------------ *
@@ -111,7 +116,7 @@ test('the accepted band is 10..10000 inclusive', () => {
  * ------------------------------------------------------------------ */
 test('no runtime consumer reads the raw default', () => {
     // Allowed: the declaration itself and the resolver's own fallbacks.
-    const start = SERVER.indexOf('const PLATFORM_MIN_DEPOSIT_USD = 100;');
+    const start = SERVER.search(/const PLATFORM_MIN_DEPOSIT_USD = \d+;/);
     const end = SERVER.indexOf('const PLATFORM_MIN_DEPOSIT = resolvePlatformMinDeposit();') + 10;
     const outside = SERVER.slice(0, start) + SERVER.slice(end);
     const offenders = outside.split('\n')
@@ -159,7 +164,7 @@ test('the frontend adopts the server value into APP.MIN_DEPOSIT', () => {
     assert.match(INDEX, /typeof meData\.minDeposit === 'number'/, 'must type-check the field');
     assert.match(INDEX, /APP\.MIN_DEPOSIT = Number\(meData\.minDeposit\)/);
     // and the built-in default still exists for the offline path
-    assert.match(INDEX, /MIN_DEPOSIT: 100,/);
+    assert.match(INDEX, /MIN_DEPOSIT: 50,/);
 });
 
 test('APP.MIN_DEPOSIT remains the single frontend source', () => {

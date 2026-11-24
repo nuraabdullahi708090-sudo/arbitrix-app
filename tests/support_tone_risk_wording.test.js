@@ -89,7 +89,7 @@ test('"How does Kalderix work?" returns the preferred, encouraging answer', asyn
 test('"How does Live Mode work?" no longer ends with a loss warning', async () => {
   const result = await service().ask('How does Live Mode work?');
   assert.ok(!LOSS_WORDING.test(result.answer), result.answer);
-  assert.match(result.answer, /minimum \$100/, 'the factual deposit minimum is preserved');
+  assert.match(result.answer, /minimum \$50/, 'the factual deposit minimum is preserved');
   assert.match(result.answer, /real funds/i, 'the Live/Demo distinction is preserved');
 });
 

@@ -451,7 +451,7 @@ test('22. a payment status question is never answered as fact', async () => {
 
 test('23. factual questions are answered from the approved knowledge base', async () => {
   const cases = [
-    ['What is the minimum deposit?', /\$100/],
+    ['What is the minimum deposit?', /\$50/],
     ['Do I need verification?', /do not require identity verification|does not require/i],
     ['How much is the subscription?', /\$7/],
     ['What is the promotional credit?', /\$50/]

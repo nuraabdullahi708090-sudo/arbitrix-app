@@ -9984,3 +9984,85 @@ path touched. NOT merged, NOT deployed.
   real interaction; subjective quality (shading, motion) is unverified.
 - Report: `docs/design/VISUAL_REVIEW_2026-11.md` "Phase 2" + "Onboarding / activation
   audit" sections.
+
+
+## Mission 5 - payment simplification: $50 floor + activation removed from the journey (2026-11-24)
+
+- APPROVED CHANGES, all money-safe. `server.js`, `public/index.html`,
+  `.env.example`, ONE new migration and tests. No deposit/withdrawal/crediting/KYC/
+  referral-award code changed beyond the threshold value, and no provider was added
+  or switched.
+- MINIMUM DEPOSIT $100 -> $50. `PLATFORM_MIN_DEPOSIT_USD = 50` is the single
+  source; every consumer already reads the resolved `PLATFORM_MIN_DEPOSIT`
+  (invoice validation, both sandbox doors, `SANDBOX_REFERRAL_MIN_DEPOSIT`, the
+  referral config fallbacks, `MARKETING_FACTS`, `/api/auth/me`). Frontend
+  `MIN_DEPOSIT: 50`, `|| 50` fallbacks, the first deposit preset is $50,
+  `'Min $50'` in BACKEND_MESSAGE_MAP, and `#refMinDeposit` defaults to $50.
+- NEW `supabase/migrations/057_min_deposit_and_referral_50.sql` (NOT applied):
+  syncs `referral_config.minimum_qualifying_deposit` 100 -> 50. This is REQUIRED:
+  the provider award helper (`award_referral_qualification_safe`, migration 021)
+  reads that ROW, not the constant, so without it a $50 deposit credits but its
+  referral never qualifies. Introspects the column shape (config_key/config_value
+  or key/value), inserts when absent, moves only '100', and REPORTS any other
+  operator value instead of rewriting it. Verified on real PostgreSQL 16.16:
+  100->50, re-apply no-op, absent->inserted, '75' preserved, alternative column
+  pair works, wallet row untouched.
+- REFERRAL REWARD is unchanged in form: 20% of the referred user's FIRST
+  qualifying deposit, once. At $50 that is $10; at $100 it is $20.
+- PAYHIP ACTIVATION removed from the NORMAL journey. It was already inert by
+  default (`PAYHIP_ACTIVATION_REQUIRED` unset -> `activationRequired: false`, and
+  `getLiveModeEligibility()` short-circuits), so no gate code was deleted. What
+  DID have to change was copy that asserted a mandatory paid activation:
+  `landing.hero.promo`, `landing.faq.a10` and `landing.howItWorks.step2.desc`
+  (x2 duplicate blocks) rewritten in all 6 locales to state deposit + promo credit
+  instead. The integration, its routes, migrations 050/054 and the activation UI
+  are retained and still appear when an operator turns the flag on (pinned).
+- i18n: values only for the changed keys; 1646 keys/locale x 6 (unchanged count).
+- TESTS: NEW `tests/min50_simplification.test.js` (23) pins the $50 constant and
+  every consumer, the referral 20% SQL formula + migration 057 contract, the
+  activation default-off path and the retained integration, the q8pay signature/
+  idempotency path, the promo seed and the $700 withdrawal minimum. 30 existing
+  suites updated for the intentional threshold/copy change (pins, dictionary
+  counts, funnel hash). `npm test` = 4026 pass / 0 fail.
+- DOM-ONLY VERIFICATION (no screenshots - the model adapter rejects images):
+  deposit UX 23/23 (dialog opens, "$50" notice, $50 preset fills the field, $49
+  refused client-side with ZERO requests, one create-invoice request with
+  {amount:50, currency:USDT, network:TRC20}, payment section shows the address +
+  exact amount + TRC20 + "Waiting for payment..."), onboarding/activation audit
+  20/20 (onboarding offers credit and deposit paths with no purchase step, the
+  deposit button opens the dialog, no activation copy anywhere while the flag is
+  off, activation UI and guide step reappear when the flag is on).
+- RESEARCH: `docs/payments/PROVIDER_RESEARCH_2026-11.md`. Recommendation: keep
+  Q8Pay. Cryptomus/OxaPay/Plisio documentation could NOT be verified from this
+  environment (hosts did not resolve / doc paths 404), so no fee, custody or KYB
+  claim about them is recorded. NOWPayments is the only realistic fallback because
+  its provider class already exists.
+- NOT committed/deployed at the time of writing; migration 057 NOT applied.
+- SUPPORT-BOT FACTS SWEPT (same session): the approved knowledge base
+  (`services/support/arbitrix-knowledge.json`) still told customers the minimum
+  deposit was $100 in 7 answers plus its provenance notes, and `platformBullets`
+  in `services/telegram-i18n.js` (en/pt/ar) repeated it. Both now say $50, so the
+  bot cannot contradict the product. `MARKETING_FACTS.minDeposit` already reads
+  `PLATFORM_MIN_DEPOSIT`, so the partner-group posts follow automatically; the
+  operator draft in `docs/telegram-referral-onboarding.md` was updated too. The
+  KB is still digit-clean about the WITHDRAWAL minimum (it says there is none).
+
+- PROVIDER INVESTIGATION (same session, docs only): `docs/payments/
+  PROVIDER_INVESTIGATION_BCON_PAYMENTO_BTCPAY_2026-11.md` answers the decisive
+  TRC20 question - can every invoice get its own receiving address so two
+  customers can each send exactly 50.00 USDT at once? Bcon Global: NO. Its own
+  New Address guide says "EVM chains and tron, solana do NOT use xpub", documents
+  50.00 / 50.01 amount differentiation, and notes that a merchant wallet pool
+  "automatically" falls back to decimals once exhausted; callbacks carry a static
+  URL secret (no HMAC over the body) and external_id is capped at 8 characters.
+  Paymento: best API of the three (HMAC raw-body signature, PartialPaid/Timeout
+  states, configurable tolerance, 0.5%) but TRC20 needs the CUSTOMER TO CONNECT A
+  WALLET - no plain address + QR. BTCPay Server + btcpayserver-tether/USDt plugin:
+  the only option with real distinct addresses per invoice (address pool; returns
+  null rather than adjusting amounts when exhausted), signed webhooks
+  (BTCPay-Sig) and PaidPartial/PaidOver states - at the cost of self-hosting, a
+  TRON RPC, 20-50 addresses with key management and sweeping. Verdict: do not
+  integrate Bcon; Paymento only if the rail moves to ERC20/SPL; BTCPay is an
+  infrastructure project. Q8Pay stays in service, no routing change, nothing
+  merged or deployed. Also corrected the earlier research doc, which wrongly said
+  BTCPay had no TRON support.

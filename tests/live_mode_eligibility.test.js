@@ -5,7 +5,7 @@
  *
  * Approved commercial model:
  *   Live Mode = a valid $50 Payhip activation AND a confirmed deposit of at
- *   least the platform minimum ($100). Neither substitutes for the other.
+ *   least the platform minimum ($50). Neither substitutes for the other.
  *
  * Every assertion below boots the real server and calls the real routes; only
  * the database and the Payhip licence API are substituted (see
@@ -142,15 +142,22 @@ test('3. activation purchased, no qualifying deposit -> denied for the deposit',
   assert.strictEqual(res.status, 403);
   assert.strictEqual(res.body.code, 'LIVE_DEPOSIT_REQUIRED');
   assert.strictEqual(res.body.depositRequired, true);
-  assert.strictEqual(res.body.minDeposit, 100);
+  assert.strictEqual(res.body.minDeposit, 50);
 });
 
-test('4. activation + a $50 deposit -> denied (below the $100 minimum)', async () => {
-  setScenario({ activation: true, deposits: [{ amount: 50 }], balance: 50 });
+test('4. activation + a $25 deposit -> denied (below the $50 minimum)', async () => {
+  setScenario({ activation: true, deposits: [{ amount: 25 }], balance: 25 });
   const res = await startLive();
   assert.strictEqual(res.status, 403);
   assert.strictEqual(res.body.code, 'LIVE_DEPOSIT_REQUIRED');
-  assert.strictEqual(res.body.depositTotal, 50);
+  assert.strictEqual(res.body.depositTotal, 25);
+});
+
+test('4b. activation + a $50 deposit -> Live Mode allowed (the approved minimum)', async () => {
+  setScenario({ activation: true, deposits: [{ amount: 50 }], balance: 60 });
+  const res = await startLive();
+  assert.strictEqual(res.status, 200, 'expected eligibility, got: ' + res.text);
+  assert.strictEqual(res.body.status, 'started');
 });
 
 test('5. activation + a confirmed $100 deposit -> Live Mode allowed', async () => {
@@ -337,7 +344,7 @@ test('the status payload reports BOTH halves so the UI can name the missing step
       depositRequired: true,
       depositSatisfied: false,
       depositTotal: 40,
-      minDeposit: 100
+      minDeposit: 50
     }
   );
   assert.strictEqual(res.body.liveMode.status, 'deposit_required');
@@ -349,6 +356,6 @@ test('/api/auth/me carries the same two facts', async () => {
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.body.liveEligible, true);
   assert.strictEqual(res.body.liveDepositSatisfied, true);
-  assert.strictEqual(res.body.liveMinDeposit, 100);
+  assert.strictEqual(res.body.liveMinDeposit, 50);
   assert.strictEqual(res.body.liveMode.status, 'available');
 });

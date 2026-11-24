@@ -380,13 +380,13 @@ test('/reply <conversation number> reaches the correct customer', async () => {
   await h.bot.handleUpdate(customerMessage('Hello, I need help with Kalderix.'));
 
   const result = await h.bot.handleUpdate(groupCommand(
-    `/reply ${CONVERSATION_ID} The minimum deposit is $100. Let me know if you need help with the deposit process.`
+    `/reply ${CONVERSATION_ID} The minimum deposit is $50. Let me know if you need help with the deposit process.`
   ));
 
   assert.strictEqual(result.action, 'reply');
-  const toCustomer = h.toCustomer().filter((c) => /minimum deposit is \$100/.test(c.text));
+  const toCustomer = h.toCustomer().filter((c) => /minimum deposit is \$50/.test(c.text));
   assert.strictEqual(toCustomer.length, 1, 'the agent reply reached the customer');
-  const stored = h.store.state.messages.filter((m) => /minimum deposit is \$100/.test(m.body));
+  const stored = h.store.state.messages.filter((m) => /minimum deposit is \$50/.test(m.body));
   assert.strictEqual(stored.length, 1);
   assert.strictEqual(stored[0].direction, DIRECTION_AGENT, 'recorded as a human agent, never the bot');
 });

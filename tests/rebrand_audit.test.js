@@ -277,7 +277,7 @@ test('the knowledge base keeps its entry ids and its legal answer', () => {
 // ---------------------------------------------------------------------------
 
 test('the financial constants are exactly what they were', () => {
-  assert.ok(/PLATFORM_MIN_DEPOSIT_USD\s*=\s*100/.test(SERVER));
+  assert.ok(/PLATFORM_MIN_DEPOSIT_USD\s*=\s*50/.test(SERVER));
   assert.ok(/MIN_WITHDRAWAL_USD\s*=\s*700/.test(SERVER));
   assert.ok(/REFERRAL_REWARD_PERCENT_DEFAULT\s*=\s*20/.test(SERVER));
   assert.ok(/BOT_PROFIT_PAUSE_USD/.test(read('services/ProfitPause.js')));
@@ -294,9 +294,10 @@ test('the rebrand adds no migration (its only DDL predates the audit)', () => {
   // 051 was applied BEFORE this audit (a subscription-detail label rename that
   // back-fills existing rows). A product rename must never need new DDL, so the
   // count and the single pre-existing rebrand-named file are pinned here.
-  // 056 (users email uniqueness) is a separate security migration, not a rename.
+  // 056 (users email uniqueness) and 057 (the approved $50 minimum sync) are
+  // separate changes, not part of the rename.
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations'));
-  assert.equal(migrations.length, 55, 'migration count changed - was a file added?');
+  assert.equal(migrations.length, 56, 'migration count changed - was a file added?');
   const rebrandNamed = migrations.filter((m) => /rebrand|kalderix/i.test(m));
   assert.deepEqual(rebrandNamed, ['051_rebrand_subscription_detail.sql']);
   // and the pre-existing one rewrites a DISPLAY string, not a balance rule

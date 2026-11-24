@@ -260,10 +260,10 @@ test('official Kalderix Support stays separate and unchanged', () => {
 
 test('deposit rules and safeguards are untouched', () => {
     const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-    assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 100/);
+    assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 50/);
     assert.match(server, /MIN_WITHDRAWAL_USD = 700/);
     assert.match(server, /credit_payment_safe/);
-    assert.match(INDEX, /MIN_DEPOSIT:\s*100/);
+    assert.match(INDEX, /MIN_DEPOSIT:\s*50/);
     assert.match(INDEX, /TRON \(TRC20\)/);
     // The partner UI cannot create a deposit, an invoice or a credit.
     assert.ok(!/create-invoice/.test(fn('renderPaymentPartnerContacts')));

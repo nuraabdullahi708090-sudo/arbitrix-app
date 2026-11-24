@@ -297,17 +297,17 @@ test('11. the shipped build presents one name consistently', () => {
   assert.ok(INDEX.includes(BRAND.tagline), 'the tagline in the markup matches BRAND.tagline');
 });
 
-test('12. the $100 minimum is documented as one coordinated step', () => {
+test('12. the $50 minimum is documented as one coordinated step', () => {
   const env = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
   const block = env.slice(env.indexOf('MINIMUM DEPOSIT FLOOR'));
   const section = block.slice(0, block.indexOf('PAYHIP LIVE MODE'));
   assert.ok(section.includes('PLATFORM_MIN_DEPOSIT_USD'), 'the knob is documented');
-  assert.ok(section.includes('049_min_deposit_100.sql'),
-    'the doc names the migration that asserts the matching referral row');
+  assert.ok(section.includes('057_min_deposit_and_referral_50.sql'),
+    'the doc names the migration that syncs the matching referral row');
   assert.ok(/referral qualifying deposit/i.test(section),
     'the two halves that must agree are named');
   assert.ok(/approved/i.test(section), 'the approved value is stated');
-  assert.ok(fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '049_min_deposit_100.sql')));
+  assert.ok(fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '057_min_deposit_and_referral_50.sql')));
   assert.ok(!fs.existsSync(path.join(ROOT, 'supabase', 'migrations', '049_min_deposit_50.sql')),
     'the superseded $50 migration must not come back');
 });

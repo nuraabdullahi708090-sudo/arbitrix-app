@@ -248,5 +248,5 @@ test('17. this polish never touches money or the trading engine', () => {
     assert.match(INDEX, /setInterval\(executeBotTrade, 8000\)/, 'the bot cadence is unchanged');
     assert.ok(!/MIN_WITHDRAWAL: (?!700)/.test(INDEX), 'the withdrawal minimum is unchanged');
     assert.match(INDEX, /MIN_WITHDRAWAL: 700/);
-    assert.match(INDEX, /MIN_DEPOSIT_AMOUNT = 100|MIN_DEPOSIT: 100/, 'the deposit minimum is unchanged');
+    assert.match(INDEX, /MIN_DEPOSIT_AMOUNT = 100|MIN_DEPOSIT: 50/, 'the deposit minimum is unchanged');
 });

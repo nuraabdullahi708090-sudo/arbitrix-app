@@ -183,7 +183,7 @@ test('openDepositModal() opens at the top and focuses without scrolling (runtime
 
     els.depositModalContent = panel;
     const sandbox = {
-        APP: { mode: 'live', environment: 'PRODUCTION', MIN_DEPOSIT: 100 },
+        APP: { mode: 'live', environment: 'PRODUCTION', MIN_DEPOSIT: 50 },
         document: { getElementById: el },
         resetDepositModal: () => {},
         updateDepositMinNotice: () => {},

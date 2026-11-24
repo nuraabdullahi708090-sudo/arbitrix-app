@@ -382,7 +382,7 @@ test('18. the deposit and withdrawal mechanics are unchanged', () => {
     // Business rules are unchanged.
     assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/);
     assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
     // The withdrawal request never sees the tutorial.
     const withdrawRoute = SERVER.slice(SERVER.indexOf("app.post('/api/withdraw/request'"));
     const routeEnd = withdrawRoute.indexOf('\n});\n');

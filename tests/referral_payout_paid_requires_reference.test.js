@@ -356,7 +356,7 @@ test('functional UI: non-PAID transitions still work without a reference', async
 // ===========================================================================
 test('business rules are unchanged by this fix', () => {
     assert.match(SERVER, /const REFERRAL_REWARD_PERCENT_DEFAULT = 20;/);
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
     assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
     assert.ok(!/REFERRAL_REWARD_AMOUNT_DEFAULT|referral_reward_amount/.test(SERVER), 'no flat reward');
     assert.ok(!/REFERRAL_PROFIT_COMMISSION_RATE|credit_referral_commission_safe/.test(SERVER), 'no commission');

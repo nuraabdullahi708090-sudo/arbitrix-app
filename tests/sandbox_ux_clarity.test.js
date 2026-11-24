@@ -107,19 +107,19 @@ test('F5: the notice value comes from APP.MIN_DEPOSIT (single source, no literal
     'requestDepositAddress must use APP.MIN_DEPOSIT');
   assert.ok(!/MIN_DEPOSIT_AMOUNT = 100/.test(request), 'no duplicated literal 100');
 
-  assert.ok(/MIN_DEPOSIT:\s*100/.test(INDEX), 'APP.MIN_DEPOSIT stays 100');
+  assert.ok(/MIN_DEPOSIT:\s*50/.test(INDEX), 'APP.MIN_DEPOSIT stays 100');
 });
 
 test('F5: updateDepositMinNotice renders the localized minimum for the configured value', () => {
   const els = { depositMinNotice: fakeEl() };
   const ctx = makeCtx(extractFunction(INDEX, 'updateDepositMinNotice'), els);
-  ctx.APP = { MIN_DEPOSIT: 100 };
+  ctx.APP = { MIN_DEPOSIT: 50 };
   ctx.t = (k, vars) => {
     const s = ({ 'deposit.minDeposit': 'Minimum deposit is ${{min}}' })[k] || k;
     return vars ? s.split('{{min}}').join(vars.min) : s;
   };
   ctx.updateDepositMinNotice();
-  assert.strictEqual(els.depositMinNotice.textContent, 'Minimum deposit is $100');
+  assert.strictEqual(els.depositMinNotice.textContent, 'Minimum deposit is $50');
 });
 
 test('F5: notice re-renders on language switch (hook present)', () => {
@@ -130,7 +130,7 @@ test('F5: notice re-renders on language switch (hook present)', () => {
 });
 
 test('F5: server-side minimum-deposit validation is unchanged', () => {
-  assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+  assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
   assert.match(SERVER, /amt < PLATFORM_MIN_DEPOSIT/);
 });
 

@@ -66,7 +66,7 @@ characters, inside the 3,900-character limit enforced by
 `POST /api/admin/marketing/posts`.
 
 The draft was checked against the real content guard
-(`services/ContentGuard.js` with `minDeposit: 100`, `referralPercent: 20`):
+(`services/ContentGuard.js` with `minDeposit: 50`, `referralPercent: 20`):
 `blocked = false`, `requiresApproval = false`, no violations. Re-run that check
 (`POST /api/admin/marketing/preview`) before queueing, because the guard rules
 can change independently of this document.
@@ -81,7 +81,7 @@ on referring new users.
 
 1️⃣ HOW THE PROGRAMME WORKS
 You introduce a new user to Kalderix with your personal referral link. When
-their first deposit of $100 or more is confirmed, you earn a one-time reward of
+their first deposit of $50 or more is confirmed, you earn a one-time reward of
 20% of that deposit. Later deposits do not earn again.
 
 2️⃣ HOW TO REGISTER AS A PARTNER
@@ -105,11 +105,11 @@ recurring commission on downline activity and no flat per-referral bonus.
 Worked examples are published on the partner page: https://arbitrix.pro/partners
 
 6️⃣ MINIMUM QUALIFYING DEPOSIT
-$100. A first deposit below $100 does not qualify, and a later top-up does not
+$50. A first deposit below $50 does not qualify, and a later top-up does not
 retroactively qualify it.
 
 7️⃣ WHEN REWARDS ARE CREDITED
-Automatically, once the referred user's first deposit of $100 or more is
+Automatically, once the referred user's first deposit of $50 or more is
 confirmed. Registration, link clicks and pending deposits do not qualify.
 
 8️⃣ TRACKING YOUR REFERRALS
@@ -135,7 +135,7 @@ Trading involves risk; referral rewards are not guaranteed earnings.
 
 * one-time 20% of the **first** qualifying deposit; no recurring downline
   commission; no flat per-referral reward;
-* qualifying minimum **$100**;
+* qualifying minimum **$50**;
 * no income guarantees, no profit promises, no "risk-free" framing (the guard
   reads negations correctly, so "never promise profits" stays publishable);
 * no withdrawal-minimum statement anywhere (the platform's internal threshold is

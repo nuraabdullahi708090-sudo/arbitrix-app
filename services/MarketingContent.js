@@ -11,7 +11,7 @@
  * the numbers arrive from server.js constants and referral_config.
  *
  * BUSINESS FACTS USED (verified in server.js / referral_config):
- *   - minimum qualifying deposit: 100
+ *   - minimum qualifying deposit: 50 (PLATFORM_MIN_DEPOSIT)
  *   - referral reward: 20% of the referred user's FIRST qualifying deposit, once
  *   - no recurring / lifetime commission
  *   - $50 promotional credit exists (tradable, not withdrawable)

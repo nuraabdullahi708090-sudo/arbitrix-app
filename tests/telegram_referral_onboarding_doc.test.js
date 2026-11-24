@@ -6,7 +6,7 @@
  * honest and publishable:
  *   - it stays a DRAFT (nothing may claim it was published)
  *   - it covers the ten required points
- *   - it states only the real business rules (20% one-time, $100 minimum)
+ *   - it states only the real business rules (20% one-time, $50 minimum)
  *   - the real content guard accepts it without blocking or manual review
  *   - it never discloses the internal withdrawal minimum
  */
@@ -48,7 +48,7 @@ test('2. the draft covers the ten required onboarding points', () => {
         /personal referral link/i,                              // 4 referral link
         /how to share your link/i,                              // 5 sharing
         /20%/,                                                  // 6 commission
-        /\$100/,                                                // 7 minimum deposit
+        /\$50/,                                                 // 7 minimum deposit
         /when rewards are credited/i,                           // 8 crediting
         /tracking your referrals/i,                             // 9 tracking
         /need help/i,                                           // 10 assistance
@@ -66,10 +66,10 @@ test('2. the draft covers the ten required onboarding points', () => {
 
 test('3. the message states only the real business rules', () => {
     assert.match(SERVER, /const REFERRAL_REWARD_PERCENT_DEFAULT = 20;/, 'the platform reward is 20%');
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/, 'the platform minimum is $100');
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/, 'the platform minimum is $50');
     assert.match(MESSAGE, /one-time 20% of the referred user's first qualifying deposit/i,
         'the reward must be described as one-time, on the FIRST qualifying deposit');
-    assert.match(MESSAGE, /\$100\. A first deposit below \$100 does not qualify/i,
+    assert.match(MESSAGE, /\$50\. A first deposit below \$50 does not qualify/i,
         'the qualifying minimum must be stated exactly');
     assert.match(MESSAGE, /no\s+recurring commission on downline activity/i,
         'the absence of a downline commission must be stated');
@@ -90,7 +90,7 @@ test('4. the internal withdrawal minimum is never disclosed', () => {
 });
 
 test('5. the real content guard accepts the draft without review', () => {
-    const report = checkContent(MESSAGE, { locale: 'en', minDeposit: 100, referralPercent: 20 });
+    const report = checkContent(MESSAGE, { locale: 'en', minDeposit: 50, referralPercent: 20 });
     assert.strictEqual(report.blocked, false, 'the draft must not be blocked: '
         + JSON.stringify(report.violations || []));
     assert.strictEqual(report.requiresApproval, false, 'the draft must not need manual approval: '

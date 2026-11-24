@@ -222,7 +222,7 @@ test('production payout endpoints + PAYOUT_ASSETS are unchanged by this feature'
     assert.match(prodAdmin, /rpc\('update_referral_payout_safe'/);
     // USDT/TRC20-only launch asset restriction preserved
     assert.match(SERVER, /PAYOUT_ASSETS\s*=\s*\[[\s\S]*?coin:\s*'USDT'[\s\S]*?networks:\s*\['TRC20'\]/);
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
     assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
 });
 

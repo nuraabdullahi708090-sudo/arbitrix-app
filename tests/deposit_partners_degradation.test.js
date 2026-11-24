@@ -172,7 +172,7 @@ test('without migration 045 the deposit options still return the crypto route', 
     assert.strictEqual(body.crypto.enabled, true);
     assert.strictEqual(body.crypto.asset, 'USDT');
     assert.strictEqual(body.crypto.network, 'TRC20');
-    assert.strictEqual(body.crypto.minDeposit, 100, 'minimum deposit stays $100');
+    assert.strictEqual(body.crypto.minDeposit, 50, 'minimum deposit is the approved $50');
     // Card purchasing stays postponed whatever the environment says.
     assert.strictEqual(body.card.enabled, false);
 

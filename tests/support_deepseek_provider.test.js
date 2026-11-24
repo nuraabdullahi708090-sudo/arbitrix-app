@@ -133,13 +133,13 @@ test('DeepSeek requests use the OpenAI-compatible chat-completions format', asyn
 
   const prompt = body.messages[1].content;
   assert.match(prompt, /Approved knowledge:/);
-  assert.match(prompt, /The minimum deposit is \$100/, 'the model must receive the approved knowledge');
+  assert.match(prompt, /The minimum deposit is \$50/, 'the model must receive the approved knowledge');
   assert.match(prompt, /Customer question: What is the minimum deposit\?/);
   assert.match(prompt, /Do not add amounts, times, or policies that are not in the approved knowledge/);
 
   // only the approved knowledge + question travel - no account data, no secrets
   assert.ok(!JSON.stringify(body).includes(FAKE_KEY), 'the key must never be in the request body');
-  assert.strictEqual(result.answer, 'The minimum deposit is $100. Deposits are credited to your Live balance.');
+  assert.strictEqual(result.answer, 'The minimum deposit is $50. Deposits are credited to your Live balance.');
 });
 
 test('model and base URL are configurable; a malformed base URL falls back', async () => {
@@ -159,7 +159,7 @@ test('model and base URL are configurable; a malformed base URL falls back', asy
 test('a NO_ANSWER reply falls back to the approved knowledge text', async () => {
   const { fetchImpl } = stubFetch(() => okResponse('NO_ANSWER'));
   const result = await makeService({ fetchImpl }).ask('What is the minimum deposit?');
-  assert.strictEqual(result.answer, 'The minimum deposit is $100. Deposits are credited to your Live balance.');
+  assert.strictEqual(result.answer, 'The minimum deposit is $50. Deposits are credited to your Live balance.');
   assert.strictEqual(result.answered, true);
   // A deliberate NO_ANSWER is not a provider failure: the approved text is used.
   assert.strictEqual(result.reason, null);
@@ -176,7 +176,7 @@ test('provider failures are contained and never leak the key', async () => {
   }));
   const result = await makeService({ fetchImpl: failing.fetchImpl }).ask('What is the minimum deposit?');
   // Falls back to the approved knowledge rather than failing the customer.
-  assert.strictEqual(result.answer, 'The minimum deposit is $100. Deposits are credited to your Live balance.');
+  assert.strictEqual(result.answer, 'The minimum deposit is $50. Deposits are credited to your Live balance.');
   assert.strictEqual(result.reason, 'provider-fallback');
   assert.ok(!JSON.stringify(result).includes(FAKE_KEY), 'the key must never appear in the outcome');
 
@@ -195,7 +195,7 @@ test('provider failures are contained and never leak the key', async () => {
 test('a network failure or missing key never throws at the service boundary', async () => {
   const exploding = async () => { throw new Error('socket hang up'); };
   const thrown = await makeService({ fetchImpl: exploding }).ask('What is the minimum deposit?');
-  assert.strictEqual(thrown.answer, 'The minimum deposit is $100. Deposits are credited to your Live balance.');
+  assert.strictEqual(thrown.answer, 'The minimum deposit is $50. Deposits are credited to your Live balance.');
 
   // No key configured at all (the shipping state): still answered from knowledge.
   const noKey = createSupportAIService({
@@ -203,7 +203,7 @@ test('a network failure or missing key never throws at the service boundary', as
     knowledge: KB
   });
   const result = await noKey.ask('What is the minimum deposit?');
-  assert.strictEqual(result.answer, 'The minimum deposit is $100. Deposits are credited to your Live balance.');
+  assert.strictEqual(result.answer, 'The minimum deposit is $50. Deposits are credited to your Live balance.');
 });
 
 // ------------------------------------- knowledge stays the source of truth --

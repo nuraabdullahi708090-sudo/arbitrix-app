@@ -51,7 +51,7 @@ const WITHDRAW = routeSource("app.post('/api/withdraw/request'", "app.get('/api/
 // ---------------------------------------------------------------------------
 test('promo credit: the $50 seed is a constant, not derived from the minimum deposit', () => {
     assert.match(SERVER, /const SANDBOX_PROMO_CREDIT = 50;/);
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
     assert.notStrictEqual(50, 100);
 });
 

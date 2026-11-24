@@ -202,7 +202,7 @@ test('AI disabled: a factual question is answered from approved knowledge, not a
   // The approved knowledge base is offline and deterministic, so it answers even
   // with AI_SUPPORT_ENABLED off. This is the deliberate replacement for the old
   // one-size-fits-all acknowledgement.
-  assert.match(replies[0], /minimum deposit is \$100/i);
+  assert.match(replies[0], /minimum deposit is \$50/i);
   assert.notStrictEqual(replies[0], CUSTOMER_GUIDE_TEXT);
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === question));
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_BOT && m.body === replies[0]));
@@ -221,7 +221,7 @@ test('AI disabled: an injected but DISABLED service behaves exactly like AI off'
   await h.bot.handleUpdate(customerUpdate({ text: 'What is the minimum deposit?' }));
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
-  assert.match(replies[0], /minimum deposit is \$100/i);
+  assert.match(replies[0], /minimum deposit is \$50/i);
   assert.strictEqual(h.bot.getStats().knowledgeAnswers, 1);
 });
 
@@ -235,7 +235,7 @@ test('AI enabled: a known beginner question is answered from approved knowledge'
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
   assert.notStrictEqual(replies[0], CUSTOMER_GUIDE_TEXT);
-  assert.match(replies[0], /\$100/);
+  assert.match(replies[0], /\$50/);
 
   // persistence and forwarding are unchanged
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === question));
@@ -255,7 +255,7 @@ test('AI enabled: the customer keeps getting a reply when the conversation alrea
   await h.bot.handleUpdate(customerUpdate({ text: 'What is the minimum deposit?' }));
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 2);
-  assert.match(replies[1], /\$100/);
+  assert.match(replies[1], /\$50/);
 });
 
 // ----------------------------------------------------- AI enabled: hand-off --
@@ -347,7 +347,7 @@ test('AI/provider failure falls back to APPROVED knowledge instead of a blank ac
 
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
-  assert.match(replies[0], /minimum deposit is \$100/i, 'a provider outage must not degrade a known answer');
+  assert.match(replies[0], /minimum deposit is \$50/i, 'a provider outage must not degrade a known answer');
   assert.ok(h.stored.some((m) => m.direction === DIRECTION_CUSTOMER && m.body === text));
   assert.strictEqual(forwarded(h).length, 1);
   assert.strictEqual(h.bot.getStats().aiFailures, 1);
@@ -360,7 +360,7 @@ test('an empty AI answer also falls back to approved knowledge instead of sendin
   await h.bot.handleUpdate(customerUpdate({ text: 'What is the minimum deposit?' }));
   const replies = repliesToCustomer(h);
   assert.strictEqual(replies.length, 1);
-  assert.match(replies[0], /minimum deposit is \$100/i);
+  assert.match(replies[0], /minimum deposit is \$50/i);
   assert.strictEqual(forwarded(h).length, 1);
 });
 
@@ -459,7 +459,7 @@ test('Telegram webhook authentication is unchanged with the AI enabled', async (
   const ok = makeRes();
   await handler(webhookReq(customerUpdate({ text: 'What is the minimum deposit?' })), ok);
   assert.strictEqual(ok.statusCode, 200);
-  assert.match(repliesToCustomer(h)[0], /\$100/);
+  assert.match(repliesToCustomer(h)[0], /\$50/);
 });
 
 // ------------------------------------------------- architecture guarantee --
