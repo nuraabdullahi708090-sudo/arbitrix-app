@@ -355,7 +355,7 @@ test('11. the card renders the three states in every locale (real renderer, real
 
   assert.strictEqual(en.available.liveModeStatusChip.textContent, 'Live Mode available');
   assert.match(en.available.liveModeStatusChip.className, /status-badge funded/);
-  assert.ok(en.available.promoCreditExplain.textContent.startsWith('Your $50 promotional credit can be used'),
+  assert.ok(en.available.promoCreditExplain.textContent.startsWith('Your $50 promotional credit is tradable'),
     'the amount is interpolated into the sentence');
 
   // Arabic + Chinese render translated labels, not English leftovers.
@@ -397,8 +397,7 @@ test('14. the approved explanation is localized in all six locales with the amou
   const en = i18n.T.en['promo.creditExplainTradable'];
   // Two short sentences: what the credit is for, and how to withdraw.
   assert.strictEqual(en,
-    'Your ${{amount}} promotional credit can be used for trading. ' +
-    'You can withdraw once you make a qualifying first deposit and a trade.');
+    'Your ${{amount}} promotional credit is tradable. Make a deposit to withdraw.');
   assert.ok(!/withdrawal conditions/i.test(en), 'the conditions sentence is not repeated here');
   assert.ok(!/does not add trading capital/i.test(en), 'no activation caveat is needed');
   const keys = ['promo.creditTitle', 'promo.creditBadge', 'promo.creditExplainTradable', 'liveMode.fundingNote',
@@ -427,8 +426,8 @@ test('15. the card claims neither a guarantee nor a restriction the platform doe
   // The restriction that IS real for a promo account is stated exactly once, on
   // the dashboard notice - not on this card.
   const T = i18n.T;
-  assert.match(T.en['promo.creditExplainTradable'], /promotional credit can be used for trading/i);
-  assert.match(T.en['promo.creditExplainTradable'], /withdraw/i, 'the withdrawal rule is stated');
+  assert.match(T.en['promo.creditExplainTradable'], /promotional credit is tradable/i);
+  assert.match(T.en['promo.creditExplainTradable'], /withdraw/i, 'the withdrawal destination is stated');
   assert.match(T.en['promo.creditExplainTradable'], /deposit/i, 'the way out is stated');
   // The $30 realised-profit cap IS enforced (server.js PROMO_PROFIT_CAP_USD), so
   // hiding it would be a hidden condition. It is stated, once, here.

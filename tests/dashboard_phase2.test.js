@@ -188,7 +188,7 @@ test('the tab-bound bot notice states its real limitation in all 6 locales', () 
   }
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    '\u{1F916} Trading runs while this page is open. If you close or refresh it, the bot stops and you will need to start it again.'
+    '\u{1F916} Trading runs from this page while the bot is running. Keep this tab open \u2014 closing or refreshing it stops the bot until you start it again.'
   );
   // Neutral variant for "the server has not told us which engine is trading".
   for (const l of LANGS) {
@@ -198,8 +198,10 @@ test('the tab-bound bot notice states its real limitation in all 6 locales', () 
   assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
   // the markup default (pre-hydration, before applyTranslations) matches EN
   // (string comparison, not a regex: `\u{...}` needs the /u flag)
-  assert.ok(INDEX.includes('data-i18n="bot.engineNotice">\u{1F916} Trading runs while this page is open.'),
-    'the pre-hydration markup default matches the translated copy');
+  // The element ships with the NEUTRAL variant: until the server says which engine
+  // owns the session, the page must not claim the tab is what stops trading.
+  assert.ok(INDEX.includes('data-i18n="bot.engineNoticeUnknown">\u{1F916} The bot\'s current status is shown above.'),
+    'the pre-hydration markup default is the neutral copy');
 });
 
 /* ------------------------------------------------------------------ *

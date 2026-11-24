@@ -56,7 +56,7 @@ test('the browser copy promises tab-bound behaviour; the worker copy states the 
   // worker variant keeps the background claim.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    "\u{1F916} Trading runs while this page is open. If you close or refresh it, the bot stops and you will need to start it again."
+    "\u{1F916} Trading runs from this page while the bot is running. Keep this tab open \u2014 closing or refreshing it stops the bot until you start it again."
   );
   // The third variant covers "status not readable yet": it must be true in BOTH
   // engine modes, because guessing is exactly what this disclosure avoids.
@@ -91,7 +91,7 @@ test('the old technical bot wording is fully replaced in all 6 locales', () => {
   assert.ok(!INDEX.includes('A server-side engine that keeps trading after you close the tab'), 'obsolete browser-loop copy removed');
   // ...and from the pre-hydration markup default, which is what a user sees right
   // after a refresh before the bot is started (applyTranslations has not run yet).
-  const markupDefault = 'data-i18n="bot.engineNotice">\u{1F916} Trading runs while this page is open. If you close or refresh it, the bot stops and you will need to start it again.</div>';
+  const markupDefault = 'data-i18n="bot.engineNoticeUnknown">\u{1F916} The bot\'s current status is shown above. Trading runs automatically while the bot is running.</div>';
   assert.ok(INDEX.includes(markupDefault), 'the pre-hydration markup default shows the new copy');
   for (const l of LANGS) {
     assert.ok(T[l]['bot.engineNoticeWorker'] && String(T[l]['bot.engineNoticeWorker']).trim(), l + ' notice');
@@ -153,7 +153,9 @@ test('a language switch re-applies the right variant (data-i18n alone would rese
 });
 
 test('the disclosure copy sits in the live bot card and is still a data-i18n default', () => {
-  assert.match(INDEX, /id="botEngineNotice"[^>]*data-i18n="bot\.engineNotice"/);
+  // The element ships with the NEUTRAL variant: before the server reports which
+  // engine owns the session, the page must not claim the tab stops trading.
+  assert.match(INDEX, /id="botEngineNotice"[^>]*data-i18n="bot\.engineNoticeUnknown"/);
 });
 
 test('no sandbox file or sandbox string was touched by this change', () => {
