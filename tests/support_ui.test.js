@@ -94,9 +94,7 @@ const SUPPORT_KEYS = [
     'support.safeInfo.screenshot', 'support.faq.title', 'support.faq.depositPending.q',
     'support.faq.depositPending.a', 'support.faq.depositFailed.q',
     'support.faq.depositFailed.a', 'support.faq.withdrawal.q', 'support.faq.withdrawal.a',
-    'support.faq.security.q', 'support.faq.security.a', 'deposit.partner.primaryLabel',
-    'deposit.partner.backupLabel', 'deposit.partner.oliviaBtn', 'deposit.partner.alexBtn',
-    'deposit.partner.alexNote',
+    'support.faq.security.q', 'support.faq.security.a',
     'support.needHelpWithdraw', 'support.contactOfficial', 'support.contactShort',
     'support.openCenter', 'support.verificationNotRequired', 'support.paymentHelp.pending',
     'support.paymentHelp.detected', 'support.paymentHelp.failed',
@@ -213,19 +211,18 @@ test('updateSupportLinks applies the configured URL and degrades safely when uns
     assert.strictEqual(unset.els.supportNotConfigured.style.display, 'block');
 });
 
-test('partner contacts live only in the partner route of the deposit modal', () => {
-    // Deposit questions belong to the payment partner; official support is
-    // reached from the Support Center (covered by the other tests here).
-    // The "I Already Have Crypto" route must show NO partner contact at all,
-    // so the old in-form partner block is gone for good.
-    assert.ok(!/id="depositCryptoPartnerContacts"/.test(INDEX), 'no partner list in the crypto route');
-    assert.ok(!/id="depositCryptoPartnerHelp"/.test(INDEX), 'no partner help block in the crypto route');
-    assert.ok(!/deposit\.crypto\.partnerHelp/.test(INDEX), 'the retired copy is gone');
-    assert.ok(/id="depositPartnerContacts"/.test(INDEX), 'the partner route still has the section');
-    assert.ok(/deposit\.partner\.oliviaBtn/.test(INDEX), 'Olivia is offered on WhatsApp');
-    assert.ok(/wa\.me\/17828027841/.test(INDEX), 'the WhatsApp destination exists');
-    assert.ok(/deposit\.partner\.alexBtn/.test(INDEX), 'Alex remains the Telegram backup');
+test('the deposit modal carries no individual payment-partner contact', () => {
+    // The verified-partner funding route was removed: the deposit journey is the
+    // automated USDT (TRC20) flow, and official support is reached from the
+    // Support Center. Pin the absence so no partner contact can creep back.
+    for (const id of ['depositCryptoPartnerContacts', 'depositCryptoPartnerHelp',
+        'depositPartnerContacts', 'depositPartnerPanel', 'depositOptionPartner']) {
+        assert.ok(!INDEX.includes(`id="${id}"`), `${id} must not exist`);
+    }
+    assert.ok(!/wa\.me\/17828027841/.test(INDEX), 'no WhatsApp partner destination');
+    assert.ok(!/deposit\.partner\.(oliviaBtn|alexBtn|alexNote)/.test(INDEX), 'no partner contact copy');
     assert.ok(!/support\.needHelpDeposit/.test(INDEX), 'the old support link is retired');
+    assert.ok(/onclick="openSupportModal\(\)"/.test(INDEX), 'official support is still reachable');
 });
 
 test('support is available from the payment pending/failed state with invoice reference', () => {
@@ -245,9 +242,10 @@ test('support is available from the payment pending/failed state with invoice re
     assert.ok(/id="depositInvoiceRef"/.test(win), 'invoice reference is displayed');
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');
     assert.ok(/support\.contactOfficial/.test(win), 'official support CTA');
-    // Payment assistance is the partner; official support stays separate.
-    assert.ok(/id="paymentPartnerContacts"/.test(win), 'payment-partner contacts');
-    assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept beside it');
+    // The generated payment session offers NO individual payment partners:
+    // official support is the only assistance surface there.
+    assert.ok(!/id="paymentPartnerContacts"/.test(win), 'no payment-partner contacts in the payment session');
+    assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept');
 
     // The status-driven guidance maps the observed status to the right key.
     const fn = extractFunction('updatePaymentSupportHelp');

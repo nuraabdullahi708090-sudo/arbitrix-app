@@ -258,32 +258,20 @@ test('the manager can review, record the actual amount + tx hash, mark PAID or r
     assert.match(INDEX, /admin\.referral\.payoutCol\.network/);
 });
 
-test('a Contact Partner Support action uses a CONFIGURABLE contact (never a hard-coded account)', () => {
+test('a Contact Partner Support action opens the official Support Center', () => {
+    // The individual payment/referral partner contact was removed. The action
+    // stays, and it routes to the in-app Support Center - no personal account,
+    // no invented handle and no broken link when nothing is configured.
     assert.match(INDEX, /id="partnerSupportBtn"/);
-    assert.match(INDEX, /onclick="openPartnerSupport\(\)"/);
-    assert.match(INDEX, /meta name="arbitrix-partner-support-telegram"/);
-    assert.match(INDEX, /ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL/);
-    const fn = sliceBetween(INDEX, 'function getPartnerSupportTelegramUrl', 'function openPartnerSupport');
-    assert.match(fn, /partner-support-telegram/);
-    const open = sliceBetween(INDEX, 'function openPartnerSupport', 'function closeReferralPayoutModal');
-    assert.match(open, /window\.open\(url/);
-    assert.match(open, /openSupportModal\(\)/); // fallback when unset
+    assert.match(INDEX, /onclick="openSupportModal\(\)"/);
+    assert.ok(!/openPartnerSupport/.test(INDEX), 'the partner-contact helper is gone');
+    assert.ok(!/arbitrix-partner-support-telegram/.test(INDEX), 'no partner meta remains');
     // The button markup itself must not inline a personal telegram account.
     const btn = sliceBetween(INDEX, 'id="partnerSupportBtn"', '</button>');
-    assert.ok(!/t\.me\//i.test(btn), 'partner support button must not hard-code a personal account');
-});
-
-test('the partner support contact is configured in ONE place and resolves to a t.me URL', () => {
-    const m = INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="([^"]*)">/);
-    assert.ok(m, 'partner support meta present');
-    const configured = m[1].trim();
-    assert.ok(configured.length > 0, 'a partner support contact must be configured');
-    // Single source of truth: the configured value appears exactly once in the page.
-    assert.strictEqual(INDEX.split(configured).length - 1, 1, 'the contact must not be hard-coded more than once');
-    // The helper turns a bare @username into a t.me URL (and passes a full URL through).
-    const fn = sliceBetween(INDEX, 'function getPartnerSupportTelegramUrl', 'function openPartnerSupport');
-    assert.match(fn, /test\(raw\)/);
-    assert.match(fn, /return 'https:\/\/t\.me\/' \+ raw\.replace\(\/\^@\/, ''\)/);
+    assert.ok(!/t\.me\//i.test(btn), 'the button must not hard-code a personal account');
+    // The Support Center is a real surface, reachable from anywhere.
+    assert.match(INDEX, /function openSupportModal\(/);
+    assert.match(INDEX, /id="supportModal"/);
 });
 
 test('the referral UI no longer says "platform minimum applies"', () => {
@@ -296,7 +284,7 @@ test('the referral UI no longer says "platform minimum applies"', () => {
 // ===========================================================================
 test('all 6 locales keep an identical, complete, non-empty payout key set', () => {
     const counts = LANGS.map((l) => Object.keys(T[l]).length);
-    assert.deepStrictEqual(counts, [1594, 1594, 1594, 1594, 1594, 1594]);
+    assert.deepStrictEqual(counts, [1571, 1571, 1571, 1571, 1571, 1571]);
     const base = Object.keys(T.en).sort().join('|');
     for (const l of LANGS) assert.strictEqual(Object.keys(T[l]).sort().join('|'), base, l + ' key set drift');
     for (const l of LANGS) for (const k of Object.keys(T[l])) {

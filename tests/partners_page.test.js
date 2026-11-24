@@ -639,24 +639,20 @@ test('7h. no internal sandbox wording on the partner page', () => {
 /* ------------------------------------------------------------------ *
  * 8. Support: single source of truth handle
  * ------------------------------------------------------------------ */
-test('8. the recruitment contact is Alex, from the app\'s first meta slot', () => {
+test('8. the recruitment page configures its own contact; the app configures none', () => {
     const metaOf = (html, name) => {
         const m = html.match(new RegExp('<meta name="' + name + '" content="([^"]*)">'));
         return m ? m[1] : null;
     };
-    // The page configures ONLY the first slot, and matches the app exactly.
-    assert.strictEqual(metaOf(PAGE, META_1), PARTNER_HANDLE, 'the page must configure Alex');
-    assert.strictEqual(metaOf(INDEX, META_1), PARTNER_HANDLE, 'the app must configure Alex');
-    assert.strictEqual(metaOf(PAGE, META_1), metaOf(INDEX, META_1),
-        'the two pages must not drift');
-    // Business decision: Olivia is a PAYMENT partner, not a recruitment contact.
-    assert.strictEqual(metaOf(PAGE, META_2), null, 'the recruitment page must not configure Olivia');
-    assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 0,
-        'Olivia must not appear on the recruitment page at all');
-    // The app DOES keep both, for the payment surfaces.
-    assert.strictEqual(metaOf(INDEX, META_2), PARTNER_HANDLE_2,
-        'the app must still configure Olivia for the payment surfaces');
-    // The handle literal appears exactly once (its meta) - never duplicated.
+    // The recruitment page keeps its single configured contact ...
+    assert.strictEqual(metaOf(PAGE, META_1), PARTNER_HANDLE, 'the page must configure its contact');
+    // ... while the APP no longer configures any payment partner: that route was
+    // removed, so no individual can be reached from the deposit journey.
+    assert.strictEqual(metaOf(INDEX, META_1), null, 'the app must not configure a partner contact');
+    assert.strictEqual(metaOf(INDEX, META_2), null, 'the app must not configure a second contact');
+    assert.strictEqual(INDEX.split('@AlexArbitrix').length - 1, 0, 'no Alex handle in the app');
+    assert.strictEqual(INDEX.split('@OliviaArbitrix').length - 1, 0, 'no Olivia handle in the app');
+    // The handle literal appears exactly once on the page (its meta).
     assert.strictEqual(PAGE.split(PARTNER_HANDLE).length - 1, 1,
         'the handle literal must appear exactly once (in its meta)');
 });
@@ -767,34 +763,24 @@ test('8c. the runtime builds the correct https://t.me URL from the meta handle',
 });
 
 
-test('8i. payment surfaces keep both partners while recruitment shows Alex alone', () => {
-    // Payment-specific surfaces in the app keep BOTH configured partners.
-    // The deposit modal renders Olivia on WhatsApp (primary) + Alex on Telegram
-    // (backup) through renderDepositPartnerAssistance(); the withdrawal/payment
-    // surface keeps the shared Telegram cards. The crypto-only route deliberately
-    // carries no partner contact at all, so its old container is gone.
-    ['depositPartnerContacts', 'paymentPartnerContacts'].forEach((id) => {
-        assert.ok(INDEX.includes('id="' + id + '"'), id + ' must exist');
-    });
-    assert.ok(!INDEX.includes('id="depositCryptoPartnerContacts"'),
-        'the crypto-only route no longer lists partners');
-    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the payment surface renders both partners');
-    assert.ok(INDEX.includes('renderDepositPartnerAssistance'), 'the deposit section renders Olivia then Alex');
-    assert.match(INDEX, /https:\/\/wa\.me\/17828027841/, 'Olivia is reached on WhatsApp');
-    assert.match(INDEX, /<meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">/,
-        'the app configures the second payment partner');
-    assert.ok(INDEX.indexOf("name: 'Alex'") < INDEX.indexOf("name: 'Olivia'"),
-        'the payment contact list keeps Alex first, so the referral resolver picks Alex');
-    // The in-app referral / partner-support CTA resolves to the FIRST contact
-    // (Alex), so referral support can never point at a payment partner.
-    const resolverDefs = INDEX.split('function getPartnerSupportTelegramUrl()');
-    assert.ok(resolverDefs.length >= 2, 'the referral resolver must exist');
-    assert.match(resolverDefs[resolverDefs.length - 1].slice(0, 240), /contacts\[0\]/,
-        'the effective resolver must use the first configured contact (Alex)');
-    assert.match(INDEX, /function openPartnerSupport\(\)[\s\S]{0,220}?getPartnerSupportTelegramUrl\(\)/,
-        'the referral partner-support button uses that single-contact resolver');
+test('8i. the app offers no partner contact anywhere in the deposit journey', () => {
+    // Management removed the customer-facing "Buy from a Verified Partner" route:
+    // the deposit journey is the automated USDT (TRC20) flow, and official
+    // support is the only assistance offered there.
+    for (const gone of ['id="depositPartnerContacts"', 'id="paymentPartnerContacts"',
+        'id="depositCryptoPartnerContacts"', 'renderPaymentPartnerContacts',
+        'renderDepositPartnerAssistance', 'https://wa.me/17828027841',
+        '<meta name="arbitrix-partner-support-telegram-2"']) {
+        assert.ok(!INDEX.includes(gone), 'must be gone from the app: ' + gone);
+    }
+    // The referral card keeps a support action, and it opens the Support Center
+    // rather than an individual account.
+    assert.match(INDEX, /id="partnerSupportBtn"[^>]*onclick="openSupportModal\(\)"/);
+    assert.match(INDEX, /function openSupportModal\(/);
     assert.ok(INDEX.includes('data-i18n="referral.partner.contactSupport"'),
         'the referral support button is still present');
+    // The recruitment page is a separate surface and keeps its own contact.
+    assert.strictEqual(PAGE.split(PARTNER_HANDLE).length - 1, 1);
 });
 
 test('8j. no other recruitment surface points at a payment partner', () => {

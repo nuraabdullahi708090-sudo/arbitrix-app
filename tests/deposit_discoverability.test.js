@@ -420,29 +420,25 @@ test('the deposit API, address flow and partner workstream are untouched', () =>
     assert.ok(!/APP\.mode === 'demo'/.test(fn), 'the demo-mode guard is gone with the mode');
     assert.ok(/MIN_DEPOSIT_AMOUNT = APP\.MIN_DEPOSIT/.test(fn), 'the minimum still comes from APP.MIN_DEPOSIT');
 
-    // The two-route funding menu and the partner directory are intact. The
-    // external-purchase route was removed by product decision, so its link must
-    // NOT come back.
-    for (const id of ['depositOptions', 'depositOptionPartner', 'depositOptionCrypto',
-        'depositPartnerPanel', 'depositPartnerList',
-        'depositPartnerContacts', 'depositCryptoFlow']) {
+    // ONE funding route remains (the automated USDT/TRC20 flow). The verified
+    // partner route was removed by product decision, along with the external
+    // purchase route, so none of their markup may come back.
+    for (const id of ['depositOptions', 'depositOptionCrypto', 'depositCryptoFlow']) {
         assert.ok(INDEX.indexOf('id="' + id + '"') > 0, id + ' must still exist');
     }
-    // The crypto-only route carries NO partner contact: the section belongs to
-    // the partner route, where Olivia (WhatsApp) precedes Alex (Telegram).
-    assert.ok(!INDEX.includes('id="depositCryptoPartnerContacts"'),
-        'the crypto route no longer lists partner contacts');
-    assert.ok(/function renderDepositPartnerAssistance\(/.test(INDEX), 'the partner section renders Olivia + Alex');
-    assert.ok(/https:\/\/wa\.me\/17828027841/.test(INDEX), 'Olivia is reached on WhatsApp');
+    for (const gone of ['depositOptionPartner', 'depositPartnerPanel', 'depositPartnerList',
+        'depositPartnerContacts', 'depositCryptoPartnerContacts']) {
+        assert.ok(!INDEX.includes('id="' + gone + '"'), gone + ' must be gone');
+    }
+    assert.ok(!INDEX.includes('wa.me/17828027841'), 'no WhatsApp partner destination');
     assert.ok(/function selectDepositOption\(/.test(INDEX), 'option selection preserved');
-    assert.ok(/function renderDepositPartners\(/.test(INDEX), 'partner rendering preserved');
     assert.ok(/function loadDepositOptions\(/.test(INDEX), 'options loading preserved');
-    // The external-purchase destination meta is retired with the route it served;
-    // the only configurable outward destination in the deposit flow is now the
-    // payment partner. Card payments are never claimed to be available.
+    // Both outward-facing deposit destinations are retired with the routes they
+    // served (external purchase and the verified payment partner). The deposit
+    // flow now references no third-party purchase destination at all.
     assert.ok(!INDEX.includes('arbitrix-buy-crypto'), 'the external-purchase destination is retired');
-    const partnerMetas = INDEX.match(/<meta name="arbitrix-partner-support-telegram" content="[^"]*">/g) || [];
-    assert.strictEqual(partnerMetas.length, 1, 'exactly one configurable payment-partner destination');
+    const partnerMetas = INDEX.match(/<meta name="arbitrix-partner-support-telegram[^"]*" content="[^"]*">/g) || [];
+    assert.strictEqual(partnerMetas.length, 0, 'no payment-partner destination is configured');
     assert.ok(!/card payments? (are|is) (now )?available/i.test(INDEX), 'no claim that card payments are live');
 });
 

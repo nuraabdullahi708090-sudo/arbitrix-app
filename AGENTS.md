@@ -10227,3 +10227,101 @@ path touched. NOT merged, NOT deployed.
   (nothing pushed). No screenshot-based review was possible (the model adapter drops image
   content); every check above is DOM/text/computed-style/HTTP based.
 - NOT merged and NOT deployed; no production data, credentials or money touched.
+
+## Deposit payment session simplified: address first, exact amount, no payment partners (2026-11-24)
+- Frontend only (public/index.html) + tests. No server.js, provider, migration, webhook,
+  deposit-minimum, referral-reward, withdrawal-rule or financial-record change. No deploy.
+- The post-invoice screen was reordered so it answers three questions in order: WHERE to
+  send, HOW MUCH to send, on WHICH network. New order: headline -> RECEIVING WALLET
+  ADDRESS (high contrast #7CF7C4 monospace, wraps) + Copy Address -> EXACT AMOUNT (large,
+  tabular) + Copy Amount -> NETWORK (USDT - TRON (TRC20)) -> QR (200px desktop / 180px on
+  phones) -> warning -> status + 4-stage progress -> timer -> invoice reference + official
+  support. The previous order put the amount first and the address below the QR.
+- The address/amount displayed and copied are the EXACT strings the provider returned for
+  that invoice (`payoutAddress`, `amountUsdtExact`), captured as
+  `window.currentPaymentAddress` / `window.currentPaymentAmount`; the copy handlers prefer
+  those raw values over the formatted DOM text, so 50.0051 can never be copied as 50.01.
+  `resetDepositModal()` clears both, so a stale invoice can never be copied later.
+- QR payload = `tron:<address>?amount=<exact>&token=USDT&network=TRC20` (or the provider's
+  own `qrData`), rendered at 380x380 and scaled by CSS.
+- WARNING (new key `deposit.paymentWarning`, 6 locales): "Send USDT only through the TRON
+  (TRC20) network. Send the exact amount displayed above."
+- UNIQUENESS CLAIM REMOVED: `deposit.addressExplain` used to call the address "your personal
+  USDT (TRC20) payment address". q8qpay assigns the payout address (we send no walletId) and
+  the repo has evidence of amount perturbation consistent with address reuse, so the copy
+  now says "This is the receiving address for this deposit" in all 6 locales. Do not
+  reintroduce "unique"/"personal" without provider confirmation.
+- PAYMENT PARTNERS REMOVED from the generated payment session: the `#paymentPartnerContacts`
+  container is gone, `renderPaymentPartnerContacts()` owns no containers,
+  `updatePaymentPartnerLinks()` always shows the official support CTA, and
+  `support.paymentHelp.*` no longer tells customers to contact a payment partner. The
+  PRE-INVOICE "Buy from a Verified Partner" route (Olivia on WhatsApp, Alex on Telegram) is
+  unchanged, and the official Support Center remains the assistance surface everywhere.
+- ACTIVITY-LOG WORDING: `bot.engineNotice` said "Activity appears in the log below", which
+  pointed at something not visible beneath the bot controls. It now reads "Your bot executes
+  trades automatically on supported markets while it is running." (6 locales) - accurate
+  whether the bot is running or stopped, and no location claim.
+- Mobile: address uses word-break/overflow-wrap so it never widens the page; copy targets are
+  48px (50px <=430px) full-width buttons; `button.pay-copy-btn` is used because the legacy
+  `.copy-address-btn` rule (min-height:36px) overrode the new class by cascade order.
+- i18n: 1594 -> 1597 keys/locale (+4 new: deposit.sendTitle/sendIntro/networkLabel/
+  paymentWarning; -1 dead: deposit.methodNotice). Identical key sets, 0 empties.
+- Tests: NEW tests/deposit_payment_screen.test.js (18: exact display/copy values, QR payload,
+  section order, TRC20 clarity, partner absence, support presence, no-log wording,
+  no uniqueness claim, webhook/polling/reconciliation pins, mobile CSS contract, i18n parity).
+  Updated for the intentional changes: deposit_payment_partner (payment session now carries
+  no partners), partners_page 8i, support_ui, beginner_ux, bot_engine_disclosure,
+  dashboard_phase2, trading_worker, and the dictionary-size pins (1597).
+  npm test = 4072 tests / 4071 pass / 0 fail / 1 skipped. node --check clean; all 9 inline
+  script blocks parse; git diff --check clean; 0 U+FFFD.
+- Browser verification (puppeteer-core/Chromium over CDP, DOM assertions only - no
+  screenshots): a stubbed q8pay invoice (payoutAddress + amountUsdtExact 50.0051) driven
+  through the real Generate Payment flow -> 26/26 checks at 320/375/390/1280 and in all six
+  locales: address/amount exact, visual order address < amount < network < QR < warning <
+  status, mint address colour, copy buttons copy the exact values, QR encodes address +
+  50.0051 + TRC20, no partner cards/wording, official support present, 0 horizontal overflow,
+  copy target >= 48px, QR 180px on phones, address inside the first screen.
+- Q8PAY ADDRESS UNIQUENESS (question asked by the brief): NOT VERIFIED. The client sends no
+  walletId, so q8pay chooses the payout address; we display whatever the invoice returns.
+  Confirming uniqueness needs an API call with production credentials (not available here).
+
+## Verified-partner funding route removed; deposit journey is the automated Q8Pay flow (2026-11-24)
+- Management decision. Frontend only (public/index.html) + tests + scripts/verify-rebrand.js.
+  NO server route removed, no provider change, no migration, no financial logic touched.
+- REMOVED from every customer surface: the "Buy from a Verified Partner" chooser entry,
+  #depositPartnerPanel (Olivia WhatsApp / Alex Telegram cards, the "How to Fund Your
+  Account" reference box, the Stay Safe list), renderDepositPartnerAssistance,
+  renderPaymentPartnerContacts, getPaymentPartnerContacts, normalisePartnerTelegramUrl,
+  getPartnerSupportTelegramUrl, openPartnerSupport, renderDepositPartners,
+  updateDepositReferenceBox, copyDepositReference, updatePaymentPartnerLinks,
+  PARTNER_ICON_*/PARTNER_PRIMARY_WHATSAPP_URL/PAYMENT_PARTNER_SLOTS, the
+  arbitrix-partner-support-telegram(+ -2) metas, the wa.me number and the .payment-partner*
+  / .deposit-partner* / .deposit-ref-* CSS. `#partnerSupportBtn` (referral card) now opens
+  the Support Center instead of a personal Telegram account.
+- The deposit journey is ONE route: `#depositOptionCrypto` (label unchanged) -> amount ->
+  Generate Payment -> Q8Pay invoice -> address + exact amount + QR -> polling. The options
+  heading changed from "Choose how to fund" to "Deposit method" in all six locales.
+  `selectDepositOption()` is kept (call sites unchanged) and only ever shows the crypto flow.
+- KEPT deliberately: the ADMIN partner directory (`/api/admin/deposit-partners`, migration
+  045 table, admin "Partners" tab) as a dormant data surface - no customer path reads it.
+  The official Support Center (sidebar, deposit dialog, payment session, referral card) is
+  untouched.
+- i18n: 1597 -> 1571 keys/locale (-26 dead deposit.partner.*/deposit.choose.partner.* keys,
+  six locales); identical key sets, 0 empties.
+- Tests: deleted the 4 suites that existed only for the removed route
+  (deposit_panel_simplified, deposit_partner_priority, deposit_payment_partner,
+  partner_contact_icons); NEW tests/deposit_single_route.test.js (12 pins: one route, no
+  partner ids/helpers/assets/metas, no partner wording in any locale, support intact,
+  q8pay webhook + polling + credit_payment_safe intact, admin directory still admin-only,
+  deposit rules unchanged). Rewritten in place: deposit_partners (UI block), support_ui,
+  referral_partner_payout_flow, partners_page 8/8i, deposit_tutorials_page 19,
+  deposit_discoverability, deposit_payment_screen 10, rebrand_audit; the release gate
+  scripts/verify-rebrand.js no longer expects the removed handles.
+- npm test = 4027 tests / 4026 pass / 0 fail / 1 skipped. node --check clean on every .js,
+  9/9 inline blocks parse, git diff --check clean, 0 U+FFFD,
+  `node scripts/verify-rebrand.js --expect Kalderix` = ALL CHECKS PASSED.
+- Browser (DOM/CDP assertions only, no screenshots) = 26/26 at 320/375/390/1280 and 26/26 in
+  all six locales: one funding option, no partner panel/cards/wording/anchors anywhere in the
+  dialog, amount field + Generate visible, invoice address and exact amount 50.0051 rendered
+  and copied verbatim, QR payload intact, payment-screen support CTA opens the Support
+  Center, referral support opens the Support Center, 0 horizontal overflow, correct dir.

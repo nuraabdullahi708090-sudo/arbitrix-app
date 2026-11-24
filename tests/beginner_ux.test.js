@@ -74,7 +74,7 @@ const NEW_KEYS = [
     'badge.rarity.common', 'badge.rarity.rare', 'badge.rarity.epic', 'badge.rarity.legendary',
     'status.confirmed', 'status.processing', 'status.completed',
     'cookies.body', 'cookies.accept', 'cookies.decline',
-    'deposit.methodNotice', 'deposit.newToUsdt.title', 'deposit.newToUsdt.body', 'deposit.usdVsUsdt',
+    'deposit.paymentWarning', 'deposit.newToUsdt.title', 'deposit.newToUsdt.body', 'deposit.usdVsUsdt',
     'deposit.addressExplain', 'deposit.referenceExplain', 'deposit.afterSending',
     'support.assistant.name', 'support.assistant.automated', 'support.assistant.status', 'support.human.title',
     'auth.signup.passwordHint', 'auth.signup.referralHint', 'auth.signup.next', 'auth.signup.failed',
@@ -84,7 +84,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1594, 'expected 1594 keys per locale');
+    assert.strictEqual(enKeys.length, 1571, 'expected 1571 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -167,13 +167,16 @@ test('support widget: automated assistant, no fake unread count', () => {
 });
 
 test('deposit modal explains USDT/TRC20, address, reference and next step', () => {
-    for (const k of ['deposit.methodNotice', 'deposit.newToUsdt.title', 'deposit.newToUsdt.body', 'deposit.usdVsUsdt',
+    // The payment screen carries the explicit network/amount warning instead of
+    // the longer method notice (the address must be the first thing on screen).
+    for (const k of ['deposit.paymentWarning', 'deposit.newToUsdt.title', 'deposit.newToUsdt.body', 'deposit.usdVsUsdt',
         'deposit.addressExplain', 'deposit.referenceExplain', 'deposit.afterSending']) {
         assert.ok(INDEX.includes('data-i18n="' + k + '"'), `${k} must be rendered`);
     }
     const T = loadTranslations();
-    assert.match(T.en['deposit.methodNotice'], /USDT/);
-    assert.match(T.en['deposit.methodNotice'], /TRON \(TRC20\)/);
+    assert.match(T.en['deposit.paymentWarning'], /USDT/);
+    assert.match(T.en['deposit.paymentWarning'], /TRON \(TRC20\)/);
+    assert.match(T.en['deposit.paymentWarning'], /exact amount/);
     assert.match(T.en['deposit.referenceExplain'], /never share your password/i);
     // The deposit crediting / confirmation logic itself is untouched.
     assert.ok(/credit_payment_safe/.test(SERVER));
