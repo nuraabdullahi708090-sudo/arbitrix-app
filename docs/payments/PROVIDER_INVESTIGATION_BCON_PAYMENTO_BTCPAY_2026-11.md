@@ -251,8 +251,10 @@ The plugin's TRON payment-method model is an **address pool**, not derivation
 (`EditTronUSDtPaymentMethodViewModel`: `Addresses[]` each with `Available` and
 `Balance`; the settings chooser calls `GetOneNotReservedAddress(...)`). The
 plugin's own tests pin the behaviour: while an address is used by an invoice in
-`New` state it is skipped, and when every address is reserved the call returns
-**null** - i.e. no invoice can be created for that payment method.
+`New` state it is skipped, and when every address is reserved the allocation
+returns **null** (test: a pool of one reserved address yields `Assert.Null`; add a
+free address and it is returned). So the pool is a hard ceiling on concurrent
+invoices rather than a trigger to reuse an address with a different amount.
 
 Consequences for us:
 
@@ -260,9 +262,11 @@ Consequences for us:
   decimal dust, ever.
 - Two customers can each pay exactly 50.00 USDT to different addresses **as long
   as the pool has a free address**.
-- Beyond the pool size the system **fails closed** (no invoice) instead of
-  silently reusing an address with a tweaked amount. That is the property Q8Pay
-  and Bcon do not have.
+- Beyond the pool size the system **fails closed** (no destination can be
+  allocated) instead of silently reusing an address with a tweaked amount. That
+  is the property Q8Pay and Bcon do not have. Operational consequence: we must
+  size the pool for peak concurrent deposits, and a full pool is a visible
+  outage of that payment method, not a degraded one.
 - We would own the keys: N TRON addresses, a TRON RPC provider (the docs warn the
   public node is "for demonstration and testing only"), and a sweeping/consolidation
   routine (network fees), plus a BTCPay instance to operate and upgrade.
