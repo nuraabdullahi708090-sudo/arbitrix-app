@@ -286,7 +286,10 @@ test('handover: starting the bot registers the session server-side (live only)',
     'the pause branch must precede the running state');
   assert.ok(live.indexOf('beginBotRun();') < live.indexOf('fetchBotExecutionStatus'),
     'an accepted start enters the running state before the worker handover');
-  assert.match(body, /\.catch\(function \(\) \{\}\);/);
+  // PHASE 2: the swallowed start failure now reports itself in the bot card
+  // (APP.botError -> the pill reads "Error") instead of leaving a "ready" label.
+  assert.match(body, /\.catch\(function \(\) \{\s*\/\//);
+  assert.match(body, /APP\.botError = true;/);
 });
 
 test('handover: a worker-owned session keeps the bot RUNNING but drops the tab loop', () => {

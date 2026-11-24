@@ -797,7 +797,16 @@ test('safety: the bot UI disclosure reflects the shipped server-side engine (no 
   // server-side engine.
   assert.ok(!/A server-side engine that keeps trading after you close the tab is in development/.test(INDEX),
     'obsolete "in development" copy must not remain');
-  assert.match(INDEX, /Your bot runs automatically and keeps trading even when you're offline/);
+  // HONESTY FIX (2026-11): the previous pinned copy claimed the tab-bound bot
+  // "keeps trading even when you're offline", which is false - the browser loop
+  // dies with the tab. Only the WORKER variant may claim background trading, and
+  // the browser variant now says exactly what it does.
+  assert.ok(!/keeps trading even when you're offline/.test(INDEX),
+    'the tab-bound bot must not claim it trades while offline');
+  assert.match(INDEX, /Runs in this browser tab\. Trading pauses if you close or refresh the page\./,
+    'the browser-engine disclosure states the real limitation');
+  assert.match(INDEX, /'bot\.engineNoticeWorker':/,
+    'the worker disclosure still exists for when a server engine owns the session');
 });
 
 test('safety: the browser loop was NOT silently en-route disabled for live users', () => {

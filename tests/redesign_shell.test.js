@@ -55,11 +55,21 @@ test('the hero keeps every KPI id and both primary actions', () => {
   assert.match(hero, /id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/, 'deposit action preserved');
   assert.match(hero, /id="availableWithdrawBtn"[^>]*onclick="openWithdrawModal\(\)"/, 'withdraw action preserved');
   assert.match(hero, /id="availableStatCard"/, 'the Available card keeps its id');
-  // The four KPIs are ordered: equity, available, P&L, bot state.
-  const order = ['kx-hero-eq', 'kx-hero-av', 'kx-hero-pnl', 'kx-hero-bot'].map((c) => hero.indexOf(c));
-  assert.ok(order.every((v) => v >= 0), 'all four hero slots exist');
-  assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'hero slots keep their order');
-  assert.match(hero, /class="stat-value fin-zero"/, 'P&L still starts neutral');
+  // PHASE 2 (measured): the four equal KPI cards were consolidated into ONE
+  // account card, because they repeated the same balance three times and cost
+  // 385px of the mobile first screen. The INFORMATIONAL order is preserved.
+  const order = ['kx-acct-top', 'id="availableStatCard"', 'kx-acct-metrics', 'id="botStatus"'].map((c) => hero.indexOf(c));
+  assert.ok(order.every((v) => v >= 0), 'equity, availability, P&L and bot state all live in the card');
+  assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'equity leads, availability carries the actions, metrics follow');
+  assert.match(hero, /class="kx-metric-value fin-zero"/, 'P&L still starts neutral');
+  // one balance surface, not four: the value ids appear once each in the hero
+  for (const id of ['totalEquity', 'balanceValue', 'pnlValue']) {
+    assert.strictEqual((hero.match(new RegExp('id="' + id + '"', 'g')) || []).length, 1, id + ' is rendered once');
+  }
+  // each figure still explains itself (item: clarity)
+  for (const hint of ['hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus']) {
+    assert.match(hero, new RegExp('data-i18n="' + hint + '"'), hint + ' hint preserved');
+  }
 });
 
 test('the cockpit groups the chart with the trading statistics', () => {
@@ -204,16 +214,18 @@ test('the cockpit and hero respond at the documented breakpoints', () => {
   assert.match(INDEX, /@media\(max-width:640px\)\{[\s\S]{0,600}\.kx-cockpit\{grid-template-columns:minmax\(0,1fr\);\}/, 'mobile stays stacked');
 });
 
-test('the mobile header override cannot cancel the hamburger clearance', () => {
-  // The base rule reserves 44px at the top for the fixed menu button. A `padding`
-  // shorthand in the mobile block silently resets padding-top, which put the header
-  // underneath the hamburger (caught by measurement, pinned here).
+test('the header no longer reserves clearance for a floating hamburger', () => {
+  // PHASE 2 ROOT CAUSE: the base rule reserved 44px of padding-top for a
+  // position:fixed menu button. That button is now a normal grid item in the
+  // toolbar (`.app-header .mobile-menu-btn{...position:static`), so the
+  // clearance is dead space - it was 44 of the 98px the mobile header measured.
+  // The pin now guards the NEW physics instead of the old workaround.
   const layer = INDEX.slice(INDEX.indexOf('KALDERIX DESIGN SYSTEM v2'));
-  const mobile = layer.slice(layer.indexOf('@media(max-width:640px){'));
-  const rule = mobile.slice(mobile.indexOf('.app-header{'), mobile.indexOf('}', mobile.indexOf('.app-header{')));
-  assert.match(layer, /\.app-header\{[\s\S]{0,400}padding-top:44px;/, 'the base rule reserves the clearance');
-  assert.ok(!/(^|;)padding:/.test(rule), 'the mobile rule must not use the padding shorthand: ' + rule);
-  assert.match(rule, /padding-(left|right):/, 'it adjusts the sides only');
+  assert.match(INDEX, /\.app-header \.mobile-menu-btn \{[^}]*position:static/, 'the hamburger is in the row');
+  assert.ok(!/\.app-header\{[\s\S]{0,400}padding-top:44px;/.test(layer), 'no 44px clearance is reserved');
+  assert.ok(!/\.app-header\{\s*padding:0 var\(--kx-s-3\) var\(--kx-s-2\);padding-top:44px/.test(layer), 'the design layer reserves no clearance either');
+  // and the compact rule keeps the toolbar from growing back
+  assert.match(INDEX, /\.app-header\{\s*padding:6px 10px !important;/, 'the compact mobile padding is present');
 });
 
 test('accessibility: visible focus ring and reduced-motion support', () => {

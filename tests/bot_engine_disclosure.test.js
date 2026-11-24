@@ -48,12 +48,18 @@ test('the browser copy promises tab-bound behaviour; the worker copy states the 
     assert.notStrictEqual(T[l]['bot.engineNotice'], T[l]['bot.engineNoticeWorker'], l + ' variants must differ');
   }
   // EN is the pinned contract (per-locale wording is reviewed, not machine-checked).
-  // Both variants are beginner-friendly now that server-side trading has shipped:
-  // no "in development" copy and no server/browser jargon.
+  // HONESTY FIX (2026-11): the previous EN pin claimed the TAB-BOUND bot "keeps
+  // trading even when you're offline". It does not - the loop lives in the tab
+  // and dies with it (the worker variant exists precisely for that case). A
+  // notice that overstates what the running engine can do is worse than no
+  // notice, so the browser variant now states its real limitation and the
+  // worker variant keeps the background claim.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    "\u{1F916} Your bot runs automatically and keeps trading even when you're offline."
+    "\u{1F916} Runs in this browser tab. Trading pauses if you close or refresh the page."
   );
+  assert.ok(!/offline/i.test(T.en['bot.engineNotice']),
+    'the tab-bound notice must not imply it trades while the tab is closed');
   assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
   assert.match(T.en['bot.workerManaged'], /runs automatically/i);
   assert.ok(T.en['bot.engineNotice'].startsWith('\u{1F916}'), 'friendly robot emoji leads the default copy');
@@ -78,7 +84,7 @@ test('the old technical bot wording is fully replaced in all 6 locales', () => {
   assert.ok(!INDEX.includes('A server-side engine that keeps trading after you close the tab'), 'obsolete browser-loop copy removed');
   // ...and from the pre-hydration markup default, which is what a user sees right
   // after a refresh before the bot is started (applyTranslations has not run yet).
-  const markupDefault = 'data-i18n="bot.engineNotice">\u{1F916} Your bot runs automatically and keeps trading even when you\'re offline.</div>';
+  const markupDefault = 'data-i18n="bot.engineNotice">\u{1F916} Runs in this browser tab. Trading pauses if you close or refresh the page.</div>';
   assert.ok(INDEX.includes(markupDefault), 'the pre-hydration markup default shows the new copy');
   for (const l of LANGS) {
     assert.ok(T[l]['bot.engineNoticeWorker'] && String(T[l]['bot.engineNoticeWorker']).trim(), l + ' notice');

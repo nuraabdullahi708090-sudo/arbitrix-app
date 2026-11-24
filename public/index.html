@@ -1725,7 +1725,7 @@
         .live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;display:inline-block;animation:pulse 1.5s infinite;}
         .live-dot{background:var(--green);}
 
-        .app-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-top:44px;}
+        .app-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-top:8px;}
         .app-header-brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .app-header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
@@ -4638,7 +4638,7 @@
         .app-header{
             position:sticky;top:0;z-index:900;
             display:flex;align-items:center;flex-wrap:wrap;gap:var(--kx-s-3);
-            padding:0 var(--kx-s-3) var(--kx-s-2);padding-top:44px;
+            padding:0 var(--kx-s-3) var(--kx-s-2);padding-top:8px;
             margin:0 auto var(--kx-s-4);
             max-width:var(--kx-content);
             border:1px solid var(--kx-line);
@@ -4763,7 +4763,7 @@
         #pnlValue.fin-negative{color:var(--destructive);}
         #pnlValue.fin-zero{color:var(--kx-text-2);}
         .kx-kpi-xl{font-size:var(--kx-t-7);}
-        .kx-kpi-hint{font-size:var(--kx-t-1);color:var(--kx-text-3);margin-top:4px;line-height:1.45;}
+        .kx-kpi-hint{font-size:var(--kx-t-1);color:var(--kx-text-3);margin-top:3px;line-height:1.35;}
         .kx-hero-eq #totalEquity{font-size:var(--kx-t-8);}
         .kx-hero-av #balanceValue{font-size:var(--kx-t-6);}
         .kx-hero-pnl #pnlValue,.kx-hero-bot #botStatus{font-size:var(--kx-t-6);}
@@ -5006,6 +5006,200 @@
             .main-content{margin-left:var(--kx-nav-w);padding:var(--kx-s-5) var(--kx-s-6) var(--kx-s-7);}
             .app-header{padding-top:var(--kx-s-2);}
         }
+</style>
+<style id="kx-phase2">
+/* ===========================================================================
+   Phase 2 - compact dashboard
+   Header height, account consolidation, cockpit density, wallet grouping,
+   drawer, support FAB coordination. No financial/JS logic lives here.
+   =========================================================================== */
+
+/* --- chrome: one sticky row on phones ------------------------------------ */
+html{scroll-padding-top:72px;}
+@media (max-width:640px){
+    /* The hamburger is a static grid child, so the 44px top padding was dead
+       space: the bar measured ~98px on a 390px phone. */
+    .app-header{
+        padding:6px 10px !important;
+        gap:6px 8px !important;
+        border-radius:0 0 var(--kx-r-2) var(--kx-r-2);
+        margin-bottom:8px !important;
+        min-height:56px;
+        grid-template-columns:auto minmax(0,1fr) minmax(0,1fr) auto;
+        grid-template-areas:"burger brand sub right";
+        align-items:center;
+    }
+    .kx-toolbar-sub{display:flex;justify-content:flex-end;min-width:0;gap:6px;}
+    .kx-status{display:none;}
+    .kx-view-title{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+    .app-header .btn-icon{width:38px;height:38px;min-width:38px;}
+    .app-header .mobile-menu-btn{width:38px;height:38px;min-width:38px;min-height:38px;}
+    #soundToggleBtn{display:none;}
+    .kx-wordmark{font-size:15px;}
+    .kx-logo{width:26px;height:26px;font-size:12px;}
+}
+@media (min-width:641px) and (max-width:1023px){
+    .app-header{padding-top:8px !important;}
+}
+@media (max-width:360px){
+    .kx-toolbar-sub{display:none;}
+    #appToolbar{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"burger brand right";}
+    .kx-wordmark{font-size:14px;}
+}
+
+/* tablet: the toolbar is a flex row again, so stop the sub-block from wrapping
+   the controls onto a second line (it measured 100px tall) */
+@media (min-width:641px) and (max-width:1023px){
+    #appToolbar{flex-wrap:nowrap;padding:8px 12px !important;gap:10px;min-height:56px;}
+    .kx-toolbar-sub{flex:0 1 auto;min-width:0;}
+    .app-header-right{flex:0 0 auto;}
+    .kx-view-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
+
+/* --- account card: equity leads, availability sits with its actions ------ */
+.kx-hero{margin-bottom:var(--kx-s-3);}
+.kx-hero .kx-account{display:block;padding:0;overflow:hidden;}
+.kx-account .card-body{padding:var(--kx-s-4);display:flex;flex-direction:column;gap:var(--kx-s-3);}
+.kx-acct-top{display:flex;flex-direction:column;gap:1px;}
+.kx-kpi-md{font-size:var(--kx-t-6);}
+.kx-acct-row{display:flex;align-items:center;justify-content:space-between;gap:var(--kx-s-3);flex-wrap:wrap;padding-top:var(--kx-s-3);border-top:1px solid var(--kx-line);}
+.kx-acct-av{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.kx-acct-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kx-s-3);padding-top:var(--kx-s-3);border-top:1px solid var(--kx-line);}
+.kx-metric{min-width:0;}
+.kx-metric-value{font-size:var(--kx-t-5);font-weight:700;letter-spacing:-.01em;line-height:1.2;font-variant-numeric:tabular-nums;}
+.kx-hero .stat-actions{margin-top:0;}
+.kx-acct-row .stat-actions{flex:0 0 auto;}
+.kx-acct-row .stat-deposit-btn{min-height:40px;padding:0 14px;font-size:12px;}
+@media (max-width:380px){
+    .kx-acct-row{align-items:stretch;}
+    .kx-acct-row .stat-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+    .kx-acct-row .stat-deposit-btn{width:100%;}
+}
+
+/* Desktop: the same figures as one horizontal band, not three stacked rows. */
+@media (min-width:1200px){
+    .kx-account .card-body{
+        display:grid;
+        grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,1fr);
+        align-items:center;column-gap:var(--kx-s-6);
+    }
+    .kx-acct-top{grid-column:1;}
+    .kx-acct-row{grid-column:2;border-top:0;padding-top:0;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;}
+    .kx-acct-row .stat-actions{width:100%;}
+    .kx-acct-row .stat-deposit-btn{flex:1 1 0;}
+    .kx-acct-metrics{grid-column:3;border-top:0;padding-top:0;}
+}
+
+/* --- Getting started: a completed checklist is one line, not a card ------ */
+#startHereCard.kx-ready .card-body{padding:8px 12px;}
+#startHereCard.kx-ready #startHereHeadLive{display:none;}
+#startHereCard.kx-ready .kx-starthere-row{align-items:center !important;}
+#startHereCard.kx-ready #startHereStepsLiveReady{display:block;}
+#startHereCard.kx-ready #startHereStepsLiveReady > div{font-size:11.5px;line-height:1.35;align-items:center;}
+#startHereCard.kx-ready .btn{min-height:30px;padding:0 9px;font-size:10.5px;}
+#startHereCard{margin-bottom:var(--kx-s-3) !important;}
+
+/* --- cockpit: compact chart + one statistics block ----------------------- */
+.kx-cockpit{gap:var(--kx-s-3);margin-bottom:var(--kx-s-3);}
+.chart-header{padding:var(--kx-s-2) var(--kx-s-3);}
+.chart-stats{padding:var(--kx-s-2) var(--kx-s-3);}
+.chart-stat-label{font-size:10px;}
+.chart-stat-value{font-size:var(--kx-t-2);}
+@media (max-width:640px){
+    .kx-cockpit .chart-container{height:180px;}
+    .chart-header{gap:6px;flex-wrap:wrap;}
+    .chart-title{font-size:12px;}
+    .chart-stat-label{font-size:9px;letter-spacing:.04em;}
+    .chart-stat-value{font-size:11px;}
+}
+.trading-stats-card{padding-bottom:0;}
+.trading-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:0;}
+.trading-stat-item{
+    display:grid;grid-template-columns:auto minmax(0,1fr);
+    grid-template-areas:"icon value" "icon label";
+    align-items:center;column-gap:10px;row-gap:1px;
+    padding:10px 12px;border:0;border-radius:0;background:transparent;
+    border-bottom:1px solid var(--kx-line);border-right:1px solid var(--kx-line);
+}
+.trading-stat-item:nth-child(2n){border-right:0;}
+.trading-stat-item:nth-last-child(-n+2){border-bottom:0;}
+.trading-stat-item .stat-icon{grid-area:icon;width:26px;height:26px;min-width:26px;font-size:11px;margin:0;}
+.trading-stat-item .stat-main{grid-area:value;font-size:16px;margin:0;line-height:1.15;}
+.trading-stat-item .stat-sub{grid-area:label;font-size:10px;margin:0;letter-spacing:.03em;}
+.trading-stat-item .stat-trend{display:none;}
+.trading-stat-item .win-rate-circle{grid-area:icon;width:32px;height:32px;margin:0;}
+.win-rate-circle .center-text{font-size:9px;}
+.trading-stat-item:first-child{grid-template-areas:"icon label";}
+
+.kx-stats-recent{border-top:1px solid var(--kx-line);padding:8px 10px 9px;}
+.kx-stats-recent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
+.kx-stats-recent-title{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--kx-text-3);}
+.kx-stats-recent-link{font-size:11px;color:var(--brand);background:none;border:0;padding:4px 2px;cursor:pointer;min-height:32px;}
+.kx-recent-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:11.5px;padding:3px 0;}
+.kx-recent-asset{color:var(--kx-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kx-recent-time{color:var(--kx-text-3);font-variant-numeric:tabular-nums;}
+.kx-recent-row .fin-positive{color:var(--success);font-variant-numeric:tabular-nums;}
+.kx-recent-row .fin-negative{color:var(--destructive);font-variant-numeric:tabular-nums;}
+@media (max-width:640px){
+    .kx-cockpit .chart-container{height:170px;}
+    .kx-hint-tight{display:none;}
+    .trading-stats-card .card-header{padding:9px 12px;}
+    .trading-stats-card .card-header > span:last-child{display:none;}
+    .trading-stat-item{padding:7px 9px;column-gap:8px;}
+    .trading-stat-item .stat-icon{width:22px;height:22px;min-width:22px;font-size:9.5px;}
+    .trading-stat-item .stat-main{font-size:15px;}
+    .trading-stat-item .stat-sub{font-size:9px;}
+    .kx-recent-row{font-size:11px;padding:2px 0;}
+    .kx-account .card-body{padding:13px 14px;gap:10px;}
+    .kx-acct-row,.kx-acct-metrics{padding-top:10px;}
+    .kx-kpi-hint{font-size:9.5px;margin-top:2px;line-height:1.3;}
+    #liveBotCard .kx-hint{display:none;}
+    #liveFunds .card-body{padding-bottom:10px;}
+}
+
+/* --- wallets: the tab control belongs to the section it switches --------- */
+.kx-wallets{margin-bottom:var(--kx-s-4);}
+.kx-wallets-head{display:flex;align-items:center;justify-content:flex-start;margin-bottom:var(--kx-s-3);}
+.kx-wallets-head .wallet-tabs-wrapper{margin:0;}
+.kx-wallets .two-col-grid{margin-bottom:0 !important;}
+.kx-wallets .card{height:100%;}
+
+/* --- bot panel: state colours + tighter disclosure ----------------------- */
+.kx-state-pill[data-state="ready"]{color:var(--brand);border-color:var(--brand-border);background:var(--brand-weak);}
+.kx-state-pill[data-state="ready"] .kx-dot{background:var(--brand);}
+.kx-state-pill[data-state="paused"]{color:var(--kx-warning-text,#F7C08C);border-color:rgba(232,151,59,.4);background:rgba(232,151,59,.10);}
+.kx-state-pill[data-state="paused"] .kx-dot{background:var(--kx-warning,#E8973B);}
+.kx-state-pill[data-state="error"]{color:var(--kx-danger-text,#F58C90);border-color:rgba(229,72,77,.45);background:rgba(229,72,77,.10);}
+.kx-state-pill[data-state="error"] .kx-dot{background:var(--kx-danger,#E5484D);}
+#botEngineNotice{margin-top:8px !important;padding:7px 9px !important;font-size:10px !important;line-height:1.45 !important;}
+
+.support-panel button{min-height:36px;}
+.support-panel .support-panel-close{min-width:36px;min-height:36px;}
+.toast-close{min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;}
+
+/* --- support: the launcher never floats over an open chat panel ---------- */
+.support-widget:has(.support-panel.open) .support-toggle-btn{display:none;}
+.support-widget:has(.support-panel.open){bottom:12px;}
+.support-panel.open{bottom:12px;}
+
+/* --- drawer: smaller footprint, explicit close, tighter rhythm ----------- */
+.kx-drawer-close{
+    display:none;position:absolute;top:10px;right:10px;
+    width:36px;height:36px;border-radius:10px;
+    align-items:center;justify-content:center;
+    border:1px solid var(--kx-line);background:var(--kx-surface-2);color:var(--kx-text-2);
+    font-size:14px;cursor:pointer;
+}
+html[dir="rtl"] .kx-drawer-close{right:auto;left:10px;}
+@media (max-width:640px){
+    #sidebar{width:min(272px,74vw);padding:12px 0 8px;}
+    .sidebar-brand{padding:0 52px 10px 14px;margin-bottom:6px;}
+    .kx-drawer-close{display:inline-flex;}
+    .kx-nav-group{margin-top:10px;}
+    .sidebar-link{min-height:42px;padding:0 14px;font-size:13px;}
+    .sidebar-link i{width:18px;}
+    .sidebar-status{margin:auto 10px 8px;padding:10px 12px;}
+}
 </style>
 </head>
 <body>
@@ -8146,6 +8340,7 @@ function toggleFaq(btn) {
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="sidebar" id="sidebar">
+        <button type="button" class="kx-drawer-close" id="drawerCloseBtn" onclick="closeMobileNav()" aria-label="Close menu" data-i18n-aria-label="common.close"><i class="fas fa-xmark" aria-hidden="true"></i></button>
         <div class="sidebar-brand">
             <div style="display:flex;align-items:center;gap:9px;"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="26" height="26" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg><span style="color:white;font-weight:800;letter-spacing:-0.01em;">Kal<span style="color:var(--brand);">derix</span></span></div>
             <div style="font-size:10px;color:var(--text-muted);" data-i18n="sidebar.tagline">Multi-Asset Arbitrage</div>
@@ -8246,34 +8441,35 @@ function toggleFaq(btn) {
             <span data-i18n="promo.tradableNotice">Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade.</span>
         </div>
         <div class="kx-hero" id="kxHero">
-            <div class="stats-grid kx-hero-grid">
-                <div class="card kx-hero-eq">
-                    <div class="card-body">
+            <!-- One account card: equity leads, availability sits with the actions it
+                 enables, and P&L + bot state are compact metrics. The previous four
+                 separate KPI cards repeated the same balance three times. -->
+            <div class="card kx-account">
+                <div class="card-body">
+                    <div class="kx-acct-top">
                         <div class="kx-kpi-label"><i class="fas fa-wallet"></i> <span data-i18n="stats.equity">Total Equity</span></div>
                         <div id="totalEquity" class="kx-kpi-value kx-kpi-xl">$1,000.00</div>
                         <div class="kx-kpi-hint" data-i18n="hint.equity">Account value</div>
                     </div>
-                </div>
-                <div class="card kx-hero-av" id="availableStatCard">
-                    <div class="card-body">
-                        <div class="kx-kpi-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div>
-                        <div id="balanceValue" class="kx-kpi-value">$1,000.00</div>
-                        <div class="kx-kpi-hint" data-i18n="hint.available">Ready to use</div>
+                    <div class="kx-acct-row" id="availableStatCard">
+                        <div class="kx-acct-av">
+                            <div class="kx-kpi-label"><i class="fas fa-coins"></i> <span data-i18n="stats.available">Available</span></div>
+                            <div id="balanceValue" class="kx-kpi-value kx-kpi-md">$1,000.00</div>
+                            <div class="kx-kpi-hint" data-i18n="hint.available">Ready to use</div>
+                        </div>
                         <div class="stat-actions"><button type="button" id="availableDepositBtn" class="stat-deposit-btn" onclick="openDepositModal()"><i class="fas fa-circle-down"></i> <span data-i18n="stats.depositCta">Deposit</span></button><button type="button" id="availableWithdrawBtn" class="stat-deposit-btn stat-withdraw-btn" onclick="openWithdrawModal()"><i class="fas fa-circle-up"></i> <span data-i18n="sidebar.withdraw">Withdraw</span></button></div>
                     </div>
-                </div>
-                <div class="card kx-hero-pnl">
-                    <div class="card-body">
-                        <div class="kx-kpi-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&amp;L</span></div>
-                        <div id="pnlValue" class="stat-value fin-zero">$0.00</div>
-                        <div class="kx-kpi-hint" data-i18n="hint.pnl">Today's trading profit/loss</div>
-                    </div>
-                </div>
-                <div class="card kx-hero-bot">
-                    <div class="card-body">
-                        <div class="kx-kpi-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div>
-                        <div id="botStatus" class="kx-kpi-value" style="color:#E5484D;" data-i18n="bot.offline">Offline</div>
-                        <div class="kx-kpi-hint" data-i18n="hint.botStatus">Running or stopped</div>
+                    <div class="kx-acct-metrics">
+                        <div class="kx-metric">
+                            <div class="kx-kpi-label"><i class="fas fa-arrow-trend-up"></i> <span data-i18n="stats.pnl">Today's P&amp;L</span></div>
+                            <div id="pnlValue" class="kx-metric-value fin-zero">$0.00</div>
+                            <div class="kx-kpi-hint" data-i18n="hint.pnl">Today's trading profit/loss</div>
+                        </div>
+                        <div class="kx-metric">
+                            <div class="kx-kpi-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div>
+                            <div id="botStatus" class="kx-metric-value" style="color:#E5484D;">Offline</div>
+                            <div class="kx-kpi-hint" data-i18n="hint.botStatus">Running or stopped</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -8287,11 +8483,15 @@ function toggleFaq(btn) {
              no pending activation step, so funded dashboards are unchanged. -->
         <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
             <div class="card-body">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                <div class="kx-starthere-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                     <div style="min-width:0;">
                         <div id="startHereHeadLive">
                             <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
                             <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
+                        </div>
+                        <!-- Completion state: one line, inside the same row as Dismiss -->
+                        <div id="startHereStepsLiveReady" style="display:none;">
+                            <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
                         </div>
                     </div>
                     <button type="button" onclick="dismissStartHere()" class="btn btn-secondary" style="font-size:11px;padding:8px 12px;min-height:36px;min-width:44px;flex:0 0 auto;" data-i18n="startHere.dismiss">Dismiss</button>
@@ -8299,10 +8499,7 @@ function toggleFaq(btn) {
                 <!-- LIVE steps: rendered from the dictionary by updateStartHere() because
                      the amounts ({{min}}) are configuration-driven. -->
                 <div id="startHereStepsLive" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
-                <!-- LIVE completion state: shown once the Live checklist is already satisfied -->
-                <div id="startHereStepsLiveReady" style="margin-top:12px;display:none;">
-                    <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary);line-height:1.5;"><i class="fas fa-circle-check" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="startHere.live.ready">You're ready for Live Mode. Review your settings before starting your bot.</span></div>
-                </div>
+
             </div>
         </div>
 
@@ -8366,14 +8563,20 @@ function toggleFaq(btn) {
                 <div class="trading-stat-item"><div class="stat-icon red"><i class="fas fa-chart-line-down"></i></div><div class="stat-main negative" id="statWorstTrade">$0.00</div><div class="stat-sub" data-i18n="trading.worstTrade">Worst Trade</div></div>
                 <div class="trading-stat-item"><div class="stat-icon gold"><i class="fas fa-fire"></i></div><div class="stat-main" id="statStreak">0</div><div class="stat-sub" data-i18n="trading.streak">Win Streak</div><div class="stat-trend up" id="streakTrend" style="display:none;">🔥 HOT</div></div>
             </div>
+            <!-- Latest executed trades: real rows from the wallet ledger, so the
+                 statistics block and the activity view can never disagree. -->
+            <div class="kx-stats-recent" id="kxStatsRecent" hidden></div>
         </div>
 
         <!-- WALLET TABS -->
                 </div>
 
-        <div class="wallet-tabs-wrapper" id="walletTabsWrapper">
-            <button type="button" class="wallet-tab active" data-wallet="live" data-i18n="wallet.live">Live Wallet</button>
-            <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Bonus Wallet</button>
+        <div class="kx-wallets" id="kxWallets">
+        <div class="kx-wallets-head">
+            <div class="wallet-tabs-wrapper" id="walletTabsWrapper">
+                <button type="button" class="wallet-tab active" data-wallet="live" data-i18n="wallet.live">Live Wallet</button>
+                <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Bonus Wallet</button>
+            </div>
         </div>
 
         <!-- LIVE WALLET SECTION -->
@@ -8410,7 +8613,7 @@ function toggleFaq(btn) {
                         <div class="kx-hint kx-hint-tight" data-i18n="hint.scanner">Market scanning</div>
                         <button type="button" id="startStopBtnLive" class="btn btn-primary btn-block kx-bot-action" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
                         <div id="botStatusMsgLive" class="kx-bot-status" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
-                        <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Your bot runs automatically and keeps trading even when you're offline.</div>
+                        <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Runs in this browser tab. Trading pauses if you close or refresh the page.</div>
                     </div>
                 </div>
             </div>
@@ -8443,6 +8646,8 @@ function toggleFaq(btn) {
                 </div>
             </div>
         </div>
+
+        </div><!-- /kxWallets -->
 
         <!-- ============ PROMO BANNER REMOVED ============ -->
 
@@ -11188,7 +11393,11 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Deposit Funds',
         'bot.promoLimitReached': 'You reached the $30 promotional profit limit. Make your first deposit to continue trading.',
         'bot.readyToTrade': '✅ Bot ready to trade',
-        'bot.engineNotice': "🤖 Your bot runs automatically and keeps trading even when you're offline.",
+        'bot.readyToStart': 'Ready to start',
+        'bot.pausedShort': 'Paused',
+        'bot.errorState': 'Error',
+        'bot.runningMsg': 'Scanning supported markets. New trades appear in the activity log below.',
+        'bot.engineNotice': "🤖 Runs in this browser tab. Trading pauses if you close or refresh the page.",
         'bot.engineNoticeWorker': "Your bot keeps running even when you close this page. Come back anytime to check your activity.",
         'bot.workerManaged': "🤖 Your bot now runs automatically. It will keep trading even when you're offline.",
         'chart.title': 'Equity Performance',
@@ -11206,6 +11415,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Best Trade',
         'trading.worstTrade': 'Worst Trade',
         'trading.streak': 'Win Streak',
+        'trading.recent': 'Recent trades',
         'achievements.title': 'Achievements',
         'badge.rarity.common': 'Common',
         'badge.rarity.rare': 'Rare',
@@ -12806,7 +13016,11 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Depositar fondos',
         'bot.promoLimitReached': 'Alcanzaste el límite de $30 de ganancia promocional. Haz tu primer depósito para seguir operando.',
         'bot.readyToTrade': '✅ Bot listo para operar',
-        'bot.engineNotice': "🤖 Tu bot se ejecuta automáticamente y sigue operando incluso cuando estás desconectado.",
+        'bot.readyToStart': 'Listo para iniciar',
+        'bot.pausedShort': 'En pausa',
+        'bot.errorState': 'Error',
+        'bot.runningMsg': 'Escaneando mercados compatibles. Las nuevas operaciones aparecen en el registro de actividad.',
+        'bot.engineNotice': "🤖 Se ejecuta en esta pestaña del navegador. El trading se detiene si cierras o actualizas la página.",
         'bot.engineNoticeWorker': "Tu bot sigue funcionando aunque cierres esta página. Vuelve cuando quieras para revisar tu actividad.",
         'bot.workerManaged': "🤖 Tu bot ahora se ejecuta automáticamente. Seguirá operando incluso cuando estés desconectado.",
         'chart.title': 'Rendimiento del patrimonio',
@@ -12824,6 +13038,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Mejor operación',
         'trading.worstTrade': 'Peor operación',
         'trading.streak': 'Racha de aciertos',
+        'trading.recent': 'Operaciones recientes',
         'achievements.title': 'Logros',
         'badge.rarity.common': 'Común',
         'badge.rarity.rare': 'Raro',
@@ -14425,7 +14640,11 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Depositar fundos',
         'bot.promoLimitReached': 'Você atingiu o limite de $30 de lucro promocional. Faça seu primeiro depósito para continuar operando.',
         'bot.readyToTrade': '✅ Bot pronto para operar',
-        'bot.engineNotice': "🤖 Seu bot funciona automaticamente e continua operando mesmo quando você está offline.",
+        'bot.readyToStart': 'Pronto para iniciar',
+        'bot.pausedShort': 'Pausado',
+        'bot.errorState': 'Erro',
+        'bot.runningMsg': 'Verificando mercados compatíveis. As novas operações aparecem no registro de atividades.',
+        'bot.engineNotice': "🤖 Roda nesta aba do navegador. As negociações param se você fechar ou atualizar a página.",
         'bot.engineNoticeWorker': "Seu bot continua funcionando mesmo quando você fecha esta página. Volte quando quiser para ver sua atividade.",
         'bot.workerManaged': "🤖 Seu bot agora funciona automaticamente. Ele continuará operando mesmo quando você estiver offline.",
         'chart.title': 'Desempenho do patrimônio',
@@ -14443,6 +14662,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Melhor operação',
         'trading.worstTrade': 'Pior operação',
         'trading.streak': 'Sequência de acertos',
+        'trading.recent': 'Operações recentes',
         'achievements.title': 'Conquistas',
         'badge.rarity.common': 'Comum',
         'badge.rarity.rare': 'Raro',
@@ -16044,7 +16264,11 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Déposer des fonds',
         'bot.promoLimitReached': 'Vous avez atteint la limite de 30 $ de gain promotionnel. Faites votre premier dépôt pour continuer à trader.',
         'bot.readyToTrade': '✅ Bot prêt à trader',
-        'bot.engineNotice': "🤖 Votre bot fonctionne automatiquement et continue à trader même lorsque vous êtes hors ligne.",
+        'bot.readyToStart': 'Prêt à démarrer',
+        'bot.pausedShort': 'En pause',
+        'bot.errorState': 'Erreur',
+        'bot.runningMsg': 'Analyse des marchés pris en charge. Les nouvelles transactions apparaissent dans le journal d\'activité.',
+        'bot.engineNotice': "🤖 Fonctionne dans cet onglet. Le trading s'arrête si vous fermez ou actualisez la page.",
         'bot.engineNoticeWorker': "Votre bot continue de fonctionner même lorsque vous fermez cette page. Revenez quand vous voulez pour consulter votre activité.",
         'bot.workerManaged': "🤖 Votre bot fonctionne maintenant automatiquement. Il continuera à trader même lorsque vous êtes hors ligne.",
         'chart.title': 'Performance des capitaux',
@@ -16062,6 +16286,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'Meilleure transaction',
         'trading.worstTrade': 'Pire transaction',
         'trading.streak': 'Série de gains',
+        'trading.recent': 'Transactions récentes',
         'achievements.title': 'Trophées',
         'badge.rarity.common': 'Commune',
         'badge.rarity.rare': 'Rare',
@@ -17663,7 +17888,11 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'إيداع أموال',
         'bot.promoLimitReached': 'وصلت إلى حد الربح الترويجي 30 دولارًا. قم بأول إيداع لمتابعة التداول.',
         'bot.readyToTrade': '✅ الروبوت جاهز للتداول',
-        'bot.engineNotice': "🤖 روبوتك يعمل تلقائيًا ويستمر في التداول حتى عندما تكون غير متصل.",
+        'bot.readyToStart': 'جاهز للبدء',
+        'bot.pausedShort': 'متوقف مؤقتًا',
+        'bot.errorState': 'خطأ',
+        'bot.runningMsg': 'جارٍ فحص الأسواق المدعومة. تظهر العمليات الجديدة في سجل النشاط أدناه.',
+        'bot.engineNotice': "🤖 يعمل داخل هذا التبويب. تتوقف التداولات إذا أغلقت الصفحة أو حدّثتها.",
         'bot.engineNoticeWorker': "يستمر روبوتك في العمل حتى عند إغلاق هذه الصفحة. عُد في أي وقت للاطلاع على نشاطك.",
         'bot.workerManaged': "🤖 روبوتك يعمل الآن تلقائيًا. سيستمر في التداول حتى عندما تكون غير متصل.",
         'chart.title': 'أداء رأس المال',
@@ -17681,6 +17910,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': 'أفضل صفقة',
         'trading.worstTrade': 'أسوأ صفقة',
         'trading.streak': 'سلسلة الفوز',
+        'trading.recent': 'العمليات الأخيرة',
         'achievements.title': 'الإنجازات',
         'badge.rarity.common': 'شائع',
         'badge.rarity.rare': 'نادر',
@@ -19282,7 +19512,11 @@ const TRANSLATIONS = {
         'profitPause.addFunds': '入金',
         'bot.promoLimitReached': '您已达到 30 美元促销利润上限。请先入金再继续交易。',
         'bot.readyToTrade': '✅ 机器人可交易',
-        'bot.engineNotice': "🤖 您的机器人会自动运行，即使您离线也会继续交易。",
+        'bot.readyToStart': '可启动',
+        'bot.pausedShort': '已暂停',
+        'bot.errorState': '错误',
+        'bot.runningMsg': '正在扫描支持的市场。新的交易会显示在下方活动记录中。',
+        'bot.engineNotice': "🤖 在此浏览器标签页中运行。关闭或刷新页面后交易将暂停。",
         'bot.engineNoticeWorker': "即使您关闭此页面，您的机器人仍会继续运行。您可以随时回来查看您的活动。",
         'bot.workerManaged': "🤖 您的机器人现在会自动运行。即使您离线，它也会继续交易。",
         'chart.title': '权益表现',
@@ -19300,6 +19534,7 @@ const TRANSLATIONS = {
         'trading.bestTrade': '最佳交易',
         'trading.worstTrade': '最差交易',
         'trading.streak': '连胜',
+        'trading.recent': '近期交易',
         'achievements.title': '成就',
         'badge.rarity.common': '普通',
         'badge.rarity.rare': '稀有',
@@ -21164,6 +21399,10 @@ function updateDynamicTranslations() {
             if (icon) icon.className = isExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
         }
     } catch(e) { console.error('updateDynamicTranslations error:', e); }
+    // JS-rendered surfaces are rebuilt from t(), so they need an explicit
+    // re-render on a language switch (no data-i18n attribute owns their text).
+    try { if (typeof renderRecentTrades === 'function') renderRecentTrades(); } catch (e) {}
+    try { if (typeof renderBotState === 'function') renderBotState(); } catch (e) {}
 }
 // Stage 11: compact language menus for the landing + auth headers. They reuse the
 // existing setLanguage()/arbi_lang/applyTranslations() system; only opening,
@@ -23100,6 +23339,37 @@ function updateTradingStats() {
     const streakTrend = getEl('streakTrend');
     if(streak >= 3) { streakTrend.style.display = 'block'; streakTrend.textContent = '🔥 HOT'; }
     else { streakTrend.style.display = 'none'; }
+    renderRecentTrades();
+}
+
+/**
+ * The three most recent EXECUTED trades, straight from the wallet ledger.
+ * Display-only: same rows the activity view lists, so the summary and the
+ * detail cannot disagree. Hidden when there is nothing to show.
+ */
+function renderRecentTrades() {
+    const host = document.getElementById('kxStatsRecent');
+    if (!host) return;
+    const data = (typeof getCurrentData === 'function' ? getCurrentData() : null) || {};
+    const rows = (Array.isArray(data.history) ? data.history : [])
+        .filter(function (e) { return e && e.type === 'Trade Executed'; })
+        .slice(0, 3);
+    if (!rows.length) { host.hidden = true; host.innerHTML = ''; return; }
+    const esc = (typeof escapeHtml === 'function') ? escapeHtml : function (v) { return String(v); };
+    host.hidden = false;
+    host.innerHTML = '<div class="kx-stats-recent-head">'
+        + '<span class="kx-stats-recent-title">' + esc(t('trading.recent')) + '</span>'
+        + '<button type="button" class="kx-stats-recent-link" onclick="showView(\'activity\')">' + esc(t('history.allActivity')) + ' \u2192</button>'
+        + '</div>'
+        + rows.map(function (e) {
+            const amt = Number(e.amount) || 0;
+            const cls = amt > 0 ? 'fin-positive' : amt < 0 ? 'fin-negative' : '';
+            return '<div class="kx-recent-row">'
+                + '<span class="kx-recent-asset">' + esc(String(e.detail || '')) + '</span>'
+                + '<span class="' + cls + '">' + (amt >= 0 ? '+' : '') + formatCurrency(amt) + '</span>'
+                + '<span class="kx-recent-time">' + esc(String(e.time || '')) + '</span>'
+                + '</div>';
+        }).join('');
 }
 
 // ============ BADGES ============
@@ -23349,13 +23619,8 @@ function updateUI() {
     const botPill = getEl('botStatePillLive');
     const botMsg = getEl('botStatusMsg');
     const botMsgLive = getEl('botStatusMsgLive');
-    if (botPill) {
-        // Presentation of the state the app already holds - never an invented one.
-        const running = !!APP.botRunning;
-        botPill.dataset.state = running ? 'running' : 'idle';
-        const pillText = botPill.querySelector('.kx-state-pill-text');
-        if (pillText) pillText.textContent = t(running ? 'bot.running' : 'bot.offline');
-    }
+    // Pill + message + account metric all come from renderBotState().
+    renderBotState();
     const isSandbox = APP.environment === 'MARKETING_SANDBOX';
     // Promo-credit restriction: ONE notice, at the top of the dashboard, because
     // a promo-funded account is never marked as funded, so the Live Wallet card
@@ -23384,13 +23649,8 @@ function updateUI() {
     // message explains the first-deposit requirement. Display mirror only - the
     // server refuses trades/starts regardless of the button state.
     const promoLimitReached = !!APP.liveData.promoLimitReached && !isSandbox;
-    if(promoLimitReached) {
-        if(botBtnLive) { botBtnLive.disabled = true; }
-        if(botMsgLive) botMsgLive.textContent = t('bot.promoLimitReached');
-    } else {
-        if(botBtnLive) { botBtnLive.disabled = false; }
-        if(botMsgLive) botMsgLive.textContent = t('bot.readyToTrade');
-    }
+    if(botBtnLive) { botBtnLive.disabled = promoLimitReached; }
+    renderBotState();
     if(botBtn) botBtn.style.display = 'none';
     if(botBtnLive) botBtnLive.style.display = 'flex';
     if(botMsg) botMsg.style.display = 'none';
@@ -23464,9 +23724,60 @@ function updateSandboxBadge() {
     }
 }
 
+/**
+ * ONE source of truth for the bot's visible state. Nothing here is invented:
+ * 'running' only from APP.botRunning, 'paused' only from a server-reported
+ * restriction, 'ready' only when the account is in Live mode, 'error' only
+ * after a failed start. The pill, the account-card metric and the card message
+ * all read this, so they can never contradict each other.
+ */
+function botUiState() {
+    if (APP.botRunning) return 'running';
+    if (APP.botPaused === true) return 'paused';
+    if (APP.liveData && APP.liveData.promoLimitReached) return 'paused';
+    if (APP.botError) return 'error';
+    if (APP.mode === 'live') return 'ready';
+    return 'offline';
+}
+
+function renderBotState() {
+    const state = botUiState();
+    const labelKey = {
+        offline: 'bot.offline',
+        ready: 'bot.readyToStart',
+        running: 'bot.running',
+        paused: 'bot.pausedShort',
+        error: 'bot.errorState'
+    }[state];
+    const msgKey = {
+        offline: 'bot.clickToStart',
+        ready: 'bot.clickToStart',
+        running: 'bot.runningMsg',
+        paused: 'bot.promoLimitReached',
+        error: 'bot.clickToStart'
+    }[state];
+    const pill = getEl('botStatePillLive');
+    if (pill) {
+        pill.dataset.state = state;
+        const txt = pill.querySelector('.kx-state-pill-text');
+        if (txt) txt.textContent = t(labelKey);
+    }
+    const msg = getEl('botStatusMsgLive');
+    if (msg) msg.textContent = t(msgKey);
+    const metric = getEl('botStatus');
+    if (metric) {
+        metric.textContent = t(labelKey);
+        metric.style.color = state === 'running' ? 'var(--success)'
+            : state === 'paused' ? 'var(--warning, #E8973B)'
+            : state === 'error' ? 'var(--destructive)'
+            : state === 'ready' ? 'var(--brand)'
+            : 'var(--kx-text-2)';
+    }
+}
+
 function updateStatus(running) {
-    getEl('botStatus').textContent = running ? t('bot.running') : t('bot.offline');
-    getEl('botStatus').style.color = running ? '#5EA0FF' : '#E5484D';
+    if (running) APP.botError = false;
+    if (typeof renderBotState === 'function') renderBotState();
     const btn = getEl('startStopBtn');
     const btnLive = getEl('startStopBtnLive');
     const text = running ? t('bot.pauseBot') : t('bot.startBot');
@@ -23970,7 +24281,12 @@ function startBot() {
                 showToast(t('bot.workerManaged'), 'info', 6000);
             });
         })
-        .catch(function () {});
+        .catch(function () {
+            // The start request itself failed: say so in the card instead of
+            // leaving a "ready"/"offline" label that implies the bot is fine.
+            APP.botError = true;
+            if (typeof renderBotState === 'function') renderBotState();
+        });
 }
 
 /**
@@ -23981,6 +24297,8 @@ function startBot() {
 function beginBotRun() {
     if(APP.botInterval) clearInterval(APP.botInterval);
     APP.botRunning = true;
+    APP.botError = false;
+    APP.botPaused = false;
     APP.botInterval = setInterval(executeBotTrade, 8000);
     startWorkerSyncLoop();
     updateStatus(true);
@@ -24002,6 +24320,8 @@ function beginBotRun() {
 function showProfitPauseStartBlocked(body) {
     if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
     APP.botRunning = false;
+    APP.botPaused = true;
+    if (typeof renderBotState === 'function') renderBotState();
     stopWorkerSyncLoop();
     rememberProfitPauseThreshold(body);
     APP.profitPauseNoticeShown = true;
@@ -25301,6 +25621,8 @@ function updateStartHere() {
     const ready = document.getElementById('startHereStepsLiveReady');
     if (steps) steps.style.display = liveDone ? 'none' : 'flex';
     if (ready) ready.style.display = liveDone ? 'block' : 'none';
+    // A completed checklist is a one-line confirmation, not a card-sized panel.
+    el.classList.toggle('kx-ready', !!liveDone);
     if (!liveDone) renderStartHereLiveSteps();
 }
 
@@ -25765,6 +26087,8 @@ function maybeShowProfitPauseModal(status) {
     try {
         if (!status || status.profitPaused !== true) return;
         rememberProfitPauseThreshold(status);
+        APP.botPaused = true;
+        if (typeof renderBotState === 'function') renderBotState();
         if (APP.profitPauseNoticeShown === true) return;
         APP.profitPauseNoticeShown = true;
         openProfitPauseModal();

@@ -142,10 +142,18 @@ test('sandbox.badge key exists + non-empty in all 6 locales', () => {
 // 4. Header density: compaction block after base rules; no fixed height
 // ---------------------------------------------------------------------------
 test('.app-header has NO fixed height (content-driven, wraps safely)', () => {
-    const r = lastRule('.app-header');
-    assert.ok(r, '.app-header rule should exist');
-    assert.doesNotMatch(r, /(^|[;{])\s*height\s*:/, '.app-header must not use a fixed height');
-    assert.match(r, /flex-wrap:\s*wrap/, 'header may wrap on narrow screens');
+    // PHASE 2 (measured): the mobile toolbar is now ONE compact row (98px -> 58px),
+    // so the compaction lives in the `#kx-phase2` layer and is scoped to the
+    // element id. The invariant under test is unchanged: the header's HEIGHT is
+    // still driven by its content (a min-height floor, never a fixed height).
+    const base = lastRule('.app-header');
+    assert.ok(base, '.app-header rule should exist');
+    assert.doesNotMatch(base, /(^|[;{])\s*height\s*:/, '.app-header must not use a fixed height');
+    assert.match(CSS, /#appToolbar\{[^}]*min-height:56px/, 'the compact toolbar sets a FLOOR, not a height');
+    assert.doesNotMatch(CSS, /#appToolbar\{[^}]*[^-]height:\s*\d+px/, 'never a fixed height on the toolbar');
+    // The mobile grid still declares a two-line template as a FALLBACK, so a
+    // longest-locale header can wrap instead of clipping.
+    assert.match(CSS, /grid-template-areas:"burger brand right" "sub sub sub"/, 'the wrap template survives as a fallback');
 });
 
 test('mobile header/ticker compaction exists and is placed after the base rules', () => {
@@ -183,9 +191,14 @@ test('desktop base .app-header-right rule is unchanged (wrap allowed)', () => {
     assert.match(CSS, /\.app-header-right\{display:flex;align-items:center;gap:8px;flex-wrap:wrap;\}/, 'base header-right rule must remain');
 });
 
-test('mobile header keeps hamburger clearance (padding-top) instead of a fixed height', () => {
-    const r = lastRule('.app-header');
-    assert.match(r, /padding-top:\s*44px/, 'header clears the fixed 44px hamburger on mobile');
+test('mobile header needs no hamburger clearance: the button is in the row, not floating', () => {
+    // ROOT CAUSE of the oversized mobile header: a 44px padding-top reserved
+    // space for a position:fixed hamburger. The button is now a grid item
+    // (`position:static`, pinned by design_polish), so the clearance is dead
+    // space and the compact rule removes it.
+    assert.match(CSS, /\.app-header \.mobile-menu-btn \{[^}]*position:static/, 'the hamburger is in flow');
+    assert.match(CSS, /\.app-header\{\s*padding:6px 10px !important;/, 'mobile padding is compact, not a 44px clearance');
+    assert.doesNotMatch(CSS, /\.app-header\{[^}]*padding-top:\s*44px/, 'no 44px clearance rule remains');
 });
 
 // ---------------------------------------------------------------------------
