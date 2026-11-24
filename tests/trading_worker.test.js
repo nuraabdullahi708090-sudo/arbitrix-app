@@ -787,7 +787,7 @@ test('safety: the worker has no HTTP server and no client-trusted input', () => 
 
 test('safety: the bot UI disclosure reflects the shipped server-side engine (no "in development" copy)', () => {
   assert.match(INDEX, /id="botEngineNotice"/);
-  assert.match(INDEX, /data-i18n="bot\.engineNotice"/);
+  assert.match(INDEX, /data-i18n="bot\.engineNotice(?:Unknown|Worker)?"/);
   const langs = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
   for (const l of langs) {
     assert.ok(new RegExp("'bot\\.engineNotice':").test(INDEX), 'missing key');
@@ -803,7 +803,7 @@ test('safety: the bot UI disclosure reflects the shipped server-side engine (no 
   // the browser variant now says exactly what it does.
   assert.ok(!/keeps trading even when you're offline/.test(INDEX),
     'the tab-bound bot must not claim it trades while offline');
-  assert.match(INDEX, /Runs in this browser tab\. Trading pauses if you close or refresh the page\./,
+  assert.match(INDEX, /Trading runs from this page while the bot is running\. Keep this tab open/,
     'the browser-engine disclosure states the real limitation');
   assert.match(INDEX, /'bot\.engineNoticeWorker':/,
     'the worker disclosure still exists for when a server engine owns the session');

@@ -56,8 +56,15 @@ test('the browser copy promises tab-bound behaviour; the worker copy states the 
   // worker variant keeps the background claim.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    "\u{1F916} Runs in this browser tab. Trading pauses if you close or refresh the page."
+    "\u{1F916} Trading runs from this page while the bot is running. Keep this tab open \u2014 closing or refreshing it stops the bot until you start it again."
   );
+  // The third variant covers "status not readable yet": it must be true in BOTH
+  // engine modes, because guessing is exactly what this disclosure avoids.
+  for (const l of LANGS) {
+    assert.ok(T[l]['bot.engineNoticeUnknown'] && String(T[l]['bot.engineNoticeUnknown']).trim().length > 20,
+      l + '.bot.engineNoticeUnknown missing/short');
+  }
+  assert.match(T.en['bot.engineNoticeUnknown'], /status is shown above/i);
   assert.ok(!/offline/i.test(T.en['bot.engineNotice']),
     'the tab-bound notice must not imply it trades while the tab is closed');
   assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
@@ -84,7 +91,7 @@ test('the old technical bot wording is fully replaced in all 6 locales', () => {
   assert.ok(!INDEX.includes('A server-side engine that keeps trading after you close the tab'), 'obsolete browser-loop copy removed');
   // ...and from the pre-hydration markup default, which is what a user sees right
   // after a refresh before the bot is started (applyTranslations has not run yet).
-  const markupDefault = 'data-i18n="bot.engineNotice">\u{1F916} Runs in this browser tab. Trading pauses if you close or refresh the page.</div>';
+  const markupDefault = 'data-i18n="bot.engineNoticeUnknown">\u{1F916} The bot\'s current status is shown above. Trading runs automatically while the bot is running.</div>';
   assert.ok(INDEX.includes(markupDefault), 'the pre-hydration markup default shows the new copy');
   for (const l of LANGS) {
     assert.ok(T[l]['bot.engineNoticeWorker'] && String(T[l]['bot.engineNoticeWorker']).trim(), l + ' notice');
@@ -120,7 +127,7 @@ test('the server emits exactly the code the client keys off', () => {
 test('updateBotEngineNotice picks the copy from APP.botExecutedBy and defaults to browser', () => {
   const start = INDEX.indexOf('function updateBotEngineNotice');
   const src = INDEX.slice(start, INDEX.indexOf('function stopBot('));
-  const el = { textContent: '' };
+  const el = { textContent: '', attrs: {}, setAttribute(k, v) { el.attrs[k] = v; } };
   const sandbox = {
     APP: {},
     document: { getElementById: () => el },
@@ -129,10 +136,15 @@ test('updateBotEngineNotice picks the copy from APP.botExecutedBy and defaults t
   vm.createContext(sandbox);
   vm.runInContext(src, sandbox);
   sandbox.updateBotEngineNotice();
-  assert.strictEqual(el.textContent, 'T:bot.engineNotice', 'default must be the browser copy');
+  assert.strictEqual(el.textContent, 'T:bot.engineNoticeUnknown',
+    'with no server answer the copy must claim neither mode');
+  sandbox.updateBotEngineNotice('browser');
+  assert.strictEqual(el.textContent, 'T:bot.engineNotice', 'the server says the tab is the executor');
   sandbox.updateBotEngineNotice('worker');
   assert.strictEqual(el.textContent, 'T:bot.engineNoticeWorker');
   assert.strictEqual(sandbox.APP.botExecutedBy, 'worker', 'state must be remembered for language switches');
+  sandbox.updateBotEngineNotice('nonsense');
+  assert.strictEqual(el.textContent, 'T:bot.engineNoticeUnknown', 'an unknown mode never over-promises');
 });
 
 test('a language switch re-applies the right variant (data-i18n alone would reset it)', () => {
@@ -141,7 +153,9 @@ test('a language switch re-applies the right variant (data-i18n alone would rese
 });
 
 test('the disclosure copy sits in the live bot card and is still a data-i18n default', () => {
-  assert.match(INDEX, /id="botEngineNotice"[^>]*data-i18n="bot\.engineNotice"/);
+  // The element ships with the NEUTRAL variant: before the server reports which
+  // engine owns the session, the page must not claim the tab stops trading.
+  assert.match(INDEX, /id="botEngineNotice"[^>]*data-i18n="bot\.engineNoticeUnknown"/);
 });
 
 test('no sandbox file or sandbox string was touched by this change', () => {

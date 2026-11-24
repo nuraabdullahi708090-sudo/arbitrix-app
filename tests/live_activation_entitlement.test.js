@@ -511,31 +511,38 @@ test('25. a reused licence is refused for the second account by the database', a
   assert.match(MIGRATION, /claimed_by_other_account/);
 });
 
-test('25c. the browser tells a real-but-unconfirmed buyer the truth, in their language', () => {
-  // The refusal is rendered from the reason, not from the English server string:
-  // every locale has its own sentence.
-  assert.match(INDEX, /const confirming = data\.reason === 'not-recorded';/);
-  assert.match(INDEX, /confirming\s*\n\s*\? t\('liveActivation\.confirming'\)/);
+test('25c. the browser no longer redeems activation keys; a legacy refusal routes to support', () => {
+  // The purchase AND its redemption UI were removed together: with nothing sold
+  // in the product there is no key for a customer to paste. The server keeps the
+  // endpoint, so an operator can still redeem on a buyer's behalf.
+  assert.ok(!INDEX.includes('not-recorded'), 'no redemption reason handling in the client');
+  assert.ok(!INDEX.includes('/api/live/activate'), 'the client never calls the redeem endpoint');
+  assert.ok(!INDEX.includes('liveActivation'), 'no activation copy remains');
 
+  // The refusal a legacy deployment still returns is answered neutrally, in the
+  // customer's language.
   const i = INDEX.indexOf('const TRANSLATIONS');
-  const start = INDEX.indexOf('{', i);
+  const startAt = INDEX.indexOf('{', i);
   let depth = 0;
   let end = -1;
-  for (let k = start; k < INDEX.length; k++) {
+  for (let k = startAt; k < INDEX.length; k++) {
     if (INDEX[k] === '{') depth++;
     else if (INDEX[k] === '}') { depth--; if (depth === 0) { end = k; break; } }
   }
   const sb = {};
   vm.createContext(sb);
-  vm.runInContext('this.T = ' + INDEX.slice(start, end + 1), sb);
+  vm.runInContext('this.T = ' + INDEX.slice(startAt, end + 1), sb);
   const T = sb.T;
   for (const lang of ['en', 'es', 'pt', 'fr', 'ar', 'zh']) {
-    const v = T[lang] && T[lang]['liveActivation.confirming'];
-    assert.ok(typeof v === 'string' && v.trim().length > 20, lang + ' has a confirming message');
-    assert.ok(!/not valid/i.test(v), lang + ' never calls a real purchase invalid');
+    const v = T[lang] && T[lang]['liveAccess.notAvailable'];
+    assert.ok(typeof v === 'string' && v.trim().length > 20, lang + ' has a neutral message');
+    assert.ok(!/\{\{/.test(v), lang + ' has no raw placeholder');
     if (lang === 'ar') assert.match(v, /[\u0600-\u06FF]/, 'Arabic is written in Arabic script');
   }
+  // The server-side capability is intact.
+  assert.match(SERVER, /app\.post\('\/api\/live\/activate'/);
 });
+
 
 test('26. a disabled or refunded licence is refused', async () => {
   const a = makeAdmin();
@@ -669,7 +676,7 @@ test('37. migration 050 is additive, service-role only and self-checking', () =>
 
 // ====================================================================== i18n
 
-test('38. the activation copy exists in all six locales and promises no capital', () => {
+test('38. the activation copy is gone and the neutral fallback promises no capital', () => {
   const tIdx = INDEX.indexOf('const TRANSLATIONS');
   let depth = 0;
   let end = -1;
@@ -682,17 +689,20 @@ test('38. the activation copy exists in all six locales and promises no capital'
   vm.runInContext(INDEX.slice(tIdx, end + 1).replace('const TRANSLATIONS', 'globalThis.T') + ';', sandbox);
   const T = sandbox.T;
 
-  const keys = ['liveActivation.notice', 'liveActivation.cta', 'liveActivation.title',
-                'liveActivation.body', 'liveActivation.buy', 'liveActivation.keyLabel',
-                'liveActivation.submit', 'liveActivation.hint', 'liveActivation.keyRequired',
-                'liveActivation.failed', 'liveActivation.success'];
+  const removed = ['liveActivation.notice', 'liveActivation.cta', 'liveActivation.title',
+    'liveActivation.body', 'liveActivation.buy', 'liveActivation.keyLabel',
+    'liveActivation.submit', 'liveActivation.hint', 'liveActivation.keyRequired',
+    'liveActivation.failed', 'liveActivation.success', 'liveActivation.confirming'];
+  const keys = ['liveAccess.notAvailable', 'liveAccess.retryLater'];
   for (const l of ['en', 'es', 'pt', 'fr', 'ar', 'zh']) {
+    for (const k of removed) assert.ok(!(k in T[l]), l + ' still defines ' + k);
     for (const k of keys) {
       assert.ok(T[l][k] && String(T[l][k]).trim().length > 0, l + ' missing ' + k);
       assert.ok(!/\{\{/.test(T[l][k]), l + '/' + k + ' has an unfilled placeholder');
       assert.ok(!/\$\d/.test(T[l][k]), l + '/' + k + ' must not quote an amount');
+      assert.ok(!/capital|guarantee|profit/i.test(T[l][k]), l + '/' + k + ' promises nothing');
     }
   }
-  assert.match(T.en['liveActivation.body'], /does not add trading capital/i);
-  assert.match(T.en['liveActivation.hint'], /never credits a balance/i);
+  assert.match(T.en['liveAccess.notAvailable'], /contact support/i);
 });
+

@@ -213,13 +213,17 @@ test('gates: bot start / trade only demand activation when it is required', () =
   assert.match(SERVER, /LIVE_DEPOSIT_REQUIRED/);
 });
 
-test('frontend: no activation UI renders when the flag is off', () => {
-  const pending = INDEX.slice(INDEX.indexOf('function activationPending()'), INDEX.indexOf('function renderLiveModeCard()'));
-  assert.match(pending, /APP\.activationRequired === true/,
-    'the notice is driven by the server flag, defaulting to hidden');
-  // The Live-Mode guide only lists activation when the server says it applies.
+test('frontend: no activation UI exists at all (the journey is deposit-funded)', () => {
+  // Removed by management decision: Live Mode is funded by a deposit, so the
+  // client no longer renders, branches on, or even mentions a paid activation.
+  assert.ok(!INDEX.includes('activationPending'), 'no activation state helper');
+  assert.ok(!INDEX.includes('liveActivation'), 'no activation keys or markup');
+  assert.ok(!INDEX.includes('id="liveActivationModal"'), 'no activation dialog');
+  assert.ok(!INDEX.includes('liveModeActivateBtn'), 'no activation button');
   const steps = INDEX.slice(INDEX.indexOf('function startHereLiveSteps()'), INDEX.indexOf('function startHereLiveComplete()'));
-  assert.match(steps, /activationPending\(\)/);
+  assert.ok(!/activation/i.test(steps), 'the checklist lists no activation step');
+  // The server flag itself is untouched, so the capability is preserved.
+  assert.match(SERVER, /PAYHIP_ACTIVATION_REQUIRED/);
 });
 
 test('copy: the default funnel never advertises a mandatory paid activation', () => {

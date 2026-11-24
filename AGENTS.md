@@ -10066,3 +10066,48 @@ path touched. NOT merged, NOT deployed.
   infrastructure project. Q8Pay stays in service, no routing change, nothing
   merged or deployed. Also corrected the earlier research doc, which wrongly said
   BTCPay had no TRON support.
+
+
+## Deposit-driven Live Mode: promo-credit clarity, activation UI removal, dialog fix (2026-11-24, PR #206)
+- Frontend-only (public/index.html + tests). server.js, migrations, deposits, withdrawals,
+  trading/worker, KYC, referral, subscription, sandbox and Telegram are UNTOUCHED. Not
+  merged, not deployed.
+- DB/report basis: the promo profit cap is `PROMO_PROFIT_CAP_USD = 30` in server.js; the
+  Payhip capability (`/api/live/activate`, `PAYHIP_ACTIVATION_REQUIRED`, migration 050)
+  still exists but the browser no longer calls or advertises it.
+- Dashboard: `#liveModeCard` renders the SERVER `liveMode` object (status / promoCredit /
+  depositRequired) and offers "Make your deposit" only when the server says the deposit is
+  the blocker. No client-side eligibility, no balance write.
+- `#promoCreditBanner` is the ONE place the restriction is stated, and it now discloses the
+  enforced $30 profit pause. `promo.creditExplainTradable` (the card) deliberately carries
+  the amount + the two facts and NOT the cap, so the cap appears exactly once. Keep it that
+  way: `tests/promo_credit_display.test.js` asserts the cap is absent from the card.
+- Removed the browser activation flow: modal, `activationPending()`,
+  `openLiveActivationModal()`, `submitLiveActivation()`, the 20 `liveActivation.*` keys,
+  `onboarding.*Activation`, `deposit.activationNote`, `startHere.live.step0/subtitle`.
+  A legacy refusal code now opens the Support Center (`liveAccess.notAvailable` /
+  `liveAccess.retryLater`).
+- Deposit dialog: a stray `</div>` after `#depositMinNotice` closed `#depositModalContent`
+  and `#depositInputSection` before step 2, so `#depositPaymentSection`,
+  `#depositActionButtons`, `.deposit-history` and the hidden inputs became flex SIBLINGS
+  of the panel (77 px wide panel at 390 px once an invoice existed). Verify child depth
+  before styling this dialog.
+- REMOVED a shipped debug fetch interceptor that wrapped `window.fetch` and logged a stack
+  trace per request (an `Error` line per API call in the customer console).
+- TRAP THAT COST TIME: that interceptor shared its `<script>` OPENING tag with the main app
+  block, so deleting the "block" deleted the opener and left the entire main-logic script
+  outside any `<script>` element. The page still rendered - with static HTML defaults - so
+  it looked fine. `tests/html_script_integrity.test.js` now fails on unbalanced tags, an
+  orphan `</script>`, or app config leaking outside a script block (4/6 fail on the broken
+  markup). Always check `<script>`/`</script>` parity after deleting an inline block.
+- Also reworded a JS comment that contained the literal text `<script>`; such a literal
+  shifts naive `<script[\s\S]*?</script>` stripping and made a disclosure test pass for
+  the wrong reason.
+- Verification: `npm test` 4035 run / 4034 pass / 0 fail; i18n 1591 keys x 6 with identical
+  key sets; CI on PR #206 green (static checks + npm test).
+- DOM-level browser verification WITHOUT screenshots (the model adapter discards image
+  content): serve `public/` with a stubbed `fetch` (implement `clone()`!), then
+  `chromium --headless=new --virtual-time-budget=12000 --dump-dom` and assert on the DOM
+  text. Match stub routes with `url.indexOf(key) !== -1` (the client calls absolute URLs;
+  `=== 0` silently returns `{}` and every value falls back to the static default - which is
+  exactly how a broken script tag can look healthy).

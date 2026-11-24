@@ -100,7 +100,6 @@ function buildSandbox({ environment = 'PRODUCTION', liveData = {}, dismissed = f
   vm.createContext(sandbox);
   vm.runInContext([
     extractFunction('startHereKey'),
-    extractFunction('activationPending'),
     extractFunction('startHereLiveSteps'),
     extractFunction('startHereLiveComplete'),
     extractFunction('renderStartHereLiveSteps'),
@@ -127,33 +126,25 @@ test('1. the card ships a single Live header and one steps container', () => {
 // ---------------------------------------------------------------------------
 // 2. The checklist lists only the requirements the platform actually enforces
 // ---------------------------------------------------------------------------
-test('2. the activation step appears ONLY while the platform requires one', () => {
-  const withActivation = vm.runInNewContext(
-    extractFunction('activationPending') + extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
+test('2. there is exactly one step and no activation step at all', () => {
+  // The paid activation was removed from the customer journey, so the checklist
+  // never branches on it and can never advertise it.
+  const steps = vm.runInNewContext(
+    extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
     { APP: { activationRequired: true, liveActivated: false } });
-  assert.strictEqual(withActivation.length, 2, 'activation outstanding: two steps');
-  assert.strictEqual(JSON.stringify(withActivation.map((s) => s.key)),
-    JSON.stringify(['startHere.live.step0', 'startHere.live.step3']));
+  assert.strictEqual(steps.length, 1, 'one requirement remains');
+  assert.strictEqual(JSON.stringify(steps.map((s) => s.key)), JSON.stringify(['startHere.live.step3']));
 
-  // Requirement OFF (the default deployment): the customer must never be told to
-  // buy an activation the platform does not apply.
-  const noActivation = vm.runInNewContext(
-    extractFunction('activationPending') + extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
-    { APP: { activationRequired: false, liveActivated: true } });
-  assert.strictEqual(noActivation.length, 1, 'no activation requirement: one step');
-  assert.strictEqual(JSON.stringify(noActivation.map((s) => s.key)), JSON.stringify(['startHere.live.step3']));
-
-  for (const s of withActivation.concat(noActivation)) {
+  for (const s of steps) {
     const value = T.en[s.key];
     assert.ok(value && value.trim().length > 0, s.key + ' must be non-empty');
     assert.ok(!/demo|virtual/i.test(value), s.key + ' must not mention demo funds');
   }
-  assert.match(T.en['startHere.live.step0'], /activation/i);
   assert.match(T.en['startHere.live.step3'], /trade/i);
-  // The subtitle follows the step count, so it can never promise "two steps"
-  // to an account that has one.
-  assert.ok(T.en['startHere.live.subtitle'] && T.en['startHere.live.subtitleNext']);
-  assert.match(T.en['startHere.live.subtitle'], /two steps/i);
+  assert.ok(!('startHere.live.step0' in T.en), 'the activation step key is gone');
+  // The old two-step subtitle would now be wrong, so it was removed too.
+  assert.ok(!('startHere.live.subtitle' in T.en), 'the two-step subtitle is gone');
+  assert.ok(T.en['startHere.live.subtitleNext'] && T.en['startHere.live.subtitleNext'].trim());
 });
 
 // ---------------------------------------------------------------------------
@@ -172,17 +163,20 @@ test('3. updateStartHere renders the steps without touching money', () => {
     'display only: no request and no balance write');
 });
 
-test('3b. with the activation requirement ON the card shows both steps and their subtitle', () => {
-  const sb = buildSandbox({ activationRequired: true, liveActivated: false });
-  sb.updateStartHere();
-  assert.strictEqual((sb.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 2);
-  assert.ok(sb.els.startHereStepsLive.innerHTML.includes('activation'), 'the activation step is rendered');
-  assert.strictEqual(sb.els.startHereSubtitle.textContent, T.en['startHere.live.subtitle']);
-  // An unactivated account is never reported as complete.
-  assert.strictEqual(sb.els.startHereStepsLiveReady.style.display, 'none');
-  const done = buildSandbox({ activationRequired: true, liveActivated: true, liveData: { hasTradingActivity: true } });
+test('3b. the activation requirement changes nothing on the card', () => {
+  // An operator who still has PAYHIP_ACTIVATION_REQUIRED on must see the SAME
+  // dashboard: the guide is a product surface, not a reflection of a server switch.
+  const on = buildSandbox({ activationRequired: true, liveActivated: false });
+  on.updateStartHere();
+  const off = buildSandbox({ activationRequired: false, liveActivated: true });
+  off.updateStartHere();
+  assert.strictEqual(on.els.startHereStepsLive.innerHTML, off.els.startHereStepsLive.innerHTML);
+  assert.strictEqual((on.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 1);
+  assert.ok(!/activation/i.test(on.els.startHereStepsLive.innerHTML));
+  assert.strictEqual(on.els.startHereStepsLiveReady.style.display, 'none');
+  const done = buildSandbox({ liveData: { hasTradingActivity: true } });
   done.updateStartHere();
-  assert.strictEqual(done.els.startHereStepsLiveReady.style.display, 'block', 'traded + activated: complete');
+  assert.strictEqual(done.els.startHereStepsLiveReady.style.display, 'block', 'a completed trade finishes the list');
 });
 
 // ---------------------------------------------------------------------------
@@ -212,7 +206,9 @@ test('5. a funded, traded account sees the compact completion line', () => {
 
   const partial = buildSandbox({ liveData: { hasRealDeposit: true } });
   partial.updateStartHere();
-  assert.strictEqual(partial.els.startHereStepsLiveReady.style.display, 'none', 'one flag is not enough');
+  assert.strictEqual(partial.els.startHereStepsLiveReady.style.display, 'none',
+    'a deposit alone does not finish the checklist');
+  assert.strictEqual((partial.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 1);
 });
 
 // ---------------------------------------------------------------------------
@@ -229,8 +225,8 @@ test('6. a language switch rebuilds the checklist', () => {
 // 7. i18n parity
 // ---------------------------------------------------------------------------
 test('7. every startHere key exists in all six locales, with no demo wording', () => {
-  const keys = ['startHere.dismiss', 'startHere.live.title', 'startHere.live.subtitle',
-    'startHere.live.step0', 'startHere.live.step3', 'startHere.live.ready'];
+  const keys = ['startHere.dismiss', 'startHere.live.title',
+    'startHere.live.subtitleNext', 'startHere.live.step3', 'startHere.live.ready'];
   for (const lang of LANGS) {
     assert.deepStrictEqual(Object.keys(T[lang]).sort(), Object.keys(T.en).sort(), lang + ' key set differs');
     for (const k of keys) {

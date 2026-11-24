@@ -155,6 +155,21 @@ test('3. the credit path enters the app and creates no invoice', () => {
   assert.strictEqual(sb.getOnboardingChoice(7), 'credit', 'the choice is recorded');
 });
 
+test('3b. the credit path needs no mode switch - the credit IS the entry state', () => {
+  // This build has one funded view: the Live wallet carrying the promotional
+  // credit (the wallet tabs are Live + Referral Commission; there is no demo
+  // wallet and no setMode()). The funnel entry therefore must not reach for a
+  // mode switch that does not exist.
+  assert.ok(!/\bsetMode\s*\(/.test(INDEX), 'no mode-switch call exists in this build');
+  assert.ok(!/<button[^>]*data-wallet="demo"/.test(INDEX), 'no demo wallet tab');
+  assert.ok(/<button[^>]*data-wallet="live"/.test(INDEX), 'the Live wallet tab is the entry view');
+  assert.ok(/id="liveModeCard"/.test(INDEX), 'the promotional-credit card is the entry surface');
+  const ready = buildSandbox({ appWasReady: true });
+  ready.chooseOnboarding('credit');
+  assert.deepStrictEqual(ready.calls.goToApp, ['onboarding_credit']);
+  assert.strictEqual(ready.calls.fetches.length, 0, 'still no request');
+});
+
 // ---------------------------------------------------------------------------
 // 4. The deposit path hands off to the EXISTING dialog
 // ---------------------------------------------------------------------------

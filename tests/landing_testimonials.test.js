@@ -21,8 +21,8 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1612; // demo mode removed: 1640 -> 1612 keys/locale
-// 1612 keys/locale now = 1556 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1591; // demo mode removed: 1640 -> 1591 keys/locale
+// 1591 keys/locale now = 1556 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
 // tutorial keys (deposit.tutorials.* and withdraw.tutorial.*) added with the
@@ -34,9 +34,9 @@ const DICT_SIZE = 1612; // demo mode removed: 1640 -> 1612 keys/locale
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-// 1552 = 1612 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
+// 1552 = 1591 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
 // outside this section is retired (the demo CTA simplification retired six).
-const BASE_OUTSIDE_TESTIMONIALS = 1557;
+const BASE_OUTSIDE_TESTIMONIALS = 1540;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 
@@ -267,9 +267,7 @@ test('this change only added landing.testimonials.* keys', () => {
     // OTHER key outside landing.testimonials.* still fails this test.
     const ALLOWED_EXTRA = ['bot.engineNoticeWorker', 'bot.workerManaged',
     // Live Mode journey disclosures (activation / capital / deposit clarity)
-    'liveActivation.blockedToast', 'liveDeposit.blockedToast', 'liveActivation.supportCta',
-    'liveActivation.purchaseUnavailable', 'liveActivation.nextStep', 'startHere.live.step0',
-    'startHere.live.step3', 'deposit.activationNote',
+    'liveDeposit.blockedToast', 'startHere.live.step3',
     'landing.faq.q10', 'landing.faq.a10',
     // Single-mode sprint: the historical demo-wallet transaction label is kept
     // for rows written before Demo Mode was retired.
@@ -277,7 +275,7 @@ test('this change only added landing.testimonials.* keys', () => {
     // Activation-truthfulness pass: state-driven copy so a deployment without
     // the activation requirement never advertises it.
     'promo.creditExplainTradable', 'startHere.live.subtitleNext',
-    'onboarding.explainerActivation', 'onboarding.primaryDescActivation',
+    'liveMode.depositCta', 'liveAccess.notAvailable', 'liveAccess.retryLater', 'bonus.about',
     // Redesign: grouped sidebar navigation labels (5 keys x 6 locales).
     'nav.overview', 'nav.money', 'nav.trading', 'nav.grow', 'nav.account',
     // Final polish: one sentence per bot state plus a state-driven metric hint.
