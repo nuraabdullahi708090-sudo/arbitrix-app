@@ -244,3 +244,29 @@ test('the presentation layer never touches money', () => {
   // the balance the card shows still comes from the server-synced wallet
   assert.match(INDEX, /function syncWalletFromServer/, 'wallet sync untouched');
 });
+
+/* ------------------------------------------------------------------ *
+ * 10. No dead-end guidance in the Live Mode card
+ * ------------------------------------------------------------------ */
+test('every "make your deposit" state also offers the deposit action', () => {
+  // AUDIT FINDING (onboarding/activation pass): `funding_required` rendered the
+  // sentence "Make a deposit to fund your Live balance" while the deposit button
+  // was toggled ONLY for `deposit_required` - a message with no action.
+  const fn = INDEX.slice(INDEX.indexOf('function renderLiveModeCard'), INDEX.indexOf('function updateLiveActivationUI'));
+  assert.match(fn, /const needsDeposit = status === 'deposit_required' \|\| status === 'funding_required';/,
+    'both deposit states offer the action');
+  assert.match(fn, /if \(depBtn\) depBtn\.classList\.toggle\('hidden', !needsDeposit\);/, 'the button follows that decision');
+  // and the activation states must NOT offer a deposit button as their next step
+  assert.match(fn, /btn\.classList\.toggle\('hidden', status !== 'activation_required'\)/,
+    'only activation_required offers activation');
+});
+
+test('the activation dialog always has a route forward', () => {
+  const modal = INDEX.slice(INDEX.indexOf('id="liveActivationModal"'), INDEX.indexOf('id="verificationSandboxInfoModal"'));
+  assert.match(modal, /id="liveActivationBuyBtn"/, 'a purchase route');
+  assert.match(modal, /id="liveActivationUnavailable"/, 'an explanation when purchasing is unavailable');
+  assert.match(modal, /id="liveActivationKey"/, 'licence-key redemption');
+  assert.match(modal, /onclick="submitLiveActivation\(\)"/, 'submit wiring');
+  assert.match(modal, /openSupportModal\(\)/, 'a human route');
+  assert.match(modal, /liveActivation\.hint/, 'the never-credits-a-balance promise is stated');
+});

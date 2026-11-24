@@ -207,3 +207,37 @@ shadow softness) is NOT verified and should be confirmed visually by the owner.
   and withdraw dialogs opening from the card, es/ar rendering with 0 overflow, and no
   page errors.
 * Screenshots were NOT taken (see the limitation above).
+
+## Onboarding / activation audit (same pass)
+
+Six account states were driven through the real page with `/api/auth/me` stubbed per
+scenario, at 390px: activation required (purchasable), activation required (purchase
+unavailable), deposit required, funding required (no promotional credit), eligible/funded,
+and MARKETING_SANDBOX. Result: 52/52 checks, after one real fix.
+
+| Assertion | Result |
+|---|---|
+| Live Mode card visible exactly when the account has an outstanding step | pass (hidden for funded and sandbox) |
+| Status chip + explanation match the state (never "activate" once activated) | pass |
+| Activation dialog opens from the card; buy link only when `purchasable && https storeUrl` | pass |
+| "Purchase unavailable" notice + licence-key entry + Contact support always reachable | pass |
+| Deposit dialog opens from the card in the deposit states | pass (after the fix) |
+| No raw i18n keys, no `{{placeholder}}` text, no dead inline handlers, no page errors | pass |
+| No horizontal overflow | pass |
+
+**The one defect found**: `funding_required` (activated, no promotional credit, no
+deposit) rendered "Make a deposit to fund your Live balance and start trading." while the
+deposit button was toggled only for `deposit_required`. A message with no action is a dead
+end, so the button now follows `deposit_required || funding_required`
+(`renderLiveModeCard`, pinned by `tests/dashboard_phase2.test.js`).
+
+Two copy dependencies recorded, deliberately not changed here:
+
+1. The landing FAQ says the promotional credit lets you "run the bot with it immediately".
+   That is true while `PAYHIP_ACTIVATION_REQUIRED` is unset (the shipped default). If an
+   operator enables the activation gate, that sentence and `onboardingPrimaryDesc` need a
+   matching edit - enabling the gate is a copy+config change, not a config-only change.
+2. With purchasing unavailable (no licence key configured), the activation card's forward
+   route is "Contact support". That is honest but depends on the official support link
+   being configured (`arbitrix-support-telegram` meta); with it unset the Support Center
+   shows its own unconfigured notice. Worth checking before a paid-ad campaign.

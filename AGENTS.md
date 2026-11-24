@@ -9950,3 +9950,37 @@ path touched. NOT merged, NOT deployed.
 - **Follow-ups documented** in `docs/design/UX_AUDIT_2026-11.md` section 6: modal focus
   trapping, tablet header height, landing token migration, unifying the two modal systems'
   behaviour, onboarding "next step" copy.
+
+
+## Kalderix redesign phase 2 - dashboard consolidation, bot state, honest copy (2026-11-24, public/index.html + tests + docs)
+- Second refinement pass after the owner rejected the first mobile render. Frontend-only:
+  NO server.js, services, migrations, money path, engine or API change. Full suite 3978
+  pass / 0 fail / 1 skipped (baseline 3953/1 skipped).
+- Root causes found by measurement (headless Chromium, `getBoundingClientRect`), not by
+  eye:
+  * 44px `padding-top` on `.app-header` cleared a hamburger that had become a
+    `position:static` grid item -> dead space; plus a two-row grid template and a
+    wrapping flex row at 641-1023px. Toolbar 98px -> **58px** at every width.
+  * `kxHero` was FOUR KPI cards re-printing the same balance (385px). Now ONE account
+    card (259px): equity leads, "Available" owns the Deposit/Withdraw actions, P&L and bot
+    state are compact metrics; >=1200px it becomes a 3-column band.
+  * `updateUI()` forced `#botStatusMsgLive = t('bot.readyToTrade')` unconditionally, so a
+    STOPPED bot claimed readiness. Replaced by ONE state machine
+    (`botUiState()` -> offline|ready|running|paused|error, from real flags only;
+    `renderBotState()` paints pill + account metric + card message).
+  * The tab-bound engine notice claimed "keeps trading even when you're offline" - false;
+    the loop dies with the tab. Rewritten in 6 locales: "Runs in this browser tab.
+    Trading pauses if you close or refresh the page." Worker copy keeps that claim.
+  * `renderLiveModeCard()` told a `funding_required` account to make a deposit but only
+    toggled the deposit button for `deposit_required` -> dead end, now both.
+- Added: Recent-trades footer in the statistics card (3 rows, sign-coloured, links to the
+  Activity view), wallet tabs moved inside `#kxWallets`, a 36px drawer close target,
+  support launcher yielding to its panel/dialogs, 54px completed checklist.
+- PINS: `tests/dashboard_phase2.test.js` (18) locks all of the above + "the presentation
+  layer never touches money". 22 existing suites updated for intentional contract changes
+  (header height/clearance, hero structure, pill source, engine copy, padding shorthand).
+- ENVIRONMENT LIMITATION for review: no screenshot/vision inspection was possible (the
+  adapter discards image content), so verification is DOM geometry + computed styles +
+  real interaction; subjective quality (shading, motion) is unverified.
+- Report: `docs/design/VISUAL_REVIEW_2026-11.md` "Phase 2" + "Onboarding / activation
+  audit" sections.

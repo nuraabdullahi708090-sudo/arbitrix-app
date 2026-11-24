@@ -21105,8 +21105,12 @@ function renderLiveModeCard() {
         if (btn) btn.classList.toggle('hidden', status !== 'activation_required');
         // Activation is done but the qualifying deposit is not: the next step is a
         // deposit, not another licence. Display only - the gates are server-side.
+        // `funding_required` is the same situation without a promotional credit,
+        // and BOTH must offer the action: telling a customer "make your deposit"
+        // without giving them the button is the dead end this audit found.
         const depBtn = document.getElementById('liveModeDepositBtn');
-        if (depBtn) depBtn.classList.toggle('hidden', status !== 'deposit_required');
+        const needsDeposit = status === 'deposit_required' || status === 'funding_required';
+        if (depBtn) depBtn.classList.toggle('hidden', !needsDeposit);
     } catch (e) { /* display only: a render failure must never break the dashboard */ }
 }
 
