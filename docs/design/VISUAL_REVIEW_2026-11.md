@@ -323,3 +323,72 @@ the `arbitrix-partner-support-telegram` meta - nothing invented or replaced.
   320/390/768/1280/1440 - chart painted and unobstructed, launcher invariant,
   Start->running->ready, deposit/withdraw dialogs, no page errors; plus a delayed
   session, a blocked Chart.js and es/ar/zh locale runs.
+
+## Return-to-dashboard navigation (2026-11-23)
+
+Reported: from Markets, the Transaction Log, Referral or Admin the only way back to
+the dashboard was the hamburger menu. Two one-tap entry points now exist, and the
+browser's Back button finally behaves like Back.
+
+### What changed
+
+- **The brand is a link home.** `.app-header-brand` became `<a id="kxToolbarBrand"
+  href="#overview">` with the same inside (mark + wordmark) and the same look
+  (`text-decoration:none;color:inherit`), plus a visible focus ring and a localized
+  tooltip. It works from every view, from the dashboard (a no-op) and from a dialog
+  if the bar is somehow reachable.
+- **A contextual `← Dashboard` control** (`#kxBackToDashboard`) sits between the
+  brand and the view title. It is a real `<a href="#overview">` (so Enter, middle
+  click and deep links behave), an arrow - never a close "X" - and it is `hidden`
+  unless the view is not `overview`. It reuses the existing `sidebar.dashboard`
+  wording for its label and one new key (`nav.backToDashboard`) for its accessible
+  name and tooltip (6 locales).
+- **One helper for both**: `goToDashboard()` closes whatever is on top (support
+  panel, drawer, language/notification dropdowns, any open dialog via its own close
+  control), then `showView('overview')`. So the dashboard is never "opened" behind a
+  dialog.
+- **Back works**: user-initiated navigation now `pushState`s its hash instead of
+  `replaceState`. The boot render and the `hashchange` reconciliation stay silent, so
+  loading `/#referral` adds no entry, a repeated render of the same view adds no
+  duplicate entry, and Back from `#referral` returns to `#markets` (the hashchange
+  listener drives the view) rather than leaving the app.
+- Router discipline is unchanged: `showView()` still owns host visibility, the
+  toolbar title and the active sidebar link, and now also syncs the control.
+
+### Measurements (secondary view, one row, no horizontal overflow)
+
+| width | bar height | control | notes |
+|---|---|---|---|
+| 320 | 58 | 30x28 icon | 1px short of fitting the labelled pill, so the pill and the brand gap give back a few px |
+| 390 / 430 / 479 | 58 | 32x30 icon | icon-only below 480px - the labelled pill wrapped the bar to 102px at 431px |
+| 480 - 1023 | 58 | 101x32 labelled | |
+| 1280 / 1440 | 58 | 101x32 labelled | |
+
+The dashboard bar is unchanged at every width (control `display:none`, no extra
+element height). A secondary view adds the control, so below 640px the bar is held to
+one row and the view title ellipsises instead of wrapping - measured "Transaction Log"
+clipping only at 390 / 480 / 640 and shown in full at 430 / 479 / 600.
+
+RTL: the arrow mirrors (`html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1)}`).
+
+### Dialogs
+
+Profile, Subscription, Support and 2FA are dialogs, not views: the toolbar is behind
+them, so the control cannot be tapped while they are open. Their existing close
+control returns to the view underneath, where the new control is available - two
+taps from a secondary view, one from the dashboard. `goToDashboard()` (used by the
+brand and the control) also closes any open dialog, so neither entry point can land
+on a hidden dashboard.
+
+### Verification
+
+- `npm test`: 4001 tests, 4000 pass, 0 fail, 1 skipped. New
+  `tests/dashboard_return_nav.test.js` (12) runs the real router in a vm for every
+  secondary view (control offered/hidden, title, active sidebar, return, brand,
+  dialog cleanup, push semantics, deep links, i18n, scope).
+- Browser audit (`/tmp/preview/nav_check.js`, puppeteer + chromium, DOM assertions
+  only): **282/282** across 320/390/430/480/768/1280/1440 - both entry points from
+  Markets / Transaction Log / Referral, hidden on the dashboard, no toolbar growth or
+  overlap with the hamburger, brand, language, notification or profile controls, Back
+  behaviour, `/#referral` deep link, es/ar/zh labels, RTL arrow, admin view, and a
+  dialog opened over a secondary view.

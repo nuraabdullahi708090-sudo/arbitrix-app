@@ -5035,9 +5035,9 @@ html{scroll-padding-top:72px;}
         grid-template-areas:"burger brand sub right";
         align-items:center;
     }
-    .kx-toolbar-sub{display:flex;justify-content:flex-end;min-width:0;gap:6px;}
+    .kx-toolbar-sub{display:flex;justify-content:flex-end;min-width:0;flex:0 1 auto;overflow:hidden;gap:6px;}
     .kx-status{display:none;}
-    .kx-view-title{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+    .kx-view-title{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;min-width:0;}
     .app-header .btn-icon{width:38px;height:38px;min-width:38px;}
     .app-header .mobile-menu-btn{width:38px;height:38px;min-width:38px;min-height:38px;}
     #soundToggleBtn{display:none;}
@@ -5214,6 +5214,50 @@ html[dir="rtl"] .kx-drawer-close{right:auto;left:10px;}
 .kx-hero{margin-bottom:10px;}
 .kx-cockpit{margin-bottom:10px;}
 .main-content{padding-bottom:calc(88px + env(safe-area-inset-bottom, 0px));}
+
+/* ---- Return to the dashboard -------------------------------------------- */
+/* The brand already belongs to the product, so it doubles as the way home: a
+   real link (hash route) with the presentation unchanged. */
+.app-header-brand{text-decoration:none;color:inherit;}
+.kx-brand-link{border-radius:10px;}
+.kx-brand-link:hover .kx-wordmark{color:var(--kx-text);}
+.kx-brand-link:focus-visible{outline:2px solid var(--kx-accent);outline-offset:3px;}
+.kx-back-dash{
+    display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;
+    border-radius:999px;border:1px solid var(--kx-line);background:var(--kx-surface-2);
+    color:var(--kx-text-2);font-size:12px;font-weight:600;line-height:1;white-space:nowrap;
+    text-decoration:none;flex-shrink:0;transition:color .15s,border-color .15s,background .15s;
+}
+.kx-back-dash[hidden]{display:none;}
+.kx-back-dash:hover{color:var(--kx-text);border-color:var(--kx-line-strong);background:var(--kx-elevated);}
+.kx-back-dash:focus-visible{outline:2px solid var(--kx-accent);outline-offset:2px;}
+.kx-back-dash i{font-size:11px;}
+/* In RTL the arrow points to the start of the line, i.e. rightwards. */
+html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
+/* Below 480px an icon-only pill: "Dashboard" spelled out plus the view title
+   pushes the toolbar onto a second row (measured 102px at 431px). The label
+   stays in the accessibility tree and the title beside it says where you are. */
+@media (max-width:479px){
+    .kx-back-dash{width:32px;height:30px;justify-content:center;padding:0;gap:0;}
+    .kx-back-dash .kx-back-dash-label{
+        position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+        overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+    }
+}
+/* A secondary view adds the return control to the bar. On a phone the extra
+   ~32-101px would wrap the actions onto a second row (measured 102px tall), so
+   the bar keeps one row and the view title takes the ellipsis instead - it is
+   back in full the moment the row has space. The dashboard is untouched. */
+@media (max-width:640px){
+    body:not([data-kx-view="overview"]) #appToolbar{flex-wrap:nowrap;}
+    body:not([data-kx-view="overview"]) .kx-toolbar-sub{overflow:hidden;min-width:0;}
+}
+/* 320px is 1px short of fitting burger + brand + pill + actions, so the pill
+   and the brand gap give back a few pixels rather than the bar wrapping. */
+@media (max-width:340px){
+    .kx-back-dash{width:30px;height:28px;}
+    .app-header-brand{gap:8px;}
+}
 
 #startHereCard{margin-bottom:12px !important;border-color:var(--kx-border) !important;}
 #startHereCard .card-body{padding:12px 14px;}
@@ -8401,10 +8445,15 @@ function toggleFaq(btn) {
     <div class="main-content" id="mainContent">
         <div class="app-header" id="appToolbar">
             <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
-            <div class="app-header-brand">
+            <a class="app-header-brand kx-brand-link" id="kxToolbarBrand" href="#overview" onclick="return goToDashboard(event)" data-i18n-title="nav.backToDashboard">
                 <span class="kx-logo" aria-hidden="true"><svg class="kx-logo-mark" viewBox="0 0 512 512" width="19" height="19" aria-hidden="true" focusable="false"><path d="M116 388 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M116 128 L246 258" fill="none" stroke="#5EA0FF" stroke-width="62" stroke-linecap="round"/><path d="M246 258 L398 106" fill="none" stroke="#A9C7FF" stroke-width="62" stroke-linecap="round"/><path d="M248 196 L310 258 L248 320 L186 258 Z" fill="#E9EFF7"/></svg></span>
                 <span class="kx-wordmark">Kal<span>derix</span></span>
-            </div>
+            </a>
+            <a class="kx-back-dash" id="kxBackToDashboard" href="#overview" onclick="return goToDashboard(event)"
+               hidden data-i18n-title="nav.backToDashboard" data-i18n-aria-label="nav.backToDashboard">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                <span class="kx-back-dash-label" data-i18n="sidebar.dashboard">Dashboard</span>
+            </a>
             <div class="kx-toolbar-sub">
                 <span class="kx-view-title" id="kxViewTitle"></span>
                 <div class="kx-status" id="accountStatus" data-i18n="status.livePending">Live - Not funded yet</div>
@@ -11372,6 +11421,7 @@ const TRANSLATIONS = {
         'nav.trading': 'Trading',
         'nav.grow': 'Grow',
         'nav.account': 'Account',
+        'nav.backToDashboard': 'Back to Dashboard',
         'sidebar.dashboard': 'Dashboard',
         'sidebar.markets': 'Markets',
         'sidebar.deposit': 'Deposit',
@@ -13003,6 +13053,7 @@ const TRANSLATIONS = {
         'nav.trading': 'Operación',
         'nav.grow': 'Crecer',
         'nav.account': 'Cuenta',
+        'nav.backToDashboard': 'Volver al panel',
         'sidebar.dashboard': 'Panel',
         'sidebar.markets': 'Mercados',
         'sidebar.deposit': 'Depositar',
@@ -14635,6 +14686,7 @@ const TRANSLATIONS = {
         'nav.trading': 'Negociação',
         'nav.grow': 'Crescer',
         'nav.account': 'Conta',
+        'nav.backToDashboard': 'Voltar ao painel',
         'sidebar.dashboard': 'Painel',
         'sidebar.markets': 'Mercados',
         'sidebar.deposit': 'Depositar',
@@ -16267,6 +16319,7 @@ const TRANSLATIONS = {
         'nav.trading': 'Trading',
         'nav.grow': 'Croissance',
         'nav.account': 'Compte',
+        'nav.backToDashboard': 'Retour au tableau de bord',
         'sidebar.dashboard': 'Tableau de bord',
         'sidebar.markets': 'Marchés',
         'sidebar.deposit': 'Dépôt',
@@ -17899,6 +17952,7 @@ const TRANSLATIONS = {
         'nav.trading': 'التداول',
         'nav.grow': 'النمو',
         'nav.account': 'الحساب',
+        'nav.backToDashboard': '\u0627\u0644\u0639\u0648\u062f\u0629 \u0625\u0644\u0649 \u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645',
         'sidebar.dashboard': 'لوحة التحكم',
         'sidebar.markets': 'الأسواق',
         'sidebar.deposit': 'إيداع',
@@ -19531,6 +19585,7 @@ const TRANSLATIONS = {
         'nav.trading': '交易',
         'nav.grow': '增长',
         'nav.account': '账户',
+        'nav.backToDashboard': '\u8fd4\u56de\u4eea\u8868\u76d8',
         'sidebar.dashboard': '仪表盘',
         'sidebar.markets': '市场',
         'sidebar.deposit': '存款',
@@ -21424,6 +21479,7 @@ function updateDynamicTranslations() {
         // populateVerificationUI() when the modal opens, so behavior is
         // unchanged.
         if (typeof updateVerificationModalHeader === 'function') updateVerificationModalHeader();
+        if (typeof kxSyncDashboardNav === 'function') kxSyncDashboardNav(APP.kxView || 'overview');
         // Re-render the live withdraw status + withdraw modal info text on
         // language switch (dynamic text; the MARKETING_SANDBOX variants must
         // also re-apply after applyTranslations() refreshes data-i18n spans).
@@ -27968,13 +28024,75 @@ function showView(name, opts) {
         try { updateUI(); } catch (e) { console.warn('showView updateUI:', e && e.message); }
     }
 
+    kxSyncDashboardNav(view);
+
+    // User-initiated navigation pushes an entry so the browser's Back button
+    // returns to the previous view (the boot render and hash reconciliation
+    // stay silent). Deep links keep working: they only change the hash.
     if (!opts.silentHash) {
-        try { history.replaceState(null, '', '#' + view); } catch (e) {}
+        try {
+            var targetHash = '#' + view;
+            var currentHash = (typeof location !== 'undefined' && location) ? String(location.hash || '') : '';
+            if (currentHash !== targetHash) {
+                if (opts.replace === true) history.replaceState(null, '', targetHash);
+                else history.pushState(null, '', targetHash);
+            }
+        } catch (e) {}
     }
     if (!opts.initial) {
         try { window.scrollTo({ top: 0, behavior: opts.smooth ? 'smooth' : 'auto' }); } catch (e) {}
     }
     return view;
+}
+
+// The dashboard is one tap away from anywhere: the brand, the toolbar control
+// and the sidebar all land on the same view, and any dialog opened on top of a
+// secondary view is closed first so the dashboard is actually visible.
+function kxCloseTransientSurfaces() {
+    var panel = document.getElementById('supportPanel');
+    if (panel) panel.classList.remove('open');
+    var bg = document.getElementById('supportBackdrop');
+    if (bg) bg.classList.remove('open');
+    ['languageDropdown', 'notificationPanel'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('open', 'show');
+    });
+    var sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('open');
+    var overlay = document.getElementById('sidebarOverlay');
+    if (overlay) overlay.classList.remove('open');
+    // Let each dialog run its own close handler (it stops polling, restores the
+    // body lock and so on); the class removal is only a backstop.
+    document.querySelectorAll('.modal-overlay.open, .deposit-modal.open').forEach(function (modal) {
+        var btn = modal.querySelector('.modal-close-btn, .modal-close');
+        if (btn && typeof btn.click === 'function') {
+            try { btn.click(); } catch (e) {}
+        }
+        modal.classList.remove('open');
+    });
+    if (document.body && document.body.style) document.body.style.overflow = '';
+}
+
+function kxSyncDashboardNav(view) {
+    var back = document.getElementById('kxBackToDashboard');
+    if (!back) return;
+    var secondary = view !== 'overview';
+    back.hidden = !secondary;
+    back.setAttribute('aria-hidden', secondary ? 'false' : 'true');
+    var title = (typeof t === 'function') ? t('nav.backToDashboard') : '';
+    if (title) {
+        back.setAttribute('aria-label', title);
+        back.setAttribute('title', title);
+        var brand = document.getElementById('kxToolbarBrand');
+        if (brand) brand.setAttribute('title', title);
+    }
+}
+
+function goToDashboard(ev) {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    kxCloseTransientSurfaces();
+    showView('overview', { smooth: true });
+    return false;
 }
 
 function kxViewFromHash() {

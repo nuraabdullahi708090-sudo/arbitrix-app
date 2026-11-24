@@ -171,7 +171,9 @@ test('the router switches views, title, hash and active link (real code, fake DO
       querySelectorAll: () => [active],
       querySelector: () => active,
     },
-    history: { replaced: null, replaceState(a, b, url) { this.replaced = url; } },
+    history: { replaced: null, pushed: null,
+      replaceState(a, b, url) { this.replaced = url; },
+      pushState(a, b, url) { this.pushed = url; } },
     window: { scrolled: 0, scrollTo() { this.scrolled++; } },
     console,
   };
@@ -183,7 +185,10 @@ test('the router switches views, title, hash and active link (real code, fake DO
   assert.strictEqual(els.markets.style.display, '');
   assert.strictEqual(els.history.style.display, 'none');
   assert.strictEqual(els.kxViewTitle.textContent, 'T:sidebar.markets');
-  assert.strictEqual(sandbox.history.replaced, '#markets');
+  // User-initiated navigation pushes an entry (the browser Back button returns to the
+  // previous view); the boot render and hash reconciliation stay silent.
+  assert.strictEqual(sandbox.history.pushed, '#markets');
+  assert.strictEqual(sandbox.history.replaced, null, 'no replace on a user navigation');
   assert.strictEqual(sandbox.document.body.attrs['data-kx-view'], 'markets');
   assert.ok(active.classList.contains('active'), 'the matching nav link is marked active');
 
