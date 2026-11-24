@@ -188,13 +188,17 @@ test('the tab-bound bot notice states its real limitation in all 6 locales', () 
   }
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    '\u{1F916} Runs in this browser tab. Trading pauses if you close or refresh the page.'
+    '\u{1F916} Trading runs while this page is open. If you close or refresh it, the bot stops and you will need to start it again.'
   );
+  // Neutral variant for "the server has not told us which engine is trading".
+  for (const l of LANGS) {
+    assert.ok(T[l]['bot.engineNoticeUnknown'] && T[l]['bot.engineNoticeUnknown'].length > 20, l + ' has the neutral notice');
+  }
   // the worker variant is the only one allowed to promise background trading
   assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
   // the markup default (pre-hydration, before applyTranslations) matches EN
   // (string comparison, not a regex: `\u{...}` needs the /u flag)
-  assert.ok(INDEX.includes('data-i18n="bot.engineNotice">\u{1F916} Runs in this browser tab.'),
+  assert.ok(INDEX.includes('data-i18n="bot.engineNotice">\u{1F916} Trading runs while this page is open.'),
     'the pre-hydration markup default matches the translated copy');
 });
 
@@ -259,21 +263,23 @@ test('every "make your deposit" state also offers the deposit action', () => {
   // AUDIT FINDING (onboarding/activation pass): `funding_required` rendered the
   // sentence "Make a deposit to fund your Live balance" while the deposit button
   // was toggled ONLY for `deposit_required` - a message with no action.
-  const fn = INDEX.slice(INDEX.indexOf('function renderLiveModeCard'), INDEX.indexOf('function updateLiveActivationUI'));
-  assert.match(fn, /const needsDeposit = status === 'deposit_required' \|\| status === 'funding_required';/,
-    'both deposit states offer the action');
+  const start = INDEX.indexOf('function renderLiveModeCard');
+  const fn = INDEX.slice(start, start + 4000);
+  assert.match(fn, /const needsDeposit = status === 'deposit_required' \|\| status === 'funding_required'/,
+    'every deposit state offers the action');
+  assert.match(fn, /\|\| status === 'activation_required';/, 'the legacy server state is treated as a deposit state');
   assert.match(fn, /if \(depBtn\) depBtn\.classList\.toggle\('hidden', !needsDeposit\);/, 'the button follows that decision');
-  // and the activation states must NOT offer a deposit button as their next step
-  assert.match(fn, /btn\.classList\.toggle\('hidden', status !== 'activation_required'\)/,
-    'only activation_required offers activation');
+  // The paid-activation control no longer exists at all.
+  assert.ok(!INDEX.includes('liveModeActivateBtn'), 'no activation button remains');
 });
 
-test('the activation dialog always has a route forward', () => {
-  const modal = INDEX.slice(INDEX.indexOf('id="liveActivationModal"'), INDEX.indexOf('id="verificationSandboxInfoModal"'));
-  assert.match(modal, /id="liveActivationBuyBtn"/, 'a purchase route');
-  assert.match(modal, /id="liveActivationUnavailable"/, 'an explanation when purchasing is unavailable');
-  assert.match(modal, /id="liveActivationKey"/, 'licence-key redemption');
-  assert.match(modal, /onclick="submitLiveActivation\(\)"/, 'submit wiring');
-  assert.match(modal, /openSupportModal\(\)/, 'a human route');
-  assert.match(modal, /liveActivation\.hint/, 'the never-credits-a-balance promise is stated');
+test('the paid-activation dialog is gone from the customer journey', () => {
+  // Removed by management decision: Live Mode is funded by a deposit, so there
+  // is no purchase dialog to keep reachable. A legacy LIVE_ACTIVATION_REQUIRED
+  // refusal is answered with a neutral message and a support route instead.
+  assert.ok(!INDEX.includes('id="liveActivationModal"'), 'no activation dialog');
+  assert.ok(!INDEX.includes('liveActivation.'), 'no activation keys');
+  const refusal = INDEX.slice(INDEX.indexOf('function handleLiveAccessRefusal'), INDEX.indexOf('function isProfitPausePayload'));
+  assert.match(refusal, /liveAccess\.notAvailable/, 'a neutral explanation');
+  assert.match(refusal, /openSupportModal\(\)/, 'a human route');
 });

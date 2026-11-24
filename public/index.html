@@ -8513,7 +8513,7 @@ function toggleFaq(btn) {
         <div class="kx-view" data-view="overview" id="kxViewOverview">
         <div id="promoCreditBanner" class="hidden kx-alert kx-alert-warning" role="note" style="margin:0 0 16px;">
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-            <span data-i18n="promo.tradableNotice">Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade.</span>
+            <span data-i18n="promo.tradableNotice">Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade. Trading pauses at $30 profit until you deposit.</span>
         </div>
         <div class="kx-hero" id="kxHero">
             <!-- One account card: equity leads, availability sits with the actions it
@@ -8562,7 +8562,7 @@ function toggleFaq(btn) {
                     <div style="min-width:0;">
                         <div id="startHereHeadLive">
                             <div style="font-size:14px;font-weight:700;color:var(--brand);"><i class="fas fa-compass"></i> <span data-i18n="startHere.live.title">Getting started</span></div>
-                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitle">Set up Live trading in two steps.</div>
+                            <div id="startHereSubtitle" style="font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;" data-i18n="startHere.live.subtitleNext">Your next step to start Live trading.</div>
                         </div>
                         <!-- Completion state: one line, inside the same row as Dismiss -->
                         <div id="startHereStepsLiveReady" style="display:none;">
@@ -8593,11 +8593,8 @@ function toggleFaq(btn) {
                 <!-- Rendered by renderLiveModeCard() (t() with {{amount}}), never by
                      applyTranslations: a data-i18n placeholder would print literally. -->
                 <p id="promoCreditExplain" style="font-size:11px;color:var(--text-secondary);margin-top:8px;line-height:1.6;"></p>
-                <button type="button" id="liveModeActivateBtn" class="btn btn-primary btn-sm hidden" onclick="openLiveActivationModal()" style="margin-top:8px;min-height:40px;">
-                    <i class="fas fa-key"></i> <span data-i18n="liveActivation.cta">Activate Live Mode</span>
-                </button>
                 <button type="button" id="liveModeDepositBtn" class="btn btn-primary btn-sm hidden" onclick="openDepositModal()" style="margin-top:8px;min-height:40px;">
-                    <i class="fas fa-circle-down"></i> <span data-i18n="liveActivation.depositCta">Make your deposit</span>
+                    <i class="fas fa-circle-down"></i> <span data-i18n="liveMode.depositCta">Make your deposit</span>
                 </button>
             </div>
         </div>
@@ -8650,7 +8647,7 @@ function toggleFaq(btn) {
         <div class="kx-wallets-head">
             <div class="wallet-tabs-wrapper" id="walletTabsWrapper">
                 <button type="button" class="wallet-tab active" data-wallet="live" data-i18n="wallet.live">Live Wallet</button>
-                <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Bonus Wallet</button>
+                <button type="button" class="wallet-tab" data-wallet="bonus" data-i18n="wallet.bonus">Referral Earnings</button>
             </div>
         </div>
 
@@ -8667,15 +8664,6 @@ function toggleFaq(btn) {
                             <button type="button" class="quick-amount-btn" id="withdrawLiveBtn" onclick="openWithdrawModal()" data-i18n="sidebar.withdraw">🏦 Withdraw</button>
                         </div>
                         <div id="liveWithdrawStatus" style="font-size:10px;color:var(--text-muted);margin-top:6px;text-align:center;"></div>
-                        <!-- PAYHIP LIVE ACTIVATION: shown only when the server reports that
-                             Live Mode still needs a one-time activation. Display only: the
-                             real gate is server-side (/api/bot/start, /api/trade). -->
-                        <div id="liveActivationNotice" class="hidden" style="font-size:10px;color:var(--brand);background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:6px;padding:8px;margin-bottom:8px;text-align:center;line-height:1.4;">
-                            <div style="margin-bottom:6px;"><i class="fas fa-lock"></i> <span data-i18n="liveActivation.notice">Live Mode needs a one-time activation.</span></div>
-                            <button class="btn btn-primary btn-sm" type="button" onclick="openLiveActivationModal()" style="min-height:38px;">
-                                <i class="fas fa-key"></i> <span data-i18n="liveActivation.cta">Activate Live Mode</span>
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div class="card" id="liveBotCard">
@@ -8688,7 +8676,7 @@ function toggleFaq(btn) {
                         <div class="kx-hint kx-hint-tight" data-i18n="hint.scanner">Market scanning</div>
                         <button type="button" id="startStopBtnLive" class="btn btn-primary btn-block kx-bot-action" onclick="toggleBot()" data-i18n="bot.startBot">Start Bot</button>
                         <div id="botStatusMsgLive" class="kx-bot-status" data-i18n="bot.clickToStart">Click "Start Bot" to begin scanning</div>
-                        <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Runs in this browser tab. Trading pauses if you close or refresh the page.</div>
+                        <div id="botEngineNotice" style="margin-top:10px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #E8973B;border-radius:6px;font-size:10px;line-height:1.5;color:var(--text-secondary);" data-i18n="bot.engineNotice">🤖 Trading runs while this page is open. If you close or refresh it, the bot stops and you will need to start it again.</div>
                     </div>
                 </div>
             </div>
@@ -8698,7 +8686,7 @@ function toggleFaq(btn) {
         <div class="wallet-section" id="bonusWalletSection" style="display:none;">
             <div class="two-col-grid" style="margin-bottom:16px;">
                 <div class="card">
-                    <div class="card-header"><span class="icon-bg purple"><i class="fas fa-gift"></i></span> <span data-i18n="wallet.bonus">Bonus Wallet</span></div>
+                    <div class="card-header"><span class="icon-bg purple"><i class="fas fa-gift"></i></span> <span data-i18n="wallet.bonus">Referral Earnings</span></div>
                     <div class="card-body">
                         <div class="wallet-box" style="display:flex;justify-content:space-between;margin-bottom:8px;">
                             <span data-i18n="bonus.balance">Bonus Balance</span>
@@ -8715,7 +8703,7 @@ function toggleFaq(btn) {
                             <div id="bonusWithdrawStatus" style="font-size:10px;color:var(--text-muted);margin-top:6px;text-align:center;"></div>
                         </div>
                         <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-color);">
-                            <p style="font-size:10px;color:var(--text-muted);text-align:center;">💫 Earn bonus rewards through referrals and promotions</p>
+                            <p style="font-size:10px;color:var(--text-muted);text-align:center;" data-i18n="bonus.about">Earnings from your referrals. Move them to your Live Wallet at any time.</p>
                         </div>
                     </div>
                 </div>
@@ -9618,7 +9606,7 @@ function toggleFaq(btn) {
                             </li>
                             <li class="ref-step">
                                 <span class="ref-step-num" aria-hidden="true">3</span>
-                                <span class="ref-step-text"><span data-i18n="referral.step3Text">You earn</span> <strong class="ref-accent"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> &rarr; <span id="refStep3Destination" data-i18n="referral.bonusWallet">Bonus Wallet</span></span>
+                                <span class="ref-step-text"><span data-i18n="referral.step3Text">You earn</span> <strong class="ref-accent"><span id="refRewardPercent2">20</span>% <span data-i18n="referral.bonusWord">bonus</span></strong> &rarr; <span id="refStep3Destination" data-i18n="referral.bonusWallet">Referral Earnings</span></span>
                             </li>
                         </ol>
                         <p class="ref-note" data-i18n="referral.withdrawNote">Referral earnings are paid out separately from normal withdrawals - no minimum payout and no trading required.</p>
@@ -9825,18 +9813,9 @@ function toggleFaq(btn) {
              updateDepositMinNotice() from APP.MIN_DEPOSIT so the number has a
              single source (no duplicated hard-coded value). -->
         <div id="depositMinNotice" style="font-size:11px;color:var(--text-secondary);margin-top:6px;"></div>
-        <!-- A deposit is CAPITAL, never activation: stating it here prevents the
-             "I funded my account, why is Live still locked?" dead end. -->
-        <!-- Hidden unless the platform actually requires a paid activation
-             (updateLiveActivationUI decides). A deployment running without the
-             requirement must never tell a depositor their deposit will not
-             activate the account. -->
-        <div id="depositActivationNote" style="display:none;font-size:11px;color:#E8973B;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.55;">
-            <i class="fas fa-key"></i> <span data-i18n="deposit.activationNote">This deposit is trading capital. Live trading also needs a separate one-time $50 activation - a deposit does not activate your account.</span>
-        </div>
         <div style="position:relative;margin-top:8px;">
           <span class="deposit-amount-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-secondary);font-size:18px;">$</span>
-          <input type="number" id="liveDepositAmount" placeholder="100.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="100">
+          <input type="number" id="liveDepositAmount" placeholder="50.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="50">
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(50)">$50</button>
@@ -10360,42 +10339,6 @@ function toggleFaq(btn) {
 </div>
 
 <!-- Marketing Sandbox verification info modal (no KYC in the sandbox; frontend-only) -->
-<div class="deposit-modal" id="liveActivationModal" aria-hidden="true">
-    <div class="deposit-modal-content" style="max-width:460px;">
-        <div class="deposit-modal-head">
-            <h3 style="margin:0;font-size:16px;"><i class="fas fa-key" style="color:var(--brand);"></i> <span data-i18n="liveActivation.title">Activate Live Mode</span></h3>
-            <button class="btn btn-ghost btn-sm" type="button" onclick="closeLiveActivationModal()" aria-label="Close" style="min-height:36px;width:36px;padding:0;">
-                <i class="fas fa-xmark"></i>
-            </button>
-        </div>
-        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin:0 0 12px;" data-i18n="liveActivation.body">
-            Live Mode requires a one-time activation. Activation unlocks live trading - it does not add trading capital: you fund your Live wallet separately with a deposit of at least the platform minimum.
-        </p>
-        <a id="liveActivationBuyBtn" class="btn btn-primary hidden" target="_blank" rel="noopener noreferrer" style="width:100%;min-height:44px;text-decoration:none;">
-            <i class="fas fa-arrow-up-right-from-square"></i> <span data-i18n="liveActivation.buy">Buy activation</span>
-        </a>
-        <!-- Shown only when purchasing is genuinely unavailable: the buy button is
-             hidden then, so the customer must be told why and given a route. -->
-        <div id="liveActivationUnavailable" class="hidden" style="font-size:12px;color:#E8973B;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;margin-top:4px;line-height:1.6;">
-            <i class="fas fa-circle-info"></i> <span data-i18n="liveActivation.purchaseUnavailable">Activation purchase is temporarily unavailable. Contact support and we will complete it with you.</span>
-        </div>
-        <label for="liveActivationKey" style="display:block;font-size:11px;color:var(--text-secondary);margin:14px 0 6px;" data-i18n="liveActivation.keyLabel">Already purchased? Enter your licence key</label>
-        <input id="liveActivationKey" type="text" autocomplete="off" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
-               style="width:100%;min-height:44px;padding:10px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-family:monospace;font-size:13px;">
-        <div id="liveActivationError" style="display:none;font-size:11px;color:#ef4444;margin-top:8px;line-height:1.5;"></div>
-        <button class="btn btn-primary" type="button" id="liveActivationSubmitBtn" onclick="submitLiveActivation()" style="width:100%;min-height:44px;margin-top:12px;">
-            <i class="fas fa-check"></i> <span data-i18n="liveActivation.submit">Activate</span>
-        </button>
-        <p style="font-size:10px;color:var(--text-secondary);line-height:1.6;margin:12px 0 0;" data-i18n="liveActivation.hint">
-            One licence activates one account, once, and cannot be transferred. Activation never credits a balance.
-        </p>
-        <!-- Paid but not activated? The receipt guidance has to lead somewhere. -->
-        <button type="button" class="btn btn-secondary" onclick="closeLiveActivationModal(); openSupportModal();"
-                style="width:100%;min-height:44px;margin-top:10px;font-size:12px;">
-            <i class="fas fa-headset"></i> <span data-i18n="liveActivation.supportCta">Contact support</span>
-        </button>
-    </div>
-</div>
 <div class="deposit-modal" id="verificationSandboxInfoModal">
     <div class="deposit-modal-content" style="max-width:440px;text-align:center;">
         <button type="button" onclick="closeVerificationSandboxInfo()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -11326,7 +11269,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'How does the AI trading bot work?',
         'landing.faq.4.a': 'Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.',
         'landing.faq.5.q': 'How do referral rewards work?',
-        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $50. Referral earnings build up in the Bonus Wallet and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (no minimum withdrawal, withdrawal security verification when required, and a valid address).',
+        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $50. Referral earnings build up in the Referral Earnings and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (no minimum withdrawal, withdrawal security verification when required, and a valid address).',
         'landing.faq.6.q': 'Is account verification required?',
         'landing.faq.6.a': 'Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.',
         'landing.cta.title': 'Start trading today',
@@ -11481,7 +11424,8 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'Paused',
         'bot.errorState': 'Error',
         'bot.runningMsg': 'Scanning supported markets. New trades appear in the activity log below.',
-        'bot.engineNotice': "🤖 Runs in this browser tab. Trading pauses if you close or refresh the page.",
+        'bot.engineNotice': "🤖 Trading runs while this page is open. If you close or refresh it, the bot stops and you will need to start it again.",
+        'bot.engineNoticeUnknown': '🤖 The bot\'s current status is shown above. Trading runs automatically while the bot is running.',
         'bot.engineNoticeWorker': "Your bot keeps running even when you close this page. Come back anytime to check your activity.",
         'bot.workerManaged': "🤖 Your bot now runs automatically. It will keep trading even when you're offline.",
         'chart.title': 'Equity Performance',
@@ -11510,14 +11454,14 @@ const TRANSLATIONS = {
         'achievements.allUnlocked': '🎉 All badges unlocked!',
         'achievements.next': 'Next:',
         'wallet.live': 'Live Wallet',
-        'wallet.bonus': 'Bonus Wallet',
-        'bonus.balance': 'Bonus Balance',
+        'wallet.bonus': 'Referral Earnings',
+        'bonus.balance': 'Referral Earnings',
+        'bonus.about': 'Earnings from your referrals. Move them to your Live Wallet at any time.',
         'bonus.noEarnings': 'No referral earnings to convert yet.',
-        'bonus.withdrawToLive': 'Withdraw Bonus to Live Wallet',
-        'bonus.withdrawSuccess': '✅ ${{amount}} bonus withdrawn to Live wallet!',
-        'bonus.noReferrals': '📢 Refer at least 1 friend before withdrawing bonus',
+        'bonus.withdrawToLive': 'Move to Live Wallet',
+        'bonus.withdrawSuccess': '✅ ${{amount}} moved to your Live Wallet',
         'bonus.convertFailed': '❌ Could not convert your referral earnings. Please try again.',
-        'bonus.withdrawHistory': '💰 Bonus withdrawn: ${{amount}} to Live wallet',
+        'bonus.withdrawHistory': '💰 Moved to Live Wallet: ${{amount}}',
         'history.title': 'Transaction Log',
         'history.last30min': 'Last 30 min',
         'history.allActivity': 'All activity',
@@ -11630,17 +11574,18 @@ const TRANSLATIONS = {
         'referral.reset': 'Reset',
         'referral.earned': '🎉 You earned a referral reward for referring a friend!',
         'referral.withdrawNote': 'Referral earnings are paid out separately from normal withdrawals - no minimum payout and no trading required.',
-        'promo.tradableNotice': 'Your $50 promotional credit is tradable. Profit on it is capped at $30 until you make your first deposit.',
         'promo.creditTitle': 'Promotional Credit',
+        'promo.tradableNotice': 'Your promotional credit can be used for trading. You can withdraw when you make a qualifying first deposit and a trade. Trading pauses at $30 profit until you deposit.',
         'promo.creditBadge': 'Promotional Credit',
-        'promo.creditExplain': 'Your account includes ${{amount}} in promotional trading credit. Purchase a Live Mode activation to unlock access to live trading.',
-        'promo.creditExplainTradable': 'Your account includes ${{amount}} in promotional trading credit. It can be used for trading; profit on it is capped at $30 until you make your first deposit.',
-        'liveMode.fundingNote': 'Live Mode is activated. Make a deposit to fund your Live balance and start trading.',
+        'promo.creditExplainTradable': 'Your ${{amount}} promotional credit can be used for trading. You can withdraw once you make a qualifying first deposit and a trade.',
+        'liveMode.fundingNote': 'Make a deposit to fund your Live balance and start trading.',
         'liveMode.status.depositRequired': 'Deposit required',
-        'liveMode.depositNote': 'Live Mode also needs a confirmed deposit of at least ${{min}}. Make your deposit to finish setting up.',
-        'liveMode.status.activationRequired': 'Activation required',
-        'liveMode.status.fundingRequired': 'Activated — funding required',
+        'liveMode.depositNote': 'Live Mode needs a confirmed deposit of at least ${{min}}. Make your deposit to finish setting up.',
+        'liveMode.status.fundingRequired': 'Funding required',
         'liveMode.status.available': 'Live Mode available',
+        'liveMode.depositCta': 'Make your deposit',
+        'liveAccess.notAvailable': 'Live trading isn\'t available for this account yet. Please contact support and we\'ll help you finish setting up.',
+        'liveAccess.retryLater': 'We couldn\'t confirm your Live access right now. Please try again in a moment.',
         'referral.simulated': '✅ Simulated referral! +1 friend, reward added',
         'referral.resetConfirm': 'Reset all referral data? This cannot be undone.',
         'referral.resetDone': 'Referral data reset',
@@ -11674,19 +11619,15 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Here\'s how to get started.',
         'onboarding.primary': 'Start with my $50 credit',
         'onboarding.primaryDesc': 'Run the bot on your promotional credit. Profit on it is capped at $30 until you deposit.',
-        'onboarding.primaryDescActivation': 'Live trading needs a one-time activation and a deposit first. Your $50 promotional credit is already on your account.',
         'onboarding.secondary': 'I\'m ready to deposit',
         'onboarding.secondaryDesc': 'Fund your Live balance with USDT to trade beyond the promotional credit.',
         'onboarding.realNote': 'Deposited funds are your own capital and can be withdrawn.',
         'onboarding.promoNote': '$50 promotional credit is separate from your deposited funds.',
         'onboarding.noObligation': 'You can deposit whenever you are ready.',
         'onboarding.explainer': 'Kalderix trades multi-asset arbitrage automatically. Your account includes $50 in promotional credit, so you can run the bot before you deposit anything.',
-        'onboarding.explainerActivation': 'Kalderix trades multi-asset arbitrage automatically. Your account includes $50 in promotional credit. Live trading needs a one-time activation and a deposit of at least ${{min}}.',
         'startHere.dismiss': 'Dismiss',
         'startHere.live.title': 'Getting started',
-        'startHere.live.subtitle': 'Set up Live trading in two steps.',
         'startHere.live.subtitleNext': 'Your next step to start Live trading.',
-        'startHere.live.step0': 'Complete the one-time $50 Live activation',
         'startHere.live.step3': 'Complete your first Live trade',
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds - separate from your promotional credit.',
@@ -11888,25 +11829,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Diamond Hands',
         'badges.diamondHandsDesc': 'Profitable after 10 trades',
         'live.withdrawStatus.notDeposited': '💳 Please make a minimum deposit of ${{min}} to enable withdrawals',
-        'liveActivation.notice': 'Live Mode needs a one-time activation.',
-        'liveActivation.cta': 'Activate Live Mode',
-        'liveActivation.depositCta': 'Make your deposit',
-        'liveActivation.title': 'Activate Live Mode',
-        'liveActivation.body': 'Live Mode requires a one-time activation. Activation unlocks live trading - it does not add trading capital: you fund your Live wallet separately with a deposit of at least the platform minimum.',
-        'liveActivation.buy': 'Buy activation',
-        'liveActivation.keyLabel': 'Already purchased? Enter your licence key',
-        'liveActivation.submit': 'Activate',
-        'liveActivation.blockedToast': 'Live trading is locked until you activate. It is a one-time step and takes about a minute.',
         'liveDeposit.blockedToast': 'Add at least ${{min}} in trading capital to start Live trading.',
-        'liveActivation.supportCta': 'Contact support',
-        'liveActivation.purchaseUnavailable': 'Activation purchase is temporarily unavailable. Contact support and we will complete it with you.',
-        'liveActivation.nextStep': 'Live Mode is active. Next: add at least ${{min}} in trading capital to start trading.',
-        'liveActivation.hint': 'One licence activates one account, once, and cannot be transferred. Activation never credits a balance.',
-        'liveActivation.keyRequired': 'Enter your licence key.',
-        'liveActivation.failed': 'That licence key could not be redeemed.',
-        'liveActivation.confirming': 'We are still confirming your purchase. Please try again in a few minutes, or contact support with your Payhip receipt.',
-        'liveActivation.retryLater': 'Activation is temporarily unavailable. Please try again in a moment.',
-        'liveActivation.success': 'Live Mode activated.',
         'live.withdrawStatus.needMinimum': '📈 Minimum withdrawal: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Keep trading to grow your eligible balance',
         'live.withdrawStatus.noTrades': '📊 Complete at least 1 trade to withdraw',
@@ -11995,7 +11918,7 @@ const TRANSLATIONS = {
         'support.reply.bot': '🤖 To start the bot: 1) Open your dashboard, 2) Click \'Start Bot\' and it will scan supported markets and trade automatically.',
         'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, then send USDT on the TRON (TRC20) network to the displayed address. Kalderix accepts USDT on TRON (TRC20) only. We\'ll auto-detect it.',
         'support.reply.withdraw': '🏦 To withdraw: 1) Switch to LIVE mode, 2) Make a deposit, 3) Complete at least 1 trade, 4) Click \'Withdraw\' in the sidebar. Withdrawal processing usually takes 15–30 minutes.',
-        'support.reply.bonus': '🎁 Refer friends to earn 20% of their first qualifying deposit! Your reward accumulates in the Bonus Wallet and can be converted to your Live Wallet at any time — no minimum.',
+        'support.reply.bonus': '🎁 Refer friends to earn 20% of their first qualifying deposit! Your reward accumulates in Referral Earnings and can be moved to your Live Wallet at any time — no minimum.',
         'support.reply.sound': '🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.',
         'support.reply.language': '🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.',
         'support.reply.hello': '👋 Hello! Welcome to Kalderix support. How can I assist you today?',
@@ -12049,9 +11972,9 @@ const TRANSLATIONS = {
         'ticker.newTrader': 'New trader from <span class="ticker-amount gold">{{country}}</span> joined Kalderix',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> unlocked <span class="ticker-amount gold">{{badge}}</span></span>',
         'referral.welcomeReferred': '🎉 Welcome! Your friend will earn a referral bonus.',
-        'referral.simulatedToast': '🎉 <strong>Simulated referral!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bonus added to Bonus Wallet</span>',
+        'referral.simulatedToast': '🎉 <strong>Simulated referral!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} added to Referral Earnings</span>',
         'referral.simulatedTitle': 'Referral Simulated',
-        'referral.simulatedDesc': '+${{amount}} bonus added to Bonus Wallet',
+        'referral.simulatedDesc': '+${{amount}} added to Referral Earnings',
         'referral.simulateError': 'Error simulating referral',
         'referral.codeLoading': 'Referral code is loading, please try again shortly',
         'bonus.withdrawnTitle': 'Bonus Withdrawn',
@@ -12168,7 +12091,7 @@ const TRANSLATIONS = {
         'tx.type.subscription': 'Subscription',
         'tx.type.referralCommission': 'Referral Commission',
         'tx.detail.allFundsRemoved': 'All funds removed',
-        'tx.detail.fromBonusWallet': 'From Bonus Wallet',
+        'tx.detail.fromBonusWallet': 'From Referral Earnings',
         'tx.detail.bonusToLive': 'Bonus withdrawn to Live Wallet',
         'subscription.month': 'month',
         'subscription.activate': 'Activate Pro',
@@ -12298,7 +12221,6 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Failed to regenerate codes',
         '2fa.disableFailed': 'Failed to disable 2FA',
         'deposit.min10': 'Minimum deposit is $10',
-        'deposit.activationNote': 'This deposit is trading capital. Live trading also needs a separate one-time $50 activation - a deposit does not activate your account.',
         'deposit.min100': 'Minimum deposit is ${{min}}',
         'deposit.invoiceNotFound': 'Invoice not found',
         'deposit.createInvoiceFailed': 'Failed to create invoice',
@@ -12458,7 +12380,7 @@ const TRANSLATIONS = {
         'referral.step2Text': 'Friend deposits ≥',
         'referral.step3Text': 'You earn',
         'referral.bonusWord': 'bonus',
-        'referral.bonusWallet': 'Bonus Wallet',
+        'referral.bonusWallet': 'Referral Earnings',
         'referral.pending.titleCount': 'Pending Referrals ({{count}})',
         'referral.pending.subtitle': 'Awaiting first deposit',
         'referral.pending.tapToView': 'Tap to view',
@@ -12958,7 +12880,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': '¿Cómo funciona el bot de trading con IA?',
         'landing.faq.4.a': 'Nuestra IA monitorea continuamente las diferencias de precio en 50+ exchanges. Cuando detecta una oportunidad de arbitraje (discrepancia de precio), ejecuta operaciones automáticamente para obtener ganancias de la diferencia. Puede iniciar/detener el bot en cualquier momento.',
         'landing.faq.5.q': '¿Cómo funcionan las recompensas por referidos?',
-        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $50 de un amigo referido. Los ingresos por referidos se acumulan en la Billetera de bonos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (sin retiro mínimo, verificación de seguridad para retiros cuando sea necesaria y una dirección válida).',
+        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $50 de un amigo referido. Los ingresos por referidos se acumulan en la Ganancias por referidos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (sin retiro mínimo, verificación de seguridad para retiros cuando sea necesaria y una dirección válida).',
         'landing.faq.6.q': '¿Se requiere verificación de cuenta?',
         'landing.faq.6.a': 'La creación básica de cuenta requiere solo un correo y una contraseña. La verificación KYC puede ser necesaria para límites de retiro más altos o funciones específicas para cumplir con los requisitos regulatorios.',
         'landing.cta.title': 'Empieza a operar hoy',
@@ -13113,7 +13035,8 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'En pausa',
         'bot.errorState': 'Error',
         'bot.runningMsg': 'Escaneando mercados compatibles. Las nuevas operaciones aparecen en el registro de actividad.',
-        'bot.engineNotice': "🤖 Se ejecuta en esta pestaña del navegador. El trading se detiene si cierras o actualizas la página.",
+        'bot.engineNotice': "🤖 El trading se ejecuta mientras esta página está abierta. Si la cierras o la actualizas, el bot se detiene y tendrás que iniciarlo de nuevo.",
+        'bot.engineNoticeUnknown': '🤖 El estado actual del bot aparece arriba. El trading se ejecuta automáticamente mientras el bot está activo.',
         'bot.engineNoticeWorker': "Tu bot sigue funcionando aunque cierres esta página. Vuelve cuando quieras para revisar tu actividad.",
         'bot.workerManaged': "🤖 Tu bot ahora se ejecuta automáticamente. Seguirá operando incluso cuando estés desconectado.",
         'chart.title': 'Rendimiento del patrimonio',
@@ -13142,14 +13065,14 @@ const TRANSLATIONS = {
         'achievements.allUnlocked': '🎉 ¡Todas las insignias desbloqueadas!',
         'achievements.next': 'Siguiente:',
         'wallet.live': 'Cartera Live',
-        'wallet.bonus': 'Cartera de bonos',
-        'bonus.balance': 'Saldo de bonos',
+        'wallet.bonus': 'Ganancias por referidos',
+        'bonus.balance': 'Ganancias por referidos',
+        'bonus.about': 'Ganancias de tus referidos. Muévelas a tu cartera Live cuando quieras.',
         'bonus.noEarnings': 'Aún no hay ingresos por referidos para convertir.',
-        'bonus.withdrawToLive': 'Retirar bono a la cartera Live',
-        'bonus.withdrawSuccess': '✅ ¡${{amount}} de bono retirados a la cartera Live!',
-        'bonus.noReferrals': '📢 Refiere al menos a 1 amigo antes de retirar el bono',
+        'bonus.withdrawToLive': 'Mover a la cartera Live',
+        'bonus.withdrawSuccess': '✅ ${{amount}} transferidos a tu cartera Live',
         'bonus.convertFailed': '❌ No se pudieron convertir tus ingresos por referidos. Inténtalo de nuevo.',
-        'bonus.withdrawHistory': '💰 Bono retirado: ${{amount}} a la cartera Live',
+        'bonus.withdrawHistory': '💰 Transferido a la cartera Live: ${{amount}}',
         'history.title': 'Registro de transacciones',
         'history.last30min': 'Últimos 30 min',
         'history.allActivity': 'Toda la actividad',
@@ -13262,17 +13185,18 @@ const TRANSLATIONS = {
         'referral.reset': 'Reiniciar',
         'referral.earned': '🎉 ¡Ganaste una recompensa por referir a un amigo!',
         'referral.withdrawNote': 'Las ganancias por referidos se pagan por separado de los retiros normales: sin pago m\u00ednimo y sin necesidad de operar.',
-        'promo.tradableNotice': 'Tu crédito promocional de $50 sirve para operar. La ganancia está limitada a $30 hasta tu primer depósito.',
         'promo.creditTitle': 'Crédito promocional',
+        'promo.tradableNotice': 'Tu crédito promocional sirve para operar. Podrás retirar cuando hagas un primer depósito válido y una operación. El trading se pausa al alcanzar $30 de ganancia hasta que deposites.',
         'promo.creditBadge': 'Crédito promocional',
-        'promo.creditExplain': 'Tu cuenta incluye ${{amount}} en crédito promocional de trading. Comprá una activación de Modo Live para desbloquear el trading en vivo.',
-        'promo.creditExplainTradable': 'Tu cuenta incluye ${{amount}} en crédito promocional de trading. Sirve para operar; la ganancia está limitada a $30 hasta tu primer depósito.',
-        'liveMode.fundingNote': 'El Modo Live está activado. Hacé un depósito para financiar tu billetera Live y comenzar a operar.',
+        'promo.creditExplainTradable': 'Tu crédito promocional de ${{amount}} sirve para operar. Podrás retirar cuando hagas un primer depósito válido y una operación.',
+        'liveMode.fundingNote': 'Haz un depósito para financiar tu cartera Live y comenzar a operar.',
         'liveMode.status.depositRequired': 'Depósito requerido',
-        'liveMode.depositNote': 'El Modo Live también requiere un depósito confirmado de al menos ${{min}}. Realiza tu depósito para terminar la configuración.',
-        'liveMode.status.activationRequired': 'Activación requerida',
-        'liveMode.status.fundingRequired': 'Activado — requiere fondos',
+        'liveMode.depositNote': 'El Modo Live necesita un depósito confirmado de al menos ${{min}}. Realiza tu depósito para terminar la configuración.',
+        'liveMode.status.fundingRequired': 'Requiere fondos',
         'liveMode.status.available': 'Modo Live disponible',
+        'liveMode.depositCta': 'Realizar mi depósito',
+        'liveAccess.notAvailable': 'El trading en vivo aún no está disponible para esta cuenta. Contacta con soporte y te ayudaremos a completar la configuración.',
+        'liveAccess.retryLater': 'No pudimos confirmar tu acceso Live ahora mismo. Inténtalo de nuevo en un momento.',
         'referral.simulated': '✅ ¡Referido simulado! +1 amigo, recompensa añadida',
         'referral.resetConfirm': '¿Reiniciar todos los datos de referidos? No se puede deshacer.',
         'referral.resetDone': 'Datos de referidos reiniciados',
@@ -13306,19 +13230,15 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Así empiezas.',
         'onboarding.primary': 'Empezar con mi crédito de $50',
         'onboarding.primaryDesc': 'Activa el bot con tu crédito promocional. La ganancia está limitada a $30 hasta que deposites.',
-        'onboarding.primaryDescActivation': 'El trading Live necesita una activación única y un depósito primero. Tu crédito promocional de $50 ya está en tu cuenta.',
         'onboarding.secondary': 'Quiero depositar',
         'onboarding.secondaryDesc': 'Financia tu saldo Live con USDT para operar más allá del crédito promocional.',
         'onboarding.realNote': 'Los fondos depositados son tu capital y puedes retirarlos.',
         'onboarding.promoNote': 'El crédito promocional de $50 es independiente de tus fondos depositados.',
         'onboarding.noObligation': 'Puedes depositar cuando quieras.',
         'onboarding.explainer': 'Kalderix opera arbitraje multi-activo de forma automática. Tu cuenta incluye $50 en crédito promocional, así que puedes activar el bot antes de depositar.',
-        'onboarding.explainerActivation': 'Kalderix opera arbitraje multi-activo de forma automática. Tu cuenta incluye $50 en crédito promocional. El trading Live necesita una activación única y un depósito de al menos ${{min}}.',
         'startHere.dismiss': 'Descartar',
         'startHere.live.title': 'Primeros pasos',
-        'startHere.live.subtitle': 'Configura tu trading Live en dos pasos.',
         'startHere.live.subtitleNext': 'Tu siguiente paso para empezar a operar en Live.',
-        'startHere.live.step0': 'Completa la activación única de $50 para Live',
         'startHere.live.step3': 'Completa tu primera operación en Live',
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading: independientes de tu crédito promocional.',
@@ -13520,25 +13440,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Manos de diamante',
         'badges.diamondHandsDesc': 'Rentable después de 10 operaciones',
         'live.withdrawStatus.notDeposited': '💳 Haz un depósito mínimo de ${{min}} para habilitar los retiros',
-        'liveActivation.notice': 'El Modo Live requiere una activación única.',
-        'liveActivation.cta': 'Activar Modo Live',
-        'liveActivation.depositCta': 'Realizar mi depósito',
-        'liveActivation.title': 'Activar Modo Live',
-        'liveActivation.body': 'El Modo Live requiere una activación única. La activación habilita el trading en vivo, pero no añade capital: financias tu cartera Live con un depósito de al menos el mínimo de la plataforma.',
-        'liveActivation.buy': 'Comprar activación',
-        'liveActivation.keyLabel': '¿Ya compraste? Ingresá tu clave de licencia',
-        'liveActivation.submit': 'Activar',
-        'liveActivation.blockedToast': 'El trading real está bloqueado hasta que actives. Es un paso único y toma alrededor de un minuto.',
         'liveDeposit.blockedToast': 'Agrega al menos ${{min}} de capital de trading para empezar a operar en Live.',
-        'liveActivation.supportCta': 'Contactar soporte',
-        'liveActivation.purchaseUnavailable': 'La compra de la activación no está disponible temporalmente. Contacta a soporte y la completamos contigo.',
-        'liveActivation.nextStep': 'El Modo Live está activo. Siguiente paso: agrega al menos ${{min}} de capital de trading para empezar a operar.',
-        'liveActivation.hint': 'Una licencia activa una cuenta, una sola vez, y no se puede transferir. La activación nunca acredita saldo.',
-        'liveActivation.keyRequired': 'Ingresá tu clave de licencia.',
-        'liveActivation.failed': 'No se pudo canjear esa clave de licencia.',
-        'liveActivation.confirming': 'Todavía estamos confirmando tu compra. Vuelve a intentarlo en unos minutos o contacta con soporte con tu recibo de Payhip.',
-        'liveActivation.retryLater': 'La activación no está disponible temporalmente. Inténtalo de nuevo en un momento.',
-        'liveActivation.success': 'Modo Live activado.',
         'live.withdrawStatus.needMinimum': '📈 Retiro mínimo: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Sigue operando para aumentar tu saldo disponible',
         'live.withdrawStatus.noTrades': '📊 Completa al menos 1 operación para retirar',
@@ -13627,7 +13529,7 @@ const TRANSLATIONS = {
         'support.reply.bot': '🤖 Para iniciar el bot: 1) Abre tu panel, 2) Pulsa \'Iniciar bot\' y escaneará los mercados compatibles y operará automáticamente.',
         'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto y envía USDT en la red TRON (TRC20) a la dirección mostrada. Kalderix solo acepta USDT en TRON (TRC20). Lo detectaremos automáticamente.',
         'support.reply.withdraw': '🏦 Para retirar: 1) Cambia a modo LIVE, 2) Haz un depósito, 3) Completa al menos 1 operación, 4) Haz clic en \'Withdraw\' en la barra lateral. El procesamiento del retiro suele tardar entre 15 y 30 minutos.',
-        'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar el 20% de su primer depósito válido! Tu recompensa se acumula en la Billetera de Bonos y puedes convertirla a tu Billetera Live en cualquier momento, sin mínimo.',
+        'support.reply.bonus': '🎁 ¡Refiere a amigos para ganar el 20% de su primer depósito válido! Tu recompensa se acumula en Ganancias por referidos y puedes moverla a tu cartera Live cuando quieras — sin mínimo.',
         'support.reply.sound': '🔊 Puedes controlar los sonidos haciendo clic en el ícono de altavoz en el encabezado, o ajustar el volumen en Configuración de perfil.',
         'support.reply.language': '🌍 Puedes cambiar el idioma haciendo clic en el ícono 🌐 del globo en el encabezado, o en Configuración de perfil.',
         'support.reply.hello': '👋 ¡Hola! Bienvenido al soporte de Kalderix. ¿Cómo puedo ayudarte hoy?',
@@ -13681,9 +13583,9 @@ const TRANSLATIONS = {
         'ticker.newTrader': 'Nuevo trader de <span class="ticker-amount gold">{{country}}</span> se unió a Kalderix',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> desbloqueó <span class="ticker-amount gold">{{badge}}</span></span>',
         'referral.welcomeReferred': '🎉 ¡Bienvenido! Tu amigo ganará un bono de referido.',
-        'referral.simulatedToast': '🎉 <strong>¡Referido simulado!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bono agregado a la Billetera de Bonos</span>',
+        'referral.simulatedToast': '🎉 <strong>¡Referido simulado!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} añadido a Ganancias por referidos</span>',
         'referral.simulatedTitle': 'Referido simulado',
-        'referral.simulatedDesc': '+${{amount}} bono agregado a la Billetera de Bonos',
+        'referral.simulatedDesc': '+${{amount}} añadido a Ganancias por referidos',
         'referral.simulateError': 'Error al simular referido',
         'referral.codeLoading': 'El código de referido se está cargando, inténtalo de nuevo en un momento',
         'bonus.withdrawnTitle': 'Bono retirado',
@@ -13800,7 +13702,7 @@ const TRANSLATIONS = {
         'tx.type.subscription': 'Suscripción',
         'tx.type.referralCommission': 'Comisión por referido',
         'tx.detail.allFundsRemoved': 'Todos los fondos eliminados',
-        'tx.detail.fromBonusWallet': 'Desde la Bonus Wallet',
+        'tx.detail.fromBonusWallet': 'Desde ganancias por referidos',
         'tx.detail.bonusToLive': 'Bono retirado a la Live Wallet',
         'subscription.month': 'mes',
         'subscription.activate': 'Activar Pro',
@@ -13930,7 +13832,6 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'No se pudieron regenerar los códigos',
         '2fa.disableFailed': 'No se pudo desactivar 2FA',
         'deposit.min10': 'El depósito mínimo es $10',
-        'deposit.activationNote': 'Este depósito es capital de trading. El trading real también necesita una activación única de $50 aparte; un depósito no activa tu cuenta.',
         'deposit.min100': 'El depósito mínimo es ${{min}}',
         'deposit.invoiceNotFound': 'Factura no encontrada',
         'deposit.createInvoiceFailed': 'No se pudo crear la factura',
@@ -14090,7 +13991,7 @@ const TRANSLATIONS = {
         'referral.step2Text': 'Tu amigo deposita ≥',
         'referral.step3Text': 'Ganas',
         'referral.bonusWord': 'bono',
-        'referral.bonusWallet': 'Billetera de bonos',
+        'referral.bonusWallet': 'Ganancias por referidos',
         'referral.pending.titleCount': 'Referidos pendientes ({{count}})',
         'referral.pending.subtitle': 'Esperando el primer depósito',
         'referral.pending.tapToView': 'Toca para ver',
@@ -14591,7 +14492,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Como funciona o bot de trading com IA?',
         'landing.faq.4.a': 'Nossa IA monitora continuamente as diferenças de preço em 50+ exchanges. Quando detecta uma oportunidade de arbitragem (discrepância de preço), executa operações automaticamente para lucrar com a diferença. Você pode iniciar/parar o bot a qualquer momento.',
         'landing.faq.5.q': 'Como funcionam as recompensas por indicação?',
-        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $50 de um amigo indicado. Os ganhos de indicação acumulam-se na Carteira de Bônus e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (sem saque mínimo, verificação de segurança para saques quando exigida e um endereço válido).',
+        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $50 de um amigo indicado. Os ganhos de indicação acumulam-se na Ganhos com indicações e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (sem saque mínimo, verificação de segurança para saques quando exigida e um endereço válido).',
         'landing.faq.6.q': 'É necessária verificação de conta?',
         'landing.faq.6.a': 'A criação básica de conta requer apenas um e-mail e uma senha. A verificação KYC pode ser necessária para limites de saque mais altos ou recursos específicos para cumprir requisitos regulatórios.',
         'landing.cta.title': 'Comece a operar hoje',
@@ -14746,7 +14647,8 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'Pausado',
         'bot.errorState': 'Erro',
         'bot.runningMsg': 'Verificando mercados compatíveis. As novas operações aparecem no registro de atividades.',
-        'bot.engineNotice': "🤖 Roda nesta aba do navegador. As negociações param se você fechar ou atualizar a página.",
+        'bot.engineNotice': "🤖 A negociação roda enquanto esta página está aberta. Se você fechar ou atualizar, o bot para e você precisará iniciá-lo novamente.",
+        'bot.engineNoticeUnknown': '🤖 O status atual do bot aparece acima. A negociação roda automaticamente enquanto o bot está ativo.',
         'bot.engineNoticeWorker': "Seu bot continua funcionando mesmo quando você fecha esta página. Volte quando quiser para ver sua atividade.",
         'bot.workerManaged': "🤖 Seu bot agora funciona automaticamente. Ele continuará operando mesmo quando você estiver offline.",
         'chart.title': 'Desempenho do patrimônio',
@@ -14775,14 +14677,14 @@ const TRANSLATIONS = {
         'achievements.allUnlocked': '🎉 Todas as insígnias desbloqueadas!',
         'achievements.next': 'Próxima:',
         'wallet.live': 'Carteira Live',
-        'wallet.bonus': 'Carteira de bônus',
-        'bonus.balance': 'Saldo de bônus',
+        'wallet.bonus': 'Ganhos com indicações',
+        'bonus.balance': 'Ganhos com indicações',
+        'bonus.about': 'Ganhos das suas indicações. Mova para a sua carteira Live quando quiser.',
         'bonus.noEarnings': 'Ainda não há ganhos de indicação para converter.',
-        'bonus.withdrawToLive': 'Sacar bônus para a carteira Live',
-        'bonus.withdrawSuccess': '✅ ${{amount}} de bônus sacados para a carteira Live!',
-        'bonus.noReferrals': '📢 Indique pelo menos 1 amigo antes de sacar o bônus',
+        'bonus.withdrawToLive': 'Mover para a carteira Live',
+        'bonus.withdrawSuccess': '✅ ${{amount}} movidos para sua carteira Live',
         'bonus.convertFailed': '❌ Não foi possível converter seus ganhos de indicação. Tente novamente.',
-        'bonus.withdrawHistory': '💰 Bônus sacado: ${{amount}} para a carteira Live',
+        'bonus.withdrawHistory': '💰 Movido para a carteira Live: ${{amount}}',
         'history.title': 'Registro de transações',
         'history.last30min': 'Últimos 30 min',
         'history.allActivity': 'Toda a atividade',
@@ -14895,17 +14797,18 @@ const TRANSLATIONS = {
         'referral.reset': 'Redefinir',
         'referral.earned': '🎉 Você ganhou uma recompensa por indicar um amigo!',
         'referral.withdrawNote': 'As comiss\u00f5es de indica\u00e7\u00e3o s\u00e3o pagas separadamente dos levantamentos normais - sem pagamento m\u00ednimo e sem necessidade de negociar.',
-        'promo.tradableNotice': 'Seu crédito promocional de $50 é usado para operar. O lucro é limitado a $30 até seu primeiro depósito.',
         'promo.creditTitle': 'Crédito promocional',
+        'promo.tradableNotice': 'Seu crédito promocional serve para operar. Você poderá sacar quando fizer um primeiro depósito válido e uma operação. O trading pausa ao atingir $30 de lucro até você depositar.',
         'promo.creditBadge': 'Crédito promocional',
-        'promo.creditExplain': 'Sua conta inclui ${{amount}} em crédito promocional de trading. Compre uma ativação do Modo Live para desbloquear o trading ao vivo.',
-        'promo.creditExplainTradable': 'Sua conta inclui ${{amount}} em crédito promocional de negociação. Ele pode ser usado para operar; o lucro é limitado a $30 até seu primeiro depósito.',
-        'liveMode.fundingNote': 'O Modo Live está ativado. Faça um depósito para financiar sua carteira Live e começar a operar.',
+        'promo.creditExplainTradable': 'Seu crédito promocional de ${{amount}} serve para operar. Você poderá sacar quando fizer um primeiro depósito válido e uma operação.',
+        'liveMode.fundingNote': 'Faça um depósito para financiar sua carteira Live e começar a operar.',
         'liveMode.status.depositRequired': 'Depósito necessário',
-        'liveMode.depositNote': 'O Modo Live também exige um depósito confirmado de pelo menos ${{min}}. Faça seu depósito para concluir a configuração.',
-        'liveMode.status.activationRequired': 'Ativação necessária',
-        'liveMode.status.fundingRequired': 'Ativado — requer fundos',
+        'liveMode.depositNote': 'O Modo Live precisa de um depósito confirmado de pelo menos ${{min}}. Faça seu depósito para concluir a configuração.',
+        'liveMode.status.fundingRequired': 'Requer fundos',
         'liveMode.status.available': 'Modo Live disponível',
+        'liveMode.depositCta': 'Fazer meu depósito',
+        'liveAccess.notAvailable': 'A negociação ao vivo ainda não está disponível para esta conta. Fale com o suporte e ajudaremos você a concluir a configuração.',
+        'liveAccess.retryLater': 'Não conseguimos confirmar seu acesso Live agora. Tente novamente em instantes.',
         'referral.simulated': '✅ Indicação simulada! +1 amigo, recompensa adicionada',
         'referral.resetConfirm': 'Redefinir todos os dados de indicações? Isso não pode ser desfeito.',
         'referral.resetDone': 'Dados de indicações redefinidos',
@@ -14939,19 +14842,15 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Veja como começar.',
         'onboarding.primary': 'Começar com meu crédito de $50',
         'onboarding.primaryDesc': 'Rode o bot com seu crédito promocional. O lucro é limitado a $30 até você depositar.',
-        'onboarding.primaryDescActivation': 'A negociação Live exige uma ativação única e um depósito primeiro. Seu crédito promocional de $50 já está na sua conta.',
         'onboarding.secondary': 'Quero depositar',
         'onboarding.secondaryDesc': 'Financie seu saldo Live com USDT para operar além do crédito promocional.',
         'onboarding.realNote': 'Os fundos depositados são seu capital e podem ser sacados.',
         'onboarding.promoNote': 'O crédito promocional de $50 é separado dos seus fundos depositados.',
         'onboarding.noObligation': 'Você pode depositar quando quiser.',
         'onboarding.explainer': 'A Kalderix opera arbitragem multi-ativo automaticamente. Sua conta inclui $50 em crédito promocional, então você pode rodar o bot antes de depositar.',
-        'onboarding.explainerActivation': 'A Kalderix opera arbitragem multi-ativo automaticamente. Sua conta inclui $50 em crédito promocional. A negociação Live exige uma ativação única e um depósito de pelo menos ${{min}}.',
         'startHere.dismiss': 'Dispensar',
         'startHere.live.title': 'Primeiros passos',
-        'startHere.live.subtitle': 'Configure seu trading Live em dois passos.',
         'startHere.live.subtitleNext': 'Seu próximo passo para começar a operar no Live.',
-        'startHere.live.step0': 'Conclua a ativação única de $50 do Live',
         'startHere.live.step3': 'Conclua sua primeira operação no Live',
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação: separados do seu crédito promocional.',
@@ -15153,25 +15052,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Mãos de diamante',
         'badges.diamondHandsDesc': 'Lucrativo após 10 operações',
         'live.withdrawStatus.notDeposited': '💳 Faça um depósito mínimo de ${{min}} para habilitar os saques',
-        'liveActivation.notice': 'O Modo Live exige uma ativação única.',
-        'liveActivation.cta': 'Ativar Modo Live',
-        'liveActivation.depositCta': 'Fazer meu depósito',
-        'liveActivation.title': 'Ativar Modo Live',
-        'liveActivation.body': 'O Modo Live exige uma ativação única. A ativação libera o trading ao vivo, mas não adiciona capital: você financia sua carteira Live com um depósito de pelo menos o mínimo da plataforma.',
-        'liveActivation.buy': 'Comprar ativação',
-        'liveActivation.keyLabel': 'Já comprou? Insira sua chave de licença',
-        'liveActivation.submit': 'Ativar',
-        'liveActivation.blockedToast': 'A negociação real fica bloqueada até você ativar. É um passo único e leva cerca de um minuto.',
         'liveDeposit.blockedToast': 'Adicione pelo menos ${{min}} em capital de negociação para começar a operar no Live.',
-        'liveActivation.supportCta': 'Falar com o suporte',
-        'liveActivation.purchaseUnavailable': 'A compra da ativação está temporariamente indisponível. Fale com o suporte e concluiremos com você.',
-        'liveActivation.nextStep': 'O Modo Live está ativo. Próximo passo: adicione pelo menos ${{min}} em capital de negociação para começar a operar.',
-        'liveActivation.hint': 'Uma licença ativa uma conta, uma única vez, e não pode ser transferida. A ativação nunca credita saldo.',
-        'liveActivation.keyRequired': 'Insira sua chave de licença.',
-        'liveActivation.failed': 'Não foi possível resgatar essa chave de licença.',
-        'liveActivation.confirming': 'Ainda estamos confirmando sua compra. Tente novamente em alguns minutos ou fale com o suporte com o recibo da Payhip.',
-        'liveActivation.retryLater': 'A ativação está temporariamente indisponível. Tente novamente em instantes.',
-        'liveActivation.success': 'Modo Live ativado.',
         'live.withdrawStatus.needMinimum': '📈 Saque mínimo: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Continue operando para aumentar seu saldo disponível',
         'live.withdrawStatus.noTrades': '📊 Conclua pelo menos 1 operação para sacar',
@@ -15260,7 +15141,7 @@ const TRANSLATIONS = {
         'support.reply.bot': '🤖 Para iniciar o bot: 1) Abra seu painel, 2) Clique em \'Iniciar bot\' e ele vai monitorar os mercados compatíveis e operar automaticamente.',
         'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor e envie USDT na rede TRON (TRC20) para o endereço exibido. A Kalderix aceita apenas USDT na TRON (TRC20). Detectaremos automaticamente.',
         'support.reply.withdraw': '🏦 Para sacar: 1) Mude para o modo LIVE, 2) Faça um depósito, 3) Complete pelo menos 1 operação, 4) Clique em \'Withdraw\' na barra lateral. O processamento do saque geralmente leva de 15 a 30 minutos.',
-        'support.reply.bonus': '🎁 Indique amigos para ganhar 20% do primeiro depósito válido deles! Sua recompensa acumula na Carteira de Bônus e pode ser convertida para a sua Carteira Live a qualquer momento — sem mínimo.',
+        'support.reply.bonus': '🎁 Indique amigos para ganhar 20% do primeiro depósito válido deles! Sua recompensa acumula em Ganhos com indicações e pode ser movida para a sua carteira Live a qualquer momento — sem mínimo.',
         'support.reply.sound': '🔊 Você pode controlar os sons clicando no ícone de alto-falante no cabeçalho, ou ajustar o volume nas Configurações de perfil.',
         'support.reply.language': '🌍 Você pode alterar o idioma clicando no ícone 🌐 de globo no cabeçalho, ou nas Configurações de perfil.',
         'support.reply.hello': '👋 Olá! Bem-vindo ao suporte do Kalderix. Como posso ajudar hoje?',
@@ -15314,9 +15195,9 @@ const TRANSLATIONS = {
         'ticker.newTrader': 'Novo trader de <span class="ticker-amount gold">{{country}}</span> entrou no Kalderix',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> desbloqueou <span class="ticker-amount gold">{{badge}}</span></span>',
         'referral.welcomeReferred': '🎉 Bem-vindo! Seu amigo ganhará um bônus de indicação.',
-        'referral.simulatedToast': '🎉 <strong>Indicação simulada!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bônus adicionado à Carteira de Bônus</span>',
+        'referral.simulatedToast': '🎉 <strong>Indicação simulada!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} adicionado a Ganhos com indicações</span>',
         'referral.simulatedTitle': 'Indicação simulada',
-        'referral.simulatedDesc': '+${{amount}} bônus adicionado à Carteira de Bônus',
+        'referral.simulatedDesc': '+${{amount}} adicionado a Ganhos com indicações',
         'referral.simulateError': 'Erro ao simular indicação',
         'referral.codeLoading': 'O código de indicação está carregando, tente novamente em breve',
         'bonus.withdrawnTitle': 'Bônus sacado',
@@ -15433,7 +15314,7 @@ const TRANSLATIONS = {
         'tx.type.subscription': 'Assinatura',
         'tx.type.referralCommission': 'Comissão de indicação',
         'tx.detail.allFundsRemoved': 'Todos os fundos removidos',
-        'tx.detail.fromBonusWallet': 'Da Bonus Wallet',
+        'tx.detail.fromBonusWallet': 'De ganhos com indicações',
         'tx.detail.bonusToLive': 'Bônus sacado para a Live Wallet',
         'subscription.month': 'mês',
         'subscription.activate': 'Ativar Pro',
@@ -15563,7 +15444,6 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Falha ao regenerar códigos',
         '2fa.disableFailed': 'Falha ao desativar 2FA',
         'deposit.min10': 'O depósito mínimo é $10',
-        'deposit.activationNote': 'Este depósito é capital de negociação. A negociação real também exige uma ativação única de $50 à parte; um depósito não ativa sua conta.',
         'deposit.min100': 'O depósito mínimo é ${{min}}',
         'deposit.invoiceNotFound': 'Fatura não encontrada',
         'deposit.createInvoiceFailed': 'Falha ao criar fatura',
@@ -15723,7 +15603,7 @@ const TRANSLATIONS = {
         'referral.step2Text': 'Amigo deposita ≥',
         'referral.step3Text': 'Você ganha',
         'referral.bonusWord': 'bônus',
-        'referral.bonusWallet': 'Carteira de bônus',
+        'referral.bonusWallet': 'Ganhos com indicações',
         'referral.pending.titleCount': 'Indicações pendentes ({{count}})',
         'referral.pending.subtitle': 'Aguardando o primeiro depósito',
         'referral.pending.tapToView': 'Toque para ver',
@@ -16224,7 +16104,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Comment fonctionne le bot de trading IA ?',
         'landing.faq.4.a': 'Notre IA surveille en continu les écarts de prix sur 50+ exchanges. Lorsqu’elle détecte une opportunité d’arbitrage (écart de prix), elle exécute automatiquement des trades pour profiter de la différence. Vous pouvez démarrer/arrêter le bot à tout moment.',
         'landing.faq.5.q': 'Comment fonctionnent les récompenses de parrainage ?',
-        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $50 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Portefeuille Bonus et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (aucun retrait minimum, vérification de sécurité des retraits si nécessaire et une adresse valide).',
+        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $50 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Gains de parrainage et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (aucun retrait minimum, vérification de sécurité des retraits si nécessaire et une adresse valide).',
         'landing.faq.6.q': 'La vérification du compte est-elle obligatoire ?',
         'landing.faq.6.a': 'La création de base d’un compte ne nécessite qu’un e-mail et un mot de passe. La vérification KYC peut être requise pour des limites de retrait plus élevées ou certaines fonctionnalités afin de respecter les exigences réglementaires.',
         'landing.cta.title': 'Commencez à trader aujourd\'hui',
@@ -16379,7 +16259,8 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'En pause',
         'bot.errorState': 'Erreur',
         'bot.runningMsg': 'Analyse des marchés pris en charge. Les nouvelles transactions apparaissent dans le journal d\'activité.',
-        'bot.engineNotice': "🤖 Fonctionne dans cet onglet. Le trading s'arrête si vous fermez ou actualisez la page.",
+        'bot.engineNotice': "🤖 Le trading fonctionne tant que cette page est ouverte. Si vous la fermez ou l’actualisez, le bot s’arrête et vous devrez le relancer.",
+        'bot.engineNoticeUnknown': '🤖 L’état actuel du bot est affiché ci-dessus. Le trading s’exécute automatiquement tant que le bot fonctionne.',
         'bot.engineNoticeWorker': "Votre bot continue de fonctionner même lorsque vous fermez cette page. Revenez quand vous voulez pour consulter votre activité.",
         'bot.workerManaged': "🤖 Votre bot fonctionne maintenant automatiquement. Il continuera à trader même lorsque vous êtes hors ligne.",
         'chart.title': 'Performance des capitaux',
@@ -16408,14 +16289,14 @@ const TRANSLATIONS = {
         'achievements.allUnlocked': '🎉 Tous les badges débloqués !',
         'achievements.next': 'Suivant :',
         'wallet.live': 'Portefeuille live',
-        'wallet.bonus': 'Portefeuille bonus',
-        'bonus.balance': 'Solde bonus',
+        'wallet.bonus': 'Gains de parrainage',
+        'bonus.balance': 'Gains de parrainage',
+        'bonus.about': 'Gains issus de vos parrainages. Déplacez-les vers votre portefeuille Live à tout moment.',
         'bonus.noEarnings': 'Aucun gain de parrainage à convertir pour le moment.',
-        'bonus.withdrawToLive': 'Retirer le bonus vers le portefeuille live',
-        'bonus.withdrawSuccess': '✅ ${{amount}} de bonus retirés vers le portefeuille live !',
-        'bonus.noReferrals': '📢 Parrainez au moins 1 ami avant de retirer le bonus',
+        'bonus.withdrawToLive': 'Déplacer vers le portefeuille Live',
+        'bonus.withdrawSuccess': '✅ {{amount}} $ déplacés vers votre portefeuille Live',
         'bonus.convertFailed': '❌ Impossible de convertir vos gains de parrainage. Veuillez réessayer.',
-        'bonus.withdrawHistory': '💰 Bonus retiré : ${{amount}} vers le portefeuille live',
+        'bonus.withdrawHistory': '💰 Déplacé vers le portefeuille Live : {{amount}} $',
         'history.title': 'Journal des transactions',
         'history.last30min': '30 dernières minutes',
         'history.allActivity': 'Toute l\'activité',
@@ -16528,17 +16409,18 @@ const TRANSLATIONS = {
         'referral.reset': 'Réinitialiser',
         'referral.earned': '🎉 Vous avez gagné une récompense de parrainage pour avoir parrainé un ami !',
         'referral.withdrawNote': 'Les gains de parrainage sont pay\u00e9s s\u00e9par\u00e9ment des retraits normaux - aucun paiement minimum et aucun trading requis.',
-        'promo.tradableNotice': 'Votre crédit promotionnel de 50 $ est utilisable pour trader. Le gain est plafonné à 30 $ jusqu\'à votre premier dépôt.',
         'promo.creditTitle': 'Crédit promotionnel',
+        'promo.tradableNotice': 'Votre crédit promotionnel est utilisable pour trader. Vous pourrez retirer après un premier dépôt éligible et une transaction. Le trading s’arrête à 30 $ de profit jusqu’à votre dépôt.',
         'promo.creditBadge': 'Crédit promotionnel',
-        'promo.creditExplain': 'Votre compte inclut ${{amount}} en crédit promotionnel de trading. Achetez une activation Mode Live pour débloquer le trading en direct.',
-        'promo.creditExplainTradable': 'Votre compte inclut ${{amount}} en crédit promotionnel de trading. Il est utilisable pour trader ; le gain est plafonné à $30 jusqu’à votre premier dépôt.',
-        'liveMode.fundingNote': 'Le Mode Live est activé. Effectuez un dépôt pour financer votre portefeuille Live et commencer à trader.',
+        'promo.creditExplainTradable': 'Votre crédit promotionnel de ${{amount}} est utilisable pour trader. Vous pourrez retirer après un premier dépôt éligible et une transaction.',
+        'liveMode.fundingNote': 'Effectuez un dépôt pour financer votre portefeuille Live et commencer à trader.',
         'liveMode.status.depositRequired': 'Dépôt requis',
-        'liveMode.depositNote': 'Le Mode Live exige aussi un dépôt confirmé d\'au moins ${{min}}. Effectuez votre dépôt pour terminer la configuration.',
-        'liveMode.status.activationRequired': 'Activation requise',
-        'liveMode.status.fundingRequired': 'Activé — financement requis',
+        'liveMode.depositNote': 'Le Mode Live nécessite un dépôt confirmé d’au moins ${{min}}. Effectuez votre dépôt pour terminer la configuration.',
+        'liveMode.status.fundingRequired': 'Financement requis',
         'liveMode.status.available': 'Mode Live disponible',
+        'liveMode.depositCta': 'Effectuer mon dépôt',
+        'liveAccess.notAvailable': 'Le trading en direct n’est pas encore disponible pour ce compte. Contactez le support et nous vous aiderons à finaliser la configuration.',
+        'liveAccess.retryLater': 'Nous n’avons pas pu confirmer votre accès Live pour le moment. Réessayez dans un instant.',
         'referral.simulated': '✅ Parrainage simulé ! +1 ami, récompense ajoutée',
         'referral.resetConfirm': 'Réinitialiser toutes les données de parrainage ? Irréversible.',
         'referral.resetDone': 'Données de parrainage réinitialisées',
@@ -16572,19 +16454,15 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'Voici comment démarrer.',
         'onboarding.primary': 'Démarrer avec mon crédit de 50 $',
         'onboarding.primaryDesc': 'Lancez le bot avec votre crédit promotionnel. Le gain est plafonné à 30 $ jusqu\'à votre dépôt.',
-        'onboarding.primaryDescActivation': 'Le trading Live nécessite une activation unique et un dépôt au préalable. Votre crédit promotionnel de 50 $ est déjà sur votre compte.',
         'onboarding.secondary': 'Je veux déposer',
         'onboarding.secondaryDesc': 'Financez votre solde Live en USDT pour trader au-delà du crédit promotionnel.',
         'onboarding.realNote': 'Les fonds déposés sont votre capital et peuvent être retirés.',
         'onboarding.promoNote': 'Le crédit promotionnel de $50 est distinct de vos fonds déposés.',
         'onboarding.noObligation': 'Vous pouvez déposer quand vous voulez.',
         'onboarding.explainer': 'Kalderix exécute de l\'arbitrage multi-actifs automatiquement. Votre compte inclut 50 $ de crédit promotionnel : vous pouvez lancer le bot avant tout dépôt.',
-        'onboarding.explainerActivation': 'Kalderix pratique l’arbitrage multi-actifs automatiquement. Votre compte inclut 50 $ de crédit promotionnel. Le trading Live nécessite une activation unique et un dépôt d’au moins ${{min}}.',
         'startHere.dismiss': 'Ignorer',
         'startHere.live.title': 'Premiers pas',
-        'startHere.live.subtitle': 'Configurez votre trading Live en deux étapes.',
         'startHere.live.subtitleNext': 'Votre prochaine étape pour commencer à trader en Live.',
-        'startHere.live.step0': 'Effectuez l’activation unique de $50 pour le Live',
         'startHere.live.step3': 'Réalisez votre premier trade en Live',
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels - distincts de votre crédit promotionnel.',
@@ -16786,25 +16664,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'Mains de diamant',
         'badges.diamondHandsDesc': 'Rentable après 10 transactions',
         'live.withdrawStatus.notDeposited': '💳 Effectuez un dépôt minimum de ${{min}} pour activer les retraits',
-        'liveActivation.notice': 'Le Mode Live nécessite une activation unique.',
-        'liveActivation.cta': 'Activer le Mode Live',
-        'liveActivation.depositCta': 'Effectuer mon dépôt',
-        'liveActivation.title': 'Activer le Mode Live',
-        'liveActivation.body': 'Le mode Live nécessite une activation unique. L\'activation débloque le trading en direct mais n\'ajoute pas de capital : vous alimentez votre portefeuille Live par un dépôt d\'au moins le minimum de la plateforme.',
-        'liveActivation.buy': 'Acheter l\'activation',
-        'liveActivation.keyLabel': 'Déjà acheté ? Saisissez votre clé de licence',
-        'liveActivation.submit': 'Activer',
-        'liveActivation.blockedToast': 'Le trading réel reste verrouillé jusqu’à l’activation. C’est une étape unique qui prend environ une minute.',
         'liveDeposit.blockedToast': 'Ajoutez au moins ${{min}} de capital de trading pour commencer à trader en Live.',
-        'liveActivation.supportCta': 'Contacter le support',
-        'liveActivation.purchaseUnavailable': 'L’achat de l’activation est temporairement indisponible. Contactez le support et nous le finaliserons avec vous.',
-        'liveActivation.nextStep': 'Le Mode Live est actif. Étape suivante : ajoutez au moins ${{min}} de capital de trading pour commencer à trader.',
-        'liveActivation.hint': 'Une licence active un compte, une seule fois, et ne peut pas être transférée. L\'activation ne crédite jamais de solde.',
-        'liveActivation.keyRequired': 'Saisissez votre clé de licence.',
-        'liveActivation.failed': 'Cette clé de licence n\'a pas pu être utilisée.',
-        'liveActivation.confirming': 'Nous sommes en train de confirmer votre achat. Réessayez dans quelques minutes ou contactez le support avec votre reçu Payhip.',
-        'liveActivation.retryLater': 'L\'activation est temporairement indisponible. Réessayez dans un instant.',
-        'liveActivation.success': 'Mode Live activé.',
         'live.withdrawStatus.needMinimum': '📈 Retrait minimum : ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 Continuez à trader pour augmenter votre solde disponible',
         'live.withdrawStatus.noTrades': '📊 Effectuez au moins 1 transaction pour retirer',
@@ -16893,7 +16753,7 @@ const TRANSLATIONS = {
         'support.reply.bot': '🤖 Pour lancer le bot : 1) Ouvrez votre tableau de bord, 2) Cliquez sur « Démarrer le bot » : il analysera les marchés compatibles et tradera automatiquement.',
         'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, puis envoyez des USDT sur le réseau TRON (TRC20) à l\'adresse affichée. Kalderix accepte uniquement l\'USDT sur TRON (TRC20). Nous le détecterons automatiquement.',
         'support.reply.withdraw': '🏦 Pour retirer : 1) Passez en mode LIVE, 2) Effectuez un dépôt, 3) Effectuez au moins 1 trade, 4) Cliquez sur \'Withdraw\' dans la barre latérale. Le traitement du retrait prend généralement 15 à 30 minutes.',
-        'support.reply.bonus': '🎁 Parrainez des amis pour gagner 20 % de leur premier dépôt éligible ! Votre récompense s’accumule dans le Portefeuille Bonus et peut être convertie dans votre Portefeuille Live à tout moment — sans minimum.',
+        'support.reply.bonus': '🎁 Parrainez des amis pour gagner 20 % de leur premier dépôt éligible ! Votre récompense s’accumule dans les gains de parrainage et peut être déplacée vers votre portefeuille Live à tout moment — sans minimum.',
         'support.reply.sound': '🔊 Vous pouvez contrôler les sons en cliquant sur l\'icône haut-parleur dans l\'en-tête, ou ajuster le volume dans les Paramètres du profil.',
         'support.reply.language': '🌍 Vous pouvez changer la langue en cliquant sur l\'icône 🌐 de globe dans l\'en-tête, ou dans les Paramètres du profil.',
         'support.reply.hello': '👋 Bonjour ! Bienvenue sur le support d\'Kalderix. Comment puis-je vous aider aujourd\'hui ?',
@@ -16947,9 +16807,9 @@ const TRANSLATIONS = {
         'ticker.newTrader': 'Nouveau trader de <span class="ticker-amount gold">{{country}}</span> a rejoint Kalderix',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> a débloqué <span class="ticker-amount gold">{{badge}}</span></span>',
         'referral.welcomeReferred': '🎉 Bienvenue ! Votre ami gagnera un bonus de parrainage.',
-        'referral.simulatedToast': '🎉 <strong>Parrainage simulé !</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} bonus ajouté au Portefeuille Bonus</span>',
+        'referral.simulatedToast': '🎉 <strong>Parrainage simulé !</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} ajouté aux gains de parrainage</span>',
         'referral.simulatedTitle': 'Parrainage simulé',
-        'referral.simulatedDesc': '+${{amount}} bonus ajouté au Portefeuille Bonus',
+        'referral.simulatedDesc': '+${{amount}} ajouté aux gains de parrainage',
         'referral.simulateError': 'Erreur lors de la simulation du parrainage',
         'referral.codeLoading': 'Le code de parrainage est en cours de chargement, veuillez réessayer dans un instant',
         'bonus.withdrawnTitle': 'Bonus retiré',
@@ -17066,7 +16926,7 @@ const TRANSLATIONS = {
         'tx.type.subscription': 'Abonnement',
         'tx.type.referralCommission': 'Commission de parrainage',
         'tx.detail.allFundsRemoved': 'Tous les fonds supprimés',
-        'tx.detail.fromBonusWallet': 'Depuis le Bonus Wallet',
+        'tx.detail.fromBonusWallet': 'Depuis les gains de parrainage',
         'tx.detail.bonusToLive': 'Bonus retiré vers le Live Wallet',
         'subscription.month': 'mois',
         'subscription.activate': 'Activer Pro',
@@ -17196,7 +17056,6 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'Échec de la régénération des codes',
         '2fa.disableFailed': 'Échec de la désactivation de 2FA',
         'deposit.min10': 'Le dépôt minimum est de $10',
-        'deposit.activationNote': 'Ce dépôt est du capital de trading. Le trading réel nécessite aussi une activation unique de $50 distincte ; un dépôt n’active pas votre compte.',
         'deposit.min100': 'Le dépôt minimum est de ${{min}}',
         'deposit.invoiceNotFound': 'Facture introuvable',
         'deposit.createInvoiceFailed': 'Échec de la création de la facture',
@@ -17356,7 +17215,7 @@ const TRANSLATIONS = {
         'referral.step2Text': 'L\'ami dépose ≥',
         'referral.step3Text': 'Vous gagnez',
         'referral.bonusWord': 'bonus',
-        'referral.bonusWallet': 'Portefeuille bonus',
+        'referral.bonusWallet': 'Gains de parrainage',
         'referral.pending.titleCount': 'Parrainages en attente ({{count}})',
         'referral.pending.subtitle': 'En attente du premier dépôt',
         'referral.pending.tapToView': 'Appuyez pour voir',
@@ -17857,7 +17716,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'كيف يعمل روبوت التداول بالذكاء الاصطناعي؟',
         'landing.faq.4.a': 'يراقب ذكاؤنا الاصطناعي باستمرار فروق الأسعار عبر 50+ منصة. عندما يكتشف فرصة مراجحة (تباين في السعر)، ينفذ الصفقات تلقائيًا لتحقيق ربح من الفرق. يمكنك بدء/إيقاف الروبوت في أي وقت.',
         'landing.faq.5.q': 'كيف تعمل مكافآت الإحالة؟',
-        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $50 لصديق محال. تتراكم أرباح الإحالة في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (لا يوجد حد أدنى للسحب، والتحقق الأمني للسحب عند الحاجة، وعنوان صالح).',
+        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $50 لصديق محال. تتراكم أرباح الإحالة في أرباح الإحالات ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (لا يوجد حد أدنى للسحب، والتحقق الأمني للسحب عند الحاجة، وعنوان صالح).',
         'landing.faq.6.q': 'هل التحقق من الحساب مطلوب؟',
         'landing.faq.6.a': 'يتطلب إنشاء حساب أساسي بريدًا إلكترونيًا وكلمة مرور فقط. قد يلزم التحقق KYC لحدود سحب أعلى أو ميزات محددة للامتثال للمتطلبات التنظيمية.',
         'landing.cta.title': 'ابدأ التداول اليوم',
@@ -18012,7 +17871,8 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'متوقف مؤقتًا',
         'bot.errorState': 'خطأ',
         'bot.runningMsg': 'جارٍ فحص الأسواق المدعومة. تظهر العمليات الجديدة في سجل النشاط أدناه.',
-        'bot.engineNotice': "🤖 يعمل داخل هذا التبويب. تتوقف التداولات إذا أغلقت الصفحة أو حدّثتها.",
+        'bot.engineNotice': "🤖 يعمل التداول ما دامت هذه الصفحة مفتوحة. إذا أغلقتها أو حدّثتها يتوقف البوت وستحتاج إلى تشغيله مرة أخرى.",
+        'bot.engineNoticeUnknown': '🤖 حالة البوت الحالية معروضة أعلاه. يتم التداول تلقائيًا ما دام البوت يعمل.',
         'bot.engineNoticeWorker': "يستمر روبوتك في العمل حتى عند إغلاق هذه الصفحة. عُد في أي وقت للاطلاع على نشاطك.",
         'bot.workerManaged': "🤖 روبوتك يعمل الآن تلقائيًا. سيستمر في التداول حتى عندما تكون غير متصل.",
         'chart.title': 'أداء رأس المال',
@@ -18041,14 +17901,14 @@ const TRANSLATIONS = {
         'achievements.allUnlocked': '🎉 تم فتح جميع الشارات!',
         'achievements.next': 'التالي:',
         'wallet.live': 'محفظة مباشرة',
-        'wallet.bonus': 'محفظة المكافآت',
-        'bonus.balance': 'رصيد المكافآت',
+        'wallet.bonus': 'أرباح الإحالات',
+        'bonus.balance': 'أرباح الإحالات',
+        'bonus.about': 'أرباح من إحالاتك. انقلها إلى محفظة Live في أي وقت.',
         'bonus.noEarnings': 'لا توجد أرباح إحالة قابلة للتحويل بعد.',
-        'bonus.withdrawToLive': 'سحب المكافأة إلى المحفظة المباشرة',
-        'bonus.withdrawSuccess': '✅ تم سحب ${{amount}} من المكافآت إلى المحفظة المباشرة!',
-        'bonus.noReferrals': '📢 أَحِل صديقًا واحدًا على الأقل قبل سحب المكافأة',
+        'bonus.withdrawToLive': 'نقل إلى محفظة Live',
+        'bonus.withdrawSuccess': '✅ تم نقل {{amount}} دولارًا إلى محفظتك Live',
         'bonus.convertFailed': '❌ تعذّر تحويل أرباح الإحالة. يرجى المحاولة مرة أخرى.',
-        'bonus.withdrawHistory': '💰 تم سحب المكافأة: ${{amount}} إلى المحفظة المباشرة',
+        'bonus.withdrawHistory': '💰 نُقل إلى محفظة Live: {{amount}} دولارًا',
         'history.title': 'سجل المعاملات',
         'history.last30min': 'آخر 30 دقيقة',
         'history.allActivity': 'كل النشاط',
@@ -18161,17 +18021,18 @@ const TRANSLATIONS = {
         'referral.reset': 'إعادة تعيين',
         'referral.earned': '🎉 ربحت مكافأة إحالة لإحالتك صديقًا!',
         'referral.withdrawNote': '\u064a\u062a\u0645 \u062f\u0641\u0639 \u0623\u0631\u0628\u0627\u062d \u0627\u0644\u0625\u062d\u0627\u0644\u0629 \u0628\u0634\u0643\u0644 \u0645\u0646\u0641\u0635\u0644 \u0639\u0646 \u0639\u0645\u0644\u064a\u0627\u062a \u0627\u0644\u0633\u062d\u0628 \u0627\u0644\u0639\u0627\u062f\u064a\u0629 - \u0644\u0627 \u062d\u062f \u0623\u062f\u0646\u0649 \u0644\u0644\u062f\u0641\u0639 \u0648\u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u0644\u062a\u062f\u0627\u0648\u0644.',
-        'promo.tradableNotice': 'رصيدك الترويجي 50 دولارًا قابل للتداول. الربح محدود بـ 30 دولارًا حتى أول إيداع.',
         'promo.creditTitle': 'رصيد ترويجي',
+        'promo.tradableNotice': 'رصيدك الترويجي قابل للتداول. يمكنك السحب بعد أول إيداع مؤهل وصفقة واحدة. يتوقف التداول عند بلوغ 30 دولارًا ربحًا حتى تودع.',
         'promo.creditBadge': 'رصيد ترويجي',
-        'promo.creditExplain': 'يتضمن حسابك ${{amount}} كرصيد ترويجي للتداول. اشترِ تفعيل الوضع المباشر لفتح التداول المباشر.',
-        'promo.creditExplainTradable': 'يتضمن حسابك ${{amount}} كرصيد تداول ترويجي. يمكن استخدامه للتداول؛ ويُحدّ الربح عند $30 حتى أول إيداع لك.',
-        'liveMode.fundingNote': 'الوضع المباشر مُفعّل. قم بإيداع لتمويل محفظتك المباشرة وبدء التداول.',
+        'promo.creditExplainTradable': 'رصيدك الترويجي البالغ ${{amount}} قابل للتداول. يمكنك السحب بعد أول إيداع مؤهل وصفقة واحدة.',
+        'liveMode.fundingNote': 'أودع لتمويل محفظتك Live وبدء التداول.',
         'liveMode.status.depositRequired': 'الإيداع مطلوب',
-        'liveMode.depositNote': 'يتطلب الوضع المباشر أيضًا إيداعًا مؤكدًا لا يقل عن ${{min}}. قم بإيداعك لإكمال الإعداد.',
-        'liveMode.status.activationRequired': 'التفعيل مطلوب',
-        'liveMode.status.fundingRequired': 'مُفعّل — التمويل مطلوب',
+        'liveMode.depositNote': 'يتطلب الوضع المباشر إيداعًا مؤكدًا لا يقل عن ${{min}}. قم بإيداعك لإكمال الإعداد.',
+        'liveMode.status.fundingRequired': 'التمويل مطلوب',
         'liveMode.status.available': 'الوضع المباشر متاح',
+        'liveMode.depositCta': 'إتمام الإيداع',
+        'liveAccess.notAvailable': 'التداول الحي غير متاح لهذا الحساب بعد. يرجى التواصل مع الدعم وسنساعدك في إتمام الإعداد.',
+        'liveAccess.retryLater': 'لم نتمكن من تأكيد وصولك إلى Live الآن. يرجى المحاولة مرة أخرى بعد قليل.',
         'referral.simulated': '✅ تمت محاكاة الإحالة! +1 صديق، تمت إضافة المكافأة',
         'referral.resetConfirm': 'إعادة تعيين جميع بيانات الإحالة؟ لا يمكن التراجع عن ذلك.',
         'referral.resetDone': 'تمت إعادة تعيين بيانات الإحالة',
@@ -18205,19 +18066,15 @@ const TRANSLATIONS = {
         'onboarding.subtitle': 'إليك كيف تبدأ.',
         'onboarding.primary': 'ابدأ برصيدي الترويجي 50$',
         'onboarding.primaryDesc': 'شغّل البوت برصيدك الترويجي. الربح محدود بـ 30 دولارًا حتى تقوم بالإيداع.',
-        'onboarding.primaryDescActivation': 'يتطلب التداول المباشر تفعيلًا لمرة واحدة وإيداعًا أولًا. رصيدك الترويجي بقيمة $50 موجود بالفعل في حسابك.',
         'onboarding.secondary': 'أريد الإيداع',
         'onboarding.secondaryDesc': 'موّل رصيد Live بعملة USDT للتداول بما يتجاوز الرصيد الترويجي.',
         'onboarding.realNote': 'الأموال المودعة هي رأس مالك ويمكن سحبها.',
         'onboarding.promoNote': 'الرصيد الترويجي البالغ $50 منفصل عن أموالك المودعة.',
         'onboarding.noObligation': 'يمكنك الإيداع متى شئت.',
         'onboarding.explainer': 'تعمل Kalderix على المراجحة متعددة الأصول تلقائيًا. يتضمن حسابك رصيدًا ترويجيًا بقيمة 50 دولارًا، لذا يمكنك تشغيل البوت قبل الإيداع.',
-        'onboarding.explainerActivation': 'تقوم Kalderix بالتداول الآلي للتحكيم بين الأصول المتعددة. يتضمن حسابك رصيدًا ترويجيًا بقيمة $50. يتطلب التداول المباشر تفعيلًا لمرة واحدة وإيداعًا لا يقل عن ${{min}}.',
         'startHere.dismiss': 'تجاهل',
         'startHere.live.title': 'البدء السريع',
-        'startHere.live.subtitle': 'جهّز تداولك المباشر في خطوتين.',
         'startHere.live.subtitleNext': 'خطوتك التالية لبدء التداول المباشر.',
-        'startHere.live.step0': 'أكمل تفعيل الوضع المباشر لمرة واحدة بقيمة 50 دولارًا',
         'startHere.live.step3': 'نفّذ أول عملية تداول مباشرة لك',
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية - منفصلة عن رصيدك الترويجي.',
@@ -18419,25 +18276,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': 'أيدٍ ماسية',
         'badges.diamondHandsDesc': 'تحقيق ربح بعد 10 صفقات',
         'live.withdrawStatus.notDeposited': '💳 يرجى إجراء إيداع أدنى ${{min}} لتفعيل السحب',
-        'liveActivation.notice': 'يتطلب الوضع المباشر تفعيلاً لمرة واحدة.',
-        'liveActivation.cta': 'تفعيل الوضع المباشر',
-        'liveActivation.depositCta': 'إتمام الإيداع',
-        'liveActivation.title': 'تفعيل الوضع المباشر',
-        'liveActivation.body': 'يتطلب وضع LIVE تفعيلًا لمرة واحدة. التفعيل يفتح التداول المباشر ولا يضيف رأس مال: تموّل محفظة LIVE بإيداع لا يقل عن الحد الأدنى للمنصة.',
-        'liveActivation.buy': 'شراء التفعيل',
-        'liveActivation.keyLabel': 'اشتريت بالفعل؟ أدخل مفتاح الترخيص',
-        'liveActivation.submit': 'تفعيل',
-        'liveActivation.blockedToast': 'التداول الحقيقي مقفل حتى تفعّل حسابك. خطوة واحدة تستغرق حوالي دقيقة.',
         'liveDeposit.blockedToast': 'أضف {{min}} دولارًا على الأقل كرأس مال تداول لبدء التداول المباشر.',
-        'liveActivation.supportCta': 'تواصل مع الدعم',
-        'liveActivation.purchaseUnavailable': 'شراء التفعيل غير متاح مؤقتًا. تواصل مع الدعم وسنكمله معك.',
-        'liveActivation.nextStep': 'تم تفعيل الوضع المباشر. الخطوة التالية: أضف {{min}} دولارًا على الأقل كرأس مال تداول لبدء التداول.',
-        'liveActivation.hint': 'الترخيص الواحد يفعّل حساباً واحداً، مرة واحدة، ولا يمكن نقله. التفعيل لا يضيف أي رصيد.',
-        'liveActivation.keyRequired': 'أدخل مفتاح الترخيص.',
-        'liveActivation.failed': 'تعذّر استخدام مفتاح الترخيص هذا.',
-        'liveActivation.confirming': 'ما زلنا نتحقق من عملية الشراء. حاول مرة أخرى بعد بضع دقائق، أو تواصل مع الدعم مع إيصال Payhip.',
-        'liveActivation.retryLater': 'التفعيل غير متاح مؤقتًا. حاول مرة أخرى بعد قليل.',
-        'liveActivation.success': 'تم تفعيل الوضع المباشر.',
         'live.withdrawStatus.needMinimum': '📈 الحد الأدنى للسحب: ${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 واصل التداول لزيادة رصيدك المؤهل',
         'live.withdrawStatus.noTrades': '📊 أتمم صفقة واحدة على الأقل للسحب',
@@ -18526,7 +18365,7 @@ const TRANSLATIONS = {
         'support.reply.bot': '🤖 لتشغيل البوت: 1) افتح لوحة التحكم، 2) اضغط على \'تشغيل البوت\' وسيفحص الأسواق المدعومة ويتداول تلقائيًا.',
         'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، ثم أرسل USDT على شبكة TRON (TRC20) إلى العنوان المعروض. يقبل Kalderix USDT على TRON (TRC20) فقط. سنكتشف ذلك تلقائيًا.',
         'support.reply.withdraw': '🏦 للسحب: 1) بدّل إلى وضع LIVE، 2) قم بإيداع، 3) أكمل عملية واحدة على الأقل، 4) انقر على \'Withdraw\' في الشريط الجانبي. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة.',
-        'support.reply.bonus': '🎁 أحِل أصدقاء لتكسب 20% من أول إيداع مؤهل لهم! تتراكم مكافأتك في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى.',
+        'support.reply.bonus': '🎁 أحِل أصدقاء لتكسب 20% من أول إيداع مؤهل لهم! تتراكم مكافأتك في أرباح الإحالات ويمكن نقلها إلى محفظة Live في أي وقت — بدون حد أدنى.',
         'support.reply.sound': '🔊 يمكنك التحكم بالأصوات بالنقر على أيقونة السماعة في الترويسة، أو ضبط مستوى الصوت في إعدادات الملف الشخصي.',
         'support.reply.language': '🌍 يمكنك تغيير اللغة بالنقر على أيقونة 🌐 الكرة الأرضية في الترويسة، أو في إعدادات الملف الشخصي.',
         'support.reply.hello': '👋 مرحبًا! أهلًا بك في دعم Kalderix. كيف يمكنني مساعدتك اليوم؟',
@@ -18580,9 +18419,9 @@ const TRANSLATIONS = {
         'ticker.newTrader': 'متداول جديد من <span class="ticker-amount gold">{{country}}</span> انضم إلى Kalderix',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> فتح <span class="ticker-amount gold">{{badge}}</span></span>',
         'referral.welcomeReferred': '🎉 أهلًا بك! سيربح صديقك مكافأة إحالة.',
-        'referral.simulatedToast': '🎉 <strong>تمت محاكاة الإحالة!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} مكافأة أُضيفت إلى محفظة المكافآت</span>',
+        'referral.simulatedToast': '🎉 <strong>تمت محاكاة الإحالة!</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} أُضيفت إلى أرباح الإحالات</span>',
         'referral.simulatedTitle': 'تمت محاكاة الإحالة',
-        'referral.simulatedDesc': '+${{amount}} مكافأة أُضيفت إلى محفظة المكافآت',
+        'referral.simulatedDesc': '+${{amount}} أُضيفت إلى أرباح الإحالات',
         'referral.simulateError': 'خطأ في محاكاة الإحالة',
         'referral.codeLoading': 'رمز الإحالة قيد التحميل، حاول مرة أخرى بعد قليل',
         'bonus.withdrawnTitle': 'تم سحب المكافأة',
@@ -18699,7 +18538,7 @@ const TRANSLATIONS = {
         'tx.type.subscription': 'اشتراك',
         'tx.type.referralCommission': 'عمولة الإحالة',
         'tx.detail.allFundsRemoved': 'تمت إزالة كل الأموال',
-        'tx.detail.fromBonusWallet': 'من محفظة المكافآت',
+        'tx.detail.fromBonusWallet': 'من أرباح الإحالات',
         'tx.detail.bonusToLive': 'تم سحب المكافأة إلى محفظة LIVE',
         'subscription.month': 'شهر',
         'subscription.activate': 'تفعيل Pro',
@@ -18829,7 +18668,6 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': 'فشل إعادة إنشاء الرموز',
         '2fa.disableFailed': 'فشل تعطيل المصادقة الثنائية',
         'deposit.min10': 'الحد الأدنى للإيداع هو $10',
-        'deposit.activationNote': 'هذا الإيداع هو رأس مال تداول. ويحتاج التداول الحقيقي أيضًا إلى تفعيل منفصل لمرة واحدة بقيمة 50 دولارًا؛ فالإيداع وحده لا يفعّل حسابك.',
         'deposit.min100': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.invoiceNotFound': 'الفاتورة غير موجودة',
         'deposit.createInvoiceFailed': 'فشل إنشاء الفاتورة',
@@ -18989,7 +18827,7 @@ const TRANSLATIONS = {
         'referral.step2Text': 'يقوم الصديق بإيداع ≥',
         'referral.step3Text': 'تكتسب',
         'referral.bonusWord': 'مكافأة',
-        'referral.bonusWallet': 'محفظة المكافآت',
+        'referral.bonusWallet': 'أرباح الإحالات',
         'referral.pending.titleCount': 'الإحالات المعلقة ({{count}})',
         'referral.pending.subtitle': 'في انتظار أول إيداع',
         'referral.pending.tapToView': 'اضغط للعرض',
@@ -19490,7 +19328,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'AI 交易机器人如何工作？',
         'landing.faq.4.a': '我们的 AI 持续监控 50+ 家交易所的价格差异。当它发现套利机会（价格差异）时，会自动执行交易以从差价中获利。您可以随时启动/停止机器人。',
         'landing.faq.5.q': '推荐奖励如何运作？',
-        'landing.faq.5.a': '当您推荐的好友完成至少 $50 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（无最低提现要求、需要时进行提现安全验证以及有效地址）。',
+        'landing.faq.5.a': '当您推荐的好友完成至少 $50 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到推荐收益中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（无最低提现要求、需要时进行提现安全验证以及有效地址）。',
         'landing.faq.6.q': '需要账户验证吗？',
         'landing.faq.6.a': '创建基础账户仅需邮箱和密码。为遵守监管要求，可能需要 KYC 验证以获得更高的提现额度或使用特定功能。',
         'landing.cta.title': '今天就开始交易',
@@ -19645,7 +19483,8 @@ const TRANSLATIONS = {
         'bot.pausedShort': '已暂停',
         'bot.errorState': '错误',
         'bot.runningMsg': '正在扫描支持的市场。新的交易会显示在下方活动记录中。',
-        'bot.engineNotice': "🤖 在此浏览器标签页中运行。关闭或刷新页面后交易将暂停。",
+        'bot.engineNotice': "🤖 交易仅在当前页面打开时运行。关闭或刷新页面后，机器人会停止，需要重新启动。",
+        'bot.engineNoticeUnknown': '🤖 机器人当前状态显示在上方。机器人运行期间会自动执行交易。',
         'bot.engineNoticeWorker': "即使您关闭此页面，您的机器人仍会继续运行。您可以随时回来查看您的活动。",
         'bot.workerManaged': "🤖 您的机器人现在会自动运行。即使您离线，它也会继续交易。",
         'chart.title': '权益表现',
@@ -19674,14 +19513,14 @@ const TRANSLATIONS = {
         'achievements.allUnlocked': '🎉 所有徽章已解锁！',
         'achievements.next': '下一个：',
         'wallet.live': '实盘钱包',
-        'wallet.bonus': '奖金钱包',
-        'bonus.balance': '奖金余额',
+        'wallet.bonus': '推荐收益',
+        'bonus.balance': '推荐收益',
+        'bonus.about': '来自您推荐好友的收益，可随时转入您的 Live 钱包。',
         'bonus.noEarnings': '暂无可转换的推荐收益。',
-        'bonus.withdrawToLive': '将奖金提现到实盘钱包',
-        'bonus.withdrawSuccess': '✅ 已将 ${{amount}} 奖金提现到实盘钱包！',
-        'bonus.noReferrals': '📢 提现奖金前请至少推荐 1 位好友',
+        'bonus.withdrawToLive': '转入 Live 钱包',
+        'bonus.withdrawSuccess': '✅ 已将 ${{amount}} 转入您的 Live 钱包',
         'bonus.convertFailed': '❌ 无法转换您的推荐收益。请重试。',
-        'bonus.withdrawHistory': '💰 奖金已提现：${{amount}} 到实盘钱包',
+        'bonus.withdrawHistory': '💰 已转入 Live 钱包：${{amount}}',
         'history.title': '交易记录',
         'history.last30min': '最近 30 分钟',
         'history.allActivity': '全部活动',
@@ -19794,17 +19633,18 @@ const TRANSLATIONS = {
         'referral.reset': '重置',
         'referral.earned': '🎉 推荐好友成功，您获得了推荐奖励！',
         'referral.withdrawNote': '\u63a8\u8350\u6536\u76ca\u4e0e\u666e\u901a\u63d0\u73b0\u5206\u5f00\u652f\u4ed8 - \u65e0\u6700\u4f4e\u63d0\u73b0\u989d\uff0c\u4e5f\u65e0\u9700\u4ea4\u6613\u3002',
-        'promo.tradableNotice': '您的 50 美元促销信用可用于交易。首次入金前，利润上限为 30 美元。',
         'promo.creditTitle': '促销信用',
+        'promo.tradableNotice': '您的促销信用可用于交易。完成首笔合格入金和一笔交易后即可提现。盈利达到 30 美元时交易将暂停，直到您入金。',
         'promo.creditBadge': '促销信用',
-        'promo.creditExplain': '您的账户包含 ${{amount}} 促销交易信用。购买实时模式激活即可解锁实时交易。',
-        'promo.creditExplainTradable': '您的账户包含 ${{amount}} 促销交易信用。该信用可用于交易；在您首次入金之前，其利润上限为 $30。',
-        'liveMode.fundingNote': '实时模式已激活。请入金为您的实盘钱包充值并开始交易。',
+        'promo.creditExplainTradable': '您的 ${{amount}} 促销信用可用于交易。完成首笔合格入金和一笔交易后即可提现。',
+        'liveMode.fundingNote': '入金为您的 Live 钱包充值并开始交易。',
         'liveMode.status.depositRequired': '需要入金',
-        'liveMode.depositNote': '实时模式除激活外，还需要至少 ${{min}} 的已确认入金。请完成入金以完成设置。',
-        'liveMode.status.activationRequired': '需要激活',
-        'liveMode.status.fundingRequired': '已激活 — 需要入金',
+        'liveMode.depositNote': '实盘模式需要至少 ${{min}} 的已确认入金。请完成入金以完成设置。',
+        'liveMode.status.fundingRequired': '需要入金',
         'liveMode.status.available': '实时模式可用',
+        'liveMode.depositCta': '完成我的入金',
+        'liveAccess.notAvailable': '该账户暂时无法使用实盘交易。请联系客服，我们会帮您完成设置。',
+        'liveAccess.retryLater': '我们目前无法确认您的实盘访问。请稍后重试。',
         'referral.simulated': '✅ 推荐已模拟！+1 好友，已添加奖励',
         'referral.resetConfirm': '重置所有推荐数据？此操作无法撤销。',
         'referral.resetDone': '推荐数据已重置',
@@ -19838,19 +19678,15 @@ const TRANSLATIONS = {
         'onboarding.subtitle': '您可以这样开始。',
         'onboarding.primary': '用我的 50 美元信用开始',
         'onboarding.primaryDesc': '用促销信用运行机器人。在您入金之前，利润上限为 30 美元。',
-        'onboarding.primaryDescActivation': '实时交易需要先完成一次性激活并入金。您的 $50 促销信用已在账户中。',
         'onboarding.secondary': '我要入金',
         'onboarding.secondaryDesc': '用 USDT 为 Live 余额入金，突破促销信用的交易额度。',
         'onboarding.realNote': '入金属于您自己的资金，可以提取。',
         'onboarding.promoNote': '$50 促销额度与您的入金资金相互独立。',
         'onboarding.noObligation': '随时可以入金。',
         'onboarding.explainer': 'Kalderix 自动执行多资产套利。您的账户包含 50 美元促销信用，因此可以先运行机器人，再决定是否入金。',
-        'onboarding.explainerActivation': 'Kalderix 自动进行多资产套利交易。您的账户包含 $50 促销信用。实时交易需要一次性激活，以及至少 ${{min}} 的入金。',
         'startHere.dismiss': '忽略',
         'startHere.live.title': '快速开始',
-        'startHere.live.subtitle': '两步设置 Live 交易。',
         'startHere.live.subtitleNext': '开始实时交易的下一步。',
-        'startHere.live.step0': '完成一次性 $50 实时模式激活',
         'startHere.live.step3': '完成您的第一笔实时交易',
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 - 与促销信用分开。',
@@ -20052,25 +19888,7 @@ const TRANSLATIONS = {
         'badges.diamondHands': '钻石手',
         'badges.diamondHandsDesc': '10 笔交易后盈利',
         'live.withdrawStatus.notDeposited': '💳 请至少入金 ${{min}} 以启用提现',
-        'liveActivation.notice': '实时模式需要一次性激活。',
-        'liveActivation.cta': '激活实时模式',
-        'liveActivation.depositCta': '完成我的入金',
-        'liveActivation.title': '激活实时模式',
-        'liveActivation.body': 'Live 模式需要一次性激活。激活只开启实盘交易，不增加资金：您需要通过至少达到平台最低金额的入金来为 Live 钱包充值。',
-        'liveActivation.buy': '购买激活',
-        'liveActivation.keyLabel': '已经购买？请输入您的许可证密钥',
-        'liveActivation.submit': '激活',
-        'liveActivation.blockedToast': '实时交易在激活前保持锁定。这是一次性步骤，约需一分钟。',
         'liveDeposit.blockedToast': '请至少存入 ${{min}} 交易资金以开始实时交易。',
-        'liveActivation.supportCta': '联系客服',
-        'liveActivation.purchaseUnavailable': '激活购买暂时不可用。请联系客服，我们将协助您完成。',
-        'liveActivation.nextStep': '实时模式已激活。下一步：至少存入 ${{min}} 交易资金即可开始交易。',
-        'liveActivation.hint': '一个许可证仅激活一个账户，且只能使用一次，不能转让。激活不会增加任何余额。',
-        'liveActivation.keyRequired': '请输入您的许可证密钥。',
-        'liveActivation.failed': '该许可证密钥无法兑换。',
-        'liveActivation.confirming': '我们仍在确认您的购买。请几分钟后再试，或携带 Payhip 收据联系客服。',
-        'liveActivation.retryLater': '激活暂时不可用，请稍后再试。',
-        'liveActivation.success': '实时模式已激活。',
         'live.withdrawStatus.needMinimum': '📈 最低提现额：${{min}}',
         'live.withdrawStatus.belowMinimum': '📈 继续交易以增加您的可用余额',
         'live.withdrawStatus.noTrades': '📊 请至少完成 1 笔交易才能提现',
@@ -20159,7 +19977,7 @@ const TRANSLATIONS = {
         'support.reply.bot': '🤖 启动机器人：1) 打开您的面板，2) 点击「启动机器人」，它会扫描支持的市场并自动交易。',
         'support.reply.deposit': '💰 入金：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，然后通过 TRON (TRC20) 网络将 USDT 发送到显示的地址。Kalderix 仅接受 TRON (TRC20) 网络上的 USDT。我们会自动检测。',
         'support.reply.withdraw': '🏦 提现：1) 切换到 LIVE 模式，2) 进行存款，3) 至少完成 1 笔交易，4) 点击侧边栏的 \'Withdraw\'。提现处理通常需要 15–30 分钟。',
-        'support.reply.bonus': '🎁 推荐好友即可赚取其首次合格入金的 20%！您的奖励会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低额度。',
+        'support.reply.bonus': '🎁 推荐好友即可赚取其首次合格入金的 20%！您的奖励会累积到推荐收益中，并可随时转入您的 Live 钱包，无最低额度。',
         'support.reply.sound': '🔊 您可以点击页眉中的扬声器图标来控制声音，或在个人资料设置中调节音量。',
         'support.reply.language': '🌍 您可以点击页眉中的 🌐 地球图标更改语言，或在个人资料设置中更改。',
         'support.reply.hello': '👋 您好！欢迎来到 Kalderix 支持。今天我能为您做些什么？',
@@ -20213,9 +20031,9 @@ const TRANSLATIONS = {
         'ticker.newTrader': '来自 <span class="ticker-amount gold">{{country}}</span> 的新交易者加入了 Kalderix',
         'ticker.badgeUnlocked': '<span class="ticker-item"><span>🏆</span> <span class="ticker-user">{{user}}</span> 解锁了 <span class="ticker-amount gold">{{badge}}</span></span>',
         'referral.welcomeReferred': '🎉 欢迎！您的朋友将获得推荐奖励。',
-        'referral.simulatedToast': '🎉 <strong>模拟推荐成功！</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} 奖励已添加到奖励钱包</span>',
+        'referral.simulatedToast': '🎉 <strong>模拟推荐成功！</strong><br><span style="font-size:10px;opacity:0.9;">+${{amount}} 已添加到推荐收益</span>',
         'referral.simulatedTitle': '模拟推荐',
-        'referral.simulatedDesc': '+${{amount}} 奖励已添加到奖励钱包',
+        'referral.simulatedDesc': '+${{amount}} 已添加到推荐收益',
         'referral.simulateError': '模拟推荐时出错',
         'referral.codeLoading': '推荐码正在加载，请稍后重试',
         'bonus.withdrawnTitle': '奖励已提现',
@@ -20332,7 +20150,7 @@ const TRANSLATIONS = {
         'tx.type.subscription': '订阅',
         'tx.type.referralCommission': '推荐佣金',
         'tx.detail.allFundsRemoved': '所有资金已移除',
-        'tx.detail.fromBonusWallet': '来自 Bonus Wallet',
+        'tx.detail.fromBonusWallet': '来自推荐收益',
         'tx.detail.bonusToLive': '奖励已提现到 Live Wallet',
         'subscription.month': '月',
         'subscription.activate': '激活 Pro',
@@ -20462,7 +20280,6 @@ const TRANSLATIONS = {
         '2fa.regenerateFailed': '重新生成恢复码失败',
         '2fa.disableFailed': '禁用两步验证失败',
         'deposit.min10': '最低存款为 $10',
-        'deposit.activationNote': '本次入金为交易资金。实时交易还需要另行完成一次性 $50 激活——仅仅入金并不会激活账户。',
         'deposit.min100': '最低存款为 ${{min}}',
         'deposit.invoiceNotFound': '未找到发票',
         'deposit.createInvoiceFailed': '创建发票失败',
@@ -20622,7 +20439,7 @@ const TRANSLATIONS = {
         'referral.step2Text': '好友存款 ≥',
         'referral.step3Text': '您赚取',
         'referral.bonusWord': '奖励',
-        'referral.bonusWallet': '奖励钱包',
+        'referral.bonusWallet': '推荐收益',
         'referral.pending.titleCount': '待处理推荐（{{count}}）',
         'referral.pending.subtitle': '等待首次入金',
         'referral.pending.tapToView': '点击查看',
@@ -21151,14 +20968,17 @@ const BACKEND_DYNAMIC_MESSAGE_RULES = [
 // /api/withdraw/request. A tampered APP.liveMode can therefore only change what
 // this card SAYS, never what the account can do.
 const LIVE_MODE_STATUS_VIEW = {
-    activation_required: { key: 'liveMode.status.activationRequired', badge: 'pending' },
+    // 'activation_required' is a legacy server state. The customer journey no
+    // longer contains a paid activation step, so it is presented as the step the
+    // customer can actually take: fund the Live wallet.
+    activation_required: { key: 'liveMode.status.depositRequired', badge: 'pending' },
     deposit_required: { key: 'liveMode.status.depositRequired', badge: 'pending' },
     funding_required: { key: 'liveMode.status.fundingRequired', badge: 'demo' },
     available: { key: 'liveMode.status.available', badge: 'funded' }
 };
 function liveModeStatusView(status) {
     const view = LIVE_MODE_STATUS_VIEW[String(status || '')];
-    return view || LIVE_MODE_STATUS_VIEW.activation_required;
+    return view || LIVE_MODE_STATUS_VIEW.funding_required;
 }
 // Money for this card is always formatted from the server number, never from
 // user input, and is never treated as spendable state.
@@ -21166,20 +20986,6 @@ function promoCreditText(amount) {
     const n = Number(amount);
     if (!isFinite(n) || n <= 0) return '$0.00';
     return '$' + n.toFixed(2);
-}
-/**
- * TRUE only while the platform actually REQUIRES a paid Live activation and this
- * account has not completed it. Every activation-dependent sentence (promo card,
- * start-here checklist, onboarding modal, deposit dialog) keys off this, so a
- * deployment running with PAYHIP_ACTIVATION_REQUIRED off can never instruct a
- * customer to buy something the platform does not apply.
- */
-function activationPending() {
-    try {
-        return APP.activationRequired === true && APP.liveActivated !== true;
-    } catch (e) {
-        return false;
-    }
 }
 function renderLiveModeCard() {
     try {
@@ -21215,139 +21021,27 @@ function renderLiveModeCard() {
             // Placeholders are interpolated here (never via data-i18n, which would
             // print them raw). The dollar sign lives in the template.
             let text;
-            if (status === 'deposit_required') {
+            if (status === 'deposit_required' || status === 'activation_required') {
                 text = t('liveMode.depositNote', { min: String(Number(APP.MIN_DEPOSIT) || 0) });
             } else if (amount > 0) {
-                // The activation sentence is TRUE only while an activation is
-                // actually outstanding. An activated (or activation-free)
-                // account gets the plain tradability sentence instead of being
-                // told to purchase a licence it does not need.
-                text = activationPending()
-                    ? t('promo.creditExplain', { amount: String(Number(amount)) })
-                    : t('promo.creditExplainTradable', { amount: String(Number(amount)) });
+                text = t('promo.creditExplainTradable', { amount: String(Number(amount)) });
             } else {
                 text = t('liveMode.fundingNote');
             }
             explain.textContent = text;
         }
-        const btn = document.getElementById('liveModeActivateBtn');
-        if (btn) btn.classList.toggle('hidden', status !== 'activation_required');
         // Activation is done but the qualifying deposit is not: the next step is a
         // deposit, not another licence. Display only - the gates are server-side.
         // `funding_required` is the same situation without a promotional credit,
         // and BOTH must offer the action: telling a customer "make your deposit"
         // without giving them the button is the dead end this audit found.
         const depBtn = document.getElementById('liveModeDepositBtn');
-        const needsDeposit = status === 'deposit_required' || status === 'funding_required';
+        const needsDeposit = status === 'deposit_required' || status === 'funding_required'
+            || status === 'activation_required';
         if (depBtn) depBtn.classList.toggle('hidden', !needsDeposit);
     } catch (e) { /* display only: a render failure must never break the dashboard */ }
 }
 
-// ============ PAYHIP LIVE MODE ACTIVATION (display only) ============
-// The real gate is server-side (/api/bot/start, /api/trade return 403
-// LIVE_ACTIVATION_REQUIRED). These helpers only render the state the server
-// reported and submit a licence key; they never decide access themselves.
-function updateLiveActivationUI() {
-    try {
-        const notice = document.getElementById('liveActivationNotice');
-        const needed = activationPending();
-        if (notice) notice.classList.toggle('hidden', !needed);
-        // The deposit dialog carries a "your deposit does not activate your
-        // account" note. It is only true while an activation is outstanding;
-        // showing it unconditionally told every depositor on an activation-free
-        // deployment that their deposit would not activate anything.
-        const depositNote = document.getElementById('depositActivationNote');
-        if (depositNote) depositNote.style.display = needed ? '' : 'none';
-        const buy = document.getElementById('liveActivationBuyBtn');
-        const unavailable = document.getElementById('liveActivationUnavailable');
-        const url = APP.activationStoreUrl || '';
-        const usable = /^https:\/\//i.test(url);
-        const canBuy = usable && APP.activationPurchasable !== false;
-        if (buy) {
-            buy.classList.toggle('hidden', !canBuy);
-            if (usable) buy.href = url;
-            else buy.removeAttribute('href');
-        }
-        // Never a silent dead end: when there is no purchase route, say so and
-        // point at support (the button below the hint).
-        if (unavailable) unavailable.classList.toggle('hidden', canBuy);
-        // The onboarding modal is shown BEFORE /api/auth/me resolves on a fresh
-        // signup, so its activation-dependent copy is refreshed here once the
-        // authoritative state is known (and on every language switch).
-        if (typeof renderOnboardingActivationCopy === 'function') renderOnboardingActivationCopy();
-    } catch (e) { /* display only */ }
-}
-function openLiveActivationModal() {
-    const m = document.getElementById('liveActivationModal');
-    if (!m) return;
-    const err = document.getElementById('liveActivationError');
-    if (err) { err.style.display = 'none'; err.textContent = ''; }
-    const key = document.getElementById('liveActivationKey');
-    if (key) key.value = '';
-    m.classList.add('open');
-    m.setAttribute('aria-hidden', 'false');
-    updateLiveActivationUI();
-    if (key) setTimeout(function () { try { key.focus({ preventScroll: true }); } catch (e) {} }, 60);
-}
-function closeLiveActivationModal() {
-    const m = document.getElementById('liveActivationModal');
-    if (!m) return;
-    m.classList.remove('open');
-    m.setAttribute('aria-hidden', 'true');
-}
-async function submitLiveActivation() {
-    const keyEl = document.getElementById('liveActivationKey');
-    const errEl = document.getElementById('liveActivationError');
-    const btn = document.getElementById('liveActivationSubmitBtn');
-    const licenceKey = (keyEl && keyEl.value ? keyEl.value : '').trim();
-    const fail = function (msg) {
-        if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
-    };
-    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-    if (!licenceKey) { fail(t('liveActivation.keyRequired')); return; }
-    if (btn) btn.disabled = true;
-    try {
-        const res = await fetch('/api/live/activate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('jwt_token') || '') },
-            body: JSON.stringify({ licenceKey: licenceKey })
-        });
-        const data = await res.json().catch(function () { return {}; });
-        if (!res.ok || !data.success) {
-            // A retryable failure means "we could not check right now", which must
-            // never be reported as a bad key: the customer may have paid and their
-            // licence may be perfectly valid.
-            const retryable = data.reason === 'unavailable' || data.reason === 'too-many-attempts';
-            // 'not-recorded' means Payhip confirmed the licence but the paid sale
-            // has not reached us yet (its webhook is still retrying). Saying "not
-            // valid" there would be wrong and would hide a real purchase.
-            const confirming = data.reason === 'not-recorded';
-            fail(confirming
-                ? t('liveActivation.confirming')
-                : (retryable
-                    ? t('liveActivation.retryLater')
-                    : translateBackendMessage(data.error, 'liveActivation.failed')));
-            return;
-        }
-        APP.liveActivated = data.activated === true;
-        // The server returns the post-activation state; adopt it instead of
-        // guessing (the label must reflect real eligibility).
-        if (data.liveMode && typeof data.liveMode === 'object') APP.liveMode = data.liveMode;
-        updateLiveActivationUI();
-        if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
-        closeLiveActivationModal();
-        showToast(t('liveActivation.success'), 'success');
-        // Activation buys permission, not capital - say what is still missing.
-        setTimeout(function () {
-            showToast(t('liveActivation.nextStep', { min: String(Number(APP.MIN_DEPOSIT) || 50) }), 'info', 8000);
-        }, 900);
-        if (typeof updateUI === 'function') updateUI();
-    } catch (e) {
-        fail(t('liveActivation.failed'));
-    } finally {
-        if (btn) btn.disabled = false;
-    }
-}
 
 function translateBackendMessage(message, fallbackKey) {
     // A mapped key may carry placeholders that depend on live configuration
@@ -21435,8 +21129,6 @@ function updateDynamicTranslations() {
         // Keep the bot engine disclosure in the user's language (the static
         // data-i18n default assumes the browser engine).
         if (typeof updateBotEngineNotice === 'function') updateBotEngineNotice();
-        // Keep the Live activation notice + modal copy in the new language.
-        if (typeof updateLiveActivationUI === 'function') updateLiveActivationUI();
         // Promotional credit card: the amount in the explanation is interpolated
         // by t(), so it must be rebuilt on a language switch (it is deliberately
         // NOT a data-i18n target, which would print the raw placeholder).
@@ -21473,7 +21165,7 @@ function updateDynamicTranslations() {
         // of its labels are data-i18n), so re-apply it on language switch.
         if (typeof renderArbOpportunityLabels === 'function') renderArbOpportunityLabels();
         // Re-apply status-specific KYC modal header on language switch. Guarded
-        // with typeof because the function is declared in a LATER <script>
+        // with typeof because the function is declared in a LATER script
         // block: applyTranslations() runs at parse time on first load, before
         // that block is evaluated. It is still called directly from
         // populateVerificationUI() when the modal opens, so behavior is
@@ -21606,22 +21298,6 @@ console.log('🌍 i18n system loaded. Current language:', currentLang);
 </script>
 
 <script>
-// ============ DEBUG: Fetch interceptor to trace ALL requests ============
-(function() {
-    const realFetch = window.fetch;
-    window.fetch = function(url, options) {
-        // CRITICAL: Log ALL fetch calls with stack trace
-        const err = new Error();
-        console.log('[FETCH INTERCEPTOR] ========== NEW REQUEST ==========');
-        console.log('[FETCH INTERCEPTOR] URL:', url);
-        console.log('[FETCH INTERCEPTOR] Method:', options?.method || 'GET');
-        console.log('[FETCH INTERCEPTOR] STACK TRACE:');
-        console.log(err.stack);
-        return realFetch(url, options);
-    };
-})();
-// ============================================================
-
 // ============ MAIN APP LOGIC ============
 const PWA = { deferredPrompt: null, isStandalone: false, isIOS: false };
 try { PWA.isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; PWA.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; } catch(e) {}
@@ -23258,6 +22934,35 @@ function addBadgeToTicker(badge) {
 }
 
 // ============ CHART ============
+/**
+ * Canvas colours must be literals. Chart.js writes them straight onto the 2D
+ * context, which cannot resolve `var(--brand)`: an invalid colour is ignored and
+ * the context keeps its default, so the equity line, the hover points and the
+ * tooltip text all painted BLACK over the dark card - the "black block" that
+ * looked like a rendering artefact around the line.
+ */
+function chartColor(name, fallback) {
+    try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    } catch (e) { return fallback; }
+}
+function chartRgba(color, alpha) {
+    const c = String(color || '').trim();
+    const hex = c.replace('#', '');
+    if (/^[0-9a-f]{3}$/i.test(hex)) {
+        return 'rgba(' + parseInt(hex[0] + hex[0], 16) + ', ' + parseInt(hex[1] + hex[1], 16) + ', ' + parseInt(hex[2] + hex[2], 16) + ', ' + alpha + ')';
+    }
+    if (/^[0-9a-f]{6}$/i.test(hex)) {
+        return 'rgba(' + parseInt(hex.slice(0, 2), 16) + ', ' + parseInt(hex.slice(2, 4), 16) + ', ' + parseInt(hex.slice(4, 6), 16) + ', ' + alpha + ')';
+    }
+    const m = c.match(/^rgba?\(([^)]+)\)$/i);
+    if (m) {
+        const p = m[1].split(',').map(function (x) { return x.trim(); });
+        return 'rgba(' + p[0] + ', ' + p[1] + ', ' + p[2] + ', ' + alpha + ')';
+    }
+    return 'rgba(94, 160, 255, ' + alpha + ')';
+}
 function initChart() {
     const canvas = getEl('pnlChart');
     if(!canvas) return;
@@ -23273,10 +22978,14 @@ function initChart() {
         return;
     }
     const ctx = canvas.getContext('2d');
+    const brand = chartColor('--brand', '#5EA0FF');
+    const textColor = chartColor('--kx-text', '#E8EEF7');
+    const tooltipBg = chartColor('--kx-surface-2', '#1C2634');
+    const gridColor = 'rgba(30, 42, 63, 0.3)';
     const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(240, 185, 11, 0.35)');
-    gradient.addColorStop(0.5, 'rgba(240, 185, 11, 0.1)');
-    gradient.addColorStop(1, 'rgba(240, 185, 11, 0)');
+    gradient.addColorStop(0, chartRgba(brand, 0.35));
+    gradient.addColorStop(0.5, chartRgba(brand, 0.1));
+    gradient.addColorStop(1, chartRgba(brand, 0));
     const wallet = 'live';
     if(!APP.chartData[wallet].values.length) {
         // Seed an empty chart with the ACTUAL current balance (authoritative
@@ -23293,20 +23002,20 @@ function initChart() {
             labels: APP.chartData[wallet].labels,
             datasets: [{
                 label: 'Equity', data: APP.chartData[wallet].values,
-                borderColor: 'var(--brand)', backgroundColor: gradient,
+                borderColor: brand, backgroundColor: gradient,
                 borderWidth: 2.5, fill: true, tension: 0.35,
                 pointRadius: 0, pointHoverRadius: 5,
-                pointHoverBackgroundColor: 'var(--brand)',
+                pointHoverBackgroundColor: brand,
                 pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1C2634', titleColor: 'var(--kx-text)', bodyColor: 'var(--brand)', borderColor: '#1E2A3F', borderWidth: 1, padding: 10, displayColors: false, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y); } } } },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: tooltipBg, titleColor: textColor, bodyColor: brand, borderColor: gridColor, borderWidth: 1, padding: 10, displayColors: false, callbacks: { label: function(ctx) { return formatCurrency(ctx.parsed.y); } } } },
             scales: {
-                x: { grid: { color: 'rgba(30, 42, 63, 0.3)', drawBorder: false }, ticks: { color: '#5A6A8A', font: { size: 9 }, maxRotation: 0, maxTicksLimit: 6 } },
-                y: { grid: { color: 'rgba(30, 42, 63, 0.3)', drawBorder: false }, ticks: { color: '#5A6A8A', font: { size: 9 }, callback: function(v) { return '$' + v.toLocaleString(); } } }
+                x: { grid: { color: gridColor, drawBorder: false }, ticks: { color: chartColor('--text-muted', '#8C9AB8'), font: { size: 9 }, maxRotation: 0, maxTicksLimit: 6 } },
+                y: { grid: { color: gridColor, drawBorder: false }, ticks: { color: chartColor('--text-muted', '#8C9AB8'), font: { size: 9 }, callback: function(v) { return '$' + v.toLocaleString(); } } }
             }
         }
     });
@@ -24319,6 +24028,9 @@ async function runWorkerSyncTick() {
             handleServerSessionEnded();
             return;
         }
+        if (st && (st.executedBy === 'worker' || st.executedBy === 'browser')) {
+            updateBotEngineNotice(st.executedBy);
+        }
         if (st && st.executedBy === 'worker' && APP.botExecutedBy !== 'worker') {
             adoptWorkerOwnership();   // stays RUNNING; drops the tab loop only
         }
@@ -24339,7 +24051,7 @@ async function runWorkerSyncTick() {
 function handleServerSessionEnded() {
     if (APP.botInterval) { clearInterval(APP.botInterval); APP.botInterval = null; }
     APP.botRunning = false;
-    APP.botExecutedBy = 'browser';
+    APP.botExecutedBy = 'unknown';
     stopWorkerSyncLoop();
     updateStatus(false);
     updateUI();
@@ -24373,6 +24085,9 @@ function adoptServerBotState() {
     fetchBotExecutionStatus().then(function (st) {
         // TEMPORARY management test: surface the profit pause on entry.
         maybeShowProfitPauseModal(st);
+        if (st && (st.executedBy === 'worker' || st.executedBy === 'browser')) {
+            updateBotEngineNotice(st.executedBy);
+        }
         if (!st || !st.isRunning || st.executedBy !== 'worker') return;
         adoptWorkerOwnership();
     }).catch(function () {});
@@ -24478,19 +24193,23 @@ function showProfitPauseStartBlocked(body) {
 }
 
 /**
- * Keep the bot disclosure HONEST about who is actually trading.
- * 'browser'  -> the tab-bound loop (today's behaviour)
- * 'worker'   -> a server-side worker owns the session, so closing the tab does
- *               NOT stop trading. Switching is triggered by the server's own
- *               409 WORKER_OWNED_SESSION response, so the copy can never claim
- *               "stops when you close the tab" while a worker keeps trading.
+ * Keep the bot disclosure HONEST about who is actually trading. The authority is
+ * the server: /api/bot/status reports `executedBy` ('worker' | 'browser') and the
+ * 409 WORKER_OWNED_SESSION response confirms the handoff. The UI never infers it
+ * from the tab, so the copy cannot claim "stops when you close the tab" while a
+ * worker keeps trading, nor promise background trading when the tab is the
+ * executor. 'unknown' (status not readable yet) uses neutral wording that is true
+ * either way.
  */
 function updateBotEngineNotice(source) {
     const el = document.getElementById('botEngineNotice');
     if (!el) return;
-    const src = source || APP.botExecutedBy || 'browser';
+    let src = source || APP.botExecutedBy || 'unknown';
+    if (src !== 'worker' && src !== 'browser') src = 'unknown';
     APP.botExecutedBy = src;
-    el.textContent = t(src === 'worker' ? 'bot.engineNoticeWorker' : 'bot.engineNotice');
+    el.setAttribute('data-engine', src);
+    el.textContent = t(src === 'worker' ? 'bot.engineNoticeWorker'
+        : (src === 'browser' ? 'bot.engineNotice' : 'bot.engineNoticeUnknown'));
 }
 
 function stopBot() {
@@ -25640,41 +25359,10 @@ function showOnboarding(user) {
     setOnboardingChoice(user.id, 'shown');
     const modal = document.getElementById('onboardingModal');
     if (!modal) return false;
-    if (typeof renderOnboardingActivationCopy === 'function') renderOnboardingActivationCopy();
     modal.classList.add('open');
     return true;
 }
 
-/**
- * Onboarding copy that depends on whether Live Mode really requires a paid
- * activation.
- *
- * The base text tells a new customer their $50 credit is enough to run the bot.
- * That is true only while the activation requirement is OFF; with it ON the
- * customer cannot trade before activating, so the modal states the real steps
- * instead of promising something the platform does not deliver.
- *
- * Rendered by JS (not just data-i18n) because the activation variant embeds the
- * configured minimum deposit, which applyTranslations() would print raw. Every
- * language switch re-runs it from updateDynamicTranslations(), so the chosen key
- * is also written to data-i18n and stays correct for later passes.
- */
-function renderOnboardingActivationCopy() {
-    const pending = (typeof activationPending === 'function') && activationPending();
-    const min = String(Number((typeof APP !== 'undefined' && APP.MIN_DEPOSIT) || 50));
-    const explainer = document.getElementById('onboardingExplainer');
-    if (explainer) {
-        const key = pending ? 'onboarding.explainerActivation' : 'onboarding.explainer';
-        if (typeof explainer.setAttribute === 'function') explainer.setAttribute('data-i18n', key);
-        explainer.textContent = pending ? t(key, { min: min }) : t(key);
-    }
-    const desc = document.getElementById('onboardingPrimaryDesc');
-    if (desc) {
-        const key = pending ? 'onboarding.primaryDescActivation' : 'onboarding.primaryDesc';
-        if (typeof desc.setAttribute === 'function') desc.setAttribute('data-i18n', key);
-        desc.textContent = t(key);
-    }
-}
 
 // The signed-in user as last cached by login/signup/2FA (localStorage
 // 'arbi_user'). Several onboarding helpers call this on the startup path, so it
@@ -25755,14 +25443,12 @@ function updateStartHere() {
     el.style.display = (!hidden && !isSandbox) ? 'block' : 'none';
     if (hidden || isSandbox) return;
     // Single mode: the checklist only ever describes Live requirements. No
-    // balance, trading rule, invoice or session is touched here.
-    // The subtitle states how many steps apply to THIS account: the activation
-    // step is part of the checklist only when the platform requires it.
+    // balance, trading rule, invoice or session is touched here. There is one
+    // remaining step, so the subtitle is the single-step phrasing.
     const sub = document.getElementById('startHereSubtitle');
     if (sub) {
-        const subKey = startHereLiveSteps().length > 1 ? 'startHere.live.subtitle' : 'startHere.live.subtitleNext';
-        if (typeof sub.setAttribute === 'function') sub.setAttribute('data-i18n', subKey);
-        sub.textContent = t(subKey);
+        if (typeof sub.setAttribute === 'function') sub.setAttribute('data-i18n', 'startHere.live.subtitleNext');
+        sub.textContent = t('startHere.live.subtitleNext');
     }
     const liveDone = startHereLiveComplete();
     const steps = document.getElementById('startHereStepsLive');
@@ -25774,30 +25460,19 @@ function updateStartHere() {
     if (!liveDone) renderStartHereLiveSteps();
 }
 
-// LIVE checklist: only requirements the current product actually enforces, in
-// the order the server enforces them - activation (a one-time purchase, ONLY
-// when the platform requires it) unlocks Live, and only then can a trade be
-// placed. The guide deliberately stops there: funding amounts are stated where
-// they are actionable (the deposit dialog), not as a prerequisite list on the
-// dashboard.
+// LIVE checklist: only requirements the current product actually enforces. A
+// completed Live trade is the one remaining step - funding amounts are stated
+// where they are actionable (the deposit dialog), not as a prerequisite list on
+// the dashboard, and there is no paid activation to complete.
 function startHereLiveSteps() {
-    const steps = [];
-    if (typeof activationPending === 'function' && activationPending()) {
-        steps.push({ key: 'startHere.live.step0' });
-    }
-    steps.push({ key: 'startHere.live.step3' });
-    return steps;
+    return [{ key: 'startHere.live.step3' }];
 }
 
 // Completion state, driven ONLY by reliable server flags already adopted into
-// APP.liveData. Every displayed step has to be satisfied: an outstanding
-// activation keeps the card open, otherwise a completed trade is the whole
-// checklist. (A trade can only exist on an activation-enabled deployment if the
-// qualifying deposit was made, so this is not a weaker condition there.)
+// APP.liveData: a completed Live trade satisfies the whole checklist.
 function startHereLiveComplete() {
     const d = (typeof APP !== 'undefined' && APP.liveData) ? APP.liveData : null;
     if (!d) return false;
-    if (typeof activationPending === 'function' && activationPending()) return false;
     return !!d.hasTradingActivity;
 }
 
@@ -26207,11 +25882,15 @@ function handleLiveAccessRefusal(body) {
         return;
     }
     if (code === 'LIVE_DEPOSIT_CHECK_UNAVAILABLE') {
-        showToast(t('liveActivation.retryLater'), 'error', 7000);
+        showToast(t('liveAccess.retryLater'), 'error', 7000);
         return;
     }
-    showToast(t('liveActivation.blockedToast'), 'error', 7000);
-    try { openLiveActivationModal(); } catch (e) {}
+    // LIVE_ACTIVATION_REQUIRED / ACTIVATION_UNAVAILABLE can only come from a
+    // deployment that still has the paid activation switch ON. The customer
+    // journey no longer sells activation, so the honest response is a neutral
+    // notice plus a route to support - never a purchase prompt.
+    showToast(t('liveAccess.notAvailable'), 'error', 8000);
+    try { openSupportModal(); } catch (e) {}
 }
 
 function isProfitPausePayload(body) {
@@ -27190,8 +26869,7 @@ async function syncWalletFromServer() {
             if (meData && meData.liveMode && typeof meData.liveMode === 'object') {
                 APP.liveMode = meData.liveMode;
             }
-            if (typeof updateLiveActivationUI === 'function') updateLiveActivationUI();
-            if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
+                if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
             // Persist the classification on the cached user object so
             // checkAdminAccess()/renderers can read it without another fetch.
             try {

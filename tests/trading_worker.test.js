@@ -803,7 +803,7 @@ test('safety: the bot UI disclosure reflects the shipped server-side engine (no 
   // the browser variant now says exactly what it does.
   assert.ok(!/keeps trading even when you're offline/.test(INDEX),
     'the tab-bound bot must not claim it trades while offline');
-  assert.match(INDEX, /Runs in this browser tab\. Trading pauses if you close or refresh the page\./,
+  assert.match(INDEX, /Trading runs while this page is open\. If you close or refresh it, the bot stops/,
     'the browser-engine disclosure states the real limitation');
   assert.match(INDEX, /'bot\.engineNoticeWorker':/,
     'the worker disclosure still exists for when a server engine owns the session');

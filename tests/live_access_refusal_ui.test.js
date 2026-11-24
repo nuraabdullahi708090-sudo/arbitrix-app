@@ -42,7 +42,7 @@ const DEPOSIT = { error: 'A confirmed deposit is required', code: 'LIVE_DEPOSIT_
 
 function runStart(body, opts) {
   const o = opts || {};
-  const calls = { begin: 0, activationModal: 0, depositModal: 0, toasts: [], status: [], stopped: 0 };
+  const calls = { begin: 0, supportModal: 0, depositModal: 0, toasts: [], status: [], stopped: 0 };
   const sandbox = {
     console,
     Promise,
@@ -68,7 +68,7 @@ function runStart(body, opts) {
     t: (k, vars) => (vars ? k + ':' + JSON.stringify(vars) : k),
     updateStatus: (running) => calls.status.push(!!running),
     stopWorkerSyncLoop: () => {},
-    openLiveActivationModal: () => { calls.activationModal++; },
+    openSupportModal: () => { calls.supportModal++; },
     openDepositModal: () => { calls.depositModal++; },
     isLiveAccessRefusal: null,
     isProfitPausePayload: () => false,
@@ -94,12 +94,15 @@ function tick(fn) {
   });
 }
 
-test('an activation refusal never reaches beginBotRun and opens the activation modal', async () => {
+test('a legacy activation refusal never reaches beginBotRun and routes to support', async () => {
+  // The paid activation was removed from the customer journey, so a server that
+  // still refuses for that reason must not open a purchase prompt. The customer
+  // gets a neutral message and a route to a human instead.
   const h = runStart(ACTIVATION, { ok: false });
   await tick(h.run);
   assert.strictEqual(h.calls.begin, 0, 'beginBotRun must not run');
-  assert.strictEqual(h.calls.activationModal, 1, 'the activation modal is opened');
-  assert.strictEqual(h.calls.depositModal, 0, 'no deposit prompt for an activation refusal');
+  assert.strictEqual(h.calls.supportModal, 1, 'support is offered, not a purchase');
+  assert.strictEqual(h.calls.depositModal, 0, 'no deposit prompt for that refusal');
   assert.deepStrictEqual(h.calls.status, [false], 'the UI is told the bot is stopped');
   assert.ok(!h.calls.toasts.some((m) => /started/i.test(m)), 'no success toast');
   assert.ok(h.sandbox.APP.botRunning === false, 'no running state');
@@ -110,7 +113,7 @@ test('a deposit refusal never reaches beginBotRun and opens the deposit modal', 
   await tick(h.run);
   assert.strictEqual(h.calls.begin, 0, 'beginBotRun must not run');
   assert.strictEqual(h.calls.depositModal, 1, 'the deposit modal is opened');
-  assert.strictEqual(h.calls.activationModal, 0, 'no activation prompt for a funding refusal');
+  assert.strictEqual(h.calls.supportModal, 0, 'no support prompt for a funding refusal');
   assert.deepStrictEqual(h.calls.status, [false], 'the UI is told the bot is stopped');
   assert.ok(!h.calls.toasts.some((m) => /started/i.test(m)), 'no success toast');
 });
@@ -119,7 +122,7 @@ test('an accepted start still runs beginBotRun exactly as before', async () => {
   const h = runStart({ isRunning: true }, { ok: true });
   await tick(h.run);
   assert.strictEqual(h.calls.begin, 1, 'the control case still starts');
-  assert.strictEqual(h.calls.activationModal, 0, 'no modal');
+  assert.strictEqual(h.calls.supportModal, 0, 'no modal');
   assert.strictEqual(h.calls.depositModal, 0, 'no modal');
 });
 

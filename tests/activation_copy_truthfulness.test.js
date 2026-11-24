@@ -1,17 +1,19 @@
 'use strict';
 /**
- * Activation-dependent copy must be TRUTHFUL in both platform configurations.
+ * The customer journey contains NO paid activation step.
  *
- * PAYHIP_ACTIVATION_REQUIRED is an operator switch. When it is OFF (the code
- * default) no activation exists, yet four surfaces used to state or imply that a
- * $50 activation was required:
- *   - the deposit dialog's "this deposit does not activate your account" note,
- *   - the promotional-credit card's "purchase an activation" sentence,
- *   - the dashboard Start Here step "Complete the one-time $50 Live activation",
- *   - the onboarding modal ("run the bot before you deposit anything").
+ * Management decision: Live Mode is funded by a deposit, not by buying an
+ * activation. The previous design gated the copy on PAYHIP_ACTIVATION_REQUIRED,
+ * which still left a purchase dialog, an "Activate Live Mode" button and an
+ * "Activation required" chip in the product whenever the switch was on.
  *
- * These tests pin the state-driven behaviour, plus the server-authoritative
- * completed-trade flag that the withdrawal gate depends on.
+ * These tests pin the removal itself:
+ *   - no activation purchase markup, handler or dialog exists anywhere;
+ *   - no locale carries activation wording in the customer journey;
+ *   - the promotional-credit card, the Start Here checklist and the refusal path
+ *     point at a deposit / support, never at a purchase;
+ *   - the Payhip BACKEND (routes, flag, entitlement store, webhook) is intact,
+ *     so the capability can be re-activated later without new server work.
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -77,12 +79,15 @@ function makeEl(id) {
   return el;
 }
 
-/** Extract the promotional-credit card section and render it for one state. */
+/** Render the promotional-credit card for one server state with the real code. */
 function renderCard(app, liveMode) {
-  const start = INDEX.indexOf('// ============ PROMOTIONAL CREDIT + LIVE MODE STATUS');
-  const end = INDEX.indexOf('// ============ PAYHIP LIVE MODE ACTIVATION');
+  const fn = extractFunction('renderLiveModeCard');
+  const map = INDEX.slice(INDEX.indexOf('const LIVE_MODE_STATUS_VIEW'),
+    INDEX.indexOf('function liveModeStatusView'));
+  const view = sliceFunction(INDEX, 'liveModeStatusView');
+  const promo = sliceFunction(INDEX, 'promoCreditText');
   const ids = ['liveModeCard', 'promoCreditAmountRow', 'promoCreditAmount',
-    'liveModeStatusChip', 'promoCreditExplain', 'liveModeActivateBtn'];
+    'liveModeStatusChip', 'promoCreditExplain', 'liveModeDepositBtn'];
   const nodes = {};
   ids.forEach((id) => { nodes[id] = makeEl(id); });
   const sandbox = {
@@ -91,167 +96,183 @@ function renderCard(app, liveMode) {
     t: app.t, Number, isFinite, String
   };
   vm.createContext(sandbox);
-  vm.runInContext(INDEX.slice(start, end) + ';globalThis.renderLiveModeCard = renderLiveModeCard;', sandbox);
+  vm.runInContext([map, view, promo, fn, 'globalThis.renderLiveModeCard = renderLiveModeCard;'].join('\n'), sandbox);
   sandbox.renderLiveModeCard();
   return nodes;
 }
 
-function activationUiSandbox(APP, tFn) {
-  const nodes = {};
-  ['liveActivationNotice', 'depositActivationNote', 'liveActivationBuyBtn',
-    'liveActivationUnavailable', 'onboardingExplainer', 'onboardingPrimaryDesc']
-    .forEach((id) => { nodes[id] = makeEl(id); });
-  const sandbox = {
-    document: { getElementById: (id) => nodes[id] || null },
-    APP,
-    t: tFn,
-    Number, String
-  };
-  vm.createContext(sandbox);
-  vm.runInContext([
-    extractFunction('activationPending'),
-    extractFunction('updateLiveActivationUI'),
-    extractFunction('renderOnboardingActivationCopy'),
-    'globalThis.updateLiveActivationUI = updateLiveActivationUI;',
-    'globalThis.renderOnboardingActivationCopy = renderOnboardingActivationCopy;'
-  ].join('\n'), sandbox);
-  return { nodes, sandbox };
-}
+/* ------------------------------------------------ 1. no purchase UI exists */
 
-/* ------------------------------------------- 1. the deposit activation note */
-
-test('1. the deposit activation note is hidden by default and shown only when an activation is outstanding', () => {
-  // Markup default: hidden. A JS failure must never leave a false claim on screen.
-  const markup = INDEX.slice(INDEX.indexOf('id="depositActivationNote"') - 260,
-    INDEX.indexOf('id="depositActivationNote"') + 200);
-  assert.match(markup, /id="depositActivationNote" style="display:none;/, 'hidden in the markup');
-
-  const off = activationUiSandbox({ activationRequired: false, liveActivated: true, activationStoreUrl: '' });
-  off.sandbox.updateLiveActivationUI();
-  assert.strictEqual(off.nodes.depositActivationNote.style.display, 'none',
-    'activation requirement OFF: the note must stay hidden');
-
-  const on = activationUiSandbox({ activationRequired: true, liveActivated: false, activationStoreUrl: '' });
-  on.sandbox.updateLiveActivationUI();
-  assert.strictEqual(on.nodes.depositActivationNote.style.display, '', 'activation outstanding: shown');
-
-  const done = activationUiSandbox({ activationRequired: true, liveActivated: true, activationStoreUrl: '' });
-  done.sandbox.updateLiveActivationUI();
-  assert.strictEqual(done.nodes.depositActivationNote.style.display, 'none', 'already activated: hidden again');
-});
-
-/* --------------------------------------------- 2. the promotional-credit card */
-
-test('2. the promo card never instructs a purchase that is not required', () => {
-  const i18n = dictionary();
-  const pending = renderCard({ activationRequired: true, liveActivated: false, t: i18n.t },
-    { status: 'activation_required', promoCredit: 50 });
-  assert.match(pending.promoCreditExplain.textContent, /Purchase a Live Mode activation/,
-    'an outstanding activation is still named');
-
-  const free = renderCard({ activationRequired: false, liveActivated: true, t: i18n.t },
-    { status: 'available', promoCredit: 50 });
-  assert.ok(!/activation/i.test(free.promoCreditExplain.textContent),
-    'activation-free deployment: no purchase instruction');
-  assert.match(free.promoCreditExplain.textContent, /\$50\b/, 'the amount is still interpolated');
-  assert.ok(!free.promoCreditExplain.textContent.includes('{{amount}}'), 'no raw placeholder');
-
-  // Also for an ACTIVATED account on a deployment where the requirement is on.
-  const activated = renderCard({ activationRequired: true, liveActivated: true, t: i18n.t },
-    { status: 'available', promoCredit: 50 });
-  assert.ok(!/Purchase a Live Mode activation/.test(activated.promoCreditExplain.textContent),
-    'an activated account is not asked to activate again');
-});
-
-/* --------------------------------------------------------- 3. the onboarding */
-
-test('3. the onboarding copy states the real prerequisites when activation is required', () => {
-  const i18n = dictionary();
-  const off = activationUiSandbox({ activationRequired: false, liveActivated: true, MIN_DEPOSIT: 50 }, i18n.t);
-  off.sandbox.renderOnboardingActivationCopy();
-  assert.strictEqual(off.nodes.onboardingExplainer.textContent, i18n.T.en['onboarding.explainer']);
-  assert.strictEqual(off.nodes.onboardingExplainer.getAttribute('data-i18n'), 'onboarding.explainer');
-  assert.ok(!/activation/i.test(off.nodes.onboardingExplainer.textContent));
-
-  const on = activationUiSandbox({ activationRequired: true, liveActivated: false, MIN_DEPOSIT: 50 }, i18n.t);
-  on.sandbox.renderOnboardingActivationCopy();
-  const text = on.nodes.onboardingExplainer.textContent;
-  assert.match(text, /one-time activation/i, 'the activation is disclosed');
-  assert.match(text, /\$50/, 'the configured minimum deposit is interpolated');
-  assert.ok(!text.includes('{{min}}'), 'no raw placeholder');
-  assert.ok(/already on your account/i.test(on.nodes.onboardingPrimaryDesc.textContent));
-  assert.strictEqual(on.nodes.onboardingExplainer.getAttribute('data-i18n'), 'onboarding.explainerActivation');
-
-  // A language switch re-runs the renderer (updateDynamicTranslations), so the
-  // chosen key must follow the active locale.
-  i18n.setLang('es');
-  const es = activationUiSandbox({ activationRequired: true, liveActivated: false, MIN_DEPOSIT: 250 }, i18n.t);
-  es.sandbox.renderOnboardingActivationCopy();
-  assert.match(es.nodes.onboardingExplainer.textContent, /\$250/);
-  assert.ok(/activaci/i.test(es.nodes.onboardingExplainer.textContent), 'Spanish copy is used');
-});
-
-test('4. the onboarding renderer is wired into the language-switch + sync paths', () => {
-  const hook = INDEX.slice(INDEX.indexOf('function updateDynamicTranslations()'));
-  const body = hook.slice(0, hook.indexOf('\n}') + 2);
-  assert.match(body, /updateLiveActivationUI\(\)/);
-  const activationUi = extractFunction('updateLiveActivationUI');
-  assert.match(activationUi, /renderOnboardingActivationCopy\(\)/, 'refreshed after the server state is known');
-  assert.match(extractFunction('showOnboarding'), /renderOnboardingActivationCopy\(\)/,
-    'rendered when the modal opens');
-});
-
-/* ------------------------------------- 5. the server-authoritative trade flag */
-
-test('5. /api/auth/me reports the completed-trade flag the withdrawal gate uses', () => {
-  const helper = sliceFunction(SERVER, 'hasTradingActivity');
-  assert.match(helper, /from\('transactions'\)/);
-  assert.match(helper, /eq\('type', 'Trade Executed'\)/, 'same definition as the withdrawal route');
-  assert.match(helper, /count: 'exact', head: true/, 'a count query, not a row fetch');
-
-  const me = SERVER.slice(SERVER.indexOf("app.get('/api/auth/me'"), SERVER.indexOf('// ---------- Marketing conversion claims'));
-  assert.match(me, /hasTradingActivity: !!hasTraded,/, 'the field is returned in production');
-  assert.match(me, /hasSandboxTradingActivity/, 'and in the sandbox branch');
-  assert.match(me, /hasTradingActivity\(user\.id\)\.catch\(\(\) => false\)/, 'a read failure degrades to false');
-
-  // The withdrawal route must keep the SAME rule, or the two can disagree.
-  assert.match(SERVER, /\.eq\('type', 'Trade Executed'\);[\s\S]{0,200}const hasTrade = count >= 1;/);
-});
-
-test('6. the frontend adopts the server flag instead of trusting the session', () => {
-  assert.match(INDEX, /if \(typeof meData\.hasTradingActivity === 'boolean'\) \{\s*APP\.liveData\.hasTradingActivity = meData\.hasTradingActivity;/);
-  // The gate itself is unchanged: it still reads the flag.
-  assert.match(INDEX, /if\(!APP\.liveData\.hasTradingActivity && !canFundFromReferral\)/,
-    'the completed-trade gate is untouched');
-});
-
-/* ------------------------------------------------------------- 7. i18n parity */
-
-test('7. the four new keys exist once per locale, with matching placeholders', () => {
-  const i18n = dictionary();
-  const keys = ['promo.creditExplainTradable', 'startHere.live.subtitleNext',
-    'onboarding.explainerActivation', 'onboarding.primaryDescActivation'];
-  LANGS.forEach((l) => {
-    keys.forEach((k) => {
-      const value = i18n.T[l][k];
-      assert.ok(typeof value === 'string' && value.trim(), l + ' is missing ' + k);
-    });
-    assert.ok(i18n.T[l]['promo.creditExplainTradable'].includes('{{amount}}'), l + ' keeps {{amount}}');
-    assert.ok(i18n.T[l]['onboarding.explainerActivation'].includes('{{min}}'), l + ' keeps {{min}}');
-    // Identical placeholder sets across locales.
-    const placeholders = (s) => (String(s).match(/\{\{\w+\}\}/g) || []).sort().join(',');
-    assert.strictEqual(placeholders(i18n.T[l]['promo.creditExplainTradable']), '{{amount}}');
-    assert.strictEqual(placeholders(i18n.T[l]['onboarding.explainerActivation']), '{{min}}');
-    assert.strictEqual(placeholders(i18n.T[l]['startHere.live.subtitleNext']), '');
-    assert.strictEqual(placeholders(i18n.T[l]['onboarding.primaryDescActivation']), '');
+test('1. the activation purchase dialog, button and note are gone from the markup', () => {
+  [
+    'id="liveActivationModal"',
+    'id="liveActivationBuyBtn"',
+    'id="liveActivationKey"',
+    'id="liveActivationSubmitBtn"',
+    'id="liveActivationNotice"',
+    'id="liveActivationUnavailable"',
+    'id="liveModeActivateBtn"',
+    'id="depositActivationNote"'
+  ].forEach((needle) => {
+    assert.ok(!INDEX.includes(needle), needle + ' must not exist');
   });
-  // Every locale defines each key exactly once (no duplicate keys).
-  keys.forEach((k) => {
+  ['openLiveActivationModal', 'closeLiveActivationModal', 'submitLiveActivation',
+    'updateLiveActivationUI', 'activationPending'].forEach((fn) => {
+    assert.ok(!INDEX.includes(fn), fn + ' must not exist');
+  });
+  assert.ok(!/\/api\/live\/activate/.test(INDEX), 'the redemption UI no longer calls the API');
+});
+
+test('2. no locale carries activation wording in the customer journey', () => {
+  const i18n = dictionary();
+  // Keys owned by unrelated features legitimately use "activate" (2FA, the Pro
+  // subscription, admin audit labels, account-status copy).
+  const UNRELATED = /^(subscription\.|2fa\.|admin\.|audit\.|kyc\.|bot\.engineNotice|profile\.|live\.withdrawStatus\.notDeposited|bot\.enableScanner)/;
+  const OFFENDERS = /activation|activat(e|ed|ing)\b|\bactivaci|\bativa\u00e7|\baktivier|تفعيل|激活/i;
+  LANGS.forEach((l) => {
+    Object.entries(i18n.T[l]).forEach(([key, value]) => {
+      if (UNRELATED.test(key)) return;
+      assert.ok(!OFFENDERS.test(value), l + ':' + key + ' still mentions activation: ' + value);
+    });
+  });
+});
+
+test('3. the dead activation keys were removed from every locale', () => {
+  const i18n = dictionary();
+  const dead = ['liveActivation.title', 'liveActivation.body', 'liveActivation.buy',
+    'liveActivation.keyLabel', 'liveActivation.submit', 'liveActivation.hint',
+    'liveActivation.supportCta', 'liveActivation.purchaseUnavailable', 'liveActivation.cta',
+    'liveActivation.notice', 'liveActivation.success', 'liveActivation.failed',
+    'liveActivation.keyRequired', 'liveActivation.confirming', 'liveActivation.nextStep',
+    'liveActivation.retryLater', 'liveActivation.blockedToast', 'liveActivation.depositCta',
+    'liveMode.status.activationRequired', 'startHere.live.step0', 'deposit.activationNote',
+    'onboarding.explainerActivation', 'onboarding.primaryDescActivation', 'promo.creditExplain'];
+  LANGS.forEach((l) => {
+    dead.forEach((k) => assert.ok(!(k in i18n.T[l]), l + ' still defines ' + k));
+  });
+  // The deposit CTA survived under a neutral, feature-accurate key.
+  LANGS.forEach((l) => {
+    assert.ok(i18n.T[l]['liveMode.depositCta'], l + ' must define liveMode.depositCta');
+  });
+});
+
+/* ------------------------------------------- 2. the promotional-credit card */
+
+test('4. the promo card asks for a deposit and never for a purchase', () => {
+  const i18n = dictionary();
+  const states = [
+    { status: 'activation_required', promoCredit: 50 },   // legacy server state
+    { status: 'deposit_required', promoCredit: 50 },
+    { status: 'funding_required', promoCredit: 0 },
+    { status: 'available', promoCredit: 50 }
+  ];
+  states.forEach((state) => {
+    const n = renderCard({ t: i18n.t, MIN_DEPOSIT: 50 }, state);
+    const text = n.promoCreditExplain.textContent;
+    assert.ok(!/activation|purchase|licence|license/i.test(text),
+      state.status + ' must not mention a purchase: ' + text);
+    assert.ok(!text.includes('{{'), state.status + ' must not leak a placeholder');
+    if (state.status === 'activation_required' || state.status === 'deposit_required') {
+      assert.match(text, /\$50\b/, 'the deposit minimum is interpolated');
+      assert.ok(!/hidden/.test(n.liveModeDepositBtn.className), 'the deposit action is offered');
+    }
+  });
+  // A legacy activation_required status is presented as "Deposit required".
+  const legacy = renderCard({ t: i18n.t, MIN_DEPOSIT: 50 }, { status: 'activation_required', promoCredit: 50 });
+  assert.strictEqual(legacy.liveModeStatusChip.textContent, i18n.T.en['liveMode.status.depositRequired']);
+  assert.strictEqual(legacy.liveModeStatusChip.getAttribute('data-live-mode'), 'activation_required',
+    'the raw server value is preserved for styling/debugging');
+});
+
+test('5. the promo amount stays interpolated and the copy asks only for a deposit', () => {
+  const i18n = dictionary();
+  LANGS.forEach((l) => {
+    i18n.setLang(l);
+    const n = renderCard({ t: i18n.t, MIN_DEPOSIT: 50 }, { status: 'available', promoCredit: 50 });
+    const text = n.promoCreditExplain.textContent;
+    assert.match(text, /50/, l + ' shows the amount');
+    assert.ok(!/activation|purchase|licence|license/i.test(text), l + ' asks for nothing to be bought');
+    assert.strictEqual(text, i18n.T[l]['promo.creditExplainTradable'].replace('{{amount}}', '50'),
+      l + ' renders the localized tradable sentence');
+  });
+});
+
+/* ------------------------------------------------------------ 3. Start Here */
+
+test('6. the Start Here LIVE checklist has no activation step', () => {
+  const steps = extractFunction('startHereLiveSteps');
+  assert.ok(!/activation/i.test(steps), 'no activation branch');
+  assert.ok(!/step0/.test(steps), 'step0 is gone');
+  assert.match(steps, /startHere\.live\.step3/);
+
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(steps + ';globalThis.f = startHereLiveSteps;', sandbox);
+  const list = sandbox.f();
+  assert.strictEqual(list.length, 1, 'exactly one remaining requirement');
+  assert.strictEqual(list[0].key, 'startHere.live.step3');
+
+  // Completion no longer depends on an activation flag.
+  const complete = extractFunction('startHereLiveComplete');
+  assert.ok(!/activation/i.test(complete));
+  assert.match(complete, /hasTradingActivity/);
+});
+
+/* ------------------------------------------------------- 4. refusal path */
+
+test('7. a legacy activation refusal offers support, never a purchase', () => {
+  const fn = extractFunction('handleLiveAccessRefusal');
+  assert.ok(!/openLiveActivationModal/.test(fn), 'no purchase dialog');
+  assert.match(fn, /liveAccess\.notAvailable/, 'neutral localized message');
+  assert.match(fn, /openSupportModal\(\)/, 'a route to a human');
+  assert.match(fn, /LIVE_DEPOSIT_REQUIRED[\s\S]*openDepositModal\(\)/, 'the deposit step still opens the dialog');
+
+  const i18n = dictionary();
+  LANGS.forEach((l) => {
+    assert.ok(i18n.T[l]['liveAccess.notAvailable'], l + ' must define the neutral message');
+    assert.ok(i18n.T[l]['liveAccess.retryLater'], l + ' must define the retry message');
+  });
+});
+
+/* --------------------------------------------- 5. the backend is preserved */
+
+test('8. the Payhip backend, its routes and its flag are untouched', () => {
+  assert.match(SERVER, /PAYHIP_ACTIVATION_REQUIRED/,
+    'the operator switch still exists for a later re-activation');
+  assert.match(SERVER, /const PAYHIP_CONFIG = resolvePayhipConfig\(\)/);
+  assert.match(SERVER, /createPayhipEntitlements\(/);
+  assert.match(SERVER, /app\.get\('\/api\/live\/activation'/);
+  assert.match(SERVER, /app\.post\('\/api\/live\/activate'/);
+  assert.match(SERVER, /app\.post\('\/api\/payhip\/webhook'/);
+
+  const entitlement = readLf(path.join(ROOT, 'services', 'PayhipEntitlements.js'));
+  assert.ok(entitlement.length > 500, 'the entitlement store still ships');
+  const migration = path.join(ROOT, 'supabase', 'migrations', '050_payhip_live_activation.sql');
+  assert.ok(fs.existsSync(migration), 'the schema migration is still in the repo');
+});
+
+test('9. the server gate is inert by default (flag off, deposit is the only requirement)', () => {
+  const eligibility = sliceFunction(SERVER, 'getLiveModeEligibility');
+  assert.match(eligibility, /activation\.activationRequired !== true/);
+  assert.match(eligibility, /reason: 'not-required'/, 'no activation -> eligible');
+  assert.match(eligibility, /getConfirmedDepositTotal\(userId\)/, 'the deposit rule remains');
+  // The deposit gate still names its own code so the UI can open the dialog.
+  assert.match(SERVER, /LIVE_DEPOSIT_REQUIRED/);
+});
+
+/* ------------------------------------------------------------- 10. i18n parity */
+
+test('10. i18n stays complete: identical key sets, no empties', () => {
+  const i18n = dictionary();
+  const base = Object.keys(i18n.T.en).sort();
+  LANGS.forEach((l) => {
+    assert.deepStrictEqual(Object.keys(i18n.T[l]).sort(), base, l + ' key set differs');
+    const empty = Object.entries(i18n.T[l]).filter(([, v]) => typeof v !== 'string' || !v.trim());
+    assert.deepStrictEqual(empty, [], l + ' has empty values');
+  });
+  // Every key is defined exactly once per locale (no duplicate literals).
+  ['liveMode.depositCta', 'liveAccess.notAvailable', 'liveAccess.retryLater'].forEach((k) => {
     const n = (INDEX.match(new RegExp("'" + k.replace(/\./g, '\\.') + "':", 'g')) || []).length;
     assert.strictEqual(n, 6, k + ' must be defined once per locale');
-  });
-  // The activation-free onboarding copy must not promise trading before funding.
-  LANGS.forEach((l) => {
-    assert.ok(!/guaranteed|risk-free/i.test(i18n.T[l]['onboarding.primaryDescActivation']));
   });
 });

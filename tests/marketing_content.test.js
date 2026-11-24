@@ -201,7 +201,7 @@ const BLOCKED = [
   ['credential request', 'Send your password to our support agent to verify.'],
   ['email leak', 'Contact the winner at trader@example.com'],
   ['wallet leak', 'Send USDT to TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7'],
-  ['phone leak', 'Call +31612345678 to claim.']
+  ['phone leak', 'Call +31591345678 to claim.']
 ];
 
 for (const [label, text] of BLOCKED) {
@@ -276,7 +276,7 @@ test('empty content is blocked, never published', () => {
 test('private data detection covers email, wallet and phone', () => {
   assert.deepStrictEqual(findPrivateData('a@b.co'), ['email']);
   assert.ok(findPrivateData('TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7').includes('wallet-address'));
-  assert.ok(findPrivateData('+31612345678').includes('phone-number'));
+  assert.ok(findPrivateData('+31591345678').includes('phone-number'));
   assert.deepStrictEqual(findPrivateData('no private data here'), []);
 });
 
