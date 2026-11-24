@@ -10325,3 +10325,67 @@ path touched. NOT merged, NOT deployed.
   dialog, amount field + Generate visible, invoice address and exact amount 50.0051 rendered
   and copied verbatim, QR payload intact, payment-screen support CTA opens the Support
   Center, referral support opens the Support Center, 0 horizontal overflow, correct dir.
+
+## PR #208 MERGED + DEPLOYED - deposit journey simplified, partner route removed (2026-11-24)
+- Merge commit 3052aec1a0f84a14af516a01c8ba35506e65cfe9 ("Merge pull request #208
+  from nuraabdullahi708090-sudo/fix/deposit-payment-screen"), feature commit
+  92a9a145f7bffcf9f6a38539fb6d547a9173ea6c, base d0a8004. CI on 92a9a14: "static
+  checks" + "npm test" both success. Render auto-deployed (~15-30s).
+- The served https://arbitrix.pro/ public/index.html is BYTE-IDENTICAL to the merged
+  file (sha256 1f6395cf1b770a76dc777ac15adf987643a2e0fe4d4dfd16cd2b347400e3d0a5).
+  /api/health {"status":"ok"}; /, /partners, /deposit-tutorials, /how-it-works,
+  /business-registration, /reset-password.html = 200.
+- GUARDS INTACT: /api/payment/create-invoice 401, /api/deposit/options 401 (auth),
+  /api/webhook/q8qpay 401, /api/telegram/webhook 401 (fail-closed), unknown /api 404 JSON.
+- SERVED MARKUP (21/21): depositOptionCrypto present; depositOptionPartner /
+  depositPartnerPanel / depositPartnerContacts / paymentPartnerContacts /
+  wa.me/17828027841 / arbitrix-partner-support-telegram / renderDepositPartnerAssistance /
+  renderPaymentPartnerContacts / openPartnerSupport / getPartnerSupportTelegramUrl /
+  PARTNER_ICON_WHATSAPP / deposit.partner.* all ABSENT; "Deposit method" heading,
+  .pay-address CSS, copyAddressBtn/copyAmountBtn, paymentSupportFallbackBtn,
+  supportModal, partnerSupportBtn->openSupportModal(), startPollingForPayment and the
+  no-"Activity appears in the log below" copy all present.
+- LIVE BROWSER SMOKE (headless Chromium against arbitrix.pro, every /api call stubbed
+  in-page so NOTHING is created server-side) = 26/26 at 390 and 1280, plus 26/26 in
+  es / ar / zh at 390. 0 page errors. One funding option, no partner content in the
+  dialog, invoice address + exact amount 50.0051 rendered and copied verbatim, QR
+  payload, support CTA and referral support both open the Support Center, no
+  horizontal overflow, Arabic RTL.
+- LIMITATIONS: a real authenticated deposit could not be exercised from this
+  environment (no customer session); the invoice path is covered by the deployed
+  bundle driven with stubs plus the 4026-passing suite. Screenshot review was
+  unavailable (model adapter drops image content) - all UI evidence is DOM/text/
+  computed-style/geometry.
+- Working tree on main is clean; this note is intentionally LEFT UNCOMMITTED so
+  recording it does not trigger a second Render rebuild.
+
+## Deposit method copy + compact payment support (2026-11-24, branch fix/deposit-method-and-support-cleanup, PR pending)
+- Frontend-only (public/index.html + tests). NO server.js, provider, migration, webhook,
+  polling, crediting, deposit-minimum, referral, withdrawal or financial-record change.
+- RENAMED the only funding option in all six locales:
+  "I Already Have Crypto" -> "Deposit with USDT"; description -> "Send USDT on the
+  TRON (TRC20) network to your Kalderix deposit address." (markup defaults + en/es/pt/fr/ar/zh).
+  es/pt/fr/ar/zh also renamed; nothing suggests buying crypto through Kalderix or a partner.
+- PAYMENT SUPPORT SIMPLIFIED: one compact secondary "Contact Support" button (reuses
+  support.contactShort) that opens the Support Center; the duplicate "Official Telegram
+  Support" anchor and the oversized primary "Contact official Kalderix Support" label are
+  gone (Telegram stays inside the Support Center modal). New keys
+  deposit.support.title / deposit.support.body (6 locales, approved wording).
+  The long awaiting-payment paragraph is retired (support.paymentHelp.pending removed);
+  detected/expired hints remain, hidden by default (`hidden` + textContent '').
+  Dead support.contactOfficial dictionary entries removed (6).
+- LAYOUT: copy + contact share one compact action row; the design-system `.btn` rule
+  (min-height:40px, defined later in the sheet) was overriding the block's 44px target,
+  so the rules are scoped as `.pay-support .pay-support-copy/.pay-support-cta`.
+  Measured support-block height: 571px (390) / 603px (320) before -> 234px / 301px after
+  (~59% / 50% smaller); 202px in ar/zh.
+- i18n: 1571 keys/locale (net 0: +2 deposit.support.*, -1 paymentHelp.pending,
+  -1 contactOfficial). Identical key sets, 0 empties.
+- Tests: NEW tests/deposit_method_and_support.test.js (13: exact wording per locale, no old
+  wording, no partner/purchase suggestion, one compact CTA, no duplicate destination,
+  hierarchy order address -> amount -> QR -> status -> invoice -> support, 44px targets,
+  wrap safety, Q8Pay/polling/webhook/crediting/minimum pins, i18n parity). Updated pins:
+  support_ui, deposit_payment_screen (11), 17 dictionary-count files (1571 held).
+  npm test = 4040 tests / 4039 pass / 0 fail / 1 skipped.
+- Browser (DOM/geometry, no screenshots): 22/22 at 320/375/390 x en/es/pt/fr/ar/zh plus
+  1280; 26/26 journey regression at 320/390.

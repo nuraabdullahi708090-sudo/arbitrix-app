@@ -306,18 +306,26 @@ test('10. the generated payment session carries no Alex/Olivia card or contact w
   assert.ok(!INDEX.includes('wa.me/17828027841'));
 });
 
-test('11. official Kalderix support remains available in the payment session and elsewhere', () => {
+test('11. one compact official support action in the payment session, no duplicate destinations', () => {
   const section = paymentSection();
+  // Exactly ONE support button, and it opens the Support Center.
   assert.match(section, /id="paymentSupportFallbackBtn"[^>]*onclick="openSupportModal\(\)"/);
-  assert.match(section, /data-i18n="support\.contactOfficial"/);
-  // General support is still reachable from the app shell.
+  assert.strictEqual((section.match(/id="paymentSupportFallbackBtn"/g) || []).length, 1);
+  assert.match(section, /data-i18n="support\.contactShort"/);
+  assert.ok(!/support\.contactOfficial/.test(section), 'the oversized label is retired');
+  // No second support destination competing with it: Telegram lives inside the
+  // Support Center modal, so the payment session carries no Telegram anchor.
+  assert.ok(!/js-official-telegram/.test(section), 'no duplicate Telegram button');
+  assert.ok(!/t\.me\//.test(section));
+  // The Support Center itself (with its Telegram link) is still reachable.
   assert.match(INDEX, /<meta name="arbitrix-support-telegram"/);
   assert.match(INDEX, /id="supportSidebarLink"/);
   assert.match(INDEX, /function openSupportModal/);
+  assert.match(INDEX, /id="supportModal"/);
   // ... and the payment help copy points at it, not at a person.
   const T = dictionary();
   LANGS.forEach((l) => {
-    ['support.paymentHelp.pending', 'support.paymentHelp.detected', 'support.paymentHelp.failed'].forEach((k) => {
+    ['support.paymentHelp.detected', 'support.paymentHelp.failed'].forEach((k) => {
       const value = T[l][k];
       assert.ok(value && value.trim(), l + ':' + k);
       assert.ok(!/(partner|Alex|Olivia)/i.test(value), l + ':' + k + ' must not name a payment partner');
