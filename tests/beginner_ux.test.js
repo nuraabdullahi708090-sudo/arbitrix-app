@@ -69,7 +69,7 @@ const NEW_KEYS = [
     'auth.mobileTagline', 'auth.explainer.body', 'auth.explainer.demo', 'auth.explainer.live', 'auth.explainer.firstStep',
     'onboarding.explainer',
     'startHere.live.title', 'startHere.live.subtitleNext', 'startHere.dismiss',
-    'hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus', 'hint.bot', 'hint.scanner', 'hint.txLog',
+    'hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus', 'hint.bot', 'hint.arbitrage', 'hint.txLog',
     'ticker.live', 'markets.advancedChart',
     'badge.rarity.common', 'badge.rarity.rare', 'badge.rarity.epic', 'badge.rarity.legendary',
     'status.confirmed', 'status.processing', 'status.completed',
@@ -84,7 +84,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1591, 'expected 1591 keys per locale');
+    assert.strictEqual(enKeys.length, 1594, 'expected 1594 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -228,7 +228,7 @@ test('badge rarity pills and history statuses are localized at render time', () 
 });
 
 test('dashboard terms have short localized hints and the auth page orients first-time visitors', () => {
-    for (const k of ['hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus', 'hint.bot', 'hint.scanner', 'hint.txLog']) {
+    for (const k of ['hint.equity', 'hint.available', 'hint.pnl', 'hint.botStatus', 'hint.bot', 'hint.arbitrage', 'hint.txLog']) {
         assert.ok(INDEX.includes('data-i18n="' + k + '"'), `${k} hint must be rendered`);
     }
     assert.ok(/id="authExplainer"/.test(INDEX), 'a first-screen explainer must exist');

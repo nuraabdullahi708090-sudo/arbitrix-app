@@ -626,19 +626,30 @@ function liveActivationBody(extra) {
  */
 function sendActivationRefusal(res, activation) {
   const state = activation || {};
+  // DEPOSIT FACTS travel with the refusal so the client can name the step that is
+  // actually missing (make a deposit / deposit being confirmed) instead of a
+  // generic "contact support". Purely additive metadata: the status code, the
+  // code and the decision are unchanged, and the facts themselves were already
+  // read to make that decision.
+  const depositFacts = {};
+  if (state.depositSatisfied !== undefined) depositFacts.depositSatisfied = state.depositSatisfied === true;
+  if (state.depositTotal !== undefined) depositFacts.depositTotal = state.depositTotal;
+  if (state.depositPending !== undefined) depositFacts.depositPending = state.depositPending;
+  if (state.minDeposit !== undefined) depositFacts.minDeposit = state.minDeposit;
+  if (state.depositRequired !== undefined) depositFacts.depositRequired = state.depositRequired === true;
   if (state.retryable === true) {
-    return res.status(503).json(Object.assign(liveActivationBody({
+    return res.status(503).json(Object.assign(liveActivationBody(Object.assign({
       reason: state.reason || 'activation-unavailable',
       retryable: true
-    }), {
+    }, depositFacts)), {
       error: 'Live Mode activation could not be verified. Please try again.',
       code: 'ACTIVATION_UNAVAILABLE'
     }));
   }
-  return res.status(403).json(liveActivationBody({
+  return res.status(403).json(liveActivationBody(Object.assign({
     reason: state.reason || 'activation-required',
     retryable: false
-  }));
+  }, depositFacts)));
 }
 
 /**
@@ -683,6 +694,10 @@ async function getLiveModeEligibility(userId) {
 
   const read = await getConfirmedDepositTotal(userId);
   const depositSatisfied = read.ok && read.total >= minDeposit;
+  // Only asked when the deposit is NOT satisfied: until then it is the fact that
+  // words the refusal ("being confirmed" vs "make a deposit"). It never changes
+  // eligibility.
+  const inFlight = depositSatisfied ? { ok: true, total: 0 } : await getPendingDepositTotal(userId);
   const base = {
     activationRequired: true,
     activated: activation.activated === true,
@@ -690,6 +705,7 @@ async function getLiveModeEligibility(userId) {
     depositRequired: true,
     depositSatisfied,
     depositTotal: read.ok ? read.total : null,
+    depositPending: inFlight.ok ? inFlight.total > 0 : null,
     minDeposit
   };
   // Activation is checked FIRST so the prompt names the step that is actually
@@ -737,6 +753,8 @@ function sendLiveModeRefusal(res, state) {
     code: 'LIVE_DEPOSIT_REQUIRED',
     reason: s.reason || 'deposit-required',
     depositRequired: true,
+    depositSatisfied: s.depositSatisfied === true,
+    depositPending: s.depositPending === undefined ? null : s.depositPending,
     minDeposit: s.minDeposit,
     depositTotal: s.depositTotal,
     activationRequired: false
@@ -2881,6 +2899,50 @@ async function getConfirmedDepositTotal(userId) {
   ]);
   if (legacy.error || provider.error) {
     console.log('[getConfirmedDepositTotal] error:', (legacy.error || provider.error).message);
+    return { ok: false, total: 0 };
+  }
+  const sum = (rows, field) => (rows || []).reduce((acc, row) => {
+    const n = Number(row && row[field]);
+    return Number.isFinite(n) && n > 0 ? acc + n : acc;
+  }, 0);
+  const legacyTotal = Math.round(sum(legacy.data, 'amount') * 100) / 100;
+  const providerTotal = Math.round(sum(provider.data, 'amount_usd') * 100) / 100;
+  return { ok: true, total: Math.max(legacyTotal, providerTotal) };
+}
+
+/**
+ * IN-FLIGHT DEPOSIT (USD): money the customer has already sent but that is not
+ * credited yet. Used ONLY to word a refusal accurately ("your deposit is being
+ * confirmed") - it never satisfies eligibility, never credits anything and is
+ * never derived from the displayed balance.
+ *
+ * Only states that can still reach `confirmed` count: pending (waiting for the
+ * transfer), detected / confirming (seen on-chain). expired / cancelled / failed
+ * are terminal and deliberately excluded, so they can never produce a "being
+ * confirmed" message.
+ *
+ * MAX across the two tables for the same reason as getConfirmedDepositTotal: one
+ * provider payment also writes a legacy row, so summing would double-count it.
+ * Returns { ok, total }; `ok:false` means the fact could not be established.
+ */
+const PENDING_DEPOSIT_STATUSES = ['pending', 'detected', 'confirming'];
+async function getPendingDepositTotal(userId) {
+  const [legacy, provider] = await Promise.all([
+    supabaseAdmin
+      .from('deposits')
+      .select('amount')
+      .eq('user_id', userId)
+      .in('status', PENDING_DEPOSIT_STATUSES)
+      .limit(1000),
+    supabaseAdmin
+      .from('payment_invoices')
+      .select('amount_usd')
+      .eq('user_id', userId)
+      .in('status', PENDING_DEPOSIT_STATUSES)
+      .limit(1000)
+  ]);
+  if (legacy.error || provider.error) {
+    console.log('[getPendingDepositTotal] error:', (legacy.error || provider.error).message);
     return { ok: false, total: 0 };
   }
   const sum = (rows, field) => (rows || []).reduce((acc, row) => {
@@ -8028,11 +8090,22 @@ app.post('/api/bot/start', authMiddleware, async (req, res) => {
   const fundingWallet = await getWallet(userId).catch(() => null);
   const liveBalance = fundingWallet ? (Number(fundingWallet.live_balance) || 0) : 0;
   if (liveBalance <= 0) {
+    // Deposit facts word this refusal too: "make a qualifying deposit" and
+    // "your deposit is being confirmed" must not be guessed from a balance that
+    // is zero precisely because nothing has been credited yet.
+    const dep = await getConfirmedDepositTotal(userId).catch(() => ({ ok: false, total: 0 }));
+    const depositSatisfied = dep.ok && dep.total >= PLATFORM_MIN_DEPOSIT;
+    const inFlight = depositSatisfied ? { ok: true, total: 0 } : await getPendingDepositTotal(userId).catch(() => ({ ok: false, total: 0 }));
     return res.status(403).json({
       error: 'Add funds to your Live balance before starting Live trading.',
       code: 'LIVE_FUNDING_REQUIRED',
       fundingRequired: true,
-      activationRequired: false
+      activationRequired: false,
+      depositRequired: !depositSatisfied,
+      depositSatisfied,
+      depositTotal: dep.ok ? dep.total : null,
+      depositPending: inFlight.ok ? inFlight.total > 0 : null,
+      minDeposit: PLATFORM_MIN_DEPOSIT
     });
   }
   const hasDeposit = await hasConfirmedDeposit(userId).catch(() => false);

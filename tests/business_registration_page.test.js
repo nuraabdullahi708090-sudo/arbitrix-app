@@ -269,7 +269,7 @@ test('9c. the i18n key was removed from all six locales (no dead key)', () => {
         assert.ok(!Object.prototype.hasOwnProperty.call(T[l], 'landing.footer.businessRegistration'),
             l + ' must not define landing.footer.businessRegistration any more');
     });
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1591, l + ' must have 1591 keys'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1594, l + ' must have 1594 keys'));
 });
 
 /* ------------------------------------------------------------------ *

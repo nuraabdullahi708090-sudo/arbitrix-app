@@ -162,7 +162,7 @@ test('the user can switch back to the recent preview', () => {
     assert.strictEqual(sb.APP.txShowOlder, false);
 });
 
-test('there is one history: the Live wallet, with the Bonus ledger kept apart', () => {
+test('there is one history: the Live wallet (the Bonus ledger is never the dashboard view)', () => {
     const live = [entry(5, 250, 'Deposit'), entry(200, -50, 'Withdraw')];
     const sb = buildSandbox({ liveHistory: live });
 
@@ -170,10 +170,13 @@ test('there is one history: the Live wallet, with the Bonus ledger kept apart', 
     assert.strictEqual(renderCount(sb), 1, 'only the 30-minute window is previewed');
     assert.ok(/TYPE:Deposit/.test(sb.els.tradeHistoryContainer.innerHTML), 'the Live ledger is shown');
 
+    // PRESENTATION (2026-11): the Referral Commission Wallet is not a dashboard
+    // wallet any more, so even a forced 'bonus' selection still renders the Live
+    // ledger - nothing is deleted or re-pointed, it simply has no dashboard view.
     sb.APP.currentWallet = 'bonus';
     vm.runInContext('toggleTransactionRange()', sb);
     vm.runInContext('updateTransactionLog()', sb);
-    assert.strictEqual(renderCount(sb), 0, 'the Bonus ledger is a separate, empty list here');
+    assert.strictEqual(renderCount(sb), 2, 'the stored Live ledger is the only history shown');
     assert.strictEqual(sb.APP.liveData.history.length, 2, 'the Live history is untouched');
 });
 

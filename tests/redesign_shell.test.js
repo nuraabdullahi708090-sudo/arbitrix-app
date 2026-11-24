@@ -310,10 +310,16 @@ test('the account status stays pinned while the navigation scrolls', () => {
  * ------------------------------------------------------------------ */
 test('pre-existing behaviour surfaces are untouched by the redesign', () => {
   // The wallet tabs, history card, referral card and modals keep their ids.
-  for (const id of ['liveWalletSection', 'bonusWalletSection', 'walletTabsWrapper', 'history', 'markets',
+  for (const id of ['liveWalletSection', 'walletTabsWrapper', 'history', 'markets',
     'referral', 'depositModal', 'withdrawModal', 'profileModal', 'supportModal', 'verificationModal']) {
     assert.match(INDEX, new RegExp('id="' + id + '"'), id + ' must stay');
   }
+  // PRESENTATION (2026-11): the Referral Commission Wallet is no longer a
+  // dashboard tab/panel. Its balance + conversion moved into the Referral
+  // section, and the underlying wallet/API are untouched.
+  assert.ok(!INDEX.includes('id="bonusWalletSection"'), 'the dashboard panel is gone');
+  assert.match(INDEX, /id="referralCommissionWalletBlock"/, 'the conversion block lives in the Referral section');
+  assert.match(INDEX, /id="bonusWithdrawBtn"[^>]*onclick="withdrawBonusToLive\(\)"/, 'the conversion handler is still wired');
   // Money rules are not restyled into different semantics.
   assert.match(INDEX, /const TX_RESULT_TYPES = \{ 'Trade Executed': true \};/);
   assert.match(INDEX, /MIN_WITHDRAWAL: 700/);

@@ -180,22 +180,27 @@ test('the statistics card carries the latest executed trades', () => {
 /* ------------------------------------------------------------------ *
  * 6. Copy honesty
  * ------------------------------------------------------------------ */
-test('the tab-bound bot notice states its real limitation in all 6 locales', () => {
+test('the bot notice states what is true in every deployment (no tab warning)', () => {
   for (const l of LANGS) {
     const v = T[l]['bot.engineNotice'];
     assert.ok(v && v.length > 20, l + ' has the notice');
     assert.ok(!/offline/i.test(v), l + ' does not claim offline trading for a tab-bound bot');
   }
+  // FINAL MODEL (2026-11): the tab-closure warning was removed by management.
+  // The browser variant now states only the neutral fact; the background claim
+  // lives in the worker variant, which the server selects when it owns the
+  // session.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    '\u{1F916} Trading runs from this page while the bot is running. Keep this tab open \u2014 closing or refreshing it stops the bot until you start it again.'
+    'Your bot trades automatically while it is running. Activity appears in the log below.'
   );
+  assert.ok(!T.en['bot.engineNotice'].includes('Keep this tab open'), 'the obsolete warning is gone');
   // Neutral variant for "the server has not told us which engine is trading".
   for (const l of LANGS) {
     assert.ok(T[l]['bot.engineNoticeUnknown'] && T[l]['bot.engineNoticeUnknown'].length > 20, l + ' has the neutral notice');
   }
   // the worker variant is the only one allowed to promise background trading
-  assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
+  assert.match(T.en['bot.engineNoticeWorker'], /runs automatically in the background, even when you close this page/i);
   // the markup default (pre-hydration, before applyTranslations) matches EN
   // (string comparison, not a regex: `\u{...}` needs the /u flag)
   // The element ships with the NEUTRAL variant: until the server says which engine

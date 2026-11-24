@@ -10111,3 +10111,119 @@ path touched. NOT merged, NOT deployed.
   text. Match stub routes with `url.indexOf(key) !== -1` (the client calls absolute URLs;
   `=== 0` silently returns `{}` and every value falls back to the static default - which is
   exactly how a broken script tag can look healthy).
+
+## Dashboard Deposit UX + Chart/Bot-Notice Follow-ups DEPLOYED (2026-11-24)
+- PR #206 merged: merge commit 4a68d7d5f6d47fe8448ee031aa0b4cb2c1ea08a1 ("Merge pull request
+  #206 from nuraabdullahi708090-sudo/fix/dashboard-deposit-ux"), base was main@f5c82b3, head
+  9ea9962. Branch commits: 6e38db8 (deposit-driven Live Mode, promo clarity, deposit modal fix),
+  d3e1b99 (docs), e0d226b (chart line, promo copy, evidence-driven bot notice, wallet rename),
+  9ea9962 (onboarding copy + single-wallet pin).
+- Pre-merge gates: PR MERGEABLE/CLEAN, base == main head, CI "npm test" + "static checks" green
+  on 9ea9962. Local suite on the final tree: 4036 tests, 4035 pass, 0 fail, 1 skipped.
+- Render auto-deployed on the push to main (previous build served at t+0, new build byte-exact
+  at ~t+50s). Served https://arbitrix.pro/ is BYTE-IDENTICAL to the committed file (sha256
+  d1e7808eaa1e0fc0b969be01810f9a68a4ae767b779524dd9f5b50215cdc85b3).
+- Endpoints after deploy: / 200, /api/health 200 {"status":"ok"}, /reset-password.html 200,
+  /partners 200, /how-it-works 200, /api/market/opportunities 200.
+- Served-bundle markers: "Your promotional credit is tradable" 1, "Referral Commission Wallet"
+  12, bot.engineNoticeUnknown 8, data-live-mode="unknown" 1, "Keep this tab open" 1,
+  setMode( 0, "One-time commission" 1. The two remaining "activationRequired" hits are the
+  internal /api/auth/me field read (APP.activationRequired), not customer copy.
+- Production runtime smoke (headless Chromium via CDP against the LIVE bundle, anonymous page,
+  deployed functions driven directly - no login, no stubs in the bundle):
+  * six locales resolve the new copy via t() (wallet name + promo sentence), ar dir=rtl;
+  * updateBotEngineNotice gives the neutral / tab-bound / worker variants verbatim;
+  * typeof setMode === "undefined" (no dead mode API in the shipped bundle);
+  * APP.MIN_DEPOSIT 50, APP.MIN_WITHDRAWAL 700;
+  * initChart() on the live bundle: instance created, 2 points [50,50], canvas 696x324,
+    36.5% opaque pixels, stats $50.00 / $50.00 - i.e. the line now paints.
+- NOT VERIFIED FROM HERE: an authenticated dashboard session (no credentials), so the
+  post-login render of the promo banner/card and the wallet tabs was verified against the
+  byte-identical local harness, not the live site. No screenshot/vision review was possible
+  (model adapter drops image content); every check above is DOM/text/canvas/code based.
+- This deployment note is intentionally LEFT UNCOMMITTED so recording it does not trigger a
+  second Render rebuild.
+
+## Kalderix - Final Dashboard UX Corrections (2026-11-24, branch fix/dashboard-final-ux-corrections, NOT deployed)
+- Follow-up to PR #206 (merge 4a68d7d). Frontend + additive server metadata + tests.
+  No deposit/withdrawal/trading/subscription/referral LOGIC change; no migration; no
+  production configuration; no deploy, no merge.
+- (1) BOT-START REFUSAL NAMES THE REAL MISSING STEP. The client previously showed
+  liveAccess.notAvailable ("...contact support...") for every non-ACTIVATION refusal -
+  including the ordinary case of an unfunded new account.
+  - Server (additive metadata only): sendActivationRefusal() / sendLiveModeRefusal() now
+    carry depositSatisfied / depositPending / depositTotal / minDeposit; the
+    LIVE_FUNDING_REQUIRED branch of POST /api/bot/start carries the same facts. The
+    decision, the status codes and the codes themselves are unchanged.
+  - New getPendingDepositTotal(): in-flight money (pending / detected / confirming only,
+    never expired/cancelled/failed) used ONLY to word the refusal; it never satisfies
+    eligibility and never credits anything.
+  - Client handleLiveAccessRefusal(): depositSatisfied === false (or
+    LIVE_DEPOSIT_REQUIRED) -> liveDeposit.blockedToast ("Make a qualifying deposit of at
+    least ${{min}}...") + the deposit dialog; depositPending === true ->
+    liveDeposit.pendingToast ("...being confirmed...") and NO dialog; LIVE_FUNDING_REQUIRED
+    with the deposit satisfied -> liveAccess.fundingRequired + the deposit dialog;
+    LIVE_DEPOSIT_CHECK_UNAVAILABLE -> liveAccess.retryLater. The support route is now
+    reserved for a genuine restriction (e.g. activation missing with the deposit
+    satisfied), which is the only case where a human can actually help.
+  - Promotional credit is NOT a qualifying deposit and NOT capital: a promo-only account
+    still gets the deposit prompt (asserted over real HTTP).
+- (2) YELLOW PROMO BANNER: promo.tradableNotice is the approved copy in all 6 locales
+  ("Your promotional credit is tradable. Make a qualifying deposit and complete your
+  first trade to withdraw.") - the $30 profit cap is no longer advertised. The cap is
+  STILL ENFORCED (PROMO_PROFIT_CAP_USD + isPromoProfitCapReached + the
+  PROMO_TRADING_LIMIT_REACHED refusal), pinned by tests. promo.creditExplainTradable now
+  matches the banner (same two rules, amount still interpolated).
+- (3) REFERRAL COMMISSION WALLET IS NO LONGER A DASHBOARD WALLET. The tab and the
+  #bonusWalletSection panel were removed; the balance + "Withdraw Bonus to Live Wallet"
+  moved into the Referral section as #referralCommissionWalletBlock with the SAME ids
+  (bonusBalanceDisplay / bonusWithdrawBtn / bonusWithdrawInfo / bonusWithdrawStatus) and
+  the SAME withdrawBonusToLive() handler. getCurrentData() always returns the Live data
+  and APP.currentWallet is pinned to 'live', so no code path can render a hidden wallet.
+  Referral earnings, the /api/referral/* routes and the bonus bucket are untouched; the
+  sidebar Referral entry remains.
+- (4) BOT TOGGLE = "ENABLE ARBITRAGE". The control starts arbitrage execution via the
+  SAME toggleBot() handler (unchanged); the label is now state-aware through
+  updateBotToggleLabel() (bot.enableArbitrage / bot.arbitrageEnabled) and the hint key
+  hint.scanner was renamed hint.arbitrage ("Arbitrage execution"). 6 locales.
+- (5) BOT NOTICE: the "Keep this tab open ... closing or refreshing it stops the bot"
+  warning is GONE (all 6 locales) and bot.engineNoticeWorker is the approved background
+  sentence. IMPORTANT DESIGN: updateBotEngineNotice() publishes the background sentence
+  ONLY when /api/bot/status reports executedBy === 'worker' (a fresh heartbeat / active
+  lease on THIS session); with no worker the tab really is the executor, so the client
+  shows the neutral bot.engineNotice ("Your bot trades automatically while it is running.
+  Activity appears in the log below."). Management's production state is worker-enabled,
+  so a running session shows the background sentence; the neutral variant exists so the
+  copy can never promise background execution that is not happening.
+- i18n: 1591 -> 1594 keys/locale (+liveDeposit.pendingToast, +liveAccess.fundingRequired,
+  +bot.arbitrageEnabled; bot.enableScanner -> bot.enableArbitrage and hint.scanner ->
+  hint.arbitrage are renames). Identical key sets across en/es/pt/fr/ar/zh, 0 empty,
+  0 duplicate keys, placeholder parity clean, 0 U+FFFD; the non-ASCII delta is the
+  intended translation text only (byte multiset audited against a pre-edit copy).
+- Tests: NEW tests/dashboard_final_corrections.test.js (12) - the refusal matrix executed
+  in a VM against the real dictionary (unfunded/pending/restriction/funding/retryable, all
+  six locales), the banner contract with the rule-still-enforced pin, the wallet-tab
+  removal + referral preservation, the arbitrage labels + state-conditional text, and the
+  notice variants. tests/live_mode_eligibility.test.js gained 6 real-HTTP tests (refusal
+  facts, pending vs confirmed, promo credit not qualifying, funding prompt, no session row
+  created). tests/helpers/fake-supabase-live-mode.js now honours status=eq/in filters.
+  Pins updated for the intentional changes: dictionary counts 1591 -> 1594 (14 files,
+  landing_testimonials BASE_OUTSIDE 1540 -> 1543), bot_engine_disclosure /
+  dashboard_phase2 / trading_worker (tab-warning pins -> the approved/model contract),
+  promo_credit_display (banner copy + cap-still-enforced), redesign_shell /
+  tx_history_range (wallet-tab move), beginner_ux (hint key), activation_copy_truthfulness
+  (allowlist for the arbitrage labels). npm test = 4054 tests, 4053 pass, 0 fail,
+  1 skipped (baseline 4036).
+- Verification without vision: all 9 inline script blocks parse (vm.Script); node --check
+  server.js clean. A DOM-only CDP harness (no screenshots, no image payloads) served
+  public/ over HTTP with a fetch shim and asserted 32/32 checks at 390px AND 320px: the
+  toggle label flips idle/Enabled through updateStatus(), the commission block is inside
+  #referral with no bonus tab/panel, the banner renders the approved copy in the warning
+  colour with no cap figure, the three refusal variants show the right toast + open the
+  right surface (deposit dialog / nothing / Support Center), the notice shows the
+  background sentence for a worker session and the neutral one otherwise, es/ar switch the
+  copy (ar dir=rtl) and there is 0 horizontal overflow.
+- NOT VERIFIED FROM HERE: an authenticated production session and the live Render build
+  (nothing pushed). No screenshot-based review was possible (the model adapter drops image
+  content); every check above is DOM/text/computed-style/HTTP based.
+- NOT merged and NOT deployed; no production data, credentials or money touched.
