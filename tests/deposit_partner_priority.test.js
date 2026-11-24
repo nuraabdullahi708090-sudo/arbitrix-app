@@ -239,10 +239,10 @@ test('9. Generate Payment and the deposit rules are untouched', () => {
   assert.match(flow, /id="getAddressBtn"/);
   assert.match(flow, /onclick="requestDepositAddress\(\)"/);
   assert.ok(/function requestDepositAddress\(/.test(INDEX), 'the generator still exists');
-  assert.match(INDEX, /MIN_DEPOSIT:\s*100/, 'minimum deposit unchanged');
+  assert.match(INDEX, /MIN_DEPOSIT:\s*50/, 'minimum deposit unchanged');
   assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/, 'minimum withdrawal unchanged');
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 100/, 'server minimum unchanged');
+  assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 50/, 'server minimum unchanged');
   assert.match(server, /app\.post\('\/api\/payment\/create-invoice'/, 'invoice route unchanged');
   // The partner renderers cannot move money or call the network.
   for (const name of ['renderDepositPartnerAssistance', 'renderPaymentPartnerContacts']) {

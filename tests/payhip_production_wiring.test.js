@@ -384,7 +384,7 @@ test('the module can only ever call the four Payhip RPCs', async () => {
 
 test('activation grants permission only: the commercial constants are untouched', () => {
   const constants = {
-    PLATFORM_MIN_DEPOSIT_USD: /const PLATFORM_MIN_DEPOSIT_USD = 100;/,
+    PLATFORM_MIN_DEPOSIT_USD: /const PLATFORM_MIN_DEPOSIT_USD = 50;/,
     MIN_WITHDRAWAL_USD: /const MIN_WITHDRAWAL_USD = 700;/,
     REFERRAL_REWARD_PERCENT_DEFAULT: /const REFERRAL_REWARD_PERCENT_DEFAULT = 20;/
   };

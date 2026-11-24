@@ -238,7 +238,7 @@ test('dashboard terms have short localized hints and the auth page orients first
 
 test('no financial/backend logic was touched by this UX pass', () => {
     // Behavioural constants the UX pass must not have changed.
-    assert.ok(/const PLATFORM_MIN_DEPOSIT_USD = 100;/.test(SERVER), 'min deposit unchanged');
+    assert.ok(/const PLATFORM_MIN_DEPOSIT_USD = 50;/.test(SERVER), 'min deposit unchanged');
     const code = SERVER.split('\n').map((l) => (l.trim().startsWith('//') ? '' : l)).join('\n');
     assert.ok(!code.includes('BOT_MIN_TRADING_BALANCE'), 'the MTA is removed');
     assert.ok(/amount < MIN_WITHDRAWAL_USD/.test(SERVER), 'withdrawal minimum unchanged in server (now $700)');

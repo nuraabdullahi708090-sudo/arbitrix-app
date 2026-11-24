@@ -84,7 +84,7 @@ function translations() {
 }
 
 test('min deposit: single server source of truth is $100', () => {
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/, 'platform minimum deposit constant must be $100');
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/, 'platform minimum deposit constant must be $50');
     assert.match(SERVER, /const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT;/, 'production invoice route uses the constant');
     assert.ok(!/const MIN_DEPOSIT_AMOUNT = 50;/.test(SERVER), 'no stale $50 production minimum');
 });
@@ -245,9 +245,17 @@ test('earnings: empty bucket is refused; small genuine earnings convert', () => 
     assert.strictEqual(w2.live_balance, 8);
 });
 
-test('promo credit: stays $50 and is not derived from the minimum deposit', () => {
+test('promo credit: stays $50 and is a seed, never the minimum deposit', () => {
+    // Both values happen to be 50, so "not equal to the minimum" can no longer
+    // express the rule. What matters is that the credit is its own constant and
+    // that the wallet seed passes it explicitly instead of reading the floor.
     assert.match(SERVER, /const SANDBOX_PROMO_CREDIT = 50;/);
-    assert.ok(!/const PLATFORM_MIN_DEPOSIT_USD = 50/.test(SERVER));
+    assert.match(SERVER, /live_balance: 50, bonus_balance: 0/,
+        'the new-user seed is an explicit 50, not PLATFORM_MIN_DEPOSIT');
+    assert.ok(!/live_balance: PLATFORM_MIN_DEPOSIT/.test(SERVER),
+        'the promotional credit must never be derived from the deposit floor');
+    assert.ok(!/balance: PLATFORM_MIN_DEPOSIT\b/.test(SERVER),
+        'the sandbox promotional seed must not read the deposit floor either');
 });
 
 test('promo credit: tradable through the EXISTING engine (no separate engine)', () => {

@@ -9984,3 +9984,57 @@ path touched. NOT merged, NOT deployed.
   real interaction; subjective quality (shading, motion) is unverified.
 - Report: `docs/design/VISUAL_REVIEW_2026-11.md` "Phase 2" + "Onboarding / activation
   audit" sections.
+
+
+## Mission 5 - payment simplification: $50 floor + activation removed from the journey (2026-11-24)
+
+- APPROVED CHANGES, all money-safe. `server.js`, `public/index.html`,
+  `.env.example`, ONE new migration and tests. No deposit/withdrawal/crediting/KYC/
+  referral-award code changed beyond the threshold value, and no provider was added
+  or switched.
+- MINIMUM DEPOSIT $100 -> $50. `PLATFORM_MIN_DEPOSIT_USD = 50` is the single
+  source; every consumer already reads the resolved `PLATFORM_MIN_DEPOSIT`
+  (invoice validation, both sandbox doors, `SANDBOX_REFERRAL_MIN_DEPOSIT`, the
+  referral config fallbacks, `MARKETING_FACTS`, `/api/auth/me`). Frontend
+  `MIN_DEPOSIT: 50`, `|| 50` fallbacks, the first deposit preset is $50,
+  `'Min $50'` in BACKEND_MESSAGE_MAP, and `#refMinDeposit` defaults to $50.
+- NEW `supabase/migrations/057_min_deposit_and_referral_50.sql` (NOT applied):
+  syncs `referral_config.minimum_qualifying_deposit` 100 -> 50. This is REQUIRED:
+  the provider award helper (`award_referral_qualification_safe`, migration 021)
+  reads that ROW, not the constant, so without it a $50 deposit credits but its
+  referral never qualifies. Introspects the column shape (config_key/config_value
+  or key/value), inserts when absent, moves only '100', and REPORTS any other
+  operator value instead of rewriting it. Verified on real PostgreSQL 16.16:
+  100->50, re-apply no-op, absent->inserted, '75' preserved, alternative column
+  pair works, wallet row untouched.
+- REFERRAL REWARD is unchanged in form: 20% of the referred user's FIRST
+  qualifying deposit, once. At $50 that is $10; at $100 it is $20.
+- PAYHIP ACTIVATION removed from the NORMAL journey. It was already inert by
+  default (`PAYHIP_ACTIVATION_REQUIRED` unset -> `activationRequired: false`, and
+  `getLiveModeEligibility()` short-circuits), so no gate code was deleted. What
+  DID have to change was copy that asserted a mandatory paid activation:
+  `landing.hero.promo`, `landing.faq.a10` and `landing.howItWorks.step2.desc`
+  (x2 duplicate blocks) rewritten in all 6 locales to state deposit + promo credit
+  instead. The integration, its routes, migrations 050/054 and the activation UI
+  are retained and still appear when an operator turns the flag on (pinned).
+- i18n: values only for the changed keys; 1646 keys/locale x 6 (unchanged count).
+- TESTS: NEW `tests/min50_simplification.test.js` (23) pins the $50 constant and
+  every consumer, the referral 20% SQL formula + migration 057 contract, the
+  activation default-off path and the retained integration, the q8pay signature/
+  idempotency path, the promo seed and the $700 withdrawal minimum. 30 existing
+  suites updated for the intentional threshold/copy change (pins, dictionary
+  counts, funnel hash). `npm test` = 4026 pass / 0 fail.
+- DOM-ONLY VERIFICATION (no screenshots - the model adapter rejects images):
+  deposit UX 23/23 (dialog opens, "$50" notice, $50 preset fills the field, $49
+  refused client-side with ZERO requests, one create-invoice request with
+  {amount:50, currency:USDT, network:TRC20}, payment section shows the address +
+  exact amount + TRC20 + "Waiting for payment..."), onboarding/activation audit
+  20/20 (onboarding offers credit and deposit paths with no purchase step, the
+  deposit button opens the dialog, no activation copy anywhere while the flag is
+  off, activation UI and guide step reappear when the flag is on).
+- RESEARCH: `docs/payments/PROVIDER_RESEARCH_2026-11.md`. Recommendation: keep
+  Q8Pay. Cryptomus/OxaPay/Plisio documentation could NOT be verified from this
+  environment (hosts did not resolve / doc paths 404), so no fee, custody or KYB
+  claim about them is recorded. NOWPayments is the only realistic fallback because
+  its provider class already exists.
+- NOT committed/deployed at the time of writing; migration 057 NOT applied.

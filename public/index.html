@@ -7400,7 +7400,7 @@ console.log('🔐 Auth script loaded successfully');
                     </button>
                 </div>
                 <div class="landing-hero-promo">
-                    <i class="fas fa-gift"></i><span data-i18n="landing.hero.promo">New accounts include $50 in promotional trading credit. Live trading requires a one-time $50 activation and at least $100 in trading capital.</span>
+                    <i class="fas fa-gift"></i><span data-i18n="landing.hero.promo">New accounts include $50 in promotional trading credit. Fund your Live wallet with a deposit of $50 or more to start live trading.</span>
                 </div>
                 <div class="landing-hero-trust" data-i18n="landing.hero.trustLine">
                     Free account → $50 credit → Live
@@ -7855,7 +7855,7 @@ console.log('🔐 Auth script loaded successfully');
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
                         <span data-i18n="landing.faq.q10">I deposited but still cannot start Live trading. Why?</span><i class="fas fa-chevron-down"></i>
                     </button>
-                    <div class="landing-faq-answer"><p data-i18n="landing.faq.a10">Live Mode has two separate steps: a one-time $50 activation unlocks live trading, and at least $100 in trading capital funds it. If your deposit is confirmed but trading is still locked, the activation is the missing step.</p></div>
+                    <div class="landing-faq-answer"><p data-i18n="landing.faq.a10">Live trading needs a funded Live wallet: make a deposit of at least $50. The $50 promotional credit is a separate trading credit, not a deposit, so it does not count towards that minimum. If your deposit is confirmed but Live trading is still unavailable, contact support.</p></div>
                 </div>
                 <div class="landing-faq-item">
                     <button class="landing-faq-question" onclick="toggleFaq(this)">
@@ -9614,7 +9614,7 @@ function toggleFaq(btn) {
                             </li>
                             <li class="ref-step">
                                 <span class="ref-step-num" aria-hidden="true">2</span>
-                                <span class="ref-step-text"><span data-i18n="referral.step2Text">Friend deposits &ge;</span> <span id="refMinDeposit">$100</span> <span class="ref-chip is-active" data-i18n="referral.active">Active</span></span>
+                                <span class="ref-step-text"><span data-i18n="referral.step2Text">Friend deposits &ge;</span> <span id="refMinDeposit">$50</span> <span class="ref-chip is-active" data-i18n="referral.active">Active</span></span>
                             </li>
                             <li class="ref-step">
                                 <span class="ref-step-num" aria-hidden="true">3</span>
@@ -9839,7 +9839,7 @@ function toggleFaq(btn) {
           <input type="number" id="liveDepositAmount" placeholder="100.00" class="input-field" style="font-size:20px;padding:14px 14px 14px 36px;font-weight:600;" value="100">
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-          <button type="button" class="quick-amount-btn" onclick="setDepositAmount(100)">$100</button>
+          <button type="button" class="quick-amount-btn" onclick="setDepositAmount(50)">$50</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(250)">$250</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(500)">$500</button>
           <button type="button" class="quick-amount-btn" onclick="setDepositAmount(1000)">$1,000</button>
@@ -11270,7 +11270,7 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Multi-network support',
         'landing.features.wallet.list3': 'Instant deposits',
         'landing.features.referral.title': 'Referral Rewards',
-        'landing.features.referral.desc': 'Earn 20% of your friend’s first qualifying deposit (minimum $100). No limits on how much you can earn through referrals.',
+        'landing.features.referral.desc': 'Earn 20% of your friend’s first qualifying deposit (minimum $50). No limits on how much you can earn through referrals.',
         'landing.features.referral.list1': '20% of the first qualifying deposit',
         'landing.features.referral.list2': 'Instant bonuses',
         'landing.features.referral.list3': 'One-time reward, no recurring commission',
@@ -11285,7 +11285,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Create your account',
         'landing.howItWorks.step1.desc': 'Sign up with your email and password.',
         'landing.howItWorks.step2.title': 'Get your $50 credit',
-        'landing.howItWorks.step2.desc': 'A one-time activation unlocks Live trading. Your $50 promotional credit is tradable from the start.',
+        'landing.howItWorks.step2.desc': 'Fund your Live wallet with a deposit of $50 or more to trade with real money. Your $50 promotional credit is tradable from the start.',
         'landing.howItWorks.step3.title': 'Start the Bot',
         'landing.howItWorks.step3.desc': 'Click Start Bot and Kalderix begins monitoring and executing eligible opportunities according to the platform\'s strategy.',
         'landing.howItWorks.step4.title': 'Go Live when ready',
@@ -11326,7 +11326,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'How does the AI trading bot work?',
         'landing.faq.4.a': 'Our AI continuously monitors price differences across 50+ exchanges. When it detects an arbitrage opportunity (price discrepancy), it automatically executes trades to profit from the difference. You can start/stop the bot anytime.',
         'landing.faq.5.q': 'How do referral rewards work?',
-        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $100. Referral earnings build up in the Bonus Wallet and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (no minimum withdrawal, withdrawal security verification when required, and a valid address).',
+        'landing.faq.5.a': 'Earn 20% of your friend’s first qualifying deposit of at least $50. Referral earnings build up in the Bonus Wallet and can be converted to your Live Wallet at any time — there is no minimum conversion. Withdrawals follow the standard platform rules (no minimum withdrawal, withdrawal security verification when required, and a valid address).',
         'landing.faq.6.q': 'Is account verification required?',
         'landing.faq.6.a': 'Basic account creation requires only an email and password. KYC verification may be required for higher withdrawal limits or specific features to comply with regulatory requirements.',
         'landing.cta.title': 'Start trading today',
@@ -11537,7 +11537,7 @@ const TRANSLATIONS = {
         'referral.title': 'Referral Program',
         'landing.partner.tag': 'Partner Program',
         'landing.partner.title': 'Become a Kalderix Referral Partner',
-        'landing.partner.subtitle': 'Introduce new users to Kalderix and earn a 20% referral reward on their first qualifying deposit of $100 or more.',
+        'landing.partner.subtitle': 'Introduce new users to Kalderix and earn a 20% referral reward on their first qualifying deposit of $50 or more.',
         'landing.partner.step1': 'Share your link',
         'landing.partner.step2': 'User registers',
         'landing.partner.step3': 'User makes a qualifying deposit',
@@ -11545,15 +11545,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Request payout',
         'landing.partner.cta': 'Become a Referral Partner',
         'landing.partner.disclosure': 'Self-referrals, duplicate accounts, fraudulent activity, and misleading promotion are not eligible for referral rewards.',
-        'landing.hero.promo': 'New accounts include $50 in promotional trading credit. Live trading requires a one-time $50 activation and at least $100 in trading capital.',
+        'landing.hero.promo': 'New accounts include $50 in promotional trading credit. Fund your Live wallet with a deposit of $50 or more to start live trading.',
         'landing.startFree.tag': 'Get Started',
         'landing.startFree.title': 'START FREE, GO LIVE IN 3 STEPS',
         'landing.startFree.step1.title': 'Create Your Account',
         'landing.startFree.step1.desc': 'Create a free Kalderix account.',
         'landing.startFree.step2.title': 'Use your $50 credit',
         'landing.startFree.step2.desc': 'New accounts include $50 in promotional trading credit you can trade with right away.',
-        'landing.startFree.step3.title': 'Fund With $100+',
-        'landing.startFree.step3.desc': 'Add at least $100 of trading capital. Your $50 promotional credit (where eligible) is separate and stays promotional.',
+        'landing.startFree.step3.title': 'Fund With $50+',
+        'landing.startFree.step3.desc': 'Add at least $50 of trading capital. Your $50 promotional credit (where eligible) is separate and stays promotional.',
         'landing.video.tag': 'Explainer',
         'landing.video.title': 'See Kalderix in Action',
         'landing.video.subtitle': 'A short overview of how Kalderix automates eligible arbitrage.',
@@ -12622,7 +12622,7 @@ const TRANSLATIONS = {
         'landing.compare.demo.p3': 'Profit capped at $30 until you deposit',
         'landing.compare.live.tag': 'Deposited funds',
         'landing.compare.live.title': 'Fund when you\'re ready',
-        'landing.compare.live.p1': 'USDT deposits from $100',
+        'landing.compare.live.p1': 'USDT deposits from $50',
         'landing.compare.live.p2': 'No profit cap',
         'landing.compare.live.p3': 'Withdrawable after a completed trade',
         'landing.compare.note': 'The promotional credit is trading capital provided by Kalderix. Once profit on it reaches $30, a deposit is required to keep trading. Deposited funds are your own capital.',
@@ -12639,7 +12639,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Create your account',
         'landing.howItWorks.step1.desc': 'Sign up with your email and password.',
         'landing.howItWorks.step2.title': 'Get your $50 credit',
-        'landing.howItWorks.step2.desc': 'A one-time activation unlocks Live trading. Your $50 promotional credit is tradable from the start.',
+        'landing.howItWorks.step2.desc': 'Fund your Live wallet with a deposit of $50 or more to trade with real money. Your $50 promotional credit is tradable from the start.',
         'landing.howItWorks.step3.title': 'Start the bot',
         'landing.howItWorks.step3.desc': 'Kalderix monitors and executes eligible opportunities automatically.',
         'landing.howItWorks.step4.title': 'Go Live when ready',
@@ -12724,7 +12724,7 @@ const TRANSLATIONS = {
         'landing.faq.a8': 'The Kalderix Pro subscription is $7/month, deducted from your available trading balance when due. Based on the current product model, there are no additional platform fees.',
         'landing.faq.q10': 'I deposited but still cannot start Live trading. Why?',
         'landing.faq.q9': 'How do withdrawals work?',
-        'landing.faq.a10': 'Live Mode has two separate steps: a one-time $50 activation unlocks live trading, and at least $100 in trading capital funds it. If your deposit is confirmed but trading is still locked, the activation is the missing step - you can activate it from the Live wallet card.',
+        'landing.faq.a10': 'Live trading needs a funded Live wallet: make a deposit of at least $50. The $50 promotional credit is a separate trading credit, not a deposit, so it does not count towards that minimum. If your deposit is confirmed but Live trading is still unavailable, contact support.',
         'landing.faq.a9': 'You can withdraw to your own wallet address whenever eligible. Withdrawal processing usually takes 15–30 minutes, and applicable verification/security checks may apply.',
         'auth.brand.creditLabel': '$50',
         'auth.brand.noCard': 'No card',
@@ -12902,7 +12902,7 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Soporte multired',
         'landing.features.wallet.list3': 'Depósitos instantáneos',
         'landing.features.referral.title': 'Recompensas por referidos',
-        'landing.features.referral.desc': 'Gane el 20% del primer depósito válido de su amigo (mínimo $100). Sin límites en cuánto puede ganar mediante referidos.',
+        'landing.features.referral.desc': 'Gane el 20% del primer depósito válido de su amigo (mínimo $50). Sin límites en cuánto puede ganar mediante referidos.',
         'landing.features.referral.list1': '20% del primer depósito válido',
         'landing.features.referral.list2': 'Bonos instantáneos',
         'landing.features.referral.list3': 'Recompensa única, sin comisión recurrente',
@@ -12917,7 +12917,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Crea tu cuenta',
         'landing.howItWorks.step1.desc': 'Regístrate con tu correo electrónico y contraseña.',
         'landing.howItWorks.step2.title': 'Recibe tu crédito de $50',
-        'landing.howItWorks.step2.desc': 'Una activación única habilita el trading Live. Tu crédito promocional de $50 sirve para operar desde el inicio.',
+        'landing.howItWorks.step2.desc': 'Financia tu billetera Live con un depósito de $50 o más para operar con dinero real. Tu crédito promocional de $50 sirve para operar desde el inicio.',
         'landing.howItWorks.step3.title': 'Inicia el Bot',
         'landing.howItWorks.step3.desc': 'Haz clic en Iniciar Bot y Kalderix comenzará a monitorear y ejecutar oportunidades elegibles según la estrategia de la plataforma.',
         'landing.howItWorks.step4.title': 'Pasa a Real cuando estés listo',
@@ -12958,7 +12958,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': '¿Cómo funciona el bot de trading con IA?',
         'landing.faq.4.a': 'Nuestra IA monitorea continuamente las diferencias de precio en 50+ exchanges. Cuando detecta una oportunidad de arbitraje (discrepancia de precio), ejecuta operaciones automáticamente para obtener ganancias de la diferencia. Puede iniciar/detener el bot en cualquier momento.',
         'landing.faq.5.q': '¿Cómo funcionan las recompensas por referidos?',
-        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $100 de un amigo referido. Los ingresos por referidos se acumulan en la Billetera de bonos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (sin retiro mínimo, verificación de seguridad para retiros cuando sea necesaria y una dirección válida).',
+        'landing.faq.5.a': 'Gane el 20% del primer depósito válido de al menos $50 de un amigo referido. Los ingresos por referidos se acumulan en la Billetera de bonos y pueden convertirse a su Billetera LIVE en cualquier momento, sin mínimo de conversión. Los retiros siguen las reglas estándar de la plataforma (sin retiro mínimo, verificación de seguridad para retiros cuando sea necesaria y una dirección válida).',
         'landing.faq.6.q': '¿Se requiere verificación de cuenta?',
         'landing.faq.6.a': 'La creación básica de cuenta requiere solo un correo y una contraseña. La verificación KYC puede ser necesaria para límites de retiro más altos o funciones específicas para cumplir con los requisitos regulatorios.',
         'landing.cta.title': 'Empieza a operar hoy',
@@ -13169,7 +13169,7 @@ const TRANSLATIONS = {
         'referral.title': 'Programa de referidos',
         'landing.partner.tag': 'Programa de socios',
         'landing.partner.title': 'Conviértete en socio de referidos de Kalderix',
-        'landing.partner.subtitle': 'Presenta nuevos usuarios a Kalderix y gana una recompensa de referido del 20% sobre su primer depósito calificado de $100 o más.',
+        'landing.partner.subtitle': 'Presenta nuevos usuarios a Kalderix y gana una recompensa de referido del 20% sobre su primer depósito calificado de $50 o más.',
         'landing.partner.step1': 'Comparte tu enlace',
         'landing.partner.step2': 'El usuario se registra',
         'landing.partner.step3': 'El usuario hace un depósito calificado',
@@ -13177,15 +13177,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Solicita el pago',
         'landing.partner.cta': 'Convertirme en socio de referidos',
         'landing.partner.disclosure': 'Las autorreferencias, las cuentas duplicadas, la actividad fraudulenta y la promoción engañosa no son elegibles para recompensas por referidos.',
-        'landing.hero.promo': 'Las cuentas nuevas incluyen $50 de crédito promocional de trading. El trading Live requiere una activación única de $50 y al menos $100 de capital.',
+        'landing.hero.promo': 'Las cuentas nuevas incluyen $50 de crédito promocional de trading. Financia tu billetera Live con un depósito de $50 o más para empezar a operar en real.',
         'landing.startFree.tag': 'Empezar',
         'landing.startFree.title': 'EMPIEZA GRATIS Y PASA A LIVE EN 3 PASOS',
         'landing.startFree.step1.title': 'Crea tu cuenta',
         'landing.startFree.step1.desc': 'Crea una cuenta gratuita en Kalderix.',
         'landing.startFree.step2.title': 'Usa tu crédito de $50',
         'landing.startFree.step2.desc': 'Las cuentas nuevas incluyen $50 de crédito promocional para operar de inmediato.',
-        'landing.startFree.step3.title': 'Fondea con $100 o más',
-        'landing.startFree.step3.desc': 'Agrega al menos $100 de capital de trading. Tu crédito promocional de $50 (donde aplica) es aparte y sigue siendo promocional.',
+        'landing.startFree.step3.title': 'Fondea con $50 o más',
+        'landing.startFree.step3.desc': 'Agrega al menos $50 de capital de trading. Tu crédito promocional de $50 (donde aplica) es aparte y sigue siendo promocional.',
         'landing.video.tag': 'Explicativo',
         'landing.video.title': 'Descubre Kalderix en acción',
         'landing.video.subtitle': 'Un breve resumen de cómo Kalderix automatiza el arbitraje elegible.',
@@ -14254,7 +14254,7 @@ const TRANSLATIONS = {
         'landing.compare.demo.p3': 'Ganancia limitada a $30 hasta que deposites',
         'landing.compare.live.tag': 'Fondos depositados',
         'landing.compare.live.title': 'Financia cuando quieras',
-        'landing.compare.live.p1': 'Depósitos en USDT desde $100',
+        'landing.compare.live.p1': 'Depósitos en USDT desde $50',
         'landing.compare.live.p2': 'Sin límite de ganancia',
         'landing.compare.live.p3': 'Retirable tras una operación completada',
         'landing.compare.note': 'El crédito promocional es capital de trading proporcionado por Kalderix. Cuando la ganancia alcance $30, se requiere un depósito para seguir operando. Los fondos depositados son tu capital.',
@@ -14271,7 +14271,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Crea tu cuenta',
         'landing.howItWorks.step1.desc': 'Regístrate con tu correo y contraseña.',
         'landing.howItWorks.step2.title': 'Recibe tu crédito de $50',
-        'landing.howItWorks.step2.desc': 'Una activación única habilita el trading Live. Tu crédito promocional de $50 sirve para operar desde el inicio.',
+        'landing.howItWorks.step2.desc': 'Financia tu billetera Live con un depósito de $50 o más para operar con dinero real. Tu crédito promocional de $50 sirve para operar desde el inicio.',
         'landing.howItWorks.step3.title': 'Inicia el bot',
         'landing.howItWorks.step3.desc': 'Kalderix monitorea y ejecuta oportunidades elegibles automáticamente.',
         'landing.howItWorks.step4.title': 'Pasa a Live cuando quieras',
@@ -14356,7 +14356,7 @@ const TRANSLATIONS = {
         'landing.faq.a8': 'La suscripción a Kalderix Pro es de $7/mes, debitados de tu saldo de trading disponible cuando se deben. Según el modelo actual, no hay tarifas adicionales de plataforma.',
         'landing.faq.q10': '¿Deposité y aún no puedo operar en Live? ¿Por qué?',
         'landing.faq.q9': '¿Cómo funcionan los retiros?',
-        'landing.faq.a10': 'El Modo Live tiene dos pasos separados: una activación única de $50 desbloquea el trading real, y al menos $100 de capital de trading lo fondean. Si tu depósito está confirmado pero el trading sigue bloqueado, falta la activación: puedes activarla desde la tarjeta de la billetera Live.',
+        'landing.faq.a10': 'Operar en Live requiere una billetera Live fondeada: realiza un depósito de al menos $50. El crédito promocional de $50 es un crédito de trading aparte, no un depósito, así que no cuenta para ese mínimo. Si tu depósito está confirmado pero el trading Live sigue sin estar disponible, contacta con soporte.',
         'landing.faq.a9': 'Puedes retirar a tu propia dirección de billetera cuando seas elegible. El procesamiento del retiro suele tardar entre 15 y 30 minutos y pueden aplicar verificaciones/controles de seguridad.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.creditLabel': '$50',
@@ -14535,7 +14535,7 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Suporte multi-rede',
         'landing.features.wallet.list3': 'Depósitos instantâneos',
         'landing.features.referral.title': 'Recompensas por indicação',
-        'landing.features.referral.desc': 'Ganhe 20% do primeiro depósito válido do seu amigo (mínimo $100). Sem limites de quanto você pode ganhar com indicações.',
+        'landing.features.referral.desc': 'Ganhe 20% do primeiro depósito válido do seu amigo (mínimo $50). Sem limites de quanto você pode ganhar com indicações.',
         'landing.features.referral.list1': '20% do primeiro depósito válido',
         'landing.features.referral.list2': 'Bônus instantâneos',
         'landing.features.referral.list3': 'Recompensa única, sem comissão recorrente',
@@ -14550,7 +14550,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Crie sua conta',
         'landing.howItWorks.step1.desc': 'Cadastre-se com seu e-mail e senha.',
         'landing.howItWorks.step2.title': 'Receba seu crédito de $50',
-        'landing.howItWorks.step2.desc': 'Uma ativação única libera o trading Live. Seu crédito promocional de $50 já pode ser usado para operar.',
+        'landing.howItWorks.step2.desc': 'Financie sua carteira Live com um depósito de $50 ou mais para negociar com dinheiro real. Seu crédito promocional de $50 já pode ser usado para operar.',
         'landing.howItWorks.step3.title': 'Inicie o Bot',
         'landing.howItWorks.step3.desc': 'Clique em Iniciar Bot e a Kalderix começará a monitorar e executar oportunidades elegíveis conforme a estratégia da plataforma.',
         'landing.howItWorks.step4.title': 'Mude para Real quando estiver pronto',
@@ -14591,7 +14591,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Como funciona o bot de trading com IA?',
         'landing.faq.4.a': 'Nossa IA monitora continuamente as diferenças de preço em 50+ exchanges. Quando detecta uma oportunidade de arbitragem (discrepância de preço), executa operações automaticamente para lucrar com a diferença. Você pode iniciar/parar o bot a qualquer momento.',
         'landing.faq.5.q': 'Como funcionam as recompensas por indicação?',
-        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $100 de um amigo indicado. Os ganhos de indicação acumulam-se na Carteira de Bônus e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (sem saque mínimo, verificação de segurança para saques quando exigida e um endereço válido).',
+        'landing.faq.5.a': 'Ganhe 20% do primeiro depósito válido de pelo menos $50 de um amigo indicado. Os ganhos de indicação acumulam-se na Carteira de Bônus e podem ser convertidos para a sua Carteira LIVE a qualquer momento — sem valor mínimo de conversão. Os saques seguem as regras padrão da plataforma (sem saque mínimo, verificação de segurança para saques quando exigida e um endereço válido).',
         'landing.faq.6.q': 'É necessária verificação de conta?',
         'landing.faq.6.a': 'A criação básica de conta requer apenas um e-mail e uma senha. A verificação KYC pode ser necessária para limites de saque mais altos ou recursos específicos para cumprir requisitos regulatórios.',
         'landing.cta.title': 'Comece a operar hoje',
@@ -14802,7 +14802,7 @@ const TRANSLATIONS = {
         'referral.title': 'Programa de indicações',
         'landing.partner.tag': 'Programa de parceiros',
         'landing.partner.title': 'Torne-se um parceiro de indicações da Kalderix',
-        'landing.partner.subtitle': 'Apresente novos usuários à Kalderix e ganhe uma recompensa de indicação de 20% sobre o primeiro depósito qualificado de $100 ou mais.',
+        'landing.partner.subtitle': 'Apresente novos usuários à Kalderix e ganhe uma recompensa de indicação de 20% sobre o primeiro depósito qualificado de $50 ou mais.',
         'landing.partner.step1': 'Compartilhe seu link',
         'landing.partner.step2': 'O usuário se cadastra',
         'landing.partner.step3': 'O usuário faz um depósito qualificado',
@@ -14810,15 +14810,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Solicite o pagamento',
         'landing.partner.cta': 'Torne-se um parceiro de indicações',
         'landing.partner.disclosure': 'Autoindicações, contas duplicadas, atividade fraudulenta e promoção enganosa não são elegíveis para recompensas de indicação.',
-        'landing.hero.promo': 'Contas novas incluem $50 em crédito promocional de negociação. O trading Live exige uma ativação única de $50 e pelo menos $100 de capital.',
+        'landing.hero.promo': 'Contas novas incluem $50 em crédito promocional de negociação. Financie sua carteira Live com um depósito de $50 ou mais para começar a negociar de verdade.',
         'landing.startFree.tag': 'Começar',
         'landing.startFree.title': 'COMECE GRÁTIS E VÁ PARA O LIVE EM 3 PASSOS',
         'landing.startFree.step1.title': 'Crie sua conta',
         'landing.startFree.step1.desc': 'Crie uma conta gratuita na Kalderix.',
         'landing.startFree.step2.title': 'Use seu crédito de $50',
         'landing.startFree.step2.desc': 'Contas novas incluem $50 em crédito promocional para operar desde já.',
-        'landing.startFree.step3.title': 'Fundeie com $100 ou mais',
-        'landing.startFree.step3.desc': 'Adicione pelo menos $100 em capital de negociação. Seu crédito promocional de $50 (quando elegível) é separado e continua promocional.',
+        'landing.startFree.step3.title': 'Fundeie com $50 ou mais',
+        'landing.startFree.step3.desc': 'Adicione pelo menos $50 em capital de negociação. Seu crédito promocional de $50 (quando elegível) é separado e continua promocional.',
         'landing.video.tag': 'Explicativo',
         'landing.video.title': 'Veja a Kalderix em ação',
         'landing.video.subtitle': 'Uma breve visão geral de como a Kalderix automatiza a arbitragem elegível.',
@@ -15887,7 +15887,7 @@ const TRANSLATIONS = {
         'landing.compare.demo.p3': 'Lucro limitado a $30 até você depositar',
         'landing.compare.live.tag': 'Fundos depositados',
         'landing.compare.live.title': 'Financie quando quiser',
-        'landing.compare.live.p1': 'Depósitos em USDT a partir de $100',
+        'landing.compare.live.p1': 'Depósitos em USDT a partir de $50',
         'landing.compare.live.p2': 'Sem limite de lucro',
         'landing.compare.live.p3': 'Sacável após uma operação concluída',
         'landing.compare.note': 'O crédito promocional é capital de negociação fornecido pela Kalderix. Quando o lucro atingir $30, é necessário um depósito para continuar operando. Os fundos depositados são seu capital.',
@@ -15904,7 +15904,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Crie sua conta',
         'landing.howItWorks.step1.desc': 'Cadastre-se com seu e-mail e senha.',
         'landing.howItWorks.step2.title': 'Receba seu crédito de $50',
-        'landing.howItWorks.step2.desc': 'Uma ativação única libera o trading Live. Seu crédito promocional de $50 já pode ser usado para operar.',
+        'landing.howItWorks.step2.desc': 'Financie sua carteira Live com um depósito de $50 ou mais para negociar com dinheiro real. Seu crédito promocional de $50 já pode ser usado para operar.',
         'landing.howItWorks.step3.title': 'Inicie o bot',
         'landing.howItWorks.step3.desc': 'A Kalderix monitora e executa oportunidades elegíveis automaticamente.',
         'landing.howItWorks.step4.title': 'Vá para o Live quando quiser',
@@ -15989,7 +15989,7 @@ const TRANSLATIONS = {
         'landing.faq.a8': 'A assinatura do Kalderix Pro é de $7/mês, debitada do seu saldo de negociação disponível quando vence. Com base no modelo atual, não há tarifas adicionais de plataforma.',
         'landing.faq.q10': 'Depositei mas ainda não consigo operar no Live. Por quê?',
         'landing.faq.q9': 'Como funcionam os saques?',
-        'landing.faq.a10': 'O Modo Live tem duas etapas separadas: uma ativação única de $50 libera a negociação real, e pelo menos $100 em capital de negociação a financia. Se o seu depósito está confirmado mas a negociação continua bloqueada, falta a ativação: você pode ativá-la no cartão da carteira Live.',
+        'landing.faq.a10': 'Negociar no Live exige uma carteira Live financiada: faça um depósito de pelo menos $50. O crédito promocional de $50 é um crédito de negociação separado, não um depósito, portanto não conta para esse mínimo. Se o seu depósito estiver confirmado mas a negociação Live continuar indisponível, contacte o suporte.',
         'landing.faq.a9': 'Você pode sacar para seu próprio endereço de carteira quando elegível. O processamento do saque geralmente leva de 15 a 30 minutos e verificações/controles de segurança aplicáveis podem se aplicar.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.creditLabel': '$50',
@@ -16168,7 +16168,7 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'Support multi-réseaux',
         'landing.features.wallet.list3': 'Dépôts instantanés',
         'landing.features.referral.title': 'Récompenses de parrainage',
-        'landing.features.referral.desc': 'Gagnez 20 % du premier dépôt éligible de votre ami (minimum $100). Sans limite sur ce que vous pouvez gagner grâce aux parrainages.',
+        'landing.features.referral.desc': 'Gagnez 20 % du premier dépôt éligible de votre ami (minimum $50). Sans limite sur ce que vous pouvez gagner grâce aux parrainages.',
         'landing.features.referral.list1': '20 % du premier dépôt éligible',
         'landing.features.referral.list2': 'Bonus instantanés',
         'landing.features.referral.list3': 'Récompense unique, sans commission récurrente',
@@ -16183,7 +16183,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Créez votre compte',
         'landing.howItWorks.step1.desc': 'Inscrivez-vous avec votre e-mail et votre mot de passe.',
         'landing.howItWorks.step2.title': 'Recevez votre crédit de 50 $',
-        'landing.howItWorks.step2.desc': 'Une activation unique débloque le trading Live. Votre crédit promotionnel de 50 $ est utilisable dès le départ.',
+        'landing.howItWorks.step2.desc': 'Financez votre portefeuille Live avec un dépôt de 50 $ ou plus pour trader avec de l’argent réel. Votre crédit promotionnel de 50 $ est utilisable dès le départ.',
         'landing.howItWorks.step3.title': 'Démarrez le bot',
         'landing.howItWorks.step3.desc': 'Cliquez sur Démarrer le bot et Kalderix commence à surveiller et à exécuter les opportunités éligibles selon la stratégie de la plateforme.',
         'landing.howItWorks.step4.title': 'Passe en mode réel quand vous êtes prêt',
@@ -16224,7 +16224,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'Comment fonctionne le bot de trading IA ?',
         'landing.faq.4.a': 'Notre IA surveille en continu les écarts de prix sur 50+ exchanges. Lorsqu’elle détecte une opportunité d’arbitrage (écart de prix), elle exécute automatiquement des trades pour profiter de la différence. Vous pouvez démarrer/arrêter le bot à tout moment.',
         'landing.faq.5.q': 'Comment fonctionnent les récompenses de parrainage ?',
-        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $100 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Portefeuille Bonus et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (aucun retrait minimum, vérification de sécurité des retraits si nécessaire et une adresse valide).',
+        'landing.faq.5.a': 'Gagnez 20 % du premier dépôt éligible d’au moins $50 d’un ami parrainé. Les gains de parrainage s’accumulent dans le Portefeuille Bonus et peuvent être convertis dans votre Portefeuille LIVE à tout moment — sans minimum de conversion. Les retraits suivent les règles standard de la plateforme (aucun retrait minimum, vérification de sécurité des retraits si nécessaire et une adresse valide).',
         'landing.faq.6.q': 'La vérification du compte est-elle obligatoire ?',
         'landing.faq.6.a': 'La création de base d’un compte ne nécessite qu’un e-mail et un mot de passe. La vérification KYC peut être requise pour des limites de retrait plus élevées ou certaines fonctionnalités afin de respecter les exigences réglementaires.',
         'landing.cta.title': 'Commencez à trader aujourd\'hui',
@@ -16435,7 +16435,7 @@ const TRANSLATIONS = {
         'referral.title': 'Programme de parrainage',
         'landing.partner.tag': 'Programme partenaires',
         'landing.partner.title': 'Devenez partenaire de parrainage Kalderix',
-        'landing.partner.subtitle': 'Présentez de nouveaux utilisateurs à Kalderix et gagnez une récompense de parrainage de 20% sur leur premier dépôt éligible de $100 ou plus.',
+        'landing.partner.subtitle': 'Présentez de nouveaux utilisateurs à Kalderix et gagnez une récompense de parrainage de 20% sur leur premier dépôt éligible de $50 ou plus.',
         'landing.partner.step1': 'Partagez votre lien',
         'landing.partner.step2': 'L\'utilisateur s\'inscrit',
         'landing.partner.step3': 'L\'utilisateur effectue un dépôt éligible',
@@ -16443,15 +16443,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'Demandez le paiement',
         'landing.partner.cta': 'Devenir partenaire de parrainage',
         'landing.partner.disclosure': 'L\'auto-parrainage, les comptes en double, les activités frauduleuses et la promotion trompeuse ne donnent pas droit aux récompenses de parrainage.',
-        'landing.hero.promo': 'Les nouveaux comptes incluent 50 $ de crédit promotionnel. Le trading Live nécessite une activation unique de 50 $ et au moins 100 $ de capital.',
+        'landing.hero.promo': 'Les nouveaux comptes incluent 50 $ de crédit promotionnel. Financez votre portefeuille Live avec un dépôt de 50 $ ou plus pour commencer à trader en réel.',
         'landing.startFree.tag': 'Commencer',
         'landing.startFree.title': 'COMMENCEZ GRATUITEMENT, PASSEZ EN LIVE EN 3 ÉTAPES',
         'landing.startFree.step1.title': 'Créez votre compte',
         'landing.startFree.step1.desc': 'Créez un compte Kalderix gratuit.',
         'landing.startFree.step2.title': 'Utilisez votre crédit de 50 $',
         'landing.startFree.step2.desc': 'Les nouveaux comptes incluent 50 $ de crédit promotionnel utilisable immédiatement.',
-        'landing.startFree.step3.title': 'Financez avec $100 ou plus',
-        'landing.startFree.step3.desc': 'Ajoutez au moins $100 de capital de trading. Votre crédit promotionnel de $50 (selon éligibilité) est distinct et reste promotionnel.',
+        'landing.startFree.step3.title': 'Financez avec $50 ou plus',
+        'landing.startFree.step3.desc': 'Ajoutez au moins $50 de capital de trading. Votre crédit promotionnel de $50 (selon éligibilité) est distinct et reste promotionnel.',
         'landing.video.tag': 'Explicatif',
         'landing.video.title': 'Découvrez Kalderix en action',
         'landing.video.subtitle': 'Un bref aperçu de la façon dont Kalderix automatise l\'arbitrage éligible.',
@@ -17520,7 +17520,7 @@ const TRANSLATIONS = {
         'landing.compare.demo.p3': 'Gain plafonné à 30 $ jusqu\'à votre dépôt',
         'landing.compare.live.tag': 'Fonds déposés',
         'landing.compare.live.title': 'Financez quand vous voulez',
-        'landing.compare.live.p1': 'Dépôts en USDT à partir de 100 $',
+        'landing.compare.live.p1': 'Dépôts en USDT à partir de 50 $',
         'landing.compare.live.p2': 'Aucun plafond de gain',
         'landing.compare.live.p3': 'Retirable après une transaction terminée',
         'landing.compare.note': 'Le crédit promotionnel est du capital de trading fourni par Kalderix. Lorsque le gain atteint 30 $, un dépôt est nécessaire pour continuer à trader. Les fonds déposés sont votre capital.',
@@ -17537,7 +17537,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'Créez votre compte',
         'landing.howItWorks.step1.desc': 'Inscrivez-vous avec votre e-mail et votre mot de passe.',
         'landing.howItWorks.step2.title': 'Recevez votre crédit de 50 $',
-        'landing.howItWorks.step2.desc': 'Une activation unique débloque le trading Live. Votre crédit promotionnel de 50 $ est utilisable dès le départ.',
+        'landing.howItWorks.step2.desc': 'Financez votre portefeuille Live avec un dépôt de 50 $ ou plus pour trader avec de l’argent réel. Votre crédit promotionnel de 50 $ est utilisable dès le départ.',
         'landing.howItWorks.step3.title': 'Démarrez le bot',
         'landing.howItWorks.step3.desc': 'Kalderix surveille et exécute les opportunités éligibles automatiquement.',
         'landing.howItWorks.step4.title': 'Passez en Live quand vous voulez',
@@ -17622,7 +17622,7 @@ const TRANSLATIONS = {
         'landing.faq.a8': 'L\'abonnement Kalderix Pro est de 7 $/mois, déduit de votre solde de trading disponible lorsqu\'il est dû. Selon le modèle actuel, il n\'y a pas de frais de plateforme supplémentaires.',
         'landing.faq.q10': 'J’ai déposé mais je ne peux toujours pas trader en Live. Pourquoi ?',
         'landing.faq.q9': 'Comment fonctionnent les retraits ?',
-        'landing.faq.a10': 'Le Mode Live comporte deux étapes distinctes : une activation unique de $50 débloque le trading réel, et au moins $100 de capital de trading le finance. Si votre dépôt est confirmé mais que le trading reste verrouillé, l’activation est l’étape manquante : vous pouvez l’activer depuis la carte du portefeuille Live.',
+        'landing.faq.a10': 'Trader en Live exige un portefeuille Live approvisionné : effectuez un dépôt d’au moins 50 $. Le crédit promotionnel de 50 $ est un crédit de trading distinct, pas un dépôt : il ne compte donc pas dans ce minimum. Si votre dépôt est confirmé mais que le trading Live reste indisponible, contactez le support.',
         'landing.faq.a9': 'Vous pouvez retirer vers votre propre adresse de portefeuille lorsque vous êtes éligible. Le traitement du retrait prend généralement 15 à 30 minutes et des vérifications/contrôles de sécurité applicables peuvent s\'appliquer.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.creditLabel': '$50',
@@ -17801,7 +17801,7 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': 'دعم متعدد الشبكات',
         'landing.features.wallet.list3': 'إيداع فوري',
         'landing.features.referral.title': 'مكافآت الإحالة',
-        'landing.features.referral.desc': 'اربح 20% من أول إيداع مؤهل لصديقك (بحد أدنى $100). لا توجد حدود لمقدار ما يمكنك كسبه من الإحالات.',
+        'landing.features.referral.desc': 'اربح 20% من أول إيداع مؤهل لصديقك (بحد أدنى $50). لا توجد حدود لمقدار ما يمكنك كسبه من الإحالات.',
         'landing.features.referral.list1': '20% من أول إيداع مؤهل',
         'landing.features.referral.list2': 'مكافآت فورية',
         'landing.features.referral.list3': 'مكافأة لمرة واحدة، دون عمولة متكررة',
@@ -17816,7 +17816,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'أنشئ حسابك',
         'landing.howItWorks.step1.desc': 'سجّل ببريدك الإلكتروني وكلمة المرور.',
         'landing.howItWorks.step2.title': 'احصل على رصيدك الترويجي 50$',
-        'landing.howItWorks.step2.desc': 'تفعيل لمرة واحدة يفتح التداول المباشر. رصيدك الترويجي 50 دولارًا قابل للتداول من البداية.',
+        'landing.howItWorks.step2.desc': 'موّل محفظتك المباشرة بإيداع لا يقل عن 50 دولارًا للتداول بأموال حقيقية. رصيدك الترويجي 50 دولارًا قابل للتداول من البداية.',
         'landing.howItWorks.step3.title': 'شغّل البوت',
         'landing.howItWorks.step3.desc': 'انقر على «تشغيل البوت» وسيبدأ Kalderix بمراقبة وتنفيذ الفرص المؤهلة وفق استراتيجية المنصة.',
         'landing.howItWorks.step4.title': 'انتقل إلى الوضع المباشر متى جاهزت',
@@ -17857,7 +17857,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'كيف يعمل روبوت التداول بالذكاء الاصطناعي؟',
         'landing.faq.4.a': 'يراقب ذكاؤنا الاصطناعي باستمرار فروق الأسعار عبر 50+ منصة. عندما يكتشف فرصة مراجحة (تباين في السعر)، ينفذ الصفقات تلقائيًا لتحقيق ربح من الفرق. يمكنك بدء/إيقاف الروبوت في أي وقت.',
         'landing.faq.5.q': 'كيف تعمل مكافآت الإحالة؟',
-        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $100 لصديق محال. تتراكم أرباح الإحالة في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (لا يوجد حد أدنى للسحب، والتحقق الأمني للسحب عند الحاجة، وعنوان صالح).',
+        'landing.faq.5.a': 'اربح 20% من أول إيداع مؤهل لا يقل عن $50 لصديق محال. تتراكم أرباح الإحالة في محفظة المكافآت ويمكن تحويلها إلى محفظة LIVE في أي وقت — بدون حد أدنى للتحويل. تخضع عمليات السحب لقواعد المنصة القياسية (لا يوجد حد أدنى للسحب، والتحقق الأمني للسحب عند الحاجة، وعنوان صالح).',
         'landing.faq.6.q': 'هل التحقق من الحساب مطلوب؟',
         'landing.faq.6.a': 'يتطلب إنشاء حساب أساسي بريدًا إلكترونيًا وكلمة مرور فقط. قد يلزم التحقق KYC لحدود سحب أعلى أو ميزات محددة للامتثال للمتطلبات التنظيمية.',
         'landing.cta.title': 'ابدأ التداول اليوم',
@@ -18068,7 +18068,7 @@ const TRANSLATIONS = {
         'referral.title': 'برنامج الإحالة',
         'landing.partner.tag': 'برنامج الشركاء',
         'landing.partner.title': 'كن شريك إحالة لدى Kalderix',
-        'landing.partner.subtitle': 'قدّم مستخدمين جددًا إلى Kalderix واربح مكافأة إحالة بنسبة 20% على أول إيداع مؤهل بقيمة $100 أو أكثر.',
+        'landing.partner.subtitle': 'قدّم مستخدمين جددًا إلى Kalderix واربح مكافأة إحالة بنسبة 20% على أول إيداع مؤهل بقيمة $50 أو أكثر.',
         'landing.partner.step1': 'شارك رابطك',
         'landing.partner.step2': 'يسجّل المستخدم',
         'landing.partner.step3': 'يجري المستخدم إيداعًا مؤهلًا',
@@ -18076,15 +18076,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': 'اطلب الدفع',
         'landing.partner.cta': 'كن شريك إحالة',
         'landing.partner.disclosure': 'الإحالة الذاتية والحسابات المكررة والنشاط الاحتيالي والترويج المضلل غير مؤهلة لمكافآت الإحالة.',
-        'landing.hero.promo': 'تتضمن الحسابات الجديدة رصيدًا ترويجيًا بقيمة 50 دولارًا. يتطلب التداول المباشر تفعيلًا لمرة واحدة بقيمة 50 دولارًا ورأس مال لا يقل عن 100 دولار.',
+        'landing.hero.promo': 'تتضمن الحسابات الجديدة رصيدًا ترويجيًا بقيمة 50 دولارًا. موّل محفظتك المباشرة بإيداع لا يقل عن 50 دولارًا لبدء التداول الحقيقي.',
         'landing.startFree.tag': 'ابدأ',
         'landing.startFree.title': 'ابدأ مجانًا وانتقل إلى الوضع المباشر في 3 خطوات',
         'landing.startFree.step1.title': 'أنشئ حسابك',
         'landing.startFree.step1.desc': 'أنشئ حساب Kalderix مجانًا.',
         'landing.startFree.step2.title': 'استخدم رصيدك 50$',
         'landing.startFree.step2.desc': 'تتضمن الحسابات الجديدة رصيدًا ترويجيًا 50 دولارًا يمكنك التداول به فورًا.',
-        'landing.startFree.step3.title': 'موّل بـ 100 دولار أو أكثر',
-        'landing.startFree.step3.desc': 'أضف 100 دولار على الأقل كرأس مال تداول. رصيدك الترويجي بقيمة 50 دولارًا (عند الاستحقاق) منفصل ويبقى ترويجيًا.',
+        'landing.startFree.step3.title': 'موّل بـ 50 دولار أو أكثر',
+        'landing.startFree.step3.desc': 'أضف 50 دولار على الأقل كرأس مال تداول. رصيدك الترويجي بقيمة 50 دولارًا (عند الاستحقاق) منفصل ويبقى ترويجيًا.',
         'landing.video.tag': 'شرح',
         'landing.video.title': 'شاهد Kalderix أثناء العمل',
         'landing.video.subtitle': 'نظرة موجزة على كيفية أتمتة Kalderix للمراجحة المؤهلة.',
@@ -19153,7 +19153,7 @@ const TRANSLATIONS = {
         'landing.compare.demo.p3': 'الربح محدود بـ 30 دولارًا حتى تقوم بالإيداع',
         'landing.compare.live.tag': 'الأموال المودعة',
         'landing.compare.live.title': 'موّل حسابك عندما تكون مستعدًا',
-        'landing.compare.live.p1': 'إيداعات USDT من 100 دولار',
+        'landing.compare.live.p1': 'إيداعات USDT من 50 دولار',
         'landing.compare.live.p2': 'لا يوجد حد للربح',
         'landing.compare.live.p3': 'قابل للسحب بعد إتمام صفقة',
         'landing.compare.note': 'الرصيد الترويجي هو رأس مال تداول تقدمه Kalderix. عندما يبلغ الربح 30 دولارًا، يلزم إيداع لمتابعة التداول. الأموال المودعة هي رأس مالك.',
@@ -19170,7 +19170,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': 'أنشئ حسابك',
         'landing.howItWorks.step1.desc': 'سجّل ببريدك الإلكتروني وكلمة المرور.',
         'landing.howItWorks.step2.title': 'احصل على رصيدك الترويجي 50$',
-        'landing.howItWorks.step2.desc': 'تفعيل لمرة واحدة يفتح التداول المباشر. رصيدك الترويجي 50 دولارًا قابل للتداول من البداية.',
+        'landing.howItWorks.step2.desc': 'موّل محفظتك المباشرة بإيداع لا يقل عن 50 دولارًا للتداول بأموال حقيقية. رصيدك الترويجي 50 دولارًا قابل للتداول من البداية.',
         'landing.howItWorks.step3.title': 'شغّل البوت',
         'landing.howItWorks.step3.desc': 'يراقب Kalderix وينفذ الفرص المؤهلة تلقائيًا.',
         'landing.howItWorks.step4.title': 'انتقل إلى المباشر عند الاستعداد',
@@ -19255,7 +19255,7 @@ const TRANSLATIONS = {
         'landing.faq.a8': 'اشتراك Kalderix Pro هو 7$/شهريًا، يُخصم من رصيد التداول المتاح عند الاستحقاق. بناءً على النموذج الحالي، لا توجد رسوم منصة إضافية.',
         'landing.faq.q10': 'أودعت ولكنني لا أستطيع بدء التداول المباشر بعد. لماذا؟',
         'landing.faq.q9': 'كيف تعمل السحوبات؟',
-        'landing.faq.a10': 'يتكون الوضع المباشر من خطوتين منفصلتين: تفعيل لمرة واحدة بقيمة 50 دولارًا يفتح التداول الحقيقي، وما لا يقل عن 100 دولار كرأس مال تداول يموّله. إذا كان إيداعك مؤكدًا ولكن التداول ما زال مقفلًا، فالناقص هو التفعيل: يمكنك تفعيله من بطاقة المحفظة المباشرة.',
+        'landing.faq.a10': 'يتطلب التداول المباشر محفظة مباشرة ممولة: قم بإيداع لا يقل عن 50 دولارًا. الرصيد الترويجي البالغ 50 دولارًا هو رصيد تداول منفصل وليس إيداعًا، لذلك لا يُحتسب ضمن هذا الحد الأدنى. إذا كان إيداعك مؤكدًا ولكن التداول المباشر ما زال غير متاح، فتواصل مع الدعم.',
         'landing.faq.a9': 'يمكنك السحب إلى عنوان محفظتك الخاصة عند الأهلية. تستغرق معالجة السحب عادةً من 15 إلى 30 دقيقة وقد تنطبق تدابير التحقق/الأمن.',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.creditLabel': '$50',
@@ -19434,7 +19434,7 @@ const TRANSLATIONS = {
         'landing.features.wallet.list2': '多网络支持',
         'landing.features.wallet.list3': '即时充值',
         'landing.features.referral.title': '推荐奖励',
-        'landing.features.referral.desc': '好友完成至少 $100 的合格首笔入金时，您可赚取其入金的 20%。通过推荐可获得的收益无上限。',
+        'landing.features.referral.desc': '好友完成至少 $50 的合格首笔入金时，您可赚取其入金的 20%。通过推荐可获得的收益无上限。',
         'landing.features.referral.list1': '首次合格入金的 20%',
         'landing.features.referral.list2': '即时奖励',
         'landing.features.referral.list3': '一次性奖励，无持续佣金',
@@ -19449,7 +19449,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': '创建您的账户',
         'landing.howItWorks.step1.desc': '使用您的邮箱和密码注册。',
         'landing.howItWorks.step2.title': '领取 50 美元信用',
-        'landing.howItWorks.step2.desc': '一次性激活即可开启 Live 交易。50 美元促销信用从一开始就可以交易。',
+        'landing.howItWorks.step2.desc': '向实时钱包入金至少 50 美元即可用真实资金交易。50 美元促销信用从一开始就可以交易。',
         'landing.howItWorks.step3.title': '启动机器人',
         'landing.howItWorks.step3.desc': '点击“启动机器人”，Kalderix 将根据平台策略开始监控并执行符合条件的交易机会。',
         'landing.howItWorks.step4.title': '准备就绪后切换至实盘',
@@ -19490,7 +19490,7 @@ const TRANSLATIONS = {
         'landing.faq.4.q': 'AI 交易机器人如何工作？',
         'landing.faq.4.a': '我们的 AI 持续监控 50+ 家交易所的价格差异。当它发现套利机会（价格差异）时，会自动执行交易以从差价中获利。您可以随时启动/停止机器人。',
         'landing.faq.5.q': '推荐奖励如何运作？',
-        'landing.faq.5.a': '当您推荐的好友完成至少 $100 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（无最低提现要求、需要时进行提现安全验证以及有效地址）。',
+        'landing.faq.5.a': '当您推荐的好友完成至少 $50 的合格首笔入金时，您可赚取其入金的 20%。推荐收益会累积到奖励钱包中，并可随时转换到您的 LIVE 钱包，无最低转换额度。提现需遵守平台标准规则（无最低提现要求、需要时进行提现安全验证以及有效地址）。',
         'landing.faq.6.q': '需要账户验证吗？',
         'landing.faq.6.a': '创建基础账户仅需邮箱和密码。为遵守监管要求，可能需要 KYC 验证以获得更高的提现额度或使用特定功能。',
         'landing.cta.title': '今天就开始交易',
@@ -19701,7 +19701,7 @@ const TRANSLATIONS = {
         'referral.title': '推荐计划',
         'landing.partner.tag': '合作伙伴计划',
         'landing.partner.title': '成为 Kalderix 推荐合作伙伴',
-        'landing.partner.subtitle': '向 Kalderix 引荐新用户，并在其首次满 $100 的合格入金上赚取 20% 推荐奖励。',
+        'landing.partner.subtitle': '向 Kalderix 引荐新用户，并在其首次满 $50 的合格入金上赚取 20% 推荐奖励。',
         'landing.partner.step1': '分享你的链接',
         'landing.partner.step2': '用户注册',
         'landing.partner.step3': '用户完成合格入金',
@@ -19709,15 +19709,15 @@ const TRANSLATIONS = {
         'landing.partner.step5': '申请提现',
         'landing.partner.cta': '成为推荐合作伙伴',
         'landing.partner.disclosure': '自我推荐、重复账户、欺诈活动以及误导性推广不符合推荐奖励资格。',
-        'landing.hero.promo': '新账户包含 50 美元促销交易信用。Live 交易需要一次性 50 美元激活以及至少 100 美元的交易资金。',
+        'landing.hero.promo': '新账户包含 50 美元促销交易信用。向实时钱包入金至少 50 美元即可开始真实交易。',
         'landing.startFree.tag': '开始使用',
         'landing.startFree.title': '免费开始，三步进入实时模式',
         'landing.startFree.step1.title': '创建账户',
         'landing.startFree.step1.desc': '免费创建 Kalderix 账户。',
         'landing.startFree.step2.title': '使用你的 50 美元信用',
         'landing.startFree.step2.desc': '新账户包含 50 美元促销信用，可立即交易。',
-        'landing.startFree.step3.title': '以 $100 或以上资金入金',
-        'landing.startFree.step3.desc': '至少存入 $100 交易资金。您的 $50 促销信用（适用时）是独立的，仅作促销用途。',
+        'landing.startFree.step3.title': '以 $50 或以上资金入金',
+        'landing.startFree.step3.desc': '至少存入 $50 交易资金。您的 $50 促销信用（适用时）是独立的，仅作促销用途。',
         'landing.video.tag': '说明',
         'landing.video.title': '观看 Kalderix 实际运作',
         'landing.video.subtitle': '简要了解 Kalderix 如何自动执行符合条件的套利。',
@@ -20786,7 +20786,7 @@ const TRANSLATIONS = {
         'landing.compare.demo.p3': '入金前利润上限为 30 美元',
         'landing.compare.live.tag': '入金资金',
         'landing.compare.live.title': '准备好后再入金',
-        'landing.compare.live.p1': 'USDT 入金最低 100 美元',
+        'landing.compare.live.p1': 'USDT 入金最低 50 美元',
         'landing.compare.live.p2': '利润没有上限',
         'landing.compare.live.p3': '完成一笔交易后可提现',
         'landing.compare.note': '促销信用是 Kalderix 提供的交易资金。利润达到 30 美元后，需要入金才能继续交易。入金属于您自己的资金。',
@@ -20803,7 +20803,7 @@ const TRANSLATIONS = {
         'landing.howItWorks.step1.title': '创建账户',
         'landing.howItWorks.step1.desc': '用您的邮箱和密码注册。',
         'landing.howItWorks.step2.title': '领取 50 美元信用',
-        'landing.howItWorks.step2.desc': '一次性激活即可开启 Live 交易。50 美元促销信用从一开始就可以交易。',
+        'landing.howItWorks.step2.desc': '向实时钱包入金至少 50 美元即可用真实资金交易。50 美元促销信用从一开始就可以交易。',
         'landing.howItWorks.step3.title': '启动机器人',
         'landing.howItWorks.step3.desc': 'Kalderix 自动监控并执行符合条件的交易机会。',
         'landing.howItWorks.step4.title': '准备好后进入实盘',
@@ -20888,7 +20888,7 @@ const TRANSLATIONS = {
         'landing.faq.a8': 'Kalderix Pro 订阅为 $7/月，到期时从您的可用交易余额中扣除。根据当前产品模型，没有额外的平台费用。',
         'landing.faq.q10': '我已经入金，但仍无法开始实时交易，为什么？',
         'landing.faq.q9': '提现如何运作？',
-        'landing.faq.a10': '实时模式包含两个独立步骤：一次性 $50 激活解锁真实交易，至少 $100 交易资金为其提供资金。如果入金已确认但交易仍处于锁定状态，说明欠缺激活步骤——您可以在实时钱包卡片中完成激活。',
+        'landing.faq.a10': '实时交易需要已入金的实时钱包：请入金至少 50 美元。50 美元促销信用是单独的交易信用，不是入金，因此不计入该最低额度。如果入金已确认但实时交易仍不可用，请联系客服。',
         'landing.faq.a9': '符合条件时，您可以提现到自己的钱包地址。提现处理通常需要 15–30 分钟，可能适用验证/安全检查。',
         // ---- Auth brand panel (accurate claims) ----
         'auth.brand.creditLabel': '$50',
@@ -21104,7 +21104,7 @@ const BACKEND_MESSAGE_MAP = {
     // ---- Deposit / payment (user-facing) ----
     'Min $10': 'deposit.min10',
     // Sandbox simulated deposit floor is now the platform minimum ($100).
-    'Min $100': 'deposit.min100',
+    'Min $50': 'deposit.min100',
     'Invoice not found': 'deposit.invoiceNotFound',
     'Failed to create invoice': 'deposit.createInvoiceFailed',
     // ---- Withdrawal (user-facing) ----
@@ -21339,7 +21339,7 @@ async function submitLiveActivation() {
         showToast(t('liveActivation.success'), 'success');
         // Activation buys permission, not capital - say what is still missing.
         setTimeout(function () {
-            showToast(t('liveActivation.nextStep', { min: String(Number(APP.MIN_DEPOSIT) || 100) }), 'info', 8000);
+            showToast(t('liveActivation.nextStep', { min: String(Number(APP.MIN_DEPOSIT) || 50) }), 'info', 8000);
         }, 900);
         if (typeof updateUI === 'function') updateUI();
     } catch (e) {
@@ -21353,7 +21353,7 @@ function translateBackendMessage(message, fallbackKey) {
     // A mapped key may carry placeholders that depend on live configuration
     // (deposit.min100 uses {{min}}), so the adopted server value is always
     // supplied; a mapped string can then never render a raw placeholder.
-    const baseVars = { min: String(Number(APP.MIN_DEPOSIT) || 100) };
+    const baseVars = { min: String(Number(APP.MIN_DEPOSIT) || 50) };
     if (!message) return fallbackKey ? t(fallbackKey, baseVars) : '';
     const msg = String(message);
     // 1. Exact whitelist match (preferred — never over-matches).
@@ -21825,7 +21825,7 @@ const APP = {
     liveMode: null,
     liveData: { balance: 50, pnl: 0, trades: 0, wins: 0, history: [], hasRealDeposit: false, hasTradingActivity: false, bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [], promoLimitReached: false, promoRealizedProfit: 0, promoCreditFunded: false, promoClassificationUnknown: false },
     bonusData: { balance: 0, pnl: 0, trades: 0, wins: 0, history: [], bestTrade: 0, worstTrade: 0, streak: 0, maxStreak: 0, tradeAmounts: [] },
-    MIN_DEPOSIT: 100, MIN_WITHDRAWAL: 700, BONUS_MIN_WITHDRAW: 50,
+    MIN_DEPOSIT: 50, MIN_WITHDRAWAL: 700, BONUS_MIN_WITHDRAW: 50,
     referralCode: null,
     depositHistory: [], withdrawHistory: [],
     referralStats: { invited: 0, earned: 0 },
@@ -22023,7 +22023,7 @@ async function fetchReferralStats() {
             // Public referral config (reward percentage / minimum qualifying
             // deposit) drives the displayed figures. Server-authoritative and
             // non-fatal: if it fails, updateReferralDisplay falls back to the
-            // model defaults (20% of a $100 minimum).
+            // model defaults (20% of a $50 minimum).
             try {
                 const cfgRes = await fetch('/api/referral/config');
                 if (cfgRes.ok) {
@@ -22703,7 +22703,7 @@ function updateReferralDisplay() {
     const config = APP.referralStats.config || {};
     const rewardPercent = (config.rewardPercent != null && isFinite(Number(config.rewardPercent)))
         ? Number(config.rewardPercent) : 20;
-    const minDeposit = config.minimumDeposit || 100;
+    const minDeposit = config.minimumDeposit || 50;
     
     const percentDisplay = getEl('refRewardPercent');
     if (percentDisplay) percentDisplay.textContent = rewardPercent + '%';
@@ -23688,7 +23688,7 @@ function updateLiveWithdrawStatus() {
             statusClass = 'text-muted';
         }
     } else if (!hasDeposit && !canFundFromReferral) {
-        statusText = t('live.withdrawStatus.notDeposited', { min: (Number(APP.MIN_DEPOSIT) || 100) });
+        statusText = t('live.withdrawStatus.notDeposited', { min: (Number(APP.MIN_DEPOSIT) || 50) });
         statusClass = 'text-warning';
     } else if (!hasTrade && !canFundFromReferral) {
         statusText = t('live.withdrawStatus.noTrades');
@@ -23712,7 +23712,7 @@ function updateLiveWithdrawStatus() {
         if (isSandbox) {
             infoText.textContent = t('withdraw.infoSandbox');
         } else if (!hasDeposit && !canFundFromReferral) {
-            infoText.textContent = t('live.withdrawStatus.notDeposited', { min: (Number(APP.MIN_DEPOSIT) || 100) });
+            infoText.textContent = t('live.withdrawStatus.notDeposited', { min: (Number(APP.MIN_DEPOSIT) || 50) });
         } else if (!hasTrade && !canFundFromReferral) {
             infoText.textContent = t('live.withdrawStatus.noTrades');
         } else if (totalWithdrawable >= APP.MIN_WITHDRAWAL) {
@@ -25661,7 +25661,7 @@ function showOnboarding(user) {
  */
 function renderOnboardingActivationCopy() {
     const pending = (typeof activationPending === 'function') && activationPending();
-    const min = String(Number((typeof APP !== 'undefined' && APP.MIN_DEPOSIT) || 100));
+    const min = String(Number((typeof APP !== 'undefined' && APP.MIN_DEPOSIT) || 50));
     const explainer = document.getElementById('onboardingExplainer');
     if (explainer) {
         const key = pending ? 'onboarding.explainerActivation' : 'onboarding.explainer';
@@ -26200,7 +26200,7 @@ function handleLiveAccessRefusal(body) {
     try { if (typeof stopWorkerSyncLoop === 'function') stopWorkerSyncLoop(); } catch (e) {}
     try { updateStatus(false); } catch (e) {}
     const code = body && body.code;
-    const min = String(Number(APP.MIN_DEPOSIT) || 100);
+    const min = String(Number(APP.MIN_DEPOSIT) || 50);
     if (code === 'LIVE_DEPOSIT_REQUIRED') {
         showToast(t('liveDeposit.blockedToast', { min: min }), 'error', 7000);
         try { openDepositModal(); } catch (e) {}

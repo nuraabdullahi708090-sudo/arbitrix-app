@@ -165,12 +165,12 @@ test('the product-demo video is embedded near How It Works', () => {
 test('Referral Partner section: copy, 5-step flow, CTA and disclosure', () => {
     assert.match(INDEX, /id="referral-partner"/, 'partner section present');
     assert.strictEqual(T.en['landing.partner.subtitle'],
-        'Introduce new users to Kalderix and earn a 20% referral reward on their first qualifying deposit of $100 or more.');
+        'Introduce new users to Kalderix and earn a 20% referral reward on their first qualifying deposit of $50 or more.');
     assert.strictEqual(T.en['landing.partner.cta'], 'Become a Referral Partner');
     assert.match(INDEX, /class="landing-partner-actions"[\s\S]{0,240}openAuthScreen\('signup'\)/, 'partner CTA starts signup');
     assert.match(T.en['landing.partner.disclosure'], /misleading promotion/i, 'disclosure covers misleading promotion');
     LANGS.forEach((l) => {
-        assert.ok(T[l]['landing.partner.subtitle'].includes('$100'), l + ' partner copy names the $100 minimum');
+        assert.ok(T[l]['landing.partner.subtitle'].includes('50'), l + ' partner copy names the $50 minimum');
         assert.ok(T[l]['landing.partner.disclosure'].trim().length > 0, l + ' disclosure present');
     });
 });
@@ -221,8 +221,11 @@ test('the hero promo describes the credit and the Live requirements, with no dem
     // Single mode: the hero describes the credit and what Live needs, and never
     // presents a demo experience as the way in.
     assert.match(T.en['landing.hero.promo'], /\$50 in promotional trading credit/);
-    assert.match(T.en['landing.hero.promo'], /one-time \$50 activation/);
-    assert.match(T.en['landing.hero.promo'], /at least \$100 in trading capital/);
+    assert.match(T.en['landing.hero.promo'], /deposit of \$50 or more/);
+    // Activation is a switchable integration, not a step every customer must
+    // take, so the default funnel asserts funding only.
+    assert.ok(!/activation/i.test(T.en['landing.hero.promo']), 'no mandatory activation claim');
+    assert.ok(!/\$100/.test(T.en['landing.hero.promo']), 'no stale $100 floor');
     assert.ok(!/demo/i.test(T.en['landing.hero.promo']), 'no demo experience is offered');
 
     const DEMO = {
@@ -240,7 +243,7 @@ test('the hero promo describes the credit and the Live requirements, with no dem
         // never be sold as coming with, or as a substitute for, the real credit.
         assert.ok(!DEMO[l].test(v), l + ': the promo must not offer a demo experience');
         assert.ok(/50/.test(v), l + ': the promo must name the $50 credit/activation');
-        assert.ok(/100/.test(v), l + ': the promo must name the $100 trading capital');
+        assert.ok(/50/.test(v), l + ': the promo must name the $50 funding floor');
         // Single mode scopes the credit to NEW accounts (the old 'eligible users'
         // wording went with the demo-era eligibility matrix).
         assert.ok(NEW_ACCOUNT[l].test(v), l + ': the credit must be scoped to new accounts');

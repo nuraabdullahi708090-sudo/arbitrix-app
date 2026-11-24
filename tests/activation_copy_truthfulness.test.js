@@ -167,17 +167,17 @@ test('2. the promo card never instructs a purchase that is not required', () => 
 
 test('3. the onboarding copy states the real prerequisites when activation is required', () => {
   const i18n = dictionary();
-  const off = activationUiSandbox({ activationRequired: false, liveActivated: true, MIN_DEPOSIT: 100 }, i18n.t);
+  const off = activationUiSandbox({ activationRequired: false, liveActivated: true, MIN_DEPOSIT: 50 }, i18n.t);
   off.sandbox.renderOnboardingActivationCopy();
   assert.strictEqual(off.nodes.onboardingExplainer.textContent, i18n.T.en['onboarding.explainer']);
   assert.strictEqual(off.nodes.onboardingExplainer.getAttribute('data-i18n'), 'onboarding.explainer');
   assert.ok(!/activation/i.test(off.nodes.onboardingExplainer.textContent));
 
-  const on = activationUiSandbox({ activationRequired: true, liveActivated: false, MIN_DEPOSIT: 100 }, i18n.t);
+  const on = activationUiSandbox({ activationRequired: true, liveActivated: false, MIN_DEPOSIT: 50 }, i18n.t);
   on.sandbox.renderOnboardingActivationCopy();
   const text = on.nodes.onboardingExplainer.textContent;
   assert.match(text, /one-time activation/i, 'the activation is disclosed');
-  assert.match(text, /\$100/, 'the configured minimum deposit is interpolated');
+  assert.match(text, /\$50/, 'the configured minimum deposit is interpolated');
   assert.ok(!text.includes('{{min}}'), 'no raw placeholder');
   assert.ok(/already on your account/i.test(on.nodes.onboardingPrimaryDesc.textContent));
   assert.strictEqual(on.nodes.onboardingExplainer.getAttribute('data-i18n'), 'onboarding.explainerActivation');

@@ -216,7 +216,7 @@ test('no new environment variable or migration was added for assets', () => {
   // lock down financial RPC privileges. 054 adds the FROZEN grandfathering
   // snapshot plus the complimentary-entitlement source columns; it changes no
   // money and is not executed by the application.
-  assert.strictEqual(migrations.length, 55, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30, 056 = users email uniqueness)');
+  assert.strictEqual(migrations.length, 56, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30, 056 = users email uniqueness, 057 = $50 minimum sync)');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');
@@ -227,6 +227,7 @@ test('no new environment variable or migration was added for assets', () => {
   assert.ok(migrations.includes('046_telegram_delivery_durability.sql'), '046 is the delivery durability fix');
   assert.ok(migrations.includes('047_telegram_conversation_state.sql'), '047 is the Telegram conversation state');
   assert.ok(migrations.includes('045_deposit_partners.sql'), '045 is the deposit partner directory');
+  assert.ok(migrations.includes('057_min_deposit_and_referral_50.sql'), '057 syncs the $50 referral threshold');
   assert.ok(!migrations.some((f) => /trading.?assets?/i.test(f)), 'no asset-allow-list migration should exist');
 });
 

@@ -193,7 +193,7 @@ test('10. the deposit controls and their handlers are unchanged', () => {
     assert.match(INDEX, /function requestDepositAddress\(/);
     assert.match(INDEX, /function closeDepositModal\(/);
     // Financial rules unchanged by a layout task.
-    assert.match(INDEX, /MIN_DEPOSIT:\s*100/);
+    assert.match(INDEX, /MIN_DEPOSIT:\s*50/);
     assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/);
     // The panel keeps its internal scroll and sticky head.
     assert.match(INDEX, /#depositModal \.deposit-modal-content\{display:flex;flex-direction:column;padding:0 20px 24px;max-height:92vh;max-height:92dvh;\}/);

@@ -646,7 +646,7 @@ function sendActivationRefusal(res, activation) {
  *
  * Approved commercial rule: Live Mode requires BOTH a valid Payhip activation
  * ($50, one-time) AND a confirmed deposit of at least the platform minimum
- * ($100). Neither substitutes for the other. The $50 never credits the wallet,
+ * (see PLATFORM_MIN_DEPOSIT). Neither substitutes for the other. The fee never credits the wallet,
  * and a deposit never creates or satisfies an activation.
  *
  * Inert when PAYHIP_ACTIVATION_REQUIRED is unset: eligibility is true and the
@@ -1165,7 +1165,7 @@ async function confirmLegacyDeposit(deposit) {
 const ENV_PRODUCTION = 'PRODUCTION';
 const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 
-// PLATFORM MINIMUM DEPOSIT (management decision): $100 for BOTH environments.
+// PLATFORM MINIMUM DEPOSIT (management decision): $50 for BOTH environments.
 // This is the SINGLE SOURCE OF TRUTH for the platform's minimum deposit — it
 // gates production invoice creation (/api/payment/create-invoice), the sandbox
 // simulated deposit routes, and is the fallback for the referral qualifying
@@ -1175,7 +1175,7 @@ const ENV_MARKETING_SANDBOX = 'MARKETING_SANDBOX';
 // NOT to be confused with the $50 PROMOTIONAL CREDIT (a separate new-user seed
 // in wallets.live_balance / SANDBOX_PROMO_CREDIT). The promo credit is NOT a
 // deposit and must never be derived from this constant.
-const PLATFORM_MIN_DEPOSIT_USD = 100;
+const PLATFORM_MIN_DEPOSIT_USD = 50;
 
 // EFFECTIVE PLATFORM MINIMUM DEPOSIT (single runtime knob).
 //
@@ -1193,9 +1193,9 @@ const PLATFORM_MIN_DEPOSIT_USD = 100;
 // CHANGING IT REQUIRES APPROVAL *and* two coordinated steps, because the
 // qualifying-deposit amount also lives in the referral_config table and the
 // marketing copy is interpolated from these same values:
-//   1. set PLATFORM_MIN_DEPOSIT_USD=50 on the service
-//   2. apply the matching config migration (supabase/migrations/049_min_deposit_100.sql
-//      asserts the approved $100 row)
+//   1. set PLATFORM_MIN_DEPOSIT_USD=<value> on the service
+//   2. apply the matching config migration (057_min_deposit_and_referral_50.sql
+//      syncs referral_config.minimum_qualifying_deposit to the same value)
 // Nothing is changed by shipping this code alone.
 const MIN_DEPOSIT_ENV_VAR = 'PLATFORM_MIN_DEPOSIT_USD';
 const MIN_DEPOSIT_FLOOR_USD = 10;
@@ -1242,7 +1242,7 @@ async function checkMinDepositSync() {
         ' but the platform minimum deposit is ' + PLATFORM_MIN_DEPOSIT +
         '. Deposits of ' + Math.min(configured, PLATFORM_MIN_DEPOSIT) + '-' +
         Math.max(configured, PLATFORM_MIN_DEPOSIT) + ' would behave inconsistently. ' +
-        'Apply migration 049_min_deposit_100.sql (it asserts the $100 row), or set ' +
+        'Apply migration 057_min_deposit_and_referral_50.sql (it asserts the row), or set ' +
         MIN_DEPOSIT_ENV_VAR + ' to the same value as referral_config.'
       );
     }
@@ -1254,7 +1254,7 @@ async function checkMinDepositSync() {
 
 // Conversion minimum for referral earnings into tradable Live capital. FINAL
 // management model: referral earnings have NO conversion minimum — a single
-// qualifying referral at the $100 platform minimum earns exactly $20, and
+// qualifying referral at the platform minimum (20% of it), and
 // management requires genuinely earned referral earnings to be usable as
 // tradable capital. The old $50 "bonus wallet" conversion threshold no longer
 // applies to referral earnings. The conversion remains server-authoritative
@@ -1492,7 +1492,7 @@ async function hasSandboxTradingActivity(userId) {
 // ---------- MARKETING SANDBOX: referral program (PRODUCTION PARITY) ----------
 // Management decision (final): the sandbox referral program matches production
 // (one-time reward = 20% of the referred user's initial qualifying deposit at
-// the $100 platform minimum; there is NO downline commission).
+// the platform minimum; there is NO downline commission).
 // Everything below is sandbox-only: reads/writes go through sandbox_* tables and
 // the sandbox RPCs from migration 022, and the reward is credited to
 // the referrer's SIMULATED, TRADABLE sandbox balance (sandbox_wallets.balance) —
@@ -1638,7 +1638,7 @@ async function handleSandboxDepositRequest(req, res) {
   const { amount, network } = req.body;
   const userId = req.user.id;
   const amt = Number(amount);
-  // Platform minimum deposit ($100) - applies to the sandbox too (management
+  // Platform minimum deposit - applies to the sandbox too (management
   // decision). This is the deposit floor, NOT the $50 promotional credit.
   if (!amt || amt < PLATFORM_MIN_DEPOSIT) {
     return res.status(400).json({ error: 'Min $' + PLATFORM_MIN_DEPOSIT });
@@ -1668,7 +1668,7 @@ async function handleSandboxInvoiceCreate(req, res) {
   const { amount, network } = req.body || {};
   const userId = req.user.id;
   const amt = Number(amount);
-  // Platform minimum deposit ($100) - applies to the sandbox too (management
+  // Platform minimum deposit - applies to the sandbox too (management
   // decision). This is the deposit floor, NOT the $50 promotional credit.
   if (!amt || amt < PLATFORM_MIN_DEPOSIT) {
     return res.status(400).json({ success: false, error: 'Min $' + PLATFORM_MIN_DEPOSIT });
@@ -4861,7 +4861,7 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
   try {
     // SECURITY: Strict input validation
     const { amount, currency, network } = req.body;
-    // Platform minimum deposit ($100, single source of truth). This is the
+    // Platform minimum deposit (single source of truth). This is the
     // deposit floor — it is NOT the $50 promotional credit.
     const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT;
     
@@ -9598,7 +9598,7 @@ app.post('/api/referral/simulate', authMiddleware, async (req, res) => {
   // MARKETING SANDBOX ONLY. A simulated referral must never be a production
   // referral-qualification path: an award that skipped the required initial
   // qualifying deposit would contradict the final referral model (only a real
-  // >= $100 first deposit qualifies a referral). Sandbox accounts are
+  // >= the platform minimum first deposit qualifies a referral). Sandbox accounts are
   // server-verified here (isMarketingSandboxUser reads users.environment) and
   // the handler writes only sandbox_* rows/RPCs, so production referral,
   // wallet and transaction rows are unreachable from this route.
@@ -12348,7 +12348,7 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
     // Post-redemption state, computed by the SAME resolver as the gates, so the
     // dashboard cannot be told something the server would refuse. `activated`
     // means "entitlement present"; `eligible` is the full two-part decision and
-    // is false until the $100 deposit is also confirmed.
+    // is false until the qualifying deposit is also confirmed.
     const eligibility = await getLiveModeEligibility(req.user.id);
     return res.json({
       success: true,

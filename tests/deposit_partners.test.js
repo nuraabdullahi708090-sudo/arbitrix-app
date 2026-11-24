@@ -189,7 +189,7 @@ test('the partner directory cannot become a deposit-verification path', () => {
 });
 
 test('existing deposit rules are unchanged by this feature', () => {
-  assert.ok(SERVER.includes('const PLATFORM_MIN_DEPOSIT_USD = 100;'));
+  assert.ok(SERVER.includes('const PLATFORM_MIN_DEPOSIT_USD = 50;'));
   assert.ok(SERVER.includes("if (!amount || typeof amount !== 'number' || amount < MIN_DEPOSIT_AMOUNT)"));
   const paymentService = read('services/PaymentService.js');
   assert.ok(paymentService.includes('confirm_payment_with_credit'), 'provider credit RPC intact');

@@ -278,7 +278,7 @@ test('the trading engine, ticker and registry wiring are unchanged', () => {
 test('no existing server route, RPC or safeguard was modified', () => {
   assert.match(SERVER, /app.get\('\/api\/health', \(req, res\) => res\.json\(\{ status: 'ok' \}\)\);/);
   assert.match(SERVER, /const MIN_WITHDRAWAL_USD = 700;/);
-  assert.match(SERVER, /PLATFORM_MIN_DEPOSIT_USD = 100/);
+  assert.match(SERVER, /PLATFORM_MIN_DEPOSIT_USD = 50/);
   assert.match(SERVER, /rpc\('record_trade_safe', \{/);
   // The new endpoint is additive: it appears exactly once.
   assert.strictEqual((SERVER.match(/\/api\/market\/opportunities/g) || []).length, 1);

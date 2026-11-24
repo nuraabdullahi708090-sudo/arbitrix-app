@@ -56,7 +56,7 @@ function runStart(body, opts) {
       botInterval: null,
       botRunning: false,
       liveData: { promoLimitReached: o.promoLimit || false },
-      MIN_DEPOSIT: 100,
+      MIN_DEPOSIT: 50,
     },
     localStorage: { getItem: () => 'token' },
     fetch: () => Promise.resolve({
@@ -138,7 +138,7 @@ function runPersist(resBody, ok) {
   };
   const sandbox = {
     console, Promise, setTimeout, calls,
-    APP: { liveData: data, botInterval: null, botRunning: true, mode: 'live', MIN_DEPOSIT: 100 },
+    APP: { liveData: data, botInterval: null, botRunning: true, mode: 'live', MIN_DEPOSIT: 50 },
     localStorage: { getItem: () => 'token' },
     fetch: () => Promise.resolve({ ok: ok !== false, status: ok === false ? 403 : 200, json: () => Promise.resolve(resBody) }),
     announceTradeResult: () => { calls.announces++; },

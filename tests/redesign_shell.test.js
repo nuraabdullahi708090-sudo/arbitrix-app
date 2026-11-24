@@ -317,5 +317,5 @@ test('pre-existing behaviour surfaces are untouched by the redesign', () => {
   // Money rules are not restyled into different semantics.
   assert.match(INDEX, /const TX_RESULT_TYPES = \{ 'Trade Executed': true \};/);
   assert.match(INDEX, /MIN_WITHDRAWAL: 700/);
-  assert.match(INDEX, /MIN_DEPOSIT: 100/);
+  assert.match(INDEX, /MIN_DEPOSIT: 50/);
 });

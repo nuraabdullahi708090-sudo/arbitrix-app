@@ -187,7 +187,7 @@ test('the payout endpoints contain no automated transfer / provider call', () =>
 // ===========================================================================
 test('reward is one-time 20% of the INITIAL qualifying deposit (no flat amount, no commission)', () => {
     assert.match(SERVER, /const REFERRAL_REWARD_PERCENT_DEFAULT = 20;/);
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
     const activation = sliceBetween(SERVER, 'async function activateReferralOnQualification', 'async function getGenuinelyEarnedReferralEarnings');
     assert.match(activation, /rewardAmount = Math\.round\(Number\(depositInfo\.amount\) \* effectiveRewardPercent\) \/ 100/);
     assert.ok(!/REFERRAL_REWARD_AMOUNT_DEFAULT|referral_reward_amount/.test(SERVER), 'no flat reward exists');

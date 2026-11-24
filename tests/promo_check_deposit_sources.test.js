@@ -255,6 +255,6 @@ test('hasConfirmedDeposit is read-only (writes nothing)', () => {
 // 5. The $100 qualifying-deposit / referral rule is unchanged
 // ---------------------------------------------------------------------------
 test('the $100 platform minimum qualifying deposit is unchanged', () => {
-  assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/);
+  assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/);
   assert.match(SERVER, /minimum_qualifying_deposit/);
 });

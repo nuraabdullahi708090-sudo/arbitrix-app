@@ -66,7 +66,7 @@ test('2. the draft covers the ten required onboarding points', () => {
 
 test('3. the message states only the real business rules', () => {
     assert.match(SERVER, /const REFERRAL_REWARD_PERCENT_DEFAULT = 20;/, 'the platform reward is 20%');
-    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 100;/, 'the platform minimum is $100');
+    assert.match(SERVER, /const PLATFORM_MIN_DEPOSIT_USD = 50;/, 'the platform minimum is $100');
     assert.match(MESSAGE, /one-time 20% of the referred user's first qualifying deposit/i,
         'the reward must be described as one-time, on the FIRST qualifying deposit');
     assert.match(MESSAGE, /\$100\. A first deposit below \$100 does not qualify/i,

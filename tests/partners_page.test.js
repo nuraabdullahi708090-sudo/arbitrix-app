@@ -80,7 +80,7 @@ function funnelSlice() {
 // elevation layer and the shared component layer.
 // The /partners feature itself still touches no homepage markup; this pin keeps
 // protecting it, so any future homepage edit must be re-pinned deliberately.
-const FUNNEL_SHA256 = '26c28a91be327c89ca2b497be6afa502bdd9e3b8e2402550b16767dac7f8e806';
+const FUNNEL_SHA256 = '06274563a4ca997c00f1e33c27127b623e0628bca66a7c1d3194c6239620a643';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';

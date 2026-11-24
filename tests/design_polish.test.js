@@ -314,7 +314,7 @@ test('9. motion is opt-out and nothing is achieved with global overrides', () =>
  * ------------------------------------------------------------------ */
 test('10. financial surfaces are untouched by the visual layer', () => {
     assert.match(INDEX, /MIN_WITHDRAWAL:\s*700/, 'the withdrawal minimum is unchanged');
-    assert.match(INDEX, /MIN_DEPOSIT(=|:)\s*100|MIN_DEPOSIT_AMOUNT\s*=\s*100/, 'the deposit minimum is unchanged');
+    assert.match(INDEX, /MIN_DEPOSIT(=|:)\s*50|MIN_DEPOSIT_AMOUNT\s*=\s*50/, 'the deposit minimum is unchanged');
     assert.match(INDEX, /id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/);
     assert.match(INDEX, /id="availableWithdrawBtn"[^>]*onclick="openWithdrawModal\(\)"/);
     // the new UI layer performs no requests of its own

@@ -186,7 +186,7 @@ test('security controls are untouched by the copy change', () => {
     assert.match(server, /credit_payment_safe/);
     assert.match(server, /assertSandboxUser|sandboxHandled/);
     assert.match(server, /MIN_WITHDRAWAL_USD = 700/);
-    assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 100/);
+    assert.match(server, /PLATFORM_MIN_DEPOSIT_USD = 50/);
     // The UI still offers no way to credit a balance.
     assert.ok(!/credit your balance|add funds to your account/i.test(panel()));
 });
