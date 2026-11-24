@@ -392,3 +392,49 @@ on a hidden dashboard.
   overlap with the hamburger, brand, language, notification or profile controls, Back
   behaviour, `/#referral` deep link, es/ar/zh labels, RTL arrow, admin view, and a
   dialog opened over a secondary view.
+
+## Onboarding / activation / UX audit (2026-11-23, text-only)
+
+The vision adapter is unavailable in this environment, so this audit used DOM
+assertions and source inspection only - **no screenshots were taken or analysed**.
+
+### What was executed
+
+- **Dead-control scan.** Every inline handler attribute in the served DOM
+  (`onclick`, `onchange`, `oninput`, `onsubmit`, `onkeydown` - including hidden
+  subtrees) was parsed, method calls excluded, and each referenced function
+  resolved against the page's global scope: **132 handler names referenced, 0
+  unresolvable.** No button on the page is wired to a missing function.
+- **Onboarding choices.** `#onboardingModal` offers "Start with my $50 credit"
+  (`chooseOnboarding('credit')`) and "I'm ready to deposit"
+  (`chooseOnboarding('deposit')`). Both are handled: `credit` enters the app and
+  stores the per-account choice, `deposit` opens the deposit dialog (or defers to
+  `initApp`). No dead end, no invoice created by either choice.
+- **Activation state matrix.** `renderLiveModeCard()` was driven through
+  `activation_required` / `deposit_required` / `available`: the card is visible in
+  the first two and hidden in `available`, and the two CTAs ("Activate Live Mode",
+  "Make your deposit") stay reachable. Copy is state-driven and never claims
+  activation without a purchase.
+- **Deposit dialog.** Opens from the Available-card action, minimum shown as
+  "$100", the three funding options present, and `#depositActivationNote` present
+  in the DOM ("This deposit is trading capital. Live trading also needs a separate
+  one-time $50 activation - a deposit does not activate your account."). It is
+  only *displayed* when activation is actually outstanding, which is correct.
+- **Start Here card.** Always describes the Live requirements only; the subtitle
+  switches between "one step" and "two steps" depending on whether activation is
+  required, and a completed checklist collapses to one line. No balance or trading
+  rule is touched.
+- **Page errors:** none on any run.
+
+### Findings that need the owner, not code
+
+1. The onboarding copy leads with the **$50 promotional credit** rather than Demo
+   Mode. That is a positioning decision (an earlier phase had demo-first); the
+   mechanics are fine either way.
+2. Profile, Subscription, Support and 2FA are **dialogs**, so the toolbar (and
+   therefore the new return control) sits behind them. Their own close control
+   returns to the underlying view. A Dashboard action inside each dialog header
+   would be a separate, deliberate change.
+3. `setMode()` is reachable from inline handlers but is not a `window` property,
+   so any future code that calls `window.setMode()` would fail. The mode tabs
+   themselves work.
