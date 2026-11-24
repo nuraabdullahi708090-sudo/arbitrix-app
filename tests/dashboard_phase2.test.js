@@ -117,8 +117,10 @@ test('the bot state machine has one source of truth and no invented state', () =
   assert.match(fn, /if \(APP\.botPaused === true\) return 'paused';/, 'a server pause is paused');
   assert.match(fn, /APP\.liveData\.promoLimitReached\) return 'paused';/, 'the promo cap is paused, not running');
   assert.match(fn, /if \(APP\.botError\) return 'error';/, 'a failed start is an error');
-  assert.match(fn, /if \(APP\.mode === 'live'\) return 'ready';/, 'live + idle is ready');
-  assert.match(fn, /return 'offline';/, 'anything else is offline');
+  // 'ready' used to be gated on APP.mode === 'live', a variable nothing assigns
+  // in this single-mode build, so the pill sat on "Offline" while Start worked.
+  assert.ok(!/if \(APP\.mode/.test(fn), 'no state depends on the removed APP.mode');
+  assert.match(fn, /return 'ready';/, 'a stopped bot on this single-mode build is ready');
 });
 
 test('the pill, the account metric and the card message come from that state', () => {
@@ -135,9 +137,14 @@ test('the stopped bot never says "ready to trade"', () => {
   const fn = INDEX.slice(INDEX.indexOf('function renderBotState'), INDEX.indexOf('function updateStatus'));
   const msg = fn.slice(fn.indexOf('const msgKey'), fn.indexOf('const pill'));
   assert.ok(!/readyToTrade/.test(msg), 'no "ready to trade" in the stopped-state messages');
-  assert.match(msg, /paused: 'bot\.promoLimitReached'/, 'the paused state explains the cap');
+  assert.match(msg, /paused: 'bot\.pausedMsg'/, 'the paused state explains why it is not trading');
   assert.match(msg, /running: 'bot\.runningMsg'/, 'running explains what it is doing');
-  assert.match(CSS, /'bot\.clickToStart':/, 'the idle states use the actionable "press start" line');
+  assert.match(msg, /ready: 'bot\.readyMsg'/, 'ready explains how to start it');
+  assert.match(msg, /error: 'bot\.errorMsg'/, 'error explains the retry path');
+  assert.match(CSS, /'bot\.readyMsg':/, 'every state has its own sentence');
+  assert.match(CSS, /'hint\.botStatus\.running':/, 'the metric hint follows the state');
+  assert.match(CSS, /'hint\.botStatus\.ready':/, 'idle is described as idle, not "running or stopped"');
+  assert.ok(!/'hint\.botStatus': 'Running or stopped'/.test(CSS), 'the generic toggle description is gone');
   // and the updateUI block that used to force the message is gone
   assert.ok(!/botMsgLive\.textContent = t\('bot\.readyToTrade'\)/.test(INDEX), 'no leftover forced message');
 });

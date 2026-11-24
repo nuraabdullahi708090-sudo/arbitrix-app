@@ -285,8 +285,7 @@
     html[data-brand="kalderix"] [style*="color: var(--brand)"]{
         color:var(--brand) !important;
     }
-
-    </style>
+</style>
     <script>
     (function () {
         var SUPPORTED = ['es', 'pt', 'fr', 'ar', 'zh', 'en'];
@@ -1465,7 +1464,11 @@
         /* The floating support launcher must never sit on top of the deposit
            dialog's amount field or primary action. Same :has() pattern as the
            Support Center rule below; the dialog carries its own help link. */
+        /* Any open dialog (deposit, withdraw, activation, subscription, profile,
+           tutorials, pause notice) owns the screen, so the launcher steps out. */
         body:has(#depositModal.open) .support-widget{display:none;}
+        body:has(.deposit-modal.open) .support-widget{display:none;}
+        body:has(.modal-overlay.open) .support-widget{display:none;}
 
         /* Background scroll lock while the deposit dialog is open. Keyed off the
            dialog's own `.open` class, so it is released automatically on close
@@ -1643,7 +1646,10 @@
         .code-input{width:40px;height:48px;text-align:center;font-size:18px;font-weight:700;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;color:var(--text-primary);transition:all 0.2s;}
         .code-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--brand-weak);}
 
-        .support-widget{position:fixed;bottom:16px;right:16px;z-index:9998;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+        .support-widget{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom, 0px));right:16px;z-index:9998;display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition:opacity 0.18s ease,transform 0.18s ease;}
+        /* Content-aware launcher: it yields whenever it would sit on top of the
+           equity chart, the wallet card or a control (set from JS on scroll). */
+        .support-widget.kx-fab-away{opacity:0;pointer-events:none;transform:translateY(10px);}
         .support-toggle-btn{width:48px;height:48px;border-radius:50%;background:linear-gradient(145deg,var(--brand),var(--brand));border:none;cursor:pointer;box-shadow:0 8px 32px var(--brand-border);color:var(--on-brand);font-size:18px;position:relative;transition:transform 0.2s;}
         .support-toggle-btn:hover{transform:scale(1.05);}
         .support-toggle-btn .badge{position:absolute;top:-3px;right:-3px;background:var(--red);color:var(--on-brand);font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
@@ -5200,6 +5206,26 @@ html[dir="rtl"] .kx-drawer-close{right:auto;left:10px;}
     .sidebar-link i{width:18px;}
     .sidebar-status{margin:auto 10px 8px;padding:10px 12px;}
 }
+
+/* ===== Final polish: dashboard rhythm, mobile clearance, floating launcher ====
+   Small spacing refinements only - no structural or colour changes. The account
+   card leads, the cock-pit follows, and the bottom of the page keeps enough
+   clearance that no card ever ends underneath the floating support launcher. */
+.kx-hero{margin-bottom:10px;}
+.kx-cockpit{margin-bottom:10px;}
+.main-content{padding-bottom:calc(88px + env(safe-area-inset-bottom, 0px));}
+
+#startHereCard{margin-bottom:12px !important;border-color:var(--kx-border) !important;}
+#startHereCard .card-body{padding:12px 14px;}
+#startHereCard #startHereSubtitle{margin-top:3px;}
+#startHereCard #startHereStepsLive{gap:6px;}
+@media (max-width: 640px) {
+  .ticker-wrapper{margin-bottom:8px;}
+  .kx-cockpit{gap:10px;}
+  .main-content{padding-bottom:calc(76px + env(safe-area-inset-bottom, 0px));}
+  .support-widget{right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));}
+  .support-toggle-btn{width:44px;height:44px;font-size:16px;}
+}
 </style>
 </head>
 <body>
@@ -8323,7 +8349,7 @@ function toggleFaq(btn) {
          paints the default $50 / $1,000 static HTML before the authoritative
          server balance arrives. Dismissed in a finally{} after the sync
          (success OR offline-fallback). Frontend-only; no backend/DB/auth change. -->
-    <div id="walletSyncLoader" style="position:fixed;inset:0;background:rgba(7,11,20,0.9);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;">
+    <div id="walletSyncLoader" style="position:fixed;inset:0;background:rgba(7,11,20,0.82);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;transition:opacity 0.18s ease;">
         <i class="fas fa-circle-notch fa-spin" style="font-size:34px;color:var(--brand);"></i>
         <div style="color:var(--text-primary);font-size:14px;font-weight:500;" data-i18n="walletSync.loading">Loading wallet&hellip;</div>
         <!-- Watchdog recovery prompt: shown only if the initial wallet sync is
@@ -8468,7 +8494,7 @@ function toggleFaq(btn) {
                         <div class="kx-metric">
                             <div class="kx-kpi-label"><i class="fas fa-robot"></i> <span data-i18n="stats.botStatus">Bot Status</span></div>
                             <div id="botStatus" class="kx-metric-value" style="color:#E5484D;">Offline</div>
-                            <div class="kx-kpi-hint" data-i18n="hint.botStatus">Running or stopped</div>
+                            <div class="kx-kpi-hint" id="botStatusHint" data-i18n="hint.botStatus">Running or stopped</div>
                         </div>
                     </div>
                 </div>
@@ -11374,7 +11400,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Account value',
         'hint.available': 'Ready to use',
         'hint.pnl': 'Today\'s trading profit/loss',
-        'hint.botStatus': 'Running or stopped',
+        'hint.botStatus': 'Idle - ready to start',
         'hint.bot': 'Scans supported markets and trades automatically when running',
         'hint.scanner': 'Market scanning',
         'hint.txLog': 'Your recent activity (last 30 minutes).',
@@ -11393,6 +11419,14 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Deposit Funds',
         'bot.promoLimitReached': 'You reached the $30 promotional profit limit. Make your first deposit to continue trading.',
         'bot.readyToTrade': '✅ Bot ready to trade',
+        'bot.readyMsg': 'The bot is idle. Press Start Bot and it will scan supported markets and trade automatically.',
+        'bot.offlineMsg': 'The bot is not available in this view.',
+        'bot.pausedMsg': 'The bot is paused and is not trading. Resolve the notice above, then press Start Bot to resume.',
+        'bot.errorMsg': 'The bot stopped after an error. Press Start Bot to try again.',
+        'hint.botStatus.ready': 'Idle - ready to start',
+        'hint.botStatus.running': 'Scanning markets now',
+        'hint.botStatus.paused': 'Paused - not trading',
+        'hint.botStatus.error': 'Stopped after an error',
         'bot.readyToStart': 'Ready to start',
         'bot.pausedShort': 'Paused',
         'bot.errorState': 'Error',
@@ -12997,7 +13031,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Valor de la cuenta',
         'hint.available': 'Listo para usar',
         'hint.pnl': 'Ganancia/pérdida de hoy',
-        'hint.botStatus': 'En ejecución o detenido',
+        'hint.botStatus': 'Inactivo: listo para iniciar',
         'hint.bot': 'Analiza los mercados compatibles y opera automáticamente cuando está activo',
         'hint.scanner': 'Escaneo de mercado',
         'hint.txLog': 'Tu actividad reciente (últimos 30 minutos).',
@@ -13016,6 +13050,14 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Depositar fondos',
         'bot.promoLimitReached': 'Alcanzaste el límite de $30 de ganancia promocional. Haz tu primer depósito para seguir operando.',
         'bot.readyToTrade': '✅ Bot listo para operar',
+        'bot.readyMsg': 'El bot está inactivo. Pulsa "Iniciar bot" y escaneará los mercados compatibles y operará automáticamente.',
+        'bot.offlineMsg': 'El bot no está disponible en esta vista.',
+        'bot.pausedMsg': 'El bot está en pausa y no opera. Revisa el aviso de arriba y pulsa "Iniciar bot" para reanudar.',
+        'bot.errorMsg': 'El bot se detuvo tras un error. Pulsa "Iniciar bot" para intentarlo de nuevo.',
+        'hint.botStatus.ready': 'Inactivo: listo para iniciar',
+        'hint.botStatus.running': 'Escaneando mercados ahora',
+        'hint.botStatus.paused': 'En pausa: sin operar',
+        'hint.botStatus.error': 'Detenido tras un error',
         'bot.readyToStart': 'Listo para iniciar',
         'bot.pausedShort': 'En pausa',
         'bot.errorState': 'Error',
@@ -14621,7 +14663,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Valor da conta',
         'hint.available': 'Pronto para usar',
         'hint.pnl': 'Lucro/prejuízo de hoje',
-        'hint.botStatus': 'Em execução ou parado',
+        'hint.botStatus': 'Inativo: pronto para iniciar',
         'hint.bot': 'Analisa os mercados compatíveis e negocia automaticamente quando ativo',
         'hint.scanner': 'Varredura de mercado',
         'hint.txLog': 'Sua atividade recente (últimos 30 minutos).',
@@ -14640,6 +14682,14 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Depositar fundos',
         'bot.promoLimitReached': 'Você atingiu o limite de $30 de lucro promocional. Faça seu primeiro depósito para continuar operando.',
         'bot.readyToTrade': '✅ Bot pronto para operar',
+        'bot.readyMsg': 'O bot está inativo. Toque em "Iniciar bot" para que analise os mercados compatíveis e opere automaticamente.',
+        'bot.offlineMsg': 'O bot não está disponível nesta vista.',
+        'bot.pausedMsg': 'O bot está pausado e não opera. Verifique o aviso acima e toque em "Iniciar bot" para retomar.',
+        'bot.errorMsg': 'O bot parou após um erro. Toque em "Iniciar bot" para tentar novamente.',
+        'hint.botStatus.ready': 'Inativo: pronto para iniciar',
+        'hint.botStatus.running': 'Analisando mercados agora',
+        'hint.botStatus.paused': 'Pausado: sem operar',
+        'hint.botStatus.error': 'Parado após um erro',
         'bot.readyToStart': 'Pronto para iniciar',
         'bot.pausedShort': 'Pausado',
         'bot.errorState': 'Erro',
@@ -16245,7 +16295,7 @@ const TRANSLATIONS = {
         'hint.equity': 'Valeur du compte',
         'hint.available': 'Disponible',
         'hint.pnl': 'Profit/perte du jour',
-        'hint.botStatus': 'En cours ou arrêté',
+        'hint.botStatus': 'Inactif : prêt à démarrer',
         'hint.bot': 'Analyse les marchés pris en charge et trade automatiquement lorsqu\'il est actif',
         'hint.scanner': 'Analyse des marchés',
         'hint.txLog': 'Votre activité récente (30 dernières minutes).',
@@ -16264,6 +16314,14 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'Déposer des fonds',
         'bot.promoLimitReached': 'Vous avez atteint la limite de 30 $ de gain promotionnel. Faites votre premier dépôt pour continuer à trader.',
         'bot.readyToTrade': '✅ Bot prêt à trader',
+        'bot.readyMsg': 'Le bot est inactif. Appuyez sur « Démarrer le bot » pour analyser les marchés pris en charge et trader automatiquement.',
+        'bot.offlineMsg': 'Le bot n’est pas disponible dans cette vue.',
+        'bot.pausedMsg': 'Le bot est en pause et ne trade pas. Consultez l’avis ci-dessus, puis appuyez sur « Démarrer le bot » pour reprendre.',
+        'bot.errorMsg': 'Le bot s’est arrêté après une erreur. Appuyez sur « Démarrer le bot » pour réessayer.',
+        'hint.botStatus.ready': 'Inactif : prêt à démarrer',
+        'hint.botStatus.running': 'Analyse des marchés en cours',
+        'hint.botStatus.paused': 'En pause : aucun trade',
+        'hint.botStatus.error': 'Arrêté après une erreur',
         'bot.readyToStart': 'Prêt à démarrer',
         'bot.pausedShort': 'En pause',
         'bot.errorState': 'Erreur',
@@ -17869,7 +17927,7 @@ const TRANSLATIONS = {
         'hint.equity': 'قيمة الحساب',
         'hint.available': 'جاهز للاستخدام',
         'hint.pnl': 'ربح/خسارة تداولات اليوم',
-        'hint.botStatus': 'قيد التشغيل أو متوقف',
+        'hint.botStatus': 'متوقف: جاهز للبدء',
         'hint.bot': 'يفحص الأسواق المدعومة ويتداول تلقائيًا عند التشغيل',
         'hint.scanner': 'فحص السوق',
         'hint.txLog': 'نشاطك الأخير (آخر 30 دقيقة).',
@@ -17888,6 +17946,14 @@ const TRANSLATIONS = {
         'profitPause.addFunds': 'إيداع أموال',
         'bot.promoLimitReached': 'وصلت إلى حد الربح الترويجي 30 دولارًا. قم بأول إيداع لمتابعة التداول.',
         'bot.readyToTrade': '✅ الروبوت جاهز للتداول',
+        'bot.readyMsg': 'الروبوت متوقف الآن. اضغط على «بدء الروبوت» ليبحث في الأسواق المدعومة ويتداول تلقائياً.',
+        'bot.offlineMsg': 'الروبوت غير متاح في هذا العرض.',
+        'bot.pausedMsg': 'الروبوت متوقف مؤقتاً ولا يتداول. راجع التنبيه أعلاه ثم اضغط على «بدء الروبوت» للمتابعة.',
+        'bot.errorMsg': 'توقف الروبوت بعد خطأ. اضغط على «بدء الروبوت» للمحاولة مرة أخرى.',
+        'hint.botStatus.ready': 'متوقف: جاهز للبدء',
+        'hint.botStatus.running': 'يبحث في الأسواق الآن',
+        'hint.botStatus.paused': 'متوقف مؤقتاً: لا تداول',
+        'hint.botStatus.error': 'توقف بعد خطأ',
         'bot.readyToStart': 'جاهز للبدء',
         'bot.pausedShort': 'متوقف مؤقتًا',
         'bot.errorState': 'خطأ',
@@ -19493,7 +19559,7 @@ const TRANSLATIONS = {
         'hint.equity': '账户价值',
         'hint.available': '可使用',
         'hint.pnl': '今日交易盈亏',
-        'hint.botStatus': '运行中或已停止',
+        'hint.botStatus': '空闲：可以开始',
         'hint.bot': '运行时自动扫描受支持市场并交易',
         'hint.scanner': '市场扫描',
         'hint.txLog': '您最近的活动（最近 30 分钟）。',
@@ -19512,6 +19578,14 @@ const TRANSLATIONS = {
         'profitPause.addFunds': '入金',
         'bot.promoLimitReached': '您已达到 30 美元促销利润上限。请先入金再继续交易。',
         'bot.readyToTrade': '✅ 机器人可交易',
+        'bot.readyMsg': '机器人当前空闲。点击“启动机器人”后会自动扫描支持的市场并交易。',
+        'bot.offlineMsg': '此视图中机器人不可用。',
+        'bot.pausedMsg': '机器人已暂停，不会交易。请先处理上方的提示，然后点击“启动机器人”继续。',
+        'bot.errorMsg': '机器人在出错后停止。点击“启动机器人”重试。',
+        'hint.botStatus.ready': '空闲：可以启动',
+        'hint.botStatus.running': '正在扫描市场',
+        'hint.botStatus.paused': '已暂停：未交易',
+        'hint.botStatus.error': '出错后已停止',
         'bot.readyToStart': '可启动',
         'bot.pausedShort': '已暂停',
         'bot.errorState': '错误',
@@ -23740,8 +23814,11 @@ function botUiState() {
     if (APP.botPaused === true) return 'paused';
     if (APP.liveData && APP.liveData.promoLimitReached) return 'paused';
     if (APP.botError) return 'error';
-    if (APP.mode === 'live') return 'ready';
-    return 'offline';
+    // This build is single-mode: Live is the only wallet, so a stopped bot is
+    // READY to start. The old guard keyed on APP.mode, which nothing assigns any
+    // more, so 'ready' was unreachable and the pill sat on "Offline" while the
+    // bot could be started.
+    return 'ready';
 }
 
 function renderBotState() {
@@ -23754,11 +23831,18 @@ function renderBotState() {
         error: 'bot.errorState'
     }[state];
     const msgKey = {
-        offline: 'bot.clickToStart',
-        ready: 'bot.clickToStart',
+        offline: 'bot.offlineMsg',
+        ready: 'bot.readyMsg',
         running: 'bot.runningMsg',
-        paused: 'bot.promoLimitReached',
-        error: 'bot.clickToStart'
+        paused: 'bot.pausedMsg',
+        error: 'bot.errorMsg'
+    }[state];
+    const hintKey = {
+        offline: 'hint.botStatus.ready',
+        ready: 'hint.botStatus.ready',
+        running: 'hint.botStatus.running',
+        paused: 'hint.botStatus.paused',
+        error: 'hint.botStatus.error'
     }[state];
     const pill = getEl('botStatePillLive');
     if (pill) {
@@ -23768,6 +23852,10 @@ function renderBotState() {
     }
     const msg = getEl('botStatusMsgLive');
     if (msg) msg.textContent = t(msgKey);
+    // The metric hint described the toggle ("Running or stopped"); it now states
+    // what the bot IS doing right now, from the same state machine.
+    const hint = getEl('botStatusHint');
+    if (hint) hint.textContent = t(hintKey);
     const metric = getEl('botStatus');
     if (metric) {
         metric.textContent = t(labelKey);
@@ -26856,6 +26944,43 @@ function toggleSupport() {
         panel.classList.toggle('open');
     } catch(e) {}
 }
+// Content-aware support launcher: it steps aside whenever it would sit on top of
+// the equity chart, the wallet card or a control. Pure hit-testing (no layout
+// side effects); re-evaluated on scroll/resize and after a view switch.
+var kxFabRaf = null;
+function kxFabAvoidOverlap() {
+    var wrap = document.querySelector('.support-widget');
+    var btn = document.getElementById('supportToggleBtn');
+    if (!wrap || !btn) return;
+    if (wrap.querySelector('.support-panel.open') || wrap.querySelector('.support-panel.is-open')) {
+        wrap.classList.remove('kx-fab-away');
+        return;
+    }
+    var r = btn.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2) || [];
+    var below = null;
+    for (var i = 0; i < stack.length; i++) {
+        if (!stack[i].closest || !stack[i].closest('.support-widget')) { below = stack[i]; break; }
+    }
+    var covered = !!(below && below.closest && below.closest('#pnlChart, .chart-period-tab, .wallet-tab, .btn, .kx-kpi-value, .chart-stat-value'));
+    wrap.classList.toggle('kx-fab-away', covered);
+}
+function kxFabSchedule() {
+    if (kxFabRaf) return;
+    kxFabRaf = requestAnimationFrame(function () {
+        kxFabRaf = null;
+        try { kxFabAvoidOverlap(); } catch (e) { /* display-only */ }
+    });
+}
+try {
+    window.addEventListener('scroll', kxFabSchedule, { passive: true });
+    window.addEventListener('resize', kxFabSchedule);
+    document.addEventListener('DOMContentLoaded', kxFabSchedule);
+    setTimeout(kxFabSchedule, 900);
+    setTimeout(kxFabSchedule, 2500);
+} catch (e) { /* display-only */ }
+
 
 function sendSupportMessage() {
     try {
@@ -27260,6 +27385,27 @@ async function syncSandboxWithdrawHistory() {
     }
 }
 
+/**
+ * Dismiss the first-paint sync veil. Called from the initial sync, from a hard
+ * cap, and from a window error failsafe, so no path can leave a dark plate with
+ * a spinner sitting over the dashboard (or the equity chart) for good.
+ */
+function dismissWalletSyncLoader(reason) {
+    var el = document.getElementById('walletSyncLoader');
+    var prompt = document.getElementById('walletSyncSlowPrompt');
+    if (prompt) prompt.style.display = 'none';
+    if (!el || el.style.display === 'none') return;
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0';
+    setTimeout(function () {
+        if (el.style.opacity === '0') el.style.display = 'none';
+    }, 200);
+    if (reason) console.debug('[initApp] wallet sync veil dismissed: ' + reason);
+}
+try {
+    window.addEventListener('error', function () { try { dismissWalletSyncLoader('window-error'); } catch (e) {} });
+} catch (e) { /* display-only */ }
+
 async function initApp() {
     if(appReady) return;
     appReady = true;
@@ -27272,7 +27418,11 @@ async function initApp() {
     // offline-fallback). All synchronous init (loadData, chart setup, etc.)
     // still runs underneath the overlay; only the painted default is hidden.
     const syncLoader = document.getElementById('walletSyncLoader');
-    if (syncLoader) syncLoader.style.display = 'flex';
+    if (syncLoader) { syncLoader.style.display = 'flex'; syncLoader.style.opacity = '1'; syncLoader.style.pointerEvents = 'auto'; }
+    // Hard cap: the veil covers the first paint only. If the session request is
+    // slow, the dashboard shows from cached state and the figures update when the
+    // sync lands - a blocking scrim must never outlive this.
+    const walletSyncCap = setTimeout(function () { dismissWalletSyncLoader('cap'); }, 1200);
 
     // Wallet-loading watchdog (frontend-only recovery UX): if the initial
     // syncWalletFromServer() is still pending after 8s — which only happens when
@@ -27362,8 +27512,8 @@ async function initApp() {
         // The authoritative balance/P&L is painted by updateUI() below
         // with the loader already gone, so the default $50 is never shown.
         if (walletSyncWatchdog) { clearTimeout(walletSyncWatchdog); walletSyncWatchdog = null; }
-        if (walletSyncSlowPrompt) walletSyncSlowPrompt.style.display = 'none';
-        if (syncLoader) syncLoader.style.display = 'none';
+        if (walletSyncCap) { clearTimeout(walletSyncCap); }
+        dismissWalletSyncLoader('synced');
     }
 
     // Anchor the live equity chart to the authoritative server balance that

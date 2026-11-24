@@ -21,8 +21,8 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1603; // demo mode removed: 1640 -> 1603 keys/locale
-// 1603 keys/locale now = 1556 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1611; // demo mode removed: 1640 -> 1611 keys/locale
+// 1611 keys/locale now = 1556 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
 // tutorial keys (deposit.tutorials.* and withdraw.tutorial.*) added with the
@@ -34,7 +34,7 @@ const DICT_SIZE = 1603; // demo mode removed: 1640 -> 1603 keys/locale
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-// 1552 = 1603 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
+// 1552 = 1611 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
 // outside this section is retired (the demo CTA simplification retired six).
 const BASE_OUTSIDE_TESTIMONIALS = 1557;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
@@ -279,7 +279,10 @@ test('this change only added landing.testimonials.* keys', () => {
     'promo.creditExplainTradable', 'startHere.live.subtitleNext',
     'onboarding.explainerActivation', 'onboarding.primaryDescActivation',
     // Redesign: grouped sidebar navigation labels (5 keys x 6 locales).
-    'nav.overview', 'nav.money', 'nav.trading', 'nav.grow', 'nav.account'];
+    'nav.overview', 'nav.money', 'nav.trading', 'nav.grow', 'nav.account',
+    // Final polish: one sentence per bot state plus a state-driven metric hint.
+    'bot.readyMsg', 'bot.offlineMsg', 'bot.pausedMsg', 'bot.errorMsg',
+    'hint.botStatus.ready', 'hint.botStatus.running', 'hint.botStatus.paused', 'hint.botStatus.error'];
     LANGS.forEach((l) => {
         const outside = Object.keys(T[l]).filter((k) => !k.startsWith('landing.testimonials.') && !ALLOWED_EXTRA.includes(k));
         assert.strictEqual(outside.length, BASE_OUTSIDE_TESTIMONIALS, l + ': no key outside landing.testimonials.* was added or removed');

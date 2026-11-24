@@ -241,3 +241,85 @@ Two copy dependencies recorded, deliberately not changed here:
    route is "Contact support". That is honest but depends on the official support link
    being configured (`arbitrix-support-telegram` meta); with it unset the Support Center
    shows its own unconfigured notice. Worth checking before a paid-ad campaign.
+
+## Final polish pass (2026-11-23) - four defects found in the owner's review
+
+Scope: `public/index.html` only (plus test pins). No brand, layout-architecture,
+financial, auth or backend change. The design direction is unchanged.
+
+### 1. The dark plate over the equity chart
+
+Source: `#walletSyncLoader`, the first-paint sync scrim (`position:fixed; inset:0`,
+`rgba(7,11,20,0.9)`, a spinner and "Loading wallet...", z-index 9999). It is shown at
+the top of `initApp()` and dismissed only when `/api/auth/me` settles, so a slow or
+stalled session (mobile networks) leaves a spinner over the dashboard - and on a
+phone screenshot the chart sits under it. Measured: dismissed at ~1.4s on a healthy
+link; unbounded on a stalled one.
+
+Fixes:
+- one `dismissWalletSyncLoader(reason)` used by the sync `finally`, by a **1.2s hard
+  cap** and by a `window.error` failsafe - no path can leave it up;
+- it fades (`opacity -> 0`, `pointer-events:none`, removed from the layer tree after
+  200ms) instead of disappearing instantly, and the scrim is lighter (0.82);
+- no `pagehide` hook (the activity rotator deliberately has none).
+
+Verified: with `/api/auth/me` delayed 5s the scrim is gone by 1.5s and the dashboard
+is interactive; with Chart.js blocked there is no overlay and no page error.
+
+### 2. The floating support launcher
+
+It was a fixed 48px circle at `bottom:16px; right:16px`, so on a phone it sat on the
+chart's lower edge or on the bottom-right controls of whatever card was behind it.
+
+Fixes:
+- 44px on <=640px, `bottom:12px` + `env(safe-area-inset-bottom)`;
+- **content-aware**: on scroll/resize a rAF-throttled hit test (`elementsFromPoint`,
+  skipping its own subtree) adds `.kx-fab-away` (fade + `pointer-events:none`) when
+  the spot beneath it is the chart canvas, a chart/wallet tab, a `.btn`, or a
+  financial figure (`#pnlChart, .chart-period-tab, .wallet-tab, .btn, .kx-kpi-value,
+  .chart-stat-value`) - i.e. it yields to controls and numbers, not to whole cards;
+- every open dialog hides it (`#depositModal`, `.deposit-modal`, `.modal-overlay`,
+  `#supportModal`), so it never floats over a modal;
+- `.main-content` keeps a bottom gutter (88px, 76px on phones) so no row ends
+  permanently underneath it.
+
+Verified at 320/390/768/1280/1440: away **iff** it covers a control or figure, and
+visible at at least one scroll position at every width.
+
+### 3. Bot status wording
+
+`botUiState()` returned `'ready'` only under `APP.mode === 'live'`, and nothing in
+this single-mode build assigns `APP.mode`, so a stopped bot reported **"Offline"**
+while Start worked - the reachability bug the owner spotted. The metric hint also
+described the control ("Running or stopped") rather than the state.
+
+Fixes: `ready` is the stop state (Live is the only wallet); every state has its own
+sentence (`bot.readyMsg / runningMsg / pausedMsg / errorMsg / offlineMsg`) and its own
+metric hint (`hint.botStatus.ready|running|paused|error`), all eight keys in six
+locales. The paused sentence names the notice instead of assuming the promo cap; the
+error sentence gives the retry path. Engine and lifecycle untouched.
+
+### 4. Spacing
+
+`.kx-hero` and `.kx-cockpit` on one 10px rhythm, Getting Started one step quieter
+(12px, 12px padding, 6px step gaps), chart section gap 10px on phones, plus the
+launcher gutter above. Document height: 1790 -> 1812 at 390px (+1.2%), 1292 -> 1296
+at 1280px.
+
+### Payment partner contacts (verified, unchanged)
+
+`https://wa.me/17828027841` (Olivia) returns 302 to `api.whatsapp.com/send/?phone=17828027841`;
+`https://t.me/AlexArbitrix` returns 200 ("Telegram: Contact @AlexArbitrix"). The
+deposit dialog renders exactly those two hrefs with `target="_blank"
+rel="noopener noreferrer"`; the values come from `PARTNER_PRIMARY_WHATSAPP_URL` and
+the `arbitrix-partner-support-telegram` meta - nothing invented or replaced.
+
+### Verification
+
+- `npm test`: 3989 tests, 3988 pass, 0 fail, 1 skipped.
+- `tests/final_polish_ui.test.js` (9) pins the scrim helper/cap/failsafe, the five bot
+  states and their copy, the launcher contract, the rhythm block and scope safety.
+- Browser audit (puppeteer-core + `/usr/bin/chromium`, stubbed API): 79 checks across
+  320/390/768/1280/1440 - chart painted and unobstructed, launcher invariant,
+  Start->running->ready, deposit/withdraw dialogs, no page errors; plus a delayed
+  session, a blocked Chart.js and es/ar/zh locale runs.

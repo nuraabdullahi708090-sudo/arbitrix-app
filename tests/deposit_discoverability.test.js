@@ -146,7 +146,9 @@ test('the deposit dialog header (title + close) is wrapped in a sticky header', 
     const hides = INDEX.split('.support-widget{display:none;}');
     assert.ok(hides.length > 1, 'the scoped hide rules exist');
     for (let n = 1; n < hides.length; n++) {
-        assert.ok(/:has\(#\w+\.open\) $/.test(hides[n - 1].slice(-60)),
+        // Scoped either by id (#depositModal.open) or by the dialog class
+        // (.deposit-modal.open / .modal-overlay.open) - never a global rule.
+        assert.ok(/:has\([.#][\w-]+\.open\) $/.test(hides[n - 1].slice(-60)),
             'support launcher hide #' + n + ' must be scoped to an open dialog');
     }
 });
