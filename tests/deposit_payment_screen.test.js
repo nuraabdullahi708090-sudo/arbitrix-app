@@ -299,9 +299,11 @@ test('10. the generated payment session carries no Alex/Olivia card or contact w
   assert.ok(!/Payment Partner/i.test(section), 'no payment-partner role wording');
   assert.ok(!/t\.me\//.test(section), 'no partner Telegram destination');
 
-  // The shared renderer can no longer inject one either.
-  const fn = extractFunction('renderPaymentPartnerContacts');
-  assert.match(fn, /const containers = \[\];/);
+  // The renderer is gone entirely, so nothing can inject a partner later.
+  assert.ok(!INDEX.includes('renderPaymentPartnerContacts'),
+    'no partner renderer exists any more');
+  assert.ok(!INDEX.includes('deposit.partner.oliviaBtn'));
+  assert.ok(!INDEX.includes('wa.me/17828027841'));
 });
 
 test('11. official Kalderix support remains available in the payment session and elsewhere', () => {
@@ -408,10 +410,10 @@ test('17. the copy actions degrade safely when there is no invoice', async () =>
   assert.match(reset, /window\.currentPaymentAmount = ''/);
 });
 
-test('18. i18n parity: 1597 keys, identical sets, no empties', () => {
+test('18. i18n parity: 1571 keys, identical sets, no empties', () => {
   const T = dictionary();
   const base = Object.keys(T.en).sort();
-  assert.strictEqual(base.length, 1597);
+  assert.strictEqual(base.length, 1571);
   const keys = base.join('|');
   LANGS.forEach((l) => {
     assert.strictEqual(Object.keys(T[l]).sort().join('|'), keys, l + ' identical key set');

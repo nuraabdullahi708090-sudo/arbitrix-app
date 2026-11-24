@@ -341,8 +341,8 @@ test('15. the eight new app keys exist in all six locales', () => {
             assert.ok(String(T[lang][key]).trim().length > 0, lang + '.' + key + ' is empty');
         });
     });
-    assert.strictEqual(Object.keys(T.en).length, 1597, 'dictionary size pinned at 1597 keys/locale');
-    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1597));
+    assert.strictEqual(Object.keys(T.en).length, 1571, 'dictionary size pinned at 1571 keys/locale');
+    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1571));
 });
 
 test('16. every data-i18n reference on the page and in the app is defined', () => {
@@ -394,12 +394,13 @@ test('19. the deposit modal structure keeps its single scroll container and opti
     assert.match(INDEX, /id="depositModalContent"/);
     assert.match(INDEX, /id="depositOptions"/);
     assert.match(INDEX, /id="depositCryptoFlow"/);
-    assert.match(INDEX, /id="depositPartnerPanel"/);
-    // The card now follows Recent Deposits: options -> partner panel -> crypto
-    // flow -> history -> tutorials (the form must come before the tutorials).
+    // One funding route: the options block is followed directly by the crypto
+    // flow (the verified-partner panel was removed), then the form, then the
+    // history and the tutorials card.
+    assert.ok(!INDEX.includes('id="depositPartnerPanel"'), 'partner panel removed');
     const at = (needle) => INDEX.indexOf(needle);
-    assert.ok(at('id="depositOptions"') < at('id="depositPartnerPanel"'));
-    assert.ok(at('id="depositPartnerPanel"') < at('id="depositCryptoFlow"'));
+    assert.ok(at('id="depositOptions"') < at('id="depositCryptoFlow"'));
+    assert.ok(at('id="depositCryptoFlow"') < at('id="getAddressBtn"'));
     assert.ok(at('id="depositCryptoFlow"') < at('id="getAddressBtn"'));
     assert.ok(at('class="deposit-history"') < at('id="depositTutorialsCard"'));
     assert.ok(at('id="depositTutorialsCard"') < at('<!-- Hidden inputs -->'));

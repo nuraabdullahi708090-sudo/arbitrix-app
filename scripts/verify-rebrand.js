@@ -135,7 +135,7 @@ for (const file of SERVICE_COPY.filter(exists)) {
 section('3. Protected identifiers');
 const PROTECTED = [
   ['server.js', SERVER, [['PLATFORM_MIN_DEPOSIT_USD'], ['arbitrix.pro']]],
-  ['index.html', INDEX, [['https://t.me/ArbitrixSupportBot'], ['@AlexArbitrix'], ['@OliviaArbitrix'], ['arbitrix-partner-support-telegram'], ['arbitrix.pro']]],
+  ['index.html', INDEX, [['https://t.me/ArbitrixSupportBot'], ['arbitrix.pro']]],
 ];
 check('the support knowledge file kept its name', exists('services/support/arbitrix-knowledge.json'));
 check('the legal entity is unchanged', BRAND.legalName === 'Arbitrix Trading', BRAND.legalName);

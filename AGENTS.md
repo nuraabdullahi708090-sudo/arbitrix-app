@@ -10284,3 +10284,44 @@ path touched. NOT merged, NOT deployed.
 - Q8PAY ADDRESS UNIQUENESS (question asked by the brief): NOT VERIFIED. The client sends no
   walletId, so q8pay chooses the payout address; we display whatever the invoice returns.
   Confirming uniqueness needs an API call with production credentials (not available here).
+
+## Verified-partner funding route removed; deposit journey is the automated Q8Pay flow (2026-11-24)
+- Management decision. Frontend only (public/index.html) + tests + scripts/verify-rebrand.js.
+  NO server route removed, no provider change, no migration, no financial logic touched.
+- REMOVED from every customer surface: the "Buy from a Verified Partner" chooser entry,
+  #depositPartnerPanel (Olivia WhatsApp / Alex Telegram cards, the "How to Fund Your
+  Account" reference box, the Stay Safe list), renderDepositPartnerAssistance,
+  renderPaymentPartnerContacts, getPaymentPartnerContacts, normalisePartnerTelegramUrl,
+  getPartnerSupportTelegramUrl, openPartnerSupport, renderDepositPartners,
+  updateDepositReferenceBox, copyDepositReference, updatePaymentPartnerLinks,
+  PARTNER_ICON_*/PARTNER_PRIMARY_WHATSAPP_URL/PAYMENT_PARTNER_SLOTS, the
+  arbitrix-partner-support-telegram(+ -2) metas, the wa.me number and the .payment-partner*
+  / .deposit-partner* / .deposit-ref-* CSS. `#partnerSupportBtn` (referral card) now opens
+  the Support Center instead of a personal Telegram account.
+- The deposit journey is ONE route: `#depositOptionCrypto` (label unchanged) -> amount ->
+  Generate Payment -> Q8Pay invoice -> address + exact amount + QR -> polling. The options
+  heading changed from "Choose how to fund" to "Deposit method" in all six locales.
+  `selectDepositOption()` is kept (call sites unchanged) and only ever shows the crypto flow.
+- KEPT deliberately: the ADMIN partner directory (`/api/admin/deposit-partners`, migration
+  045 table, admin "Partners" tab) as a dormant data surface - no customer path reads it.
+  The official Support Center (sidebar, deposit dialog, payment session, referral card) is
+  untouched.
+- i18n: 1597 -> 1571 keys/locale (-26 dead deposit.partner.*/deposit.choose.partner.* keys,
+  six locales); identical key sets, 0 empties.
+- Tests: deleted the 4 suites that existed only for the removed route
+  (deposit_panel_simplified, deposit_partner_priority, deposit_payment_partner,
+  partner_contact_icons); NEW tests/deposit_single_route.test.js (12 pins: one route, no
+  partner ids/helpers/assets/metas, no partner wording in any locale, support intact,
+  q8pay webhook + polling + credit_payment_safe intact, admin directory still admin-only,
+  deposit rules unchanged). Rewritten in place: deposit_partners (UI block), support_ui,
+  referral_partner_payout_flow, partners_page 8/8i, deposit_tutorials_page 19,
+  deposit_discoverability, deposit_payment_screen 10, rebrand_audit; the release gate
+  scripts/verify-rebrand.js no longer expects the removed handles.
+- npm test = 4027 tests / 4026 pass / 0 fail / 1 skipped. node --check clean on every .js,
+  9/9 inline blocks parse, git diff --check clean, 0 U+FFFD,
+  `node scripts/verify-rebrand.js --expect Kalderix` = ALL CHECKS PASSED.
+- Browser (DOM/CDP assertions only, no screenshots) = 26/26 at 320/375/390/1280 and 26/26 in
+  all six locales: one funding option, no partner panel/cards/wording/anchors anywhere in the
+  dialog, amount field + Generate visible, invoice address and exact amount 50.0051 rendered
+  and copied verbatim, QR payload intact, payment-screen support CTA opens the Support
+  Center, referral support opens the Support Center, 0 horizontal overflow, correct dir.

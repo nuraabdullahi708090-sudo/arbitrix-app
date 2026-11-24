@@ -255,7 +255,10 @@ test('compatibility identifiers are untouched', () => {
   assert.ok(read('public/sw.js').includes("'arbitrix-shell-v1'"));
   // configuration hooks that operators may already have set
   assert.ok(INDEX.includes('arbitrix-support-telegram'));
-  assert.ok(INDEX.includes('ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL'));
+  // The payment/referral partner contact hook was RETIRED with the
+  // verified-partner funding route (no individual can be reached from the app).
+  assert.ok(!INDEX.includes('ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL'),
+    'the partner contact hook must be gone');
   // the provider payload field names are reconciliation identifiers
   const q8 = read('services/providers/q8qpay.js');
   assert.ok(q8.includes('arbitrixUserId') && q8.includes('arbitrixDepositRef'));

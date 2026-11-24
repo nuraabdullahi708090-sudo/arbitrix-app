@@ -223,43 +223,8 @@ test('migration 045: RLS on, service_role only, anon/authenticated denied', () =
 
 // ---------------------------------------------------------------- frontend
 
-test('deposit page renders exactly TWO routes: verified partner and existing crypto', () => {
-  const i = INDEX.indexOf('id="depositOptions"');
-  assert.ok(i > 0, 'options block present');
-  const block = INDEX.slice(i, INDEX.indexOf('id="depositCryptoFlow"'));
-  const cards = block.match(/id="depositOption(?:Partner|Crypto|Card|Wallet)"/g) || [];
-  assert.deepStrictEqual(cards, ['id="depositOptionPartner"', 'id="depositOptionCrypto"'],
-    'the menu offers the partner route and the direct crypto route, nothing else');
-  assert.ok(block.includes('data-i18n="deposit.choose.partner.title"'));
-  assert.ok(block.includes('data-i18n="deposit.choose.crypto.title"'));
-  // No card route, and no external-purchase route either. Neither is offered, so
-  // the interface never advertises a method the platform cannot deliver.
-  assert.ok(!block.includes('depositOptionCard'), 'no card route in the menu');
-  assert.ok(!block.includes('depositOptionWallet'), 'no external-purchase route in the menu');
-  assert.ok(!/credit-card/.test(block), 'no card icon in the menu');
-  assert.ok(!INDEX.includes('deposit.choose.card'), 'the card copy is fully retired');
-  assert.ok(!INDEX.includes('deposit.choose.wallet'), 'the external-purchase menu copy is retired');
-  assert.ok(!INDEX.includes('deposit.wallet.'), 'the external-purchase panel copy is retired');
-});
 
-test('the partner panel states that a partner cannot credit an account', () => {
-  const i = INDEX.indexOf('id="depositPartnerPanel"');
-  const block = INDEX.slice(i, INDEX.indexOf('id="depositCryptoFlow"'));
-  for (const key of [
-    'deposit.partner.safety.1', 'deposit.partner.safety.2', 'deposit.partner.safety.3',
-    'deposit.partner.safety.3'
-  ]) {
-    assert.ok(block.includes('data-i18n="' + key + '"'), 'missing copy: ' + key);
-  }
-  assert.ok(!/contenteditable|<input|<textarea/.test(block), 'the panel collects no secrets');
-});
 
-test('the client re-validates the Telegram URL before rendering a link', () => {
-  const fn = INDEX.slice(INDEX.indexOf('function renderDepositPartners'), INDEX.indexOf('function updateDepositReferenceBox'));
-  assert.ok(/t\\\.me/.test(fn) || fn.includes('t\\.me'), 't.me URL shape is enforced in the client');
-  assert.ok(fn.includes('escapeHtml(p.telegramUrl)'), 'the URL is escaped');
-  assert.ok(fn.includes('rel="noopener noreferrer"'), 'external link is isolated');
-});
 
 test('opening the deposit modal never creates an invoice for the partner route', () => {
   const fn = INDEX.slice(INDEX.indexOf('function openDepositModal'), INDEX.indexOf('function refreshDepositModeNotice'));
@@ -269,51 +234,7 @@ test('opening the deposit modal never creates an invoice for the partner route',
   assert.ok(fn.includes("APP.environment === 'MARKETING_SANDBOX'"), 'sandbox keeps its old flow');
 });
 
-test('the partner panel reuses the existing invoice reference and creates no address', () => {
-  const fn = INDEX.slice(INDEX.indexOf('function updateDepositReferenceBox'), INDEX.indexOf('function copyDepositReference'));
-  assert.ok(fn.includes('currentInvoiceId'), 'uses the existing invoice id');
-  assert.ok(!fn.includes('fetch('), 'no request');
-  const copyFn = INDEX.slice(INDEX.indexOf('function copyDepositReference'), INDEX.indexOf('async function loadDepositOptions'));
-  assert.ok(!copyFn.includes('fetch('), 'copying performs no network call');
-});
 
-test('all new UI copy exists in all six locales', () => {
-  const tIdx = INDEX.indexOf('const TRANSLATIONS');
-  let i = INDEX.indexOf('{', tIdx);
-  let depth = 0;
-  let end = -1;
-  for (; i < INDEX.length; i++) {
-    if (INDEX[i] === '{') depth++;
-    else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
-  }
-  const ctx = {};
-  vm.createContext(ctx);
-  vm.runInContext(INDEX.slice(tIdx, end + 1) + '; this.T = TRANSLATIONS;', ctx);
-  const T = ctx.T;
-  const locales = Object.keys(T);
-  assert.deepStrictEqual(locales, ['en', 'es', 'pt', 'fr', 'ar', 'zh']);
-
-  const required = [
-    'deposit.choose.title',
-    'deposit.partner.contactName', 'deposit.partner.role',
-    'deposit.choose.partner.title', 'deposit.choose.partner.desc',
-    'deposit.choose.crypto.title', 'deposit.choose.crypto.desc',
-    'deposit.partner.title', 'deposit.partner.intro', 'deposit.partner.contactName',
-    'deposit.partner.chat', 'deposit.partner.verified', 'deposit.partner.refTitle',
-    'deposit.partner.refHint', 'deposit.partner.refReady',
-    'admin.tab.partners', 'admin.partner.help', 'admin.partner.migration'
-  ];
-  for (const locale of locales) {
-    for (const key of required) {
-      assert.ok(T[locale][key] && String(T[locale][key]).trim(), locale + ' missing ' + key);
-    }
-  }
-  // Placeholder parity for the one interpolated sentence.
-  for (const locale of locales) {
-    assert.ok(T[locale]['deposit.partner.refReady'].includes('{{asset}}'), locale);
-    assert.ok(T[locale]['deposit.partner.refReady'].includes('{{network}}'), locale);
-  }
-});
 
 test('no locale offers card purchasing and none claims a card checkout exists', () => {
   const tIdx = INDEX.indexOf('const TRANSLATIONS');
@@ -350,41 +271,7 @@ test('no locale offers card purchasing and none claims a card checkout exists', 
 
 // ------------------------------------------------- approved label + partner model
 
-test('the partner option uses the approved label and never implies a guaranteed sale', () => {
-  const tIdx = INDEX.indexOf('const TRANSLATIONS');
-  let i = INDEX.indexOf('{', tIdx);
-  let depth = 0;
-  let end = -1;
-  for (; i < INDEX.length; i++) {
-    if (INDEX[i] === '{') depth++;
-    else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
-  }
-  const ctx = {};
-  vm.createContext(ctx);
-  vm.runInContext(INDEX.slice(tIdx, end + 1) + '; this.T = TRANSLATIONS;', ctx);
-  const T = ctx.T;
-  assert.strictEqual(T.en['deposit.choose.partner.title'], 'Buy from a Verified Partner');
-  for (const locale of Object.keys(T)) {
-    assert.ok(String(T[locale]['deposit.choose.partner.title'] || '').trim(), locale + ' title');
-    const desc = String(T[locale]['deposit.choose.partner.desc'] || '');
-    assert.ok(desc.trim(), locale + ' description');
-    // The menu description may not promise a completed sale or transfer.
-    assert.ok(!/guarantee|instant|will sell you|sells you usdt/i.test(desc),
-      locale + ' must not promise a sale');
-  }
-});
 
-test('the partner panel explains the model in one short paragraph', () => {
-  const panel = INDEX.slice(INDEX.indexOf('id="depositPartnerPanel"'), INDEX.indexOf('id="depositCryptoFlow"'));
-  assert.ok(panel.includes('data-i18n="deposit.partner.intro"'), 'intro rendered');
-  assert.ok(panel.includes('id="depositPartnerContacts"'), 'partner contact list rendered');
-  // The long explanatory paragraph and the note beside the button are retired.
-  assert.ok(!panel.includes('deposit.partner.modelNote'), 'model note retired');
-  assert.ok(!panel.includes('depositPaymentPartnerNote'), 'note beside the button retired');
-  // Crediting is still explained, by the safety list.
-  assert.match((INDEX.match(/'deposit\.partner\.safety\.3': '([^']*)'/) || [])[1] || '',
-    /credited after Kalderix verifies the transfer/i);
-});
 
 // ============================================ service model + worldwide coverage
 
@@ -498,22 +385,6 @@ test('the public options route selects the service and coverage columns', () => 
   assert.match(src, /\.eq\('is_verified', true\)/);
 });
 
-test('the customer card renders services, coverage and method handling from the server', () => {
-  const src = INDEX.slice(INDEX.indexOf('function renderDepositPartners'),
-    INDEX.indexOf('function updateDepositReferenceBox'));
-  assert.match(src, /p\.directSale === true/);
-  assert.match(src, /p\.guidedAssistance === true/);
-  assert.match(src, /deposit\.partner\.service\.direct/);
-  assert.match(src, /deposit\.partner\.service\.guided/);
-  assert.match(src, /p\.servesWorldwide === true/);
-  assert.match(src, /deposit\.partner\.worldwide/);
-  assert.match(src, /deposit\.partner\.serves/);
-  assert.match(src, /paymentMethodsApplyToDirectSale/);
-  assert.match(src, /paymentMethodsDependOnExternalService/);
-  assert.match(src, /deposit\.partner\.methodsDepend/);
-  // the t.me link is still the only contact affordance
-  assert.match(src, /rel="noopener noreferrer"/);
-});
 
 test('the admin form and table expose the service model and coverage', () => {
   for (const id of ['adminPartnerServiceDirect', 'adminPartnerServiceGuided', 'adminPartnerWorldwide']) {
@@ -549,44 +420,6 @@ test('no partner code can credit a balance or touch a financial table', () => {
     'the options route must not create or credit anything');
 });
 
-test('every locale covers the service model with consistent keys', () => {
-  const tIdx = INDEX.indexOf('const TRANSLATIONS');
-  let i = INDEX.indexOf('{', tIdx);
-  let depth = 0;
-  let end = -1;
-  for (; i < INDEX.length; i++) {
-    if (INDEX[i] === '{') depth++;
-    else if (INDEX[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
-  }
-  const ctx = {};
-  vm.createContext(ctx);
-  vm.runInContext(INDEX.slice(tIdx, end + 1) + '; this.T = TRANSLATIONS;', ctx);
-  const T = ctx.T;
-  const keys = [
-    'deposit.partner.role', 'deposit.partner.service.direct', 'deposit.partner.service.guided',
-    'deposit.partner.worldwide', 'deposit.partner.serves', 'deposit.partner.methodsDepend',
-    'admin.partner.services', 'admin.partner.serviceDirect', 'admin.partner.serviceGuided',
-    'admin.partner.servicesHint', 'admin.partner.servicesRequired', 'admin.partner.worldwide',
-    'admin.partner.countriesHint', 'admin.partner.methodsHint', 'admin.partner.coverage',
-    'admin.partner.noServices'
-  ];
-  const locales = Object.keys(T);
-  assert.strictEqual(locales.length, 6);
-  for (const locale of locales) {
-    for (const key of keys) {
-      const value = T[locale][key];
-      assert.ok(typeof value === 'string' && value.trim().length > 0, locale + ' missing ' + key);
-      assert.ok(!/\{\{/.test(value), locale + ' ' + key + ' must not carry a placeholder');
-    }
-  }
-  // The per-partner CTA label is the only placeholder-bearing key here.
-  for (const locale of locales) {
-    assert.match(T[locale]['deposit.partner.contactName'], /\{\{name\}\}/, locale + ' contactName placeholder');
-  }
-  // identical key sets across locales
-  const base = Object.keys(T.en).sort().join('|');
-  for (const locale of locales) assert.strictEqual(Object.keys(T[locale]).sort().join('|'), base, locale + ' key set');
-});
 
 // =========================================== migration hardening (045, 2026-10-29)
 
@@ -731,3 +564,33 @@ test('the admin table renders the server flag instead of re-deriving it', () => 
   assert.match(fn, /colspan="9"/);
 });
 
+// ------------------------------------------------- customer route removal (2026-11-24)
+test('the customer deposit page offers exactly one route: the automated USDT/TRC20 flow', () => {
+  const i = INDEX.indexOf('id="depositOptions"');
+  assert.ok(i > 0, 'options block present');
+  const block = INDEX.slice(i, INDEX.indexOf('id="depositCryptoFlow"'));
+  const cards = block.match(/id="depositOption(?!s)[A-Za-z]*"/g) || [];
+  assert.deepStrictEqual(cards, ['id="depositOptionCrypto"'],
+    'the automated crypto route is the only funding option');
+  assert.ok(block.includes('data-i18n="deposit.choose.crypto.title"'));
+  // The customer-facing verified-partner route was removed entirely.
+  for (const gone of ['depositOptionPartner', 'depositPartnerPanel', 'depositPartnerContacts',
+    'deposit.choose.partner', 'deposit.partner.title', 'deposit.partner.intro',
+    'deposit.partner.safety', 'wa.me/17828027841', 'arbitrix-partner-support-telegram']) {
+    assert.ok(!INDEX.includes(gone), 'must be gone from the page: ' + gone);
+  }
+  // No card route and no external-purchase route either.
+  assert.ok(!block.includes('depositOptionCard'), 'no card route in the menu');
+  assert.ok(!block.includes('depositOptionWallet'), 'no external-purchase route in the menu');
+  assert.ok(!INDEX.includes('deposit.choose.card'), 'the card copy is fully retired');
+  assert.ok(!INDEX.includes('deposit.wallet.'), 'the external-purchase panel copy is retired');
+});
+
+test('opening the deposit modal creates no invoice and needs no partner data', () => {
+  const fn = INDEX.slice(INDEX.indexOf('function openDepositModal'), INDEX.indexOf('function refreshDepositModeNotice'));
+  assert.ok(fn.includes('loadDepositOptions(false)'), 'the crypto config is still loaded');
+  assert.ok(!fn.includes('create-invoice'), 'no invoice on open');
+  assert.ok(!fn.includes('requestDepositAddress'), 'no invoice on open');
+  assert.ok(fn.includes("APP.environment === 'MARKETING_SANDBOX'"), 'sandbox keeps its old flow');
+  assert.ok(!/render\w*Partner|depositPartner|partnerPanel/i.test(fn), 'no partner rendering on open');
+});
