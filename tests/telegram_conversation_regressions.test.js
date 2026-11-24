@@ -543,7 +543,7 @@ test('M2: "Really?" after a question re-asks it instead of affirming', async () 
 test('M2: "Really?" after an answer may confirm it', async () => {
   const h = createHarness();
   await h.say('What is the minimum deposit?');
-  assert.match(h.last(), /100/i);
+  assert.match(h.last(), /50/i);
   await h.say('Really?');
   assert.match(h.last(), /That is correct/i, 'a real answer may be confirmed');
 });

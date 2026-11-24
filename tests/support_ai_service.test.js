@@ -94,7 +94,7 @@ test('known beginner questions are answered from the approved knowledge', async 
   const cases = [
     ['How does Kalderix work?', /arbitrage/i],
     ['How do I get started?', /create your account/i],
-    ['What is the minimum deposit?', /\$100/],
+    ['What is the minimum deposit?', /\$50/],
     ['Can I use Demo Mode?', /\$1,000/],
     ['How do withdrawals work?', /qualifying first deposit/i],
     ['What is the minimum withdrawal?', /no minimum withdrawal/i],
@@ -194,7 +194,7 @@ test('an unavailable provider falls back to the approved knowledge, never invent
   const service = makeService({ provider: 'openai' }, { provider: broken });
   const result = await service.ask('What is the minimum deposit?');
   assert.strictEqual(result.answered, true);
-  assert.match(result.answer, /\$100/);
+  assert.match(result.answer, /\$50/);
   assert.strictEqual(result.reason, 'provider-fallback');
 });
 

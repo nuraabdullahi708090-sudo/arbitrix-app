@@ -10038,3 +10038,11 @@ path touched. NOT merged, NOT deployed.
   claim about them is recorded. NOWPayments is the only realistic fallback because
   its provider class already exists.
 - NOT committed/deployed at the time of writing; migration 057 NOT applied.
+- SUPPORT-BOT FACTS SWEPT (same session): the approved knowledge base
+  (`services/support/arbitrix-knowledge.json`) still told customers the minimum
+  deposit was $100 in 7 answers plus its provenance notes, and `platformBullets`
+  in `services/telegram-i18n.js` (en/pt/ar) repeated it. Both now say $50, so the
+  bot cannot contradict the product. `MARKETING_FACTS.minDeposit` already reads
+  `PLATFORM_MIN_DEPOSIT`, so the partner-group posts follow automatically; the
+  operator draft in `docs/telegram-referral-onboarding.md` was updated too. The
+  KB is still digit-clean about the WITHDRAWAL minimum (it says there is none).

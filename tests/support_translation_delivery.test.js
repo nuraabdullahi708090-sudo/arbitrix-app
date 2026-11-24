@@ -78,11 +78,11 @@ const WITHDRAWAL_ANSWER = answerOf('withdrawals.timing');
 // Faithful translations of those approved answers: every number, amount and URL is
 // carried across unchanged, exactly as the production translation prompt demands.
 const PT = {
-  [DEPOSIT_ANSWER]: 'O depósito mínimo é $100. Os depósitos são creditados ao seu saldo Live.',
+  [DEPOSIT_ANSWER]: 'O depósito mínimo é $50. Os depósitos são creditados ao seu saldo Live.',
   [WITHDRAWAL_ANSWER]: 'Os saques normalmente chegam em 15-30 minutos após você fazer a solicitação. Você pode acompanhar o status no seu histórico de transações e, se demorar mais que isso, entre em contato com o suporte e verificaremos para você.'
 };
 const AR = {
-  [DEPOSIT_ANSWER]: 'الحد الأدنى للإيداع هو $100. يتم إضافة الإيداعات إلى رصيدك المباشر.',
+  [DEPOSIT_ANSWER]: 'الحد الأدنى للإيداع هو $50. يتم إضافة الإيداعات إلى رصيدك المباشر.',
   [WITHDRAWAL_ANSWER]: 'تصل عمليات السحب عادة خلال 15-30 دقيقة بعد تقديم الطلب. يمكنك متابعة الحالة في سجل معاملاتك، وإذا استغرق الأمر وقتًا أطول، تواصل مع الدعم وسنتحقق من ذلك لك.'
 };
 
@@ -336,7 +336,7 @@ test('B. Portuguese customer + approved knowledge -> the Portuguese TRANSLATION 
 
   const reply = h.lastToCustomer();
   assert.strictEqual(reply, PT[DEPOSIT_ANSWER], 'the customer receives the translated approved answer');
-  assert.match(reply, /\$100/, 'the deposit minimum survives the translation');
+  assert.match(reply, /\$50/, 'the deposit minimum survives the translation');
   assert.ok(!/minimum deposit is/i.test(reply), 'no English leaked to the customer');
 
   // BOTH steps of the path are proven: the question went to English for retrieval,
@@ -371,7 +371,7 @@ test('C. Arabic customer + approved knowledge -> the Arabic TRANSLATION is sent'
   const reply = h.lastToCustomer();
   assert.strictEqual(reply, AR[DEPOSIT_ANSWER]);
   assert.ok(SupportGuidelines.hasExpectedScript(reply, 'ar'), 'the reply is in Arabic script');
-  assert.match(reply, /\$100/, 'the deposit minimum survives the translation');
+  assert.match(reply, /\$50/, 'the deposit minimum survives the translation');
   assert.deepStrictEqual(directionsFor(translationCalls, DEPOSIT_ANSWER), ['en->ar']);
   assert.deepStrictEqual(h.ai.translationStats(), { available: true, attempted: 1, translated: 1, failed: 0 });
 });
@@ -460,12 +460,12 @@ test('F2. fidelity gate: a dropped URL or a changed duration is withheld', async
 });
 
 test('F3. fidelity gate: a faithful translation passes (numbers, amounts, URLs intact)', async () => {
-  const source = 'The minimum deposit is $100 and withdrawals arrive in 15-30 minutes. See https://arbitrix.pro/help';
-  const faithful = { 'en->pt': { [source]: 'O depósito mínimo é $100 e os saques chegam em 15-30 minutos. Veja https://arbitrix.pro/help' } };
+  const source = 'The minimum deposit is $50 and withdrawals arrive in 15-30 minutes. See https://arbitrix.pro/help';
+  const faithful = { 'en->pt': { [source]: 'O depósito mínimo é $50 e os saques chegam em 15-30 minutos. Veja https://arbitrix.pro/help' } };
 
   const result = await makeTranslator({ override: faithful }).translator.fromEnglish(source, 'pt');
   assert.strictEqual(result.ok, true, JSON.stringify(result));
-  assert.match(result.text, /\$100/);
+  assert.match(result.text, /\$50/);
   assert.match(result.text, /15-30/);
   assert.match(result.text, /https:\/\/arbitrix\.pro\/help/);
 });
@@ -504,7 +504,7 @@ test('F5. the approved English source passes the same checks, and the pt answer 
 // ========================================= G. no double translation of a model ====
 
 test('G. a model-generated Portuguese answer already in Portuguese is NOT translated again', async () => {
-  const MODEL_PT = 'Você pode fazer um depósito de $100 na sua conta Live.';
+  const MODEL_PT = 'Você pode fazer um depósito de $50 na sua conta Live.';
   const modelProvider = {
     name: 'fake-model',
     kind: 'http',
@@ -525,7 +525,7 @@ test('G. a model-generated Portuguese answer already in Portuguese is NOT transl
 });
 
 test('G2. a model-generated Arabic answer is sent as-is and never re-translated', async () => {
-  const MODEL_AR = 'يمكنك الإيداع من $100 في حسابك المباشر.';
+  const MODEL_AR = 'يمكنك الإيداع من $50 في حسابك المباشر.';
   const modelProvider = {
     name: 'fake-model',
     kind: 'http',

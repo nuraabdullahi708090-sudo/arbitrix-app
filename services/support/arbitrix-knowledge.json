@@ -4,13 +4,13 @@
   "description": "Approved, customer-facing Kalderix support knowledge. Every answer is derived from the current repository (server.js constants/routes, services/*, public/index.html copy). This file is the single approved source for the SupportAIService: the AI layer may ONLY answer from these entries and must hand off to a human when the answer is not present, is marked handoff, or is listed in conflicts.",
   "sources": {
     "wallet_seed": "server.js:451 (getWallet inserts demo_balance: 1000, live_balance: 50, bonus_balance: 0)",
-    "min_deposit": "server.js:489 PLATFORM_MIN_DEPOSIT_USD = 100 (enforced server.js:3556-3563)",
+    "min_deposit": "server.js PLATFORM_MIN_DEPOSIT_USD = 50; every route reads the resolved PLATFORM_MIN_DEPOSIT",
     "min_withdrawal": "server.js:509 MIN_WITHDRAWAL_USD = 500",
     "withdrawal_verification_flag": "server.js:522-523 WITHDRAWAL_REQUIRES_VERIFICATION (default false)",
     "withdrawal_gates": "server.js:4966-5085 /api/withdraw/request (first deposit -> verification(flag) -> min $500 -> balance -> address -> 1 trade), referral-earnings exception",
     "promo_credit": "server.js:451 live_balance: 50; server.js:553 SANDBOX_PROMO_CREDIT = 50",
     "promo_cap": "server.js:590 PROMO_PROFIT_CAP_USD = 20; server.js:592 PROMO_LIMIT_MESSAGE",
-    "referral": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 100, referral_reward_percent = 20",
+    "referral": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 50, referral_reward_percent = 20",
     "referral_conversion": "server.js:502 REFERRAL_EARNINGS_MIN_CONVERT_USD = 0",
     "subscription": "server.js:1470 SUBSCRIPTION_PRO_DEFAULT_PRICE = 7; charge_subscription_safe RPC (migration 011)",
     "deposit_flow": "public/index.html deposit modal (USDT on TRON/TRC20 only); server.js:3565-3585 currency/network validation",
@@ -143,7 +143,7 @@
         {
           "id": "live_mode.overview",
           "question": "How does Live Mode work?",
-          "answer": "In Live Mode Kalderix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $100) and then start the bot to trade automatically.",
+          "answer": "In Live Mode Kalderix trades with real funds in your Live balance. You fund your Live balance with a deposit (minimum $50) and then start the bot to trade automatically.",
           "keywords": ["live mode", "live", "real funds", "real money", "real trading"],
           "kind": "info",
           "source": "server.js:489 minimum deposit; public/index.html live mode copy"
@@ -165,7 +165,7 @@
         {
           "id": "getting_started.steps",
           "question": "How do I get started?",
-          "answer": "1) Create your account. 2) Explore Demo Mode with virtual funds. 3) When you are ready, switch to Live and make a deposit of at least $100. 4) Start the bot and follow your results in the dashboard. If any step is unclear, our support team can help.",
+          "answer": "1) Create your account. 2) Explore Demo Mode with virtual funds. 3) When you are ready, switch to Live and make a deposit of at least $50. 4) Start the bot and follow your results in the dashboard. If any step is unclear, our support team can help.",
           "keywords": ["get started", "getting started", "how to start", "first steps", "new user", "begin", "setup"],
           "kind": "info",
           "source": "public/index.html onboarding/landing; server.js:489 minimum deposit"
@@ -179,15 +179,15 @@
         {
           "id": "deposits.minimum",
           "question": "What is the minimum deposit?",
-          "answer": "The minimum deposit is $100. Deposits are credited to your Live balance.",
+          "answer": "The minimum deposit is $50. Deposits are credited to your Live balance.",
           "keywords": ["minimum deposit", "min deposit", "how much to deposit", "deposit minimum", "deposit amount", "least deposit"],
           "kind": "info",
-          "source": "server.js:489 PLATFORM_MIN_DEPOSIT_USD = 100 (server.js:3556-3563)"
+          "source": "server.js PLATFORM_MIN_DEPOSIT_USD = 50 (single source of the deposit floor)"
         },
         {
           "id": "deposits.how_to",
           "question": "How do I make a deposit?",
-          "answer": "Switch to Live Mode, open Deposit, enter an amount of at least $100, then send the exact amount of USDT on the TRON (TRC20) network to the address shown. Deposits are detected automatically once the network confirms them.",
+          "answer": "Switch to Live Mode, open Deposit, enter an amount of at least $50, then send the exact amount of USDT on the TRON (TRC20) network to the address shown. Deposits are detected automatically once the network confirms them.",
           "keywords": ["how to deposit", "make a deposit", "add funds", "fund my account", "top up", "deposit money"],
           "kind": "info",
           "source": "public/index.html deposit modal; server.js deposit routes"
@@ -327,7 +327,7 @@
         {
           "id": "promotional_credit.what_is_it",
           "question": "What is the $50 promotional credit?",
-          "answer": "New Live accounts may receive a $50 promotional credit in the Live balance. It is a head start you can trade with - it is not a deposit and it cannot be withdrawn. To withdraw funds you need a qualifying deposit (at least $100) and at least one completed trade.",
+          "answer": "New Live accounts may receive a $50 promotional credit in the Live balance. It is a head start you can trade with - it is not a deposit and it cannot be withdrawn. To withdraw funds you need a qualifying deposit (at least $50) and at least one completed trade.",
           "keywords": ["promotional credit", "promo credit", "50 promo", "promotional", "free credit", "bonus credit", "welcome credit", "$50"],
           "kind": "info",
           "source": "server.js:451 live_balance: 50; promo rules"
@@ -349,10 +349,10 @@
         {
           "id": "referrals.program",
           "question": "What is the referral program?",
-          "answer": "You earn 20% of the first qualifying deposit of each person you refer - a one-time reward. Their deposit must reach the minimum qualifying amount ($100) for the reward to count. There is no recurring commission.",
+          "answer": "You earn 20% of the first qualifying deposit of each person you refer - a one-time reward. Their deposit must reach the minimum qualifying amount ($50) for the reward to count. There is no recurring commission.",
           "keywords": ["referral", "referrals", "referral program", "how do referrals work", "invite", "refer", "referral reward", "earn from referrals"],
           "kind": "info",
-          "source": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 100"
+          "source": "server.js:1388 REFERRAL_REWARD_PERCENT_DEFAULT = 20; server.js:1455-1456 minimum_qualifying_deposit = 50"
         },
         {
           "id": "referrals.using_earnings",
