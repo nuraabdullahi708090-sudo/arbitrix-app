@@ -54,7 +54,7 @@ test('the notice never claims more than the server proves: neutral browser copy,
   // variant the server selects when a worker owns the session.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    'Your bot trades automatically while it is running. Activity appears in the log below.'
+    'Your bot executes trades automatically on supported markets while it is running.'
   );
   assert.strictEqual(
     T.en['bot.engineNoticeWorker'],

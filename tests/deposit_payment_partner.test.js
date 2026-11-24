@@ -134,16 +134,18 @@ test('a window override replaces slot 1 only', () => {
 
 // ----------------------------------------------------------------- render
 
-  test('the payment/withdrawal surface renders both configured partners', () => {
+  test('the generated payment session renders NO partner cards (official support only)', () => {
+      // Once an invoice exists the screen has one job: make the payment. No Alex,
+      // no Olivia, no "contact a payment partner" card - official Kalderix
+      // support is the only assistance offered there.
       const { nodes } = render(BOTH);
-      const html = nodes.paymentPartnerContacts.innerHTML;
-      assert.ok(html.includes('href="' + ALEX + '"'), 'links to Alex');
-      assert.ok(html.includes('href="' + OLIVIA + '"'), 'links to Olivia');
-      assert.ok(html.includes('data-partner="alex"') && html.includes('data-partner="olivia"'), 'is per-partner');
-      assert.ok(html.includes('>Contact Alex<') && html.includes('>Contact Olivia<'), 'labelled buttons');
-      assert.ok(html.includes('Payment Partner'), 'states the role');
-      assert.strictEqual(html.split('data-partner=').length - 1, 2, 'shows exactly two partners');
-      assert.notStrictEqual(nodes.paymentPartnerContacts.style.display, 'none', 'visible when configured');
+      assert.strictEqual(nodes.paymentPartnerContacts.length ? nodes.paymentPartnerContacts.innerHTML : '', '',
+          'no partner markup is produced for the payment session');
+      assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex',
+          'official support is always offered in the payment session');
+      assert.ok(!INDEX.includes('id="paymentPartnerContacts"'), 'the payment-session container is gone from the page');
+      assert.ok(!/Contact (Alex|Olivia) for (payment )?assistance/i.test(INDEX),
+          'no wording instructs the customer to contact a partner for payment help');
   });
 
   test('the deposit partner section is its own surface: Olivia on WhatsApp, Alex on Telegram', () => {
@@ -156,21 +158,18 @@ test('a window override replaces slot 1 only', () => {
       assert.ok(!html.includes(OLIVIA), 'Olivia Telegram is never offered in the deposit flow');
   });
 
-  test('every partner button opens its app in a new tab safely', () => {
+  test('the remaining partner surface (pre-invoice funding route) opens safely', () => {
       const { nodes } = render(BOTH);
-      const html = nodes.paymentPartnerContacts.innerHTML;
-    assert.strictEqual((html.match(/target="_blank"/g) || []).length, 2);
+      const html = nodes.depositPartnerContacts.innerHTML;
+    assert.strictEqual((html.match(/target="_blank"/g) || []).length, 2, 'WhatsApp + Telegram both open a new tab');
     assert.strictEqual((html.match(/rel="noopener noreferrer"/g) || []).length, 2);
-    assert.ok(html.includes('deposit-payment-partner'), 'shared yellow button styling');
-    assert.ok(!/https?:\/\/(?!t\.me\/)/.test(html.replace(/https:\/\/t\.me\/[A-Za-z0-9_]+/g, '')),
-        'no non-Telegram URL reaches the markup');
+    assert.ok(!/https?:\/\/(?!t\.me\/|wa\.me\/)/.test(html.replace(/https:\/\/t\.me\/[A-Za-z0-9_]+/g, '')),
+        'no unexpected URL reaches the markup');
 });
 
-  test('an unconfigured pair hides the payment list and restores official support', () => {
+  test('an unconfigured pair leaves no partner list and official support still shows', () => {
       const { nodes } = render({});
-      assert.strictEqual(nodes.paymentPartnerContacts.style.display, 'none', 'payment list hidden');
-      assert.strictEqual(nodes.paymentPartnerContacts.innerHTML, '', 'payment list renders nothing');
-      assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex');
+      assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex', 'official support shown');
       // Olivia is a FIXED contact, not a meta-configured one: a missing meta can
       // never remove the primary, and it must not invent an Alex button either.
       assert.ok(nodes.depositPartnerContacts.innerHTML.includes('https://wa.me/17828027841'));
@@ -178,11 +177,10 @@ test('a window override replaces slot 1 only', () => {
           'no broken Alex button without a destination');
   });
 
-  test('one configured partner is enough to show the payment list', () => {
+  test('a configured partner never suppresses official support in the payment session', () => {
       const { nodes } = render({ 'arbitrix-partner-support-telegram-2': '@OliviaArbitrix' });
-      const html = nodes.paymentPartnerContacts.innerHTML;
-    assert.ok(html.includes(OLIVIA) && !html.includes(ALEX));
-    assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'none');
+    assert.strictEqual(nodes.paymentSupportFallbackBtn.style.display, 'inline-flex',
+        'the official action is always visible in the payment session');
 });
 
 // ------------------------------------------------------------------ copy

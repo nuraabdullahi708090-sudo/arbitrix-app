@@ -245,9 +245,10 @@ test('support is available from the payment pending/failed state with invoice re
     assert.ok(/id="depositInvoiceRef"/.test(win), 'invoice reference is displayed');
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');
     assert.ok(/support\.contactOfficial/.test(win), 'official support CTA');
-    // Payment assistance is the partner; official support stays separate.
-    assert.ok(/id="paymentPartnerContacts"/.test(win), 'payment-partner contacts');
-    assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept beside it');
+    // The generated payment session offers NO individual payment partners:
+    // official support is the only assistance surface there.
+    assert.ok(!/id="paymentPartnerContacts"/.test(win), 'no payment-partner contacts in the payment session');
+    assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept');
 
     // The status-driven guidance maps the observed status to the right key.
     const fn = extractFunction('updatePaymentSupportHelp');

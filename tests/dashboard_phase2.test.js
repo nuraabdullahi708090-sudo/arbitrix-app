@@ -192,7 +192,7 @@ test('the bot notice states what is true in every deployment (no tab warning)', 
   // session.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    'Your bot trades automatically while it is running. Activity appears in the log below.'
+    'Your bot executes trades automatically on supported markets while it is running.'
   );
   assert.ok(!T.en['bot.engineNotice'].includes('Keep this tab open'), 'the obsolete warning is gone');
   // Neutral variant for "the server has not told us which engine is trading".

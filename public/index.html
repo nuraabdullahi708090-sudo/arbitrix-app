@@ -1445,6 +1445,61 @@
         .deposit-partner-service.guided{color:#38BDF8;border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.08);}
         .deposit-wallet-help ul{margin:6px 0 0;padding-inline-start:18px;}
         .deposit-wallet-help li{font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;overflow-wrap:anywhere;}
+        /* Payment screen (post-invoice): the receiving address and the exact
+           amount are the two things a customer needs, so they come first and
+           carry the highest contrast on the screen. Mobile-first: one column,
+           full-width copy targets >= 48px, address wraps instead of overflowing
+           and the QR is never smaller than 180px. */
+        .pay-head{margin:0 0 12px;}
+        .pay-title{font-size:16px;font-weight:800;letter-spacing:0.02em;text-transform:uppercase;color:var(--text-primary);}
+        .pay-sub{margin-top:4px;font-size:12px;line-height:1.5;color:var(--text-secondary);}
+        .pay-panel{background:var(--bg-input);border:1px solid var(--border-color);border-radius:12px;padding:14px;margin:0 0 12px;min-width:0;}
+        .pay-panel-address{border-color:rgba(124,247,196,0.45);box-shadow:inset 0 0 0 1px rgba(124,247,196,0.15);}
+        .pay-label{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;}
+        .pay-address{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;line-height:1.55;font-weight:700;color:#7CF7C4;word-break:break-all;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all;}
+        .pay-amount{font-size:34px;font-weight:800;line-height:1.1;color:var(--brand);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+        .pay-amount-unit{font-size:16px;font-weight:700;color:var(--text-secondary);}
+        .pay-usd{margin-top:4px;font-size:12px;color:var(--text-secondary);}
+        button.pay-copy-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin-top:12px;padding:12px 14px;border:none;border-radius:10px;background:var(--brand);color:#06121F;font-size:14px;font-weight:700;cursor:pointer;line-height:1.2;}
+        button.pay-copy-btn:active{transform:translateY(1px);}
+        .pay-copy-btn:focus-visible{outline:2px solid #7CF7C4;outline-offset:2px;}
+        .pay-hint{margin-top:8px;font-size:11px;line-height:1.5;color:var(--text-muted);}
+        .pay-exact{margin-top:8px;font-size:12px;line-height:1.5;color:var(--text-secondary);}
+        .pay-exact strong{color:#7CF7C4;}
+        .pay-network{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+        .pay-chip{background:rgba(124,247,196,0.12);border:1px solid rgba(124,247,196,0.35);color:#7CF7C4;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;}
+        .pay-chip-network{background:var(--brand-soft);border-color:var(--gold-glow);color:var(--brand);}
+        .pay-dash{color:var(--text-muted);}
+        .pay-qr{text-align:center;margin:0 0 12px;}
+        .pay-qr-box{width:200px;height:200px;margin:0 auto;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+        .pay-qr-box img{width:100%;height:100%;border-radius:12px;display:block;}
+        .pay-qr-hint{margin-top:8px;}
+        .pay-warning{display:flex;gap:8px;align-items:flex-start;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:12px;line-height:1.5;color:#F7C08C;}
+        .pay-warning i{margin-top:2px;}
+        .pay-status{background:var(--bg-input);border-radius:10px;padding:12px;margin:0 0 12px;text-align:center;}
+        .pay-status .pay-label{margin-bottom:4px;}
+        .pay-status-text{font-size:14px;font-weight:700;color:var(--brand);overflow-wrap:anywhere;}
+        .pay-progress{margin:0 0 12px;}
+        .pay-progress-row{display:flex;align-items:flex-start;}
+        .pay-progress .progress-step{flex:1;text-align:center;min-width:0;}
+        .pay-progress .step-circle{width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;color:var(--text-secondary);}
+        .pay-progress .step-label{font-size:9px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;overflow-wrap:anywhere;}
+        .pay-progress .step-desc{font-size:8px;color:var(--text-muted);margin-top:2px;line-height:1.3;overflow-wrap:anywhere;}
+        .pay-progress .progress-line{flex:1;height:2px;background:var(--border-color);margin-top:14px;}
+        .pay-timer{display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px;margin:0 0 12px;font-size:12px;color:#F7C08C;}
+        .pay-support{background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:12px;margin:0;}
+        .pay-support-ref{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+        .pay-support-ref .pay-label{margin:0;}
+        #depositInvoiceRef{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:var(--brand);word-break:break-all;}
+        .pay-support-copy{font-size:11px;padding:8px;margin-bottom:8px;min-height:44px;}
+        .payment-help-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+        .payment-help-actions .btn{flex:1 1 160px;min-height:44px;}
+        @media (max-width:430px){
+            .pay-address{font-size:14px;}
+            .pay-amount{font-size:30px;}
+            .pay-qr-box{width:180px;height:180px;}
+            button.pay-copy-btn{min-height:50px;font-size:15px;}
+        }
         .deposit-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:3000;align-items:flex-end;justify-content:center;padding:0;}
         .deposit-modal.open{display:flex;}
         .deposit-modal-content{background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border:1px solid var(--border-color);max-width:500px;width:100%;max-height:92vh;overflow-y:auto;padding:24px 20px;box-shadow:0 24px 64px rgba(0,0,0,0.9);position:relative;animation:modal-slide-up 0.3s ease;}
@@ -9856,126 +9911,124 @@ function toggleFaq(btn) {
     <!-- STEP 2: PAYMENT SECTION (shown after invoice) -->
     <!-- ================================================ -->
     <div id="depositPaymentSection" style="display:none;">
-      <!-- Progress Steps -->
-      <div id="paymentProgressSteps" style="margin:16px 0;">
-        <div style="display:flex;justify-content:space-between;position:relative;">
-          <div class="progress-step" data-step="created" style="flex:1;text-align:center;position:relative;z-index:1;">
-            <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
-              <i class="fas fa-file-invoice" style="font-size:11px;color:var(--text-secondary);"></i>
-            </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;" data-i18n="deposit.step.created">Created</div>
-            <div class="step-desc" style="font-size:8px;color:var(--text-muted);margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.created">Payment request created</div>
-          </div>
-          <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
-          <div class="progress-step" data-step="detected" style="flex:1;text-align:center;position:relative;z-index:1;">
-            <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
-              <i class="fas fa-search" style="font-size:11px;color:var(--text-secondary);"></i>
-            </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;" data-i18n="deposit.step.detected">Detected</div>
-            <div class="step-desc" style="font-size:8px;color:var(--text-muted);margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.detected">Payment received</div>
-          </div>
-          <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
-          <div class="progress-step" data-step="confirming" style="flex:1;text-align:center;position:relative;z-index:1;">
-            <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
-              <i class="fas fa-hourglass-half" style="font-size:11px;color:var(--text-secondary);"></i>
-            </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;" data-i18n="deposit.step.confirming">Confirming</div>
-            <div class="step-desc" style="font-size:8px;color:var(--text-muted);margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.confirming">Confirming on TRON</div>
-          </div>
-          <div class="progress-line" style="flex:1;height:2px;background:var(--border-color);margin-top:14px;position:relative;z-index:0;"></div>
-          <div class="progress-step" data-step="credited" style="flex:1;text-align:center;position:relative;z-index:1;">
-            <div class="step-circle" style="width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;">
-              <i class="fas fa-check" style="font-size:11px;color:var(--text-secondary);"></i>
-            </div>
-            <div class="step-label" style="font-size:9px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;" data-i18n="deposit.step.credited">Credited</div>
-            <div class="step-desc" style="font-size:8px;color:var(--text-muted);margin-top:2px;line-height:1.3;" data-i18n="deposit.step.desc.credited">Balance credited</div>
-          </div>
-        </div>
+      <!-- The payment screen answers three questions in order: where to send,
+           how much to send, and on which network. Everything else is
+           secondary; the address and the amount come first and are the most
+           prominent elements on the screen. -->
+      <div class="pay-head">
+        <div class="pay-title" data-i18n="deposit.sendTitle">Send your deposit</div>
+        <div class="pay-sub" data-i18n="deposit.sendIntro">Send the exact amount below to the receiving address. Your Live balance is credited automatically once the payment is confirmed.</div>
       </div>
 
-      <!-- Amount Display -->
-      <div style="background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05));border:2px solid rgba(16,185,129,0.3);border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-        <div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;" data-i18n="deposit.paymentAmount">Payment Amount</div>
-        <div style="font-size:32px;font-weight:700;color:#5EA0FF;margin-bottom:4px;">
-          <span id="liveDepositDisplayAmount">0.00</span> <span style="font-size:20px;">USDT</span>
-        </div>
-        <div style="font-size:14px;color:var(--text-secondary);">≈ $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
-        <div style="font-size:10px;color:var(--text-muted);margin-top:4px;line-height:1.5;" data-i18n="deposit.usdVsUsdt">USDT is the amount you send. USD is the amount credited to your balance.</div>
+      <!-- 1. RECEIVING ADDRESS (first, highest contrast) -->
+      <div id="walletAddressContainer" class="pay-panel pay-panel-address">
+        <div id="paymentAddressLabel" class="pay-label" data-i18n="deposit.paymentAddressLabel">Receiving wallet address</div>
+        <div id="liveWalletAddress" class="pay-address">Loading...</div>
+        <button type="button" id="copyAddressBtn" class="pay-copy-btn copy-address-btn" onclick="copyWalletAddress()">
+          <i class="fas fa-copy" aria-hidden="true"></i> <span data-i18n="deposit.copyAddress">Copy Address</span>
+        </button>
+        <div class="pay-hint" data-i18n="deposit.addressExplain">This is the receiving address for this deposit. Send only USDT on the TRON (TRC20) network to this address.</div>
+      </div>
+
+      <!-- 2. EXACT AMOUNT -->
+      <div class="pay-panel pay-panel-amount">
+        <div class="pay-label" data-i18n="deposit.paymentAmount">Payment amount</div>
+        <div class="pay-amount"><span id="liveDepositDisplayAmount">0.00</span> <span class="pay-amount-unit">USDT</span></div>
+        <div class="pay-usd">&#8776; $<span id="liveDepositDisplayUSD">0.00</span> USD</div>
+        <div class="pay-hint" data-i18n="deposit.usdVsUsdt">USDT is the amount you send. USD is the amount credited to your balance.</div>
+        <button type="button" id="copyAmountBtn" class="pay-copy-btn copy-address-btn" onclick="copyDepositAmount()">
+          <i class="fas fa-coins" aria-hidden="true"></i> <span data-i18n="deposit.copyAmount">Copy Amount</span>
+        </button>
         <!-- Money-flow statement: shown ONLY when a provider explicitly confirms
              the exact amount to send (see setExactAmountInstruction). Hidden by
              default so a placeholder value like "0.00" can never reach a customer. -->
-        <div id="exactAmountInstruction" style="font-size:11px;color:var(--text-secondary);margin-top:10px;line-height:1.5;display:none;"><span data-i18n="deposit.sendExactlyPrefix">Send exactly</span> <strong id="exactAmountValue" style="color:#5EA0FF;"></strong> <span data-i18n="deposit.sendExactlySuffix">USDT on the TRON (TRC20) network.</span></div>
+        <div id="exactAmountInstruction" class="pay-exact" style="display:none;"><span data-i18n="deposit.sendExactlyPrefix">Send exactly</span> <strong id="exactAmountValue"></strong> <span data-i18n="deposit.sendExactlySuffix">USDT on the TRON (TRC20) network.</span></div>
       </div>
 
-      <!-- Network Badge (shown for q8qpay white-label deposits) -->
-      <div id="q8qpayNetworkBadge" style="display:none;align-items:center;justify-content:center;gap:8px;margin:12px 0;font-size:12px;">
-        <span style="background:rgba(16,185,129,0.15);padding:4px 10px;border-radius:6px;color:#5EA0FF;font-weight:600;">USDT</span>
-        <span style="color:var(--text-secondary);" data-i18n="deposit.on">on</span>
-        <span style="background:var(--brand-soft);padding:4px 10px;border-radius:6px;color:var(--brand);font-weight:600;">TRON (TRC20)</span>
-      </div>
-
-      <!-- Payment-method confirmation (display only) -->
-      <div style="font-size:11px;color:var(--text-secondary);line-height:1.6;background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:10px;margin:12px 0;" data-i18n="deposit.methodNotice">This payment method uses USDT on the TRON (TRC20) network. Before sending funds, confirm that your wallet or exchange supports the exact asset and network shown here.</div>
-
-      <!-- QR Code -->
-      <div id="qrCodeContainer" style="text-align:center;margin:16px 0;">
-        <div id="qrCodeImage" style="width:160px;height:160px;margin:0 auto;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-          <i class="fas fa-qrcode" style="font-size:80px;color:var(--bg-card);"></i>
-        </div>
-        <div style="font-size:10px;color:var(--text-secondary);margin-top:10px;" data-i18n="deposit.scanToPay">Scan to pay with your crypto wallet</div>
-      </div>
-
-      <!-- Payment Address -->
-      <div id="walletAddressContainer" style="background:var(--bg-input);border:1px dashed var(--border-color);border-radius:10px;padding:14px;margin:12px 0;">
-        <div id="paymentAddressLabel" style="font-size:9px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;" data-i18n="deposit.paymentAddressLabel">Payment Address</div>
-        <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:6px;" data-i18n="deposit.addressExplain">This is your personal USDT (TRC20) payment address. Send only USDT on the TRON (TRC20) network to this address.</div>
-        <div id="liveWalletAddress" style="font-family:monospace;font-size:10px;word-break:break-all;color:var(--brand);line-height:1.5;">
-          Loading...
+      <!-- 3. NETWORK -->
+      <div class="pay-panel pay-panel-network">
+        <div class="pay-label" data-i18n="deposit.networkLabel">Network</div>
+        <div id="q8qpayNetworkBadge" class="pay-network">
+          <span class="pay-chip">USDT</span>
+          <span class="pay-dash" aria-hidden="true">&#8212;</span>
+          <span class="pay-chip pay-chip-network">TRON (TRC20)</span>
         </div>
       </div>
 
-      <!-- Copy Buttons -->
-      <div style="display:flex;gap:8px;margin:12px 0;">
-        <button type="button" id="copyAddressBtn" class="copy-address-btn" onclick="copyWalletAddress()" style="flex:1;background:var(--brand);color:#06121F;border:none;padding:12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-          <i class="fas fa-copy"></i> <span data-i18n="deposit.copyAddress">Copy Address</span>
-        </button>
-        <button type="button" id="copyAmountBtn" class="copy-address-btn" onclick="copyDepositAmount()" style="flex:1;background:var(--brand);color:#06121F;border:none;padding:12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-          <i class="fas fa-coins"></i> <span data-i18n="deposit.copyAmount">Copy Amount</span>
-        </button>
-      </div>
-
-      <!-- Expiry Timer -->
-      <div id="depositTimerSection" style="background:var(--warning-dim);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin:12px 0;display:flex;align-items:center;justify-content:center;gap:8px;">
-        <i class="fas fa-clock" style="color:var(--warning);"></i>
-        <span style="font-size:12px;color:var(--warning);"><span data-i18n="deposit.expiresIn">Expires in</span> <strong id="depositTimer" style="font-size:16px;">60:00</strong></span>
-      </div>
-
-      <!-- Current Status -->
-      <div id="currentStatusBox" style="background:var(--bg-input);border-radius:8px;padding:14px;margin:12px 0;text-align:center;">
-        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;" data-i18n="deposit.currentStatus">Current Status</div>
-        <div id="depositStatusText" style="font-size:13px;font-weight:600;color:var(--brand);">Waiting for payment...</div>
-        <div style="font-size:10px;color:var(--text-muted);margin-top:8px;line-height:1.5;" data-i18n="deposit.afterSending">After sending, keep this page open. Kalderix detects the payment automatically and credits your Live balance once confirmed.</div>
-      </div>
-
-      <!-- Invoice reference + payment help / official support (display-only).
-           The reference is the invoice id already used for this payment; no
-           extra private user data is shown. No confirmation happens here. -->
-      <div id="paymentSupportHelp" style="background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:12px;margin:12px 0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;" data-i18n="deposit.invoiceRef">Invoice Reference</span>
-          <span id="depositInvoiceRef" style="font-family:monospace;font-size:10px;color:var(--brand);word-break:break-all;text-align:end;">---</span>
+      <!-- 4. QR CODE (scan-to-pay) -->
+      <div id="qrCodeContainer" class="pay-qr">
+        <div id="qrCodeImage" class="pay-qr-box">
+          <i class="fas fa-qrcode" style="font-size:80px;color:#0E141C;" aria-hidden="true"></i>
         </div>
-        <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary btn-block" style="font-size:11px;padding:8px;margin-bottom:10px;">
-          <i class="fas fa-copy"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
+        <div class="pay-hint pay-qr-hint" data-i18n="deposit.scanToPay">Scan to pay with your crypto wallet</div>
+      </div>
+
+      <!-- 5. NETWORK / AMOUNT WARNING -->
+      <div class="pay-warning">
+        <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+        <span data-i18n="deposit.paymentWarning">Send USDT only through the TRON (TRC20) network. Send the exact amount displayed above.</span>
+      </div>
+
+      <!-- 6. STATUS + PROGRESS -->
+      <div id="currentStatusBox" class="pay-status">
+        <div class="pay-label" data-i18n="deposit.currentStatus">Current status</div>
+        <div id="depositStatusText" class="pay-status-text">Waiting for payment...</div>
+        <div class="pay-hint" data-i18n="deposit.afterSending">After sending, keep this page open. Kalderix detects the payment automatically and credits your Live balance once confirmed.</div>
+      </div>
+
+      <div id="paymentProgressSteps" class="pay-progress">
+        <div class="pay-progress-row">
+          <div class="progress-step" data-step="created">
+            <div class="step-circle"><i class="fas fa-file-invoice" aria-hidden="true"></i></div>
+            <div class="step-label" data-i18n="deposit.step.created">Created</div>
+            <div class="step-desc" data-i18n="deposit.step.desc.created">Payment request created</div>
+          </div>
+          <div class="progress-line" aria-hidden="true"></div>
+          <div class="progress-step" data-step="detected">
+            <div class="step-circle"><i class="fas fa-search" aria-hidden="true"></i></div>
+            <div class="step-label" data-i18n="deposit.step.detected">Detected</div>
+            <div class="step-desc" data-i18n="deposit.step.desc.detected">Payment received</div>
+          </div>
+          <div class="progress-line" aria-hidden="true"></div>
+          <div class="progress-step" data-step="confirming">
+            <div class="step-circle"><i class="fas fa-hourglass-half" aria-hidden="true"></i></div>
+            <div class="step-label" data-i18n="deposit.step.confirming">Confirming</div>
+            <div class="step-desc" data-i18n="deposit.step.desc.confirming">Confirming on TRON</div>
+          </div>
+          <div class="progress-line" aria-hidden="true"></div>
+          <div class="progress-step" data-step="credited">
+            <div class="step-circle"><i class="fas fa-check" aria-hidden="true"></i></div>
+            <div class="step-label" data-i18n="deposit.step.credited">Credited</div>
+            <div class="step-desc" data-i18n="deposit.step.desc.credited">Balance credited</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Expiry timer -->
+      <div id="depositTimerSection" class="pay-timer">
+        <i class="fas fa-clock" aria-hidden="true"></i>
+        <span><span data-i18n="deposit.expiresIn">Expires in</span> <strong id="depositTimer" style="font-size:16px;">60:00</strong></span>
+      </div>
+
+      <!-- 8. Invoice reference + official support.
+           The generated payment session carries NO individual payment partners:
+           it has one job (make the payment). Official Kalderix support stays
+           reachable here and everywhere else in the app. -->
+      <div id="paymentSupportHelp" class="pay-support">
+        <div class="pay-support-ref">
+          <span class="pay-label" data-i18n="deposit.invoiceRef">Invoice Reference</span>
+          <span id="depositInvoiceRef">---</span>
+        </div>
+        <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary btn-block pay-support-copy">
+          <i class="fas fa-copy" aria-hidden="true"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
         </button>
-        <div style="font-size:10px;color:var(--text-muted);line-height:1.5;margin-bottom:6px;" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.</div>
-        <div id="paymentSupportHelpText" style="font-size:11px;color:var(--text-secondary);line-height:1.6;">Need help with your payment? Contact the Kalderix Payment Partner.</div>
-        <div class="payment-help-actions" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <div id="paymentPartnerContacts" class="payment-partner-list" style="flex:1 1 100%;"></div>
-          <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-primary" style="flex:1;min-width:150px;">
-            <i class="fas fa-headset"></i> <span data-i18n="support.contactOfficial">Contact official Kalderix Support</span>
+        <div class="pay-hint" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password - never share your password, OTP code, or keys.</div>
+        <div id="paymentSupportHelpText" class="pay-hint">Need help with your payment? Open the Kalderix Support Center.</div>
+        <div class="payment-help-actions">
+          <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-primary">
+            <i class="fas fa-headset" aria-hidden="true"></i> <span data-i18n="support.contactOfficial">Contact official Kalderix Support</span>
           </button>
-          <a href="#" class="btn btn-secondary js-official-telegram" style="display:none;flex:1;min-width:150px;text-align:center;" target="_blank" rel="noopener noreferrer" data-i18n="support.officialTelegram">Official Telegram Support</a>
+          <a href="#" class="btn btn-secondary js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer" data-i18n="support.officialTelegram">Official Telegram Support</a>
         </div>
       </div>
     </div>
@@ -11416,7 +11469,7 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'Paused',
         'bot.errorState': 'Error',
         'bot.runningMsg': 'Scanning supported markets. New trades appear in the activity log below.',
-        'bot.engineNotice': 'Your bot trades automatically while it is running. Activity appears in the log below.',
+        'bot.engineNotice': 'Your bot executes trades automatically on supported markets while it is running.',
         'bot.engineNoticeUnknown': '🤖 The bot\'s current status is shown above. Trading runs automatically while the bot is running.',
         'bot.engineNoticeWorker': 'Your bot runs automatically in the background, even when you close this page or switch to another app. Return anytime to monitor your trading activity.',
         'bot.workerManaged': "🤖 Your bot now runs automatically. It will keep trading even when you're offline.",
@@ -11584,11 +11637,10 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Referral data reset',
         'deposit.title': 'Deposit Funds',
         'deposit.subtitle': 'Secure crypto deposit — funds credited automatically',
-        'deposit.methodNotice': 'This payment method uses USDT on the TRON (TRC20) network. Before sending funds, confirm that your wallet or exchange supports the exact asset and network shown here.',
         'deposit.newToUsdt.title': 'New to this payment method?',
         'deposit.newToUsdt.body': 'USDT is a digital dollar. TRC20 is the network used for this deposit. Make sure your exchange or wallet supports USDT on TRC20.',
         'deposit.usdVsUsdt': 'USDT is the amount you send. USD is the amount credited to your balance.',
-        'deposit.addressExplain': 'This is your personal USDT (TRC20) payment address. Send only USDT on the TRON (TRC20) network to this address.',
+        'deposit.addressExplain': 'This is the receiving address for this deposit. Send only USDT on the TRON (TRC20) network to this address.',
         'deposit.referenceExplain': 'Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.',
         'deposit.afterSending': 'After sending, keep this page open. Kalderix detects the payment automatically and credits your Live balance once confirmed.',
         'deposit.amount': 'Amount (USD)',
@@ -11954,9 +12006,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contact Support',
         'deposit.invoiceRef': 'Invoice Reference',
         'deposit.copyInvoiceRef': 'Copy invoice reference',
-        'support.paymentHelp.pending': 'Need help with your payment? Contact one of our payment partners and share only your invoice reference, payment amount, network, and transaction hash.',
-        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, contact one of our payment partners with your invoice reference and transaction hash.',
-        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or contact one of our payment partners with your invoice reference.',
+        'support.paymentHelp.pending': 'Need help with your payment? Open the Kalderix Support Center and share only your invoice reference, payment amount, network and transaction hash.',
+        'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, open the Support Center with your invoice reference and transaction hash.',
+        'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or open the Support Center with your invoice reference.',
         'deposit.copyInvoiceRefSuccess': 'Invoice reference copied',
         'deposit.copyInvoiceRefFailed': 'Could not copy the invoice reference',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> earned <span class="ticker-amount green">+${{amount}}</span> on {{asset}}',
@@ -12304,10 +12356,14 @@ const TRANSLATIONS = {
         'deposit.sendUsdtOnly': 'Send USDT only',
         'deposit.safetyWarningBody': 'Sending through another network may result in loss of funds or delayed credit.',
         'deposit.paymentAmount': 'Payment Amount',
+        'deposit.sendTitle': 'Send your deposit',
+        'deposit.sendIntro': 'Send the exact amount below to the receiving address. Your Live balance is credited automatically once the payment is confirmed.',
+        'deposit.networkLabel': 'Network',
+        'deposit.paymentWarning': 'Send USDT only through the TRON (TRC20) network. Send the exact amount displayed above.',
         'deposit.sendExactlyPrefix': 'Send exactly',
         'deposit.sendExactlySuffix': 'USDT on the TRON (TRC20) network.',
         'deposit.scanToPay': 'Scan to pay with your crypto wallet',
-        'deposit.paymentAddressLabel': 'Payment Address',
+        'deposit.paymentAddressLabel': 'Receiving wallet address',
         'deposit.copyAmount': 'Copy Amount',
         'deposit.expiresIn': 'Expires in',
         'deposit.currentStatus': 'Current Status',
@@ -13030,7 +13086,7 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'En pausa',
         'bot.errorState': 'Error',
         'bot.runningMsg': 'Escaneando mercados compatibles. Las nuevas operaciones aparecen en el registro de actividad.',
-        'bot.engineNotice': 'Tu bot opera automáticamente mientras está en marcha. La actividad aparece en el registro de abajo.',
+        'bot.engineNotice': 'Tu bot ejecuta operaciones automáticamente en los mercados compatibles mientras está en marcha.',
         'bot.engineNoticeUnknown': '🤖 El estado actual del bot aparece arriba. El trading se ejecuta automáticamente mientras el bot está activo.',
         'bot.engineNoticeWorker': 'Tu bot se ejecuta automáticamente en segundo plano, incluso si cierras esta página o cambias a otra aplicación. Vuelve cuando quieras para seguir tu actividad de trading.',
         'bot.workerManaged': "🤖 Tu bot ahora se ejecuta automáticamente. Seguirá operando incluso cuando estés desconectado.",
@@ -13198,11 +13254,10 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Datos de referidos reiniciados',
         'deposit.title': 'Depositar fondos',
         'deposit.subtitle': 'Depósito seguro en cripto — fondos acreditados automáticamente',
-        'deposit.methodNotice': 'Este método de pago usa USDT en la red TRON (TRC20). Antes de enviar fondos, confirma que tu billetera o exchange admite el activo y la red exactos que se muestran aquí.',
         'deposit.newToUsdt.title': '¿Nuevo en este método de pago?',
         'deposit.newToUsdt.body': 'USDT es un dólar digital. TRC20 es la red que se usa para este depósito. Asegúrate de que tu exchange o billetera sea compatible con USDT en TRC20.',
         'deposit.usdVsUsdt': 'USDT es la cantidad que envías. USD es la cantidad acreditada en tu saldo.',
-        'deposit.addressExplain': 'Esta es tu dirección de pago personal de USDT (TRC20). Envía solo USDT en la red TRON (TRC20) a esta dirección.',
+        'deposit.addressExplain': 'Esta es la dirección de recepción de este depósito. Envía solo USDT en la red TRON (TRC20) a esta dirección.',
         'deposit.referenceExplain': 'Tu referencia de pago identifica este depósito si contactas al soporte. No es una contraseña — nunca compartas tu contraseña, código OTP o claves.',
         'deposit.afterSending': 'Después de enviar, mantén esta página abierta. Kalderix detecta el pago automáticamente y acredita tu saldo Live una vez confirmado.',
         'deposit.amount': 'Monto (USD)',
@@ -13568,9 +13623,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contactar a soporte',
         'deposit.invoiceRef': 'Referencia de la factura',
         'deposit.copyInvoiceRef': 'Copiar referencia de la factura',
-        'support.paymentHelp.pending': '\u00bfNecesitas ayuda con tu pago? Contacta con uno de nuestros socios de pago y comparte solo la referencia de tu factura, el importe, la red y el hash de la transacci\u00f3n.',
-        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmaci\u00f3n, contacta con uno de nuestros socios de pago con la referencia de tu factura y el hash de la transacci\u00f3n.',
-        'support.paymentHelp.failed': 'Esta factura caduc\u00f3 o se cancel\u00f3 y no se acredit\u00f3. Genera una nueva factura o contacta con uno de nuestros socios de pago con la referencia de tu factura.',
+        'support.paymentHelp.pending': '¿Necesitas ayuda con tu pago? Abre el Centro de Soporte de Kalderix y comparte solo la referencia de tu factura, el importe, la red y el hash de la transacción.',
+        'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmación, abre el Centro de Soporte con la referencia de tu factura y el hash de la transacción.',
+        'support.paymentHelp.failed': 'Esta factura caducó o se canceló y no se acreditó. Genera una nueva factura o abre el Centro de Soporte con la referencia de tu factura.',
         'deposit.copyInvoiceRefSuccess': 'Referencia de la factura copiada',
         'deposit.copyInvoiceRefFailed': 'No se pudo copiar la referencia de la factura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganó <span class="ticker-amount green">+${{amount}}</span> en {{asset}}',
@@ -13918,10 +13973,14 @@ const TRANSLATIONS = {
         'deposit.sendUsdtOnly': 'Envía solo USDT',
         'deposit.safetyWarningBody': 'Enviar por otra red puede provocar la pérdida de fondos o un abono con retraso.',
         'deposit.paymentAmount': 'Monto del pago',
+        'deposit.sendTitle': 'Envía tu depósito',
+        'deposit.sendIntro': 'Envía el importe exacto que aparece abajo a la dirección de recepción. Tu saldo Live se acredita automáticamente cuando se confirma el pago.',
+        'deposit.networkLabel': 'Red',
+        'deposit.paymentWarning': 'Envía USDT solo por la red TRON (TRC20). Envía el importe exacto que se muestra arriba.',
         'deposit.sendExactlyPrefix': 'Envía exactamente',
         'deposit.sendExactlySuffix': 'USDT en la red TRON (TRC20).',
         'deposit.scanToPay': 'Escanea para pagar con tu billetera cripto',
-        'deposit.paymentAddressLabel': 'Dirección de pago',
+        'deposit.paymentAddressLabel': 'Dirección de recepción',
         'deposit.copyAmount': 'Copiar monto',
         'deposit.expiresIn': 'Expira en',
         'deposit.currentStatus': 'Estado actual',
@@ -14645,7 +14704,7 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'Pausado',
         'bot.errorState': 'Erro',
         'bot.runningMsg': 'Verificando mercados compatíveis. As novas operações aparecem no registro de atividades.',
-        'bot.engineNotice': 'Seu bot opera automaticamente enquanto está em execução. A atividade aparece no registro abaixo.',
+        'bot.engineNotice': 'Seu bot executa operações automaticamente nos mercados compatíveis enquanto está em execução.',
         'bot.engineNoticeUnknown': '🤖 O status atual do bot aparece acima. A negociação roda automaticamente enquanto o bot está ativo.',
         'bot.engineNoticeWorker': 'Seu bot é executado automaticamente em segundo plano, mesmo quando você fecha esta página ou muda para outro aplicativo. Volte quando quiser para acompanhar sua atividade de negociação.',
         'bot.workerManaged': "🤖 Seu bot agora funciona automaticamente. Ele continuará operando mesmo quando você estiver offline.",
@@ -14813,11 +14872,10 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Dados de indicações redefinidos',
         'deposit.title': 'Depositar fundos',
         'deposit.subtitle': 'Depósito seguro em cripto — fundos creditados automaticamente',
-        'deposit.methodNotice': 'Este método de pagamento usa USDT na rede TRON (TRC20). Antes de enviar fundos, confirme que sua carteira ou exchange suporta o ativo e a rede exatos mostrados aqui.',
         'deposit.newToUsdt.title': 'Novo neste método de pagamento?',
         'deposit.newToUsdt.body': 'USDT é um dólar digital. A TRC20 é a rede usada para este depósito. Verifique se sua exchange ou carteira é compatível com USDT na TRC20.',
         'deposit.usdVsUsdt': 'USDT é o valor que você envia. USD é o valor creditado no seu saldo.',
-        'deposit.addressExplain': 'Este é o seu endereço de pagamento pessoal de USDT (TRC20). Envie apenas USDT na rede TRON (TRC20) para este endereço.',
+        'deposit.addressExplain': 'Este é o endereço de recebimento deste depósito. Envie apenas USDT na rede TRON (TRC20) para este endereço.',
         'deposit.referenceExplain': 'Sua referência de pagamento identifica este depósito se você contatar o suporte. Não é uma senha — nunca compartilhe sua senha, código OTP ou chaves.',
         'deposit.afterSending': 'Após enviar, mantenha esta página aberta. A Kalderix detecta o pagamento automaticamente e credita seu saldo Live após a confirmação.',
         'deposit.amount': 'Valor (USD)',
@@ -15183,9 +15241,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Falar com o suporte',
         'deposit.invoiceRef': 'Referência da fatura',
         'deposit.copyInvoiceRef': 'Copiar referência da fatura',
-        'support.paymentHelp.pending': 'Precisa de ajuda com seu pagamento? Fale com um dos nossos parceiros de pagamento e compartilhe apenas a refer\u00eancia da fatura, o valor, a rede e o hash da transa\u00e7\u00e3o.',
-        'support.paymentHelp.detected': 'Pagamento detectado. Se n\u00e3o for creditado ap\u00f3s a confirma\u00e7\u00e3o, fale com um dos nossos parceiros de pagamento com a refer\u00eancia da fatura e o hash da transa\u00e7\u00e3o.',
-        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e n\u00e3o foi creditada. Gere uma nova fatura ou fale com um dos nossos parceiros de pagamento com a refer\u00eancia da fatura.',
+        'support.paymentHelp.pending': 'Precisa de ajuda com o seu pagamento? Abra a Central de Suporte Kalderix e compartilhe apenas a referência da fatura, o valor, a rede e o hash da transação.',
+        'support.paymentHelp.detected': 'Pagamento detectado. Se não for creditado após a confirmação, abra a Central de Suporte com a referência da fatura e o hash da transação.',
+        'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e não foi creditada. Gere uma nova fatura ou abra a Central de Suporte com a referência da fatura.',
         'deposit.copyInvoiceRefSuccess': 'Referência da fatura copiada',
         'deposit.copyInvoiceRefFailed': 'Não foi possível copiar a referência da fatura',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ganhou <span class="ticker-amount green">+${{amount}}</span> em {{asset}}',
@@ -15533,10 +15591,14 @@ const TRANSLATIONS = {
         'deposit.sendUsdtOnly': 'Envie apenas USDT',
         'deposit.safetyWarningBody': 'Enviar por outra rede pode resultar em perda de fundos ou crédito atrasado.',
         'deposit.paymentAmount': 'Valor do pagamento',
+        'deposit.sendTitle': 'Envie seu depósito',
+        'deposit.sendIntro': 'Envie o valor exato abaixo para o endereço de recebimento. Seu saldo Live é creditado automaticamente após a confirmação do pagamento.',
+        'deposit.networkLabel': 'Rede',
+        'deposit.paymentWarning': 'Envie USDT apenas pela rede TRON (TRC20). Envie o valor exato mostrado acima.',
         'deposit.sendExactlyPrefix': 'Envie exatamente',
         'deposit.sendExactlySuffix': 'USDT na rede TRON (TRC20).',
         'deposit.scanToPay': 'Escaneie para pagar com sua carteira cripto',
-        'deposit.paymentAddressLabel': 'Endereço de pagamento',
+        'deposit.paymentAddressLabel': 'Endereço de recebimento',
         'deposit.copyAmount': 'Copiar valor',
         'deposit.expiresIn': 'Expira em',
         'deposit.currentStatus': 'Status atual',
@@ -16260,7 +16322,7 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'En pause',
         'bot.errorState': 'Erreur',
         'bot.runningMsg': 'Analyse des marchés pris en charge. Les nouvelles transactions apparaissent dans le journal d\'activité.',
-        'bot.engineNotice': 'Votre bot trade automatiquement tant qu\'il est en marche. L\'activité apparaît dans le journal ci-dessous.',
+        'bot.engineNotice': 'Votre bot exécute des transactions automatiquement sur les marchés pris en charge pendant qu\'il fonctionne.',
         'bot.engineNoticeUnknown': '🤖 L’état actuel du bot est affiché ci-dessus. Le trading s’exécute automatiquement tant que le bot fonctionne.',
         'bot.engineNoticeWorker': 'Votre bot fonctionne automatiquement en arrière-plan, même si vous fermez cette page ou passez à une autre application. Revenez à tout moment pour suivre votre activité de trading.',
         'bot.workerManaged': "🤖 Votre bot fonctionne maintenant automatiquement. Il continuera à trader même lorsque vous êtes hors ligne.",
@@ -16428,11 +16490,10 @@ const TRANSLATIONS = {
         'referral.resetDone': 'Données de parrainage réinitialisées',
         'deposit.title': 'Déposer des fonds',
         'deposit.subtitle': 'Dépôt crypto sécurisé — fonds crédités automatiquement',
-        'deposit.methodNotice': 'Ce moyen de paiement utilise l\'USDT sur le réseau TRON (TRC20). Avant d\'envoyer des fonds, vérifiez que votre portefeuille ou plateforme prend en charge l\'actif et le réseau exacts indiqués ici.',
         'deposit.newToUsdt.title': 'Nouveau avec ce moyen de paiement ?',
         'deposit.newToUsdt.body': 'USDT est un dollar numérique. TRC20 est le réseau utilisé pour ce dépôt. Vérifiez que votre exchange ou portefeuille prend en charge USDT sur TRC20.',
         'deposit.usdVsUsdt': 'L\'USDT est le montant que vous envoyez. L\'USD est le montant crédité sur votre solde.',
-        'deposit.addressExplain': 'Il s\'agit de votre adresse de paiement personnelle USDT (TRC20). Envoyez uniquement de l\'USDT sur le réseau TRON (TRC20) à cette adresse.',
+        'deposit.addressExplain': 'Ceci est l\'adresse de réception de ce dépôt. Envoyez uniquement de l\'USDT sur le réseau TRON (TRC20) à cette adresse.',
         'deposit.referenceExplain': 'Votre référence de paiement identifie ce dépôt si vous contactez le support. Ce n\'est pas un mot de passe — ne partagez jamais votre mot de passe, code OTP ou clés.',
         'deposit.afterSending': 'Après l\'envoi, gardez cette page ouverte. Kalderix détecte le paiement automatiquement et crédite votre solde Live une fois confirmé.',
         'deposit.amount': 'Montant (USD)',
@@ -16798,9 +16859,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contacter le support',
         'deposit.invoiceRef': 'Référence de la facture',
         'deposit.copyInvoiceRef': 'Copier la référence de la facture',
-        'support.paymentHelp.pending': 'Besoin d\'aide pour votre paiement ? Contactez l\'un de nos partenaires de paiement et ne partagez que la r\u00e9f\u00e9rence de votre facture, le montant, le r\u00e9seau et le hash de la transaction.',
-        'support.paymentHelp.detected': 'Paiement d\u00e9tect\u00e9. S\'il n\'est pas cr\u00e9dit\u00e9 apr\u00e8s confirmation, contactez l\'un de nos partenaires de paiement avec la r\u00e9f\u00e9rence de votre facture et le hash de la transaction.',
-        'support.paymentHelp.failed': 'Cette facture a expir\u00e9 ou a \u00e9t\u00e9 annul\u00e9e et n\'a pas \u00e9t\u00e9 cr\u00e9dit\u00e9e. G\u00e9n\u00e9rez une nouvelle facture ou contactez l\'un de nos partenaires de paiement avec la r\u00e9f\u00e9rence de votre facture.',
+        'support.paymentHelp.pending': 'Besoin d\'aide pour votre paiement ? Ouvrez le centre d\'assistance Kalderix et partagez uniquement la référence de votre facture, le montant, le réseau et le hash de la transaction.',
+        'support.paymentHelp.detected': 'Paiement détecté. S\'il n\'est pas crédité après confirmation, ouvrez le centre d\'assistance avec la référence de votre facture et le hash de la transaction.',
+        'support.paymentHelp.failed': 'Cette facture a expiré ou a été annulée et n\'a pas été créditée. Générez une nouvelle facture ou ouvrez le centre d\'assistance avec la référence de votre facture.',
         'deposit.copyInvoiceRefSuccess': 'Référence de la facture copiée',
         'deposit.copyInvoiceRefFailed': 'Impossible de copier la référence de la facture',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> a gagné <span class="ticker-amount green">+${{amount}}</span> sur {{asset}}',
@@ -17148,10 +17209,14 @@ const TRANSLATIONS = {
         'deposit.sendUsdtOnly': 'Envoyez uniquement de l\'USDT',
         'deposit.safetyWarningBody': 'Envoyer via un autre réseau peut entraîner une perte de fonds ou un crédit retardé.',
         'deposit.paymentAmount': 'Montant du paiement',
+        'deposit.sendTitle': 'Envoyez votre dépôt',
+        'deposit.sendIntro': 'Envoyez le montant exact ci-dessous à l\'adresse de réception. Votre solde Live est crédité automatiquement dès que le paiement est confirmé.',
+        'deposit.networkLabel': 'Réseau',
+        'deposit.paymentWarning': 'Envoyez uniquement de l\'USDT via le réseau TRON (TRC20). Envoyez le montant exact affiché ci-dessus.',
         'deposit.sendExactlyPrefix': 'Envoyez exactement',
         'deposit.sendExactlySuffix': 'USDT sur le réseau TRON (TRC20).',
         'deposit.scanToPay': 'Scannez pour payer avec votre portefeuille crypto',
-        'deposit.paymentAddressLabel': 'Adresse de paiement',
+        'deposit.paymentAddressLabel': 'Adresse de réception',
         'deposit.copyAmount': 'Copier le montant',
         'deposit.expiresIn': 'Expire dans',
         'deposit.currentStatus': 'Statut actuel',
@@ -17875,7 +17940,7 @@ const TRANSLATIONS = {
         'bot.pausedShort': 'متوقف مؤقتًا',
         'bot.errorState': 'خطأ',
         'bot.runningMsg': 'جارٍ فحص الأسواق المدعومة. تظهر العمليات الجديدة في سجل النشاط أدناه.',
-        'bot.engineNotice': 'يتداول البوت تلقائيًا أثناء تشغيله. تظهر النشاطات في السجل أدناه.',
+        'bot.engineNotice': 'ينفذ البوت الصفقات تلقائيًا في الأسواق المدعومة أثناء تشغيله.',
         'bot.engineNoticeUnknown': '🤖 حالة البوت الحالية معروضة أعلاه. يتم التداول تلقائيًا ما دام البوت يعمل.',
         'bot.engineNoticeWorker': 'يعمل البوت تلقائيًا في الخلفية حتى إذا أغلقت هذه الصفحة أو انتقلت إلى تطبيق آخر. عد في أي وقت لمتابعة نشاط التداول.',
         'bot.workerManaged': "🤖 روبوتك يعمل الآن تلقائيًا. سيستمر في التداول حتى عندما تكون غير متصل.",
@@ -18043,11 +18108,10 @@ const TRANSLATIONS = {
         'referral.resetDone': 'تمت إعادة تعيين بيانات الإحالة',
         'deposit.title': 'إيداع الأموال',
         'deposit.subtitle': 'إيداع آمن بالعملات الرقمية — تُضاف الأموال تلقائيًا',
-        'deposit.methodNotice': 'تستخدم طريقة الدفع هذه USDT على شبكة TRON (TRC20). قبل إرسال الأموال، تأكد من أن محفظتك أو منصتك تدعم الأصل والشبكة المحددين هنا تمامًا.',
         'deposit.newToUsdt.title': 'هل هذه أول مرة تستخدم طريقة الدفع هذه؟',
         'deposit.newToUsdt.body': 'USDT هو دولار رقمي. TRC20 هي الشبكة المستخدمة لهذا الإيداع. تأكد من أن منصتك أو محفظتك تدعم USDT على TRC20.',
         'deposit.usdVsUsdt': 'USDT هو المبلغ الذي ترسله. USD هو المبلغ المودع في رصيدك.',
-        'deposit.addressExplain': 'هذا عنوان الدفع الشخصي الخاص بك لـ USDT (TRC20). أرسل فقط USDT على شبكة TRON (TRC20) إلى هذا العنوان.',
+        'deposit.addressExplain': 'هذا عنوان استلام هذا الإيداع. أرسل فقط USDT على شبكة TRON (TRC20) إلى هذا العنوان.',
         'deposit.referenceExplain': 'مرجع الدفع الخاص بك يحدد هذا الإيداع إذا تواصلت مع الدعم. إنه ليس كلمة مرور — لا تشارك أبدًا كلمة المرور أو رمز OTP أو المفاتيح.',
         'deposit.afterSending': 'بعد الإرسال، أبقِ هذه الصفحة مفتوحة. يكتشف Kalderix الدفع تلقائيًا ويضيفه إلى رصيد LIVE بعد التأكيد.',
         'deposit.amount': 'المبلغ (USD)',
@@ -18413,9 +18477,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'تواصل مع الدعم',
         'deposit.invoiceRef': 'مرجع الفاتورة',
         'deposit.copyInvoiceRef': 'نسخ مرجع الفاتورة',
-        'support.paymentHelp.pending': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u062f\u0641\u0639\u0643\u061f \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0648\u0634\u0627\u0631\u0643 \u0641\u0642\u0637 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0627\u0644\u0645\u0628\u0644\u063a \u0648\u0627\u0644\u0634\u0628\u0643\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
-        'support.paymentHelp.detected': '\u062a\u0645 \u0631\u0635\u062f \u0627\u0644\u062f\u0641\u0639. \u0625\u0630\u0627 \u0644\u0645 \u064a\u064f\u0636\u0641 \u0628\u0639\u062f \u0627\u0644\u062a\u0623\u0643\u064a\u062f\u060c \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0648\u0647\u0627\u0634 \u0627\u0644\u062a\u062d\u0648\u064a\u0644.',
-        'support.paymentHelp.failed': '\u0627\u0646\u062a\u0647\u062a \u0635\u0644\u0627\u062d\u064a\u0629 \u0647\u0630\u0647 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0623\u0648 \u062a\u0645 \u0625\u0644\u063a\u0627\u0624\u0647\u0627 \u0648\u0644\u0645 \u064a\u064f\u0636\u0641 \u0627\u0644\u0645\u0628\u0644\u063a. \u0623\u0646\u0634\u0626 \u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629 \u0623\u0648 \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0623\u062d\u062f \u0634\u0631\u0643\u0627\u0621 \u0627\u0644\u062f\u0641\u0639 \u0645\u0639 \u0645\u0631\u062c\u0639 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629.',
+        'support.paymentHelp.pending': 'هل تحتاج مساعدة في الدفع؟ افتح مركز دعم Kalderix وشارك فقط مرجع الفاتورة والمبلغ والشبكة وهاش المعاملة.',
+        'support.paymentHelp.detected': 'تم اكتشاف الدفع. إذا لم يُضف الرصيد بعد التأكيد، افتح مركز الدعم مع مرجع الفاتورة وهاش المعاملة.',
+        'support.paymentHelp.failed': 'انتهت صلاحية هذه الفاتورة أو أُلغيت ولم يُضف الرصيد. أنشئ فاتورة جديدة أو افتح مركز الدعم مع مرجع الفاتورة.',
         'deposit.copyInvoiceRefSuccess': 'تم نسخ مرجع الفاتورة',
         'deposit.copyInvoiceRefFailed': 'تعذر نسخ مرجع الفاتورة',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> ربح <span class="ticker-amount green">+${{amount}}</span> على {{asset}}',
@@ -18763,10 +18827,14 @@ const TRANSLATIONS = {
         'deposit.sendUsdtOnly': 'أرسل USDT فقط',
         'deposit.safetyWarningBody': 'قد يؤدي الإرسال عبر شبكة أخرى إلى فقدان الأموال أو تأخر الإيداع.',
         'deposit.paymentAmount': 'مبلغ الدفع',
+        'deposit.sendTitle': 'أرسل إيداعك',
+        'deposit.sendIntro': 'أرسل المبلغ الدقيق أدناه إلى عنوان الاستلام. يُضاف الرصيد إلى محفظة Live تلقائيًا بعد تأكيد الدفع.',
+        'deposit.networkLabel': 'الشبكة',
+        'deposit.paymentWarning': 'أرسل USDT فقط عبر شبكة TRON (TRC20). أرسل المبلغ الدقيق المعروض أعلاه.',
         'deposit.sendExactlyPrefix': 'أرسل بالضبط',
         'deposit.sendExactlySuffix': 'USDT على شبكة TRON (TRC20).',
         'deposit.scanToPay': 'امسح للدفع باستخدام محفظتك للعملات المشفرة',
-        'deposit.paymentAddressLabel': 'عنوان الدفع',
+        'deposit.paymentAddressLabel': 'عنوان الاستلام',
         'deposit.copyAmount': 'نسخ المبلغ',
         'deposit.expiresIn': 'ينتهي خلال',
         'deposit.currentStatus': 'الحالة الحالية',
@@ -19490,7 +19558,7 @@ const TRANSLATIONS = {
         'bot.pausedShort': '已暂停',
         'bot.errorState': '错误',
         'bot.runningMsg': '正在扫描支持的市场。新的交易会显示在下方活动记录中。',
-        'bot.engineNotice': '机器人运行期间会自动交易。活动会显示在下方记录中。',
+        'bot.engineNotice': '机器人在运行期间会自动在支持的市场上执行交易。',
         'bot.engineNoticeUnknown': '🤖 机器人当前状态显示在上方。机器人运行期间会自动执行交易。',
         'bot.engineNoticeWorker': '即使您关闭此页面或切换到其他应用，机器人也会在后台自动运行。您可以随时回来查看交易活动。',
         'bot.workerManaged': "🤖 您的机器人现在会自动运行。即使您离线，它也会继续交易。",
@@ -19658,11 +19726,10 @@ const TRANSLATIONS = {
         'referral.resetDone': '推荐数据已重置',
         'deposit.title': '入金',
         'deposit.subtitle': '安全的加密货币入金 — 资金自动到账',
-        'deposit.methodNotice': '此支付方式使用 TRON (TRC20) 网络上的 USDT。发送资金前，请确认您的钱包或交易所支持此处显示的确切资产和网络。',
         'deposit.newToUsdt.title': '第一次使用此支付方式？',
         'deposit.newToUsdt.body': 'USDT 是一种数字美元。TRC20 是本次存款使用的网络。请确认您的交易所或钱包支持 TRC20 网络上的 USDT。',
         'deposit.usdVsUsdt': 'USDT 是您发送的金额。USD 是计入您余额的金额。',
-        'deposit.addressExplain': '这是您的专属 USDT (TRC20) 支付地址。请仅通过 TRON (TRC20) 网络向此地址发送 USDT。',
+        'deposit.addressExplain': '这是本次充值的收款地址。请仅通过 TRON (TRC20) 网络向此地址发送 USDT。',
         'deposit.referenceExplain': '如果您联系客服，付款参考号可用来识别此笔入金。它不是密码——切勿分享您的密码、OTP 验证码或密钥。',
         'deposit.afterSending': '发送后请保持此页面打开。Kalderix 会自动检测付款，并在确认后计入您的 LIVE 余额。',
         'deposit.amount': '金额（美元）',
@@ -20028,9 +20095,9 @@ const TRANSLATIONS = {
         'profile.contactSupport': '联系支持',
         'deposit.invoiceRef': '发票参考号',
         'deposit.copyInvoiceRef': '复制发票参考号',
-        'support.paymentHelp.pending': '\u652f\u4ed8\u9700\u8981\u5e2e\u52a9\uff1f\u8bf7\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\uff0c\u4ec5\u9700\u63d0\u4f9b\u53d1\u7968\u53c2\u8003\u53f7\u3001\u91d1\u989d\u3001\u7f51\u7edc\u548c\u4ea4\u6613\u54c8\u5e0c\u3002',
-        'support.paymentHelp.detected': '\u5df2\u68c0\u6d4b\u5230\u4ed8\u6b3e\u3002\u82e5\u786e\u8ba4\u540e\u4ecd\u672a\u5165\u8d26\uff0c\u8bf7\u643a\u53d1\u7968\u53c2\u8003\u53f7\u548c\u4ea4\u6613\u54c8\u5e0c\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
-        'support.paymentHelp.failed': '\u6b64\u53d1\u7968\u5df2\u8fc7\u671f\u6216\u5df2\u53d6\u6d88\uff0c\u5e76\u672a\u5165\u8d26\u3002\u8bf7\u751f\u6210\u65b0\u53d1\u7968\uff0c\u6216\u643a\u53d1\u7968\u53c2\u8003\u53f7\u8054\u7cfb\u6211\u4eec\u7684\u652f\u4ed8\u5408\u4f5c\u4f19\u4f34\u3002',
+        'support.paymentHelp.pending': '支付遇到问题？请打开 Kalderix 支持中心，仅提供发票编号、支付金额、网络和交易哈希。',
+        'support.paymentHelp.detected': '已检测到支付。若确认后仍未到账，请携带发票编号和交易哈希打开支持中心。',
+        'support.paymentHelp.failed': '该发票已过期或被取消，未到账。请重新生成发票，或携带发票编号打开支持中心。',
         'deposit.copyInvoiceRefSuccess': '已复制发票参考号',
         'deposit.copyInvoiceRefFailed': '无法复制发票参考号',
         'ticker.earned': '<span class="ticker-user">{{user}}</span> 在 {{asset}} 赚取 <span class="ticker-amount green">+${{amount}}</span>',
@@ -20378,10 +20445,14 @@ const TRANSLATIONS = {
         'deposit.sendUsdtOnly': '仅发送 USDT',
         'deposit.safetyWarningBody': '通过其他网络发送可能导致资金损失或到账延迟。',
         'deposit.paymentAmount': '付款金额',
+        'deposit.sendTitle': '发送您的充值',
+        'deposit.sendIntro': '请将下方显示的准确金额发送至收款地址。支付确认后，Live 余额会自动到账。',
+        'deposit.networkLabel': '网络',
+        'deposit.paymentWarning': '请仅通过 TRON (TRC20) 网络发送 USDT，并发送上方显示的准确金额。',
         'deposit.sendExactlyPrefix': '精确发送',
         'deposit.sendExactlySuffix': 'USDT，通过 TRON (TRC20) 网络。',
         'deposit.scanToPay': '扫码使用您的加密钱包付款',
-        'deposit.paymentAddressLabel': '付款地址',
+        'deposit.paymentAddressLabel': '收款钱包地址',
         'deposit.copyAmount': '复制金额',
         'deposit.expiresIn': '剩余有效期',
         'deposit.currentStatus': '当前状态',
@@ -21153,6 +21224,8 @@ function updateDynamicTranslations() {
         // Official support links + the payment-problem guidance are dynamic
         // (config-driven href / status-driven text), so re-apply them here.
         if (typeof updateSupportLinks === 'function') updateSupportLinks();
+        // The payment-session help line is set by JS from the last payment status.
+        if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
         // Partner cards are rendered by JS (name + localized labels).
         if (typeof renderPaymentPartnerContacts === 'function') renderPaymentPartnerContacts();
         // The profit-pause prompt body is rendered by JS (it interpolates the
@@ -21999,9 +22072,12 @@ function getPartnerSupportTelegramUrl() {
  */
 function renderPaymentPartnerContacts() {
     const contacts = getPaymentPartnerContacts();
-    // Deposit surfaces use renderDepositPartnerAssistance(); this shared list
-    // only feeds the payment/withdrawal surface.
-    const containers = ['paymentPartnerContacts'];
+    // The generated payment session deliberately has NO individual payment
+    // partners: once an invoice exists the screen has one job (make the
+    // payment), and official Kalderix support stays reachable underneath.
+    // This renderer is kept so the pre-invoice surfaces that reuse it keep
+    // working, but it owns no containers in the payment session.
+    const containers = [];
     for (let i = 0; i < containers.length; i++) {
         const box = document.getElementById(containers[i]);
         if (!box) continue;
@@ -22096,11 +22172,13 @@ function renderDepositPartnerAssistance() {
  * action remains, so no broken or invented link is ever shown.
  */
 function updatePaymentPartnerLinks() {
+    // The pre-invoice "Buy from a Verified Partner" route keeps its contacts.
     renderDepositPartnerAssistance();
+    // The generated payment session shows no individual partner cards.
     renderPaymentPartnerContacts();
-    const hasPartner = getPaymentPartnerContacts().length > 0;
+    // Official support must therefore ALWAYS be offered in the payment session.
     const fallback = document.getElementById('paymentSupportFallbackBtn');
-    if (fallback) fallback.style.display = hasPartner ? 'none' : 'inline-flex';
+    if (fallback) fallback.style.display = 'inline-flex';
 }
 
 function openPartnerSupport() {
@@ -24483,25 +24561,31 @@ function showPaymentSection(invoice, amountUSD) {
     // (the entered USD) is still what gets credited to the Kalderix balance.
     const exactAmount = Number(invoice.amountUsdtExact);
     const hasProviderExactAmount = isFinite(exactAmount) && exactAmount > 0;
+    // The provider's own string, unrounded: q8qpay's amountUsdtExact IS the
+    // amount that must arrive on-chain (the webhook compares it exactly), so it
+    // is displayed and copied verbatim rather than reformatted.
+    const exactAmountRaw = hasProviderExactAmount ? String(invoice.amountUsdtExact).trim() : '';
     // Never present "NaN"/"0.00" as the amount to pay: if the provider did not
     // supply a usable exact amount, fall back to the requested USD amount that
     // is already displayed. The "Send exactly" sentence stays hidden in that
     // case (see setExactAmountInstruction below) because no exact amount was
     // confirmed by the provider.
     const exactAmountText = hasProviderExactAmount
-      ? exactAmount.toFixed(4)
+      ? exactAmountRaw
       : Number(amountUSD).toFixed(2);
 
     // QR encodes the TRC20 payment URI so mobile wallets can scan-to-pay
     const qrData = invoice.qrData ||
       `tron:${address}?amount=${exactAmountText}&token=USDT&network=TRC20`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
-    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=${encodeURIComponent(qrData)}`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" loading="eager">`;
 
     // Show the customer's TRC20 destination address
     document.getElementById('liveWalletAddress').textContent = address;
     window.currentGatewayUrl = null;
-    window.currentPaymentAddress = address;
+    // Raw values for the copy buttons (exact invoice address / amount).
+    window.currentPaymentAddress = String(address || '').trim();
+    window.currentPaymentAmount = exactAmountRaw || String(exactAmountText);
 
     // Display the exact USDT amount to send (consistent across display, copy, QR, instruction)
     document.getElementById('liveDepositDisplayAmount').textContent = exactAmountText;
@@ -24529,23 +24613,31 @@ function showPaymentSection(invoice, amountUSD) {
     }
   } else if (invoice.gatewayUrl) {
     // Paymento gateway flow
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(invoice.gatewayUrl)}`;
-    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=${encodeURIComponent(invoice.gatewayUrl)}`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" loading="eager">`;
     document.getElementById('liveWalletAddress').textContent = invoice.gatewayUrl;
     window.currentGatewayUrl = invoice.gatewayUrl;
+    window.currentPaymentAddress = String(invoice.gatewayUrl).trim();
+    window.currentPaymentAmount = String(Number(amountUSD).toFixed(2));
+    document.getElementById('paymentAddressLabel').textContent = t('deposit.paymentAddressLabel');
   } else if (invoice.qrCodeUrl) {
-    document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
+    document.getElementById('qrCodeImage').innerHTML = `<img src="${invoice.qrCodeUrl}" alt="${t('deposit.qrAlt')}" loading="eager" style="width:100%;height:100%;">`;
     // Fallback: show wallet address for direct deposits
     if (invoice.address || invoice.walletAddress) {
-      document.getElementById('liveWalletAddress').textContent = invoice.address || invoice.walletAddress;
+      const directAddress = String(invoice.address || invoice.walletAddress).trim();
+      document.getElementById('liveWalletAddress').textContent = directAddress;
+      window.currentPaymentAddress = directAddress;
+      window.currentPaymentAmount = String(Number(amountUSD).toFixed(2));
     }
   } else {
     // Direct wallet address (e.g., NOWPayments)
     const address = invoice.address || invoice.walletAddress;
     if (address) {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`;
-      document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" style="width:150px;height:150px;">`;
-      document.getElementById('liveWalletAddress').textContent = address;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=${encodeURIComponent(address)}`;
+      document.getElementById('qrCodeImage').innerHTML = `<img src="${qrUrl}" alt="${t('deposit.qrAlt')}" loading="eager">`;
+      document.getElementById('liveWalletAddress').textContent = String(address).trim();
+      window.currentPaymentAddress = String(address).trim();
+      window.currentPaymentAmount = String(Number(amountUSD).toFixed(2));
     }
   }
 
@@ -25001,22 +25093,28 @@ function legacyCopyText(value) {
   }
 }
 
+// Both copy actions copy the EXACT value the provider returned for this invoice
+// (the raw strings captured in showPaymentSection), never a rounded/reformatted
+// on-screen value. The element text is only a fallback for a provider that
+// supplies no explicit value.
 function copyWalletAddress() {
-  const address = document.getElementById('liveWalletAddress').textContent;
-  if (address && address !== 'Select currency & amount, then click "Get Payment Address"') {
-    copyTextToClipboard(address).then((ok) => {
-      showToast(t(ok ? 'deposit.copyAddressSuccess' : 'deposit.copyAddressFailed'), ok ? 'success' : 'error');
-    });
-  }
+  const raw = (typeof window.currentPaymentAddress === 'string') ? window.currentPaymentAddress.trim() : '';
+  const el = document.getElementById('liveWalletAddress');
+  const address = raw || (el ? String(el.textContent || '').trim() : '');
+  if (!address || address === 'Loading...' || address.indexOf('Get Payment Address') !== -1) return;
+  copyTextToClipboard(address).then((ok) => {
+    showToast(t(ok ? 'deposit.copyAddressSuccess' : 'deposit.copyAddressFailed'), ok ? 'success' : 'error');
+  });
 }
 
 function copyDepositAmount() {
-  const amount = document.getElementById('liveDepositDisplayAmount').textContent;
-  if (amount && amount !== '0.00') {
-    copyTextToClipboard(amount).then((ok) => {
-      showToast(t(ok ? 'deposit.copyAmountSuccess' : 'deposit.copyAmountFailed'), ok ? 'success' : 'error');
-    });
-  }
+  const raw = (typeof window.currentPaymentAmount === 'string') ? window.currentPaymentAmount.trim() : '';
+  const el = document.getElementById('liveDepositDisplayAmount');
+  const amount = raw || (el ? String(el.textContent || '').trim() : '');
+  if (!amount || amount === '0.00') return;
+  copyTextToClipboard(amount).then((ok) => {
+    showToast(t(ok ? 'deposit.copyAmountSuccess' : 'deposit.copyAmountFailed'), ok ? 'success' : 'error');
+  });
 }
 
 function setDepositAmount(amount) {
@@ -25034,6 +25132,11 @@ function resetDepositModal() {
   
   // Clear any previous invoice-creation error.
   if (typeof clearDepositInvoiceError === 'function') clearDepositInvoiceError();
+
+  // Forget the previous invoice's exact values: a copy button must never hand
+  // over an address or an amount from an invoice that no longer exists.
+  window.currentPaymentAddress = '';
+  window.currentPaymentAmount = '';
 
   // Reset sections visibility
   document.getElementById('depositInputSection').style.display = 'block';

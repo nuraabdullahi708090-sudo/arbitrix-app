@@ -312,7 +312,7 @@ test('11. the notice states the background behaviour and the tab warning is gone
 test('12. i18n parity: identical key sets, no empties, count pinned', () => {
   const T = dictionary();
   const base = Object.keys(T.en).sort();
-  assert.strictEqual(base.length, 1594, 'dictionary size pinned');
+  assert.strictEqual(base.length, 1597, 'dictionary size pinned');
   const enKeys = base.join('|');
   LANGS.forEach((l) => {
     assert.strictEqual(Object.keys(T[l]).sort().join('|'), enKeys, l + ' identical key set');

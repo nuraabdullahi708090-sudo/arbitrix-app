@@ -768,17 +768,17 @@ test('8c. the runtime builds the correct https://t.me URL from the meta handle',
 
 
 test('8i. payment surfaces keep both partners while recruitment shows Alex alone', () => {
-    // Payment-specific surfaces in the app keep BOTH configured partners.
-    // The deposit modal renders Olivia on WhatsApp (primary) + Alex on Telegram
-    // (backup) through renderDepositPartnerAssistance(); the withdrawal/payment
-    // surface keeps the shared Telegram cards. The crypto-only route deliberately
-    // carries no partner contact at all, so its old container is gone.
-    ['depositPartnerContacts', 'paymentPartnerContacts'].forEach((id) => {
-        assert.ok(INDEX.includes('id="' + id + '"'), id + ' must exist');
-    });
+    // The PRE-INVOICE "Buy from a Verified Partner" route keeps both configured
+    // partners (Olivia on WhatsApp first, Alex on Telegram as backup). The
+    // GENERATED payment session carries no individual partner at all: once an
+    // invoice exists the screen has one job, and official support is the only
+    // assistance offered there.
+    assert.ok(INDEX.includes('id="depositPartnerContacts"'), 'the funding-route partner block must exist');
+    assert.ok(!INDEX.includes('id="paymentPartnerContacts"'),
+        'the generated payment session no longer lists individual partners');
     assert.ok(!INDEX.includes('id="depositCryptoPartnerContacts"'),
         'the crypto-only route no longer lists partners');
-    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the payment surface renders both partners');
+    assert.ok(INDEX.includes('renderPaymentPartnerContacts'), 'the shared renderer still exists (owns no containers)');
     assert.ok(INDEX.includes('renderDepositPartnerAssistance'), 'the deposit section renders Olivia then Alex');
     assert.match(INDEX, /https:\/\/wa\.me\/17828027841/, 'Olivia is reached on WhatsApp');
     assert.match(INDEX, /<meta name="arbitrix-partner-support-telegram-2" content="@OliviaArbitrix">/,

@@ -10227,3 +10227,60 @@ path touched. NOT merged, NOT deployed.
   (nothing pushed). No screenshot-based review was possible (the model adapter drops image
   content); every check above is DOM/text/computed-style/HTTP based.
 - NOT merged and NOT deployed; no production data, credentials or money touched.
+
+## Deposit payment session simplified: address first, exact amount, no payment partners (2026-11-24)
+- Frontend only (public/index.html) + tests. No server.js, provider, migration, webhook,
+  deposit-minimum, referral-reward, withdrawal-rule or financial-record change. No deploy.
+- The post-invoice screen was reordered so it answers three questions in order: WHERE to
+  send, HOW MUCH to send, on WHICH network. New order: headline -> RECEIVING WALLET
+  ADDRESS (high contrast #7CF7C4 monospace, wraps) + Copy Address -> EXACT AMOUNT (large,
+  tabular) + Copy Amount -> NETWORK (USDT - TRON (TRC20)) -> QR (200px desktop / 180px on
+  phones) -> warning -> status + 4-stage progress -> timer -> invoice reference + official
+  support. The previous order put the amount first and the address below the QR.
+- The address/amount displayed and copied are the EXACT strings the provider returned for
+  that invoice (`payoutAddress`, `amountUsdtExact`), captured as
+  `window.currentPaymentAddress` / `window.currentPaymentAmount`; the copy handlers prefer
+  those raw values over the formatted DOM text, so 50.0051 can never be copied as 50.01.
+  `resetDepositModal()` clears both, so a stale invoice can never be copied later.
+- QR payload = `tron:<address>?amount=<exact>&token=USDT&network=TRC20` (or the provider's
+  own `qrData`), rendered at 380x380 and scaled by CSS.
+- WARNING (new key `deposit.paymentWarning`, 6 locales): "Send USDT only through the TRON
+  (TRC20) network. Send the exact amount displayed above."
+- UNIQUENESS CLAIM REMOVED: `deposit.addressExplain` used to call the address "your personal
+  USDT (TRC20) payment address". q8qpay assigns the payout address (we send no walletId) and
+  the repo has evidence of amount perturbation consistent with address reuse, so the copy
+  now says "This is the receiving address for this deposit" in all 6 locales. Do not
+  reintroduce "unique"/"personal" without provider confirmation.
+- PAYMENT PARTNERS REMOVED from the generated payment session: the `#paymentPartnerContacts`
+  container is gone, `renderPaymentPartnerContacts()` owns no containers,
+  `updatePaymentPartnerLinks()` always shows the official support CTA, and
+  `support.paymentHelp.*` no longer tells customers to contact a payment partner. The
+  PRE-INVOICE "Buy from a Verified Partner" route (Olivia on WhatsApp, Alex on Telegram) is
+  unchanged, and the official Support Center remains the assistance surface everywhere.
+- ACTIVITY-LOG WORDING: `bot.engineNotice` said "Activity appears in the log below", which
+  pointed at something not visible beneath the bot controls. It now reads "Your bot executes
+  trades automatically on supported markets while it is running." (6 locales) - accurate
+  whether the bot is running or stopped, and no location claim.
+- Mobile: address uses word-break/overflow-wrap so it never widens the page; copy targets are
+  48px (50px <=430px) full-width buttons; `button.pay-copy-btn` is used because the legacy
+  `.copy-address-btn` rule (min-height:36px) overrode the new class by cascade order.
+- i18n: 1594 -> 1597 keys/locale (+4 new: deposit.sendTitle/sendIntro/networkLabel/
+  paymentWarning; -1 dead: deposit.methodNotice). Identical key sets, 0 empties.
+- Tests: NEW tests/deposit_payment_screen.test.js (18: exact display/copy values, QR payload,
+  section order, TRC20 clarity, partner absence, support presence, no-log wording,
+  no uniqueness claim, webhook/polling/reconciliation pins, mobile CSS contract, i18n parity).
+  Updated for the intentional changes: deposit_payment_partner (payment session now carries
+  no partners), partners_page 8i, support_ui, beginner_ux, bot_engine_disclosure,
+  dashboard_phase2, trading_worker, and the dictionary-size pins (1597).
+  npm test = 4072 tests / 4071 pass / 0 fail / 1 skipped. node --check clean; all 9 inline
+  script blocks parse; git diff --check clean; 0 U+FFFD.
+- Browser verification (puppeteer-core/Chromium over CDP, DOM assertions only - no
+  screenshots): a stubbed q8pay invoice (payoutAddress + amountUsdtExact 50.0051) driven
+  through the real Generate Payment flow -> 26/26 checks at 320/375/390/1280 and in all six
+  locales: address/amount exact, visual order address < amount < network < QR < warning <
+  status, mint address colour, copy buttons copy the exact values, QR encodes address +
+  50.0051 + TRC20, no partner cards/wording, official support present, 0 horizontal overflow,
+  copy target >= 48px, QR 180px on phones, address inside the first screen.
+- Q8PAY ADDRESS UNIQUENESS (question asked by the brief): NOT VERIFIED. The client sends no
+  walletId, so q8pay chooses the payout address; we display whatever the invoice returns.
+  Confirming uniqueness needs an API call with production credentials (not available here).
