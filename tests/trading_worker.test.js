@@ -803,8 +803,10 @@ test('safety: the bot UI disclosure reflects the shipped server-side engine (no 
   // the browser variant now says exactly what it does.
   assert.ok(!/keeps trading even when you're offline/.test(INDEX),
     'the tab-bound bot must not claim it trades while offline');
-  assert.match(INDEX, /Trading runs from this page while the bot is running\. Keep this tab open/,
-    'the browser-engine disclosure states the real limitation');
+  assert.ok(!/Keep this tab open/.test(INDEX),
+    'the obsolete tab-closure warning must not remain');
+  assert.match(INDEX, /Your bot trades automatically while it is running\. Activity appears in the log below\./,
+    'the neutral browser notice states the fact without the tab warning');
   assert.match(INDEX, /'bot\.engineNoticeWorker':/,
     'the worker disclosure still exists for when a server engine owns the session');
 });

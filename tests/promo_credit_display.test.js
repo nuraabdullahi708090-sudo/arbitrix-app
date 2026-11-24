@@ -395,9 +395,9 @@ test('14. the approved explanation is localized in all six locales with the amou
   const langs = Object.keys(i18n.T);
   assert.deepStrictEqual(langs.sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
   const en = i18n.T.en['promo.creditExplainTradable'];
-  // Two short sentences: what the credit is for, and how to withdraw.
+  // Two short sentences: what the credit is for, and the exact way out.
   assert.strictEqual(en,
-    'Your ${{amount}} promotional credit is tradable. Make a deposit to withdraw.');
+    'Your ${{amount}} promotional credit is tradable. Make a qualifying deposit and complete your first trade to withdraw.');
   assert.ok(!/withdrawal conditions/i.test(en), 'the conditions sentence is not repeated here');
   assert.ok(!/does not add trading capital/i.test(en), 'no activation caveat is needed');
   const keys = ['promo.creditTitle', 'promo.creditBadge', 'promo.creditExplainTradable', 'liveMode.fundingNote',
@@ -429,14 +429,21 @@ test('15. the card claims neither a guarantee nor a restriction the platform doe
   assert.match(T.en['promo.creditExplainTradable'], /promotional credit is tradable/i);
   assert.match(T.en['promo.creditExplainTradable'], /withdraw/i, 'the withdrawal destination is stated');
   assert.match(T.en['promo.creditExplainTradable'], /deposit/i, 'the way out is stated');
-  // The $30 realised-profit cap IS enforced (server.js PROMO_PROFIT_CAP_USD), so
-  // hiding it would be a hidden condition. It is stated, once, here.
-  assert.match(T.en['promo.tradableNotice'], /\$30/, 'the enforced cap is disclosed');
-  assert.ok(!/\$30/.test(T.en['promo.creditExplainTradable']),
-    'the cap is stated once, on the dashboard banner');
+  // FINAL MODEL (2026-11): management removed the $30 profit-cap wording from
+  // the yellow banner. The banner and the card now say the same thing (what the
+  // credit is for + the exact way out), and no locale advertises the cap.
   for (const l of ['en', 'es', 'pt', 'fr', 'ar', 'zh']) {
-    assert.ok(/30/.test(T[l]['promo.tradableNotice']), l + ' discloses the cap');
+    assert.ok(!/\$?30\b/.test(T[l]['promo.tradableNotice']),
+      l + ' banner must not advertise the $30 cap');
+    assert.ok(!/\$?30\b/.test(T[l]['promo.creditExplainTradable']),
+      l + ' card must not advertise the $30 cap');
+    assert.match(T[l]['promo.tradableNotice'], /%|./, l + ' banner copy exists');
   }
+  // Removing the COPY must not have removed the RULE: the cap is still enforced
+  // server-side, and the refusal still names it.
+  assert.match(SERVER, /PROMO_PROFIT_CAP_USD/, 'the enforced cap still exists');
+  assert.match(SERVER, /isPromoProfitCapReached\(/, 'the cap is still evaluated');
+  assert.match(SERVER, /PROMO_TRADING_LIMIT_REACHED/, 'the refusal code is unchanged');
 });
 
 /* --------------------------------------------- 16. nothing else moved */

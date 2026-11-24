@@ -127,7 +127,7 @@ test('2. no locale carries activation wording in the customer journey', () => {
   const i18n = dictionary();
   // Keys owned by unrelated features legitimately use "activate" (2FA, the Pro
   // subscription, admin audit labels, account-status copy).
-  const UNRELATED = /^(subscription\.|2fa\.|admin\.|audit\.|kyc\.|bot\.engineNotice|profile\.|live\.withdrawStatus\.notDeposited|bot\.enableScanner)/;
+  const UNRELATED = /^(subscription\.|2fa\.|admin\.|audit\.|kyc\.|bot\.engineNotice|profile\.|live\.withdrawStatus\.notDeposited|bot\.(enableArbitrage|arbitrageEnabled))/;
   const OFFENDERS = /activation|activat(e|ed|ing)\b|\bactivaci|\bativa\u00e7|\baktivier|تفعيل|激活/i;
   LANGS.forEach((l) => {
     Object.entries(i18n.T[l]).forEach(([key, value]) => {

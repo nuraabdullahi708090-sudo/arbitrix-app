@@ -93,7 +93,19 @@ globalThis.fetch = async function fakeFetch(input, init) {
   if (table === 'deposits' || table === 'payment_invoices') {
     if (sc.depositsError) return json(500, { code: 'XX000', message: 'deposit store unavailable' });
     if (method !== 'GET') return json(201, []);
-    return json(200, (table === 'deposits' ? sc.deposits : sc.invoices) || []);
+    const rows = (table === 'deposits' ? sc.deposits : sc.invoices) || [];
+    // STATUS FILTERS ARE HONOURED (eq.<x> and in.(a,b)), so "confirmed" and
+    // "pending" are different facts - which is exactly what the refusal copy
+    // depends on. A fixture row WITHOUT a status is treated as matching, which
+    // keeps the older scenarios (written before the filter existed) unchanged.
+    const raw = parsed.searchParams.get('status');
+    if (!raw) return json(200, rows);
+    let wanted = null;
+    if (raw.indexOf('eq.') === 0) wanted = [raw.slice(3)];
+    else if (raw.indexOf('in.(') === 0 && raw.slice(-1) === ')') wanted = raw.slice(4, -1).split(',');
+    if (!wanted) return json(200, rows);
+    const keep = rows.filter((row) => !row || row.status === undefined || wanted.indexOf(String(row.status)) !== -1);
+    return json(200, keep);
   }
   if (table === 'bot_worker_control') {
     return json(200, single ? { id: 1, emergency_stop: false } : [{ id: 1, emergency_stop: false }]);

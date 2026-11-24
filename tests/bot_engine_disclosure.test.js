@@ -42,22 +42,31 @@ test('both disclosure variants exist and are non-empty in all 6 locales', () => 
   }
 });
 
-test('the browser copy promises tab-bound behaviour; the worker copy states the opposite', () => {
+test('the notice never claims more than the server proves: neutral browser copy, background copy only for server-owned sessions', () => {
   const T = translations();
   for (const l of LANGS) {
     assert.notStrictEqual(T[l]['bot.engineNotice'], T[l]['bot.engineNoticeWorker'], l + ' variants must differ');
   }
   // EN is the pinned contract (per-locale wording is reviewed, not machine-checked).
-  // HONESTY FIX (2026-11): the previous EN pin claimed the TAB-BOUND bot "keeps
-  // trading even when you're offline". It does not - the loop lives in the tab
-  // and dies with it (the worker variant exists precisely for that case). A
-  // notice that overstates what the running engine can do is worse than no
-  // notice, so the browser variant now states its real limitation and the
-  // worker variant keeps the background claim.
+  // FINAL MODEL (2026-11): management removed the tab-closure warning. The
+  // browser variant states only what is true in every deployment (a running bot
+  // trades; activity is logged), and the background promise belongs to the
+  // variant the server selects when a worker owns the session.
   assert.strictEqual(
     T.en['bot.engineNotice'],
-    "\u{1F916} Trading runs from this page while the bot is running. Keep this tab open \u2014 closing or refreshing it stops the bot until you start it again."
+    'Your bot trades automatically while it is running. Activity appears in the log below.'
   );
+  assert.strictEqual(
+    T.en['bot.engineNoticeWorker'],
+    'Your bot runs automatically in the background, even when you close this page or switch to another app. Return anytime to monitor your trading activity.'
+  );
+  // The obsolete tab warning must not survive in ANY locale.
+  const TAB_WARNING = /\btab\b|pesta\u00f1a|\baba\b|onglet|\u0639\u0644\u0627\u0645\u0629 \u062a\u0628\u0648\u064a\u0628|\u6807\u7b7e\u9875|\u5237\u65b0|actualis|actualiz|recarreg/i;
+  for (const l of LANGS) {
+    assert.ok(!TAB_WARNING.test(T[l]['bot.engineNotice']), l + ' browser copy still warns about the tab: ' + T[l]['bot.engineNotice']);
+    assert.ok(!TAB_WARNING.test(T[l]['bot.engineNoticeWorker']), l + ' background copy still mentions the tab: ' + T[l]['bot.engineNoticeWorker']);
+  }
+  assert.ok(!INDEX.includes('Keep this tab open'), 'the obsolete warning is gone from the document');
   // The third variant covers "status not readable yet": it must be true in BOTH
   // engine modes, because guessing is exactly what this disclosure avoids.
   for (const l of LANGS) {
@@ -65,19 +74,14 @@ test('the browser copy promises tab-bound behaviour; the worker copy states the 
       l + '.bot.engineNoticeUnknown missing/short');
   }
   assert.match(T.en['bot.engineNoticeUnknown'], /status is shown above/i);
-  assert.ok(!/offline/i.test(T.en['bot.engineNotice']),
-    'the tab-bound notice must not imply it trades while the tab is closed');
-  assert.match(T.en['bot.engineNoticeWorker'], /keeps running even when you close this page/i);
   assert.match(T.en['bot.workerManaged'], /runs automatically/i);
-  assert.ok(T.en['bot.engineNotice'].startsWith('\u{1F916}'), 'friendly robot emoji leads the default copy');
-  assert.ok(T.en['bot.workerManaged'].startsWith('\u{1F916}'), 'friendly robot emoji leads the message');
 });
 
 test('the old technical bot wording is fully replaced in all 6 locales', () => {
   const T = translations();
   assert.strictEqual(
     T.en['bot.engineNoticeWorker'],
-    'Your bot keeps running even when you close this page. Come back anytime to check your activity.'
+    'Your bot runs automatically in the background, even when you close this page or switch to another app. Return anytime to monitor your trading activity.'
   );
   assert.strictEqual(
     T.en['bot.workerManaged'],

@@ -359,3 +359,70 @@ test('/api/auth/me carries the same two facts', async () => {
   assert.strictEqual(res.body.liveMinDeposit, 50);
   assert.strictEqual(res.body.liveMode.status, 'available');
 });
+
+/* ---------------------------------------------------------------------------
+ * FINAL DASHBOARD UX (2026-11): the refusal must carry the facts the client
+ * uses to name the missing step. These are the real routes over real HTTP.
+ * ------------------------------------------------------------------------- */
+
+test('the deposit refusal carries the facts the prompt is worded with', async () => {
+  setScenario({ activation: true, deposits: [], invoices: [], balance: 0 });
+  const res = await startLive();
+  assert.strictEqual(res.status, 403);
+  assert.strictEqual(res.body.code, 'LIVE_DEPOSIT_REQUIRED');
+  assert.strictEqual(res.body.depositSatisfied, false);
+  assert.strictEqual(res.body.depositPending, false, 'no deposit in flight');
+  assert.strictEqual(res.body.minDeposit, 50);
+  assert.strictEqual(res.body.activationRequired, false, 'activation is NOT the blocker here');
+  // Nothing was started, so the UI cannot show a phantom running bot.
+  const status = await call('GET', '/api/bot/status');
+  assert.strictEqual(status.body.isRunning, false);
+});
+
+test('a deposit in flight is reported as pending, not as "no deposit at all"', async () => {
+  setScenario({ activation: true, deposits: [{ amount: 100, status: 'pending' }], balance: 0 });
+  const res = await startLive();
+  assert.strictEqual(res.status, 403);
+  assert.strictEqual(res.body.code, 'LIVE_DEPOSIT_REQUIRED');
+  assert.strictEqual(res.body.depositSatisfied, false);
+  assert.strictEqual(res.body.depositPending, true, 'the client can say "being confirmed"');
+});
+
+test('a confirmed deposit still below the minimum is neither satisfied nor pending', async () => {
+  setScenario({ activation: true, deposits: [{ amount: 20, status: 'confirmed' }], balance: 20 });
+  const res = await startLive();
+  assert.strictEqual(res.body.code, 'LIVE_DEPOSIT_REQUIRED');
+  assert.strictEqual(res.body.depositSatisfied, false);
+  assert.strictEqual(res.body.depositPending, false);
+  assert.strictEqual(res.body.depositTotal, 20);
+});
+
+test('promotional credit alone cannot start Live trading', async () => {
+  // A new account holds the $50 promotional credit but has made no deposit.
+  setScenario({ activation: true, deposits: [], invoices: [], balance: 50 });
+  const res = await startLive();
+  assert.strictEqual(res.status, 403);
+  assert.strictEqual(res.body.code, 'LIVE_DEPOSIT_REQUIRED');
+  assert.strictEqual(res.body.depositSatisfied, false, 'credit is not a qualifying deposit');
+  assert.strictEqual(res.body.depositTotal, 0);
+});
+
+test('a funded account blocked by a genuine restriction reports the deposit as satisfied', async () => {
+  setScenario({ activation: false, deposits: [{ amount: 100, status: 'confirmed' }], balance: 100 });
+  const res = await startLive();
+  assert.strictEqual(res.status, 403);
+  assert.strictEqual(res.body.code, 'LIVE_ACTIVATION_REQUIRED');
+  assert.strictEqual(res.body.depositSatisfied, true, 'so the client never blames the deposit');
+});
+
+test('an eligible account with an empty balance gets the funding prompt, with the facts', async () => {
+  setScenario({ activation: true, deposits: [{ amount: 100, status: 'confirmed' }], balance: 0 });
+  const res = await startLive();
+  assert.strictEqual(res.status, 403);
+  assert.strictEqual(res.body.code, 'LIVE_FUNDING_REQUIRED');
+  assert.strictEqual(res.body.depositSatisfied, true);
+  assert.strictEqual(res.body.depositPending, false);
+  assert.strictEqual(res.body.fundingRequired, true);
+  const status = await call('GET', '/api/bot/status');
+  assert.strictEqual(status.body.isRunning, false, 'no session row was created');
+});
