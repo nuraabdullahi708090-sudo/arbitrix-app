@@ -10046,3 +10046,23 @@ path touched. NOT merged, NOT deployed.
   `PLATFORM_MIN_DEPOSIT`, so the partner-group posts follow automatically; the
   operator draft in `docs/telegram-referral-onboarding.md` was updated too. The
   KB is still digit-clean about the WITHDRAWAL minimum (it says there is none).
+
+- PROVIDER INVESTIGATION (same session, docs only): `docs/payments/
+  PROVIDER_INVESTIGATION_BCON_PAYMENTO_BTCPAY_2026-11.md` answers the decisive
+  TRC20 question - can every invoice get its own receiving address so two
+  customers can each send exactly 50.00 USDT at once? Bcon Global: NO. Its own
+  New Address guide says "EVM chains and tron, solana do NOT use xpub", documents
+  50.00 / 50.01 amount differentiation, and notes that a merchant wallet pool
+  "automatically" falls back to decimals once exhausted; callbacks carry a static
+  URL secret (no HMAC over the body) and external_id is capped at 8 characters.
+  Paymento: best API of the three (HMAC raw-body signature, PartialPaid/Timeout
+  states, configurable tolerance, 0.5%) but TRC20 needs the CUSTOMER TO CONNECT A
+  WALLET - no plain address + QR. BTCPay Server + btcpayserver-tether/USDt plugin:
+  the only option with real distinct addresses per invoice (address pool; returns
+  null rather than adjusting amounts when exhausted), signed webhooks
+  (BTCPay-Sig) and PaidPartial/PaidOver states - at the cost of self-hosting, a
+  TRON RPC, 20-50 addresses with key management and sweeping. Verdict: do not
+  integrate Bcon; Paymento only if the rail moves to ERC20/SPL; BTCPay is an
+  infrastructure project. Q8Pay stays in service, no routing change, nothing
+  merged or deployed. Also corrected the earlier research doc, which wrongly said
+  BTCPay had no TRON support.
