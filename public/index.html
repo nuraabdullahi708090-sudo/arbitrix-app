@@ -1368,14 +1368,6 @@
         /* Mobile Bottom Sheet Modals */
         /* Deposit funding route: one automated USDT (TRC20) deposit, no intermediary. */
         .deposit-option-list{display:flex;flex-direction:column;gap:8px;}
-        /* Payment-screen actions stack on narrow screens instead of squeezing
-           their labels. */
-        .payment-help-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-        .payment-help-actions > *{flex:1 1 150px;min-width:0;}
-        @media (max-width:420px){
-            .payment-help-actions{flex-direction:column;}
-            .payment-help-actions > *{width:100%;}
-        }
         .deposit-option{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:start;background:var(--bg-input);border:1px solid var(--border-color);border-radius:10px;padding:12px;cursor:pointer;color:inherit;font:inherit;min-width:0;}
         .deposit-option:hover{border-color:var(--border-hover);}
         .deposit-option.is-selected{border-color:var(--brand);box-shadow:0 0 0 1px rgb(var(--brand-rgb) / 0.35) inset;}
@@ -1438,9 +1430,20 @@
         .pay-support-ref{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
         .pay-support-ref .pay-label{margin:0;}
         #depositInvoiceRef{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:var(--brand);word-break:break-all;}
-        .pay-support-copy{font-size:11px;padding:8px;margin-bottom:8px;min-height:44px;}
-        .payment-help-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-        .payment-help-actions .btn{flex:1 1 160px;min-height:44px;}
+        .pay-support{padding:10px 12px;}
+        .pay-support-ref{margin-bottom:6px;}
+        /* Compact, secondary actions: the payment details above keep the
+           visual weight; support is one small button, not a banner. */
+        /* Both actions share one compact row; the design-system .btn rule sets
+           min-height:40px later in the sheet, so scope these to outrank it and
+           keep a comfortable 44px target. */
+        .pay-support-actions{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px;}
+        .pay-support .pay-support-copy,
+        .pay-support .pay-support-cta{font-size:11px;padding:8px 10px;min-height:44px;max-width:100%;flex:1 1 auto;margin:0;}
+        .pay-support-title{font-size:12px;font-weight:600;color:var(--text-primary);margin:10px 0 2px;overflow-wrap:anywhere;}
+        .pay-support-fine{font-size:10.5px;}
+        .pay-support-status[hidden]{display:none;}
+        .pay-support .pay-hint{line-height:1.5;}
         @media (max-width:430px){
             .pay-address{font-size:14px;}
             .pay-amount{font-size:30px;}
@@ -9716,8 +9719,8 @@ function toggleFaq(btn) {
           <button type="button" id="depositOptionCrypto" class="deposit-option is-selected" onclick="selectDepositOption('crypto')">
             <span class="deposit-option-icon"><i class="fas fa-wallet"></i></span>
             <span class="deposit-option-body">
-              <span class="deposit-option-title" data-i18n="deposit.choose.crypto.title">I Already Have Crypto</span>
-              <span class="deposit-option-desc" data-i18n="deposit.choose.crypto.desc">Deposit USDT on TRON (TRC20) directly to your Kalderix address.</span>
+              <span class="deposit-option-title" data-i18n="deposit.choose.crypto.title">Deposit with USDT</span>
+              <span class="deposit-option-desc" data-i18n="deposit.choose.crypto.desc">Send USDT on the TRON (TRC20) network to your Kalderix deposit address.</span>
             </span>
           </button>
         </div>
@@ -9904,26 +9907,28 @@ function toggleFaq(btn) {
         <span><span data-i18n="deposit.expiresIn">Expires in</span> <strong id="depositTimer" style="font-size:16px;">60:00</strong></span>
       </div>
 
-      <!-- 8. Invoice reference + official support.
-           The generated payment session carries NO individual payment partners:
-           it has one job (make the payment). Official Kalderix support stays
-           reachable here and everywhere else in the app. -->
+      <!-- 8. Invoice reference + compact official support.
+           Payment instructions keep the visual priority: the reference and the
+           support access come last and stay small. Support destinations are
+           consolidated into ONE action that opens the Support Center; Telegram
+           support lives inside that Support Center, never as a duplicate link. -->
       <div id="paymentSupportHelp" class="pay-support">
         <div class="pay-support-ref">
           <span class="pay-label" data-i18n="deposit.invoiceRef">Invoice Reference</span>
           <span id="depositInvoiceRef">---</span>
         </div>
-        <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary btn-block pay-support-copy">
-          <i class="fas fa-copy" aria-hidden="true"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
-        </button>
-        <div class="pay-hint" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password - never share your password, OTP code, or keys.</div>
-        <div id="paymentSupportHelpText" class="pay-hint">Need help with your payment? Open the Kalderix Support Center.</div>
-        <div class="payment-help-actions">
-          <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-primary">
-            <i class="fas fa-headset" aria-hidden="true"></i> <span data-i18n="support.contactOfficial">Contact official Kalderix Support</span>
+        <div class="pay-support-actions">
+          <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary pay-support-copy">
+            <i class="fas fa-copy" aria-hidden="true"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
           </button>
-          <a href="#" class="btn btn-secondary js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer" data-i18n="support.officialTelegram">Official Telegram Support</a>
+          <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-secondary pay-support-cta">
+            <i class="fas fa-headset" aria-hidden="true"></i> <span data-i18n="support.contactShort">Contact Support</span>
+          </button>
         </div>
+        <p class="pay-support-title" data-i18n="deposit.support.title">Need help with this payment?</p>
+        <p class="pay-hint" data-i18n="deposit.support.body">Contact official Kalderix Support and provide your invoice reference.</p>
+        <p class="pay-hint pay-support-fine" data-i18n="deposit.referenceExplain">Your payment reference identifies this deposit if you contact support. It is not a password - never share your password, OTP code, or keys.</p>
+        <p id="paymentSupportHelpText" class="pay-hint pay-support-status" hidden></p>
       </div>
     </div>
 
@@ -11536,6 +11541,8 @@ const TRANSLATIONS = {
         'deposit.usdVsUsdt': 'USDT is the amount you send. USD is the amount credited to your balance.',
         'deposit.addressExplain': 'This is the receiving address for this deposit. Send only USDT on the TRON (TRC20) network to this address.',
         'deposit.referenceExplain': 'Your payment reference identifies this deposit if you contact support. It is not a password — never share your password, OTP code, or keys.',
+        'deposit.support.title': 'Need help with this payment?',
+        'deposit.support.body': 'Contact official Kalderix Support and provide your invoice reference.',
         'deposit.afterSending': 'After sending, keep this page open. Kalderix detects the payment automatically and credits your Live balance once confirmed.',
         'deposit.amount': 'Amount (USD)',
         'deposit.network': 'Network',
@@ -11572,8 +11579,8 @@ const TRANSLATIONS = {
         'wallet.liveReal': 'Real trading funds - separate from your promotional credit.',
         'deposit.minDeposit': 'Minimum deposit is ${{min}}',
         'deposit.choose.title': 'Deposit method',
-        'deposit.choose.crypto.title': 'I Already Have Crypto',
-        'deposit.choose.crypto.desc': 'Deposit USDT on TRON (TRC20) directly to your Kalderix address.',
+        'deposit.choose.crypto.title': 'Deposit with USDT',
+        'deposit.choose.crypto.desc': 'Send USDT on the TRON (TRC20) network to your Kalderix deposit address.',
         'deposit.partner.worldwide': 'Serves customers worldwide',
         'deposit.partner.verified': 'Verified Partner',
         'deposit.partner.countries': 'Countries served',
@@ -11866,7 +11873,6 @@ const TRANSLATIONS = {
         'support.faq.security.q': 'Keeping your account safe',
         'support.faq.security.a': 'Kalderix support only writes from official channels. Verify the destination before sharing anything, and never share the items listed in the security warning above.',
         'support.needHelpWithdraw': 'Need help with a withdrawal?',
-        'support.contactOfficial': 'Contact official Kalderix Support',
         'support.contactShort': 'Contact Support',
         'support.openCenter': 'Open Support Center',
         'support.verificationNotRequired': 'Verification is not required. Additional checks may still be required for account security, payment-provider requirements, or other applicable conditions.',
@@ -11874,7 +11880,6 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contact Support',
         'deposit.invoiceRef': 'Invoice Reference',
         'deposit.copyInvoiceRef': 'Copy invoice reference',
-        'support.paymentHelp.pending': 'Need help with your payment? Open the Kalderix Support Center and share only your invoice reference, payment amount, network and transaction hash.',
         'support.paymentHelp.detected': 'Payment detected. If it is not credited after confirmation, open the Support Center with your invoice reference and transaction hash.',
         'support.paymentHelp.failed': 'This invoice expired or was cancelled and was not credited. Generate a new invoice, or open the Support Center with your invoice reference.',
         'deposit.copyInvoiceRefSuccess': 'Invoice reference copied',
@@ -13127,6 +13132,8 @@ const TRANSLATIONS = {
         'deposit.usdVsUsdt': 'USDT es la cantidad que envías. USD es la cantidad acreditada en tu saldo.',
         'deposit.addressExplain': 'Esta es la dirección de recepción de este depósito. Envía solo USDT en la red TRON (TRC20) a esta dirección.',
         'deposit.referenceExplain': 'Tu referencia de pago identifica este depósito si contactas al soporte. No es una contraseña — nunca compartas tu contraseña, código OTP o claves.',
+        'deposit.support.title': '¿Necesitas ayuda con este pago?',
+        'deposit.support.body': 'Contacta con el soporte oficial de Kalderix y facilita la referencia de tu factura.',
         'deposit.afterSending': 'Después de enviar, mantén esta página abierta. Kalderix detecta el pago automáticamente y acredita tu saldo Live una vez confirmado.',
         'deposit.amount': 'Monto (USD)',
         'deposit.network': 'Red',
@@ -13163,8 +13170,8 @@ const TRANSLATIONS = {
         'wallet.liveReal': 'Fondos reales de trading: independientes de tu crédito promocional.',
         'deposit.minDeposit': 'El depósito mínimo es ${{min}}',
         'deposit.choose.title': 'Método de depósito',
-        'deposit.choose.crypto.title': 'Ya tengo criptomonedas',
-        'deposit.choose.crypto.desc': 'Deposita USDT en TRON (TRC20) directamente en tu dirección de Kalderix.',
+        'deposit.choose.crypto.title': 'Depositar con USDT',
+        'deposit.choose.crypto.desc': 'Envía USDT en la red TRON (TRC20) a tu dirección de depósito de Kalderix.',
         'deposit.partner.worldwide': 'Atiende a clientes en todo el mundo',
         'deposit.partner.verified': 'Socio verificado',
         'deposit.partner.countries': 'Países atendidos',
@@ -13457,7 +13464,6 @@ const TRANSLATIONS = {
         'support.faq.security.q': 'Mantener tu cuenta segura',
         'support.faq.security.a': 'El soporte de Kalderix solo escribe desde canales oficiales. Verifica el destino antes de compartir algo y nunca compartas los datos indicados en la advertencia de seguridad anterior.',
         'support.needHelpWithdraw': '¿Necesitas ayuda con un retiro?',
-        'support.contactOfficial': 'Contactar al soporte oficial de Kalderix',
         'support.contactShort': 'Contactar a soporte',
         'support.openCenter': 'Abrir el centro de soporte',
         'support.verificationNotRequired': 'No se requiere verificación. Es posible que aún sean necesarias comprobaciones adicionales por seguridad de la cuenta, requisitos del proveedor de pagos u otras condiciones aplicables.',
@@ -13465,7 +13471,6 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contactar a soporte',
         'deposit.invoiceRef': 'Referencia de la factura',
         'deposit.copyInvoiceRef': 'Copiar referencia de la factura',
-        'support.paymentHelp.pending': '¿Necesitas ayuda con tu pago? Abre el Centro de Soporte de Kalderix y comparte solo la referencia de tu factura, el importe, la red y el hash de la transacción.',
         'support.paymentHelp.detected': 'Pago detectado. Si no se acredita tras la confirmación, abre el Centro de Soporte con la referencia de tu factura y el hash de la transacción.',
         'support.paymentHelp.failed': 'Esta factura caducó o se canceló y no se acreditó. Genera una nueva factura o abre el Centro de Soporte con la referencia de tu factura.',
         'deposit.copyInvoiceRefSuccess': 'Referencia de la factura copiada',
@@ -14719,6 +14724,8 @@ const TRANSLATIONS = {
         'deposit.usdVsUsdt': 'USDT é o valor que você envia. USD é o valor creditado no seu saldo.',
         'deposit.addressExplain': 'Este é o endereço de recebimento deste depósito. Envie apenas USDT na rede TRON (TRC20) para este endereço.',
         'deposit.referenceExplain': 'Sua referência de pagamento identifica este depósito se você contatar o suporte. Não é uma senha — nunca compartilhe sua senha, código OTP ou chaves.',
+        'deposit.support.title': 'Precisa de ajuda com este pagamento?',
+        'deposit.support.body': 'Fale com o suporte oficial da Kalderix e informe a referência da sua fatura.',
         'deposit.afterSending': 'Após enviar, mantenha esta página aberta. A Kalderix detecta o pagamento automaticamente e credita seu saldo Live após a confirmação.',
         'deposit.amount': 'Valor (USD)',
         'deposit.network': 'Rede',
@@ -14755,8 +14762,8 @@ const TRANSLATIONS = {
         'wallet.liveReal': 'Fundos reais de negociação: separados do seu crédito promocional.',
         'deposit.minDeposit': 'O depósito mínimo é ${{min}}',
         'deposit.choose.title': 'Método de depósito',
-        'deposit.choose.crypto.title': 'Já tenho criptomoedas',
-        'deposit.choose.crypto.desc': 'Deposite USDT na TRON (TRC20) diretamente no seu endereço da Kalderix.',
+        'deposit.choose.crypto.title': 'Depositar com USDT',
+        'deposit.choose.crypto.desc': 'Envie USDT na rede TRON (TRC20) para o seu endereço de depósito da Kalderix.',
         'deposit.partner.worldwide': 'Atende clientes no mundo todo',
         'deposit.partner.verified': 'Parceiro verificado',
         'deposit.partner.countries': 'Países atendidos',
@@ -15049,7 +15056,6 @@ const TRANSLATIONS = {
         'support.faq.security.q': 'Mantendo sua conta segura',
         'support.faq.security.a': 'O suporte da Kalderix só escreve por canais oficiais. Verifique o destino antes de compartilhar qualquer coisa e nunca compartilhe os itens listados no aviso de segurança acima.',
         'support.needHelpWithdraw': 'Precisa de ajuda com um saque?',
-        'support.contactOfficial': 'Falar com o suporte oficial da Kalderix',
         'support.contactShort': 'Falar com o suporte',
         'support.openCenter': 'Abrir a central de suporte',
         'support.verificationNotRequired': 'A verificação não é necessária. Verificações adicionais ainda podem ser exigidas por segurança da conta, requisitos do provedor de pagamento ou outras condições aplicáveis.',
@@ -15057,7 +15063,6 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Falar com o suporte',
         'deposit.invoiceRef': 'Referência da fatura',
         'deposit.copyInvoiceRef': 'Copiar referência da fatura',
-        'support.paymentHelp.pending': 'Precisa de ajuda com o seu pagamento? Abra a Central de Suporte Kalderix e compartilhe apenas a referência da fatura, o valor, a rede e o hash da transação.',
         'support.paymentHelp.detected': 'Pagamento detectado. Se não for creditado após a confirmação, abra a Central de Suporte com a referência da fatura e o hash da transação.',
         'support.paymentHelp.failed': 'Esta fatura expirou ou foi cancelada e não foi creditada. Gere uma nova fatura ou abra a Central de Suporte com a referência da fatura.',
         'deposit.copyInvoiceRefSuccess': 'Referência da fatura copiada',
@@ -16311,6 +16316,8 @@ const TRANSLATIONS = {
         'deposit.usdVsUsdt': 'L\'USDT est le montant que vous envoyez. L\'USD est le montant crédité sur votre solde.',
         'deposit.addressExplain': 'Ceci est l\'adresse de réception de ce dépôt. Envoyez uniquement de l\'USDT sur le réseau TRON (TRC20) à cette adresse.',
         'deposit.referenceExplain': 'Votre référence de paiement identifie ce dépôt si vous contactez le support. Ce n\'est pas un mot de passe — ne partagez jamais votre mot de passe, code OTP ou clés.',
+        'deposit.support.title': 'Besoin d’aide pour ce paiement ?',
+        'deposit.support.body': 'Contactez le support officiel Kalderix et indiquez la référence de votre facture.',
         'deposit.afterSending': 'Après l\'envoi, gardez cette page ouverte. Kalderix détecte le paiement automatiquement et crédite votre solde Live une fois confirmé.',
         'deposit.amount': 'Montant (USD)',
         'deposit.network': 'Réseau',
@@ -16347,8 +16354,8 @@ const TRANSLATIONS = {
         'wallet.liveReal': 'Fonds de trading réels - distincts de votre crédit promotionnel.',
         'deposit.minDeposit': 'Le dépôt minimum est de ${{min}}',
         'deposit.choose.title': 'Méthode de dépôt',
-        'deposit.choose.crypto.title': 'J’ai déjà de la crypto',
-        'deposit.choose.crypto.desc': 'Déposez de l’USDT sur TRON (TRC20) directement sur votre adresse Kalderix.',
+        'deposit.choose.crypto.title': 'Déposer en USDT',
+        'deposit.choose.crypto.desc': 'Envoyez de l’USDT sur le réseau TRON (TRC20) vers votre adresse de dépôt Kalderix.',
         'deposit.partner.worldwide': 'Sert des clients dans le monde entier',
         'deposit.partner.verified': 'Partenaire vérifié',
         'deposit.partner.countries': 'Pays desservis',
@@ -16641,7 +16648,6 @@ const TRANSLATIONS = {
         'support.faq.security.q': 'Sécuriser votre compte',
         'support.faq.security.a': 'Le support Kalderix n\'écrit que depuis des canaux officiels. Vérifiez la destination avant de partager quoi que ce soit et ne partagez jamais les éléments listés dans l\'avertissement de sécurité ci-dessus.',
         'support.needHelpWithdraw': 'Besoin d\'aide avec un retrait ?',
-        'support.contactOfficial': 'Contacter le support officiel Kalderix',
         'support.contactShort': 'Contacter le support',
         'support.openCenter': 'Ouvrir le centre de support',
         'support.verificationNotRequired': 'La vérification n\'est pas requise. Des contrôles supplémentaires peuvent encore être nécessaires pour la sécurité du compte, les exigences du prestataire de paiement ou d\'autres conditions applicables.',
@@ -16649,7 +16655,6 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'Contacter le support',
         'deposit.invoiceRef': 'Référence de la facture',
         'deposit.copyInvoiceRef': 'Copier la référence de la facture',
-        'support.paymentHelp.pending': 'Besoin d\'aide pour votre paiement ? Ouvrez le centre d\'assistance Kalderix et partagez uniquement la référence de votre facture, le montant, le réseau et le hash de la transaction.',
         'support.paymentHelp.detected': 'Paiement détecté. S\'il n\'est pas crédité après confirmation, ouvrez le centre d\'assistance avec la référence de votre facture et le hash de la transaction.',
         'support.paymentHelp.failed': 'Cette facture a expiré ou a été annulée et n\'a pas été créditée. Générez une nouvelle facture ou ouvrez le centre d\'assistance avec la référence de votre facture.',
         'deposit.copyInvoiceRefSuccess': 'Référence de la facture copiée',
@@ -17903,6 +17908,8 @@ const TRANSLATIONS = {
         'deposit.usdVsUsdt': 'USDT هو المبلغ الذي ترسله. USD هو المبلغ المودع في رصيدك.',
         'deposit.addressExplain': 'هذا عنوان استلام هذا الإيداع. أرسل فقط USDT على شبكة TRON (TRC20) إلى هذا العنوان.',
         'deposit.referenceExplain': 'مرجع الدفع الخاص بك يحدد هذا الإيداع إذا تواصلت مع الدعم. إنه ليس كلمة مرور — لا تشارك أبدًا كلمة المرور أو رمز OTP أو المفاتيح.',
+        'deposit.support.title': 'هل تحتاج مساعدة في هذا الدفع؟',
+        'deposit.support.body': 'تواصل مع دعم Kalderix الرسمي وزوّده بمرجع الفاتورة.',
         'deposit.afterSending': 'بعد الإرسال، أبقِ هذه الصفحة مفتوحة. يكتشف Kalderix الدفع تلقائيًا ويضيفه إلى رصيد LIVE بعد التأكيد.',
         'deposit.amount': 'المبلغ (USD)',
         'deposit.network': 'الشبكة',
@@ -17939,8 +17946,8 @@ const TRANSLATIONS = {
         'wallet.liveReal': 'أموال تداول حقيقية - منفصلة عن رصيدك الترويجي.',
         'deposit.minDeposit': 'الحد الأدنى للإيداع هو ${{min}}',
         'deposit.choose.title': 'طريقة الإيداع',
-        'deposit.choose.crypto.title': 'لدي عملات رقمية بالفعل',
-        'deposit.choose.crypto.desc': 'أودع USDT على شبكة TRON (TRC20) مباشرة إلى عنوان Kalderix الخاص بك.',
+        'deposit.choose.crypto.title': 'الإيداع بعملة USDT',
+        'deposit.choose.crypto.desc': 'أرسل USDT على شبكة TRON (TRC20) إلى عنوان الإيداع الخاص بك في Kalderix.',
         'deposit.partner.worldwide': '\u064a\u062e\u062f\u0645 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u062d\u0648\u0644 \u0627\u0644\u0639\u0627\u0644\u0645',
         'deposit.partner.verified': 'شريك موثّق',
         'deposit.partner.countries': 'الدول التي يخدمها',
@@ -18233,7 +18240,6 @@ const TRANSLATIONS = {
         'support.faq.security.q': 'الحفاظ على أمان حسابك',
         'support.faq.security.a': 'يتواصل دعم Kalderix من القنوات الرسمية فقط. تحقق من الجهة قبل مشاركة أي شيء، ولا تشارك أبدًا العناصر المذكورة في تحذير الأمان أعلاه.',
         'support.needHelpWithdraw': 'هل تحتاج مساعدة في السحب؟',
-        'support.contactOfficial': 'تواصل مع دعم Kalderix الرسمي',
         'support.contactShort': 'تواصل مع الدعم',
         'support.openCenter': 'افتح مركز الدعم',
         'support.verificationNotRequired': 'التحقق غير مطلوب. قد تظل هناك حاجة إلى فحوصات إضافية لأمان الحساب أو متطلبات مزود الدفع أو أي شروط أخرى معمول بها.',
@@ -18241,7 +18247,6 @@ const TRANSLATIONS = {
         'profile.contactSupport': 'تواصل مع الدعم',
         'deposit.invoiceRef': 'مرجع الفاتورة',
         'deposit.copyInvoiceRef': 'نسخ مرجع الفاتورة',
-        'support.paymentHelp.pending': 'هل تحتاج مساعدة في الدفع؟ افتح مركز دعم Kalderix وشارك فقط مرجع الفاتورة والمبلغ والشبكة وهاش المعاملة.',
         'support.paymentHelp.detected': 'تم اكتشاف الدفع. إذا لم يُضف الرصيد بعد التأكيد، افتح مركز الدعم مع مرجع الفاتورة وهاش المعاملة.',
         'support.paymentHelp.failed': 'انتهت صلاحية هذه الفاتورة أو أُلغيت ولم يُضف الرصيد. أنشئ فاتورة جديدة أو افتح مركز الدعم مع مرجع الفاتورة.',
         'deposit.copyInvoiceRefSuccess': 'تم نسخ مرجع الفاتورة',
@@ -19495,6 +19500,8 @@ const TRANSLATIONS = {
         'deposit.usdVsUsdt': 'USDT 是您发送的金额。USD 是计入您余额的金额。',
         'deposit.addressExplain': '这是本次充值的收款地址。请仅通过 TRON (TRC20) 网络向此地址发送 USDT。',
         'deposit.referenceExplain': '如果您联系客服，付款参考号可用来识别此笔入金。它不是密码——切勿分享您的密码、OTP 验证码或密钥。',
+        'deposit.support.title': '需要帮助处理此付款吗？',
+        'deposit.support.body': '请联系官方 Kalderix 支持并提供您的发票参考号。',
         'deposit.afterSending': '发送后请保持此页面打开。Kalderix 会自动检测付款，并在确认后计入您的 LIVE 余额。',
         'deposit.amount': '金额（美元）',
         'deposit.network': '网络',
@@ -19531,8 +19538,8 @@ const TRANSLATIONS = {
         'wallet.liveReal': '真实交易资金 - 与促销信用分开。',
         'deposit.minDeposit': '最低入金金额为 ${{min}}',
         'deposit.choose.title': '充值方式',
-        'deposit.choose.crypto.title': '我已有加密货币',
-        'deposit.choose.crypto.desc': '直接向你的 Kalderix 地址充值 TRON (TRC20) 上的 USDT。',
+        'deposit.choose.crypto.title': '使用 USDT 充值',
+        'deposit.choose.crypto.desc': '通过 TRON (TRC20) 网络将 USDT 发送到您的 Kalderix 充值地址。',
         'deposit.partner.worldwide': '\u670d\u52a1\u5168\u7403\u5ba2\u6237',
         'deposit.partner.verified': '已认证合作伙伴',
         'deposit.partner.countries': '服务国家',
@@ -19825,7 +19832,6 @@ const TRANSLATIONS = {
         'support.faq.security.q': '保护您的账户安全',
         'support.faq.security.a': 'Kalderix 支持只会通过官方渠道联系您。在分享任何信息前请核实对方身份，切勿分享上方安全警告中列出的内容。',
         'support.needHelpWithdraw': '出金需要帮助？',
-        'support.contactOfficial': '联系官方 Kalderix 支持',
         'support.contactShort': '联系支持',
         'support.openCenter': '打开支持中心',
         'support.verificationNotRequired': '无需验证。出于账户安全、支付服务商要求或其他适用条件，仍可能需要进行额外检查。',
@@ -19833,7 +19839,6 @@ const TRANSLATIONS = {
         'profile.contactSupport': '联系支持',
         'deposit.invoiceRef': '发票参考号',
         'deposit.copyInvoiceRef': '复制发票参考号',
-        'support.paymentHelp.pending': '支付遇到问题？请打开 Kalderix 支持中心，仅提供发票编号、支付金额、网络和交易哈希。',
         'support.paymentHelp.detected': '已检测到支付。若确认后仍未到账，请携带发票编号和交易哈希打开支持中心。',
         'support.paymentHelp.failed': '该发票已过期或被取消，未到账。请重新生成发票，或携带发票编号打开支持中心。',
         'deposit.copyInvoiceRefSuccess': '已复制发票参考号',
@@ -26206,17 +26211,20 @@ function closeSupportModal() {
     if (modal) modal.classList.remove('open');
 }
 
-// Payment-problem guidance shown next to the invoice reference. Display-only:
+// Payment-problem guidance shown under the compact support block. Display-only:
 // reads the last observed payment status and never confirms/credits anything.
+// While the invoice is simply awaiting payment there is nothing to add - the
+// static instructions above already cover it - so the line stays hidden.
 let lastPaymentStatus = null;
 function updatePaymentSupportHelp() {
     const el = document.getElementById('paymentSupportHelpText');
     if (!el) return;
     const status = (typeof lastPaymentStatus !== 'undefined') ? lastPaymentStatus : null;
-    let key = 'support.paymentHelp.pending';
+    let key = '';
     if (status === 'detected' || status === 'confirming') key = 'support.paymentHelp.detected';
     else if (status === 'expired' || status === 'cancelled') key = 'support.paymentHelp.failed';
-    el.textContent = t(key);
+    el.textContent = key ? t(key) : '';
+    el.hidden = !key;
 }
 
 // Copy the invoice reference using the same safe clipboard pattern as the

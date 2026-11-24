@@ -95,8 +95,8 @@ const SUPPORT_KEYS = [
     'support.faq.depositPending.a', 'support.faq.depositFailed.q',
     'support.faq.depositFailed.a', 'support.faq.withdrawal.q', 'support.faq.withdrawal.a',
     'support.faq.security.q', 'support.faq.security.a',
-    'support.needHelpWithdraw', 'support.contactOfficial', 'support.contactShort',
-    'support.openCenter', 'support.verificationNotRequired', 'support.paymentHelp.pending',
+    'support.needHelpWithdraw', 'support.contactShort',
+    'support.openCenter', 'support.verificationNotRequired',
     'support.paymentHelp.detected', 'support.paymentHelp.failed',
 ];
 
@@ -241,17 +241,26 @@ test('support is available from the payment pending/failed state with invoice re
     assert.ok(/openSupportModal\(\)/.test(win), 'payment help should link to support');
     assert.ok(/id="depositInvoiceRef"/.test(win), 'invoice reference is displayed');
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');
-    assert.ok(/support\.contactOfficial/.test(win), 'official support CTA');
+    assert.ok(/support\.contactShort/.test(win), 'one compact Contact Support action');
+    assert.ok(!/support\.contactOfficial/.test(win), 'the oversized primary label is retired');
     // The generated payment session offers NO individual payment partners:
     // official support is the only assistance surface there.
     assert.ok(!/id="paymentPartnerContacts"/.test(win), 'no payment-partner contacts in the payment session');
-    assert.ok(/js-official-telegram/.test(win), 'official Telegram action kept');
+    // ONE support destination: the Support Center. No duplicate Telegram button
+    // competing with it (Telegram stays reachable inside the Support Center).
+    assert.ok(!/js-official-telegram/.test(win), 'no duplicate Telegram button in the payment session');
+    assert.ok((win.match(/id="paymentSupportFallbackBtn"/g) || []).length === 1, 'exactly one support button');
+    assert.ok(/deposit\.support\.title/.test(win), 'compact support heading present');
+    assert.ok(/deposit\.support\.body/.test(win), 'compact support instructions present');
 
-    // The status-driven guidance maps the observed status to the right key.
+    // The status-driven guidance keeps only the exceptions that need a hint:
+    // an awaiting payment deliberately renders nothing, so the generic
+    // "need help" paragraph never repeats the static instructions above.
     const fn = extractFunction('updatePaymentSupportHelp');
-    assert.ok(/support\.paymentHelp\.pending/.test(fn));
+    assert.ok(!/support\.paymentHelp\.pending/.test(fn), 'awaiting payment renders no extra paragraph');
     assert.ok(/support\.paymentHelp\.detected/.test(fn) && /'confirming'/.test(fn));
     assert.ok(/support\.paymentHelp\.failed/.test(fn) && /'expired'/.test(fn) && /'cancelled'/.test(fn));
+    assert.ok(/el\.hidden = !key/.test(fn), 'the hint is hidden when there is nothing to say');
 
     // startPollingForPayment still routes pending/detected/expired through the
     // guidance + keeps the existing confirmation path intact.
@@ -337,12 +346,16 @@ test('updatePaymentSupportHelp maps the observed status to the right guidance ke
             extractFunction('updatePaymentSupportHelp') + '\n updatePaymentSupportHelp();', sandbox);
         return el.textContent;
     }
-    assert.strictEqual(run('pending'), 'T:support.paymentHelp.pending');
+    // While the invoice is simply awaiting payment there is nothing to add: the
+    // static instructions above the button already cover it, so the line stays
+    // empty (and hidden) instead of repeating a paragraph.
+    assert.strictEqual(run('pending'), '');
+    assert.strictEqual(run(null), '');
+    // A detected or an expired/cancelled payment still gets its specific hint.
     assert.strictEqual(run('detected'), 'T:support.paymentHelp.detected');
     assert.strictEqual(run('confirming'), 'T:support.paymentHelp.detected');
     assert.strictEqual(run('expired'), 'T:support.paymentHelp.failed');
     assert.strictEqual(run('cancelled'), 'T:support.paymentHelp.failed');
-    assert.strictEqual(run(null), 'T:support.paymentHelp.pending');
 });
 
 test('invoice reference is display-only: no confirmation or crediting in the payment UI', () => {
