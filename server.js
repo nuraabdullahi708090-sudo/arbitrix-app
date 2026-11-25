@@ -6219,6 +6219,9 @@ const nativeSupport = nativeSupportEnabled
       ai: createSupportAIServiceSafely(supportTranslator),
       engine: SupportConversationEngine,
       i18n: telegramSupportI18n,
+      // Knowledge answers are English; the shared translator localizes them for the
+      // customer's language (the same instance the Telegram bot uses).
+      translator: supportTranslator,
       // Customer notification: one per agent reply, deduped by message id.
       notify: async (userId, conversation, message) => {
         if (!userId || !message) return;

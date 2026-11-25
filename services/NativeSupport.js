@@ -36,6 +36,10 @@
  * `notify`) precisely so it can be executed in tests without a database.
  */
 
+// The shared support brain's validation helper, so a translated answer is held to
+// exactly the same checks the Telegram transport applies (`hasExpectedScript`).
+const SupportGuidelines = require('./support/SupportGuidelines');
+
 const ENV_FLAG = 'NATIVE_SUPPORT_ENABLED';
 
 const CATEGORIES = ['deposit', 'withdrawal', 'trading', 'account', 'general'];
@@ -174,6 +178,9 @@ function createNativeSupportService(options) {
     const ai = opts.ai || null;
     const engine = opts.engine || null;
     const i18n = opts.i18n || null;
+    // The SAME support translator the Telegram bot uses. Knowledge answers are
+    // approved ENGLISH text, so a non-English conversation needs them localized.
+    const translator = opts.translator || null;
     const notify = typeof opts.notify === 'function' ? opts.notify : null;
     const notifyAdmins = typeof opts.notifyAdmins === 'function' ? opts.notifyAdmins : null;
     const now = typeof opts.now === 'function' ? opts.now : function () { return new Date(); };
@@ -327,6 +334,30 @@ function createNativeSupportService(options) {
     }
 
     /**
+     * Localize a knowledge answer for the customer's language.
+     *
+     * Mirrors TelegramSupportService.translateForCustomer: only a successful
+     * translation whose SCRIPT matches the target language is returned; anything
+     * else is null so the caller can fall back instead of presenting English text
+     * as though it were localized.
+     */
+    async function translateForCustomer(text, language) {
+        if (!translator || typeof translator.fromEnglish !== 'function') return null;
+        try {
+            const result = await translator.fromEnglish(String(text), language);
+            if (result && result.ok && typeof result.text === 'string' && result.text.trim()
+                && SupportGuidelines.hasExpectedScript(result.text, language)) {
+                return result.text.trim();
+            }
+            logOnce('translate-' + ((result && result.reason) || 'failed'),
+                (result && result.reason) || 'no usable translation');
+        } catch (err) {
+            logOnce('translate-failed', err && err.message);
+        }
+        return null;
+    }
+
+    /**
      * The AI turn. Reuses the Telegram brain:
      *   1. ConversationEngine.planTurn() decides whether this is procedural
      *      dialogue (greeting, how-to, tutorial selection, handoff request).
@@ -361,9 +392,28 @@ function createNativeSupportService(options) {
             try {
                 const question = (plan && plan.knowledge) ? plan.knowledge : text;
                 const outcome = await ai.ask(question, { language: language });
-                if (outcome && outcome.answer && (outcome.modelGenerated === true || language === 'en')) {
+                if (outcome && outcome.answer) {
+                    // `modelGenerated === true` means the PROVIDER wrote the text and was
+                    // instructed to answer in the customer's language, so it is used as
+                    // is (unchanged behaviour). Everything else is approved ENGLISH
+                    // knowledge: for a non-English conversation it MUST be localized,
+                    // and if that is not possible the turn degrades to the honest
+                    // "a human will reply" message rather than shipping English text.
+                    let answer = String(outcome.answer);
+                    if (outcome.modelGenerated !== true && language !== 'en') {
+                        const localized = await translateForCustomer(answer, language);
+                        if (!localized) {
+                            return {
+                                text: copyFor(language, 'aiUnavailable'),
+                                needsHuman: true,
+                                confident: false,
+                                context: (plan && plan.nextState) || conversation.context || {},
+                            };
+                        }
+                        answer = localized;
+                    }
                     return {
-                        text: outcome.answer,
+                        text: answer,
                         needsHuman: outcome.needsHuman === true,
                         confident: outcome.needsHuman !== true,
                         context: (plan && plan.nextState) || conversation.context || {},
