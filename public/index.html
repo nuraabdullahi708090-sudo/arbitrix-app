@@ -5776,6 +5776,11 @@ async function handleSignup() {
         // In-app support messenger availability (server feature flag). Display
         // only: every support route re-checks the flag server-side.
         APP.nativeSupport = data.nativeSupport === true;
+        // Activate the in-app messenger NOW. The module's own load-time sync()
+        // runs ~2.5s after `load`, usually before /api/auth/me resolves, so
+        // without this call the launcher never appears and the legacy widget
+        // keeps handling customers. sync() is idempotent (build() early-returns).
+        try { if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync(); } catch (err) {}
         try {
             const cached = JSON.parse(localStorage.getItem('arbi_user') || '{}');
             cached.environment = APP.environment;
@@ -27407,6 +27412,11 @@ async function initApp() {
             // Reset the one-shot app-init guard so the next login re-runs
             // initApp() and re-syncs the wallet/history from the server.
             appReady = false;
+            // The in-app messenger is per-session: drop it with the session so the
+            // auth page cannot keep a logged-in support surface open and the
+            // legacy widget returns for the next visitor of this tab.
+            APP.nativeSupport = false;
+            try { if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync(); } catch (err) {}
 
             // Logout is an explicit session end, so the landing page must not
             // keep a logged-in-looking UI (hidden Create Account / Sign In, a
