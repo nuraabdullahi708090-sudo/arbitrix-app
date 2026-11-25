@@ -534,11 +534,20 @@ test('12. the six event copies exist in every locale', () => {
     assert.strictEqual(T.en['notifications.welcome'], 'Welcome to Kalderix');
     assert.strictEqual(T.en['notifications.welcomeDesc'], 'Welcome! Your $50 promotional credit is ready to trade.');
 
-    // The catalogue and the dictionary cannot drift.
+    // The catalogue and the dictionary cannot drift. At runtime TRANSLATIONS also
+    // carries NS_TRANSLATIONS (the native-support strings, merged by public/
+    // index.html), so the check consults the same merged surface the app uses.
+    const nsStart = INDEX.indexOf('const NS_TRANSLATIONS = ');
+    let NS_T = { en: {} };
+    if (nsStart > 0) {
+        const nsEnd = INDEX.indexOf('};', nsStart) + 1;
+        NS_T = JSON.parse(INDEX.slice(INDEX.indexOf('=', nsStart) + 1, nsEnd));
+    }
+    const merged = Object.assign({}, T.en, NS_T.en);
     Object.keys(EVENTS).forEach(function (k) {
         const def = EVENTS[k];
-        assert.ok(T.en[def.title], 'catalogue title key missing from the dictionary: ' + def.title);
-        if (def.body) assert.ok(T.en[def.body], 'catalogue body key missing from the dictionary: ' + def.body);
+        assert.ok(merged[def.title], 'catalogue title key missing from the dictionary: ' + def.title);
+        if (def.body) assert.ok(merged[def.body], 'catalogue body key missing from the dictionary: ' + def.body);
     });
 });
 

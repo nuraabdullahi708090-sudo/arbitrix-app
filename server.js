@@ -115,6 +115,16 @@ const {
 // page loads / retries can never duplicate an event. Read-only for money:
 // this service only inserts and reads notification rows.
 const { createNotificationsService, journeyReminders } = require('./services/Notifications');
+// Native in-app support messaging (customer widget + admin Support Inbox):
+// a second TRANSPORT over the SAME support brain the Telegram bot uses
+// (ConversationEngine + SupportAIService). OFF unless NATIVE_SUPPORT_ENABLED=true.
+const {
+  isNativeSupportEnabled,
+  createNativeSupportService
+} = require('./services/NativeSupport');
+const { registerNativeSupportRoutes } = require('./services/nativeSupportRoutes');
+const SupportConversationEngine = require('./services/support/ConversationEngine');
+const telegramSupportI18n = require('./services/telegram-i18n');
 
 // Stage 2: AI customer-support layer for the Telegram bot. Answering is OFF
 // unless AI_SUPPORT_ENABLED=true (see .env.example); with no key and no flag the
@@ -4726,6 +4736,9 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       user,
       wallet,
       hasRealDeposit: !!funded,
+      // The in-app messenger is a production feature; sandbox accounts keep the
+      // existing support widget.
+      nativeSupport: false,
       // Sandbox equivalent of the production flag, so the shared dashboard code
       // reads one field in both environments.
       hasTradingActivity: !!hasTraded,
@@ -4851,6 +4864,9 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     user,
     wallet,
     hasRealDeposit: !!funded,
+    // In-app support messenger availability (feature flag). Display only: the
+    // routes themselves re-check the flag on every request.
+    nativeSupport: nativeSupportEnabled,
     // Authoritative completed-trade flag (same definition as the withdrawal
     // gate). Display/sync only: it unlocks nothing, it only stops the UI from
     // telling a returning trader to complete a trade they already completed.
@@ -6175,6 +6191,69 @@ const telegramBot = createTelegramSupportBot({
   linkAccount: (input) => telegramAccountLinks.consumeToken(input),
   unlinkAccount: (input) => telegramAccountLinks.unlinkByChat(input && input.chatId)
 });
+// ---------- Native in-app support ----------
+// One support brain (ConversationEngine + SupportAIService above) behind a second
+// transport: the in-app messenger. OFF by default - while NATIVE_SUPPORT_ENABLED
+// is unset the routes answer 404 and nothing renders for customers.
+const nativeSupportEnabled = isNativeSupportEnabled(process.env);
+
+/** Administrator accounts that receive a "customer is waiting" alert. */
+async function nativeSupportAdminIds() {
+  try {
+    let result = await supabaseAdmin.from('users').select('id').eq('is_admin', 1).limit(10);
+    if (!result.error && (!result.data || !result.data.length)) {
+      result = await supabaseAdmin.from('users').select('id').eq('is_admin', true).limit(10);
+    }
+    if (result.error || !result.data) return [];
+    return result.data.map((row) => row.id).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+const nativeSupport = nativeSupportEnabled
+  ? createNativeSupportService({
+      supabase: supabaseAdmin,
+      // Built ONLY when the feature is enabled: with the flag off nothing extra
+      // is constructed and the AI-off guarantees stay exactly as they were.
+      ai: createSupportAIServiceSafely(supportTranslator),
+      engine: SupportConversationEngine,
+      i18n: telegramSupportI18n,
+      // Customer notification: one per agent reply, deduped by message id.
+      notify: async (userId, conversation, message) => {
+        if (!userId || !message) return;
+        await emitNotificationSafe(userId, 'support_reply:' + message.id, 'supportReply', {
+          preview: String(message.body || '').slice(0, 120)
+        });
+      },
+      // Admin alert: the inbox counter is the primary signal; this is the
+      // optional feed entry, deduped per message and per administrator.
+      notifyAdmins: async (conversation, message) => {
+        const ids = await nativeSupportAdminIds();
+        const messageId = (message && message.id) || 'none';
+        for (const adminId of ids) {
+          await emitNotificationSafe(adminId, 'support_alert:' + messageId, 'supportMessage', {
+            preview: String((message && message.body) || '').slice(0, 120),
+            conversation: String((conversation && conversation.id) || '')
+          });
+        }
+      }
+    })
+  : null;
+
+if (nativeSupport) {
+  registerNativeSupportRoutes(app, {
+    support: nativeSupport,
+    authMiddleware,
+    adminMiddleware,
+    supabaseAdmin,
+    isEnabled: function () { return nativeSupportEnabled; }
+  });
+  console.log('[NativeSupport] enabled: in-app messenger + admin inbox routes registered');
+} else {
+  console.log('[NativeSupport] disabled (set NATIVE_SUPPORT_ENABLED=true to enable the in-app messenger)');
+}
+
 if (telegramConfig.token) {
   console.log('[Telegram] Support bot configured (webhook path /api/telegram/webhook)');
   // Said out loud at boot because this is read ONCE, at startup: a process that

@@ -36,12 +36,12 @@ function adminPillBlock() {
   return INDEX.slice(start, end);
 }
 
-test('admin pill contains all 9 tabs including the deposit partner directory (last)', () => {
+test('admin pill contains all 10 tabs including the Support inbox (last)', () => {
   const block = adminPillBlock();
   const ids = [...block.matchAll(/id="adminTab(\w+)"/g)].map(m => m[1]);
   assert.deepStrictEqual(ids, [
     'Operations', 'Users', 'Deposits', 'Withdrawals',
-    'Referrals', 'Kyc', 'Subscriptions', 'Sandbox', 'Partners',
+    'Referrals', 'Kyc', 'Subscriptions', 'Sandbox', 'Partners', 'Support',
   ]);
 });
 
