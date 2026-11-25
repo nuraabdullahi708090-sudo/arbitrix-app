@@ -766,6 +766,44 @@ test('17f. the session read runs no reminder queries when nothing can fire', () 
         });
 });
 
+test('17g. every notification route requires authentication', () => {
+    const routes = [
+        "app.get('/api/notifications', authMiddleware",
+        "app.post('/api/notifications/read-all', authMiddleware",
+        "app.post('/api/notifications/:id/read', authMiddleware",
+        "app.delete('/api/notifications', authMiddleware",
+    ];
+    routes.forEach(function (r) {
+        const at = SERVER.indexOf(r);
+        assert.ok(at > 0, 'unprotected or missing route: ' + r);
+        // Each handler resolves the account from the token only.
+        const body = SERVER.slice(at, SERVER.indexOf('\n});', at) + 4);
+        assert.ok(body.includes('req.user.id'), 'handler must use the authenticated identity: ' + r);
+        assert.ok(!/req\.body\.userId|req\.query\.userId|req\.params\.userId/.test(body),
+            'the caller must never supply the user id: ' + r);
+    });
+});
+
+test('17h. one account cannot read, mark or clear another account\'s rows', async () => {
+    const { db, service } = boot();
+    await service.emit(111, 'welcome', 'welcome', {});
+    const mine = await service.list(111);
+    assert.strictEqual(mine.notifications.length, 1);
+
+    // Another account sees nothing and cannot touch the row.
+    const theirs = await service.list(222);
+    assert.deepStrictEqual(Array.from(theirs.notifications), []);
+    await service.markRead(222, mine.notifications[0].id);
+    await service.markAllRead(222);
+    await service.clearAll(222);
+
+    const row = db.rows[0];
+    assert.strictEqual(row.read_at, null, 'markRead from another account changed nothing');
+    assert.strictEqual(row.cleared_at, null, 'clearAll from another account changed nothing');
+    const stillMine = await service.list(111);
+    assert.strictEqual(stillMine.notifications.length, 1, 'the owner still sees the row');
+});
+
 test('18. helper contracts (bucket, vars sanitisation)', () => {
     assert.strictEqual(dailyBucket(new Date('2026-11-23T23:59:59Z')), '2026-11-23');
     assert.strictEqual(dailyBucket('not-a-date'), '1970-01-01');
