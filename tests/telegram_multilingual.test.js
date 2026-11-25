@@ -478,7 +478,9 @@ test('13. an English customer gets an English language instruction', async () =>
 });
 
 test('13b. an unsupported/absent language resolves to English', async () => {
-  const a = await askWithLanguage('es');
+  // `es` is now a supported prompt language (the platform ships six locales and
+  // the support translator needs each of them); `de` is genuinely unsupported.
+  const a = await askWithLanguage('de');
   assert.strictEqual(a.outcome.language, 'en');
   assert.match(a.instructions, /English/);
   const b = await askWithLanguage(undefined);

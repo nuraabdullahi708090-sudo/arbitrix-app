@@ -6132,7 +6132,9 @@ function createSupportTranslatorSafely() {
     const translator = createSupportTranslator({ config: translationConfig });
     const available = translator.isAvailable();
     console.log(`[SupportTranslator] ${available ? 'enabled' : 'unavailable'} `
-      + `(provider=${translationConfig.provider}, credential=${translationConfig.apiKey ? 'set' : 'missing'}); `
+      + `(provider=${translationConfig.provider}, source=${translationConfig.providerSource || 'n/a'}, `
+      + `answers=${translationConfig.answerProvider || 'knowledge'}, `
+      + `credential=${translationConfig.apiKey ? 'set' : 'missing'}); `
       + (available
         ? 'customer messages are translated to English for operators, and operator replies into the customer language'
         : 'non-English customers get localized fixed replies; operator notifications show the original message only'));

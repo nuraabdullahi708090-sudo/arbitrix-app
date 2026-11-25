@@ -213,8 +213,11 @@ function baseLanguage(language) {
  */
 const LANGUAGE_NAMES = Object.freeze({
   en: 'English',
+  es: 'Spanish',
   pt: 'Brazilian Portuguese',
-  ar: 'Modern Standard Arabic'
+  fr: 'French',
+  ar: 'Modern Standard Arabic',
+  zh: 'Simplified Chinese'
 });
 
 /**
