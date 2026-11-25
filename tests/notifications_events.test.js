@@ -628,6 +628,144 @@ test('17. the store never creates account events client-side', () => {
         'server.js has no ad-hoc notification insert either');
 });
 
+test('17b. a server row renders a VALID click handler (regression)', () => {
+    // The row id is embedded in an HTML attribute. A quoted string used to close
+    // the attribute, so clicking a server notification threw
+    // "Unexpected end of input" and never marked it read.
+    const s = bootStore({ storage: {}, translations: {} });
+    s.api.server = [
+        { id: 'srv-501', serverId: 501, type: 'success', titleKey: 'a', bodyKey: null, vars: {}, icon: 'fa-check-circle', time: Date.now(), read: false },
+    ];
+    s.api.local = [];
+    s.api.rebuild();
+    const html = s.elements.notificationList.innerHTML;
+    assert.ok(html.includes('onclick="Notifications.markAsRead(\'srv-501\')"'),
+        'the attribute must carry a single-quoted literal: ' + (html.match(/onclick="[^"]*"/) || [])[0]);
+    assert.ok(!/onclick="[^"]*""/.test(html), 'no attribute may be closed early');
+    // The handler expression must actually be valid JavaScript.
+    const expr = html.match(/onclick="([^"]*)"/)[1];
+    assert.doesNotThrow(() => new Function(expr.replace(/^Notifications\.markAsRead/, 'return')));
+});
+
+test('17c. id literals, types and icons cannot escape the rendered markup', () => {
+    const s = bootStore({ storage: {}, translations: {} });
+    const api = s.api;
+    assert.strictEqual(api.idLiteral(123), '123');
+    assert.strictEqual(api.idLiteral('srv-9'), "'srv-9'");
+    assert.strictEqual(api.idLiteral('srv-9" onclick="alert(1)'), "'srv-9onclickalert1'");
+    assert.strictEqual(api.idLiteral(null), "''");
+    assert.strictEqual(api.safeType('success'), 'success');
+    assert.strictEqual(api.safeType('x" onmouseover="alert(1)'), 'info');
+    assert.strictEqual(api.safeIcon('fa-check-circle'), 'fa-check-circle');
+    assert.strictEqual(api.safeIcon('fa-x"/><img src=x>'), 'fa-bell');
+
+    // And through the renderer: a hostile row cannot inject an attribute.
+    s.api.server = [{ id: 'srv-1', serverId: 1, type: '"><img src=x onerror=alert(1)>', titleKey: 'a', bodyKey: null, vars: {}, icon: '"><script>bad()</script>', time: Date.now(), read: false }];
+    s.api.local = [];
+    s.api.rebuild();
+    const html = s.elements.notificationList.innerHTML;
+    assert.ok(!/onerror|<script>/i.test(html), 'no injected markup: ' + html.slice(0, 200));
+});
+
+test('17d. markAsRead of a server row posts to that row\'s own id', async () => {
+    const rows = [{ id: 77, event_key: 'welcome', type: 'success', title_key: 'a', body_key: null, vars: {}, occurred_at: '2026-11-20T10:00:00Z', read_at: null }];
+    const s = bootStore({ storage: { jwt_token: 'tok' }, responses: { '/api/notifications': { notifications: rows, unread: 1 } } });
+    await s.api.syncFromServer();
+    // Exactly what the rendered onclick does: pass the quoted literal's value.
+    await s.api.markAsRead('srv-77');
+    assert.strictEqual(s.api.list[0].read, true, 'the row is marked read');
+    const call = s.requests.filter(function (r) { return r.url === '/api/notifications/77/read'; });
+    assert.strictEqual(call.length, 1);
+    assert.strictEqual(call[0].method, 'POST');
+    assert.strictEqual(call[0].headers.Authorization, 'Bearer tok');
+});
+
+test('17e. a TRANSIENT write failure does not disable notifications for the process', () => {
+    // Permanent disable is reserved for a structural failure (migration missing,
+    // grants missing). One timeout must not silence the feed until the next deploy.
+    const m = SERVER.match(/const NOTIFICATION_STRUCTURAL_ERROR = (\/.*?\/i);/);
+    assert.ok(m, 'the structural-error matcher must exist');
+    const re = new Function('return ' + m[1])();
+
+    const structural = [
+        'relation "public.notifications" does not exist',
+        'permission denied for table notifications',
+        'Could not find the table \'public.notifications\' in the schema cache',
+        'PGRST205',
+        '42P01',
+        '42501',
+    ];
+    const transient = [
+        'fetch failed',
+        'ETIMEDOUT',
+        'socket hang up',
+        'upstream request timeout',
+        '502 Bad Gateway',
+        'ECONNRESET',
+    ];
+    structural.forEach(function (msg) { assert.ok(re.test(msg), 'structural: ' + msg); });
+    transient.forEach(function (msg) { assert.ok(!re.test(msg), 'transient must NOT disable: ' + msg); });
+
+    // The flag is only set inside the structural branch, and the transient branch
+    // does not touch it.
+    const fn = SERVER.slice(SERVER.indexOf('async function emitNotificationSafe'), SERVER.indexOf('async function evaluateJourneyNotifications'));
+    const structuralBranch = fn.slice(fn.indexOf('if (NOTIFICATION_STRUCTURAL_ERROR'), fn.indexOf('} else {'));
+    const transientBranch = fn.slice(fn.indexOf('} else {'));
+    assert.ok(structuralBranch.includes('notificationCatalogueMissing = true'));
+    assert.ok(!transientBranch.includes('notificationCatalogueMissing = true'),
+        'a transient failure must leave the feed enabled');
+});
+
+test('17f. the session read runs no reminder queries when nothing can fire', () => {
+    // Extract the REAL evaluateJourneyNotifications() and run it with stubs, so the
+    // hot-path cost is a behavioural assertion rather than a source string.
+    const start = SERVER.indexOf('async function evaluateJourneyNotifications');
+    assert.ok(start > 0);
+    let i = SERVER.indexOf('{', start), depth = 0, end = -1;
+    for (let j = i; j < SERVER.length; j++) {
+        if (SERVER[j] === '{') depth++;
+        else if (SERVER[j] === '}') { depth--; if (depth === 0) { end = j; break; } }
+    }
+    const src = SERVER.slice(start, end + 1);
+    const calls = { pending: 0, emitted: [] };
+    const sandbox = {
+        console: { warn: function () {} },
+        notifications: { emit: async function () { return { ok: true, created: true }; } },
+        notificationCatalogueMissing: false,
+        journeyReminders: journeyReminders,
+        // Same definition as server.js: hours since users.created_at, 0 when unknown.
+        accountAgeHours: function (user) {
+            const t = user && user.created_at ? Date.parse(user.created_at) : NaN;
+            return Number.isFinite(t) ? Math.max(0, (Date.now() - t) / 3600000) : 0;
+        },
+        hasPendingDeposit: async function () { calls.pending += 1; return false; },
+        emitNotificationSafe: async function (uid, key) { calls.emitted.push(key); return { ok: true }; },
+    };
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(src, sandbox);
+    const run = sandbox.evaluateJourneyNotifications;
+
+    return Promise.resolve()
+        .then(function () { return run({ id: 1, created_at: '2026-01-01T00:00:00Z' }, { hasConfirmedDeposit: true }); })
+        .then(function () {
+            assert.strictEqual(calls.pending, 0, 'a funded account triggers no deposit query');
+            assert.deepStrictEqual(calls.emitted, [], 'a funded account gets no reminder');
+        })
+        .then(function () { return run({ id: 2, created_at: new Date().toISOString() }, { promoCreditFunded: false, hasTradingActivity: false }); })
+        .then(function () {
+            assert.strictEqual(calls.pending, 0, 'a brand-new account triggers no deposit query either');
+            assert.deepStrictEqual(calls.emitted, []);
+        })
+        .then(function () { return run({ id: 3, created_at: '2026-01-01T00:00:00Z' }, { promoCreditFunded: true, hasTradingActivity: true }); })
+        .then(function () {
+            assert.strictEqual(calls.pending, 1, 'the query runs only when a reminder is a candidate');
+            assert.strictEqual(calls.emitted.length, 2, 'both promo reminders are emitted');
+            assert.ok(calls.emitted[0].startsWith('promo_first_trade'));
+            assert.ok(calls.emitted[1].startsWith('promo_deposit_reminder:'));
+        });
+});
+
 test('18. helper contracts (bucket, vars sanitisation)', () => {
     assert.strictEqual(dailyBucket(new Date('2026-11-23T23:59:59Z')), '2026-11-23');
     assert.strictEqual(dailyBucket('not-a-date'), '1970-01-01');

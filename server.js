@@ -811,13 +811,29 @@ async function hasPendingDeposit(userId) {
  * example migration 058 not applied) is reported a single time instead of on
  * every call, and it never propagates into the caller's request.
  */
+// A WRITE failure is only permanent when the schema itself is unusable (migration
+// 058 missing, grants missing). A timeout or a transient 5xx must NOT disable the
+// feed for the rest of the process lifetime - the next event retries - so the two
+// cases are separated here.
+const NOTIFICATION_STRUCTURAL_ERROR = /does not exist|permission denied|undefined table|undefined function|schema cache|could not find the (table|function)|relation \"[a-z_.]+\" does not exist|PGRST20[25]|42P01|42501/i;
+let notificationTransientWarnedAt = 0;
+
 async function emitNotificationSafe(userId, eventKey, eventName, vars) {
     if (!notifications || notificationCatalogueMissing || !userId) return { ok: false, created: false };
     const result = await notifications.emit(userId, eventKey, eventName, vars);
     if (result && result.ok === false && result.reason !== 'unknown-event' && !notificationCatalogueMissing) {
-        notificationCatalogueMissing = true;
-        console.warn('[notifications] writes disabled for this process:', result.reason,
-            (result.error || '').toString().slice(0, 200));
+        const detail = (result.error || '').toString().slice(0, 200);
+        if (NOTIFICATION_STRUCTURAL_ERROR.test(detail) || result.reason === 'no-client') {
+            notificationCatalogueMissing = true;
+            console.warn('[notifications] writes disabled for this process:', result.reason, detail);
+        } else {
+            // Transient: stay enabled, but do not log on every trade during an outage.
+            const nowMs = Date.now();
+            if (nowMs - notificationTransientWarnedAt > 60000) {
+                notificationTransientWarnedAt = nowMs;
+                console.warn('[notifications] write failed, retrying on the next event:', result.reason, detail);
+            }
+        }
     }
     return result;
 }
@@ -832,15 +848,22 @@ async function evaluateJourneyNotifications(user, state) {
     try {
         if (!notifications || notificationCatalogueMissing) return;
         const opts = state || {};
-        const reminders = journeyReminders({
+        const base = {
             hasConfirmedDeposit: opts.hasConfirmedDeposit === true,
             hasTradingActivity: opts.hasTradingActivity === true,
             promoCreditFunded: opts.promoCreditFunded === true,
-            hasPendingDeposit: opts.hasPendingDeposit === true,
             accountAgeHours: accountAgeHours(user),
             now: new Date(),
-        });
-        for (const r of reminders) {
+        };
+        // Decide first, with "no pending deposit" assumed: an empty result means
+        // nothing can fire, so the extra deposit queries are not run at all (this
+        // keeps the hot session read cheap for every account that is caught up).
+        const candidates = journeyReminders(Object.assign({}, base, { hasPendingDeposit: false }));
+        if (!candidates.length) return;
+        // A deposit awaiting confirmation suppresses every reminder, and is never
+        // treated as a confirmed one.
+        if (await hasPendingDeposit(user && user.id)) return;
+        for (const r of candidates) {
             await emitNotificationSafe(user && user.id, r.eventKey, r.event, r.vars);
         }
     } catch (e) {
@@ -4785,7 +4808,6 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     hasConfirmedDeposit: !!funded,
     hasTradingActivity: !!hasTraded,
     promoCreditFunded,
-    hasPendingDeposit: !funded ? await hasPendingDeposit(user.id) : false,
   });
 
   res.json({

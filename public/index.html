@@ -21460,6 +21460,20 @@ const Notifications = {
 
     getDefaultIcon(type) { switch(type) { case 'success': return 'fa-check-circle'; case 'info': return 'fa-info-circle'; case 'warning': return 'fa-exclamation-triangle'; case 'badge': return 'fa-medal'; default: return 'fa-bell'; } },
 
+    // The click handler's argument is embedded in an HTML attribute, so it has to
+    // be an inert literal: a quoted string id (server rows are 'srv-<n>') would
+    // close the attribute, truncate the handler and throw on click. Local ids are
+    // numbers; anything not matching the id alphabet is dropped.
+    idLiteral(id) {
+        if (typeof id === 'number' && Number.isFinite(id)) return String(id);
+        const safe = String(id === null || id === undefined ? '' : id).replace(/[^A-Za-z0-9_-]/g, '');
+        return "'" + safe + "'";
+    },
+    // The feed is rendered with innerHTML, so the type (a class name) and the icon
+    // (a Font Awesome class) are whitelisted rather than trusted.
+    safeType(type) { return ['info', 'success', 'warning', 'badge'].indexOf(type) >= 0 ? type : 'info'; },
+    safeIcon(icon) { return /^fa-[a-z0-9-]{1,40}$/.test(String(icon || '')) ? icon : 'fa-bell'; },
+
     async markAsRead(id) {
         const isServer = typeof id === 'string' && id.indexOf('srv-') === 0;
         let target = null;
@@ -21534,7 +21548,7 @@ const Notifications = {
         listEl.innerHTML = this.list.slice(0, 20).map(function(n) {
             const timeStr = Notifications.formatTime(n.time);
             const unreadClass = n.read ? '' : 'unread';
-            return '<div class="notification-item ' + unreadClass + '" onclick="Notifications.markAsRead(' + JSON.stringify(n.id) + ')"><div class="notification-icon ' + n.type + '"><i class="fas ' + n.icon + '"></i></div><div class="notification-content"><div class="notification-title">' + escapeHtml(Notifications.titleOf(n)) + '</div><div class="notification-desc">' + escapeHtml(Notifications.descOf(n)) + '</div><div class="notification-time">' + timeStr + '</div></div></div>';
+            return '<div class="notification-item ' + unreadClass + '" onclick="Notifications.markAsRead(' + Notifications.idLiteral(n.id) + ')"><div class="notification-icon ' + Notifications.safeType(n.type) + '"><i class="fas ' + Notifications.safeIcon(n.icon) + '"></i></div><div class="notification-content"><div class="notification-title">' + escapeHtml(Notifications.titleOf(n)) + '</div><div class="notification-desc">' + escapeHtml(Notifications.descOf(n)) + '</div><div class="notification-time">' + timeStr + '</div></div></div>';
         }).join('');
     },
 

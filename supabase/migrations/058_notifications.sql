@@ -386,22 +386,43 @@ BEGIN
         v_missing := v_missing || ' anon-policy';
     END IF;
 
+    -- Scoped to the owning table: a same-named trigger on another table must not
+    -- be able to satisfy this check.
     IF to_regclass('public.payment_invoices') IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM pg_trigger WHERE tgname = 'notifications_deposit_invoice' AND NOT tgisinternal
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'notifications_deposit_invoice' AND NOT tgisinternal
+          AND tgrelid = 'public.payment_invoices'::regclass
     ) THEN
         v_missing := v_missing || ' deposit-invoice-trigger';
     END IF;
 
     IF to_regclass('public.deposits') IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM pg_trigger WHERE tgname = 'notifications_deposit_legacy' AND NOT tgisinternal
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'notifications_deposit_legacy' AND NOT tgisinternal
+          AND tgrelid = 'public.deposits'::regclass
     ) THEN
         v_missing := v_missing || ' deposit-legacy-trigger';
     END IF;
 
     IF to_regclass('public.referrals') IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM pg_trigger WHERE tgname = 'notifications_referral' AND NOT tgisinternal
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'notifications_referral' AND NOT tgisinternal
+          AND tgrelid = 'public.referrals'::regclass
     ) THEN
         v_missing := v_missing || ' referral-trigger';
+    END IF;
+
+    -- The server reads/updates the feed through PostgREST as service_role, and a
+    -- policy alone does not grant table privileges.
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role')
+       AND NOT has_table_privilege('service_role', 'public.notifications', 'SELECT') THEN
+        v_missing := v_missing || ' service-role-grant';
+    END IF;
+
+    -- Customer roles must have no access at all.
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')
+       AND has_table_privilege('anon', 'public.notifications', 'SELECT') THEN
+        v_missing := v_missing || ' anon-grant';
     END IF;
 
     IF to_regprocedure('public.notification_emit(bigint,text,text,text,text,jsonb,timestamptz)') IS NULL THEN
