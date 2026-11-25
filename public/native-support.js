@@ -7,7 +7,8 @@
  * ========================================================================= */
 (function () {
   'use strict';
-  var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, categories: null, started: false };
+  var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, categories: null, started: false,
+    seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null };
 
   function token() { try { return localStorage.getItem('jwt_token') || ''; } catch (e) { return ''; } }
   function tt(key, vars) { try { return typeof t === 'function' ? t(key, vars) : key; } catch (e) { return key; } }
@@ -75,6 +76,12 @@
     foot.innerHTML = '';
   }
 
+  function setSending(on) {
+    if (!foot) return;
+    var b = foot.querySelector('.ns-send');
+    if (b) { b.disabled = !!on; b.setAttribute('aria-busy', on ? 'true' : 'false'); }
+  }
+
   function renderComposer() {
     foot.innerHTML = '';
     var row = el('div', 'ns-row');
@@ -82,7 +89,7 @@
     input.placeholder = tt('ns.placeholder');
     input.maxLength = 2000;
     input.setAttribute('aria-label', tt('ns.placeholder'));
-    var send = el('button', null, tt('ns.send'));
+    var send = el('button', 'ns-send', tt('ns.send'));
     send.type = 'button';
     function submit() {
       var value = (input.value || '').trim();
@@ -110,10 +117,55 @@
     return node;
   }
 
+  // Server-id dedupe: the 5s poll can return a row that is already on screen
+  // (an adopted optimistic bubble, or two overlapping polls). One row = one
+  // bubble; a repeat only refreshes the timestamp.
   function appendMessage(row, pending) {
-    body.appendChild(messageNode(row, pending));
+    if (!body) return null;
+    if (row && row.id != null) {
+      var id = Number(row.id);
+      var known = state.seen[id];
+      if (known) {
+        var t = known.parentNode ? known.querySelector('.ns-time') : null;
+        if (t && row.created_at) t.textContent = timeLabel(row.created_at);
+        return known;
+      }
+      var node = messageNode(row, pending);
+      state.seen[id] = node;
+      body.appendChild(node);
+      body.scrollTop = body.scrollHeight;
+      if (id > state.lastId) state.lastId = id;
+      return node;
+    }
+    var plain = messageNode(row, pending);
+    body.appendChild(plain);
     body.scrollTop = body.scrollHeight;
-    if (row && row.id && row.id > state.lastId) state.lastId = row.id;
+    return plain;
+  }
+
+  // While a send is in flight a poll can return OUR message before the POST
+  // response arrives. Adopt the server id onto the optimistic bubble instead of
+  // rendering a second copy of the same message.
+  function reconcileOrAppend(row) {
+    if (!row) return;
+    var pending = state.pendingNode;
+    if (pending && row.id != null && Number(row.id) > state.lastId && row.sender_type === 'customer') {
+      var sameClient = !!(row.client_message_id && state.pendingClientId && row.client_message_id === state.pendingClientId);
+      var sameText = !row.client_message_id && !!state.pendingText && row.body === state.pendingText;
+      if (sameClient || sameText) {
+        var id = Number(row.id);
+        pending.classList.remove('pending');
+        state.seen[id] = pending;
+        if (id > state.lastId) state.lastId = id;
+        var t = pending.querySelector('.ns-time');
+        if (t && row.created_at) t.textContent = timeLabel(row.created_at);
+        state.pendingNode = null;
+        state.pendingClientId = null;
+        state.pendingText = null;
+        return;
+      }
+    }
+    appendMessage(row);
   }
 
   function start(category) {
@@ -153,7 +205,7 @@
     if (!state.conversationId) return Promise.resolve();
     return call('/api/support/conversations/' + state.conversationId + '/messages?after=' + state.lastId).then(function (r) {
       var rows = (r.body && r.body.messages) || [];
-      rows.forEach(function (row) { appendMessage(row); });
+      rows.forEach(function (row) { reconcileOrAppend(row); });
       if (rows.length) {
         var conv = r.body.conversation || {};
         if (conv.ai_paused && (conv.status === 'waiting' || conv.status === 'assigned')) {
@@ -166,32 +218,61 @@
   }
 
   function sendMessage(text) {
-    if (!state.conversationId) return;
+    // One in-flight message per panel: a second click/Enter while the first POST
+    // is pending is ignored (the server would store it as a separate message).
+    if (!state.conversationId || state.sending) return;
     state.sending = true;
+    setSending(true);
+    var clientId = 'c' + Date.now() + Math.random().toString(36).slice(2, 8);
     var optimistic = { sender_type: 'customer', body: text, created_at: new Date().toISOString() };
     var node = messageNode(optimistic, { pending: true });
     body.appendChild(node);
     body.scrollTop = body.scrollHeight;
-    var clientId = 'c' + Date.now() + Math.random().toString(36).slice(2, 8);
+    state.pendingNode = node;
+    state.pendingClientId = clientId;
+    state.pendingText = text;
+    function clearPending() {
+      state.pendingNode = null;
+      state.pendingClientId = null;
+      state.pendingText = null;
+    }
     call('/api/support/conversations/' + state.conversationId + '/messages', {
       method: 'POST', body: { body: text, clientMessageId: clientId }
     }).then(function (r) {
       state.sending = false;
+      setSending(false);
       if (!r.ok) {
         node.className = 'ns-msg customer pending failed';
         var label = el('span', 'ns-time', tt(r.status === 429 ? 'ns.rateLimited' : 'ns.error'));
         node.appendChild(label);
+        clearPending();
         return;
       }
-      node.classList.remove('pending');
-      var t = node.querySelector('.ns-time');
-      if (t) t.textContent = timeLabel((r.body.message || {}).created_at);
-      if (r.body.message && r.body.message.id > state.lastId) state.lastId = r.body.message.id;
-      if (r.body.reply) appendMessage(r.body.reply);
+      var message = (r.body && r.body.message) || null;
+      if (message && message.id != null) {
+        var id = Number(message.id);
+        var already = state.seen[id];
+        if (already && already !== node) {
+          // The poll adopted this row first: keep the server node, drop ours.
+          if (node.parentNode) node.parentNode.removeChild(node);
+        } else {
+          node.classList.remove('pending');
+          state.seen[id] = node;
+          if (id > state.lastId) state.lastId = id;
+          var t = node.querySelector('.ns-time');
+          if (t) t.textContent = timeLabel(message.created_at);
+        }
+      } else {
+        node.classList.remove('pending');
+      }
+      clearPending();
+      if (r.body && r.body.reply) appendMessage(r.body.reply);
     }).catch(function () {
       state.sending = false;
+      setSending(false);
       node.className = 'ns-msg customer pending failed';
       node.appendChild(el('span', 'ns-time', tt('ns.offline')));
+      clearPending();
     });
   }
 
@@ -265,10 +346,17 @@
       if (state.started) { renderComposer(); }
       else if (body && !body.children.length) renderChooser();
     },
+    // Idempotent: safe to call on load, after /api/auth/me, on logout and on any
+    // later session change. build() returns early once the DOM exists, so no
+    // duplicate nodes or listeners are created by repeated calls.
     sync: function () {
       var enabled = (typeof APP !== 'undefined' && APP && APP.nativeSupport === true);
       if (document.body) document.body.classList.toggle('ns-enabled', enabled);
-      if (!enabled) { hideLauncher(); return; }
+      if (!enabled) {
+        if (state.timer) { clearInterval(state.timer); state.timer = null; }
+        hideLauncher();
+        return;
+      }
       build();
       if (!state.open) refreshBadge(false);
       show();

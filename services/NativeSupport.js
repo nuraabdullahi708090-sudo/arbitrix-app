@@ -585,7 +585,7 @@ function createNativeSupportService(options) {
         if (!conversation) return fail('not-found');
         try {
             let query = supabase.from('support_messages')
-                .select('id, conversation_id, sender_type, body, created_at')
+                .select('id, conversation_id, sender_type, body, created_at, client_message_id')
                 .eq('conversation_id', conversation.id)
                 .order('id', { ascending: true })
                 .limit((extra && extra.limit) || limits.historyLimit);
