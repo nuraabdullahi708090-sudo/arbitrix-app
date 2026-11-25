@@ -205,12 +205,19 @@ test('6. the Start Here LIVE checklist has no activation step', () => {
   assert.ok(!/step0/.test(steps), 'step0 is gone');
   assert.match(steps, /startHere\.live\.step3/);
 
-  const sandbox = {};
+  const sandbox = { APP: { MIN_DEPOSIT: 50, liveData: { hasRealDeposit: false } } };
   vm.createContext(sandbox);
   vm.runInContext(steps + ';globalThis.f = startHereLiveSteps;', sandbox);
   const list = sandbox.f();
-  assert.strictEqual(list.length, 1, 'exactly one remaining requirement');
-  assert.strictEqual(list[0].key, 'startHere.live.step3');
+  // The checklist reflects the step actually blocking the account: the deposit
+  // comes before the first trade, and the activation step never appears.
+  assert.deepStrictEqual(Array.from(list.map((x) => x.key)), ['startHere.live.stepDeposit', 'startHere.live.step3']);
+  assert.ok(list.every((x) => !/activation/i.test(x.key)));
+
+  const funded = { APP: { MIN_DEPOSIT: 50, liveData: { hasRealDeposit: true } } };
+  vm.createContext(funded);
+  vm.runInContext(steps + ';globalThis.g = startHereLiveSteps;', funded);
+  assert.deepStrictEqual(Array.from(funded.g().map((x) => x.key)), ['startHere.live.step3']);
 
   // Completion no longer depends on an activation flag.
   const complete = extractFunction('startHereLiveComplete');

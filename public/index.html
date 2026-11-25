@@ -8586,7 +8586,7 @@ function toggleFaq(btn) {
             <div class="card-body">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
                     <div style="min-width:0;">
-                        <div class="stat-label"><i class="fas fa-gift"></i> <span data-i18n="promo.creditTitle">Promotional Credit</span></div>
+                        <div class="stat-label"><i class="fas fa-gift" id="liveModeCardIcon"></i> <span data-i18n="promo.creditTitle" id="liveModeCardTitle">Promotional Credit</span></div>
                         <div id="promoCreditAmountRow" style="margin-top:2px;">
                             <span id="promoCreditAmount" style="font-size:22px;font-weight:700;color:var(--brand);">$0.00</span>
                             <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">&mdash; <span data-i18n="promo.creditBadge">Promotional Credit</span></span>
@@ -11528,6 +11528,7 @@ const TRANSLATIONS = {
         'liveMode.status.fundingRequired': 'Funding required',
         'liveMode.status.available': 'Live Mode available',
         'liveMode.depositCta': 'Make your deposit',
+        'liveMode.cardTitle': 'Live Mode',
         'liveAccess.notAvailable': 'Live trading isn\'t available for this account yet. Please contact support and we\'ll help you finish setting up.',
         'liveAccess.fundingRequired': 'Add funds to your Live balance to start live trading.',
         'liveAccess.retryLater': 'We couldn\'t confirm your Live access right now. Please try again in a moment.',
@@ -11574,6 +11575,7 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Dismiss',
         'startHere.live.title': 'Getting started',
         'startHere.live.subtitleNext': 'Your next step to start Live trading.',
+        'startHere.live.stepDeposit': 'Deposit at least ${{min}} to fund your Live balance',
         'startHere.live.step3': 'Complete your first Live trade',
         'startHere.live.ready': 'You\'re ready for Live Mode. Review your settings before starting your bot.',
         'wallet.liveReal': 'Real trading funds - separate from your promotional credit.',
@@ -13119,6 +13121,7 @@ const TRANSLATIONS = {
         'liveMode.status.fundingRequired': 'Requiere fondos',
         'liveMode.status.available': 'Modo Live disponible',
         'liveMode.depositCta': 'Realizar mi depósito',
+        'liveMode.cardTitle': 'Modo Live',
         'liveAccess.notAvailable': 'El trading en vivo aún no está disponible para esta cuenta. Contacta con soporte y te ayudaremos a completar la configuración.',
         'liveAccess.fundingRequired': 'Agrega fondos a tu saldo Live para empezar a operar en vivo.',
         'liveAccess.retryLater': 'No pudimos confirmar tu acceso Live ahora mismo. Inténtalo de nuevo en un momento.',
@@ -13165,6 +13168,7 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Descartar',
         'startHere.live.title': 'Primeros pasos',
         'startHere.live.subtitleNext': 'Tu siguiente paso para empezar a operar en Live.',
+        'startHere.live.stepDeposit': 'Deposita al menos ${{min}} para financiar tu saldo Live',
         'startHere.live.step3': 'Completa tu primera operación en Live',
         'startHere.live.ready': 'Estás listo para el Modo Live. Revisa tu configuración antes de iniciar tu bot.',
         'wallet.liveReal': 'Fondos reales de trading: independientes de tu crédito promocional.',
@@ -14711,6 +14715,7 @@ const TRANSLATIONS = {
         'liveMode.status.fundingRequired': 'Requer fundos',
         'liveMode.status.available': 'Modo Live disponível',
         'liveMode.depositCta': 'Fazer meu depósito',
+        'liveMode.cardTitle': 'Modo Live',
         'liveAccess.notAvailable': 'A negociação ao vivo ainda não está disponível para esta conta. Fale com o suporte e ajudaremos você a concluir a configuração.',
         'liveAccess.fundingRequired': 'Adicione fundos ao seu saldo Live para começar a operar ao vivo.',
         'liveAccess.retryLater': 'Não conseguimos confirmar seu acesso Live agora. Tente novamente em instantes.',
@@ -14757,6 +14762,7 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Dispensar',
         'startHere.live.title': 'Primeiros passos',
         'startHere.live.subtitleNext': 'Seu próximo passo para começar a operar no Live.',
+        'startHere.live.stepDeposit': 'Deposite pelo menos ${{min}} para financiar seu saldo Live',
         'startHere.live.step3': 'Conclua sua primeira operação no Live',
         'startHere.live.ready': 'Você está pronto para o Modo Live. Revise suas configurações antes de iniciar seu bot.',
         'wallet.liveReal': 'Fundos reais de negociação: separados do seu crédito promocional.',
@@ -16303,6 +16309,7 @@ const TRANSLATIONS = {
         'liveMode.status.fundingRequired': 'Financement requis',
         'liveMode.status.available': 'Mode Live disponible',
         'liveMode.depositCta': 'Effectuer mon dépôt',
+        'liveMode.cardTitle': 'Mode Live',
         'liveAccess.notAvailable': 'Le trading en direct n’est pas encore disponible pour ce compte. Contactez le support et nous vous aiderons à finaliser la configuration.',
         'liveAccess.fundingRequired': 'Ajoutez des fonds à votre solde Live pour commencer à trader en direct.',
         'liveAccess.retryLater': 'Nous n’avons pas pu confirmer votre accès Live pour le moment. Réessayez dans un instant.',
@@ -16349,6 +16356,7 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'Ignorer',
         'startHere.live.title': 'Premiers pas',
         'startHere.live.subtitleNext': 'Votre prochaine étape pour commencer à trader en Live.',
+        'startHere.live.stepDeposit': 'Déposez au moins ${{min}} pour alimenter votre solde Live',
         'startHere.live.step3': 'Réalisez votre premier trade en Live',
         'startHere.live.ready': 'Vous êtes prêt pour le mode Live. Vérifiez vos paramètres avant de lancer votre bot.',
         'wallet.liveReal': 'Fonds de trading réels - distincts de votre crédit promotionnel.',
@@ -17895,6 +17903,7 @@ const TRANSLATIONS = {
         'liveMode.status.fundingRequired': 'التمويل مطلوب',
         'liveMode.status.available': 'الوضع المباشر متاح',
         'liveMode.depositCta': 'إتمام الإيداع',
+        'liveMode.cardTitle': 'الوضع المباشر',
         'liveAccess.notAvailable': 'التداول الحي غير متاح لهذا الحساب بعد. يرجى التواصل مع الدعم وسنساعدك في إتمام الإعداد.',
         'liveAccess.fundingRequired': 'أضف أموالًا إلى رصيدك المباشر لبدء التداول المباشر.',
         'liveAccess.retryLater': 'لم نتمكن من تأكيد وصولك إلى Live الآن. يرجى المحاولة مرة أخرى بعد قليل.',
@@ -17941,6 +17950,7 @@ const TRANSLATIONS = {
         'startHere.dismiss': 'تجاهل',
         'startHere.live.title': 'البدء السريع',
         'startHere.live.subtitleNext': 'خطوتك التالية لبدء التداول المباشر.',
+        'startHere.live.stepDeposit': 'أودع ${{min}} على الأقل لتمويل رصيدك في التداول المباشر',
         'startHere.live.step3': 'نفّذ أول عملية تداول مباشرة لك',
         'startHere.live.ready': 'أنت جاهز لوضع LIVE. راجع إعداداتك قبل تشغيل الروبوت.',
         'wallet.liveReal': 'أموال تداول حقيقية - منفصلة عن رصيدك الترويجي.',
@@ -19487,6 +19497,7 @@ const TRANSLATIONS = {
         'liveMode.status.fundingRequired': '需要入金',
         'liveMode.status.available': '实时模式可用',
         'liveMode.depositCta': '完成我的入金',
+        'liveMode.cardTitle': '实盘模式',
         'liveAccess.notAvailable': '该账户暂时无法使用实盘交易。请联系客服，我们会帮您完成设置。',
         'liveAccess.fundingRequired': '请为您的实盘余额入金以开始实盘交易。',
         'liveAccess.retryLater': '我们目前无法确认您的实盘访问。请稍后重试。',
@@ -19533,6 +19544,7 @@ const TRANSLATIONS = {
         'startHere.dismiss': '忽略',
         'startHere.live.title': '快速开始',
         'startHere.live.subtitleNext': '开始实时交易的下一步。',
+        'startHere.live.stepDeposit': '至少入金 ${{min}} 为您的实盘余额充值',
         'startHere.live.step3': '完成您的第一笔实时交易',
         'startHere.live.ready': '您已准备好进入实盘模式。启动机器人前请检查您的设置。',
         'wallet.liveReal': '真实交易资金 - 与促销信用分开。',
@@ -20828,6 +20840,13 @@ function renderLiveModeCard() {
         // dashboard it has today: no extra card.
         card.style.display = relevant ? 'block' : 'none';
         if (!relevant) return;
+        // The header describes what the card is actually about: the promotional
+        // credit when the account HAS one, otherwise the Live Mode status. A $0
+        // account must never be shown a card titled "Promotional Credit".
+        const titleEl = document.getElementById('liveModeCardTitle');
+        if (titleEl) titleEl.textContent = amount > 0 ? t('promo.creditTitle') : t('liveMode.cardTitle');
+        const iconEl = document.getElementById('liveModeCardIcon');
+        if (iconEl) iconEl.className = amount > 0 ? 'fas fa-gift' : 'fas fa-bolt';
         const amountRow = document.getElementById('promoCreditAmountRow');
         if (amountRow) amountRow.style.display = amount > 0 ? '' : 'none';
         const amountEl = document.getElementById('promoCreditAmount');
@@ -25013,7 +25032,16 @@ function updateStartHere() {
 // where they are actionable (the deposit dialog), not as a prerequisite list on
 // the dashboard, and there is no paid activation to complete.
 function startHereLiveSteps() {
-    return [{ key: 'startHere.live.step3' }];
+    // The checklist states the ACTUAL next step: an unfunded Live account cannot
+    // complete a trade before it has a confirmed deposit, so the deposit comes
+    // first (the value is the configured platform minimum, never a literal).
+    const d = (typeof APP !== 'undefined' && APP.liveData) ? APP.liveData : null;
+    const steps = [];
+    if (!d || !d.hasRealDeposit) {
+        steps.push({ key: 'startHere.live.stepDeposit', vars: { min: String(Number((typeof APP !== 'undefined' && APP.MIN_DEPOSIT) || 50) || 50) } });
+    }
+    steps.push({ key: 'startHere.live.step3' });
+    return steps;
 }
 
 // Completion state, driven ONLY by reliable server flags already adopted into
