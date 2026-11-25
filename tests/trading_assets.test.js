@@ -207,6 +207,7 @@ test('no new environment variable or migration was added for assets', () => {
   // 040 the conversion-events outbox and 041 the atomic legacy deposit credit.
   // 042 records the deposit-credit audit marker and 043 adds the marketing
   // claim lease (see docs/TELEGRAM_RECOVERY_AUDIT.md, sections 17 and 19).
+  // 059 adds the native in-app support tables (customer widget + admin inbox);
   // 044 adds the marketing worker heartbeat columns, 045 the deposit partner
   // directory and 046 the worker-reported destination state plus the durable
   // join-welcome ledger. The asset universe itself is display metadata and needs
@@ -218,7 +219,7 @@ test('no new environment variable or migration was added for assets', () => {
   // money and is not executed by the application.
   // 058 adds the in-app notification feed (event-keyed, idempotent inserts and
   // three observational triggers). It changes no money path.
-  assert.strictEqual(migrations.length, 57, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30, 056 = users email uniqueness, 057 = $50 minimum sync, 058 = notifications feed)');
+  assert.strictEqual(migrations.length, 58, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30, 056 = users email uniqueness, 057 = $50 minimum sync, 058 = notifications feed)');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');

@@ -70,6 +70,18 @@ const EVENTS = {
         title: 'notifications.events.referral.title',
         body: 'notifications.events.referral.body',
     },
+    // Native in-app support (services/NativeSupport.js). `supportReply` goes to
+    // the CUSTOMER when an agent answers; `supportMessage` alerts the admins.
+    supportReply: {
+        type: 'info',
+        title: 'notifications.events.supportReply.title',
+        body: 'notifications.events.supportReply.body',
+    },
+    supportMessage: {
+        type: 'info',
+        title: 'notifications.events.supportMessage.title',
+        body: 'notifications.events.supportMessage.body',
+    },
 };
 
 /** Hour-glass of the day used by the reminder cooldown key (UTC). */
