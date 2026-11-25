@@ -10431,3 +10431,215 @@ state-driven contract; 17 dictionary-count pins 1571 -> 1573 and
 `BASE_OUTSIDE_TESTIMONIALS` 1520 -> 1522. `npm test` = 4050 tests, 4049 pass, 0 fail,
 1 skipped (the pre-existing puppeteer-dependent test).
 i18n: 1573 keys x 6 locales, identical sets, 0 empty, `{{min}}` only where intended.
+
+## Deposit method rename + compact payment support DEPLOYED (2026-11-24)
+- Merge commit 6468028 ("Merge pull request #209 from .../fix/deposit-method-and-support-cleanup"),
+  pushed onto main after 3052aec (#208). Render auto-deployed in ~50s; the served
+  public/index.html is BYTE-IDENTICAL to the merged file (sha256 5f61a0c9...e665).
+- Live markers: `'deposit.choose.crypto.title': 'Deposit with USDT'`, legacy wording 0,
+  `support.paymentHelp.pending` 0, `'support.contactOfficial'` 0, `pay-support-actions` present,
+  `js-official-telegram` 4 (was 5: the payment-session duplicate is gone).
+- Production runtime checks (headless Chromium on https://arbitrix.pro/, stubbed invoice,
+  zero network writes) = 204/204 across en/es/pt/fr/ar/zh at 390px plus 320/375/1280:
+  localized option title+description, one funding option, hierarchy order intact, one compact
+  Contact Support CTA (opens the Support Center), no Telegram anchor in the payment block,
+  44px targets, invoice ref wraps, no horizontal overflow, 0 page errors. Support block height
+  571-603px -> 202-301px.
+- Endpoints: /, /api/health, /reset-password.html, /partners, /deposit-tutorials, /how-it-works,
+  /business-registration all 200; POST create-invoice / webhook/q8qpay / trade / withdraw/request
+  all 401; unknown /api path 404 JSON.
+- TOOLING NOTE: `getBoundingClientRect()` on the deposit modal reports ~97% of the real size
+  while the open transition still runs, so a 44px button measures 42.7. Use `offsetHeight`
+  for size assertions on that modal, or wait ~700ms after opening it.
+- No server.js, services, migration or financial logic changed (server.js 0 lines in the PR).
+- This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a second
+  Render rebuild.
+
+## Event-based in-app notifications (2026-11-24, branch feat/event-notifications, NOT deployed)
+- ROOT CAUSE of the repeated "Welcome to Kalderix" notification: `initApp()` in
+  public/index.html called `Notifications.add('info', t('notifications.welcome'), ...)`
+  on EVERY dashboard load. The store was localStorage-only with a random id per item,
+  so each login appended a new welcome (capped at 50 items), and the server knew
+  nothing about it. `grep -n "Notifications.add" public/index.html` no longer lists it.
+- ARCHITECTURE: the feed is now event-based and server-side.
+  * `supabase/migrations/058_notifications.sql`: `public.notifications`
+    (user_id, event_key, type, title_key, body_key, vars, occurred_at, read_at,
+    cleared_at) with `UNIQUE (user_id, event_key)`, RLS enabled, service_role-only
+    policy PLUS explicit `GRANT SELECT, INSERT, UPDATE` (a policy does not grant
+    privileges - caught by testing against a real Postgres), and
+    `notification_emit(...)` as the ONE insert path (INSERT ... ON CONFLICT DO
+    NOTHING, returns whether a row was created). Three OBSERVATIONAL triggers
+    record deposit pending / deposit confirmed / referral reward, each wrapped in
+    EXCEPTION -> RAISE WARNING so they can never block a money write.
+  * `services/Notifications.js`: catalogue (event -> i18n keys), `emit`/`list`/
+    `markAllRead`/`markRead`/`clearAll`, and the PURE `journeyReminders(state)`.
+  * server.js: welcome emitted ONLY in /api/auth/register; `first_trade` +
+    `promo_first_trade` in /api/trade (successful, non-duplicate writes only);
+    reminders evaluated in /api/auth/me (promo nudge once, daily reminder keyed
+    `promo_deposit_reminder:<UTC day>`, `ready_to_trade` once after 24h); four
+    routes `GET /api/notifications`, `POST /api/notifications/read-all`,
+    `POST /api/notifications/:id/read`, `DELETE /api/notifications`.
+  * public/index.html: `Notifications` is server-backed (server rows + local
+    badge/milestone rows merged, unread derived), legacy duplicate welcomes
+    collapse to one on load, language switch re-renders through `t()`, logout
+    clears the cache, opening the panel syncs.
+- CLEAR IS A SOFT CLEAR (`cleared_at`), so a cleared event can never be recreated by
+  its own event key. Nothing is DELETEd and no money object is touched by 058.
+- VERIFIED ON A REAL POSTGRES 16 (throwaway docker, since removed): 058 applies
+  cleanly and re-applies as a no-op; emit twice -> t/f; pending invoice -> pending
+  event; status flip WITHOUT `credited` -> no confirmation event; with `credited` ->
+  exactly one (replay adds none); legacy deposit path the same; referral pays once on
+  activation, never while pending, never for self-referral or a sandbox referrer;
+  soft clear keeps the key (re-emit returns false); anon denied, service_role can
+  read/clear; and with `notification_emit` forced to raise, a deposit insert AND
+  confirmation still committed (WARNING only).
+- TOOLING NOTE: `ALTER TABLE deposits DROP COLUMN credited` is REFUSED by Postgres
+  because the trigger depends on the column - so the "missing column" failure mode
+  cannot occur. Prove fail-open by replacing `notification_emit` with a raising stub.
+- TESTS: `tests/notifications_events.test.js` (23) runs the REAL service against a
+  behavioural fake of the 058 schema (conflict semantics + soft clear) and the REAL
+  store in a vm; it covers the ten required scenarios. Dictionary 1571 -> 1584
+  keys/locale (+13: six event copy pairs + a generic title).
+- NOT deployed; 058 is NOT applied to production.
+
+## PR #210 pre-merge review - findings, fixes and evidence (2026-11-25)
+Read-only review of the event-notification PR, followed by four corrections on the
+same branch. No production migration run, nothing merged, nothing deployed.
+
+### CRITICAL - fixed
+- Clicking a SERVER notification did nothing. `updateUI()` embedded the row id with
+  `JSON.stringify(n.id)` inside a double-quoted `onclick` attribute; a server id is
+  the string 'srv-<n>', so the attribute rendered as
+  `onclick="Notifications.markAsRead("` (truncated at the injected quote) and the
+  click threw `Unexpected end of input`. Local (badge) rows use numeric ids and were
+  unaffected, which is why the first harness missed it.
+  FIX: `Notifications.idLiteral(id)` returns a bare number for numeric ids and a
+  SANITIZED single-quoted literal ([A-Za-z0-9_-]) otherwise. Verified in Chromium:
+  the attribute now reads `onclick="Notifications.markAsRead('srv-501')"`, the click
+  marks the row read and POSTs `/api/notifications/501/read`.
+  Related hardening: `safeType`/`safeIcon` whitelist the class names (the feed is
+  rendered with innerHTML; the server type is CHECK-constrained but the client no
+  longer trusts it).
+
+### HIGH - fixed
+- `emitNotificationSafe()` set `notificationCatalogueMissing = true` on ANY failed
+  write, so one Supabase timeout silently disabled every notification for the rest
+  of the process. Now only STRUCTURAL failures (missing table/function, permission
+  denied, schema cache, PGRST202/205, 42P01, 42501, no client) disable writes;
+  transient failures stay enabled and log at most once a minute.
+
+### MEDIUM - fixed
+- `/api/auth/me` ran two `count` queries (pending deposit) for every unfunded
+  account on every session read, even when no reminder could fire.
+  `evaluateJourneyNotifications()` now decides first with "no pending deposit"
+  assumed and returns early when the candidate list is empty, so a caught-up
+  account performs zero extra queries.
+
+### LOW - fixed
+- Migration self-check: the three trigger probes are now scoped with
+  `tgrelid = '<table>'::regclass` (a same-named trigger on another table can no
+  longer satisfy them - the same lesson as migration 045), and it now asserts the
+  `service_role` SELECT grant exists and `anon` has none.
+
+### Re-verified after the fixes
+- Real PostgreSQL 16 (throwaway docker, removed): 058 applies and re-applies
+  cleanly; emit twice -> t/f; pending invoice -> pending event; status flip without
+  `credited` -> no confirmation; with `credited` -> exactly one; referral once,
+  self/sandbox skipped; with `notification_emit` forced to raise, the deposit INSERT
+  and UPDATE still commit (WARNING only); anon denied, service_role reads.
+- Negative self-check tests (each fails the migration when violated):
+  revoked service-role grant -> 'service-role-grant'; anon grant -> 'anon-grant';
+  same-named trigger on the wrong table -> 'deposit-invoice-trigger'.
+- `npm test` = 4068 tests, 4067 pass, 0 fail, 1 skipped (a pre-existing
+  puppeteer-dependent test that skips when puppeteer-core is absent).
+- Chromium harness (DOM-only) 14/14: server feed adopted, one welcome, valid click
+  handler, click -> read + POST, reload does not duplicate, legacy duplicates
+  collapse, Clear + empty state + no resurrection, es/ar re-render (RTL), 320/390
+  geometry, logout clears the cache.
+- Dev boot with an unusable Supabase: `/api/health` 200, `/api/notifications` 401,
+  a GET on read-all returns the JSON 404 contract - routes are gated and boot is
+  unaffected by database trouble.
+
+### PRODUCTION-COMPATIBILITY hardening (same review)
+- `CREATE TRIGGER ... UPDATE OF status, credited` on `public.deposits` would have
+  FAILED on a database where migration 041 (`deposits.credited`) is not applied,
+  even though nothing else in 058 needs it. The column list is now built inside a
+  DO block from `information_schema.columns` (`status` only when `credited` is
+  absent), so 058 applies in BOTH states. Verified on PostgreSQL 16: with the
+  column -> `AFTER INSERT OR UPDATE OF status, credited`; without -> `... OF
+  status`; both apply, re-apply and produce pending/confirmed/referral events
+  (a database without the marker produces no `deposit_confirmed` for LEGACY rows -
+  the provider path still sets `payment_invoices.credited`, from migration 006).
+- Consequence to state at deploy time: on a database without 041, legacy
+  (manual/provider-less) deposit confirmations produce no "Deposit confirmed"
+  notification. Provider deposits are unaffected.
+
+## PR #210 hardening: referral trigger no longer reads referrals.updated_at (2026-11-25)
+Follow-up to the production-readiness review of PR #210. Migration file only
+(`supabase/migrations/058_notifications.sql`) plus regression tests. No server,
+frontend, referral-calculation, reward-crediting or other financial logic touched;
+nothing merged, nothing deployed, 058 still NOT applied.
+
+FINDING: `notifications_capture_referral()` computed its `occurred_at` as
+`COALESCE(NEW.updated_at, NEW.created_at, now())`. `public.referrals` is not created
+by any migration in this repo, so its column set is only knowable from the live
+database. `created_at` is proven (the deployed referral list ORDERS BY it), but
+`updated_at` is touched by NO deployed query and no migration. Reading a record field
+that does not exist raises 42703 AT RUNTIME, and the trigger's `EXCEPTION WHEN OTHERS`
+swallows it into a WARNING - so on a database without that column EVERY referral
+notification would silently never be written while the migration still applied cleanly.
+
+FIX: `COALESCE(NEW.created_at, now())`. No other behaviour changed; the event key,
+guards (active + bonus>0 + referral ids + sandbox) and EVERY wallet/reward write are
+untouched - the trigger still only observes. The explanatory comment sits OUTSIDE the
+function body on purpose, so `pg_proc.prosrc` contains no reference to the column
+(readiness scripts grep prosrc).
+
+VERIFIED ON A REAL POSTGRES 16.16 (throwaway docker container, since removed; schema
+deliberately WITHOUT `referrals.updated_at` and WITHOUT `deposits.credited`):
+058 applies cleanly and re-applies as a no-op; a referral row inserted pending then
+updated to active/bonus=20 produced exactly ONE notification with
+`occurred_at = created_at`; the PREVIOUS expression, run as a control against the same
+table, wrote ZERO rows and logged `42703 record "new" has no field "updated_at"` -
+which is the defect reproduced; the legacy `deposits` trigger still emits its pending
+event without a `credited` column; the `payment_invoices` path still emits pending and
+confirmed; `prosrc` contains no `updated_at` and uses `NEW.created_at`.
+
+TESTS: two new tests in `tests/notifications_events.test.js`:
+- 11c extracts the referral function from the migration (comments stripped) and pins
+  that the ONLY record fields it reads are `id`, `referrer_id`, `referred_id`,
+  `status`, `bonus_earned`, `created_at` - any future unverified column fails the test;
+- 11d mirrors the timestamp rule for a row with no `updated_at`, a row that happens to
+  carry one, and a NULL `created_at`, and asserts the removed expression throws on the
+  production-shaped row (the regression guard).
+Suite: 33/33 in that file.
+
+## PR #210 review fixes: pending-deposit tri-state + rollback signature (2026-11-25)
+Two findings from the final production-readiness inspection. Both are contained:
+no wallet, deposit, withdrawal, trade, referral, Q8Pay or crediting code changed;
+migration 058 was NOT applied and nothing was deployed.
+
+1. `hasPendingDeposit()` (server.js, ~L791) now returns a TRI-STATE value.
+   supabase-js RESOLVES with `{ data, error }` rather than throwing, so a failed
+   count query looked exactly like "zero pending deposits" and a journey reminder
+   could fire while a deposit was awaiting confirmation. The helper now returns
+   `null` when the state cannot be established - a returned `error` on EITHER
+   query, a missing response, a non-numeric/absent count, or a thrown exception -
+   and logs ONE structured line (`event: pending_deposit_state_unknown`, error
+   codes only, no user data). A new pure guard `remindersAllowed(state)` returns
+   true ONLY for `false`, and `evaluateJourneyNotifications()` uses it, so both
+   "a deposit is pending" and "unreadable" suppress the reminder and the previous
+   behaviour is preserved whenever both queries succeed.
+2. The documented rollback in migration 058 named only six argument types for
+   `notification_emit(...)`. PostgreSQL identifies a function by its full
+   signature, so that DROP left the function behind. The line now lists all seven
+   (`BIGINT, TEXT, TEXT, TEXT, TEXT, JSONB, TIMESTAMPTZ`) and a test pins the
+   rollback to the declaration. Comment-only: the migration body is unchanged.
+
+TESTS: `tests/notifications_events.test.js` gained 17i (executes the REAL
+`hasPendingDeposit` + `remindersAllowed` in a vm against a fake Supabase client:
+both-succeed-zero / pending-exists / returned-error / thrown / malformed-response
+/ caller-uses-the-guard) and 17j (rollback signature equality). 17f's harness now
+supplies the new `remindersAllowed` collaborator and additionally asserts that an
+unknown state emits nothing - the harness change, not the assertions, was updated.
+npm test = 4085 tests, 4084 pass, 0 fail, 1 skipped (baseline 4083/4082/0/1).

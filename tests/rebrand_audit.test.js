@@ -300,7 +300,8 @@ test('the rebrand adds no migration (its only DDL predates the audit)', () => {
   // 056 (users email uniqueness) and 057 (the approved $50 minimum sync) are
   // separate changes, not part of the rename.
   const migrations = fs.readdirSync(path.join(ROOT, 'supabase/migrations'));
-  assert.equal(migrations.length, 56, 'migration count changed - was a file added?');
+  // 058 is the notification feed, a separate approved change (see its own pin).
+  assert.equal(migrations.length, 57, 'migration count changed - was a file added?');
   const rebrandNamed = migrations.filter((m) => /rebrand|kalderix/i.test(m));
   assert.deepEqual(rebrandNamed, ['051_rebrand_subscription_detail.sql']);
   // and the pre-existing one rewrites a DISPLAY string, not a balance rule

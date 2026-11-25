@@ -138,7 +138,7 @@ test('the loop is wired to start on a bot start and stop on stopBot/logout', () 
     assert.ok(extractFunction('stopBot').includes('stopWorkerSyncLoop()'), 'stopBot stops the sync loop');
     const logoutIdx = INDEX.indexOf("localStorage.removeItem('jwt_token')");
     assert.ok(logoutIdx > 0);
-    assert.ok(INDEX.slice(logoutIdx - 1200, logoutIdx).includes('stopWorkerSyncLoop()'), 'logout clears the sync loop');
+    assert.ok(INDEX.slice(logoutIdx - 1500, logoutIdx).includes('stopWorkerSyncLoop()'), 'logout clears the sync loop');
 });
 
 test('overlap guard and authenticated/sandbox gating are present in source', () => {
