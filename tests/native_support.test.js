@@ -109,7 +109,63 @@ function makeDb(seed) {
         return api;
     }
 
-    return { from: (t) => builder(t), _tables: tables };
+    // Emulates the two locked SECURITY DEFINER functions from migration 059.
+    // JavaScript is single-threaded, so each handler runs to completion = the
+    // same guarantee `SELECT ... FOR UPDATE` gives in Postgres.
+    function nowIso() { return new Date().toISOString(); }
+    function preview(body) {
+        const flat = String(body || '').replace(/\s+/g, ' ').trim();
+        return flat.length > 160 ? flat.slice(0, 159) + '\u2026' : flat;
+    }
+    const rpcHandlers = {
+        support_post_customer_message: function (p) {
+            const conv = tables.support_conversations.find((c) => c.id === p.p_conversation_id);
+            if (!conv) return { ok: false, reason: 'not-found' };
+            if (p.p_client_message_id) {
+                const dup = tables.support_messages.find((m) => m.conversation_id === conv.id
+                    && m.client_message_id === p.p_client_message_id);
+                if (dup) return { ok: true, duplicate: true, message: dup, conversation: Object.assign({}, conv) };
+            }
+            const msg = { id: seq.support_messages = (seq.support_messages || 1) + 1, conversation_id: conv.id,
+                sender_type: 'customer', sender_user_id: null, body: p.p_body,
+                client_message_id: p.p_client_message_id || null, created_at: nowIso() };
+            tables.support_messages.push(msg);
+            conv.unread_for_admin = Number(conv.unread_for_admin || 0) + 1;
+            conv.last_message_at = nowIso();
+            conv.last_message_preview = preview(p.p_body);
+            if (conv.status === 'resolved') { conv.status = 'open'; conv.resolved_at = null; }
+            conv.updated_at = nowIso();
+            return { ok: true, duplicate: false, message: msg, conversation: Object.assign({}, conv) };
+        },
+        support_commit_ai_turn: function (p) {
+            if (p.p_sender_type !== 'ai' && p.p_sender_type !== 'system') {
+                return { committed: false, reason: 'invalid-sender' };
+            }
+            const conv = tables.support_conversations.find((c) => c.id === p.p_conversation_id);
+            if (!conv) return { committed: false, reason: 'not-found' };
+            if (conv.status === 'resolved') return { committed: false, reason: 'resolved', conversation: Object.assign({}, conv) };
+            if (conv.ai_paused === true) return { committed: false, reason: 'ai-paused', conversation: Object.assign({}, conv) };
+            const msg = { id: seq.support_messages = (seq.support_messages || 1) + 1, conversation_id: conv.id,
+                sender_type: p.p_sender_type, sender_user_id: null, body: p.p_body,
+                client_message_id: null, created_at: nowIso() };
+            tables.support_messages.push(msg);
+            if (p.p_context) conv.context = p.p_context;
+            conv.unread_for_customer = Number(conv.unread_for_customer || 0) + 1;
+            conv.last_message_at = nowIso();
+            conv.last_message_preview = p.p_preview || preview(p.p_body);
+            if (p.p_needs_human === true) { conv.status = 'waiting'; conv.ai_paused = true; }
+            conv.updated_at = nowIso();
+            return { committed: true, message: msg, conversation: Object.assign({}, conv) };
+        }
+    };
+
+    return { from: (t) => builder(t), _tables: tables,
+        rpc: async function (name, params) {
+            const handler = rpcHandlers[name];
+            if (!handler) return { data: null, error: { code: '42883', message: 'function public.' + name + ' does not exist' } };
+            try { return { data: handler(params || {}), error: null }; }
+            catch (e) { return { data: null, error: { code: e.code || 'P0001', message: e.message } }; }
+        } };
 }
 
 function makeService(overrides) {
@@ -325,7 +381,11 @@ test('17. migration 059 creates the three tables with RLS and service_role-only 
 test('18. migration 059 touches no financial table and replaces no function', () => {
     const forbidden = /(INSERT INTO|UPDATE|DELETE FROM|ALTER TABLE)\s+public\.(wallets|deposits|withdrawals|trades|transactions|referrals|subscriptions)/i;
     assert.ok(!forbidden.test(MIGRATION), 'no financial table may be written');
-    assert.ok(!/CREATE OR REPLACE FUNCTION/i.test(MIGRATION));
+    // Only the two support functions may be defined here: no financial RPC and
+    // no unrelated function may be replaced by this migration.
+    const defined = MIGRATION.match(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)/g) || [];
+    assert.deepStrictEqual(defined.map((l) => l.split('.').pop()).sort(),
+        ['support_commit_ai_turn', 'support_post_customer_message']);
 });
 
 test('19. the two support notification events exist with localized keys', () => {
@@ -394,4 +454,134 @@ test('23. no money, credentials or innerHTML in the messenger service', () => {
     assert.ok(!forbidden.test(service), 'the messenger must not touch money');
     assert.ok(!/password|seed phrase|private key/i.test(service), 'never asks for credentials');
     assert.ok(!/innerHTML/.test(service));
+});
+
+/* ==========================================================================
+ * Concurrency: the AI turn must never undo a human takeover.
+ *
+ * These reproduce the race DETERMINISTICALLY: the AI stub blocks inside ask()
+ * until the test releases it, so a takeover/resolve is guaranteed to commit
+ * while the answer is being generated - exactly the production window.
+ * ========================================================================== */
+
+function controlledAI(text) {
+    let release;
+    let started;
+    const startedPromise = new Promise((r) => { started = r; });
+    const gate = new Promise((r) => { release = r; });
+    return {
+        started: startedPromise,
+        release: function () { release(); },
+        ai: {
+            ask: async function () {
+                started();
+                await gate;
+                return { answer: text, modelGenerated: false, needsHuman: false };
+            }
+        }
+    };
+}
+
+test('24. takeover during AI generation wins: the answer is discarded and nothing is written', async () => {
+    const ctl = controlledAI('AI answer that must not land');
+    const { service, db } = makeService({ options: { ai: ctl.ai } });
+    const pending = service.sendCustomerMessage({ userId: 201, body: 'I need help with a deposit' });
+    await ctl.started;                                   // the AI turn is in flight
+    const convId = db._tables.support_conversations[0].id;
+    await service.takeover(convId, 900);                 // the human takes over
+    ctl.release();
+    const out = await pending;
+
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.reply, null, 'no AI reply may be written after takeover');
+    assert.strictEqual(out.aiPaused, true);
+    assert.strictEqual(out.discarded, 'ai-paused');
+    const conv = db._tables.support_conversations[0];
+    assert.strictEqual(conv.ai_paused, true, 'takeover is still effective');
+    const rows = db._tables.support_messages.filter((m) => m.conversation_id === convId);
+    assert.ok(!rows.some((r) => r.sender_type === 'ai'), 'no AI row may exist');
+    assert.ok(!rows.some((r) => /must not land/.test(r.body)), 'the pending answer was discarded');
+    // the only other row is the takeover notice inserted by the admin action
+    assert.deepStrictEqual(rows.map((r) => r.sender_type), ['customer', 'system']);
+});
+
+test('25. resolve during AI generation also discards the answer', async () => {
+    const ctl = controlledAI('Late answer');
+    const { service, db } = makeService({ options: { ai: ctl.ai } });
+    const pending = service.sendCustomerMessage({ userId: 202, body: 'question' });
+    await ctl.started;
+    const convId = db._tables.support_conversations[0].id;
+    await service.resolve(convId, 900);
+    ctl.release();
+    const out = await pending;
+    assert.strictEqual(out.reply, null);
+    assert.strictEqual(out.discarded, 'resolved');
+    assert.strictEqual(db._tables.support_conversations[0].status, 'resolved');
+    assert.ok(!db._tables.support_messages.some((m) => m.body === 'Late answer'));
+});
+
+test('26. if the AI turn commits first, a later takeover stays effective', async () => {
+    const { service, db } = makeService();
+    const out = await service.sendCustomerMessage({ userId: 203, body: 'hello' });
+    assert.ok(out.reply && out.reply.body, 'the AI answered normally');
+    await service.takeover(out.conversationId, 900);
+    const conv = db._tables.support_conversations[0];
+    assert.strictEqual(conv.ai_paused, true, 'the takeover was not overwritten');
+    assert.strictEqual(conv.status, 'assigned');
+    const aiRows = db._tables.support_messages.filter((m) => m.sender_type === 'ai');
+    assert.strictEqual(aiRows.length, 1, 'the already-committed answer is kept');
+});
+
+test('27. two in-flight turns cannot interleave the conversation context', async () => {
+    // Both messages are posted, then both AI turns commit against the same row.
+    // The stored context must be exactly one turn's nextState - never a merge,
+    // never a partially written object - and both customer messages survive.
+    const { service, db } = makeService({
+        options: {
+            ai: { ask: async () => ({ answer: 'answer', modelGenerated: false, needsHuman: false }) },
+            engine: { planTurn: ({ state }) => ({ handled: true, lines: [], nextState: { turn: (state.turn || 0) + 1 } }) },
+            i18n: { t: () => '' }
+        }
+    });
+    await Promise.all([
+        service.sendCustomerMessage({ userId: 204, body: 'first' }),
+        service.sendCustomerMessage({ userId: 204, body: 'second' }),
+    ]);
+    const conv = db._tables.support_conversations[0];
+    assert.strictEqual(db._tables.support_conversations.length, 1, 'one thread');
+    const customerRows = db._tables.support_messages.filter((m) => m.sender_type === 'customer');
+    assert.strictEqual(customerRows.length, 2, 'no customer message was lost');
+    assert.deepStrictEqual(Object.keys(conv.context).sort(), ['turn']);
+    assert.ok([1, 2].indexOf(conv.context.turn) !== -1, 'context is one complete turn state');
+    assert.strictEqual(conv.unread_for_admin, 2);
+});
+
+test('28. a duplicate replay under the lock never creates a second message or counter bump', async () => {
+    const { service, db } = makeService();
+    const first = await service.sendCustomerMessage({ userId: 205, body: 'same', clientMessageId: 'dup-1' });
+    const again = await service.sendCustomerMessage({ userId: 205, body: 'same', clientMessageId: 'dup-1' });
+    assert.strictEqual(again.duplicate, true);
+    assert.strictEqual(again.message.id, first.message.id);
+    const rows = db._tables.support_messages.filter((m) => m.client_message_id === 'dup-1');
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(db._tables.support_conversations[0].unread_for_admin, 1);
+});
+
+test('29. without migration 059 the fallback path still refuses to undo a takeover', async () => {
+    const ctl = controlledAI('Fallback answer');
+    const db = makeDb();
+    // Simulate "function does not exist" exactly as PostgREST reports it.
+    db.rpc = async () => ({ data: null, error: { code: '42883', message: 'function public.support_commit_ai_turn does not exist' } });
+    const { service } = makeService({ db: db, options: { ai: ctl.ai } });
+    const pending = service.sendCustomerMessage({ userId: 206, body: 'hi' });
+    await ctl.started;
+    const convId = db._tables.support_conversations[0].id;
+    await service.takeover(convId, 900);
+    ctl.release();
+    const out = await pending;
+    assert.strictEqual(out.reply, null, 'the fallback discards the answer too');
+    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true);
+    assert.ok(!db._tables.support_messages.some((m) => m.body === 'Fallback answer'));
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1,
+        'the customer message was still stored');
 });

@@ -74,8 +74,19 @@ they answer **404** (the surface does not exist for production customers).
 * **Human takeover.** `takeover` sets `ai_paused = TRUE`; while it is set no AI
   reply is produced (verified by test 5). `resume` clears it; `resolve` closes the
   thread (the next message reopens a new one).
-* **No simultaneous answers.** Pause is a single row field read inside the same
-  request that would generate the reply.
+* **No simultaneous answers (concurrency-safe).** The customer write and the AI
+  turn are committed by two `SECURITY DEFINER` functions that take the
+  conversation row lock (`SELECT ... FOR UPDATE`) BEFORE validating:
+  `support_post_customer_message` (locked, idempotent send) and
+  `support_commit_ai_turn` (locked commit). The race is therefore serialised in
+  both directions - if a takeover/resolve commits while the model is generating,
+  the AI turn re-reads under the lock, returns `{committed:false}` and writes
+  **nothing** (no message, no context, no counters); if the AI turn commits
+  first, the takeover's UPDATE waits and stays effective. Context is written by
+  the same locked statement as the message, so two turns cannot interleave into
+  a half-merged state. Before migration 059 is applied the service degrades to a
+  conditional-update claim (`WHERE ai_paused = false AND status <> 'resolved'`),
+  which still cannot undo a takeover; only the atomicity is lost.
 * **Idempotency.** `client_message_id` (unique per conversation) makes a retried
   send return the original row (`duplicate: true`).
 * **Unread counters** move on each side; the customer widget clears its own on
@@ -109,6 +120,20 @@ they answer **404** (the surface does not exist for production customers).
 4. Rollback: unset the flag (routes 404 immediately, no deploy needed). The tables
    can stay; `DROP TABLE support_actions, support_messages, support_conversations`
    removes everything (no money data).
+
+## 6b. Launcher placement (verified in a browser)
+
+* The launcher sits `bottom:160px`, above the toast band (toasts are fixed at
+  `bottom:20px` and can wrap to several lines) and above the legacy assistant FAB.
+* While the cookie-consent banner is present (`z-index 99999`, 118px tall) it is
+  lifted to `bottom:250px` - the same treatment the legacy support widget already
+  had - so the consent dialog can never swallow the tap.
+* `body.ns-enabled` hides the legacy floating assistant launcher while the
+  messenger is on: one support affordance at a time. The Support Center (sidebar
+  entry + profile link) is untouched.
+* The unread badge is refreshed on every `sync()` and whenever the panel closes
+  (5s throttle), so a reply that arrived while the messenger was closed is
+  visible on the launcher.
 
 ## 7. Known limitations
 

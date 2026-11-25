@@ -209,6 +209,20 @@
     call('/api/support/conversations/' + state.conversationId + '/read', { method: 'POST', body: {} }).then(function () { setUnread(0); }).catch(function () {});
   }
 
+  var lastBadgeAt = 0;
+  // Refresh the unread badge from the server. Called on every sync AND when the
+  // panel closes: a reply that arrived while the messenger was closed has to be
+  // visible on the launcher, not only on a fresh page load.
+  function refreshBadge(force) {
+    var now = Date.now();
+    if (!force && now - lastBadgeAt < 5000) return Promise.resolve();
+    lastBadgeAt = now;
+    return call('/api/support/conversations').then(function (r) {
+      var list = (r.body && r.body.conversations) || [];
+      setUnread(list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0));
+    }).catch(function () {});
+  }
+
   function setUnread(n) {
     state.unread = Math.max(0, Number(n) || 0);
     if (!badge) return;
@@ -237,6 +251,7 @@
     if (root) root.classList.remove('open');
     state.open = false;
     show();
+    refreshBadge(true);
   }
 
   var NativeSupport = {
@@ -252,14 +267,10 @@
     },
     sync: function () {
       var enabled = (typeof APP !== 'undefined' && APP && APP.nativeSupport === true);
+      if (document.body) document.body.classList.toggle('ns-enabled', enabled);
       if (!enabled) { hideLauncher(); return; }
       build();
-      if (!state.started && !state.open) {
-        call('/api/support/conversations').then(function (r) {
-          var list = (r.body && r.body.conversations) || [];
-          setUnread(list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0));
-        }).catch(function () {});
-      }
+      if (!state.open) refreshBadge(false);
       show();
     }
   };

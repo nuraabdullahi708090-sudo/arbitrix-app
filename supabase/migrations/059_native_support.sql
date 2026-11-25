@@ -193,6 +193,140 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
+-- 4b. Concurrency-safe message writes (the AI / human-takeover race)
+-- ---------------------------------------------------------------------------
+-- WHY: the first implementation read the conversation, generated an AI answer
+-- (a provider round trip, hundreds of milliseconds) and then wrote the row back
+-- from that stale read. An administrator who took over - or resolved - the
+-- thread inside that window could be silently overwritten and the AI answer
+-- landed anyway; two concurrent customer messages could also clobber each
+-- other's conversation context.
+--
+-- Both functions below take the conversation row lock (SELECT ... FOR UPDATE)
+-- BEFORE validating and writing, so the race is serialised in both directions:
+--   * takeover/resolve commits first -> the AI turn re-reads under the lock,
+--     sees ai_paused = TRUE (or status = 'resolved') and returns
+--     {"committed": false}; the pending answer is DISCARDED and nothing is
+--     written (no message, no context, no counters).
+--   * the AI turn commits first -> the takeover UPDATE waits on the lock and
+--     then applies, so the human control stays effective.
+-- Context is written by the same locked statement as the message, so two turns
+-- can never interleave into a half-merged state.
+
+CREATE OR REPLACE FUNCTION public.support_post_customer_message(
+    p_conversation_id   BIGINT,
+    p_body              TEXT,
+    p_client_message_id TEXT DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+    v_conv  public.support_conversations%ROWTYPE;
+    v_after public.support_conversations%ROWTYPE;
+    v_msg   public.support_messages%ROWTYPE;
+BEGIN
+    SELECT * INTO v_conv FROM public.support_conversations WHERE id = p_conversation_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('ok', false, 'reason', 'not-found');
+    END IF;
+
+    -- Idempotent send: a retried request returns the original row under the same
+    -- lock, so a replay can never create a second message.
+    IF p_client_message_id IS NOT NULL THEN
+        SELECT * INTO v_msg FROM public.support_messages
+         WHERE conversation_id = p_conversation_id
+           AND client_message_id = p_client_message_id
+         LIMIT 1;
+        IF FOUND THEN
+            RETURN jsonb_build_object('ok', true, 'duplicate', true,
+                                      'message', to_jsonb(v_msg), 'conversation', to_jsonb(v_conv));
+        END IF;
+    END IF;
+
+    INSERT INTO public.support_messages (conversation_id, sender_type, body, client_message_id)
+    VALUES (p_conversation_id, 'customer', p_body, p_client_message_id)
+    RETURNING * INTO v_msg;
+
+    UPDATE public.support_conversations
+       SET unread_for_admin      = COALESCE(unread_for_admin, 0) + 1,
+           last_message_at       = now(),
+           last_message_preview  = left(regexp_replace(p_body, '\s+', ' ', 'g'), 160),
+           status                = CASE WHEN status = 'resolved' THEN 'open' ELSE status END,
+           resolved_at           = CASE WHEN status = 'resolved' THEN NULL ELSE resolved_at END,
+           updated_at            = now()
+     WHERE id = p_conversation_id
+    RETURNING * INTO v_after;
+
+    RETURN jsonb_build_object('ok', true, 'duplicate', false,
+                              'message', to_jsonb(v_msg), 'conversation', to_jsonb(v_after));
+END;
+$fn$;
+
+CREATE OR REPLACE FUNCTION public.support_commit_ai_turn(
+    p_conversation_id BIGINT,
+    p_sender_type     TEXT,
+    p_body            TEXT,
+    p_context         JSONB,
+    p_needs_human     BOOLEAN,
+    p_preview         TEXT
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+    v_conv  public.support_conversations%ROWTYPE;
+    v_after public.support_conversations%ROWTYPE;
+    v_msg   public.support_messages%ROWTYPE;
+BEGIN
+    IF p_sender_type NOT IN ('ai', 'system') THEN
+        RETURN jsonb_build_object('committed', false, 'reason', 'invalid-sender');
+    END IF;
+
+    SELECT * INTO v_conv FROM public.support_conversations WHERE id = p_conversation_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('committed', false, 'reason', 'not-found');
+    END IF;
+
+    -- A human owns the thread, or it is closed: discard the pending answer.
+    IF v_conv.status = 'resolved' THEN
+        RETURN jsonb_build_object('committed', false, 'reason', 'resolved',
+                                  'conversation', to_jsonb(v_conv));
+    END IF;
+    IF COALESCE(v_conv.ai_paused, false) THEN
+        RETURN jsonb_build_object('committed', false, 'reason', 'ai-paused',
+                                  'conversation', to_jsonb(v_conv));
+    END IF;
+
+    INSERT INTO public.support_messages (conversation_id, sender_type, body)
+    VALUES (p_conversation_id, p_sender_type, p_body)
+    RETURNING * INTO v_msg;
+
+    UPDATE public.support_conversations
+       SET context              = COALESCE(p_context, context),
+           unread_for_customer  = COALESCE(unread_for_customer, 0) + 1,
+           last_message_at      = now(),
+           last_message_preview = COALESCE(p_preview,
+                                           left(regexp_replace(p_body, '\s+', ' ', 'g'), 160)),
+           status               = CASE WHEN COALESCE(p_needs_human, false) THEN 'waiting' ELSE status END,
+           ai_paused            = CASE WHEN COALESCE(p_needs_human, false) THEN TRUE ELSE ai_paused END,
+           updated_at           = now()
+     WHERE id = p_conversation_id
+    RETURNING * INTO v_after;
+
+    RETURN jsonb_build_object('committed', true, 'message', to_jsonb(v_msg),
+                              'conversation', to_jsonb(v_after));
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.support_post_customer_message(BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.support_post_customer_message(BIGINT, TEXT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT) TO service_role;
+
+-- ---------------------------------------------------------------------------
 -- 5. Self-check: fail loudly (and roll back) rather than leave a half schema
 -- ---------------------------------------------------------------------------
 DO $$
@@ -211,6 +345,10 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'support_messages'
                AND NOT (roles && ARRAY['service_role']::name[])) THEN
         v_missing := v_missing || ' policy:non-service-role'; END IF;
+    IF to_regprocedure('public.support_post_customer_message(bigint,text,text)') IS NULL THEN
+        v_missing := v_missing || ' fn:post_customer_message'; END IF;
+    IF to_regprocedure('public.support_commit_ai_turn(bigint,text,text,jsonb,boolean,text)') IS NULL THEN
+        v_missing := v_missing || ' fn:commit_ai_turn'; END IF;
     IF v_missing <> '' THEN
         RAISE EXCEPTION '059_native_support.sql incomplete:%', v_missing;
     END IF;

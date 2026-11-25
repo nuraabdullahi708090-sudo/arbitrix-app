@@ -245,8 +245,19 @@ function createNativeSupportService(options) {
         const existing = await loadActiveConversation(userId);
         if (existing) return { ok: true, conversation: existing, created: false };
         if (!allowConversation('conv:' + userId)) return fail('rate-limited');
-        const conversation = await insertConversation(userId, seed || {});
-        return { ok: true, conversation: conversation, created: true };
+        try {
+            const conversation = await insertConversation(userId, seed || {});
+            return { ok: true, conversation: conversation, created: true };
+        } catch (err) {
+            // Two first messages can race here. The partial unique index allows a
+            // single ACTIVE thread per customer, so the loser re-reads instead of
+            // failing the customer's message.
+            if (err && (err.code === '23505' || /duplicate key/i.test(err.message || ''))) {
+                const raced = await loadActiveConversation(userId);
+                if (raced) return { ok: true, conversation: raced, created: false };
+            }
+            throw err;
+        }
     }
 
     async function insertMessage(conversationId, senderType, body, meta) {
@@ -277,6 +288,7 @@ function createNativeSupportService(options) {
         const row = await readConversation(conversationId);
         if (!row) throw new Error('conversation-missing');
         const next = Object.assign({}, patch);
+        Object.keys(next).forEach(function (k) { if (next[k] === undefined) delete next[k]; });
         next.updated_at = now().toISOString();
         if (counters && counters.unreadForAdmin) {
             next.unread_for_admin = Number(row.unread_for_admin || 0) + counters.unreadForAdmin;
@@ -369,6 +381,122 @@ function createNativeSupportService(options) {
         };
     }
 
+    // ---------------------------------------------------------- locked writes
+    // Migration 059 exposes two SECURITY DEFINER functions that take the
+    // conversation row lock (SELECT ... FOR UPDATE) before validating and
+    // writing. They are what makes "an admin takes over while the AI is
+    // generating" safe: the loser of the race writes nothing.
+    //
+    // When the migration has not been applied yet the RPCs do not exist, so the
+    // service degrades to the previous path (and warns once) - a missing
+    // function must never make customer messages fail. The fallback still
+    // claims the turn with a CONDITIONAL update, so it cannot undo a takeover
+    // either; only the atomicity of the two writes is lost.
+    let rpcWrites = true;
+
+    function rpcMissing(err) {
+        const code = err && err.code;
+        return code === '42883' || code === 'PGRST202'
+            || /could not find the function|function .* does not exist/i.test(String((err && err.message) || ''));
+    }
+
+    async function callRpc(name, params) {
+        if (typeof supabase.rpc !== 'function') {
+            const e = new Error('rpc-unsupported');
+            e.code = '42883';
+            throw e;
+        }
+        const res = await supabase.rpc(name, params);
+        if (res && res.error) {
+            const e = new Error(res.error.message || res.error.code || 'rpc-error');
+            e.code = res.error.code;
+            throw e;
+        }
+        return res && res.data;
+    }
+
+    async function postCustomerMessage(conversation, body, clientMessageId) {
+        if (rpcWrites) {
+            try {
+                const out = await callRpc('support_post_customer_message', {
+                    p_conversation_id: conversation.id,
+                    p_body: body,
+                    p_client_message_id: clientMessageId || null,
+                });
+                if (!out || typeof out.ok !== 'boolean') {
+                    throw Object.assign(new Error('post-contract'), { code: 'rpc-contract' });
+                }
+                if (out.ok !== true) {
+                    if (out.reason === 'not-found') return { missing: true };
+                    throw Object.assign(new Error('post-failed'), { code: 'rpc-contract' });
+                }
+                return out;
+            } catch (err) {
+                if (!rpcMissing(err)) throw err;
+                rpcWrites = false;
+                logOnce('rpc-missing:post', err && err.message);
+            }
+        }
+        const inserted = await insertMessage(conversation.id, SENDER.CUSTOMER, body, { clientMessageId: clientMessageId });
+        if (inserted.duplicate) {
+            return { duplicate: true, message: inserted.message, conversation: conversation };
+        }
+        const reopened = conversation.status === STATUS.RESOLVED;
+        const row = await touchConversation(conversation.id, {
+            status: reopened ? STATUS.OPEN : (conversation.ai_paused ? conversation.status : STATUS.OPEN),
+            last_message_at: now().toISOString(),
+            last_message_preview: previewOf(body),
+            resolved_at: reopened ? null : conversation.resolved_at,
+        }, { unreadForAdmin: 1 });
+        return { duplicate: false, message: inserted.message, conversation: row };
+    }
+
+    async function commitAiTurn(conversationId, composed) {
+        const senderType = composed.needsHuman ? SENDER.SYSTEM : SENDER.AI;
+        const preview = previewOf(composed.text);
+        if (rpcWrites) {
+            try {
+                const out = await callRpc('support_commit_ai_turn', {
+                    p_conversation_id: conversationId,
+                    p_sender_type: senderType,
+                    p_body: composed.text,
+                    p_context: composed.context || {},
+                    p_needs_human: composed.needsHuman === true,
+                    p_preview: preview,
+                });
+                if (!out || typeof out.committed !== 'boolean') {
+                    throw Object.assign(new Error('commit-contract'), { code: 'rpc-contract' });
+                }
+                return out;
+            } catch (err) {
+                if (!rpcMissing(err)) throw err;
+                rpcWrites = false;
+                logOnce('rpc-missing:commit', err && err.message);
+            }
+        }
+        // Fallback: claim the turn with a conditional UPDATE (it only matches
+        // while no human owns the thread and it is not resolved), then write.
+        const claimed = await supabase.from('support_conversations')
+            .update({ updated_at: now().toISOString() })
+            .eq('id', conversationId).eq('ai_paused', false).neq('status', STATUS.RESOLVED).select();
+        if (claimed && claimed.error) throw new Error(claimed.error.message || 'claim-failed');
+        if (!claimed || !claimed.data || !claimed.data.length) {
+            return { committed: false, reason: 'ai-paused' };
+        }
+        const inserted = await insertMessage(conversationId, senderType, composed.text, {});
+        const patch = {
+            last_message_at: now().toISOString(),
+            last_message_preview: preview,
+            context: composed.context || {},
+        };
+        if (composed.needsHuman) {
+            patch.status = STATUS.WAITING;
+            patch.ai_paused = true;
+        }
+        const row = await touchConversation(conversationId, patch, { unreadForCustomer: inserted.message ? 1 : 0 });
+        return { committed: true, message: inserted.message, conversation: row };
+    }
+
     // -------------------------------------------------------------- customer side
 
     async function listConversations(userId) {
@@ -437,66 +565,69 @@ function createNativeSupportService(options) {
         }
 
         try {
-            const inserted = await insertMessage(conversation.id, SENDER.CUSTOMER, cleaned.body, {
-                senderUserId: userId,
-                clientMessageId: input.clientMessageId,
-            });
-            if (inserted.duplicate) {
-                return { ok: true, duplicate: true, conversationId: conversation.id, message: inserted.message, reply: null };
+            // 1. Persist the customer message under the conversation row lock.
+            //    Locked + idempotent, so a concurrent replay cannot create a
+            //    second row and the unread counter is never lost to a race.
+            const posted = await postCustomerMessage(conversation, cleaned.body, input.clientMessageId);
+            if (posted.duplicate) {
+                return { ok: true, duplicate: true, conversationId: conversation.id, message: posted.message, reply: null };
             }
 
-            const reopened = conversation.status === STATUS.RESOLVED;
-            const updated = await touchConversation(conversation.id, {
-                status: reopened ? STATUS.OPEN : (conversation.ai_paused ? conversation.status : STATUS.OPEN),
-                last_message_at: now().toISOString(),
-                last_message_preview: previewOf(cleaned.body),
-                resolved_at: reopened ? null : conversation.resolved_at,
-            }, { unreadForAdmin: 1 });
+            const afterPost = posted.conversation || conversation;
 
             if (notifyAdmins) {
                 try {
-                    await notifyAdmins(updated, inserted.message);
+                    await notifyAdmins(afterPost, posted.message);
                 } catch (err) {
                     logOnce('admin-notify-failed', err && err.message);
                 }
             }
 
-            // A human owns the thread: no automated answer may be produced.
-            if (updated.ai_paused) {
+            // A human already owns the thread: no automated answer at all.
+            if (afterPost.ai_paused) {
                 return {
                     ok: true,
-                    conversationId: updated.id,
-                    status: updated.status,
+                    conversationId: afterPost.id,
+                    status: afterPost.status,
                     aiPaused: true,
-                    message: inserted.message,
+                    message: posted.message,
                     reply: null,
                 };
             }
 
-            const composed = await composeAiReply(updated, cleaned.body);
-            let replyMessage = null;
-            if (composed.text) {
-                const reply = await insertMessage(updated.id, composed.needsHuman ? SENDER.SYSTEM : SENDER.AI, composed.text, {});
-                replyMessage = reply.message;
+            // 2. Generate the answer (a network round trip), then COMMIT it under
+            //    the same lock. A takeover or resolve that committed while the
+            //    model was generating wins: the pending answer is discarded and
+            //    nothing at all is written.
+            const composed = await composeAiReply(afterPost, cleaned.body);
+            let committed = { committed: true, message: null, conversation: afterPost };
+            if (composed.text) committed = await commitAiTurn(afterPost.id, composed);
+
+            if (committed.committed !== true) {
+                return {
+                    ok: true,
+                    conversationId: afterPost.id,
+                    status: (committed.conversation && committed.conversation.status) || afterPost.status,
+                    aiPaused: true,
+                    message: posted.message,
+                    reply: null,
+                    discarded: committed.reason || 'ai-turn-discarded',
+                };
             }
-            const finalRow = await touchConversation(updated.id, {
-                last_message_at: now().toISOString(),
-                last_message_preview: previewOf(composed.text || cleaned.body),
-                context: composed.context || updated.context || {},
-                status: composed.needsHuman ? STATUS.WAITING : updated.status,
-                ai_paused: composed.needsHuman ? true : updated.ai_paused,
-            }, { unreadForCustomer: replyMessage ? 1 : 0 });
+
+            const finalRow = committed.conversation || afterPost;
+            const replyMessage = committed.message || null;
 
             if (replyMessage && notify) {
                 try {
-                    await notify(updated.user_id, finalRow, replyMessage);
+                    await notify(afterPost.user_id, finalRow, replyMessage);
                 } catch (err) {
                     logOnce('customer-notify-failed', err && err.message);
                 }
             }
             if (composed.needsHuman && notifyAdmins) {
                 try {
-                    await notifyAdmins(finalRow, replyMessage || inserted.message);
+                    await notifyAdmins(finalRow, replyMessage || posted.message);
                 } catch (err) {
                     logOnce('admin-notify-failed', err && err.message);
                 }
@@ -507,7 +638,7 @@ function createNativeSupportService(options) {
                 conversationId: finalRow.id,
                 status: finalRow.status,
                 aiPaused: finalRow.ai_paused === true,
-                message: inserted.message,
+                message: posted.message,
                 reply: replyMessage,
             };
         } catch (err) {

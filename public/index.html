@@ -5278,10 +5278,18 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
 
 <style id="nativeSupportStyles">
 /* Native in-app support: floating widget (customer) + admin inbox. */
-.ns-launcher{position:fixed;right:18px;bottom:96px;z-index:9995;display:none;align-items:center;gap:8px;
+.ns-launcher{position:fixed;right:18px;bottom:160px;z-index:9995;display:none;align-items:center;gap:8px;
   padding:12px 16px;border-radius:999px;border:0;cursor:pointer;background:var(--kx-accent,#0ECB81);
   color:#04140D;font-weight:700;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .ns-launcher.show{display:inline-flex}
+/* The cookie-consent banner is z-index 99999 and sits across the bottom of the
+   screen, so the launcher is lifted above it exactly like the legacy support
+   widget (see body:has(#metaConsentBanner) .support-widget). */
+body:has(#metaConsentBanner) .ns-launcher{bottom:250px}
+/* One support affordance at a time: the messenger replaces the legacy floating
+   assistant launcher while the feature is enabled. The Support Center (sidebar
+   entry + profile link) is untouched. */
+body.ns-enabled .support-widget{display:none}
 .ns-badge{min-width:18px;height:18px;border-radius:9px;background:#E5484D;color:#fff;font-size:11px;
   line-height:18px;text-align:center;padding:0 5px}
 .ns-panel{position:fixed;right:16px;bottom:16px;width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 32px));
@@ -5332,7 +5340,8 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
 @media (max-width:820px){
   .ns-inbox{grid-template-columns:1fr}
   .ns-panel{right:0;left:0;bottom:0;width:100vw;height:min(80vh,620px);border-radius:16px 16px 0 0}
-  .ns-launcher{right:12px;bottom:86px}
+  .ns-launcher{right:12px;bottom:160px}
+  body:has(#metaConsentBanner) .ns-launcher{bottom:250px}
 }
 @media (prefers-reduced-motion:no-preference){
   .ns-panel{transition:opacity .18s ease, transform .18s ease}
