@@ -122,8 +122,12 @@ test('offline trading is answered from production-verified facts, while the 14-d
   const offline = retriever.retrieve('Does the bot keep trading if I close the app?');
   assert.strictEqual(offline[0].id, 'trading_bot.offline');
   assert.strictEqual(offline[0].kind, 'info', 'offline trading is settled for production and must be answered');
-  assert.match(offline[0].answer, /continues/i);
-  assert.match(offline[0].answer, /server/i);
+  // The deployed engine is the browser loop (services/TradingWorker.js is not
+  // enabled), and the app itself tells customers the bot runs while it is open.
+  // The answer must not claim server-side execution that does not happen.
+  assert.match(offline[0].answer, /while the Kalderix app is open/i);
+  assert.match(offline[0].answer, /stops/i);
+  assert.doesNotMatch(offline[0].answer, /continues|on our servers/i);
 
   // Explicitly unchanged: the free-period question remains unresolved.
   const trial = retriever.retrieve('Do I get 14 days free?');

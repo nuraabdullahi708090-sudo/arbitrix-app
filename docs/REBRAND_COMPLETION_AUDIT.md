@@ -145,7 +145,7 @@ No new logo was invented and no asset was redesigned in this pass.
 
 The bot username stays `@ArbitrixSupportBot`. Its DISPLAY identity should follow:
 
-1. **Bot display name** - BotFather -> `/setname` -> `Kalderix Support`.
+1. **Bot display name** - BotFather -> `/setname` -> `Kalderix Telegram Assistant` (the in-app messenger is `Kalderix Support`; the username, token and webhook are unchanged).
    Users see the name; the `@username` link keeps working.
 2. **About text** - BotFather -> `/setabouttext`:
    `Official Kalderix support. We reply here and never ask for your password, codes or keys.`
