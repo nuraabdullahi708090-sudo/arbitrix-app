@@ -316,6 +316,12 @@ END $$;
 -- 5. Referral reward trigger (reward actually credited to the referrer)
 -- ---------------------------------------------------------------------------
 
+-- occurred_at comes from created_at ONLY. `referrals.updated_at` is not
+-- guaranteed by the schema (no migration in this repo creates the table), and
+-- reading a missing record field raises 42703 at runtime - which the handler
+-- below would swallow, silently disabling EVERY referral notification. created_at
+-- is proven by the deployed referral queries; now() is the safe fallback.
+-- (Kept OUTSIDE the function body so pg_proc.prosrc never references the column.)
 CREATE OR REPLACE FUNCTION public.notifications_capture_referral()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -354,7 +360,7 @@ BEGIN
             'notifications.events.referral.title',
             'notifications.events.referral.body',
             jsonb_build_object('amount', v_bonus),
-            COALESCE(NEW.updated_at, NEW.created_at, now())
+            COALESCE(NEW.created_at, now())
         );
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING 'notifications_capture_referral skipped (%): %', SQLSTATE, SQLERRM;

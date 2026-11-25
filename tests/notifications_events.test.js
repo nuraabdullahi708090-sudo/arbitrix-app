@@ -449,6 +449,62 @@ test('11b. the deposit triggers do not require a column that may be absent', () 
     assert.match(MIGRATION, /EXCEPTION WHEN OTHERS THEN\s+v_credited := FALSE/);
 });
 
+test('11c. the referral trigger reads only columns production is known to have', () => {
+    // Referral notifications are written by a trigger on public.referrals. That
+    // table is NOT created by any migration in this repo, so its exact column set
+    // is only knowable from the live database. A record field that does not exist
+    // raises 42703 at runtime, and the handler catches everything - so ONE
+    // unverified column silently disables EVERY referral notification.
+    //
+    // The trigger therefore may only reference columns the deployed code proves:
+    //   id, referrer_id, referred_id, status, bonus_earned (selected/written on
+    //   the hot path) and created_at (the referral list ORDERS BY it).
+    const fnStart = MIGRATION.indexOf('CREATE OR REPLACE FUNCTION public.notifications_capture_referral()');
+    // The rollback block at the top of the file also names the trigger, so the
+    // end marker must be searched AFTER the function header.
+    const fnEnd = MIGRATION.indexOf('DROP TRIGGER IF EXISTS notifications_referral', fnStart);
+    const fn = MIGRATION.slice(fnStart, fnEnd);
+    assert.ok(fn.length > 400, 'the referral function must be present');
+
+    // Strip line comments so documentation can name a column without tripping this.
+    const executable = fn.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n');
+    const fields = Array.from(new Set((executable.match(/NEW\.([a-z_]+)/g) || []).map((m) => m.slice(4))));
+    assert.deepStrictEqual(fields.sort(), ['bonus_earned', 'created_at', 'id', 'referred_id', 'referrer_id', 'status'],
+        'unexpected record field: the referral table may not have it');
+    assert.ok(!fields.includes('updated_at'), 'referrals.updated_at is not guaranteed by the schema');
+
+    // The timestamp expression is the specific regression this pins.
+    assert.match(executable, /COALESCE\(NEW\.created_at, now\(\)\)/);
+    assert.ok(!/NEW\.updated_at/.test(executable));
+});
+
+test('11d. a referral row WITHOUT updated_at still produces its notification', () => {
+    // Mirror of the trigger's timestamp rule, evaluated against rows of the shape
+    // the live table is known to have. This documents the contract; 11c keeps the
+    // SQL itself honest.
+    const rule = (row) => {
+        const created = row && row.created_at != null ? row.created_at : null;
+        return created !== null ? created : 'now()';
+    };
+    const created = '2026-11-25T10:00:00.000Z';
+    // No updated_at field at all - the production-shaped row.
+    assert.strictEqual(rule({ id: 1, status: 'active', bonus_earned: 20, created_at: created }), created);
+    // A row that happened to carry updated_at is unaffected: it is simply not read.
+    assert.strictEqual(rule({ created_at: created, updated_at: '2026-11-30T00:00:00.000Z' }), created);
+    // created_at unreadable/NULL falls back instead of raising.
+    assert.strictEqual(rule({ created_at: null }), 'now()');
+
+    // The PREVIOUS expression read updated_at first, which on the production-
+    // shaped row above is a missing field: the handler would swallow the error and
+    // the notification would never be written. Guard against a regression to it.
+    const oldRule = (row) => {
+        if (row && 'updated_at' in row) return row.updated_at;
+        throw new Error('record "new" has no field "updated_at"');
+    };
+    assert.throws(() => oldRule({ created_at: created }), /has no field "updated_at"/,
+        'the old expression is broken on a row without the column - which is why it was removed');
+});
+
 test('12. the six event copies exist in every locale', () => {
     const start = INDEX.indexOf('const TRANSLATIONS = {');
     assert.ok(start > 0);
