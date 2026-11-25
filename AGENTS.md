@@ -10613,3 +10613,33 @@ TESTS: two new tests in `tests/notifications_events.test.js`:
   carry one, and a NULL `created_at`, and asserts the removed expression throws on the
   production-shaped row (the regression guard).
 Suite: 33/33 in that file.
+
+## PR #210 review fixes: pending-deposit tri-state + rollback signature (2026-11-25)
+Two findings from the final production-readiness inspection. Both are contained:
+no wallet, deposit, withdrawal, trade, referral, Q8Pay or crediting code changed;
+migration 058 was NOT applied and nothing was deployed.
+
+1. `hasPendingDeposit()` (server.js, ~L791) now returns a TRI-STATE value.
+   supabase-js RESOLVES with `{ data, error }` rather than throwing, so a failed
+   count query looked exactly like "zero pending deposits" and a journey reminder
+   could fire while a deposit was awaiting confirmation. The helper now returns
+   `null` when the state cannot be established - a returned `error` on EITHER
+   query, a missing response, a non-numeric/absent count, or a thrown exception -
+   and logs ONE structured line (`event: pending_deposit_state_unknown`, error
+   codes only, no user data). A new pure guard `remindersAllowed(state)` returns
+   true ONLY for `false`, and `evaluateJourneyNotifications()` uses it, so both
+   "a deposit is pending" and "unreadable" suppress the reminder and the previous
+   behaviour is preserved whenever both queries succeed.
+2. The documented rollback in migration 058 named only six argument types for
+   `notification_emit(...)`. PostgreSQL identifies a function by its full
+   signature, so that DROP left the function behind. The line now lists all seven
+   (`BIGINT, TEXT, TEXT, TEXT, TEXT, JSONB, TIMESTAMPTZ`) and a test pins the
+   rollback to the declaration. Comment-only: the migration body is unchanged.
+
+TESTS: `tests/notifications_events.test.js` gained 17i (executes the REAL
+`hasPendingDeposit` + `remindersAllowed` in a vm against a fake Supabase client:
+both-succeed-zero / pending-exists / returned-error / thrown / malformed-response
+/ caller-uses-the-guard) and 17j (rollback signature equality). 17f's harness now
+supplies the new `remindersAllowed` collaborator and additionally asserts that an
+unknown state emits nothing - the harness change, not the assertions, was updated.
+npm test = 4085 tests, 4084 pass, 0 fail, 1 skipped (baseline 4083/4082/0/1).

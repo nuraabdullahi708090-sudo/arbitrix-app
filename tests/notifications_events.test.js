@@ -799,7 +799,7 @@ test('17f. the session read runs no reminder queries when nothing can fire', () 
         else if (SERVER[j] === '}') { depth--; if (depth === 0) { end = j; break; } }
     }
     const src = SERVER.slice(start, end + 1);
-    const calls = { pending: 0, emitted: [] };
+    const calls = { pending: 0, emitted: [], pendingResult: false };
     const sandbox = {
         console: { warn: function () {} },
         notifications: { emit: async function () { return { ok: true, created: true }; } },
@@ -810,7 +810,9 @@ test('17f. the session read runs no reminder queries when nothing can fire', () 
             const t = user && user.created_at ? Date.parse(user.created_at) : NaN;
             return Number.isFinite(t) ? Math.max(0, (Date.now() - t) / 3600000) : 0;
         },
-        hasPendingDeposit: async function () { calls.pending += 1; return false; },
+        hasPendingDeposit: async function () { calls.pending += 1; return calls.pendingResult; },
+        // Same contract as server.js: only a KNOWN-absent pending deposit allows a send.
+        remindersAllowed: function (state) { return state === false; },
         emitNotificationSafe: async function (uid, key) { calls.emitted.push(key); return { ok: true }; },
     };
     sandbox.globalThis = sandbox;
@@ -835,6 +837,15 @@ test('17f. the session read runs no reminder queries when nothing can fire', () 
             assert.strictEqual(calls.emitted.length, 2, 'both promo reminders are emitted');
             assert.ok(calls.emitted[0].startsWith('promo_first_trade'));
             assert.ok(calls.emitted[1].startsWith('promo_deposit_reminder:'));
+        })
+        .then(function () {
+            // Regression: an UNREADABLE pending state (null) must silence the reminder.
+            calls.pendingResult = null; calls.pending = 0; calls.emitted = [];
+            return run({ id: 4, created_at: '2026-01-01T00:00:00Z' }, { promoCreditFunded: true, hasTradingActivity: true });
+        })
+        .then(function () {
+            assert.strictEqual(calls.pending, 1, 'the pending state is consulted when a reminder is a candidate');
+            assert.deepStrictEqual(calls.emitted, [], 'an unknown pending state must emit nothing');
         });
 });
 
@@ -881,4 +892,94 @@ test('18. helper contracts (bucket, vars sanitisation)', () => {
     assert.strictEqual(dailyBucket('not-a-date'), '1970-01-01');
     const v = sanitizeVars({ amount: 100, nested: { a: 1 }, url: 'x'.repeat(200), ok: true, nothing: null });
     assert.deepStrictEqual(JSON.parse(JSON.stringify(v)), { amount: 100, ok: true, url: 'x'.repeat(64) });
+});
+
+test('17i. an unreadable pending-deposit state suppresses reminders (regression)', async () => {
+    // supabase-js RESOLVES with { data, error } instead of throwing, so a failed
+    // count query used to look exactly like "zero pending deposits": the reminder
+    // fired while a deposit was actually waiting for confirmation. The state is
+    // now tri-state - true / false / NULL (unknown) - and only `false` may send.
+    const start = SERVER.indexOf('async function hasPendingDeposit(userId) {');
+    const end = SERVER.indexOf('/**\n * Record one notification.');
+    assert.ok(start > 0 && end > start, 'hasPendingDeposit and remindersAllowed must exist in server.js');
+    const src = SERVER.slice(start, end);
+    assert.ok(/function remindersAllowed/.test(src), 'the guard helper must be co-located');
+
+    const chain = (result) => ({ select: () => ({ eq: () => ({ eq: () => result }) }) });
+    const load = (legacy, invoice) => {
+        const warnings = [];
+        const sandbox = {
+            supabaseAdmin: { from: (t) => chain(t === 'deposits' ? legacy : invoice) },
+            console: { warn: (l) => warnings.push(String(l)) },
+        };
+        vm.createContext(sandbox);
+        vm.runInContext(src + '\n; globalThis.hpd = hasPendingDeposit; globalThis.ra = remindersAllowed;', sandbox);
+        return { state: sandbox.hpd, allowed: sandbox.ra, warnings };
+    };
+
+    // 1. both queries succeed and agree there is nothing pending
+    let h = load({ count: 0, error: null }, { count: 0, error: null });
+    assert.strictEqual(await h.state(1), false);
+    assert.strictEqual(h.allowed(await h.state(1)), true, 'a known-empty state allows the reminder');
+
+    // 2. a pending deposit exists (either table, or both)
+    assert.strictEqual(await load({ count: 1 }, { count: 0 }).state(1), true);
+    assert.strictEqual(await load({ count: 0 }, { count: 3 }).state(1), true);
+    assert.strictEqual(await load({ count: 2 }, { count: 4 }).state(1), true);
+
+    // 3. a query reports an error WITHOUT throwing -> unknown, and unknown silences
+    h = load({ count: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } }, { count: 0, error: null });
+    const errored = await h.state(1);
+    assert.strictEqual(errored, null, 'a returned error must not read as zero');
+    assert.strictEqual(h.allowed(errored), false, 'unknown suppresses the reminder');
+    assert.strictEqual(h.warnings.length, 1, 'one structured warning per unknown state');
+    const logged = JSON.parse(h.warnings[0]);
+    assert.strictEqual(logged.event, 'pending_deposit_state_unknown');
+    assert.strictEqual(logged.component, 'notifications');
+    assert.strictEqual(logged.legacyError, '57014');
+    assert.ok(!/user|email|@/i.test(h.warnings[0]), 'no user data in the log line');
+
+    // the same on the invoice side
+    h = load({ count: 0, error: null }, { count: null, error: { code: 'PGRST301', message: 'JWT expired' } });
+    assert.strictEqual(await h.state(1), null);
+    assert.strictEqual(JSON.parse(h.warnings[0]).invoiceError, 'PGRST301');
+
+    // 4. a query THROWS -> unknown
+    h = load(Promise.reject(new Error('network down')), { count: 0, error: null });
+    const thrownState = await h.state(1);
+    assert.strictEqual(thrownState, null);
+    assert.strictEqual(h.allowed(thrownState), false);
+    assert.strictEqual(JSON.parse(h.warnings[0]).thrown, 'network down');
+
+    // 5. a malformed response (no count, no error) cannot pass as "nothing pending"
+    assert.strictEqual(await load({ count: null }, { count: 0 }).state(1), null);
+    assert.strictEqual(await load(undefined, { count: 0 }).state(1), null);
+    assert.strictEqual(await load({ count: 'many' }, { count: 0 }).state(1), null);
+
+    // 6. the caller uses the guard, not a falsy test on the tri-state value
+    assert.match(SERVER, /if \(!remindersAllowed\(await hasPendingDeposit\(user && user\.id\)\)\) return;/);
+    assert.ok(!/if \(await hasPendingDeposit\(user && user\.id\)\) return;/.test(SERVER),
+        'a bare truthiness test would let NULL through');
+});
+
+test('17j. the documented rollback drops notification_emit with its FULL signature', () => {
+    // PostgreSQL identifies a function by its complete argument-type list, so the
+    // rollback used to leave notification_emit() behind (it named only 6 args and
+    // omitted the trailing TIMESTAMPTZ). Pin the rollback to the declaration.
+    const decl = MIGRATION.slice(
+        MIGRATION.indexOf('CREATE OR REPLACE FUNCTION public.notification_emit('),
+        MIGRATION.indexOf(')', MIGRATION.indexOf('CREATE OR REPLACE FUNCTION public.notification_emit(')));
+    const declared = decl.split('\n').slice(1)
+        .map((l) => l.split('DEFAULT')[0].trim().replace(/,$/, '').split(/\s+/).pop())
+        .filter(Boolean);
+    assert.deepStrictEqual(declared, ['BIGINT', 'TEXT', 'TEXT', 'TEXT', 'TEXT', 'JSONB', 'TIMESTAMPTZ'],
+        'the declaration must have seven argument types');
+
+    const m = MIGRATION.match(/DROP FUNCTION IF EXISTS public\.notification_emit\(([^)]*)\);/);
+    assert.ok(m, 'the rollback must drop notification_emit');
+    const dropped = m[1].split(',').map((t) => t.trim());
+    assert.deepStrictEqual(dropped, declared, 'the rollback signature must match the declaration exactly');
+    assert.strictEqual(dropped[dropped.length - 1], 'TIMESTAMPTZ', 'the trailing timestamptz is required');
+    assert.ok(!/notification_emit\(BIGINT, TEXT, TEXT, TEXT, TEXT, JSONB\);/.test(MIGRATION),
+        'a six-argument drop must not come back');
 });

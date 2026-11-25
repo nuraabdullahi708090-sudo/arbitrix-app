@@ -43,7 +43,9 @@
 --   DROP TRIGGER IF EXISTS notifications_referral ON public.referrals;
 --   DROP FUNCTION IF EXISTS public.notifications_capture_deposit();
 --   DROP FUNCTION IF EXISTS public.notifications_capture_referral();
---   DROP FUNCTION IF EXISTS public.notification_emit(BIGINT, TEXT, TEXT, TEXT, TEXT, JSONB);
+--   DROP FUNCTION IF EXISTS public.notification_emit(BIGINT, TEXT, TEXT, TEXT, TEXT, JSONB, TIMESTAMPTZ);
+--     (all SEVEN argument types are required: PostgreSQL identifies a function by its
+--      full signature, so omitting the trailing TIMESTAMPTZ leaves the function behind.)
 --   DROP FUNCTION IF EXISTS public.notification_user_is_sandbox(BIGINT);
 --   DROP TABLE IF EXISTS public.notifications;
 -- ===========================================================================

@@ -788,7 +788,17 @@ const profitPause = createProfitPauseCheck({
 // applied every method reports ok:false and no request path is affected.
 const notifications = createNotificationsService({ supabase: supabaseAdmin });
 
-/** True when a deposit is awaiting confirmation (never counted as confirmed). */
+/**
+ * True when a deposit is awaiting confirmation (never counted as confirmed).
+ * NULL means the state could not be established.
+ *
+ * supabase-js resolves with `{ data, error }` instead of throwing, so a failed
+ * query looks exactly like an empty result unless `error` is inspected. Reading
+ * that as "no pending deposit" would let a journey reminder fire while a
+ * deposit is actually awaiting confirmation, so every failure mode - a returned
+ * error, a missing response, a non-numeric count, or a thrown exception -
+ * resolves to NULL and the caller then declines to send anything.
+ */
 async function hasPendingDeposit(userId) {
     try {
         const [legacy, invoice] = await Promise.all([
@@ -797,13 +807,39 @@ async function hasPendingDeposit(userId) {
             supabaseAdmin.from('payment_invoices').select('id', { count: 'exact', head: true })
                 .eq('user_id', userId).eq('status', 'pending'),
         ]);
-        const legacyCount = Number((legacy && legacy.count) || 0);
-        const invoiceCount = Number((invoice && invoice.count) || 0);
-        return (legacyCount + invoiceCount) > 0;
+        if (!legacy || legacy.error || !invoice || invoice.error) {
+            console.warn(JSON.stringify({
+                event: 'pending_deposit_state_unknown',
+                component: 'notifications',
+                legacyError: (legacy && legacy.error && (legacy.error.code || legacy.error.message)) || null,
+                invoiceError: (invoice && invoice.error && (invoice.error.code || invoice.error.message)) || null,
+            }));
+            return null;
+        }
+        const legacyCount = legacy.count;
+        const invoiceCount = invoice.count;
+        if (legacyCount === null || legacyCount === undefined
+            || invoiceCount === null || invoiceCount === undefined) return null;
+        const legacyTotal = Number(legacyCount);
+        const invoiceTotal = Number(invoiceCount);
+        if (!Number.isFinite(legacyTotal) || !Number.isFinite(invoiceTotal)) return null;
+        return (legacyTotal + invoiceTotal) > 0;
     } catch (e) {
-        // Fail soft: an unreadable state must not fabricate a reminder.
-        return false;
+        console.warn(JSON.stringify({
+            event: 'pending_deposit_state_unknown',
+            component: 'notifications',
+            thrown: String((e && e.message) || e).slice(0, 200),
+        }));
+        return null;
     }
+}
+
+/**
+ * Journey reminders may only fire when a pending deposit is KNOWN to be absent.
+ * `true` means one exists, `null` means unreadable - both silence the reminder.
+ */
+function remindersAllowed(pendingDepositState) {
+    return pendingDepositState === false;
 }
 
 /**
@@ -861,8 +897,9 @@ async function evaluateJourneyNotifications(user, state) {
         const candidates = journeyReminders(Object.assign({}, base, { hasPendingDeposit: false }));
         if (!candidates.length) return;
         // A deposit awaiting confirmation suppresses every reminder, and is never
-        // treated as a confirmed one.
-        if (await hasPendingDeposit(user && user.id)) return;
+        // treated as a confirmed one. An UNREADABLE state suppresses too: a failed
+        // query must never be mistaken for "nothing pending".
+        if (!remindersAllowed(await hasPendingDeposit(user && user.id))) return;
         for (const r of candidates) {
             await emitNotificationSafe(user && user.id, r.eventKey, r.event, r.vars);
         }
