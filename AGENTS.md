@@ -10389,3 +10389,45 @@ path touched. NOT merged, NOT deployed.
   npm test = 4040 tests / 4039 pass / 0 fail / 1 skipped.
 - Browser (DOM/geometry, no screenshots): 22/22 at 320/375/390 x en/es/pt/fr/ar/zh plus
   1280; 26/26 journey regression at 320/390.
+
+## UX audit: state-driven Live card + Live checklist (2026-11-25, public/index.html + tests)
+Frontend-only. No server.js, no migration, no gate/financial change. Branch
+`audit/onboarding-activation-ux` off `main` (6468028).
+
+AUDIT METHOD (no screenshots - the vision channel is unavailable in this session):
+DOM-only headless Chromium probes plus source reading. Two findings, both fixed.
+
+1. The dashboard status card was titled "Promotional Credit" for EVERY account that
+   saw it, including accounts with NO promotional credit: a Live account at $0 (unfunded)
+   and a funded account at $0 both read `[gift] PROMOTIONAL CREDIT / Funding required`.
+   Only the AMOUNT row was hidden, so the header still claimed a credit that does not
+   exist. `renderLiveModeCard()` now derives the header from the content: the credit
+   title and the gift icon when `promoCredit > 0`, otherwise a neutral
+   `liveMode.cardTitle` ("Live Mode" / "Modo Live" / "Mode Live" / Arabic / 实盘模式)
+   with a bolt icon. Verified per state in Chromium; re-rendered on language switch by
+   the existing `updateDynamicTranslations()` hook.
+
+2. The LIVE "Start Here" checklist showed ONE step ("Complete your first Live trade")
+   even for an account that cannot trade yet because it has never deposited - the step
+   was not the actual next step. `startHereLiveSteps()` is now state-driven:
+   unfunded -> `startHere.live.stepDeposit` ("Deposit at least ${{min}} ..." using
+   APP.MIN_DEPOSIT, never a literal) then the first trade; funded -> the trade only;
+   traded -> the existing completion line. No activation step can reappear.
+
+VERIFIED NOT broken (checked before being reported as findings):
+- the paid activation is GONE from customer copy: only `subscription.*` uses the word
+  "activate" in the English dictionary (checked all six locales' key sets);
+- onboarding DOES open for a never-onboarded unfunded account (the first probe read it
+  at 1.6s, before initApp finished - wait >= 2s in these harnesses);
+- the bot refusal path is truthful: click Start -> POST /api/bot/start -> 403
+  LIVE_DEPOSIT_REQUIRED -> "Make a qualifying deposit of at least $50 to start live
+  trading." + the deposit dialog opens; the bot stays stopped. (The control is
+  `#startStopBtnLive`; `#startBotBtn` does not exist in this build.)
+
+Tests: NEW `tests/live_status_card_title.test.js` (10, executing the real renderer and
+the real checklist builder in a vm). Updated for the intentional change:
+`starthere_mode_aware` (2/3/3b) and `activation_copy_truthfulness` (6) now assert the
+state-driven contract; 17 dictionary-count pins 1571 -> 1573 and
+`BASE_OUTSIDE_TESTIMONIALS` 1520 -> 1522. `npm test` = 4050 tests, 4049 pass, 0 fail,
+1 skipped (the pre-existing puppeteer-dependent test).
+i18n: 1573 keys x 6 locales, identical sets, 0 empty, `{{min}}` only where intended.

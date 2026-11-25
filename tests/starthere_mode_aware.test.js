@@ -126,14 +126,31 @@ test('1. the card ships a single Live header and one steps container', () => {
 // ---------------------------------------------------------------------------
 // 2. The checklist lists only the requirements the platform actually enforces
 // ---------------------------------------------------------------------------
-test('2. there is exactly one step and no activation step at all', () => {
+test('2. the checklist states the actual next step (deposit, then first trade)', () => {
   // The paid activation was removed from the customer journey, so the checklist
-  // never branches on it and can never advertise it.
-  const steps = vm.runInNewContext(
+  // never branches on it and can never advertise it. What it DOES reflect is the
+  // step actually blocking the account: an unfunded Live account cannot complete
+  // a trade before it has a confirmed deposit, so the deposit comes first.
+  const unfunded = vm.runInNewContext(
     extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
-    { APP: { activationRequired: true, liveActivated: false } });
-  assert.strictEqual(steps.length, 1, 'one requirement remains');
-  assert.strictEqual(JSON.stringify(steps.map((s) => s.key)), JSON.stringify(['startHere.live.step3']));
+    { APP: { activationRequired: false, MIN_DEPOSIT: 50, liveData: { hasRealDeposit: false } } });
+  assert.strictEqual(unfunded.length, 2, 'deposit then trade');
+  assert.deepStrictEqual(Array.from(unfunded.map((s) => s.key)), ['startHere.live.stepDeposit', 'startHere.live.step3']);
+  assert.strictEqual(unfunded[0].vars.min, '50', 'the minimum comes from the configuration');
+
+  const funded = vm.runInNewContext(
+    extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
+    { APP: { activationRequired: false, MIN_DEPOSIT: 50, liveData: { hasRealDeposit: true } } });
+  assert.strictEqual(funded.length, 1, 'only the trade remains once funded');
+  assert.deepStrictEqual(Array.from(funded.map((s) => s.key)), ['startHere.live.step3']);
+
+  // No configuration change can bring an activation step back.
+  const activated = vm.runInNewContext(
+    extractFunction('startHereLiveSteps') + ';startHereLiveSteps()',
+    { APP: { activationRequired: true, liveActivated: true, MIN_DEPOSIT: 50, liveData: { hasRealDeposit: false } } });
+  assert.deepStrictEqual(Array.from(activated.map((s) => s.key)), ['startHere.live.stepDeposit', 'startHere.live.step3']);
+
+  const steps = unfunded;
 
   for (const s of steps) {
     const value = T.en[s.key];
@@ -154,7 +171,7 @@ test('3. updateStartHere renders the steps without touching money', () => {
   const sb = buildSandbox({});
   sb.updateStartHere();
   assert.strictEqual(sb.els.startHereCard.style.display, 'block');
-  assert.strictEqual((sb.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 1, 'the single step rendered');
+  assert.strictEqual((sb.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 2, 'deposit + trade rendered');
   assert.strictEqual(sb.els.startHereStepsLive.style.display, 'flex');
   assert.strictEqual(sb.els.startHereStepsLiveReady.style.display, 'none');
   assert.strictEqual(sb.els.startHereSubtitle.textContent, T.en['startHere.live.subtitleNext']);
@@ -171,7 +188,7 @@ test('3b. the activation requirement changes nothing on the card', () => {
   const off = buildSandbox({ activationRequired: false, liveActivated: true });
   off.updateStartHere();
   assert.strictEqual(on.els.startHereStepsLive.innerHTML, off.els.startHereStepsLive.innerHTML);
-  assert.strictEqual((on.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 1);
+  assert.strictEqual((on.els.startHereStepsLive.innerHTML.match(/sh-num/g) || []).length, 2);
   assert.ok(!/activation/i.test(on.els.startHereStepsLive.innerHTML));
   assert.strictEqual(on.els.startHereStepsLiveReady.style.display, 'none');
   const done = buildSandbox({ liveData: { hasTradingActivity: true } });

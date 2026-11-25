@@ -418,10 +418,10 @@ test('17. the copy actions degrade safely when there is no invoice', async () =>
   assert.match(reset, /window\.currentPaymentAmount = ''/);
 });
 
-test('18. i18n parity: 1571 keys, identical sets, no empties', () => {
+test('18. i18n parity: 1573 keys, identical sets, no empties', () => {
   const T = dictionary();
   const base = Object.keys(T.en).sort();
-  assert.strictEqual(base.length, 1571);
+  assert.strictEqual(base.length, 1573);
   const keys = base.join('|');
   LANGS.forEach((l) => {
     assert.strictEqual(Object.keys(T[l]).sort().join('|'), keys, l + ' identical key set');
