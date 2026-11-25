@@ -433,6 +433,22 @@ test('11. migration 058 provides the unique key, the soft clear and RLS', () => 
         'the migration only observes; it never mutates a financial row');
 });
 
+test('11b. the deposit triggers do not require a column that may be absent', () => {
+    // deposits.credited arrives with migration 041. Requiring it in a STATIC column
+    // list would make 058 fail on a database where 041 has not been applied, even
+    // though everything else would work. The column list is therefore built from
+    // what the table actually has.
+    assert.ok(!/UPDATE OF status, credited ON public\.deposits/.test(MIGRATION),
+        'the legacy trigger must not hard-require deposits.credited at creation time');
+    assert.match(MIGRATION, /information_schema\.columns/);
+    assert.match(MIGRATION, /v_cols := 'status, credited'/);
+    assert.match(MIGRATION, /EXECUTE 'CREATE TRIGGER notifications_deposit_legacy/);
+    // The function still reads the marker defensively, so a database without the
+    // column can never block a deposit and simply produces no "confirmed" event.
+    assert.match(MIGRATION, /v_credited := COALESCE\(NEW\.credited, FALSE\)/);
+    assert.match(MIGRATION, /EXCEPTION WHEN OTHERS THEN\s+v_credited := FALSE/);
+});
+
 test('12. the six event copies exist in every locale', () => {
     const start = INDEX.indexOf('const TRANSLATIONS = {');
     assert.ok(start > 0);

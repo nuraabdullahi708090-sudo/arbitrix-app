@@ -279,17 +279,38 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS notifications_deposit_invoice ON public.payment_invoices;
-CREATE TRIGGER notifications_deposit_invoice
-    AFTER INSERT OR UPDATE OF status, credited ON public.payment_invoices
-    FOR EACH ROW
-    EXECUTE FUNCTION public.notifications_capture_deposit();
+-- The column list is built from what the table ACTUALLY has. `credited` is the
+-- credit marker (payment_invoices since migration 006, deposits since migration
+-- 041); requiring it in a static column list would make this migration fail on a
+-- database where 041 has not been applied yet, even though everything else works.
+-- `status` always exists and is always set when a deposit is credited, so the
+-- trigger still fires in every real flow; the function reads `credited` defensively.
+DO $$
+DECLARE
+    v_cols TEXT;
+BEGIN
+    IF to_regclass('public.payment_invoices') IS NOT NULL THEN
+        v_cols := 'status';
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'public' AND table_name = 'payment_invoices' AND column_name = 'credited') THEN
+            v_cols := 'status, credited';
+        END IF;
+        EXECUTE 'DROP TRIGGER IF EXISTS notifications_deposit_invoice ON public.payment_invoices';
+        EXECUTE 'CREATE TRIGGER notifications_deposit_invoice AFTER INSERT OR UPDATE OF ' || v_cols ||
+                ' ON public.payment_invoices FOR EACH ROW EXECUTE FUNCTION public.notifications_capture_deposit()';
+    END IF;
 
-DROP TRIGGER IF EXISTS notifications_deposit_legacy ON public.deposits;
-CREATE TRIGGER notifications_deposit_legacy
-    AFTER INSERT OR UPDATE OF status, credited ON public.deposits
-    FOR EACH ROW
-    EXECUTE FUNCTION public.notifications_capture_deposit();
+    IF to_regclass('public.deposits') IS NOT NULL THEN
+        v_cols := 'status';
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'public' AND table_name = 'deposits' AND column_name = 'credited') THEN
+            v_cols := 'status, credited';
+        END IF;
+        EXECUTE 'DROP TRIGGER IF EXISTS notifications_deposit_legacy ON public.deposits';
+        EXECUTE 'CREATE TRIGGER notifications_deposit_legacy AFTER INSERT OR UPDATE OF ' || v_cols ||
+                ' ON public.deposits FOR EACH ROW EXECUTE FUNCTION public.notifications_capture_deposit()';
+    END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- 5. Referral reward trigger (reward actually credited to the referrer)
