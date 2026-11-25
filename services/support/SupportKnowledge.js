@@ -343,7 +343,11 @@ function createRetriever(knowledge, { minScore = 2 } = {}) {
     let score = 0;
 
     phrases.forEach((phrase) => {
-      if (phrase.tokens.length > 1) {
+      // Multi-word keywords are matched as phrases. A keyword made ENTIRELY of
+      // stopwords ("who are you") tokenizes to nothing, so the single-keyword branch
+      // would silently drop it and such a question could never retrieve an entry -
+      // it must be treated as a phrase too.
+      if (phrase.tokens.length !== 1) {
         if (phrase.norm.length > 0 && normalizedQuestion.indexOf(phrase.norm) !== -1) score += 3;
       } else {
         phrase.tokens.forEach((token) => singleKeywordTokens.add(token));
@@ -368,7 +372,10 @@ function createRetriever(knowledge, { minScore = 2 } = {}) {
     const threshold = Number.isFinite(options.minScore) ? options.minScore : minScore;
     const questionTokens = new Set(tokenize(question));
     const normalizedQuestion = normalize(question);
-    if (questionTokens.size === 0) return [];
+    // A question made entirely of stopwords ("who are you", "is it for me") has no
+    // significant tokens but CAN match a phrase keyword, so it must not be dropped
+    // before scoring. Only genuinely empty input short-circuits.
+    if (questionTokens.size === 0 && normalizedQuestion.trim().length === 0) return [];
 
     const preferredCategories = queryIntentCategories(question);
 

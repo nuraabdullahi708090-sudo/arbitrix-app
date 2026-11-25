@@ -215,10 +215,11 @@ test('the new keywords belong to withdrawals.minimum and to no other entry', () 
   });
 });
 
-test('no other knowledge entry was changed and the entry set is unchanged', () => {
-  // The sibling entry most at risk (it shares the withdrawal topic).
+test('no existing entry was removed or rewritten; the catalogue may only grow', () => {
+  // The sibling entry most at risk (it shares the withdrawal topic). Its original
+  // keywords must all still be there; the expansion may only ADD.
   const requirements = retriever.getEntry('withdrawals.requirements');
-  assert.deepStrictEqual(requirements.keywords, [
+  [
     'how do withdrawals work',
     'withdraw',
     'withdrawal',
@@ -228,8 +229,18 @@ test('no other knowledge entry was changed and the entry set is unchanged', () =
     'cashout',
     'take out money',
     'take out funds'
-  ], 'withdrawals.requirements keywords must be untouched');
-  assert.strictEqual(retriever.count, 39, 'entry count must be unchanged (no entry added or removed)');
+  ].forEach((k) => assert.ok(requirements.keywords.includes(k),
+    'withdrawals.requirements must keep its original keyword: ' + k));
+
+  // Every original category still exists (the Kalderix expansion only adds).
+  [
+    'what_is_arbitrix', 'demo_mode', 'live_mode', 'getting_started', 'deposits',
+    'trading_bot', 'withdrawals', 'kyc_security', 'promotional_credit', 'referrals',
+    'subscription', 'supported_countries', 'business_registration', 'troubleshooting',
+    'contact_human', 'guardrails'
+  ].forEach((id) => assert.ok(KB.categories.some((c) => c.id === id), 'category kept: ' + id));
+
+  assert.ok(retriever.count >= 39, 'entries may only be added, never removed');
 });
 
 test('the approved minimum answer and its canonical question are unchanged', () => {

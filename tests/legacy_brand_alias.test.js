@@ -48,7 +48,9 @@ test('2. an old-name question retrieves the same approved answer as a new-name o
   const pairs = [
     ['Who is %NAME%?', 'what_is_arbitrix.overview'],
     ['What is %NAME%?', 'what_is_arbitrix.overview'],
-    ['Is %NAME% legit?', 'what_is_arbitrix.overview'],
+    // A legitimacy question is answered by the registered-entity entry (the KVK
+    // answer), for BOTH spellings - the alias still guarantees the same entry.
+    ['Is %NAME% legit?', 'business_registration.kvk'],
     ['Tell me about %NAME%', 'what_is_arbitrix.overview'],
     ['How does %NAME% work?', 'what_is_arbitrix.overview'],
     ['What does %NAME% do?', 'what_is_arbitrix.overview']
