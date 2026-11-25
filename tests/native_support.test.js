@@ -83,6 +83,7 @@ function makeDb(seed) {
                         }
                     }
                     const copy = Object.assign({}, row);
+                    if (table === 'support_conversations' && copy.context_version == null) copy.context_version = 0;
                     if (copy.id == null) copy.id = seq[table] = (seq[table] || 1) + 1;
                     rows.push(copy);
                     out.push(copy);
@@ -117,6 +118,7 @@ function makeDb(seed) {
         const flat = String(body || '').replace(/\s+/g, ' ').trim();
         return flat.length > 160 ? flat.slice(0, 159) + '\u2026' : flat;
     }
+    const commits = [];
     const rpcHandlers = {
         support_post_customer_message: function (p) {
             const conv = tables.support_conversations.find((c) => c.id === p.p_conversation_id);
@@ -145,6 +147,13 @@ function makeDb(seed) {
             if (!conv) return { committed: false, reason: 'not-found' };
             if (conv.status === 'resolved') return { committed: false, reason: 'resolved', conversation: Object.assign({}, conv) };
             if (conv.ai_paused === true) return { committed: false, reason: 'ai-paused', conversation: Object.assign({}, conv) };
+            // Optimistic concurrency: refuse a turn that composed from an older
+            // dialogue state (mirrors the FOR UPDATE check in migration 059).
+            if (p.p_expected_version != null && Number(conv.context_version || 0) !== Number(p.p_expected_version)) {
+                return { committed: false, reason: 'stale-context', context_version: Number(conv.context_version || 0),
+                    conversation: Object.assign({}, conv) };
+            }
+            commits.push(p);
             const msg = { id: seq.support_messages = (seq.support_messages || 1) + 1, conversation_id: conv.id,
                 sender_type: p.p_sender_type, sender_user_id: null, body: p.p_body,
                 client_message_id: null, created_at: nowIso() };
@@ -154,12 +163,14 @@ function makeDb(seed) {
             conv.last_message_at = nowIso();
             conv.last_message_preview = p.p_preview || preview(p.p_body);
             if (p.p_needs_human === true) { conv.status = 'waiting'; conv.ai_paused = true; }
+            conv.context_version = Number(conv.context_version || 0) + 1;
             conv.updated_at = nowIso();
-            return { committed: true, message: msg, conversation: Object.assign({}, conv) };
+            return { committed: true, message: msg, conversation: Object.assign({}, conv),
+                context_version: conv.context_version };
         }
     };
 
-    return { from: (t) => builder(t), _tables: tables,
+    return { from: (t) => builder(t), _tables: tables, _commits: commits,
         rpc: async function (name, params) {
             const handler = rpcHandlers[name];
             if (!handler) return { data: null, error: { code: '42883', message: 'function public.' + name + ' does not exist' } };
@@ -567,7 +578,7 @@ test('28. a duplicate replay under the lock never creates a second message or co
     assert.strictEqual(db._tables.support_conversations[0].unread_for_admin, 1);
 });
 
-test('29. without migration 059 the fallback path still refuses to undo a takeover', async () => {
+test('29. without migration 059 the fallback NEVER writes an AI answer (fail closed)', async () => {
     const ctl = controlledAI('Fallback answer');
     const db = makeDb();
     // Simulate "function does not exist" exactly as PostgREST reports it.
@@ -579,9 +590,120 @@ test('29. without migration 059 the fallback path still refuses to undo a takeov
     await service.takeover(convId, 900);
     ctl.release();
     const out = await pending;
-    assert.strictEqual(out.reply, null, 'the fallback discards the answer too');
-    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true);
+    assert.strictEqual(out.supportUnavailable, true, 'reported as unavailable, not as an AI answer');
+    assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'), 'no AI row at all');
     assert.ok(!db._tables.support_messages.some((m) => m.body === 'Fallback answer'));
+    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true);
     assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1,
         'the customer message was still stored');
+});
+
+/* ==========================================================================
+ * Priority review fixes:
+ *   - stale dialogue context must not overwrite newer context
+ *   - the pre-migration fallback must never commit an AI answer
+ * ========================================================================== */
+
+test('30. two concurrent messages compose SEQUENTIALLY from the committed context', async () => {
+    const seen = [];
+    const { service, db } = makeService({
+        options: {
+            ai: { ask: async () => ({ answer: 'answer', modelGenerated: false, needsHuman: false }) },
+            engine: {
+                planTurn: ({ state }) => {
+                    seen.push(Number(state.turn) || 0);
+                    return { handled: true, lines: [], nextState: { turn: (Number(state.turn) || 0) + 1 } };
+                }
+            },
+            i18n: { t: () => '' }
+        }
+    });
+    await Promise.all([
+        service.sendCustomerMessage({ userId: 300, body: 'first' }),
+        service.sendCustomerMessage({ userId: 300, body: 'second' }),
+    ]);
+    const conv = db._tables.support_conversations[0];
+    assert.strictEqual(db._tables.support_conversations.length, 1, 'one thread');
+    // The second turn must have composed from the first turn's committed state,
+    // not from the state both messages originally observed.
+    assert.deepStrictEqual(seen, [0, 1], 'generation order/state: ' + JSON.stringify(seen));
+    assert.strictEqual(conv.context.turn, 2, 'context advanced twice, not overwritten back to 1');
+    assert.strictEqual(conv.context_version, 2, 'one version bump per committed turn');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 2);
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 2);
+    // Each turn declared the version it composed from.
+    assert.deepStrictEqual(db._commits.map((c) => c.p_expected_version), [0, 1]);
+});
+
+test('31. a stale composition is refused and REGENERATED from the committed context', async () => {
+    const db = makeDb();
+    const realRpc = db.rpc;
+    let stole = false;
+    db.rpc = async function (name, params) {
+        if (name === 'support_commit_ai_turn' && !stole) {
+            stole = true;
+            // Another process committed a turn while this one was generating.
+            const conv = db._tables.support_conversations[0];
+            conv.context = { turn: 1 };
+            conv.context_version = 1;
+            return { data: { committed: false, reason: 'stale-context', context_version: 1,
+                conversation: Object.assign({}, conv) }, error: null };
+        }
+        return realRpc(name, params);
+    };
+    let asks = 0;
+    const { service } = makeService({
+        db: db,
+        options: {
+            ai: { ask: async () => { asks += 1; return { answer: 'answer', modelGenerated: false, needsHuman: false }; } },
+            engine: { planTurn: ({ state }) => ({ handled: true, lines: [], nextState: { turn: (Number(state.turn) || 0) + 1 } }) },
+            i18n: { t: () => '' }
+        }
+    });
+    const out = await service.sendCustomerMessage({ userId: 301, body: 'hello' });
+    const conv = db._tables.support_conversations[0];
+    assert.strictEqual(out.ok, true);
+    assert.ok(out.reply, 'the regenerated answer was committed');
+    assert.strictEqual(asks, 2, 'the turn regenerated once after the stale refusal');
+    assert.strictEqual(conv.context.turn, 2, 'the newer context was preserved and advanced');
+    assert.strictEqual(conv.context_version, 2);
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 1,
+        'the stale answer was NOT written');
+});
+
+test('32. without the locked RPC, a takeover during generation still yields no AI answer', async () => {
+    const ctl = controlledAI('AI answer that must never be written');
+    const db = makeDb();
+    db.rpc = async () => ({ data: null, error: { code: '42883', message: 'function public.support_commit_ai_turn does not exist' } });
+    const { service } = makeService({ db: db, options: { ai: ctl.ai } });
+    const pending = service.sendCustomerMessage({ userId: 302, body: 'question' });
+    await ctl.started;
+    const convId = db._tables.support_conversations[0].id;
+    await service.takeover(convId, 900);
+    ctl.release();
+    const out = await pending;
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.supportUnavailable, true, 'reported as support-unavailable, not as an answer');
+    assert.strictEqual(out.aiPaused, true);
+    assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'), 'no AI row may exist');
+    assert.ok(!db._tables.support_messages.some((m) => /must never be written/.test(m.body)));
+    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true, 'takeover still effective');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1,
+        'the customer message is still stored');
+});
+
+test('33. without the locked RPC the turn is parked for a human with a hand-off notice, never an AI answer', async () => {
+    const db = makeDb();
+    db.rpc = async () => ({ data: null, error: { code: '42883', message: 'function public.support_commit_ai_turn does not exist' } });
+    const { service } = makeService({ db: db });
+    const out = await service.sendCustomerMessage({ userId: 303, body: 'hi' });
+    const conv = db._tables.support_conversations[0];
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.supportUnavailable, true);
+    assert.ok(out.reply && /support agent will reply here/i.test(out.reply.body), 'hand-off notice returned');
+    assert.strictEqual(out.reply.sender_type, 'system');
+    assert.strictEqual(conv.ai_paused, true, 'parked for a human');
+    assert.strictEqual(conv.status, 'waiting');
+    assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'));
+    assert.strictEqual(conv.context_version, 0, 'no context was advanced without the RPC');
 });

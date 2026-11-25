@@ -451,50 +451,120 @@ function createNativeSupportService(options) {
         return { duplicate: false, message: inserted.message, conversation: row };
     }
 
-    async function commitAiTurn(conversationId, composed) {
+    // -------------------------------------------------- serialised AI turns
+    // Row locking serialises the writes; it does NOT serialise generation. Two
+    // customer messages posted a few hundred milliseconds apart can both compose
+    // from the same conversation context, and without a guard the second commit
+    // would overwrite the dialogue progress of the first. Two layers prevent it:
+    //
+    //   1. withConversationLock() serialises compose+commit per conversation
+    //      inside this process (the deployment is one web instance), and the turn
+    //      re-reads the row AFTER taking the lock, so it always composes from the
+    //      latest committed state;
+    //   2. every turn carries the context_version it composed from and the locked
+    //      RPC refuses a commit whose version has moved on (stale-context). The
+    //      turn then re-reads and REGENERATES from the committed state, so a turn
+    //      started in another process can never overwrite newer progress.
+    const conversationLocks = new Map();
+
+    function withConversationLock(conversationId, fn) {
+        const key = String(conversationId);
+        const previous = conversationLocks.get(key) || Promise.resolve();
+        const next = previous.then(function () { return fn(); }, function () { return fn(); });
+        const tail = next.then(function () {}, function () {});
+        conversationLocks.set(key, tail);
+        tail.then(function () {
+            if (conversationLocks.get(key) === tail) conversationLocks.delete(key);
+        });
+        return next;
+    }
+
+    async function runAiTurn(afterPost, text) {
+        let row = afterPost;
+        try {
+            row = (await readConversation(afterPost.id)) || afterPost;
+        } catch (err) {
+            return { committed: false, reason: 'unavailable', conversation: afterPost };
+        }
+        if (row.ai_paused) return { committed: false, reason: 'ai-paused', conversation: row };
+        if (row.status === STATUS.RESOLVED) return { committed: false, reason: 'resolved', conversation: row };
+
+        let expected = Number(row.context_version) || 0;
+        let composed = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            composed = await composeAiReply(row, text);
+            if (!composed.text) return { committed: true, message: null, conversation: row, composed: composed };
+            const result = await commitAiTurn(row.id, composed, expected);
+            if (result.committed === true) return Object.assign({}, result, { composed: composed });
+            if (result.reason !== 'stale-context') return Object.assign({}, result, { composed: composed });
+            try {
+                row = (await readConversation(afterPost.id)) || row;
+            } catch (err) {
+                return { committed: false, reason: 'unavailable', conversation: row, composed: composed };
+            }
+            if (row.ai_paused) return { committed: false, reason: 'ai-paused', conversation: row, composed: composed };
+            if (row.status === STATUS.RESOLVED) return { committed: false, reason: 'resolved', conversation: row, composed: composed };
+            expected = Number(row.context_version) || 0;
+        }
+        logOnce('stale-context', 'AI turn abandoned after two stale compositions (conversation ' + afterPost.id + ')');
+        return { committed: false, reason: 'stale-context', conversation: row, composed: composed };
+    }
+
+    async function commitAiTurn(conversationId, composed, expectedVersion) {
         const senderType = composed.needsHuman ? SENDER.SYSTEM : SENDER.AI;
         const preview = previewOf(composed.text);
-        if (rpcWrites) {
-            try {
-                const out = await callRpc('support_commit_ai_turn', {
-                    p_conversation_id: conversationId,
-                    p_sender_type: senderType,
-                    p_body: composed.text,
-                    p_context: composed.context || {},
-                    p_needs_human: composed.needsHuman === true,
-                    p_preview: preview,
-                });
-                if (!out || typeof out.committed !== 'boolean') {
-                    throw Object.assign(new Error('commit-contract'), { code: 'rpc-contract' });
-                }
-                return out;
-            } catch (err) {
-                if (!rpcMissing(err)) throw err;
-                rpcWrites = false;
-                logOnce('rpc-missing:commit', err && err.message);
+        const version = Number(expectedVersion);
+        if (!rpcWrites) return aiUnavailableFallback(conversationId, composed);
+        try {
+            const out = await callRpc('support_commit_ai_turn', {
+                p_conversation_id: conversationId,
+                p_sender_type: senderType,
+                p_body: composed.text,
+                p_context: composed.context || {},
+                p_needs_human: composed.needsHuman === true,
+                p_preview: preview,
+                p_expected_version: Number.isFinite(version) ? version : null,
+            });
+            if (!out || typeof out.committed !== 'boolean') {
+                throw Object.assign(new Error('commit-contract'), { code: 'rpc-contract' });
             }
+            return out;
+        } catch (err) {
+            if (!rpcMissing(err)) throw err;
+            rpcWrites = false;
+            logOnce('rpc-missing:commit', err && err.message);
+            return aiUnavailableFallback(conversationId, composed);
         }
-        // Fallback: claim the turn with a conditional UPDATE (it only matches
-        // while no human owns the thread and it is not resolved), then write.
-        const claimed = await supabase.from('support_conversations')
-            .update({ updated_at: now().toISOString() })
-            .eq('id', conversationId).eq('ai_paused', false).neq('status', STATUS.RESOLVED).select();
-        if (claimed && claimed.error) throw new Error(claimed.error.message || 'claim-failed');
-        if (!claimed || !claimed.data || !claimed.data.length) {
-            return { committed: false, reason: 'ai-paused' };
+    }
+
+    // The locked RPC is the ONLY way an AI answer may be committed. Without it
+    // the answer is not written at all: a claim followed by separate inserts can
+    // be interleaved by a takeover, which is exactly the defect this replaced.
+    // The thread is parked for a human with ONE conditional statement (it can only
+    // SET the paused state, so it cannot undo a takeover) and the customer gets
+    // the localized hand-off notice instead of an AI answer.
+    async function aiUnavailableFallback(conversationId, composed) {
+        try {
+            const claim = await supabase.from('support_conversations')
+                .update({ ai_paused: true, status: STATUS.WAITING, updated_at: now().toISOString() })
+                .eq('id', conversationId).eq('ai_paused', false).neq('status', STATUS.RESOLVED).select();
+            if (claim && claim.error) throw new Error(claim.error.message || 'claim-failed');
+            const claimed = (claim && claim.data && claim.data[0]) || null;
+            const row = claimed || (await readConversation(conversationId));
+            const notice = await insertMessage(conversationId, SENDER.SYSTEM,
+                copyFor((row && row.language) || 'en', 'aiUnavailable'), {});
+            return {
+                committed: false,
+                reason: 'ai-unavailable',
+                supportUnavailable: true,
+                notice: notice.message,
+                conversation: row,
+                composed: composed,
+            };
+        } catch (err) {
+            logOnce('ai-fallback-failed', err && err.message);
+            return { committed: false, reason: 'ai-unavailable', supportUnavailable: true, notice: null };
         }
-        const inserted = await insertMessage(conversationId, senderType, composed.text, {});
-        const patch = {
-            last_message_at: now().toISOString(),
-            last_message_preview: preview,
-            context: composed.context || {},
-        };
-        if (composed.needsHuman) {
-            patch.status = STATUS.WAITING;
-            patch.ai_paused = true;
-        }
-        const row = await touchConversation(conversationId, patch, { unreadForCustomer: inserted.message ? 1 : 0 });
-        return { committed: true, message: inserted.message, conversation: row };
     }
 
     // -------------------------------------------------------------- customer side
@@ -595,28 +665,33 @@ function createNativeSupportService(options) {
                 };
             }
 
-            // 2. Generate the answer (a network round trip), then COMMIT it under
-            //    the same lock. A takeover or resolve that committed while the
-            //    model was generating wins: the pending answer is discarded and
-            //    nothing at all is written.
-            const composed = await composeAiReply(afterPost, cleaned.body);
-            let committed = { committed: true, message: null, conversation: afterPost };
-            if (composed.text) committed = await commitAiTurn(afterPost.id, composed);
+            // 2. ONE AI turn at a time per conversation, composed from the LATEST
+            //    committed context. Row locking alone serialises the WRITES, not
+            //    the generation: two messages posted moments apart would both
+            //    compose from the same state and the later commit would overwrite
+            //    the earlier turn's progress. The lock serialises generation in
+            //    this process; the context version below protects against another
+            //    process (or a turn that started earlier) committing first.
+            const turn = await withConversationLock(afterPost.id, function () {
+                return runAiTurn(afterPost, cleaned.body);
+            });
 
-            if (committed.committed !== true) {
+            if (turn.committed !== true) {
                 return {
                     ok: true,
                     conversationId: afterPost.id,
-                    status: (committed.conversation && committed.conversation.status) || afterPost.status,
+                    status: (turn.conversation && turn.conversation.status) || afterPost.status,
                     aiPaused: true,
                     message: posted.message,
-                    reply: null,
-                    discarded: committed.reason || 'ai-turn-discarded',
+                    reply: turn.notice || null,
+                    supportUnavailable: turn.supportUnavailable === true,
+                    discarded: turn.reason || 'ai-turn-discarded',
                 };
             }
 
-            const finalRow = committed.conversation || afterPost;
-            const replyMessage = committed.message || null;
+            const finalRow = turn.conversation || afterPost;
+            const replyMessage = turn.message || null;
+            const composed = turn.composed || { needsHuman: false };
 
             if (replyMessage && notify) {
                 try {

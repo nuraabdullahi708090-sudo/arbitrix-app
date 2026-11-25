@@ -192,6 +192,12 @@ BEGIN
     END IF;
 END $$;
 
+-- Dialogue state is versioned: every committed AI turn increments it, and a turn
+-- that composed from an older version is refused instead of overwriting newer
+-- progress (see support_commit_ai_turn).
+ALTER TABLE public.support_conversations
+    ADD COLUMN IF NOT EXISTS context_version INTEGER NOT NULL DEFAULT 0;
+
 -- ---------------------------------------------------------------------------
 -- 4b. Concurrency-safe message writes (the AI / human-takeover race)
 -- ---------------------------------------------------------------------------
@@ -264,13 +270,18 @@ BEGIN
 END;
 $fn$;
 
+-- The previous signature (without the version guard) is dropped so a re-apply
+-- over an earlier revision cannot leave a weaker overload behind.
+DROP FUNCTION IF EXISTS public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT);
+
 CREATE OR REPLACE FUNCTION public.support_commit_ai_turn(
-    p_conversation_id BIGINT,
-    p_sender_type     TEXT,
-    p_body            TEXT,
-    p_context         JSONB,
-    p_needs_human     BOOLEAN,
-    p_preview         TEXT
+    p_conversation_id  BIGINT,
+    p_sender_type      TEXT,
+    p_body             TEXT,
+    p_context          JSONB,
+    p_needs_human      BOOLEAN,
+    p_preview          TEXT,
+    p_expected_version INTEGER DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -300,6 +311,18 @@ BEGIN
                                   'conversation', to_jsonb(v_conv));
     END IF;
 
+    -- Optimistic concurrency on the dialogue state: this turn composed from
+    -- context_version = p_expected_version. If another turn committed in the
+    -- meantime the version moved on, and writing our context would overwrite
+    -- that newer progress - so the commit is REFUSED and the caller regenerates
+    -- from the committed state.
+    IF p_expected_version IS NOT NULL
+       AND COALESCE(v_conv.context_version, 0) <> p_expected_version THEN
+        RETURN jsonb_build_object('committed', false, 'reason', 'stale-context',
+                                  'context_version', COALESCE(v_conv.context_version, 0),
+                                  'conversation', to_jsonb(v_conv));
+    END IF;
+
     INSERT INTO public.support_messages (conversation_id, sender_type, body)
     VALUES (p_conversation_id, p_sender_type, p_body)
     RETURNING * INTO v_msg;
@@ -312,19 +335,21 @@ BEGIN
                                            left(regexp_replace(p_body, '\s+', ' ', 'g'), 160)),
            status               = CASE WHEN COALESCE(p_needs_human, false) THEN 'waiting' ELSE status END,
            ai_paused            = CASE WHEN COALESCE(p_needs_human, false) THEN TRUE ELSE ai_paused END,
+           context_version      = COALESCE(context_version, 0) + 1,
            updated_at           = now()
      WHERE id = p_conversation_id
     RETURNING * INTO v_after;
 
     RETURN jsonb_build_object('committed', true, 'message', to_jsonb(v_msg),
-                              'conversation', to_jsonb(v_after));
+                              'conversation', to_jsonb(v_after),
+                              'context_version', COALESCE(v_after.context_version, 0));
 END;
 $fn$;
 
 REVOKE ALL ON FUNCTION public.support_post_customer_message(BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.support_post_customer_message(BIGINT, TEXT, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.support_commit_ai_turn(BIGINT, TEXT, TEXT, JSONB, BOOLEAN, TEXT, INTEGER) TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 5. Self-check: fail loudly (and roll back) rather than leave a half schema
@@ -347,8 +372,12 @@ BEGIN
         v_missing := v_missing || ' policy:non-service-role'; END IF;
     IF to_regprocedure('public.support_post_customer_message(bigint,text,text)') IS NULL THEN
         v_missing := v_missing || ' fn:post_customer_message'; END IF;
-    IF to_regprocedure('public.support_commit_ai_turn(bigint,text,text,jsonb,boolean,text)') IS NULL THEN
+    IF to_regprocedure('public.support_commit_ai_turn(bigint,text,text,jsonb,boolean,text,integer)') IS NULL THEN
         v_missing := v_missing || ' fn:commit_ai_turn'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'public' AND table_name = 'support_conversations'
+                     AND column_name = 'context_version' AND is_nullable = 'NO') THEN
+        v_missing := v_missing || ' column:context_version'; END IF;
     IF v_missing <> '' THEN
         RAISE EXCEPTION '059_native_support.sql incomplete:%', v_missing;
     END IF;

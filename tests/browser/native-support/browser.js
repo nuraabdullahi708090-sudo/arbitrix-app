@@ -172,6 +172,20 @@ async function customerFlow(page, lang) {
   await page.waitForFunction(() => document.querySelectorAll('.ns-msg.failed').length === 1, { timeout: 10000 });
   check(`[${lang}] retry after failure`, (await page.$$('.ns-msg.failed')).length === 1);
 
+  // support-unavailable: the server parks the thread and returns a hand-off notice
+  const aiBefore = await page.evaluate(() => document.querySelectorAll('.ns-msg.ai').length);
+  await page.evaluate(() => { window.__NS.forceUnavailable = true; });
+  await page.evaluate(() => {
+    const ta = document.querySelector('.ns-row textarea');
+    ta.value = 'no rpc on this deployment';
+    document.querySelector('.ns-row button').click();
+  });
+  await page.waitForFunction(() => [...document.querySelectorAll('.ns-msg.system')]
+    .some((n) => /support agent will reply/i.test(n.textContent)), { timeout: 10000 });
+  const aiAfter = await page.evaluate(() => document.querySelectorAll('.ns-msg.ai').length);
+  check(`[${lang}] support-unavailable shows a hand-off, never an AI answer`, aiAfter === aiBefore, aiBefore + '->' + aiAfter);
+  await page.evaluate(() => { window.__NS.forceUnavailable = false; });
+
   // human request
   await page.evaluate(() => { const b = [...document.querySelectorAll('.ns-link')].find((x) => /human|موظف|التحدث/.test(x.textContent)); if (b) b.click(); });
   await page.waitForFunction(() => document.querySelectorAll('.ns-msg.system').length >= 2, { timeout: 10000 });

@@ -46,6 +46,11 @@
         }
         if (action === 'messages' && method === 'POST') {
           if (S.failNextSend) { S.failNextSend = false; return json({ ok: false, error: 'unavailable' }, 503); }
+          if (S.forceUnavailable) {
+            const mine = msg('customer', body.body);
+            const notice = msg('system', 'Thanks for your message. A support agent will reply here shortly.');
+            return json({ ok: true, supportUnavailable: true, aiPaused: true, conversationId: id, message: mine, reply: notice }, 201);
+          }
           const mine = msg('customer', body.body);
           const reply = msg('ai', 'Thanks - here is the approved answer about deposits.');
           S.conv.unread_for_customer = 0;

@@ -87,6 +87,21 @@ they answer **404** (the surface does not exist for production customers).
   a half-merged state. Before migration 059 is applied the service degrades to a
   conditional-update claim (`WHERE ai_paused = false AND status <> 'resolved'`),
   which still cannot undo a takeover; only the atomicity is lost.
+* **Dialogue state is versioned.** Row locking serialises the writes, not the
+  generation, so two messages posted moments apart could both compose from the
+  same context and the later commit would overwrite the earlier turn's progress.
+  Two layers prevent that: `withConversationLock()` serialises compose+commit
+  per conversation inside the process (and the turn re-reads the row after taking
+  the lock), and every commit carries the `context_version` it composed from -
+  `support_commit_ai_turn` refuses a moved version (`reason: 'stale-context'`)
+  and the turn **regenerates from the committed state** instead of overwriting
+  it.
+* **Without the locked RPCs no AI answer is written at all.** The previous
+  fallback claimed the thread and then inserted separately, which a takeover
+  could interleave. Now a missing `support_commit_ai_turn` parks the thread for a
+  human with one conditional statement (it can only SET the paused state) and the
+  customer receives the localized hand-off notice; the response carries
+  `supportUnavailable: true` and no AI row is created.
 * **Idempotency.** `client_message_id` (unique per conversation) makes a retried
   send return the original row (`duplicate: true`).
 * **Unread counters** move on each side; the customer widget clears its own on
