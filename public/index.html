@@ -27602,7 +27602,13 @@ async function initApp() {
     // it would re-introduce the "multiple digits in one box" bug and double
     // fire auto-advance.
 
+    // Bind ONCE per page. initApp() runs again after a logout/login in the same
+    // tab (logout resets appReady) against this same static widget markup, so an
+    // unguarded addEventListener doubled the handlers: a single quick-reply click
+    // then re-filled the input once per handler and sent the same message 2x, 3x.
     document.querySelectorAll('.quick-reply-btn').forEach(function(btn) {
+        if (btn.dataset.supportBound === '1') return;
+        btn.dataset.supportBound = '1';
         btn.addEventListener('click', function() {
             getEl('supportInput').value = this.dataset.msg;
             sendSupportMessage();
@@ -27610,7 +27616,10 @@ async function initApp() {
     });
     
     const supportInput = getEl('supportInput');
-    if(supportInput) supportInput.addEventListener('keypress', function(e) { if(e.key === 'Enter') sendSupportMessage(); });
+    if(supportInput && supportInput.dataset.supportBound !== '1') {
+        supportInput.dataset.supportBound = '1';
+        supportInput.addEventListener('keypress', function(e) { if(e.key === 'Enter') sendSupportMessage(); });
+    }
     
     const copyReferralBtn = getEl('copyReferralBtn');
     if(copyReferralBtn) copyReferralBtn.addEventListener('click', async function() {
