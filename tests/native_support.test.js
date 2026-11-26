@@ -698,3 +698,26 @@ test('31. every route is gated: customers by auth, administrators by auth + admi
     assert.strictEqual(/userId:\s*(req\.query|req\.body)/.test(src), false, 'the customer id comes from the JWT only');
     assert.match(src, /userId: req\.user\.id/, 'customer reads use the verified JWT');
 });
+
+test('32. /kxassign is optional in the single-administrator setup and never blocks a reply', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+
+    // Without an assignee the operator is told the usage and nothing changes.
+    const noTarget = await h.bridge.tryHandle(adminRoute({ messageId: '9200', text: '/kxassign ' + conv.conversationId }), {});
+    assert.strictEqual(noTarget.ok, false);
+    assert.match(h.transport.sent[h.transport.sent.length - 1].text, /Use: \/kxassign/);
+    assert.ok(h.db._tables.support_conversations[0].assigned_admin_id == null, 'still unassigned');
+
+    // With one it records the assignee. `assigned_admin_id` is a display/filter
+    // column only - no route authorises on it - so an id that is not an
+    // administrator cannot grant access to anything.
+    const assigned = await h.bridge.tryHandle(adminRoute({ messageId: '9201', text: '/kxassign ' + conv.conversationId + ' 7' }), {});
+    assert.strictEqual(assigned.ok, true);
+    assert.strictEqual(h.db._tables.support_conversations[0].assigned_admin_id, 7);
+
+    // A reply still works and is not blocked by the assignment.
+    const reply = await h.bridge.tryHandle(adminRoute({ messageId: '9202', text: '/kxreply ' + conv.conversationId + ' still here' }), {});
+    assert.strictEqual(reply.ok, true);
+    assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 1);
+});
