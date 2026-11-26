@@ -23,12 +23,17 @@ const ROOT = path.join(__dirname, '..');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const BOT = fs.readFileSync(path.join(ROOT, 'services/TelegramSupportService.js'), 'utf8');
 
+// The REAL transport (createTelegramTransport) resolves with the Bot API's
+// `result` object - `{ message_id, date, chat, text }` - and throws on failure.
+// A fake that returned `{ ok, messageId }` invented a shape production never
+// produces, and that is exactly how "reply to the notification" could silently
+// stop working. Every transport double here now mimics the shipped one.
 function makeTransport(outcomes) {
     const sent = [];
     return {
         sent,
         async sendMessage(chatId, text, options) {
-            const next = outcomes && outcomes.length ? outcomes.shift() : { ok: true, messageId: 500 + sent.length };
+            const next = outcomes && outcomes.length ? outcomes.shift() : { message_id: 500 + sent.length };
             sent.push({ chatId: String(chatId), text, options });
             if (next instanceof Error) throw next;
             return next;

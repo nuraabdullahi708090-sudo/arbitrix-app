@@ -10918,3 +10918,170 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   assigns it. Grep for `APP.<flag> =` and confirm the sync function is one of the
   sites; a flag set only in the signup handler works exactly once per account and
   silently degrades every returning customer.
+
+## Support messenger: Telegram replies were dropped + widget rebuild (2026-11-26, PR pending)
+
+- ROOT CAUSE of "Telegram reply never reaches the customer": `createTelegramTransport.sendMessage()`
+  RESOLVES with the Bot API `result` object (`{ message_id, date, chat, text }`) and THROWS on
+  failure. `services/SupportInboxBridge.js` read only `out.ok` / `out.messageId`, so
+  `track()` never ran, the notification id was never mapped to a conversation, and
+  `tryHandle()` returned null for every reply-to-notification. The bot then fell through to
+  its legacy operator handler (a different store) and the customer saw nothing. The
+  operator, meanwhile, was told "Reply delivered".
+  - FIX: `deliveredMessageId(out)` accepts `{ messageId }`, `{ message_id }` and
+    `{ result: { message_id } }`; `deliverySucceeded(out)` treats a resolved result as
+    success (explicit `ok: false` still fails). A delivered notification without an id now
+    logs ONE warning (it cannot be routed; `/kxreply <id> <text>` still works).
+  - TESTS THAT HID IT: every transport double in the suite returned `{ ok: true, messageId }`
+    - a shape production never produces. All doubles now return the real shape.
+
+- SECOND DEFECT: `support_messages.via` (migration 061) was assumed present. A database
+  without it made EVERY agent reply fail with PGRST204/"column via does not exist", so the
+  bridge answered "unavailable" to the operator while the customer saw nothing.
+  - FIX: `NativeSupport` probes once (`missingColumn(err,'via')` = 42703 / PGRST204 naming
+    the column), remembers the answer, and omits `via` from inserts AND from the select list
+    when it is absent. The message is the product; the origin is metadata.
+  - The old test pinned the opposite ("agent replies are refused before 061") - rewritten.
+
+- THIRD DEFECT: `listMessages` selected ascending + LIMIT, so a thread longer than the window
+  returned the OLDEST rows and the newest reply was unreachable. Full reads now fetch the
+  newest N (`order id desc limit N`) and reverse; incremental reads (`?after=`) stay
+  ascending. `via` is now part of the customer projection.
+
+- FOURTH: the customer routes had no cache headers. `noStore` (`Cache-Control: no-store`)
+  is applied to the conversation/message GET+POST routes.
+
+- WIDGET (public/native-support.js + the `<style id="nativeSupportStyles">` block in
+  index.html): compact dark-navy messenger, green support accent (green agent bubbles, green
+  send), blue customer bubbles, 52px header, 44px close, one scrolling transcript, panel
+  capped at `min(560px, calc(100vh - 40px))` / `min(72vh,560px)` on phones (dvh where
+  supported) with safe-area padding. A failed READ now shows ONE inline "Reconnecting..."
+  notice with a Retry action that resyncs - it never appends a chat bubble (that is what
+  produced the repeated "Something went wrong. Please try again." bubbles). A failed SEND
+  marks only its own bubble. `open()` starts the 5s poll (it previously only started when a
+  conversation was CREATED, so an existing thread never picked up a reply while open).
+  Removed "Talk to a human" (`ns.human`, `ns.humanQueued`, the `ns-link` element and
+  `requestHuman()`), and the synthetic "agent joined" note.
+
+- TESTS: NEW `tests/support_reply_retrieval.test.js` (13, real routes + real service + real
+  bridge + real bot + real transport over a PostgREST-faithful fake that enforces the
+  projection) and `tests/support_widget_ui.test.js` (13, presentation contract + the real
+  widget in a vm). NEW `tests/helpers/fake-postgrest.js`. Updated pins: the transport shape,
+  the `via` projection, pin 21/31 in native_support, the takeover note, dictionary size of
+  NS_TRANSLATIONS (45 keys x 6 locales). `npm test` = 4292 pass / 0 fail.
+  Browser: `/tmp/nsrepro/e2e` drives the real pipeline - 45/45.
+- NO migration is required (061 already provides `via`; the code degrades safely without it).
+
+## Support surface: exactly one launcher, decided once (2026-11-26, PR #222 follow-up)
+
+- ROOT CAUSE of the duplicate/wrong launcher: the legacy floating assistant is a
+  CSS-rendered element with no notion of the messenger, and the messenger launcher was
+  shown whenever the flag happened to arrive. `body.ns-enabled` was set only inside
+  `NativeSupport.sync()`, so:
+    * from first paint until /api/auth/me resolved, the LEGACY launcher was on screen
+      (tap it and you got the assistant, where a human reply can never appear), and it
+      stayed there indefinitely if the request was slow or failed;
+    * any path that cleared `ns-enabled` while the messenger launcher was `.show`
+      could display both at once;
+    * a duplicate `<script>` load created a second launcher/panel pair (two buttons,
+      two transcripts).
+- FIX - ONE attribute, ONE writer, ONE derivation:
+    * `<body data-support-surface>` is the only switch: `pending` (neither launcher),
+      `native` (messenger), `legacy` (floating assistant). The stylesheet hides the
+      wrong surface per value; the static default is `pending`, so nothing is painted
+      before the decision (no legacy flash on a session load).
+    * `KxSupportSurface` (index.html STARTUP section) is the single writer + the
+      pending watchdog (8s -> legacy, so support is never permanently hidden). It lives
+      in the host because `native-support.js` is deferred and startup runs first.
+    * `NativeSupport.sync()` remains the single place that DERIVES the surface from
+      `APP.nativeSupport` + `APP.nativeSupportKnown` (tri-state: a boolean is an answer,
+      undefined is "still resolving") and calls `KxSupportSurface.set()`. The widget
+      keeps a standalone fallback for loads without the controller (tests/harnesses).
+    * the widget exports `__mounted` and returns immediately on a duplicate include.
+    * `APP.nativeSupportKnown = true` at every place that learns the answer: the
+      registration payload, the /api/auth/me adoption (a response without the field
+      means "off"), logout, and every anonymous startup path (which says `legacy`).
+- TESTS: NEW `tests/support_surface_single_launcher.test.js` (13: tri-state matrix, the
+  watchdog, a late upgrade, logout, account switch, duplicate include, single-writer
+  pins, host wiring/order). `tests/first_visit_landing.test.js` 4a/4c were made
+  robust to the added startup code (their intent is unchanged; 4c no longer uses a
+  fixed 6000-char window). `npm test` = 4305 pass / 0 fail.
+- BROWSER (REAL public/index.html, only /api/* stubbed, CDN scripts aborted):
+  `/tmp/nsrepro/e2e/launchers.js` = 31/31 across the nine required scenarios
+  (enabled/disabled at load, slow auth, failed auth, refresh, logout, account switch,
+  sandbox, duplicate script) with a 25 ms sampler asserting that the number of PAINTED
+  support launchers is never 2 and that the right one appears.
+
+
+## PR #222 pre-merge audit - support surface lifecycle & account isolation (2026-11-26)
+
+- Read-only audit of the single-launcher controller at HEAD 1378c37 on the REAL page
+  (headless Chromium, /api/* answered by a per-token stub so nothing is created
+  server-side, a 25 ms sampler counting PAINTED support surfaces). Three real defects
+  were found and fixed; the rest of the review's checklist verified clean.
+
+### Defects found (each reproduced before the change)
+1. An ALREADY-OPEN legacy panel survived the handover to the messenger. The surface
+   rule hid the widget but left `#supportPanel.open` set, so
+   `body:has(#supportPanel.open)` kept applying to an invisible panel and the next
+   `legacy` transition (logout) restored the panel already open, showing the previous
+   session's transcript. `KxSupportSurface.set()` now CLOSES the panel whenever the
+   surface is not `legacy`.
+2. Logout left the previous session's legacy transcript in the DOM. The assistant's
+   chat is DOM-only (no server conversation), and with the messenger off - the deployed
+   default - the panel could even still be open on the auth page. `resetLegacySupportChat()`
+   (new) closes the panel, clears the draft, restores the welcome bubble and bumps
+   `APP.legacySupportEpoch`; `sendSupportMessage()` captures that epoch and drops its
+   continuation if it changed, so a slow answer cannot append to the next account's chat.
+3. `body.ns-enabled` could disagree with the surface attribute. `sync()` wrote both, but
+   the live-mode render ASSIGNS `document.body.className = 'mode-live'`, wiping the class
+   while the attribute kept its value (measured: `surface=native`, `ns-enabled` absent).
+   The marker and its now-redundant CSS rule are REMOVED; the attribute is the only
+   switch. Anything a `body.className` assignment does can no longer desync it.
+4. (found while fixing 3) `sync()` called `show()` even when the messenger panel was
+   already open, putting a launcher pill on top of the open panel after a login, an
+   account switch or a duplicate script load. It now only shows the launcher when the
+   panel is closed.
+5. (found while fixing 2) `handOverToHumanSupport()` called `NativeSupport.open()`
+   regardless of the surface, so a customer who typed in the legacy assistant during a
+   slow (pending -> legacy) startup could get the messenger panel opened on top of the
+   legacy widget. `open()` now refuses unless the messenger is the current surface
+   (returns `false`) and the host falls back to the static acknowledgement.
+
+### Verified clean (no change needed)
+- Only ONE writer derives the surface (`NativeSupport.sync()`); the host controller only
+  applies it. `pending` is the static default, so nothing paints before the decision.
+- The watchdog (8 s) is not re-armed by repeated syncs; a late auth resolving ENABLED
+  upgrades pending/legacy -> native (measured 9.5 s), a late DISABLED keeps legacy, a
+  malformed body and a 500 both fall back to legacy. Never two surfaces in any sample.
+- Account isolation in the messenger: the identity is the JWT (`s:<token>`), a switch
+  resets cursors/dedupe/transcript and bumps `generation`, and a response for the old
+  account is dropped (measured with a 2.5 s delayed read landing after the switch).
+- A duplicate `native-support.js` include creates no second launcher/panel/transcript and
+  does not double the poll rate (1 read per interval before and after).
+- Human-only invariants intact: no AI/knowledge answering in the widget, no wallet or
+  ledger access, both surfaces share the one `support_conversations` thread, migration
+  061 untouched. The messenger renders text with `textContent`; the legacy chat escapes
+  with `escapeSupportText` (and now receives no server text at all under human-only).
+- No "Talk to a human" link anywhere in the rendered messenger (re-checked in the same
+  harness), no repeated "Something went wrong" text during normal operation.
+
+### Tests
+- `tests/support_surface_single_launcher.test.js` 10 -> 18: S14 (open panel is closed on
+  handover, NOT on `legacy`), S15 (no class marker; `body.className` cannot desync),
+  S16 (logout resets panel/input/transcript/epoch, and logout calls it), S17 (an
+  in-flight legacy reply is guarded twice), S18 (`open()` refuses on a legacy surface,
+  succeeds on native, and the host honours the refusal).
+- Pin updates for the marker removal: `tests/native_support_widget.test.js` (assert the
+  attribute; assert no `body.ns-enabled` SELECTOR), `tests/support_surface_single_launcher`
+  (S1/S3/S4/S6/S9), `tests/browser/native-support/browser.js` (committed harness).
+  `tests/support_fallback.test.js` + `tests/support_widget_backend_bridge.test.js` now
+  inject `legacySupportEpoch` into their sandboxes (sendSupportMessage depends on it).
+- `npm test` = 4310 pass / 0 fail (baseline 4305 + 5). CI static checks reproduce locally:
+  79 files `node --check`, workflow validation, 13/13 inline script blocks parse.
+- Browser: `/tmp/nsrepro/e2e/lifecycle.js` = 56/56 (L0 steady states + refresh + sandbox,
+  L1 open-panel handover and logout, L2/L3 the watchdog races, L4 malformed/500, L5
+  account-switch leak, L6 duplicate include, L7 in-flight reply after logout, L8
+  `body.className` desync, L9 hand-over refusal, L10 the widget UI contract).
+- Encoding: 0 pre-existing non-ASCII code points lost or added, 0 U+FFFD.
+- No migration, no server.js/financial change, no production configuration touched.

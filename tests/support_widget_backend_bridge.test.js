@@ -73,6 +73,9 @@ function loadTranslations() {
 const T = loadTranslations();
 const REQUEST = extractFunction('requestSupportReply');
 const ESCAPE = extractFunction('escapeSupportText');
+// The legacy assistant's session epoch: sendSupportMessage() pins an in-flight
+// reply to the session that asked for it, so the helper is part of its contract.
+const EPOCH = extractFunction('legacySupportEpoch');
 const SEND = extractFunction('sendSupportMessage');
 const FALLBACK = extractFunction('appendSupportFallbackReply');
 const HANDOVER = extractFunction('handOverToHumanSupport');
@@ -133,7 +136,7 @@ async function ask(message, options) {
         };
     }
     vm.createContext(sandbox);
-    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + SEND + '\n' + FALLBACK + '\n' + HANDOVER + '\n' + QUEUED + '\nsendSupportMessage();', sandbox);
+    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + EPOCH + '\n' + SEND + '\n' + FALLBACK + '\n' + HANDOVER + '\n' + QUEUED + '\nsendSupportMessage();', sandbox);
     if (pending) await pending;
     return { html: chat.innerHTML, usedFallback: chat.children.length > 0, calls, messengerOpened, nodes: chat.children };
 }

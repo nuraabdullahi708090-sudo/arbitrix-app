@@ -121,7 +121,7 @@ async function customerFlow(page, lang) {
     const lifted = await hitOk(page, '.ns-launcher');
     check(`[${lang}] launcher is NOT blocked by the consent banner`, lifted === 'hit', lifted);
   }
-  check(`[${lang}] legacy assistant launcher replaced`, await page.evaluate(() => document.body.classList.contains('ns-enabled')
+  check(`[${lang}] legacy assistant launcher replaced`, await page.evaluate(() => document.body.getAttribute('data-support-surface') === 'native'
     && getComputedStyle(document.querySelector('.support-widget')).display === 'none'));
   if (banner) await page.evaluate(() => { if (typeof grantConsent === 'function') grantConsent(); });
   await new Promise((r) => setTimeout(r, 200));

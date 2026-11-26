@@ -202,7 +202,9 @@ test('the same account syncing again does NOT reset (transcript preserved)', () 
 });
 
 test('every async continuation that renders is generation-guarded', () => {
-    ['ensureConversation', 'loadExisting', 'refresh', 'sendMessage', 'requestHuman', 'refreshBadge', 'markRead'].forEach((name) => {
+    // `requestHuman` is gone: the whole conversation is handled by a human, so the
+    // "Talk to a human" action was removed from the widget.
+    ['ensureConversation', 'loadExisting', 'refresh', 'sendMessage', 'refreshBadge', 'markRead'].forEach((name) => {
         const src = fnSrc(name);
         assert.match(src, /if \(stale\(gen\)\) return( null)?;/, name + '() must discard a cross-account response');
     });
@@ -230,8 +232,13 @@ test('human handoff, polling and duplicate protection are untouched', () => {
     assert.match(NATIVE, /if \(state\.sending\) return;/, 'one in-flight send kept');
     assert.match(NATIVE, /if \(state\.creating\) return state\.creating;/, 'one in-flight conversation creation');
     assert.match(NATIVE, /setInterval\(function \(\) \{ if \(state\.open\) refresh\(\); \}, 5000\)/, '5s polling kept');
-    assert.match(NATIVE, /if \(conv\.ai_paused && \(conv\.status === 'waiting' \|\| conv\.status === 'assigned'\)\)/, 'human takeover note kept');
-    assert.match(NATIVE, /if \(!state\.started\) loadExisting\(\);/, 'open() still hydrates an existing conversation');
+    // The handoff itself is untouched (the server keeps ai_paused, the admin inbox
+    // owns takeover), but the widget no longer injects its own "an agent joined"
+    // line: the human's own green bubble is the signal. Pinned so it cannot creep
+    // back as a synthetic transcript row.
+    assert.doesNotMatch(NATIVE, /ns-agent-note|ns\.agentJoined/, 'no synthetic takeover note in the transcript');
+    assert.match(NATIVE, /if \(kind === 'agent'\) node\.setAttribute\('data-role', 'agent'\)/, 'a human reply is still marked as an agent row');
+    assert.match(NATIVE, /if \(!state\.started\) \{\s*loadExisting\(\);/, 'open() still hydrates an existing conversation');
 });
 
 test('the PR #218 fixes are still in place', () => {

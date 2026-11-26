@@ -212,7 +212,9 @@ test('4a. startup block declares the three explicit states and validates via /ap
     assert.ok(block.includes('applyAuthEntryIntent();'), 'entry intent still applied (tab + referral capture)');
     assert.ok(block.includes('enterAppStartup();'), 'valid session enters the dashboard');
     assert.ok(block.includes('showLanding();'), 'anonymous / rejected sessions show the landing');
-    assert.ok(block.includes('if (startupEntryIntent && !startupToken) { showAuth(); return; }'),
+    // The routing also resolves the support surface on this branch, so match the
+    // decision rather than one exact statement.
+    assert.match(block, /if \(startupEntryIntent && !startupToken\) \{[\s\S]{0,90}?showAuth\(\); return; \}/,
         'explicit entry intent with no session shows the auth page');
     assert.ok(block.includes("localStorage.removeItem('jwt_token')"),
         'a server-rejected token is cleared (no private content)');
@@ -237,7 +239,11 @@ test('4b. validateStartupSession(): true / false(401,403) / unknown(offline,5xx)
 
 test('4c. cached session handling only trusts token presence, not arbi_user alone', () => {
     const start = INDEX.indexOf('// ============ STARTUP ============');
-    const block = INDEX.slice(start, start + 6000);
+    // Bound with the next section marker, not a fixed window: anything added to the
+    // startup section (the support-surface controller lives there) would otherwise
+    // silently truncate the block under test.
+    const endMarker = INDEX.indexOf('// Meta Pixel init + first-screen PageView', start);
+    const block = INDEX.slice(start, endMarker > start ? endMarker : start + 12000);
     assert.ok(/if \(!startupToken && startupUser\) \{[\s\S]*?localStorage\.removeItem\('arbi_user'\)/.test(block),
         'a cached user with no token is treated as anonymous (stale cleared)');
     assert.ok(block.includes('if (startupToken) {'), 'token presence drives the session check');

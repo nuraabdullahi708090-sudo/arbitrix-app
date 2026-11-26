@@ -65,6 +65,39 @@ function parseInboxCommand(text) {
     return { action, conversationId };
 }
 
+/**
+ * The id of the message a transport just delivered.
+ *
+ * WHY THIS EXISTS (production defect): `createTelegramTransport.sendMessage()`
+ * resolves with the Bot API's `result` object - `{ message_id, date, chat, text }`
+ * - because every failure is a thrown error. This module used to read
+ * `out.messageId` only, so the id was always `undefined`, `track()` was never
+ * called, and an agent replying to a notification could not be mapped back to a
+ * conversation. The reply was then dropped (the pass-through below returned null)
+ * and the customer saw nothing. Accept every shape so the mapping cannot be lost
+ * again: `{ messageId }`, the raw Telegram row `{ message_id }`, or a wrapper
+ * `{ result: { message_id } }`.
+ */
+function deliveredMessageId(out) {
+    if (!out || typeof out !== 'object') return null;
+    const candidates = [out.messageId, out.message_id, out.result && out.result.message_id];
+    for (const value of candidates) {
+        if (value === undefined || value === null || value === '') continue;
+        return value;
+    }
+    return null;
+}
+
+/**
+ * Whether a resolved transport result means "Telegram accepted it". The real
+ * transport throws on every non-2xx answer, so a resolved value is a success;
+ * an explicit `ok: false` from another transport still counts as a failure.
+ */
+function deliverySucceeded(out) {
+    if (!out || typeof out !== 'object') return false;
+    return out.ok !== false;
+}
+
 function clip(text, max) {
     const flat = String(text === undefined || text === null ? '' : text).replace(/\s+/g, ' ').trim();
     const limit = Number(max) || MAX_NOTIFICATION_BODY;
@@ -121,6 +154,7 @@ function createSupportInboxBridge(options) {
     // Telegram message id -> conversation id, so an agent can simply REPLY to a
     // notification. Bounded: a long-running process must not grow without limit.
     const tracked = new Map();
+    let warnedMissingId = false;
     function track(messageId, conversationId) {
         if (messageId === undefined || messageId === null) return;
         tracked.set(String(messageId), conversationId);
@@ -169,11 +203,16 @@ function createSupportInboxBridge(options) {
             for (const chatId of to) {
                 try {
                     const out = await transport.sendMessage(chatId, text, { disable_notification: true });
-                    if (out && out.ok) {
+                    if (deliverySucceeded(out)) {
                         sentCount += 1;
-                        if (out.messageId !== undefined && out.messageId !== null) {
-                            messageIds.push(out.messageId);
-                            track(out.messageId, conversation && conversation.id);
+                        const messageId = deliveredMessageId(out);
+                        if (messageId !== null) {
+                            messageIds.push(messageId);
+                            track(messageId, conversation && conversation.id);
+                        } else if (!warnedMissingId) {
+                            warnedMissingId = true;
+                            logger.warn('[SupportBridge] notification delivered without a message id; '
+                                + 'replies to it cannot be routed (use /kxreply <conversation id> <text>)');
                         }
                     }
                 } catch (error) {
@@ -297,5 +336,7 @@ module.exports = {
     MAX_NOTIFICATION_BODY,
     parseInboxCommand,
     formatCustomerNotification,
+    deliveredMessageId,
+    deliverySucceeded,
     createSupportInboxBridge,
 };

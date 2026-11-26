@@ -106,6 +106,11 @@ function boot(config) {
             const after = state.ignoreAfter ? 0 : Number(u.split('after=')[1]);
             return Promise.resolve(jsonRes({ ok: true, conversation: { id: 900 }, messages: state.messages.filter((m) => m.id > after) }));
         }
+        // FULL read (open / fresh page): the server returns the newest N rows and
+        // the widget renders them chronologically. `via` is part of the payload.
+        if (/\/messages$/.test(u) && method === 'GET') {
+            return Promise.resolve(jsonRes({ ok: true, conversation: { id: 900 }, messages: state.messages.slice() }));
+        }
         if (/\/messages$/.test(u) && method === 'POST') {
             const row = state.rowFor
                 ? state.rowFor(parsed)
@@ -201,13 +206,13 @@ test('1. activation happens on sync(), not only at page load', () => {
     h.fireLoad();                                   // the module's own load-time sync()
     assert.strictEqual(h.launchers().filter((l) => l.classList.contains('show')).length, 0,
         'no launcher before APP.nativeSupport is known');
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), false, 'legacy widget stays visible');
+    assert.strictEqual(h.body.dataset.supportSurface, 'legacy', 'legacy widget stays visible');
 
     h.sandbox.APP.nativeSupport = true;             // what syncWalletFromServer() does
     h.widget().sync();
 
     assert.strictEqual(h.launchers().filter((l) => l.classList.contains('show')).length, 1, 'launcher shown after login sync');
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), true, 'legacy widget hidden (CSS hooks on this class)');
+    assert.strictEqual(h.body.dataset.supportSurface, 'native', 'legacy widget hidden (the surface attribute drives it)');
 });
 
 test('2. repeated sync() does not duplicate nodes or listeners', () => {
@@ -226,11 +231,11 @@ test('3. logout deactivates the widget and keeps it re-activatable', () => {
     const h = boot();
     h.sandbox.APP.nativeSupport = true;
     h.widget().sync();
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), true);
+    assert.strictEqual(h.body.dataset.supportSurface, 'native');
 
     h.sandbox.APP.nativeSupport = false;            // logout
     h.widget().sync();
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), false, 'legacy widget returns after logout');
+    assert.strictEqual(h.body.dataset.supportSurface, 'legacy', 'legacy widget returns after logout');
     assert.strictEqual(h.launchers().filter((l) => l.classList.contains('show')).length, 0);
     assert.strictEqual(h.launchers().length, 1, 'the DOM is reused, not rebuilt');
 
@@ -315,11 +320,19 @@ test('7. wiring: activation after /api/auth/me, deactivation on logout, legacy h
     assert.match(after, /APP\.nativeSupport = false;/);
     assert.match(after, /NativeSupport\.sync\(\)/);
 
-    assert.match(INDEX, /body\.ns-enabled \.support-widget\{display:none\}/,
-        'the legacy floating assistant is hidden while native support is enabled');
+    assert.match(INDEX, /body\[data-support-surface="native"\] \.support-widget,\s*\nbody\[data-support-surface="pending"\] \.support-widget\{display:none\}/,
+        'the legacy floating assistant is hidden while the native surface owns support');
+    assert.doesNotMatch(INDEX, /body\.ns-enabled\s+\./,
+        'no second marker: the surface attribute is the single switch');
 
-    assert.match(SERVICE, /select\('id, conversation_id, sender_type, body, created_at, client_message_id'\)/,
+    // The customer projection must carry BOTH the reconciliation key and the
+    // message origin: without client_message_id an overlapping poll duplicates a
+    // bubble, and without `via` the widget cannot attribute an agent reply.
+    assert.match(SERVICE, /sender_type, body, created_at, client_message_id/,
         'the API exposes client_message_id so reconciliation is exact');
+    assert.match(SERVICE, /\+ \(withVia \? ', via' : ''\)/, 'the projection carries the message origin');
+    assert.match(WIDGET, /if \(row\.via\) node\.setAttribute\('data-via', row\.via\)/,
+        'the widget renders the origin it was given');
 });
 
 test('8. opening with no thread shows the static welcome and creates NOTHING yet', async () => {
