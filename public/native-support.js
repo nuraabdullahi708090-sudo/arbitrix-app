@@ -27,9 +27,68 @@
  * ========================================================================= */
 (function () {
   'use strict';
+  // DUPLICATE-INCLUDE GUARD. A second load of this file (a repeated <script>, a
+  // re-injected bundle, a double eval) would create a SECOND launcher/panel pair -
+  // i.e. two support buttons and two transcripts. The first instance owns the DOM
+  // and the poller; every later one must do nothing at all.
+  if (typeof window !== 'undefined' && window.NativeSupport && window.NativeSupport.__mounted === true) return;
+
   var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, started: false, creating: null,
     seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null,
-    identity: null, generation: 0, readFailures: 0 };
+    identity: null, generation: 0, readFailures: 0, surface: null };
+
+  // ---- which support surface is on screen -----------------------------------
+  //
+  // ONE decision, expressed as ONE body attribute that the stylesheet keys on:
+  //
+  //   'pending' - the session / feature flag is still being resolved: NEITHER
+  //               launcher is drawn, so the legacy assistant can never be tapped
+  //               (or left open) while the messenger is about to take over.
+  //   'native'  - the messenger; the legacy assistant is removed from the layout.
+  //   'legacy'  - the floating assistant; the messenger launcher cannot be shown.
+  //
+  // Before this existed the two launchers were controlled independently: the
+  // legacy one was visible from first paint by CSS and the native one appeared
+  // whenever the flag happened to arrive, so a slow (or failed) /api/auth/me left
+  // the wrong launcher on screen - and any path that cleared `ns-enabled` while
+  // the messenger was mounted could show both at once.
+  var SURFACES = { pending: true, native: true, legacy: true };
+  // A resolution that never arrives (slow, hung or failed auth) must not leave the
+  // customer with no support at all: after this long the legacy surface is used and
+  // a later sync() that learns the flag still upgrades to the messenger. Sized to
+  // outlast a normal session validation + /api/auth/me on a slow mobile link, so
+  // the honest answer - not the fallback - is what the customer sees.
+  var SURFACE_PENDING_MS = 8000;
+  var surfaceTimer = null;
+
+  function setSurface(next) {
+    var value = SURFACES[next] ? next : 'legacy';
+    state.surface = value;
+    // The host page owns the controller (public/index.html, KxSupportSurface):
+    // ONE writer of the attribute, ONE watchdog. Delegating keeps a single
+    // implementation even though this module loads after the first startup pass.
+    if (window.KxSupportSurface && typeof window.KxSupportSurface.set === 'function') {
+      window.KxSupportSurface.set(value);
+      return;
+    }
+    // Standalone load (tests, embedded harness): the same rule, applied here.
+    try {
+      if (document.body) {
+        if (document.body.dataset) document.body.dataset.supportSurface = value;
+        if (document.body.classList) document.body.classList.toggle('ns-enabled', value === 'native');
+      }
+    } catch (e) {}
+    if (value === 'pending' && surfaceTimer) return;   // keep the original deadline
+    if (surfaceTimer) { clearTimeout(surfaceTimer); surfaceTimer = null; }
+    if (value === 'pending') {
+      surfaceTimer = setTimeout(function () {
+        surfaceTimer = null;
+        if (state.surface !== 'pending') return;
+        setSurface('legacy');
+        hideLauncher();
+      }, SURFACE_PENDING_MS);
+    }
+  }
 
   function token() { try { return localStorage.getItem('jwt_token') || ''; } catch (e) { return ''; } }
   function tt(key, vars) { try { return typeof t === 'function' ? t(key, vars) : key; } catch (e) { return key; } }
@@ -595,6 +654,12 @@
   }
 
   var NativeSupport = {
+    // Marks the DOM as owned, so a duplicate include cannot mount a second widget.
+    __mounted: true,
+    // Used by the host's support-surface watchdog when a session never resolves.
+    hideLauncher: hideLauncher,
+    // 'pending' | 'native' | 'legacy' - read-only view of the current decision.
+    surface: function () { return state.surface; },
     open: open,
     close: hide,
     refresh: refresh,
@@ -616,9 +681,17 @@
     // later session change. build() returns early once the DOM exists, so no
     // duplicate nodes or listeners are created by repeated calls.
     sync: function () {
-      var enabled = (typeof APP !== 'undefined' && APP && APP.nativeSupport === true);
+      // The flag is a TRI-STATE: `true`/`false` are answers, `undefined` means the
+      // session has not been resolved yet (no /api/auth/me response, or it failed).
+      // `APP.nativeSupportKnown` lets the caller state "this answer is final" even
+      // when the server omitted the field entirely.
+      var flag = (typeof APP !== 'undefined' && APP) ? APP.nativeSupport : undefined;
+      var known = (typeof APP !== 'undefined' && APP && APP.nativeSupportKnown === true) || typeof flag === 'boolean';
+      var enabled = known && flag === true;
+      // Exactly one launcher: the surface is decided here and nowhere else. While
+      // the answer is unknown NOTHING is shown (a watchdog falls back to legacy).
+      setSurface(known ? (enabled ? 'native' : 'legacy') : 'pending');
       var identity = enabled ? accountIdentity() : null;
-      if (document.body) document.body.classList.toggle('ns-enabled', enabled);
       // A different account - or support switched off - must not inherit the
       // previous account's transcript, cursors or dedupe map. The same account
       // syncing again (page load, panel reopen, handler re-run) changes nothing,

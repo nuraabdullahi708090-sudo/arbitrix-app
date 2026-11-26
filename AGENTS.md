@@ -10971,3 +10971,43 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   NS_TRANSLATIONS (45 keys x 6 locales). `npm test` = 4292 pass / 0 fail.
   Browser: `/tmp/nsrepro/e2e` drives the real pipeline - 45/45.
 - NO migration is required (061 already provides `via`; the code degrades safely without it).
+
+## Support surface: exactly one launcher, decided once (2026-11-26, PR #222 follow-up)
+
+- ROOT CAUSE of the duplicate/wrong launcher: the legacy floating assistant is a
+  CSS-rendered element with no notion of the messenger, and the messenger launcher was
+  shown whenever the flag happened to arrive. `body.ns-enabled` was set only inside
+  `NativeSupport.sync()`, so:
+    * from first paint until /api/auth/me resolved, the LEGACY launcher was on screen
+      (tap it and you got the assistant, where a human reply can never appear), and it
+      stayed there indefinitely if the request was slow or failed;
+    * any path that cleared `ns-enabled` while the messenger launcher was `.show`
+      could display both at once;
+    * a duplicate `<script>` load created a second launcher/panel pair (two buttons,
+      two transcripts).
+- FIX - ONE attribute, ONE writer, ONE derivation:
+    * `<body data-support-surface>` is the only switch: `pending` (neither launcher),
+      `native` (messenger), `legacy` (floating assistant). The stylesheet hides the
+      wrong surface per value; the static default is `pending`, so nothing is painted
+      before the decision (no legacy flash on a session load).
+    * `KxSupportSurface` (index.html STARTUP section) is the single writer + the
+      pending watchdog (8s -> legacy, so support is never permanently hidden). It lives
+      in the host because `native-support.js` is deferred and startup runs first.
+    * `NativeSupport.sync()` remains the single place that DERIVES the surface from
+      `APP.nativeSupport` + `APP.nativeSupportKnown` (tri-state: a boolean is an answer,
+      undefined is "still resolving") and calls `KxSupportSurface.set()`. The widget
+      keeps a standalone fallback for loads without the controller (tests/harnesses).
+    * the widget exports `__mounted` and returns immediately on a duplicate include.
+    * `APP.nativeSupportKnown = true` at every place that learns the answer: the
+      registration payload, the /api/auth/me adoption (a response without the field
+      means "off"), logout, and every anonymous startup path (which says `legacy`).
+- TESTS: NEW `tests/support_surface_single_launcher.test.js` (13: tri-state matrix, the
+  watchdog, a late upgrade, logout, account switch, duplicate include, single-writer
+  pins, host wiring/order). `tests/first_visit_landing.test.js` 4a/4c were made
+  robust to the added startup code (their intent is unchanged; 4c no longer uses a
+  fixed 6000-char window). `npm test` = 4305 pass / 0 fail.
+- BROWSER (REAL public/index.html, only /api/* stubbed, CDN scripts aborted):
+  `/tmp/nsrepro/e2e/launchers.js` = 31/31 across the nine required scenarios
+  (enabled/disabled at load, slow auth, failed auth, refresh, logout, account switch,
+  sandbox, duplicate script) with a 25 ms sampler asserting that the number of PAINTED
+  support launchers is never 2 and that the right one appears.

@@ -5294,8 +5294,23 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
    screen, so the launcher is lifted above it exactly like the legacy support
    widget (see body:has(#metaConsentBanner) .support-widget). */
 body:has(#metaConsentBanner) .ns-launcher{bottom:250px}
-/* One support affordance at a time: the messenger replaces the legacy floating
-   assistant launcher while the feature is enabled. */
+/* ONE support launcher at a time.
+   The decision lives in exactly one place: NativeSupport.sync() derives it from
+   the server flag and KxSupportSurface.set() (index.html, STARTUP section) writes
+   it to <body data-support-surface> - the single writer:
+     pending - session/feature flag still resolving: NEITHER launcher is drawn,
+               so the legacy assistant cannot be tapped (or left open) while the
+               messenger is about to take over, and two launchers can never
+               coexist during a slow or failed /api/auth/me.
+     native  - the messenger; the legacy assistant is removed from the layout.
+     legacy  - the floating assistant; the messenger launcher cannot appear.
+   Hiding by rule (never by inline style) leaves the legacy widget's own state
+   untouched, so flipping back to 'legacy' restores it exactly. `ns-enabled` is
+   kept as the derived marker for the native surface (other rules key on it). */
+body[data-support-surface="native"] .support-widget,
+body[data-support-surface="pending"] .support-widget{display:none}
+body[data-support-surface="legacy"] .ns-launcher,
+body[data-support-surface="pending"] .ns-launcher{display:none}
 body.ns-enabled .support-widget{display:none}
 .ns-badge{min-width:18px;height:18px;border-radius:9px;background:#E5484D;color:#fff;font-size:11px;
   line-height:18px;text-align:center;padding:0 5px}
@@ -5412,7 +5427,7 @@ body.ns-enabled .support-widget{display:none}
 }
 </style>
 </head>
-<body>
+<body data-support-surface="pending">
 
 <!-- ============ JS HEALTH REMOVED ============ -->
 
@@ -5840,6 +5855,9 @@ async function handleSignup() {
         // In-app support messenger availability (server feature flag). Display
         // only: every support route re-checks the flag server-side.
         APP.nativeSupport = data.nativeSupport === true;
+        // A server answer is final: it releases the `pending` support surface (see
+        // NativeSupport.sync()), so exactly one launcher is drawn from here on.
+        APP.nativeSupportKnown = true;
         // Activate the in-app messenger NOW. The module's own load-time sync()
         // runs ~2.5s after `load`, usually before /api/auth/me resolves, so
         // without this call the launcher never appears and the legacy widget
@@ -27061,8 +27079,16 @@ async function syncWalletFromServer() {
             // `body.ns-enabled` was never applied, and the LEGACY floating assistant
             // stayed the support surface - where a human reply can never appear.
             // Display only: every support route re-checks the flag server-side.
-            if (meData && typeof meData.nativeSupport === 'boolean') {
-                APP.nativeSupport = meData.nativeSupport === true;
+            if (meData) {
+                // Accepting /api/auth/me IS the resolved state: when the server
+                // omits the field (older build, flag unset) the messenger is simply
+                // not offered, and saying so is what releases the `pending` support
+                // surface. Without this the session would sit in `pending` until the
+                // watchdog fired and the legacy launcher would return late.
+                if (typeof meData.nativeSupport === 'boolean') {
+                    APP.nativeSupport = meData.nativeSupport === true;
+                }
+                APP.nativeSupportKnown = true;
                 try {
                     if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync();
                 } catch (err) {}
@@ -27655,6 +27681,7 @@ async function initApp() {
             // auth page cannot keep a logged-in support surface open and the
             // legacy widget returns for the next visitor of this tab.
             APP.nativeSupport = false;
+            APP.nativeSupportKnown = true;
             try { if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync(); } catch (err) {}
 
             // Logout is an explicit session end, so the landing page must not
@@ -30520,6 +30547,68 @@ applyAuthEntryIntent();
 //   false     -> the server rejected it (401/403)
 //   'unknown' -> the check could not complete (offline / server error), in
 //                which case the existing offline-tolerant behavior is kept.
+/* ============ SUPPORT SURFACE CONTROLLER ============
+ *
+ * Exactly ONE support launcher may be visible. The legacy floating assistant is a
+ * CSS-rendered element and the messenger launcher is created by
+ * public/native-support.js once the server feature flag is known; nothing in the
+ * markup keeps them apart, so the two are separated by ONE attribute on <body>
+ * that the stylesheet keys on (the static default is `pending`):
+ *
+ *   pending - the session / feature flag is still resolving: NEITHER launcher is
+ *             drawn (so the wrong one can never be tapped, and two can never be
+ *             visible together during a slow or failed /api/auth/me).
+ *   native  - the messenger; the legacy assistant is removed from the layout.
+ *   legacy  - the floating assistant; the messenger launcher cannot appear.
+ *
+ * This object owns the APPLICATION of that decision (the single writer of the
+ * attribute, the `ns-enabled` marker and the pending watchdog). The DERIVATION -
+ * which surface this session gets - lives in NativeSupport.sync(), which reads
+ * the flag and calls set(). It lives here rather than in the messenger module
+ * because that module is deferred: the first startup pass runs before it exists,
+ * and a session load must not paint the legacy launcher in the meantime.
+ */
+var KxSupportSurface = {
+    SURFACES: { pending: true, native: true, legacy: true },
+    current: null,
+    timer: null,
+    // A resolution that never arrives (slow, hung or failed auth) must not leave
+    // the customer with no support at all: after this long the legacy surface is
+    // used, and a later sync() that learns the flag still upgrades. Sized to
+    // outlast a normal session validation on a slow mobile link.
+    PENDING_TIMEOUT_MS: 8000,
+    set: function (next) {
+        var value = (this.SURFACES[next]) ? next : 'legacy';
+        this.current = value;
+        try {
+            if (document.body) {
+                if (document.body.dataset) document.body.dataset.supportSurface = value;
+                if (document.body.classList) document.body.classList.toggle('ns-enabled', value === 'native');
+            }
+        } catch (e) {}
+        if (value === 'pending' && this.timer) {
+            // Already waiting: keep the ORIGINAL deadline. Re-arming on every
+            // repeated sync() (the module syncs again 2.5s after load) would push
+            // the fallback out indefinitely and leave support hidden.
+            return value;
+        }
+        if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+        if (value === 'pending') {
+            var self = this;
+            this.timer = setTimeout(function () {
+                self.timer = null;
+                if (self.current !== 'pending') return;
+                self.set('legacy');
+                try {
+                    if (window.NativeSupport && typeof NativeSupport.hideLauncher === 'function') NativeSupport.hideLauncher();
+                } catch (e) {}
+            }, this.PENDING_TIMEOUT_MS);
+        }
+        return value;
+    }
+};
+window.KxSupportSurface = KxSupportSurface;
+
 function validateStartupSession(token) {
     return new Promise(function(resolve) {
         var settled = false;
@@ -30570,6 +30659,27 @@ function validateStartupSession(token) {
         updateLandingAuthUI(false);
     }
 
+    // THE SUPPORT SURFACE IS DECIDED ONCE - here and in NativeSupport.sync().
+    // The static default is `pending` (neither launcher drawn), so:
+    //   * a page load WITH a session starts `pending`: NEITHER launcher is drawn
+    //     until /api/auth/me answers (or the watchdog fires), so the wrong
+    //     launcher can never be tapped during initialization and the two can
+    //     never be visible together;
+    //   * every anonymous path resolves to `legacy` immediately, which is the
+    //     behaviour those screens have always had.
+    function supportSurface(state) {
+        try {
+            if (typeof APP !== 'undefined' && APP) {
+                if (state === 'pending') { APP.nativeSupportKnown = false; }
+                else { APP.nativeSupportKnown = true; APP.nativeSupport = false; }
+            }
+            // The messenger module is deferred, so apply the decision first and let
+            // its own sync() re-derive the same value from APP when it loads.
+            if (window.KxSupportSurface) KxSupportSurface.set(state);
+            if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync();
+        } catch (e) {}
+    }
+
     // A cached user without a token is not an authenticated session.
     if (!startupToken && startupUser) {
         try { localStorage.removeItem('arbi_user'); } catch(e) {}
@@ -30578,14 +30688,16 @@ function validateStartupSession(token) {
     // An explicit marketing deep link (?action=... / arbi_auth_entry) with no
     // session wins over the landing default so the correct auth tab is shown
     // directly (existing behavior).
-    if (startupEntryIntent && !startupToken) { showAuth(); return; }
+    if (startupEntryIntent && !startupToken) { supportSurface('legacy'); showAuth(); return; }
 
     if (startupToken) {
+        supportSurface('pending');
         validateStartupSession(startupToken).then(function(state) {
             if (state === false) {
                 // Server rejected the session: clear the stale token/user and
                 // never expose the dashboard.
                 try { localStorage.removeItem('jwt_token'); localStorage.removeItem('arbi_user'); } catch(e) {}
+                supportSurface('legacy');
                 if (startupEntryIntent) showAuth(); else showLanding();
             } else {
                 // Valid session, or unverifiable while offline: enter the
@@ -30597,6 +30709,7 @@ function validateStartupSession(token) {
     }
 
     // Anonymous visitor: the landing is already the first paint.
+    supportSurface('legacy');
     showLanding();
 })();
 
