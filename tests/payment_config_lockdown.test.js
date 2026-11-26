@@ -19,6 +19,7 @@ const MIGRATION = fs.readFileSync(
 const MIGRATION_014 = fs.readFileSync(
   path.join(ROOT, 'supabase/migrations/014_financial_rpc_execute_lockdown.sql'), 'utf8');
 const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const SETTLEMENT_SRC = fs.readFileSync(path.join(ROOT, 'services', 'q8qpaySettlement.js'), 'utf8');
 const NOWPAYMENTS = fs.readFileSync(path.join(ROOT, 'services/providers/nowpayments.js'), 'utf8');
 const PAYMENTO = fs.readFileSync(path.join(ROOT, 'services/providers/paymento.js'), 'utf8');
 const Q8QPAY = fs.readFileSync(path.join(ROOT, 'services/providers/q8qpay.js'), 'utf8');
@@ -190,7 +191,10 @@ test('migration 014 lockdown is untouched (16 privilege statements)', () => {
 
 test('server still invokes the three financial RPCs via supabaseAdmin', () => {
   assert.match(SERVER, /supabaseAdmin\.rpc\('record_trade_safe'/);
-  assert.match(SERVER, /supabaseAdmin\.rpc\('credit_payment_safe'/);
+  // `credit_payment_safe` now runs inside services/q8qpaySettlement.js, which is
+  // handed supabaseAdmin - the service-role requirement is unchanged.
+  assert.match(SERVER, /createQ8qpaySettlement\(\{ db: supabaseAdmin/);
+  assert.match(SETTLEMENT_SRC, /rpc\('credit_payment_safe'/);
   assert.match(SERVER, /supabaseAdmin\.rpc\('paymento_credit_user_safe'/);
 });
 

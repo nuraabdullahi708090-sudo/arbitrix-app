@@ -21,8 +21,8 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1585; // demo mode removed: 1640 -> 1585 keys/locale
-// 1585 keys/locale now = 1556 outside landing.testimonials.* plus the 24
+const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 keys/locale
+// 1590 keys/locale now = 1556 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
 // tutorial keys (deposit.tutorials.* and withdraw.tutorial.*) added with the
@@ -34,14 +34,16 @@ const DICT_SIZE = 1585; // demo mode removed: 1640 -> 1585 keys/locale
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-// 1552 = 1585 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
+// 1552 = 1590 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
 // outside this section is retired (the demo CTA simplification retired six).
 // 1534 = outside landing.testimonials.* minus ALLOWED_EXTRA. The last change was
 // the in-app-support consolidation: four customer-facing Telegram support keys
 // retired (support.telegramShort / support.officialTelegram /
 // support.notConfigured / support.human.title) and two added
 // (support.startChat / support.chatHint), i.e. -2.
-const BASE_OUTSIDE_TESTIMONIALS = 1534;
+// Bumped by the 5 read-only admin reconciliation keys added with the Q8QPay
+// settlement work (1590 keys/locale; testimonials keys themselves unchanged).
+const BASE_OUTSIDE_TESTIMONIALS = 1539;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 

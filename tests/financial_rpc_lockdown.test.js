@@ -129,12 +129,23 @@ test('paymento_credit_user_safe 8-arg overload matches migration 007 definition'
 // ---------- 3. Server invocation path: service-role only ----------
 
 test('server invokes all 3 financial RPCs exclusively via supabaseAdmin (service-role)', () => {
-  for (const fn of ['record_trade_safe', 'credit_payment_safe', 'paymento_credit_user_safe']) {
+  // `credit_payment_safe` moved into services/q8qpaySettlement.js so that the
+  // webhook and the customer-initiated check share ONE settlement path. The
+  // service-role guarantee is now: the pipeline is constructed with supabaseAdmin
+  // as its database handle, and the pipeline is the only caller.
+  const SETTLEMENT = fs.readFileSync(path.join(ROOT, 'services/q8qpaySettlement.js'), 'utf8');
+
+  for (const fn of ['record_trade_safe', 'paymento_credit_user_safe']) {
     assert.ok(SERVER.includes(`supabaseAdmin.rpc('${fn}'`), `server.js must call ${fn} via supabaseAdmin`);
-    // No invocation through the anon client (supabase.rpc without the Admin suffix).
     const anonCall = new RegExp(`(?<!Admin)\\.rpc\\('${fn}'`).test(SERVER.replace(/supabaseAdmin\.rpc/g, ''));
     assert.ok(!anonCall, `${fn} must NOT be invoked through the anon client`);
   }
+
+  assert.ok(SETTLEMENT.includes("rpc('credit_payment_safe'"), 'the settlement pipeline calls credit_payment_safe');
+  assert.match(SERVER, /createQ8qpaySettlement\(\{ db: supabaseAdmin, provider: q8qpayProvider \}\)/,
+    'the pipeline is wired with the service-role client');
+  assert.ok(!/supabase\.rpc\('credit_payment_safe'/.test(SERVER), 'never through the anon client');
+  assert.ok(!/supabase\.rpc\(/.test(SETTLEMENT), 'the pipeline never holds the anon client');
 });
 
 test('server passes only the 5-arg params to paymento_credit_user_safe (5-arg overload is the live server path)', () => {
