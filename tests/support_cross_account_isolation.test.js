@@ -202,9 +202,9 @@ test('the same account syncing again does NOT reset (transcript preserved)', () 
 });
 
 test('every async continuation that renders is generation-guarded', () => {
-    ['start', 'loadExisting', 'refresh', 'sendMessage', 'requestHuman', 'refreshBadge', 'markRead'].forEach((name) => {
+    ['ensureConversation', 'loadExisting', 'refresh', 'sendMessage', 'requestHuman', 'refreshBadge', 'markRead'].forEach((name) => {
         const src = fnSrc(name);
-        assert.match(src, /if \(stale\(gen\)\) return;/, name + '() must discard a cross-account response');
+        assert.match(src, /if \(stale\(gen\)\) return( null)?;/, name + '() must discard a cross-account response');
     });
     assert.ok((NATIVE.match(/stale\(gen\)/g) || []).length >= 6);
 });
@@ -227,7 +227,8 @@ test('human handoff, polling and duplicate protection are untouched', () => {
     assert.match(append, /var known = state\.seen\[id\];/, 'server-id dedupe kept');
     assert.match(append, /if \(known\) \{/, 'a repeated row refreshes instead of re-rendering');
     assert.match(NATIVE, /function reconcileOrAppend/, 'optimistic reconciliation kept');
-    assert.match(NATIVE, /if \(!state\.conversationId \|\| state\.sending\) return;/, 'one in-flight send kept');
+    assert.match(NATIVE, /if \(state\.sending\) return;/, 'one in-flight send kept');
+    assert.match(NATIVE, /if \(state\.creating\) return state\.creating;/, 'one in-flight conversation creation');
     assert.match(NATIVE, /setInterval\(function \(\) \{ if \(state\.open\) refresh\(\); \}, 5000\)/, '5s polling kept');
     assert.match(NATIVE, /if \(conv\.ai_paused && \(conv\.status === 'waiting' \|\| conv\.status === 'assigned'\)\)/, 'human takeover note kept');
     assert.match(NATIVE, /if \(!state\.started\) loadExisting\(\);/, 'open() still hydrates an existing conversation');
@@ -235,5 +236,7 @@ test('human handoff, polling and duplicate protection are untouched', () => {
 
 test('the PR #218 fixes are still in place', () => {
     assert.match(INDEX, /btn\.dataset\.supportBound === '1'/, 'quick-reply binding stays idempotent');
-    assert.strictEqual(NATIVE.split("tt('ns.welcome')").length - 1, 1, 'the greeting still renders from one path');
+    // The greeting is now the human-only welcome, rendered from exactly one place.
+    assert.strictEqual(NATIVE.split("tt('ns.welcome')").length - 1, 0, 'no AI-era greeting remains');
+    assert.strictEqual(NATIVE.split("copy('welcome')").length - 1, 1, 'the welcome renders from one path');
 });

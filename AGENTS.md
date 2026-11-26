@@ -10743,3 +10743,89 @@ npm test = 4085 tests, 4084 pass, 0 fail, 1 skipped (baseline 4083/4082/0/1).
   deposits.minimum) because it skips intent detection and guardrails.
 - Non-English is unaffected by the flag but needs SUPPORT_TRANSLATION_ENABLED + a
   provider credential; without it they receive the localized handoff, never English.
+
+## PR #219 merged + deployed (2026-11-26)
+- Merge commit `b0945f5` (parent `699ad07`): in-app support answers from approved
+  knowledge when `AI_SUPPORT_ENABLED` is off - the fallback is the same
+  `SupportAIService` with the offline `knowledge` provider (`knowledgeResponder()`
+  in services/NativeSupport.js), not a second retriever.
+- Flag semantics clarified and pinned (K8): `AI_SUPPORT_ENABLED` now means EXTERNAL
+  model answering only; offline knowledge answers run either way. There is still no
+  dedicated "silence all automated answers" switch (proposal: NATIVE_SUPPORT_AUTO_ANSWER).
+- DEPLOY VERIFICATION LIMITATION: this change is server-side, and production has no
+  build fingerprint (health is `{status:ok}`, no commit/uptime, no version header;
+  Render's zero-downtime swap keeps 200s coming). Verified: origin/main=b0945f5,
+  continuous health 200, client assets byte-identical, anon `/api/support` 401,
+  unknown `/api` 404, Telegram webhook 401. Definitive confirmation needs the Render
+  deploy log for `b0945f5` or one logged-in support message ("What is the minimum
+  platform deposit?" -> "$50").
+
+
+## HUMAN-ONLY in-app support - AI removed, Telegram <-> dashboard in sync (2026-11-26, branch feat/human-only-support)
+
+Decision: the in-app support widget is HUMAN-ONLY. No AI answers, no knowledge-base
+responses, no automated conversation engine, no fallback bot. A customer writes; an agent
+replies from the Admin Dashboard support inbox or from Telegram. Both channels write to the
+SAME conversation, so the thread is identical wherever it is read.
+
+WHAT CHANGED
+- services/NativeSupport.js: `opts.ai` / `engine` / `i18n` / `translator` are gone, and with
+  them `runAiTurn`, `withConversationLock`, `composeAiReply` and the AI fallback copy.
+  `sendCustomerMessage` now stores the message, posts ONE static acknowledgement per
+  conversation and returns it. The acknowledgement is claimed atomically
+  (`UPDATE ... WHERE acknowledged_at IS NULL`) so two simultaneous first messages cannot
+  post two notices, and it is a `system` row - never attributed to a person.
+  Agent replies go through ONE path, `deliverAgentReply`, used by both
+  `sendAgentMessage` (dashboard, requires an authenticated admin id) and
+  `sendChannelReply` (Telegram, authorisation already done by the bot's admin allow-list;
+  no platform user is invented because this platform keeps no Telegram-id -> users map).
+- services/SupportInboxBridge.js (NEW): customer message -> one Telegram notification
+  (configured support chat, else one per TELEGRAM_ADMIN_IDS id); agent reply by replying to
+  that notification OR `/kxreply <id> <text>`; `/kxresolve <id>`; `/kxassign <id> <userId>`.
+  Deterministic `tg:<chatId>:<messageId>` client key = a redelivered webhook cannot post
+  the reply twice. Never throws, never logs customer content or credentials, and the
+  notification formatter is the single place that decides what may travel (name, e-mail,
+  account id, conversation id, message text - no balance, address, token).
+- services/TelegramSupportService.js: `routeUpdate` exposes `replyToMessageId`; the bot takes
+  an `inbox` collaborator and gives it first refusal on `group`/`admin` messages, then falls
+  back to the existing operator handler. With no inbox the bot is byte-identical.
+- server.js: the in-app messenger is constructed with `supabase` only; `lookupSupportCustomer`
+  (id/name/email, read-only) feeds the notification; `notifyAdmins` writes the dashboard feed
+  AND calls `supportInboxBridge.notifyConversation`. Both alerts are wrapped, so an alert
+  failure can never fail or lose a customer message. Notifications are created before the
+  bridge is constructed, so `nativeSupport` is `let` and the bridge resolves it late.
+- public/native-support.js: the category chooser is gone. Opening the widget shows the static
+  welcome (one interface message, 6 locales) and the composer; the conversation is created on
+  the FIRST message, so reading the welcome never leaves an empty thread for the agents.
+  Messages show "Sending..." then "<time> . Delivered"; the admin thread labels each row
+  Customer / Dashboard / Telegram / System (historical `ai` rows say "Assistant (historical)")
+  and the inbox refreshes the open conversation every 6s without discarding a typed draft.
+- supabase/migrations/061_human_only_support.sql (NOT applied): additive + idempotent. Adds
+  `support_messages.via`, `support_conversations.acknowledged_at`, a thread index and a
+  BEFORE INSERT trigger that fills the `via` default (the RPC-inserted customer rows come
+  from support_post_customer_message, which knows nothing about `via`). It drops no table,
+  rewrites no body and deletes no history - a historical `ai` row stays readable.
+
+TESTS (all rewritten or added for the human-only contract; nothing was weakened to pass)
+- tests/native_support.test.js: the in-memory PostgREST fake was kept (plus `.is()`), the AI
+  contract was replaced by 20 human-only assertions - acknowledgement once per conversation,
+  no `ai` row anywhere, provenance on agent replies, Telegram replies without a platform
+  admin, resolution/reopen, takeover, notification failures contained, isolation, limits,
+  route wiring, and the migration contract.
+- tests/support_telegram_bridge.test.js (NEW, 19): command parsing, notification contents
+  (and the absence of anything financial), recipients, partial failure, unauthorised users,
+  dedupe keys, reply-to-notification, service failures, and the bot/server wiring.
+- tests/native_support_widget.test.js gained 3: the welcome creates nothing, the first
+  message creates then posts and renders the acknowledgement, history reopens without a
+  second welcome.
+- Removed tests/native_support_languages.test.js (AI language contract); trimmed the native
+  AI cases from tests/support_translation_provider_isolation.test.js (Telegram translation
+  isolation is untouched) and rewrote its "one translator" pin.
+- Real trap: `rpcWrites` was declared in the deleted AI block, so every write silently failed
+  with `rpcWrites is not defined` until the flag was restored - the in-memory fake caught it
+  immediately, which is why the suite must exercise the real service.
+- Migration numbering: 060 was already taken by the six-language Telegram migration, so the
+  new file is 061 (two 060s would have made the apply order ambiguous).
+- npm test = 4233 pass / 0 fail / 1 skipped (Chromium-dependent). node --check clean.
+
+NOT DONE: no merge, no deploy, no migration applied, no production configuration changed.

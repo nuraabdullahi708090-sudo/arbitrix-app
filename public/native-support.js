@@ -7,13 +7,53 @@
  * ========================================================================= */
 (function () {
   'use strict';
-  var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, categories: null, started: false,
+  var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, categories: null, started: false, creating: null,
     seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null,
     identity: null, generation: 0 };
 
   function token() { try { return localStorage.getItem('jwt_token') || ''; } catch (e) { return ''; } }
   function tt(key, vars) { try { return typeof t === 'function' ? t(key, vars) : key; } catch (e) { return key; } }
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  // HUMAN-ONLY copy: the ONLY two automated strings in this widget, and neither
+  // pretends to be an agent. The welcome is an interface message; the
+  // acknowledgement only says the team has the message and will respond.
+  var COPY = {
+    en: {
+      welcome: 'Welcome to Kalderix Support. How can we help you today? Send us a message and a member of our support team will respond personally.',
+      received: "Thank you for contacting Kalderix. We've received your message and our support team will respond as soon as possible.",
+      sending: 'Sending\u2026', delivered: 'Delivered'
+    },
+    es: {
+      welcome: 'Te damos la bienvenida al soporte de Kalderix. \u00bfC\u00f3mo podemos ayudarte hoy? Env\u00edanos un mensaje y un miembro de nuestro equipo de soporte te responder\u00e1 personalmente.',
+      received: 'Gracias por contactar con Kalderix. Hemos recibido tu mensaje y nuestro equipo de soporte responder\u00e1 lo antes posible.',
+      sending: 'Enviando\u2026', delivered: 'Entregado'
+    },
+    pt: {
+      welcome: 'Bem-vindo ao Suporte Kalderix. Como podemos ajudar hoje? Envie-nos uma mensagem e um membro da nossa equipa de suporte responder\u00e1 pessoalmente.',
+      received: 'Obrigado por contactar a Kalderix. Recebemos a sua mensagem e a nossa equipa de suporte responder\u00e1 o mais breve poss\u00edvel.',
+      sending: 'A enviar\u2026', delivered: 'Entregue'
+    },
+    fr: {
+      welcome: "Bienvenue dans l'assistance Kalderix. Comment pouvons-nous vous aider aujourd'hui ? Envoyez-nous un message et un membre de notre \u00e9quipe d'assistance vous r\u00e9pondra personnellement.",
+      received: "Merci d'avoir contact\u00e9 Kalderix. Nous avons bien re\u00e7u votre message et notre \u00e9quipe d'assistance vous r\u00e9pondra d\u00e8s que possible.",
+      sending: 'Envoi\u2026', delivered: 'Envoy\u00e9'
+    },
+    ar: {
+      welcome: '\u0645\u0631\u062d\u0628\u0627\u064b \u0628\u0643 \u0641\u064a \u062f\u0639\u0645 Kalderix. \u0643\u064a\u0641 \u064a\u0645\u0643\u0646\u0646\u0627 \u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0627\u0644\u064a\u0648\u0645\u061f \u0623\u0631\u0633\u0644 \u0644\u0646\u0627 \u0631\u0633\u0627\u0644\u0629 \u0648\u0633\u064a\u0631\u062f \u0639\u0644\u064a\u0643 \u0623\u062d\u062f \u0623\u0639\u0636\u0627\u0621 \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627 \u0634\u062e\u0635\u064a\u0627\u064b.',
+      received: '\u0634\u0643\u0631\u0627\u064b \u0644\u062a\u0648\u0627\u0635\u0644\u0643 \u0645\u0639 Kalderix. \u0644\u0642\u062f \u0627\u0633\u062a\u0644\u0645\u0646\u0627 \u0631\u0633\u0627\u0644\u062a\u0643 \u0648\u0633\u064a\u0631\u062f \u0639\u0644\u064a\u0643 \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627 \u0641\u064a \u0623\u0642\u0631\u0628 \u0648\u0642\u062a \u0645\u0645\u0643\u0646.',
+      sending: '\u062c\u0627\u0631\u064d \u0627\u0644\u0625\u0631\u0633\u0627\u0644\u2026', delivered: '\u062a\u0645 \u0627\u0644\u0625\u0631\u0633\u0627\u0644'
+    },
+    zh: {
+      welcome: '\u6b22\u8fce\u4f7f\u7528 Kalderix \u652f\u6301\u3002\u4eca\u5929\u6211\u4eec\u80fd\u4e3a\u60a8\u505a\u4e9b\u4ec0\u4e48\uff1f\u8bf7\u7ed9\u6211\u4eec\u53d1\u9001\u6d88\u606f\uff0c\u6211\u4eec\u7684\u652f\u6301\u56e2\u961f\u6210\u5458\u4f1a\u4eb2\u81ea\u56de\u590d\u60a8\u3002',
+      received: '\u611f\u8c22\u60a8\u8054\u7cfb Kalderix\u3002\u6211\u4eec\u5df2\u6536\u5230\u60a8\u7684\u6d88\u606f\uff0c\u5ba2\u670d\u56e2\u961f\u4f1a\u5c3d\u5feb\u56de\u590d\u60a8\u3002',
+      sending: '\u53d1\u9001\u4e2d\u2026', delivered: '\u5df2\u53d1\u9001'
+    }
+  };
+  function copy(key) {
+    var lang = (typeof currentLang === 'string' && COPY[currentLang]) ? currentLang : 'en';
+    return (COPY[lang] && COPY[lang][key]) || COPY.en[key];
+  }
+
   function timeLabel(iso) {
     var d = iso ? new Date(iso) : new Date();
     try { return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
@@ -62,21 +102,16 @@
     document.body.appendChild(root);
   }
 
+  // Support is ONE conversation. Opening the widget shows the static welcome and
+  // the composer; a category is never requested from the customer.
   function renderChooser() {
     body.innerHTML = '';
-    // The greeting belongs to the transcript, not the chooser: showing it here AND
-    // as start()'s first system bubble made the assistant look like it was
-    // restarting the moment the customer picked a topic.
-    body.appendChild(el('div', 'ns-note', tt('ns.catQ')));
-    var grid = el('div', 'ns-cats');
-    ['deposit', 'withdrawal', 'trading', 'account', 'general'].forEach(function (cat) {
-      var b = el('button', null, tt('ns.cat.' + cat));
-      b.type = 'button';
-      b.addEventListener('click', function () { start(cat); });
-      grid.appendChild(b);
+    appendMessage({
+      sender_type: 'system',
+      body: copy('welcome'),
+      created_at: new Date().toISOString()
     });
-    body.appendChild(grid);
-    foot.innerHTML = '';
+    renderComposer();
   }
 
   function setSending(on) {
@@ -112,11 +147,16 @@
   }
 
   function messageNode(row, pending) {
-    var cls = 'ns-msg ' + (row.sender_type || 'ai') + (pending ? ' pending' : '');
+    var kind = row.sender_type || 'system';
+    var cls = 'ns-msg ' + kind + (pending ? ' pending' : '');
     if (pending && pending.failed) cls += ' failed';
     var node = el('div', cls);
+    if (row.via) node.setAttribute('data-via', row.via);
     node.appendChild(el('span', null, row.body || ''));
-    node.appendChild(el('span', 'ns-time', pending && pending.failed ? tt('ns.failed') : timeLabel(row.created_at)));
+    var meta = pending
+      ? (pending.failed ? tt('ns.failed') : copy('sending'))
+      : (timeLabel(row.created_at) + (kind === 'customer' ? ' \u00b7 ' + copy('delivered') : ''));
+    node.appendChild(el('span', 'ns-time', meta));
     return node;
   }
 
@@ -216,27 +256,34 @@
 
   function stale(gen) { return gen !== state.generation; }
 
-  function start(category) {
+  // Created on the FIRST message, so opening the widget never leaves an empty
+  // thread in the agents' inbox.
+  function ensureConversation() {
+    if (state.conversationId) return Promise.resolve(state.conversationId);
+    if (state.creating) return state.creating;
     var gen = state.generation;
-    state.started = true;
-    body.innerHTML = '';
-    appendMessage({ sender_type: 'system', body: tt('ns.welcome'), created_at: new Date().toISOString() });
-    renderComposer();
-    call('/api/support/conversations', { method: 'POST', body: { category: category, language: (typeof currentLang === 'string' ? currentLang : 'en') } })
-      .then(function (r) {
-        if (stale(gen)) return;
-        if (r.ok && r.body && r.body.conversation) {
-          state.conversationId = r.body.conversation.id;
-          markRead();
-          poll();
-        } else {
-          appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
-        }
-      })
-      .catch(function () {
-        if (stale(gen)) return;
-        appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
-      });
+    state.creating = call('/api/support/conversations', {
+      method: 'POST',
+      body: { category: 'general', language: (typeof currentLang === 'string' ? currentLang : 'en') }
+    }).then(function (r) {
+      state.creating = null;
+      if (stale(gen)) return null;
+      if (r.ok && r.body && r.body.conversation) {
+        state.conversationId = r.body.conversation.id;
+        state.started = true;
+        markRead();
+        poll();
+        return state.conversationId;
+      }
+      appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
+      return null;
+    }).catch(function () {
+      state.creating = null;
+      if (stale(gen)) return null;
+      appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
+      return null;
+    });
+    return state.creating;
   }
 
   function loadExisting() {
@@ -277,7 +324,11 @@
   function sendMessage(text) {
     // One in-flight message per panel: a second click/Enter while the first POST
     // is pending is ignored (the server would store it as a separate message).
-    if (!state.conversationId || state.sending) return;
+    if (state.sending) return;
+    if (!state.conversationId) {
+      ensureConversation().then(function (id) { if (id) sendMessage(text); });
+      return;
+    }
     var gen = state.generation;
     state.sending = true;
     setSending(true);
@@ -468,6 +519,23 @@
   function enabled() { return (typeof APP !== 'undefined' && APP && APP.nativeSupport === true); }
   function $(id) { return document.getElementById(id); }
 
+  // Provenance labels. `ai` exists only for messages written before the switch to
+  // human-only support, so a historical row can never look like a person's reply.
+  var VIA_LABELS = {
+    customer: 'Customer',
+    admin: 'Dashboard',
+    telegram: 'Telegram',
+    system: 'System',
+    ai: 'Assistant (historical)'
+  };
+  function viaLabel(m) {
+    if (m && m.via && VIA_LABELS[m.via]) return VIA_LABELS[m.via];
+    if (m && m.sender_type === 'customer') return VIA_LABELS.customer;
+    if (m && m.sender_type === 'agent') return VIA_LABELS.admin;
+    if (m && m.sender_type === 'system') return VIA_LABELS.system;
+    return VIA_LABELS.ai;
+  }
+
   function loadCounts() {
     call('/api/admin/support/counts').then(function (r) {
       var c = (r.body && r.body.counts) || {};
@@ -531,7 +599,11 @@
     var who = st.selected.customer || {};
     var head = el('div');
     head.appendChild(el('strong', null, (who.name || '') + ' ' + (who.email ? '(' + who.email + ')' : '') + ' #' + c.user_id));
-    head.appendChild(el('div', 'ns-note', (c.ai_paused ? tt('admin.supp.aiOff') : tt('admin.supp.aiOn')) + ' \u2022 ' + (c.status || '')));
+    // No AI wording survives here: a thread is either owned by an agent or waiting
+    // for one, and the customer's e-mail and account id identify who is writing.
+    head.appendChild(el('div', 'ns-note', (c.ai_paused ? 'Agent handling' : 'Waiting for an agent')
+      + ' \u2022 ' + (c.status || '')
+      + (c.assigned_admin_id ? ' \u2022 assigned #' + c.assigned_admin_id : '')));
     pane.appendChild(head);
 
     var bar = el('div', 'ns-toolbar');
@@ -552,8 +624,8 @@
     var msgs = el('div', 'ns-thread-msgs');
     (st.selected.messages || []).forEach(function (m) {
       var node = el('div', 'ns-msg ' + m.sender_type);
+      node.appendChild(el('span', 'ns-note', viaLabel(m) + ' \u00b7 ' + when(m.created_at)));
       node.appendChild(el('span', null, m.body || ''));
-      node.appendChild(el('span', 'ns-time', when(m.created_at)));
       msgs.appendChild(node);
     });
     pane.appendChild(msgs);
@@ -579,6 +651,25 @@
     ctx.id = 'nsContextPanel';
     ctx.textContent = tt('admin.supp.context') + '...';
     pane.appendChild(ctx);
+  }
+
+  // Re-render the open thread when new messages arrive, keeping whatever the agent
+  // has already typed in the reply box.
+  function refreshSelected() {
+    if (!st.selected || !st.selected.conversation) return;
+    var id = st.selected.conversation.id;
+    call('/api/admin/support/conversations/' + id).then(function (r) {
+      if (!r.ok || !st.selected || st.selected.conversation.id !== id) return;
+      var before = (st.selected.messages || []).length;
+      var after = (r.body.messages || []).length;
+      if (after === before && r.body.conversation.status === st.selected.conversation.status) return;
+      var pane = $('nsInboxThread');
+      var draft = pane && pane.querySelector('textarea') ? pane.querySelector('textarea').value : '';
+      st.selected = r.body;
+      renderThread();
+      var box = pane && pane.querySelector('textarea');
+      if (box && draft) box.value = draft;
+    }).catch(function () {});
   }
 
   function loadContext(userId) {
@@ -693,6 +784,15 @@
       loadList();
       if (st.timer) clearInterval(st.timer);
       st.timer = setInterval(function () { var pane = $('adminTabContentSupport'); if (pane && !pane.classList.contains('hidden')) loadCounts(); }, 30000);
+      // Agents see new customer messages while the inbox is open (the 30s counter
+      // tick above is not enough for an active conversation).
+      if (st.threadTimer) clearInterval(st.threadTimer);
+      st.threadTimer = setInterval(function () {
+        var pane = $('adminTabContentSupport');
+        if (!pane || pane.classList.contains('hidden')) return;
+        loadList();
+        refreshSelected();
+      }, 6000);
     },
     reloadLabels: function () { bind(); renderList(); if (st.selected) renderThread(); },
     loadCounts: loadCounts,

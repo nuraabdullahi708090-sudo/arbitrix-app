@@ -123,7 +123,7 @@ const {
   createNativeSupportService
 } = require('./services/NativeSupport');
 const { registerNativeSupportRoutes } = require('./services/nativeSupportRoutes');
-const SupportConversationEngine = require('./services/support/ConversationEngine');
+const { createSupportInboxBridge } = require('./services/SupportInboxBridge');
 const telegramSupportI18n = require('./services/telegram-i18n');
 
 // Stage 2: AI customer-support layer (Telegram bot + in-app widget).
@@ -6177,6 +6177,39 @@ const telegramAccountLinks = createTelegramAccountLinks({
   botUsername: TELEGRAM_BOT_USERNAME
 });
 const supportTranslator = createSupportTranslatorSafely();
+
+// ---------- HUMAN-ONLY support: Telegram <-> in-app inbox bridge ----------
+// The bot is constructed BEFORE the in-app service (the service's notify hook needs
+// the bot's config), so the bridge resolves the service late: `nativeSupport` is
+// assigned a few lines below and is only ever read at request time.
+let nativeSupport = null;
+
+// Read-only customer lookup for the notification text. A name, an e-mail and the
+// account id are what an agent needs to identify who is writing; no balance, no
+// payment data, no token is ever selected here.
+async function lookupSupportCustomer(userId) {
+  if (!userId) return null;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('id, name, email')
+      .eq('id', userId)
+      .limit(1);
+    if (error || !data || !data[0]) return null;
+    return { id: data[0].id, name: data[0].name || null, email: data[0].email || null };
+  } catch (e) {
+    return null;
+  }
+}
+
+const supportInboxBridge = createSupportInboxBridge({
+  getService: () => nativeSupport,
+  transport: createTelegramTransport({ token: telegramConfig.token }),
+  config: telegramConfig,
+  lookupCustomer: lookupSupportCustomer,
+  logger: { warn: (m) => console.warn(m), info: () => {} }
+});
+
 const telegramBot = createTelegramSupportBot({
   config: telegramConfig,
   store: createTelegramSupportStore(supabaseAdmin),
@@ -6194,7 +6227,10 @@ const telegramBot = createTelegramSupportBot({
   // `/start lk_<token>` and `/unlink`. Both receive the Telegram-authenticated
   // chat/sender ids and never a client-supplied account id.
   linkAccount: (input) => telegramAccountLinks.consumeToken(input),
-  unlinkAccount: (input) => telegramAccountLinks.unlinkByChat(input && input.chatId)
+  unlinkAccount: (input) => telegramAccountLinks.unlinkByChat(input && input.chatId),
+  // /kxreply, /kxresolve, /kxassign and replies to an inbox notification are
+  // routed into the SAME in-app conversation the dashboard uses.
+  inbox: supportInboxBridge
 });
 // ---------- Native in-app support ----------
 // One support brain (ConversationEngine + SupportAIService above) behind a second
@@ -6216,17 +6252,12 @@ async function nativeSupportAdminIds() {
   }
 }
 
-const nativeSupport = nativeSupportEnabled
+// HUMAN-ONLY IN-APP SUPPORT. No AI collaborator is passed any more: the service
+// stores the customer's message, posts one static acknowledgement and waits for an
+// agent (dashboard inbox or Telegram). Nothing in this path can reach a model.
+nativeSupport = nativeSupportEnabled
   ? createNativeSupportService({
       supabase: supabaseAdmin,
-      // Built ONLY when the feature is enabled: with the flag off nothing extra
-      // is constructed and the AI-off guarantees stay exactly as they were.
-      ai: createSupportAIServiceSafely(supportTranslator),
-      engine: SupportConversationEngine,
-      i18n: telegramSupportI18n,
-      // Knowledge answers are English; the shared translator localizes them for the
-      // customer's language (the same instance the Telegram bot uses).
-      translator: supportTranslator,
       // Customer notification: one per agent reply, deduped by message id.
       notify: async (userId, conversation, message) => {
         if (!userId || !message) return;
@@ -6234,16 +6265,26 @@ const nativeSupport = nativeSupportEnabled
           preview: String(message.body || '').slice(0, 120)
         });
       },
-      // Admin alert: the inbox counter is the primary signal; this is the
-      // optional feed entry, deduped per message and per administrator.
+      // Admin alert: the dashboard counter and the Telegram notification are the
+      // two ways an agent finds out. Both are best effort - the customer's message
+      // is already stored, so a failing alert can never lose it or fail the request.
       notifyAdmins: async (conversation, message) => {
-        const ids = await nativeSupportAdminIds();
-        const messageId = (message && message.id) || 'none';
-        for (const adminId of ids) {
-          await emitNotificationSafe(adminId, 'support_alert:' + messageId, 'supportMessage', {
-            preview: String((message && message.body) || '').slice(0, 120),
-            conversation: String((conversation && conversation.id) || '')
-          });
+        try {
+          const ids = await nativeSupportAdminIds();
+          const messageId = (message && message.id) || 'none';
+          for (const adminId of ids) {
+            await emitNotificationSafe(adminId, 'support_alert:' + messageId, 'supportMessage', {
+              preview: String((message && message.body) || '').slice(0, 120),
+              conversation: String((conversation && conversation.id) || '')
+            });
+          }
+        } catch (e) {
+          console.warn('[NativeSupport] admin feed notification failed:', e && e.message);
+        }
+        try {
+          await supportInboxBridge.notifyConversation(conversation, message);
+        } catch (e) {
+          console.warn('[NativeSupport] telegram notification failed:', e && e.message);
         }
       }
     })

@@ -290,57 +290,6 @@ test('with no translation credential nothing is attempted', () => {
 
 // ------------------------------------------------------------ native support ---
 
-function nativeService(env) {
-    const { translator } = translatorFor(env);
-    return {
-        service: NS.createNativeSupportService({
-            ai: knowledgeAI(env),
-            engine: Engine,
-            i18n,
-            translator
-        }),
-        translator
-    };
-}
-
-test('native: the isolated provider localizes a knowledge answer for es/pt/fr/ar/zh', async () => {
-    for (const language of ['es', 'pt', 'fr', 'ar', 'zh']) {
-        const { service } = nativeService(envWith());
-        const reply = await service.composeAiReply({ id: 1, language, context: {} }, QUESTION);
-        assert.notStrictEqual(reply.text, ANSWER, language + ' must not receive English');
-        assert.strictEqual(reply.needsHuman, false, language + ' must not escalate');
-        assert.strictEqual(reply.confident, true);
-        if (language === 'ar') assert.match(reply.text, /[\u0600-\u06FF]/);
-        else assert.match(reply.text, new RegExp(TRANSLATED_PREFIX[language].slice(0, 12).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-
-    }
-});
-
-test('native: the answer text is unchanged when translation is off (English path)', async () => {
-    const withOut = nativeService({ AI_SUPPORT_PROVIDER: 'knowledge' }).service;
-    const withTranslation = nativeService(envWith()).service;
-    const a = await withOut.composeAiReply({ id: 1, language: 'en', context: {} }, QUESTION);
-    const b = await withTranslation.composeAiReply({ id: 1, language: 'en', context: {} }, QUESTION);
-    assert.strictEqual(a.text, ANSWER);
-    assert.strictEqual(b.text, ANSWER, 'translation configuration must not change the answer');
-});
-
-test('native: an unavailable/failing translation keeps the localized fallback and handoff', async () => {
-    const variants = [
-        { AI_SUPPORT_PROVIDER: 'knowledge' },
-        envWith({ __fetch: { mode: 'http-500' } })
-    ];
-    for (const env of variants) {
-        const { service } = nativeService(env);
-        const reply = await service.composeAiReply({ id: 1, language: 'pt', context: {} }, QUESTION);
-        assert.strictEqual(reply.needsHuman, true);
-        assert.strictEqual(reply.confident, false);
-        assert.match(reply.text, /Obrigado pela sua mensagem/);
-        assert.ok(!reply.text.includes(ANSWER.slice(0, 25)), 'English must never be presented as localized');
-    }
-});
-
-// ------------------------------------------------------------------- telegram ---
 
 function telegramHarness(options) {
     const language = options.language || 'pt';
@@ -390,7 +339,6 @@ function telegramHarness(options) {
 
     return { bot, sent };
 }
-
 test('telegram: a Portuguese customer receives the translated approved answer', async () => {
     const { translator } = translatorFor(envWith());
     const { bot, sent } = telegramHarness({ language: 'pt', translator });
@@ -433,12 +381,20 @@ test('telegram: turning translation off does not change the English answer', asy
 
 // ------------------------------------------------------------- wiring pins ---
 
-test('one translator instance serves Telegram and native support', () => {
+test('one translator instance serves the Telegram bot, and the in-app messenger has none', () => {
     const created = SERVER.match(/const supportTranslator = createSupportTranslatorSafely\(\);/g) || [];
     assert.strictEqual(created.length, 1, 'the translator is built exactly once');
     const injected = SERVER.match(/translator: supportTranslator,/g) || [];
-    assert.strictEqual(injected.length, 2, 'injected into the Telegram bot and the native service');
+    assert.strictEqual(injected.length, 1, 'injected into the Telegram bot only');
     assert.match(SERVER, /supportAI: createSupportAIServiceSafely\(supportTranslator\)/);
+
+    // HUMAN-ONLY in-app support: the messenger takes no AI, engine, i18n or
+    // translator collaborator, so there is nothing for it to translate or answer.
+    const block = SERVER.slice(SERVER.indexOf('nativeSupport = nativeSupportEnabled'),
+        SERVER.indexOf('if (nativeSupport) {'));
+    ['ai:', 'engine:', 'translator:', 'i18n:'].forEach((key) => {
+        assert.ok(block.indexOf(key) === -1, 'the in-app messenger must not receive ' + key);
+    });
 });
 
 test('translation configuration cannot reach the answer layer', () => {

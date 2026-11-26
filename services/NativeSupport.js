@@ -57,48 +57,52 @@ const LIMITS = {
 };
 
 /** Copy for the states the AI layer cannot cover on its own. */
-const FALLBACK_COPY = {
+/** Human-only support: the ONLY automated messages are the static ones below. */
+/** No answer text lives here, and nothing in this file reads a model. */
+/** Human-only support: the ONLY automated messages are the static ones below. */
+/** No answer text lives here, and nothing in this file reads a model. */
+const SERVICE_COPY = {
     en: {
-        aiUnavailable: 'Thanks for your message. A support agent will reply here shortly.',
+        received: 'Thank you for contacting Kalderix. We\'ve received your message and our support team will respond as soon as possible.',
         humanRequested: 'A support agent has been notified and will reply here.',
         agentJoined: 'A support agent has joined this conversation.',
-        aiResumed: 'The automated assistant has resumed. A support agent can step in at any time.',
-        resolved: 'This conversation was marked as resolved.',
+        released: 'This conversation is back in the support queue.',
+        resolved: 'This conversation was marked as resolved. Send a new message any time.',
     },
     es: {
-        aiUnavailable: 'Gracias por tu mensaje. Un agente de soporte te responder\u00e1 aqu\u00ed en breve.',
+        received: 'Gracias por contactar con Kalderix. Hemos recibido tu mensaje y nuestro equipo de soporte responder\u00e1 lo antes posible.',
         humanRequested: 'Se ha notificado a un agente de soporte y responder\u00e1 aqu\u00ed.',
         agentJoined: 'Un agente de soporte se ha unido a esta conversaci\u00f3n.',
-        aiResumed: 'El asistente autom\u00e1tico se ha reanudado. Un agente puede intervenir en cualquier momento.',
-        resolved: 'Esta conversaci\u00f3n se marc\u00f3 como resuelta.',
+        released: 'Esta conversaci\u00f3n vuelve a la cola de soporte.',
+        resolved: 'Esta conversaci\u00f3n se marc\u00f3 como resuelta. Puedes enviar un nuevo mensaje cuando quieras.',
     },
     pt: {
-        aiUnavailable: 'Obrigado pela sua mensagem. Um agente de suporte responder\u00e1 aqui em breve.',
+        received: 'Obrigado por contactar a Kalderix. Recebemos a sua mensagem e a nossa equipa de suporte responder\u00e1 o mais breve poss\u00edvel.',
         humanRequested: 'Um agente de suporte foi notificado e responder\u00e1 aqui.',
         agentJoined: 'Um agente de suporte entrou nesta conversa.',
-        aiResumed: 'O assistente autom\u00e1tico foi retomado. Um agente pode intervir a qualquer momento.',
-        resolved: 'Esta conversa foi marcada como resolvida.',
+        released: 'Esta conversa voltou para a fila de suporte.',
+        resolved: 'Esta conversa foi marcada como resolvida. Pode enviar uma nova mensagem a qualquer momento.',
     },
     fr: {
-        aiUnavailable: 'Merci pour votre message. Un agent du support vous r\u00e9pondra ici sous peu.',
+        received: 'Merci d\'avoir contact\u00e9 Kalderix. Nous avons bien re\u00e7u votre message et notre \u00e9quipe d\'assistance vous r\u00e9pondra d\u00e8s que possible.',
         humanRequested: 'Un agent du support a \u00e9t\u00e9 pr\u00e9venu et vous r\u00e9pondra ici.',
         agentJoined: 'Un agent du support a rejoint cette conversation.',
-        aiResumed: "L'assistant automatique a repris. Un agent peut intervenir \u00e0 tout moment.",
-        resolved: 'Cette conversation a \u00e9t\u00e9 marqu\u00e9e comme r\u00e9solue.',
+        released: 'Cette conversation est de retour dans la file d\'assistance.',
+        resolved: 'Cette conversation a \u00e9t\u00e9 marqu\u00e9e comme r\u00e9solue. Vous pouvez envoyer un nouveau message \u00e0 tout moment.',
     },
     ar: {
-        aiUnavailable: '\u0634\u0643\u0631\u0627\u064b \u0644\u0631\u0633\u0627\u0644\u062a\u0643. \u0633\u064a\u0631\u062f \u0639\u0644\u064a\u0643 \u0623\u062d\u062f \u0645\u0648\u0638\u0641\u064a \u0627\u0644\u062f\u0639\u0645 \u0647\u0646\u0627 \u0642\u0631\u064a\u0628\u0627\u064b.',
+        received: '\u0634\u0643\u0631\u0627\u064b \u0644\u062a\u0648\u0627\u0635\u0644\u0643 \u0645\u0639 Kalderix. \u0644\u0642\u062f \u0627\u0633\u062a\u0644\u0645\u0646\u0627 \u0631\u0633\u0627\u0644\u062a\u0643 \u0648\u0633\u064a\u0631\u062f \u0639\u0644\u064a\u0643 \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627 \u0641\u064a \u0623\u0642\u0631\u0628 \u0648\u0642\u062a \u0645\u0645\u0643\u0646.',
         humanRequested: '\u062a\u0645 \u0625\u0634\u0639\u0627\u0631 \u0623\u062d\u062f \u0645\u0648\u0638\u0641\u064a \u0627\u0644\u062f\u0639\u0645 \u0648\u0633\u064a\u0631\u062f \u0639\u0644\u064a\u0643 \u0647\u0646\u0627.',
         agentJoined: '\u0627\u0646\u0636\u0645 \u0623\u062d\u062f \u0645\u0648\u0638\u0641\u064a \u0627\u0644\u062f\u0639\u0645 \u0625\u0644\u0649 \u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629.',
-        aiResumed: '\u0627\u0633\u062a\u0623\u0646\u0641 \u0627\u0644\u0645\u0633\u0627\u0639\u062f \u0627\u0644\u0622\u0644\u064a \u0639\u0645\u0644\u0647. \u064a\u0645\u0643\u0646 \u0644\u0645\u0648\u0638\u0641 \u0627\u0644\u062f\u0639\u0645 \u0627\u0644\u062a\u062f\u062e\u0644 \u0641\u064a \u0623\u064a \u0648\u0642\u062a.',
-        resolved: '\u062a\u0645 \u0648\u0636\u0639 \u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629 \u0643\u0645\u0646\u062a\u0647\u064a\u0629.',
+        released: '\u0639\u0627\u062f\u062a \u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629 \u0625\u0644\u0649 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u062f\u0639\u0645.',
+        resolved: '\u062a\u0645 \u0648\u0636\u0639 \u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629 \u0643\u0645\u062d\u0644\u0648\u0644\u0629. \u064a\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629 \u062c\u062f\u064a\u062f\u0629 \u0641\u064a \u0623\u064a \u0648\u0642\u062a.',
     },
     zh: {
-        aiUnavailable: '\u611f\u8c22\u60a8\u7684\u7559\u8a00\u3002\u5ba2\u670d\u4eba\u5458\u5c06\u5f88\u5feb\u5728\u8fd9\u91cc\u56de\u590d\u60a8\u3002',
-        humanRequested: '\u5df2\u901a\u77e5\u5ba2\u670d\u4eba\u5458\uff0c\u4ed6\u4eec\u5c06\u5728\u8fd9\u91cc\u56de\u590d\u60a8\u3002',
-        agentJoined: '\u5ba2\u670d\u4eba\u5458\u5df2\u52a0\u5165\u672c\u6b21\u5bf9\u8bdd\u3002',
-        aiResumed: '\u81ea\u52a8\u52a9\u624b\u5df2\u6062\u590d\u3002\u5ba2\u670d\u4eba\u5458\u53ef\u968f\u65f6\u4ecb\u5165\u3002',
-        resolved: '\u6b64\u5bf9\u8bdd\u5df2\u6807\u8bb0\u4e3a\u5df2\u89e3\u51b3\u3002',
+        received: '\u611f\u8c22\u60a8\u8054\u7cfb Kalderix\u3002\u6211\u4eec\u5df2\u6536\u5230\u60a8\u7684\u6d88\u606f\uff0c\u5ba2\u670d\u56e2\u961f\u4f1a\u5c3d\u5feb\u56de\u590d\u60a8\u3002',
+        humanRequested: '\u5df2\u901a\u77e5\u5ba2\u670d\u4eba\u5458\uff0c\u4ed6\u4eec\u4f1a\u5728\u8fd9\u91cc\u56de\u590d\u60a8\u3002',
+        agentJoined: '\u5ba2\u670d\u4eba\u5458\u5df2\u52a0\u5165\u672c\u6b21\u4f1a\u8bdd\u3002',
+        released: '\u672c\u6b21\u4f1a\u8bdd\u5df2\u56de\u5230\u5ba2\u670d\u961f\u5217\u3002',
+        resolved: '\u672c\u6b21\u4f1a\u8bdd\u5df2\u6807\u8bb0\u4e3a\u5df2\u89e3\u51b3\u3002\u60a8\u53ef\u4ee5\u968f\u65f6\u53d1\u9001\u65b0\u6d88\u606f\u3002',
     },
 };
 
@@ -142,7 +146,7 @@ function previewOf(text, max) {
 
 function copyFor(language, key) {
     const lang = normalizeLanguage(language);
-    return (FALLBACK_COPY[lang] && FALLBACK_COPY[lang][key]) || FALLBACK_COPY.en[key];
+    return (SERVICE_COPY[lang] && SERVICE_COPY[lang][key]) || SERVICE_COPY.en[key];
 }
 
 /** Sliding-window limiter, bounded so a flood cannot grow memory. */
@@ -175,12 +179,10 @@ function createRateLimiter(opts) {
 function createNativeSupportService(options) {
     const opts = options || {};
     const supabase = opts.supabase;
-    const ai = opts.ai || null;
-    const engine = opts.engine || null;
-    const i18n = opts.i18n || null;
-    // The SAME support translator the Telegram bot uses. Knowledge answers are
-    // approved ENGLISH text, so a non-English conversation needs them localized.
-    const translator = opts.translator || null;
+    // HUMAN-ONLY SUPPORT. This service never talks to a model: there is no `ai`,
+    // `engine`, `i18n` or `translator` collaborator any more. A customer message is
+    // stored and handed to a human; every reply is written by an agent (dashboard
+    // or Telegram). `notify` tells the customer, `notifyAdmins` tells the agents.
     const notify = typeof opts.notify === 'function' ? opts.notify : null;
     const notifyAdmins = typeof opts.notifyAdmins === 'function' ? opts.notifyAdmins : null;
     const now = typeof opts.now === 'function' ? opts.now : function () { return new Date(); };
@@ -274,6 +276,7 @@ function createNativeSupportService(options) {
             sender_user_id: (meta && meta.senderUserId) || null,
             body: body,
             client_message_id: (meta && meta.clientMessageId) || null,
+            via: (meta && meta.via) || null,
             created_at: now().toISOString(),
         };
         try {
@@ -324,155 +327,9 @@ function createNativeSupportService(options) {
         }
     }
 
-    function lineText(language, line) {
-        if (!line) return '';
-        if (i18n && typeof i18n.t === 'function') {
-            const value = i18n.t(normalizeLanguage(language), line.key, line.vars || {});
-            if (value && value !== line.key) return value;
-        }
-        return '';
-    }
-
-    /**
-     * Localize a knowledge answer for the customer's language.
-     *
-     * Mirrors TelegramSupportService.translateForCustomer: only a successful
-     * translation whose SCRIPT matches the target language is returned; anything
-     * else is null so the caller can fall back instead of presenting English text
-     * as though it were localized.
-     */
-    async function translateForCustomer(text, language) {
-        if (!translator || typeof translator.fromEnglish !== 'function') return null;
-        try {
-            const result = await translator.fromEnglish(String(text), language);
-            if (result && result.ok && typeof result.text === 'string' && result.text.trim()
-                && SupportGuidelines.hasExpectedScript(result.text, language)) {
-                return result.text.trim();
-            }
-            logOnce('translate-' + ((result && result.reason) || 'failed'),
-                (result && result.reason) || 'no usable translation');
-        } catch (err) {
-            logOnce('translate-failed', err && err.message);
-        }
-        return null;
-    }
-
-    // ------------------------------------------- knowledge answers without AI
-    // `opts.ai` is only built when AI_SUPPORT_ENABLED=true (its documented
-    // default is OFF). The Telegram bot still answers factual questions from the
-    // approved knowledge base in that state, but this path had no equivalent: with
-    // the flag off EVERY factual question degraded to "a support agent will
-    // reply" - the production symptom.
-    //
-    // The fallback is the SAME SupportAIService running its OFFLINE knowledge
-    // provider: no model, no network, no key. That keeps one answer brain (intent
-    // detection, guardrails, scoring, approved entry selection) instead of a
-    // second, weaker retrieval path - the knowledge provider echoes approved text.
-    let knowledgeFallback = null;
-
-    function knowledgeResponder() {
-        if (knowledgeFallback !== null) return knowledgeFallback || null;
-        try {
-            const { createSupportAIService, resolveSupportAIConfig } = require('./support/SupportAIService');
-            knowledgeFallback = createSupportAIService({
-                // Fixed, not read from the environment: the fallback must be
-                // knowledge-only even if a model provider is configured elsewhere.
-                config: resolveSupportAIConfig({ AI_SUPPORT_ENABLED: 'true', AI_SUPPORT_PROVIDER: 'knowledge' }),
-                translator: translator || null
-            });
-        } catch (error) {
-            logOnce('knowledge-fallback-failed', error && error.message);
-            knowledgeFallback = false;
-        }
-        return knowledgeFallback || null;
-    }
-
-    /**
-     * The AI turn. Reuses the Telegram brain:
-     *   1. ConversationEngine.planTurn() decides whether this is procedural
-     *      dialogue (greeting, how-to, tutorial selection, handoff request).
-     *   2. Anything factual goes to SupportAIService, which is grounded in the
-     *      approved knowledge base and refuses to invent amounts or statuses.
-     *   3. Any failure degrades to an honest "a human will reply" message -
-     *      never to an invented status.
-     */
-    async function composeAiReply(conversation, text) {
-        const language = normalizeLanguage(conversation.language);
-        let plan = null;
-        if (engine && typeof engine.planTurn === 'function') {
-            try {
-                plan = engine.planTurn({ text: text, state: conversation.context || {} });
-            } catch (err) {
-                logOnce('engine-failed', err && err.message);
-            }
-        }
-        if (plan && plan.handled) {
-            const body = (plan.lines || []).map(function (line) { return lineText(language, line); })
-                .filter(Boolean).join('\n\n').trim();
-            if (body) {
-                return {
-                    text: body,
-                    needsHuman: plan.humanRequested === true,
-                    confident: plan.confident !== false,
-                    context: plan.nextState || conversation.context || {},
-                };
-            }
-        }
-        const responder = (ai && typeof ai.ask === 'function') ? ai : knowledgeResponder();
-        if (responder && typeof responder.ask === 'function') {
-            try {
-                const question = (plan && plan.knowledge) ? plan.knowledge : text;
-                const outcome = await responder.ask(question, { language: language });
-                if (outcome && outcome.answer) {
-                    // `modelGenerated === true` means the PROVIDER wrote the text and was
-                    // instructed to answer in the customer's language, so it is used as
-                    // is (unchanged behaviour). Everything else is approved ENGLISH
-                    // knowledge: for a non-English conversation it MUST be localized,
-                    // and if that is not possible the turn degrades to the honest
-                    // "a human will reply" message rather than shipping English text.
-                    let answer = String(outcome.answer);
-                    if (outcome.modelGenerated !== true && language !== 'en') {
-                        const localized = await translateForCustomer(answer, language);
-                        if (!localized) {
-                            return {
-                                text: copyFor(language, 'aiUnavailable'),
-                                needsHuman: true,
-                                confident: false,
-                                context: (plan && plan.nextState) || conversation.context || {},
-                            };
-                        }
-                        answer = localized;
-                    }
-                    return {
-                        text: answer,
-                        needsHuman: outcome.needsHuman === true,
-                        confident: outcome.needsHuman !== true,
-                        context: (plan && plan.nextState) || conversation.context || {},
-                    };
-                }
-            } catch (err) {
-                logOnce('ai-failed', err && err.message);
-            }
-        }
-        return {
-            text: copyFor(language, 'aiUnavailable'),
-            needsHuman: true,
-            confident: false,
-            context: conversation.context || {},
-        };
-    }
-
-    // ---------------------------------------------------------- locked writes
-    // Migration 059 exposes two SECURITY DEFINER functions that take the
-    // conversation row lock (SELECT ... FOR UPDATE) before validating and
-    // writing. They are what makes "an admin takes over while the AI is
-    // generating" safe: the loser of the race writes nothing.
-    //
-    // When the migration has not been applied yet the RPCs do not exist, so the
-    // service degrades to the previous path (and warns once) - a missing
-    // function must never make customer messages fail. The fallback still
-    // claims the turn with a CONDITIONAL update, so it cannot undo a takeover
-    // either; only the atomicity of the two writes is lost.
+    // The locked RPCs from migration 059 write the message AND move the conversation
+    // in one statement. If they are absent (migration not applied) the service falls
+    // back to the equivalent sequential writes, logged once.
     let rpcWrites = true;
 
     function rpcMissing(err) {
@@ -518,7 +375,7 @@ function createNativeSupportService(options) {
                 logOnce('rpc-missing:post', err && err.message);
             }
         }
-        const inserted = await insertMessage(conversation.id, SENDER.CUSTOMER, body, { clientMessageId: clientMessageId });
+        const inserted = await insertMessage(conversation.id, SENDER.CUSTOMER, body, { clientMessageId: clientMessageId, via: 'customer' });
         if (inserted.duplicate) {
             return { duplicate: true, message: inserted.message, conversation: conversation };
         }
@@ -530,122 +387,6 @@ function createNativeSupportService(options) {
             resolved_at: reopened ? null : conversation.resolved_at,
         }, { unreadForAdmin: 1 });
         return { duplicate: false, message: inserted.message, conversation: row };
-    }
-
-    // -------------------------------------------------- serialised AI turns
-    // Row locking serialises the writes; it does NOT serialise generation. Two
-    // customer messages posted a few hundred milliseconds apart can both compose
-    // from the same conversation context, and without a guard the second commit
-    // would overwrite the dialogue progress of the first. Two layers prevent it:
-    //
-    //   1. withConversationLock() serialises compose+commit per conversation
-    //      inside this process (the deployment is one web instance), and the turn
-    //      re-reads the row AFTER taking the lock, so it always composes from the
-    //      latest committed state;
-    //   2. every turn carries the context_version it composed from and the locked
-    //      RPC refuses a commit whose version has moved on (stale-context). The
-    //      turn then re-reads and REGENERATES from the committed state, so a turn
-    //      started in another process can never overwrite newer progress.
-    const conversationLocks = new Map();
-
-    function withConversationLock(conversationId, fn) {
-        const key = String(conversationId);
-        const previous = conversationLocks.get(key) || Promise.resolve();
-        const next = previous.then(function () { return fn(); }, function () { return fn(); });
-        const tail = next.then(function () {}, function () {});
-        conversationLocks.set(key, tail);
-        tail.then(function () {
-            if (conversationLocks.get(key) === tail) conversationLocks.delete(key);
-        });
-        return next;
-    }
-
-    async function runAiTurn(afterPost, text) {
-        let row = afterPost;
-        try {
-            row = (await readConversation(afterPost.id)) || afterPost;
-        } catch (err) {
-            return { committed: false, reason: 'unavailable', conversation: afterPost };
-        }
-        if (row.ai_paused) return { committed: false, reason: 'ai-paused', conversation: row };
-        if (row.status === STATUS.RESOLVED) return { committed: false, reason: 'resolved', conversation: row };
-
-        let expected = Number(row.context_version) || 0;
-        let composed = null;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-            composed = await composeAiReply(row, text);
-            if (!composed.text) return { committed: true, message: null, conversation: row, composed: composed };
-            const result = await commitAiTurn(row.id, composed, expected);
-            if (result.committed === true) return Object.assign({}, result, { composed: composed });
-            if (result.reason !== 'stale-context') return Object.assign({}, result, { composed: composed });
-            try {
-                row = (await readConversation(afterPost.id)) || row;
-            } catch (err) {
-                return { committed: false, reason: 'unavailable', conversation: row, composed: composed };
-            }
-            if (row.ai_paused) return { committed: false, reason: 'ai-paused', conversation: row, composed: composed };
-            if (row.status === STATUS.RESOLVED) return { committed: false, reason: 'resolved', conversation: row, composed: composed };
-            expected = Number(row.context_version) || 0;
-        }
-        logOnce('stale-context', 'AI turn abandoned after two stale compositions (conversation ' + afterPost.id + ')');
-        return { committed: false, reason: 'stale-context', conversation: row, composed: composed };
-    }
-
-    async function commitAiTurn(conversationId, composed, expectedVersion) {
-        const senderType = composed.needsHuman ? SENDER.SYSTEM : SENDER.AI;
-        const preview = previewOf(composed.text);
-        const version = Number(expectedVersion);
-        if (!rpcWrites) return aiUnavailableFallback(conversationId, composed);
-        try {
-            const out = await callRpc('support_commit_ai_turn', {
-                p_conversation_id: conversationId,
-                p_sender_type: senderType,
-                p_body: composed.text,
-                p_context: composed.context || {},
-                p_needs_human: composed.needsHuman === true,
-                p_preview: preview,
-                p_expected_version: Number.isFinite(version) ? version : null,
-            });
-            if (!out || typeof out.committed !== 'boolean') {
-                throw Object.assign(new Error('commit-contract'), { code: 'rpc-contract' });
-            }
-            return out;
-        } catch (err) {
-            if (!rpcMissing(err)) throw err;
-            rpcWrites = false;
-            logOnce('rpc-missing:commit', err && err.message);
-            return aiUnavailableFallback(conversationId, composed);
-        }
-    }
-
-    // The locked RPC is the ONLY way an AI answer may be committed. Without it
-    // the answer is not written at all: a claim followed by separate inserts can
-    // be interleaved by a takeover, which is exactly the defect this replaced.
-    // The thread is parked for a human with ONE conditional statement (it can only
-    // SET the paused state, so it cannot undo a takeover) and the customer gets
-    // the localized hand-off notice instead of an AI answer.
-    async function aiUnavailableFallback(conversationId, composed) {
-        try {
-            const claim = await supabase.from('support_conversations')
-                .update({ ai_paused: true, status: STATUS.WAITING, updated_at: now().toISOString() })
-                .eq('id', conversationId).eq('ai_paused', false).neq('status', STATUS.RESOLVED).select();
-            if (claim && claim.error) throw new Error(claim.error.message || 'claim-failed');
-            const claimed = (claim && claim.data && claim.data[0]) || null;
-            const row = claimed || (await readConversation(conversationId));
-            const notice = await insertMessage(conversationId, SENDER.SYSTEM,
-                copyFor((row && row.language) || 'en', 'aiUnavailable'), {});
-            return {
-                committed: false,
-                reason: 'ai-unavailable',
-                supportUnavailable: true,
-                notice: notice.message,
-                conversation: row,
-                composed: composed,
-            };
-        } catch (err) {
-            logOnce('ai-fallback-failed', err && err.message);
-            return { committed: false, reason: 'ai-unavailable', supportUnavailable: true, notice: null };
-        }
     }
 
     // -------------------------------------------------------------- customer side
@@ -688,6 +429,44 @@ function createNativeSupportService(options) {
             return { ok: true };
         } catch (err) {
             return fail('unavailable');
+        }
+    }
+
+    // ONE static acknowledgement per conversation, claimed atomically so two
+    // simultaneous first messages cannot post two notices. It is a SYSTEM notice:
+    // it never claims to be a person and it never answers the question.
+    async function acknowledgeConversation(conversation) {
+        if (!conversation || !conversation.id) return null;
+        const language = normalizeLanguage(conversation.language);
+        let claimed = null;
+        try {
+            const claim = await supabase.from('support_conversations')
+                .update({ acknowledged_at: now().toISOString() })
+                .eq('id', conversation.id).is('acknowledged_at', null).select();
+            if (claim && claim.error) throw new Error(claim.error.message || 'claim-failed');
+            claimed = (claim && claim.data && claim.data[0]) || null;
+        } catch (err) {
+            // A missing column (migration 060 not applied yet) must not silence the
+            // customer: fall back to a best-effort notice, logged once.
+            if (!/acknowledged_at|column/i.test(String((err && err.message) || ''))) {
+                logOnce('ack-failed', err && err.message);
+                return null;
+            }
+            logOnce('ack-column-missing', 'support_conversations.acknowledged_at missing');
+            claimed = conversation;
+        }
+        if (!claimed) return null;
+        try {
+            const notice = await insertMessage(conversation.id, SENDER.SYSTEM,
+                copyFor(language, 'received'), { via: 'system' });
+            await touchConversation(conversation.id, {
+                last_message_at: now().toISOString(),
+                last_message_preview: previewOf(notice.message && notice.message.body),
+            }, { unreadForCustomer: 1 });
+            return notice.message || null;
+        } catch (err) {
+            logOnce('ack-post-failed', err && err.message);
+            return null;
         }
     }
 
@@ -746,56 +525,28 @@ function createNativeSupportService(options) {
                 };
             }
 
-            // 2. ONE AI turn at a time per conversation, composed from the LATEST
-            //    committed context. Row locking alone serialises the WRITES, not
-            //    the generation: two messages posted moments apart would both
-            //    compose from the same state and the later commit would overwrite
-            //    the earlier turn's progress. The lock serialises generation in
-            //    this process; the context version below protects against another
-            //    process (or a turn that started earlier) committing first.
-            const turn = await withConversationLock(afterPost.id, function () {
-                return runAiTurn(afterPost, cleaned.body);
-            });
-
-            if (turn.committed !== true) {
-                return {
-                    ok: true,
-                    conversationId: afterPost.id,
-                    status: (turn.conversation && turn.conversation.status) || afterPost.status,
-                    aiPaused: true,
-                    message: posted.message,
-                    reply: turn.notice || null,
-                    supportUnavailable: turn.supportUnavailable === true,
-                    discarded: turn.reason || 'ai-turn-discarded',
-                };
-            }
-
-            const finalRow = turn.conversation || afterPost;
-            const replyMessage = turn.message || null;
-            const composed = turn.composed || { needsHuman: false };
-
-            if (replyMessage && notify) {
+            // 2. HUMAN-ONLY. No answer is generated anywhere in this path. The
+            //    customer gets ONE static acknowledgement per conversation; the
+            //    question itself waits for an agent (dashboard or Telegram). The
+            //    notice is best effort - the message above is already stored, so a
+            //    notice failure can never lose it.
+            const acknowledgement = await acknowledgeConversation(afterPost);
+            if (acknowledgement && notify) {
                 try {
-                    await notify(afterPost.user_id, finalRow, replyMessage);
+                    await notify(afterPost.user_id, afterPost, acknowledgement);
                 } catch (err) {
                     logOnce('customer-notify-failed', err && err.message);
-                }
-            }
-            if (composed.needsHuman && notifyAdmins) {
-                try {
-                    await notifyAdmins(finalRow, replyMessage || posted.message);
-                } catch (err) {
-                    logOnce('admin-notify-failed', err && err.message);
                 }
             }
 
             return {
                 ok: true,
-                conversationId: finalRow.id,
-                status: finalRow.status,
-                aiPaused: finalRow.ai_paused === true,
+                conversationId: afterPost.id,
+                status: afterPost.status,
+                aiPaused: afterPost.ai_paused === true,
                 message: posted.message,
-                reply: replyMessage,
+                reply: acknowledgement,
+                humanOnly: true,
             };
         } catch (err) {
             logOnce('send-failed', err && err.message);
@@ -818,7 +569,7 @@ function createNativeSupportService(options) {
         }
         try {
             const notice = await insertMessage(conversation.id, SENDER.SYSTEM,
-                copyFor(conversation.language, 'humanRequested'), {});
+                copyFor(conversation.language, 'humanRequested'), { via: 'system' });
             const updated = await touchConversation(conversation.id, {
                 ai_paused: true,
                 status: STATUS.WAITING,
@@ -930,9 +681,14 @@ function createNativeSupportService(options) {
         }
     }
 
-    async function sendAgentMessage(input) {
-        const adminId = input && input.adminId;
-        if (!adminId) return fail('unauthenticated');
+    // The single agent-reply path. `via` records WHERE the agent wrote from, so the
+    // customer, the admin inbox and the audit trail can all tell a dashboard reply
+    // from a Telegram one.
+    async function deliverAgentReply(input) {
+        const adminId = (input && input.adminId) || null;
+        const via = (input && input.via) === 'telegram' ? 'telegram' : 'admin';
+        if (!input || !input.conversationId) return fail('not-found');
+        if (via === 'admin' && !adminId) return fail('unauthenticated');
         const cleaned = cleanBody(input.body, limits.messageMaxChars);
         if (!cleaned.ok) return fail(cleaned.reason, { max: cleaned.max });
         let conversation;
@@ -946,6 +702,7 @@ function createNativeSupportService(options) {
             const inserted = await insertMessage(conversation.id, SENDER.AGENT, cleaned.body, {
                 senderUserId: adminId,
                 clientMessageId: input.clientMessageId,
+                via: via,
             });
             if (inserted.duplicate) {
                 return { ok: true, duplicate: true, conversationId: conversation.id, message: inserted.message };
@@ -953,11 +710,12 @@ function createNativeSupportService(options) {
             const updated = await touchConversation(conversation.id, {
                 ai_paused: true,
                 status: STATUS.ASSIGNED,
-                assigned_admin_id: conversation.assigned_admin_id || adminId,
+                assigned_admin_id: conversation.assigned_admin_id || adminId || null,
                 last_message_at: now().toISOString(),
                 last_message_preview: previewOf(cleaned.body),
             }, { unreadForCustomer: 1 });
-            await recordAction(conversation.id, adminId, 'message', { sender: 'agent' });
+            await recordAction(conversation.id, adminId, 'message',
+                Object.assign({ sender: 'agent', via: via }, (input.detail || {})));
             if (notify) {
                 try {
                     await notify(conversation.user_id, updated, inserted.message);
@@ -971,10 +729,29 @@ function createNativeSupportService(options) {
                 status: updated.status,
                 aiPaused: updated.ai_paused === true,
                 message: inserted.message,
+                via: via,
             };
         } catch (err) {
             return fail('unavailable');
         }
+    }
+
+    // Dashboard reply. Agent identity is REQUIRED: the route is admin-gated.
+    function sendAgentMessage(input) {
+        const adminId = input && input.adminId;
+        if (!adminId) return Promise.resolve(fail('unauthenticated'));
+        return deliverAgentReply(Object.assign({}, input, { adminId: adminId, via: 'admin' }));
+    }
+
+    // Telegram reply. Authorisation happened in the Telegram bridge (the admin id
+    // allow-list), so no platform admin user is required: this platform keeps no
+    // Telegram-id -> users mapping, and inventing one would attribute an agent's
+    // words to whoever happened to be first in the admin list.
+    function sendChannelReply(input) {
+        return deliverAgentReply(Object.assign({}, input, {
+            adminId: (input && input.adminId) || null,
+            via: 'telegram',
+        }));
     }
 
     async function setControl(conversationId, adminId, action, patch, noticeKey, detail) {
@@ -984,7 +761,7 @@ function createNativeSupportService(options) {
             let message = null;
             if (noticeKey) {
                 const notice = await insertMessage(conversation.id, SENDER.SYSTEM,
-                    copyFor(conversation.language, noticeKey), { senderUserId: adminId });
+                    copyFor(conversation.language, noticeKey), { senderUserId: adminId, via: 'system' });
                 message = notice.message;
             }
             const nextPatch = Object.assign({ last_message_at: now().toISOString() }, patch);
@@ -1023,7 +800,7 @@ function createNativeSupportService(options) {
         return setControl(conversationId, adminId, 'resume', {
             ai_paused: false,
             status: STATUS.ASSIGNED,
-        }, 'aiResumed', { ai_paused: false });
+        }, 'released', { ai_paused: false });
     }
 
     function assign(conversationId, adminId, assigneeId) {
@@ -1108,7 +885,7 @@ function createNativeSupportService(options) {
         assign: assign,
         resolve: resolve,
         initiate: initiate,
-        composeAiReply: composeAiReply,
+        sendChannelReply: sendChannelReply,
         limits: limits,
     };
 }
@@ -1121,7 +898,7 @@ module.exports = {
     STATUSES,
     SENDER,
     LIMITS,
-    FALLBACK_COPY,
+    SERVICE_COPY,
     isNativeSupportEnabled,
     normalizeLanguage,
     normalizeCategory,
