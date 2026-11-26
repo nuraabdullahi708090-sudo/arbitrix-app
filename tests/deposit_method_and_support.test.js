@@ -212,7 +212,7 @@ test('11. the automated Q8Pay flow is unchanged', () => {
 
 test('12. i18n parity holds with the new support keys', () => {
     const en = Object.keys(T.en);
-    assert.strictEqual(en.length, 1586, 'dictionary size pinned');
+    assert.strictEqual(en.length, 1587, 'dictionary size pinned');
     LANGS.forEach((l) => {
         assert.deepStrictEqual(new Set(Object.keys(T[l])), new Set(en), l + ' key set differs');
         assert.ok(!Object.values(T[l]).some((v) => typeof v === 'string' && v.includes('{{')

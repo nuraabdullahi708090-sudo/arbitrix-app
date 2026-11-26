@@ -721,3 +721,149 @@ test('32. /kxassign is optional in the single-administrator setup and never bloc
     assert.strictEqual(reply.ok, true);
     assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 1);
 });
+
+// ---------------------------------------------------------------------------
+// HUMAN REPLY PERSISTENCE (production regression)
+//
+// Symptom reported: the agent replied from Telegram, the customer got the
+// "New support reply" notification, and reopening the messenger showed only the
+// welcome text. The reply was NOT lost - the customer was looking at the legacy
+// assistant, which has no history - but these tests pin the storage facts the
+// messenger depends on, so a future regression cannot hide behind a notification.
+// ---------------------------------------------------------------------------
+
+test('33. a Telegram reply is stored in the SAME conversation and readable after a fresh request', async () => {
+    const h = makeService();
+    const sent = await h.service.sendCustomerMessage({ userId: 41, body: 'Hello, I need help with my account.' });
+    assert.strictEqual(sent.ok, true, 'the customer message is accepted');
+    const convId = sent.conversationId;
+
+    const reply = await h.service.sendChannelReply({
+        conversationId: convId,
+        body: 'Hi, this is Kalderix support. I can help with that.',
+        adminId: null,
+    });
+    assert.strictEqual(reply.ok, true, 'the Telegram reply is accepted');
+    assert.strictEqual(reply.via, 'telegram', 'the channel of origin is recorded');
+    assert.strictEqual(reply.conversationId, convId, 'the reply lands in the same conversation');
+
+    // The stored row itself - not the response - is what the customer reads later.
+    const rows = h.db._tables.support_messages.filter((m) => Number(m.conversation_id) === Number(convId));
+    const agent = rows.filter((m) => m.sender_type === 'agent');
+    assert.strictEqual(agent.length, 1, 'exactly one agent message is persisted');
+    assert.strictEqual(agent[0].via, 'telegram', "via='telegram' is persisted on the row");
+    assert.strictEqual(agent[0].body, 'Hi, this is Kalderix support. I can help with that.');
+
+    // A FRESH request (what the widget issues when it opens) returns everything,
+    // in chronological order, including the customer's own message.
+    const history = await h.service.listMessages(41, convId, { afterId: null });
+    assert.strictEqual(history.ok, true);
+    const bodies = history.messages.map((m) => m.body);
+    assert.strictEqual(bodies[0], 'Hello, I need help with my account.', 'the original message is first');
+    assert.strictEqual(bodies[bodies.length - 1], 'Hi, this is Kalderix support. I can help with that.', 'the human reply is last');
+    const ids = history.messages.map((m) => Number(m.id));
+    assert.deepStrictEqual(ids, ids.slice().sort((a, b) => a - b), 'ordered by id (chronological)');
+    assert.ok(history.messages.some((m) => m.sender_type === 'agent'), 'the agent row is returned to the customer');
+    assert.ok(history.messages.some((m) => m.sender_type === 'customer'), 'the customer row is returned too');
+});
+
+test('34. dashboard and Telegram replies share ONE conversation and one order', async () => {
+    const h = makeService();
+    const sent = await h.service.sendCustomerMessage({ userId: 42, body: 'Two questions about my deposit.' });
+    const convId = sent.conversationId;
+
+    const fromDashboard = await h.service.sendAgentMessage({
+        conversationId: convId, body: 'Dashboard: looking into it.', adminId: 7,
+    });
+    assert.strictEqual(fromDashboard.ok, true);
+    assert.strictEqual(fromDashboard.via, 'admin', 'a dashboard reply is recorded as admin');
+
+    const fromTelegram = await h.service.sendChannelReply({
+        conversationId: convId, body: 'Telegram: it is credited now.', adminId: null,
+    });
+    assert.strictEqual(fromTelegram.ok, true);
+    assert.strictEqual(fromTelegram.via, 'telegram');
+
+    const rows = h.db._tables.support_messages.filter((m) => Number(m.conversation_id) === Number(convId));
+    assert.strictEqual(rows.filter((m) => m.sender_type === 'agent').length, 2, 'both replies are in the same thread');
+    const history = await h.service.listMessages(42, convId, { afterId: null });
+    const agentBodies = history.messages.filter((m) => m.sender_type === 'agent').map((m) => m.body);
+    assert.deepStrictEqual(agentBodies, ['Dashboard: looking into it.', 'Telegram: it is credited now.'],
+        'both channels appear in the customer history, in the order they were sent');
+});
+
+test('35. the customer notification is emitted ONLY after the reply is persisted', async () => {
+    const h = makeService();
+    const sent = await h.service.sendCustomerMessage({ userId: 43, body: 'Is anyone there?' });
+    const convId = sent.conversationId;
+    const before = h.events.filter((e) => e.kind === 'customer').length;
+
+    const ok = await h.service.sendChannelReply({ conversationId: convId, body: 'Yes, hello.', adminId: null });
+    assert.strictEqual(ok.ok, true);
+    const after = h.events.filter((e) => e.kind === 'customer');
+    assert.strictEqual(after.length, before + 1, 'the customer is notified once');
+    assert.strictEqual(after[after.length - 1].messageId, ok.message.id,
+        'the notification points at the message that was actually stored');
+    assert.ok(h.db._tables.support_messages.some((m) => Number(m.id) === Number(ok.message.id)),
+        'and that message really is in the table');
+
+    // Now make the insert fail: no notification may be produced.
+    const failingDb = {
+        from(table) {
+            if (table !== 'support_messages') return h.db.from(table);
+            const chain = {
+                insert() { return chain; },
+                select() { return chain; },
+                maybeSingle() { return Promise.resolve({ data: null, error: { code: 'XX000', message: 'insert failed' } }); },
+                single() { return Promise.resolve({ data: null, error: { code: 'XX000', message: 'insert failed' } }); },
+                then(resolve) { resolve({ data: null, error: { code: 'XX000', message: 'insert failed' } }); },
+            };
+            return chain;
+        },
+    };
+    const broken = makeService({ db: failingDb });
+    const failed = await broken.service.sendChannelReply({ conversationId: convId, body: 'not stored', adminId: null });
+    assert.strictEqual(failed.ok, false, 'the reply fails when it cannot be stored');
+    assert.strictEqual(broken.events.filter((e) => e.kind === 'customer').length, 0,
+        'a failed reply never notifies the customer');
+});
+
+test('36. conversation history stays isolated per customer', async () => {
+    const h = makeService();
+    const sent = await h.service.sendCustomerMessage({ userId: 44, body: 'private message' });
+    const convId = sent.conversationId;
+    await h.service.sendChannelReply({ conversationId: convId, body: 'private answer', adminId: null });
+
+    const mine = await h.service.listMessages(44, convId, { afterId: null });
+    assert.strictEqual(mine.ok, true);
+
+    const theirs = await h.service.listMessages(45, convId, { afterId: null });
+    assert.strictEqual(theirs.ok, false, 'another account cannot read the thread');
+    assert.strictEqual(theirs.reason, 'not-found');
+    assert.strictEqual(theirs.messages, undefined, 'no rows leak with the refusal');
+});
+
+test('37. the reported loop: Telegram reply -> the customer reads both rows, in order', async () => {
+    const h = singleAdminHarness();
+    const sent = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Hello, I need help with my account.' });
+    assert.strictEqual(sent.ok, true);
+    const notification = String(h.lastMessageId);
+
+    const out = await h.bridge.tryHandle(adminRoute({
+        text: 'Hi, support here - I can help with that.',
+        replyToMessageId: notification,
+    }), {});
+    assert.strictEqual(out.handled, true, 'the reply is routed');
+    assert.strictEqual(out.conversationId, sent.conversationId, 'to the conversation the customer wrote in');
+
+    // What the widget asks for when it reopens, after a refresh.
+    const history = await h.service.listMessages(CUSTOMER_ID, sent.conversationId, { afterId: null });
+    assert.strictEqual(history.ok, true, 'the customer may read their own thread');
+    const agentRows = history.messages.filter((m) => m.sender_type === 'agent');
+    assert.strictEqual(agentRows.length, 1, 'the human reply is returned');
+    assert.match(agentRows[0].body, /support here/);
+    assert.strictEqual(agentRows[0].via, 'telegram', "via='telegram' reaches the customer payload");
+    const bodies = history.messages.map((m) => m.body);
+    assert.strictEqual(bodies[0], 'Hello, I need help with my account.', 'the customer message is first');
+    assert.strictEqual(bodies[bodies.length - 1], 'Hi, support here - I can help with that.', 'the human reply is last');
+});
