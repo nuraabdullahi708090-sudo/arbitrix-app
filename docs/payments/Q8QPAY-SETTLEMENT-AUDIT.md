@@ -58,13 +58,42 @@ tried**. That is what made the incident unexplainable from inside the app.
   *and* camelCase aliases, and falls back to our own `metadata.arbitrixDepositRef`, so a
   payload shape change cannot silently become "unknown invoice".
 * **Customer recovery.** `POST /api/payment/check/:invoiceId` asks q8qpay directly when
-  the stored invoice is still unsettled. A payment whose webhook never arrived is
-  therefore credited the moment the customer presses Refresh — no support ticket.
+  the stored invoice is still unsettled, so a payment whose webhook never arrived is
+  credited on the customer's own re-check — no support ticket. The deposit modal now
+  CALLS that endpoint while an invoice is unsettled (`startPollingForPayment` ->
+  `attemptPaymentRecovery`, at most once every 20 s), which also means the visible
+  "Refresh Status" button reaches it: before this wiring the endpoint had no caller
+  and the modal only ever re-read the row the webhook had (not) written.
 * **Admin visibility.** `GET /api/admin/deposits/reconciliation` lists stale invoices,
   invoices we marked confirmed but never credited, and recorded webhook failures; with
   `?verify=1` it also asks q8qpay for the live status of each unsettled q8qpay invoice
   and diagnoses `paid_but_uncredited`, `confirmed_amount_mismatch`, `provider_pending`,
   … The endpoint stays strictly read-only, and the admin panel now renders these rows.
+
+### The transaction hash (the credit's idempotency key)
+
+`credit_payment_safe` writes `p_transaction_hash` into
+`payment_invoices.transaction_hash`, which is `UNIQUE`, and into the ledger
+transaction. The value therefore has to be the one the PROVIDER says settled the
+invoice — not merely one that arrived in a message about it.
+
+| Situation | Behaviour |
+|---|---|
+| Provider hash present | It is used. `hashSource: 'provider'` in the durable record. |
+| Provider hash present AND the signed webhook names a different hash | **No credit.** `outcome: 'tx_hash_mismatch'`, `needsReview: true`, HTTP 200 (a replay cannot resolve a disagreement), both hashes recorded in `webhook_logs.result`. |
+| Provider hash absent, signed webhook carries one | Used, labelled `hashSource: 'webhook-attested'`. The webhook body is HMAC-verified before settlement is reachable, so the hash is a provider-authored statement; it is still second-hand, hence the label and the mismatch rule above. |
+| Provider hash absent, no webhook hash | `outcome: 'missing_tx_hash'`, HTTP 500 (a later delivery may carry it). Nothing is invented. |
+| Any source, `MARKETING_SANDBOX` + `test_` key + `isTest` | Deterministic `q8qpay_sandbox_<providerInvoiceId>` — unreachable with a live key. |
+
+Hash comparison for the mismatch rule normalises only presentation (case,
+surrounding whitespace, an optional `0x`), so the same TRON transaction reported two
+ways is not a false alarm; a one-character difference is a mismatch.
+
+Trade-off to be aware of: if q8qpay's invoice API ever stopped exposing `tx_hash`
+while its webhook still did, payments would still settle (via the attested path) but
+would be labelled `webhook-attested`. Refusing that path instead would strand real
+payments whose money is confirmed; the label keeps it auditable, and a reviewer can
+tighten it by deleting one line in `resolveTransactionHash`.
 
 ## 4. What only production data can tell us
 

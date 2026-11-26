@@ -692,3 +692,123 @@ test('the customer check requires authentication', async () => {
     assert.strictEqual(res.status, 401);
     assert.strictEqual(eventsOf('rpc').length, 0);
 });
+
+// ---------------------------------------------------------------------------
+// Transaction hash: which value can become the credit's idempotency key
+//
+// `credit_payment_safe` writes p_transaction_hash into
+// payment_invoices.transaction_hash (UNIQUE) and into the ledger transaction, so
+// the value has to be the one q8qpay's own invoice record names. A hash that rode
+// in on a signed webhook is second-hand; it may only stand in when the provider
+// has none, and it must never disagree with the provider silently.
+// ---------------------------------------------------------------------------
+
+function creditEvents() { return eventsOf('rpc'); }
+
+test('hash: agreeing webhook + provider hashes credit with the PROVIDER value', async () => {
+    const same = 'a'.repeat(64);
+    writeState({
+        invoice: INVOICE,
+        provider: Object.assign({}, PROVIDER_OK, { tx_hash: same.toUpperCase() }),
+        credit: CREDIT_OK
+    });
+    const res = await postWebhook(confirmedPayload({ tx_hash: same }));
+    assert.strictEqual(res.status, 200);
+    const rpc = creditEvents();
+    assert.strictEqual(rpc.length, 1);
+    assert.strictEqual(rpc[0].params.p_transaction_hash, same.toUpperCase(),
+        'the provider value is recorded, even when the webhook spelled it differently');
+    const log = eventsOf('insert').filter((e) => e.table === 'webhook_logs').pop();
+    assert.strictEqual(log.row.result.outcome, 'credited');
+});
+
+test('hash: a webhook hash that DISAGREES with the provider is recorded for review and never credited', async () => {
+    const providerHash = 'a'.repeat(64);
+    const webhookHash = 'f'.repeat(64);
+    writeState({ invoice: INVOICE, provider: Object.assign({}, PROVIDER_OK, { tx_hash: providerHash }), credit: CREDIT_OK });
+
+    const res = await postWebhook(confirmedPayload({ tx_hash: webhookHash }));
+
+    assert.strictEqual(res.status, 200, 'a disagreement is not retryable - a replay cannot fix it');
+    assert.strictEqual(res.body.outcome, 'tx_hash_mismatch');
+    assert.strictEqual(creditEvents().length, 0, 'nothing was credited');
+
+    const row = eventsOf('insert').filter((e) => e.table === 'webhook_logs').pop();
+    assert.ok(row, 'the delivery is durably recorded');
+    assert.strictEqual(row.row.status, 'failed');
+    assert.strictEqual(row.row.result.outcome, 'tx_hash_mismatch');
+    assert.strictEqual(row.row.result.needsReview, true);
+    assert.strictEqual(row.row.result.providerTxHash, providerHash);
+    assert.strictEqual(row.row.result.webhookTxHash, webhookHash);
+    assert.strictEqual(row.row.result.reason, 'webhook-hash-differs-from-provider-hash');
+    assert.strictEqual(row.row.related_invoice_id, INVOICE.id);
+});
+
+test('hash: the provider has no hash and the webhook does - the SIGNED hash is used and labelled', async () => {
+    const webhookHash = 'b'.repeat(64);
+    writeState({
+        invoice: INVOICE,
+        provider: Object.assign({}, PROVIDER_OK, { tx_hash: null }),
+        credit: CREDIT_OK
+    });
+    const res = await postWebhook(confirmedPayload({ tx_hash: webhookHash }));
+    assert.strictEqual(res.status, 200);
+    const rpc = creditEvents();
+    assert.strictEqual(rpc.length, 1);
+    assert.strictEqual(rpc[0].params.p_transaction_hash, webhookHash,
+        'an HMAC-verified webhook hash may stand in for a missing provider hash');
+
+    const row = eventsOf('insert').filter((e) => e.table === 'webhook_logs').pop();
+    assert.strictEqual(row.row.result.hashSource, 'webhook-attested',
+        'the record must say the hash did not come from the provider API');
+});
+
+test('hash: neither source has one - no credit, retryable, and no invented value', async () => {
+    writeState({
+        invoice: INVOICE,
+        provider: Object.assign({}, PROVIDER_OK, { tx_hash: null }),
+        credit: CREDIT_OK
+    });
+    const res = await postWebhook(confirmedPayload({ tx_hash: null }));
+    assert.strictEqual(res.status, 500, 'a later delivery may carry the hash');
+    assert.strictEqual(res.body.outcome, 'missing_tx_hash');
+    assert.strictEqual(creditEvents().length, 0);
+});
+
+test('hash: provider hash only (webhook omits it) credits with the provider value', async () => {
+    writeState({ invoice: INVOICE, provider: PROVIDER_OK, credit: CREDIT_OK });
+    const res = await postWebhook(confirmedPayload({ tx_hash: null }));
+    assert.strictEqual(res.status, 200);
+    const rpc = creditEvents();
+    assert.strictEqual(rpc.length, 1);
+    assert.strictEqual(rpc[0].params.p_transaction_hash, 'a'.repeat(64));
+    const row = eventsOf('insert').filter((e) => e.table === 'webhook_logs').pop();
+    assert.strictEqual(row.row.result.hashSource, 'provider');
+});
+
+// ---------------------------------------------------------------------------
+// Concurrency across entry points: the webhook and the customer's own re-check
+// must never produce two credits for one invoice.
+// ---------------------------------------------------------------------------
+
+test('concurrency: a webhook and a customer re-check racing produce exactly one credit', async () => {
+    // A distinct invoice id: the fake's creditOnce ledger is per process, and an id
+    // used by an earlier test would already be marked as credited.
+    writeState({
+        invoice: Object.assign({}, INVOICE, { id: 77 }),
+        provider: PROVIDER_OK, credit: CREDIT_OK, creditOnce: true
+    });
+    const token = userToken(INVOICE.user_id);
+    const [hook, check] = await Promise.all([
+        postWebhook(confirmedPayload()),
+        postCheck(INVOICE.invoice_id, token)
+    ]);
+    assert.strictEqual(hook.status, 200);
+    assert.strictEqual(check.status, 200);
+    assert.strictEqual(check.body.credited, true, 'the customer is told the money arrived');
+    assert.strictEqual(creditEvents().length, 2, 'both attempts reached the atomic RPC');
+    const fresh = eventsOf('rpc_result').filter((e) => e.result && e.result.success === true && e.result.duplicate !== true);
+    const dupes = eventsOf('rpc_result').filter((e) => e.result && e.result.duplicate === true);
+    assert.strictEqual(fresh.length, 1, 'exactly one of them actually credited');
+    assert.strictEqual(dupes.length, 1, 'the other was refused as a duplicate');
+});

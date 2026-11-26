@@ -199,14 +199,21 @@ globalThis.fetch = async function fakeFetch(input, init) {
     emit({ kind: 'rpc', fn: 'credit_payment_safe', params });
     const credit = state.credit || {};
     if (credit.__rpcError) return respond(500, { message: credit.__rpcError });
+    // `rpc_result` records what the fake ANSWERED, so a test can prove that exactly
+    // one of several concurrent calls actually credited.
     if (state.creditOnce) {
       const key = String(params.p_invoice_id);
       if (credited.has(key)) {
-        return respond(200, { success: true, duplicate: true, new_balance: 100, is_first_deposit: false });
+        const dup = { success: true, duplicate: true, new_balance: 100, is_first_deposit: false };
+        emit({ kind: 'rpc_result', params, result: dup });
+        return respond(200, dup);
       }
       credited.add(key);
-      return respond(200, { success: true, new_balance: 150, is_first_deposit: true });
+      const fresh = { success: true, new_balance: 150, is_first_deposit: true };
+      emit({ kind: 'rpc_result', params, result: fresh });
+      return respond(200, fresh);
     }
+    emit({ kind: 'rpc_result', params, result: credit });
     return respond(200, credit);
   }
 

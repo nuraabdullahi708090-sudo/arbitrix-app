@@ -24903,6 +24903,53 @@ function startDepositTimer(expiresAt) {
   countdownInterval = setInterval(updateTimer, 1000);
 }
 
+// ---------------------------------------------------------------------------
+// Self-serve recovery for a LOST webhook.
+//
+// `/api/payment/invoice/:id` (what this loop reads) only reports what the webhook
+// already wrote, so an invoice whose delivery never arrived would sit "pending"
+// for ever - money sent, nothing credited, and the customer with no way out.
+// While an invoice is unsettled we therefore ask the server to re-verify it with
+// q8qpay through the authenticated POST /api/payment/check/:id, which settles
+// through the same atomic credit path. Throttled, so an open modal cannot hammer
+// the provider, and skipped for the marketing sandbox (its own route simulates the
+// lifecycle and needs no recovery).
+// ---------------------------------------------------------------------------
+const PAYMENT_RECOVERY_INTERVAL_MS = 20000;
+let paymentRecoveryLastAt = 0;
+let paymentRecoveryInvoiceId = null;
+
+function isUnsettledInvoiceStatus(status) {
+  return status === 'pending' || status === 'detected' || status === 'confirming' || status === 'expired';
+}
+
+function shouldAttemptPaymentRecovery(invoiceId, now) {
+  if (!invoiceId) return false;
+  if (APP.environment === 'MARKETING_SANDBOX') return false;
+  const at = typeof now === 'number' ? now : Date.now();
+  if (paymentRecoveryInvoiceId !== invoiceId) return true;
+  return (at - paymentRecoveryLastAt) >= PAYMENT_RECOVERY_INTERVAL_MS;
+}
+
+async function attemptPaymentRecovery(invoiceId) {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) return null;
+  paymentRecoveryInvoiceId = invoiceId;
+  paymentRecoveryLastAt = Date.now();
+  try {
+    const res = await fetch('/api/payment/check/' + encodeURIComponent(invoiceId), {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(function () { return null; });
+    return (data && data.credited === true) ? { status: 'confirmed', credited: true } : null;
+  } catch (e) {
+    // Transient by definition (network / 5xx): the next poll tries again.
+    return null;
+  }
+}
+
 function startPollingForPayment(invoiceId) {
   if (paymentPollingInterval) clearInterval(paymentPollingInterval);
 
@@ -24923,6 +24970,13 @@ function startPollingForPayment(invoiceId) {
           headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('jwt_token') || 'mock-token') }
         });
         result = await response.json();
+      }
+
+      // A read of the stored row cannot see a payment whose webhook never arrived,
+      // so ask the server to re-verify an unsettled invoice with q8qpay (throttled).
+      if (result && isUnsettledInvoiceStatus(result.status) && shouldAttemptPaymentRecovery(invoiceId)) {
+        const recovered = await attemptPaymentRecovery(invoiceId);
+        if (recovered) result = Object.assign({}, result, recovered);
       }
 
       // Update progress based on status

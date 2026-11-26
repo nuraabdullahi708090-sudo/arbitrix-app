@@ -11366,3 +11366,51 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   in the q8qpay dashboard exactly (scheme/host/path, no trailing-slash difference) and
   `BASE_URL` must be the public origin. Documented in `.env.example` with the read-only
   queries to run for the uncredited payment.
+
+## Q8QPay settlement - transaction-hash precedence + recovery wiring (2026-11-26, PR #225)
+
+Security review of PR #225 found the transaction-hash rule inverted and the customer
+recovery unreachable from the UI. Both fixed on the same branch; nothing merged,
+nothing deployed, no migration, no environment change.
+
+1. HASH PRECEDENCE (was a defect). `resolveTransactionHash()` returned the WEBHOOK
+   hash first, so a signed-but-second-hand value could become the credit's
+   idempotency key (`payment_invoices.transaction_hash` is UNIQUE and the value also
+   lands in the ledger transaction) even when q8pay's own invoice record named a
+   DIFFERENT transaction. Now: provider hash wins; a webhook hash is used only when
+   the provider has none AND the caller passes `webhookAttested: true` (set strictly
+   after `verifyWebhook()` succeeds); attestation is never inferred.
+2. NEW OUTCOME `tx_hash_mismatch` (needsReview, HTTP 200, non-transient): when both
+   hashes exist and differ after presentation-only normalisation (case, whitespace,
+   optional 0x), NOTHING is credited - not even the audit pre-write - and both values
+   are recorded in `webhook_logs.result` with `reason`. One-character differences are
+   mismatches; the same TRON tx written two ways is not.
+3. `webhook_logs.result` now also carries `webhookTxHash`, `hashSource`
+   ('provider' | 'webhook-attested' | 'sandbox') and `auditError`, so a reviewer can
+   see provenance without reading code.
+4. AUDIT WRITE ERRORS were invisible: supabase-js RESOLVES `{ error }` instead of
+   throwing, and the pre-credit update of `provider_tx_hash` ignored the result. It is
+   now inspected (and still non-fatal, because `credit_payment_safe` records the same
+   hash on the invoice and in the ledger), logged, and carried as `auditError`.
+5. RECOVERY WAS UNREACHABLE. `POST /api/payment/check/:invoiceId` (which re-verifies
+   with q8pay and settles) had NO caller: the deposit modal polls
+   `GET /api/payment/invoice/:id`, which only re-reads the row the webhook (never)
+   wrote, and the visible "Refresh Status" button just restarted that poll. So a lost
+   webhook stranded the customer until an admin acted. `startPollingForPayment` now
+   calls the check endpoint while an invoice is unsettled (pending/detected/
+   confirming/expired), throttled to one attempt per 20s per invoice, skipped for
+   MARKETING_SANDBOX, no request body (identity from the JWT, invoice from the URL).
+   The Refresh button reaches it because it restarts the same loop.
+
+Tests: `tests/q8qpay.webhook.e2e.test.js` (43, real server: agreeing hashes credit the
+PROVIDER value, disagreement records + refuses, webhook-only attested hash is used and
+labelled, neither-source is retryable, provider-only credits, hash+recovery race yields
+exactly one credit), `tests/q8qpay.settlement.test.js` (39, hash matrix + audit-error
+handling), `tests/payment_recovery_wiring.test.js` (12, executes the real frontend
+helpers). Two pre-existing pins that asserted the DEFECT were inverted in place
+(`resolveTransactionHash` precedence, webhook-hash-first) - intent preserved, direction
+corrected. `npm test` = 4437 pass / 0 fail.
+
+Not verified from here: a real production webhook or a live q8pay invoice. The callback
+URL registration, Render env and the specific uncredited payment still need an operator
+(docs/payments/Q8QPAY-SETTLEMENT-AUDIT.md section 4).

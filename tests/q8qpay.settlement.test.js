@@ -111,16 +111,109 @@ test('a provider-confirmed payment credits once, with the provider hash', async 
     assert.strictEqual(db.calls.updates[0].data.provider_tx_hash, HASH);
 });
 
-test('the webhook hash is preferred, the provider hash is the fallback', async () => {
-    const withWebhook = pipeline();
-    const a = await withWebhook.engine.settle({
-        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1', webhookTxHash: 'webhookhash'
-    });
-    assert.strictEqual(a.details.txHash, 'webhookhash');
+// ---------------------------------------------------------------------------
+// Transaction hash: which value reaches credit_payment_safe (security review).
+//
+// The hash is the credit's idempotency key AND the ledger's audit link, so the value
+// that lands in the database has to be the one the PROVIDER vouches for. A webhook
+// hash is second-hand: signature-verified, but still a copy of what the provider
+// said in one message rather than what its invoice record says now.
+// ---------------------------------------------------------------------------
 
-    const withoutWebhook = pipeline();
-    const b = await withoutWebhook.engine.settle({ invoice: INVOICE, providerInvoiceId: 'q8q-unit-1', webhookTxHash: null });
-    assert.strictEqual(b.details.txHash, HASH);
+test('1. matching hashes: the provider-verified hash is credited, and labelled as such', async () => {
+    const { db, engine } = pipeline();
+    const { outcome, details } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: HASH, webhookAttested: true
+    });
+    assert.strictEqual(outcome.code, 'credited');
+    assert.strictEqual(details.txHash, HASH);
+    assert.strictEqual(details.hashSource, 'provider', 'the provider source wins the credit record');
+    assert.strictEqual(db.calls.rpcs[0].params.p_transaction_hash, HASH);
+});
+
+test('2. DISAGREEING hashes: nothing is credited and both values are recorded for review', async () => {
+    const { db, engine } = pipeline();
+    const { outcome, details } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: 'c'.repeat(64), webhookAttested: true
+    });
+    assert.strictEqual(outcome.code, 'tx_hash_mismatch');
+    assert.strictEqual(outcome.needsReview, true);
+    assert.strictEqual(outcome.transient, false, 'replaying the delivery cannot resolve a disagreement');
+    assert.strictEqual(outcome.httpStatus, 200);
+    assert.strictEqual(db.calls.rpcs.length, 0, 'no credit');
+    assert.strictEqual(details.providerTxHash, HASH);
+    assert.strictEqual(details.webhookTxHash, 'c'.repeat(64));
+    assert.strictEqual(details.reason, 'webhook-hash-differs-from-provider-hash');
+});
+
+test('3. webhook hash only, UNATTESTED: refused (no unsafe fallback to an unverified value)', async () => {
+    const { db, engine } = pipeline({ providerOverrides: { tx_hash: null } });
+    const { outcome } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: 'c'.repeat(64), webhookAttested: false
+    });
+    assert.strictEqual(outcome.code, 'missing_tx_hash');
+    assert.strictEqual(outcome.transient, true);
+    assert.strictEqual(db.calls.rpcs.length, 0);
+});
+
+test('3b. webhook hash only, ATTESTED (HMAC-verified delivery): accepted and labelled', async () => {
+    const { db, engine } = pipeline({ providerOverrides: { tx_hash: null } });
+    const { outcome, details } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: 'c'.repeat(64), webhookAttested: true
+    });
+    assert.strictEqual(outcome.code, 'credited');
+    assert.strictEqual(details.txHash, 'c'.repeat(64));
+    assert.strictEqual(details.hashSource, 'webhook-attested',
+        'a reviewer must be able to tell this hash did not come from the provider API');
+    assert.strictEqual(db.calls.rpcs[0].params.p_transaction_hash, 'c'.repeat(64));
+});
+
+test('4. provider hash only (no webhook hash): the provider hash is credited', async () => {
+    const { db, engine } = pipeline();
+    const { outcome, details } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1', webhookTxHash: null, webhookAttested: true
+    });
+    assert.strictEqual(outcome.code, 'credited');
+    assert.strictEqual(details.txHash, HASH);
+    assert.strictEqual(details.hashSource, 'provider');
+    assert.strictEqual(db.calls.rpcs[0].params.p_transaction_hash, HASH);
+});
+
+test('4b. the same hash written differently is NOT a disagreement (case, 0x, whitespace)', async () => {
+    const { db, engine } = pipeline({ providerOverrides: { tx_hash: HASH.toUpperCase() } });
+    const { outcome, details } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: '  0x' + HASH + '\n', webhookAttested: true
+    });
+    assert.strictEqual(outcome.code, 'credited', 'presentation differences must not block a real payment');
+    assert.strictEqual(details.hashSource, 'provider');
+    assert.strictEqual(db.calls.rpcs[0].params.p_transaction_hash, HASH.toUpperCase(),
+        'the provider value is what gets recorded');
+});
+
+test('4c. hash comparison is identity-only: a one-character difference is a mismatch', async () => {
+    const mutated = HASH.slice(0, -1) + (HASH.endsWith('b') ? 'c' : 'b');
+    const { db, engine } = pipeline();
+    const { outcome } = await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: mutated, webhookAttested: true
+    });
+    assert.strictEqual(outcome.code, 'tx_hash_mismatch');
+    assert.strictEqual(db.calls.rpcs.length, 0);
+});
+
+test('4d. the mismatch guard runs before the credit, never after', async () => {
+    const { db, engine } = pipeline();
+    await engine.settle({
+        invoice: INVOICE, providerInvoiceId: 'q8q-unit-1',
+        webhookTxHash: 'd'.repeat(64), webhookAttested: true
+    });
+    assert.strictEqual(db.calls.updates.length, 0, 'not even the audit pre-write happened');
+    assert.strictEqual(db.calls.rpcs.length, 0);
 });
 
 test('an already-credited invoice short-circuits without a provider call or a credit', async () => {
@@ -297,13 +390,28 @@ test('an RPC that returns success:false is a retryable credit failure', async ()
     assert.strictEqual(outcome.code, 'credit_failed');
 });
 
-test('a database write failure on the audit fields does not block the credit', async () => {
+test('an audit write that THROWS does not block the credit but is reported', async () => {
     const db = makeDb();
     db.from = () => ({ update: () => ({ eq: () => { throw new Error('audit write failed'); } }) });
     const engine = createQ8qpaySettlement({ db, provider: makeProvider() });
-    const { outcome } = await engine.settle({ invoice: INVOICE, providerInvoiceId: 'q8q-unit-1' });
+    const { outcome, details } = await engine.settle({ invoice: INVOICE, providerInvoiceId: 'q8q-unit-1' });
     assert.strictEqual(outcome.code, 'credited', 'the money still moves through the atomic RPC');
     assert.strictEqual(db.calls.rpcs.length, 1);
+    assert.match(details.auditError, /audit write failed/, 'the loss is carried, never hidden');
+});
+
+test('an audit write that RESOLVES with { error } is also reported (supabase-js does not throw)', async () => {
+    const db = makeDb();
+    db.from = () => ({
+        update: () => ({
+            eq: () => Promise.resolve({ data: null, error: { message: 'permission denied for table payment_invoices' } })
+        })
+    });
+    const engine = createQ8qpaySettlement({ db, provider: makeProvider() });
+    const { outcome, details } = await engine.settle({ invoice: INVOICE, providerInvoiceId: 'q8q-unit-1' });
+    assert.strictEqual(outcome.code, 'credited', 'audit loss must not block a confirmed payment');
+    assert.strictEqual(db.calls.rpcs.length, 1);
+    assert.match(details.auditError, /permission denied/, 'a resolved { error } is not silently swallowed');
 });
 
 test('an invoice without a provider id cannot be verified', async () => {

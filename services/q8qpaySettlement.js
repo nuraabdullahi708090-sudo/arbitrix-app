@@ -87,6 +87,15 @@ const OUTCOMES = {
         code: 'address_mismatch', httpStatus: 200, needsReview: true, transient: false,
         message: 'The confirmed payout address differs from the one quoted'
     },
+    TX_HASH_MISMATCH: {
+        // The signed webhook and the provider's own invoice record name DIFFERENT
+        // transactions for the same invoice. That is either a second transfer or a
+        // provider-side inconsistency; either way a human must compare both hashes
+        // against the chain before any money moves, so nothing is credited here.
+        // Not transient: replaying the same delivery cannot resolve a disagreement.
+        code: 'tx_hash_mismatch', httpStatus: 200, needsReview: true, transient: false,
+        message: 'The webhook transaction hash differs from the provider-verified hash'
+    },
     MISSING_TX_HASH: {
         // Confirmed money with no hash yet: the hash is the credit's idempotency
         // key, so we must not credit without it. A later retry can supply it.
@@ -106,6 +115,24 @@ const OUTCOMES = {
         message: 'The invoice cannot be re-verified with the provider'
     }
 };
+
+/**
+ * Compare two transaction hashes for EQUALITY OF IDENTITY (not of authorisation).
+ *
+ * Only presentation is normalised - surrounding whitespace, hex case and an
+ * optional 0x prefix - so the same TRON transaction reported two different ways is
+ * not mistaken for a disagreement. It can never make two different hashes equal.
+ */
+function normalizeTxHash(value) {
+    if (value == null) return '';
+    return String(value).trim().toLowerCase().replace(/^0x/, '');
+}
+
+function sameTxHash(a, b) {
+    const x = normalizeTxHash(a);
+    const y = normalizeTxHash(b);
+    return x !== '' && x === y;
+}
 
 /** Compare two amounts as the exact 4-decimal figures the provider quotes. */
 function sameExactAmount(a, b) {
@@ -136,9 +163,10 @@ function createQ8qpaySettlement({ db, provider }) {
      * @param {object} args.invoice       the payment_invoices row (must have id, user_id, invoice_id, amount_usd)
      * @param {string} args.providerInvoiceId  q8qpay invoice UUID
      * @param {string} [args.webhookTxHash]    tx hash seen in the webhook body (may be absent)
+     * @param {boolean} [args.webhookAttested] true ONLY when that body's HMAC was verified
      * @param {string} [args.source]           'webhook' | 'manual-check' (audit only)
      */
-    async function settle({ invoice, providerInvoiceId, webhookTxHash, source }) {
+    async function settle({ invoice, providerInvoiceId, webhookTxHash, webhookAttested, source }) {
         const base = {
             source: source || 'webhook',
             invoiceId: invoice && invoice.invoice_id,
@@ -227,28 +255,64 @@ function createQ8qpaySettlement({ db, provider }) {
         }
 
         // 6. Transaction hash: the credit's idempotency key.
+        //
+        //    The provider's authenticated invoice record is the authority. A hash
+        //    that arrived in the signed webhook may only STAND IN when the provider
+        //    has not exposed one, and only when the caller confirmed the HMAC. If
+        //    the two disagree we credit NOTHING: one of them names a transaction we
+        //    did not verify, and an operator has to look at the chain.
+        const providerHash = verify.tx_hash || null;
+        const webhookHash = webhookTxHash || null;
+        if (providerHash && webhookHash && !sameTxHash(providerHash, webhookHash)) {
+            return {
+                outcome: OUTCOMES.TX_HASH_MISMATCH,
+                details: {
+                    ...verified,
+                    reason: 'webhook-hash-differs-from-provider-hash',
+                    providerTxHash: providerHash,
+                    webhookTxHash: webhookHash
+                }
+            };
+        }
         const txHash = provider.resolveTransactionHash({
-            webhookTxHash: webhookTxHash || null,
-            verifyTxHash: verify.tx_hash || null,
+            webhookTxHash: webhookHash,
+            webhookAttested: webhookAttested === true,
+            verifyTxHash: providerHash,
             verifyIsTest: verify.isTest === true,
             providerInvoiceId
         });
         if (!txHash) {
             return { outcome: OUTCOMES.MISSING_TX_HASH, details: verified };
         }
+        // Which source the credited hash came from - part of the audit record so a
+        // reviewer can tell a provider-verified hash from a signed-webhook one.
+        const hashSource = providerHash
+            ? 'provider'
+            : (String(txHash).startsWith('q8qpay_sandbox_') ? 'sandbox' : 'webhook-attested');
 
         // Audit fields first, so they survive a concurrent winner of the race.
+        // supabase-js RESOLVES with `{ error }` instead of throwing, so the result
+        // must be inspected: swallowing it silently loses the trail.
+        let auditError = null;
         try {
-            await db.from('payment_invoices')
+            const auditWrite = await db.from('payment_invoices')
                 .update({
                     provider_tx_hash: txHash,
                     provider_invoice_ref: verify.providerInvoiceId || providerInvoiceId,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', invoice.id);
+            if (auditWrite && auditWrite.error) {
+                auditError = String(auditWrite.error.message || auditWrite.error).slice(0, 200);
+            }
         } catch (error) {
-            // Not fatal: the credit below is what matters, and this is audit data.
-            console.error('[Q8QPay Settlement] Could not store audit fields:', (error && error.message) || error);
+            auditError = String((error && error.message) || error).slice(0, 200);
+        }
+        // Not fatal: credit_payment_safe records the same hash on the invoice and in
+        // the ledger transaction, so the money movement stays traceable even if this
+        // pre-write fails. It is logged and carried in the record, never hidden.
+        if (auditError) {
+            console.error('[Q8QPay Settlement] Could not store audit fields:', auditError);
         }
 
         // 7. Atomic, idempotent credit.
@@ -277,21 +341,22 @@ function createQ8qpaySettlement({ db, provider }) {
         }
 
         const data = (credit && credit.data) || {};
+        const ledger = { ...verified, txHash, hashSource };
+        if (auditError) ledger.auditError = auditError;
         if (data.duplicate === true) {
-            return { outcome: OUTCOMES.DUPLICATE, details: { ...verified, txHash } };
+            return { outcome: OUTCOMES.DUPLICATE, details: ledger };
         }
         if (data.success !== true) {
             return {
                 outcome: OUTCOMES.CREDIT_FAILED,
-                details: { ...verified, txHash, reason: 'credit-refused', error: String(data.error || 'unknown').slice(0, 200) }
+                details: { ...ledger, reason: 'credit-refused', error: String(data.error || 'unknown').slice(0, 200) }
             };
         }
 
         return {
             outcome: OUTCOMES.CREDITED,
             details: {
-                ...verified,
-                txHash,
+                ...ledger,
                 credited: true,
                 newBalance: data.new_balance,
                 isFirstDeposit: data.is_first_deposit === true,
@@ -320,6 +385,8 @@ module.exports = {
     createQ8qpaySettlement,
     OUTCOMES,
     sameExactAmount,
+    normalizeTxHash,
+    sameTxHash,
     SUPPORTED_ASSET,
     CONFIRMED
 };

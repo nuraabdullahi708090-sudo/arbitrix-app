@@ -360,11 +360,24 @@ class Q8QPayProvider extends ProviderInterface {
      * Resolve the blockchain transaction hash for a CONFIRMED q8qpay payment.
      *
      * Sources, in priority order:
-     *   1. webhookTxHash  - hash parsed from the webhook payload
-     *                       (parsePaymentData: payload.tx_hash || payload.txHash)
-     *   2. verifyTxHash   - hash from q8qpay server-side re-verification
-     *                       (getInvoiceStatus: data.tx_hash || data.txHash)
+     *   1. verifyTxHash   - hash from q8qpay's authenticated `GET /invoices/:id`
+     *                       (getInvoiceStatus: data.tx_hash || data.txHash). This is
+     *                       the provider's OWN record of which transaction settled
+     *                       the invoice, so it always wins: the hash written to the
+     *                       ledger must be the one the provider vouches for.
+     *   2. webhookTxHash  - hash parsed from the webhook body
+     *                       (parsePaymentData: payload.tx_hash || payload.txHash).
+     *                       Accepted ONLY when the caller passes
+     *                       `webhookAttested: true`, i.e. the request's HMAC was
+     *                       verified before this call. The signature covers the
+     *                       whole body, so such a hash is a provider-authored
+     *                       statement - but it is still second-hand, which is why
+     *                       the pipeline refuses it when the provider's own record
+     *                       carries a DIFFERENT hash (TX_HASH_MISMATCH).
      *   3. SANDBOX-ONLY deterministic fallback `q8qpay_sandbox_<providerInvoiceId>`
+     *
+     * A webhook hash that nobody vouches for is never returned: without
+     * `webhookAttested === true` an unsigned value cannot become an idempotency key.
      *
      * SECURITY (production safety of the fallback):
      *   The fallback (#3) fires ONLY when ALL of the following hold:
@@ -381,14 +394,17 @@ class Q8QPayProvider extends ProviderInterface {
      *
      * @param {object} opts
      * @param {string} [opts.webhookTxHash]  - tx hash from the webhook payload
+     * @param {boolean} [opts.webhookAttested] - true only when that payload's HMAC was verified
      * @param {string} [opts.verifyTxHash]   - tx hash from q8qpay re-verification
      * @param {boolean} [opts.verifyIsTest]  - whether q8qpay flagged the invoice as test
      * @param {string} [opts.providerInvoiceId] - q8qpay invoice UUID (for sandbox fallback)
      * @returns {string|null} Resolved tx hash, or null if none available (caller rejects)
      */
-    resolveTransactionHash({ webhookTxHash, verifyTxHash, verifyIsTest, providerInvoiceId } = {}) {
-        if (webhookTxHash) return webhookTxHash;
+    resolveTransactionHash({ webhookTxHash, webhookAttested, verifyTxHash, verifyIsTest, providerInvoiceId } = {}) {
+        // The provider's own record is authoritative and takes precedence.
         if (verifyTxHash) return verifyTxHash;
+        // Second-hand but provider-signed: only after an HMAC-verified delivery.
+        if (webhookTxHash && webhookAttested === true) return webhookTxHash;
 
         const sandboxConfigured =
             this.isSandbox === true &&

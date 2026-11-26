@@ -33,26 +33,47 @@ function sign(rawBody) {
 // resolveTransactionHash — the production-safety invariant
 // ---------------------------------------------------------------------------
 
-test('resolveTransactionHash: prefers webhook tx hash over verify and fallback', () => {
+// PRECEDENCE (security review): the PROVIDER's authenticated invoice record is the
+// authority for which transaction settled a payment. A hash that arrived in a signed
+// webhook is second-hand and must never outrank it. (The previous order did, which
+// meant a webhook hash could become the ledger's idempotency key even when the
+// provider named a different transaction.)
+test('resolveTransactionHash: the provider-verified hash takes precedence over the webhook', () => {
     const p = makeProvider({ apiKey: 'test_key', sandbox: true });
     const hash = p.resolveTransactionHash({
         webhookTxHash: '0xwebhook',
+        webhookAttested: true,
         verifyTxHash: '0xverify',
         verifyIsTest: true,
         providerInvoiceId: 'inv-1'
     });
-    assert.strictEqual(hash, '0xwebhook');
+    assert.strictEqual(hash, '0xverify');
 });
 
-test('resolveTransactionHash: falls back to verify tx hash when webhook omits it', () => {
+test('resolveTransactionHash: the webhook hash is used only when the provider has none AND it was attested', () => {
     const p = makeProvider();
-    const hash = p.resolveTransactionHash({
-        webhookTxHash: null,
-        verifyTxHash: '0xverify',
-        verifyIsTest: false,
-        providerInvoiceId: 'inv-2'
-    });
-    assert.strictEqual(hash, '0xverify');
+    assert.strictEqual(p.resolveTransactionHash({
+        webhookTxHash: '0xwebhook', webhookAttested: true, verifyTxHash: null,
+        verifyIsTest: false, providerInvoiceId: 'inv-2'
+    }), '0xwebhook', 'a signature-verified hash may stand in for a missing provider hash');
+
+    assert.strictEqual(p.resolveTransactionHash({
+        webhookTxHash: '0xwebhook', webhookAttested: false, verifyTxHash: null,
+        verifyIsTest: false, providerInvoiceId: 'inv-2'
+    }), null, 'an UNATTESTED webhook hash must never become an idempotency key');
+
+    assert.strictEqual(p.resolveTransactionHash({
+        webhookTxHash: '0xwebhook', verifyTxHash: null,
+        verifyIsTest: false, providerInvoiceId: 'inv-2'
+    }), null, 'omitting the attestation flag is not consent');
+});
+
+test('resolveTransactionHash: a live invoice with no hash from either source resolves to null', () => {
+    const p = makeProvider({ apiKey: 'live_prodkey', sandbox: false });
+    assert.strictEqual(p.resolveTransactionHash({
+        webhookTxHash: null, webhookAttested: true, verifyTxHash: null,
+        verifyIsTest: false, providerInvoiceId: 'inv-null'
+    }), null);
 });
 
 test('resolveTransactionHash: SANDBOX fallback fires only when sandbox + test key + isTest', () => {

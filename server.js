@@ -5326,7 +5326,10 @@ app.post('/api/payment/check/:invoiceId', authMiddleware, async (req, res) => {
     const settlement = await q8qpaySettlement.settle({
       invoice: ownInvoice,
       providerInvoiceId: ownInvoice.provider_invoice_ref || null,
+      // No signature on this path, so no webhook hash may be trusted: the provider's
+      // own record is the only source.
       webhookTxHash: null,
+      webhookAttested: false,
       source: 'manual-check'
     });
 
@@ -6000,6 +6003,12 @@ async function recordQ8qpayWebhookEvent(entry) {
       providerPayoutAddress: details && details.providerPayoutAddress ? details.providerPayoutAddress : null,
       storedPayoutAddress: details && details.storedWalletAddress ? details.storedWalletAddress : null,
       providerTxHash: details && details.providerTxHash ? details.providerTxHash : null,
+      // Which transaction the SIGNED webhook named, and which source the hash that
+      // would be (or was) credited came from: 'provider' | 'webhook-attested' |
+      // 'sandbox'. A reviewer must be able to see a disagreement, not just an outcome.
+      webhookTxHash: details && details.webhookTxHash ? details.webhookTxHash : null,
+      hashSource: details && details.hashSource ? details.hashSource : null,
+      auditError: details && details.auditError ? details.auditError : null,
       providerStatus: details && details.providerStatus ? details.providerStatus : null,
       reason: details && details.reason ? details.reason : null,
       error: details && details.error ? details.error : null,
@@ -6170,6 +6179,11 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
       invoice,
       providerInvoiceId: providerInvoiceId || invoice.provider_invoice_ref || null,
       webhookTxHash: paymentData.transactionHash || null,
+      // Only reachable after `verifyWebhook()` returned true above: the hash travels
+      // inside the HMAC-signed body, so it is provider-attested. The pipeline still
+      // prefers the hash from q8qpay's own invoice record and refuses to credit when
+      // the two disagree.
+      webhookAttested: true,
       source: 'webhook'
     });
 
