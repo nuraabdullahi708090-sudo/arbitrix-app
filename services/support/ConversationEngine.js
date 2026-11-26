@@ -194,39 +194,71 @@ const KNOWLEDGE_QUERIES = Object.freeze({
 // deliberately closed: a longer sentence that merely CONTAINS "yes" ("yes but I
 // still cannot log in") is handled by its intent, not as a bare confirmation.
 // A token must END the string or be followed by whitespace/punctuation. A plain
-// \b cannot be used for the Portuguese/Arabic words: JavaScript's \b is
-// ASCII-only, so it never matches after a non-ASCII letter ("شكرا", "não").
-const TOKEN_END = '(?=[\\s!?.,;:()\\[\\]\"\'\u2019]|$)';
+// \b cannot be used for the Portuguese/Arabic/Chinese words: JavaScript's \b is
+// ASCII-only, so it never matches after a non-ASCII letter ("شكرا", "não", "是").
+// CJK punctuation (。！？，；： and the fullwidth brackets) is part of the boundary
+// set for the same reason: a Chinese sentence usually ends with "。" rather than a
+// dot, and without these the token would never look terminated.
+const TOKEN_END = '(?=[\\s!?.,;:()\\[\\]\"\'\u2019\u3002\uff01\uff1f\uff0c\uff1b\uff1a\uff08\uff09]|$)';
 const tokenRe = (words) => new RegExp('^(?:' + words.join('|') + ')' + TOKEN_END);
 
-// Short replies in every language the bot supports (en / pt / ar). They are only
-// ever interpreted through a pending question - never guessed in isolation.
+// Short replies in every language the bot supports (en / es / pt / fr / ar / zh).
+// They are only ever interpreted through a pending question - never guessed in
+// isolation. es / fr / zh were added with the six-language release; the English,
+// Portuguese and Arabic lists are unchanged.
 const AFFIRM_RE = tokenRe([
   'yes', 'yeah', 'yep', 'yup', 'ya', 'sure', 'ok', 'okay', 'okey', 'alright', 'all right',
   'of course', 'definitely', 'absolutely', 'certainly', 'correct', 'right', 'indeed',
   'go ahead', 'please do', 'sounds good', 'why not', 'fine', 'perfect', 'great', 'good', 'cool',
   'sim', 'claro', 'pode ser', 'com certeza', 'correto', 'isso', 'beleza', 'tudo bem', 'vamos',
   '\u0646\u0639\u0645', '\u0623\u062c\u0644', '\u0628\u0627\u0644\u062a\u0623\u0643\u064a\u062f',
-  '\u0635\u062d\u064a\u062d', '\u0637\u0628\u0639\u0627', '\u0623\u0643\u064a\u062f'
+  '\u0635\u062d\u064a\u062d', '\u0637\u0628\u0639\u0627', '\u0623\u0643\u064a\u062f',
+  // Spanish
+  's\u00ed', 'si', 'vale', 'de acuerdo', 'por supuesto', 'cierto', 'adelante', 'dale',
+  'est\u00e1 bien', 'esta bien', 'bueno', 'buena idea', 'claro que s\u00ed',
+  // French
+  'oui', 'ouais', 'bien s\u00fbr', 'bien sur', "d'accord", 'daccord', 'accord', 'volontiers',
+  '\u00e9videmment', 'evidemment', 'exact', 'tout \u00e0 fait', 'tout a fait', 'parfait',
+  // Simplified Chinese
+  '\u662f', '\u662f\u7684', '\u597d\u7684', '\u597d', '\u5bf9', '\u5bf9\u7684',
+  '\u6ca1\u9519', '\u53ef\u4ee5', '\u884c', '\u55ef', '\u5f53\u7136', '\u786e\u5b9a'
 ]);
 const DENY_RE = tokenRe([
   'no', 'nope', 'nah', 'not yet', 'not really', 'not now', 'never', 'negative', 'none',
   'no thanks', 'no thank you',
   'n\u00e3o', 'nao', 'ainda n\u00e3o', 'ainda nao', 'negativo',
-  '\u0644\u0627', '\u0644\u064a\u0633 \u0628\u0639\u062f', '\u0644\u064a\u0633 \u0627\u0644\u0622\u0646', '\u0643\u0644\u0627'
+  '\u0644\u0627', '\u0644\u064a\u0633 \u0628\u0639\u062f', '\u0644\u064a\u0633 \u0627\u0644\u0622\u0646', '\u0643\u0644\u0627',
+  // Spanish
+  'no gracias', 'todav\u00eda no', 'todavia no', 'a\u00fan no', 'aun no', 'nunca', 'para nada',
+  // French
+  'non', 'non merci', 'pas encore', 'pas maintenant', 'jamais', 'n\u00e9gatif', 'negatif',
+  // Simplified Chinese
+  '\u4e0d', '\u4e0d\u662f', '\u4e0d\u8981', '\u4e0d\u7528', '\u6ca1\u6709', '\u8fd8\u6ca1',
+  '\u8fd8\u6ca1\u6709', '\u4e0d\u7528\u4e86', '\u4e0d\u9700\u8981', '\u6682\u65f6\u4e0d'
 ]);
 const THANKS_RE = new RegExp('(?:^|[\\s!?.,;:()\\[\\]\"\'\u2019])(?:'
   + ['thanks', 'thank you', 'thankyou', 'thx', 'cheers', 'appreciate it', 'appreciate that',
     'much appreciated', 'obrigado', 'obrigada', 'valeu', 'agrade\u00e7o',
     '\u0634\u0643\u0631\u0627', '\u0634\u0643\u0631\u064b\u0627', '\u0623\u0634\u0643\u0631\u0643',
-    '\u0645\u0634\u0643\u0648\u0631'].join('|') + ')' + TOKEN_END);
+    '\u0645\u0634\u0643\u0648\u0631',
+    // Spanish / French / Simplified Chinese
+    'gracias', 'muchas gracias', 'mil gracias', 'te lo agradezco', 'agradezco',
+    'merci', 'merci beaucoup', 'je vous remercie',
+    '\u8c22\u8c22', '\u591a\u8c22', '\u611f\u8c22', '\u975e\u5e38\u611f\u8c22'].join('|') + ')' + TOKEN_END);
 // "okay" is both an acknowledgement and, in answer to a yes/no question, a yes.
 const ACK_RE = tokenRe([
   'ok', 'okay', 'okey', 'alright', 'all right', 'got it', 'i understand', 'understood',
   'i see', 'great', 'perfect', 'good', 'cool', 'nice', 'sure',
   'entendi', 'beleza', 'certo', 'combinado',
   '\u062d\u0633\u0646\u0627', '\u062d\u0633\u0646\u064b\u0627', '\u0641\u0647\u0645\u062a',
-  '\u062a\u0645\u0627\u0645', '\u0645\u0648\u0627\u0641\u0642'
+  '\u062a\u0645\u0627\u0645', '\u0645\u0648\u0627\u0641\u0642',
+  // Spanish
+  'entendido', 'vale', 'de acuerdo', 'comprendido', 'bien', 'ya veo',
+  // French
+  'compris', "d'accord", 'daccord', 'entendu', 'parfait', 'je vois',
+  // Simplified Chinese
+  '\u660e\u767d', '\u660e\u767d\u4e86', '\u77e5\u9053', '\u77e5\u9053\u4e86',
+  '\u6536\u5230', '\u4e86\u89e3', '\u61c2\u4e86'
 ]);
 // ------------------------------------------------------ social conversation ---
 
@@ -274,7 +306,17 @@ const SOCIAL_PHRASES = Object.freeze({
     'ta certo', 't\u00e1 certo',
     '\u062d\u0633\u0646\u0627', '\u062d\u0633\u0646\u064b\u0627', '\u0637\u064a\u0628',
     '\u062a\u0645\u0627\u0645', '\u0643\u0648\u064a\u0633', '\u0623\u0648\u0643\u064a',
-    '\u0627\u0648\u0643\u064a'
+    '\u0627\u0648\u0643\u064a',
+    // Spanish
+    'vale', 'de acuerdo', 'entendido', 'listo', 'ya est\u00e1', 'ya esta', 'nada m\u00e1s',
+    'nada mas', 'eso es todo', 'terminamos', 'perfecto',
+    // French
+    "d'accord", 'daccord', 'entendu', 'compris', 'parfait', 'tr\u00e8s bien', 'tres bien',
+    "c'est tout", 'cest tout', 'voil\u00e0', 'voila', 'fini', 'termin\u00e9', 'termine',
+    // Simplified Chinese
+    '\u597d\u7684', '\u597d', '\u660e\u767d', '\u660e\u767d\u4e86', '\u77e5\u9053\u4e86',
+    '\u6536\u5230', '\u4e86\u89e3', '\u53ef\u4ee5', '\u884c\u4e86', '\u591f\u4e86',
+    '\u5c31\u8fd9\u6837', '\u6ca1\u4e8b\u4e86'
   ]),
   understood: Object.freeze([
     'understood', 'i understand', 'i understood', 'got it', 'i got it', "i've got it",
@@ -283,7 +325,16 @@ const SOCIAL_PHRASES = Object.freeze({
     'entendi', 'entendido', 'compreendi', 'compreendido', 'faz sentido', 'entendi tudo',
     '\u0641\u0647\u0645\u062a', '\u0641\u0647\u0645\u062a\u0647\u0627', '\u0645\u0641\u0647\u0648\u0645',
     '\u0645\u0641\u0647\u0648\u0645\u0629', '\u0648\u0627\u0636\u062d', '\u0648\u0627\u0636\u062d\u0629',
-    '\u0645\u0646\u0637\u0642\u064a'
+    '\u0645\u0646\u0637\u0642\u064a',
+    // Spanish
+    'comprendido', 'entiendo', 'lo entiendo', 'tiene sentido', 'est\u00e1 claro',
+    'esta claro', 'entend\u00ed', 'claro',
+    // French
+    "j'ai compris", 'j ai compris', 'je comprends', "c'est clair", 'cest clair', 'clair',
+    "\u00e7a a du sens", 'ca a du sens',
+    // Simplified Chinese
+    '\u6211\u660e\u767d\u4e86', '\u6211\u61c2\u4e86', '\u61c2\u4e86', '\u6e05\u695a',
+    '\u4e86\u89e3'
   ]),
   positive: Object.freeze([
     'good', 'very good', "that's good", 'thats good', 'that is good', 'sounds good',
@@ -294,7 +345,14 @@ const SOCIAL_PHRASES = Object.freeze({
     'perfeito', 'excelente',
     '\u062c\u064a\u062f', '\u062c\u064a\u062f\u0627', '\u062c\u064a\u062f\u064b\u0627',
     '\u0645\u0645\u062a\u0627\u0632', '\u0623\u062d\u0633\u0646\u062a', '\u0627\u062d\u0633\u0646\u062a',
-    '\u062c\u064a\u062f \u062c\u062f\u0627'
+    '\u062c\u064a\u062f \u062c\u062f\u0627',
+    // Spanish
+    'bien', 'muy bien', 'bueno', 'est\u00e1 bien', 'esta bien', 'buen\u00edsimo', 'util',
+    '\u00fatil', 'me ayuda', 'sirve', 'funciona',
+    // French
+    'bon', 'utile', "\u00e7a aide", 'ca aide', "\u00e7a marche", 'ca marche',
+    // Simplified Chinese
+    '\u5f88\u597d', '\u4e0d\u9519', '\u6709\u7528', '\u6709\u5e2e\u52a9'
   ]),
   great: Object.freeze([
     'great', "that's great", 'thats great', 'that is great', 'wonderful', 'amazing',
@@ -304,7 +362,16 @@ const SOCIAL_PHRASES = Object.freeze({
     'fant\u00e1stico', 'fantastico', 'show de bola',
     '\u0631\u0627\u0626\u0639', '\u0639\u0638\u064a\u0645', '\u0645\u0630\u0647\u0644',
     '\u0631\u0647\u064a\u0628', '\u0645\u0645\u062a\u0627\u0632 \u062c\u062f\u0627',
-    '\u0639\u0638\u064a\u0645 \u062c\u062f\u0627'
+    '\u0639\u0638\u064a\u0645 \u062c\u062f\u0627',
+    // Spanish
+    'genial', 'estupendo', 'incre\u00edble', 'increible', 'maravilloso', 'fant\u00e1stico',
+    'fantastico', 'magn\u00edfico', 'magnifico',
+    // French
+    'g\u00e9nial', 'genial', 'incroyable', 'merveilleux', 'fantastique', 'super',
+    'formidable', 'brillant', 'magnifique',
+    // Simplified Chinese
+    '\u592a\u597d\u4e86', '\u5f88\u68d2', '\u975e\u5e38\u597d', '\u68d2', '\u8d5e',
+    '\u5389\u5bb3', '\u5b8c\u7f8e', '\u4f18\u79c0'
   ]),
   thanks: Object.freeze([
     'thanks', 'thank you', 'thank u', 'thankyou', 'thx', 'ty', 'cheers',
@@ -313,7 +380,17 @@ const SOCIAL_PHRASES = Object.freeze({
     'obrigado', 'obrigada', 'valeu', 'agradeco', 'agrade\u00e7o', 'grato', 'grata',
     '\u0634\u0643\u0631\u0627', '\u0634\u0643\u0631\u064b\u0627', '\u0623\u0634\u0643\u0631\u0643',
     '\u0627\u0634\u0643\u0631\u0643', '\u0645\u0634\u0643\u0648\u0631',
-    '\u0634\u0643\u0631\u0627 \u0644\u0643'
+    '\u0634\u0643\u0631\u0627 \u0644\u0643',
+    // Spanish
+    'gracias', 'muchas gracias', 'mil gracias', 'te lo agradezco', 'agradezco',
+    'gracias por la ayuda', 'gracias por tu ayuda',
+    // French
+    'merci', 'merci beaucoup', 'merci bien', 'je vous remercie',
+    'merci pour votre aide', 'merci de votre aide',
+    // Simplified Chinese
+    '\u8c22\u8c22', '\u591a\u8c22', '\u611f\u8c22', '\u8c22\u8c22\u60a8',
+    '\u975e\u5e38\u611f\u8c22', '\u8c22\u8c22\u4f60\u7684\u5e2e\u52a9',
+    '\u8c22\u8c22\u60a8\u7684\u5e2e\u52a9'
   ]),
   thanksBig: Object.freeze([
     'thanks a lot', 'thanks so much', 'thank you so much', 'thank you very much',
@@ -326,7 +403,18 @@ const SOCIAL_PHRASES = Object.freeze({
     '\u0634\u0643\u0631\u0627 \u0644\u0643 \u062c\u062f\u0627',
     '\u0623\u0634\u0643\u0631\u0643 \u062c\u062f\u0627',
     '\u0627\u0634\u0643\u0631\u0643 \u062c\u062f\u0627',
-    '\u0634\u0643\u0631\u0627 \u0645\u0646 \u0627\u0644\u0642\u0644\u0628'
+    '\u0634\u0643\u0631\u0627 \u0645\u0646 \u0627\u0644\u0642\u0644\u0628',
+    // Spanish
+    'much\u00edsimas gracias', 'muchisimas gracias', 'te lo agradezco mucho',
+    'gracias de verdad', 'muy agradecido', 'muy agradecida',
+    // French
+    'merci mille fois', 'mille mercis', 'merci infiniment',
+    'je vous remercie beaucoup', 'vraiment merci', 'merci \u00e9norm\u00e9ment',
+    'merci enormement',
+    // Simplified Chinese
+    '\u975e\u5e38\u611f\u8c22', '\u592a\u611f\u8c22\u4e86', '\u5341\u5206\u611f\u8c22',
+    '\u4e07\u5206\u611f\u8c22', '\u592a\u8c22\u8c22\u4f60\u4e86',
+    '\u975e\u5e38\u611f\u8c22\u60a8\u7684\u5e2e\u52a9'
   ]),
   reciprocal: Object.freeze([
     "you're welcome", 'you are welcome', 'your welcome', 'anytime', 'my pleasure',
@@ -335,7 +423,16 @@ const SOCIAL_PHRASES = Object.freeze({
     'as ordens', '\u00e0s ordens', 'disponha',
     '\u0639\u0644\u0649 \u0627\u0644\u0631\u062d\u0628 \u0648\u0627\u0644\u0633\u0639\u0629',
     '\u0644\u0627 \u0645\u0634\u0643\u0644\u0629', '\u0644\u0627 \u0645\u0634\u0627\u0643\u0644',
-    '\u0628\u0643\u0644 \u0633\u0631\u0648\u0631', '\u0627\u0644\u0639\u0641\u0648'
+    '\u0628\u0643\u0644 \u0633\u0631\u0648\u0631', '\u0627\u0644\u0639\u0641\u0648',
+    // Spanish
+    'por nada', 'no hay de qu\u00e9', 'no hay de que', 'con gusto', 'cuando quieras',
+    'encantado', 'encantada',
+    // French
+    'je vous en prie', 'de rien', 'avec plaisir', 'pas de probl\u00e8me',
+    'pas de probleme', '\u00e0 tout moment', 'a tout moment', "c'est moi",
+    // Simplified Chinese
+    '\u4e0d\u5ba2\u6c14', '\u4e0d\u7528\u8c22', '\u6ca1\u5173\u7cfb', '\u968f\u65f6',
+    '\u4e0d\u7528\u5ba2\u6c14', '\u522b\u5ba2\u6c14'
   ])
 });
 
@@ -429,7 +526,15 @@ const EXPLICIT_AFFIRM_RE = tokenRe([
   'certainly', 'correct', 'indeed', 'go ahead', 'please do', 'why not', 'please',
   'sim', 'pode ser', 'com certeza', 'correto', 'isso', 'vamos', 'claro',
   '\u0646\u0639\u0645', '\u0623\u062c\u0644', '\u0628\u0627\u0644\u062a\u0623\u0643\u064a\u062f',
-  '\u0635\u062d\u064a\u062d', '\u0637\u0628\u0639\u0627', '\u0623\u0643\u064a\u062f'
+  '\u0635\u062d\u064a\u062d', '\u0637\u0628\u0639\u0627', '\u0623\u0643\u064a\u062f',
+  // Spanish
+  's\u00ed', 'si', 'por supuesto', 'de acuerdo', 'vale', 'correcto', 'adelante', 'dale',
+  // French
+  'oui', 'bien s\u00fbr', 'bien sur', "d'accord", 'daccord', 'tout \u00e0 fait',
+  'tout a fait', 'exact', 'volontiers', '\u00e9videmment', 'evidemment',
+  // Simplified Chinese
+  '\u662f', '\u662f\u7684', '\u5bf9', '\u5bf9\u7684', '\u6ca1\u9519', '\u5f53\u7136',
+  '\u53ef\u4ee5', '\u597d\u7684'
 ]);
 
 const GREETING_RE = tokenRe([
@@ -439,17 +544,34 @@ const GREETING_RE = tokenRe([
   '\u0627\u0644\u0633\u0644\u0627\u0645 \u0639\u0644\u064a\u0643\u0645',
   '\u0623\u0647\u0644\u0627', '\u0623\u0647\u0644\u064b\u0627',
   '\u0635\u0628\u0627\u062d \u0627\u0644\u062e\u064a\u0631',
-  '\u0645\u0633\u0627\u0621 \u0627\u0644\u062e\u064a\u0631'
+  '\u0645\u0633\u0627\u0621 \u0627\u0644\u062e\u064a\u0631',
+  // Spanish
+  'hola', 'buenos d\u00edas', 'buenos dias', 'buenas tardes', 'buenas noches', 'buenas',
+  'qu\u00e9 tal', 'que tal',
+  // French
+  'bonjour', 'salut', 'bonsoir', 'bonne journ\u00e9e', 'bonne journee', 'coucou',
+  // Simplified Chinese
+  '\u4f60\u597d', '\u60a8\u597d', '\u55e8', '\u65e9\u4e0a\u597d', '\u665a\u4e0a\u597d',
+  '\u5927\u5bb6\u597d'
 ]);
-const HOW_RE = /^(?:how|how so|how do i|how does it work|how does that work|what do you mean|in what way|como|como assim|\u0643\u064a\u0641|\u0643\u064a\u0641 \u0630\u0644\u0643)\s*\??$/;
-const REALLY_RE = /^(?:really|are you sure|is that true|seriously|s\u00e9rio|e mesmo|\u062d\u0642\u0627|\u0647\u0644 \u0647\u0630\u0627 \u0635\u062d\u064a\u062d)\s*\??$/;
-const COMPLETED_RE = new RegExp('(?:^|[\\s!?.,;:()\\[\\]\"\'\u2019])(?:'
+const HOW_RE = /^[\s\u00bf\u00a1"'(\[]*(?:how|how so|how do i|how does it work|how does that work|what do you mean|in what way|como|como assim|\u0643\u064a\u0641|\u0643\u064a\u0641 \u0630\u0644\u0643|c\u00f3mo|como funciona|comment|comment \u00e7a marche|\u600e\u4e48|\u600e\u4e48\u6837|\u5982\u4f55|\u600e\u4e48\u64cd\u4f5c)\s*[?!.?\u3002\uff1f]*$/;
+const REALLY_RE = /^[\s\u00bf\u00a1"'(\[]*(?:really|are you sure|is that true|seriously|s\u00e9rio|e mesmo|\u062d\u0642\u0627|\u0647\u0644 \u0647\u0630\u0627 \u0635\u062d\u064a\u062d|en serio|de verdad|es cierto|vraiment|c est vrai|s\u00e9rieusement|serieusement|\u771f\u7684\u5417|\u662f\u5417|\u771f\u7684)\s*[?!.?\u3002\uff1f]*$/;
+const COMPLETED_RE = new RegExp('(?:^|[\\s!?.,;:()\\[\\]\"\'\u2019\u3002\uff01\uff1f])(?:'
   + ['done', 'completed?', 'finished', 'already sent', 'sent it', 'sent the funds',
     'sent the money', 'sent usdt', 'i sent', 'i transferred', 'transferred it',
     'transferred the funds', 'payment sent',
     'conclu\u00eddo', 'concluido', 'j\u00e1 enviei', 'ja enviei', 'enviei', 'transferi',
     '\u062a\u0645', '\u0623\u0646\u062c\u0632\u062a', '\u0623\u0631\u0633\u0644\u062a',
-    '\u062d\u0648\u0644\u062a'].join('|') + ')' + TOKEN_END);
+    '\u062d\u0648\u0644\u062a',
+    // Spanish
+    'listo', 'hecho', 'enviado', 'ya envie', 'ya envi\u00e9', 'transferido', 'terminado',
+    'completado', 'ya lo envie', 'ya lo envi\u00e9',
+    // French
+    'fait', 'envoy\u00e9', 'envoye', 'termin\u00e9', 'termine', 'transf\u00e9r\u00e9',
+    'transfere', "c'est fait", 'cest fait',
+    // Simplified Chinese
+    '\u5df2\u5b8c\u6210', '\u5b8c\u6210', '\u5df2\u53d1\u9001', '\u5df2\u7ecf\u53d1\u9001',
+    '\u8f6c\u597d\u4e86', '\u6c47\u597d\u4e86', '\u5df2\u8f6c\u8d26'].join('|') + ')' + TOKEN_END);
 
 /**
  * "I checked" - the answer a customer actually sends after the bot asks
@@ -459,29 +581,36 @@ const COMPLETED_RE = new RegExp('(?:^|[\\s!?.,;:()\\[\\]\"\'\u2019])(?:'
  * withdrawal problem), so it is interpreted separately and only inside a
  * transaction follow-up. It must never be read as "the withdrawal completed".
  */
-const CHECKED_RE = /(?:^|[\s!?.,;:()"'’])(?:checked|i\s+checked|i\s+have\s+checked|i've\s+checked|yes\s+checked|already\s+checked|checked\s+it|i\s+did\s+check|verified|i\s+verified|verifiquei|j\u00e1\s+verifiquei|ja\s+verifiquei|checado|conferi|\u062a\u062d\u0642\u0642\u062a|\u0631\u0627\u062c\u0639\u062a|\u062a\u0645\s+\u0627\u0644\u062a\u062d\u0642\u0642)(?=[\s!?.,;:()"'’]|$)/;
+const CHECKED_RE = /(?:^|[\s!?.,;:()"'\u2019\u3002\uff01\uff1f])(?:checked|i\s+checked|i\s+have\s+checked|i've\s+checked|yes\s+checked|already\s+checked|checked\s+it|i\s+did\s+check|verified|i\s+verified|verifiquei|j\u00e1\s+verifiquei|ja\s+verifiquei|checado|conferi|\u062a\u062d\u0642\u0642\u062a|\u0631\u0627\u062c\u0639\u062a|\u062a\u0645\s+\u0627\u0644\u062a\u062d\u0642\u0642|lo\s+comprob\u00e9|lo\s+comprobe|lo\s+verifiqu\u00e9|lo\s+verifique|lo\s+revis\u00e9|lo\s+revise|ya\s+lo\s+revis\u00e9|ya\s+lo\s+revise|verifi\u00e9|verifie|j'ai\s+v\u00e9rifi\u00e9|j\s+ai\s+verifie|j'ai\s+regard\u00e9|je\s+l'ai\s+v\u00e9rifi\u00e9|\u6211\u67e5\u4e86|\u5df2\u67e5\u770b|\u67e5\u8fc7\u4e86|\u6211\u770b\u8fc7\u4e86|\u5df2\u6838\u5b9e)(?=[\s!?.,;:()"'\u2019\u3002\uff01\uff1f]|$)/;
 
 /** The funds arrived / the customer already received them. */
-const ARRIVED_RE = /(?:^|[\s!?.,;:()"'\u2019])(?:it\s+)?(?:has\s+|had\s+)?(?:arrived|received\s+it|i\s+(?:have\s+|got\s+)?received|funds?\s+(?:have\s+)?arrived|got\s+the\s+(?:money|funds)|already\s+received|j\u00e1\s+chegou|ja\s+chegou|chegou|j\u00e1\s+recebi|ja\s+recebi|recebi|j\u00e1\s+caiu|ja\s+caiu|\u0648\u0635\u0644\u062a|\u0648\u0635\u0644|\u0627\u0633\u062a\u0644\u0645\u062a|\u062a\u0645 \u0627\u0644\u0627\u0633\u062a\u0644\u0627\u0645)(?=[\s!?.,;:()"'\u2019]|$)/;
+const ARRIVED_RE = /(?:^|[\s!?.,;:()"'\u2019\u3002\uff01\uff1f])(?:it\s+)?(?:has\s+|had\s+)?(?:arrived|received\s+it|i\s+(?:have\s+|got\s+)?received|funds?\s+(?:have\s+)?arrived|got\s+the\s+(?:money|funds)|already\s+received|j\u00e1\s+chegou|ja\s+chegou|chegou|j\u00e1\s+recebi|ja\s+recebi|recebi|j\u00e1\s+caiu|ja\s+caiu|\u0648\u0635\u0644\u062a|\u0648\u0635\u0644|\u0627\u0633\u062a\u0644\u0645\u062a|\u062a\u0645 \u0627\u0644\u0627\u0633\u062a\u0644\u0627\u0645|ya\s+lleg\u00f3|ya\s+llego|lleg\u00f3|llego|ya\s+lo\s+recib\u00ed|ya\s+lo\s+recibi|recib\u00ed|recibi|bien\s+re\u00e7u|bien\s+recu|re\u00e7u|recu|arriv\u00e9|arrive|j'ai\s+re\u00e7u|j\s+ai\s+recu|\u5df2\u5230\u8d26|\u5230\u4e86|\u6536\u5230\u4e86|\u5df2\u6536\u5230)(?=[\s!?.,;:()"'\u2019\u3002\uff01\uff1f]|$)/;
 
-const NEGATION_RE = /(?:\bnot\b|\bnever\b|\bn't\b|\bno\b|\bn\u00e3o\b|\bnao\b|\u0644\u0645\b|\u0644\u0627\b|\u063a\u064a\u0631)/i;
+const NEGATION_RE = /(?:\bnot\b|\bnever\b|\bn't\b|\bno\b|\bn\u00e3o\b|\bnao\b|\u0644\u0645\b|\u0644\u0627\b|\u063a\u064a\u0631|\bnon\b|\bpas\b|\bjamais\b|\bnunca\b|\btodav\u00eda\s+no\b|\btodavia\s+no\b|\u4e0d|\u6ca1)/i;
 
 /** "I have a problem" - a reported issue, not a yes/no answer. */
-const PROBLEM_RE = /(?:^|[\s!?.,;:()"'’])(?:i\s+have\s+(?:a\s+|an\s+)?(?:problem|issue)|there\s+is\s+a\s+problem|something\s+is\s+wrong|something\s+went\s+wrong|it\s+is\s+not\s+working|it\s+does\s?n'?o?t\s+work|not\s+working|problem|issue|trouble|tenho\s+um\s+problema|problema|deu\s+errado|\u0644\u062f\u064a\s+\u0645\u0634\u0643\u0644\u0629|\u0645\u0634\u0643\u0644\u0629)(?=[\s!?.,;:()"'’]|$)/;
+const PROBLEM_RE = /(?:^|[\s!?.,;:()"'\u2019\u3002\uff01\uff1f])(?:i\s+have\s+(?:a\s+|an\s+)?(?:problem|issue)|there\s+is\s+a\s+problem|something\s+is\s+wrong|something\s+went\s+wrong|it\s+is\s+not\s+working|it\s+does\s?n'?o?t\s+work|not\s+working|problem|issue|trouble|tenho\s+um\s+problema|problema|deu\s+errado|\u0644\u062f\u064a\s+\u0645\u0634\u0643\u0644\u0629|\u0645\u0634\u0643\u0644\u0629|tengo\s+un\s+problema|no\s+funciona|algo\s+fall\u00f3|algo\s+fallo|sali\u00f3\s+mal|salio\s+mal|j'ai\s+un\s+probl\u00e8me|j\s+ai\s+un\s+probleme|probl\u00e8me|probleme|ne\s+fonctionne\s+pas|\u00e7a\s+ne\s+marche\s+pas|ca\s+ne\s+marche\s+pas|\u6709\u95ee\u9898|\u51fa\u95ee\u9898|\u4e0d\u5de5\u4f5c|\u6ca1\u7528|\u5931\u8d25\u4e86)(?=[\s!?.,;:()"'\u2019\u3002\uff01\uff1f]|$)/;
+
+/**
+ * A handoff phrase that is NEGATED ("you are not a human", "这不是真人客服") is a
+ * complaint about the bot, not a request for a person. Only used to suppress the
+ * handoff intent; it never creates one.
+ */
+const NEGATED_HANDOFF_RE = /\b(?:not|isn'?t|aren'?t|no\s+eres|no\s+es|pas\s+un|n'?est\s+pas)\b[^.!?]{0,20}\b(?:human|humano|humain|person|persona)\b|[\u4e0d\u6ca1\u975e][^\u3002\uff01\uff1f]{0,4}(?:\u4eba\u5de5|\u771f\u4eba)/;
 
 /** Registration details that are NOT published on the registration page. */
 const UNPUBLISHED_DETAIL_RE = /\baddress\b|\bphone\b|\btelephone\b|\bcontact\s+number\b|\btax\b|\bvat\b|\bemployees?\b|\bendere[c\u00e7]o\b|\btelefone\b|\u0639\u0646\u0648\u0627\u0646|\u0647\u0627\u062a\u0641/;
 /** "Tell me more" - continue what the bot was explaining. */
-const MORE_RE = /^(?:tell\s+me\s+more|more\s+details?|more\s+info(?:rmation)?|go\s+on|continue|and\s+then|explain\s+more|saber\s+mais|mais\s+detalhes|continue|\u0627\u0644\u0645\u0632\u064a\u062f|\u0623\u062e\u0628\u0631\u0646\u064a\s+\u0628\u0627\u0644\u0645\u0632\u064a\u062f)\s*[.!?]*$/;
+const MORE_RE = /^[\s\u00bf\u00a1"'(\[]*(?:tell\s+me\s+more|more\s+details?|more\s+info(?:rmation)?|go\s+on|continue|and\s+then|explain\s+more|saber\s+mais|mais\s+detalhes|continue|\u0627\u0644\u0645\u0632\u064a\u062f|\u0623\u062e\u0628\u0631\u0646\u064a\s+\u0628\u0627\u0644\u0645\u0632\u064a\u062f|m\u00e1s\s+detalles|mas\s+detalles|saber\s+m\u00e1s|saber\s+mas|cu\u00e9ntame\s+m\u00e1s|cuentame\s+mas|expl\u00edcame\s+m\u00e1s|explicame\s+mas|y\s+luego|plus\s+de\s+d\u00e9tails|plus\s+de\s+details|en\s+savoir\s+plus|explique\s+davantage|et\s+ensuite|\u7ee7\u7eed|\u591a\u8bf4\u4e00\u70b9|\u8be6\u7ec6\u8bf4\u8bf4|\u66f4\u591a)\s*[.!?\u3002\uff01\uff1f]*$/;
 
 /** "What next?" - the /next command said in words. */
-const NEXT_RE = /^(?:what(?:'s|\s+is)?\s+next|what\s+now|and\s+next|next\s+step|next|e\s+agora|pr[o\u00f3]xim[oa]\s+passo|\u0645\u0627\s+\u0627\u0644\u062a\u0627\u0644\u064a|\u0627\u0644\u062e\u0637\u0648\u0629\s+\u0627\u0644\u062a\u0627\u0644\u064a\u0629)\s*[.!?]*$/;
+const NEXT_RE = /^[\s\u00bf\u00a1"'(\[]*(?:what(?:'s|\s+is)?\s+next|what\s+now|and\s+next|next\s+step|next|e\s+agora|pr[o\u00f3]xim[oa]\s+passo|\u0645\u0627\s+\u0627\u0644\u062a\u0627\u0644\u064a|\u0627\u0644\u062e\u0637\u0648\u0629\s+\u0627\u0644\u062a\u0627\u0644\u064a\u0629|qu\u00e9\s+sigue|que\s+sigue|y\s+ahora\s+qu\u00e9|y\s+ahora\s+que|siguiente\s+paso|ahora\s+qu\u00e9|et\s+ensuite|quoi\s+ensuite|prochaine\s+\u00e9tape|prochaine\s+etape|la\s+suite|\u4e0b\u4e00\u6b65|\u63a5\u4e0b\u6765|\u7136\u540e\u5462|\u63a5\u4e0b\u6765\u505a\u4ec0\u4e48)\s*[.!?\u3002\uff01\uff1f]*$/;
 
 /** Still processing - normal inside the published window, a problem after it. */
-const STILL_PENDING_RE = /(?:^|[\s!?.,;:()"'\u2019])(?:still\s+pending|still\s+processing|still\s+waiting|pending|processing|in\s+progress|not\s+yet\s+arrived|waiting|ainda\s+(?:pendente|processando)|pendente|em\s+processamento|\u0645\u0639\u0644\u0642|\u0645\u0639\u0644\u0642\u0629|\u0642\u064a\u062f \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629|\u0644\u0645 \u064a\u0635\u0644 \u0628\u0639\u062f)(?=[\s!?.,;:()"'\u2019]|$)/;
+const STILL_PENDING_RE = /(?:^|[\s!?.,;:()"'\u2019\u3002\uff01\uff1f])(?:still\s+pending|still\s+processing|still\s+waiting|pending|processing|in\s+progress|not\s+yet\s+arrived|waiting|ainda\s+(?:pendente|processando)|pendente|em\s+processamento|\u0645\u0639\u0644\u0642|\u0645\u0639\u0644\u0642\u0629|\u0642\u064a\u062f \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629|\u0644\u0645 \u064a\u0635\u0644 \u0628\u0639\u062f|sigue\s+pendiente|a\u00fan\s+pendiente|aun\s+pendiente|pendiente|en\s+proceso|encore\s+en\s+attente|en\s+attente|en\s+cours|toujours\s+en\s+cours|\u4ecd\u5728\u5904\u7406|\u5904\u7406\u4e2d|\u5f85\u5904\u7406|\u5c1a\u672a\u5230\u8d26)(?=[\s!?.,;:()"'\u2019\u3002\uff01\uff1f]|$)/;
 
 /** The customer reports that the money never arrived - needs a human. */
-const NOT_RECEIVED_RE = /(?:^|[\s!?.,;:()"'\u2019])(?:not\s+(?:arrived|received)|haven'?t\s+received|have\s+not\s+received|did\s?n'?t\s+(?:arrive|receive)|did\s+not\s+(?:arrive|receive)|never\s+arrived|never\s+received|has\s?n'?o?t\s+arrived|no\s+funds|missing|n\u00e3o\s+(?:chegou|recebi)|nao\s+(?:chegou|recebi)|ainda\s+n\u00e3o\s+(?:chegou|recebi)|\u0644\u0645\s+\u064a\u0635\u0644|\u0644\u0645\s+\u0623\u0633\u062a\u0644\u0645|\u0644\u0645\s+\u0623\u0633\u062a\u0644\u0645\u0647\u0627|\u0645\u0641\u0642\u0648\u062f\u0629)(?=[\s!?.,;:()"'\u2019]|$)/;
+const NOT_RECEIVED_RE = /(?:^|[\s!?.,;:()"'\u2019\u3002\uff01\uff1f])(?:not\s+(?:arrived|received)|haven'?t\s+received|have\s+not\s+received|did\s?n'?t\s+(?:arrive|receive)|did\s+not\s+(?:arrive|receive)|never\s+arrived|never\s+received|has\s?n'?o?t\s+arrived|no\s+funds|missing|n\u00e3o\s+(?:chegou|recebi)|nao\s+(?:chegou|recebi)|ainda\s+n\u00e3o\s+(?:chegou|recebi)|\u0644\u0645\s+\u064a\u0635\u0644|\u0644\u0645\s+\u0623\u0633\u062a\u0644\u0645|\u0644\u0645\s+\u0623\u0633\u062a\u0644\u0645\u0647\u0627|\u0645\u0641\u0642\u0648\u062f\u0629|no\s+(?:ha\s+)?llegado|no\s+he\s+recibido|no\s+lleg\u00f3|no\s+llego|pas\s+arriv\u00e9|pas\s+arrive|pas\s+re\u00e7u|pas\s+recu|jamais\s+arriv\u00e9|\u6ca1\u5230\u8d26|\u6ca1\u6536\u5230|\u672a\u5230\u8d26|\u4e0d\u89c1\u4e86)(?=[\s!?.,;:()"'\u2019\u3002\uff01\uff1f]|$)/;
 
 
 const METHOD_RES = Object.freeze([
@@ -498,17 +627,19 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'human',
     topic: 'human',
-    // The last two alternatives are ANCHORED on purpose: a bare "human" /
-    // "humano" / "بشري" is how the bot tells the customer to ask for a person
-    // (see depositCreditedYes), so it must be recognised - including with
+    // The last alternatives are ANCHORED on purpose: a bare "human" /
+    // "humano" / "بشري" / "人工" is how the bot tells the customer to ask for a
+    // person (see depositCreditedYes), so it must be recognised - including with
     // punctuation or quotes around it - while "the bot is not human" must not.
-    re: /\b(?:talk|speak|chat)\s+(?:to\s+)?(?:a\s+)?(?:human|person|agent|someone|representative)\b|\breal\s+(?:human|person)\b|\bhuman\s+(?:support|agent|help|please)\b|\b(?:help|assistance)\s+from\s+(?:a\s+)?human\b|\bconnect\s+me\s+(?:to|with)\b|\bi\s+(?:want|need)\s+(?:a\s+)?(?:human|agent|real\s+person)\b|\b(?:atendente|pessoa\s+real|suporte\s+humano)\b|\u0645\u0648\u0638\u0641|\u0634\u062e\u0635\s+\u062d\u0642\u064a\u0642\u064a|\u062f\u0639\u0645\s+\u0628\u0634\u0631\u064a|^[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*(?:human|agent|operator|representative|humano|atendente)\s*[.!?]*[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*$|^[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*\u0628\u0634\u0631\u064a\s*[.!?]*[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*$/
+    // es / fr / zh phrase forms were added with the six-language release; the
+    // English, Portuguese and Arabic alternatives are unchanged.
+    re: /\b(?:talk|speak|chat)\s+(?:to\s+)?(?:a\s+)?(?:human|person|agent|someone|representative)\b|\breal\s+(?:human|person)\b|\bhuman\s+(?:support|agent|help|please)\b|\b(?:help|assistance)\s+from\s+(?:a\s+)?human\b|\bconnect\s+me\s+(?:to|with)\b|\bi\s+(?:want|need)\s+(?:a\s+)?(?:human|agent|real\s+person)\b|\b(?:atendente|pessoa\s+real|suporte\s+humano)\b|\u0645\u0648\u0638\u0641|\u0634\u062e\u0635\s+\u062d\u0642\u064a\u0642\u064a|\u062f\u0639\u0645\s+\u0628\u0634\u0631\u064a|hablar\s+con\s+(?:un|una)?\s*(?:humano|agente|asesor|persona)|\bquiero\s+(?:hablar\s+con\s+)?(?:un\s+|una\s+)?(?:humano|agente|asesor)\b|\bparler\s+(?:\u00e0|a|avec)\s+(?:un|une)?\s*(?:humain|agent|conseiller|personne)|\bje\s+veux\s+(?:parler\s+(?:\u00e0|a)\s+)?(?:un\s+|une\s+)?(?:humain|agent|conseiller)\b|(?:\u8f6c|\u63a5)\s*(?:\u4eba\u5de5|\u771f\u4eba)|(?<![\u4e0d\u6ca1\u975e])(?:\u4eba\u5de5|\u771f\u4eba)(?:\u5ba2\u670d|\u670d\u52a1|\u652f\u6301)|^[\s\u00bf\u00a1"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*(?:human|agent|operator|representative|humano|atendente|agente|asesor|persona|humain|conseiller|op\u00e9rateur|operateur|\u4eba\u5de5|\u771f\u4eba|\u4eba\u5de5\u5ba2\u670d)\s*[.!?\u3002\uff01\uff1f]*[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*$|^[\s\u00bf\u00a1"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*\u0628\u0634\u0631\u064a\s*[.!?\u3002\uff01\uff1f]*[\s"'\u2018\u2019\u201c\u201d\u00ab\u00bb]*$/
   },
   {
     // Fraud / lost funds. These must reach a human, never a procedural answer.
     intent: 'fraud',
     topic: 'account',
-    re: /\b(?:hacked|hijacked|compromised|unauthori[sz]ed|someone\s+else\s+(?:has\s+)?(?:accessed|logged\s+in|used))\b|\baccount\s+(?:was\s+|is\s+|got\s+)?(?:hacked|stolen|compromised)\b|\bmy\s+(?:money|funds|balance|usdt)\s+(?:is\s+|was\s+)?(?:gone|missing|stolen|disappeared)\b|\b(?:lost|stole)\s+my\s+(?:money|funds|usdt)\b|\bi\s+(?:want|need)\s+my\s+(?:money|funds)\s+back\b|\bmoney\s+(?:is\s+)?gone\b|\b(?:i\s+was|i've\s+been|i\s+have\s+been|they|someone)\s+scammed\b|\bscammed\s+me\b|\bme\s+enganaram\b|\bme\s+aplicaram\s+um\s+golpe\b|\u062a\u0639\u0631\u0636\u062a\s+\u0644\u0644\u0646\u0635\u0628/
+    re: /\b(?:hacked|hijacked|compromised|unauthori[sz]ed|someone\s+else\s+(?:has\s+)?(?:accessed|logged\s+in|used))\b|\baccount\s+(?:was\s+|is\s+|got\s+)?(?:hacked|stolen|compromised)\b|\bmy\s+(?:money|funds|balance|usdt)\s+(?:is\s+|was\s+)?(?:gone|missing|stolen|disappeared)\b|\b(?:lost|stole)\s+my\s+(?:money|funds|usdt)\b|\bi\s+(?:want|need)\s+my\s+(?:money|funds)\s+back\b|\bmoney\s+(?:is\s+)?gone\b|\b(?:i\s+was|i've\s+been|i\s+have\s+been|they|someone)\s+scammed\b|\bscammed\s+me\b|\bme\s+enganaram\b|\bme\s+aplicaram\s+um\s+golpe\b|\u062a\u0639\u0631\u0636\u062a\s+\u0644\u0644\u0646\u0635\u0628|me\s+hackearon|(?:cuenta|compte)[^.!?]{0,25}(?:hackead|pirat|robad|vol)|robaron\s+mi\s+dinero|me\s+estafaron|desapareci\u00f3\s+mi\s+dinero|desaparecio\s+mi\s+dinero|compte\s+pirat\u00e9|compte\s+pirate|on\s+m'a\s+vol\u00e9|on\s+m\s+a\s+vole|mon\s+argent\s+a\s+disparu|arnaque|\u88ab\u76d7|\u88ab\u9ed1|\u9a97\u4e86|\u94b1\u4e0d\u89c1\u4e86/
   },
   {
     // A cancellation request cannot be executed by the bot, so it escalates.
@@ -607,22 +738,22 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'deposit_minimum',
     topic: 'deposit',
-    re: /\b(?:minimum|min)\b[^?]{0,24}\b(?:deposit|amount)\b|\bhow\s+much\s+(?:to|should\s+i)\s+deposit\b|\bdep[o\u00f3]sito\b[^?]{0,25}\bm[i\u00ed]nimo\b|\bm[i\u00ed]nimo\b[^?]{0,25}\bdep[o\u00f3]sito\b|\u0625\u064a\u062f\u0627\u0639[^?]{0,25}\u0627\u0644\u062d\u062f\s+\u0627\u0644\u0623\u062f\u0646\u0649|\u0627\u0644\u062d\u062f\s+\u0627\u0644\u0623\u062f\u0646\u0649[^?]{0,25}\u0625\u064a\u062f\u0627\u0639/
+    re: /\b(?:minimum|min)\b[^?]{0,24}\b(?:deposit|amount)\b|\bhow\s+much\s+(?:to|should\s+i)\s+deposit\b|\bdep[o\u00f3]sito\b[^?]{0,25}\bm[i\u00ed]nimo\b|\bm[i\u00ed]nimo\b[^?]{0,25}\bdep[o\u00f3]sito\b|\u0625\u064a\u062f\u0627\u0639[^?]{0,25}\u0627\u0644\u062d\u062f\s+\u0627\u0644\u0623\u062f\u0646\u0649|\u0627\u0644\u062d\u062f\s+\u0627\u0644\u0623\u062f\u0646\u0649[^?]{0,25}\u0625\u064a\u062f\u0627\u0639|\bm[i\u00ed]nimo\b[^?]{0,25}\bdep[o\u00f3]sito\b|\bd[ée]p[o\u00f4]t\b[^?]{0,25}\bminimum\b|\bminimum\b[^?]{0,25}\bd[ée]p[o\u00f4]t\b|\u6700\u4f4e[^?]{0,10}(?:\u5165\u91d1|\u5145\u503c|\u5b58\u6b3e)/
   },
   {
     intent: 'deposit',
     topic: 'deposit',
-    re: /\b(?:deposit|depositing|fund\s+(?:my\s+)?account|add\s+(?:money|funds)|top\s?up|recharge|put(?:ting)?\s+(?:some\s+)?(?:money|funds)\s+(?:in|into)|transfer\s+(?:money|funds)|send\s+(?:money|funds))\b|\bdep[o\u00f3]sito\b|\bdepositar\b|\badicionar\s+(?:dinheiro|fundos)\b|\u0625\u064a\u062f\u0627\u0639|\u0623\u0648\u062f\u0639|\u0625\u0636\u0627\u0641\u0629\s+\u0623\u0645\u0648\u0627\u0644/
+    re: /\b(?:deposit|depositing|fund\s+(?:my\s+)?account|add\s+(?:money|funds)|top\s?up|recharge|put(?:ting)?\s+(?:some\s+)?(?:money|funds)\s+(?:in|into)|transfer\s+(?:money|funds)|send\s+(?:money|funds))\b|\bdep[o\u00f3]sito\b|\bdepositar\b|\badicionar\s+(?:dinheiro|fundos)\b|\u0625\u064a\u062f\u0627\u0639|\u0623\u0648\u062f\u0639|\u0625\u0636\u0627\u0641\u0629\s+\u0623\u0645\u0648\u0627\u0644|\bdepositar\b|\bingresar\s+(?:dinero|fondos)\b|\ba[n\u00f1]adir\s+(?:dinero|fondos)\b|\bagregar\s+(?:dinero|fondos)\b|\bfondear\b|\brecargar\b|\bd[ée]poser\b|\bajouter\s+des\s+fonds\b|\balimenter\s+(?:mon|le)\s+compte\b|\bapprovisionner\b|\brecharger\b|\u5165\u91d1|\u5145\u503c|\u5b58\u6b3e|\u6253\u94b1|\u8f6c\u5165/
   },
   {
     intent: 'withdrawal_timing',
     topic: 'withdrawal',
-    re: /\b(?:how\s+long|when)\b[^?]{0,30}\b(?:withdraw\w*|withdrawal)\b|\bwithdraw\w*\b[^?]{0,30}\b(?:take|time|arrive|processing)\b|\bquanto\s+tempo\b[^?]{0,30}\bsaque\b|\u0643\u0645\s+\u0645\u0646\s+\u0627\u0644\u0648\u0642\u062a|\u0645\u062a\u0649[^?]{0,20}\u0633\u062d\u0628/
+    re: /\b(?:how\s+long|when)\b[^?]{0,30}\b(?:withdraw\w*|withdrawal)\b|\bwithdraw\w*\b[^?]{0,30}\b(?:take|time|arrive|processing)\b|\bquanto\s+tempo\b[^?]{0,30}\bsaque\b|\u0643\u0645\s+\u0645\u0646\s+\u0627\u0644\u0648\u0642\u062a|\u0645\u062a\u0649[^?]{0,20}\u0633\u062d\u0628|\bcu[a\u00e1]nto\s+tarda\b|\bcu[a\u00e1]ndo\s+(?:llega|recibo)\b|\bcombien\s+de\s+temps\b|\bquand\s+(?:vais-je|est-ce\s+que)\b|\u591a\u4e45|\u591a\u957f\u65f6\u95f4/
   },
   {
     intent: 'withdrawal',
     topic: 'withdrawal',
-    re: /\b(?:withdraw|withdrawal|withdrawing|cash\s?out|cashing\s+out|payout|take\s+out\s+(?:money|funds))\b|\bsacar\b|\bsaque\b|\u0633\u062d\u0628|\u0623\u0633\u062d\u0628/
+    re: /\b(?:withdraw|withdrawal|withdrawing|cash\s?out|cashing\s+out|payout|take\s+out\s+(?:money|funds))\b|\bsacar\b|\bsaque\b|\u0633\u062d\u0628|\u0623\u0633\u062d\u0628|\bretirar\b|\bretiro\b|\bretrait\b|\bretirer\b|\bencaisser\b|\u51fa\u91d1|\u63d0\u73b0|\u63d0\u6b3e/
   },
   {
     intent: 'new_user',
@@ -1044,7 +1175,13 @@ function analyze(raw) {
 
   const matches = [];
   for (const rule of INTENT_RULES) {
-    if (rule.re.test(normalized)) matches.push(rule);
+    if (!rule.re.test(normalized)) continue;
+    // A NEGATED handoff phrase is a statement, not a request: "the bot is not a
+    // human", "这不是真人客服". The lookbehind on the zh alternatives covers the
+    // adjacent case; this guard covers a negation anywhere shortly before the
+    // phrase, which is how the same sentence is written in practice.
+    if (rule.intent === 'human' && NEGATED_HANDOFF_RE.test(normalized)) continue;
+    matches.push(rule);
   }
   const primary = matches.length ? matches[0] : null;
 

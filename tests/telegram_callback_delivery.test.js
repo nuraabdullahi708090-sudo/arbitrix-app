@@ -279,7 +279,8 @@ test('every update kind routeUpdate() routes is deliverable', () => {
 
 test('the /language inline buttons depend on callback_query being whitelisted', () => {
   const buttons = i18n.languageKeyboard().inline_keyboard.flat();
-  assert.deepStrictEqual(buttons.map((b) => b.callback_data), ['lang:en', 'lang:pt', 'lang:ar']);
+  assert.deepStrictEqual(buttons.map((b) => b.callback_data),
+    ['lang:en', 'lang:es', 'lang:pt', 'lang:fr', 'lang:ar', 'lang:zh']);
   // A press produces a callback_query update: whitelisting it is what makes /language work.
   assert.ok(TELEGRAM_ALLOWED_UPDATES.includes('callback_query'));
   assert.strictEqual(i18n.parseLanguageCallback('lang:pt'), 'pt');

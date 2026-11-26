@@ -618,7 +618,8 @@ test('36. an Arabic customer is guided in Arabic with the same tutorial URLs', a
 });
 
 test('37. an unsupported language falls back to English', async () => {
-  const h = createHarness({ language: 'zh' });
+  // 'de' is not one of the six supported languages (es / fr / zh now are).
+  const h = createHarness({ language: 'de' });
   await h.say('I want to deposit');
   assert.strictEqual(h.last(), i18n.t('en', 'depositIntro'));
 });

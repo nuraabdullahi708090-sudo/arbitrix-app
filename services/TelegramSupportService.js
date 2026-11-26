@@ -216,23 +216,27 @@ function classifyStorageError(error) {
 }
 
 // The bot's fixed customer strings are OWNED by services/telegram-i18n.js, which
-// holds the en/pt/ar dictionary. These exported constants are ALIASES of the
-// ENGLISH entries, so the dictionary and the exported values can never drift.
+// holds the six-locale dictionary (en / es / pt / fr / ar / zh). These exported
+// constants are ALIASES of the ENGLISH entries, so the dictionary and the exported
+// values can never drift.
 const USER_HELP_TEXT = tCustomer(DEFAULT_LANGUAGE, 'help');
 
 /**
  * First-contact prompt for a BRAND-NEW Telegram conversation.
  *
  * Deliberately NOT localized: the customer has not chosen a language yet, so it
- * introduces the choice in all three supported languages at once. The buttons
- * underneath are the existing /language keyboard (same `lang:<code>` callbacks),
- * so the selection is persisted by the very same handler /language uses - there is
- * no second language-selection system.
+ * introduces the choice in all six supported languages. The buttons underneath are
+ * the existing /language keyboard (same `lang:<code>` callbacks), so the selection
+ * is persisted by the very same handler /language uses - there is no second
+ * language-selection system. The first three lines are byte-identical to the
+ * earlier three-language release; the fourth line was added when es / fr / zh
+ * became supported.
  */
 const FIRST_CONTACT_TEXT = [
   'Welcome to Kalderix Support 👋',
   'Choose your preferred language:',
-  'Escolha seu idioma / اختر لغتك'
+  'Escolha seu idioma / اختر لغتك',
+  'Elige tu idioma / Choisissez votre langue / \u8bf7\u9009\u62e9\u60a8\u7684\u8bed\u8a00'
 ].join('\n');
 
 // Sent to the customer for EVERY ordinary (non-command) message. It both
@@ -2211,9 +2215,9 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
    *
    * NON-ENGLISH customers never receive English text:
    *   - a GENERATED answer is already in their language, because the AI receives
-   *     an explicit highest-priority language directive; for Arabic the script is
-   *     additionally verified (deterministic), so a model that ignored the
-   *     directive is caught instead of being sent;
+   *     an explicit highest-priority language directive; for Arabic AND Simplified
+   *     Chinese the script is additionally verified (deterministic), so a model
+   *     that ignored the directive is caught instead of being sent;
    *   - APPROVED knowledge text (a guardrail entry, or the approved answer used
    *     because the provider failed) is TRANSLATED, because the language changes
    *     while the facts must not;
@@ -2345,10 +2349,11 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   /**
    * The conversation's language, with an EXPLICIT application-code fallback.
    *
-   * The column is NOT NULL and constrained to 'en' / 'pt' / 'ar' (migration 032),
-   * so an unsupported value cannot be stored. A storage failure, a read that
-   * returns no row, or a value that is somehow not one of the three still
-   * resolves to English HERE instead of surfacing as an error.
+   * The column is NOT NULL and constrained to 'en' / 'es' / 'pt' / 'fr' / 'ar' /
+   * 'zh' (migration 032 established it, migration 060 widened it), so an
+   * unsupported value cannot be stored. A storage failure, a read that returns no
+   * row, or a value that is somehow not one of the six still resolves to English
+   * HERE instead of surfacing as an error.
    *
    * READ-ONLY and best-effort, because the storage-independent commands
    * (/start, /help, /chatid, /language) use it: a database problem must degrade

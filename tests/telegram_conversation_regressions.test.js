@@ -375,7 +375,7 @@ test('H1: every key the dialogue engine renders exists in every locale', () => {
   assert.ok(keys.size > 20, 'the scan must find the engine strings');
 
   const locales = Object.keys(i18n.CUSTOMER_STRINGS);
-  assert.deepStrictEqual(locales.sort(), ['ar', 'en', 'pt']);
+  assert.deepStrictEqual(locales.sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
   keys.forEach((key) => {
     locales.forEach((locale) => {
       const value = i18n.CUSTOMER_STRINGS[locale][key];
@@ -400,7 +400,7 @@ test('H1: every key the support service sends exists in every locale', () => {
   });
 });
 
-test('H1: the three locales keep identical key sets', () => {
+test('H1: all six locales keep identical key sets', () => {
   const en = Object.keys(i18n.CUSTOMER_STRINGS.en).sort();
   ['pt', 'ar'].forEach((locale) => {
     assert.deepStrictEqual(Object.keys(i18n.CUSTOMER_STRINGS[locale]).sort(), en, locale + ' key set drifted');
@@ -741,13 +741,18 @@ test('N3: every instruction the bot gives is recognised as a handoff', () => {
   const instructions = [
     // Exactly the words the deposit copy tells the customer to use, per locale.
     ['en', 'human'], ['pt', 'humano'], ['ar', 'بشري'],
+    ['es', 'humano'], ['fr', 'humain'], ['zh', '人工'],
     // Punctuation and quoting tolerated.
     ['en', 'Human.'], ['en', 'human!'], ['en', '"human"'], ['en', 'human?'],
     ['pt', 'Humano.'], ['pt', 'humano!'], ['ar', 'بشري.'],
+    ['es', '¿Humano?'], ['fr', '« humain »'], ['zh', '人工。'],
     // The other natural short forms.
     ['en', 'human please'], ['en', 'agent'], ['en', 'operator'],
     ['en', 'I need help from a human'], ['en', 'help from a human'],
-    ['pt', 'atendente'], ['pt', 'quero falar com um atendente']
+    ['pt', 'atendente'], ['pt', 'quero falar com um atendente'],
+    ['es', 'quiero hablar con un humano'], ['es', 'agente'],
+    ['fr', 'je veux parler à un humain'], ['fr', 'conseiller'],
+    ['zh', '转人工'], ['zh', '人工客服']
   ];
 
   instructions.forEach(([locale, text]) => {
@@ -759,14 +764,15 @@ test('N3: every instruction the bot gives is recognised as a handoff', () => {
 
 test('N3: the copy no longer promises a word the bot ignores', () => {
   // The words quoted by the deposit copy must be the words the engine accepts.
-  const quoted = {
-    en: i18n.CUSTOMER_STRINGS.en.depositCreditedYes.match(/say "([^"]+)"/),
-    pt: i18n.CUSTOMER_STRINGS.pt.depositCreditedYes.match(/escreva "([^"]+)"/),
-    ar: i18n.CUSTOMER_STRINGS.ar.depositCreditedYes.match(/"([^"]+)"/)
-  };
-  ['en', 'pt', 'ar'].forEach((locale) => {
-    assert.ok(quoted[locale], 'the copy must quote the word to use (' + locale + ')');
-    const word = quoted[locale][1];
+  // The quote style differs per locale ("human", « humano », “人工”), so the
+  // quoted token is extracted generically: that is what makes the test cover a
+  // newly added language without a new regex.
+  const QUOTED = /["\u201c\u00ab\u201d\u00bb]\s*([^"\u201c\u00ab\u201d\u00bb]{2,24})\s*["\u201d\u00bb]/;
+  const locales = Object.keys(i18n.CUSTOMER_STRINGS);
+  locales.forEach((locale) => {
+    const match = i18n.CUSTOMER_STRINGS[locale].depositCreditedYes.match(QUOTED);
+    assert.ok(match, 'the copy must quote the word to use (' + locale + ')');
+    const word = match[1].trim();
     const plan = engine.planTurn({ text: word, state: engine.emptyState() });
     assert.strictEqual(plan.intent, 'human', locale + ' copy says "' + word + '" but the bot does not escalate it');
   });

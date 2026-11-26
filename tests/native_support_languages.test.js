@@ -59,6 +59,16 @@ const UNAVAILABLE = {
 };
 
 const ARABIC_PREFIX = '\u0645\u0631\u062d\u0628\u0627 '; // "hello " - keeps the script check satisfied
+// Simplified Chinese is script-checked too (Han characters), so the zh double needs a
+// Chinese sentence rather than a Latin marker.
+const ZH_PREFIX = '\u8fd9\u662f\u7ffb\u8bd1\u540e\u7684\u56de\u7b54\u3002'; // "this is the translated answer."
+const PREFIX_BY_LANGUAGE = { ar: ARABIC_PREFIX, zh: ZH_PREFIX };
+
+/** The text this double returns for `language`, so assertions stay exact. */
+function translated(text, language) {
+    const prefix = PREFIX_BY_LANGUAGE[language] || ('[' + language + '] ');
+    return prefix + text;
+}
 
 function knowledgeAnswer() {
     return S.flattenEntries(KB).find((e) => e.id === ENTRY).answer;
@@ -76,8 +86,7 @@ function makeTranslator(mode) {
             if (mode === 'empty') return { ok: true, text: '   ', reason: null };
             if (mode === 'throw') throw new Error('translator exploded');
             if (mode === 'unavailable') return { ok: false, text: '', reason: 'unavailable' };
-            const prefix = language === 'ar' ? ARABIC_PREFIX : '[' + language + '] ';
-            return { ok: true, text: prefix + text, reason: null };
+            return { ok: true, text: translated(text, language), reason: null };
         }
     };
 }
@@ -149,7 +158,7 @@ test('B. a knowledge answer reaches the customer in all six supported languages'
             if (language === 'ar') {
                 assert.match(reply.text, /[\u0600-\u06FF]/, 'Arabic answer must be in Arabic script');
             } else {
-                assert.strictEqual(reply.text, '[' + language + '] ' + knowledgeAnswer());
+                assert.strictEqual(reply.text, translated(knowledgeAnswer(), language));
             }
         }
     }

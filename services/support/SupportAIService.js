@@ -152,7 +152,7 @@ function createSupportAIService(options = {}) {
 
   // Optional TRANSLATION collaborator (services/support/SupportTranslator.js).
   // Used for exactly ONE thing: making the English knowledge base reachable for
-  // pt/ar customers (see englishForRetrieval). The approved answer this enables
+  // every non-English customer (see englishForRetrieval). The approved answer this enables
   // stays ENGLISH - localizing it is the caller's job, per the provenance contract
   // in `ask`. Absent => byte-identical behaviour to before.
   const questionTranslator = options.translator && typeof options.translator.toEnglish === 'function'
@@ -464,6 +464,26 @@ function createSupportAIService(options = {}) {
       // Whatever we replaced it with is APPROVED wording, not model-written text
       // for this request - provenance must follow the text, not the provider.
       source = 'knowledge';
+    }
+
+    // LANGUAGE of a MODEL-WRITTEN answer, for the two Latin-script languages added
+    // with the six-language release. Arabic and Chinese are covered by the
+    // deterministic script check downstream, and pt keeps its previous behaviour, so
+    // this branch can only ever affect es / fr: if the model answered with a long
+    // verbatim run of the APPROVED ENGLISH text, the text is not a translation. It is
+    // replaced by the approved answer with 'knowledge' provenance, which is what
+    // makes the caller translate it properly instead of presenting English as Spanish
+    // or French.
+    if (source === 'provider' && (language === 'es' || language === 'fr')) {
+      const residual = hits
+        .map((h) => (h && h.answer ? SupportGuidelines.findResidualEnglish(h.answer, answer, language) : ''))
+        .find(Boolean);
+      if (residual) {
+        const approved = hits.find((h) => h.kind === 'info') || top;
+        answer = approved && approved.answer ? approved.answer : SupportGuidelines.UNCERTAIN_TEXT;
+        source = 'knowledge';
+        filtered = true;
+      }
     }
 
     const outcome = result({

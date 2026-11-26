@@ -274,19 +274,21 @@ test('1. /language sends the language picker', async () => {
   assert.ok(h.toChat(CUSTOMER_CHAT_ID)[0].replyMarkup, 'the picker carries an inline keyboard');
 });
 
-test('2. the inline keyboard contains EXACTLY en / pt / ar with lang: payloads', async () => {
-  // The builder itself.
+test('2. the inline keyboard contains EXACTLY the six supported languages with lang: payloads', async () => {
+  // The builder itself. Six languages: en / es / pt / fr / ar / zh.
   const keyboard = i18n.languageKeyboard();
   const buttons = keyboard.inline_keyboard.flat();
-  assert.deepStrictEqual(buttons.map((b) => b.callback_data), ['lang:en', 'lang:pt', 'lang:ar']);
-  assert.deepStrictEqual(buttons.map((b) => b.text), ['English', 'Português', 'العربية']);
+  const expectedPayloads = ['lang:en', 'lang:es', 'lang:pt', 'lang:fr', 'lang:ar', 'lang:zh'];
+  assert.deepStrictEqual(buttons.map((b) => b.callback_data), expectedPayloads);
+  assert.deepStrictEqual(buttons.map((b) => b.text),
+    ['English', 'Espa\u00f1ol', 'Portugu\u00eas', 'Fran\u00e7ais', '\u0627\u0644\u0639\u0631\u0628\u064a\u0629', '\u7b80\u4f53\u4e2d\u6587']);
 
   // And what the customer actually receives.
   const h = createHarness();
   await h.bot.handleUpdate(customerMessage('/language'));
   const sent = h.toChat(CUSTOMER_CHAT_ID)[0].replyMarkup;
-  assert.deepStrictEqual(sent.inline_keyboard.flat().map((b) => b.callback_data), ['lang:en', 'lang:pt', 'lang:ar']);
-  assert.deepStrictEqual(i18n.TELEGRAM_LANGUAGES, ['en', 'pt', 'ar']);
+  assert.deepStrictEqual(sent.inline_keyboard.flat().map((b) => b.callback_data), expectedPayloads);
+  assert.deepStrictEqual(i18n.TELEGRAM_LANGUAGES, ['en', 'es', 'pt', 'fr', 'ar', 'zh']);
   // A bare code must never be a payload.
   sent.inline_keyboard.flat().forEach((b) => {
     assert.ok(b.callback_data.includes(':'), 'payload must be namespaced: ' + b.callback_data);
@@ -325,7 +327,8 @@ test('5. the lang:ar callback stores Arabic and confirms in Arabic', async () =>
 
 test('6. an invalid callback language changes NOTHING and is answered', async () => {
   const h = createHarness({ language: 'pt' });
-  const result = await h.bot.handleUpdate(callbackUpdate('lang:es'));
+  // 'de' is not one of the six supported languages ('es' now is).
+  const result = await h.bot.handleUpdate(callbackUpdate('lang:de'));
 
   assert.strictEqual(result.handled, false);
   assert.strictEqual(result.reason, 'unsupported-language');
@@ -382,7 +385,7 @@ test('8. the language persists onto the conversation row', async () => {
 test('9. a new conversation is English via the column default (NOT NULL DEFAULT en)', async () => {
   const h = createHarness();
   assert.strictEqual(h.store.conversation.language, 'en', 'the column default is en');
-  assert.strictEqual(h.bot.status().languagesSupported.join(','), 'en,pt,ar');
+  assert.strictEqual(h.bot.status().languagesSupported.join(','), 'en,es,pt,fr,ar,zh');
   await h.bot.handleUpdate(customerMessage('/start'));
   assert.strictEqual(h.toCustomer()[0], i18n.t('en', 'help'));
 });
@@ -413,17 +416,27 @@ test('9c. the only language writer passes an explicitly validated code', () => {
 
 test('10. an out-of-vocabulary value still resolves to English (application safety net)', async () => {
   // Production cannot store any of these: the column is NOT NULL DEFAULT 'en' with
-  // CHECK (language IN ('en','pt','ar')). This pins the application-level fallback
-  // that must hold regardless (e.g. in an environment where 032 is not applied).
-  for (const stored of ['es', 'de', '', '   ', 'xx-YY', 42]) {
+  // CHECK (language IN ('en','es','pt','fr','ar','zh')). This pins the
+  // application-level fallback that must hold regardless (e.g. in an environment
+  // where the migration widening the vocabulary is not applied).
+  for (const stored of ['de', '', '   ', 'xx-YY', 42]) {
     const h = createHarness({ language: stored });
     await h.bot.handleUpdate(customerMessage('/start'));
     assert.strictEqual(h.toCustomer()[0], i18n.t('en', 'help'), 'fell back for ' + JSON.stringify(stored));
+  }
+  // The six supported languages DO resolve (no silent fallback to English).
+  for (const stored of ['es', 'fr', 'zh', 'es-MX', 'ZH']) {
+    const h = createHarness({ language: stored });
+    await h.bot.handleUpdate(customerMessage('/start'));
+    assert.strictEqual(h.toCustomer()[0], i18n.t(i18n.normalizeLanguage(stored), 'help'),
+      'a supported language must not fall back to English: ' + stored);
   }
   // And the resolver itself never throws on junk.
   assert.strictEqual(i18n.normalizeLanguage(undefined), 'en');
   assert.strictEqual(i18n.normalizeLanguage(null), 'en');
   assert.strictEqual(i18n.normalizeLanguage('PT-br'), 'pt');
+  assert.strictEqual(i18n.normalizeLanguage('FR-ca'), 'fr');
+  assert.strictEqual(i18n.normalizeLanguage('zh-Hans'), 'zh');
 });
 
 // ================================================ 11-13. AI language directive ===
@@ -478,7 +491,9 @@ test('13. an English customer gets an English language instruction', async () =>
 });
 
 test('13b. an unsupported/absent language resolves to English', async () => {
-  const a = await askWithLanguage('es');
+  // `es` is now a supported prompt language (the platform ships six locales and
+  // the support translator needs each of them); `de` is genuinely unsupported.
+  const a = await askWithLanguage('de');
   assert.strictEqual(a.outcome.language, 'en');
   assert.match(a.instructions, /English/);
   const b = await askWithLanguage(undefined);
@@ -871,9 +886,9 @@ test('27d. a storage failure while saving the language fails loudly and changes 
 
 // ============================================ dictionary + architecture invariants ===
 
-test('28. the dictionary is small, complete in all three locales, and localized', () => {
+test('28. the dictionary is small, complete in all six locales, and localized', () => {
   const locales = Object.keys(i18n.CUSTOMER_STRINGS);
-  assert.deepStrictEqual(locales.sort(), ['ar', 'en', 'pt']);
+  assert.deepStrictEqual(locales.sort(), ['ar', 'en', 'es', 'fr', 'pt', 'zh']);
   const keys = Object.keys(i18n.CUSTOMER_STRINGS.en).sort();
   // The conversational engine added a bounded set of dialogue strings (greetings,
   // clarifying questions, guided deposit/withdrawal steps) - still a small,
@@ -907,10 +922,19 @@ test('28. the dictionary is small, complete in all three locales, and localized'
     });
   });
 
-  // pt really is Portuguese and ar really is Arabic.
+  // Every locale really is that language (not English copied over).
   assert.match(i18n.CUSTOMER_STRINGS.pt.languageSet, /Idioma definido como Português/);
   assert.match(i18n.CUSTOMER_STRINGS.ar.languageSet, /تم تعيين اللغة إلى العربية/);
   assert.ok(SupportGuidelines.isArabicScript(i18n.CUSTOMER_STRINGS.ar.help));
+  assert.match(i18n.CUSTOMER_STRINGS.es.languageSet, /Idioma establecido en español/);
+  assert.match(i18n.CUSTOMER_STRINGS.fr.languageSet, /Langue définie sur le français/);
+  assert.ok(SupportGuidelines.isCjkScript(i18n.CUSTOMER_STRINGS.zh.languageSet));
+  ['es', 'fr', 'zh'].forEach((locale) => {
+    assert.notStrictEqual(i18n.CUSTOMER_STRINGS[locale].help, i18n.CUSTOMER_STRINGS.en.help,
+      locale + ' help must be localized');
+    assert.notStrictEqual(i18n.CUSTOMER_STRINGS[locale].acknowledgement, i18n.CUSTOMER_STRINGS.en.acknowledgement,
+      locale + ' acknowledgement must be localized');
+  });
 });
 
 test('29. operator strings are English-only and the operator surface is not localized', () => {

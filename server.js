@@ -6132,7 +6132,9 @@ function createSupportTranslatorSafely() {
     const translator = createSupportTranslator({ config: translationConfig });
     const available = translator.isAvailable();
     console.log(`[SupportTranslator] ${available ? 'enabled' : 'unavailable'} `
-      + `(provider=${translationConfig.provider}, credential=${translationConfig.apiKey ? 'set' : 'missing'}); `
+      + `(provider=${translationConfig.provider}, source=${translationConfig.providerSource || 'n/a'}, `
+      + `answers=${translationConfig.answerProvider || 'knowledge'}, `
+      + `credential=${translationConfig.apiKey ? 'set' : 'missing'}); `
       + (available
         ? 'customer messages are translated to English for operators, and operator replies into the customer language'
         : 'non-English customers get localized fixed replies; operator notifications show the original message only'));
@@ -6273,7 +6275,8 @@ if (telegramConfig.token) {
         ? 'enabled'
         : 'DISABLED - TELEGRAM_SUPPORT_CHAT_ID is not set for this process; restart after setting it');
   console.log(`[Telegram] Customer notifications: ${notifySummary}`);
-  console.log('[Telegram] Customer languages: en, pt, ar (/language); operator notifications stay English');
+  console.log('[Telegram] Customer languages: ' + telegramSupportI18n.TELEGRAM_LANGUAGES.join(', ')
+    + ' (/language); operator notifications stay English');
 } else {
   console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
 }

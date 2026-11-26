@@ -29,6 +29,11 @@
  *     percentage and URL of the source across UNCHANGED. A mismatch is reported as
  *     `fidelity:<violations>` and the caller falls back, so a translation can never
  *     quietly alter a minimum deposit, a withdrawal rule or a link.
+ *   - LANGUAGE: Arabic output must be Arabic script and Simplified Chinese output
+ *     must contain Han characters (both deterministic). For es / fr / zh a long
+ *     verbatim English run in the OUTPUT is reported as `partially-translated`, so a
+ *     half-translated answer is never presented as a complete one. pt / ar keep
+ *     their previous checks exactly.
  *
  * SAFETY LIMITATION (see the delivery report)
  *   The multilingual denylist is a SUPPLEMENT to the English checks, not a
@@ -44,10 +49,17 @@ const SupportGuidelines = require('./SupportGuidelines');
 const { createProvider, DEFAULT_TIMEOUT_MS } = require('./providers');
 
 const TRANSLATION_ENABLED_ENV = 'SUPPORT_TRANSLATION_ENABLED';
+const TRANSLATION_PROVIDER_ENV = 'SUPPORT_TRANSLATION_PROVIDER';
+const TRANSLATION_MODEL_ENV = 'SUPPORT_TRANSLATION_MODEL';
+const TRANSLATION_BASE_URL_ENV = 'SUPPORT_TRANSLATION_BASE_URL';
 const DEFAULT_MAX_TRANSLATION_CHARS = 1500;
 
 /** Languages this layer will translate between (English is the pivot). */
-const TRANSLATABLE_LANGUAGES = Object.freeze(['en', 'pt', 'ar']);
+const TRANSLATABLE_LANGUAGES = Object.freeze(['en', 'es', 'pt', 'fr', 'ar', 'zh']);
+
+/** Providers that can actually translate. `knowledge` is offline, so never. */
+const TRANSLATABLE_PROVIDERS = Object.freeze(['openai', 'anthropic', 'deepseek']);
+const OFF_VALUES = Object.freeze(['off', 'none', 'disabled', 'false', 'knowledge']);
 
 function baseLanguage(language) {
   return SupportGuidelines.baseLanguage(language);
@@ -66,25 +78,78 @@ function isTranslatable(language) {
  * SUPPORT_TRANSLATION_ENABLED=false disables it explicitly even when a key
  * exists (the data-flow switch: see the privacy note in the delivery report).
  */
+function normalizeProvider(value) {
+  return String(value === null || value === undefined ? '' : value).trim().toLowerCase();
+}
+
+/**
+ * Resolve the TRANSLATION provider independently of the ANSWER provider.
+ *
+ * `AI_SUPPORT_PROVIDER` keeps generating answers (the offline `knowledge`
+ * provider is the normal choice). `SUPPORT_TRANSLATION_PROVIDER` names a
+ * DIFFERENT, HTTP-capable provider used only to translate an already-approved
+ * answer. Three cases, in order:
+ *
+ *  1. explicit value -> that provider, or `off` (an unknown name is never
+ *     guessed at: a typo must not silently enable a provider);
+ *  2. unset -> inherit `AI_SUPPORT_PROVIDER` when it can translate, else `off`
+ *     (backwards compatible: a deployment that already answers with deepseek
+ *     keeps translating with deepseek and needs no new variable);
+ *  3. `off`/`none`/`disabled`/`false`/`knowledge` -> explicitly off.
+ *
+ * Credentials are never duplicated: the provider's own key variable is used,
+ * and `AI_SUPPORT_API_KEY` is only consulted when the translation provider is
+ * the SAME provider the answer layer uses (so a key is never sent to a
+ * different vendor).
+ */
 function resolveTranslationConfig(env) {
   const e = env || {};
-  const provider = String(e.AI_SUPPORT_PROVIDER || 'knowledge').trim().toLowerCase() || 'knowledge';
+  const answerProvider = normalizeProvider(e.AI_SUPPORT_PROVIDER) || 'knowledge';
+  const requestedProvider = normalizeProvider(e[TRANSLATION_PROVIDER_ENV]);
+
+  let provider;
+  let providerSource;
+  if (!requestedProvider) {
+    provider = TRANSLATABLE_PROVIDERS.indexOf(answerProvider) !== -1 ? answerProvider : 'off';
+    providerSource = 'inherited';
+  } else if (OFF_VALUES.indexOf(requestedProvider) !== -1) {
+    provider = 'off';
+    providerSource = 'explicit';
+  } else if (TRANSLATABLE_PROVIDERS.indexOf(requestedProvider) !== -1) {
+    provider = requestedProvider;
+    providerSource = 'explicit';
+  } else {
+    provider = 'off';
+    providerSource = 'unknown';
+  }
+
+  const sameAsAnswerProvider = provider !== 'off' && provider === answerProvider;
   const providerKeyEnv = provider === 'openai' ? 'OPENAI_API_KEY'
     : provider === 'anthropic' ? 'ANTHROPIC_API_KEY'
     : provider === 'deepseek' ? 'DEEPSEEK_API_KEY'
     : null;
-  const apiKey = String(
-    e.AI_SUPPORT_API_KEY || (providerKeyEnv ? e[providerKeyEnv] : '') || ''
+  const apiKey = provider === 'off' ? null : String(
+    (providerKeyEnv ? e[providerKeyEnv] : '') ||
+    (sameAsAnswerProvider ? e.AI_SUPPORT_API_KEY : '') || ''
   ).trim() || null;
   const maxCharsRaw = Number(e.SUPPORT_TRANSLATION_MAX_CHARS);
   const timeoutRaw = Number(e.AI_SUPPORT_TIMEOUT_MS);
+  const enabledByOperator = String(e[TRANSLATION_ENABLED_ENV] || 'true').trim().toLowerCase() === 'true';
 
   return {
-    enabled: String(e[TRANSLATION_ENABLED_ENV] || 'true').trim().toLowerCase() === 'true',
+    // `enabled` answers "can this layer translate at all", so an explicit off
+    // provider disables it even when the operator switch is on.
+    enabled: enabledByOperator && provider !== 'off',
+    enabledByOperator,
     provider,
-    model: String(e.AI_SUPPORT_MODEL || '').trim() || null,
+    providerSource,
+    requestedProvider: requestedProvider || null,
+    answerProvider,
+    model: String(e[TRANSLATION_MODEL_ENV] || (sameAsAnswerProvider ? e.AI_SUPPORT_MODEL : '') || '').trim() || null,
     apiKey,
-    baseUrl: String(e.AI_SUPPORT_BASE_URL || '').trim() || null,
+    baseUrl: String(
+      e[TRANSLATION_BASE_URL_ENV] || (sameAsAnswerProvider ? e.AI_SUPPORT_BASE_URL : '') || ''
+    ).trim() || null,
     timeoutMs: Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : DEFAULT_TIMEOUT_MS,
     maxChars: Number.isFinite(maxCharsRaw) && maxCharsRaw > 0 ? maxCharsRaw : DEFAULT_MAX_TRANSLATION_CHARS
   };
@@ -95,11 +160,20 @@ function describeTranslationConfig(config) {
   const cfg = config || {};
   return {
     enabled: cfg.enabled === true,
-    provider: cfg.provider || 'knowledge',
+    provider: cfg.provider || 'off',
+    providerSource: cfg.providerSource || null,
+    answerProvider: cfg.answerProvider || null,
     model: cfg.model || null,
     hasApiKey: Boolean(cfg.apiKey),
     maxChars: cfg.maxChars,
-    languages: TRANSLATABLE_LANGUAGES.slice()
+    languages: TRANSLATABLE_LANGUAGES.slice(),
+    // Which languages are verified, and how. Observability only: an operator can
+    // see that es / fr / zh are guarded by the residual-English check rather than
+    // by a script check.
+    languageChecks: {
+      script: SupportGuidelines.SCRIPT_CHECKED_LANGUAGES.slice(),
+      residualEnglish: SupportGuidelines.RESIDUAL_CHECK_LANGUAGES.slice()
+    }
   };
 }
 
@@ -119,14 +193,14 @@ function createSupportTranslator(options = {}) {
   const byDirection = new Map();
   const providerFactory = typeof options.providerFactory === 'function'
     ? options.providerFactory
-    : (from, to) => createProvider(config.provider, {
+    : (from, to) => (config.provider === 'off' ? null : createProvider(config.provider, {
       apiKey: config.apiKey,
       model: config.model,
       timeoutMs: config.timeoutMs,
       baseUrl: config.baseUrl,
       fetchImpl: options.fetchImpl,
       buildPrompt: (text) => SupportGuidelines.buildTranslationPrompt(from, to, text)
-    });
+    }));
 
   function providerFor(from, to) {
     const key = from + '->' + to;
@@ -140,7 +214,7 @@ function createSupportTranslator(options = {}) {
    * translate, so it is explicitly excluded.
    */
   function isAvailable() {
-    if (config.enabled !== true) return false;
+    if (config.enabled !== true || config.provider === 'off') return false;
     try {
       const provider = providerFor('en', 'pt');
       return Boolean(provider && provider.kind === 'http' && provider.available === true);
@@ -224,6 +298,17 @@ function createSupportTranslator(options = {}) {
             .concat(fidelity.missingUrls.map((u) => 'missing-url:' + u))
             .concat(fidelity.addedUrls.map((u) => 'added-url:' + u))
         };
+      }
+      // PARTIALLY UNTRANSLATED OUTPUT. An echo check only catches a model that
+      // returned EVERYTHING unchanged; a model that translates one sentence and
+      // leaves the rest in English would otherwise be presented to the customer as
+      // fully translated. Applies to the es / fr / zh directions only, so the
+      // pre-existing pt / ar behaviour is unchanged. Runs AFTER fidelity so that an
+      // altered amount is reported as the (more specific) money problem.
+      const residual = SupportGuidelines.findResidualEnglish(source, output, toCode);
+      if (residual) {
+        warn('translated text withheld: it still contains untranslated English (' + toCode + ')');
+        return { ok: false, text: '', reason: 'partially-translated', violations: ['untranslated:' + residual] };
       }
     }
 

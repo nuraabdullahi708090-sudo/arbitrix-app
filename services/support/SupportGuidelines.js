@@ -164,9 +164,9 @@ function isCredentialRequest(text) {
  * Negation-aware: "we never ask for your password" and "does not guarantee
  * profits" are disclaimers and must not be reported as violations.
  *
- * LANGUAGE AWARENESS (additive): pass `{ language: 'pt' | 'ar' }` to also apply
- * the multilingual denylist for the same hard rules. Called with no options (the
- * pre-existing signature) the behaviour is byte-identical to before, which is
+ * LANGUAGE AWARENESS (additive): pass `{ language: 'pt' | 'ar' | ... }` to also
+ * apply the multilingual denylist for the same hard rules. Called with no options
+ * (the pre-existing signature) the behaviour is byte-identical to before, which is
  * what keeps the English pipeline unchanged.
  */
 function assertSafeAnswer(text, options) {
@@ -197,7 +197,7 @@ function assertSafeAnswer(text, options) {
 }
 
 // ===========================================================================
-// Multilingual support (en / pt / ar)
+// Multilingual support (en / es / pt / fr / ar / zh)
 // ===========================================================================
 
 /** Reduce any language tag ("pt-BR", " AR ") to its base code; default 'en'. */
@@ -213,8 +213,11 @@ function baseLanguage(language) {
  */
 const LANGUAGE_NAMES = Object.freeze({
   en: 'English',
+  es: 'Spanish',
   pt: 'Brazilian Portuguese',
-  ar: 'Modern Standard Arabic'
+  fr: 'French',
+  ar: 'Modern Standard Arabic',
+  zh: 'Simplified Chinese'
 });
 
 /**
@@ -225,11 +228,21 @@ const LANGUAGE_NAMES = Object.freeze({
  * `isNegatedAt` helper, kept deliberately narrow so it can only ever WHITELIST
  * a statement, never manufacture a violation.
  */
+const NEGATION_MARKERS = Object.freeze({
+  pt: /(\bn[ãa]o\b|\bnunca\b|\bjamais\b|\bsem\b)/,
+  es: /(\bno\b|\bnunca\b|\bjam[áa]s\b|\bsin\b|\btampoco\b)/,
+  fr: /(\bne\b|\bn'|\bpas\b|\bjamais\b|\bsans\b)/,
+  zh: /([不没别无未]|从未)/,
+  ar: /(لا|لن|ليس|بدون|بلا|دون)/
+});
+
 function negativeContextBefore(text, index, language) {
   const window = text.slice(Math.max(0, index - 34), index).toLowerCase();
-  return language === 'pt'
-    ? /(\bn[ãa]o\b|\bnunca\b|\bjamais\b|\bsem\b)/.test(window)
-    : /(لا|لن|ليس|بدون|بلا|دون)/.test(window);
+  // Portuguese and Arabic keep their original expressions verbatim; es / fr / zh
+  // were added with the six-language release. An unknown language still falls back
+  // to Arabic, exactly as the pre-existing default did.
+  const markers = NEGATION_MARKERS[language] || NEGATION_MARKERS.ar;
+  return markers.test(window);
 }
 
 /**
@@ -274,6 +287,40 @@ const MULTILINGUAL_FORBIDDEN_PATTERNS = Object.freeze({
       re: /\b(?:o|a|os|as|do|da|dos|das|seu|sua|seus|suas|meu|minha|meus|minhas|este|esta|esse|essa|deste|desta)\s+(?:pagamentos?|dep[óo]sitos?|saques?|transa[çc][õo]es?|transfer[êe]ncias?)\b[^.!?]{0,20}\b(?:foi|foram|est[áa]|est[ãa]o|tem|t[êe]m|j[áa]|acabou|acabaram|havia|tinha|tinham|ser[áa]|ser[ãa]o)(?!\w)[^.!?]{0,30}\b(?:confirmad\w*|creditad\w*|processad\w*|conclu[íi]d\w*|aprovad\w*|recebid\w*|enviad\w*)/i
     }
   ]),
+  es: Object.freeze([
+    { name: 'guarantee', re: /\b(ganancias|beneficios|rendimientos|ingresos|retornos|utilidades)\s+(garantizad|asegurad)\w*/i },
+    { name: 'guarantee', re: /\bgarantiz\w*\b[^.!?]{0,20}\b(ganancias|beneficios|rendimientos|ingresos|retornos|utilidades)\b/i },
+    { name: 'guarantee', re: /\b(ganancias|beneficios|rendimientos)\s+seguros?\b/i },
+    { name: 'risk-free', re: /\b(sin|cero)\s+riesgos?\b/i },
+    { name: 'no-loss', re: /\bnunca\s+(?:vas\s+a\s+|va\s+a\s+)?perder\b/i },
+    {
+      name: 'credential-request',
+      re: /\b(env\u00eda|env\u00ede|env\u00eden|env\u00edenme|enviar|envia|manda|mandar|informa|informar|escribe|escribir|comparte|compartir|proporciona|proporcionar|facilita|facilitar|confirma|confirmar|dime|decir)\b[^.!?]{0,40}\b(contrase\u00f1as?|contrasenas?|claves? privadas?|frase de recuperaci\u00f3on|frases? semilla|c\u00f3digos? de (uso \u00fanico|verificaci\u00f3on|seguridad|2fa))\b/i
+    }
+  ]),
+  fr: Object.freeze([
+    { name: 'guarantee', re: /\b(profits?|gains?|rendements?|revenus?|b\u00e9n\u00e9fices?)\s+(garantis?|garanties?|assur\u00e9s?)\b/i },
+    { name: 'guarantee', re: /\bgaranti\w*\b[^.!?]{0,20}\b(profits?|gains?|rendements?|revenus?)\b/i },
+    { name: 'risk-free', re: /\b(sans|z\u00e9ro|aucun)\s+(?:aucun\s+)?risques?\b/i },
+    { name: 'no-loss', re: /\bne\s+(?:perdrez|perdras|perdront)\s+jamais\b/i },
+    {
+      name: 'credential-request',
+      re: /\b(envoyez|envoyer|donnez|donner|indiquez|indiquer|saisissez|saisir|partagez|partager|fournissez|fournir|confirmez|confirmer|communiquez|communiquer)\b[^.!?]{0,40}\b(mots? de passe|cl\u00e9s? priv\u00e9es?|phrase de r\u00e9cup\u00e9ration|phrases? seed|codes? de (v\u00e9rification|s\u00e9curit\u00e9|r\u00e9cup\u00e9ration|2fa))\b/i
+    }
+  ]),
+  zh: Object.freeze([
+    // A Chinese sentence has no word boundaries, so the patterns are plain
+    // substrings with a short bounded gap. The leading lookbehind keeps a NEGATED
+    // promise ("\u4e0d\u4fdd\u8bc1\u76c8\u5229" - "we do NOT guarantee profit") publishable.
+    { name: 'guarantee', re: /(?<!\u4e0d)(?:\u4fdd\u8bc1|\u627f\u8bfa|\u786e\u4fdd)[^\u3002\uff01\uff1f]{0,10}(?:\u76c8\u5229|\u5229\u6f66|\u5229\u6da6|\u6536\u76ca|\u56de\u62a5|\u8d5a\u94b1)/ },
+    { name: 'guarantee', re: /(?:\u76c8\u5229|\u5229\u6f66|\u5229\u6da6|\u6536\u76ca|\u56de\u62a5)[^\u3002\uff01\uff1f]{0,6}(?:\u6709\u4fdd\u8bc1|\u662f\u4fdd\u8bc1\u7684|\u7a33\u5b9a)/ },
+    { name: 'risk-free', re: /(?:\u6ca1\u6709|\u65e0|\u96f6)[^\u3002\uff01\uff1f]{0,4}\u98ce\u9669/ },
+    { name: 'no-loss', re: /(?:\u6c38\u8fdc|\u7edd\u4e0d\u4f1a|\u4e0d\u53ef\u80fd)[^\u3002\uff01\uff1f]{0,4}(?:\u4e8f\u635f|\u635f\u5931|\u4e8f\u94b1)/ },
+    {
+      name: 'credential-request',
+      re: /(?:\u53d1\u9001|\u544a\u8bc9\u6211|\u63d0\u4f9b|\u8f93\u5165|\u586b\u5199|\u5206\u4eab|\u786e\u8ba4)[^\u3002\uff01\uff1f]{0,20}(?:\u5bc6\u7801|\u79c1\u94a5|\u52a9\u8bb0\u8bcd|\u6062\u590d\u77ed\u8bed|\u9a8c\u8bc1\u7801|2fa)/i
+    }
+  ]),
   ar: Object.freeze([
     { name: 'guarantee', re: /(ربح|أرباح|عوائد|مكاسب)\s*(مضمون|مضمونة)/ },
     { name: 'guarantee', re: /(مضمون|مضمونة)\s*(الربح|الأرباح|العوائد|المكاسب)/ },
@@ -311,18 +358,132 @@ function isArabicScript(text) {
 }
 
 /**
+ * True when the text contains CJK ideographs.
+ *
+ * Simplified Chinese cannot be told apart from Traditional by script alone
+ * without a dependency, but ENGLISH-vs-CHINESE is unambiguous: a Chinese answer
+ * always contains Han characters, and an English one never does. That is enough
+ * for the same hard check Arabic gets.
+ */
+function isCjkScript(text) {
+  return /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/
+    .test(String(text === null || text === undefined ? '' : text));
+}
+
+/**
+ * Languages whose OUTPUT script can be verified deterministically.
+ *   ar - Arabic script
+ *   zh - Han characters
+ * es / fr / pt share the Latin alphabet with English, so no script check can
+ * distinguish them; they are covered by the residual-English check below.
+ */
+const SCRIPT_CHECKED_LANGUAGES = Object.freeze(['ar', 'zh']);
+
+/**
  * Verify the output actually looks like the requested language.
  *
- * For Arabic this is a HARD, deterministic check (the script is unambiguous), so
- * a model that ignores the language directive is caught instead of being sent to
- * the customer. Portuguese cannot be distinguished from English reliably without
- * a dependency, so it is NOT guessed here - see the limitations note.
+ * For Arabic and Simplified Chinese this is a HARD, deterministic check (the
+ * script is unambiguous), so a model that ignores the language directive is
+ * caught instead of being sent to the customer. Portuguese/Spanish/French cannot
+ * be distinguished from English reliably without a dependency, so they are NOT
+ * guessed here - `findResidualEnglish` covers the "not translated at all" case.
  */
 function hasExpectedScript(text, language) {
   const value = String(text === null || text === undefined ? '' : text);
   if (!value.trim()) return false;
-  if (baseLanguage(language) === 'ar') return isArabicScript(value);
+  const code = baseLanguage(language);
+  if (code === 'ar') return isArabicScript(value);
+  if (code === 'zh') return isCjkScript(value);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Residual-English detection (partially untranslated output)
+// ---------------------------------------------------------------------------
+
+/**
+ * Languages for which a partially untranslated output is detected by comparing
+ * it with the English source. Deliberately limited to the languages added in the
+ * six-language release, so the pre-existing Portuguese and Arabic behaviour is
+ * byte-identical.
+ */
+const RESIDUAL_CHECK_LANGUAGES = Object.freeze(['es', 'fr', 'zh']);
+
+/** Shortest verbatim English run (in words) that counts as "not translated". */
+const RESIDUAL_ENGLISH_MIN_WORDS = 5;
+
+/**
+ * Tokens that legitimately survive translation unchanged, so they must never
+ * count towards a residual-English run: the brand, tickers, network names,
+ * provider names and amount-like tokens.
+ */
+const TRANSLATION_INVARIANT_TOKENS = Object.freeze([
+  'kalderix', 'arbitrix', 'usdt', 'trc', 'trc20', 'tron', 'trx', 'usd', 'live', 'demo',
+  'paybis', 'transak', 'trust', 'wallet', 'kvk', 'api', 'app', 'id', '2fa'
+]);
+
+/**
+ * Tokenise text for comparison: lowercased ASCII words of 3+ letters, with the
+ * translation-invariant tokens dropped, so a run only ever consists of words that
+ * a real translation MUST have changed.
+ */
+function translationWords(text) {
+  const cleaned = String(text === null || text === undefined ? '' : text)
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\/[a-z][a-z0-9_]*/gi, ' ');
+  const words = cleaned.toLowerCase().match(/[a-z]{3,}/g) || [];
+  return words.filter((word) => TRANSLATION_INVARIANT_TOKENS.indexOf(word) === -1);
+}
+
+/**
+ * Longest run of CONSECUTIVE source words that appears VERBATIM and in the same
+ * order in the output. Dynamic programming over the two token lists.
+ */
+function longestCommonRun(sourceWords, outputWords) {
+  const rows = sourceWords.length;
+  const cols = outputWords.length;
+  let best = 0;
+  let bestEnd = 0;
+  let previous = new Array(cols + 1).fill(0);
+  for (let i = 1; i <= rows; i += 1) {
+    const current = new Array(cols + 1).fill(0);
+    for (let j = 1; j <= cols; j += 1) {
+      if (sourceWords[i - 1] === outputWords[j - 1]) {
+        current[j] = previous[j - 1] + 1;
+        if (current[j] > best) {
+          best = current[j];
+          bestEnd = i;
+        }
+      }
+    }
+    previous = current;
+  }
+  return best === 0 ? [] : sourceWords.slice(bestEnd - best, bestEnd);
+}
+
+/**
+ * Detect output that is (partly) still the English SOURCE.
+ *
+ * Returns the offending phrase (a verbatim run of >= RESIDUAL_ENGLISH_MIN_WORDS
+ * untranslated words) or '' when nothing is wrong. Only applies when translating
+ * INTO es / fr / zh; any other target language returns '' so existing behaviour is
+ * unchanged.
+ *
+ * WHY THIS EXISTS: an echo check only catches a model that returned EVERYTHING
+ * unchanged. A model that translates the first sentence and leaves the rest in
+ * English produced a "successful" translation that was then presented to the
+ * customer as fully translated. This catches that case, and it fails CLOSED: the
+ * caller withholds the text and uses its localized fallback instead.
+ */
+function findResidualEnglish(source, output, language) {
+  const code = baseLanguage(language);
+  if (RESIDUAL_CHECK_LANGUAGES.indexOf(code) === -1) return '';
+  const sourceWords = translationWords(source);
+  if (sourceWords.length < RESIDUAL_ENGLISH_MIN_WORDS) return '';
+  const outputWords = translationWords(output);
+  if (outputWords.length === 0) return '';
+  const run = longestCommonRun(sourceWords, outputWords);
+  return run.length >= RESIDUAL_ENGLISH_MIN_WORDS ? run.join(' ') : '';
 }
 
 /**
@@ -372,7 +533,7 @@ function instructionsFor(language) {
 const TRANSLATION_INSTRUCTIONS = [
   'You are a professional translator working for Kalderix customer support.',
   '',
-  'You translate a single message between English, Brazilian Portuguese and Modern Standard Arabic.',
+  'You translate a single message between English, Spanish, Brazilian Portuguese, French, Modern Standard Arabic and Simplified Chinese.',
   '',
   'Hard rules - never break these:',
   '1. Output ONLY the translation. No preamble, no explanation, no notes, no surrounding quotes.',
@@ -549,5 +710,10 @@ module.exports = {
   buildTranslationPrompt,
   MULTILINGUAL_FORBIDDEN_PATTERNS,
   isArabicScript,
+  isCjkScript,
+  SCRIPT_CHECKED_LANGUAGES,
+  RESIDUAL_CHECK_LANGUAGES,
+  RESIDUAL_ENGLISH_MIN_WORDS,
+  findResidualEnglish,
   hasExpectedScript
 };
