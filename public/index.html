@@ -26709,15 +26709,87 @@ try {
 } catch (e) { /* display-only */ }
 
 
+/**
+ * Ask the support brain (the SAME SupportAIService + approved knowledge the
+ * Telegram bot uses) for an answer to one widget message.
+ *
+ * The floating assistant used to answer ONLY from seven hard-coded keyword
+ * groups, so any other question - including "What is Kalderix, and how does it
+ * work?" - fell through to the human-support fallback even though the approved
+ * knowledge base answers it. This bridges the existing widget to the existing
+ * native support API instead of duplicating an answer engine.
+ *
+ * Returns null (never throws) for every degraded case - no session, the native
+ * messenger not enabled (404), rate limited, server error, network failure - so
+ * the caller keeps the previous keyword behaviour and no customer is left worse
+ * off than before.
+ */
+async function requestSupportReply(msg) {
+    try {
+        if (typeof fetch !== 'function') return null;
+        const token = localStorage.getItem('jwt_token');
+        if (!token) return null; // signed-out visitors keep the offline replies
+        const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+        // The server returns the customer's single ACTIVE conversation when one
+        // exists, so this is safe to call on every message (no client-side id
+        // to go stale, and no cross-account key to leak).
+        const created = await fetch('/api/support/conversations', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ category: 'general', language: (typeof currentLang === 'string' ? currentLang : 'en') })
+        });
+        if (!created || !created.ok) return null;
+        const convData = await created.json();
+        const convId = convData && convData.conversation && convData.conversation.id;
+        if (!convId) return null;
+        const posted = await fetch('/api/support/conversations/' + convId + '/messages', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                body: msg,
+                clientMessageId: 'w' + Date.now() + Math.random().toString(36).slice(2, 8)
+            })
+        });
+        if (!posted || !posted.ok) return null;
+        const data = await posted.json();
+        const answer = data && data.message && data.message.body;
+        return typeof answer === 'string' && answer.trim() ? answer.trim() : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** Escape text before it is interpolated into the widget's HTML. */
+function escapeSupportText(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function sendSupportMessage() {
     try {
         const msg = getEl('supportInput').value.trim();
         if(!msg) return;
         const chat = getEl('chatMessages');
-        chat.innerHTML += '<div class="chat-message user"><div class="msg-bubble">' + msg + '</div></div>';
+        chat.innerHTML += '<div class="chat-message user"><div class="msg-bubble">' + escapeSupportText(msg) + '</div></div>';
         getEl('supportInput').value = '';
         chat.scrollTop = chat.scrollHeight;
-        setTimeout(function() {
+        setTimeout(async function() {
+            // Preferred path: the support brain (approved knowledge, localized).
+            // The guard keeps the signed-out / no-transport path synchronous, so
+            // the offline keyword answers behave exactly as they did before.
+            const canUseBackend = (typeof fetch === 'function')
+                && (typeof localStorage !== 'undefined')
+                && !!localStorage.getItem('jwt_token');
+            if (canUseBackend) {
+                const answered = await requestSupportReply(msg);
+                if (answered) {
+                    chat.innerHTML += '<div class="chat-message agent"><div class="msg-bubble">' + escapeSupportText(answered) + '</div></div>';
+                    chat.scrollTop = chat.scrollHeight;
+                    return;
+                }
+            }
             let reply = '';
             const lower = msg.toLowerCase();
             // Keyword matching for the supported topics (unchanged). The bot and

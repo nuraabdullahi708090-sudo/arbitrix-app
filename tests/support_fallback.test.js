@@ -29,6 +29,8 @@ const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 function extractFunction(name) {
     let start = INDEX.indexOf('function ' + name + '(');
     assert.ok(start >= 0, name + ' must exist');
+    // Keep a leading `async ` so an extracted async helper still parses.
+    if (INDEX.slice(Math.max(0, start - 6), start) === 'async ') start -= 6;
     let i = INDEX.indexOf('{', start);
     let depth = 0;
     let end = -1;
@@ -57,6 +59,10 @@ function loadTranslations() {
 const T = loadTranslations();
 const SEND = extractFunction('sendSupportMessage');
 const FALLBACK = extractFunction('appendSupportFallbackReply');
+// The assistant asks the approved-knowledge brain first; these two helpers are
+// part of the same widget (no second implementation).
+const REQUEST = extractFunction('requestSupportReply');
+const ESCAPE = extractFunction('escapeSupportText');
 
 /* Runs the real assistant code for one message and returns what it rendered. */
 function ask(message, lang, mta) {
@@ -82,7 +88,7 @@ function ask(message, lang, mta) {
         },
     };
     vm.createContext(sandbox);
-    vm.runInContext(SEND + '\n' + FALLBACK + '\nsendSupportMessage();', sandbox);
+    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + SEND + '\n' + FALLBACK + '\nsendSupportMessage();', sandbox);
     // The reply is appended either as HTML (supported answers) or as nodes
     // (fallback). Expose both shapes.
     const nodes = chat.children.length ? chat.children[chat.children.length - 1] : null;
@@ -227,11 +233,20 @@ test('the action opens the existing Support Center (no invented destination)', (
     assert.ok(!/https?:\/\//.test(body.slice(0, 900)), 'the fallback renders no link/route');
 });
 
-test('the fallback performs no network or handoff side effect', () => {
-    const src = SEND + FALLBACK;
-    assert.ok(!/fetch\(|XMLHttpRequest|axios|localStorage\.setItem/.test(src), 'display-only: no API/persistence call');
+test('the assistant talks only to the app own support API and never fakes a ticket', () => {
+    // The assistant now asks the approved-knowledge brain (the same one the
+    // Telegram bot uses) before falling back, so "no network at all" is no
+    // longer the contract. What must hold: the ONLY destinations are the app's
+    // own relative native-support routes, nothing third-party, and no invented
+    // ticketing/handoff system.
+    const src = REQUEST + SEND + FALLBACK;
+    assert.ok(!/https?:\/\//.test(src), 'no absolute/third-party endpoint');
+    assert.ok(!/XMLHttpRequest|axios/.test(src), 'a single transport');
+    assert.ok(REQUEST.indexOf("'/api/support/conversations'") !== -1, 'creates the native conversation');
+    assert.ok(REQUEST.indexOf("/api/support/conversations/' + convId + '/messages'") !== -1, 'posts the message');
+    assert.ok(/jwt_token/.test(SEND) && /jwt_token/.test(REQUEST), 'the API is only used with a session');
     assert.ok(!/ticket|createTicket|handoff|assignAgent/i.test(src), 'no fake ticketing/handoff system');
-    assert.ok(!/support\//.test(FALLBACK), 'no internal route is exposed');
+    assert.ok(!/support\//.test(FALLBACK), 'the fallback renders no internal route');
 });
 
 /* ------------------------------------------------------------------ *
