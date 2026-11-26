@@ -52,7 +52,7 @@ function fakeStore(map) {
 }
 
 function runReset(state, opts) {
-    const calls = { unread: [], cleared: 0 };
+    const calls = { unread: [], cleared: 0, watcher: 0 };
     const body = { innerHTML: 'A transcript', set(v) { this.innerHTML = v; } };
     const foot = { innerHTML: '<composer>' };
     const sandbox = {
@@ -60,7 +60,10 @@ function runReset(state, opts) {
         body,
         foot,
         setUnread: (n) => calls.unread.push(n),
-        clearInterval: () => { calls.cleared++; }
+        clearInterval: () => { calls.cleared++; },
+        // The closed-state unread watcher belongs to the account that started it:
+        // a reset must stop it or the next account's badge would inherit it.
+        stopBadgeWatcher: () => { calls.watcher++; }
     };
     vm.runInNewContext(fnSrc('resetAccountState') + '; resetAccountState();', sandbox);
     return { state, body, foot, calls };
@@ -186,7 +189,7 @@ test('state declares identity and generation', () => {
 test('sync() resets on an account change or when support is disabled', () => {
     const sync = NATIVE.slice(NATIVE.indexOf('    sync: function () {'), NATIVE.indexOf('    }\n', NATIVE.indexOf('    sync: function () {')));
     assert.match(sync, /var identity = enabled \? accountIdentity\(\) : null;/, 'support off resolves to no identity');
-    assert.match(sync, /if \(shouldResetAccount\(state\.identity, identity\)\) \{/, 'the reset is keyed on the identity, not on every sync');
+    assert.match(sync, /var accountChanged = shouldResetAccount\(state\.identity, identity\);/, 'the reset is keyed on the identity, not on every sync');
     assert.match(sync, /resetAccountState\(\);/, 'the reset actually runs');
     assert.match(sync, /state\.identity = identity;/, 'the new identity is recorded');
     assert.match(sync, /if \(enabled && identity && state\.open\) loadExisting\(\);/, 'an open panel hydrates only an AUTHENTICATED new account');
@@ -197,7 +200,7 @@ test('the same account syncing again does NOT reset (transcript preserved)', () 
     // The only reset call sits inside the identity-changed branch.
     const resetCalls = sync.split('resetAccountState();').length - 1;
     assert.strictEqual(resetCalls, 1);
-    assert.ok(sync.indexOf('if (shouldResetAccount(state.identity, identity)) {') < sync.indexOf('resetAccountState();'),
+    assert.ok(sync.indexOf('if (accountChanged) {') < sync.indexOf('resetAccountState();'),
         'the reset must be inside the identity check');
 });
 

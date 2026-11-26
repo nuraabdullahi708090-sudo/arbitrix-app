@@ -150,12 +150,18 @@
 
   function build() {
     if (root) return;
+    // A small circular affordance: the icon carries the meaning and the
+    // accessible name carries the words (plus the unread count). No permanent
+    // "Kalderix Support" label - the closed launcher is a button, not an advert.
     launcher = el('button', 'ns-launcher');
     launcher.type = 'button';
-    launcher.setAttribute('aria-label', tt('ns.title'));
-    launcher.appendChild(el('i', 'fas fa-comments'));
-    launcher.appendChild(el('span', null, tt('ns.title')));
+    launcher.setAttribute('aria-label', launcherLabel());
+    launcher.setAttribute('title', tt('ns.launcher'));
+    var icon = el('i', 'fas fa-comments');
+    icon.setAttribute('aria-hidden', 'true');
+    launcher.appendChild(icon);
     badge = el('span', 'ns-badge');
+    badge.setAttribute('aria-hidden', 'true');   // the count is in the aria-label
     badge.style.display = 'none';
     launcher.appendChild(badge);
     launcher.addEventListener('click', open);
@@ -362,6 +368,7 @@
   function resetAccountState() {
     state.generation++;
     if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    stopBadgeWatcher();
     state.conversationId = null;
     state.lastId = 0;
     state.started = false;
@@ -426,7 +433,7 @@
       }
       var list = (r.body && r.body.conversations) || [];
       var active = list.filter(function (c) { return c.status !== 'resolved'; })[0];
-      var unread = list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0);
+      var unread = unreadFrom(list);
       setUnread(unread);
       state.readFailures = 0;
       clearNotice();
@@ -481,7 +488,11 @@
       rows.forEach(function (row) { reconcileOrAppend(row); });
       // No "an agent joined" banner: the agent's own green bubble says so, and an
       // extra synthetic line would compete with the real transcript.
-      if (rows.length) markRead();
+      //
+      // READ RECEIPT: only after the rows above are on screen. A failed read
+      // returns before this point, so an outage can never mark a reply as read,
+      // and a background refresh (panel closed) never clears the badge at all.
+      if (state.open && (rows.length || state.unread > 0)) markRead();
     }).catch(function () {
       if (stale(gen)) return;
       state.readFailures++;
@@ -588,8 +599,14 @@
     });
   }
 
+  /**
+   * Read receipt. ONLY while the panel is open: the receipt means "the customer
+   * has this thread in front of them", so a background badge poll or a closed
+   * panel must never clear an unread reply.
+   */
   function markRead() {
     if (!state.conversationId) return;
+    if (!state.open) return;
     var gen = state.generation;
     call('/api/support/conversations/' + state.conversationId + '/read', { method: 'POST', body: {} }).then(function () { if (stale(gen)) return; setUnread(0); }).catch(function () {});
   }
@@ -606,15 +623,81 @@
     return call('/api/support/conversations').then(function (r) {
       if (stale(gen)) return;
       var list = (r.body && r.body.conversations) || [];
-      setUnread(list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0));
+      setUnread(unreadFrom(list));
     }).catch(function () {});
   }
 
+  // A badge wider than two digits would start to distort the circle, so the count
+  // is capped at 9+. The exact number is still spoken (see launcherLabel()).
+  var UNREAD_CAP = 9;
+  function unreadText(n) { return n > UNREAD_CAP ? UNREAD_CAP + '+' : String(n); }
+
+  function launcherLabel() {
+    var base = tt('ns.launcher');
+    if (!state.unread) return base;
+    return base + ', ' + tt('ns.unreadLabel', { count: state.unread });
+  }
+
+  // Closed-state unread watcher.
+  //
+  // The open panel polls the thread every 5s; while the panel is CLOSED the only
+  // way a reply could reach the launcher badge was a page load or a re-sync, so an
+  // agent answer could sit unseen for hours. This reuses the SAME conversation-list
+  // endpoint (the one sync() already calls) at a much lower frequency, and only
+  // while the messenger is the surface, the panel is closed and the tab is
+  // visible. One timer, guarded, stopped the moment the panel opens or the
+  // account/surface changes.
+  var badgeTimer = null;
+  var BADGE_POLL_MS = 25000;
+
+  function badgePollDue() {
+    if (state.surface !== 'native' || state.open) return false;
+    if (typeof document !== 'undefined' && document.hidden) return false;
+    return true;
+  }
+
+  function startBadgeWatcher() {
+    if (badgeTimer || typeof setInterval !== 'function') return;
+    if (!badgePollDue()) return;
+    badgeTimer = setInterval(function () {
+      if (!badgePollDue()) return;
+      refreshBadge(true);
+    }, BADGE_POLL_MS);
+  }
+
+  function stopBadgeWatcher() {
+    if (!badgeTimer) return;
+    if (typeof clearInterval === 'function') clearInterval(badgeTimer);
+    badgeTimer = null;
+  }
+
+  /**
+   * Unread for the threads this widget can actually SHOW.
+   *
+   * The badge and the read receipt must agree: the panel displays the newest
+   * non-resolved conversation, so counting a resolved thread's counter would
+   * produce a badge that opening the panel can never clear (and clearing it would
+   * mean marking a thread read that was never retrieved - exactly what the
+   * receipt must not do).
+   */
+  function unreadFrom(list) {
+    return (list || []).reduce(function (n, c) {
+      if (!c || c.status === 'resolved') return n;
+      return n + (Number(c.unread_for_customer) || 0);
+    }, 0);
+  }
+
   function setUnread(n) {
-    state.unread = Math.max(0, Number(n) || 0);
-    if (!badge) return;
-    badge.textContent = String(state.unread);
-    badge.style.display = state.unread > 0 ? 'inline-block' : 'none';
+    state.unread = Math.max(0, Math.floor(Number(n) || 0));
+    if (badge) {
+      // Nothing unread -> no text at all, so a hidden badge can never leak a
+      // stale "0" into the accessibility tree or into a layout measurement.
+      badge.textContent = state.unread > 0 ? unreadText(state.unread) : '';
+      badge.style.display = state.unread > 0 ? 'inline-block' : 'none';
+    }
+    if (launcher) launcher.setAttribute('aria-label', launcherLabel());
+    // The public counter mirrors the badge for any host code that reads it.
+    if (typeof NativeSupport !== 'undefined' && NativeSupport) NativeSupport.unread = state.unread;
   }
 
   function poll() {
@@ -623,7 +706,12 @@
   }
 
   function show() { if (launcher) launcher.classList.add('show'); }
-  function hideLauncher() { if (launcher) launcher.classList.remove('show'); if (root) root.classList.remove('open'); state.open = false; }
+  function hideLauncher() {
+    if (launcher) launcher.classList.remove('show');
+    if (root) root.classList.remove('open');
+    state.open = false;
+    stopBadgeWatcher();
+  }
 
   function open() {
     // The messenger opens ONLY on its own surface. Opening it while the legacy
@@ -635,6 +723,9 @@
     root.classList.add('open');
     state.open = true;
     if (launcher) launcher.classList.remove('show');
+    // The open panel reads the thread itself; the closed-state badge poller would
+    // only double the traffic.
+    stopBadgeWatcher();
     // Start (or restart) the incremental read: an agent reply must appear while
     // the panel sits open, without the customer sending anything. poll() is
     // idempotent, and it only ticks while `state.open` is true.
@@ -643,9 +734,10 @@
       loadExisting();
     } else {
       // Coming back to an open panel: read the WHOLE thread so anything that
-      // arrived meanwhile is on screen without waiting for the next poll.
+      // arrived meanwhile is on screen without waiting for the next poll. The read
+      // receipt is issued by refresh() once the rows are actually rendered - never
+      // here, where a failed fetch would clear the badge for a thread nobody saw.
       refresh({ full: true });
-      markRead();
     }
     return true;
   }
@@ -655,6 +747,9 @@
     state.open = false;
     show();
     refreshBadge(true);
+    // Closed again: keep watching for an agent reply so the badge can appear
+    // without the customer refreshing the page.
+    startBadgeWatcher();
   }
 
   var NativeSupport = {
@@ -669,9 +764,15 @@
     refresh: refresh,
     resync: resync,
     unread: 0,
+    // Read-only view of the two loops, so "no duplicate polling" is observable
+    // rather than assumed (used by tests and available in a browser console).
+    timers: function () { return { poll: !!state.timer, badge: !!badgeTimer }; },
     reloadLabels: function () {
       if (!root) return;
-      if (launcher) launcher.setAttribute('aria-label', tt('ns.title'));
+      if (launcher) {
+        launcher.setAttribute('title', tt('ns.launcher'));
+        launcher.setAttribute('aria-label', launcherLabel());
+      }
       if (notice) {
         var label = notice.querySelector('.ns-notice-text');
         if (label) label.textContent = tt('ns.reconnecting');
@@ -700,7 +801,8 @@
       // previous account's transcript, cursors or dedupe map. The same account
       // syncing again (page load, panel reopen, handler re-run) changes nothing,
       // so its transcript is preserved.
-      if (shouldResetAccount(state.identity, identity)) {
+      var accountChanged = shouldResetAccount(state.identity, identity);
+      if (accountChanged) {
         resetAccountState();
         state.identity = identity;
         // Only ever hydrate a transcript for an AUTHENTICATED identity: a reset
@@ -719,13 +821,29 @@
       // showing it there put a launcher pill on top of an open messenger - two
       // support surfaces on screen at once.
       if (!state.open) {
-        refreshBadge(false);
+        // A different account must get ITS unread count immediately, not after the
+        // 5s rate-limit window that the previous account's refresh opened.
+        refreshBadge(accountChanged);
         show();
+        startBadgeWatcher();
+      } else {
+        stopBadgeWatcher();
       }
     }
   };
   window.NativeSupport = NativeSupport;
   window.addEventListener('load', function () { setTimeout(function () { try { NativeSupport.sync(); } catch (e) {} }, 2500); });
+
+  // A backgrounded tab must not poll. On return, refresh once immediately (a
+  // reply may have arrived while hidden) and let the watcher resume.
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { stopBadgeWatcher(); return; }
+      if (state.surface !== 'native' || state.open) return;
+      refreshBadge(true);
+      startBadgeWatcher();
+    });
+  }
 })();
 
 
