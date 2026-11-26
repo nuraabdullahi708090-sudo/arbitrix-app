@@ -21,6 +21,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const NS = require('../services/NativeSupport');
+const { createSupportInboxBridge } = require('../services/SupportInboxBridge');
+const { routeUpdate } = require('../services/TelegramSupportService');
 require('../services/nativeSupportRoutes');
 
 const ROOT = path.join(__dirname, '..');
@@ -185,6 +187,44 @@ function makeDb(seed) {
             try { return { data: handler(params || {}), error: null }; }
             catch (e) { return { data: null, error: { code: e.code || 'P0001', message: e.message } }; }
         } };
+}
+
+// A database WITHOUT migration 061: `support_messages.via` and
+// `support_conversations.acknowledged_at` do not exist yet, so PostgREST rejects
+// any write that names them with 42703 - exactly what Postgres returns. This is
+// the shape production has until 061 is applied, so the behaviour must be known.
+function makePreMigrationDb() {
+    const inner = makeDb();
+    function reject(column, relation) {
+        const error = new Error('column "' + column + '" of relation "' + relation + '" does not exist');
+        error.code = '42703';
+        throw error;
+    }
+    return {
+        _tables: inner._tables,
+        rpc: (...args) => inner.rpc(...args),
+        from(table) {
+            const builder = inner.from(table);
+            const insert = builder.insert;
+            const update = builder.update;
+            builder.insert = (rows) => {
+                const list = Array.isArray(rows) ? rows : [rows];
+                if (table === 'support_messages'
+                    && list.some((r) => Object.prototype.hasOwnProperty.call(r, 'via'))) {
+                    reject('via', 'support_messages');
+                }
+                return insert(rows);
+            };
+            builder.update = (patch) => {
+                if (table === 'support_conversations'
+                    && Object.prototype.hasOwnProperty.call(patch, 'acknowledged_at')) {
+                    reject('acknowledged_at', 'support_conversations');
+                }
+                return update(patch);
+            };
+            return builder;
+        }
+    };
 }
 
 function makeService(overrides) {
@@ -415,4 +455,246 @@ test('20. migration 060 is additive, idempotent and cannot delete history', () =
     assert.match(sql, /support_messages_default_via_trg/);
     assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|TRUNCATE/i, 'no destructive statement');
     assert.match(sql, /RAISE EXCEPTION '061_human_only_support incomplete/, 'self-checking');
+});
+
+// ------------------------------------------- migration 061 deployment contract
+
+test('21. before migration 061 the customer message still survives, but agent replies are refused', async () => {
+    const db = makePreMigrationDb();
+    const service = NS.createNativeSupportService({ supabase: db, logger: { warn() {} } });
+
+    const sent = await service.sendCustomerMessage({ userId: 30, body: 'Where is my deposit?' });
+    assert.strictEqual(sent.ok, true, 'the customer message is persisted regardless of the schema');
+    assert.strictEqual(sent.reply, null, 'the acknowledgement is skipped, not invented');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1);
+
+    // 061 is REQUIRED for the reply path: `via` is written on every agent message.
+    // Merging the code before applying 061 would leave agents unable to reply.
+    assert.strictEqual((await service.sendAgentMessage({ adminId: 900, conversationId: sent.conversationId, body: 'Dashboard reply' })).reason, 'unavailable');
+    assert.strictEqual((await service.sendChannelReply({ conversationId: sent.conversationId, body: 'Telegram reply' })).reason, 'unavailable');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 0,
+        'nothing partial is stored when the write is rejected');
+});
+
+// --------------------------------------- single-administrator end-to-end flow
+// The REAL service and the REAL bridge over one database, wired exactly as
+// server.js wires them: one administrator, notifications to that administrator's
+// personal chat (no TELEGRAM_SUPPORT_CHAT_ID).
+
+const CUSTOMER_ID = 4242;
+const ADMIN_TELEGRAM_ID = '424242';
+
+function singleAdminHarness(opts) {
+    const o = opts || {};
+    const db = o.db || makeDb();
+    let nextTelegramId = 700;
+    const sent = [];
+    const state = { lastMessageId: null };
+    const transport = {
+        sent,
+        async sendMessage(chatId, text) {
+            if (o.transportFails) throw new Error('telegram is down');
+            sent.push({ chatId: String(chatId), text });
+            state.lastMessageId = nextTelegramId++;
+            return { ok: true, messageId: state.lastMessageId };
+        }
+    };
+    const service = NS.createNativeSupportService({
+        supabase: db,
+        logger: { warn() {} },
+        notify: async () => {},
+        notifyAdmins: async (conversation, message) => {
+            // Same contract as server.js: the alert can never fail the send.
+            try { await bridge.notifyConversation(conversation, message); } catch (err) { /* wrapped */ }
+        }
+    });
+    const bridge = createSupportInboxBridge({
+        getService: () => service,
+        transport,
+        config: { adminIds: [ADMIN_TELEGRAM_ID], supportChatId: null },
+        lookupCustomer: async (id) => ({ id, name: 'Jane Doe', email: 'jane@example.com' }),
+        logger: { warn() {} }
+    });
+    return {
+        db, service, bridge, transport, sent,
+        // The Telegram message id the bridge will have recorded for the last send,
+        // i.e. the message an operator would swipe-reply to.
+        get lastMessageId() { return state.lastMessageId; }
+    };
+}
+
+function adminRoute(overrides) {
+    return Object.assign({
+        kind: 'admin', chatId: ADMIN_TELEGRAM_ID, chatType: 'private',
+        fromId: ADMIN_TELEGRAM_ID, isAdmin: true, messageId: '9001',
+        replyToMessageId: null, text: ''
+    }, overrides || {});
+}
+
+test('22. one administrator is notified in their personal chat, after the message is stored', async () => {
+    const h = singleAdminHarness();
+    const sent = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'My deposit is missing.' });
+    assert.strictEqual(sent.ok, true);
+
+    assert.strictEqual(h.sent.length, 1, 'exactly one notification for one administrator');
+    assert.strictEqual(h.sent[0].chatId, ADMIN_TELEGRAM_ID, 'delivered to the personal chat (chat id == user id)');
+    assert.match(h.sent[0].text, new RegExp('New support message #' + sent.conversationId));
+    assert.match(h.sent[0].text, /jane@example\.com/);
+    assert.match(h.sent[0].text, /My deposit is missing\./);
+
+    const rows = h.db._tables.support_messages.filter((m) => m.conversation_id === sent.conversationId);
+    assert.deepStrictEqual(rows.map((r) => r.sender_type), ['customer', 'system'], 'stored, then acknowledged');
+    assert.ok(h.db._tables.support_messages[0].id < 1e9, 'the customer row exists before any notification outcome matters');
+});
+
+test('23. replying to that notification answers the right customer conversation', async () => {
+    const h = singleAdminHarness();
+    const first = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question one' });
+    const firstNotification = String(h.lastMessageId);
+    const second = await h.service.sendCustomerMessage({ userId: 9999, body: 'Other customer' });
+    const secondNotification = String(h.lastMessageId);
+    assert.notStrictEqual(firstNotification, secondNotification, 'each notification has its own message id');
+
+    // The operator replies to the FIRST notification, with another one on screen.
+    const out = await h.bridge.tryHandle(adminRoute({
+        text: 'I can see your deposit, it is being confirmed.',
+        replyToMessageId: firstNotification
+    }), {});
+    assert.strictEqual(out.handled, true);
+    assert.strictEqual(out.conversationId, first.conversationId, 'routed to the notifying conversation');
+
+    const agentRows = h.db._tables.support_messages.filter((m) => m.sender_type === 'agent');
+    assert.strictEqual(agentRows.length, 1);
+    assert.strictEqual(agentRows[0].via, 'telegram');
+    assert.strictEqual(agentRows[0].conversation_id, first.conversationId, 'not the other customer');
+    assert.strictEqual(
+        h.db._tables.support_messages.filter((m) => m.conversation_id === second.conversationId && m.sender_type === 'agent').length,
+        0,
+        'the other customer received nothing'
+    );
+
+    // ...and the dashboard sees the very same message.
+    const dashboard = await h.service.getConversationForAdmin(first.conversationId);
+    assert.ok(dashboard.messages.some((m) => m.id === agentRows[0].id), 'one shared thread');
+});
+
+test('24. /kxreply delivers to the named conversation, and a bad id is refused', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+    await h.bridge.tryHandle(adminRoute({ text: '/kxreply ' + conv.conversationId + ' Here is the answer.' }), {});
+    const agent = h.db._tables.support_messages.filter((m) => m.sender_type === 'agent');
+    assert.strictEqual(agent.length, 1);
+    assert.strictEqual(agent[0].body, 'Here is the answer.');
+
+    const before = h.db._tables.support_messages.length;
+    const bad = await h.bridge.tryHandle(adminRoute({ messageId: '9002', text: '/kxreply 999999 nowhere' }), {});
+    assert.strictEqual(bad.ok, false);
+    assert.match(h.transport.sent[h.transport.sent.length - 1].text, /Could not deliver/);
+    assert.strictEqual(h.db._tables.support_messages.length, before, 'nothing is written for an unknown conversation');
+});
+
+test('25. a duplicate Telegram delivery cannot duplicate the support message', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+    const route = adminRoute({ messageId: '9100', text: '/kxreply ' + conv.conversationId + ' Only once.' });
+
+    const first = await h.bridge.tryHandle(route, {});
+    const second = await h.bridge.tryHandle(route, {});   // the same update redelivered
+    assert.strictEqual(first.ok, true);
+    assert.strictEqual(second.duplicate, true);
+    assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 1);
+    assert.match(h.transport.sent[h.transport.sent.length - 1].text, /Already delivered/);
+});
+
+test('26. /kxresolve closes only the intended conversation', async () => {
+    const h = singleAdminHarness();
+    const one = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'First' });
+    const two = await h.service.sendCustomerMessage({ userId: 5555, body: 'Second' });
+
+    const out = await h.bridge.tryHandle(adminRoute({ text: '/kxresolve ' + one.conversationId }), {});
+    assert.strictEqual(out.ok, true);
+    const statuses = h.db._tables.support_conversations.map((c) => [c.id, c.status]);
+    assert.strictEqual(statuses.find(([id]) => id === one.conversationId)[1], 'resolved');
+    assert.notStrictEqual(statuses.find(([id]) => id === two.conversationId)[1], 'resolved');
+});
+
+test('27. a Telegram outage never loses the customer message', async () => {
+    const h = singleAdminHarness({ transportFails: true });
+    const sent = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Anyone there?' });
+    assert.strictEqual(sent.ok, true);
+    const rows = h.db._tables.support_messages.filter((m) => m.conversation_id === sent.conversationId);
+    assert.strictEqual(rows.filter((m) => m.sender_type === 'customer').length, 1, 'the question is stored');
+    assert.strictEqual(rows.filter((m) => m.sender_type === 'system').length, 1, 'the customer is still acknowledged');
+});
+
+test('28. only the configured administrator id can issue support commands', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+    for (const fromId of ['111', '222', null]) {
+        const out = await h.bridge.tryHandle(adminRoute({ fromId, text: '/kxreply ' + conv.conversationId + ' intruder' }), {});
+        assert.strictEqual(out, null, 'not handled');
+    }
+    assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 0,
+        'nothing is delivered for an unauthorised sender');
+});
+
+test('29. the whole single-administrator flow is human-only', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Do you answer automatically?' });
+    await h.bridge.tryHandle(adminRoute({ text: '/kxreply ' + conv.conversationId + ' A human is here.' }), {});
+    const kinds = h.db._tables.support_messages.map((m) => m.sender_type);
+    assert.strictEqual(kinds.includes('ai'), false, 'no automated participant anywhere');
+    assert.deepStrictEqual(kinds, ['customer', 'system', 'agent']);
+});
+
+// ------------------------------------------------- single-administrator config
+
+test('30. a private message from the administrator is classified as an operator by default', () => {
+    const update = {
+        message: {
+            message_id: 1,
+            chat: { id: Number(ADMIN_TELEGRAM_ID), type: 'private' },
+            from: { id: Number(ADMIN_TELEGRAM_ID), is_bot: false },
+            text: 'hello'
+        }
+    };
+    const withDefault = routeUpdate(update, { adminIds: [ADMIN_TELEGRAM_ID], supportChatId: null });
+    assert.strictEqual(withDefault.kind, 'admin', 'the single administrator gets the operator handler');
+    assert.strictEqual(withDefault.isAdmin, true);
+});
+
+test('31. every route is gated: customers by auth, administrators by auth + admin, all by the flag', () => {
+    const { registerNativeSupportRoutes } = require('../services/nativeSupportRoutes');
+    const routes = [];
+    const app = {
+        get(path, ...mw) { routes.push({ method: 'GET', path, mw }); },
+        post(path, ...mw) { routes.push({ method: 'POST', path, mw }); },
+        delete(path, ...mw) { routes.push({ method: 'DELETE', path, mw }); }
+    };
+    function authMw() {}
+    function adminMw() {}
+    registerNativeSupportRoutes(app, {
+        support: {}, authMiddleware: authMw, adminMiddleware: adminMw,
+        supabaseAdmin: {}, isEnabled: () => true
+    });
+
+    assert.ok(routes.length >= 15, 'the whole surface is registered');
+    const customers = routes.filter((r) => r.path.indexOf('/api/support/') === 0);
+    const admins = routes.filter((r) => r.path.indexOf('/api/admin/support/') === 0);
+    assert.ok(customers.length >= 6 && admins.length >= 8, 'both surfaces exist');
+
+    for (const r of routes) {
+        assert.strictEqual(r.mw[1], authMw, r.path + ' requires an authenticated session');
+    }
+    for (const r of customers) {
+        assert.strictEqual(r.mw.includes(adminMw), false, r.path + ' is not admin-only');
+    }
+    for (const r of admins) {
+        assert.strictEqual(r.mw[2], adminMw, r.path + ' requires an administrator');
+    }
+    // No route trusts a client-supplied customer id: none of them read req.query/body
+    // for the actor. Pinned at the source level (the route bodies are one-liners).
+    const src = fs.readFileSync(path.join(__dirname, '..', 'services', 'nativeSupportRoutes.js'), 'utf8');
+    assert.strictEqual(/userId:\s*(req\.query|req\.body)/.test(src), false, 'the customer id comes from the JWT only');
+    assert.match(src, /userId: req\.user\.id/, 'customer reads use the verified JWT');
 });
