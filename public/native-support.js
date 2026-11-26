@@ -8,7 +8,8 @@
 (function () {
   'use strict';
   var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, categories: null, started: false,
-    seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null };
+    seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null,
+    identity: null, generation: 0 };
 
   function token() { try { return localStorage.getItem('jwt_token') || ''; } catch (e) { return ''; } }
   function tt(key, vars) { try { return typeof t === 'function' ? t(key, vars) : key; } catch (e) { return key; } }
@@ -170,13 +171,57 @@
     appendMessage(row);
   }
 
+  // The account this panel's state belongs to. A logout/login in the same tab
+  // reuses this DOM, so every account-scoped field below must be tied to it.
+  function accountIdentity() {
+    try {
+      var raw = localStorage.getItem('arbi_user');
+      if (raw) {
+        var user = JSON.parse(raw);
+        if (user && user.id != null) return 'u' + user.id;
+      }
+    } catch (e) {}
+    try {
+      var tok = localStorage.getItem('jwt_token');
+      if (tok) {
+        var h = 0;
+        for (var i = 0; i < tok.length; i++) h = (h * 31 + tok.charCodeAt(i)) | 0;
+        return 'k' + (h >>> 0).toString(36);
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // Drop EVERYTHING scoped to the previous account: cursors, dedupe map, in-flight
+  // pointers and the rendered transcript. `generation` makes any response that is
+  // still in flight for the old account get discarded instead of rendered.
+  function resetAccountState() {
+    state.generation++;
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    state.conversationId = null;
+    state.lastId = 0;
+    state.started = false;
+    state.sending = false;
+    state.seen = Object.create(null);
+    state.pendingNode = null;
+    state.pendingClientId = null;
+    state.pendingText = null;
+    setUnread(0);
+    if (body) body.innerHTML = '';
+    if (foot) foot.innerHTML = '';
+  }
+
+  function stale(gen) { return gen !== state.generation; }
+
   function start(category) {
+    var gen = state.generation;
     state.started = true;
     body.innerHTML = '';
     appendMessage({ sender_type: 'system', body: tt('ns.welcome'), created_at: new Date().toISOString() });
     renderComposer();
     call('/api/support/conversations', { method: 'POST', body: { category: category, language: (typeof currentLang === 'string' ? currentLang : 'en') } })
       .then(function (r) {
+        if (stale(gen)) return;
         if (r.ok && r.body && r.body.conversation) {
           state.conversationId = r.body.conversation.id;
           markRead();
@@ -185,11 +230,16 @@
           appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
         }
       })
-      .catch(function () { appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() }); });
+      .catch(function () {
+        if (stale(gen)) return;
+        appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
+      });
   }
 
   function loadExisting() {
+    var gen = state.generation;
     return call('/api/support/conversations').then(function (r) {
+      if (stale(gen)) return;
       var list = (r.body && r.body.conversations) || [];
       var active = list.filter(function (c) { return c.status !== 'resolved'; })[0];
       var unread = list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0);
@@ -205,7 +255,9 @@
 
   function refresh() {
     if (!state.conversationId) return Promise.resolve();
+    var gen = state.generation;
     return call('/api/support/conversations/' + state.conversationId + '/messages?after=' + state.lastId).then(function (r) {
+      if (stale(gen)) return;
       var rows = (r.body && r.body.messages) || [];
       rows.forEach(function (row) { reconcileOrAppend(row); });
       if (rows.length) {
@@ -223,6 +275,7 @@
     // One in-flight message per panel: a second click/Enter while the first POST
     // is pending is ignored (the server would store it as a separate message).
     if (!state.conversationId || state.sending) return;
+    var gen = state.generation;
     state.sending = true;
     setSending(true);
     var clientId = 'c' + Date.now() + Math.random().toString(36).slice(2, 8);
@@ -241,6 +294,7 @@
     call('/api/support/conversations/' + state.conversationId + '/messages', {
       method: 'POST', body: { body: text, clientMessageId: clientId }
     }).then(function (r) {
+      if (stale(gen)) return;
       state.sending = false;
       setSending(false);
       if (!r.ok) {
@@ -270,6 +324,7 @@
       clearPending();
       if (r.body && r.body.reply) appendMessage(r.body.reply);
     }).catch(function () {
+      if (stale(gen)) return;
       state.sending = false;
       setSending(false);
       node.className = 'ns-msg customer pending failed';
@@ -280,8 +335,10 @@
 
   function requestHuman() {
     if (!state.conversationId) return;
+    var gen = state.generation;
     call('/api/support/conversations/' + state.conversationId + '/human', { method: 'POST', body: {} })
       .then(function (r) {
+        if (stale(gen)) return;
         if (r.ok && r.body.message) appendMessage(r.body.message);
         else appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
       }).catch(function () {});
@@ -300,7 +357,9 @@
     var now = Date.now();
     if (!force && now - lastBadgeAt < 5000) return Promise.resolve();
     lastBadgeAt = now;
+    var gen = state.generation;
     return call('/api/support/conversations').then(function (r) {
+      if (stale(gen)) return;
       var list = (r.body && r.body.conversations) || [];
       setUnread(list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0));
     }).catch(function () {});
@@ -353,7 +412,17 @@
     // duplicate nodes or listeners are created by repeated calls.
     sync: function () {
       var enabled = (typeof APP !== 'undefined' && APP && APP.nativeSupport === true);
+      var identity = enabled ? accountIdentity() : null;
       if (document.body) document.body.classList.toggle('ns-enabled', enabled);
+      // A different account - or support switched off - must not inherit the
+      // previous account's transcript, cursors or dedupe map. The same account
+      // syncing again (page load, panel reopen, handler re-run) changes nothing,
+      // so its transcript is preserved.
+      if (identity !== state.identity) {
+        resetAccountState();
+        state.identity = identity;
+        if (enabled && state.open) loadExisting();
+      }
       if (!enabled) {
         if (state.timer) { clearInterval(state.timer); state.timer = null; }
         hideLauncher();
