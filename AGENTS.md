@@ -10696,3 +10696,50 @@ npm test = 4085 tests, 4084 pass, 0 fail, 1 skipped (baseline 4083/4082/0/1).
 - Migration 060 is NOT applied to production. Until it is, a customer who selects es / fr /
   zh triggers a 23514 on the language write, so the webhook answers 500 (Telegram retries)
   and NO false confirmation is sent - apply 060 before deploying this build.
+
+## Support widget: duplicates, repeated greeting, cross-account isolation (PR #218, merged 2026-11-26)
+- Merge commit `699ad07` (branch `fix/support-widget-duplicate-messages`, 3 commits).
+  Deployed to https://arbitrix.pro by Render in ~60s; the served `public/native-support.js`
+  and `public/index.html` are byte-identical to the merged files.
+- THREE related defects, two surfaces:
+  1. LEGACY widget (`#supportPanel` in public/index.html): quick-reply + Enter handlers are
+     bound in `initApp()` with no idempotence guard. `logout()` sets `appReady=false`, so a
+     re-login re-runs `initApp()` against the same markup and DOUBLES the handlers; because
+     each quick-reply handler re-fills the input from `data-msg` before sending, one click
+     posted the message twice -> two identical AI answers. Fixed with `dataset.supportBound`.
+     Typed questions were never affected (the input is cleared synchronously).
+  2. NATIVE panel (`public/native-support.js`): `renderChooser()` showed `ns.welcome` AND
+     `start()` appended the same text as the first system bubble, so picking a topic looked
+     like a restart. The greeting now renders from the transcript only.
+  3. NATIVE panel state was not account-scoped: after A logged out and B logged in on the same
+     tab, B could read A's transcript.
+- Identity model (final): `accountIdentity()` returns `'s:' + localStorage.jwt_token` (exact
+  comparison, no hash) or null; `shouldResetAccount()` decides; `resetAccountState()` clears
+  conversationId/lastId/started/sending/seen/pending, stops the timer, empties body+foot and
+  bumps `state.generation`. Every render continuation checks `stale(gen)`. Hydration requires
+  an authenticated identity.
+- THE STALE-CACHE TRAP (found by security review): keying on `arbi_user` looked correct but
+  `arbi_user`=A + `jwt_token`=B compared EQUAL on both sides of the switch, so no reset ran
+  and B saw A's messages; a 6.5s answer in flight then painted into B's panel. Never derive
+  an identity from a cached profile; use the credential that the API authenticates with.
+- Tests: `tests/support_widget_no_duplicates.test.js` (11) and
+  `tests/support_cross_account_isolation.test.js` (17). Full suite 4244 / 4243 pass / 1 skip.
+
+## In-app support dead-ended every question (PR #219, 2026-11-26)
+- `services/NativeSupport.js:composeAiReply()` asked ONLY `opts.ai`, which
+  server.js builds via `createSupportAIServiceSafely()` - null unless
+  `AI_SUPPORT_ENABLED` is exactly 'true' (default OFF). The Telegram bot has
+  `answerFromKnowledge()` for that state; the in-app path had nothing, so every
+  factual question returned `FALLBACK_COPY.aiUnavailable`.
+- Evidence: with the flag off the real pipeline answers "What is the minimum
+  platform deposit?" with "Thanks for your message..." while the same service with
+  the flag on answers "The minimum deposit is $50...". KB: v1.0.0, 49 entries,
+  retrieval scores 3-7 vs threshold 2 -> the KB, loading and thresholds are fine.
+  Boot line to check in Render: `[SupportAI] enabled (provider=knowledge,
+  knowledge v1.0.0, 49 entries)` (absent = no AI layer).
+- Fix: when no AI layer exists, fall back to the SAME SupportAIService with its
+  OFFLINE knowledge provider (no model/key/network) instead of hand-rolled
+  retrieval - the latter picks a worse entry (e.g. deposits.how_to instead of
+  deposits.minimum) because it skips intent detection and guardrails.
+- Non-English is unaffected by the flag but needs SUPPORT_TRANSLATION_ENABLED + a
+  provider credential; without it they receive the localized handoff, never English.

@@ -126,10 +126,13 @@ const { registerNativeSupportRoutes } = require('./services/nativeSupportRoutes'
 const SupportConversationEngine = require('./services/support/ConversationEngine');
 const telegramSupportI18n = require('./services/telegram-i18n');
 
-// Stage 2: AI customer-support layer for the Telegram bot. Answering is OFF
-// unless AI_SUPPORT_ENABLED=true (see .env.example); with no key and no flag the
-// bot answers exactly as before. The service only READS approved knowledge and
-// returns text - it has no database, trading, withdrawal or account access.
+// Stage 2: AI customer-support layer (Telegram bot + in-app widget).
+// AI_SUPPORT_ENABLED=true enables EXTERNAL model answering; with the flag off
+// (the default) no model is called and no AI credits are spent, but both
+// surfaces still answer from the APPROVED KNOWLEDGE BASE offline, through this
+// same service running its 'knowledge' provider (see services/NativeSupport.js).
+// The service only READS approved knowledge and returns text - it has no
+// database, trading, withdrawal or account access.
 const { createSupportAIService, resolveSupportAIConfig } = require('./services/support/SupportAIService');
 // Multilingual translation for the Telegram support bot (customer <-> English
 // operator). Its own gate (SUPPORT_TRANSLATION_ENABLED) so the operator workflow

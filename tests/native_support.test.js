@@ -707,3 +707,121 @@ test('33. without the locked RPC the turn is parked for a human with a hand-off 
     assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'));
     assert.strictEqual(conv.context_version, 0, 'no context was advanced without the RPC');
 });
+
+// ------------------------------------- knowledge answers without the AI layer
+// AI_SUPPORT_ENABLED is OFF by default (and was unset in production), and the
+// in-app path used to answer EVERY factual question with "a support agent will
+// reply here shortly" because only the Telegram bot had a knowledge fallback.
+// These tests run the REAL service with `ai: null` and the AI flag off.
+
+test('K1 with no AI layer the five brief questions are answered from approved knowledge', async () => {
+    assert.notStrictEqual(String(process.env.AI_SUPPORT_ENABLED || '').toLowerCase(), 'true',
+        'this contract is about the AI-off state');
+    const cases = [
+        ['What is Kalderix?', /arbitrage/i],
+        ['How does Kalderix work?', /arbitrage/i],
+        ['What is the minimum platform deposit?', /\$50/],
+        ['What is Demo Mode?', /virtual funds/i],
+        ['How do I start Live Mode?', /Live balance|real funds/i]
+    ];
+    for (let i = 0; i < cases.length; i += 1) {
+        const question = cases[i][0];
+        const expected = cases[i][1];
+        const { service } = makeService({ options: { ai: null } });
+        const out = await service.sendCustomerMessage({
+            userId: 30 + i, body: question, clientMessageId: 'k1-' + i
+        });
+        assert.strictEqual(out.ok, true, question);
+        const body = String(out.reply && out.reply.body);
+        assert.doesNotMatch(body, /support agent will reply here/i, question + ' must not dead-end');
+        assert.match(body, expected, question);
+        assert.strictEqual(out.reply.sender_type, 'ai', question + ' is answered by the assistant');
+    }
+});
+
+test('K2 a question the knowledge base does not cover still hands off to a human', async () => {
+    const { service, db } = makeService({ options: { ai: null } });
+    const out = await service.sendCustomerMessage({
+        userId: 44, body: 'What is the weather in Reykjavik tomorrow?', clientMessageId: 'k2'
+    });
+    assert.strictEqual(out.ok, true);
+    assert.match(String(out.reply.body), /do not have an approved answer/i,
+        'honest handoff wording, never an invented answer');
+    assert.strictEqual(out.reply.sender_type, 'system', 'a handoff notice, not an AI answer');
+    assert.ok(db._tables.support_messages.some((m) => m.sender_type === 'system'), 'the thread is parked for a human');
+});
+
+test('K3 a configured AI layer still answers, and is preferred over the fallback', async () => {
+    const { service, db } = makeService();
+    const out = await service.sendCustomerMessage({ userId: 45, body: 'What is Kalderix?', clientMessageId: 'k3' });
+    assert.strictEqual(String(out.reply.body), 'Approved answer about deposits.', 'the injected AI answer wins');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 1);
+});
+
+test('K4 the knowledge fallback never ships English to a non-English conversation', async () => {
+    const { service } = makeService({ options: { ai: null } });
+    const created = await service.getOrCreateConversation(46, { category: 'general', language: 'pt' });
+    assert.strictEqual(created.ok, true);
+    const out = await service.sendCustomerMessage({ userId: 46, body: 'What is Kalderix?', clientMessageId: 'k4' });
+    const body = String(out.reply.body);
+    assert.strictEqual(body, NS.copyFor('pt', 'aiUnavailable'),
+        'without a translator the customer gets the localized human handoff, never the English answer');
+});
+
+test('K5 with a translator the knowledge answer is localized', async () => {
+    const translator = {
+        fromEnglish: async (text, language) => ({ ok: true, text: '[' + language + '] ' + text }),
+        isAvailable: () => true
+    };
+    const { service } = makeService({ options: { ai: null, translator: translator } });
+    await service.getOrCreateConversation(47, { category: 'general', language: 'pt' });
+    const out = await service.sendCustomerMessage({ userId: 47, body: 'What is Kalderix?', clientMessageId: 'k5' });
+    const body = String(out.reply.body);
+    assert.match(body, /^\[pt\] /, 'the approved answer is localized for the customer');
+    assert.match(body, /arbitrage/i, 'and it is still the approved wording');
+});
+
+test('K6 the fallback is offline: it constructs the knowledge provider, never a model', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'services/NativeSupport.js'), 'utf8');
+    assert.match(src, /AI_SUPPORT_PROVIDER: 'knowledge'/, 'the fallback pins the offline provider');
+    assert.match(src, /const responder = \(ai && typeof ai\.ask === 'function'\) \? ai : knowledgeResponder\(\);/,
+        'a configured AI layer is always preferred');
+    assert.doesNotMatch(src, /api\.openai|api\.deepseek|api\.anthropic/, 'no provider endpoint is called from here');
+});
+
+test('K7 the fallback ignores an ambient external provider and never calls the network', async () => {
+    // Even with a model provider and key present in the environment, the fallback
+    // must stay on the offline knowledge provider: no calls, no credits, no key.
+    const saved = {};
+    ['AI_SUPPORT_ENABLED', 'AI_SUPPORT_PROVIDER', 'AI_SUPPORT_API_KEY'].forEach((k) => { saved[k] = process.env[k]; });
+    const realFetch = global.fetch;
+    let calls = 0;
+    global.fetch = function () { calls += 1; throw new Error('network disabled in this test'); };
+    process.env.AI_SUPPORT_ENABLED = 'true';
+    process.env.AI_SUPPORT_PROVIDER = 'deepseek';
+    process.env.AI_SUPPORT_API_KEY = 'sk-test-not-a-real-key';
+    try {
+        const { service } = makeService({ options: { ai: null } });
+        const out = await service.sendCustomerMessage({ userId: 50, body: 'What is Kalderix?', clientMessageId: 'k7' });
+        assert.strictEqual(calls, 0, 'no provider request, so no external credits');
+        assert.doesNotMatch(String(out.reply.body), /sk-test/, 'the key never reaches the customer');
+        assert.match(String(out.reply.body), /arbitrage|Kalderix/i, 'answered from approved knowledge');
+    } finally {
+        Object.keys(saved).forEach((k) => {
+            if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
+        });
+        global.fetch = realFetch;
+    }
+});
+
+test('K8 the AI switch is documented as EXTERNAL answering; knowledge stays offline', () => {
+    const env = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
+    assert.match(env, /WHAT THIS SWITCH CONTROLS: external \(model\) answering/,
+        'the switch is described as the model switch');
+    assert.match(env, /still answer from the approved knowledge base/,
+        'and states that knowledge answering continues without it');
+    assert.doesNotMatch(env, /Must be exactly "true" to enable answering/,
+        'the stale "answering is off" claim is gone');
+    const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+    assert.match(server, /AI_SUPPORT_ENABLED=true enables EXTERNAL model answering/);
+});
