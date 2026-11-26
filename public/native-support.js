@@ -171,25 +171,28 @@
     appendMessage(row);
   }
 
-  // The account this panel's state belongs to. A logout/login in the same tab
-  // reuses this DOM, so every account-scoped field below must be tied to it.
+  // The account this panel's state belongs to.
+  //
+  // The session token is the ONLY value that is (a) written by every login path,
+  // (b) removed on logout and (c) actually authenticated by the API - so it is
+  // compared IN FULL. Two deliberate choices, both for isolation safety:
+  //   * the cached `arbi_user` profile is NOT used: it can lag behind a real
+  //     account switch, and a stale id would make the comparison report "same
+  //     account" for a different one;
+  //   * no hash/fingerprint is taken: an exact comparison has no collision space
+  //     at all, so two sessions can never be mistaken for each other.
+  // A missing/unreadable token yields null (signed out), which never equals a
+  // real identity, so the panel is reset rather than inherited.
   function accountIdentity() {
-    try {
-      var raw = localStorage.getItem('arbi_user');
-      if (raw) {
-        var user = JSON.parse(raw);
-        if (user && user.id != null) return 'u' + user.id;
-      }
-    } catch (e) {}
-    try {
-      var tok = localStorage.getItem('jwt_token');
-      if (tok) {
-        var h = 0;
-        for (var i = 0; i < tok.length; i++) h = (h * 31 + tok.charCodeAt(i)) | 0;
-        return 'k' + (h >>> 0).toString(36);
-      }
-    } catch (e) {}
-    return null;
+    var token = '';
+    try { token = localStorage.getItem('jwt_token') || ''; } catch (e) { return null; }
+    if (!token) return null;
+    return 's:' + token;
+  }
+
+  // The single place that decides "this is a different account / signed out".
+  function shouldResetAccount(previousIdentity, nextIdentity) {
+    return nextIdentity !== previousIdentity;
   }
 
   // Drop EVERYTHING scoped to the previous account: cursors, dedupe map, in-flight
@@ -346,7 +349,8 @@
 
   function markRead() {
     if (!state.conversationId) return;
-    call('/api/support/conversations/' + state.conversationId + '/read', { method: 'POST', body: {} }).then(function () { setUnread(0); }).catch(function () {});
+    var gen = state.generation;
+    call('/api/support/conversations/' + state.conversationId + '/read', { method: 'POST', body: {} }).then(function () { if (stale(gen)) return; setUnread(0); }).catch(function () {});
   }
 
   var lastBadgeAt = 0;
@@ -418,10 +422,13 @@
       // previous account's transcript, cursors or dedupe map. The same account
       // syncing again (page load, panel reopen, handler re-run) changes nothing,
       // so its transcript is preserved.
-      if (identity !== state.identity) {
+      if (shouldResetAccount(state.identity, identity)) {
         resetAccountState();
         state.identity = identity;
-        if (enabled && state.open) loadExisting();
+        // Only ever hydrate a transcript for an AUTHENTICATED identity: a reset
+        // caused by a missing/unreadable session must leave the panel empty
+        // rather than fetch with no credentials.
+        if (enabled && identity && state.open) loadExisting();
       }
       if (!enabled) {
         if (state.timer) { clearInterval(state.timer); state.timer = null; }

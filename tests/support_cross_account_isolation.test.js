@@ -85,31 +85,59 @@ function freshState() {
 }
 
 // ---------------------------------------------------------------------------
-// Identity detection
+// Identity detection (security review of the original implementation)
 // ---------------------------------------------------------------------------
 
-test('identity: the cached user id wins', () => {
-    assert.strictEqual(runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 42 }), jwt_token: 'tok' })), 'u42');
+test('identity is derived from the session token, in full - not from the cached profile', () => {
+    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MX0.signature-part';
+    const id = runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 42 }), jwt_token: token }));
+    assert.strictEqual(id, 's:' + token, 'exact comparison: no id, no hash, no collision space');
+    assert.doesNotMatch(id, /^u/, 'the cached user id is not part of the identity');
 });
 
-test('identity: falls back to a stable token fingerprint without a cached profile', () => {
-    const a = runIdentity(fakeStore({ jwt_token: 'token-a' }));
-    const b = runIdentity(fakeStore({ jwt_token: 'token-b' }));
-    assert.match(a, /^k[0-9a-z]+$/, 'a token fingerprint is used');
-    assert.strictEqual(a, runIdentity(fakeStore({ jwt_token: 'token-a' })), 'same token = same identity');
-    assert.notStrictEqual(a, b, 'a different session is a different identity');
+test('Q1: a STALE arbi_user cannot mask a real account switch', () => {
+    // Account A was signed in: token A + cached profile A.
+    const asA = runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 1 }), jwt_token: 'token-A' }));
+    // Account B signs in on the same tab but the cached profile still says A.
+    const staleCache = runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 1 }), jwt_token: 'token-B' }));
+    assert.notStrictEqual(staleCache, asA, 'the switch must be detected from the token alone');
+    const reset = vm.runInNewContext(fnSrc('shouldResetAccount') + '; shouldResetAccount(a, b);', { a: asA, b: staleCache });
+    assert.strictEqual(reset, true, 'sync() must therefore reset the panel');
 });
 
-test('identity: signed out (or malformed cache) is null / still distinguishable', () => {
-    assert.strictEqual(runIdentity(fakeStore({})), null);
-    const malformed = runIdentity(fakeStore({ arbi_user: '{not json', jwt_token: 'tok' }));
-    assert.match(malformed, /^k[0-9a-z]+$/, 'a broken cache falls back to the token');
+test('Q2: no fingerprint, so there is no collision space to reason about', () => {
+    const long = 'x'.repeat(400) + 'A';
+    assert.strictEqual(runIdentity(fakeStore({ jwt_token: long })), 's:' + long);
+    const a = runIdentity(fakeStore({ jwt_token: long }));
+    const b = runIdentity(fakeStore({ jwt_token: 'x'.repeat(400) + 'B' }));
+    assert.notStrictEqual(a, b, 'tokens differing by one character are never conflated');
 });
 
-test('identity: two different accounts never share an identity', () => {
-    const a = runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 1 }) }));
-    const b = runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 2 }) }));
-    assert.notStrictEqual(a, b);
+test('Q3: malformed, missing or unreadable auth data fails closed to null', () => {
+    assert.strictEqual(runIdentity(fakeStore({ arbi_user: '{not json', jwt_token: 'tok' })), 's:tok',
+        'a broken cache is ignored, the token still identifies the session');
+    assert.strictEqual(runIdentity(fakeStore({})), null, 'signed out');
+    assert.strictEqual(runIdentity(fakeStore({ arbi_user: JSON.stringify({ id: 9 }) })), null,
+        'a cached profile without a session token is NOT an authenticated identity');
+    const throwing = { getItem() { throw new Error('storage disabled'); } };
+    assert.strictEqual(runIdentity(throwing), null, 'unreadable storage fails closed');
+    assert.strictEqual(runIdentity(fakeStore({ jwt_token: '' })), null);
+});
+
+test('the reset decision covers login, switch and sign-out', () => {
+    const decide = (a, b) => vm.runInNewContext(fnSrc('shouldResetAccount') + '; shouldResetAccount(a, b);', { a, b });
+    assert.strictEqual(decide('s:tokA', 's:tokA'), false, 'same session -> keep the transcript');
+    assert.strictEqual(decide('s:tokA', 's:tokB'), true, 'different account -> reset');
+    assert.strictEqual(decide(null, 's:tokB'), true, 'login -> reset (nothing to keep)');
+    assert.strictEqual(decide('s:tokA', null), true, 'logout / support disabled -> reset');
+    assert.strictEqual(decide('u1', 's:tokA'), true, 'a legacy cached-id identity never matches a real session');
+    assert.strictEqual(decide(null, null), false, 'signed out twice is not a transition');
+});
+
+test('the identity is never rendered or serialised', () => {
+    assert.doesNotMatch(NATIVE, /JSON\.stringify\(state\)/, 'state (which holds the token copy) is never serialised');
+    assert.doesNotMatch(NATIVE, /console\.[a-z]+\([^)]*state\.identity/, 'the identity is never logged');
+    assert.doesNotMatch(NATIVE, /textContent\s*=\s*state\.identity|innerHTML\s*=\s*state\.identity/, 'never rendered');
 });
 
 // ---------------------------------------------------------------------------
@@ -158,10 +186,10 @@ test('state declares identity and generation', () => {
 test('sync() resets on an account change or when support is disabled', () => {
     const sync = NATIVE.slice(NATIVE.indexOf('    sync: function () {'), NATIVE.indexOf('    }\n', NATIVE.indexOf('    sync: function () {')));
     assert.match(sync, /var identity = enabled \? accountIdentity\(\) : null;/, 'support off resolves to no identity');
-    assert.match(sync, /if \(identity !== state\.identity\) \{/, 'the reset is keyed on the identity, not on every sync');
+    assert.match(sync, /if \(shouldResetAccount\(state\.identity, identity\)\) \{/, 'the reset is keyed on the identity, not on every sync');
     assert.match(sync, /resetAccountState\(\);/, 'the reset actually runs');
     assert.match(sync, /state\.identity = identity;/, 'the new identity is recorded');
-    assert.match(sync, /if \(enabled && state\.open\) loadExisting\(\);/, 'an open panel hydrates the new account');
+    assert.match(sync, /if \(enabled && identity && state\.open\) loadExisting\(\);/, 'an open panel hydrates only an AUTHENTICATED new account');
 });
 
 test('the same account syncing again does NOT reset (transcript preserved)', () => {
@@ -169,16 +197,22 @@ test('the same account syncing again does NOT reset (transcript preserved)', () 
     // The only reset call sits inside the identity-changed branch.
     const resetCalls = sync.split('resetAccountState();').length - 1;
     assert.strictEqual(resetCalls, 1);
-    assert.ok(sync.indexOf('if (identity !== state.identity) {') < sync.indexOf('resetAccountState();'),
+    assert.ok(sync.indexOf('if (shouldResetAccount(state.identity, identity)) {') < sync.indexOf('resetAccountState();'),
         'the reset must be inside the identity check');
 });
 
 test('every async continuation that renders is generation-guarded', () => {
-    ['start', 'loadExisting', 'refresh', 'sendMessage', 'requestHuman', 'refreshBadge'].forEach((name) => {
+    ['start', 'loadExisting', 'refresh', 'sendMessage', 'requestHuman', 'refreshBadge', 'markRead'].forEach((name) => {
         const src = fnSrc(name);
         assert.match(src, /if \(stale\(gen\)\) return;/, name + '() must discard a cross-account response');
     });
     assert.ok((NATIVE.match(/stale\(gen\)/g) || []).length >= 6);
+});
+
+test('Q3: a reset caused by a missing session never re-fetches a transcript', () => {
+    const sync = NATIVE.slice(NATIVE.indexOf('    sync: function () {'), NATIVE.indexOf('    }\n', NATIVE.indexOf('    sync: function () {')));
+    assert.match(sync, /if \(enabled && identity && state\.open\) loadExisting\(\);/,
+        'hydration is gated on an authenticated identity, so a signed-out reset leaves the panel empty');
 });
 
 test('opening or closing the panel never touches the identity', () => {
