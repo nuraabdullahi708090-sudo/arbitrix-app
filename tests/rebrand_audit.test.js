@@ -303,7 +303,7 @@ test('the rebrand adds no migration (its only DDL predates the audit)', () => {
   // 058 is the notification feed, 059 the native in-app support tables and 060
   // the six-language Telegram support vocabulary - all separate approved changes
   // with their own pins.
-  assert.equal(migrations.length, 59, 'migration count changed - was a file added?');
+  assert.equal(migrations.length, 60, 'migration count changed - was a file added?');
   const rebrandNamed = migrations.filter((m) => /rebrand|kalderix/i.test(m));
   assert.deepEqual(rebrandNamed, ['051_rebrand_subscription_detail.sql']);
   // and the pre-existing one rewrites a DISPLAY string, not a balance rule

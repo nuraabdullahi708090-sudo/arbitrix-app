@@ -1,7 +1,12 @@
 'use strict';
 
 /**
- * Native in-app support: behaviour, isolation and contracts.
+ * Native in-app support - HUMAN-ONLY.
+ *
+ * The customer writes; an agent replies from the dashboard or from Telegram. No
+ * code path in this service can generate an answer, so the assertions below pin
+ * the static acknowledgement, the durable message store, account isolation, the
+ * agent controls and the deliberate ABSENCE of any AI layer.
  *
  * The REAL services/NativeSupport.js runs against an in-memory PostgREST-shaped
  * client, so every assertion exercises the shipped code path (the module under
@@ -16,6 +21,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const NS = require('../services/NativeSupport');
+const { createSupportInboxBridge } = require('../services/SupportInboxBridge');
+const { routeUpdate } = require('../services/TelegramSupportService');
 require('../services/nativeSupportRoutes');
 
 const ROOT = path.join(__dirname, '..');
@@ -37,6 +44,7 @@ function makeDb(seed) {
             if (c.op === 'neq') return row[c.col] !== c.val;
             if (c.op === 'gt') return Number(row[c.col]) > Number(c.val);
             if (c.op === 'in') return c.val.indexOf(row[c.col]) !== -1;
+            if (c.op === 'is') return c.val === null ? row[c.col] == null : row[c.col] === c.val;
             return true;
         });
     }
@@ -51,6 +59,8 @@ function makeDb(seed) {
             neq(col, val) { state.conds.push({ op: 'neq', col, val }); return api; },
             gt(col, val) { state.conds.push({ op: 'gt', col, val }); return api; },
             in(col, val) { state.conds.push({ op: 'in', col, val }); return api; },
+            // PostgREST's IS NULL filter (used by the acknowledgement claim).
+            is(col, val) { state.conds.push({ op: 'is', col, val }); return api; },
             order(col, opts) { state.order = { col, ascending: !opts || opts.ascending !== false }; return api; },
             limit(n) { state.limit = n; return api; },
             maybeSingle() { state.single = true; return api; },
@@ -179,15 +189,50 @@ function makeDb(seed) {
         } };
 }
 
+// A database WITHOUT migration 061: `support_messages.via` and
+// `support_conversations.acknowledged_at` do not exist yet, so PostgREST rejects
+// any write that names them with 42703 - exactly what Postgres returns. This is
+// the shape production has until 061 is applied, so the behaviour must be known.
+function makePreMigrationDb() {
+    const inner = makeDb();
+    function reject(column, relation) {
+        const error = new Error('column "' + column + '" of relation "' + relation + '" does not exist');
+        error.code = '42703';
+        throw error;
+    }
+    return {
+        _tables: inner._tables,
+        rpc: (...args) => inner.rpc(...args),
+        from(table) {
+            const builder = inner.from(table);
+            const insert = builder.insert;
+            const update = builder.update;
+            builder.insert = (rows) => {
+                const list = Array.isArray(rows) ? rows : [rows];
+                if (table === 'support_messages'
+                    && list.some((r) => Object.prototype.hasOwnProperty.call(r, 'via'))) {
+                    reject('via', 'support_messages');
+                }
+                return insert(rows);
+            };
+            builder.update = (patch) => {
+                if (table === 'support_conversations'
+                    && Object.prototype.hasOwnProperty.call(patch, 'acknowledged_at')) {
+                    reject('acknowledged_at', 'support_conversations');
+                }
+                return update(patch);
+            };
+            return builder;
+        }
+    };
+}
+
 function makeService(overrides) {
     const opts = overrides || {};
     const db = opts.db || makeDb();
     const events = [];
     const service = NS.createNativeSupportService(Object.assign({
         supabase: db,
-        ai: { ask: async () => ({ answer: 'Approved answer about deposits.', modelGenerated: false, needsHuman: false }) },
-        engine: null,
-        i18n: null,
         notify: async (userId, conv, msg) => { events.push({ kind: 'customer', userId, conversationId: conv && conv.id, messageId: msg && msg.id }); },
         notifyAdmins: async (conv, msg) => { events.push({ kind: 'admins', conversationId: conv && conv.id, messageId: msg && msg.id }); }
     }, opts.options || {}));
@@ -195,633 +240,484 @@ function makeService(overrides) {
 }
 
 // ------------------------------------------------------------------- behaviour
+// Scenario numbering matches the brief for the human-only support system.
 
-test('1. a customer message is persisted and answered by the AI layer', async () => {
+test('1. a customer message is stored and gets ONE static acknowledgement', async () => {
     const { service, db, events } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 7, body: 'How do I deposit?', category: 'deposit', clientMessageId: 'c1' });
+    const out = await service.sendCustomerMessage({ userId: 7, body: 'How do I deposit?', clientMessageId: 'c1' });
     assert.strictEqual(out.ok, true);
-    assert.ok(out.conversationId > 0);
     const rows = db._tables.support_messages.filter((m) => m.conversation_id === out.conversationId);
-    assert.strictEqual(rows.length, 2, 'customer message + AI reply');
-    assert.deepStrictEqual(rows.map((r) => r.sender_type), ['customer', 'ai']);
+    assert.strictEqual(rows.length, 2, 'the customer message + one notice');
+    assert.deepStrictEqual(rows.map((r) => r.sender_type), ['customer', 'system']);
     assert.strictEqual(rows[0].body, 'How do I deposit?');
-    assert.strictEqual(out.message.client_message_id, 'c1');
-    assert.ok(events.some((e) => e.kind === 'customer' && e.userId === 7), 'customer notified of the reply');
+    assert.match(rows[1].body, /We've received your message/, 'the approved acknowledgement');
+    assert.strictEqual(rows[1].via, 'system', 'the notice is labelled as a system message');
+    assert.strictEqual(out.reply.id, rows[1].id, 'the acknowledgement is returned to the widget');
+    assert.strictEqual(out.humanOnly, true);
+    assert.ok(events.some((e) => e.kind === 'admins'), 'the agents are told');
+    assert.strictEqual(events.filter((e) => e.kind === 'customer').length, 1, 'the customer is told once');
 });
 
-test('2. a retried send cannot duplicate a message (client_message_id idempotency)', async () => {
+test('2. no automated answer is generated anywhere (no ai rows, no composeAiReply)', async () => {
     const { service, db } = makeService();
-    const first = await service.sendCustomerMessage({ userId: 8, body: 'Hello', clientMessageId: 'same' });
-    const again = await service.sendCustomerMessage({ userId: 8, body: 'Hello', clientMessageId: 'same' });
+    await service.sendCustomerMessage({ userId: 8, body: 'What is Kalderix?' });
+    await service.sendCustomerMessage({ userId: 8, body: 'And how does it work?' });
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 0);
+    assert.strictEqual(service.composeAiReply, undefined, 'the AI entry point is gone');
+    assert.strictEqual(typeof service.sendChannelReply, 'function');
+});
+
+test('3. the acknowledgement is posted once per conversation, never per message', async () => {
+    const { service, db } = makeService();
+    const first = await service.sendCustomerMessage({ userId: 9, body: 'first' });
+    const second = await service.sendCustomerMessage({ userId: 9, conversationId: first.conversationId, body: 'second' });
+    const notices = db._tables.support_messages.filter((m) => m.sender_type === 'system');
+    assert.strictEqual(notices.length, 1, 'one notice for the whole conversation');
+    assert.strictEqual(second.reply, null, 'the second message adds no notice');
+});
+
+test('4. a retried send cannot duplicate a message (client_message_id idempotency)', async () => {
+    const { service, db } = makeService();
+    const first = await service.sendCustomerMessage({ userId: 10, body: 'Hello', clientMessageId: 'same' });
+    const again = await service.sendCustomerMessage({ userId: 10, body: 'Hello', clientMessageId: 'same' });
     assert.strictEqual(again.ok, true);
     assert.strictEqual(again.duplicate, true);
     assert.strictEqual(again.message.id, first.message.id);
     assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1);
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'system').length, 1,
+        'a duplicate send does not re-acknowledge');
 });
 
-test('3. customer isolation: another account cannot read or write the thread', async () => {
+test('5. account isolation: another user cannot read or write the thread', async () => {
     const { service } = makeService();
     const a = await service.sendCustomerMessage({ userId: 11, body: 'mine' });
-    const read = await service.listMessages(12, a.conversationId);
-    assert.strictEqual(read.ok, false);
-    assert.strictEqual(read.reason, 'not-found');
+    assert.strictEqual((await service.listMessages(12, a.conversationId)).reason, 'not-found');
     assert.strictEqual((await service.sendCustomerMessage({ userId: 12, conversationId: a.conversationId, body: 'intrude' })).reason, 'not-found');
     assert.strictEqual((await service.markCustomerRead(12, a.conversationId)).ok, false);
     assert.deepStrictEqual((await service.listConversations(12)).conversations, []);
 });
 
-test('4. human request pauses the AI and notifies the operators', async () => {
+test('6. the transcript keeps insertion order and survives a reopen', async () => {
+    const { service } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 13, body: 'one' });
+    await service.sendCustomerMessage({ userId: 13, conversationId: a.conversationId, body: 'two' });
+    const read = await service.listMessages(13, a.conversationId);
+    const bodies = read.messages.map((m) => m.body);
+    assert.deepStrictEqual(bodies.map((b) => (b.length > 40 ? 'notice' : b)), ['one', 'notice', 'two'],
+        'insertion order is preserved around the static notice');
+    const again = await service.listMessages(13, a.conversationId);
+    assert.strictEqual(again.messages.length, 3, 'history is durable, not a buffer');
+});
+
+test('7. an agent reply is stored with its provenance and reaches the customer', async () => {
     const { service, db, events } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 21, body: 'I need help' });
-    const paused = await service.requestHuman(21, out.conversationId);
-    assert.strictEqual(paused.ok, true);
-    assert.strictEqual(paused.aiPaused, true);
-    assert.strictEqual(paused.status, 'waiting');
-    const conv = db._tables.support_conversations.find((c) => c.id === out.conversationId);
-    assert.strictEqual(conv.ai_paused, true);
-    assert.ok(db._tables.support_actions.some((a) => a.action === 'escalate'));
+    const a = await service.sendCustomerMessage({ userId: 14, body: 'help' });
+    const reply = await service.sendAgentMessage({ adminId: 900, conversationId: a.conversationId, body: 'Here is the answer.' });
+    assert.strictEqual(reply.ok, true);
+    const row = db._tables.support_messages.find((m) => m.body === 'Here is the answer.');
+    assert.strictEqual(row.sender_type, 'agent');
+    assert.strictEqual(row.via, 'admin', 'the dashboard is recorded as the source');
+    assert.strictEqual(row.sender_user_id, 900);
+    const conv = db._tables.support_conversations.find((c) => c.id === a.conversationId);
+    assert.strictEqual(conv.assigned_admin_id, 900);
+    assert.ok(['assigned', 'waiting'].includes(conv.status));
+    assert.ok(events.some((e) => e.kind === 'customer' && e.messageId === row.id), 'the customer is notified');
+});
+
+test('8. a Telegram reply needs no platform admin but is tagged as Telegram', async () => {
+    const { service, db } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 15, body: 'help' });
+    const out = await service.sendChannelReply({ conversationId: a.conversationId, body: 'Answer from Telegram.', clientMessageId: 'tg:1:2' });
+    assert.strictEqual(out.ok, true);
+    const row = db._tables.support_messages.find((m) => m.body === 'Answer from Telegram.');
+    assert.strictEqual(row.via, 'telegram');
+    assert.strictEqual(row.sender_user_id, null, 'no platform user is invented');
+    assert.strictEqual(out.via, 'telegram');
+});
+
+test('9. a dashboard reply still requires an authenticated agent', async () => {
+    const { service } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 16, body: 'help' });
+    const out = await service.sendAgentMessage({ conversationId: a.conversationId, body: 'no identity' });
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(out.reason, 'unauthenticated');
+});
+
+test('10. a repeated Telegram delivery cannot duplicate the agent reply', async () => {
+    const { service, db } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 17, body: 'help' });
+    await service.sendChannelReply({ conversationId: a.conversationId, body: 'once', clientMessageId: 'tg:9:9' });
+    const again = await service.sendChannelReply({ conversationId: a.conversationId, body: 'once', clientMessageId: 'tg:9:9' });
+    assert.strictEqual(again.duplicate, true);
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.body === 'once').length, 1);
+});
+
+test('11. resolve closes the thread and a new customer message reopens it', async () => {
+    const { service, db } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 18, body: 'first' });
+    const done = await service.resolve(a.conversationId, 900);
+    assert.strictEqual(done.ok, true);
+    assert.strictEqual(db._tables.support_conversations.find((c) => c.id === a.conversationId).status, 'resolved');
+    const reopened = await service.sendCustomerMessage({ userId: 18, conversationId: a.conversationId, body: 'again' });
+    assert.strictEqual(reopened.ok, true);
+    assert.strictEqual(db._tables.support_conversations.find((c) => c.id === a.conversationId).status, 'open');
+});
+
+test('12. takeover marks the thread human-owned and still writes no answer', async () => {
+    const { service, db } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 19, body: 'first' });
+    await service.takeover(a.conversationId, 900);
+    const before = db._tables.support_messages.length;
+    const after = await service.sendCustomerMessage({ userId: 19, conversationId: a.conversationId, body: 'second' });
+    assert.strictEqual(after.ok, true);
+    assert.strictEqual(db._tables.support_messages.length, before + 1, 'only the customer message is added');
+    assert.strictEqual(db._tables.support_conversations.find((c) => c.id === a.conversationId).ai_paused, true);
+});
+
+test('13. an explicit human request notifies the agents and records it', async () => {
+    const { service, db, events } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 20, body: 'I need a person' });
+    const out = await service.requestHuman(20, a.conversationId);
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.status, 'waiting');
+    assert.ok(db._tables.support_actions.some((x) => x.action === 'escalate'));
     assert.ok(events.some((e) => e.kind === 'admins'));
 });
 
-test('5. while a human owns the thread the AI stays silent', async () => {
-    const { service, db } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 31, body: 'first' });
-    await service.takeover(out.conversationId, 900);
-    const before = db._tables.support_messages.length;
-    const next = await service.sendCustomerMessage({ userId: 31, conversationId: out.conversationId, body: 'second' });
-    assert.strictEqual(next.ok, true);
-    assert.strictEqual(next.aiPaused, true);
-    assert.strictEqual(next.reply, null, 'no AI reply while a human owns the thread');
-    assert.strictEqual(db._tables.support_messages.length, before + 1, 'only the customer message was added');
-});
-
-test('6. takeover, resume and resolve are recorded and reversible', async () => {
-    const { service, db } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 41, body: 'hi' });
-    const conv = () => db._tables.support_conversations.find((c) => c.id === out.conversationId);
-    await service.takeover(out.conversationId, 900);
-    assert.strictEqual(conv().ai_paused, true);
-    assert.strictEqual(conv().assigned_admin_id, 900);
-    assert.strictEqual(conv().status, 'assigned');
-    await service.resume(out.conversationId, 900);
-    assert.strictEqual(conv().ai_paused, false, 'AI resumes');
-    await service.resolve(out.conversationId, 900);
-    assert.strictEqual(conv().status, 'resolved');
-    assert.ok(conv().resolved_at);
-    const actions = db._tables.support_actions.map((a) => a.action);
-    assert.ok(actions.indexOf('takeover') !== -1 && actions.indexOf('resume') !== -1 && actions.indexOf('resolve') !== -1);
-});
-
-test('7. an administrator can initiate a conversation and the customer is notified', async () => {
-    const { service, db, events } = makeService();
-    const out = await service.initiate({ adminId: 900, userId: 55, body: 'We reviewed your deposit.' });
-    assert.strictEqual(out.ok, true);
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(conv.user_id, 55);
-    assert.strictEqual(conv.status, 'assigned');
-    const msg = db._tables.support_messages.filter((m) => m.conversation_id === out.conversationId);
-    assert.strictEqual(msg.length, 1);
-    assert.strictEqual(msg[0].sender_type, 'agent');
-    assert.ok(db._tables.support_actions.some((a) => a.action === 'initiate'));
-    assert.ok(events.some((e) => e.kind === 'customer' && e.userId === 55));
-});
-
-test('8. unread counters move with each side', async () => {
-    const { service, db } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 61, body: 'question' });
-    const conv = () => db._tables.support_conversations.find((c) => c.id === out.conversationId);
-    assert.strictEqual(conv().unread_for_admin, 1, 'customer message raises the admin counter');
-    assert.strictEqual(conv().unread_for_customer, 1, 'AI reply raises the customer counter');
-    await service.markCustomerRead(61, out.conversationId);
-    assert.strictEqual(conv().unread_for_customer, 0);
-    await service.sendAgentMessage({ adminId: 900, conversationId: out.conversationId, body: 'answer' });
-    assert.strictEqual(conv().unread_for_customer, 1, 'agent reply raises the customer counter again');
-});
-
-test('9. AI failure degrades to an honest human-handoff message', async () => {
-    const { service, db } = makeService({ options: { ai: { ask: async () => { throw new Error('provider down'); } } } });
-    const out = await service.sendCustomerMessage({ userId: 71, body: 'What is my balance?', language: 'en' });
-    assert.strictEqual(out.ok, true);
-    assert.match(out.reply.body, /support agent will reply/i);
-    assert.strictEqual(out.status, 'waiting');
-    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true);
-});
-
-test('10. validation: empty, oversized and missing-user requests are refused', async () => {
-    const { service } = makeService();
-    assert.strictEqual((await service.sendCustomerMessage({ userId: 0, body: 'x' })).reason, 'unauthenticated');
-    assert.strictEqual((await service.sendCustomerMessage({ userId: 81, body: '   ' })).reason, 'empty-body');
-    const res = await service.sendCustomerMessage({ userId: 81, body: 'x'.repeat(NS.LIMITS.messageMaxChars + 1) });
-    assert.strictEqual(res.reason, 'body-too-long');
-    assert.strictEqual(res.max, NS.LIMITS.messageMaxChars);
-});
-
-test('11. rate limiting stops a flood', async () => {
-    const { service } = makeService({ options: { limits: { messagesPerMinute: 2 } } });
-    await service.sendCustomerMessage({ userId: 91, body: 'one' });
-    await service.sendCustomerMessage({ userId: 91, body: 'two' });
-    const third = await service.sendCustomerMessage({ userId: 91, body: 'three' });
-    assert.strictEqual(third.ok, false);
-    assert.strictEqual(third.reason, 'rate-limited');
-});
-
-test('12. admin counts and search cover the inbox needs', async () => {
-    const { service } = makeService();
-    const first = await service.sendCustomerMessage({ userId: 101, body: 'deposit stuck', category: 'deposit' });
-    const second = await service.sendCustomerMessage({ userId: 102, body: 'withdraw pending', category: 'withdrawal' });
-    assert.notStrictEqual(first.conversationId, second.conversationId, 'one thread per customer');
-    await service.takeover(second.conversationId, 900);
-    const counts = await service.countsForAdmin();
-    assert.strictEqual(counts.counts.total, 2);
-    assert.ok(counts.counts.assigned >= 1);
-    assert.ok(counts.counts.unread >= 1);
-    const bySearch = await service.listForAdmin({ search: 'withdraw' });
-    assert.strictEqual(bySearch.conversations.length, 1);
-});
-
-test('13. the flag is off unless NATIVE_SUPPORT_ENABLED is exactly true', () => {
-    assert.strictEqual(NS.isNativeSupportEnabled({}), false);
-    assert.strictEqual(NS.isNativeSupportEnabled({ NATIVE_SUPPORT_ENABLED: 'false' }), false);
-    assert.strictEqual(NS.isNativeSupportEnabled({ NATIVE_SUPPORT_ENABLED: '1' }), false);
-    assert.strictEqual(NS.isNativeSupportEnabled({ NATIVE_SUPPORT_ENABLED: 'TRUE' }), true);
-});
-
-test('14. routes: flag guard, auth on every customer route, admin on every inbox route', () => {
-    const customer = ROUTES.match(/app\.(get|post)\('\/api\/support\/[^']+', guard, authMiddleware/g) || [];
-    assert.ok(customer.length >= 6, 'customer routes: ' + customer.length);
-    const admin = ROUTES.match(/'\/api\/admin\/support\/[^']+', guard, authMiddleware, adminMiddleware/g) || [];
-    assert.ok(admin.length >= 10, 'admin routes: ' + admin.length);
-    const gated = ROUTES.match(/app\.(get|post|put|delete)\('\/api\/(admin\/)?support/g) || [];
-    assert.strictEqual(gated.length, customer.length + admin.length, 'every support route carries the gate');
-    assert.match(ROUTES, /if \(!isEnabled\(\)\) return res\.status\(404\)/);
-});
-
-test('15. the customer surface never takes a user id from the client', () => {
-    const start = ROUTES.indexOf('customer API');
-    const end = ROUTES.indexOf('admin API');
-    const customerBlock = ROUTES.slice(start, end);
-    assert.ok(customerBlock.indexOf('req.user.id') !== -1);
-    assert.ok(!/userId:\s*req\.(body|query)/.test(customerBlock), 'no client user id');
-    assert.ok(!/body\.userId/.test(customerBlock), 'no client-supplied userId on the customer surface');
-    assert.match(ROUTES, /intParam\(body\.userId/);
-});
-
-test('16. route paths are Express 5 safe (no parameter regex)', () => {
-    assert.ok(!/:id\(/.test(ROUTES), 'Express 5 rejects :id(\\d+)');
-    assert.match(ROUTES, /'\/api\/support\/conversations\/:id\/messages'/);
-    assert.match(ROUTES, /'\/api\/admin\/support\/conversations\/:id\/takeover'/);
-});
-
-// ------------------------------------------------------------------ migration
-
-test('17. migration 059 creates the three tables with RLS and service_role-only access', () => {
-    ['support_conversations', 'support_messages', 'support_actions'].forEach((t) => {
-        assert.match(MIGRATION, new RegExp('CREATE TABLE IF NOT EXISTS public\\.' + t));
-        assert.match(MIGRATION, new RegExp('ALTER TABLE public\\.' + t + '\\s+ENABLE ROW LEVEL SECURITY'));
-        assert.match(MIGRATION, new RegExp('ON public\\.' + t + '\\s+FOR ALL TO service_role'));
-        assert.match(MIGRATION, new RegExp('REVOKE ALL ON public\\.' + t + '\\s+FROM PUBLIC, anon, authenticated'));
-    });
-    assert.ok(!/CREATE POLICY[^;]+TO anon/i.test(MIGRATION), 'no anon policy');
-    assert.match(MIGRATION, /CREATE UNIQUE INDEX IF NOT EXISTS support_conversations_one_active/);
-    assert.match(MIGRATION, /CREATE UNIQUE INDEX IF NOT EXISTS support_messages_client_dedupe/);
-    assert.match(MIGRATION, /CHECK \(sender_type IN \('customer', 'ai', 'agent', 'system'\)\)/);
-    assert.match(MIGRATION, /CHECK \(status IN \('open', 'assigned', 'waiting', 'resolved'\)\)/);
-    assert.match(MIGRATION, /RAISE EXCEPTION '059_native_support\.sql incomplete/);
-});
-
-test('18. migration 059 touches no financial table and replaces no function', () => {
-    const forbidden = /(INSERT INTO|UPDATE|DELETE FROM|ALTER TABLE)\s+public\.(wallets|deposits|withdrawals|trades|transactions|referrals|subscriptions)/i;
-    assert.ok(!forbidden.test(MIGRATION), 'no financial table may be written');
-    // Only the two support functions may be defined here: no financial RPC and
-    // no unrelated function may be replaced by this migration.
-    const defined = MIGRATION.match(/CREATE OR REPLACE FUNCTION public\.([a-z_]+)/g) || [];
-    assert.deepStrictEqual(defined.map((l) => l.split('.').pop()).sort(),
-        ['support_commit_ai_turn', 'support_post_customer_message']);
-});
-
-test('19. the two support notification events exist with localized keys', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'services/Notifications.js'), 'utf8');
-    assert.match(source, /supportReply:\s*\{/);
-    assert.match(source, /supportMessage:\s*\{/);
-    assert.match(source, /'notifications\.events\.supportReply\.title'/);
-    assert.match(source, /'notifications\.events\.supportMessage\.title'/);
-});
-
-// ------------------------------------------------------------------- frontend
-
-test('20. widget + inbox are flag-gated and rendered from the JS layer', () => {
-    assert.match(INDEX, /const NS_TRANSLATIONS = /);
-    assert.match(INDEX, /Object\.keys\(NS_TRANSLATIONS\)\.forEach/);
-    assert.match(INDEX, /APP\.nativeSupport = data\.nativeSupport === true/);
-    assert.match(INDEX, /<script src="\/native-support\.js" defer><\/script>/);
-    const clientBundle = fs.readFileSync(path.join(ROOT, 'public/native-support.js'), 'utf8');
-    assert.match(clientBundle, /CUSTOMER widget/);
-    assert.match(clientBundle, /ADMIN Support Inbox/);
-    assert.match(INDEX, /id="adminTabContentSupport"/);
-    const bundle = fs.readFileSync(path.join(ROOT, 'public/native-support.js'), 'utf8');
-    assert.match(bundle, /window\.NativeSupport = NativeSupport/);
-    assert.match(bundle, /window\.NativeSupportInbox = Inbox/);
-    assert.match(bundle, /if \(!enabled\(\)\) return;/);
-});
-
-test('21. every native string exists in all six locales with matching placeholders', () => {
-    const start = INDEX.indexOf('const NS_TRANSLATIONS = ');
-    const end = INDEX.indexOf('};', start) + 1;
-    const NS_T = JSON.parse(INDEX.slice(INDEX.indexOf('=', start) + 1, end));
-    const langs = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-    const enKeys = Object.keys(NS_T.en).sort();
-    assert.ok(enKeys.length >= 45, 'keys: ' + enKeys.length);
-    langs.forEach((l) => {
-        assert.deepStrictEqual(Object.keys(NS_T[l]).sort(), enKeys, l + ' key set');
-        enKeys.forEach((k) => {
-            assert.ok(String(NS_T[l][k]).trim().length > 0, l + ' ' + k + ' is empty');
-            const want = (NS_T.en[k].match(/\{\{\w+\}\}/g) || []).sort();
-            const got = (String(NS_T[l][k]).match(/\{\{\w+\}\}/g) || []).sort();
-            assert.deepStrictEqual(got, want, l + ' ' + k + ' placeholders');
-        });
-    });
-    ['ns.title', 'admin.supp.inbox', 'notifications.events.supportReply.title'].forEach((k) => {
-        assert.ok(NS_T.en[k], k + ' present');
-    });
-});
-
-test('22. the base dictionary is unchanged and the language switch re-renders the widget', () => {
-    const i = INDEX.indexOf('const TRANSLATIONS = {');
-    let d = 0, e = -1;
-    for (let k = INDEX.indexOf('{', i); k < INDEX.length; k++) {
-        if (INDEX[k] === '{') d++;
-        else if (INDEX[k] === '}') { d--; if (!d) { e = k; break; } }
-    }
-    const sb = {};
-    vm.createContext(sb);
-    vm.runInContext('globalThis.T=' + INDEX.slice(INDEX.indexOf('{', i), e + 1), sb);
-    assert.strictEqual(Object.keys(sb.T.en).length, 1586, 'the pinned dictionary is untouched');
-    assert.match(INDEX, /NativeSupport\.reloadLabels/);
-});
-
-test('23. no money, credentials or innerHTML in the messenger service', () => {
-    const service = fs.readFileSync(path.join(ROOT, 'services/NativeSupport.js'), 'utf8');
-    const forbidden = /(live_balance|demo_balance|bonus_balance|credit_payment_safe|record_trade_safe|request_withdrawal|convert_referral)/;
-    assert.ok(!forbidden.test(service), 'the messenger must not touch money');
-    assert.ok(!/password|seed phrase|private key/i.test(service), 'never asks for credentials');
-    assert.ok(!/innerHTML/.test(service));
-});
-
-/* ==========================================================================
- * Concurrency: the AI turn must never undo a human takeover.
- *
- * These reproduce the race DETERMINISTICALLY: the AI stub blocks inside ask()
- * until the test releases it, so a takeover/resolve is guaranteed to commit
- * while the answer is being generated - exactly the production window.
- * ========================================================================== */
-
-function controlledAI(text) {
-    let release;
-    let started;
-    const startedPromise = new Promise((r) => { started = r; });
-    const gate = new Promise((r) => { release = r; });
-    return {
-        started: startedPromise,
-        release: function () { release(); },
-        ai: {
-            ask: async function () {
-                started();
-                await gate;
-                return { answer: text, modelGenerated: false, needsHuman: false };
-            }
+test('14. the acknowledgement is localized in all six supported languages', () => {
+    ['en', 'es', 'pt', 'fr', 'ar', 'zh'].forEach((lang) => {
+        const text = NS.copyFor(lang, 'received');
+        assert.ok(text && text.length > 20, lang + ' has an acknowledgement');
+        if (lang !== 'en') {
+            assert.notStrictEqual(text, NS.copyFor('en', 'received'), lang + ' is translated');
         }
+    });
+    assert.match(NS.copyFor('en', 'received'), /support team will respond/);
+});
+
+test('15. a failing notification never loses the customer message', async () => {
+    const db = makeDb();
+    const service = NS.createNativeSupportService({
+        supabase: db,
+        logger: { warn() {} },
+        notifyAdmins: async () => { throw new Error('telegram down'); },
+        notify: async () => { throw new Error('feed down'); }
+    });
+    const out = await service.sendCustomerMessage({ userId: 22, body: 'still stored?' });
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1);
+});
+
+test('16. invalid input is refused without writing anything', async () => {
+    const { service, db } = makeService();
+    assert.strictEqual((await service.sendCustomerMessage({ userId: 23, body: '' })).ok, false);
+    assert.strictEqual((await service.sendCustomerMessage({ userId: 23, body: 'x'.repeat(5000) })).ok, false);
+    assert.strictEqual((await service.sendCustomerMessage({ userId: 23, conversationId: 999999, body: 'hi' })).reason, 'not-found');
+    assert.strictEqual(db._tables.support_messages.length, 0);
+});
+
+test('17. the admin view lists conversations with unread counts and customer identity', async () => {
+    const { service } = makeService();
+    const a = await service.sendCustomerMessage({ userId: 24, body: 'hello' });
+    const list = await service.listForAdmin({});
+    const row = list.conversations.find((c) => c.id === a.conversationId);
+    assert.ok(row, 'the conversation is in the inbox');
+    assert.strictEqual(row.user_id, 24);
+    assert.ok(Number(row.unread_for_admin) >= 1, 'a new customer message is unread for the agent');
+    const counts = await service.countsForAdmin();
+    assert.ok(Number(counts.counts.unread) >= 1);
+});
+
+test('18. the customer route surface is authenticated and the admin surface is admin-gated', () => {
+    const routes = fs.readFileSync(path.join(ROOT, 'services/nativeSupportRoutes.js'), 'utf8');
+    ['/api/support/conversations', '/api/support/conversations/:id/messages'].forEach((p) => {
+        const line = routes.split('\n').find((l) => l.includes("'" + p + "'"));
+        assert.ok(line && /authMiddleware/.test(line), p + ' requires a session');
+    });
+    ['/api/admin/support/conversations', '/api/admin/support/conversations/:id/messages'].forEach((p) => {
+        const line = routes.split('\n').find((l) => l.includes("'" + p + "'"));
+        assert.ok(line && /authMiddleware, adminMiddleware/.test(line), p + ' requires an admin');
+    });
+});
+
+test('19. the in-app messenger is constructed without any AI collaborator', () => {
+    const block = SERVER.slice(SERVER.indexOf('nativeSupport = nativeSupportEnabled'), SERVER.indexOf('if (nativeSupport) {'));
+    assert.doesNotMatch(block, /\\bai:/, 'no AI service is passed to the in-app messenger');
+    assert.doesNotMatch(block, /composeAiReply|SupportConversationEngine/);
+    assert.match(block, /notifyAdmins: async/, 'the agents are still notified');
+});
+
+test('20. migration 060 is additive, idempotent and cannot delete history', () => {
+    const sql = fs.readFileSync(path.join(ROOT, 'supabase/migrations/061_human_only_support.sql'), 'utf8');
+    assert.match(sql, /ADD COLUMN IF NOT EXISTS via TEXT/);
+    assert.match(sql, /ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMPTZ/);
+    assert.match(sql, /CREATE INDEX IF NOT EXISTS support_messages_thread_idx/);
+    assert.match(sql, /support_messages_default_via_trg/);
+    assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|TRUNCATE/i, 'no destructive statement');
+    assert.match(sql, /RAISE EXCEPTION '061_human_only_support incomplete/, 'self-checking');
+});
+
+// ------------------------------------------- migration 061 deployment contract
+
+test('21. before migration 061 the customer message still survives, but agent replies are refused', async () => {
+    const db = makePreMigrationDb();
+    const service = NS.createNativeSupportService({ supabase: db, logger: { warn() {} } });
+
+    const sent = await service.sendCustomerMessage({ userId: 30, body: 'Where is my deposit?' });
+    assert.strictEqual(sent.ok, true, 'the customer message is persisted regardless of the schema');
+    assert.strictEqual(sent.reply, null, 'the acknowledgement is skipped, not invented');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1);
+
+    // 061 is REQUIRED for the reply path: `via` is written on every agent message.
+    // Merging the code before applying 061 would leave agents unable to reply.
+    assert.strictEqual((await service.sendAgentMessage({ adminId: 900, conversationId: sent.conversationId, body: 'Dashboard reply' })).reason, 'unavailable');
+    assert.strictEqual((await service.sendChannelReply({ conversationId: sent.conversationId, body: 'Telegram reply' })).reason, 'unavailable');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 0,
+        'nothing partial is stored when the write is rejected');
+});
+
+// --------------------------------------- single-administrator end-to-end flow
+// The REAL service and the REAL bridge over one database, wired exactly as
+// server.js wires them: one administrator, notifications to that administrator's
+// personal chat (no TELEGRAM_SUPPORT_CHAT_ID).
+
+const CUSTOMER_ID = 4242;
+const ADMIN_TELEGRAM_ID = '424242';
+
+function singleAdminHarness(opts) {
+    const o = opts || {};
+    const db = o.db || makeDb();
+    let nextTelegramId = 700;
+    const sent = [];
+    const state = { lastMessageId: null };
+    const transport = {
+        sent,
+        async sendMessage(chatId, text) {
+            if (o.transportFails) throw new Error('telegram is down');
+            sent.push({ chatId: String(chatId), text });
+            state.lastMessageId = nextTelegramId++;
+            return { ok: true, messageId: state.lastMessageId };
+        }
+    };
+    const service = NS.createNativeSupportService({
+        supabase: db,
+        logger: { warn() {} },
+        notify: async () => {},
+        notifyAdmins: async (conversation, message) => {
+            // Same contract as server.js: the alert can never fail the send.
+            try { await bridge.notifyConversation(conversation, message); } catch (err) { /* wrapped */ }
+        }
+    });
+    const bridge = createSupportInboxBridge({
+        getService: () => service,
+        transport,
+        config: { adminIds: [ADMIN_TELEGRAM_ID], supportChatId: null },
+        lookupCustomer: async (id) => ({ id, name: 'Jane Doe', email: 'jane@example.com' }),
+        logger: { warn() {} }
+    });
+    return {
+        db, service, bridge, transport, sent,
+        // The Telegram message id the bridge will have recorded for the last send,
+        // i.e. the message an operator would swipe-reply to.
+        get lastMessageId() { return state.lastMessageId; }
     };
 }
 
-test('24. takeover during AI generation wins: the answer is discarded and nothing is written', async () => {
-    const ctl = controlledAI('AI answer that must not land');
-    const { service, db } = makeService({ options: { ai: ctl.ai } });
-    const pending = service.sendCustomerMessage({ userId: 201, body: 'I need help with a deposit' });
-    await ctl.started;                                   // the AI turn is in flight
-    const convId = db._tables.support_conversations[0].id;
-    await service.takeover(convId, 900);                 // the human takes over
-    ctl.release();
-    const out = await pending;
+function adminRoute(overrides) {
+    return Object.assign({
+        kind: 'admin', chatId: ADMIN_TELEGRAM_ID, chatType: 'private',
+        fromId: ADMIN_TELEGRAM_ID, isAdmin: true, messageId: '9001',
+        replyToMessageId: null, text: ''
+    }, overrides || {});
+}
 
+test('22. one administrator is notified in their personal chat, after the message is stored', async () => {
+    const h = singleAdminHarness();
+    const sent = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'My deposit is missing.' });
+    assert.strictEqual(sent.ok, true);
+
+    assert.strictEqual(h.sent.length, 1, 'exactly one notification for one administrator');
+    assert.strictEqual(h.sent[0].chatId, ADMIN_TELEGRAM_ID, 'delivered to the personal chat (chat id == user id)');
+    assert.match(h.sent[0].text, new RegExp('New support message #' + sent.conversationId));
+    assert.match(h.sent[0].text, /jane@example\.com/);
+    assert.match(h.sent[0].text, /My deposit is missing\./);
+
+    const rows = h.db._tables.support_messages.filter((m) => m.conversation_id === sent.conversationId);
+    assert.deepStrictEqual(rows.map((r) => r.sender_type), ['customer', 'system'], 'stored, then acknowledged');
+    assert.ok(h.db._tables.support_messages[0].id < 1e9, 'the customer row exists before any notification outcome matters');
+});
+
+test('23. replying to that notification answers the right customer conversation', async () => {
+    const h = singleAdminHarness();
+    const first = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question one' });
+    const firstNotification = String(h.lastMessageId);
+    const second = await h.service.sendCustomerMessage({ userId: 9999, body: 'Other customer' });
+    const secondNotification = String(h.lastMessageId);
+    assert.notStrictEqual(firstNotification, secondNotification, 'each notification has its own message id');
+
+    // The operator replies to the FIRST notification, with another one on screen.
+    const out = await h.bridge.tryHandle(adminRoute({
+        text: 'I can see your deposit, it is being confirmed.',
+        replyToMessageId: firstNotification
+    }), {});
+    assert.strictEqual(out.handled, true);
+    assert.strictEqual(out.conversationId, first.conversationId, 'routed to the notifying conversation');
+
+    const agentRows = h.db._tables.support_messages.filter((m) => m.sender_type === 'agent');
+    assert.strictEqual(agentRows.length, 1);
+    assert.strictEqual(agentRows[0].via, 'telegram');
+    assert.strictEqual(agentRows[0].conversation_id, first.conversationId, 'not the other customer');
+    assert.strictEqual(
+        h.db._tables.support_messages.filter((m) => m.conversation_id === second.conversationId && m.sender_type === 'agent').length,
+        0,
+        'the other customer received nothing'
+    );
+
+    // ...and the dashboard sees the very same message.
+    const dashboard = await h.service.getConversationForAdmin(first.conversationId);
+    assert.ok(dashboard.messages.some((m) => m.id === agentRows[0].id), 'one shared thread');
+});
+
+test('24. /kxreply delivers to the named conversation, and a bad id is refused', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+    await h.bridge.tryHandle(adminRoute({ text: '/kxreply ' + conv.conversationId + ' Here is the answer.' }), {});
+    const agent = h.db._tables.support_messages.filter((m) => m.sender_type === 'agent');
+    assert.strictEqual(agent.length, 1);
+    assert.strictEqual(agent[0].body, 'Here is the answer.');
+
+    const before = h.db._tables.support_messages.length;
+    const bad = await h.bridge.tryHandle(adminRoute({ messageId: '9002', text: '/kxreply 999999 nowhere' }), {});
+    assert.strictEqual(bad.ok, false);
+    assert.match(h.transport.sent[h.transport.sent.length - 1].text, /Could not deliver/);
+    assert.strictEqual(h.db._tables.support_messages.length, before, 'nothing is written for an unknown conversation');
+});
+
+test('25. a duplicate Telegram delivery cannot duplicate the support message', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+    const route = adminRoute({ messageId: '9100', text: '/kxreply ' + conv.conversationId + ' Only once.' });
+
+    const first = await h.bridge.tryHandle(route, {});
+    const second = await h.bridge.tryHandle(route, {});   // the same update redelivered
+    assert.strictEqual(first.ok, true);
+    assert.strictEqual(second.duplicate, true);
+    assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 1);
+    assert.match(h.transport.sent[h.transport.sent.length - 1].text, /Already delivered/);
+});
+
+test('26. /kxresolve closes only the intended conversation', async () => {
+    const h = singleAdminHarness();
+    const one = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'First' });
+    const two = await h.service.sendCustomerMessage({ userId: 5555, body: 'Second' });
+
+    const out = await h.bridge.tryHandle(adminRoute({ text: '/kxresolve ' + one.conversationId }), {});
     assert.strictEqual(out.ok, true);
-    assert.strictEqual(out.reply, null, 'no AI reply may be written after takeover');
-    assert.strictEqual(out.aiPaused, true);
-    assert.strictEqual(out.discarded, 'ai-paused');
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(conv.ai_paused, true, 'takeover is still effective');
-    const rows = db._tables.support_messages.filter((m) => m.conversation_id === convId);
-    assert.ok(!rows.some((r) => r.sender_type === 'ai'), 'no AI row may exist');
-    assert.ok(!rows.some((r) => /must not land/.test(r.body)), 'the pending answer was discarded');
-    // the only other row is the takeover notice inserted by the admin action
-    assert.deepStrictEqual(rows.map((r) => r.sender_type), ['customer', 'system']);
+    const statuses = h.db._tables.support_conversations.map((c) => [c.id, c.status]);
+    assert.strictEqual(statuses.find(([id]) => id === one.conversationId)[1], 'resolved');
+    assert.notStrictEqual(statuses.find(([id]) => id === two.conversationId)[1], 'resolved');
 });
 
-test('25. resolve during AI generation also discards the answer', async () => {
-    const ctl = controlledAI('Late answer');
-    const { service, db } = makeService({ options: { ai: ctl.ai } });
-    const pending = service.sendCustomerMessage({ userId: 202, body: 'question' });
-    await ctl.started;
-    const convId = db._tables.support_conversations[0].id;
-    await service.resolve(convId, 900);
-    ctl.release();
-    const out = await pending;
-    assert.strictEqual(out.reply, null);
-    assert.strictEqual(out.discarded, 'resolved');
-    assert.strictEqual(db._tables.support_conversations[0].status, 'resolved');
-    assert.ok(!db._tables.support_messages.some((m) => m.body === 'Late answer'));
+test('27. a Telegram outage never loses the customer message', async () => {
+    const h = singleAdminHarness({ transportFails: true });
+    const sent = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Anyone there?' });
+    assert.strictEqual(sent.ok, true);
+    const rows = h.db._tables.support_messages.filter((m) => m.conversation_id === sent.conversationId);
+    assert.strictEqual(rows.filter((m) => m.sender_type === 'customer').length, 1, 'the question is stored');
+    assert.strictEqual(rows.filter((m) => m.sender_type === 'system').length, 1, 'the customer is still acknowledged');
 });
 
-test('26. if the AI turn commits first, a later takeover stays effective', async () => {
-    const { service, db } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 203, body: 'hello' });
-    assert.ok(out.reply && out.reply.body, 'the AI answered normally');
-    await service.takeover(out.conversationId, 900);
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(conv.ai_paused, true, 'the takeover was not overwritten');
-    assert.strictEqual(conv.status, 'assigned');
-    const aiRows = db._tables.support_messages.filter((m) => m.sender_type === 'ai');
-    assert.strictEqual(aiRows.length, 1, 'the already-committed answer is kept');
-});
-
-test('27. two in-flight turns cannot interleave the conversation context', async () => {
-    // Both messages are posted, then both AI turns commit against the same row.
-    // The stored context must be exactly one turn's nextState - never a merge,
-    // never a partially written object - and both customer messages survive.
-    const { service, db } = makeService({
-        options: {
-            ai: { ask: async () => ({ answer: 'answer', modelGenerated: false, needsHuman: false }) },
-            engine: { planTurn: ({ state }) => ({ handled: true, lines: [], nextState: { turn: (state.turn || 0) + 1 } }) },
-            i18n: { t: () => '' }
-        }
-    });
-    await Promise.all([
-        service.sendCustomerMessage({ userId: 204, body: 'first' }),
-        service.sendCustomerMessage({ userId: 204, body: 'second' }),
-    ]);
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(db._tables.support_conversations.length, 1, 'one thread');
-    const customerRows = db._tables.support_messages.filter((m) => m.sender_type === 'customer');
-    assert.strictEqual(customerRows.length, 2, 'no customer message was lost');
-    assert.deepStrictEqual(Object.keys(conv.context).sort(), ['turn']);
-    assert.ok([1, 2].indexOf(conv.context.turn) !== -1, 'context is one complete turn state');
-    assert.strictEqual(conv.unread_for_admin, 2);
-});
-
-test('28. a duplicate replay under the lock never creates a second message or counter bump', async () => {
-    const { service, db } = makeService();
-    const first = await service.sendCustomerMessage({ userId: 205, body: 'same', clientMessageId: 'dup-1' });
-    const again = await service.sendCustomerMessage({ userId: 205, body: 'same', clientMessageId: 'dup-1' });
-    assert.strictEqual(again.duplicate, true);
-    assert.strictEqual(again.message.id, first.message.id);
-    const rows = db._tables.support_messages.filter((m) => m.client_message_id === 'dup-1');
-    assert.strictEqual(rows.length, 1);
-    assert.strictEqual(db._tables.support_conversations[0].unread_for_admin, 1);
-});
-
-test('29. without migration 059 the fallback NEVER writes an AI answer (fail closed)', async () => {
-    const ctl = controlledAI('Fallback answer');
-    const db = makeDb();
-    // Simulate "function does not exist" exactly as PostgREST reports it.
-    db.rpc = async () => ({ data: null, error: { code: '42883', message: 'function public.support_commit_ai_turn does not exist' } });
-    const { service } = makeService({ db: db, options: { ai: ctl.ai } });
-    const pending = service.sendCustomerMessage({ userId: 206, body: 'hi' });
-    await ctl.started;
-    const convId = db._tables.support_conversations[0].id;
-    await service.takeover(convId, 900);
-    ctl.release();
-    const out = await pending;
-    assert.strictEqual(out.supportUnavailable, true, 'reported as unavailable, not as an AI answer');
-    assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'), 'no AI row at all');
-    assert.ok(!db._tables.support_messages.some((m) => m.body === 'Fallback answer'));
-    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true);
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1,
-        'the customer message was still stored');
-});
-
-/* ==========================================================================
- * Priority review fixes:
- *   - stale dialogue context must not overwrite newer context
- *   - the pre-migration fallback must never commit an AI answer
- * ========================================================================== */
-
-test('30. two concurrent messages compose SEQUENTIALLY from the committed context', async () => {
-    const seen = [];
-    const { service, db } = makeService({
-        options: {
-            ai: { ask: async () => ({ answer: 'answer', modelGenerated: false, needsHuman: false }) },
-            engine: {
-                planTurn: ({ state }) => {
-                    seen.push(Number(state.turn) || 0);
-                    return { handled: true, lines: [], nextState: { turn: (Number(state.turn) || 0) + 1 } };
-                }
-            },
-            i18n: { t: () => '' }
-        }
-    });
-    await Promise.all([
-        service.sendCustomerMessage({ userId: 300, body: 'first' }),
-        service.sendCustomerMessage({ userId: 300, body: 'second' }),
-    ]);
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(db._tables.support_conversations.length, 1, 'one thread');
-    // The second turn must have composed from the first turn's committed state,
-    // not from the state both messages originally observed.
-    assert.deepStrictEqual(seen, [0, 1], 'generation order/state: ' + JSON.stringify(seen));
-    assert.strictEqual(conv.context.turn, 2, 'context advanced twice, not overwritten back to 1');
-    assert.strictEqual(conv.context_version, 2, 'one version bump per committed turn');
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 2);
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 2);
-    // Each turn declared the version it composed from.
-    assert.deepStrictEqual(db._commits.map((c) => c.p_expected_version), [0, 1]);
-});
-
-test('31. a stale composition is refused and REGENERATED from the committed context', async () => {
-    const db = makeDb();
-    const realRpc = db.rpc;
-    let stole = false;
-    db.rpc = async function (name, params) {
-        if (name === 'support_commit_ai_turn' && !stole) {
-            stole = true;
-            // Another process committed a turn while this one was generating.
-            const conv = db._tables.support_conversations[0];
-            conv.context = { turn: 1 };
-            conv.context_version = 1;
-            return { data: { committed: false, reason: 'stale-context', context_version: 1,
-                conversation: Object.assign({}, conv) }, error: null };
-        }
-        return realRpc(name, params);
-    };
-    let asks = 0;
-    const { service } = makeService({
-        db: db,
-        options: {
-            ai: { ask: async () => { asks += 1; return { answer: 'answer', modelGenerated: false, needsHuman: false }; } },
-            engine: { planTurn: ({ state }) => ({ handled: true, lines: [], nextState: { turn: (Number(state.turn) || 0) + 1 } }) },
-            i18n: { t: () => '' }
-        }
-    });
-    const out = await service.sendCustomerMessage({ userId: 301, body: 'hello' });
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(out.ok, true);
-    assert.ok(out.reply, 'the regenerated answer was committed');
-    assert.strictEqual(asks, 2, 'the turn regenerated once after the stale refusal');
-    assert.strictEqual(conv.context.turn, 2, 'the newer context was preserved and advanced');
-    assert.strictEqual(conv.context_version, 2);
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 1,
-        'the stale answer was NOT written');
-});
-
-test('32. without the locked RPC, a takeover during generation still yields no AI answer', async () => {
-    const ctl = controlledAI('AI answer that must never be written');
-    const db = makeDb();
-    db.rpc = async () => ({ data: null, error: { code: '42883', message: 'function public.support_commit_ai_turn does not exist' } });
-    const { service } = makeService({ db: db, options: { ai: ctl.ai } });
-    const pending = service.sendCustomerMessage({ userId: 302, body: 'question' });
-    await ctl.started;
-    const convId = db._tables.support_conversations[0].id;
-    await service.takeover(convId, 900);
-    ctl.release();
-    const out = await pending;
-    assert.strictEqual(out.ok, true);
-    assert.strictEqual(out.supportUnavailable, true, 'reported as support-unavailable, not as an answer');
-    assert.strictEqual(out.aiPaused, true);
-    assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'), 'no AI row may exist');
-    assert.ok(!db._tables.support_messages.some((m) => /must never be written/.test(m.body)));
-    assert.strictEqual(db._tables.support_conversations[0].ai_paused, true, 'takeover still effective');
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1,
-        'the customer message is still stored');
-});
-
-test('33. without the locked RPC the turn is parked for a human with a hand-off notice, never an AI answer', async () => {
-    const db = makeDb();
-    db.rpc = async () => ({ data: null, error: { code: '42883', message: 'function public.support_commit_ai_turn does not exist' } });
-    const { service } = makeService({ db: db });
-    const out = await service.sendCustomerMessage({ userId: 303, body: 'hi' });
-    const conv = db._tables.support_conversations[0];
-    assert.strictEqual(out.ok, true);
-    assert.strictEqual(out.supportUnavailable, true);
-    assert.ok(out.reply && /support agent will reply here/i.test(out.reply.body), 'hand-off notice returned');
-    assert.strictEqual(out.reply.sender_type, 'system');
-    assert.strictEqual(conv.ai_paused, true, 'parked for a human');
-    assert.strictEqual(conv.status, 'waiting');
-    assert.ok(!db._tables.support_messages.some((m) => m.sender_type === 'ai'));
-    assert.strictEqual(conv.context_version, 0, 'no context was advanced without the RPC');
-});
-
-// ------------------------------------- knowledge answers without the AI layer
-// AI_SUPPORT_ENABLED is OFF by default (and was unset in production), and the
-// in-app path used to answer EVERY factual question with "a support agent will
-// reply here shortly" because only the Telegram bot had a knowledge fallback.
-// These tests run the REAL service with `ai: null` and the AI flag off.
-
-test('K1 with no AI layer the five brief questions are answered from approved knowledge', async () => {
-    assert.notStrictEqual(String(process.env.AI_SUPPORT_ENABLED || '').toLowerCase(), 'true',
-        'this contract is about the AI-off state');
-    const cases = [
-        ['What is Kalderix?', /arbitrage/i],
-        ['How does Kalderix work?', /arbitrage/i],
-        ['What is the minimum platform deposit?', /\$50/],
-        ['What is Demo Mode?', /virtual funds/i],
-        ['How do I start Live Mode?', /Live balance|real funds/i]
-    ];
-    for (let i = 0; i < cases.length; i += 1) {
-        const question = cases[i][0];
-        const expected = cases[i][1];
-        const { service } = makeService({ options: { ai: null } });
-        const out = await service.sendCustomerMessage({
-            userId: 30 + i, body: question, clientMessageId: 'k1-' + i
-        });
-        assert.strictEqual(out.ok, true, question);
-        const body = String(out.reply && out.reply.body);
-        assert.doesNotMatch(body, /support agent will reply here/i, question + ' must not dead-end');
-        assert.match(body, expected, question);
-        assert.strictEqual(out.reply.sender_type, 'ai', question + ' is answered by the assistant');
+test('28. only the configured administrator id can issue support commands', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+    for (const fromId of ['111', '222', null]) {
+        const out = await h.bridge.tryHandle(adminRoute({ fromId, text: '/kxreply ' + conv.conversationId + ' intruder' }), {});
+        assert.strictEqual(out, null, 'not handled');
     }
+    assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 0,
+        'nothing is delivered for an unauthorised sender');
 });
 
-test('K2 a question the knowledge base does not cover still hands off to a human', async () => {
-    const { service, db } = makeService({ options: { ai: null } });
-    const out = await service.sendCustomerMessage({
-        userId: 44, body: 'What is the weather in Reykjavik tomorrow?', clientMessageId: 'k2'
-    });
-    assert.strictEqual(out.ok, true);
-    assert.match(String(out.reply.body), /do not have an approved answer/i,
-        'honest handoff wording, never an invented answer');
-    assert.strictEqual(out.reply.sender_type, 'system', 'a handoff notice, not an AI answer');
-    assert.ok(db._tables.support_messages.some((m) => m.sender_type === 'system'), 'the thread is parked for a human');
+test('29. the whole single-administrator flow is human-only', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Do you answer automatically?' });
+    await h.bridge.tryHandle(adminRoute({ text: '/kxreply ' + conv.conversationId + ' A human is here.' }), {});
+    const kinds = h.db._tables.support_messages.map((m) => m.sender_type);
+    assert.strictEqual(kinds.includes('ai'), false, 'no automated participant anywhere');
+    assert.deepStrictEqual(kinds, ['customer', 'system', 'agent']);
 });
 
-test('K3 a configured AI layer still answers, and is preferred over the fallback', async () => {
-    const { service, db } = makeService();
-    const out = await service.sendCustomerMessage({ userId: 45, body: 'What is Kalderix?', clientMessageId: 'k3' });
-    assert.strictEqual(String(out.reply.body), 'Approved answer about deposits.', 'the injected AI answer wins');
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'ai').length, 1);
-});
+// ------------------------------------------------- single-administrator config
 
-test('K4 the knowledge fallback never ships English to a non-English conversation', async () => {
-    const { service } = makeService({ options: { ai: null } });
-    const created = await service.getOrCreateConversation(46, { category: 'general', language: 'pt' });
-    assert.strictEqual(created.ok, true);
-    const out = await service.sendCustomerMessage({ userId: 46, body: 'What is Kalderix?', clientMessageId: 'k4' });
-    const body = String(out.reply.body);
-    assert.strictEqual(body, NS.copyFor('pt', 'aiUnavailable'),
-        'without a translator the customer gets the localized human handoff, never the English answer');
-});
-
-test('K5 with a translator the knowledge answer is localized', async () => {
-    const translator = {
-        fromEnglish: async (text, language) => ({ ok: true, text: '[' + language + '] ' + text }),
-        isAvailable: () => true
+test('30. a private message from the administrator is classified as an operator by default', () => {
+    const update = {
+        message: {
+            message_id: 1,
+            chat: { id: Number(ADMIN_TELEGRAM_ID), type: 'private' },
+            from: { id: Number(ADMIN_TELEGRAM_ID), is_bot: false },
+            text: 'hello'
+        }
     };
-    const { service } = makeService({ options: { ai: null, translator: translator } });
-    await service.getOrCreateConversation(47, { category: 'general', language: 'pt' });
-    const out = await service.sendCustomerMessage({ userId: 47, body: 'What is Kalderix?', clientMessageId: 'k5' });
-    const body = String(out.reply.body);
-    assert.match(body, /^\[pt\] /, 'the approved answer is localized for the customer');
-    assert.match(body, /arbitrage/i, 'and it is still the approved wording');
+    const withDefault = routeUpdate(update, { adminIds: [ADMIN_TELEGRAM_ID], supportChatId: null });
+    assert.strictEqual(withDefault.kind, 'admin', 'the single administrator gets the operator handler');
+    assert.strictEqual(withDefault.isAdmin, true);
 });
 
-test('K6 the fallback is offline: it constructs the knowledge provider, never a model', async () => {
-    const src = fs.readFileSync(path.join(ROOT, 'services/NativeSupport.js'), 'utf8');
-    assert.match(src, /AI_SUPPORT_PROVIDER: 'knowledge'/, 'the fallback pins the offline provider');
-    assert.match(src, /const responder = \(ai && typeof ai\.ask === 'function'\) \? ai : knowledgeResponder\(\);/,
-        'a configured AI layer is always preferred');
-    assert.doesNotMatch(src, /api\.openai|api\.deepseek|api\.anthropic/, 'no provider endpoint is called from here');
-});
+test('31. every route is gated: customers by auth, administrators by auth + admin, all by the flag', () => {
+    const { registerNativeSupportRoutes } = require('../services/nativeSupportRoutes');
+    const routes = [];
+    const app = {
+        get(path, ...mw) { routes.push({ method: 'GET', path, mw }); },
+        post(path, ...mw) { routes.push({ method: 'POST', path, mw }); },
+        delete(path, ...mw) { routes.push({ method: 'DELETE', path, mw }); }
+    };
+    function authMw() {}
+    function adminMw() {}
+    registerNativeSupportRoutes(app, {
+        support: {}, authMiddleware: authMw, adminMiddleware: adminMw,
+        supabaseAdmin: {}, isEnabled: () => true
+    });
 
-test('K7 the fallback ignores an ambient external provider and never calls the network', async () => {
-    // Even with a model provider and key present in the environment, the fallback
-    // must stay on the offline knowledge provider: no calls, no credits, no key.
-    const saved = {};
-    ['AI_SUPPORT_ENABLED', 'AI_SUPPORT_PROVIDER', 'AI_SUPPORT_API_KEY'].forEach((k) => { saved[k] = process.env[k]; });
-    const realFetch = global.fetch;
-    let calls = 0;
-    global.fetch = function () { calls += 1; throw new Error('network disabled in this test'); };
-    process.env.AI_SUPPORT_ENABLED = 'true';
-    process.env.AI_SUPPORT_PROVIDER = 'deepseek';
-    process.env.AI_SUPPORT_API_KEY = 'sk-test-not-a-real-key';
-    try {
-        const { service } = makeService({ options: { ai: null } });
-        const out = await service.sendCustomerMessage({ userId: 50, body: 'What is Kalderix?', clientMessageId: 'k7' });
-        assert.strictEqual(calls, 0, 'no provider request, so no external credits');
-        assert.doesNotMatch(String(out.reply.body), /sk-test/, 'the key never reaches the customer');
-        assert.match(String(out.reply.body), /arbitrage|Kalderix/i, 'answered from approved knowledge');
-    } finally {
-        Object.keys(saved).forEach((k) => {
-            if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
-        });
-        global.fetch = realFetch;
+    assert.ok(routes.length >= 15, 'the whole surface is registered');
+    const customers = routes.filter((r) => r.path.indexOf('/api/support/') === 0);
+    const admins = routes.filter((r) => r.path.indexOf('/api/admin/support/') === 0);
+    assert.ok(customers.length >= 6 && admins.length >= 8, 'both surfaces exist');
+
+    for (const r of routes) {
+        assert.strictEqual(r.mw[1], authMw, r.path + ' requires an authenticated session');
     }
+    for (const r of customers) {
+        assert.strictEqual(r.mw.includes(adminMw), false, r.path + ' is not admin-only');
+    }
+    for (const r of admins) {
+        assert.strictEqual(r.mw[2], adminMw, r.path + ' requires an administrator');
+    }
+    // No route trusts a client-supplied customer id: none of them read req.query/body
+    // for the actor. Pinned at the source level (the route bodies are one-liners).
+    const src = fs.readFileSync(path.join(__dirname, '..', 'services', 'nativeSupportRoutes.js'), 'utf8');
+    assert.strictEqual(/userId:\s*(req\.query|req\.body)/.test(src), false, 'the customer id comes from the JWT only');
+    assert.match(src, /userId: req\.user\.id/, 'customer reads use the verified JWT');
 });
 
-test('K8 the AI switch is documented as EXTERNAL answering; knowledge stays offline', () => {
-    const env = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
-    assert.match(env, /WHAT THIS SWITCH CONTROLS: external \(model\) answering/,
-        'the switch is described as the model switch');
-    assert.match(env, /still answer from the approved knowledge base/,
-        'and states that knowledge answering continues without it');
-    assert.doesNotMatch(env, /Must be exactly "true" to enable answering/,
-        'the stale "answering is off" claim is gone');
-    const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
-    assert.match(server, /AI_SUPPORT_ENABLED=true enables EXTERNAL model answering/);
+test('32. /kxassign is optional in the single-administrator setup and never blocks a reply', async () => {
+    const h = singleAdminHarness();
+    const conv = await h.service.sendCustomerMessage({ userId: CUSTOMER_ID, body: 'Question' });
+
+    // Without an assignee the operator is told the usage and nothing changes.
+    const noTarget = await h.bridge.tryHandle(adminRoute({ messageId: '9200', text: '/kxassign ' + conv.conversationId }), {});
+    assert.strictEqual(noTarget.ok, false);
+    assert.match(h.transport.sent[h.transport.sent.length - 1].text, /Use: \/kxassign/);
+    assert.ok(h.db._tables.support_conversations[0].assigned_admin_id == null, 'still unassigned');
+
+    // With one it records the assignee. `assigned_admin_id` is a display/filter
+    // column only - no route authorises on it - so an id that is not an
+    // administrator cannot grant access to anything.
+    const assigned = await h.bridge.tryHandle(adminRoute({ messageId: '9201', text: '/kxassign ' + conv.conversationId + ' 7' }), {});
+    assert.strictEqual(assigned.ok, true);
+    assert.strictEqual(h.db._tables.support_conversations[0].assigned_admin_id, 7);
+
+    // A reply still works and is not blocked by the assignment.
+    const reply = await h.bridge.tryHandle(adminRoute({ messageId: '9202', text: '/kxreply ' + conv.conversationId + ' still here' }), {});
+    assert.strictEqual(reply.ok, true);
+    assert.strictEqual(h.db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 1);
 });

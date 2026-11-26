@@ -127,28 +127,30 @@ test('A5 Enter still sends once after a re-login', () => {
 });
 
 test('B1 the native greeting renders from exactly one path', () => {
-    const occurrences = NATIVE.split("tt('ns.welcome')").length - 1;
-    assert.strictEqual(occurrences, 1, 'ns.welcome must be rendered once, not in both chooser and start()');
+    // Human-only support: ONE static welcome, from ONE place, and no AI-era key.
+    assert.strictEqual(NATIVE.split("copy('welcome')").length - 1, 1, 'the welcome renders once');
+    assert.strictEqual(NATIVE.split("tt('ns.welcome')").length - 1, 0, 'the AI-era greeting is gone');
 });
 
-test('B2 the chooser no longer repeats the greeting', () => {
+test('B2 the opening screen shows the welcome and asks for no category', () => {
     const chooser = NATIVE.slice(NATIVE.indexOf('function renderChooser()'), NATIVE.indexOf('function setSending('));
     assert.ok(chooser.length > 0, 'renderChooser not found');
-    assert.doesNotMatch(chooser, /ns\.welcome/, 'the chooser must not duplicate the greeting');
-    assert.match(chooser, /ns\.catQ/, 'the chooser still asks the customer to pick a topic');
+    assert.match(chooser, /copy\('welcome'\)/, 'the static welcome is the opening message');
+    assert.doesNotMatch(chooser, /ns\.catQ|ns\.cat\./, 'the customer is no longer asked to pick a category');
 });
 
-test('B3 start() still greets the customer in the transcript', () => {
-    const startFn = NATIVE.slice(NATIVE.indexOf('function start(category)'), NATIVE.indexOf('function loadExisting('));
-    assert.match(startFn, /tt\('ns\.welcome'\)/, 'the transcript greeting must be kept');
-    assert.match(startFn, /sender_type: 'system'/, 'still a system bubble');
+test('B3 the transcript greeting is one static system bubble', () => {
+    const chooser = NATIVE.slice(NATIVE.indexOf('function renderChooser()'), NATIVE.indexOf('function setSending('));
+    assert.match(chooser, /sender_type: 'system'/, 'the welcome is a system bubble, never an agent reply');
+    assert.match(chooser, /appendMessage\(/, 'it goes into the transcript, not a separate banner');
 });
 
 test('B4 the native client still guards against duplicate widgets and rows', () => {
     assert.match(NATIVE, /if \(root\) return;/, 'build() must stay idempotent (one launcher/panel)');
     assert.match(NATIVE, /state\.seen\[id\]/, 'server-id dedupe must stay');
     assert.match(NATIVE, /function reconcileOrAppend/, 'the optimistic-bubble reconciliation must stay');
-    assert.match(NATIVE, /if \(!state\.conversationId \|\| state\.sending\) return;/, 'one in-flight send per panel');
+    assert.match(NATIVE, /if \(state\.sending\) return;/, 'one in-flight send per panel');
+    assert.match(NATIVE, /if \(state\.creating\) return state\.creating;/, 'one in-flight conversation create');
 });
 
 test('C1 no new translation keys and no knowledge-base change', () => {

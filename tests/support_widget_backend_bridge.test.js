@@ -304,16 +304,17 @@ test('D2. SupportAIService answers it from knowledge with no hand-off', async ()
     assert.ok(/arbitrage/i.test(outcome.answer), 'the approved answer explains the product');
 });
 
-test('D3. the native messenger returns that same approved text to the widget', async () => {
-    const ai = knowledgeAI();
-    const native = createNativeSupportService({ ai, logger: { warn() {} } });
-    const composed = await native.composeAiReply({ id: 1, language: 'en', context: {}, status: 'open' }, QUESTION);
-    assert.equal(composed.needsHuman, false, 'no human hand-off for an approved question');
-    assert.ok(/arbitrage/i.test(composed.text), 'the delivered text is the product explanation');
-    assert.ok(composed.text.indexOf(T.en['support.reply.default']) === -1, 'the old fallback text is gone');
-
-    // ...and the widget renders exactly that text (no reformatting, no loss).
-    const out = await ask(QUESTION, { answer: composed.text });
-    assert.ok(out.html.indexOf(composed.text) !== -1, 'the widget shows the backend answer verbatim');
+test('D3. the widget renders the backend message verbatim and the messenger has no AI entry point', async () => {
+    // HUMAN-ONLY. The backend now returns the static acknowledgement instead of a
+    // generated answer; the widget's contract is unchanged - it renders whatever
+    // the server stored, verbatim and escaped.
+    const ACK = "Thank you for contacting Kalderix. We've received your message and our support team will respond as soon as possible.";
+    const out = await ask(QUESTION, { answer: ACK });
+    assert.ok(out.html.indexOf(ACK) !== -1, 'the widget shows the backend text verbatim');
     assert.equal(out.usedFallback, false);
+
+    // ...and no code path in the in-app messenger can generate an answer.
+    const native = createNativeSupportService({ logger: { warn() {} } });
+    assert.equal(native.composeAiReply, undefined, 'composeAiReply is gone');
+    assert.equal(typeof native.sendChannelReply, 'function', 'the Telegram agent reply path exists');
 });

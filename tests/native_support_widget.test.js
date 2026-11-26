@@ -112,7 +112,12 @@ function boot(config) {
                 : { id: ++state.nextId, conversation_id: 900, sender_type: 'customer', body: parsed.body, client_message_id: parsed.clientMessageId, created_at: new Date().toISOString() };
             state.messages.push(row);
             state.lastPost = row;
-            const reply = { id: ++state.nextId, conversation_id: 900, sender_type: 'ai', body: 'reply', created_at: new Date().toISOString() };
+            // HUMAN-ONLY: the only automatic message is the static acknowledgement.
+            const reply = {
+                id: ++state.nextId, conversation_id: 900, sender_type: 'system',
+                body: "Thank you for contacting Kalderix. We've received your message and our support team will respond as soon as possible.",
+                created_at: new Date().toISOString()
+            };
             state.messages.push(reply);
             const payload = { ok: true, conversationId: 900, message: row, reply: reply };
             if (cfg.slowPost) {
@@ -315,4 +320,65 @@ test('7. wiring: activation after /api/auth/me, deactivation on logout, legacy h
 
     assert.match(SERVICE, /select\('id, conversation_id, sender_type, body, created_at, client_message_id'\)/,
         'the API exposes client_message_id so reconciliation is exact');
+});
+
+test('8. opening with no thread shows the static welcome and creates NOTHING yet', async () => {
+    const h = boot();
+    h.sandbox.APP.nativeSupport = true;
+    h.widget().sync();
+    h.widget().open();
+    await flush(); await flush();
+
+    const nodes = messageNodes(h);
+    assert.strictEqual(nodes.length, 1, 'one interface message');
+    assert.match(String(nodes[0].children[0].textContent), /Welcome to Kalderix Support/);
+    assert.strictEqual(String(nodes[0].className).includes('system'), true, 'never presented as an agent');
+    assert.strictEqual(h.calls.filter((x) => x.method === 'POST' && x.url === '/api/support/conversations').length, 0,
+        'reading the welcome does not open an empty conversation for the agents');
+});
+
+test('9. the first message creates the conversation, then posts, and shows the acknowledgement', async () => {
+    const h = boot();
+    h.sandbox.APP.nativeSupport = true;
+    h.widget().sync();
+    h.widget().open();
+    await flush();
+
+    const c = composer(h);
+    assert.ok(c, 'the composer is available immediately');
+    c.input.value = 'Where do I find my deposit address?';
+    c.send.dispatch('click');
+    await flush(); await flush(); await flush();
+
+    // `markRead` rides along with the create; only the two writes matter here.
+    const posts = h.calls.filter((x) => x.method === 'POST' && !/\/read$/.test(x.url)).map((x) => x.url);
+    assert.deepStrictEqual(posts, ['/api/support/conversations', '/api/support/conversations/900/messages'],
+        'the conversation is created lazily, then the message is posted');
+
+    const nodes = messageNodes(h);
+    const customer = nodes.filter((n) => String(n.className).includes('customer'));
+    assert.strictEqual(customer.length, 1, 'exactly one customer bubble');
+    const ack = nodes.filter((n) => String(n.className).includes('system'));
+    assert.ok(ack.length >= 1, 'the acknowledgement is in the transcript');
+    assert.ok(nodes.some((n) => /We've received your message/.test(String(n.children[0].textContent))),
+        'the customer is told the team has the message');
+    assert.strictEqual(nodes.some((n) => String(n.className).includes('ai')), false, 'no automated answer');
+});
+
+test('10. reopening a thread renders its history without repeating the welcome', async () => {
+    const h = boot({
+        conversations: [{ id: 900, status: 'open', unread_for_customer: 0 }],
+        messages: [
+            { id: 100, sender_type: 'customer', body: 'my deposit is missing', created_at: new Date().toISOString() },
+            { id: 101, sender_type: 'system', body: 'We have received your message.', created_at: new Date().toISOString() },
+            { id: 102, sender_type: 'agent', body: 'Checking now.', via: 'telegram', created_at: new Date().toISOString() }
+        ]
+    });
+    await openWithConversation(h);
+    const nodes = messageNodes(h);
+    assert.strictEqual(nodes.length, 3, 'the whole history is rendered');
+    assert.ok(!nodes.some((n) => /Welcome to Kalderix Support/.test(String(n.children[0].textContent))),
+        'the welcome is only for an empty thread');
+    const agent = nodes.find((n) => String(n.className).includes('agent'));
+    assert.strictEqual(agent.attrs['data-via'], 'telegram', 'the reply keeps its channel of origin');
 });

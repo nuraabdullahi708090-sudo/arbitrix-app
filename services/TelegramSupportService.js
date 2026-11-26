@@ -781,7 +781,13 @@ function routeUpdate(update, config) {
   const fromId = from.id !== undefined && from.id !== null ? String(from.id) : null;
   const isAdmin = fromId !== null && adminIds.indexOf(fromId) !== -1;
   const text = extractMessageText(message);
-  const base = { chatId, chatType, fromId, isAdmin, message, text, command: parseCommand(text) };
+  // `replyToMessageId` lets an operator answer an inbox notification by simply
+  // replying to it; nothing else reads it.
+  const replyToMessageId = message.reply_to_message && message.reply_to_message.message_id !== undefined
+    && message.reply_to_message.message_id !== null
+    ? String(message.reply_to_message.message_id)
+    : null;
+  const base = { chatId, chatType, fromId, isAdmin, message, text, replyToMessageId, command: parseCommand(text) };
 
   if (chatType === 'private') {
     // A configured operator talking to the bot ONE-TO-ONE is routed to the
@@ -1292,7 +1298,7 @@ function isDepositAnswer(reply) {
 
 function createTelegramSupportBot({ config, store, transport, logger, deduper, threadMap, supportAI,
                                   translator, onNewMembers, marketing, linkAccount, unlinkAccount,
-                                  depositTutorialUrl, conversationEngine, stateCacheTtlMs }) {
+                                  depositTutorialUrl, conversationEngine, stateCacheTtlMs, inbox }) {
   if (!store) throw new Error('createTelegramSupportBot requires a store');
   if (!transport) throw new Error('createTelegramSupportBot requires a transport');
   const log = logger || console;
@@ -1313,6 +1319,22 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
   // configured; every reply path stays byte-identical while it is off (see
   // sendDepositTutorial).
   const depositTutorial = resolveDepositTutorialUrl(depositTutorialUrl);
+  // Optional HUMAN-ONLY support inbox bridge (services/SupportInboxBridge.js). It
+  // gets first refusal on operator messages so /kxreply, /kxresolve, /kxassign and
+  // plain replies to a notification land in the in-app conversation. Absent => the
+  // bot behaves exactly as before.
+  const supportInbox = inbox && typeof inbox.tryHandle === 'function' ? inbox : null;
+
+  async function trySupportInbox(route, update) {
+    if (!supportInbox) return null;
+    try {
+      return await supportInbox.tryHandle(route, update);
+    } catch (error) {
+      log.warn && log.warn('[Telegram] inbox bridge failed: ' + (error && error.message));
+      return null;
+    }
+  }
+
   const routingConfig = { adminIds, supportChatId: cfg.supportChatId || null, notifyTarget };
   const seenUpdates = deduper || createUpdateDeduper({ max: 1000 });
   const forwarded = threadMap || createLimitedMap({ max: 500 });
@@ -3516,7 +3538,7 @@ function createTelegramSupportBot({ config, store, transport, logger, deduper, t
             : route.kind === 'join'
               ? await handleJoinUpdate(route)
               : (route.kind === 'group' || route.kind === 'admin')
-                ? await handleGroupUpdate(route, update)
+                ? ((await trySupportInbox(route, update)) || await handleGroupUpdate(route, update))
                 : await handleUserUpdate(route, update);
       stats.processed += 1;
       stats.lastAction = (result && result.action) || (result && result.handled ? 'handled' : 'no-action');
