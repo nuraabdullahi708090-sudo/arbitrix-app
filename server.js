@@ -6275,7 +6275,8 @@ if (telegramConfig.token) {
         ? 'enabled'
         : 'DISABLED - TELEGRAM_SUPPORT_CHAT_ID is not set for this process; restart after setting it');
   console.log(`[Telegram] Customer notifications: ${notifySummary}`);
-  console.log('[Telegram] Customer languages: en, pt, ar (/language); operator notifications stay English');
+  console.log('[Telegram] Customer languages: ' + telegramSupportI18n.TELEGRAM_LANGUAGES.join(', ')
+    + ' (/language); operator notifications stay English');
 } else {
   console.log('[Telegram] Support bot not configured; /api/telegram/* stays inert until TELEGRAM_BOT_TOKEN is set');
 }

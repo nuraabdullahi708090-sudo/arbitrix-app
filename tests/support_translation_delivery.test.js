@@ -574,7 +574,7 @@ test('H2. with translation broken the notification says so and still shows the o
 
 // ================================================ I/J. picker + persistence ======
 
-test('I. the first-contact language picker is unchanged by this work', async () => {
+test('I. the first-contact language picker still offers every supported language', async () => {
   const { translator } = makeTranslator();
   const h = createHarness({ language: 'en', translator });
 
@@ -586,7 +586,7 @@ test('I. the first-contact language picker is unchanged by this work', async () 
   assert.ok(welcome, '/start still sends the language picker');
   assert.match(welcome.text, /Welcome to Kalderix Support/);
   const payloads = welcome.replyMarkup.inline_keyboard.flat().map((b) => b.callback_data);
-  assert.deepStrictEqual(payloads, ['lang:en', 'lang:pt', 'lang:ar']);
+  assert.deepStrictEqual(payloads, ['lang:en', 'lang:es', 'lang:pt', 'lang:fr', 'lang:ar', 'lang:zh']);
   assert.deepStrictEqual(h.store.state.languageWrites, [], 'first contact must not write a language');
 });
 

@@ -29,6 +29,11 @@
  *     percentage and URL of the source across UNCHANGED. A mismatch is reported as
  *     `fidelity:<violations>` and the caller falls back, so a translation can never
  *     quietly alter a minimum deposit, a withdrawal rule or a link.
+ *   - LANGUAGE: Arabic output must be Arabic script and Simplified Chinese output
+ *     must contain Han characters (both deterministic). For es / fr / zh a long
+ *     verbatim English run in the OUTPUT is reported as `partially-translated`, so a
+ *     half-translated answer is never presented as a complete one. pt / ar keep
+ *     their previous checks exactly.
  *
  * SAFETY LIMITATION (see the delivery report)
  *   The multilingual denylist is a SUPPLEMENT to the English checks, not a
@@ -161,7 +166,14 @@ function describeTranslationConfig(config) {
     model: cfg.model || null,
     hasApiKey: Boolean(cfg.apiKey),
     maxChars: cfg.maxChars,
-    languages: TRANSLATABLE_LANGUAGES.slice()
+    languages: TRANSLATABLE_LANGUAGES.slice(),
+    // Which languages are verified, and how. Observability only: an operator can
+    // see that es / fr / zh are guarded by the residual-English check rather than
+    // by a script check.
+    languageChecks: {
+      script: SupportGuidelines.SCRIPT_CHECKED_LANGUAGES.slice(),
+      residualEnglish: SupportGuidelines.RESIDUAL_CHECK_LANGUAGES.slice()
+    }
   };
 }
 
@@ -286,6 +298,17 @@ function createSupportTranslator(options = {}) {
             .concat(fidelity.missingUrls.map((u) => 'missing-url:' + u))
             .concat(fidelity.addedUrls.map((u) => 'added-url:' + u))
         };
+      }
+      // PARTIALLY UNTRANSLATED OUTPUT. An echo check only catches a model that
+      // returned EVERYTHING unchanged; a model that translates one sentence and
+      // leaves the rest in English would otherwise be presented to the customer as
+      // fully translated. Applies to the es / fr / zh directions only, so the
+      // pre-existing pt / ar behaviour is unchanged. Runs AFTER fidelity so that an
+      // altered amount is reported as the (more specific) money problem.
+      const residual = SupportGuidelines.findResidualEnglish(source, output, toCode);
+      if (residual) {
+        warn('translated text withheld: it still contains untranslated English (' + toCode + ')');
+        return { ok: false, text: '', reason: 'partially-translated', violations: ['untranslated:' + residual] };
       }
     }
 

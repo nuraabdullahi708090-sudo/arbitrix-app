@@ -11,7 +11,7 @@ the same support brain**, not a second brain.
 | Dialogue planning (greetings, how-to, tutorials, hand-off) | `services/support/ConversationEngine.js` | `planTurn()` / `planCommand()` are pure; the native service calls `planTurn` with the stored `context` |
 | Grounded answers + guardrails (no invented amounts/statuses) | `services/support/SupportAIService.js` | created once in `server.js` and shared by the Telegram bot and the messenger |
 | Approved knowledge | `services/support/SupportKnowledge.js` + `arbitrix-knowledge.json` | untouched |
-| Localized customer copy | `services/telegram-i18n.js` (en/pt/ar) | engine lines render through `i18n.t(lang, key)` |
+| Localized customer copy | `services/telegram-i18n.js` (en/es/pt/fr/ar/zh) | engine lines render through `i18n.t(lang, key)` |
 | Event notifications | `services/Notifications.js` (migration 058) | two new events: `supportReply` (customer) and `supportMessage` (admins) |
 | Auth / admin gating | `authMiddleware` / `adminMiddleware` | unchanged |
 | UI shell, palette, i18n plumbing | `public/index.html` | widget labels live in `NS_TRANSLATIONS` merged into `TRANSLATIONS` |
@@ -160,7 +160,8 @@ they answer **404** (the surface does not exist for production customers).
 * The unread counters are read-modify-write on the conversation row; two
   simultaneous sends could undercount by one. Message delivery is unaffected.
 * Admin notification fan-out is capped at 10 administrator accounts.
-* The composed reply uses the engine's en/pt/ar copy; es/fr/zh fall back to English
-  engine lines (the AI layer already answers in the customer's language when a
-  provider is configured).
+* The composed reply uses the engine's copy in all six supported languages
+  (en/es/pt/fr/ar/zh, migration 060). Approved ENGLISH knowledge answers reach a
+  non-English customer through the shared `SupportTranslator`; without a translation
+  provider they get the localized fallback rather than English text.
 * The widget is hidden for `MARKETING_SANDBOX` accounts (`nativeSupport: false`).

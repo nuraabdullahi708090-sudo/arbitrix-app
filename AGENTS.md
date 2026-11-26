@@ -10643,3 +10643,56 @@ both-succeed-zero / pending-exists / returned-error / thrown / malformed-respons
 supplies the new `remindersAllowed` collaborator and additionally asserts that an
 unknown state emits nothing - the harness change, not the assertions, was updated.
 npm test = 4085 tests, 4084 pass, 0 fail, 1 skipped (baseline 4083/4082/0/1).
+
+## Six-language Telegram support (PR #216 - en / es / pt / fr / ar / zh), 2026-11-26
+- Scope: `services/telegram-i18n.js`, `services/TelegramSupportService.js`,
+  `services/support/{ConversationEngine,SupportGuidelines,SupportTranslator,SupportAIService}.js`,
+  `server.js` (one boot log line), ONE new migration, tests and `docs/native-support.md`.
+  No money path, no deposit/withdrawal/trading/subscription/referral logic, no webhook
+  configuration, no marketing publisher (its content is deliberately still en/pt/ar).
+- The Telegram support bot now mirrors the six UI languages. `/language` renders THREE
+  rows of two (`English|Español`, `Português|Français`, `العربية|简体中文`) with the same
+  `lang:<code>` payloads; the choice is persisted per conversation (migration 060 widens
+  the CHECK from en/pt/ar to en/es/pt/fr/ar/zh, additive + idempotent + self-checking, and
+  rewrites NO data) and survives messages and restarts.
+- AI ANSWERS are localized through the SHARED `SupportTranslator` (`services/support/
+  SupportTranslator.js`), not a second translation system: the customer's question is
+  translated to English first (so the English knowledge base stays reachable), the answer
+  is translated back, and the knowledge provider remains the ONLY answer source.
+- LANGUAGE VALIDATION (fail closed, never "mostly translated"):
+  * `hasExpectedScript` now also enforces Han characters for `zh` (Arabic was already
+    enforced). `SCRIPT_CHECKED_LANGUAGES = ['ar','zh']`.
+  * NEW `findResidualEnglish(source, output, language)` (`RESIDUAL_CHECK_LANGUAGES =
+    ['es','fr','zh']`): a >= 5-word verbatim English run in the output is reported and the
+    translator returns `reason: 'partially-translated'`, so a half-translated answer is
+    replaced by the localized fallback. pt/ar are untouched. It runs AFTER fidelity so an
+    altered amount is still reported as `fidelity`.
+  * A MODEL-written answer for `es`/`fr` that is really the approved English text is
+    replaced by the approved answer with `knowledge` provenance, so the caller translates
+    it instead of presenting English as Spanish/French (pt/ar/en unchanged).
+  * TEST-FIXTURE LESSON: a double that returns `'[es] ' + englishSource` is NOT a
+    translation and the guard (correctly) rejects it. Fixtures in
+    `tests/support_translation_provider_isolation.test.js` and
+    `tests/native_support_languages.test.js` now produce locale-shaped text (`zh` needs
+    Han characters, like `ar` needs Arabic script).
+- The dialogue engine gained es/fr/zh for: greetings, thanks, acknowledgements,
+  affirmatives/denials, "checked"/"arrived"/"still pending", social phrases, human handoff
+  (`人工`, `humano`, `humain`), fraud reports, deposit / withdrawal / deposit-minimum
+  intents and CJK token boundaries (`TOKEN_END` includes `。！？，；：`). A NEGATED handoff
+  phrase ("这不是真人客服", "the bot is not human") is a statement, not a request:
+  `NEGATED_HANDOFF_RE` suppresses the intent.
+- The multilingual safety denylist gained `es`, `fr` and `zh` entries (promised profits,
+  risk-free, no-loss, credential requests) with per-language NEGATION markers, so a
+  disclaimer ("no garantizamos ganancias", "我们不保证盈利") stays publishable. Approved-answer
+  shaped sentences are pinned as NOT flagged (no false positives).
+- `FIRST_CONTACT_TEXT` keeps its three original lines and adds a fourth
+  (es/fr/zh), so returning English/Portuguese/Arabic behaviour is byte-identical.
+- Tests: NEW `tests/telegram_six_language_support.test.js` (32) drives the real bot, real
+  engine, real knowledge base and real translator (only the store, the transport and the
+  translating MODEL are doubles). Existing pins updated for the intentional six-language
+  contract: keyboard payload lists, `CUSTOMER_STRINGS` locale sets, the unsupported-language
+  fallback test (`zh` -> `de`), and the migration-count pins (58 -> 59 files, 060 asserted).
+  `npm test` = 4198 tests, 4197 pass, 0 fail. CI static checks (parse + workflow) pass.
+- Migration 060 is NOT applied to production. Until it is, a customer who selects es / fr /
+  zh triggers a 23514 on the language write, so the webhook answers 500 (Telegram retries)
+  and NO false confirmation is sent - apply 060 before deploying this build.

@@ -71,6 +71,27 @@ const TARGET = {
  * that family: it reads the TRANSLATION prompt and returns `marker + source`.
  * `mode` selects the failure shape.
  */
+// A REALISTIC translation double.
+//
+// It used to return '[es] ' + the English source. That is not what a translator
+// produces, and the real guard now rejects it: SupportGuidelines.findResidualEnglish
+// withholds any es / fr / zh output that still contains a long verbatim English run,
+// so a "translation" that is really the source behind a marker is (correctly) treated
+// as partially translated. The double therefore returns a locale-shaped sentence that
+// carries every number/URL of the source, which is what the fidelity check requires.
+const TRANSLATED_PREFIX = Object.freeze({
+    es: 'Esta es la respuesta aprobada, traducida al espa\u00f1ol.',
+    pt: 'Esta \u00e9 a resposta aprovada, traduzida para portugu\u00eas.',
+    fr: 'Ceci est la r\u00e9ponse approuv\u00e9e, traduite en fran\u00e7ais.',
+    zh: '\u8fd9\u662f\u7ffb\u8bd1\u540e\u7684\u5df2\u6279\u51c6\u56de\u7b54\u3002'
+});
+
+function fakeTranslation(code, source) {
+    const values = String(source).match(/https?:\/\/\S+|\$?\d[\d.,]*%?/g) || [];
+    const body = TRANSLATED_PREFIX[code] || TRANSLATED_PREFIX.es;
+    return values.length ? body + ' ' + values.join(' ') : body;
+}
+
 function translationFetch(options) {
     const opts = options || {};
     const seen = [];
@@ -89,7 +110,7 @@ function translationFetch(options) {
         else if (opts.mode === 'unsafe') out = 'Garantimos lucros de 10% por dia.';
         else if (opts.mode === 'changed-value') out = source.replace('$700', '$7000');
         else if (code === 'ar') out = '\u0645\u0631\u062d\u0628\u0627 ' + source;
-        else out = '[' + code + '] ' + source;
+        else out = fakeTranslation(code, source);
         return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: out } }] }) };
     };
     return { fetchImpl, seen };
@@ -195,7 +216,7 @@ test('every non-English language is translated from the approved English answer'
         assert.strictEqual(result.ok, true, language + ': ' + result.reason);
         assert.notStrictEqual(result.text, ANSWER, language + ' must not return the English text');
         if (language === 'ar') assert.match(result.text, /[\u0600-\u06FF]/, 'Arabic script');
-        else assert.ok(result.text.startsWith('[' + language + '] '), language + ' marker');
+        else assert.strictEqual(result.text, fakeTranslation(language, ANSWER), language + ' translation');
     }
     assert.strictEqual(calls.length, 5);
     for (const call of calls) {
@@ -290,7 +311,8 @@ test('native: the isolated provider localizes a knowledge answer for es/pt/fr/ar
         assert.strictEqual(reply.needsHuman, false, language + ' must not escalate');
         assert.strictEqual(reply.confident, true);
         if (language === 'ar') assert.match(reply.text, /[\u0600-\u06FF]/);
-        else assert.ok(reply.text.startsWith('[' + language + '] '));
+        else assert.match(reply.text, new RegExp(TRANSLATED_PREFIX[language].slice(0, 12).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
     }
 });
 
@@ -384,7 +406,7 @@ test('telegram: a Portuguese customer receives the translated approved answer', 
     });
     assert.strictEqual(status.handled, true);
     const text = sent.filter((s) => s.method === 'sendMessage').map((s) => s.text).join('\n');
-    assert.ok(text.includes('[pt] ' + ANSWER), 'the translated answer is delivered');
+    assert.ok(text.includes(fakeTranslation('pt', ANSWER)), 'the translated answer is delivered');
     assert.ok(!text.includes('Obrigado pela sua mensagem'), 'no fallback');
 });
 

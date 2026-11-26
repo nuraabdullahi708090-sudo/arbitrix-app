@@ -218,8 +218,10 @@ test('no new environment variable or migration was added for assets', () => {
   // snapshot plus the complimentary-entitlement source columns; it changes no
   // money and is not executed by the application.
   // 058 adds the in-app notification feed (event-keyed, idempotent inserts and
-  // three observational triggers). It changes no money path.
-  assert.strictEqual(migrations.length, 58, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30, 056 = users email uniqueness, 057 = $50 minimum sync, 058 = notifications feed)');
+  // three observational triggers). 060 widens the Telegram support language
+  // vocabulary to the six UI languages. Neither changes a money path.
+  assert.strictEqual(migrations.length, 59, 'only approved migrations may be added (052/053 = financial RPC privileges, 054 = grandfathering, 055 = promo cap $30, 056 = users email uniqueness, 057 = $50 minimum sync, 058 = notifications feed, 060 = Telegram language vocabulary)');
+  assert.ok(migrations.includes('060_telegram_support_language_six.sql'), '060 is the Telegram language vocabulary');
   assert.ok(migrations.includes('038_marketing_broadcast.sql'), '038 is the marketing queue');
   assert.ok(migrations.includes('039_telegram_account_links.sql'), '039 is the account-link table');
   assert.ok(migrations.includes('040_conversion_events.sql'), '040 is the conversion outbox');

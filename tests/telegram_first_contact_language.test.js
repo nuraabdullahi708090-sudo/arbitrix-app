@@ -249,7 +249,9 @@ test('new customer /start shows the welcome and the existing language picker', a
   assert.deepStrictEqual(replies[0].text.split('\n'), [
     'Welcome to Kalderix Support 👋',
     'Choose your preferred language:',
-    'Escolha seu idioma / اختر لغتك'
+    'Escolha seu idioma / اختر لغتك',
+    // Added with the six-language release: es / fr / zh.
+    'Elige tu idioma / Choisissez votre langue / 请选择您的语言'
   ]);
 });
 
@@ -263,11 +265,12 @@ test('the picker reuses the ONE existing language keyboard (no second system)', 
   assert.deepStrictEqual(sent.replyMarkup, i18n.languageKeyboard());
   // The EXISTING labels, unchanged (native names, no flag emojis). Flags would
   // change the shared keyboard and therefore /language as well.
-  assert.deepStrictEqual(buttonsOf(sent.replyMarkup).map((b) => b.text), ['English', 'Português', 'العربية']);
+  assert.deepStrictEqual(buttonsOf(sent.replyMarkup).map((b) => b.text),
+    ['English', 'Español', 'Português', 'Français', 'العربية', '简体中文']);
   assert.deepStrictEqual(buttonsOf(sent.replyMarkup).map((b) => b.text),
     buttonsOf(i18n.languageKeyboard()).map((b) => b.text));
   assert.deepStrictEqual(buttonsOf(sent.replyMarkup).map((b) => b.callback_data),
-    ['lang:en', 'lang:pt', 'lang:ar']);
+    ['lang:en', 'lang:es', 'lang:pt', 'lang:fr', 'lang:ar', 'lang:zh']);
 });
 
 test('new customer /start writes NO language (the choice belongs to the callback)', async () => {
