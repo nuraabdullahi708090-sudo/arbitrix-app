@@ -10427,7 +10427,7 @@ function toggleFaq(btn) {
             <div>
                 <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--kx-text);" data-i18n="support.modal.title">Kalderix Support</h3>
                 <p style="margin:0;font-size:11px;color:var(--text-secondary);" data-i18n="support.modal.subtitle">We are here to help with deposits, withdrawals and account questions.</p>
-                <p style="margin:4px 0 0;font-size:10px;color:var(--text-muted);line-height:1.5;" data-i18n="support.assistant.automated">Automated assistant — replies instantly with guidance. For a person, use official support below.</p>
+                <p style="margin:4px 0 0;font-size:10px;color:var(--text-muted);line-height:1.5;" data-i18n="support.assistant.human">Our support team replies in the in-app chat.</p>
             </div>
         </div>
 
@@ -10923,7 +10923,7 @@ function toggleFaq(btn) {
     <button type="button" class="support-toggle-btn" id="supportToggleBtn" aria-label="Open support" onclick="toggleSupport()"><i class="fas fa-headset"></i></button>
     <div class="support-panel" id="supportPanel">
         <div class="support-panel-header">
-            <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;border-radius:50%;background:var(--gold-dim);display:flex;align-items:center;justify-content:center;color:var(--gold);"><i class="fas fa-headset"></i></div><div><h4 data-i18n="support.assistant.name">Kalderix Support</h4><div style="font-size:10px;color:var(--text-secondary);" data-i18n="support.assistant.status">Automated</div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;border-radius:50%;background:var(--gold-dim);display:flex;align-items:center;justify-content:center;color:var(--gold);"><i class="fas fa-headset"></i></div><div><h4 data-i18n="support.assistant.name">Kalderix Support</h4><div style="font-size:10px;color:var(--text-secondary);" data-i18n="support.assistant.status">Human support</div></div></div>
             <button type="button" onclick="document.getElementById('supportPanel').classList.remove('open')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;" aria-label="Close support"><i class="fas fa-times"></i></button>
         </div>
         <div class="support-panel-body" id="supportBody">
@@ -11783,9 +11783,9 @@ const TRANSLATIONS = {
         'ios.gotIt': 'Got It!',
         'support.title': 'Support',
         'support.online': '● Online',
-        'support.assistant.status': 'Automated',
+        'support.assistant.status': 'Human support',
         'support.assistant.name': 'Kalderix Support',
-        'support.assistant.automated': 'Automated assistant — replies instantly with guidance. For a person, use official support below.',
+        'support.assistant.human': 'Our support team replies in the in-app chat.',
         'support.human.title': 'Contact Official Support',
         'support.welcome': '👋 Welcome! How can I help?',
         'support.botSetup': '🤖 Bot setup',
@@ -11949,6 +11949,7 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'No documents uploaded',
         'kyc.noHistory': 'No history',
         'support.reply.default': 'I\'m not able to answer that accurately. Please contact our official support team through the Support Center, where a human support representative can assist you.',
+        'support.reply.queued': 'Thanks \u2014 your message has reached our support team. An agent will reply in the support chat.',
         'support.fallback.actionAria': 'Open Support Center to reach human support',
         'support.reply.bot': '🤖 To start the bot: 1) Open your dashboard, 2) Click \'Start Bot\' and it will scan supported markets and trade automatically.',
         'support.reply.deposit': '💰 To deposit: Switch to LIVE mode, click \'Deposit\' in the sidebar, enter the amount, then send USDT on the TRON (TRC20) network to the displayed address. Kalderix accepts USDT on TRON (TRC20) only. We\'ll auto-detect it.',
@@ -13389,9 +13390,9 @@ const TRANSLATIONS = {
         'ios.gotIt': '¡Entendido!',
         'support.title': 'Soporte',
         'support.online': '● En línea',
-        'support.assistant.status': 'Automatizado',
+        'support.assistant.status': 'Atenci\u00f3n humana',
         'support.assistant.name': 'Soporte de Kalderix',
-        'support.assistant.automated': 'Asistente automatizado — responde al instante con orientación. Para hablar con una persona, usa el soporte oficial abajo.',
+        'support.assistant.human': 'Nuestro equipo de soporte responde en el chat de la aplicaci\u00f3n.',
         'support.human.title': 'Contactar al soporte oficial',
         'support.welcome': '👋 ¡Bienvenido! ¿En qué puedo ayudarte?',
         'support.botSetup': '🤖 Configurar bot',
@@ -13555,6 +13556,7 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'No se han subido documentos',
         'kyc.noHistory': 'Sin historial',
         'support.reply.default': 'No puedo responder eso con precisión. Contacta con nuestro equipo de soporte oficial a través del Centro de Soporte, donde un representante de soporte humano puede ayudarte.',
+        'support.reply.queued': 'Gracias: tu mensaje lleg\u00f3 a nuestro equipo de soporte. Un agente responder\u00e1 en el chat de soporte.',
         'support.fallback.actionAria': 'Abrir el centro de soporte para contactar con un humano',
         'support.reply.bot': '🤖 Para iniciar el bot: 1) Abre tu panel, 2) Pulsa \'Iniciar bot\' y escaneará los mercados compatibles y operará automáticamente.',
         'support.reply.deposit': '💰 Para depositar: Cambia a modo LIVE, haz clic en \'Deposit\' en la barra lateral, ingresa el monto y envía USDT en la red TRON (TRC20) a la dirección mostrada. Kalderix solo acepta USDT en TRON (TRC20). Lo detectaremos automáticamente.',
@@ -14996,9 +14998,9 @@ const TRANSLATIONS = {
         'ios.gotIt': 'Entendi!',
         'support.title': 'Suporte',
         'support.online': '● Online',
-        'support.assistant.status': 'Automatizado',
+        'support.assistant.status': 'Atendimento humano',
         'support.assistant.name': 'Suporte da Kalderix',
-        'support.assistant.automated': 'Assistente automatizado — responde na hora com orientações. Para falar com uma pessoa, use o suporte oficial abaixo.',
+        'support.assistant.human': 'Nossa equipe de suporte responde no chat do aplicativo.',
         'support.human.title': 'Falar com o suporte oficial',
         'support.welcome': '👋 Bem-vindo! Como posso ajudar?',
         'support.botSetup': '🤖 Configurar bot',
@@ -15162,6 +15164,7 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'Nenhum documento enviado',
         'kyc.noHistory': 'Sem histórico',
         'support.reply.default': 'Não consigo responder isso com precisão. Fale com a nossa equipe de suporte oficial através da Central de Suporte, onde um representante de suporte humano pode ajudar você.',
+        'support.reply.queued': 'Obrigado \u2014 sua mensagem chegou \u00e0 nossa equipe de suporte. Um agente responder\u00e1 no chat de suporte.',
         'support.fallback.actionAria': 'Abrir a central de suporte para falar com um humano',
         'support.reply.bot': '🤖 Para iniciar o bot: 1) Abra seu painel, 2) Clique em \'Iniciar bot\' e ele vai monitorar os mercados compatíveis e operar automaticamente.',
         'support.reply.deposit': '💰 Para depositar: Mude para o modo LIVE, clique em \'Deposit\' na barra lateral, insira o valor e envie USDT na rede TRON (TRC20) para o endereço exibido. A Kalderix aceita apenas USDT na TRON (TRC20). Detectaremos automaticamente.',
@@ -16603,9 +16606,9 @@ const TRANSLATIONS = {
         'ios.gotIt': 'Compris !',
         'support.title': 'Support',
         'support.online': '● En ligne',
-        'support.assistant.status': 'Automatisé',
+        'support.assistant.status': 'Assistance humaine',
         'support.assistant.name': 'Assistance Kalderix',
-        'support.assistant.automated': 'Assistant automatisé — répond instantanément avec des conseils. Pour une personne, utilisez le support officiel ci-dessous.',
+        'support.assistant.human': 'Notre \u00e9quipe d\u2019assistance r\u00e9pond dans le chat de l\u2019application.',
         'support.human.title': 'Contacter le support officiel',
         'support.welcome': '👋 Bienvenue ! Comment puis-je aider ?',
         'support.botSetup': '🤖 Configurer le bot',
@@ -16769,6 +16772,7 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'Aucun document téléversé',
         'kyc.noHistory': 'Aucun historique',
         'support.reply.default': 'Je ne peux pas répondre à cela avec précision. Contactez notre équipe de support officielle via le Centre de support, où un représentant du support humain peut vous aider.',
+        'support.reply.queued': 'Merci \u2014 votre message a bien \u00e9t\u00e9 transmis \u00e0 notre \u00e9quipe d\u2019assistance. Un agent vous r\u00e9pondra dans le chat d\u2019assistance.',
         'support.fallback.actionAria': 'Ouvrir le centre de support pour joindre un humain',
         'support.reply.bot': '🤖 Pour lancer le bot : 1) Ouvrez votre tableau de bord, 2) Cliquez sur « Démarrer le bot » : il analysera les marchés compatibles et tradera automatiquement.',
         'support.reply.deposit': '💰 Pour déposer : Passez en mode LIVE, cliquez sur \'Deposit\' dans la barre latérale, saisissez le montant, puis envoyez des USDT sur le réseau TRON (TRC20) à l\'adresse affichée. Kalderix accepte uniquement l\'USDT sur TRON (TRC20). Nous le détecterons automatiquement.',
@@ -18210,9 +18214,9 @@ const TRANSLATIONS = {
         'ios.gotIt': 'فهمت!',
         'support.title': 'الدعم',
         'support.online': '● متصل',
-        'support.assistant.status': 'آلي',
+        'support.assistant.status': '\u062f\u0639\u0645 \u0628\u0634\u0631\u064a',
         'support.assistant.name': 'دعم Kalderix',
-        'support.assistant.automated': 'مساعد آلي — يرد فورًا بإرشادات. للتواصل مع شخص، استخدم الدعم الرسمي أدناه.',
+        'support.assistant.human': '\u064a\u0631\u062f \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627 \u0641\u064a \u062f\u0631\u062f\u0634\u0629 \u0627\u0644\u062a\u0637\u0628\u064a\u0642.',
         'support.human.title': 'تواصل مع الدعم الرسمي',
         'support.welcome': '👋 مرحبًا! كيف يمكنني المساعدة؟',
         'support.botSetup': '🤖 إعداد الروبوت',
@@ -18376,6 +18380,7 @@ const TRANSLATIONS = {
         'kyc.noDocuments': 'لم يتم رفع أي مستندات',
         'kyc.noHistory': 'لا يوجد سجل',
         'support.reply.default': 'لا أستطيع الإجابة على ذلك بدقة. يرجى التواصل مع فريق الدعم الرسمي عبر مركز الدعم، حيث يمكن لممثل دعم بشري مساعدتك.',
+        'support.reply.queued': '\u0634\u0643\u0631\u064b\u0627 \u2014 \u0648\u0635\u0644\u062a \u0631\u0633\u0627\u0644\u062a\u0643 \u0625\u0644\u0649 \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627. \u0633\u064a\u0631\u062f \u0623\u062d\u062f \u0627\u0644\u0645\u0648\u0638\u0641\u064a\u0646 \u0641\u064a \u062f\u0631\u062f\u0634\u0629 \u0627\u0644\u062f\u0639\u0645.',
         'support.fallback.actionAria': 'افتح مركز الدعم للتواصل مع دعم بشري',
         'support.reply.bot': '🤖 لتشغيل البوت: 1) افتح لوحة التحكم، 2) اضغط على \'تشغيل البوت\' وسيفحص الأسواق المدعومة ويتداول تلقائيًا.',
         'support.reply.deposit': '💰 للإيداع: بدّل إلى وضع LIVE، انقر على \'Deposit\' في الشريط الجانبي، أدخل المبلغ، ثم أرسل USDT على شبكة TRON (TRC20) إلى العنوان المعروض. يقبل Kalderix USDT على TRON (TRC20) فقط. سنكتشف ذلك تلقائيًا.',
@@ -19817,9 +19822,9 @@ const TRANSLATIONS = {
         'ios.gotIt': '知道了！',
         'support.title': '客服支持',
         'support.online': '● 在线',
-        'support.assistant.status': '自动',
+        'support.assistant.status': '\u4eba\u5de5\u5ba2\u670d',
         'support.assistant.name': 'Kalderix 客服',
-        'support.assistant.automated': '自动助手——即时提供指引。如需人工服务，请使用下方的官方支持。',
+        'support.assistant.human': '\u6211\u4eec\u7684\u5ba2\u670d\u56e2\u961f\u4f1a\u5728\u5e94\u7528\u5185\u804a\u5929\u4e2d\u56de\u590d\u3002',
         'support.human.title': '联系官方支持',
         'support.welcome': '👋 欢迎！有什么可以帮您？',
         'support.botSetup': '🤖 机器人设置',
@@ -19983,6 +19988,7 @@ const TRANSLATIONS = {
         'kyc.noDocuments': '未上传文档',
         'kyc.noHistory': '无历史记录',
         'support.reply.default': '我无法准确回答这个问题。请通过支持中心联系我们的官方支持团队，那里有真人客服可以为您提供帮助。',
+        'support.reply.queued': '\u8c22\u8c22\u2014\u2014\u60a8\u7684\u6d88\u606f\u5df2\u9001\u8fbe\u6211\u4eec\u7684\u5ba2\u670d\u56e2\u961f\uff0c\u5ba2\u670d\u4eba\u5458\u4f1a\u5728\u5ba2\u670d\u804a\u5929\u4e2d\u56de\u590d\u60a8\u3002',
         'support.fallback.actionAria': '打开支持中心以联系真人客服',
         'support.reply.bot': '🤖 启动机器人：1) 打开您的面板，2) 点击「启动机器人」，它会扫描支持的市场并自动交易。',
         'support.reply.deposit': '💰 入金：切换到 LIVE 模式，点击侧边栏的 \'Deposit\'，输入金额，然后通过 TRON (TRC20) 网络将 USDT 发送到显示的地址。Kalderix 仅接受 TRON (TRC20) 网络上的 USDT。我们会自动检测。',
@@ -26661,6 +26667,17 @@ function copyInvoiceRef() {
 
 function toggleSupport() {
     try {
+        // HUMAN-ONLY SUPPORT: the floating assistant no longer answers questions.
+        // When the messenger is enabled it is the single support surface, so the
+        // launcher opens the real conversation instead of the legacy panel.
+        if (typeof APP !== 'undefined' && APP && APP.nativeSupport === true
+            && typeof NativeSupport !== 'undefined' && NativeSupport
+            && typeof NativeSupport.open === 'function') {
+            const legacy = document.getElementById('supportPanel');
+            if (legacy && legacy.classList) legacy.classList.remove('open');
+            NativeSupport.open();
+            return;
+        }
         const panel = document.getElementById('supportPanel');
         // Only one support surface at a time: bringing the assistant forward
         // dismisses the Support Center modal (which also un-hides this widget).
@@ -26802,9 +26819,12 @@ function sendSupportMessage() {
                     return;
                 }
                 if (answered && answered.human) {
-                    // A support agent owns this conversation: the assistant must
-                    // stay quiet about the question and point at human support.
-                    appendSupportFallbackReply(t('support.reply.default'));
+                    // The message is ALREADY stored in the shared conversation and a
+                    // human will answer it. Under human-only support there is nothing
+                    // for the assistant to say, so it must not render the legacy
+                    // "I'm not able to answer that accurately" notice: the customer is
+                    // handed to the messenger that shows the thread and the reply.
+                    handOverToHumanSupport();
                     return;
                 }
             }
@@ -26867,6 +26887,57 @@ function appendSupportFallbackReply(message) {
     chat.scrollTop = chat.scrollHeight;
 }
 
+/**
+ * Hand a customer whose message is already stored in the shared conversation to
+ * the messenger that can display it.
+ *
+ * HUMAN-ONLY SUPPORT CONTRACT
+ *   The legacy floating assistant has no answer to give: the reply comes from a
+ *   person, through the same conversation. Rendering "I'm not able to answer that
+ *   accurately" (and a link to another surface) is therefore wrong twice over -
+ *   it answers a question nobody answered, and it points away from the thread the
+ *   agent is about to write in.
+ *
+ * Display-only: this stores nothing, creates nothing and sends nothing. The
+ * customer's message was persisted by the caller before this runs.
+ */
+function handOverToHumanSupport() {
+    try {
+        const legacy = typeof document !== 'undefined' && document.getElementById
+            ? document.getElementById('supportPanel') : null;
+        if (legacy && legacy.classList) legacy.classList.remove('open');
+        if (typeof NativeSupport !== 'undefined' && NativeSupport
+            && typeof NativeSupport.open === 'function') {
+            NativeSupport.open();
+            return true;
+        }
+    } catch (e) { /* fall through to the static acknowledgement */ }
+    // The messenger script could not open (blocked/cached/older page): still tell
+    // the customer the truth - their message reached the team - without a redirect.
+    appendSupportQueuedReply();
+    return true;
+}
+
+/**
+ * Static acknowledgement used when the messenger itself cannot be opened.
+ *
+ * Deliberately a SYSTEM notice, not an assistant answer: it repeats no question,
+ * offers no guidance and links to no other channel. `support.reply.queued` says
+ * only that the message reached the support team and that an agent will reply.
+ */
+function appendSupportQueuedReply() {
+    const chat = getEl('chatMessages');
+    if (!chat) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-message system';
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.appendChild(document.createTextNode(t('support.reply.queued')));
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+}
+
 // ============ INIT ============
 
 /**
@@ -26917,6 +26988,20 @@ async function syncWalletFromServer() {
             } else {
                 APP.environment = 'PRODUCTION';
                 APP.sandboxBadgeHidden = false;
+            }
+            // In-app support messenger availability (server feature flag).
+            //
+            // Adopted on EVERY session sync, not only on signup: the flag used to be
+            // assigned in the registration handler alone, so a returning customer
+            // (login, refresh, restored session) kept `APP.nativeSupport` undefined,
+            // `body.ns-enabled` was never applied, and the LEGACY floating assistant
+            // stayed the support surface - where a human reply can never appear.
+            // Display only: every support route re-checks the flag server-side.
+            if (meData && typeof meData.nativeSupport === 'boolean') {
+                APP.nativeSupport = meData.nativeSupport === true;
+                try {
+                    if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync();
+                } catch (err) {}
             }
             // Server-authoritative platform minimum deposit. APP.MIN_DEPOSIT is
             // the single frontend source (deposit validation, the min-amount

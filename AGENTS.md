@@ -10859,3 +10859,62 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
 - Single-admin Telegram preflight (manual, cannot be read from this environment): unset or
   'admins' TELEGRAM_NOTIFY_TARGET, UNSET TELEGRAM_SUPPORT_CHAT_ID, the admin's user id in
   TELEGRAM_ADMIN_IDS, the admin has /start'ed the bot, NATIVE_SUPPORT_ENABLED=true.
+
+
+## Human-only support AFTER DEPLOY - surface regression fixed (2026-11-26, public/index.html + tests)
+
+- FIRST PRODUCTION SMOKE OF PR #220 reported three symptoms that looked like three
+  bugs. They are ONE root cause plus one secondary effect.
+- ROOT CAUSE: `APP.nativeSupport = data.nativeSupport === true` existed ONLY in the
+  REGISTRATION handler (handleSignup). `syncWalletFromServer()` - the /api/auth/me
+  consumer that runs for every login, refresh and restored session - adopted
+  `environment`, `minDeposit`, `activationRequired`, `liveActivated` ... but never
+  `nativeSupport`. So for a returning customer APP.nativeSupport stayed `undefined`,
+  `body.ns-enabled` was never applied (the CSS that hides the legacy widget ships
+  since PR #215), and the LEGACY floating assistant (`#supportPanel`) remained the
+  only reachable support surface. `native-support.js`'s own load-time `sync()` runs
+  ~2.5s after `load`, typically BEFORE /api/auth/me resolves, so it cannot cover it.
+- THE THREE SYMPTOMS, explained by that surface:
+  1. `sendSupportMessage` -> `requestSupportReply` posts the message (stored, Telegram
+     notification sent) and, because human-only support returns no automated answer,
+     took the `{human:true}` branch -> `appendSupportFallbackReply(support.reply.default)`
+     = "I'm not able to answer that accurately ... Support Center" + an Open Support
+     Center button. The message WAS stored; only the UI was wrong.
+  2. The legacy panel has no history: `<div id="chatMessages">` is static markup with
+     the welcome bubble, so reopening/refreshing showed ONLY that. The agent's reply
+     existed in `support_messages` (via='telegram') and rendered correctly in the
+     NATIVE messenger - verified end to end: tests 33/37 assert persistence, same
+     conversation, via, order and customer retrieval; widget test 11 asserts reopen
+     AND fresh-page restore.
+  3. The panel header chip read `support.assistant.status` = 'Automated'.
+- FIX (frontend only, no API/DB/gate change):
+  * `syncWalletFromServer()` adopts `nativeSupport` from /api/auth/me and calls
+    `NativeSupport.sync()` - the actual regression.
+  * `sendSupportMessage()`'s stored-message branch calls `handOverToHumanSupport()`
+    instead of rendering the legacy fallback: it closes the legacy panel and opens
+    the messenger that shows the thread. No redirect to another channel.
+  * `appendSupportQueuedReply()` is the fallback for "the messenger script cannot
+    open": a `chat-message system` notice with `support.reply.queued` (no action
+    button). The old fallback text is now reachable ONLY when nothing was stored
+    (signed-out / feature-off), which is honest.
+  * `toggleSupport()` opens the messenger when `APP.nativeSupport === true`, so the
+    launcher can never route back to the assistant.
+  * Labels: `support.assistant.status` 'Automated' -> 'Human support' (6 locales) and
+    the retired `support.assistant.automated` (renamed `support.assistant.human`)
+    now says the support team replies in the in-app chat. Static markup defaults
+    match, so a pre-translation paint cannot flash "Automated" either.
+- i18n: 1586 -> 1587 keys/locale (+support.reply.queued), identical key sets x6.
+- TESTS: NEW tests/human_support_surface.test.js (11) + tests 33-37 in
+  tests/native_support.test.js + test 11 in tests/native_support_widget.test.js.
+  `npm test` = 4266 tests, 4265 pass, 0 fail, 1 skipped (pre-existing puppeteer skip).
+  Browser harness (chromium, stubbed API) on the REAL page: 10/10 including "send
+  from the legacy panel -> no fallback text, no center button, messenger opens with
+  the conversation" and "refresh restores the thread".
+- MIGRATION 061 REMAINS COMPATIBLE: the CHECK allows via IN
+  ('customer','admin','telegram','system','ai'); the client change writes nothing new
+  and the agent paths still write 'admin' / 'telegram'. NO new migration, no schema
+  change, no environment variable.
+- LESSON: a server feature flag is only "adopted" when EVERY session-sync path
+  assigns it. Grep for `APP.<flag> =` and confirm the sync function is one of the
+  sites; a flag set only in the signup handler works exactly once per account and
+  silently degrades every returning customer.

@@ -382,3 +382,34 @@ test('10. reopening a thread renders its history without repeating the welcome',
     const agent = nodes.find((n) => String(n.className).includes('agent'));
     assert.strictEqual(agent.attrs['data-via'], 'telegram', 'the reply keeps its channel of origin');
 });
+
+test('11. a page refresh restores the same thread (customer + Telegram reply) without duplicates', async () => {
+    const seed = {
+        conversations: [{ id: 900, status: 'assigned', unread_for_customer: 1 }],
+        messages: [
+            { id: 201, sender_type: 'customer', body: 'Hello, I need help with my account.', created_at: '2026-11-26T10:00:00.000Z' },
+            { id: 202, sender_type: 'system', body: 'We received your message.', created_at: '2026-11-26T10:00:00.500Z' },
+            { id: 203, sender_type: 'agent', body: 'Support here - this is fixed.', via: 'telegram', created_at: '2026-11-26T10:05:00.000Z' }
+        ]
+    };
+
+    const first = boot(seed);
+    await openWithConversation(first);
+    assert.strictEqual(messageNodes(first).length, 3, 'the whole thread is restored on open');
+
+    // Same page, panel closed and reopened (the reported "reopens the widget").
+    first.widget().close();
+    first.widget().open();
+    await flush(); await flush();
+    assert.strictEqual(messageNodes(first).length, 3, 'reopening re-renders the same rows, never duplicates');
+
+    // Fresh page load (the reported "refreshes"): a brand new widget instance with
+    // the same server state must show the same conversation.
+    const again = boot(seed);
+    await openWithConversation(again);
+    const nodes = messageNodes(again);
+    assert.strictEqual(nodes.length, 3, 'a refresh restores the conversation');
+    assert.ok(String(nodes[0].className).includes('customer'), 'the customer message is first');
+    assert.ok(String(nodes[2].className).includes('agent'), 'the human reply is last');
+    assert.strictEqual(nodes[2].attrs['data-via'], 'telegram', 'the reply keeps its channel of origin');
+});

@@ -75,6 +75,8 @@ const REQUEST = extractFunction('requestSupportReply');
 const ESCAPE = extractFunction('escapeSupportText');
 const SEND = extractFunction('sendSupportMessage');
 const FALLBACK = extractFunction('appendSupportFallbackReply');
+const HANDOVER = extractFunction('handOverToHumanSupport');
+const QUEUED = extractFunction('appendSupportQueuedReply');
 
 /**
  * Run the REAL widget source with a fake DOM and a programmable transport.
@@ -85,6 +87,7 @@ async function ask(message, options) {
     const chat = { innerHTML: '', scrollTop: 0, children: [], appendChild(n) { this.children.push(n); return n; } };
     const input = { value: message };
     const calls = [];
+    let messengerOpened = 0;
     const lang = opts.lang || 'en';
     const makeEl = () => ({
         tag: 'div', className: '', textContent: '', attrs: {}, handlers: {}, children: [],
@@ -95,11 +98,12 @@ async function ask(message, options) {
     let pending = null;
     const sandbox = {
         getEl: (id) => (id === 'chatMessages' ? chat : id === 'supportInput' ? input : null),
-        document: { createElement: makeEl, createTextNode: (s) => ({ nodeType: 3, text: s }) },
+        document: { createElement: makeEl, createTextNode: (s) => ({ nodeType: 3, text: s }), getElementById: () => null },
         APP: { MTA: 200 },
         currentLang: lang,
         setTimeout: (fn) => { pending = fn(); },
         openSupportModal: () => {},
+        NativeSupport: opts.messenger === false ? undefined : { open: function () { messengerOpened += 1; } },
         t: (key, vars) => {
             let v = (T[lang] && T[lang][key]) || T.en[key] || key;
             if (vars) Object.keys(vars).forEach((k) => { v = v.split('{{' + k + '}}').join(String(vars[k])); });
@@ -129,9 +133,9 @@ async function ask(message, options) {
         };
     }
     vm.createContext(sandbox);
-    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + SEND + '\n' + FALLBACK + '\nsendSupportMessage();', sandbox);
+    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + SEND + '\n' + FALLBACK + '\n' + HANDOVER + '\n' + QUEUED + '\nsendSupportMessage();', sandbox);
     if (pending) await pending;
-    return { html: chat.innerHTML, usedFallback: chat.children.length > 0, calls };
+    return { html: chat.innerHTML, usedFallback: chat.children.length > 0, calls, messengerOpened, nodes: chat.children };
 }
 
 /* ------------------------------------------------- A. one widget, one engine */
@@ -198,8 +202,27 @@ test('B4. a human-owned thread gets no automated answer and no echo', async () =
             }
         });
         assert.ok(!/chat-message agent/.test(out.html), 'no agent bubble for ' + JSON.stringify(payload));
-        assert.equal(out.usedFallback, true, 'the customer is pointed at human support');
+        assert.equal(out.messengerOpened, 1, 'the stored message is shown in the shared conversation');
     }
+
+    // The messenger cannot open (blocked/cached script): the customer still gets
+    // the truth - the message reached the team - and never the legacy fallback.
+    const noMessenger = await ask(QUESTION, {
+        messenger: false,
+        fetch: async (url) => {
+            if (String(url).indexOf('/messages') !== -1) {
+                return { ok: true, json: async () => ({ ok: true, conversationId: 11, message: { body: QUESTION }, reply: null }) };
+            }
+            return { ok: true, json: async () => ({ ok: true, conversation: { id: 11 } }) };
+        }
+    });
+    assert.equal(noMessenger.usedFallback, true, 'a static acknowledgement is rendered');
+    const textOf = (n) => (n && n.nodeType === 3 ? n.text : (n && n.children ? n.children.map(textOf).join('') : ''));
+    const notice = noMessenger.nodes[0];
+    assert.equal(notice.className, 'chat-message system', 'it is a system notice, not an assistant answer');
+    assert.ok(textOf(notice).indexOf(T.en['support.reply.queued']) !== -1, 'the queued acknowledgement is shown');
+    assert.ok(textOf(notice).indexOf(T.en['support.reply.default']) === -1, 'no legacy fallback text');
+    assert.ok(!/chat-message agent/.test(noMessenger.html), 'no assistant answer is rendered');
 });
 
 test('B5. a plain-string notice reply is rendered', async () => {
@@ -255,8 +278,9 @@ test('C5. a 500 keeps the keyword behaviour; a 200 with no reply does not invent
     // The backend accepted the message but produced no automated turn: that is a
     // human/queued case, NOT an invitation to answer from keywords.
     const empty = await ask('Tell me about the referral bonus', { reply: { body: '   ' } });
-    assert.equal(empty.usedFallback, true, 'blank reply -> human-support pointer');
+    assert.equal(empty.messengerOpened, 1, 'blank reply -> the stored message is shown to the customer');
     assert.ok(empty.html.indexOf(T.en['support.reply.bonus']) === -1, 'no keyword answer over the backend');
+    assert.ok(empty.html.indexOf(T.en['support.reply.default']) === -1, 'no legacy fallback text');
 });
 
 test('C6. a failed conversation create never posts a message', async () => {
