@@ -258,12 +258,12 @@ test('the manager can review, record the actual amount + tx hash, mark PAID or r
     assert.match(INDEX, /admin\.referral\.payoutCol\.network/);
 });
 
-test('a Contact Partner Support action opens the official Support Center', () => {
+test('a Contact Partner Support action opens the in-app support chat', () => {
     // The individual payment/referral partner contact was removed. The action
-    // stays, and it routes to the in-app Support Center - no personal account,
-    // no invented handle and no broken link when nothing is configured.
+    // stays, and it routes to the shared support conversation - no personal
+    // account, no invented handle and no broken link when nothing is configured.
     assert.match(INDEX, /id="partnerSupportBtn"/);
-    assert.match(INDEX, /onclick="openSupportModal\(\)"/);
+    assert.match(INDEX, /onclick="kxOpenSupport\('account'\)"/);
     assert.ok(!/openPartnerSupport/.test(INDEX), 'the partner-contact helper is gone');
     assert.ok(!/arbitrix-partner-support-telegram/.test(INDEX), 'no partner meta remains');
     // The button markup itself must not inline a personal telegram account.
@@ -284,7 +284,7 @@ test('the referral UI no longer says "platform minimum applies"', () => {
 // ===========================================================================
 test('all 6 locales keep an identical, complete, non-empty payout key set', () => {
     const counts = LANGS.map((l) => Object.keys(T[l]).length);
-    assert.deepStrictEqual(counts, [1587, 1587, 1587, 1587, 1587, 1587]);
+    assert.deepStrictEqual(counts, [1585, 1585, 1585, 1585, 1585, 1585]);
     const base = Object.keys(T.en).sort().join('|');
     for (const l of LANGS) assert.strictEqual(Object.keys(T[l]).sort().join('|'), base, l + ' key set drift');
     for (const l of LANGS) for (const k of Object.keys(T[l])) {

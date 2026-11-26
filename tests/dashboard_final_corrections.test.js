@@ -89,6 +89,9 @@ function runHandler(T, lang, body) {
     showToast: (message, kind) => toasts.push({ message, kind }),
     openDepositModal: () => { calls.deposit += 1; },
     openSupportModal: () => { calls.support += 1; },
+    // The single support entry point: the in-app messenger (the modal is its
+    // fallback, so either one counts as "the customer was given a human route").
+    kxOpenSupport: (ctx) => { calls.support += 1; calls.supportContext = ctx; },
     updateStatus: () => {},
     stopWorkerSyncLoop: () => { calls.stopped += 1; },
     clearInterval: () => {}
@@ -158,6 +161,7 @@ test('4. a genuine restriction still routes to support, and offers no purchase',
   assert.strictEqual(out.toasts.length, 1);
   assert.strictEqual(out.toasts[0].message, T.en['liveAccess.notAvailable']);
   assert.strictEqual(out.calls.support, 1, 'a human route is offered');
+  assert.strictEqual(out.calls.supportContext, 'account', 'and it is the in-app chat, scoped to the account');
   assert.strictEqual(out.calls.deposit, 0, 'the deposit dialog is not the answer here');
   assert.ok(!/buy|purchase/i.test(out.toasts[0].message), 'never a purchase prompt');
 });
@@ -312,7 +316,7 @@ test('11. the notice states the background behaviour and the tab warning is gone
 test('12. i18n parity: identical key sets, no empties, count pinned', () => {
   const T = dictionary();
   const base = Object.keys(T.en).sort();
-  assert.strictEqual(base.length, 1587, 'dictionary size pinned');
+  assert.strictEqual(base.length, 1585, 'dictionary size pinned');
   const enKeys = base.join('|');
   LANGS.forEach((l) => {
     assert.strictEqual(Object.keys(T[l]).sort().join('|'), enKeys, l + ' identical key set');

@@ -134,8 +134,11 @@ for (const file of SERVICE_COPY.filter(exists)) {
 // ---------------------------------------------------------------------------
 section('3. Protected identifiers');
 const PROTECTED = [
-  ['server.js', SERVER, [['PLATFORM_MIN_DEPOSIT_USD'], ['arbitrix.pro']]],
-  ['index.html', INDEX, [['https://t.me/ArbitrixSupportBot'], ['arbitrix.pro']]],
+  ['server.js', SERVER, [['PLATFORM_MIN_DEPOSIT_USD'], ['arbitrix.pro'], ['@ArbitrixSupportBot']]],
+  // The customer-facing Telegram support link was retired with the in-app
+  // support consolidation: the app publishes no bot handle to customers, so the
+  // only protected identifier left in the page is the product domain.
+  ['index.html', INDEX, [['arbitrix.pro'], ['?support=1']]],
 ];
 check('the support knowledge file kept its name', exists('services/support/arbitrix-knowledge.json'));
 check('the legal entity is unchanged', BRAND.legalName === 'Arbitrix Trading', BRAND.legalName);

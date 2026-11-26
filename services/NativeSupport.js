@@ -4,20 +4,23 @@
  * Native (in-app) customer support.
  *
  * WHY THIS EXISTS
- *   The platform already had a complete, tested SUPPORT BRAIN for Telegram:
- *   `services/support/ConversationEngine.js` (dialogue planning),
- *   `services/support/SupportAIService.js` (approved knowledge + guardrails),
- *   `services/support/SupportKnowledge.js` and `services/telegram-i18n.js`
- *   (localized customer copy). None of that is duplicated here: this module is
- *   the TRANSPORT, exactly as the Telegram bot is. It persists a thread, asks the
- *   same engine for a plan, asks the same AI service for a grounded answer, and
- *   writes the reply back. There is exactly one support brain.
+ *   This is the customer's side of a HUMAN-ONLY support conversation. It persists
+ *   the thread (`support_conversations` / `support_messages`) and nothing else:
+ *   there is no automated answering layer here.
  *
  * WHAT IT IS NOT
  *   It never reads or writes money: no wallet, deposit, withdrawal, trade,
  *   referral or subscription access, and no code path here can move a balance.
- *   Financial questions are answered by the AI service, which is grounded in the
- *   approved knowledge base and refuses to invent figures or statuses.
+ *   It does not answer questions: the only message it ever writes on its own is
+ *   the single static acknowledgement that tells the customer a person will
+ *   reply. A question left unanswered would be answered by a machine, which is
+ *   exactly what this design forbids.
+ *
+ * WHERE THE ANSWER COMES FROM
+ *   An agent replies from the Admin Dashboard inbox or from the internal Telegram
+ *   agent channel. Both write into this same conversation through
+ *   `sendAgentMessage()` / `sendChannelReply()`, so the customer sees one thread
+ *   regardless of which surface the agent used.
  *
  * SAFETY MODEL
  *   * Every CUSTOMER method takes `userId` and filters by it server-side; an id

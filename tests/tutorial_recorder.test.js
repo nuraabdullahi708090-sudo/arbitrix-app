@@ -141,7 +141,8 @@ test('share copies target WhatsApp and Telegram and carry a caption', () => {
   assert.match(BUILD, /caption\.txt/);
   assert.match(BUILD, /\+faststart/);
   assert.match(BUILD, /Trading involves risk/);
-  assert.match(BUILD, /https:\/\/t\.me\/ArbitrixSupportBot/);
+  assert.match(BUILD, /https:\/\/arbitrix\.pro\/\?support=1/, 'the caption points at the in-app support chat');
+  assert.ok(!/t\.me\//.test(BUILD), 'and never at a Telegram destination');
   assert.ok(!/guaranteed|risk[- ]free|assured profit/i.test(BUILD), 'no promise language in the caption');
 });
 

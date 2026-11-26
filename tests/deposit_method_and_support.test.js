@@ -98,7 +98,8 @@ test('4. no locale suggests buying crypto through Kalderix or a partner', () => 
 test('5. the payment session offers ONE compact Contact Support action', () => {
     const sec = paymentSection();
     assert.strictEqual((sec.match(/id="paymentSupportFallbackBtn"/g) || []).length, 1);
-    assert.match(sec, /id="paymentSupportFallbackBtn"[^>]*onclick="openSupportModal\(\)"/);
+    assert.match(sec, /id="paymentSupportFallbackBtn"[^>]*onclick="kxOpenSupport\('deposit'\)"/,
+        'the action opens the in-app chat with the deposit context');
     assert.match(sec, /data-i18n="support\.contactShort"/, 'uses the short label');
     assert.ok(!/support\.contactOfficial/.test(sec), 'the oversized primary label is retired');
     assert.ok(!/pay-support-cta[^>]*btn-primary/.test(sec), 'the support action is secondary, not primary');
@@ -109,10 +110,11 @@ test('6. no duplicate support destination in the payment session', () => {
     assert.ok(!/js-official-telegram/.test(sec), 'no second Telegram button');
     assert.ok(!/t\.me\//.test(sec), 'no direct Telegram URL');
     assert.ok(!/support\.officialTelegram/.test(sec), 'no duplicate Telegram label');
-    // Telegram stays reachable inside the Support Center modal.
+    // There is no Telegram destination anywhere: the in-app chat is the surface,
+    // and the Support Center remains its fallback.
     assert.match(INDEX, /id="supportModal"/);
-    assert.match(INDEX, /id="supportTelegramBtn"[^>]*js-official-telegram/);
-    assert.match(INDEX, /<meta name="arbitrix-support-telegram"/);
+    assert.ok(!/supportTelegramBtn|js-official-telegram|arbitrix-support-telegram/.test(INDEX),
+        'no customer-facing Telegram support link survives');
 });
 
 test('7. the support copy is the approved compact wording in all six locales', () => {
@@ -212,7 +214,7 @@ test('11. the automated Q8Pay flow is unchanged', () => {
 
 test('12. i18n parity holds with the new support keys', () => {
     const en = Object.keys(T.en);
-    assert.strictEqual(en.length, 1587, 'dictionary size pinned');
+    assert.strictEqual(en.length, 1585, 'dictionary size pinned');
     LANGS.forEach((l) => {
         assert.deepStrictEqual(new Set(Object.keys(T[l])), new Set(en), l + ' key set differs');
         assert.ok(!Object.values(T[l]).some((v) => typeof v === 'string' && v.includes('{{')

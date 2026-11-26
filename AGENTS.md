@@ -11205,3 +11205,77 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   not referenced by any test, so it is not part of CI. It did surface the
   toast/launcher collision above before being overtaken by missing chooser steps.
   Rewriting it is a separate job.
+
+## In-app support chat is the ONE customer support surface (2026-11-26, branch feat/inapp-support-primary)
+
+- Scope: frontend + copy + static pages + tests. `server.js`, `services/NativeSupport.js`
+  behaviour, the routes, migration 061 and the Telegram integration are UNCHANGED. No
+  migration, no deploy, no production configuration.
+- WHAT CHANGED
+  * Every "contact support" control now routes through `kxOpenSupport(context)` - the
+    sidebar, the deposit help button, the payment-session action, the withdrawal modal,
+    the profile modal, the referral card and the Support Center's own action. The
+    Support Center (`openSupportModal`) is now only the messenger's FALLBACK; no control
+    opens it directly any more.
+  * The Telegram support destination is GONE from the app and the static pages: the
+    `arbitrix-support-telegram` meta, the `js-official-telegram` anchors, the link
+    builder (`getOfficialSupportTelegramUrl`), `updateSupportLinks`, the Support Center
+    Telegram block and the `support.notConfigured` notice were all removed. Support
+    copy in `partners.html`, `terms-of-service.html` and `privacy-policy.html` now
+    points at `https://arbitrix.pro/?support=1`. The only t.me link left anywhere is
+    the withdrawal WALKTHROUGH (`t.me/ArbitrixAnnouncements/19`), which is tutorial
+    content, not a support destination. The bot stays server-side (webhook, private
+    admin notifications, `/kxreply` inbox bridge) - customers simply never see it.
+  * A reason travels with the open: `deposit | withdrawal | trading | account`, kept in
+    `APP.supportContext`, shown as a green chip under the widget header
+    (`ns.context.<topic>`, 6 locales) and stored as the conversation `category` on the
+    first message. Opening support sends NO message and creates no conversation.
+  * `?support=1` / `?support=deposit` / `#support=...` deep links (used by the static
+    pages) are consumed AFTER the session resolves and only when the messenger can
+    really open; the parameter is then stripped from the URL. `kxConsumeSupportDeepLink()`
+    retries a BOUNDED number of times (8 attempts, table `KX_SUPPORT_DEEP_LINK_RETRY_MS`)
+    because a cold load can resolve the widget a few seconds after the session sync -
+    the request is never consumed while it cannot open, and there is no polling loop.
+  * In-app `[data-kx-support]` links open the messenger in place when a session exists
+    (delegated click handler) and fall back to following the href otherwise, so the same
+    control works signed-out and signed-in.
+- TWO REAL BUGS FOUND WHILE VERIFYING (both fixed, both were silent)
+  1. SURFACE RACE: the widget script loads at the end of the body, so
+     `syncWalletFromServer()` could run before `window.NativeSupport` existed. `APP.nativeSupport`
+     became true but the surface stayed `pending`, `NativeSupport.open()` refuses a
+     non-native surface, and the customer got the fallback modal although the chat was
+     available. `kxOpenSupport()` now asks the widget to resolve (`NativeSupport.sync()`,
+     idempotent) when the surface is not native yet.
+  2. DEEP LINK LOST ON SLOW LOADS: the single `kxMaybeOpenSupportDeepLink()` attempt ran
+     before the widget resolved, so `?support=` was silently dropped and the parameter
+     stayed in the URL. Every session sync now calls the bounded retry above.
+- TESTS: NEW `tests/inapp_support_primary.test.js` (16): one entry point, no direct
+  `openSupportModal()` control, context matrix, messenger-wins/modal-fallback (real
+  functions in a vm), the surface-race regression, the deep-link parser (incl. junk),
+  consume-once-only-when-ready, initApp/signup ordering + "no redirect", static pages,
+  "no support destination in the app" (exactly one t.me link left), the Support Center
+  gates its CTA, widget context chip + `category` on the first message + reset, no AI
+  path in the widget or the service, Telegram stays internal, no migration 062.
+  Pins updated for the intentional change (17 suites) - e.g. `support_fallback` and
+  `support_profile_button` now assert the messenger entry point, `deposit_*` assert the
+  context-scoped onclick, `rebrand_audit` asserts the support-bot hook is GONE from the
+  app while the INTERNAL identity stays in `server.js`, `tutorial_recorder` asserts the
+  share caption points at `?support=1` (and the caption's minimum deposit was corrected
+  from $100 to $50). `scripts/verify-rebrand.js` moved the protected bot identifier to
+  `server.js` and protects `arbitrix.pro` + `?support=1` in the page.
+  `services/NativeSupport.js`'s header still described an AI "support brain" - rewritten
+  to the human-only contract (docs only).
+- VERIFICATION: `npm test` = 4349 pass / 0 fail. `node scripts/verify-rebrand.js
+  --expect Kalderix` = ALL CHECKS PASSED. CI static checks reproduced locally (79 files
+  parsed, workflow validation passed). Non-ASCII audit of `public/index.html` vs HEAD:
+  0 characters gained, 0 U+FFFD, and the only losses are the retired Telegram strings.
+  Headless Chromium (puppeteer-core + /usr/bin/chromium, real page over HTTP, API stubbed
+  in-page so nothing is created server-side) = 32/32: footer Contact opens the chat (no
+  navigation, no Telegram link anywhere on the landing), the Support Center's action
+  hands over to the same conversation and contains no t.me anchor, the context chip +
+  `APP.supportContext`, `?support=deposit` opens after the session with its context and
+  strips the parameter (onboarding not shown), 320px geometry (panel <= 72% viewport,
+  header + composer on screen, no overflow), Arabic RTL with an Arabic chip, partners
+  CTA + terms link, 0 unexpected page errors.
+- NOT verified from here: a real production login (no credentials) and real Telegram
+  round-trip; both are covered by the local harness against the same bundle.

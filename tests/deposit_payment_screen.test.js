@@ -309,17 +309,20 @@ test('10. the generated payment session carries no Alex/Olivia card or contact w
 test('11. one compact official support action in the payment session, no duplicate destinations', () => {
   const section = paymentSection();
   // Exactly ONE support button, and it opens the Support Center.
-  assert.match(section, /id="paymentSupportFallbackBtn"[^>]*onclick="openSupportModal\(\)"/);
+  assert.match(section, /id="paymentSupportFallbackBtn"[^>]*onclick="kxOpenSupport\('deposit'\)"/,
+    'the support action opens the in-app chat with the deposit context');
   assert.strictEqual((section.match(/id="paymentSupportFallbackBtn"/g) || []).length, 1);
   assert.match(section, /data-i18n="support\.contactShort"/);
   assert.ok(!/support\.contactOfficial/.test(section), 'the oversized label is retired');
-  // No second support destination competing with it: Telegram lives inside the
-  // Support Center modal, so the payment session carries no Telegram anchor.
-  assert.ok(!/js-official-telegram/.test(section), 'no duplicate Telegram button');
-  assert.ok(!/t\.me\//.test(section));
-  // The Support Center itself (with its Telegram link) is still reachable.
-  assert.match(INDEX, /<meta name="arbitrix-support-telegram"/);
+  // No second support destination competing with it, and no Telegram destination
+  // at all: the in-app chat is the surface, with the Support Center as fallback.
+  assert.ok(!/js-official-telegram/.test(section), 'no duplicate support button');
+  assert.ok(!/t\.me\//.test(section), 'no Telegram destination in the payment session');
+  // The withdrawal TUTORIAL link is announcement-channel content, not support.
+  assert.deepStrictEqual((INDEX.match(/https?:\/\/t\.me\/[A-Za-z0-9_\/]+/g) || []),
+    ['https://t.me/ArbitrixAnnouncements/19'], 'the only t.me link left is the tutorial');
   assert.match(INDEX, /id="supportSidebarLink"/);
+  assert.match(INDEX, /function kxOpenSupport\(/);
   assert.match(INDEX, /function openSupportModal/);
   assert.match(INDEX, /id="supportModal"/);
   // ... and the payment help copy points at it, not at a person.
@@ -418,10 +421,10 @@ test('17. the copy actions degrade safely when there is no invoice', async () =>
   assert.match(reset, /window\.currentPaymentAmount = ''/);
 });
 
-test('18. i18n parity: 1587 keys, identical sets, no empties', () => {
+test('18. i18n parity: 1585 keys, identical sets, no empties', () => {
   const T = dictionary();
   const base = Object.keys(T.en).sort();
-  assert.strictEqual(base.length, 1587);
+  assert.strictEqual(base.length, 1585);
   const keys = base.join('|');
   LANGS.forEach((l) => {
     assert.strictEqual(Object.keys(T[l]).sort().join('|'), keys, l + ' identical key set');

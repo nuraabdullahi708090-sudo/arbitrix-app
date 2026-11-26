@@ -288,5 +288,5 @@ test('the paid-activation dialog is gone from the customer journey', () => {
   assert.ok(!INDEX.includes('liveActivation.'), 'no activation keys');
   const refusal = INDEX.slice(INDEX.indexOf('function handleLiveAccessRefusal'), INDEX.indexOf('function isProfitPausePayload'));
   assert.match(refusal, /liveAccess\.notAvailable/, 'a neutral explanation');
-  assert.match(refusal, /openSupportModal\(\)/, 'a human route');
+  assert.match(refusal, /kxOpenSupport\('account'\)/, 'a human route (the in-app chat)');
 });

@@ -21,7 +21,8 @@
  *     simulated-demo disclosure, with NO separate explanatory copy above it;
  *   - NO fabricated screenshots / transactions / earnings / customer data and
  *     NO video element is shipped before the real recording exists;
- *   - the partner support handle is the single source of truth (@AlexArbitrix);
+ *   - partner support is the IN-APP chat (a deep link into the app's messenger):
+ *     the page carries no Telegram handle, no Telegram URL and no contact card;
  *   - public/index.html (the customer funnel) is byte-for-byte unchanged BY THIS
  *     FEATURE and the page is not linked from the homepage navigation. (The
  *     baseline hash is re-pinned when a separately-approved change edits the
@@ -45,7 +46,10 @@ const SERVER = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const PAGE_PATH = path.join(ROOT, 'public', 'partners.html');
 const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 87;
+// 84: the Telegram contact model was retired (partners.supportHandleLabel,
+// partners.contactAlex, partners.partnerRole = -3 per locale), and the copy now
+// names only the in-app chat.
+const EXPECTED_KEYS = 84;
 
 // The application destination every primary CTA uses: the EXISTING account
 // creation deep link. No bespoke registration and no external redirect.
@@ -80,7 +84,11 @@ function funnelSlice() {
 // elevation layer and the shared component layer.
 // The /partners feature itself still touches no homepage markup; this pin keeps
 // protecting it, so any future homepage edit must be re-pinned deliberately.
-const FUNNEL_SHA256 = '06274563a4ca997c00f1e33c27127b623e0628bca66a7c1d3194c6239620a643';
+// Re-pinned 2026-11-26 for the APPROVED in-app-support consolidation: the footer
+// Contact column now opens the in-app chat instead of the Telegram bot, and the
+// landing page keeps no customer-facing Telegram support destination.
+// Previous pin: 06274563...20a643.
+const FUNNEL_SHA256 = '81dc1a622cdf85baa234066bc373f40a8444d301de7cff706725fb28860944fe';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';
@@ -186,36 +194,18 @@ function runPage(opts) {
     sandbox.localStorage = { getItem: () => (opts.storedLang || lang), setItem: () => {} };
     sandbox.sessionStorage = { setItem: () => {} };
     sandbox.console = console;
-    const cards = fakeEl('div');
-    const fallback = fakeEl('p');
     sandbox.document = {
         documentElement: {},
         title: '',
         querySelectorAll: () => [],
-        querySelector: (sel) => {
-            const m = /meta\[name="([^"]+)"\]/.exec(String(sel));
-            if (!m) return null;
-            if (m[1] === META_1) {
-                return { getAttribute: () => (opts.metaContent !== undefined ? opts.metaContent : PARTNER_HANDLE) };
-            }
-            if (m[1] === META_2) {
-                return { getAttribute: () => (opts.metaContent2 !== undefined ? opts.metaContent2 : PARTNER_HANDLE_2) };
-            }
-            return null;
-        },
+        querySelector: () => null,
         createElement: (tag) => fakeEl(tag),
-        getElementById: (id) => (id === 'partnerSupportContacts' ? cards : (id === 'partnerSupportFallback' ? fallback : null))
+        getElementById: () => null
     };
     sandbox.window = sandbox;
-    if (opts.overrideUrl !== undefined) sandbox.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL = opts.overrideUrl;
     vm.createContext(sandbox);
     vm.runInContext(
-        script + ';globalThis.__T=TRANSLATIONS;globalThis.__t=t;globalThis.__lang=currentLang;' +
-        'globalThis.__url=getPartnerSupportTelegramUrl();' +
-        'globalThis.__contacts=getPartnerSupportContacts();' +
-        'globalThis.__cards=document.getElementById("partnerSupportContacts");' +
-        'globalThis.__fallback=document.getElementById("partnerSupportFallback");' +
-        'globalThis.__apply=applyPartnerSupport;',
+        script + ';globalThis.__T=TRANSLATIONS;globalThis.__t=t;globalThis.__lang=currentLang;',
         sandbox
     );
     return sandbox;
@@ -637,158 +627,115 @@ test('7h. no internal sandbox wording on the partner page', () => {
 });
 
 /* ------------------------------------------------------------------ *
- * 8. Support: single source of truth handle
+ * 8. Support: the in-app chat, with no Telegram contact
  * ------------------------------------------------------------------ */
-test('8. the recruitment page configures its own contact; the app configures none', () => {
-    const metaOf = (html, name) => {
-        const m = html.match(new RegExp('<meta name="' + name + '" content="([^"]*)">'));
-        return m ? m[1] : null;
-    };
-    // The recruitment page keeps its single configured contact ...
-    assert.strictEqual(metaOf(PAGE, META_1), PARTNER_HANDLE, 'the page must configure its contact');
-    // ... while the APP no longer configures any payment partner: that route was
-    // removed, so no individual can be reached from the deposit journey.
-    assert.strictEqual(metaOf(INDEX, META_1), null, 'the app must not configure a partner contact');
-    assert.strictEqual(metaOf(INDEX, META_2), null, 'the app must not configure a second contact');
+test('8. the page sends partner questions to the in-app chat and configures no contact', () => {
+    // No per-partner Telegram handle any more: the in-app messenger is the support
+    // channel for partners too - the same conversation the agents answer from.
+    for (const meta of [META_1, META_2]) {
+        assert.ok(!PAGE.includes('name="' + meta + '"'), 'no Telegram contact meta: ' + meta);
+    }
+    // CSS at-rules (@media, @keyframes, ...) are not handles; a Telegram username is.
+    const handles = PAGE.match(/(^|[\s>"'(])@(?!media\b|keyframes\b|font-face\b|supports\b|import\b)[A-Za-z0-9_]{4,}/g) || [];
+    assert.deepStrictEqual(handles, [], 'no @handle of any kind is printed on the page');
+
+    // The CTA is a real link to the app's support deep link: it works before JS
+    // loads and for a signed-out visitor (the chat opens when the session resolves).
+    const cta = PAGE.match(/<a[^>]*js-partner-support[^>]*>[\s\S]*?<\/a>/);
+    assert.ok(cta, 'the support CTA must exist');
+    assert.match(cta[0], /href="\/\?support=1"/, 'deep link into the app');
+    assert.match(cta[0], /data-i18n="partners\.supportCta"/, 'localized label');
+    assert.match(cta[0], /fa-comments/, 'a chat icon, not a Telegram glyph');
+    assert.ok(!/target="_blank"/.test(cta[0]), 'the chat opens in the same tab');
+
+    // The app keeps no partner contact either.
     assert.strictEqual(INDEX.split('@AlexArbitrix').length - 1, 0, 'no Alex handle in the app');
     assert.strictEqual(INDEX.split('@OliviaArbitrix').length - 1, 0, 'no Olivia handle in the app');
-    // The handle literal appears exactly once on the page (its meta).
-    assert.strictEqual(PAGE.split(PARTNER_HANDLE).length - 1, 1,
-        'the handle literal must appear exactly once (in its meta)');
 });
 
-test('8d. both partners are rendered as clearly labelled, safe contact buttons', () => {
-    const sb = runPage({ lang: 'en', storedLang: 'en' });
-    const cards = renderedCards(sb);
-    assert.strictEqual(cards.length, 1, 'the recruitment contact is Alex only');
-    assert.strictEqual(cards[0].partner, 'Alex');
-    assert.strictEqual(cards[0].name, 'Alex');
-    assert.strictEqual(cards[0].label, 'Contact Alex', 'clearly labelled button');
-    assert.strictEqual(cards[0].href, 'https://t.me/AlexArbitrix', 'the button opens Alex profile');
-    cards.forEach((c) => {
-        assert.strictEqual(c.target, '_blank', c.partner + ' opens in a new tab');
-        assert.strictEqual(c.rel, 'noopener noreferrer', c.partner + ' carries safe rel attributes');
-        assert.strictEqual(c.role, 'Referral Partner', 'the recruitment role label is shown');
-        assert.strictEqual(c.handle, '@AlexArbitrix', 'the handle is shown under the button');
-        assert.match(c.iconHidden || '', /true/, 'the decorative icon is hidden from screen readers');
+test('8d. the support section is a single, labelled, accessible CTA', () => {
+    const section = PAGE.slice(PAGE.indexOf('id="supportHeading"'), PAGE.indexOf('id="faqHeading"'));
+    assert.strictEqual((section.match(/js-partner-support/g) || []).length, 1, 'exactly one support action');
+    assert.match(PAGE, /aria-labelledby="supportHeading"/, 'the section is labelled by its heading');
+    assert.match(section, /partners\.supportDesc/, 'and explains what the chat is for');
+    assert.match(section, /partners\.supportFallback/, 'with a hint, never a contact address');
+    assert.strictEqual((section.match(/<a /g) || []).length, 1, 'one anchor, no contact list');
+});
+
+test('8e. the support copy is localized in all six languages and never names Telegram', () => {
+    for (const k of ['partners.supportTitle', 'partners.supportDesc',
+        'partners.supportCta', 'partners.supportFallback']) {
+        LANGS.forEach((l) => {
+            assert.ok(T[l][k] && T[l][k].trim(), l + ' must define ' + k);
+            assert.ok(!/@|t\.me|Telegram/i.test(T[l][k]), l + '/' + k + ' must not name a Telegram destination');
+        });
+        assert.notStrictEqual(T.ar[k], T.en[k], 'ar must be translated for ' + k);
+    }
+    LANGS.filter((l) => l !== 'en').forEach((l) => {
+        assert.notStrictEqual(T[l]['partners.supportCta'], T.en['partners.supportCta'],
+            l + ' must translate the CTA');
     });
-    // The fallback note is hidden while contacts are configured.
-    assert.strictEqual(sb.__fallback.getAttribute('hidden'), '', 'the fallback must be hidden');
 });
 
-test('8e. the contact labels are localized in all six languages', () => {
-    const expected = {
-        en: ['Contact Alex', 'Referral Partner'],
-        es: ['Contactar con Alex', 'Socio de referidos'],
-        pt: ['Falar com Alex', 'Parceiro de indica\u00e7\u00f5es'],
-        fr: ['Contacter Alex', 'Partenaire de parrainage'],
-        ar: ['\u062a\u0648\u0627\u0635\u0644 \u0645\u0639 Alex', '\u0634\u0631\u064a\u0643 \u0625\u062d\u0627\u0644\u0629'],
-        zh: ['\u8054\u7cfb Alex', '\u63a8\u8350\u5408\u4f5c\u4f19\u4f34']
-    };
-    LANGS.forEach((lang) => {
-        const sb = runPage({ lang: lang, storedLang: lang });
-        const cards = renderedCards(sb);
-        assert.strictEqual(cards.length, 1, lang + ' must still offer the recruitment contact');
-        assert.deepStrictEqual([cards[0].label, cards[0].role], expected[lang],
-            lang + ' labels must be translated');
-        // Names are proper nouns and never translated.
-        assert.strictEqual(cards[0].name, 'Alex', lang + ' name stays as-is');
-        // The URL never changes with the language.
-        assert.strictEqual(cards[0].href, 'https://t.me/AlexArbitrix', lang + ' link is stable');
-    });
-    // Arabic keeps RTL with the partner cards.
-    assert.match(PAGE, /html\[dir="rtl"\]/);
-});
-
-test('8f. an unconfigured contact is skipped, and the empty state is explained', () => {
-    const none = runPage({ metaContent: '' });
-    assert.strictEqual(renderedCards(none).length, 0, 'no contact may be invented');
-    assert.strictEqual(none.__fallback.getAttribute('hidden'), null, 'the fallback note is shown');
-
-    // A non-Telegram destination is refused.
-    assert.strictEqual(renderedCards(runPage({ metaContent: 'https://example.com/pay' })).length, 0);
-    assert.strictEqual(runPage({ metaContent: 'https://example.com/pay' }).__url, '');
-
-    // A blank second slot never adds a second card.
-    const withSecond = runPage({ metaContent2: PARTNER_HANDLE_2 });
-    assert.deepStrictEqual(renderedCards(withSecond).map((c) => c.partner), ['Alex'],
-        'the page renders one recruitment contact regardless of any other handle');
-});
-
-test('8g. official Kalderix Support stays separate and the retired handle is gone', () => {
-    assert.ok(!PAGE.includes(OFFICIAL_SUPPORT), 'the partner page must not present official support as a partner');
-    assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must not appear');
-    assert.ok(!PAGE.includes('Olivia'), 'Olivia must not be presented as a recruitment contact');
-    assert.ok(!/Arbitrix_CSA1/.test(JSON.stringify(runPage({ lang: 'en' }).__contacts)), 'nor be rendered');
-    // Official support is untouched in the app.
-    assert.ok(INDEX.includes('https://t.me/ArbitrixSupportBot'), 'the official support destination is unchanged');
-    assert.ok(INDEX.includes('js-official-telegram'), 'the official support entry points are unchanged');
-});
-
-test('8h. the two-contact layout is responsive and accessible on small screens', () => {
-    assert.match(PAGE, /\.support-cards\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(230px,\s*1fr\)\)/,
-        'the cards must use an auto-fit grid so they stack on narrow screens');
-    assert.match(PAGE, /\.support-card\s*\{[^}]*min-width:\s*0/, 'cards must be allowed to shrink');
-    assert.match(PAGE, /\.support-card \.btn\s*\{[^}]*width:\s*100%/, 'each button fills its card');
-    assert.match(PAGE, /overflow-wrap:\s*anywhere/, 'long translated labels must wrap');
-    // The container is a labelled section, and the buttons are real anchors.
-    assert.match(PAGE, /aria-labelledby="supportHeading"/);
-    assert.ok(!/id="partnerSupportBtn"/.test(PAGE), 'the old single-contact anchor is gone');
-});
-
-test('8b. the page adds no Telegram group destination of its own', () => {
-    assert.strictEqual((PAGE.match(/t\.me\/\+/g) || []).length, 0,
-        'the retired community invite must not appear anywhere on the page');
-    assert.ok(!/joinchat/i.test(PAGE), 'no joinchat link');
-    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
-        'only the single programmatic partner-handle builder may reference t.me');
-    for (const handle of [PARTNER_HANDLE, PARTNER_HANDLE_2]) {
-        assert.ok(!PAGE.includes('https://t.me/' + handle.replace('@', '')),
-            'the full URL for ' + handle + ' must be built at runtime, not hardcoded');
+test('8f. nothing can invent a contact: no builder, no card, no fallback element', () => {
+    for (const gone of ['partnerSupportContacts', 'id="partnerSupportFallback"', 'applyPartnerSupport',
+        'buildPartnerCard', 'getPartnerSupportContacts', 'partnerSupportRaw', 'telegramUrlFromRaw',
+        'getPartnerSupportTelegramUrl', 'support-cards', 'support-card']) {
+        assert.ok(!PAGE.includes(gone), 'must be gone: ' + gone);
     }
 });
 
-test('8c. the runtime builds the correct https://t.me URL from the meta handle', () => {
-    const sb = runPage({ lang: 'en', storedLang: 'en' });
-    assert.strictEqual(sb.__url, 'https://t.me/AlexArbitrix', 'the handle must resolve to the official t.me URL');
-    // A full URL override is honoured.
-    const ovr = runPage({ overrideUrl: 'https://t.me/SomePartner' });
-    assert.strictEqual(ovr.__url, 'https://t.me/SomePartner');
-    // A bare username (no @) is accepted.
-    const bare = runPage({ metaContent: 'AnotherPartner' });
-    assert.strictEqual(bare.__url, 'https://t.me/AnotherPartner');
-    // Empty config resolves to '' (the caller then leaves the link inert).
-    const empty = runPage({ metaContent: '' });
-    assert.strictEqual(empty.__url, '');
+test('8g. no partner or customer-support Telegram destination is presented', () => {
+    assert.ok(!PAGE.includes('@Arbitrix_CSA1'), 'the retired partner handle must not appear');
+    assert.ok(!PAGE.includes('Olivia'), 'no individual is presented as a partner contact');
+    assert.ok(!/https?:\/\/t\.me\//.test(PAGE), 'no Telegram destination of any kind');
+    assert.ok(!PAGE.includes('ArbitrixSupportBot'), 'not the customer support bot either');
+    // The app's single support entry point is untouched by this page.
+    assert.ok(INDEX.includes('function kxOpenSupport('), 'the app still has its one support entry point');
 });
 
+test('8h. the CTA is responsive with a comfortable tap target', () => {
+    assert.match(PAGE, /\.support-cta\s*\{[^}]*display:\s*flex/, 'the CTA is centred by a flex row');
+    assert.match(PAGE, /\.support-cta \.btn\s*\{[^}]*min-height:\s*44px/, 'at least a 44px tap target');
+    assert.match(PAGE, /\.support-cta \.btn\s*\{[^}]*max-width:\s*100%/, 'cannot overflow a narrow screen');
+    assert.match(PAGE, /\.support-fallback\s*\{[^}]*overflow-wrap:\s*anywhere/, 'long translations wrap');
+});
+
+test('8b. the page adds no Telegram destination of its own', () => {
+    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 0, 'no t.me destination anywhere');
+    assert.strictEqual((PAGE.match(/t\.me\/\+/g) || []).length, 0, 'no community invite');
+    assert.ok(!/joinchat/i.test(PAGE), 'no joinchat link');
+});
+
+test('8c. no runtime Telegram URL builder remains', () => {
+    assert.ok(!/getPartnerSupportTelegramUrl|telegramUrlFromRaw|PARTNER_SUPPORT_META/.test(PAGE),
+        'the handle-to-URL builder is retired with the contact model');
+    assert.ok(!/ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL/.test(PAGE),
+        'and so is its window override');
+});
 
 test('8i. the app offers no partner contact anywhere in the deposit journey', () => {
     // Management removed the customer-facing "Buy from a Verified Partner" route:
-    // the deposit journey is the automated USDT (TRC20) flow, and official
-    // support is the only assistance offered there.
+    // the deposit journey is the automated USDT (TRC20) flow, and the in-app
+    // support chat is the only assistance offered there.
     for (const gone of ['id="depositPartnerContacts"', 'id="paymentPartnerContacts"',
         'id="depositCryptoPartnerContacts"', 'renderPaymentPartnerContacts',
         'renderDepositPartnerAssistance', 'https://wa.me/17828027841',
         '<meta name="arbitrix-partner-support-telegram-2"']) {
         assert.ok(!INDEX.includes(gone), 'must be gone from the app: ' + gone);
     }
-    // The referral card keeps a support action, and it opens the Support Center
-    // rather than an individual account.
-    assert.match(INDEX, /id="partnerSupportBtn"[^>]*onclick="openSupportModal\(\)"/);
-    assert.match(INDEX, /function openSupportModal\(/);
+    // The referral card keeps a support action, routed through the one helper.
+    assert.match(INDEX, /id="partnerSupportBtn"[^>]*onclick="kxOpenSupport\('account'\)"/);
     assert.ok(INDEX.includes('data-i18n="referral.partner.contactSupport"'),
         'the referral support button is still present');
-    // The recruitment page is a separate surface and keeps its own contact.
-    assert.strictEqual(PAGE.split(PARTNER_HANDLE).length - 1, 1);
 });
 
 test('8j. no other recruitment surface points at a payment partner', () => {
-    // The retirement/deposit docs and tests keep @Arbitrix_CSA1 only as fixtures.
     const outreach = ['partners.html'];
     outreach.forEach((file) => {
         const html = fs.readFileSync(path.join(ROOT, 'public', file), 'utf8');
         assert.ok(!html.includes('@OliviaArbitrix'), file + ' must not offer Olivia as a recruitment contact');
+        assert.ok(!html.includes('@AlexArbitrix'), file + ' must not offer Alex as a recruitment contact');
     });
 });
 

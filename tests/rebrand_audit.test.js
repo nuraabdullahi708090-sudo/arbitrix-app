@@ -134,11 +134,14 @@ test('the tutorial closing card and the on-screen chip say Kalderix', () => {
   assert.equal(RECORD.includes("brand.textContent = 'ARBITRIX';"), false);
 });
 
-test('the tutorial keeps the real destination and the real handle', () => {
-  assert.ok(BUILD.includes('https://t.me/ArbitrixSupportBot'));
+test('the tutorial sends people to the real destinations (no Telegram handle)', () => {
   assert.ok(BUILD.includes('https://arbitrix.pro/how-it-works'));
-  assert.ok(SCENES.includes('official support bot on Telegram'),
-    'the narration describes the bot instead of spelling a handle that may change');
+  assert.ok(BUILD.includes('https://arbitrix.pro/?support=1'),
+    'the share caption points at the in-app support chat');
+  assert.ok(!BUILD.includes('t.me/'), 'no Telegram handle is published to customers');
+  assert.ok(SCENES.includes('support chat'),
+    'the narration names the in-app chat instead of a handle that may change');
+  assert.ok(!SCENES.includes('on Telegram'), 'and no longer describes a Telegram bot');
 });
 
 // ---------------------------------------------------------------------------
@@ -253,8 +256,12 @@ test('compatibility identifiers are untouched', () => {
   // localStorage + event names: renaming them logs users out / breaks listeners
   assert.ok(INDEX.includes('arbitrix:mode-changed'));
   assert.ok(read('public/sw.js').includes("'arbitrix-shell-v1'"));
-  // configuration hooks that operators may already have set
-  assert.ok(INDEX.includes('arbitrix-support-telegram'));
+  // The configurable Telegram support hook was RETIRED with the in-app support
+  // consolidation: support is the messenger the bot feeds, not a customer link.
+  assert.ok(!INDEX.includes('arbitrix-support-telegram'),
+    'the support-bot hook must be gone from the app');
+  assert.ok(SERVER.includes('@ArbitrixSupportBot'),
+    'the INTERNAL Telegram integration keeps its identity');
   // The payment/referral partner contact hook was RETIRED with the
   // verified-partner funding route (no individual can be reached from the app).
   assert.ok(!INDEX.includes('ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL'),

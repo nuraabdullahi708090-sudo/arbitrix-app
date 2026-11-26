@@ -91,10 +91,10 @@ test('4. no partner contact configuration is left in the page', () => {
     assert.ok(!INDEX.includes('arbitrix-partner-support-telegram'),
         'the partner-support meta tags must be removed');
     assert.ok(!INDEX.includes('ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL'));
-    // The one meta the page still configures for support is the official bot.
+    // Support is the in-app chat now, so the page configures NO support destination
+    // at all - not a partner handle and not the customer support bot.
     const metas = INDEX.match(/^\s*<meta name="[^"]*support[^"]*"[^>]*>/gm) || [];
-    assert.strictEqual(metas.length, 1);
-    assert.match(metas[0], /arbitrix-support-telegram/);
+    assert.deepStrictEqual(metas, [], 'no support meta tag may remain');
 });
 
 test('5. neither partner name survives in any customer-facing deposit copy', () => {
@@ -134,12 +134,12 @@ test('7. official support is untouched and reachable from the deposit journey', 
     assert.match(INDEX, /id="supportSidebarLink"/);
     assert.match(INDEX, /function openSupportModal\(/);
     assert.match(INDEX, /id="supportModal"/);
-    assert.match(depositMarkup(), /onclick="openSupportModal\(\)"/,
-        'the deposit journey still offers the Support Center');
+    assert.match(depositMarkup(), /onclick="kxOpenSupport\('deposit'\)"/,
+        'the deposit journey offers the in-app chat (with the Support Center as fallback)');
     assert.ok(INDEX.includes("data-i18n=\"deposit.getHelp\""));
-    // The referral card's partner-support button now opens the Support Center
-    // instead of an individual Telegram account.
-    assert.match(INDEX, /id="partnerSupportBtn"[^>]*onclick="openSupportModal\(\)"/);
+    // The referral card's partner-support button opens the in-app chat instead of an
+    // individual Telegram account.
+    assert.match(INDEX, /id="partnerSupportBtn"[^>]*onclick="kxOpenSupport\('account'\)"/);
     assert.match(INDEX, /data-i18n="referral\.partner\.contactSupport"/);
 });
 
