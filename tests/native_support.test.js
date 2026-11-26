@@ -788,3 +788,40 @@ test('K6 the fallback is offline: it constructs the knowledge provider, never a 
         'a configured AI layer is always preferred');
     assert.doesNotMatch(src, /api\.openai|api\.deepseek|api\.anthropic/, 'no provider endpoint is called from here');
 });
+
+test('K7 the fallback ignores an ambient external provider and never calls the network', async () => {
+    // Even with a model provider and key present in the environment, the fallback
+    // must stay on the offline knowledge provider: no calls, no credits, no key.
+    const saved = {};
+    ['AI_SUPPORT_ENABLED', 'AI_SUPPORT_PROVIDER', 'AI_SUPPORT_API_KEY'].forEach((k) => { saved[k] = process.env[k]; });
+    const realFetch = global.fetch;
+    let calls = 0;
+    global.fetch = function () { calls += 1; throw new Error('network disabled in this test'); };
+    process.env.AI_SUPPORT_ENABLED = 'true';
+    process.env.AI_SUPPORT_PROVIDER = 'deepseek';
+    process.env.AI_SUPPORT_API_KEY = 'sk-test-not-a-real-key';
+    try {
+        const { service } = makeService({ options: { ai: null } });
+        const out = await service.sendCustomerMessage({ userId: 50, body: 'What is Kalderix?', clientMessageId: 'k7' });
+        assert.strictEqual(calls, 0, 'no provider request, so no external credits');
+        assert.doesNotMatch(String(out.reply.body), /sk-test/, 'the key never reaches the customer');
+        assert.match(String(out.reply.body), /arbitrage|Kalderix/i, 'answered from approved knowledge');
+    } finally {
+        Object.keys(saved).forEach((k) => {
+            if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
+        });
+        global.fetch = realFetch;
+    }
+});
+
+test('K8 the AI switch is documented as EXTERNAL answering; knowledge stays offline', () => {
+    const env = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
+    assert.match(env, /WHAT THIS SWITCH CONTROLS: external \(model\) answering/,
+        'the switch is described as the model switch');
+    assert.match(env, /still answer from the approved knowledge base/,
+        'and states that knowledge answering continues without it');
+    assert.doesNotMatch(env, /Must be exactly "true" to enable answering/,
+        'the stale "answering is off" claim is gone');
+    const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+    assert.match(server, /AI_SUPPORT_ENABLED=true enables EXTERNAL model answering/);
+});
