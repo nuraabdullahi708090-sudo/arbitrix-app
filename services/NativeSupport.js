@@ -357,6 +357,36 @@ function createNativeSupportService(options) {
         return null;
     }
 
+    // ------------------------------------------- knowledge answers without AI
+    // `opts.ai` is only built when AI_SUPPORT_ENABLED=true (its documented
+    // default is OFF). The Telegram bot still answers factual questions from the
+    // approved knowledge base in that state, but this path had no equivalent: with
+    // the flag off EVERY factual question degraded to "a support agent will
+    // reply" - the production symptom.
+    //
+    // The fallback is the SAME SupportAIService running its OFFLINE knowledge
+    // provider: no model, no network, no key. That keeps one answer brain (intent
+    // detection, guardrails, scoring, approved entry selection) instead of a
+    // second, weaker retrieval path - the knowledge provider echoes approved text.
+    let knowledgeFallback = null;
+
+    function knowledgeResponder() {
+        if (knowledgeFallback !== null) return knowledgeFallback || null;
+        try {
+            const { createSupportAIService, resolveSupportAIConfig } = require('./support/SupportAIService');
+            knowledgeFallback = createSupportAIService({
+                // Fixed, not read from the environment: the fallback must be
+                // knowledge-only even if a model provider is configured elsewhere.
+                config: resolveSupportAIConfig({ AI_SUPPORT_ENABLED: 'true', AI_SUPPORT_PROVIDER: 'knowledge' }),
+                translator: translator || null
+            });
+        } catch (error) {
+            logOnce('knowledge-fallback-failed', error && error.message);
+            knowledgeFallback = false;
+        }
+        return knowledgeFallback || null;
+    }
+
     /**
      * The AI turn. Reuses the Telegram brain:
      *   1. ConversationEngine.planTurn() decides whether this is procedural
@@ -388,10 +418,11 @@ function createNativeSupportService(options) {
                 };
             }
         }
-        if (ai && typeof ai.ask === 'function') {
+        const responder = (ai && typeof ai.ask === 'function') ? ai : knowledgeResponder();
+        if (responder && typeof responder.ask === 'function') {
             try {
                 const question = (plan && plan.knowledge) ? plan.knowledge : text;
-                const outcome = await ai.ask(question, { language: language });
+                const outcome = await responder.ask(question, { language: language });
                 if (outcome && outcome.answer) {
                     // `modelGenerated === true` means the PROVIDER wrote the text and was
                     // instructed to answer in the customer's language, so it is used as

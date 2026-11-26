@@ -236,13 +236,32 @@ test('E. a model-generated answer is delivered as-is and never translated twice'
 
 // ------------------------------------------------------- F. AI service unavailable ---
 
-test('F. with no AI service the existing fallback and handoff are unchanged', async () => {
+test('F. with no AI service knowledge answers, and an uncovered question hands off', async () => {
+    // UPDATED for the intentional change: `ai: null` (AI_SUPPORT_ENABLED off, the
+    // production default) now answers from the approved knowledge base through the
+    // offline provider, instead of dead-ending every question. An uncovered
+    // question still receives the localized human handoff - never an invention.
     for (const language of LANGUAGES) {
-        const reply = await service({ ai: null, translator: makeTranslator('prefix') })
-            .composeAiReply(conversation(language), QUESTION);
-        assert.match(reply.text, UNAVAILABLE[language], language + ' fallback copy');
-        assert.strictEqual(reply.needsHuman, true);
-        assert.strictEqual(reply.confident, false);
+        const svc = service({ ai: null, translator: makeTranslator('prefix') });
+
+        const covered = await svc.composeAiReply(conversation(language), QUESTION);
+        // English is the knowledge text itself; every other language must be the
+        // TRANSLATED approved answer (never the English original).
+        const expected = language === 'en' ? knowledgeAnswer() : translated(knowledgeAnswer(), language);
+        assert.strictEqual(covered.text, expected, language + ' gets the approved answer in its own language');
+        assert.strictEqual(covered.needsHuman, false);
+        assert.strictEqual(covered.confident, true);
+
+        const unknown = await svc.composeAiReply(conversation(language), UNKNOWN);
+        // The handoff is the knowledge layer's approved wording ("I do not have an
+        // approved answer..."), localized for a non-English customer.
+        assert.match(unknown.text, /do not have an approved answer/i, language + ' handoff when nothing is approved');
+        if (language !== 'en') {
+            const prefix = PREFIX_BY_LANGUAGE[language] || ('[' + language + '] ');
+            assert.strictEqual(unknown.text.indexOf(prefix), 0, language + ' handoff went through the translator');
+        }
+        assert.strictEqual(unknown.needsHuman, true);
+        assert.strictEqual(unknown.confident, false);
     }
 });
 
