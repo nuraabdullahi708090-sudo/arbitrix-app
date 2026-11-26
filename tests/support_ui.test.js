@@ -7,8 +7,11 @@
  *   - a visible Support entry in the sidebar, account/settings, the deposit UI,
  *     the payment pending/failed states, the withdrawal area, and the existing
  *     support widget;
- *   - the official Telegram link is CONFIGURABLE (window override / meta tag)
- *     and no personal/staff account is hardcoded;
+ *   - EVERY one of those controls opens the in-app messenger through the single
+ *     kxOpenSupport() helper, with the Support Center as the fallback when the
+ *     messenger cannot open. There is NO customer-facing Telegram destination:
+ *     Telegram is the internal agent channel (announcement tutorials keep their
+ *     own links, which are content, not support);
  *   - a security warning covering password / OTP / private key / seed phrase /
  *     recovery phrase / card details / recovery codes;
  *   - safe payment-problem guidance (invoice reference, amount, network, tx
@@ -84,8 +87,8 @@ function supportModalBlock() {
 }
 
 const SUPPORT_KEYS = [
-    'support.telegramShort', 'support.modal.title', 'support.modal.subtitle',
-    'support.officialTelegram', 'support.notConfigured', 'support.security.title',
+    'support.modal.title', 'support.modal.subtitle',
+    'support.startChat', 'support.chatHint', 'support.security.title',
     'support.security.password', 'support.security.otp', 'support.security.privateKey',
     'support.security.seedPhrase', 'support.security.recoveryPhrase',
     'support.security.cardDetails', 'support.security.recoveryCodes',
@@ -103,112 +106,102 @@ const SUPPORT_KEYS = [
 test('support entry is rendered in the main navigation', () => {
     const link = INDEX.match(/<a class="sidebar-link" id="supportSidebarLink"[^>]*>[\s\S]*?<\/a>/);
     assert.ok(link, 'sidebar support link should exist');
-    assert.ok(/openSupportModal\(\)/.test(link[0]), 'sidebar support link should open the support modal');
+    assert.ok(/kxOpenSupport\(/.test(link[0]), 'sidebar support link opens the in-app messenger helper');
     assert.ok(/data-i18n="sidebar\.support"/.test(link[0]), 'sidebar support link should be localized');
 });
 
-test('support modal contains the Telegram button, security warning, payment guidance and FAQ', () => {
+test('support modal offers the in-app chat, security warning, payment guidance and FAQ', () => {
     const win = supportModalBlock();
-    assert.ok(/id="supportTelegramBtn"/.test(win), 'official Telegram button');
-    assert.ok(/js-official-telegram/.test(win), 'configurable Telegram class');
+    assert.ok(/id="supportChatCta"/.test(win), 'the primary action is the in-app chat');
+    assert.ok(/onclick="kxOpenSupport\(APP\.supportContext\)"/.test(win), 'and it goes through the one helper');
+    assert.ok(/support\.startChat/.test(win), 'localized chat label');
+    assert.ok(/support\.chatHint/.test(win), 'the hint explains that the reply arrives in-app');
+    // No customer-facing Telegram destination anywhere in the modal.
+    assert.ok(!/t\.me\//.test(win), 'no Telegram destination in the support modal');
+    assert.ok(!/supportTelegramBtn|js-official-telegram/.test(win), 'the Telegram button is retired');
     assert.ok(/support\.security\.title/.test(win), 'security warning title');
     assert.ok(/support\.security\.password/.test(win), 'security warning password item');
     assert.ok(/support\.paymentHelp\.title/.test(win), 'payment help section');
     assert.ok(/support\.safeInfo\.invoice/.test(win), 'safe-info invoice item');
     assert.ok(/support\.faq\.depositPending\.q/.test(win), 'FAQ deposit item');
-    assert.ok(/id="supportNotConfigured"/.test(win), 'unconfigured notice');
 });
 
-const OFFICIAL_TELEGRAM_URL = 'https://t.me/ArbitrixSupportBot';
+const SUPPORT_CHAT_TARGETS = ['deposit', 'withdrawal', 'trading', 'account'];
 
-test('official Telegram URL is configured once via the meta tag (single source of truth)', () => {
-    const fn = extractFunction('getOfficialSupportTelegramUrl');
-    assert.ok(/ARBITRIX_SUPPORT_TELEGRAM_URL/.test(fn), 'window override supported');
-    assert.ok(/arbitrix-support-telegram/.test(fn), 'meta tag config supported');
+test('there is no customer-facing Telegram support destination', () => {
+    // Telegram is the INTERNAL agent channel: notifications go to the admins and
+    // replies come back through the same conversation. The website must never
+    // send a customer there, so the configurable support-bot link, its meta tag
+    // and the shared resolver are all retired.
+    assert.ok(!/arbitrix-support-telegram/.test(INDEX), 'the support-bot meta config is retired');
+    assert.ok(!/ArbitrixSupportBot/.test(INDEX), 'the support bot handle is not published to customers');
+    assert.ok(!/js-official-telegram/.test(INDEX), 'no configurable Telegram support anchors remain');
+    assert.ok(!/getOfficialSupportTelegramUrl|updateSupportLinks/.test(INDEX),
+        'the Telegram link resolver is retired');
+    assert.ok(!/support\.(telegramShort|officialTelegram|notConfigured|human\.title)/.test(INDEX),
+        'its translations are retired too');
 
-    // The official URL is HTTPS on the official t.me domain.
-    assert.ok(/^https:\/\/t\.me\//.test(OFFICIAL_TELEGRAM_URL), 'HTTPS + official t.me domain');
+    // The only t.me links left in the app are the withdrawal TUTORIAL (announcement
+    // channel content) - a different purpose, deliberately preserved.
+    const links = (INDEX.match(/https?:\/\/t\.me\/[A-Za-z0-9_\/]+/g) || []);
+    assert.deepStrictEqual(links, ['https://t.me/ArbitrixAnnouncements/19'],
+        'only the withdrawal tutorial link remains, and it is not a support destination');
+});
 
-    // It is defined EXACTLY ONCE in the document, in the meta configuration.
-    // Tutorial links (the official announcements channel) are a DIFFERENT
-    // destination: only the support-bot URL must be defined exactly once.
-    const occurrences = (INDEX.match(/https?:\/\/t\.me\/[A-Za-z0-9_]+/g) || [])
-        .filter((url) => !/^https:\/\/t\.me\/ArbitrixAnnouncements$/i.test(url));
-    assert.deepStrictEqual(occurrences, [OFFICIAL_TELEGRAM_URL],
-        'the official URL must appear exactly once (the meta config, not in anchors)');
-    const meta = INDEX.match(/<meta name="arbitrix-support-telegram" content="([^"]*)">/);
-    assert.ok(meta, 'meta config element must exist');
-    assert.strictEqual(meta[1], OFFICIAL_TELEGRAM_URL, 'meta config must hold the official URL');
-
-    // No anchor/button hardcodes a destination; all share one class + safe attrs.
-    const anchors = [...INDEX.matchAll(/<a[^>]*js-official-telegram[^>]*>/g)].map((m) => m[0]);
-    assert.ok(anchors.length >= 3, 'all official Telegram anchors present');
-    for (const a of anchors) {
-        assert.ok(/href="#"/.test(a), 'anchors must not hardcode a destination');
-        assert.ok(/target="_blank"/.test(a) && /rel="noopener noreferrer"/.test(a), 'safe new-tab attributes');
+test('every support control routes through the single kxOpenSupport helper', () => {
+    assert.strictEqual((INDEX.match(/function kxOpenSupport\(/g) || []).length, 1,
+        'the helper is defined exactly once');
+    const calls = [...INDEX.matchAll(/kxOpenSupport\(([^)]*)\)/g)].map((m) => m[1].trim());
+    const withContext = calls.filter((c) => SUPPORT_CHAT_TARGETS.includes(c.replace(/'/g, '')));
+    assert.ok(withContext.length >= 6, 'the app entry points pass their area as context');
+    for (const ctx of ['deposit', 'withdrawal', 'account']) {
+        assert.ok(calls.some((c) => c === "'" + ctx + "'"), 'the ' + ctx + ' area passes its context');
     }
-    assert.ok(/querySelectorAll\('\.js-official-telegram'\)/.test(extractFunction('updateSupportLinks')),
-        'resolution is centralized through the shared class');
+    // No control may still call the modal directly: the modal IS the fallback.
+    const direct = [...INDEX.matchAll(/onclick="openSupportModal\(\)"/g)];
+    assert.deepStrictEqual(direct, [], 'no control bypasses the helper');
 });
 
-test('every official Telegram entry point resolves to the same configured URL', () => {
-    const official = (INDEX.match(/<meta name="arbitrix-support-telegram" content="([^"]*)">/) || [])[1];
-    assert.strictEqual(official, OFFICIAL_TELEGRAM_URL);
-
-    const anchors = [{ attrs: {}, style: {}, setAttribute(k, v) { this.attrs[k] = v; } },
-        { attrs: {}, style: {}, setAttribute(k, v) { this.attrs[k] = v; } },
-        { attrs: {}, style: {}, setAttribute(k, v) { this.attrs[k] = v; } }];
-    const els = {};
-    const sandbox = {
-        console,
-        window: {},
-        document: {
-            querySelectorAll: () => anchors,
-            querySelector: (sel) => (String(sel).includes('arbitrix-support-telegram') ? { content: official } : null),
-            getElementById: (id) => (els[id] = els[id] || { style: {}, textContent: '' }),
-        },
-    };
-    vm.createContext(sandbox);
-    vm.runInContext(extractFunction('getOfficialSupportTelegramUrl') + '\n' +
-        extractFunction('updateSupportLinks') + '\n updateSupportLinks();', sandbox);
-
-    for (const a of anchors) {
-        assert.strictEqual(a.attrs.href, OFFICIAL_TELEGRAM_URL, 'every anchor resolves to the official URL');
-        assert.strictEqual(a.style.display, '', 'every anchor is visible');
-    }
-    assert.strictEqual(els.supportNotConfigured.style.display, 'none',
-        'the "not configured" fallback disappears when the URL is present');
-});
-
-test('updateSupportLinks applies the configured URL and degrades safely when unset', () => {
-    function run(url) {
-        const anchors = [{ style: {}, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } }];
-        const els = {};
-        function makeEl() { return { style: {}, textContent: '', innerHTML: '', classList: { add() {}, remove() {} } }; }
+test('kxOpenSupport prefers the messenger and keeps the Support Center as the fallback', () => {
+    function run(opts) {
+        const calls = { opened: [], modal: 0, native: [] };
         const sandbox = {
             console,
-            window: { ARBITRIX_SUPPORT_TELEGRAM_URL: url },
-            document: {
-                querySelectorAll: () => anchors,
-                getElementById: (id) => (els[id] = els[id] || makeEl()),
-                querySelector: () => null,
+            APP: opts.app || { nativeSupport: true },
+            NativeSupport: opts.native === false ? undefined : {
+                open: (o) => { calls.native.push(o); return opts.openResult === undefined ? true : opts.openResult; },
             },
+            openSupportModal: () => { calls.modal++; },
+            closeSupportModal: () => {},
+            kxSupportContext: (v) => (SUPPORT_CHAT_TARGETS.includes(String(v)) ? String(v) : null),
         };
         vm.createContext(sandbox);
-        vm.runInContext(extractFunction('getOfficialSupportTelegramUrl') + '\n' +
-            extractFunction('updateSupportLinks') + '\n updateSupportLinks();', sandbox);
-        return { anchors, els };
+        vm.runInContext(
+            'var KX_SUPPORT_CONTEXTS = { deposit: 1, withdrawal: 1, trading: 1, account: 1 };\n' +
+            extractFunction('kxSupportContext') + '\n' +
+            extractFunction('kxNativeSupportReady') + '\n' +
+            extractFunction('kxOpenSupport') + '\n' +
+            'this.result = kxOpenSupport(' + JSON.stringify(opts.context || null) + ');', sandbox);
+        return { result: sandbox.result, calls, app: sandbox.APP };
     }
 
-    const configured = run(OFFICIAL_TELEGRAM_URL);
-    assert.strictEqual(configured.anchors[0].attrs.href, OFFICIAL_TELEGRAM_URL);
-    assert.strictEqual(configured.anchors[0].style.display, '');
-    assert.strictEqual(configured.els.supportNotConfigured.style.display, 'none');
+    const native = run({ context: 'deposit' });
+    assert.strictEqual(native.result, true, 'the messenger opened');
+    // Cross-realm objects from the vm sandbox have a different prototype, so
+    // compare their serialised shape rather than identity.
+    assert.strictEqual(JSON.stringify(native.calls.native), JSON.stringify([{ context: 'deposit' }]),
+        'the context reaches the panel');
+    assert.strictEqual(native.calls.modal, 0, 'the modal is not opened when the messenger works');
+    assert.strictEqual(native.app.supportContext, 'deposit', 'the context is remembered for the fallback');
 
-    const unset = run('');
-    assert.strictEqual(unset.anchors[0].attrs.href, '#');
-    assert.strictEqual(unset.anchors[0].style.display, 'none');
-    assert.strictEqual(unset.els.supportNotConfigured.style.display, 'block');
+    const fallback = run({ context: 'withdrawal', app: { nativeSupport: false } });
+    assert.strictEqual(fallback.result, false, 'the fallback ran');
+    assert.strictEqual(fallback.calls.modal, 1, 'the existing Support Center opens instead');
+    assert.strictEqual(fallback.calls.native.length, 0, 'the messenger is not called when unavailable');
+
+    const unknown = run({ context: 'not-a-context' });
+    assert.strictEqual(JSON.stringify(unknown.calls.native), JSON.stringify([{ context: null }]),
+        'an unknown context is dropped, never passed through');
 });
 
 test('the deposit modal carries no individual payment-partner contact', () => {
@@ -222,7 +215,7 @@ test('the deposit modal carries no individual payment-partner contact', () => {
     assert.ok(!/wa\.me\/17828027841/.test(INDEX), 'no WhatsApp partner destination');
     assert.ok(!/deposit\.partner\.(oliviaBtn|alexBtn|alexNote)/.test(INDEX), 'no partner contact copy');
     assert.ok(!/support\.needHelpDeposit/.test(INDEX), 'the old support link is retired');
-    assert.ok(/onclick="openSupportModal\(\)"/.test(INDEX), 'official support is still reachable');
+    assert.ok(/onclick="kxOpenSupport\('deposit'\)"/.test(INDEX), 'support is still reachable from the deposit flow');
 });
 
 test('support is available from the payment pending/failed state with invoice reference', () => {
@@ -238,7 +231,7 @@ test('support is available from the payment pending/failed state with invoice re
     // partner (deposit questions) and the official support action (everything
     // else). Both live inside this block.
     const win = elementWindow('paymentSupportHelp', 2800);
-    assert.ok(/openSupportModal\(\)/.test(win), 'payment help should link to support');
+    assert.ok(/kxOpenSupport\('deposit'\)/.test(win), 'payment help opens the chat with deposit context');
     assert.ok(/id="depositInvoiceRef"/.test(win), 'invoice reference is displayed');
     assert.ok(/copyInvoiceRef\(\)/.test(win), 'copy-invoice-reference action exists');
     assert.ok(/support\.contactShort/.test(win), 'one compact Contact Support action');
@@ -274,19 +267,19 @@ test('support is available from the account/settings area', () => {
     // 14000: the profile modal gained the Telegram-linking card (Phase 1) between
     // the subscription summary and the account-help block.
     const profile = elementWindow('profileModal', 14000);
-    assert.ok(/openSupportModal\(\)/.test(profile), 'profile modal should link to support');
+    assert.ok(/kxOpenSupport\('account'\)/.test(profile), 'profile modal opens the chat with account context');
     assert.ok(/profile\.contactSupport/.test(profile), 'localized contact-support label');
 });
 
 test('support is available from the withdrawal area', () => {
     const withdraw = elementWindow('withdrawModal', 12000);
     assert.ok(/support\.needHelpWithdraw/.test(withdraw), 'withdrawal help wording');
-    assert.ok(/>\s*openSupportModal\(\)|\bonclick="openSupportModal\(\)"/.test(withdraw), 'withdrawal support link');
+    assert.ok(/onclick="kxOpenSupport\('withdrawal'\)"/.test(withdraw), 'withdrawal support link opens the chat');
 });
 
 test('support is available from the existing support widget', () => {
     const widget = elementWindow('supportPanel', 2500);
-    assert.ok(/openSupportModal\(\)/.test(widget), 'support widget links to the support center');
+    assert.ok(/kxOpenSupport\(\)/.test(widget), 'the legacy assistant opens the messenger (or the Support Center)');
     assert.ok(/support\.openCenter/.test(widget), 'localized support-center label');
 });
 
@@ -318,8 +311,8 @@ test('no password/OTP/private-key/seed input is introduced', () => {
 });
 
 test('support surfaces expose no private user data and make no requests', () => {
-    const fns = ['openSupportModal', 'closeSupportModal', 'updateSupportLinks',
-        'getOfficialSupportTelegramUrl', 'updatePaymentSupportHelp', 'copyInvoiceRef'];
+    const fns = ['openSupportModal', 'closeSupportModal', 'kxOpenSupport', 'kxSupportContext',
+        'kxNativeSupportReady', 'updatePaymentSupportHelp', 'copyInvoiceRef'];
     for (const name of fns) {
         const src = extractFunction(name);
         assert.ok(!/\bfetch\s*\(/.test(src), `${name} must not call fetch`);

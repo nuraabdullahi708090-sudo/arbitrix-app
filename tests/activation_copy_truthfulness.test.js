@@ -231,7 +231,7 @@ test('7. a legacy activation refusal offers support, never a purchase', () => {
   const fn = extractFunction('handleLiveAccessRefusal');
   assert.ok(!/openLiveActivationModal/.test(fn), 'no purchase dialog');
   assert.match(fn, /liveAccess\.notAvailable/, 'neutral localized message');
-  assert.match(fn, /openSupportModal\(\)/, 'a route to a human');
+  assert.match(fn, /kxOpenSupport\('account'\)/, 'a route to a human (the in-app chat)');
   assert.match(fn, /LIVE_DEPOSIT_REQUIRED[\s\S]*openDepositModal\(\)/, 'the deposit step still opens the dialog');
 
   const i18n = dictionary();

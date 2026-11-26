@@ -36,7 +36,9 @@ const PAGE = fs.readFileSync(PAGE_PATH, 'utf8');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const EXPECTED_KEYS = 87;
+// 84: the Telegram contact model was retired with the in-app-support
+// consolidation (-3 keys per locale).
+const EXPECTED_KEYS = 84;
 
 const VIDEO_BASE = '/video/';
 const EN_VIDEO = '/video/arbitrix-partner-payout-demo.mp4';
@@ -424,14 +426,15 @@ test('10. the page stays static and session-free (no API / fetch / form)', () =>
     assert.ok(!/<form\b/i.test(PAGE), 'the page must not contain a form');
 });
 
-test('10b. the recruitment support handle is Alex alone', () => {
-    assert.strictEqual(PAGE.split('@AlexArbitrix').length - 1, 1,
-        'the recruitment handle literal must appear exactly once (its meta)');
-    assert.strictEqual(PAGE.split('@OliviaArbitrix').length - 1, 0,
-        'Olivia is a payment partner and must not appear on the recruitment page');
-    assert.ok(!PAGE.includes('Arbitrix_CSA1'), 'the retired partner handle must never return');
+test('10b. partner support is the in-app chat: no handle, no t.me destination', () => {
+    for (const handle of ['@AlexArbitrix', '@OliviaArbitrix', 'Arbitrix_CSA1', 'ArbitrixSupportBot']) {
+        assert.ok(!PAGE.includes(handle), handle + ' must not appear on the recruitment page');
+    }
+    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 0,
+        'no t.me destination of any kind, hardcoded or constructed');
     assert.strictEqual((PAGE.match(/t\.me\/\+CF9kWr61sqs1MTY0/g) || []).length, 0,
         'the Telegram community CTA must not appear on the page');
-    assert.strictEqual((PAGE.match(/t\.me\//g) || []).length, 1,
-        'only the single programmatic partner-handle builder may construct a t.me URL');
+    // Support is a deep link into the app's messenger.
+    assert.match(PAGE, /<a[^>]*js-partner-support[^>]*href="\/\?support=1"/,
+        'the support CTA opens the in-app chat');
 });

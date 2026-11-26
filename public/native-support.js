@@ -34,6 +34,11 @@
   if (typeof window !== 'undefined' && window.NativeSupport && window.NativeSupport.__mounted === true) return;
 
   var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, started: false, creating: null,
+    // Why the customer opened support ('deposit' | 'withdrawal' | 'trading' |
+    // 'account'), set by the caller of open({ context }). Display-only, and it
+    // becomes the conversation category on the FIRST message - it never sends
+    // anything on the customer's behalf.
+    context: null,
     seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null,
     identity: null, generation: 0, readFailures: 0, surface: null };
 
@@ -147,6 +152,7 @@
   }
 
   var root = null, body = null, foot = null, launcher = null, badge = null, notice = null;
+  var contextEl = null;
 
   function build() {
     if (root) return;
@@ -181,6 +187,11 @@
     close.addEventListener('click', hide);
     head.appendChild(close);
     root.appendChild(head);
+    // Context chip: shown only when support was opened from a specific area
+    // (deposit / withdrawal / trading / account). Localized, no request.
+    contextEl = el('div', 'ns-context');
+    contextEl.hidden = true;
+    root.appendChild(contextEl);
     body = el('div', 'ns-body');
     body.setAttribute('role', 'log');
     body.setAttribute('aria-live', 'polite');
@@ -378,8 +389,13 @@
     state.pendingNode = null;
     state.pendingClientId = null;
     state.pendingText = null;
+    state.context = null;
     notice = null;
     setUnread(0);
+    if (typeof contextEl !== 'undefined' && contextEl) {
+      contextEl.hidden = true;
+      contextEl.textContent = '';
+    }
     if (body) body.innerHTML = '';
     if (foot) foot.innerHTML = '';
   }
@@ -394,7 +410,7 @@
     var gen = state.generation;
     state.creating = call('/api/support/conversations', {
       method: 'POST',
-      body: { category: 'general', language: (typeof currentLang === 'string' ? currentLang : 'en') }
+      body: { category: state.context || 'general', language: (typeof currentLang === 'string' ? currentLang : 'en') }
     }).then(function (r) {
       state.creating = null;
       if (stale(gen)) return null;
@@ -713,13 +729,37 @@
     stopBadgeWatcher();
   }
 
-  function open() {
+  // The four reasons a customer can arrive with. Mirrors the conversation
+  // categories the server already stores (support_conversations.category), so
+  // passing one needs no schema change.
+  var CONTEXTS = { deposit: 1, withdrawal: 1, trading: 1, account: 1 };
+
+  function normaliseContext(topic) {
+    var key = String(topic == null ? '' : topic).trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(CONTEXTS, key) ? key : null;
+  }
+
+  function setContext(topic) {
+    state.context = normaliseContext(topic);
+    var chip = (typeof contextEl === 'undefined') ? null : contextEl;
+    if (!chip) return;
+    if (!state.context) {
+      chip.hidden = true;
+      chip.textContent = '';
+      return;
+    }
+    chip.hidden = false;
+    chip.textContent = tt('ns.context.' + state.context);
+  }
+
+  function open(opts) {
     // The messenger opens ONLY on its own surface. Opening it while the legacy
     // assistant owns support would put two support surfaces on screen at once (and
     // its API may be switched off server-side). Callers get `false` and decide
     // what to say instead - see handOverToHumanSupport() in index.html.
     if (state.surface !== 'native') return false;
     build();
+    if (opts && typeof opts === 'object' && opts.context) setContext(opts.context);
     root.classList.add('open');
     state.open = true;
     if (launcher) launcher.classList.remove('show');
@@ -745,6 +785,7 @@
   function hide() {
     if (root) root.classList.remove('open');
     state.open = false;
+    setContext(null);
     show();
     refreshBadge(true);
     // Closed again: keep watching for an agent reply so the badge can appear
@@ -772,6 +813,9 @@
       if (launcher) {
         launcher.setAttribute('title', tt('ns.launcher'));
         launcher.setAttribute('aria-label', launcherLabel());
+      }
+      if (typeof contextEl !== 'undefined' && contextEl && state.context) {
+        contextEl.textContent = tt('ns.context.' + state.context);
       }
       if (notice) {
         var label = notice.querySelector('.ns-notice-text');

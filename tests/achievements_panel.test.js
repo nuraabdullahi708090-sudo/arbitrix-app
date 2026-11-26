@@ -96,7 +96,7 @@ test('achievements are reachable from Profile Settings', () => {
     assert.ok(profileModal.includes('id="badgesGrid"'), 'the grid must live inside the profile modal');
     // The profile modal keeps all of its existing settings.
     for (const keep of ['id="profileDisplayName"', 'id="profileEmail"', 'data-lang="en"', 'id="soundEnabledToggle"',
-                        'id="subscriptionProfileCard"', 'openSupportModal()']) {
+                        'id="subscriptionProfileCard"', "kxOpenSupport('account')"]) {
         assert.ok(profileModal.includes(keep), 'profile modal must still contain ' + keep);
     }
 });
@@ -167,7 +167,7 @@ test('renderBadges still populates the moved panel (functional)', () => {
 test('i18n is unchanged (no new keys, all locales intact)', () => {
     const T = loadTranslations();
     const keys = Object.keys(T.en);
-    assert.strictEqual(keys.length, 1587, 'dictionary size must match the current baseline');
+    assert.strictEqual(keys.length, 1585, 'dictionary size must match the current baseline');
     for (const lang of LANGS) {
         assert.deepStrictEqual(Object.keys(T[lang]).sort(), keys.slice().sort(), lang + ' key set must match EN');
         for (const k of ['achievements.title', 'achievements.unlocked', 'achievements.startTrading', 'achievements.allUnlocked', 'achievements.next']) {

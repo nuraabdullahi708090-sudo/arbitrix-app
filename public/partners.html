@@ -27,7 +27,6 @@
          the app, not on this recruitment page. Do not
          hardcode a different handle and never invent a community/group URL. An
          empty value is simply not rendered. Public link only. -->
-    <meta name="arbitrix-partner-support-telegram" content="@AlexArbitrix">
     <link rel="icon" href="data:image/svg+xml,">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -206,23 +205,8 @@
             background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 999px;
             padding: 9px 16px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; min-width: 0; max-width: 100%;
         }
-        .support-card {
-            display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bg-card);
-            border: 1px solid var(--border-color); border-radius: var(--radius); padding: 20px; text-align: center;
-        }
-        .support-cards {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px;
-            min-width: 0;
-        }
-        .support-card { min-width: 0; overflow-wrap: anywhere; }
-        .support-card .btn { width: 100%; }
-        .partner-name { font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
-        .partner-role {
-            font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-            color: var(--text-secondary); margin-top: -6px; overflow-wrap: anywhere;
-        }
-        .support-handle { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
-        .support-handle .support-handle-value { color: var(--brand); font-weight: 700; }
+        .support-cta { display: flex; justify-content: center; margin: 18px 0 10px; }
+        .support-cta .btn { max-width: 100%; min-height: 44px; }
         .support-fallback { font-size: 13.5px; color: var(--text-secondary); text-align: center; overflow-wrap: anywhere; }
         .faq { display: flex; flex-direction: column; gap: 8px; }
         .faq-item { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0 14px; }
@@ -397,11 +381,17 @@
 
         <section class="section" aria-labelledby="supportHeading">
             <h2 id="supportHeading" data-i18n="partners.supportTitle">Partner Support</h2>
-            <p class="section-sub" data-i18n="partners.supportDesc">Questions about the partner program? Contact our partner support team on Telegram.</p>
-            <!-- One card per configured partner, built by applyPartnerSupport()
-                 so the handles live only in the meta tags above. -->
-            <div class="support-cards" id="partnerSupportContacts"></div>
-            <p class="support-fallback" id="partnerSupportFallback" hidden data-i18n="partners.supportFallback">Partner contacts are being confirmed. Use the Kalderix Support Center on the main site in the meantime.</p>
+            <p class="section-sub" data-i18n="partners.supportDesc">Questions about the partner programme? Message our partner support team from inside your Kalderix account.</p>
+            <!-- Customer support is the IN-APP messenger. This is a plain link to the
+                 app's support deep link, so it works before JavaScript loads and for
+                 a signed-out visitor (the chat opens once the session resolves).
+                 There is deliberately no Telegram destination on this page. -->
+            <p class="support-cta">
+                <a class="btn btn-primary js-partner-support" href="/?support=1">
+                    <i class="fas fa-comments" aria-hidden="true"></i> <span data-i18n="partners.supportCta">Message Partner Support</span>
+                </a>
+            </p>
+            <p class="support-fallback" data-i18n="partners.supportFallback">Open the in-app chat and our partner support team will reply there.</p>
         </section>
 
         <section class="section" aria-labelledby="faqHeading">
@@ -501,12 +491,9 @@
                 "partners.whoItem5": "Digital marketers",
                 "partners.whoItem6": "Crypto and finance communities",
                 "partners.supportTitle": "Partner Support",
-                "partners.supportDesc": "Questions about the partner program? Contact our partner support team on Telegram.",
-                "partners.supportCta": "Contact Partner Support",
-                "partners.supportHandleLabel": "Telegram",
-                "partners.contactAlex": "Contact Alex",
-                "partners.partnerRole": "Referral Partner",
-                "partners.supportFallback": "Partner contacts are being confirmed. Use the Kalderix Support Center on the main site in the meantime.",
+                "partners.supportDesc": "Questions about the partner programme? Message our partner support team from inside your Kalderix account.",
+                "partners.supportCta": "Message Partner Support",
+                "partners.supportFallback": "Open the in-app chat and our partner support team will reply there.",
                 "partners.faqTitle": "Frequently Asked Questions",
                 "partners.faq1q": "How much is the referral reward?",
                 "partners.faq1a": "You earn 20% of the referred user's first qualifying deposit of $100 or more.",
@@ -590,12 +577,9 @@
                 "partners.whoItem5": "Profesionales de marketing digital",
                 "partners.whoItem6": "Comunidades de cripto y finanzas",
                 "partners.supportTitle": "Soporte para Socios",
-                "partners.supportDesc": "¿Tienes preguntas sobre el programa de socios? Contacta a nuestro equipo de soporte para socios en Telegram.",
-                "partners.supportCta": "Contactar Soporte para Socios",
-                "partners.supportHandleLabel": "Telegram",
-                "partners.contactAlex": "Contactar con Alex",
-                "partners.partnerRole": "Socio de referidos",
-                "partners.supportFallback": "Se están confirmando los contactos de socios. Mientras tanto, utiliza el Centro de Soporte de Kalderix en el sitio principal.",
+                "partners.supportDesc": "\u00bfTienes preguntas sobre el programa de socios? Escribe a nuestro equipo de soporte para socios desde tu cuenta de Kalderix.",
+                "partners.supportCta": "Escribir al soporte para socios",
+                "partners.supportFallback": "Abre el chat dentro de la aplicaci\u00f3n y nuestro equipo de soporte para socios te responder\u00e1 all\u00ed.",
                 "partners.faqTitle": "Preguntas Frecuentes",
                 "partners.faq1q": "¿Cuánto es la recompensa por referido?",
                 "partners.faq1a": "Ganas el 20% del primer depósito válido de $100 o más del usuario referido.",
@@ -679,12 +663,9 @@
                 "partners.whoItem5": "Profissionais de marketing digital",
                 "partners.whoItem6": "Comunidades de cripto e finanças",
                 "partners.supportTitle": "Suporte a Parceiros",
-                "partners.supportDesc": "Dúvidas sobre o programa de parceiros? Fale com nossa equipe de suporte a parceiros no Telegram.",
-                "partners.supportCta": "Falar com o Suporte a Parceiros",
-                "partners.supportHandleLabel": "Telegram",
-                "partners.contactAlex": "Falar com Alex",
-                "partners.partnerRole": "Parceiro de indicações",
-                "partners.supportFallback": "Os contactos de parceiros estão a ser confirmados. Entretanto, utiliza o Centro de Suporte da Kalderix no site principal.",
+                "partners.supportDesc": "D\u00favidas sobre o programa de parceiros? Fale com a nossa equipa de suporte a parceiros dentro da sua conta Kalderix.",
+                "partners.supportCta": "Falar com o suporte a parceiros",
+                "partners.supportFallback": "Abra o chat dentro da aplica\u00e7\u00e3o e a nossa equipa de suporte a parceiros responder\u00e1 l\u00e1.",
                 "partners.faqTitle": "Perguntas Frequentes",
                 "partners.faq1q": "Qual é o valor da recompensa por indicação?",
                 "partners.faq1a": "Você ganha 20% do primeiro depósito qualificado de $100 ou mais do usuário indicado.",
@@ -768,12 +749,9 @@
                 "partners.whoItem5": "Professionnels du marketing digital",
                 "partners.whoItem6": "Communautés crypto et finance",
                 "partners.supportTitle": "Support Partenaire",
-                "partners.supportDesc": "Des questions sur le programme partenaire ? Contactez notre équipe de support partenaire sur Telegram.",
-                "partners.supportCta": "Contacter le Support Partenaire",
-                "partners.supportHandleLabel": "Telegram",
-                "partners.contactAlex": "Contacter Alex",
-                "partners.partnerRole": "Partenaire de parrainage",
-                "partners.supportFallback": "Les contacts partenaires sont en cours de confirmation. En attendant, utilisez le Centre d'aide Kalderix sur le site principal.",
+                "partners.supportDesc": "Des questions sur le programme partenaire ? \u00c9crivez \u00e0 notre \u00e9quipe de support partenaire depuis votre compte Kalderix.",
+                "partners.supportCta": "\u00c9crire au support partenaire",
+                "partners.supportFallback": "Ouvrez le chat int\u00e9gr\u00e9 \u00e0 l'application et notre \u00e9quipe de support partenaire vous r\u00e9pondra l\u00e0.",
                 "partners.faqTitle": "Questions Fréquentes",
                 "partners.faq1q": "Quel est le montant de la récompense de parrainage ?",
                 "partners.faq1a": "Vous gagnez 20% du premier dépôt admissible de $100 ou plus de l'utilisateur parrainé.",
@@ -857,12 +835,9 @@
                 "partners.whoItem5": "مسوّقو التسويق الرقمي",
                 "partners.whoItem6": "مجتمعات العملات الرقمية والتمويل",
                 "partners.supportTitle": "دعم الشركاء",
-                "partners.supportDesc": "هل لديك أسئلة حول برنامج الشركاء؟ تواصل مع فريق دعم الشركاء عبر تيليجرام.",
-                "partners.supportCta": "تواصل مع دعم الشركاء",
-                "partners.supportHandleLabel": "تيليجرام",
-                "partners.contactAlex": "تواصل مع Alex",
-                "partners.partnerRole": "شريك إحالة",
-                "partners.supportFallback": "يجري تأكيد جهات اتصال الشركاء. في هذه الأثناء، استخدم مركز دعم Kalderix على الموقع الرئيسي.",
+                "partners.supportDesc": "\u0647\u0644 \u0644\u062f\u064a\u0643 \u0623\u0633\u0626\u0644\u0629 \u062d\u0648\u0644 \u0628\u0631\u0646\u0627\u0645\u062c \u0627\u0644\u0634\u0631\u0643\u0627\u0621\u061f \u0631\u0627\u0633\u0644 \u0641\u0631\u064a\u0642 \u062f\u0639\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0645\u0646 \u062f\u0627\u062e\u0644 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Kalderix.",
+                "partners.supportCta": "\u0645\u0631\u0627\u0633\u0644\u0629 \u062f\u0639\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621",
+                "partners.supportFallback": "\u0627\u0641\u062a\u062d \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629 \u062f\u0627\u062e\u0644 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u0648\u0633\u064a\u0631\u062f \u0639\u0644\u064a\u0643 \u0641\u0631\u064a\u0642 \u062f\u0639\u0645 \u0627\u0644\u0634\u0631\u0643\u0627\u0621 \u0647\u0646\u0627\u0643.",
                 "partners.faqTitle": "الأسئلة الشائعة",
                 "partners.faq1q": "كم تبلغ مكافأة الإحالة؟",
                 "partners.faq1a": "تربح 20% من أول إيداع مؤهل بقيمة $100 أو أكثر للمستخدم المُحال.",
@@ -946,12 +921,9 @@
                 "partners.whoItem5": "数字营销人员",
                 "partners.whoItem6": "加密货币与金融社区",
                 "partners.supportTitle": "合作伙伴支持",
-                "partners.supportDesc": "对合作伙伴计划有疑问？请通过 Telegram 联系我们的合作伙伴支持团队。",
-                "partners.supportCta": "联系合作伙伴支持",
-                "partners.supportHandleLabel": "Telegram",
-                "partners.contactAlex": "联系 Alex",
-                "partners.partnerRole": "推荐合作伙伴",
-                "partners.supportFallback": "合作伙伴联系人正在确认中。在此期间，请使用主站上的 Kalderix 支持中心。",
+                "partners.supportDesc": "\u5bf9\u5408\u4f5c\u4f19\u4f34\u8ba1\u5212\u6709\u7591\u95ee\uff1f\u8bf7\u5728\u60a8\u7684 Kalderix \u8d26\u6237\u5185\u8054\u7cfb\u6211\u4eec\u7684\u5408\u4f5c\u4f19\u4f34\u652f\u6301\u56e2\u961f\u3002",
+                "partners.supportCta": "\u8054\u7cfb\u5408\u4f5c\u4f19\u4f34\u652f\u6301",
+                "partners.supportFallback": "\u6253\u5f00\u5e94\u7528\u5185\u804a\u5929\uff0c\u6211\u4eec\u7684\u5408\u4f5c\u4f19\u4f34\u652f\u6301\u56e2\u961f\u4f1a\u5728\u90a3\u91cc\u56de\u590d\u60a8\u3002",
                 "partners.faqTitle": "常见问题",
                 "partners.faq1q": "推荐奖励是多少？",
                 "partners.faq1a": "您可以获得被推荐用户首次符合条件的 $100 或以上存款的 20%。",
@@ -1018,117 +990,6 @@
                     if (val && val !== key) nodes[i].innerHTML = val;
                 }
             } catch (e) { if (window.console) console.error('applyTranslations error:', e); }
-        }
-
-        // Referral / partner-recruitment support: Alex is the sole contact for
-        // this page (business decision). The handle comes from the SAME first
-        // meta slot the app uses; a bare @username or a full https URL is
-        // accepted, and an empty, malformed or non-Telegram value is skipped so
-        // nothing is invented and no dead link is shown. Payment partners are
-        // listed on the PAYMENT surfaces inside the app, not here.
-        var SUPPORT_META_NAMES = [
-            'arbitrix-partner-support-telegram'
-        ];
-        var SUPPORT_CONTACTS = [
-            { slot: 0, name: 'Alex', ctaKey: 'partners.contactAlex' }
-        ];
-
-        function partnerSupportRaw(slot) {
-            var i = (typeof slot === 'number' && slot >= 0) ? slot : 0;
-            var raw = '';
-            // The window override applies to the FIRST slot only, as in the app.
-            if (i === 0) {
-                try { if (window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL) raw = String(window.ARBITRIX_PARTNER_SUPPORT_TELEGRAM_URL); } catch (e) {}
-            }
-            if (!raw) {
-                var meta = document.querySelector('meta[name="' + SUPPORT_META_NAMES[i] + '"]');
-                if (meta) raw = meta.getAttribute('content') || '';
-            }
-            return raw.trim();
-        }
-
-        // Only a Telegram destination is accepted; anything else is dropped.
-        function telegramUrlFromRaw(raw) {
-            if (!raw) return '';
-            if (/^https?:\/\//i.test(raw)) {
-                return /^https?:\/\/(t\.me|telegram\.me)\//i.test(raw) ? raw : '';
-            }
-            var handle = raw.charAt(0) === '@' ? raw.slice(1) : raw;
-            if (!/^[A-Za-z0-9_]{3,}$/.test(handle)) return '';
-            return 'https://t.me/' + handle;
-        }
-
-        // First configured partner; kept for callers that expect a single value.
-        function getPartnerSupportTelegramUrl() {
-            return telegramUrlFromRaw(partnerSupportRaw(0));
-        }
-
-        function getPartnerSupportContacts() {
-            var out = [];
-            for (var i = 0; i < SUPPORT_CONTACTS.length; i++) {
-                var raw = partnerSupportRaw(SUPPORT_CONTACTS[i].slot);
-                var url = telegramUrlFromRaw(raw);
-                if (!url) continue;
-                out.push({ name: SUPPORT_CONTACTS[i].name, ctaKey: SUPPORT_CONTACTS[i].ctaKey, url: url, handle: raw });
-            }
-            return out;
-        }
-
-        function buildPartnerCard(contact) {
-            var card = document.createElement('div');
-            card.className = 'support-card';
-            card.setAttribute('data-partner', contact.name);
-
-            var name = document.createElement('p');
-            name.className = 'partner-name';
-            name.textContent = contact.name;
-
-            var role = document.createElement('p');
-            role.className = 'partner-role';
-            role.textContent = t('partners.partnerRole');
-
-            var link = document.createElement('a');
-            link.className = 'btn btn-secondary js-partner-support';
-            link.setAttribute('href', contact.url);
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-            var icon = document.createElement('i');
-            icon.className = 'fab fa-telegram';
-            icon.setAttribute('aria-hidden', 'true');
-            var label = document.createElement('span');
-            label.textContent = t(contact.ctaKey);
-            link.appendChild(icon);
-            link.appendChild(label);
-
-            var handle = document.createElement('p');
-            handle.className = 'support-handle';
-            var handleLabel = document.createElement('span');
-            handleLabel.textContent = t('partners.supportHandleLabel') + ': ';
-            var handleValue = document.createElement('span');
-            handleValue.className = 'support-handle-value';
-            handleValue.textContent = contact.handle;
-            handle.appendChild(handleLabel);
-            handle.appendChild(handleValue);
-
-            card.appendChild(name);
-            card.appendChild(role);
-            card.appendChild(link);
-            card.appendChild(handle);
-            return card;
-        }
-
-        function applyPartnerSupport() {
-            var container = document.getElementById('partnerSupportContacts');
-            var fallback = document.getElementById('partnerSupportFallback');
-            var contacts = getPartnerSupportContacts();
-            if (container) {
-                container.textContent = '';
-                for (var i = 0; i < contacts.length; i++) container.appendChild(buildPartnerCard(contacts[i]));
-            }
-            if (fallback) {
-                if (contacts.length) fallback.setAttribute('hidden', '');
-                else fallback.removeAttribute('hidden');
-            }
         }
 
         // ============ Partner walkthrough video localization ============
@@ -1255,7 +1116,6 @@
             currentLang = lang;
             try { localStorage.setItem('arbi_lang', lang); } catch (e) {}
             applyTranslations();
-            applyPartnerSupport();
             applyPartnerVideo();
             updatePartnerLangUI();
             closePartnerLangMenu();
@@ -1300,7 +1160,6 @@
         }
 
         applyTranslations();
-        applyPartnerSupport();
         applyPartnerVideo();
         updatePartnerLangUI();
     </script>

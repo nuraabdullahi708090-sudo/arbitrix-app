@@ -228,7 +228,8 @@ test('the action opens the existing Support Center (no invented destination)', (
     // the Support Center modal is the existing official destination
     assert.ok(/id="supportModal"/.test(INDEX), 'the existing Support Center modal must remain');
     assert.ok(/function openSupportModal\(/.test(INDEX), 'the existing opener must remain');
-    assert.ok(/\.js-official-telegram/.test(INDEX), 'the configured official support link mechanism must remain');
+    // Customer support is the in-app chat: no Telegram destination is published.
+    assert.ok(/function kxOpenSupport\(/.test(INDEX), 'the single support entry point must remain');
     // nothing invented and nothing leaked into the chat
     const assistantSrc = SEND + FALLBACK;
     assert.ok(!/https?:\/\/|t\.me|mailto:|@[a-z0-9_.-]+\.(com|net|org|io)/i.test(assistantSrc), 'no URL/email/handle may be embedded');
@@ -270,7 +271,7 @@ test('the fallback works in every supported locale', () => {
 test('i18n stays consistent: identical key sets, no empties, count pinned', () => {
     const sets = LANGS.map((l) => Object.keys(T[l]).sort().join('|'));
     assert.strictEqual(new Set(sets).size, 1, 'identical key sets across locales');
-    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1587, l + ' key count'));
+    LANGS.forEach((l) => assert.strictEqual(Object.keys(T[l]).length, 1585, l + ' key count'));
     LANGS.forEach((l) => Object.values(T[l]).forEach((v) => assert.ok(String(v).trim(), l + ' has an empty value')));
 });
 
@@ -290,7 +291,7 @@ test('existing quick-action buttons keep working and never hit the fallback', ()
     assert.ok(/querySelectorAll\('\.quick-reply-btn'\)/.test(INDEX), 'quick replies must stay wired');
     assert.ok(/getEl\('supportInput'\)\.value = this\.dataset\.msg;/.test(INDEX), 'quick replies must still prefill the input');
     // and the widget still exposes the Support Center entry point
-    assert.ok(/onclick="openSupportModal\(\)"/.test(INDEX), 'the widget Support Center button must remain');
+    assert.ok(/onclick="kxOpenSupport\(\)"/.test(INDEX), 'the widget support button must remain');
 });
 
 /* ------------------------------------------------------------------ *

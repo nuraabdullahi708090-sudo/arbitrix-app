@@ -367,7 +367,7 @@ test('the invoice request never renders a server message and offers help', () =>
     const box = INDEX.slice(boxAt, INDEX.indexOf('</div>', INDEX.indexOf('deposit.getHelp', boxAt)));
     assert.ok(/id="depositRetryBtn"/.test(box), 'a retry action exists');
     assert.ok(/onclick="requestDepositAddress\(\)"/.test(box), 'retry re-runs the same existing call');
-    assert.ok(/onclick="openSupportModal\(\)"/.test(box), 'the existing support route is offered');
+    assert.ok(/onclick="kxOpenSupport\('deposit'\)"/.test(box), 'the in-app support route is offered');
     assert.ok(/role="alert"/.test(box), 'announced to assistive tech');
 });
 

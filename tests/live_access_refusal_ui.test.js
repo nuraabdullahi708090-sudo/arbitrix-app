@@ -69,6 +69,9 @@ function runStart(body, opts) {
     updateStatus: (running) => calls.status.push(!!running),
     stopWorkerSyncLoop: () => {},
     openSupportModal: () => { calls.supportModal++; },
+    // The single support entry point (the in-app chat); the modal is its fallback,
+    // so either counts as "the customer was given a human route".
+    kxOpenSupport: () => { calls.supportModal++; },
     openDepositModal: () => { calls.depositModal++; },
     isLiveAccessRefusal: null,
     isProfitPausePayload: () => false,

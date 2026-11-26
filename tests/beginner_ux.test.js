@@ -76,7 +76,8 @@ const NEW_KEYS = [
     'cookies.body', 'cookies.accept', 'cookies.decline',
     'deposit.paymentWarning', 'deposit.newToUsdt.title', 'deposit.newToUsdt.body', 'deposit.usdVsUsdt',
     'deposit.addressExplain', 'deposit.referenceExplain', 'deposit.afterSending',
-    'support.assistant.name', 'support.assistant.human', 'support.assistant.status', 'support.human.title', 'support.reply.queued',
+    'support.assistant.name', 'support.assistant.human', 'support.assistant.status', 'support.reply.queued',
+    'support.startChat', 'support.chatHint',
     'auth.signup.passwordHint', 'auth.signup.referralHint', 'auth.signup.next', 'auth.signup.failed',
     'auth.errors.nameRequired', 'auth.errors.emailRequired', 'auth.errors.passwordRequired', 'auth.signup.passwordMin',
 ];
@@ -84,7 +85,7 @@ const NEW_KEYS = [
 test('i18n: every new beginner-UX key exists and is non-empty in all 6 locales', () => {
     const T = loadTranslations();
     const enKeys = Object.keys(T.en);
-    assert.strictEqual(enKeys.length, 1587, 'expected 1587 keys per locale');
+    assert.strictEqual(enKeys.length, 1585, 'expected 1585 keys per locale');
     for (const lang of LANGS) {
         assert.deepStrictEqual(new Set(Object.keys(T[lang])), new Set(enKeys), `${lang} key set differs`);
     }
@@ -155,13 +156,15 @@ test('activity ticker carries the LIVE ACTIVITY label (management decision)', ()
     assert.ok(/live|vivo|direct|مباشر|实时/i.test(T.es['ticker.live'] + T.pt['ticker.live'] + T.fr['ticker.live'] + T.ar['ticker.live'] + T.zh['ticker.live']), 'localized live wording');
 });
 
-test('support widget: automated assistant, no fake unread count', () => {
+test('support widget: human support, no fake unread count, no Telegram hand-off', () => {
     assert.ok(!/id="unreadBadge"/.test(INDEX), 'the fake unread badge must be removed');
     assert.ok(!/getElementById\('unreadBadge'\)/.test(INDEX), 'no code may reference the removed badge');
     assert.ok(/data-i18n="support\.assistant\.name"/.test(INDEX), 'assistant name must be used');
     assert.ok(/data-i18n="support\.assistant\.status"/.test(INDEX), 'the support status label must be used');
     assert.ok(/data-i18n="support\.assistant\.human"/.test(INDEX), 'the human-support explanation must be shown');
-    assert.ok(/data-i18n="support\.human\.title"/.test(INDEX), 'official human support label must be used');
+    // The Telegram hand-off block is retired: support is the in-app chat itself.
+    assert.ok(!/support\.human\.title/.test(INDEX), 'the Telegram-facing heading is gone');
+    assert.ok(!/data-i18n="support\.officialTelegram"/.test(INDEX), 'the Telegram button label is gone');
     const T = loadTranslations();
     // Human-only support: no surface may describe the in-app chat as automated.
     for (const l of Object.keys(T)) {

@@ -88,19 +88,20 @@ function buildSandbox() {
     return sandbox;
 }
 
-test('Profile Settings "Contact Support" is wired to the existing support modal', () => {
-    // The button lives inside #profileModal and uses the same destination as the
-    // sidebar Support entry: openSupportModal() -> #supportModal.
+test('Profile Settings "Contact Support" is wired to the in-app support chat', () => {
+    // The button lives inside #profileModal and uses the same entry point as the
+    // sidebar Support link: kxOpenSupport('account') -> the messenger, with the
+    // Support Center as its fallback.
     const profileIdx = INDEX.indexOf('id="profileModal"');
     assert.ok(profileIdx > 0, '#profileModal must exist');
     const profileBlock = INDEX.slice(profileIdx, INDEX.indexOf('id="subscriptionModal"', profileIdx));
-    assert.ok(/onclick="openSupportModal\(\)"/.test(profileBlock), 'profile modal must open the existing support modal');
+    assert.ok(/onclick="kxOpenSupport\('account'\)"/.test(profileBlock), 'profile modal must open the support chat');
     assert.ok(/data-i18n="profile\.contactSupport"/.test(profileBlock), 'the button must keep its localized label');
     assert.ok(/<i class="fas fa-headset">/.test(profileBlock), 'the button must keep its icon');
 
     // The sidebar Support entry uses exactly the same handler (one destination).
     const sidebarSupport = INDEX.slice(INDEX.indexOf('id="supportSidebarLink"'), INDEX.indexOf('id="supportSidebarLink"') + 140);
-    assert.ok(/onclick="openSupportModal\(\)"/.test(sidebarSupport), 'sidebar Support must use the same handler');
+    assert.ok(/onclick="kxOpenSupport\(\)"/.test(sidebarSupport), 'sidebar Support must use the same handler');
 
     // No new destination was invented: the modal contains no separate endpoint.
     const modalIdx = INDEX.indexOf('id="supportModal"');
@@ -126,7 +127,9 @@ test('opening support closes an open overlay modal so the modal is actually visi
     assert.ok(sb.els.supportModal.classList.contains('open'), 'support modal must open');
     assert.ok(!sb.els.profileModal.classList.contains('open'), 'profile overlay must close (it would hide support)');
     assert.ok(!sb.els.subscriptionModal.classList.contains('open'), 'any open overlay is closed');
-    assert.deepStrictEqual(sb.calls, ['updateSupportLinks'], 'links are refreshed before showing');
+    // The retired Telegram link refresh is gone, so opening the modal does no other
+    // work: it only has to become the visible layer.
+    assert.deepStrictEqual(sb.calls, [], 'opening the modal does no other work');
 });
 
 test('opening support never creates a request or touches money', () => {

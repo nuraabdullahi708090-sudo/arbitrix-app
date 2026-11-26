@@ -13,14 +13,10 @@
     <meta name="robots" content="index, follow">
     <meta name="author" content="Kalderix">
     <meta name="facebook-domain-verification" content="d0aufqxqfytuj1dju056bwey5m7ojb" />
-    <!-- Official support Telegram link - SINGLE SOURCE OF TRUTH.
-         This meta tag is the only place the URL is defined; every official
-         Telegram entry point (support modal, deposit payment section, landing
-         footer) receives it at runtime via updateSupportLinks() and no anchor
-         hardcodes a destination. Leave the content empty to hide the direct
-         link and show the in-app support guidance instead. Public link only -
-         never put tokens, secrets, or credentials here. -->
-    <meta name="arbitrix-support-telegram" content="https://t.me/ArbitrixSupportBot">
+    <!-- Customer support is the IN-APP messenger (public/native-support.js).
+         There is deliberately NO customer-facing Telegram destination here:
+         Telegram is the internal agent channel, not the customer's support
+         entry point. See kxOpenSupport() below. -->
     <!-- Open Graph / social sharing -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Kalderix">
@@ -5366,6 +5362,12 @@ body:has(#pwaInstallPrompt:not(.hidden)) .ns-launcher{display:none}
 /* Compact single-line header; the close target is 44px and always visible. */
 .ns-head{display:flex;align-items:center;justify-content:space-between;gap:8px;
   min-height:52px;padding:4px 6px 4px 14px;background:#111A2B;border-bottom:1px solid #23324B}
+/* Why support was opened (deposit / withdrawal / trading / account). One muted
+   green pill under the header; absent unless a context was passed. Display-only. */
+.ns-context{flex:0 0 auto;margin:8px 12px 0;padding:5px 10px;border-radius:999px;
+  background:rgba(14,203,129,.12);border:1px solid rgba(14,203,129,.35);color:#7CF7C4;
+  font-size:11px;font-weight:600;line-height:1.35;text-align:center;overflow-wrap:anywhere}
+.ns-context[hidden]{display:none}
 .ns-head-id{display:flex;align-items:center;gap:9px;min-width:0}
 .ns-dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:#0ECB81;
   box-shadow:0 0 0 3px rgba(14,203,129,.16)}
@@ -5976,7 +5978,14 @@ async function handleSignup() {
             // (Make My First Deposit / Explore Demo) before the general app
             // experience. Shown at most once per account; creates no invoice and
             // credits nothing.
-            showOnboarding(data.user);
+            if (kxSupportDeepLinkPending) {
+                // The visitor arrived from a support link (?support=1): they asked
+                // for the chat, not the onboarding tour, so open it and skip the
+                // funnel. It only opens if the messenger is actually available.
+                try { kxConsumeSupportDeepLink(); } catch (e) {}
+            } else {
+                showOnboarding(data.user);
+            }
         }, 1000);
     } catch (e) {
         showAuthError(t('auth.errors.networkError'), 'signup');
@@ -8128,12 +8137,11 @@ console.log('🔐 Auth script loaded successfully');
                 </div>
                 <div class="landing-footer-links">
                     <h4 data-i18n="landing.footer.contact">Contact</h4>
-                    <!-- Official customer support is the Telegram support bot only.
-                         The destination is resolved at runtime from the
-                         arbitrix-support-telegram meta tag (single source of truth);
-                         no anchor hardcodes the URL. -->
-                    <a href="#" class="js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer" data-i18n="support.telegramShort">Telegram Support</a>
-                    <a href="#" class="js-official-telegram" style="display:none;" target="_blank" rel="noopener noreferrer">@ArbitrixSupportBot</a>
+                    <!-- Customer support opens the IN-APP messenger. The href is the
+                         deep link so the footer still works without JavaScript and
+                         for a signed-out visitor (it lands in the app, then in the
+                         chat once the session resolves). -->
+                    <a href="/?support=1" data-kx-support="general" data-i18n="support.contactShort">Contact Support</a>
                 </div>
             </div>
             <div class="landing-footer-bottom">
@@ -8641,7 +8649,7 @@ function toggleFaq(btn) {
         <a class="sidebar-link" id="subscriptionSidebarLink" onclick="openSubscriptionModal()"><i class="fas fa-crown" style="color:var(--brand);"></i> <span data-i18n="sidebar.subscription">Subscription</span></a>
         <div class="kx-nav-group" data-i18n="nav.account">Account</div>
         <a class="sidebar-link hidden" id="verificationSidebarLink"><i class="fas fa-user-check"></i> <span data-i18n="sidebar.verification">Verification</span></a>
-        <a class="sidebar-link" id="supportSidebarLink" onclick="openSupportModal()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
+        <a class="sidebar-link" id="supportSidebarLink" onclick="kxOpenSupport()"><i class="fas fa-headset"></i> <span data-i18n="sidebar.support">Support</span></a>
         <a class="sidebar-link" id="twofaLink" onclick="openTwoFAModal()"><i class="fas fa-shield-halved"></i> <span data-i18n="sidebar.2fa">2FA Security</span></a>
         <a class="sidebar-link" id="profileLink" onclick="openProfileModal()"><i class="fas fa-user-gear"></i> <span data-i18n="sidebar.profile">Profile Settings</span></a>
         <a class="sidebar-link" id="pwaInstallSidebarLink"><i class="fas fa-download"></i> <span data-i18n="sidebar.install">Install App</span> <span style="margin-left:auto;background:var(--green);color:var(--on-brand);font-size:8px;padding:2px 6px;border-radius:8px;font-weight:700;" data-i18n="common.new">NEW</span></a>
@@ -9751,8 +9759,8 @@ function toggleFaq(btn) {
                             <button type="button" id="requestPayoutBtn" class="btn btn-primary" onclick="openReferralPayoutModal()">
                                 <i class="fas fa-money-bill-transfer" aria-hidden="true"></i> <span data-i18n="referral.partner.requestPayout">Request Payout</span>
                             </button>
-                            <button type="button" id="partnerSupportBtn" class="btn btn-secondary" onclick="openSupportModal()">
-                                <i class="fab fa-telegram" aria-hidden="true"></i> <span data-i18n="referral.partner.contactSupport">Contact Partner Support</span>
+                            <button type="button" id="partnerSupportBtn" class="btn btn-secondary" onclick="kxOpenSupport('account')">
+                                <i class="fas fa-headset" aria-hidden="true"></i> <span data-i18n="referral.partner.contactSupport">Contact Partner Support</span>
                             </button>
                         </div>
                         <p class="ref-note" data-i18n="referral.partner.noMinimumNote">No minimum payout. Referral earnings do not require trading.</p>
@@ -10013,7 +10021,7 @@ function toggleFaq(btn) {
           <div id="depositInvoiceErrorText"></div>
           <div class="deposit-error-actions">
             <button type="button" id="depositRetryBtn" class="btn btn-secondary" onclick="requestDepositAddress()" data-i18n="deposit.retry">Try again</button>
-            <button type="button" class="btn btn-secondary" onclick="openSupportModal()" data-i18n="deposit.getHelp">Get help</button>
+            <button type="button" class="btn btn-secondary" onclick="kxOpenSupport('deposit')" data-i18n="deposit.getHelp">Get help</button>
           </div>
         </div>
       </div>
@@ -10149,7 +10157,7 @@ function toggleFaq(btn) {
           <button type="button" id="copyInvoiceRefBtn" onclick="copyInvoiceRef()" class="btn btn-secondary pay-support-copy">
             <i class="fas fa-copy" aria-hidden="true"></i> <span data-i18n="deposit.copyInvoiceRef">Copy invoice reference</span>
           </button>
-          <button type="button" id="paymentSupportFallbackBtn" onclick="openSupportModal()" class="btn btn-secondary pay-support-cta">
+          <button type="button" id="paymentSupportFallbackBtn" onclick="kxOpenSupport('deposit')" class="btn btn-secondary pay-support-cta">
             <i class="fas fa-headset" aria-hidden="true"></i> <span data-i18n="support.contactShort">Contact Support</span>
           </button>
         </div>
@@ -10324,7 +10332,7 @@ function toggleFaq(btn) {
                 <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:6px 0 0;overflow-wrap:anywhere;" data-i18n="withdraw.tutorial.note">The tutorial opens in Telegram in a new tab.</p>
             </div>
             <div style="text-align:center;margin-bottom:12px;">
-                <button type="button" onclick="openSupportModal()" class="kx-support-link muted">
+                <button type="button" onclick="kxOpenSupport('withdrawal')" class="kx-support-link muted">
                     <i class="fas fa-headset"></i> <span data-i18n="support.needHelpWithdraw">Need help with a withdrawal?</span>
                 </button>
             </div>
@@ -10375,7 +10383,7 @@ function toggleFaq(btn) {
                 </p>
                 <p style="font-size:10px;color:var(--text-muted);margin-top:10px;">
                     <i class="fas fa-headset"></i>
-                    <button type="button" onclick="openSupportModal()" class="kx-support-link" data-i18n="support.contactShort">Contact Support</button>
+                    <button type="button" onclick="kxOpenSupport('withdrawal')" class="kx-support-link" data-i18n="support.contactShort">Contact Support</button>
                 </p>
             </div>
         </div>
@@ -10544,10 +10552,13 @@ function toggleFaq(btn) {
 </div>
 
 <!-- ==================== OFFICIAL SUPPORT MODAL ====================
-     Customer support experience: official Telegram link (configurable), help
-     topics, payment-problem guidance, and a security warning. Display-only: no
-     payment/KYC/withdrawal logic is reachable from here, no secrets are
-     collected, and no user private data is displayed. -->
+     Customer support: this modal is the FALLBACK surface. Its primary action opens
+     the in-app messenger (the same conversation the Admin Dashboard and the
+     internal Telegram agent channel read and write); it is shown only when that
+     messenger is actually available. Otherwise this modal is the support surface
+     itself. It carries help topics, payment-problem guidance and a security
+     warning. Display-only: no payment/KYC/withdrawal logic is reachable from
+     here, no secrets are collected, and no user private data is displayed. -->
 <div class="deposit-modal" id="supportModal">
     <div class="deposit-modal-content" style="max-width:520px;">
         <button type="button" onclick="closeSupportModal()" class="modal-close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -10560,11 +10571,14 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <!-- Official Telegram support (configurable; no personal account hardcoded) -->
-        <a href="#" id="supportTelegramBtn" class="btn btn-primary btn-block js-official-telegram" style="display:none;margin-top:12px;text-align:center;background:linear-gradient(135deg,var(--brand),#5EA0FF);border:none;color:#06121F;font-weight:700;" target="_blank" rel="noopener noreferrer">
-            <i class="fab fa-telegram"></i> <span data-i18n="support.human.title">Contact Official Support</span>
-        </a>
-        <div id="supportNotConfigured" style="display:none;margin-top:12px;font-size:11px;color:var(--text-secondary);background:var(--brand-weak);border:1px solid var(--gold-glow);border-radius:10px;padding:10px;line-height:1.6;" data-i18n="support.notConfigured">Official Telegram Support is being configured. In the meantime, use the in-app support chat.</div>
+        <!-- Primary action: the in-app messenger (the same conversation the support
+             team reads and answers in the Admin Dashboard). Shown only when the
+             messenger can actually open; otherwise this Support Center IS the
+             support surface and the customer stays here. -->
+        <button type="button" id="supportChatCta" class="btn btn-primary btn-block" onclick="kxOpenSupport(APP.supportContext)" style="margin-top:12px;">
+            <i class="fas fa-comments"></i> <span data-i18n="support.startChat">Chat with support</span>
+        </button>
+        <p id="supportChatHint" style="margin:8px 0 0;font-size:11px;color:var(--text-secondary);line-height:1.6;text-align:center;" data-i18n="support.chatHint">Your message goes straight to our support team, and the reply arrives here in Kalderix.</p>
 
         <!-- Security warning -->
         <div style="margin-top:14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px;">
@@ -10801,7 +10815,7 @@ function toggleFaq(btn) {
         <!-- Account help: official support + verification transparency.
              UI-only: does not change any KYC/withdrawal/backend behavior. -->
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
-            <button type="button" class="btn btn-secondary btn-block" onclick="openSupportModal()" style="margin-bottom:10px;">
+            <button type="button" class="btn btn-secondary btn-block" onclick="kxOpenSupport('account')" style="margin-bottom:10px;">
                 <i class="fas fa-headset"></i> <span data-i18n="profile.contactSupport">Contact Support</span>
             </button>
             <p id="verificationNotRequiredNote" style="font-size:10px;color:var(--text-muted);line-height:1.5;text-align:center;margin:0;" data-i18n="support.verificationNotRequired">Verification is not required. Additional checks may still be required for account security, payment-provider requirements, or other applicable conditions.</p>
@@ -11063,7 +11077,7 @@ function toggleFaq(btn) {
                 <button type="button" class="quick-reply-btn" data-msg="When can I withdraw my funds?" data-i18n="support.withdraw">🏦 Withdraw</button>
             </div>
             <div style="padding:8px 12px 0;text-align:center;">
-                <button type="button" onclick="openSupportModal()" class="kx-support-link" data-i18n="support.openCenter">Open Support Center</button>
+                <button type="button" onclick="kxOpenSupport()" class="kx-support-link" data-i18n="support.openCenter">Open Support Center</button>
             </div>
         </div>
         <div class="support-panel-footer">
@@ -11915,7 +11929,6 @@ const TRANSLATIONS = {
         'support.assistant.status': 'Human support',
         'support.assistant.name': 'Kalderix Support',
         'support.assistant.human': 'Our support team replies in the in-app chat.',
-        'support.human.title': 'Contact Official Support',
         'support.welcome': '👋 Welcome! How can I help?',
         'support.botSetup': '🤖 Bot setup',
         'support.deposit': '💰 Deposit',
@@ -12087,11 +12100,10 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 You can control sounds by clicking the speaker icon in the header, or adjust volume in Profile Settings.',
         'support.reply.language': '🌍 You can change the language by clicking the 🌐 globe icon in the header, or in Profile Settings.',
         'support.reply.hello': '👋 Hello! Welcome to Kalderix support. How can I assist you today?',
-        'support.telegramShort': 'Telegram Support',
         'support.modal.title': 'Kalderix Support',
         'support.modal.subtitle': 'We are here to help with deposits, withdrawals and account questions.',
-        'support.officialTelegram': 'Official Telegram Support',
-        'support.notConfigured': 'Official Telegram Support is being configured. In the meantime, use the in-app support chat.',
+        'support.startChat': 'Chat with support',
+        'support.chatHint': 'Your message goes straight to our support team, and the reply arrives here in Kalderix.',
         'support.security.title': 'Official Support will NEVER ask for',
         'support.security.password': 'Your password',
         'support.security.otp': 'OTP / 2FA codes',
@@ -13522,7 +13534,6 @@ const TRANSLATIONS = {
         'support.assistant.status': 'Atenci\u00f3n humana',
         'support.assistant.name': 'Soporte de Kalderix',
         'support.assistant.human': 'Nuestro equipo de soporte responde en el chat de la aplicaci\u00f3n.',
-        'support.human.title': 'Contactar al soporte oficial',
         'support.welcome': '👋 ¡Bienvenido! ¿En qué puedo ayudarte?',
         'support.botSetup': '🤖 Configurar bot',
         'support.deposit': '💰 Depositar',
@@ -13694,11 +13705,10 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 Puedes controlar los sonidos haciendo clic en el ícono de altavoz en el encabezado, o ajustar el volumen en Configuración de perfil.',
         'support.reply.language': '🌍 Puedes cambiar el idioma haciendo clic en el ícono 🌐 del globo en el encabezado, o en Configuración de perfil.',
         'support.reply.hello': '👋 ¡Hola! Bienvenido al soporte de Kalderix. ¿Cómo puedo ayudarte hoy?',
-        'support.telegramShort': 'Soporte de Telegram',
         'support.modal.title': 'Soporte de Kalderix',
         'support.modal.subtitle': 'Estamos aquí para ayudarte con depósitos, retiros y consultas de la cuenta.',
-        'support.officialTelegram': 'Soporte oficial de Telegram',
-        'support.notConfigured': 'El soporte oficial de Telegram se está configurando. Mientras tanto, usa el chat de soporte dentro de la aplicación.',
+        'support.startChat': 'Chatea con soporte',
+        'support.chatHint': 'Tu mensaje llega directamente a nuestro equipo de soporte y la respuesta aparece aqu\u00ed, en Kalderix.',
         'support.security.title': 'El soporte oficial NUNCA te pedirá',
         'support.security.password': 'Tu contraseña',
         'support.security.otp': 'Códigos OTP / 2FA',
@@ -15130,7 +15140,6 @@ const TRANSLATIONS = {
         'support.assistant.status': 'Atendimento humano',
         'support.assistant.name': 'Suporte da Kalderix',
         'support.assistant.human': 'Nossa equipe de suporte responde no chat do aplicativo.',
-        'support.human.title': 'Falar com o suporte oficial',
         'support.welcome': '👋 Bem-vindo! Como posso ajudar?',
         'support.botSetup': '🤖 Configurar bot',
         'support.deposit': '💰 Depositar',
@@ -15302,11 +15311,10 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 Você pode controlar os sons clicando no ícone de alto-falante no cabeçalho, ou ajustar o volume nas Configurações de perfil.',
         'support.reply.language': '🌍 Você pode alterar o idioma clicando no ícone 🌐 de globo no cabeçalho, ou nas Configurações de perfil.',
         'support.reply.hello': '👋 Olá! Bem-vindo ao suporte do Kalderix. Como posso ajudar hoje?',
-        'support.telegramShort': 'Suporte no Telegram',
         'support.modal.title': 'Suporte Kalderix',
         'support.modal.subtitle': 'Estamos aqui para ajudar com depósitos, saques e dúvidas da conta.',
-        'support.officialTelegram': 'Suporte oficial no Telegram',
-        'support.notConfigured': 'O suporte oficial no Telegram está sendo configurado. Enquanto isso, use o chat de suporte dentro do aplicativo.',
+        'support.startChat': 'Fale com o suporte',
+        'support.chatHint': 'A sua mensagem vai diretamente para a nossa equipa de suporte e a resposta aparece aqui, na Kalderix.',
         'support.security.title': 'O suporte oficial NUNCA pedirá',
         'support.security.password': 'Sua senha',
         'support.security.otp': 'Códigos OTP / 2FA',
@@ -16738,7 +16746,6 @@ const TRANSLATIONS = {
         'support.assistant.status': 'Assistance humaine',
         'support.assistant.name': 'Assistance Kalderix',
         'support.assistant.human': 'Notre \u00e9quipe d\u2019assistance r\u00e9pond dans le chat de l\u2019application.',
-        'support.human.title': 'Contacter le support officiel',
         'support.welcome': '👋 Bienvenue ! Comment puis-je aider ?',
         'support.botSetup': '🤖 Configurer le bot',
         'support.deposit': '💰 Dépôt',
@@ -16910,11 +16917,10 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 Vous pouvez contrôler les sons en cliquant sur l\'icône haut-parleur dans l\'en-tête, ou ajuster le volume dans les Paramètres du profil.',
         'support.reply.language': '🌍 Vous pouvez changer la langue en cliquant sur l\'icône 🌐 de globe dans l\'en-tête, ou dans les Paramètres du profil.',
         'support.reply.hello': '👋 Bonjour ! Bienvenue sur le support d\'Kalderix. Comment puis-je vous aider aujourd\'hui ?',
-        'support.telegramShort': 'Support Telegram',
         'support.modal.title': 'Support Kalderix',
         'support.modal.subtitle': 'Nous sommes là pour vous aider avec les dépôts, les retraits et les questions de compte.',
-        'support.officialTelegram': 'Support Telegram officiel',
-        'support.notConfigured': 'Le support Telegram officiel est en cours de configuration. En attendant, utilisez le chat de support intégré à l\'application.',
+        'support.startChat': 'Discuter avec le support',
+        'support.chatHint': 'Votre message parvient directement \u00e0 notre \u00e9quipe de support et la r\u00e9ponse arrive ici, dans Kalderix.',
         'support.security.title': 'Le support officiel ne demandera JAMAIS',
         'support.security.password': 'Votre mot de passe',
         'support.security.otp': 'Codes OTP / 2FA',
@@ -18346,7 +18352,6 @@ const TRANSLATIONS = {
         'support.assistant.status': '\u062f\u0639\u0645 \u0628\u0634\u0631\u064a',
         'support.assistant.name': 'دعم Kalderix',
         'support.assistant.human': '\u064a\u0631\u062f \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627 \u0641\u064a \u062f\u0631\u062f\u0634\u0629 \u0627\u0644\u062a\u0637\u0628\u064a\u0642.',
-        'support.human.title': 'تواصل مع الدعم الرسمي',
         'support.welcome': '👋 مرحبًا! كيف يمكنني المساعدة؟',
         'support.botSetup': '🤖 إعداد الروبوت',
         'support.deposit': '💰 إيداع',
@@ -18518,11 +18523,10 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 يمكنك التحكم بالأصوات بالنقر على أيقونة السماعة في الترويسة، أو ضبط مستوى الصوت في إعدادات الملف الشخصي.',
         'support.reply.language': '🌍 يمكنك تغيير اللغة بالنقر على أيقونة 🌐 الكرة الأرضية في الترويسة، أو في إعدادات الملف الشخصي.',
         'support.reply.hello': '👋 مرحبًا! أهلًا بك في دعم Kalderix. كيف يمكنني مساعدتك اليوم؟',
-        'support.telegramShort': 'دعم تيليجرام',
         'support.modal.title': 'دعم Kalderix',
         'support.modal.subtitle': 'نحن هنا لمساعدتك في الإيداع والسحب وأسئلة الحساب.',
-        'support.officialTelegram': 'دعم تيليجرام الرسمي',
-        'support.notConfigured': 'يتم إعداد دعم تيليجرام الرسمي. في هذه الأثناء، استخدم محادثة الدعم داخل التطبيق.',
+        'support.startChat': '\u062a\u062d\u062f\u062b \u0645\u0639 \u0627\u0644\u062f\u0639\u0645',
+        'support.chatHint': '\u062a\u0635\u0644 \u0631\u0633\u0627\u0644\u062a\u0643 \u0645\u0628\u0627\u0634\u0631\u0629 \u0625\u0644\u0649 \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0644\u062f\u064a\u0646\u0627\u060c \u0648\u064a\u0638\u0647\u0631 \u0627\u0644\u0631\u062f \u0647\u0646\u0627 \u0641\u064a Kalderix.',
         'support.security.title': 'الدعم الرسمي لن يطلب منك أبدًا',
         'support.security.password': 'كلمة المرور الخاصة بك',
         'support.security.otp': 'رموز OTP / 2FA',
@@ -19954,7 +19958,6 @@ const TRANSLATIONS = {
         'support.assistant.status': '\u4eba\u5de5\u5ba2\u670d',
         'support.assistant.name': 'Kalderix 客服',
         'support.assistant.human': '\u6211\u4eec\u7684\u5ba2\u670d\u56e2\u961f\u4f1a\u5728\u5e94\u7528\u5185\u804a\u5929\u4e2d\u56de\u590d\u3002',
-        'support.human.title': '联系官方支持',
         'support.welcome': '👋 欢迎！有什么可以帮您？',
         'support.botSetup': '🤖 机器人设置',
         'support.deposit': '💰 入金',
@@ -20126,11 +20129,10 @@ const TRANSLATIONS = {
         'support.reply.sound': '🔊 您可以点击页眉中的扬声器图标来控制声音，或在个人资料设置中调节音量。',
         'support.reply.language': '🌍 您可以点击页眉中的 🌐 地球图标更改语言，或在个人资料设置中更改。',
         'support.reply.hello': '👋 您好！欢迎来到 Kalderix 支持。今天我能为您做些什么？',
-        'support.telegramShort': 'Telegram 支持',
         'support.modal.title': 'Kalderix 支持',
         'support.modal.subtitle': '我们随时为您解答入金、出金和账户问题。',
-        'support.officialTelegram': '官方 Telegram 支持',
-        'support.notConfigured': '官方 Telegram 支持正在配置中。在此期间，请使用应用内支持聊天。',
+        'support.startChat': '\u8054\u7cfb\u5728\u7ebf\u5ba2\u670d',
+        'support.chatHint': '\u60a8\u7684\u6d88\u606f\u4f1a\u76f4\u63a5\u53d1\u9001\u7ed9\u6211\u4eec\u7684\u5ba2\u670d\u56e2\u961f\uff0c\u56de\u590d\u4f1a\u663e\u793a\u5728\u8fd9\u91cc\uff08Kalderix\uff09\u3002',
         'support.security.title': '官方支持绝不会索要',
         'support.security.password': '您的密码',
         'support.security.otp': 'OTP / 2FA 验证码',
@@ -20966,7 +20968,7 @@ const TRANSLATIONS = {
 // (and every test that pins its size) is untouched; UI labels are rendered by
 // JS through t(), so no data-i18n attributes are involved.
 // ---------------------------------------------------------------------------
-const NS_TRANSLATIONS = {"en": {"ns.title": "Kalderix Support", "ns.launcher": "Open support chat", "ns.unreadLabel": "{{count}} unread messages", "ns.welcome": "Hi! You're chatting with Kalderix Support. How can we help you today?", "ns.catQ": "Choose a topic", "ns.cat.deposit": "Deposit issues", "ns.cat.withdrawal": "Withdrawal problems", "ns.cat.trading": "Trading problems", "ns.cat.account": "Account issues", "ns.cat.general": "General inquiry", "ns.placeholder": "Type your message...", "ns.send": "Send", "ns.sending": "Sending...", "ns.failed": "Not sent", "ns.empty": "No messages yet.", "ns.history": "Previous conversations", "ns.newChat": "New conversation", "ns.unread": "{{count}} new", "ns.resolved": "Resolved", "ns.offline": "You are offline. Messages will send when you reconnect.", "ns.rateLimited": "Too many messages. Please wait a minute.", "ns.error": "Something went wrong. Please try again.", "ns.close": "Close", "ns.retry": "Retry", "ns.reconnecting": "Reconnecting...", "admin.supp.tab": "Support", "admin.supp.inbox": "Kalderix Support Inbox", "admin.supp.empty": "No conversations", "admin.supp.search": "Search conversations", "admin.supp.all": "All", "admin.supp.takeover": "Take over", "admin.supp.resume": "Resume AI", "admin.supp.assign": "Assign to me", "admin.supp.resolve": "Resolve", "admin.supp.reply": "Reply to the customer...", "admin.supp.new": "New conversation", "admin.supp.findCustomer": "Customer email or ID", "admin.supp.send": "Send", "admin.supp.context": "Customer context", "admin.supp.none": "Select a conversation", "admin.supp.aiOff": "Human handling", "admin.supp.aiOn": "AI assistant active", "admin.supp.unread": "{{count}} unread", "notifications.events.supportReply.title": "New support reply", "notifications.events.supportReply.body": "Our support team replied to your conversation.", "notifications.events.supportMessage.title": "Customer waiting", "notifications.events.supportMessage.body": "A customer sent a support message."}, "es": {"ns.title": "Soporte de Kalderix", "ns.launcher": "Abrir el chat de soporte", "ns.unreadLabel": "{{count}} mensajes sin leer", "ns.welcome": "\u00a1Hola! Est\u00e1s hablando con Soporte de Kalderix. \u00bfC\u00f3mo podemos ayudarte hoy?", "ns.catQ": "Elige un tema", "ns.cat.deposit": "Problemas de dep\u00f3sito", "ns.cat.withdrawal": "Problemas de retiro", "ns.cat.trading": "Problemas de trading", "ns.cat.account": "Problemas de cuenta", "ns.cat.general": "Consulta general", "ns.placeholder": "Escribe tu mensaje...", "ns.send": "Enviar", "ns.sending": "Enviando...", "ns.failed": "No enviado", "ns.empty": "A\u00fan no hay mensajes.", "ns.history": "Conversaciones anteriores", "ns.newChat": "Nueva conversaci\u00f3n", "ns.unread": "{{count}} nuevos", "ns.resolved": "Resuelta", "ns.offline": "Est\u00e1s sin conexi\u00f3n. Los mensajes se enviar\u00e1n al reconectarte.", "ns.rateLimited": "Demasiados mensajes. Espera un minuto.", "ns.error": "Algo sali\u00f3 mal. Int\u00e9ntalo de nuevo.", "ns.close": "Cerrar", "ns.retry": "Reintentar", "ns.reconnecting": "Reconectando...", "admin.supp.tab": "Soporte", "admin.supp.inbox": "Bandeja de Soporte de Kalderix", "admin.supp.empty": "Sin conversaciones", "admin.supp.search": "Buscar conversaciones", "admin.supp.all": "Todas", "admin.supp.takeover": "Asumir", "admin.supp.resume": "Reanudar IA", "admin.supp.assign": "Asign\u00e1rmela", "admin.supp.resolve": "Resolver", "admin.supp.reply": "Responde al cliente...", "admin.supp.new": "Nueva conversaci\u00f3n", "admin.supp.findCustomer": "Correo o ID del cliente", "admin.supp.send": "Enviar", "admin.supp.context": "Contexto del cliente", "admin.supp.none": "Selecciona una conversaci\u00f3n", "admin.supp.aiOff": "Atenci\u00f3n humana", "admin.supp.aiOn": "Asistente IA activo", "admin.supp.unread": "{{count}} sin leer", "notifications.events.supportReply.title": "Nueva respuesta de soporte", "notifications.events.supportReply.body": "Nuestro equipo respondi\u00f3 a tu conversaci\u00f3n.", "notifications.events.supportMessage.title": "Cliente esperando", "notifications.events.supportMessage.body": "Un cliente envi\u00f3 un mensaje de soporte."}, "pt": {"ns.title": "Suporte da Kalderix", "ns.launcher": "Abrir o chat de suporte", "ns.unreadLabel": "{{count}} mensagens n\u00e3o lidas", "ns.welcome": "Ol\u00e1! Voc\u00ea est\u00e1 falando com o Suporte da Kalderix. Como podemos ajudar voc\u00ea hoje?", "ns.catQ": "Escolha um assunto", "ns.cat.deposit": "Problemas de dep\u00f3sito", "ns.cat.withdrawal": "Problemas de saque", "ns.cat.trading": "Problemas de negocia\u00e7\u00e3o", "ns.cat.account": "Problemas de conta", "ns.cat.general": "D\u00favida geral", "ns.placeholder": "Digite sua mensagem...", "ns.send": "Enviar", "ns.sending": "Enviando...", "ns.failed": "N\u00e3o enviado", "ns.empty": "Nenhuma mensagem ainda.", "ns.history": "Conversas anteriores", "ns.newChat": "Nova conversa", "ns.unread": "{{count}} novas", "ns.resolved": "Resolvida", "ns.offline": "Voc\u00ea est\u00e1 offline. As mensagens ser\u00e3o enviadas ao reconectar.", "ns.rateLimited": "Muitas mensagens. Aguarde um minuto.", "ns.error": "Algo deu errado. Tente novamente.", "ns.close": "Fechar", "ns.retry": "Tentar novamente", "ns.reconnecting": "A reconectar...", "admin.supp.tab": "Suporte", "admin.supp.inbox": "Caixa de Suporte da Kalderix", "admin.supp.empty": "Sem conversas", "admin.supp.search": "Buscar conversas", "admin.supp.all": "Todas", "admin.supp.takeover": "Assumir", "admin.supp.resume": "Retomar IA", "admin.supp.assign": "Atribuir a mim", "admin.supp.resolve": "Resolver", "admin.supp.reply": "Responda ao cliente...", "admin.supp.new": "Nova conversa", "admin.supp.findCustomer": "E-mail ou ID do cliente", "admin.supp.send": "Enviar", "admin.supp.context": "Contexto do cliente", "admin.supp.none": "Selecione uma conversa", "admin.supp.aiOff": "Atendimento humano", "admin.supp.aiOn": "Assistente de IA ativo", "admin.supp.unread": "{{count}} n\u00e3o lidas", "notifications.events.supportReply.title": "Nova resposta do suporte", "notifications.events.supportReply.body": "Nossa equipe respondeu \u00e0 sua conversa.", "notifications.events.supportMessage.title": "Cliente aguardando", "notifications.events.supportMessage.body": "Um cliente enviou uma mensagem de suporte."}, "fr": {"ns.title": "Assistance Kalderix", "ns.launcher": "Ouvrir l'assistance", "ns.unreadLabel": "{{count}} messages non lus", "ns.welcome": "Bonjour ! Vous parlez \u00e0 l'assistance Kalderix. Comment pouvons-nous vous aider ?", "ns.catQ": "Choisissez un sujet", "ns.cat.deposit": "Probl\u00e8mes de d\u00e9p\u00f4t", "ns.cat.withdrawal": "Probl\u00e8mes de retrait", "ns.cat.trading": "Probl\u00e8mes de trading", "ns.cat.account": "Probl\u00e8mes de compte", "ns.cat.general": "Question g\u00e9n\u00e9rale", "ns.placeholder": "\u00c9crivez votre message...", "ns.send": "Envoyer", "ns.sending": "Envoi...", "ns.failed": "Non envoy\u00e9", "ns.empty": "Aucun message pour le moment.", "ns.history": "Conversations pr\u00e9c\u00e9dentes", "ns.newChat": "Nouvelle conversation", "ns.unread": "{{count}} nouveaux", "ns.resolved": "R\u00e9solue", "ns.offline": "Vous \u00eates hors ligne. Les messages seront envoy\u00e9s \u00e0 la reconnexion.", "ns.rateLimited": "Trop de messages. Patientez une minute.", "ns.error": "Une erreur s'est produite. R\u00e9essayez.", "ns.close": "Fermer", "ns.retry": "R\u00e9essayer", "ns.reconnecting": "Reconnexion...", "admin.supp.tab": "Support", "admin.supp.inbox": "Bo\u00eete de support Kalderix", "admin.supp.empty": "Aucune conversation", "admin.supp.search": "Rechercher des conversations", "admin.supp.all": "Toutes", "admin.supp.takeover": "Prendre en charge", "admin.supp.resume": "Reprendre l\u2019IA", "admin.supp.assign": "M'assigner", "admin.supp.resolve": "R\u00e9soudre", "admin.supp.reply": "R\u00e9pondez au client...", "admin.supp.new": "Nouvelle conversation", "admin.supp.findCustomer": "E-mail ou ID du client", "admin.supp.send": "Envoyer", "admin.supp.context": "Contexte du client", "admin.supp.none": "S\u00e9lectionnez une conversation", "admin.supp.aiOff": "Traitement humain", "admin.supp.aiOn": "Assistant IA actif", "admin.supp.unread": "{{count}} non lus", "notifications.events.supportReply.title": "Nouvelle r\u00e9ponse du support", "notifications.events.supportReply.body": "Notre \u00e9quipe a r\u00e9pondu \u00e0 votre conversation.", "notifications.events.supportMessage.title": "Client en attente", "notifications.events.supportMessage.body": "Un client a envoy\u00e9 un message au support."}, "ar": {"ns.title": "\u062f\u0639\u0645 Kalderix", "ns.launcher": "\u0641\u062a\u062d \u0645\u062d\u0627\u062f\u062b\u0629 \u0627\u0644\u062f\u0639\u0645", "ns.unreadLabel": "{{count}} \u0631\u0633\u0627\u0626\u0644 \u063a\u064a\u0631 \u0645\u0642\u0631\u0648\u0621\u0629", "ns.welcome": "\u0645\u0631\u062d\u0628\u0627\u064b! \u0623\u0646\u062a \u062a\u062a\u062d\u062f\u062b \u0645\u0639 \u062f\u0639\u0645 Kalderix. \u0643\u064a\u0641 \u064a\u0645\u0643\u0646\u0646\u0627 \u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0627\u0644\u064a\u0648\u0645\u061f", "ns.catQ": "\u0627\u062e\u062a\u0631 \u0645\u0648\u0636\u0648\u0639\u0627\u064b", "ns.cat.deposit": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0625\u064a\u062f\u0627\u0639", "ns.cat.withdrawal": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0633\u062d\u0628", "ns.cat.trading": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u062a\u062f\u0627\u0648\u0644", "ns.cat.account": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u062d\u0633\u0627\u0628", "ns.cat.general": "\u0627\u0633\u062a\u0641\u0633\u0627\u0631 \u0639\u0627\u0645", "ns.placeholder": "\u0627\u0643\u062a\u0628 \u0631\u0633\u0627\u0644\u062a\u0643...", "ns.send": "\u0625\u0631\u0633\u0627\u0644", "ns.sending": "\u062c\u0627\u0631\u064d \u0627\u0644\u0625\u0631\u0633\u0627\u0644...", "ns.failed": "\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0625\u0631\u0633\u0627\u0644", "ns.empty": "\u0644\u0627 \u062a\u0648\u062c\u062f \u0631\u0633\u0627\u0626\u0644 \u0628\u0639\u062f.", "ns.history": "\u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0627\u062a \u0627\u0644\u0633\u0627\u0628\u0642\u0629", "ns.newChat": "\u0645\u062d\u0627\u062f\u062b\u0629 \u062c\u062f\u064a\u062f\u0629", "ns.unread": "{{count}} \u062c\u062f\u064a\u062f\u0629", "ns.resolved": "\u0645\u0646\u062a\u0647\u064a\u0629", "ns.offline": "\u0623\u0646\u062a \u063a\u064a\u0631 \u0645\u062a\u0635\u0644. \u0633\u062a\u064f\u0631\u0633\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0639\u0646\u062f \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0627\u062a\u0635\u0627\u0644.", "ns.rateLimited": "\u0631\u0633\u0627\u0626\u0644 \u0643\u062b\u064a\u0631\u0629. \u064a\u064f\u0631\u062c\u0649 \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631 \u062f\u0642\u064a\u0642\u0629.", "ns.error": "\u062d\u062f\u062b \u062e\u0637\u0623. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.", "ns.close": "\u0625\u063a\u0644\u0627\u0642", "ns.retry": "\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629", "ns.reconnecting": "\u062c\u0627\u0631\u064d \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0627\u062a\u0635\u0627\u0644...", "admin.supp.tab": "\u0627\u0644\u062f\u0639\u0645", "admin.supp.inbox": "\u0635\u0646\u062f\u0648\u0642 \u062f\u0639\u0645 Kalderix", "admin.supp.empty": "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u062d\u0627\u062f\u062b\u0627\u062a", "admin.supp.search": "\u0627\u0644\u0628\u062d\u062b \u0641\u064a \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0627\u062a", "admin.supp.all": "\u0627\u0644\u0643\u0644", "admin.supp.takeover": "\u062a\u0648\u0644\u0651\u064a \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629", "admin.supp.resume": "\u0627\u0633\u062a\u0626\u0646\u0627\u0641 \u0627\u0644\u0645\u0633\u0627\u0639\u062f", "admin.supp.assign": "\u0625\u0633\u0646\u0627\u062f \u0625\u0644\u064a\u0651", "admin.supp.resolve": "\u0625\u0646\u0647\u0627\u0621", "admin.supp.reply": "\u0627\u0643\u062a\u0628 \u0631\u062f\u0627\u064b \u0639\u0644\u0649 \u0627\u0644\u0639\u0645\u064a\u0644...", "admin.supp.new": "\u0645\u062d\u0627\u062f\u062b\u0629 \u062c\u062f\u064a\u062f\u0629", "admin.supp.findCustomer": "\u0628\u0631\u064a\u062f \u0623\u0648 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0645\u064a\u0644", "admin.supp.send": "\u0625\u0631\u0633\u0627\u0644", "admin.supp.context": "\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0639\u0645\u064a\u0644", "admin.supp.none": "\u0627\u062e\u062a\u0631 \u0645\u062d\u0627\u062f\u062b\u0629", "admin.supp.aiOff": "\u0645\u0639\u0627\u0644\u062c\u0629 \u0628\u0634\u0631\u064a\u0629", "admin.supp.aiOn": "\u0627\u0644\u0645\u0633\u0627\u0639\u062f \u0627\u0644\u0622\u0644\u064a \u064a\u0639\u0645\u0644", "admin.supp.unread": "{{count}} \u063a\u064a\u0631 \u0645\u0642\u0631\u0648\u0621\u0629", "notifications.events.supportReply.title": "\u0631\u062f \u062c\u062f\u064a\u062f \u0645\u0646 \u0627\u0644\u062f\u0639\u0645", "notifications.events.supportReply.body": "\u0631\u062f \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0639\u0644\u0649 \u0645\u062d\u0627\u062f\u062b\u062a\u0643.", "notifications.events.supportMessage.title": "\u0639\u0645\u064a\u0644 \u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0631\u062f", "notifications.events.supportMessage.body": "\u0623\u0631\u0633\u0644 \u0639\u0645\u064a\u0644 \u0631\u0633\u0627\u0644\u0629 \u0625\u0644\u0649 \u0627\u0644\u062f\u0639\u0645."}, "zh": {"ns.title": "Kalderix \u5ba2\u670d", "ns.launcher": "\u6253\u5f00\u5ba2\u670d\u804a\u5929", "ns.unreadLabel": "{{count}} \u6761\u672a\u8bfb\u6d88\u606f", "ns.welcome": "\u60a8\u597d\uff01\u60a8\u6b63\u5728\u4e0e Kalderix \u5ba2\u670d\u5bf9\u8bdd\u3002\u4eca\u5929\u6709\u4ec0\u4e48\u53ef\u4ee5\u5e2e\u60a8\uff1f", "ns.catQ": "\u9009\u62e9\u95ee\u9898\u7c7b\u578b", "ns.cat.deposit": "\u5145\u503c\u95ee\u9898", "ns.cat.withdrawal": "\u63d0\u73b0\u95ee\u9898", "ns.cat.trading": "\u4ea4\u6613\u95ee\u9898", "ns.cat.account": "\u8d26\u6237\u95ee\u9898", "ns.cat.general": "\u4e00\u822c\u54a8\u8be2", "ns.placeholder": "\u8bf7\u8f93\u5165\u60a8\u7684\u6d88\u606f...", "ns.send": "\u53d1\u9001", "ns.sending": "\u53d1\u9001\u4e2d...", "ns.failed": "\u672a\u53d1\u9001", "ns.empty": "\u6682\u65e0\u6d88\u606f\u3002", "ns.history": "\u5386\u53f2\u5bf9\u8bdd", "ns.newChat": "\u65b0\u5bf9\u8bdd", "ns.unread": "{{count}} \u6761\u672a\u8bfb", "ns.resolved": "\u5df2\u89e3\u51b3", "ns.offline": "\u60a8\u5df2\u79bb\u7ebf\u3002\u91cd\u65b0\u8fde\u63a5\u540e\u5c06\u53d1\u9001\u6d88\u606f\u3002", "ns.rateLimited": "\u6d88\u606f\u8fc7\u4e8e\u9891\u7e41\uff0c\u8bf7\u7a0d\u5019\u4e00\u5206\u949f\u3002", "ns.error": "\u51fa\u73b0\u95ee\u9898\uff0c\u8bf7\u91cd\u8bd5\u3002", "ns.close": "\u5173\u95ed", "ns.retry": "\u91cd\u8bd5", "ns.reconnecting": "\u6b63\u5728\u91cd\u65b0\u8fde\u63a5...", "admin.supp.tab": "\u5ba2\u670d", "admin.supp.inbox": "Kalderix \u5ba2\u670d\u6536\u4ef6\u7bb1", "admin.supp.empty": "\u6682\u65e0\u5bf9\u8bdd", "admin.supp.search": "\u641c\u7d22\u5bf9\u8bdd", "admin.supp.all": "\u5168\u90e8", "admin.supp.takeover": "\u63a5\u7ba1", "admin.supp.resume": "\u6062\u590d\u81ea\u52a8\u56de\u590d", "admin.supp.assign": "\u6307\u6d3e\u7ed9\u6211", "admin.supp.resolve": "\u6807\u8bb0\u5df2\u89e3\u51b3", "admin.supp.reply": "\u56de\u590d\u5ba2\u6237...", "admin.supp.new": "\u53d1\u8d77\u5bf9\u8bdd", "admin.supp.findCustomer": "\u5ba2\u6237\u90ae\u7bb1\u6216 ID", "admin.supp.send": "\u53d1\u9001", "admin.supp.context": "\u5ba2\u6237\u4fe1\u606f", "admin.supp.none": "\u8bf7\u9009\u62e9\u4e00\u4e2a\u5bf9\u8bdd", "admin.supp.aiOff": "\u4eba\u5de5\u5904\u7406\u4e2d", "admin.supp.aiOn": "\u81ea\u52a8\u52a9\u624b\u8fd0\u884c\u4e2d", "admin.supp.unread": "{{count}} \u6761\u672a\u8bfb", "notifications.events.supportReply.title": "\u65b0\u7684\u5ba2\u670d\u56de\u590d", "notifications.events.supportReply.body": "\u5ba2\u670d\u56e2\u961f\u5df2\u56de\u590d\u60a8\u7684\u5bf9\u8bdd\u3002", "notifications.events.supportMessage.title": "\u5ba2\u6237\u7b49\u5f85\u4e2d", "notifications.events.supportMessage.body": "\u6709\u5ba2\u6237\u53d1\u9001\u4e86\u5ba2\u670d\u6d88\u606f\u3002"}};
+const NS_TRANSLATIONS = {"en": {"ns.title": "Kalderix Support", "ns.launcher": "Open support chat", "ns.unreadLabel": "{{count}} unread messages", "ns.welcome": "Hi! You're chatting with Kalderix Support. How can we help you today?", "ns.catQ": "Choose a topic", "ns.cat.deposit": "Deposit issues", "ns.cat.withdrawal": "Withdrawal problems", "ns.cat.trading": "Trading problems", "ns.cat.account": "Account issues", "ns.cat.general": "General inquiry", "ns.context.deposit": "Deposit help", "ns.context.withdrawal": "Withdrawal help", "ns.context.trading": "Trading help", "ns.context.account": "Account help", "ns.placeholder": "Type your message...", "ns.send": "Send", "ns.sending": "Sending...", "ns.failed": "Not sent", "ns.empty": "No messages yet.", "ns.history": "Previous conversations", "ns.newChat": "New conversation", "ns.unread": "{{count}} new", "ns.resolved": "Resolved", "ns.offline": "You are offline. Messages will send when you reconnect.", "ns.rateLimited": "Too many messages. Please wait a minute.", "ns.error": "Something went wrong. Please try again.", "ns.close": "Close", "ns.retry": "Retry", "ns.reconnecting": "Reconnecting...", "admin.supp.tab": "Support", "admin.supp.inbox": "Kalderix Support Inbox", "admin.supp.empty": "No conversations", "admin.supp.search": "Search conversations", "admin.supp.all": "All", "admin.supp.takeover": "Take over", "admin.supp.resume": "Resume AI", "admin.supp.assign": "Assign to me", "admin.supp.resolve": "Resolve", "admin.supp.reply": "Reply to the customer...", "admin.supp.new": "New conversation", "admin.supp.findCustomer": "Customer email or ID", "admin.supp.send": "Send", "admin.supp.context": "Customer context", "admin.supp.none": "Select a conversation", "admin.supp.aiOff": "Human handling", "admin.supp.aiOn": "AI assistant active", "admin.supp.unread": "{{count}} unread", "notifications.events.supportReply.title": "New support reply", "notifications.events.supportReply.body": "Our support team replied to your conversation.", "notifications.events.supportMessage.title": "Customer waiting", "notifications.events.supportMessage.body": "A customer sent a support message."}, "es": {"ns.title": "Soporte de Kalderix", "ns.launcher": "Abrir el chat de soporte", "ns.unreadLabel": "{{count}} mensajes sin leer", "ns.welcome": "\u00a1Hola! Est\u00e1s hablando con Soporte de Kalderix. \u00bfC\u00f3mo podemos ayudarte hoy?", "ns.catQ": "Elige un tema", "ns.cat.deposit": "Problemas de dep\u00f3sito", "ns.cat.withdrawal": "Problemas de retiro", "ns.cat.trading": "Problemas de trading", "ns.cat.account": "Problemas de cuenta", "ns.cat.general": "Consulta general", "ns.context.deposit": "Ayuda con el dep\u00f3sito", "ns.context.withdrawal": "Ayuda con el retiro", "ns.context.trading": "Ayuda con el trading", "ns.context.account": "Ayuda con la cuenta", "ns.placeholder": "Escribe tu mensaje...", "ns.send": "Enviar", "ns.sending": "Enviando...", "ns.failed": "No enviado", "ns.empty": "A\u00fan no hay mensajes.", "ns.history": "Conversaciones anteriores", "ns.newChat": "Nueva conversaci\u00f3n", "ns.unread": "{{count}} nuevos", "ns.resolved": "Resuelta", "ns.offline": "Est\u00e1s sin conexi\u00f3n. Los mensajes se enviar\u00e1n al reconectarte.", "ns.rateLimited": "Demasiados mensajes. Espera un minuto.", "ns.error": "Algo sali\u00f3 mal. Int\u00e9ntalo de nuevo.", "ns.close": "Cerrar", "ns.retry": "Reintentar", "ns.reconnecting": "Reconectando...", "admin.supp.tab": "Soporte", "admin.supp.inbox": "Bandeja de Soporte de Kalderix", "admin.supp.empty": "Sin conversaciones", "admin.supp.search": "Buscar conversaciones", "admin.supp.all": "Todas", "admin.supp.takeover": "Asumir", "admin.supp.resume": "Reanudar IA", "admin.supp.assign": "Asign\u00e1rmela", "admin.supp.resolve": "Resolver", "admin.supp.reply": "Responde al cliente...", "admin.supp.new": "Nueva conversaci\u00f3n", "admin.supp.findCustomer": "Correo o ID del cliente", "admin.supp.send": "Enviar", "admin.supp.context": "Contexto del cliente", "admin.supp.none": "Selecciona una conversaci\u00f3n", "admin.supp.aiOff": "Atenci\u00f3n humana", "admin.supp.aiOn": "Asistente IA activo", "admin.supp.unread": "{{count}} sin leer", "notifications.events.supportReply.title": "Nueva respuesta de soporte", "notifications.events.supportReply.body": "Nuestro equipo respondi\u00f3 a tu conversaci\u00f3n.", "notifications.events.supportMessage.title": "Cliente esperando", "notifications.events.supportMessage.body": "Un cliente envi\u00f3 un mensaje de soporte."}, "pt": {"ns.title": "Suporte da Kalderix", "ns.launcher": "Abrir o chat de suporte", "ns.unreadLabel": "{{count}} mensagens n\u00e3o lidas", "ns.welcome": "Ol\u00e1! Voc\u00ea est\u00e1 falando com o Suporte da Kalderix. Como podemos ajudar voc\u00ea hoje?", "ns.catQ": "Escolha um assunto", "ns.cat.deposit": "Problemas de dep\u00f3sito", "ns.cat.withdrawal": "Problemas de saque", "ns.cat.trading": "Problemas de negocia\u00e7\u00e3o", "ns.cat.account": "Problemas de conta", "ns.cat.general": "D\u00favida geral", "ns.context.deposit": "Ajuda com dep\u00f3sito", "ns.context.withdrawal": "Ajuda com saque", "ns.context.trading": "Ajuda com negocia\u00e7\u00e3o", "ns.context.account": "Ajuda com a conta", "ns.placeholder": "Digite sua mensagem...", "ns.send": "Enviar", "ns.sending": "Enviando...", "ns.failed": "N\u00e3o enviado", "ns.empty": "Nenhuma mensagem ainda.", "ns.history": "Conversas anteriores", "ns.newChat": "Nova conversa", "ns.unread": "{{count}} novas", "ns.resolved": "Resolvida", "ns.offline": "Voc\u00ea est\u00e1 offline. As mensagens ser\u00e3o enviadas ao reconectar.", "ns.rateLimited": "Muitas mensagens. Aguarde um minuto.", "ns.error": "Algo deu errado. Tente novamente.", "ns.close": "Fechar", "ns.retry": "Tentar novamente", "ns.reconnecting": "A reconectar...", "admin.supp.tab": "Suporte", "admin.supp.inbox": "Caixa de Suporte da Kalderix", "admin.supp.empty": "Sem conversas", "admin.supp.search": "Buscar conversas", "admin.supp.all": "Todas", "admin.supp.takeover": "Assumir", "admin.supp.resume": "Retomar IA", "admin.supp.assign": "Atribuir a mim", "admin.supp.resolve": "Resolver", "admin.supp.reply": "Responda ao cliente...", "admin.supp.new": "Nova conversa", "admin.supp.findCustomer": "E-mail ou ID do cliente", "admin.supp.send": "Enviar", "admin.supp.context": "Contexto do cliente", "admin.supp.none": "Selecione uma conversa", "admin.supp.aiOff": "Atendimento humano", "admin.supp.aiOn": "Assistente de IA ativo", "admin.supp.unread": "{{count}} n\u00e3o lidas", "notifications.events.supportReply.title": "Nova resposta do suporte", "notifications.events.supportReply.body": "Nossa equipe respondeu \u00e0 sua conversa.", "notifications.events.supportMessage.title": "Cliente aguardando", "notifications.events.supportMessage.body": "Um cliente enviou uma mensagem de suporte."}, "fr": {"ns.title": "Assistance Kalderix", "ns.launcher": "Ouvrir l'assistance", "ns.unreadLabel": "{{count}} messages non lus", "ns.welcome": "Bonjour ! Vous parlez \u00e0 l'assistance Kalderix. Comment pouvons-nous vous aider ?", "ns.catQ": "Choisissez un sujet", "ns.cat.deposit": "Probl\u00e8mes de d\u00e9p\u00f4t", "ns.cat.withdrawal": "Probl\u00e8mes de retrait", "ns.cat.trading": "Probl\u00e8mes de trading", "ns.cat.account": "Probl\u00e8mes de compte", "ns.cat.general": "Question g\u00e9n\u00e9rale", "ns.context.deposit": "Aide sur les d\u00e9p\u00f4ts", "ns.context.withdrawal": "Aide sur les retraits", "ns.context.trading": "Aide sur le trading", "ns.context.account": "Aide sur le compte", "ns.placeholder": "\u00c9crivez votre message...", "ns.send": "Envoyer", "ns.sending": "Envoi...", "ns.failed": "Non envoy\u00e9", "ns.empty": "Aucun message pour le moment.", "ns.history": "Conversations pr\u00e9c\u00e9dentes", "ns.newChat": "Nouvelle conversation", "ns.unread": "{{count}} nouveaux", "ns.resolved": "R\u00e9solue", "ns.offline": "Vous \u00eates hors ligne. Les messages seront envoy\u00e9s \u00e0 la reconnexion.", "ns.rateLimited": "Trop de messages. Patientez une minute.", "ns.error": "Une erreur s'est produite. R\u00e9essayez.", "ns.close": "Fermer", "ns.retry": "R\u00e9essayer", "ns.reconnecting": "Reconnexion...", "admin.supp.tab": "Support", "admin.supp.inbox": "Bo\u00eete de support Kalderix", "admin.supp.empty": "Aucune conversation", "admin.supp.search": "Rechercher des conversations", "admin.supp.all": "Toutes", "admin.supp.takeover": "Prendre en charge", "admin.supp.resume": "Reprendre l\u2019IA", "admin.supp.assign": "M'assigner", "admin.supp.resolve": "R\u00e9soudre", "admin.supp.reply": "R\u00e9pondez au client...", "admin.supp.new": "Nouvelle conversation", "admin.supp.findCustomer": "E-mail ou ID du client", "admin.supp.send": "Envoyer", "admin.supp.context": "Contexte du client", "admin.supp.none": "S\u00e9lectionnez une conversation", "admin.supp.aiOff": "Traitement humain", "admin.supp.aiOn": "Assistant IA actif", "admin.supp.unread": "{{count}} non lus", "notifications.events.supportReply.title": "Nouvelle r\u00e9ponse du support", "notifications.events.supportReply.body": "Notre \u00e9quipe a r\u00e9pondu \u00e0 votre conversation.", "notifications.events.supportMessage.title": "Client en attente", "notifications.events.supportMessage.body": "Un client a envoy\u00e9 un message au support."}, "ar": {"ns.title": "\u062f\u0639\u0645 Kalderix", "ns.launcher": "\u0641\u062a\u062d \u0645\u062d\u0627\u062f\u062b\u0629 \u0627\u0644\u062f\u0639\u0645", "ns.unreadLabel": "{{count}} \u0631\u0633\u0627\u0626\u0644 \u063a\u064a\u0631 \u0645\u0642\u0631\u0648\u0621\u0629", "ns.welcome": "\u0645\u0631\u062d\u0628\u0627\u064b! \u0623\u0646\u062a \u062a\u062a\u062d\u062f\u062b \u0645\u0639 \u062f\u0639\u0645 Kalderix. \u0643\u064a\u0641 \u064a\u0645\u0643\u0646\u0646\u0627 \u0645\u0633\u0627\u0639\u062f\u062a\u0643 \u0627\u0644\u064a\u0648\u0645\u061f", "ns.catQ": "\u0627\u062e\u062a\u0631 \u0645\u0648\u0636\u0648\u0639\u0627\u064b", "ns.cat.deposit": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0625\u064a\u062f\u0627\u0639", "ns.cat.withdrawal": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u0633\u062d\u0628", "ns.cat.trading": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u062a\u062f\u0627\u0648\u0644", "ns.cat.account": "\u0645\u0634\u0627\u0643\u0644 \u0627\u0644\u062d\u0633\u0627\u0628", "ns.cat.general": "\u0627\u0633\u062a\u0641\u0633\u0627\u0631 \u0639\u0627\u0645", "ns.context.deposit": "\u0645\u0633\u0627\u0639\u062f\u0629 \u0628\u0634\u0623\u0646 \u0627\u0644\u0625\u064a\u062f\u0627\u0639", "ns.context.withdrawal": "\u0645\u0633\u0627\u0639\u062f\u0629 \u0628\u0634\u0623\u0646 \u0627\u0644\u0633\u062d\u0628", "ns.context.trading": "\u0645\u0633\u0627\u0639\u062f\u0629 \u0628\u0634\u0623\u0646 \u0627\u0644\u062a\u062f\u0627\u0648\u0644", "ns.context.account": "\u0645\u0633\u0627\u0639\u062f\u0629 \u0628\u0634\u0623\u0646 \u0627\u0644\u062d\u0633\u0627\u0628", "ns.placeholder": "\u0627\u0643\u062a\u0628 \u0631\u0633\u0627\u0644\u062a\u0643...", "ns.send": "\u0625\u0631\u0633\u0627\u0644", "ns.sending": "\u062c\u0627\u0631\u064d \u0627\u0644\u0625\u0631\u0633\u0627\u0644...", "ns.failed": "\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0625\u0631\u0633\u0627\u0644", "ns.empty": "\u0644\u0627 \u062a\u0648\u062c\u062f \u0631\u0633\u0627\u0626\u0644 \u0628\u0639\u062f.", "ns.history": "\u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0627\u062a \u0627\u0644\u0633\u0627\u0628\u0642\u0629", "ns.newChat": "\u0645\u062d\u0627\u062f\u062b\u0629 \u062c\u062f\u064a\u062f\u0629", "ns.unread": "{{count}} \u062c\u062f\u064a\u062f\u0629", "ns.resolved": "\u0645\u0646\u062a\u0647\u064a\u0629", "ns.offline": "\u0623\u0646\u062a \u063a\u064a\u0631 \u0645\u062a\u0635\u0644. \u0633\u062a\u064f\u0631\u0633\u0644 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0639\u0646\u062f \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0627\u062a\u0635\u0627\u0644.", "ns.rateLimited": "\u0631\u0633\u0627\u0626\u0644 \u0643\u062b\u064a\u0631\u0629. \u064a\u064f\u0631\u062c\u0649 \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631 \u062f\u0642\u064a\u0642\u0629.", "ns.error": "\u062d\u062f\u062b \u062e\u0637\u0623. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.", "ns.close": "\u0625\u063a\u0644\u0627\u0642", "ns.retry": "\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629", "ns.reconnecting": "\u062c\u0627\u0631\u064d \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0627\u062a\u0635\u0627\u0644...", "admin.supp.tab": "\u0627\u0644\u062f\u0639\u0645", "admin.supp.inbox": "\u0635\u0646\u062f\u0648\u0642 \u062f\u0639\u0645 Kalderix", "admin.supp.empty": "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u062d\u0627\u062f\u062b\u0627\u062a", "admin.supp.search": "\u0627\u0644\u0628\u062d\u062b \u0641\u064a \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0627\u062a", "admin.supp.all": "\u0627\u0644\u0643\u0644", "admin.supp.takeover": "\u062a\u0648\u0644\u0651\u064a \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629", "admin.supp.resume": "\u0627\u0633\u062a\u0626\u0646\u0627\u0641 \u0627\u0644\u0645\u0633\u0627\u0639\u062f", "admin.supp.assign": "\u0625\u0633\u0646\u0627\u062f \u0625\u0644\u064a\u0651", "admin.supp.resolve": "\u0625\u0646\u0647\u0627\u0621", "admin.supp.reply": "\u0627\u0643\u062a\u0628 \u0631\u062f\u0627\u064b \u0639\u0644\u0649 \u0627\u0644\u0639\u0645\u064a\u0644...", "admin.supp.new": "\u0645\u062d\u0627\u062f\u062b\u0629 \u062c\u062f\u064a\u062f\u0629", "admin.supp.findCustomer": "\u0628\u0631\u064a\u062f \u0623\u0648 \u0645\u0639\u0631\u0641 \u0627\u0644\u0639\u0645\u064a\u0644", "admin.supp.send": "\u0625\u0631\u0633\u0627\u0644", "admin.supp.context": "\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0639\u0645\u064a\u0644", "admin.supp.none": "\u0627\u062e\u062a\u0631 \u0645\u062d\u0627\u062f\u062b\u0629", "admin.supp.aiOff": "\u0645\u0639\u0627\u0644\u062c\u0629 \u0628\u0634\u0631\u064a\u0629", "admin.supp.aiOn": "\u0627\u0644\u0645\u0633\u0627\u0639\u062f \u0627\u0644\u0622\u0644\u064a \u064a\u0639\u0645\u0644", "admin.supp.unread": "{{count}} \u063a\u064a\u0631 \u0645\u0642\u0631\u0648\u0621\u0629", "notifications.events.supportReply.title": "\u0631\u062f \u062c\u062f\u064a\u062f \u0645\u0646 \u0627\u0644\u062f\u0639\u0645", "notifications.events.supportReply.body": "\u0631\u062f \u0641\u0631\u064a\u0642 \u0627\u0644\u062f\u0639\u0645 \u0639\u0644\u0649 \u0645\u062d\u0627\u062f\u062b\u062a\u0643.", "notifications.events.supportMessage.title": "\u0639\u0645\u064a\u0644 \u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0631\u062f", "notifications.events.supportMessage.body": "\u0623\u0631\u0633\u0644 \u0639\u0645\u064a\u0644 \u0631\u0633\u0627\u0644\u0629 \u0625\u0644\u0649 \u0627\u0644\u062f\u0639\u0645."}, "zh": {"ns.title": "Kalderix \u5ba2\u670d", "ns.launcher": "\u6253\u5f00\u5ba2\u670d\u804a\u5929", "ns.unreadLabel": "{{count}} \u6761\u672a\u8bfb\u6d88\u606f", "ns.welcome": "\u60a8\u597d\uff01\u60a8\u6b63\u5728\u4e0e Kalderix \u5ba2\u670d\u5bf9\u8bdd\u3002\u4eca\u5929\u6709\u4ec0\u4e48\u53ef\u4ee5\u5e2e\u60a8\uff1f", "ns.catQ": "\u9009\u62e9\u95ee\u9898\u7c7b\u578b", "ns.cat.deposit": "\u5145\u503c\u95ee\u9898", "ns.cat.withdrawal": "\u63d0\u73b0\u95ee\u9898", "ns.cat.trading": "\u4ea4\u6613\u95ee\u9898", "ns.cat.account": "\u8d26\u6237\u95ee\u9898", "ns.cat.general": "\u4e00\u822c\u54a8\u8be2", "ns.context.deposit": "\u5145\u503c\u5e2e\u52a9", "ns.context.withdrawal": "\u63d0\u73b0\u5e2e\u52a9", "ns.context.trading": "\u4ea4\u6613\u5e2e\u52a9", "ns.context.account": "\u8d26\u6237\u5e2e\u52a9", "ns.placeholder": "\u8bf7\u8f93\u5165\u60a8\u7684\u6d88\u606f...", "ns.send": "\u53d1\u9001", "ns.sending": "\u53d1\u9001\u4e2d...", "ns.failed": "\u672a\u53d1\u9001", "ns.empty": "\u6682\u65e0\u6d88\u606f\u3002", "ns.history": "\u5386\u53f2\u5bf9\u8bdd", "ns.newChat": "\u65b0\u5bf9\u8bdd", "ns.unread": "{{count}} \u6761\u672a\u8bfb", "ns.resolved": "\u5df2\u89e3\u51b3", "ns.offline": "\u60a8\u5df2\u79bb\u7ebf\u3002\u91cd\u65b0\u8fde\u63a5\u540e\u5c06\u53d1\u9001\u6d88\u606f\u3002", "ns.rateLimited": "\u6d88\u606f\u8fc7\u4e8e\u9891\u7e41\uff0c\u8bf7\u7a0d\u5019\u4e00\u5206\u949f\u3002", "ns.error": "\u51fa\u73b0\u95ee\u9898\uff0c\u8bf7\u91cd\u8bd5\u3002", "ns.close": "\u5173\u95ed", "ns.retry": "\u91cd\u8bd5", "ns.reconnecting": "\u6b63\u5728\u91cd\u65b0\u8fde\u63a5...", "admin.supp.tab": "\u5ba2\u670d", "admin.supp.inbox": "Kalderix \u5ba2\u670d\u6536\u4ef6\u7bb1", "admin.supp.empty": "\u6682\u65e0\u5bf9\u8bdd", "admin.supp.search": "\u641c\u7d22\u5bf9\u8bdd", "admin.supp.all": "\u5168\u90e8", "admin.supp.takeover": "\u63a5\u7ba1", "admin.supp.resume": "\u6062\u590d\u81ea\u52a8\u56de\u590d", "admin.supp.assign": "\u6307\u6d3e\u7ed9\u6211", "admin.supp.resolve": "\u6807\u8bb0\u5df2\u89e3\u51b3", "admin.supp.reply": "\u56de\u590d\u5ba2\u6237...", "admin.supp.new": "\u53d1\u8d77\u5bf9\u8bdd", "admin.supp.findCustomer": "\u5ba2\u6237\u90ae\u7bb1\u6216 ID", "admin.supp.send": "\u53d1\u9001", "admin.supp.context": "\u5ba2\u6237\u4fe1\u606f", "admin.supp.none": "\u8bf7\u9009\u62e9\u4e00\u4e2a\u5bf9\u8bdd", "admin.supp.aiOff": "\u4eba\u5de5\u5904\u7406\u4e2d", "admin.supp.aiOn": "\u81ea\u52a8\u52a9\u624b\u8fd0\u884c\u4e2d", "admin.supp.unread": "{{count}} \u6761\u672a\u8bfb", "notifications.events.supportReply.title": "\u65b0\u7684\u5ba2\u670d\u56de\u590d", "notifications.events.supportReply.body": "\u5ba2\u670d\u56e2\u961f\u5df2\u56de\u590d\u60a8\u7684\u5bf9\u8bdd\u3002", "notifications.events.supportMessage.title": "\u5ba2\u6237\u7b49\u5f85\u4e2d", "notifications.events.supportMessage.body": "\u6709\u5ba2\u6237\u53d1\u9001\u4e86\u5ba2\u670d\u6d88\u606f\u3002"}};
 Object.keys(NS_TRANSLATIONS).forEach(function (lang) {
     if (!TRANSLATIONS[lang]) TRANSLATIONS[lang] = {};
     Object.keys(NS_TRANSLATIONS[lang]).forEach(function (key) {
@@ -21314,9 +21316,7 @@ function updateDynamicTranslations() {
         if (typeof renderSubscriptionPanel === 'function' && typeof _subscriptionState !== 'undefined' && _subscriptionState) {
             renderSubscriptionPanel(_subscriptionState);
         }
-        // Official support links + the payment-problem guidance are dynamic
-        // (config-driven href / status-driven text), so re-apply them here.
-        if (typeof updateSupportLinks === 'function') updateSupportLinks();
+        // The payment-problem guidance is status-driven text, so re-apply it here.
         // The payment-session help line is set by JS from the last payment status.
         if (typeof updatePaymentSupportHelp === 'function') updatePaymentSupportHelp();
         // The profit-pause prompt body is rendered by JS (it interpolates the
@@ -26015,7 +26015,7 @@ function handleLiveAccessRefusal(body) {
     // Genuine account restriction (deposit satisfied or unprovable, access still
     // refused): the support route is the honest answer.
     showToast(t('liveAccess.notAvailable'), 'error', 8000);
-    try { openSupportModal(); } catch (e) {}
+    try { kxOpenSupport('account'); } catch (e) {}
 }
 
 function isProfitPausePayload(body) {
@@ -26696,48 +26696,169 @@ async function loadEmailChangeStatus() {
     } catch(e) { getEl('emailChangePending').style.display = 'none'; }
 }
 
-// ==================== OFFICIAL SUPPORT ====================
-// Single configurable source for the official support Telegram link. Management
-// supplies the value; NO personal/staff account is hardcoded. Configure via
-// <meta name="arbitrix-support-telegram" content="https://t.me/..."> or by
-// setting window.ARBITRIX_SUPPORT_TELEGRAM_URL before this script runs. Only a
-// public link belongs here — never a token, secret, or credential.
-function getOfficialSupportTelegramUrl() {
-    try {
-        if (typeof window !== 'undefined' && window.ARBITRIX_SUPPORT_TELEGRAM_URL) {
-            return String(window.ARBITRIX_SUPPORT_TELEGRAM_URL).trim();
-        }
-        const meta = document.querySelector('meta[name="arbitrix-support-telegram"]');
-        return (meta && meta.content ? String(meta.content) : '').trim();
-    } catch (e) { return ''; }
+// ==================== CUSTOMER SUPPORT ENTRY POINT ====================
+// ONE support entry point for the whole platform.
+//
+// The in-app messenger (public/native-support.js) is the primary customer
+// support channel: the same conversation the Admin Dashboard and the internal
+// Telegram agent channel read and write. Every "contact support" control in the
+// app routes through kxOpenSupport(), so there is exactly one behaviour and no
+// customer is ever handed off to Telegram.
+//
+// Telegram is deliberately NOT a customer destination. It stays the internal
+// agent interface (notifications + replies), which is server-side and unaffected
+// by anything here.
+
+// The reasons a customer can arrive with. Each maps onto a value the support
+// conversation already stores (support_conversations.category), so passing one
+// needs no schema change and no message is ever sent on the customer's behalf.
+var KX_SUPPORT_CONTEXTS = { deposit: 1, withdrawal: 1, trading: 1, account: 1 };
+
+function kxSupportContext(value) {
+    var v = String(value == null ? '' : value).trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(KX_SUPPORT_CONTEXTS, v) ? v : null;
 }
 
-// Apply the configured link to every official-Telegram entry point. When the
-// link is not configured yet, the direct link is hidden and the in-app guidance
-// is shown instead (no broken/placeholder destination is ever published).
-function updateSupportLinks() {
-    const url = getOfficialSupportTelegramUrl();
-    const valid = /^https?:\/\//i.test(url);
-    document.querySelectorAll('.js-official-telegram').forEach(function (a) {
-        if (valid) {
-            a.setAttribute('href', url);
-            a.style.display = '';
-        } else {
-            a.setAttribute('href', '#');
-            a.style.display = 'none';
-        }
-    });
-    const notConfigured = document.getElementById('supportNotConfigured');
-    if (notConfigured) notConfigured.style.display = valid ? 'none' : 'block';
-    // Payment assistance is a SEPARATE contact (the payment partner), resolved
-    // from its own configured value - never from the official support one.
-  }
+// True only when the messenger can really be opened: the server enabled it for
+// this session (tri-state flag resolved to true) and the script is loaded.
+function kxNativeSupportReady() {
+    try {
+        return !!(typeof APP !== 'undefined' && APP && APP.nativeSupport === true
+            && typeof NativeSupport !== 'undefined' && NativeSupport
+            && typeof NativeSupport.open === 'function');
+    } catch (e) { return false; }
+}
 
-// Resolve the official support links as soon as the page is ready. The landing
-// footer is visible to anonymous visitors (before initApp()), so the configured
-// Telegram bot must be published there too, not only after login.
-document.addEventListener('DOMContentLoaded', function () {
-    if (typeof updateSupportLinks === 'function') updateSupportLinks();
+/**
+ * Open customer support.
+ *
+ * @param {string} [context] optional reason ('deposit' | 'withdrawal' |
+ *   'trading' | 'account'). It is remembered for the panel and used as the
+ *   conversation category on the first message - it never sends a message.
+ * @returns {boolean} true when the in-app messenger opened.
+ */
+function kxOpenSupport(context) {
+    var topic = kxSupportContext(context);
+    try { if (typeof APP !== 'undefined' && APP) APP.supportContext = topic; } catch (e) {}
+    if (kxNativeSupportReady()) {
+        // The messenger decides which surface a session gets in sync(), and the
+        // widget script may load AFTER the session sync ran (it is at the end of
+        // the body). Without this the first click could land while the surface is
+        // still `pending`, open() would refuse, and the customer would get the
+        // fallback modal although the chat was available. sync() is idempotent.
+        try {
+            if (document.body && document.body.dataset
+                && document.body.dataset.supportSurface !== 'native'
+                && typeof NativeSupport.sync === 'function') {
+                NativeSupport.sync();
+            }
+        } catch (e) {}
+        var opened = false;
+        try { opened = NativeSupport.open({ context: topic }) !== false; } catch (e) { opened = false; }
+        if (opened) {
+            // One support surface at a time.
+            try { closeSupportModal(); } catch (e) {}
+            return true;
+        }
+    }
+    // Fallback: the existing Support Center (help topics + safety guidance).
+    // It carries its own "start a chat" action, so the customer is never sent
+    // anywhere else - and never to Telegram.
+    try { openSupportModal(); } catch (e) {}
+    return false;
+}
+
+// In-app links carry their reason in data-kx-support and point at the deep link,
+// so the SAME control works in both situations: with a session the messenger
+// opens in place (no reload), and from a cold load the href is followed and the
+// deep link opens it after sign-in.
+try {
+    document.addEventListener('click', function (event) {
+        var target = event.target;
+        var el = target && target.closest ? target.closest('[data-kx-support]') : null;
+        if (!el) return;
+        if (!kxNativeSupportReady()) return;   // signed out or unavailable: follow the href
+        event.preventDefault();
+        kxOpenSupport(el.getAttribute('data-kx-support'));
+    });
+} catch (e) {}
+
+/**
+ * ?support=1 / ?support=deposit (also #support) - the link used by the static
+ * pages (legal, partners) that live outside the app shell.
+ *
+ * The request is CONSUMED only once the messenger can actually open, so a
+ * visitor who signs in after following the link still lands in the chat. If the
+ * messenger never becomes available the query parameter is simply left alone
+ * and the app shows its normal screens (no redirect, no Telegram fallback).
+ */
+function kxSupportDeepLink() {
+    try {
+        var search = (typeof location !== 'undefined' && location.search) ? location.search : '';
+        var hash = (typeof location !== 'undefined' && location.hash) ? location.hash : '';
+        var raw = null;
+        if (search) {
+            var params = new URLSearchParams(search);
+            if (params.has('support')) raw = params.get('support') || '1';
+        }
+        if (raw === null && /^#support(?:=|\/)?/i.test(hash)) raw = hash.replace(/^#support(?:=|\/)?/i, '') || '1';
+        if (raw === null) return null;
+        return { context: kxSupportContext(raw) };
+    } catch (e) { return null; }
+}
+
+var kxSupportDeepLinkPending = (function () { return !!kxSupportDeepLink(); })();
+
+function kxStripSupportDeepLink() {
+    try {
+        if (typeof history === 'undefined' || !history.replaceState) return;
+        var url = new URL(location.href);
+        url.searchParams.delete('support');
+        if (/^#support(?:=|\/)/i.test(url.hash)) url.hash = '';
+        history.replaceState(null, '', url.pathname + (url.search || '') + (url.hash || ''));
+    } catch (e) {}
+}
+
+// Bounded retry around the single attempt below.
+//
+// The request can become actionable at different moments: the session sync may
+// run before the messenger script has loaded, and on a cold load the widget
+// resolves its surface a few seconds later. Retrying a handful of times (and
+// stopping the first time the chat opens) makes the link reliable without a
+// polling loop, and nothing is consumed while it cannot open.
+var kxSupportDeepLinkTries = 0;
+var KX_SUPPORT_DEEP_LINK_RETRY_MS = [300, 600, 1000, 1500, 2000, 2500, 3000, 3000];
+
+function kxConsumeSupportDeepLink() {
+    if (!kxSupportDeepLinkPending) return true;
+    if (kxMaybeOpenSupportDeepLink()) return true;
+    if (kxSupportDeepLinkTries >= KX_SUPPORT_DEEP_LINK_RETRY_MS.length) return false;
+    var wait = KX_SUPPORT_DEEP_LINK_RETRY_MS[kxSupportDeepLinkTries];
+    kxSupportDeepLinkTries += 1;
+    try {
+        setTimeout(function () { try { kxConsumeSupportDeepLink(); } catch (e) {} }, wait);
+    } catch (e) {}
+    return false;
+}
+
+// Called after a session resolves (startup, login, signup). Opening here rather
+// than at parse time is what makes the link work for a signed-out visitor.
+function kxMaybeOpenSupportDeepLink() {
+    if (!kxSupportDeepLinkPending) return false;
+    if (!kxNativeSupportReady()) return false;
+    var link = kxSupportDeepLink() || { context: null };
+    kxSupportDeepLinkPending = false;
+    kxStripSupportDeepLink();
+    return kxOpenSupport(link.context);
+}
+
+// The landing footer is visible to anonymous visitors, who can click through to
+// the app's support entry instead of being sent to Telegram.
+document.addEventListener('click', function (ev) {
+    var el = ev.target && ev.target.closest ? ev.target.closest('[data-kx-support]') : null;
+    if (!el) return;
+    ev.preventDefault();
+    kxOpenSupport(el.getAttribute('data-kx-support'));
 });
 
 function openSupportModal() {
@@ -26757,7 +26878,13 @@ function openSupportModal() {
     // cannot reopen on top of (or outlive) the Support Center modal.
     const assistant = document.getElementById('supportPanel');
     if (assistant) assistant.classList.remove('open');
-    updateSupportLinks();
+    // The chat action is only offered when the messenger is really available;
+    // the hint takes its place otherwise. Display-only, no request.
+    const ready = (typeof kxNativeSupportReady === 'function') && kxNativeSupportReady();
+    const chatCta = document.getElementById('supportChatCta');
+    if (chatCta) chatCta.style.display = ready ? '' : 'none';
+    const chatHint = document.getElementById('supportChatHint');
+    if (chatHint) chatHint.style.display = ready ? '' : 'none';
     const modal = document.getElementById('supportModal');
     if (modal) modal.classList.add('open');
 }
@@ -27188,6 +27315,11 @@ async function syncWalletFromServer() {
                 try {
                     if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync();
                 } catch (err) {}
+                // Every session sync can be the moment a ?support= deep link becomes
+                // actionable (the flag, and therefore the messenger, is only known
+                // now). Consuming it here covers login, refresh and a restored
+                // session, not just the initApp path.
+                try { kxConsumeSupportDeepLink(); } catch (err) {}
             }
             // Server-authoritative platform minimum deposit. APP.MIN_DEPOSIT is
             // the single frontend source (deposit validation, the min-amount
@@ -27561,9 +27693,6 @@ async function initApp() {
     initTicker();
     tickerInterval = setInterval(refreshTicker, 30000);
     initChart();
-    // Official support entry points (config-driven Telegram link + in-app
-    // guidance). Display-only: sets href/visibility, never collects secrets.
-    updateSupportLinks();
     setTimeout(showInstallPrompt, 3000);
     // The welcome notification is created ONCE by the server at registration
     // (event key 'welcome', migration 058). A dashboard load only READS the feed,
@@ -27605,6 +27734,10 @@ async function initApp() {
         if (walletSyncCap) { clearTimeout(walletSyncCap); }
         dismissWalletSyncLoader('synced');
     }
+
+    // A ?support= deep link (from a legal/partner page) opens the chat now that
+    // the session - and therefore the messenger's availability - has resolved.
+    try { kxConsumeSupportDeepLink(); } catch (e) {}
 
     // Anchor the live equity chart to the authoritative server balance that
     // syncWalletFromServer just wrote into APP.liveData.balance. This runs once

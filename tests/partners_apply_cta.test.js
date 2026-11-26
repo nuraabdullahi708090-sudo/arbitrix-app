@@ -248,8 +248,9 @@ test('6. the Telegram-community CTA and its supporting copy are removed', () => 
     assert.ok(!/\.cta-register|\.cta-note/.test(PAGE), 'their CSS must be gone too');
     assert.strictEqual(PAGE.indexOf('<i class="fab fa-telegram"'), -1,
         'no Telegram glyph remains in the CTA markup');
-    assert.strictEqual(PAGE.split('fab fa-telegram').length - 1, 1,
-        'the only remaining glyph is the runtime partner-support icon builder');
+    assert.strictEqual(PAGE.split('fab fa-telegram').length - 1, 0,
+        'and none remains anywhere else either: partner support is the in-app chat now');
+    assert.ok(PAGE.includes('fa-comments'), 'the support CTA uses a chat icon');
 });
 
 /* ==================================================================== *
@@ -266,9 +267,11 @@ test('7. the page carries no external anchor and keeps the secondary CTAs', () =
     assert.match(PAGE, /<a class="btn btn-secondary" href="#demo"><i[^>]*><\/i><span data-i18n="partners\.cta\.demo">/,
         'the hero secondary CTA still anchors to the payout demo');
 
-    // Partner support stays meta-driven (built at runtime, never a hardcoded anchor).
-    assert.strictEqual(PAGE.split('@AlexArbitrix').length - 1, 1, 'the support handle stays single-source');
-    assert.match(PAGE, /arbitrix-partner-support-telegram/, 'the support meta must remain');
+    // Partner support is a plain in-app deep link: no meta, no handle, no builder.
+    assert.ok(!PAGE.includes('arbitrix-partner-support-telegram'), 'the support meta is retired');
+    assert.ok(!PAGE.includes('@AlexArbitrix'), 'no partner handle is published');
+    assert.match(PAGE, /<a[^>]*js-partner-support[^>]*href="\/\?support=1"/,
+        'the support action deep-links into the in-app chat');
 });
 
 test('8. the partner-funnel attribution markers are still armed by a CTA click', () => {

@@ -56,8 +56,8 @@
       "id": 8,
       "title": "Help is one message away",
       "caption": "Questions? Message the Kalderix support team any time.",
-      "say": "If anything is unclear, our support team is one message away, through the official support bot on Telegram.",
-      "focus": "#supportTelegramBtn"
+      "say": "If anything is unclear, our support team is one message away, right here in the Kalderix support chat on your dashboard.",
+      "focus": "#supportChatCta"
     }
   ]
 }

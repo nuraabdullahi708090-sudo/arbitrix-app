@@ -288,11 +288,11 @@ function verify(args, capture, master) {
       'A 90-second walkthrough: Demo Mode, switching to Live, and the deposit step -',
       'the amount, the TRON (TRC20) address, the QR code and the confirmation.',
       '',
-      'Minimum deposit: $100. Send USDT on TRON (TRC20) only.',
+      'Minimum deposit: $50. Send USDT on TRON (TRC20) only.',
       '',
       'Start here: https://arbitrix.pro/?action=create-account',
       'How it works: https://arbitrix.pro/how-it-works',
-      'Support: https://t.me/ArbitrixSupportBot',
+      'Support: https://arbitrix.pro/?support=1 (in-app chat)',
       '',
       'Trading involves risk. Nothing here is financial advice.'
     ].join('\n');
